@@ -191,6 +191,16 @@ docker run --rm -p 47832:47832 \
   -e LLM_MODEL=dolphin-llama3 \
   -e LLM_VISION_MODEL=qwen3-vl:latest \
   qwen-image-prompt
+
+  From Docker Hub:
+docker run -d \
+  -p 47832:47832 \
+  --name=comfyui-prompt-studio \
+  --restart=always \
+  -e LLM_API_BASE_URL=http://host.docker.internal:11434/v1 \
+  -e LLM_MODEL=hermes3 \
+  -e LLM_VISION_MODEL=gemma4:latest \
+  doodersrage/comfyui-prompt-studio:v1.0
 ```
 
 On Linux, add `--add-host=host.docker.internal:host-gateway` if Ollama runs on the host. Override `PORT` only if you map a different host port.
