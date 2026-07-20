@@ -4,10 +4,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { refresh } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +24,7 @@ export default function LoginForm() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ username, password }),
       });
       const data = (await response.json()) as { error?: string };
@@ -30,6 +33,7 @@ export default function LoginForm() {
       }
 
       const next = searchParams.get("next") || "/";
+      await refresh();
       router.replace(next);
       router.refresh();
     } catch (submitError) {

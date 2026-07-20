@@ -40,13 +40,15 @@ function writeJsonFile<T>(filePath: string, data: T): void {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
 }
 
+const DEFAULT_ADMIN_USER_ID = "user-admin-default";
+
 function defaultUsersDocument(): UsersDocument {
   const now = Date.now();
   return {
     version: 1,
     users: [
       {
-        id: "user-admin-default",
+        id: DEFAULT_ADMIN_USER_ID,
         username: getDefaultAdminUsername(),
         passwordHash: hashPassword(getDefaultAdminPassword()),
         role: "admin",
@@ -64,6 +66,68 @@ function defaultGroupsDocument(): GroupsDocument {
   return { version: 1, groups: [] };
 }
 
+function syncDefaultAdminFromEnv(users: UsersDocument): UsersDocument {
+  if (!isAuthExplicitlyEnabled()) {
+    return users;
+  }
+
+  const username = getDefaultAdminUsername();
+  const password = getDefaultAdminPassword();
+  const now = Date.now();
+
+  let index = users.users.findIndex((user) => user.id === DEFAULT_ADMIN_USER_ID);
+  if (index < 0) {
+    index = users.users.findIndex(
+      (user) =>
+        user.role === "admin" &&
+        user.username.trim().toLowerCase() === username.trim().toLowerCase(),
+    );
+  }
+
+  if (index < 0) {
+    const nextUsers = [
+      {
+        id: DEFAULT_ADMIN_USER_ID,
+        username,
+        passwordHash: hashPassword(password),
+        role: "admin" as const,
+        groupIds: [],
+        blockedFeatures: [],
+        enabled: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      ...users.users,
+    ];
+    saveUsers(nextUsers);
+    return { version: 1, users: nextUsers };
+  }
+
+  const current = users.users[index];
+  let changed = false;
+  const next: AuthUser = { ...current };
+
+  if (current.username !== username) {
+    next.username = username;
+    changed = true;
+  }
+
+  if (!verifyPassword(password, current.passwordHash)) {
+    next.passwordHash = hashPassword(password);
+    changed = true;
+  }
+
+  if (!changed) {
+    return users;
+  }
+
+  next.updatedAt = now;
+  const nextUsers = [...users.users];
+  nextUsers[index] = next;
+  saveUsers(nextUsers);
+  return { version: 1, users: nextUsers };
+}
+
 function ensureAuthStore(): { users: UsersDocument; groups: GroupsDocument } {
   const usersFile = usersPath();
   const groupsFile = groupsPath();
@@ -76,10 +140,12 @@ function ensureAuthStore(): { users: UsersDocument; groups: GroupsDocument } {
     writeJsonFile(groupsFile, defaultGroupsDocument());
   }
 
-  return {
-    users: readJsonFile<UsersDocument>(usersFile, defaultUsersDocument()),
-    groups: readJsonFile<GroupsDocument>(groupsFile, defaultGroupsDocument()),
-  };
+  const users = syncDefaultAdminFromEnv(
+    readJsonFile<UsersDocument>(usersFile, defaultUsersDocument()),
+  );
+  const groups = readJsonFile<GroupsDocument>(groupsFile, defaultGroupsDocument());
+
+  return { users, groups };
 }
 
 export function isAuthEnabled(): boolean {

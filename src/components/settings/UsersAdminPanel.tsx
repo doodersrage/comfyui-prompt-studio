@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { APP_FEATURES, type AppFeatureId } from "@/lib/auth/features";
+import { APP_FEATURES, ALL_FEATURE_IDS, type AppFeatureId } from "@/lib/auth/features";
 import type { AuthGroup, AuthUserPublic } from "@/lib/auth/types";
 import type { UserAnalyticsSnapshot } from "@/lib/user-analytics";
 import { Button } from "@/components/ui/Button";
@@ -11,38 +11,82 @@ import { ToolSection } from "@/components/ui/ToolPageShell";
 function FeaturePicker({
   value,
   onChange,
+  disabled = false,
 }: {
   value: AppFeatureId[];
   onChange: (next: AppFeatureId[]) => void;
+  disabled?: boolean;
 }) {
+  const blockedSet = useMemo(() => new Set(value), [value]);
+  const allowedCount = ALL_FEATURE_IDS.length - value.length;
+  const allAllowed = value.length === 0;
+  const allBlocked = value.length === ALL_FEATURE_IDS.length;
+
+  function setBlocked(nextBlocked: AppFeatureId[]) {
+    onChange([...new Set(nextBlocked)]);
+  }
+
+  function toggleAllowed(featureId: AppFeatureId) {
+    if (blockedSet.has(featureId)) {
+      setBlocked(value.filter((entry) => entry !== featureId));
+      return;
+    }
+    setBlocked([...value, featureId]);
+  }
+
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {APP_FEATURES.map((feature) => {
-        const checked = value.includes(feature.id);
-        return (
-          <label
-            key={feature.id}
-            className="flex items-start gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-300"
-          >
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={() =>
-                onChange(
-                  checked
-                    ? value.filter((entry) => entry !== feature.id)
-                    : [...value, feature.id],
-                )
-              }
-              className="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-            />
-            <span>
-              <span className="block font-medium text-zinc-100">{feature.label}</span>
-              <span className="block text-xs text-zinc-500">{feature.description}</span>
-            </span>
-          </label>
-        );
-      })}
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={disabled || allAllowed}
+          onClick={() => setBlocked([])}
+          className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-100 transition hover:border-emerald-400/50 hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Allow all
+        </button>
+        <button
+          type="button"
+          disabled={disabled || allBlocked}
+          onClick={() => setBlocked([...ALL_FEATURE_IDS])}
+          className="rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs text-rose-100 transition hover:border-rose-400/50 hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Block all
+        </button>
+        <span className="type-caption text-zinc-500">
+          {allowedCount} of {ALL_FEATURE_IDS.length} sections allowed
+        </span>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {APP_FEATURES.map((feature) => {
+          const allowed = !blockedSet.has(feature.id);
+          return (
+            <label
+              key={feature.id}
+              className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                disabled
+                  ? "cursor-not-allowed border-zinc-800/50 bg-zinc-950/20 opacity-60"
+                  : allowed
+                    ? "border-violet-500/25 bg-violet-500/5 text-zinc-200"
+                    : "border-zinc-800/80 bg-zinc-950/40 text-zinc-400"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={allowed}
+                disabled={disabled}
+                onChange={() => toggleAllowed(feature.id)}
+                className="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+              />
+              <span>
+                <span className="block font-medium text-zinc-100">{feature.label}</span>
+                <span className="block text-xs text-zinc-500">{feature.description}</span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -289,10 +333,13 @@ export default function UsersAdminPanel() {
                 />
               </label>
             </div>
-            <FeaturePicker
-              value={groupForm.blockedFeatures}
-              onChange={(blockedFeatures) => setGroupForm((prev) => ({ ...prev, blockedFeatures }))}
-            />
+            <div className="space-y-2">
+              <p className="type-caption text-zinc-500">Blocked features for this group</p>
+              <FeaturePicker
+                value={groupForm.blockedFeatures}
+                onChange={(blockedFeatures) => setGroupForm((prev) => ({ ...prev, blockedFeatures }))}
+              />
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button type="button" onClick={() => void saveGroup()}>
                 Save group
@@ -491,13 +538,22 @@ export default function UsersAdminPanel() {
               </div>
             ) : null}
 
-            <div className="space-y-2">
-              <p className="type-caption text-zinc-500">User-specific blocked features</p>
-              <FeaturePicker
-                value={userForm.blockedFeatures}
-                onChange={(blockedFeatures) => setUserForm((prev) => ({ ...prev, blockedFeatures }))}
-              />
-            </div>
+            {userForm.role === "admin" ? (
+              <p className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-sm text-violet-100">
+                Admin accounts always have access to every section. Feature blocks apply only to
+                regular users.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <p className="type-caption text-zinc-500">Section access</p>
+                <FeaturePicker
+                  value={userForm.blockedFeatures}
+                  onChange={(blockedFeatures) =>
+                    setUserForm((prev) => ({ ...prev, blockedFeatures }))
+                  }
+                />
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-2">
               <Button type="button" onClick={() => void saveUser()}>
