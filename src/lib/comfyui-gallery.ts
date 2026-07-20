@@ -40,6 +40,8 @@ export type ComfyGalleryFilter = {
   reviewMode?: boolean;
   unreviewedOnly?: boolean;
   reviewAutoAdvance?: boolean;
+  /** Only entries with vision LLM tags. */
+  visionTagsOnly?: boolean;
 };
 
 export type ComfyGallerySort =
@@ -265,6 +267,9 @@ export function filterComfyGalleryEntries(
       return false;
     }
     if (filter.projectId?.trim() && entry.projectId !== filter.projectId.trim()) {
+      return false;
+    }
+    if (filter.visionTagsOnly && !(entry.visionTags?.length ?? 0)) {
       return false;
     }
     if (query && !filter.semanticSearch) {

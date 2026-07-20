@@ -40,6 +40,7 @@ import {
   lintLoraTriggers,
   formatLoraTriggerLintSummary,
 } from "@/lib/lora-trigger-lint";
+import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
 
 export type BatchPromptItem = {
   prompt: string;
@@ -408,9 +409,18 @@ export default function EnhancedPromptResult({
       ) : null}
 
       {panelProps.output.trim() && loraLintIssues.length > 0 ? (
-        <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
-          LoRA triggers: {formatLoraTriggerLintSummary(loraLintIssues)}
-        </p>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
+          <span className="flex-1">LoRA triggers: {formatLoraTriggerLintSummary(loraLintIssues)}</span>
+          {onOutputChange ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onOutputChange(injectLoraTriggers(panelProps.output))}
+            >
+              Insert triggers
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
       {panelProps.output.trim() && (onSendComfyUi || onQueueBatchComfyUi) ? (

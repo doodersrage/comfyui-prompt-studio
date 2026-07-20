@@ -29,6 +29,8 @@ import {
 import { downloadCompareExport } from "@/lib/gallery-compare-export";
 import { runAutoImproveOnFavorite, runAutoImproveOnRating } from "@/lib/auto-improve-loop";
 import { learnFromLowRatedPrompt } from "@/lib/negative-learner";
+import { pushNotification } from "@/lib/notification-center";
+import { suggestRatingMutations } from "@/lib/rating-prompt-mutations";
 import { markOnboardingGalleryReview } from "@/lib/onboarding-hooks";
 import { setLineageParent } from "@/lib/prompt-lineage-session";
 import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
@@ -103,6 +105,7 @@ export default function ComfyUiGalleryPanel({
     similarSearchActive,
     embeddingSearchLoading,
     similarSearchLoading,
+    embeddingSearchUnavailable,
   } = useComfyUiGallery();
 
   useEffect(() => {
@@ -335,7 +338,15 @@ export default function ComfyUiGalleryPanel({
       recordCatalogBiasFromPrompt(entry.prompt, rating);
       if (rating <= 2) {
         recordAvoidedTokensFromPrompt(entry.prompt);
-        learnFromLowRatedPrompt(entry.prompt, rating);
+        const learned = learnFromLowRatedPrompt(entry.prompt, rating);
+        if (learned > 0) {
+          pushNotification({
+            title: "Negative learner",
+            body: `${learned} token(s) recorded from low rating. Review in Settings → Advanced.`,
+            href: "/settings",
+            kind: "system",
+          });
+        }
       }
       markOnboardingGalleryReview();
       void runAutoImproveOnRating(entry, rating).then((message) => {
@@ -547,6 +558,7 @@ export default function ComfyUiGalleryPanel({
           embeddingSearchActive={embeddingSearchActive}
           embeddingSearchLoading={embeddingSearchLoading}
           similarSearchLoading={similarSearchLoading}
+          embeddingSearchUnavailable={embeddingSearchUnavailable}
           layout={layout}
           setLayout={setLayout}
           totalFiltered={totalFiltered}
@@ -928,6 +940,16 @@ export default function ComfyUiGalleryPanel({
               }}
               onOpenImage={(index) => openEntryLightbox(entry, index)}
               reviewMode={filter.reviewMode === true}
+              reviewMutationHints={
+                filter.reviewMode &&
+                reviewFocusEntry?.id === entry.id &&
+                !entry.reviewRating
+                  ? suggestRatingMutations(entry, 2).map((item) => item.detail)
+                  : undefined
+              }
+              onVisionTagClick={(tag) =>
+                setFilter((previous) => ({ ...previous, query: tag }))
+              }
               onReviewRating={(rating) => {
                 if (rating) {
                   handleReviewRating(entry, rating);

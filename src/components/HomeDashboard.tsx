@@ -61,6 +61,25 @@ export default function HomeDashboard() {
       description="Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way."
     >
       <OnboardingChecklist />
+      <ToolSection title="Power tools">
+        <p className="mb-3 text-sm text-zinc-400">
+          Prompt recipes, model shootout, observability, and negative learner live under Settings → Automation → Advanced.
+        </p>
+        <ToolActionRow>
+          <ButtonLink href="/gallery" size="sm">
+            Gallery & slideshow
+          </ButtonLink>
+          <ButtonLink href="/queue" size="sm">
+            Queue
+          </ButtonLink>
+          <ButtonLink href="/settings" size="sm">
+            Settings & recipes
+          </ButtonLink>
+          <ButtonLink href="/plugins" size="sm">
+            Plugins
+          </ButtonLink>
+        </ToolActionRow>
+      </ToolSection>
       <ToolSection>
         <ToolActionRow>
           <ButtonLink href="/" variant="primary" size="sm">

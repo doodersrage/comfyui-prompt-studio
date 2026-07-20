@@ -31,6 +31,7 @@ export default function SettingsAdvancedPanel() {
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [storageEnabled, setStorageEnabled] = useState(false);
+  const [exportPassphrase, setExportPassphrase] = useState("");
   const storageNamespaces = ["settings-cache", "prompt-history", "comfy-gallery"];
 
   const [llmUsage, setLlmUsage] = useState<{
@@ -171,6 +172,54 @@ export default function SettingsAdvancedPanel() {
             Pull server data to browser
           </Button>
         </div>
+        {storageEnabled ? (
+          <div className="mt-4 space-y-2 rounded-xl border border-zinc-800/80 bg-zinc-950/35 p-3">
+            <p className="text-sm text-zinc-400">
+              Encrypted server export (sign-in required). Writes a snapshot under your user namespace on the server.
+            </p>
+            <label className="block space-y-1.5 text-sm">
+              <span className="type-caption text-zinc-500">Passphrase (optional — encrypts export)</span>
+              <input
+                type="password"
+                value={exportPassphrase}
+                onChange={(event) => setExportPassphrase(event.target.value)}
+                className="ui-input w-full max-w-md px-3 py-2"
+                placeholder="Leave empty for plain JSON export"
+              />
+            </label>
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                setStatus(null);
+                try {
+                  const response = await fetch("/api/storage/export", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      passphrase: exportPassphrase.trim() || undefined,
+                    }),
+                  });
+                  const data = (await response.json()) as {
+                    error?: string;
+                    filename?: string;
+                    encrypted?: boolean;
+                  };
+                  if (!response.ok) {
+                    throw new Error(data.error ?? "Export failed.");
+                  }
+                  setStatus(
+                    `Server export saved as ${data.filename ?? "snapshot"}${data.encrypted ? " (encrypted)" : ""}.`,
+                  );
+                  setExportPassphrase("");
+                } catch (error) {
+                  setStatus(error instanceof Error ? error.message : "Export failed.");
+                }
+              }}
+            >
+              Export my server data
+            </Button>
+          </div>
+        ) : null}
       </ToolSection>
 
       <ToolSection title="Server scheduled batch">

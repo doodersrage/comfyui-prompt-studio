@@ -1120,6 +1120,18 @@ export default function SettingsTool() {
         <label className="flex items-center gap-2 text-sm text-zinc-300">
           <input
             type="checkbox"
+            checked={settings.autoRefineOnLowRating !== false}
+            onChange={(event) =>
+              updateSettings({ autoRefineOnLowRating: event.target.checked })
+            }
+            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+          />
+          Auto-open Refine when a gallery output is rated 1–2★
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <input
+            type="checkbox"
             checked={settings.autoMutateOnHighRating ?? false}
             onChange={(event) =>
               updateSettings({ autoMutateOnHighRating: event.target.checked })

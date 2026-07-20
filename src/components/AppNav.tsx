@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { featureForPath } from "@/lib/auth/features";
 import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
 import NotificationBell from "@/components/NotificationBell";
+import { loadToolPlugins, BUILTIN_TOOL_PLUGINS, type ToolPlugin } from "@/lib/tool-plugin-registry";
 
 type NavLink = {
   href: string;
@@ -88,19 +89,50 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { authEnabled, user, allowedFeatures, logout, impersonating, impersonatorUsername, refresh } =
     useAuth();
+  const [customPlugins, setCustomPlugins] = useState<ToolPlugin[]>([]);
 
-  const visibleGroups = useMemo(
-    () =>
-      navGroups
-        .map((group) => ({
-          ...group,
-          links: group.links.filter((link) =>
-            canAccessNavFeature(allowedFeatures, featureForPath(link.href.split("?")[0] ?? link.href)),
+  useEffect(() => {
+    const builtinIds = new Set(BUILTIN_TOOL_PLUGINS.map((entry) => entry.id));
+    const knownHrefs = new Set(
+      navGroups.flatMap((group) =>
+        group.links.map((link) => link.href.split("?")[0] ?? link.href),
+      ),
+    );
+    setCustomPlugins(
+      loadToolPlugins().filter(
+        (entry) =>
+          !builtinIds.has(entry.id) &&
+          !knownHrefs.has(entry.href.split("?")[0] ?? entry.href),
+      ),
+    );
+  }, []);
+
+  const visibleGroups = useMemo(() => {
+    const pluginLinks: NavLink[] = customPlugins.map((plugin) => ({
+      href: plugin.href,
+      label: plugin.label,
+      description: plugin.description,
+    }));
+
+    return navGroups
+      .map((group) => ({
+        ...group,
+        links:
+          group.label === "Tools"
+            ? [...group.links, ...pluginLinks]
+            : group.links,
+      }))
+      .map((group) => ({
+        ...group,
+        links: group.links.filter((link) =>
+          canAccessNavFeature(
+            allowedFeatures,
+            featureForPath(link.href.split("?")[0] ?? link.href),
           ),
-        }))
-        .filter((group) => group.links.length > 0),
-    [allowedFeatures],
-  );
+        ),
+      }))
+      .filter((group) => group.links.length > 0);
+  }, [allowedFeatures, customPlugins]);
 
   const settingsVisible = canAccessNavFeature(allowedFeatures, "settings");
   const profileVisible = authEnabled && Boolean(user);

@@ -33,6 +33,8 @@ export type ComfyUiSettings = {
   autoNegativeOnQueue?: boolean;
   /** Save to Studio history when queueing from a result panel (skips if already saved). */
   autoSaveHistoryOnQueue?: boolean;
+  /** Open Refine with corrective intent when a gallery output is rated 1–2★. */
+  autoRefineOnLowRating?: boolean;
   /** Queue mutations when a gallery output is rated 4–5★. */
   autoMutateOnHighRating?: boolean;
   /** Queue seed experiments when a gallery output is rated 4–5★. */
@@ -64,6 +66,7 @@ export const DEFAULT_COMFYUI_SETTINGS: ComfyUiSettings = {
   autoVisionTags: true,
   autoNegativeOnQueue: true,
   autoSaveHistoryOnQueue: true,
+  autoRefineOnLowRating: true,
   autoMutateOnHighRating: false,
   autoSeedExperimentOnHighRating: false,
   autoSeedExperimentOnFavorite: false,

@@ -139,6 +139,15 @@ export function getServerEnvSummary(): ServerEnvSummary {
           configured: flag(process.env.COMFYUI_ALLOWED_HOSTS),
         },
         {
+          key: "COMFYUI_POOL",
+          label: "ComfyUI URL pool",
+          value: flag(process.env.COMFYUI_POOL)
+            ? `${process.env.COMFYUI_POOL!.split(",").filter(Boolean).length} endpoint(s) — round-robin`
+            : "not set (single URL only)",
+          configured: flag(process.env.COMFYUI_POOL),
+          hint: "Comma-separated URLs; server picks one per request.",
+        },
+        {
           key: "COMFYUI_WORKFLOW_PATH",
           label: "Workflow file path",
           value: flag(process.env.COMFYUI_WORKFLOW_PATH)

@@ -15,7 +15,10 @@ export async function runAutoImproveOnRating(
   }
 
   if (rating <= 2) {
-    return runLowRatingMutation(entry, rating);
+    if (loadComfyUiSettings().autoRefineOnLowRating !== false) {
+      return runLowRatingMutation(entry, rating);
+    }
+    return null;
   }
 
   const settings = loadComfyUiSettings();

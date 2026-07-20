@@ -36,6 +36,7 @@ export default function ProfileSecurityPanel() {
   const [totpSetup, setTotpSetup] = useState<{ secret: string; uri: string } | null>(null);
   const [totpCode, setTotpCode] = useState("");
   const [shortcutsJson, setShortcutsJson] = useState("");
+  const [shortcutBindings, setShortcutBindings] = useState(DEFAULT_KEYBOARD_SHORTCUTS);
   const [status, setStatus] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -55,6 +56,7 @@ export default function ProfileSecurityPanel() {
     setCurrentSessionId(sessionsData.currentSessionId ?? null);
     setTotpEnabled(Boolean(totpData.enabled));
     setShortcutsJson(JSON.stringify(loadKeyboardShortcuts(), null, 2));
+    setShortcutBindings(loadKeyboardShortcuts());
   }, []);
 
   useEffect(() => {
@@ -214,32 +216,85 @@ export default function ProfileSecurityPanel() {
       </ToolSection>
 
       <ToolSection title="Keyboard shortcuts">
-        <textarea
-          value={shortcutsJson}
-          onChange={(event) => setShortcutsJson(event.target.value)}
-          className="ui-input min-h-32 w-full font-mono text-xs"
-        />
-        <Button
-          className="mt-2"
-          variant="secondary"
-          onClick={() => {
-            try {
-              saveKeyboardShortcuts(JSON.parse(shortcutsJson));
+        <ul className="space-y-3">
+          {shortcutBindings.map((binding, index) => (
+            <li
+              key={binding.id}
+              className="grid gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/35 p-3 sm:grid-cols-3"
+            >
+              <label className="space-y-1 text-xs text-zinc-400">
+                Action
+                <TextInput
+                  value={binding.action}
+                  onChange={(event) =>
+                    setShortcutBindings((previous) =>
+                      previous.map((entry, entryIndex) =>
+                        entryIndex === index
+                          ? { ...entry, action: event.target.value }
+                          : entry,
+                      ),
+                    )
+                  }
+                />
+              </label>
+              <label className="space-y-1 text-xs text-zinc-400">
+                Combo
+                <TextInput
+                  value={binding.combo}
+                  onChange={(event) =>
+                    setShortcutBindings((previous) =>
+                      previous.map((entry, entryIndex) =>
+                        entryIndex === index
+                          ? { ...entry, combo: event.target.value }
+                          : entry,
+                      ),
+                    )
+                  }
+                />
+              </label>
+              <label className="space-y-1 text-xs text-zinc-400">
+                Selector (optional)
+                <TextInput
+                  value={binding.selector ?? ""}
+                  onChange={(event) =>
+                    setShortcutBindings((previous) =>
+                      previous.map((entry, entryIndex) =>
+                        entryIndex === index
+                          ? {
+                              ...entry,
+                              selector: event.target.value.trim() || undefined,
+                            }
+                          : entry,
+                      ),
+                    )
+                  }
+                  placeholder="[data-action='…']"
+                />
+              </label>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              saveKeyboardShortcuts(shortcutBindings);
+              setShortcutsJson(JSON.stringify(shortcutBindings, null, 2));
               setStatus("Shortcuts saved.");
-            } catch {
-              setStatus("Invalid shortcuts JSON.");
-            }
-          }}
-        >
-          Save shortcuts
-        </Button>
-        <Button
-          className="mt-2 ml-2"
-          variant="ghost"
-          onClick={() => setShortcutsJson(JSON.stringify(DEFAULT_KEYBOARD_SHORTCUTS, null, 2))}
-        >
-          Reset defaults
-        </Button>
+            }}
+          >
+            Save shortcuts
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setShortcutBindings(DEFAULT_KEYBOARD_SHORTCUTS);
+              setShortcutsJson(JSON.stringify(DEFAULT_KEYBOARD_SHORTCUTS, null, 2));
+            }}
+          >
+            Reset defaults
+          </Button>
+        </div>
       </ToolSection>
     </div>
   );

@@ -5,6 +5,8 @@ import EnhancedPromptResult from "@/components/EnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
+import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
+import { getReformatTargetLabel } from "@/lib/reformat-target";
 import { DEFAULT_FORMAT_TOOL_CACHE } from "@/lib/settings-cache";
 import {
   ToolBadge,
@@ -188,7 +190,14 @@ export default function VideoPromptTool() {
           onOutputChange={setOutput}
           onSaveHistory={() => actions.saveHistory({ prompt: output, hints: motion })}
           onSendComfyUi={() => void actions.sendComfyUi(output)}
+          onExportSidecar={() =>
+            actions.exportSidecar(output, { metadata: { hints: motion } })
+          }
+          {...promptResultPreviewProps(actions, output, null)}
           onFixPrompt={() => void actions.fixPrompt(output, setOutput, motion)}
+          onCopyPair={() => void actions.copyPromptPair(output, null)}
+          onReformat={() => void actions.reformatForModel(output, setOutput)}
+          reformatTargetLabel={getReformatTargetLabel(shared.model)}
           onCompact={() => void actions.compactPrompt(output, setOutput)}
           comfyUiStatus={actions.comfyUiStatus}
           comfyUiJob={actions.comfyUiJob}

@@ -394,7 +394,27 @@ export default function ComfyWorkflowLibraryPanel({
                       )}
                       {editingNodeMappings.length > 0 ? (
                         <div className="ui-surface-inset">
-                          <p className="type-caption text-violet-200">Suggested node bindings</p>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="type-caption text-violet-200">Suggested node bindings</p>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const hints = editingNodeMappings
+                                  .filter((mapping) => mapping.suggestedBinding)
+                                  .map(
+                                    (mapping) =>
+                                      `${mapping.nodeId} (${mapping.classType}) → ${mapping.suggestedBinding}`,
+                                  )
+                                  .join("\n");
+                                void navigator.clipboard.writeText(hints);
+                                onStatus?.("Copied node binding hints.");
+                              }}
+                            >
+                              Copy hints
+                            </Button>
+                          </div>
                           <ul className="mt-2 space-y-1 text-xs text-zinc-400">
                             {editingNodeMappings.map((mapping) => (
                               <li key={mapping.nodeId}>

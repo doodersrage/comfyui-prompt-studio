@@ -20,18 +20,23 @@ export function saveNegativeSuggestions(entries: NegativeSuggestion[]): void {
   writeBrowserValue(KEY, entries.slice(0, 100));
 }
 
-export function learnFromLowRatedPrompt(prompt: string, rating: number): void {
+export function learnFromLowRatedPrompt(prompt: string, rating: number): number {
   if (rating > 2) {
-    return;
+    return 0;
   }
   const tokens = [...tokenizePrompt(prompt)].filter((token) => token.length >= 4);
   const map = new Map(loadNegativeSuggestions().map((entry) => [entry.token, entry]));
+  let learned = 0;
 
   for (const token of tokens) {
     const existing = map.get(token);
+    const nextCount = (existing?.count ?? 0) + 1;
+    if (!existing || existing.count === 0) {
+      learned += 1;
+    }
     map.set(token, {
       token,
-      count: (existing?.count ?? 0) + 1,
+      count: nextCount,
       dismissed: existing?.dismissed,
     });
   }
@@ -39,6 +44,7 @@ export function learnFromLowRatedPrompt(prompt: string, rating: number): void {
   saveNegativeSuggestions(
     [...map.values()].sort((a, b) => b.count - a.count).slice(0, 100),
   );
+  return learned;
 }
 
 export function dismissNegativeSuggestion(token: string): void {

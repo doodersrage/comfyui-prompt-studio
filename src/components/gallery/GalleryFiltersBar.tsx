@@ -43,6 +43,7 @@ type GalleryFiltersBarProps = {
   embeddingSearchActive: boolean;
   embeddingSearchLoading?: boolean;
   similarSearchLoading?: boolean;
+  embeddingSearchUnavailable?: boolean;
   layout: GalleryLayoutMode;
   setLayout: (value: GalleryLayoutMode) => void;
   totalFiltered: number;
@@ -87,6 +88,7 @@ export default function GalleryFiltersBar({
   embeddingSearchActive,
   embeddingSearchLoading = false,
   similarSearchLoading = false,
+  embeddingSearchUnavailable = false,
   layout,
   setLayout,
   totalFiltered,
@@ -104,6 +106,7 @@ export default function GalleryFiltersBar({
     filter.reviewMode,
     filter.unreviewedOnly,
     filter.reviewAutoAdvance,
+    filter.visionTagsOnly,
   ].filter(Boolean).length;
 
   const [savedViews, setSavedViews] = useState<GallerySavedView[]>(() => loadGallerySavedViews());
@@ -155,6 +158,7 @@ export default function GalleryFiltersBar({
           {totalFiltered} of {totalEntries}
           {showPagination ? ` · page ${currentPage}/${totalPages}` : ""}
           {embeddingSearchLoading ? " · searching…" : null}
+          {embeddingSearchUnavailable ? " · semantic unavailable" : null}
           {similarSearchLoading ? " · ranking similar…" : null}
         </p>
       </div>
@@ -327,6 +331,18 @@ export default function GalleryFiltersBar({
             })
           }
         />
+        <FilterChip
+          active={Boolean(filter.visionTagsOnly)}
+          label="Vision tags"
+          onClick={() =>
+            setFilter({ ...filter, visionTagsOnly: filter.visionTagsOnly ? undefined : true })
+          }
+        />
+        {filter.semanticSearch && embeddingSearchUnavailable ? (
+          <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[10px] text-amber-100">
+            Semantic search needs LLM embeddings — using text match
+          </span>
+        ) : null}
         {filter.reviewMode ? (
           <FilterChip
             active={Boolean(filter.reviewAutoAdvance)}
@@ -374,6 +390,7 @@ export default function GalleryFiltersBar({
                 reviewMode: undefined,
                 unreviewedOnly: undefined,
                 reviewAutoAdvance: undefined,
+                visionTagsOnly: undefined,
               })
             }
           >

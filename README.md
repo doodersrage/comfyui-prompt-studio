@@ -109,7 +109,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Iteration tree export** — download parent/child history branches as structured JSON
 - **Docker Compose** — `docker compose up` for app + Ollama (+ optional ComfyUI profile)
 - **GitHub Actions CI** — runs unit tests, build, and Playwright smoke on push/PR
-- **Preview workflow everywhere** — all ComfyUI-enabled result panels include a dry-run preview button
+- **Preview workflow** — dry-run before queue on Generate, Character, Format, Lint, Refine, Image→Prompt, Negative, ControlNet, Video, and other result panels using the shared export pipeline
 - **Generate sport presets** — sport preset chips on Generate (positive mode) with shareable scene URLs
 - **Settings hub** — `/settings` for service health checks and local data backup/reset
 - **Batch ComfyUI queue** — queue all duo batch rolls to ComfyUI with shared negative
@@ -204,7 +204,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **TOTP 2FA** — optional authenticator setup on Profile
 - **Encrypted exports** — `POST /api/storage/export` with optional passphrase
 - **Onboarding checklist** — Dashboard getting-started steps
-- **Gallery PWA** — read-only service worker for gallery routes
+- **Gallery PWA** — optional read-only service worker (`sw-gallery.js`) caches gallery routes for faster revisits; does not replace full offline app mode
 - **Keyboard shortcut editor** — customize bindings on Profile
 - **Prompt brief** — export/import portable prompt bundles from Studio Presets
 - **Webhook templates** — Discord/Slack rich payload formats in Settings
@@ -234,6 +234,9 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Light theme** — Profile → Appearance switches dark/light tokens
 - **Notification center** — in-app alerts bell in sidebar when jobs complete
 - **Gallery review auto-advance** — optional jump to next unreviewed item after rating
+- **Gallery vision tags** — auto-tag completed outputs; filter by “Vision tags” and click chips to search
+- **Fullscreen slideshow** — gallery filter bar starts immersive slideshow with keyboard controls
+- **Encrypted server export** — Settings → Advanced exports signed-in user data with optional passphrase
 - **Queue upgrades** — `/queue` shows ComfyUI queue stats, failed jobs, and bulk retry
 - **Prompt recipes** — Settings → Advanced chains lint/fix/compact/queue steps
 - **Model recommender** — Generate sidebar suggests models from prompt text (`/api/models/recommend`)
@@ -247,7 +250,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Video prompt builder** — `/video` + `wan-video` / `hunyuan-video` model profiles
 - **Project bundles** — export/import project history + gallery JSON from Studio Projects tab
 - **Aesthetic scoring** — heuristic gallery score on cards; `POST /api/aesthetic/score` for snapshots
-- **PWA manifest** — installable web app metadata (`manifest.json`); offline service worker disabled (conflicted with Next.js HMR)
+- **PWA manifest** — installable web app metadata (`manifest.json`); gallery service worker is optional and separate from Next.js dev HMR
 - **Plugin registry** — `/plugins` lists built-in tools and accepts custom localStorage plugin entries
 
 ## Prompt size limits (selected models)
