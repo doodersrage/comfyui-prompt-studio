@@ -337,15 +337,43 @@ export async function requeueRefineFromGalleryEntry(
   };
 }
 
+export type BulkUpscaleGalleryResult = {
+  queued: number;
+  failed: number;
+  skipped: number;
+  errors: string[];
+};
+
+function summarizeBulkUpscaleLabel(entry: ComfyGalleryEntry): string {
+  return entry.model ?? entry.tool ?? entry.id.slice(0, 8);
+}
+
+export function canUpscaleGalleryEntry(
+  entry: Pick<ComfyGalleryEntry, "status" | "images" | "sourceImageUrl" | "comfyUrl">,
+): boolean {
+  if (entry.status !== "completed") {
+    return false;
+  }
+  return Boolean(resolveGalleryOutputImageUrl(entry));
+}
+
 export async function bulkUpscaleGalleryEntries(
   entries: ComfyGalleryEntry[],
   qualityProfile: Extract<QueueQualityProfile, "final" | "max">,
   onStatus?: (message: string) => void,
-): Promise<{ queued: number; failed: number }> {
+): Promise<BulkUpscaleGalleryResult> {
   let queued = 0;
   let failed = 0;
+  let skipped = 0;
+  const errors: string[] = [];
 
   for (const [index, entry] of entries.entries()) {
+    if (!canUpscaleGalleryEntry(entry)) {
+      skipped += 1;
+      errors.push(`${summarizeBulkUpscaleLabel(entry)}: skipped (not completed or no output image)`);
+      continue;
+    }
+
     onStatus?.(`Upscaling ${index + 1}/${entries.length}…`);
     const result = await requeueUpscaleFromGalleryEntry(entry, {
       qualityProfile,
@@ -355,11 +383,17 @@ export async function bulkUpscaleGalleryEntries(
       queued += 1;
     } else {
       failed += 1;
+      errors.push(`${summarizeBulkUpscaleLabel(entry)}: ${result.error ?? "queue failed"}`);
     }
   }
 
-  onStatus?.(`Bulk upscale finished · ${queued} queued · ${failed} failed`);
-  return { queued, failed };
+  const detail =
+    errors.length > 0 ? ` · ${errors.slice(0, 3).join(" · ")}` : "";
+  onStatus?.(
+    `Bulk upscale finished · ${queued} queued · ${skipped} skipped · ${failed} failed${detail}`,
+  );
+
+  return { queued, failed, skipped, errors };
 }
 
 export function requeueComfyJobFromEntry(

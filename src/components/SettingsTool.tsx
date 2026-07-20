@@ -114,6 +114,7 @@ import {
 } from "@/lib/onboarding-hooks";
 import { fetchWorkflowPreview } from "@/lib/comfyui-requeue";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
+import WorkflowHealthPanel from "@/components/WorkflowHealthPanel";
 
 const ComfyUiGalleryPanel = dynamic(() => import("@/components/ComfyUiGalleryPanel"), {
   loading: () => <ToolPageSkeleton label="Loading gallery panel" />,
@@ -252,6 +253,7 @@ export default function SettingsTool() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
+  const [workflowHealthRefresh, setWorkflowHealthRefresh] = useState(0);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<
     NotificationPermission | "unsupported"
@@ -1194,8 +1196,13 @@ export default function SettingsTool() {
 
       <ComfyWorkflowLibraryPanel
         placeholderTokens={placeholderTokensFromSettings(settings)}
-        onStatus={setStatus}
+        onStatus={(msg) => {
+          setStatus(msg);
+          setWorkflowHealthRefresh((n) => n + 1);
+        }}
       />
+
+      <WorkflowHealthPanel refreshKey={workflowHealthRefresh} />
 
       <WorkflowDiffPanel />
 

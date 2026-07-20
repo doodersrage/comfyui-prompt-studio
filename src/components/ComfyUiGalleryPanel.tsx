@@ -10,7 +10,7 @@ import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPa
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { useComfyUiGallery } from "@/hooks/useComfyUiGallery";
 import { startImproveFromGalleryEntry } from "@/lib/improve-output";
-import { recordAvoidedTokensFromPrompt } from "@/lib/avoided-tokens";
+import { recordAvoidedTokensFromGalleryEntry } from "@/lib/avoided-tokens";
 import { recordCatalogBiasFromPrompt } from "@/lib/catalog-rating-bias";
 import GalleryVisionReviewButton from "@/components/gallery/GalleryVisionReviewButton";
 import GalleryCardItem, {
@@ -52,6 +52,10 @@ import {
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
 import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry } from "@/lib/comfyui-requeue";
+import {
+  buildGalleryLineageGroups,
+  galleryLineageGroupingEnabled,
+} from "@/lib/gallery-lineage-groups";
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import {
   buildGalleryLightboxPlaylist,
@@ -289,6 +293,19 @@ export default function ComfyUiGalleryPanel({
   const remainingAll = pagination.remainingAll;
   const effectivePageSize = resolveGalleryPageSize(pageSize, totalFiltered);
   const showPagination = paginationEnabled && pageSize !== GALLERY_PAGE_SIZE_ALL && totalFiltered > effectivePageSize;
+  const lineageGrouping = galleryLineageGroupingEnabled(filter);
+  const lineageGroups = useMemo(
+    () => (lineageGrouping ? buildGalleryLineageGroups(visibleEntries) : null),
+    [lineageGrouping, visibleEntries],
+  );
+  const galleryCardGridClass =
+    layout === "dense"
+      ? compact
+        ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+        : "grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+      : compact
+        ? "grid grid-cols-2 gap-4 sm:grid-cols-3"
+        : "grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 
   const lightboxPlaylist = useMemo(
     () => buildGalleryLightboxPlaylist(visibleEntries),
@@ -416,7 +433,13 @@ export default function ComfyUiGalleryPanel({
       setReviewRating(entry.id, rating);
       recordCatalogBiasFromPrompt(entry.prompt, rating);
       if (rating <= 2) {
-        recordAvoidedTokensFromPrompt(entry.prompt);
+        const added = recordAvoidedTokensFromGalleryEntry({
+          prompt: entry.prompt,
+          visionTags: entry.visionTags,
+        });
+        if (added > 0) {
+          setRequeueStatus(`Added ${added} motif(s) to avoided tokens from low rating.`);
+        }
         const learned = learnFromLowRatedPrompt(entry.prompt, rating);
         if (learned > 0) {
           pushNotification({
@@ -1220,38 +1243,70 @@ export default function ComfyUiGalleryPanel({
           className={
             layout === "list"
               ? "flex flex-col gap-3 overflow-visible"
-              : layout === "dense"
-                ? compact
-                  ? "grid grid-cols-2 gap-3 overflow-visible sm:grid-cols-3 lg:grid-cols-4"
-                  : "grid grid-cols-2 gap-4 overflow-visible sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
-                : compact
-                  ? "grid grid-cols-2 gap-4 overflow-visible sm:grid-cols-3"
-                  : "grid grid-cols-1 gap-6 overflow-visible sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+              : `${galleryCardGridClass} overflow-visible`
           }
         >
-          {visibleEntries.map((entry) => (
-            <GalleryCardItem
-              key={entry.id}
-              entry={entry}
-              actionsRef={galleryCardActionsRef}
-              compact={compact || layout === "dense"}
-              layout={layout}
-              selectable={bulkEnabled}
-              selected={selectedIdSet.has(entry.id)}
-              reviewFocus={filter.reviewMode === true && reviewFocusEntry?.id === entry.id}
-              previewUrl={primaryViewUrl(entry)}
-              imageUrls={galleryEntryViewUrls(entry)}
-              reviewMode={filter.reviewMode === true}
-              reviewMutationHints={
-                filter.reviewMode &&
-                reviewFocusEntry?.id === entry.id &&
-                !entry.reviewRating
-                  ? suggestRatingMutations(entry, 2).map((item) => item.detail)
-                  : undefined
+          {(lineageGroups ?? visibleEntries.map((entry) => ({ root: entry, derivatives: [] }))).flatMap(
+            (group) => {
+              const renderCard = (entry: ComfyGalleryEntry) => (
+                <GalleryCardItem
+                  key={entry.id}
+                  entry={entry}
+                  actionsRef={galleryCardActionsRef}
+                  compact={compact || layout === "dense"}
+                  layout={layout}
+                  selectable={bulkEnabled}
+                  selected={selectedIdSet.has(entry.id)}
+                  reviewFocus={filter.reviewMode === true && reviewFocusEntry?.id === entry.id}
+                  previewUrl={primaryViewUrl(entry)}
+                  imageUrls={galleryEntryViewUrls(entry)}
+                  reviewMode={filter.reviewMode === true}
+                  reviewMutationHints={
+                    filter.reviewMode &&
+                    reviewFocusEntry?.id === entry.id &&
+                    !entry.reviewRating
+                      ? suggestRatingMutations(entry, 2).map((item) => item.detail)
+                      : undefined
+                  }
+                  hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
+                />
+              );
+
+              if (group.derivatives.length === 0) {
+                return [renderCard(group.root)];
               }
-              hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
-            />
-          ))}
+
+              return [
+                <div
+                  key={`lineage-${group.root.id}`}
+                  className={
+                    layout === "list"
+                      ? "space-y-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-3"
+                      : "col-span-full space-y-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-3"
+                  }
+                >
+                  <p className="px-1 text-[10px] font-medium uppercase tracking-wide text-violet-300/80">
+                    Lineage · {group.derivatives.length + 1} outputs
+                  </p>
+                  <div className={layout === "list" ? "space-y-3" : galleryCardGridClass}>
+                    {renderCard(group.root)}
+                    {group.derivatives.map((derivative) => (
+                      <div
+                        key={derivative.id}
+                        className={
+                          layout === "list"
+                            ? "ml-3 border-l border-violet-500/20 pl-3"
+                            : undefined
+                        }
+                      >
+                        {renderCard(derivative)}
+                      </div>
+                    ))}
+                  </div>
+                </div>,
+              ];
+            },
+          )}
         </div>
       )}
 

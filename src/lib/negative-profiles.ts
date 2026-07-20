@@ -58,6 +58,43 @@ export const DEFAULT_NEGATIVE_PROFILES: NegativeProfile[] = [
   },
 ];
 
+export function appendTokensToNegativeProfileExtra(
+  profiles: NegativeProfile[],
+  profileId: string,
+  tokens: string[],
+): { profiles: NegativeProfile[]; added: number } {
+  const normalized = [...new Set(tokens.map((token) => token.trim()).filter(Boolean))];
+  if (normalized.length === 0) {
+    return { profiles, added: 0 };
+  }
+
+  let added = 0;
+  const nextProfiles = profiles.map((profile) => {
+    if (profile.id !== profileId) {
+      return profile;
+    }
+    const existing = profile.extra?.trim() ?? "";
+    const existingParts = new Set(
+      existing
+        .split(/[,;]+/)
+        .map((part) => part.trim())
+        .filter(Boolean),
+    );
+    for (const token of normalized) {
+      if (!existingParts.has(token)) {
+        existingParts.add(token);
+        added += 1;
+      }
+    }
+    return {
+      ...profile,
+      extra: [...existingParts].join(", "),
+    };
+  });
+
+  return { profiles: nextProfiles, added };
+}
+
 export function resolveNegativeProfile(
   profiles: NegativeProfile[] | undefined,
   profileId?: string,

@@ -128,6 +128,14 @@ import {
 } from "@/lib/prompt-brief";
 import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
 import { addAvoidedToken, addAvoidedTokens } from "@/lib/avoided-tokens";
+import {
+  appendTokensToNegativeProfileExtra,
+  DEFAULT_NEGATIVE_PROFILES,
+} from "@/lib/negative-profiles";
+import {
+  loadComfyUiSettings,
+  saveComfyUiSettings,
+} from "@/lib/comfyui-settings";
 import { downloadIterationForestJson } from "@/lib/iteration-tree-export";
 import {
   diffHistoryEntries,
@@ -1553,6 +1561,40 @@ export default function StudioTool() {
                 }}
               >
                 Add negative tokens to avoidance
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const tokens = negativeScoringTokens(ratingTokenStats);
+                  if (tokens.length === 0) {
+                    setBackupStatus("No negative-scoring tokens to append yet.");
+                    return;
+                  }
+                  const settings = loadComfyUiSettings();
+                  const profiles =
+                    (settings.negativeProfiles?.length ?? 0) > 0
+                      ? [...settings.negativeProfiles!]
+                      : [...DEFAULT_NEGATIVE_PROFILES];
+                  const profileId = settings.selectedNegativeProfileId ?? profiles[0]?.id ?? "general-sd";
+                  const profileLabel =
+                    profiles.find((entry) => entry.id === profileId)?.label ?? profileId;
+                  const { profiles: nextProfiles, added } = appendTokensToNegativeProfileExtra(
+                    profiles,
+                    profileId,
+                    tokens,
+                  );
+                  saveComfyUiSettings({
+                    ...settings,
+                    negativeProfiles: nextProfiles,
+                  });
+                  setBackupStatus(
+                    added > 0
+                      ? `Appended ${added} token(s) to negative profile “${profileLabel}”.`
+                      : `Negative profile “${profileLabel}” already includes those tokens.`,
+                  );
+                }}
+              >
+                Apply negatives to profile
               </Button>
               <Button
                 variant="secondary"
@@ -3156,10 +3198,46 @@ function IterationTreeNodeCard({
 }) {
   const regenerateUrl = buildRegenerateUrl(node.entry);
   const useAsHintsUrl = buildUseAsHintsUrl(node.entry);
+  const linkedGalleryEntry = findGalleryEntryForHistory(node.entry);
   const parentHistoryId =
     typeof node.entry.metadata?.parentHistoryId === "string"
       ? node.entry.metadata.parentHistoryId
       : undefined;
+
+  function queueUpscale(qualityProfile: "final" | "max") {
+    if (!linkedGalleryEntry) {
+      onRequeueStatus(
+        "No linked gallery output — queue from Gallery first, then upscale from the iteration tree.",
+      );
+      return;
+    }
+    onRequeueStatus(`Upscaling linked gallery output (${qualityProfile})…`);
+    void requeueUpscaleFromGalleryEntry(linkedGalleryEntry, {
+      qualityProfile,
+      onStatus: onRequeueStatus,
+    }).then((result) => {
+      if (!result.ok) {
+        onRequeueStatus(result.error ?? "Upscale failed.");
+      }
+    });
+  }
+
+  function queueRefine() {
+    if (!linkedGalleryEntry) {
+      onRequeueStatus(
+        "No linked gallery output — open Gallery and use Refine on the completed output.",
+      );
+      return;
+    }
+    onRequeueStatus("Queueing low-denoise refine from linked gallery output…");
+    void requeueRefineFromGalleryEntry(linkedGalleryEntry, {
+      onStatus: onRequeueStatus,
+    }).then((result) => {
+      if (!result.ok) {
+        onRequeueStatus(result.error ?? "Refine failed.");
+      }
+    });
+  }
 
   return (
     <div className="space-y-3" style={{ marginLeft: depth * 16 }}>
@@ -3189,8 +3267,33 @@ function IterationTreeNodeCard({
             onClick={() => startRefineFromHistoryEntry(node.entry)}
             className="type-caption text-violet-300 hover:text-violet-200"
           >
-            Refine
+            Edit & refine prompt
           </button>
+          {linkedGalleryEntry ? (
+            <>
+              <button
+                type="button"
+                onClick={() => queueUpscale("final")}
+                className="type-caption text-emerald-300 hover:text-emerald-200"
+              >
+                Upscale (Final)
+              </button>
+              <button
+                type="button"
+                onClick={() => queueUpscale("max")}
+                className="type-caption text-emerald-300 hover:text-emerald-200"
+              >
+                Upscale (Max)
+              </button>
+              <button
+                type="button"
+                onClick={queueRefine}
+                className="type-caption text-violet-300 hover:text-violet-200"
+              >
+                Refine (low denoise)
+              </button>
+            </>
+          ) : null}
           <button
             type="button"
             onClick={() => {
@@ -3207,7 +3310,7 @@ function IterationTreeNodeCard({
                   [
                     "queued from iteration tree",
                     result.promptId ? `prompt_id ${result.promptId}` : null,
-                    "new seed",
+                    "new variation · new seed",
                   ]
                     .filter(Boolean)
                     .join(" · "),
@@ -3216,7 +3319,7 @@ function IterationTreeNodeCard({
             }}
             className="type-caption text-emerald-300 hover:text-emerald-200"
           >
-            Queue (new seed)
+            New variation (new seed)
           </button>
           {parentHistoryId && onDiffWithParent ? (
             <button

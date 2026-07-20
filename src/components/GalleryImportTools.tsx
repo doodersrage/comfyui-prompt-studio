@@ -7,7 +7,12 @@ import {
   fetchComfyHistoryImports,
   importComfyGalleryFromHistory,
 } from "@/lib/comfyui-gallery-client";
-import { requeueComfyJob } from "@/lib/comfyui-requeue";
+import {
+  requeueComfyJob,
+  requeueRefineFromGalleryEntry,
+  requeueUpscaleFromGalleryEntry,
+} from "@/lib/comfyui-requeue";
+import { galleryEntryFromSidecar } from "@/lib/gallery-sidecar-entry";
 import {
   sidecarNegativePrompt,
   sidecarRequeueContext,
@@ -22,6 +27,8 @@ export default function GalleryImportTools() {
   );
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const pseudoEntry = importedSidecar ? galleryEntryFromSidecar(importedSidecar) : null;
+  const canUpscaleRefine = Boolean(pseudoEntry);
 
   return (
     <>
@@ -73,6 +80,11 @@ export default function GalleryImportTools() {
       {importedSidecar ? (
         <div className="ui-surface-inset space-y-3">
           <p className="line-clamp-3 type-body">{importedSidecar.positive}</p>
+          {!canUpscaleRefine ? (
+            <p className="text-xs text-amber-200/80">
+              Upscale and refine need an output or source image URL in the sidecar metadata.
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"
@@ -101,7 +113,7 @@ export default function GalleryImportTools() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                setImportStatus("Re-queueing with new seed…");
+                setImportStatus("Queueing new variation…");
                 const requeue = sidecarRequeueContext(importedSidecar);
                 void requeueComfyJob({
                   prompt: importedSidecar.positive,
@@ -118,8 +130,50 @@ export default function GalleryImportTools() {
                 });
               }}
             >
-              Re-queue (new seed)
+              New variation (new seed)
             </Button>
+            {pseudoEntry ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setImportStatus("Upscaling imported output (Final)…");
+                    void requeueUpscaleFromGalleryEntry(pseudoEntry, {
+                      qualityProfile: "final",
+                      onStatus: setImportStatus,
+                    });
+                  }}
+                >
+                  Upscale (Final)
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setImportStatus("Upscaling imported output (Max)…");
+                    void requeueUpscaleFromGalleryEntry(pseudoEntry, {
+                      qualityProfile: "max",
+                      onStatus: setImportStatus,
+                    });
+                  }}
+                >
+                  Upscale (Max)
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setImportStatus("Queueing low-denoise refine…");
+                    void requeueRefineFromGalleryEntry(pseudoEntry, {
+                      onStatus: setImportStatus,
+                    });
+                  }}
+                >
+                  Refine (low denoise)
+                </Button>
+              </>
+            ) : null}
             <Button
               variant="ghost"
               size="sm"

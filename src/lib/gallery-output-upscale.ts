@@ -26,13 +26,16 @@ export type BuildGalleryUpscaleWorkflowInput = {
 };
 
 export function resolveGalleryOutputImageUrl(
-  entry: Pick<ComfyGalleryEntry, "comfyUrl" | "images">,
+  entry: Pick<ComfyGalleryEntry, "comfyUrl" | "images" | "sourceImageUrl">,
 ): string | undefined {
   const comfyUrl = entry.comfyUrl?.replace(/\/+$/, "") ?? "";
-  if (!comfyUrl || !entry.images[0]) {
-    return undefined;
+  if (entry.images[0] && comfyUrl) {
+    return buildComfyViewPath(comfyUrl, entry.images[0]);
   }
-  return buildComfyViewPath(comfyUrl, entry.images[0]);
+  if (entry.sourceImageUrl?.trim()) {
+    return entry.sourceImageUrl.trim();
+  }
+  return undefined;
 }
 
 export function buildGalleryUpscaleWorkflow(

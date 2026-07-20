@@ -61,4 +61,13 @@ describe("gallery-output-upscale", () => {
     });
     assert.match(url ?? "", /out\.png/);
   });
+
+  it("falls back to sourceImageUrl when images array is empty", () => {
+    const url = resolveGalleryOutputImageUrl({
+      comfyUrl: "http://127.0.0.1:8188",
+      images: [],
+      sourceImageUrl: "http://127.0.0.1:8188/view?filename=sidecar.png",
+    });
+    assert.equal(url, "http://127.0.0.1:8188/view?filename=sidecar.png");
+  });
 });

@@ -131,6 +131,28 @@ export function recordAvoidedTokensFromPrompt(prompt: string): void {
   persistAvoidedTokens(existing);
 }
 
+export function recordAvoidedTokensFromGalleryEntry(input: {
+  prompt: string;
+  visionTags?: string[];
+}): number {
+  if (typeof window === "undefined") {
+    return 0;
+  }
+  const existing = loadAvoidedTokens();
+  const before = existing.size;
+  for (const token of tokenizeForAvoidance(input.prompt).slice(0, 12)) {
+    existing.add(token);
+  }
+  for (const tag of input.visionTags ?? []) {
+    const normalized = tag.trim().toLowerCase();
+    if (normalized) {
+      existing.add(normalized);
+    }
+  }
+  persistAvoidedTokens(existing);
+  return existing.size - before;
+}
+
 export function exportAvoidedTokenList(): string[] {
   return [...loadAvoidedTokens()].slice(-80);
 }

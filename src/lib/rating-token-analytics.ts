@@ -61,3 +61,7 @@ export function positiveScoringTokens(
 export function buildSceneHintsFromPositiveTokens(tokens: string[]): string {
   return tokens.join(", ");
 }
+
+export function formatNegativeScoringTokensForProfile(tokens: string[]): string {
+  return [...new Set(tokens.map((token) => token.trim()).filter(Boolean))].join(", ");
+}
