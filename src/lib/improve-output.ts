@@ -4,6 +4,7 @@ import {
   buildGalleryHandoff,
   galleryHandoffPath,
   galleryImprovePath,
+  galleryPromptEditorPathFromHistory,
   IMPROVE_INTENT_DEFAULT,
   saveGalleryHandoff,
   type GalleryHandoffPayload,
@@ -98,4 +99,57 @@ export function startImproveFromGalleryEntry(
     improveIntent: options?.intent?.trim() || IMPROVE_INTENT_DEFAULT,
   });
   window.location.href = galleryImprovePath();
+}
+
+export function startPromptEditorFromResult(input: {
+  prompt: string;
+  negativePrompt?: string;
+  model?: string;
+  tool?: string;
+  hints?: string;
+  previewUrl?: string | null;
+}): void {
+  saveGalleryHandoff({
+    source: "gallery",
+    galleryEntryId: "result-panel",
+    promptId: "result-panel",
+    prompt: input.prompt,
+    negativePrompt: input.negativePrompt,
+    hints: input.hints,
+    model: input.model,
+    tool: input.tool,
+    imageUrl: input.previewUrl ?? undefined,
+    target: "promptEditor",
+    savedAt: Date.now(),
+  });
+  window.location.href = galleryHandoffPath("promptEditor");
+}
+
+export function startPromptEditorFromHistoryEntry(entry: {
+  id: string;
+  prompt: string;
+  negativePrompt?: string;
+  model?: string;
+  tool?: string;
+  hints?: string;
+}): void {
+  saveGalleryHandoff({
+    source: "history",
+    galleryEntryId: entry.id,
+    promptId: entry.id,
+    prompt: entry.prompt,
+    negativePrompt: entry.negativePrompt,
+    hints: entry.hints,
+    model: entry.model,
+    tool: entry.tool,
+    historyId: entry.id,
+    target: "promptEditor",
+    savedAt: Date.now(),
+  });
+  window.location.href = galleryPromptEditorPathFromHistory();
+}
+
+export function startPromptEditorFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildGalleryHandoff(entry, "promptEditor"));
+  window.location.href = galleryHandoffPath("promptEditor");
 }

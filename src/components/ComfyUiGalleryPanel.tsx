@@ -3,7 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from "react";
 import ImageLightbox, { type ImageLightboxState } from "@/components/ui/ImageLightbox";
 import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPanel";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -95,7 +95,6 @@ export default function ComfyUiGalleryPanel({
   showFilters = false,
 }: ComfyUiGalleryPanelProps) {
   const {
-    mounted,
     storeReady,
     entries,
     filteredEntries,
@@ -156,7 +155,6 @@ export default function ComfyUiGalleryPanel({
   const [projects] = useState(() => loadPromptProjects());
   const [allRenderLimit, setAllRenderLimit] = useState(GALLERY_ALL_RENDER_CHUNK);
   const entriesRef = useRef(entries);
-  entriesRef.current = entries;
   const visibleEntriesRef = useRef<ComfyGalleryEntry[]>([]);
   const galleryCardActionsRef = useRef<GalleryCardActions>({
     toggleSelected: () => undefined,
@@ -195,9 +193,6 @@ export default function ComfyUiGalleryPanel({
   );
 
   useEffect(() => {
-    if (!mounted) {
-      return;
-    }
     scheduleAfterCommit(() => {
       const preferences = loadGalleryViewPreferences();
       setSort(preferences.sort);
@@ -207,7 +202,7 @@ export default function ComfyUiGalleryPanel({
       setLayout(preferences.layout);
       setViewPrefsLoaded(true);
     });
-  }, [mounted]);
+  }, []);
 
   useEffect(() => {
     if (!viewPrefsLoaded || !paginationEnabled) {
@@ -272,7 +267,6 @@ export default function ComfyUiGalleryPanel({
   }, [sortedSource, limit, page, pageSize, paginationEnabled, allRenderLimit]);
 
   const visibleEntries = pagination.items;
-  visibleEntriesRef.current = visibleEntries;
   const totalPages = pagination.totalPages;
   const currentPage = pagination.page;
   const totalFiltered = pagination.totalItems;
@@ -528,72 +522,89 @@ export default function ComfyUiGalleryPanel({
     });
   }, []);
 
-  galleryCardActionsRef.current = {
-    toggleSelected,
-    remove: removeEntry,
-    toggleFavorite: (id: string) => {
-      const entry = entriesRef.current.find((item) => item.id === id);
-      const willFavorite = entry ? !entry.favorite : false;
-      toggleFavorite(id);
-      if (entry && willFavorite) {
-        void import("@/lib/auto-improve-loop").then(({ runAutoImproveOnFavorite }) =>
-          runAutoImproveOnFavorite(entry, true),
-        ).then((message) => {
-          if (message) {
-            setRequeueStatus(message);
-          }
-        });
-      }
-    },
-    requeue: (id: string, newSeed: boolean) => {
-      const entry = entriesRef.current.find((item) => item.id === id);
-      if (!entry) {
-        return;
-      }
-      setRequeueStatus("Re-queueing…");
-      void requeueComfyJob({
-        prompt: entry.prompt,
-        negativePrompt: entry.negativePrompt,
-        tool: entry.tool,
-        model: entry.model,
-        newSeed,
-        queueParams: entry.queueParams,
-        onStatus: setRequeueStatus,
-      }).then((result) => {
-        if (!result.ok) {
-          setRequeueStatus(result.error ?? "Re-queue failed.");
+  useLayoutEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
+
+  useLayoutEffect(() => {
+    visibleEntriesRef.current = visibleEntries;
+  }, [visibleEntries]);
+
+  useLayoutEffect(() => {
+    galleryCardActionsRef.current = {
+      toggleSelected,
+      remove: removeEntry,
+      toggleFavorite: (id: string) => {
+        const entry = entriesRef.current.find((item) => item.id === id);
+        const willFavorite = entry ? !entry.favorite : false;
+        toggleFavorite(id);
+        if (entry && willFavorite) {
+          void import("@/lib/auto-improve-loop").then(({ runAutoImproveOnFavorite }) =>
+            runAutoImproveOnFavorite(entry, true),
+          ).then((message) => {
+            if (message) {
+              setRequeueStatus(message);
+            }
+          });
+        }
+      },
+      requeue: (id: string, newSeed: boolean) => {
+        const entry = entriesRef.current.find((item) => item.id === id);
+        if (!entry) {
           return;
         }
-        setRequeueStatus(
-          [
-            "queued",
-            result.promptId ? `prompt_id ${result.promptId}` : null,
-            result.comfyUrl,
-            newSeed ? "new seed" : "same params",
-          ]
-            .filter(Boolean)
-            .join(" · "),
-        );
-      });
-    },
-    openImage: openLightboxForEntryId,
-    reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => {
-      const entry = entriesRef.current.find((item) => item.id === id);
-      if (entry && rating) {
-        handleReviewRating(entry, rating);
-      }
-    },
-    downloadError: setDownloadError,
-    visionTagClick: (tag: string) => {
-      setFilter((previous) => ({ ...previous, query: tag }));
-    },
-    viewWorkflow: (id: string) => {
-      const entry = entriesRef.current.find((item) => item.id === id);
-      if (entry) {
-        setWorkflowEntry(entry);
-      }
-    },
-  };
+        setRequeueStatus("Re-queueing…");
+        void requeueComfyJob({
+          prompt: entry.prompt,
+          negativePrompt: entry.negativePrompt,
+          tool: entry.tool,
+          model: entry.model,
+          newSeed,
+          queueParams: entry.queueParams,
+          onStatus: setRequeueStatus,
+        }).then((result) => {
+          if (!result.ok) {
+            setRequeueStatus(result.error ?? "Re-queue failed.");
+            return;
+          }
+          setRequeueStatus(
+            [
+              "queued",
+              result.promptId ? `prompt_id ${result.promptId}` : null,
+              result.comfyUrl,
+              newSeed ? "new seed" : "same params",
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          );
+        });
+      },
+      openImage: openLightboxForEntryId,
+      reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => {
+        const entry = entriesRef.current.find((item) => item.id === id);
+        if (entry && rating) {
+          handleReviewRating(entry, rating);
+        }
+      },
+      downloadError: setDownloadError,
+      visionTagClick: (tag: string) => {
+        setFilter((previous) => ({ ...previous, query: tag }));
+      },
+      viewWorkflow: (id: string) => {
+        const entry = entriesRef.current.find((item) => item.id === id);
+        if (entry) {
+          setWorkflowEntry(entry);
+        }
+      },
+    };
+  }, [
+    toggleSelected,
+    removeEntry,
+    toggleFavorite,
+    openLightboxForEntryId,
+    handleReviewRating,
+    setFilter,
+  ]);
 
   if (entries.length === 0 && !storeReady) {
     return <GalleryPanelSkeleton showFilters={showFilters} compact={compact} />;

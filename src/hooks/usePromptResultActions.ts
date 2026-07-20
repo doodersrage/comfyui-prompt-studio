@@ -15,7 +15,7 @@ import type { ComfyImageModel } from "@/lib/comfy-models";
 import type { DetailLevel } from "@/lib/detail-level";
 import type { AthleticSport } from "@/lib/athletic-sport-profiles";
 import { resolveRuntimeForModel } from "@/lib/comfyui-runtime-for-model";
-import { startImproveFromResult, startRefineFromResult } from "@/lib/improve-output";
+import { startImproveFromResult, startPromptEditorFromResult, startRefineFromResult } from "@/lib/improve-output";
 import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import {
   galleryEntryPrimaryViewUrl,
@@ -342,6 +342,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       prompt: string,
       sport?: AthleticSport | null,
       historyId?: string,
+      options?: { explicitNegative?: string },
     ) => {
       if (!prompt) {
         return;
@@ -356,6 +357,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             hints: config.hints,
             sport,
             tool: config.tool,
+            explicitNegative: options?.explicitNegative,
           });
 
         const preflight = await runWorkflowPreflight({
@@ -632,7 +634,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
   );
 
   const copyPromptPair = useCallback(
-    async (prompt: string, sport?: AthleticSport | null) => {
+    async (
+      prompt: string,
+      sport?: AthleticSport | null,
+      explicitNegative?: string,
+    ) => {
       if (!prompt) {
         return;
       }
@@ -644,6 +650,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           hints: config.hints,
           sport,
           tool: config.tool,
+          explicitNegative,
         });
         const text = formatPromptPair({
           positive,
@@ -898,6 +905,28 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
     [config.model, config.tool],
   );
 
+  const editPromptOutput = useCallback(
+    (
+      prompt: string,
+      previewUrl?: string | null,
+      negativePrompt?: string,
+      hints?: string,
+    ) => {
+      if (!prompt.trim()) {
+        return;
+      }
+      startPromptEditorFromResult({
+        prompt,
+        previewUrl,
+        negativePrompt,
+        hints: hints ?? config.hints,
+        model: config.model,
+        tool: config.tool,
+      });
+    },
+    [config.hints, config.model, config.tool],
+  );
+
   return {
     preDiagnostics,
     diagnostics,
@@ -929,5 +958,6 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
     setDiagnostics,
     improveOutput,
     refineOutput,
+    editPromptOutput,
   };
 }

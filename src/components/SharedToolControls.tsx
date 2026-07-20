@@ -38,6 +38,7 @@ import { CollapsibleSection } from "@/components/ui/ToolPageShell";
 import { ChipButton, FieldDivider, FieldLabel } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { useEffect, useState } from "react";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type SharedToolControlsProps = {
   shared: SharedToolSettings;
@@ -107,23 +108,33 @@ export default function SharedToolControls({
   );
 
   useEffect(() => {
-    setSamplerPreset(normalizeModelSamplerPresetTier(shared.modelSamplerPreset));
+    scheduleAfterCommit(() => {
+      setSamplerPreset(normalizeModelSamplerPresetTier(shared.modelSamplerPreset));
+    });
   }, [shared.modelSamplerPreset]);
 
   useEffect(() => {
-    setResolutionOrientation(normalizeResolutionOrientation(shared.modelResolutionOrientation));
+    scheduleAfterCommit(() => {
+      setResolutionOrientation(normalizeResolutionOrientation(shared.modelResolutionOrientation));
+    });
   }, [shared.modelResolutionOrientation]);
 
   useEffect(() => {
-    setResolutionSizeTier(normalizeResolutionSizeTier(shared.modelResolutionSizeTier));
+    scheduleAfterCommit(() => {
+      setResolutionSizeTier(normalizeResolutionSizeTier(shared.modelResolutionSizeTier));
+    });
   }, [shared.modelResolutionSizeTier]);
 
   useEffect(() => {
-    setRenderRealismMode(normalizeRenderRealismMode(shared.renderRealismMode));
+    scheduleAfterCommit(() => {
+      setRenderRealismMode(normalizeRenderRealismMode(shared.renderRealismMode));
+    });
   }, [shared.renderRealismMode]);
 
   useEffect(() => {
-    setAnatomyGuardMode(normalizeAnatomyGuardMode(shared.anatomyGuardMode));
+    scheduleAfterCommit(() => {
+      setAnatomyGuardMode(normalizeAnatomyGuardMode(shared.anatomyGuardMode));
+    });
   }, [shared.anatomyGuardMode]);
 
   const handleSamplerPresetChange = (preset: ModelSamplerPresetTier) => {

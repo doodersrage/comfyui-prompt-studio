@@ -2,6 +2,7 @@ import {
   buildClothingCoherenceUserDirective,
   buildClothingGuardrailLines,
   buildClothingPickFilters,
+  hintsImplyNoClothing,
   type ClothingPickFilters,
 } from "./clothing-tags";
 import {
@@ -59,6 +60,10 @@ export function shouldPickGenerateWardrobe(
   alwaysIncludeClothing?: boolean,
   assumePeople = false,
 ): boolean {
+  if (hintsImplyNoClothing(input)) {
+    return false;
+  }
+
   if (!assumePeople && !inputImpliesPeople(input)) {
     return false;
   }

@@ -786,6 +786,14 @@ export default function PromptGenerator() {
             })
           }
           onSendComfyUi={() => void actions.sendComfyUi(output)}
+          onEditPrompt={() =>
+            actions.editPromptOutput(
+              output,
+              actions.comfyUiPreviewUrl,
+              undefined,
+              hintSource === "random" ? genre : input,
+            )
+          }
           {...promptResultPreviewProps(actions, output)}
           onFixPrompt={() =>
             void actions.fixPrompt(

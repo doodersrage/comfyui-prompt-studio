@@ -1,9 +1,11 @@
 import {
   DEFAULT_CFG_TOKEN,
+  DEFAULT_HEIGHT_TOKEN,
   DEFAULT_NEGATIVE_TOKEN,
   DEFAULT_POSITIVE_TOKEN,
   DEFAULT_SEED_TOKEN,
   DEFAULT_STEPS_TOKEN,
+  DEFAULT_WIDTH_TOKEN,
   type WorkflowPlaceholderTokens,
 } from "./comfyui-config";
 import type { WorkflowNodeMapping } from "./workflow-node-mapper";
@@ -20,17 +22,30 @@ export type WorkflowBindingChange = {
   after: string;
 };
 
+const PARAM_INPUT_FIELDS = ["seed", "steps", "cfg", "width", "height"] as const;
+
+type ParamInputField = (typeof PARAM_INPUT_FIELDS)[number];
+
+export function resolveBindingTokens(
+  tokens: Partial<WorkflowPlaceholderTokens> &
+    Pick<WorkflowPlaceholderTokens, "positive" | "negative">,
+): WorkflowPlaceholderTokens {
+  return {
+    positive: tokens.positive,
+    negative: tokens.negative,
+    seed: tokens.seed?.trim() || DEFAULT_SEED_TOKEN,
+    width: tokens.width?.trim() || DEFAULT_WIDTH_TOKEN,
+    height: tokens.height?.trim() || DEFAULT_HEIGHT_TOKEN,
+    cfg: tokens.cfg?.trim() || DEFAULT_CFG_TOKEN,
+    steps: tokens.steps?.trim() || DEFAULT_STEPS_TOKEN,
+  };
+}
+
 export function applyWorkflowNodeBindings(
   workflowJson: string,
   mappings: WorkflowNodeMapping[],
-  tokens: Pick<WorkflowPlaceholderTokens, "positive" | "negative"> &
-    Partial<Pick<WorkflowPlaceholderTokens, "seed" | "steps" | "cfg">> = {
-    positive: DEFAULT_POSITIVE_TOKEN,
-    negative: DEFAULT_NEGATIVE_TOKEN,
-    seed: DEFAULT_SEED_TOKEN,
-    steps: DEFAULT_STEPS_TOKEN,
-    cfg: DEFAULT_CFG_TOKEN,
-  },
+  tokens: Partial<WorkflowPlaceholderTokens> &
+    Pick<WorkflowPlaceholderTokens, "positive" | "negative">,
 ): { json: string; changes: WorkflowBindingChange[] } {
   let parsed: Record<string, WorkflowNode>;
   try {
@@ -39,6 +54,7 @@ export function applyWorkflowNodeBindings(
     return { json: workflowJson, changes: [] };
   }
 
+  const resolvedTokens = resolveBindingTokens(tokens);
   const changes: WorkflowBindingChange[] = [];
 
   for (const mapping of mappings) {
@@ -49,27 +65,47 @@ export function applyWorkflowNodeBindings(
 
     const binding = mapping.suggestedBinding;
     if (binding === "positive" && "text" in node.inputs) {
-      applyTextInput(node, mapping.nodeId, "text", tokens.positive, changes);
+      applyTextInput(node, mapping.nodeId, "text", resolvedTokens.positive, changes);
       continue;
     }
     if (binding === "negative" && "text" in node.inputs) {
-      applyTextInput(node, mapping.nodeId, "text", tokens.negative, changes);
+      applyTextInput(node, mapping.nodeId, "text", resolvedTokens.negative, changes);
       continue;
     }
-    if (binding === "seed") {
-      if ("seed" in node.inputs && tokens.seed) {
-        applyScalarInput(node, mapping.nodeId, "seed", tokens.seed, changes);
-      }
-      if ("steps" in node.inputs && tokens.steps) {
-        applyScalarInput(node, mapping.nodeId, "steps", tokens.steps, changes);
-      }
-      if ("cfg" in node.inputs && tokens.cfg) {
-        applyScalarInput(node, mapping.nodeId, "cfg", tokens.cfg, changes);
-      }
+    if (binding === "seed" || binding === "sampler") {
+      applyParamField(node, mapping.nodeId, "seed", resolvedTokens.seed, changes);
+      applyParamField(node, mapping.nodeId, "steps", resolvedTokens.steps, changes);
+      applyParamField(node, mapping.nodeId, "cfg", resolvedTokens.cfg, changes);
+      continue;
+    }
+    if (binding === "latent") {
+      applyParamField(node, mapping.nodeId, "width", resolvedTokens.width, changes);
+      applyParamField(node, mapping.nodeId, "height", resolvedTokens.height, changes);
     }
   }
 
+  applyParamBindingsToAllNodes(parsed, resolvedTokens, changes);
+
   return { json: JSON.stringify(parsed, null, 2), changes };
+}
+
+function applyParamBindingsToAllNodes(
+  parsed: Record<string, WorkflowNode>,
+  tokens: WorkflowPlaceholderTokens,
+  changes: WorkflowBindingChange[],
+): void {
+  for (const [nodeId, node] of Object.entries(parsed)) {
+    if (!node?.inputs) {
+      continue;
+    }
+
+    for (const field of PARAM_INPUT_FIELDS) {
+      if (!(field in node.inputs)) {
+        continue;
+      }
+      applyParamField(node, nodeId, field, tokens[field], changes);
+    }
+  }
 }
 
 function applyTextInput(
@@ -87,15 +123,20 @@ function applyTextInput(
   changes.push({ nodeId, field, before, after: token });
 }
 
-function applyScalarInput(
+function applyParamField(
   node: WorkflowNode,
   nodeId: string,
-  field: string,
+  field: ParamInputField,
   token: string,
   changes: WorkflowBindingChange[],
 ): void {
   const current = node.inputs?.[field];
-  if (typeof current === "string" && current.includes(token)) {
+  if (typeof current === "string") {
+    if (current.includes(token)) {
+      return;
+    }
+    node.inputs![field] = token;
+    changes.push({ nodeId, field, before: current, after: token });
     return;
   }
   if (typeof current === "number" || typeof current === "boolean") {

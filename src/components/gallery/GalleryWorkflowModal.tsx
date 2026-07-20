@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import WorkflowPreviewPanel from "@/components/WorkflowPreviewPanel";
 import { Spinner } from "@/components/ui/Button";
 import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
@@ -53,7 +54,9 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    scheduleAfterCommit(() => {
+      setLoading(true);
+    });
     void loadGalleryWorkflowView(entry).then((result) => {
       if (!cancelled) {
         setView(result);

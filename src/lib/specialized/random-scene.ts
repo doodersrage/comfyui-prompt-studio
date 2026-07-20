@@ -7,6 +7,10 @@ import {
   buildGenerateWardrobeUserDirective,
   mergeGenerateWardrobeIntoPrompt,
 } from "../generate-wardrobe";
+import {
+  buildNoClothingUserDirective,
+  hintsImplyNoClothing,
+} from "../clothing-tags";
 import { getDetailLimits } from "../detail-level";
 import { isMultiPersonInput } from "../distinct-people";
 import { DEFAULT_GENERATION_SETTINGS } from "../generation-settings";
@@ -63,7 +67,9 @@ export async function generateRandomScene(
       : null;
   const clothingDirective = wardrobeAssignments?.length
     ? buildGenerateWardrobeUserDirective(wardrobeAssignments)
-    : null;
+    : hintsImplyNoClothing(seed)
+      ? buildNoClothingUserDirective()
+      : null;
 
   const toolInstructions = `You are a random scene prompt generator for ComfyUI.
 - Invent ONE cohesive scene from the provided random ingredients.

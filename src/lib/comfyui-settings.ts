@@ -1,10 +1,16 @@
 import {
   type ComfyUiRuntimeConfig,
   stripEmptyComfyUiRuntime,
+  DEFAULT_CFG_TOKEN,
+  DEFAULT_HEIGHT_TOKEN,
   DEFAULT_NEGATIVE_TOKEN,
   DEFAULT_POSITIVE_TOKEN,
+  DEFAULT_SEED_TOKEN,
+  DEFAULT_STEPS_TOKEN,
+  DEFAULT_WIDTH_TOKEN,
   type CustomWorkflowToken,
   type WorkflowParamValues,
+  type WorkflowPlaceholderTokens,
 } from "./comfyui-config";
 import { readBrowserValue, removeBrowserKey, writeBrowserValue } from "./browser-storage";
 
@@ -200,9 +206,14 @@ export function comfyUiSettingsToRuntime(
 
 export function placeholderTokensFromSettings(
   settings: ComfyUiSettings,
-): { positive: string; negative: string } {
+): WorkflowPlaceholderTokens {
   return {
     positive: settings.positiveToken?.trim() || DEFAULT_POSITIVE_TOKEN,
     negative: settings.negativeToken?.trim() || DEFAULT_NEGATIVE_TOKEN,
+    seed: DEFAULT_SEED_TOKEN,
+    width: DEFAULT_WIDTH_TOKEN,
+    height: DEFAULT_HEIGHT_TOKEN,
+    cfg: DEFAULT_CFG_TOKEN,
+    steps: DEFAULT_STEPS_TOKEN,
   };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, startTransition } from "react";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   clearComfyGallery,
   COMFYUI_GALLERY_UPDATED_EVENT,
@@ -36,7 +37,6 @@ function readGalleryEntriesSync(): ComfyGalleryEntry[] {
 }
 
 export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
-  const [mounted, setMounted] = useState(false);
   const initialEntries = readGalleryEntriesSync();
   const [storeReady, setStoreReady] = useState(() => {
     if (typeof window === "undefined") {
@@ -62,11 +62,12 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
 
   useEffect(() => {
     refresh();
-    setMounted(true);
 
-    if (isGalleryStoreReady()) {
-      setStoreReady(true);
-    }
+    scheduleAfterCommit(() => {
+      if (isGalleryStoreReady()) {
+        setStoreReady(true);
+      }
+    });
 
     const hydrateTimeout = window.setTimeout(() => {
       setStoreReady(true);
@@ -104,11 +105,17 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   useEffect(() => {
     const query = filter.query?.trim();
     if (!filter.semanticSearch || !query) {
-      setEmbeddingRankIds(null);
-      setEmbeddingSearchLoading(false);
-      setEmbeddingSearchUnavailable(false);
+      scheduleAfterCommit(() => {
+        setEmbeddingRankIds(null);
+        setEmbeddingSearchLoading(false);
+        setEmbeddingSearchUnavailable(false);
+      });
       return;
     }
+
+    scheduleAfterCommit(() => {
+      setEmbeddingSearchLoading(true);
+    });
 
     const candidates = filterComfyGalleryEntries(entries, {
       ...filter,
@@ -116,7 +123,6 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
       similarToEntryId: undefined,
     });
 
-    setEmbeddingSearchLoading(true);
     void fetchEmbeddingRankIds(
       query,
       candidates.map((entry) => ({ id: entry.id, text: galleryEntryCorpus(entry) })),
@@ -140,20 +146,26 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   useEffect(() => {
     const referenceId = filter.similarToEntryId;
     if (!referenceId) {
-      setSimilarRankIds(null);
-      setSimilarSearchLoading(false);
+      scheduleAfterCommit(() => {
+        setSimilarRankIds(null);
+        setSimilarSearchLoading(false);
+      });
       return;
     }
 
     const reference = entries.find((entry) => entry.id === referenceId);
     if (!reference) {
-      setSimilarRankIds(null);
-      setSimilarSearchLoading(false);
+      scheduleAfterCommit(() => {
+        setSimilarRankIds(null);
+        setSimilarSearchLoading(false);
+      });
       return;
     }
 
     const candidates = entries.filter((entry) => entry.id !== referenceId);
-    setSimilarSearchLoading(true);
+    scheduleAfterCommit(() => {
+      setSimilarSearchLoading(true);
+    });
     void fetchEmbeddingRankIds(
       reference.prompt,
       candidates.map((entry) => ({ id: entry.id, text: galleryEntryCorpus(entry) })),
@@ -275,7 +287,6 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   );
 
   return {
-    mounted,
     storeReady,
     entries,
     filteredEntries,

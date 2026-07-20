@@ -54,6 +54,7 @@ const ADDITIONAL_ROUTES: Array<{ path: string; heading: RegExp; level?: 1 | 2 | 
   { path: "/pet", heading: /Pet Scene Generator/i },
   { path: "/refine", heading: /Prompt Refine/i },
   { path: "/format", heading: /Format for your model/i },
+  { path: "/prompt", heading: /Prompt Editor/i },
   { path: "/negative", heading: /Negative Prompt Builder/i },
   { path: "/lint", heading: /Prompt Lint & Fix/i },
   { path: "/topics", heading: /Topic Generator/i },

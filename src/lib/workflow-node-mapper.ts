@@ -2,7 +2,15 @@ export type WorkflowNodeMapping = {
   nodeId: string;
   classType: string;
   title?: string;
-  suggestedBinding?: "positive" | "negative" | "seed" | "steps" | "cfg" | "custom";
+  suggestedBinding?:
+    | "positive"
+    | "negative"
+    | "seed"
+    | "sampler"
+    | "latent"
+    | "steps"
+    | "cfg"
+    | "custom";
   reason: string;
 };
 
@@ -11,6 +19,24 @@ type WorkflowNode = {
   _meta?: { title?: string };
   inputs?: Record<string, unknown>;
 };
+
+function isLatentSizeNode(classLower: string, inputs: Record<string, unknown>): boolean {
+  if (!("width" in inputs) || !("height" in inputs)) {
+    return false;
+  }
+  return (
+    classLower.includes("emptylatent") ||
+    classLower.includes("latentimage") ||
+    classLower.includes("empty") && classLower.includes("latent")
+  );
+}
+
+function isSamplerNode(classLower: string, inputs: Record<string, unknown>): boolean {
+  if (classLower.includes("ksampler") || classLower.includes("sampler")) {
+    return true;
+  }
+  return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
+}
 
 export function suggestWorkflowNodeMappings(workflowJson: string): WorkflowNodeMapping[] {
   let parsed: Record<string, WorkflowNode>;
@@ -26,6 +52,7 @@ export function suggestWorkflowNodeMappings(workflowJson: string): WorkflowNodeM
     const classType = node.class_type ?? "";
     const title = node._meta?.title?.toLowerCase() ?? "";
     const classLower = classType.toLowerCase();
+    const inputs = node.inputs ?? {};
 
     if (classLower.includes("cliptextencode") || classLower.includes("textencode")) {
       let binding: WorkflowNodeMapping["suggestedBinding"] = "custom";
@@ -50,12 +77,23 @@ export function suggestWorkflowNodeMappings(workflowJson: string): WorkflowNodeM
       continue;
     }
 
-    if (classLower.includes("ksampler") || classLower.includes("sampler")) {
+    if (isLatentSizeNode(classLower, inputs)) {
       mappings.push({
         nodeId,
         classType,
         title: node._meta?.title,
-        suggestedBinding: "seed",
+        suggestedBinding: "latent",
+        reason: "Latent size node — map width/height placeholders here",
+      });
+      continue;
+    }
+
+    if (isSamplerNode(classLower, inputs)) {
+      mappings.push({
+        nodeId,
+        classType,
+        title: node._meta?.title,
+        suggestedBinding: "sampler",
         reason: "Sampler node — map seed/steps/cfg placeholders here",
       });
     }

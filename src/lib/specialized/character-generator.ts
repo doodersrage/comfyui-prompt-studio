@@ -36,6 +36,8 @@ import {
 import {
   buildClothingCoherenceUserDirective,
   buildClothingPickFilters,
+  buildNoClothingUserDirective,
+  hintsImplyNoClothing,
   subjectGenderToClothingGender,
 } from "../clothing-tags";
 import {
@@ -249,7 +251,9 @@ ${soloRules}
           clothingFilters,
           presetWardrobeSummary,
         )
-      : null;
+      : hintsImplyNoClothing(options.hints) || hintsImplyNoClothing(seed)
+        ? buildNoClothingUserDirective()
+        : null;
 
   const needsWardrobePostProcess =
     Boolean(wardrobeAssignments?.length) ||

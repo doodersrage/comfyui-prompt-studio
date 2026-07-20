@@ -114,7 +114,7 @@ import {
   type ModelPortfolioItem,
 } from "@/lib/model-portfolio";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
-import { startRefineFromHistoryEntry } from "@/lib/improve-output";
+import { startRefineFromHistoryEntry, startPromptEditorFromHistoryEntry } from "@/lib/improve-output";
 import { analyzeGalleryRatingTokens, negativeScoringTokens, positiveScoringTokens, buildSceneHintsFromPositiveTokens } from "@/lib/rating-token-analytics";
 import { analyzePromptHistoryEntries } from "@/lib/user-analytics";
 import { computeGalleryStats } from "@/lib/gallery-stats";
@@ -2973,6 +2973,14 @@ function HistoryCard({
             <a href={useAsHintsUrl} className="ui-btn-ghost ui-btn-sm type-caption">
               Use as hints
             </a>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="type-caption"
+              onClick={() => startPromptEditorFromHistoryEntry(entry)}
+            >
+              Edit prompt
+            </Button>
             <a href={studioHistoryUrl(entry.id)} className="ui-btn-ghost ui-btn-sm type-caption">
               Link
             </a>

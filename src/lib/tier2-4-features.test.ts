@@ -77,6 +77,17 @@ describe("workflow node mapper", () => {
     assert.ok(mappings.some((entry) => entry.suggestedBinding === "positive"));
     assert.ok(mappings.some((entry) => entry.suggestedBinding === "negative"));
   });
+
+  it("suggests sampler and latent size nodes", () => {
+    const mappings = suggestWorkflowNodeMappings(
+      JSON.stringify({
+        "3": { class_type: "KSampler", inputs: { seed: 1, steps: 20, cfg: 7 } },
+        "5": { class_type: "EmptyLatentImage", inputs: { width: 512, height: 512 } },
+      }),
+    );
+    assert.ok(mappings.some((entry) => entry.suggestedBinding === "sampler"));
+    assert.ok(mappings.some((entry) => entry.suggestedBinding === "latent"));
+  });
 });
 
 describe("aesthetic score", () => {

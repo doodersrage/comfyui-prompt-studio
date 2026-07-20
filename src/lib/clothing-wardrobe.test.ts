@@ -6,6 +6,7 @@ import {
   hintsDescribeAthleticDuoCompetition,
   mergeGenerateWardrobeIntoPrompt,
   refreshSportWardrobeAssignmentForPrompt,
+  shouldPickGenerateWardrobe,
 } from "./generate-wardrobe";
 import {
   collectWardrobeEntryIds,
@@ -28,6 +29,7 @@ import {
   inferAthleticSport,
   inferWorkProfession,
   hintsFantasyWardrobe,
+  hintsImplyNoClothing,
 } from "./clothing-tags";
 import { summaryMatchesSportWardrobe } from "./athletic-sport-profiles";
 import {
@@ -77,6 +79,32 @@ describe("work and swim context", () => {
       hintsSwimwearOnlyMode("tropical beach photoshoot", ["beach", "swimwear", "warm"]),
       true,
     );
+  });
+});
+
+describe("hintsImplyNoClothing", () => {
+  it("detects naked and nude intent", () => {
+    assert.equal(hintsImplyNoClothing("naked woman in studio"), true);
+    assert.equal(hintsImplyNoClothing("artistic nude portrait"), true);
+    assert.equal(hintsImplyNoClothing("nude"), true);
+  });
+
+  it("does not treat fashion nude color as nudity intent", () => {
+    assert.equal(hintsImplyNoClothing("nude sheer pantyhose"), false);
+    assert.equal(hintsImplyNoClothing("nude heels and red dress"), false);
+  });
+
+  it("skips wardrobe rolls when naked is in hints", () => {
+    assert.equal(
+      shouldPickGenerateWardrobe("naked woman, soft window light", true),
+      false,
+    );
+    const assignments = buildGenerateWardrobeAssignments(
+      "naked woman, soft window light",
+      { ...DEFAULT_GENERATION_SETTINGS, alwaysIncludeClothing: true },
+      { assumePeople: true },
+    );
+    assert.equal(assignments, null);
   });
 });
 

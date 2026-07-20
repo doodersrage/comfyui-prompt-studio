@@ -171,6 +171,7 @@ export default function LintTool() {
           void actions.exportSidecar(prompt, { comfyNode: selectedModel.comfyNode })
         }
         onSendComfyUi={() => void actions.sendComfyUi(prompt, actions.diagnostics?.inferred.sport ?? null)}
+        onEditPrompt={() => actions.editPromptOutput(prompt, null, undefined, hints)}
         {...promptResultPreviewProps(
           actions,
           prompt,

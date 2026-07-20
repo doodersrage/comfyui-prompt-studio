@@ -34,6 +34,7 @@ const navGroups: NavGroup[] = [
     links: [
       { href: "/", label: "Generate", description: "Keywords or random scene" },
       { href: "/format", label: "Format", description: "Draft → model-ready" },
+      { href: "/prompt", label: "Prompt Editor", description: "Edit & optimize" },
       { href: "/lint", label: "Lint", description: "Diagnostics & fix" },
       { href: "/topics", label: "Topics", description: "Idea list" },
     ],

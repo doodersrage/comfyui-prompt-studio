@@ -151,10 +151,10 @@ export function ensureAuthStore(): { users: UsersDocument; groups: GroupsDocumen
   }
 
   if (authStoreCache && now - authStoreCache.loadedAt < AUTH_STORE_CACHE_MS) {
-    let { users, groups } = authStoreCache;
-    if (isAuthExplicitlyEnabled()) {
-      users = syncDefaultAdminFromEnv(users);
-    }
+    const { groups } = authStoreCache;
+    const users = isAuthExplicitlyEnabled()
+      ? syncDefaultAdminFromEnv(authStoreCache.users)
+      : authStoreCache.users;
     authStoreCache = { users, groups, loadedAt: now, authDir: currentAuthDir };
     return { users, groups };
   }

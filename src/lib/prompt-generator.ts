@@ -63,6 +63,10 @@ import {
   mergeGenerateWardrobeIntoPrompt,
   type GenerateWardrobeAssignment,
 } from "./generate-wardrobe";
+import {
+  buildNoClothingUserDirective,
+  hintsImplyNoClothing,
+} from "./clothing-tags";
 
 export type PromptMode = "positive" | "negative";
 export type { GenerationSettings, VariationSettings } from "./generation-settings";
@@ -203,6 +207,8 @@ function buildUserMessage(
     : null;
   if (wardrobeDirective) {
     extras.push(wardrobeDirective);
+  } else if (hintsImplyNoClothing(trimmed)) {
+    extras.push(buildNoClothingUserDirective());
   }
 
   const sport = inferAthleticSport(trimmed);

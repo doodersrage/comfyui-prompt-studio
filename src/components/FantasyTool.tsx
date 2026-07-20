@@ -11,6 +11,7 @@ import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
 import { fetchClothingLabels, getCachedClothingLabel } from "@/lib/clothing-catalog-client";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   presetOptionsFromFantasyCache,
   resolveFantasyFocus,
@@ -79,13 +80,13 @@ export default function FantasyTool() {
   useEffect(() => {
     const id = shared.lockedWardrobeId?.trim();
     if (!id) {
-      setLockedWardrobeLabel(undefined);
+      scheduleAfterCommit(() => setLockedWardrobeLabel(undefined));
       return;
     }
 
     const cached = getCachedClothingLabel(id);
     if (cached) {
-      setLockedWardrobeLabel(cached);
+      scheduleAfterCommit(() => setLockedWardrobeLabel(cached));
       return;
     }
 
@@ -439,6 +440,14 @@ export default function FantasyTool() {
         onSendComfyUi={() => void actions.sendComfyUi(output)}
         onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
         onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
+        onEditPrompt={() =>
+          actions.editPromptOutput(
+            output,
+            actions.comfyUiPreviewUrl,
+            undefined,
+            toolSettings.hints,
+          )
+        }
         {...promptResultPreviewProps(actions, output)}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.hints)}
         onCopyPair={() => void actions.copyPromptPair(output)}

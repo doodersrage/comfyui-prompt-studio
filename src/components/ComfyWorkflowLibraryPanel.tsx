@@ -44,7 +44,7 @@ import { ChipButton, MonoTextArea, SelectInput, TextInput } from "@/components/u
 import { ToolActionRow } from "@/components/ui/ToolPageShell";
 
 type ComfyWorkflowLibraryPanelProps = {
-  placeholderTokens: Pick<WorkflowPlaceholderTokens, "positive" | "negative">;
+  placeholderTokens: WorkflowPlaceholderTokens;
   onStatus?: (message: string) => void;
 };
 
@@ -420,6 +420,21 @@ export default function ComfyWorkflowLibraryPanel({
                               {(editingValidation.placeholders?.negative ?? 0) > 0
                                 ? ` · ${editingValidation.placeholders?.negative}× ${placeholderTokens.negative}`
                                 : ""}
+                              {(editingValidation.placeholders?.seed ?? 0) > 0
+                                ? ` · ${editingValidation.placeholders?.seed}× ${placeholderTokens.seed}`
+                                : ""}
+                              {(editingValidation.placeholders?.width ?? 0) > 0
+                                ? ` · ${editingValidation.placeholders?.width}× ${placeholderTokens.width}`
+                                : ""}
+                              {(editingValidation.placeholders?.height ?? 0) > 0
+                                ? ` · ${editingValidation.placeholders?.height}× ${placeholderTokens.height}`
+                                : ""}
+                              {(editingValidation.placeholders?.cfg ?? 0) > 0
+                                ? ` · ${editingValidation.placeholders?.cfg}× ${placeholderTokens.cfg}`
+                                : ""}
+                              {(editingValidation.placeholders?.steps ?? 0) > 0
+                                ? ` · ${editingValidation.placeholders?.steps}× ${placeholderTokens.steps}`
+                                : ""}
                             </>
                           ) : (
                             <span className="text-amber-400/90">
@@ -458,10 +473,7 @@ export default function ComfyWorkflowLibraryPanel({
                                 const applied = applyWorkflowNodeBindings(
                                   editingJson,
                                   editingNodeMappings,
-                                  {
-                                    positive: placeholderTokens.positive,
-                                    negative: placeholderTokens.negative,
-                                  },
+                                  placeholderTokens,
                                 );
                                 if (applied.changes.length === 0) {
                                   setBindingPreview(

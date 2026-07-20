@@ -34,6 +34,7 @@ import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
 import { fetchClothingLabels, getCachedClothingLabel } from "@/lib/clothing-catalog-client";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { presetOptionsFromBackgroundCache } from "@/lib/background-options";
 import { readSceneLocationFromMetadata } from "@/lib/recent-locations";
 import { readClothingIdsFromMetadata } from "@/lib/recent-clothing";
@@ -151,13 +152,13 @@ export default function CharacterTool() {
   useEffect(() => {
     const id = shared.lockedWardrobeId?.trim();
     if (!id) {
-      setLockedWardrobeLabel(undefined);
+      scheduleAfterCommit(() => setLockedWardrobeLabel(undefined));
       return;
     }
 
     const cached = getCachedClothingLabel(id);
     if (cached) {
-      setLockedWardrobeLabel(cached);
+      scheduleAfterCommit(() => setLockedWardrobeLabel(cached));
       return;
     }
 
@@ -844,6 +845,14 @@ export default function CharacterTool() {
         onSendComfyUi={() => void actions.sendComfyUi(output, inferredSport)}
         onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
         onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
+        onEditPrompt={() =>
+          actions.editPromptOutput(
+            output,
+            actions.comfyUiPreviewUrl,
+            undefined,
+            toolSettings.hints,
+          )
+        }
         {...promptResultPreviewProps(actions, output, inferredSport)}
         onFixPrompt={() =>
           void actions.fixPrompt(output, setOutput, toolSettings.hints)

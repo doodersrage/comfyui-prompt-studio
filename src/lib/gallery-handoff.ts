@@ -15,10 +15,11 @@ export type GalleryHandoffPayload = {
   negativePrompt?: string;
   model?: string;
   tool?: string;
+  hints?: string;
   historyId?: string;
   imageUrl?: string;
   imageFilename?: string;
-  target: "refine" | "imagePrompt";
+  target: "refine" | "imagePrompt" | "promptEditor";
   improveIntent?: string;
   savedAt: number;
 };
@@ -82,7 +83,10 @@ export function loadGalleryHandoff(
       return null;
     }
     const parsed = JSON.parse(raw) as GalleryHandoffPayload;
-    if (parsed.source !== "gallery" || !parsed.prompt?.trim()) {
+    if (
+      (parsed.source !== "gallery" && parsed.source !== "history") ||
+      !parsed.prompt?.trim()
+    ) {
       return null;
     }
     if (target && parsed.target !== target) {
@@ -125,5 +129,15 @@ export async function fetchHandoffImageFile(
 }
 
 export function galleryHandoffPath(target: GalleryHandoffPayload["target"]): string {
-  return target === "refine" ? "/refine?from=gallery" : "/image-prompt?from=gallery";
+  if (target === "refine") {
+    return "/refine?from=gallery";
+  }
+  if (target === "promptEditor") {
+    return "/prompt?from=gallery";
+  }
+  return "/image-prompt?from=gallery";
+}
+
+export function galleryPromptEditorPathFromHistory(): string {
+  return "/prompt?from=history";
 }

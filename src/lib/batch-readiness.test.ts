@@ -56,10 +56,48 @@ describe("workflow apply bindings", () => {
         suggestedBinding: "negative",
         reason: "test",
       },
-    ]);
+    ], {
+      positive: "{{POSITIVE}}",
+      negative: "{{NEGATIVE}}",
+    });
     assert.ok(applied.json.includes("{{POSITIVE}}"));
     assert.ok(applied.json.includes("{{NEGATIVE}}"));
     assert.ok(summarizeBindingChanges(applied.changes).includes("3.text"));
+  });
+
+  it("injects sampler and latent param placeholders", () => {
+    const workflow = JSON.stringify({
+      "3": {
+        class_type: "KSampler",
+        inputs: { seed: 42, steps: 24, cfg: 6.5 },
+      },
+      "5": {
+        class_type: "EmptyLatentImage",
+        inputs: { width: 768, height: 512 },
+      },
+    });
+    const applied = applyWorkflowNodeBindings(workflow, [
+      {
+        nodeId: "3",
+        classType: "KSampler",
+        suggestedBinding: "sampler",
+        reason: "test",
+      },
+      {
+        nodeId: "5",
+        classType: "EmptyLatentImage",
+        suggestedBinding: "latent",
+        reason: "test",
+      },
+    ], {
+      positive: "{{POSITIVE}}",
+      negative: "{{NEGATIVE}}",
+    });
+    assert.ok(applied.json.includes("{{SEED}}"));
+    assert.ok(applied.json.includes("{{STEPS}}"));
+    assert.ok(applied.json.includes("{{CFG}}"));
+    assert.ok(applied.json.includes("{{WIDTH}}"));
+    assert.ok(applied.json.includes("{{HEIGHT}}"));
   });
 });
 

@@ -88,6 +88,7 @@ type EnhancedPromptResultProps = {
   onPreviewWorkflow?: () => void;
   onImprove?: () => void;
   onRefine?: () => void;
+  onEditPrompt?: () => void;
   workflowPreview?: {
     workflowSource?: string;
     replacements?: {
@@ -150,6 +151,7 @@ export default function EnhancedPromptResult({
   onPreviewWorkflow,
   onImprove,
   onRefine,
+  onEditPrompt,
   workflowPreview,
   previewStatus,
   variationSeed,
@@ -275,7 +277,8 @@ export default function EnhancedPromptResult({
         onExportSidecar ||
         onPreviewWorkflow ||
         onImprove ||
-        onRefine),
+        onRefine ||
+        onEditPrompt),
   );
 
   return (
@@ -523,6 +526,11 @@ export default function EnhancedPromptResult({
           {onRefine && (
             <Button variant="secondary" fullWidth onClick={onRefine}>
               Open in Refine
+            </Button>
+          )}
+          {onEditPrompt && (
+            <Button variant="secondary" fullWidth onClick={onEditPrompt}>
+              Edit in Prompt Editor
             </Button>
           )}
           {onExportSidecar && (

@@ -1,6 +1,11 @@
 import {
+  DEFAULT_CFG_TOKEN,
+  DEFAULT_HEIGHT_TOKEN,
   DEFAULT_NEGATIVE_TOKEN,
   DEFAULT_POSITIVE_TOKEN,
+  DEFAULT_SEED_TOKEN,
+  DEFAULT_STEPS_TOKEN,
+  DEFAULT_WIDTH_TOKEN,
   detectWorkflowPlaceholders,
   listWorkflowNodeIds,
   type WorkflowPlaceholderTokens,
@@ -198,9 +203,14 @@ function extractApiWorkflowObject(parsed: unknown): Record<string, unknown> | nu
 
 export function prepareWorkflowJsonImport(
   raw: string,
-  tokens: Pick<WorkflowPlaceholderTokens, "positive" | "negative"> = {
+  tokens: WorkflowPlaceholderTokens = {
     positive: DEFAULT_POSITIVE_TOKEN,
     negative: DEFAULT_NEGATIVE_TOKEN,
+    seed: DEFAULT_SEED_TOKEN,
+    width: DEFAULT_WIDTH_TOKEN,
+    height: DEFAULT_HEIGHT_TOKEN,
+    cfg: DEFAULT_CFG_TOKEN,
+    steps: DEFAULT_STEPS_TOKEN,
   },
 ): WorkflowImportResult {
   const parsedResult = parseImportJson(raw);

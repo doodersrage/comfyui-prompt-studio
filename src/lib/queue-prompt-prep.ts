@@ -11,6 +11,7 @@ import {
 import { loadAnatomyGuardMode } from "./anatomy-guard-settings";
 import {
   applyRenderRealismForModel,
+  applyRenderRealismToNegative,
   applyRenderRealismToPositive,
   type RenderRealismMode,
 } from "./render-realism";

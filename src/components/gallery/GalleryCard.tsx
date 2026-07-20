@@ -468,24 +468,36 @@ export default function GalleryCard({
                     Studio history
                   </Link>
                 ) : null}
-                {entry.status === "completed" && previewUrl ? (
+                {entry.status === "completed" && entry.prompt?.trim() ? (
                   <>
                     <GalleryMenuButton
-                      label="Refine"
+                      label="Edit prompt"
                       onClick={() => {
-                        saveGalleryHandoff(buildGalleryHandoff(entry, "refine"));
-                        router.push(galleryHandoffPath("refine"));
+                        saveGalleryHandoff(buildGalleryHandoff(entry, "promptEditor"));
+                        router.push(galleryHandoffPath("promptEditor"));
                         setMenuOpen(false);
                       }}
                     />
-                    <GalleryMenuButton
-                      label="Image → Prompt"
-                      onClick={() => {
-                        saveGalleryHandoff(buildGalleryHandoff(entry, "imagePrompt"));
-                        router.push(galleryHandoffPath("imagePrompt"));
-                        setMenuOpen(false);
-                      }}
-                    />
+                    {previewUrl ? (
+                      <>
+                        <GalleryMenuButton
+                          label="Refine"
+                          onClick={() => {
+                            saveGalleryHandoff(buildGalleryHandoff(entry, "refine"));
+                            router.push(galleryHandoffPath("refine"));
+                            setMenuOpen(false);
+                          }}
+                        />
+                        <GalleryMenuButton
+                          label="Image → Prompt"
+                          onClick={() => {
+                            saveGalleryHandoff(buildGalleryHandoff(entry, "imagePrompt"));
+                            router.push(galleryHandoffPath("imagePrompt"));
+                            setMenuOpen(false);
+                          }}
+                        />
+                      </>
+                    ) : null}
                   </>
                 ) : null}
                 <GalleryMenuButton

@@ -758,6 +758,37 @@ export function hintsSpecifyDress(hints?: string): boolean {
   );
 }
 
+/** User wants nudity or no clothing — skip catalog wardrobe rolls and do not invent outfits. */
+const NO_CLOTHING_HINT =
+  /\b(?:naked|nudity|unclothed|undressed|disrobed|topless|bottomless|au naturel|without clothes|no clothes|no clothing|not wearing(?: anything)?|wearing nothing|fully bare|bare body|bare skin|artistic nude|nude figure|nude portrait|nude study|nude model|in the nude|fully nude|completely nude)\b/i;
+
+/** Fashion/color "nude" (hosiery, heels, makeup) — not artistic nudity. */
+const NUDE_COLOR_OR_FASHION =
+  /\bnude\b(?:\s+(?:sheer|lipstick|heels|pumps|hosiery|pantyhose|stockings|tights|beige|blush|shade|tone|mesh|silk|nylon|opaque|suede|velvet|tulle|lace|cashmere|flannel|denim|canvas|alpaca|poplin|chiffon|felt|hemp|wool|knit|tweed|fleece|linen|cotton|leather|satin|color|colour|colorway|palette|undertone|complexion|foundation|concealer|powder|lip|nail|polish|beige|sand|taupe|camel|buff|ecru|ivory|cream|peach|rose|pink|mauve|neutral|skin-tone|skintone))\b/i;
+
+export function hintsImplyNoClothing(hints?: string): boolean {
+  const value = hints?.trim() ?? "";
+  if (!value) {
+    return false;
+  }
+  if (NO_CLOTHING_HINT.test(value)) {
+    return true;
+  }
+  if (/\bnude\b/i.test(value) && !NUDE_COLOR_OR_FASHION.test(value)) {
+    return true;
+  }
+  return false;
+}
+
+export function buildNoClothingUserDirective(): string {
+  return [
+    "NO WARDROBE (mandatory):",
+    "The user requested nudity or no clothing—do not add garments, fabric layers, outfits, or wardrobe descriptions.",
+    "Describe skin, posture, and anatomy naturally without inventing clothing.",
+    "Do not add catalog wardrobe rolls or random outfit ingredients.",
+  ].join(" ");
+}
+
 export function hintsMentionClothing(hints?: string): boolean {
   const value = hints?.trim() ?? "";
   return CLOTHING_HINT.test(value) || hintsExplicitUndergarment(value);
@@ -786,7 +817,7 @@ export function hintsLockPrimaryGarment(hints?: string): boolean {
 
 /** Input specifies underwear—do not add random footwear, outer layers, or accessories. */
 export function hintsSkipWardrobeRolls(hints?: string): boolean {
-  return hintsExplicitUndergarment(hints);
+  return hintsExplicitUndergarment(hints) || hintsImplyNoClothing(hints);
 }
 
 export type ClothingPickFilters = {

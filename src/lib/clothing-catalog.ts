@@ -21,6 +21,7 @@ import {
   clothingMatchesGender,
   clothingMatchesGenderForPick,
   entryHasRestrictedContext,
+  hintsImplyNoClothing,
   hintsMentionClothing,
   hintsSpecifyDress,
   hintsSpecifyFootwear,
@@ -2127,6 +2128,10 @@ export function shouldPickRandomCharacterOutfit(input: {
   alwaysIncludeClothing?: boolean;
 }): boolean {
   if (hasWardrobeCatalogSelection(input.presetOptions)) {
+    return false;
+  }
+
+  if (hintsImplyNoClothing(input.hints)) {
     return false;
   }
 

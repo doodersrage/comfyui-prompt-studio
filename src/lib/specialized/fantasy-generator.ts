@@ -17,6 +17,10 @@ import {
   buildGenerateWardrobeUserDirective,
   mergeGenerateWardrobeIntoPrompt,
 } from "../generate-wardrobe";
+import {
+  buildNoClothingUserDirective,
+  hintsImplyNoClothing,
+} from "../clothing-tags";
 import { isMultiPersonInput } from "../distinct-people";
 import { DEFAULT_GENERATION_SETTINGS } from "../generation-settings";
 import { applyLockedLocation } from "../locked-location";
@@ -87,7 +91,9 @@ export async function generateFantasyPrompt(
       : null;
   const clothingDirective = wardrobeAssignments?.length
     ? buildGenerateWardrobeUserDirective(wardrobeAssignments)
-    : null;
+    : hintsImplyNoClothing(effectiveHints) || hintsImplyNoClothing(seed)
+      ? buildNoClothingUserDirective()
+      : null;
 
   const focusInstructions =
     focus === "environment"

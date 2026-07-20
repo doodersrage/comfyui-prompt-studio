@@ -74,6 +74,7 @@ export const TOOL_ACCENT_CLASSES = ROUTE_TINT_CLASSES;
 export const ROUTE_ACCENT: Record<string, ToolAccent> = {
   "/": "violet",
   "/format": "emerald",
+  "/prompt": "sky",
   "/lint": "amber",
   "/topics": "violet",
   "/character": "sky",

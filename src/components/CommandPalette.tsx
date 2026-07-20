@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
 import { featureForPath } from "@/lib/auth/features";
 import type { GlobalSearchResult } from "@/lib/global-search";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type CommandItem = {
   id: string;
@@ -25,6 +26,7 @@ const STATIC_ITEMS: CommandItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/dashboard", group: "Navigate" },
   { id: "variations", label: "Variations", href: "/variations", group: "Navigate" },
   { id: "format", label: "Format", href: "/format", group: "Navigate" },
+  { id: "prompt", label: "Prompt Editor", href: "/prompt", group: "Navigate" },
   { id: "character", label: "Character", href: "/character", group: "Navigate" },
   { id: "image-prompt", label: "Image → Prompt", href: "/image-prompt", group: "Navigate" },
   { id: "queue", label: "Queue", href: "/queue", group: "Navigate" },
@@ -55,7 +57,7 @@ export default function CommandPalette() {
   useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {
-      setGlobalMatches([]);
+      scheduleAfterCommit(() => setGlobalMatches([]));
       return;
     }
 

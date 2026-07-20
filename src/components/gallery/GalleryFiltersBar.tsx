@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   backfillVisionTags,
   listUntaggedCompletedEntries,
@@ -124,7 +125,9 @@ export default function GalleryFiltersBar({
   const [queryDraft, setQueryDraft] = useState(filter.query ?? "");
 
   useEffect(() => {
-    setQueryDraft(filter.query ?? "");
+    scheduleAfterCommit(() => {
+      setQueryDraft(filter.query ?? "");
+    });
   }, [filter.query]);
 
   useEffect(() => {
