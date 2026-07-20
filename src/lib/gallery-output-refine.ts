@@ -22,11 +22,24 @@ import {
   qwenDualClipFilename,
 } from "./model-loader-precision";
 import type { QueueQualityProfile } from "./queue-quality-profile";
+import type { ComfyGalleryEntry } from "./comfyui-gallery";
 
 export const GALLERY_REFINE_DENOISE: Record<"final" | "max", number> = {
-  final: 0.28,
-  max: 0.32,
+  final: 0.22,
+  max: 0.26,
 };
+
+export const GALLERY_REFINE_PORTRAIT_DENOISE: Record<"final" | "max", number> = {
+  final: 0.18,
+  max: 0.22,
+};
+
+const PORTRAIT_REFINE_PATTERN =
+  /\b(portrait|face|skin|headshot|close-?up|selfie|beauty|model\s+face)\b/i;
+
+export function isPortraitRefinePrompt(prompt: string | undefined): boolean {
+  return PORTRAIT_REFINE_PATTERN.test(prompt?.trim() ?? "");
+}
 
 type WorkflowNode = {
   class_type: string;
@@ -36,8 +49,20 @@ type WorkflowNode = {
 
 export function galleryRefineDenoiseForProfile(
   profile: Extract<QueueQualityProfile, "final" | "max"> | undefined,
+  prompt?: string,
 ): number {
-  return profile === "max" ? GALLERY_REFINE_DENOISE.max : GALLERY_REFINE_DENOISE.final;
+  const key = profile === "max" ? "max" : "final";
+  const table = isPortraitRefinePrompt(prompt)
+    ? GALLERY_REFINE_PORTRAIT_DENOISE
+    : GALLERY_REFINE_DENOISE;
+  return table[key];
+}
+
+export function galleryRefineDenoiseForEntry(
+  entry: Pick<ComfyGalleryEntry, "prompt">,
+  profile: Extract<QueueQualityProfile, "final" | "max"> | undefined,
+): number {
+  return galleryRefineDenoiseForProfile(profile, entry.prompt);
 }
 
 function buildCheckpointGalleryRefineWorkflow(
@@ -225,6 +250,7 @@ export function buildGalleryRefineWorkflow(
 export function galleryRefineQueueParams(input: {
   inputImageFilename: string;
   profile?: Extract<QueueQualityProfile, "final" | "max">;
+  prompt?: string;
   queueParams?: {
     seed?: string;
     width?: string;
@@ -237,7 +263,7 @@ export function galleryRefineQueueParams(input: {
 }): Record<string, string> {
   const params: Record<string, string> = {
     inputImageFilename: input.inputImageFilename,
-    denoise: String(galleryRefineDenoiseForProfile(input.profile)),
+    denoise: String(galleryRefineDenoiseForProfile(input.profile, input.prompt)),
   };
 
   for (const key of ["seed", "width", "height", "cfg", "steps", "sampler", "scheduler"] as const) {

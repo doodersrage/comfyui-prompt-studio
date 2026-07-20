@@ -1,8 +1,11 @@
-import { buildPromptSidecar } from "./prompt-sidecar";
+import { buildPromptSidecar, readSidecarOutputImage, type PromptSidecar } from "./prompt-sidecar";
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
 import { buildComfyViewPath } from "./comfyui-outputs";
 
+export { readSidecarOutputImage, sidecarOutputViewUrl } from "./prompt-sidecar";
+
 export function buildGallerySidecar(entry: ComfyGalleryEntry) {
+  const outputImage = entry.images[0];
   return buildPromptSidecar({
     positive: entry.prompt,
     negative: entry.negativePrompt,
@@ -11,15 +14,19 @@ export function buildGallerySidecar(entry: ComfyGalleryEntry) {
     hints: entry.prompt.slice(0, 200),
     metadata: {
       promptId: entry.promptId,
+      galleryEntryId: entry.id,
       comfyUrl: entry.comfyUrl,
       status: entry.status,
       queuedAt: entry.queuedAt,
       completedAt: entry.completedAt,
+      outputImage,
       images: entry.images,
       queueParams: entry.queueParams,
-      sourceImageUrl: entry.sourceImageUrl,
+      sourceImageUrl: entry.sourceImageUrl ?? (outputImage ? buildComfyViewPath(entry.comfyUrl, outputImage) : undefined),
       maskImageUrl: entry.maskImageUrl,
       queueQualityProfile: entry.queueQualityProfile,
+      parentGalleryEntryId: entry.parentGalleryEntryId,
+      derivedKind: entry.derivedKind,
     },
   });
 }

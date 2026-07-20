@@ -40,6 +40,8 @@ export type ComfyGalleryFilter = {
   derivativeOfEntryId?: string;
   /** Show only this gallery entry (lineage jump). */
   focusEntryId?: string;
+  /** Filter by derivative kind (upscale, refine, variation). */
+  derivedKind?: ComfyGalleryEntry["derivedKind"];
   projectId?: string;
   reviewMode?: boolean;
   unreviewedOnly?: boolean;
@@ -300,6 +302,9 @@ export function filterComfyGalleryEntries(
       filter.derivativeOfEntryId?.trim() &&
       entry.parentGalleryEntryId !== filter.derivativeOfEntryId.trim()
     ) {
+      return false;
+    }
+    if (filter.derivedKind && entry.derivedKind !== filter.derivedKind) {
       return false;
     }
     if (query && !filter.semanticSearch) {

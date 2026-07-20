@@ -51,7 +51,7 @@ import {
   downloadGallerySidecarBundle,
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
-import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry } from "@/lib/comfyui-requeue";
+import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, bulkRefineGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry } from "@/lib/comfyui-requeue";
 import {
   buildGalleryLineageGroups,
   galleryLineageGroupingEnabled,
@@ -154,8 +154,12 @@ export default function ComfyUiGalleryPanel({
   const [layout, setLayout] = useState<GalleryLayoutMode>("grid");
   const [viewPrefsLoaded, setViewPrefsLoaded] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [compareWinnerId, setCompareWinnerId] = useState<string | null>(null);
   const [workflowEntry, setWorkflowEntry] = useState<ComfyGalleryEntry | null>(null);
   const [compareStatus, setCompareStatus] = useState<string | null>(null);
+  const [collapsedLineageGroups, setCollapsedLineageGroups] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [paramAxis, setParamAxis] = useState<ParamExperimentAxis>("cfg");
   const [projectFilterId, setProjectFilterId] = useState<string>("");
   const [projects] = useState(() => loadPromptProjects());
@@ -1071,18 +1075,26 @@ export default function ComfyUiGalleryPanel({
               () => setSelectedIds([]),
             );
           }}
+          onBulkRefine={() => {
+            setRequeueStatus("Bulk refine (Final) started…");
+            void bulkRefineGalleryEntries(selectedEntries, "final", setRequeueStatus).then(
+              () => setSelectedIds([]),
+            );
+          }}
         />
       ) : null}
 
       {downloadError && (
         <p className="text-xs text-rose-300">{downloadError}</p>
       )}
-      {filter.derivativeOfEntryId || filter.focusEntryId ? (
+      {filter.derivativeOfEntryId || filter.focusEntryId || filter.derivedKind ? (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-200/90">
           <span>
             {filter.focusEntryId
               ? "Lineage filter: showing source entry"
-              : "Lineage filter: showing derived outputs"}
+              : filter.derivativeOfEntryId
+                ? "Lineage filter: showing derived outputs"
+                : `Lineage filter: ${filter.derivedKind} only`}
           </span>
           <button
             type="button"
@@ -1091,6 +1103,7 @@ export default function ComfyUiGalleryPanel({
                 ...previous,
                 derivativeOfEntryId: undefined,
                 focusEntryId: undefined,
+                derivedKind: undefined,
               }))
             }
             className="rounded-lg border border-violet-500/30 px-2 py-0.5 text-[11px] transition hover:border-violet-400/50 hover:text-violet-100"
@@ -1098,7 +1111,29 @@ export default function ComfyUiGalleryPanel({
             Clear lineage filter
           </button>
         </div>
-      ) : null}
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {(["upscale", "refine", "variation"] as const).map((kind) => (
+            <button
+              key={kind}
+              type="button"
+              onClick={() =>
+                setFilter((previous) => ({
+                  ...previous,
+                  derivedKind: previous.derivedKind === kind ? undefined : kind,
+                }))
+              }
+              className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+                filter.derivedKind === kind
+                  ? "border-violet-400/50 bg-violet-500/15 text-violet-100"
+                  : "border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+              }`}
+            >
+              {kind === "upscale" ? "Upscaled" : kind === "refine" ? "Refined" : "Variations"}
+            </button>
+          ))}
+        </div>
+      )}
       {requeueStatus && (
         <p className="text-xs text-violet-300/90">{requeueStatus}</p>
       )}
@@ -1117,9 +1152,12 @@ export default function ComfyUiGalleryPanel({
           onClose={() => {
             setCompareOpen(false);
             setCompareStatus(null);
+            setCompareWinnerId(null);
           }}
           status={compareStatus}
+          compareWinnerId={compareWinnerId}
           onPickWinner={(entry) => {
+            setCompareWinnerId(entry.id);
             const compareIds = selectedEntries.slice(0, 4).map((item) => item.id);
             setFavorites(compareIds.filter((id) => id !== entry.id), false);
             setFavorites([entry.id], true);
@@ -1150,7 +1188,10 @@ export default function ComfyUiGalleryPanel({
             setReviewRating(entryId, rating);
             const entry = selectedEntries.find((item) => item.id === entryId);
             if (entry && rating && rating <= 2) {
-              recordAvoidedTokensFromPrompt(entry.prompt);
+              recordAvoidedTokensFromGalleryEntry({
+                prompt: entry.prompt,
+                visionTags: entry.visionTags,
+              });
             }
             if (entry) {
               recordCatalogBiasFromPrompt(entry.prompt, rating);
@@ -1199,6 +1240,17 @@ export default function ComfyUiGalleryPanel({
             }).then((result) => {
               if (!result.ok) {
                 setCompareStatus(result.error ?? "Refine failed.");
+              }
+            });
+          }}
+          onUpscaleWinner={(entry) => {
+            setCompareStatus("Upscaling compare winner at Max…");
+            void requeueUpscaleFromGalleryEntry(entry, {
+              qualityProfile: "max",
+              onStatus: setCompareStatus,
+            }).then((result) => {
+              if (!result.ok) {
+                setCompareStatus(result.error ?? "Upscale failed.");
               }
             });
           }}
@@ -1276,6 +1328,8 @@ export default function ComfyUiGalleryPanel({
                 return [renderCard(group.root)];
               }
 
+              const collapsed = collapsedLineageGroups.has(group.root.id);
+
               return [
                 <div
                   key={`lineage-${group.root.id}`}
@@ -1285,23 +1339,44 @@ export default function ComfyUiGalleryPanel({
                       : "col-span-full space-y-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-3"
                   }
                 >
-                  <p className="px-1 text-[10px] font-medium uppercase tracking-wide text-violet-300/80">
-                    Lineage · {group.derivatives.length + 1} outputs
-                  </p>
+                  <div className="flex items-center justify-between gap-2 px-1">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-violet-300/80">
+                      Lineage · {group.derivatives.length + 1} outputs
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCollapsedLineageGroups((previous) => {
+                          const next = new Set(previous);
+                          if (next.has(group.root.id)) {
+                            next.delete(group.root.id);
+                          } else {
+                            next.add(group.root.id);
+                          }
+                          return next;
+                        })
+                      }
+                      className="rounded-lg border border-violet-500/25 px-2 py-0.5 text-[10px] text-violet-200/90 transition hover:border-violet-400/40"
+                    >
+                      {collapsed ? "Expand" : "Collapse"}
+                    </button>
+                  </div>
                   <div className={layout === "list" ? "space-y-3" : galleryCardGridClass}>
                     {renderCard(group.root)}
-                    {group.derivatives.map((derivative) => (
-                      <div
-                        key={derivative.id}
-                        className={
-                          layout === "list"
-                            ? "ml-3 border-l border-violet-500/20 pl-3"
-                            : undefined
-                        }
-                      >
-                        {renderCard(derivative)}
-                      </div>
-                    ))}
+                    {!collapsed
+                      ? group.derivatives.map((derivative) => (
+                          <div
+                            key={derivative.id}
+                            className={
+                              layout === "list"
+                                ? "ml-3 border-l border-violet-500/20 pl-3"
+                                : undefined
+                            }
+                          >
+                            {renderCard(derivative)}
+                          </div>
+                        ))
+                      : null}
                   </div>
                 </div>,
               ];

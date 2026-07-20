@@ -2,6 +2,7 @@ import type { WorkflowParamValues } from "./comfyui-config";
 import type { ComfyImageModel } from "./comfy-models";
 import type { DetailLevel } from "./detail-level";
 import type { GenerationDiagnostics } from "./generation-diagnostics";
+import { buildComfyViewPath, type ComfyOutputImage } from "./comfyui-outputs";
 import { buildGalleryImageUrlsFromQueueParams } from "./queue-requeue-images";
 import {
   normalizeQueueQualityProfile,
@@ -111,6 +112,58 @@ export function sidecarQueueParams(sidecar: PromptSidecar): WorkflowParamValues 
   return raw as WorkflowParamValues;
 }
 
+/** Read primary output image from sidecar metadata (export or legacy shapes). */
+export function readSidecarOutputImage(
+  sidecar: PromptSidecar,
+): ComfyOutputImage | undefined {
+  const rawOutput = sidecar.metadata?.outputImage;
+  if (rawOutput && typeof rawOutput === "object") {
+    const candidate = rawOutput as Partial<ComfyOutputImage>;
+    if (typeof candidate.filename === "string" && candidate.filename.trim()) {
+      return {
+        filename: candidate.filename.trim(),
+        subfolder: typeof candidate.subfolder === "string" ? candidate.subfolder : "",
+        type:
+          candidate.type === "input" || candidate.type === "temp"
+            ? candidate.type
+            : "output",
+      };
+    }
+  }
+
+  const rawImages = sidecar.metadata?.images;
+  if (Array.isArray(rawImages) && rawImages.length > 0) {
+    const first = rawImages[0];
+    if (first && typeof first === "object") {
+      const candidate = first as Partial<ComfyOutputImage>;
+      if (typeof candidate.filename === "string" && candidate.filename.trim()) {
+        return {
+          filename: candidate.filename.trim(),
+          subfolder: typeof candidate.subfolder === "string" ? candidate.subfolder : "",
+          type:
+            candidate.type === "input" || candidate.type === "temp"
+              ? candidate.type
+              : "output",
+        };
+      }
+    }
+  }
+
+  return undefined;
+}
+
+export function sidecarOutputViewUrl(sidecar: PromptSidecar): string | undefined {
+  const image = readSidecarOutputImage(sidecar);
+  if (!image) {
+    return undefined;
+  }
+  const comfyUrl =
+    typeof sidecar.metadata?.comfyUrl === "string"
+      ? sidecar.metadata.comfyUrl.trim().replace(/\/+$/, "")
+      : "http://127.0.0.1:8188";
+  return buildComfyViewPath(comfyUrl, image);
+}
+
 export function sidecarRequeueContext(sidecar: PromptSidecar): {
   queueParams?: WorkflowParamValues;
   sourceImageUrl?: string;
@@ -134,10 +187,11 @@ export function sidecarRequeueContext(sidecar: PromptSidecar): {
     typeof sidecar.metadata?.maskImageUrl === "string"
       ? sidecar.metadata.maskImageUrl.trim()
       : undefined;
-  if (storedSource || storedMask) {
+  const outputViewUrl = sidecarOutputViewUrl(sidecar);
+  if (storedSource || storedMask || outputViewUrl) {
     return {
       queueParams,
-      sourceImageUrl: storedSource,
+      sourceImageUrl: storedSource ?? outputViewUrl,
       maskImageUrl: storedMask,
       queueQualityProfile,
     };

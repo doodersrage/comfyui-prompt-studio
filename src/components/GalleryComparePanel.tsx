@@ -15,6 +15,8 @@ type GalleryComparePanelProps = {
   entries: ComfyGalleryEntry[];
   onClose: () => void;
   onPickWinner?: (entry: ComfyGalleryEntry) => void;
+  compareWinnerId?: string | null;
+  onUpscaleWinner?: (entry: ComfyGalleryEntry) => void;
   onRate?: (entryId: string, rating: ComfyGalleryEntry["reviewRating"]) => void;
   onFavorite?: (entryId: string) => void;
   onMutate?: (entry: ComfyGalleryEntry) => void;
@@ -28,6 +30,8 @@ export default function GalleryComparePanel({
   entries,
   onClose,
   onPickWinner,
+  compareWinnerId,
+  onUpscaleWinner,
   onRate,
   onFavorite,
   onMutate,
@@ -81,6 +85,20 @@ export default function GalleryComparePanel({
           <Button size="sm" variant="secondary" onClick={startTournament}>
             ELO tournament
           </Button>
+          {onUpscaleWinner && compareWinnerId ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                const winner = entries.find((entry) => entry.id === compareWinnerId);
+                if (winner) {
+                  onUpscaleWinner(winner);
+                }
+              }}
+            >
+              Upscale winner (Max)
+            </Button>
+          ) : null}
         </div>
       ) : null}
       {tournament && pairs[pairIndex] ? (

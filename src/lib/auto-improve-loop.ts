@@ -1,6 +1,6 @@
 "use client";
 
-import { requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry } from "./comfyui-requeue";
+import { requeueUpscaleFromGalleryEntry } from "./comfyui-requeue";
 import { queueMutatedGalleryJobs } from "./gallery-mutations";
 import { queueSeedExperiment } from "./seed-experiment-queue";
 import { loadComfyUiSettings } from "./comfyui-settings";
@@ -32,18 +32,14 @@ export async function runAutoImproveOnRating(
   const settings = loadComfyUiSettings();
 
   if (rating === 5 && settings.autoRequeueMaxOnFiveStar !== false) {
+    const refineAfterComplete = settings.autoImg2imgRefineOnFiveStar ? ("max" as const) : undefined;
     const maxResult = await requeueUpscaleFromGalleryEntry(entry, {
       qualityProfile: "max",
+      refineAfterComplete,
     });
     if (maxResult.ok) {
-      if (settings.autoImg2imgRefineOnFiveStar) {
-        const refineResult = await requeueRefineFromGalleryEntry(entry, {
-          qualityProfile: "max",
-        });
-        if (refineResult.ok) {
-          return "Auto-improve: upscaled your 5★ output and queued a low-denoise refine pass.";
-        }
-        return `Auto-improve: upscaled 5★ output; refine failed (${refineResult.error ?? "queue error"}).`;
+      if (refineAfterComplete) {
+        return "Auto-improve: upscaled your 5★ output at Max; refine will queue when upscale finishes.";
       }
       return "Auto-improve: upscaled your 5★ output at Max quality (same image).";
     }

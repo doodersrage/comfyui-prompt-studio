@@ -5,6 +5,7 @@ import {
   registerComfyGalleryJob,
 } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
+import { scheduleRefineAfterUpscaleComplete } from "./gallery-pending-actions";
 import {
   resolveWorkflowGraphEnrichOptions,
   type ComfyUiRuntimeConfig,
@@ -101,6 +102,8 @@ export async function requeueUpscaleFromGalleryEntry(
   options: {
     qualityProfile: Extract<QueueQualityProfile, "final" | "max">;
     onStatus?: (message: string) => void;
+    /** Queue low-denoise refine after upscale completes (uses upscaled output). */
+    refineAfterComplete?: Extract<QueueQualityProfile, "final" | "max">;
   },
 ): Promise<RequeueComfyJobResult> {
   const outputUrl = resolveGalleryOutputImageUrl(entry);
@@ -205,7 +208,11 @@ export async function requeueUpscaleFromGalleryEntry(
         queueQualityProfile: options.qualityProfile,
         parentGalleryEntryId: entry.id,
         derivedKind: "upscale",
+        historyId: entry.historyId,
       });
+      if (options.refineAfterComplete) {
+        scheduleRefineAfterUpscaleComplete(data.promptId, options.refineAfterComplete);
+      }
       void scheduleComfyGalleryPoll(data.promptId, {
         comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
         onStatus: options.onStatus,
@@ -269,6 +276,7 @@ export async function requeueRefineFromGalleryEntry(
   const params = galleryRefineQueueParams({
     inputImageFilename,
     profile,
+    prompt: entry.prompt,
     queueParams: entry.queueParams,
   });
 
@@ -391,6 +399,51 @@ export async function bulkUpscaleGalleryEntries(
     errors.length > 0 ? ` · ${errors.slice(0, 3).join(" · ")}` : "";
   onStatus?.(
     `Bulk upscale finished · ${queued} queued · ${skipped} skipped · ${failed} failed${detail}`,
+  );
+
+  return { queued, failed, skipped, errors };
+}
+
+export function canRefineGalleryEntry(
+  entry: Pick<ComfyGalleryEntry, "status" | "images" | "sourceImageUrl" | "comfyUrl">,
+): boolean {
+  return canUpscaleGalleryEntry(entry);
+}
+
+export async function bulkRefineGalleryEntries(
+  entries: ComfyGalleryEntry[],
+  qualityProfile: Extract<QueueQualityProfile, "final" | "max"> = "final",
+  onStatus?: (message: string) => void,
+): Promise<BulkUpscaleGalleryResult> {
+  let queued = 0;
+  let failed = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const [index, entry] of entries.entries()) {
+    if (!canRefineGalleryEntry(entry)) {
+      skipped += 1;
+      errors.push(`${summarizeBulkUpscaleLabel(entry)}: skipped (not completed or no output image)`);
+      continue;
+    }
+
+    onStatus?.(`Refining ${index + 1}/${entries.length}…`);
+    const result = await requeueRefineFromGalleryEntry(entry, {
+      qualityProfile,
+      onStatus: undefined,
+    });
+    if (result.ok) {
+      queued += 1;
+    } else {
+      failed += 1;
+      errors.push(`${summarizeBulkUpscaleLabel(entry)}: ${result.error ?? "queue failed"}`);
+    }
+  }
+
+  const detail =
+    errors.length > 0 ? ` · ${errors.slice(0, 3).join(" · ")}` : "";
+  onStatus?.(
+    `Bulk refine finished · ${queued} queued · ${skipped} skipped · ${failed} failed${detail}`,
   );
 
   return { queued, failed, skipped, errors };

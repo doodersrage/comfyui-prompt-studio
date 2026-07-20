@@ -11,6 +11,13 @@ describe("gallery-output-refine", () => {
     assert.equal(galleryRefineDenoiseForProfile(undefined), galleryRefineDenoiseForProfile("final"));
   });
 
+  it("uses portrait-specific lower denoise", () => {
+    assert.ok(
+      galleryRefineDenoiseForProfile("final", "portrait close-up, natural skin") <
+        galleryRefineDenoiseForProfile("final", "landscape mountains"),
+    );
+  });
+
   it("builds qwen img2img refine workflow with VAEEncode", () => {
     const workflow = buildGalleryRefineWorkflow("qwen-image-2512");
     const classTypes = Object.values(workflow).map((node) => node.class_type);

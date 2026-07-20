@@ -41,7 +41,9 @@ export function attachGalleryPromptIdToHistory(
             metadata: {
               ...(entry.metadata ?? {}),
               comfyPromptId: promptId,
-              galleryEntryId,
+              ...(galleryEntryId?.trim()
+                ? { galleryEntryId: galleryEntryId.trim() }
+                : {}),
             },
           }
         : entry,
@@ -50,6 +52,15 @@ export function attachGalleryPromptIdToHistory(
   } catch {
     // ignore
   }
+}
+
+/** Ensure history metadata links to the gallery entry once the job is registered or completes. */
+export function backfillHistoryGalleryLink(entry: ComfyGalleryEntry): void {
+  const historyId = entry.historyId?.trim();
+  if (!historyId || !entry.id?.trim() || !entry.promptId?.trim()) {
+    return;
+  }
+  attachGalleryPromptIdToHistory(historyId, entry.promptId, entry.id);
 }
 
 export function findGalleryEntriesForHistory(

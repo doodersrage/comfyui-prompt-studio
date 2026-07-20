@@ -1,0 +1,37 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { auditLoaderMapsAgainstComfyUi } from "./loader-map-health-audit.ts";
+
+describe("loader-map-health-audit", () => {
+  it("flags checkpoint filenames missing from ComfyUI lists", () => {
+    const issues = auditLoaderMapsAgainstComfyUi({
+      checkpointMap: { "qwen-image-2512": "missing.safetensors" },
+      vaeMap: {},
+      upscaleMap: {},
+      models: {
+        checkpoints: ["real.safetensors"],
+        unets: [],
+        vaes: [],
+        upscaleModels: [],
+      },
+    });
+    assert.equal(issues.length, 1);
+    assert.equal(issues[0]?.severity, "error");
+  });
+
+  it("warns when upscale model is not installed", () => {
+    const issues = auditLoaderMapsAgainstComfyUi({
+      checkpointMap: {},
+      vaeMap: {},
+      upscaleMap: { default: "4x-UltraSharp.pth" },
+      models: {
+        checkpoints: [],
+        unets: [],
+        vaes: [],
+        upscaleModels: ["RealESRGAN_x4plus.pth"],
+      },
+    });
+    assert.equal(issues.length, 1);
+    assert.equal(issues[0]?.severity, "warn");
+  });
+});

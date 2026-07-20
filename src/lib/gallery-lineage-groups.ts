@@ -52,8 +52,12 @@ export function buildGalleryLineageGroups(
 export function galleryLineageGroupingEnabled(
   filter: Pick<
     import("./comfyui-gallery").ComfyGalleryFilter,
-    "derivativeOfEntryId" | "focusEntryId"
+    "derivativeOfEntryId" | "focusEntryId" | "derivedKind"
   >,
 ): boolean {
-  return !filter.derivativeOfEntryId?.trim() && !filter.focusEntryId?.trim();
+  return (
+    !filter.derivativeOfEntryId?.trim() &&
+    !filter.focusEntryId?.trim() &&
+    !filter.derivedKind
+  );
 }

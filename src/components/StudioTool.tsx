@@ -127,6 +127,7 @@ import {
   applyPromptBrief,
 } from "@/lib/prompt-brief";
 import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
+import { buildGalleryLineageGroups } from "@/lib/gallery-lineage-groups";
 import { addAvoidedToken, addAvoidedTokens } from "@/lib/avoided-tokens";
 import {
   appendTokensToNegativeProfileExtra,
@@ -421,6 +422,15 @@ export default function StudioTool() {
       return computeGalleryStats([]);
     }
     return computeGalleryStats(loadComfyGallery());
+  }, [tab, galleryRevision, scopeRevision]);
+  const galleryLineageClusters = useMemo(() => {
+    if (tab !== "analytics") {
+      return [];
+    }
+    return buildGalleryLineageGroups(loadComfyGallery())
+      .filter((group) => group.derivatives.length > 0)
+      .sort((left, right) => right.derivatives.length - left.derivatives.length)
+      .slice(0, 8);
   }, [tab, galleryRevision, scopeRevision]);
   const iterationEntries = useMemo(() => listIterationEntries(entries), [entries]);
   const iterationDiff = useMemo(() => {
@@ -1675,6 +1685,46 @@ export default function StudioTool() {
             </ToolBlockGroup>
           )}
         </ToolSection>
+
+          <ToolSection title="Gallery lineage clusters">
+            <p className="text-sm text-zinc-400">
+              Parent outputs with upscale, refine, or variation derivatives. Open Gallery to act on a cluster.
+            </p>
+            {galleryLineageClusters.length === 0 ? (
+              <EmptyState
+                icon="diff"
+                title="No lineage clusters yet"
+                description="Upscale, refine, or re-queue variations from Gallery to build derivative trees."
+              />
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {galleryLineageClusters.map((group) => (
+                  <li
+                    key={group.root.id}
+                    className="rounded-xl border border-zinc-800/80 bg-zinc-950/35 px-3 py-2"
+                  >
+                    <p className="type-caption text-zinc-500">
+                      {group.root.model ?? group.root.tool} · {group.derivatives.length} derivative
+                      {group.derivatives.length === 1 ? "" : "s"}
+                      {group.root.reviewRating ? ` · ${group.root.reviewRating}★ root` : ""}
+                    </p>
+                    <p className="type-body ui-truncate-2 text-zinc-200">{group.root.prompt}</p>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {group.derivatives.slice(0, 4).map((derivative) => (
+                        <span
+                          key={derivative.id}
+                          className="rounded-full border border-violet-500/20 bg-violet-500/5 px-2 py-0.5 text-[10px] text-violet-200/90"
+                        >
+                          {derivative.derivedKind ?? "derived"}
+                          {derivative.reviewRating ? ` · ${derivative.reviewRating}★` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </ToolSection>
         </>
       )}
 

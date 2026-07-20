@@ -55,12 +55,19 @@ test("settings comfyui loader maps section loads", async ({ page }) => {
   await expect(page.getByText(/Checkpoint map/i)).toBeVisible();
 });
 
+test("settings workflow health panel loads", async ({ page }) => {
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "ComfyUI", exact: true }).click();
+  await expect(page.getByText(/Workflow library health/i)).toBeVisible();
+});
+
 test("gallery selection bar documents bulk upscale actions", async ({ page }) => {
   await page.goto("/gallery");
   await expect(page.getByRole("heading", { name: /ComfyUI Gallery/i })).toBeVisible();
   await page.getByRole("button", { name: /Select visible/i }).click();
   await page.getByRole("button", { name: "Queue", exact: true }).click();
   await expect(page.getByRole("button", { name: /Bulk upscale \(Final\)/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Bulk refine \(Final\)/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /Bulk new variation/i })).toBeVisible();
 });
 

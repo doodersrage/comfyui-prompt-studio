@@ -6,6 +6,11 @@ import {
 } from "./comfyui-gallery-client";
 import { loadComfyGallery, type ComfyGalleryEntry } from "./comfyui-gallery";
 
+export {
+  scheduleRefineAfterUpscaleComplete,
+  consumePendingRefineAfterUpscale,
+} from "./gallery-pending-actions";
+
 const activePolls = new Map<string, Promise<ComfyGalleryEntry | null>>();
 
 export type ScheduleComfyGalleryPollOptions = PollComfyGalleryJobOptions & {

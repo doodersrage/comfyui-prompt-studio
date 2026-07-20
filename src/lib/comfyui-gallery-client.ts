@@ -19,6 +19,8 @@ import { dispatchWebhook } from "./webhook-settings";
 import { noteScheduledBatchJobComplete } from "./scheduled-batch-tracker";
 import { noteJobCompletionEmail } from "./job-completion-email";
 import { autoTagGalleryEntry } from "./gallery-auto-vision-tags";
+import { backfillHistoryGalleryLink } from "./prompt-lineage";
+import { consumePendingRefineAfterUpscale } from "./gallery-pending-actions";
 import type { WorkflowParamValues } from "./comfyui-config";
 import { buildGalleryImageUrlsFromQueueParams } from "./queue-requeue-images";
 
@@ -37,8 +39,6 @@ export type RegisterComfyGalleryJobInput = {
   queueQualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
   projectId?: string;
   comfyUrl: string;
-  parentGalleryEntryId?: string;
-  derivedKind?: ComfyGalleryEntry["derivedKind"];
 };
 
 export type PollComfyGalleryJobOptions = {
@@ -76,7 +76,7 @@ export function registerComfyGalleryJob(
     maskImageUrl: input.maskImageUrl,
   });
 
-  return addComfyGalleryEntry({
+  const entry = addComfyGalleryEntry({
     promptId: input.promptId,
     prompt: input.prompt,
     negativePrompt: input.negativePrompt,
@@ -94,6 +94,8 @@ export function registerComfyGalleryJob(
     status: "pending",
     statusMessage: "Queued",
   });
+  backfillHistoryGalleryLink(entry);
+  return entry;
 }
 
 export function importComfyGalleryFromHistory(
@@ -268,6 +270,7 @@ function applyComfyJobStatus(
     notifyComfyJobComplete(entry);
   }
   if (entry?.status === "completed") {
+    backfillHistoryGalleryLink(entry);
     noteJobCompletionEmail({
       promptId,
       status: "completed",
@@ -287,6 +290,16 @@ function applyComfyJobStatus(
       queueParams: entry.queueParams,
       completedAt: entry.completedAt ?? Date.now(),
     });
+
+    const pendingRefine = consumePendingRefineAfterUpscale(promptId);
+    if (pendingRefine && entry.derivedKind === "upscale") {
+      void import("./comfyui-requeue").then(({ requeueRefineFromGalleryEntry }) =>
+        requeueRefineFromGalleryEntry(entry, {
+          qualityProfile: pendingRefine.qualityProfile,
+          onStatus,
+        }),
+      );
+    }
   }
   return entry;
 }

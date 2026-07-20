@@ -106,7 +106,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       },
       showPreview = true,
     ) => {
-      registerComfyGalleryJob({
+      const galleryEntry = registerComfyGalleryJob({
         promptId: input.promptId,
         prompt: input.prompt,
         negativePrompt: input.negativePrompt,
@@ -124,7 +124,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         attachGalleryPromptIdToHistory(
           input.historyId,
           input.promptId,
-          undefined,
+          galleryEntry.id,
         );
       }
 

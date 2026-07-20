@@ -48,9 +48,13 @@ describe("gallery-lineage-groups", () => {
     );
   });
 
-  it("skips lineage grouping when derivative filter is active", () => {
+  it("skips lineage grouping when derivative or kind filter is active", () => {
     assert.equal(
       galleryLineageGroupingEnabled({ derivativeOfEntryId: "root", focusEntryId: "" }),
+      false,
+    );
+    assert.equal(
+      galleryLineageGroupingEnabled({ derivativeOfEntryId: "", focusEntryId: "", derivedKind: "upscale" }),
       false,
     );
     assert.equal(
