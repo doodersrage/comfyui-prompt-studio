@@ -28,7 +28,10 @@ import {
   buildGalleryUpscaleWorkflow,
   resolveGalleryOutputImageUrl,
 } from "./gallery-output-upscale";
-import { galleryRefineDenoiseForProfile } from "./gallery-output-refine";
+import {
+  buildGalleryRefineWorkflow,
+  galleryRefineQueueParams,
+} from "./gallery-output-refine";
 import { resolveUpscaleModelFilename } from "./model-upscale-map";
 import { loadSettingsCache } from "./settings-cache";
 import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
@@ -239,26 +242,124 @@ export async function requeueRefineFromGalleryEntry(
     return { ok: false, error: "No gallery output image available to refine." };
   }
 
-  const profile = options?.qualityProfile ?? "final";
-  const denoise = galleryRefineDenoiseForProfile(profile);
+  options.onStatus?.("Uploading gallery output…");
 
-  return requeueComfyJob({
-    prompt: entry.prompt,
-    negativePrompt: entry.negativePrompt,
-    tool: "refine",
-    model: entry.model,
-    queueParams: {
-      ...entry.queueParams,
-      denoise: String(denoise),
-    },
-    sourceImageUrl: outputUrl,
-    newSeed: false,
-    qualityProfile: profile,
-    forceInputImage: true,
-    parentGalleryEntryId: entry.id,
-    derivedKind: "refine",
-    onStatus: options?.onStatus,
+  const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
+  let inputImageFilename: string | undefined;
+  try {
+    inputImageFilename = await resolveQueueInputImageFilename({
+      imageUrl: outputUrl,
+      model,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Could not upload gallery output.",
+    };
+  }
+
+  if (!inputImageFilename?.trim()) {
+    return { ok: false, error: "Could not upload gallery output to ComfyUI." };
+  }
+
+  const profile = options?.qualityProfile ?? "final";
+  const workflow = buildGalleryRefineWorkflow(model);
+  const baseRuntime = resolveRuntimeForQueue(model, "refine");
+  const params = galleryRefineQueueParams({
+    inputImageFilename,
+    profile,
+    queueParams: entry.queueParams,
   });
+
+  const runtime: ComfyUiRuntimeConfig = {
+    ...baseRuntime,
+    workflowJson: JSON.stringify(workflow),
+    workflowQueueOptimize: false,
+    workflowGraphEnrich: false,
+    directWorkflowPatching: true,
+    queueQualityProfile: profile,
+  };
+
+  options.onStatus?.("Queueing low-denoise refine…");
+
+  const response = await fetch("/api/comfyui", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt: entry.prompt.trim() || "refine",
+      negativePrompt: entry.negativePrompt,
+      model,
+      params,
+      comfy: runtime,
+    }),
+  });
+
+  const data = (await response.json()) as {
+    ok?: boolean;
+    promptId?: string;
+    error?: string;
+    comfyUrl?: string;
+  };
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "ComfyUI refine queue failed.",
+      comfyUrl: data.comfyUrl,
+    };
+  }
+
+  if (data.promptId) {
+    registerComfyGalleryJob({
+      promptId: data.promptId,
+      prompt: entry.prompt.trim() || "refine",
+      negativePrompt: entry.negativePrompt,
+      tool: "refine",
+      model: entry.model,
+      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      queueParams: params,
+      sourceImageUrl: outputUrl,
+      queueQualityProfile: profile,
+      parentGalleryEntryId: entry.id,
+      derivedKind: "refine",
+    });
+    void scheduleComfyGalleryPoll(data.promptId, {
+      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      onStatus: options?.onStatus,
+    });
+  }
+
+  return {
+    ok: true,
+    promptId: data.promptId,
+    comfyUrl: data.comfyUrl ?? entry.comfyUrl,
+  };
+}
+
+export async function bulkUpscaleGalleryEntries(
+  entries: ComfyGalleryEntry[],
+  qualityProfile: Extract<QueueQualityProfile, "final" | "max">,
+  onStatus?: (message: string) => void,
+): Promise<{ queued: number; failed: number }> {
+  let queued = 0;
+  let failed = 0;
+
+  for (const [index, entry] of entries.entries()) {
+    onStatus?.(`Upscaling ${index + 1}/${entries.length}…`);
+    const result = await requeueUpscaleFromGalleryEntry(entry, {
+      qualityProfile,
+      onStatus: undefined,
+    });
+    if (result.ok) {
+      queued += 1;
+    } else {
+      failed += 1;
+    }
+  }
+
+  onStatus?.(`Bulk upscale finished · ${queued} queued · ${failed} failed`);
+  return { queued, failed };
 }
 
 export function requeueComfyJobFromEntry(

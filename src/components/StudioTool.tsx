@@ -30,7 +30,8 @@ import {
   buildPromptSidecar,
   downloadPromptSidecar,
 } from "@/lib/prompt-sidecar";
-import { requeueComfyJobFromHistory, requeueComfyJobs } from "@/lib/comfyui-requeue";
+import { requeueComfyJobFromHistory, requeueComfyJobs, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry } from "@/lib/comfyui-requeue";
+import { findGalleryEntryForHistory } from "@/lib/prompt-lineage";
 import {
   applyScenePresetLocks,
   buildScenePresetFromCurrent,
@@ -1057,7 +1058,7 @@ export default function StudioTool() {
                     setBackupStatus(`Saved template “${created.label}”.`);
                   }}
                   onRequeue={(newSeed) => {
-                    setBackupStatus("Re-queueing from history…");
+                    setBackupStatus("Queueing variation from history…");
                     void requeueComfyJobFromHistory(entry, {
                       newSeed,
                       onStatus: setBackupStatus,
@@ -1070,11 +1071,46 @@ export default function StudioTool() {
                         [
                           "queued from history",
                           result.promptId ? `prompt_id ${result.promptId}` : null,
-                          newSeed ? "new seed" : "same params",
+                          newSeed ? "new variation · new seed" : "same params",
                         ]
                           .filter(Boolean)
                           .join(" · "),
                       );
+                    });
+                  }}
+                  onUpscale={(qualityProfile) => {
+                    const galleryEntry = findGalleryEntryForHistory(entry);
+                    if (!galleryEntry) {
+                      setBackupStatus(
+                        "No linked gallery output — rate or queue from Gallery first, then upscale from there.",
+                      );
+                      return;
+                    }
+                    setBackupStatus(`Upscaling linked gallery output (${qualityProfile})…`);
+                    void requeueUpscaleFromGalleryEntry(galleryEntry, {
+                      qualityProfile,
+                      onStatus: setBackupStatus,
+                    }).then((result) => {
+                      if (!result.ok) {
+                        setBackupStatus(result.error ?? "Upscale failed.");
+                      }
+                    });
+                  }}
+                  onRefine={() => {
+                    const galleryEntry = findGalleryEntryForHistory(entry);
+                    if (!galleryEntry) {
+                      setBackupStatus(
+                        "No linked gallery output — open Gallery and use Refine on the completed output.",
+                      );
+                      return;
+                    }
+                    setBackupStatus("Queueing low-denoise refine from linked gallery output…");
+                    void requeueRefineFromGalleryEntry(galleryEntry, {
+                      onStatus: setBackupStatus,
+                    }).then((result) => {
+                      if (!result.ok) {
+                        setBackupStatus(result.error ?? "Refine failed.");
+                      }
                     });
                   }}
                   onRequeueBatch={() => {
@@ -2923,6 +2959,8 @@ function HistoryCard({
   onDiffRight,
   onSaveTemplate,
   onRequeue,
+  onUpscale,
+  onRefine,
   onRequeueBatch,
   batchPromptCount = 0,
 }: {
@@ -2938,6 +2976,8 @@ function HistoryCard({
   onDiffRight: () => void;
   onSaveTemplate: () => void;
   onRequeue: (newSeed: boolean) => void;
+  onUpscale?: (qualityProfile: "final" | "max") => void;
+  onRefine?: () => void;
   onRequeueBatch?: () => void;
   batchPromptCount?: number;
 }) {
@@ -2993,8 +3033,33 @@ function HistoryCard({
               Re-queue
             </Button>
             <Button variant="accent-outline" size="sm" className="type-caption" onClick={() => onRequeue(true)}>
-              Re-queue (new seed)
+              New variation (new seed)
             </Button>
+            {onUpscale ? (
+              <>
+                <Button
+                  variant="accent-outline"
+                  size="sm"
+                  className="type-caption"
+                  onClick={() => onUpscale("final")}
+                >
+                  Upscale (Final)
+                </Button>
+                <Button
+                  variant="accent-outline"
+                  size="sm"
+                  className="type-caption"
+                  onClick={() => onUpscale("max")}
+                >
+                  Upscale (Max)
+                </Button>
+              </>
+            ) : null}
+            {onRefine ? (
+              <Button variant="accent-outline" size="sm" className="type-caption" onClick={onRefine}>
+                Refine (low denoise)
+              </Button>
+            ) : null}
             {batchPromptCount > 1 && onRequeueBatch ? (
               <Button
                 variant="accent-outline"

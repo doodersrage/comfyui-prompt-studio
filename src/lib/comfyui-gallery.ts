@@ -36,6 +36,10 @@ export type ComfyGalleryFilter = {
   query?: string;
   semanticSearch?: boolean;
   similarToEntryId?: string;
+  /** Show only outputs derived from this gallery entry. */
+  derivativeOfEntryId?: string;
+  /** Show only this gallery entry (lineage jump). */
+  focusEntryId?: string;
   projectId?: string;
   reviewMode?: boolean;
   unreviewedOnly?: boolean;
@@ -287,6 +291,15 @@ export function filterComfyGalleryEntries(
       return false;
     }
     if (filter.visionTagsOnly && !(entry.visionTags?.length ?? 0)) {
+      return false;
+    }
+    if (filter.focusEntryId?.trim() && entry.id !== filter.focusEntryId.trim()) {
+      return false;
+    }
+    if (
+      filter.derivativeOfEntryId?.trim() &&
+      entry.parentGalleryEntryId !== filter.derivativeOfEntryId.trim()
+    ) {
       return false;
     }
     if (query && !filter.semanticSearch) {

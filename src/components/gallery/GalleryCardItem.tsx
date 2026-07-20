@@ -19,6 +19,8 @@ export type GalleryCardActions = {
   ) => void;
   upscale: (id: string, qualityProfile: "final" | "max") => void;
   refine: (id: string) => void;
+  showParent: (id: string) => void;
+  showDerivatives: (id: string) => void;
   openImage: (id: string, index: number) => void;
   reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => void;
   downloadError: (message: string | null) => void;
@@ -38,6 +40,7 @@ type GalleryCardItemProps = {
   imageUrls: string[];
   reviewMode: boolean;
   reviewMutationHints?: string[];
+  hasDerivatives?: boolean;
 };
 
 function GalleryCardItem({
@@ -52,6 +55,7 @@ function GalleryCardItem({
   imageUrls,
   reviewMode,
   reviewMutationHints,
+  hasDerivatives,
 }: GalleryCardItemProps) {
   const onToggleSelected = useCallback(
     () => actionsRef.current.toggleSelected(entry.id),
@@ -74,6 +78,12 @@ function GalleryCardItem({
     () => actionsRef.current.refine(entry.id),
     [actionsRef, entry.id],
   );
+  const onShowParent = useCallback(() => {
+    actionsRef.current.showParent(entry.id);
+  }, [actionsRef, entry.id]);
+  const onShowDerivatives = useCallback(() => {
+    actionsRef.current.showDerivatives(entry.id);
+  }, [actionsRef, entry.id]);
   const onRequeue = useCallback(
     (
       newSeed: boolean,
@@ -123,6 +133,9 @@ function GalleryCardItem({
       onRequeue={onRequeue}
       onUpscale={onUpscale}
       onRefine={onRefine}
+      onShowParent={entry.parentGalleryEntryId ? onShowParent : undefined}
+      onShowDerivatives={hasDerivatives ? onShowDerivatives : undefined}
+      hasDerivatives={hasDerivatives}
       onOpenImage={onOpenImage}
       reviewMode={reviewMode}
       reviewMutationHints={reviewMutationHints}
@@ -147,6 +160,7 @@ function propsEqual(
     previous.selectable === next.selectable &&
     previous.reviewMode === next.reviewMode &&
     previous.reviewMutationHints === next.reviewMutationHints &&
+    previous.hasDerivatives === next.hasDerivatives &&
     previous.imageUrls.length === next.imageUrls.length &&
     previous.imageUrls[0] === next.imageUrls[0]
   );

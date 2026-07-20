@@ -51,7 +51,7 @@ import {
   downloadGallerySidecarBundle,
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
-import { requeueComfyJobFromEntry, requeueComfyJobs, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry } from "@/lib/comfyui-requeue";
+import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry } from "@/lib/comfyui-requeue";
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import {
   buildGalleryLightboxPlaylist,
@@ -158,6 +158,15 @@ export default function ComfyUiGalleryPanel({
   const [allRenderLimit, setAllRenderLimit] = useState(GALLERY_ALL_RENDER_CHUNK);
   const entriesRef = useRef(entries);
   const visibleEntriesRef = useRef<ComfyGalleryEntry[]>([]);
+  const entryIdsWithDerivatives = useMemo(() => {
+    const ids = new Set<string>();
+    for (const entry of entries) {
+      if (entry.parentGalleryEntryId) {
+        ids.add(entry.parentGalleryEntryId);
+      }
+    }
+    return ids;
+  }, [entries]);
   const galleryCardActionsRef = useRef<GalleryCardActions>({
     toggleSelected: () => undefined,
     remove: () => undefined,
@@ -165,6 +174,8 @@ export default function ComfyUiGalleryPanel({
     requeue: () => undefined,
     upscale: () => undefined,
     refine: () => undefined,
+    showParent: () => undefined,
+    showDerivatives: () => undefined,
     openImage: () => undefined,
     reviewRating: () => undefined,
     downloadError: () => undefined,
@@ -637,6 +648,28 @@ export default function ComfyUiGalleryPanel({
           );
         });
       },
+      showParent: (id: string) => {
+        const entry = entriesRef.current.find((item) => item.id === id);
+        if (!entry?.parentGalleryEntryId) {
+          return;
+        }
+        setFilter((previous) => ({
+          ...previous,
+          focusEntryId: entry.parentGalleryEntryId,
+          derivativeOfEntryId: undefined,
+          similarToEntryId: undefined,
+        }));
+        setRequeueStatus("Showing source output…");
+      },
+      showDerivatives: (id: string) => {
+        setFilter((previous) => ({
+          ...previous,
+          derivativeOfEntryId: id,
+          focusEntryId: undefined,
+          similarToEntryId: undefined,
+        }));
+        setRequeueStatus("Showing derived outputs…");
+      },
       openImage: openLightboxForEntryId,
       reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => {
         const entry = entriesRef.current.find((item) => item.id === id);
@@ -983,7 +1016,7 @@ export default function ComfyUiGalleryPanel({
             );
           }}
           onBulkRequeue={() => {
-            setRequeueStatus("Bulk re-queue started…");
+            setRequeueStatus("Bulk variation queue started…");
             void requeueComfyJobs(
               selectedEntries.map((entry) => {
                 const urls = resolveRequeueImageUrlsFromEntry(entry);
@@ -996,10 +1029,24 @@ export default function ComfyUiGalleryPanel({
                   sourceImageUrl: urls.sourceImageUrl,
                   maskImageUrl: urls.maskImageUrl,
                   newSeed: true,
+                  parentGalleryEntryId: entry.id,
+                  derivedKind: "variation" as const,
                 };
               }),
               setRequeueStatus,
             ).then(() => setSelectedIds([]));
+          }}
+          onBulkUpscaleFinal={() => {
+            setRequeueStatus("Bulk upscale (Final) started…");
+            void bulkUpscaleGalleryEntries(selectedEntries, "final", setRequeueStatus).then(
+              () => setSelectedIds([]),
+            );
+          }}
+          onBulkUpscaleMax={() => {
+            setRequeueStatus("Bulk upscale (Max) started…");
+            void bulkUpscaleGalleryEntries(selectedEntries, "max", setRequeueStatus).then(
+              () => setSelectedIds([]),
+            );
           }}
         />
       ) : null}
@@ -1007,6 +1054,28 @@ export default function ComfyUiGalleryPanel({
       {downloadError && (
         <p className="text-xs text-rose-300">{downloadError}</p>
       )}
+      {filter.derivativeOfEntryId || filter.focusEntryId ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-200/90">
+          <span>
+            {filter.focusEntryId
+              ? "Lineage filter: showing source entry"
+              : "Lineage filter: showing derived outputs"}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setFilter((previous) => ({
+                ...previous,
+                derivativeOfEntryId: undefined,
+                focusEntryId: undefined,
+              }))
+            }
+            className="rounded-lg border border-violet-500/30 px-2 py-0.5 text-[11px] transition hover:border-violet-400/50 hover:text-violet-100"
+          >
+            Clear lineage filter
+          </button>
+        </div>
+      ) : null}
       {requeueStatus && (
         <p className="text-xs text-violet-300/90">{requeueStatus}</p>
       )}
@@ -1089,6 +1158,27 @@ export default function ComfyUiGalleryPanel({
               count: 3,
             }).then((queued) => setCompareStatus(`Queued ${queued} mutations.`));
           }}
+          onUpscale={(entry, qualityProfile) => {
+            setCompareStatus(`Upscaling (${qualityProfile})…`);
+            void requeueUpscaleFromGalleryEntry(entry, {
+              qualityProfile,
+              onStatus: setCompareStatus,
+            }).then((result) => {
+              if (!result.ok) {
+                setCompareStatus(result.error ?? "Upscale failed.");
+              }
+            });
+          }}
+          onRefine={(entry) => {
+            setCompareStatus("Queueing low-denoise refine…");
+            void requeueRefineFromGalleryEntry(entry, {
+              onStatus: setCompareStatus,
+            }).then((result) => {
+              if (!result.ok) {
+                setCompareStatus(result.error ?? "Refine failed.");
+              }
+            });
+          }}
           onImprove={(entry) => startImproveFromGalleryEntry(entry)}
             />
           </div>
@@ -1159,6 +1249,7 @@ export default function ComfyUiGalleryPanel({
                   ? suggestRatingMutations(entry, 2).map((item) => item.detail)
                   : undefined
               }
+              hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
             />
           ))}
         </div>

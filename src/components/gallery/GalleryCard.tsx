@@ -36,6 +36,9 @@ type GalleryCardProps = {
   onRequeue: (newSeed: boolean, qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile) => void;
   onUpscale: (qualityProfile: "final" | "max") => void;
   onRefine: () => void;
+  onShowParent?: () => void;
+  onShowDerivatives?: () => void;
+  hasDerivatives?: boolean;
   onOpenImage: (index: number) => void;
   reviewMode?: boolean;
   onReviewRating?: (rating: ComfyGalleryEntry["reviewRating"]) => void;
@@ -81,6 +84,9 @@ export default function GalleryCard({
   onRequeue,
   onUpscale,
   onRefine,
+  onShowParent,
+  onShowDerivatives,
+  hasDerivatives,
   onOpenImage,
   reviewMode,
   onReviewRating,
@@ -137,7 +143,7 @@ export default function GalleryCard({
           ? "variation of prior"
           : undefined;
 
-  const metaLine = [entry.tool, entry.model, derivedLabel]
+  const metaLine = [entry.tool, entry.model, entry.parentGalleryEntryId ? undefined : derivedLabel]
     .filter(Boolean)
     .join(" · ");
 
@@ -310,6 +316,18 @@ export default function GalleryCard({
           )}
           {metaLine ? (
             <p className="mt-1.5 truncate text-[11px] text-zinc-500">
+              {entry.parentGalleryEntryId && onShowParent ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={onShowParent}
+                    className="text-violet-300/90 underline decoration-violet-500/30 underline-offset-2 transition hover:text-violet-200"
+                  >
+                    {derivedLabel ?? "View source"}
+                  </button>
+                  {" · "}
+                </>
+              ) : null}
               {metaLine}
               {entry.queueParams?.seed != null ? ` · seed ${entry.queueParams.seed}` : ""}
               {entry.queuedAt ? ` · ${new Date(entry.queuedAt).toLocaleDateString()}` : ""}
@@ -581,6 +599,15 @@ export default function GalleryCard({
                     setMenuOpen(false);
                   }}
                 />
+                {hasDerivatives && onShowDerivatives ? (
+                  <GalleryMenuButton
+                    label="Show derivatives"
+                    onClick={() => {
+                      onShowDerivatives();
+                      setMenuOpen(false);
+                    }}
+                  />
+                ) : null}
                 <GalleryMenuButton
                   label="New variation (Final quality)"
                   onClick={() => {

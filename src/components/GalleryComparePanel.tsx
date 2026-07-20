@@ -19,6 +19,8 @@ type GalleryComparePanelProps = {
   onFavorite?: (entryId: string) => void;
   onMutate?: (entry: ComfyGalleryEntry) => void;
   onImprove?: (entry: ComfyGalleryEntry) => void;
+  onUpscale?: (entry: ComfyGalleryEntry, qualityProfile: "final" | "max") => void;
+  onRefine?: (entry: ComfyGalleryEntry) => void;
   status?: string | null;
 };
 
@@ -30,6 +32,8 @@ export default function GalleryComparePanel({
   onFavorite,
   onMutate,
   onImprove,
+  onUpscale,
+  onRefine,
   status,
 }: GalleryComparePanelProps) {
   const [tournament, setTournament] = useState(false);
@@ -170,6 +174,33 @@ export default function GalleryComparePanel({
                     className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-sky-300 hover:bg-zinc-700"
                   >
                     Improve
+                  </button>
+                ) : null}
+                {onUpscale ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onUpscale(entry, "final")}
+                      className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
+                    >
+                      Upscale Final
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpscale(entry, "max")}
+                      className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
+                    >
+                      Upscale Max
+                    </button>
+                  </>
+                ) : null}
+                {onRefine ? (
+                  <button
+                    type="button"
+                    onClick={() => onRefine(entry)}
+                    className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-amber-200 hover:bg-zinc-700"
+                  >
+                    Refine
                   </button>
                 ) : null}
               </div>

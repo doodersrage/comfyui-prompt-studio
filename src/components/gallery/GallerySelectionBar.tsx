@@ -36,6 +36,8 @@ type GallerySelectionBarProps = {
   onExportCsv: () => void;
   onExportJsonl: () => void;
   onBulkRequeue: () => void;
+  onBulkUpscaleFinal: () => void;
+  onBulkUpscaleMax: () => void;
 };
 
 function ActionMenu(props: {
@@ -131,16 +133,19 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           />
         </ActionMenu>
 
-        <ActionMenu label="Queue" disabled={!singleSelected}>
-          <MenuItem label="Seed experiment" onClick={props.onSeedExperiment} />
+        <ActionMenu label="Queue" disabled={props.selectedCount === 0}>
+          <MenuItem label="Bulk upscale (Final)" onClick={props.onBulkUpscaleFinal} />
+          <MenuItem label="Bulk upscale (Max)" onClick={props.onBulkUpscaleMax} />
+          <MenuItem label="Bulk new variation (new seeds)" onClick={props.onBulkRequeue} />
+          <MenuItem label="Seed experiment" onClick={props.onSeedExperiment} disabled={!singleSelected} />
           <MenuItem
             label={`Param experiment (${props.paramAxis})`}
             onClick={props.onParamExperiment}
+            disabled={!singleSelected}
           />
-          <MenuItem label="Param grid (CFG×steps)" onClick={props.onParamGrid} />
-          <MenuItem label="Mutate winner" onClick={props.onMutateWinner} />
-          <MenuItem label="Negative A/B" onClick={props.onNegativeAb} />
-          <MenuItem label="Bulk re-queue (new seeds)" onClick={props.onBulkRequeue} />
+          <MenuItem label="Param grid (CFG×steps)" onClick={props.onParamGrid} disabled={!singleSelected} />
+          <MenuItem label="Mutate winner" onClick={props.onMutateWinner} disabled={!singleSelected} />
+          <MenuItem label="Negative A/B" onClick={props.onNegativeAb} disabled={!singleSelected} />
         </ActionMenu>
 
         <ActionMenu label="Send" disabled={!singleSelected}>

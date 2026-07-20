@@ -416,6 +416,8 @@ Gallery **5★** auto-improve upscales the rated output (Lanczos by default). Se
 
 Use **Optimize all in library** (Settings → workflow library) after importing community JSON so placeholders bind to your checkpoint/VAE filenames.
 
+Gallery card menus separate **Upscale** (same pixels), **Refine** (low-denoise img2img), and **New variation** (new seed). Bulk upscale is available from multi-select → Queue.
+
 Preflight and **Workflow configuration** on gallery entries show unresolved tokens and the stored/effective params.
 
 ## LLM configuration
