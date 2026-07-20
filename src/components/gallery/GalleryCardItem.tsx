@@ -17,6 +17,8 @@ export type GalleryCardActions = {
     newSeed: boolean,
     qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile,
   ) => void;
+  upscale: (id: string, qualityProfile: "final" | "max") => void;
+  refine: (id: string) => void;
   openImage: (id: string, index: number) => void;
   reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => void;
   downloadError: (message: string | null) => void;
@@ -61,6 +63,15 @@ function GalleryCardItem({
   );
   const onToggleFavorite = useCallback(
     () => actionsRef.current.toggleFavorite(entry.id),
+    [actionsRef, entry.id],
+  );
+  const onUpscale = useCallback(
+    (qualityProfile: "final" | "max") =>
+      actionsRef.current.upscale(entry.id, qualityProfile),
+    [actionsRef, entry.id],
+  );
+  const onRefine = useCallback(
+    () => actionsRef.current.refine(entry.id),
     [actionsRef, entry.id],
   );
   const onRequeue = useCallback(
@@ -110,6 +121,8 @@ function GalleryCardItem({
       onToggleFavorite={onToggleFavorite}
       onDownloadError={onDownloadError}
       onRequeue={onRequeue}
+      onUpscale={onUpscale}
+      onRefine={onRefine}
       onOpenImage={onOpenImage}
       reviewMode={reviewMode}
       reviewMutationHints={reviewMutationHints}

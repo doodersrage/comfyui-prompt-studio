@@ -11,6 +11,10 @@ export type ComfyGalleryEntry = {
   model?: string;
   /** Links back to Studio prompt history entry. */
   historyId?: string;
+  /** Gallery entry this job was derived from (upscale, refine, variation). */
+  parentGalleryEntryId?: string;
+  /** How this entry was derived from parentGalleryEntryId. */
+  derivedKind?: "upscale" | "refine" | "variation";
   /** Resolved queue params (seed, width, cfg, etc.). */
   queueParams?: WorkflowParamValues;
   /** Original source image URL at queue time (Comfy view or app proxy). */

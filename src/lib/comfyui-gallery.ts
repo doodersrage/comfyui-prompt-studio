@@ -62,6 +62,8 @@ export function galleryEntryRenderKey(entry: ComfyGalleryEntry): string {
     entry.status,
     entry.favorite ? 1 : 0,
     entry.reviewRating ?? 0,
+    entry.derivedKind ?? "",
+    entry.parentGalleryEntryId ?? "",
     entry.statusMessage ?? "",
     entry.promptId ?? "",
     entry.visionTags?.join(",") ?? "",

@@ -55,10 +55,12 @@ export type ComfyUiSettings = {
   autoSeedExperimentOnHighRating?: boolean;
   /** Queue seed experiments when an output is favorited. */
   autoSeedExperimentOnFavorite?: boolean;
-  /** Re-queue 4–5★ gallery outputs at Final quality with a new seed. */
+  /** Upscale 4–5★ gallery outputs at Final quality (same image). */
   autoRequeueFinalOnHighRating?: boolean;
-  /** Re-queue 5★ gallery outputs at Max quality with a new seed. */
+  /** Upscale 5★ gallery outputs at Max quality (same image). */
   autoRequeueMaxOnFiveStar?: boolean;
+  /** After 5★ upscale, also queue a low-denoise img2img refine (experimental). */
+  autoImg2imgRefineOnFiveStar?: boolean;
   /** Prefer ComfyUI WebSocket progress updates over polling-only status. */
   useWebSocketProgress?: boolean;
   /** Saved negative presets for queue / copy pair. */
@@ -90,7 +92,8 @@ export const DEFAULT_COMFYUI_SETTINGS: ComfyUiSettings = {
   autoSeedExperimentOnFavorite: false,
   autoRequeueFinalOnHighRating: true,
   autoRequeueMaxOnFiveStar: true,
-  useWebSocketProgress: false,
+  autoImg2imgRefineOnFiveStar: false,
+  useWebSocketProgress: true,
   negativeProfiles: [],
   selectedNegativeProfileId: "general-sd",
 };

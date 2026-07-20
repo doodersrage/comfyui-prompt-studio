@@ -76,21 +76,75 @@ export function mergeSuggestedLoaderMaps(input?: {
   modelCheckpointMap: ModelCheckpointMap;
   modelVaeMap: ModelVaeMap;
   modelRefinerMap: ModelRefinerMap;
+  addedCheckpointKeys: string[];
+  addedVaeKeys: string[];
+  addedRefinerKeys: string[];
 } {
-  return {
-    modelCheckpointMap: {
-      ...SUGGESTED_MODEL_CHECKPOINT_MAP,
-      ...input?.checkpointMap,
-    },
-    modelVaeMap: {
-      ...SUGGESTED_MODEL_VAE_MAP,
-      ...input?.vaeMap,
-    },
-    modelRefinerMap: {
-      ...SUGGESTED_MODEL_REFINER_MAP,
-      ...input?.refinerMap,
-    },
+  const modelCheckpointMap = {
+    ...SUGGESTED_MODEL_CHECKPOINT_MAP,
+    ...input?.checkpointMap,
   };
+  const modelVaeMap = {
+    ...SUGGESTED_MODEL_VAE_MAP,
+    ...input?.vaeMap,
+  };
+  const modelRefinerMap = {
+    ...SUGGESTED_MODEL_REFINER_MAP,
+    ...input?.refinerMap,
+  };
+
+  const addedCheckpointKeys = Object.keys(SUGGESTED_MODEL_CHECKPOINT_MAP).filter(
+    (key) => !trimFilename(input?.checkpointMap?.[key]),
+  );
+  const addedVaeKeys = Object.keys(SUGGESTED_MODEL_VAE_MAP).filter(
+    (key) => !trimFilename(input?.vaeMap?.[key]),
+  );
+  const addedRefinerKeys = Object.keys(SUGGESTED_MODEL_REFINER_MAP).filter(
+    (key) => !trimFilename(input?.refinerMap?.[key]),
+  );
+
+  return {
+    modelCheckpointMap,
+    modelVaeMap,
+    modelRefinerMap,
+    addedCheckpointKeys,
+    addedVaeKeys,
+    addedRefinerKeys,
+  };
+}
+
+export function formatSuggestedLoaderMergeMessage(result: {
+  modelCheckpointMap: ModelCheckpointMap;
+  modelVaeMap: ModelVaeMap;
+  modelRefinerMap: ModelRefinerMap;
+  addedCheckpointKeys: string[];
+  addedVaeKeys: string[];
+  addedRefinerKeys: string[];
+}): string {
+  const checkpointCount = Object.keys(result.modelCheckpointMap).length;
+  const vaeCount = Object.keys(result.modelVaeMap).length;
+  const refinerCount = Object.keys(result.modelRefinerMap).length;
+  const addedTotal =
+    result.addedCheckpointKeys.length +
+    result.addedVaeKeys.length +
+    result.addedRefinerKeys.length;
+
+  if (addedTotal === 0) {
+    return `Loader maps already include all suggested entries (${checkpointCount} checkpoint, ${vaeCount} VAE, ${refinerCount} refiner). Edit the text areas below if your ComfyUI folder uses different filenames.`;
+  }
+
+  const parts: string[] = [];
+  if (result.addedCheckpointKeys.length > 0) {
+    parts.push(`${result.addedCheckpointKeys.length} checkpoint`);
+  }
+  if (result.addedVaeKeys.length > 0) {
+    parts.push(`${result.addedVaeKeys.length} VAE`);
+  }
+  if (result.addedRefinerKeys.length > 0) {
+    parts.push(`${result.addedRefinerKeys.length} refiner`);
+  }
+
+  return `Merged suggested loader maps — added ${parts.join(", ")} ${parts.length === 1 ? "entry" : "entries"} (${checkpointCount} checkpoint, ${vaeCount} VAE, ${refinerCount} refiner total). Review the text areas below.`;
 }
 
 function trimFilename(value: unknown): string | undefined {

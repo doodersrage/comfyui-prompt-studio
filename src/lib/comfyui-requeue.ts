@@ -5,7 +5,12 @@ import {
   registerComfyGalleryJob,
 } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import type { ComfyUiRuntimeConfig, WorkflowParamValues } from "./comfyui-config";
+import {
+  resolveWorkflowGraphEnrichOptions,
+  type ComfyUiRuntimeConfig,
+  type WorkflowParamValues,
+} from "./comfyui-config";
+import { resolveQueueInputImageFilename } from "./queue-input-image";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import type { QueueQualityProfile } from "./queue-quality-profile";
 import { resolveComfyUiRuntime } from "./comfyui-runtime";
@@ -19,6 +24,14 @@ import {
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
 import { findGalleryEntryForHistory } from "./prompt-lineage";
 import { runWorkflowPreflight } from "./workflow-preflight";
+import {
+  buildGalleryUpscaleWorkflow,
+  resolveGalleryOutputImageUrl,
+} from "./gallery-output-upscale";
+import { galleryRefineDenoiseForProfile } from "./gallery-output-refine";
+import { resolveUpscaleModelFilename } from "./model-upscale-map";
+import { loadSettingsCache } from "./settings-cache";
+import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
 
 type WorkflowPreviewResponse = {
   ok: boolean;
@@ -59,6 +72,11 @@ export type RequeueComfyJobInput = {
   qualityProfile?: QueueQualityProfile;
   /** Prior job quality profile — used when qualityProfile override is not set. */
   storedQualityProfile?: QueueQualityProfile;
+  /** Gallery entry this re-queue derives from. */
+  parentGalleryEntryId?: string;
+  derivedKind?: ComfyGalleryEntry["derivedKind"];
+  /** Upload sourceImageUrl even when the model/tool is normally text-to-image. */
+  forceInputImage?: boolean;
   onStatus?: (message: string) => void;
 };
 
@@ -75,11 +93,180 @@ export function requeueSourceImageUrlFromEntry(
   return resolveRequeueImageUrlsFromEntry(entry).sourceImageUrl;
 }
 
+export async function requeueUpscaleFromGalleryEntry(
+  entry: ComfyGalleryEntry,
+  options: {
+    qualityProfile: Extract<QueueQualityProfile, "final" | "max">;
+    onStatus?: (message: string) => void;
+  },
+): Promise<RequeueComfyJobResult> {
+  const outputUrl = resolveGalleryOutputImageUrl(entry);
+  if (!outputUrl) {
+    return { ok: false, error: "No gallery output image available to upscale." };
+  }
+
+  options.onStatus?.("Uploading gallery output…");
+
+  const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
+  let inputImageFilename: string | undefined;
+  try {
+    inputImageFilename = await resolveQueueInputImageFilename({
+      imageUrl: outputUrl,
+      model,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Could not upload gallery output.",
+    };
+  }
+
+  if (!inputImageFilename?.trim()) {
+    return { ok: false, error: "Could not upload gallery output to ComfyUI." };
+  }
+
+  const shared = loadSettingsCache().shared;
+  const customTokens = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
+  const upscaleModelFilename =
+    options.qualityProfile === "max"
+      ? resolveUpscaleModelFilename(model, {
+          upscaleMap: shared.modelUpscaleMap,
+          customTokens,
+        })
+      : undefined;
+
+  const baseRuntime = resolveRuntimeForQueue(model, entry.tool);
+  const enrichOptions = resolveWorkflowGraphEnrichOptions(baseRuntime);
+
+  const queueUpscale = async (
+    neuralModel?: string,
+  ): Promise<RequeueComfyJobResult> => {
+    const workflow = buildGalleryUpscaleWorkflow({
+      qualityProfile: options.qualityProfile,
+      upscaleModelFilename: neuralModel,
+      enrichNeuralPolish: enrichOptions.enrichNeuralPolish,
+      enrichSharpen: enrichOptions.enrichSharpen,
+    });
+
+    const runtime: ComfyUiRuntimeConfig = {
+      ...baseRuntime,
+      workflowJson: JSON.stringify(workflow),
+      workflowQueueOptimize: false,
+      workflowGraphEnrich: false,
+      directWorkflowPatching: true,
+      queueQualityProfile: options.qualityProfile,
+    };
+
+    options.onStatus?.(
+      neuralModel ? "Queueing neural upscale…" : "Queueing Lanczos upscale…",
+    );
+
+    const response = await fetch("/api/comfyui", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: entry.prompt.trim() || "upscale",
+        negativePrompt: entry.negativePrompt,
+        model,
+        params: { inputImageFilename },
+        comfy: runtime,
+      }),
+    });
+
+    const data = (await response.json()) as {
+      ok?: boolean;
+      promptId?: string;
+      error?: string;
+      comfyUrl?: string;
+    };
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: data.error ?? "ComfyUI upscale queue failed.",
+        comfyUrl: data.comfyUrl,
+      };
+    }
+
+    if (data.promptId) {
+      registerComfyGalleryJob({
+        promptId: data.promptId,
+        prompt: entry.prompt.trim() || "upscale",
+        negativePrompt: entry.negativePrompt,
+        tool: entry.tool,
+        model: entry.model,
+        comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+        queueParams: { inputImageFilename },
+        sourceImageUrl: outputUrl,
+        queueQualityProfile: options.qualityProfile,
+        parentGalleryEntryId: entry.id,
+        derivedKind: "upscale",
+      });
+      void scheduleComfyGalleryPoll(data.promptId, {
+        comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+        onStatus: options.onStatus,
+      });
+    }
+
+    return {
+      ok: true,
+      promptId: data.promptId,
+      comfyUrl: data.comfyUrl ?? entry.comfyUrl,
+    };
+  };
+
+  let result = await queueUpscale(upscaleModelFilename);
+  if (!result.ok && upscaleModelFilename) {
+    options.onStatus?.(
+      `Neural upscale failed (${result.error ?? "queue error"}) — retrying with Lanczos…`,
+    );
+    result = await queueUpscale(undefined);
+  }
+
+  return result;
+}
+
+export async function requeueRefineFromGalleryEntry(
+  entry: ComfyGalleryEntry,
+  options?: {
+    qualityProfile?: Extract<QueueQualityProfile, "final" | "max">;
+    onStatus?: (message: string) => void;
+  },
+): Promise<RequeueComfyJobResult> {
+  const outputUrl = resolveGalleryOutputImageUrl(entry);
+  if (!outputUrl) {
+    return { ok: false, error: "No gallery output image available to refine." };
+  }
+
+  const profile = options?.qualityProfile ?? "final";
+  const denoise = galleryRefineDenoiseForProfile(profile);
+
+  return requeueComfyJob({
+    prompt: entry.prompt,
+    negativePrompt: entry.negativePrompt,
+    tool: "refine",
+    model: entry.model,
+    queueParams: {
+      ...entry.queueParams,
+      denoise: String(denoise),
+    },
+    sourceImageUrl: outputUrl,
+    newSeed: false,
+    qualityProfile: profile,
+    forceInputImage: true,
+    parentGalleryEntryId: entry.id,
+    derivedKind: "refine",
+    onStatus: options?.onStatus,
+  });
+}
+
 export function requeueComfyJobFromEntry(
   entry: ComfyGalleryEntry,
   options?: Pick<RequeueComfyJobInput, "newSeed" | "onStatus" | "hints" | "qualityProfile">,
 ): Promise<RequeueComfyJobResult> {
   const urls = resolveRequeueImageUrlsFromEntry(entry);
+  const isVariation = Boolean(options?.newSeed || options?.qualityProfile);
   return requeueComfyJob({
     prompt: entry.prompt,
     negativePrompt: entry.negativePrompt,
@@ -92,6 +279,8 @@ export function requeueComfyJobFromEntry(
     newSeed: options?.newSeed,
     hints: options?.hints,
     qualityProfile: options?.qualityProfile,
+    parentGalleryEntryId: isVariation ? entry.id : undefined,
+    derivedKind: isVariation ? "variation" : undefined,
     onStatus: options?.onStatus,
   });
 }
@@ -164,6 +353,7 @@ export async function requeueComfyJob(
     queueParams: baseParams,
     sourceImageUrl: input.sourceImageUrl,
     maskImageUrl: input.maskImageUrl,
+    forceInputImage: input.forceInputImage,
   });
 
   const params = resolveQueueParams({
@@ -214,6 +404,7 @@ export async function requeueComfyJob(
     queueParams: params,
     sourceImageUrl: input.sourceImageUrl,
     maskImageUrl: input.maskImageUrl,
+    forceInputImage: input.forceInputImage,
   });
   const requeueImageError = requeueImageIssues.find((issue) => issue.severity === "error");
   if (requeueImageError) {
@@ -260,6 +451,8 @@ export async function requeueComfyJob(
       sourceImageUrl: input.sourceImageUrl,
       maskImageUrl: input.maskImageUrl,
       queueQualityProfile: comfyRuntime?.queueQualityProfile,
+      parentGalleryEntryId: input.parentGalleryEntryId,
+      derivedKind: input.derivedKind,
     });
     void scheduleComfyGalleryPoll(data.promptId, {
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",

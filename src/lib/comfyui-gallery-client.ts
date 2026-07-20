@@ -29,12 +29,16 @@ export type RegisterComfyGalleryJobInput = {
   tool?: string;
   model?: string;
   historyId?: string;
+  parentGalleryEntryId?: string;
+  derivedKind?: ComfyGalleryEntry["derivedKind"];
   queueParams?: WorkflowParamValues;
   sourceImageUrl?: string;
   maskImageUrl?: string;
   queueQualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
   projectId?: string;
   comfyUrl: string;
+  parentGalleryEntryId?: string;
+  derivedKind?: ComfyGalleryEntry["derivedKind"];
 };
 
 export type PollComfyGalleryJobOptions = {
@@ -79,6 +83,8 @@ export function registerComfyGalleryJob(
     tool: input.tool,
     model: input.model,
     historyId: input.historyId,
+    parentGalleryEntryId: input.parentGalleryEntryId,
+    derivedKind: input.derivedKind,
     queueParams: input.queueParams,
     sourceImageUrl: imageUrls.sourceImageUrl,
     maskImageUrl: imageUrls.maskImageUrl,

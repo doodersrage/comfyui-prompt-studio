@@ -9,6 +9,7 @@ import {
   SUGGESTED_MODEL_REFINER_MAP,
   SUGGESTED_MODEL_VAE_MAP,
   mergeSuggestedLoaderMaps,
+  formatSuggestedLoaderMergeMessage,
 } from "./model-checkpoint-map.ts";
 
 describe("model checkpoint map", () => {
@@ -90,6 +91,24 @@ describe("model checkpoint map", () => {
     );
     assert.equal(merged.modelVaeMap["flux-2-klein-9b"], "FLUX.2-klein-9B.safetensors");
     assert.equal(merged.modelVaeMap["qwen-image-2512"], "qwen_image_vae.safetensors");
+  });
+
+  it("reports when suggested loader merge adds new keys", () => {
+    const merged = mergeSuggestedLoaderMaps({
+      checkpointMap: { "qwen-image-2512": "custom.safetensors" },
+    });
+    assert.equal(merged.addedCheckpointKeys.includes("qwen-image-2512"), false);
+    assert.ok(merged.addedCheckpointKeys.includes("flux-dev"));
+    assert.match(
+      formatSuggestedLoaderMergeMessage(
+        mergeSuggestedLoaderMaps({
+          checkpointMap: SUGGESTED_MODEL_CHECKPOINT_MAP,
+          vaeMap: SUGGESTED_MODEL_VAE_MAP,
+          refinerMap: SUGGESTED_MODEL_REFINER_MAP,
+        }),
+      ),
+      /already include all suggested entries/i,
+    );
   });
 
   it("resolves SDXL refiner checkpoint defaults", () => {

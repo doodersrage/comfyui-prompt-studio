@@ -50,6 +50,7 @@ import {
   optimizeWorkflowForQueue,
   suggestedOptimizedWorkflowName,
 } from "@/lib/workflow-queue-optimizer";
+import { optimizeAllWorkflowsInLibrary } from "@/lib/workflow-library-batch";
 import type { ServerWorkflowOption } from "@/hooks/useComfyWorkflowSelection";
 import { Button } from "@/components/ui/Button";
 import { ChipButton, MonoTextArea, SelectInput, TextInput } from "@/components/ui/Field";
@@ -376,6 +377,22 @@ export default function ComfyWorkflowLibraryPanel({
     startEdit,
   ]);
 
+  const optimizeAllInLibrary = useCallback(() => {
+    const files = loadComfyWorkflowFiles();
+    if (files.length === 0) {
+      onStatus?.("Import or create workflows first, then optimize all.");
+      return;
+    }
+
+    const result = optimizeAllWorkflowsInLibrary({ tokens: placeholderTokens });
+    refresh();
+    const warningNote =
+      result.warnings.length > 0 ? ` · ${result.warnings.slice(0, 2).join(" · ")}` : "";
+    onStatus?.(
+      `Optimized ${result.updated} workflow(s) in place · ${result.skipped} unchanged or skipped${warningNote}`,
+    );
+  }, [onStatus, placeholderTokens, refresh]);
+
   const selectFile = useCallback(
     (id: string | undefined, label: string) => {
       setSelectedWorkflowFileId(id);
@@ -458,10 +475,17 @@ export default function ComfyWorkflowLibraryPanel({
         >
           Optimize &amp; save copy
         </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={optimizeAllInLibrary}>
+          Optimize all in library
+        </Button>
         <ChipButton active={!selectedId} onClick={() => selectFile(undefined, "")}>
           Use fallback default
         </ChipButton>
       </ToolActionRow>
+      <p className="mb-4 text-xs text-zinc-500">
+        After importing community JSON, run <strong className="font-medium text-zinc-400">Optimize all in library</strong>{" "}
+        so placeholders bind to your checkpoint/VAE maps. Confirm filenames match ComfyUI&apos;s model lists.
+      </p>
 
       {importError ? (
         <div className="space-y-1 rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2.5" role="alert">
@@ -734,6 +758,14 @@ export default function ComfyWorkflowLibraryPanel({
                           onClick={optimizeAndSaveCopy}
                         >
                           Optimize &amp; save copy
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={optimizeAllInLibrary}
+                        >
+                          Optimize all in library
                         </Button>
                         <Button type="button" variant="secondary" size="sm" onClick={cancelEdit}>
                           Cancel

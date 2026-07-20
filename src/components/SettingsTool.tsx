@@ -36,6 +36,7 @@ import {
   formatModelRefinerMap,
   parseModelRefinerMap,
   mergeSuggestedLoaderMaps,
+  formatSuggestedLoaderMergeMessage,
 } from "@/lib/model-checkpoint-map";
 import {
   formatModelUpscaleMap,
@@ -247,6 +248,7 @@ export default function SettingsTool() {
   const [modelVaeMapText, setModelVaeMapText] = useState("");
   const [modelRefinerMapText, setModelRefinerMapText] = useState("");
   const [modelUpscaleMapText, setModelUpscaleMapText] = useState("");
+  const [loaderMapMergeHint, setLoaderMapMergeHint] = useState<string | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
@@ -376,11 +378,17 @@ export default function SettingsTool() {
       vaeMap: sharedSettings.modelVaeMap,
       refinerMap: sharedSettings.modelRefinerMap,
     });
-    updateSharedSettings(merged);
+    const message = formatSuggestedLoaderMergeMessage(merged);
+    updateSharedSettings({
+      modelCheckpointMap: merged.modelCheckpointMap,
+      modelVaeMap: merged.modelVaeMap,
+      modelRefinerMap: merged.modelRefinerMap,
+    });
     setModelCheckpointMapText(formatModelCheckpointMap(merged.modelCheckpointMap));
     setModelVaeMapText(formatModelVaeMap(merged.modelVaeMap));
     setModelRefinerMapText(formatModelRefinerMap(merged.modelRefinerMap));
-    setStatus("Merged suggested checkpoint, VAE, and refiner maps (your entries kept).");
+    setLoaderMapMergeHint(message);
+    setStatus(message);
   }, [sharedSettings.modelCheckpointMap, sharedSettings.modelRefinerMap, sharedSettings.modelVaeMap, updateSharedSettings]);
 
   const workflowValidation = useMemo(() => {
@@ -1019,7 +1027,7 @@ export default function SettingsTool() {
             <label className="flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
-                checked={sharedSettings.workflowSharpenAfterUpscale !== false}
+                checked={sharedSettings.workflowSharpenAfterUpscale === true}
                 onChange={(event) =>
                   updateSharedSettings({
                     workflowSharpenAfterUpscale: event.target.checked,
@@ -1081,6 +1089,14 @@ export default function SettingsTool() {
             Merge suggested loader maps
           </button>
         </div>
+        {loaderMapMergeHint ? (
+          <p className="mt-2 text-xs leading-relaxed text-emerald-300/90">{loaderMapMergeHint}</p>
+        ) : (
+          <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+            Suggested maps are applied automatically on load. Use this button after clearing a map
+            or on a new install — feedback appears here.
+          </p>
+        )}
         <p className="mb-2 mt-4 text-sm text-zinc-400">
           VAE map — override{" "}
           <code className="rounded bg-zinc-800 px-1 text-violet-300">{"{{VAE}}"}</code> /{" "}
@@ -1574,7 +1590,7 @@ export default function SettingsTool() {
             }
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
-          Auto re-queue 4–5★ outputs at Final quality (new seed, on by default)
+          Auto upscale 4–5★ outputs at Final quality (same image, on by default)
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-300">
@@ -1586,7 +1602,19 @@ export default function SettingsTool() {
             }
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
-          Auto re-queue 5★ outputs at Max quality (new seed, on by default)
+          Auto upscale 5★ outputs at Max quality (same image, on by default)
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={settings.autoImg2imgRefineOnFiveStar === true}
+            onChange={(event) =>
+              updateSettings({ autoImg2imgRefineOnFiveStar: event.target.checked })
+            }
+            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+          />
+          After 5★ upscale, also queue low-denoise img2img refine (experimental, off by default)
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-300">
@@ -1640,7 +1668,7 @@ export default function SettingsTool() {
         <label className="flex items-center gap-2 text-sm text-zinc-300">
           <input
             type="checkbox"
-            checked={settings.useWebSocketProgress ?? false}
+            checked={settings.useWebSocketProgress !== false}
             onChange={(event) =>
               updateSettings({ useWebSocketProgress: event.target.checked })
             }

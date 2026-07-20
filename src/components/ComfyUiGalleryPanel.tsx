@@ -51,7 +51,7 @@ import {
   downloadGallerySidecarBundle,
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
-import { requeueComfyJobFromEntry, requeueComfyJobs } from "@/lib/comfyui-requeue";
+import { requeueComfyJobFromEntry, requeueComfyJobs, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry } from "@/lib/comfyui-requeue";
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import {
   buildGalleryLightboxPlaylist,
@@ -163,6 +163,8 @@ export default function ComfyUiGalleryPanel({
     remove: () => undefined,
     toggleFavorite: () => undefined,
     requeue: () => undefined,
+    upscale: () => undefined,
+    refine: () => undefined,
     openImage: () => undefined,
     reviewRating: () => undefined,
     downloadError: () => undefined,
@@ -560,7 +562,7 @@ export default function ComfyUiGalleryPanel({
         if (!entry) {
           return;
         }
-        setRequeueStatus("Re-queueing…");
+        setRequeueStatus("Queueing variation…");
         void requeueComfyJobFromEntry(entry, {
           newSeed,
           qualityProfile,
@@ -573,11 +575,62 @@ export default function ComfyUiGalleryPanel({
           const profileNote = qualityProfile ? `${qualityProfile} quality · ` : "";
           setRequeueStatus(
             [
-              "queued",
+              "queued variation",
               profileNote,
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
               newSeed ? "new seed" : "same params",
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          );
+        });
+      },
+      upscale: (id: string, qualityProfile: "final" | "max") => {
+        const entry = entriesRef.current.find((item) => item.id === id);
+        if (!entry) {
+          return;
+        }
+        setRequeueStatus("Upscaling…");
+        void requeueUpscaleFromGalleryEntry(entry, {
+          qualityProfile,
+          onStatus: setRequeueStatus,
+        }).then((result) => {
+          if (!result.ok) {
+            setRequeueStatus(result.error ?? "Upscale failed.");
+            return;
+          }
+          setRequeueStatus(
+            [
+              "upscale queued",
+              `${qualityProfile} quality · same image`,
+              result.promptId ? `prompt_id ${result.promptId}` : null,
+              result.comfyUrl,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          );
+        });
+      },
+      refine: (id: string) => {
+        const entry = entriesRef.current.find((item) => item.id === id);
+        if (!entry) {
+          return;
+        }
+        setRequeueStatus("Queueing low-denoise refine…");
+        void requeueRefineFromGalleryEntry(entry, {
+          onStatus: setRequeueStatus,
+        }).then((result) => {
+          if (!result.ok) {
+            setRequeueStatus(result.error ?? "Refine failed.");
+            return;
+          }
+          setRequeueStatus(
+            [
+              "refine queued",
+              "low denoise · same seed",
+              result.promptId ? `prompt_id ${result.promptId}` : null,
+              result.comfyUrl,
             ]
               .filter(Boolean)
               .join(" · "),

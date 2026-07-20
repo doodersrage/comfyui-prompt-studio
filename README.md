@@ -87,7 +87,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Variation grid** — `/variations` rolls N prompt variations and batch-queues them with unique ComfyUI seeds
 - **Completion notifications** — optional browser notifications when ComfyUI jobs finish (Settings)
 - **Backup v2** — export/import includes ComfyUI settings, gallery entries, and imported workflow JSON files
-- **Re-queue** — gallery entries and Studio history can be sent to ComfyUI again (same params or new seed)
+- **Re-queue** — gallery entries and Studio history can be sent to ComfyUI again (same params, new seed, upscale same image, or new variation at Final/Max quality)
 - **Sidecar import** — load sidecar JSON on Gallery, Lint, and Variations to restore prompts or re-queue
 - **Workflow dry-run** — preview injected workflow JSON in Settings (and from Lint result panels) before queueing
 - **Custom workflow tokens** — user-defined placeholders like `{{CHECKPOINT}}` and `{{LORA}}` with values in Settings
@@ -397,7 +397,7 @@ Loader precision: queue injection detects **fp8 vs bf16** from existing workflow
 
 - Sidebar chips on each tool page override the global default for that session.
 - **Settings → Per-tool queue quality** sets persistent overrides (Generate, Variations, Refine, etc.).
-- Gallery entries store the profile used at queue time; **Re-queue (Final/Max quality)** and sidecar import restore it.
+- Gallery entries store the profile used at queue time; **Upscale (Final/Max)**, **New variation (Final/Max)**, and sidecar import restore or override it. Derived entries record lineage (`upscaled from prior`, etc.).
 
 ### Settings toggles (Workflow patching & checkpoints)
 
@@ -406,11 +406,15 @@ Loader precision: queue injection detects **fp8 vs bf16** from existing workflow
 | Direct workflow patching | Patch `EmptyLatentImage`, loaders, LoadImage/Mask, UpscaleModel without placeholders |
 | Optimize workflows on queue | Auto-bind missing placeholders before injection |
 | Insert model-sampling nodes | Add `ModelSamplingFlux` / shift nodes when loader → KSampler is direct |
-| Auto re-queue on 4–5★ | Re-queue high-rated gallery outputs at Final quality with a new seed (on by default) |
-| Auto re-queue on 5★ | Re-queue five-star outputs at Max quality with a new seed (on by default; falls back to Final if Max fails) |
+| Auto upscale on 4–5★ | Upscale high-rated gallery outputs at Final quality (same pixels, on by default) |
+| Auto upscale on 5★ | Upscale five-star outputs at Max quality (same pixels, on by default; falls back to Lanczos if neural upscale map entry is missing or fails) |
+| Auto img2img refine on 5★ | Optional low-denoise refine after 5★ upscale (experimental, off by default) |
 | Subtle sharpen after upscale (Max) | Optional ImageSharpen — off by default to avoid waxy skin |
+| WebSocket progress | On by default — faster gallery job status via ComfyUI WebSocket |
 
-Gallery **5★** auto-improve uses Lanczos upscale unless you set an upscale model map entry that matches a file in ComfyUI.
+Gallery **5★** auto-improve upscales the rated output (Lanczos by default). Set an upscale model map entry only when that file exists in ComfyUI; missing entries fall back to Lanczos automatically.
+
+Use **Optimize all in library** (Settings → workflow library) after importing community JSON so placeholders bind to your checkpoint/VAE filenames.
 
 Preflight and **Workflow configuration** on gallery entries show unresolved tokens and the stored/effective params.
 

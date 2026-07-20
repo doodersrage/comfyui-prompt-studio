@@ -1,6 +1,6 @@
 "use client";
 
-import { requeueComfyJobFromEntry } from "./comfyui-requeue";
+import { requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry } from "./comfyui-requeue";
 import { queueMutatedGalleryJobs } from "./gallery-mutations";
 import { queueSeedExperiment } from "./seed-experiment-queue";
 import { loadComfyUiSettings } from "./comfyui-settings";
@@ -32,37 +32,43 @@ export async function runAutoImproveOnRating(
   const settings = loadComfyUiSettings();
 
   if (rating === 5 && settings.autoRequeueMaxOnFiveStar !== false) {
-    const maxResult = await requeueComfyJobFromEntry(entry, {
-      newSeed: true,
+    const maxResult = await requeueUpscaleFromGalleryEntry(entry, {
       qualityProfile: "max",
     });
     if (maxResult.ok) {
-      return "Auto-improve: re-queued winner at Max quality (new seed).";
+      if (settings.autoImg2imgRefineOnFiveStar) {
+        const refineResult = await requeueRefineFromGalleryEntry(entry, {
+          qualityProfile: "max",
+        });
+        if (refineResult.ok) {
+          return "Auto-improve: upscaled your 5★ output and queued a low-denoise refine pass.";
+        }
+        return `Auto-improve: upscaled 5★ output; refine failed (${refineResult.error ?? "queue error"}).`;
+      }
+      return "Auto-improve: upscaled your 5★ output at Max quality (same image).";
     }
 
     if (settings.autoRequeueFinalOnHighRating !== false) {
-      const finalResult = await requeueComfyJobFromEntry(entry, {
-        newSeed: true,
+      const finalResult = await requeueUpscaleFromGalleryEntry(entry, {
         qualityProfile: "final",
       });
       if (finalResult.ok) {
-        return `Auto-improve: Max failed (${maxResult.error ?? "queue error"}); re-queued at Final instead.`;
+        return `Auto-improve: Max upscale failed (${maxResult.error ?? "queue error"}); upscaled at Final instead.`;
       }
-      return formatRequeueFailure("Max and Final", finalResult);
+      return formatRequeueFailure("Max and Final upscale", finalResult);
     }
 
-    return formatRequeueFailure("Max", maxResult);
+    return formatRequeueFailure("Max upscale", maxResult);
   }
 
   if (rating >= 4 && settings.autoRequeueFinalOnHighRating !== false) {
-    const result = await requeueComfyJobFromEntry(entry, {
-      newSeed: true,
+    const result = await requeueUpscaleFromGalleryEntry(entry, {
       qualityProfile: "final",
     });
     if (result.ok) {
-      return "Auto-improve: re-queued winner at Final quality (new seed).";
+      return "Auto-improve: upscaled your output at Final quality (same image).";
     }
-    return formatRequeueFailure("Final", result);
+    return formatRequeueFailure("Final upscale", result);
   }
 
   if (rating >= 4 && settings.autoMutateOnHighRating) {

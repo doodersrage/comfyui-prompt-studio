@@ -70,12 +70,14 @@ export async function refreshQueueImageParamsForRequeue(input: {
   queueParams?: WorkflowParamValues;
   sourceImageUrl?: string;
   maskImageUrl?: string;
+  forceInputImage?: boolean;
 }): Promise<WorkflowParamValues | undefined> {
   const base = input.queueParams ? { ...input.queueParams } : {};
   const model = input.model ?? "";
   const hadInputFilename = Boolean(base.inputImageFilename?.trim());
   const hadMaskFilename = Boolean(base.maskImageFilename?.trim());
   const needsFreshInput =
+    input.forceInputImage ||
     hadInputFilename ||
     isEditCapableModel(model) ||
     (input.tool ? EDIT_TOOLS.has(input.tool) : false);
@@ -160,10 +162,12 @@ export function auditRequeueImageReadiness(input: {
   queueParams?: WorkflowParamValues;
   sourceImageUrl?: string;
   maskImageUrl?: string;
+  forceInputImage?: boolean;
 }): Array<{ severity: "error" | "warn"; message: string }> {
   const issues: Array<{ severity: "error" | "warn"; message: string }> = [];
   const model = input.model ?? "";
   const needsInput =
+    input.forceInputImage ||
     Boolean(input.queueParams?.inputImageFilename) ||
     isEditCapableModel(model) ||
     (input.tool ? EDIT_TOOLS.has(input.tool) : false);

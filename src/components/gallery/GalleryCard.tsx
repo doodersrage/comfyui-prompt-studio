@@ -34,6 +34,8 @@ type GalleryCardProps = {
   onToggleFavorite: () => void;
   onDownloadError: (message: string | null) => void;
   onRequeue: (newSeed: boolean, qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile) => void;
+  onUpscale: (qualityProfile: "final" | "max") => void;
+  onRefine: () => void;
   onOpenImage: (index: number) => void;
   reviewMode?: boolean;
   onReviewRating?: (rating: ComfyGalleryEntry["reviewRating"]) => void;
@@ -77,6 +79,8 @@ export default function GalleryCard({
   onToggleFavorite,
   onDownloadError,
   onRequeue,
+  onUpscale,
+  onRefine,
   onOpenImage,
   reviewMode,
   onReviewRating,
@@ -124,7 +128,16 @@ export default function GalleryCard({
     };
   }, [menuOpen]);
 
-  const metaLine = [entry.tool, entry.model]
+  const derivedLabel =
+    entry.derivedKind === "upscale"
+      ? "upscaled from prior"
+      : entry.derivedKind === "refine"
+        ? "refined from prior"
+        : entry.derivedKind === "variation"
+          ? "variation of prior"
+          : undefined;
+
+  const metaLine = [entry.tool, entry.model, derivedLabel]
     .filter(Boolean)
     .join(" · ");
 
@@ -548,14 +561,35 @@ export default function GalleryCard({
                   }}
                 />
                 <GalleryMenuButton
-                  label="Re-queue (Final quality)"
+                  label="Upscale (Final quality)"
+                  onClick={() => {
+                    onUpscale("final");
+                    setMenuOpen(false);
+                  }}
+                />
+                <GalleryMenuButton
+                  label="Upscale (Max quality)"
+                  onClick={() => {
+                    onUpscale("max");
+                    setMenuOpen(false);
+                  }}
+                />
+                <GalleryMenuButton
+                  label="Refine (low denoise)"
+                  onClick={() => {
+                    onRefine();
+                    setMenuOpen(false);
+                  }}
+                />
+                <GalleryMenuButton
+                  label="New variation (Final quality)"
                   onClick={() => {
                     onRequeue(true, "final");
                     setMenuOpen(false);
                   }}
                 />
                 <GalleryMenuButton
-                  label="Re-queue (Max quality)"
+                  label="New variation (Max quality)"
                   onClick={() => {
                     onRequeue(true, "max");
                     setMenuOpen(false);
