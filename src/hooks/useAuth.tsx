@@ -13,6 +13,7 @@ import type { AppFeatureId } from "@/lib/auth/features";
 import type { AuthSessionResponse, AuthUserPublic } from "@/lib/auth/types";
 import { setActiveUserScope } from "@/lib/user-scope";
 import { setUserComfyUiUrlOverride } from "@/lib/user-comfy-url";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type AuthState = {
   loading: boolean;
@@ -76,7 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    scheduleAfterCommit(() => {
+      void refresh();
+    });
   }, [refresh]);
 
   const logout = useCallback(async () => {

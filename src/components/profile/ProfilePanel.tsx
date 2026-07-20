@@ -10,6 +10,7 @@ import ProfileSecurityPanel from "@/components/profile/ProfileSecurityPanel";
 import ProfileAppearancePanel from "@/components/profile/ProfileAppearancePanel";
 import ProfileBackupPanel from "@/components/profile/ProfileBackupPanel";
 import type { SharedPresetEntry } from "@/lib/shared-preset-store";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 const DEFAULT_CAMPAIGN: UserScheduledCampaign = {
   enabled: false,
@@ -57,11 +58,13 @@ export default function ProfilePanel() {
   }, []);
 
   useEffect(() => {
-    void loadProfile();
-    void fetch("/api/shared-presets")
-      .then((response) => response.json())
-      .then((data: { presets?: SharedPresetEntry[] }) => setSharedPresets(data.presets ?? []))
-      .catch(() => setSharedPresets([]));
+    scheduleAfterCommit(() => {
+      void loadProfile();
+      void fetch("/api/shared-presets")
+        .then((response) => response.json())
+        .then((data: { presets?: SharedPresetEntry[] }) => setSharedPresets(data.presets ?? []))
+        .catch(() => setSharedPresets([]));
+    });
   }, [loadProfile]);
 
   async function saveProfile() {
@@ -108,8 +111,8 @@ export default function ProfilePanel() {
 
   if (!user) {
     return (
-      <ToolSection title="Profile">
-        <p className="text-sm text-zinc-400">Sign in to manage your account.</p>
+      <ToolSection title="Account settings">
+        <p className="text-sm text-zinc-400">Loading your profile…</p>
       </ToolSection>
     );
   }

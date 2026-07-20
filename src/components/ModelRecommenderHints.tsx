@@ -11,37 +11,28 @@ type ModelRecommenderHintsProps = {
   onApplyModel?: (model: ComfyImageModel) => void;
 };
 
+const RECOMMEND_DEBOUNCE_MS = 400;
+
 export default function ModelRecommenderHints({
   text,
   currentModel,
   onApplyModel,
 }: ModelRecommenderHintsProps) {
-  const [remote, setRemote] = useState<ModelRecommendation[] | null>(null);
-
-  const local = useMemo(() => recommendModels(text, 3), [text]);
+  const [debouncedText, setDebouncedText] = useState(text);
 
   useEffect(() => {
-    const trimmed = text.trim();
-    if (trimmed.length < 8) {
-      setRemote(null);
-      return;
-    }
-    const controller = new AbortController();
-    void fetch("/api/models/recommend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: trimmed, limit: 3 }),
-      signal: controller.signal,
-    })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { recommendations?: ModelRecommendation[] } | null) => {
-        setRemote(data?.recommendations ?? null);
-      })
-      .catch(() => setRemote(null));
-    return () => controller.abort();
+    const timer = window.setTimeout(() => setDebouncedText(text), RECOMMEND_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
   }, [text]);
 
-  const suggestions = remote ?? local;
+  const suggestions = useMemo((): ModelRecommendation[] => {
+    const trimmed = debouncedText.trim();
+    if (trimmed.length < 8) {
+      return [];
+    }
+    return recommendModels(trimmed, 3);
+  }, [debouncedText]);
+
   if (!text.trim() || suggestions.length === 0 || !onApplyModel) {
     return null;
   }

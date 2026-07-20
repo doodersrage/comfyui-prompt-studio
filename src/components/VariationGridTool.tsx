@@ -26,6 +26,7 @@ import { resolveComfyUiRuntime } from "@/lib/comfyui-runtime";
 import { DEFAULT_VARIATIONS_TOOL_CACHE } from "@/lib/settings-cache";
 import type { ComfyImageModel } from "@/lib/comfy-models";
 import { loadGalleryVariationsHandoff } from "@/lib/gallery-variations-handoff";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { loadPresetVariationsHandoff } from "@/lib/preset-variations-handoff";
 import {
   HistoryHintSeedPanel,
@@ -260,55 +261,57 @@ export default function VariationGridTool() {
     if (!mounted || importedAppliedRef.current) {
       return;
     }
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("from") === "gallery") {
-      const handoff = loadGalleryVariationsHandoff();
-      if (handoff?.prompt) {
-        importedAppliedRef.current = true;
-        updateToolSettings({ hints: handoff.hints, gridMode: "imported" });
-        setResults([{ prompt: handoff.prompt, rowLabel: "gallery" }]);
-        setStatus("Loaded prompt from Gallery.");
-        if (handoff.model) {
-          updateShared({ model: handoff.model as ComfyImageModel });
+    scheduleAfterCommit(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("from") === "gallery") {
+        const handoff = loadGalleryVariationsHandoff();
+        if (handoff?.prompt) {
+          importedAppliedRef.current = true;
+          updateToolSettings({ hints: handoff.hints, gridMode: "imported" });
+          setResults([{ prompt: handoff.prompt, rowLabel: "gallery" }]);
+          setStatus("Loaded prompt from Gallery.");
+          if (handoff.model) {
+            updateShared({ model: handoff.model as ComfyImageModel });
+          }
+          return;
         }
+      }
+      if (params.get("from") === "preset") {
+        const handoff = loadPresetVariationsHandoff();
+        if (handoff?.hints) {
+          importedAppliedRef.current = true;
+          updateToolSettings({
+            hints: handoff.hints,
+            count: handoff.count,
+            target: handoff.target,
+            portraitStyle: handoff.portraitStyle,
+            sportPresetId: handoff.sportPresetId,
+            gridMode: "roll",
+            hintSource: "manual",
+          });
+          setStatus(`Loaded preset hints for ${handoff.count} variations.`);
+          return;
+        }
+      }
+      if (params.get("from") !== "topics") {
         return;
       }
-    }
-    if (params.get("from") === "preset") {
-      const handoff = loadPresetVariationsHandoff();
-      if (handoff?.hints) {
-        importedAppliedRef.current = true;
-        updateToolSettings({
-          hints: handoff.hints,
-          count: handoff.count,
-          target: handoff.target,
-          portraitStyle: handoff.portraitStyle,
-          sportPresetId: handoff.sportPresetId,
-          gridMode: "roll",
-          hintSource: "manual",
-        });
-        setStatus(`Loaded preset hints for ${handoff.count} variations.`);
+      const prompts = toolSettings.importedBatchPrompts;
+      if (!prompts?.length) {
         return;
       }
-    }
-    if (params.get("from") !== "topics") {
-      return;
-    }
-    const prompts = toolSettings.importedBatchPrompts;
-    if (!prompts?.length) {
-      return;
-    }
-    importedAppliedRef.current = true;
-    const topics = toolSettings.importedBatchTopics ?? [];
-    setResults(
-      prompts.map((prompt, index) => ({
-        prompt,
-        rowLabel: topics[index],
-      })),
-    );
-    setStatus(`Loaded ${prompts.length} prompts from Topics batch.`);
-    updateToolSettings({ gridMode: "imported" });
-  }, [mounted, toolSettings.importedBatchPrompts, toolSettings.importedBatchTopics, updateToolSettings]);
+      importedAppliedRef.current = true;
+      const topics = toolSettings.importedBatchTopics ?? [];
+      setResults(
+        prompts.map((prompt, index) => ({
+          prompt,
+          rowLabel: topics[index],
+        })),
+      );
+      setStatus(`Loaded ${prompts.length} prompts from Topics batch.`);
+      updateToolSettings({ gridMode: "imported" });
+    });
+  }, [mounted, toolSettings.importedBatchPrompts, toolSettings.importedBatchTopics, updateToolSettings, updateShared]);
 
   const target = toolSettings.target ?? "generate";
   const hintSource = normalizeSceneHintSource(toolSettings.hintSource);

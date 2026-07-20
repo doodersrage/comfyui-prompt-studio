@@ -28,6 +28,7 @@ import {
   type WorkflowPresetPack,
 } from "@/lib/workflow-preset-packs";
 import { suggestWorkflowNodeMappings } from "@/lib/workflow-node-mapper";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { markOnboardingWorkflowImported } from "@/lib/onboarding-hooks";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import type { ServerWorkflowOption } from "@/hooks/useComfyWorkflowSelection";
@@ -62,16 +63,18 @@ export default function ComfyWorkflowLibraryPanel({
   }, []);
 
   useEffect(() => {
-    refresh();
-    setPresetPacks(loadWorkflowPresetPacks());
-    void fetch("/api/comfyui/workflows")
-      .then((response) => response.json())
-      .then((data: { workflows?: ServerWorkflowOption[] }) => {
-        setServerFiles(data.workflows ?? []);
-      })
-      .catch(() => {
-        setServerFiles([]);
-      });
+    scheduleAfterCommit(() => {
+      refresh();
+      setPresetPacks(loadWorkflowPresetPacks());
+      void fetch("/api/comfyui/workflows")
+        .then((response) => response.json())
+        .then((data: { workflows?: ServerWorkflowOption[] }) => {
+          setServerFiles(data.workflows ?? []);
+        })
+        .catch(() => {
+          setServerFiles([]);
+        });
+    });
   }, [refresh]);
 
   const editingValidation = useMemo(() => {

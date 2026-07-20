@@ -34,6 +34,7 @@ import {
 import {
   DEFAULT_GENERATE_TOOL_CACHE,
 } from "@/lib/settings-cache";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
 import { readVariationSeedFromResult } from "@/lib/variation-seed-metadata";
 import TagAssistToolbar from "@/components/TagAssistToolbar";
@@ -187,9 +188,11 @@ export default function PromptGenerator() {
   );
 
   useEffect(() => {
-    if (toolSettings.mode) {
-      setMode(toolSettings.mode);
-    }
+    scheduleAfterCommit(() => {
+      if (toolSettings.mode) {
+        setMode(toolSettings.mode);
+      }
+    });
   }, [toolSettings.mode]);
 
   const setHintSource = (value: import("@/lib/scene-hint-source").SceneHintSource) =>
@@ -202,45 +205,47 @@ export default function PromptGenerator() {
     if (typeof window === "undefined") {
       return;
     }
-    const params = new URLSearchParams(window.location.search);
-    applyHintSourceFromSearchParams(params, updateToolSettings);
-    if (params.get("source") === "random") {
-      updateToolSettings({ generateSource: "random", hintSource: "random" });
-    }
-    const seed = params.get("seed");
-    if (seed?.trim()) {
-      updateShared({ lockedVariationSeed: seed.trim() });
-    }
-
-    const prefilled = params.get("input") ?? params.get("hints");
-    if (prefilled?.trim()) {
-      setInput(prefilled.trim());
-      if (params.get("hintSource") === "manual") {
-        updateToolSettings({ hintSource: "manual", generateSource: "keywords" });
+    scheduleAfterCommit(() => {
+      const params = new URLSearchParams(window.location.search);
+      applyHintSourceFromSearchParams(params, updateToolSettings);
+      if (params.get("source") === "random") {
+        updateToolSettings({ generateSource: "random", hintSource: "random" });
       }
-    }
+      const seed = params.get("seed");
+      if (seed?.trim()) {
+        updateShared({ lockedVariationSeed: seed.trim() });
+      }
 
-    const scene = parseScenePresetFromSearch(window.location.search);
-    if (!scene) {
-      return;
-    }
+      const prefilled = params.get("input") ?? params.get("hints");
+      if (prefilled?.trim()) {
+        setInput(prefilled.trim());
+        if (params.get("hintSource") === "manual") {
+          updateToolSettings({ hintSource: "manual", generateSource: "keywords" });
+        }
+      }
 
-    const applied = applyShareableSceneParams(scene);
-    if (applied.hints?.trim()) {
-      setInput(applied.hints.trim());
-    }
-    updateShared({
-      lockedWardrobeId: applied.lockedWardrobeId,
-      lockedLocation: applied.lockedLocation,
-      lockedVariationSeed: applied.lockedVariationSeed,
+      const scene = parseScenePresetFromSearch(window.location.search);
+      if (!scene) {
+        return;
+      }
+
+      const applied = applyShareableSceneParams(scene);
+      if (applied.hints?.trim()) {
+        setInput(applied.hints.trim());
+      }
+      updateShared({
+        lockedWardrobeId: applied.lockedWardrobeId,
+        lockedLocation: applied.lockedLocation,
+        lockedVariationSeed: applied.lockedVariationSeed,
+      });
+      if (applied.sportPresetId) {
+        updateToolSettings({ sportPresetId: applied.sportPresetId });
+        const preset = getSportPreset(applied.sportPresetId);
+        if (preset) {
+          setInput(preset.hints);
+        }
+      }
     });
-    if (applied.sportPresetId) {
-      updateToolSettings({ sportPresetId: applied.sportPresetId });
-      const preset = getSportPreset(applied.sportPresetId);
-      if (preset) {
-        setInput(preset.hints);
-      }
-    }
   }, [updateShared, updateToolSettings]);
 
   const historyCandidateCount = countHistorySeedCandidates("generate", historySeedScope);
@@ -252,9 +257,10 @@ export default function PromptGenerator() {
         : null;
 
   const submitDisabled =
+    !mounted ||
     loading ||
     (hintSource === "random"
-      ? !mounted
+      ? false
       : hintSource === "history"
         ? historyCandidateCount === 0
         : !input.trim());

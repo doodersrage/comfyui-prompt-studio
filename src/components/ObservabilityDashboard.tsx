@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ToolSection } from "@/components/ui/ToolPageShell";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type UsageEntry = {
   at: number;
@@ -38,7 +39,9 @@ export default function ObservabilityDashboard() {
   }
 
   useEffect(() => {
-    void refresh();
+    scheduleAfterCommit(() => {
+      void refresh();
+    });
     const interval = window.setInterval(() => void refresh(), 30_000);
     return () => window.clearInterval(interval);
   }, []);

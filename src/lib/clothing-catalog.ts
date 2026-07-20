@@ -1140,7 +1140,7 @@ function dedupeWardrobeLayers(
   bottom: EnrichedClothingEntry | null;
   footwear: EnrichedClothingEntry | null;
 } {
-  let nextWardrobe = wardrobe;
+  const nextWardrobe = wardrobe;
   let nextBottom = bottom;
   let nextFootwear = footwear;
 
@@ -1457,7 +1457,7 @@ export function pickRandomCharacterOutfit(
     randomInt(100) < 35;
 
   const { wardrobe, bottom } = pickWardrobeLayers(workingFilters);
-  let footwear =
+  const footwear =
     useIntimateFootwear || filters.swimwearOnly
       ? null
       : filters.lockPrimaryGarment && hintsSpecifyFootwear(workingFilters.hintCorpus)

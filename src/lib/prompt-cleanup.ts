@@ -432,7 +432,7 @@ function finalizeVisionPromptFragment(text: string): string {
 }
 
 function extractPromptAfterMetaColon(rest: string): string {
-  let text = normalizeAsciiQuotes(rest.trim());
+  const text = normalizeAsciiQuotes(rest.trim());
   if (!text) {
     return text;
   }
@@ -449,7 +449,7 @@ function extractPromptAfterMetaColon(rest: string): string {
 }
 
 function stripVisionMetaInstruction(text: string): string {
-  let cleaned = normalizeAsciiQuotes(text.trim());
+  const cleaned = normalizeAsciiQuotes(text.trim());
   if (!cleaned) {
     return cleaned;
   }
@@ -882,7 +882,7 @@ function trimProseForSubjectFocus(text: string): string {
     environmentParts.push(sentence);
   }
 
-  let location =
+  const location =
     extractBriefLocationPhrase(environmentParts.join(" ")) ??
     extractBriefLocationPhrase(text);
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   BACKGROUND_PRESET_UI_SECTIONS,
   BACKGROUND_SURFACE_MATERIAL_OPTIONS,
@@ -214,9 +215,11 @@ export default function BackgroundPresetControls({
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (mounted && activeCount > 0) {
-      setOpen(true);
-    }
+    scheduleAfterCommit(() => {
+      if (mounted && activeCount > 0) {
+        setOpen(true);
+      }
+    });
   }, [mounted, activeCount]);
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   DEFAULT_SHARED_SETTINGS,
   loadSettingsCache,
@@ -20,10 +21,12 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
   const [toolSettings, setToolSettings] = useState(toolDefaults);
 
   useEffect(() => {
-    const cache = loadSettingsCache();
-    setShared(cache.shared);
-    setToolSettings(loadToolSettings(toolKey, toolDefaults));
-    setMounted(true);
+    scheduleAfterCommit(() => {
+      const cache = loadSettingsCache();
+      setShared(cache.shared);
+      setToolSettings(loadToolSettings(toolKey, toolDefaults));
+      setMounted(true);
+    });
     // toolDefaults are module-level constants; toolKey selects the cache slice
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toolKey]);

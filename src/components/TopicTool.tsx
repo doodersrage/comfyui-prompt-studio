@@ -26,6 +26,7 @@ import {
   saveTopicsVariationsHandoff,
   variationsPathFromTopics,
 } from "@/lib/topics-variations-handoff";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import type { BatchFromTopicsItem } from "@/lib/batch-from-topics";
 import type { TopicGenerateResult } from "@/lib/specialized/types";
 import {
@@ -100,21 +101,23 @@ export default function TopicTool() {
     if (!mounted) {
       return;
     }
-    if (new URLSearchParams(window.location.search).get("from") !== "gallery") {
-      return;
-    }
-    const handoff = loadTopicsVariationsHandoff();
-    if (!handoff) {
-      return;
-    }
-    setBatchResults(
-      handoff.prompts.map((prompt, index) => ({
-        topic: handoff.topics[index] ?? prompt.slice(0, 80),
-        prompt,
-        provider: "template" as const,
-      })),
-    );
-    setBatchStatus(`Loaded ${handoff.prompts.length} prompts from Gallery.`);
+    scheduleAfterCommit(() => {
+      if (new URLSearchParams(window.location.search).get("from") !== "gallery") {
+        return;
+      }
+      const handoff = loadTopicsVariationsHandoff();
+      if (!handoff) {
+        return;
+      }
+      setBatchResults(
+        handoff.prompts.map((prompt, index) => ({
+          topic: handoff.topics[index] ?? prompt.slice(0, 80),
+          prompt,
+          provider: "template" as const,
+        })),
+      );
+      setBatchStatus(`Loaded ${handoff.prompts.length} prompts from Gallery.`);
+    });
   }, [mounted]);
 
   const generate = useCallback(async () => {

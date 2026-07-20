@@ -14,6 +14,7 @@ import {
   loadNegativeSuggestions,
   type NegativeSuggestion,
 } from "@/lib/negative-learner";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export default function NegativeLearnerPanel() {
   const [items, setItems] = useState<NegativeSuggestion[]>([]);
@@ -24,7 +25,9 @@ export default function NegativeLearnerPanel() {
   }, []);
 
   useEffect(() => {
-    refresh();
+    scheduleAfterCommit(() => {
+      refresh();
+    });
   }, [refresh]);
 
   function appendToNegativeProfile(token: string) {

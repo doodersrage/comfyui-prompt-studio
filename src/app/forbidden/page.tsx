@@ -1,3 +1,4 @@
+import Link from "next/link";
 import PageCanvas from "@/components/ui/PageCanvas";
 
 export default function ForbiddenPage() {
@@ -9,9 +10,9 @@ export default function ForbiddenPage() {
           Your account or group does not have permission for this tool. Contact an admin to
           adjust blocked features in Settings → Users.
         </p>
-        <a href="/" className="inline-flex text-sm text-violet-300 hover:text-violet-200">
+        <Link href="/" className="inline-flex text-sm text-violet-300 hover:text-violet-200">
           Back to home
-        </a>
+        </Link>
       </div>
     </PageCanvas>
   );

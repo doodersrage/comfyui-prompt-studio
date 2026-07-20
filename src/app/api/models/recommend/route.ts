@@ -4,12 +4,13 @@ import { recommendModels } from "@/lib/model-recommender";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as { input?: string; limit?: number };
-  if (!body.input?.trim()) {
+  const body = (await request.json()) as { input?: string; text?: string; limit?: number };
+  const input = (body.input ?? body.text ?? "").trim();
+  if (!input) {
     return apiError("input is required.", 400);
   }
   return apiJson({
-    recommendations: recommendModels(body.input, body.limit ?? 3),
+    recommendations: recommendModels(input, body.limit ?? 3),
   });
 }
 

@@ -11,6 +11,7 @@ import { planReadinessAutoFix } from "@/lib/readiness-auto-fix";
 import type { ComfyImageModel } from "@/lib/comfy-models";
 import type { DetailLevel } from "@/lib/detail-level";
 import { Button } from "@/components/ui/Button";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export default function ReadinessBadge(props: {
   prompt: string;
@@ -29,32 +30,34 @@ export default function ReadinessBadge(props: {
   const minScore = props.minScore ?? DEFAULT_READINESS_MIN_SCORE;
 
   useEffect(() => {
-    if (!props.prompt.trim()) {
-      setResult(null);
-      props.onResult?.(null);
-      return;
-    }
-    void fetch("/api/readiness", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(props),
-    })
-      .then((response) => response.json())
-      .then((data: PromptReadinessResult) => {
-        setResult(data);
-        props.onResult?.(data);
+    scheduleAfterCommit(() => {
+      if (!props.prompt.trim()) {
+        setResult(null);
+        props.onResult?.(null);
+        return;
+      }
+      void fetch("/api/readiness", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(props),
       })
-      .catch(() => {
-        const fallback = scorePromptReadiness({
-          prompt: props.prompt,
-          hints: props.hints,
-          model: props.model as ComfyImageModel,
-          detail: props.detail as DetailLevel,
-          negativePrompt: props.negativePrompt,
+        .then((response) => response.json())
+        .then((data: PromptReadinessResult) => {
+          setResult(data);
+          props.onResult?.(data);
+        })
+        .catch(() => {
+          const fallback = scorePromptReadiness({
+            prompt: props.prompt,
+            hints: props.hints,
+            model: props.model as ComfyImageModel,
+            detail: props.detail as DetailLevel,
+            negativePrompt: props.negativePrompt,
+          });
+          setResult(fallback);
+          props.onResult?.(fallback);
         });
-        setResult(fallback);
-        props.onResult?.(fallback);
-      });
+    });
   }, [props.prompt, props.hints, props.model, props.detail, props.negativePrompt]);
 
   async function runAutoFix() {

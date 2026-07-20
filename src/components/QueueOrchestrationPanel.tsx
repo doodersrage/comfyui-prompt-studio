@@ -5,6 +5,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { StatCard, ToolActionRow } from "@/components/ui/ToolPageShell";
 import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
 import { scheduleComfyGalleryPoll } from "@/lib/comfyui-gallery-poller";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type ComfyHealth = {
   ok: boolean;
@@ -35,7 +36,9 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
   }, []);
 
   useEffect(() => {
-    void refreshHealth();
+    scheduleAfterCommit(() => {
+      void refreshHealth();
+    });
     const onGalleryUpdate = () => setGalleryRevision((value) => value + 1);
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGalleryUpdate);
     const interval = window.setInterval(() => void refreshHealth(), 30_000);

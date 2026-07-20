@@ -7,6 +7,7 @@ import { featureForPath } from "@/lib/auth/features";
 import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
 import NotificationBell from "@/components/NotificationBell";
 import { loadToolPlugins, BUILTIN_TOOL_PLUGINS, type ToolPlugin } from "@/lib/tool-plugin-registry";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type NavLink = {
   href: string;
@@ -98,13 +99,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         group.links.map((link) => link.href.split("?")[0] ?? link.href),
       ),
     );
-    setCustomPlugins(
-      loadToolPlugins().filter(
-        (entry) =>
-          !builtinIds.has(entry.id) &&
-          !knownHrefs.has(entry.href.split("?")[0] ?? entry.href),
-      ),
-    );
+    scheduleAfterCommit(() => {
+      setCustomPlugins(
+        loadToolPlugins().filter(
+          (entry) =>
+            !builtinIds.has(entry.id) &&
+            !knownHrefs.has(entry.href.split("?")[0] ?? entry.href),
+        ),
+      );
+    });
   }, []);
 
   const visibleGroups = useMemo(() => {
@@ -230,7 +233,9 @@ export default function AppNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    setMobileOpen(false);
+    scheduleAfterCommit(() => {
+      setMobileOpen(false);
+    });
   }, [pathname]);
 
   useEffect(() => {

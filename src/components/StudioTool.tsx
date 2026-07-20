@@ -18,6 +18,7 @@ import {
   type PromptHistoryEntry,
 } from "@/hooks/usePromptHistory";
 import { DEFAULT_STUDIO_TOOL_CACHE } from "@/lib/settings-cache";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   filterHistoryEntries,
   uniqueHistoryModels,
@@ -308,39 +309,43 @@ export default function StudioTool() {
   });
 
   useEffect(() => {
-    setCampaignTemplates(loadCampaignTemplates());
+    scheduleAfterCommit(() => {
+      setCampaignTemplates(loadCampaignTemplates());
+    });
   }, []);
 
   useEffect(() => {
-    const query = historyFilter.query?.trim();
-    if (!historyFilter.semanticSearch || !query) {
-      setEmbeddingRankIds(null);
-      return;
-    }
+    scheduleAfterCommit(() => {
+      const query = historyFilter.query?.trim();
+      if (!historyFilter.semanticSearch || !query) {
+        setEmbeddingRankIds(null);
+        return;
+      }
 
-    const candidates = filterHistoryEntries(entries, {
-      ...historyFilter,
-      semanticSearch: false,
-    });
+      const candidates = filterHistoryEntries(entries, {
+        ...historyFilter,
+        semanticSearch: false,
+      });
 
-    void fetch("/api/search/embeddings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query,
-        items: candidates.map((entry) => ({
-          id: entry.id,
-          text: [entry.prompt, entry.hints, entry.tool, entry.model, entry.tags?.join(" ")]
-            .filter(Boolean)
-            .join("\n"),
-        })),
-      }),
-    })
-      .then((response) => response.json())
-      .then((data: { results?: Array<{ id: string }> }) => {
-        setEmbeddingRankIds(data.results?.map((entry) => entry.id) ?? null);
+      void fetch("/api/search/embeddings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query,
+          items: candidates.map((entry) => ({
+            id: entry.id,
+            text: [entry.prompt, entry.hints, entry.tool, entry.model, entry.tags?.join(" ")]
+              .filter(Boolean)
+              .join("\n"),
+          })),
+        }),
       })
-      .catch(() => setEmbeddingRankIds(null));
+        .then((response) => response.json())
+        .then((data: { results?: Array<{ id: string }> }) => {
+          setEmbeddingRankIds(data.results?.map((entry) => entry.id) ?? null);
+        })
+        .catch(() => setEmbeddingRankIds(null));
+    });
   }, [entries, historyFilter.query, historyFilter.semanticSearch, historyFilter.tool, historyFilter.model, historyFilter.tag, historyFilter.favoritesOnly, historyFilter.minRating]);
 
   const filteredEntries = useMemo(() => {
@@ -422,12 +427,14 @@ export default function StudioTool() {
   }, [template, toolSettings.templateSlots]);
 
   useEffect(() => {
-    setBlocklist(loadLocationBlocklist());
-    setScenePresets(loadScenePresets());
-    setUserSceneStarters(loadUserSceneStarterPresets());
-    setUserTemplates(loadUserTemplates());
-    setProjects(loadPromptProjects());
-    setActiveProjectIdState(loadActiveProjectId());
+    scheduleAfterCommit(() => {
+      setBlocklist(loadLocationBlocklist());
+      setScenePresets(loadScenePresets());
+      setUserSceneStarters(loadUserSceneStarterPresets());
+      setUserTemplates(loadUserTemplates());
+      setProjects(loadPromptProjects());
+      setActiveProjectIdState(loadActiveProjectId());
+    });
   }, []);
 
   useEffect(() => {
@@ -459,28 +466,30 @@ export default function StudioTool() {
     if (typeof window === "undefined") {
       return;
     }
-    const historyId = new URLSearchParams(window.location.search).get("history");
-    const tabParam = new URLSearchParams(window.location.search).get("tab");
-    if (
-      tabParam === "experiments" ||
-      tabParam === "analytics" ||
-      tabParam === "diff" ||
-      tabParam === "history" ||
-      tabParam === "compare" ||
-      tabParam === "catalog" ||
-      tabParam === "templates" ||
-      tabParam === "presets" ||
-      tabParam === "iteration" ||
-      tabParam === "projects" ||
-      tabParam === "portfolio" ||
-      tabParam === "campaign"
-    ) {
-      setTab(tabParam);
-    }
-    if (historyId) {
-      setTab("history");
-      setHighlightHistoryId(historyId);
-    }
+    scheduleAfterCommit(() => {
+      const historyId = new URLSearchParams(window.location.search).get("history");
+      const tabParam = new URLSearchParams(window.location.search).get("tab");
+      if (
+        tabParam === "experiments" ||
+        tabParam === "analytics" ||
+        tabParam === "diff" ||
+        tabParam === "history" ||
+        tabParam === "compare" ||
+        tabParam === "catalog" ||
+        tabParam === "templates" ||
+        tabParam === "presets" ||
+        tabParam === "iteration" ||
+        tabParam === "projects" ||
+        tabParam === "portfolio" ||
+        tabParam === "campaign"
+      ) {
+        setTab(tabParam);
+      }
+      if (historyId) {
+        setTab("history");
+        setHighlightHistoryId(historyId);
+      }
+    });
   }, []);
 
   const loadCatalog = useCallback(async (query: string) => {
@@ -513,7 +522,9 @@ export default function StudioTool() {
 
   useEffect(() => {
     if (tab === "catalog") {
-      void loadCatalog(catalogQuery);
+      scheduleAfterCommit(() => {
+        void loadCatalog(catalogQuery);
+      });
     }
   }, [tab, catalogQuery, loadCatalog]);
 

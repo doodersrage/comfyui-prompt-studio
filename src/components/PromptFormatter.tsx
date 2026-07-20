@@ -24,6 +24,7 @@ import {
 import { FieldDivider, FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
 import { Button, PrimaryButton } from "@/components/ui/Button";
 import { DEFAULT_FORMAT_TOOL_CACHE } from "@/lib/settings-cache";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 const ACCENT = "emerald" as const;
 
@@ -102,9 +103,11 @@ export default function PromptFormatter() {
   );
 
   useEffect(() => {
-    if (toolSettings.mode) {
-      setMode(toolSettings.mode);
-    }
+    scheduleAfterCommit(() => {
+      if (toolSettings.mode) {
+        setMode(toolSettings.mode);
+      }
+    });
   }, [toolSettings.mode]);
 
   const submitDisabled = !mounted || loading || !input.trim();

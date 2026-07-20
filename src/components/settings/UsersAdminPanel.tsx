@@ -10,6 +10,7 @@ import type { UserAnalyticsSnapshot } from "@/lib/user-analytics";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
 import { ToolSection } from "@/components/ui/ToolPageShell";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 function FeaturePicker({
   value,
@@ -202,57 +203,63 @@ export default function UsersAdminPanel() {
   }, []);
 
   useEffect(() => {
-    void refresh().catch((error) => {
-      setStatus(error instanceof Error ? error.message : "Failed to load auth data.");
+    scheduleAfterCommit(() => {
+      void refresh().catch((error) => {
+        setStatus(error instanceof Error ? error.message : "Failed to load auth data.");
+      });
     });
   }, [refresh]);
 
   useEffect(() => {
-    if (!selectedUser) {
+    scheduleAfterCommit(() => {
+      if (!selectedUser) {
+        setUserForm({
+          username: "",
+          password: "",
+          role: "user",
+          groupIds: [],
+          blockedFeatures: [],
+          enabled: true,
+          quotaMaxPerMinute: "",
+          exportEnabled: false,
+          email: "",
+          emailNotifyBatch: true,
+          emailNotifySecurity: true,
+        });
+        return;
+      }
       setUserForm({
-        username: "",
+        username: selectedUser.username,
         password: "",
-        role: "user",
-        groupIds: [],
-        blockedFeatures: [],
-        enabled: true,
-        quotaMaxPerMinute: "",
-        exportEnabled: false,
-        email: "",
-        emailNotifyBatch: true,
-        emailNotifySecurity: true,
+        role: selectedUser.role,
+        groupIds: selectedUser.groupIds,
+        blockedFeatures: selectedUser.blockedFeatures,
+        enabled: selectedUser.enabled,
+        quotaMaxPerMinute: selectedUser.quotaMaxPerMinute
+          ? String(selectedUser.quotaMaxPerMinute)
+          : "",
+        exportEnabled: Boolean(selectedUser.exportEnabled),
+        email: selectedUser.email ?? "",
+        emailNotifyBatch: selectedUser.emailNotifyBatch !== false,
+        emailNotifySecurity: selectedUser.emailNotifySecurity !== false,
       });
-      return;
-    }
-    setUserForm({
-      username: selectedUser.username,
-      password: "",
-      role: selectedUser.role,
-      groupIds: selectedUser.groupIds,
-      blockedFeatures: selectedUser.blockedFeatures,
-      enabled: selectedUser.enabled,
-      quotaMaxPerMinute: selectedUser.quotaMaxPerMinute
-        ? String(selectedUser.quotaMaxPerMinute)
-        : "",
-      exportEnabled: Boolean(selectedUser.exportEnabled),
-      email: selectedUser.email ?? "",
-      emailNotifyBatch: selectedUser.emailNotifyBatch !== false,
-      emailNotifySecurity: selectedUser.emailNotifySecurity !== false,
     });
   }, [selectedUser]);
 
   useEffect(() => {
-    if (!selectedGroup) {
-      setGroupForm({ name: "", description: "", blockedFeatures: [], quotaMaxPerMinute: "" });
-      return;
-    }
-    setGroupForm({
-      name: selectedGroup.name,
-      description: selectedGroup.description ?? "",
-      blockedFeatures: selectedGroup.blockedFeatures,
-      quotaMaxPerMinute: selectedGroup.quotaMaxPerMinute
-        ? String(selectedGroup.quotaMaxPerMinute)
-        : "",
+    scheduleAfterCommit(() => {
+      if (!selectedGroup) {
+        setGroupForm({ name: "", description: "", blockedFeatures: [], quotaMaxPerMinute: "" });
+        return;
+      }
+      setGroupForm({
+        name: selectedGroup.name,
+        description: selectedGroup.description ?? "",
+        blockedFeatures: selectedGroup.blockedFeatures,
+        quotaMaxPerMinute: selectedGroup.quotaMaxPerMinute
+          ? String(selectedGroup.quotaMaxPerMinute)
+          : "",
+      });
     });
   }, [selectedGroup]);
 

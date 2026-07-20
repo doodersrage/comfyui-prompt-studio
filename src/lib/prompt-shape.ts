@@ -512,12 +512,12 @@ export function trimCompleteSentencesToMaxChars(
     return "";
   }
 
-  let kept = [...sentences];
+  const kept = [...sentences];
   while (kept.length > 1 && kept.join(" ").length > maxChars) {
     kept.pop();
   }
 
-  let result = kept.join(" ").trim();
+  const result = kept.join(" ").trim();
   if (result.length <= maxChars) {
     return result;
   }

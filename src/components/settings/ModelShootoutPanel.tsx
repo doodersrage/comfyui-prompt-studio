@@ -1,18 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ToolSection } from "@/components/ui/ToolPageShell";
 import {
   DEFAULT_SHOOTOUT_MODELS,
   queueSameSeedShootout,
 } from "@/lib/model-shootout";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export default function ModelShootoutPanel() {
   const [prompt, setPrompt] = useState("");
-  const [seed, setSeed] = useState(String(Math.floor(Math.random() * 1_000_000)));
+  const [seed, setSeed] = useState("0");
   const [models, setModels] = useState<string[]>(DEFAULT_SHOOTOUT_MODELS.map((entry) => entry.model));
   const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    scheduleAfterCommit(() => {
+      setSeed(String(Math.floor(Math.random() * 1_000_000)));
+    });
+  }, []);
 
   function toggleModel(model: string) {
     setModels((previous) =>

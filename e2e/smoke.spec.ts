@@ -1,4 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { ensureAuthenticated } from "./helpers/auth";
+
+test.beforeEach(async ({ page }) => {
+  await ensureAuthenticated(page);
+});
 
 test("home page loads", async ({ page }) => {
   await page.goto("/");
@@ -13,7 +18,7 @@ test("dashboard page loads", async ({ page }) => {
 
 test("gallery page loads", async ({ page }) => {
   await page.goto("/gallery");
-  await expect(page.getByRole("heading", { name: /^Gallery$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /ComfyUI Gallery/i })).toBeVisible();
 });
 
 test("queue page loads", async ({ page }) => {
@@ -41,3 +46,32 @@ test("studio analytics tab loads", async ({ page }) => {
   await analyticsTab.click();
   await expect(page.getByRole("heading", { name: /Gallery rating analytics/i })).toBeVisible();
 });
+
+const ADDITIONAL_ROUTES: Array<{ path: string; heading: RegExp; level?: 1 | 2 | 3 | 4 | 5 | 6 }> = [
+  { path: "/character", heading: /Character Generator/i },
+  { path: "/background", heading: /Background Generator/i },
+  { path: "/fantasy", heading: /Fantasy Scene Generator/i },
+  { path: "/pet", heading: /Pet Scene Generator/i },
+  { path: "/refine", heading: /Prompt Refine/i },
+  { path: "/format", heading: /Format for your model/i },
+  { path: "/negative", heading: /Negative Prompt Builder/i },
+  { path: "/lint", heading: /Prompt Lint & Fix/i },
+  { path: "/topics", heading: /Topic Generator/i },
+  { path: "/variations", heading: /Variation Grid/i },
+  { path: "/video", heading: /Video prompt builder/i },
+  { path: "/image-prompt", heading: /Image → Prompt/i },
+  { path: "/plugins", heading: /^Plugins$/i },
+  { path: "/profile", heading: /^Profile$/i, level: 1 as const },
+  { path: "/studio", heading: /Prompt Studio/i },
+];
+
+for (const route of ADDITIONAL_ROUTES) {
+  test(`${route.path} loads`, async ({ page }) => {
+    await page.goto(route.path);
+    await expect(
+      page.getByRole("heading", { name: route.heading, level: route.level }),
+    ).toBeVisible({
+      timeout: 60_000,
+    });
+  });
+}

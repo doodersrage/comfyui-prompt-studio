@@ -24,6 +24,7 @@ import {
   galleryEntryCorpus,
   sortByRankIds,
 } from "@/lib/embedding-rank";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   const [mounted, setMounted] = useState(false);
@@ -42,8 +43,10 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   }, []);
 
   useEffect(() => {
-    setMounted(true);
-    void initGalleryStore().then(refresh);
+    scheduleAfterCommit(() => {
+      setMounted(true);
+      void initGalleryStore().then(refresh);
+    });
 
     const handler = () => refresh();
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);
@@ -51,30 +54,32 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   }, [refresh]);
 
   useEffect(() => {
-    const query = filter.query?.trim();
-    if (!filter.semanticSearch || !query) {
-      setEmbeddingRankIds(null);
-      setEmbeddingSearchLoading(false);
-      setEmbeddingSearchUnavailable(false);
-      return;
-    }
+    scheduleAfterCommit(() => {
+      const query = filter.query?.trim();
+      if (!filter.semanticSearch || !query) {
+        setEmbeddingRankIds(null);
+        setEmbeddingSearchLoading(false);
+        setEmbeddingSearchUnavailable(false);
+        return;
+      }
 
-    const candidates = filterComfyGalleryEntries(entries, {
-      ...filter,
-      semanticSearch: false,
-      similarToEntryId: undefined,
+      const candidates = filterComfyGalleryEntries(entries, {
+        ...filter,
+        semanticSearch: false,
+        similarToEntryId: undefined,
+      });
+
+      setEmbeddingSearchLoading(true);
+      void fetchEmbeddingRankIds(
+        query,
+        candidates.map((entry) => ({ id: entry.id, text: galleryEntryCorpus(entry) })),
+      )
+        .then((ids) => {
+          setEmbeddingRankIds(ids);
+          setEmbeddingSearchUnavailable(ids === null && candidates.length > 0);
+        })
+        .finally(() => setEmbeddingSearchLoading(false));
     });
-
-    setEmbeddingSearchLoading(true);
-    void fetchEmbeddingRankIds(
-      query,
-      candidates.map((entry) => ({ id: entry.id, text: galleryEntryCorpus(entry) })),
-    )
-      .then((ids) => {
-        setEmbeddingRankIds(ids);
-        setEmbeddingSearchUnavailable(ids === null && candidates.length > 0);
-      })
-      .finally(() => setEmbeddingSearchLoading(false));
   }, [
     entries,
     filter.query,
@@ -87,28 +92,30 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   ]);
 
   useEffect(() => {
-    const referenceId = filter.similarToEntryId;
-    if (!referenceId) {
-      setSimilarRankIds(null);
-      setSimilarSearchLoading(false);
-      return;
-    }
+    scheduleAfterCommit(() => {
+      const referenceId = filter.similarToEntryId;
+      if (!referenceId) {
+        setSimilarRankIds(null);
+        setSimilarSearchLoading(false);
+        return;
+      }
 
-    const reference = entries.find((entry) => entry.id === referenceId);
-    if (!reference) {
-      setSimilarRankIds(null);
-      setSimilarSearchLoading(false);
-      return;
-    }
+      const reference = entries.find((entry) => entry.id === referenceId);
+      if (!reference) {
+        setSimilarRankIds(null);
+        setSimilarSearchLoading(false);
+        return;
+      }
 
-    const candidates = entries.filter((entry) => entry.id !== referenceId);
-    setSimilarSearchLoading(true);
-    void fetchEmbeddingRankIds(
-      reference.prompt,
-      candidates.map((entry) => ({ id: entry.id, text: galleryEntryCorpus(entry) })),
-    )
-      .then(setSimilarRankIds)
-      .finally(() => setSimilarSearchLoading(false));
+      const candidates = entries.filter((entry) => entry.id !== referenceId);
+      setSimilarSearchLoading(true);
+      void fetchEmbeddingRankIds(
+        reference.prompt,
+        candidates.map((entry) => ({ id: entry.id, text: galleryEntryCorpus(entry) })),
+      )
+        .then(setSimilarRankIds)
+        .finally(() => setSimilarSearchLoading(false));
+    });
   }, [entries, filter.similarToEntryId]);
 
   const filteredEntries = useMemo(() => {

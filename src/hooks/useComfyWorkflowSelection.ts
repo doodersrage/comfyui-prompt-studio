@@ -11,6 +11,7 @@ import {
 } from "@/lib/comfyui-runtime";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export type ServerWorkflowOption = {
   id: string;
@@ -47,18 +48,20 @@ export function useComfyWorkflowSelection(): UseComfyWorkflowSelectionResult {
   }, []);
 
   useEffect(() => {
-    refreshFiles();
-    void fetch("/api/comfyui/workflows")
-      .then((response) => response.json())
-      .then((data: { workflows?: ServerWorkflowOption[] }) => {
-        setServerFiles(data.workflows ?? []);
-      })
-      .catch(() => {
-        setServerFiles([]);
-      })
-      .finally(() => {
-        setMounted(true);
-      });
+    scheduleAfterCommit(() => {
+      refreshFiles();
+      void fetch("/api/comfyui/workflows")
+        .then((response) => response.json())
+        .then((data: { workflows?: ServerWorkflowOption[] }) => {
+          setServerFiles(data.workflows ?? []);
+        })
+        .catch(() => {
+          setServerFiles([]);
+        })
+        .finally(() => {
+          setMounted(true);
+        });
+    });
   }, [refreshFiles]);
 
   const setSelectedId = useCallback((fileId: string | undefined) => {

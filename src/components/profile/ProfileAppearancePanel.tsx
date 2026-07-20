@@ -5,6 +5,7 @@ import type { AmbientIntensity } from "@/lib/ambient-settings";
 import { loadAmbientIntensity, saveAmbientIntensity } from "@/lib/ambient-settings";
 import type { AppTheme } from "@/lib/theme-store";
 import { loadAppTheme, saveAppTheme } from "@/lib/theme-store";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { ToolSection } from "@/components/ui/ToolPageShell";
 
 export default function ProfileAppearancePanel() {
@@ -12,8 +13,10 @@ export default function ProfileAppearancePanel() {
   const [theme, setTheme] = useState<AppTheme>("dark");
 
   useEffect(() => {
-    setAmbient(loadAmbientIntensity());
-    setTheme(loadAppTheme());
+    scheduleAfterCommit(() => {
+      setAmbient(loadAmbientIntensity());
+      setTheme(loadAppTheme());
+    });
   }, []);
 
   return (

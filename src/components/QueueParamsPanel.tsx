@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   DEFAULT_QUEUE_PARAMS,
   loadQueueParamsSettings,
@@ -19,8 +20,10 @@ export default function QueueParamsPanel({ compact = false }: QueueParamsPanelPr
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setSettings(loadQueueParamsSettings());
-    setMounted(true);
+    scheduleAfterCommit(() => {
+      setSettings(loadQueueParamsSettings());
+      setMounted(true);
+    });
   }, []);
 
   if (!mounted) {

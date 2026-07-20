@@ -17,6 +17,7 @@ import {
 } from "@/lib/experiment-winners";
 import { downloadCompareExport } from "@/lib/gallery-compare-export";
 import { requeueComfyJobs } from "@/lib/comfyui-requeue";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export default function ExperimentDashboardPanel() {
   const [groups, setGroups] = useState<ExperimentGroup[]>([]);
@@ -43,7 +44,9 @@ export default function ExperimentDashboardPanel() {
   }
 
   useEffect(() => {
-    void refresh();
+    scheduleAfterCommit(() => {
+      void refresh();
+    });
     const handler = () => void refresh();
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);
     return () => window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);

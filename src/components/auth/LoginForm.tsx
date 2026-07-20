@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
 import { useAuth } from "@/hooks/useAuth";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type LoginMode = "sign-in" | "totp" | "forgot" | "reset";
 
@@ -28,8 +29,10 @@ export default function LoginForm() {
   useEffect(() => {
     const token = searchParams.get("reset")?.trim();
     if (token) {
-      setResetToken(token);
-      setMode("reset");
+      scheduleAfterCommit(() => {
+        setResetToken(token);
+        setMode("reset");
+      });
     }
   }, [searchParams]);
 

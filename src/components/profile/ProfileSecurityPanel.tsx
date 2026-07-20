@@ -9,6 +9,7 @@ import {
   loadKeyboardShortcuts,
   saveKeyboardShortcuts,
 } from "@/lib/keyboard-shortcuts-store";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type ApiKeyRow = {
   id: string;
@@ -60,7 +61,9 @@ export default function ProfileSecurityPanel() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    scheduleAfterCommit(() => {
+      void refresh();
+    });
   }, [refresh]);
 
   return (

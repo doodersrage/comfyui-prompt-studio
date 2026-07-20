@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { ToolLayout, ToolSection, ToolBadge } from "@/components/ui/ToolPageShell";
 import { requeueComfyJob, requeueComfyJobs } from "@/lib/comfyui-requeue";
 import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type ComfyQueueHealth = {
   queueRunning?: number;
@@ -36,8 +37,10 @@ export default function QueueTool() {
   }, []);
 
   useEffect(() => {
-    refreshEntries();
-    void refreshHealth();
+    scheduleAfterCommit(() => {
+      refreshEntries();
+      void refreshHealth();
+    });
     const interval = window.setInterval(() => {
       refreshEntries();
       void refreshHealth();

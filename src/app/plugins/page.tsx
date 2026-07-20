@@ -8,6 +8,7 @@ import {
   ToolLayout,
   ToolSection,
 } from "@/components/ui/ToolPageShell";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   BUILTIN_TOOL_PLUGINS,
   loadToolPlugins,
@@ -20,7 +21,9 @@ export default function PluginsPage() {
   const [customJson, setCustomJson] = useState("[]");
 
   useEffect(() => {
-    setPlugins(loadToolPlugins());
+    scheduleAfterCommit(() => {
+      setPlugins(loadToolPlugins());
+    });
   }, []);
 
   function saveCustom() {

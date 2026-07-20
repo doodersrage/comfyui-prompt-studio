@@ -8,6 +8,7 @@ import {
 } from "@/lib/prompt-history";
 import { USER_SCOPE_CHANGED_EVENT } from "@/lib/user-scope";
 import { scheduleUserAnalyticsSync } from "@/lib/user-analytics-sync";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export type { PromptHistoryEntry } from "@/lib/prompt-history";
 export { PROMPT_HISTORY_KEY, LOCATION_BLOCKLIST_KEY } from "@/lib/prompt-history";
@@ -36,8 +37,10 @@ export function usePromptHistory() {
   }, []);
 
   useEffect(() => {
-    refresh();
-    setMounted(true);
+    scheduleAfterCommit(() => {
+      refresh();
+      setMounted(true);
+    });
 
     const onScopeChanged = () => refresh();
     window.addEventListener(USER_SCOPE_CHANGED_EVENT, onScopeChanged);

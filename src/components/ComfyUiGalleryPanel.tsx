@@ -71,6 +71,7 @@ import {
   type GallerySlideshowIntervalMs,
   type GallerySlideshowTransition,
 } from "@/lib/comfyui-gallery";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type ComfyUiGalleryPanelProps = {
   limit?: number;
@@ -172,13 +173,15 @@ export default function ComfyUiGalleryPanel({
     if (!mounted) {
       return;
     }
-    const preferences = loadGalleryViewPreferences();
-    setSort(preferences.sort);
-    setPageSize(preferences.pageSize);
-    setSlideshowIntervalMs(preferences.slideshowIntervalMs);
-    setSlideshowTransition(preferences.slideshowTransition);
-    setLayout(preferences.layout);
-    setViewPrefsLoaded(true);
+    scheduleAfterCommit(() => {
+      const preferences = loadGalleryViewPreferences();
+      setSort(preferences.sort);
+      setPageSize(preferences.pageSize);
+      setSlideshowIntervalMs(preferences.slideshowIntervalMs);
+      setSlideshowTransition(preferences.slideshowTransition);
+      setLayout(preferences.layout);
+      setViewPrefsLoaded(true);
+    });
   }, [mounted]);
 
   useEffect(() => {
@@ -203,7 +206,9 @@ export default function ComfyUiGalleryPanel({
   ]);
 
   useEffect(() => {
-    setPage(1);
+    scheduleAfterCommit(() => {
+      setPage(1);
+    });
   }, [filter.status, filter.tool, filter.favoritesOnly, filter.query, sort, pageSize]);
 
   const pagination = useMemo(() => {
@@ -297,7 +302,9 @@ export default function ComfyUiGalleryPanel({
     if (!paginationEnabled || page === currentPage) {
       return;
     }
-    setPage(currentPage);
+    scheduleAfterCommit(() => {
+      setPage(currentPage);
+    });
   }, [currentPage, page, paginationEnabled]);
 
   const selectedEntries = useMemo(
@@ -368,7 +375,9 @@ export default function ComfyUiGalleryPanel({
         visibleEntries.find((entry) => entry.status === "completed") ??
         visibleEntries[0];
       if (firstCompleted) {
-        setSelectedIds([firstCompleted.id]);
+        scheduleAfterCommit(() => {
+          setSelectedIds([firstCompleted.id]);
+        });
       }
     }
   }, [filter.reviewMode, visibleEntries, selectedIds.length]);

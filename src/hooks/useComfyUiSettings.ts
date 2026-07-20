@@ -8,14 +8,17 @@ import {
   saveComfyUiSettings,
   type ComfyUiSettings,
 } from "@/lib/comfyui-settings";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export function useComfyUiSettings() {
   const [mounted, setMounted] = useState(false);
   const [settings, setSettings] = useState<ComfyUiSettings>(() => loadComfyUiSettings());
 
   useEffect(() => {
-    setMounted(true);
-    setSettings(loadComfyUiSettings());
+    scheduleAfterCommit(() => {
+      setMounted(true);
+      setSettings(loadComfyUiSettings());
+    });
   }, []);
 
   const updateSettings = useCallback((patch: Partial<ComfyUiSettings>) => {

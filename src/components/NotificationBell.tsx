@@ -10,6 +10,7 @@ import {
   unreadNotificationCount,
   type AppNotification,
 } from "@/lib/notification-center";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -22,7 +23,9 @@ export default function NotificationBell() {
   }, []);
 
   useEffect(() => {
-    refresh();
+    scheduleAfterCommit(() => {
+      refresh();
+    });
     window.addEventListener(NOTIFICATIONS_UPDATED, refresh);
     return () => window.removeEventListener(NOTIFICATIONS_UPDATED, refresh);
   }, [refresh]);

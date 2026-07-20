@@ -10,6 +10,7 @@ import {
   resolveGallerySlideshowTransitionMs,
   type GallerySlideshowTransition,
 } from "@/lib/comfyui-gallery";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export type ImageLightboxState = {
   images: string[];
@@ -151,46 +152,50 @@ export default function ImageLightbox({
   };
 
   useEffect(() => {
-    setMounted(true);
+    scheduleAfterCommit(() => {
+      setMounted(true);
+    });
   }, []);
 
   useEffect(() => {
-    if (!open) {
-      setPreviousIndex(null);
-      setDisplayIndex(0);
-      setTitleAnimating(false);
-      return;
-    }
+    scheduleAfterCommit(() => {
+      if (!open) {
+        setPreviousIndex(null);
+        setDisplayIndex(0);
+        setTitleAnimating(false);
+        return;
+      }
 
-    const playlistKey = images.join("\u0000");
-    if (playlistKeyRef.current !== playlistKey) {
-      playlistKeyRef.current = playlistKey;
-      setPreviousIndex(null);
+      const playlistKey = images.join("\u0000");
+      if (playlistKeyRef.current !== playlistKey) {
+        playlistKeyRef.current = playlistKey;
+        setPreviousIndex(null);
+        setDisplayIndex(index);
+        setTitleAnimating(false);
+        return;
+      }
+
+      if (index === displayIndex) {
+        return;
+      }
+
+      if (transition === "none") {
+        setDisplayIndex(index);
+        return;
+      }
+
+      const direction = resolveSlideDirection(
+        displayIndex,
+        index,
+        images.length,
+        Boolean(slideshow?.playing),
+      );
+
+      setSlideDirection(direction);
+      setPreviousIndex(displayIndex);
       setDisplayIndex(index);
-      setTitleAnimating(false);
-      return;
-    }
-
-    if (index === displayIndex) {
-      return;
-    }
-
-    if (transition === "none") {
-      setDisplayIndex(index);
-      return;
-    }
-
-    const direction = resolveSlideDirection(
-      displayIndex,
-      index,
-      images.length,
-      Boolean(slideshow?.playing),
-    );
-
-    setSlideDirection(direction);
-    setPreviousIndex(displayIndex);
-    setDisplayIndex(index);
-    setTitleAnimating(true);
+      setTitleAnimating(true);
+    });
   }, [
     open,
     index,

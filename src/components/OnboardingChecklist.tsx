@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import Link from "next/link";
 import {
   dismissOnboarding,
@@ -14,9 +15,11 @@ export default function OnboardingChecklist() {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
-    const state = loadOnboardingState();
-    setSteps(state);
-    setHidden(state.every((step) => step.done));
+    scheduleAfterCommit(() => {
+      const state = loadOnboardingState();
+      setSteps(state);
+      setHidden(state.every((step) => step.done));
+    });
   }, []);
 
   if (hidden || steps.every((step) => step.done)) {

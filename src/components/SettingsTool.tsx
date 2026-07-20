@@ -80,6 +80,7 @@ import {
   markOnboardingComfyHealthOk,
   markOnboardingLlmHealthOk,
 } from "@/lib/onboarding-hooks";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import SettingsSubNav from "@/components/settings/SettingsSubNav";
 import UsersSettingsPanel from "@/components/settings/UsersSettingsPanel";
 import ServerEnvPanel from "@/components/settings/ServerEnvPanel";
@@ -243,19 +244,23 @@ export default function SettingsTool() {
   }, [webhookLog]);
 
   useEffect(() => {
-    if (isComfyNotificationSupported()) {
-      setNotificationPermission(Notification.permission);
-    } else {
-      setNotificationPermission("unsupported");
-    }
+    scheduleAfterCommit(() => {
+      if (isComfyNotificationSupported()) {
+        setNotificationPermission(Notification.permission);
+      } else {
+        setNotificationPermission("unsupported");
+      }
+    });
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
-    const tabParam = new URLSearchParams(window.location.search).get("tab");
-    setTab(normalizeSettingsTab(tabParam));
+    scheduleAfterCommit(() => {
+      const tabParam = new URLSearchParams(window.location.search).get("tab");
+      setTab(normalizeSettingsTab(tabParam));
+    });
   }, []);
 
   const handleTabChange = useCallback((next: SettingsTab) => {
@@ -266,26 +271,28 @@ export default function SettingsTool() {
   }, []);
 
   useEffect(() => {
-    const cache = loadSettingsCache();
-    setSharedSettings(cache.shared);
-    setModelWorkflowMapText(formatModelWorkflowMap(cache.shared.modelWorkflowMap));
-    setSharedMounted(true);
-    setWebhookSettings(loadWebhookSettings());
-    setScheduledBatch(loadScheduledBatchConfig());
-    setAvoidedTokens(exportAvoidedTokenList());
-    setWebhookLog(loadWebhookLog());
-    try {
-      const lastBackupRaw = readBrowserString(STUDIO_BACKUP_LAST_EXPORT_KEY);
-      const lastBackup = lastBackupRaw ? Number(lastBackupRaw) : 0;
-      const weekMs = 7 * 24 * 60 * 60 * 1000;
-      if (!lastBackup || Date.now() - lastBackup > weekMs) {
-        setBackupReminder(
-          "No recent Studio backup detected — export a v3 backup to preserve avoided tokens, webhooks, and projects.",
-        );
+    scheduleAfterCommit(() => {
+      const cache = loadSettingsCache();
+      setSharedSettings(cache.shared);
+      setModelWorkflowMapText(formatModelWorkflowMap(cache.shared.modelWorkflowMap));
+      setSharedMounted(true);
+      setWebhookSettings(loadWebhookSettings());
+      setScheduledBatch(loadScheduledBatchConfig());
+      setAvoidedTokens(exportAvoidedTokenList());
+      setWebhookLog(loadWebhookLog());
+      try {
+        const lastBackupRaw = readBrowserString(STUDIO_BACKUP_LAST_EXPORT_KEY);
+        const lastBackup = lastBackupRaw ? Number(lastBackupRaw) : 0;
+        const weekMs = 7 * 24 * 60 * 60 * 1000;
+        if (!lastBackup || Date.now() - lastBackup > weekMs) {
+          setBackupReminder(
+            "No recent Studio backup detected — export a v3 backup to preserve avoided tokens, webhooks, and projects.",
+          );
+        }
+      } catch {
+        setBackupReminder(null);
       }
-    } catch {
-      setBackupReminder(null);
-    }
+    });
   }, []);
 
   useEffect(() => {
@@ -342,7 +349,9 @@ export default function SettingsTool() {
   }, [settings.apiUrl, settings.useServerDefaults]);
 
   useEffect(() => {
-    void refreshHealth();
+    scheduleAfterCommit(() => {
+      void refreshHealth();
+    });
   }, [refreshHealth]);
 
   const handleImport = useCallback(async (file: File) => {

@@ -17,6 +17,7 @@ import {
   type HistorySeedTool,
   type SceneHintSource,
 } from "@/lib/scene-hint-source";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 const HISTORY_EMPTY_GUIDANCE: Partial<
   Record<
@@ -150,7 +151,9 @@ export function HistoryHintSeedPanel({
     if (hintSource !== "history" || hints.trim() || candidateCount === 0) {
       return;
     }
-    applyHistorySeed();
+    scheduleAfterCommit(() => {
+      applyHistorySeed();
+    });
   }, [hintSource, hints, candidateCount, applyHistorySeed]);
 
   const activeSource = SCENE_HINT_SOURCE_OPTIONS.find(
