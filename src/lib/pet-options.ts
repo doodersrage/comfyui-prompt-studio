@@ -4,7 +4,8 @@ export type PetSpeciesOption =
   | "cat"
   | "rabbit"
   | "bird"
-  | "small-pet";
+  | "small-pet"
+  | "reptile";
 
 export type PetPairMode = "" | "solo" | "pair";
 
@@ -46,7 +47,8 @@ export type PetActivity =
   | "jumping"
   | "perched"
   | "nibbling"
-  | "cuddling";
+  | "cuddling"
+  | "training";
 
 export type PetSettingVibe =
   | ""
@@ -61,7 +63,8 @@ export type PetSettingVibe =
   | "windowsill"
   | "studio"
   | "farm-meadow"
-  | "urban-street";
+  | "urban-street"
+  | "aquarium";
 
 export type PetCameraAngle =
   | ""
@@ -77,7 +80,8 @@ export type PetLightingStyle =
   | "bright-daylight"
   | "overcast"
   | "cozy-lamp"
-  | "studio-softbox";
+  | "studio-softbox"
+  | "rainy-day";
 
 export type PetAccessory =
   | ""
@@ -87,7 +91,8 @@ export type PetAccessory =
   | "toy-ball"
   | "toy-rope"
   | "bowtie"
-  | "flower-crown";
+  | "flower-crown"
+  | "sweater";
 
 export type PetPresetOptions = {
   species?: PetSpeciesOption;
@@ -132,6 +137,7 @@ const SELECT_REGISTRY = {
     { value: "rabbit", label: "Rabbit", script: "a rabbit with soft fur, twitching nose, and long ears," },
     { value: "bird", label: "Bird", script: "a bird with detailed plumage, beak, and alert posture," },
     { value: "small-pet", label: "Small pet", script: "a small companion animal with compact proportions and clear species read," },
+    { value: "reptile", label: "Reptile", script: "a reptile with believable scales, claws, and species-appropriate anatomy," },
   ] satisfies SelectOption<PetSpeciesOption>[],
   pairMode: [
     { value: "", label: "Auto (from hints)" },
@@ -181,6 +187,7 @@ const SELECT_REGISTRY = {
     { value: "perched", label: "Perched", script: "perched securely with balanced footing," },
     { value: "nibbling", label: "Nibbling / eating", script: "nibbling food or treats with whiskers forward," },
     { value: "cuddling", label: "Cuddling", script: "cuddled up in a cozy nest or blanket," },
+    { value: "training", label: "Training / tricks", script: "performing a trained trick with focused attention and engaged posture," },
   ] satisfies SelectOption<PetActivity>[],
   settingVibe: [
     { value: "", label: "Random setting" },
@@ -196,6 +203,7 @@ const SELECT_REGISTRY = {
     { value: "studio", label: "Studio", script: "clean pet portrait studio with neutral backdrop," },
     { value: "farm-meadow", label: "Farm meadow", script: "farm meadow with wildflowers and open sky," },
     { value: "urban-street", label: "Urban street", script: "quiet urban sidewalk with soft city bokeh," },
+    { value: "aquarium", label: "Aquarium / terrarium", script: "glass terrarium or aquarium habitat with controlled lighting and habitat detail," },
   ] satisfies SelectOption<PetSettingVibe>[],
   cameraAngle: [
     { value: "", label: "Default angle" },
@@ -212,6 +220,7 @@ const SELECT_REGISTRY = {
     { value: "overcast", label: "Overcast", script: "overcast even daylight," },
     { value: "cozy-lamp", label: "Cozy lamp glow", script: "cozy indoor lamp glow," },
     { value: "studio-softbox", label: "Studio softbox", script: "studio softbox lighting with clean highlights," },
+    { value: "rainy-day", label: "Rainy day", script: "rainy overcast light with wet surfaces and soft reflections," },
   ] satisfies SelectOption<PetLightingStyle>[],
   accessory: [
     { value: "", label: "No accessory" },
@@ -222,6 +231,7 @@ const SELECT_REGISTRY = {
     { value: "toy-rope", label: "Toy rope", script: "with a rope toy in playful reach," },
     { value: "bowtie", label: "Bow tie", script: "wearing a neat bow tie," },
     { value: "flower-crown", label: "Flower crown", script: "wearing a delicate flower crown," },
+    { value: "sweater", label: "Sweater", script: "wearing a cozy knit pet sweater," },
   ] satisfies SelectOption<PetAccessory>[],
 } as const;
 

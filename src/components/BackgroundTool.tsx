@@ -3,6 +3,22 @@
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { useCallback, useState } from "react";
 import BackgroundPresetControls from "@/components/BackgroundPresetControls";
+import {
+  SceneGenerateFooter,
+  SceneQuickTags,
+} from "@/components/scene-tool/SceneToolSections";
+import {
+  HistoryHintSeedPanel,
+  resolveBackgroundTagsForGeneration,
+} from "@/components/scene-tool/HistoryHintSeedPanel";
+import {
+  normalizeHistorySeedScope,
+  normalizeSceneHintSource,
+} from "@/lib/scene-hint-source";
+import {
+  countHistorySeedCandidates,
+  splitBackgroundHintSeed,
+} from "@/lib/history-hint-seed";
 import EnhancedPromptResult from "@/components/EnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
@@ -20,11 +36,9 @@ import {
   ToolBadge,
   ToolLayout,
   ToolSection,
-  accentButtonClass,
   accentFocusClass,
 } from "@/components/ui/ToolPageShell";
-import { FieldError } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+import { FieldDivider } from "@/components/ui/Field";
 
 const ACCENT = "teal" as const;
 
@@ -51,6 +65,16 @@ export default function BackgroundTool() {
   });
 
   const selectedModel = getComfyModelDefinition(shared.model);
+  const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
+  const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
+  const historyCandidateCount = countHistorySeedCandidates("background", historySeedScope);
+  const generateDisabledReason =
+    hintSource === "history" && historyCandidateCount === 0
+      ? "Save a few background prompts to Studio history first, or switch hint source."
+      : null;
+  const quickTagHints = [toolSettings.settingType, toolSettings.timeOfDay, toolSettings.mood]
+    .filter(Boolean)
+    .join(", ");
 
   const generate = useCallback(async () => {
     setLoading(true);
@@ -59,15 +83,22 @@ export default function BackgroundTool() {
     actions.resetStatuses();
 
     try {
+      const tags = resolveBackgroundTagsForGeneration({
+        hintSource,
+        settingType: toolSettings.settingType,
+        timeOfDay: toolSettings.timeOfDay,
+        mood: toolSettings.mood,
+        randomTheme: toolSettings.randomTheme,
+      });
       const response = await fetch("/api/background", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: shared.model,
           detail: shared.detail,
-          settingType: toolSettings.settingType,
-          timeOfDay: toolSettings.timeOfDay,
-          mood: toolSettings.mood,
+          settingType: tags.settingType,
+          timeOfDay: tags.timeOfDay,
+          mood: tags.mood,
           presetOptions: presetOptionsFromBackgroundCache(toolSettings),
           recentLocations: getRecent(),
           blockedLocations: getBlocklist(),
@@ -95,7 +126,7 @@ export default function BackgroundTool() {
     } finally {
       setLoading(false);
     }
-  }, [shared, toolSettings, getRecent, record, getBlocklist, actions]);
+  }, [shared, toolSettings, hintSource, getRecent, record, getBlocklist, actions]);
 
   const copyOutput = useCallback(async () => {
     if (!output) return;
@@ -138,30 +169,59 @@ export default function BackgroundTool() {
         />
       }
     >
-      <ToolSection>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <input
-            value={toolSettings.settingType ?? ""}
-            onChange={(e) => updateToolSettings({ settingType: e.target.value })}
-            placeholder="Quick tag: place type"
-            className={`ui-input px-3 py-2 text-sm ${accentFocusClass(ACCENT)}`}
-          />
-          <input
-            value={toolSettings.timeOfDay ?? ""}
-            onChange={(e) => updateToolSettings({ timeOfDay: e.target.value })}
-            placeholder="Quick tag: time / light"
-            className={`ui-input px-3 py-2 text-sm ${accentFocusClass(ACCENT)}`}
-          />
-          <input
-            value={toolSettings.mood ?? ""}
-            onChange={(e) => updateToolSettings({ mood: e.target.value })}
-            placeholder="Quick tag: mood"
-            className={`ui-input px-3 py-2 text-sm ${accentFocusClass(ACCENT)}`}
-          />
-        </div>
-        <p className="text-xs text-zinc-500">
-          Quick tags are optional shortcuts—background presets below offer structured control.
-        </p>
+      <ToolSection
+        title="Environment setup"
+        description="Optional quick tags and structured presets—no people or figures."
+      >
+        <HistoryHintSeedPanel
+          tool="background"
+          hintSource={hintSource}
+          historySeedScope={historySeedScope}
+          hints={quickTagHints}
+          randomTheme={toolSettings.randomTheme ?? ""}
+          lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+          onHintSourceChange={(source) => updateToolSettings({ hintSource: source })}
+          onHistorySeedScopeChange={(scope) =>
+            updateToolSettings({ historySeedScope: scope })
+          }
+          onHintsChange={(value) => {
+            const tags = splitBackgroundHintSeed(value);
+            updateToolSettings({
+              settingType: tags.settingType,
+              timeOfDay: tags.timeOfDay,
+              mood: tags.mood,
+            });
+          }}
+          onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
+          onHistorySeedApplied={(result) => {
+            const tags = splitBackgroundHintSeed(result.hints);
+            updateToolSettings({
+              settingType: tags.settingType,
+              timeOfDay: tags.timeOfDay,
+              mood: tags.mood,
+              lastHistorySeedEntryId: result.entryId,
+            });
+          }}
+          accentFocusClassName={accentFocusClass(ACCENT)}
+        />
+
+        {hintSource !== "random" ? (
+          <>
+            <FieldDivider />
+
+            <SceneQuickTags
+              settingType={toolSettings.settingType ?? ""}
+              timeOfDay={toolSettings.timeOfDay ?? ""}
+              mood={toolSettings.mood ?? ""}
+              onSettingTypeChange={(value) => updateToolSettings({ settingType: value })}
+              onTimeOfDayChange={(value) => updateToolSettings({ timeOfDay: value })}
+              onMoodChange={(value) => updateToolSettings({ mood: value })}
+              inputClassName={accentFocusClass(ACCENT)}
+            />
+          </>
+        ) : null}
+
+        <FieldDivider />
 
         <BackgroundPresetControls
           mounted={mounted}
@@ -169,17 +229,15 @@ export default function BackgroundTool() {
           onChange={updateToolSettings}
         />
 
-        <PrimaryButton
-          accentClassName={accentButtonClass(ACCENT)}
+        <SceneGenerateFooter
+          accent={ACCENT}
+          label="Generate background prompt"
           onClick={() => void generate()}
-          disabled={!mounted}
+          disabled={!mounted || Boolean(generateDisabledReason)}
           loading={loading}
           loadingLabel="Generating background prompt"
-        >
-          Generate background prompt
-        </PrimaryButton>
-
-        <FieldError>{error}</FieldError>
+          error={error ?? generateDisabledReason}
+        />
       </ToolSection>
 
       <EnhancedPromptResult

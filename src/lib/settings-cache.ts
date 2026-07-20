@@ -36,10 +36,15 @@ export type GenerateSource = "keywords" | "random";
 export type GenerateToolCache = {
   mode?: "positive" | "negative";
   generateSource?: GenerateSource;
+  hintSource?: import("./scene-hint-source").SceneHintSource;
+  historySeedScope?: import("./scene-hint-source").HistorySeedScope;
+  lastHistorySeedEntryId?: string;
   variationEnabled?: boolean;
   variationStrength?: number;
   distinctPeople?: boolean;
   sportPresetId?: string;
+  sceneStarterCategory?: import("./scene-starter-presets").SceneStarterCategory | "all";
+  sceneStarterPresetId?: string;
   /** Optional theme steer for random surprise mode. */
   genre?: string;
   includePeople?: boolean;
@@ -57,10 +62,16 @@ export type CharacterSceneMode = "solo" | "duo" | "compose";
 
 export type CharacterToolCache = {
   hints?: string;
+  hintSource?: import("./scene-hint-source").SceneHintSource;
+  historySeedScope?: import("./scene-hint-source").HistorySeedScope;
+  randomTheme?: string;
+  lastHistorySeedEntryId?: string;
   sceneMode?: CharacterSceneMode;
   portraitStyle?: "portrait" | "full-body" | "action";
   variationStrength?: number;
   sportPresetId?: string;
+  sceneStarterCategory?: import("./scene-starter-presets").SceneStarterCategory | "all";
+  sceneStarterPresetId?: string;
   teamKit?: boolean;
   batchCount?: number;
   composeSubjectMode?: "character" | "duo";
@@ -79,6 +90,10 @@ export type BackgroundToolCache = {
   settingType?: string;
   timeOfDay?: string;
   mood?: string;
+  hintSource?: import("./scene-hint-source").SceneHintSource;
+  historySeedScope?: import("./scene-hint-source").HistorySeedScope;
+  randomTheme?: string;
+  lastHistorySeedEntryId?: string;
   surfaceMaterials?: string;
 } & Partial<Omit<BackgroundPresetOptions, "surfaceMaterials">>;
 
@@ -87,6 +102,10 @@ import type { PetPresetOptions } from "./pet-options";
 
 export type PetToolCache = {
   hints?: string;
+  hintSource?: import("./scene-hint-source").SceneHintSource;
+  historySeedScope?: import("./scene-hint-source").HistorySeedScope;
+  randomTheme?: string;
+  lastHistorySeedEntryId?: string;
   portraitStyle?: "portrait" | "full-body" | "action";
   variationStrength?: number;
   petPresetId?: string;
@@ -95,6 +114,10 @@ export type PetToolCache = {
 
 export type FantasyToolCache = {
   hints?: string;
+  hintSource?: import("./scene-hint-source").SceneHintSource;
+  historySeedScope?: import("./scene-hint-source").HistorySeedScope;
+  randomTheme?: string;
+  lastHistorySeedEntryId?: string;
   portraitStyle?: FantasyShotFraming;
   wildness?: number;
   variationStrength?: number;
@@ -214,6 +237,8 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
 export const DEFAULT_GENERATE_TOOL_CACHE: GenerateToolCache = {
   mode: "positive",
   generateSource: "keywords",
+  hintSource: "manual",
+  historySeedScope: "related",
   variationEnabled: DEFAULT_VARIATION_SETTINGS.enabled,
   variationStrength: DEFAULT_VARIATION_SETTINGS.strength,
   distinctPeople: true,
@@ -229,6 +254,9 @@ export const DEFAULT_FORMAT_TOOL_CACHE: FormatToolCache = {
 
 export const DEFAULT_CHARACTER_TOOL_CACHE: CharacterToolCache = {
   hints: "",
+  hintSource: "manual",
+  historySeedScope: "related",
+  randomTheme: "",
   sceneMode: "solo",
   portraitStyle: "portrait",
   variationStrength: 50,
@@ -243,6 +271,9 @@ export const DEFAULT_CHARACTER_TOOL_CACHE: CharacterToolCache = {
 };
 
 export const DEFAULT_BACKGROUND_TOOL_CACHE: BackgroundToolCache = {
+  hintSource: "manual",
+  historySeedScope: "related",
+  randomTheme: "",
   settingType: "",
   timeOfDay: "",
   mood: "",
@@ -250,12 +281,18 @@ export const DEFAULT_BACKGROUND_TOOL_CACHE: BackgroundToolCache = {
 
 export const DEFAULT_PET_TOOL_CACHE: PetToolCache = {
   hints: "",
+  hintSource: "manual",
+  historySeedScope: "related",
+  randomTheme: "",
   portraitStyle: "portrait",
   variationStrength: 50,
 };
 
 export const DEFAULT_FANTASY_TOOL_CACHE: FantasyToolCache = {
   hints: "",
+  hintSource: "manual",
+  historySeedScope: "related",
+  randomTheme: "",
   portraitStyle: "portrait",
   wildness: 65,
   variationStrength: 50,

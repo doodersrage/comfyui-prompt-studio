@@ -7,36 +7,30 @@ import {
   type FantasyShotScale,
   type SubjectShotScale,
 } from "@/lib/tool-ui-labels";
-import { FieldLabel } from "@/components/ui/Field";
+import { ChipButton, FieldLabel } from "@/components/ui/Field";
 
 type ShotScaleControlProps<T extends string> = {
   value: T;
   onChange: (value: T) => void;
   options: ReadonlyArray<{ label: string; value: T }>;
-  activeClassName: string;
+  activeClassName?: string;
 };
 
 function ShotScaleButtons<T extends string>({
   value,
   onChange,
   options,
-  activeClassName,
 }: ShotScaleControlProps<T>) {
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((option) => (
-        <button
+        <ChipButton
           key={option.value}
-          type="button"
+          active={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`rounded-lg border px-3 py-2 text-xs font-medium ${
-            value === option.value
-              ? activeClassName
-              : "border-zinc-700 text-zinc-400"
-          }`}
         >
           {option.label}
-        </button>
+        </ChipButton>
       ))}
     </div>
   );
@@ -45,11 +39,10 @@ function ShotScaleButtons<T extends string>({
 export function SubjectShotScaleControl({
   value,
   onChange,
-  activeClassName,
 }: {
   value: SubjectShotScale;
   onChange: (value: SubjectShotScale) => void;
-  activeClassName: string;
+  activeClassName?: string;
 }) {
   return (
     <>
@@ -58,7 +51,6 @@ export function SubjectShotScaleControl({
         value={value}
         onChange={onChange}
         options={SUBJECT_SHOT_SCALE_OPTIONS}
-        activeClassName={activeClassName}
       />
     </>
   );
@@ -67,12 +59,11 @@ export function SubjectShotScaleControl({
 export function FantasyShotScaleControl({
   value,
   onChange,
-  activeClassName,
   environmentOnly = false,
 }: {
   value: FantasyShotScale;
   onChange: (value: FantasyShotScale) => void;
-  activeClassName: string;
+  activeClassName?: string;
   environmentOnly?: boolean;
 }) {
   const options = environmentOnly
@@ -86,7 +77,6 @@ export function FantasyShotScaleControl({
         value={value}
         onChange={onChange}
         options={options}
-        activeClassName={activeClassName}
       />
     </>
   );

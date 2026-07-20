@@ -9,6 +9,7 @@ import {
   type ComfyUiRuntimeConfig,
 } from "@/lib/comfyui-config";
 import { apiJson } from "@/lib/api/response";
+import { getServerEnvSummary } from "@/lib/server-env-summary";
 
 export const runtime = "nodejs";
 
@@ -60,5 +61,6 @@ export async function GET(request: Request) {
       visionModel: getLlmConfig().visionModel,
       comfyUiUrl,
     },
+    serverEnv: getServerEnvSummary(),
   });
 }

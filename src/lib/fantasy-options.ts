@@ -42,7 +42,8 @@ export type FantasySubgenre =
   | "celestial"
   | "eldritch"
   | "steampunk-fantasy"
-  | "mythic";
+  | "mythic"
+  | "urban-fantasy";
 
 export type FantasySettingArchetype =
   | ""
@@ -57,7 +58,8 @@ export type FantasySettingArchetype =
   | "underdark"
   | "fairy-grove"
   | "volcanic-shrine"
-  | "ice-palace";
+  | "ice-palace"
+  | "sky-shrine";
 
 export type FantasySubjectRole =
   | ""
@@ -72,7 +74,8 @@ export type FantasySubjectRole =
   | "angel"
   | "beast"
   | "witch"
-  | "oracle";
+  | "oracle"
+  | "vampire";
 
 export type FantasyMagicElement =
   | ""
@@ -85,7 +88,8 @@ export type FantasyMagicElement =
   | "ice-crystals"
   | "nature-vines"
   | "blood-moon"
-  | "astral-rift";
+  | "astral-rift"
+  | "shadow-weave";
 
 export type FantasyAtmosphere =
   | ""
@@ -94,7 +98,8 @@ export type FantasyAtmosphere =
   | "whimsical"
   | "serene"
   | "chaotic"
-  | "mystical";
+  | "mystical"
+  | "melancholic";
 
 export type FantasyTimeOfDay =
   | ""
@@ -187,6 +192,7 @@ const SELECT_REGISTRY = {
     { value: "eldritch", label: "Eldritch", script: "eldritch weird-fantasy tone with uncanny geometry and forbidden magic," },
     { value: "steampunk-fantasy", label: "Steampunk fantasy", script: "steampunk fantasy tone with brass, gears, and arcane machinery," },
     { value: "mythic", label: "Mythic", script: "ancient mythic tone with legendary symbolism and timeless weight," },
+    { value: "urban-fantasy", label: "Urban fantasy", script: "urban fantasy tone where magic hides in modern streets and neon alleys," },
   ] satisfies SelectOption<FantasySubgenre>[],
   settingArchetype: [
     { value: "", label: "Random setting" },
@@ -202,6 +208,7 @@ const SELECT_REGISTRY = {
     { value: "fairy-grove", label: "Fairy grove", script: "a hidden fairy grove with mushroom circles and pollen light," },
     { value: "volcanic-shrine", label: "Volcanic shrine", script: "a volcanic shrine with lava channels and obsidian statues," },
     { value: "ice-palace", label: "Ice palace", script: "an ice palace with frost-carved arches and frozen waterfalls," },
+    { value: "sky-shrine", label: "Sky shrine", script: "a sky shrine on floating stone terraces above cloud seas," },
   ] satisfies SelectOption<FantasySettingArchetype>[],
   subjectRole: [
     { value: "", label: "Any subject" },
@@ -217,6 +224,7 @@ const SELECT_REGISTRY = {
     { value: "beast", label: "Mythic beast", script: "a mythic beast with impossible anatomy and primal power," },
     { value: "witch", label: "Witch", script: "a witch with ritual garments and arcane focus," },
     { value: "oracle", label: "Oracle", script: "an oracle with symbolic robes and prophetic atmosphere," },
+    { value: "vampire", label: "Vampire", script: "a vampire aristocrat with pale skin, elegant garments, and restrained menace," },
   ] satisfies SelectOption<FantasySubjectRole>[],
   magicElement: [
     { value: "", label: "No specific magic" },
@@ -230,6 +238,7 @@ const SELECT_REGISTRY = {
     { value: "nature-vines", label: "Nature vines", script: "living nature vines and blooming arcane flora," },
     { value: "blood-moon", label: "Blood moon", script: "blood moon light and crimson sky haze," },
     { value: "astral-rift", label: "Astral rift", script: "a tearing astral rift with starfield fragments," },
+    { value: "shadow-weave", label: "Shadow weave", script: "living shadow threads and ink-black spell ribbons," },
   ] satisfies SelectOption<FantasyMagicElement>[],
   atmosphere: [
     { value: "", label: "Natural tone" },
@@ -239,6 +248,7 @@ const SELECT_REGISTRY = {
     { value: "serene", label: "Serene", script: "serene contemplative atmosphere," },
     { value: "chaotic", label: "Chaotic", script: "chaotic volatile atmosphere," },
     { value: "mystical", label: "Mystical", script: "mystical dreamlike atmosphere," },
+    { value: "melancholic", label: "Melancholic", script: "melancholic bittersweet atmosphere with quiet emotional weight," },
   ] satisfies SelectOption<FantasyAtmosphere>[],
   timeOfDay: [
     { value: "", label: "Any time" },

@@ -46,7 +46,8 @@ export async function generatePetPrompt(
     ...(presetOptions.species
       ? {
           species:
-            presetOptions.species === "small-pet"
+            presetOptions.species === "small-pet" ||
+            presetOptions.species === "reptile"
               ? "other"
               : presetOptions.species,
         }

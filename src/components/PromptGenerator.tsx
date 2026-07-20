@@ -2,9 +2,20 @@
 
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import ModelSelector from "@/components/ModelSelector";
 import EnhancedPromptResult from "@/components/EnhancedPromptResult";
-import SportPresetChips from "@/components/SportPresetChips";
+import SceneStarterPresetChips from "@/components/SceneStarterPresetChips";
+import SharedToolControls from "@/components/SharedToolControls";
+import {
+  VariationSliderField,
+} from "@/components/scene-tool/SceneToolSections";
+import {
+  HistoryHintSeedPanel,
+} from "@/components/scene-tool/HistoryHintSeedPanel";
+import {
+  normalizeHistorySeedScope,
+  resolveGenerateHintSource,
+} from "@/lib/scene-hint-source";
+import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
@@ -20,7 +31,6 @@ import {
 } from "@/lib/comfy-models";
 import {
   DEFAULT_GENERATE_TOOL_CACHE,
-  type GenerateSource,
 } from "@/lib/settings-cache";
 import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
 import { readVariationSeedFromResult } from "@/lib/variation-seed-metadata";
@@ -40,10 +50,10 @@ import {
   parseScenePresetFromSearch,
 } from "@/lib/scene-preset-url";
 import { getSportPreset } from "@/lib/sport-presets";
+import { isSportStarterPreset } from "@/lib/scene-starter-presets";
 import {
   RANDOMIZE_INGREDIENTS_LABEL,
   SCENE_WILDNESS_LABEL,
-  THEME_HINT_LABEL,
   rollVariationLabel,
   sceneWildnessLabel,
 } from "@/lib/tool-ui-labels";
@@ -117,7 +127,9 @@ export default function PromptGenerator() {
     "model" | "comfyNode" | "limits"
   > | null>(null);
 
-  const generateSource = toolSettings.generateSource ?? "keywords";
+  const hintSource = resolveGenerateHintSource(toolSettings);
+  const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
+  const generateSource = hintSource === "random" ? "random" : "keywords";
   const genre = toolSettings.genre ?? "";
   const includePeople = toolSettings.includePeople !== false;
   const wildness = toolSettings.wildness ?? 65;
@@ -135,10 +147,10 @@ export default function PromptGenerator() {
   const autoFixRules = shared.autoFixRules !== false;
 
   const actions = usePromptResultActions({
-    tool: generateSource === "random" ? "randomScene" : "generate",
+    tool: hintSource === "random" ? "randomScene" : "generate",
     model: qwenModel,
     detail,
-    hints: generateSource === "random" ? genre : input,
+    hints: hintSource === "random" ? genre : input,
     autoFixRules,
     reformatTarget: getReformatTargetModel(qwenModel),
   });
@@ -176,8 +188,11 @@ export default function PromptGenerator() {
     }
   }, [toolSettings.mode]);
 
-  const setGenerateSource = (value: GenerateSource) =>
-    updateToolSettings({ generateSource: value });
+  const setHintSource = (value: import("@/lib/scene-hint-source").SceneHintSource) =>
+    updateToolSettings({
+      hintSource: value,
+      generateSource: value === "random" ? "random" : "keywords",
+    });
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -185,7 +200,7 @@ export default function PromptGenerator() {
     }
     const params = new URLSearchParams(window.location.search);
     if (params.get("source") === "random") {
-      updateToolSettings({ generateSource: "random" });
+      updateToolSettings({ generateSource: "random", hintSource: "random" });
     }
     const seed = params.get("seed");
     if (seed?.trim()) {
@@ -220,15 +235,24 @@ export default function PromptGenerator() {
     }
   }, [updateShared, updateToolSettings]);
 
+  const historyCandidateCount = countHistorySeedCandidates("generate", historySeedScope);
+  const generateDisabledReason =
+    hintSource === "history" && historyCandidateCount === 0
+      ? "Save a few prompts to Studio history first, or switch hint source."
+      : hintSource === "manual" && !input.trim()
+        ? "Enter scene keywords above to enable generation."
+        : null;
+
   const submitDisabled =
     loading ||
-    (generateSource === "keywords" ? !input.trim() : !mounted);
+    (hintSource === "random"
+      ? !mounted
+      : hintSource === "history"
+        ? historyCandidateCount === 0
+        : !input.trim());
   const submitDisabledReason =
-    generateSource === "keywords" && !input.trim()
-      ? "Enter scene keywords above to enable generation."
-      : loading
-        ? "Generating…"
-        : null;
+    generateDisabledReason ??
+    (loading ? "Generating…" : null);
 
   const generateRandom = useCallback(async () => {
     setLoading(true);
@@ -312,7 +336,7 @@ export default function PromptGenerator() {
   ]);
 
   const generate = useCallback(async () => {
-    if (generateSource === "random") {
+    if (hintSource === "random") {
       await generateRandom();
       return;
     }
@@ -390,7 +414,7 @@ export default function PromptGenerator() {
     } finally {
       setLoading(false);
     }
-  }, [generateRandom, generateSource, input, mode, variationEnabled, variationStrength, distinctPeople, alwaysIncludeClothing, detail, qwenModel, getRecentClothing, recordClothing, actions, shared.lockedLocation, shared.lockedWardrobeId, shared.lockedVariationSeed]);
+  }, [generateRandom, hintSource, input, mode, variationEnabled, variationStrength, distinctPeople, alwaysIncludeClothing, detail, qwenModel, getRecentClothing, recordClothing, actions, shared.lockedLocation, shared.lockedWardrobeId, shared.lockedVariationSeed]);
 
   const copyOutput = useCallback(async () => {
     if (!output) return;
@@ -426,146 +450,59 @@ export default function PromptGenerator() {
       sidebarTitle="Generation settings"
       sidebarDescription="Model, detail, and wardrobe options for this run."
       sidebar={
-        <>
-          <div className="space-y-4">
-            <FieldLabel hint="Prompt style and size limits depend on the model and detail level you choose.">
-              Target model
-            </FieldLabel>
-            <ModelSelector value={qwenModel} onChange={setQwenModel} />
-          </div>
-
-          <FieldDivider />
-
-          <div className="space-y-3">
-            <FieldLabel hint="More detail adds texture and atmosphere to the same scene.">
-              Prompt detail
-            </FieldLabel>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  { label: "Concise", value: "concise" },
-                  { label: "Balanced", value: "balanced" },
-                  { label: "Rich", value: "rich" },
-                ] as const
-              ).map((preset) => (
-                <ChipButton
-                  key={preset.value}
-                  active={detail === preset.value}
-                  onClick={() => setDetail(preset.value)}
-                >
-                  {preset.label}
-                </ChipButton>
-              ))}
-            </div>
-          </div>
-
-          {mode === "positive" &&
-            (generateSource === "keywords" || includePeople) && (
-            <>
-              <FieldDivider />
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={alwaysIncludeClothing}
-                  onChange={(e) =>
-                    updateShared({ alwaysIncludeClothing: e.target.checked })
-                  }
-                  className="ui-checkbox"
-                />
-                <span className="space-y-1">
-                  <span className="text-sm font-medium text-zinc-100">
-                    Always include wardrobe
-                  </span>
-                  <span className="block text-xs leading-relaxed text-zinc-500">
-                    Rolls catalog outfits when people appear in keywords.
-                  </span>
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={autoFixRules}
-                  onChange={(e) => updateShared({ autoFixRules: e.target.checked })}
-                  className="ui-checkbox"
-                />
-                <span className="space-y-1">
-                  <span className="text-sm font-medium text-zinc-100">
-                    Auto-fix lint errors
-                  </span>
-                  <span className="block text-xs leading-relaxed text-zinc-500">
-                    Apply rule-based fixes when lint reports errors.
-                  </span>
-                </span>
-              </label>
-            </>
-          )}
-
-          {(shared.lockedLocation ||
-            shared.lockedWardrobeId ||
-            shared.lockedVariationSeed) && (
-            <>
-              <FieldDivider />
-              <div className="flex flex-wrap gap-2 text-xs">
-                {shared.lockedLocation && (
-                  <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-amber-200">
-                    Locked location: {shared.lockedLocation}
-                  </span>
-                )}
-                {shared.lockedWardrobeId && (
-                  <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-sky-200">
-                    Locked kit: {shared.lockedWardrobeId}
-                  </span>
-                )}
-                {shared.lockedVariationSeed && (
-                  <span
-                    className="max-w-full truncate rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-violet-200"
-                    title={shared.lockedVariationSeed}
-                  >
-                    Locked seed:{" "}
-                    {shared.lockedVariationSeed.length > 48
-                      ? `${shared.lockedVariationSeed.slice(0, 48)}…`
-                      : shared.lockedVariationSeed}
-                  </span>
-                )}
-              </div>
-            </>
-          )}
-        </>
+        <SharedToolControls
+          shared={shared}
+          onModelChange={setQwenModel}
+          onDetailChange={setDetail}
+          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          showWardrobeOption={
+            mode === "positive" && (hintSource !== "random" || includePeople)
+          }
+          alwaysIncludeClothing={alwaysIncludeClothing}
+          onAlwaysIncludeClothingChange={(value) =>
+            updateShared({ alwaysIncludeClothing: value })
+          }
+          lockedWardrobeId={shared.lockedWardrobeId}
+          lockedLocation={shared.lockedLocation}
+          lockedVariationSeed={shared.lockedVariationSeed}
+          onClearLockedWardrobe={() => updateShared({ lockedWardrobeId: undefined })}
+          onClearLockedLocation={() => updateShared({ lockedLocation: undefined })}
+          onClearLockedVariationSeed={() =>
+            updateShared({ lockedVariationSeed: undefined })
+          }
+          autoFixRules={autoFixRules}
+          onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+        />
       }
     >
-      <ToolSection title="Scene prompt" description="Describe what you want to generate, or roll a random surprise scene.">
-        <FieldLabel>Prompt source</FieldLabel>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              { label: "From keywords", value: "keywords" },
-              { label: "Random surprise", value: "random" },
-            ] as const
-          ).map((option) => (
-            <ChipButton
-              key={option.value}
-              active={generateSource === option.value}
-              onClick={() => setGenerateSource(option.value)}
-            >
-              {option.label}
-            </ChipButton>
-          ))}
-        </div>
+      <ToolSection
+        title="Scene setup"
+        description="Describe what you want to generate, or roll a random surprise scene."
+      >
+        <HistoryHintSeedPanel
+          tool="generate"
+          hintSource={hintSource}
+          historySeedScope={historySeedScope}
+          hints={input}
+          randomTheme={genre}
+          lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+          onHintSourceChange={setHintSource}
+          onHistorySeedScopeChange={(scope) =>
+            updateToolSettings({ historySeedScope: scope })
+          }
+          onHintsChange={setInput}
+          onRandomThemeChange={(value) => updateToolSettings({ genre: value })}
+          onHistorySeedApplied={(result) => {
+            setInput(result.hints);
+            updateToolSettings({ lastHistorySeedEntryId: result.entryId });
+          }}
+          accentFocusClassName={accentFocusClass(ACCENT)}
+        />
 
         <FieldDivider />
 
-        {generateSource === "random" ? (
+        {hintSource === "random" ? (
           <>
-            <FieldLabel>{THEME_HINT_LABEL}</FieldLabel>
-            <TextInput
-              value={genre}
-              onChange={(e) => updateToolSettings({ genre: e.target.value })}
-              placeholder="e.g. solarpunk, noir, cozy horror"
-              className={accentFocusClass(ACCENT)}
-            />
-
-            <FieldDivider />
-
             <label className="inline-flex items-center gap-2 text-sm text-zinc-300">
               <input
                 type="checkbox"
@@ -580,38 +517,38 @@ export default function PromptGenerator() {
 
             <FieldDivider />
 
-            <FieldLabel>{SCENE_WILDNESS_LABEL}</FieldLabel>
-            <div className="flex items-center justify-between text-xs text-zinc-400">
-              <span>Safe</span>
-              <span className="font-medium text-violet-300">
-                {ratingDrivenWildnessLabel(wildness)}
-              </span>
-              <span>Wild</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={5}
+            <VariationSliderField
+              label={SCENE_WILDNESS_LABEL}
               value={wildness}
-              onChange={(e) =>
-                updateToolSettings({ wildness: Number(e.target.value) })
-              }
-              className={`h-2 w-full ${accentRingClass(ACCENT)}`}
+              onChange={(value) => updateToolSettings({ wildness: value })}
+              valueLabel={ratingDrivenWildnessLabel(wildness)}
+              minLabel="Safe"
+              maxLabel="Wild"
+              accentRingClassName={accentRingClass(ACCENT)}
             />
           </>
         ) : (
           <>
         {mode === "positive" && (
-          <SportPresetChips
+          <SceneStarterPresetChips
             mode="all"
-            selectedId={toolSettings.sportPresetId}
+            accent={ACCENT}
+            category={toolSettings.sceneStarterCategory ?? "all"}
+            onCategoryChange={(category) =>
+              updateToolSettings({ sceneStarterCategory: category })
+            }
+            selectedId={toolSettings.sceneStarterPresetId ?? toolSettings.sportPresetId}
             onSelect={(preset) => {
-              updateToolSettings({ sportPresetId: preset.id });
+              updateToolSettings({
+                sceneStarterPresetId: preset.id,
+                sportPresetId: isSportStarterPreset(preset.id) ? preset.id : undefined,
+              });
               setInput(preset.hints);
             }}
           />
         )}
+
+        <FieldDivider />
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label htmlFor="edit-input" className="text-sm font-medium text-zinc-200">
@@ -647,11 +584,11 @@ export default function PromptGenerator() {
           className={`text-base ${accentFocusClass(ACCENT)}`}
         />
 
-        {generateSource === "keywords" && modelUsesTagAssist(qwenModel) ? (
+        {modelUsesTagAssist(qwenModel) ? (
           <TagAssistToolbar value={input} onChange={setInput} textareaId="edit-input" />
         ) : null}
 
-        {generateSource === "keywords" && mode === "positive" ? (
+        {mode === "positive" ? (
           <QwenEditBuilderPanel model={qwenModel} onApply={setInput} />
         ) : null}
 
@@ -720,24 +657,14 @@ export default function PromptGenerator() {
 
             {variationEnabled && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3 text-xs text-zinc-400">
-                  <span>Subtle</span>
-                  <span className="font-medium text-violet-300">
-                    {rollVariationLabel(variationStrength)} ({variationStrength})
-                  </span>
-                  <span>Wild</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={5}
+                <VariationSliderField
+                  showLabel={false}
                   value={variationStrength}
-                  onChange={(e) =>
-                    setVariationStrength(Number(e.target.value))
-                  }
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-zinc-800 accent-violet-500"
-                  aria-label="Randomize ingredients strength"
+                  onChange={setVariationStrength}
+                  valueLabel={`${rollVariationLabel(variationStrength)} (${variationStrength})`}
+                  minLabel="Subtle"
+                  maxLabel="Wild"
+                  accentRingClassName={accentRingClass(ACCENT)}
                 />
                 <div className="flex flex-wrap gap-2">
                   {[
@@ -763,6 +690,8 @@ export default function PromptGenerator() {
           </>
         )}
 
+        <FieldDivider />
+
         <PrimaryButton
           accentClassName={accentButtonClass(ACCENT)}
           type="button"
@@ -771,14 +700,14 @@ export default function PromptGenerator() {
           disabled={submitDisabled}
           loading={loading}
           loadingLabel={
-            generateSource === "random"
+            hintSource === "random"
               ? "Generating random scene"
               : "Generating scene prompt"
           }
           title={submitDisabledReason ?? undefined}
           aria-disabled={submitDisabled}
         >
-          {generateSource === "random"
+          {hintSource === "random"
             ? "Generate random scene"
             : "Generate scene prompt"}
         </PrimaryButton>
@@ -790,7 +719,7 @@ export default function PromptGenerator() {
         {error && <FieldError>{error}</FieldError>}
       </ToolSection>
 
-      {output && (generateSource === "random" || mode === "positive") && (
+      {output && (hintSource === "random" || mode === "positive") && (
         <EnhancedPromptResult
           output={output}
           provider={provider}
@@ -801,7 +730,7 @@ export default function PromptGenerator() {
           copied={copied}
           onCopy={() => void copyOutput()}
           extraMeta={
-            generateSource === "random" && randomSeed
+            hintSource === "random" && randomSeed
               ? `seed: ${randomSeed}`
               : resultMeta
                 ? `${resultMeta.limits.minChars ? `${resultMeta.limits.minChars}–` : ""}${resultMeta.limits.maxChars} char limit · ${output.length} chars`
@@ -812,7 +741,7 @@ export default function PromptGenerator() {
           onSaveHistory={() =>
             actions.saveHistory({
               prompt: output,
-              hints: generateSource === "random" ? genre : input,
+              hints: hintSource === "random" ? genre : input,
               metadata: randomResult?.metadata,
             })
           }
@@ -822,7 +751,7 @@ export default function PromptGenerator() {
             void actions.fixPrompt(
               output,
               setOutput,
-              generateSource === "random" ? genre : input,
+              hintSource === "random" ? genre : input,
             )
           }
           onCopyPair={() => void actions.copyPromptPair(output)}
@@ -884,7 +813,7 @@ export default function PromptGenerator() {
         </ToolSection>
       )}
 
-      {output && generateSource === "keywords" && mode === "positive" && (
+      {output && hintSource !== "random" && mode === "positive" && (
         <p className="-mt-4 text-xs text-zinc-500">
           Paste into{" "}
           <code className="rounded bg-zinc-800 px-1 text-violet-300">

@@ -25,20 +25,31 @@ import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
 import { readVariationSeedFromResult } from "@/lib/variation-seed-metadata";
 import { SubjectShotScaleControl } from "@/components/ShotScaleControl";
 import {
+  SceneGenerateFooter,
+  SceneHintsField,
+  VariationSliderField,
+} from "@/components/scene-tool/SceneToolSections";
+import {
+  HistoryHintSeedPanel,
+  resolveSceneHintsForGeneration,
+} from "@/components/scene-tool/HistoryHintSeedPanel";
+import {
+  normalizeHistorySeedScope,
+  normalizeSceneHintSource,
+} from "@/lib/scene-hint-source";
+import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
+import {
   ROLL_VARIATION_LABEL,
-  SCENE_HINTS_LABEL,
   rollVariationLabel,
 } from "@/lib/tool-ui-labels";
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
-  accentButtonClass,
   accentFocusClass,
   accentRingClass,
 } from "@/components/ui/ToolPageShell";
-import { FieldDivider, FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+import { FieldDivider } from "@/components/ui/Field";
 
 const ACCENT = "rose" as const;
 
@@ -64,6 +75,13 @@ export default function PetTool() {
 
   const selectedModel = getComfyModelDefinition(shared.model);
   const variationSeed = readVariationSeedFromResult(result ?? {});
+  const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
+  const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
+  const historyCandidateCount = countHistorySeedCandidates("pet", historySeedScope);
+  const generateDisabledReason =
+    hintSource === "history" && historyCandidateCount === 0
+      ? "Save a few pet or related prompts to Studio history first, or switch hint source."
+      : null;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -108,13 +126,18 @@ export default function PetTool() {
     actions.resetStatuses();
 
     try {
+      const effectiveHints = resolveSceneHintsForGeneration({
+        hintSource,
+        hints: toolSettings.hints,
+        randomTheme: toolSettings.randomTheme,
+      });
       const response = await fetch("/api/pet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: shared.model,
           detail: shared.detail,
-          hints: toolSettings.hints,
+          hints: effectiveHints,
           portraitStyle: toolSettings.portraitStyle,
           variationStrength: toolSettings.variationStrength,
           presetOptions: presetOptionsFromPetCache(toolSettings),
@@ -136,7 +159,7 @@ export default function PetTool() {
 
       record(readSceneLocationFromMetadata(data.metadata));
 
-      const prompt = await actions.finalizePrompt(data.prompt, toolSettings.hints);
+      const prompt = await actions.finalizePrompt(data.prompt, effectiveHints);
       setOutput(prompt);
       setResult({ ...data, prompt });
     } catch (err) {
@@ -146,7 +169,7 @@ export default function PetTool() {
     } finally {
       setLoading(false);
     }
-  }, [shared, toolSettings, getRecent, record, getBlocklist, actions]);
+  }, [shared, toolSettings, hintSource, getRecent, record, getBlocklist, actions]);
 
   const copyOutput = useCallback(async () => {
     if (!output) {
@@ -197,7 +220,10 @@ export default function PetTool() {
         />
       }
     >
-      <ToolSection>
+      <ToolSection
+        title="Scene setup"
+        description="Pick a preset, refine options, then add freeform hints before generating."
+      >
         <PetPresetChips
           selectedId={toolSettings.petPresetId}
           category={toolSettings.presetCategory ?? "all"}
@@ -227,59 +253,71 @@ export default function PetTool() {
 
         <FieldDivider />
 
-        <FieldLabel>{SCENE_HINTS_LABEL}</FieldLabel>
-        <TextArea
-          value={toolSettings.hints ?? ""}
-          onChange={(event) =>
-            updateToolSettings({ hints: event.target.value, petPresetId: undefined })
+        <HistoryHintSeedPanel
+          tool="pet"
+          hintSource={hintSource}
+          historySeedScope={historySeedScope}
+          hints={toolSettings.hints ?? ""}
+          randomTheme={toolSettings.randomTheme ?? ""}
+          lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+          onHintSourceChange={(source) => updateToolSettings({ hintSource: source })}
+          onHistorySeedScopeChange={(scope) =>
+            updateToolSettings({ historySeedScope: scope })
           }
-          placeholder="e.g. golden retriever puppy playing fetch, location: sunny dog park"
-          rows={3}
-          className={accentFocusClass(ACCENT)}
+          onHintsChange={(value) =>
+            updateToolSettings({ hints: value, petPresetId: undefined })
+          }
+          onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
+          onHistorySeedApplied={(result) =>
+            updateToolSettings({
+              hints: result.hints,
+              lastHistorySeedEntryId: result.entryId,
+              petPresetId: undefined,
+            })
+          }
+          accentFocusClassName={accentFocusClass(ACCENT)}
         />
+
+        {hintSource !== "random" ? (
+          <>
+            <FieldDivider />
+            <SceneHintsField
+              value={toolSettings.hints ?? ""}
+              onChange={(value) =>
+                updateToolSettings({ hints: value, petPresetId: undefined })
+              }
+              placeholder="e.g. golden retriever puppy playing fetch, location: sunny dog park"
+              className={accentFocusClass(ACCENT)}
+            />
+          </>
+        ) : null}
 
         <FieldDivider />
 
         <SubjectShotScaleControl
           value={toolSettings.portraitStyle ?? "portrait"}
           onChange={(value) => updateToolSettings({ portraitStyle: value })}
-          activeClassName="border-rose-500 bg-rose-500/15 text-rose-200"
         />
 
         <FieldDivider />
 
-        <FieldLabel>{ROLL_VARIATION_LABEL}</FieldLabel>
-        <div className="flex items-center justify-between text-xs text-zinc-400">
-          <span>Stable</span>
-          <span className="font-medium text-rose-300">
-            {rollVariationLabel(toolSettings.variationStrength ?? 50)} (
-            {toolSettings.variationStrength ?? 50})
-          </span>
-          <span>Varied</span>
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
+        <VariationSliderField
+          label={ROLL_VARIATION_LABEL}
           value={toolSettings.variationStrength ?? 50}
-          onChange={(event) =>
-            updateToolSettings({ variationStrength: Number(event.target.value) })
-          }
-          className={`h-2 w-full ${accentRingClass(ACCENT)}`}
+          onChange={(value) => updateToolSettings({ variationStrength: value })}
+          valueLabel={`${rollVariationLabel(toolSettings.variationStrength ?? 50)} (${toolSettings.variationStrength ?? 50})`}
+          accentRingClassName={accentRingClass(ACCENT)}
         />
 
-        <PrimaryButton
-          accentClassName={accentButtonClass(ACCENT)}
+        <SceneGenerateFooter
+          accent={ACCENT}
+          label="Generate pet scene prompt"
           onClick={() => void generate()}
-          disabled={!mounted}
+          disabled={!mounted || Boolean(generateDisabledReason)}
           loading={loading}
           loadingLabel="Generating pet scene prompt"
-        >
-          Generate pet scene prompt
-        </PrimaryButton>
-
-        <FieldError>{error}</FieldError>
+          error={error ?? generateDisabledReason}
+        />
       </ToolSection>
 
       <EnhancedPromptResult

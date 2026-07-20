@@ -15,6 +15,8 @@ const CAT_PATTERN =
 const RABBIT_PATTERN = /\b(rabbit|rabbits|bunny|bunnies|holland lop|lop ear)\b/i;
 const BIRD_PATTERN =
   /\b(bird|birds|parrot|parrots|macaw|cockatiel|budgie|budgerigar|canary|finch|cockatoo|african grey|lovebird)\b/i;
+const REPTILE_PATTERN =
+  /\b(reptile|reptiles|lizard|lizards|gecko|geckos|snake|snakes|tortoise|turtle|bearded dragon|iguana|chameleon|python|corn snake|leopard gecko)\b/i;
 const PAIR_PATTERN =
   /\b(two|pair|couple|duo|both|twins)\b.{0,24}\b(dogs|cats|puppies|kittens|rabbits|birds|pets|animals)\b|\b(two|pair of)\s+(dogs|cats|puppies|kittens|rabbits|birds|pets)\b/i;
 
@@ -30,6 +32,9 @@ function detectSpecies(text: string): PetSpecies | null {
   }
   if (BIRD_PATTERN.test(text)) {
     return "bird";
+  }
+  if (REPTILE_PATTERN.test(text)) {
+    return "other";
   }
   return null;
 }

@@ -73,6 +73,8 @@ import {
 import ComfyUiGalleryPanel from "@/components/ComfyUiGalleryPanel";
 import ComfyWorkflowLibraryPanel from "@/components/ComfyWorkflowLibraryPanel";
 import SettingsAdvancedPanel from "@/components/SettingsAdvancedPanel";
+import SettingsSubNav from "@/components/settings/SettingsSubNav";
+import ServerEnvPanel from "@/components/settings/ServerEnvPanel";
 import QueueParamsPanel from "@/components/QueueParamsPanel";
 import WorkflowPreviewPanel from "@/components/WorkflowPreviewPanel";
 import { fetchWorkflowPreview } from "@/lib/comfyui-requeue";
@@ -86,6 +88,12 @@ import {
 } from "@/components/ui/ToolPageShell";
 import { FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
 import { Button, PrimaryButton } from "@/components/ui/Button";
+import {
+  normalizeSettingsTab,
+  settingsTabHref,
+  type SettingsTab,
+} from "@/lib/settings-nav";
+import type { ServerEnvSummary } from "@/lib/server-env-summary";
 
 const ACCENT = "neutral" as const;
 
@@ -167,10 +175,12 @@ type HealthResponse = {
     visionModel: string;
     comfyUiUrl: string;
   };
+  serverEnv?: ServerEnvSummary;
 };
 
 export default function SettingsTool() {
   const { mounted, settings, updateSettings } = useComfyUiSettings();
+  const [tab, setTab] = useState<SettingsTab>("overview");
   const [sharedSettings, setSharedSettings] =
     useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
   const [sharedMounted, setSharedMounted] = useState(false);
@@ -228,6 +238,21 @@ export default function SettingsTool() {
       setNotificationPermission(Notification.permission);
     } else {
       setNotificationPermission("unsupported");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const tabParam = new URLSearchParams(window.location.search).get("tab");
+    setTab(normalizeSettingsTab(tabParam));
+  }, []);
+
+  const handleTabChange = useCallback((next: SettingsTab) => {
+    setTab(next);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", settingsTabHref(next));
     }
   }, []);
 
@@ -469,11 +494,16 @@ export default function SettingsTool() {
       title="Settings & Health"
       description={
         <>
-          Service connectivity, ComfyUI workflow overrides, local data backup, and
-          reset tools. LLM settings still come from server environment variables.
+          Organized by area — use the tabs below. Browser overrides apply per session;
+          server defaults come from <code className="text-violet-300">.env.local</code>{" "}
+          (see Overview).
         </>
       }
     >
+      <SettingsSubNav activeTab={tab} onTabChange={handleTabChange} />
+
+      {tab === "overview" && (
+      <>
       <ToolSection title="Service health">
         <div className="flex flex-wrap items-center justify-end gap-3">
           <Button
@@ -556,6 +586,13 @@ export default function SettingsTool() {
         )}
       </ToolSection>
 
+      {health?.serverEnv ? (
+        <ServerEnvPanel groups={health.serverEnv.groups} />
+      ) : null}
+      </>
+      )}
+
+      {tab === "llm" && (
       <ToolSection title="Session LLM preferences">
         <p className="text-sm text-zinc-400">
           Browser-session overrides sent with generation requests. Server env vars
@@ -629,7 +666,10 @@ export default function SettingsTool() {
           </span>
         </label>
       </ToolSection>
+      )}
 
+      {tab === "comfyui" && (
+      <>
       <ToolSection title="Model → workflow map">
         <p className="text-sm text-zinc-400">
           One mapping per line:{" "}
@@ -1210,14 +1250,14 @@ export default function SettingsTool() {
         </p>
       </ToolSection>
 
-      <ToolSection>
-        <ComfyUiGalleryPanel limit={6} compact showHeader />
-      </ToolSection>
-
       <ToolSection title="Queue parameters">
         <QueueParamsPanel />
       </ToolSection>
+      </>
+      )}
 
+      {tab === "automation" && (
+      <>
       <ToolSection title="Webhooks">
         <p className="text-sm text-zinc-400">
           POST ComfyUI job completion events to an external URL (via server proxy).
@@ -1579,6 +1619,14 @@ export default function SettingsTool() {
           className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
         />
       </ToolSection>
+      </>
+      )}
+
+      {tab === "data" && (
+      <>
+      <ToolSection>
+        <ComfyUiGalleryPanel limit={6} compact showHeader />
+      </ToolSection>
 
       <ToolSection title="Active character descriptor">
         <p className="text-sm text-zinc-400">
@@ -1662,6 +1710,8 @@ export default function SettingsTool() {
       </ToolSection>
 
       <SettingsAdvancedPanel />
+      </>
+      )}
 
       {status && <p className="type-caption">{status}</p>}
     </ToolLayout>

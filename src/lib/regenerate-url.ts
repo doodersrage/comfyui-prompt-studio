@@ -1,5 +1,14 @@
 import type { PromptHistoryEntry } from "@/hooks/usePromptHistory";
 
+const TOOL_PATHS: Record<string, string> = {
+  pet: "/pet",
+  fantasy: "/fantasy",
+  background: "/background",
+  character: "/character",
+  generate: "/",
+  randomScene: "/",
+};
+
 export function buildRegenerateUrl(entry: PromptHistoryEntry): string {
   const sceneMode =
     entry.tool === "compose"
@@ -13,9 +22,7 @@ export function buildRegenerateUrl(entry: PromptHistoryEntry): string {
   const path =
     sceneMode !== null
       ? "/character"
-      : entry.tool === "randomScene"
-        ? "/"
-        : "/";
+      : TOOL_PATHS[entry.tool] ?? "/";
 
   const params = new URLSearchParams();
   if (sceneMode) {

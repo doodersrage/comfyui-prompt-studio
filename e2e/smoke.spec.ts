@@ -13,6 +13,8 @@ test("dashboard page loads", async ({ page }) => {
 test("settings page loads", async ({ page }) => {
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: /Settings & Health/i })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: /Settings sections/i })).toBeVisible();
+  await page.getByRole("button", { name: "Automation", exact: true }).click();
   await expect(page.getByRole("heading", { name: /Avoided tokens/i })).toBeVisible();
 });
 

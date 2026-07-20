@@ -7,8 +7,23 @@ import EnhancedPromptResult from "@/components/EnhancedPromptResult";
 import RegionalPromptBuilderPanel from "@/components/RegionalPromptBuilderPanel";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import SharedToolControls from "@/components/SharedToolControls";
-import SportPresetChips from "@/components/SportPresetChips";
+import SceneStarterPresetChips from "@/components/SceneStarterPresetChips";
 import { SubjectShotScaleControl } from "@/components/ShotScaleControl";
+import {
+  SceneGenerateFooter,
+  SceneHintsField,
+  SceneQuickTags,
+  VariationSliderField,
+} from "@/components/scene-tool/SceneToolSections";
+import {
+  HistoryHintSeedPanel,
+  resolveSceneHintsForGeneration,
+} from "@/components/scene-tool/HistoryHintSeedPanel";
+import {
+  normalizeHistorySeedScope,
+  normalizeSceneHintSource,
+} from "@/lib/scene-hint-source";
+import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { useRecentLocations } from "@/hooks/useRecentLocations";
@@ -34,7 +49,6 @@ import {
 } from "@/lib/variation-seed-metadata";
 import {
   ROLL_VARIATION_LABEL,
-  SCENE_HINTS_LABEL,
   rollVariationLabel,
 } from "@/lib/tool-ui-labels";
 import { downloadTextFile } from "@/lib/prompt-pair";
@@ -43,8 +57,8 @@ import {
   parseScenePresetFromSearch,
 } from "@/lib/scene-preset-url";
 import { getSportPreset } from "@/lib/sport-presets";
+import { isSportStarterPreset } from "@/lib/scene-starter-presets";
 import {
-  accentButtonClass,
   accentFocusClass,
   accentRingClass,
   type ToolAccent,
@@ -54,8 +68,8 @@ import {
   ToolLayout,
   ToolSection,
 } from "@/components/ui/ToolPageShell";
-import { FieldDivider, FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
-import { Button, PrimaryButton } from "@/components/ui/Button";
+import { ChipButton, FieldDivider, FieldLabel } from "@/components/ui/Field";
+import { Button } from "@/components/ui/Button";
 
 const SOLO_BATCH_COUNT = 3;
 
@@ -132,6 +146,13 @@ export default function CharacterTool() {
   const sceneMode = toolSettings.sceneMode ?? "solo";
   const accent = accentForSceneMode(sceneMode);
   const historyTool = historyToolForSceneMode(sceneMode);
+  const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
+  const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
+  const historyCandidateCount = countHistorySeedCandidates(historyTool, historySeedScope);
+  const generateDisabledReason =
+    hintSource === "history" && historyCandidateCount === 0
+      ? "Save a few character prompts to Studio history first, or switch hint source."
+      : null;
   const portraitStyle =
     toolSettings.portraitStyle ?? defaultPortraitStyle(sceneMode);
 
@@ -209,7 +230,13 @@ export default function CharacterTool() {
       setBatchResults([]);
 
       try {
-        await actions.runPreLint(toolSettings.hints);
+        const effectiveHints = resolveSceneHintsForGeneration({
+          hintSource,
+          hints: toolSettings.hints,
+          randomTheme: toolSettings.randomTheme,
+        });
+
+        await actions.runPreLint(effectiveHints);
 
         if (sceneMode === "compose") {
           const response = await fetch("/api/compose", {
@@ -219,7 +246,7 @@ export default function CharacterTool() {
               model: shared.model,
               detail: shared.detail,
               subjectMode: toolSettings.composeSubjectMode ?? "duo",
-              hints: toolSettings.hints,
+              hints: effectiveHints,
               portraitStyle,
               variationStrength: toolSettings.variationStrength,
               presetOptions: presetOptionsFromCache(toolSettings),
@@ -252,7 +279,7 @@ export default function CharacterTool() {
 
           recordLocation(readSceneLocationFromMetadata(data.metadata));
           recordClothing(readClothingIdsFromMetadata(data.metadata));
-          const prompt = await actions.finalizePrompt(data.prompt, toolSettings.hints);
+          const prompt = await actions.finalizePrompt(data.prompt, effectiveHints);
           setOutput(prompt);
           setResult({ ...data, prompt });
           return;
@@ -270,7 +297,7 @@ export default function CharacterTool() {
           body: JSON.stringify({
             model: shared.model,
             detail: shared.detail,
-            hints: toolSettings.hints,
+            hints: effectiveHints,
             portraitStyle,
             variationStrength: toolSettings.variationStrength,
             presetOptions,
@@ -313,14 +340,14 @@ export default function CharacterTool() {
           setBatchResults(data.results);
           const firstPrompt = data.results[0]?.prompt ?? "";
           const finalized = firstPrompt
-            ? await actions.finalizePrompt(firstPrompt, toolSettings.hints)
+            ? await actions.finalizePrompt(firstPrompt, effectiveHints)
             : "";
           setOutput(finalized || firstPrompt);
           setResult(data.results[0] ?? null);
         } else {
           recordLocation(readSceneLocationFromMetadata(data.metadata));
           recordClothing(readClothingIdsFromMetadata(data.metadata));
-          const prompt = await actions.finalizePrompt(data.prompt, toolSettings.hints);
+          const prompt = await actions.finalizePrompt(data.prompt, effectiveHints);
           setOutput(prompt);
           setResult({ ...data, prompt });
         }
@@ -342,6 +369,7 @@ export default function CharacterTool() {
       recordClothing,
       recordLocation,
       sceneMode,
+      hintSource,
       shared,
       toolSettings,
     ],
@@ -374,13 +402,6 @@ export default function CharacterTool() {
       setError("Could not copy to clipboard.");
     }
   }, [output]);
-
-  const activeClassName =
-    accent === "emerald"
-      ? "border-emerald-500 bg-emerald-500/15 text-emerald-200"
-      : accent === "cyan"
-        ? "border-cyan-500 bg-cyan-500/15 text-cyan-200"
-        : "border-sky-500 bg-sky-500/15 text-sky-200";
 
   return (
     <ToolLayout
@@ -436,50 +457,65 @@ export default function CharacterTool() {
         />
       }
     >
-      <ToolSection>
+      <ToolSection
+        title="Scene setup"
+        description="Choose a mode, refine presets, add hints, then generate."
+      >
         <FieldLabel>Scene mode</FieldLabel>
         <div className="flex flex-wrap gap-2">
           {SCENE_MODE_OPTIONS.map((option) => (
-            <button
+            <ChipButton
               key={option.value}
-              type="button"
-              title={option.description}
+              active={sceneMode === option.value}
               onClick={() =>
                 updateToolSettings({
                   sceneMode: option.value,
                   portraitStyle: defaultPortraitStyle(option.value),
                 })
               }
-              className={`rounded-lg border px-3 py-2 text-xs font-medium ${
-                sceneMode === option.value ? activeClassName : "border-zinc-700 text-zinc-400"
-              }`}
             >
               {option.label}
-            </button>
+            </ChipButton>
           ))}
         </div>
 
         <FieldDivider />
 
         {sceneMode === "solo" ? (
-          <SportPresetChips
+          <SceneStarterPresetChips
             mode="solo"
+            accent={accent}
+            category={toolSettings.sceneStarterCategory ?? "all"}
+            onCategoryChange={(category) =>
+              updateToolSettings({ sceneStarterCategory: category })
+            }
+            selectedId={toolSettings.sceneStarterPresetId}
             onSelect={(preset) => {
               updateToolSettings({
+                sceneStarterPresetId: preset.id,
                 hints: preset.hints,
                 portraitStyle: preset.portraitStyle ?? "portrait",
+                sportPresetId: undefined,
               });
             }}
           />
         ) : null}
 
         {sceneMode === "duo" ? (
-          <SportPresetChips
+          <SceneStarterPresetChips
             mode="duo"
-            selectedId={toolSettings.sportPresetId}
+            accent={accent}
+            category={toolSettings.sceneStarterCategory ?? "all"}
+            onCategoryChange={(category) =>
+              updateToolSettings({ sceneStarterCategory: category })
+            }
+            selectedId={
+              toolSettings.sceneStarterPresetId ?? toolSettings.sportPresetId
+            }
             onSelect={(preset) => {
               updateToolSettings({
-                sportPresetId: preset.id,
+                sceneStarterPresetId: preset.id,
+                sportPresetId: isSportStarterPreset(preset.id) ? preset.id : undefined,
                 hints: preset.hints,
                 portraitStyle: preset.portraitStyle ?? "action",
                 teamKit: preset.teamKit ?? false,
@@ -498,49 +534,29 @@ export default function CharacterTool() {
                   { label: "Duo / sport", value: "duo" },
                 ] as const
               ).map((option) => (
-                <button
+                <ChipButton
                   key={option.value}
-                  type="button"
+                  active={(toolSettings.composeSubjectMode ?? "duo") === option.value}
                   onClick={() =>
                     updateToolSettings({ composeSubjectMode: option.value })
                   }
-                  className={`rounded-lg border px-3 py-2 text-xs font-medium ${
-                    (toolSettings.composeSubjectMode ?? "duo") === option.value
-                      ? activeClassName
-                      : "border-zinc-700 text-zinc-400"
-                  }`}
                 >
                   {option.label}
-                </button>
+                </ChipButton>
               ))}
             </div>
 
             <FieldDivider />
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <input
-                value={toolSettings.settingType ?? ""}
-                onChange={(e) => updateToolSettings({ settingType: e.target.value })}
-                placeholder="Quick tag: place type"
-                className={`ui-input px-3 py-2 text-sm ${accentFocusClass(accent)}`}
-              />
-              <input
-                value={toolSettings.timeOfDay ?? ""}
-                onChange={(e) => updateToolSettings({ timeOfDay: e.target.value })}
-                placeholder="Quick tag: time / light"
-                className={`ui-input px-3 py-2 text-sm ${accentFocusClass(accent)}`}
-              />
-              <input
-                value={toolSettings.mood ?? ""}
-                onChange={(e) => updateToolSettings({ mood: e.target.value })}
-                placeholder="Quick tag: mood"
-                className={`ui-input px-3 py-2 text-sm ${accentFocusClass(accent)}`}
-              />
-            </div>
-            <p className="text-xs text-zinc-500">
-              Quick tags are optional shortcuts—background presets below offer structured
-              control.
-            </p>
+            <SceneQuickTags
+              settingType={toolSettings.settingType ?? ""}
+              timeOfDay={toolSettings.timeOfDay ?? ""}
+              mood={toolSettings.mood ?? ""}
+              onSettingTypeChange={(value) => updateToolSettings({ settingType: value })}
+              onTimeOfDayChange={(value) => updateToolSettings({ timeOfDay: value })}
+              onMoodChange={(value) => updateToolSettings({ mood: value })}
+              inputClassName={accentFocusClass(accent)}
+            />
 
             <BackgroundPresetControls
               mounted={mounted}
@@ -556,31 +572,68 @@ export default function CharacterTool() {
 
         {(sceneMode === "solo" || sceneMode === "duo") && <FieldDivider />}
 
-        <FieldLabel>{SCENE_HINTS_LABEL}</FieldLabel>
-        <TextArea
-          value={toolSettings.hints ?? ""}
-          onChange={(e) => updateToolSettings({ hints: e.target.value })}
-          placeholder={
-            sceneMode === "duo"
-              ? "two female gravel cyclists in a fierce competition on a muddy doubletrack"
-              : sceneMode === "compose"
-                ? "two female gravel cyclists in fierce competition"
-                : "e.g. young woman in her twenties, long dark hair; on a Tokyo rooftop at night"
-          }
-          rows={sceneMode === "duo" ? 4 : 3}
-          className={accentFocusClass(accent)}
+        <CharacterPresetControls
+          mounted={mounted}
+          settings={toolSettings}
+          onChange={updateToolSettings}
+          variant={presetVariantForSceneMode(sceneMode)}
         />
 
-        <RegionalPromptBuilderPanel
-          accentClassName={accentFocusClass(accent)}
-          onApply={(prompt) =>
+        <FieldDivider />
+
+        <HistoryHintSeedPanel
+          tool={historyTool}
+          hintSource={hintSource}
+          historySeedScope={historySeedScope}
+          hints={toolSettings.hints ?? ""}
+          randomTheme={toolSettings.randomTheme ?? ""}
+          lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+          onHintSourceChange={(source) => updateToolSettings({ hintSource: source })}
+          onHistorySeedScopeChange={(scope) =>
+            updateToolSettings({ historySeedScope: scope })
+          }
+          onHintsChange={(value) => updateToolSettings({ hints: value })}
+          onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
+          onHistorySeedApplied={(result) =>
             updateToolSettings({
-              hints: toolSettings.hints?.trim()
-                ? `${toolSettings.hints.trim()}. ${prompt}`
-                : prompt,
+              hints: result.hints,
+              lastHistorySeedEntryId: result.entryId,
             })
           }
+          accentFocusClassName={accentFocusClass(accent)}
         />
+
+        {hintSource !== "random" ? (
+          <>
+            <FieldDivider />
+            <SceneHintsField
+              value={toolSettings.hints ?? ""}
+              onChange={(value) => updateToolSettings({ hints: value })}
+              placeholder={
+                sceneMode === "duo"
+                  ? "two female gravel cyclists in a fierce competition on a muddy doubletrack"
+                  : sceneMode === "compose"
+                    ? "two female gravel cyclists in fierce competition"
+                    : "e.g. young woman in her twenties, long dark hair; on a Tokyo rooftop at night"
+              }
+              rows={sceneMode === "duo" ? 4 : 3}
+              className={accentFocusClass(accent)}
+            />
+          </>
+        ) : null}
+
+        {hintSource !== "random" ? (
+          <RegionalPromptBuilderPanel
+            accentClassName={accentFocusClass(accent)}
+            onApply={(prompt) =>
+              updateToolSettings({
+                hints: toolSettings.hints?.trim()
+                  ? `${toolSettings.hints.trim()}. ${prompt}`
+                  : prompt,
+              })
+            }
+          />
+        ) : null}
 
         {sceneMode === "duo" || sceneMode === "compose" ? (
           <>
@@ -629,19 +682,11 @@ export default function CharacterTool() {
           </>
         ) : null}
 
-        <CharacterPresetControls
-          mounted={mounted}
-          settings={toolSettings}
-          onChange={updateToolSettings}
-          variant={presetVariantForSceneMode(sceneMode)}
-        />
-
         <FieldDivider />
 
         <SubjectShotScaleControl
           value={portraitStyle}
           onChange={(value) => updateToolSettings({ portraitStyle: value })}
-          activeClassName={activeClassName}
         />
 
         {sceneMode === "compose" ? (
@@ -655,18 +700,13 @@ export default function CharacterTool() {
                   { label: "Inline prose", value: "inline" },
                 ] as const
               ).map((option) => (
-                <button
+                <ChipButton
                   key={option.value}
-                  type="button"
+                  active={(toolSettings.composeStyle ?? "layered") === option.value}
                   onClick={() => updateToolSettings({ composeStyle: option.value })}
-                  className={`rounded-lg border px-3 py-2 text-xs font-medium ${
-                    (toolSettings.composeStyle ?? "layered") === option.value
-                      ? activeClassName
-                      : "border-zinc-700 text-zinc-400"
-                  }`}
                 >
                   {option.label}
-                </button>
+                </ChipButton>
               ))}
             </div>
           </>
@@ -674,53 +714,33 @@ export default function CharacterTool() {
 
         <FieldDivider />
 
-        <FieldLabel>{ROLL_VARIATION_LABEL}</FieldLabel>
-        <div className="flex items-center justify-between text-xs text-zinc-400">
-          <span>Stable</span>
-          <span
-            className={`font-medium ${
-              accent === "emerald"
-                ? "text-emerald-300"
-                : accent === "cyan"
-                  ? "text-cyan-300"
-                  : "text-sky-300"
-            }`}
-          >
-            {rollVariationLabel(toolSettings.variationStrength ?? 50)} (
-            {toolSettings.variationStrength ?? 50})
-          </span>
-          <span>Varied</span>
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
+        <VariationSliderField
+          label={ROLL_VARIATION_LABEL}
           value={toolSettings.variationStrength ?? 50}
-          onChange={(e) =>
-            updateToolSettings({ variationStrength: Number(e.target.value) })
-          }
-          className={`h-2 w-full ${accentRingClass(accent)}`}
+          onChange={(value) => updateToolSettings({ variationStrength: value })}
+          valueLabel={`${rollVariationLabel(toolSettings.variationStrength ?? 50)} (${toolSettings.variationStrength ?? 50})`}
+          accentRingClassName={accentRingClass(accent)}
         />
 
-        <div className="flex flex-wrap gap-3">
-          <PrimaryButton
-            accentClassName={accentButtonClass(accent)}
-            onClick={() => void generate(false)}
-            disabled={!mounted}
-            loading={loading}
-            loadingLabel="Generating character prompt"
-          >
-            {sceneMode === "compose"
+        <SceneGenerateFooter
+          accent={accent}
+          label={
+            sceneMode === "compose"
               ? "Compose scene prompt"
               : sceneMode === "duo"
                 ? "Generate duo"
-                : "Generate character prompt"}
-          </PrimaryButton>
+                : "Generate character prompt"
+          }
+          onClick={() => void generate(false)}
+          disabled={!mounted || Boolean(generateDisabledReason)}
+          loading={loading}
+          loadingLabel="Generating character prompt"
+          error={error ?? generateDisabledReason}
+        >
           {sceneMode !== "compose" ? (
             <Button
               variant="secondary"
-              disabled={!mounted}
+              disabled={!mounted || Boolean(generateDisabledReason)}
               loading={loading}
               loadingLabel="Rolling batch variations"
               onClick={() => void generate(true)}
@@ -728,9 +748,7 @@ export default function CharacterTool() {
               Batch {sceneMode === "duo" ? toolSettings.batchCount ?? 3 : SOLO_BATCH_COUNT}
             </Button>
           ) : null}
-        </div>
-
-        <FieldError>{error}</FieldError>
+        </SceneGenerateFooter>
       </ToolSection>
 
       <EnhancedPromptResult

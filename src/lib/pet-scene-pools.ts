@@ -90,6 +90,13 @@ const OTHER_SUBJECTS = [
   "hedgehog with tiny quills",
 ];
 
+const REPTILE_SUBJECTS = [
+  "bearded dragon with textured scales",
+  "leopard gecko with spotted pattern",
+  "corn snake with smooth coiled body",
+  "tortoise with weathered shell detail",
+];
+
 const PORTRAIT_POSES = [
   "close portrait framing on face, eyes, whiskers, and fur texture",
   "head-and-shoulders pose with alert ears and soft expression",
@@ -122,7 +129,7 @@ function subjectsForSpecies(species: PetSpecies | null): readonly string[] {
     case "bird":
       return BIRD_SUBJECTS;
     case "other":
-      return OTHER_SUBJECTS;
+      return [...OTHER_SUBJECTS, ...REPTILE_SUBJECTS];
     default:
       return [
         ...DOG_SUBJECTS,
@@ -130,6 +137,7 @@ function subjectsForSpecies(species: PetSpecies | null): readonly string[] {
         ...RABBIT_SUBJECTS,
         ...BIRD_SUBJECTS,
         ...OTHER_SUBJECTS,
+        ...REPTILE_SUBJECTS,
       ];
   }
 }

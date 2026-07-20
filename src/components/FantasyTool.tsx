@@ -31,9 +31,22 @@ import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
 import { readVariationSeedFromResult } from "@/lib/variation-seed-metadata";
 import { FantasyShotScaleControl } from "@/components/ShotScaleControl";
 import {
+  SceneGenerateFooter,
+  SceneHintsField,
+  VariationSliderField,
+} from "@/components/scene-tool/SceneToolSections";
+import {
+  HistoryHintSeedPanel,
+  resolveSceneHintsForGeneration,
+} from "@/components/scene-tool/HistoryHintSeedPanel";
+import {
+  normalizeHistorySeedScope,
+  normalizeSceneHintSource,
+} from "@/lib/scene-hint-source";
+import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
+import {
   CONCEPT_WILDNESS_LABEL,
   ROLL_VARIATION_LABEL,
-  SCENE_HINTS_LABEL,
   conceptWildnessLabel,
   rollVariationLabel,
 } from "@/lib/tool-ui-labels";
@@ -41,12 +54,10 @@ import {
   ToolBadge,
   ToolLayout,
   ToolSection,
-  accentButtonClass,
   accentFocusClass,
   accentRingClass,
 } from "@/components/ui/ToolPageShell";
-import { FieldDivider, FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+import { FieldDivider } from "@/components/ui/Field";
 
 const ACCENT = "violet" as const;
 
@@ -83,6 +94,13 @@ export default function FantasyTool() {
 
   const selectedModel = getComfyModelDefinition(shared.model);
   const variationSeed = readVariationSeedFromResult(result ?? {});
+  const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
+  const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
+  const historyCandidateCount = countHistorySeedCandidates("fantasy", historySeedScope);
+  const generateDisabledReason =
+    hintSource === "history" && historyCandidateCount === 0
+      ? "Save a few fantasy or related prompts to Studio history first, or switch hint source."
+      : null;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -127,13 +145,18 @@ export default function FantasyTool() {
     actions.resetStatuses();
 
     try {
+      const effectiveHints = resolveSceneHintsForGeneration({
+        hintSource,
+        hints: toolSettings.hints,
+        randomTheme: toolSettings.randomTheme,
+      });
       const response = await fetch("/api/fantasy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: shared.model,
           detail: shared.detail,
-          hints: toolSettings.hints,
+          hints: effectiveHints,
           portraitStyle: activeFraming,
           wildness: toolSettings.wildness,
           variationStrength: toolSettings.variationStrength,
@@ -160,7 +183,7 @@ export default function FantasyTool() {
       record(readSceneLocationFromMetadata(data.metadata));
       recordClothing(readClothingIdsFromMetadata(data.metadata));
 
-      const prompt = await actions.finalizePrompt(data.prompt, toolSettings.hints);
+      const prompt = await actions.finalizePrompt(data.prompt, effectiveHints);
       setOutput(prompt);
       setResult({ ...data, prompt });
     } catch (err) {
@@ -173,6 +196,7 @@ export default function FantasyTool() {
   }, [
     shared,
     toolSettings,
+    hintSource,
     presetOptions,
     getRecent,
     record,
@@ -243,7 +267,10 @@ export default function FantasyTool() {
         />
       }
     >
-      <ToolSection>
+      <ToolSection
+        title="Scene setup"
+        description="Pick a preset, refine options, then add freeform hints before generating."
+      >
         <FantasyPresetChips
           selectedId={toolSettings.fantasyPresetId}
           category={toolSettings.presetCategory ?? "all"}
@@ -272,84 +299,90 @@ export default function FantasyTool() {
 
         <FieldDivider />
 
-        <FieldLabel>{SCENE_HINTS_LABEL}</FieldLabel>
-        <TextArea
-          value={toolSettings.hints ?? ""}
-          onChange={(event) =>
+        <HistoryHintSeedPanel
+          tool="fantasy"
+          hintSource={hintSource}
+          historySeedScope={historySeedScope}
+          hints={toolSettings.hints ?? ""}
+          randomTheme={toolSettings.randomTheme ?? ""}
+          lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+          onHintSourceChange={(source) => updateToolSettings({ hintSource: source })}
+          onHistorySeedScopeChange={(scope) =>
+            updateToolSettings({ historySeedScope: scope })
+          }
+          onHintsChange={(value) =>
             updateToolSettings({
-              hints: event.target.value,
+              hints: value,
               fantasyPresetId: undefined,
             })
           }
-          placeholder="e.g. elven spellblade in a crystal cavern, location: floating ruins above the clouds"
-          rows={3}
-          className={accentFocusClass(ACCENT)}
+          onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
+          onHistorySeedApplied={(result) =>
+            updateToolSettings({
+              hints: result.hints,
+              lastHistorySeedEntryId: result.entryId,
+              fantasyPresetId: undefined,
+            })
+          }
+          accentFocusClassName={accentFocusClass(ACCENT)}
         />
+
+        {hintSource !== "random" ? (
+          <>
+            <FieldDivider />
+            <SceneHintsField
+              value={toolSettings.hints ?? ""}
+              onChange={(value) =>
+                updateToolSettings({
+                  hints: value,
+                  fantasyPresetId: undefined,
+                })
+              }
+              placeholder="e.g. elven spellblade in a crystal cavern, location: floating ruins above the clouds"
+              className={accentFocusClass(ACCENT)}
+            />
+          </>
+        ) : null}
 
         <FieldDivider />
 
         <FantasyShotScaleControl
           value={activeFraming}
           onChange={(value) => updateToolSettings({ portraitStyle: value })}
-          activeClassName="border-violet-500 bg-violet-500/15 text-violet-200"
           environmentOnly={focus === "environment"}
         />
 
         <FieldDivider />
 
-        <FieldLabel>{CONCEPT_WILDNESS_LABEL}</FieldLabel>
-        <div className="flex items-center justify-between text-xs text-zinc-400">
-          <span>Grounded</span>
-          <span className="font-medium text-violet-300">
-            {conceptWildnessLabel(toolSettings.wildness ?? 65)} (
-            {toolSettings.wildness ?? 65})
-          </span>
-          <span>Surreal</span>
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
+        <VariationSliderField
+          label={CONCEPT_WILDNESS_LABEL}
           value={toolSettings.wildness ?? 65}
-          onChange={(event) =>
-            updateToolSettings({ wildness: Number(event.target.value) })
-          }
-          className={`h-2 w-full ${accentRingClass(ACCENT)}`}
+          onChange={(value) => updateToolSettings({ wildness: value })}
+          valueLabel={`${conceptWildnessLabel(toolSettings.wildness ?? 65)} (${toolSettings.wildness ?? 65})`}
+          minLabel="Grounded"
+          maxLabel="Surreal"
+          accentRingClassName={accentRingClass(ACCENT)}
         />
 
-        <FieldLabel>{ROLL_VARIATION_LABEL}</FieldLabel>
-        <div className="flex items-center justify-between text-xs text-zinc-400">
-          <span>Stable</span>
-          <span className="font-medium text-violet-300">
-            {rollVariationLabel(toolSettings.variationStrength ?? 50)} (
-            {toolSettings.variationStrength ?? 50})
-          </span>
-          <span>Varied</span>
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
+        <FieldDivider />
+
+        <VariationSliderField
+          label={ROLL_VARIATION_LABEL}
           value={toolSettings.variationStrength ?? 50}
-          onChange={(event) =>
-            updateToolSettings({ variationStrength: Number(event.target.value) })
-          }
-          className={`h-2 w-full ${accentRingClass(ACCENT)}`}
+          onChange={(value) => updateToolSettings({ variationStrength: value })}
+          valueLabel={`${rollVariationLabel(toolSettings.variationStrength ?? 50)} (${toolSettings.variationStrength ?? 50})`}
+          accentRingClassName={accentRingClass(ACCENT)}
         />
 
-        <PrimaryButton
-          accentClassName={accentButtonClass(ACCENT)}
+        <SceneGenerateFooter
+          accent={ACCENT}
+          label="Generate fantasy scene prompt"
           onClick={() => void generate()}
-          disabled={!mounted}
+          disabled={!mounted || Boolean(generateDisabledReason)}
           loading={loading}
           loadingLabel="Generating fantasy scene prompt"
-        >
-          Generate fantasy scene prompt
-        </PrimaryButton>
-
-        <FieldError>{error}</FieldError>
+          error={error ?? generateDisabledReason}
+        />
       </ToolSection>
 
       <EnhancedPromptResult
