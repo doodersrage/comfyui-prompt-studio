@@ -48,9 +48,23 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
       void initGalleryStore().then(refresh);
     });
 
-    const handler = () => refresh();
+    let frameId = 0;
+    const handler = () => {
+      if (frameId !== 0) {
+        return;
+      }
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0;
+        refresh();
+      });
+    };
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);
-    return () => window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);
+    return () => {
+      window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);
+      if (frameId !== 0) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
   }, [refresh]);
 
   useEffect(() => {

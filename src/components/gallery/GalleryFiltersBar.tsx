@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   backfillVisionTags,
   listUntaggedCompletedEntries,
@@ -121,6 +121,26 @@ export default function GalleryFiltersBar({
     null,
   );
   const [backfillLoading, setBackfillLoading] = useState(false);
+  const [queryDraft, setQueryDraft] = useState(filter.query ?? "");
+
+  useEffect(() => {
+    setQueryDraft(filter.query ?? "");
+  }, [filter.query]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const trimmed = queryDraft.trim();
+      const nextQuery = trimmed || undefined;
+      setFilter((previous) => {
+        if (previous.query === nextQuery) {
+          return previous;
+        }
+        return { ...previous, query: nextQuery };
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [queryDraft, setFilter]);
 
   async function runVisionBackfill() {
     const entries = listUntaggedCompletedEntries(100);
@@ -170,13 +190,8 @@ export default function GalleryFiltersBar({
           <span className="type-caption text-zinc-500">Search</span>
           <input
             type="search"
-            value={filter.query ?? ""}
-            onChange={(event) =>
-              setFilter({
-                ...filter,
-                query: event.target.value.trim() ? event.target.value : undefined,
-              })
-            }
+            value={queryDraft}
+            onChange={(event) => setQueryDraft(event.target.value)}
             placeholder="Prompt, tool, model, prompt id, vision tags…"
             className="ui-input block w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
           />

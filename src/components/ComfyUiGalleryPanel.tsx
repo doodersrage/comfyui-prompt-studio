@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import ImageLightbox, { type ImageLightboxState } from "@/components/ui/ImageLightbox";
 import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPanel";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -11,8 +12,9 @@ import { startImproveFromGalleryEntry } from "@/lib/improve-output";
 import { recordAvoidedTokensFromPrompt } from "@/lib/avoided-tokens";
 import { recordCatalogBiasFromPrompt } from "@/lib/catalog-rating-bias";
 import GalleryVisionReviewButton from "@/components/gallery/GalleryVisionReviewButton";
-import GalleryComparePanel from "@/components/GalleryComparePanel";
-import GalleryCard from "@/components/gallery/GalleryCard";
+import GalleryCardItem, {
+  type GalleryCardActions,
+} from "@/components/gallery/GalleryCardItem";
 import GalleryFiltersBar from "@/components/gallery/GalleryFiltersBar";
 import GallerySelectionBar from "@/components/gallery/GallerySelectionBar";
 import GalleryStatsBar from "@/components/gallery/GalleryStatsBar";
@@ -55,6 +57,7 @@ import { queueParamExperimentGrid } from "@/lib/param-experiment-grid";
 import {
   buildGalleryLightboxPlaylist,
   galleryEntryViewUrls,
+  GALLERY_ALL_RENDER_CHUNK,
   GALLERY_PAGE_SIZE_ALL,
   GALLERY_SLIDESHOW_INTERVAL_OPTIONS,
   GALLERY_SLIDESHOW_TRANSITION_OPTIONS,
@@ -72,6 +75,10 @@ import {
   type GallerySlideshowTransition,
 } from "@/lib/comfyui-gallery";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+
+const GalleryComparePanel = dynamic(() => import("@/components/GalleryComparePanel"), {
+  loading: () => null,
+});
 
 type ComfyUiGalleryPanelProps = {
   limit?: number;
@@ -143,13 +150,27 @@ export default function ComfyUiGalleryPanel({
   const [compareStatus, setCompareStatus] = useState<string | null>(null);
   const [paramAxis, setParamAxis] = useState<ParamExperimentAxis>("cfg");
   const [projectFilterId, setProjectFilterId] = useState<string>("");
-  const projects = useMemo(() => loadPromptProjects(), [entries]);
+  const [projects] = useState(() => loadPromptProjects());
+  const [allRenderLimit, setAllRenderLimit] = useState(GALLERY_ALL_RENDER_CHUNK);
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+  const visibleEntriesRef = useRef<ComfyGalleryEntry[]>([]);
+  const galleryCardActionsRef = useRef<GalleryCardActions>({
+    toggleSelected: () => undefined,
+    remove: () => undefined,
+    toggleFavorite: () => undefined,
+    requeue: () => undefined,
+    openImage: () => undefined,
+    reviewRating: () => undefined,
+    downloadError: () => undefined,
+    visionTagClick: () => undefined,
+  });
   const resolvedProjectFilterId = useMemo(() => {
     if (projectFilterId === "active") {
       return loadActiveProjectId();
     }
     return projectFilterId || undefined;
-  }, [projectFilterId, entries]);
+  }, [projectFilterId]);
 
   useEffect(() => {
     setFilter((previous) => ({
@@ -208,6 +229,7 @@ export default function ComfyUiGalleryPanel({
   useEffect(() => {
     scheduleAfterCommit(() => {
       setPage(1);
+      setAllRenderLimit(GALLERY_ALL_RENDER_CHUNK);
     });
   }, [filter.status, filter.tool, filter.favoritesOnly, filter.query, sort, pageSize]);
 
@@ -219,17 +241,39 @@ export default function ComfyUiGalleryPanel({
         page: 1,
         totalPages: 1,
         totalItems: sortedSource.length,
+        hasMoreAll: false,
+        remainingAll: 0,
+      };
+    }
+
+    if (pageSize === GALLERY_PAGE_SIZE_ALL) {
+      const items = sortedSource.slice(0, allRenderLimit);
+      const remainingAll = Math.max(sortedSource.length - allRenderLimit, 0);
+      return {
+        items,
+        page: 1,
+        totalPages: 1,
+        totalItems: sortedSource.length,
+        hasMoreAll: remainingAll > 0,
+        remainingAll,
       };
     }
 
     const effectivePageSize = resolveGalleryPageSize(pageSize, sortedSource.length);
-    return paginateGalleryEntries(sortedSource, page, effectivePageSize);
-  }, [sortedSource, limit, page, pageSize, paginationEnabled]);
+    return {
+      ...paginateGalleryEntries(sortedSource, page, effectivePageSize),
+      hasMoreAll: false,
+      remainingAll: 0,
+    };
+  }, [sortedSource, limit, page, pageSize, paginationEnabled, allRenderLimit]);
 
   const visibleEntries = pagination.items;
+  visibleEntriesRef.current = visibleEntries;
   const totalPages = pagination.totalPages;
   const currentPage = pagination.page;
   const totalFiltered = pagination.totalItems;
+  const hasMoreAll = pagination.hasMoreAll;
+  const remainingAll = pagination.remainingAll;
   const effectivePageSize = resolveGalleryPageSize(pageSize, totalFiltered);
   const showPagination = paginationEnabled && pageSize !== GALLERY_PAGE_SIZE_ALL && totalFiltered > effectivePageSize;
 
@@ -238,26 +282,39 @@ export default function ComfyUiGalleryPanel({
     [visibleEntries],
   );
 
-  const openEntryLightbox = (entry: ComfyGalleryEntry, imageIndex: number) => {
-    if (lightboxPlaylist.images.length === 0) {
-      return;
-    }
+  const openEntryLightbox = useCallback(
+    (entry: ComfyGalleryEntry, imageIndex: number) => {
+      if (lightboxPlaylist.images.length === 0) {
+        return;
+      }
 
-    const index = resolveGalleryLightboxOpenIndex(
-      visibleEntries,
-      entry.id,
-      imageIndex,
-    );
+      const index = resolveGalleryLightboxOpenIndex(
+        visibleEntriesRef.current,
+        entry.id,
+        imageIndex,
+      );
 
-    setLightbox({
-      images: lightboxPlaylist.images,
-      titles: lightboxPlaylist.titles,
-      index,
-      title: lightboxPlaylist.titles[index],
-    });
-    setSlideshowPlaying(false);
-    setSlideshowFullscreen(false);
-  };
+      setLightbox({
+        images: lightboxPlaylist.images,
+        titles: lightboxPlaylist.titles,
+        index,
+        title: lightboxPlaylist.titles[index],
+      });
+      setSlideshowPlaying(false);
+      setSlideshowFullscreen(false);
+    },
+    [lightboxPlaylist],
+  );
+
+  const openLightboxForEntryId = useCallback(
+    (entryId: string, imageIndex: number) => {
+      const entry = visibleEntriesRef.current.find((item) => item.id === entryId);
+      if (entry) {
+        openEntryLightbox(entry, imageIndex);
+      }
+    },
+    [openEntryLightbox],
+  );
 
   const startSlideshow = () => {
     if (lightboxPlaylist.images.length === 0) {
@@ -307,18 +364,20 @@ export default function ComfyUiGalleryPanel({
     });
   }, [currentPage, page, paginationEnabled]);
 
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
   const selectedEntries = useMemo(
-    () => visibleEntries.filter((entry) => selectedIds.includes(entry.id)),
-    [selectedIds, visibleEntries],
+    () => visibleEntries.filter((entry) => selectedIdSet.has(entry.id)),
+    [selectedIdSet, visibleEntries],
   );
 
   const reviewFocusIndex = useMemo(() => {
     if (!filter.reviewMode || visibleEntries.length === 0) {
       return 0;
     }
-    const selectedIndex = visibleEntries.findIndex((entry) => selectedIds.includes(entry.id));
+    const selectedIndex = visibleEntries.findIndex((entry) => selectedIdSet.has(entry.id));
     return selectedIndex >= 0 ? selectedIndex : 0;
-  }, [filter.reviewMode, visibleEntries, selectedIds]);
+  }, [filter.reviewMode, visibleEntries, selectedIdSet]);
 
   const reviewFocusEntry = visibleEntries[reviewFocusIndex] ?? null;
 
@@ -451,12 +510,75 @@ export default function ComfyUiGalleryPanel({
     toggleFavorite,
   ]);
 
-  const toggleSelected = (id: string) => {
-    setSelectedIds((previous) =>
-      previous.includes(id)
-        ? previous.filter((entryId) => entryId !== id)
-        : [...previous, id],
-    );
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return [...next];
+    });
+  }, []);
+
+  galleryCardActionsRef.current = {
+    toggleSelected,
+    remove: removeEntry,
+    toggleFavorite: (id: string) => {
+      const entry = entriesRef.current.find((item) => item.id === id);
+      const willFavorite = entry ? !entry.favorite : false;
+      toggleFavorite(id);
+      if (entry && willFavorite) {
+        void runAutoImproveOnFavorite(entry, true).then((message) => {
+          if (message) {
+            setRequeueStatus(message);
+          }
+        });
+      }
+    },
+    requeue: (id: string, newSeed: boolean) => {
+      const entry = entriesRef.current.find((item) => item.id === id);
+      if (!entry) {
+        return;
+      }
+      setRequeueStatus("Re-queueing…");
+      void requeueComfyJob({
+        prompt: entry.prompt,
+        negativePrompt: entry.negativePrompt,
+        tool: entry.tool,
+        model: entry.model,
+        newSeed,
+        queueParams: entry.queueParams,
+        onStatus: setRequeueStatus,
+      }).then((result) => {
+        if (!result.ok) {
+          setRequeueStatus(result.error ?? "Re-queue failed.");
+          return;
+        }
+        setRequeueStatus(
+          [
+            "queued",
+            result.promptId ? `prompt_id ${result.promptId}` : null,
+            result.comfyUrl,
+            newSeed ? "new seed" : "same params",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        );
+      });
+    },
+    openImage: openLightboxForEntryId,
+    reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => {
+      const entry = entriesRef.current.find((item) => item.id === id);
+      if (entry && rating) {
+        handleReviewRating(entry, rating);
+      }
+    },
+    downloadError: setDownloadError,
+    visionTagClick: (tag: string) => {
+      setFilter((previous) => ({ ...previous, query: tag }));
+    },
   };
 
   if (!mounted) {
@@ -896,58 +1018,17 @@ export default function ComfyUiGalleryPanel({
           }
         >
           {visibleEntries.map((entry) => (
-            <GalleryCard
+            <GalleryCardItem
               key={entry.id}
               entry={entry}
+              actionsRef={galleryCardActionsRef}
               compact={compact || layout === "dense"}
               layout={layout}
               selectable={bulkEnabled}
-              selected={selectedIds.includes(entry.id)}
-              reviewFocus={filter.reviewMode && reviewFocusEntry?.id === entry.id}
-              onToggleSelected={() => toggleSelected(entry.id)}
+              selected={selectedIdSet.has(entry.id)}
+              reviewFocus={filter.reviewMode === true && reviewFocusEntry?.id === entry.id}
               previewUrl={primaryViewUrl(entry)}
               imageUrls={galleryEntryViewUrls(entry)}
-              onRemove={() => removeEntry(entry.id)}
-              onToggleFavorite={() => {
-                const willFavorite = !entry.favorite;
-                toggleFavorite(entry.id);
-                if (willFavorite) {
-                  void runAutoImproveOnFavorite(entry, true).then((message) => {
-                    if (message) {
-                      setRequeueStatus(message);
-                    }
-                  });
-                }
-              }}
-              onDownloadError={setDownloadError}
-              onRequeue={(newSeed) => {
-                setRequeueStatus("Re-queueing…");
-                void requeueComfyJob({
-                  prompt: entry.prompt,
-                  negativePrompt: entry.negativePrompt,
-                  tool: entry.tool,
-                  model: entry.model,
-                  newSeed,
-                  queueParams: entry.queueParams,
-                  onStatus: setRequeueStatus,
-                }).then((result) => {
-                  if (!result.ok) {
-                    setRequeueStatus(result.error ?? "Re-queue failed.");
-                    return;
-                  }
-                  setRequeueStatus(
-                    [
-                      "queued",
-                      result.promptId ? `prompt_id ${result.promptId}` : null,
-                      result.comfyUrl,
-                      newSeed ? "new seed" : "same params",
-                    ]
-                      .filter(Boolean)
-                      .join(" · "),
-                  );
-                });
-              }}
-              onOpenImage={(index) => openEntryLightbox(entry, index)}
               reviewMode={filter.reviewMode === true}
               reviewMutationHints={
                 filter.reviewMode &&
@@ -956,18 +1037,24 @@ export default function ComfyUiGalleryPanel({
                   ? suggestRatingMutations(entry, 2).map((item) => item.detail)
                   : undefined
               }
-              onVisionTagClick={(tag) =>
-                setFilter((previous) => ({ ...previous, query: tag }))
-              }
-              onReviewRating={(rating) => {
-                if (rating) {
-                  handleReviewRating(entry, rating);
-                }
-              }}
             />
           ))}
         </div>
       )}
+
+      {hasMoreAll ? (
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            onClick={() =>
+              setAllRenderLimit((previous) => previous + GALLERY_ALL_RENDER_CHUNK)
+            }
+            className="ui-btn-secondary ui-btn-sm"
+          >
+            Load more ({remainingAll} remaining)
+          </button>
+        </div>
+      ) : null}
 
       {showPagination && visibleEntries.length > 0 && (
         <GalleryPaginator

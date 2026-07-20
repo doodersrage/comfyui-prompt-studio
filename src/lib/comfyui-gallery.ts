@@ -53,6 +53,21 @@ export type ComfyGallerySort =
 
 export const GALLERY_PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 export const GALLERY_PAGE_SIZE_ALL = "all" as const;
+/** Initial render cap when page size is "All" — use Load more for the rest. */
+export const GALLERY_ALL_RENDER_CHUNK = 48;
+
+export function galleryEntryRenderKey(entry: ComfyGalleryEntry): string {
+  return [
+    entry.id,
+    entry.status,
+    entry.favorite ? 1 : 0,
+    entry.reviewRating ?? 0,
+    entry.statusMessage ?? "",
+    entry.promptId ?? "",
+    entry.visionTags?.join(",") ?? "",
+    entry.projectId ?? "",
+  ].join("|");
+}
 export type GalleryPageSize =
   | (typeof GALLERY_PAGE_SIZE_OPTIONS)[number]
   | typeof GALLERY_PAGE_SIZE_ALL;

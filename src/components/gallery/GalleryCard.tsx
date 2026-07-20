@@ -86,7 +86,16 @@ export default function GalleryCard({
   const menuRef = useRef<HTMLDivElement>(null);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const aestheticScore = useMemo(() => scoreGalleryEntryHeuristic(entry), [entry]);
+  const aestheticScore = useMemo(
+    () => scoreGalleryEntryHeuristic(entry),
+    [
+      entry.id,
+      entry.status,
+      entry.favorite,
+      entry.reviewRating,
+      entry.prompt.length,
+    ],
+  );
 
   useEffect(() => {
     if (!menuOpen) {
@@ -145,6 +154,8 @@ export default function GalleryCard({
             <img
               src={previewUrl}
               alt={entry.prompt.slice(0, 80)}
+              loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02]"
             />
           </button>
