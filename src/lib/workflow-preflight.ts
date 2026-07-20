@@ -27,9 +27,13 @@ export async function runWorkflowPreflight(input: {
   hasMaskImage?: boolean;
   tool?: string;
   queueParams?: WorkflowParamValues;
+  qualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
+  comfy?: import("./comfyui-config").ComfyUiRuntimeConfig;
 }): Promise<WorkflowPreflightResult> {
   const issues: WorkflowPreflightIssue[] = [];
-  const runtime = resolveRuntimeForQueue(input.model as ComfyImageModel, input.tool);
+  const runtime =
+    input.comfy ??
+    resolveRuntimeForQueue(input.model as ComfyImageModel, input.tool);
 
   if (!runtime?.workflowJson && !runtime?.workflowFileId) {
     issues.push({
@@ -73,6 +77,7 @@ export async function runWorkflowPreflight(input: {
     model: input.model,
     tool: input.tool,
     base: input.queueParams,
+    qualityProfile: input.qualityProfile,
     inputImageFilename: input.hasInputImage
       ? input.queueParams?.inputImageFilename?.trim() || "preview-input.png"
       : undefined,
@@ -89,6 +94,7 @@ export async function runWorkflowPreflight(input: {
       params: previewParams,
       hasInputImage: input.hasInputImage,
       hasMaskImage: input.hasMaskImage,
+      comfy: runtime,
     });
     if (!preview.ok) {
       issues.push({

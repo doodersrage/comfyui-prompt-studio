@@ -35,6 +35,7 @@ import {
   parseModelVaeMap,
   formatModelRefinerMap,
   parseModelRefinerMap,
+  mergeSuggestedLoaderMaps,
 } from "@/lib/model-checkpoint-map";
 import {
   formatModelUpscaleMap,
@@ -368,6 +369,19 @@ export default function SettingsTool() {
       return next;
     });
   }, []);
+
+  const applySuggestedLoaderMaps = useCallback(() => {
+    const merged = mergeSuggestedLoaderMaps({
+      checkpointMap: sharedSettings.modelCheckpointMap,
+      vaeMap: sharedSettings.modelVaeMap,
+      refinerMap: sharedSettings.modelRefinerMap,
+    });
+    updateSharedSettings(merged);
+    setModelCheckpointMapText(formatModelCheckpointMap(merged.modelCheckpointMap));
+    setModelVaeMapText(formatModelVaeMap(merged.modelVaeMap));
+    setModelRefinerMapText(formatModelRefinerMap(merged.modelRefinerMap));
+    setStatus("Merged suggested checkpoint, VAE, and refiner maps (your entries kept).");
+  }, [sharedSettings.modelCheckpointMap, sharedSettings.modelRefinerMap, sharedSettings.modelVaeMap, updateSharedSettings]);
 
   const workflowValidation = useMemo(() => {
     if (!settings.workflowJson?.trim()) {
@@ -1054,9 +1068,19 @@ export default function SettingsTool() {
           rows={5}
           spellCheck={false}
           disabled={!sharedMounted}
-          placeholder={`qwen-image-2512=qwen_image_2512_bf16.safetensors\nflux-2-klein-9b=flux-2-klein-9b.safetensors\ndefault=4x-UltraSharp.pth`}
+          placeholder={`qwen-image-2512=qwen_image_2512_bf16.safetensors\nflux-2-klein-9b=flux-2-klein-9b.safetensors`}
           className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
         />
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={!sharedMounted}
+            onClick={applySuggestedLoaderMaps}
+            className={`rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs text-violet-200 transition hover:bg-violet-500/20 ${accentFocusClass(ACCENT)}`}
+          >
+            Merge suggested loader maps
+          </button>
+        </div>
         <p className="mb-2 mt-4 text-sm text-zinc-400">
           VAE map — override{" "}
           <code className="rounded bg-zinc-800 px-1 text-violet-300">{"{{VAE}}"}</code> /{" "}
@@ -1105,9 +1129,10 @@ export default function SettingsTool() {
           className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
         />
         <p className="mb-2 mt-4 text-sm text-zinc-400">
-          Upscale model map — one line per key:{" "}
-          <code className="rounded bg-zinc-800 px-1 text-violet-300">default=4x-UltraSharp.pth</code>{" "}
-          or <code className="rounded bg-zinc-800 px-1 text-violet-300">modelId=filename.pth</code>.
+          Upscale model map — optional. Leave empty to use Lanczos upscale on Final/Max. Set{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">default=your-model.pth</code>{" "}
+          only when the file exists in ComfyUI{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">models/upscale_models/</code>.
           Patches <code className="rounded bg-zinc-800 px-1 text-violet-300">UpscaleModel</code> nodes
           and replaces{" "}
           <code className="rounded bg-zinc-800 px-1 text-violet-300">{"{{UPSCALE_MODEL}}"}</code>{" "}
@@ -1125,7 +1150,7 @@ export default function SettingsTool() {
           rows={3}
           spellCheck={false}
           disabled={!sharedMounted}
-          placeholder={`default=4x-UltraSharp.pth\nflux-dev=RealESRGAN_x4plus.pth`}
+          placeholder={`# optional — only if file exists in ComfyUI\ndefault=4x-UltraSharp.pth`}
           className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
         />
         <label className="mt-4 block space-y-2">

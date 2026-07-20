@@ -415,13 +415,18 @@ export default function ComfyUiGalleryPanel({
         }
       }
       markOnboardingGalleryReview();
-      void import("@/lib/auto-improve-loop").then(({ runAutoImproveOnRating }) =>
-        runAutoImproveOnRating(entry, rating),
-      ).then((message) => {
-        if (message) {
-          setRequeueStatus(message);
-        }
-      });
+      void import("@/lib/auto-improve-loop")
+        .then(({ runAutoImproveOnRating }) => runAutoImproveOnRating(entry, rating))
+        .then((message) => {
+          if (message) {
+            setRequeueStatus(message);
+          }
+        })
+        .catch((error) => {
+          setRequeueStatus(
+            error instanceof Error ? error.message : "Auto-improve failed after rating.",
+          );
+        });
       advanceReviewFocus(entry.id);
     },
     [advanceReviewFocus, setReviewRating],
@@ -983,13 +988,18 @@ export default function ComfyUiGalleryPanel({
               });
             }
             setCompareStatus(`Winner: ${entry.model ?? "unknown"} · seed ${entry.queueParams?.seed ?? "?"}`);
-            void import("@/lib/auto-improve-loop").then(({ runAutoImproveOnRating }) =>
-              runAutoImproveOnRating(entry, 5),
-            ).then((message) => {
-              if (message) {
-                setCompareStatus(message);
-              }
-            });
+            void import("@/lib/auto-improve-loop")
+              .then(({ runAutoImproveOnRating }) => runAutoImproveOnRating(entry, 5))
+              .then((message) => {
+                if (message) {
+                  setCompareStatus(message);
+                }
+              })
+              .catch((error) => {
+                setCompareStatus(
+                  error instanceof Error ? error.message : "Auto-improve failed.",
+                );
+              });
           }}
           onRate={(entryId, rating) => {
             setReviewRating(entryId, rating);
@@ -1000,13 +1010,20 @@ export default function ComfyUiGalleryPanel({
             if (entry) {
               recordCatalogBiasFromPrompt(entry.prompt, rating);
               if (rating) {
-                void import("@/lib/auto-improve-loop").then(({ runAutoImproveOnRating }) =>
-                  runAutoImproveOnRating(entry, rating),
-                ).then((message) => {
-                  if (message) {
-                    setCompareStatus(message);
-                  }
-                });
+                void import("@/lib/auto-improve-loop")
+                  .then(({ runAutoImproveOnRating }) =>
+                    runAutoImproveOnRating(entry, rating),
+                  )
+                  .then((message) => {
+                    if (message) {
+                      setCompareStatus(message);
+                    }
+                  })
+                  .catch((error) => {
+                    setCompareStatus(
+                      error instanceof Error ? error.message : "Auto-improve failed.",
+                    );
+                  });
               }
             }
           }}

@@ -378,9 +378,9 @@ Loader / upscale tokens (patched directly even when placeholders are missing, wh
 | `{{CHECKPOINT}}` | **Settings → Checkpoint map** (also sets UNET when no separate UNET map) |
 | `{{UNET}}` | Checkpoint map, registry hints (FLUX Klein), or custom tokens |
 | `{{VAE}}` | **VAE map**, category defaults (`flux2-vae.safetensors` for FLUX), or custom tokens |
-| `{{UPSCALE_MODEL}}` | **Upscale model map** (`default=4x-UltraSharp.pth` or per-model) — Final/Max profiles prefer inserting `UpscaleModelLoader` + `ImageUpscaleWithModel` when mapped; otherwise Lanczos `ImageScale` |
+| `{{UPSCALE_MODEL}}` | **Upscale model map** (optional) — neural UpscaleModel on Final/Max when set; otherwise Lanczos upscale |
 
-Loader placeholders are replaced at queue time via token injection and direct patching. If ComfyUI reports `value_not_in_list` for `{{UNET}}` or `{{VAE}}`, add the exact filename from the error’s allowed list to the checkpoint or VAE map.
+Loader placeholders are replaced at queue time via token injection and direct patching. Use **Settings → Merge suggested loader maps** to fill checkpoint/VAE/refiner defaults for common models (your entries win). If ComfyUI reports `value_not_in_list` for `{{UNET}}` or `{{VAE}}`, add the exact filename from the error’s allowed list to the checkpoint or VAE map.
 
 Use **Optimize & save copy** in the workflow library to persist auto-bound placeholders on community JSON.
 
@@ -407,8 +407,10 @@ Loader precision: queue injection detects **fp8 vs bf16** from existing workflow
 | Optimize workflows on queue | Auto-bind missing placeholders before injection |
 | Insert model-sampling nodes | Add `ModelSamplingFlux` / shift nodes when loader → KSampler is direct |
 | Auto re-queue on 4–5★ | Re-queue high-rated gallery outputs at Final quality with a new seed (on by default) |
-| Auto re-queue on 5★ | Re-queue five-star outputs at Max quality with a new seed (on by default) |
+| Auto re-queue on 5★ | Re-queue five-star outputs at Max quality with a new seed (on by default; falls back to Final if Max fails) |
 | Subtle sharpen after upscale (Max) | Optional ImageSharpen — off by default to avoid waxy skin |
+
+Gallery **5★** auto-improve uses Lanczos upscale unless you set an upscale model map entry that matches a file in ComfyUI.
 
 Preflight and **Workflow configuration** on gallery entries show unresolved tokens and the stored/effective params.
 

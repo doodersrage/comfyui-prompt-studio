@@ -47,6 +47,13 @@ test("studio analytics tab loads", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /Gallery rating analytics/i })).toBeVisible();
 });
 
+test("settings comfyui loader maps section loads", async ({ page }) => {
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "ComfyUI", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Merge suggested loader maps/i })).toBeVisible();
+  await expect(page.getByText(/Checkpoint map/i)).toBeVisible();
+});
+
 const ADDITIONAL_ROUTES: Array<{ path: string; heading: RegExp; level?: 1 | 2 | 3 | 4 | 5 | 6 }> = [
   { path: "/character", heading: /Character Generator/i },
   { path: "/background", heading: /Background Generator/i },

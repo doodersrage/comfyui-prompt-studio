@@ -7,6 +7,13 @@ import { loadComfyUiSettings } from "./comfyui-settings";
 import { runLowRatingMutation } from "./rating-prompt-mutations";
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
 
+function formatRequeueFailure(
+  label: string,
+  result: { ok: boolean; error?: string },
+): string {
+  return `Auto-improve: ${label} re-queue failed — ${result.error ?? "ComfyUI queue failed."}`;
+}
+
 export async function runAutoImproveOnRating(
   entry: ComfyGalleryEntry,
   rating: ComfyGalleryEntry["reviewRating"],
@@ -24,17 +31,30 @@ export async function runAutoImproveOnRating(
 
   const settings = loadComfyUiSettings();
 
-  if (rating === 5 && settings.autoRequeueMaxOnFiveStar) {
-    const result = await requeueComfyJobFromEntry(entry, {
+  if (rating === 5 && settings.autoRequeueMaxOnFiveStar !== false) {
+    const maxResult = await requeueComfyJobFromEntry(entry, {
       newSeed: true,
       qualityProfile: "max",
     });
-    if (result.ok) {
+    if (maxResult.ok) {
       return "Auto-improve: re-queued winner at Max quality (new seed).";
     }
+
+    if (settings.autoRequeueFinalOnHighRating !== false) {
+      const finalResult = await requeueComfyJobFromEntry(entry, {
+        newSeed: true,
+        qualityProfile: "final",
+      });
+      if (finalResult.ok) {
+        return `Auto-improve: Max failed (${maxResult.error ?? "queue error"}); re-queued at Final instead.`;
+      }
+      return formatRequeueFailure("Max and Final", finalResult);
+    }
+
+    return formatRequeueFailure("Max", maxResult);
   }
 
-  if (rating >= 4 && settings.autoRequeueFinalOnHighRating) {
+  if (rating >= 4 && settings.autoRequeueFinalOnHighRating !== false) {
     const result = await requeueComfyJobFromEntry(entry, {
       newSeed: true,
       qualityProfile: "final",
@@ -42,6 +62,7 @@ export async function runAutoImproveOnRating(
     if (result.ok) {
       return "Auto-improve: re-queued winner at Final quality (new seed).";
     }
+    return formatRequeueFailure("Final", result);
   }
 
   if (rating >= 4 && settings.autoMutateOnHighRating) {

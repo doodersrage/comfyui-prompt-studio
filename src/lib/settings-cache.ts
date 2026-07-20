@@ -34,6 +34,8 @@ import {
   parseModelCheckpointMap,
   SUGGESTED_MODEL_CHECKPOINT_MAP,
   SUGGESTED_MODEL_REFINER_MAP,
+  SUGGESTED_MODEL_VAE_MAP,
+  mergeSuggestedLoaderMaps,
   formatModelRefinerMap,
   parseModelRefinerMap,
   formatModelVaeMap,
@@ -345,8 +347,8 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   queueQualityProfile: "followSettings",
   toolQueueQualityProfiles: SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
   modelCheckpointMap: SUGGESTED_MODEL_CHECKPOINT_MAP,
+  modelVaeMap: SUGGESTED_MODEL_VAE_MAP,
   modelRefinerMap: SUGGESTED_MODEL_REFINER_MAP,
-  modelUpscaleMap: SUGGESTED_MODEL_UPSCALE_MAP,
   autoSelectWorkflowForModel: true,
   limitModelsToAvailableWorkflows: true,
   showAllModelsOverride: false,
@@ -560,6 +562,10 @@ export function loadSettingsCache(): SettingsCache {
       ...SUGGESTED_MODEL_CHECKPOINT_MAP,
       ...shared.modelCheckpointMap,
     };
+    shared.modelVaeMap = {
+      ...SUGGESTED_MODEL_VAE_MAP,
+      ...shared.modelVaeMap,
+    };
     shared.modelRefinerMap = {
       ...SUGGESTED_MODEL_REFINER_MAP,
       ...shared.modelRefinerMap,
@@ -568,6 +574,13 @@ export function loadSettingsCache(): SettingsCache {
       ...SUGGESTED_MODEL_UPSCALE_MAP,
       ...shared.modelUpscaleMap,
     };
+    if (
+      shared.modelUpscaleMap &&
+      Object.keys(shared.modelUpscaleMap).length === 1 &&
+      shared.modelUpscaleMap.default === "4x-UltraSharp.pth"
+    ) {
+      shared.modelUpscaleMap = undefined;
+    }
 
     const rawTools = parsed.tools ?? {};
     const migrated = migrateLegacyToolSettings(rawTools);

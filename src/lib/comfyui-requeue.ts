@@ -194,6 +194,8 @@ export async function requeueComfyJob(
     queueParams: params,
     hasInputImage: Boolean(params.inputImageFilename || input.sourceImageUrl?.trim()),
     hasMaskImage: Boolean(params.maskImageFilename || input.maskImageUrl?.trim()),
+    qualityProfile: effectiveQualityProfile,
+    comfy: comfyRuntime,
   });
   if (!preflight.ok) {
     return {

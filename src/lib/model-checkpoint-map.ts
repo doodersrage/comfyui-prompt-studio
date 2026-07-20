@@ -49,9 +49,49 @@ export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
   sdxl: "sd_xl_base_1.0.safetensors",
 };
 
+export const SUGGESTED_MODEL_VAE_MAP: ModelVaeMap = {
+  default: "flux2-vae.safetensors",
+  "flux-2-klein": "flux2-vae.safetensors",
+  "flux-2-klein-4b-distilled": "flux2-vae.safetensors",
+  "flux-2-klein-9b": "flux2-vae.safetensors",
+  "flux-2-klein-9b-distilled": "flux2-vae.safetensors",
+  "flux-dev": "ae.safetensors",
+  "qwen-image-2512": "qwen_image_vae.safetensors",
+  "qwen-image-2512-lightning-4": "qwen_image_vae.safetensors",
+  "qwen-image-2512-lightning-8": "qwen_image_vae.safetensors",
+  "qwen-image-edit-2511": "qwen_image_vae.safetensors",
+  "qwen-image-edit-2509": "qwen_image_vae.safetensors",
+};
+
 export const SUGGESTED_MODEL_REFINER_MAP: ModelRefinerMap = {
   default: DEFAULT_SDXL_REFINER_CHECKPOINT,
 };
+
+/** Merge suggested loader maps; explicit user entries win over suggestions. */
+export function mergeSuggestedLoaderMaps(input?: {
+  checkpointMap?: ModelCheckpointMap;
+  vaeMap?: ModelVaeMap;
+  refinerMap?: ModelRefinerMap;
+}): {
+  modelCheckpointMap: ModelCheckpointMap;
+  modelVaeMap: ModelVaeMap;
+  modelRefinerMap: ModelRefinerMap;
+} {
+  return {
+    modelCheckpointMap: {
+      ...SUGGESTED_MODEL_CHECKPOINT_MAP,
+      ...input?.checkpointMap,
+    },
+    modelVaeMap: {
+      ...SUGGESTED_MODEL_VAE_MAP,
+      ...input?.vaeMap,
+    },
+    modelRefinerMap: {
+      ...SUGGESTED_MODEL_REFINER_MAP,
+      ...input?.refinerMap,
+    },
+  };
+}
 
 function trimFilename(value: unknown): string | undefined {
   if (typeof value !== "string") {
