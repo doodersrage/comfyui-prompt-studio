@@ -76,6 +76,8 @@ import ComfyUiGalleryPanel from "@/components/ComfyUiGalleryPanel";
 import ComfyWorkflowLibraryPanel from "@/components/ComfyWorkflowLibraryPanel";
 import SettingsAdvancedPanel from "@/components/SettingsAdvancedPanel";
 import SettingsSubNav from "@/components/settings/SettingsSubNav";
+import UsersAdminPanel from "@/components/settings/UsersAdminPanel";
+import { useAuth } from "@/hooks/useAuth";
 import ServerEnvPanel from "@/components/settings/ServerEnvPanel";
 import QueueParamsPanel from "@/components/QueueParamsPanel";
 import WorkflowPreviewPanel from "@/components/WorkflowPreviewPanel";
@@ -93,6 +95,7 @@ import { Button, PrimaryButton } from "@/components/ui/Button";
 import {
   normalizeSettingsTab,
   settingsTabHref,
+  SETTINGS_TABS,
   type SettingsTab,
 } from "@/lib/settings-nav";
 import type { ServerEnvSummary } from "@/lib/server-env-summary";
@@ -182,6 +185,14 @@ type HealthResponse = {
 
 export default function SettingsTool() {
   const { mounted, settings, updateSettings } = useComfyUiSettings();
+  const { authEnabled, isAdmin } = useAuth();
+  const visibleTabs = useMemo(
+    () =>
+      authEnabled && isAdmin
+        ? SETTINGS_TABS
+        : SETTINGS_TABS.filter((entry) => entry.id !== "users"),
+    [authEnabled, isAdmin],
+  );
   const [tab, setTab] = useState<SettingsTab>("overview");
   const [sharedSettings, setSharedSettings] =
     useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
@@ -502,7 +513,7 @@ export default function SettingsTool() {
         </>
       }
     >
-      <SettingsSubNav activeTab={tab} onTabChange={handleTabChange} />
+      <SettingsSubNav activeTab={tab} onTabChange={handleTabChange} tabs={visibleTabs} />
 
       {tab === "overview" && (
       <>
@@ -1717,6 +1728,8 @@ export default function SettingsTool() {
       <SettingsAdvancedPanel />
       </>
       )}
+
+      {tab === "users" && authEnabled && isAdmin ? <UsersAdminPanel /> : null}
 
       {status && <p className="type-caption">{status}</p>}
     </ToolLayout>

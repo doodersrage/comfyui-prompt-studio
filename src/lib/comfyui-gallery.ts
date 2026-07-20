@@ -17,6 +17,8 @@ import {
   writeBrowserValue,
 } from "./browser-storage";
 import { initGalleryStore } from "./app-db-init";
+import { getActiveUserId } from "./user-scope";
+import { scheduleUserAnalyticsSync } from "./user-analytics-sync";
 
 export type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
 export type { ComfyGalleryJobStatus } from "./comfyui-gallery-types";
@@ -215,6 +217,7 @@ export function saveComfyGallery(entries: ComfyGalleryEntry[]): void {
 
   setGalleryCache(entries);
   notifyGalleryUpdated();
+  scheduleUserAnalyticsSync();
   void initGalleryStore().then(() => persistGalleryCache());
 }
 
@@ -227,6 +230,7 @@ export async function saveComfyGalleryAsync(entries: ComfyGalleryEntry[]): Promi
   await initGalleryStore();
   await persistGalleryCache();
   notifyGalleryUpdated();
+  scheduleUserAnalyticsSync();
 }
 
 export function clearComfyGallery(): void {
@@ -421,12 +425,14 @@ export function addComfyGalleryEntry(
     images?: ComfyOutputImage[];
   },
 ): ComfyGalleryEntry {
+  const userId = getActiveUserId();
   const entry: ComfyGalleryEntry = {
     id: crypto.randomUUID(),
     queuedAt: Date.now(),
     status: input.status ?? "pending",
     images: input.images ?? [],
     ...input,
+    userId: input.userId ?? userId ?? undefined,
   };
 
   saveComfyGallery([entry, ...loadComfyGallery()]);

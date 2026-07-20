@@ -1,72 +1,48 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { GenerationDiagnostics } from "@/lib/generation-diagnostics";
-import { readBrowserValue, writeBrowserValue } from "@/lib/browser-storage";
+import {
+  loadPromptHistoryStore,
+  savePromptHistoryStore,
+  type PromptHistoryEntry,
+} from "@/lib/prompt-history";
+import { USER_SCOPE_CHANGED_EVENT } from "@/lib/user-scope";
+import { scheduleUserAnalyticsSync } from "@/lib/user-analytics-sync";
 
-export const PROMPT_HISTORY_KEY = "comfy-prompt-tool-history-v1";
-export const LOCATION_BLOCKLIST_KEY = "comfy-prompt-location-blocklist-v1";
-
-export type PromptHistoryEntry = {
-  id: string;
-  tool: string;
-  prompt: string;
-  hints?: string;
-  model: string;
-  timestamp: number;
-  favorite?: boolean;
-  rating?: 1 | 2 | 3 | 4 | 5;
-  tags?: string[];
-  diagnostics?: GenerationDiagnostics;
-  metadata?: Record<string, unknown>;
-};
+export type { PromptHistoryEntry } from "@/lib/prompt-history";
+export { PROMPT_HISTORY_KEY, LOCATION_BLOCKLIST_KEY } from "@/lib/prompt-history";
+export {
+  loadPromptHistoryStore,
+  savePromptHistoryStore,
+  loadLocationBlocklist,
+  saveLocationBlocklist,
+} from "@/lib/prompt-history";
 
 function loadHistory(): PromptHistoryEntry[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    return readBrowserValue<PromptHistoryEntry[]>(PROMPT_HISTORY_KEY) ?? [];
-  } catch {
-    return [];
-  }
+  return loadPromptHistoryStore();
 }
 
 function saveHistory(entries: PromptHistoryEntry[]): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  writeBrowserValue(PROMPT_HISTORY_KEY, entries.slice(0, 100));
-}
-
-export function loadLocationBlocklist(): string[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    return readBrowserValue<string[]>(LOCATION_BLOCKLIST_KEY) ?? [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveLocationBlocklist(entries: string[]): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  writeBrowserValue(LOCATION_BLOCKLIST_KEY, entries.slice(0, 200));
+  savePromptHistoryStore(entries);
+  scheduleUserAnalyticsSync();
 }
 
 export function usePromptHistory() {
   const [entries, setEntries] = useState<PromptHistoryEntry[]>([]);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     setEntries(loadHistory());
-    setMounted(true);
   }, []);
+
+  useEffect(() => {
+    refresh();
+    setMounted(true);
+
+    const onScopeChanged = () => refresh();
+    window.addEventListener(USER_SCOPE_CHANGED_EVENT, onScopeChanged);
+    return () => window.removeEventListener(USER_SCOPE_CHANGED_EVENT, onScopeChanged);
+  }, [refresh]);
 
   const persist = useCallback((next: PromptHistoryEntry[]) => {
     setEntries(next);
@@ -74,7 +50,7 @@ export function usePromptHistory() {
   }, []);
 
   const addEntry = useCallback(
-    (entry: Omit<PromptHistoryEntry, "id" | "timestamp">) => {
+    (entry: Omit<PromptHistoryEntry, "id" | "timestamp" | "userId">) => {
       const next: PromptHistoryEntry = {
         ...entry,
         id: crypto.randomUUID(),
@@ -163,5 +139,6 @@ export function usePromptHistory() {
     addTag,
     removeEntry,
     clearHistory,
+    refresh,
   };
 }

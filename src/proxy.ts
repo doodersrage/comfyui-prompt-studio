@@ -5,6 +5,7 @@ import {
   rateLimitClientKey,
 } from "@/lib/api-rate-limit";
 import { logApiUsage } from "@/lib/api-usage-log";
+import { authorizeAppRequest } from "@/lib/auth/access";
 
 function timingSafeEqualString(left: string, right: string): boolean {
   if (left.length !== right.length) {
@@ -41,78 +42,126 @@ function isTrustedSameOrigin(request: NextRequest): boolean {
   return site === "same-origin" || site === "none";
 }
 
+function hasValidServiceToken(request: NextRequest): boolean {
+  const expected = process.env.PROMPT_API_TOKEN?.trim();
+  if (!expected) {
+    return false;
+  }
+  const provided = extractToken(request);
+  return Boolean(provided && timingSafeEqualString(provided, expected));
+}
+
 export function proxy(request: NextRequest) {
   const started = Date.now();
   const path = request.nextUrl.pathname;
   const clientKey = rateLimitClientKey(request);
+  const isApiRoute = path.startsWith("/api/");
 
-  const limit = checkRateLimit(clientKey, path);
-  if (!limit.allowed) {
-    logApiUsage({
-      at: started,
-      method: request.method,
-      path,
-      status: 429,
-      durationMs: Date.now() - started,
-      clientKey,
-      rateLimited: true,
-    });
-    return NextResponse.json(
-      { error: "Rate limit exceeded. Try again later." },
-      {
+  if (isApiRoute) {
+    const limit = checkRateLimit(clientKey, path);
+    if (!limit.allowed) {
+      logApiUsage({
+        at: started,
+        method: request.method,
+        path,
         status: 429,
-        headers: {
-          "Retry-After": String(limit.retryAfterSec),
-          "Access-Control-Allow-Origin": "*",
+        durationMs: Date.now() - started,
+        clientKey,
+        rateLimited: true,
+      });
+      return NextResponse.json(
+        { error: "Rate limit exceeded. Try again later." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(limit.retryAfterSec),
+            "Access-Control-Allow-Origin": "*",
+          },
         },
-      },
-    );
-  }
+      );
+    }
 
-  const expected = process.env.PROMPT_API_TOKEN?.trim();
-  if (expected && request.method !== "OPTIONS") {
-    const provided = extractToken(request);
-    if (!provided || !timingSafeEqualString(provided, expected)) {
-      if (!isTrustedSameOrigin(request)) {
-        logApiUsage({
-          at: started,
-          method: request.method,
-          path,
-          status: 401,
-          durationMs: Date.now() - started,
-          clientKey,
-        });
-        return NextResponse.json(
-          {
-            error:
-              "Unauthorized. Set Authorization: Bearer <PROMPT_API_TOKEN> (or X-Prompt-Api-Token).",
-          },
-          {
+    const expected = process.env.PROMPT_API_TOKEN?.trim();
+    if (expected && request.method !== "OPTIONS") {
+      const provided = extractToken(request);
+      if (!provided || !timingSafeEqualString(provided, expected)) {
+        if (!isTrustedSameOrigin(request)) {
+          logApiUsage({
+            at: started,
+            method: request.method,
+            path,
             status: 401,
-            headers: {
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-              "Access-Control-Allow-Headers":
-                "Content-Type, Authorization, X-Prompt-Api-Token",
+            durationMs: Date.now() - started,
+            clientKey,
+          });
+          return NextResponse.json(
+            {
+              error:
+                "Unauthorized. Set Authorization: Bearer <PROMPT_API_TOKEN> (or X-Prompt-Api-Token).",
             },
-          },
-        );
+            {
+              status: 401,
+              headers: {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers":
+                  "Content-Type, Authorization, X-Prompt-Api-Token",
+              },
+            },
+          );
+        }
       }
     }
   }
 
+  if (!hasValidServiceToken(request)) {
+    const authResult = authorizeAppRequest(request);
+    if (!authResult.ok) {
+      if (isApiRoute) {
+        logApiUsage({
+          at: started,
+          method: request.method,
+          path,
+          status: authResult.status,
+          durationMs: Date.now() - started,
+          clientKey,
+        });
+        return NextResponse.json(
+          { error: authResult.error },
+          {
+            status: authResult.status,
+            headers: { "Access-Control-Allow-Origin": "*" },
+          },
+        );
+      }
+
+      if (authResult.status === 403) {
+        return NextResponse.redirect(new URL("/forbidden", request.url));
+      }
+
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("next", `${path}${request.nextUrl.search}`);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   const response = NextResponse.next();
-  logApiUsage({
-    at: started,
-    method: request.method,
-    path,
-    status: 200,
-    durationMs: Date.now() - started,
-    clientKey,
-  });
+  if (isApiRoute) {
+    logApiUsage({
+      at: started,
+      method: request.method,
+      path,
+      status: 200,
+      durationMs: Date.now() - started,
+      clientKey,
+    });
+  }
   return response;
 }
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: [
+    "/api/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|icons|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

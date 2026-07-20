@@ -1,9 +1,10 @@
 import {
   loadLocationBlocklist,
-  PROMPT_HISTORY_KEY,
   saveLocationBlocklist,
+  loadPromptHistoryStore,
+  savePromptHistoryStore,
   type PromptHistoryEntry,
-} from "@/hooks/usePromptHistory";
+} from "@/lib/prompt-history";
 import {
   loadSettingsCache,
   saveSettingsCache,
@@ -119,7 +120,7 @@ export function importStudioBackup(backup: StudioBackup): void {
     throw new Error("Unsupported backup version.");
   }
 
-  writeBrowserValue(PROMPT_HISTORY_KEY, backup.history.slice(0, 100));
+  savePromptHistoryStore(backup.history.slice(0, 100));
   saveLocationBlocklist(backup.locationBlocklist);
   saveSettingsCache(backup.settings);
   if (backup.scenePresets) {
@@ -181,7 +182,7 @@ export function downloadStudioBackup(): void {
 
 function loadHistoryFromStorage(): PromptHistoryEntry[] {
   try {
-    return readBrowserValue<PromptHistoryEntry[]>(PROMPT_HISTORY_KEY) ?? [];
+    return loadPromptHistoryStore();
   } catch {
     return [];
   }

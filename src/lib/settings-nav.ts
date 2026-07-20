@@ -3,7 +3,8 @@ export type SettingsTab =
   | "llm"
   | "comfyui"
   | "automation"
-  | "data";
+  | "data"
+  | "users";
 
 export type SettingsTabDefinition = {
   id: SettingsTab;
@@ -36,6 +37,11 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     id: "data",
     label: "Data",
     description: "Backup, sync, gallery preview, and shared descriptors.",
+  },
+  {
+    id: "users",
+    label: "Users",
+    description: "Accounts, groups, and per-feature access blocks.",
   },
 ];
 

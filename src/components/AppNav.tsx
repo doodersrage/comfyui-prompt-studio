@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { featureForPath } from "@/lib/auth/features";
+import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
 
 type NavLink = {
   href: string;
@@ -82,6 +84,22 @@ function SidebarLink({ link, active }: { link: NavLink; active: boolean }) {
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { authEnabled, user, allowedFeatures, logout } = useAuth();
+
+  const visibleGroups = useMemo(
+    () =>
+      navGroups
+        .map((group) => ({
+          ...group,
+          links: group.links.filter((link) =>
+            canAccessNavFeature(allowedFeatures, featureForPath(link.href.split("?")[0] ?? link.href)),
+          ),
+        }))
+        .filter((group) => group.links.length > 0),
+    [allowedFeatures],
+  );
+
+  const settingsVisible = canAccessNavFeature(allowedFeatures, "settings");
 
   return (
     <div className="flex h-full flex-col gap-6">
@@ -99,7 +117,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="sidebar-scroll flex-1 space-y-6 overflow-y-auto px-2 pb-2">
-        {navGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.label} className="space-y-2">
             <p className="type-overline px-3">{group.label}</p>
             <div className="space-y-1">
@@ -113,13 +131,28 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </div>
 
-      <div className="border-t border-[var(--border-subtle)] px-2 pt-4">
-        <div onClick={onNavigate}>
-          <SidebarLink
-            link={settingsLink}
-            active={pathname === settingsLink.href}
-          />
-        </div>
+      <div className="border-t border-[var(--border-subtle)] px-2 pt-4 space-y-3">
+        {authEnabled && user ? (
+          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-3">
+            <p className="text-sm font-medium text-zinc-100">{user.username}</p>
+            <p className="type-caption mt-0.5 capitalize">{user.role}</p>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="mt-3 text-xs text-zinc-400 transition hover:text-zinc-200"
+            >
+              Sign out
+            </button>
+          </div>
+        ) : null}
+        {settingsVisible ? (
+          <div onClick={onNavigate}>
+            <SidebarLink
+              link={settingsLink}
+              active={pathname === settingsLink.href}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );

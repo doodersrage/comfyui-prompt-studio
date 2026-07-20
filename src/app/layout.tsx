@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppNav from "@/components/AppNav";
 import ComfyGalleryBackgroundPoller from "@/components/ComfyGalleryBackgroundPoller";
+import UserScopeInit from "@/components/UserScopeInit";
 import ScheduledBatchRunner from "@/components/ScheduledBatchRunner";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import ServiceWorkerCleanup from "@/components/ServiceWorkerCleanup";
@@ -38,6 +39,7 @@ export default function RootLayout({
         <div className="min-h-full lg:pl-[var(--sidebar-width)]">
           <AppNav />
           <ComfyGalleryBackgroundPoller />
+          <UserScopeInit />
           <ScheduledBatchRunner />
           <KeyboardShortcuts />
           <ServiceWorkerCleanup />

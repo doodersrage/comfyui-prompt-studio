@@ -18,7 +18,7 @@
     "clothing:generate": "node scripts/generate-clothing.mjs --add 500",
     "clothing:generate:dry": "node scripts/generate-clothing.mjs --add 500 --dry-run",
     "prompt:cli": "node scripts/qwen-prompt.mjs",
-    "test": "node --import tsx --test src/lib/clothing-wardrobe.test.ts src/lib/prompt-tools.test.ts src/lib/url-safety.test.ts src/lib/feature-utils.test.ts src/lib/tier1-features.test.ts src/lib/tier2-4-features.test.ts src/lib/image-prompt-presets.test.ts src/lib/history-hint-seed.test.ts src/lib/scene-starter-presets.test.ts src/lib/use-as-hints-url.test.ts src/lib/user-scene-starter-presets.test.ts src/lib/gallery-stats.test.ts",
+    "test": "node --import tsx --test src/lib/clothing-wardrobe.test.ts src/lib/prompt-tools.test.ts src/lib/url-safety.test.ts src/lib/feature-utils.test.ts src/lib/tier1-features.test.ts src/lib/tier2-4-features.test.ts src/lib/image-prompt-presets.test.ts src/lib/history-hint-seed.test.ts src/lib/scene-starter-presets.test.ts src/lib/use-as-hints-url.test.ts src/lib/user-scene-starter-presets.test.ts src/lib/gallery-stats.test.ts src/lib/auth/access.test.ts src/lib/user-analytics.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

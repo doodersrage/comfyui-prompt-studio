@@ -9,6 +9,7 @@ import {
   type ComfyUiRuntimeConfig,
 } from "@/lib/comfyui-config";
 import { apiJson } from "@/lib/api/response";
+import { getAuthBootstrapInfo } from "@/lib/auth/store";
 import { getServerEnvSummary } from "@/lib/server-env-summary";
 
 export const runtime = "nodejs";
@@ -54,6 +55,7 @@ export async function GET(request: Request) {
     workflow,
     apiUsage: summarizeApiUsage(),
     storage: { enabled: isServerStorageEnabled() },
+    auth: getAuthBootstrapInfo(),
     config: {
       llmEnabled: isLlmEnabled(),
       allowTemplateFallback: allowTemplateFallback(),

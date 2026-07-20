@@ -1,8 +1,8 @@
 import {
-  PROMPT_HISTORY_KEY,
   LOCATION_BLOCKLIST_KEY,
+  PROMPT_HISTORY_KEY,
   saveLocationBlocklist,
-} from "@/hooks/usePromptHistory";
+} from "@/lib/prompt-history";
 import { SCENE_PRESETS_KEY } from "./scene-presets";
 import {
   DEFAULT_SHARED_SETTINGS,

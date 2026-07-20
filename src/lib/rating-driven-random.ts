@@ -1,6 +1,5 @@
 import { loadComfyGallery } from "./comfyui-gallery";
-import { PROMPT_HISTORY_KEY } from "@/hooks/usePromptHistory";
-import { readBrowserValue } from "./browser-storage";
+import { loadPromptHistoryStore } from "./prompt-history";
 
 type HistoryEntry = {
   rating?: number;
@@ -13,7 +12,7 @@ function loadHistoryEntries(): HistoryEntry[] {
     return [];
   }
   try {
-    return readBrowserValue<HistoryEntry[]>(PROMPT_HISTORY_KEY) ?? [];
+    return loadPromptHistoryStore();
   } catch {
     return [];
   }

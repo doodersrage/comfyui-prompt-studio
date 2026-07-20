@@ -4,23 +4,26 @@ import { ChipButton } from "@/components/ui/Field";
 import {
   SETTINGS_TABS,
   type SettingsTab,
+  type SettingsTabDefinition,
 } from "@/lib/settings-nav";
 import { ToolMetaPanel } from "@/components/ui/ToolPageShell";
 
 export default function SettingsSubNav({
   activeTab,
   onTabChange,
+  tabs = SETTINGS_TABS,
 }: {
   activeTab: SettingsTab;
   onTabChange: (tab: SettingsTab) => void;
+  tabs?: SettingsTabDefinition[];
 }) {
-  const active = SETTINGS_TABS.find((tab) => tab.id === activeTab);
+  const active = tabs.find((tab) => tab.id === activeTab);
 
   return (
     <ToolMetaPanel className="sticky top-20 z-20">
       <nav aria-label="Settings sections">
         <div className="flex flex-wrap gap-2">
-          {SETTINGS_TABS.map((tab) => (
+          {tabs.map((tab) => (
             <ChipButton
               key={tab.id}
               active={tab.id === activeTab}

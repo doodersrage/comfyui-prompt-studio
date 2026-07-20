@@ -58,6 +58,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - One-click copy for ComfyUI paste
 - LLM-powered generation/formatting with rules fallback
 - **App database (Dexie)** — settings, history, presets, workflows, webhooks, and gallery persist in IndexedDB (`comfy-prompt-studio-v1`); existing `localStorage` data migrates automatically on first load
+- **User accounts & feature ACL** — optional login with default admin, groups, and per-user/per-group blocked features (Settings → Users). When auth is enabled, prompt history and gallery are scoped per user in the browser; analytics snapshots sync to the server for admin review.
 - **Settings cache** — target model, detail level, and per-tool options persist in the app database across reloads and pages
 - **Prompt diagnostics** — lint sport/duo/helmet conflicts before or after generation
 - **Character generator** — solo, duo/sport, and compose-with-background modes; sport presets, team kit, batch roll, ComfyUI queue
@@ -89,7 +90,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Workflow dry-run** — preview injected workflow JSON in Settings (and from Lint result panels) before queueing
 - **Custom workflow tokens** — user-defined placeholders like `{{CHECKPOINT}}` and `{{LORA}}` with values in Settings
 - **Gallery compare panel** — pick winner, rate, favorite, mutate, or improve from 2–4 selected outputs; bulk **Seed experiment** queues same prompt with varied seeds
-- **Studio analytics** — Gallery rating token stats (high vs low motifs) on Studio Analytics tab
+- **Studio analytics** — Per-user history + gallery activity summary and gallery rating token stats (high vs low motifs) on Studio Analytics tab
 - **Iteration tree actions** — Regenerate, Refine, and re-queue from iteration tree nodes
 - **Matrix CSV export** — Variations matrix mode exports row×column grid to CSV
 - **Portfolio CLI queue** — `npm run prompt:cli -- portfolio --input "..." --queue` formats and queues each model to ComfyUI
@@ -240,10 +241,11 @@ This app is designed for a **trusted local / LAN** setup. By default the HTTP AP
 
 When exposing beyond localhost:
 
-1. Set `PROMPT_API_TOKEN` — cross-origin and non-browser clients must send `Authorization: Bearer <token>` (same-origin UI still works). ComfyUI nodes read the same token from `PROMPT_API_TOKEN`.
-2. Set `COMFYUI_ALLOW_CLIENT_URL=false` so callers cannot override the ComfyUI base URL (SSRF).
-3. Prefer binding to loopback (`127.0.0.1`) — `docker-compose.yml` already does this.
-4. Webhook dispatch blocks private/metadata URLs unless `WEBHOOK_ALLOW_PRIVATE=true`.
+1. Set `PROMPT_AUTH_ENABLED=true` (or create users under `PROMPT_DATA_DIR/auth/`) and sign in — default admin username/password come from `PROMPT_ADMIN_USERNAME` / `PROMPT_ADMIN_PASSWORD` (defaults: `admin` / `admin`; change immediately).
+2. Set `PROMPT_API_TOKEN` — cross-origin and non-browser clients must send `Authorization: Bearer <token>` (same-origin UI still works). ComfyUI nodes read the same token from `PROMPT_API_TOKEN`. Service tokens bypass user login but should be kept secret.
+3. Set `COMFYUI_ALLOW_CLIENT_URL=false` so callers cannot override the ComfyUI base URL (SSRF).
+4. Prefer binding to loopback (`127.0.0.1`) — `docker-compose.yml` already does this.
+5. Webhook dispatch blocks private/metadata URLs unless `WEBHOOK_ALLOW_PRIVATE=true`.
 
 ## Docker
 
@@ -305,6 +307,11 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `LLM_ENABLED` | `true` | Set `false` for template-only mode |
 | `ALLOW_TEMPLATE_FALLBACK` | `true` | Fall back if LLM is unreachable |
 | `PROMPT_API_TOKEN` | _(empty)_ | Optional API bearer token for non-browser clients |
+| `PROMPT_AUTH_ENABLED` | `false` | Enable login and feature access control |
+| `PROMPT_ADMIN_USERNAME` | `admin` | Default admin username (seeded on first enable) |
+| `PROMPT_ADMIN_PASSWORD` | `admin` | Default admin password (change in production) |
+| `PROMPT_SESSION_SECRET` | _(falls back to API token)_ | HMAC secret for session cookies |
+| `PROMPT_AUTH_DIR` | _(uses `PROMPT_DATA_DIR/auth`)_ | Directory for `users.json`, `groups.json`, and `analytics-snapshots.json` |
 | `COMFYUI_API_URL` | `http://127.0.0.1:8188` | Default ComfyUI base URL |
 | `COMFYUI_ALLOW_CLIENT_URL` | `true` | Allow clients to override ComfyUI URL |
 | `COMFYUI_ALLOWED_HOSTS` | _(empty)_ | Optional comma-separated ComfyUI host allowlist |

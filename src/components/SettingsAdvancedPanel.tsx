@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { syncNamespaceToServer, pullNamespaceFromServer } from "@/lib/storage-sync";
 import ObservabilityDashboard from "@/components/ObservabilityDashboard";
 import { loadSettingsCache, saveSettingsCache, type SettingsCache } from "@/lib/settings-cache";
-import { PROMPT_HISTORY_KEY } from "@/hooks/usePromptHistory";
 import { initAppDb } from "@/lib/app-db-init";
-import { writeBrowserValue, readBrowserValue } from "@/lib/browser-storage";
+import {
+  loadPromptHistoryStore,
+  savePromptHistoryStore,
+} from "@/lib/prompt-history";
 import {
   loadComfyGallery,
   saveComfyGalleryAsync,
@@ -66,7 +68,7 @@ export default function SettingsAdvancedPanel() {
     }
     await initAppDb();
     const settings = loadSettingsCache();
-    const history = readBrowserValue<unknown>(PROMPT_HISTORY_KEY);
+    const history = loadPromptHistoryStore();
     const gallery = loadComfyGallery();
     const tasks: Promise<boolean>[] = [];
     if (settings.tools || settings.shared) {
@@ -98,7 +100,7 @@ export default function SettingsAdvancedPanel() {
       saveSettingsCache(settings);
     }
     if (history) {
-      writeBrowserValue(PROMPT_HISTORY_KEY, history);
+      savePromptHistoryStore(history as import("@/lib/prompt-history").PromptHistoryEntry[]);
     }
     if (gallery) {
       await saveComfyGalleryAsync(gallery);

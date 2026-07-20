@@ -8,6 +8,7 @@ import SharedToolControls from "@/components/SharedToolControls";
 import EnhancedPromptResult from "@/components/EnhancedPromptResult";
 import PromptDiagnosticsPanel from "@/components/PromptDiagnosticsPanel";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useAuth } from "@/hooks/useAuth";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import {
   loadLocationBlocklist,
@@ -117,6 +118,9 @@ import {
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
 import { startRefineFromHistoryEntry } from "@/lib/improve-output";
 import { analyzeGalleryRatingTokens, negativeScoringTokens, positiveScoringTokens, buildSceneHintsFromPositiveTokens } from "@/lib/rating-token-analytics";
+import { analyzePromptHistoryEntries } from "@/lib/user-analytics";
+import { computeGalleryStats } from "@/lib/gallery-stats";
+import { scopeLabel, USER_SCOPE_CHANGED_EVENT } from "@/lib/user-scope";
 import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
 import { addAvoidedToken, addAvoidedTokens } from "@/lib/avoided-tokens";
 import { downloadIterationForestJson } from "@/lib/iteration-tree-export";
@@ -200,6 +204,7 @@ type CatalogLocation = {
 };
 
 export default function StudioTool() {
+  const { authEnabled, user } = useAuth();
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
     useCachedSettings("studio", DEFAULT_STUDIO_TOOL_CACHE);
   const {
@@ -262,6 +267,7 @@ export default function StudioTool() {
   const [portfolioStatus, setPortfolioStatus] = useState<string | null>(null);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [galleryRevision, setGalleryRevision] = useState(0);
+  const [scopeRevision, setScopeRevision] = useState(0);
   const [campaignTarget, setCampaignTarget] = useState<"random-scene" | "topics">(
     "random-scene",
   );
@@ -361,7 +367,15 @@ export default function StudioTool() {
   );
   const ratingTokenStats = useMemo(
     () => analyzeGalleryRatingTokens(loadComfyGallery()),
-    [tab, galleryRevision],
+    [tab, galleryRevision, scopeRevision],
+  );
+  const historyAnalytics = useMemo(
+    () => analyzePromptHistoryEntries(entries),
+    [entries, scopeRevision],
+  );
+  const galleryAnalytics = useMemo(
+    () => computeGalleryStats(loadComfyGallery()),
+    [tab, galleryRevision, scopeRevision],
   );
   const iterationEntries = useMemo(() => listIterationEntries(entries), [entries]);
   const iterationDiff = useMemo(() => {
@@ -403,6 +417,12 @@ export default function StudioTool() {
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, refreshAnalytics);
     return () =>
       window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, refreshAnalytics);
+  }, []);
+
+  useEffect(() => {
+    const onScopeChanged = () => setScopeRevision((previous) => previous + 1);
+    window.addEventListener(USER_SCOPE_CHANGED_EVENT, onScopeChanged);
+    return () => window.removeEventListener(USER_SCOPE_CHANGED_EVENT, onScopeChanged);
   }, []);
 
   useEffect(() => {
@@ -1364,7 +1384,61 @@ export default function StudioTool() {
       )}
 
       {tab === "analytics" && (
-        <ToolSection title="Gallery rating analytics">
+        <>
+          <ToolSection title="Your activity">
+            <p className="text-sm text-zinc-400">
+              {authEnabled
+                ? `Scoped to ${user?.username ?? scopeLabel()}. History and gallery stats reflect only this account’s browser data.`
+                : "Shared browser session — enable login to scope history and analytics per user."}
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              {[
+                { label: "History", value: historyAnalytics.total },
+                {
+                  label: "History rated",
+                  value: historyAnalytics.rated,
+                },
+                {
+                  label: "History favorites",
+                  value: historyAnalytics.favorites,
+                },
+                {
+                  label: "Avg history rating",
+                  value:
+                    historyAnalytics.avgRating != null
+                      ? `${historyAnalytics.avgRating}★`
+                      : "—",
+                },
+                { label: "Gallery", value: galleryAnalytics.total },
+                {
+                  label: "Gallery rated",
+                  value: Math.max(0, galleryAnalytics.completed - galleryAnalytics.unreviewed),
+                },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-xl border border-zinc-700/80 bg-zinc-900/50 px-3 py-2"
+                >
+                  <p className="type-caption text-zinc-500">{stat.label}</p>
+                  <p className="type-heading tabular-nums text-zinc-200">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+            {historyAnalytics.byTool.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {historyAnalytics.byTool.map((entry) => (
+                  <span
+                    key={entry.tool}
+                    className="rounded-full border border-zinc-700/80 bg-zinc-950/40 px-3 py-1 text-xs text-zinc-300"
+                  >
+                    {entry.tool} · {entry.count}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </ToolSection>
+
+          <ToolSection title="Gallery rating analytics">
           <p className="text-sm text-zinc-400">
             Tokens that correlate with high (4–5★) or low (1–2★) gallery ratings. Rate
             outputs in Gallery review mode to grow this list.
@@ -1463,6 +1537,7 @@ export default function StudioTool() {
             </ToolBlockGroup>
           )}
         </ToolSection>
+        </>
       )}
 
       {tab === "projects" && (

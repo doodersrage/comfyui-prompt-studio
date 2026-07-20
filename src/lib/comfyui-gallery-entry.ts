@@ -17,6 +17,8 @@ export type ComfyGalleryEntry = {
   reviewRating?: 1 | 2 | 3 | 4 | 5;
   /** Optional project/campaign id. */
   projectId?: string;
+  /** Owner account when user auth is enabled. */
+  userId?: string;
   comfyUrl: string;
   status: ComfyGalleryJobStatus;
   statusMessage?: string;
