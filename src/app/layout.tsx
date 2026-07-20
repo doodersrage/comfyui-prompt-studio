@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import AmbientBackground from "@/components/AmbientBackground";
 import AppNav from "@/components/AppNav";
 import CommandPalette from "@/components/CommandPalette";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -38,9 +39,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full overflow-x-hidden bg-[var(--bg-base)] text-[var(--text-primary)]">
+      <body className="relative min-h-full overflow-x-hidden text-[var(--text-primary)]">
+        <AmbientBackground />
         <AuthProvider>
-          <div className="min-h-full lg:pl-[var(--sidebar-width)]">
+          <div className="relative z-[1] min-h-full lg:pl-[var(--sidebar-width)]">
             <AppNav />
             <ComfyGalleryBackgroundPoller />
             <UserScopeInit />
