@@ -371,6 +371,247 @@ export function patchSamplerParamsInWorkflow(
   return { workflow: next, patched };
 }
 
+const ALTERNATE_POSITIVE_TOKENS = ["{{PROMPT}}", "{{prompt}}", "{{PROMPT_POS}}"];
+const ALTERNATE_NEGATIVE_TOKENS = ["{{NEG_PROMPT}}", "{{neg_prompt}}", "{{NEGATIVE_PROMPT}}"];
+
+function setWorkflowNodeText(
+  workflow: Record<string, unknown>,
+  nodeId: string,
+  text: string,
+): boolean {
+  const node = workflow[nodeId];
+  if (!node || typeof node !== "object") {
+    return false;
+  }
+
+  const record = node as { inputs?: Record<string, unknown> };
+  if (!record.inputs || !("text" in record.inputs)) {
+    return false;
+  }
+
+  record.inputs = { ...record.inputs, text };
+  return true;
+}
+
+function classifyClipPromptBinding(
+  classType: string,
+  title: string,
+): "positive" | "negative" | "unknown" {
+  const classLower = classType.toLowerCase();
+  if (!classLower.includes("cliptextencode") && !classLower.includes("textencode")) {
+    return "unknown";
+  }
+
+  const titleLower = title.toLowerCase();
+  if (titleLower.includes("negative") || titleLower.includes(" neg")) {
+    return "negative";
+  }
+  if (
+    titleLower.includes("positive") ||
+    titleLower.includes(" pos") ||
+    titleLower.includes("prompt")
+  ) {
+    return "positive";
+  }
+
+  return "positive";
+}
+
+export function patchClipPromptNodesInWorkflow(
+  workflow: Record<string, unknown>,
+  input: { positive: string; negative?: string },
+): {
+  workflow: Record<string, unknown>;
+  positivePatched: number;
+  negativePatched: number;
+} {
+  const next = structuredClone(workflow);
+  let positivePatched = 0;
+  let negativePatched = 0;
+
+  type ClipCandidate = {
+    nodeId: string;
+    binding: "positive" | "negative" | "unknown";
+  };
+
+  const candidates: ClipCandidate[] = [];
+  for (const [nodeId, node] of Object.entries(next)) {
+    if (!node || typeof node !== "object") {
+      continue;
+    }
+    const record = node as {
+      class_type?: string;
+      _meta?: { title?: string };
+      inputs?: Record<string, unknown>;
+    };
+    if (!record.inputs || !("text" in record.inputs)) {
+      continue;
+    }
+    const binding = classifyClipPromptBinding(
+      record.class_type ?? "",
+      record._meta?.title ?? "",
+    );
+    if (binding === "unknown") {
+      continue;
+    }
+    candidates.push({ nodeId, binding });
+  }
+
+  for (const candidate of candidates) {
+    if (candidate.binding === "positive" && positivePatched === 0) {
+      if (setWorkflowNodeText(next, candidate.nodeId, input.positive)) {
+        positivePatched += 1;
+      }
+      continue;
+    }
+    if (
+      candidate.binding === "negative" &&
+      negativePatched === 0 &&
+      input.negative?.trim()
+    ) {
+      if (setWorkflowNodeText(next, candidate.nodeId, input.negative.trim())) {
+        negativePatched += 1;
+      }
+    }
+  }
+
+  if (positivePatched === 0) {
+    for (const candidate of candidates) {
+      if (candidate.binding !== "negative") {
+        if (setWorkflowNodeText(next, candidate.nodeId, input.positive)) {
+          positivePatched += 1;
+          break;
+        }
+      }
+    }
+  }
+
+  return { workflow: next, positivePatched, negativePatched };
+}
+
+function tryAlternatePromptTokens(
+  workflow: Record<string, unknown>,
+  input: { positive: string; negative?: string },
+  tokens: WorkflowPlaceholderTokens,
+  current: WorkflowInjectionResult,
+): WorkflowInjectionResult {
+  let result = current;
+
+  if (result.positiveReplacements === 0) {
+    for (const alt of ALTERNATE_POSITIVE_TOKENS) {
+      if (alt === tokens.positive) {
+        continue;
+      }
+      const [withAlt, count] = replaceTokenInValue(result.workflow, alt, input.positive);
+      if (count > 0) {
+        result = { ...result, workflow: withAlt as Record<string, unknown>, positiveReplacements: count };
+        break;
+      }
+    }
+  }
+
+  if (result.negativeReplacements === 0 && input.negative?.trim()) {
+    for (const alt of ALTERNATE_NEGATIVE_TOKENS) {
+      if (alt === tokens.negative) {
+        continue;
+      }
+      const [withAlt, count] = replaceTokenInValue(
+        result.workflow,
+        alt,
+        input.negative.trim(),
+      );
+      if (count > 0) {
+        result = {
+          ...result,
+          workflow: withAlt as Record<string, unknown>,
+          negativeReplacements: count,
+        };
+        break;
+      }
+    }
+  }
+
+  return result;
+}
+
+export function injectPromptsWithFallbacks(
+  workflow: Record<string, unknown>,
+  input: {
+    positive: string;
+    negative?: string;
+    params?: WorkflowParamValues;
+    customTokens?: CustomWorkflowToken[];
+  },
+  tokens: WorkflowPlaceholderTokens,
+  options?: {
+    legacyPositiveNodeId?: string;
+    legacyNegativeNodeId?: string;
+  },
+): WorkflowInjectionResult {
+  let injected = injectWorkflowPlaceholders(workflow, input, tokens);
+  injected = tryAlternatePromptTokens(injected.workflow, input, tokens, injected);
+
+  const samplerPatch = patchSamplerParamsInWorkflow(
+    injected.workflow,
+    input.params ?? {},
+  );
+  injected = {
+    ...injected,
+    workflow: samplerPatch.workflow,
+    paramReplacements: {
+      ...injected.paramReplacements,
+      ...Object.fromEntries(
+        Object.entries(samplerPatch.patched).filter(([, count]) => (count ?? 0) > 0),
+      ),
+    },
+  };
+
+  if (
+    injected.positiveReplacements === 0 &&
+    options?.legacyPositiveNodeId &&
+    setWorkflowNodeText(injected.workflow, options.legacyPositiveNodeId, input.positive)
+  ) {
+    injected = { ...injected, positiveReplacements: 1 };
+  }
+
+  if (
+    injected.negativeReplacements === 0 &&
+    input.negative?.trim() &&
+    options?.legacyNegativeNodeId &&
+    setWorkflowNodeText(
+      injected.workflow,
+      options.legacyNegativeNodeId,
+      input.negative.trim(),
+    )
+  ) {
+    injected = { ...injected, negativeReplacements: 1 };
+  }
+
+  if (
+    injected.positiveReplacements === 0 ||
+    (input.negative?.trim() && injected.negativeReplacements === 0)
+  ) {
+    const clipPatch = patchClipPromptNodesInWorkflow(injected.workflow, {
+      positive: input.positive,
+      negative: input.negative,
+    });
+    injected = {
+      ...injected,
+      workflow: clipPatch.workflow,
+      positiveReplacements:
+        injected.positiveReplacements > 0
+          ? injected.positiveReplacements
+          : clipPatch.positivePatched,
+      negativeReplacements:
+        injected.negativeReplacements > 0
+          ? injected.negativeReplacements
+          : clipPatch.negativePatched,
+    };
+  }
+
+  return injected;
+}
+
 export function validateWorkflowJson(
   raw: string,
   tokens: Pick<WorkflowPlaceholderTokens, "positive" | "negative"> = {

@@ -91,6 +91,11 @@ function SidebarLink({ link, active }: { link: NavLink; active: boolean }) {
           prefetchGalleryPage();
         }
       }}
+      onClick={() => {
+        if (link.href === "/gallery") {
+          prefetchGalleryPage();
+        }
+      }}
     >
       {link.label}
     </Link>

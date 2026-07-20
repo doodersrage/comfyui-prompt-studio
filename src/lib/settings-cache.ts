@@ -8,6 +8,16 @@ import {
   normalizeResolutionSizeTier,
 } from "./model-resolution-defaults";
 import type { ResolutionOrientation, ResolutionSizeTier } from "./model-resolution-defaults";
+import {
+  DEFAULT_ANATOMY_GUARD_MODE,
+  normalizeAnatomyGuardMode,
+} from "./anatomy-guard";
+import type { AnatomyGuardMode } from "./anatomy-guard";
+import {
+  DEFAULT_RENDER_REALISM_MODE,
+  normalizeRenderRealismMode,
+} from "./render-realism";
+import type { RenderRealismMode } from "./render-realism";
 import { DEFAULT_VARIATION_SETTINGS } from "./variation-settings";
 import type { DetailLevel } from "./detail-level";
 import { readBrowserValue, writeBrowserValue } from "./browser-storage";
@@ -43,6 +53,10 @@ export type SharedToolSettings = {
   modelResolutionOrientation?: ResolutionOrientation;
   /** Latent size tier applied when queueing (small / medium / max). */
   modelResolutionSizeTier?: ResolutionSizeTier;
+  /** Auto-adjust positive/negative prompts for realistic renders on queue. */
+  renderRealismMode?: RenderRealismMode;
+  /** Auto-adjust prompts to reduce mutations and extra limbs on queue. */
+  anatomyGuardMode?: AnatomyGuardMode;
   /** @deprecated Use selectedWorkflowFileId */
   selectedWorkflowPresetId?: string;
 };
@@ -265,6 +279,8 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelSamplerPreset: "base",
   modelResolutionOrientation: DEFAULT_RESOLUTION_ORIENTATION,
   modelResolutionSizeTier: DEFAULT_RESOLUTION_SIZE_TIER,
+  renderRealismMode: DEFAULT_RENDER_REALISM_MODE,
+  anatomyGuardMode: DEFAULT_ANATOMY_GUARD_MODE,
 };
 
 export const DEFAULT_GENERATE_TOOL_CACHE: GenerateToolCache = {
@@ -457,6 +473,12 @@ export function loadSettingsCache(): SettingsCache {
     );
     shared.modelResolutionSizeTier = normalizeResolutionSizeTier(
       shared.modelResolutionSizeTier ?? DEFAULT_RESOLUTION_SIZE_TIER,
+    );
+    shared.renderRealismMode = normalizeRenderRealismMode(
+      shared.renderRealismMode ?? DEFAULT_RENDER_REALISM_MODE,
+    );
+    shared.anatomyGuardMode = normalizeAnatomyGuardMode(
+      shared.anatomyGuardMode ?? DEFAULT_ANATOMY_GUARD_MODE,
     );
 
     const rawTools = parsed.tools ?? {};

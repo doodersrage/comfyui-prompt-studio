@@ -38,9 +38,12 @@ function readGalleryEntriesSync(): ComfyGalleryEntry[] {
 export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   const [mounted, setMounted] = useState(false);
   const initialEntries = readGalleryEntriesSync();
-  const [storeReady, setStoreReady] = useState(
-    () => initialEntries.length > 0 && isGalleryStoreReady(),
-  );
+  const [storeReady, setStoreReady] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return isGalleryStoreReady();
+  });
   const [entries, setEntries] = useState<ComfyGalleryEntry[]>(() => initialEntries);
   const [filter, setFilter] = useState<ComfyGalleryFilter>(
     initialFilter ?? { status: "all" },
@@ -60,6 +63,14 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   useEffect(() => {
     refresh();
     setMounted(true);
+
+    if (isGalleryStoreReady()) {
+      setStoreReady(true);
+    }
+
+    const hydrateTimeout = window.setTimeout(() => {
+      setStoreReady(true);
+    }, 4000);
 
     void initGalleryStore()
       .then(() => {
@@ -82,6 +93,7 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     };
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);
     return () => {
+      window.clearTimeout(hydrateTimeout);
       window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);
       if (frameId !== 0) {
         window.cancelAnimationFrame(frameId);

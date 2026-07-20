@@ -35,6 +35,8 @@ import {
 import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
+import { applyQueuePromptSteering, prepareQueuePrompts } from "@/lib/queue-prompt-prep";
+import { resolveQueueNegativePromptRaw } from "@/lib/queue-negative";
 import { runWorkflowPreflight } from "@/lib/workflow-preflight";
 import { dispatchWebhook } from "@/lib/webhook-settings";
 import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
@@ -347,11 +349,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       setComfyUiStatus("Queueing…");
       try {
-        const preparedPrompt = injectLoraTriggers(prompt);
-        let negativePrompt: string | undefined;
-        if (modelUsesNegativePrompt(config.model)) {
-          negativePrompt = (await fetchNegative(sport)) ?? undefined;
-        }
+        const { positive: preparedPrompt, negative: negativePrompt } =
+          await prepareQueuePrompts({
+            model: config.model,
+            positive: injectLoraTriggers(prompt),
+            hints: config.hints,
+            sport,
+            tool: config.tool,
+          });
 
         const preflight = await runWorkflowPreflight({
           model: config.model,
@@ -458,13 +463,17 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       setPreviewStatus("Building preview…");
       setWorkflowPreview(null);
       try {
-        let negativePrompt: string | undefined;
-        if (modelUsesNegativePrompt(config.model)) {
-          negativePrompt = (await fetchNegative(sport)) ?? undefined;
-        }
+        const { positive: preparedPrompt, negative: negativePrompt } =
+          await prepareQueuePrompts({
+            model: config.model,
+            positive: prompt,
+            hints: config.hints,
+            sport,
+            tool: config.tool,
+          });
 
         const preview = await fetchWorkflowPreview({
-          prompt,
+          prompt: preparedPrompt,
           negativePrompt,
           params: resolveQueueParams({ model: config.model }),
         });
@@ -474,7 +483,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         setPreviewStatus(err instanceof Error ? err.message : "Preview failed.");
       }
     },
-    [config.model, fetchNegative],
+    [config.hints, config.model, config.tool],
   );
 
   const sendBatchComfyUi = useCallback(
@@ -486,12 +495,28 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       setComfyUiStatus(`Queueing ${filtered.length}…`);
       try {
-        let negativePrompt: string | undefined;
-        if (modelUsesNegativePrompt(config.model)) {
-          negativePrompt = (await fetchNegative(sport)) ?? undefined;
-        }
+        const rawNegative = modelUsesNegativePrompt(config.model)
+          ? await resolveQueueNegativePromptRaw({
+              model: config.model,
+              hints: config.hints,
+              sport,
+              tool: config.tool,
+            })
+          : undefined;
+        const steered = applyQueuePromptSteering({
+          positive: injectLoraTriggers(filtered[0] ?? ""),
+          negative: rawNegative,
+          model: config.model,
+        });
+        const negativePrompt = steered.negative;
+        const prepared = filtered.map((entry) =>
+          applyQueuePromptSteering({
+            positive: injectLoraTriggers(entry),
+            negative: rawNegative,
+            model: config.model,
+          }).positive,
+        );
 
-        const prepared = filtered.map((entry) => injectLoraTriggers(entry));
         const preflight = await runWorkflowPreflight({
           model: config.model,
           prompts: prepared,
@@ -603,7 +628,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         setComfyUiStatus(err instanceof Error ? err.message : "ComfyUI batch failed.");
       }
     },
-    [config.model, config.tool, config.hints, fetchNegative, trackComfyUiJob, saveHistory, historySaved],
+    [config.hints, config.model, config.tool, fetchNegative, trackComfyUiJob, saveHistory, historySaved],
   );
 
   const copyPromptPair = useCallback(
@@ -613,9 +638,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       }
 
       try {
-        const negative = await fetchNegative(sport);
-        const text = formatPromptPair({
+        const { positive, negative } = await prepareQueuePrompts({
+          model: config.model,
           positive: prompt,
+          hints: config.hints,
+          sport,
+          tool: config.tool,
+        });
+        const text = formatPromptPair({
+          positive,
           negative,
           model: config.model,
         });
@@ -626,7 +657,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         setFixStatus("Could not copy prompt pair.");
       }
     },
-    [config.model, fetchNegative],
+    [config.hints, config.model, config.tool],
   );
 
   const compactPrompt = useCallback(

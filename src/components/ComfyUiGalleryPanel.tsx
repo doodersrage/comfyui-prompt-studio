@@ -29,8 +29,6 @@ import {
   queueParamExperiment,
   type ParamExperimentAxis,
 } from "@/lib/param-experiment-queue";
-import { downloadCompareExport } from "@/lib/gallery-compare-export";
-import { runAutoImproveOnFavorite, runAutoImproveOnRating } from "@/lib/auto-improve-loop";
 import { learnFromLowRatedPrompt } from "@/lib/negative-learner";
 import { pushNotification } from "@/lib/notification-center";
 import { suggestRatingMutations } from "@/lib/rating-prompt-mutations";
@@ -51,10 +49,8 @@ import {
   downloadGalleryImagesSequential,
   downloadGallerySidecarBundle,
 } from "@/lib/comfyui-gallery-export";
-import { downloadGalleryZipBundle } from "@/lib/gallery-zip-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
 import { requeueComfyJob, requeueComfyJobs } from "@/lib/comfyui-requeue";
-import { queueParamExperimentGrid } from "@/lib/param-experiment-grid";
 import {
   buildGalleryLightboxPlaylist,
   galleryEntryViewUrls,
@@ -423,7 +419,9 @@ export default function ComfyUiGalleryPanel({
         }
       }
       markOnboardingGalleryReview();
-      void runAutoImproveOnRating(entry, rating).then((message) => {
+      void import("@/lib/auto-improve-loop").then(({ runAutoImproveOnRating }) =>
+        runAutoImproveOnRating(entry, rating),
+      ).then((message) => {
         if (message) {
           setRequeueStatus(message);
         }
@@ -538,7 +536,9 @@ export default function ComfyUiGalleryPanel({
       const willFavorite = entry ? !entry.favorite : false;
       toggleFavorite(id);
       if (entry && willFavorite) {
-        void runAutoImproveOnFavorite(entry, true).then((message) => {
+        void import("@/lib/auto-improve-loop").then(({ runAutoImproveOnFavorite }) =>
+          runAutoImproveOnFavorite(entry, true),
+        ).then((message) => {
           if (message) {
             setRequeueStatus(message);
           }
@@ -783,16 +783,22 @@ export default function ComfyUiGalleryPanel({
           }}
           onExportZip={() => {
             setRequeueStatus("Building ZIP export…");
-            void downloadGalleryZipBundle(selectedEntries).then((count) => {
+            void import("@/lib/gallery-zip-export").then(({ downloadGalleryZipBundle }) =>
+              downloadGalleryZipBundle(selectedEntries),
+            ).then((count) => {
               setRequeueStatus(`ZIP export prepared for ${count} entries.`);
             });
           }}
-          onExportCompareJson={() =>
-            downloadCompareExport(selectedEntries.slice(0, 4), "json")
-          }
-          onExportCompareHtml={() =>
-            downloadCompareExport(selectedEntries.slice(0, 4), "html")
-          }
+          onExportCompareJson={() => {
+            void import("@/lib/gallery-compare-export").then(({ downloadCompareExport }) =>
+              downloadCompareExport(selectedEntries.slice(0, 4), "json"),
+            );
+          }}
+          onExportCompareHtml={() => {
+            void import("@/lib/gallery-compare-export").then(({ downloadCompareExport }) =>
+              downloadCompareExport(selectedEntries.slice(0, 4), "html"),
+            );
+          }}
           onFindSimilar={() => {
             const entry = selectedEntries[0];
             if (!entry) return;
@@ -845,13 +851,15 @@ export default function ComfyUiGalleryPanel({
             const entry = selectedEntries[0];
             if (!entry) return;
             setRequeueStatus("Queueing CFG × steps grid…");
-            void queueParamExperimentGrid({
-              prompt: entry.prompt,
-              model: entry.model ?? "qwen-image-2512",
-              negativePrompt: entry.negativePrompt,
-              hints: entry.prompt.slice(0, 200),
-              baseParams: entry.queueParams,
-            }).then(({ queued, cells }) =>
+            void import("@/lib/param-experiment-grid").then(({ queueParamExperimentGrid }) =>
+              queueParamExperimentGrid({
+                prompt: entry.prompt,
+                model: entry.model ?? "qwen-image-2512",
+                negativePrompt: entry.negativePrompt,
+                hints: entry.prompt.slice(0, 200),
+                baseParams: entry.queueParams,
+              }),
+            ).then(({ queued, cells }) =>
               setRequeueStatus(
                 `Param grid queued ${queued} jobs · ${cells.slice(0, 4).join("; ")}${cells.length > 4 ? "…" : ""}`,
               ),
@@ -957,7 +965,9 @@ export default function ComfyUiGalleryPanel({
               });
             }
             setCompareStatus(`Winner: ${entry.model ?? "unknown"} · seed ${entry.queueParams?.seed ?? "?"}`);
-            void runAutoImproveOnRating(entry, 5).then((message) => {
+            void import("@/lib/auto-improve-loop").then(({ runAutoImproveOnRating }) =>
+              runAutoImproveOnRating(entry, 5),
+            ).then((message) => {
               if (message) {
                 setCompareStatus(message);
               }
@@ -972,7 +982,9 @@ export default function ComfyUiGalleryPanel({
             if (entry) {
               recordCatalogBiasFromPrompt(entry.prompt, rating);
               if (rating) {
-                void runAutoImproveOnRating(entry, rating).then((message) => {
+                void import("@/lib/auto-improve-loop").then(({ runAutoImproveOnRating }) =>
+                  runAutoImproveOnRating(entry, rating),
+                ).then((message) => {
                   if (message) {
                     setCompareStatus(message);
                   }

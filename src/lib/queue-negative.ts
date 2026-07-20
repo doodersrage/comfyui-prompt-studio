@@ -8,15 +8,27 @@ import {
 } from "./negative-profiles";
 import { resolveContextNegativeProfile } from "./context-negative-profile";
 import { loadComfyUiSettings } from "./comfyui-settings";
+import {
+  applyRenderRealismToNegative,
+  type RenderRealismMode,
+} from "./render-realism";
+import { loadRenderRealismMode } from "./render-realism-settings";
 import type { AthleticSport } from "./athletic-sport-profiles";
 
-export async function resolveQueueNegativePrompt(input: {
+export type ResolveQueueNegativeInput = {
   model: ComfyImageModel | string;
   hints?: string;
   sport?: AthleticSport | null;
   tool?: string;
   explicitNegative?: string;
-}): Promise<string | undefined> {
+  realismMode?: RenderRealismMode;
+  /** When false, skip realism negative merge (caller applies full prompt prep). */
+  applyRealism?: boolean;
+};
+
+export async function resolveQueueNegativePromptRaw(
+  input: ResolveQueueNegativeInput,
+): Promise<string | undefined> {
   const explicit = input.explicitNegative?.trim();
   if (explicit) {
     return explicit;
@@ -52,5 +64,19 @@ export async function resolveQueueNegativePrompt(input: {
       hints: input.hints,
       sport: input.sport,
     })) ?? undefined
+  );
+}
+
+export async function resolveQueueNegativePrompt(
+  input: ResolveQueueNegativeInput,
+): Promise<string | undefined> {
+  const raw = await resolveQueueNegativePromptRaw(input);
+  if (!raw || input.applyRealism === false) {
+    return raw;
+  }
+
+  return applyRenderRealismToNegative(
+    raw,
+    input.realismMode ?? loadRenderRealismMode(),
   );
 }

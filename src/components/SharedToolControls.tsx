@@ -8,6 +8,8 @@ import { getDetailLimits } from "@/lib/detail-level";
 import ModelRecommenderHints from "@/components/ModelRecommenderHints";
 import ModelSamplerHints from "@/components/ModelSamplerHints";
 import ModelResolutionHints from "@/components/ModelResolutionHints";
+import RenderRealismHints from "@/components/RenderRealismHints";
+import AnatomyGuardHints from "@/components/AnatomyGuardHints";
 import { getComfyModelDefinition } from "@/lib/comfy-models";
 import { patchSharedForModelChange } from "@/lib/model-workflow-map";
 import {
@@ -20,6 +22,14 @@ import {
   type ResolutionOrientation,
   type ResolutionSizeTier,
 } from "@/lib/model-resolution-defaults";
+import {
+  normalizeAnatomyGuardMode,
+  type AnatomyGuardMode,
+} from "@/lib/anatomy-guard";
+import {
+  normalizeRenderRealismMode,
+  type RenderRealismMode,
+} from "@/lib/render-realism";
 import type { SharedToolSettings } from "@/lib/settings-cache";
 import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
 import { PINNED_VARIATION_SEED_LABEL } from "@/lib/tool-ui-labels";
@@ -89,6 +99,12 @@ export default function SharedToolControls({
   const [resolutionSizeTier, setResolutionSizeTier] = useState<ResolutionSizeTier>(() =>
     normalizeResolutionSizeTier(shared.modelResolutionSizeTier),
   );
+  const [renderRealismMode, setRenderRealismMode] = useState<RenderRealismMode>(() =>
+    normalizeRenderRealismMode(shared.renderRealismMode),
+  );
+  const [anatomyGuardMode, setAnatomyGuardMode] = useState<AnatomyGuardMode>(() =>
+    normalizeAnatomyGuardMode(shared.anatomyGuardMode),
+  );
 
   useEffect(() => {
     setSamplerPreset(normalizeModelSamplerPresetTier(shared.modelSamplerPreset));
@@ -101,6 +117,14 @@ export default function SharedToolControls({
   useEffect(() => {
     setResolutionSizeTier(normalizeResolutionSizeTier(shared.modelResolutionSizeTier));
   }, [shared.modelResolutionSizeTier]);
+
+  useEffect(() => {
+    setRenderRealismMode(normalizeRenderRealismMode(shared.renderRealismMode));
+  }, [shared.renderRealismMode]);
+
+  useEffect(() => {
+    setAnatomyGuardMode(normalizeAnatomyGuardMode(shared.anatomyGuardMode));
+  }, [shared.anatomyGuardMode]);
 
   const handleSamplerPresetChange = (preset: ModelSamplerPresetTier) => {
     setSamplerPreset(preset);
@@ -123,6 +147,22 @@ export default function SharedToolControls({
     saveSharedSettings({
       ...loadSettingsCache().shared,
       modelResolutionSizeTier: tier,
+    });
+  };
+
+  const handleRenderRealismModeChange = (mode: RenderRealismMode) => {
+    setRenderRealismMode(mode);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      renderRealismMode: mode,
+    });
+  };
+
+  const handleAnatomyGuardModeChange = (mode: AnatomyGuardMode) => {
+    setAnatomyGuardMode(mode);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      anatomyGuardMode: mode,
     });
   };
 
@@ -156,6 +196,16 @@ export default function SharedToolControls({
         sizeTier={resolutionSizeTier}
         onOrientationChange={handleResolutionOrientationChange}
         onSizeTierChange={handleResolutionSizeTierChange}
+      />
+
+      <RenderRealismHints
+        mode={renderRealismMode}
+        onModeChange={handleRenderRealismModeChange}
+      />
+
+      <AnatomyGuardHints
+        mode={anatomyGuardMode}
+        onModeChange={handleAnatomyGuardModeChange}
       />
 
       {recommendFromText ? (

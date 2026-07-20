@@ -3,10 +3,8 @@ import path from "node:path";
 import {
   type ComfyUiRuntimeConfig,
   type ResolvedComfyUiConfig,
-  type WorkflowInjectionResult,
-  injectWorkflowPlaceholders,
+  injectPromptsWithFallbacks,
   parseWorkflowJson,
-  patchSamplerParamsInWorkflow,
   resolvePlaceholderTokens,
   resolveQueueParams,
   resolveCustomWorkflowTokens,
@@ -123,30 +121,15 @@ export function resolveComfyUiConfig(
   };
 }
 
-function setNodeText(
-  workflow: Record<string, unknown>,
-  nodeId: string,
-  text: string,
-): boolean {
-  const node = workflow[nodeId];
-  if (!node || typeof node !== "object") {
-    return false;
-  }
-
-  const record = node as { inputs?: Record<string, unknown> };
-  record.inputs = { ...(record.inputs ?? {}), text };
-  return true;
-}
-
 function injectPromptsIntoWorkflow(
   workflow: Record<string, unknown>,
   request: ComfyQueueRequest,
   config: ResolvedComfyUiConfig,
   runtime?: ComfyUiRuntimeConfig,
-): WorkflowInjectionResult {
+) {
   const params = resolveQueueParams(runtime, request.params);
   const customTokens = resolveCustomWorkflowTokens(runtime);
-  const injected = injectWorkflowPlaceholders(
+  return injectPromptsWithFallbacks(
     workflow,
     {
       positive: request.prompt,
@@ -155,41 +138,11 @@ function injectPromptsIntoWorkflow(
       customTokens,
     },
     config.placeholderTokens,
+    {
+      legacyPositiveNodeId: config.legacyPositiveNodeId,
+      legacyNegativeNodeId: config.legacyNegativeNodeId,
+    },
   );
-
-  const samplerPatch = patchSamplerParamsInWorkflow(injected.workflow, params);
-  injected.workflow = samplerPatch.workflow;
-  for (const [key, count] of Object.entries(samplerPatch.patched) as Array<
-    [keyof typeof samplerPatch.patched, number]
-  >) {
-    if (count > 0) {
-      injected.paramReplacements[key] =
-        (injected.paramReplacements[key] ?? 0) + count;
-    }
-  }
-
-  if (
-    injected.positiveReplacements === 0 &&
-    config.legacyPositiveNodeId &&
-    setNodeText(injected.workflow, config.legacyPositiveNodeId, request.prompt)
-  ) {
-    injected.positiveReplacements = 1;
-  }
-
-  if (
-    injected.negativeReplacements === 0 &&
-    config.legacyNegativeNodeId &&
-    request.negativePrompt?.trim() &&
-    setNodeText(
-      injected.workflow,
-      config.legacyNegativeNodeId,
-      request.negativePrompt.trim(),
-    )
-  ) {
-    injected.negativeReplacements = 1;
-  }
-
-  return injected;
 }
 
 export async function queuePromptToComfyUi(

@@ -1,11 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import GalleryImportSection from "@/components/GalleryImportSection";
-import ComfyUiGalleryPanel from "@/components/ComfyUiGalleryPanel";
+import GalleryPanelSkeleton from "@/components/gallery/GalleryPanelSkeleton";
 import {
   ToolBadge,
   ToolLayout,
 } from "@/components/ui/ToolPageShell";
+
+const ComfyUiGalleryPanel = dynamic(() => import("@/components/ComfyUiGalleryPanel"), {
+  loading: () => <GalleryPanelSkeleton showFilters />,
+});
 
 const ACCENT = "neutral" as const;
 

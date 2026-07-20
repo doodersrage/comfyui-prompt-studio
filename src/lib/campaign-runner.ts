@@ -7,7 +7,8 @@ import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
 import { injectLoraTriggers } from "./lora-prompt-injection";
 import { loadActiveProjectId } from "./prompt-projects";
-import { resolveQueueNegativePrompt } from "./queue-negative";
+import { resolveQueueNegativePromptRaw } from "./queue-negative";
+import { prepareNegativeForQueue, preparePositiveForQueue } from "./queue-prompt-prep";
 import { resolveQueueParams } from "./queue-params-settings";
 import { modelUsesNegativePrompt } from "./prompt-pair";
 
@@ -86,7 +87,7 @@ export async function runPromptCampaign(input: {
 
   let negativePrompt: string | undefined;
   if (input.queueToComfyUi && modelUsesNegativePrompt(model)) {
-    negativePrompt = await resolveQueueNegativePrompt({
+    negativePrompt = await resolveQueueNegativePromptRaw({
       model,
       hints: input.hints,
       tool: "campaign",
@@ -94,7 +95,10 @@ export async function runPromptCampaign(input: {
   }
 
   for (const [index, rawPrompt] of prompts.entries()) {
-    const prompt = injectLoraTriggers(rawPrompt);
+    const prompt = preparePositiveForQueue(injectLoraTriggers(rawPrompt));
+    const steeredNegative = negativePrompt
+      ? prepareNegativeForQueue(negativePrompt)
+      : undefined;
     if (!input.queueToComfyUi) {
       results.push({ index, prompt, queued: false });
       continue;
@@ -106,7 +110,7 @@ export async function runPromptCampaign(input: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
-        negativePrompt,
+        negativePrompt: steeredNegative,
         params,
         ...(runtime ? { comfy: runtime } : {}),
       }),
@@ -125,7 +129,7 @@ export async function runPromptCampaign(input: {
     registerComfyGalleryJob({
       promptId: data.promptId,
       prompt,
-      negativePrompt,
+      negativePrompt: steeredNegative,
       tool: "campaign",
       model,
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",

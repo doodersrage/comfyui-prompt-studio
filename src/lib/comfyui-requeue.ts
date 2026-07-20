@@ -5,7 +5,7 @@ import {
   registerComfyGalleryJob,
 } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import type { WorkflowParamValues } from "./comfyui-config";
+import type { ComfyUiRuntimeConfig, WorkflowParamValues } from "./comfyui-config";
 import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
 import { resolveComfyUiRuntime } from "./comfyui-runtime";
 import { resolveQueueNegativePrompt } from "./queue-negative";
@@ -135,6 +135,8 @@ export async function fetchWorkflowPreview(input: {
   negativePrompt?: string;
   newSeed?: boolean;
   params?: WorkflowParamValues;
+  model?: ComfyImageModel | string;
+  comfy?: ComfyUiRuntimeConfig;
 }): Promise<{
   ok?: boolean;
   error?: string;
@@ -145,7 +147,12 @@ export async function fetchWorkflowPreview(input: {
   workflowJson?: string;
   truncated?: boolean;
 }> {
-  const runtime = resolveComfyUiRuntime();
+  const runtime =
+    input.comfy ??
+    (input.model
+      ? resolveRuntimeForModel(input.model as ComfyImageModel)
+      : undefined) ??
+    resolveComfyUiRuntime();
   const params: WorkflowParamValues | undefined = input.newSeed
     ? {
         ...input.params,

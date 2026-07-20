@@ -47,16 +47,21 @@ export async function runWorkflowPreflight(input: {
     const preview = await fetchWorkflowPreview({
       prompt: samplePrompt,
       negativePrompt: input.negativePrompt,
+      model: input.model,
     });
     if (!preview.ok) {
       issues.push({
         severity: "error",
         message: preview.error ?? "Workflow preview failed.",
       });
-    } else if ((preview.replacements?.positive ?? 0) === 0) {
+    } else if (
+      preview.workflowSource !== "minimal" &&
+      (preview.replacements?.positive ?? 0) === 0
+    ) {
       issues.push({
         severity: "error",
-        message: "Workflow has no positive prompt placeholder replacements.",
+        message:
+          "Workflow has no positive prompt placeholder replacements. Add {{POSITIVE}} to a CLIP Text Encode node in Settings → ComfyUI workflow library (Apply bindings), or pick a workflow that includes prompt placeholders.",
       });
     }
   } catch (err) {

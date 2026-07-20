@@ -713,6 +713,51 @@ describe("comfyui workflow preview", () => {
     assert.equal(preview.resolvedParams?.seed, "999");
     assert.match(preview.workflowJson ?? "", /Two cyclists racing/);
   });
+
+  it("previews {{PROMPT}} alias tokens", () => {
+    const preview = previewWorkflowInjection({
+      prompt: "Sunset over mountains",
+      comfy: {
+        workflowJson: JSON.stringify({
+          "6": {
+            class_type: "CLIPTextEncode",
+            inputs: { text: "{{PROMPT}}", clip: ["4", 0] },
+          },
+        }),
+      },
+    });
+
+    assert.equal(preview.ok, true);
+    assert.equal(preview.replacements?.positive, 1);
+    assert.match(preview.workflowJson ?? "", /Sunset over mountains/);
+  });
+
+  it("previews CLIP node fallback when placeholders are missing", () => {
+    const preview = previewWorkflowInjection({
+      prompt: "Portrait in soft light",
+      negativePrompt: "blurry",
+      comfy: {
+        workflowJson: JSON.stringify({
+          "6": {
+            class_type: "CLIPTextEncode",
+            _meta: { title: "Positive Prompt" },
+            inputs: { text: "a photo of a cat", clip: ["4", 0] },
+          },
+          "7": {
+            class_type: "CLIPTextEncode",
+            _meta: { title: "Negative Prompt" },
+            inputs: { text: "low quality", clip: ["4", 0] },
+          },
+        }),
+      },
+    });
+
+    assert.equal(preview.ok, true);
+    assert.equal(preview.replacements?.positive, 1);
+    assert.equal(preview.replacements?.negative, 1);
+    assert.match(preview.workflowJson ?? "", /Portrait in soft light/);
+    assert.match(preview.workflowJson ?? "", /blurry/);
+  });
 });
 
 describe("comfyui workflow config", () => {
