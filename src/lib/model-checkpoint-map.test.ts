@@ -5,6 +5,8 @@ import {
   parseModelCheckpointMap,
   resolveLoaderFilenamesForModel,
   resolveRefinerFilenameForModel,
+  SUGGESTED_MODEL_CHECKPOINT_MAP,
+  SUGGESTED_MODEL_REFINER_MAP,
 } from "./model-checkpoint-map.ts";
 
 describe("model checkpoint map", () => {
@@ -63,6 +65,14 @@ describe("model checkpoint map", () => {
       vaeMap: { "flux-2-klein-9b": "FLUX.2-klein-9B.safetensors" },
     });
     assert.equal(mapped.vae, "FLUX.2-klein-9B.safetensors");
+  });
+
+  it("includes suggested checkpoint map entries for common models", () => {
+    assert.equal(
+      SUGGESTED_MODEL_CHECKPOINT_MAP["qwen-image-2512-lightning-8"],
+      "qwen_image_2512_bf16.safetensors",
+    );
+    assert.equal(SUGGESTED_MODEL_REFINER_MAP.default, "sd_xl_refiner_1.0.safetensors");
   });
 
   it("resolves SDXL refiner checkpoint defaults", () => {

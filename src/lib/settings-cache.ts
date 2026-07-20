@@ -14,7 +14,6 @@ import {
 } from "./anatomy-guard";
 import type { AnatomyGuardMode } from "./anatomy-guard";
 import {
-  DEFAULT_RENDER_REALISM_MODE,
   normalizeRenderRealismMode,
 } from "./render-realism";
 import type { RenderRealismMode } from "./render-realism";
@@ -29,7 +28,22 @@ import {
   resolveQueueQualityProfile,
   type QueueQualityProfile,
 } from "./queue-quality-profile";
-import { normalizeToolQueueQualityProfiles } from "./tool-quality-profiles";
+import { normalizeToolQueueQualityProfiles, SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES } from "./tool-quality-profiles";
+import {
+  formatModelCheckpointMap,
+  parseModelCheckpointMap,
+  SUGGESTED_MODEL_CHECKPOINT_MAP,
+  SUGGESTED_MODEL_REFINER_MAP,
+  formatModelRefinerMap,
+  parseModelRefinerMap,
+  formatModelVaeMap,
+  parseModelVaeMap,
+} from "./model-checkpoint-map";
+import {
+  formatModelUpscaleMap,
+  parseModelUpscaleMap,
+  SUGGESTED_MODEL_UPSCALE_MAP,
+} from "./model-upscale-map";
 
 export const SETTINGS_CACHE_KEY = "comfy-prompt-tool-settings-v1";
 
@@ -320,7 +334,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelSamplerPreset: "base",
   modelResolutionOrientation: DEFAULT_RESOLUTION_ORIENTATION,
   modelResolutionSizeTier: DEFAULT_RESOLUTION_SIZE_TIER,
-  renderRealismMode: DEFAULT_RENDER_REALISM_MODE,
+  renderRealismMode: "realistic",
   anatomyGuardMode: DEFAULT_ANATOMY_GUARD_MODE,
   directWorkflowPatching: true,
   workflowQueueOptimize: true,
@@ -329,6 +343,10 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   workflowNeuralUpscalePolish: true,
   workflowSharpenAfterUpscale: false,
   queueQualityProfile: "followSettings",
+  toolQueueQualityProfiles: SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
+  modelCheckpointMap: SUGGESTED_MODEL_CHECKPOINT_MAP,
+  modelRefinerMap: SUGGESTED_MODEL_REFINER_MAP,
+  modelUpscaleMap: SUGGESTED_MODEL_UPSCALE_MAP,
   autoSelectWorkflowForModel: true,
   limitModelsToAvailableWorkflows: true,
   showAllModelsOverride: false,
@@ -526,7 +544,7 @@ export function loadSettingsCache(): SettingsCache {
       shared.modelResolutionSizeTier ?? DEFAULT_RESOLUTION_SIZE_TIER,
     );
     shared.renderRealismMode = normalizeRenderRealismMode(
-      shared.renderRealismMode ?? DEFAULT_RENDER_REALISM_MODE,
+      shared.renderRealismMode ?? DEFAULT_SHARED_SETTINGS.renderRealismMode,
     );
     shared.anatomyGuardMode = normalizeAnatomyGuardMode(
       shared.anatomyGuardMode ?? DEFAULT_ANATOMY_GUARD_MODE,
@@ -534,9 +552,22 @@ export function loadSettingsCache(): SettingsCache {
     shared.queueQualityProfile = normalizeQueueQualityProfile(
       shared.queueQualityProfile ?? DEFAULT_QUEUE_QUALITY_PROFILE,
     );
-    shared.toolQueueQualityProfiles = normalizeToolQueueQualityProfiles(
-      shared.toolQueueQualityProfiles,
-    );
+    shared.toolQueueQualityProfiles = normalizeToolQueueQualityProfiles({
+      ...SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
+      ...shared.toolQueueQualityProfiles,
+    });
+    shared.modelCheckpointMap = {
+      ...SUGGESTED_MODEL_CHECKPOINT_MAP,
+      ...shared.modelCheckpointMap,
+    };
+    shared.modelRefinerMap = {
+      ...SUGGESTED_MODEL_REFINER_MAP,
+      ...shared.modelRefinerMap,
+    };
+    shared.modelUpscaleMap = {
+      ...SUGGESTED_MODEL_UPSCALE_MAP,
+      ...shared.modelUpscaleMap,
+    };
 
     const rawTools = parsed.tools ?? {};
     const migrated = migrateLegacyToolSettings(rawTools);

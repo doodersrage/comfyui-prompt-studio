@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   detectLoaderPrecisionTier,
+  qwenDualClipFilename,
   resolveLoaderPrecisionTier,
 } from "./model-loader-precision.ts";
 import { resolveLoaderFilenamesForModel } from "./model-checkpoint-map.ts";
@@ -50,6 +51,11 @@ describe("model loader precision", () => {
     };
 
     assert.equal(detectLoaderPrecisionTier(workflow), "bf16");
+  });
+
+  it("resolves bf16 and fp8 Qwen dual CLIP filenames", () => {
+    assert.equal(qwenDualClipFilename("bf16"), "qwen_2.5_vl_7b_bf16.safetensors");
+    assert.equal(qwenDualClipFilename("fp8"), "qwen_2.5_vl_7b_fp8_scaled.safetensors");
   });
 
   it("resolves queue loaders to match workflow precision tier", () => {

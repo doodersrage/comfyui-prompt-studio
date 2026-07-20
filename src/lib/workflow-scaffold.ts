@@ -22,6 +22,11 @@ import {
   type ComfyModelCategory,
 } from "./comfy-models";
 import { isEditCapableModel, isQwenEditModel } from "./model-denoise-defaults";
+import { DEFAULT_UNET_TOKEN } from "./model-checkpoint-map";
+import {
+  defaultLoaderPrecisionTier,
+  qwenDualClipFilename,
+} from "./model-loader-precision";
 import { applyWorkflowNodeBindings } from "./workflow-apply-bindings";
 import { prepareWorkflowJsonImport } from "./workflow-import";
 import { suggestWorkflowNodeMappings } from "./workflow-node-mapper";
@@ -124,25 +129,39 @@ function fluxScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown
   };
 }
 
+function qwenLoaderFilenames(): {
+  unetToken: string;
+  clipName: string;
+  vaeName: string;
+} {
+  const tier = defaultLoaderPrecisionTier();
+  return {
+    unetToken: DEFAULT_UNET_TOKEN,
+    clipName: qwenDualClipFilename(tier),
+    vaeName: "qwen_image_vae.safetensors",
+  };
+}
+
 function qwenScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  const loaders = qwenLoaderFilenames();
   return {
     "1": {
       class_type: "UNETLoader",
-      inputs: { unet_name: "{{CHECKPOINT}}", weight_dtype: "default" },
+      inputs: { unet_name: loaders.unetToken, weight_dtype: "default" },
       _meta: { title: "Load UNET" },
     },
     "2": {
       class_type: "DualCLIPLoader",
       inputs: {
-        clip_name1: "qwen_2.5_vl_7b_fp8_scaled.safetensors",
-        clip_name2: "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+        clip_name1: loaders.clipName,
+        clip_name2: loaders.clipName,
         type: "qwen_image",
       },
       _meta: { title: "Load CLIP" },
     },
     "3": {
       class_type: "VAELoader",
-      inputs: { vae_name: "qwen_image_vae.safetensors" },
+      inputs: { vae_name: loaders.vaeName },
       _meta: { title: "Load VAE" },
     },
     "4": {
@@ -295,24 +314,25 @@ function qwenEditImg2imgScaffold(
     };
   }
 
+  const loaders = qwenLoaderFilenames();
   return {
     "1": {
       class_type: "UNETLoader",
-      inputs: { unet_name: "{{CHECKPOINT}}", weight_dtype: "default" },
+      inputs: { unet_name: loaders.unetToken, weight_dtype: "default" },
       _meta: { title: "Load UNET" },
     },
     "2": {
       class_type: "DualCLIPLoader",
       inputs: {
-        clip_name1: "qwen_2.5_vl_7b_fp8_scaled.safetensors",
-        clip_name2: "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+        clip_name1: loaders.clipName,
+        clip_name2: loaders.clipName,
         type: "qwen_image",
       },
       _meta: { title: "Load CLIP" },
     },
     "3": {
       class_type: "VAELoader",
-      inputs: { vae_name: "qwen_image_vae.safetensors" },
+      inputs: { vae_name: loaders.vaeName },
       _meta: { title: "Load VAE" },
     },
     "900": {
@@ -625,7 +645,7 @@ export function buildWorkflowScaffoldForModel(
           ? "FLUX inpaint scaffold wires LoadImage + LoadImageMask → InpaintModelConditioning — upload source image and mask before queueing."
           : "Edit scaffold includes LoadImage + denoise — wire VAEEncode in ComfyUI if you use the generic edit template."
       : category === "qwen"
-        ? "Qwen scaffold uses UNETLoader + DualCLIPLoader + VAELoader; edit clip/vae names if your pack differs."
+        ? "Qwen scaffold uses UNETLoader + DualCLIPLoader (bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs."
         : "Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.",
   ];
 

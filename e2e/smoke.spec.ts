@@ -61,6 +61,7 @@ const ADDITIONAL_ROUTES: Array<{ path: string; heading: RegExp; level?: 1 | 2 | 
   { path: "/variations", heading: /Variation Grid/i },
   { path: "/video", heading: /Video prompt builder/i },
   { path: "/image-prompt", heading: /Image → Prompt/i },
+  { path: "/inpaint", heading: /FLUX Inpaint/i },
   { path: "/plugins", heading: /^Plugins$/i },
   { path: "/profile", heading: /^Profile$/i, level: 1 as const },
   { path: "/studio", heading: /Prompt Studio/i },

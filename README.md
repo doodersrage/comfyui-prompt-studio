@@ -34,6 +34,7 @@ Video, audio, and 3D-only architectures (WAN, Hunyuan Video, Stable Audio, etc.)
 | **Topics** | `/topics` | Topic lists for batch prompt builds |
 | **Background** | `/background` | Environment-only prompt with no people |
 | **Image → Prompt** | `/image-prompt` | Upload an image; vision LLM writes the prompt |
+| **Inpaint** | `/inpaint` | Mask a region and queue FLUX/Qwen inpaint with `{{INPUT_IMAGE}}` / `{{MASK_IMAGE}}` |
 | **Negative** | `/negative` | Sport-aware negative/preserve prompts for SD models |
 | **Studio** | `/studio` | History, iteration tree, projects, compare, portfolio, campaign, analytics, catalog, templates |
 | **Lint** | `/lint` | Paste prompts for diagnostics, fix, compact, reformat |
@@ -390,7 +391,9 @@ Use **Optimize & save copy** in the workflow library to persist auto-bound place
 | **Follow sidebar** | Uses your sampler preset + resolution tier from Settings |
 | **Draft** | Faster sampler tier, smaller resolution |
 | **Final** | Optimized sampler, medium+ resolution, SDXL refiner pass (latent upscale), optional neural UpscaleModel or 1.25× Lanczos before SaveImage |
-| **Max** | Max-quality sampler/resolution, SDXL refiner at higher denoise, neural upscale + 1.1× Lanczos polish (or 1.5× Lanczos alone) |
+| **Max** | Max-quality sampler/resolution, SDXL refiner at higher denoise, neural upscale + 1.05× Lanczos polish (sharpen off by default) |
+
+Loader precision: queue injection detects **fp8 vs bf16** from existing workflow loaders and resolves `{{UNET}}`/`{{CHECKPOINT}}` to the matching tier (defaults to bf16 when unknown).
 
 - Sidebar chips on each tool page override the global default for that session.
 - **Settings → Per-tool queue quality** sets persistent overrides (Generate, Variations, Refine, etc.).
@@ -403,7 +406,9 @@ Use **Optimize & save copy** in the workflow library to persist auto-bound place
 | Direct workflow patching | Patch `EmptyLatentImage`, loaders, LoadImage/Mask, UpscaleModel without placeholders |
 | Optimize workflows on queue | Auto-bind missing placeholders before injection |
 | Insert model-sampling nodes | Add `ModelSamplingFlux` / shift nodes when loader → KSampler is direct |
-| Auto re-queue on 4–5★ | Re-queue high-rated gallery outputs at Final quality with a new seed |
+| Auto re-queue on 4–5★ | Re-queue high-rated gallery outputs at Final quality with a new seed (on by default) |
+| Auto re-queue on 5★ | Re-queue five-star outputs at Max quality with a new seed (on by default) |
+| Subtle sharpen after upscale (Max) | Optional ImageSharpen — off by default to avoid waxy skin |
 
 Preflight and **Workflow configuration** on gallery entries show unresolved tokens and the stored/effective params.
 

@@ -1054,7 +1054,7 @@ export default function SettingsTool() {
           rows={5}
           spellCheck={false}
           disabled={!sharedMounted}
-          placeholder={`qwen-image-2512=qwen_image_2512_fp8_e4m3fn.safetensors\nflux-2-klein-9b=flux-2-klein-9b.safetensors`}
+          placeholder={`qwen-image-2512=qwen_image_2512_bf16.safetensors\nflux-2-klein-9b=flux-2-klein-9b.safetensors\ndefault=4x-UltraSharp.pth`}
           className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
         />
         <p className="mb-2 mt-4 text-sm text-zinc-400">
@@ -1543,25 +1543,25 @@ export default function SettingsTool() {
         <label className="flex items-center gap-2 text-sm text-zinc-300">
           <input
             type="checkbox"
-            checked={settings.autoRequeueFinalOnHighRating ?? false}
+            checked={settings.autoRequeueFinalOnHighRating !== false}
             onChange={(event) =>
               updateSettings({ autoRequeueFinalOnHighRating: event.target.checked })
             }
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
-          Auto re-queue 4–5★ outputs at Final quality (new seed)
+          Auto re-queue 4–5★ outputs at Final quality (new seed, on by default)
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-300">
           <input
             type="checkbox"
-            checked={settings.autoRequeueMaxOnFiveStar ?? false}
+            checked={settings.autoRequeueMaxOnFiveStar !== false}
             onChange={(event) =>
               updateSettings({ autoRequeueMaxOnFiveStar: event.target.checked })
             }
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
-          Auto re-queue 5★ outputs at Max quality (new seed)
+          Auto re-queue 5★ outputs at Max quality (new seed, on by default)
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-300">

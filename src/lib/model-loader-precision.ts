@@ -85,6 +85,12 @@ export function qwenGenericUnetFilename(tier: LoaderPrecisionTier): string {
     : "qwen_image_2512_bf16.safetensors";
 }
 
+export function qwenDualClipFilename(tier: LoaderPrecisionTier): string {
+  return tier === "fp8"
+    ? "qwen_2.5_vl_7b_fp8_scaled.safetensors"
+    : "qwen_2.5_vl_7b_bf16.safetensors";
+}
+
 /** Prefer bf16 when unknown — avoids fp8 UNET with bf16 CLIP in mixed workflows. */
 export function defaultLoaderPrecisionTier(): LoaderPrecisionTier {
   return "bf16";

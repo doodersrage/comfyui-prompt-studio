@@ -34,6 +34,25 @@ export const DEFAULT_REFINER_TOKEN = "{{REFINER}}";
 
 const DEFAULT_SDXL_REFINER_CHECKPOINT = "sd_xl_refiner_1.0.safetensors";
 
+/** Suggested checkpoint/UNET filenames for common models (merged into Settings; user entries win). */
+export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
+  "qwen-image-2512": "qwen_image_2512_bf16.safetensors",
+  "qwen-image-2512-lightning-4": "qwen_image_2512_bf16.safetensors",
+  "qwen-image-2512-lightning-8": "qwen_image_2512_bf16.safetensors",
+  "qwen-image-edit-2511": "qwen_image_edit_2511_bf16.safetensors",
+  "qwen-image-edit-2509": "qwen_image_edit_2509_bf16.safetensors",
+  "flux-2-klein": "flux-2-klein-base-4b-fp8.safetensors",
+  "flux-2-klein-4b-distilled": "flux-2-klein-4b-fp8.safetensors",
+  "flux-2-klein-9b": "flux-2-klein-9b.safetensors",
+  "flux-2-klein-9b-distilled": "flux-2-klein-9b-fp8.safetensors",
+  "flux-dev": "flux1-dev.safetensors",
+  sdxl: "sd_xl_base_1.0.safetensors",
+};
+
+export const SUGGESTED_MODEL_REFINER_MAP: ModelRefinerMap = {
+  default: DEFAULT_SDXL_REFINER_CHECKPOINT,
+};
+
 function trimFilename(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;

@@ -2,6 +2,11 @@ import type { CustomWorkflowToken } from "./comfyui-config";
 
 export const DEFAULT_UPSCALE_MODEL_TOKEN = "{{UPSCALE_MODEL}}";
 
+/** Default UpscaleModel for Final/Max graph enrich when no per-model override exists. */
+export const SUGGESTED_MODEL_UPSCALE_MAP: ModelUpscaleMap = {
+  default: "4x-UltraSharp.pth",
+};
+
 export type ModelUpscaleMap = Partial<Record<string, string>>;
 
 function trimFilename(value: unknown): string | undefined {

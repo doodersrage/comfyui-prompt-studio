@@ -32,6 +32,18 @@ export function toolQueueQualityLabel(toolId: string): string {
 
 export type ToolQueueQualityProfiles = Partial<Record<string, QueueQualityProfile>>;
 
+/** Suggested per-tool queue profiles (merged into Settings; explicit tool overrides win). */
+export const SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES: ToolQueueQualityProfiles = {
+  generate: "draft",
+  variations: "draft",
+  topics: "draft",
+  character: "final",
+  refine: "final",
+  inpaint: "final",
+  duo: "final",
+  format: "followSettings",
+};
+
 export function normalizeToolQueueQualityProfiles(
   value: unknown,
 ): ToolQueueQualityProfiles {
