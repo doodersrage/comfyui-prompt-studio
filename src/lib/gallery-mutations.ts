@@ -1,11 +1,15 @@
 "use client";
 
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
+import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
+import {
+  refreshQueueImageParamsForRequeue,
+  resolveRequeueImageUrlsFromEntry,
+} from "./queue-requeue-images";
 import { injectLoraTriggers } from "./lora-prompt-injection";
 
 export type MutationKind = "variation" | "location" | "wardrobe" | "wildness";
@@ -41,9 +45,10 @@ export async function queueMutatedGalleryJobs(input: {
 }): Promise<number> {
   const count = Math.min(6, Math.max(1, input.count ?? input.kinds.length));
   const model = (input.entry.model ?? "qwen-image-2512") as Parameters<
-    typeof resolveRuntimeForModel
+    typeof resolveRuntimeForQueue
   >[0];
-  const runtime = resolveRuntimeForModel(model);
+  const tool = input.entry.tool ?? "gallery-mutate";
+  const runtime = resolveRuntimeForQueue(model, tool);
   const negativePrompt =
     input.entry.negativePrompt?.trim() ||
     (await resolveQueueNegativePrompt({
@@ -62,12 +67,23 @@ export async function queueMutatedGalleryJobs(input: {
         input.values?.[kind],
       ),
     );
+    const seed = String(Math.floor(Math.random() * 2 ** 32) + index);
+    const imageUrls = resolveRequeueImageUrlsFromEntry(input.entry);
+    const refreshedParams = await refreshQueueImageParamsForRequeue({
+      model: input.entry.model,
+      tool: input.entry.tool ?? "gallery-mutate",
+      queueParams: {
+        ...input.entry.queueParams,
+        seed,
+      },
+      sourceImageUrl: imageUrls.sourceImageUrl,
+      maskImageUrl: imageUrls.maskImageUrl,
+    });
     const params = resolveQueueParams({
       model: input.entry.model,
-      base: {
-        ...input.entry.queueParams,
-        seed: String(Math.floor(Math.random() * 2 ** 32) + index),
-      },
+      tool: "gallery-mutate",
+      base: refreshedParams,
+      qualityProfile: runtime.queueQualityProfile,
     });
 
     const response = await fetch("/api/comfyui", {
@@ -98,8 +114,11 @@ export async function queueMutatedGalleryJobs(input: {
       model,
       comfyUrl: data.comfyUrl ?? input.entry.comfyUrl,
       queueParams: params,
+      sourceImageUrl: imageUrls.sourceImageUrl,
+      maskImageUrl: imageUrls.maskImageUrl,
       historyId: input.entry.historyId,
       projectId: input.entry.projectId,
+      queueQualityProfile: runtime.queueQualityProfile,
     });
     void scheduleComfyGalleryPoll(data.promptId, {
       comfyUrl: data.comfyUrl ?? input.entry.comfyUrl,

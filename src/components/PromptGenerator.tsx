@@ -471,6 +471,7 @@ export default function PromptGenerator() {
       sidebarDescription="Model, detail, and wardrobe options for this run."
       sidebar={
         <SharedToolControls
+          toolId="generate"
           shared={shared}
           onModelChange={setQwenModel}
           onDetailChange={setDetail}

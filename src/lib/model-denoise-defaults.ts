@@ -1,0 +1,79 @@
+import {
+  getComfyModelDefinition,
+  type ComfyImageModel,
+} from "./comfy-models";
+
+export const DEFAULT_EDIT_DENOISE = 0.65;
+
+export const DEFAULT_INPAINT_DENOISE = 0.75;
+
+const EDIT_TOOLS = new Set(["refine", "image-prompt", "controlnet", "inpaint"]);
+
+function clampDenoise(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_EDIT_DENOISE;
+  }
+  return Math.min(1, Math.max(0.05, value));
+}
+
+export function isEditCapableModel(model: ComfyImageModel | string): boolean {
+  const def = getComfyModelDefinition(model);
+  if (!def) {
+    return /edit|inpaint|ip2p|pix2pix/i.test(model);
+  }
+  if (def.category === "instruct-edit") {
+    return true;
+  }
+  if (def.profile === "qwen_edit" || def.profile === "qwen_edit_instruction") {
+    return true;
+  }
+  if (model === "flux-inpaint") {
+    return true;
+  }
+  return /edit|inpaint|rapid-aio/i.test(model);
+}
+
+export function isQwenEditModel(model: ComfyImageModel | string): boolean {
+  const def = getComfyModelDefinition(model);
+  if (def?.profile === "qwen_edit" || def?.profile === "qwen_edit_instruction") {
+    return true;
+  }
+  return /qwen.*edit|qwen-rapid-aio/i.test(model);
+}
+
+export function isInpaintModel(model: ComfyImageModel | string): boolean {
+  if (model === "flux-inpaint") {
+    return true;
+  }
+  return /inpaint/i.test(model);
+}
+
+export function resolveDenoiseForModel(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+    override?: number;
+  },
+): number | undefined {
+  if (options?.override != null && options.override.toString().trim() !== "") {
+    return clampDenoise(Number(options.override));
+  }
+
+  const editContext =
+    options?.hasInputImage ||
+    options?.hasMaskImage ||
+    (options?.tool ? EDIT_TOOLS.has(options.tool) : false) ||
+    isEditCapableModel(model);
+
+  if (!editContext) {
+    return undefined;
+  }
+
+  if (isInpaintModel(model) || options?.hasMaskImage) {
+    return DEFAULT_INPAINT_DENOISE;
+  }
+
+  return DEFAULT_EDIT_DENOISE;
+}

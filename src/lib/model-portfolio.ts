@@ -1,8 +1,11 @@
 "use client";
 
 import type { ComfyImageModel } from "./comfy-models";
-import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
+import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
+import { registerComfyGalleryJob } from "./comfyui-gallery-client";
+import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { resolveQueueNegativePrompt } from "./queue-negative";
+import { resolveQueueParams } from "./queue-params-settings";
 
 export type ModelPortfolioItem = {
   model: ComfyImageModel;
@@ -62,10 +65,14 @@ export async function queueModelPortfolio(input: {
     if (!item.prompt.trim()) {
       continue;
     }
-    const runtime = resolveRuntimeForModel(item.model);
+    const runtime = resolveRuntimeForQueue(item.model, input.tool ?? "portfolio");
     const negativePrompt = await resolveQueueNegativePrompt({
       model: item.model,
       hints: input.hints,
+      tool: input.tool ?? "portfolio",
+    });
+    const params = resolveQueueParams({
+      model: item.model,
       tool: input.tool ?? "portfolio",
     });
     const response = await fetch("/api/comfyui", {
@@ -74,10 +81,25 @@ export async function queueModelPortfolio(input: {
       body: JSON.stringify({
         prompt: item.prompt,
         negativePrompt,
+        params,
         ...(runtime ? { comfy: runtime } : {}),
       }),
     });
-    if (response.ok) {
+    const data = (await response.json()) as { promptId?: string; comfyUrl?: string };
+    if (response.ok && data.promptId) {
+      registerComfyGalleryJob({
+        promptId: data.promptId,
+        prompt: item.prompt,
+        negativePrompt,
+        tool: input.tool ?? "portfolio",
+        model: item.model,
+        comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
+        queueParams: params,
+        queueQualityProfile: runtime.queueQualityProfile,
+      });
+      void scheduleComfyGalleryPoll(data.promptId, {
+        comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
+      });
       queued += 1;
     }
   }

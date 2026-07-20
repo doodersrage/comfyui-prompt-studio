@@ -6,6 +6,8 @@ import {
   resolveModelSamplerParams,
   type ModelSamplerPresetTier,
 } from "./model-sampler-defaults";
+import { resolveModelSamplingParams } from "./model-sampling-patch";
+import { resolveDenoiseForModel } from "./model-denoise-defaults";
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
   DEFAULT_RESOLUTION_SIZE_TIER,
@@ -16,7 +18,19 @@ import {
   type ResolutionSizeTier,
 } from "./model-resolution-defaults";
 import type { ComfyImageModel } from "./comfy-models";
+import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
+import {
+  resolveLoaderFilenamesForModel,
+  resolveRefinerFilenameForModel,
+} from "./model-checkpoint-map";
+import { resolveUpscaleModelFilename } from "./model-upscale-map";
 import { loadSettingsCache } from "./settings-cache";
+import {
+  resolveEffectiveResolutionSizeTier,
+  resolveEffectiveSamplerPreset,
+  resolveQueueQualityProfile,
+  type QueueQualityProfile,
+} from "./queue-quality-profile";
 
 export const QUEUE_PARAMS_KEY = "comfy-queue-params-v1";
 
@@ -30,6 +44,10 @@ export type ResolveQueueParamsOptions = {
   samplerPreset?: ModelSamplerPresetTier;
   resolutionOrientation?: ResolutionOrientation;
   resolutionSizeTier?: ResolutionSizeTier;
+  tool?: string;
+  inputImageFilename?: string;
+  maskImageFilename?: string;
+  qualityProfile?: QueueQualityProfile;
 };
 
 function loadModelSamplerPresetTier(): ModelSamplerPresetTier {
@@ -96,7 +114,7 @@ function normalizeResolveQueueParamsInput(
   if (!input) {
     return {};
   }
-  if ("model" in input || "base" in input || "samplerPreset" in input || "resolutionOrientation" in input || "resolutionSizeTier" in input) {
+  if ("model" in input || "base" in input || "samplerPreset" in input || "resolutionOrientation" in input || "resolutionSizeTier" in input || "tool" in input || "inputImageFilename" in input || "maskImageFilename" in input || "qualityProfile" in input) {
     return input as ResolveQueueParamsOptions;
   }
   return { base: input as WorkflowParamValues };
@@ -105,16 +123,30 @@ function normalizeResolveQueueParamsInput(
 export function resolveQueueParams(
   input?: WorkflowParamValues | ResolveQueueParamsOptions,
 ): WorkflowParamValues {
-  const { model, base, samplerPreset, resolutionOrientation, resolutionSizeTier } =
+  const { model, base, samplerPreset, resolutionOrientation, resolutionSizeTier, tool, inputImageFilename, maskImageFilename, qualityProfile } =
     normalizeResolveQueueParamsInput(input);
   const settings = loadQueueParamsSettings();
-  const presetTier = samplerPreset ?? loadModelSamplerPresetTier();
+  const shared = loadSettingsCache().shared;
+  const profile = resolveQueueQualityProfile({
+    tool,
+    override: qualityProfile,
+    global: shared.queueQualityProfile,
+    toolProfiles: shared.toolQueueQualityProfiles,
+  });
+  const presetTier = resolveEffectiveSamplerPreset(
+    samplerPreset ?? loadModelSamplerPresetTier(),
+    profile,
+  );
   const orientation = resolutionOrientation ?? loadModelResolutionOrientation();
-  const sizeTier = resolutionSizeTier ?? loadModelResolutionSizeTier();
+  const sizeTier = resolveEffectiveResolutionSizeTier(
+    resolutionSizeTier ?? loadModelResolutionSizeTier(),
+    profile,
+  );
   const modelDefaults = model
     ? {
         ...resolveModelSamplerParams(model, presetTier),
         ...resolveModelResolutionParams(model, orientation, sizeTier),
+        ...resolveModelSamplingParams(model, presetTier),
       }
     : {};
 
@@ -156,6 +188,64 @@ export function resolveQueueParams(
     const value = merged[key];
     if (value == null || value.toString().trim() === "") {
       delete merged[key];
+    }
+  }
+
+  if (model) {
+    const customTokens = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
+    const loaders = resolveLoaderFilenamesForModel(model, {
+      checkpointMap: shared.modelCheckpointMap,
+      vaeMap: shared.modelVaeMap,
+      customTokens,
+    });
+    if (loaders.checkpoint) {
+      merged.checkpointFilename = loaders.checkpoint;
+    }
+    if (loaders.unet) {
+      merged.unetFilename = loaders.unet;
+    }
+    if (loaders.vae) {
+      merged.vaeFilename = loaders.vae;
+    }
+
+    const upscaleModel = resolveUpscaleModelFilename(model, {
+      upscaleMap: shared.modelUpscaleMap,
+      customTokens,
+    });
+    if (upscaleModel) {
+      merged.upscaleModelFilename = upscaleModel;
+    }
+
+    const refinerCheckpoint = resolveRefinerFilenameForModel(model, {
+      refinerMap: shared.modelRefinerMap,
+      customTokens,
+    });
+    if (refinerCheckpoint) {
+      merged.refinerCheckpointFilename = refinerCheckpoint;
+    }
+
+    const resolvedInputImage =
+      inputImageFilename?.trim() ||
+      base?.inputImageFilename?.trim();
+    if (resolvedInputImage) {
+      merged.inputImageFilename = resolvedInputImage;
+    }
+
+    const resolvedMaskImage =
+      maskImageFilename?.trim() ||
+      base?.maskImageFilename?.trim();
+    if (resolvedMaskImage) {
+      merged.maskImageFilename = resolvedMaskImage;
+    }
+
+    const denoise = resolveDenoiseForModel(model, {
+      tool,
+      hasInputImage: Boolean(merged.inputImageFilename),
+      hasMaskImage: Boolean(merged.maskImageFilename),
+      override: shared.editDenoiseStrength,
+    });
+    if (denoise != null) {
+      merged.denoise = denoise;
     }
   }
 

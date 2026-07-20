@@ -245,11 +245,55 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
       medium: { width: 1024, height: 1024 },
       max: { width: 1024, height: 1024 },
     },
+    portrait: {
+      medium: { width: 896, height: 1152 },
+      max: { width: 1024, height: 1280 },
+    },
+    landscape: {
+      medium: { width: 1152, height: 896 },
+      max: { width: 1280, height: 1024 },
+    },
+  },
+  "flux-2-klein-4b-distilled": {
+    square: {
+      medium: { width: 1024, height: 1024 },
+      max: { width: 1024, height: 1024 },
+    },
+    portrait: {
+      medium: { width: 896, height: 1152 },
+      max: { width: 1152, height: 1536 },
+    },
+    landscape: {
+      medium: { width: 1152, height: 896 },
+      max: { width: 1536, height: 1152 },
+    },
   },
   "flux-2-klein-9b": {
     square: {
       medium: { width: 1024, height: 1024 },
       max: { width: 1152, height: 1152 },
+    },
+    portrait: {
+      medium: { width: 896, height: 1152 },
+      max: { width: 1024, height: 1280 },
+    },
+    landscape: {
+      medium: { width: 1152, height: 896 },
+      max: { width: 1280, height: 1024 },
+    },
+  },
+  "flux-2-klein-9b-distilled": {
+    square: {
+      medium: { width: 1024, height: 1024 },
+      max: { width: 1152, height: 1152 },
+    },
+    portrait: {
+      medium: { width: 896, height: 1152 },
+      max: { width: 1024, height: 1280 },
+    },
+    landscape: {
+      medium: { width: 1152, height: 896 },
+      max: { width: 1280, height: 1024 },
     },
   },
   "qwen-image-2512": {
@@ -264,6 +308,72 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
     landscape: {
       medium: { width: 1664, height: 928 },
       max: { width: 1536, height: 1024 },
+    },
+  },
+  "qwen-image-2512-lightning-4": {
+    square: {
+      medium: { width: 1024, height: 1024 },
+      max: { width: 1328, height: 1328 },
+    },
+    portrait: {
+      medium: { width: 928, height: 1664 },
+      max: { width: 1024, height: 1536 },
+    },
+    landscape: {
+      medium: { width: 1664, height: 928 },
+      max: { width: 1536, height: 1024 },
+    },
+  },
+  "qwen-image-2512-lightning-8": {
+    square: {
+      medium: { width: 1024, height: 1024 },
+      max: { width: 1328, height: 1328 },
+    },
+    portrait: {
+      medium: { width: 928, height: 1664 },
+      max: { width: 1024, height: 1536 },
+    },
+    landscape: {
+      medium: { width: 1664, height: 928 },
+      max: { width: 1536, height: 1024 },
+    },
+  },
+  "qwen-image-edit-2511-lightning-4": {
+    square: {
+      medium: { width: 1024, height: 1024 },
+      max: { width: 1328, height: 1328 },
+    },
+  },
+  "qwen-image-edit-2511-lightning-8": {
+    square: {
+      medium: { width: 1024, height: 1024 },
+      max: { width: 1328, height: 1328 },
+    },
+  },
+  "qwen-rapid-aio-edit": {
+    square: {
+      medium: { width: 1024, height: 1024 },
+      max: { width: 1328, height: 1328 },
+    },
+    portrait: {
+      medium: { width: 928, height: 1664 },
+      max: { width: 1024, height: 1536 },
+    },
+    landscape: {
+      medium: { width: 1664, height: 928 },
+      max: { width: 1536, height: 1024 },
+    },
+  },
+  "qwen-rapid-aio-sfw": {
+    square: {
+      medium: { width: 1024, height: 1024 },
+      max: { width: 1328, height: 1328 },
+    },
+  },
+  "qwen-rapid-aio-nsfw": {
+    square: {
+      medium: { width: 1024, height: 1024 },
+      max: { width: 1328, height: 1328 },
     },
   },
   "qwen-image-2.0": {

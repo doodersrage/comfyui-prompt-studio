@@ -2,7 +2,7 @@
 
 import type { ComfyImageModel } from "./comfy-models";
 import type { WorkflowParamValues } from "./comfyui-config";
-import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
+import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { injectLoraTriggers } from "./lora-prompt-injection";
@@ -26,7 +26,7 @@ export async function queueParamExperiment(input: {
   const model = input.model as ComfyImageModel;
   const axis = input.axis ?? "cfg";
   const count = Math.min(8, Math.max(2, input.count ?? 4));
-  const runtime = resolveRuntimeForModel(model);
+  const runtime = resolveRuntimeForQueue(model, "param-experiment");
   const prompt = injectLoraTriggers(input.prompt.trim());
   const base = input.baseParams ?? resolveQueueParams({ model });
   const projectId = loadActiveProjectId();
@@ -97,6 +97,7 @@ export async function queueParamExperiment(input: {
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
       queueParams: params,
       projectId,
+      queueQualityProfile: runtime.queueQualityProfile,
     });
     void scheduleComfyGalleryPoll(data.promptId, {
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",

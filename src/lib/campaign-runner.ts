@@ -4,7 +4,7 @@ import type { ComfyImageModel } from "./comfy-models";
 import { avoidedTokensRequestBody } from "./avoided-tokens";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
+import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { injectLoraTriggers } from "./lora-prompt-injection";
 import { loadActiveProjectId } from "./prompt-projects";
 import { resolveQueueNegativePromptRaw } from "./queue-negative";
@@ -33,7 +33,7 @@ export async function runPromptCampaign(input: {
   const count = Math.min(12, Math.max(1, input.count));
   const results: CampaignStepResult[] = [];
   const projectId = loadActiveProjectId();
-  const runtime = resolveRuntimeForModel(model);
+  const runtime = resolveRuntimeForQueue(model, "campaign");
 
   let prompts: string[] = [];
 
@@ -104,7 +104,7 @@ export async function runPromptCampaign(input: {
       continue;
     }
 
-    const params = resolveQueueParams({ model: input.model });
+    const params = resolveQueueParams({ model: input.model, tool: "campaign" });
     const response = await fetch("/api/comfyui", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -135,6 +135,7 @@ export async function runPromptCampaign(input: {
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
       queueParams: params,
       projectId,
+      queueQualityProfile: runtime.queueQualityProfile,
     });
     void scheduleComfyGalleryPoll(data.promptId, {
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",

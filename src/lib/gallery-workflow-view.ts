@@ -3,6 +3,7 @@
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
 import type { ComfyHistoryWorkflowResult } from "./comfyui-history-workflow";
 import { fetchWorkflowPreview } from "./comfyui-requeue";
+import { resolveQueueParams } from "./queue-params-settings";
 import type { WorkflowParamValues } from "./comfyui-config";
 
 export type GalleryWorkflowView = {
@@ -43,12 +44,24 @@ export async function loadGalleryWorkflowView(
         })
     : Promise.resolve();
 
-  const previewParams = storedParams ?? view.history?.extractedParams;
+  const previewParams = resolveQueueParams({
+    model: entry.model,
+    tool: entry.tool,
+    base: storedParams,
+    qualityProfile: entry.queueQualityProfile,
+  });
 
   const previewPromise = fetchWorkflowPreview({
     prompt: entry.prompt,
     negativePrompt: entry.negativePrompt,
+    model: entry.model,
     params: previewParams,
+    hasInputImage: Boolean(
+      storedParams?.inputImageFilename?.trim() || entry.sourceImageUrl?.trim(),
+    ),
+    hasMaskImage: Boolean(
+      storedParams?.maskImageFilename?.trim() || entry.maskImageUrl?.trim(),
+    ),
   })
     .then((preview) => {
       view.preview = preview;
@@ -61,6 +74,33 @@ export async function loadGalleryWorkflowView(
   await Promise.all([historyPromise, previewPromise]);
 
   return view;
+}
+
+export const GALLERY_WORKFLOW_PARAM_KEYS = [
+  "seed",
+  "width",
+  "height",
+  "cfg",
+  "steps",
+  "denoise",
+  "checkpointFilename",
+  "upscaleModelFilename",
+  "inputImageFilename",
+  "maskImageFilename",
+  "samplerName",
+  "scheduler",
+] as const satisfies ReadonlyArray<keyof WorkflowParamValues>;
+
+export function workflowParamDisplayRows(
+  params: WorkflowParamValues | Record<string, string | number | undefined> | undefined,
+): Array<{ key: string; value: string | number | undefined }> {
+  if (!params) {
+    return [];
+  }
+  return GALLERY_WORKFLOW_PARAM_KEYS.map((key) => ({
+    key,
+    value: params[key],
+  }));
 }
 
 export function formatWorkflowParamValue(value: string | number | undefined): string {

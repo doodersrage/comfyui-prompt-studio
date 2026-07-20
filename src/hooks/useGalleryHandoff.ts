@@ -15,6 +15,7 @@ export function useGalleryHandoff(
     negativePrompt?: string;
     model?: string;
     improveIntent?: string;
+    queueParams?: GalleryHandoffPayload["queueParams"];
     file: File | null;
     previewUrl: string | null;
     payload: GalleryHandoffPayload;
@@ -54,6 +55,7 @@ export function useGalleryHandoff(
         negativePrompt: payload.negativePrompt,
         model: payload.model,
         improveIntent: payload.improveIntent,
+        queueParams: payload.queueParams,
         file,
         previewUrl,
         payload,

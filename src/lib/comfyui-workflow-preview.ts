@@ -1,18 +1,26 @@
 import { resolveComfyUiConfig } from "./comfyui-client";
 import {
   injectPromptsWithFallbacks,
-  resolveCustomWorkflowTokens,
-  resolveQueueParams,
+  resolveQueueInjectionContext,
   stripEmptyComfyUiRuntime,
+  resolveWorkflowGraphEnrichOptions,
   type ComfyUiRuntimeConfig,
   type WorkflowParamValues,
 } from "./comfyui-config";
+import {
+  auditWorkflowPreviewIssues,
+  type WorkflowPlaceholderAuditIssue,
+} from "./workflow-placeholder-audit";
+import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
 
 export type WorkflowPreviewInput = {
   prompt: string;
   negativePrompt?: string;
   params?: WorkflowParamValues;
   comfy?: ComfyUiRuntimeConfig;
+  model?: string;
+  hasInputImage?: boolean;
+  hasMaskImage?: boolean;
 };
 
 export type WorkflowPreviewSnippet = {
@@ -30,10 +38,12 @@ export type WorkflowPreviewResult = {
     params: Partial<Record<keyof WorkflowParamValues, number>>;
     custom?: Record<string, number>;
   };
-  resolvedParams?: Required<WorkflowParamValues>;
+  resolvedParams?: WorkflowParamValues;
   snippets?: WorkflowPreviewSnippet[];
   workflowJson?: string;
   truncated?: boolean;
+  preflightIssues?: WorkflowPlaceholderAuditIssue[];
+  queueOptimizeChanges?: string[];
 };
 
 function findValuePaths(
@@ -97,9 +107,13 @@ export function previewWorkflowInjection(
 
   const runtime = stripEmptyComfyUiRuntime(input.comfy);
   const config = resolveComfyUiConfig(runtime);
-  const resolvedParams = resolveQueueParams(runtime, input.params);
 
   if (!config.workflow) {
+    const { params: resolvedParams } = resolveQueueInjectionContext({
+      runtime,
+      override: input.params,
+      model: input.model ?? runtime?.queueTargetModel,
+    });
     return {
       ok: true,
       workflowSource: "minimal",
@@ -114,18 +128,40 @@ export function previewWorkflowInjection(
     };
   }
 
+  const { params: resolvedParams, loaders, customTokens } = resolveQueueInjectionContext({
+    runtime,
+    override: input.params,
+    model: input.model ?? runtime?.queueTargetModel,
+    workflow: config.workflow,
+  });
+
+  const optimized =
+    runtime?.workflowQueueOptimize !== false
+      ? optimizeWorkflowForQueue({
+          workflow: config.workflow,
+          tokens: config.placeholderTokens,
+          model: input.model ?? runtime?.queueTargetModel,
+          qualityProfile: runtime?.queueQualityProfile,
+          upscaleModelFilename: resolvedParams.upscaleModelFilename,
+          refinerCheckpointFilename: resolvedParams.refinerCheckpointFilename,
+          ...resolveWorkflowGraphEnrichOptions(runtime),
+        })
+      : { workflow: config.workflow, changes: [] as import("./workflow-queue-optimizer").WorkflowQueueOptimizeChange[] };
+
   const injected = injectPromptsWithFallbacks(
-    config.workflow,
+    optimized.workflow,
     {
       positive: prompt,
       negative: input.negativePrompt,
       params: resolvedParams,
-      customTokens: resolveCustomWorkflowTokens(runtime),
+      customTokens,
     },
     config.placeholderTokens,
     {
       legacyPositiveNodeId: config.legacyPositiveNodeId,
       legacyNegativeNodeId: config.legacyNegativeNodeId,
+      directWorkflowPatching: runtime?.directWorkflowPatching,
+      loaders,
     },
   );
 
@@ -148,6 +184,28 @@ export function previewWorkflowInjection(
 
   const workflowJson = JSON.stringify(injected.workflow, null, 2);
   const truncated = workflowJson.length > MAX_PREVIEW_CHARS;
+  const model = input.model ?? "qwen-image-2512";
+  const optimizerWarnings: WorkflowPlaceholderAuditIssue[] = optimized.changes
+    .filter((change) => change.severity === "warn")
+    .map((change) => ({ severity: "warn", message: change.message }));
+  const preflightIssues =
+    config.workflowSource === "minimal"
+      ? []
+      : [
+          ...optimizerWarnings,
+          ...auditWorkflowPreviewIssues({
+            workflowJson,
+            model,
+            hasInputImage:
+              input.hasInputImage ?? Boolean(resolvedParams.inputImageFilename),
+            hasMaskImage:
+              input.hasMaskImage ?? Boolean(resolvedParams.maskImageFilename),
+          }),
+        ];
+
+  const queueOptimizeChanges = optimized.changes
+    ?.filter((change) => change.severity === "info")
+    .map((change) => change.message);
 
   return {
     ok: true,
@@ -164,5 +222,7 @@ export function previewWorkflowInjection(
       ? `${workflowJson.slice(0, MAX_PREVIEW_CHARS)}\n…`
       : workflowJson,
     truncated,
+    preflightIssues,
+    queueOptimizeChanges,
   };
 }

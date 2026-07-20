@@ -36,7 +36,8 @@ import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import type { BatchFromTopicsItem } from "@/lib/batch-from-topics";
 import type { TopicGenerateResult } from "@/lib/specialized/types";
 import { topicVarietyLabel } from "@/lib/tool-ui-labels";
-import { resolveComfyUiRuntime } from "@/lib/comfyui-runtime";
+import { resolveRuntimeForQueue } from "@/lib/comfyui-runtime-for-model";
+import { resolveQueueParams } from "@/lib/queue-params-settings";
 import {
   registerComfyGalleryJob,
 } from "@/lib/comfyui-gallery-client";
@@ -262,6 +263,7 @@ export default function TopicTool() {
           model: shared.model,
           prompts,
           negativePrompt,
+          tool: "topics",
         });
         if (!preflight.ok) {
           throw new Error(
@@ -271,19 +273,27 @@ export default function TopicTool() {
               .join(" · ") || "Workflow pre-flight failed.",
           );
         }
-        const runtime = resolveComfyUiRuntime();
+        const runtime = resolveRuntimeForQueue(shared.model, "topics");
         setQueueProgress({
           phase: "queueing",
           current: 0,
           total: prompts.length,
           message: "Submitting prompts to ComfyUI…",
         });
+        const paramsPerPrompt = prompts.map((_, index) =>
+          resolveQueueParams({
+            model: shared.model,
+            tool: "topics",
+            base: { seed: String(Math.floor(Math.random() * 2 ** 32) + index) },
+          }),
+        );
         const response = await fetch("/api/comfyui", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompts,
             negativePrompt,
+            paramsPerPrompt,
             ...(runtime ? { comfy: runtime } : {}),
           }),
         });
@@ -301,16 +311,19 @@ export default function TopicTool() {
           if (!result.promptId) {
             continue;
           }
+          const comfyUrl = result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188";
           registerComfyGalleryJob({
             promptId: result.promptId,
             prompt: prompts[index] ?? "",
             negativePrompt,
             tool: "topics",
             model: shared.model,
-            comfyUrl: result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188",
+            comfyUrl,
+            queueParams: paramsPerPrompt[index],
+            queueQualityProfile: runtime.queueQualityProfile,
           });
           void scheduleComfyGalleryPoll(result.promptId, {
-            comfyUrl: result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188",
+            comfyUrl,
           });
         }
 

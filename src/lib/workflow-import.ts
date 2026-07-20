@@ -1,17 +1,24 @@
 import {
   DEFAULT_CFG_TOKEN,
+  DEFAULT_DENOISE_TOKEN,
+  DEFAULT_FLUX_BASE_SHIFT_TOKEN,
+  DEFAULT_FLUX_MAX_SHIFT_TOKEN,
   DEFAULT_HEIGHT_TOKEN,
+  DEFAULT_INPUT_IMAGE_TOKEN,
+  DEFAULT_MASK_IMAGE_TOKEN,
   DEFAULT_NEGATIVE_TOKEN,
   DEFAULT_POSITIVE_TOKEN,
+  DEFAULT_SAMPLER_TOKEN,
+  DEFAULT_SCHEDULER_TOKEN,
   DEFAULT_SEED_TOKEN,
+  DEFAULT_SHIFT_TOKEN,
   DEFAULT_STEPS_TOKEN,
   DEFAULT_WIDTH_TOKEN,
   detectWorkflowPlaceholders,
   listWorkflowNodeIds,
   type WorkflowPlaceholderTokens,
 } from "./comfyui-config";
-import { applyWorkflowNodeBindings } from "./workflow-apply-bindings";
-import { suggestWorkflowNodeMappings } from "./workflow-node-mapper";
+import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
 
 export type WorkflowImportResult = {
   ok: boolean;
@@ -211,6 +218,14 @@ export function prepareWorkflowJsonImport(
     height: DEFAULT_HEIGHT_TOKEN,
     cfg: DEFAULT_CFG_TOKEN,
     steps: DEFAULT_STEPS_TOKEN,
+    sampler: DEFAULT_SAMPLER_TOKEN,
+    scheduler: DEFAULT_SCHEDULER_TOKEN,
+    shift: DEFAULT_SHIFT_TOKEN,
+    fluxMaxShift: DEFAULT_FLUX_MAX_SHIFT_TOKEN,
+    fluxBaseShift: DEFAULT_FLUX_BASE_SHIFT_TOKEN,
+    denoise: DEFAULT_DENOISE_TOKEN,
+    inputImage: DEFAULT_INPUT_IMAGE_TOKEN,
+    maskImage: DEFAULT_MASK_IMAGE_TOKEN,
   },
 ): WorkflowImportResult {
   const parsedResult = parseImportJson(raw);
@@ -244,18 +259,14 @@ export function prepareWorkflowJsonImport(
 
   let workflowJson = JSON.stringify(workflow, null, 2);
   let notice: string | undefined;
-  let autoAppliedBindings = 0;
 
-  let placeholders = detectWorkflowPlaceholders(workflowJson, tokens);
-  if (placeholders.positive === 0) {
-    const mappings = suggestWorkflowNodeMappings(workflowJson);
-    const applied = applyWorkflowNodeBindings(workflowJson, mappings, tokens);
-    if (applied.changes.length > 0) {
-      workflowJson = applied.json;
-      autoAppliedBindings = applied.changes.length;
-      placeholders = detectWorkflowPlaceholders(workflowJson, tokens);
-      notice = `Auto-applied ${applied.changes.length} placeholder binding(s). Review the JSON before queueing.`;
-    }
+  const optimized = optimizeWorkflowForQueue({ workflow, tokens });
+  workflowJson = optimized.workflowJson;
+  const placeholders = optimized.audit.placeholders;
+  const autoAppliedBindings = optimized.bindingChanges.length;
+
+  if (autoAppliedBindings > 0) {
+    notice = `Auto-applied ${autoAppliedBindings} placeholder binding(s). Review the JSON before queueing.`;
   }
 
   if (placeholders.positive === 0) {

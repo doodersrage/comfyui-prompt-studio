@@ -1,4 +1,11 @@
+"use client";
+
 import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import type { ComfyImageModel } from "./comfy-models";
+import { registerComfyGalleryJob } from "./comfyui-gallery-client";
+import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
+import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
+import { resolveQueueParams } from "./queue-params-settings";
 
 export type PromptRecipeStep =
   | "generate"
@@ -82,12 +89,40 @@ export async function runPromptRecipeSteps(
       continue;
     }
     if (step === "queue") {
-      await fetch("/api/comfyui", {
+      const comfyModel = model as ComfyImageModel;
+      const runtime = resolveRuntimeForQueue(comfyModel, "recipe");
+      const params = resolveQueueParams({ model: comfyModel, tool: "recipe" });
+      const response = await fetch("/api/comfyui", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompts: [{ prompt: current }] }),
+        body: JSON.stringify({
+          prompt: current,
+          params,
+          ...(runtime ? { comfy: runtime } : {}),
+        }),
       });
-      log.push("Queued to ComfyUI");
+      const data = (await response.json()) as {
+        promptId?: string;
+        comfyUrl?: string;
+        error?: string;
+      };
+      if (response.ok && data.promptId) {
+        registerComfyGalleryJob({
+          promptId: data.promptId,
+          prompt: current,
+          tool: "recipe",
+          model: comfyModel,
+          comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
+          queueParams: params,
+          queueQualityProfile: runtime.queueQualityProfile,
+        });
+        void scheduleComfyGalleryPoll(data.promptId, {
+          comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
+        });
+        log.push("Queued to ComfyUI");
+      } else {
+        log.push(data.error ?? "ComfyUI queue failed");
+      }
     }
   }
 

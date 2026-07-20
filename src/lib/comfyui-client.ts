@@ -6,8 +6,10 @@ import {
   injectPromptsWithFallbacks,
   parseWorkflowJson,
   resolvePlaceholderTokens,
-  resolveQueueParams,
-  resolveCustomWorkflowTokens,
+  resolveQueueInjectionContext,
+  resolveWorkflowGraphEnrichOptions,
+  findUnresolvedLoaderPlaceholders,
+  normalizeComfyApiWorkflow,
   type WorkflowParamValues,
 } from "./comfyui-config";
 import { writeQueueArtifact } from "./queue-artifacts";
@@ -19,11 +21,14 @@ import {
   isComfyClientUrlAllowed,
   normalizeSafeHttpUrl,
 } from "./url-safety";
+import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
 
 export type ComfyQueueRequest = {
   prompt: string;
   negativePrompt?: string;
   params?: WorkflowParamValues;
+  /** Target model for server-side loader resolution when runtime is trimmed. */
+  model?: string;
   workflowId?: string;
   nodeTitle?: string;
 };
@@ -102,7 +107,8 @@ export function resolveComfyUiConfig(
     ? loadServerWorkflowJson(runtime.workflowFileId)
     : null;
   const envWorkflow = selectedServerWorkflow ?? loadWorkflowFromEnv();
-  const workflow = clientWorkflow ?? envWorkflow;
+  const workflowRaw = clientWorkflow ?? envWorkflow;
+  const workflow = workflowRaw ? normalizeComfyApiWorkflow(workflowRaw) : null;
 
   return {
     apiUrl: getComfyUiBaseUrl(runtime),
@@ -127,10 +133,26 @@ function injectPromptsIntoWorkflow(
   config: ResolvedComfyUiConfig,
   runtime?: ComfyUiRuntimeConfig,
 ) {
-  const params = resolveQueueParams(runtime, request.params);
-  const customTokens = resolveCustomWorkflowTokens(runtime);
-  return injectPromptsWithFallbacks(
+  const { params, loaders, customTokens } = resolveQueueInjectionContext({
+    runtime,
+    override: request.params,
+    model: request.model ?? runtime?.queueTargetModel,
     workflow,
+  });
+  const optimized =
+    runtime?.workflowQueueOptimize !== false
+      ? optimizeWorkflowForQueue({
+          workflow,
+          tokens: config.placeholderTokens,
+          model: runtime?.queueTargetModel ?? request.model,
+          qualityProfile: runtime?.queueQualityProfile,
+          upscaleModelFilename: params.upscaleModelFilename,
+          refinerCheckpointFilename: params.refinerCheckpointFilename,
+          ...resolveWorkflowGraphEnrichOptions(runtime),
+        })
+      : { workflow };
+  return injectPromptsWithFallbacks(
+    optimized.workflow,
     {
       positive: request.prompt,
       negative: request.negativePrompt,
@@ -141,6 +163,8 @@ function injectPromptsIntoWorkflow(
     {
       legacyPositiveNodeId: config.legacyPositiveNodeId,
       legacyNegativeNodeId: config.legacyNegativeNodeId,
+      directWorkflowPatching: runtime?.directWorkflowPatching,
+      loaders,
     },
   );
 }
@@ -160,6 +184,24 @@ export async function queuePromptToComfyUi(
             config,
             runtime,
           );
+          const unresolved = findUnresolvedLoaderPlaceholders(injected.workflow);
+          if (unresolved.length > 0) {
+            const modelHint =
+              request.model ?? runtime?.queueTargetModel ?? "unknown";
+            const loaderHint = [
+              request.params?.unetFilename
+                ? `unet=${request.params.unetFilename}`
+                : null,
+              request.params?.vaeFilename
+                ? `vae=${request.params.vaeFilename}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(", ");
+            throw new Error(
+              `Workflow still has unresolved loader placeholders (${unresolved.join(", ")}) for model "${modelHint}"${loaderHint ? ` (${loaderHint})` : ""}. Set Settings → checkpoint/VAE maps for your model, then retry.`,
+            );
+          }
           return {
             prompt: injected.workflow,
             workflowSource:

@@ -27,7 +27,12 @@ import {
   buildShareableSceneParams,
   parseScenePresetFromSearch,
 } from "./scene-preset-url";
-import { buildPromptSidecar, parsePromptSidecar } from "./prompt-sidecar";
+import {
+  buildPromptSidecar,
+  parsePromptSidecar,
+  sidecarQueueParams,
+  sidecarRequeueContext,
+} from "./prompt-sidecar";
 import { previewWorkflowInjection } from "./comfyui-workflow-preview";
 import { formatComfyUiJobStatusLine } from "./comfyui-job-status";
 import { validateWorkflowJson, stripEmptyComfyUiRuntime, injectWorkflowPlaceholders } from "./comfyui-config";
@@ -671,6 +676,31 @@ describe("prompt sidecar", () => {
   it("rejects invalid sidecar files", () => {
     assert.throws(() => parsePromptSidecar("{}"));
   });
+
+  it("extracts queue params and image URLs from gallery sidecar metadata", () => {
+    const sidecar = buildPromptSidecar({
+      positive: "Inpaint the sky",
+      model: "flux-inpaint",
+      tool: "inpaint",
+      metadata: {
+        comfyUrl: "http://127.0.0.1:8188",
+        queueParams: {
+          seed: "42",
+          inputImageFilename: "source.png",
+          maskImageFilename: "mask.png",
+        },
+        sourceImageUrl: "/api/comfyui/view?filename=source.png",
+        maskImageUrl: "/api/comfyui/view?filename=mask.png",
+        queueQualityProfile: "final",
+      },
+    });
+    assert.deepEqual(sidecarQueueParams(sidecar)?.seed, "42");
+    const requeue = sidecarRequeueContext(sidecar);
+    assert.equal(requeue.queueParams?.inputImageFilename, "source.png");
+    assert.equal(requeue.queueQualityProfile, "final");
+    assert.match(requeue.sourceImageUrl ?? "", /source\.png/);
+    assert.match(requeue.maskImageUrl ?? "", /mask\.png/);
+  });
 });
 
 describe("comfyui workflow preview", () => {
@@ -712,6 +742,32 @@ describe("comfyui workflow preview", () => {
     assert.equal(preview.replacements?.negative, 1);
     assert.equal(preview.resolvedParams?.seed, "999");
     assert.match(preview.workflowJson ?? "", /Two cyclists racing/);
+  });
+
+  it("returns preflight issues for unresolved checkpoint tokens", () => {
+    const preview = previewWorkflowInjection({
+      prompt: "Portrait",
+      comfy: {
+        workflowJson: JSON.stringify({
+          "4": {
+            class_type: "CheckpointLoaderSimple",
+            inputs: { ckpt_name: "{{CHECKPOINT}}" },
+          },
+          "6": {
+            class_type: "CLIPTextEncode",
+            inputs: { text: "{{POSITIVE}}", clip: ["4", 1] },
+          },
+        }),
+      },
+    });
+
+    assert.equal(preview.ok, true);
+    assert.equal(
+      preview.preflightIssues?.some(
+        (issue) => issue.severity === "error" && issue.message.includes("CHECKPOINT"),
+      ),
+      true,
+    );
   });
 
   it("previews {{PROMPT}} alias tokens", () => {
@@ -911,6 +967,31 @@ describe("comfyui workflow config", () => {
     assert.deepEqual(stripEmptyComfyUiRuntime({ apiUrl: "http://127.0.0.1:8188" }), {
       apiUrl: "http://127.0.0.1:8188",
     });
+  });
+
+  it("preserves queue target model and loader params through runtime strip", () => {
+    assert.deepEqual(
+      stripEmptyComfyUiRuntime({
+        workflowFileId: "abc123",
+        queueTargetModel: "flux-2-klein-9b",
+        queueQualityProfile: "final",
+        directWorkflowPatching: false,
+        queueParams: {
+          unetFilename: "flux-2-klein-9b.safetensors",
+          vaeFilename: "flux2-vae.safetensors",
+        },
+      }),
+      {
+        workflowFileId: "abc123",
+        queueTargetModel: "flux-2-klein-9b",
+        queueQualityProfile: "final",
+        directWorkflowPatching: false,
+        queueParams: {
+          unetFilename: "flux-2-klein-9b.safetensors",
+          vaeFilename: "flux2-vae.safetensors",
+        },
+      },
+    );
   });
 });
 
@@ -1321,6 +1402,86 @@ describe("workflow category defaults", () => {
     assert.ok(map["qwen-image-2512"]);
   });
 
+  it("prefers lightning workflows for lightning model ids", async () => {
+    const { suggestWorkflowDefaultsByCategory } = await import("./workflow-category-defaults");
+    const map = suggestWorkflowDefaultsByCategory([
+      {
+        id: "qwen-standard",
+        name: "Qwen 2512 standard",
+        filename: "qwen-image-2512.json",
+        workflowJson: "{}",
+      },
+      {
+        id: "qwen-lightning-4",
+        name: "Qwen 2512 Lightning 4-step",
+        filename: "qwen-2512-lightning-4steps.json",
+        workflowJson: "{}",
+      },
+    ]);
+    assert.equal(map["qwen-image-2512-lightning-4"], "qwen-lightning-4");
+    assert.equal(map["qwen-image-2512"], "qwen-standard");
+  });
+
+  it("prefers distilled klein workflows for distilled model ids", async () => {
+    const { suggestWorkflowDefaultsByCategory } = await import("./workflow-category-defaults");
+    const map = suggestWorkflowDefaultsByCategory([
+      {
+        id: "klein-base",
+        name: "Flux Klein 4B base",
+        filename: "flux-2-klein-base-4b.json",
+        workflowJson: "{}",
+      },
+      {
+        id: "klein-distilled",
+        name: "Flux Klein 4B distilled",
+        filename: "flux-2-klein-4b.json",
+        workflowJson: "{}",
+      },
+    ]);
+    assert.equal(map["flux-2-klein-4b-distilled"], "klein-distilled");
+    assert.equal(map["flux-2-klein"], "klein-base");
+  });
+
+  it("prefers 9b distilled klein workflows for 9b distilled model ids", async () => {
+    const { suggestWorkflowDefaultsByCategory } = await import("./workflow-category-defaults");
+    const map = suggestWorkflowDefaultsByCategory([
+      {
+        id: "klein-base-9b",
+        name: "Flux Klein 9B base",
+        filename: "flux-2-klein-base-9b.json",
+        workflowJson: "{}",
+      },
+      {
+        id: "klein-distilled-9b",
+        name: "FLUX-KLEIN-9B-distilled",
+        filename: "FLUX-KLEIN-9B-distilled.json",
+        workflowJson: "{}",
+      },
+    ]);
+    assert.equal(map["flux-2-klein-9b-distilled"], "klein-distilled-9b");
+    assert.equal(map["flux-2-klein-9b"], "klein-base-9b");
+  });
+
+  it("prefers rapid aio workflows for aio checkpoint model ids", async () => {
+    const { suggestWorkflowDefaultsByCategory } = await import("./workflow-category-defaults");
+    const map = suggestWorkflowDefaultsByCategory([
+      {
+        id: "qwen-standard",
+        name: "Qwen 2511 edit",
+        filename: "qwen-image-edit-2511.json",
+        workflowJson: "{}",
+      },
+      {
+        id: "rapid-aio",
+        name: "Qwen Rapid AIO NSFW v23",
+        filename: "qwen-rapid-aio-nsfw-v23.json",
+        workflowJson: "{}",
+      },
+    ]);
+    assert.equal(map["qwen-rapid-aio-nsfw"], "rapid-aio");
+    assert.equal(map["qwen-image-edit-2511"], "qwen-standard");
+  });
+
   it("infers models from workflow labels", async () => {
     const { inferModelsFromWorkflowLabel } = await import("./workflow-category-defaults");
     const fluxModels = inferModelsFromWorkflowLabel({
@@ -1443,7 +1604,9 @@ describe("gallery handoff", () => {
   it("builds refine and image prompt paths", async () => {
     const { galleryHandoffPath, galleryImprovePath } = await import("./gallery-handoff");
     assert.equal(galleryHandoffPath("refine"), "/refine?from=gallery");
+    assert.equal(galleryHandoffPath("inpaint"), "/inpaint?from=gallery");
     assert.equal(galleryHandoffPath("imagePrompt"), "/image-prompt?from=gallery");
+    assert.equal(galleryHandoffPath("controlnet"), "/controlnet?from=gallery");
     assert.equal(galleryHandoffPath("promptEditor"), "/prompt?from=gallery");
     assert.equal(galleryImprovePath(), "/refine?from=gallery&improve=1");
   });
@@ -1576,6 +1739,172 @@ describe("queue params settings", () => {
     const params = resolveQueueParams({ seed: "42", width: "1024" });
     assert.equal(params.seed, "42");
     assert.equal(params.width, "1024");
+  });
+});
+
+describe("comfyui runtime queue params", () => {
+  it("preserves model sampling params from client overrides", async () => {
+    const { resolveQueueParams } = await import("./comfyui-config");
+    const params = resolveQueueParams(undefined, {
+      seed: "42",
+      samplingShift: 1.73,
+      fluxMaxShift: 1.15,
+      fluxBaseShift: 0.5,
+    });
+    assert.equal(params.samplingShift, 1.73);
+    assert.equal(params.fluxMaxShift, 1.15);
+    assert.equal(params.fluxBaseShift, 0.5);
+  });
+
+  it("preserves loader filenames from client params on the server merge path", async () => {
+    const { resolveQueueParams } = await import("./comfyui-config");
+    const params = resolveQueueParams(undefined, {
+      unetFilename: "flux-2-klein-9b.safetensors",
+      vaeFilename: "flux2-vae.safetensors",
+    });
+    assert.equal(params.unetFilename, "flux-2-klein-9b.safetensors");
+    assert.equal(params.vaeFilename, "flux2-vae.safetensors");
+  });
+
+  it("fills missing loader filenames from model registry on the server", async () => {
+    const { ensureQueueLoaderParams } = await import("./comfyui-config");
+    const params = ensureQueueLoaderParams({ seed: "1" }, "flux-2-klein-9b");
+    assert.equal(params.unetFilename, "flux-2-klein-9b.safetensors");
+    assert.equal(params.vaeFilename, "flux2-vae.safetensors");
+  });
+
+  it("replaces UNET and VAE placeholders during injection", async () => {
+    const { injectPromptsWithFallbacks, DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN } =
+      await import("./comfyui-config");
+    const result = injectPromptsWithFallbacks(
+      {
+        "228": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: "default" },
+        },
+        "230": {
+          class_type: "VAELoader",
+          inputs: { vae_name: DEFAULT_VAE_TOKEN },
+        },
+      },
+      {
+        positive: "Portrait",
+        params: {
+          unetFilename: "flux-2-klein-9b.safetensors",
+          vaeFilename: "flux2-vae.safetensors",
+        },
+      },
+      {
+        positive: "{{POSITIVE}}",
+        negative: "{{NEGATIVE}}",
+        seed: "{{SEED}}",
+        width: "{{WIDTH}}",
+        height: "{{HEIGHT}}",
+        cfg: "{{CFG}}",
+        steps: "{{STEPS}}",
+        sampler: "{{SAMPLER}}",
+        scheduler: "{{SCHEDULER}}",
+        shift: "{{SHIFT}}",
+        fluxMaxShift: "{{FLUX_MAX_SHIFT}}",
+        fluxBaseShift: "{{FLUX_BASE_SHIFT}}",
+        denoise: "{{DENOISE}}",
+        inputImage: "{{INPUT_IMAGE}}",
+        maskImage: "{{MASK_IMAGE}}",
+      },
+    );
+    const unet = result.workflow["228"] as { inputs?: { unet_name?: string } };
+    const vae = result.workflow["230"] as { inputs?: { vae_name?: string } };
+    assert.equal(unet.inputs?.unet_name, "flux-2-klein-9b.safetensors");
+    assert.equal(vae.inputs?.vae_name, "flux2-vae.safetensors");
+    assert.equal(result.customReplacements?.[DEFAULT_UNET_TOKEN], 1);
+    assert.equal(result.customReplacements?.[DEFAULT_VAE_TOKEN], 1);
+  });
+
+  it("resolves UNET/VAE through queue injection context when only model is known", async () => {
+    const {
+      resolveQueueInjectionContext,
+      injectPromptsWithFallbacks,
+      stripEmptyComfyUiRuntime,
+      DEFAULT_UNET_TOKEN,
+      DEFAULT_VAE_TOKEN,
+    } = await import("./comfyui-config");
+
+    const runtime = stripEmptyComfyUiRuntime({
+      workflowFileId: "abc123",
+      queueTargetModel: "flux-2-klein-9b",
+    });
+
+    const { params, loaders, customTokens } = resolveQueueInjectionContext({
+      runtime,
+      override: { seed: "1" },
+      model: "flux-2-klein-9b",
+    });
+
+    assert.equal(params.unetFilename, "flux-2-klein-9b.safetensors");
+    assert.equal(params.vaeFilename, "flux2-vae.safetensors");
+
+    const result = injectPromptsWithFallbacks(
+      {
+        "228": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: "default" },
+        },
+        "230": {
+          class_type: "VAELoader",
+          inputs: { vae_name: DEFAULT_VAE_TOKEN },
+        },
+      },
+      {
+        positive: "Portrait",
+        params,
+        customTokens,
+      },
+      {
+        positive: "{{POSITIVE}}",
+        negative: "{{NEGATIVE}}",
+        seed: "{{SEED}}",
+        width: "{{WIDTH}}",
+        height: "{{HEIGHT}}",
+        cfg: "{{CFG}}",
+        steps: "{{STEPS}}",
+        sampler: "{{SAMPLER}}",
+        scheduler: "{{SCHEDULER}}",
+        shift: "{{SHIFT}}",
+        fluxMaxShift: "{{FLUX_MAX_SHIFT}}",
+        fluxBaseShift: "{{FLUX_BASE_SHIFT}}",
+        denoise: "{{DENOISE}}",
+        inputImage: "{{INPUT_IMAGE}}",
+        maskImage: "{{MASK_IMAGE}}",
+      },
+      { loaders },
+    );
+
+    const unet = result.workflow["228"] as { inputs?: { unet_name?: string } };
+    const vae = result.workflow["230"] as { inputs?: { vae_name?: string } };
+    assert.equal(unet.inputs?.unet_name, "flux-2-klein-9b.safetensors");
+    assert.equal(vae.inputs?.vae_name, "flux2-vae.safetensors");
+  });
+
+  it("resolves loaders using checkpoint map forwarded in runtime", async () => {
+    const { resolveQueueInjectionContext } = await import("./comfyui-config");
+
+    const { params, loaders } = resolveQueueInjectionContext({
+      runtime: {
+        queueTargetModel: "custom-flux-model",
+        modelCheckpointMap: {
+          "custom-flux-model": "flux-2-klein-9b-fp8.safetensors",
+        },
+        modelVaeMap: {
+          "custom-flux-model": "FLUX.2-klein-9B.safetensors",
+        },
+      },
+      override: { seed: "1" },
+    });
+
+    assert.equal(params.unetFilename, "flux-2-klein-9b-fp8.safetensors");
+    assert.equal(params.vaeFilename, "FLUX.2-klein-9B.safetensors");
+    assert.equal(loaders.unet, "flux-2-klein-9b-fp8.safetensors");
+    assert.equal(loaders.vae, "FLUX.2-klein-9B.safetensors");
   });
 });
 

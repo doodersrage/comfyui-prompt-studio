@@ -14,7 +14,7 @@ import {
 import type { ComfyImageModel } from "@/lib/comfy-models";
 import type { DetailLevel } from "@/lib/detail-level";
 import type { AthleticSport } from "@/lib/athletic-sport-profiles";
-import { resolveRuntimeForModel } from "@/lib/comfyui-runtime-for-model";
+import { resolveRuntimeForQueue } from "@/lib/comfyui-runtime-for-model";
 import { startImproveFromResult, startPromptEditorFromResult, startRefineFromResult } from "@/lib/improve-output";
 import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import {
@@ -34,6 +34,7 @@ import {
 } from "@/lib/prompt-lineage-session";
 import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
+import { resolveQueueInputImageFilename } from "@/lib/queue-input-image";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { applyQueuePromptSteering, prepareQueuePrompts } from "@/lib/queue-prompt-prep";
 import { resolveQueueNegativePromptRaw } from "@/lib/queue-negative";
@@ -101,6 +102,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         comfyUrl: string;
         historyId?: string;
         queueParams?: WorkflowParamValues;
+        queueQualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
       },
       showPreview = true,
     ) => {
@@ -113,6 +115,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         comfyUrl: input.comfyUrl,
         historyId: input.historyId,
         queueParams: input.queueParams,
+        queueQualityProfile: input.queueQualityProfile,
         projectId: loadActiveProjectId(),
       });
 
@@ -342,7 +345,17 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       prompt: string,
       sport?: AthleticSport | null,
       historyId?: string,
-      options?: { explicitNegative?: string },
+      options?: {
+        explicitNegative?: string;
+        inputImage?: File | null;
+        inputImageFilename?: string;
+        inputImageUrl?: string;
+        maskImage?: File | null;
+        maskImageFilename?: string;
+        maskImageUrl?: string;
+        queueParamsBase?: WorkflowParamValues;
+        qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
+      },
     ) => {
       if (!prompt) {
         return;
@@ -364,6 +377,18 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           model: config.model,
           prompts: [preparedPrompt],
           negativePrompt,
+          tool: config.tool,
+          queueParams: options?.queueParamsBase,
+          hasInputImage: Boolean(
+            options?.inputImage ||
+              options?.inputImageUrl?.trim() ||
+              options?.inputImageFilename?.trim(),
+          ),
+          hasMaskImage: Boolean(
+            options?.maskImage ||
+              options?.maskImageUrl?.trim() ||
+              options?.maskImageFilename?.trim(),
+          ),
         });
         if (!preflight.ok) {
           throw new Error(
@@ -374,8 +399,37 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           );
         }
 
-        const queueParams = resolveQueueParams({ model: config.model });
-        const runtime = resolveRuntimeForModel(config.model);
+        let inputImageFilename = options?.inputImageFilename?.trim();
+        if (options?.inputImage || options?.inputImageUrl?.trim()) {
+          setComfyUiStatus("Uploading image to ComfyUI…");
+          inputImageFilename = await resolveQueueInputImageFilename({
+            file: options.inputImage,
+            filename: options.inputImageFilename,
+            imageUrl: options.inputImageUrl,
+            model: config.model,
+          });
+        }
+
+        let maskImageFilename = options?.maskImageFilename?.trim();
+        if (options?.maskImage || options?.maskImageUrl?.trim()) {
+          setComfyUiStatus("Uploading mask to ComfyUI…");
+          maskImageFilename = await resolveQueueInputImageFilename({
+            file: options.maskImage,
+            filename: options.maskImageFilename,
+            imageUrl: options.maskImageUrl,
+            model: config.model,
+          });
+        }
+
+        const queueParams = resolveQueueParams({
+          model: config.model,
+          tool: config.tool,
+          base: options?.queueParamsBase,
+          inputImageFilename,
+          maskImageFilename,
+          qualityProfile: options?.qualityProfile,
+        });
+        const runtime = resolveRuntimeForQueue(config.model, config.tool);
         const autoSaveEnabled = loadComfyUiSettings().autoSaveHistoryOnQueue !== false;
         const resolvedHistoryId =
           historyId ??
@@ -393,6 +447,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           body: JSON.stringify({
             prompt: preparedPrompt,
             negativePrompt,
+            model: config.model,
             params: queueParams,
             ...(runtime ? { comfy: runtime } : {}),
           }),
@@ -435,6 +490,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
             historyId: resolvedHistoryId,
             queueParams,
+            queueQualityProfile: runtime?.queueQualityProfile,
           });
           markOnboardingFirstQueue();
           void dispatchWebhook({
@@ -477,7 +533,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const preview = await fetchWorkflowPreview({
           prompt: preparedPrompt,
           negativePrompt,
-          params: resolveQueueParams({ model: config.model }),
+          model: config.model,
+          params: resolveQueueParams({ model: config.model, tool: config.tool }),
         });
         setWorkflowPreview(preview);
         setPreviewStatus("Workflow preview ready (not queued).");
@@ -519,10 +576,23 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           }).positive,
         );
 
+        const runtime = resolveRuntimeForQueue(config.model, config.tool);
+        const paramsPerPrompt = prepared.map((_, index) =>
+          resolveQueueParams({
+            model: config.model,
+            tool: config.tool,
+            base: {
+              seed: String(Math.floor(Math.random() * 2 ** 32) + index),
+            },
+          }),
+        );
+
         const preflight = await runWorkflowPreflight({
           model: config.model,
           prompts: prepared,
           negativePrompt,
+          tool: config.tool,
+          queueParams: paramsPerPrompt[0],
         });
         if (!preflight.ok) {
           throw new Error(
@@ -533,7 +603,6 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           );
         }
 
-        const runtime = resolveRuntimeForModel(config.model);
         const autoSaveEnabled = loadComfyUiSettings().autoSaveHistoryOnQueue !== false;
         const batchHistoryId =
           autoSaveEnabled && !historySaved && prepared.length > 0
@@ -554,14 +623,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           body: JSON.stringify({
             prompts: prepared,
             negativePrompt,
-            paramsPerPrompt: prepared.map((_, index) =>
-              resolveQueueParams({
-                model: config.model,
-                base: {
-                  seed: String(Math.floor(Math.random() * 2 ** 32) + index),
-                },
-              }),
-            ),
+            model: config.model,
+            paramsPerPrompt,
             ...(runtime ? { comfy: runtime } : {}),
           }),
         });
@@ -587,20 +650,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           if (!result.promptId) {
             continue;
           }
-          const queueParams = resolveQueueParams({
-            model: config.model,
-            base: {
-              seed: String(Math.floor(Math.random() * 2 ** 32) + index),
-            },
-          });
           trackComfyUiJob(
             {
               promptId: result.promptId,
               prompt: prepared[index] ?? prepared[0] ?? "",
               negativePrompt,
               comfyUrl: result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188",
-              queueParams,
+              queueParams: paramsPerPrompt[index] ?? paramsPerPrompt[0],
               historyId: index === 0 ? batchHistoryId : undefined,
+              queueQualityProfile: runtime?.queueQualityProfile,
             },
             false,
           );
@@ -807,6 +865,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         sport?: AthleticSport | null;
         maxChars?: number;
         queueComfyUi?: boolean;
+        inputImage?: File | null;
+        inputImageFilename?: string;
+        inputImageUrl?: string;
+        maskImage?: File | null;
+        maskImageFilename?: string;
+        maskImageUrl?: string;
       },
     ) => {
       if (!prompt.trim()) {
@@ -853,7 +917,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
         if (options?.queueComfyUi) {
           setPipelineStatus("Queueing ComfyUI…");
-          await sendComfyUi(current, options?.sport);
+          await sendComfyUi(current, options?.sport, undefined, {
+            inputImage: options?.inputImage,
+            inputImageFilename: options?.inputImageFilename,
+            inputImageUrl: options?.inputImageUrl,
+            maskImage: options?.maskImage,
+            maskImageFilename: options?.maskImageFilename,
+            maskImageUrl: options?.maskImageUrl,
+          });
           setPipelineStatus("Pipeline complete · pair copied · queued");
         } else {
           setPipelineStatus("Pipeline complete · pair copied");

@@ -1,6 +1,12 @@
-import type { GenerationDiagnostics } from "./generation-diagnostics";
+import type { WorkflowParamValues } from "./comfyui-config";
 import type { ComfyImageModel } from "./comfy-models";
 import type { DetailLevel } from "./detail-level";
+import type { GenerationDiagnostics } from "./generation-diagnostics";
+import { buildGalleryImageUrlsFromQueueParams } from "./queue-requeue-images";
+import {
+  normalizeQueueQualityProfile,
+  type QueueQualityProfile,
+} from "./queue-quality-profile";
 
 export type PromptSidecar = {
   version: 1;
@@ -95,4 +101,60 @@ export async function readPromptSidecarFile(file: File): Promise<PromptSidecar> 
 
 export function sidecarNegativePrompt(sidecar: PromptSidecar): string | undefined {
   return sidecar.negative?.trim() || undefined;
+}
+
+export function sidecarQueueParams(sidecar: PromptSidecar): WorkflowParamValues | undefined {
+  const raw = sidecar.metadata?.queueParams;
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  return raw as WorkflowParamValues;
+}
+
+export function sidecarRequeueContext(sidecar: PromptSidecar): {
+  queueParams?: WorkflowParamValues;
+  sourceImageUrl?: string;
+  maskImageUrl?: string;
+  queueQualityProfile?: QueueQualityProfile;
+} {
+  const queueParams = sidecarQueueParams(sidecar);
+  const rawProfile = sidecar.metadata?.queueQualityProfile;
+  const queueQualityProfile =
+    rawProfile === "followSettings" ||
+    rawProfile === "draft" ||
+    rawProfile === "final" ||
+    rawProfile === "max"
+      ? normalizeQueueQualityProfile(rawProfile)
+      : undefined;
+  const storedSource =
+    typeof sidecar.metadata?.sourceImageUrl === "string"
+      ? sidecar.metadata.sourceImageUrl.trim()
+      : undefined;
+  const storedMask =
+    typeof sidecar.metadata?.maskImageUrl === "string"
+      ? sidecar.metadata.maskImageUrl.trim()
+      : undefined;
+  if (storedSource || storedMask) {
+    return {
+      queueParams,
+      sourceImageUrl: storedSource,
+      maskImageUrl: storedMask,
+      queueQualityProfile,
+    };
+  }
+
+  const comfyUrl =
+    typeof sidecar.metadata?.comfyUrl === "string"
+      ? sidecar.metadata.comfyUrl.trim()
+      : undefined;
+  const derived = buildGalleryImageUrlsFromQueueParams({
+    comfyUrl: comfyUrl ?? "http://127.0.0.1:8188",
+    queueParams,
+  });
+  return {
+    queueParams,
+    sourceImageUrl: derived.sourceImageUrl,
+    maskImageUrl: derived.maskImageUrl,
+    queueQualityProfile,
+  };
 }

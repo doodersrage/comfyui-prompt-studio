@@ -2,10 +2,18 @@ import {
   type ComfyUiRuntimeConfig,
   stripEmptyComfyUiRuntime,
   DEFAULT_CFG_TOKEN,
+  DEFAULT_DENOISE_TOKEN,
+  DEFAULT_FLUX_BASE_SHIFT_TOKEN,
+  DEFAULT_FLUX_MAX_SHIFT_TOKEN,
   DEFAULT_HEIGHT_TOKEN,
+  DEFAULT_INPUT_IMAGE_TOKEN,
+  DEFAULT_MASK_IMAGE_TOKEN,
   DEFAULT_NEGATIVE_TOKEN,
   DEFAULT_POSITIVE_TOKEN,
+  DEFAULT_SAMPLER_TOKEN,
+  DEFAULT_SCHEDULER_TOKEN,
   DEFAULT_SEED_TOKEN,
+  DEFAULT_SHIFT_TOKEN,
   DEFAULT_STEPS_TOKEN,
   DEFAULT_WIDTH_TOKEN,
   type CustomWorkflowToken,
@@ -47,6 +55,10 @@ export type ComfyUiSettings = {
   autoSeedExperimentOnHighRating?: boolean;
   /** Queue seed experiments when an output is favorited. */
   autoSeedExperimentOnFavorite?: boolean;
+  /** Re-queue 4–5★ gallery outputs at Final quality with a new seed. */
+  autoRequeueFinalOnHighRating?: boolean;
+  /** Re-queue 5★ gallery outputs at Max quality with a new seed. */
+  autoRequeueMaxOnFiveStar?: boolean;
   /** Prefer ComfyUI WebSocket progress updates over polling-only status. */
   useWebSocketProgress?: boolean;
   /** Saved negative presets for queue / copy pair. */
@@ -76,6 +88,8 @@ export const DEFAULT_COMFYUI_SETTINGS: ComfyUiSettings = {
   autoMutateOnHighRating: false,
   autoSeedExperimentOnHighRating: false,
   autoSeedExperimentOnFavorite: false,
+  autoRequeueFinalOnHighRating: false,
+  autoRequeueMaxOnFiveStar: false,
   useWebSocketProgress: false,
   negativeProfiles: [],
   selectedNegativeProfileId: "general-sd",
@@ -215,5 +229,13 @@ export function placeholderTokensFromSettings(
     height: DEFAULT_HEIGHT_TOKEN,
     cfg: DEFAULT_CFG_TOKEN,
     steps: DEFAULT_STEPS_TOKEN,
+    sampler: DEFAULT_SAMPLER_TOKEN,
+    scheduler: DEFAULT_SCHEDULER_TOKEN,
+    shift: DEFAULT_SHIFT_TOKEN,
+    fluxMaxShift: DEFAULT_FLUX_MAX_SHIFT_TOKEN,
+    fluxBaseShift: DEFAULT_FLUX_BASE_SHIFT_TOKEN,
+    denoise: DEFAULT_DENOISE_TOKEN,
+    inputImage: DEFAULT_INPUT_IMAGE_TOKEN,
+    maskImage: DEFAULT_MASK_IMAGE_TOKEN,
   };
 }

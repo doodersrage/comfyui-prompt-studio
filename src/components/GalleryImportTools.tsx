@@ -10,6 +10,7 @@ import {
 import { requeueComfyJob } from "@/lib/comfyui-requeue";
 import {
   sidecarNegativePrompt,
+  sidecarRequeueContext,
   type PromptSidecar,
 } from "@/lib/prompt-sidecar";
 import { Button } from "@/components/ui/Button";
@@ -78,12 +79,17 @@ export default function GalleryImportTools() {
               size="sm"
               onClick={() => {
                 setImportStatus("Re-queueing imported sidecar…");
+                const requeue = sidecarRequeueContext(importedSidecar);
                 void requeueComfyJob({
                   prompt: importedSidecar.positive,
                   negativePrompt: sidecarNegativePrompt(importedSidecar),
                   tool: importedSidecar.tool,
                   model: importedSidecar.model,
                   hints: importedSidecar.hints,
+                  queueParams: requeue.queueParams,
+                  sourceImageUrl: requeue.sourceImageUrl,
+                  maskImageUrl: requeue.maskImageUrl,
+                  storedQualityProfile: requeue.queueQualityProfile,
                   newSeed: false,
                   onStatus: setImportStatus,
                 });
@@ -96,12 +102,17 @@ export default function GalleryImportTools() {
               size="sm"
               onClick={() => {
                 setImportStatus("Re-queueing with new seed…");
+                const requeue = sidecarRequeueContext(importedSidecar);
                 void requeueComfyJob({
                   prompt: importedSidecar.positive,
                   negativePrompt: sidecarNegativePrompt(importedSidecar),
                   tool: importedSidecar.tool,
                   model: importedSidecar.model,
                   hints: importedSidecar.hints,
+                  queueParams: requeue.queueParams,
+                  sourceImageUrl: requeue.sourceImageUrl,
+                  maskImageUrl: requeue.maskImageUrl,
+                  storedQualityProfile: requeue.queueQualityProfile,
                   newSeed: true,
                   onStatus: setImportStatus,
                 });

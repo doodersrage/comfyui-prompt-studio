@@ -1,0 +1,75 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import {
+  formatModelCheckpointMap,
+  parseModelCheckpointMap,
+  resolveLoaderFilenamesForModel,
+  resolveRefinerFilenameForModel,
+} from "./model-checkpoint-map.ts";
+
+describe("model checkpoint map", () => {
+  it("parses and formats checkpoint map lines", () => {
+    const map = parseModelCheckpointMap(
+      "# comment\nqwen-image-2512=qwen_image_2512.safetensors\nflux-2-klein-9b:klein-9b.safetensors",
+    );
+    assert.equal(map["qwen-image-2512"], "qwen_image_2512.safetensors");
+    assert.equal(map["flux-2-klein-9b"], "klein-9b.safetensors");
+    assert.match(formatModelCheckpointMap(map), /qwen-image-2512=qwen_image_2512/);
+  });
+
+  it("resolves loader filenames from map, custom token, and registry hints", () => {
+    const fromMap = resolveLoaderFilenamesForModel("flux-2-klein-9b", {
+      checkpointMap: { "flux-2-klein-9b": "my-klein.safetensors" },
+    });
+    assert.equal(fromMap.checkpoint, "my-klein.safetensors");
+
+    const fromToken = resolveLoaderFilenamesForModel("flux-dev", {
+      customTokens: [{ token: "{{CHECKPOINT}}", value: "flux1-dev.safetensors" }],
+    });
+    assert.equal(fromToken.checkpoint, "flux1-dev.safetensors");
+
+    const qwen = resolveLoaderFilenamesForModel("qwen-image-2512", {
+      checkpointMap: { "qwen-image-2512": "custom-qwen.safetensors" },
+    });
+    assert.equal(qwen.unet, "custom-qwen.safetensors");
+    assert.equal(qwen.vae, "qwen_image_vae.safetensors");
+  });
+
+  it("infers FLUX Klein UNET/VAE defaults when registry hints are sparse", () => {
+    const klein9b = resolveLoaderFilenamesForModel("flux-2-klein-9b");
+    assert.equal(klein9b.unet, "flux-2-klein-9b.safetensors");
+    assert.equal(klein9b.vae, "flux2-vae.safetensors");
+
+    const kleinDistilled = resolveLoaderFilenamesForModel("flux-2-klein-9b-distilled");
+    assert.equal(kleinDistilled.unet, "flux-2-klein-9b-fp8.safetensors");
+    assert.equal(kleinDistilled.vae, "flux2-vae.safetensors");
+  });
+
+  it("infers Qwen 2512 lightning UNET/VAE defaults (bf16 when tier unknown)", () => {
+    const lightning = resolveLoaderFilenamesForModel("qwen-image-2512-lightning-8");
+    assert.equal(lightning.unet, "qwen_image_2512_bf16.safetensors");
+    assert.equal(lightning.vae, "qwen_image_vae.safetensors");
+  });
+
+  it("keeps fp8 UNET when workflow already uses fp8 loaders", () => {
+    const fp8 = resolveLoaderFilenamesForModel("qwen-image-2512-lightning-8", {
+      precisionTier: "fp8",
+    });
+    assert.equal(fp8.unet, "qwen_image_2512_fp8_e4m3fn.safetensors");
+  });
+
+  it("applies per-model VAE map overrides", () => {
+    const mapped = resolveLoaderFilenamesForModel("flux-2-klein-9b", {
+      vaeMap: { "flux-2-klein-9b": "FLUX.2-klein-9B.safetensors" },
+    });
+    assert.equal(mapped.vae, "FLUX.2-klein-9B.safetensors");
+  });
+
+  it("resolves SDXL refiner checkpoint defaults", () => {
+    assert.equal(
+      resolveRefinerFilenameForModel("sdxl"),
+      "sd_xl_refiner_1.0.safetensors",
+    );
+    assert.equal(resolveRefinerFilenameForModel("flux-dev"), undefined);
+  });
+});

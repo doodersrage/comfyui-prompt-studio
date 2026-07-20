@@ -9,7 +9,7 @@ import {
   galleryHandoffPath,
   saveGalleryHandoff,
 } from "@/lib/gallery-handoff";
-import { startImproveFromGalleryEntry } from "@/lib/improve-output";
+import { startImproveFromGalleryEntry, startInpaintFromGalleryEntry } from "@/lib/improve-output";
 import { scoreGalleryEntryHeuristic } from "@/lib/aesthetic-score";
 import {
   downloadGalleryImage,
@@ -33,7 +33,7 @@ type GalleryCardProps = {
   onRemove: () => void;
   onToggleFavorite: () => void;
   onDownloadError: (message: string | null) => void;
-  onRequeue: (newSeed: boolean) => void;
+  onRequeue: (newSeed: boolean, qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile) => void;
   onOpenImage: (index: number) => void;
   reviewMode?: boolean;
   onReviewRating?: (rating: ComfyGalleryEntry["reviewRating"]) => void;
@@ -171,13 +171,22 @@ export default function GalleryCard({
                 Open
               </button>
               {entry.status === "completed" ? (
-                <button
-                  type="button"
-                  onClick={() => startImproveFromGalleryEntry(entry)}
-                  className="pointer-events-auto rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200 backdrop-blur transition hover:bg-emerald-500/20"
-                >
-                  Improve
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => startImproveFromGalleryEntry(entry)}
+                    className="pointer-events-auto rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200 backdrop-blur transition hover:bg-emerald-500/20"
+                  >
+                    Improve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startInpaintFromGalleryEntry(entry)}
+                    className="pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100 backdrop-blur transition hover:bg-amber-500/20"
+                  >
+                    Inpaint
+                  </button>
+                </>
               ) : null}
             </div>
           ) : null}
@@ -384,13 +393,22 @@ export default function GalleryCard({
           </button>
         ) : null}
         {entry.status === "completed" && previewUrl ? (
-          <button
-            type="button"
-            onClick={() => startImproveFromGalleryEntry(entry)}
-            className="ui-btn-ghost ui-btn-sm text-xs text-emerald-300 hover:text-emerald-200"
-          >
-            Improve
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => startImproveFromGalleryEntry(entry)}
+              className="ui-btn-ghost ui-btn-sm text-xs text-emerald-300 hover:text-emerald-200"
+            >
+              Improve
+            </button>
+            <button
+              type="button"
+              onClick={() => startInpaintFromGalleryEntry(entry)}
+              className="ui-btn-ghost ui-btn-sm text-xs text-amber-200 hover:text-amber-100"
+            >
+              Inpaint
+            </button>
+          </>
         ) : null}
         {layout === "list" ? (
           <button
@@ -489,10 +507,25 @@ export default function GalleryCard({
                           }}
                         />
                         <GalleryMenuButton
+                          label="Inpaint region"
+                          onClick={() => {
+                            startInpaintFromGalleryEntry(entry);
+                            setMenuOpen(false);
+                          }}
+                        />
+                        <GalleryMenuButton
                           label="Image → Prompt"
                           onClick={() => {
                             saveGalleryHandoff(buildGalleryHandoff(entry, "imagePrompt"));
                             router.push(galleryHandoffPath("imagePrompt"));
+                            setMenuOpen(false);
+                          }}
+                        />
+                        <GalleryMenuButton
+                          label="ControlNet"
+                          onClick={() => {
+                            saveGalleryHandoff(buildGalleryHandoff(entry, "controlnet"));
+                            router.push(galleryHandoffPath("controlnet"));
                             setMenuOpen(false);
                           }}
                         />
@@ -511,6 +544,20 @@ export default function GalleryCard({
                   label="Re-queue (new seed)"
                   onClick={() => {
                     onRequeue(true);
+                    setMenuOpen(false);
+                  }}
+                />
+                <GalleryMenuButton
+                  label="Re-queue (Final quality)"
+                  onClick={() => {
+                    onRequeue(true, "final");
+                    setMenuOpen(false);
+                  }}
+                />
+                <GalleryMenuButton
+                  label="Re-queue (Max quality)"
+                  onClick={() => {
+                    onRequeue(true, "max");
                     setMenuOpen(false);
                   }}
                 />

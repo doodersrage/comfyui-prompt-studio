@@ -21,7 +21,7 @@ export const DEFAULT_NEGATIVE_PROFILES: NegativeProfile[] = [
     label: "Portrait",
     hints: "portrait, face, skin texture",
     preserveSubject: true,
-    extra: "deformed face, extra fingers, blurry eyes",
+    extra: "deformed face, extra fingers, blurry eyes, plastic skin, waxy skin, airbrushed, doll-like",
   },
   {
     id: "architecture",

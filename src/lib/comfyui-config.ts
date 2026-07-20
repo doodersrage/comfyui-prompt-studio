@@ -1,3 +1,11 @@
+import { patchModelSamplingInWorkflow } from "./model-sampling-patch";
+import {
+  forceResolveLoaderPlaceholders,
+  patchLoaderNodesInWorkflow,
+  patchWorkflowDirectParams,
+} from "./workflow-direct-patch";
+import type { ModelLoaderFilenames } from "./model-checkpoint-map";
+
 export const DEFAULT_POSITIVE_TOKEN = "{{POSITIVE}}";
 export const DEFAULT_NEGATIVE_TOKEN = "{{NEGATIVE}}";
 export const DEFAULT_SEED_TOKEN = "{{SEED}}";
@@ -5,6 +13,39 @@ export const DEFAULT_WIDTH_TOKEN = "{{WIDTH}}";
 export const DEFAULT_HEIGHT_TOKEN = "{{HEIGHT}}";
 export const DEFAULT_CFG_TOKEN = "{{CFG}}";
 export const DEFAULT_STEPS_TOKEN = "{{STEPS}}";
+export const DEFAULT_SAMPLER_TOKEN = "{{SAMPLER}}";
+export const DEFAULT_SCHEDULER_TOKEN = "{{SCHEDULER}}";
+export const DEFAULT_SHIFT_TOKEN = "{{SHIFT}}";
+export const DEFAULT_FLUX_MAX_SHIFT_TOKEN = "{{FLUX_MAX_SHIFT}}";
+export const DEFAULT_FLUX_BASE_SHIFT_TOKEN = "{{FLUX_BASE_SHIFT}}";
+export const DEFAULT_DENOISE_TOKEN = "{{DENOISE}}";
+export const DEFAULT_INPUT_IMAGE_TOKEN = "{{INPUT_IMAGE}}";
+export const DEFAULT_MASK_IMAGE_TOKEN = "{{MASK_IMAGE}}";
+
+import {
+  DEFAULT_CHECKPOINT_TOKEN,
+  DEFAULT_UNET_TOKEN,
+  DEFAULT_VAE_TOKEN,
+  DEFAULT_REFINER_TOKEN,
+  loaderFilenameCustomTokens,
+  resolveLoaderFilenamesForModel,
+  resolveRefinerFilenameForModel,
+  type ModelCheckpointMap,
+  type ModelRefinerMap,
+  type ModelUnetMap,
+  type ModelVaeMap,
+} from "./model-checkpoint-map";
+import {
+  resolveLoaderPrecisionTier,
+  type LoaderPrecisionTier,
+} from "./model-loader-precision";
+import {
+  DEFAULT_UPSCALE_MODEL_TOKEN,
+  resolveUpscaleModelFilename,
+  type ModelUpscaleMap,
+} from "./model-upscale-map";
+
+export { DEFAULT_CHECKPOINT_TOKEN, DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN, DEFAULT_UPSCALE_MODEL_TOKEN, DEFAULT_REFINER_TOKEN };
 
 export type WorkflowParamValues = {
   seed?: string | number;
@@ -12,6 +53,19 @@ export type WorkflowParamValues = {
   height?: string | number;
   cfg?: string | number;
   steps?: string | number;
+  samplerName?: string | number;
+  scheduler?: string | number;
+  samplingShift?: string | number;
+  fluxMaxShift?: string | number;
+  fluxBaseShift?: string | number;
+  checkpointFilename?: string;
+  unetFilename?: string;
+  vaeFilename?: string;
+  upscaleModelFilename?: string;
+  refinerCheckpointFilename?: string;
+  denoise?: string | number;
+  inputImageFilename?: string;
+  maskImageFilename?: string;
 };
 
 export type CustomWorkflowToken = {
@@ -28,6 +82,30 @@ export type ComfyUiRuntimeConfig = {
   negativeToken?: string;
   queueParams?: WorkflowParamValues;
   customTokens?: CustomWorkflowToken[];
+  /** When false, skip direct EmptyLatentImage / loader patching (placeholder injection still runs). */
+  directWorkflowPatching?: boolean;
+  /** When true (default), auto-bind missing placeholders before injection at queue time. */
+  workflowQueueOptimize?: boolean;
+  /** When true (default), insert model-sampling patch nodes when missing for FLUX/SD3 workflows. */
+  workflowGraphEnrich?: boolean;
+  /** When true (default), insert SDXL refiner pass on Final/Max when a refiner map is set. */
+  workflowSdxlRefinerEnrich?: boolean;
+  /** When true (default), chain Lanczos polish after neural UpscaleModel on Max. */
+  workflowNeuralUpscalePolish?: boolean;
+  /** When true (default), add a subtle ImageSharpen after upscale on Max. */
+  workflowSharpenAfterUpscale?: boolean;
+  /** Model id used for queue-time workflow optimize / graph enrich heuristics. */
+  queueTargetModel?: string;
+  /** Effective queue quality profile for this request (sampler, resolution, upscale). */
+  queueQualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
+  /** Client-side checkpoint map forwarded for server-side loader resolution. */
+  modelCheckpointMap?: ModelCheckpointMap;
+  /** Client-side VAE map forwarded for server-side loader resolution. */
+  modelVaeMap?: ModelVaeMap;
+  /** Client-side SDXL refiner map forwarded for server-side loader resolution. */
+  modelRefinerMap?: ModelRefinerMap;
+  /** Client-side upscale model map forwarded for server-side loader resolution. */
+  modelUpscaleMap?: ModelUpscaleMap;
 };
 
 export type WorkflowPlaceholderTokens = {
@@ -38,6 +116,14 @@ export type WorkflowPlaceholderTokens = {
   height: string;
   cfg: string;
   steps: string;
+  sampler: string;
+  scheduler: string;
+  shift: string;
+  fluxMaxShift: string;
+  fluxBaseShift: string;
+  denoise: string;
+  inputImage: string;
+  maskImage: string;
 };
 
 export type ResolvedComfyUiConfig = {
@@ -78,19 +164,33 @@ export function resolvePlaceholderTokens(
     cfg: process.env.COMFYUI_CFG_TOKEN?.trim() || DEFAULT_CFG_TOKEN,
     steps:
       process.env.COMFYUI_STEPS_TOKEN?.trim() || DEFAULT_STEPS_TOKEN,
+    sampler:
+      process.env.COMFYUI_SAMPLER_TOKEN?.trim() || DEFAULT_SAMPLER_TOKEN,
+    scheduler:
+      process.env.COMFYUI_SCHEDULER_TOKEN?.trim() || DEFAULT_SCHEDULER_TOKEN,
+    shift: process.env.COMFYUI_SHIFT_TOKEN?.trim() || DEFAULT_SHIFT_TOKEN,
+    fluxMaxShift:
+      process.env.COMFYUI_FLUX_MAX_SHIFT_TOKEN?.trim() || DEFAULT_FLUX_MAX_SHIFT_TOKEN,
+    fluxBaseShift:
+      process.env.COMFYUI_FLUX_BASE_SHIFT_TOKEN?.trim() || DEFAULT_FLUX_BASE_SHIFT_TOKEN,
+    denoise: process.env.COMFYUI_DENOISE_TOKEN?.trim() || DEFAULT_DENOISE_TOKEN,
+    inputImage:
+      process.env.COMFYUI_INPUT_IMAGE_TOKEN?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
+    maskImage:
+      process.env.COMFYUI_MASK_IMAGE_TOKEN?.trim() || DEFAULT_MASK_IMAGE_TOKEN,
   };
 }
 
 export function resolveQueueParams(
   runtime?: ComfyUiRuntimeConfig,
   override?: WorkflowParamValues,
-): Required<WorkflowParamValues> {
+): WorkflowParamValues {
   const merged = {
     ...(runtime?.queueParams ?? {}),
     ...(override ?? {}),
   };
 
-  return {
+  const result: WorkflowParamValues = {
     seed:
       merged.seed?.toString().trim() ||
       String(Math.floor(Math.random() * 2 ** 32)),
@@ -98,7 +198,174 @@ export function resolveQueueParams(
     height: merged.height?.toString().trim() || "1024",
     cfg: merged.cfg?.toString().trim() || "7",
     steps: merged.steps?.toString().trim() || "20",
+    samplerName: merged.samplerName?.toString().trim() || "euler",
+    scheduler: merged.scheduler?.toString().trim() || "normal",
   };
+
+  if (merged.samplingShift != null && merged.samplingShift.toString().trim() !== "") {
+    result.samplingShift = merged.samplingShift;
+  }
+  if (merged.fluxMaxShift != null && merged.fluxMaxShift.toString().trim() !== "") {
+    result.fluxMaxShift = merged.fluxMaxShift;
+  }
+  if (merged.fluxBaseShift != null && merged.fluxBaseShift.toString().trim() !== "") {
+    result.fluxBaseShift = merged.fluxBaseShift;
+  }
+  if (merged.denoise != null && merged.denoise.toString().trim() !== "") {
+    result.denoise = merged.denoise;
+  }
+  if (merged.inputImageFilename?.trim()) {
+    result.inputImageFilename = merged.inputImageFilename.trim();
+  }
+  if (merged.maskImageFilename?.trim()) {
+    result.maskImageFilename = merged.maskImageFilename.trim();
+  }
+  if (merged.checkpointFilename?.trim()) {
+    result.checkpointFilename = merged.checkpointFilename.trim();
+  }
+  if (merged.unetFilename?.trim()) {
+    result.unetFilename = merged.unetFilename.trim();
+  }
+  if (merged.vaeFilename?.trim()) {
+    result.vaeFilename = merged.vaeFilename.trim();
+  }
+  if (merged.upscaleModelFilename?.trim()) {
+    result.upscaleModelFilename = merged.upscaleModelFilename.trim();
+  }
+  if (merged.refinerCheckpointFilename?.trim()) {
+    result.refinerCheckpointFilename = merged.refinerCheckpointFilename.trim();
+  }
+
+  return result;
+}
+
+export function ensureQueueLoaderParams(
+  params: WorkflowParamValues,
+  model?: string,
+  options?: {
+    checkpointMap?: ModelCheckpointMap;
+    vaeMap?: ModelVaeMap;
+    unetMap?: ModelUnetMap;
+    customTokens?: CustomWorkflowToken[];
+    precisionTier?: LoaderPrecisionTier;
+  },
+): WorkflowParamValues {
+  if (!model?.trim()) {
+    return params;
+  }
+
+  const loaders = resolveLoaderFilenamesForModel(model, options);
+  const next = { ...params };
+
+  if (!next.checkpointFilename?.trim() && loaders.checkpoint) {
+    next.checkpointFilename = loaders.checkpoint;
+  }
+  if (!next.unetFilename?.trim() && loaders.unet) {
+    next.unetFilename = loaders.unet;
+  }
+  if (!next.vaeFilename?.trim() && loaders.vae) {
+    next.vaeFilename = loaders.vae;
+  }
+
+  return next;
+}
+
+export function resolveQueueInjectionContext(input: {
+  runtime?: ComfyUiRuntimeConfig;
+  override?: WorkflowParamValues;
+  model?: string;
+  workflow?: Record<string, unknown>;
+  precisionTier?: LoaderPrecisionTier;
+}): {
+  params: WorkflowParamValues;
+  loaders: ModelLoaderFilenames;
+  customTokens: CustomWorkflowToken[];
+} {
+  const baseCustomTokens = resolveCustomWorkflowTokens(input.runtime);
+  const model = input.model?.trim() || input.runtime?.queueTargetModel?.trim();
+  const precisionTier = resolveLoaderPrecisionTier({
+    workflow: input.workflow,
+    explicit: input.precisionTier,
+  });
+  const loaderMapOptions = {
+    customTokens: baseCustomTokens,
+    checkpointMap: input.runtime?.modelCheckpointMap,
+    vaeMap: input.runtime?.modelVaeMap,
+    precisionTier,
+  };
+  let params = ensureQueueLoaderParams(
+    resolveQueueParams(input.runtime, input.override),
+    model,
+    loaderMapOptions,
+  );
+
+  const inferred = model
+    ? resolveLoaderFilenamesForModel(model, loaderMapOptions)
+    : ({} as ModelLoaderFilenames);
+
+  const loaders: ModelLoaderFilenames = {
+    checkpoint: params.checkpointFilename?.trim() || inferred.checkpoint,
+    unet: params.unetFilename?.trim() || inferred.unet,
+    vae: params.vaeFilename?.trim() || inferred.vae,
+  };
+
+  params = { ...params };
+  if (!params.checkpointFilename?.trim() && loaders.checkpoint) {
+    params.checkpointFilename = loaders.checkpoint;
+  }
+  if (!params.unetFilename?.trim() && loaders.unet) {
+    params.unetFilename = loaders.unet;
+  }
+  if (!params.vaeFilename?.trim() && loaders.vae) {
+    params.vaeFilename = loaders.vae;
+  }
+
+  if (model) {
+    if (!params.upscaleModelFilename?.trim()) {
+      const upscale = resolveUpscaleModelFilename(model, {
+        upscaleMap: input.runtime?.modelUpscaleMap,
+        customTokens: baseCustomTokens,
+      });
+      if (upscale) {
+        params.upscaleModelFilename = upscale;
+      }
+    }
+    if (!params.refinerCheckpointFilename?.trim()) {
+      const refiner = resolveRefinerFilenameForModel(model, {
+        refinerMap: input.runtime?.modelRefinerMap,
+        customTokens: baseCustomTokens,
+      });
+      if (refiner) {
+        params.refinerCheckpointFilename = refiner;
+      }
+    }
+  }
+
+  const customTokens =
+    mergeLoaderTokensIntoCustomTokens(params, baseCustomTokens) ??
+    baseCustomTokens;
+
+  return { params, loaders, customTokens };
+}
+
+export function normalizeComfyApiWorkflow(
+  value: Record<string, unknown>,
+): Record<string, unknown> {
+  if (listWorkflowNodeIds(value).length > 0) {
+    return value;
+  }
+
+  for (const key of ["prompt", "workflow", "graph"]) {
+    const nested = value[key];
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      const nestedRecord = nested as Record<string, unknown>;
+      if (listWorkflowNodeIds(nestedRecord).length > 0) {
+        return nestedRecord;
+      }
+    }
+  }
+
+  return value;
 }
 
 export function parseWorkflowJson(
@@ -111,13 +378,42 @@ export function parseWorkflowJson(
   try {
     const parsed = JSON.parse(raw.trim()) as unknown;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
+      return normalizeComfyApiWorkflow(parsed as Record<string, unknown>);
     }
   } catch {
     return null;
   }
 
   return null;
+}
+
+export function findUnresolvedLoaderPlaceholders(
+  workflow: Record<string, unknown>,
+): string[] {
+  const unresolved = new Set<string>();
+  const loaderTokens = [DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN, DEFAULT_CHECKPOINT_TOKEN];
+
+  for (const node of Object.values(workflow)) {
+    if (!node || typeof node !== "object") {
+      continue;
+    }
+    const inputs = (node as { inputs?: Record<string, unknown> }).inputs;
+    if (!inputs) {
+      continue;
+    }
+    for (const value of Object.values(inputs)) {
+      if (typeof value !== "string") {
+        continue;
+      }
+      for (const token of loaderTokens) {
+        if (value.includes(token)) {
+          unresolved.add(token);
+        }
+      }
+    }
+  }
+
+  return [...unresolved];
 }
 
 export function listWorkflowNodeIds(workflow: Record<string, unknown>): string[] {
@@ -154,6 +450,14 @@ export function detectWorkflowPlaceholders(
   height: number;
   cfg: number;
   steps: number;
+  sampler: number;
+  scheduler: number;
+  shift: number;
+  fluxMaxShift: number;
+  fluxBaseShift: number;
+  denoise: number;
+  inputImage: number;
+  maskImage: number;
 } {
   return {
     positive: countPlaceholders(raw, tokens.positive),
@@ -163,6 +467,14 @@ export function detectWorkflowPlaceholders(
     height: countPlaceholders(raw, DEFAULT_HEIGHT_TOKEN),
     cfg: countPlaceholders(raw, DEFAULT_CFG_TOKEN),
     steps: countPlaceholders(raw, DEFAULT_STEPS_TOKEN),
+    sampler: countPlaceholders(raw, DEFAULT_SAMPLER_TOKEN),
+    scheduler: countPlaceholders(raw, DEFAULT_SCHEDULER_TOKEN),
+    shift: countPlaceholders(raw, DEFAULT_SHIFT_TOKEN),
+    fluxMaxShift: countPlaceholders(raw, DEFAULT_FLUX_MAX_SHIFT_TOKEN),
+    fluxBaseShift: countPlaceholders(raw, DEFAULT_FLUX_BASE_SHIFT_TOKEN),
+    denoise: countPlaceholders(raw, DEFAULT_DENOISE_TOKEN),
+    inputImage: countPlaceholders(raw, DEFAULT_INPUT_IMAGE_TOKEN),
+    maskImage: countPlaceholders(raw, DEFAULT_MASK_IMAGE_TOKEN),
   };
 }
 
@@ -286,6 +598,14 @@ export function injectWorkflowPlaceholders(
       ["height", tokens.height, input.params.height?.toString() ?? ""],
       ["cfg", tokens.cfg, input.params.cfg?.toString() ?? ""],
       ["steps", tokens.steps, input.params.steps?.toString() ?? ""],
+      ["samplerName", tokens.sampler, input.params.samplerName?.toString() ?? ""],
+      ["scheduler", tokens.scheduler, input.params.scheduler?.toString() ?? ""],
+      ["samplingShift", tokens.shift, input.params.samplingShift?.toString() ?? ""],
+      ["fluxMaxShift", tokens.fluxMaxShift, input.params.fluxMaxShift?.toString() ?? ""],
+      ["fluxBaseShift", tokens.fluxBaseShift, input.params.fluxBaseShift?.toString() ?? ""],
+      ["denoise", tokens.denoise, input.params.denoise?.toString() ?? ""],
+      ["inputImageFilename", tokens.inputImage, input.params.inputImageFilename?.toString() ?? ""],
+      ["maskImageFilename", tokens.maskImage, input.params.maskImageFilename?.toString() ?? ""],
     ];
 
     for (const [key, token, value] of paramEntries) {
@@ -320,6 +640,9 @@ export function injectWorkflowPlaceholders(
 
 function isSamplerLikeNode(classType: string, inputs: Record<string, unknown>): boolean {
   const lower = classType.toLowerCase();
+  if (lower.includes("modelsampling")) {
+    return false;
+  }
   if (lower.includes("ksampler") || lower.includes("samplercustom")) {
     return true;
   }
@@ -365,6 +688,30 @@ export function patchSamplerParamsInWorkflow(
     if (params.cfg != null && params.cfg.toString().trim() !== "" && "cfg" in inputs) {
       inputs.cfg = Number(params.cfg);
       patched.cfg = (patched.cfg ?? 0) + 1;
+    }
+    if (
+      params.samplerName != null &&
+      params.samplerName.toString().trim() !== "" &&
+      "sampler_name" in inputs
+    ) {
+      inputs.sampler_name = params.samplerName.toString().trim();
+      patched.samplerName = (patched.samplerName ?? 0) + 1;
+    }
+    if (
+      params.scheduler != null &&
+      params.scheduler.toString().trim() !== "" &&
+      "scheduler" in inputs
+    ) {
+      inputs.scheduler = params.scheduler.toString().trim();
+      patched.scheduler = (patched.scheduler ?? 0) + 1;
+    }
+    if (
+      params.denoise != null &&
+      params.denoise.toString().trim() !== "" &&
+      "denoise" in inputs
+    ) {
+      inputs.denoise = Number(params.denoise);
+      patched.denoise = (patched.denoise ?? 0) + 1;
     }
   }
 
@@ -534,6 +881,32 @@ function tryAlternatePromptTokens(
   return result;
 }
 
+function mergeLoaderTokensIntoCustomTokens(
+  params: WorkflowParamValues | undefined,
+  customTokens?: CustomWorkflowToken[],
+): CustomWorkflowToken[] | undefined {
+  const fromParams = loaderFilenameCustomTokens({
+    checkpoint: params?.checkpointFilename?.trim(),
+    unet: params?.unetFilename?.trim(),
+    vae: params?.vaeFilename?.trim(),
+  });
+  if (params?.refinerCheckpointFilename?.trim()) {
+    fromParams.push({
+      token: DEFAULT_REFINER_TOKEN,
+      value: params.refinerCheckpointFilename.trim(),
+    });
+  }
+  if (fromParams.length === 0) {
+    return customTokens;
+  }
+  const normalized = normalizeCustomWorkflowTokens(customTokens);
+  const byToken = new Map(normalized.map((entry) => [entry.token, entry]));
+  for (const entry of fromParams) {
+    byToken.set(entry.token, entry);
+  }
+  return [...byToken.values()];
+}
+
 export function injectPromptsWithFallbacks(
   workflow: Record<string, unknown>,
   input: {
@@ -546,22 +919,82 @@ export function injectPromptsWithFallbacks(
   options?: {
     legacyPositiveNodeId?: string;
     legacyNegativeNodeId?: string;
+    directWorkflowPatching?: boolean;
+    loaders?: ModelLoaderFilenames;
   },
 ): WorkflowInjectionResult {
-  let injected = injectWorkflowPlaceholders(workflow, input, tokens);
-  injected = tryAlternatePromptTokens(injected.workflow, input, tokens, injected);
+  const mergedCustomTokens = mergeLoaderTokensIntoCustomTokens(
+    input.params,
+    input.customTokens,
+  );
+  let injected = injectWorkflowPlaceholders(
+    workflow,
+    { ...input, customTokens: mergedCustomTokens },
+    tokens,
+  );
+  injected = tryAlternatePromptTokens(
+    injected.workflow,
+    { ...input, customTokens: mergedCustomTokens },
+    tokens,
+    injected,
+  );
 
   const samplerPatch = patchSamplerParamsInWorkflow(
     injected.workflow,
     input.params ?? {},
   );
+  const modelSamplingPatch = patchModelSamplingInWorkflow(
+    samplerPatch.workflow,
+    input.params ?? {},
+  );
+  let nextWorkflow = modelSamplingPatch.workflow;
+  let directPatchCounts: Partial<Record<string, number>> = {};
+
+  const loaders: ModelLoaderFilenames = {
+    ...(options?.loaders ?? {}),
+  };
+  if (input.params?.checkpointFilename?.trim()) {
+    loaders.checkpoint = input.params.checkpointFilename.trim();
+  }
+  if (input.params?.unetFilename?.trim()) {
+    loaders.unet = input.params.unetFilename.trim();
+  }
+  if (input.params?.vaeFilename?.trim()) {
+    loaders.vae = input.params.vaeFilename.trim();
+  }
+
+  if (options?.directWorkflowPatching !== false) {
+    const directPatch = patchWorkflowDirectParams(nextWorkflow, {
+      params: input.params,
+      loaders,
+      upscaleModelFilename: input.params?.upscaleModelFilename,
+    });
+    nextWorkflow = directPatch.workflow;
+    directPatchCounts = directPatch.patched;
+  } else if (loaders.checkpoint || loaders.unet || loaders.vae) {
+    const loaderPatch = patchLoaderNodesInWorkflow(nextWorkflow, loaders);
+    nextWorkflow = loaderPatch.workflow;
+    directPatchCounts = {
+      ...directPatchCounts,
+      ...Object.fromEntries(
+        Object.entries(loaderPatch.patched).filter(([, count]) => (count ?? 0) > 0),
+      ),
+    };
+  }
+
   injected = {
     ...injected,
-    workflow: samplerPatch.workflow,
+    workflow: nextWorkflow,
     paramReplacements: {
       ...injected.paramReplacements,
       ...Object.fromEntries(
         Object.entries(samplerPatch.patched).filter(([, count]) => (count ?? 0) > 0),
+      ),
+      ...Object.fromEntries(
+        Object.entries(modelSamplingPatch.patched).filter(([, count]) => (count ?? 0) > 0),
+      ),
+      ...Object.fromEntries(
+        Object.entries(directPatchCounts).filter(([, count]) => (count ?? 0) > 0),
       ),
     },
   };
@@ -606,6 +1039,13 @@ export function injectPromptsWithFallbacks(
         injected.negativeReplacements > 0
           ? injected.negativeReplacements
           : clipPatch.negativePatched,
+    };
+  }
+
+  if (loaders.checkpoint || loaders.unet || loaders.vae) {
+    injected = {
+      ...injected,
+      workflow: forceResolveLoaderPlaceholders(injected.workflow, loaders),
     };
   }
 
@@ -657,39 +1097,87 @@ export function stripEmptyComfyUiRuntime(
     return undefined;
   }
 
-  const cleaned: ComfyUiRuntimeConfig = {
-    apiUrl: runtime.apiUrl?.trim() || undefined,
-    workflowJson: runtime.workflowJson?.trim() || undefined,
-    workflowFileId: runtime.workflowFileId?.trim() || undefined,
-    positiveToken: runtime.positiveToken?.trim() || undefined,
-    negativeToken: runtime.negativeToken?.trim() || undefined,
-    queueParams: runtime.queueParams,
-    customTokens: normalizeCustomWorkflowTokens(runtime.customTokens),
-  };
+  const result: ComfyUiRuntimeConfig = {};
 
-  if (cleaned.queueParams) {
-    const params = cleaned.queueParams;
-    const hasParams = Boolean(
-      params.seed?.toString().trim() ||
-        params.width?.toString().trim() ||
-        params.height?.toString().trim() ||
-        params.cfg?.toString().trim() ||
-        params.steps?.toString().trim(),
+  const apiUrl = runtime.apiUrl?.trim();
+  if (apiUrl) {
+    result.apiUrl = apiUrl;
+  }
+
+  const workflowJson = runtime.workflowJson?.trim();
+  if (workflowJson) {
+    result.workflowJson = workflowJson;
+  }
+
+  const workflowFileId = runtime.workflowFileId?.trim();
+  if (workflowFileId) {
+    result.workflowFileId = workflowFileId;
+  }
+
+  const positiveToken = runtime.positiveToken?.trim();
+  if (positiveToken) {
+    result.positiveToken = positiveToken;
+  }
+
+  const negativeToken = runtime.negativeToken?.trim();
+  if (negativeToken) {
+    result.negativeToken = negativeToken;
+  }
+
+  const queueTargetModel = runtime.queueTargetModel?.trim();
+  if (queueTargetModel) {
+    result.queueTargetModel = queueTargetModel;
+  }
+
+  if (runtime.directWorkflowPatching === false) {
+    result.directWorkflowPatching = false;
+  }
+  if (runtime.workflowQueueOptimize === false) {
+    result.workflowQueueOptimize = false;
+  }
+  if (runtime.workflowGraphEnrich === false) {
+    result.workflowGraphEnrich = false;
+  }
+  if (runtime.workflowSdxlRefinerEnrich === false) {
+    result.workflowSdxlRefinerEnrich = false;
+  }
+  if (runtime.workflowNeuralUpscalePolish === false) {
+    result.workflowNeuralUpscalePolish = false;
+  }
+  if (runtime.workflowSharpenAfterUpscale === false) {
+    result.workflowSharpenAfterUpscale = false;
+  }
+
+  if (runtime.queueQualityProfile) {
+    result.queueQualityProfile = runtime.queueQualityProfile;
+  }
+
+  if (runtime.modelCheckpointMap && Object.keys(runtime.modelCheckpointMap).length > 0) {
+    result.modelCheckpointMap = runtime.modelCheckpointMap;
+  }
+  if (runtime.modelVaeMap && Object.keys(runtime.modelVaeMap).length > 0) {
+    result.modelVaeMap = runtime.modelVaeMap;
+  }
+  if (runtime.modelRefinerMap && Object.keys(runtime.modelRefinerMap).length > 0) {
+    result.modelRefinerMap = runtime.modelRefinerMap;
+  }
+  if (runtime.modelUpscaleMap && Object.keys(runtime.modelUpscaleMap).length > 0) {
+    result.modelUpscaleMap = runtime.modelUpscaleMap;
+  }
+
+  if (runtime.queueParams) {
+    const params = { ...runtime.queueParams };
+    const hasParams = Object.values(params).some(
+      (value) => value != null && value.toString().trim() !== "",
     );
-    if (!hasParams) {
-      cleaned.queueParams = undefined;
+    if (hasParams) {
+      result.queueParams = params;
     }
   }
 
-  const result: ComfyUiRuntimeConfig = {};
-  if (cleaned.apiUrl) result.apiUrl = cleaned.apiUrl;
-  if (cleaned.workflowJson) result.workflowJson = cleaned.workflowJson;
-  if (cleaned.workflowFileId) result.workflowFileId = cleaned.workflowFileId;
-  if (cleaned.positiveToken) result.positiveToken = cleaned.positiveToken;
-  if (cleaned.negativeToken) result.negativeToken = cleaned.negativeToken;
-  if (cleaned.queueParams) result.queueParams = cleaned.queueParams;
-  if ((cleaned.customTokens?.length ?? 0) > 0) {
-    result.customTokens = cleaned.customTokens;
+  const customTokens = normalizeCustomWorkflowTokens(runtime.customTokens);
+  if (customTokens.length > 0) {
+    result.customTokens = customTokens;
   }
 
   if (Object.keys(result).length === 0) {
@@ -707,4 +1195,32 @@ export const WORKFLOW_PARAM_TOKEN_HELP = [
   DEFAULT_HEIGHT_TOKEN,
   DEFAULT_CFG_TOKEN,
   DEFAULT_STEPS_TOKEN,
+  DEFAULT_DENOISE_TOKEN,
+  DEFAULT_INPUT_IMAGE_TOKEN,
+  DEFAULT_MASK_IMAGE_TOKEN,
+  DEFAULT_CHECKPOINT_TOKEN,
+  DEFAULT_UNET_TOKEN,
+  DEFAULT_VAE_TOKEN,
+  DEFAULT_UPSCALE_MODEL_TOKEN,
+  DEFAULT_REFINER_TOKEN,
 ] as const;
+
+export function resolveWorkflowGraphEnrichOptions(
+  runtime?: ComfyUiRuntimeConfig,
+): {
+  enrichGraph: boolean;
+  enrichSdxlRefiner: boolean;
+  enrichNeuralPolish: boolean;
+  enrichSharpen: boolean;
+} {
+  const enrichGraph = runtime?.workflowGraphEnrich !== false;
+  return {
+    enrichGraph,
+    enrichSdxlRefiner:
+      enrichGraph && runtime?.workflowSdxlRefinerEnrich !== false,
+    enrichNeuralPolish:
+      enrichGraph && runtime?.workflowNeuralUpscalePolish !== false,
+    enrichSharpen:
+      enrichGraph && runtime?.workflowSharpenAfterUpscale !== false,
+  };
+}

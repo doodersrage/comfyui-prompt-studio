@@ -21,6 +21,15 @@ import type { RenderRealismMode } from "./render-realism";
 import { DEFAULT_VARIATION_SETTINGS } from "./variation-settings";
 import type { DetailLevel } from "./detail-level";
 import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import type { ModelCheckpointMap, ModelRefinerMap, ModelVaeMap } from "./model-checkpoint-map";
+import type { ModelUpscaleMap } from "./model-upscale-map";
+import {
+  DEFAULT_QUEUE_QUALITY_PROFILE,
+  normalizeQueueQualityProfile,
+  resolveQueueQualityProfile,
+  type QueueQualityProfile,
+} from "./queue-quality-profile";
+import { normalizeToolQueueQualityProfiles } from "./tool-quality-profiles";
 
 export const SETTINGS_CACHE_KEY = "comfy-prompt-tool-settings-v1";
 
@@ -53,7 +62,7 @@ export type SharedToolSettings = {
   sessionAllowTemplateFallback?: boolean;
   /** Pinned character appearance block injected into Character/Duo generations. */
   activeCharacterDescriptor?: string;
-  /** KSampler preset tier applied when queueing (base vs optimized). */
+  /** KSampler preset tier applied when queueing (base, optimized, max compatible, or max quality). */
   modelSamplerPreset?: ModelSamplerPresetTier;
   /** Latent orientation preset applied when queueing. */
   modelResolutionOrientation?: ResolutionOrientation;
@@ -63,6 +72,32 @@ export type SharedToolSettings = {
   renderRealismMode?: RenderRealismMode;
   /** Auto-adjust prompts to reduce mutations and extra limbs on queue. */
   anatomyGuardMode?: AnatomyGuardMode;
+  /** When true (default), patch EmptyLatentImage and loader nodes directly at queue time. */
+  directWorkflowPatching?: boolean;
+  /** When true (default), auto-bind placeholders and audit workflow structure at queue time. */
+  workflowQueueOptimize?: boolean;
+  /** When true (default), insert model-sampling nodes into imported FLUX/SD3 workflows at queue time. */
+  workflowGraphEnrich?: boolean;
+  /** When true (default), insert SDXL refiner pass on Final/Max when refiner map is set. */
+  workflowSdxlRefinerEnrich?: boolean;
+  /** When true (default), chain Lanczos polish after neural UpscaleModel on Max. */
+  workflowNeuralUpscalePolish?: boolean;
+  /** When true, add subtle ImageSharpen after upscale on Max (off by default — sharpen can look waxy on skin). */
+  workflowSharpenAfterUpscale?: boolean;
+  /** Overrides sidebar sampler/resolution when queueing (draft / final / max). */
+  queueQualityProfile?: QueueQualityProfile;
+  /** Per-tool queue quality overrides (tool id → profile). */
+  toolQueueQualityProfiles?: import("./tool-quality-profiles").ToolQueueQualityProfiles;
+  /** Per-model checkpoint filename overrides for loader patching (modelId=filename). */
+  modelCheckpointMap?: ModelCheckpointMap;
+  /** Per-model VAE filename overrides for VAELoader patching (modelId=filename). */
+  modelVaeMap?: ModelVaeMap;
+  /** Per-model SDXL refiner checkpoint overrides (modelId=filename). */
+  modelRefinerMap?: ModelRefinerMap;
+  /** Per-model UpscaleModel loader filenames (modelId or default=filename). */
+  modelUpscaleMap?: ModelUpscaleMap;
+  /** img2img / edit denoise strength (0.05–1) applied when queueing with an input image. */
+  editDenoiseStrength?: number;
   /** @deprecated Use selectedWorkflowFileId */
   selectedWorkflowPresetId?: string;
 };
@@ -287,6 +322,13 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelResolutionSizeTier: DEFAULT_RESOLUTION_SIZE_TIER,
   renderRealismMode: DEFAULT_RENDER_REALISM_MODE,
   anatomyGuardMode: DEFAULT_ANATOMY_GUARD_MODE,
+  directWorkflowPatching: true,
+  workflowQueueOptimize: true,
+  workflowGraphEnrich: true,
+  workflowSdxlRefinerEnrich: true,
+  workflowNeuralUpscalePolish: true,
+  workflowSharpenAfterUpscale: false,
+  queueQualityProfile: "followSettings",
   autoSelectWorkflowForModel: true,
   limitModelsToAvailableWorkflows: true,
   showAllModelsOverride: false,
@@ -488,6 +530,12 @@ export function loadSettingsCache(): SettingsCache {
     );
     shared.anatomyGuardMode = normalizeAnatomyGuardMode(
       shared.anatomyGuardMode ?? DEFAULT_ANATOMY_GUARD_MODE,
+    );
+    shared.queueQualityProfile = normalizeQueueQualityProfile(
+      shared.queueQualityProfile ?? DEFAULT_QUEUE_QUALITY_PROFILE,
+    );
+    shared.toolQueueQualityProfiles = normalizeToolQueueQualityProfiles(
+      shared.toolQueueQualityProfiles,
     );
 
     const rawTools = parsed.tools ?? {};

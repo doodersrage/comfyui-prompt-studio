@@ -17,6 +17,9 @@ export function buildGallerySidecar(entry: ComfyGalleryEntry) {
       completedAt: entry.completedAt,
       images: entry.images,
       queueParams: entry.queueParams,
+      sourceImageUrl: entry.sourceImageUrl,
+      maskImageUrl: entry.maskImageUrl,
+      queueQualityProfile: entry.queueQualityProfile,
     },
   });
 }

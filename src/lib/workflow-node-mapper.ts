@@ -1,3 +1,5 @@
+import { isModelSamplingFluxNode, isModelSamplingPatchNode } from "./model-sampling-patch";
+
 export type WorkflowNodeMapping = {
   nodeId: string;
   classType: string;
@@ -7,7 +9,14 @@ export type WorkflowNodeMapping = {
     | "negative"
     | "seed"
     | "sampler"
+    | "modelSampling"
     | "latent"
+    | "inputImage"
+    | "maskImage"
+    | "checkpointLoader"
+    | "unetLoader"
+    | "vaeLoader"
+    | "upscaleModelLoader"
     | "steps"
     | "cfg"
     | "custom";
@@ -31,8 +40,12 @@ function isLatentSizeNode(classLower: string, inputs: Record<string, unknown>): 
   );
 }
 
-function isSamplerNode(classLower: string, inputs: Record<string, unknown>): boolean {
-  if (classLower.includes("ksampler") || classLower.includes("sampler")) {
+function isSamplerNode(classType: string, inputs: Record<string, unknown>): boolean {
+  if (isModelSamplingPatchNode(classType)) {
+    return false;
+  }
+  const classLower = classType.toLowerCase();
+  if (classLower.includes("ksampler") || classLower.includes("samplercustom")) {
     return true;
   }
   return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
@@ -88,13 +101,104 @@ export function suggestWorkflowNodeMappings(workflowJson: string): WorkflowNodeM
       continue;
     }
 
-    if (isSamplerNode(classLower, inputs)) {
+    if (isModelSamplingPatchNode(classType)) {
+      mappings.push({
+        nodeId,
+        classType,
+        title: node._meta?.title,
+        suggestedBinding: "modelSampling",
+        reason: isModelSamplingFluxNode(classType)
+          ? "Flux model sampling — map shift curve and resolution placeholders here"
+          : "Model sampling patch — map shift placeholder here",
+      });
+      continue;
+    }
+
+    if (isSamplerNode(classType, inputs)) {
       mappings.push({
         nodeId,
         classType,
         title: node._meta?.title,
         suggestedBinding: "sampler",
-        reason: "Sampler node — map seed/steps/cfg placeholders here",
+        reason: "Sampler node — map seed/steps/cfg/denoise placeholders here",
+      });
+      continue;
+    }
+
+    if (
+      (classType === "LoadImage" || classType === "LoadImageOutput") &&
+      "image" in inputs
+    ) {
+      mappings.push({
+        nodeId,
+        classType,
+        title: node._meta?.title,
+        suggestedBinding: "inputImage",
+        reason: "Load image node — map input image placeholder here",
+      });
+      continue;
+    }
+
+    if (classType === "LoadImageMask" && "image" in inputs) {
+      mappings.push({
+        nodeId,
+        classType,
+        title: node._meta?.title,
+        suggestedBinding: "maskImage",
+        reason: "Load mask node — map inpaint mask placeholder here",
+      });
+      continue;
+    }
+
+    if (
+      (classType === "CheckpointLoaderSimple" || classType === "CheckpointLoader") &&
+      "ckpt_name" in inputs
+    ) {
+      mappings.push({
+        nodeId,
+        classType,
+        title: node._meta?.title,
+        suggestedBinding: "checkpointLoader",
+        reason: "Checkpoint loader — map {{CHECKPOINT}} placeholder here",
+      });
+      continue;
+    }
+
+    if (
+      (classType === "UNETLoader" || classType === "UnetLoaderGGUF") &&
+      "unet_name" in inputs
+    ) {
+      mappings.push({
+        nodeId,
+        classType,
+        title: node._meta?.title,
+        suggestedBinding: "unetLoader",
+        reason: "UNET loader — map {{UNET}} placeholder here",
+      });
+      continue;
+    }
+
+    if (classType === "VAELoader" && "vae_name" in inputs) {
+      mappings.push({
+        nodeId,
+        classType,
+        title: node._meta?.title,
+        suggestedBinding: "vaeLoader",
+        reason: "VAE loader — map {{VAE}} placeholder here",
+      });
+      continue;
+    }
+
+    if (
+      (classType === "UpscaleModelLoader" || classType === "UpscaleModel") &&
+      "model_name" in inputs
+    ) {
+      mappings.push({
+        nodeId,
+        classType,
+        title: node._meta?.title,
+        suggestedBinding: "upscaleModelLoader",
+        reason: "Upscale model loader — map {{UPSCALE_MODEL}} placeholder here",
       });
     }
   }

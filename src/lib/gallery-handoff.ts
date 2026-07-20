@@ -19,8 +19,9 @@ export type GalleryHandoffPayload = {
   historyId?: string;
   imageUrl?: string;
   imageFilename?: string;
-  target: "refine" | "imagePrompt" | "promptEditor";
+  target: "refine" | "imagePrompt" | "promptEditor" | "inpaint" | "controlnet";
   improveIntent?: string;
+  queueParams?: WorkflowParamValues;
   savedAt: number;
 };
 
@@ -58,6 +59,7 @@ export function buildGalleryHandoff(
     historyId: entry.historyId,
     imageUrl: image ? buildComfyViewPath(entry.comfyUrl, image) : undefined,
     imageFilename: image?.filename,
+    queueParams: entry.queueParams,
     target,
     savedAt: Date.now(),
   };
@@ -132,8 +134,14 @@ export function galleryHandoffPath(target: GalleryHandoffPayload["target"]): str
   if (target === "refine") {
     return "/refine?from=gallery";
   }
+  if (target === "inpaint") {
+    return "/inpaint?from=gallery";
+  }
   if (target === "promptEditor") {
     return "/prompt?from=gallery";
+  }
+  if (target === "controlnet") {
+    return "/controlnet?from=gallery";
   }
   return "/image-prompt?from=gallery";
 }

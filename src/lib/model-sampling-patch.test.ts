@@ -1,0 +1,195 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { injectPromptsWithFallbacks, resolvePlaceholderTokens, resolveQueueParams } from "./comfyui-config.ts";
+import {
+  formatModelSamplingHint,
+  getModelSamplingPatchDefaults,
+  isModelSamplingPatchNode,
+  patchModelSamplingInWorkflow,
+  resolveModelSamplingParams,
+} from "./model-sampling-patch.ts";
+import { suggestWorkflowNodeMappings } from "./workflow-node-mapper.ts";
+
+describe("model sampling patch", () => {
+  it("detects model sampling node class types", () => {
+    assert.equal(isModelSamplingPatchNode("ModelSamplingAuraFlow"), true);
+    assert.equal(isModelSamplingPatchNode("ModelSamplingFlux"), true);
+    assert.equal(isModelSamplingPatchNode("ModelSamplingSD3"), true);
+    assert.equal(isModelSamplingPatchNode("KSampler"), false);
+  });
+
+  it("returns aura and sd3 shift defaults", () => {
+    assert.deepEqual(getModelSamplingPatchDefaults("auraflow", "base"), {
+      samplingShift: 1.73,
+    });
+    assert.deepEqual(getModelSamplingPatchDefaults("sd3-medium", "optimized"), {
+      samplingShift: 3,
+    });
+  });
+
+  it("returns flux model sampling defaults", () => {
+    assert.deepEqual(getModelSamplingPatchDefaults("flux-dev", "base"), {
+      fluxMaxShift: 1.15,
+      fluxBaseShift: 0.5,
+    });
+    assert.deepEqual(resolveModelSamplingParams("flux-2-klein-9b", "base"), {
+      fluxMaxShift: 1.15,
+      fluxBaseShift: 0.5,
+    });
+  });
+
+  it("formats model sampling hints", () => {
+    assert.match(formatModelSamplingHint("auraflow", "base") ?? "", /shift 1\.73/);
+    assert.match(formatModelSamplingHint("flux-dev", "base") ?? "", /Flux max 1\.15/);
+  });
+
+  it("patches shift nodes and flux model sampling nodes", () => {
+    const workflow = {
+      "10": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["1", 0], shift: 1.5 },
+      },
+      "11": {
+        class_type: "ModelSamplingFlux",
+        inputs: {
+          model: ["2", 0],
+          max_shift: 1,
+          base_shift: 0.4,
+          width: 768,
+          height: 768,
+        },
+      },
+    };
+
+    const result = patchModelSamplingInWorkflow(workflow, {
+      samplingShift: "1.73",
+      fluxMaxShift: "1.15",
+      fluxBaseShift: "0.5",
+      width: "1024",
+      height: "1152",
+    });
+
+    const aura = (result.workflow["10"] as { inputs: Record<string, unknown> }).inputs;
+    const flux = (result.workflow["11"] as { inputs: Record<string, unknown> }).inputs;
+    assert.equal(aura.shift, 1.73);
+    assert.equal(flux.max_shift, 1.15);
+    assert.equal(flux.base_shift, 0.5);
+    assert.equal(flux.width, 1024);
+    assert.equal(flux.height, 1152);
+    assert.deepEqual(result.patched, {
+      samplingShift: 1,
+      fluxMaxShift: 1,
+      fluxBaseShift: 1,
+      width: 1,
+      height: 1,
+    });
+  });
+
+  it("patches unreplaced shift placeholders using node defaults", () => {
+    const result = patchModelSamplingInWorkflow(
+      {
+        "324": {
+          class_type: "ModelSamplingAuraFlow",
+          inputs: { model: ["1", 0], shift: "{{SHIFT}}" },
+        },
+      },
+      {},
+    );
+
+    const inputs = (result.workflow["324"] as { inputs: Record<string, unknown> }).inputs;
+    assert.equal(inputs.shift, 1.73);
+    assert.equal(result.patched.samplingShift, 1);
+  });
+
+  it("resolves shift placeholders through server queue param merge", () => {
+    const params = resolveQueueParams(undefined, {
+      seed: "42",
+      width: "1024",
+      height: "1024",
+      cfg: "4",
+      steps: "28",
+      samplerName: "euler",
+      scheduler: "simple",
+      samplingShift: 1.73,
+    });
+
+    const injected = injectPromptsWithFallbacks(
+      {
+        "1": {
+          class_type: "CLIPTextEncode",
+          inputs: { text: "{{POSITIVE}}" },
+        },
+        "324": {
+          class_type: "ModelSamplingAuraFlow",
+          inputs: { model: ["2", 0], shift: "{{SHIFT}}" },
+        },
+      },
+      {
+        positive: "A portrait.",
+        params,
+      },
+      resolvePlaceholderTokens(),
+    );
+
+    const inputs = (injected.workflow["324"] as { inputs: Record<string, unknown> }).inputs;
+    assert.equal(inputs.shift, 1.73);
+  });
+
+  it("patches model sampling nodes during queue injection", () => {
+    const workflow = {
+      "1": {
+        class_type: "CLIPTextEncode",
+        inputs: { text: "{{POSITIVE}}" },
+      },
+      "2": {
+        class_type: "ModelSamplingFlux",
+        inputs: {
+          model: ["3", 0],
+          max_shift: 1,
+          base_shift: 0.4,
+          width: 512,
+          height: 512,
+        },
+      },
+    };
+
+    const injected = injectPromptsWithFallbacks(
+      workflow,
+      {
+        positive: "A portrait in soft light.",
+        params: {
+          fluxMaxShift: "1.15",
+          fluxBaseShift: "0.5",
+          width: "896",
+          height: "1152",
+        },
+      },
+      resolvePlaceholderTokens(),
+    );
+
+    const flux = (injected.workflow["2"] as { inputs: Record<string, unknown> }).inputs;
+    assert.equal(flux.width, 896);
+    assert.equal(flux.height, 1152);
+    assert.equal(flux.max_shift, 1.15);
+    assert.equal(flux.base_shift, 0.5);
+  });
+
+  it("maps model sampling nodes separately from ksampler", () => {
+    const mappings = suggestWorkflowNodeMappings(
+      JSON.stringify({
+        "3": { class_type: "KSampler", inputs: { seed: 1, steps: 20, cfg: 7 } },
+        "4": { class_type: "ModelSamplingAuraFlow", inputs: { model: ["1", 0], shift: 1.73 } },
+        "5": {
+          class_type: "ModelSamplingFlux",
+          inputs: { model: ["2", 0], width: 1024, height: 1024 },
+        },
+      }),
+    );
+    assert.ok(mappings.some((entry) => entry.suggestedBinding === "sampler"));
+    assert.ok(mappings.some((entry) => entry.suggestedBinding === "modelSampling"));
+    assert.equal(
+      mappings.filter((entry) => entry.suggestedBinding === "sampler").length,
+      1,
+    );
+  });
+});

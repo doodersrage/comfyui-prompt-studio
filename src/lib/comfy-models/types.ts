@@ -50,6 +50,12 @@ export type ComfyImageModelDefinition = {
   limitsByDetail: Record<DetailLevel, PromptLimits>;
   /** ComfyUI supported_models.py class name, when applicable */
   comfyClass?: string;
+  /** Suggested checkpoint filename for loader patching (override in Settings → model checkpoint map). */
+  checkpointHint?: string;
+  /** Suggested UNET filename when workflows use UNETLoader instead of CheckpointLoaderSimple. */
+  unetHint?: string;
+  /** Suggested VAE filename when workflows use VAELoader. */
+  vaeHint?: string;
 };
 
 export type ComfyImageModel = string;

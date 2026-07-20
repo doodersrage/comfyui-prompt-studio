@@ -34,9 +34,9 @@ export const RENDER_REALISM_OPTIONS: {
 
 const REALISM_POSITIVE_SUFFIX: Record<Exclude<RenderRealismMode, "off">, string> = {
   realistic:
-    "photorealistic, natural lighting, realistic skin texture, accurate anatomy, fine surface detail, cinematic depth of field",
+    "photorealistic, natural lighting, realistic skin texture with subtle pores, soft highlight rolloff, not airbrushed, accurate anatomy, fine surface detail, cinematic depth of field",
   "hyper-realistic":
-    "hyperrealistic photography, ultra-detailed skin pores and micro-texture, 8K clarity, studio-grade lighting, razor-sharp focus, lifelike materials, professional DSLR quality",
+    "hyperrealistic photography, natural skin micro-texture and pores, lifelike materials, studio-grade lighting, clean focus without oversharpening, professional DSLR quality",
   anime:
     "anime illustration, cel shading, clean line art, vibrant color palette, expressive character design, dynamic composition, studio animation quality",
 };

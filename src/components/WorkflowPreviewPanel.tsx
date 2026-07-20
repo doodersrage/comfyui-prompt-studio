@@ -23,6 +23,8 @@ type WorkflowPreviewPanelProps = {
     snippets?: Array<{ path: string; value: string }>;
     workflowJson?: string;
     truncated?: boolean;
+    preflightIssues?: Array<{ severity: "error" | "warn"; message: string }>;
+    queueOptimizeChanges?: string[];
   } | null;
 };
 
@@ -100,6 +102,37 @@ export default function WorkflowPreviewPanel({
           </span>
         )}
       </div>
+
+      {preview.queueOptimizeChanges && preview.queueOptimizeChanges.length > 0 ? (
+        <ul className="space-y-1.5">
+          <p className="type-caption text-[var(--text-muted)]">Queue graph enrich</p>
+          {preview.queueOptimizeChanges.map((message) => (
+            <li
+              key={message}
+              className="type-caption rounded-[var(--radius-md)] border border-violet-500/20 bg-violet-500/10 px-3 py-2 text-violet-100/90"
+            >
+              {message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {preview.preflightIssues && preview.preflightIssues.length > 0 ? (
+        <ul className="space-y-1.5">
+          {preview.preflightIssues.map((issue) => (
+            <li
+              key={issue.message}
+              className={
+                issue.severity === "error"
+                  ? "type-caption rounded-[var(--radius-md)] border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-rose-200"
+                  : "type-caption rounded-[var(--radius-md)] border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-amber-100/90"
+              }
+            >
+              {issue.message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {preview.snippets && preview.snippets.length > 0 && (
         <ul className="space-y-1 type-caption">

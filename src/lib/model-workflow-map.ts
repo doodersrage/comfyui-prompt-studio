@@ -59,6 +59,31 @@ export function suggestWorkflowMapForFiles(
   return suggestWorkflowDefaultsByCategory(workflowFiles as ComfyWorkflowFile[]);
 }
 
+/** Assign one workflow file id to specific models (skips existing unless overwrite). */
+export function assignWorkflowToInferredModels(
+  workflowFileId: string,
+  models: Array<ComfyImageModel | string>,
+  currentMap?: ModelWorkflowMap,
+  overwrite = false,
+): ModelWorkflowMap {
+  const workflowId = workflowFileId.trim();
+  if (!workflowId || models.length === 0) {
+    return { ...(currentMap ?? {}) };
+  }
+
+  const next: ModelWorkflowMap = { ...(currentMap ?? {}) };
+  for (const model of models) {
+    const modelId = model.trim();
+    if (!modelId) {
+      continue;
+    }
+    if (overwrite || !next[modelId]?.trim()) {
+      next[modelId] = workflowId;
+    }
+  }
+  return next;
+}
+
 export function patchSharedForModelChange(
   model: ComfyImageModel,
   shared: SharedToolSettings,

@@ -20,6 +20,7 @@ import { noteScheduledBatchJobComplete } from "./scheduled-batch-tracker";
 import { noteJobCompletionEmail } from "./job-completion-email";
 import { autoTagGalleryEntry } from "./gallery-auto-vision-tags";
 import type { WorkflowParamValues } from "./comfyui-config";
+import { buildGalleryImageUrlsFromQueueParams } from "./queue-requeue-images";
 
 export type RegisterComfyGalleryJobInput = {
   promptId: string;
@@ -29,6 +30,9 @@ export type RegisterComfyGalleryJobInput = {
   model?: string;
   historyId?: string;
   queueParams?: WorkflowParamValues;
+  sourceImageUrl?: string;
+  maskImageUrl?: string;
+  queueQualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
   projectId?: string;
   comfyUrl: string;
 };
@@ -61,6 +65,13 @@ function resolveComfyUrlForJob(promptId: string, comfyUrl?: string): string | un
 export function registerComfyGalleryJob(
   input: RegisterComfyGalleryJobInput,
 ): ComfyGalleryEntry {
+  const imageUrls = buildGalleryImageUrlsFromQueueParams({
+    comfyUrl: input.comfyUrl,
+    queueParams: input.queueParams,
+    sourceImageUrl: input.sourceImageUrl,
+    maskImageUrl: input.maskImageUrl,
+  });
+
   return addComfyGalleryEntry({
     promptId: input.promptId,
     prompt: input.prompt,
@@ -69,6 +80,9 @@ export function registerComfyGalleryJob(
     model: input.model,
     historyId: input.historyId,
     queueParams: input.queueParams,
+    sourceImageUrl: imageUrls.sourceImageUrl,
+    maskImageUrl: imageUrls.maskImageUrl,
+    queueQualityProfile: input.queueQualityProfile,
     projectId: input.projectId,
     comfyUrl: input.comfyUrl,
     status: "pending",

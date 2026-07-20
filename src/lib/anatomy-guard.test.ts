@@ -53,6 +53,25 @@ describe("anatomy guard", () => {
     assert.equal(result.negative, undefined);
   });
 
+  it("adds pose guidance for klein distilled flux models", () => {
+    const result = applyAnatomyGuardForModel({
+      positive: "A woman standing in sunlight.",
+      model: "flux-2-klein-9b-distilled",
+      mode: "strict",
+    });
+    assert.match(result.positive, /Prefer simple standing poses/i);
+    assert.match(result.positive, /anatomically correct hands/i);
+  });
+
+  it("adds pose guidance for klein base flux models in strict mode", () => {
+    const result = applyAnatomyGuardForModel({
+      positive: "Portrait in window light.",
+      model: "flux-2-klein-9b",
+      mode: "strict",
+    });
+    assert.match(result.positive, /Keep poses straightforward/i);
+  });
+
   it("deduplicates merged negative terms", () => {
     const merged = applyAnatomyGuardToNegative("extra limbs, blurry", "standard");
     assert.equal(

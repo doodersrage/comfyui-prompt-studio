@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComfyImageModel } from "./comfy-models";
-import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
+import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { resolveQueueNegativePrompt } from "./queue-negative";
@@ -21,7 +21,7 @@ export async function queueNegativeAbTest(input: {
   const model = input.model as ComfyImageModel;
   const seed = input.sharedSeed ?? String(Math.floor(Math.random() * 2 ** 32));
   const params = resolveQueueParams({ model, base: { seed } });
-  const runtime = resolveRuntimeForModel(model);
+  const runtime = resolveRuntimeForQueue(model, input.tool ?? "negative-ab");
   const prompt = injectLoraTriggers(input.prompt.trim());
 
   let negativeA = input.negativeA?.trim();
@@ -71,6 +71,7 @@ export async function queueNegativeAbTest(input: {
       model,
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
       queueParams: params,
+      queueQualityProfile: runtime.queueQualityProfile,
     });
     void scheduleComfyGalleryPoll(data.promptId, {
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",

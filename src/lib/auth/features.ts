@@ -42,6 +42,7 @@ const PAGE_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
   { prefix: "/fantasy", feature: "fantasy" },
   { prefix: "/image-prompt", feature: "image-prompt" },
   { prefix: "/refine", feature: "refine" },
+  { prefix: "/inpaint", feature: "refine" },
   { prefix: "/controlnet", feature: "controlnet" },
   { prefix: "/video", feature: "video" },
   { prefix: "/negative", feature: "negative" },

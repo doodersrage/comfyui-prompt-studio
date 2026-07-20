@@ -457,6 +457,7 @@ export default function CharacterTool() {
       }
       sidebar={
         <SharedToolControls
+          toolId="character"
           shared={shared}
           onModelChange={(model) => updateShared({ model })}
           onDetailChange={(detail) => updateShared({ detail })}

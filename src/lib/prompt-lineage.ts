@@ -58,6 +58,39 @@ export function findGalleryEntriesForHistory(
   return loadComfyGallery().filter((entry) => entry.historyId === historyId);
 }
 
+/** Best gallery entry to recover queue params and source/mask URLs for a history re-queue. */
+export function findGalleryEntryForHistory(
+  input: {
+    id: string;
+    metadata?: Record<string, unknown>;
+  },
+  gallery: ComfyGalleryEntry[] = loadComfyGallery(),
+): ComfyGalleryEntry | undefined {
+  const galleryEntryId =
+    typeof input.metadata?.galleryEntryId === "string"
+      ? input.metadata.galleryEntryId.trim()
+      : "";
+  if (galleryEntryId) {
+    const byId = gallery.find((entry) => entry.id === galleryEntryId);
+    if (byId) {
+      return byId;
+    }
+  }
+
+  const comfyPromptId =
+    typeof input.metadata?.comfyPromptId === "string"
+      ? input.metadata.comfyPromptId.trim()
+      : "";
+  if (comfyPromptId) {
+    const byPromptId = gallery.find((entry) => entry.promptId === comfyPromptId);
+    if (byPromptId) {
+      return byPromptId;
+    }
+  }
+
+  return gallery.find((entry) => entry.historyId === input.id);
+}
+
 export function findHistoryIdForGalleryEntry(
   entry: ComfyGalleryEntry,
 ): string | undefined {

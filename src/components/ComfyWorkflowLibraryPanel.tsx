@@ -37,7 +37,19 @@ import {
 } from "@/lib/workflow-apply-bindings";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { markOnboardingWorkflowImported } from "@/lib/onboarding-hooks";
+import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
+import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
+import {
+  scaffoldWorkflowForModel,
+  suggestedScaffoldName,
+} from "@/lib/workflow-scaffold";
+import { inferModelsFromWorkflowLabel } from "@/lib/workflow-category-defaults";
+import { assignWorkflowToInferredModels } from "@/lib/model-workflow-map";
+import {
+  optimizeWorkflowForQueue,
+  suggestedOptimizedWorkflowName,
+} from "@/lib/workflow-queue-optimizer";
 import type { ServerWorkflowOption } from "@/hooks/useComfyWorkflowSelection";
 import { Button } from "@/components/ui/Button";
 import { ChipButton, MonoTextArea, SelectInput, TextInput } from "@/components/ui/Field";
@@ -109,6 +121,20 @@ export default function ComfyWorkflowLibraryPanel({
     setEditError(null);
   }, []);
 
+  const assignInferredModels = useCallback(
+    (workflowId: string, models: ReturnType<typeof inferModelsFromWorkflowLabel>, overwrite = false) => {
+      if (models.length === 0) {
+        onStatus?.("No suggested models for this workflow label.");
+        return;
+      }
+      const shared = loadSettingsCache().shared;
+      const nextMap = assignWorkflowToInferredModels(workflowId, models, shared.modelWorkflowMap, overwrite);
+      saveSharedSettings({ ...shared, modelWorkflowMap: nextMap });
+      onStatus?.(`Assigned workflow to ${models.length} model(s): ${models.join(", ")}`);
+    },
+    [onStatus],
+  );
+
   const importFile = useCallback(
     async (file: File) => {
       setImportError(null);
@@ -136,7 +162,15 @@ export default function ComfyWorkflowLibraryPanel({
         setSelectedWorkflowFileId(saved.id);
         setSelectedId(saved.id);
         startEdit(saved);
-        setImportNotice(prepared.notice ?? null);
+        const inferred = inferModelsFromWorkflowLabel({
+          name: saved.name,
+          filename: saved.filename,
+        });
+        setImportNotice(
+          [prepared.notice, inferred.length ? `Suggested models: ${inferred.join(", ")}` : null]
+            .filter(Boolean)
+            .join(" · ") || null,
+        );
         onStatus?.(
           `Imported “${saved.filename ?? saved.name}” · ${prepared.placeholders?.positive ?? 0}× ${placeholderTokens.positive}`,
         );
@@ -147,7 +181,7 @@ export default function ComfyWorkflowLibraryPanel({
         onStatus?.(message);
       }
     },
-    [newName, onStatus, placeholderTokens, refresh, startEdit],
+    [assignInferredModels, newName, onStatus, placeholderTokens, refresh, startEdit],
   );
 
   const cancelEdit = useCallback(() => {
@@ -210,6 +244,138 @@ export default function ComfyWorkflowLibraryPanel({
     onStatus?.(`Created workflow “${saved.name}”. Edit the JSON below.`);
   }, [files.length, newName, onStatus, placeholderTokens.positive, refresh, startEdit]);
 
+  const createScaffoldForModel = useCallback(() => {
+    const model = loadSettingsCache().shared.model;
+    const result = scaffoldWorkflowForModel(model, {
+      tokens: {
+        positive: placeholderTokens.positive,
+        negative: placeholderTokens.negative,
+        seed: placeholderTokens.seed,
+        width: placeholderTokens.width,
+        height: placeholderTokens.height,
+        cfg: placeholderTokens.cfg,
+        steps: placeholderTokens.steps,
+        sampler: placeholderTokens.sampler,
+        scheduler: placeholderTokens.scheduler,
+        shift: placeholderTokens.shift,
+        fluxMaxShift: placeholderTokens.fluxMaxShift,
+        fluxBaseShift: placeholderTokens.fluxBaseShift,
+        denoise: placeholderTokens.denoise,
+        inputImage: placeholderTokens.inputImage,
+        maskImage: placeholderTokens.maskImage,
+      },
+    });
+    const saved = upsertComfyWorkflowFile({
+      name: newName.trim() || suggestedScaffoldName(model, "template"),
+      workflowJson: result.json,
+    });
+    refresh();
+    setNewName("");
+    startEdit(saved);
+    assignInferredModels(saved.id, [model]);
+    onStatus?.(
+      `Created ${result.category} scaffold for ${model} · assigned to model map. ${result.notes[0] ?? ""}`.trim(),
+    );
+  }, [assignInferredModels, newName, onStatus, placeholderTokens, refresh, startEdit]);
+
+  const cloneAndBindWorkflow = useCallback(() => {
+    const sourceJson = editingJson.trim();
+    if (!sourceJson) {
+      onStatus?.("Select a workflow to edit, or import JSON first, then use Clone & bind.");
+      return;
+    }
+    const model = loadSettingsCache().shared.model;
+    const result = scaffoldWorkflowForModel(model, {
+      sourceJson,
+      tokens: {
+        positive: placeholderTokens.positive,
+        negative: placeholderTokens.negative,
+        seed: placeholderTokens.seed,
+        width: placeholderTokens.width,
+        height: placeholderTokens.height,
+        cfg: placeholderTokens.cfg,
+        steps: placeholderTokens.steps,
+        sampler: placeholderTokens.sampler,
+        scheduler: placeholderTokens.scheduler,
+        shift: placeholderTokens.shift,
+        fluxMaxShift: placeholderTokens.fluxMaxShift,
+        fluxBaseShift: placeholderTokens.fluxBaseShift,
+        denoise: placeholderTokens.denoise,
+        inputImage: placeholderTokens.inputImage,
+        maskImage: placeholderTokens.maskImage,
+      },
+    });
+    const saved = upsertComfyWorkflowFile({
+      name: newName.trim() || suggestedScaffoldName(model, "clone"),
+      workflowJson: result.json,
+    });
+    refresh();
+    setNewName("");
+    startEdit(saved);
+    assignInferredModels(saved.id, [model]);
+    onStatus?.(
+      `Cloned workflow with ${result.bindingChanges} binding${result.bindingChanges === 1 ? "" : "s"} applied · assigned to ${model}.`,
+    );
+  }, [assignInferredModels, editingJson, newName, onStatus, placeholderTokens, refresh, startEdit]);
+
+  const optimizeAndSaveCopy = useCallback(() => {
+    const sourceJson = editingJson.trim();
+    if (!sourceJson) {
+      onStatus?.("Open a workflow in Edit JSON first, or import JSON, then use Optimize & save copy.");
+      return;
+    }
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(sourceJson) as Record<string, unknown>;
+    } catch {
+      onStatus?.("Workflow JSON is invalid — fix syntax before optimizing.");
+      return;
+    }
+
+    const model = loadSettingsCache().shared.model;
+    const shared = loadSettingsCache().shared;
+    const queueParams = resolveQueueParams({
+      model,
+      qualityProfile: shared.queueQualityProfile,
+    });
+    const result = optimizeWorkflowForQueue({
+      workflow: parsed,
+      tokens: placeholderTokens,
+      model,
+      qualityProfile: shared.queueQualityProfile,
+      upscaleModelFilename: queueParams.upscaleModelFilename,
+      refinerCheckpointFilename: queueParams.refinerCheckpointFilename,
+    });
+    const baseName = editingName.trim() || newName.trim() || "workflow";
+    const saved = upsertComfyWorkflowFile({
+      name: suggestedOptimizedWorkflowName(baseName),
+      workflowJson: result.workflowJson,
+    });
+    refresh();
+    setNewName("");
+    startEdit(saved);
+    assignInferredModels(saved.id, [model]);
+    const bindingNote =
+      result.bindingChanges.length > 0
+        ? `${result.bindingChanges.length} binding(s) applied`
+        : "already bound";
+    const warnNote =
+      result.audit.warnings.length > 0
+        ? ` · ${result.audit.warnings.length} review note(s)`
+        : "";
+    onStatus?.(`Saved optimized copy (${bindingNote}${warnNote}) · assigned to ${model}.`);
+  }, [
+    assignInferredModels,
+    editingJson,
+    editingName,
+    newName,
+    onStatus,
+    placeholderTokens,
+    refresh,
+    startEdit,
+  ]);
+
   const selectFile = useCallback(
     (id: string | undefined, label: string) => {
       setSelectedWorkflowFileId(id);
@@ -270,6 +436,27 @@ export default function ComfyWorkflowLibraryPanel({
         </label>
         <Button type="button" variant="secondary" size="sm" onClick={createBlank}>
           New workflow
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={createScaffoldForModel}>
+          Scaffold for model
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={cloneAndBindWorkflow}
+          disabled={!editingJson.trim()}
+        >
+          Clone &amp; bind
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={optimizeAndSaveCopy}
+          disabled={!editingJson.trim()}
+        >
+          Optimize &amp; save copy
         </Button>
         <ChipButton active={!selectedId} onClick={() => selectFile(undefined, "")}>
           Use fallback default
@@ -337,6 +524,10 @@ export default function ComfyWorkflowLibraryPanel({
               const isEditing = editingId === file.id;
               const displayName = workflowFileDisplayName(file);
               const sourceFilename = workflowFileSourceFilename(file);
+              const inferredModels = inferModelsFromWorkflowLabel({
+                name: file.name,
+                filename: file.filename,
+              });
               return (
                 <li
                   key={file.id}
@@ -358,6 +549,29 @@ export default function ComfyWorkflowLibraryPanel({
                         {new Date(file.createdAt).toLocaleString()} ·{" "}
                         {(file.workflowJson.length / 1024).toFixed(1)} KB
                       </p>
+                      {inferredModels.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <p className="type-caption text-violet-300/80">
+                            Suggested: {inferredModels.join(", ")}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => assignInferredModels(file.id, inferredModels)}
+                          >
+                            Assign to models
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => assignInferredModels(file.id, inferredModels, true)}
+                          >
+                            Overwrite map
+                          </Button>
+                        </div>
+                      ) : null}
                     </div>
                     <ToolActionRow>
                       <Button
@@ -512,6 +726,14 @@ export default function ComfyWorkflowLibraryPanel({
                       <ToolActionRow>
                         <Button type="button" variant="primary" size="sm" onClick={saveEdit}>
                           Save workflow
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={optimizeAndSaveCopy}
+                        >
+                          Optimize &amp; save copy
                         </Button>
                         <Button type="button" variant="secondary" size="sm" onClick={cancelEdit}>
                           Cancel

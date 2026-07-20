@@ -28,7 +28,8 @@ import {
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import { resolveQueueNegativePrompt } from "@/lib/queue-negative";
 import { runWorkflowPreflight } from "@/lib/workflow-preflight";
-import { resolveComfyUiRuntime } from "@/lib/comfyui-runtime";
+import { resolveRuntimeForQueue } from "@/lib/comfyui-runtime-for-model";
+import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { DEFAULT_VARIATIONS_TOOL_CACHE } from "@/lib/settings-cache";
 import type { ComfyImageModel } from "@/lib/comfy-models";
 import { loadGalleryVariationsHandoff } from "@/lib/gallery-variations-handoff";
@@ -527,6 +528,7 @@ export default function VariationGridTool() {
           model: shared.model,
           prompts,
           negativePrompt,
+          tool: "variations",
         });
         if (!preflight.ok) {
           throw new Error(
@@ -537,21 +539,26 @@ export default function VariationGridTool() {
           );
         }
 
-        const runtime = resolveComfyUiRuntime();
+        const runtime = resolveRuntimeForQueue(shared.model, "variations");
         setQueueProgress({
           phase: "queueing",
           current: 0,
           total: prompts.length,
         });
+        const paramsPerPrompt = prompts.map((_, index) =>
+          resolveQueueParams({
+            model: shared.model,
+            tool: "variations",
+            base: { seed: String(Math.floor(Math.random() * 2 ** 32) + index) },
+          }),
+        );
         const response = await fetch("/api/comfyui", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompts,
             negativePrompt,
-            paramsPerPrompt: prompts.map((_, index) => ({
-              seed: String(Math.floor(Math.random() * 2 ** 32) + index),
-            })),
+            paramsPerPrompt,
             ...(runtime ? { comfy: runtime } : {}),
           }),
         });
@@ -571,16 +578,19 @@ export default function VariationGridTool() {
           if (!result.promptId) {
             continue;
           }
+          const comfyUrl = result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188";
           registerComfyGalleryJob({
             promptId: result.promptId,
             prompt: prompts[index] ?? "",
             negativePrompt,
             tool: "variations",
             model: shared.model,
-            comfyUrl: result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188",
-          });
+            comfyUrl,
+          queueParams: paramsPerPrompt[index],
+          queueQualityProfile: runtime.queueQualityProfile,
+        });
           void scheduleComfyGalleryPoll(result.promptId, {
-            comfyUrl: result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188",
+            comfyUrl,
           });
         }
 
@@ -664,6 +674,7 @@ export default function VariationGridTool() {
       }
       sidebar={
         <SharedToolControls
+          toolId="variations"
           shared={shared}
           onModelChange={(model) => updateShared({ model })}
           onDetailChange={(detail) => updateShared({ detail })}

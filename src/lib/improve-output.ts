@@ -90,6 +90,14 @@ export function startRefineFromHistoryEntry(entry: {
   });
   window.location.href = galleryHandoffPath("refine");
 }
+export function startInpaintFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff({
+    ...buildGalleryHandoff(entry, "inpaint"),
+    model: entry.model === "flux-inpaint" ? entry.model : "flux-inpaint",
+  });
+  window.location.href = galleryHandoffPath("inpaint");
+}
+
 export function startImproveFromGalleryEntry(
   entry: ComfyGalleryEntry,
   options?: { intent?: string },

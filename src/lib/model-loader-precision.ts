@@ -1,0 +1,102 @@
+export type LoaderPrecisionTier = "fp8" | "bf16";
+
+const LOADER_STRING_FIELDS = [
+  "unet_name",
+  "ckpt_name",
+  "vae_name",
+  "clip_name",
+  "clip_name1",
+  "clip_name2",
+  "model_name",
+] as const;
+
+function isUnresolvedWorkflowPlaceholder(value: unknown): boolean {
+  return typeof value === "string" && /^\{\{[A-Z0-9_]+\}\}$/.test(value.trim());
+}
+
+export function precisionHintFromFilename(filename: string): LoaderPrecisionTier | undefined {
+  const lower = filename.toLowerCase();
+  if (/fp8|e4m3fn|fp8_scaled/.test(lower)) {
+    return "fp8";
+  }
+  if (/bf16|fp16|_f16/.test(lower)) {
+    return "bf16";
+  }
+  return undefined;
+}
+
+/** Infer fp8 vs bf16/fp16 tier already present in a workflow (before placeholder injection). */
+export function detectLoaderPrecisionTier(
+  workflow: Record<string, unknown>,
+): LoaderPrecisionTier | undefined {
+  const tiers = new Set<LoaderPrecisionTier>();
+
+  for (const node of Object.values(workflow)) {
+    if (!node || typeof node !== "object") {
+      continue;
+    }
+    const inputs = (node as { inputs?: Record<string, unknown> }).inputs;
+    if (!inputs) {
+      continue;
+    }
+
+    for (const field of LOADER_STRING_FIELDS) {
+      const value = inputs[field];
+      if (typeof value !== "string" || isUnresolvedWorkflowPlaceholder(value)) {
+        continue;
+      }
+      const tier = precisionHintFromFilename(value);
+      if (tier) {
+        tiers.add(tier);
+      }
+    }
+  }
+
+  if (tiers.size === 0) {
+    return undefined;
+  }
+  if (tiers.has("bf16")) {
+    return "bf16";
+  }
+  return "fp8";
+}
+
+export function qwen2512UnetFilename(tier: LoaderPrecisionTier): string {
+  return tier === "fp8"
+    ? "qwen_image_2512_fp8_e4m3fn.safetensors"
+    : "qwen_image_2512_bf16.safetensors";
+}
+
+export function qwenEdit2511UnetFilename(tier: LoaderPrecisionTier): string {
+  return tier === "fp8"
+    ? "qwen_image_edit_2511_fp8_e4m3fn.safetensors"
+    : "qwen_image_edit_2511_bf16.safetensors";
+}
+
+export function qwenEdit2509UnetFilename(tier: LoaderPrecisionTier): string {
+  return tier === "fp8"
+    ? "qwen_image_edit_2509_fp8_e4m3fn.safetensors"
+    : "qwen_image_edit_2509_bf16.safetensors";
+}
+
+export function qwenGenericUnetFilename(tier: LoaderPrecisionTier): string {
+  return tier === "fp8"
+    ? "qwen_image_fp8_e4m3fn.safetensors"
+    : "qwen_image_2512_bf16.safetensors";
+}
+
+/** Prefer bf16 when unknown — avoids fp8 UNET with bf16 CLIP in mixed workflows. */
+export function defaultLoaderPrecisionTier(): LoaderPrecisionTier {
+  return "bf16";
+}
+
+export function resolveLoaderPrecisionTier(input: {
+  workflow?: Record<string, unknown>;
+  explicit?: LoaderPrecisionTier;
+}): LoaderPrecisionTier {
+  return (
+    input.explicit ??
+    (input.workflow ? detectLoaderPrecisionTier(input.workflow) : undefined) ??
+    defaultLoaderPrecisionTier()
+  );
+}

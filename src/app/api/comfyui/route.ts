@@ -5,6 +5,7 @@ import {
 } from "@/lib/comfyui-client";
 import {
   stripEmptyComfyUiRuntime,
+  resolveQueueInjectionContext,
   type ComfyUiRuntimeConfig,
   type WorkflowParamValues,
 } from "@/lib/comfyui-config";
@@ -18,6 +19,7 @@ type ComfyUiRequestBody = {
   prompts?: string[];
   negativePrompt?: string;
   nodeTitle?: string;
+  model?: string;
   params?: WorkflowParamValues;
   paramsPerPrompt?: WorkflowParamValues[];
   comfy?: ComfyUiRuntimeConfig;
@@ -31,6 +33,11 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as ComfyUiRequestBody;
     const runtime = stripEmptyComfyUiRuntime(body.comfy);
+    const resolvedQueue = resolveQueueInjectionContext({
+      runtime,
+      override: body.params,
+      model: body.model ?? runtime?.queueTargetModel,
+    });
     const prompts = (
       body.prompts?.map((entry) => entry.trim()).filter(Boolean) ??
       (body.prompt?.trim() ? [body.prompt.trim()] : [])
@@ -53,7 +60,8 @@ export async function POST(request: Request) {
           prompt: prompts[0]!,
           negativePrompt: body.negativePrompt,
           nodeTitle: body.nodeTitle,
-          params: body.params,
+          model: body.model ?? runtime?.queueTargetModel,
+          params: resolvedQueue.params,
         },
         runtime,
       );
@@ -73,7 +81,12 @@ export async function POST(request: Request) {
         prompt,
         negativePrompt: body.negativePrompt,
         nodeTitle: body.nodeTitle,
-        params: body.paramsPerPrompt?.[index] ?? body.params,
+        model: body.model ?? runtime?.queueTargetModel,
+        params: resolveQueueInjectionContext({
+          runtime,
+          override: body.paramsPerPrompt?.[index] ?? body.params,
+          model: body.model ?? runtime?.queueTargetModel,
+        }).params,
       })),
       runtime,
     );

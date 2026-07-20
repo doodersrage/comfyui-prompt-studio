@@ -1,13 +1,27 @@
 import {
   DEFAULT_CFG_TOKEN,
+  DEFAULT_DENOISE_TOKEN,
+  DEFAULT_FLUX_BASE_SHIFT_TOKEN,
+  DEFAULT_FLUX_MAX_SHIFT_TOKEN,
   DEFAULT_HEIGHT_TOKEN,
+  DEFAULT_INPUT_IMAGE_TOKEN,
+  DEFAULT_MASK_IMAGE_TOKEN,
   DEFAULT_NEGATIVE_TOKEN,
   DEFAULT_POSITIVE_TOKEN,
+  DEFAULT_SAMPLER_TOKEN,
+  DEFAULT_SCHEDULER_TOKEN,
   DEFAULT_SEED_TOKEN,
+  DEFAULT_SHIFT_TOKEN,
   DEFAULT_STEPS_TOKEN,
   DEFAULT_WIDTH_TOKEN,
   type WorkflowPlaceholderTokens,
 } from "./comfyui-config";
+import {
+  DEFAULT_CHECKPOINT_TOKEN,
+  DEFAULT_UNET_TOKEN,
+  DEFAULT_VAE_TOKEN,
+} from "./model-checkpoint-map";
+import { DEFAULT_UPSCALE_MODEL_TOKEN } from "./model-upscale-map";
 import type { WorkflowNodeMapping } from "./workflow-node-mapper";
 
 type WorkflowNode = {
@@ -22,9 +36,14 @@ export type WorkflowBindingChange = {
   after: string;
 };
 
-const PARAM_INPUT_FIELDS = ["seed", "steps", "cfg", "width", "height"] as const;
+const PARAM_INPUT_FIELDS = ["seed", "steps", "cfg", "width", "height", "shift", "denoise"] as const;
+const STRING_SAMPLER_FIELDS = ["sampler_name", "scheduler"] as const;
+const MODEL_SAMPLING_FLOAT_FIELDS = ["max_shift", "base_shift"] as const;
+const IMAGE_INPUT_FIELDS = ["image"] as const;
 
 type ParamInputField = (typeof PARAM_INPUT_FIELDS)[number];
+type StringSamplerField = (typeof STRING_SAMPLER_FIELDS)[number];
+type ModelSamplingFloatField = (typeof MODEL_SAMPLING_FLOAT_FIELDS)[number];
 
 export function resolveBindingTokens(
   tokens: Partial<WorkflowPlaceholderTokens> &
@@ -38,6 +57,14 @@ export function resolveBindingTokens(
     height: tokens.height?.trim() || DEFAULT_HEIGHT_TOKEN,
     cfg: tokens.cfg?.trim() || DEFAULT_CFG_TOKEN,
     steps: tokens.steps?.trim() || DEFAULT_STEPS_TOKEN,
+    sampler: tokens.sampler?.trim() || DEFAULT_SAMPLER_TOKEN,
+    scheduler: tokens.scheduler?.trim() || DEFAULT_SCHEDULER_TOKEN,
+    shift: tokens.shift?.trim() || DEFAULT_SHIFT_TOKEN,
+    fluxMaxShift: tokens.fluxMaxShift?.trim() || DEFAULT_FLUX_MAX_SHIFT_TOKEN,
+    fluxBaseShift: tokens.fluxBaseShift?.trim() || DEFAULT_FLUX_BASE_SHIFT_TOKEN,
+    denoise: tokens.denoise?.trim() || DEFAULT_DENOISE_TOKEN,
+    inputImage: tokens.inputImage?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
+    maskImage: tokens.maskImage?.trim() || DEFAULT_MASK_IMAGE_TOKEN,
   };
 }
 
@@ -76,11 +103,69 @@ export function applyWorkflowNodeBindings(
       applyParamField(node, mapping.nodeId, "seed", resolvedTokens.seed, changes);
       applyParamField(node, mapping.nodeId, "steps", resolvedTokens.steps, changes);
       applyParamField(node, mapping.nodeId, "cfg", resolvedTokens.cfg, changes);
+      applyStringSamplerField(
+        node,
+        mapping.nodeId,
+        "sampler_name",
+        resolvedTokens.sampler,
+        changes,
+      );
+      applyStringSamplerField(
+        node,
+        mapping.nodeId,
+        "scheduler",
+        resolvedTokens.scheduler,
+        changes,
+      );
       continue;
     }
     if (binding === "latent") {
       applyParamField(node, mapping.nodeId, "width", resolvedTokens.width, changes);
       applyParamField(node, mapping.nodeId, "height", resolvedTokens.height, changes);
+      continue;
+    }
+    if (binding === "modelSampling") {
+      applyParamField(node, mapping.nodeId, "shift", resolvedTokens.shift, changes);
+      applyModelSamplingFloatField(
+        node,
+        mapping.nodeId,
+        "max_shift",
+        resolvedTokens.fluxMaxShift,
+        changes,
+      );
+      applyModelSamplingFloatField(
+        node,
+        mapping.nodeId,
+        "base_shift",
+        resolvedTokens.fluxBaseShift,
+        changes,
+      );
+      applyParamField(node, mapping.nodeId, "width", resolvedTokens.width, changes);
+      applyParamField(node, mapping.nodeId, "height", resolvedTokens.height, changes);
+      continue;
+    }
+    if (binding === "inputImage" && "image" in node.inputs) {
+      applyBindingField(node, mapping.nodeId, "image", resolvedTokens.inputImage, changes);
+      continue;
+    }
+    if (binding === "maskImage" && "image" in node.inputs) {
+      applyBindingField(node, mapping.nodeId, "image", resolvedTokens.maskImage, changes);
+      continue;
+    }
+    if (binding === "checkpointLoader" && "ckpt_name" in node.inputs) {
+      applyBindingField(node, mapping.nodeId, "ckpt_name", DEFAULT_CHECKPOINT_TOKEN, changes);
+      continue;
+    }
+    if (binding === "unetLoader" && "unet_name" in node.inputs) {
+      applyBindingField(node, mapping.nodeId, "unet_name", DEFAULT_UNET_TOKEN, changes);
+      continue;
+    }
+    if (binding === "vaeLoader" && "vae_name" in node.inputs) {
+      applyBindingField(node, mapping.nodeId, "vae_name", DEFAULT_VAE_TOKEN, changes);
+      continue;
+    }
+    if (binding === "upscaleModelLoader" && "model_name" in node.inputs) {
+      applyBindingField(node, mapping.nodeId, "model_name", DEFAULT_UPSCALE_MODEL_TOKEN, changes);
     }
   }
 
@@ -105,6 +190,70 @@ function applyParamBindingsToAllNodes(
       }
       applyParamField(node, nodeId, field, tokens[field], changes);
     }
+
+    for (const field of STRING_SAMPLER_FIELDS) {
+      if (!(field in node.inputs)) {
+        continue;
+      }
+      const token = field === "sampler_name" ? tokens.sampler : tokens.scheduler;
+      applyStringSamplerField(node, nodeId, field, token, changes);
+    }
+
+    for (const field of MODEL_SAMPLING_FLOAT_FIELDS) {
+      if (!(field in node.inputs)) {
+        continue;
+      }
+      const token = field === "max_shift" ? tokens.fluxMaxShift : tokens.fluxBaseShift;
+      applyModelSamplingFloatField(node, nodeId, field, token, changes);
+    }
+
+    const classType = node.class_type ?? "";
+    if (classType === "LoadImage" || classType === "LoadImageOutput") {
+      for (const field of IMAGE_INPUT_FIELDS) {
+        if (!(field in node.inputs)) {
+          continue;
+        }
+        applyBindingField(node, nodeId, field, tokens.inputImage, changes);
+      }
+      continue;
+    }
+    if (classType === "LoadImageMask") {
+      for (const field of IMAGE_INPUT_FIELDS) {
+        if (!(field in node.inputs)) {
+          continue;
+        }
+        applyBindingField(node, nodeId, field, tokens.maskImage, changes);
+      }
+      continue;
+    }
+
+    if (
+      (classType === "CheckpointLoaderSimple" || classType === "CheckpointLoader") &&
+      "ckpt_name" in node.inputs
+    ) {
+      applyBindingField(node, nodeId, "ckpt_name", DEFAULT_CHECKPOINT_TOKEN, changes);
+      continue;
+    }
+
+    if (
+      (classType === "UNETLoader" || classType === "UnetLoaderGGUF") &&
+      "unet_name" in node.inputs
+    ) {
+      applyBindingField(node, nodeId, "unet_name", DEFAULT_UNET_TOKEN, changes);
+      continue;
+    }
+
+    if (classType === "VAELoader" && "vae_name" in node.inputs) {
+      applyBindingField(node, nodeId, "vae_name", DEFAULT_VAE_TOKEN, changes);
+      continue;
+    }
+
+    if (
+      (classType === "UpscaleModelLoader" || classType === "UpscaleModel") &&
+      "model_name" in node.inputs
+    ) {
+      applyBindingField(node, nodeId, "model_name", DEFAULT_UPSCALE_MODEL_TOKEN, changes);
+    }
   }
 }
 
@@ -123,10 +272,40 @@ function applyTextInput(
   changes.push({ nodeId, field, before, after: token });
 }
 
+function applyStringSamplerField(
+  node: WorkflowNode,
+  nodeId: string,
+  field: StringSamplerField,
+  token: string,
+  changes: WorkflowBindingChange[],
+): void {
+  applyBindingField(node, nodeId, field, token, changes);
+}
+
+function applyModelSamplingFloatField(
+  node: WorkflowNode,
+  nodeId: string,
+  field: ModelSamplingFloatField,
+  token: string,
+  changes: WorkflowBindingChange[],
+): void {
+  applyBindingField(node, nodeId, field, token, changes);
+}
+
 function applyParamField(
   node: WorkflowNode,
   nodeId: string,
   field: ParamInputField,
+  token: string,
+  changes: WorkflowBindingChange[],
+): void {
+  applyBindingField(node, nodeId, field, token, changes);
+}
+
+function applyBindingField(
+  node: WorkflowNode,
+  nodeId: string,
+  field: string,
   token: string,
   changes: WorkflowBindingChange[],
 ): void {

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComfyImageModel } from "./comfy-models";
-import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
+import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { loadActiveProjectId } from "./prompt-projects";
@@ -21,7 +21,7 @@ export async function queueSeedExperiment(input: {
 }): Promise<{ queued: number; seeds: string[] }> {
   const model = input.model as ComfyImageModel;
   const count = Math.min(12, Math.max(2, input.count ?? 4));
-  const runtime = resolveRuntimeForModel(model);
+  const runtime = resolveRuntimeForQueue(model, input.tool ?? "seed-experiment");
   const prompt = injectLoraTriggers(input.prompt.trim());
 
   let negativePrompt = input.negativePrompt?.trim();
@@ -70,6 +70,7 @@ export async function queueSeedExperiment(input: {
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
       queueParams: params,
       projectId,
+      queueQualityProfile: runtime.queueQualityProfile,
     });
     void scheduleComfyGalleryPoll(data.promptId, {
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",

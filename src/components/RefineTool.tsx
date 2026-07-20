@@ -1,14 +1,17 @@
 "use client";
 
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
+import InpaintMaskEditor from "@/components/InpaintMaskEditor";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import { getComfyModelDefinition } from "@/lib/comfy-models";
+import { isInpaintModel } from "@/lib/model-denoise-defaults";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { diffPromptWords } from "@/lib/prompt-diff";
 import { resolveParentHistoryId } from "@/lib/prompt-lineage-session";
@@ -30,6 +33,8 @@ export default function RefineTool() {
     useCachedSettings("imagePrompt", DEFAULT_IMAGE_PROMPT_TOOL_CACHE);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [maskFile, setMaskFile] = useState<File | null>(null);
+  const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState("");
   const [intentHints, setIntentHints] = useState("");
   const [output, setOutput] = useState("");
@@ -38,6 +43,9 @@ export default function RefineTool() {
   const [copied, setCopied] = useState(false);
   const [sourceHistoryId, setSourceHistoryId] = useState<string | undefined>();
   const [beforePrompt, setBeforePrompt] = useState("");
+  const [handoffQueueParams, setHandoffQueueParams] = useState<
+    WorkflowParamValues | undefined
+  >();
 
   const actions = usePromptResultActions({
     tool: "refine",
@@ -49,12 +57,57 @@ export default function RefineTool() {
   });
 
   const selectedModel = getComfyModelDefinition(shared.model);
+  const needsInpaintMask = isInpaintModel(shared.model);
+
+  const queueImageOptions = {
+    inputImage: file,
+    inputImageUrl: !file ? previewUrl ?? undefined : undefined,
+    maskImage: needsInpaintMask ? maskFile : undefined,
+    maskImageUrl:
+      needsInpaintMask && !maskFile ? maskPreviewUrl ?? undefined : undefined,
+    queueParamsBase: handoffQueueParams,
+  };
+
+  const assertInpaintMaskReady = useCallback(() => {
+    if (!needsInpaintMask) {
+      return true;
+    }
+    if (maskFile || maskPreviewUrl) {
+      return true;
+    }
+    setError("Upload an inpaint mask (white = edit region) before queueing.");
+    return false;
+  }, [maskFile, maskPreviewUrl, needsInpaintMask]);
+
+  const onMaskChange = useCallback(
+    (nextFile: File | null, nextPreviewUrl: string | null) => {
+      setMaskFile(nextFile);
+      setMaskPreviewUrl((current) => {
+        if (current && current !== nextPreviewUrl) {
+          URL.revokeObjectURL(current);
+        }
+        return nextPreviewUrl;
+      });
+    },
+    [],
+  );
+
+  const clearMaskState = useCallback(() => {
+    setMaskFile(null);
+    setMaskPreviewUrl((current) => {
+      if (current) {
+        URL.revokeObjectURL(current);
+      }
+      return null;
+    });
+  }, []);
 
   const applyGalleryHandoff = useCallback(
     (handoff: {
       prompt: string;
       model?: string;
       improveIntent?: string;
+      queueParams?: WorkflowParamValues;
       file: File | null;
       previewUrl: string | null;
       payload: { historyId?: string };
@@ -62,6 +115,7 @@ export default function RefineTool() {
       setCurrentPrompt(handoff.prompt);
       setBeforePrompt(handoff.prompt);
       setSourceHistoryId(handoff.payload.historyId ?? resolveParentHistoryId());
+      setHandoffQueueParams(handoff.queueParams);
       if (handoff.improveIntent) {
         setIntentHints(handoff.improveIntent);
       }
@@ -74,8 +128,9 @@ export default function RefineTool() {
       } else if (handoff.previewUrl) {
         setPreviewUrl(handoff.previewUrl);
       }
+      clearMaskState();
     },
-    [updateShared],
+    [clearMaskState, updateShared],
   );
 
   useGalleryHandoff("refine", applyGalleryHandoff);
@@ -87,12 +142,30 @@ export default function RefineTool() {
         URL.revokeObjectURL(previewUrl);
       }
       setPreviewUrl(nextFile ? URL.createObjectURL(nextFile) : null);
+      clearMaskState();
     },
-    [previewUrl],
+    [clearMaskState, previewUrl],
   );
 
+  const resolveRefineImageFile = useCallback(async (): Promise<File> => {
+    if (file) {
+      return file;
+    }
+    if (!previewUrl) {
+      throw new Error("Upload a reference image first.");
+    }
+    const response = await fetch(previewUrl);
+    if (!response.ok) {
+      throw new Error(`Could not load reference image (HTTP ${response.status}).`);
+    }
+    const blob = await response.blob();
+    return new File([blob], `refine-source-${Date.now()}.png`, {
+      type: blob.type || "image/png",
+    });
+  }, [file, previewUrl]);
+
   const refine = useCallback(async () => {
-    if (!file) {
+    if (!file && !previewUrl) {
       setError("Upload a reference image first.");
       return;
     }
@@ -107,8 +180,9 @@ export default function RefineTool() {
     actions.resetStatuses();
 
     try {
+      const refineFile = await resolveRefineImageFile();
       const formData = new FormData();
-      formData.append("image", file);
+      formData.append("image", refineFile);
       formData.append("model", shared.model);
       formData.append("detail", shared.detail);
       if (currentPrompt.trim()) {
@@ -141,7 +215,7 @@ export default function RefineTool() {
     } finally {
       setLoading(false);
     }
-  }, [file, currentPrompt, intentHints, shared, actions]);
+  }, [actions, beforePrompt, currentPrompt, intentHints, previewUrl, resolveRefineImageFile, shared]);
 
   const copyOutput = useCallback(async () => {
     if (!output) return;
@@ -176,6 +250,7 @@ export default function RefineTool() {
       }
       sidebar={
         <SharedToolControls
+          toolId="refine"
           shared={shared}
           onModelChange={(model) => updateShared({ model })}
           onDetailChange={(detail) => updateShared({ detail })}
@@ -192,14 +267,26 @@ export default function RefineTool() {
           onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
           className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500"
         />
-        {previewUrl && (
+        {previewUrl && !needsInpaintMask ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={previewUrl}
             alt="Reference preview"
             className="max-h-64 rounded-xl border border-zinc-800 object-contain"
           />
-        )}
+        ) : null}
+
+        {needsInpaintMask && previewUrl ? (
+          <InpaintMaskEditor
+            key={previewUrl}
+            sourceImageUrl={previewUrl}
+            onMaskChange={onMaskChange}
+          />
+        ) : needsInpaintMask ? (
+          <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs text-amber-100/85">
+            Upload a reference image first, then draw or upload an inpaint mask.
+          </p>
+        ) : null}
 
         <FieldLabel>Current prompt (optional)</FieldLabel>
         <TextArea
@@ -222,7 +309,7 @@ export default function RefineTool() {
         <PrimaryButton
           accentClassName={accentButtonClass(ACCENT)}
           onClick={() => void refine()}
-          disabled={!file}
+          disabled={!file && !previewUrl}
           loading={loading}
           loadingLabel="Refining prompt"
         >
@@ -275,16 +362,27 @@ export default function RefineTool() {
             parentHistoryId: sourceHistoryId,
           })
         }
-        onSendComfyUi={() => void actions.sendComfyUi(output)}
+        onSendComfyUi={() => {
+          if (!assertInpaintMaskReady()) {
+            return;
+          }
+          void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
+        }}
         {...promptResultPreviewProps(actions, output)}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, intentHints)}
         onCopyPair={() => void actions.copyPromptPair(output)}
         onCompact={() => void actions.compactPrompt(output, setOutput)}
         onReformat={() => void actions.reformatForModel(output, setOutput)}
         reformatTargetLabel={getReformatTargetLabel(shared.model)}
-        onRunPipeline={() =>
-          void actions.runExportPipeline(output, setOutput, { queueComfyUi: true })
-        }
+        onRunPipeline={() => {
+          if (!assertInpaintMaskReady()) {
+            return;
+          }
+          void actions.runExportPipeline(output, setOutput, {
+            queueComfyUi: true,
+            ...queueImageOptions,
+          });
+        }}
         onExportSidecar={() =>
           void actions.exportSidecar(output, { comfyNode: selectedModel.comfyNode })
         }

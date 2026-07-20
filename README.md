@@ -80,7 +80,8 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Gallery review focus** — review mode auto-selects the first card, highlights focus, scrolls into view; keyboard 1–5 / F / N / P
 - **Gallery compare modal** — compare 2–4 selected outputs in a full-screen overlay instead of inline scroll
 - **Gallery card polish** — hover quick actions (Open, Improve) on thumbnails; storage cap warning near 5,000 IndexedDB entries
-- **ComfyUI workflow params** — `{{SEED}}`, `{{WIDTH}}`, `{{HEIGHT}}`, `{{CFG}}`, `{{STEPS}}` placeholders plus queue defaults in Settings; **multiple workflow JSON files** (import in Settings or configure `COMFYUI_WORKFLOW_DIR` / `COMFYUI_WORKFLOW_PATHS` on the server) with a selector next to **Send to ComfyUI**
+- **Workflow takeover** — at queue time the app can auto-bind placeholders, patch latents/loaders/samplers, insert FLUX sampling nodes, and upscale outputs; see [Workflow takeover](#workflow-takeover) below
+- **Queue quality profiles** — sidebar Draft / Final / Max profiles adjust sampler tier, resolution, and optional Lanczos upscale; per-tool overrides in Settings; gallery stores and re-queues with stored profile
 - **Gallery tools** — favorites, status/tool filters, image download, and sidecar JSON export per entry
 - **Variation grid** — `/variations` rolls N prompt variations and batch-queues them with unique ComfyUI seeds
 - **Completion notifications** — optional browser notifications when ComfyUI jobs finish (Settings)
@@ -351,6 +352,60 @@ Verify with ComfyUI's Python: `/opt/comfyui/venv/bin/python comfyui/verify_insta
 If nodes do not appear: fully restart ComfyUI, search **Prompt Tools**, and check `/opt/comfyui/user/comfyui_8188.log`.
 
 Set `COMFY_PROMPT_API_URL=http://127.0.0.1:47832` on the ComfyUI host if the API is not on localhost.
+
+## Workflow takeover
+
+Community ComfyUI workflows rarely match this app’s model picker, sampler defaults, or edit/inpaint image inputs out of the box. **Workflow takeover** applies a consistent queue-time pipeline so imported JSON behaves like a first-class template:
+
+```
+Target model + tool → resolveRuntimeForQueue
+  → resolveQueueParams (quality profile, checkpoint/upscale maps)
+  → optimizeWorkflowForQueue (auto-bind placeholders)
+  → enrichWorkflowGraph (ModelSamplingFlux, Lanczos upscale on Final/Max)
+  → injectPromptsWithFallbacks (tokens + direct patch + KSampler patch)
+  → POST /api/comfyui → gallery entry (stores queueParams + queueQualityProfile)
+```
+
+### Placeholders
+
+Standard tokens: `{{POSITIVE}}`, `{{NEGATIVE}}`, `{{SEED}}`, `{{WIDTH}}`, `{{HEIGHT}}`, `{{CFG}}`, `{{STEPS}}`, `{{DENOISE}}`, `{{INPUT_IMAGE}}`, `{{MASK_IMAGE}}`.
+
+Loader / upscale tokens (patched directly even when placeholders are missing, when **Direct workflow patching** is enabled):
+
+| Token | Settings source |
+|-------|-----------------|
+| `{{CHECKPOINT}}` | **Settings → Checkpoint map** (also sets UNET when no separate UNET map) |
+| `{{UNET}}` | Checkpoint map, registry hints (FLUX Klein), or custom tokens |
+| `{{VAE}}` | **VAE map**, category defaults (`flux2-vae.safetensors` for FLUX), or custom tokens |
+| `{{UPSCALE_MODEL}}` | **Upscale model map** (`default=4x-UltraSharp.pth` or per-model) — Final/Max profiles prefer inserting `UpscaleModelLoader` + `ImageUpscaleWithModel` when mapped; otherwise Lanczos `ImageScale` |
+
+Loader placeholders are replaced at queue time via token injection and direct patching. If ComfyUI reports `value_not_in_list` for `{{UNET}}` or `{{VAE}}`, add the exact filename from the error’s allowed list to the checkpoint or VAE map.
+
+Use **Optimize & save copy** in the workflow library to persist auto-bound placeholders on community JSON.
+
+### Queue quality profiles
+
+| Profile | Effect |
+|---------|--------|
+| **Follow sidebar** | Uses your sampler preset + resolution tier from Settings |
+| **Draft** | Faster sampler tier, smaller resolution |
+| **Final** | Optimized sampler, medium+ resolution, SDXL refiner pass (latent upscale), optional neural UpscaleModel or 1.25× Lanczos before SaveImage |
+| **Max** | Max-quality sampler/resolution, SDXL refiner at higher denoise, neural upscale + 1.1× Lanczos polish (or 1.5× Lanczos alone) |
+
+- Sidebar chips on each tool page override the global default for that session.
+- **Settings → Per-tool queue quality** sets persistent overrides (Generate, Variations, Refine, etc.).
+- Gallery entries store the profile used at queue time; **Re-queue (Final/Max quality)** and sidecar import restore it.
+
+### Settings toggles (Workflow patching & checkpoints)
+
+| Toggle | Purpose |
+|--------|---------|
+| Direct workflow patching | Patch `EmptyLatentImage`, loaders, LoadImage/Mask, UpscaleModel without placeholders |
+| Optimize workflows on queue | Auto-bind missing placeholders before injection |
+| Insert model-sampling nodes | Add `ModelSamplingFlux` / shift nodes when loader → KSampler is direct |
+| Auto re-queue on 4–5★ | Re-queue high-rated gallery outputs at Final quality with a new seed |
+
+Preflight and **Workflow configuration** on gallery entries show unresolved tokens and the stored/effective params.
 
 ## LLM configuration
 

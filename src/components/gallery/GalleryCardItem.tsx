@@ -12,7 +12,11 @@ export type GalleryCardActions = {
   toggleSelected: (id: string) => void;
   remove: (id: string) => void;
   toggleFavorite: (id: string) => void;
-  requeue: (id: string, newSeed: boolean) => void;
+  requeue: (
+    id: string,
+    newSeed: boolean,
+    qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile,
+  ) => void;
   openImage: (id: string, index: number) => void;
   reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => void;
   downloadError: (message: string | null) => void;
@@ -60,7 +64,10 @@ function GalleryCardItem({
     [actionsRef, entry.id],
   );
   const onRequeue = useCallback(
-    (newSeed: boolean) => actionsRef.current.requeue(entry.id, newSeed),
+    (
+      newSeed: boolean,
+      qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile,
+    ) => actionsRef.current.requeue(entry.id, newSeed, qualityProfile),
     [actionsRef, entry.id],
   );
   const onOpenImage = useCallback(

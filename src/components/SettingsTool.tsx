@@ -29,11 +29,23 @@ import {
   type NegativeProfile,
 } from "@/lib/negative-profiles";
 import {
+  formatModelCheckpointMap,
+  parseModelCheckpointMap,
+  formatModelVaeMap,
+  parseModelVaeMap,
+  formatModelRefinerMap,
+  parseModelRefinerMap,
+} from "@/lib/model-checkpoint-map";
+import {
+  formatModelUpscaleMap,
+  parseModelUpscaleMap,
+} from "@/lib/model-upscale-map";
+import { loadComfyWorkflowFiles } from "@/lib/comfyui-workflow-files";
+import {
   countMappedModels,
   mergeModelWorkflowMap,
   suggestWorkflowDefaultsByCategory,
 } from "@/lib/workflow-category-defaults";
-import { loadComfyWorkflowFiles } from "@/lib/comfyui-workflow-files";
 import {
   DEFAULT_SHARED_SETTINGS,
   loadSettingsCache,
@@ -75,6 +87,7 @@ import {
 } from "@/lib/comfyui-notifications";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import SettingsSubNav from "@/components/settings/SettingsSubNav";
+import ToolQualityProfilesSettings from "@/components/settings/ToolQualityProfilesSettings";
 import {
   ToolBadge,
   ToolLayout,
@@ -98,6 +111,7 @@ import {
   markOnboardingLlmHealthOk,
 } from "@/lib/onboarding-hooks";
 import { fetchWorkflowPreview } from "@/lib/comfyui-requeue";
+import { resolveQueueParams } from "@/lib/queue-params-settings";
 
 const ComfyUiGalleryPanel = dynamic(() => import("@/components/ComfyUiGalleryPanel"), {
   loading: () => <ToolPageSkeleton label="Loading gallery panel" />,
@@ -228,6 +242,10 @@ export default function SettingsTool() {
     useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
   const [sharedMounted, setSharedMounted] = useState(false);
   const [modelWorkflowMapText, setModelWorkflowMapText] = useState("");
+  const [modelCheckpointMapText, setModelCheckpointMapText] = useState("");
+  const [modelVaeMapText, setModelVaeMapText] = useState("");
+  const [modelRefinerMapText, setModelRefinerMapText] = useState("");
+  const [modelUpscaleMapText, setModelUpscaleMapText] = useState("");
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
@@ -308,6 +326,10 @@ export default function SettingsTool() {
       const cache = loadSettingsCache();
       setSharedSettings(cache.shared);
       setModelWorkflowMapText(formatModelWorkflowMap(cache.shared.modelWorkflowMap));
+      setModelCheckpointMapText(formatModelCheckpointMap(cache.shared.modelCheckpointMap));
+      setModelVaeMapText(formatModelVaeMap(cache.shared.modelVaeMap));
+      setModelRefinerMapText(formatModelRefinerMap(cache.shared.modelRefinerMap));
+      setModelUpscaleMapText(formatModelUpscaleMap(cache.shared.modelUpscaleMap));
       setSharedMounted(true);
       setWebhookSettings(loadWebhookSettings());
       setScheduledBatch(loadScheduledBatchConfig());
@@ -539,14 +561,18 @@ export default function SettingsTool() {
     setWorkflowPreview(null);
     try {
       saveComfyUiSettings(settings);
-      const preview = await fetchWorkflowPreview({ prompt: previewPrompt });
+      const preview = await fetchWorkflowPreview({
+        prompt: previewPrompt,
+        model: sharedSettings.model,
+        params: resolveQueueParams({ model: sharedSettings.model }),
+      });
       setWorkflowPreview(preview);
     } catch (err) {
       setPreviewError(err instanceof Error ? err.message : "Preview failed.");
     } finally {
       setPreviewLoading(false);
     }
-  }, [previewPrompt, settings]);
+  }, [previewPrompt, settings, sharedSettings.model]);
 
   return (
     <ToolLayout
@@ -856,6 +882,273 @@ export default function SettingsTool() {
         >
           Apply smart defaults by category
         </button>
+      </ToolSection>
+
+      <ToolSection title="Workflow patching & checkpoints">
+        <p className="text-sm text-zinc-400">
+          Direct patching updates <code className="rounded bg-zinc-800 px-1 text-violet-300">EmptyLatentImage</code>{" "}
+          and loader nodes at queue time even when placeholders are missing. Disable to compare
+          against raw workflow JSON.
+        </p>
+        <label className="mb-3 flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={sharedSettings.directWorkflowPatching !== false}
+            onChange={(event) =>
+              updateSharedSettings({
+                directWorkflowPatching: event.target.checked,
+              })
+            }
+            disabled={!sharedMounted}
+            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium text-zinc-200">
+              Direct workflow patching on queue
+            </span>
+            <span className="block text-xs text-zinc-500">
+              Patches latent size and checkpoint/UNET/VAE loader filenames from model defaults
+              below. KSampler and model-sampling nodes are always patched when params are resolved.
+            </span>
+          </span>
+        </label>
+        <label className="mb-3 flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={sharedSettings.workflowQueueOptimize !== false}
+            onChange={(event) =>
+              updateSharedSettings({
+                workflowQueueOptimize: event.target.checked,
+              })
+            }
+            disabled={!sharedMounted}
+            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium text-zinc-200">
+              Optimize workflows on queue
+            </span>
+            <span className="block text-xs text-zinc-500">
+              Auto-binds missing placeholders (prompt, latent, sampler, loaders) on imported
+              workflows before injection — turns community JSON into app-controlled templates.
+              Use <strong className="font-medium text-zinc-400">Optimize &amp; save copy</strong>{" "}
+              in the workflow library to persist the result.
+            </span>
+          </span>
+        </label>
+        <label className="mb-3 flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={sharedSettings.workflowGraphEnrich !== false}
+            onChange={(event) =>
+              updateSharedSettings({
+                workflowGraphEnrich: event.target.checked,
+              })
+            }
+            disabled={!sharedMounted}
+            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium text-zinc-200">
+              Insert model-sampling nodes on queue
+            </span>
+            <span className="block text-xs text-zinc-500">
+              For FLUX and SD3-family workflows, inserts{" "}
+              <code className="rounded bg-zinc-800 px-1 text-violet-300">ModelSamplingFlux</code>{" "}
+              or shift patch nodes when a loader connects directly to KSampler. On{" "}
+              <strong className="font-medium text-zinc-400">Final/Max</strong>, SDXL base workflows
+              may get a latent upscale + refiner pass; outputs may also get neural or Lanczos upscale
+              (with optional Lanczos polish and sharpen on Max) before SaveImage.
+            </span>
+          </span>
+        </label>
+        {sharedSettings.workflowGraphEnrich !== false ? (
+          <div className="mb-4 ml-7 space-y-2 border-l border-zinc-800 pl-4">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={sharedSettings.workflowSdxlRefinerEnrich !== false}
+                onChange={(event) =>
+                  updateSharedSettings({
+                    workflowSdxlRefinerEnrich: event.target.checked,
+                  })
+                }
+                disabled={!sharedMounted}
+                className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+              />
+              <span className="space-y-1">
+                <span className="block text-sm text-zinc-300">SDXL refiner pass (Final/Max)</span>
+                <span className="block text-xs text-zinc-500">
+                  Latent upscale + refiner KSampler before VAEDecode when a refiner map is configured.
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={sharedSettings.workflowNeuralUpscalePolish !== false}
+                onChange={(event) =>
+                  updateSharedSettings({
+                    workflowNeuralUpscalePolish: event.target.checked,
+                  })
+                }
+                disabled={!sharedMounted}
+                className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+              />
+              <span className="space-y-1">
+                <span className="block text-sm text-zinc-300">Lanczos polish after neural upscale (Max)</span>
+                <span className="block text-xs text-zinc-500">
+                  Chains a 1.1× Lanczos pass after UpscaleModel on Max profile.
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={sharedSettings.workflowSharpenAfterUpscale !== false}
+                onChange={(event) =>
+                  updateSharedSettings({
+                    workflowSharpenAfterUpscale: event.target.checked,
+                  })
+                }
+                disabled={!sharedMounted}
+                className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+              />
+              <span className="space-y-1">
+                <span className="block text-sm text-zinc-300">Subtle sharpen after upscale (Max)</span>
+                <span className="block text-xs text-zinc-500">
+                  Optional ImageSharpen after neural or Lanczos upscale on Max. Off by default — enable for crisp edges, not natural skin.
+                </span>
+              </span>
+            </label>
+          </div>
+        ) : null}
+        <div className="mb-4 space-y-2">
+          <p className="text-sm font-medium text-zinc-200">Per-tool queue quality</p>
+          <p className="text-xs text-zinc-500">
+            Set default Draft / Final / Max profiles for individual tools. Overrides the global
+            sidebar profile when that tool queues to ComfyUI.
+          </p>
+          <ToolQualityProfilesSettings
+            profiles={sharedSettings.toolQueueQualityProfiles ?? {}}
+            disabled={!sharedMounted}
+            onChange={(toolQueueQualityProfiles) =>
+              updateSharedSettings({ toolQueueQualityProfiles })
+            }
+          />
+        </div>
+        <p className="mb-2 text-sm text-zinc-400">
+          Checkpoint map — one line per model:{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">modelId=filename.safetensors</code>
+          . Used for both CheckpointLoader and UNETLoader when a workflow has those nodes.
+        </p>
+        <textarea
+          value={modelCheckpointMapText}
+          onChange={(event) => {
+            const text = event.target.value;
+            setModelCheckpointMapText(text);
+            updateSharedSettings({
+              modelCheckpointMap: parseModelCheckpointMap(text),
+            });
+          }}
+          rows={5}
+          spellCheck={false}
+          disabled={!sharedMounted}
+          placeholder={`qwen-image-2512=qwen_image_2512_fp8_e4m3fn.safetensors\nflux-2-klein-9b=flux-2-klein-9b.safetensors`}
+          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+        />
+        <p className="mb-2 mt-4 text-sm text-zinc-400">
+          VAE map — override{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">{"{{VAE}}"}</code> /{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">VAELoader</code> filenames
+          per model. FLUX Klein workflows often need{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">flux2-vae.safetensors</code>{" "}
+          or{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">FLUX.2-klein-9B.safetensors</code>{" "}
+          depending on your ComfyUI install.
+        </p>
+        <textarea
+          value={modelVaeMapText}
+          onChange={(event) => {
+            const text = event.target.value;
+            setModelVaeMapText(text);
+            updateSharedSettings({
+              modelVaeMap: parseModelVaeMap(text),
+            });
+          }}
+          rows={3}
+          spellCheck={false}
+          disabled={!sharedMounted}
+          placeholder={`flux-2-klein-9b=flux2-vae.safetensors\ndefault=flux2-vae.safetensors`}
+          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+        />
+        <p className="mb-2 mt-4 text-sm text-zinc-400">
+          SDXL refiner map — checkpoint for the hi-res refiner pass on{" "}
+          <strong className="font-medium text-zinc-300">Final/Max</strong> SDXL queues (
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">sd_xl_refiner_1.0.safetensors</code>{" "}
+          by default). Inserts latent upscale + refiner KSampler before VAEDecode on single-pass base
+          workflows.
+        </p>
+        <textarea
+          value={modelRefinerMapText}
+          onChange={(event) => {
+            const text = event.target.value;
+            setModelRefinerMapText(text);
+            updateSharedSettings({
+              modelRefinerMap: parseModelRefinerMap(text),
+            });
+          }}
+          rows={3}
+          spellCheck={false}
+          disabled={!sharedMounted}
+          placeholder={`sdxl=sd_xl_refiner_1.0.safetensors\ndefault=sd_xl_refiner_1.0.safetensors`}
+          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+        />
+        <p className="mb-2 mt-4 text-sm text-zinc-400">
+          Upscale model map — one line per key:{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">default=4x-UltraSharp.pth</code>{" "}
+          or <code className="rounded bg-zinc-800 px-1 text-violet-300">modelId=filename.pth</code>.
+          Patches <code className="rounded bg-zinc-800 px-1 text-violet-300">UpscaleModel</code> nodes
+          and replaces{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">{"{{UPSCALE_MODEL}}"}</code>{" "}
+          placeholders at queue time.
+        </p>
+        <textarea
+          value={modelUpscaleMapText}
+          onChange={(event) => {
+            const text = event.target.value;
+            setModelUpscaleMapText(text);
+            updateSharedSettings({
+              modelUpscaleMap: parseModelUpscaleMap(text),
+            });
+          }}
+          rows={3}
+          spellCheck={false}
+          disabled={!sharedMounted}
+          placeholder={`default=4x-UltraSharp.pth\nflux-dev=RealESRGAN_x4plus.pth`}
+          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+        />
+        <label className="mt-4 block space-y-2">
+          <span className="block text-sm font-medium text-zinc-200">Edit denoise strength</span>
+          <span className="block text-xs text-zinc-500">
+            Applied when queueing with an input image or from Refine / Image → Prompt. FLUX Inpaint
+            uses 0.75 by default; other edit flows use this value (0.05–1).
+          </span>
+          <input
+            type="number"
+            min={0.05}
+            max={1}
+            step={0.05}
+            value={sharedSettings.editDenoiseStrength ?? 0.65}
+            onChange={(event) =>
+              updateSharedSettings({
+                editDenoiseStrength: Number(event.target.value),
+              })
+            }
+            disabled={!sharedMounted}
+            className={`ui-input w-32 ${accentFocusClass(ACCENT)}`}
+          />
+        </label>
       </ToolSection>
 
       <ComfyWorkflowLibraryPanel
@@ -1245,6 +1538,30 @@ export default function SettingsTool() {
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
           Auto-open Refine when a gallery output is rated 1–2★
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={settings.autoRequeueFinalOnHighRating ?? false}
+            onChange={(event) =>
+              updateSettings({ autoRequeueFinalOnHighRating: event.target.checked })
+            }
+            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+          />
+          Auto re-queue 4–5★ outputs at Final quality (new seed)
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={settings.autoRequeueMaxOnFiveStar ?? false}
+            onChange={(event) =>
+              updateSettings({ autoRequeueMaxOnFiveStar: event.target.checked })
+            }
+            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+          />
+          Auto re-queue 5★ outputs at Max quality (new seed)
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-300">

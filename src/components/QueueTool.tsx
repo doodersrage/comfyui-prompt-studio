@@ -5,7 +5,8 @@ import { loadComfyGallery, type ComfyGalleryEntry } from "@/lib/comfyui-gallery"
 import { galleryEntryViewUrls } from "@/lib/comfyui-gallery";
 import { Button } from "@/components/ui/Button";
 import { ToolLayout, ToolSection, ToolBadge } from "@/components/ui/ToolPageShell";
-import { requeueComfyJob, requeueComfyJobs } from "@/lib/comfyui-requeue";
+import { requeueComfyJobFromEntry, requeueComfyJobs } from "@/lib/comfyui-requeue";
+import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
@@ -88,13 +89,18 @@ export default function QueueTool() {
     }
     setStatus(`Retrying ${failed.length} failed job(s)…`);
     const results = await requeueComfyJobs(
-      failed.map((entry) => ({
-        prompt: entry.prompt,
-        negativePrompt: entry.negativePrompt,
-        tool: entry.tool,
-        model: entry.model,
-        queueParams: entry.queueParams,
-      })),
+      failed.map((entry) => {
+        const urls = resolveRequeueImageUrlsFromEntry(entry);
+        return {
+          prompt: entry.prompt,
+          negativePrompt: entry.negativePrompt,
+          tool: entry.tool,
+          model: entry.model,
+          queueParams: entry.queueParams,
+          sourceImageUrl: urls.sourceImageUrl,
+          maskImageUrl: urls.maskImageUrl,
+        };
+      }),
     );
     markOnboardingFirstQueue();
     setStatus(`Retried ${results.queued}/${failed.length}.`);
@@ -141,7 +147,7 @@ export default function QueueTool() {
                   size="sm"
                   variant="secondary"
                   onClick={() => {
-                    void requeueComfyJob(entry).then((result) => {
+                    void requeueComfyJobFromEntry(entry).then((result) => {
                       if (result.ok) {
                         markOnboardingFirstQueue();
                       }
@@ -174,7 +180,7 @@ export default function QueueTool() {
                       {entry.statusMessage ?? entry.status} · {entry.model}
                     </p>
                   </div>
-                  <Button size="sm" variant="secondary" onClick={() => void requeueComfyJob(entry)}>
+                  <Button size="sm" variant="secondary" onClick={() => void requeueComfyJobFromEntry(entry)}>
                     Retry
                   </Button>
                 </li>

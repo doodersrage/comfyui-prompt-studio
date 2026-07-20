@@ -14,6 +14,9 @@ type PreviewRequestBody = {
   negativePrompt?: string;
   params?: WorkflowParamValues;
   comfy?: ComfyUiRuntimeConfig;
+  model?: string;
+  hasInputImage?: boolean;
+  hasMaskImage?: boolean;
 };
 
 export async function GET() {
@@ -29,6 +32,9 @@ export async function POST(request: Request) {
       negativePrompt: body.negativePrompt,
       params: body.params,
       comfy: runtime,
+      model: body.model,
+      hasInputImage: body.hasInputImage,
+      hasMaskImage: body.hasMaskImage,
     });
 
     if (!result.ok) {

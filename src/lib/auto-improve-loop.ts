@@ -1,5 +1,6 @@
 "use client";
 
+import { requeueComfyJobFromEntry } from "./comfyui-requeue";
 import { queueMutatedGalleryJobs } from "./gallery-mutations";
 import { queueSeedExperiment } from "./seed-experiment-queue";
 import { loadComfyUiSettings } from "./comfyui-settings";
@@ -22,6 +23,26 @@ export async function runAutoImproveOnRating(
   }
 
   const settings = loadComfyUiSettings();
+
+  if (rating === 5 && settings.autoRequeueMaxOnFiveStar) {
+    const result = await requeueComfyJobFromEntry(entry, {
+      newSeed: true,
+      qualityProfile: "max",
+    });
+    if (result.ok) {
+      return "Auto-improve: re-queued winner at Max quality (new seed).";
+    }
+  }
+
+  if (rating >= 4 && settings.autoRequeueFinalOnHighRating) {
+    const result = await requeueComfyJobFromEntry(entry, {
+      newSeed: true,
+      qualityProfile: "final",
+    });
+    if (result.ok) {
+      return "Auto-improve: re-queued winner at Final quality (new seed).";
+    }
+  }
 
   if (rating >= 4 && settings.autoMutateOnHighRating) {
     const queued = await queueMutatedGalleryJobs({

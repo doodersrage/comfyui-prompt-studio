@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ModalPortal from "@/components/ui/ModalPortal";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import WorkflowPreviewPanel from "@/components/WorkflowPreviewPanel";
 import { Spinner } from "@/components/ui/Button";
@@ -8,8 +9,16 @@ import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
 import {
   formatWorkflowParamValue,
   loadGalleryWorkflowView,
+  workflowParamDisplayRows,
   type GalleryWorkflowView,
 } from "@/lib/gallery-workflow-view";
+import {
+  formatQueueQualityProfileLabel,
+  formatQueueQualityProfileHint,
+} from "@/lib/queue-quality-profile";
+import { loadSettingsCache } from "@/lib/settings-cache";
+import { normalizeModelSamplerPresetTier } from "@/lib/model-sampler-defaults";
+import { normalizeResolutionSizeTier } from "@/lib/model-resolution-defaults";
 
 type GalleryWorkflowModalProps = {
   entry: ComfyGalleryEntry;
@@ -23,22 +32,16 @@ function ParamGrid({
   label: string;
   params: Record<string, string | number | undefined>;
 }) {
-  const rows = [
-    { key: "seed", value: params.seed },
-    { key: "width", value: params.width },
-    { key: "height", value: params.height },
-    { key: "cfg", value: params.cfg },
-    { key: "steps", value: params.steps },
-  ];
+  const rows = workflowParamDisplayRows(params);
 
   return (
     <div className="space-y-2">
       <h3 className="type-caption font-medium text-zinc-400">{label}</h3>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-5">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
         {rows.map((row) => (
           <div key={row.key} className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-2">
             <dt className="type-caption text-zinc-500">{row.key}</dt>
-            <dd className="type-code mt-0.5 text-sm text-violet-100">
+            <dd className="type-code mt-0.5 truncate text-sm text-violet-100" title={formatWorkflowParamValue(row.value)}>
               {formatWorkflowParamValue(row.value)}
             </dd>
           </div>
@@ -80,20 +83,31 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
 
   const historyParams = view?.history?.extractedParams;
   const previewParams = view?.preview?.resolvedParams;
+  const shared = loadSettingsCache().shared;
+  const qualityProfile = entry.queueQualityProfile;
+  const qualityHint =
+    qualityProfile && qualityProfile !== "followSettings"
+      ? formatQueueQualityProfileHint(
+          qualityProfile,
+          normalizeModelSamplerPresetTier(shared.modelSamplerPreset),
+          normalizeResolutionSizeTier(shared.modelResolutionSizeTier),
+        )
+      : null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-zinc-950/85 p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Gallery workflow configuration"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div className="my-4 w-full max-w-5xl rounded-2xl border border-zinc-800/80 bg-zinc-950 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.9)]">
+    <ModalPortal>
+      <div
+        className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-zinc-950/85 p-4 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Gallery workflow configuration"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            onClose();
+          }
+        }}
+      >
+        <div className="my-4 w-full max-w-5xl rounded-2xl border border-zinc-800/80 bg-zinc-950 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.9)]">
         <div className="flex items-start justify-between gap-4 border-b border-zinc-800/80 px-5 py-4">
           <div className="min-w-0 space-y-1">
             <h2 className="text-lg font-medium text-zinc-100">Workflow configuration</h2>
@@ -119,6 +133,18 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
             </div>
           ) : (
             <>
+              {qualityProfile ? (
+                <div className="rounded-xl border border-violet-500/20 bg-violet-950/20 px-4 py-3">
+                  <p className="type-caption text-zinc-400">Queue quality profile</p>
+                  <p className="mt-1 text-sm text-violet-100">
+                    {formatQueueQualityProfileLabel(qualityProfile)}
+                  </p>
+                  {qualityHint ? (
+                    <p className="mt-1 type-caption text-zinc-500">{qualityHint}</p>
+                  ) : null}
+                </div>
+              ) : null}
+
               {view?.storedParams ? (
                 <ParamGrid label="Stored job params (from gallery entry)" params={view.storedParams} />
               ) : null}
@@ -139,6 +165,32 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                   label="Resolved preview params (current workflow settings)"
                   params={previewParams}
                 />
+              ) : null}
+
+              {entry.sourceImageUrl || entry.maskImageUrl ? (
+                <div className="space-y-2">
+                  <h3 className="type-caption font-medium text-zinc-400">
+                    Re-queue image URLs (stored on gallery entry)
+                  </h3>
+                  <dl className="grid gap-2">
+                    {entry.sourceImageUrl ? (
+                      <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-2">
+                        <dt className="type-caption text-zinc-500">sourceImageUrl</dt>
+                        <dd className="type-code mt-0.5 truncate text-sm text-emerald-100/90" title={entry.sourceImageUrl}>
+                          {entry.sourceImageUrl}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {entry.maskImageUrl ? (
+                      <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-2">
+                        <dt className="type-caption text-zinc-500">maskImageUrl</dt>
+                        <dd className="type-code mt-0.5 truncate text-sm text-amber-100/90" title={entry.maskImageUrl}>
+                          {entry.maskImageUrl}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </div>
               ) : null}
 
               {view?.history?.nodeInputs && view.history.nodeInputs.length > 0 ? (
@@ -219,6 +271,7 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </ModalPortal>
   );
 }

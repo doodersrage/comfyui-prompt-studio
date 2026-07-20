@@ -2,8 +2,12 @@
 
 import { modelUsesNegativePrompt } from "./prompt-pair";
 import type { ComfyImageModel } from "./comfy-models";
-import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
+import { isInpaintModel } from "./model-denoise-defaults";
+import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { fetchWorkflowPreview } from "./comfyui-requeue";
+import { resolveQueueParams } from "./queue-params-settings";
+import { auditWorkflowPreviewIssues } from "./workflow-placeholder-audit";
+import type { WorkflowParamValues } from "./comfyui-config";
 
 export type WorkflowPreflightIssue = {
   severity: "error" | "warn";
@@ -19,9 +23,13 @@ export async function runWorkflowPreflight(input: {
   model: ComfyImageModel | string;
   prompts: string[];
   negativePrompt?: string;
+  hasInputImage?: boolean;
+  hasMaskImage?: boolean;
+  tool?: string;
+  queueParams?: WorkflowParamValues;
 }): Promise<WorkflowPreflightResult> {
   const issues: WorkflowPreflightIssue[] = [];
-  const runtime = resolveRuntimeForModel(input.model);
+  const runtime = resolveRuntimeForQueue(input.model as ComfyImageModel, input.tool);
 
   if (!runtime?.workflowJson && !runtime?.workflowFileId) {
     issues.push({
@@ -37,17 +45,50 @@ export async function runWorkflowPreflight(input: {
     });
   }
 
+  if (
+    isInpaintModel(input.model) &&
+    !input.hasMaskImage &&
+    !input.hasInputImage
+  ) {
+    issues.push({
+      severity: "warn",
+      message:
+        "Inpaint model queued without a source image or mask — upload both before Send to ComfyUI.",
+    });
+  } else if (isInpaintModel(input.model) && !input.hasMaskImage) {
+    issues.push({
+      severity: "warn",
+      message:
+        "Inpaint model queued without a mask — white pixels mark the edit region.",
+    });
+  }
+
   const samplePrompt = input.prompts.find((entry) => entry.trim())?.trim();
   if (!samplePrompt) {
     issues.push({ severity: "error", message: "No prompts to queue." });
     return { ok: false, issues };
   }
 
+  const previewParams = resolveQueueParams({
+    model: input.model,
+    tool: input.tool,
+    base: input.queueParams,
+    inputImageFilename: input.hasInputImage
+      ? input.queueParams?.inputImageFilename?.trim() || "preview-input.png"
+      : undefined,
+    maskImageFilename: input.hasMaskImage
+      ? input.queueParams?.maskImageFilename?.trim() || "preview-mask.png"
+      : undefined,
+  });
+
   try {
     const preview = await fetchWorkflowPreview({
       prompt: samplePrompt,
       negativePrompt: input.negativePrompt,
       model: input.model,
+      params: previewParams,
+      hasInputImage: input.hasInputImage,
+      hasMaskImage: input.hasMaskImage,
     });
     if (!preview.ok) {
       issues.push({
@@ -64,6 +105,15 @@ export async function runWorkflowPreflight(input: {
           "Workflow has no positive prompt placeholder replacements. Add {{POSITIVE}} to a CLIP Text Encode node in Settings → ComfyUI workflow library (Apply bindings), or pick a workflow that includes prompt placeholders.",
       });
     }
+
+    issues.push(
+      ...auditWorkflowPreviewIssues({
+        workflowJson: preview.workflowJson,
+        model: input.model,
+        hasInputImage: input.hasInputImage,
+        hasMaskImage: input.hasMaskImage,
+      }),
+    );
   } catch (err) {
     issues.push({
       severity: "error",

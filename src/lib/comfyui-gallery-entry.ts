@@ -13,6 +13,12 @@ export type ComfyGalleryEntry = {
   historyId?: string;
   /** Resolved queue params (seed, width, cfg, etc.). */
   queueParams?: WorkflowParamValues;
+  /** Original source image URL at queue time (Comfy view or app proxy). */
+  sourceImageUrl?: string;
+  /** Inpaint mask URL at queue time when available. */
+  maskImageUrl?: string;
+  /** Queue quality profile used when this job was queued (draft / final / max). */
+  queueQualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
   /** Quick review rating from gallery review mode. */
   reviewRating?: 1 | 2 | 3 | 4 | 5;
   /** Optional project/campaign id. */

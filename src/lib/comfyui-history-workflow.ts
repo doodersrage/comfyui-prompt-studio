@@ -63,10 +63,16 @@ export function extractParamsFromWorkflow(
         normalized === "steps" ||
         normalized === "cfg" ||
         normalized === "width" ||
-        normalized === "height"
+        normalized === "height" ||
+        normalized === "sampler_name" ||
+        normalized === "scheduler"
       ) {
         if (typeof value === "number" || typeof value === "string") {
-          params[normalized as keyof WorkflowParamValues] = value;
+          const key =
+            normalized === "sampler_name"
+              ? "samplerName"
+              : (normalized as keyof WorkflowParamValues);
+          params[key] = value;
         }
       }
     }

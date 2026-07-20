@@ -7,7 +7,7 @@ import {
 } from "./comfy-models";
 import type { WorkflowParamValues } from "./comfyui-config";
 
-export type ModelSamplerPresetTier = "base" | "optimized";
+export type ModelSamplerPresetTier = "base" | "optimized" | "maxCompatible" | "max";
 
 export const DEFAULT_MODEL_SAMPLER_PRESET_TIER: ModelSamplerPresetTier = "base";
 
@@ -26,55 +26,86 @@ export const MODEL_SAMPLER_PRESET_OPTIONS: {
     label: "Optimized",
     description: "Higher step count and tuned CFG for final renders.",
   },
+  {
+    id: "maxCompatible",
+    label: "Max compatible",
+    description:
+      "Best quality within each model's recommended sampler, scheduler, and step limits.",
+  },
+  {
+    id: "max",
+    label: "Max quality",
+    description: "Highest step count — may exceed some distilled or Flux comfort ranges.",
+  },
 ];
 
 export type ModelSamplerDefaults = {
   steps: number;
   cfg: number;
+  samplerName: string;
+  scheduler: string;
   fixedSeed?: number;
 };
 
 type CategorySamplerPresets = Record<
   ModelSamplerPresetTier,
-  Pick<ModelSamplerDefaults, "steps" | "cfg">
+  Pick<ModelSamplerDefaults, "steps" | "cfg" | "samplerName" | "scheduler">
 >;
 
 const CATEGORY_SAMPLER_PRESETS: Record<ComfyModelCategory, CategorySamplerPresets> = {
   "stable-diffusion": {
-    base: { steps: 25, cfg: 7 },
-    optimized: { steps: 32, cfg: 7.5 },
+    base: { steps: 25, cfg: 7, samplerName: "euler_ancestral", scheduler: "normal" },
+    optimized: { steps: 32, cfg: 7.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 36, cfg: 7.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 40, cfg: 7.5, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
   sdxl: {
-    base: { steps: 30, cfg: 6.5 },
-    optimized: { steps: 36, cfg: 6 },
+    base: { steps: 30, cfg: 6.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    optimized: { steps: 36, cfg: 6, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 40, cfg: 6, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 45, cfg: 6, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
   sd3: {
-    base: { steps: 28, cfg: 4.5 },
-    optimized: { steps: 36, cfg: 4 },
+    base: { steps: 28, cfg: 4.5, samplerName: "euler", scheduler: "simple" },
+    optimized: { steps: 36, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 38, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 45, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
   flux: {
-    base: { steps: 20, cfg: 3.5 },
-    optimized: { steps: 28, cfg: 3.5 },
+    base: { steps: 20, cfg: 3.5, samplerName: "euler", scheduler: "simple" },
+    optimized: { steps: 28, cfg: 3.5, samplerName: "euler", scheduler: "simple" },
+    maxCompatible: { steps: 28, cfg: 3.5, samplerName: "euler", scheduler: "simple" },
+    max: { steps: 35, cfg: 3.5, samplerName: "euler", scheduler: "simple" },
   },
   qwen: {
-    base: { steps: 30, cfg: 4 },
-    optimized: { steps: 40, cfg: 3.5 },
+    base: { steps: 28, cfg: 2.5, samplerName: "euler", scheduler: "simple" },
+    optimized: { steps: 30, cfg: 2.5, samplerName: "euler", scheduler: "simple" },
+    maxCompatible: { steps: 35, cfg: 2.5, samplerName: "euler", scheduler: "simple" },
+    max: { steps: 40, cfg: 3, samplerName: "euler", scheduler: "simple" },
   },
   hunyuan: {
-    base: { steps: 30, cfg: 6 },
-    optimized: { steps: 40, cfg: 5.5 },
+    base: { steps: 30, cfg: 6, samplerName: "euler", scheduler: "normal" },
+    optimized: { steps: 40, cfg: 5.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 40, cfg: 5.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 50, cfg: 5, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
   "other-dit": {
-    base: { steps: 28, cfg: 5 },
-    optimized: { steps: 36, cfg: 4.5 },
+    base: { steps: 28, cfg: 5, samplerName: "euler", scheduler: "normal" },
+    optimized: { steps: 36, cfg: 4.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 38, cfg: 4.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 45, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
   "instruct-edit": {
-    base: { steps: 20, cfg: 7.5 },
-    optimized: { steps: 28, cfg: 8 },
+    base: { steps: 20, cfg: 7.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    optimized: { steps: 28, cfg: 8, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 28, cfg: 8, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 35, cfg: 8, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
   video: {
-    base: { steps: 30, cfg: 6 },
-    optimized: { steps: 40, cfg: 5.5 },
+    base: { steps: 30, cfg: 6, samplerName: "euler", scheduler: "normal" },
+    optimized: { steps: 40, cfg: 5.5, samplerName: "euler", scheduler: "normal" },
+    maxCompatible: { steps: 40, cfg: 5.5, samplerName: "euler", scheduler: "normal" },
+    max: { steps: 50, cfg: 5, samplerName: "euler", scheduler: "normal" },
   },
 };
 
@@ -82,61 +113,209 @@ type ModelSamplerPresetMap = Partial<
   Record<ComfyImageModel, Record<ModelSamplerPresetTier, ModelSamplerDefaults>>
 >;
 
+const FLUX_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
+  samplerName: "euler",
+  scheduler: "simple",
+};
+
+const QWEN_LIGHTNING_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler" | "cfg"> = {
+  cfg: 1,
+  samplerName: "euler",
+  scheduler: "simple",
+};
+
+const QWEN_2512_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
+  samplerName: "euler",
+  scheduler: "simple",
+};
+
+const QWEN_RAPID_AIO_EDIT_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
+  samplerName: "euler_ancestral",
+  scheduler: "beta",
+};
+
+const QWEN_RAPID_AIO_SFW_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
+  samplerName: "euler",
+  scheduler: "beta",
+};
+
+const QWEN_RAPID_AIO_NSFW_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
+  samplerName: "euler_ancestral",
+  scheduler: "sgm_uniform",
+};
+
+function rapidAioPresets(
+  sampler: Pick<ModelSamplerDefaults, "samplerName" | "scheduler">,
+): Record<ModelSamplerPresetTier, ModelSamplerDefaults> {
+  return {
+    base: { steps: 4, cfg: 1, ...sampler },
+    optimized: { steps: 6, cfg: 1, ...sampler },
+    maxCompatible: { steps: 8, cfg: 1, ...sampler },
+    max: { steps: 8, cfg: 1, ...sampler },
+  };
+}
+
+const FLUX_KLEIN_DISTILLED_BASE: ModelSamplerDefaults = {
+  steps: 4,
+  cfg: 1,
+  samplerName: "euler",
+  scheduler: "simple",
+};
+
+/** res_2s + slightly higher steps/CFG — community-tested for hands and complex poses. */
+const FLUX_KLEIN_DISTILLED_ANATOMY: ModelSamplerDefaults = {
+  steps: 6,
+  cfg: 1.2,
+  samplerName: "res_2s",
+  scheduler: "simple",
+};
+
+const FLUX_KLEIN_DISTILLED_ANATOMY_MAX: ModelSamplerDefaults = {
+  steps: 8,
+  cfg: 1.2,
+  samplerName: "res_2s",
+  scheduler: "simple",
+};
+
+function kleinBaseSamplerPresets(): Record<
+  ModelSamplerPresetTier,
+  ModelSamplerDefaults
+> {
+  return {
+    base: { steps: 24, cfg: 3.5, samplerName: "euler", scheduler: "simple" },
+    optimized: { steps: 24, cfg: 4, samplerName: "euler", scheduler: "simple" },
+    maxCompatible: { steps: 24, cfg: 4, samplerName: "res_2s", scheduler: "simple" },
+    max: { steps: 28, cfg: 4.5, samplerName: "euler", scheduler: "simple" },
+  };
+}
+
+function kleinDistilledSamplerPresets(): Record<
+  ModelSamplerPresetTier,
+  ModelSamplerDefaults
+> {
+  return {
+    base: { ...FLUX_KLEIN_DISTILLED_BASE },
+    optimized: { ...FLUX_KLEIN_DISTILLED_ANATOMY },
+    maxCompatible: { ...FLUX_KLEIN_DISTILLED_ANATOMY_MAX },
+    max: { ...FLUX_KLEIN_DISTILLED_ANATOMY_MAX, cfg: 1.3 },
+  };
+}
+
+export function isKleinDistilledModel(model: ComfyImageModel | string): boolean {
+  return model === "flux-2-klein-4b-distilled" || model === "flux-2-klein-9b-distilled";
+}
+
+export function isKleinBaseModel(model: ComfyImageModel | string): boolean {
+  return model === "flux-2-klein" || model === "flux-2-klein-9b";
+}
+
+function fixedSamplerPresets(
+  preset: ModelSamplerDefaults,
+  maxCompatible?: ModelSamplerDefaults,
+): Record<ModelSamplerPresetTier, ModelSamplerDefaults> {
+  const compatible = maxCompatible ?? preset;
+  return {
+    base: preset,
+    optimized: preset,
+    maxCompatible: compatible,
+    max: preset,
+  };
+}
+
 const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
-  "flux-schnell": {
-    base: { steps: 4, cfg: 1 },
-    optimized: { steps: 4, cfg: 1 },
-  },
-  "flux-2-klein": {
-    base: { steps: 8, cfg: 3.5 },
-    optimized: { steps: 12, cfg: 3.5 },
-  },
-  "flux-2-klein-9b": {
-    base: { steps: 8, cfg: 3.5 },
-    optimized: { steps: 16, cfg: 3.5 },
-  },
+  "flux-schnell": fixedSamplerPresets({ steps: 4, cfg: 1, ...FLUX_SAMPLER }),
+  "flux-2-klein": kleinBaseSamplerPresets(),
+  "flux-2-klein-4b-distilled": kleinDistilledSamplerPresets(),
+  "flux-2-klein-9b": kleinBaseSamplerPresets(),
+  "flux-2-klein-9b-distilled": kleinDistilledSamplerPresets(),
   "flux-dev": {
-    base: { steps: 20, cfg: 3.5 },
-    optimized: { steps: 28, cfg: 3.5 },
+    base: { steps: 20, cfg: 3.5, ...FLUX_SAMPLER },
+    optimized: { steps: 28, cfg: 3.5, ...FLUX_SAMPLER },
+    maxCompatible: { steps: 28, cfg: 3.5, ...FLUX_SAMPLER },
+    max: { steps: 35, cfg: 3.5, ...FLUX_SAMPLER },
   },
   flux2: {
-    base: { steps: 20, cfg: 3.5 },
-    optimized: { steps: 28, cfg: 3.5 },
+    base: { steps: 20, cfg: 3.5, ...FLUX_SAMPLER },
+    optimized: { steps: 28, cfg: 3.5, ...FLUX_SAMPLER },
+    maxCompatible: { steps: 28, cfg: 3.5, ...FLUX_SAMPLER },
+    max: { steps: 35, cfg: 3.5, ...FLUX_SAMPLER },
   },
   "qwen-image-2512": {
-    base: { steps: 30, cfg: 4 },
-    optimized: { steps: 40, cfg: 3.5 },
+    base: { steps: 25, cfg: 2.5, ...QWEN_2512_SAMPLER },
+    optimized: { steps: 30, cfg: 2.5, ...QWEN_2512_SAMPLER },
+    maxCompatible: { steps: 35, cfg: 2.5, ...QWEN_2512_SAMPLER },
+    max: { steps: 50, cfg: 3, ...QWEN_2512_SAMPLER },
   },
+  "qwen-image-2512-lightning-4": fixedSamplerPresets({
+    steps: 4,
+    ...QWEN_LIGHTNING_SAMPLER,
+  }),
+  "qwen-image-2512-lightning-8": fixedSamplerPresets({
+    steps: 8,
+    ...QWEN_LIGHTNING_SAMPLER,
+  }),
+  "qwen-image-edit-2511-lightning-4": fixedSamplerPresets({
+    steps: 4,
+    ...QWEN_LIGHTNING_SAMPLER,
+  }),
+  "qwen-image-edit-2511-lightning-8": fixedSamplerPresets({
+    steps: 8,
+    ...QWEN_LIGHTNING_SAMPLER,
+  }),
+  "qwen-rapid-aio-edit": rapidAioPresets(QWEN_RAPID_AIO_EDIT_SAMPLER),
+  "qwen-rapid-aio-sfw": rapidAioPresets(QWEN_RAPID_AIO_SFW_SAMPLER),
+  "qwen-rapid-aio-nsfw": rapidAioPresets(QWEN_RAPID_AIO_NSFW_SAMPLER),
   "qwen-image-2.0": {
-    base: { steps: 35, cfg: 4 },
-    optimized: { steps: 45, cfg: 3.5 },
+    base: { steps: 35, cfg: 4, samplerName: "euler", scheduler: "normal" },
+    optimized: { steps: 45, cfg: 3.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 45, cfg: 3.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 55, cfg: 3.5, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
   "sd3-medium": {
-    base: { steps: 28, cfg: 4.5 },
-    optimized: { steps: 34, cfg: 4 },
+    base: { steps: 28, cfg: 4.5, samplerName: "euler", scheduler: "simple" },
+    optimized: { steps: 34, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 36, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 42, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
   "sd3.5-large": {
-    base: { steps: 30, cfg: 4.5 },
-    optimized: { steps: 38, cfg: 4 },
+    base: { steps: 30, cfg: 4.5, samplerName: "euler", scheduler: "simple" },
+    optimized: { steps: 38, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 40, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 45, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
   "stable-cascade-b": {
-    base: { steps: 20, cfg: 4 },
-    optimized: { steps: 26, cfg: 3.8 },
+    base: { steps: 20, cfg: 4, samplerName: "euler", scheduler: "normal" },
+    optimized: { steps: 26, cfg: 3.8, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 28, cfg: 3.8, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 32, cfg: 3.8, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
   "sd15-instruct-pix2pix": {
-    base: { steps: 20, cfg: 7.5 },
-    optimized: { steps: 28, cfg: 8 },
+    base: { steps: 20, cfg: 7.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    optimized: { steps: 28, cfg: 8, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 28, cfg: 8, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 35, cfg: 8, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
   "sdxl-instruct-pix2pix": {
-    base: { steps: 20, cfg: 7.5 },
-    optimized: { steps: 28, cfg: 8 },
+    base: { steps: 20, cfg: 7.5, samplerName: "dpmpp_2m", scheduler: "karras" },
+    optimized: { steps: 28, cfg: 8, samplerName: "dpmpp_2m", scheduler: "karras" },
+    maxCompatible: { steps: 28, cfg: 8, samplerName: "dpmpp_2m", scheduler: "karras" },
+    max: { steps: 35, cfg: 8, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
 };
 
 export function normalizeModelSamplerPresetTier(
   value: unknown,
 ): ModelSamplerPresetTier {
-  return value === "optimized" ? "optimized" : "base";
+  if (value === "maxCompatible" || value === "max-compatible" || value === "max_compatible") {
+    return "maxCompatible";
+  }
+  if (value === "max") {
+    return "max";
+  }
+  if (value === "optimized") {
+    return "optimized";
+  }
+  return "base";
 }
 
 export function getModelSamplerDefaults(
@@ -151,11 +330,7 @@ export function getModelSamplerDefaults(
   }
 
   const definition = getComfyModelDefinition(normalized);
-  const category = CATEGORY_SAMPLER_PRESETS[definition.category][presetTier];
-  return {
-    steps: category.steps,
-    cfg: category.cfg,
-  };
+  return CATEGORY_SAMPLER_PRESETS[definition.category][presetTier];
 }
 
 export function modelSamplerDefaultsToParams(
@@ -164,6 +339,8 @@ export function modelSamplerDefaultsToParams(
   return {
     steps: defaults.steps,
     cfg: defaults.cfg,
+    samplerName: defaults.samplerName,
+    scheduler: defaults.scheduler,
     ...(defaults.fixedSeed != null ? { seed: defaults.fixedSeed } : {}),
   };
 }
@@ -187,5 +364,36 @@ export function formatModelSamplerHint(
     MODEL_SAMPLER_PRESET_OPTIONS.find((option) => option.id === tier)?.label ?? tier;
   const seedLabel =
     defaults.fixedSeed != null ? `seed ${defaults.fixedSeed}` : "random seed";
-  return `${presetLabel} · steps ${defaults.steps} · cfg ${defaults.cfg} · ${seedLabel}`;
+  return `${presetLabel} · ${defaults.samplerName} · ${defaults.scheduler} · steps ${defaults.steps} · cfg ${defaults.cfg} · ${seedLabel}`;
+}
+
+export function formatKleinSamplerPeopleHint(
+  model: ComfyImageModel | string,
+  tier: ModelSamplerPresetTier = DEFAULT_MODEL_SAMPLER_PRESET_TIER,
+): string | null {
+  if (isKleinDistilledModel(model)) {
+    if (tier === "base") {
+      return "Base is fastest but can distort people, hands, and complex poses. Use Optimized or Max compat. for figures.";
+    }
+    return null;
+  }
+
+  if (isKleinBaseModel(model)) {
+    if (tier === "base") {
+      return "Use a Base workflow/checkpoint — distilled step counts (4 steps, CFG ~1) will warp Base output.";
+    }
+    if (tier === "max") {
+      return "Max quality raises CFG — if forms warp or colors clip, use Optimized or Max compat. instead.";
+    }
+    return null;
+  }
+
+  return null;
+}
+
+/** @deprecated Use formatKleinSamplerPeopleHint */
+export function formatKleinDistilledPeopleHint(
+  tier: ModelSamplerPresetTier = DEFAULT_MODEL_SAMPLER_PRESET_TIER,
+): string | null {
+  return formatKleinSamplerPeopleHint("flux-2-klein-9b-distilled", tier);
 }

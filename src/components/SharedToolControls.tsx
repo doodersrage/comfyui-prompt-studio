@@ -10,6 +10,7 @@ import ModelSamplerHints from "@/components/ModelSamplerHints";
 import ModelResolutionHints from "@/components/ModelResolutionHints";
 import RenderRealismHints from "@/components/RenderRealismHints";
 import AnatomyGuardHints from "@/components/AnatomyGuardHints";
+import QueueQualityProfileHints from "@/components/QueueQualityProfileHints";
 import { getComfyModelDefinition, COMFY_IMAGE_MODELS, type ComfyImageModel } from "@/lib/comfy-models";
 import {
   modelsSupportedByAvailableWorkflows,
@@ -31,6 +32,10 @@ import {
   normalizeAnatomyGuardMode,
   type AnatomyGuardMode,
 } from "@/lib/anatomy-guard";
+import {
+  normalizeQueueQualityProfile,
+  type QueueQualityProfile,
+} from "@/lib/queue-quality-profile";
 import {
   normalizeRenderRealismMode,
   type RenderRealismMode,
@@ -67,6 +72,8 @@ type SharedToolControlsProps = {
   activeCharacterDescriptor?: string;
   onActiveCharacterDescriptorChange?: (value: string) => void;
   recommendFromText?: string;
+  /** When set, enables a per-tool queue quality override below the global profile. */
+  toolId?: string;
 };
 
 export default function SharedToolControls({
@@ -91,6 +98,7 @@ export default function SharedToolControls({
   activeCharacterDescriptor,
   onActiveCharacterDescriptorChange,
   recommendFromText,
+  toolId,
 }: SharedToolControlsProps) {
   const selectedModel = getComfyModelDefinition(shared.model);
   const activeLimits = getDetailLimits(shared.detail, shared.model);
@@ -111,6 +119,9 @@ export default function SharedToolControls({
   const [anatomyGuardMode, setAnatomyGuardMode] = useState<AnatomyGuardMode>(() =>
     normalizeAnatomyGuardMode(shared.anatomyGuardMode),
   );
+  const [queueQualityProfile, setQueueQualityProfile] = useState<QueueQualityProfile>(() =>
+    normalizeQueueQualityProfile(shared.queueQualityProfile),
+  );
   const [showAllModelsOverride, setShowAllModelsOverride] = useState(
     () => shared.showAllModelsOverride === true,
   );
@@ -121,6 +132,8 @@ export default function SharedToolControls({
       ...workflowSelection.serverFiles.map((entry) => ({
         id: entry.id,
         name: entry.name,
+        filename: `${entry.name}.json`,
+        workflowJson: "",
       })),
     ],
     [workflowSelection.localFiles, workflowSelection.serverFiles],
@@ -171,11 +184,14 @@ export default function SharedToolControls({
   const setWorkflowSelectedIdRef = useRef(workflowSelection.setSelectedId);
   setWorkflowSelectedIdRef.current = workflowSelection.setSelectedId;
 
+  const workflowManualOverrideRef = useRef(false);
+
   const applyWorkflowForModel = useCallback(
     (model: ComfyImageModel) => {
       if (shared.autoSelectWorkflowForModel === false || !onWorkflowPresetChangeRef.current) {
         return;
       }
+      workflowManualOverrideRef.current = false;
       const workflowId = resolveWorkflowForModelSelection(model, {
         map: shared.modelWorkflowMap,
         suggestedMap: suggestedWorkflowMap,
@@ -224,6 +240,9 @@ export default function SharedToolControls({
 
   useEffect(() => {
     if (!workflowSelection.mounted || shared.autoSelectWorkflowForModel === false) {
+      return;
+    }
+    if (workflowManualOverrideRef.current) {
       return;
     }
     if (!mappedWorkflowForModel || !onWorkflowPresetChangeRef.current) {
@@ -275,6 +294,12 @@ export default function SharedToolControls({
 
   useEffect(() => {
     scheduleAfterCommit(() => {
+      setQueueQualityProfile(normalizeQueueQualityProfile(shared.queueQualityProfile));
+    });
+  }, [shared.queueQualityProfile]);
+
+  useEffect(() => {
+    scheduleAfterCommit(() => {
       setShowAllModelsOverride(shared.showAllModelsOverride === true);
     });
   }, [shared.showAllModelsOverride]);
@@ -319,6 +344,34 @@ export default function SharedToolControls({
     });
   };
 
+  const handleQueueQualityProfileChange = (profile: QueueQualityProfile) => {
+    setQueueQualityProfile(profile);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      queueQualityProfile: profile,
+    });
+  };
+
+  const toolProfileOverride = toolId
+    ? shared.toolQueueQualityProfiles?.[toolId]
+    : undefined;
+
+  const handleToolQueueQualityChange = (profile: QueueQualityProfile | undefined) => {
+    if (!toolId) {
+      return;
+    }
+    const current = { ...(loadSettingsCache().shared.toolQueueQualityProfiles ?? {}) };
+    if (!profile) {
+      delete current[toolId];
+    } else {
+      current[toolId] = profile;
+    }
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      toolQueueQualityProfiles: current,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -360,6 +413,16 @@ export default function SharedToolControls({
         sizeTier={resolutionSizeTier}
         onOrientationChange={handleResolutionOrientationChange}
         onSizeTierChange={handleResolutionSizeTierChange}
+      />
+
+      <QueueQualityProfileHints
+        profile={queueQualityProfile}
+        samplerPreset={samplerPreset}
+        resolutionSizeTier={resolutionSizeTier}
+        onProfileChange={handleQueueQualityProfileChange}
+        toolId={toolId}
+        toolProfile={toolProfileOverride}
+        onToolProfileChange={handleToolQueueQualityChange}
       />
 
       <RenderRealismHints
@@ -422,6 +485,7 @@ export default function SharedToolControls({
               : undefined
           }
           onChange={(fileId) => {
+            workflowManualOverrideRef.current = true;
             workflowSelection.setSelectedId(fileId);
             onWorkflowPresetChange(fileId);
           }}

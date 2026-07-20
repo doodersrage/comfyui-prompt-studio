@@ -4,8 +4,10 @@ import { useCallback, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { getComfyModelDefinition } from "@/lib/comfy-models";
+import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { DEFAULT_CHARACTER_TOOL_CACHE } from "@/lib/settings-cache";
@@ -64,6 +66,9 @@ export default function ControlNetTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [handoffQueueParams, setHandoffQueueParams] = useState<
+    WorkflowParamValues | undefined
+  >();
 
   const selectedModel = getComfyModelDefinition(shared.model);
   const hintText = [subject, scene, detail].filter(Boolean).join(" · ");
@@ -78,6 +83,31 @@ export default function ControlNetTool() {
     },
     [refPreview],
   );
+
+  const applyGalleryHandoff = useCallback(
+    (handoff: {
+      prompt: string;
+      model?: string;
+      queueParams?: WorkflowParamValues;
+      file: File | null;
+      previewUrl: string | null;
+    }) => {
+      setOutput(handoff.prompt);
+      setSubject(handoff.prompt.slice(0, 800));
+      setHandoffQueueParams(handoff.queueParams);
+      if (handoff.model) {
+        updateShared({ model: handoff.model as typeof shared.model });
+      }
+      if (handoff.file) {
+        onRefChange(handoff.file);
+      } else if (handoff.previewUrl) {
+        setRefPreview(handoff.previewUrl);
+      }
+    },
+    [onRefChange, updateShared],
+  );
+
+  useGalleryHandoff("controlnet", applyGalleryHandoff);
 
   const generate = useCallback(async () => {
     setLoading(true);
@@ -145,6 +175,7 @@ export default function ControlNetTool() {
       description="Structure-focused prompts for depth, pose, canny, normal, and lineart conditioning. Upload a reference image for vision-assisted structure extraction."
       sidebar={
         <SharedToolControls
+          toolId="controlnet"
           shared={shared}
           onModelChange={(model) => updateShared({ model })}
           onDetailChange={(detailLevel) => updateShared({ detail: detailLevel })}
@@ -259,7 +290,12 @@ export default function ControlNetTool() {
             onCopy={() => void copyOutput()}
             onOutputChange={setOutput}
             onSaveHistory={() => actions.saveHistory({ prompt: output, hints: hintText })}
-            onSendComfyUi={() => void actions.sendComfyUi(output)}
+            onSendComfyUi={() =>
+              void actions.sendComfyUi(output, null, undefined, {
+                inputImage: refFile,
+                queueParamsBase: handoffQueueParams,
+              })
+            }
             onFixPrompt={() => void actions.fixPrompt(output, setOutput, hintText)}
             onCopyPair={() => void actions.copyPromptPair(output, null)}
             onCompact={() => void actions.compactPrompt(output, setOutput)}

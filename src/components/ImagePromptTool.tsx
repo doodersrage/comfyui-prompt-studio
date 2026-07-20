@@ -8,6 +8,7 @@ import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import { getComfyModelDefinition } from "@/lib/comfy-models";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from "@/lib/settings-cache";
@@ -63,6 +64,9 @@ export default function ImagePromptTool() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [refineIntent, setRefineIntent] = useState("");
+  const [handoffQueueParams, setHandoffQueueParams] = useState<
+    WorkflowParamValues | undefined
+  >();
 
   const actions = usePromptResultActions({
     tool: "imagePrompt",
@@ -106,12 +110,14 @@ export default function ImagePromptTool() {
     (handoff: {
       prompt: string;
       model?: string;
+      queueParams?: WorkflowParamValues;
       file: File | null;
       previewUrl: string | null;
     }) => {
       updateToolSettings({
         extraHints: `Reference prompt from gallery:\n${handoff.prompt.slice(0, 1200)}`,
       });
+      setHandoffQueueParams(handoff.queueParams);
       if (handoff.model) {
         updateShared({ model: handoff.model as ComfyImageModel });
       }
@@ -296,6 +302,7 @@ export default function ImagePromptTool() {
       }
       sidebar={
         <SharedToolControls
+          toolId="imagePrompt"
           shared={shared}
           onModelChange={(model) => updateShared({ model })}
           onDetailChange={(detail) => updateShared({ detail })}
@@ -518,7 +525,12 @@ export default function ImagePromptTool() {
           })
         }
         onOutputChange={setOutput}
-        onSendComfyUi={() => void actions.sendComfyUi(output, inferredSport)}
+        onSendComfyUi={() =>
+          void actions.sendComfyUi(output, inferredSport, undefined, {
+            inputImage: refImages[0]?.file ?? null,
+            queueParamsBase: handoffQueueParams,
+          })
+        }
         showWeightInspector={Boolean(output)}
         {...promptResultPreviewProps(actions, output, inferredSport)}
         onFixPrompt={() =>
@@ -532,6 +544,7 @@ export default function ImagePromptTool() {
           void actions.runExportPipeline(output, setOutput, {
             maxChars: result?.limits?.maxChars,
             queueComfyUi: true,
+            inputImage: refImages[0]?.file ?? null,
           })
         }
         onExportSidecar={() =>

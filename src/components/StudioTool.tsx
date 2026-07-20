@@ -30,7 +30,7 @@ import {
   buildPromptSidecar,
   downloadPromptSidecar,
 } from "@/lib/prompt-sidecar";
-import { requeueComfyJob, requeueComfyJobs } from "@/lib/comfyui-requeue";
+import { requeueComfyJobFromHistory, requeueComfyJobs } from "@/lib/comfyui-requeue";
 import {
   applyScenePresetLocks,
   buildScenePresetFromCurrent,
@@ -1058,11 +1058,7 @@ export default function StudioTool() {
                   }}
                   onRequeue={(newSeed) => {
                     setBackupStatus("Re-queueing from history…");
-                    void requeueComfyJob({
-                      prompt: entry.prompt,
-                      tool: entry.tool,
-                      model: entry.model,
-                      hints: entry.hints,
+                    void requeueComfyJobFromHistory(entry, {
                       newSeed,
                       onStatus: setBackupStatus,
                     }).then((result) => {
@@ -3134,11 +3130,7 @@ function IterationTreeNodeCard({
             type="button"
             onClick={() => {
               onRequeueStatus("Re-queueing from iteration tree…");
-              void requeueComfyJob({
-                prompt: node.entry.prompt,
-                tool: node.entry.tool,
-                model: node.entry.model,
-                hints: node.entry.hints,
+              void requeueComfyJobFromHistory(node.entry, {
                 newSeed: true,
                 onStatus: onRequeueStatus,
               }).then((result) => {

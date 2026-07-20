@@ -48,6 +48,21 @@ const FLUX_ANATOMY_AVOID: Record<Exclude<AnatomyGuardMode, "off">, string> = {
     "Avoid extra limbs, missing limbs, deformed anatomy, extra or fused fingers, duplicate hands, mutations, and broken proportions.",
 };
 
+const FLUX_KLEIN_DISTILLED_ANATOMY_EXTRA: Record<Exclude<AnatomyGuardMode, "off">, string> = {
+  standard:
+    "Prefer simple standing poses over seated, twisted, or multi-person interactions when anatomy matters.",
+  strict:
+    "Prefer simple standing poses and single-subject framing. Complex seated or intertwined figures increase hand and limb errors on distilled Klein.",
+};
+
+function isKleinDistilledModel(model: ComfyImageModel | string): boolean {
+  return model === "flux-2-klein-4b-distilled" || model === "flux-2-klein-9b-distilled";
+}
+
+function isKleinBaseModel(model: ComfyImageModel | string): boolean {
+  return model === "flux-2-klein" || model === "flux-2-klein-9b";
+}
+
 export function normalizeAnatomyGuardMode(value: unknown): AnatomyGuardMode {
   if (value === "standard" || value === "strict" || value === "off") {
     return value;
@@ -132,6 +147,20 @@ export function applyAnatomyGuardForModel(input: {
   if (!/\bavoid extra limbs\b/i.test(positive)) {
     const separator = /[.!?]$/.test(positive) ? " " : ". ";
     positive = `${positive}${separator}${avoid}`;
+  }
+
+  if (isKleinDistilledModel(input.model) && !/\bprefer simple standing poses\b/i.test(positive)) {
+    const separator = /[.!?]$/.test(positive) ? " " : ". ";
+    positive = `${positive}${separator}${FLUX_KLEIN_DISTILLED_ANATOMY_EXTRA[resolvedMode]}`;
+  }
+
+  if (
+    isKleinBaseModel(input.model) &&
+    resolvedMode === "strict" &&
+    !/\bkeep poses straightforward\b/i.test(positive)
+  ) {
+    const separator = /[.!?]$/.test(positive) ? " " : ". ";
+    positive = `${positive}${separator}Keep poses straightforward when hands, faces, or full figures must read cleanly.`;
   }
 
   return { positive, negative: undefined };

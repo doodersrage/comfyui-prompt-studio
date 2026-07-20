@@ -17,6 +17,7 @@ import {
 } from "@/lib/experiment-winners";
 import { downloadCompareExport } from "@/lib/gallery-compare-export";
 import { requeueComfyJobs } from "@/lib/comfyui-requeue";
+import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export default function ExperimentDashboardPanel() {
@@ -191,13 +192,19 @@ export default function ExperimentDashboardPanel() {
                       onClick={() => {
                         setStatus("Re-queueing experiment group…");
                         void requeueComfyJobs(
-                          group.entries.map((entry) => ({
-                            prompt: entry.prompt,
-                            negativePrompt: entry.negativePrompt,
-                            model: entry.model,
-                            queueParams: entry.queueParams,
-                            newSeed: true,
-                          })),
+                          group.entries.map((entry) => {
+                            const urls = resolveRequeueImageUrlsFromEntry(entry);
+                            return {
+                              prompt: entry.prompt,
+                              negativePrompt: entry.negativePrompt,
+                              model: entry.model,
+                              tool: entry.tool,
+                              queueParams: entry.queueParams,
+                              sourceImageUrl: urls.sourceImageUrl,
+                              maskImageUrl: urls.maskImageUrl,
+                              newSeed: true,
+                            };
+                          }),
                           (message) => setStatus(message),
                         ).then(({ queued }) =>
                           setStatus(`Re-queued ${queued} job(s) with new seeds.`),

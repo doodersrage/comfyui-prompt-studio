@@ -1,0 +1,67 @@
+import type { CustomWorkflowToken } from "./comfyui-config";
+
+export const DEFAULT_UPSCALE_MODEL_TOKEN = "{{UPSCALE_MODEL}}";
+
+export type ModelUpscaleMap = Partial<Record<string, string>>;
+
+function trimFilename(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+function resolveCustomTokenValue(
+  token: string,
+  customTokens?: CustomWorkflowToken[],
+): string | undefined {
+  if (!customTokens?.length) {
+    return undefined;
+  }
+  const match = customTokens.find((entry) => entry.token.trim() === token);
+  return trimFilename(match?.value);
+}
+
+export function resolveUpscaleModelFilename(
+  model: string,
+  options?: {
+    upscaleMap?: ModelUpscaleMap;
+    customTokens?: CustomWorkflowToken[];
+  },
+): string | undefined {
+  const mapped =
+    trimFilename(options?.upscaleMap?.[model]) ??
+    trimFilename(options?.upscaleMap?.default);
+  return (
+    mapped ??
+    resolveCustomTokenValue(DEFAULT_UPSCALE_MODEL_TOKEN, options?.customTokens)
+  );
+}
+
+export function formatModelUpscaleMap(map: ModelUpscaleMap | undefined): string {
+  if (!map) {
+    return "";
+  }
+  return Object.entries(map)
+    .filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()))
+    .map(([key, filename]) => `${key}=${filename.trim()}`)
+    .join("\n");
+}
+
+export function parseModelUpscaleMap(text: string): ModelUpscaleMap {
+  const map: ModelUpscaleMap = {};
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
+    const separator = trimmed.includes("=") ? "=" : ":";
+    const [key, ...rest] = trimmed.split(separator);
+    const filename = rest.join(separator).trim();
+    if (key?.trim() && filename) {
+      map[key.trim()] = filename;
+    }
+  }
+  return map;
+}

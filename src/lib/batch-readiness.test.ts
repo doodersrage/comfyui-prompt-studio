@@ -71,6 +71,10 @@ describe("workflow apply bindings", () => {
         class_type: "KSampler",
         inputs: { seed: 42, steps: 24, cfg: 6.5 },
       },
+      "4": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["1", 0], shift: 1.73 },
+      },
       "5": {
         class_type: "EmptyLatentImage",
         inputs: { width: 768, height: 512 },
@@ -81,6 +85,12 @@ describe("workflow apply bindings", () => {
         nodeId: "3",
         classType: "KSampler",
         suggestedBinding: "sampler",
+        reason: "test",
+      },
+      {
+        nodeId: "4",
+        classType: "ModelSamplingAuraFlow",
+        suggestedBinding: "modelSampling",
         reason: "test",
       },
       {
@@ -96,6 +106,7 @@ describe("workflow apply bindings", () => {
     assert.ok(applied.json.includes("{{SEED}}"));
     assert.ok(applied.json.includes("{{STEPS}}"));
     assert.ok(applied.json.includes("{{CFG}}"));
+    assert.ok(applied.json.includes("{{SHIFT}}"));
     assert.ok(applied.json.includes("{{WIDTH}}"));
     assert.ok(applied.json.includes("{{HEIGHT}}"));
   });

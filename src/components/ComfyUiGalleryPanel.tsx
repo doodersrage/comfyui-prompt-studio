@@ -4,6 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from "react";
+import ModalPortal from "@/components/ui/ModalPortal";
 import ImageLightbox, { type ImageLightboxState } from "@/components/ui/ImageLightbox";
 import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPanel";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -50,7 +51,8 @@ import {
   downloadGallerySidecarBundle,
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
-import { requeueComfyJob, requeueComfyJobs } from "@/lib/comfyui-requeue";
+import { requeueComfyJobFromEntry, requeueComfyJobs } from "@/lib/comfyui-requeue";
+import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import {
   buildGalleryLightboxPlaylist,
   galleryEntryViewUrls,
@@ -548,28 +550,26 @@ export default function ComfyUiGalleryPanel({
           });
         }
       },
-      requeue: (id: string, newSeed: boolean) => {
+      requeue: (id: string, newSeed: boolean, qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile) => {
         const entry = entriesRef.current.find((item) => item.id === id);
         if (!entry) {
           return;
         }
         setRequeueStatus("Re-queueing…");
-        void requeueComfyJob({
-          prompt: entry.prompt,
-          negativePrompt: entry.negativePrompt,
-          tool: entry.tool,
-          model: entry.model,
+        void requeueComfyJobFromEntry(entry, {
           newSeed,
-          queueParams: entry.queueParams,
+          qualityProfile,
           onStatus: setRequeueStatus,
         }).then((result) => {
           if (!result.ok) {
             setRequeueStatus(result.error ?? "Re-queue failed.");
             return;
           }
+          const profileNote = qualityProfile ? `${qualityProfile} quality · ` : "";
           setRequeueStatus(
             [
               "queued",
+              profileNote,
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
               newSeed ? "new seed" : "same params",
@@ -927,13 +927,19 @@ export default function ComfyUiGalleryPanel({
           onBulkRequeue={() => {
             setRequeueStatus("Bulk re-queue started…");
             void requeueComfyJobs(
-              selectedEntries.map((entry) => ({
-                prompt: entry.prompt,
-                negativePrompt: entry.negativePrompt,
-                tool: entry.tool,
-                model: entry.model,
-                newSeed: true,
-              })),
+              selectedEntries.map((entry) => {
+                const urls = resolveRequeueImageUrlsFromEntry(entry);
+                return {
+                  prompt: entry.prompt,
+                  negativePrompt: entry.negativePrompt,
+                  tool: entry.tool,
+                  model: entry.model,
+                  queueParams: entry.queueParams,
+                  sourceImageUrl: urls.sourceImageUrl,
+                  maskImageUrl: urls.maskImageUrl,
+                  newSeed: true,
+                };
+              }),
               setRequeueStatus,
             ).then(() => setSelectedIds([]));
           }}
@@ -948,8 +954,9 @@ export default function ComfyUiGalleryPanel({
       )}
 
       {compareOpen && selectedEntries.length >= 2 ? (
+        <ModalPortal>
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-zinc-950/85 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-zinc-950/85 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label="Compare gallery outputs"
@@ -1016,6 +1023,7 @@ export default function ComfyUiGalleryPanel({
             />
           </div>
         </div>
+        </ModalPortal>
       ) : null}
 
       {workflowEntry ? (
