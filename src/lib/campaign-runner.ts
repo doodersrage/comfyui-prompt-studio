@@ -100,7 +100,7 @@ export async function runPromptCampaign(input: {
       continue;
     }
 
-    const params = resolveQueueParams();
+    const params = resolveQueueParams({ model: input.model });
     const response = await fetch("/api/comfyui", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

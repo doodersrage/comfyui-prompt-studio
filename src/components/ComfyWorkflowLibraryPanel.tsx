@@ -10,7 +10,9 @@ import {
   deleteComfyWorkflowFile,
   loadComfyWorkflowFiles,
   upsertComfyWorkflowFile,
+  workflowFileDisplayName,
   workflowFileNameFromPath,
+  workflowFileSourceFilename,
   type ComfyWorkflowFile,
 } from "@/lib/comfyui-workflow-files";
 import {
@@ -333,6 +335,8 @@ export default function ComfyWorkflowLibraryPanel({
             {files.map((file) => {
               const active = selectedId === file.id;
               const isEditing = editingId === file.id;
+              const displayName = workflowFileDisplayName(file);
+              const sourceFilename = workflowFileSourceFilename(file);
               return (
                 <li
                   key={file.id}
@@ -342,7 +346,7 @@ export default function ComfyWorkflowLibraryPanel({
                   <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
                       <p className="type-heading">
-                        {file.filename ?? file.name}
+                        {displayName}
                         {active && (
                           <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] uppercase tracking-wide text-violet-200">
                             Active
@@ -350,7 +354,7 @@ export default function ComfyWorkflowLibraryPanel({
                         )}
                       </p>
                       <p className="type-caption">
-                        {file.name !== (file.filename ?? file.name) ? `${file.name} · ` : ""}
+                        {sourceFilename ? `${sourceFilename} · ` : ""}
                         {new Date(file.createdAt).toLocaleString()} ·{" "}
                         {(file.workflowJson.length / 1024).toFixed(1)} KB
                       </p>
@@ -360,7 +364,7 @@ export default function ComfyWorkflowLibraryPanel({
                         type="button"
                         variant={active ? "accent-outline" : "secondary"}
                         size="sm"
-                        onClick={() => selectFile(file.id, file.filename ?? file.name)}
+                        onClick={() => selectFile(file.id, displayName)}
                       >
                         {active ? "Selected" : "Use for Send"}
                       </Button>

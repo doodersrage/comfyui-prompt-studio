@@ -11,7 +11,7 @@ const CATEGORY_KEYWORDS: Record<ComfyModelCategory, string[]> = {
   "stable-diffusion": ["sd15", "sd1.5", "sd-1.5", "stable-diffusion"],
   sdxl: ["sdxl", "ssd-1b", "segmind"],
   sd3: ["sd3", "sd-3", "auraflow"],
-  flux: ["flux", "chroma"],
+  flux: ["flux", "chroma", "klein"],
   qwen: ["qwen"],
   hunyuan: ["hunyuan", "hidream"],
   "other-dit": ["pixart", "lumina", "z-image", "omnigen", "kandinsky", "cascade"],

@@ -8,6 +8,7 @@ import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
 import NotificationBell from "@/components/NotificationBell";
 import { BUILTIN_TOOL_PLUGINS, type ToolPlugin } from "@/lib/tool-plugin-registry";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { prefetchGalleryPage } from "@/lib/gallery-warmup";
 
 type NavLink = {
   href: string;
@@ -80,6 +81,16 @@ function SidebarLink({ link, active }: { link: NavLink; active: boolean }) {
       title={link.description}
       data-active={active ? "true" : "false"}
       className="ui-nav-link"
+      onMouseEnter={() => {
+        if (link.href === "/gallery") {
+          prefetchGalleryPage();
+        }
+      }}
+      onFocus={() => {
+        if (link.href === "/gallery") {
+          prefetchGalleryPage();
+        }
+      }}
     >
       {link.label}
     </Link>

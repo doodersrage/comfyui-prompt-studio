@@ -17,6 +17,7 @@ export type GalleryCardActions = {
   reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => void;
   downloadError: (message: string | null) => void;
   visionTagClick: (tag: string) => void;
+  viewWorkflow: (id: string) => void;
 };
 
 type GalleryCardItemProps = {
@@ -82,6 +83,10 @@ function GalleryCardItem({
     (tag: string) => actionsRef.current.visionTagClick(tag),
     [actionsRef],
   );
+  const onViewWorkflow = useCallback(
+    () => actionsRef.current.viewWorkflow(entry.id),
+    [actionsRef, entry.id],
+  );
 
   return (
     <GalleryCard
@@ -103,6 +108,7 @@ function GalleryCardItem({
       reviewMutationHints={reviewMutationHints}
       onVisionTagClick={onVisionTagClick}
       onReviewRating={onReviewRating}
+      onViewWorkflow={onViewWorkflow}
     />
   );
 }

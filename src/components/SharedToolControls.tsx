@@ -6,14 +6,28 @@ import { useComfyWorkflowSelection } from "@/hooks/useComfyWorkflowSelection";
 import type { DetailLevel } from "@/lib/detail-level";
 import { getDetailLimits } from "@/lib/detail-level";
 import ModelRecommenderHints from "@/components/ModelRecommenderHints";
+import ModelSamplerHints from "@/components/ModelSamplerHints";
+import ModelResolutionHints from "@/components/ModelResolutionHints";
 import { getComfyModelDefinition } from "@/lib/comfy-models";
 import { patchSharedForModelChange } from "@/lib/model-workflow-map";
+import {
+  normalizeModelSamplerPresetTier,
+  type ModelSamplerPresetTier,
+} from "@/lib/model-sampler-defaults";
+import {
+  normalizeResolutionOrientation,
+  normalizeResolutionSizeTier,
+  type ResolutionOrientation,
+  type ResolutionSizeTier,
+} from "@/lib/model-resolution-defaults";
 import type { SharedToolSettings } from "@/lib/settings-cache";
+import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
 import { PINNED_VARIATION_SEED_LABEL } from "@/lib/tool-ui-labels";
 import { accentRingClass } from "@/lib/tool-theme";
 import { CollapsibleSection } from "@/components/ui/ToolPageShell";
 import { ChipButton, FieldDivider, FieldLabel } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { useEffect, useState } from "react";
 
 type SharedToolControlsProps = {
   shared: SharedToolSettings;
@@ -66,6 +80,51 @@ export default function SharedToolControls({
   const activeLimits = getDetailLimits(shared.detail, shared.model);
   const workflowSelection = useComfyWorkflowSelection();
   const checkboxClass = `mt-1 h-4 w-4 rounded-[var(--radius-sm)] border-[var(--border-default)] bg-[var(--bg-muted)] ${accentRingClass()}`;
+  const [samplerPreset, setSamplerPreset] = useState<ModelSamplerPresetTier>(() =>
+    normalizeModelSamplerPresetTier(shared.modelSamplerPreset),
+  );
+  const [resolutionOrientation, setResolutionOrientation] = useState<ResolutionOrientation>(() =>
+    normalizeResolutionOrientation(shared.modelResolutionOrientation),
+  );
+  const [resolutionSizeTier, setResolutionSizeTier] = useState<ResolutionSizeTier>(() =>
+    normalizeResolutionSizeTier(shared.modelResolutionSizeTier),
+  );
+
+  useEffect(() => {
+    setSamplerPreset(normalizeModelSamplerPresetTier(shared.modelSamplerPreset));
+  }, [shared.modelSamplerPreset]);
+
+  useEffect(() => {
+    setResolutionOrientation(normalizeResolutionOrientation(shared.modelResolutionOrientation));
+  }, [shared.modelResolutionOrientation]);
+
+  useEffect(() => {
+    setResolutionSizeTier(normalizeResolutionSizeTier(shared.modelResolutionSizeTier));
+  }, [shared.modelResolutionSizeTier]);
+
+  const handleSamplerPresetChange = (preset: ModelSamplerPresetTier) => {
+    setSamplerPreset(preset);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      modelSamplerPreset: preset,
+    });
+  };
+
+  const handleResolutionOrientationChange = (orientation: ResolutionOrientation) => {
+    setResolutionOrientation(orientation);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      modelResolutionOrientation: orientation,
+    });
+  };
+
+  const handleResolutionSizeTierChange = (tier: ResolutionSizeTier) => {
+    setResolutionSizeTier(tier);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      modelResolutionSizeTier: tier,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -84,6 +143,20 @@ export default function SharedToolControls({
           }}
         />
       </div>
+
+      <ModelSamplerHints
+        model={shared.model}
+        preset={samplerPreset}
+        onPresetChange={handleSamplerPresetChange}
+      />
+
+      <ModelResolutionHints
+        model={shared.model}
+        orientation={resolutionOrientation}
+        sizeTier={resolutionSizeTier}
+        onOrientationChange={handleResolutionOrientationChange}
+        onSizeTierChange={handleResolutionSizeTierChange}
+      />
 
       {recommendFromText ? (
         <ModelRecommenderHints

@@ -171,12 +171,24 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
   },
   {
     id: "flux-2-klein",
-    label: "FLUX.2 Klein",
+    label: "FLUX.2 Klein 4B",
     category: "flux",
     comfyNode: "CLIP Text Encode (Flux)",
     comfyClass: "Flux2Klein",
     description:
-      "Fast Flux T2I/edit. Descriptive prose—subject, materials, lighting, camera.",
+      "Fast 4B Flux T2I/edit. Descriptive prose—subject, materials, lighting, camera.",
+    profile: "flux_klein",
+    referenceTokenLimit: 512,
+    limitsByDetail: PROFILE_LIMITS.flux_klein,
+  },
+  {
+    id: "flux-2-klein-9b",
+    label: "FLUX.2 Klein 9B",
+    category: "flux",
+    comfyNode: "CLIP Text Encode (Flux)",
+    comfyClass: "Flux2Klein9B",
+    description:
+      "9B Klein distilled/base. Richer detail than 4B Klein; same photographic prose style (Qwen3 8B TE).",
     profile: "flux_klein",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.flux_klein,

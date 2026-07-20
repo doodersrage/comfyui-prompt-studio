@@ -5,7 +5,8 @@ export type ShootoutModel = {
 
 export const DEFAULT_SHOOTOUT_MODELS: ShootoutModel[] = [
   { model: "sdxl", label: "SDXL" },
-  { model: "flux-2-klein", label: "FLUX Klein" },
+  { model: "flux-2-klein", label: "FLUX Klein 4B" },
+  { model: "flux-2-klein-9b", label: "FLUX Klein 9B" },
   { model: "sd1.5", label: "SD 1.5" },
 ];
 

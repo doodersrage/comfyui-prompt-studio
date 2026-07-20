@@ -107,3 +107,26 @@ export function deleteComfyWorkflowFile(id: string): void {
 export function workflowFileNameFromPath(filename: string): string {
   return filename.replace(/\.api\.json$/i, "").replace(/\.json$/i, "") || filename;
 }
+
+/** User-facing label — prefers the saved display name over the import filename. */
+export function workflowFileDisplayName(
+  file: Pick<ComfyWorkflowFile, "name" | "filename">,
+): string {
+  const name = file.name.trim();
+  if (name) {
+    return name;
+  }
+  return file.filename?.trim() || "Workflow";
+}
+
+/** Original import filename when it differs from the display name. */
+export function workflowFileSourceFilename(
+  file: Pick<ComfyWorkflowFile, "name" | "filename">,
+): string | undefined {
+  const filename = file.filename?.trim();
+  const name = file.name.trim();
+  if (!filename || filename === name) {
+    return undefined;
+  }
+  return filename;
+}

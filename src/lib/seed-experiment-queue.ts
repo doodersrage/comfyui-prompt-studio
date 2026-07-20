@@ -43,7 +43,7 @@ export async function queueSeedExperiment(input: {
         ? input.sharedSeed
         : String(Math.floor(Math.random() * 2 ** 32) + index);
     seeds.push(seed);
-    const params = resolveQueueParams({ seed });
+    const params = resolveQueueParams({ model, base: { seed } });
 
     const response = await fetch("/api/comfyui", {
       method: "POST",

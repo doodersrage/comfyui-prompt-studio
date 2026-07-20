@@ -19,6 +19,7 @@ import GalleryFiltersBar from "@/components/gallery/GalleryFiltersBar";
 import GallerySelectionBar from "@/components/gallery/GallerySelectionBar";
 import GalleryStatsBar from "@/components/gallery/GalleryStatsBar";
 import GalleryReviewTouchBar from "@/components/gallery/GalleryReviewTouchBar";
+import GalleryPanelSkeleton from "@/components/gallery/GalleryPanelSkeleton";
 import { EmptyState } from "@/components/ui/ViewState";
 import { computeGalleryStats } from "@/lib/gallery-stats";
 import { queueMutatedGalleryJobs } from "@/lib/gallery-mutations";
@@ -79,6 +80,10 @@ import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 const GalleryComparePanel = dynamic(() => import("@/components/GalleryComparePanel"), {
   loading: () => null,
 });
+const GalleryWorkflowModal = dynamic(
+  () => import("@/components/gallery/GalleryWorkflowModal"),
+  { loading: () => null },
+);
 
 type ComfyUiGalleryPanelProps = {
   limit?: number;
@@ -95,6 +100,7 @@ export default function ComfyUiGalleryPanel({
 }: ComfyUiGalleryPanelProps) {
   const {
     mounted,
+    storeReady,
     entries,
     filteredEntries,
     filter,
@@ -147,6 +153,7 @@ export default function ComfyUiGalleryPanel({
   const [layout, setLayout] = useState<GalleryLayoutMode>("grid");
   const [viewPrefsLoaded, setViewPrefsLoaded] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [workflowEntry, setWorkflowEntry] = useState<ComfyGalleryEntry | null>(null);
   const [compareStatus, setCompareStatus] = useState<string | null>(null);
   const [paramAxis, setParamAxis] = useState<ParamExperimentAxis>("cfg");
   const [projectFilterId, setProjectFilterId] = useState<string>("");
@@ -164,6 +171,7 @@ export default function ComfyUiGalleryPanel({
     reviewRating: () => undefined,
     downloadError: () => undefined,
     visionTagClick: () => undefined,
+    viewWorkflow: () => undefined,
   });
   const resolvedProjectFilterId = useMemo(() => {
     if (projectFilterId === "active") {
@@ -579,10 +587,16 @@ export default function ComfyUiGalleryPanel({
     visionTagClick: (tag: string) => {
       setFilter((previous) => ({ ...previous, query: tag }));
     },
+    viewWorkflow: (id: string) => {
+      const entry = entriesRef.current.find((item) => item.id === id);
+      if (entry) {
+        setWorkflowEntry(entry);
+      }
+    },
   };
 
-  if (!mounted) {
-    return null;
+  if (entries.length === 0 && !storeReady) {
+    return <GalleryPanelSkeleton showFilters={showFilters} compact={compact} />;
   }
 
   return (
@@ -979,6 +993,13 @@ export default function ComfyUiGalleryPanel({
             />
           </div>
         </div>
+      ) : null}
+
+      {workflowEntry ? (
+        <GalleryWorkflowModal
+          entry={workflowEntry}
+          onClose={() => setWorkflowEntry(null)}
+        />
       ) : null}
 
       {visibleEntries.length === 0 ? (

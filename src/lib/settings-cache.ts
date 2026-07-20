@@ -1,4 +1,13 @@
 import { DEFAULT_QWEN_MODEL, type ComfyImageModel } from "./comfy-models";
+import { DEFAULT_MODEL_SAMPLER_PRESET_TIER, normalizeModelSamplerPresetTier } from "./model-sampler-defaults";
+import type { ModelSamplerPresetTier } from "./model-sampler-defaults";
+import {
+  DEFAULT_RESOLUTION_ORIENTATION,
+  DEFAULT_RESOLUTION_SIZE_TIER,
+  normalizeResolutionOrientation,
+  normalizeResolutionSizeTier,
+} from "./model-resolution-defaults";
+import type { ResolutionOrientation, ResolutionSizeTier } from "./model-resolution-defaults";
 import { DEFAULT_VARIATION_SETTINGS } from "./variation-settings";
 import type { DetailLevel } from "./detail-level";
 import { readBrowserValue, writeBrowserValue } from "./browser-storage";
@@ -28,6 +37,12 @@ export type SharedToolSettings = {
   sessionAllowTemplateFallback?: boolean;
   /** Pinned character appearance block injected into Character/Duo generations. */
   activeCharacterDescriptor?: string;
+  /** KSampler preset tier applied when queueing (base vs optimized). */
+  modelSamplerPreset?: ModelSamplerPresetTier;
+  /** Latent orientation preset applied when queueing. */
+  modelResolutionOrientation?: ResolutionOrientation;
+  /** Latent size tier applied when queueing (small / medium / max). */
+  modelResolutionSizeTier?: ResolutionSizeTier;
   /** @deprecated Use selectedWorkflowFileId */
   selectedWorkflowPresetId?: string;
 };
@@ -247,6 +262,9 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   detail: "balanced",
   alwaysIncludeClothing: true,
   autoFixRules: true,
+  modelSamplerPreset: "base",
+  modelResolutionOrientation: DEFAULT_RESOLUTION_ORIENTATION,
+  modelResolutionSizeTier: DEFAULT_RESOLUTION_SIZE_TIER,
 };
 
 export const DEFAULT_GENERATE_TOOL_CACHE: GenerateToolCache = {
@@ -430,6 +448,16 @@ export function loadSettingsCache(): SettingsCache {
     if (!isDetailLevel(shared.detail)) {
       shared.detail = DEFAULT_SHARED_SETTINGS.detail;
     }
+
+    shared.modelSamplerPreset = normalizeModelSamplerPresetTier(
+      shared.modelSamplerPreset ?? DEFAULT_MODEL_SAMPLER_PRESET_TIER,
+    );
+    shared.modelResolutionOrientation = normalizeResolutionOrientation(
+      shared.modelResolutionOrientation ?? DEFAULT_RESOLUTION_ORIENTATION,
+    );
+    shared.modelResolutionSizeTier = normalizeResolutionSizeTier(
+      shared.modelResolutionSizeTier ?? DEFAULT_RESOLUTION_SIZE_TIER,
+    );
 
     const rawTools = parsed.tools ?? {};
     const migrated = migrateLegacyToolSettings(rawTools);

@@ -318,6 +318,59 @@ export function injectWorkflowPlaceholders(
   };
 }
 
+function isSamplerLikeNode(classType: string, inputs: Record<string, unknown>): boolean {
+  const lower = classType.toLowerCase();
+  if (lower.includes("ksampler") || lower.includes("samplercustom")) {
+    return true;
+  }
+  return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
+}
+
+export function patchSamplerParamsInWorkflow(
+  workflow: Record<string, unknown>,
+  params: WorkflowParamValues,
+): {
+  workflow: Record<string, unknown>;
+  patched: Partial<Record<keyof WorkflowParamValues, number>>;
+} {
+  const next = structuredClone(workflow);
+  const patched: Partial<Record<keyof WorkflowParamValues, number>> = {};
+
+  for (const node of Object.values(next)) {
+    if (!node || typeof node !== "object") {
+      continue;
+    }
+
+    const record = node as {
+      class_type?: string;
+      inputs?: Record<string, unknown>;
+    };
+    const inputs = record.inputs;
+    if (!inputs) {
+      continue;
+    }
+
+    if (!isSamplerLikeNode(record.class_type ?? "", inputs)) {
+      continue;
+    }
+
+    if (params.seed != null && params.seed.toString().trim() !== "" && "seed" in inputs) {
+      inputs.seed = Number(params.seed);
+      patched.seed = (patched.seed ?? 0) + 1;
+    }
+    if (params.steps != null && params.steps.toString().trim() !== "" && "steps" in inputs) {
+      inputs.steps = Number(params.steps);
+      patched.steps = (patched.steps ?? 0) + 1;
+    }
+    if (params.cfg != null && params.cfg.toString().trim() !== "" && "cfg" in inputs) {
+      inputs.cfg = Number(params.cfg);
+      patched.cfg = (patched.cfg ?? 0) + 1;
+    }
+  }
+
+  return { workflow: next, patched };
+}
+
 export function validateWorkflowJson(
   raw: string,
   tokens: Pick<WorkflowPlaceholderTokens, "positive" | "negative"> = {

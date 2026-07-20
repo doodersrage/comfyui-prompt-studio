@@ -39,6 +39,7 @@ type GalleryCardProps = {
   onReviewRating?: (rating: ComfyGalleryEntry["reviewRating"]) => void;
   reviewMutationHints?: string[];
   onVisionTagClick?: (tag: string) => void;
+  onViewWorkflow?: () => void;
 };
 
 function statusLabel(status: ComfyGalleryEntry["status"]): string {
@@ -81,6 +82,7 @@ export default function GalleryCard({
   onReviewRating,
   reviewMutationHints,
   onVisionTagClick,
+  onViewWorkflow,
 }: GalleryCardProps) {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -287,6 +289,7 @@ export default function GalleryCard({
           {metaLine ? (
             <p className="mt-1.5 truncate text-[11px] text-zinc-500">
               {metaLine}
+              {entry.queueParams?.seed != null ? ` · seed ${entry.queueParams.seed}` : ""}
               {entry.queuedAt ? ` · ${new Date(entry.queuedAt).toLocaleDateString()}` : ""}
             </p>
           ) : null}
@@ -446,6 +449,15 @@ export default function GalleryCard({
                     setMenuOpen(false);
                   }}
                 />
+                {onViewWorkflow ? (
+                  <GalleryMenuButton
+                    label="View workflow"
+                    onClick={() => {
+                      onViewWorkflow();
+                      setMenuOpen(false);
+                    }}
+                  />
+                ) : null}
                 {entry.historyId ? (
                   <Link
                     href={studioHistoryUrl(entry.historyId)}

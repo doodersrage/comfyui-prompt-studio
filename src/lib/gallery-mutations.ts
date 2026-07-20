@@ -63,8 +63,11 @@ export async function queueMutatedGalleryJobs(input: {
       ),
     );
     const params = resolveQueueParams({
-      ...input.entry.queueParams,
-      seed: String(Math.floor(Math.random() * 2 ** 32) + index),
+      model: input.entry.model,
+      base: {
+        ...input.entry.queueParams,
+        seed: String(Math.floor(Math.random() * 2 ** 32) + index),
+      },
     });
 
     const response = await fetch("/api/comfyui", {

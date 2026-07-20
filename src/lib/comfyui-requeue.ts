@@ -9,6 +9,7 @@ import type { WorkflowParamValues } from "./comfyui-config";
 import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
 import { resolveComfyUiRuntime } from "./comfyui-runtime";
 import { resolveQueueNegativePrompt } from "./queue-negative";
+import { resolveQueueParams } from "./queue-params-settings";
 
 type WorkflowPreviewResponse = {
   ok: boolean;
@@ -70,12 +71,15 @@ export async function requeueComfyJob(
   }
 
   const runtime = resolveRuntimeForModel(model);
-  const params: WorkflowParamValues | undefined = input.newSeed
-    ? {
-        ...input.queueParams,
-        seed: String(Math.floor(Math.random() * 2 ** 32)),
-      }
-    : input.queueParams;
+  const params = resolveQueueParams({
+    model,
+    base: input.newSeed
+      ? {
+          ...input.queueParams,
+          seed: String(Math.floor(Math.random() * 2 ** 32)),
+        }
+      : input.queueParams,
+  });
   const response = await fetch("/api/comfyui", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -111,6 +115,7 @@ export async function requeueComfyJob(
       tool: input.tool,
       model: input.model,
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
+      queueParams: params,
     });
     void scheduleComfyGalleryPoll(data.promptId, {
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
@@ -129,6 +134,7 @@ export async function fetchWorkflowPreview(input: {
   prompt: string;
   negativePrompt?: string;
   newSeed?: boolean;
+  params?: WorkflowParamValues;
 }): Promise<{
   ok?: boolean;
   error?: string;
@@ -140,15 +146,19 @@ export async function fetchWorkflowPreview(input: {
   truncated?: boolean;
 }> {
   const runtime = resolveComfyUiRuntime();
+  const params: WorkflowParamValues | undefined = input.newSeed
+    ? {
+        ...input.params,
+        seed: String(Math.floor(Math.random() * 2 ** 32)),
+      }
+    : input.params;
   const response = await fetch("/api/comfyui/preview", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       prompt: input.prompt,
       negativePrompt: input.negativePrompt,
-      params: input.newSeed
-        ? { seed: String(Math.floor(Math.random() * 2 ** 32)) }
-        : undefined,
+      params,
       ...(runtime ? { comfy: runtime } : {}),
     }),
   });

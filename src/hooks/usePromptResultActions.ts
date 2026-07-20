@@ -367,7 +367,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           );
         }
 
-        const queueParams = resolveQueueParams();
+        const queueParams = resolveQueueParams({ model: config.model });
         const runtime = resolveRuntimeForModel(config.model);
         const autoSaveEnabled = loadComfyUiSettings().autoSaveHistoryOnQueue !== false;
         const resolvedHistoryId =
@@ -466,6 +466,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const preview = await fetchWorkflowPreview({
           prompt,
           negativePrompt,
+          params: resolveQueueParams({ model: config.model }),
         });
         setWorkflowPreview(preview);
         setPreviewStatus("Workflow preview ready (not queued).");
@@ -527,7 +528,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             prompts: prepared,
             negativePrompt,
             paramsPerPrompt: prepared.map((_, index) =>
-              resolveQueueParams({ seed: String(Math.floor(Math.random() * 2 ** 32) + index) }),
+              resolveQueueParams({
+                model: config.model,
+                base: {
+                  seed: String(Math.floor(Math.random() * 2 ** 32) + index),
+                },
+              }),
             ),
             ...(runtime ? { comfy: runtime } : {}),
           }),
@@ -554,13 +560,19 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           if (!result.promptId) {
             continue;
           }
+          const queueParams = resolveQueueParams({
+            model: config.model,
+            base: {
+              seed: String(Math.floor(Math.random() * 2 ** 32) + index),
+            },
+          });
           trackComfyUiJob(
             {
               promptId: result.promptId,
               prompt: prepared[index] ?? prepared[0] ?? "",
               negativePrompt,
               comfyUrl: result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188",
-              queueParams: resolveQueueParams(),
+              queueParams,
               historyId: index === 0 ? batchHistoryId : undefined,
             },
             false,

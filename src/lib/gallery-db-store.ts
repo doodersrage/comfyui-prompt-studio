@@ -8,11 +8,36 @@ import {
 } from "./comfyui-gallery-storage-meta";
 import { getActiveUserId, isUserScoped } from "./user-scope";
 
+/** First paint loads one page of recent entries; the rest hydrate in the background. */
+export const INITIAL_GALLERY_LOAD_LIMIT = 48;
+
 let allEntries: ComfyGalleryEntry[] = [];
 let cache: ComfyGalleryEntry[] = [];
 let cacheDirty = false;
 let ready = false;
 let readyPromise: Promise<void> | null = null;
+let fullLoadPromise: Promise<void> | null = null;
+
+/** Sync legacy localStorage into memory for instant first paint. */
+export function primeGalleryCacheSync(): void {
+  if (typeof window === "undefined" || cache.length > 0) {
+    return;
+  }
+
+  const legacy = readLegacyLocalStorageGallery();
+  if (legacy.length === 0) {
+    return;
+  }
+
+  allEntries = legacy.slice(0, MAX_GALLERY_ENTRIES);
+  assignLegacyGalleryEntriesToActiveUser();
+  refreshCacheFromAll();
+}
+
+export function warmGalleryStore(): Promise<void> {
+  primeGalleryCacheSync();
+  return hydrateGalleryStore();
+}
 
 function stampEntryUserId(entry: ComfyGalleryEntry): ComfyGalleryEntry {
   const userId = getActiveUserId();
@@ -97,8 +122,6 @@ export async function reloadGalleryForActiveUser(): Promise<void> {
 
   assignLegacyGalleryEntriesToActiveUser();
   refreshCacheFromAll();
-  cacheDirty = true;
-  await persistGalleryCache();
   notifyGalleryUpdated();
 }
 
@@ -116,8 +139,8 @@ async function migrateGalleryFromLocalStorage(): Promise<void> {
     return;
   }
 
-  const existingCount = await appDb.galleryEntries.count();
-  if (existingCount > 0) {
+  const existing = await appDb.galleryEntries.orderBy("queuedAt").reverse().limit(1).first();
+  if (existing) {
     return;
   }
 
@@ -128,6 +151,46 @@ async function migrateGalleryFromLocalStorage(): Promise<void> {
 
   await appDb.galleryEntries.bulkPut(legacy.slice(0, MAX_GALLERY_ENTRIES));
   removeBrowserKey(COMFYUI_GALLERY_KEY);
+}
+
+async function loadRemainingGalleryEntries(): Promise<void> {
+  if (!appDb || fullLoadPromise) {
+    return fullLoadPromise ?? Promise.resolve();
+  }
+
+  fullLoadPromise = (async () => {
+    try {
+      const full = await appDb.galleryEntries.orderBy("queuedAt").reverse().toArray();
+      if (full.length <= allEntries.length) {
+        return;
+      }
+      allEntries = full;
+      assignLegacyGalleryEntriesToActiveUser();
+      refreshCacheFromAll();
+      notifyGalleryUpdated();
+    } catch {
+      /* keep partial cache */
+    }
+  })();
+
+  return fullLoadPromise;
+}
+
+function scheduleLoadRemainingGalleryEntries(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const run = () => {
+    void loadRemainingGalleryEntries();
+  };
+
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(run, { timeout: 4000 });
+    return;
+  }
+
+  window.setTimeout(run, 250);
 }
 
 export async function hydrateGalleryStore(): Promise<void> {
@@ -158,9 +221,14 @@ export async function hydrateGalleryStore(): Promise<void> {
       await migrateGalleryFromLocalStorage();
 
       if (!cacheDirty) {
-        allEntries = await appDb.galleryEntries.orderBy("queuedAt").reverse().toArray();
+        allEntries = await appDb.galleryEntries
+          .orderBy("queuedAt")
+          .reverse()
+          .limit(INITIAL_GALLERY_LOAD_LIMIT)
+          .toArray();
         assignLegacyGalleryEntriesToActiveUser();
         refreshCacheFromAll();
+        scheduleLoadRemainingGalleryEntries();
       } else {
         await persistGalleryCache();
       }

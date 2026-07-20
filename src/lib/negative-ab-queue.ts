@@ -20,7 +20,7 @@ export async function queueNegativeAbTest(input: {
 }): Promise<{ queued: number; seed: string }> {
   const model = input.model as ComfyImageModel;
   const seed = input.sharedSeed ?? String(Math.floor(Math.random() * 2 ** 32));
-  const params = resolveQueueParams({ seed });
+  const params = resolveQueueParams({ model, base: { seed } });
   const runtime = resolveRuntimeForModel(model);
   const prompt = injectLoraTriggers(input.prompt.trim());
 

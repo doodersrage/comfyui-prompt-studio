@@ -6,6 +6,7 @@ import {
   type WorkflowInjectionResult,
   injectWorkflowPlaceholders,
   parseWorkflowJson,
+  patchSamplerParamsInWorkflow,
   resolvePlaceholderTokens,
   resolveQueueParams,
   resolveCustomWorkflowTokens,
@@ -155,6 +156,17 @@ function injectPromptsIntoWorkflow(
     },
     config.placeholderTokens,
   );
+
+  const samplerPatch = patchSamplerParamsInWorkflow(injected.workflow, params);
+  injected.workflow = samplerPatch.workflow;
+  for (const [key, count] of Object.entries(samplerPatch.patched) as Array<
+    [keyof typeof samplerPatch.patched, number]
+  >) {
+    if (count > 0) {
+      injected.paramReplacements[key] =
+        (injected.paramReplacements[key] ?? 0) + count;
+    }
+  }
 
   if (
     injected.positiveReplacements === 0 &&

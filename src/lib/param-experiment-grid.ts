@@ -23,7 +23,7 @@ export async function queueParamExperimentGrid(input: {
   const model = input.model as ComfyImageModel;
   const runtime = resolveRuntimeForModel(model);
   const prompt = injectLoraTriggers(input.prompt.trim());
-  const base = input.baseParams ?? resolveQueueParams();
+  const base = input.baseParams ?? resolveQueueParams({ model });
   const cfgValues = (input.cfgValues ?? ["6", "7", "8", "9"]).slice(0, 4);
   const stepValues = (input.stepValues ?? ["18", "22", "26", "30"]).slice(0, 4);
   const projectId = loadActiveProjectId();

@@ -1,6 +1,7 @@
 import { resolveComfyUiConfig } from "./comfyui-client";
 import {
   injectWorkflowPlaceholders,
+  patchSamplerParamsInWorkflow,
   resolveCustomWorkflowTokens,
   resolveQueueParams,
   stripEmptyComfyUiRuntime,
@@ -123,6 +124,16 @@ export function previewWorkflowInjection(
     },
     config.placeholderTokens,
   );
+
+  const samplerPatch = patchSamplerParamsInWorkflow(injected.workflow, resolvedParams);
+  injected.workflow = samplerPatch.workflow;
+  for (const [key, count] of Object.entries(samplerPatch.patched) as Array<
+    [keyof typeof samplerPatch.patched, number]
+  >) {
+    if (count > 0) {
+      injected.paramReplacements[key] = (injected.paramReplacements[key] ?? 0) + count;
+    }
+  }
 
   const snippets: WorkflowPreviewSnippet[] = [
     ...findValuePaths(injected.workflow, prompt, "", 3),

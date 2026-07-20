@@ -28,7 +28,7 @@ export async function queueParamExperiment(input: {
   const count = Math.min(8, Math.max(2, input.count ?? 4));
   const runtime = resolveRuntimeForModel(model);
   const prompt = injectLoraTriggers(input.prompt.trim());
-  const base = input.baseParams ?? resolveQueueParams();
+  const base = input.baseParams ?? resolveQueueParams({ model });
   const projectId = loadActiveProjectId();
 
   let negativePrompt = input.negativePrompt?.trim();

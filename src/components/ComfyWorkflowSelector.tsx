@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComfyWorkflowFile } from "@/lib/comfyui-workflow-files";
+import { workflowFileDisplayName } from "@/lib/comfyui-workflow-files";
 import type { ServerWorkflowOption } from "@/hooks/useComfyWorkflowSelection";
 
 type ComfyWorkflowSelectorProps = {
@@ -61,7 +62,7 @@ export default function ComfyWorkflowSelector({
           <optgroup label="Imported workflow files">
             {localFiles.map((entry) => (
               <option key={entry.id} value={entry.id}>
-                {entry.filename ?? entry.name}
+                {workflowFileDisplayName(entry)}
               </option>
             ))}
           </optgroup>
