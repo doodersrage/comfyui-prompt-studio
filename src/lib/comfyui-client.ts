@@ -13,6 +13,7 @@ import {
 } from "./comfyui-config";
 import { writeQueueArtifact } from "./queue-artifacts";
 import { loadServerWorkflowJson } from "./comfyui-server-workflows";
+import { applyUserComfyUiOverride } from "./user-comfy-url";
 import {
   getComfyUiAllowedHosts,
   isComfyClientUrlAllowed,
@@ -48,8 +49,9 @@ function envComfyUiBaseUrl(): string {
 }
 
 export function getComfyUiBaseUrl(runtime?: ComfyUiRuntimeConfig): string {
+  const runtimeWithUser = applyUserComfyUiOverride(runtime ?? {});
   const allowedHosts = getComfyUiAllowedHosts();
-  const clientUrl = runtime?.apiUrl?.trim();
+  const clientUrl = runtimeWithUser.apiUrl?.trim();
 
   if (clientUrl && isComfyClientUrlAllowed()) {
     return normalizeSafeHttpUrl(clientUrl, {

@@ -1,5 +1,6 @@
 import { apiError, apiJson } from "@/lib/api/response";
 import { readSessionFromRequest } from "@/lib/auth/session";
+import { appendAuditLog } from "@/lib/auth/audit-log";
 import type { AppFeatureId } from "@/lib/auth/features";
 import {
   deleteUser,
@@ -8,6 +9,7 @@ import {
   listUsers,
   upsertUser,
 } from "@/lib/auth/store";
+import type { UserScheduledCampaign } from "@/lib/auth/types";
 
 export const runtime = "nodejs";
 
@@ -22,12 +24,12 @@ function requireAdmin(request: Request) {
     return apiError("Admin access required.", 403);
   }
 
-  return null;
+  return { user };
 }
 
 export async function GET(request: Request) {
   const denied = requireAdmin(request);
-  if (denied) {
+  if (denied instanceof Response) {
     return denied;
   }
 
@@ -35,19 +37,23 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const denied = requireAdmin(request);
-  if (denied) {
-    return denied;
+  const admin = requireAdmin(request);
+  if (admin instanceof Response) {
+    return admin;
   }
 
   let body: {
     id?: string;
     username?: string;
     password?: string;
-    role?: "admin" | "user";
+    role?: "admin" | "user" | "viewer";
     groupIds?: string[];
     blockedFeatures?: AppFeatureId[];
     enabled?: boolean;
+    comfyUiUrl?: string;
+    quotaMaxPerMinute?: number;
+    scheduledCampaign?: UserScheduledCampaign;
+    exportEnabled?: boolean;
   };
 
   try {
@@ -65,10 +71,22 @@ export async function POST(request: Request) {
       id: body.id,
       username: body.username,
       password: body.password,
-      role: body.role === "admin" ? "admin" : "user",
+      role:
+        body.role === "admin" ? "admin" : body.role === "viewer" ? "viewer" : "user",
       groupIds: body.groupIds ?? [],
       blockedFeatures: body.blockedFeatures ?? [],
       enabled: body.enabled ?? true,
+      comfyUiUrl: body.comfyUiUrl,
+      quotaMaxPerMinute: body.quotaMaxPerMinute,
+      scheduledCampaign: body.scheduledCampaign,
+      exportEnabled: body.exportEnabled,
+    });
+    appendAuditLog({
+      actorUserId: admin.user.id,
+      actorUsername: admin.user.username,
+      action: body.id ? "user.updated" : "user.created",
+      target: user.id,
+      details: user.username,
     });
     return apiJson({ user });
   } catch (error) {
@@ -77,9 +95,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const denied = requireAdmin(request);
-  if (denied) {
-    return denied;
+  const admin = requireAdmin(request);
+  if (admin instanceof Response) {
+    return admin;
   }
 
   const userId = new URL(request.url).searchParams.get("id")?.trim();
@@ -89,6 +107,12 @@ export async function DELETE(request: Request) {
 
   try {
     deleteUser(userId);
+    appendAuditLog({
+      actorUserId: admin.user.id,
+      actorUsername: admin.user.username,
+      action: "user.deleted",
+      target: userId,
+    });
     return apiJson({ ok: true });
   } catch (error) {
     return apiError(error instanceof Error ? error.message : "Failed to delete user.", 400);

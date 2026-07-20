@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { ALL_FEATURE_IDS, type AppFeatureId } from "./features";
 import type { AuthGroup, AuthUser, AuthUserPublic, GroupsDocument, UsersDocument } from "./types";
+import { VIEWER_ALLOWED_FEATURES } from "./types";
 import {
   getDefaultAdminPassword,
   getDefaultAdminUsername,
@@ -214,6 +215,10 @@ export function upsertUser(input: {
   groupIds: string[];
   blockedFeatures: AppFeatureId[];
   enabled: boolean;
+  comfyUiUrl?: string;
+  quotaMaxPerMinute?: number;
+  scheduledCampaign?: AuthUser["scheduledCampaign"];
+  exportEnabled?: boolean;
 }): AuthUserPublic {
   const { users } = ensureAuthStore();
   const now = Date.now();
@@ -223,18 +228,24 @@ export function upsertUser(input: {
         (user) => user.username.trim().toLowerCase() === input.username.trim().toLowerCase(),
       );
 
+  const existing = existingIndex >= 0 ? users.users[existingIndex] : null;
   const next: AuthUser = {
     id: input.id ?? randomUUID(),
     username: input.username.trim(),
     passwordHash:
-      existingIndex >= 0
-        ? users.users[existingIndex].passwordHash
-        : hashPassword(input.password || randomUUID()),
+      existing?.passwordHash ?? hashPassword(input.password || randomUUID()),
     role: input.role,
     groupIds: input.groupIds,
     blockedFeatures: input.blockedFeatures,
     enabled: input.enabled,
-    createdAt: existingIndex >= 0 ? users.users[existingIndex].createdAt : now,
+    comfyUiUrl: input.comfyUiUrl?.trim() || undefined,
+    quotaMaxPerMinute:
+      input.quotaMaxPerMinute && input.quotaMaxPerMinute > 0
+        ? Math.floor(input.quotaMaxPerMinute)
+        : undefined,
+    scheduledCampaign: input.scheduledCampaign ?? existing?.scheduledCampaign,
+    exportEnabled: input.exportEnabled ?? existing?.exportEnabled,
+    createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
 
@@ -285,6 +296,7 @@ export function upsertGroup(input: {
   name: string;
   description?: string;
   blockedFeatures: AppFeatureId[];
+  quotaMaxPerMinute?: number;
 }): AuthGroup {
   const { groups } = ensureAuthStore();
   const now = Date.now();
@@ -299,6 +311,10 @@ export function upsertGroup(input: {
     name: input.name.trim(),
     description: input.description?.trim() || undefined,
     blockedFeatures: input.blockedFeatures,
+    quotaMaxPerMinute:
+      input.quotaMaxPerMinute && input.quotaMaxPerMinute > 0
+        ? Math.floor(input.quotaMaxPerMinute)
+        : undefined,
     createdAt: existingIndex >= 0 ? groups.groups[existingIndex].createdAt : now,
     updatedAt: now,
   };
@@ -331,6 +347,11 @@ export function resolveBlockedFeatures(user: AuthUser): Set<AppFeatureId> {
     return new Set();
   }
 
+  if (user.role === "viewer") {
+    const allowed = new Set<AppFeatureId>(VIEWER_ALLOWED_FEATURES);
+    return new Set(ALL_FEATURE_IDS.filter((feature) => !allowed.has(feature)));
+  }
+
   const { groups } = ensureAuthStore();
   const blocked = new Set<AppFeatureId>(user.blockedFeatures);
 
@@ -354,9 +375,58 @@ export function listAllowedFeatures(user: AuthUser | null): AppFeatureId[] | "al
   if (user.role === "admin") {
     return "all";
   }
+  if (user.role === "viewer") {
+    return [...VIEWER_ALLOWED_FEATURES];
+  }
 
   const blocked = resolveBlockedFeatures(user);
   return ALL_FEATURE_IDS.filter((feature) => !blocked.has(feature));
+}
+
+export function updateUserProfile(
+  userId: string,
+  input: {
+    password?: string;
+    currentPassword?: string;
+    comfyUiUrl?: string;
+    scheduledCampaign?: AuthUser["scheduledCampaign"];
+    exportEnabled?: boolean;
+  },
+): AuthUserPublic {
+  const { users } = ensureAuthStore();
+  const index = users.users.findIndex((user) => user.id === userId);
+  if (index < 0) {
+    throw new Error("User not found.");
+  }
+
+  const current = users.users[index];
+  const next: AuthUser = { ...current, updatedAt: Date.now() };
+
+  if (input.password?.trim()) {
+    if (input.currentPassword && !verifyPassword(input.currentPassword, current.passwordHash)) {
+      throw new Error("Current password is incorrect.");
+    }
+    next.passwordHash = hashPassword(input.password.trim());
+  }
+
+  if (input.comfyUiUrl !== undefined) {
+    next.comfyUiUrl = input.comfyUiUrl.trim() || undefined;
+  }
+  if (input.scheduledCampaign !== undefined) {
+    next.scheduledCampaign = input.scheduledCampaign;
+  }
+  if (input.exportEnabled !== undefined) {
+    next.exportEnabled = input.exportEnabled;
+  }
+
+  users.users[index] = next;
+  saveUsers(users.users);
+  return toPublicUser(next);
+}
+
+export function listUsersWithCampaigns(): AuthUser[] {
+  const { users } = ensureAuthStore();
+  return users.users.filter((user) => user.enabled && user.scheduledCampaign?.enabled);
 }
 
 export function userCanAccessFeature(user: AuthUser | null, feature: AppFeatureId | null): boolean {
@@ -365,6 +435,9 @@ export function userCanAccessFeature(user: AuthUser | null, feature: AppFeatureI
   }
   if (!user || !user.enabled) {
     return false;
+  }
+  if (feature === "profile") {
+    return true;
   }
   if (user.role === "admin") {
     return true;

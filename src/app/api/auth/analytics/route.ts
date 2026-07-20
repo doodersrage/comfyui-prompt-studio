@@ -7,6 +7,8 @@ import {
 } from "@/lib/auth/store";
 import {
   getUserAnalyticsSnapshot,
+  listAllAnalyticsHistory,
+  listUserAnalyticsHistory,
   listUserAnalyticsSnapshots,
   saveUserAnalyticsSnapshot,
 } from "@/lib/auth/analytics-store";
@@ -44,6 +46,7 @@ export async function GET(request: Request) {
     return apiJson({
       authEnabled: true,
       snapshots: listUserAnalyticsSnapshots(),
+      history: listAllAnalyticsHistory(),
       users: listUsers().map((entry) => ({ id: entry.id, username: entry.username })),
     });
   }
@@ -51,6 +54,7 @@ export async function GET(request: Request) {
   return apiJson({
     authEnabled: true,
     snapshot: getUserAnalyticsSnapshot(user.id),
+    history: listUserAnalyticsHistory(user.id),
   });
 }
 

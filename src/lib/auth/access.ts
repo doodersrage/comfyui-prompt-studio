@@ -15,6 +15,8 @@ export function isPublicAuthPath(pathname: string): boolean {
     path === "/api/auth/login" ||
     path === "/api/auth/logout" ||
     path === "/api/auth/session" ||
+    path === "/api/auth/profile" ||
+    path === "/api/shared-presets" ||
     path === "/api/health"
   );
 }

@@ -130,7 +130,8 @@ export default function SettingsAdvancedPanel() {
       <ToolSection title="Server storage">
         <p className="text-sm text-zinc-400">
           Optional file-backed storage when <code className="text-zinc-300">PROMPT_DATA_DIR</code> is
-          set on the server. Namespaces: {storageNamespaces.join(", ")}.
+          set on the server. When signed in, history and gallery sync to your personal namespace under{" "}
+          <code className="text-zinc-300">users/&lt;id&gt;/</code>.
         </p>
         <p className="mt-2 text-sm text-zinc-500">
           Status: {storageEnabled ? "enabled" : "disabled (browser database only)"}

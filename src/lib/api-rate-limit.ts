@@ -18,8 +18,14 @@ function getLimits(): { windowMs: number; max: number } {
   };
 }
 
-export function checkRateLimit(key: string, route = "api"): RateLimitResult {
-  const { max, windowMs } = getLimits();
+export function checkRateLimit(
+  key: string,
+  route = "api",
+  maxOverride?: number,
+): RateLimitResult {
+  const { max: envMax, windowMs } = getLimits();
+  const max =
+    maxOverride && maxOverride > 0 ? Math.floor(maxOverride) : envMax;
   const bucketKey = `${route}:${key}`;
   const now = Date.now();
   const existing = buckets.get(bucketKey);

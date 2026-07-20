@@ -1308,6 +1308,24 @@ export default function SettingsTool() {
           }}
           className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
         />
+        <FieldLabel htmlFor="webhook-template">Payload template</FieldLabel>
+        <select
+          id="webhook-template"
+          value={webhookSettings.template ?? "generic"}
+          onChange={(event) => {
+            const next = {
+              ...webhookSettings,
+              template: event.target.value as WebhookSettings["template"],
+            };
+            setWebhookSettings(next);
+            saveWebhookSettings(next);
+          }}
+          className="ui-input w-full max-w-xs"
+        >
+          <option value="generic">Generic JSON</option>
+          <option value="discord">Discord embed</option>
+          <option value="slack">Slack blocks</option>
+        </select>
       </ToolSection>
 
       <ToolSection title="Avoided tokens">

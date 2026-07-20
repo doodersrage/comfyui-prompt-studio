@@ -14,11 +14,16 @@ export async function GET(request: Request) {
   const authEnabled = isAuthEnabled();
   const session = readSessionFromRequest(request);
   const user = session ? findUserById(session.userId) : null;
+  const impersonator = session?.impersonatorId
+    ? findUserById(session.impersonatorId)
+    : null;
 
   return apiJson({
     authEnabled,
     defaultAdminUsername: getAuthBootstrapInfo().defaultAdminUsername,
     user: user && user.enabled ? toPublicUser(user) : null,
     allowedFeatures: user && user.enabled ? listAllowedFeatures(user) : authEnabled ? [] : "all",
+    impersonating: Boolean(session?.impersonatorId),
+    impersonatorUsername: impersonator?.username,
   });
 }

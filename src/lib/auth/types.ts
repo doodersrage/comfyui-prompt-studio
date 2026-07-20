@@ -1,6 +1,15 @@
 import type { AppFeatureId } from "./features";
 
-export type AuthRole = "admin" | "user";
+export type AuthRole = "admin" | "user" | "viewer";
+
+export type UserScheduledCampaign = {
+  enabled: boolean;
+  target: "random-scene" | "topics";
+  count: number;
+  intervalMin: number;
+  autoQueueComfyUi: boolean;
+  lastRunAt?: number;
+};
 
 export type AuthUser = {
   id: string;
@@ -12,6 +21,10 @@ export type AuthUser = {
   enabled: boolean;
   createdAt: number;
   updatedAt: number;
+  comfyUiUrl?: string;
+  quotaMaxPerMinute?: number;
+  scheduledCampaign?: UserScheduledCampaign;
+  exportEnabled?: boolean;
 };
 
 export type AuthGroup = {
@@ -19,6 +32,7 @@ export type AuthGroup = {
   name: string;
   description?: string;
   blockedFeatures: AppFeatureId[];
+  quotaMaxPerMinute?: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -30,12 +44,15 @@ export type AuthSession = {
   username: string;
   role: AuthRole;
   exp: number;
+  impersonatorId?: string;
 };
 
 export type AuthSessionResponse = {
   authEnabled: boolean;
   user: AuthUserPublic | null;
   allowedFeatures: AppFeatureId[] | "all";
+  impersonating?: boolean;
+  impersonatorUsername?: string;
 };
 
 export type UsersDocument = {
@@ -47,3 +64,9 @@ export type GroupsDocument = {
   version: 1;
   groups: AuthGroup[];
 };
+
+export const VIEWER_ALLOWED_FEATURES = [
+  "dashboard",
+  "gallery",
+  "studio",
+] as const satisfies readonly AppFeatureId[];

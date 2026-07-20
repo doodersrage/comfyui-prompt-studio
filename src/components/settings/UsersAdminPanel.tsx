@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { APP_FEATURES, ALL_FEATURE_IDS, type AppFeatureId } from "@/lib/auth/features";
 import type { AuthGroup, AuthUserPublic } from "@/lib/auth/types";
+import type { AuditLogEntry } from "@/lib/auth/audit-log";
+import type { SharedPresetEntry } from "@/lib/shared-preset-store";
 import type { UserAnalyticsSnapshot } from "@/lib/user-analytics";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
@@ -95,6 +97,16 @@ export default function UsersAdminPanel() {
   const [users, setUsers] = useState<AuthUserPublic[]>([]);
   const [groups, setGroups] = useState<AuthGroup[]>([]);
   const [analyticsSnapshots, setAnalyticsSnapshots] = useState<UserAnalyticsSnapshot[]>([]);
+  const [analyticsHistory, setAnalyticsHistory] = useState<
+    Record<string, UserAnalyticsSnapshot[]>
+  >({});
+  const [auditEntries, setAuditEntries] = useState<AuditLogEntry[]>([]);
+  const [sharedPresets, setSharedPresets] = useState<SharedPresetEntry[]>([]);
+  const [sharedPresetDraft, setSharedPresetDraft] = useState({
+    label: "",
+    hints: "",
+    category: "",
+  });
   const [status, setStatus] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -102,16 +114,19 @@ export default function UsersAdminPanel() {
   const [userForm, setUserForm] = useState({
     username: "",
     password: "",
-    role: "user" as "admin" | "user",
+    role: "user" as "admin" | "user" | "viewer",
     groupIds: [] as string[],
     blockedFeatures: [] as AppFeatureId[],
     enabled: true,
+    quotaMaxPerMinute: "",
+    exportEnabled: false,
   });
 
   const [groupForm, setGroupForm] = useState({
     name: "",
     description: "",
     blockedFeatures: [] as AppFeatureId[],
+    quotaMaxPerMinute: "",
   });
 
   const selectedUser = useMemo(
@@ -137,17 +152,23 @@ export default function UsersAdminPanel() {
   }
 
   const refresh = useCallback(async () => {
-    const [usersResponse, groupsResponse, analyticsResponse] = await Promise.all([
+    const [usersResponse, groupsResponse, analyticsResponse, auditResponse, presetsResponse] =
+      await Promise.all([
       fetch("/api/auth/users"),
       fetch("/api/auth/groups"),
       fetch("/api/auth/analytics"),
+      fetch("/api/auth/audit"),
+      fetch("/api/shared-presets"),
     ]);
     const usersData = (await usersResponse.json()) as { users?: AuthUserPublic[]; error?: string };
     const groupsData = (await groupsResponse.json()) as { groups?: AuthGroup[]; error?: string };
     const analyticsData = (await analyticsResponse.json()) as {
       snapshots?: UserAnalyticsSnapshot[];
+      history?: Record<string, UserAnalyticsSnapshot[]>;
       error?: string;
     };
+    const auditData = (await auditResponse.json()) as { entries?: AuditLogEntry[] };
+    const presetsData = (await presetsResponse.json()) as { presets?: SharedPresetEntry[] };
     if (!usersResponse.ok) {
       throw new Error(usersData.error ?? "Failed to load users.");
     }
@@ -158,9 +179,13 @@ export default function UsersAdminPanel() {
     setGroups(groupsData.groups ?? []);
     if (analyticsResponse.ok) {
       setAnalyticsSnapshots(analyticsData.snapshots ?? []);
+      setAnalyticsHistory(analyticsData.history ?? {});
     } else {
       setAnalyticsSnapshots([]);
+      setAnalyticsHistory({});
     }
+    setAuditEntries(auditResponse.ok ? auditData.entries ?? [] : []);
+    setSharedPresets(presetsData.presets ?? []);
   }, []);
 
   useEffect(() => {
@@ -178,6 +203,8 @@ export default function UsersAdminPanel() {
         groupIds: [],
         blockedFeatures: [],
         enabled: true,
+        quotaMaxPerMinute: "",
+        exportEnabled: false,
       });
       return;
     }
@@ -188,18 +215,25 @@ export default function UsersAdminPanel() {
       groupIds: selectedUser.groupIds,
       blockedFeatures: selectedUser.blockedFeatures,
       enabled: selectedUser.enabled,
+      quotaMaxPerMinute: selectedUser.quotaMaxPerMinute
+        ? String(selectedUser.quotaMaxPerMinute)
+        : "",
+      exportEnabled: Boolean(selectedUser.exportEnabled),
     });
   }, [selectedUser]);
 
   useEffect(() => {
     if (!selectedGroup) {
-      setGroupForm({ name: "", description: "", blockedFeatures: [] });
+      setGroupForm({ name: "", description: "", blockedFeatures: [], quotaMaxPerMinute: "" });
       return;
     }
     setGroupForm({
       name: selectedGroup.name,
       description: selectedGroup.description ?? "",
       blockedFeatures: selectedGroup.blockedFeatures,
+      quotaMaxPerMinute: selectedGroup.quotaMaxPerMinute
+        ? String(selectedGroup.quotaMaxPerMinute)
+        : "",
     });
   }, [selectedGroup]);
 
@@ -211,6 +245,9 @@ export default function UsersAdminPanel() {
       body: JSON.stringify({
         id: selectedUser?.id,
         ...userForm,
+        quotaMaxPerMinute: userForm.quotaMaxPerMinute
+          ? Number(userForm.quotaMaxPerMinute)
+          : undefined,
       }),
     });
     const data = (await response.json()) as { error?: string };
@@ -231,6 +268,9 @@ export default function UsersAdminPanel() {
       body: JSON.stringify({
         id: selectedGroup?.id,
         ...groupForm,
+        quotaMaxPerMinute: groupForm.quotaMaxPerMinute
+          ? Number(groupForm.quotaMaxPerMinute)
+          : undefined,
       }),
     });
     const data = (await response.json()) as { error?: string };
@@ -332,6 +372,17 @@ export default function UsersAdminPanel() {
                   }
                 />
               </label>
+              <label className="space-y-2 text-sm">
+                <span className="type-caption text-zinc-500">Quota (req/min)</span>
+                <TextInput
+                  type="number"
+                  value={groupForm.quotaMaxPerMinute}
+                  onChange={(event) =>
+                    setGroupForm((prev) => ({ ...prev, quotaMaxPerMinute: event.target.value }))
+                  }
+                  placeholder="Default"
+                />
+              </label>
             </div>
             <div className="space-y-2">
               <p className="type-caption text-zinc-500">Blocked features for this group</p>
@@ -410,6 +461,30 @@ export default function UsersAdminPanel() {
             <p className="mt-1 text-xs text-zinc-500">
               Synced {formatCapturedAt(selectedUserAnalytics.capturedAt)}
             </p>
+            {(analyticsHistory[selectedUserAnalytics.userId] ?? []).length > 1 ? (
+              <div className="mt-4 flex h-16 items-end gap-1">
+                {[...(analyticsHistory[selectedUserAnalytics.userId] ?? [])]
+                  .slice(0, 20)
+                  .reverse()
+                  .map((point) => {
+                    const max = Math.max(
+                      ...(analyticsHistory[selectedUserAnalytics.userId] ?? []).map(
+                        (entry) => entry.historyTotal,
+                      ),
+                      1,
+                    );
+                    const height = Math.max(8, Math.round((point.historyTotal / max) * 100));
+                    return (
+                      <div
+                        key={point.capturedAt}
+                        title={`${point.historyTotal} history · ${new Date(point.capturedAt).toLocaleDateString()}`}
+                        className="flex-1 rounded-t bg-violet-500/40"
+                        style={{ height: `${height}%` }}
+                      />
+                    );
+                  })}
+              </div>
+            ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
               {selectedUserAnalytics.topPositiveTokens.slice(0, 5).map((token) => (
                 <span
@@ -430,6 +505,91 @@ export default function UsersAdminPanel() {
             </div>
           </div>
         ) : null}
+      </ToolSection>
+
+      <ToolSection title="Shared preset library">
+        <p className="mb-3 text-sm text-zinc-400">
+          Publish read-only scene hints for all users. They appear on Profile and can be copied.
+        </p>
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          <TextInput
+            value={sharedPresetDraft.label}
+            onChange={(event) =>
+              setSharedPresetDraft((prev) => ({ ...prev, label: event.target.value }))
+            }
+            placeholder="Preset label"
+          />
+          <TextInput
+            value={sharedPresetDraft.hints}
+            onChange={(event) =>
+              setSharedPresetDraft((prev) => ({ ...prev, hints: event.target.value }))
+            }
+            placeholder="Hints text"
+          />
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          className="mb-4"
+          onClick={() => {
+            void fetch("/api/shared-presets", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(sharedPresetDraft),
+            }).then(() => {
+              setSharedPresetDraft({ label: "", hints: "", category: "" });
+              void refresh();
+            });
+          }}
+        >
+          Publish preset
+        </Button>
+        <ul className="space-y-2">
+          {sharedPresets.map((preset) => (
+            <li
+              key={preset.id}
+              className="flex items-start justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-sm"
+            >
+              <div>
+                <p className="font-medium text-zinc-100">{preset.label}</p>
+                <p className="text-xs text-zinc-500">{preset.hints}</p>
+              </div>
+              <button
+                type="button"
+                className="text-xs text-rose-300"
+                onClick={() => {
+                  void fetch(`/api/shared-presets?id=${encodeURIComponent(preset.id)}`, {
+                    method: "DELETE",
+                  }).then(() => void refresh());
+                }}
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      </ToolSection>
+
+      <ToolSection title="Audit log">
+        {auditEntries.length === 0 ? (
+          <p className="text-sm text-zinc-500">No admin actions logged yet.</p>
+        ) : (
+          <ul className="max-h-64 space-y-2 overflow-y-auto text-sm">
+            {auditEntries.slice(0, 40).map((entry) => (
+              <li
+                key={entry.id}
+                className="rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-zinc-300"
+              >
+                <span className="text-zinc-500">{new Date(entry.at).toLocaleString()}</span>
+                {" · "}
+                <span className="text-zinc-100">{entry.actorUsername}</span>
+                {" · "}
+                {entry.action}
+                {entry.details ? ` · ${entry.details}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
       </ToolSection>
 
       <ToolSection title="Users">
@@ -486,12 +646,13 @@ export default function UsersAdminPanel() {
                   onChange={(event) =>
                     setUserForm((prev) => ({
                       ...prev,
-                      role: event.target.value as "admin" | "user",
+                      role: event.target.value as "admin" | "user" | "viewer",
                     }))
                   }
                   className="ui-input w-full"
                 >
                   <option value="user">User</option>
+                  <option value="viewer">Viewer (read-only)</option>
                   <option value="admin">Admin</option>
                 </select>
               </label>
@@ -503,6 +664,28 @@ export default function UsersAdminPanel() {
                   className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
                 />
                 Account enabled
+              </label>
+              <label className="space-y-2 text-sm">
+                <span className="type-caption text-zinc-500">API quota (req/min)</span>
+                <TextInput
+                  type="number"
+                  value={userForm.quotaMaxPerMinute}
+                  onChange={(event) =>
+                    setUserForm((prev) => ({ ...prev, quotaMaxPerMinute: event.target.value }))
+                  }
+                  placeholder="Inherit default / group"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={userForm.exportEnabled}
+                  onChange={(event) =>
+                    setUserForm((prev) => ({ ...prev, exportEnabled: event.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                />
+                Nightly server export
               </label>
             </div>
 
@@ -543,6 +726,10 @@ export default function UsersAdminPanel() {
                 Admin accounts always have access to every section. Feature blocks apply only to
                 regular users.
               </p>
+            ) : userForm.role === "viewer" ? (
+              <p className="rounded-xl border border-zinc-700/80 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-400">
+                Viewers can browse Dashboard, Gallery, and Studio only.
+              </p>
             ) : (
               <div className="space-y-2">
                 <p className="type-caption text-zinc-500">Section access</p>
@@ -560,9 +747,26 @@ export default function UsersAdminPanel() {
                 Save user
               </Button>
               {selectedUser && selectedUser.role !== "admin" ? (
-                <Button type="button" variant="ghost" onClick={() => void deleteUser(selectedUser.id)}>
-                  Delete
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      void fetch("/api/auth/impersonate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ userId: selectedUser.id }),
+                      }).then(() => {
+                        window.location.href = "/";
+                      });
+                    }}
+                  >
+                    Impersonate
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => void deleteUser(selectedUser.id)}>
+                    Delete
+                  </Button>
+                </>
               ) : null}
             </div>
           </div>

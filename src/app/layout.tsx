@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppNav from "@/components/AppNav";
+import CommandPalette from "@/components/CommandPalette";
 import { AuthProvider } from "@/hooks/useAuth";
 import ComfyGalleryBackgroundPoller from "@/components/ComfyGalleryBackgroundPoller";
 import UserScopeInit from "@/components/UserScopeInit";
@@ -44,6 +45,7 @@ export default function RootLayout({
             <UserScopeInit />
             <ScheduledBatchRunner />
             <KeyboardShortcuts />
+            <CommandPalette />
             <ServiceWorkerCleanup />
             {children}
           </div>

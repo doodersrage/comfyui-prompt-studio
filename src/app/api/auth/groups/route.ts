@@ -1,4 +1,5 @@
 import { apiError, apiJson } from "@/lib/api/response";
+import { appendAuditLog } from "@/lib/auth/audit-log";
 import { readSessionFromRequest } from "@/lib/auth/session";
 import type { AppFeatureId } from "@/lib/auth/features";
 import {
@@ -22,22 +23,22 @@ function requireAdmin(request: Request) {
     return apiError("Admin access required.", 403);
   }
 
-  return null;
+  return { user };
 }
 
 export async function GET(request: Request) {
-  const denied = requireAdmin(request);
-  if (denied) {
-    return denied;
+  const admin = requireAdmin(request);
+  if (admin instanceof Response) {
+    return admin;
   }
 
   return apiJson({ groups: listGroups() });
 }
 
 export async function POST(request: Request) {
-  const denied = requireAdmin(request);
-  if (denied) {
-    return denied;
+  const admin = requireAdmin(request);
+  if (admin instanceof Response) {
+    return admin;
   }
 
   let body: {
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
     name?: string;
     description?: string;
     blockedFeatures?: AppFeatureId[];
+    quotaMaxPerMinute?: number;
   };
 
   try {
@@ -63,6 +65,14 @@ export async function POST(request: Request) {
       name: body.name,
       description: body.description,
       blockedFeatures: body.blockedFeatures ?? [],
+      quotaMaxPerMinute: body.quotaMaxPerMinute,
+    });
+    appendAuditLog({
+      actorUserId: admin.user.id,
+      actorUsername: admin.user.username,
+      action: body.id ? "group.updated" : "group.created",
+      target: group.id,
+      details: group.name,
     });
     return apiJson({ group });
   } catch (error) {
@@ -71,9 +81,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const denied = requireAdmin(request);
-  if (denied) {
-    return denied;
+  const admin = requireAdmin(request);
+  if (admin instanceof Response) {
+    return admin;
   }
 
   const groupId = new URL(request.url).searchParams.get("id")?.trim();
@@ -83,6 +93,12 @@ export async function DELETE(request: Request) {
 
   try {
     deleteGroup(groupId);
+    appendAuditLog({
+      actorUserId: admin.user.id,
+      actorUsername: admin.user.username,
+      action: "group.deleted",
+      target: groupId,
+    });
     return apiJson({ ok: true });
   } catch (error) {
     return apiError(error instanceof Error ? error.message : "Failed to delete group.", 400);

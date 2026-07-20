@@ -15,6 +15,7 @@ import GalleryCard from "@/components/gallery/GalleryCard";
 import GalleryFiltersBar from "@/components/gallery/GalleryFiltersBar";
 import GallerySelectionBar from "@/components/gallery/GallerySelectionBar";
 import GalleryStatsBar from "@/components/gallery/GalleryStatsBar";
+import GalleryReviewTouchBar from "@/components/gallery/GalleryReviewTouchBar";
 import { EmptyState } from "@/components/ui/ViewState";
 import { computeGalleryStats } from "@/lib/gallery-stats";
 import { queueMutatedGalleryJobs } from "@/lib/gallery-mutations";
@@ -900,6 +901,31 @@ export default function ComfyUiGalleryPanel({
           onPageChange={setPage}
         />
       )}
+
+      {filter.reviewMode && reviewFocusEntry ? (
+        <GalleryReviewTouchBar
+          onRate={(rating) => {
+            setReviewRating(reviewFocusEntry.id, rating);
+            recordCatalogBiasFromPrompt(reviewFocusEntry.prompt, rating);
+            if (rating <= 2) {
+              recordAvoidedTokensFromPrompt(reviewFocusEntry.prompt);
+            }
+          }}
+          onFavorite={() => toggleFavorite(reviewFocusEntry.id)}
+          onNext={() => {
+            const nextEntry = visibleEntries[Math.min(reviewFocusIndex + 1, visibleEntries.length - 1)];
+            if (nextEntry) {
+              setSelectedIds([nextEntry.id]);
+            }
+          }}
+          onPrev={() => {
+            const prevEntry = visibleEntries[Math.max(reviewFocusIndex - 1, 0)];
+            if (prevEntry) {
+              setSelectedIds([prevEntry.id]);
+            }
+          }}
+        />
+      ) : null}
     </section>
   );
 }

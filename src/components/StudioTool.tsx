@@ -121,6 +121,12 @@ import { analyzeGalleryRatingTokens, negativeScoringTokens, positiveScoringToken
 import { analyzePromptHistoryEntries } from "@/lib/user-analytics";
 import { computeGalleryStats } from "@/lib/gallery-stats";
 import { scopeLabel, USER_SCOPE_CHANGED_EVENT } from "@/lib/user-scope";
+import {
+  buildPromptBriefFromCurrent,
+  downloadPromptBrief,
+  parsePromptBriefFile,
+  applyPromptBrief,
+} from "@/lib/prompt-brief";
 import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
 import { addAvoidedToken, addAvoidedTokens } from "@/lib/avoided-tokens";
 import { downloadIterationForestJson } from "@/lib/iteration-tree-export";
@@ -2241,6 +2247,48 @@ export default function StudioTool() {
             Save named bundles of hints and shared locks (kit, location, seed) for
             quick reuse across Generate, Character, and Background.
           </p>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const brief = buildPromptBriefFromCurrent({
+                  label: presetName.trim() || "Studio brief",
+                  hints: presetHints.trim() || filledTemplate || "scene hints",
+                  model: shared.model,
+                  detailLevel: shared.detail,
+                  tool: "studio",
+                });
+                downloadPromptBrief(brief);
+                setBackupStatus("Prompt brief downloaded.");
+              }}
+            >
+              Export prompt brief
+            </Button>
+            <label className="ui-btn-secondary cursor-pointer px-4 py-2 text-sm">
+              Import prompt brief
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) {
+                    return;
+                  }
+                  void file.text().then((raw) => {
+                    const brief = parsePromptBriefFile(raw);
+                    applyPromptBrief(brief);
+                    setPresetName(brief.label);
+                    setPresetHints(brief.hints);
+                    setBackupStatus(`Loaded prompt brief “${brief.label}”.`);
+                  }).catch((error) => {
+                    setBackupStatus(error instanceof Error ? error.message : "Import failed.");
+                  });
+                }}
+              />
+            </label>
+          </div>
 
           <SharedToolControls
             shared={shared}

@@ -12,12 +12,15 @@ import {
 import type { AppFeatureId } from "@/lib/auth/features";
 import type { AuthSessionResponse, AuthUserPublic } from "@/lib/auth/types";
 import { setActiveUserScope } from "@/lib/user-scope";
+import { setUserComfyUiUrlOverride } from "@/lib/user-comfy-url";
 
 type AuthState = {
   loading: boolean;
   authEnabled: boolean;
   user: AuthUserPublic | null;
   allowedFeatures: AppFeatureId[] | "all";
+  impersonating: boolean;
+  impersonatorUsername?: string;
 };
 
 const INITIAL: AuthState = {
@@ -25,6 +28,7 @@ const INITIAL: AuthState = {
   authEnabled: false,
   user: null,
   allowedFeatures: "all",
+  impersonating: false,
 };
 
 type AuthContextValue = AuthState & {
@@ -43,6 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch("/api/auth/session", { cache: "no-store" });
       const data = (await response.json()) as AuthSessionResponse & {
         defaultAdminUsername?: string;
+        impersonating?: boolean;
+        impersonatorUsername?: string;
       };
       setState({
         loading: false,
@@ -54,11 +60,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             : Array.isArray(data.allowedFeatures)
               ? data.allowedFeatures
               : [],
+        impersonating: Boolean(data.impersonating),
+        impersonatorUsername: data.impersonatorUsername,
       });
       if (data.authEnabled && data.user) {
         setActiveUserScope({ id: data.user.id, username: data.user.username });
+        setUserComfyUiUrlOverride(data.user.comfyUiUrl);
       } else {
         setActiveUserScope(null);
+        setUserComfyUiUrlOverride(null);
       }
     } catch {
       setState({ ...INITIAL, loading: false });

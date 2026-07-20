@@ -84,7 +84,8 @@ function SidebarLink({ link, active }: { link: NavLink; active: boolean }) {
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const { authEnabled, user, allowedFeatures, logout } = useAuth();
+  const { authEnabled, user, allowedFeatures, logout, impersonating, impersonatorUsername, refresh } =
+    useAuth();
 
   const visibleGroups = useMemo(
     () =>
@@ -100,9 +101,29 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 
   const settingsVisible = canAccessNavFeature(allowedFeatures, "settings");
+  const profileVisible = authEnabled && Boolean(user);
+
+  async function endImpersonation() {
+    await fetch("/api/auth/impersonate", { method: "DELETE" });
+    await refresh();
+    window.location.href = "/settings?tab=users";
+  }
 
   return (
     <div className="flex h-full flex-col gap-6">
+      {impersonating ? (
+        <div className="mx-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-xs text-amber-100">
+          Viewing as <span className="font-medium">{user?.username}</span>
+          {impersonatorUsername ? ` (admin: ${impersonatorUsername})` : ""}.
+          <button
+            type="button"
+            onClick={() => void endImpersonation()}
+            className="mt-2 block text-amber-200 underline underline-offset-2"
+          >
+            Exit impersonation
+          </button>
+        </div>
+      ) : null}
       <div className="px-2">
         <Link
           href="/"
@@ -136,10 +157,19 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-3">
             <p className="text-sm font-medium text-zinc-100">{user.username}</p>
             <p className="type-caption mt-0.5 capitalize">{user.role}</p>
+            {profileVisible ? (
+              <Link
+                href="/profile"
+                onClick={onNavigate}
+                className="mt-2 block text-xs text-violet-300 hover:text-violet-200"
+              >
+                Profile & preferences
+              </Link>
+            ) : null}
             <button
               type="button"
               onClick={() => void logout()}
-              className="mt-3 text-xs text-zinc-400 transition hover:text-zinc-200"
+              className="mt-2 block text-xs text-zinc-400 transition hover:text-zinc-200"
             >
               Sign out
             </button>

@@ -4,6 +4,9 @@ import {
   checkRateLimit,
   rateLimitClientKey,
 } from "@/lib/api-rate-limit";
+import { readSessionFromRequest } from "@/lib/auth/session";
+import { findUserById, listGroups } from "@/lib/auth/store";
+import { checkUserRateLimit } from "@/lib/user-quotas";
 import { logApiUsage } from "@/lib/api-usage-log";
 import { authorizeAppRequest } from "@/lib/auth/access";
 
@@ -58,7 +61,17 @@ export function proxy(request: NextRequest) {
   const isApiRoute = path.startsWith("/api/");
 
   if (isApiRoute) {
-    const limit = checkRateLimit(clientKey, path);
+    const session = readSessionFromRequest(request);
+    const user = session ? findUserById(session.userId) : null;
+    const limit =
+      user && user.enabled
+        ? checkUserRateLimit({
+            user,
+            groups: listGroups(),
+            clientKey,
+            path,
+          })
+        : checkRateLimit(clientKey, path);
     if (!limit.allowed) {
       logApiUsage({
         at: started,

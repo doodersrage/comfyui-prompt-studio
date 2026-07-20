@@ -58,7 +58,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - One-click copy for ComfyUI paste
 - LLM-powered generation/formatting with rules fallback
 - **App database (Dexie)** — settings, history, presets, workflows, webhooks, and gallery persist in IndexedDB (`comfy-prompt-studio-v1`); existing `localStorage` data migrates automatically on first load
-- **User accounts & feature ACL** — optional login with default admin, groups, and per-user/per-group blocked features (Settings → Users). When auth is enabled, prompt history and gallery are scoped per user in the browser; analytics snapshots sync to the server for admin review.
+- **User accounts & feature ACL** — optional login with default admin, groups, per-user/per-group blocked features, **viewer** role (Dashboard/Gallery/Studio only), per-user ComfyUI URL override, and per-user/group API quotas (Settings → Users). When auth is enabled, prompt history and gallery are scoped per user in the browser; analytics snapshots sync to the server for admin review. **Profile** page for password change, export toggle, and scheduled campaign settings.
 - **Settings cache** — target model, detail level, and per-tool options persist in the app database across reloads and pages
 - **Prompt diagnostics** — lint sport/duo/helmet conflicts before or after generation
 - **Character generator** — solo, duo/sport, and compose-with-background modes; sport presets, team kit, batch roll, ComfyUI queue
@@ -185,7 +185,12 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Embedding search** — semantic history filter uses Ollama embeddings when available (`/api/search/embeddings`)
 - **Avoidance preview** — Settings shows matched tokens and LLM instruction before generation
 - **Workflow preset packs** — import/export bundled presets in Settings workflow library
-- **Server storage sync** — optional `PROMPT_DATA_DIR` file-backed namespaces via `/api/storage`
+- **Server storage sync** — optional `PROMPT_DATA_DIR` file-backed namespaces via `/api/storage`; per-user paths when logged in
+- **Admin tools** — audit log, user impersonation, shared read-only preset library, analytics trends over time
+- **Command palette** — `Ctrl+K` / `⌘K` quick navigation across tools
+- **Prompt brief** — export/import portable prompt bundles from Studio Presets
+- **Webhook templates** — Discord/Slack rich payload formats in Settings
+- **Mobile gallery review** — touch-friendly rating bar in gallery review mode
 - **API usage & rate limits** — proxy logs usage; optional `PROMPT_API_TOKEN` + rate limit env vars
 - **Server scheduled batch** — `SERVER_SCHEDULED_BATCH=true` or manual `POST /api/scheduled-batch/run`
 - **ComfyUI job status node** — `PromptToolsJobStatus` polls `/api/comfyui/status`
@@ -312,6 +317,10 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `PROMPT_ADMIN_PASSWORD` | `admin` | Default admin password (change in production) |
 | `PROMPT_SESSION_SECRET` | _(falls back to API token)_ | HMAC secret for session cookies |
 | `PROMPT_AUTH_DIR` | _(uses `PROMPT_DATA_DIR/auth`)_ | Directory for `users.json`, `groups.json`, and `analytics-snapshots.json` |
+| `PROMPT_DATA_DIR` | _(empty)_ | Server file storage root for `/api/storage` and auth data |
+| `SERVER_USER_MAINTENANCE` | `false` | Enable `/api/maintenance/run` for per-user scheduled campaigns and export snapshots |
+| `API_RATE_LIMIT_WINDOW_MS` | `60000` | Rate limit window (ms) for API proxy |
+| `API_RATE_LIMIT_MAX` | `120` | Default max requests per window; overridable per user/group in Settings → Users |
 | `COMFYUI_API_URL` | `http://127.0.0.1:8188` | Default ComfyUI base URL |
 | `COMFYUI_ALLOW_CLIENT_URL` | `true` | Allow clients to override ComfyUI URL |
 | `COMFYUI_ALLOWED_HOSTS` | _(empty)_ | Optional comma-separated ComfyUI host allowlist |

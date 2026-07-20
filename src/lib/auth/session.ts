@@ -15,7 +15,7 @@ function decodePayload(raw: string): AuthSession | null {
       !parsed ||
       typeof parsed.userId !== "string" ||
       typeof parsed.username !== "string" ||
-      (parsed.role !== "admin" && parsed.role !== "user") ||
+      (parsed.role !== "admin" && parsed.role !== "user" && parsed.role !== "viewer") ||
       typeof parsed.exp !== "number"
     ) {
       return null;

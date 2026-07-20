@@ -1,6 +1,7 @@
 import type { WorkflowParamValues } from "./comfyui-config";
 import { appendWebhookLogEntry } from "./webhook-log";
 import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { formatWebhookPayload } from "./webhook-payload";
 
 export const WEBHOOK_SETTINGS_KEY = "comfy-prompt-webhook-v1";
 
@@ -8,12 +9,14 @@ export type WebhookSettings = {
   enabled: boolean;
   url?: string;
   secret?: string;
+  template?: import("./webhook-payload").WebhookTemplate;
 };
 
 export const DEFAULT_WEBHOOK_SETTINGS: WebhookSettings = {
   enabled: false,
   url: "",
   secret: "",
+  template: "generic",
 };
 
 export function loadWebhookSettings(): WebhookSettings {
@@ -75,6 +78,7 @@ export async function dispatchWebhook(payload: WebhookJobPayload): Promise<boole
       body: JSON.stringify({
         url: settings.url.trim(),
         secret: settings.secret?.trim() || undefined,
+        template: settings.template ?? "generic",
         payload,
       }),
     });

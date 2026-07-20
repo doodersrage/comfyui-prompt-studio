@@ -4,6 +4,8 @@ import {
   assertSafeHttpUrl,
   isWebhookPrivateAllowed,
 } from "@/lib/url-safety";
+import { formatWebhookPayload } from "@/lib/webhook-payload";
+import type { WebhookJobPayload } from "@/lib/webhook-settings";
 
 export const runtime = "nodejs";
 
@@ -11,6 +13,7 @@ type DispatchBody = {
   url?: string;
   secret?: string;
   payload?: Record<string, unknown>;
+  template?: import("@/lib/webhook-payload").WebhookTemplate;
 };
 
 export async function GET() {
@@ -44,10 +47,16 @@ export async function POST(request: Request) {
       headers["X-Prompt-Tools-Secret"] = body.secret.trim();
     }
 
+    const template = body.template ?? "generic";
+    const payload = formatWebhookPayload(
+      (body.payload ?? {}) as WebhookJobPayload,
+      template,
+    );
+
     const response = await fetch(safeUrl.toString(), {
       method: "POST",
       headers,
-      body: JSON.stringify(body.payload ?? {}),
+      body: JSON.stringify(payload),
       redirect: "manual",
       signal: AbortSignal.timeout(15_000),
     });

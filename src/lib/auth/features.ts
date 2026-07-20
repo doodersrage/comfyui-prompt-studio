@@ -18,6 +18,7 @@ export const APP_FEATURES = [
   { id: "variations", label: "Variations", description: "Variation grid and matrix queue" },
   { id: "plugins", label: "Plugins", description: "Custom tool registry" },
   { id: "settings", label: "Settings", description: "App and ComfyUI settings" },
+  { id: "profile", label: "Profile", description: "Account, password, and preferences" },
   { id: "comfyui-api", label: "ComfyUI API", description: "Queue and poll ComfyUI jobs" },
   { id: "llm-api", label: "LLM API", description: "Generation and refinement API routes" },
 ] as const;
@@ -45,6 +46,7 @@ const PAGE_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
   { prefix: "/variations", feature: "variations" },
   { prefix: "/plugins", feature: "plugins" },
   { prefix: "/settings", feature: "settings" },
+  { prefix: "/profile", feature: "profile" },
 ];
 
 const API_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
