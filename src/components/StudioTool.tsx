@@ -46,6 +46,7 @@ import {
   getAllPromptTemplates,
 } from "@/lib/prompt-templates";
 import { buildRegenerateUrl } from "@/lib/regenerate-url";
+import { buildUseAsHintsUrl } from "@/lib/use-as-hints-url";
 import type { ComfyImageModel } from "@/lib/comfy-models";
 import {
   applyCharacterIdentityBundle,
@@ -96,13 +97,26 @@ import {
   parsePresetPack,
 } from "@/lib/preset-packs";
 import {
+  buildSceneStarterPack,
+  downloadSceneStarterPack,
+  parseSceneStarterPack,
+} from "@/lib/scene-starter-packs";
+import {
+  buildUserSceneStarterFromHints,
+  deleteUserSceneStarterPreset,
+  loadUserSceneStarterPresets,
+  toggleUserSceneStarterFavorite,
+  upsertUserSceneStarterPreset,
+  type UserSceneStarterPreset,
+} from "@/lib/user-scene-starter-presets";
+import {
   generateModelPortfolio,
   queueModelPortfolio,
   type ModelPortfolioItem,
 } from "@/lib/model-portfolio";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
 import { startRefineFromHistoryEntry } from "@/lib/improve-output";
-import { analyzeGalleryRatingTokens, negativeScoringTokens } from "@/lib/rating-token-analytics";
+import { analyzeGalleryRatingTokens, negativeScoringTokens, positiveScoringTokens, buildSceneHintsFromPositiveTokens } from "@/lib/rating-token-analytics";
 import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
 import { addAvoidedToken, addAvoidedTokens } from "@/lib/avoided-tokens";
 import { downloadIterationForestJson } from "@/lib/iteration-tree-export";
@@ -236,6 +250,10 @@ export default function StudioTool() {
   const [projectName, setProjectName] = useState("");
   const [projectNotes, setProjectNotes] = useState("");
   const [presetPackName, setPresetPackName] = useState("");
+  const [sceneStarterPackName, setSceneStarterPackName] = useState("");
+  const [userSceneStarters, setUserSceneStarters] = useState<UserSceneStarterPreset[]>(
+    [],
+  );
   const [portfolioDraft, setPortfolioDraft] = useState("");
   const [portfolioModels, setPortfolioModels] = useState(
     "qwen-image-2512, flux-2-klein, sdxl-base-1.0",
@@ -374,6 +392,7 @@ export default function StudioTool() {
   useEffect(() => {
     setBlocklist(loadLocationBlocklist());
     setScenePresets(loadScenePresets());
+    setUserSceneStarters(loadUserSceneStarterPresets());
     setUserTemplates(loadUserTemplates());
     setProjects(loadPromptProjects());
     setActiveProjectIdState(loadActiveProjectId());
@@ -620,15 +639,15 @@ export default function StudioTool() {
       {tab === "history" && (
         <ToolSection title="Saved prompts">
           <ToolMetaPanel>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="type-heading">
+            <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <p className="type-heading shrink-0">
                 {filteredEntries.length}
                 {filteredEntries.length !== entries.length
                   ? ` of ${entries.length}`
                   : ""}{" "}
                 entries
               </p>
-              <div className="ui-list-actions">
+              <div className="ui-list-actions w-full justify-start lg:w-auto lg:justify-end">
                 {favoriteEntries.length > 0 && (
                   <Button
                     variant="accent-outline"
@@ -1365,6 +1384,30 @@ export default function StudioTool() {
               >
                 Add negative tokens to avoidance
               </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const tokens = positiveScoringTokens(ratingTokenStats);
+                  if (tokens.length === 0) {
+                    setBackupStatus("No positive-scoring tokens to promote yet.");
+                    return;
+                  }
+                  const hints = buildSceneHintsFromPositiveTokens(tokens);
+                  const preset = buildUserSceneStarterFromHints({
+                    label: `Gallery tokens (${tokens.slice(0, 3).join(", ")})`,
+                    hints,
+                    category: "lifestyle",
+                    source: "promoted",
+                  });
+                  upsertUserSceneStarterPreset(preset);
+                  setUserSceneStarters(loadUserSceneStarterPresets());
+                  setBackupStatus(
+                    `Saved scene starter preset from ${tokens.length} high-scoring token(s).`,
+                  );
+                }}
+              >
+                Promote top tokens to scene preset
+              </Button>
             </div>
           ) : null}
           {ratingTokenStats.length === 0 ? (
@@ -1393,6 +1436,25 @@ export default function StudioTool() {
                         className="type-caption text-rose-300 hover:text-rose-200"
                       >
                         Add to avoided
+                      </button>
+                    ) : null}
+                    {stat.score > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const preset = buildUserSceneStarterFromHints({
+                            label: `Motif: ${stat.token}`,
+                            hints: stat.token,
+                            category: "lifestyle",
+                            source: "promoted",
+                          });
+                          upsertUserSceneStarterPreset(preset);
+                          setUserSceneStarters(loadUserSceneStarterPresets());
+                          setBackupStatus(`Saved scene starter preset for “${stat.token}”.`);
+                        }}
+                        className="type-caption text-emerald-300 hover:text-emerald-200"
+                      >
+                        Save as scene preset
                       </button>
                     ) : null}
                   </ToolContentPanel>
@@ -2225,6 +2287,111 @@ export default function StudioTool() {
           </div>
 
           <div className="space-y-3 border-t border-zinc-800 pt-4">
+            <p className="text-sm font-medium text-zinc-200">Scene starter presets</p>
+            <p className="text-xs text-zinc-500">
+              Saved from Generate/Character preset panels or promoted from Gallery analytics.
+              These appear in the preset catalog on Generate and Character.
+            </p>
+            <input
+              value={sceneStarterPackName}
+              onChange={(event) => setSceneStarterPackName(event.target.value)}
+              placeholder="Starter pack name"
+              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                disabled={!sceneStarterPackName.trim() || userSceneStarters.length === 0}
+                onClick={() =>
+                  downloadSceneStarterPack(
+                    buildSceneStarterPack({
+                      name: sceneStarterPackName.trim(),
+                      presets: userSceneStarters,
+                    }),
+                  )
+                }
+              >
+                Export starter pack
+              </Button>
+              <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">
+                Import starter pack
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) {
+                      return;
+                    }
+                    void file
+                      .text()
+                      .then((raw) => {
+                        const pack = parseSceneStarterPack(raw);
+                        for (const preset of pack.presets) {
+                          upsertUserSceneStarterPreset(preset);
+                        }
+                        setUserSceneStarters(loadUserSceneStarterPresets());
+                        setBackupStatus(`Imported scene starter pack “${pack.name}”.`);
+                      })
+                      .catch((err) => {
+                        setBackupStatus(
+                          err instanceof Error ? err.message : "Import failed.",
+                        );
+                      });
+                  }}
+                />
+              </label>
+            </div>
+            {userSceneStarters.length === 0 ? (
+              <p className="text-xs text-zinc-500">
+                No saved scene starters yet — save from Generate/Character or promote tokens in
+                Analytics.
+              </p>
+            ) : (
+              <DataList scrollable={false}>
+                {userSceneStarters.map((preset) => (
+                  <DataListRow key={preset.id} className="!items-start !py-4">
+                    <DataListPrimary
+                      title={
+                        <>
+                          {preset.favorite ? "★ " : null}
+                          {preset.label}
+                        </>
+                      }
+                      subtitle={preset.hints}
+                    />
+                    <div className="ui-list-actions">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="type-caption"
+                        onClick={() => {
+                          toggleUserSceneStarterFavorite(preset.id);
+                          setUserSceneStarters(loadUserSceneStarterPresets());
+                        }}
+                      >
+                        {preset.favorite ? "Unfavorite" : "Favorite"}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        className="type-caption"
+                        onClick={() => {
+                          deleteUserSceneStarterPreset(preset.id);
+                          setUserSceneStarters(loadUserSceneStarterPresets());
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </DataListRow>
+                ))}
+              </DataList>
+            )}
+          </div>
+
+          <div className="space-y-3 border-t border-zinc-800 pt-4">
             <p className="text-sm font-medium text-zinc-200">Character identity bundles</p>
             <p className="text-xs text-zinc-500">
               Export/import reusable character sheets with locks, hints, and negative profile ids.
@@ -2555,6 +2722,7 @@ function HistoryCard({
   batchPromptCount?: number;
 }) {
   const regenerateUrl = buildRegenerateUrl(entry);
+  const useAsHintsUrl = buildUseAsHintsUrl(entry);
   const showHintDiff =
     entry.hints?.trim() &&
     entry.prompt.trim() &&
@@ -2562,21 +2730,24 @@ function HistoryCard({
 
   return (
     <ToolContentPanel
-      className={`ui-block-group ${highlighted ? "ring-2 ring-violet-500/40" : ""}`}
+      className={`ui-block-group min-w-0 ${highlighted ? "ring-2 ring-violet-500/40" : ""}`}
     >
       <pre className="type-code max-h-56 overflow-auto whitespace-pre-wrap border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-5 !text-[var(--tint-success-text)]">
         {entry.prompt}
       </pre>
 
       <ToolMetaPanel>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="type-caption ui-truncate">
+        <div className="flex min-w-0 flex-col gap-3">
+          <p className="type-caption min-w-0 break-words text-[var(--text-muted)]">
             {entry.tool} · {entry.model} ·{" "}
             {new Date(entry.timestamp).toLocaleString()}
           </p>
-          <div className="ui-list-actions">
+          <div className="ui-list-actions w-full justify-start">
             <a href={regenerateUrl} className="ui-btn-ghost ui-btn-sm type-caption">
               Regenerate
+            </a>
+            <a href={useAsHintsUrl} className="ui-btn-ghost ui-btn-sm type-caption">
+              Use as hints
             </a>
             <a href={studioHistoryUrl(entry.id)} className="ui-btn-ghost ui-btn-sm type-caption">
               Link
@@ -2691,6 +2862,7 @@ function IterationTreeNodeCard({
   onDiffWithParent?: (parentId: string) => void;
 }) {
   const regenerateUrl = buildRegenerateUrl(node.entry);
+  const useAsHintsUrl = buildUseAsHintsUrl(node.entry);
   const parentHistoryId =
     typeof node.entry.metadata?.parentHistoryId === "string"
       ? node.entry.metadata.parentHistoryId
@@ -2712,6 +2884,12 @@ function IterationTreeNodeCard({
             className="type-caption text-sky-300 hover:text-sky-200"
           >
             Regenerate
+          </a>
+          <a
+            href={useAsHintsUrl}
+            className="type-caption text-sky-300 hover:text-sky-200"
+          >
+            Use as hints
           </a>
           <button
             type="button"

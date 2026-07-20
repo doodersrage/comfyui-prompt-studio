@@ -2,6 +2,7 @@ import type { PromptHistoryEntry } from "@/hooks/usePromptHistory";
 import { PROMPT_HISTORY_KEY } from "@/hooks/usePromptHistory";
 import type { HistorySeedScope, HistorySeedTool } from "./scene-hint-source";
 import { semanticRelevanceScore } from "./semantic-search";
+import { readBrowserValue } from "./browser-storage";
 
 export type HistoryHintSeedResult = {
   hints: string;
@@ -59,11 +60,7 @@ export function loadPromptHistoryEntries(): PromptHistoryEntry[] {
     return [];
   }
   try {
-    const raw = window.localStorage.getItem(PROMPT_HISTORY_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as PromptHistoryEntry[];
+    return readBrowserValue<PromptHistoryEntry[]>(PROMPT_HISTORY_KEY) ?? [];
   } catch {
     return [];
   }

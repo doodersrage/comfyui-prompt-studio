@@ -1,3 +1,5 @@
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+
 export type CampaignTemplate = {
   id: string;
   name: string;
@@ -17,8 +19,7 @@ export function loadCampaignTemplates(): CampaignTemplate[] {
     return [];
   }
   try {
-    const raw = window.localStorage.getItem(CAMPAIGN_TEMPLATES_KEY);
-    return raw ? (JSON.parse(raw) as CampaignTemplate[]) : [];
+    return readBrowserValue<CampaignTemplate[]>(CAMPAIGN_TEMPLATES_KEY) ?? [];
   } catch {
     return [];
   }
@@ -28,7 +29,7 @@ export function saveCampaignTemplates(templates: CampaignTemplate[]): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(CAMPAIGN_TEMPLATES_KEY, JSON.stringify(templates.slice(0, 24)));
+  writeBrowserValue(CAMPAIGN_TEMPLATES_KEY, templates.slice(0, 24));
 }
 
 export function upsertCampaignTemplate(

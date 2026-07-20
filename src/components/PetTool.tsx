@@ -12,6 +12,7 @@ import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { presetOptionsFromPetCache } from "@/lib/pet-options";
 import { getComfyModelDefinition } from "@/lib/comfy-models";
+import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import {
@@ -87,10 +88,15 @@ export default function PetTool() {
     if (typeof window === "undefined") {
       return;
     }
-    const hints = new URLSearchParams(window.location.search).get("hints");
-    const seed = new URLSearchParams(window.location.search).get("seed");
+    const params = new URLSearchParams(window.location.search);
+    applyHintSourceFromSearchParams(params, updateToolSettings);
+    const hints = params.get("hints");
+    const seed = params.get("seed");
     if (hints?.trim()) {
-      updateToolSettings({ hints: hints.trim() });
+      updateToolSettings({
+        hints: hints.trim(),
+        ...(params.get("hintSource") === "manual" ? { hintSource: "manual" } : {}),
+      });
     }
     if (seed?.trim()) {
       updateShared({ lockedVariationSeed: seed.trim() });

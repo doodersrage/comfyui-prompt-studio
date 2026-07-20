@@ -6,6 +6,7 @@ import {
   COMFYUI_GALLERY_UPDATED_EVENT,
   filterComfyGalleryEntries,
   galleryEntryPrimaryViewUrl,
+  initGalleryStore,
   loadComfyGallery,
   removeComfyGalleryEntries,
   removeComfyGalleryEntry,
@@ -32,6 +33,8 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   );
   const [embeddingRankIds, setEmbeddingRankIds] = useState<string[] | null>(null);
   const [similarRankIds, setSimilarRankIds] = useState<string[] | null>(null);
+  const [embeddingSearchLoading, setEmbeddingSearchLoading] = useState(false);
+  const [similarSearchLoading, setSimilarSearchLoading] = useState(false);
 
   const refresh = useCallback(() => {
     setEntries(loadComfyGallery());
@@ -39,7 +42,7 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
 
   useEffect(() => {
     setMounted(true);
-    refresh();
+    void initGalleryStore().then(refresh);
 
     const handler = () => refresh();
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, handler);
@@ -50,6 +53,7 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     const query = filter.query?.trim();
     if (!filter.semanticSearch || !query) {
       setEmbeddingRankIds(null);
+      setEmbeddingSearchLoading(false);
       return;
     }
 
@@ -59,10 +63,13 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
       similarToEntryId: undefined,
     });
 
+    setEmbeddingSearchLoading(true);
     void fetchEmbeddingRankIds(
       query,
       candidates.map((entry) => ({ id: entry.id, text: galleryEntryCorpus(entry) })),
-    ).then(setEmbeddingRankIds);
+    )
+      .then(setEmbeddingRankIds)
+      .finally(() => setEmbeddingSearchLoading(false));
   }, [
     entries,
     filter.query,
@@ -78,20 +85,25 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     const referenceId = filter.similarToEntryId;
     if (!referenceId) {
       setSimilarRankIds(null);
+      setSimilarSearchLoading(false);
       return;
     }
 
     const reference = entries.find((entry) => entry.id === referenceId);
     if (!reference) {
       setSimilarRankIds(null);
+      setSimilarSearchLoading(false);
       return;
     }
 
     const candidates = entries.filter((entry) => entry.id !== referenceId);
+    setSimilarSearchLoading(true);
     void fetchEmbeddingRankIds(
       reference.prompt,
       candidates.map((entry) => ({ id: entry.id, text: galleryEntryCorpus(entry) })),
-    ).then(setSimilarRankIds);
+    )
+      .then(setSimilarRankIds)
+      .finally(() => setSimilarSearchLoading(false));
   }, [entries, filter.similarToEntryId]);
 
   const filteredEntries = useMemo(() => {
@@ -225,5 +237,7 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     setReviewRating,
     embeddingSearchActive: Boolean(filter.semanticSearch && filter.query?.trim() && embeddingRankIds?.length),
     similarSearchActive: Boolean(filter.similarToEntryId && similarRankIds?.length),
+    embeddingSearchLoading,
+    similarSearchLoading,
   };
 }

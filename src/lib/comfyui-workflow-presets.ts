@@ -3,6 +3,7 @@ import {
   DEFAULT_NEGATIVE_TOKEN,
   DEFAULT_POSITIVE_TOKEN,
 } from "./comfyui-config";
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 
 export const COMFY_WORKFLOW_PRESETS_KEY = "comfyui-workflow-presets-v1";
 
@@ -24,11 +25,7 @@ export function loadComfyWorkflowPresets(): ComfyWorkflowPreset[] {
   }
 
   try {
-    const raw = window.localStorage.getItem(COMFY_WORKFLOW_PRESETS_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as ComfyWorkflowPreset[];
+    return readBrowserValue<ComfyWorkflowPreset[]>(COMFY_WORKFLOW_PRESETS_KEY) ?? [];
   } catch {
     return [];
   }
@@ -39,7 +36,7 @@ export function saveComfyWorkflowPresets(presets: ComfyWorkflowPreset[]): void {
     return;
   }
 
-  window.localStorage.setItem(COMFY_WORKFLOW_PRESETS_KEY, JSON.stringify(presets));
+  writeBrowserValue(COMFY_WORKFLOW_PRESETS_KEY, presets);
 }
 
 export function upsertComfyWorkflowPreset(

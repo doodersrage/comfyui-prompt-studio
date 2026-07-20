@@ -1,13 +1,31 @@
 import type { ComfyOutputImage } from "./comfyui-outputs";
 import { buildComfyViewPath } from "./comfyui-outputs";
-import type { WorkflowParamValues } from "./comfyui-config";
 import { filterBySemanticQuery } from "./semantic-search";
 import { orderGalleryBySimilarity } from "./gallery-similarity";
+import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
+import type { ComfyGalleryJobStatus } from "./comfyui-gallery-types";
+import {
+  getGalleryCache,
+  notifyGalleryUpdated,
+  persistGalleryCache,
+  setGalleryCache,
+  clearGalleryDb,
+} from "./gallery-db-store";
+import { COMFYUI_GALLERY_KEY } from "./comfyui-gallery-storage-meta";
+import {
+  readBrowserValue,
+  writeBrowserValue,
+} from "./browser-storage";
+import { initGalleryStore } from "./app-db-init";
 
-export const COMFYUI_GALLERY_KEY = "comfyui-gallery-v1";
-export const COMFYUI_GALLERY_UPDATED_EVENT = "comfyui-gallery-updated";
-
-export type ComfyGalleryJobStatus = "pending" | "running" | "completed" | "error";
+export type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
+export type { ComfyGalleryJobStatus } from "./comfyui-gallery-types";
+export {
+  COMFYUI_GALLERY_KEY,
+  COMFYUI_GALLERY_UPDATED_EVENT,
+  MAX_GALLERY_ENTRIES,
+} from "./comfyui-gallery-storage-meta";
+export { initAppDb, initGalleryStore, isAppDbReady, isGalleryStoreReady } from "./app-db-init";
 
 export type ComfyGalleryFilter = {
   status?: ComfyGalleryJobStatus | "all";
@@ -117,11 +135,14 @@ export function resolveGallerySlideshowTransitionMs(
   return transition === "none" ? 0 : GALLERY_SLIDESHOW_TRANSITION_MS;
 }
 
+export type GalleryLayoutMode = "grid" | "dense" | "list";
+
 export type ComfyGalleryViewPreferences = {
   sort: ComfyGallerySort;
   pageSize: GalleryPageSize;
   slideshowIntervalMs: GallerySlideshowIntervalMs;
   slideshowTransition: GallerySlideshowTransition;
+  layout: GalleryLayoutMode;
 };
 
 export const DEFAULT_GALLERY_VIEW: ComfyGalleryViewPreferences = {
@@ -129,6 +150,7 @@ export const DEFAULT_GALLERY_VIEW: ComfyGalleryViewPreferences = {
   pageSize: 12,
   slideshowIntervalMs: 5000,
   slideshowTransition: "slide",
+  layout: "grid",
 };
 
 export function isGallerySlideshowIntervalMs(
@@ -163,47 +185,27 @@ export function resolveGalleryPageSize(
 
 export const COMFYUI_GALLERY_VIEW_KEY = "comfyui-gallery-view-v1";
 
-export type ComfyGalleryEntry = {
-  id: string;
-  promptId: string;
-  prompt: string;
-  negativePrompt?: string;
-  tool?: string;
-  model?: string;
-  /** Links back to Studio prompt history entry. */
-  historyId?: string;
-  /** Resolved queue params (seed, width, cfg, etc.). */
-  queueParams?: WorkflowParamValues;
-  /** Quick review rating from gallery review mode. */
-  reviewRating?: 1 | 2 | 3 | 4 | 5;
-  /** Optional project/campaign id. */
-  projectId?: string;
-  comfyUrl: string;
-  status: ComfyGalleryJobStatus;
-  statusMessage?: string;
-  queuePosition?: number | null;
-  queuedAt: number;
-  completedAt?: number;
-  favorite?: boolean;
-  images: ComfyOutputImage[];
-};
-
-const MAX_GALLERY_ENTRIES = 80;
+function readLegacyLocalStorageGallery(): ComfyGalleryEntry[] {
+  const parsed = readBrowserValue<unknown>(COMFYUI_GALLERY_KEY);
+  return Array.isArray(parsed) ? (parsed as ComfyGalleryEntry[]) : [];
+}
 
 export function loadComfyGallery(): ComfyGalleryEntry[] {
   if (typeof window === "undefined") {
     return [];
   }
 
-  try {
-    const raw = window.localStorage.getItem(COMFYUI_GALLERY_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as ComfyGalleryEntry[];
-  } catch {
-    return [];
+  const cached = getGalleryCache();
+  if (cached.length > 0) {
+    return cached;
   }
+
+  return readLegacyLocalStorageGallery();
+}
+
+export async function loadComfyGalleryAsync(): Promise<ComfyGalleryEntry[]> {
+  await initGalleryStore();
+  return loadComfyGallery();
 }
 
 export function saveComfyGallery(entries: ComfyGalleryEntry[]): void {
@@ -211,11 +213,20 @@ export function saveComfyGallery(entries: ComfyGalleryEntry[]): void {
     return;
   }
 
-  window.localStorage.setItem(
-    COMFYUI_GALLERY_KEY,
-    JSON.stringify(entries.slice(0, MAX_GALLERY_ENTRIES)),
-  );
-  window.dispatchEvent(new CustomEvent(COMFYUI_GALLERY_UPDATED_EVENT));
+  setGalleryCache(entries);
+  notifyGalleryUpdated();
+  void initGalleryStore().then(() => persistGalleryCache());
+}
+
+export async function saveComfyGalleryAsync(entries: ComfyGalleryEntry[]): Promise<void> {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  setGalleryCache(entries);
+  await initGalleryStore();
+  await persistGalleryCache();
+  notifyGalleryUpdated();
 }
 
 export function clearComfyGallery(): void {
@@ -223,8 +234,8 @@ export function clearComfyGallery(): void {
     return;
   }
 
-  window.localStorage.removeItem(COMFYUI_GALLERY_KEY);
-  window.dispatchEvent(new CustomEvent(COMFYUI_GALLERY_UPDATED_EVENT));
+  void clearGalleryDb();
+  notifyGalleryUpdated();
 }
 
 export function filterComfyGalleryEntries(
@@ -353,12 +364,12 @@ export function loadGalleryViewPreferences(): ComfyGalleryViewPreferences {
   }
 
   try {
-    const raw = window.localStorage.getItem(COMFYUI_GALLERY_VIEW_KEY);
-    if (!raw) {
+    const parsed = readBrowserValue<Partial<ComfyGalleryViewPreferences>>(
+      COMFYUI_GALLERY_VIEW_KEY,
+    );
+    if (!parsed) {
       return DEFAULT_GALLERY_VIEW;
     }
-
-    const parsed = JSON.parse(raw) as Partial<ComfyGalleryViewPreferences>;
     const pageSize = isGalleryPageSize(parsed.pageSize)
       ? parsed.pageSize
       : DEFAULT_GALLERY_VIEW.pageSize;
@@ -379,8 +390,12 @@ export function loadGalleryViewPreferences(): ComfyGalleryViewPreferences {
     const slideshowTransition = resolveGallerySlideshowTransition(
       parsed.slideshowTransition,
     );
+    const layoutValues: GalleryLayoutMode[] = ["grid", "dense", "list"];
+    const layout = layoutValues.includes(parsed.layout as GalleryLayoutMode)
+      ? (parsed.layout as GalleryLayoutMode)
+      : DEFAULT_GALLERY_VIEW.layout;
 
-    return { sort, pageSize, slideshowIntervalMs, slideshowTransition };
+    return { sort, pageSize, slideshowIntervalMs, slideshowTransition, layout };
   } catch {
     return DEFAULT_GALLERY_VIEW;
   }
@@ -393,10 +408,7 @@ export function saveGalleryViewPreferences(
     return;
   }
 
-  window.localStorage.setItem(
-    COMFYUI_GALLERY_VIEW_KEY,
-    JSON.stringify(preferences),
-  );
+  writeBrowserValue(COMFYUI_GALLERY_VIEW_KEY, preferences);
 }
 
 export function uniqueGalleryTools(entries: ComfyGalleryEntry[]): string[] {

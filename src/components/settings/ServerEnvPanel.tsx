@@ -1,18 +1,63 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import type { ServerEnvGroup } from "@/lib/server-env-summary";
+import { buildEnvSnippet } from "@/lib/env-snippet";
 import { ToolSection } from "@/components/ui/ToolPageShell";
+import { Button } from "@/components/ui/Button";
+
+type ServerEnvPanelProps = {
+  groups: ServerEnvGroup[];
+  llmOk?: boolean;
+  comfyOk?: boolean;
+  onRefreshHealth?: () => void;
+  onStatus?: (message: string) => void;
+};
 
 export default function ServerEnvPanel({
   groups,
-}: {
-  groups: ServerEnvGroup[];
-}) {
+  llmOk,
+  comfyOk,
+  onRefreshHealth,
+  onStatus,
+}: ServerEnvPanelProps) {
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+
+  const copySnippet = useCallback(async () => {
+    const snippet = buildEnvSnippet(groups);
+    try {
+      await navigator.clipboard.writeText(snippet);
+      setCopyStatus("Copied .env snippet to clipboard.");
+      onStatus?.("Copied .env snippet to clipboard.");
+    } catch {
+      setCopyStatus("Could not copy — select and copy manually from the snippet below.");
+    }
+  }, [groups, onStatus]);
+
   return (
     <ToolSection
       title="Server environment (.env.local)"
       description="Read-only view of values loaded at server start. Change these in .env.local and restart the dev server or container."
     >
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" size="sm" onClick={() => void copySnippet()}>
+          Copy .env snippet
+        </Button>
+        {onRefreshHealth ? (
+          <>
+            <Button variant="secondary" size="sm" onClick={onRefreshHealth}>
+              Test LLM & ComfyUI
+            </Button>
+            {llmOk != null || comfyOk != null ? (
+              <span className="type-caption self-center">
+                LLM: {llmOk ? "ok" : "issue"} · ComfyUI: {comfyOk ? "ok" : "issue"}
+              </span>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+      {copyStatus ? <p className="type-caption">{copyStatus}</p> : null}
+
       <p className="type-caption">
         Browser settings can override some ComfyUI and LLM behavior per session — look
         for the <strong className="font-medium text-zinc-300">UI override</strong> notes
@@ -53,9 +98,10 @@ export default function ServerEnvPanel({
       </div>
 
       <p className="type-caption">
-        Copy <code className="text-violet-300">.env.example</code> to{" "}
-        <code className="text-violet-300">.env.local</code> at the project root. Secrets
-        (API keys) are never shown here — only whether they are configured.
+        Create <code className="text-violet-300">.env.local</code> at the project root.
+        Set <code className="text-violet-300">PROMPT_API_TOKEN</code> to protect API routes
+        for scripts and ComfyUI nodes. Secrets are never shown here — only whether they are
+        configured.
       </p>
     </ToolSection>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChipButton, FieldDivider, FieldLabel, TextInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +17,49 @@ import {
   type HistorySeedTool,
   type SceneHintSource,
 } from "@/lib/scene-hint-source";
+
+const HISTORY_EMPTY_GUIDANCE: Partial<
+  Record<
+    HistorySeedTool,
+    { message: string; href: string; linkLabel: string }
+  >
+> = {
+  generate: {
+    message: "Generate a few scenes on the home page, then save results to Studio history.",
+    href: "/",
+    linkLabel: "Open Generate",
+  },
+  character: {
+    message: "Create solo or duo character prompts and save them to history.",
+    href: "/character",
+    linkLabel: "Open Character",
+  },
+  duo: {
+    message: "Generate duo scenes and save them to history for future seeds.",
+    href: "/character?mode=duo",
+    linkLabel: "Open Duo mode",
+  },
+  compose: {
+    message: "Compose character + background prompts and save to history.",
+    href: "/character?mode=compose",
+    linkLabel: "Open Compose mode",
+  },
+  background: {
+    message: "Generate background prompts and save them to Studio history.",
+    href: "/background",
+    linkLabel: "Open Background",
+  },
+  pet: {
+    message: "Generate pet scenes and save them to history.",
+    href: "/pet",
+    linkLabel: "Open Pet",
+  },
+  fantasy: {
+    message: "Generate fantasy scenes and save them to history.",
+    href: "/fantasy",
+    linkLabel: "Open Fantasy",
+  },
+};
 
 type HistoryHintSeedPanelProps = {
   tool: HistorySeedTool;
@@ -79,7 +123,12 @@ export function HistoryHintSeedPanel({
       });
 
       if (!result) {
-        setHistoryStatus("No matching history yet — generate and save a few prompts first.");
+        const guidance = HISTORY_EMPTY_GUIDANCE[tool];
+        setHistoryStatus(
+          guidance
+            ? `${guidance.message} Or switch to Related tools / Favorites scope.`
+            : "No matching history yet — generate and save a few prompts first.",
+        );
         return;
       }
 
@@ -107,6 +156,8 @@ export function HistoryHintSeedPanel({
   const activeSource = SCENE_HINT_SOURCE_OPTIONS.find(
     (option) => option.value === hintSource,
   );
+
+  const emptyGuidance = HISTORY_EMPTY_GUIDANCE[tool];
 
   return (
     <>
@@ -160,6 +211,18 @@ export function HistoryHintSeedPanel({
                 : "No saved prompts match — try Related tools or generate a few scenes first."}
             </span>
           </div>
+          {hintSource === "history" && candidateCount === 0 && emptyGuidance ? (
+            <p className="type-caption">
+              {emptyGuidance.message}{" "}
+              <Link href={emptyGuidance.href} className="text-violet-300 hover:text-violet-200">
+                {emptyGuidance.linkLabel}
+              </Link>
+              {" · "}
+              <Link href="/studio" className="text-violet-300 hover:text-violet-200">
+                Open Studio history
+              </Link>
+            </p>
+          ) : null}
           {suggestions.length > 0 ? (
             <div className="space-y-2">
               <p className="type-caption">Recent suggestions</p>

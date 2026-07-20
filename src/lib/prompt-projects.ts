@@ -1,3 +1,11 @@
+import {
+  readBrowserString,
+  readBrowserValue,
+  removeBrowserKey,
+  writeBrowserString,
+  writeBrowserValue,
+} from "./browser-storage";
+
 export const PROMPT_PROJECTS_KEY = "comfy-prompt-projects-v1";
 export const ACTIVE_PROJECT_KEY = "comfy-prompt-active-project-v1";
 
@@ -14,11 +22,7 @@ export function loadPromptProjects(): PromptProject[] {
     return [];
   }
   try {
-    const raw = window.localStorage.getItem(PROMPT_PROJECTS_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as PromptProject[];
+    return readBrowserValue<PromptProject[]>(PROMPT_PROJECTS_KEY) ?? [];
   } catch {
     return [];
   }
@@ -28,7 +32,7 @@ export function savePromptProjects(projects: PromptProject[]): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(PROMPT_PROJECTS_KEY, JSON.stringify(projects.slice(0, 50)));
+  writeBrowserValue(PROMPT_PROJECTS_KEY, projects.slice(0, 50));
 }
 
 export function upsertPromptProject(project: Omit<PromptProject, "createdAt" | "updatedAt"> & Partial<Pick<PromptProject, "createdAt">>): PromptProject {
@@ -59,7 +63,7 @@ export function loadActiveProjectId(): string | undefined {
   if (typeof window === "undefined") {
     return undefined;
   }
-  return window.localStorage.getItem(ACTIVE_PROJECT_KEY)?.trim() || undefined;
+  return readBrowserString(ACTIVE_PROJECT_KEY)?.trim() || undefined;
 }
 
 export function setActiveProjectId(id: string | undefined): void {
@@ -67,10 +71,10 @@ export function setActiveProjectId(id: string | undefined): void {
     return;
   }
   if (!id) {
-    window.localStorage.removeItem(ACTIVE_PROJECT_KEY);
+    removeBrowserKey(ACTIVE_PROJECT_KEY);
     return;
   }
-  window.localStorage.setItem(ACTIVE_PROJECT_KEY, id);
+  writeBrowserString(ACTIVE_PROJECT_KEY, id);
 }
 
 export function itemMatchesProject(

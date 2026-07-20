@@ -42,6 +42,7 @@ import {
 } from "@/lib/comfyui-workflow-presets";
 import { exportAvoidedTokenList, saveAvoidedTokens } from "@/lib/avoided-tokens";
 import { WEBHOOK_LOG_KEY, loadWebhookLog, type WebhookLogEntry } from "@/lib/webhook-log";
+import { readBrowserValue, writeBrowserValue } from "@/lib/browser-storage";
 import {
   ACTIVE_PROJECT_KEY,
   loadActiveProjectId,
@@ -118,10 +119,7 @@ export function importStudioBackup(backup: StudioBackup): void {
     throw new Error("Unsupported backup version.");
   }
 
-  window.localStorage.setItem(
-    PROMPT_HISTORY_KEY,
-    JSON.stringify(backup.history.slice(0, 100)),
-  );
+  writeBrowserValue(PROMPT_HISTORY_KEY, backup.history.slice(0, 100));
   saveLocationBlocklist(backup.locationBlocklist);
   saveSettingsCache(backup.settings);
   if (backup.scenePresets) {
@@ -151,7 +149,7 @@ export function importStudioBackup(backup: StudioBackup): void {
       saveAvoidedTokens(backup.avoidedTokens);
     }
     if (backup.webhookLog) {
-      window.localStorage.setItem(WEBHOOK_LOG_KEY, JSON.stringify(backup.webhookLog));
+      writeBrowserValue(WEBHOOK_LOG_KEY, backup.webhookLog);
     }
     if (backup.promptProjects) {
       savePromptProjects(backup.promptProjects);
@@ -183,11 +181,7 @@ export function downloadStudioBackup(): void {
 
 function loadHistoryFromStorage(): PromptHistoryEntry[] {
   try {
-    const raw = window.localStorage.getItem(PROMPT_HISTORY_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as PromptHistoryEntry[];
+    return readBrowserValue<PromptHistoryEntry[]>(PROMPT_HISTORY_KEY) ?? [];
   } catch {
     return [];
   }

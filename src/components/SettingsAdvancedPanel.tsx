@@ -5,9 +5,15 @@ import { ToolSection } from "@/components/ui/ToolPageShell";
 import { Button } from "@/components/ui/Button";
 import { syncNamespaceToServer, pullNamespaceFromServer } from "@/lib/storage-sync";
 import ObservabilityDashboard from "@/components/ObservabilityDashboard";
-import { SETTINGS_CACHE_KEY, type SettingsCache } from "@/lib/settings-cache";
+import { loadSettingsCache, saveSettingsCache, type SettingsCache } from "@/lib/settings-cache";
 import { PROMPT_HISTORY_KEY } from "@/hooks/usePromptHistory";
-import { COMFYUI_GALLERY_KEY } from "@/lib/comfyui-gallery";
+import { initAppDb } from "@/lib/app-db-init";
+import { writeBrowserValue, readBrowserValue } from "@/lib/browser-storage";
+import {
+  loadComfyGallery,
+  saveComfyGalleryAsync,
+  type ComfyGalleryEntry,
+} from "@/lib/comfyui-gallery";
 
 type UsageSummary = {
   total: number;
@@ -58,18 +64,19 @@ export default function SettingsAdvancedPanel() {
       setStatus("Set PROMPT_DATA_DIR on the server to enable storage sync.");
       return;
     }
-    const settingsRaw = localStorage.getItem(SETTINGS_CACHE_KEY);
-    const historyRaw = localStorage.getItem(PROMPT_HISTORY_KEY);
-    const galleryRaw = localStorage.getItem(COMFYUI_GALLERY_KEY);
+    await initAppDb();
+    const settings = loadSettingsCache();
+    const history = readBrowserValue<unknown>(PROMPT_HISTORY_KEY);
+    const gallery = loadComfyGallery();
     const tasks: Promise<boolean>[] = [];
-    if (settingsRaw) {
-      tasks.push(syncNamespaceToServer("settings-cache", JSON.parse(settingsRaw) as SettingsCache));
+    if (settings.tools || settings.shared) {
+      tasks.push(syncNamespaceToServer("settings-cache", settings));
     }
-    if (historyRaw) {
-      tasks.push(syncNamespaceToServer("prompt-history", JSON.parse(historyRaw)));
+    if (history) {
+      tasks.push(syncNamespaceToServer("prompt-history", history));
     }
-    if (galleryRaw) {
-      tasks.push(syncNamespaceToServer("comfy-gallery", JSON.parse(galleryRaw)));
+    if (gallery.length > 0) {
+      tasks.push(syncNamespaceToServer("comfy-gallery", gallery));
     }
     const results = await Promise.all(tasks);
     setStatus(
@@ -86,19 +93,19 @@ export default function SettingsAdvancedPanel() {
     }
     const settings = await pullNamespaceFromServer<SettingsCache>("settings-cache");
     const history = await pullNamespaceFromServer<unknown>("prompt-history");
-    const gallery = await pullNamespaceFromServer<unknown>("comfy-gallery");
+    const gallery = await pullNamespaceFromServer<ComfyGalleryEntry[]>("comfy-gallery");
     if (settings) {
-      localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(settings));
+      saveSettingsCache(settings);
     }
     if (history) {
-      localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(history));
+      writeBrowserValue(PROMPT_HISTORY_KEY, history);
     }
     if (gallery) {
-      localStorage.setItem(COMFYUI_GALLERY_KEY, JSON.stringify(gallery));
+      await saveComfyGalleryAsync(gallery);
     }
     setStatus(
       settings || history || gallery
-        ? "Restored server storage into browser localStorage. Reload the page."
+        ? "Restored server storage into the app database. Reload the page."
         : "No server namespaces found to restore.",
     );
   }
@@ -124,7 +131,7 @@ export default function SettingsAdvancedPanel() {
           set on the server. Namespaces: {storageNamespaces.join(", ")}.
         </p>
         <p className="mt-2 text-sm text-zinc-500">
-          Status: {storageEnabled ? "enabled" : "disabled (localStorage only)"}
+          Status: {storageEnabled ? "enabled" : "disabled (browser database only)"}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => void pushLocalStorageToServer()}>

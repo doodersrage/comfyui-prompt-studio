@@ -1,6 +1,7 @@
 import { DEFAULT_QWEN_MODEL, type ComfyImageModel } from "./comfy-models";
 import { DEFAULT_VARIATION_SETTINGS } from "./variation-settings";
 import type { DetailLevel } from "./detail-level";
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 
 export const SETTINGS_CACHE_KEY = "comfy-prompt-tool-settings-v1";
 
@@ -45,6 +46,9 @@ export type GenerateToolCache = {
   sportPresetId?: string;
   sceneStarterCategory?: import("./scene-starter-presets").SceneStarterCategory | "all";
   sceneStarterPresetId?: string;
+  sceneStarterQuery?: string;
+  sceneStarterFraming?: import("./scene-starter-presets").SceneStarterFramingFilter;
+  sceneStarterTags?: string[];
   /** Optional theme steer for random surprise mode. */
   genre?: string;
   includePeople?: boolean;
@@ -72,6 +76,9 @@ export type CharacterToolCache = {
   sportPresetId?: string;
   sceneStarterCategory?: import("./scene-starter-presets").SceneStarterCategory | "all";
   sceneStarterPresetId?: string;
+  sceneStarterQuery?: string;
+  sceneStarterFraming?: import("./scene-starter-presets").SceneStarterFramingFilter;
+  sceneStarterTags?: string[];
   teamKit?: boolean;
   batchCount?: number;
   composeSubjectMode?: "character" | "duo";
@@ -141,6 +148,10 @@ export type ImagePromptToolCache = {
 
 export type TopicToolCache = {
   seedTopic?: string;
+  hintSource?: import("./scene-hint-source").SceneHintSource;
+  historySeedScope?: import("./scene-hint-source").HistorySeedScope;
+  randomTheme?: string;
+  lastHistorySeedEntryId?: string;
   count?: number;
   variety?: number;
   batchTarget?: "generate" | "duo" | "character" | "pet" | "fantasy" | "background";
@@ -164,6 +175,10 @@ export type StudioToolCache = {
 
 export type VariationsToolCache = {
   hints?: string;
+  hintSource?: import("./scene-hint-source").SceneHintSource;
+  historySeedScope?: import("./scene-hint-source").HistorySeedScope;
+  randomTheme?: string;
+  lastHistorySeedEntryId?: string;
   count?: number;
   variationStrength?: number;
   target?: "generate" | "character" | "duo" | "pet" | "fantasy" | "background";
@@ -306,6 +321,9 @@ export const DEFAULT_IMAGE_PROMPT_TOOL_CACHE: ImagePromptToolCache = {
 
 export const DEFAULT_TOPIC_TOOL_CACHE: TopicToolCache = {
   seedTopic: "",
+  hintSource: "manual",
+  historySeedScope: "related",
+  randomTheme: "",
   count: 10,
   variety: 50,
   batchTarget: "generate",
@@ -327,6 +345,9 @@ export const DEFAULT_STUDIO_TOOL_CACHE: StudioToolCache = {
 
 export const DEFAULT_VARIATIONS_TOOL_CACHE: VariationsToolCache = {
   hints: "",
+  hintSource: "manual",
+  historySeedScope: "related",
+  randomTheme: "",
   count: 4,
   variationStrength: 65,
   target: "generate",
@@ -397,12 +418,10 @@ export function loadSettingsCache(): SettingsCache {
   }
 
   try {
-    const raw = window.localStorage.getItem(SETTINGS_CACHE_KEY);
-    if (!raw) {
+    const parsed = readBrowserValue<Partial<SettingsCache>>(SETTINGS_CACHE_KEY);
+    if (!parsed) {
       return { shared: DEFAULT_SHARED_SETTINGS, tools: {} };
     }
-
-    const parsed = JSON.parse(raw) as Partial<SettingsCache>;
     const shared = {
       ...DEFAULT_SHARED_SETTINGS,
       ...parsed.shared,
@@ -432,7 +451,7 @@ export function saveSettingsCache(cache: SettingsCache): void {
     return;
   }
 
-  window.localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(cache));
+  writeBrowserValue(SETTINGS_CACHE_KEY, cache);
 }
 
 export function saveSharedSettings(shared: SharedToolSettings): void {

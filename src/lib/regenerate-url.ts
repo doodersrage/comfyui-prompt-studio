@@ -1,41 +1,27 @@
 import type { PromptHistoryEntry } from "@/hooks/usePromptHistory";
-
-const TOOL_PATHS: Record<string, string> = {
-  pet: "/pet",
-  fantasy: "/fantasy",
-  background: "/background",
-  character: "/character",
-  generate: "/",
-  randomScene: "/",
-};
+import {
+  extractHintsFromHistoryEntry,
+  resolveHistoryEntryNavigation,
+} from "./tool-navigation";
 
 export function buildRegenerateUrl(entry: PromptHistoryEntry): string {
-  const sceneMode =
-    entry.tool === "compose"
-      ? "compose"
-      : entry.tool === "duo" || entry.diagnostics?.inferred.duoMode
-        ? "duo"
-        : entry.tool === "character"
-          ? "solo"
-          : null;
-
-  const path =
-    sceneMode !== null
-      ? "/character"
-      : TOOL_PATHS[entry.tool] ?? "/";
-
+  const { path, mode } = resolveHistoryEntryNavigation(entry);
   const params = new URLSearchParams();
-  if (sceneMode) {
-    params.set("mode", sceneMode);
+
+  if (mode) {
+    params.set("mode", mode);
   }
   if (entry.tool === "randomScene") {
     params.set("source", "random");
   }
-  if (entry.hints?.trim()) {
-    params.set("hints", entry.hints.trim());
+
+  const hints = extractHintsFromHistoryEntry(entry);
+  if (hints) {
+    params.set("hints", hints);
   } else if (entry.tool === "generate") {
     params.set("input", entry.prompt.slice(0, 500));
   }
+
   if (entry.model && entry.model !== "n/a") {
     params.set("model", entry.model);
   }

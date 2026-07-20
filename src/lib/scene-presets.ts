@@ -1,4 +1,5 @@
 import type { SharedToolSettings } from "./settings-cache";
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 
 export const SCENE_PRESETS_KEY = "comfy-prompt-scene-presets-v1";
 
@@ -21,11 +22,7 @@ export function loadScenePresets(): ScenePreset[] {
   }
 
   try {
-    const raw = window.localStorage.getItem(SCENE_PRESETS_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as ScenePreset[];
+    return readBrowserValue<ScenePreset[]>(SCENE_PRESETS_KEY) ?? [];
   } catch {
     return [];
   }
@@ -35,7 +32,7 @@ export function saveScenePresets(presets: ScenePreset[]): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(SCENE_PRESETS_KEY, JSON.stringify(presets.slice(0, 40)));
+  writeBrowserValue(SCENE_PRESETS_KEY, presets.slice(0, 40));
 }
 
 export function createScenePreset(input: Omit<ScenePreset, "id" | "createdAt">): ScenePreset {

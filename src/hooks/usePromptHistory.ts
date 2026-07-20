@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { GenerationDiagnostics } from "@/lib/generation-diagnostics";
+import { readBrowserValue, writeBrowserValue } from "@/lib/browser-storage";
 
 export const PROMPT_HISTORY_KEY = "comfy-prompt-tool-history-v1";
 export const LOCATION_BLOCKLIST_KEY = "comfy-prompt-location-blocklist-v1";
@@ -26,11 +27,7 @@ function loadHistory(): PromptHistoryEntry[] {
   }
 
   try {
-    const raw = window.localStorage.getItem(PROMPT_HISTORY_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as PromptHistoryEntry[];
+    return readBrowserValue<PromptHistoryEntry[]>(PROMPT_HISTORY_KEY) ?? [];
   } catch {
     return [];
   }
@@ -40,10 +37,7 @@ function saveHistory(entries: PromptHistoryEntry[]): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(
-    PROMPT_HISTORY_KEY,
-    JSON.stringify(entries.slice(0, 100)),
-  );
+  writeBrowserValue(PROMPT_HISTORY_KEY, entries.slice(0, 100));
 }
 
 export function loadLocationBlocklist(): string[] {
@@ -52,11 +46,7 @@ export function loadLocationBlocklist(): string[] {
   }
 
   try {
-    const raw = window.localStorage.getItem(LOCATION_BLOCKLIST_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as string[];
+    return readBrowserValue<string[]>(LOCATION_BLOCKLIST_KEY) ?? [];
   } catch {
     return [];
   }
@@ -66,10 +56,7 @@ export function saveLocationBlocklist(entries: string[]): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(
-    LOCATION_BLOCKLIST_KEY,
-    JSON.stringify(entries.slice(0, 200)),
-  );
+  writeBrowserValue(LOCATION_BLOCKLIST_KEY, entries.slice(0, 200));
 }
 
 export function usePromptHistory() {

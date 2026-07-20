@@ -3,7 +3,9 @@
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import EnhancedPromptResult from "@/components/EnhancedPromptResult";
-import SceneStarterPresetChips from "@/components/SceneStarterPresetChips";
+import SceneStarterPresetChips, {
+  applySceneStarterWorkflowHints,
+} from "@/components/SceneStarterPresetChips";
 import SharedToolControls from "@/components/SharedToolControls";
 import {
   VariationSliderField,
@@ -51,6 +53,7 @@ import {
 } from "@/lib/scene-preset-url";
 import { getSportPreset } from "@/lib/sport-presets";
 import { isSportStarterPreset } from "@/lib/scene-starter-presets";
+import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
 import {
   RANDOMIZE_INGREDIENTS_LABEL,
   SCENE_WILDNESS_LABEL,
@@ -199,6 +202,7 @@ export default function PromptGenerator() {
       return;
     }
     const params = new URLSearchParams(window.location.search);
+    applyHintSourceFromSearchParams(params, updateToolSettings);
     if (params.get("source") === "random") {
       updateToolSettings({ generateSource: "random", hintSource: "random" });
     }
@@ -210,6 +214,9 @@ export default function PromptGenerator() {
     const prefilled = params.get("input") ?? params.get("hints");
     if (prefilled?.trim()) {
       setInput(prefilled.trim());
+      if (params.get("hintSource") === "manual") {
+        updateToolSettings({ hintSource: "manual", generateSource: "keywords" });
+      }
     }
 
     const scene = parseScenePresetFromSearch(window.location.search);
@@ -533,17 +540,36 @@ export default function PromptGenerator() {
           <SceneStarterPresetChips
             mode="all"
             accent={ACCENT}
+            currentHints={input}
+            variationsTarget="generate"
             category={toolSettings.sceneStarterCategory ?? "all"}
             onCategoryChange={(category) =>
               updateToolSettings({ sceneStarterCategory: category })
+            }
+            filterState={{
+              category: toolSettings.sceneStarterCategory ?? "all",
+              framing: toolSettings.sceneStarterFraming ?? "all",
+              query: toolSettings.sceneStarterQuery ?? "",
+              tags: toolSettings.sceneStarterTags ?? [],
+            }}
+            onFilterChange={(filter) =>
+              updateToolSettings({
+                sceneStarterCategory: filter.category,
+                sceneStarterFraming: filter.framing,
+                sceneStarterQuery: filter.query,
+                sceneStarterTags: filter.tags,
+              })
             }
             selectedId={toolSettings.sceneStarterPresetId ?? toolSettings.sportPresetId}
             onSelect={(preset) => {
               updateToolSettings({
                 sceneStarterPresetId: preset.id,
                 sportPresetId: isSportStarterPreset(preset.id) ? preset.id : undefined,
+                hintSource: "manual",
+                generateSource: "keywords",
               });
               setInput(preset.hints);
+              applySceneStarterWorkflowHints(preset, updateShared);
             }}
           />
         )}

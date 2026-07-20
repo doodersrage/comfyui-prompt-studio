@@ -1,3 +1,5 @@
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+
 export type ToolPlugin = {
   id: string;
   label: string;
@@ -6,6 +8,8 @@ export type ToolPlugin = {
   category: "prompt" | "scene" | "tools" | "video" | "plugin";
   enabled?: boolean;
 };
+
+export const TOOL_PLUGIN_REGISTRY_KEY = "tool-plugin-registry-v1";
 
 export const BUILTIN_TOOL_PLUGINS: ToolPlugin[] = [
   {
@@ -29,8 +33,7 @@ export function loadToolPlugins(): ToolPlugin[] {
     return BUILTIN_TOOL_PLUGINS;
   }
   try {
-    const raw = window.localStorage.getItem("tool-plugin-registry-v1");
-    const custom = raw ? (JSON.parse(raw) as ToolPlugin[]) : [];
+    const custom = readBrowserValue<ToolPlugin[]>(TOOL_PLUGIN_REGISTRY_KEY) ?? [];
     return [...BUILTIN_TOOL_PLUGINS, ...custom.filter((entry) => entry.enabled !== false)];
   } catch {
     return BUILTIN_TOOL_PLUGINS;
@@ -41,5 +44,5 @@ export function saveCustomToolPlugins(plugins: ToolPlugin[]): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem("tool-plugin-registry-v1", JSON.stringify(plugins.slice(0, 24)));
+  writeBrowserValue(TOOL_PLUGIN_REGISTRY_KEY, plugins.slice(0, 24));
 }

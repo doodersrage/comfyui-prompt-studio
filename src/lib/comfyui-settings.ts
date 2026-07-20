@@ -6,6 +6,7 @@ import {
   type CustomWorkflowToken,
   type WorkflowParamValues,
 } from "./comfyui-config";
+import { readBrowserValue, removeBrowserKey, writeBrowserValue } from "./browser-storage";
 
 export const COMFYUI_SETTINGS_KEY = "comfyui-settings-v4";
 
@@ -96,11 +97,10 @@ const LEGACY_SETTINGS_KEYS = [
   "comfyui-settings-v1",
 ];
 
-function migrateLegacySettings(raw: string): ComfyUiSettings {
+function migrateLegacySettings(
+  parsed: Partial<ComfyUiSettings & { positiveNodeId?: string; negativeNodeId?: string }>,
+): ComfyUiSettings {
   try {
-    const parsed = JSON.parse(raw) as Partial<
-      ComfyUiSettings & { positiveNodeId?: string; negativeNodeId?: string }
-    >;
     return {
       ...DEFAULT_COMFYUI_SETTINGS,
       useServerDefaults: parsed.useServerDefaults ?? true,
@@ -124,14 +124,15 @@ export function loadComfyUiSettings(): ComfyUiSettings {
   }
 
   try {
-    const current = window.localStorage.getItem(COMFYUI_SETTINGS_KEY);
+    const current = readBrowserValue<Partial<ComfyUiSettings>>(COMFYUI_SETTINGS_KEY);
     if (current) {
-      const parsed = JSON.parse(current) as Partial<ComfyUiSettings>;
-      return { ...DEFAULT_COMFYUI_SETTINGS, ...parsed };
+      return { ...DEFAULT_COMFYUI_SETTINGS, ...current };
     }
 
     for (const legacyKey of LEGACY_SETTINGS_KEYS) {
-      const legacy = window.localStorage.getItem(legacyKey);
+      const legacy = readBrowserValue<
+        Partial<ComfyUiSettings & { positiveNodeId?: string; negativeNodeId?: string }>
+      >(legacyKey);
       if (legacy) {
         const migrated = migrateLegacySettings(legacy);
         saveComfyUiSettings(migrated);
@@ -150,9 +151,9 @@ export function saveComfyUiSettings(settings: ComfyUiSettings): void {
     return;
   }
 
-  window.localStorage.setItem(COMFYUI_SETTINGS_KEY, JSON.stringify(settings));
+  writeBrowserValue(COMFYUI_SETTINGS_KEY, settings);
   for (const legacyKey of LEGACY_SETTINGS_KEYS) {
-    window.localStorage.removeItem(legacyKey);
+    removeBrowserKey(legacyKey);
   }
 }
 
@@ -161,9 +162,9 @@ export function resetComfyUiSettings(): void {
     return;
   }
 
-  window.localStorage.removeItem(COMFYUI_SETTINGS_KEY);
+  removeBrowserKey(COMFYUI_SETTINGS_KEY);
   for (const legacyKey of LEGACY_SETTINGS_KEYS) {
-    window.localStorage.removeItem(legacyKey);
+    removeBrowserKey(legacyKey);
   }
 }
 

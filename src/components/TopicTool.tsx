@@ -50,6 +50,15 @@ import {
 } from "@/components/ui/ToolPageShell";
 import { FieldDivider, FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
 import { Button, PrimaryButton } from "@/components/ui/Button";
+import {
+  HistoryHintSeedPanel,
+  resolveSceneHintsForGeneration,
+} from "@/components/scene-tool/HistoryHintSeedPanel";
+import {
+  normalizeHistorySeedScope,
+  normalizeSceneHintSource,
+} from "@/lib/scene-hint-source";
+import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
 
 const ACCENT = "violet" as const;
 
@@ -78,6 +87,14 @@ export default function TopicTool() {
   );
 
   const batchTarget = toolSettings.batchTarget ?? "generate";
+  const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
+  const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
+  const historyCandidateCount = countHistorySeedCandidates("generate", historySeedScope);
+  const effectiveSeedTopic = resolveSceneHintsForGeneration({
+    hintSource,
+    hints: toolSettings.seedTopic,
+    randomTheme: toolSettings.randomTheme,
+  });
 
   useEffect(() => {
     if (!mounted) {
@@ -111,7 +128,7 @@ export default function TopicTool() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          seedTopic: toolSettings.seedTopic,
+          seedTopic: effectiveSeedTopic,
           count: toolSettings.count,
           variety: toolSettings.variety,
           recentLocations: [],
@@ -137,7 +154,7 @@ export default function TopicTool() {
     } finally {
       setLoading(false);
     }
-  }, [toolSettings, getBlocklist]);
+  }, [toolSettings, getBlocklist, effectiveSeedTopic]);
 
   const batchGenerate = useCallback(async () => {
     if (topics.length === 0) {
@@ -351,6 +368,30 @@ export default function TopicTool() {
       }
     >
       <ToolSection>
+        <HistoryHintSeedPanel
+          tool="generate"
+          hintSource={hintSource}
+          historySeedScope={historySeedScope}
+          hints={toolSettings.seedTopic ?? ""}
+          randomTheme={toolSettings.randomTheme ?? ""}
+          lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+          onHintSourceChange={(source) => updateToolSettings({ hintSource: source })}
+          onHistorySeedScopeChange={(scope) =>
+            updateToolSettings({ historySeedScope: scope })
+          }
+          onHintsChange={(value) => updateToolSettings({ seedTopic: value })}
+          onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
+          onHistorySeedApplied={(result) => {
+            updateToolSettings({
+              seedTopic: result.hints,
+              lastHistorySeedEntryId: result.entryId,
+            });
+          }}
+          accentFocusClassName={accentFocusClass(ACCENT)}
+        />
+
+        <FieldDivider />
+
         <FieldLabel>Starting theme (optional)</FieldLabel>
         <TextArea
           value={toolSettings.seedTopic ?? ""}
@@ -358,6 +399,7 @@ export default function TopicTool() {
           placeholder="e.g. solarpunk, lonely robots, underwater cities — or leave blank"
           rows={2}
           className={accentFocusClass(ACCENT)}
+          disabled={hintSource !== "manual"}
         />
 
         <FieldDivider />
@@ -409,6 +451,8 @@ export default function TopicTool() {
           onClick={() => void generate()}
           loading={loading}
           loadingLabel="Generating topics"
+          disabled={hintSource === "history" && historyCandidateCount === 0}
+          data-action="primary-generate"
         >
           Generate topics
         </PrimaryButton>

@@ -45,6 +45,7 @@ const NON_SPORT_SCENE_STARTERS: readonly SceneStarterPreset[] = [
     hints: "close beauty portrait, dewy skin, subtle makeup, catchlight in the eyes, magazine lighting",
     category: "portrait",
     portraitStyle: "portrait",
+    suggestedModel: "flux-2-klein",
   },
   {
     id: "full-body-street-style",
@@ -538,4 +539,10 @@ export function sceneStartersForCategory(
 
 export function isSportStarterPreset(id: string): boolean {
   return SPORT_PRESETS.some((preset) => preset.id === id);
+}
+
+export function getAllSceneStarterPresets(
+  userPresets: readonly SceneStarterPreset[] = [],
+): SceneStarterPreset[] {
+  return [...userPresets, ...SCENE_STARTER_PRESETS];
 }

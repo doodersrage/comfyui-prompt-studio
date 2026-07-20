@@ -1,5 +1,6 @@
 import type { WebhookJobPayload } from "./webhook-settings";
 import { dispatchWebhook } from "./webhook-settings";
+import { readBrowserValue, removeBrowserKey, writeBrowserValue } from "./browser-storage";
 
 export const WEBHOOK_LOG_KEY = "comfy-prompt-webhook-log-v1";
 export const WEBHOOK_LOG_UPDATED_EVENT = "webhook-log-updated";
@@ -21,11 +22,7 @@ export function loadWebhookLog(): WebhookLogEntry[] {
     return [];
   }
   try {
-    const raw = window.localStorage.getItem(WEBHOOK_LOG_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as WebhookLogEntry[];
+    return readBrowserValue<WebhookLogEntry[]>(WEBHOOK_LOG_KEY) ?? [];
   } catch {
     return [];
   }
@@ -35,7 +32,7 @@ function saveWebhookLog(entries: WebhookLogEntry[]): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(WEBHOOK_LOG_KEY, JSON.stringify(entries.slice(0, MAX_LOG_ENTRIES)));
+  writeBrowserValue(WEBHOOK_LOG_KEY, entries.slice(0, MAX_LOG_ENTRIES));
   window.dispatchEvent(new CustomEvent(WEBHOOK_LOG_UPDATED_EVENT));
 }
 
@@ -62,7 +59,7 @@ export function clearWebhookLog(): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.removeItem(WEBHOOK_LOG_KEY);
+  removeBrowserKey(WEBHOOK_LOG_KEY);
   window.dispatchEvent(new CustomEvent(WEBHOOK_LOG_UPDATED_EVENT));
 }
 

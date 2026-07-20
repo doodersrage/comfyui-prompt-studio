@@ -1,4 +1,6 @@
 import type { PromptHistoryEntry } from "@/hooks/usePromptHistory";
+import { PROMPT_HISTORY_KEY } from "@/hooks/usePromptHistory";
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 import {
   loadComfyGallery,
   updateComfyGalleryByPromptId,
@@ -30,12 +32,10 @@ export function attachGalleryPromptIdToHistory(
   }
 
   try {
-    const key = "comfy-prompt-tool-history-v1";
-    const raw = window.localStorage.getItem(key);
-    if (!raw) {
+    const entries = readBrowserValue<PromptHistoryEntry[]>(PROMPT_HISTORY_KEY);
+    if (!entries) {
       return;
     }
-    const entries = JSON.parse(raw) as PromptHistoryEntry[];
     const next = entries.map((entry) =>
       entry.id === historyId
         ? {
@@ -48,7 +48,7 @@ export function attachGalleryPromptIdToHistory(
           }
         : entry,
     );
-    window.localStorage.setItem(key, JSON.stringify(next.slice(0, 100)));
+    writeBrowserValue(PROMPT_HISTORY_KEY, next.slice(0, 100));
   } catch {
     // ignore
   }

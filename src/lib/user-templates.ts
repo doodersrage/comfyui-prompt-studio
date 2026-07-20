@@ -1,4 +1,5 @@
 import type { PromptTemplate } from "./prompt-templates";
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 
 export const USER_TEMPLATES_KEY = "comfy-prompt-user-templates-v1";
 
@@ -12,11 +13,7 @@ export function loadUserTemplates(): UserPromptTemplate[] {
   }
 
   try {
-    const raw = window.localStorage.getItem(USER_TEMPLATES_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as UserPromptTemplate[];
+    return readBrowserValue<UserPromptTemplate[]>(USER_TEMPLATES_KEY) ?? [];
   } catch {
     return [];
   }
@@ -26,7 +23,7 @@ export function saveUserTemplates(templates: UserPromptTemplate[]): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(USER_TEMPLATES_KEY, JSON.stringify(templates.slice(0, 40)));
+  writeBrowserValue(USER_TEMPLATES_KEY, templates.slice(0, 40));
 }
 
 export function createUserTemplate(input: {

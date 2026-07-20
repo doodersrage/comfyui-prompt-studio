@@ -17,6 +17,10 @@ export type SceneStarterPreset = {
   duo?: boolean;
   teamKit?: boolean;
   tags?: string[];
+  /** Optional model nudge when applying this preset. */
+  suggestedModel?: string;
+  /** Optional workflow file id from the workflow library. */
+  suggestedWorkflowFileId?: string;
 };
 
 export const SCENE_STARTER_CATEGORIES: {

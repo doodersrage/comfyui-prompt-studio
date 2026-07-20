@@ -38,8 +38,8 @@ Video, audio, and 3D-only architectures (WAN, Hunyuan Video, Stable Audio, etc.)
 | **Studio** | `/studio` | History, iteration tree, projects, compare, portfolio, campaign, analytics, catalog, templates |
 | **Lint** | `/lint` | Paste prompts for diagnostics, fix, compact, reformat |
 | **Refine** | `/refine` | Refine an existing prompt with image + intent hints |
-| **Settings** | `/settings` | LLM/ComfyUI health, webhooks, scheduled batch, backup/reset |
-| **Gallery** | `/gallery` | ComfyUI queue history, review mode, semantic search, outputs |
+| **Settings** | `/settings` | Sub-nav (Overview, LLM, ComfyUI, Automation, Data), health checks, `.env.local` catalog, webhooks, backup |
+| **Gallery** | `/gallery` | Stats dashboard, grid/dense/list layouts, review focus, compare modal, semantic search |
 | **Variations** | `/variations` | Roll N prompt variations and batch-queue to ComfyUI |
 | **ControlNet** | `/controlnet` | Structure prompts (text or image-assisted) |
 | **Video** | `/video` | Motion / camera prompts for video workflows |
@@ -57,7 +57,8 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - Uncensored system prompts (no content filtering or refusals)
 - One-click copy for ComfyUI paste
 - LLM-powered generation/formatting with rules fallback
-- **Settings cache** — target model, detail level, and per-tool options persist in `localStorage` across reloads and pages
+- **App database (Dexie)** — settings, history, presets, workflows, webhooks, and gallery persist in IndexedDB (`comfy-prompt-studio-v1`); existing `localStorage` data migrates automatically on first load
+- **Settings cache** — target model, detail level, and per-tool options persist in the app database across reloads and pages
 - **Prompt diagnostics** — lint sport/duo/helmet conflicts before or after generation
 - **Character generator** — solo, duo/sport, and compose-with-background modes; sport presets, team kit, batch roll, ComfyUI queue
 - **Studio** — prompt history with ratings, model compare, catalog browser, templates
@@ -72,7 +73,12 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Export pipeline** — “Prepare for ComfyUI” runs lint → fix → compact → copy pair → optional ComfyUI queue from any result panel
 - **Prompt sidecar** — download JSON sidecar (prompt, model, diagnostics, seed) from result panels or Studio history
 - **ComfyUI job status** — polls ComfyUI history after queue and shows pending/running/completed in the UI
-- **ComfyUI gallery** — `/gallery` stores queued jobs locally and displays output images when ComfyUI finishes; previews appear inline on result panels
+- **ComfyUI gallery** — `/gallery` stores queued jobs in IndexedDB (Dexie) and displays output images when ComfyUI finishes; previews appear inline on result panels
+- **Gallery stats bar** — at-a-glance totals (completed, in queue, favorites, unreviewed, avg rating) with one-click filter chips
+- **Gallery layout modes** — Grid, Dense, or List view (persisted); list mode for scanning prompts; dense for more thumbnails per row
+- **Gallery review focus** — review mode auto-selects the first card, highlights focus, scrolls into view; keyboard 1–5 / F / N / P
+- **Gallery compare modal** — compare 2–4 selected outputs in a full-screen overlay instead of inline scroll
+- **Gallery card polish** — hover quick actions (Open, Improve) on thumbnails; storage cap warning near 5,000 IndexedDB entries
 - **ComfyUI workflow params** — `{{SEED}}`, `{{WIDTH}}`, `{{HEIGHT}}`, `{{CFG}}`, `{{STEPS}}` placeholders plus queue defaults in Settings; **multiple workflow JSON files** (import in Settings or configure `COMFYUI_WORKFLOW_DIR` / `COMFYUI_WORKFLOW_PATHS` on the server) with a selector next to **Send to ComfyUI**
 - **Gallery tools** — favorites, status/tool filters, image download, and sidecar JSON export per entry
 - **Variation grid** — `/variations` rolls N prompt variations and batch-queues them with unique ComfyUI seeds
@@ -128,6 +134,13 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Prompt projects** — named campaigns filter Studio history; new saves attach active project id
 - **Gallery review mode** — rate completed outputs 1–5; low ratings feed wildness/avoidance bias
 - **Preset packs** — import/export bundles of scene presets from Studio Presets tab
+- **Hint source** — Manual, From history, or Random on Generate, Character, Pet, Fantasy, Background, Topics, and Variations
+- **Scene starter catalog** — ~294 searchable presets on Generate/Character (category, framing, tag filters; `/` focuses search)
+- **User scene starter presets** — save current hints or promote gallery analytics tokens; export/import starter packs in Studio Presets
+- **Use as hints** — Studio history rows open the source tool with hints prefilled (`hintSource=manual`)
+- **Queue from preset** — selected scene preset → **Queue 4 variations** handoff to `/variations?from=preset`
+- **Persisted preset filters** — search, framing, and tag filters survive reload via settings cache
+- **Settings env panel** — copy `.env` snippet and re-run LLM/ComfyUI health tests from Overview
 - **Multi-model portfolio** — Studio Portfolio tab formats one draft for several models and batch-queues
 - **Workflow pre-flight** — Topics/Variations batch queue validates workflow placeholders before submit
 - **ComfyUI param recovery** — gallery re-queue restores saved seed/params from `queueParams`
@@ -137,7 +150,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Webhooks** — POST job completion payloads to an external URL via server proxy
 - **Active character descriptor** — shared mandatory character sheet injected into Character API requests
 - **Home dashboard** — pending ComfyUI jobs, recent outputs, and active project on `/dashboard`
-- **Keyboard shortcuts** — Ctrl+Enter generate, Ctrl+Shift+C copy pair, Ctrl+Shift+G queue ComfyUI
+- **Keyboard shortcuts** — Ctrl+Enter generate (all scene tools), Ctrl+Shift+C copy pair, Ctrl+Shift+G queue ComfyUI; `/` focuses scene preset search on Generate/Character
 - **Queue param overrides** — optional seed/width/height/cfg/steps overrides in Settings and result panels
 - **LoRA trigger injection** — missing trigger phrases from the LoRA library append on ComfyUI queue
 - **Avoided tokens** — low gallery ratings record motifs to avoid; all generators honor avoidance via LLM instruction and template pool filtering
@@ -182,7 +195,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Gallery embedding search** — semantic and find-similar use `/api/search/embeddings` when available
 - **Workflow preset pack builder** — add workflows or settings snapshots to packs; install packs into library
 - **Queue orchestration panel** — home/gallery view of ComfyUI server queue, VRAM, and local tracked jobs
-- **Server storage pull** — Settings advanced panel restores server namespaces into browser storage
+- **Server storage pull** — Settings advanced panel restores server namespaces into the app database
 - **IP-Adapter multi-ref merge** — Image tool roles + per-reference strength influence (`/api/image-prompt/multi`)
 - **ControlNet from image** — upload reference for vision-assisted structure extraction on `/controlnet`
 - **Token / weight inspector** — `(tag:1.2)` analysis on Lint, Format, and result panels

@@ -47,3 +47,17 @@ export function analyzeGalleryRatingTokens(
 export function negativeScoringTokens(stats: RatedTokenStat[]): string[] {
   return stats.filter((entry) => entry.score < 0).map((entry) => entry.token);
 }
+
+export function positiveScoringTokens(
+  stats: RatedTokenStat[],
+  limit = 6,
+): string[] {
+  return stats
+    .filter((entry) => entry.score > 0)
+    .slice(0, limit)
+    .map((entry) => entry.token);
+}
+
+export function buildSceneHintsFromPositiveTokens(tokens: string[]): string {
+  return tokens.join(", ");
+}

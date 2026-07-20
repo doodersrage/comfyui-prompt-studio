@@ -1,5 +1,6 @@
 import type { WorkflowParamValues } from "./comfyui-config";
 import { appendWebhookLogEntry } from "./webhook-log";
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 
 export const WEBHOOK_SETTINGS_KEY = "comfy-prompt-webhook-v1";
 
@@ -20,11 +21,11 @@ export function loadWebhookSettings(): WebhookSettings {
     return DEFAULT_WEBHOOK_SETTINGS;
   }
   try {
-    const raw = window.localStorage.getItem(WEBHOOK_SETTINGS_KEY);
-    if (!raw) {
+    const parsed = readBrowserValue<WebhookSettings>(WEBHOOK_SETTINGS_KEY);
+    if (!parsed) {
       return DEFAULT_WEBHOOK_SETTINGS;
     }
-    return { ...DEFAULT_WEBHOOK_SETTINGS, ...(JSON.parse(raw) as WebhookSettings) };
+    return { ...DEFAULT_WEBHOOK_SETTINGS, ...parsed };
   } catch {
     return DEFAULT_WEBHOOK_SETTINGS;
   }
@@ -34,7 +35,7 @@ export function saveWebhookSettings(settings: WebhookSettings): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(WEBHOOK_SETTINGS_KEY, JSON.stringify(settings));
+  writeBrowserValue(WEBHOOK_SETTINGS_KEY, settings);
 }
 
 export type WebhookEvent =

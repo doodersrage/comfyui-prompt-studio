@@ -25,9 +25,6 @@ export function clearAllLocalPromptData(): void {
     return;
   }
 
-  window.localStorage.removeItem(PROMPT_HISTORY_KEY);
-  window.localStorage.removeItem(SCENE_PRESETS_KEY);
-  window.localStorage.removeItem(USER_TEMPLATES_KEY);
   saveLocationBlocklist([]);
   saveSettingsCache({ shared: DEFAULT_SHARED_SETTINGS, tools: {} });
   resetComfyUiSettings();
@@ -35,6 +32,7 @@ export function clearAllLocalPromptData(): void {
   saveComfyWorkflowFiles([]);
 }
 
+/** Legacy localStorage keys still referenced for diagnostics and reset UI copy. */
 export const LOCAL_DATA_KEYS = [
   PROMPT_HISTORY_KEY,
   SETTINGS_CACHE_KEY,

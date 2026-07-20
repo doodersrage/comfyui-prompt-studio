@@ -26,6 +26,17 @@ import { resolveComfyUiRuntime } from "@/lib/comfyui-runtime";
 import { DEFAULT_VARIATIONS_TOOL_CACHE } from "@/lib/settings-cache";
 import type { ComfyImageModel } from "@/lib/comfy-models";
 import { loadGalleryVariationsHandoff } from "@/lib/gallery-variations-handoff";
+import { loadPresetVariationsHandoff } from "@/lib/preset-variations-handoff";
+import {
+  HistoryHintSeedPanel,
+  resolveSceneHintsForGeneration,
+} from "@/components/scene-tool/HistoryHintSeedPanel";
+import {
+  normalizeHistorySeedScope,
+  normalizeSceneHintSource,
+  type HistorySeedTool,
+} from "@/lib/scene-hint-source";
+import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
 import type { SharedToolSettings, VariationsToolCache } from "@/lib/settings-cache";
 import {
   buildMatrixAxes,
@@ -50,6 +61,23 @@ import { FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
 import { Button, PrimaryButton } from "@/components/ui/Button";
 
 const ACCENT = "violet" as const;
+
+function variationsHistoryTool(target: VariationTarget): HistorySeedTool {
+  switch (target) {
+    case "character":
+      return "character";
+    case "duo":
+      return "duo";
+    case "pet":
+      return "pet";
+    case "fantasy":
+      return "fantasy";
+    case "background":
+      return "background";
+    default:
+      return "generate";
+  }
+}
 
 type VariationTarget = NonNullable<VariationsToolCache["target"]>;
 
@@ -246,6 +274,23 @@ export default function VariationGridTool() {
         return;
       }
     }
+    if (params.get("from") === "preset") {
+      const handoff = loadPresetVariationsHandoff();
+      if (handoff?.hints) {
+        importedAppliedRef.current = true;
+        updateToolSettings({
+          hints: handoff.hints,
+          count: handoff.count,
+          target: handoff.target,
+          portraitStyle: handoff.portraitStyle,
+          sportPresetId: handoff.sportPresetId,
+          gridMode: "roll",
+          hintSource: "manual",
+        });
+        setStatus(`Loaded preset hints for ${handoff.count} variations.`);
+        return;
+      }
+    }
     if (params.get("from") !== "topics") {
       return;
     }
@@ -266,6 +311,15 @@ export default function VariationGridTool() {
   }, [mounted, toolSettings.importedBatchPrompts, toolSettings.importedBatchTopics, updateToolSettings]);
 
   const target = toolSettings.target ?? "generate";
+  const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
+  const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
+  const historyTool = variationsHistoryTool(target);
+  const historyCandidateCount = countHistorySeedCandidates(historyTool, historySeedScope);
+  const effectiveHints = resolveSceneHintsForGeneration({
+    hintSource,
+    hints: toolSettings.hints,
+    randomTheme: toolSettings.randomTheme,
+  });
   const gridMode = toolSettings.gridMode ?? "roll";
   const count = Math.min(12, Math.max(2, toolSettings.count ?? 4));
   const matrixRowCount = Math.min(6, Math.max(2, toolSettings.matrixRowCount ?? 3));
@@ -278,7 +332,7 @@ export default function VariationGridTool() {
       overrides: CellOverrides = {},
       labels?: { rowLabel?: string; colLabel?: string },
     ): Promise<VariationResult> => {
-      const hints = toolSettings.hints?.trim();
+      const hints = effectiveHints.trim();
       if (!hints) {
         throw new Error("Enter hints or a base prompt first.");
       }
@@ -324,12 +378,11 @@ export default function VariationGridTool() {
         colLabel: labels?.colLabel,
       };
     },
-    [getBlocklist, getRecentClothing, getRecentLocations, shared, target, toolSettings],
+    [effectiveHints, getBlocklist, getRecentClothing, getRecentLocations, shared, target, toolSettings],
   );
 
   const rollGrid = useCallback(async () => {
-    const hints = toolSettings.hints?.trim();
-    if (!hints) {
+    if (!effectiveHints.trim()) {
       setError("Enter hints or a base prompt first.");
       return;
     }
@@ -355,11 +408,10 @@ export default function VariationGridTool() {
     } finally {
       setLoading(false);
     }
-  }, [count, fetchVariation, target, toolSettings.hints]);
+  }, [count, effectiveHints, fetchVariation, target]);
 
   const rollMatrix = useCallback(async () => {
-    const hints = toolSettings.hints?.trim();
-    if (!hints) {
+    if (!effectiveHints.trim()) {
       setError("Enter hints or a base prompt first.");
       return;
     }
@@ -404,6 +456,7 @@ export default function VariationGridTool() {
       setLoading(false);
     }
   }, [
+    effectiveHints,
     fetchVariation,
     getRecentLocations,
     matrixAxisCol,
@@ -411,7 +464,6 @@ export default function VariationGridTool() {
     matrixColCount,
     matrixRowCount,
     target,
-    toolSettings.hints,
     toolSettings.variationStrength,
   ]);
 
@@ -723,6 +775,28 @@ export default function VariationGridTool() {
           />
         </div>
 
+        <HistoryHintSeedPanel
+          tool={historyTool}
+          hintSource={hintSource}
+          historySeedScope={historySeedScope}
+          hints={toolSettings.hints ?? ""}
+          randomTheme={toolSettings.randomTheme ?? ""}
+          lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
+          onHintSourceChange={(source) => updateToolSettings({ hintSource: source })}
+          onHistorySeedScopeChange={(scope) =>
+            updateToolSettings({ historySeedScope: scope })
+          }
+          onHintsChange={(value) => updateToolSettings({ hints: value })}
+          onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
+          onHistorySeedApplied={(result) => {
+            updateToolSettings({
+              hints: result.hints,
+              lastHistorySeedEntryId: result.entryId,
+            });
+          }}
+          accentFocusClassName={accentFocusClass(ACCENT)}
+        />
+
         <FieldLabel>Hints / base input</FieldLabel>
         <TextArea
           value={toolSettings.hints ?? ""}
@@ -730,6 +804,7 @@ export default function VariationGridTool() {
           rows={4}
           placeholder="neon alley, rain, black cat"
           className={accentFocusClass(ACCENT)}
+          disabled={hintSource !== "manual"}
         />
 
         <div className="flex flex-wrap gap-2">
@@ -737,8 +812,13 @@ export default function VariationGridTool() {
             accentClassName={accentButtonClass(ACCENT)}
             loading={loading}
             loadingLabel={gridMode === "matrix" ? "Rolling matrix" : "Rolling variations"}
-            disabled={gridMode === "imported"}
+            disabled={
+              gridMode === "imported" ||
+              (hintSource === "history" && historyCandidateCount === 0) ||
+              (hintSource === "manual" && !toolSettings.hints?.trim())
+            }
             onClick={() => void (gridMode === "matrix" ? rollMatrix() : rollGrid())}
+            data-action="primary-generate"
           >
             {gridMode === "matrix"
               ? `Roll matrix (${matrixRowCount}×${matrixColCount})`

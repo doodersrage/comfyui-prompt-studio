@@ -1,5 +1,6 @@
 import type { ComfyWorkflowPreset } from "./comfyui-workflow-presets";
 import { upsertComfyWorkflowFile } from "./comfyui-workflow-files";
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 
 export const WORKFLOW_PRESET_PACKS_KEY = "comfyui-workflow-preset-packs-v1";
 
@@ -17,9 +18,7 @@ export function loadWorkflowPresetPacks(): WorkflowPresetPack[] {
     return [];
   }
   try {
-    const raw = window.localStorage.getItem(WORKFLOW_PRESET_PACKS_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as WorkflowPresetPack[];
+    return readBrowserValue<WorkflowPresetPack[]>(WORKFLOW_PRESET_PACKS_KEY) ?? [];
   } catch {
     return [];
   }
@@ -27,7 +26,7 @@ export function loadWorkflowPresetPacks(): WorkflowPresetPack[] {
 
 export function saveWorkflowPresetPacks(packs: WorkflowPresetPack[]): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(WORKFLOW_PRESET_PACKS_KEY, JSON.stringify(packs));
+  writeBrowserValue(WORKFLOW_PRESET_PACKS_KEY, packs);
 }
 
 export function exportWorkflowPresetPack(pack: WorkflowPresetPack): string {

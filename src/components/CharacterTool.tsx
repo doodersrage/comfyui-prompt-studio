@@ -7,7 +7,10 @@ import EnhancedPromptResult from "@/components/EnhancedPromptResult";
 import RegionalPromptBuilderPanel from "@/components/RegionalPromptBuilderPanel";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import SharedToolControls from "@/components/SharedToolControls";
-import SceneStarterPresetChips from "@/components/SceneStarterPresetChips";
+import SceneStarterPresetChips, {
+  applySceneStarterWorkflowHints,
+} from "@/components/SceneStarterPresetChips";
+import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
 import { SubjectShotScaleControl } from "@/components/ShotScaleControl";
 import {
   SceneGenerateFooter,
@@ -184,6 +187,7 @@ export default function CharacterTool() {
       return;
     }
     const params = new URLSearchParams(window.location.search);
+    applyHintSourceFromSearchParams(params, updateToolSettings);
     const mode = parseSceneMode(params.get("mode"));
     if (mode) {
       updateToolSettings({ sceneMode: mode });
@@ -192,7 +196,10 @@ export default function CharacterTool() {
     const hints = params.get("hints");
     const seed = params.get("seed");
     if (hints?.trim()) {
-      updateToolSettings({ hints: hints.trim() });
+      updateToolSettings({
+        hints: hints.trim(),
+        ...(params.get("hintSource") === "manual" ? { hintSource: "manual" } : {}),
+      });
     }
     if (seed?.trim()) {
       updateShared({ lockedVariationSeed: seed.trim() });
@@ -485,9 +492,25 @@ export default function CharacterTool() {
           <SceneStarterPresetChips
             mode="solo"
             accent={accent}
+            currentHints={toolSettings.hints ?? ""}
+            variationsTarget="character"
             category={toolSettings.sceneStarterCategory ?? "all"}
             onCategoryChange={(category) =>
               updateToolSettings({ sceneStarterCategory: category })
+            }
+            filterState={{
+              category: toolSettings.sceneStarterCategory ?? "all",
+              framing: toolSettings.sceneStarterFraming ?? "all",
+              query: toolSettings.sceneStarterQuery ?? "",
+              tags: toolSettings.sceneStarterTags ?? [],
+            }}
+            onFilterChange={(filter) =>
+              updateToolSettings({
+                sceneStarterCategory: filter.category,
+                sceneStarterFraming: filter.framing,
+                sceneStarterQuery: filter.query,
+                sceneStarterTags: filter.tags,
+              })
             }
             selectedId={toolSettings.sceneStarterPresetId}
             onSelect={(preset) => {
@@ -496,7 +519,9 @@ export default function CharacterTool() {
                 hints: preset.hints,
                 portraitStyle: preset.portraitStyle ?? "portrait",
                 sportPresetId: undefined,
+                hintSource: "manual",
               });
+              applySceneStarterWorkflowHints(preset, updateShared);
             }}
           />
         ) : null}
@@ -505,9 +530,25 @@ export default function CharacterTool() {
           <SceneStarterPresetChips
             mode="duo"
             accent={accent}
+            currentHints={toolSettings.hints ?? ""}
+            variationsTarget="duo"
             category={toolSettings.sceneStarterCategory ?? "all"}
             onCategoryChange={(category) =>
               updateToolSettings({ sceneStarterCategory: category })
+            }
+            filterState={{
+              category: toolSettings.sceneStarterCategory ?? "all",
+              framing: toolSettings.sceneStarterFraming ?? "all",
+              query: toolSettings.sceneStarterQuery ?? "",
+              tags: toolSettings.sceneStarterTags ?? [],
+            }}
+            onFilterChange={(filter) =>
+              updateToolSettings({
+                sceneStarterCategory: filter.category,
+                sceneStarterFraming: filter.framing,
+                sceneStarterQuery: filter.query,
+                sceneStarterTags: filter.tags,
+              })
             }
             selectedId={
               toolSettings.sceneStarterPresetId ?? toolSettings.sportPresetId
@@ -519,7 +560,9 @@ export default function CharacterTool() {
                 hints: preset.hints,
                 portraitStyle: preset.portraitStyle ?? "action",
                 teamKit: preset.teamKit ?? false,
+                hintSource: "manual",
               });
+              applySceneStarterWorkflowHints(preset, updateShared);
             }}
           />
         ) : null}

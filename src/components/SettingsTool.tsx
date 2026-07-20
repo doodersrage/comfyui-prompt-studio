@@ -6,6 +6,8 @@ import {
   importStudioBackup,
   parseStudioBackupFile,
 } from "@/lib/studio-backup";
+import { STUDIO_BACKUP_LAST_EXPORT_KEY } from "@/lib/studio-backup-meta";
+import { readBrowserString, writeBrowserString } from "@/lib/browser-storage";
 import { clearAllLocalPromptData, LOCAL_DATA_KEYS } from "@/lib/local-data-reset";
 import { useComfyUiSettings } from "@/hooks/useComfyUiSettings";
 import {
@@ -266,7 +268,7 @@ export default function SettingsTool() {
     setAvoidedTokens(exportAvoidedTokenList());
     setWebhookLog(loadWebhookLog());
     try {
-      const lastBackupRaw = window.localStorage.getItem("studio-backup-last-export-v1");
+      const lastBackupRaw = readBrowserString(STUDIO_BACKUP_LAST_EXPORT_KEY);
       const lastBackup = lastBackupRaw ? Number(lastBackupRaw) : 0;
       const weekMs = 7 * 24 * 60 * 60 * 1000;
       if (!lastBackup || Date.now() - lastBackup > weekMs) {
@@ -587,7 +589,13 @@ export default function SettingsTool() {
       </ToolSection>
 
       {health?.serverEnv ? (
-        <ServerEnvPanel groups={health.serverEnv.groups} />
+        <ServerEnvPanel
+          groups={health.serverEnv.groups}
+          llmOk={health.llm.ok}
+          comfyOk={health.comfyui.ok}
+          onRefreshHealth={() => void refreshHealth()}
+          onStatus={setStatus}
+        />
       ) : null}
       </>
       )}
@@ -1659,10 +1667,7 @@ export default function SettingsTool() {
             type="button"
             onClick={() => {
               downloadStudioBackup();
-              window.localStorage.setItem(
-                "studio-backup-last-export-v1",
-                String(Date.now()),
-              );
+              writeBrowserString(STUDIO_BACKUP_LAST_EXPORT_KEY, String(Date.now()));
               setBackupReminder(null);
               setStatus("Studio backup downloaded.");
             }}

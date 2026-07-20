@@ -57,7 +57,7 @@ export default function PluginsPage() {
         </ul>
       </ToolSection>
 
-      <ToolSection title="Custom plugins (localStorage)">
+      <ToolSection title="Custom plugins (app database)">
         <p className="type-caption">
           Append custom entries as JSON array. Each item needs id, label, description, href, and
           category.

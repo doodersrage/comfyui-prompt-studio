@@ -1,4 +1,6 @@
-const EXPERIMENT_WINNERS_KEY = "comfy-experiment-winners-v1";
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+
+export const EXPERIMENT_WINNERS_KEY = "comfy-experiment-winners-v1";
 
 export type ExperimentWinnerRecord = {
   groupId: string;
@@ -11,11 +13,7 @@ export function loadExperimentWinners(): Record<string, ExperimentWinnerRecord> 
     return {};
   }
   try {
-    const raw = window.localStorage.getItem(EXPERIMENT_WINNERS_KEY);
-    if (!raw) {
-      return {};
-    }
-    return JSON.parse(raw) as Record<string, ExperimentWinnerRecord>;
+    return readBrowserValue<Record<string, ExperimentWinnerRecord>>(EXPERIMENT_WINNERS_KEY) ?? {};
   } catch {
     return {};
   }
@@ -27,7 +25,7 @@ export function markExperimentWinner(groupId: string, entryId: string): void {
   }
   const winners = loadExperimentWinners();
   winners[groupId] = { groupId, entryId, markedAt: Date.now() };
-  window.localStorage.setItem(EXPERIMENT_WINNERS_KEY, JSON.stringify(winners));
+  writeBrowserValue(EXPERIMENT_WINNERS_KEY, winners);
 }
 
 export function clearExperimentWinner(groupId: string): void {
@@ -36,5 +34,5 @@ export function clearExperimentWinner(groupId: string): void {
   }
   const winners = loadExperimentWinners();
   delete winners[groupId];
-  window.localStorage.setItem(EXPERIMENT_WINNERS_KEY, JSON.stringify(winners));
+  writeBrowserValue(EXPERIMENT_WINNERS_KEY, winners);
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import BackgroundPresetControls from "@/components/BackgroundPresetControls";
 import {
   SceneGenerateFooter,
@@ -29,6 +29,10 @@ import { presetOptionsFromBackgroundCache } from "@/lib/background-options";
 import { readSceneLocationFromMetadata } from "@/lib/recent-locations";
 import { getComfyModelDefinition } from "@/lib/comfy-models";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
+import {
+  applyBackgroundHintsFromSearchParams,
+  applyHintSourceFromSearchParams,
+} from "@/lib/tool-url-params";
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import { DEFAULT_BACKGROUND_TOOL_CACHE } from "@/lib/settings-cache";
 import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
@@ -75,6 +79,19 @@ export default function BackgroundTool() {
   const quickTagHints = [toolSettings.settingType, toolSettings.timeOfDay, toolSettings.mood]
     .filter(Boolean)
     .join(", ");
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    applyHintSourceFromSearchParams(params, updateToolSettings);
+    applyBackgroundHintsFromSearchParams(params, updateToolSettings);
+    const seed = params.get("seed");
+    if (seed?.trim()) {
+      updateShared({ lockedVariationSeed: seed.trim() });
+    }
+  }, [updateShared, updateToolSettings]);
 
   const generate = useCallback(async () => {
     setLoading(true);

@@ -4,6 +4,7 @@ import type { PromptProject } from "@/lib/prompt-projects";
 import type {
   ComfyGalleryJobStatus,
   ComfyGallerySort,
+  GalleryLayoutMode,
   GalleryPageSize,
 } from "@/lib/comfyui-gallery";
 import {
@@ -33,6 +34,10 @@ type GalleryFiltersBarProps = {
   setPageSize: (value: GalleryPageSize) => void;
   paginationEnabled: boolean;
   embeddingSearchActive: boolean;
+  embeddingSearchLoading?: boolean;
+  similarSearchLoading?: boolean;
+  layout: GalleryLayoutMode;
+  setLayout: (value: GalleryLayoutMode) => void;
   totalFiltered: number;
   totalEntries: number;
   currentPage: number;
@@ -72,6 +77,10 @@ export default function GalleryFiltersBar({
   setPageSize,
   paginationEnabled,
   embeddingSearchActive,
+  embeddingSearchLoading = false,
+  similarSearchLoading = false,
+  layout,
+  setLayout,
   totalFiltered,
   totalEntries,
   currentPage,
@@ -109,6 +118,8 @@ export default function GalleryFiltersBar({
         <p className="shrink-0 text-xs text-zinc-500">
           {totalFiltered} of {totalEntries}
           {showPagination ? ` · page ${currentPage}/${totalPages}` : ""}
+          {embeddingSearchLoading ? " · searching…" : null}
+          {similarSearchLoading ? " · ranking similar…" : null}
         </p>
       </div>
 
@@ -249,6 +260,15 @@ export default function GalleryFiltersBar({
             Slideshow
           </button>
         ) : null}
+        <span className="hidden h-5 w-px bg-zinc-800 sm:inline" aria-hidden />
+        {(["grid", "dense", "list"] as const).map((mode) => (
+          <FilterChip
+            key={mode}
+            active={layout === mode}
+            label={mode === "grid" ? "Grid" : mode === "dense" ? "Dense" : "List"}
+            onClick={() => setLayout(mode)}
+          />
+        ))}
         {activeToggleCount > 0 ? (
           <button
             type="button"

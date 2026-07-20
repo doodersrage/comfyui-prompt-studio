@@ -1,6 +1,6 @@
 import { loadComfyGallery } from "./comfyui-gallery";
-
-const HISTORY_KEY = "comfy-prompt-tool-history-v1";
+import { PROMPT_HISTORY_KEY } from "@/hooks/usePromptHistory";
+import { readBrowserValue } from "./browser-storage";
 
 type HistoryEntry = {
   rating?: number;
@@ -13,11 +13,7 @@ function loadHistoryEntries(): HistoryEntry[] {
     return [];
   }
   try {
-    const raw = window.localStorage.getItem(HISTORY_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as HistoryEntry[];
+    return readBrowserValue<HistoryEntry[]>(PROMPT_HISTORY_KEY) ?? [];
   } catch {
     return [];
   }

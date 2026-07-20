@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { galleryEntryViewUrls, loadComfyGallery } from "@/lib/comfyui-gallery";
+import { galleryEntryViewUrls, initGalleryStore, loadComfyGallery } from "@/lib/comfyui-gallery";
 import { loadScheduledBatchConfig } from "@/lib/scheduled-batch";
 import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
@@ -32,7 +32,7 @@ export default function HomeDashboard() {
       setActiveProjectId(loadActiveProjectId());
       setProjects(loadPromptProjects());
     };
-    refresh();
+    void initGalleryStore().then(refresh);
     window.addEventListener("comfyui-gallery-updated", refresh);
     return () => window.removeEventListener("comfyui-gallery-updated", refresh);
   }, []);

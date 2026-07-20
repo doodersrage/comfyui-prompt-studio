@@ -1,3 +1,5 @@
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+
 export const SCHEDULED_BATCH_KEY = "comfy-scheduled-batch-v1";
 
 export type ScheduledBatchConfig = {
@@ -51,13 +53,13 @@ export function loadScheduledBatchConfig(): ScheduledBatchConfig {
     return DEFAULT_SCHEDULED_BATCH;
   }
   try {
-    const raw = window.localStorage.getItem(SCHEDULED_BATCH_KEY);
-    if (!raw) {
+    const parsed = readBrowserValue<ScheduledBatchConfig>(SCHEDULED_BATCH_KEY);
+    if (!parsed) {
       return DEFAULT_SCHEDULED_BATCH;
     }
     return clampScheduledBatchConfig({
       ...DEFAULT_SCHEDULED_BATCH,
-      ...(JSON.parse(raw) as ScheduledBatchConfig),
+      ...parsed,
     });
   } catch {
     return DEFAULT_SCHEDULED_BATCH;
@@ -68,10 +70,7 @@ export function saveScheduledBatchConfig(config: ScheduledBatchConfig): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(
-    SCHEDULED_BATCH_KEY,
-    JSON.stringify(clampScheduledBatchConfig(config)),
-  );
+  writeBrowserValue(SCHEDULED_BATCH_KEY, clampScheduledBatchConfig(config));
 }
 
 export function shouldRunScheduledBatch(config: ScheduledBatchConfig, now = Date.now()): boolean {

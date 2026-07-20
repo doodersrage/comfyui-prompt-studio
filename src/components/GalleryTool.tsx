@@ -36,7 +36,7 @@ export default function GalleryTool() {
       width="wide"
       badge={<ToolBadge accent={ACCENT}>Gallery</ToolBadge>}
       title="ComfyUI Gallery"
-      description="Browse outputs, review ratings, and queue follow-up work — without wading through every tool at once."
+      description="Browse outputs, review and compare variants, run experiments, and queue follow-up work from one place."
     >
       <ComfyUiGalleryPanel showHeader showFilters />
 

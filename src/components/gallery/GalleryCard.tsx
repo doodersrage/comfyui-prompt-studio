@@ -17,12 +17,16 @@ import {
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
 import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
+import type { GalleryLayoutMode } from "@/lib/comfyui-gallery";
 
 type GalleryCardProps = {
   entry: ComfyGalleryEntry;
   compact: boolean;
+  layout?: GalleryLayoutMode;
   selectable?: boolean;
   selected?: boolean;
+  reviewFocus?: boolean;
+  cardRef?: React.Ref<HTMLElement>;
   onToggleSelected?: () => void;
   previewUrl: string | null;
   imageUrls: string[];
@@ -58,8 +62,11 @@ function statusTone(status: ComfyGalleryEntry["status"]): string {
 export default function GalleryCard({
   entry,
   compact,
+  layout = "grid",
   selectable,
   selected,
+  reviewFocus = false,
+  cardRef,
   onToggleSelected,
   previewUrl,
   imageUrls,
@@ -106,16 +113,24 @@ export default function GalleryCard({
     .filter(Boolean)
     .join(" · ");
 
-  return (
-    <article
-      className={`group/card relative rounded-2xl border bg-gradient-to-b from-zinc-950/80 to-zinc-950/40 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)] transition hover:border-zinc-700/80 ${
-        selected
-          ? "border-violet-500/50 ring-1 ring-violet-500/25"
-          : "border-zinc-800/80"
-      } ${menuOpen ? "z-30" : "z-0"}`}
+  const cardTone = selected
+    ? "border-violet-500/50 ring-1 ring-violet-500/25"
+    : reviewFocus
+      ? "border-violet-400/60 ring-2 ring-violet-400/35 shadow-[0_0_24px_-8px_rgba(139,92,246,0.45)]"
+      : "border-zinc-800/80";
+
+  const imageBlock = (
+    <div
+      className={`relative overflow-hidden bg-zinc-900/90 ${
+        layout === "list"
+          ? "h-28 w-28 shrink-0 rounded-xl sm:h-32 sm:w-36"
+          : layout === "dense"
+            ? "aspect-[3/4] rounded-t-2xl"
+            : "aspect-[4/5] rounded-t-2xl sm:aspect-square"
+      }`}
     >
-      <div className="relative aspect-[4/5] overflow-hidden rounded-t-2xl bg-zinc-900/90 sm:aspect-square">
-        {previewUrl ? (
+      {previewUrl ? (
+        <>
           <button
             type="button"
             onClick={() => onOpenImage(0)}
@@ -129,16 +144,38 @@ export default function GalleryCard({
               className="h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02]"
             />
           </button>
-        ) : entry.status === "pending" || entry.status === "running" ? (
-          <ComfyUiGalleryJobPlaceholder entry={entry} />
-        ) : (
-          <div className="flex h-full items-center justify-center px-4 text-center text-xs text-zinc-500">
-            {entry.status === "error"
-              ? entry.statusMessage ?? "Generation failed"
-              : "No image output"}
-          </div>
-        )}
+          {layout !== "list" ? (
+            <div className="pointer-events-none absolute inset-0 flex items-end justify-center gap-2 bg-gradient-to-t from-zinc-950/95 via-zinc-950/35 to-transparent p-3 opacity-0 transition duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100">
+              <button
+                type="button"
+                onClick={() => onOpenImage(0)}
+                className="pointer-events-auto rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-2.5 py-1 text-[11px] text-zinc-200 backdrop-blur transition hover:border-zinc-500"
+              >
+                Open
+              </button>
+              {entry.status === "completed" ? (
+                <button
+                  type="button"
+                  onClick={() => startImproveFromGalleryEntry(entry)}
+                  className="pointer-events-auto rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200 backdrop-blur transition hover:bg-emerald-500/20"
+                >
+                  Improve
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </>
+      ) : entry.status === "pending" || entry.status === "running" ? (
+        <ComfyUiGalleryJobPlaceholder entry={entry} />
+      ) : (
+        <div className="flex h-full items-center justify-center px-4 text-center text-xs text-zinc-500">
+          {entry.status === "error"
+            ? entry.statusMessage ?? "Generation failed"
+            : "No image output"}
+        </div>
+      )}
 
+      {layout !== "list" ? (
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2.5">
           <div className="flex flex-wrap items-center gap-1.5">
             <span
@@ -187,114 +224,161 @@ export default function GalleryCard({
             </button>
           </div>
         </div>
+      ) : null}
 
-        {(entry.status === "pending" || entry.status === "running") &&
-        entry.queuePosition != null &&
-        entry.queuePosition > 0 ? (
-          <p className="absolute bottom-2 left-2 rounded-full border border-zinc-700/60 bg-zinc-950/80 px-2 py-0.5 text-[10px] text-zinc-400 backdrop-blur">
-            Queue #{entry.queuePosition}
-          </p>
+      {(entry.status === "pending" || entry.status === "running") &&
+      entry.queuePosition != null &&
+      entry.queuePosition > 0 ? (
+        <p className="absolute bottom-2 left-2 rounded-full border border-zinc-700/60 bg-zinc-950/80 px-2 py-0.5 text-[10px] text-zinc-400 backdrop-blur">
+          Queue #{entry.queuePosition}
+        </p>
+      ) : null}
+    </div>
+  );
+
+  const bodyBlock = (
+    <div className={`min-w-0 flex-1 space-y-2.5 ${layout === "list" ? "py-1" : "p-3.5"}`}>
+      {layout === "list" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusTone(entry.status)}`}
+          >
+            {statusLabel(entry.status)}
+          </span>
+          {entry.reviewRating ? (
+            <span className="text-[10px] text-violet-300">{entry.reviewRating}★</span>
+          ) : null}
+          {reviewFocus ? (
+            <span className="text-[10px] font-medium text-violet-300">Review focus</span>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          {promptExpanded ? (
+            <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-3 text-xs leading-relaxed text-zinc-300">
+              {entry.prompt}
+            </pre>
+          ) : (
+            <p
+              className={`leading-snug text-zinc-300 ${
+                layout === "list" ? "line-clamp-3 text-sm" : "line-clamp-2 text-sm"
+              }`}
+            >
+              {entry.prompt}
+            </p>
+          )}
+          {metaLine ? (
+            <p className="mt-1.5 truncate text-[11px] text-zinc-500">
+              {metaLine}
+              {entry.queuedAt ? ` · ${new Date(entry.queuedAt).toLocaleDateString()}` : ""}
+            </p>
+          ) : null}
+        </div>
+        {layout === "list" && selectable ? (
+          <label className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-700/70 bg-zinc-950/80">
+            <input
+              type="checkbox"
+              checked={selected ?? false}
+              onChange={onToggleSelected}
+              aria-label="Select entry"
+              className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            />
+          </label>
         ) : null}
       </div>
 
-      <div className="space-y-2.5 p-3.5">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            {promptExpanded ? (
-              <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-3 text-xs leading-relaxed text-zinc-300">
-                {entry.prompt}
-              </pre>
-            ) : (
-              <p className="line-clamp-2 text-sm leading-snug text-zinc-300">{entry.prompt}</p>
-            )}
-            {metaLine ? (
-              <p className="mt-1.5 truncate text-[11px] text-zinc-500">
-                {metaLine}
-                {entry.queuedAt ? ` · ${new Date(entry.queuedAt).toLocaleDateString()}` : ""}
-              </p>
-            ) : null}
-          </div>
+      {!compact && layout !== "list" && imageUrls.length > 1 ? (
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+          {imageUrls.slice(1, 5).map((url, thumbIndex) => (
+            <button
+              key={url}
+              type="button"
+              onClick={() => onOpenImage(thumbIndex + 1)}
+              className="shrink-0 overflow-hidden rounded-lg border border-zinc-800 transition hover:border-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
+              aria-label={`Open image ${thumbIndex + 2} preview`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" className="h-9 w-9 object-cover" />
+            </button>
+          ))}
         </div>
+      ) : null}
 
-        {!compact && imageUrls.length > 1 ? (
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-            {imageUrls.slice(1, 5).map((url, thumbIndex) => (
-              <button
-                key={url}
-                type="button"
-                onClick={() => onOpenImage(thumbIndex + 1)}
-                className="shrink-0 overflow-hidden rounded-lg border border-zinc-800 transition hover:border-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
-                aria-label={`Open image ${thumbIndex + 2} preview`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="" className="h-9 w-9 object-cover" />
-              </button>
-            ))}
-          </div>
-        ) : null}
+      {reviewMode && entry.status === "completed" && onReviewRating ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-zinc-500">Rate</span>
+          {[1, 2, 3, 4, 5].map((rating) => (
+            <button
+              key={rating}
+              type="button"
+              onClick={() => onReviewRating(rating as ComfyGalleryEntry["reviewRating"])}
+              className={`min-h-8 min-w-8 rounded-lg border text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 ${
+                entry.reviewRating === rating
+                  ? "border-violet-500/60 bg-violet-500/15 text-violet-100"
+                  : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+              }`}
+            >
+              {rating}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-        {reviewMode && entry.status === "completed" && onReviewRating ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] text-zinc-500">Rate</span>
-            {[1, 2, 3, 4, 5].map((rating) => (
-              <button
-                key={rating}
-                type="button"
-                onClick={() => onReviewRating(rating as ComfyGalleryEntry["reviewRating"])}
-                className={`min-h-8 min-w-8 rounded-lg border text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 ${
-                  entry.reviewRating === rating
-                    ? "border-violet-500/60 bg-violet-500/15 text-violet-100"
-                    : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
-                }`}
-              >
-                {rating}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+      <div className="flex flex-wrap items-center gap-2 pt-0.5">
+        <button
+          type="button"
+          onClick={() => setPromptExpanded((previous) => !previous)}
+          className="ui-btn-ghost ui-btn-sm text-xs"
+        >
+          {promptExpanded ? "Less" : "Prompt"}
+        </button>
+        {previewUrl ? (
           <button
             type="button"
-            onClick={() => setPromptExpanded((previous) => !previous)}
+            onClick={() => onOpenImage(0)}
             className="ui-btn-ghost ui-btn-sm text-xs"
           >
-            {promptExpanded ? "Less" : "Prompt"}
+            Open
           </button>
-          {previewUrl ? (
-            <button
-              type="button"
-              onClick={() => onOpenImage(0)}
-              className="ui-btn-ghost ui-btn-sm text-xs"
-            >
-              Open
-            </button>
-          ) : null}
-          {entry.status === "completed" && previewUrl ? (
-            <button
-              type="button"
-              onClick={() => startImproveFromGalleryEntry(entry)}
-              className="ui-btn-ghost ui-btn-sm text-xs text-emerald-300 hover:text-emerald-200"
-            >
-              Improve
-            </button>
-          ) : null}
+        ) : null}
+        {entry.status === "completed" && previewUrl ? (
+          <button
+            type="button"
+            onClick={() => startImproveFromGalleryEntry(entry)}
+            className="ui-btn-ghost ui-btn-sm text-xs text-emerald-300 hover:text-emerald-200"
+          >
+            Improve
+          </button>
+        ) : null}
+        {layout === "list" ? (
+          <button
+            type="button"
+            onClick={onToggleFavorite}
+            className="ui-btn-ghost ui-btn-sm text-xs"
+          >
+            {entry.favorite ? "Unfavorite" : "Favorite"}
+          </button>
+        ) : null}
 
-          <div ref={menuRef} className="relative ml-auto">
-            <button
-              type="button"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              onClick={() => setMenuOpen((previous) => !previous)}
-              className="ui-btn-ghost ui-btn-sm text-xs"
+        <div ref={menuRef} className="relative ml-auto">
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            onClick={() => setMenuOpen((previous) => !previous)}
+            className="ui-btn-ghost ui-btn-sm text-xs"
+          >
+            More
+          </button>
+          {menuOpen ? (
+            <div
+              role="menu"
+              className={`absolute z-50 min-w-[12rem] overflow-hidden rounded-xl border border-zinc-700/80 bg-zinc-950 p-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] ring-1 ring-white/5 ${
+                layout === "list" ? "right-0 top-full mt-1.5" : "bottom-full right-0 mb-1.5"
+              }`}
             >
-              More
-            </button>
-            {menuOpen ? (
-              <div
-                role="menu"
-                className="absolute bottom-full right-0 z-50 mb-1.5 min-w-[12rem] overflow-hidden rounded-xl border border-zinc-700/80 bg-zinc-950 p-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] ring-1 ring-white/5"
-              >
                 <GalleryMenuButton
                   label="Copy prompt"
                   onClick={() => {
@@ -381,7 +465,25 @@ export default function GalleryCard({
             ) : null}
           </div>
         </div>
-      </div>
+    </div>
+  );
+
+  return (
+    <article
+      ref={cardRef}
+      data-gallery-entry={entry.id}
+      className={`group/card relative min-w-0 rounded-2xl border bg-gradient-to-b from-zinc-950/80 to-zinc-950/40 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)] transition hover:border-zinc-700/80 ${cardTone} ${
+        menuOpen ? "z-30" : "z-0"
+      }`}
+    >
+      {layout === "list" ? (
+        <div className="flex gap-4 p-3">{imageBlock}{bodyBlock}</div>
+      ) : (
+        <>
+          {imageBlock}
+          {bodyBlock}
+        </>
+      )}
     </article>
   );
 }

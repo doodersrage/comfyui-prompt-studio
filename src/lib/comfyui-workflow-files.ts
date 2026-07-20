@@ -2,6 +2,7 @@ import {
   loadComfyWorkflowPresets,
   type ComfyWorkflowPreset,
 } from "./comfyui-workflow-presets";
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 
 export const COMFY_WORKFLOW_FILES_KEY = "comfyui-workflow-files-v1";
 
@@ -35,11 +36,7 @@ function loadComfyWorkflowFilesRaw(): ComfyWorkflowFile[] {
   }
 
   try {
-    const raw = window.localStorage.getItem(COMFY_WORKFLOW_FILES_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as ComfyWorkflowFile[];
+    return readBrowserValue<ComfyWorkflowFile[]>(COMFY_WORKFLOW_FILES_KEY) ?? [];
   } catch {
     return [];
   }
@@ -50,10 +47,7 @@ function saveComfyWorkflowFilesRaw(files: ComfyWorkflowFile[]): void {
     return;
   }
 
-  window.localStorage.setItem(
-    COMFY_WORKFLOW_FILES_KEY,
-    JSON.stringify(files.slice(0, 32)),
-  );
+  writeBrowserValue(COMFY_WORKFLOW_FILES_KEY, files.slice(0, 32));
 }
 
 function presetToWorkflowFile(preset: ComfyWorkflowPreset): ComfyWorkflowFile {

@@ -4,6 +4,7 @@ import {
   promptContainsAvoidedTokensFromList,
   tokenizeForAvoidance,
 } from "./avoidance-options";
+import { readBrowserValue, removeBrowserKey, writeBrowserValue } from "./browser-storage";
 
 export const AVOIDED_TOKENS_KEY = "comfy-prompt-avoided-tokens-v1";
 export const AVOIDED_TOKENS_UPDATED_EVENT = "avoided-tokens-updated";
@@ -17,7 +18,7 @@ function persistAvoidedTokens(tokens: Iterable<string>): void {
   const list = [...new Set([...tokens].map((token) => token.trim().toLowerCase()).filter(Boolean))].slice(
     -MAX_AVOIDED_TOKENS,
   );
-  window.localStorage.setItem(AVOIDED_TOKENS_KEY, JSON.stringify(list));
+  writeBrowserValue(AVOIDED_TOKENS_KEY, list);
   window.dispatchEvent(new CustomEvent(AVOIDED_TOKENS_UPDATED_EVENT));
 }
 
@@ -60,7 +61,7 @@ export function clearAvoidedTokens(): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.removeItem(AVOIDED_TOKENS_KEY);
+  removeBrowserKey(AVOIDED_TOKENS_KEY);
   window.dispatchEvent(new CustomEvent(AVOIDED_TOKENS_UPDATED_EVENT));
 }
 
@@ -69,11 +70,11 @@ export function loadAvoidedTokens(): Set<string> {
     return new Set();
   }
   try {
-    const raw = window.localStorage.getItem(AVOIDED_TOKENS_KEY);
-    if (!raw) {
+    const list = readBrowserValue<string[]>(AVOIDED_TOKENS_KEY);
+    if (!list) {
       return new Set();
     }
-    return new Set(JSON.parse(raw) as string[]);
+    return new Set(list);
   } catch {
     return new Set();
   }

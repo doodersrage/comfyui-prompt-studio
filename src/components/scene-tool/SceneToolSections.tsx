@@ -167,6 +167,7 @@ export function SceneGenerateFooter({
           disabled={disabled}
           loading={loading}
           loadingLabel={loadingLabel}
+          data-action="primary-generate"
         >
           {label}
         </PrimaryButton>

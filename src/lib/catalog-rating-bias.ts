@@ -1,8 +1,9 @@
 "use client";
 
 import { loadComfyGallery } from "./comfyui-gallery";
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 
-const BIAS_KEY = "comfy-catalog-rating-bias-v1";
+export const CATALOG_RATING_BIAS_KEY = "comfy-catalog-rating-bias-v1";
 
 type CatalogBiasEntry = {
   token: string;
@@ -22,11 +23,7 @@ function loadBiasMap(): Map<string, number> {
     return new Map();
   }
   try {
-    const raw = window.localStorage.getItem(BIAS_KEY);
-    if (!raw) {
-      return new Map();
-    }
-    const entries = JSON.parse(raw) as CatalogBiasEntry[];
+    const entries = readBrowserValue<CatalogBiasEntry[]>(CATALOG_RATING_BIAS_KEY) ?? [];
     return new Map(entries.map((entry) => [entry.token, entry.score]));
   } catch {
     return new Map();
@@ -41,7 +38,7 @@ function saveBiasMap(map: Map<string, number>): void {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 120)
     .map(([token, score]) => ({ token, score }));
-  window.localStorage.setItem(BIAS_KEY, JSON.stringify(entries));
+  writeBrowserValue(CATALOG_RATING_BIAS_KEY, entries);
 }
 
 export function recordCatalogBiasFromPrompt(

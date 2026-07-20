@@ -14,6 +14,9 @@ import GalleryComparePanel from "@/components/GalleryComparePanel";
 import GalleryCard from "@/components/gallery/GalleryCard";
 import GalleryFiltersBar from "@/components/gallery/GalleryFiltersBar";
 import GallerySelectionBar from "@/components/gallery/GallerySelectionBar";
+import GalleryStatsBar from "@/components/gallery/GalleryStatsBar";
+import { EmptyState } from "@/components/ui/ViewState";
+import { computeGalleryStats } from "@/lib/gallery-stats";
 import { queueMutatedGalleryJobs } from "@/lib/gallery-mutations";
 import { queueNegativeAbTest } from "@/lib/negative-ab-queue";
 import { queueSeedExperiment } from "@/lib/seed-experiment-queue";
@@ -57,6 +60,7 @@ import {
   sortGalleryEntries,
   type ComfyGalleryEntry,
   type ComfyGallerySort,
+  type GalleryLayoutMode,
   type GalleryPageSize,
   type GallerySlideshowIntervalMs,
   type GallerySlideshowTransition,
@@ -93,6 +97,8 @@ export default function ComfyUiGalleryPanel({
     setReviewRating,
     embeddingSearchActive,
     similarSearchActive,
+    embeddingSearchLoading,
+    similarSearchLoading,
   } = useComfyUiGallery();
 
   useEffect(() => {
@@ -122,6 +128,7 @@ export default function ComfyUiGalleryPanel({
     useState<GallerySlideshowIntervalMs>(5000);
   const [slideshowTransition, setSlideshowTransition] =
     useState<GallerySlideshowTransition>("slide");
+  const [layout, setLayout] = useState<GalleryLayoutMode>("grid");
   const [viewPrefsLoaded, setViewPrefsLoaded] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareStatus, setCompareStatus] = useState<string | null>(null);
@@ -144,6 +151,8 @@ export default function ComfyUiGalleryPanel({
 
   const bulkEnabled = showFilters && !compact;
   const paginationEnabled = showFilters && !compact && !limit;
+  const galleryStats = useMemo(() => computeGalleryStats(entries), [entries]);
+  const activeJobs = galleryStats.pending + galleryStats.running;
 
   const filteredSource = showFilters ? filteredEntries : entries;
   const sortedSource = useMemo(
@@ -160,6 +169,7 @@ export default function ComfyUiGalleryPanel({
     setPageSize(preferences.pageSize);
     setSlideshowIntervalMs(preferences.slideshowIntervalMs);
     setSlideshowTransition(preferences.slideshowTransition);
+    setLayout(preferences.layout);
     setViewPrefsLoaded(true);
   }, [mounted]);
 
@@ -172,12 +182,14 @@ export default function ComfyUiGalleryPanel({
       pageSize,
       slideshowIntervalMs,
       slideshowTransition,
+      layout,
     });
   }, [
     sort,
     pageSize,
     slideshowIntervalMs,
     slideshowTransition,
+    layout,
     viewPrefsLoaded,
     paginationEnabled,
   ]);
@@ -273,6 +285,28 @@ export default function ComfyUiGalleryPanel({
   }, [filter.reviewMode, visibleEntries, selectedIds]);
 
   const reviewFocusEntry = visibleEntries[reviewFocusIndex] ?? null;
+
+  useEffect(() => {
+    if (!filter.reviewMode || visibleEntries.length === 0) {
+      return;
+    }
+    if (selectedIds.length === 0) {
+      const firstCompleted =
+        visibleEntries.find((entry) => entry.status === "completed") ??
+        visibleEntries[0];
+      if (firstCompleted) {
+        setSelectedIds([firstCompleted.id]);
+      }
+    }
+  }, [filter.reviewMode, visibleEntries, selectedIds.length]);
+
+  useEffect(() => {
+    if (!filter.reviewMode || !reviewFocusEntry) {
+      return;
+    }
+    const node = document.querySelector(`[data-gallery-entry="${reviewFocusEntry.id}"]`);
+    node?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [filter.reviewMode, reviewFocusEntry?.id, reviewFocusEntry]);
 
   useEffect(() => {
     if (!filter.reviewMode || !reviewFocusEntry) {
@@ -393,7 +427,8 @@ export default function ComfyUiGalleryPanel({
           <div>
             <h2 className="type-heading text-zinc-100">Gallery</h2>
             <p className="mt-1 text-sm text-zinc-500">
-              Outputs queued from this app, with live status while ComfyUI runs.
+              Browse ComfyUI outputs, rate results, compare variants, and queue follow-up
+              experiments.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -404,6 +439,11 @@ export default function ComfyUiGalleryPanel({
             >
               Refresh jobs
             </button>
+            {activeJobs > 0 ? (
+              <span className="self-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100">
+                {activeJobs} active
+              </span>
+            ) : null}
             {entries.length > 0 && (
               <button
                 type="button"
@@ -426,6 +466,16 @@ export default function ComfyUiGalleryPanel({
         </div>
       )}
 
+      {showFilters && entries.length > 0 ? (
+        <GalleryStatsBar
+          stats={galleryStats}
+          filter={filter}
+          activeJobs={activeJobs}
+          onRefreshPending={() => void refreshPending()}
+          onQuickFilter={(patch) => setFilter((previous) => ({ ...previous, ...patch }))}
+        />
+      ) : null}
+
       {showFilters && (
         <GalleryFiltersBar
           filter={filter}
@@ -440,6 +490,10 @@ export default function ComfyUiGalleryPanel({
           setPageSize={setPageSize}
           paginationEnabled={paginationEnabled}
           embeddingSearchActive={embeddingSearchActive}
+          embeddingSearchLoading={embeddingSearchLoading}
+          similarSearchLoading={similarSearchLoading}
+          layout={layout}
+          setLayout={setLayout}
           totalFiltered={totalFiltered}
           totalEntries={entries.length}
           currentPage={currentPage}
@@ -662,7 +716,14 @@ export default function ComfyUiGalleryPanel({
       )}
 
       {compareOpen && selectedEntries.length >= 2 ? (
-        <GalleryComparePanel
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-zinc-950/85 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Compare gallery outputs"
+        >
+          <div className="my-4 w-full max-w-7xl">
+            <GalleryComparePanel
           entries={selectedEntries.slice(0, 4)}
           onClose={() => {
             setCompareOpen(false);
@@ -716,30 +777,56 @@ export default function ComfyUiGalleryPanel({
             }).then((queued) => setCompareStatus(`Queued ${queued} mutations.`));
           }}
           onImprove={(entry) => startImproveFromGalleryEntry(entry)}
-        />
+            />
+          </div>
+        </div>
       ) : null}
 
       {visibleEntries.length === 0 ? (
-        <p className="text-sm text-zinc-500">
-          {entries.length === 0
-            ? "Nothing queued yet. Use Send to ComfyUI or Prepare for ComfyUI on any result panel."
-            : "No entries match the current filters."}
-        </p>
+        entries.length === 0 ? (
+          <EmptyState
+            icon="inbox"
+            title="No gallery outputs yet"
+            description="Queue prompts from any tool with Send to ComfyUI, or import sidecars and ComfyUI history below."
+            action={{ label: "Open Generate", href: "/" }}
+          />
+        ) : (
+          <EmptyState
+            icon="search"
+            title="No entries match these filters"
+            description="Try clearing search, status, or project filters — or turn off semantic search."
+            action={{
+              label: "Clear filters",
+              onClick: () =>
+                setFilter({
+                  status: "all",
+                }),
+            }}
+          />
+        )
       ) : (
         <div
           className={
-            compact
-              ? "grid grid-cols-2 gap-4 overflow-visible sm:grid-cols-3"
-              : "grid grid-cols-1 gap-6 overflow-visible sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+            layout === "list"
+              ? "flex flex-col gap-3 overflow-visible"
+              : layout === "dense"
+                ? compact
+                  ? "grid grid-cols-2 gap-3 overflow-visible sm:grid-cols-3 lg:grid-cols-4"
+                  : "grid grid-cols-2 gap-4 overflow-visible sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+                : compact
+                  ? "grid grid-cols-2 gap-4 overflow-visible sm:grid-cols-3"
+                  : "grid grid-cols-1 gap-6 overflow-visible sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
           }
         >
           {visibleEntries.map((entry) => (
             <GalleryCard
               key={entry.id}
               entry={entry}
-              compact={compact}
+              compact={compact || layout === "dense"}
+              layout={layout}
               selectable={bulkEnabled}
               selected={selectedIds.includes(entry.id)}
+              reviewFocus={filter.reviewMode && reviewFocusEntry?.id === entry.id}
               onToggleSelected={() => toggleSelected(entry.id)}
               previewUrl={primaryViewUrl(entry)}
               imageUrls={galleryEntryViewUrls(entry)}

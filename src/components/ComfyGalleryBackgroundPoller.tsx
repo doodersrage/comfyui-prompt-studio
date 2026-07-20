@@ -2,11 +2,14 @@
 
 import { useEffect } from "react";
 import { COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
+import { initAppDb } from "@/lib/app-db-init";
 import { resumePendingGalleryPolls } from "@/lib/comfyui-gallery-poller";
 
 export default function ComfyGalleryBackgroundPoller() {
   useEffect(() => {
-    resumePendingGalleryPolls();
+    void initAppDb().then(() => {
+      resumePendingGalleryPolls();
+    });
 
     const onGalleryUpdated = () => {
       resumePendingGalleryPolls();

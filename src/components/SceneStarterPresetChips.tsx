@@ -1,15 +1,29 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   SCENE_STARTER_CATEGORIES,
-  SCENE_STARTER_PRESETS,
   SCENE_STARTER_TAG_OPTIONS,
+  DEFAULT_SCENE_STARTER_FILTER,
   filterSceneStarters,
+  getAllSceneStarterPresets,
   type SceneStarterCategory,
+  type SceneStarterFilterState,
   type SceneStarterFramingFilter,
   type SceneStarterPreset,
 } from "@/lib/scene-starter-presets";
+import {
+  buildUserSceneStarterFromHints,
+  loadUserSceneStarterPresets,
+  upsertUserSceneStarterPreset,
+} from "@/lib/user-scene-starter-presets";
+import {
+  buildPresetVariationsHandoff,
+  presetVariationsPath,
+  savePresetVariationsHandoff,
+} from "@/lib/preset-variations-handoff";
+import type { ComfyImageModel } from "@/lib/comfy-models";
 import { ROUTE_TINT_CLASSES, type ToolAccent } from "@/lib/tool-theme";
 import { TextInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
@@ -26,91 +40,197 @@ const PRESET_BATCH = 48;
 type SceneStarterPresetChipsProps = {
   selectedId?: string;
   onSelect: (preset: SceneStarterPreset) => void;
+  filterState?: SceneStarterFilterState;
+  onFilterChange?: (filter: SceneStarterFilterState) => void;
   category?: SceneStarterCategory | "all";
   onCategoryChange?: (category: SceneStarterCategory | "all") => void;
   mode?: "solo" | "duo" | "all";
   accent?: ToolAccent;
   title?: string;
+  currentHints?: string;
+  variationsTarget?: "generate" | "character" | "duo";
+  onUserPresetsChange?: () => void;
 };
+
+function resolveFilterState(
+  filterState: SceneStarterFilterState | undefined,
+  category: SceneStarterCategory | "all",
+): SceneStarterFilterState {
+  if (filterState) {
+    return filterState;
+  }
+  return {
+    ...DEFAULT_SCENE_STARTER_FILTER,
+    category,
+  };
+}
 
 export default function SceneStarterPresetChips({
   selectedId,
   onSelect,
+  filterState,
+  onFilterChange,
   category = "all",
   onCategoryChange,
   mode = "all",
   accent = "violet",
   title = "Scene presets",
+  currentHints = "",
+  variationsTarget = "generate",
+  onUserPresetsChange,
 }: SceneStarterPresetChipsProps) {
-  const [localCategory, setLocalCategory] = useState<SceneStarterCategory | "all">(
-    category,
+  const searchInputId = "scene-starter-preset-search";
+  const [userPresetVersion, setUserPresetVersion] = useState(0);
+  const [localFilter, setLocalFilter] = useState<SceneStarterFilterState>(() =>
+    resolveFilterState(filterState, category),
   );
-  const [query, setQuery] = useState("");
-  const [framing, setFraming] = useState<SceneStarterFramingFilter>("all");
-  const [activeTags, setActiveTags] = useState<string[]>([]);
+
+  const activeFilter = filterState ?? localFilter;
+  const activeCategory = onCategoryChange ? category : activeFilter.category;
+  const activeChipClass = ROUTE_TINT_CLASSES[accent].badge;
   const [visibleCount, setVisibleCount] = useState(PRESET_BATCH);
 
-  const activeCategory = onCategoryChange ? category : localCategory;
-  const activeChipClass = ROUTE_TINT_CLASSES[accent].badge;
+  const userPresets = useMemo(
+    () => loadUserSceneStarterPresets(),
+    [userPresetVersion],
+  );
+
+  const allPresets = useMemo(
+    () => getAllSceneStarterPresets(userPresets),
+    [userPresets],
+  );
 
   const filtered = useMemo(
     () =>
       filterSceneStarters(
-        SCENE_STARTER_PRESETS,
-        { category: activeCategory, framing, query, tags: activeTags },
+        allPresets,
+        {
+          ...activeFilter,
+          category: activeCategory,
+        },
         mode,
       ),
-    [activeCategory, framing, query, activeTags, mode],
+    [allPresets, activeFilter, activeCategory, mode],
   );
 
   const visiblePresets = filtered.slice(0, visibleCount);
   const filtersActive =
-    query.trim().length > 0 ||
-    framing !== "all" ||
-    activeTags.length > 0 ||
+    activeFilter.query.trim().length > 0 ||
+    activeFilter.framing !== "all" ||
+    activeFilter.tags.length > 0 ||
     activeCategory !== "all";
 
-  const setCategory = (next: SceneStarterCategory | "all") => {
-    if (onCategoryChange) {
-      onCategoryChange(next);
+  const selectedPreset = allPresets.find((preset) => preset.id === selectedId);
+
+  const patchFilter = (patch: Partial<SceneStarterFilterState>) => {
+    const next = { ...activeFilter, ...patch };
+    if (onFilterChange) {
+      onFilterChange(next);
     } else {
-      setLocalCategory(next);
+      setLocalFilter(next);
     }
     setVisibleCount(PRESET_BATCH);
   };
 
+  const setCategory = (next: SceneStarterCategory | "all") => {
+    if (onCategoryChange) {
+      onCategoryChange(next);
+    }
+    patchFilter({ category: next });
+  };
+
   const toggleTag = (tag: string) => {
-    setActiveTags((previous) =>
-      previous.includes(tag)
-        ? previous.filter((entry) => entry !== tag)
-        : [...previous, tag],
-    );
-    setVisibleCount(PRESET_BATCH);
+    patchFilter({
+      tags: activeFilter.tags.includes(tag)
+        ? activeFilter.tags.filter((entry) => entry !== tag)
+        : [...activeFilter.tags, tag],
+    });
   };
 
   const clearFilters = () => {
-    setQuery("");
-    setFraming("all");
-    setActiveTags([]);
-    setCategory("all");
+    const cleared = { ...DEFAULT_SCENE_STARTER_FILTER };
+    if (onCategoryChange) {
+      onCategoryChange("all");
+    }
+    if (onFilterChange) {
+      onFilterChange(cleared);
+    } else {
+      setLocalFilter(cleared);
+    }
+    setVisibleCount(PRESET_BATCH);
   };
+
+  const saveCurrentAsPreset = () => {
+    const hints = currentHints.trim();
+    if (!hints) {
+      return;
+    }
+    const label = window.prompt("Preset name", hints.slice(0, 48));
+    if (!label?.trim()) {
+      return;
+    }
+    upsertUserSceneStarterPreset(
+      buildUserSceneStarterFromHints({
+        label: label.trim(),
+        hints,
+        category: activeCategory === "all" ? "lifestyle" : activeCategory,
+        duo: mode === "duo",
+      }),
+    );
+    setUserPresetVersion((version) => version + 1);
+    onUserPresetsChange?.();
+  };
+
+  const queueVariationsFromPreset = (preset: SceneStarterPreset) => {
+    savePresetVariationsHandoff(
+      buildPresetVariationsHandoff({
+        hints: preset.hints,
+        target: preset.duo ? "duo" : variationsTarget,
+        count: 4,
+        portraitStyle: preset.portraitStyle,
+        sportPresetId: preset.id.startsWith("sport-") ? preset.id : undefined,
+      }),
+    );
+    window.location.href = presetVariationsPath();
+  };
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      document.getElementById(searchInputId)?.focus();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-zinc-200">{title}</p>
-        <p className="type-caption">
-          {filtered.length} of {SCENE_STARTER_PRESETS.length} presets
+        <p className="type-caption" aria-live="polite">
+          {filtered.length} of {allPresets.length} presets
+          {userPresets.length > 0 ? ` · ${userPresets.length} saved` : ""}
         </p>
       </div>
 
       <TextInput
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value);
-          setVisibleCount(PRESET_BATCH);
-        }}
-        placeholder="Search presets by name, mood, or keywords…"
+        id={searchInputId}
+        value={activeFilter.query}
+        onChange={(event) => patchFilter({ query: event.target.value })}
+        placeholder="Search presets (/ to focus)…"
         aria-label="Search scene presets"
       />
 
@@ -120,7 +240,7 @@ export default function SceneStarterPresetChips({
             key={item.value}
             type="button"
             onClick={() => setCategory(item.value)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
               activeCategory === item.value
                 ? activeChipClass
                 : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
@@ -136,12 +256,9 @@ export default function SceneStarterPresetChips({
           <button
             key={option.value}
             type="button"
-            onClick={() => {
-              setFraming(option.value);
-              setVisibleCount(PRESET_BATCH);
-            }}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-              framing === option.value
+            onClick={() => patchFilter({ framing: option.value })}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
+              activeFilter.framing === option.value
                 ? activeChipClass
                 : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
             }`}
@@ -158,8 +275,8 @@ export default function SceneStarterPresetChips({
               key={tag.id}
               type="button"
               onClick={() => toggleTag(tag.id)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                activeTags.includes(tag.id)
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
+                activeFilter.tags.includes(tag.id)
                   ? activeChipClass
                   : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
               }`}
@@ -170,11 +287,27 @@ export default function SceneStarterPresetChips({
         )}
       </div>
 
-      {filtersActive ? (
-        <Button variant="ghost" size="sm" onClick={clearFilters}>
-          Clear filters
-        </Button>
-      ) : null}
+      <div className="flex flex-wrap gap-2">
+        {filtersActive ? (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        ) : null}
+        {currentHints.trim() ? (
+          <Button variant="secondary" size="sm" onClick={saveCurrentAsPreset}>
+            Save current hints as preset
+          </Button>
+        ) : null}
+        {selectedPreset ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => queueVariationsFromPreset(selectedPreset)}
+          >
+            Queue 4 variations
+          </Button>
+        ) : null}
+      </div>
 
       <div className="ui-surface-inset max-h-56 space-y-2 overflow-y-auto p-2">
         {filtered.length === 0 ? (
@@ -185,22 +318,32 @@ export default function SceneStarterPresetChips({
           <div className="flex flex-wrap gap-2">
             {visiblePresets.map((preset) => {
               const active = selectedId === preset.id;
+              const isUser = preset.id.startsWith("user-");
               return (
                 <button
                   key={preset.id}
                   type="button"
-                  title={preset.hints}
+                  title={[
+                    preset.hints,
+                    preset.suggestedModel
+                      ? `Suggested model: ${preset.suggestedModel}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join("\n")}
                   onClick={() => onSelect(preset)}
-                  className={`rounded-lg border px-3 py-1.5 text-left text-xs font-medium transition ${
+                  className={`rounded-lg border px-3 py-1.5 text-left text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
                     active
                       ? activeChipClass
                       : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
                   }`}
                 >
                   <span className="block">{preset.label}</span>
-                  {preset.duo ? (
-                    <span className="type-caption mt-0.5 block text-zinc-500">duo</span>
-                  ) : null}
+                  <span className="type-caption mt-0.5 block text-zinc-500">
+                    {[preset.duo ? "duo" : null, isUser ? "saved" : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
                 </button>
               );
             })}
@@ -217,6 +360,36 @@ export default function SceneStarterPresetChips({
           Show more ({filtered.length - visibleCount} remaining)
         </Button>
       ) : null}
+
+      <p className="type-caption">
+        Manage saved presets in{" "}
+        <Link href="/studio?tab=presets" className="text-violet-300 hover:text-violet-200">
+          Studio → Presets
+        </Link>
+        .
+      </p>
     </div>
   );
+}
+
+export function applySceneStarterWorkflowHints(
+  preset: SceneStarterPreset,
+  updateShared: (patch: {
+    model?: ComfyImageModel;
+    selectedWorkflowFileId?: string;
+  }) => void,
+): void {
+  const patch: {
+    model?: ComfyImageModel;
+    selectedWorkflowFileId?: string;
+  } = {};
+  if (preset.suggestedModel) {
+    patch.model = preset.suggestedModel as ComfyImageModel;
+  }
+  if (preset.suggestedWorkflowFileId) {
+    patch.selectedWorkflowFileId = preset.suggestedWorkflowFileId;
+  }
+  if (Object.keys(patch).length > 0) {
+    updateShared(patch);
+  }
 }

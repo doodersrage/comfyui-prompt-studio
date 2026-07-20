@@ -1,4 +1,5 @@
 import type { WorkflowParamValues } from "./comfyui-config";
+import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 
 export const QUEUE_PARAMS_KEY = "comfy-queue-params-v1";
 
@@ -20,11 +21,11 @@ export function loadQueueParamsSettings(): QueueParamsSettings {
     return DEFAULT_QUEUE_PARAMS;
   }
   try {
-    const raw = window.localStorage.getItem(QUEUE_PARAMS_KEY);
-    if (!raw) {
+    const parsed = readBrowserValue<QueueParamsSettings>(QUEUE_PARAMS_KEY);
+    if (!parsed) {
       return DEFAULT_QUEUE_PARAMS;
     }
-    return { ...DEFAULT_QUEUE_PARAMS, ...(JSON.parse(raw) as QueueParamsSettings) };
+    return { ...DEFAULT_QUEUE_PARAMS, ...parsed };
   } catch {
     return DEFAULT_QUEUE_PARAMS;
   }
@@ -34,7 +35,7 @@ export function saveQueueParamsSettings(settings: QueueParamsSettings): void {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(QUEUE_PARAMS_KEY, JSON.stringify(settings));
+  writeBrowserValue(QUEUE_PARAMS_KEY, settings);
 }
 
 export function resolveQueueParams(base?: WorkflowParamValues): WorkflowParamValues {
