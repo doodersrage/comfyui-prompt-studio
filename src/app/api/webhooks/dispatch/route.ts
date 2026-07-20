@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
+import {
+  assertSafeHttpUrl,
+  isWebhookPrivateAllowed,
+} from "@/lib/url-safety";
 
 export const runtime = "nodejs";
 
@@ -21,6 +25,18 @@ export async function POST(request: Request) {
       return apiError("Webhook URL is required.", 400);
     }
 
+    let safeUrl: URL;
+    try {
+      safeUrl = assertSafeHttpUrl(url, {
+        allowPrivate: isWebhookPrivateAllowed(),
+      });
+    } catch (error) {
+      return apiError(
+        error instanceof Error ? error.message : "Invalid webhook URL.",
+        400,
+      );
+    }
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -28,10 +44,12 @@ export async function POST(request: Request) {
       headers["X-Prompt-Tools-Secret"] = body.secret.trim();
     }
 
-    const response = await fetch(url, {
+    const response = await fetch(safeUrl.toString(), {
       method: "POST",
       headers,
       body: JSON.stringify(body.payload ?? {}),
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
     });
 
     return apiJson({

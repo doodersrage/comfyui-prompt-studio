@@ -21,10 +21,14 @@ export async function GET(request: Request) {
     const status = await getComfyUiPromptStatus(promptId, runtime);
     return apiJson(status);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "ComfyUI status check failed.",
-      502,
-    );
+    const message =
+      error instanceof Error ? error.message : "ComfyUI status check failed.";
+    const status = /not allowed|Invalid URL|URL is required|allowlist/i.test(
+      message,
+    )
+      ? 400
+      : 502;
+    return apiError(message, status);
   }
 }
 

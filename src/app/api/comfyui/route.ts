@@ -1,4 +1,5 @@
 import {
+  COMFYUI_MAX_BATCH_PROMPTS,
   queueBatchToComfyUi,
   queuePromptToComfyUi,
 } from "@/lib/comfyui-client";
@@ -39,6 +40,13 @@ export async function POST(request: Request) {
       return apiError("Prompt is required.", 400);
     }
 
+    if (prompts.length > COMFYUI_MAX_BATCH_PROMPTS) {
+      return apiError(
+        `At most ${COMFYUI_MAX_BATCH_PROMPTS} prompts can be queued per request.`,
+        400,
+      );
+    }
+
     if (prompts.length === 1) {
       const result = await queuePromptToComfyUi(
         {
@@ -76,10 +84,14 @@ export async function POST(request: Request) {
 
     return apiJson(batch);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "ComfyUI request failed.",
-      500,
-    );
+    const message =
+      error instanceof Error ? error.message : "ComfyUI request failed.";
+    const status = /not allowed|Invalid URL|URL is required|allowlist/i.test(
+      message,
+    )
+      ? 400
+      : 500;
+    return apiError(message, status);
   }
 }
 

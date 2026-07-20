@@ -26,6 +26,16 @@ def extract_prompt(response: dict) -> str:
     return prompt
 
 
+def _auth_headers() -> dict[str, str]:
+    token = (os.environ.get("PROMPT_API_TOKEN") or "").strip()
+    if not token:
+        return {}
+    return {
+        "Authorization": f"Bearer {token}",
+        "X-Prompt-Api-Token": token,
+    }
+
+
 def post_json(api_base_url: str, path: str, payload: dict) -> dict:
     base = resolve_api_base(api_base_url)
     url = f"{base}{path}"
@@ -33,7 +43,10 @@ def post_json(api_base_url: str, path: str, payload: dict) -> dict:
     request = urllib.request.Request(
         url,
         data=body,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            **_auth_headers(),
+        },
         method="POST",
     )
 

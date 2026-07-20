@@ -257,7 +257,7 @@ export default function ComfyWorkflowLibraryPanel({
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-zinc-100">{entry.name}</p>
-                    <p className="truncate text-xs text-zinc-500">{entry.path}</p>
+                    <p className="truncate text-xs text-zinc-500">Server workflow</p>
                   </div>
                   <button
                     type="button"

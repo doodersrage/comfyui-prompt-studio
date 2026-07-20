@@ -19,10 +19,14 @@ export async function GET(request: Request) {
     );
     return apiJson({ items, count: items.length, comfyUrl: items[0]?.comfyUrl });
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "ComfyUI history import failed.",
-      502,
-    );
+    const message =
+      error instanceof Error ? error.message : "ComfyUI history import failed.";
+    const status = /not allowed|Invalid URL|URL is required|allowlist/i.test(
+      message,
+    )
+      ? 400
+      : 502;
+    return apiError(message, status);
   }
 }
 

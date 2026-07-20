@@ -15,7 +15,6 @@ import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
 export type ServerWorkflowOption = {
   id: string;
   name: string;
-  path: string;
   source: "server";
 };
 

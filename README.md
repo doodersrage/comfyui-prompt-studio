@@ -174,6 +174,8 @@ Other families use limits tuned to their encoder (see `src/lib/comfy-models/limi
 
 ## Quick start
 
+Requires **Node.js 22+**.
+
 ```bash
 npm install
 cp .env.example .env.local
@@ -182,11 +184,22 @@ npm run dev
 
 Open [http://localhost:47832](http://localhost:47832).
 
+### Security notes
+
+This app is designed for a **trusted local / LAN** setup. By default the HTTP API is open (CORS `*`) so ComfyUI custom nodes and CLI tools can call it.
+
+When exposing beyond localhost:
+
+1. Set `PROMPT_API_TOKEN` — cross-origin and non-browser clients must send `Authorization: Bearer <token>` (same-origin UI still works). ComfyUI nodes read the same token from `PROMPT_API_TOKEN`.
+2. Set `COMFYUI_ALLOW_CLIENT_URL=false` so callers cannot override the ComfyUI base URL (SSRF).
+3. Prefer binding to loopback (`127.0.0.1`) — `docker-compose.yml` already does this.
+4. Webhook dispatch blocks private/metadata URLs unless `WEBHOOK_ALLOW_PRIVATE=true`.
+
 ## Docker
 
 ```bash
 docker build -t qwen-image-prompt .
-docker run --rm -p 47832:47832 \
+docker run --rm -p 127.0.0.1:47832:47832 \
   -e LLM_API_BASE_URL=http://host.docker.internal:11434/v1 \
   -e LLM_MODEL=dolphin-llama3 \
   -e LLM_VISION_MODEL=qwen3-vl:latest \
@@ -241,6 +254,11 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `LLM_TEMPERATURE` | `0.95` | Sampling temperature (higher = more variation) |
 | `LLM_ENABLED` | `true` | Set `false` for template-only mode |
 | `ALLOW_TEMPLATE_FALLBACK` | `true` | Fall back if LLM is unreachable |
+| `PROMPT_API_TOKEN` | _(empty)_ | Optional API bearer token for non-browser clients |
+| `COMFYUI_API_URL` | `http://127.0.0.1:8188` | Default ComfyUI base URL |
+| `COMFYUI_ALLOW_CLIENT_URL` | `true` | Allow clients to override ComfyUI URL |
+| `COMFYUI_ALLOWED_HOSTS` | _(empty)_ | Optional comma-separated ComfyUI host allowlist |
+| `WEBHOOK_ALLOW_PRIVATE` | `false` | Allow webhook POSTs to private/LAN URLs |
 
 ### Ollama (local, uncensored)
 

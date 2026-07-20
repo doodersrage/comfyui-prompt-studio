@@ -12,6 +12,11 @@ import {
   type WorkflowParamValues,
 } from "./comfyui-config";
 import { loadServerWorkflowJson } from "./comfyui-server-workflows";
+import {
+  getComfyUiAllowedHosts,
+  isComfyClientUrlAllowed,
+  normalizeSafeHttpUrl,
+} from "./url-safety";
 
 export type ComfyQueueRequest = {
   prompt: string;
@@ -30,16 +35,32 @@ export type ComfyQueueResult = {
   replacements?: { positive: number; negative: number };
 };
 
-export function getComfyUiBaseUrl(runtime?: ComfyUiRuntimeConfig): string {
-  if (runtime?.apiUrl?.trim()) {
-    return runtime.apiUrl.trim().replace(/\/+$/, "");
-  }
+/** Max prompts accepted by /api/comfyui in one request. */
+export const COMFYUI_MAX_BATCH_PROMPTS = 12;
 
+function envComfyUiBaseUrl(): string {
   return (
     process.env.COMFYUI_API_URL?.trim() ||
     process.env.COMFY_PROMPT_API_URL?.trim()?.replace(/:\d+$/, ":8188") ||
     "http://127.0.0.1:8188"
   );
+}
+
+export function getComfyUiBaseUrl(runtime?: ComfyUiRuntimeConfig): string {
+  const allowedHosts = getComfyUiAllowedHosts();
+  const clientUrl = runtime?.apiUrl?.trim();
+
+  if (clientUrl && isComfyClientUrlAllowed()) {
+    return normalizeSafeHttpUrl(clientUrl, {
+      allowPrivate: true,
+      allowedHosts,
+    });
+  }
+
+  return normalizeSafeHttpUrl(envComfyUiBaseUrl(), {
+    allowPrivate: true,
+    allowedHosts,
+  });
 }
 
 function loadWorkflowFromEnv(): Record<string, unknown> | null {

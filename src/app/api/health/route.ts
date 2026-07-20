@@ -22,10 +22,27 @@ export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
   const runtime = parseRuntimeFromSearch(searchParams);
 
+  let comfyUiUrl = "";
+  try {
+    comfyUiUrl = getComfyUiBaseUrl(runtime);
+  } catch {
+    comfyUiUrl = "";
+  }
+
   const [llm, comfyui, workflow] = await Promise.all([
     checkLlmHealth(),
     checkComfyUiHealth(runtime),
-    getComfyUiWorkflowSummary(runtime),
+    (async () => {
+      try {
+        return await getComfyUiWorkflowSummary(runtime);
+      } catch (error) {
+        return {
+          apiUrl: comfyUiUrl,
+          workflowSource: "none" as const,
+          error: error instanceof Error ? error.message : "Invalid ComfyUI config",
+        };
+      }
+    })(),
   ]);
 
   return apiJson({
@@ -37,7 +54,7 @@ export async function GET(request: Request) {
       allowTemplateFallback: allowTemplateFallback(),
       llmModel: getLlmConfig().model,
       visionModel: getLlmConfig().visionModel,
-      comfyUiUrl: getComfyUiBaseUrl(runtime),
+      comfyUiUrl,
     },
   });
 }

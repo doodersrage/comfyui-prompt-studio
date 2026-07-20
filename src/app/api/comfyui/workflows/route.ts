@@ -4,10 +4,10 @@ import { apiJson } from "@/lib/api/response";
 export const runtime = "nodejs";
 
 export async function GET() {
+  // Omit absolute filesystem paths from the API response.
   const workflows = listServerWorkflowFiles().map((entry) => ({
     id: `server:${entry.id}`,
     name: entry.name,
-    path: entry.path,
     source: "server" as const,
   }));
 

@@ -1,24 +1,46 @@
 import { getComfyUiBaseUrl } from "@/lib/comfyui-client";
 import { stripEmptyComfyUiRuntime } from "@/lib/comfyui-config";
 import { apiError, apiMethodNotAllowed } from "@/lib/api/response";
+import {
+  normalizeComfyViewType,
+  sanitizeComfyViewFilename,
+  sanitizeComfyViewSubfolder,
+} from "@/lib/url-safety";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const filename = searchParams.get("filename")?.trim();
-  const subfolder = searchParams.get("subfolder")?.trim() ?? "";
-  const type = searchParams.get("type")?.trim() || "output";
 
-  if (!filename) {
-    return apiError("filename query parameter is required.", 400);
+  let filename: string;
+  let subfolder: string;
+  let type: "output" | "input" | "temp";
+  try {
+    filename = sanitizeComfyViewFilename(searchParams.get("filename") ?? "");
+    subfolder = sanitizeComfyViewSubfolder(searchParams.get("subfolder") ?? "");
+    type = normalizeComfyViewType(searchParams.get("type")?.trim() || "output");
+  } catch (error) {
+    return apiError(
+      error instanceof Error ? error.message : "Invalid view parameters.",
+      400,
+    );
   }
 
   const runtime = stripEmptyComfyUiRuntime({
     apiUrl: searchParams.get("comfyUrl") ?? undefined,
   });
-  const comfyUrl = getComfyUiBaseUrl(runtime);
+
+  let comfyUrl: string;
+  try {
+    comfyUrl = getComfyUiBaseUrl(runtime);
+  } catch (error) {
+    return apiError(
+      error instanceof Error ? error.message : "Invalid ComfyUI URL.",
+      400,
+    );
+  }
+
   const viewUrl = new URL(`${comfyUrl}/view`);
   viewUrl.searchParams.set("filename", filename);
   viewUrl.searchParams.set("subfolder", subfolder);
@@ -27,6 +49,7 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(viewUrl.toString(), {
       signal: AbortSignal.timeout(15000),
+      redirect: "manual",
     });
 
     if (!response.ok) {
@@ -34,6 +57,10 @@ export async function GET(request: Request) {
     }
 
     const contentType = response.headers.get("content-type") ?? "image/png";
+    if (!contentType.startsWith("image/")) {
+      return apiError("ComfyUI view did not return an image.", 502);
+    }
+
     const buffer = await response.arrayBuffer();
 
     return new NextResponse(buffer, {

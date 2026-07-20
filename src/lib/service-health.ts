@@ -71,11 +71,21 @@ export async function checkLlmHealth(): Promise<LlmHealth> {
 export async function checkComfyUiHealth(
   runtime?: ComfyUiRuntimeConfig,
 ): Promise<ComfyUiHealth> {
-  const url = getComfyUiBaseUrl(runtime);
+  let url: string;
+  try {
+    url = getComfyUiBaseUrl(runtime);
+  } catch (error) {
+    return {
+      ok: false,
+      url: runtime?.apiUrl?.trim() || "",
+      error: error instanceof Error ? error.message : "Invalid ComfyUI URL",
+    };
+  }
 
   try {
     const response = await fetch(`${url}/system_stats`, {
       signal: AbortSignal.timeout(8000),
+      redirect: "manual",
     });
 
     if (!response.ok) {

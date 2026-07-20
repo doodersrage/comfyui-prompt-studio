@@ -21,6 +21,14 @@ async function parseRefineRequest(request: Request) {
       throw new Error("Image file is required.");
     }
 
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Upload must be an image file.");
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      throw new Error("Image must be 8MB or smaller.");
+    }
+
     return {
       imageDataUrl: await fileToDataUrl(file),
       mimeType: file.type,
@@ -42,6 +50,10 @@ async function parseRefineRequest(request: Request) {
 
   if (!body.image?.trim()) {
     throw new Error("Image data is required.");
+  }
+
+  if (body.image.length > 12_000_000) {
+    throw new Error("Image payload is too large.");
   }
 
   return {

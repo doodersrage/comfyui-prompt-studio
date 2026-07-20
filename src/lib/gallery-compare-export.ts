@@ -40,14 +40,21 @@ export function exportCompareJson(entries: ComfyGalleryEntry[]): string {
 
 export function exportCompareHtml(entries: ComfyGalleryEntry[]): string {
   const cards = buildCompareExport(entries)
-    .map(
-      (entry) => `
+    .map((entry) => {
+      const model = escapeHtml(entry.model ?? "unknown");
+      const seed = escapeHtml(entry.seed ?? "?");
+      const rating =
+        typeof entry.rating === "number" && Number.isFinite(entry.rating)
+          ? ` · ${escapeHtml(String(entry.rating))}★`
+          : "";
+      const imageUrl = safeImageUrlAttr(entry.imageUrl);
+      return `
 <section style="margin-bottom:24px;padding:16px;border:1px solid #333;border-radius:12px;">
-  <h2 style="margin:0 0 8px;font-size:16px;">${entry.model ?? "unknown"} · seed ${entry.seed ?? "?"}${entry.rating ? ` · ${entry.rating}★` : ""}</h2>
-  ${entry.imageUrl ? `<img src="${entry.imageUrl}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:12px;" />` : ""}
+  <h2 style="margin:0 0 8px;font-size:16px;">${model} · seed ${seed}${rating}</h2>
+  ${imageUrl ? `<img src="${imageUrl}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:12px;" />` : ""}
   <pre style="white-space:pre-wrap;font-size:13px;line-height:1.5;">${escapeHtml(entry.prompt)}</pre>
-</section>`,
-    )
+</section>`;
+    })
     .join("\n");
 
   return `<!DOCTYPE html>
@@ -58,7 +65,7 @@ export function exportCompareHtml(entries: ComfyGalleryEntry[]): string {
 </head>
 <body style="font-family:system-ui,sans-serif;background:#0a0a0a;color:#e4e4e7;padding:24px;max-width:960px;margin:0 auto;">
   <h1>Gallery A/B compare (${entries.length})</h1>
-  <p style="color:#71717a;">Exported ${new Date().toLocaleString()}</p>
+  <p style="color:#71717a;">Exported ${escapeHtml(new Date().toLocaleString())}</p>
   ${cards}
 </body>
 </html>`;
@@ -70,6 +77,21 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function safeImageUrlAttr(value: string | undefined): string | undefined {
+  if (!value?.trim()) {
+    return undefined;
+  }
+  try {
+    const url = new URL(value, "http://localhost");
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return undefined;
+    }
+    return escapeHtml(value);
+  } catch {
+    return undefined;
+  }
 }
 
 export function downloadCompareExport(

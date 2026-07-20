@@ -69,6 +69,8 @@ Optional environment variable on the ComfyUI host:
 
 ```bash
 export COMFY_PROMPT_API_URL=http://127.0.0.1:47832
+# Required when the prompt app has PROMPT_API_TOKEN set:
+# export PROMPT_API_TOKEN=your-shared-secret
 ```
 
 Each node also exposes an `api_base_url` override.

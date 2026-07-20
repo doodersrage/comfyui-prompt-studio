@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { parseWorkflowJson } from "./comfyui-config";
@@ -5,6 +6,7 @@ import { parseWorkflowJson } from "./comfyui-config";
 export type ServerWorkflowFile = {
   id: string;
   name: string;
+  /** Internal filesystem path — never send to clients. */
   path: string;
 };
 
@@ -54,16 +56,62 @@ export function listServerWorkflowPaths(): string[] {
   return [...paths].sort((left, right) => left.localeCompare(right));
 }
 
+export function serverWorkflowIdForPath(filePath: string): string {
+  const resolved = path.resolve(resolveWorkflowPath(filePath));
+  return crypto.createHash("sha256").update(resolved).digest("hex").slice(0, 16);
+}
+
 export function listServerWorkflowFiles(): ServerWorkflowFile[] {
   return listServerWorkflowPaths().map((filePath) => ({
-    id: filePath,
-    name: path.basename(filePath).replace(/\.api\.json$/i, "").replace(/\.json$/i, ""),
+    id: serverWorkflowIdForPath(filePath),
+    name: path
+      .basename(filePath)
+      .replace(/\.api\.json$/i, "")
+      .replace(/\.json$/i, ""),
     path: filePath,
   }));
 }
 
-export function loadServerWorkflowJson(filePath: string): Record<string, unknown> | null {
+export function isAllowedServerWorkflowPath(filePath: string): boolean {
+  const trimmed = filePath.trim();
+  if (!trimmed || trimmed.includes("\0")) {
+    return false;
+  }
+
+  const requested = path.resolve(resolveWorkflowPath(trimmed));
+  return listServerWorkflowPaths().some((allowed) => {
+    return path.resolve(resolveWorkflowPath(allowed)) === requested;
+  });
+}
+
+export function resolveServerWorkflowPath(fileIdOrPath: string): string | null {
+  const trimmed = fileIdOrPath.trim();
+  if (!trimmed || trimmed.includes("\0")) {
+    return null;
+  }
+
+  for (const filePath of listServerWorkflowPaths()) {
+    if (serverWorkflowIdForPath(filePath) === trimmed) {
+      return filePath;
+    }
+  }
+
+  // Backward compatibility for older clients that stored absolute/relative paths.
+  if (isAllowedServerWorkflowPath(trimmed)) {
+    return trimmed;
+  }
+
+  return null;
+}
+
+export function loadServerWorkflowJson(
+  fileIdOrPath: string,
+): Record<string, unknown> | null {
   try {
+    const filePath = resolveServerWorkflowPath(fileIdOrPath);
+    if (!filePath) {
+      return null;
+    }
     const resolved = resolveWorkflowPath(filePath);
     return parseWorkflowJson(fs.readFileSync(resolved, "utf8"));
   } catch {
