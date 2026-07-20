@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import BackgroundPresetControls from "@/components/BackgroundPresetControls";
 import CharacterPresetControls from "@/components/CharacterPresetControls";
-import EnhancedPromptResult from "@/components/EnhancedPromptResult";
+import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import RegionalPromptBuilderPanel from "@/components/RegionalPromptBuilderPanel";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import SharedToolControls from "@/components/SharedToolControls";
@@ -32,7 +33,7 @@ import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
-import { getClothingLabel } from "@/lib/clothing-catalog";
+import { fetchClothingLabels, getCachedClothingLabel } from "@/lib/clothing-catalog-client";
 import { presetOptionsFromBackgroundCache } from "@/lib/background-options";
 import { readSceneLocationFromMetadata } from "@/lib/recent-locations";
 import { readClothingIdsFromMetadata } from "@/lib/recent-clothing";
@@ -40,7 +41,7 @@ import { getComfyModelDefinition } from "@/lib/comfy-models";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import { sharedLlmRequestBody } from "@/lib/llm-request-options";
-import { presetOptionsFromCache } from "@/lib/character-options";
+import { presetOptionsFromCache } from "@/lib/character-options-ui";
 import {
   DEFAULT_CHARACTER_TOOL_CACHE,
   type CharacterSceneMode,
@@ -145,6 +146,33 @@ export default function CharacterTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [lockedWardrobeLabel, setLockedWardrobeLabel] = useState<string | undefined>();
+
+  useEffect(() => {
+    const id = shared.lockedWardrobeId?.trim();
+    if (!id) {
+      setLockedWardrobeLabel(undefined);
+      return;
+    }
+
+    const cached = getCachedClothingLabel(id);
+    if (cached) {
+      setLockedWardrobeLabel(cached);
+      return;
+    }
+
+    let cancelled = false;
+    void fetchClothingLabels([id]).then((labels) => {
+      if (cancelled) {
+        return;
+      }
+      setLockedWardrobeLabel(labels.get(id) ?? id);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shared.lockedWardrobeId]);
 
   const sceneMode = toolSettings.sceneMode ?? "solo";
   const accent = accentForSceneMode(sceneMode);
@@ -445,7 +473,7 @@ export default function CharacterTool() {
           lockedWardrobeId={shared.lockedWardrobeId}
           lockedWardrobeLabel={
             shared.lockedWardrobeId
-              ? getClothingLabel(shared.lockedWardrobeId) ?? shared.lockedWardrobeId
+              ? lockedWardrobeLabel ?? shared.lockedWardrobeId
               : undefined
           }
           onClearLockedWardrobe={() => updateShared({ lockedWardrobeId: undefined })}

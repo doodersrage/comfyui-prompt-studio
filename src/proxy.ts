@@ -46,10 +46,6 @@ function isTrustedSameOrigin(request: NextRequest): boolean {
   return site === "same-origin" || site === "none";
 }
 
-function hasValidUserApiKey(request: NextRequest): boolean {
-  return Boolean(resolveUserIdFromApiKey(extractToken(request)));
-}
-
 function hasValidServiceToken(request: NextRequest): boolean {
   const expected = process.env.PROMPT_API_TOKEN?.trim();
   if (!expected) {

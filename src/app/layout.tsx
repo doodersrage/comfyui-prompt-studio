@@ -4,14 +4,11 @@ import ThemeInit from "@/components/ThemeInit";
 import TabSyncInit from "@/components/TabSyncInit";
 import AmbientBackground from "@/components/AmbientBackground";
 import AppNav from "@/components/AppNav";
-import CommandPalette from "@/components/CommandPalette";
 import { AuthProvider } from "@/hooks/useAuth";
 import ComfyGalleryBackgroundPoller from "@/components/ComfyGalleryBackgroundPoller";
 import UserScopeInit from "@/components/UserScopeInit";
-import ScheduledBatchRunner from "@/components/ScheduledBatchRunner";
-import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import AutoStorageSyncInit from "@/components/AutoStorageSyncInit";
-import GalleryPwaRegister from "@/components/GalleryPwaRegister";
+import DeferredShellClient from "@/components/DeferredShellClient";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -50,11 +47,8 @@ export default function RootLayout({
             <AppNav />
             <ComfyGalleryBackgroundPoller />
             <UserScopeInit />
-            <ScheduledBatchRunner />
-            <KeyboardShortcuts />
-            <CommandPalette />
             <AutoStorageSyncInit />
-            <GalleryPwaRegister />
+            <DeferredShellClient />
             {children}
           </div>
         </AuthProvider>

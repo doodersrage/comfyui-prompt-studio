@@ -9,13 +9,21 @@ export async function GET(request: Request) {
   const query = url.searchParams.get("q")?.trim() ?? "";
   const type = url.searchParams.get("type") ?? "all";
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 200), 500);
+  const ids = url.searchParams.get("ids")?.split(",").map((id) => id.trim()).filter(Boolean);
+  const categories = url.searchParams
+    .get("categories")
+    ?.split(",")
+    .map((category) => category.trim())
+    .filter(Boolean);
 
   if (query) {
     return apiJson(searchCatalog(query));
   }
 
   if (type === "clothing") {
-    return apiJson({ clothing: listCatalogClothing({ limit }) });
+    return apiJson({
+      clothing: listCatalogClothing({ limit, ids, categories }),
+    });
   }
 
   if (type === "locations") {

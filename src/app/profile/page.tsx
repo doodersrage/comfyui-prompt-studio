@@ -1,5 +1,10 @@
+import dynamic from "next/dynamic";
 import PageCanvas from "@/components/ui/PageCanvas";
-import ProfilePanel from "@/components/profile/ProfilePanel";
+import { ToolPageSkeleton } from "@/components/ui/ViewState";
+
+const ProfilePanel = dynamic(() => import("@/components/profile/ProfilePanel"), {
+  loading: () => <ToolPageSkeleton label="Loading profile" />,
+});
 
 export default function ProfilePage() {
   return (

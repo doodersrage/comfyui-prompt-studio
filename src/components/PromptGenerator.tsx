@@ -2,10 +2,14 @@
 
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import EnhancedPromptResult from "@/components/EnhancedPromptResult";
-import SceneStarterPresetChips, {
-  applySceneStarterWorkflowHints,
-} from "@/components/SceneStarterPresetChips";
+import dynamic from "next/dynamic";
+import { applySceneStarterWorkflowHints } from "@/lib/scene-starter-workflow-hints";
+import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
+
+const SceneStarterPresetChips = dynamic(
+  () => import("@/components/SceneStarterPresetChips"),
+  { loading: () => <div className="h-24 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden /> },
+);
 import SharedToolControls from "@/components/SharedToolControls";
 import {
   VariationSliderField,

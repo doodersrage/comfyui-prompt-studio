@@ -1,9 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BatchLintGatePanel from "@/components/BatchLintGatePanel";
+import BatchReadinessPanel, {
+  applyReadinessFilterToPrompts,
+} from "@/components/BatchReadinessPanel";
+import BatchQueueProgress, {
+  type BatchQueueProgressState,
+} from "@/components/BatchQueueProgress";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
@@ -29,10 +35,7 @@ import {
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import type { BatchFromTopicsItem } from "@/lib/batch-from-topics";
 import type { TopicGenerateResult } from "@/lib/specialized/types";
-import {
-  TOPIC_VARIETY_LABEL,
-  topicVarietyLabel,
-} from "@/lib/tool-ui-labels";
+import { topicVarietyLabel } from "@/lib/tool-ui-labels";
 import { resolveComfyUiRuntime } from "@/lib/comfyui-runtime";
 import {
   registerComfyGalleryJob,
@@ -60,6 +63,7 @@ import {
   normalizeSceneHintSource,
 } from "@/lib/scene-hint-source";
 import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
+import { scoreBatchReadiness } from "@/lib/batch-readiness";
 
 const ACCENT = "violet" as const;
 
@@ -86,6 +90,10 @@ export default function TopicTool() {
   const [copiedIndex, setCopiedIndex] = useState<number | "all" | "batch" | null>(
     null,
   );
+  const [readyOnly, setReadyOnly] = useState(false);
+  const [queueProgress, setQueueProgress] = useState<BatchQueueProgressState | null>(
+    null,
+  );
 
   const batchTarget = toolSettings.batchTarget ?? "generate";
   const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
@@ -96,6 +104,24 @@ export default function TopicTool() {
     hints: toolSettings.seedTopic,
     randomTheme: toolSettings.randomTheme,
   });
+
+  const batchReadiness = useMemo(
+    () =>
+      scoreBatchReadiness({
+        rows: batchResults.map((entry) => ({
+          prompt: entry.prompt,
+          label: entry.topic,
+          hints: toolSettings.seedTopic,
+        })),
+        model: shared.model,
+        detail: shared.detail,
+      }),
+    [batchResults, shared.detail, shared.model, toolSettings.seedTopic],
+  );
+  const readinessByIndex = useMemo(
+    () => new Map(batchReadiness.map((row) => [row.index, row])),
+    [batchReadiness],
+  );
 
   useEffect(() => {
     if (!mounted) {
@@ -220,6 +246,12 @@ export default function TopicTool() {
       }
 
       setComfyBatchStatus("Queueing batch to ComfyUI…");
+      setQueueProgress({
+        phase: "preflight",
+        current: 0,
+        total: prompts.length,
+        message: "Validating workflow placeholders…",
+      });
       try {
         const negativePrompt = await resolveQueueNegativePrompt({
           model: shared.model,
@@ -240,6 +272,12 @@ export default function TopicTool() {
           );
         }
         const runtime = resolveComfyUiRuntime();
+        setQueueProgress({
+          phase: "queueing",
+          current: 0,
+          total: prompts.length,
+          message: "Submitting prompts to ComfyUI…",
+        });
         const response = await fetch("/api/comfyui", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -276,15 +314,40 @@ export default function TopicTool() {
           });
         }
 
+        const queued = data.queued ?? (data.results ?? []).filter((r) => r.promptId).length;
+        const failures = (data.results ?? [])
+          .map((result, index) =>
+            result.promptId
+              ? null
+              : {
+                  label: batchResults[index]?.topic ?? `Row ${index + 1}`,
+                  message: "No promptId returned",
+                },
+          )
+          .filter(Boolean) as Array<{ label: string; message: string }>;
+
+        setQueueProgress({
+          phase: "done",
+          current: queued,
+          total: prompts.length,
+          message: `Queued ${queued}/${prompts.length} · ${data.comfyUrl ?? ""}`.trim(),
+          failures: failures.length > 0 ? failures : undefined,
+        });
+
         setComfyBatchStatus(
-          `Queued ${data.queued ?? prompts.length}/${prompts.length} · ${data.comfyUrl ?? ""}`.trim(),
+          `Queued ${queued}/${prompts.length} · ${data.comfyUrl ?? ""}`.trim(),
         );
         setLintSummary(null);
         setPendingQueuePrompts([]);
       } catch (err) {
-        setComfyBatchStatus(
-          err instanceof Error ? err.message : "ComfyUI batch failed.",
-        );
+        const message = err instanceof Error ? err.message : "ComfyUI batch failed.";
+        setQueueProgress({
+          phase: "error",
+          current: 0,
+          total: prompts.length,
+          message,
+        });
+        setComfyBatchStatus(message);
       }
     },
     [batchResults, shared.model, toolSettings.seedTopic],
@@ -533,6 +596,7 @@ export default function TopicTool() {
                 topic={topic}
                 copied={copiedIndex === index}
                 batchPrompt={batchResults[index]?.prompt}
+                readiness={readinessByIndex.get(index)}
                 onCopy={() => void copyTopics(topic, index)}
               />
             ))}
@@ -566,13 +630,24 @@ export default function TopicTool() {
                   });
                 }}
                 onContinue={() => {
-                  const prompts =
+                  let prompts =
                     lintSummary && lintSummary.blockedIndexes.length > 0
                       ? filterBatchByLintIndexes(
                           pendingQueuePrompts,
                           lintSummary.blockedIndexes,
                         )
                       : pendingQueuePrompts;
+                  prompts = applyReadinessFilterToPrompts(
+                    prompts,
+                    batchResults.map((entry) => ({
+                      prompt: entry.prompt,
+                      label: entry.topic,
+                      hints: toolSettings.seedTopic,
+                    })),
+                    shared.model,
+                    shared.detail,
+                    readyOnly,
+                  );
                   void executeComfyQueue(prompts);
                 }}
                 onCancel={() => {
@@ -580,6 +655,17 @@ export default function TopicTool() {
                   setPendingQueuePrompts([]);
                 }}
               />
+              <BatchReadinessPanel
+                rows={batchResults.map((entry) => ({
+                  prompt: entry.prompt,
+                  label: entry.topic,
+                  hints: toolSettings.seedTopic,
+                }))}
+                model={shared.model}
+                detail={shared.detail}
+                onFilterReadyOnlyChange={setReadyOnly}
+              />
+              <BatchQueueProgress progress={queueProgress} />
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Button
                 variant="secondary"
@@ -625,12 +711,14 @@ function TopicCard({
   topic,
   copied,
   batchPrompt,
+  readiness,
   onCopy,
 }: {
   index: number;
   topic: string;
   copied: boolean;
   batchPrompt?: string;
+  readiness?: { score: number; grade: string; queueAllowed: boolean };
   onCopy: () => void;
 }) {
   return (
@@ -668,9 +756,17 @@ function TopicCard({
       </div>
 
       {batchPrompt ? (
-        <pre className="type-code max-h-48 overflow-auto whitespace-pre-wrap rounded-[var(--radius-md)] border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] p-4 !text-[var(--tint-success-text)]">
-          {batchPrompt}
-        </pre>
+        <>
+          {readiness ? (
+            <p className="type-caption text-zinc-400">
+              Readiness {readiness.score}/100 ({readiness.grade})
+              {!readiness.queueAllowed ? " · below queue threshold" : ""}
+            </p>
+          ) : null}
+          <pre className="type-code max-h-48 overflow-auto whitespace-pre-wrap rounded-[var(--radius-md)] border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] p-4 !text-[var(--tint-success-text)]">
+            {batchPrompt}
+          </pre>
+        </>
       ) : null}
     </ToolContentPanel>
   );

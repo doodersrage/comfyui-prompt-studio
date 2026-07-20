@@ -19,7 +19,7 @@ import {
   countHistorySeedCandidates,
   splitBackgroundHintSeed,
 } from "@/lib/history-hint-seed";
-import EnhancedPromptResult from "@/components/EnhancedPromptResult";
+import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";

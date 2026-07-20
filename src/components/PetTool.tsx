@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import EnhancedPromptResult from "@/components/EnhancedPromptResult";
+import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import PetPresetControls from "@/components/PetPresetControls";
 import PetPresetChips from "@/components/PetPresetChips";
 import SharedToolControls from "@/components/SharedToolControls";

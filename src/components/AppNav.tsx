@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { featureForPath } from "@/lib/auth/features";
 import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
 import NotificationBell from "@/components/NotificationBell";
-import { loadToolPlugins, BUILTIN_TOOL_PLUGINS, type ToolPlugin } from "@/lib/tool-plugin-registry";
+import { BUILTIN_TOOL_PLUGINS, type ToolPlugin } from "@/lib/tool-plugin-registry";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type NavLink = {
@@ -99,15 +99,26 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         group.links.map((link) => link.href.split("?")[0] ?? link.href),
       ),
     );
-    scheduleAfterCommit(() => {
-      setCustomPlugins(
-        loadToolPlugins().filter(
-          (entry) =>
-            !builtinIds.has(entry.id) &&
-            !knownHrefs.has(entry.href.split("?")[0] ?? entry.href),
-        ),
-      );
-    });
+
+    const loadPlugins = () => {
+      void import("@/lib/tool-plugin-registry").then(({ loadToolPlugins }) => {
+        setCustomPlugins(
+          loadToolPlugins().filter(
+            (entry) =>
+              !builtinIds.has(entry.id) &&
+              !knownHrefs.has(entry.href.split("?")[0] ?? entry.href),
+          ),
+        );
+      });
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(loadPlugins, { timeout: 5000 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+
+    const timeoutId = window.setTimeout(loadPlugins, 1500);
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   const visibleGroups = useMemo(() => {

@@ -2157,27 +2157,10 @@ export function hasWardrobeCatalogSelection(options: {
   );
 }
 
-export const CLOTHING_CATALOG_FIELD_KEYS = [
-  "wardrobeCatalog",
-  "footwearCatalog",
-  "accessoriesCatalog",
-] as const;
-
-export type ClothingCatalogFieldKey = (typeof CLOTHING_CATALOG_FIELD_KEYS)[number];
-
-export function getClothingCatalogFieldCategories(
-  key: ClothingCatalogFieldKey,
-): ClothingCategory[] {
-  switch (key) {
-    case "wardrobeCatalog":
-      return WARDROBE_CATEGORIES;
-    case "footwearCatalog":
-      return ["footwear"];
-    case "accessoriesCatalog":
-      return ["accessory", "dressy-accessory", "hosiery", "socks", "headwear"];
-    default:
-      return [];
-  }
-}
+export {
+  CLOTHING_CATALOG_FIELD_KEYS,
+  getClothingCatalogFieldCategories,
+  type ClothingCatalogFieldKey,
+} from "./clothing-catalog-fields";
 
 export type { ClothingPickFilters } from "./clothing-tags";

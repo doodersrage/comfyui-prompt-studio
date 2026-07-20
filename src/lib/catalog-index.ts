@@ -17,11 +17,27 @@ export type CatalogLocationEntry = {
 export function listCatalogClothing(options?: {
   query?: string;
   limit?: number;
+  ids?: readonly string[];
+  categories?: readonly string[];
 }): CatalogClothingEntry[] {
   const query = options?.query?.trim().toLowerCase() ?? "";
   const limit = options?.limit ?? 200;
+  const idSet =
+    options?.ids && options.ids.length > 0
+      ? new Set(options.ids.map((id) => id.trim()).filter(Boolean))
+      : null;
+  const categorySet =
+    options?.categories && options.categories.length > 0
+      ? new Set(options.categories.map((category) => category.trim()).filter(Boolean))
+      : null;
 
   return ALL_CLOTHING_CATALOG_ENTRIES.filter((entry) => {
+    if (idSet && !idSet.has(entry.id)) {
+      return false;
+    }
+    if (categorySet && !categorySet.has(entry.category)) {
+      return false;
+    }
     if (!query) {
       return true;
     }

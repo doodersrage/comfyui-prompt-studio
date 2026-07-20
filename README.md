@@ -289,6 +289,22 @@ When exposing beyond localhost:
 4. Prefer binding to loopback (`127.0.0.1`) — `docker-compose.yml` already does this.
 5. Webhook dispatch blocks private/metadata URLs unless `WEBHOOK_ALLOW_PRIVATE=true`.
 
+### Production checklist
+
+Before exposing Prompt Studio beyond a trusted LAN:
+
+- [ ] Set strong `PROMPT_ADMIN_PASSWORD` and rotate after first login
+- [ ] Set `PROMPT_SESSION_SECRET` (long random string; do not reuse API tokens)
+- [ ] Enable `PROMPT_AUTH_ENABLED=true` and create non-admin users with blocked features as needed
+- [ ] Set `PROMPT_API_TOKEN` for CLI/ComfyUI nodes; issue per-user `pt_…` keys from Profile when sharing access
+- [ ] Configure SMTP for password reset and batch/campaign email (`SMTP_*` in `.env.local`)
+- [ ] Set `COMFYUI_ALLOW_CLIENT_URL=false` and pin `COMFYUI_API_URL` or `COMFYUI_POOL`
+- [ ] Back up `PROMPT_DATA_DIR` (auth, analytics, storage sync) on a schedule
+- [ ] Run `npm run lint`, `npm test`, and `npm run test:e2e` before deploy (CI runs these on push)
+- [ ] For Playwright with auth enabled locally, credentials load from `.env.local` (`PROMPT_ADMIN_*`) or set `PROMPT_E2E_USERNAME` / `PROMPT_E2E_PASSWORD`
+
+**Batch tools:** Topics and Variations show per-row readiness scores; toggle **Ready only** before queueing. Workflow library **Apply bindings** injects `{{POSITIVE}}` / `{{NEGATIVE}}` placeholders from suggested node maps. Gallery **Tag untagged** backfills vision tags on completed entries.
+
 ## Docker
 
 ```bash

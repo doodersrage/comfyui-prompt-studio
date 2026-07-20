@@ -21,7 +21,7 @@ export default function SettingsSubNav({
 
   return (
     <ToolMetaPanel className="sticky top-20 z-20">
-      <nav aria-label="Settings sections">
+      <nav aria-label="Settings sections" className="-mx-1 overflow-x-auto px-1 pb-1">
         <div className="flex flex-wrap gap-2">
           {tabs.map((tab) => (
             <ChipButton

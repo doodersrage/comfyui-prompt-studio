@@ -2,11 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import {
-  getClothingCatalogFieldCategories,
-  getClothingSelectOptions,
-  type ClothingCatalogFieldKey,
-} from "@/lib/clothing-catalog";
+import type { ClothingCatalogFieldKey } from "@/lib/clothing-catalog-fields";
+import { loadClothingCatalogModule } from "@/lib/clothing-catalog-client";
 import { parseCharacterHints } from "@/lib/character-hints";
 import { subjectGenderToClothingGender } from "@/lib/clothing-tags";
 import {
@@ -22,7 +19,7 @@ import {
   type CharacterPresetOptions,
   type CharacterPresetUiField,
   type CharacterPresetUiSection,
-} from "@/lib/character-options";
+} from "@/lib/character-options-ui";
 import type { CharacterToolCache } from "@/lib/settings-cache";
 import { SelectInput, TextInput } from "@/components/ui/Field";
 
@@ -39,14 +36,33 @@ function ClothingCatalogSelect({
   hints?: string;
   onChange: (value: string) => void;
 }) {
+  const [catalogReady, setCatalogReady] = useState(false);
+  const [options, setOptions] = useState<
+    Array<{ value: string; label: string; group?: string }>
+  >([{ value: "", label: "Default (random / LLM)" }]);
+
   const clothingGender = useMemo(
     () => subjectGenderToClothingGender(parseCharacterHints(hints).gender),
     [hints],
   );
-  const options = getClothingSelectOptions(
-    getClothingCatalogFieldCategories(catalogKey),
-    { gender: clothingGender },
-  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadClothingCatalogModule().then((catalog) => {
+      if (cancelled) {
+        return;
+      }
+      const categories = catalog.getClothingCatalogFieldCategories(catalogKey);
+      setOptions(
+        catalog.getClothingSelectOptions(categories, { gender: clothingGender }),
+      );
+      setCatalogReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogKey, clothingGender]);
+
   const groups = new Map<string, Array<{ value: string; label: string }>>();
 
   for (const option of options) {
@@ -63,6 +79,7 @@ function ClothingCatalogSelect({
       <SelectInput
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        disabled={!catalogReady}
       >
         {options
           .filter((option) => !option.group)

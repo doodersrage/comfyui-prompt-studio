@@ -3,7 +3,7 @@
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ModelSelector from "@/components/ModelSelector";
-import EnhancedPromptResult from "@/components/EnhancedPromptResult";
+import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import type { DetailLevel } from "@/lib/detail-level";

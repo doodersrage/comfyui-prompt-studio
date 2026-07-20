@@ -1,14 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { registerComfyGalleryJob } from "@/lib/comfyui-gallery-client";
-import { scheduleComfyGalleryPoll } from "@/lib/comfyui-gallery-poller";
-import { resolveComfyUiRuntime } from "@/lib/comfyui-runtime";
-import { resolveQueueNegativePrompt } from "@/lib/queue-negative";
-import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
-import { dispatchWebhook } from "@/lib/webhook-settings";
-import { registerScheduledBatchQueue } from "@/lib/scheduled-batch-tracker";
-import { loadSettingsCache } from "@/lib/settings-cache";
 import {
   loadScheduledBatchConfig,
   saveScheduledBatchConfig,
@@ -32,6 +24,15 @@ export default function ScheduledBatchRunner() {
 
         runningRef.current = true;
         try {
+          const { loadSettingsCache } = await import("@/lib/settings-cache");
+          const { avoidedTokensRequestBody } = await import("@/lib/avoided-tokens");
+          const { resolveQueueNegativePrompt } = await import("@/lib/queue-negative");
+          const { resolveComfyUiRuntime } = await import("@/lib/comfyui-runtime");
+          const { registerComfyGalleryJob } = await import("@/lib/comfyui-gallery-client");
+          const { scheduleComfyGalleryPoll } = await import("@/lib/comfyui-gallery-poller");
+          const { registerScheduledBatchQueue } = await import("@/lib/scheduled-batch-tracker");
+          const { dispatchWebhook } = await import("@/lib/webhook-settings");
+
           const { shared } = loadSettingsCache();
           const prompts: string[] = [];
 

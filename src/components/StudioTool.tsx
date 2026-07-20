@@ -3,11 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import PromptMergePanel from "@/components/PromptMergePanel";
-import PromptTimelinePanel from "@/components/studio/PromptTimelinePanel";
 import SharedToolControls from "@/components/SharedToolControls";
-import EnhancedPromptResult from "@/components/EnhancedPromptResult";
-import PromptDiagnosticsPanel from "@/components/PromptDiagnosticsPanel";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
@@ -191,6 +187,19 @@ const StyleTransplantPanel = dynamic(
   () => import("@/components/studio/StyleTransplantPanel"),
   { loading: () => <StudioTabSkeleton /> },
 );
+const PromptMergePanel = dynamic(() => import("@/components/PromptMergePanel"), {
+  loading: () => <StudioTabSkeleton />,
+});
+const PromptTimelinePanel = dynamic(
+  () => import("@/components/studio/PromptTimelinePanel"),
+  { loading: () => <StudioTabSkeleton /> },
+);
+const EnhancedPromptResult = dynamic(() => import("@/components/LazyEnhancedPromptResult"), {
+  loading: () => <StudioTabSkeleton />,
+});
+const PromptDiagnosticsPanel = dynamic(() => import("@/components/PromptDiagnosticsPanel"), {
+  loading: () => <StudioTabSkeleton />,
+});
 
 const ACCENT = "violet" as const;
 
@@ -388,18 +397,22 @@ export default function StudioTool() {
     () => buildPromptIterationForest(entries),
     [entries],
   );
-  const ratingTokenStats = useMemo(
-    () => analyzeGalleryRatingTokens(loadComfyGallery()),
-    [tab, galleryRevision, scopeRevision],
-  );
+  const ratingTokenStats = useMemo(() => {
+    if (tab !== "analytics") {
+      return analyzeGalleryRatingTokens([]);
+    }
+    return analyzeGalleryRatingTokens(loadComfyGallery());
+  }, [tab, galleryRevision, scopeRevision]);
   const historyAnalytics = useMemo(
     () => analyzePromptHistoryEntries(entries),
     [entries, scopeRevision],
   );
-  const galleryAnalytics = useMemo(
-    () => computeGalleryStats(loadComfyGallery()),
-    [tab, galleryRevision, scopeRevision],
-  );
+  const galleryAnalytics = useMemo(() => {
+    if (tab !== "analytics") {
+      return computeGalleryStats([]);
+    }
+    return computeGalleryStats(loadComfyGallery());
+  }, [tab, galleryRevision, scopeRevision]);
   const iterationEntries = useMemo(() => listIterationEntries(entries), [entries]);
   const iterationDiff = useMemo(() => {
     const left = iterationEntries.find((entry) => entry.id === iterationDiffLeftId);
@@ -683,8 +696,8 @@ export default function StudioTool() {
       title="Prompt Studio"
       description="History, model comparison, catalog browser, and template slots."
     >
-      <ToolMetaPanel title="Studio views">
-        <div className="flex flex-wrap gap-2">
+      <ToolMetaPanel title="Studio views" className="overflow-x-auto">
+        <div className="flex min-w-max flex-wrap gap-2">
           {tabs.map((entry) => (
             <ChipButton
               key={entry.id}

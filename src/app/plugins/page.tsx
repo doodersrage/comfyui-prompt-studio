@@ -63,8 +63,33 @@ export default function PluginsPage() {
       <ToolSection title="Custom plugins (app database)">
         <p className="type-caption">
           Append custom entries as JSON array. Each item needs id, label, description, href, and
-          category.
+          category. See <code className="text-violet-300">examples/custom-plugin.example.json</code>.
         </p>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mb-3"
+          onClick={() => {
+            setCustomJson(
+              JSON.stringify(
+                [
+                  {
+                    id: "my-custom-tool",
+                    label: "My custom tool",
+                    description: "Example plugin entry — change href to your route.",
+                    href: "/lint",
+                    category: "plugin",
+                    enabled: true,
+                  },
+                ],
+                null,
+                2,
+              ),
+            );
+          }}
+        >
+          Load example JSON
+        </Button>
         <MonoTextArea
           value={customJson}
           onChange={(event) => setCustomJson(event.target.value)}

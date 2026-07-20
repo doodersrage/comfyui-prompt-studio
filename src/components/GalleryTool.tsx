@@ -1,7 +1,7 @@
 "use client";
 
-import ComfyUiGalleryPanel from "@/components/ComfyUiGalleryPanel";
-import QueueOrchestrationPanel from "@/components/QueueOrchestrationPanel";
+import dynamic from "next/dynamic";
+import { useState } from "react";
 import PngMetadataImportButton from "@/components/PngMetadataImportButton";
 import SidecarImportButton from "@/components/SidecarImportButton";
 import {
@@ -13,13 +13,21 @@ import {
   sidecarNegativePrompt,
   type PromptSidecar,
 } from "@/lib/prompt-sidecar";
-import { useState } from "react";
 import {
   CollapsibleSection,
   ToolBadge,
   ToolLayout,
 } from "@/components/ui/ToolPageShell";
+import { ToolPageSkeleton } from "@/components/ui/ViewState";
 import { Button } from "@/components/ui/Button";
+
+const ComfyUiGalleryPanel = dynamic(() => import("@/components/ComfyUiGalleryPanel"), {
+  loading: () => <ToolPageSkeleton label="Loading gallery" />,
+});
+const QueueOrchestrationPanel = dynamic(
+  () => import("@/components/QueueOrchestrationPanel"),
+  { loading: () => <ToolPageSkeleton label="Loading queue tools" /> },
+);
 
 const ACCENT = "neutral" as const;
 

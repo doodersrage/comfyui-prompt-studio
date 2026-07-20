@@ -1,5 +1,10 @@
+import dynamic from "next/dynamic";
 import PageCanvas from "@/components/ui/PageCanvas";
-import TopicTool from "@/components/TopicTool";
+import { ToolPageSkeleton } from "@/components/ui/ViewState";
+
+const TopicTool = dynamic(() => import("@/components/TopicTool"), {
+  loading: () => <ToolPageSkeleton label="Loading topics" />,
+});
 
 export default function TopicsPage() {
   return (

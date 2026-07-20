@@ -3,7 +3,7 @@ import {
   inferCyclingDiscipline,
   type CyclingDiscipline,
 } from "./athletic-sport-actions";
-import { hintsDescribeAthleticDuoCompetition } from "./generate-wardrobe";
+import { hintsDescribeAthleticDuoCompetition } from "./athletic-duo-hints";
 import {
   analyzePromptDiagnostics,
   lintPrompt,
@@ -85,4 +85,6 @@ export function summarizeDiagnostics(diagnostics: PromptDiagnostics): string {
 
 export { analyzePromptDiagnostics, lintPrompt };
 export type { PromptDiagnostics, CyclingDiscipline };
-export { inferAthleticSport, inferCyclingDiscipline, hintsDescribeAthleticDuoCompetition };
+export { inferAthleticSport } from "./athletic-sport-profiles";
+export { inferCyclingDiscipline } from "./athletic-sport-actions";
+export { hintsDescribeAthleticDuoCompetition } from "./athletic-duo-hints";

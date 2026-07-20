@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   downloadStudioBackup,
   importStudioBackup,
@@ -72,21 +73,8 @@ import {
   isComfyNotificationSupported,
   requestComfyNotificationPermission,
 } from "@/lib/comfyui-notifications";
-import ComfyUiGalleryPanel from "@/components/ComfyUiGalleryPanel";
-import ComfyWorkflowLibraryPanel from "@/components/ComfyWorkflowLibraryPanel";
-import WorkflowDiffPanel from "@/components/settings/WorkflowDiffPanel";
-import SettingsAdvancedPanel from "@/components/SettingsAdvancedPanel";
-import {
-  markOnboardingComfyHealthOk,
-  markOnboardingLlmHealthOk,
-} from "@/lib/onboarding-hooks";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import SettingsSubNav from "@/components/settings/SettingsSubNav";
-import UsersSettingsPanel from "@/components/settings/UsersSettingsPanel";
-import ServerEnvPanel from "@/components/settings/ServerEnvPanel";
-import QueueParamsPanel from "@/components/QueueParamsPanel";
-import WorkflowPreviewPanel from "@/components/WorkflowPreviewPanel";
-import { fetchWorkflowPreview } from "@/lib/comfyui-requeue";
 import {
   ToolBadge,
   ToolLayout,
@@ -95,6 +83,7 @@ import {
   accentButtonClass,
   accentFocusClass,
 } from "@/components/ui/ToolPageShell";
+import { ToolPageSkeleton } from "@/components/ui/ViewState";
 import { FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
 import { Button, PrimaryButton } from "@/components/ui/Button";
 import {
@@ -104,6 +93,38 @@ import {
   type SettingsTab,
 } from "@/lib/settings-nav";
 import type { ServerEnvSummary } from "@/lib/server-env-summary";
+import {
+  markOnboardingComfyHealthOk,
+  markOnboardingLlmHealthOk,
+} from "@/lib/onboarding-hooks";
+import { fetchWorkflowPreview } from "@/lib/comfyui-requeue";
+
+const ComfyUiGalleryPanel = dynamic(() => import("@/components/ComfyUiGalleryPanel"), {
+  loading: () => <ToolPageSkeleton label="Loading gallery panel" />,
+});
+const ComfyWorkflowLibraryPanel = dynamic(
+  () => import("@/components/ComfyWorkflowLibraryPanel"),
+  { loading: () => <ToolPageSkeleton label="Loading workflow library" /> },
+);
+const WorkflowDiffPanel = dynamic(
+  () => import("@/components/settings/WorkflowDiffPanel"),
+  { loading: () => <ToolPageSkeleton label="Loading workflow diff" /> },
+);
+const SettingsAdvancedPanel = dynamic(() => import("@/components/SettingsAdvancedPanel"), {
+  loading: () => <ToolPageSkeleton label="Loading advanced settings" />,
+});
+const UsersSettingsPanel = dynamic(() => import("@/components/settings/UsersSettingsPanel"), {
+  loading: () => <ToolPageSkeleton label="Loading users" />,
+});
+const ServerEnvPanel = dynamic(() => import("@/components/settings/ServerEnvPanel"), {
+  loading: () => <ToolPageSkeleton label="Loading server environment" />,
+});
+const QueueParamsPanel = dynamic(() => import("@/components/QueueParamsPanel"), {
+  loading: () => <ToolPageSkeleton label="Loading queue params" />,
+});
+const WorkflowPreviewPanel = dynamic(() => import("@/components/WorkflowPreviewPanel"), {
+  loading: () => <ToolPageSkeleton label="Loading workflow preview" />,
+});
 
 const ACCENT = "neutral" as const;
 
@@ -186,6 +207,18 @@ type HealthResponse = {
     comfyUiUrl: string;
   };
   serverEnv?: ServerEnvSummary;
+  comfyuiPool?: {
+    enabled: boolean;
+    endpoints: Array<{
+      index: number;
+      ok: boolean;
+      url: string;
+      error?: string;
+      queuePending?: number;
+      queueRunning?: number;
+      vram?: { free?: number; total?: number };
+    }>;
+  };
 };
 
 export default function SettingsTool() {
@@ -349,10 +382,13 @@ export default function SettingsTool() {
   }, [settings.apiUrl, settings.useServerDefaults]);
 
   useEffect(() => {
+    if (tab !== "overview" && tab !== "comfyui") {
+      return;
+    }
     scheduleAfterCommit(() => {
       void refreshHealth();
     });
-  }, [refreshHealth]);
+  }, [refreshHealth, tab]);
 
   const handleImport = useCallback(async (file: File) => {
     try {
@@ -574,6 +610,33 @@ export default function SettingsTool() {
             />
           </div>
         )}
+
+        {health?.comfyuiPool?.enabled && health.comfyuiPool.endpoints.length > 0 ? (
+          <div className="mt-4 space-y-2">
+            <p className="type-caption text-zinc-400">ComfyUI pool endpoints</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {health.comfyuiPool.endpoints.map((endpoint) => (
+                <HealthCard
+                  key={endpoint.url}
+                  title={`Pool #${endpoint.index + 1}`}
+                  ok={endpoint.ok}
+                  detail={[
+                    endpoint.url,
+                    endpoint.queuePending != null
+                      ? `${endpoint.queueRunning ?? 0} running · ${endpoint.queuePending} pending`
+                      : null,
+                    endpoint.vram?.total
+                      ? `VRAM ${Math.round((endpoint.vram.free ?? 0) / 1e9)} / ${Math.round(endpoint.vram.total / 1e9)} GB`
+                      : null,
+                    endpoint.error,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {health?.apiUsage ? (
           <ul className="space-y-1 text-xs text-zinc-500">

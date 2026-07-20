@@ -9,7 +9,7 @@ import {
   type AthleticSport,
 } from "./athletic-sport-profiles";
 import { parsePeopleConstraint, isMultiPersonInput } from "./distinct-people";
-import { hintsDescribeAthleticDuoCompetition } from "./generate-wardrobe";
+import { hintsDescribeAthleticDuoCompetition } from "./athletic-duo-hints";
 
 export type DiagnosticSeverity = "error" | "warn" | "info";
 

@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { galleryEntryViewUrls, initGalleryStore, loadComfyGallery } from "@/lib/comfyui-gallery";
 import { loadScheduledBatchConfig } from "@/lib/scheduled-batch";
 import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
-import QueueOrchestrationPanel from "@/components/QueueOrchestrationPanel";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { ToolPageSkeleton } from "@/components/ui/ViewState";
 import {
   StatCard,
   ToolActionRow,
@@ -17,11 +18,16 @@ import {
   ToolSection,
 } from "@/components/ui/ToolPageShell";
 
+const QueueOrchestrationPanel = dynamic(
+  () => import("@/components/QueueOrchestrationPanel"),
+  { loading: () => <ToolPageSkeleton label="Loading queue" /> },
+);
+
 const ACCENT = "neutral" as const;
 
 export default function HomeDashboard() {
   const { entries } = usePromptHistory();
-  const [gallery, setGallery] = useState(() => loadComfyGallery());
+  const [gallery, setGallery] = useState<ReturnType<typeof loadComfyGallery>>([]);
   const [scheduled, setScheduled] = useState(loadScheduledBatchConfig());
   const [activeProjectId, setActiveProjectId] = useState<string | undefined>();
   const [projects, setProjects] = useState(loadPromptProjects());

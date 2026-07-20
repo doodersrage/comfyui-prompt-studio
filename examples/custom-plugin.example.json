@@ -1,0 +1,10 @@
+[
+  {
+    "id": "my-custom-tool",
+    "label": "My custom tool",
+    "description": "Opens an external docs page or internal route you define.",
+    "href": "/lint",
+    "category": "plugin",
+    "enabled": true
+  }
+]

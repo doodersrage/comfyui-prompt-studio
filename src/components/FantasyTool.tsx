@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import EnhancedPromptResult from "@/components/EnhancedPromptResult";
+import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import FantasyPresetChips from "@/components/FantasyPresetChips";
 import FantasyPresetControls from "@/components/FantasyPresetControls";
 import SharedToolControls from "@/components/SharedToolControls";
@@ -10,7 +10,7 @@ import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
-import { getClothingLabel } from "@/lib/clothing-catalog";
+import { fetchClothingLabels, getCachedClothingLabel } from "@/lib/clothing-catalog-client";
 import {
   presetOptionsFromFantasyCache,
   resolveFantasyFocus,
@@ -74,6 +74,33 @@ export default function FantasyTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [lockedWardrobeLabel, setLockedWardrobeLabel] = useState<string | undefined>();
+
+  useEffect(() => {
+    const id = shared.lockedWardrobeId?.trim();
+    if (!id) {
+      setLockedWardrobeLabel(undefined);
+      return;
+    }
+
+    const cached = getCachedClothingLabel(id);
+    if (cached) {
+      setLockedWardrobeLabel(cached);
+      return;
+    }
+
+    let cancelled = false;
+    void fetchClothingLabels([id]).then((labels) => {
+      if (cancelled) {
+        return;
+      }
+      setLockedWardrobeLabel(labels.get(id) ?? id);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shared.lockedWardrobeId]);
 
   const presetOptions = useMemo(
     () => presetOptionsFromFantasyCache(toolSettings),
@@ -258,7 +285,7 @@ export default function FantasyTool() {
           lockedWardrobeId={shared.lockedWardrobeId}
           lockedWardrobeLabel={
             shared.lockedWardrobeId
-              ? getClothingLabel(shared.lockedWardrobeId) ?? shared.lockedWardrobeId
+              ? lockedWardrobeLabel ?? shared.lockedWardrobeId
               : undefined
           }
           onClearLockedWardrobe={() => updateShared({ lockedWardrobeId: undefined })}

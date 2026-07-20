@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { prepareWorkflowJsonImport } from "@/lib/workflow-import";
 import {
   validateWorkflowJson,
   type WorkflowPlaceholderTokens,
@@ -28,6 +29,10 @@ import {
   type WorkflowPresetPack,
 } from "@/lib/workflow-preset-packs";
 import { suggestWorkflowNodeMappings } from "@/lib/workflow-node-mapper";
+import {
+  applyWorkflowNodeBindings,
+  summarizeBindingChanges,
+} from "@/lib/workflow-apply-bindings";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { markOnboardingWorkflowImported } from "@/lib/onboarding-hooks";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
@@ -53,9 +58,13 @@ export default function ComfyWorkflowLibraryPanel({
   const [editingName, setEditingName] = useState("");
   const [editingJson, setEditingJson] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importErrorDetail, setImportErrorDetail] = useState<string | null>(null);
+  const [importNotice, setImportNotice] = useState<string | null>(null);
   const [presetPacks, setPresetPacks] = useState<WorkflowPresetPack[]>([]);
   const [packName, setPackName] = useState("");
   const [activePackId, setActivePackId] = useState("");
+  const [bindingPreview, setBindingPreview] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     setFiles(loadComfyWorkflowFiles());
@@ -91,13 +100,24 @@ export default function ComfyWorkflowLibraryPanel({
     return suggestWorkflowNodeMappings(editingJson);
   }, [editingJson]);
 
+  const startEdit = useCallback((file: ComfyWorkflowFile) => {
+    setEditingId(file.id);
+    setEditingName(file.name);
+    setEditingJson(file.workflowJson);
+    setEditError(null);
+  }, []);
+
   const importFile = useCallback(
     async (file: File) => {
+      setImportError(null);
+      setImportErrorDetail(null);
+      setImportNotice(null);
       try {
         const raw = await file.text();
-        const validation = validateWorkflowJson(raw, placeholderTokens);
-        if (!validation.ok) {
-          setEditError(validation.error ?? "Invalid workflow JSON.");
+        const prepared = prepareWorkflowJsonImport(raw, placeholderTokens);
+        if (!prepared.ok || !prepared.workflowJson) {
+          setImportError(prepared.error ?? "Invalid workflow JSON.");
+          setImportErrorDetail(prepared.errorDetail ?? null);
           return;
         }
 
@@ -107,29 +127,26 @@ export default function ComfyWorkflowLibraryPanel({
             workflowFileNameFromPath(file.name) ||
             `Workflow ${new Date().toLocaleString()}`,
           filename: file.name,
-          workflowJson: raw.trim(),
+          workflowJson: prepared.workflowJson,
         });
         refresh();
         setNewName("");
         setSelectedWorkflowFileId(saved.id);
         setSelectedId(saved.id);
+        startEdit(saved);
+        setImportNotice(prepared.notice ?? null);
         onStatus?.(
-          `Imported “${saved.filename ?? saved.name}” · ${validation.placeholders?.positive ?? 0}× ${placeholderTokens.positive}`,
+          `Imported “${saved.filename ?? saved.name}” · ${prepared.placeholders?.positive ?? 0}× ${placeholderTokens.positive}`,
         );
         markOnboardingWorkflowImported();
       } catch (err) {
-        onStatus?.(err instanceof Error ? err.message : "Import failed.");
+        const message = err instanceof Error ? err.message : "Import failed.";
+        setImportError(message);
+        onStatus?.(message);
       }
     },
-    [newName, onStatus, placeholderTokens, refresh],
+    [newName, onStatus, placeholderTokens, refresh, startEdit],
   );
-
-  const startEdit = useCallback((file: ComfyWorkflowFile) => {
-    setEditingId(file.id);
-    setEditingName(file.name);
-    setEditingJson(file.workflowJson);
-    setEditError(null);
-  }, []);
 
   const cancelEdit = useCallback(() => {
     setEditingId(null);
@@ -256,6 +273,18 @@ export default function ComfyWorkflowLibraryPanel({
           Use fallback default
         </ChipButton>
       </ToolActionRow>
+
+      {importError ? (
+        <div className="space-y-1 rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2.5" role="alert">
+          <p className="type-caption text-rose-300">{importError}</p>
+          {importErrorDetail ? (
+            <p className="type-caption whitespace-pre-wrap text-rose-200/75">{importErrorDetail}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {importNotice ? (
+        <p className="type-caption text-amber-300/90">{importNotice}</p>
+      ) : null}
 
       {serverFiles.length > 0 && (
         <div className="space-y-2">
@@ -417,7 +446,41 @@ export default function ComfyWorkflowLibraryPanel({
                             >
                               Copy hints
                             </Button>
+                            <Button
+                              type="button"
+                              variant="accent-outline"
+                              size="sm"
+                              onClick={() => {
+                                const applied = applyWorkflowNodeBindings(
+                                  editingJson,
+                                  editingNodeMappings,
+                                  {
+                                    positive: placeholderTokens.positive,
+                                    negative: placeholderTokens.negative,
+                                  },
+                                );
+                                if (applied.changes.length === 0) {
+                                  setBindingPreview(
+                                    "No changes — placeholders may already be present.",
+                                  );
+                                  onStatus?.("No binding changes needed.");
+                                  return;
+                                }
+                                setEditingJson(applied.json);
+                                setBindingPreview(summarizeBindingChanges(applied.changes));
+                                onStatus?.(
+                                  `Applied ${applied.changes.length} binding(s). Review and save.`,
+                                );
+                              }}
+                            >
+                              Apply bindings
+                            </Button>
                           </div>
+                          {bindingPreview ? (
+                            <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950/60 p-2 text-[11px] text-zinc-400">
+                              {bindingPreview}
+                            </pre>
+                          ) : null}
                           <ul className="mt-2 space-y-1 text-xs text-zinc-400">
                             {editingNodeMappings.map((mapping) => (
                               <li key={mapping.nodeId}>

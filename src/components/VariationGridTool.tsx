@@ -1,8 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import BatchLintGatePanel from "@/components/BatchLintGatePanel";
+import BatchReadinessPanel, {
+  applyReadinessFilterToPrompts,
+} from "@/components/BatchReadinessPanel";
+import BatchQueueProgress, {
+  type BatchQueueProgressState,
+} from "@/components/BatchQueueProgress";
 import SharedToolControls from "@/components/SharedToolControls";
 import SportPresetChips from "@/components/SportPresetChips";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
@@ -44,6 +50,7 @@ import {
   type MatrixAxisKind,
 } from "@/lib/variation-matrix";
 import { downloadMatrixCsv } from "@/lib/matrix-export-formats";
+import { scoreBatchReadiness } from "@/lib/batch-readiness";
 import SidecarImportButton from "@/components/SidecarImportButton";
 import {
   SHOT_SCALE_LABEL,
@@ -245,6 +252,10 @@ export default function VariationGridTool() {
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [lintSummary, setLintSummary] = useState<BatchLintSummary | null>(null);
   const [lintLoading, setLintLoading] = useState(false);
+  const [readyOnly, setReadyOnly] = useState(false);
+  const [queueProgress, setQueueProgress] = useState<BatchQueueProgressState | null>(
+    null,
+  );
   const importedAppliedRef = useRef(false);
 
   useEffect(() => {
@@ -329,6 +340,27 @@ export default function VariationGridTool() {
   const matrixColCount = Math.min(6, Math.max(2, toolSettings.matrixColCount ?? 3));
   const matrixAxisRow = toolSettings.matrixAxisRow ?? "variation";
   const matrixAxisCol = toolSettings.matrixAxisCol ?? "sportPreset";
+
+  const batchReadiness = useMemo(
+    () =>
+      scoreBatchReadiness({
+        rows: results.map((entry) => ({
+          prompt: entry.prompt,
+          label:
+            entry.rowLabel && entry.colLabel
+              ? `${entry.rowLabel} × ${entry.colLabel}`
+              : entry.rowLabel,
+          hints: toolSettings.hints,
+        })),
+        model: shared.model,
+        detail: shared.detail,
+      }),
+    [results, shared.detail, shared.model, toolSettings.hints],
+  );
+  const readinessByIndex = useMemo(
+    () => new Map(batchReadiness.map((row) => [row.index, row])),
+    [batchReadiness],
+  );
 
   const fetchVariation = useCallback(
     async (
@@ -478,6 +510,12 @@ export default function VariationGridTool() {
 
       setQueueLoading(true);
       setComfyStatus("Queueing variation grid…");
+      setQueueProgress({
+        phase: "preflight",
+        current: 0,
+        total: prompts.length,
+        message: "Validating workflow…",
+      });
 
       try {
         const negativePrompt = await resolveQueueNegativePrompt({
@@ -500,6 +538,11 @@ export default function VariationGridTool() {
         }
 
         const runtime = resolveComfyUiRuntime();
+        setQueueProgress({
+          phase: "queueing",
+          current: 0,
+          total: prompts.length,
+        });
         const response = await fetch("/api/comfyui", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -541,17 +584,44 @@ export default function VariationGridTool() {
           });
         }
 
+        const queued = data.queued ?? (data.results ?? []).filter((r) => r.promptId).length;
+        const failures = (data.results ?? [])
+          .map((result, index) =>
+            result.promptId
+              ? null
+              : {
+                  label: results[index]?.rowLabel ?? `Row ${index + 1}`,
+                  message: "No promptId returned",
+                },
+          )
+          .filter(Boolean) as Array<{ label: string; message: string }>;
+
+        setQueueProgress({
+          phase: "done",
+          current: queued,
+          total: prompts.length,
+          message: `Queued ${queued}/${prompts.length}`,
+          failures: failures.length > 0 ? failures : undefined,
+        });
+
         setComfyStatus(
-          `Queued ${data.queued ?? prompts.length}/${prompts.length} · ${data.comfyUrl ?? ""}`.trim(),
+          `Queued ${queued}/${prompts.length} · ${data.comfyUrl ?? ""}`.trim(),
         );
         setLintSummary(null);
       } catch (err) {
-        setComfyStatus(err instanceof Error ? err.message : "ComfyUI queue failed.");
+        const message = err instanceof Error ? err.message : "ComfyUI queue failed.";
+        setQueueProgress({
+          phase: "error",
+          current: 0,
+          total: prompts.length,
+          message,
+        });
+        setComfyStatus(message);
       } finally {
         setQueueLoading(false);
       }
     },
-    [shared.model, toolSettings.hints],
+    [shared.model, toolSettings.hints, results],
   );
 
   const queueGrid = useCallback(async () => {
@@ -873,15 +943,39 @@ export default function VariationGridTool() {
             });
           }}
           onContinue={() => {
-            const prompts = results.map((entry) => entry.prompt.trim()).filter(Boolean);
-            const filtered =
-              lintSummary && lintSummary.blockedIndexes.length > 0
-                ? filterBatchByLintIndexes(prompts, lintSummary.blockedIndexes)
-                : prompts;
-            void executeQueue(filtered);
+            let prompts = results.map((entry) => entry.prompt.trim()).filter(Boolean);
+            if (lintSummary && lintSummary.blockedIndexes.length > 0) {
+              prompts = filterBatchByLintIndexes(prompts, lintSummary.blockedIndexes);
+            }
+            prompts = applyReadinessFilterToPrompts(
+              prompts,
+              results.map((entry) => ({
+                prompt: entry.prompt,
+                label: entry.rowLabel,
+                hints: toolSettings.hints,
+              })),
+              shared.model,
+              shared.detail,
+              readyOnly,
+            );
+            void executeQueue(prompts);
           }}
           onCancel={() => setLintSummary(null)}
         />
+        <BatchReadinessPanel
+          rows={results.map((entry) => ({
+            prompt: entry.prompt,
+            label:
+              entry.rowLabel && entry.colLabel
+                ? `${entry.rowLabel} × ${entry.colLabel}`
+                : entry.rowLabel,
+            hints: toolSettings.hints,
+          }))}
+          model={shared.model}
+          detail={shared.detail}
+          onFilterReadyOnlyChange={setReadyOnly}
+        />
+        <BatchQueueProgress progress={queueProgress} />
         {comfyStatus && <p className="text-sm text-violet-300/90">{comfyStatus}</p>}
         <FieldError>{error}</FieldError>
       </ToolSection>
@@ -919,6 +1013,9 @@ export default function VariationGridTool() {
                     ? `${entry.rowLabel} × ${entry.colLabel}`
                     : `Variation ${index + 1}`}
                   {entry.seed ? ` · seed ${entry.seed.slice(0, 48)}` : ""}
+                  {readinessByIndex.get(index)
+                    ? ` · readiness ${readinessByIndex.get(index)!.score}/100`
+                    : ""}
                 </p>
                 {entry.error ? (
                   <p className="mt-2 text-sm text-rose-300">{entry.error}</p>

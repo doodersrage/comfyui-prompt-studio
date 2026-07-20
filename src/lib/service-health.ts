@@ -1,5 +1,6 @@
 import { getComfyUiBaseUrl } from "./comfyui-client";
 import type { ComfyUiRuntimeConfig } from "./comfyui-config";
+import { parseComfyUiPool } from "./comfyui-pool";
 import { getLlmConfig, isLlmEnabled } from "./llm-client";
 
 export type LlmHealth = {
@@ -18,6 +19,15 @@ export type ComfyUiHealth = {
   queuePending?: number;
   queueRunning?: number;
   vram?: { free?: number; total?: number };
+};
+
+export type ComfyUiPoolEndpointHealth = ComfyUiHealth & {
+  index: number;
+};
+
+export type ComfyUiPoolHealth = {
+  enabled: boolean;
+  endpoints: ComfyUiPoolEndpointHealth[];
 };
 
 type ComfyQueuePayload = {
@@ -149,4 +159,21 @@ export async function checkComfyUiHealth(
       error: error instanceof Error ? error.message : "ComfyUI unreachable",
     };
   }
+}
+
+export async function checkComfyUiPoolHealth(): Promise<ComfyUiPoolHealth> {
+  const pool = parseComfyUiPool();
+  if (pool.length === 0) {
+    return { enabled: false, endpoints: [] };
+  }
+
+  const endpoints = await Promise.all(
+    pool.map(async (url, index) => {
+      const health = await checkComfyUiHealth({ apiUrl: url });
+      const expanded = health.ok ? await getExpandedComfyUiHealth({ apiUrl: url }) : health;
+      return { ...expanded, index };
+    }),
+  );
+
+  return { enabled: true, endpoints };
 }

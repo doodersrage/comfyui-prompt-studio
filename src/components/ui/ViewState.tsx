@@ -275,3 +275,22 @@ export function StudioTabSkeleton() {
     </div>
   );
 }
+
+export function ToolPageSkeleton({ label = "Loading" }: { label?: string }) {
+  return (
+    <div className="ui-section-stack" aria-busy="true" aria-label={label}>
+      <div className="ui-card space-y-6 p-[var(--card-padding)]">
+        <Skeleton className="ui-skeleton-title w-56" />
+        <div className="ui-meta-panel space-y-4">
+          <Skeleton className="ui-skeleton-row w-full" />
+          <Skeleton className="ui-skeleton-row w-4/5" />
+          <Skeleton className="h-28 w-full rounded-[var(--radius-md)]" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Skeleton className="h-10 w-28 rounded-[var(--radius-md)]" />
+          <Skeleton className="h-10 w-28 rounded-[var(--radius-md)]" />
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -41,6 +41,20 @@ function writeJsonFile<T>(filePath: string, data: T): void {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
 }
 
+const AUTH_STORE_CACHE_MS = 2000;
+let authStoreCache:
+  | {
+      users: UsersDocument;
+      groups: GroupsDocument;
+      loadedAt: number;
+      authDir: string;
+    }
+  | null = null;
+
+export function invalidateAuthStoreCache(): void {
+  authStoreCache = null;
+}
+
 const DEFAULT_ADMIN_USER_ID = "user-admin-default";
 
 function defaultUsersDocument(): UsersDocument {
@@ -130,6 +144,21 @@ function syncDefaultAdminFromEnv(users: UsersDocument): UsersDocument {
 }
 
 export function ensureAuthStore(): { users: UsersDocument; groups: GroupsDocument } {
+  const now = Date.now();
+  const currentAuthDir = authDir();
+  if (authStoreCache && authStoreCache.authDir !== currentAuthDir) {
+    authStoreCache = null;
+  }
+
+  if (authStoreCache && now - authStoreCache.loadedAt < AUTH_STORE_CACHE_MS) {
+    let { users, groups } = authStoreCache;
+    if (isAuthExplicitlyEnabled()) {
+      users = syncDefaultAdminFromEnv(users);
+    }
+    authStoreCache = { users, groups, loadedAt: now, authDir: currentAuthDir };
+    return { users, groups };
+  }
+
   const usersFile = usersPath();
   const groupsFile = groupsPath();
 
@@ -146,6 +175,7 @@ export function ensureAuthStore(): { users: UsersDocument; groups: GroupsDocumen
   );
   const groups = readJsonFile<GroupsDocument>(groupsFile, defaultGroupsDocument());
 
+  authStoreCache = { users, groups, loadedAt: now, authDir: currentAuthDir };
   return { users, groups };
 }
 
@@ -200,10 +230,12 @@ export function verifyUserCredentials(username: string, password: string): AuthU
 }
 
 export function saveUsers(users: AuthUser[]): void {
+  invalidateAuthStoreCache();
   writeJsonFile(usersPath(), { version: 1, users });
 }
 
 export function saveGroups(groups: AuthGroup[]): void {
+  invalidateAuthStoreCache();
   writeJsonFile(groupsPath(), { version: 1, groups });
 }
 

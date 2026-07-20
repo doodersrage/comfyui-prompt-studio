@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
 import { featureForPath } from "@/lib/auth/features";
-import { searchGlobal } from "@/lib/global-search";
+import type { GlobalSearchResult } from "@/lib/global-search";
 
 type CommandItem = {
   id: string;
@@ -38,6 +38,7 @@ export default function CommandPalette() {
   const { allowedFeatures } = useAuth();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [globalMatches, setGlobalMatches] = useState<CommandItem[]>([]);
 
   const items = useMemo(
     () =>
@@ -51,6 +52,34 @@ export default function CommandPalette() {
     [allowedFeatures],
   );
 
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setGlobalMatches([]);
+      return;
+    }
+
+    let cancelled = false;
+    void import("@/lib/global-search").then(({ searchGlobal }) => {
+      if (cancelled) {
+        return;
+      }
+      setGlobalMatches(
+        searchGlobal(query).map((result: GlobalSearchResult) => ({
+          id: result.id,
+          label: result.label,
+          subtitle: result.subtitle,
+          href: result.href,
+          group: result.group,
+        })),
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [query]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) {
@@ -60,25 +89,15 @@ export default function CommandPalette() {
       (item) =>
         item.label.toLowerCase().includes(q) || item.group.toLowerCase().includes(q),
     );
-    const searchMatches: CommandItem[] =
-      q.length >= 2
-        ? searchGlobal(query).map((result) => ({
-            id: result.id,
-            label: result.label,
-            subtitle: result.subtitle,
-            href: result.href,
-            group: result.group,
-          }))
-        : [];
     const seen = new Set<string>();
-    return [...staticMatches, ...searchMatches].filter((item) => {
+    return [...staticMatches, ...globalMatches].filter((item) => {
       if (seen.has(item.id)) {
         return false;
       }
       seen.add(item.id);
       return true;
     });
-  }, [items, query]);
+  }, [globalMatches, items, query]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

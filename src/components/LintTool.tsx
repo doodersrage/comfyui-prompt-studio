@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import EnhancedPromptResult from "@/components/EnhancedPromptResult";
+import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import PromptDiagnosticsPanel from "@/components/PromptDiagnosticsPanel";
 import SharedToolControls from "@/components/SharedToolControls";

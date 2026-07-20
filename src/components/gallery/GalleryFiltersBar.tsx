@@ -1,6 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import {
+  backfillVisionTags,
+  listUntaggedCompletedEntries,
+  type VisionBackfillProgress,
+} from "@/lib/gallery-vision-backfill";
+import { COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
 import type { PromptProject } from "@/lib/prompt-projects";
 import type {
   ComfyGalleryJobStatus,
@@ -111,6 +117,28 @@ export default function GalleryFiltersBar({
 
   const [savedViews, setSavedViews] = useState<GallerySavedView[]>(() => loadGallerySavedViews());
   const [viewNameDraft, setViewNameDraft] = useState("");
+  const [backfillProgress, setBackfillProgress] = useState<VisionBackfillProgress | null>(
+    null,
+  );
+  const [backfillLoading, setBackfillLoading] = useState(false);
+
+  async function runVisionBackfill() {
+    const entries = listUntaggedCompletedEntries(100);
+    if (entries.length === 0) {
+      return;
+    }
+    setBackfillLoading(true);
+    setBackfillProgress({ total: entries.length, completed: 0, tagged: 0, skipped: 0, failed: 0 });
+    try {
+      await backfillVisionTags(entries, {
+        concurrency: 2,
+        onProgress: (progress) => setBackfillProgress({ ...progress }),
+      });
+      window.dispatchEvent(new Event(COMFYUI_GALLERY_UPDATED_EVENT));
+    } finally {
+      setBackfillLoading(false);
+    }
+  }
 
   function saveCurrentView() {
     const name = viewNameDraft.trim() || `View ${savedViews.length + 1}`;
@@ -338,6 +366,18 @@ export default function GalleryFiltersBar({
             setFilter({ ...filter, visionTagsOnly: filter.visionTagsOnly ? undefined : true })
           }
         />
+        <button
+          type="button"
+          disabled={backfillLoading}
+          onClick={() => void runVisionBackfill()}
+          className="ui-btn-ghost ui-btn-sm text-xs disabled:opacity-50"
+        >
+          {backfillLoading
+            ? backfillProgress
+              ? `Tagging ${backfillProgress.completed}/${backfillProgress.total}`
+              : "Tagging…"
+            : "Tag untagged"}
+        </button>
         {filter.semanticSearch && embeddingSearchUnavailable ? (
           <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[10px] text-amber-100">
             Semantic search needs LLM embeddings — using text match
