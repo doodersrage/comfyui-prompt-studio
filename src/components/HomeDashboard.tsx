@@ -6,6 +6,7 @@ import { galleryEntryViewUrls, initGalleryStore, loadComfyGallery } from "@/lib/
 import { loadScheduledBatchConfig } from "@/lib/scheduled-batch";
 import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 import QueueOrchestrationPanel from "@/components/QueueOrchestrationPanel";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import {
@@ -59,6 +60,7 @@ export default function HomeDashboard() {
       title="Dashboard"
       description="Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way."
     >
+      <OnboardingChecklist />
       <ToolSection>
         <ToolActionRow>
           <ButtonLink href="/" variant="primary" size="sm">

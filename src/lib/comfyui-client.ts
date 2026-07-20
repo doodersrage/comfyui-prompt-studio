@@ -14,6 +14,7 @@ import {
 import { writeQueueArtifact } from "./queue-artifacts";
 import { loadServerWorkflowJson } from "./comfyui-server-workflows";
 import { applyUserComfyUiOverride } from "./user-comfy-url";
+import { resolveComfyUiUrlWithPool } from "./comfyui-pool";
 import {
   getComfyUiAllowedHosts,
   isComfyClientUrlAllowed,
@@ -48,7 +49,7 @@ function envComfyUiBaseUrl(): string {
   );
 }
 
-export function getComfyUiBaseUrl(runtime?: ComfyUiRuntimeConfig): string {
+export function getComfyUiBaseUrl(runtime?: ComfyUiRuntimeConfig, routingSeed?: string): string {
   const runtimeWithUser = applyUserComfyUiOverride(runtime ?? {});
   const allowedHosts = getComfyUiAllowedHosts();
   const clientUrl = runtimeWithUser.apiUrl?.trim();
@@ -60,10 +61,17 @@ export function getComfyUiBaseUrl(runtime?: ComfyUiRuntimeConfig): string {
     });
   }
 
-  return normalizeSafeHttpUrl(envComfyUiBaseUrl(), {
-    allowPrivate: true,
-    allowedHosts,
-  });
+  return normalizeSafeHttpUrl(
+    resolveComfyUiUrlWithPool({
+      userUrl: runtimeWithUser.apiUrl,
+      envUrl: envComfyUiBaseUrl(),
+      routingSeed,
+    }),
+    {
+      allowPrivate: true,
+      allowedHosts,
+    },
+  );
 }
 
 function loadWorkflowFromEnv(): Record<string, unknown> | null {

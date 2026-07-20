@@ -25,6 +25,9 @@ const STATIC_ITEMS: CommandItem[] = [
   { id: "format", label: "Format", href: "/format", group: "Navigate" },
   { id: "character", label: "Character", href: "/character", group: "Navigate" },
   { id: "image-prompt", label: "Image → Prompt", href: "/image-prompt", group: "Navigate" },
+  { id: "queue", label: "Queue", href: "/queue", group: "Navigate" },
+  { id: "sync-now", label: "Sync storage now", action: () => void import("@/lib/auto-storage-sync").then((m) => m.autoPushStorageDebounced()), group: "Actions" },
+  { id: "review-gallery", label: "Open gallery review", href: "/gallery?review=1", group: "Actions" },
   { id: "reload", label: "Reload page", action: () => window.location.reload(), group: "Actions" },
 ];
 

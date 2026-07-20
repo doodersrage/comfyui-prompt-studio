@@ -9,6 +9,8 @@ export type UserScheduledCampaign = {
   intervalMin: number;
   autoQueueComfyUi: boolean;
   lastRunAt?: number;
+  /** Vision-rank outputs and keep top N when set. */
+  bestOfN?: number;
 };
 
 export type AuthUser = {
@@ -25,6 +27,8 @@ export type AuthUser = {
   quotaMaxPerMinute?: number;
   scheduledCampaign?: UserScheduledCampaign;
   exportEnabled?: boolean;
+  totpSecret?: string;
+  totpEnabled?: boolean;
 };
 
 export type AuthGroup = {
@@ -45,6 +49,7 @@ export type AuthSession = {
   role: AuthRole;
   exp: number;
   impersonatorId?: string;
+  sessionId?: string;
 };
 
 export type AuthSessionResponse = {

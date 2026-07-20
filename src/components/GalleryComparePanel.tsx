@@ -1,8 +1,15 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
 import { galleryEntryViewUrls } from "@/lib/comfyui-gallery";
 import { Button } from "@/components/ui/Button";
+import {
+  createEloBracket,
+  initEloEntries,
+  updateEloRatings,
+  type EloEntry,
+} from "@/lib/gallery-elo";
 
 type GalleryComparePanelProps = {
   entries: ComfyGalleryEntry[];
@@ -25,8 +32,30 @@ export default function GalleryComparePanel({
   onImprove,
   status,
 }: GalleryComparePanelProps) {
+  const [tournament, setTournament] = useState(false);
+  const [elo, setElo] = useState<EloEntry[]>([]);
+  const [pairIndex, setPairIndex] = useState(0);
+  const pairs = useMemo(
+    () => (tournament ? createEloBracket(entries.map((entry) => entry.id)) : []),
+    [tournament, entries],
+  );
+
   if (entries.length === 0) {
     return null;
+  }
+
+  function startTournament() {
+    setTournament(true);
+    setElo(initEloEntries(
+      entries.map((entry) => entry.id),
+      Object.fromEntries(entries.map((entry) => [entry.id, entry.model ?? entry.id.slice(0, 8)])),
+    ));
+    setPairIndex(0);
+  }
+
+  function pickTournamentWinner(winnerId: string, loserId: string) {
+    setElo((prev) => updateEloRatings(prev, winnerId, loserId));
+    setPairIndex((prev) => prev + 1);
   }
 
   return (
@@ -43,6 +72,25 @@ export default function GalleryComparePanel({
           Close
         </button>
       </div>
+      {entries.length >= 2 ? (
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="secondary" onClick={startTournament}>
+            ELO tournament
+          </Button>
+        </div>
+      ) : null}
+      {tournament && pairs[pairIndex] ? (
+        <p className="text-xs text-violet-200">
+          Match {pairIndex + 1}/{pairs.length} — pick the better output
+        </p>
+      ) : null}
+      {tournament && elo.length > 0 && pairIndex >= pairs.length ? (
+        <ul className="text-xs text-zinc-300">
+          {[...elo].sort((a, b) => b.rating - a.rating).map((entry) => (
+            <li key={entry.id}>{entry.label}: {entry.rating} ELO ({entry.matches} matches)</li>
+          ))}
+        </ul>
+      ) : null}
       {status ? <p className="text-xs text-violet-300/90">{status}</p> : null}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {entries.map((entry) => {
@@ -69,9 +117,17 @@ export default function GalleryComparePanel({
                   <Button
                     variant="secondary"
                     className="!min-h-7 px-2 text-[11px]"
-                    onClick={() => onPickWinner(entry)}
+                    onClick={() => {
+                      if (tournament && pairs[pairIndex]) {
+                        const [a, b] = pairs[pairIndex];
+                        const loserId = entry.id === a ? b : a;
+                        pickTournamentWinner(entry.id, loserId);
+                        return;
+                      }
+                      onPickWinner(entry);
+                    }}
                   >
-                    Pick winner
+                    {tournament ? "Win match" : "Pick winner"}
                   </Button>
                 ) : null}
                 {[5, 4, 3, 2, 1].map((rating) => (

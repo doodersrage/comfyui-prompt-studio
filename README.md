@@ -188,6 +188,24 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Server storage sync** — optional `PROMPT_DATA_DIR` file-backed namespaces via `/api/storage`; per-user paths when logged in
 - **Admin tools** — audit log, user impersonation, shared read-only preset library, analytics trends over time
 - **Command palette** — `Ctrl+K` / `⌘K` quick navigation across tools
+- **Auto storage sync** — pull on login when browser is empty; conflict merge UI when local/server diverge
+- **Per-user API keys** — `pt_…` tokens for CLI/inbound hooks with user quotas
+- **Vision gallery review** — AI-suggested rating, tags, and critique in review mode
+- **LLM usage dashboard** — per-user call/token stats in Settings → Advanced
+- **Central job queue** — `/queue` page for pending ComfyUI jobs
+- **Shared projects** — admin assigns group-scoped projects via `/api/shared-projects`
+- **Style transplant** — Studio → Experiments applies lighting/camera mood from one prompt to another
+- **Duplicate detection** — Studio → Experiments finds near-identical history clusters
+- **Session management** — list/revoke sessions on Profile
+- **Workflow diff** — Settings compares two workflow JSON files
+- **Multi-ComfyUI pool** — `COMFYUI_POOL` env for round-robin routing
+- **ELO tournament** — bracket compare mode in gallery compare
+- **Inbound webhooks** — `POST /api/hooks/generate` with user API key or `INBOUND_WEBHOOK_SECRET`
+- **TOTP 2FA** — optional authenticator setup on Profile
+- **Encrypted exports** — `POST /api/storage/export` with optional passphrase
+- **Onboarding checklist** — Dashboard getting-started steps
+- **Gallery PWA** — read-only service worker for gallery routes
+- **Keyboard shortcut editor** — customize bindings on Profile
 - **Prompt brief** — export/import portable prompt bundles from Studio Presets
 - **Webhook templates** — Discord/Slack rich payload formats in Settings
 - **Mobile gallery review** — touch-friendly rating bar in gallery review mode

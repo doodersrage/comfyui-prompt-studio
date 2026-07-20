@@ -4,6 +4,7 @@ import {
   checkRateLimit,
   rateLimitClientKey,
 } from "@/lib/api-rate-limit";
+import { resolveUserIdFromApiKey } from "@/lib/auth/api-keys";
 import { readSessionFromRequest } from "@/lib/auth/session";
 import { findUserById, listGroups } from "@/lib/auth/store";
 import { checkUserRateLimit } from "@/lib/user-quotas";
@@ -45,13 +46,23 @@ function isTrustedSameOrigin(request: NextRequest): boolean {
   return site === "same-origin" || site === "none";
 }
 
+function hasValidUserApiKey(request: NextRequest): boolean {
+  return Boolean(resolveUserIdFromApiKey(extractToken(request)));
+}
+
 function hasValidServiceToken(request: NextRequest): boolean {
   const expected = process.env.PROMPT_API_TOKEN?.trim();
   if (!expected) {
     return false;
   }
   const provided = extractToken(request);
-  return Boolean(provided && timingSafeEqualString(provided, expected));
+  if (!provided) {
+    return false;
+  }
+  if (provided.startsWith("pt_") && resolveUserIdFromApiKey(provided)) {
+    return true;
+  }
+  return timingSafeEqualString(provided, expected);
 }
 
 export function proxy(request: NextRequest) {
@@ -62,7 +73,13 @@ export function proxy(request: NextRequest) {
 
   if (isApiRoute) {
     const session = readSessionFromRequest(request);
-    const user = session ? findUserById(session.userId) : null;
+    const apiKeyUserId = resolveUserIdFromApiKey(extractToken(request));
+    const user =
+      session && !apiKeyUserId
+        ? findUserById(session.userId)
+        : apiKeyUserId
+          ? findUserById(apiKeyUserId)
+          : null;
     const limit =
       user && user.enabled
         ? checkUserRateLimit({
@@ -97,7 +114,8 @@ export function proxy(request: NextRequest) {
     const expected = process.env.PROMPT_API_TOKEN?.trim();
     if (expected && request.method !== "OPTIONS") {
       const provided = extractToken(request);
-      if (!provided || !timingSafeEqualString(provided, expected)) {
+      const userKeyOk = provided?.startsWith("pt_") && resolveUserIdFromApiKey(provided);
+      if (!provided || (!timingSafeEqualString(provided, expected) && !userKeyOk)) {
         if (!isTrustedSameOrigin(request)) {
           logApiUsage({
             at: started,

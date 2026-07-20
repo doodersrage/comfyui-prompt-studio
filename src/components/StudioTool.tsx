@@ -181,6 +181,14 @@ const ExperimentDashboardPanel = dynamic(
   () => import("@/components/ExperimentDashboardPanel"),
   { loading: () => <StudioTabSkeleton /> },
 );
+const DuplicatePromptsPanel = dynamic(
+  () => import("@/components/studio/DuplicatePromptsPanel"),
+  { loading: () => <StudioTabSkeleton /> },
+);
+const StyleTransplantPanel = dynamic(
+  () => import("@/components/studio/StyleTransplantPanel"),
+  { loading: () => <StudioTabSkeleton /> },
+);
 
 const ACCENT = "violet" as const;
 
@@ -2690,7 +2698,13 @@ export default function StudioTool() {
         </ToolSection>
       )}
 
-      {tab === "experiments" && <ExperimentDashboardPanel />}
+      {tab === "experiments" && (
+        <>
+          <ExperimentDashboardPanel />
+          <DuplicatePromptsPanel />
+          <StyleTransplantPanel />
+        </>
+      )}
 
       {tab === "diff" && (
         <ToolSection title="Prompt diff">

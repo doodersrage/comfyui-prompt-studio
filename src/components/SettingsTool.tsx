@@ -74,6 +74,7 @@ import {
 } from "@/lib/comfyui-notifications";
 import ComfyUiGalleryPanel from "@/components/ComfyUiGalleryPanel";
 import ComfyWorkflowLibraryPanel from "@/components/ComfyWorkflowLibraryPanel";
+import WorkflowDiffPanel from "@/components/settings/WorkflowDiffPanel";
 import SettingsAdvancedPanel from "@/components/SettingsAdvancedPanel";
 import SettingsSubNav from "@/components/settings/SettingsSubNav";
 import UsersSettingsPanel from "@/components/settings/UsersSettingsPanel";
@@ -732,6 +733,8 @@ export default function SettingsTool() {
         placeholderTokens={placeholderTokensFromSettings(settings)}
         onStatus={setStatus}
       />
+
+      <WorkflowDiffPanel />
 
       <ToolSection title="ComfyUI connection & injection">
         <p className="text-sm text-zinc-400">

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
 import { ToolSection } from "@/components/ui/ToolPageShell";
 import type { UserScheduledCampaign } from "@/lib/auth/types";
+import ProfileSecurityPanel from "@/components/profile/ProfileSecurityPanel";
 import type { SharedPresetEntry } from "@/lib/shared-preset-store";
 
 const DEFAULT_CAMPAIGN: UserScheduledCampaign = {
@@ -252,6 +253,8 @@ export default function ProfilePanel() {
           </ul>
         </ToolSection>
       ) : null}
+
+      <ProfileSecurityPanel />
 
       <Button type="button" disabled={loading} onClick={() => void saveProfile()}>
         {loading ? "Saving…" : "Save profile"}

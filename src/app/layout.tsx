@@ -7,7 +7,8 @@ import ComfyGalleryBackgroundPoller from "@/components/ComfyGalleryBackgroundPol
 import UserScopeInit from "@/components/UserScopeInit";
 import ScheduledBatchRunner from "@/components/ScheduledBatchRunner";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
-import ServiceWorkerCleanup from "@/components/ServiceWorkerCleanup";
+import AutoStorageSyncInit from "@/components/AutoStorageSyncInit";
+import GalleryPwaRegister from "@/components/GalleryPwaRegister";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,7 +47,8 @@ export default function RootLayout({
             <ScheduledBatchRunner />
             <KeyboardShortcuts />
             <CommandPalette />
-            <ServiceWorkerCleanup />
+            <AutoStorageSyncInit />
+            <GalleryPwaRegister />
             {children}
           </div>
         </AuthProvider>

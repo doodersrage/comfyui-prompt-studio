@@ -30,6 +30,12 @@ export default function SettingsAdvancedPanel() {
   const [storageEnabled, setStorageEnabled] = useState(false);
   const storageNamespaces = ["settings-cache", "prompt-history", "comfy-gallery"];
 
+  const [llmUsage, setLlmUsage] = useState<{
+    last24h: number;
+    last24hTokens: number;
+    byModel: Record<string, number>;
+  } | null>(null);
+
   useEffect(() => {
     void fetch("/api/usage")
       .then((response) => response.json())
@@ -41,6 +47,12 @@ export default function SettingsAdvancedPanel() {
         setStorageEnabled(Boolean(data.storage?.enabled)),
       )
       .catch(() => setStorageEnabled(false));
+    void fetch("/api/auth/llm-usage")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { summary?: { last24h: number; last24hTokens: number; byModel: Record<string, number> } } | null) =>
+        setLlmUsage(data?.summary ?? null),
+      )
+      .catch(() => setLlmUsage(null));
   }, []);
 
   async function runServerBatch() {
@@ -114,6 +126,18 @@ export default function SettingsAdvancedPanel() {
 
   return (
     <>
+      <ToolSection title="LLM usage">
+        {llmUsage ? (
+          <ul className="space-y-1 text-sm text-zinc-400">
+            <li>Last 24h LLM calls: {llmUsage.last24h}</li>
+            <li>Estimated tokens: {llmUsage.last24hTokens}</li>
+            <li>By model: {Object.entries(llmUsage.byModel).map(([model, count]) => `${model} (${count})`).join(", ") || "—"}</li>
+          </ul>
+        ) : (
+          <p className="text-sm text-zinc-500">Sign in to view LLM usage stats.</p>
+        )}
+      </ToolSection>
+
       <ToolSection title="API usage">
         {usage ? (
           <ul className="space-y-1 text-sm text-zinc-400">

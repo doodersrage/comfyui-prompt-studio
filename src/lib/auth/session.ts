@@ -1,7 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { AuthSession } from "./types";
+import { isSessionRevoked } from "./session-registry";
 import { getSessionSecret, SESSION_COOKIE_NAME, SESSION_MAX_AGE_SEC } from "./config";
 
 function encodePayload(session: AuthSession): string {
@@ -58,6 +57,10 @@ export function parseSessionToken(token: string | undefined | null): AuthSession
 
   const session = decodePayload(payload);
   if (!session || session.exp <= Date.now()) {
+    return null;
+  }
+
+  if (isSessionRevoked(session.sessionId)) {
     return null;
   }
 

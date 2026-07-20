@@ -1,5 +1,6 @@
 export const APP_FEATURES = [
   { id: "dashboard", label: "Dashboard", description: "Home dashboard and queue overview" },
+  { id: "queue", label: "Queue", description: "Central ComfyUI job queue" },
   { id: "generate", label: "Generate", description: "Keyword and random scene generators" },
   { id: "format", label: "Format", description: "Prompt formatting tool" },
   { id: "lint", label: "Lint", description: "Prompt lint and diagnostics" },
@@ -29,6 +30,7 @@ export const ALL_FEATURE_IDS = APP_FEATURES.map((feature) => feature.id) as AppF
 
 const PAGE_FEATURE_MAP: Array<{ prefix: string; feature: AppFeatureId }> = [
   { prefix: "/dashboard", feature: "dashboard" },
+  { prefix: "/queue", feature: "queue" },
   { prefix: "/format", feature: "format" },
   { prefix: "/lint", feature: "lint" },
   { prefix: "/topics", feature: "topics" },

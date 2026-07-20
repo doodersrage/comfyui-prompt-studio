@@ -22,6 +22,7 @@ const navGroups: NavGroup[] = [
     label: "Overview",
     links: [
       { href: "/dashboard", label: "Dashboard", description: "Jobs, queue & recent outputs" },
+      { href: "/queue", label: "Queue", description: "Central ComfyUI job queue" },
     ],
   },
   {

@@ -1,5 +1,6 @@
 import { featureForPath, type AppFeatureId } from "./features";
 import { readSessionFromRequest } from "./session";
+import { resolveUserIdFromApiKey } from "./api-keys";
 import {
   findUserById,
   isAuthEnabled,
@@ -16,17 +17,33 @@ export function isPublicAuthPath(pathname: string): boolean {
     path === "/api/auth/logout" ||
     path === "/api/auth/session" ||
     path === "/api/auth/profile" ||
+    path === "/api/auth/totp/verify" ||
     path === "/api/shared-presets" ||
     path === "/api/health"
   );
 }
 
+function extractBearerToken(request: Request): string | undefined {
+  const authorization = request.headers.get("authorization");
+  if (authorization?.toLowerCase().startsWith("bearer ")) {
+    return authorization.slice(7).trim() || undefined;
+  }
+  return request.headers.get("x-prompt-api-token")?.trim() || undefined;
+}
+
 export function resolveRequestUser(request: Request): AuthUser | null {
   const session = readSessionFromRequest(request);
-  if (!session) {
-    return null;
+  if (session) {
+    return findUserById(session.userId);
   }
-  return findUserById(session.userId);
+
+  const token = extractBearerToken(request);
+  const userId = resolveUserIdFromApiKey(token);
+  if (userId) {
+    return findUserById(userId);
+  }
+
+  return null;
 }
 
 export function authorizeAppRequest(request: Request): {

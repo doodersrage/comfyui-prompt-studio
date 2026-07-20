@@ -5,6 +5,19 @@ import {
   stripPromptArtifacts,
 } from "./prompt-cleanup";
 
+export type LlmUsageContext = {
+  userId?: string;
+  username?: string;
+  route?: string;
+};
+
+function logLlmUsageSafe(entry: Parameters<typeof import("./llm-usage-log").logLlmUsage>[0]): void {
+  if (typeof window !== "undefined") {
+    return;
+  }
+  void import("./llm-usage-log").then(({ logLlmUsage }) => logLlmUsage(entry));
+}
+
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string | ChatContentPart[];
@@ -468,39 +481,74 @@ export async function chatCompletion(options: {
   temperature?: number;
   model?: string;
   extraBody?: Record<string, unknown>;
+  usageContext?: LlmUsageContext;
 }): Promise<string> {
+  const started = Date.now();
   const { baseUrl, apiKey, model } = getLlmConfig();
   const resolvedModel = options.model ?? model;
   const extraBody = { think: false, ...options.extraBody };
 
-  if (isOllamaBaseUrl(baseUrl)) {
-    try {
-      return await ollamaNativeChatCompletion({
-        baseUrl,
-        apiKey,
-        model: resolvedModel,
-        messages: options.messages,
-        maxTokens: options.maxTokens,
-        temperature: options.temperature,
-        extraBody,
-      });
-    } catch (nativeError) {
-      console.warn(
-        "[llm-client] Ollama native chat failed, trying OpenAI-compatible endpoint:",
-        nativeError instanceof Error ? nativeError.message : nativeError,
-      );
+  try {
+    if (isOllamaBaseUrl(baseUrl)) {
+      try {
+        const text = await ollamaNativeChatCompletion({
+          baseUrl,
+          apiKey,
+          model: resolvedModel,
+          messages: options.messages,
+          maxTokens: options.maxTokens,
+          temperature: options.temperature,
+          extraBody,
+        });
+        logLlmUsageSafe({
+          at: started,
+          userId: options.usageContext?.userId,
+          username: options.usageContext?.username,
+          route: options.usageContext?.route ?? "chat",
+          model: resolvedModel,
+          durationMs: Date.now() - started,
+          ok: true,
+        });
+        return text;
+      } catch (nativeError) {
+        console.warn(
+          "[llm-client] Ollama native chat failed, trying OpenAI-compatible endpoint:",
+          nativeError instanceof Error ? nativeError.message : nativeError,
+        );
+      }
     }
-  }
 
-  return openAiCompatibleChatCompletion({
-    baseUrl,
-    apiKey,
-    model: resolvedModel,
-    messages: options.messages,
-    maxTokens: options.maxTokens,
-    temperature: options.temperature,
-    extraBody,
-  });
+    const text = await openAiCompatibleChatCompletion({
+      baseUrl,
+      apiKey,
+      model: resolvedModel,
+      messages: options.messages,
+      maxTokens: options.maxTokens,
+      temperature: options.temperature,
+      extraBody,
+    });
+    logLlmUsageSafe({
+      at: started,
+      userId: options.usageContext?.userId,
+      username: options.usageContext?.username,
+      route: options.usageContext?.route ?? "chat",
+      model: resolvedModel,
+      durationMs: Date.now() - started,
+      ok: true,
+    });
+    return text;
+  } catch (error) {
+    logLlmUsageSafe({
+      at: started,
+      userId: options.usageContext?.userId,
+      username: options.usageContext?.username,
+      route: options.usageContext?.route ?? "chat",
+      model: resolvedModel,
+      durationMs: Date.now() - started,
+      ok: false,
+    });
+    throw error;
+  }
 }
 
 export async function visionCompletion(options: {

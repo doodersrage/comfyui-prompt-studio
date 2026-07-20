@@ -15,6 +15,9 @@ export type PromptProject = {
   createdAt: number;
   updatedAt: number;
   notes?: string;
+  /** Shared project id from server when assigned to a group. */
+  sharedProjectId?: string;
+  groupIds?: string[];
 };
 
 export function loadPromptProjects(): PromptProject[] {

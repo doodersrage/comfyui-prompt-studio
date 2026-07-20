@@ -391,6 +391,8 @@ export function updateUserProfile(
     comfyUiUrl?: string;
     scheduledCampaign?: AuthUser["scheduledCampaign"];
     exportEnabled?: boolean;
+    totpSecret?: string;
+    totpEnabled?: boolean;
   },
 ): AuthUserPublic {
   const { users } = ensureAuthStore();
@@ -417,6 +419,12 @@ export function updateUserProfile(
   }
   if (input.exportEnabled !== undefined) {
     next.exportEnabled = input.exportEnabled;
+  }
+  if (input.totpSecret !== undefined) {
+    next.totpSecret = input.totpSecret || undefined;
+  }
+  if (input.totpEnabled !== undefined) {
+    next.totpEnabled = input.totpEnabled;
   }
 
   users.users[index] = next;

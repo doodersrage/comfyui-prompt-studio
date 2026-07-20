@@ -10,6 +10,7 @@ import { useComfyUiGallery } from "@/hooks/useComfyUiGallery";
 import { startImproveFromGalleryEntry } from "@/lib/improve-output";
 import { recordAvoidedTokensFromPrompt } from "@/lib/avoided-tokens";
 import { recordCatalogBiasFromPrompt } from "@/lib/catalog-rating-bias";
+import GalleryVisionReviewButton from "@/components/gallery/GalleryVisionReviewButton";
 import GalleryComparePanel from "@/components/GalleryComparePanel";
 import GalleryCard from "@/components/gallery/GalleryCard";
 import GalleryFiltersBar from "@/components/gallery/GalleryFiltersBar";
@@ -903,28 +904,39 @@ export default function ComfyUiGalleryPanel({
       )}
 
       {filter.reviewMode && reviewFocusEntry ? (
-        <GalleryReviewTouchBar
-          onRate={(rating) => {
-            setReviewRating(reviewFocusEntry.id, rating);
-            recordCatalogBiasFromPrompt(reviewFocusEntry.prompt, rating);
-            if (rating <= 2) {
-              recordAvoidedTokensFromPrompt(reviewFocusEntry.prompt);
-            }
-          }}
-          onFavorite={() => toggleFavorite(reviewFocusEntry.id)}
-          onNext={() => {
-            const nextEntry = visibleEntries[Math.min(reviewFocusIndex + 1, visibleEntries.length - 1)];
-            if (nextEntry) {
-              setSelectedIds([nextEntry.id]);
-            }
-          }}
-          onPrev={() => {
-            const prevEntry = visibleEntries[Math.max(reviewFocusIndex - 1, 0)];
-            if (prevEntry) {
-              setSelectedIds([prevEntry.id]);
-            }
-          }}
-        />
+        <>
+          {galleryEntryViewUrls(reviewFocusEntry)[0] ? (
+            <GalleryVisionReviewButton
+              imageDataUrl={galleryEntryViewUrls(reviewFocusEntry)[0]!}
+              prompt={reviewFocusEntry.prompt}
+              onApplyRating={(rating) => {
+                setReviewRating(reviewFocusEntry.id, rating);
+              }}
+            />
+          ) : null}
+          <GalleryReviewTouchBar
+            onRate={(rating) => {
+              setReviewRating(reviewFocusEntry.id, rating);
+              recordCatalogBiasFromPrompt(reviewFocusEntry.prompt, rating);
+              if (rating <= 2) {
+                recordAvoidedTokensFromPrompt(reviewFocusEntry.prompt);
+              }
+            }}
+            onFavorite={() => toggleFavorite(reviewFocusEntry.id)}
+            onNext={() => {
+              const nextEntry = visibleEntries[Math.min(reviewFocusIndex + 1, visibleEntries.length - 1)];
+              if (nextEntry) {
+                setSelectedIds([nextEntry.id]);
+              }
+            }}
+            onPrev={() => {
+              const prevEntry = visibleEntries[Math.max(reviewFocusIndex - 1, 0)];
+              if (prevEntry) {
+                setSelectedIds([prevEntry.id]);
+              }
+            }}
+          />
+        </>
       ) : null}
     </section>
   );

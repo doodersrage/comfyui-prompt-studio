@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-
-const SHORTCUTS: Array<{ combo: string; action: string; selector?: string }> = [
-  { combo: "Ctrl+Enter", action: "generate", selector: "[data-action='primary-generate']" },
-  { combo: "Ctrl+Shift+C", action: "copy-pair", selector: "[data-action='copy-pair']" },
-  { combo: "Ctrl+Shift+G", action: "queue-comfyui", selector: "[data-action='send-comfyui']" },
-];
+import { loadKeyboardShortcuts, parseCombo } from "@/lib/keyboard-shortcuts-store";
 
 export default function KeyboardShortcuts() {
   useEffect(() => {
+    const bindings = loadKeyboardShortcuts();
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (
@@ -22,20 +18,19 @@ export default function KeyboardShortcuts() {
         return;
       }
 
-      const ctrl = event.ctrlKey || event.metaKey;
-      if (ctrl && event.shiftKey && event.key.toLowerCase() === "g") {
-        event.preventDefault();
-        document.querySelector<HTMLElement>("[data-action='send-comfyui']")?.click();
-        return;
-      }
-      if (ctrl && event.shiftKey && event.key.toLowerCase() === "c") {
-        event.preventDefault();
-        document.querySelector<HTMLElement>("[data-action='copy-pair']")?.click();
-        return;
-      }
-      if (ctrl && event.key === "Enter") {
-        event.preventDefault();
-        document.querySelector<HTMLElement>("[data-action='primary-generate']")?.click();
+      for (const binding of bindings) {
+        if (!binding.selector || binding.action === "command-palette") {
+          continue;
+        }
+        const combo = parseCombo(binding.combo);
+        const ctrl = event.ctrlKey || event.metaKey;
+        const key = event.key.toLowerCase();
+        const expectedKey = combo.key === "enter" ? "enter" : combo.key;
+        if (ctrl === combo.ctrl && event.shiftKey === combo.shift && key === expectedKey) {
+          event.preventDefault();
+          document.querySelector<HTMLElement>(binding.selector)?.click();
+          return;
+        }
       }
     };
 
@@ -47,5 +42,5 @@ export default function KeyboardShortcuts() {
 }
 
 export function keyboardShortcutHelp(): string {
-  return SHORTCUTS.map((entry) => `${entry.combo}: ${entry.action}`).join(" · ");
+  return loadKeyboardShortcuts().map((entry) => `${entry.combo}: ${entry.action}`).join(" · ");
 }
