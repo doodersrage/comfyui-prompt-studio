@@ -125,6 +125,7 @@ export default function NegativeTool() {
           detailHelp="Detail level affects compact-to-limit when trimming long negatives."
           autoFixRules={shared.autoFixRules !== false}
           onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          recommendFromText={output || toolSettings.extra || ""}
         />
       }
     >

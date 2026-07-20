@@ -223,6 +223,7 @@ export default function PetTool() {
           }
           autoFixRules={shared.autoFixRules !== false}
           onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          recommendFromText={output}
         />
       }
     >

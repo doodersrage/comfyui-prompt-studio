@@ -276,6 +276,7 @@ export function filterComfyGalleryEntries(
         entry.model,
         entry.promptId,
         entry.statusMessage,
+        entry.visionTags?.join(" "),
       ]
         .filter(Boolean)
         .join(" ")
@@ -300,6 +301,7 @@ export function filterComfyGalleryEntries(
           entry.model,
           entry.promptId,
           entry.statusMessage,
+          entry.visionTags?.join(" "),
         ]
           .filter(Boolean)
           .join(" "),
@@ -459,6 +461,7 @@ export function updateComfyGalleryEntryById(
       | "queueParams"
       | "reviewRating"
       | "projectId"
+      | "visionTags"
     >
   >,
 ): ComfyGalleryEntry | null {

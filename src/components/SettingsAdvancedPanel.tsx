@@ -183,6 +183,31 @@ export default function SettingsAdvancedPanel() {
         </Button>
       </ToolSection>
 
+      <ToolSection title="Email">
+        <p className="text-sm text-zinc-400">
+          Requires SMTP env vars and a signed-in user with an email on Profile.
+        </p>
+        <Button
+          variant="secondary"
+          className="mt-3"
+          onClick={async () => {
+            setStatus(null);
+            try {
+              const response = await fetch("/api/email/test", { method: "POST" });
+              const data = (await response.json()) as { error?: string; to?: string };
+              if (!response.ok) {
+                throw new Error(data.error ?? "Test email failed.");
+              }
+              setStatus(`Test email sent to ${data.to ?? "your address"}.`);
+            } catch (error) {
+              setStatus(error instanceof Error ? error.message : "Test email failed.");
+            }
+          }}
+        >
+          Send test email
+        </Button>
+      </ToolSection>
+
       <ObservabilityDashboard />
 
       <PromptRecipesPanel />

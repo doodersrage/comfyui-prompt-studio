@@ -21,6 +21,8 @@ export type ComfyGalleryEntry = {
   userId?: string;
   comfyUrl: string;
   status: ComfyGalleryJobStatus;
+  /** Optional vision-derived tags for search/filter. */
+  visionTags?: string[];
   statusMessage?: string;
   queuePosition?: number | null;
   queuedAt: number;

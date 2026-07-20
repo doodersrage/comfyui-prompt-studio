@@ -603,6 +603,7 @@ export default function VariationGridTool() {
           onClearLockedVariationSeed={() =>
             updateShared({ lockedVariationSeed: undefined })
           }
+          recommendFromText={toolSettings.hints ?? ""}
         />
       }
     >

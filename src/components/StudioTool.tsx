@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import PromptMergePanel from "@/components/PromptMergePanel";
+import PromptTimelinePanel from "@/components/studio/PromptTimelinePanel";
 import SharedToolControls from "@/components/SharedToolControls";
 import EnhancedPromptResult from "@/components/EnhancedPromptResult";
 import PromptDiagnosticsPanel from "@/components/PromptDiagnosticsPanel";
@@ -1090,6 +1091,16 @@ export default function StudioTool() {
           <p className="text-sm text-zinc-400">
             Branches built from saved history entries linked by parent history ids.
           </p>
+          {iterationForest.length > 0 ? (
+            <div className="mb-4">
+              <p className="type-caption mb-2 text-zinc-500">Timeline</p>
+              <PromptTimelinePanel
+                nodes={iterationForest}
+                selectedId={highlightHistoryId ?? undefined}
+                onSelect={(historyId) => setHighlightHistoryId(historyId)}
+              />
+            </div>
+          ) : null}
           {iterationEntries.length >= 2 ? (
             <ToolMetaPanel title="Branch diff" className="mb-4">
               <div className="grid gap-3 sm:grid-cols-2">

@@ -353,6 +353,7 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `PROMPT_AUTH_DIR` | _(uses `PROMPT_DATA_DIR/auth`)_ | Directory for `users.json`, `groups.json`, and `analytics-snapshots.json` |
 | `PROMPT_DATA_DIR` | _(empty)_ | Server file storage root for `/api/storage` and auth data |
 | `SERVER_USER_MAINTENANCE` | `false` | Enable `/api/maintenance/run` for per-user scheduled campaigns and export snapshots |
+| `SERVER_USER_MAINTENANCE_INTERVAL_MIN` | `15` | When `SERVER_USER_MAINTENANCE=true`, run maintenance on this interval (minutes) |
 | `API_RATE_LIMIT_WINDOW_MS` | `60000` | Rate limit window (ms) for API proxy |
 | `API_RATE_LIMIT_MAX` | `120` | Default max requests per window; overridable per user/group in Settings → Users |
 | `COMFYUI_API_URL` | `http://127.0.0.1:8188` | Default ComfyUI base URL |
@@ -369,6 +370,12 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `PROMPT_ADMIN_EMAIL` | _(empty)_ | Fallback recipient for server batches when users have no email |
 | `PROMPT_EMAIL_NOTIFY_BATCH` | `true` | Send email when scheduled batches/campaigns finish |
 | `PROMPT_EMAIL_NOTIFY_PASSWORD` | `true` | Send email when a password is changed |
+
+**Password reset:** With auth and SMTP enabled, `POST /api/email/forgot-password` sends a link to `/login?reset=…`. Users complete reset via `POST /api/auth/reset-password`.
+
+**Queue interrupt:** `POST /api/comfyui/interrupt` forwards an interrupt to ComfyUI (also available on the Queue page).
+
+**Webhooks → email:** Outbound webhooks fire on job completion/error. When signed in with batch email notifications enabled, the gallery client also batches completion emails via `POST /api/email/jobs-completed` (debounced ~8s). Server scheduled batches use `POST /api/email/batch-completed`.
 
 ### Ollama (local, uncensored)
 

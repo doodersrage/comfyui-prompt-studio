@@ -125,6 +125,7 @@ export default function ComfyUiGalleryPanel({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<ImageLightboxState | null>(null);
   const [slideshowPlaying, setSlideshowPlaying] = useState(false);
+  const [slideshowFullscreen, setSlideshowFullscreen] = useState(false);
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<ComfyGallerySort>("queued-desc");
   const [pageSize, setPageSize] = useState<GalleryPageSize>(12);
@@ -247,6 +248,7 @@ export default function ComfyUiGalleryPanel({
       title: lightboxPlaylist.titles[index],
     });
     setSlideshowPlaying(false);
+    setSlideshowFullscreen(false);
   };
 
   const startSlideshow = () => {
@@ -260,12 +262,32 @@ export default function ComfyUiGalleryPanel({
       index: 0,
       title: lightboxPlaylist.titles[0],
     });
+    setSlideshowFullscreen(false);
+    setSlideshowPlaying(true);
+  };
+
+  const startFullscreenSlideshow = () => {
+    if (lightboxPlaylist.images.length === 0) {
+      return;
+    }
+
+    setLightbox({
+      images: lightboxPlaylist.images,
+      titles: lightboxPlaylist.titles,
+      index: 0,
+      title: lightboxPlaylist.titles[0],
+    });
+    setSlideshowFullscreen(true);
     setSlideshowPlaying(true);
   };
 
   const closeLightbox = () => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen?.().catch(() => undefined);
+    }
     setLightbox(null);
     setSlideshowPlaying(false);
+    setSlideshowFullscreen(false);
   };
 
   useEffect(() => {
@@ -449,6 +471,8 @@ export default function ComfyUiGalleryPanel({
                 onIntervalChange: (intervalMs) =>
                   setSlideshowIntervalMs(intervalMs as GallerySlideshowIntervalMs),
                 onTransitionChange: setSlideshowTransition,
+                fullscreen: slideshowFullscreen,
+                onFullscreenChange: setSlideshowFullscreen,
               }
             : undefined
         }
@@ -532,6 +556,7 @@ export default function ComfyUiGalleryPanel({
           showPagination={showPagination}
           slideshowAvailable={lightboxPlaylist.images.length > 1}
           onStartSlideshow={startSlideshow}
+          onStartFullscreenSlideshow={startFullscreenSlideshow}
         />
       )}
 

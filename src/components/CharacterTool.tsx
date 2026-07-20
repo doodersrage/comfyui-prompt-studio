@@ -461,6 +461,7 @@ export default function CharacterTool() {
           onActiveCharacterDescriptorChange={(value) =>
             updateShared({ activeCharacterDescriptor: value || undefined })
           }
+          recommendFromText={output || toolSettings.hints || ""}
         />
       }
     >

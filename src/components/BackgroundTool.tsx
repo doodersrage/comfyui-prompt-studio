@@ -183,6 +183,7 @@ export default function BackgroundTool() {
           onClearLockedLocation={() => updateShared({ lockedLocation: undefined })}
           autoFixRules={shared.autoFixRules !== false}
           onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          recommendFromText={output}
         />
       }
     >

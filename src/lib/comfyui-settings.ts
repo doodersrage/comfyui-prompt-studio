@@ -27,6 +27,8 @@ export type ComfyUiSettings = {
   customTokens?: CustomWorkflowToken[];
   loraLibrary?: LoraLibraryEntry[];
   notifyOnComplete?: boolean;
+  /** Auto-tag completed gallery entries with vision LLM tags. */
+  autoVisionTags?: boolean;
   /** Auto-fetch negative prompt when queueing SD-family models. */
   autoNegativeOnQueue?: boolean;
   /** Save to Studio history when queueing from a result panel (skips if already saved). */
@@ -59,6 +61,7 @@ export const DEFAULT_COMFYUI_SETTINGS: ComfyUiSettings = {
   customTokens: [],
   loraLibrary: [],
   notifyOnComplete: false,
+  autoVisionTags: true,
   autoNegativeOnQueue: true,
   autoSaveHistoryOnQueue: true,
   autoMutateOnHighRating: false,
@@ -112,6 +115,7 @@ function migrateLegacySettings(
       customTokens: parsed.customTokens ?? [],
       loraLibrary: parsed.loraLibrary ?? [],
       notifyOnComplete: parsed.notifyOnComplete ?? false,
+      autoVisionTags: parsed.autoVisionTags ?? true,
     };
   } catch {
     return DEFAULT_COMFYUI_SETTINGS;

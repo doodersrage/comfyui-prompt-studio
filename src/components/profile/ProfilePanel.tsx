@@ -182,6 +182,30 @@ export default function ProfilePanel() {
             Password & security updates
           </label>
         </div>
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-3"
+          onClick={async () => {
+            setStatus(null);
+            try {
+              const response = await fetch("/api/email/test", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: email.trim() || undefined }),
+              });
+              const data = (await response.json()) as { error?: string; to?: string };
+              if (!response.ok) {
+                throw new Error(data.error ?? "Test email failed.");
+              }
+              setStatus(`Test email sent to ${data.to ?? email}.`);
+            } catch (error) {
+              setStatus(error instanceof Error ? error.message : "Test email failed.");
+            }
+          }}
+        >
+          Send test email
+        </Button>
       </ToolSection>
 
       <ToolSection title="ComfyUI override">

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import PromptResultPanel from "@/components/PromptResultPanel";
 import PromptDiagnosticsPanel from "@/components/PromptDiagnosticsPanel";
 import WorkflowPreviewPanel from "@/components/WorkflowPreviewPanel";
 import ComfyWorkflowSelector from "@/components/ComfyWorkflowSelector";
+import ResultQuickActions from "@/components/ResultQuickActions";
 import { useComfyWorkflowSelection } from "@/hooks/useComfyWorkflowSelection";
 import {
   ActionButtonBar,
@@ -35,6 +36,10 @@ import {
   isReadinessQueueAllowed,
 } from "@/lib/readiness-gate";
 import type { PromptReadinessResult } from "@/lib/prompt-readiness";
+import {
+  lintLoraTriggers,
+  formatLoraTriggerLintSummary,
+} from "@/lib/lora-trigger-lint";
 
 export type BatchPromptItem = {
   prompt: string;
@@ -189,6 +194,18 @@ export default function EnhancedPromptResult({
     !readinessGateEnabled ||
     !readinessResult ||
     isReadinessQueueAllowed(readinessResult.score, readinessMinScore);
+
+  const loraLintIssues = useMemo(
+    () => (panelProps.output.trim() ? lintLoraTriggers(panelProps.output) : []),
+    [panelProps.output],
+  );
+  const parsedSeed = useMemo(() => {
+    if (!variationSeed?.trim()) {
+      return undefined;
+    }
+    const numeric = Number(variationSeed.trim());
+    return Number.isFinite(numeric) ? numeric : undefined;
+  }, [variationSeed]);
 
   const handleSendComfyUi = useCallback(() => {
     if (!onSendComfyUi) {
@@ -387,6 +404,21 @@ export default function EnhancedPromptResult({
           prompt={panelProps.output}
           model={readinessModel}
           onChange={onOutputChange}
+        />
+      ) : null}
+
+      {panelProps.output.trim() && loraLintIssues.length > 0 ? (
+        <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
+          LoRA triggers: {formatLoraTriggerLintSummary(loraLintIssues)}
+        </p>
+      ) : null}
+
+      {panelProps.output.trim() && (onSendComfyUi || onQueueBatchComfyUi) ? (
+        <ResultQuickActions
+          prompt={panelProps.output}
+          negativePrompt={negativePrompt}
+          model={typeof readinessModel === "string" ? readinessModel : "sdxl"}
+          seed={parsedSeed}
         />
       ) : null}
 

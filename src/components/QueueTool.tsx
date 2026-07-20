@@ -64,6 +64,21 @@ export default function QueueTool() {
     [entries],
   );
 
+  async function interruptComfyQueue() {
+    setStatus("Sending interrupt to ComfyUI…");
+    try {
+      const response = await fetch("/api/comfyui/interrupt", { method: "POST" });
+      const data = (await response.json()) as { error?: string; ok?: boolean };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Interrupt failed.");
+      }
+      setStatus("ComfyUI interrupt sent.");
+      void refreshHealth();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Interrupt failed.");
+    }
+  }
+
   async function retryFailed() {
     if (failed.length === 0) {
       return;
@@ -91,9 +106,16 @@ export default function QueueTool() {
       description="Pending and running jobs across gallery entries. Live ComfyUI queue stats refresh every few seconds."
     >
       {queueHealth?.ok ? (
-        <p className="text-sm text-zinc-400">
-          ComfyUI queue: {queueHealth.queueRunning ?? 0} running · {queueHealth.queuePending ?? 0} pending
-        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-zinc-400">
+            ComfyUI queue: {queueHealth.queueRunning ?? 0} running · {queueHealth.queuePending ?? 0} pending
+          </p>
+          {(queueHealth.queueRunning ?? 0) + (queueHealth.queuePending ?? 0) > 0 ? (
+            <Button size="sm" variant="secondary" onClick={() => void interruptComfyQueue()}>
+              Interrupt queue
+            </Button>
+          ) : null}
+        </div>
       ) : (
         <p className="text-sm text-zinc-500">ComfyUI health unavailable — check Settings.</p>
       )}

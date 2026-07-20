@@ -85,6 +85,7 @@ export default function LintTool() {
           onModelChange={(model) => updateShared({ model })}
           onDetailChange={(detail) => updateShared({ detail })}
           onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          recommendFromText={prompt || hints}
         />
       }
     >

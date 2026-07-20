@@ -583,6 +583,39 @@ html[data-theme="light"] .ambient-bg__vignette {
     radial-gradient(ellipse 100% 100% at 50% 100%, rgb(15 23 42 / 0.06), transparent 55%);
 }
 
+html[data-theme="light"] .text-zinc-50,
+html[data-theme="light"] .text-zinc-100,
+html[data-theme="light"] .text-zinc-200 {
+  color: var(--text-primary);
+}
+
+html[data-theme="light"] .text-zinc-300,
+html[data-theme="light"] .text-zinc-400 {
+  color: var(--text-secondary);
+}
+
+html[data-theme="light"] .text-zinc-500,
+html[data-theme="light"] .text-zinc-600 {
+  color: var(--text-tertiary);
+}
+
+html[data-theme="light"] [class*="border-zinc-8"] {
+  border-color: var(--border-default);
+}
+
+html[data-theme="light"] [class*="bg-zinc-950"] {
+  background-color: var(--bg-elevated);
+}
+
+html[data-theme="light"] [class*="bg-zinc-900"] {
+  background-color: var(--bg-muted);
+}
+
+html[data-theme="light"] kbd.rounded.bg-zinc-900 {
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+
 .ambient-bg__orb--violet {
   top: -12%;
   left: -8%;

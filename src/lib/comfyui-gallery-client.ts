@@ -17,6 +17,8 @@ import { loadComfyUiSettings } from "./comfyui-settings";
 import { subscribeComfyUiWebSocket } from "./comfyui-websocket";
 import { dispatchWebhook } from "./webhook-settings";
 import { noteScheduledBatchJobComplete } from "./scheduled-batch-tracker";
+import { noteJobCompletionEmail } from "./job-completion-email";
+import { autoTagGalleryEntry } from "./gallery-auto-vision-tags";
 import type { WorkflowParamValues } from "./comfyui-config";
 
 export type RegisterComfyGalleryJobInput = {
@@ -215,6 +217,11 @@ function applyComfyJobStatus(
       comfyUrl: tracker.comfyUrl,
     });
     if (entry) {
+      noteJobCompletionEmail({
+        promptId,
+        status: "error",
+        prompt: entry.prompt,
+      });
       void dispatchWebhook({
         event: "comfyui.job.error",
         promptId,
@@ -241,6 +248,12 @@ function applyComfyJobStatus(
     notifyComfyJobComplete(entry);
   }
   if (entry?.status === "completed") {
+    noteJobCompletionEmail({
+      promptId,
+      status: "completed",
+      prompt: entry.prompt,
+    });
+    void autoTagGalleryEntry(entry);
     noteScheduledBatchJobComplete(entry.tool);
     void dispatchWebhook({
       event: "comfyui.job.completed",

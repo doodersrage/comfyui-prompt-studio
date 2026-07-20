@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { PromptProject } from "@/lib/prompt-projects";
 import type {
   ComfyGalleryJobStatus,
@@ -12,6 +13,12 @@ import {
   GALLERY_PAGE_SIZE_OPTIONS,
 } from "@/lib/comfyui-gallery";
 import type { ComfyGalleryFilter } from "@/lib/comfyui-gallery";
+import {
+  deleteGallerySavedView,
+  loadGallerySavedViews,
+  upsertGallerySavedView,
+  type GallerySavedView,
+} from "@/lib/gallery-saved-views";
 
 const GALLERY_SORT_OPTIONS: { value: ComfyGallerySort; label: string }[] = [
   { value: "queued-desc", label: "Newest" },
@@ -44,6 +51,7 @@ type GalleryFiltersBarProps = {
   totalPages: number;
   showPagination: boolean;
   onStartSlideshow?: () => void;
+  onStartFullscreenSlideshow?: () => void;
   slideshowAvailable?: boolean;
 };
 
@@ -87,6 +95,7 @@ export default function GalleryFiltersBar({
   totalPages,
   showPagination,
   onStartSlideshow,
+  onStartFullscreenSlideshow,
   slideshowAvailable,
 }: GalleryFiltersBarProps) {
   const activeToggleCount = [
@@ -96,6 +105,32 @@ export default function GalleryFiltersBar({
     filter.unreviewedOnly,
     filter.reviewAutoAdvance,
   ].filter(Boolean).length;
+
+  const [savedViews, setSavedViews] = useState<GallerySavedView[]>(() => loadGallerySavedViews());
+  const [viewNameDraft, setViewNameDraft] = useState("");
+
+  function saveCurrentView() {
+    const name = viewNameDraft.trim() || `View ${savedViews.length + 1}`;
+    upsertGallerySavedView({
+      id: crypto.randomUUID(),
+      name,
+      filter,
+      sort,
+      projectFilterId,
+    });
+    setSavedViews(loadGallerySavedViews());
+    setViewNameDraft("");
+  }
+
+  function applySavedView(view: GallerySavedView) {
+    setFilter(view.filter);
+    if (view.sort) {
+      setSort(view.sort);
+    }
+    if (view.projectFilterId !== undefined) {
+      setProjectFilterId(view.projectFilterId);
+    }
+  }
 
   return (
     <div className="space-y-4 rounded-2xl border border-zinc-800/80 bg-zinc-950/35 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
@@ -111,7 +146,7 @@ export default function GalleryFiltersBar({
                 query: event.target.value.trim() ? event.target.value : undefined,
               })
             }
-            placeholder="Prompt, tool, model, prompt id…"
+            placeholder="Prompt, tool, model, prompt id, vision tags…"
             className="ui-input block w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
           />
         </label>
@@ -221,6 +256,42 @@ export default function GalleryFiltersBar({
         ) : null}
       </div>
 
+      <div className="space-y-2 rounded-xl border border-zinc-800/60 bg-zinc-950/25 p-3">
+        <p className="type-caption text-zinc-500">Saved views</p>
+        <div className="flex flex-wrap gap-2">
+          {savedViews.map((view) => (
+            <span key={view.id} className="inline-flex items-center gap-1">
+              <button type="button" onClick={() => applySavedView(view)} className="ui-chip">
+                {view.name}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteGallerySavedView(view.id);
+                  setSavedViews(loadGallerySavedViews());
+                }}
+                className="rounded px-1 text-xs text-zinc-600 transition hover:text-rose-300"
+                aria-label={`Delete saved view ${view.name}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            value={viewNameDraft}
+            onChange={(event) => setViewNameDraft(event.target.value)}
+            placeholder="Name this filter set…"
+            className="ui-input min-w-[12rem] flex-1 px-3 py-1.5 text-sm"
+          />
+          <button type="button" onClick={saveCurrentView} className="ui-btn-ghost ui-btn-sm text-xs">
+            Save current view
+          </button>
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <FilterChip
           active={Boolean(filter.favoritesOnly)}
@@ -271,6 +342,15 @@ export default function GalleryFiltersBar({
         {slideshowAvailable && onStartSlideshow ? (
           <button type="button" onClick={onStartSlideshow} className="ui-btn-ghost ui-btn-sm text-xs">
             Slideshow
+          </button>
+        ) : null}
+        {slideshowAvailable && onStartFullscreenSlideshow ? (
+          <button
+            type="button"
+            onClick={onStartFullscreenSlideshow}
+            className="ui-btn-ghost ui-btn-sm text-xs"
+          >
+            Fullscreen slideshow
           </button>
         ) : null}
         <span className="hidden h-5 w-px bg-zinc-800 sm:inline" aria-hidden />

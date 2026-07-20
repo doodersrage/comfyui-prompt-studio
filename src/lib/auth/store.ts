@@ -129,7 +129,7 @@ function syncDefaultAdminFromEnv(users: UsersDocument): UsersDocument {
   return { version: 1, users: nextUsers };
 }
 
-function ensureAuthStore(): { users: UsersDocument; groups: GroupsDocument } {
+export function ensureAuthStore(): { users: UsersDocument; groups: GroupsDocument } {
   const usersFile = usersPath();
   const groupsFile = groupsPath();
 

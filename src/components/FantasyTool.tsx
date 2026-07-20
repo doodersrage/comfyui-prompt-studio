@@ -270,6 +270,7 @@ export default function FantasyTool() {
           }
           autoFixRules={shared.autoFixRules !== false}
           onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          recommendFromText={output}
         />
       }
     >

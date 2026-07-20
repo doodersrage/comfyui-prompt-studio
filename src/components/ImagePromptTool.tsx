@@ -302,6 +302,7 @@ export default function ImagePromptTool() {
           onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
           autoFixRules={shared.autoFixRules !== false}
           onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          recommendFromText={output}
         />
       }
     >

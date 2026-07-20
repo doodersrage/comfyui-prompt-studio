@@ -424,11 +424,59 @@ export default function UsersAdminPanel() {
         ) : null}
       </ToolSection>
 
-      <ToolSection title="User analytics">
+      <ToolSection title="Quota overview">
         <p className="mb-4 text-sm text-zinc-400">
-          Last synced snapshots from each user&apos;s browser (Studio history + gallery). Users
-          sync automatically after they generate, rate, or sign in.
+          Per-user API rate limits from user and group settings. Global defaults use{" "}
+          <code className="text-zinc-300">API_RATE_LIMIT_MAX</code> when unset.
         </p>
+        {users.length === 0 ? (
+          <p className="text-sm text-zinc-500">No users loaded.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-zinc-800/80">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-zinc-800/80 bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">User</th>
+                  <th className="px-3 py-2 font-medium">Role</th>
+                  <th className="px-3 py-2 font-medium">User quota</th>
+                  <th className="px-3 py-2 font-medium">Group quotas</th>
+                  <th className="px-3 py-2 font-medium">Enabled</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((entry) => {
+                  const groupQuotas = entry.groupIds
+                    .map((groupId) => groups.find((group) => group.id === groupId))
+                    .filter(Boolean)
+                    .map((group) =>
+                      group!.quotaMaxPerMinute
+                        ? `${group!.name}: ${group!.quotaMaxPerMinute}/min`
+                        : group!.name,
+                    );
+                  return (
+                    <tr
+                      key={entry.id}
+                      className="border-b border-zinc-800/50 transition hover:bg-zinc-900/40"
+                    >
+                      <td className="px-3 py-2 text-zinc-200">{entry.username}</td>
+                      <td className="px-3 py-2 text-zinc-400">{entry.role}</td>
+                      <td className="px-3 py-2 tabular-nums text-zinc-400">
+                        {entry.quotaMaxPerMinute ? `${entry.quotaMaxPerMinute}/min` : "Default"}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-zinc-500">
+                        {groupQuotas.length > 0 ? groupQuotas.join(" · ") : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-zinc-400">{entry.enabled ? "Yes" : "No"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </ToolSection>
+
+      <ToolSection title="User analytics">
         {analyticsSnapshots.length === 0 ? (
           <p className="text-sm text-zinc-500">
             No analytics synced yet. Users need to sign in and use Studio or Gallery on their

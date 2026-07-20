@@ -364,6 +364,7 @@ export default function TopicTool() {
           onClearLockedVariationSeed={() =>
             updateShared({ lockedVariationSeed: undefined })
           }
+          recommendFromText={effectiveSeedTopic}
         />
       }
     >

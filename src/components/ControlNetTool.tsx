@@ -101,6 +101,7 @@ export default function ControlNetTool() {
         shared={shared}
         onModelChange={(model) => updateShared({ model })}
         onDetailChange={(detail) => updateShared({ detail })}
+        recommendFromText={output}
       />
 
       <ToolSection title="Conditioning mode">

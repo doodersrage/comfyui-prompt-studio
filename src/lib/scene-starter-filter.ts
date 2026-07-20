@@ -105,15 +105,16 @@ export function filterSceneStarters(
       }
     }
     if (query) {
+      const tokens = query.split(/\s+/).filter(Boolean);
       const hay = [
         preset.label,
         preset.hints,
         preset.category,
-        ...(preset.tags ?? []),
+        ...(preset.tags ?? inferSceneStarterTags(preset)),
       ]
         .join(" ")
         .toLowerCase();
-      if (!hay.includes(query)) {
+      if (!tokens.every((token) => hay.includes(token))) {
         return false;
       }
     }

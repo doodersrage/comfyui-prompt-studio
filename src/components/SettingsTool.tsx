@@ -1236,6 +1236,18 @@ export default function SettingsTool() {
           </p>
         )}
 
+        <label className="mt-3 flex items-center gap-2 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={settings.autoVisionTags !== false}
+            onChange={(event) =>
+              updateSettings({ autoVisionTags: event.target.checked })
+            }
+            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+          />
+          Auto-tag completed gallery images with vision LLM tags
+        </label>
+
         <div className="flex flex-wrap gap-2 text-sm">
           <PrimaryButton
             accentClassName={accentButtonClass(ACCENT)}

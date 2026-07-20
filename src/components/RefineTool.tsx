@@ -180,6 +180,7 @@ export default function RefineTool() {
           onModelChange={(model) => updateShared({ model })}
           onDetailChange={(detail) => updateShared({ detail })}
           onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          recommendFromText={output || currentPrompt || intentHints}
         />
       }
     >
