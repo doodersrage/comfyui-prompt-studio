@@ -65,6 +65,23 @@ export function galleryRefineDenoiseForEntry(
   return galleryRefineDenoiseForProfile(profile, entry.prompt);
 }
 
+const PORTRAIT_REFINE_NEGATIVE_EXTRA =
+  "plastic skin, waxy skin, airbrushed, doll-like, oversharpened, blurry eyes";
+
+export function appendPortraitRefineNegative(
+  negativePrompt: string | undefined,
+  prompt: string | undefined,
+): string | undefined {
+  if (!isPortraitRefinePrompt(prompt)) {
+    return negativePrompt?.trim() || undefined;
+  }
+  const base = negativePrompt?.trim() ?? "";
+  if (base.toLowerCase().includes("plastic skin")) {
+    return base || undefined;
+  }
+  return base ? `${base}, ${PORTRAIT_REFINE_NEGATIVE_EXTRA}` : PORTRAIT_REFINE_NEGATIVE_EXTRA;
+}
+
 function buildCheckpointGalleryRefineWorkflow(
   options?: { useAuraFlow?: boolean },
 ): Record<string, WorkflowNode> {

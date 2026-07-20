@@ -24,6 +24,7 @@ import {
   resolveRefinerFilenameForModel,
 } from "./model-checkpoint-map";
 import { resolveUpscaleModelFilename } from "./model-upscale-map";
+import { resolveControlNetModelFilename } from "./model-controlnet-map";
 import { loadSettingsCache } from "./settings-cache";
 import {
   resolveEffectiveResolutionSizeTier,
@@ -192,7 +193,8 @@ export function resolveQueueParams(
   }
 
   if (model) {
-    const customTokens = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
+    const comfySettings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
+    const customTokens = comfySettings.customTokens ?? [];
     const loaders = resolveLoaderFilenamesForModel(model, {
       checkpointMap: shared.modelCheckpointMap,
       vaeMap: shared.modelVaeMap,
@@ -222,6 +224,14 @@ export function resolveQueueParams(
     });
     if (refinerCheckpoint) {
       merged.refinerCheckpointFilename = refinerCheckpoint;
+    }
+
+    const controlNetModel = resolveControlNetModelFilename(model, {
+      controlNetMap: shared.modelControlNetMap,
+      customTokens,
+    });
+    if (controlNetModel) {
+      merged.controlNetModelFilename = controlNetModel;
     }
 
     const resolvedInputImage =

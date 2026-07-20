@@ -50,7 +50,10 @@ import {
   optimizeWorkflowForQueue,
   suggestedOptimizedWorkflowName,
 } from "@/lib/workflow-queue-optimizer";
-import { optimizeAllWorkflowsInLibrary } from "@/lib/workflow-library-batch";
+import { optimizeAllWorkflowsInLibrary, optimizeWorkflowFileInLibrary } from "@/lib/workflow-library-batch";
+import {
+  WORKFLOW_HEALTH_SELECT_EVENT,
+} from "@/lib/workflow-health-audit";
 import type { ServerWorkflowOption } from "@/hooks/useComfyWorkflowSelection";
 import { Button } from "@/components/ui/Button";
 import { ChipButton, MonoTextArea, SelectInput, TextInput } from "@/components/ui/Field";
@@ -100,6 +103,43 @@ export default function ComfyWorkflowLibraryPanel({
         });
     });
   }, [refresh]);
+
+  const selectFile = useCallback(
+    (id: string | undefined, label: string) => {
+      setSelectedWorkflowFileId(id);
+      setSelectedId(id);
+      onStatus?.(
+        id ? `Default for Send to ComfyUI: “${label}”.` : "Using fallback workflow (Settings / server env).",
+      );
+    },
+    [onStatus],
+  );
+
+  useEffect(() => {
+    const onHealthSelect = (event: Event) => {
+      const detail = (event as CustomEvent<{ workflowId?: string; action?: string }>).detail;
+      const workflowId = detail?.workflowId?.trim();
+      if (!workflowId) {
+        return;
+      }
+      const file = loadComfyWorkflowFiles().find((entry) => entry.id === workflowId);
+      if (!file) {
+        onStatus?.("Workflow no longer in library.");
+        return;
+      }
+      selectFile(workflowId, file.name);
+      if (detail?.action === "optimize-workflow") {
+        const result = optimizeWorkflowFileInLibrary({
+          fileId: workflowId,
+          tokens: placeholderTokens,
+        });
+        refresh();
+        onStatus?.(result.message);
+      }
+    };
+    window.addEventListener(WORKFLOW_HEALTH_SELECT_EVENT, onHealthSelect);
+    return () => window.removeEventListener(WORKFLOW_HEALTH_SELECT_EVENT, onHealthSelect);
+  }, [onStatus, placeholderTokens, refresh, selectFile]);
 
   const editingValidation = useMemo(() => {
     if (!editingJson.trim()) {
@@ -388,21 +428,14 @@ export default function ComfyWorkflowLibraryPanel({
     refresh();
     const warningNote =
       result.warnings.length > 0 ? ` · ${result.warnings.slice(0, 2).join(" · ")}` : "";
+    const modelsNote =
+      result.modelsUsed.length > 0
+        ? ` · models: ${result.modelsUsed.slice(0, 4).join(", ")}${result.modelsUsed.length > 4 ? "…" : ""}`
+        : "";
     onStatus?.(
-      `Optimized ${result.updated} workflow(s) in place · ${result.skipped} unchanged or skipped${warningNote}`,
+      `Optimized ${result.updated} workflow(s) in place · ${result.skipped} unchanged or skipped${modelsNote}${warningNote}`,
     );
   }, [onStatus, placeholderTokens, refresh]);
-
-  const selectFile = useCallback(
-    (id: string | undefined, label: string) => {
-      setSelectedWorkflowFileId(id);
-      setSelectedId(id);
-      onStatus?.(
-        id ? `Default for Send to ComfyUI: “${label}”.` : "Using fallback workflow (Settings / server env).",
-      );
-    },
-    [onStatus],
-  );
 
   const removeFile = useCallback(
     (id: string) => {

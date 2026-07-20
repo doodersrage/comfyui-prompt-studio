@@ -112,6 +112,12 @@ export type SharedToolSettings = {
   modelRefinerMap?: ModelRefinerMap;
   /** Per-model UpscaleModel loader filenames (modelId or default=filename). */
   modelUpscaleMap?: ModelUpscaleMap;
+  /** Per-model ControlNet filenames (modelId or default=filename). */
+  modelControlNetMap?: import("./model-controlnet-map").ModelControlNetMap;
+  /** Tiled neural upscale tile size (0 disables tiling). Overrides Max default when set. */
+  neuralUpscaleTileSize?: number;
+  /** Prefer mapped library workflow with upscale nodes for gallery upscale actions. */
+  useLibraryUpscaleWorkflow?: boolean;
   /** img2img / edit denoise strength (0.05–1) applied when queueing with an input image. */
   editDenoiseStrength?: number;
   /** @deprecated Use selectedWorkflowFileId */
@@ -344,6 +350,8 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   workflowSdxlRefinerEnrich: true,
   workflowNeuralUpscalePolish: true,
   workflowSharpenAfterUpscale: false,
+  neuralUpscaleTileSize: 512,
+  useLibraryUpscaleWorkflow: false,
   queueQualityProfile: "followSettings",
   toolQueueQualityProfiles: SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
   modelCheckpointMap: SUGGESTED_MODEL_CHECKPOINT_MAP,

@@ -1,12 +1,17 @@
-import type { WorkflowPlaceholderTokens } from "./comfyui-config";
 import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
-import { findUnresolvedPlaceholderTokens } from "./workflow-placeholder-audit";
+import { auditWorkflowPreviewIssues } from "./workflow-placeholder-audit";
+import { workflowContentHash } from "./workflow-content-hash";
+import { resolveOptimizeModelForWorkflowFile } from "./workflow-optimize-model";
+import type { ModelWorkflowMap } from "./model-workflow-map";
+import { isEditCapableModel } from "./model-denoise-defaults";
 
 export type WorkflowHealthIssue = {
   workflowId: string;
   workflowName: string;
   severity: "error" | "warn";
   message: string;
+  /** When set, UI can focus this workflow in the library panel. */
+  action?: "open-workflow" | "optimize-workflow";
 };
 
 export type WorkflowLibraryHealthReport = {
@@ -15,10 +20,9 @@ export type WorkflowLibraryHealthReport = {
   issues: WorkflowHealthIssue[];
 };
 
-const LOADER_TOKENS = new Set(["{{CHECKPOINT}}", "{{UNET}}", "{{VAE}}"]);
-
 export function auditWorkflowLibraryHealth(input: {
   workflowFiles: ComfyWorkflowFile[];
+  modelWorkflowMap?: ModelWorkflowMap;
 }): WorkflowLibraryHealthReport {
   const issues: WorkflowHealthIssue[] = [];
 
@@ -30,6 +34,7 @@ export function auditWorkflowLibraryHealth(input: {
         workflowName: file.name,
         severity: "warn",
         message: "Workflow JSON is empty.",
+        action: "open-workflow",
       });
       continue;
     }
@@ -42,23 +47,45 @@ export function auditWorkflowLibraryHealth(input: {
         workflowName: file.name,
         severity: "error",
         message: "Workflow JSON is invalid.",
+        action: "open-workflow",
       });
       continue;
     }
 
-    const unresolved = findUnresolvedPlaceholderTokens(json);
-    if (unresolved.length === 0) {
-      continue;
-    }
-
-    for (const token of unresolved) {
+    if (
+      file.lastOptimizedHash &&
+      file.lastOptimizedHash !== workflowContentHash(json)
+    ) {
       issues.push({
         workflowId: file.id,
         workflowName: file.name,
-        severity: LOADER_TOKENS.has(token) ? "error" : "warn",
-        message: `Unresolved ${token} — run Optimize all in library or set loader maps.`,
+        severity: "warn",
+        message: "Workflow changed since last optimize — re-run Optimize all or Optimize copy.",
+        action: "optimize-workflow",
       });
     }
+
+    const optimizeModel = resolveOptimizeModelForWorkflowFile(
+      file,
+      undefined,
+      input.modelWorkflowMap,
+    );
+    issues.push(
+      ...auditWorkflowPreviewIssues({
+        workflowJson: json,
+        model: optimizeModel,
+        hasInputImage: isEditCapableModel(optimizeModel),
+      }).map((issue) => ({
+        workflowId: file.id,
+        workflowName: file.name,
+        severity: issue.severity,
+        message: `[${optimizeModel}] ${issue.message}`,
+        action:
+          issue.severity === "error"
+            ? ("optimize-workflow" as const)
+            : ("open-workflow" as const),
+      })),
+    );
   }
 
   const affectedIds = new Set(issues.map((issue) => issue.workflowId));
@@ -85,8 +112,24 @@ export function summarizeWorkflowLibraryHealth(
 /** @deprecated tokens param unused — kept for future model-specific audits */
 export function auditWorkflowLibraryHealthLegacy(input: {
   workflowFiles: ComfyWorkflowFile[];
-  tokens?: WorkflowPlaceholderTokens;
+  tokens?: import("./comfyui-config").WorkflowPlaceholderTokens;
   model?: string;
 }): WorkflowLibraryHealthReport {
   return auditWorkflowLibraryHealth({ workflowFiles: input.workflowFiles });
+}
+
+export const WORKFLOW_HEALTH_SELECT_EVENT = "workflow-health-select-file";
+
+export function dispatchWorkflowHealthSelect(
+  workflowId: string,
+  action?: WorkflowHealthIssue["action"],
+): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(
+    new CustomEvent(WORKFLOW_HEALTH_SELECT_EVENT, {
+      detail: { workflowId, action },
+    }),
+  );
 }

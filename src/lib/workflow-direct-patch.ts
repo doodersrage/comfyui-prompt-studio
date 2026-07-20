@@ -5,6 +5,14 @@ import {
   DEFAULT_VAE_TOKEN,
   type ModelLoaderFilenames,
 } from "./model-checkpoint-map";
+import {
+  DEFAULT_CONTROLNET_MODEL_TOKEN,
+  DEFAULT_CONTROL_IMAGE_TOKEN,
+} from "./model-controlnet-map";
+import {
+  buildLoraFilenameMapFromCustomTokens,
+  patchLoraNodesInWorkflow,
+} from "./workflow-lora-patch";
 
 export const IMAGE_SCALE_BY_NODE_TYPE = "ImageScaleBy";
 
@@ -17,6 +25,9 @@ export type WorkflowDirectPatchCounts = {
   upscaleModel?: number;
   inputImage?: number;
   maskImage?: number;
+  lora?: number;
+  controlNet?: number;
+  controlImage?: number;
 };
 
 const INPUT_IMAGE_TYPES = new Set(["LoadImage", "LoadImageOutput"]);
@@ -30,6 +41,8 @@ const CHECKPOINT_LOADER_TYPES = new Set([
 const UNET_LOADER_TYPES = new Set(["UNETLoader", "UnetLoaderGGUF"]);
 
 const VAE_LOADER_TYPES = new Set(["VAELoader"]);
+
+const CONTROLNET_LOADER_TYPES = new Set(["ControlNetLoader", "DiffControlNetLoader"]);
 
 const UPSCALE_MODEL_LOADER_TYPES = new Set(["UpscaleModel", "UpscaleModelLoader"]);
 
@@ -185,6 +198,58 @@ export function patchLoaderNodesInWorkflow(
     ) {
       inputs.vae_name = loaders.vae;
       patched.vae = (patched.vae ?? 0) + 1;
+    }
+  }
+
+  return { workflow: next, patched };
+}
+
+export function patchControlNetNodesInWorkflow(
+  workflow: Record<string, unknown>,
+  input: {
+    controlNetModelFilename?: string;
+    controlImageFilename?: string;
+  },
+): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
+  const next = structuredClone(workflow);
+  const patched: WorkflowDirectPatchCounts = {};
+
+  for (const node of Object.values(next)) {
+    if (!node || typeof node !== "object") {
+      continue;
+    }
+    const record = node as {
+      class_type?: string;
+      inputs?: Record<string, unknown>;
+    };
+    const classType = record.class_type ?? "";
+    const inputs = record.inputs;
+    if (!inputs) {
+      continue;
+    }
+
+    if (
+      CONTROLNET_LOADER_TYPES.has(classType) &&
+      "control_net_name" in inputs &&
+      shouldPatchLoaderFilenameField(inputs.control_net_name, input.controlNetModelFilename)
+    ) {
+      inputs.control_net_name = input.controlNetModelFilename;
+      patched.controlNet = (patched.controlNet ?? 0) + 1;
+    }
+
+    if (
+      INPUT_IMAGE_TYPES.has(classType) &&
+      "image" in inputs &&
+      shouldPatchStringField(inputs.image, input.controlImageFilename)
+    ) {
+      const current = typeof inputs.image === "string" ? inputs.image : "";
+      if (
+        current.includes(DEFAULT_CONTROL_IMAGE_TOKEN) ||
+        isUnresolvedWorkflowPlaceholder(current)
+      ) {
+        inputs.image = input.controlImageFilename;
+        patched.controlImage = (patched.controlImage ?? 0) + 1;
+      }
     }
   }
 
@@ -420,6 +485,9 @@ export function patchWorkflowDirectParams(
     params?: WorkflowParamValues;
     loaders?: ModelLoaderFilenames;
     upscaleModelFilename?: string;
+    controlNetModelFilename?: string;
+    controlImageFilename?: string;
+    customTokens?: Array<{ token: string; value: string }>;
   },
 ): {
   workflow: Record<string, unknown>;
@@ -427,8 +495,16 @@ export function patchWorkflowDirectParams(
 } {
   const latentPatch = patchLatentSizeInWorkflow(workflow, input.params ?? {});
   const loaderPatch = patchLoaderNodesInWorkflow(latentPatch.workflow, input.loaders ?? {});
-  const upscalePatch = patchUpscaleModelNodesInWorkflow(
+  const loraPatch = patchLoraNodesInWorkflow(
     loaderPatch.workflow,
+    buildLoraFilenameMapFromCustomTokens(input.customTokens ?? []),
+  );
+  const controlPatch = patchControlNetNodesInWorkflow(loraPatch.workflow, {
+    controlNetModelFilename: input.controlNetModelFilename,
+    controlImageFilename: input.controlImageFilename,
+  });
+  const upscalePatch = patchUpscaleModelNodesInWorkflow(
+    controlPatch.workflow,
     input.upscaleModelFilename,
   );
   const imagePatch = patchLoadImageNodesInWorkflow(
@@ -445,6 +521,8 @@ export function patchWorkflowDirectParams(
     patched: {
       ...latentPatch.patched,
       ...loaderPatch.patched,
+      ...loraPatch.patched,
+      ...controlPatch.patched,
       ...upscalePatch.patched,
       ...imagePatch.patched,
       ...maskPatch.patched,

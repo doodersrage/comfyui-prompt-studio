@@ -12,6 +12,12 @@ export type ComfyWorkflowFile = {
   filename?: string;
   workflowJson: string;
   createdAt: number;
+  /** Timestamp of last Optimize all / optimize copy pass. */
+  lastOptimizedAt?: number;
+  /** Content hash after last optimize — drift detection in health audit. */
+  lastOptimizedHash?: string;
+  /** Model id used for the last optimize enrich pass. */
+  lastOptimizedModel?: string;
 };
 
 function migratePresetsToFilesIfEmpty(): void {
@@ -84,6 +90,9 @@ export function upsertComfyWorkflowFile(
     name: file.name.trim(),
     filename: file.filename?.trim() || undefined,
     workflowJson: file.workflowJson.trim(),
+    lastOptimizedAt: file.lastOptimizedAt,
+    lastOptimizedHash: file.lastOptimizedHash,
+    lastOptimizedModel: file.lastOptimizedModel,
   };
 
   const files = loadComfyWorkflowFiles();

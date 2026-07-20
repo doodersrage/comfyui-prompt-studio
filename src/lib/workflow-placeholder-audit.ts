@@ -9,6 +9,12 @@ import {
   DEFAULT_VAE_TOKEN,
 } from "./model-checkpoint-map";
 import { DEFAULT_UPSCALE_MODEL_TOKEN } from "./model-upscale-map";
+import {
+  DEFAULT_CONTROLNET_MODEL_TOKEN,
+  DEFAULT_CONTROL_IMAGE_TOKEN,
+} from "./model-controlnet-map";
+
+const LORA_TOKEN_PATTERN = /^\{\{LORA_[A-Z0-9_]+\}\}$/;
 
 const PLACEHOLDER_PATTERN = /\{\{[A-Z0-9_]+\}\}/g;
 
@@ -107,6 +113,32 @@ export function auditWorkflowPreviewIssues(input: {
         severity: "warn",
         message:
           "{{UPSCALE_MODEL}} is unresolved — set Settings → upscale model map or add a {{UPSCALE_MODEL}} custom token.",
+      });
+      continue;
+    }
+
+    if (token === DEFAULT_CONTROLNET_MODEL_TOKEN) {
+      issues.push({
+        severity: "warn",
+        message:
+          "{{CONTROLNET_MODEL}} is unresolved — set Settings → ControlNet model map or add a custom token.",
+      });
+      continue;
+    }
+
+    if (token === DEFAULT_CONTROL_IMAGE_TOKEN) {
+      issues.push({
+        severity: "warn",
+        message:
+          "{{CONTROL_IMAGE}} is unresolved — upload a control image or bind LoadImage at queue time.",
+      });
+      continue;
+    }
+
+    if (LORA_TOKEN_PATTERN.test(token)) {
+      issues.push({
+        severity: "warn",
+        message: `Unresolved ${token} — add LoRA to library or bind LoRA loader in workflow.`,
       });
       continue;
     }

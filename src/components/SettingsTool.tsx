@@ -42,6 +42,10 @@ import {
   formatModelUpscaleMap,
   parseModelUpscaleMap,
 } from "@/lib/model-upscale-map";
+import {
+  formatModelControlNetMap,
+  parseModelControlNetMap,
+} from "@/lib/model-controlnet-map";
 import { loadComfyWorkflowFiles } from "@/lib/comfyui-workflow-files";
 import {
   countMappedModels,
@@ -249,6 +253,7 @@ export default function SettingsTool() {
   const [modelVaeMapText, setModelVaeMapText] = useState("");
   const [modelRefinerMapText, setModelRefinerMapText] = useState("");
   const [modelUpscaleMapText, setModelUpscaleMapText] = useState("");
+  const [modelControlNetMapText, setModelControlNetMapText] = useState("");
   const [loaderMapMergeHint, setLoaderMapMergeHint] = useState<string | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -335,6 +340,7 @@ export default function SettingsTool() {
       setModelVaeMapText(formatModelVaeMap(cache.shared.modelVaeMap));
       setModelRefinerMapText(formatModelRefinerMap(cache.shared.modelRefinerMap));
       setModelUpscaleMapText(formatModelUpscaleMap(cache.shared.modelUpscaleMap));
+      setModelControlNetMapText(formatModelControlNetMap(cache.shared.modelControlNetMap));
       setSharedMounted(true);
       setWebhookSettings(loadWebhookSettings());
       setScheduledBatch(loadScheduledBatchConfig());
@@ -1045,6 +1051,45 @@ export default function SettingsTool() {
                 </span>
               </span>
             </label>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={sharedSettings.useLibraryUpscaleWorkflow === true}
+                onChange={(event) =>
+                  updateSharedSettings({
+                    useLibraryUpscaleWorkflow: event.target.checked,
+                  })
+                }
+                disabled={!sharedMounted}
+                className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+              />
+              <span className="space-y-1">
+                <span className="block text-sm text-zinc-300">Prefer library upscale workflows</span>
+                <span className="block text-xs text-zinc-500">
+                  Gallery upscale actions use a mapped library workflow with UpscaleModel nodes when available instead of the minimal scaffold.
+                </span>
+              </span>
+            </label>
+            <label className="block space-y-2">
+              <span className="block text-sm text-zinc-300">Neural upscale tile size (Max)</span>
+              <span className="block text-xs text-zinc-500">
+                Tiled UpscaleModel pass tile size in pixels. Set 0 to disable tiling override (uses profile default).
+              </span>
+              <input
+                type="number"
+                min={0}
+                max={2048}
+                step={64}
+                value={sharedSettings.neuralUpscaleTileSize ?? 512}
+                onChange={(event) =>
+                  updateSharedSettings({
+                    neuralUpscaleTileSize: Number(event.target.value),
+                  })
+                }
+                disabled={!sharedMounted}
+                className={`ui-input w-32 ${accentFocusClass(ACCENT)}`}
+              />
+            </label>
           </div>
         ) : null}
         <div className="mb-4 space-y-2">
@@ -1169,6 +1214,26 @@ export default function SettingsTool() {
           spellCheck={false}
           disabled={!sharedMounted}
           placeholder={`# optional — only if file exists in ComfyUI\ndefault=4x-UltraSharp.pth`}
+          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+        />
+        <p className="mb-2 mt-4 text-sm text-zinc-400">
+          ControlNet model map — optional. Patches{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">ControlNetLoader</code> nodes and replaces{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">{"{{CONTROLNET_MODEL}}"}</code> at queue time.
+        </p>
+        <textarea
+          value={modelControlNetMapText}
+          onChange={(event) => {
+            const text = event.target.value;
+            setModelControlNetMapText(text);
+            updateSharedSettings({
+              modelControlNetMap: parseModelControlNetMap(text),
+            });
+          }}
+          rows={3}
+          spellCheck={false}
+          disabled={!sharedMounted}
+          placeholder={`# optional — file in ComfyUI models/controlnet/\ndefault=control_v11p_sd15_openpose.pth`}
           className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
         />
         <label className="mt-4 block space-y-2">

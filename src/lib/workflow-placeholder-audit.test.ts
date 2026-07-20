@@ -40,4 +40,18 @@ describe("workflow-placeholder-audit", () => {
     });
     assert.equal(issues[0]?.severity, "error");
   });
+
+  it("warns for unresolved controlnet and lora tokens", () => {
+    const issues = auditWorkflowPreviewIssues({
+      workflowJson:
+        '{"cnet":"{{CONTROLNET_MODEL}}","lora":"{{LORA_PORTRAIT}}","image":"{{CONTROL_IMAGE}}"}',
+      model: "flux-dev",
+    });
+    assert.equal(
+      issues.filter((issue) => issue.message.includes("CONTROLNET")).length,
+      1,
+    );
+    assert.equal(issues.filter((issue) => issue.message.includes("LORA")).length, 1);
+    assert.equal(issues.filter((issue) => issue.message.includes("CONTROL_IMAGE")).length, 1);
+  });
 });

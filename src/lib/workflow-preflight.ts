@@ -8,6 +8,7 @@ import { fetchWorkflowPreview } from "./comfyui-requeue";
 import { resolveQueueParams } from "./queue-params-settings";
 import { auditWorkflowPreviewIssues } from "./workflow-placeholder-audit";
 import type { WorkflowParamValues } from "./comfyui-config";
+import { auditLoaderMapsAtQueueTime } from "./workflow-queue-loader-preflight";
 
 export type WorkflowPreflightIssue = {
   severity: "error" | "warn";
@@ -120,6 +121,12 @@ export async function runWorkflowPreflight(input: {
         hasMaskImage: input.hasMaskImage,
       }),
     );
+
+    const loaderIssues = await auditLoaderMapsAtQueueTime({
+      model: input.model,
+      comfyUrl: runtime?.apiUrl,
+    });
+    issues.push(...loaderIssues);
   } catch (err) {
     issues.push({
       severity: "error",

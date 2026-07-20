@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { loadComfyWorkflowFiles } from "@/lib/comfyui-workflow-files";
 import {
   auditWorkflowLibraryHealth,
+  dispatchWorkflowHealthSelect,
   summarizeWorkflowLibraryHealth,
 } from "@/lib/workflow-health-audit";
 import { auditLoaderMapsAgainstComfyUi } from "@/lib/loader-map-health-audit";
@@ -13,9 +14,13 @@ import { resolveComfyUiRuntime } from "@/lib/comfyui-runtime";
 
 type WorkflowHealthPanelProps = {
   refreshKey?: number;
+  onStatus?: (message: string) => void;
 };
 
-export default function WorkflowHealthPanel({ refreshKey = 0 }: WorkflowHealthPanelProps) {
+export default function WorkflowHealthPanel({
+  refreshKey = 0,
+  onStatus,
+}: WorkflowHealthPanelProps) {
   const [loaderIssues, setLoaderIssues] = useState<
     ReturnType<typeof auditLoaderMapsAgainstComfyUi>
   >([]);
@@ -23,7 +28,11 @@ export default function WorkflowHealthPanel({ refreshKey = 0 }: WorkflowHealthPa
 
   const report = useMemo(() => {
     void refreshKey;
-    return auditWorkflowLibraryHealth({ workflowFiles: loadComfyWorkflowFiles() });
+    const shared = loadSettingsCache().shared;
+    return auditWorkflowLibraryHealth({
+      workflowFiles: loadComfyWorkflowFiles(),
+      modelWorkflowMap: shared.modelWorkflowMap,
+    });
   }, [refreshKey]);
 
   useEffect(() => {
@@ -112,9 +121,39 @@ export default function WorkflowHealthPanel({ refreshKey = 0 }: WorkflowHealthPa
                   : "border-amber-500/20 bg-amber-500/5 text-amber-100"
               }`}
             >
-              <span className="font-medium">{issue.workflowName}</span>
-              <span className="text-zinc-400"> — </span>
-              {issue.message}
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p>
+                  <span className="font-medium">{issue.workflowName}</span>
+                  <span className="text-zinc-400"> — </span>
+                  {issue.message}
+                </p>
+                {issue.workflowId !== "loader-map" && issue.action ? (
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        dispatchWorkflowHealthSelect(issue.workflowId, "open-workflow");
+                        onStatus?.(`Opened workflow “${issue.workflowName}” in library.`);
+                      }}
+                      className="rounded-lg border border-zinc-700/70 px-2 py-0.5 text-[10px] text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
+                    >
+                      Open
+                    </button>
+                    {issue.action === "optimize-workflow" ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          dispatchWorkflowHealthSelect(issue.workflowId, "optimize-workflow");
+                          onStatus?.(`Optimizing “${issue.workflowName}”…`);
+                        }}
+                        className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-200 transition hover:border-violet-400/50 hover:bg-violet-500/15"
+                      >
+                        Optimize
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>

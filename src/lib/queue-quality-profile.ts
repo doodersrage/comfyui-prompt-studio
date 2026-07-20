@@ -6,6 +6,7 @@ import {
   normalizeResolutionSizeTier,
   type ResolutionSizeTier,
 } from "./model-resolution-defaults";
+import { loadSettingsCache } from "./settings-cache";
 
 export type QueueQualityProfile =
   | "followSettings"
@@ -219,7 +220,14 @@ export function sdxlRefinerDenoiseForProfile(
 export function neuralUpscaleTileSizeForProfile(
   profile: QueueQualityProfile | undefined,
 ): number {
-  return normalizeQueueQualityProfile(profile) === "max" ? 512 : 0;
+  if (normalizeQueueQualityProfile(profile) !== "max") {
+    return 0;
+  }
+  const override = loadSettingsCache().shared.neuralUpscaleTileSize;
+  if (typeof override === "number" && override >= 0) {
+    return override;
+  }
+  return 512;
 }
 
 export function profileUsesSharpenAfterUpscale(

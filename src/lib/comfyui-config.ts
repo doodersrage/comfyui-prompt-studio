@@ -66,6 +66,8 @@ export type WorkflowParamValues = {
   denoise?: string | number;
   inputImageFilename?: string;
   maskImageFilename?: string;
+  controlNetModelFilename?: string;
+  controlImageFilename?: string;
 };
 
 export type CustomWorkflowToken = {
@@ -968,6 +970,9 @@ export function injectPromptsWithFallbacks(
       params: input.params,
       loaders,
       upscaleModelFilename: input.params?.upscaleModelFilename,
+      controlNetModelFilename: input.params?.controlNetModelFilename,
+      controlImageFilename: input.params?.controlImageFilename,
+      customTokens: mergedCustomTokens,
     });
     nextWorkflow = directPatch.workflow;
     directPatchCounts = directPatch.patched;

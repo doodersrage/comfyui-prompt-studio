@@ -30,9 +30,11 @@ import {
   resolveGalleryOutputImageUrl,
 } from "./gallery-output-upscale";
 import {
+  appendPortraitRefineNegative,
   buildGalleryRefineWorkflow,
   galleryRefineQueueParams,
 } from "./gallery-output-refine";
+import { findLibraryUpscaleWorkflowForModel } from "./workflow-library-upscale";
 import { resolveUpscaleModelFilename } from "./model-upscale-map";
 import { loadSettingsCache } from "./settings-cache";
 import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
@@ -148,24 +150,35 @@ export async function requeueUpscaleFromGalleryEntry(
   const queueUpscale = async (
     neuralModel?: string,
   ): Promise<RequeueComfyJobResult> => {
-    const workflow = buildGalleryUpscaleWorkflow({
-      qualityProfile: options.qualityProfile,
-      upscaleModelFilename: neuralModel,
-      enrichNeuralPolish: enrichOptions.enrichNeuralPolish,
-      enrichSharpen: enrichOptions.enrichSharpen,
-    });
+    const libraryWorkflow =
+      shared.useLibraryUpscaleWorkflow === true
+        ? findLibraryUpscaleWorkflowForModel(model)
+        : undefined;
+    const workflow = libraryWorkflow
+      ? (JSON.parse(libraryWorkflow.workflowJson) as Record<string, unknown>)
+      : buildGalleryUpscaleWorkflow({
+          qualityProfile: options.qualityProfile,
+          upscaleModelFilename: neuralModel,
+          enrichNeuralPolish: enrichOptions.enrichNeuralPolish,
+          enrichSharpen: enrichOptions.enrichSharpen,
+        });
 
     const runtime: ComfyUiRuntimeConfig = {
       ...baseRuntime,
       workflowJson: JSON.stringify(workflow),
-      workflowQueueOptimize: false,
-      workflowGraphEnrich: false,
+      workflowQueueOptimize: libraryWorkflow ? true : false,
+      workflowGraphEnrich: libraryWorkflow ? baseRuntime.workflowGraphEnrich : false,
       directWorkflowPatching: true,
       queueQualityProfile: options.qualityProfile,
+      ...(libraryWorkflow ? { workflowFileId: libraryWorkflow.id } : {}),
     };
 
     options.onStatus?.(
-      neuralModel ? "Queueing neural upscale…" : "Queueing Lanczos upscale…",
+      libraryWorkflow
+        ? `Queueing library upscale workflow “${libraryWorkflow.name}”…`
+        : neuralModel
+          ? "Queueing neural upscale…"
+          : "Queueing Lanczos upscale…",
     );
 
     const response = await fetch("/api/comfyui", {
@@ -291,12 +304,14 @@ export async function requeueRefineFromGalleryEntry(
 
   options.onStatus?.("Queueing low-denoise refine…");
 
+  const refineNegative = appendPortraitRefineNegative(entry.negativePrompt, entry.prompt);
+
   const response = await fetch("/api/comfyui", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       prompt: entry.prompt.trim() || "refine",
-      negativePrompt: entry.negativePrompt,
+      negativePrompt: refineNegative,
       model,
       params,
       comfy: runtime,
