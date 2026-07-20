@@ -20,7 +20,7 @@ const CATEGORY_KEYWORDS: Record<ComfyModelCategory, string[]> = {
 };
 
 function scoreWorkflowForCategory(
-  file: ComfyWorkflowFile,
+  file: Pick<ComfyWorkflowFile, "name" | "filename">,
   category: ComfyModelCategory,
 ): number {
   const haystack = `${file.name} ${file.filename ?? ""}`.toLowerCase();
@@ -61,6 +61,32 @@ export function suggestWorkflowDefaultsByCategory(
   }
 
   return map;
+}
+
+/** Guess compatible models from workflow name/filename when no assignment map entry exists. */
+export function inferModelsFromWorkflowLabel(input: {
+  name: string;
+  filename?: string;
+}): ComfyImageModel[] {
+  const ranked = COMFY_MODEL_CATEGORIES.map((entry) => ({
+    category: entry.id,
+    score: scoreWorkflowForCategory(input, entry.id),
+  }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  if (ranked.length === 0) {
+    return [];
+  }
+
+  const topScore = ranked[0]!.score;
+  const categories = ranked
+    .filter((entry) => entry.score >= topScore - 1)
+    .map((entry) => entry.category);
+
+  return COMFY_IMAGE_MODELS.filter((model) => categories.includes(model.category)).map(
+    (model) => model.id,
+  );
 }
 
 export function mergeModelWorkflowMap(

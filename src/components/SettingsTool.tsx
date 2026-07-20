@@ -773,6 +773,52 @@ export default function SettingsTool() {
           . When you change the target model in a generator, the mapped workflow
           file is selected automatically.
         </p>
+        <label className="mb-3 flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={sharedSettings.autoSelectWorkflowForModel !== false}
+            onChange={(event) =>
+              updateSharedSettings({
+                autoSelectWorkflowForModel: event.target.checked,
+              })
+            }
+            disabled={!sharedMounted}
+            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium text-zinc-200">
+              Auto-select workflow when target model changes
+            </span>
+            <span className="block text-xs text-zinc-500">
+              Uses the map below, or filename-based defaults when no line exists.
+              You can still pick a different workflow manually to override for the
+              session.
+            </span>
+          </span>
+        </label>
+        <label className="mb-3 flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={sharedSettings.limitModelsToAvailableWorkflows !== false}
+            onChange={(event) =>
+              updateSharedSettings({
+                limitModelsToAvailableWorkflows: event.target.checked,
+              })
+            }
+            disabled={!sharedMounted}
+            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium text-zinc-200">
+              Limit model picker to available workflows
+            </span>
+            <span className="block text-xs text-zinc-500">
+              Generators only list models that have a workflow in your library or
+              assignment map. Use &quot;Show all models&quot; in a tool sidebar to
+              override temporarily.
+            </span>
+          </span>
+        </label>
         <textarea
           value={modelWorkflowMapText}
           onChange={(event) => {

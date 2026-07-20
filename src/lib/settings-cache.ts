@@ -41,6 +41,12 @@ export type SharedToolSettings = {
   selectedWorkflowFileId?: string;
   /** Auto-select workflow file when target model changes. */
   modelWorkflowMap?: Record<string, string>;
+  /** When true (default), pick the mapped workflow when the target model changes. */
+  autoSelectWorkflowForModel?: boolean;
+  /** When true (default), limit the model picker to models with available workflows. */
+  limitModelsToAvailableWorkflows?: boolean;
+  /** Temporary override to show every model in the picker. */
+  showAllModelsOverride?: boolean;
   /** Session LLM temperature override (0–2) sent with generation requests. */
   sessionLlmTemperature?: number;
   /** Session override for template fallback when LLM fails. */
@@ -281,6 +287,9 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelResolutionSizeTier: DEFAULT_RESOLUTION_SIZE_TIER,
   renderRealismMode: DEFAULT_RENDER_REALISM_MODE,
   anatomyGuardMode: DEFAULT_ANATOMY_GUARD_MODE,
+  autoSelectWorkflowForModel: true,
+  limitModelsToAvailableWorkflows: true,
+  showAllModelsOverride: false,
 };
 
 export const DEFAULT_GENERATE_TOOL_CACHE: GenerateToolCache = {

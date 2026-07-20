@@ -10,8 +10,13 @@ import ModelSamplerHints from "@/components/ModelSamplerHints";
 import ModelResolutionHints from "@/components/ModelResolutionHints";
 import RenderRealismHints from "@/components/RenderRealismHints";
 import AnatomyGuardHints from "@/components/AnatomyGuardHints";
-import { getComfyModelDefinition } from "@/lib/comfy-models";
-import { patchSharedForModelChange } from "@/lib/model-workflow-map";
+import { getComfyModelDefinition, COMFY_IMAGE_MODELS, type ComfyImageModel } from "@/lib/comfy-models";
+import {
+  modelsSupportedByAvailableWorkflows,
+  resolveWorkflowForModelSelection,
+  suggestWorkflowMapForFiles,
+  supportedModelsFilterHint,
+} from "@/lib/model-workflow-map";
 import {
   normalizeModelSamplerPresetTier,
   type ModelSamplerPresetTier,
@@ -37,7 +42,7 @@ import { accentRingClass } from "@/lib/tool-theme";
 import { CollapsibleSection } from "@/components/ui/ToolPageShell";
 import { ChipButton, FieldDivider, FieldLabel } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type SharedToolControlsProps = {
@@ -106,6 +111,137 @@ export default function SharedToolControls({
   const [anatomyGuardMode, setAnatomyGuardMode] = useState<AnatomyGuardMode>(() =>
     normalizeAnatomyGuardMode(shared.anatomyGuardMode),
   );
+  const [showAllModelsOverride, setShowAllModelsOverride] = useState(
+    () => shared.showAllModelsOverride === true,
+  );
+
+  const workflowCatalog = useMemo(
+    () => [
+      ...workflowSelection.localFiles,
+      ...workflowSelection.serverFiles.map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+      })),
+    ],
+    [workflowSelection.localFiles, workflowSelection.serverFiles],
+  );
+
+  const suggestedWorkflowMap = useMemo(
+    () => suggestWorkflowMapForFiles(workflowCatalog),
+    [workflowCatalog],
+  );
+
+  const selectedWorkflowId =
+    shared.selectedWorkflowFileId ??
+    shared.selectedWorkflowPresetId ??
+    workflowSelection.selectedId;
+
+  const mappedWorkflowForModel = useMemo(
+    () =>
+      resolveWorkflowForModelSelection(shared.model, {
+        map: shared.modelWorkflowMap,
+        suggestedMap: suggestedWorkflowMap,
+      }),
+    [shared.model, shared.modelWorkflowMap, suggestedWorkflowMap],
+  );
+
+  const supportedModels = useMemo(
+    () =>
+      modelsSupportedByAvailableWorkflows({
+        map: shared.modelWorkflowMap,
+        workflowFiles: workflowCatalog,
+        suggestedMap: suggestedWorkflowMap,
+        currentModel: shared.model,
+        limitEnabled: shared.limitModelsToAvailableWorkflows !== false,
+        showAllOverride: showAllModelsOverride,
+      }),
+    [
+      shared.model,
+      shared.modelWorkflowMap,
+      shared.limitModelsToAvailableWorkflows,
+      showAllModelsOverride,
+      suggestedWorkflowMap,
+      workflowCatalog,
+    ],
+  );
+
+  const onWorkflowPresetChangeRef = useRef(onWorkflowPresetChange);
+  onWorkflowPresetChangeRef.current = onWorkflowPresetChange;
+
+  const setWorkflowSelectedIdRef = useRef(workflowSelection.setSelectedId);
+  setWorkflowSelectedIdRef.current = workflowSelection.setSelectedId;
+
+  const applyWorkflowForModel = useCallback(
+    (model: ComfyImageModel) => {
+      if (shared.autoSelectWorkflowForModel === false || !onWorkflowPresetChangeRef.current) {
+        return;
+      }
+      const workflowId = resolveWorkflowForModelSelection(model, {
+        map: shared.modelWorkflowMap,
+        suggestedMap: suggestedWorkflowMap,
+      });
+      if (!workflowId || workflowId === selectedWorkflowId) {
+        return;
+      }
+      setWorkflowSelectedIdRef.current(workflowId);
+      onWorkflowPresetChangeRef.current(workflowId);
+    },
+    [
+      selectedWorkflowId,
+      shared.autoSelectWorkflowForModel,
+      shared.modelWorkflowMap,
+      suggestedWorkflowMap,
+    ],
+  );
+
+  const handleModelChange = useCallback(
+    (model: ComfyImageModel) => {
+      if (showAllModelsOverride) {
+        setShowAllModelsOverride(false);
+        saveSharedSettings({
+          ...loadSettingsCache().shared,
+          showAllModelsOverride: false,
+        });
+      }
+      onModelChange(model);
+      applyWorkflowForModel(model);
+    },
+    [applyWorkflowForModel, onModelChange, showAllModelsOverride],
+  );
+
+  const handleShowAllModels = useCallback(() => {
+    setShowAllModelsOverride(true);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      showAllModelsOverride: true,
+    });
+  }, []);
+
+  const modelFilterHint = supportedModelsFilterHint(
+    supportedModels.source,
+    supportedModels.models.length,
+  );
+
+  useEffect(() => {
+    if (!workflowSelection.mounted || shared.autoSelectWorkflowForModel === false) {
+      return;
+    }
+    if (!mappedWorkflowForModel || !onWorkflowPresetChangeRef.current) {
+      return;
+    }
+    if (mappedWorkflowForModel === selectedWorkflowId) {
+      return;
+    }
+    scheduleAfterCommit(() => {
+      setWorkflowSelectedIdRef.current(mappedWorkflowForModel);
+      onWorkflowPresetChangeRef.current?.(mappedWorkflowForModel);
+    });
+  }, [
+    mappedWorkflowForModel,
+    selectedWorkflowId,
+    shared.autoSelectWorkflowForModel,
+    workflowSelection.mounted,
+  ]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -136,6 +272,12 @@ export default function SharedToolControls({
       setAnatomyGuardMode(normalizeAnatomyGuardMode(shared.anatomyGuardMode));
     });
   }, [shared.anatomyGuardMode]);
+
+  useEffect(() => {
+    scheduleAfterCommit(() => {
+      setShowAllModelsOverride(shared.showAllModelsOverride === true);
+    });
+  }, [shared.showAllModelsOverride]);
 
   const handleSamplerPresetChange = (preset: ModelSamplerPresetTier) => {
     setSamplerPreset(preset);
@@ -180,18 +322,29 @@ export default function SharedToolControls({
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <FieldLabel hint="Shared across tools and remembered between page reloads.">
+        <FieldLabel
+          hint={
+            shared.autoSelectWorkflowForModel !== false
+              ? "Choosing a model auto-selects its mapped ComfyUI workflow below (when configured)."
+              : "Shared across tools and remembered between page reloads."
+          }
+        >
           Target model
         </FieldLabel>
         <ModelSelector
           value={shared.model}
-          onChange={(model) => {
-            onModelChange(model);
-            const patch = patchSharedForModelChange(model, shared);
-            if (patch.selectedWorkflowFileId && onWorkflowPresetChange) {
-              onWorkflowPresetChange(patch.selectedWorkflowFileId);
-            }
-          }}
+          allowedModels={
+            supportedModels.models.length < COMFY_IMAGE_MODELS.length
+              ? supportedModels.models
+              : undefined
+          }
+          filterHint={modelFilterHint}
+          onShowAllModels={
+            showAllModelsOverride || supportedModels.source === "disabled"
+              ? undefined
+              : handleShowAllModels
+          }
+          onChange={handleModelChange}
         />
       </div>
 
@@ -223,13 +376,7 @@ export default function SharedToolControls({
         <ModelRecommenderHints
           text={recommendFromText}
           currentModel={shared.model}
-          onApplyModel={(model) => {
-            onModelChange(model);
-            const patch = patchSharedForModelChange(model, shared);
-            if (patch.selectedWorkflowFileId && onWorkflowPresetChange) {
-              onWorkflowPresetChange(patch.selectedWorkflowFileId);
-            }
-          }}
+          onApplyModel={(model) => handleModelChange(model)}
         />
       ) : null}
 
@@ -265,14 +412,15 @@ export default function SharedToolControls({
 
       {onWorkflowPresetChange && workflowSelection.mounted && (
         <ComfyWorkflowSelector
-          selectedId={
-            shared.selectedWorkflowFileId ??
-            shared.selectedWorkflowPresetId ??
-            workflowSelection.selectedId
-          }
+          selectedId={selectedWorkflowId}
           defaultLabel={workflowSelection.defaultLabel}
           localFiles={workflowSelection.localFiles}
           serverFiles={workflowSelection.serverFiles}
+          helpText={
+            shared.autoSelectWorkflowForModel !== false
+              ? "Usually follows the target model via Settings → model→workflow map. Pick a different file here to override for this session."
+              : undefined
+          }
           onChange={(fileId) => {
             workflowSelection.setSelectedId(fileId);
             onWorkflowPresetChange(fileId);

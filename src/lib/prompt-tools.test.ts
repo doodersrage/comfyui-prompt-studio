@@ -1314,11 +1314,88 @@ describe("workflow category defaults", () => {
   it("scores workflow filenames by model category", async () => {
     const { suggestWorkflowDefaultsByCategory } = await import("./workflow-category-defaults");
     const map = suggestWorkflowDefaultsByCategory([
-      { id: "flux-default", name: "Flux Klein default", filename: "flux-klein.json", json: "{}" },
-      { id: "qwen-default", name: "Qwen image", filename: "qwen-image.json", json: "{}" },
+      { id: "flux-default", name: "Flux Klein default", filename: "flux-klein.json", workflowJson: "{}" },
+      { id: "qwen-default", name: "Qwen image", filename: "qwen-image.json", workflowJson: "{}" },
     ]);
     assert.equal(map["flux-2-klein"], "flux-default");
     assert.ok(map["qwen-image-2512"]);
+  });
+
+  it("infers models from workflow labels", async () => {
+    const { inferModelsFromWorkflowLabel } = await import("./workflow-category-defaults");
+    const fluxModels = inferModelsFromWorkflowLabel({
+      name: "Flux Klein default",
+      filename: "flux-klein.json",
+    });
+    assert.ok(fluxModels.includes("flux-2-klein"));
+    assert.equal(
+      inferModelsFromWorkflowLabel({ name: "mystery workflow", filename: "custom.json" }).length,
+      0,
+    );
+  });
+});
+
+describe("model workflow map", () => {
+  it("resolves explicit map then filename defaults", async () => {
+    const { resolveWorkflowForModelSelection } = await import("./model-workflow-map");
+    const files = [
+      { id: "flux-default", name: "Flux Klein default", filename: "flux-klein.json" },
+      { id: "qwen-default", name: "Qwen image", filename: "qwen-image.json" },
+    ];
+
+    assert.equal(
+      resolveWorkflowForModelSelection("qwen-image-2512", {
+        map: { "qwen-image-2512": "custom-qwen" },
+        workflowFiles: files,
+      }),
+      "custom-qwen",
+    );
+
+    assert.equal(
+      resolveWorkflowForModelSelection("flux-2-klein", { workflowFiles: files }),
+      "flux-default",
+    );
+  });
+
+  it("patchSharedForModelChange selects mapped workflow", async () => {
+    const { patchSharedForModelChange } = await import("./model-workflow-map");
+    const patch = patchSharedForModelChange(
+      "qwen-image-2512",
+      {
+        model: "flux-2-klein",
+        detail: "balanced",
+        modelWorkflowMap: { "qwen-image-2512": "wf-qwen" },
+      },
+      [{ id: "wf-qwen", name: "Qwen workflow" }],
+    );
+    assert.equal(patch.model, "qwen-image-2512");
+    assert.equal(patch.selectedWorkflowFileId, "wf-qwen");
+  });
+
+  it("limits models to those with available workflows", async () => {
+    const { modelsSupportedByAvailableWorkflows } = await import("./model-workflow-map");
+    const files = [
+      { id: "flux-default", name: "Flux Klein default", filename: "flux-klein.json" },
+      { id: "qwen-default", name: "Qwen image", filename: "qwen-image.json" },
+    ];
+
+    const supported = modelsSupportedByAvailableWorkflows({
+      map: { "qwen-image-2512": "custom-qwen" },
+      workflowFiles: files,
+      currentModel: "sdxl-base",
+    });
+    assert.equal(supported.source, "available_workflows");
+    assert.ok(supported.models.includes("flux-2-klein"));
+    assert.ok(supported.models.includes("qwen-image-2512"));
+    assert.ok(supported.models.includes("sdxl-base"));
+
+    const override = modelsSupportedByAvailableWorkflows({
+      workflowFiles: files,
+      currentModel: "qwen-image-2512",
+      showAllOverride: true,
+    });
+    assert.equal(override.source, "override");
+    assert.ok(override.models.length > supported.models.length);
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   COMFY_IMAGE_MODELS,
   COMFY_MODEL_CATEGORIES,
@@ -12,15 +12,55 @@ type ModelSelectorProps = {
   value: ComfyImageModel;
   onChange: (model: ComfyImageModel) => void;
   id?: string;
+  allowedModels?: readonly ComfyImageModel[];
+  filterHint?: string | null;
+  onShowAllModels?: () => void;
 };
 
-export default function ModelSelector({ value, onChange, id }: ModelSelectorProps) {
+export default function ModelSelector({
+  value,
+  onChange,
+  id,
+  allowedModels,
+  filterHint,
+  onShowAllModels,
+}: ModelSelectorProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<ComfyModelCategory | "all">("all");
 
+  const catalog = useMemo(() => {
+    if (!allowedModels?.length) {
+      return COMFY_IMAGE_MODELS;
+    }
+    const allowed = new Set(allowedModels);
+    return COMFY_IMAGE_MODELS.filter((entry) => allowed.has(entry.id));
+  }, [allowedModels]);
+
+  const visibleCategories = useMemo(() => {
+    const categoryIds = new Set(catalog.map((entry) => entry.category));
+    return COMFY_MODEL_CATEGORIES.filter((entry) => categoryIds.has(entry.id));
+  }, [catalog]);
+
+  const modelsByCategory = useMemo(() => {
+    const counts = new Map<ComfyModelCategory, number>();
+    for (const entry of catalog) {
+      counts.set(entry.category, (counts.get(entry.category) ?? 0) + 1);
+    }
+    return counts;
+  }, [catalog]);
+
+  useEffect(() => {
+    if (
+      category !== "all" &&
+      !visibleCategories.some((entry) => entry.id === category)
+    ) {
+      setCategory("all");
+    }
+  }, [category, visibleCategories]);
+
   const filteredModels = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return COMFY_IMAGE_MODELS.filter((entry) => {
+    return catalog.filter((entry) => {
       if (category !== "all" && entry.category !== category) {
         return false;
       }
@@ -34,7 +74,7 @@ export default function ModelSelector({ value, onChange, id }: ModelSelectorProp
         entry.description.toLowerCase().includes(normalizedQuery)
       );
     });
-  }, [category, query]);
+  }, [catalog, category, query]);
 
   const selected = useMemo(
     () =>
@@ -43,8 +83,26 @@ export default function ModelSelector({ value, onChange, id }: ModelSelectorProp
     [value],
   );
 
+  const filteringActive =
+    Boolean(allowedModels?.length) &&
+    allowedModels!.length < COMFY_IMAGE_MODELS.length;
+
   return (
     <div className="space-y-3" id={id}>
+      {filteringActive && filterHint ? (
+        <div className="rounded-[var(--radius-md)] border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)]/40 px-3 py-2.5">
+          <p className="type-caption text-[var(--tint-info-text)]">{filterHint}</p>
+          {onShowAllModels ? (
+            <button
+              type="button"
+              onClick={onShowAllModels}
+              className="mt-2 text-xs font-medium text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-border)]"
+            >
+              Show all models
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <div className="flex flex-col gap-3">
         <input
           type="search"
@@ -62,10 +120,10 @@ export default function ModelSelector({ value, onChange, id }: ModelSelectorProp
           aria-label="Filter by model family"
           className="ui-input min-h-11 w-full px-3 py-[var(--input-padding-y)] type-body"
         >
-          <option value="all">All families ({COMFY_IMAGE_MODELS.length})</option>
-          {COMFY_MODEL_CATEGORIES.map((entry) => (
+          <option value="all">All families ({catalog.length})</option>
+          {visibleCategories.map((entry) => (
             <option key={entry.id} value={entry.id}>
-              {entry.label}
+              {entry.label} ({modelsByCategory.get(entry.id) ?? 0})
             </option>
           ))}
         </select>
@@ -74,7 +132,7 @@ export default function ModelSelector({ value, onChange, id }: ModelSelectorProp
       <p className="type-caption">
         {filteredModels.length} model{filteredModels.length === 1 ? "" : "s"}
         {category !== "all" &&
-          ` in ${COMFY_MODEL_CATEGORIES.find((entry) => entry.id === category)?.label ?? category}`}
+          ` in ${visibleCategories.find((entry) => entry.id === category)?.label ?? category}`}
         {query.trim() ? ` matching “${query.trim()}”` : ""}
         {" · "}
         Selected:{" "}
