@@ -245,14 +245,14 @@ export default function GalleryFiltersBar({
           }
         />
         {slideshowAvailable && onStartSlideshow ? (
-          <button type="button" onClick={onStartSlideshow} className="ui-btn-ghost !min-h-9 px-3 text-xs">
+          <button type="button" onClick={onStartSlideshow} className="ui-btn-ghost ui-btn-sm text-xs">
             Slideshow
           </button>
         ) : null}
         {activeToggleCount > 0 ? (
           <button
             type="button"
-            className="ui-btn-ghost !min-h-9 px-3 text-xs text-zinc-500"
+            className="ui-btn-ghost ui-btn-sm text-xs text-zinc-500"
             onClick={() =>
               setFilter({
                 ...filter,

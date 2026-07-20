@@ -15,11 +15,7 @@ import {
   type BackgroundPresetUiSection,
 } from "@/lib/background-options";
 import type { BackgroundToolCache } from "@/lib/settings-cache";
-
-const fieldClassName =
-  "w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-teal-500";
-
-const labelClassName = "text-sm font-medium text-zinc-200";
+import { SelectInput, TextInput } from "@/components/ui/Field";
 
 function BackgroundSelect({
   label,
@@ -34,18 +30,17 @@ function BackgroundSelect({
 }) {
   return (
     <label className="space-y-2">
-      <span className={labelClassName}>{label}</span>
-      <select
+      <span className="type-heading">{label}</span>
+      <SelectInput
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={fieldClassName}
       >
         {options.map((option) => (
           <option key={option.value || "default"} value={option.value}>
             {option.label}
           </option>
         ))}
-      </select>
+      </SelectInput>
     </label>
   );
 }
@@ -72,14 +67,13 @@ function PresetField({
 
   return (
     <label className="space-y-2 sm:col-span-2">
-      <span className={labelClassName}>{field.label}</span>
-      <input
+      <span className="type-heading">{field.label}</span>
+      <TextInput
         value={settings.environmentDetail ?? ""}
         onChange={(event) =>
           onChange({ environmentDetail: event.target.value })
         }
         placeholder={field.placeholder}
-        className={fieldClassName}
       />
     </label>
   );
@@ -234,7 +228,7 @@ export default function BackgroundPresetControls({
       <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <div className="flex items-start justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 transition hover:border-zinc-700">
           <div className="space-y-1">
-            <p className={labelClassName}>Background presets (optional)</p>
+            <p className="type-heading">Background presets (optional)</p>
             <p className="text-xs leading-relaxed text-zinc-500">
               Archetype, scale, perspective, depth, atmosphere, palette,
               lighting, clutter, materials, and custom environment anchors—collapsed

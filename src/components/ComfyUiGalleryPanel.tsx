@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import ImageLightbox, { type ImageLightboxState } from "@/components/ui/ImageLightbox";
 import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPanel";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { useComfyUiGallery } from "@/hooks/useComfyUiGallery";
 import { startImproveFromGalleryEntry } from "@/lib/improve-output";
 import { recordAvoidedTokensFromPrompt } from "@/lib/avoided-tokens";
@@ -400,7 +400,7 @@ export default function ComfyUiGalleryPanel({
             <button
               type="button"
               onClick={() => void refreshPending()}
-              className="ui-btn-ghost !min-h-9 px-3 text-xs"
+              className="ui-btn-ghost ui-btn-sm text-xs"
             >
               Refresh jobs
             </button>
@@ -412,15 +412,15 @@ export default function ComfyUiGalleryPanel({
                     clearAll();
                   }
                 }}
-                className="ui-btn-ghost !min-h-9 px-3 text-xs text-zinc-500 hover:text-rose-300"
+                className="ui-btn-ghost ui-btn-sm text-xs text-zinc-500 hover:text-rose-300"
               >
                 Clear all
               </button>
             )}
             {!compact && limit && entries.length > limit && (
-              <Link href="/gallery" className="ui-btn-secondary !min-h-9 px-3 text-xs">
+              <ButtonLink href="/gallery" size="sm">
                 View all
-              </Link>
+              </ButtonLink>
             )}
           </div>
         </div>
@@ -466,7 +466,7 @@ export default function ComfyUiGalleryPanel({
           <button
             type="button"
             onClick={() => setSelectedIds(visibleEntries.map((entry) => entry.id))}
-            className="ui-btn-ghost !min-h-8 px-3"
+            className="ui-btn-ghost ui-btn-sm"
           >
             Select visible ({visibleEntries.length})
           </button>
@@ -841,7 +841,8 @@ function GalleryPaginator({
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="secondary"
-          className="!min-h-9 px-3 type-caption"
+          size="sm"
+          className="type-caption"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
@@ -852,7 +853,8 @@ function GalleryPaginator({
         </span>
         <Button
           variant="secondary"
-          className="!min-h-9 px-3 type-caption"
+          size="sm"
+          className="type-caption"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
         >

@@ -112,6 +112,7 @@ export type FantasyToolCache = {
 
 export type ImagePromptToolCache = {
   focus?: "full" | "subject" | "background" | "style";
+  descriptionPreset?: import("./image-prompt-presets").ImagePromptDescriptionPreset;
   extraHints?: string;
 };
 
@@ -262,6 +263,7 @@ export const DEFAULT_FANTASY_TOOL_CACHE: FantasyToolCache = {
 
 export const DEFAULT_IMAGE_PROMPT_TOOL_CACHE: ImagePromptToolCache = {
   focus: "full",
+  descriptionPreset: "standard",
   extraHints: "",
 };
 

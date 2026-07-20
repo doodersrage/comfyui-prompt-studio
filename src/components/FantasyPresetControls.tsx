@@ -13,11 +13,7 @@ import {
   type FantasyPresetUiSection,
 } from "@/lib/fantasy-options";
 import type { FantasyToolCache } from "@/lib/settings-cache";
-
-const fieldClassName =
-  "w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-violet-500";
-
-const labelClassName = "text-sm font-medium text-zinc-200";
+import { SelectInput, TextInput } from "@/components/ui/Field";
 
 function FantasySelect({
   label,
@@ -32,18 +28,17 @@ function FantasySelect({
 }) {
   return (
     <label className="space-y-2">
-      <span className={labelClassName}>{label}</span>
-      <select
+      <span className="type-heading">{label}</span>
+      <SelectInput
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={fieldClassName}
       >
         {options.map((option) => (
           <option key={option.value || "default"} value={option.value}>
             {option.label}
           </option>
         ))}
-      </select>
+      </SelectInput>
     </label>
   );
 }
@@ -70,12 +65,11 @@ function PresetField({
 
   return (
     <label className="space-y-2 sm:col-span-2">
-      <span className={labelClassName}>{field.label}</span>
-      <input
+      <span className="type-heading">{field.label}</span>
+      <TextInput
         value={settings.fantasyDetail ?? ""}
         onChange={(event) => onChange({ fantasyDetail: event.target.value })}
         placeholder={field.placeholder}
-        className={fieldClassName}
       />
     </label>
   );
@@ -154,7 +148,7 @@ export default function FantasyPresetControls({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-zinc-200">Fantasy presets (optional)</p>
+        <p className="type-heading">Fantasy presets (optional)</p>
         <div className="flex items-center gap-2 text-xs">
           {selectionCount > 0 ? (
             <span className="text-violet-300">{selectionCount} active</span>

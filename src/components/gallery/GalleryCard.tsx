@@ -257,7 +257,7 @@ export default function GalleryCard({
           <button
             type="button"
             onClick={() => setPromptExpanded((previous) => !previous)}
-            className="ui-btn-ghost !min-h-8 px-2.5 text-xs"
+            className="ui-btn-ghost ui-btn-sm text-xs"
           >
             {promptExpanded ? "Less" : "Prompt"}
           </button>
@@ -265,7 +265,7 @@ export default function GalleryCard({
             <button
               type="button"
               onClick={() => onOpenImage(0)}
-              className="ui-btn-ghost !min-h-8 px-2.5 text-xs"
+              className="ui-btn-ghost ui-btn-sm text-xs"
             >
               Open
             </button>
@@ -274,7 +274,7 @@ export default function GalleryCard({
             <button
               type="button"
               onClick={() => startImproveFromGalleryEntry(entry)}
-              className="ui-btn-ghost !min-h-8 px-2.5 text-xs text-emerald-300 hover:text-emerald-200"
+              className="ui-btn-ghost ui-btn-sm text-xs text-emerald-300 hover:text-emerald-200"
             >
               Improve
             </button>
@@ -286,7 +286,7 @@ export default function GalleryCard({
               aria-expanded={menuOpen}
               aria-haspopup="menu"
               onClick={() => setMenuOpen((previous) => !previous)}
-              className="ui-btn-ghost !min-h-8 px-2.5 text-xs"
+              className="ui-btn-ghost ui-btn-sm text-xs"
             >
               More
             </button>

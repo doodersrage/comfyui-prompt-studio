@@ -7,8 +7,10 @@ import { loadScheduledBatchConfig } from "@/lib/scheduled-batch";
 import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
 import QueueOrchestrationPanel from "@/components/QueueOrchestrationPanel";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import {
+  StatCard,
+  ToolActionRow,
   ToolBadge,
   ToolLayout,
   ToolSection,
@@ -58,20 +60,20 @@ export default function HomeDashboard() {
       description="Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way."
     >
       <ToolSection>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/" className="ui-btn-primary !min-h-9 px-4 text-sm">
+        <ToolActionRow>
+          <ButtonLink href="/" variant="primary" size="sm">
             Generate prompts
-          </Link>
-          <Link href="/gallery" className="ui-btn-secondary !min-h-9 px-4 text-sm">
+          </ButtonLink>
+          <ButtonLink href="/gallery" size="sm">
             Gallery
-          </Link>
-          <Link href="/studio" className="ui-btn-secondary !min-h-9 px-4 text-sm">
+          </ButtonLink>
+          <ButtonLink href="/studio" size="sm">
             Studio
-          </Link>
-          <Link href="/settings" className="ui-btn-secondary !min-h-9 px-4 text-sm">
+          </ButtonLink>
+          <ButtonLink href="/settings" size="sm">
             Settings
-          </Link>
-        </div>
+          </ButtonLink>
+        </ToolActionRow>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Pending ComfyUI" value={String(pending.length)} />
@@ -92,11 +94,7 @@ export default function HomeDashboard() {
             {recentCompleted.map((entry) => {
               const thumb = galleryEntryViewUrls(entry)[0];
               return (
-                <Link
-                  key={entry.id}
-                  href="/gallery"
-                  className="overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/40 transition hover:border-zinc-600 hover:shadow-[0_12px_32px_-20px_rgba(0,0,0,0.8)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
-                >
+                <Link key={entry.id} href="/gallery" className="ui-media-card">
                   {thumb ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={thumb} alt="" className="aspect-square w-full object-cover" />
@@ -114,33 +112,24 @@ export default function HomeDashboard() {
       ) : null}
 
       <ToolSection title="Quick launch">
-        <div className="flex flex-wrap gap-2">
+        <ToolActionRow>
           <Link href="/topics">
-            <Button variant="secondary" className="!min-h-9">
+            <Button variant="secondary" size="sm">
               Topics batch
             </Button>
           </Link>
           <Link href="/variations?matrix=1">
-            <Button variant="secondary" className="!min-h-9">
+            <Button variant="secondary" size="sm">
               Prompt matrix
             </Button>
           </Link>
           <Link href="/variations">
-            <Button variant="secondary" className="!min-h-9">
+            <Button variant="secondary" size="sm">
               Variations
             </Button>
           </Link>
-        </div>
+        </ToolActionRow>
       </ToolSection>
     </ToolLayout>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-      <p className="text-xs text-zinc-500">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-zinc-100">{value}</p>
-    </div>
   );
 }

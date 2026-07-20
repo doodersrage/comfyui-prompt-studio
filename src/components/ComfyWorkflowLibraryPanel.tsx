@@ -30,6 +30,9 @@ import {
 import { suggestWorkflowNodeMappings } from "@/lib/workflow-node-mapper";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import type { ServerWorkflowOption } from "@/hooks/useComfyWorkflowSelection";
+import { Button } from "@/components/ui/Button";
+import { ChipButton, MonoTextArea, SelectInput, TextInput } from "@/components/ui/Field";
+import { ToolActionRow } from "@/components/ui/ToolPageShell";
 
 type ComfyWorkflowLibraryPanelProps = {
   placeholderTokens: Pick<WorkflowPlaceholderTokens, "positive" | "negative">;
@@ -208,10 +211,10 @@ export default function ComfyWorkflowLibraryPanel({
   );
 
   return (
-    <section className="space-y-4 rounded-2xl border border-emerald-900/40 bg-zinc-900/60 p-6">
+    <section className="ui-meta-panel space-y-4">
       <div className="space-y-1">
-        <h2 className="text-sm font-medium text-zinc-200">ComfyUI workflow library</h2>
-        <p className="text-sm text-zinc-400">
+        <h2 className="type-heading">ComfyUI workflow library</h2>
+        <p className="type-caption">
           Manage multiple ComfyUI API workflow JSON files. Pick the active file from
           the dropdown next to <strong className="font-medium text-zinc-300">Send to ComfyUI</strong> on
           any result panel. URL, tokens, and queue params still come from the connection
@@ -219,14 +222,14 @@ export default function ComfyWorkflowLibraryPanel({
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <input
+      <ToolActionRow>
+        <TextInput
           value={newName}
           onChange={(event) => setNewName(event.target.value)}
           placeholder="Name for new/imported workflow"
-          className="min-w-[14rem] flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          className="min-w-[14rem] flex-1"
         />
-        <label className="cursor-pointer rounded-lg border border-emerald-700/60 px-4 py-2 text-sm font-medium text-emerald-200 hover:border-emerald-500">
+        <label className="ui-file-input-label ui-btn-secondary ui-btn-sm">
           Import .json
           <input
             type="file"
@@ -241,58 +244,38 @@ export default function ComfyWorkflowLibraryPanel({
             }}
           />
         </label>
-        <button
-          type="button"
-          onClick={createBlank}
-          className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500"
-        >
+        <Button type="button" variant="secondary" size="sm" onClick={createBlank}>
           New workflow
-        </button>
-        <button
-          type="button"
-          onClick={() => selectFile(undefined, "")}
-          className={`rounded-lg border px-4 py-2 text-sm ${
-            !selectedId
-              ? "border-violet-500 bg-violet-500/15 text-violet-200"
-              : "border-zinc-700 text-zinc-300 hover:border-zinc-500"
-          }`}
-        >
+        </Button>
+        <ChipButton active={!selectedId} onClick={() => selectFile(undefined, "")}>
           Use fallback default
-        </button>
-      </div>
+        </ChipButton>
+      </ToolActionRow>
 
       {serverFiles.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Server workflow files
-          </p>
-          <ul className="space-y-2">
+          <p className="type-overline">Server workflow files</p>
+          <ul className="ui-list">
             {serverFiles.map((entry) => {
               const active = selectedId === entry.id;
               return (
                 <li
                   key={entry.id}
-                  className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
-                    active
-                      ? "border-violet-500/50 bg-violet-500/10"
-                      : "border-zinc-800 bg-zinc-950/40"
-                  }`}
+                  className="ui-list-row"
+                  data-highlight={active ? "true" : undefined}
                 >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-zinc-100">{entry.name}</p>
-                    <p className="truncate text-xs text-zinc-500">Server workflow</p>
+                  <div className="ui-list-primary min-w-0">
+                    <p className="type-heading">{entry.name}</p>
+                    <p className="type-caption">Server workflow</p>
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant={active ? "accent-outline" : "secondary"}
+                    size="sm"
                     onClick={() => selectFile(entry.id, entry.name)}
-                    className={`rounded-lg border px-3 py-1.5 text-xs ${
-                      active
-                        ? "border-violet-500 text-violet-200"
-                        : "border-zinc-700 text-zinc-300 hover:border-violet-500 hover:text-violet-200"
-                    }`}
                   >
                     {active ? "Selected" : "Use for Send"}
-                  </button>
+                  </Button>
                 </li>
               );
             })}
@@ -301,33 +284,30 @@ export default function ComfyWorkflowLibraryPanel({
       )}
 
       <div className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <p className="type-overline">
           Imported workflow files ({files.length})
         </p>
         {files.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-zinc-700 bg-zinc-950/30 px-4 py-8 text-center">
-            <p className="text-sm text-zinc-400">No workflow files yet.</p>
-            <p className="mt-1 text-xs text-zinc-600">
+          <div className="ui-empty-state">
+            <p className="type-body">No workflow files yet.</p>
+            <p className="type-caption mt-1">
               Export workflows from ComfyUI (Save → API format) and import them here.
             </p>
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="ui-list">
             {files.map((file) => {
               const active = selectedId === file.id;
               const isEditing = editingId === file.id;
               return (
                 <li
                   key={file.id}
-                  className={`rounded-xl border ${
-                    active
-                      ? "border-violet-500/50 bg-violet-500/10"
-                      : "border-zinc-800 bg-zinc-950/40"
-                  }`}
+                  className="ui-list-row flex-col items-stretch !min-h-0 !items-start gap-0 !p-0"
+                  data-highlight={active ? "true" : undefined}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                  <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-zinc-100">
+                      <p className="type-heading">
                         {file.filename ?? file.name}
                         {active && (
                           <span className="ml-2 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] uppercase tracking-wide text-violet-200">
@@ -335,49 +315,51 @@ export default function ComfyWorkflowLibraryPanel({
                           </span>
                         )}
                       </p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="type-caption">
                         {file.name !== (file.filename ?? file.name) ? `${file.name} · ` : ""}
                         {new Date(file.createdAt).toLocaleString()} ·{" "}
                         {(file.workflowJson.length / 1024).toFixed(1)} KB
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <button
+                    <ToolActionRow>
+                      <Button
                         type="button"
+                        variant={active ? "accent-outline" : "secondary"}
+                        size="sm"
                         onClick={() => selectFile(file.id, file.filename ?? file.name)}
-                        className="rounded-lg border border-zinc-700 px-3 py-1.5 text-zinc-200 hover:border-violet-500 hover:text-violet-200"
                       >
                         {active ? "Selected" : "Use for Send"}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="sm"
                         onClick={() => (isEditing ? cancelEdit() : startEdit(file))}
-                        className="rounded-lg border border-zinc-700 px-3 py-1.5 text-zinc-200 hover:border-zinc-500"
                       >
                         {isEditing ? "Close" : "Edit JSON"}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        variant="danger"
+                        size="sm"
                         onClick={() => removeFile(file.id)}
-                        className="rounded-lg border border-zinc-700 px-3 py-1.5 text-zinc-400 hover:border-rose-500 hover:text-rose-200"
                       >
                         Delete
-                      </button>
-                    </div>
+                      </Button>
+                    </ToolActionRow>
                   </div>
                   {isEditing && (
-                    <div className="space-y-3 border-t border-zinc-800 px-4 py-4">
-                      <label className="block space-y-1 text-xs text-zinc-400">
-                        Display name
-                        <input
+                    <div className="ui-surface-inset mx-4 mb-4 mt-0 space-y-3 border-t-0">
+                      <label className="block space-y-2">
+                        <span className="type-caption">Display name</span>
+                        <TextInput
                           value={editingName}
                           onChange={(event) => setEditingName(event.target.value)}
-                          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                         />
                       </label>
-                      <label className="block space-y-1 text-xs text-zinc-400">
-                        Workflow JSON (ComfyUI API format)
-                        <textarea
+                      <label className="block space-y-2">
+                        <span className="type-caption">Workflow JSON (ComfyUI API format)</span>
+                        <MonoTextArea
                           value={editingJson}
                           onChange={(event) => {
                             setEditingJson(event.target.value);
@@ -385,7 +367,7 @@ export default function ComfyWorkflowLibraryPanel({
                           }}
                           rows={14}
                           spellCheck={false}
-                          className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs leading-relaxed text-emerald-200"
+                          className="text-emerald-200"
                         />
                       </label>
                       {editError && (
@@ -409,8 +391,8 @@ export default function ComfyWorkflowLibraryPanel({
                         </p>
                       )}
                       {editingNodeMappings.length > 0 ? (
-                        <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
-                          <p className="text-xs font-medium text-violet-200">Suggested node bindings</p>
+                        <div className="ui-surface-inset">
+                          <p className="type-caption text-violet-200">Suggested node bindings</p>
                           <ul className="mt-2 space-y-1 text-xs text-zinc-400">
                             {editingNodeMappings.map((mapping) => (
                               <li key={mapping.nodeId}>
@@ -423,22 +405,14 @@ export default function ComfyWorkflowLibraryPanel({
                           </ul>
                         </div>
                       ) : null}
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={saveEdit}
-                          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500"
-                        >
+                      <ToolActionRow>
+                        <Button type="button" variant="primary" size="sm" onClick={saveEdit}>
                           Save workflow
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-zinc-500"
-                        >
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={cancelEdit}>
                           Cancel
-                        </button>
-                      </div>
+                        </Button>
+                      </ToolActionRow>
                     </div>
                   )}
                 </li>
@@ -456,21 +430,22 @@ export default function ComfyWorkflowLibraryPanel({
         to expose additional JSON files from disk.
       </p>
 
-      <div className="mt-6 space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/30 p-4">
-        <h3 className="text-sm font-medium text-zinc-200">Workflow preset packs</h3>
-        <p className="text-xs text-zinc-500">
+      <div className="ui-surface-inset space-y-3">
+        <h3 className="type-heading">Workflow preset packs</h3>
+        <p className="type-caption">
           Bundle saved workflow presets for import/export between browsers or team members.
         </p>
-        <div className="flex flex-wrap gap-2">
-          <input
+        <ToolActionRow>
+          <TextInput
             value={packName}
             onChange={(event) => setPackName(event.target.value)}
             placeholder="Pack name"
-            className="ui-input min-w-[180px] flex-1 px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+            className="min-w-[180px] flex-1"
           />
-          <button
+          <Button
             type="button"
-            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500"
+            variant="secondary"
+            size="sm"
             onClick={() => {
               const name = packName.trim() || `Pack ${new Date().toLocaleDateString()}`;
               const pack: WorkflowPresetPack = {
@@ -487,8 +462,8 @@ export default function ComfyWorkflowLibraryPanel({
             }}
           >
             New pack
-          </button>
-          <label className="cursor-pointer rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500">
+          </Button>
+          <label className="ui-file-input-label ui-btn-secondary ui-btn-sm">
             Import pack
             <input
               type="file"
@@ -517,17 +492,16 @@ export default function ComfyWorkflowLibraryPanel({
               }}
             />
           </label>
-        </div>
+        </ToolActionRow>
         {presetPacks.length === 0 ? (
-          <p className="text-xs text-zinc-600">No preset packs saved yet.</p>
+          <p className="type-caption">No preset packs saved yet.</p>
         ) : (
           <>
-            <label className="block text-xs text-zinc-500">
-              Active pack for saving
-              <select
+            <label className="block space-y-2">
+              <span className="type-caption">Active pack for saving</span>
+              <SelectInput
                 value={activePackId}
                 onChange={(event) => setActivePackId(event.target.value)}
-                className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-100"
               >
                 <option value="">Select pack…</option>
                 {presetPacks.map((pack) => (
@@ -535,13 +509,14 @@ export default function ComfyWorkflowLibraryPanel({
                     {pack.name} ({pack.presets.length})
                   </option>
                 ))}
-              </select>
+              </SelectInput>
             </label>
-            <div className="flex flex-wrap gap-2">
-              <button
+            <ToolActionRow>
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 disabled={!activePackId || !selectedId}
-                className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 disabled:opacity-40"
                 onClick={() => {
                   const file = files.find((entry) => entry.id === selectedId);
                   if (!file || !activePackId) return;
@@ -557,11 +532,12 @@ export default function ComfyWorkflowLibraryPanel({
                 }}
               >
                 Add selected workflow to pack
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 disabled={!activePackId}
-                className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 disabled:opacity-40"
                 onClick={() => {
                   const settings = loadComfyUiSettings();
                   const workflowJson = settings.workflowJson?.trim();
@@ -591,21 +567,22 @@ export default function ComfyWorkflowLibraryPanel({
                 }}
               >
                 Save current settings to pack
-              </button>
-            </div>
-            <ul className="space-y-2">
+              </Button>
+            </ToolActionRow>
+            <ul className="ui-list">
             {presetPacks.map((pack) => (
               <li
                 key={pack.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-xs text-zinc-400"
+                className="ui-list-row text-xs"
               >
-                <span>
+                <span className="ui-list-primary type-caption">
                   {pack.name} · {pack.presets.length} preset(s)
                 </span>
-                <div className="flex flex-wrap gap-2">
-                  <button
+                <ToolActionRow>
+                  <Button
                     type="button"
-                    className="text-zinc-300 hover:text-zinc-100"
+                    variant="ghost"
+                    size="sm"
                     disabled={pack.presets.length === 0}
                     onClick={() => {
                       const count = applyWorkflowPresetPackToLibrary(pack);
@@ -614,18 +591,19 @@ export default function ComfyWorkflowLibraryPanel({
                     }}
                   >
                     Install
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="text-violet-300 hover:text-violet-200"
+                    variant="accent-outline"
+                    size="sm"
                     onClick={() => {
                       downloadText(`${pack.name.replace(/\s+/g, "-")}-workflow-pack.json`, exportWorkflowPresetPack(pack));
                       onStatus?.(`Exported preset pack “${pack.name}”.`);
                     }}
                   >
                     Export
-                  </button>
-                </div>
+                  </Button>
+                </ToolActionRow>
               </li>
             ))}
             </ul>

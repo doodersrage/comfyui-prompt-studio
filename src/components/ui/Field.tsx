@@ -1,4 +1,14 @@
-import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from "react";
+
+const inputClassName =
+  "ui-input px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body";
+
+const selectClassName = `${inputClassName} ui-select`;
 
 export function FieldLabel({
   children,
@@ -23,11 +33,18 @@ export function TextInput({
   className = "",
   ...props
 }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input className={`${inputClassName} ${className}`.trim()} {...props} />;
+}
+
+export function SelectInput({
+  className = "",
+  children,
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <input
-      className={`ui-input px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${className}`.trim()}
-      {...props}
-    />
+    <select className={`${selectClassName} ${className}`.trim()} {...props}>
+      {children}
+    </select>
   );
 }
 
@@ -37,7 +54,19 @@ export function TextArea({
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className={`ui-input resize-y px-[var(--input-padding-x)] py-3 type-body-lg ${className}`.trim()}
+      className={`${inputClassName} resize-y py-3 type-body-lg ${className}`.trim()}
+      {...props}
+    />
+  );
+}
+
+export function MonoTextArea({
+  className = "",
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      className={`${inputClassName} ui-input-mono resize-y py-3 ${className}`.trim()}
       {...props}
     />
   );

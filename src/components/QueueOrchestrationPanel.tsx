@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import { StatCard, ToolActionRow } from "@/components/ui/ToolPageShell";
 import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
 import { scheduleComfyGalleryPoll } from "@/lib/comfyui-gallery-poller";
 
@@ -76,19 +76,17 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
       : null;
 
   return (
-    <section
-      className={`rounded-2xl border border-zinc-800 bg-zinc-950/50 ${props.compact ? "p-4" : "p-5"}`}
-    >
+    <section className={`ui-meta-panel ${props.compact ? "p-4" : ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-zinc-100">Queue orchestration</h3>
-          <p className="text-xs text-zinc-500">
+          <h3 className="type-heading">Queue orchestration</h3>
+          <p className="type-caption">
             ComfyUI server queue plus locally tracked jobs from this app.
           </p>
         </div>
         <Button
           variant="ghost"
-          className="!min-h-8 px-2 text-xs"
+          size="sm"
           loading={loading}
           onClick={() => void refreshHealth()}
         >
@@ -96,8 +94,10 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
         </Button>
       </div>
 
-      <div className={`mt-4 grid gap-3 ${props.compact ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
-        <Metric
+      <div
+        className={`mt-4 grid gap-3 ${props.compact ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4"}`}
+      >
+        <StatCard
           label="ComfyUI server"
           value={health?.ok ? "Online" : "Offline"}
           detail={
@@ -111,51 +111,46 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
                   .join(" · ") || health.url
               : health?.error ?? "Unreachable"
           }
-          ok={health?.ok}
+          valueClassName={health?.ok === false ? "text-rose-300" : ""}
         />
-        <Metric
+        <StatCard
           label="Local tracked"
           value={String(pendingLocal.length)}
           detail={`${runningLocal.length} running · ${pendingLocal.length - runningLocal.length} pending`}
         />
-        <Metric label="Completed locally" value={String(localJobs.filter((e) => e.status === "completed").length)} />
-        <Metric
+        <StatCard
+          label="Completed locally"
+          value={String(localJobs.filter((entry) => entry.status === "completed").length)}
+        />
+        <StatCard
           label="Failed locally"
-          value={String(localJobs.filter((e) => e.status === "error").length)}
-          detail={localJobs.filter((e) => e.status === "error").length ? "Check Gallery for details" : undefined}
+          value={String(localJobs.filter((entry) => entry.status === "error").length)}
+          detail={
+            localJobs.filter((entry) => entry.status === "error").length
+              ? "Check Gallery for details"
+              : undefined
+          }
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button variant="secondary" className="!min-h-9" disabled={pendingLocal.length === 0} onClick={() => void refreshPendingJobs()}>
+      <ToolActionRow className="mt-4">
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={pendingLocal.length === 0}
+          onClick={() => void refreshPendingJobs()}
+        >
           Poll pending jobs
         </Button>
-        <Link href="/gallery" className="ui-btn-secondary !min-h-9 px-4 text-sm">
+        <ButtonLink href="/gallery" size="sm">
           Open gallery
-        </Link>
-        <Link href="/studio?tab=experiments" className="ui-btn-secondary !min-h-9 px-4 text-sm">
+        </ButtonLink>
+        <ButtonLink href="/studio?tab=experiments" size="sm">
           Experiments
-        </Link>
-      </div>
+        </ButtonLink>
+      </ToolActionRow>
 
       {status ? <p className="mt-3 text-xs text-emerald-400">{status}</p> : null}
     </section>
-  );
-}
-
-function Metric(props: {
-  label: string;
-  value: string;
-  detail?: string;
-  ok?: boolean;
-}) {
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
-      <p className="text-[11px] uppercase tracking-wide text-zinc-500">{props.label}</p>
-      <p className={`mt-1 text-base font-semibold ${props.ok === false ? "text-rose-300" : "text-zinc-100"}`}>
-        {props.value}
-      </p>
-      {props.detail ? <p className="mt-1 text-[11px] text-zinc-500">{props.detail}</p> : null}
-    </div>
   );
 }

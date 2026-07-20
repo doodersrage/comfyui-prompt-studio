@@ -20,6 +20,12 @@ import {
 } from "../prompt-cleanup";
 import { sanitizeQwenPrompt, formatPromptForModel } from "../qwen-clarity";
 import { buildVisionFormatRules } from "../prompt-shape";
+import {
+  getImagePromptPreset,
+  mergeImagePromptHints,
+  normalizeImagePromptDescriptionPreset,
+  type ImagePromptDescriptionPreset,
+} from "../image-prompt-presets";
 import { buildToolResult } from "./runner";
 import type {
   ImagePromptFocus,
@@ -30,9 +36,12 @@ import type {
 const FOCUS_INSTRUCTIONS: Record<ImagePromptFocus, string> = {
   full: `FOCUS MODE: FULL IMAGE (mandatory).
 - Balance subject, environment, and atmosphere in one unified description.
-- Include who/what is in frame, where they are, and the overall mood/light.`,
+- Include who/what is in frame, where they are, and the overall mood/light.
+- When people appear: facing direction, body orientation, limb positions, gaze, expression, and placement in frame (left/center/right, foreground/midground, shot scale).
+- State spatial relationships between subjects, props, and architecture (in front of, beside, leaning on, holding).`,
   subject: `FOCUS MODE: SUBJECT ONLY (mandatory).
-- START with the main subject: who/what, pose, clothing, accessories, expression, and visible body details.
+- START with the main subject: who/what, pose, body orientation, limb positions, clothing, accessories, expression, and visible body details.
+- Include facing direction, head tilt, gaze, and where the subject sits in frame (left/center/right, close-up vs full body).
 - Write at least 2 sentences with concrete subject detail (~80+ characters minimum).
 - You may add ONE brief location phrase (under 12 words), e.g. "on a tree-lined street"—but a location phrase alone is NOT a valid answer.
 - FORBIDDEN in subject mode: trees, houses, sky, clouds, weather, architecture, street scenery, background/midground/foreground, parked cars, lampposts, neighborhood detail, or any surroundings beyond that one brief location phrase.`,
@@ -47,9 +56,9 @@ const FOCUS_INSTRUCTIONS: Record<ImagePromptFocus, string> = {
 };
 
 const FOCUS_USER_DIRECTIVES: Record<ImagePromptFocus, string> = {
-  full: "Write a balanced prompt covering subject, setting, and atmosphere together.",
+  full: "Write a balanced prompt covering subject pose/placement, setting, and atmosphere together.",
   subject:
-    "Write a SUBJECT-ONLY prompt starting with the person/object. Include pose, clothing, and visible details. Do NOT describe trees, houses, sky, weather, or street scenery except one short location phrase.",
+    "Write a SUBJECT-ONLY prompt starting with the person/object. Include pose, facing, limb positions, clothing, and visible details. Do NOT describe trees, houses, sky, weather, or street scenery except one short location phrase.",
   background:
     "Write a BACKGROUND-ONLY prompt. Minimize or omit people; no faces or outfits.",
   style:
@@ -60,16 +69,19 @@ function buildVisionSystemPrompt(
   model: ImagePromptOptions["model"],
   detail: DetailLevel,
   focus: ImagePromptFocus,
+  descriptionPreset: ImagePromptDescriptionPreset = "standard",
 ): string {
   const modelDef = getComfyModelDefinition(model);
   const limits = getDetailLimits(detail, model);
   const formatRules = buildVisionFormatRules(modelDef.profile, limits, detail);
+  const preset = getImagePromptPreset(descriptionPreset);
 
   return `You convert reference photos into ${comfyModelLabel(model)} text-to-image prompts for ComfyUI (${modelDef.comfyNode}).
 
 Rules:
 - Describe ONLY what is visible. Do not invent unseen content.
 - ${FOCUS_INSTRUCTIONS[focus]}
+- ${preset.systemAddendum}
 - ${formatRules}
 - Start immediately with the scene. No preamble about users, prompts, models, or tasks.
 - NO thinking out loud: never write "Wait", "Let me check", "So the first sentence should…", verification notes, planning, or label:value checklists.
@@ -108,9 +120,9 @@ function buildVisionUserPrompt(
 }
 
 const FOCUS_RETRY_HINTS: Record<ImagePromptFocus, string> = {
-  full: "Include subject, setting, and atmosphere together in multiple sentences.",
+  full: "Include subject pose/placement, setting, spatial relationships, and atmosphere in multiple sentences.",
   subject:
-    "Start with the person/object, their pose, clothing, and visible details. Remove all background scenery (trees, houses, sky, weather, street detail). At most one short location phrase.",
+    "Start with the person/object: facing direction, limb positions, pose, clothing, and frame placement. Remove all background scenery (trees, houses, sky, weather, street detail). At most one short location phrase.",
   background:
     "Describe the environment, architecture, materials, depth, and atmosphere—not only a one-line place name.",
   style:
@@ -132,7 +144,7 @@ function buildVisionRetryUserPrompt(
     FOCUS_RETRY_HINTS[focus],
     extraHints?.trim()
       ? `Use these notes: ${extraHints.trim()}`
-      : "Describe visible subject details explicitly—pose, clothing, colors, and any readable text.",
+      : "Describe visible subject details explicitly—body pose, facing direction, limb positions, frame placement, clothing, colors, and any readable text.",
     `Write the complete finished prompt now (~${targetChars} characters, ${limits.minSentences}–${limits.maxSentences} sentences).`,
     "Output ONLY the prompt—no planning, no quotes around the whole answer.",
   ].join("\n");
@@ -167,15 +179,20 @@ export async function generateImagePrompt(
   }
 
   const focus = options.focus ?? "full";
+  const descriptionPreset = normalizeImagePromptDescriptionPreset(
+    options.descriptionPreset,
+  );
+  const mergedHints = mergeImagePromptHints(options.extraHints, descriptionPreset);
   const systemPrompt = buildVisionSystemPrompt(
     options.model,
     options.detail,
     focus,
+    descriptionPreset,
   );
   const userMessage = buildVisionUserPrompt(
     options.model,
     focus,
-    options.extraHints,
+    mergedHints,
   );
   const limits = getDetailLimits(options.detail, options.model);
 
@@ -216,12 +233,12 @@ export async function generateImagePrompt(
 
       content = await visionCompletion({
         systemPrompt,
-        textPrompt: buildVisionRetryUserPrompt(
+        textPrompt:         buildVisionRetryUserPrompt(
           options.model,
           focus,
           options.detail,
           limits,
-          options.extraHints,
+          mergedHints,
         ),
         imageDataUrl: options.imageDataUrl,
         maxTokens: visionMaxTokens,
@@ -251,6 +268,7 @@ export async function generateImagePrompt(
     return buildToolResult(prompt, "llm", options.model, options.detail, {
       metadata: {
         focus,
+        descriptionPreset,
         mimeType: options.mimeType ?? null,
         extraHints: options.extraHints?.trim() || null,
         visionModel,

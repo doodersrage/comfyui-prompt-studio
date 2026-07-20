@@ -49,6 +49,8 @@ import {
 } from "@/lib/tool-ui-labels";
 import {
   CollapsibleSection,
+  CodeBlock,
+  SegmentedControl,
   ToolBadge,
   ToolLayout,
   ToolSection,
@@ -56,8 +58,8 @@ import {
   accentFocusClass,
   accentRingClass,
 } from "@/components/ui/ToolPageShell";
-import { FieldDivider, FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+import { ChipButton, FieldDivider, FieldError, FieldLabel, TextArea, TextInput } from "@/components/ui/Field";
+import { Button, PrimaryButton } from "@/components/ui/Button";
 
 const ACCENT = "violet" as const;
 
@@ -446,18 +448,13 @@ export default function PromptGenerator() {
                   { label: "Rich", value: "rich" },
                 ] as const
               ).map((preset) => (
-                <button
+                <ChipButton
                   key={preset.value}
-                  type="button"
+                  active={detail === preset.value}
                   onClick={() => setDetail(preset.value)}
-                  className={`rounded-xl border px-3.5 py-2 text-xs font-medium transition ${
-                    detail === preset.value
-                      ? "border-violet-500/70 bg-violet-500/15 text-violet-100"
-                      : "border-zinc-700/80 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                  }`}
                 >
                   {preset.label}
-                </button>
+                </ChipButton>
               ))}
             </div>
           </div>
@@ -473,7 +470,7 @@ export default function PromptGenerator() {
                   onChange={(e) =>
                     updateShared({ alwaysIncludeClothing: e.target.checked })
                   }
-                  className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                  className="ui-checkbox"
                 />
                 <span className="space-y-1">
                   <span className="text-sm font-medium text-zinc-100">
@@ -489,7 +486,7 @@ export default function PromptGenerator() {
                   type="checkbox"
                   checked={autoFixRules}
                   onChange={(e) => updateShared({ autoFixRules: e.target.checked })}
-                  className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                  className="ui-checkbox"
                 />
                 <span className="space-y-1">
                   <span className="text-sm font-medium text-zinc-100">
@@ -545,18 +542,13 @@ export default function PromptGenerator() {
               { label: "Random surprise", value: "random" },
             ] as const
           ).map((option) => (
-            <button
+            <ChipButton
               key={option.value}
-              type="button"
+              active={generateSource === option.value}
               onClick={() => setGenerateSource(option.value)}
-              className={`rounded-lg border px-3 py-2 text-xs font-medium ${
-                generateSource === option.value
-                  ? "border-violet-500 bg-violet-500/15 text-violet-200"
-                  : "border-zinc-700 text-zinc-400"
-              }`}
             >
               {option.label}
-            </button>
+            </ChipButton>
           ))}
         </div>
 
@@ -565,11 +557,11 @@ export default function PromptGenerator() {
         {generateSource === "random" ? (
           <>
             <FieldLabel>{THEME_HINT_LABEL}</FieldLabel>
-            <input
+            <TextInput
               value={genre}
               onChange={(e) => updateToolSettings({ genre: e.target.value })}
               placeholder="e.g. solarpunk, noir, cozy horror"
-              className={`ui-input w-full px-4 py-3 text-sm ${accentFocusClass(ACCENT)}`}
+              className={accentFocusClass(ACCENT)}
             />
 
             <FieldDivider />
@@ -581,7 +573,7 @@ export default function PromptGenerator() {
                 onChange={(e) =>
                   updateToolSettings({ includePeople: e.target.checked })
                 }
-                className="h-4 w-4 rounded border-zinc-600"
+                className="ui-checkbox"
               />
               Include people in random ingredients
             </label>
@@ -625,30 +617,15 @@ export default function PromptGenerator() {
           <label htmlFor="edit-input" className="text-sm font-medium text-zinc-200">
             Scene idea or keywords
           </label>
-          <div className="flex rounded-lg border border-zinc-700 p-0.5">
-            <button
-              type="button"
-              onClick={() => setModeAndCache("positive")}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                mode === "positive"
-                  ? "bg-violet-600 text-white"
-                  : "text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              Positive
-            </button>
-            <button
-              type="button"
-              onClick={() => setModeAndCache("negative")}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                mode === "negative"
-                  ? "bg-rose-600 text-white"
-                  : "text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              Negative / Preserve
-            </button>
-          </div>
+          <SegmentedControl
+            aria-label="Prompt mode"
+            value={mode}
+            onChange={setModeAndCache}
+            options={[
+              { value: "positive", label: "Positive" },
+              { value: "negative", label: "Negative / Preserve", tone: "danger" },
+            ]}
+          />
         </div>
 
         <TextArea
@@ -684,7 +661,7 @@ export default function PromptGenerator() {
               key={example}
               type="button"
               onClick={() => setInput(example)}
-              className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200"
+              className="ui-tag"
             >
               {example}
             </button>
@@ -701,28 +678,18 @@ export default function PromptGenerator() {
                 People in scene
               </FieldLabel>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
+                <ChipButton
+                  active={distinctPeople}
                   onClick={() => setDistinctPeople(true)}
-                  className={`rounded-xl border px-3.5 py-2 text-xs font-medium transition ${
-                    distinctPeople
-                      ? "border-violet-500/70 bg-violet-500/15 text-violet-100"
-                      : "border-zinc-700/80 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                  }`}
                 >
                   Distinct individuals
-                </button>
-                <button
-                  type="button"
+                </ChipButton>
+                <ChipButton
+                  active={!distinctPeople}
                   onClick={() => setDistinctPeople(false)}
-                  className={`rounded-xl border px-3.5 py-2 text-xs font-medium transition ${
-                    !distinctPeople
-                      ? "border-violet-500/70 bg-violet-500/15 text-violet-100"
-                      : "border-zinc-700/80 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                  }`}
                 >
                   Grouped / couple
-                </button>
+                </ChipButton>
               </div>
               <p className="text-xs leading-relaxed text-zinc-500">
                 {distinctPeople
@@ -746,7 +713,7 @@ export default function PromptGenerator() {
                   type="checkbox"
                   checked={variationEnabled}
                   onChange={(e) => setVariationEnabled(e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-900 text-violet-600 focus:ring-violet-500/30"
+                  className="ui-checkbox"
                 />
               </label>
             </div>
@@ -779,18 +746,13 @@ export default function PromptGenerator() {
                     { label: "Balanced", value: 65 },
                     { label: "Wild", value: 95 },
                   ].map((preset) => (
-                    <button
+                    <ChipButton
                       key={preset.label}
-                      type="button"
+                      active={variationStrength === preset.value}
                       onClick={() => setVariationStrength(preset.value)}
-                      className={`rounded-full border px-3 py-1 text-xs transition ${
-                        variationStrength === preset.value
-                          ? "border-violet-500 bg-violet-500/15 text-violet-200"
-                          : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-                      }`}
                     >
                       {preset.label}
-                    </button>
+                    </ChipButton>
                   ))}
                 </div>
               </div>
@@ -905,31 +867,21 @@ export default function PromptGenerator() {
       )}
 
       {output && mode === "negative" && (
-        <section className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 shadow-xl shadow-black/20">
+        <ToolSection title="Generated preserve / negative prompt">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-medium text-zinc-200">
-                Generated preserve / negative prompt
-              </h2>
-              {provider && (
-                <p className="mt-1 text-xs text-zinc-500">
-                  via {provider === "llm" ? "LLM" : "template fallback"}
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => void copyOutput()}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-700 px-4 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800"
-            >
+            {provider ? (
+              <p className="type-caption">
+                via {provider === "llm" ? "LLM" : "template fallback"}
+              </p>
+            ) : (
+              <span />
+            )}
+            <Button variant="secondary" size="sm" onClick={() => void copyOutput()}>
               {copied ? "Copied!" : "Copy for ComfyUI"}
-            </button>
+            </Button>
           </div>
-
-          <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-sm leading-relaxed text-emerald-300">
-            {output}
-          </pre>
-        </section>
+          <CodeBlock>{output}</CodeBlock>
+        </ToolSection>
       )}
 
       {output && generateSource === "keywords" && mode === "positive" && (

@@ -1,6 +1,9 @@
+import Link from "next/link";
+import type { LinkProps } from "next/link";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "info" | "accent-outline";
+type ButtonSize = "default" | "sm";
 
 type LoadingProps = {
   loading?: boolean;
@@ -10,6 +13,7 @@ type LoadingProps = {
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
   LoadingProps & {
     variant?: ButtonVariant;
+    size?: ButtonSize;
     fullWidth?: boolean;
     children: ReactNode;
   };
@@ -22,6 +26,21 @@ const variantClasses: Record<ButtonVariant, string> = {
   info: "ui-btn-info",
   "accent-outline": "ui-btn-accent-outline",
 };
+
+function buttonClassName({
+  variant = "secondary",
+  size = "default",
+  fullWidth = false,
+  className = "",
+}: {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  fullWidth?: boolean;
+  className?: string;
+}) {
+  const sizeClass = size === "sm" ? "ui-btn-sm" : "";
+  return `${variantClasses[variant]} ${sizeClass} ${fullWidth ? "ui-btn-full" : ""} ${className}`.trim();
+}
 
 function ButtonContent({
   loading,
@@ -72,6 +91,7 @@ export function Skeleton({
 
 export function Button({
   variant = "secondary",
+  size = "default",
   fullWidth = false,
   loading = false,
   loadingLabel,
@@ -85,13 +105,34 @@ export function Button({
       type="button"
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={`${variantClasses[variant]} ${fullWidth ? "ui-btn-full" : ""} ${className}`.trim()}
+      className={buttonClassName({ variant, size, fullWidth, className })}
       {...props}
     >
       <ButtonContent loading={loading} loadingLabel={loadingLabel}>
         {children}
       </ButtonContent>
     </button>
+  );
+}
+
+type ButtonLinkProps = Omit<LinkProps, "className"> & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  className?: string;
+  children: ReactNode;
+};
+
+export function ButtonLink({
+  variant = "secondary",
+  size = "default",
+  className = "",
+  children,
+  ...props
+}: ButtonLinkProps) {
+  return (
+    <Link className={buttonClassName({ variant, size, className })} {...props}>
+      {children}
+    </Link>
   );
 }
 

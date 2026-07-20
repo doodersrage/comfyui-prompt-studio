@@ -23,11 +23,7 @@ import {
   type CharacterPresetUiSection,
 } from "@/lib/character-options";
 import type { CharacterToolCache } from "@/lib/settings-cache";
-
-const fieldClassName =
-  "w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500";
-
-const labelClassName = "text-sm font-medium text-zinc-200";
+import { SelectInput, TextInput } from "@/components/ui/Field";
 
 function ClothingCatalogSelect({
   label,
@@ -62,11 +58,10 @@ function ClothingCatalogSelect({
 
   return (
     <label className="space-y-2">
-      <span className={labelClassName}>{label}</span>
-      <select
+      <span className="type-heading">{label}</span>
+      <SelectInput
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={fieldClassName}
       >
         {options
           .filter((option) => !option.group)
@@ -84,7 +79,7 @@ function ClothingCatalogSelect({
             ))}
           </optgroup>
         ))}
-      </select>
+      </SelectInput>
     </label>
   );
 }
@@ -102,18 +97,17 @@ function CharacterSelect({
 }) {
   return (
     <label className="space-y-2">
-      <span className={labelClassName}>{label}</span>
-      <select
+      <span className="type-heading">{label}</span>
+      <SelectInput
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={fieldClassName}
       >
         {options.map((option) => (
           <option key={option.value || "default"} value={option.value}>
             {option.label}
           </option>
         ))}
-      </select>
+      </SelectInput>
     </label>
   );
 }
@@ -168,13 +162,13 @@ function PresetField({
 
   return (
     <label className="space-y-2">
-      <span className={labelClassName}>{field.label}</span>
-      <input
+      <span className="type-heading">{field.label}</span>
+      <TextInput
         value={(settings[field.key] as string | undefined) ?? ""}
         onChange={(event) => onChange({ [field.key]: event.target.value })}
         placeholder={placeholder}
         disabled={field.requires === "poseAction" && !poseAction}
-        className={`${fieldClassName} disabled:cursor-not-allowed disabled:opacity-40`}
+        className="disabled:cursor-not-allowed disabled:opacity-40"
       />
       {field.key === "poseTarget" &&
         poseAction &&
@@ -305,7 +299,7 @@ export default function CharacterPresetControls({
       <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <div className="flex items-start justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 transition hover:border-zinc-700">
           <div className="space-y-1">
-            <p className={labelClassName}>Character presets (optional)</p>
+            <p className="type-heading">Character presets (optional)</p>
             <p className="text-xs leading-relaxed text-zinc-500">
               40+ camera, lighting, body, pose, wardrobe library, and prop
               options—collapsed by default. Each selection maps to prompt script language.

@@ -186,6 +186,109 @@ export function ActionButtonBar({
   );
 }
 
+export function ToolActionRow({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-wrap gap-2 ${className}`.trim()}>{children}</div>
+  );
+}
+
+export function StatCard({
+  label,
+  value,
+  detail,
+  valueClassName = "",
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="ui-stat-card">
+      <p className="ui-stat-card-label">{label}</p>
+      <p className={`ui-stat-card-value ${valueClassName}`.trim()}>{value}</p>
+      {detail ? <p className="type-caption mt-1">{detail}</p> : null}
+    </div>
+  );
+}
+
+export function HealthCard({
+  title,
+  ok,
+  detail,
+}: {
+  title: string;
+  ok: boolean;
+  detail: string;
+}) {
+  return (
+    <div className="ui-health-card">
+      <div className="ui-health-card-title">
+        <span
+          className="ui-health-dot"
+          data-status={ok ? "ok" : "error"}
+          aria-hidden
+        />
+        {title}
+      </div>
+      <p className="type-caption mt-2 break-all">{detail || "—"}</p>
+    </div>
+  );
+}
+
+export function CodeBlock({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <pre className={`ui-code-block ${className}`.trim()}>{children}</pre>
+  );
+}
+
+export function SegmentedControl<T extends string>({
+  value,
+  onChange,
+  options,
+  "aria-label": ariaLabel,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: ReadonlyArray<{
+    value: T;
+    label: string;
+    tone?: "default" | "danger";
+  }>;
+  "aria-label"?: string;
+}) {
+  return (
+    <div className="ui-segmented" role="tablist" aria-label={ariaLabel}>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="tab"
+          aria-selected={value === option.value}
+          data-active={value === option.value ? "true" : "false"}
+          data-tone={option.tone}
+          className="ui-segmented-item"
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export const actionButtonClassName = "ui-btn-secondary ui-btn-full";
 
 export function ToolPageShell({

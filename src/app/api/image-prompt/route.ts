@@ -7,6 +7,7 @@ import {
   normalizeImageDataUrl,
 } from "@/lib/specialized/image-prompt-generator";
 import type { ImagePromptFocus } from "@/lib/specialized/types";
+import { normalizeImagePromptDescriptionPreset } from "@/lib/image-prompt-presets";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -29,6 +30,7 @@ async function parseImagePromptRequest(request: Request): Promise<{
   model: string;
   detail: string;
   focus: ImagePromptFocus;
+  descriptionPreset: ReturnType<typeof normalizeImagePromptDescriptionPreset>;
   extraHints?: string;
 }> {
   const contentType = request.headers.get("content-type") ?? "";
@@ -55,6 +57,9 @@ async function parseImagePromptRequest(request: Request): Promise<{
       model: String(formData.get("model") ?? ""),
       detail: String(formData.get("detail") ?? ""),
       focus: normalizeFocus(formData.get("focus")),
+      descriptionPreset: normalizeImagePromptDescriptionPreset(
+        formData.get("descriptionPreset"),
+      ),
       extraHints: String(formData.get("extraHints") ?? "").trim() || undefined,
     };
   }
@@ -65,6 +70,7 @@ async function parseImagePromptRequest(request: Request): Promise<{
     model?: string;
     detail?: string;
     focus?: ImagePromptFocus;
+    descriptionPreset?: string;
     extraHints?: string;
   };
 
@@ -82,6 +88,7 @@ async function parseImagePromptRequest(request: Request): Promise<{
     model: body.model ?? "",
     detail: body.detail ?? "",
     focus: normalizeFocus(body.focus),
+    descriptionPreset: normalizeImagePromptDescriptionPreset(body.descriptionPreset),
     extraHints: body.extraHints?.trim() || undefined,
   };
 }
@@ -100,6 +107,7 @@ export async function POST(request: Request) {
       imageDataUrl: parsed.imageDataUrl,
       mimeType: parsed.mimeType,
       focus: parsed.focus,
+      descriptionPreset: parsed.descriptionPreset,
       extraHints: parsed.extraHints,
     });
 

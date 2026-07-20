@@ -118,6 +118,7 @@ export type ImagePromptOptions = SharedGenerationOptions & {
   imageDataUrl: string;
   mimeType?: string;
   focus?: ImagePromptFocus;
+  descriptionPreset?: import("../image-prompt-presets").ImagePromptDescriptionPreset;
   extraHints?: string;
 };
 

@@ -89,7 +89,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           href="/"
           onClick={onNavigate}
-          className="ui-nav-link type-title block px-3 py-2 !font-semibold !text-[var(--text-primary)] hover:!bg-[var(--bg-hover)]"
+          className="ui-nav-brand type-title"
         >
           Prompt Tools
         </Link>

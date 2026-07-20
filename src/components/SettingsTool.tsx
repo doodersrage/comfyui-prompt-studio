@@ -80,6 +80,7 @@ import {
   ToolBadge,
   ToolLayout,
   ToolSection,
+  HealthCard,
   accentButtonClass,
   accentFocusClass,
 } from "@/components/ui/ToolPageShell";
@@ -477,10 +478,11 @@ export default function SettingsTool() {
         <div className="flex flex-wrap items-center justify-end gap-3">
           <Button
             variant="ghost"
+            size="sm"
             loading={loading}
             loadingLabel="Checking service health"
             onClick={() => void refreshHealth()}
-            className="!min-h-8 px-2 type-caption"
+            className="type-caption"
           >
             Refresh
           </Button>
@@ -879,7 +881,7 @@ export default function SettingsTool() {
                 {(settings.loraLibrary ?? []).map((entry, index) => (
                   <li
                     key={entry.id || index}
-                    className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3"
+                    className="ui-surface-inset space-y-2"
                   >
                     <div className="grid gap-2 sm:grid-cols-2">
                       <label className="space-y-1 text-xs text-zinc-400">
@@ -1111,7 +1113,7 @@ export default function SettingsTool() {
           Use ComfyUI WebSocket for faster job progress updates
         </label>
 
-        <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
+        <div className="ui-surface-inset space-y-2">
           <p className="text-xs font-medium text-zinc-300">Negative profile library</p>
           <select
             value={settings.selectedNegativeProfileId ?? "general-sd"}
@@ -1381,7 +1383,7 @@ export default function SettingsTool() {
             Preview avoidance
           </Button>
           {avoidancePreview ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-xs text-zinc-400">
+            <div className="ui-surface-inset type-caption">
               {avoidancePreview.removedTokens.length > 0 ? (
                 <p className="text-amber-300">
                   Matched tokens: {avoidancePreview.removedTokens.join(", ")}
@@ -1661,29 +1663,7 @@ export default function SettingsTool() {
 
       <SettingsAdvancedPanel />
 
-      {status && <p className="text-sm text-zinc-500">{status}</p>}
+      {status && <p className="type-caption">{status}</p>}
     </ToolLayout>
-  );
-}
-
-function HealthCard({
-  title,
-  ok,
-  detail,
-}: {
-  title: string;
-  ok: boolean;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-      <div className="flex items-center gap-2">
-        <span
-          className={`h-2 w-2 rounded-full ${ok ? "bg-emerald-400" : "bg-rose-400"}`}
-        />
-        <h3 className="text-sm font-medium text-zinc-200">{title}</h3>
-      </div>
-      <p className="mt-2 break-all text-xs text-zinc-500">{detail || "—"}</p>
-    </div>
   );
 }

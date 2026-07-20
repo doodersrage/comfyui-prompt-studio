@@ -13,11 +13,7 @@ import {
   type PetPresetUiSection,
 } from "@/lib/pet-options";
 import type { PetToolCache } from "@/lib/settings-cache";
-
-const fieldClassName =
-  "w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-rose-500";
-
-const labelClassName = "text-sm font-medium text-zinc-200";
+import { SelectInput, TextInput } from "@/components/ui/Field";
 
 function PetSelect({
   label,
@@ -32,18 +28,17 @@ function PetSelect({
 }) {
   return (
     <label className="space-y-2">
-      <span className={labelClassName}>{label}</span>
-      <select
+      <span className="type-heading">{label}</span>
+      <SelectInput
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={fieldClassName}
       >
         {options.map((option) => (
           <option key={option.value || "default"} value={option.value}>
             {option.label}
           </option>
         ))}
-      </select>
+      </SelectInput>
     </label>
   );
 }
@@ -70,12 +65,11 @@ function PresetField({
 
   return (
     <label className="space-y-2 sm:col-span-2">
-      <span className={labelClassName}>{field.label}</span>
-      <input
+      <span className="type-heading">{field.label}</span>
+      <TextInput
         value={settings.petDetail ?? ""}
         onChange={(event) => onChange({ petDetail: event.target.value })}
         placeholder={field.placeholder}
-        className={fieldClassName}
       />
     </label>
   );
@@ -151,7 +145,7 @@ export default function PetPresetControls({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-zinc-200">Pet presets (optional)</p>
+        <p className="type-heading">Pet presets (optional)</p>
         <div className="flex items-center gap-2 text-xs">
           {selectionCount > 0 ? (
             <span className="text-rose-300">{selectionCount} active</span>

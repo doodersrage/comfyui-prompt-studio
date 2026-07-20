@@ -9,6 +9,7 @@ export const TOPIC_VARIETY_LABEL = "Topic variety";
 export const RANDOMIZE_INGREDIENTS_LABEL = "Randomize ingredients";
 export const PINNED_VARIATION_SEED_LABEL = "Pinned variation seed";
 export const THEME_HINT_LABEL = "Theme hint (optional)";
+export const DESCRIPTION_PRESET_LABEL = "Description preset";
 export const DESCRIPTION_FOCUS_LABEL = "Description focus";
 export const EXTRA_HINTS_LABEL = "Extra hints (optional)";
 

@@ -15,6 +15,7 @@ import {
 } from "@/lib/prompt-sidecar";
 import { useState } from "react";
 import {
+  CollapsibleSection,
   ToolBadge,
   ToolLayout,
 } from "@/components/ui/ToolPageShell";
@@ -39,20 +40,15 @@ export default function GalleryTool() {
     >
       <ComfyUiGalleryPanel showHeader showFilters />
 
-      <details className="group rounded-2xl border border-zinc-800/80 bg-zinc-950/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-        <summary className="cursor-pointer list-none px-5 py-4 text-sm font-medium text-zinc-200 transition hover:text-zinc-100 [&::-webkit-details-marker]:hidden">
-          <span className="flex items-center justify-between gap-3">
-            Import & queue tools
-            <span className="text-xs font-normal text-zinc-500 group-open:hidden">
-              Sidecar, PNG, ComfyUI history
-            </span>
-          </span>
-        </summary>
-        <div className="space-y-4 border-t border-zinc-800/80 px-5 py-5">
-          <p className="text-sm text-zinc-500">
-            Backfill outputs generated outside this app, or inspect the ComfyUI queue.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
+      <CollapsibleSection
+        title="Import & queue tools"
+        summary="Sidecar, PNG, ComfyUI history"
+        defaultOpen={false}
+      >
+        <p className="type-caption">
+          Backfill outputs generated outside this app, or inspect the ComfyUI queue.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
             <SidecarImportButton
               onImport={(sidecar) => {
                 setImportedSidecar(sidecar);
@@ -95,14 +91,12 @@ export default function GalleryTool() {
           </div>
           {importStatus ? <p className="text-xs text-zinc-500">{importStatus}</p> : null}
           {importedSidecar ? (
-            <div className="space-y-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-4">
-              <p className="line-clamp-3 text-sm text-zinc-300">
-                {importedSidecar.positive}
-              </p>
+            <div className="ui-surface-inset space-y-3">
+              <p className="line-clamp-3 type-body">{importedSidecar.positive}</p>
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="secondary"
-                  className="!min-h-9 px-3 text-xs"
+                  size="sm"
                   onClick={() => {
                     setImportStatus("Re-queueing imported sidecar…");
                     void requeueComfyJob({
@@ -120,7 +114,7 @@ export default function GalleryTool() {
                 </Button>
                 <Button
                   variant="ghost"
-                  className="!min-h-9 px-3 text-xs"
+                  size="sm"
                   onClick={() => {
                     setImportStatus("Re-queueing with new seed…");
                     void requeueComfyJob({
@@ -138,7 +132,8 @@ export default function GalleryTool() {
                 </Button>
                 <Button
                   variant="ghost"
-                  className="!min-h-9 px-3 text-xs text-zinc-500"
+                  size="sm"
+                  className="text-zinc-500"
                   onClick={() => {
                     setImportedSidecar(null);
                     setImportStatus(null);
@@ -150,8 +145,7 @@ export default function GalleryTool() {
             </div>
           ) : null}
           <QueueOrchestrationPanel />
-        </div>
-      </details>
+      </CollapsibleSection>
     </ToolLayout>
   );
 }

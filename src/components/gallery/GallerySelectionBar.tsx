@@ -48,7 +48,7 @@ function ActionMenu(props: {
       <button
         type="button"
         disabled
-        className="ui-btn-ghost !min-h-9 px-3 text-xs opacity-40"
+        className="ui-btn-ghost ui-btn-sm text-xs opacity-40"
       >
         {props.label}
       </button>
@@ -57,10 +57,10 @@ function ActionMenu(props: {
 
   return (
     <details className="relative">
-      <summary className="ui-btn-ghost !min-h-9 cursor-pointer list-none px-3 text-xs [&::-webkit-details-marker]:hidden">
+      <summary className="ui-btn-ghost ui-btn-sm cursor-pointer list-none text-xs [&::-webkit-details-marker]:hidden">
         {props.label}
       </summary>
-      <div className="absolute left-0 z-30 mt-1 min-w-[12rem] rounded-xl border border-zinc-800/90 bg-zinc-950/95 p-1 shadow-[0_16px_48px_-20px_rgba(0,0,0,0.9)] backdrop-blur-md">
+      <div className="ui-menu left-0">
         {props.children}
       </div>
     </details>
@@ -73,7 +73,7 @@ function MenuItem(props: { label: string; onClick: () => void; disabled?: boolea
       type="button"
       disabled={props.disabled}
       onClick={props.onClick}
-      className="block w-full rounded-lg px-3 py-2 text-left text-xs text-zinc-300 transition hover:bg-zinc-900 hover:text-zinc-100 disabled:opacity-40"
+      className="ui-menu-item"
     >
       {props.label}
     </button>

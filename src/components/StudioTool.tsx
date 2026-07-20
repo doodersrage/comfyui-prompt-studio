@@ -135,7 +135,7 @@ import {
   accentButtonClass,
   accentFocusClass,
 } from "@/components/ui/ToolPageShell";
-import { ChipButton, FieldLabel, TextArea } from "@/components/ui/Field";
+import { ChipButton, FieldLabel, TextArea, TextInput } from "@/components/ui/Field";
 import { Button, PrimaryButton } from "@/components/ui/Button";
 import {
   DataList,
@@ -632,7 +632,7 @@ export default function StudioTool() {
                 {favoriteEntries.length > 0 && (
                   <Button
                     variant="accent-outline"
-                    className="!min-h-9"
+                    size="sm"
                     onClick={() =>
                       void actions.sendBatchComfyUi(
                         favoriteEntries.map((entry) => entry.prompt),
@@ -646,7 +646,7 @@ export default function StudioTool() {
                   <>
                     <Button
                       variant="ghost"
-                      className="!min-h-9"
+                      size="sm"
                       onClick={() =>
                         downloadTextFile(
                           exportHistoryCsv(filteredEntries),
@@ -659,7 +659,7 @@ export default function StudioTool() {
                     </Button>
                     <Button
                       variant="ghost"
-                      className="!min-h-9"
+                      size="sm"
                       onClick={() =>
                         downloadTextFile(
                           exportHistoryJsonl(filteredEntries),
@@ -672,26 +672,26 @@ export default function StudioTool() {
                     </Button>
                     <Button
                       variant="ghost"
-                      className="!min-h-9"
+                      size="sm"
                       onClick={() => downloadHistoryExport(filteredEntries)}
                     >
                       Export filtered
                     </Button>
                     <Button
                       variant="ghost"
-                      className="!min-h-9"
+                      size="sm"
                       onClick={() => downloadHistoryExport(entries)}
                     >
                       Export all
                     </Button>
-                    <Button variant="ghost" className="!min-h-9" onClick={clearHistory}>
+                    <Button variant="ghost" size="sm" onClick={clearHistory}>
                       Clear all
                     </Button>
                   </>
                 )}
                 <Button
                   variant="ghost"
-                  className="!min-h-9"
+                  size="sm"
                   onClick={() => {
                     downloadStudioBackup();
                     setBackupStatus("Studio backup downloaded.");
@@ -699,7 +699,7 @@ export default function StudioTool() {
                 >
                   Export backup
                 </Button>
-                <label className="ui-btn-ghost inline-flex !min-h-9 cursor-pointer items-center px-4">
+                <label className="ui-btn-ghost ui-btn-sm ui-file-input-label cursor-pointer px-4">
                   Import backup
                   <input
                     type="file"
@@ -1259,7 +1259,7 @@ export default function StudioTool() {
             </ToolBlockGroup>
           ) : null}
 
-          <div className="mt-6 space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/30 p-4">
+          <div className="ui-surface-inset mt-6 space-y-3">
             <p className="text-sm font-medium text-zinc-200">Campaign templates</p>
             <p className="text-xs text-zinc-500">
               Save the current campaign settings as a reusable recipe.
@@ -1311,7 +1311,7 @@ export default function StudioTool() {
                     <div className="flex gap-2">
                       <Button
                         variant="ghost"
-                        className="!min-h-8 px-3 type-caption"
+                        size="sm" className="type-caption"
                         onClick={() => {
                           setCampaignTarget(template.target);
                           setCampaignCount(template.count);
@@ -1325,7 +1325,7 @@ export default function StudioTool() {
                       </Button>
                       <Button
                         variant="ghost"
-                        className="!min-h-8 px-3 type-caption"
+                        size="sm" className="type-caption"
                         onClick={() => {
                           deleteCampaignTemplate(template.id);
                           setCampaignTemplates(loadCampaignTemplates());
@@ -1455,7 +1455,7 @@ export default function StudioTool() {
                   <div className="ui-list-actions">
                     <Button
                       variant="ghost"
-                      className="!min-h-8 px-3 type-caption"
+                      size="sm" className="type-caption"
                       onClick={() => {
                         setActiveProjectIdState(project.id);
                         setActiveProjectId(project.id);
@@ -1466,7 +1466,7 @@ export default function StudioTool() {
                     </Button>
                     <Button
                       variant="ghost"
-                      className="!min-h-8 px-3 type-caption"
+                      size="sm" className="type-caption"
                       onClick={() => {
                         deletePromptProject(project.id);
                         setProjects(loadPromptProjects());
@@ -1479,7 +1479,7 @@ export default function StudioTool() {
                     </Button>
                     <Button
                       variant="ghost"
-                      className="!min-h-8 px-3 type-caption"
+                      size="sm" className="type-caption"
                       onClick={() => {
                         const bundle = buildProjectBundle({
                           project,
@@ -1553,12 +1553,11 @@ export default function StudioTool() {
             </div>
             <div className="space-y-2">
               <FieldLabel>Model B</FieldLabel>
-              <input
+              <TextInput
                 value={toolSettings.compareModelB ?? "flux-2-klein"}
                 onChange={(event) =>
                   updateToolSettings({ compareModelB: event.target.value })
                 }
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm"
               />
             </div>
           </div>
@@ -1831,7 +1830,7 @@ export default function StudioTool() {
                     <DataListActions>
                       <Button
                         variant="ghost"
-                        className="!min-h-8 px-3 type-caption"
+                        size="sm" className="type-caption"
                         onClick={() => {
                           setPresetHints((previous) =>
                             previous.trim()
@@ -1849,7 +1848,7 @@ export default function StudioTool() {
                             ? "info"
                             : "ghost"
                         }
-                        className="!min-h-8 px-3 type-caption"
+                        size="sm" className="type-caption"
                         onClick={() => updateShared({ lockedWardrobeId: entry.id })}
                       >
                         {shared.lockedWardrobeId === entry.id ? "Locked" : "Lock kit"}
@@ -1909,7 +1908,7 @@ export default function StudioTool() {
                       <DataListActions>
                         <Button
                           variant="ghost"
-                          className="!min-h-8 px-3 type-caption"
+                          size="sm" className="type-caption"
                           onClick={() => {
                             setPresetHints((previous) =>
                               previous.trim()
@@ -1923,7 +1922,7 @@ export default function StudioTool() {
                         </Button>
                         <Button
                           variant={locked ? "secondary" : "ghost"}
-                          className="!min-h-8 px-3 type-caption"
+                          size="sm" className="type-caption"
                           onClick={() =>
                             updateShared({
                               lockedLocation: locked ? undefined : entry.label,
@@ -2019,7 +2018,7 @@ export default function StudioTool() {
           {userTemplates.some((entry) => entry.id === template.id) && (
             <Button
               variant="danger"
-              className="!min-h-8 px-3 type-caption"
+              size="sm" className="type-caption"
               onClick={() => {
                 deleteUserTemplate(template.id);
                 setUserTemplates(loadUserTemplates());
@@ -2321,7 +2320,7 @@ export default function StudioTool() {
                   <DataListActions>
                     <Button
                       variant="ghost"
-                      className="!min-h-8 px-3 type-caption"
+                      size="sm" className="type-caption"
                       onClick={() => {
                         updateShared(applyScenePresetLocks(preset));
                         if (preset.hints) {
@@ -2334,7 +2333,7 @@ export default function StudioTool() {
                     </Button>
                     <Button
                       variant="ghost"
-                      className="!min-h-8 px-3 type-caption"
+                      size="sm" className="type-caption"
                       onClick={() => {
                         const url = buildScenePresetShareUrl(
                           "/character",
@@ -2379,13 +2378,13 @@ export default function StudioTool() {
                         }),
                         { mode: "duo" },
                       )}
-                      className="ui-btn-ghost !min-h-8 px-3 type-caption"
+                      className="ui-btn-ghost ui-btn-sm type-caption"
                     >
                       Open Character (duo)
                     </a>
                     <Button
                       variant="danger"
-                      className="!min-h-8 px-3 type-caption"
+                      size="sm" className="type-caption"
                       onClick={() => {
                         deleteScenePreset(preset.id);
                         setScenePresets(loadScenePresets());
@@ -2576,31 +2575,31 @@ function HistoryCard({
             {new Date(entry.timestamp).toLocaleString()}
           </p>
           <div className="ui-list-actions">
-            <a href={regenerateUrl} className="ui-btn-ghost !min-h-8 px-3 type-caption">
+            <a href={regenerateUrl} className="ui-btn-ghost ui-btn-sm type-caption">
               Regenerate
             </a>
-            <a href={studioHistoryUrl(entry.id)} className="ui-btn-ghost !min-h-8 px-3 type-caption">
+            <a href={studioHistoryUrl(entry.id)} className="ui-btn-ghost ui-btn-sm type-caption">
               Link
             </a>
-            <Button variant="ghost" className="!min-h-8 px-3 type-caption" onClick={onToggleFavorite}>
+            <Button variant="ghost" size="sm" className="type-caption" onClick={onToggleFavorite}>
               {entry.favorite ? "★" : "☆"}
             </Button>
-            <Button variant="ghost" className="!min-h-8 px-3 type-caption" onClick={onCopy}>
+            <Button variant="ghost" size="sm" className="type-caption" onClick={onCopy}>
               Copy
             </Button>
-            <Button variant="ghost" className="!min-h-8 px-3 type-caption" onClick={onExportSidecar}>
+            <Button variant="ghost" size="sm" className="type-caption" onClick={onExportSidecar}>
               Sidecar
             </Button>
-            <Button variant="accent-outline" className="!min-h-8 px-3 type-caption" onClick={() => onRequeue(false)}>
+            <Button variant="accent-outline" size="sm" className="type-caption" onClick={() => onRequeue(false)}>
               Re-queue
             </Button>
-            <Button variant="accent-outline" className="!min-h-8 px-3 type-caption" onClick={() => onRequeue(true)}>
+            <Button variant="accent-outline" size="sm" className="type-caption" onClick={() => onRequeue(true)}>
               Re-queue (new seed)
             </Button>
             {batchPromptCount > 1 && onRequeueBatch ? (
               <Button
                 variant="accent-outline"
-                className="!min-h-8 px-3 type-caption"
+                size="sm" className="type-caption"
                 onClick={onRequeueBatch}
               >
                 Re-queue batch ({batchPromptCount})
@@ -2608,7 +2607,7 @@ function HistoryCard({
             ) : null}
             <Button
               variant="ghost"
-              className="!min-h-8 px-3 type-caption"
+              size="sm" className="type-caption"
               onClick={() => {
                 const tag = window.prompt("Add tag");
                 if (tag?.trim()) {
@@ -2618,16 +2617,16 @@ function HistoryCard({
             >
               Tag
             </Button>
-            <Button variant="ghost" className="!min-h-8 px-3 type-caption" onClick={onDiffLeft}>
+            <Button variant="ghost" size="sm" className="type-caption" onClick={onDiffLeft}>
               Diff A
             </Button>
-            <Button variant="ghost" className="!min-h-8 px-3 type-caption" onClick={onDiffRight}>
+            <Button variant="ghost" size="sm" className="type-caption" onClick={onDiffRight}>
               Diff B
             </Button>
-            <Button variant="ghost" className="!min-h-8 px-3 type-caption" onClick={onSaveTemplate}>
+            <Button variant="ghost" size="sm" className="type-caption" onClick={onSaveTemplate}>
               Template
             </Button>
-            <Button variant="danger" className="!min-h-8 px-3 type-caption" onClick={onRemove}>
+            <Button variant="danger" size="sm" className="type-caption" onClick={onRemove}>
               Remove
             </Button>
           </div>

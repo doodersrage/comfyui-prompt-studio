@@ -13,15 +13,21 @@ import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-t
 import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from "@/lib/settings-cache";
 import type { EnrichedToolGenerateResult, ImagePromptFocus, ToolGenerateResult } from "@/lib/specialized/types";
 import {
+  IMAGE_PROMPT_DESCRIPTION_PRESETS,
+  getImagePromptPreset,
+  type ImagePromptDescriptionPreset,
+} from "@/lib/image-prompt-presets";
+import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
 } from "@/components/ui/ToolPageShell";
-import { FieldDivider, FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
+import { FieldDivider, FieldError, FieldLabel, TextArea, ChipButton } from "@/components/ui/Field";
 import {
   DESCRIPTION_FOCUS_LABEL,
+  DESCRIPTION_PRESET_LABEL,
   EXTRA_HINTS_LABEL,
 } from "@/lib/tool-ui-labels";
 import { Button, PrimaryButton } from "@/components/ui/Button";
@@ -69,6 +75,10 @@ export default function ImagePromptTool() {
 
   const selectedModel = getComfyModelDefinition(shared.model);
   const inferredSport = result?.diagnostics?.inferred.sport ?? null;
+
+  const selectedPreset = getImagePromptPreset(
+    toolSettings.descriptionPreset ?? "standard",
+  );
 
   const addRefImage = useCallback((nextFile: File, role = "", replace = false) => {
     setRefImages((previous) => {
@@ -160,6 +170,10 @@ export default function ImagePromptTool() {
         formData.append("model", shared.model);
         formData.append("detail", shared.detail);
         formData.append("focus", toolSettings.focus ?? "full");
+        formData.append(
+          "descriptionPreset",
+          toolSettings.descriptionPreset ?? "standard",
+        );
         if (toolSettings.extraHints?.trim()) {
           formData.append("extraHints", toolSettings.extraHints.trim());
         }
@@ -189,6 +203,7 @@ export default function ImagePromptTool() {
             images,
             model: shared.model,
             detail: shared.detail,
+            descriptionPreset: toolSettings.descriptionPreset ?? "standard",
             extraHints: toolSettings.extraHints?.trim() || undefined,
           }),
         });
@@ -275,7 +290,8 @@ export default function ImagePromptTool() {
       description={
         <>
           Upload a reference image and convert it into a model-ready prompt using
-          a vision-capable LLM (`LLM_VISION_MODEL`).
+          a vision-capable LLM (`LLM_VISION_MODEL`). Standard mode now asks for pose,
+          facing, limb positions, and frame placement by default.
         </>
       }
       sidebar={
@@ -317,8 +333,8 @@ export default function ImagePromptTool() {
         {refImages.length > 0 ? (
           <ul className="mt-3 space-y-3">
             {refImages.map((entry) => (
-              <li key={entry.id} className="rounded-xl border border-zinc-800 p-3">
-                <div className="flex flex-wrap items-center gap-2">
+              <li key={entry.id} className="ui-surface-inset space-y-3">
+                <div className="flex items-center gap-3">
                   <input
                     value={entry.role}
                     onChange={(event) =>
@@ -330,44 +346,82 @@ export default function ImagePromptTool() {
                         ),
                       )
                     }
-                    className="ui-input min-w-[140px] flex-1 px-[var(--input-padding-x)] py-1 type-caption"
+                    className="ui-input min-w-0 flex-1 px-[var(--input-padding-x)] py-1 type-caption"
                     placeholder="Reference role"
                   />
-                  <label className="flex min-w-[120px] flex-1 items-center gap-2 text-xs text-zinc-400">
-                    Strength
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={Math.round(entry.strength * 100)}
-                      onChange={(event) =>
-                        setRefImages((previous) =>
-                          previous.map((item) =>
-                            item.id === entry.id
-                              ? { ...item, strength: Number(event.target.value) / 100 }
-                              : item,
-                          ),
-                        )
-                      }
-                      className="flex-1 accent-fuchsia-500"
-                    />
-                    <span className="w-8 text-right tabular-nums text-zinc-300">
-                      {Math.round(entry.strength * 100)}%
-                    </span>
-                  </label>
-                  <Button variant="ghost" onClick={() => removeRefImage(entry.id)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => removeRefImage(entry.id)}
+                  >
                     Remove
                   </Button>
                 </div>
+
+                <div className="grid grid-cols-[auto_minmax(0,1fr)_2.5rem] items-center gap-x-3 gap-y-1">
+                  <span className="type-caption text-zinc-400">Strength</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={Math.round(entry.strength * 100)}
+                    onChange={(event) =>
+                      setRefImages((previous) =>
+                        previous.map((item) =>
+                          item.id === entry.id
+                            ? { ...item, strength: Number(event.target.value) / 100 }
+                            : item,
+                        ),
+                      )
+                    }
+                    aria-label={`Strength for ${entry.role}`}
+                    className="h-8 w-full min-w-0 cursor-pointer accent-fuchsia-500"
+                  />
+                  <span className="text-right text-xs tabular-nums text-zinc-300">
+                    {Math.round(entry.strength * 100)}%
+                  </span>
+                </div>
+
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={entry.previewUrl}
                   alt={entry.role}
-                  className="mt-2 max-h-48 rounded-lg border border-zinc-800 object-contain"
+                  className="max-h-48 rounded-lg border border-zinc-800 object-contain"
                 />
               </li>
             ))}
           </ul>
+        ) : null}
+
+        <FieldDivider />
+
+        <FieldLabel hint="Choose how much emphasis the vision model puts on different visible details.">
+          {DESCRIPTION_PRESET_LABEL}
+        </FieldLabel>
+        <div className="flex flex-wrap gap-2">
+          {IMAGE_PROMPT_DESCRIPTION_PRESETS.map((preset) => (
+            <ChipButton
+              key={preset.id}
+              active={(toolSettings.descriptionPreset ?? "standard") === preset.id}
+              onClick={() =>
+                updateToolSettings({
+                  descriptionPreset: preset.id as ImagePromptDescriptionPreset,
+                })
+              }
+            >
+              {preset.label}
+            </ChipButton>
+          ))}
+        </div>
+        <p className="type-caption">{selectedPreset.summary}</p>
+        {selectedPreset.suggestedDetail &&
+        selectedPreset.suggestedDetail !== shared.detail ? (
+          <p className="type-caption text-fuchsia-300/90">
+            Works best with{" "}
+            <strong className="font-medium capitalize">{selectedPreset.suggestedDetail}</strong>{" "}
+            detail in the sidebar.
+          </p>
         ) : null}
 
         <FieldDivider />
@@ -382,20 +436,15 @@ export default function ImagePromptTool() {
               { label: "Style", value: "style" },
             ] as const
           ).map((option) => (
-            <button
+            <ChipButton
               key={option.value}
-              type="button"
+              active={(toolSettings.focus ?? "full") === option.value}
               onClick={() =>
                 updateToolSettings({ focus: option.value as ImagePromptFocus })
               }
-              className={`rounded-lg border px-3 py-2 text-xs font-medium ${
-                (toolSettings.focus ?? "full") === option.value
-                  ? "border-fuchsia-500 bg-fuchsia-500/15 text-fuchsia-200"
-                  : "border-zinc-700 text-zinc-400"
-              }`}
             >
               {option.label}
-            </button>
+            </ChipButton>
           ))}
         </div>
 
@@ -405,7 +454,7 @@ export default function ImagePromptTool() {
         <TextArea
           value={toolSettings.extraHints ?? ""}
           onChange={(e) => updateToolSettings({ extraHints: e.target.value })}
-          placeholder="e.g. emphasize the lighting, ignore the watermark"
+          placeholder="e.g. two cyclists side by side, gravel bikes, helmets on"
           rows={2}
           className={accentFocusClass(ACCENT)}
         />
