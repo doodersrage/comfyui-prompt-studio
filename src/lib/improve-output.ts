@@ -89,10 +89,13 @@ export function startRefineFromHistoryEntry(entry: {
   });
   window.location.href = galleryHandoffPath("refine");
 }
-export function startImproveFromGalleryEntry(entry: ComfyGalleryEntry): void {
+export function startImproveFromGalleryEntry(
+  entry: ComfyGalleryEntry,
+  options?: { intent?: string },
+): void {
   saveGalleryHandoff({
     ...buildGalleryHandoff(entry, "refine"),
-    improveIntent: IMPROVE_INTENT_DEFAULT,
+    improveIntent: options?.intent?.trim() || IMPROVE_INTENT_DEFAULT,
   });
   window.location.href = galleryImprovePath();
 }

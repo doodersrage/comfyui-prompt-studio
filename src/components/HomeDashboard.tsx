@@ -6,7 +6,15 @@ import { galleryEntryViewUrls, loadComfyGallery } from "@/lib/comfyui-gallery";
 import { loadScheduledBatchConfig } from "@/lib/scheduled-batch";
 import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
+import QueueOrchestrationPanel from "@/components/QueueOrchestrationPanel";
 import { Button } from "@/components/ui/Button";
+import {
+  ToolBadge,
+  ToolLayout,
+  ToolSection,
+} from "@/components/ui/ToolPageShell";
+
+const ACCENT = "neutral" as const;
 
 export default function HomeDashboard() {
   const { entries } = usePromptHistory();
@@ -42,15 +50,18 @@ export default function HomeDashboard() {
   const activeProject = projects.find((project) => project.id === activeProjectId);
 
   return (
-    <section className="mb-8 space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-100">Dashboard</h2>
-          <p className="text-sm text-zinc-500">
-            Pending jobs, recent outputs, and active project at a glance.
-          </p>
-        </div>
+    <ToolLayout
+      accent={ACCENT}
+      width="wide"
+      badge={<ToolBadge accent={ACCENT}>Overview</ToolBadge>}
+      title="Dashboard"
+      description="Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way."
+    >
+      <ToolSection>
         <div className="flex flex-wrap gap-2">
+          <Link href="/" className="ui-btn-primary !min-h-9 px-4 text-sm">
+            Generate prompts
+          </Link>
           <Link href="/gallery" className="ui-btn-secondary !min-h-9 px-4 text-sm">
             Gallery
           </Link>
@@ -61,23 +72,22 @@ export default function HomeDashboard() {
             Settings
           </Link>
         </div>
-      </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Pending ComfyUI" value={String(pending.length)} />
-        <StatCard label="History entries" value={String(entries.length)} />
-        <StatCard
-          label="Scheduled batch"
-          value={scheduled.enabled ? `Every ${scheduled.intervalMinutes}m` : "Off"}
-        />
-        <StatCard label="Active project" value={activeProject?.name ?? "None"} />
-      </div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Pending ComfyUI" value={String(pending.length)} />
+          <StatCard label="History entries" value={String(entries.length)} />
+          <StatCard
+            label="Scheduled batch"
+            value={scheduled.enabled ? `Every ${scheduled.intervalMinutes}m` : "Off"}
+          />
+          <StatCard label="Active project" value={activeProject?.name ?? "None"} />
+        </div>
+      </ToolSection>
 
-      {recentCompleted.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Recent outputs
-          </p>
+      <QueueOrchestrationPanel compact />
+
+      {recentCompleted.length > 0 ? (
+        <ToolSection title="Recent outputs">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {recentCompleted.map((entry) => {
               const thumb = galleryEntryViewUrls(entry)[0];
@@ -85,7 +95,7 @@ export default function HomeDashboard() {
                 <Link
                   key={entry.id}
                   href="/gallery"
-                  className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
+                  className="overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/40 transition hover:border-zinc-600 hover:shadow-[0_12px_32px_-20px_rgba(0,0,0,0.8)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
                 >
                   {thumb ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -100,33 +110,35 @@ export default function HomeDashboard() {
               );
             })}
           </div>
-        </div>
-      )}
+        </ToolSection>
+      ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Link href="/topics">
-          <Button variant="secondary" className="!min-h-9">
-            Topics batch
-          </Button>
-        </Link>
-        <Link href="/variations?matrix=1">
-          <Button variant="secondary" className="!min-h-9">
-            Prompt matrix
-          </Button>
-        </Link>
-        <Link href="/variations">
-          <Button variant="secondary" className="!min-h-9">
-            Variations
-          </Button>
-        </Link>
-      </div>
-    </section>
+      <ToolSection title="Quick launch">
+        <div className="flex flex-wrap gap-2">
+          <Link href="/topics">
+            <Button variant="secondary" className="!min-h-9">
+              Topics batch
+            </Button>
+          </Link>
+          <Link href="/variations?matrix=1">
+            <Button variant="secondary" className="!min-h-9">
+              Prompt matrix
+            </Button>
+          </Link>
+          <Link href="/variations">
+            <Button variant="secondary" className="!min-h-9">
+              Variations
+            </Button>
+          </Link>
+        </div>
+      </ToolSection>
+    </ToolLayout>
   );
 }
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
+    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
       <p className="text-xs text-zinc-500">{label}</p>
       <p className="mt-1 text-lg font-semibold text-zinc-100">{value}</p>
     </div>

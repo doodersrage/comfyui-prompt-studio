@@ -18,12 +18,17 @@ import {
   setSelectedWorkflowFileId,
 } from "@/lib/comfyui-runtime";
 import {
+  addPresetsToPack,
+  applyWorkflowPresetPackToLibrary,
   exportWorkflowPresetPack,
   importWorkflowPresetPack,
   loadWorkflowPresetPacks,
   upsertWorkflowPresetPack,
+  workflowFileToPreset,
   type WorkflowPresetPack,
 } from "@/lib/workflow-preset-packs";
+import { suggestWorkflowNodeMappings } from "@/lib/workflow-node-mapper";
+import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import type { ServerWorkflowOption } from "@/hooks/useComfyWorkflowSelection";
 
 type ComfyWorkflowLibraryPanelProps = {
@@ -45,6 +50,7 @@ export default function ComfyWorkflowLibraryPanel({
   const [editError, setEditError] = useState<string | null>(null);
   const [presetPacks, setPresetPacks] = useState<WorkflowPresetPack[]>([]);
   const [packName, setPackName] = useState("");
+  const [activePackId, setActivePackId] = useState("");
 
   const refresh = useCallback(() => {
     setFiles(loadComfyWorkflowFiles());
@@ -70,6 +76,13 @@ export default function ComfyWorkflowLibraryPanel({
     }
     return validateWorkflowJson(editingJson, placeholderTokens);
   }, [editingJson, placeholderTokens]);
+
+  const editingNodeMappings = useMemo(() => {
+    if (!editingJson.trim()) {
+      return [];
+    }
+    return suggestWorkflowNodeMappings(editingJson);
+  }, [editingJson]);
 
   const importFile = useCallback(
     async (file: File) => {
@@ -395,6 +408,21 @@ export default function ComfyWorkflowLibraryPanel({
                           )}
                         </p>
                       )}
+                      {editingNodeMappings.length > 0 ? (
+                        <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
+                          <p className="text-xs font-medium text-violet-200">Suggested node bindings</p>
+                          <ul className="mt-2 space-y-1 text-xs text-zinc-400">
+                            {editingNodeMappings.map((mapping) => (
+                              <li key={mapping.nodeId}>
+                                <span className="text-zinc-200">{mapping.nodeId}</span> ·{" "}
+                                {mapping.classType}
+                                {mapping.suggestedBinding ? ` → ${mapping.suggestedBinding}` : ""}
+                                <span className="text-zinc-600"> — {mapping.reason}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -473,8 +501,12 @@ export default function ComfyWorkflowLibraryPanel({
                   try {
                     const pack = importWorkflowPresetPack(raw);
                     upsertWorkflowPresetPack(pack);
+                    const installed = applyWorkflowPresetPackToLibrary(pack);
+                    refresh();
                     setPresetPacks(loadWorkflowPresetPacks());
-                    onStatus?.(`Imported preset pack “${pack.name}”.`);
+                    onStatus?.(
+                      `Imported preset pack “${pack.name}” and installed ${installed} workflow(s).`,
+                    );
                   } catch (error) {
                     onStatus?.(
                       error instanceof Error ? error.message : "Invalid preset pack JSON.",
@@ -489,7 +521,79 @@ export default function ComfyWorkflowLibraryPanel({
         {presetPacks.length === 0 ? (
           <p className="text-xs text-zinc-600">No preset packs saved yet.</p>
         ) : (
-          <ul className="space-y-2">
+          <>
+            <label className="block text-xs text-zinc-500">
+              Active pack for saving
+              <select
+                value={activePackId}
+                onChange={(event) => setActivePackId(event.target.value)}
+                className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-100"
+              >
+                <option value="">Select pack…</option>
+                {presetPacks.map((pack) => (
+                  <option key={pack.id} value={pack.id}>
+                    {pack.name} ({pack.presets.length})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={!activePackId || !selectedId}
+                className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 disabled:opacity-40"
+                onClick={() => {
+                  const file = files.find((entry) => entry.id === selectedId);
+                  if (!file || !activePackId) return;
+                  const updated = addPresetsToPack(activePackId, [
+                    workflowFileToPreset(file),
+                  ]);
+                  setPresetPacks(loadWorkflowPresetPacks());
+                  onStatus?.(
+                    updated
+                      ? `Added “${file.name}” to pack “${updated.name}”.`
+                      : "Could not update pack.",
+                  );
+                }}
+              >
+                Add selected workflow to pack
+              </button>
+              <button
+                type="button"
+                disabled={!activePackId}
+                className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500 disabled:opacity-40"
+                onClick={() => {
+                  const settings = loadComfyUiSettings();
+                  const workflowJson = settings.workflowJson?.trim();
+                  if (!workflowJson || !activePackId) {
+                    onStatus?.("Save a workflow JSON in ComfyUI settings first.");
+                    return;
+                  }
+                  const updated = addPresetsToPack(activePackId, [
+                    {
+                      id: crypto.randomUUID(),
+                      name: `Settings snapshot ${new Date().toLocaleString()}`,
+                      createdAt: Date.now(),
+                      workflowJson,
+                      apiUrl: settings.apiUrl,
+                      positiveToken: settings.positiveToken,
+                      negativeToken: settings.negativeToken,
+                      queueParams: settings.queueParams,
+                      customTokens: settings.customTokens,
+                    },
+                  ]);
+                  setPresetPacks(loadWorkflowPresetPacks());
+                  onStatus?.(
+                    updated
+                      ? `Saved current ComfyUI settings snapshot to “${updated.name}”.`
+                      : "Could not update pack.",
+                  );
+                }}
+              >
+                Save current settings to pack
+              </button>
+            </div>
+            <ul className="space-y-2">
             {presetPacks.map((pack) => (
               <li
                 key={pack.id}
@@ -498,19 +602,34 @@ export default function ComfyWorkflowLibraryPanel({
                 <span>
                   {pack.name} · {pack.presets.length} preset(s)
                 </span>
-                <button
-                  type="button"
-                  className="text-violet-300 hover:text-violet-200"
-                  onClick={() => {
-                    downloadText(`${pack.name.replace(/\s+/g, "-")}-workflow-pack.json`, exportWorkflowPresetPack(pack));
-                    onStatus?.(`Exported preset pack “${pack.name}”.`);
-                  }}
-                >
-                  Export
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="text-zinc-300 hover:text-zinc-100"
+                    disabled={pack.presets.length === 0}
+                    onClick={() => {
+                      const count = applyWorkflowPresetPackToLibrary(pack);
+                      refresh();
+                      onStatus?.(`Installed ${count} workflow(s) from “${pack.name}”.`);
+                    }}
+                  >
+                    Install
+                  </button>
+                  <button
+                    type="button"
+                    className="text-violet-300 hover:text-violet-200"
+                    onClick={() => {
+                      downloadText(`${pack.name.replace(/\s+/g, "-")}-workflow-pack.json`, exportWorkflowPresetPack(pack));
+                      onStatus?.(`Exported preset pack “${pack.name}”.`);
+                    }}
+                  >
+                    Export
+                  </button>
+                </div>
               </li>
             ))}
-          </ul>
+            </ul>
+          </>
         )}
       </div>
     </section>

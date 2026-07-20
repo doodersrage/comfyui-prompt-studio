@@ -124,6 +124,11 @@ export const PROFILE_LIMITS: Record<
     { ...S3, maxChars: 520, maxTokens: 380 },
     { ...S45, maxChars: 800, maxTokens: 600 },
   ),
+  video_motion: limits(
+    { ...S2, maxChars: 280, maxTokens: 200 },
+    { ...S3, maxChars: 480, maxTokens: 360 },
+    { ...S45, maxChars: 720, maxTokens: 520 },
+  ),
 };
 
 export function getProfileLimits(

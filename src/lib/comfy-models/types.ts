@@ -8,7 +8,8 @@ export type ComfyModelCategory =
   | "qwen"
   | "hunyuan"
   | "other-dit"
-  | "instruct-edit";
+  | "instruct-edit"
+  | "video";
 
 export type PromptProfileId =
   | "sd15_weighted"
@@ -27,7 +28,8 @@ export type PromptProfileId =
   | "cascade_nlp"
   | "instruct_pix2pix"
   | "omnigen_instruction"
-  | "generic_nlp";
+  | "generic_nlp"
+  | "video_motion";
 
 export type PromptLimits = {
   minSentences: number;

@@ -3,6 +3,7 @@
 import { queueMutatedGalleryJobs } from "./gallery-mutations";
 import { queueSeedExperiment } from "./seed-experiment-queue";
 import { loadComfyUiSettings } from "./comfyui-settings";
+import { runLowRatingMutation } from "./rating-prompt-mutations";
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
 
 export async function runAutoImproveOnRating(
@@ -11,6 +12,10 @@ export async function runAutoImproveOnRating(
 ): Promise<string | null> {
   if (!rating) {
     return null;
+  }
+
+  if (rating <= 2) {
+    return runLowRatingMutation(entry, rating);
   }
 
   const settings = loadComfyUiSettings();

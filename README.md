@@ -25,6 +25,7 @@ Video, audio, and 3D-only architectures (WAN, Hunyuan Video, Stable Audio, etc.)
 
 | Page | Route | Purpose |
 |------|-------|---------|
+| **Dashboard** | `/dashboard` | Pending jobs, queue status, recent outputs, active project |
 | **Generate** | `/` | Keywords or random surprise → model-ready prompt |
 | **Format** | `/format` | Adapt an existing prompt draft for a selected model |
 | **Character** | `/character` | Solo person, duo/sport, or subject + background compose |
@@ -40,6 +41,9 @@ Video, audio, and 3D-only architectures (WAN, Hunyuan Video, Stable Audio, etc.)
 | **Settings** | `/settings` | LLM/ComfyUI health, webhooks, scheduled batch, backup/reset |
 | **Gallery** | `/gallery` | ComfyUI queue history, review mode, semantic search, outputs |
 | **Variations** | `/variations` | Roll N prompt variations and batch-queue to ComfyUI |
+| **ControlNet** | `/controlnet` | Structure prompts (text or image-assisted) |
+| **Video** | `/video` | Motion / camera prompts for video workflows |
+| **Plugins** | `/plugins` | Tool plugin registry |
 
 Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Character and Generate pages.
 
@@ -132,7 +136,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Scheduled batch** — Settings configures periodic random-scene/topics generation (+ optional ComfyUI queue)
 - **Webhooks** — POST job completion payloads to an external URL via server proxy
 - **Active character descriptor** — shared mandatory character sheet injected into Character API requests
-- **Home dashboard** — pending ComfyUI jobs, recent outputs, and active project on `/`
+- **Home dashboard** — pending ComfyUI jobs, recent outputs, and active project on `/dashboard`
 - **Keyboard shortcuts** — Ctrl+Enter generate, Ctrl+Shift+C copy pair, Ctrl+Shift+G queue ComfyUI
 - **Queue param overrides** — optional seed/width/height/cfg/steps overrides in Settings and result panels
 - **LoRA trigger injection** — missing trigger phrases from the LoRA library append on ComfyUI queue
@@ -172,6 +176,26 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Server scheduled batch** — `SERVER_SCHEDULED_BATCH=true` or manual `POST /api/scheduled-batch/run`
 - **ComfyUI job status node** — `PromptToolsJobStatus` polls `/api/comfyui/status`
 - **Queue artifacts** — optional `COMFYUI_QUEUE_EXPORT_DIR` writes JSON sidecars after queue
+- **Readiness-gated queue** — result panels warn below score 60; confirm or fix before ComfyUI queue
+- **Readiness auto-fix** — one-click compact / rule-fix / reformat from readiness panel
+- **Experiment winner workflow** — crown winners, compare export, re-queue groups on Studio Experiments tab
+- **Gallery embedding search** — semantic and find-similar use `/api/search/embeddings` when available
+- **Workflow preset pack builder** — add workflows or settings snapshots to packs; install packs into library
+- **Queue orchestration panel** — home/gallery view of ComfyUI server queue, VRAM, and local tracked jobs
+- **Server storage pull** — Settings advanced panel restores server namespaces into browser storage
+- **IP-Adapter multi-ref merge** — Image tool roles + per-reference strength influence (`/api/image-prompt/multi`)
+- **ControlNet from image** — upload reference for vision-assisted structure extraction on `/controlnet`
+- **Token / weight inspector** — `(tag:1.2)` analysis on Lint, Format, and result panels
+- **Low-rating refine loop** — 1–2★ gallery ratings open Refine with corrective intent automatically
+- **Campaign templates** — save/load campaign recipes on Studio Campaign tab
+- **Portfolio diff export** — cross-model Markdown/HTML diff from Studio Portfolio tab
+- **Observability dashboard** — Settings advanced panel shows API volume, errors, and slow routes
+- **Workflow node auto-map** — suggested positive/negative bindings while editing workflow JSON
+- **Video prompt builder** — `/video` + `wan-video` / `hunyuan-video` model profiles
+- **Project bundles** — export/import project history + gallery JSON from Studio Projects tab
+- **Aesthetic scoring** — heuristic gallery score on cards; `POST /api/aesthetic/score` for snapshots
+- **PWA manifest** — installable web app metadata (`manifest.json`); offline service worker disabled (conflicted with Next.js HMR)
+- **Plugin registry** — `/plugins` lists built-in tools and accepts custom localStorage plugin entries
 
 ## Prompt size limits (selected models)
 

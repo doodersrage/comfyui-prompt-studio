@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { ToolSection } from "@/components/ui/ToolPageShell";
 import { Button } from "@/components/ui/Button";
-import { syncNamespaceToServer } from "@/lib/storage-sync";
+import { syncNamespaceToServer, pullNamespaceFromServer } from "@/lib/storage-sync";
+import ObservabilityDashboard from "@/components/ObservabilityDashboard";
 import { SETTINGS_CACHE_KEY, type SettingsCache } from "@/lib/settings-cache";
 import { PROMPT_HISTORY_KEY } from "@/hooks/usePromptHistory";
 import { COMFYUI_GALLERY_KEY } from "@/lib/comfyui-gallery";
@@ -78,6 +79,30 @@ export default function SettingsAdvancedPanel() {
     );
   }
 
+  async function pullServerStorageToBrowser() {
+    if (!storageEnabled) {
+      setStatus("Set PROMPT_DATA_DIR on the server to enable storage sync.");
+      return;
+    }
+    const settings = await pullNamespaceFromServer<SettingsCache>("settings-cache");
+    const history = await pullNamespaceFromServer<unknown>("prompt-history");
+    const gallery = await pullNamespaceFromServer<unknown>("comfy-gallery");
+    if (settings) {
+      localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(settings));
+    }
+    if (history) {
+      localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(history));
+    }
+    if (gallery) {
+      localStorage.setItem(COMFYUI_GALLERY_KEY, JSON.stringify(gallery));
+    }
+    setStatus(
+      settings || history || gallery
+        ? "Restored server storage into browser localStorage. Reload the page."
+        : "No server namespaces found to restore.",
+    );
+  }
+
   return (
     <>
       <ToolSection title="API usage">
@@ -105,6 +130,9 @@ export default function SettingsAdvancedPanel() {
           <Button variant="secondary" onClick={() => void pushLocalStorageToServer()}>
             Push browser data to server
           </Button>
+          <Button variant="secondary" onClick={() => void pullServerStorageToBrowser()}>
+            Pull server data to browser
+          </Button>
         </div>
       </ToolSection>
 
@@ -117,6 +145,8 @@ export default function SettingsAdvancedPanel() {
           Run server batch now
         </Button>
       </ToolSection>
+
+      <ObservabilityDashboard />
 
       {status ? <p className="text-sm text-emerald-400">{status}</p> : null}
     </>

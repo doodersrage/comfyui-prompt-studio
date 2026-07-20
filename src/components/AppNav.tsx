@@ -17,6 +17,12 @@ type NavGroup = {
 
 const navGroups: NavGroup[] = [
   {
+    label: "Overview",
+    links: [
+      { href: "/dashboard", label: "Dashboard", description: "Jobs, queue & recent outputs" },
+    ],
+  },
+  {
     label: "Prompt",
     links: [
       { href: "/", label: "Generate", description: "Keywords or random scene" },
@@ -44,11 +50,13 @@ const navGroups: NavGroup[] = [
       { href: "/image-prompt", label: "Image → Prompt", description: "Vision upload" },
       { href: "/refine", label: "Refine", description: "Image + intent fix" },
       { href: "/controlnet", label: "ControlNet", description: "Structure prompts" },
+      { href: "/video", label: "Video", description: "Motion prompts" },
       { href: "/negative", label: "Negative", description: "SD negatives" },
       { href: "/studio", label: "Studio", description: "History & tools" },
       { href: "/gallery", label: "Gallery", description: "ComfyUI outputs" },
       { href: "/variations", label: "Variations", description: "Grid queue" },
       { href: "/variations?matrix=1", label: "Matrix", description: "Cartesian prompts" },
+      { href: "/plugins", label: "Plugins", description: "Tool registry" },
     ],
   },
 ];

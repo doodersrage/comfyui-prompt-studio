@@ -33,6 +33,7 @@ type RefImageUpload = {
   file: File;
   previewUrl: string;
   role: string;
+  strength: number;
 };
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -79,6 +80,7 @@ export default function ImagePromptTool() {
         file: nextFile,
         previewUrl: URL.createObjectURL(nextFile),
         role: role || (replace ? "primary" : `reference ${previous.length + 1}`),
+        strength: replace || previous.length === 0 ? 1 : 0.75,
       };
       if (replace) {
         for (const image of previous) {
@@ -177,6 +179,7 @@ export default function ImagePromptTool() {
             mimeType: entry.file.type || "image/jpeg",
             role: entry.role,
             focus: toolSettings.focus ?? "full",
+            strength: entry.strength,
           })),
         );
         const response = await fetch("/api/image-prompt/multi", {
@@ -330,6 +333,28 @@ export default function ImagePromptTool() {
                     className="ui-input min-w-[140px] flex-1 px-[var(--input-padding-x)] py-1 type-caption"
                     placeholder="Reference role"
                   />
+                  <label className="flex min-w-[120px] flex-1 items-center gap-2 text-xs text-zinc-400">
+                    Strength
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={Math.round(entry.strength * 100)}
+                      onChange={(event) =>
+                        setRefImages((previous) =>
+                          previous.map((item) =>
+                            item.id === entry.id
+                              ? { ...item, strength: Number(event.target.value) / 100 }
+                              : item,
+                          ),
+                        )
+                      }
+                      className="flex-1 accent-fuchsia-500"
+                    />
+                    <span className="w-8 text-right tabular-nums text-zinc-300">
+                      {Math.round(entry.strength * 100)}%
+                    </span>
+                  </label>
                   <Button variant="ghost" onClick={() => removeRefImage(entry.id)}>
                     Remove
                   </Button>
@@ -442,7 +467,9 @@ export default function ImagePromptTool() {
             metadata: result?.metadata,
           })
         }
+        onOutputChange={setOutput}
         onSendComfyUi={() => void actions.sendComfyUi(output, inferredSport)}
+        showWeightInspector={Boolean(output)}
         {...promptResultPreviewProps(actions, output, inferredSport)}
         onFixPrompt={() =>
           void actions.fixPrompt(output, setOutput, toolSettings.extraHints)

@@ -5,6 +5,11 @@ test("home page loads", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /ComfyUI Image Prompt Generator/i })).toBeVisible();
 });
 
+test("dashboard page loads", async ({ page }) => {
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: /^Dashboard$/i })).toBeVisible();
+});
+
 test("settings page loads", async ({ page }) => {
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: /Settings & Health/i })).toBeVisible();

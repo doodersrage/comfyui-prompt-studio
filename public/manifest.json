@@ -1,0 +1,17 @@
+{
+  "name": "ComfyUI Prompt Tools",
+  "short_name": "Prompt Tools",
+  "description": "Generate and format prompts for ComfyUI image and video models.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

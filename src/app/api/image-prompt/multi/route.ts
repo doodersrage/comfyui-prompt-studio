@@ -1,6 +1,7 @@
 import { generateImagePrompt } from "@/lib/specialized/image-prompt-generator";
 import { normalizeDetailLevel } from "@/lib/detail-level";
 import { normalizeComfyModel } from "@/lib/comfy-models";
+import { mergeImagePromptParts, type ImageRefPart } from "@/lib/image-prompt-merge";
 import type { ImagePromptFocus } from "@/lib/specialized/types";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 
@@ -11,6 +12,7 @@ type RefImage = {
   mimeType?: string;
   role?: string;
   focus?: ImagePromptFocus;
+  strength?: number;
 };
 
 function normalizeFocus(value: unknown): ImagePromptFocus {
@@ -18,6 +20,13 @@ function normalizeFocus(value: unknown): ImagePromptFocus {
     return value;
   }
   return "full";
+}
+
+function normalizeStrength(value: unknown): number | undefined {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return undefined;
+  }
+  return Math.min(1, Math.max(0, value));
 }
 
 export async function POST(request: Request) {
@@ -39,7 +48,7 @@ export async function POST(request: Request) {
 
     const model = normalizeComfyModel(body.model);
     const detail = normalizeDetailLevel(body.detail);
-    const parts: string[] = [];
+    const parts: ImageRefPart[] = [];
 
     for (const [index, ref] of images.entries()) {
       const role = ref.role?.trim() || `reference ${index + 1}`;
@@ -51,10 +60,15 @@ export async function POST(request: Request) {
         focus: normalizeFocus(ref.focus),
         extraHints: `Reference role: ${role}. ${body.extraHints?.trim() || ""}`.trim(),
       });
-      parts.push(`[${role}] ${result.prompt}`);
+      parts.push({
+        role,
+        focus: ref.focus ?? "full",
+        strength: normalizeStrength(ref.strength),
+        prompt: result.prompt,
+      });
     }
 
-    const prompt = parts.join("\n\n");
+    const prompt = mergeImagePromptParts(parts);
     return apiJson({ prompt, parts, model, detail });
   } catch (error) {
     return apiError(error instanceof Error ? error.message : "Multi-ref prompt failed.", 500);

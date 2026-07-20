@@ -7,15 +7,13 @@ import ImageLightbox, { type ImageLightboxState } from "@/components/ui/ImageLig
 import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPanel";
 import { Button } from "@/components/ui/Button";
 import { useComfyUiGallery } from "@/hooks/useComfyUiGallery";
-import {
-  buildGalleryHandoff,
-  galleryHandoffPath,
-  saveGalleryHandoff,
-} from "@/lib/gallery-handoff";
 import { startImproveFromGalleryEntry } from "@/lib/improve-output";
 import { recordAvoidedTokensFromPrompt } from "@/lib/avoided-tokens";
 import { recordCatalogBiasFromPrompt } from "@/lib/catalog-rating-bias";
 import GalleryComparePanel from "@/components/GalleryComparePanel";
+import GalleryCard from "@/components/gallery/GalleryCard";
+import GalleryFiltersBar from "@/components/gallery/GalleryFiltersBar";
+import GallerySelectionBar from "@/components/gallery/GallerySelectionBar";
 import { queueMutatedGalleryJobs } from "@/lib/gallery-mutations";
 import { queueNegativeAbTest } from "@/lib/negative-ab-queue";
 import { queueSeedExperiment } from "@/lib/seed-experiment-queue";
@@ -49,7 +47,6 @@ import {
   buildGalleryLightboxPlaylist,
   galleryEntryViewUrls,
   GALLERY_PAGE_SIZE_ALL,
-  GALLERY_PAGE_SIZE_OPTIONS,
   GALLERY_SLIDESHOW_INTERVAL_OPTIONS,
   GALLERY_SLIDESHOW_TRANSITION_OPTIONS,
   loadGalleryViewPreferences,
@@ -59,20 +56,11 @@ import {
   saveGalleryViewPreferences,
   sortGalleryEntries,
   type ComfyGalleryEntry,
-  type ComfyGalleryJobStatus,
   type ComfyGallerySort,
   type GalleryPageSize,
   type GallerySlideshowIntervalMs,
   type GallerySlideshowTransition,
 } from "@/lib/comfyui-gallery";
-
-const GALLERY_SORT_OPTIONS: { value: ComfyGallerySort; label: string }[] = [
-  { value: "queued-desc", label: "Newest queued" },
-  { value: "queued-asc", label: "Oldest queued" },
-  { value: "completed-desc", label: "Recently completed" },
-  { value: "tool-asc", label: "Tool (A–Z)" },
-  { value: "favorites-first", label: "Favorites first" },
-];
 
 type ComfyUiGalleryPanelProps = {
   limit?: number;
@@ -103,7 +91,23 @@ export default function ComfyUiGalleryPanel({
     refreshPending,
     primaryViewUrl,
     setReviewRating,
+    embeddingSearchActive,
+    similarSearchActive,
   } = useComfyUiGallery();
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const query = new URLSearchParams(window.location.search).get("q");
+    if (query?.trim()) {
+      setFilter((previous) => ({
+        ...previous,
+        query: query.trim(),
+        semanticSearch: true,
+      }));
+    }
+  }, [setFilter]);
 
   const router = useRouter();
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -353,7 +357,7 @@ export default function ComfyUiGalleryPanel({
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6">
       <ImageLightbox
         state={lightbox}
         onClose={closeLightbox}
@@ -385,20 +389,20 @@ export default function ComfyUiGalleryPanel({
         }
       />
       {showHeader && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="text-sm font-medium text-zinc-200">ComfyUI gallery</h2>
-            <p className="text-xs text-zinc-500">
-              Jobs queued from this app, with outputs when ComfyUI finishes.
+            <h2 className="type-heading text-zinc-100">Gallery</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Outputs queued from this app, with live status while ComfyUI runs.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => void refreshPending()}
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-zinc-300 hover:border-zinc-500"
+              className="ui-btn-ghost !min-h-9 px-3 text-xs"
             >
-              Refresh in-progress
+              Refresh jobs
             </button>
             {entries.length > 0 && (
               <button
@@ -408,16 +412,13 @@ export default function ComfyUiGalleryPanel({
                     clearAll();
                   }
                 }}
-                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-zinc-400 hover:border-zinc-500"
+                className="ui-btn-ghost !min-h-9 px-3 text-xs text-zinc-500 hover:text-rose-300"
               >
-                Clear gallery
+                Clear all
               </button>
             )}
             {!compact && limit && entries.length > limit && (
-              <Link
-                href="/gallery"
-                className="rounded-lg border border-violet-700/60 px-3 py-1.5 text-violet-200 hover:border-violet-500"
-              >
+              <Link href="/gallery" className="ui-btn-secondary !min-h-9 px-3 text-xs">
                 View all
               </Link>
             )}
@@ -426,196 +427,27 @@ export default function ComfyUiGalleryPanel({
       )}
 
       {showFilters && (
-        <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
-          <label className="block space-y-1 text-xs text-zinc-400">
-            Search gallery
-            <input
-              type="search"
-              value={filter.query ?? ""}
-              onChange={(event) =>
-                setFilter({
-                  ...filter,
-                  query: event.target.value.trim() ? event.target.value : undefined,
-                })
-              }
-              placeholder="Prompt, tool, model, prompt id…"
-              className="ui-input block w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-            />
-          </label>
-
-          <div className="flex flex-wrap items-end gap-3">
-          <label className="space-y-1 text-xs text-zinc-400">
-            Status
-            <select
-              value={filter.status ?? "all"}
-              onChange={(event) =>
-                setFilter({
-                  ...filter,
-                  status: event.target.value as ComfyGalleryJobStatus | "all",
-                })
-              }
-              className="block rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-100"
-            >
-              <option value="all">All</option>
-              <option value="pending">Pending</option>
-              <option value="running">Running</option>
-              <option value="completed">Completed</option>
-              <option value="error">Error</option>
-            </select>
-          </label>
-
-          {tools.length > 0 && (
-            <label className="space-y-1 text-xs text-zinc-400">
-              Tool
-              <select
-                value={filter.tool ?? ""}
-                onChange={(event) =>
-                  setFilter({
-                    ...filter,
-                    tool: event.target.value || undefined,
-                  })
-                }
-                className="block rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-100"
-              >
-                <option value="">All tools</option>
-                {tools.map((tool) => (
-                  <option key={tool} value={tool}>
-                    {tool}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          <label className="space-y-1 text-xs text-zinc-400">
-            Project
-            <select
-              value={projectFilterId}
-              onChange={(event) => setProjectFilterId(event.target.value)}
-              className="block rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-100"
-            >
-              <option value="">All projects</option>
-              <option value="active">Active project</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex items-center gap-2 pb-1.5 text-xs text-zinc-300">
-            <input
-              type="checkbox"
-              checked={filter.favoritesOnly ?? false}
-              onChange={(event) =>
-                setFilter({ ...filter, favoritesOnly: event.target.checked })
-              }
-              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-            />
-            Favorites only
-          </label>
-
-          <label className="flex items-center gap-2 pb-1.5 text-xs text-zinc-300">
-            <input
-              type="checkbox"
-              checked={filter.semanticSearch ?? false}
-              onChange={(event) =>
-                setFilter({ ...filter, semanticSearch: event.target.checked || undefined })
-              }
-              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-            />
-            Semantic search
-          </label>
-
-          <label className="flex items-center gap-2 pb-1.5 text-xs text-zinc-300">
-            <input
-              type="checkbox"
-              checked={filter.reviewMode ?? false}
-              onChange={(event) =>
-                setFilter({ ...filter, reviewMode: event.target.checked || undefined })
-              }
-              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-            />
-            Review mode
-          </label>
-          {filter.reviewMode ? (
-            <p className="col-span-full text-[11px] text-zinc-500">
-              Shortcuts: 1–5 rate · F favorite · N/P or arrows navigate
-            </p>
-          ) : null}
-
-          <label className="flex items-center gap-2 pb-1.5 text-xs text-zinc-300">
-            <input
-              type="checkbox"
-              checked={filter.unreviewedOnly ?? false}
-              onChange={(event) =>
-                setFilter({ ...filter, unreviewedOnly: event.target.checked || undefined })
-              }
-              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-            />
-            Unreviewed only
-          </label>
-
-          {paginationEnabled && (
-            <>
-              <label className="space-y-1 text-xs text-zinc-400">
-                Sort
-                <select
-                  value={sort}
-                  onChange={(event) =>
-                    setSort(event.target.value as ComfyGallerySort)
-                  }
-                  className="ui-input block px-3 py-[var(--input-padding-y)] type-body"
-                >
-                  {GALLERY_SORT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="space-y-1 text-xs text-zinc-400">
-                Per page
-                <select
-                  value={pageSize}
-                  onChange={(event) =>
-                    setPageSize(event.target.value as GalleryPageSize)
-                  }
-                  className="ui-input block px-3 py-[var(--input-padding-y)] type-body"
-                >
-                  {GALLERY_PAGE_SIZE_OPTIONS.map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                  <option value={GALLERY_PAGE_SIZE_ALL}>All</option>
-                </select>
-              </label>
-
-              {lightboxPlaylist.images.length > 1 && (
-                <button
-                  type="button"
-                  onClick={startSlideshow}
-                  className="self-end rounded-lg border border-violet-700/60 px-3 py-[var(--input-padding-y)] text-violet-200 hover:border-violet-500"
-                >
-                  Slideshow
-                </button>
-              )}
-            </>
-          )}
-
-          <p className="ml-auto text-xs text-zinc-600">
-            {totalFiltered}/{entries.length} match
-            {paginationEnabled && showPagination
-              ? ` · page ${currentPage}/${totalPages}`
-              : pageSize === GALLERY_PAGE_SIZE_ALL && totalFiltered > 0
-                ? " · showing all"
-                : ""}
-          </p>
-          </div>
-        </div>
+        <GalleryFiltersBar
+          filter={filter}
+          setFilter={setFilter}
+          tools={tools}
+          projects={projects}
+          projectFilterId={projectFilterId}
+          setProjectFilterId={setProjectFilterId}
+          sort={sort}
+          setSort={setSort}
+          pageSize={pageSize}
+          setPageSize={setPageSize}
+          paginationEnabled={paginationEnabled}
+          embeddingSearchActive={embeddingSearchActive}
+          totalFiltered={totalFiltered}
+          totalEntries={entries.length}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          showPagination={showPagination}
+          slideshowAvailable={lightboxPlaylist.images.length > 1}
+          onStartSlideshow={startSlideshow}
+        />
       )}
 
       {showPagination && (
@@ -628,398 +460,199 @@ export default function ComfyUiGalleryPanel({
         />
       )}
 
-      {bulkEnabled && visibleEntries.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-xs">
-          <label className="flex items-center gap-2 text-zinc-300">
-            <input
-              type="checkbox"
-              checked={
-                visibleEntries.length > 0 &&
-                visibleEntries.every((entry) => selectedIds.includes(entry.id))
-              }
-              onChange={(event) => {
-                if (event.target.checked) {
-                  setSelectedIds(visibleEntries.map((entry) => entry.id));
-                } else {
-                  setSelectedIds([]);
-                }
-              }}
-              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-            />
-            Select visible ({selectedIds.length})
-          </label>
+      {bulkEnabled && visibleEntries.length > 0 && selectedIds.length === 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-zinc-800/80 bg-zinc-950/20 px-4 py-3 text-xs text-zinc-500">
+          <span>Select cards to compare, export, queue experiments, or assign projects.</span>
           <button
             type="button"
-            disabled={selectedIds.length === 0}
-            onClick={() => {
-              const projectId = loadActiveProjectId();
-              if (!projectId) {
-                setRequeueStatus("Set an active project in Studio first.");
-                return;
-              }
-              setProjectIds(selectedIds, projectId);
-              setRequeueStatus(`Assigned ${selectedIds.length} entries to active project.`);
-            }}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
+            onClick={() => setSelectedIds(visibleEntries.map((entry) => entry.id))}
+            className="ui-btn-ghost !min-h-8 px-3"
           >
-            Assign active project
-          </button>
-          {projects.length > 0 ? (
-            <label className="flex items-center gap-1 text-[11px] text-zinc-400">
-              Assign to
-              <select
-                id="gallery-assign-project"
-                defaultValue=""
-                className="rounded border border-zinc-700 bg-zinc-950 px-1 py-0.5 text-zinc-200"
-              >
-                <option value="" disabled>
-                  Project…
-                </option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={selectedIds.length === 0}
-                onClick={() => {
-                  const select = document.getElementById(
-                    "gallery-assign-project",
-                  ) as HTMLSelectElement | null;
-                  const projectId = select?.value;
-                  if (!projectId) {
-                    setRequeueStatus("Choose a project to assign.");
-                    return;
-                  }
-                  setProjectIds(selectedIds, projectId);
-                  setRequeueStatus(`Assigned ${selectedIds.length} entries.`);
-                }}
-                className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-              >
-                Apply
-              </button>
-            </label>
-          ) : null}
-          <button
-            type="button"
-            disabled={selectedIds.length === 0}
-            onClick={() => setFavorites(selectedIds, true)}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Favorite
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length === 0}
-            onClick={() => setFavorites(selectedIds, false)}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Unfavorite
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length === 0}
-            onClick={() => {
-              if (!window.confirm(`Delete ${selectedIds.length} selected entries?`)) {
-                return;
-              }
-              removeEntries(selectedIds);
-              setSelectedIds([]);
-            }}
-            className="rounded-lg border border-rose-800/60 px-2 py-1 text-rose-200 hover:border-rose-500 disabled:opacity-40"
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length === 0}
-            onClick={() => {
-              downloadGallerySidecarBundle(selectedEntries);
-              setRequeueStatus(`Exported ${selectedEntries.length} sidecar(s).`);
-            }}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Export sidecars
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length === 0}
-            onClick={() => {
-              setRequeueStatus("Downloading selected images…");
-              void downloadGalleryImagesSequential(selectedEntries).then((count) => {
-                setRequeueStatus(`Downloaded ${count} image(s).`);
-              });
-            }}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Download images
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length === 0}
-            onClick={() => {
-              setRequeueStatus("Building ZIP export…");
-              void downloadGalleryZipBundle(selectedEntries).then((count) => {
-                setRequeueStatus(`ZIP export prepared for ${count} entries.`);
-              });
-            }}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Export ZIP
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length < 2 || selectedIds.length > 4}
-            onClick={() => setCompareOpen(true)}
-            className="rounded-lg border border-violet-700/60 px-2 py-1 text-violet-200 hover:border-violet-500 disabled:opacity-40"
-          >
-            Compare (2–4)
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length < 2 || selectedIds.length > 4}
-            onClick={() =>
-              downloadCompareExport(selectedEntries.slice(0, 4), "json")
-            }
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Export compare JSON
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length < 2 || selectedIds.length > 4}
-            onClick={() =>
-              downloadCompareExport(selectedEntries.slice(0, 4), "html")
-            }
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Export compare HTML
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length !== 1}
-            onClick={() => {
-              const entry = selectedEntries[0];
-              if (!entry) return;
-              setFilter((previous) => ({
-                ...previous,
-                similarToEntryId: entry.id,
-                query: undefined,
-              }));
-              setRequeueStatus(`Finding outputs similar to ${entry.model ?? "selection"}…`);
-            }}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Find similar
-          </button>
-          <button
-            type="button"
-            disabled={!filter.similarToEntryId}
-            onClick={() =>
-              setFilter((previous) => ({ ...previous, similarToEntryId: undefined }))
-            }
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Clear similar
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length !== 1}
-            onClick={() => {
-              const entry = selectedEntries[0];
-              if (!entry) return;
-              setRequeueStatus("Queueing seed experiment…");
-              void queueSeedExperiment({
-                prompt: entry.prompt,
-                model: entry.model ?? "qwen-image-2512",
-                negativePrompt: entry.negativePrompt,
-                hints: entry.prompt.slice(0, 200),
-                count: 4,
-              }).then(({ queued, seeds }) =>
-                setRequeueStatus(`Seed experiment queued ${queued} jobs · seeds ${seeds.join(", ")}`),
-              );
-            }}
-            className="rounded-lg border border-violet-700/60 px-2 py-1 text-violet-200 hover:border-violet-500 disabled:opacity-40"
-          >
-            Seed experiment
-          </button>
-          <label className="flex items-center gap-1 text-[11px] text-zinc-400">
-            Param axis
-            <select
-              value={paramAxis}
-              onChange={(event) =>
-                setParamAxis(event.target.value as ParamExperimentAxis)
-              }
-              className="rounded border border-zinc-700 bg-zinc-950 px-1 py-0.5 text-zinc-200"
-            >
-              <option value="cfg">CFG</option>
-              <option value="steps">Steps</option>
-              <option value="width">Width</option>
-              <option value="seed">Seed</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            disabled={selectedIds.length !== 1}
-            onClick={() => {
-              const entry = selectedEntries[0];
-              if (!entry) return;
-              setRequeueStatus(`Queueing ${paramAxis} experiment…`);
-              void queueParamExperiment({
-                prompt: entry.prompt,
-                model: entry.model ?? "qwen-image-2512",
-                negativePrompt: entry.negativePrompt,
-                hints: entry.prompt.slice(0, 200),
-                axis: paramAxis,
-                baseParams: entry.queueParams,
-                count: 4,
-              }).then(({ queued, labels }) =>
-                setRequeueStatus(
-                  `Param experiment queued ${queued} jobs · ${labels.join(", ")}`,
-                ),
-              );
-            }}
-            className="rounded-lg border border-violet-700/60 px-2 py-1 text-violet-200 hover:border-violet-500 disabled:opacity-40"
-          >
-            Param experiment
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length !== 1}
-            onClick={() => {
-              const entry = selectedEntries[0];
-              if (!entry) return;
-              setRequeueStatus("Queueing CFG × steps grid…");
-              void queueParamExperimentGrid({
-                prompt: entry.prompt,
-                model: entry.model ?? "qwen-image-2512",
-                negativePrompt: entry.negativePrompt,
-                hints: entry.prompt.slice(0, 200),
-                baseParams: entry.queueParams,
-              }).then(({ queued, cells }) =>
-                setRequeueStatus(
-                  `Param grid queued ${queued} jobs · ${cells.slice(0, 4).join("; ")}${cells.length > 4 ? "…" : ""}`,
-                ),
-              );
-            }}
-            className="rounded-lg border border-violet-700/60 px-2 py-1 text-violet-200 hover:border-violet-500 disabled:opacity-40"
-          >
-            Param grid (CFG×steps)
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length !== 1}
-            onClick={() => {
-              const entry = selectedEntries[0];
-              if (!entry) return;
-              setRequeueStatus("Mutating winner…");
-              void queueMutatedGalleryJobs({
-                entry,
-                kinds: ["variation", "location", "wardrobe"],
-                count: 3,
-              }).then((queued) => setRequeueStatus(`Queued ${queued} mutations.`));
-            }}
-            className="rounded-lg border border-emerald-800/60 px-2 py-1 text-emerald-200 hover:border-emerald-500 disabled:opacity-40"
-          >
-            Mutate winner
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length !== 1}
-            onClick={() => {
-              const entry = selectedEntries[0];
-              if (!entry) return;
-              saveGalleryVariationsHandoff(buildGalleryVariationsHandoff(entry));
-              router.push(galleryVariationsPath());
-            }}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            → Variations
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length !== 1}
-            onClick={() => {
-              const entry = selectedEntries[0];
-              if (!entry) return;
-              saveGalleryTopicsHandoff(entry);
-              router.push(galleryTopicsPath());
-            }}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            → Topics
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length !== 1}
-            onClick={() => {
-              const entry = selectedEntries[0];
-              if (!entry) return;
-              void queueNegativeAbTest({
-                prompt: entry.prompt,
-                model: entry.model ?? "qwen-image-2512",
-                negativeA: entry.negativePrompt,
-                hints: entry.prompt.slice(0, 200),
-              }).then(({ queued, seed }) =>
-                setRequeueStatus(`Negative A/B queued ${queued} jobs · seed ${seed}`),
-              );
-            }}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Negative A/B
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length === 0}
-            onClick={() => {
-              downloadTextFile(
-                exportGalleryCsv(selectedEntries),
-                "gallery-export.csv",
-                "text/csv;charset=utf-8",
-              );
-            }}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Export CSV
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length === 0}
-            onClick={() => {
-              downloadTextFile(
-                exportGalleryJsonl(selectedEntries),
-                "gallery-export.jsonl",
-                "application/jsonl;charset=utf-8",
-              );
-            }}
-            className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-300 hover:border-zinc-500 disabled:opacity-40"
-          >
-            Export JSONL
-          </button>
-          <button
-            type="button"
-            disabled={selectedIds.length === 0}
-            onClick={() => {
-              setRequeueStatus("Bulk re-queue started…");
-              void requeueComfyJobs(
-                selectedEntries.map((entry) => ({
-                  prompt: entry.prompt,
-                  negativePrompt: entry.negativePrompt,
-                  tool: entry.tool,
-                  model: entry.model,
-                  newSeed: true,
-                })),
-                setRequeueStatus,
-              ).then(() => setSelectedIds([]));
-            }}
-            className="rounded-lg border border-violet-700/60 px-2 py-1 text-violet-200 hover:border-violet-500 disabled:opacity-40"
-          >
-            Re-queue (new seeds)
+            Select visible ({visibleEntries.length})
           </button>
         </div>
-      )}
+      ) : null}
+
+      {bulkEnabled ? (
+        <GallerySelectionBar
+          selectedCount={selectedIds.length}
+          selectedEntries={selectedEntries}
+          projects={projects}
+          paramAxis={paramAxis}
+          setParamAxis={setParamAxis}
+          similarSearchActive={similarSearchActive}
+          onClearSelection={() => setSelectedIds([])}
+          onCompare={() => setCompareOpen(true)}
+          onAssignActiveProject={() => {
+            const projectId = loadActiveProjectId();
+            if (!projectId) {
+              setRequeueStatus("Set an active project in Studio first.");
+              return;
+            }
+            setProjectIds(selectedIds, projectId);
+            setRequeueStatus(`Assigned ${selectedIds.length} entries to active project.`);
+          }}
+          onAssignProject={(projectId) => {
+            setProjectIds(selectedIds, projectId);
+            setRequeueStatus(`Assigned ${selectedIds.length} entries.`);
+          }}
+          onFavorite={(favorite) => setFavorites(selectedIds, favorite)}
+          onDelete={() => {
+            if (!window.confirm(`Delete ${selectedIds.length} selected entries?`)) {
+              return;
+            }
+            removeEntries(selectedIds);
+            setSelectedIds([]);
+          }}
+          onExportSidecars={() => {
+            downloadGallerySidecarBundle(selectedEntries);
+            setRequeueStatus(`Exported ${selectedEntries.length} sidecar(s).`);
+          }}
+          onDownloadImages={() => {
+            setRequeueStatus("Downloading selected images…");
+            void downloadGalleryImagesSequential(selectedEntries).then((count) => {
+              setRequeueStatus(`Downloaded ${count} image(s).`);
+            });
+          }}
+          onExportZip={() => {
+            setRequeueStatus("Building ZIP export…");
+            void downloadGalleryZipBundle(selectedEntries).then((count) => {
+              setRequeueStatus(`ZIP export prepared for ${count} entries.`);
+            });
+          }}
+          onExportCompareJson={() =>
+            downloadCompareExport(selectedEntries.slice(0, 4), "json")
+          }
+          onExportCompareHtml={() =>
+            downloadCompareExport(selectedEntries.slice(0, 4), "html")
+          }
+          onFindSimilar={() => {
+            const entry = selectedEntries[0];
+            if (!entry) return;
+            setFilter((previous) => ({
+              ...previous,
+              similarToEntryId: entry.id,
+              query: undefined,
+            }));
+            setRequeueStatus(`Finding outputs similar to ${entry.model ?? "selection"}…`);
+          }}
+          onClearSimilar={() =>
+            setFilter((previous) => ({ ...previous, similarToEntryId: undefined }))
+          }
+          canClearSimilar={Boolean(filter.similarToEntryId)}
+          onSeedExperiment={() => {
+            const entry = selectedEntries[0];
+            if (!entry) return;
+            setRequeueStatus("Queueing seed experiment…");
+            void queueSeedExperiment({
+              prompt: entry.prompt,
+              model: entry.model ?? "qwen-image-2512",
+              negativePrompt: entry.negativePrompt,
+              hints: entry.prompt.slice(0, 200),
+              count: 4,
+            }).then(({ queued, seeds }) =>
+              setRequeueStatus(
+                `Seed experiment queued ${queued} jobs · seeds ${seeds.join(", ")}`,
+              ),
+            );
+          }}
+          onParamExperiment={() => {
+            const entry = selectedEntries[0];
+            if (!entry) return;
+            setRequeueStatus(`Queueing ${paramAxis} experiment…`);
+            void queueParamExperiment({
+              prompt: entry.prompt,
+              model: entry.model ?? "qwen-image-2512",
+              negativePrompt: entry.negativePrompt,
+              hints: entry.prompt.slice(0, 200),
+              axis: paramAxis,
+              baseParams: entry.queueParams,
+              count: 4,
+            }).then(({ queued, labels }) =>
+              setRequeueStatus(
+                `Param experiment queued ${queued} jobs · ${labels.join(", ")}`,
+              ),
+            );
+          }}
+          onParamGrid={() => {
+            const entry = selectedEntries[0];
+            if (!entry) return;
+            setRequeueStatus("Queueing CFG × steps grid…");
+            void queueParamExperimentGrid({
+              prompt: entry.prompt,
+              model: entry.model ?? "qwen-image-2512",
+              negativePrompt: entry.negativePrompt,
+              hints: entry.prompt.slice(0, 200),
+              baseParams: entry.queueParams,
+            }).then(({ queued, cells }) =>
+              setRequeueStatus(
+                `Param grid queued ${queued} jobs · ${cells.slice(0, 4).join("; ")}${cells.length > 4 ? "…" : ""}`,
+              ),
+            );
+          }}
+          onMutateWinner={() => {
+            const entry = selectedEntries[0];
+            if (!entry) return;
+            setRequeueStatus("Mutating winner…");
+            void queueMutatedGalleryJobs({
+              entry,
+              kinds: ["variation", "location", "wardrobe"],
+              count: 3,
+            }).then((queued) => setRequeueStatus(`Queued ${queued} mutations.`));
+          }}
+          onVariations={() => {
+            const entry = selectedEntries[0];
+            if (!entry) return;
+            saveGalleryVariationsHandoff(buildGalleryVariationsHandoff(entry));
+            router.push(galleryVariationsPath());
+          }}
+          onTopics={() => {
+            const entry = selectedEntries[0];
+            if (!entry) return;
+            saveGalleryTopicsHandoff(entry);
+            router.push(galleryTopicsPath());
+          }}
+          onNegativeAb={() => {
+            const entry = selectedEntries[0];
+            if (!entry) return;
+            void queueNegativeAbTest({
+              prompt: entry.prompt,
+              model: entry.model ?? "qwen-image-2512",
+              negativeA: entry.negativePrompt,
+              hints: entry.prompt.slice(0, 200),
+            }).then(({ queued, seed }) =>
+              setRequeueStatus(`Negative A/B queued ${queued} jobs · seed ${seed}`),
+            );
+          }}
+          onExportCsv={() => {
+            downloadTextFile(
+              exportGalleryCsv(selectedEntries),
+              "gallery-export.csv",
+              "text/csv;charset=utf-8",
+            );
+          }}
+          onExportJsonl={() => {
+            downloadTextFile(
+              exportGalleryJsonl(selectedEntries),
+              "gallery-export.jsonl",
+              "application/jsonl;charset=utf-8",
+            );
+          }}
+          onBulkRequeue={() => {
+            setRequeueStatus("Bulk re-queue started…");
+            void requeueComfyJobs(
+              selectedEntries.map((entry) => ({
+                prompt: entry.prompt,
+                negativePrompt: entry.negativePrompt,
+                tool: entry.tool,
+                model: entry.model,
+                newSeed: true,
+              })),
+              setRequeueStatus,
+            ).then(() => setSelectedIds([]));
+          }}
+        />
+      ) : null}
 
       {downloadError && (
         <p className="text-xs text-rose-300">{downloadError}</p>
@@ -1096,8 +729,8 @@ export default function ComfyUiGalleryPanel({
         <div
           className={
             compact
-              ? "grid grid-cols-2 gap-4 sm:grid-cols-3"
-              : "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              ? "grid grid-cols-2 gap-4 overflow-visible sm:grid-cols-3"
+              : "grid grid-cols-1 gap-6 overflow-visible sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
           }
         >
           {visibleEntries.map((entry) => (
@@ -1230,311 +863,3 @@ function GalleryPaginator({
   );
 }
 
-function GalleryCard({
-  entry,
-  compact,
-  selectable,
-  selected,
-  onToggleSelected,
-  previewUrl,
-  imageUrls,
-  onRemove,
-  onToggleFavorite,
-  onDownloadError,
-  onRequeue,
-  onOpenImage,
-  reviewMode,
-  onReviewRating,
-}: {
-  entry: ComfyGalleryEntry;
-  compact: boolean;
-  selectable?: boolean;
-  selected?: boolean;
-  onToggleSelected?: () => void;
-  previewUrl: string | null;
-  imageUrls: string[];
-  onRemove: () => void;
-  onToggleFavorite: () => void;
-  onDownloadError: (message: string | null) => void;
-  onRequeue: (newSeed: boolean) => void;
-  onOpenImage: (index: number) => void;
-  reviewMode?: boolean;
-  onReviewRating?: (rating: ComfyGalleryEntry["reviewRating"]) => void;
-}) {
-  const router = useRouter();
-  const [promptExpanded, setPromptExpanded] = useState(false);
-  const [promptCopied, setPromptCopied] = useState(false);
-  const statusColor =
-    entry.status === "completed"
-      ? "text-emerald-400"
-      : entry.status === "error"
-        ? "text-rose-400"
-        : "text-amber-300";
-
-  const copyPrompt = async () => {
-    try {
-      await navigator.clipboard.writeText(entry.prompt);
-      setPromptCopied(true);
-      window.setTimeout(() => setPromptCopied(false), 2000);
-    } catch {
-      onDownloadError("Could not copy prompt.");
-    }
-  };
-
-  return (
-    <article
-      className={`overflow-hidden rounded-xl border bg-zinc-950/60 ${
-        selected ? "border-violet-600/70 ring-1 ring-violet-500/30" : "border-zinc-800"
-      }`}
-    >
-      <div className="relative aspect-square bg-zinc-900/80">
-        {previewUrl ? (
-          <button
-            type="button"
-            onClick={() => onOpenImage(0)}
-            className="block h-full w-full cursor-zoom-in"
-            aria-label="Open image preview"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewUrl}
-              alt={entry.prompt.slice(0, 80)}
-              className="h-full w-full object-cover"
-            />
-          </button>
-        ) : entry.status === "pending" || entry.status === "running" ? (
-          <ComfyUiGalleryJobPlaceholder entry={entry} />
-        ) : (
-          <div className="flex h-full items-center justify-center px-4 text-center text-xs text-zinc-500">
-            {entry.status === "error"
-              ? entry.statusMessage ?? "Generation failed"
-              : "No image output"}
-          </div>
-        )}
-        {selectable && (
-          <label className="absolute left-2 top-2 rounded-full border border-zinc-700/80 bg-zinc-950/80 px-2 py-1 backdrop-blur">
-            <input
-              type="checkbox"
-              checked={selected ?? false}
-              onChange={onToggleSelected}
-              className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-            />
-          </label>
-        )}
-        <button
-          type="button"
-          onClick={onToggleFavorite}
-          title={entry.favorite ? "Remove favorite" : "Add favorite"}
-          className={`absolute right-2 top-2 rounded-full border px-2 py-1 text-xs backdrop-blur ${
-            entry.favorite
-              ? "border-amber-500/60 bg-amber-500/20 text-amber-200"
-              : "border-zinc-700/80 bg-zinc-950/70 text-zinc-400 hover:text-amber-200"
-          }`}
-        >
-          {entry.favorite ? "★" : "☆"}
-        </button>
-      </div>
-
-      <div className="space-y-2 p-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className={`text-xs font-medium uppercase tracking-wide ${statusColor}`}>
-              {entry.status}
-            </p>
-            {(entry.status === "pending" || entry.status === "running") &&
-            entry.queuePosition != null &&
-            entry.queuePosition > 0 ? (
-              <p className="mt-0.5 text-[11px] text-zinc-500">
-                Queue position {entry.queuePosition}
-              </p>
-            ) : null}
-            {promptExpanded ? (
-              <div className="mt-2 space-y-3">
-                <div>
-                  <p className="type-overline mb-1 text-zinc-500">Positive prompt</p>
-                  <pre className="type-code max-h-56 overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-900/80 p-3 !text-zinc-300">
-                    {entry.prompt}
-                  </pre>
-                </div>
-                {entry.negativePrompt?.trim() ? (
-                  <div>
-                    <p className="type-overline mb-1 text-zinc-500">Negative prompt</p>
-                    <pre className="type-code max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-900/80 p-3 !text-zinc-400">
-                      {entry.negativePrompt}
-                    </pre>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{entry.prompt}</p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onRemove}
-            className="shrink-0 text-xs text-zinc-600 hover:text-rose-300"
-          >
-            Remove
-          </button>
-        </div>
-
-        <p className="text-[11px] text-zinc-600">
-          {[entry.tool, entry.model, new Date(entry.queuedAt).toLocaleString()]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-
-        {!compact && imageUrls.length > 1 && (
-          <div className="flex flex-wrap gap-1">
-            {imageUrls.slice(1, 5).map((url, thumbIndex) => (
-              <button
-                key={url}
-                type="button"
-                onClick={() => onOpenImage(thumbIndex + 1)}
-                className="cursor-zoom-in overflow-hidden rounded border border-zinc-800"
-                aria-label={`Open image ${thumbIndex + 2} preview`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={url}
-                  alt=""
-                  className="h-10 w-10 object-cover"
-                />
-              </button>
-            ))}
-          </div>
-        )}
-
-        {entry.queueParams?.seed ? (
-          <p className="text-[11px] text-zinc-500">Recovered seed: {entry.queueParams.seed}</p>
-        ) : null}
-        {entry.reviewRating ? (
-          <p className="text-[11px] text-violet-300/80">Review rating: {entry.reviewRating}/5</p>
-        ) : null}
-
-        {reviewMode && entry.status === "completed" && onReviewRating ? (
-          <div className="flex flex-wrap gap-1">
-            {[1, 2, 3, 4, 5].map((rating) => (
-              <button
-                key={rating}
-                type="button"
-                onClick={() => onReviewRating(rating as ComfyGalleryEntry["reviewRating"])}
-                className={`rounded border px-2 py-1 text-[11px] ${
-                  entry.reviewRating === rating
-                    ? "border-violet-500 text-violet-200"
-                    : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                }`}
-              >
-                {rating}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => setPromptExpanded((previous) => !previous)}
-            className="text-violet-300 hover:text-violet-200"
-          >
-            {promptExpanded ? "Show less" : "View full prompt"}
-          </button>
-          {promptExpanded && (
-            <button
-              type="button"
-              onClick={() => void copyPrompt()}
-              className="text-zinc-400 hover:text-zinc-200"
-            >
-              {promptCopied ? "Copied!" : "Copy prompt"}
-            </button>
-          )}
-          {previewUrl && (
-            <button
-              type="button"
-              onClick={() => onOpenImage(0)}
-              className="text-violet-300 hover:text-violet-200"
-            >
-              View image
-            </button>
-          )}
-          {entry.status === "completed" && previewUrl && (
-            <button
-              type="button"
-              onClick={() => {
-                onDownloadError(null);
-                void downloadGalleryImage(entry).catch((error) => {
-                  onDownloadError(
-                    error instanceof Error ? error.message : "Download failed.",
-                  );
-                });
-              }}
-              className="text-zinc-400 hover:text-zinc-200"
-            >
-              Download image
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => downloadGallerySidecar(entry)}
-            className="text-zinc-400 hover:text-zinc-200"
-          >
-            Sidecar JSON
-          </button>
-          {entry.historyId ? (
-            <Link
-              href={studioHistoryUrl(entry.historyId)}
-              className="text-sky-300 hover:text-sky-200"
-            >
-              Studio history
-            </Link>
-          ) : null}
-          {entry.status === "completed" && previewUrl ? (
-            <>
-              <button
-                type="button"
-                onClick={() => startImproveFromGalleryEntry(entry)}
-                className="text-emerald-300 hover:text-emerald-200"
-              >
-                Improve
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  saveGalleryHandoff(buildGalleryHandoff(entry, "refine"));
-                  router.push(galleryHandoffPath("refine"));
-                }}
-                className="text-fuchsia-300 hover:text-fuchsia-200"
-              >
-                Refine
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  saveGalleryHandoff(buildGalleryHandoff(entry, "imagePrompt"));
-                  router.push(galleryHandoffPath("imagePrompt"));
-                }}
-                className="text-fuchsia-300/90 hover:text-fuchsia-200"
-              >
-                Image → Prompt
-              </button>
-            </>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => onRequeue(false)}
-            className="text-violet-300 hover:text-violet-200"
-          >
-            Re-queue
-          </button>
-          <button
-            type="button"
-            onClick={() => onRequeue(true)}
-            className="text-violet-300/80 hover:text-violet-200"
-          >
-            Re-queue (new seed)
-          </button>
-        </div>
-      </div>
-    </article>
-  );
-}

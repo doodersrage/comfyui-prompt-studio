@@ -4,6 +4,7 @@ import AppNav from "@/components/AppNav";
 import ComfyGalleryBackgroundPoller from "@/components/ComfyGalleryBackgroundPoller";
 import ScheduledBatchRunner from "@/components/ScheduledBatchRunner";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
+import ServiceWorkerCleanup from "@/components/ServiceWorkerCleanup";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
   title: "ComfyUI Image Prompt Tools",
   description:
     "Generate and format prompts for SD, SDXL, SD3, Flux, Qwen Image, Hunyuan, and other ComfyUI image models.",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -38,6 +40,7 @@ export default function RootLayout({
           <ComfyGalleryBackgroundPoller />
           <ScheduledBatchRunner />
           <KeyboardShortcuts />
+          <ServiceWorkerCleanup />
           {children}
         </div>
       </body>

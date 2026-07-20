@@ -460,6 +460,30 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.generic_nlp,
   },
+  {
+    id: "wan-video",
+    label: "WAN Video",
+    category: "video",
+    comfyNode: "WanVideoTextEncode",
+    comfyClass: "WanVideo",
+    description:
+      "WAN video generation — describe subject motion, camera movement, and temporal continuity.",
+    profile: "video_motion",
+    referenceTokenLimit: 512,
+    limitsByDetail: PROFILE_LIMITS.video_motion,
+  },
+  {
+    id: "hunyuan-video",
+    label: "Hunyuan Video",
+    category: "video",
+    comfyNode: "HunyuanVideoTextEncode",
+    comfyClass: "HunyuanVideo",
+    description:
+      "Hunyuan video — motion-focused prompts with stable framing and scene continuity.",
+    profile: "video_motion",
+    referenceTokenLimit: 512,
+    limitsByDetail: PROFILE_LIMITS.video_motion,
+  },
 ];
 
 export const COMFY_MODEL_IDS = new Set(
@@ -480,4 +504,5 @@ export const COMFY_MODEL_CATEGORIES: {
   { id: "hunyuan", label: "Hunyuan / HiDream" },
   { id: "other-dit", label: "PixArt / Lumina / Other" },
   { id: "instruct-edit", label: "Instruct / Edit" },
+  { id: "video", label: "Video" },
 ];

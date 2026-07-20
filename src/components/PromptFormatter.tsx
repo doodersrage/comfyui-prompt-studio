@@ -378,6 +378,7 @@ export default function PromptFormatter() {
             actions.saveHistory({ prompt: output, hints: input })
           }
           onSendComfyUi={() => void actions.sendComfyUi(output)}
+          onOutputChange={setOutput}
           {...promptResultPreviewProps(actions, output)}
           onFixPrompt={() => void actions.fixPrompt(output, setOutput, input)}
           onCopyPair={() => void actions.copyPromptPair(output)}

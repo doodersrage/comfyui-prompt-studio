@@ -16,6 +16,7 @@ const CATEGORY_KEYWORDS: Record<ComfyModelCategory, string[]> = {
   hunyuan: ["hunyuan", "hidream"],
   "other-dit": ["pixart", "lumina", "z-image", "omnigen", "kandinsky", "cascade"],
   "instruct-edit": ["instruct", "ip2p", "lotus", "edit"],
+  video: ["video", "wan", "hunyuan-video", "motion"],
 };
 
 function scoreWorkflowForCategory(

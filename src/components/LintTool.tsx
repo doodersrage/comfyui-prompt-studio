@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/ToolPageShell";
 import { FieldLabel, TextArea } from "@/components/ui/Field";
 import { PrimaryButton } from "@/components/ui/Button";
+import PromptWeightInspector from "@/components/PromptWeightInspector";
 
 const ACCENT = "amber" as const;
 
@@ -136,6 +137,14 @@ export default function LintTool() {
           />
         </div>
         {importStatus && <p className="text-xs text-zinc-500">{importStatus}</p>}
+
+        {prompt.trim() ? (
+          <PromptWeightInspector
+            prompt={prompt}
+            model={shared.model}
+            onChange={setPrompt}
+          />
+        ) : null}
       </ToolSection>
 
       <PromptDiagnosticsPanel diagnostics={actions.diagnostics} />

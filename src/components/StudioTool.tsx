@@ -111,6 +111,19 @@ import {
   listIterationEntries,
 } from "@/lib/iteration-branch-diff";
 import { runPromptCampaign, type CampaignStepResult } from "@/lib/campaign-runner";
+import {
+  deleteCampaignTemplate,
+  loadCampaignTemplates,
+  upsertCampaignTemplate,
+  type CampaignTemplate,
+} from "@/lib/campaign-templates";
+import { downloadPortfolioDiffReport } from "@/lib/portfolio-diff-report";
+import {
+  buildProjectBundle,
+  exportProjectBundleJson,
+  parseProjectBundle,
+} from "@/lib/project-bundle";
+import { importProjectBundle } from "@/lib/project-bundle-import";
 import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
 import {
   ToolBadge,
@@ -241,6 +254,8 @@ export default function StudioTool() {
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [campaignStatus, setCampaignStatus] = useState<string | null>(null);
   const [campaignResults, setCampaignResults] = useState<CampaignStepResult[]>([]);
+  const [campaignTemplates, setCampaignTemplates] = useState<CampaignTemplate[]>([]);
+  const [campaignTemplateName, setCampaignTemplateName] = useState("");
   const [iterationDiffLeftId, setIterationDiffLeftId] = useState("");
   const [iterationDiffRightId, setIterationDiffRightId] = useState("");
 
@@ -249,6 +264,10 @@ export default function StudioTool() {
     model: shared.model,
     detail: shared.detail,
   });
+
+  useEffect(() => {
+    setCampaignTemplates(loadCampaignTemplates());
+  }, []);
 
   useEffect(() => {
     const query = historyFilter.query?.trim();
@@ -372,6 +391,23 @@ export default function StudioTool() {
       return;
     }
     const historyId = new URLSearchParams(window.location.search).get("history");
+    const tabParam = new URLSearchParams(window.location.search).get("tab");
+    if (
+      tabParam === "experiments" ||
+      tabParam === "analytics" ||
+      tabParam === "diff" ||
+      tabParam === "history" ||
+      tabParam === "compare" ||
+      tabParam === "catalog" ||
+      tabParam === "templates" ||
+      tabParam === "presets" ||
+      tabParam === "iteration" ||
+      tabParam === "projects" ||
+      tabParam === "portfolio" ||
+      tabParam === "campaign"
+    ) {
+      setTab(tabParam);
+    }
     if (historyId) {
       setTab("history");
       setHighlightHistoryId(historyId);
@@ -1222,6 +1258,89 @@ export default function StudioTool() {
               ))}
             </ToolBlockGroup>
           ) : null}
+
+          <div className="mt-6 space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/30 p-4">
+            <p className="text-sm font-medium text-zinc-200">Campaign templates</p>
+            <p className="text-xs text-zinc-500">
+              Save the current campaign settings as a reusable recipe.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <input
+                value={campaignTemplateName}
+                onChange={(event) => setCampaignTemplateName(event.target.value)}
+                placeholder="Template name"
+                className="ui-input min-w-[180px] flex-1 px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+              />
+              <Button
+                variant="secondary"
+                disabled={!campaignTemplateName.trim()}
+                onClick={() => {
+                  upsertCampaignTemplate({
+                    name: campaignTemplateName.trim(),
+                    target: campaignTarget,
+                    count: campaignCount,
+                    genre: campaignGenre.trim() || undefined,
+                    topics: campaignTopics
+                      .split("\n")
+                      .map((line) => line.trim())
+                      .filter(Boolean),
+                    queueToComfyUi: campaignQueue,
+                  });
+                  setCampaignTemplates(loadCampaignTemplates());
+                  setCampaignTemplateName("");
+                  setBackupStatus("Saved campaign template.");
+                }}
+              >
+                Save template
+              </Button>
+            </div>
+            {campaignTemplates.length > 0 ? (
+              <ul className="space-y-2">
+                {campaignTemplates.map((template) => (
+                  <li
+                    key={template.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"
+                  >
+                    <div>
+                      <p className="text-zinc-200">{template.name}</p>
+                      <p className="text-xs text-zinc-500">
+                        {template.target} · {template.count} prompts
+                        {template.queueToComfyUi ? " · auto-queue" : ""}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        className="!min-h-8 px-3 type-caption"
+                        onClick={() => {
+                          setCampaignTarget(template.target);
+                          setCampaignCount(template.count);
+                          setCampaignGenre(template.genre ?? "");
+                          setCampaignTopics((template.topics ?? []).join("\n"));
+                          setCampaignQueue(template.queueToComfyUi);
+                          setBackupStatus(`Loaded template “${template.name}”.`);
+                        }}
+                      >
+                        Load
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="!min-h-8 px-3 type-caption"
+                        onClick={() => {
+                          deleteCampaignTemplate(template.id);
+                          setCampaignTemplates(loadCampaignTemplates());
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-zinc-500">No saved templates yet.</p>
+            )}
+          </div>
         </ToolSection>
       )}
 
@@ -1358,11 +1477,63 @@ export default function StudioTool() {
                     >
                       Delete
                     </Button>
+                    <Button
+                      variant="ghost"
+                      className="!min-h-8 px-3 type-caption"
+                      onClick={() => {
+                        const bundle = buildProjectBundle({
+                          project,
+                          history: entries,
+                          gallery: loadComfyGallery(),
+                          scenePresets: loadScenePresets(),
+                        });
+                        downloadTextFile(
+                          exportProjectBundleJson(bundle),
+                          `${project.name.replace(/\s+/g, "-").toLowerCase()}-bundle.json`,
+                          "application/json",
+                        );
+                        setBackupStatus(`Exported bundle for “${project.name}”.`);
+                      }}
+                    >
+                      Export bundle
+                    </Button>
                   </div>
                 </div>
               </ToolContentPanel>
             ))}
           </ToolBlockGroup>
+          <div className="mt-4">
+            <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">
+              Import project bundle
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  void file.text().then((raw) => {
+                    try {
+                      const bundle = parseProjectBundle(raw);
+                      const result = importProjectBundle(bundle);
+                      setProjects(loadPromptProjects());
+                      setActiveProjectIdState(bundle.project.id);
+                      setActiveProjectId(bundle.project.id);
+                      setGalleryRevision((previous) => previous + 1);
+                      setBackupStatus(
+                        `Imported “${bundle.project.name}” · +${result.historyAdded} history · +${result.galleryAdded} gallery`,
+                      );
+                    } catch (err) {
+                      setBackupStatus(
+                        err instanceof Error ? err.message : "Import failed.",
+                      );
+                    }
+                    event.target.value = "";
+                  });
+                }}
+              />
+            </label>
+          </div>
         </ToolSection>
       )}
 
@@ -1550,6 +1721,26 @@ export default function StudioTool() {
               }}
             >
               Queue all to ComfyUI
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={portfolioItems.length === 0}
+              onClick={() => {
+                downloadPortfolioDiffReport(portfolioItems, portfolioDraft, "markdown");
+                setPortfolioStatus("Downloaded portfolio diff (Markdown).");
+              }}
+            >
+              Export diff (MD)
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={portfolioItems.length === 0}
+              onClick={() => {
+                downloadPortfolioDiffReport(portfolioItems, portfolioDraft, "html");
+                setPortfolioStatus("Downloaded portfolio diff (HTML).");
+              }}
+            >
+              Export diff (HTML)
             </Button>
           </div>
           {portfolioStatus ? (

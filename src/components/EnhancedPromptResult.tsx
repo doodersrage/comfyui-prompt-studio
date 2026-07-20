@@ -27,8 +27,14 @@ import {
 import type { GenerationDiagnostics } from "@/lib/generation-diagnostics";
 import { PINNED_VARIATION_SEED_LABEL } from "@/lib/tool-ui-labels";
 import ReadinessBadge from "@/components/ReadinessBadge";
+import PromptWeightInspector from "@/components/PromptWeightInspector";
 import type { ComfyImageModel } from "@/lib/comfy-models";
 import type { DetailLevel } from "@/lib/detail-level";
+import {
+  DEFAULT_READINESS_MIN_SCORE,
+  isReadinessQueueAllowed,
+} from "@/lib/readiness-gate";
+import type { PromptReadinessResult } from "@/lib/prompt-readiness";
 
 export type BatchPromptItem = {
   prompt: string;
@@ -116,6 +122,10 @@ type EnhancedPromptResultProps = {
   readinessDetail?: DetailLevel | string;
   readinessHints?: string;
   negativePrompt?: string;
+  readinessMinScore?: number;
+  readinessGateEnabled?: boolean;
+  showWeightInspector?: boolean;
+  onOutputChange?: (value: string) => void;
 };
 
 export default function EnhancedPromptResult({
@@ -157,10 +167,15 @@ export default function EnhancedPromptResult({
   readinessDetail,
   readinessHints,
   negativePrompt,
+  readinessMinScore = DEFAULT_READINESS_MIN_SCORE,
+  readinessGateEnabled = true,
+  showWeightInspector = true,
+  onOutputChange,
   ...panelProps
 }: EnhancedPromptResultProps) {
   const workflowSelection = useComfyWorkflowSelection();
   const showComfyActions = Boolean(onSendComfyUi || onQueueBatchComfyUi || onPreviewWorkflow);
+  const [readinessResult, setReadinessResult] = useState<PromptReadinessResult | null>(null);
   const [copiedBatchIndex, setCopiedBatchIndex] = useState<number | null>(null);
   const [savedBatchIndices, setSavedBatchIndices] = useState<Set<number>>(
     () => new Set(),
@@ -169,6 +184,30 @@ export default function EnhancedPromptResult({
     null,
   );
   const [lightbox, setLightbox] = useState<ImageLightboxState | null>(null);
+
+  const queueReadinessAllowed =
+    !readinessGateEnabled ||
+    !readinessResult ||
+    isReadinessQueueAllowed(readinessResult.score, readinessMinScore);
+
+  const handleSendComfyUi = useCallback(() => {
+    if (!onSendComfyUi) {
+      return;
+    }
+    if (
+      readinessGateEnabled &&
+      readinessResult &&
+      !isReadinessQueueAllowed(readinessResult.score, readinessMinScore)
+    ) {
+      const proceed = window.confirm(
+        `Prompt readiness is ${readinessResult.score}/100 (recommended minimum ${readinessMinScore}). Queue anyway?`,
+      );
+      if (!proceed) {
+        return;
+      }
+    }
+    onSendComfyUi();
+  }, [onSendComfyUi, readinessGateEnabled, readinessMinScore, readinessResult]);
 
   const resolvedBatchItems: BatchPromptItem[] =
     batchItems ??
@@ -335,6 +374,19 @@ export default function EnhancedPromptResult({
           detail={readinessDetail}
           hints={readinessHints}
           negativePrompt={negativePrompt}
+          minScore={readinessMinScore}
+          onResult={setReadinessResult}
+          onCompact={onCompact}
+          onFixRules={onFixPrompt}
+          onReformat={onReformat}
+        />
+      ) : null}
+
+      {showWeightInspector && panelProps.output.trim() && readinessModel ? (
+        <PromptWeightInspector
+          prompt={panelProps.output}
+          model={readinessModel}
+          onChange={onOutputChange}
         />
       ) : null}
 
@@ -411,8 +463,14 @@ export default function EnhancedPromptResult({
             </Button>
           )}
           {onSendComfyUi && (
-            <Button variant="accent-outline" fullWidth onClick={onSendComfyUi} data-action="send-comfyui">
-              Send to ComfyUI
+            <Button
+              variant="accent-outline"
+              fullWidth
+              onClick={handleSendComfyUi}
+              data-action="send-comfyui"
+              className={!queueReadinessAllowed ? "border-amber-500/50" : undefined}
+            >
+              {queueReadinessAllowed ? "Send to ComfyUI" : "Send to ComfyUI (below readiness)"}
             </Button>
           )}
           {onImprove && (
