@@ -262,6 +262,8 @@ export default function RefineTool() {
         output={output}
         provider={output ? "llm" : null}
         comfyNode={selectedModel.comfyNode}
+        readinessModel={shared.model}
+        readinessDetail={shared.detail}
         copied={copied}
         onCopy={() => void copyOutput()}
         diagnostics={actions.diagnostics}

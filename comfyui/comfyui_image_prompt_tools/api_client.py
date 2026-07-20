@@ -72,3 +72,36 @@ def post_json(api_base_url: str, path: str, payload: dict) -> dict:
         raise RuntimeError(str(parsed["error"]))
 
     return parsed
+
+
+def get_json(api_base_url: str, path: str) -> dict:
+    base = resolve_api_base(api_base_url)
+    url = f"{base}{path}"
+    request = urllib.request.Request(
+        url,
+        headers=_auth_headers(),
+        method="GET",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
+            parsed = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        raw = error.read().decode("utf-8", errors="replace")
+        try:
+            message = json.loads(raw).get("error", raw)
+        except json.JSONDecodeError:
+            message = raw or str(error)
+        raise RuntimeError(f"Prompt API error ({error.code}): {message}") from error
+    except urllib.error.URLError as error:
+        raise RuntimeError(
+            f"Could not reach prompt API at {url}: {error.reason}"
+        ) from error
+
+    if not isinstance(parsed, dict):
+        raise RuntimeError("Prompt API returned an unexpected response.")
+
+    if "error" in parsed and "status" not in parsed:
+        raise RuntimeError(str(parsed["error"]))
+
+    return parsed

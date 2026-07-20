@@ -17,6 +17,13 @@ import {
   getSelectedWorkflowFileId,
   setSelectedWorkflowFileId,
 } from "@/lib/comfyui-runtime";
+import {
+  exportWorkflowPresetPack,
+  importWorkflowPresetPack,
+  loadWorkflowPresetPacks,
+  upsertWorkflowPresetPack,
+  type WorkflowPresetPack,
+} from "@/lib/workflow-preset-packs";
 import type { ServerWorkflowOption } from "@/hooks/useComfyWorkflowSelection";
 
 type ComfyWorkflowLibraryPanelProps = {
@@ -36,6 +43,8 @@ export default function ComfyWorkflowLibraryPanel({
   const [editingName, setEditingName] = useState("");
   const [editingJson, setEditingJson] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  const [presetPacks, setPresetPacks] = useState<WorkflowPresetPack[]>([]);
+  const [packName, setPackName] = useState("");
 
   const refresh = useCallback(() => {
     setFiles(loadComfyWorkflowFiles());
@@ -44,6 +53,7 @@ export default function ComfyWorkflowLibraryPanel({
 
   useEffect(() => {
     refresh();
+    setPresetPacks(loadWorkflowPresetPacks());
     void fetch("/api/comfyui/workflows")
       .then((response) => response.json())
       .then((data: { workflows?: ServerWorkflowOption[] }) => {
@@ -417,6 +427,102 @@ export default function ComfyWorkflowLibraryPanel({
         <code className="rounded bg-zinc-800 px-1 text-violet-300">COMFYUI_WORKFLOW_PATHS</code>{" "}
         to expose additional JSON files from disk.
       </p>
+
+      <div className="mt-6 space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/30 p-4">
+        <h3 className="text-sm font-medium text-zinc-200">Workflow preset packs</h3>
+        <p className="text-xs text-zinc-500">
+          Bundle saved workflow presets for import/export between browsers or team members.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <input
+            value={packName}
+            onChange={(event) => setPackName(event.target.value)}
+            placeholder="Pack name"
+            className="ui-input min-w-[180px] flex-1 px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+          />
+          <button
+            type="button"
+            className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500"
+            onClick={() => {
+              const name = packName.trim() || `Pack ${new Date().toLocaleDateString()}`;
+              const pack: WorkflowPresetPack = {
+                id: crypto.randomUUID(),
+                name,
+                tags: ["workflows"],
+                createdAt: Date.now(),
+                presets: [],
+              };
+              upsertWorkflowPresetPack(pack);
+              setPresetPacks(loadWorkflowPresetPacks());
+              setPackName("");
+              onStatus?.(`Created preset pack “${name}”.`);
+            }}
+          >
+            New pack
+          </button>
+          <label className="cursor-pointer rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-500">
+            Import pack
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                void file.text().then((raw) => {
+                  try {
+                    const pack = importWorkflowPresetPack(raw);
+                    upsertWorkflowPresetPack(pack);
+                    setPresetPacks(loadWorkflowPresetPacks());
+                    onStatus?.(`Imported preset pack “${pack.name}”.`);
+                  } catch (error) {
+                    onStatus?.(
+                      error instanceof Error ? error.message : "Invalid preset pack JSON.",
+                    );
+                  }
+                });
+                event.target.value = "";
+              }}
+            />
+          </label>
+        </div>
+        {presetPacks.length === 0 ? (
+          <p className="text-xs text-zinc-600">No preset packs saved yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {presetPacks.map((pack) => (
+              <li
+                key={pack.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-xs text-zinc-400"
+              >
+                <span>
+                  {pack.name} · {pack.presets.length} preset(s)
+                </span>
+                <button
+                  type="button"
+                  className="text-violet-300 hover:text-violet-200"
+                  onClick={() => {
+                    downloadText(`${pack.name.replace(/\s+/g, "-")}-workflow-pack.json`, exportWorkflowPresetPack(pack));
+                    onStatus?.(`Exported preset pack “${pack.name}”.`);
+                  }}
+                >
+                  Export
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
+}
+
+function downloadText(filename: string, content: string) {
+  const blob = new Blob([content], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }

@@ -26,6 +26,9 @@ import {
 } from "@/lib/comfyui-job-status";
 import type { GenerationDiagnostics } from "@/lib/generation-diagnostics";
 import { PINNED_VARIATION_SEED_LABEL } from "@/lib/tool-ui-labels";
+import ReadinessBadge from "@/components/ReadinessBadge";
+import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { DetailLevel } from "@/lib/detail-level";
 
 export type BatchPromptItem = {
   prompt: string;
@@ -109,6 +112,10 @@ type EnhancedPromptResultProps = {
   batchItems?: BatchPromptItem[];
   batchCrossLinks?: BatchPromptCrossLinks;
   batchPromptActions?: BatchPromptItemActions;
+  readinessModel?: ComfyImageModel | string;
+  readinessDetail?: DetailLevel | string;
+  readinessHints?: string;
+  negativePrompt?: string;
 };
 
 export default function EnhancedPromptResult({
@@ -146,6 +153,10 @@ export default function EnhancedPromptResult({
   batchItems,
   batchCrossLinks,
   batchPromptActions,
+  readinessModel,
+  readinessDetail,
+  readinessHints,
+  negativePrompt,
   ...panelProps
 }: EnhancedPromptResultProps) {
   const workflowSelection = useComfyWorkflowSelection();
@@ -316,6 +327,16 @@ export default function EnhancedPromptResult({
       )}
 
       <PromptDiagnosticsPanel diagnostics={diagnostics ?? null} />
+
+      {panelProps.output.trim() && readinessModel && readinessDetail ? (
+        <ReadinessBadge
+          prompt={panelProps.output}
+          model={readinessModel}
+          detail={readinessDetail}
+          hints={readinessHints}
+          negativePrompt={negativePrompt}
+        />
+      ) : null}
 
       {(onSaveHistory ||
         onSendComfyUi ||

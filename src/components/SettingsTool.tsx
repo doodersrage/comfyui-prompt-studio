@@ -72,6 +72,7 @@ import {
 } from "@/lib/comfyui-notifications";
 import ComfyUiGalleryPanel from "@/components/ComfyUiGalleryPanel";
 import ComfyWorkflowLibraryPanel from "@/components/ComfyWorkflowLibraryPanel";
+import SettingsAdvancedPanel from "@/components/SettingsAdvancedPanel";
 import QueueParamsPanel from "@/components/QueueParamsPanel";
 import WorkflowPreviewPanel from "@/components/WorkflowPreviewPanel";
 import { fetchWorkflowPreview } from "@/lib/comfyui-requeue";
@@ -135,7 +136,21 @@ type HealthResponse = {
     baseUrl?: string;
     error?: string;
   };
-  comfyui: { ok: boolean; url: string; error?: string };
+  comfyui: {
+    ok: boolean;
+    url: string;
+    error?: string;
+    queuePending?: number;
+    queueRunning?: number;
+    vram?: { free?: number; total?: number };
+  };
+  apiUsage?: {
+    total: number;
+    lastHour: number;
+    rateLimited: number;
+    avgDurationMs: number;
+  };
+  storage?: { enabled: boolean };
   workflow?: {
     apiUrl: string;
     workflowSource: "client" | "env" | "none";
@@ -182,6 +197,12 @@ export default function SettingsTool() {
   );
   const [avoidedTokens, setAvoidedTokens] = useState<string[]>([]);
   const [avoidedTokenDraft, setAvoidedTokenDraft] = useState("");
+  const [avoidancePreviewPrompt, setAvoidancePreviewPrompt] = useState("");
+  const [avoidancePreview, setAvoidancePreview] = useState<{
+    filtered: string;
+    removedTokens: string[];
+    instructionLine: string;
+  } | null>(null);
   const [webhookLog, setWebhookLog] = useState<WebhookLogEntry[]>([]);
   const [webhookEventFilter, setWebhookEventFilter] = useState<string>("all");
   const [expandedWebhookLogId, setExpandedWebhookLogId] = useState<string | null>(
@@ -481,12 +502,31 @@ export default function SettingsTool() {
             <HealthCard
               title="ComfyUI"
               ok={health.comfyui.ok}
-              detail={[health.comfyui.url, health.comfyui.error]
+              detail={[
+                health.comfyui.url,
+                health.comfyui.queuePending != null
+                  ? `queue ${health.comfyui.queueRunning ?? 0} running · ${health.comfyui.queuePending} pending`
+                  : null,
+                health.comfyui.vram?.total
+                  ? `VRAM ${Math.round((health.comfyui.vram.free ?? 0) / 1e9)} / ${Math.round(health.comfyui.vram.total / 1e9)} GB free`
+                  : null,
+                health.comfyui.error,
+              ]
                 .filter(Boolean)
                 .join(" · ")}
             />
           </div>
         )}
+
+        {health?.apiUsage ? (
+          <ul className="space-y-1 text-xs text-zinc-500">
+            <li>
+              API usage (in-memory): {health.apiUsage.total} requests ·{" "}
+              {health.apiUsage.lastHour} last hour · {health.apiUsage.rateLimited} rate limited
+            </li>
+            <li>Server storage: {health.storage?.enabled ? "enabled" : "disabled"}</li>
+          </ul>
+        ) : null}
 
         {health && (
           <ul className="space-y-1 text-xs text-zinc-500">
@@ -1304,6 +1344,57 @@ export default function SettingsTool() {
             ))}
           </div>
         )}
+        <div className="mt-4 space-y-2">
+          <FieldLabel htmlFor="avoidance-preview-prompt">Avoidance preview</FieldLabel>
+          <TextArea
+            id="avoidance-preview-prompt"
+            rows={3}
+            value={avoidancePreviewPrompt}
+            onChange={(event) => setAvoidancePreviewPrompt(event.target.value)}
+            placeholder="Paste a prompt to see which avoided tokens match and the LLM instruction line."
+            className={accentFocusClass()}
+          />
+          <Button
+            variant="secondary"
+            disabled={!avoidancePreviewPrompt.trim()}
+            onClick={() => {
+              void fetch("/api/avoidance/preview", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: avoidancePreviewPrompt }),
+              })
+                .then((response) => response.json())
+                .then((data: {
+                  filtered?: string;
+                  removedTokens?: string[];
+                  instructionLine?: string;
+                }) => {
+                  setAvoidancePreview({
+                    filtered: data.filtered ?? "",
+                    removedTokens: data.removedTokens ?? [],
+                    instructionLine: data.instructionLine ?? "",
+                  });
+                })
+                .catch(() => setAvoidancePreview(null));
+            }}
+          >
+            Preview avoidance
+          </Button>
+          {avoidancePreview ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-xs text-zinc-400">
+              {avoidancePreview.removedTokens.length > 0 ? (
+                <p className="text-amber-300">
+                  Matched tokens: {avoidancePreview.removedTokens.join(", ")}
+                </p>
+              ) : (
+                <p>No avoided tokens found in this prompt.</p>
+              )}
+              {avoidancePreview.instructionLine ? (
+                <p className="mt-2 text-zinc-500">{avoidancePreview.instructionLine}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </ToolSection>
 
       <ToolSection title="Webhook event log">
@@ -1567,6 +1658,8 @@ export default function SettingsTool() {
           Keys: {LOCAL_DATA_KEYS.join(", ")}
         </p>
       </ToolSection>
+
+      <SettingsAdvancedPanel />
 
       {status && <p className="text-sm text-zinc-500">{status}</p>}
     </ToolLayout>

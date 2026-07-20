@@ -191,6 +191,9 @@ export default function NegativeTool() {
         output={output}
         provider="template"
         comfyNode={selectedModel.comfyNode}
+        readinessModel={shared.model}
+        readinessDetail={shared.detail}
+        negativePrompt={output}
         copied={copied}
         onCopy={() => void copyOutput()}
         extraMeta={

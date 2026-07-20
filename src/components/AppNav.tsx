@@ -43,6 +43,7 @@ const navGroups: NavGroup[] = [
     links: [
       { href: "/image-prompt", label: "Image → Prompt", description: "Vision upload" },
       { href: "/refine", label: "Refine", description: "Image + intent fix" },
+      { href: "/controlnet", label: "ControlNet", description: "Structure prompts" },
       { href: "/negative", label: "Negative", description: "SD negatives" },
       { href: "/studio", label: "Studio", description: "History & tools" },
       { href: "/gallery", label: "Gallery", description: "ComfyUI outputs" },

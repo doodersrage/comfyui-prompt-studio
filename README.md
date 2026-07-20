@@ -159,6 +159,19 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Analytics live refresh** — Studio analytics updates when gallery ratings change
 - **Webhook log UI** — event filter and payload preview on Settings
 - **ComfyUI Topics Batch node** — `PromptToolsTopicsBatch` calls `/api/topics/batch`
+- **Prompt readiness score** — pre-queue lint badge on result panels (`/api/readiness`)
+- **Cherry-pick merge** — Studio Diff tab merges two prompts with lint checks
+- **Experiment dashboard** — Studio Experiments tab groups gallery outputs by prompt/seed variants
+- **Multi-ref image prompts** — Image tool accepts up to 4 references (`/api/image-prompt/multi`)
+- **ControlNet prompt builder** — `/controlnet` tool for depth/pose/canny/normal/lineart conditioning text
+- **Embedding search** — semantic history filter uses Ollama embeddings when available (`/api/search/embeddings`)
+- **Avoidance preview** — Settings shows matched tokens and LLM instruction before generation
+- **Workflow preset packs** — import/export bundled presets in Settings workflow library
+- **Server storage sync** — optional `PROMPT_DATA_DIR` file-backed namespaces via `/api/storage`
+- **API usage & rate limits** — proxy logs usage; optional `PROMPT_API_TOKEN` + rate limit env vars
+- **Server scheduled batch** — `SERVER_SCHEDULED_BATCH=true` or manual `POST /api/scheduled-batch/run`
+- **ComfyUI job status node** — `PromptToolsJobStatus` polls `/api/comfyui/status`
+- **Queue artifacts** — optional `COMFYUI_QUEUE_EXPORT_DIR` writes JSON sidecars after queue
 
 ## Prompt size limits (selected models)
 
@@ -213,7 +226,7 @@ docker run -d \
   -e LLM_API_BASE_URL=http://host.docker.internal:11434/v1 \
   -e LLM_MODEL=hermes3 \
   -e LLM_VISION_MODEL=gemma4:latest \
-  doodersrage/comfyui-prompt-studio:v1.0
+  doodersrage/comfyui-prompt-studio:latest
 ```
 
 On Linux, add `--add-host=host.docker.internal:host-gateway` if Ollama runs on the host. Override `PORT` only if you map a different host port.

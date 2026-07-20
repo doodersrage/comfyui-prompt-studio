@@ -15,7 +15,56 @@ export type ComfyUiHealth = {
   ok: boolean;
   url: string;
   error?: string;
+  queuePending?: number;
+  queueRunning?: number;
+  vram?: { free?: number; total?: number };
 };
+
+type ComfyQueuePayload = {
+  queue_pending?: unknown[];
+  queue_running?: unknown[];
+};
+
+type ComfySystemStats = {
+  system?: {
+    vram?: { free?: number; total?: number };
+  };
+};
+
+export async function getExpandedComfyUiHealth(
+  runtime?: ComfyUiRuntimeConfig,
+): Promise<ComfyUiHealth> {
+  const base = await checkComfyUiHealth(runtime);
+  if (!base.ok) {
+    return base;
+  }
+
+  let queuePending: number | undefined;
+  let queueRunning: number | undefined;
+  let vram: ComfyUiHealth["vram"];
+
+  try {
+    const [queueResponse, statsResponse] = await Promise.all([
+      fetch(`${base.url}/queue`, { signal: AbortSignal.timeout(5000), redirect: "manual" }),
+      fetch(`${base.url}/system_stats`, { signal: AbortSignal.timeout(5000), redirect: "manual" }),
+    ]);
+
+    if (queueResponse.ok) {
+      const queue = (await queueResponse.json()) as ComfyQueuePayload;
+      queuePending = queue.queue_pending?.length ?? 0;
+      queueRunning = queue.queue_running?.length ?? 0;
+    }
+
+    if (statsResponse.ok) {
+      const stats = (await statsResponse.json()) as ComfySystemStats;
+      vram = stats.system?.vram;
+    }
+  } catch {
+    // keep base health only
+  }
+
+  return { ...base, queuePending, queueRunning, vram };
+}
 
 export async function checkLlmHealth(): Promise<LlmHealth> {
   const enabled = isLlmEnabled();

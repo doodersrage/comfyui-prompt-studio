@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import urllib.parse
 
-from .api_client import extract_prompt, post_json, resolve_api_base
+from .api_client import extract_prompt, get_json, post_json, resolve_api_base
 from .constants import (
     DEFAULT_MODEL,
     DETAIL_LEVELS,
@@ -845,6 +846,41 @@ class PromptToolsQueueComfyUi(PromptToolsBase):
         return (status,)
 
 
+class PromptToolsJobStatus(PromptToolsBase):
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("status",)
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "prompt_id": ("STRING", {"default": ""}),
+            },
+            "optional": {
+                **cls.api_input(),
+            },
+        }
+
+    FUNCTION = "poll"
+
+    def poll(self, prompt_id: str, api_base_url: str = ""):
+        pid = prompt_id.strip()
+        if not pid:
+            raise RuntimeError("prompt_id is required.")
+
+        response = get_json(
+            api_base_url,
+            f"/api/comfyui/status?promptId={urllib.parse.quote(pid)}",
+        )
+        parts = [
+            response.get("status"),
+            response.get("statusMessage"),
+            response.get("previewUrl") and "preview ready",
+        ]
+        status = " · ".join(str(part) for part in parts if part) or "unknown"
+        return (status,)
+
+
 NODE_CLASS_MAPPINGS = {
     "PromptToolsGenerate": PromptToolsGenerate,
     "PromptToolsFormat": PromptToolsFormat,
@@ -864,6 +900,7 @@ NODE_CLASS_MAPPINGS = {
     "PromptToolsCompact": PromptToolsCompact,
     "PromptToolsRefine": PromptToolsRefine,
     "PromptToolsQueueComfyUi": PromptToolsQueueComfyUi,
+    "PromptToolsJobStatus": PromptToolsJobStatus,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -885,4 +922,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "PromptToolsCompact": "Prompt Tools · Compact Prompt",
     "PromptToolsRefine": "Prompt Tools · Refine Prompt",
     "PromptToolsQueueComfyUi": "Prompt Tools · Queue ComfyUI",
+    "PromptToolsJobStatus": "Prompt Tools · Job Status",
 }

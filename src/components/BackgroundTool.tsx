@@ -187,6 +187,8 @@ export default function BackgroundTool() {
         provider={result?.provider ?? null}
         comfyNode={result?.comfyNode}
         limits={result?.limits}
+        readinessModel={shared.model}
+        readinessDetail={shared.detail}
         copied={copied}
         onCopy={() => void copyOutput()}
         diagnostics={actions.diagnostics ?? result?.diagnostics ?? null}

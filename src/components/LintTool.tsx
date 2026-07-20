@@ -144,6 +144,8 @@ export default function LintTool() {
         output={prompt}
         provider={actions.diagnostics ? "rules" : null}
         comfyNode={selectedModel.comfyNode}
+        readinessModel={shared.model}
+        readinessDetail={shared.detail}
         limits={activeLimits}
         copied={copied}
         onCopy={() => void copyOutput()}

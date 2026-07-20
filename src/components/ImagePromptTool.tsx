@@ -28,11 +28,26 @@ import { Button, PrimaryButton } from "@/components/ui/Button";
 
 const ACCENT = "fuchsia" as const;
 
+type RefImageUpload = {
+  id: string;
+  file: File;
+  previewUrl: string;
+  role: string;
+};
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read image file."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function ImagePromptTool() {
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
     useCachedSettings("imagePrompt", DEFAULT_IMAGE_PROMPT_TOOL_CACHE);
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [refImages, setRefImages] = useState<RefImageUpload[]>([]);
   const [output, setOutput] = useState("");
   const [result, setResult] = useState<
     (ToolGenerateResult & { diagnostics?: EnrichedToolGenerateResult["diagnostics"] }) | null
@@ -54,6 +69,27 @@ export default function ImagePromptTool() {
   const selectedModel = getComfyModelDefinition(shared.model);
   const inferredSport = result?.diagnostics?.inferred.sport ?? null;
 
+  const addRefImage = useCallback((nextFile: File, role = "", replace = false) => {
+    setRefImages((previous) => {
+      if (!replace && previous.length >= 4) {
+        return previous;
+      }
+      const entry: RefImageUpload = {
+        id: `${Date.now()}-${nextFile.name}`,
+        file: nextFile,
+        previewUrl: URL.createObjectURL(nextFile),
+        role: role || (replace ? "primary" : `reference ${previous.length + 1}`),
+      };
+      if (replace) {
+        for (const image of previous) {
+          URL.revokeObjectURL(image.previewUrl);
+        }
+        return [entry];
+      }
+      return [...previous, entry];
+    });
+  }, []);
+
   const applyGalleryHandoff = useCallback(
     (handoff: {
       prompt: string;
@@ -68,28 +104,43 @@ export default function ImagePromptTool() {
         updateShared({ model: handoff.model as ComfyImageModel });
       }
       if (handoff.file) {
-        setFile(handoff.file);
-        setPreviewUrl(handoff.previewUrl);
-      } else if (handoff.previewUrl) {
-        setPreviewUrl(handoff.previewUrl);
+        addRefImage(handoff.file, "gallery reference");
       }
     },
-    [updateShared, updateToolSettings],
+    [addRefImage, updateShared, updateToolSettings],
   );
 
   useGalleryHandoff("imagePrompt", applyGalleryHandoff);
 
-  const onFileChange = useCallback((nextFile: File | null) => {
-    setFile(nextFile);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setPreviewUrl(nextFile ? URL.createObjectURL(nextFile) : null);
-  }, [previewUrl]);
+  const removeRefImage = useCallback((id: string) => {
+    setRefImages((previous) => {
+      const target = previous.find((entry) => entry.id === id);
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return previous.filter((entry) => entry.id !== id);
+    });
+  }, []);
+
+  const onFileChange = useCallback(
+    (nextFile: File | null) => {
+      if (!nextFile) {
+        setRefImages((previous) => {
+          for (const entry of previous) {
+            URL.revokeObjectURL(entry.previewUrl);
+          }
+          return [];
+        });
+        return;
+      }
+      addRefImage(nextFile, "primary", true);
+    },
+    [addRefImage],
+  );
 
   const generate = useCallback(async () => {
-    if (!file) {
-      setError("Upload an image first.");
+    if (refImages.length === 0) {
+      setError("Upload at least one image.");
       return;
     }
 
@@ -99,26 +150,49 @@ export default function ImagePromptTool() {
     actions.resetStatuses();
 
     try {
-      const formData = new FormData();
-      formData.append("image", file);
-      formData.append("model", shared.model);
-      formData.append("detail", shared.detail);
-      formData.append("focus", toolSettings.focus ?? "full");
-      if (toolSettings.extraHints?.trim()) {
-        formData.append("extraHints", toolSettings.extraHints.trim());
-      }
+      let data: ToolGenerateResult & { error?: string };
 
-      const response = await fetch("/api/image-prompt", {
-        method: "POST",
-        body: formData,
-      });
+      if (refImages.length === 1) {
+        const formData = new FormData();
+        formData.append("image", refImages[0].file);
+        formData.append("model", shared.model);
+        formData.append("detail", shared.detail);
+        formData.append("focus", toolSettings.focus ?? "full");
+        if (toolSettings.extraHints?.trim()) {
+          formData.append("extraHints", toolSettings.extraHints.trim());
+        }
 
-      const data = (await response.json()) as ToolGenerateResult & {
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Generation failed.");
+        const response = await fetch("/api/image-prompt", {
+          method: "POST",
+          body: formData,
+        });
+        data = (await response.json()) as ToolGenerateResult & { error?: string };
+        if (!response.ok) {
+          throw new Error(data.error ?? "Generation failed.");
+        }
+      } else {
+        const images = await Promise.all(
+          refImages.map(async (entry) => ({
+            image: await fileToDataUrl(entry.file),
+            mimeType: entry.file.type || "image/jpeg",
+            role: entry.role,
+            focus: toolSettings.focus ?? "full",
+          })),
+        );
+        const response = await fetch("/api/image-prompt/multi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            images,
+            model: shared.model,
+            detail: shared.detail,
+            extraHints: toolSettings.extraHints?.trim() || undefined,
+          }),
+        });
+        data = (await response.json()) as ToolGenerateResult & { error?: string };
+        if (!response.ok) {
+          throw new Error(data.error ?? "Generation failed.");
+        }
       }
 
       const prompt = await actions.finalizePrompt(data.prompt, toolSettings.extraHints);
@@ -131,7 +205,7 @@ export default function ImagePromptTool() {
     } finally {
       setLoading(false);
     }
-  }, [file, shared, toolSettings, actions]);
+  }, [refImages, shared, toolSettings, actions]);
 
   const copyOutput = useCallback(async () => {
     if (!output) return;
@@ -145,7 +219,8 @@ export default function ImagePromptTool() {
   }, [output]);
 
   const refine = useCallback(async () => {
-    if (!file || !refineIntent.trim()) {
+    const primary = refImages[0];
+    if (!primary || !refineIntent.trim()) {
       setError("Upload an image and describe what you wanted.");
       return;
     }
@@ -156,7 +231,7 @@ export default function ImagePromptTool() {
 
     try {
       const formData = new FormData();
-      formData.append("image", file);
+      formData.append("image", primary.file);
       formData.append("model", shared.model);
       formData.append("detail", shared.detail);
       formData.append("currentPrompt", output);
@@ -183,7 +258,7 @@ export default function ImagePromptTool() {
     } finally {
       setLoading(false);
     }
-  }, [file, refineIntent, output, shared, actions]);
+  }, [refImages, refineIntent, output, shared, actions]);
 
   return (
     <ToolLayout
@@ -212,21 +287,63 @@ export default function ImagePromptTool() {
       }
     >
       <ToolSection>
-        <FieldLabel>Upload image</FieldLabel>
+        <FieldLabel>Upload images (up to 4)</FieldLabel>
         <input
           type="file"
           accept="image/*"
           onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
           className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
         />
-        {previewUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={previewUrl}
-            alt="Upload preview"
-            className="max-h-64 rounded-xl border border-zinc-800 object-contain"
-          />
-        )}
+        {refImages.length > 0 && refImages.length < 4 ? (
+          <label className="mt-2 block text-sm text-zinc-400">
+            Add another reference
+            <input
+              type="file"
+              accept="image/*"
+              className="mt-1 block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-zinc-800 file:px-3 file:py-1.5 file:text-xs file:text-zinc-200"
+              onChange={(event) => {
+                const next = event.target.files?.[0];
+                if (next) {
+                  addRefImage(next);
+                }
+                event.target.value = "";
+              }}
+            />
+          </label>
+        ) : null}
+        {refImages.length > 0 ? (
+          <ul className="mt-3 space-y-3">
+            {refImages.map((entry) => (
+              <li key={entry.id} className="rounded-xl border border-zinc-800 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    value={entry.role}
+                    onChange={(event) =>
+                      setRefImages((previous) =>
+                        previous.map((item) =>
+                          item.id === entry.id
+                            ? { ...item, role: event.target.value }
+                            : item,
+                        ),
+                      )
+                    }
+                    className="ui-input min-w-[140px] flex-1 px-[var(--input-padding-x)] py-1 type-caption"
+                    placeholder="Reference role"
+                  />
+                  <Button variant="ghost" onClick={() => removeRefImage(entry.id)}>
+                    Remove
+                  </Button>
+                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={entry.previewUrl}
+                  alt={entry.role}
+                  className="mt-2 max-h-48 rounded-lg border border-zinc-800 object-contain"
+                />
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
         <FieldDivider />
 
@@ -271,7 +388,7 @@ export default function ImagePromptTool() {
         <PrimaryButton
           accentClassName={accentButtonClass(ACCENT)}
           onClick={() => void generate()}
-          disabled={!mounted || !file}
+          disabled={!mounted || refImages.length === 0}
           loading={loading}
           loadingLabel="Analyzing image"
         >
@@ -294,7 +411,7 @@ export default function ImagePromptTool() {
             variant="accent-outline"
             loading={loading}
             loadingLabel="Refining prompt from image"
-            disabled={!file}
+            disabled={refImages.length === 0}
             onClick={() => void refine()}
           >
             Refine prompt from image
@@ -307,6 +424,9 @@ export default function ImagePromptTool() {
         provider={result?.provider ?? null}
         comfyNode={result?.comfyNode}
         limits={result?.limits}
+        readinessModel={shared.model}
+        readinessDetail={shared.detail}
+        readinessHints={toolSettings.extraHints}
         copied={copied}
         onCopy={() => void copyOutput()}
         extraMeta={

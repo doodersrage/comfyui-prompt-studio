@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import PromptMergePanel from "@/components/PromptMergePanel";
 import SharedToolControls from "@/components/SharedToolControls";
 import EnhancedPromptResult from "@/components/EnhancedPromptResult";
 import PromptDiagnosticsPanel from "@/components/PromptDiagnosticsPanel";
@@ -138,6 +140,11 @@ import {
   SuccessBanner,
 } from "@/components/ui/ViewState";
 
+const ExperimentDashboardPanel = dynamic(
+  () => import("@/components/ExperimentDashboardPanel"),
+  { loading: () => <StudioTabSkeleton /> },
+);
+
 const ACCENT = "violet" as const;
 
 type StudioTab =
@@ -151,7 +158,8 @@ type StudioTab =
   | "projects"
   | "portfolio"
   | "campaign"
-  | "analytics";
+  | "analytics"
+  | "experiments";
 
 type CatalogClothing = {
   id: string;
@@ -198,6 +206,7 @@ export default function StudioTool() {
   const [copied, setCopied] = useState(false);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>({});
+  const [embeddingRankIds, setEmbeddingRankIds] = useState<string[] | null>(null);
   const [scenePresets, setScenePresets] = useState<ScenePreset[]>([]);
   const [presetName, setPresetName] = useState("");
   const [presetHints, setPresetHints] = useState("");
@@ -241,13 +250,64 @@ export default function StudioTool() {
     detail: shared.detail,
   });
 
+  useEffect(() => {
+    const query = historyFilter.query?.trim();
+    if (!historyFilter.semanticSearch || !query) {
+      setEmbeddingRankIds(null);
+      return;
+    }
+
+    const candidates = filterHistoryEntries(entries, {
+      ...historyFilter,
+      semanticSearch: false,
+    });
+
+    void fetch("/api/search/embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        items: candidates.map((entry) => ({
+          id: entry.id,
+          text: [entry.prompt, entry.hints, entry.tool, entry.model, entry.tags?.join(" ")]
+            .filter(Boolean)
+            .join("\n"),
+        })),
+      }),
+    })
+      .then((response) => response.json())
+      .then((data: { results?: Array<{ id: string }> }) => {
+        setEmbeddingRankIds(data.results?.map((entry) => entry.id) ?? null);
+      })
+      .catch(() => setEmbeddingRankIds(null));
+  }, [entries, historyFilter.query, historyFilter.semanticSearch, historyFilter.tool, historyFilter.model, historyFilter.tag, historyFilter.favoritesOnly, historyFilter.minRating]);
+
   const filteredEntries = useMemo(() => {
-    const base = filterHistoryEntries(entries, historyFilter);
+    const query = historyFilter.query?.trim();
+    let base = filterHistoryEntries(entries, {
+      ...historyFilter,
+      semanticSearch: false,
+    });
+
+    if (query && historyFilter.semanticSearch) {
+      if (embeddingRankIds?.length) {
+        const allowed = new Set(embeddingRankIds);
+        base = base.filter((entry) => allowed.has(entry.id));
+        const order = new Map(embeddingRankIds.map((id, index) => [id, index]));
+        base = [...base].sort(
+          (left, right) => (order.get(left.id) ?? 9999) - (order.get(right.id) ?? 9999),
+        );
+      } else {
+        base = filterHistoryEntries(entries, historyFilter);
+      }
+    } else if (!query) {
+      base = filterHistoryEntries(entries, historyFilter);
+    }
     if (!activeProjectId) {
       return base;
     }
     return base.filter((entry) => entry.metadata?.projectId === activeProjectId);
-  }, [entries, historyFilter, activeProjectId]);
+  }, [entries, historyFilter, activeProjectId, embeddingRankIds]);
 
   const sortedCatalogClothing = useMemo(
     () => sortCatalogByRatingBias(catalogClothing, (entry) => `${entry.label} ${entry.category}`),
@@ -495,6 +555,7 @@ export default function StudioTool() {
     { id: "catalog", label: "Catalog" },
     { id: "templates", label: "Templates" },
     { id: "presets", label: "Presets" },
+    { id: "experiments", label: "Experiments" },
     { id: "diff", label: "Diff" },
   ];
 
@@ -2149,6 +2210,8 @@ export default function StudioTool() {
         </ToolSection>
       )}
 
+      {tab === "experiments" && <ExperimentDashboardPanel />}
+
       {tab === "diff" && (
         <ToolSection title="Prompt diff">
           {entries.length === 0 ? (
@@ -2246,6 +2309,10 @@ export default function StudioTool() {
                   </pre>
                 </ToolContentPanel>
               </div>
+              <PromptMergePanel
+                leftDefault={diffLeft?.prompt}
+                rightDefault={diffRight?.prompt}
+              />
             </>
           )}
             </>

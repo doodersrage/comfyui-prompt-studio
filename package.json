@@ -18,7 +18,7 @@
     "clothing:generate": "node scripts/generate-clothing.mjs --add 500",
     "clothing:generate:dry": "node scripts/generate-clothing.mjs --add 500 --dry-run",
     "prompt:cli": "node scripts/qwen-prompt.mjs",
-    "test": "node --import tsx --test src/lib/clothing-wardrobe.test.ts src/lib/prompt-tools.test.ts src/lib/url-safety.test.ts",
+    "test": "node --import tsx --test src/lib/clothing-wardrobe.test.ts src/lib/prompt-tools.test.ts src/lib/url-safety.test.ts src/lib/feature-utils.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

@@ -11,6 +11,7 @@ import {
   resolveCustomWorkflowTokens,
   type WorkflowParamValues,
 } from "./comfyui-config";
+import { writeQueueArtifact } from "./queue-artifacts";
 import { loadServerWorkflowJson } from "./comfyui-server-workflows";
 import {
   getComfyUiAllowedHosts,
@@ -218,6 +219,18 @@ export async function queuePromptToComfyUi(
     }
 
     const data = (await workflowResponse.json()) as { prompt_id?: string };
+
+    writeQueueArtifact({
+      prompt: request.prompt,
+      negativePrompt: request.negativePrompt,
+      promptId: data.prompt_id,
+      comfyUrl: config.apiUrl,
+      workflow:
+        typeof promptBody.prompt === "object"
+          ? (promptBody.prompt as Record<string, unknown>)
+          : undefined,
+    });
+
     return {
       ok: true,
       promptId: data.prompt_id,

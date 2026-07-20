@@ -1,7 +1,9 @@
-import { checkComfyUiHealth, checkLlmHealth } from "@/lib/service-health";
+import { checkComfyUiHealth, checkLlmHealth, getExpandedComfyUiHealth } from "@/lib/service-health";
 import { getLlmConfig, isLlmEnabled, allowTemplateFallback } from "@/lib/llm-client";
 import { getComfyUiBaseUrl } from "@/lib/comfyui-client";
 import { getComfyUiWorkflowSummary } from "@/lib/comfyui-status";
+import { summarizeApiUsage } from "@/lib/api-usage-log";
+import { isServerStorageEnabled } from "@/lib/server-storage";
 import {
   stripEmptyComfyUiRuntime,
   type ComfyUiRuntimeConfig,
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
 
   const [llm, comfyui, workflow] = await Promise.all([
     checkLlmHealth(),
-    checkComfyUiHealth(runtime),
+    getExpandedComfyUiHealth(runtime),
     (async () => {
       try {
         return await getComfyUiWorkflowSummary(runtime);
@@ -49,6 +51,8 @@ export async function GET(request: Request) {
     llm,
     comfyui,
     workflow,
+    apiUsage: summarizeApiUsage(),
+    storage: { enabled: isServerStorageEnabled() },
     config: {
       llmEnabled: isLlmEnabled(),
       allowTemplateFallback: allowTemplateFallback(),

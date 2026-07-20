@@ -834,6 +834,8 @@ export default function PromptGenerator() {
           provider={provider}
           comfyNode={resultMeta?.comfyNode ?? selectedModel.comfyNode}
           limits={resultMeta?.limits}
+          readinessModel={shared.model}
+          readinessDetail={shared.detail}
           copied={copied}
           onCopy={() => void copyOutput()}
           extraMeta={
