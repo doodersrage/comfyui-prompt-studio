@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import ImageLightbox, { type ImageLightboxState } from "@/components/ui/ImageLightbox";
 import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPanel";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -28,6 +28,8 @@ import {
 } from "@/lib/param-experiment-queue";
 import { downloadCompareExport } from "@/lib/gallery-compare-export";
 import { runAutoImproveOnFavorite, runAutoImproveOnRating } from "@/lib/auto-improve-loop";
+import { learnFromLowRatedPrompt } from "@/lib/negative-learner";
+import { markOnboardingGalleryReview } from "@/lib/onboarding-hooks";
 import { setLineageParent } from "@/lib/prompt-lineage-session";
 import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
 import {
@@ -288,6 +290,42 @@ export default function ComfyUiGalleryPanel({
 
   const reviewFocusEntry = visibleEntries[reviewFocusIndex] ?? null;
 
+  const advanceReviewFocus = useCallback(
+    (entryId: string) => {
+      if (!filter.reviewAutoAdvance) {
+        return;
+      }
+      const startIndex = visibleEntries.findIndex((entry) => entry.id === entryId);
+      for (let index = startIndex + 1; index < visibleEntries.length; index += 1) {
+        const nextEntry = visibleEntries[index];
+        if (nextEntry.status === "completed" && !nextEntry.reviewRating) {
+          setSelectedIds([nextEntry.id]);
+          return;
+        }
+      }
+    },
+    [filter.reviewAutoAdvance, visibleEntries],
+  );
+
+  const handleReviewRating = useCallback(
+    (entry: ComfyGalleryEntry, rating: NonNullable<ComfyGalleryEntry["reviewRating"]>) => {
+      setReviewRating(entry.id, rating);
+      recordCatalogBiasFromPrompt(entry.prompt, rating);
+      if (rating <= 2) {
+        recordAvoidedTokensFromPrompt(entry.prompt);
+        learnFromLowRatedPrompt(entry.prompt, rating);
+      }
+      markOnboardingGalleryReview();
+      void runAutoImproveOnRating(entry, rating).then((message) => {
+        if (message) {
+          setRequeueStatus(message);
+        }
+      });
+      advanceReviewFocus(entry.id);
+    },
+    [advanceReviewFocus, setReviewRating],
+  );
+
   useEffect(() => {
     if (!filter.reviewMode || visibleEntries.length === 0) {
       return;
@@ -329,16 +367,7 @@ export default function ComfyUiGalleryPanel({
 
       if (event.key >= "1" && event.key <= "5") {
         const rating = Number(event.key) as 1 | 2 | 3 | 4 | 5;
-        setReviewRating(reviewFocusEntry.id, rating);
-        recordCatalogBiasFromPrompt(reviewFocusEntry.prompt, rating);
-        if (rating <= 2) {
-          recordAvoidedTokensFromPrompt(reviewFocusEntry.prompt);
-        }
-        void runAutoImproveOnRating(reviewFocusEntry, rating).then((message) => {
-          if (message) {
-            setRequeueStatus(message);
-          }
-        });
+        handleReviewRating(reviewFocusEntry, rating);
         event.preventDefault();
         return;
       }
@@ -376,7 +405,7 @@ export default function ComfyUiGalleryPanel({
     reviewFocusEntry,
     reviewFocusIndex,
     visibleEntries,
-    setReviewRating,
+    handleReviewRating,
     toggleFavorite,
   ]);
 
@@ -875,17 +904,8 @@ export default function ComfyUiGalleryPanel({
               onOpenImage={(index) => openEntryLightbox(entry, index)}
               reviewMode={filter.reviewMode === true}
               onReviewRating={(rating) => {
-                setReviewRating(entry.id, rating);
-                if (rating && rating <= 2) {
-                  recordAvoidedTokensFromPrompt(entry.prompt);
-                }
-                recordCatalogBiasFromPrompt(entry.prompt, rating);
                 if (rating) {
-                  void runAutoImproveOnRating(entry, rating).then((message) => {
-                    if (message) {
-                      setRequeueStatus(message);
-                    }
-                  });
+                  handleReviewRating(entry, rating);
                 }
               }}
             />
@@ -910,17 +930,13 @@ export default function ComfyUiGalleryPanel({
               imageDataUrl={galleryEntryViewUrls(reviewFocusEntry)[0]!}
               prompt={reviewFocusEntry.prompt}
               onApplyRating={(rating) => {
-                setReviewRating(reviewFocusEntry.id, rating);
+                handleReviewRating(reviewFocusEntry, rating);
               }}
             />
           ) : null}
           <GalleryReviewTouchBar
             onRate={(rating) => {
-              setReviewRating(reviewFocusEntry.id, rating);
-              recordCatalogBiasFromPrompt(reviewFocusEntry.prompt, rating);
-              if (rating <= 2) {
-                recordAvoidedTokensFromPrompt(reviewFocusEntry.prompt);
-              }
+              handleReviewRating(reviewFocusEntry, rating);
             }}
             onFavorite={() => toggleFavorite(reviewFocusEntry.id)}
             onNext={() => {

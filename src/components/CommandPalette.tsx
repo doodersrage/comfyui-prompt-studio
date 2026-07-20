@@ -5,10 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
 import { featureForPath } from "@/lib/auth/features";
+import { searchGlobal } from "@/lib/global-search";
 
 type CommandItem = {
   id: string;
   label: string;
+  subtitle?: string;
   href?: string;
   action?: () => void;
   group: string;
@@ -54,17 +56,44 @@ export default function CommandPalette() {
     if (!q) {
       return items;
     }
-    return items.filter(
+    const staticMatches = items.filter(
       (item) =>
         item.label.toLowerCase().includes(q) || item.group.toLowerCase().includes(q),
     );
+    const searchMatches: CommandItem[] =
+      q.length >= 2
+        ? searchGlobal(query).map((result) => ({
+            id: result.id,
+            label: result.label,
+            subtitle: result.subtitle,
+            href: result.href,
+            group: result.group,
+          }))
+        : [];
+    const seen = new Set<string>();
+    return [...staticMatches, ...searchMatches].filter((item) => {
+      if (seen.has(item.id)) {
+        return false;
+      }
+      seen.add(item.id);
+      return true;
+    });
   }, [items, query]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "k" &&
+        !event.shiftKey
+      ) {
         event.preventDefault();
         setOpen((value) => !value);
+        setQuery("");
+      }
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setOpen(true);
         setQuery("");
       }
       if (event.key === "Escape") {
@@ -86,7 +115,7 @@ export default function CommandPalette() {
           autoFocus
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Jump to a page or action…"
+          placeholder="Jump to a page, action, or search history & gallery…"
           className="w-full border-b border-zinc-800 bg-transparent px-4 py-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
         />
         <ul className="max-h-[50vh] overflow-y-auto py-2">
@@ -109,15 +138,21 @@ export default function CommandPalette() {
                     }
                   }}
                 >
-                  <span>{item.label}</span>
-                  <span className="text-xs text-zinc-500">{item.group}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate">{item.label}</span>
+                    {item.subtitle ? (
+                      <span className="block truncate text-xs text-zinc-500">{item.subtitle}</span>
+                    ) : null}
+                  </span>
+                  <span className="shrink-0 text-xs text-zinc-500">{item.group}</span>
                 </button>
               </li>
             ))
           )}
         </ul>
         <div className="border-t border-zinc-800 px-4 py-2 text-xs text-zinc-500">
-          Tip: press <kbd className="rounded border border-zinc-700 px-1">Ctrl+K</kbd> anywhere.{" "}
+          Tip: <kbd className="rounded border border-zinc-700 px-1">Ctrl+K</kbd> palette ·{" "}
+          <kbd className="rounded border border-zinc-700 px-1">Ctrl+Shift+K</kbd> search.{" "}
           <Link href="/settings" className="text-violet-300" onClick={() => setOpen(false)}>
             Settings
           </Link>

@@ -537,6 +537,50 @@ body {
   border-radius: 50%;
   filter: blur(80px);
   will-change: transform;
+  opacity: var(--ambient-orb-opacity, 1);
+}
+
+html[data-ambient="off"] {
+  --ambient-orb-opacity: 0;
+}
+
+html[data-ambient="subtle"] {
+  --ambient-orb-opacity: 0.55;
+}
+
+html[data-ambient="vivid"] {
+  --ambient-orb-opacity: 1.15;
+}
+
+html[data-ambient="vivid"] .ambient-bg__orb {
+  filter: blur(64px);
+}
+
+html[data-theme="light"] {
+  --bg-base: #f3f4f8;
+  --bg-elevated: rgb(255 255 255 / 0.82);
+  --bg-muted: rgb(255 255 255 / 0.94);
+  --bg-subtle: rgb(15 23 42 / 0.04);
+  --bg-hover: rgb(15 23 42 / 0.06);
+  --bg-active: rgb(15 23 42 / 0.08);
+  --text-primary: #18181f;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+  --text-muted: #9ca3af;
+  --border-subtle: rgb(15 23 42 / 0.08);
+  --border-default: rgb(15 23 42 / 0.12);
+  --border-strong: rgb(15 23 42 / 0.16);
+  --accent-muted: rgb(109 92 246 / 0.1);
+}
+
+html[data-theme="light"] .ambient-bg__base {
+  background: #f3f4f8;
+}
+
+html[data-theme="light"] .ambient-bg__vignette {
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgb(139 124 246 / 0.05), transparent 55%),
+    radial-gradient(ellipse 100% 100% at 50% 100%, rgb(15 23 42 / 0.06), transparent 55%);
 }
 
 .ambient-bg__orb--violet {

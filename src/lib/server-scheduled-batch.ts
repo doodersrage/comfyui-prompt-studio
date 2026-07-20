@@ -103,6 +103,20 @@ export async function runServerScheduledBatch(
   return { prompts, queued };
 }
 
+export async function notifyServerScheduledBatchComplete(result: {
+  prompts: string[];
+  queued: number;
+  ranked?: boolean;
+}): Promise<void> {
+  const { notifyBatchCompleted } = await import("./email/notifications");
+  await notifyBatchCompleted({
+    kind: "server-scheduled",
+    promptCount: result.prompts.length,
+    queued: result.queued,
+    ranked: result.ranked,
+  });
+}
+
 export async function shouldRunServerScheduledBatch(
   config: ScheduledBatchConfig,
   now = Date.now(),

@@ -22,17 +22,32 @@ export function loadScenePresets(): ScenePreset[] {
   }
 
   try {
-    return readBrowserValue<ScenePreset[]>(SCENE_PRESETS_KEY) ?? [];
+    const presets = readBrowserValue<ScenePreset[]>(SCENE_PRESETS_KEY) ?? [];
+    return dedupeScenePresets(presets);
   } catch {
     return [];
   }
+}
+
+function dedupeScenePresets(presets: ScenePreset[]): ScenePreset[] {
+  const seen = new Set<string>();
+  const deduped: ScenePreset[] = [];
+  for (const preset of presets) {
+    const key = `${preset.name.trim().toLowerCase()}|${(preset.hints ?? "").trim().toLowerCase()}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(preset);
+  }
+  return deduped;
 }
 
 export function saveScenePresets(presets: ScenePreset[]): void {
   if (typeof window === "undefined") {
     return;
   }
-  writeBrowserValue(SCENE_PRESETS_KEY, presets.slice(0, 40));
+  writeBrowserValue(SCENE_PRESETS_KEY, dedupeScenePresets(presets).slice(0, 40));
 }
 
 export function createScenePreset(input: Omit<ScenePreset, "id" | "createdAt">): ScenePreset {

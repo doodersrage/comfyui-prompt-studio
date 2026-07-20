@@ -227,6 +227,22 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Campaign templates** — save/load campaign recipes on Studio Campaign tab
 - **Portfolio diff export** — cross-model Markdown/HTML diff from Studio Portfolio tab
 - **Observability dashboard** — Settings advanced panel shows API volume, errors, and slow routes
+- **Best-of-N vision campaigns** — scheduled profile campaigns optionally rank N variants with vision LLM before queue
+- **Global search** — command palette (`Ctrl+K` / `Ctrl+Shift+K`) searches history, gallery, and scene presets
+- **Auto-push storage** — history and gallery saves debounce-push to server when storage sync is enabled
+- **Ambient background** — subtle animated orbs; intensity toggle on Profile → Appearance
+- **Light theme** — Profile → Appearance switches dark/light tokens
+- **Notification center** — in-app alerts bell in sidebar when jobs complete
+- **Gallery review auto-advance** — optional jump to next unreviewed item after rating
+- **Queue upgrades** — `/queue` shows ComfyUI queue stats, failed jobs, and bulk retry
+- **Prompt recipes** — Settings → Advanced chains lint/fix/compact/queue steps
+- **Model recommender** — Generate sidebar suggests models from prompt text (`/api/models/recommend`)
+- **Negative prompt learner** — learns tokens from low gallery ratings; Settings → Advanced
+- **Same-seed shootout** — queue one prompt across models with identical seed (Settings → Advanced)
+- **Full user backup** — Profile downloads/restores complete local studio backup JSON
+- **Multi-tab sync** — BroadcastChannel refreshes gallery/history across open tabs
+- **Shared projects UI** — admin CRUD in Settings → Users; adopt in Studio → Projects
+- **Email notifications** — SMTP alerts for batch/campaign completion and password changes (Profile → Email)
 - **Workflow node auto-map** — suggested positive/negative bindings while editing workflow JSON
 - **Video prompt builder** — `/video` + `wan-video` / `hunyuan-video` model profiles
 - **Project bundles** — export/import project history + gallery JSON from Studio Projects tab
@@ -343,6 +359,16 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `COMFYUI_ALLOW_CLIENT_URL` | `true` | Allow clients to override ComfyUI URL |
 | `COMFYUI_ALLOWED_HOSTS` | _(empty)_ | Optional comma-separated ComfyUI host allowlist |
 | `WEBHOOK_ALLOW_PRIVATE` | `false` | Allow webhook POSTs to private/LAN URLs |
+| `PROMPT_EMAIL_ENABLED` | auto | Set `true` to force email on when SMTP is configured |
+| `PROMPT_SMTP_HOST` | _(empty)_ | SMTP server hostname |
+| `PROMPT_SMTP_PORT` | `587` | SMTP port |
+| `PROMPT_SMTP_SECURE` | `false` | Use TLS directly (typical for port 465) |
+| `PROMPT_SMTP_USER` | _(empty)_ | SMTP auth username |
+| `PROMPT_SMTP_PASS` | _(empty)_ | SMTP auth password |
+| `PROMPT_EMAIL_FROM` | _(empty)_ | From header, e.g. `Prompt Studio <noreply@example.com>` |
+| `PROMPT_ADMIN_EMAIL` | _(empty)_ | Fallback recipient for server batches when users have no email |
+| `PROMPT_EMAIL_NOTIFY_BATCH` | `true` | Send email when scheduled batches/campaigns finish |
+| `PROMPT_EMAIL_NOTIFY_PASSWORD` | `true` | Send email when a password is changed |
 
 ### Ollama (local, uncensored)
 

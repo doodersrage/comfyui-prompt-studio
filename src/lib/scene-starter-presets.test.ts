@@ -29,6 +29,11 @@ describe("scene starter presets", () => {
     assert.equal(isSportStarterPreset("gravel-duo-race"), true);
     assert.equal(isSportStarterPreset("neon-alley-rain"), false);
   });
+
+  it("has unique preset labels", () => {
+    const labels = SCENE_STARTER_PRESETS.map((preset) => preset.label.trim().toLowerCase());
+    assert.equal(labels.length, new Set(labels).size);
+  });
 });
 
 describe("scene starter filters", () => {

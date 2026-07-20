@@ -94,6 +94,7 @@ export default function GalleryFiltersBar({
     filter.semanticSearch,
     filter.reviewMode,
     filter.unreviewedOnly,
+    filter.reviewAutoAdvance,
   ].filter(Boolean).length;
 
   return (
@@ -255,6 +256,18 @@ export default function GalleryFiltersBar({
             })
           }
         />
+        {filter.reviewMode ? (
+          <FilterChip
+            active={Boolean(filter.reviewAutoAdvance)}
+            label="Auto-advance"
+            onClick={() =>
+              setFilter({
+                ...filter,
+                reviewAutoAdvance: filter.reviewAutoAdvance ? undefined : true,
+              })
+            }
+          />
+        ) : null}
         {slideshowAvailable && onStartSlideshow ? (
           <button type="button" onClick={onStartSlideshow} className="ui-btn-ghost ui-btn-sm text-xs">
             Slideshow
@@ -280,6 +293,7 @@ export default function GalleryFiltersBar({
                 semanticSearch: undefined,
                 reviewMode: undefined,
                 unreviewedOnly: undefined,
+                reviewAutoAdvance: undefined,
               })
             }
           >
@@ -293,6 +307,7 @@ export default function GalleryFiltersBar({
           Review shortcuts: <kbd className="rounded bg-zinc-900 px-1">1–5</kbd> rate ·{" "}
           <kbd className="rounded bg-zinc-900 px-1">F</kbd> favorite ·{" "}
           <kbd className="rounded bg-zinc-900 px-1">N</kbd>/<kbd className="rounded bg-zinc-900 px-1">P</kbd> navigate
+          {filter.reviewAutoAdvance ? " · auto-advance on" : ""}
         </p>
       ) : null}
     </div>

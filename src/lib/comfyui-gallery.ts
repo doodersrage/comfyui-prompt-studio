@@ -39,6 +39,7 @@ export type ComfyGalleryFilter = {
   projectId?: string;
   reviewMode?: boolean;
   unreviewedOnly?: boolean;
+  reviewAutoAdvance?: boolean;
 };
 
 export type ComfyGallerySort =
@@ -218,6 +219,8 @@ export function saveComfyGallery(entries: ComfyGalleryEntry[]): void {
   setGalleryCache(entries);
   notifyGalleryUpdated();
   scheduleUserAnalyticsSync();
+  void import("./auto-storage-sync").then(({ scheduleAutoPushStorage }) => scheduleAutoPushStorage());
+  void import("./tab-sync").then(({ broadcastTabSync }) => broadcastTabSync({ type: "gallery-updated" }));
   void initGalleryStore().then(() => persistGalleryCache());
 }
 
@@ -470,6 +473,19 @@ export function updateComfyGalleryEntryById(
   });
   if (!updated) {
     return null;
+  }
+  if (patch.status === "completed") {
+    const prior = entries.find((entry) => entry.id === id);
+    if (prior && prior.status !== "completed") {
+      void import("./notification-center").then(({ pushNotification }) =>
+        pushNotification({
+          title: "ComfyUI job completed",
+          body: updated!.prompt.slice(0, 80),
+          href: "/gallery",
+          kind: "job",
+        }),
+      );
+    }
   }
   saveComfyGallery(next);
   return updated;

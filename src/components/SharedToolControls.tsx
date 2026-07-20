@@ -5,6 +5,7 @@ import ComfyWorkflowSelector from "@/components/ComfyWorkflowSelector";
 import { useComfyWorkflowSelection } from "@/hooks/useComfyWorkflowSelection";
 import type { DetailLevel } from "@/lib/detail-level";
 import { getDetailLimits } from "@/lib/detail-level";
+import ModelRecommenderHints from "@/components/ModelRecommenderHints";
 import { getComfyModelDefinition } from "@/lib/comfy-models";
 import { patchSharedForModelChange } from "@/lib/model-workflow-map";
 import type { SharedToolSettings } from "@/lib/settings-cache";
@@ -35,6 +36,7 @@ type SharedToolControlsProps = {
   onWorkflowPresetChange?: (fileId: string | undefined) => void;
   activeCharacterDescriptor?: string;
   onActiveCharacterDescriptorChange?: (value: string) => void;
+  recommendFromText?: string;
 };
 
 export default function SharedToolControls({
@@ -58,6 +60,7 @@ export default function SharedToolControls({
   onWorkflowPresetChange,
   activeCharacterDescriptor,
   onActiveCharacterDescriptorChange,
+  recommendFromText,
 }: SharedToolControlsProps) {
   const selectedModel = getComfyModelDefinition(shared.model);
   const activeLimits = getDetailLimits(shared.detail, shared.model);
@@ -81,6 +84,20 @@ export default function SharedToolControls({
           }}
         />
       </div>
+
+      {recommendFromText ? (
+        <ModelRecommenderHints
+          text={recommendFromText}
+          currentModel={shared.model}
+          onApplyModel={(model) => {
+            onModelChange(model);
+            const patch = patchSharedForModelChange(model, shared);
+            if (patch.selectedWorkflowFileId && onWorkflowPresetChange) {
+              onWorkflowPresetChange(patch.selectedWorkflowFileId);
+            }
+          }}
+        />
+      ) : null}
 
       <FieldDivider />
 

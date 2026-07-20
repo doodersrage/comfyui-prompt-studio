@@ -516,11 +516,30 @@ const NON_SPORT_SCENE_STARTERS: readonly SceneStarterPreset[] = [
   },
 ];
 
-export const SCENE_STARTER_PRESETS: readonly SceneStarterPreset[] = [
+/** Drop duplicate labels; prefer curated presets over generated ones. */
+export function dedupeSceneStarterPresets(
+  presets: readonly SceneStarterPreset[],
+): SceneStarterPreset[] {
+  const byLabel = new Map<string, SceneStarterPreset>();
+  for (const preset of presets) {
+    const key = preset.label.trim().toLowerCase();
+    const existing = byLabel.get(key);
+    if (!existing) {
+      byLabel.set(key, preset);
+      continue;
+    }
+    if (existing.id.startsWith("gen-") && !preset.id.startsWith("gen-")) {
+      byLabel.set(key, preset);
+    }
+  }
+  return [...byLabel.values()];
+}
+
+export const SCENE_STARTER_PRESETS: readonly SceneStarterPreset[] = dedupeSceneStarterPresets([
   ...SPORT_PRESETS.map(fromSportPreset).map(withSceneStarterTags),
   ...NON_SPORT_SCENE_STARTERS.map(withSceneStarterTags),
   ...buildGeneratedSceneStarters().map(withSceneStarterTags),
-];
+]);
 
 export function getSceneStarterPreset(id: string): SceneStarterPreset | undefined {
   return SCENE_STARTER_PRESETS.find((preset) => preset.id === id);

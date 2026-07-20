@@ -29,6 +29,10 @@ export type AuthUser = {
   exportEnabled?: boolean;
   totpSecret?: string;
   totpEnabled?: boolean;
+  /** Optional address for batch and security notifications. */
+  email?: string;
+  emailNotifyBatch?: boolean;
+  emailNotifySecurity?: boolean;
 };
 
 export type AuthGroup = {

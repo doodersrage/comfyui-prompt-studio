@@ -1,4 +1,4 @@
-import { runServerScheduledBatch } from "@/lib/server-scheduled-batch";
+import { runServerScheduledBatch, notifyServerScheduledBatchComplete } from "@/lib/server-scheduled-batch";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 import type { ScheduledBatchConfig } from "@/lib/scheduled-batch";
 
@@ -8,6 +8,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => ({}))) as Partial<ScheduledBatchConfig>;
     const result = await runServerScheduledBatch(body);
+    void notifyServerScheduledBatchComplete(result);
     return apiJson({ ok: true, ...result });
   } catch (error) {
     return apiError(

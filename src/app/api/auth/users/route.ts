@@ -10,6 +10,7 @@ import {
   upsertUser,
 } from "@/lib/auth/store";
 import type { UserScheduledCampaign } from "@/lib/auth/types";
+import { notifyPasswordChanged } from "@/lib/email/notifications";
 
 export const runtime = "nodejs";
 
@@ -54,6 +55,9 @@ export async function POST(request: Request) {
     quotaMaxPerMinute?: number;
     scheduledCampaign?: UserScheduledCampaign;
     exportEnabled?: boolean;
+    email?: string;
+    emailNotifyBatch?: boolean;
+    emailNotifySecurity?: boolean;
   };
 
   try {
@@ -80,7 +84,11 @@ export async function POST(request: Request) {
       quotaMaxPerMinute: body.quotaMaxPerMinute,
       scheduledCampaign: body.scheduledCampaign,
       exportEnabled: body.exportEnabled,
+      email: body.email,
+      emailNotifyBatch: body.emailNotifyBatch,
+      emailNotifySecurity: body.emailNotifySecurity,
     });
+    const passwordChanged = Boolean(body.password?.trim());
     appendAuditLog({
       actorUserId: admin.user.id,
       actorUsername: admin.user.username,
@@ -88,6 +96,21 @@ export async function POST(request: Request) {
       target: user.id,
       details: user.username,
     });
+    if (passwordChanged) {
+      appendAuditLog({
+        actorUserId: admin.user.id,
+        actorUsername: admin.user.username,
+        action: "password.changed",
+        target: user.id,
+        details: "admin reset",
+      });
+      void notifyPasswordChanged({
+        userId: user.id,
+        username: user.username,
+        changedBy: "admin",
+        adminUsername: admin.user.username,
+      });
+    }
     return apiJson({ user });
   } catch (error) {
     return apiError(error instanceof Error ? error.message : "Failed to save user.", 400);

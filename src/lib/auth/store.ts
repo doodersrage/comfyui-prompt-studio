@@ -219,6 +219,9 @@ export function upsertUser(input: {
   quotaMaxPerMinute?: number;
   scheduledCampaign?: AuthUser["scheduledCampaign"];
   exportEnabled?: boolean;
+  email?: string;
+  emailNotifyBatch?: boolean;
+  emailNotifySecurity?: boolean;
 }): AuthUserPublic {
   const { users } = ensureAuthStore();
   const now = Date.now();
@@ -245,6 +248,9 @@ export function upsertUser(input: {
         : undefined,
     scheduledCampaign: input.scheduledCampaign ?? existing?.scheduledCampaign,
     exportEnabled: input.exportEnabled ?? existing?.exportEnabled,
+    email: input.email?.trim() || existing?.email,
+    emailNotifyBatch: input.emailNotifyBatch ?? existing?.emailNotifyBatch,
+    emailNotifySecurity: input.emailNotifySecurity ?? existing?.emailNotifySecurity,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -393,6 +399,9 @@ export function updateUserProfile(
     exportEnabled?: boolean;
     totpSecret?: string;
     totpEnabled?: boolean;
+    email?: string;
+    emailNotifyBatch?: boolean;
+    emailNotifySecurity?: boolean;
   },
 ): AuthUserPublic {
   const { users } = ensureAuthStore();
@@ -425,6 +434,15 @@ export function updateUserProfile(
   }
   if (input.totpEnabled !== undefined) {
     next.totpEnabled = input.totpEnabled;
+  }
+  if (input.email !== undefined) {
+    next.email = input.email.trim() || undefined;
+  }
+  if (input.emailNotifyBatch !== undefined) {
+    next.emailNotifyBatch = input.emailNotifyBatch;
+  }
+  if (input.emailNotifySecurity !== undefined) {
+    next.emailNotifySecurity = input.emailNotifySecurity;
   }
 
   users.users[index] = next;

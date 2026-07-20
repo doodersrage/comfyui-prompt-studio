@@ -28,6 +28,7 @@ import {
   type WorkflowPresetPack,
 } from "@/lib/workflow-preset-packs";
 import { suggestWorkflowNodeMappings } from "@/lib/workflow-node-mapper";
+import { markOnboardingWorkflowImported } from "@/lib/onboarding-hooks";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import type { ServerWorkflowOption } from "@/hooks/useComfyWorkflowSelection";
 import { Button } from "@/components/ui/Button";
@@ -112,6 +113,7 @@ export default function ComfyWorkflowLibraryPanel({
         onStatus?.(
           `Imported “${saved.filename ?? saved.name}” · ${validation.placeholders?.positive ?? 0}× ${placeholderTokens.positive}`,
         );
+        markOnboardingWorkflowImported();
       } catch (err) {
         onStatus?.(err instanceof Error ? err.message : "Import failed.");
       }

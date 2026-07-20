@@ -9,6 +9,7 @@ import {
   updateUserProfile,
 } from "@/lib/auth/store";
 import type { UserScheduledCampaign } from "@/lib/auth/types";
+import { notifyPasswordChanged } from "@/lib/email/notifications";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,9 @@ export async function PATCH(request: Request) {
     comfyUiUrl?: string;
     scheduledCampaign?: UserScheduledCampaign;
     exportEnabled?: boolean;
+    email?: string;
+    emailNotifyBatch?: boolean;
+    emailNotifySecurity?: boolean;
   };
 
   try {
@@ -71,6 +75,11 @@ export async function PATCH(request: Request) {
         actorUsername: resolved.user.username,
         action: "password.changed",
         target: resolved.user.id,
+      });
+      void notifyPasswordChanged({
+        userId: resolved.user.id,
+        username: resolved.user.username,
+        changedBy: "self",
       });
     }
     return apiJson({ user });

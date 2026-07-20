@@ -7,6 +7,7 @@ import {
 } from "./llm-client";
 import { isQueueArtifactExportEnabled } from "./queue-artifacts";
 import { isServerStorageEnabled } from "./server-storage";
+import { getEmailConfig, isEmailConfigured } from "./email/config";
 
 export type ServerEnvField = {
   key: string;
@@ -18,7 +19,7 @@ export type ServerEnvField = {
 };
 
 export type ServerEnvGroup = {
-  id: "llm" | "comfyui" | "security" | "storage";
+  id: "llm" | "comfyui" | "security" | "storage" | "email";
   title: string;
   fields: ServerEnvField[];
 };
@@ -45,6 +46,7 @@ export function getServerEnvSummary(): ServerEnvSummary {
     comfyUrl = "";
   }
 
+  const email = getEmailConfig();
   const groups: ServerEnvGroup[] = [
     {
       id: "llm",
@@ -230,6 +232,50 @@ export function getServerEnvSummary(): ServerEnvSummary {
           configured: isServerStorageEnabled(),
           uiOverride: "Settings → Data → storage sync (when enabled)",
           hint: "Enables browser ↔ server backup of settings, history, and gallery.",
+        },
+      ],
+    },
+    {
+      id: "email",
+      title: "Email (SMTP)",
+      fields: [
+        {
+          key: "PROMPT_EMAIL_ENABLED",
+          label: "Email enabled",
+          value: email.enabled ? "true" : "false",
+          configured: isEmailConfigured(),
+          hint: "Auto-enabled when SMTP host and from address are set.",
+        },
+        {
+          key: "PROMPT_SMTP_HOST",
+          label: "SMTP host",
+          value: email.smtp.host || "not set",
+          configured: flag(email.smtp.host),
+        },
+        {
+          key: "PROMPT_EMAIL_FROM",
+          label: "From address",
+          value: email.from || "not set",
+          configured: flag(email.from),
+        },
+        {
+          key: "PROMPT_ADMIN_EMAIL",
+          label: "Admin fallback email",
+          value: email.adminEmail ?? "not set",
+          configured: flag(email.adminEmail),
+          hint: "Used when a user has no email on file.",
+        },
+        {
+          key: "PROMPT_EMAIL_NOTIFY_BATCH",
+          label: "Notify on batch completion",
+          value: email.notifyBatch ? "true" : "false",
+          configured: true,
+        },
+        {
+          key: "PROMPT_EMAIL_NOTIFY_PASSWORD",
+          label: "Notify on password change",
+          value: email.notifyPassword ? "true" : "false",
+          configured: true,
         },
       ],
     },

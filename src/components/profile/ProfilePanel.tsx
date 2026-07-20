@@ -7,6 +7,8 @@ import { TextInput } from "@/components/ui/Field";
 import { ToolSection } from "@/components/ui/ToolPageShell";
 import type { UserScheduledCampaign } from "@/lib/auth/types";
 import ProfileSecurityPanel from "@/components/profile/ProfileSecurityPanel";
+import ProfileAppearancePanel from "@/components/profile/ProfileAppearancePanel";
+import ProfileBackupPanel from "@/components/profile/ProfileBackupPanel";
 import type { SharedPresetEntry } from "@/lib/shared-preset-store";
 
 const DEFAULT_CAMPAIGN: UserScheduledCampaign = {
@@ -24,6 +26,9 @@ export default function ProfilePanel() {
   const [comfyUiUrl, setComfyUiUrl] = useState("");
   const [campaign, setCampaign] = useState<UserScheduledCampaign>(DEFAULT_CAMPAIGN);
   const [exportEnabled, setExportEnabled] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailNotifyBatch, setEmailNotifyBatch] = useState(true);
+  const [emailNotifySecurity, setEmailNotifySecurity] = useState(true);
   const [sharedPresets, setSharedPresets] = useState<SharedPresetEntry[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,6 +40,9 @@ export default function ProfilePanel() {
         comfyUiUrl?: string;
         scheduledCampaign?: UserScheduledCampaign;
         exportEnabled?: boolean;
+        email?: string;
+        emailNotifyBatch?: boolean;
+        emailNotifySecurity?: boolean;
       };
       error?: string;
     };
@@ -42,6 +50,9 @@ export default function ProfilePanel() {
       setComfyUiUrl(data.user.comfyUiUrl ?? "");
       setCampaign(data.user.scheduledCampaign ?? DEFAULT_CAMPAIGN);
       setExportEnabled(Boolean(data.user.exportEnabled));
+      setEmail(data.user.email ?? "");
+      setEmailNotifyBatch(data.user.emailNotifyBatch !== false);
+      setEmailNotifySecurity(data.user.emailNotifySecurity !== false);
     }
   }, []);
 
@@ -66,6 +77,9 @@ export default function ProfilePanel() {
           comfyUiUrl,
           scheduledCampaign: campaign,
           exportEnabled,
+          email,
+          emailNotifyBatch,
+          emailNotifySecurity,
         }),
       });
       const data = (await response.json()) as { error?: string };
@@ -130,6 +144,42 @@ export default function ProfilePanel() {
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="new-password"
             />
+          </label>
+        </div>
+      </ToolSection>
+
+      <ToolSection title="Email notifications">
+        <p className="mb-3 text-sm text-zinc-400">
+          Optional address for batch completion and password-change alerts when SMTP is configured on the server.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-2 text-sm sm:col-span-2">
+            <span className="type-caption text-zinc-500">Email</span>
+            <TextInput
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={emailNotifyBatch}
+              onChange={(event) => setEmailNotifyBatch(event.target.checked)}
+              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            />
+            Batch & campaign completion
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={emailNotifySecurity}
+              onChange={(event) => setEmailNotifySecurity(event.target.checked)}
+              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            />
+            Password & security updates
           </label>
         </div>
       </ToolSection>
@@ -212,6 +262,20 @@ export default function ProfilePanel() {
             />
             Auto-queue to ComfyUI
           </label>
+          <label className="space-y-2 text-sm">
+            <span className="type-caption text-zinc-500">Best-of-N rank (optional)</span>
+            <TextInput
+              type="number"
+              value={campaign.bestOfN ? String(campaign.bestOfN) : ""}
+              onChange={(event) =>
+                setCampaign((prev) => ({
+                  ...prev,
+                  bestOfN: event.target.value ? Math.max(2, Number(event.target.value)) : undefined,
+                }))
+              }
+              placeholder="e.g. 3"
+            />
+          </label>
         </div>
       </ToolSection>
 
@@ -254,6 +318,8 @@ export default function ProfilePanel() {
         </ToolSection>
       ) : null}
 
+      <ProfileAppearancePanel />
+      <ProfileBackupPanel />
       <ProfileSecurityPanel />
 
       <Button type="button" disabled={loading} onClick={() => void saveProfile()}>

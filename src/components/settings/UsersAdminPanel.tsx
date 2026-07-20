@@ -5,6 +5,7 @@ import { APP_FEATURES, ALL_FEATURE_IDS, type AppFeatureId } from "@/lib/auth/fea
 import type { AuthGroup, AuthUserPublic } from "@/lib/auth/types";
 import type { AuditLogEntry } from "@/lib/auth/audit-log";
 import type { SharedPresetEntry } from "@/lib/shared-preset-store";
+import type { SharedProject } from "@/lib/shared-projects-store";
 import type { UserAnalyticsSnapshot } from "@/lib/user-analytics";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
@@ -107,6 +108,12 @@ export default function UsersAdminPanel() {
     hints: "",
     category: "",
   });
+  const [sharedProjects, setSharedProjects] = useState<SharedProject[]>([]);
+  const [sharedProjectDraft, setSharedProjectDraft] = useState({
+    name: "",
+    notes: "",
+    groupIds: [] as string[],
+  });
   const [status, setStatus] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -120,6 +127,9 @@ export default function UsersAdminPanel() {
     enabled: true,
     quotaMaxPerMinute: "",
     exportEnabled: false,
+    email: "",
+    emailNotifyBatch: true,
+    emailNotifySecurity: true,
   });
 
   const [groupForm, setGroupForm] = useState({
@@ -152,13 +162,14 @@ export default function UsersAdminPanel() {
   }
 
   const refresh = useCallback(async () => {
-    const [usersResponse, groupsResponse, analyticsResponse, auditResponse, presetsResponse] =
+    const [usersResponse, groupsResponse, analyticsResponse, auditResponse, presetsResponse, projectsResponse] =
       await Promise.all([
       fetch("/api/auth/users"),
       fetch("/api/auth/groups"),
       fetch("/api/auth/analytics"),
       fetch("/api/auth/audit"),
       fetch("/api/shared-presets"),
+      fetch("/api/shared-projects"),
     ]);
     const usersData = (await usersResponse.json()) as { users?: AuthUserPublic[]; error?: string };
     const groupsData = (await groupsResponse.json()) as { groups?: AuthGroup[]; error?: string };
@@ -169,6 +180,7 @@ export default function UsersAdminPanel() {
     };
     const auditData = (await auditResponse.json()) as { entries?: AuditLogEntry[] };
     const presetsData = (await presetsResponse.json()) as { presets?: SharedPresetEntry[] };
+    const projectsData = (await projectsResponse.json()) as { projects?: SharedProject[] };
     if (!usersResponse.ok) {
       throw new Error(usersData.error ?? "Failed to load users.");
     }
@@ -186,6 +198,7 @@ export default function UsersAdminPanel() {
     }
     setAuditEntries(auditResponse.ok ? auditData.entries ?? [] : []);
     setSharedPresets(presetsData.presets ?? []);
+    setSharedProjects(projectsData.projects ?? []);
   }, []);
 
   useEffect(() => {
@@ -205,6 +218,9 @@ export default function UsersAdminPanel() {
         enabled: true,
         quotaMaxPerMinute: "",
         exportEnabled: false,
+        email: "",
+        emailNotifyBatch: true,
+        emailNotifySecurity: true,
       });
       return;
     }
@@ -219,6 +235,9 @@ export default function UsersAdminPanel() {
         ? String(selectedUser.quotaMaxPerMinute)
         : "",
       exportEnabled: Boolean(selectedUser.exportEnabled),
+      email: selectedUser.email ?? "",
+      emailNotifyBatch: selectedUser.emailNotifyBatch !== false,
+      emailNotifySecurity: selectedUser.emailNotifySecurity !== false,
     });
   }, [selectedUser]);
 
@@ -570,6 +589,106 @@ export default function UsersAdminPanel() {
         </ul>
       </ToolSection>
 
+      <ToolSection title="Shared projects">
+        <p className="mb-3 text-sm text-zinc-400">
+          Assign group-scoped campaign projects. Members see these in Studio → Projects.
+        </p>
+        <div className="mb-3 grid gap-3 sm:grid-cols-2">
+          <TextInput
+            value={sharedProjectDraft.name}
+            onChange={(event) =>
+              setSharedProjectDraft((prev) => ({ ...prev, name: event.target.value }))
+            }
+            placeholder="Project name"
+          />
+          <TextInput
+            value={sharedProjectDraft.notes}
+            onChange={(event) =>
+              setSharedProjectDraft((prev) => ({ ...prev, notes: event.target.value }))
+            }
+            placeholder="Notes (optional)"
+          />
+        </div>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {groups.map((group) => {
+            const active = sharedProjectDraft.groupIds.includes(group.id);
+            return (
+              <button
+                key={group.id}
+                type="button"
+                onClick={() =>
+                  setSharedProjectDraft((prev) => ({
+                    ...prev,
+                    groupIds: active
+                      ? prev.groupIds.filter((id) => id !== group.id)
+                      : [...prev.groupIds, group.id],
+                  }))
+                }
+                className={`rounded-full border px-3 py-1 text-xs transition ${
+                  active
+                    ? "border-violet-500/40 bg-violet-500/15 text-violet-100"
+                    : "border-zinc-700/80 text-zinc-400 hover:border-zinc-600"
+                }`}
+              >
+                {group.name}
+              </button>
+            );
+          })}
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          className="mb-4"
+          disabled={!sharedProjectDraft.name.trim()}
+          onClick={() => {
+            void fetch("/api/shared-projects", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(sharedProjectDraft),
+            }).then(() => {
+              setSharedProjectDraft({ name: "", notes: "", groupIds: [] });
+              void refresh();
+            });
+          }}
+        >
+          Publish project
+        </Button>
+        <ul className="space-y-2">
+          {sharedProjects.map((project) => (
+            <li
+              key={project.id}
+              className="flex items-start justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-sm"
+            >
+              <div>
+                <p className="font-medium text-zinc-100">{project.name}</p>
+                {project.notes ? <p className="text-xs text-zinc-500">{project.notes}</p> : null}
+                <p className="mt-1 text-[10px] text-zinc-600">
+                  Groups:{" "}
+                  {project.groupIds.length > 0
+                    ? project.groupIds
+                        .map((groupId) => groups.find((group) => group.id === groupId)?.name ?? groupId)
+                        .join(", ")
+                    : "all (none selected)"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="text-xs text-rose-300"
+                onClick={() => {
+                  void fetch("/api/shared-projects", {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: project.id }),
+                  }).then(() => void refresh());
+                }}
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      </ToolSection>
+
       <ToolSection title="Audit log">
         {auditEntries.length === 0 ? (
           <p className="text-sm text-zinc-500">No admin actions logged yet.</p>
@@ -638,6 +757,37 @@ export default function UsersAdminPanel() {
                   value={userForm.password}
                   onChange={(event) => setUserForm((prev) => ({ ...prev, password: event.target.value }))}
                 />
+              </label>
+              <label className="space-y-2 text-sm sm:col-span-2">
+                <span className="type-caption text-zinc-500">Email</span>
+                <TextInput
+                  type="email"
+                  value={userForm.email}
+                  onChange={(event) => setUserForm((prev) => ({ ...prev, email: event.target.value }))}
+                  placeholder="Optional notification address"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={userForm.emailNotifyBatch}
+                  onChange={(event) =>
+                    setUserForm((prev) => ({ ...prev, emailNotifyBatch: event.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                />
+                Email on batch completion
+              </label>
+              <label className="flex items-center gap-2 text-sm text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={userForm.emailNotifySecurity}
+                  onChange={(event) =>
+                    setUserForm((prev) => ({ ...prev, emailNotifySecurity: event.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                />
+                Email on password change
               </label>
               <label className="space-y-2 text-sm">
                 <span className="type-caption text-zinc-500">Role</span>

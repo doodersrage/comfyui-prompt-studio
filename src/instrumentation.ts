@@ -14,7 +14,7 @@ export async function register() {
     void (async () => {
       try {
         const { runServerScheduledBatch } = await import("@/lib/server-scheduled-batch");
-        await runServerScheduledBatch({
+        const result = await runServerScheduledBatch({
           enabled: true,
           intervalMinutes,
           target:
@@ -25,6 +25,10 @@ export async function register() {
           autoQueueComfyUi: process.env.SERVER_SCHEDULED_BATCH_QUEUE === "true",
           genre: process.env.SERVER_SCHEDULED_BATCH_GENRE,
         });
+        const { notifyServerScheduledBatchComplete } = await import(
+          "@/lib/server-scheduled-batch"
+        );
+        void notifyServerScheduledBatchComplete(result);
       } catch (error) {
         console.error("[server-scheduled-batch]", error);
       }

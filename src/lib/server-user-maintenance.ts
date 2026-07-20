@@ -1,5 +1,5 @@
 import { listUsersWithCampaigns, updateUserProfile } from "./auth/store";
-import { runServerScheduledBatch } from "./server-scheduled-batch";
+import { runUserCampaignWithBestOfN } from "./best-of-n-server";
 import {
   readUserServerStorage,
   writeUserExportSnapshot,
@@ -27,16 +27,30 @@ export async function runServerUserMaintenance(): Promise<{
       continue;
     }
 
-    await runServerScheduledBatch({
-      target: campaign.target,
-      count: campaign.count,
-      autoQueueComfyUi: campaign.autoQueueComfyUi,
+    const result = await runUserCampaignWithBestOfN(campaign);
+    writeUserExportSnapshot(user.id, user.username, {
+      type: "campaign-run",
+      exportedAt: Date.now(),
+      prompts: result.prompts,
+      queued: result.queued,
+      ranked: result.ranked,
+      bestOfN: campaign.bestOfN,
     });
 
     updateUserProfile(user.id, {
       scheduledCampaign: { ...campaign, lastRunAt: Date.now() },
     });
     campaignsRun += 1;
+
+    const { notifyBatchCompleted } = await import("./email/notifications");
+    await notifyBatchCompleted({
+      userId: user.id,
+      username: user.username,
+      kind: "user-campaign",
+      promptCount: result.prompts.length,
+      queued: result.queued,
+      ranked: result.ranked,
+    });
   }
 
   const { listUsers } = await import("./auth/store");

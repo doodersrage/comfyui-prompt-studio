@@ -37,6 +37,7 @@ import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { runWorkflowPreflight } from "@/lib/workflow-preflight";
 import { dispatchWebhook } from "@/lib/webhook-settings";
+import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
 import {
   formatComfyUiJobStatusLine,
   type ComfyUiJobTrackerState,
@@ -428,6 +429,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             historyId: resolvedHistoryId,
             queueParams,
           });
+          markOnboardingFirstQueue();
           void dispatchWebhook({
             event: "comfyui.job.queued",
             promptId: data.promptId,

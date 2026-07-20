@@ -4,6 +4,7 @@ import { getComfyUiBaseUrl } from "@/lib/comfyui-client";
 import { getComfyUiWorkflowSummary } from "@/lib/comfyui-status";
 import { summarizeApiUsage } from "@/lib/api-usage-log";
 import { isServerStorageEnabled } from "@/lib/server-storage";
+import { isEmailConfigured } from "@/lib/email/mailer";
 import {
   stripEmptyComfyUiRuntime,
   type ComfyUiRuntimeConfig,
@@ -55,6 +56,7 @@ export async function GET(request: Request) {
     workflow,
     apiUsage: summarizeApiUsage(),
     storage: { enabled: isServerStorageEnabled() },
+    email: { configured: isEmailConfigured() },
     auth: getAuthBootstrapInfo(),
     config: {
       llmEnabled: isLlmEnabled(),

@@ -72,6 +72,7 @@ import {
   accentRingClass,
 } from "@/components/ui/ToolPageShell";
 import { ChipButton, FieldDivider, FieldError, FieldLabel, TextArea, TextInput } from "@/components/ui/Field";
+import { markOnboardingFirstGenerate } from "@/lib/onboarding-hooks";
 import { Button, PrimaryButton } from "@/components/ui/Button";
 
 const ACCENT = "violet" as const;
@@ -314,6 +315,7 @@ export default function PromptGenerator() {
         comfyNode: data.comfyNode ?? selectedModel.comfyNode,
         limits: data.limits ?? activeLimits,
       });
+      markOnboardingFirstGenerate();
     } catch (err) {
       setOutput("");
       setRandomResult(null);
@@ -411,6 +413,7 @@ export default function PromptGenerator() {
         comfyNode: data.comfyNode,
         limits: data.limits,
       });
+      markOnboardingFirstGenerate();
     } catch (err) {
       setOutput("");
       setProvider(null);
@@ -479,6 +482,7 @@ export default function PromptGenerator() {
           }
           autoFixRules={autoFixRules}
           onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          recommendFromText={input || output}
         />
       }
     >

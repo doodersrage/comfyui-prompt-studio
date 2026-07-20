@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { featureForPath } from "@/lib/auth/features";
 import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
+import NotificationBell from "@/components/NotificationBell";
 
 type NavLink = {
   href: string;
@@ -154,6 +155,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="border-t border-[var(--border-subtle)] px-2 pt-4 space-y-3">
+        <div className="flex justify-end px-1">
+          <NotificationBell />
+        </div>
         {authEnabled && user ? (
           <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-3">
             <p className="text-sm font-medium text-zinc-100">{user.username}</p>

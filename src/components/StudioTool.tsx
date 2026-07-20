@@ -268,6 +268,9 @@ export default function StudioTool() {
   const [activeProjectId, setActiveProjectIdState] = useState<string | undefined>();
   const [projectName, setProjectName] = useState("");
   const [projectNotes, setProjectNotes] = useState("");
+  const [sharedProjects, setSharedProjects] = useState<
+    Array<{ id: string; name: string; notes?: string }>
+  >([]);
   const [presetPackName, setPresetPackName] = useState("");
   const [sceneStarterPackName, setSceneStarterPackName] = useState("");
   const [userSceneStarters, setUserSceneStarters] = useState<UserSceneStarterPreset[]>(
@@ -425,6 +428,18 @@ export default function StudioTool() {
     setProjects(loadPromptProjects());
     setActiveProjectIdState(loadActiveProjectId());
   }, []);
+
+  useEffect(() => {
+    if (tab !== "projects") {
+      return;
+    }
+    void fetch("/api/shared-projects")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { projects?: Array<{ id: string; name: string; notes?: string }> } | null) => {
+        setSharedProjects(data?.projects ?? []);
+      })
+      .catch(() => setSharedProjects([]));
+  }, [tab]);
 
   useEffect(() => {
     const refreshAnalytics = () => setGalleryRevision((previous) => previous + 1);
@@ -1560,6 +1575,43 @@ export default function StudioTool() {
             Group history and gallery jobs under named campaigns. Set an active project to
             filter Studio history.
           </p>
+          {sharedProjects.length > 0 ? (
+            <div className="mb-4 space-y-2 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
+              <p className="type-caption text-violet-200/80">Shared team projects</p>
+              <ul className="space-y-2">
+                {sharedProjects.map((project) => (
+                  <li
+                    key={project.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800/60 bg-zinc-950/30 px-3 py-2 text-sm"
+                  >
+                    <div>
+                      <p className="font-medium text-zinc-100">{project.name}</p>
+                      {project.notes ? (
+                        <p className="text-xs text-zinc-500">{project.notes}</p>
+                      ) : null}
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        const local = upsertPromptProject({
+                          id: `shared-${project.id}`,
+                          name: project.name,
+                          notes: project.notes,
+                        });
+                        setProjects(loadPromptProjects());
+                        setActiveProjectIdState(local.id);
+                        setActiveProjectId(local.id);
+                        setBackupStatus(`Adopted shared project “${project.name}”.`);
+                      }}
+                    >
+                      Adopt as local
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               value={projectName}

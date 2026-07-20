@@ -75,6 +75,8 @@ export function savePromptHistoryStore(entries: PromptHistoryEntry[]): void {
   }));
 
   writeBrowserValue(historyKey(), stamped);
+  void import("./auto-storage-sync").then(({ scheduleAutoPushStorage }) => scheduleAutoPushStorage());
+  void import("./tab-sync").then(({ broadcastTabSync }) => broadcastTabSync({ type: "history-updated" }));
 }
 
 export function appendPromptHistoryEntry(

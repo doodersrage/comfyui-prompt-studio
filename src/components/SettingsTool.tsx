@@ -76,6 +76,10 @@ import ComfyUiGalleryPanel from "@/components/ComfyUiGalleryPanel";
 import ComfyWorkflowLibraryPanel from "@/components/ComfyWorkflowLibraryPanel";
 import WorkflowDiffPanel from "@/components/settings/WorkflowDiffPanel";
 import SettingsAdvancedPanel from "@/components/SettingsAdvancedPanel";
+import {
+  markOnboardingComfyHealthOk,
+  markOnboardingLlmHealthOk,
+} from "@/lib/onboarding-hooks";
 import SettingsSubNav from "@/components/settings/SettingsSubNav";
 import UsersSettingsPanel from "@/components/settings/UsersSettingsPanel";
 import ServerEnvPanel from "@/components/settings/ServerEnvPanel";
@@ -322,7 +326,14 @@ export default function SettingsTool() {
       }
       const query = params.toString();
       const response = await fetch(query ? `/api/health?${query}` : "/api/health");
-      setHealth((await response.json()) as HealthResponse);
+      const healthData = (await response.json()) as HealthResponse;
+      setHealth(healthData);
+      if (healthData.llm?.ok) {
+        markOnboardingLlmHealthOk();
+      }
+      if (healthData.comfyui?.ok) {
+        markOnboardingComfyHealthOk();
+      }
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Health check failed.");
     } finally {

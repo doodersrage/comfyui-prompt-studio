@@ -52,6 +52,16 @@ export function noteScheduledBatchJobComplete(tool?: string): void {
       completedAt: Date.now(),
       message: `Scheduled batch ${tracker.batchId} finished (${tracker.total} jobs)`,
     });
+    void fetch("/api/email/batch-completed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "client-scheduled",
+        promptCount: tracker.total,
+        queued: tracker.total,
+        message: `Batch ${tracker.batchId} finished`,
+      }),
+    });
   } catch {
     window.sessionStorage.removeItem(TRACKER_KEY);
   }

@@ -18,12 +18,13 @@
     "clothing:generate": "node scripts/generate-clothing.mjs --add 500",
     "clothing:generate:dry": "node scripts/generate-clothing.mjs --add 500 --dry-run",
     "prompt:cli": "node scripts/qwen-prompt.mjs",
-    "test": "node --import tsx --test src/lib/clothing-wardrobe.test.ts src/lib/prompt-tools.test.ts src/lib/url-safety.test.ts src/lib/feature-utils.test.ts src/lib/tier1-features.test.ts src/lib/tier2-4-features.test.ts src/lib/image-prompt-presets.test.ts src/lib/history-hint-seed.test.ts src/lib/scene-starter-presets.test.ts src/lib/use-as-hints-url.test.ts src/lib/user-scene-starter-presets.test.ts src/lib/gallery-stats.test.ts src/lib/auth/access.test.ts src/lib/auth/store-sync.test.ts src/lib/user-analytics.test.ts",
+    "test": "node --import tsx --test src/lib/clothing-wardrobe.test.ts src/lib/prompt-tools.test.ts src/lib/url-safety.test.ts src/lib/feature-utils.test.ts src/lib/tier1-features.test.ts src/lib/tier2-4-features.test.ts src/lib/image-prompt-presets.test.ts src/lib/history-hint-seed.test.ts src/lib/scene-starter-presets.test.ts src/lib/use-as-hints-url.test.ts src/lib/user-scene-starter-presets.test.ts src/lib/gallery-stats.test.ts src/lib/auth/access.test.ts src/lib/auth/store-sync.test.ts src/lib/user-analytics.test.ts src/lib/email/config.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
     "dexie": "^4.4.4",
     "next": "^16.2.10",
+    "nodemailer": "^9.0.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
@@ -31,6 +32,7 @@
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.20.1",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.5",

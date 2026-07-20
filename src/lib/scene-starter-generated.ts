@@ -171,7 +171,7 @@ export function buildGeneratedSceneStarters(): SceneStarterPreset[] {
       },
     ],
     ({ biome, weather }) => ({
-      label: `${titleCase(biome)}`,
+      label: `${titleCase(biome)} · ${titleCase(weather)}`,
       hints: `${biome} ${weather}, rich natural textures, layered depth, crisp environmental detail`,
       portraitStyle: "full-body",
       tags: ["outdoor"],
@@ -207,7 +207,7 @@ export function buildGeneratedSceneStarters(): SceneStarterPreset[] {
       },
     ],
     ({ activity, mood }) => ({
-      label: titleCase(activity),
+      label: `${titleCase(activity)} · ${titleCase(mood)}`,
       hints: `person ${activity}, ${mood}, authentic candid moment, warm natural light`,
       portraitStyle: "portrait",
       tags: ["candid", "indoor"],
@@ -243,7 +243,7 @@ export function buildGeneratedSceneStarters(): SceneStarterPreset[] {
       },
     ],
     ({ style, set }) => ({
-      label: `${titleCase(style)}`,
+      label: `${titleCase(style)} · ${titleCase(set)}`,
       hints: `fashion editorial, ${style} on ${set}, confident pose, polished styling, magazine-ready framing`,
       portraitStyle: "full-body",
       tags: ["editorial", "studio"],
@@ -279,7 +279,7 @@ export function buildGeneratedSceneStarters(): SceneStarterPreset[] {
       },
     ],
     ({ world, element }) => ({
-      label: titleCase(world),
+      label: `${titleCase(world)} · ${titleCase(element)}`,
       hints: `${world} ${element}, futuristic materials, cinematic sci-fi scale, detailed atmosphere`,
       portraitStyle: "full-body",
       tags: ["moody", "outdoor"],
@@ -315,7 +315,7 @@ export function buildGeneratedSceneStarters(): SceneStarterPreset[] {
       },
     ],
     ({ space, moment }) => ({
-      label: titleCase(space),
+      label: `${titleCase(space)} · ${titleCase(moment)}`,
       hints: `${space} ${moment}, intimate hygge mood, tactile textures, warm inviting light`,
       tags: ["cozy", "indoor"],
     }),
@@ -350,7 +350,7 @@ export function buildGeneratedSceneStarters(): SceneStarterPreset[] {
       },
     ],
     ({ scene, tone }) => ({
-      label: titleCase(scene),
+      label: `${titleCase(scene)} · ${titleCase(tone)}`,
       hints: `two people ${scene}, ${tone}, balanced interaction, natural body language, cinematic framing`,
       portraitStyle: "portrait",
       duo: true,
@@ -387,7 +387,7 @@ export function buildGeneratedSceneStarters(): SceneStarterPreset[] {
       },
     ],
     ({ sport, beat }) => ({
-      label: titleCase(sport),
+      label: `${titleCase(sport)} · ${titleCase(beat)}`,
       hints: `${sport} ${beat}, dynamic sports photography, muscle tension, environmental context`,
       portraitStyle: "action",
       tags: ["action", "outdoor"],

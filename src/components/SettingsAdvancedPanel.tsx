@@ -5,6 +5,9 @@ import { ToolSection } from "@/components/ui/ToolPageShell";
 import { Button } from "@/components/ui/Button";
 import { syncNamespaceToServer, pullNamespaceFromServer } from "@/lib/storage-sync";
 import ObservabilityDashboard from "@/components/ObservabilityDashboard";
+import PromptRecipesPanel from "@/components/settings/PromptRecipesPanel";
+import NegativeLearnerPanel from "@/components/settings/NegativeLearnerPanel";
+import ModelShootoutPanel from "@/components/settings/ModelShootoutPanel";
 import { loadSettingsCache, saveSettingsCache, type SettingsCache } from "@/lib/settings-cache";
 import { initAppDb } from "@/lib/app-db-init";
 import {
@@ -181,6 +184,10 @@ export default function SettingsAdvancedPanel() {
       </ToolSection>
 
       <ObservabilityDashboard />
+
+      <PromptRecipesPanel />
+      <NegativeLearnerPanel />
+      <ModelShootoutPanel />
 
       {status ? <p className="text-sm text-emerald-400">{status}</p> : null}
     </>
