@@ -13,6 +13,10 @@ import { chatCompletion, isLlmEnabled } from "../llm-client";
 import { isThinkingOnlyArtifact, stripPromptArtifacts } from "../prompt-cleanup";
 import { ensureSinglePersonPrompt } from "../single-person";
 import { sanitizeQwenPrompt, formatPromptForModel, trimPromptToMaxChars, compactPromptForProfile } from "../qwen-clarity";
+import {
+  expandSparsePromptWithLlm,
+  needsSparsePromptExpand,
+} from "../sparse-prompt-expand";
 import type { DetailLevel } from "../detail-level";
 import type { ToolGenerateResult, ToolLimits } from "./types";
 
@@ -81,7 +85,7 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
         temperature: resolveRequestTemperature({ temperature: options.temperature }),
       });
 
-      const prompt = finalizeSpecializedPrompt(
+      const prompt = await finalizeSpecializedPrompt(
         content,
         options.detail,
         options.model,
@@ -89,6 +93,7 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
         options.soloSubject,
         options.enforceMinimum,
         options.postProcessPrompt,
+        true,
       );
 
       return buildToolResult(prompt, "llm", reportedModel, options.detail, {
@@ -106,7 +111,7 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
     }
   }
 
-  const prompt = finalizeSpecializedPrompt(
+  const prompt = await finalizeSpecializedPrompt(
     await Promise.resolve(options.templateFallback()),
     options.detail,
     options.model,
@@ -114,6 +119,7 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
     options.soloSubject,
     options.enforceMinimum,
     options.postProcessPrompt,
+    false,
   );
 
   return buildToolResult(prompt, "template", reportedModel, options.detail, {
@@ -122,7 +128,7 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
   });
 }
 
-function finalizeSpecializedPrompt(
+async function finalizeSpecializedPrompt(
   raw: string,
   detail: DetailLevel,
   model: ComfyImageModel,
@@ -130,13 +136,33 @@ function finalizeSpecializedPrompt(
   soloSubject = false,
   enforceMinimum = true,
   postProcessPrompt?: (prompt: string) => string,
-): string {
+  allowSparseLlmExpand = false,
+): Promise<string> {
   const cleaned = stripPromptArtifacts(raw);
   if (!cleaned.trim() || isThinkingOnlyArtifact(cleaned)) {
     throw new Error("LLM returned reasoning text instead of a prompt.");
   }
 
-  let prompt = sanitizeQwenPrompt(cleaned, detail, input, model, {
+  let source = cleaned;
+  if (enforceMinimum && allowSparseLlmExpand) {
+    const preview = sanitizeQwenPrompt(cleaned, detail, input, model, {
+      soloSubject,
+      enforceMinimum: false,
+    });
+    if (needsSparsePromptExpand(preview, detail, model)) {
+      const expanded = await expandSparsePromptWithLlm({
+        draft: preview,
+        hints: input,
+        detail,
+        model,
+      });
+      if (expanded) {
+        source = expanded;
+      }
+    }
+  }
+
+  let prompt = sanitizeQwenPrompt(source, detail, input, model, {
     soloSubject,
     enforceMinimum,
   });

@@ -3,12 +3,12 @@
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
-import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
 import type { ComfyImageModel } from "./comfy-models/client";
 import { galleryEntryPrimaryViewUrl } from "./comfyui-gallery";
 import { guardQueueQualityForVram } from "./vram-queue-guard";
 import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
+import { prepareQueuePrompts } from "./queue-prompt-prep";
 
 export type VisualCompareResult = {
   model: string;
@@ -34,8 +34,9 @@ export async function runVisualModelCompare(input: {
     const baseRuntime = resolveRuntimeForQueue(model, "studio-compare");
     const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
     const runtime = vramGuard.runtime ?? baseRuntime;
-    const negativePrompt = await resolveQueueNegativePrompt({
+    const prepared = await prepareQueuePrompts({
       model,
+      positive: input.prompt.trim(),
       hints: input.hints ?? input.prompt.slice(0, 200),
       tool: "studio-compare",
     });
@@ -51,8 +52,8 @@ export async function runVisualModelCompare(input: {
       profile: vramGuard.profile,
       jobs: [
         {
-          prompt: input.prompt.trim(),
-          negativePrompt,
+          prompt: prepared.positive,
+          negativePrompt: prepared.negative,
           model,
           tool: "studio-compare",
           params,
@@ -72,8 +73,8 @@ export async function runVisualModelCompare(input: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        prompt: input.prompt.trim(),
-        negativePrompt,
+        prompt: prepared.positive,
+        negativePrompt: prepared.negative,
         params,
         ...(runtime ? { comfy: runtime } : {}),
       }),
@@ -96,8 +97,8 @@ export async function runVisualModelCompare(input: {
 
     registerComfyGalleryJob({
       promptId: data.promptId,
-      prompt: input.prompt.trim(),
-      negativePrompt,
+      prompt: prepared.positive,
+      negativePrompt: prepared.negative,
       tool: "studio-compare",
       model,
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",

@@ -94,16 +94,39 @@ function promptAlreadyHasAnatomyCue(prompt: string): boolean {
   );
 }
 
+function clipSuffixToBudget(suffix: string, maxAppendChars: number): string {
+  if (suffix.length <= maxAppendChars) {
+    return suffix;
+  }
+  return suffix
+    .slice(0, maxAppendChars)
+    .replace(/,\s*[^,]*$/, "")
+    .replace(/[.!?]\s*$/, "")
+    .trim();
+}
+
 export function applyAnatomyGuardToPositive(
   prompt: string,
   mode: AnatomyGuardMode = DEFAULT_ANATOMY_GUARD_MODE,
+  options?: { maxAppendChars?: number },
 ): string {
   const trimmed = prompt.trim();
   if (!trimmed || mode === "off" || promptAlreadyHasAnatomyCue(trimmed)) {
     return trimmed;
   }
 
-  const suffix = ANATOMY_POSITIVE_SUFFIX[mode];
+  const maxAppend = options?.maxAppendChars;
+  if (typeof maxAppend === "number" && maxAppend < 40) {
+    return trimmed;
+  }
+
+  let suffix = ANATOMY_POSITIVE_SUFFIX[mode];
+  if (typeof maxAppend === "number") {
+    suffix = clipSuffixToBudget(suffix, maxAppend);
+    if (!suffix) {
+      return trimmed;
+    }
+  }
   const separator = /[.!?]$/.test(trimmed) ? " " : ". ";
   return `${trimmed}${separator}${suffix}`;
 }
@@ -125,6 +148,7 @@ export function applyAnatomyGuardForModel(input: {
   negative?: string;
   model: ComfyImageModel | string;
   mode?: AnatomyGuardMode;
+  maxPositiveAppendChars?: number;
 }): { positive: string; negative?: string } {
   const resolvedMode = input.mode ?? DEFAULT_ANATOMY_GUARD_MODE;
   if (resolvedMode === "off") {
@@ -134,7 +158,14 @@ export function applyAnatomyGuardForModel(input: {
     };
   }
 
-  let positive = applyAnatomyGuardToPositive(input.positive, resolvedMode);
+  const baseLength = input.positive.trim().length;
+  let positive = applyAnatomyGuardToPositive(input.positive, resolvedMode, {
+    maxAppendChars: input.maxPositiveAppendChars,
+  });
+  let remaining =
+    typeof input.maxPositiveAppendChars === "number"
+      ? Math.max(0, input.maxPositiveAppendChars - (positive.length - baseLength))
+      : undefined;
 
   if (modelUsesNegativePrompt(input.model)) {
     return {
@@ -145,13 +176,34 @@ export function applyAnatomyGuardForModel(input: {
 
   const avoid = FLUX_ANATOMY_AVOID[resolvedMode];
   if (!/\bavoid extra limbs\b/i.test(positive)) {
-    const separator = /[.!?]$/.test(positive) ? " " : ". ";
-    positive = `${positive}${separator}${avoid}`;
+    if (typeof remaining !== "number" || remaining >= 40) {
+      const avoidText =
+        typeof remaining === "number" ? clipSuffixToBudget(avoid, remaining) : avoid;
+      if (avoidText) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        const before = positive.length;
+        positive = `${positive}${separator}${avoidText}`;
+        if (typeof remaining === "number") {
+          remaining = Math.max(0, remaining - (positive.length - before));
+        }
+      }
+    }
   }
 
   if (isKleinDistilledModel(input.model) && !/\bprefer simple standing poses\b/i.test(positive)) {
-    const separator = /[.!?]$/.test(positive) ? " " : ". ";
-    positive = `${positive}${separator}${FLUX_KLEIN_DISTILLED_ANATOMY_EXTRA[resolvedMode]}`;
+    const extra = FLUX_KLEIN_DISTILLED_ANATOMY_EXTRA[resolvedMode];
+    if (typeof remaining !== "number" || remaining >= 40) {
+      const extraText =
+        typeof remaining === "number" ? clipSuffixToBudget(extra, remaining) : extra;
+      if (extraText) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        const before = positive.length;
+        positive = `${positive}${separator}${extraText}`;
+        if (typeof remaining === "number") {
+          remaining = Math.max(0, remaining - (positive.length - before));
+        }
+      }
+    }
   }
 
   if (
@@ -159,8 +211,16 @@ export function applyAnatomyGuardForModel(input: {
     resolvedMode === "strict" &&
     !/\bkeep poses straightforward\b/i.test(positive)
   ) {
-    const separator = /[.!?]$/.test(positive) ? " " : ". ";
-    positive = `${positive}${separator}Keep poses straightforward when hands, faces, or full figures must read cleanly.`;
+    const extra =
+      "Keep poses straightforward when hands, faces, or full figures must read cleanly.";
+    if (typeof remaining !== "number" || remaining >= 40) {
+      const extraText =
+        typeof remaining === "number" ? clipSuffixToBudget(extra, remaining) : extra;
+      if (extraText) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        positive = `${positive}${separator}${extraText}`;
+      }
+    }
   }
 
   return { positive, negative: undefined };

@@ -24,6 +24,12 @@ import { isQwenRapidAioModel } from "./model-denoise-defaults";
 /** Distilled Lightning (CFG 1) softens with long auto-negatives — keep only short explicit ones. */
 const LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS = 160;
 
+/**
+ * Cap combined realism + anatomy growth so scene-specific positive text stays dominant.
+ * Negatives are budgeted separately and can stay longer.
+ */
+const MAX_QUEUE_POSITIVE_SUFFIX_CHARS = 200;
+
 /** Short CFG-1-friendly anti-moiré terms for Phr00t Rapid AIO. */
 const RAPID_AIO_MOIRE_NEGATIVE =
   "moire, moiré, halftone, screen door, mesh pattern, wavy interference, grid artifacts, banding, crosshatch";
@@ -83,18 +89,28 @@ export function applyQueuePromptSteering(input: {
     };
   }
 
+  const baseLength = input.positive.trim().length;
   const withRealism = applyRenderRealismForModel({
     positive: input.positive,
     negative: input.negative,
     model: input.model,
     mode: realismMode,
+    maxPositiveAppendChars: MAX_QUEUE_POSITIVE_SUFFIX_CHARS,
   });
+  const realismGrowth = Math.max(
+    0,
+    withRealism.positive.trim().length - baseLength,
+  );
 
   return applyAnatomyGuardForModel({
     positive: withRealism.positive,
     negative: withRealism.negative,
     model: input.model,
     mode: anatomyMode,
+    maxPositiveAppendChars: Math.max(
+      0,
+      MAX_QUEUE_POSITIVE_SUFFIX_CHARS - realismGrowth,
+    ),
   });
 }
 

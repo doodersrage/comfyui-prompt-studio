@@ -10,11 +10,10 @@ import { injectLoraTriggers } from "./lora-prompt-injection";
 import { isQwenLightningModel } from "./model-sampling-patch";
 import { qwenOfficialMediumSizeLadder } from "./model-resolution-defaults";
 import { loadActiveProjectId } from "./prompt-projects";
-import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
-import { modelUsesNegativePrompt } from "./prompt-pair";
 import { guardQueueQualityForVram } from "./vram-queue-guard";
 import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
+import { prepareQueuePrompts } from "./queue-prompt-prep";
 
 export type ParamExperimentAxis = "seed" | "cfg" | "steps" | "width";
 
@@ -51,20 +50,19 @@ export async function queueParamExperiment(input: {
   const baseRuntime = resolveRuntimeForQueue(model, "param-experiment");
   const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
   const runtime = vramGuard.runtime ?? baseRuntime;
-  const prompt = injectLoraTriggers(input.prompt.trim());
+  const prepared = await prepareQueuePrompts({
+    model,
+    positive: injectLoraTriggers(input.prompt.trim()),
+    hints: input.hints,
+    tool: "param-experiment",
+    explicitNegative: input.negativePrompt,
+  });
+  const prompt = prepared.positive;
+  const negativePrompt = prepared.negative;
   const base =
     input.baseParams ??
     resolveQueueParams({ model, qualityProfile: vramGuard.profile });
   const projectId = loadActiveProjectId();
-
-  let negativePrompt = input.negativePrompt?.trim();
-  if (modelUsesNegativePrompt(model) && !negativePrompt) {
-    negativePrompt = await resolveQueueNegativePrompt({
-      model,
-      hints: input.hints,
-      tool: "param-experiment",
-    });
-  }
 
   const qwenSizes = qwenOfficialMediumSizeLadder();
   const defaultValues: Record<ParamExperimentAxis, string[]> = {

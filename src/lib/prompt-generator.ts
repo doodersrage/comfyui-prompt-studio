@@ -16,6 +16,10 @@ import {
 import { stripPromptArtifacts, isThinkingOnlyArtifact } from "./prompt-cleanup";
 import { chatCompletion } from "./llm-client";
 import {
+  expandSparsePromptWithLlm,
+  needsSparsePromptExpand,
+} from "./sparse-prompt-expand";
+import {
   DISTINCT_PEOPLE_FEW_SHOT_BY_DETAIL,
   DISTINCT_PEOPLE_FEW_SHOT_INPUT,
   getDetailLimits,
@@ -289,13 +293,11 @@ function getLlmSeed(variationSeed?: string): number {
   return array[0]! % 2_147_483_647;
 }
 
-function finalizePrompt(
+function preparePromptSource(
   raw: string,
   input: string,
   mode: PromptMode,
   settings: GenerationSettings,
-  wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
-  tool?: string,
 ): string {
   const cleaned = sanitizePrompt(raw);
   let withDistinctPeople =
@@ -309,8 +311,19 @@ function finalizePrompt(
   ) {
     withDistinctPeople = stripStreetClothingFromAthleticPeoplePrompt(withDistinctPeople);
   }
+  return withDistinctPeople;
+}
+
+function finalizePromptFromSource(
+  source: string,
+  input: string,
+  mode: PromptMode,
+  settings: GenerationSettings,
+  wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
+  tool?: string,
+): string {
   const sanitized = sanitizeQwenPrompt(
-    withDistinctPeople,
+    source,
     settings.detail,
     input,
     settings.model,
@@ -373,6 +386,60 @@ function finalizePrompt(
   return trimPromptToMaxChars(compactPromptForProfile(merged, profile), maxChars);
 }
 
+function finalizePrompt(
+  raw: string,
+  input: string,
+  mode: PromptMode,
+  settings: GenerationSettings,
+  wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
+  tool?: string,
+): string {
+  return finalizePromptFromSource(
+    preparePromptSource(raw, input, mode, settings),
+    input,
+    mode,
+    settings,
+    wardrobeAssignments,
+    tool,
+  );
+}
+
+async function finalizePromptWithSparseExpand(
+  raw: string,
+  input: string,
+  mode: PromptMode,
+  settings: GenerationSettings,
+  wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
+  tool?: string,
+): Promise<string> {
+  let source = preparePromptSource(raw, input, mode, settings);
+  if (mode === "positive") {
+    const preview = sanitizeQwenPrompt(source, settings.detail, input, settings.model, {
+      distinctPeople: settings.distinctPeople,
+      enforceMinimum: false,
+    });
+    if (needsSparsePromptExpand(preview, settings.detail, settings.model)) {
+      const expanded = await expandSparsePromptWithLlm({
+        draft: preview,
+        hints: input,
+        detail: settings.detail,
+        model: settings.model,
+      });
+      if (expanded) {
+        source = expanded;
+      }
+    }
+  }
+  return finalizePromptFromSource(
+    source,
+    input,
+    mode,
+    settings,
+    wardrobeAssignments,
+    tool,
+  );
+}
+
 export async function generateWithLlm(
   input: string,
   mode: PromptMode,
@@ -421,7 +488,7 @@ export async function generateWithLlm(
     extraBody,
   });
 
-  return finalizePrompt(
+  return finalizePromptWithSparseExpand(
     content,
     input.trim(),
     mode,

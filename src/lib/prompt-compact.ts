@@ -26,18 +26,14 @@ const TAG_NOISE = new Set([
 ]);
 
 /**
- * Phrases copied from catalog scripts, expansion beats, or LLM padding that
- * consume tokens without changing the rendered image.
+ * Expansion-beat / atmosphere clones that consume tokens without scene-specific
+ * detail. Fabric, fit, and garment construction phrases are intentionally kept.
  */
 const PROSE_NOISE_PHRASES: RegExp[] = [
   /\brendered with (?:readable )?material weight(?:, fine detail, and natural placement(?: on the body)?)?/gi,
   /\b(?:fine|subtle) detail(?:ing)?(?: and natural placement(?: on the body)?)?/gi,
   /\bnatural placement(?: on the (?:body|head|feet))?/gi,
   /\b(?:readable|believable) (?:material )?weight(?: on the (?:foot|body|feet))?/gi,
-  /\b(?:showing|with) sole wear, material scuffing, and believable weight on the foot/gi,
-  /\bbelievable (?:drape|fit|texture|sheen|construction|at-home fabric texture)/gi,
-  /\brealistic (?:swimwear construction|fabric stretch|fit for a private indoor setting)/gi,
-  /\bfine (?:lingerie|surface|seam|finish|occasion) detailing/gi,
   /\bunder the same light\b/gi,
   /\b(?:in )?clear spatial layers(?: under the same light)?/gi,
   /\batmospheric haze softening the (?:far )?background\b/gi,
@@ -57,21 +53,14 @@ const PROSE_NOISE_PHRASES: RegExp[] = [
   /\bwith no other people visible anywhere\b/gi,
   /\bno other people visible(?: anywhere)?\b/gi,
   /\b(?:solo subject only|solo subject),?\s*no other people anywhere\b/gi,
-  /\bdamp fabric sheen, secure fit, and realistic swimwear construction for pool or beach use\b/gi,
-  /\brefined tailoring, polished fabric drape, and elegant formal styling\b/gi,
-  /\bculturally specific tailoring, authentic drape, and respectful traditional garment construction\b/gi,
-  /\bsoft sleepwear drape, comfortable fit, and believable at-home fabric texture\b/gi,
-  /\brendered as base-layer underwear with natural fit and realistic fabric stretch\b/gi,
-  /\bshowing knit texture, natural stretch, and believable fit on the feet and calves\b/gi,
-  /\bfor an evening or gala setting\b/gi,
-  /\bfor pool or beach use\b/gi,
   /\b(?:in|with) one cohesive scene(?: with readable lighting)?/gi,
   /\b(?:in|under) one unified scene(?: with readable lighting)?/gi,
   /\bunder clear directional light(?: in a unified scene)?/gi,
 ];
 
+/** Hedge words that rarely change the rendered image (keep emphasis like "very" / "noticeably"). */
 const WEAK_FILLER_WORDS =
-  /\b(?:somewhat|rather|quite|fairly|decidedly|very|just|simply|actually|basically|literally|clearly|distinctly|noticeably|genuinely|truly|really)\s+/gi;
+  /\b(?:somewhat|rather|quite|fairly|decidedly|just|simply|actually|basically|literally|genuinely|truly)\s+/gi;
 
 /** Same meaning, fewer characters — grammar-safe replacements only. */
 const PHRASE_SHORTENINGS: Array<[RegExp, string]> = [

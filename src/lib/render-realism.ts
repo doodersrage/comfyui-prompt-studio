@@ -107,16 +107,40 @@ function promptAlreadyHasRealismCue(prompt: string, mode: RenderRealismMode): bo
   return false;
 }
 
+function clipSuffixToBudget(suffix: string, maxAppendChars: number): string {
+  if (suffix.length <= maxAppendChars) {
+    return suffix;
+  }
+  const clipped = suffix
+    .slice(0, maxAppendChars)
+    .replace(/,\s*[^,]*$/, "")
+    .replace(/[.!?]\s*$/, "")
+    .trim();
+  return clipped;
+}
+
 export function applyRenderRealismToPositive(
   prompt: string,
   mode: RenderRealismMode = DEFAULT_RENDER_REALISM_MODE,
+  options?: { maxAppendChars?: number },
 ): string {
   const trimmed = prompt.trim();
   if (!trimmed || mode === "off" || promptAlreadyHasRealismCue(trimmed, mode)) {
     return trimmed;
   }
 
-  const suffix = REALISM_POSITIVE_SUFFIX[mode];
+  const maxAppend = options?.maxAppendChars;
+  if (typeof maxAppend === "number" && maxAppend < 48) {
+    return trimmed;
+  }
+
+  let suffix = REALISM_POSITIVE_SUFFIX[mode];
+  if (typeof maxAppend === "number") {
+    suffix = clipSuffixToBudget(suffix, maxAppend);
+    if (!suffix) {
+      return trimmed;
+    }
+  }
   const separator = /[.!?]$/.test(trimmed) ? " " : ". ";
   return `${trimmed}${separator}${suffix}`;
 }
@@ -139,6 +163,7 @@ export function applyRenderRealismForModel(input: {
   negative?: string;
   model: ComfyImageModel | string;
   mode?: RenderRealismMode;
+  maxPositiveAppendChars?: number;
 }): { positive: string; negative?: string } {
   const resolvedMode = input.mode ?? DEFAULT_RENDER_REALISM_MODE;
   if (resolvedMode === "off") {
@@ -148,7 +173,14 @@ export function applyRenderRealismForModel(input: {
     };
   }
 
-  let positive = applyRenderRealismToPositive(input.positive, resolvedMode);
+  let positive = applyRenderRealismToPositive(input.positive, resolvedMode, {
+    maxAppendChars: input.maxPositiveAppendChars,
+  });
+  const usedAppend = Math.max(0, positive.length - input.positive.trim().length);
+  let remaining =
+    typeof input.maxPositiveAppendChars === "number"
+      ? Math.max(0, input.maxPositiveAppendChars - usedAppend)
+      : undefined;
 
   if (modelUsesNegativePrompt(input.model)) {
     return {
@@ -163,8 +195,15 @@ export function applyRenderRealismForModel(input: {
       ? /\bavoid photorealistic\b/i.test(positive)
       : /\bavoid\b/i.test(positive);
   if (!avoidAlreadyPresent) {
-    const separator = /[.!?]$/.test(positive) ? " " : ". ";
-    positive = `${positive}${separator}${avoid}`;
+    if (typeof remaining === "number" && remaining < 48) {
+      return { positive, negative: undefined };
+    }
+    const avoidText =
+      typeof remaining === "number" ? clipSuffixToBudget(avoid, remaining) : avoid;
+    if (avoidText) {
+      const separator = /[.!?]$/.test(positive) ? " " : ". ";
+      positive = `${positive}${separator}${avoidText}`;
+    }
   }
 
   return { positive, negative: undefined };

@@ -865,12 +865,26 @@ function trimProseForSubjectFocus(text: string): string {
     return polishImagePromptProse(stripEnvironmentClausesFromSentence(text));
   }
 
+  const hasSubject = sentences.some((sentence) => VISION_SUBJECT_TERMS.test(sentence));
+  // Environment-first scenes (no person/prop lexicon) keep full wording.
+  if (!hasSubject) {
+    return polishImagePromptProse(text);
+  }
+
+  const pureEnvCount = sentences.filter(isPureEnvironmentSentence).length;
+  const dropPureEnvironment = pureEnvCount >= 2;
+
   const subjectParts: string[] = [];
   const environmentParts: string[] = [];
 
   for (const sentence of sentences) {
     if (isPureEnvironmentSentence(sentence)) {
-      environmentParts.push(sentence);
+      // Keep a lone environment sentence; only drop when env clutter is heavy.
+      if (!dropPureEnvironment) {
+        subjectParts.push(sentence);
+      } else {
+        environmentParts.push(sentence);
+      }
       continue;
     }
 

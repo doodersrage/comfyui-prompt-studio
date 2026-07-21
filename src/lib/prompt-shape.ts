@@ -290,13 +290,24 @@ export function proseToTagSoup(text: string, maxTags = 10): string {
   return joinTags(dedupeTags(tags).slice(0, maxTags));
 }
 
+const NAMED_COLOR =
+  /\b(?:red|blue|green|yellow|black|white|pink|purple|orange|brown|gold|silver|navy|crimson|ivory|beige|teal|coral|burgundy|olive|charcoal|cream|lavender|maroon|turquoise|indigo|amber|bronze|copper|emerald|sapphire)\b/i;
+const NAMED_MATERIAL =
+  /\b(?:silk|cotton|denim|leather|wool|linen|satin|velvet|chiffon|lace|nylon|polyester|suede|canvas|tweed|cashmere|metal|chrome|brushed|matte|glossy|stone|wood|glass|concrete|marble|ceramic|rubber)\b/i;
+const WARDROBE_OR_PROP =
+  /\b(?:blouse|dress|jacket|shirt|pants|skirt|coat|boots|sneakers|swimsuit|lingerie|hoodie|sweater|jeans|suit|gown|scarf|hat|glasses|necklace|earring|bracelet|ring|tattoo|helmet|gloves|shorts|top|shoes|sandals)\b/i;
+const POSE_OR_ACTION =
+  /\b(?:wearing|standing|sitting|holding|walking|running|posing|leaning|kneeling|reaching|looking|gazing|smiling|facing|crouching|stretching|dancing)\b/i;
+const ATMOSPHERE_FILLER =
+  /\b(?:foreground|midground|background|atmospheric haze|atmospheric depth|ambient fill|specular highlights|environmental beat|spatial layers|material weight grounds|surface textures read clearly|composition holds at a natural eye level)\b/i;
+
 function sentenceTrimScore(sentence: string, index: number): number {
   let score = 50;
   if (index === 0) {
     score += 100;
   }
   if (isExpansionBeatSentence(sentence)) {
-    score -= 80;
+    score -= 100;
   }
   if (
     /\b(?:no other people|solo subject|single person|only one person|unoccupied by other)\b/i.test(
@@ -305,34 +316,79 @@ function sentenceTrimScore(sentence: string, index: number): number {
   ) {
     score -= 25;
   }
-  if (
-    /\b(?:foreground|midground|background|atmospheric haze|ambient fill|specular highlights|environmental beat)\b/i.test(
-      sentence,
-    )
-  ) {
-    score -= 12;
+  if (ATMOSPHERE_FILLER.test(sentence)) {
+    score -= 28;
   }
   if (
-    /\b(?:subject|woman|man|person|character|figure|wearing|standing|sitting|holding|walking|running)\b/i.test(
+    /\b(?:subject|woman|man|person|people|character|figure|girl|boy|athlete)\b/i.test(
       sentence,
     )
   ) {
     score += 35;
   }
+  if (POSE_OR_ACTION.test(sentence)) {
+    score += 30;
+  }
+  if (WARDROBE_OR_PROP.test(sentence)) {
+    score += 40;
+  }
+  if (NAMED_COLOR.test(sentence)) {
+    score += 28;
+  }
+  if (NAMED_MATERIAL.test(sentence)) {
+    score += 32;
+  }
   if (/\b(?:light|lighting|illuminated|shadow|sunlight|moonlight)\b/i.test(sentence)) {
-    score += 20;
+    score += 12;
   }
   if (
     /\b(?:texture|material|fabric|metal|stone|wood|glass|concrete|leather|skin)\b/i.test(
       sentence,
     )
   ) {
-    score += 15;
+    score += 18;
   }
   if (sentence.length < 35) {
     score -= 15;
   }
   return score;
+}
+
+/** True when the prompt already carries subject + specific visual detail (skip stock padding). */
+export function promptHasSceneDensity(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const sentences = splitSentences(trimmed).filter(
+    (sentence) => !isExpansionBeatSentence(sentence),
+  );
+  const core = sentences.join(" ").trim();
+  if (!core) {
+    return false;
+  }
+
+  const hasSubject =
+    /\b(?:woman|man|person|people|figure|character|subject|girl|boy|athlete|cyclist|runner)\b/i.test(
+      core,
+    ) || POSE_OR_ACTION.test(core);
+  const hasSpecifics =
+    NAMED_COLOR.test(core) ||
+    NAMED_MATERIAL.test(core) ||
+    WARDROBE_OR_PROP.test(core) ||
+    /\b(?:tattoo|freckles|braid|ponytail|beard|scar)\b/i.test(core);
+
+  if (hasSubject && hasSpecifics) {
+    return true;
+  }
+  if (hasSubject && core.length >= 180) {
+    return true;
+  }
+  if (sentences.length >= 2 && core.length >= 220) {
+    return true;
+  }
+  return false;
 }
 
 const LEFT_PLACEMENT =
@@ -512,9 +568,23 @@ export function trimCompleteSentencesToMaxChars(
     return "";
   }
 
-  const kept = [...sentences];
+  let kept = [...sentences];
   while (kept.length > 1 && kept.join(" ").length > maxChars) {
-    kept.pop();
+    // Drop lowest-priority sentences first (never the lead until last resort).
+    let dropAt = -1;
+    let lowestScore = Number.POSITIVE_INFINITY;
+    for (let index = 1; index < kept.length; index += 1) {
+      const score = sentenceTrimScore(kept[index]!, index);
+      if (score < lowestScore) {
+        lowestScore = score;
+        dropAt = index;
+      }
+    }
+    if (dropAt < 0) {
+      kept = kept.slice(0, -1);
+    } else {
+      kept = kept.filter((_, index) => index !== dropAt);
+    }
   }
 
   const result = kept.join(" ").trim();

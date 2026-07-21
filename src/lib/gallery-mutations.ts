@@ -4,7 +4,6 @@ import type { ComfyGalleryEntry } from "./comfyui-gallery";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
 import {
   refreshQueueImageParamsForRequeue,
@@ -13,6 +12,7 @@ import {
 import { injectLoraTriggers } from "./lora-prompt-injection";
 import { guardQueueQualityForVram } from "./vram-queue-guard";
 import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
+import { prepareQueuePrompts } from "./queue-prompt-prep";
 
 export type MutationKind = "variation" | "location" | "wardrobe" | "wildness";
 
@@ -53,25 +53,27 @@ export async function queueMutatedGalleryJobs(input: {
   const baseRuntime = resolveRuntimeForQueue(model, tool);
   const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
   const runtime = vramGuard.runtime ?? baseRuntime;
-  const negativePrompt =
-    input.entry.negativePrompt?.trim() ||
-    (await resolveQueueNegativePrompt({
-      model,
-      hints: input.entry.prompt.slice(0, 200),
-      tool: input.entry.tool ?? "gallery-mutate",
-    }));
 
   let queued = 0;
   let heldCount = 0;
   for (let index = 0; index < count; index += 1) {
     const kind = input.kinds[index % input.kinds.length] ?? "variation";
-    const prompt = injectLoraTriggers(
+    const mutated = injectLoraTriggers(
       buildMutatedPrompt(
         input.entry.prompt,
         kind,
         input.values?.[kind],
       ),
     );
+    const prepared = await prepareQueuePrompts({
+      model,
+      positive: mutated,
+      hints: input.entry.prompt.slice(0, 200),
+      tool: input.entry.tool ?? "gallery-mutate",
+      explicitNegative: input.entry.negativePrompt,
+    });
+    const prompt = prepared.positive;
+    const negativePrompt = prepared.negative;
     const seed = String(Math.floor(Math.random() * 2 ** 32) + index);
     const imageUrls = resolveRequeueImageUrlsFromEntry(input.entry);
     const refreshedParams = await refreshQueueImageParamsForRequeue({

@@ -131,6 +131,13 @@ export const PROFILE_LIMITS: Record<
   ),
 };
 
+/** CFG-1 Lightning / Rapid T2I — denser nouns, lower floors (less stock padding). */
+export const QWEN_T2I_DISTILLED_LIMITS: Record<DetailLevel, PromptLimits> = limits(
+  { minSentences: 2, maxSentences: 2, maxChars: 280, maxTokens: 200 },
+  { minSentences: 2, maxSentences: 3, minChars: 260, maxChars: 520, maxTokens: 380 },
+  { minSentences: 3, maxSentences: 4, minChars: 400, maxChars: 720, maxTokens: 520 },
+);
+
 export function getProfileLimits(
   profile: PromptProfileId,
   detail: DetailLevel,

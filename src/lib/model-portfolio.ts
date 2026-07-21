@@ -4,10 +4,10 @@ import type { ComfyImageModel } from "./comfy-models/client";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
 import { guardQueueQualityForVram } from "./vram-queue-guard";
 import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
+import { prepareQueuePrompts } from "./queue-prompt-prep";
 
 export type ModelPortfolioItem = {
   model: ComfyImageModel;
@@ -71,8 +71,9 @@ export async function queueModelPortfolio(input: {
     const baseRuntime = resolveRuntimeForQueue(item.model, input.tool ?? "portfolio");
     const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
     const runtime = vramGuard.runtime ?? baseRuntime;
-    const negativePrompt = await resolveQueueNegativePrompt({
+    const prepared = await prepareQueuePrompts({
       model: item.model,
+      positive: item.prompt,
       hints: input.hints,
       tool: input.tool ?? "portfolio",
     });
@@ -85,8 +86,8 @@ export async function queueModelPortfolio(input: {
       profile: vramGuard.profile,
       jobs: [
         {
-          prompt: item.prompt,
-          negativePrompt,
+          prompt: prepared.positive,
+          negativePrompt: prepared.negative,
           model: item.model,
           tool: input.tool ?? "portfolio",
           params,
@@ -102,8 +103,8 @@ export async function queueModelPortfolio(input: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        prompt: item.prompt,
-        negativePrompt,
+        prompt: prepared.positive,
+        negativePrompt: prepared.negative,
         params,
         ...(runtime ? { comfy: runtime } : {}),
       }),
@@ -112,8 +113,8 @@ export async function queueModelPortfolio(input: {
     if (response.ok && data.promptId) {
       registerComfyGalleryJob({
         promptId: data.promptId,
-        prompt: item.prompt,
-        negativePrompt,
+        prompt: prepared.positive,
+        negativePrompt: prepared.negative,
         tool: input.tool ?? "portfolio",
         model: item.model,
         comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",

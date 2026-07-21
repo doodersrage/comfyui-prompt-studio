@@ -10,6 +10,7 @@ import { injectLoraTriggers } from "./lora-prompt-injection";
 import { modelUsesNegativePrompt } from "./prompt-pair";
 import { guardQueueQualityForVram } from "./vram-queue-guard";
 import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
+import { prepareQueuePrompts } from "./queue-prompt-prep";
 
 export async function queueNegativeAbTest(input: {
   prompt: string;
@@ -30,7 +31,7 @@ export async function queueNegativeAbTest(input: {
     base: { seed },
     qualityProfile: vramGuard.profile,
   });
-  const prompt = injectLoraTriggers(input.prompt.trim());
+  const basePrompt = injectLoraTriggers(input.prompt.trim());
 
   let negativeA = input.negativeA?.trim();
   let negativeB = input.negativeB?.trim();
@@ -58,12 +59,21 @@ export async function queueNegativeAbTest(input: {
   }
 
   for (const variant of variants) {
+    const prepared = await prepareQueuePrompts({
+      model,
+      positive: basePrompt,
+      hints: input.hints,
+      tool: input.tool ?? "negative-ab",
+      explicitNegative: variant.negativePrompt,
+    });
+    const prompt = `${prepared.positive} [${variant.label}]`;
+    const negativePrompt = prepared.negative;
     const hold = await maybeHoldMaxGenerateJobs({
       profile: vramGuard.profile,
       jobs: [
         {
-          prompt: `${prompt} [${variant.label}]`,
-          negativePrompt: variant.negativePrompt,
+          prompt,
+          negativePrompt,
           model,
           tool: "negative-ab",
           params,
@@ -79,8 +89,8 @@ export async function queueNegativeAbTest(input: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        prompt: `${prompt} [${variant.label}]`,
-        negativePrompt: variant.negativePrompt,
+        prompt,
+        negativePrompt,
         params,
         ...(runtime ? { comfy: runtime } : {}),
       }),
@@ -91,8 +101,8 @@ export async function queueNegativeAbTest(input: {
     }
     registerComfyGalleryJob({
       promptId: data.promptId,
-      prompt,
-      negativePrompt: variant.negativePrompt,
+      prompt: prepared.positive,
+      negativePrompt,
       tool: "negative-ab",
       model,
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",

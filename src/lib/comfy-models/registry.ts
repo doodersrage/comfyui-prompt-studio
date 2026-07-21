@@ -1,4 +1,4 @@
-import { PROFILE_LIMITS } from "./limits";
+import { PROFILE_LIMITS, QWEN_T2I_DISTILLED_LIMITS } from "./limits";
 import type { ComfyImageModelDefinition } from "./types";
 
 export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
@@ -324,7 +324,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
       "Phr00t Rapid AIO SFW checkpoint. Dual-purpose T2I/edit merge — euler/beta, 4–8 steps, cfg 1. Generate uses scene prose; Refine can still edit.",
     profile: "qwen_t2i_factual",
     referenceTokenLimit: 512,
-    limitsByDetail: PROFILE_LIMITS.qwen_t2i_factual,
+    limitsByDetail: QWEN_T2I_DISTILLED_LIMITS,
   },
   {
     id: "qwen-rapid-aio-nsfw",
@@ -336,7 +336,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
       "Phr00t Rapid AIO NSFW checkpoint. Dual-purpose T2I/edit merge — euler_ancestral/sgm_uniform, 4–8 steps, cfg 1. Generate uses scene prose; Refine can still edit.",
     profile: "qwen_t2i_factual",
     referenceTokenLimit: 512,
-    limitsByDetail: PROFILE_LIMITS.qwen_t2i_factual,
+    limitsByDetail: QWEN_T2I_DISTILLED_LIMITS,
   },
   {
     id: "qwen-image-2512",
@@ -362,7 +362,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
       "2512 T2I + Lightning 4-step LoRA. ~5× faster — euler/simple, cfg 1, 4 steps in KSampler.",
     profile: "qwen_t2i_factual",
     referenceTokenLimit: 512,
-    limitsByDetail: PROFILE_LIMITS.qwen_t2i_factual,
+    limitsByDetail: QWEN_T2I_DISTILLED_LIMITS,
     unetHint: "qwen_image_2512_bf16.safetensors",
     vaeHint: "qwen_image_vae.safetensors",
   },
@@ -376,7 +376,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
       "2512 T2I + Lightning 8-step LoRA. ~2.5× faster — euler/simple, cfg 1, 8 steps.",
     profile: "qwen_t2i_factual",
     referenceTokenLimit: 512,
-    limitsByDetail: PROFILE_LIMITS.qwen_t2i_factual,
+    limitsByDetail: QWEN_T2I_DISTILLED_LIMITS,
     unetHint: "qwen_image_2512_bf16.safetensors",
     vaeHint: "qwen_image_vae.safetensors",
   },

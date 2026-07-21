@@ -51,11 +51,19 @@ export function buildModelSystemPrompt(
   return buildProfileSystemPrompt(getComfyModelDefinition(model), mode);
 }
 
+function isCfg1DistilledModelId(model: ComfyImageModel): boolean {
+  return /lightning|rapid-aio/i.test(model);
+}
+
 export function buildModelClarityAddendum(
   detail: DetailLevel,
   model: ComfyImageModel,
 ): string {
-  return buildProfileClarityAddendum(detail, getComfyModelDefinition(model));
+  const base = buildProfileClarityAddendum(detail, getComfyModelDefinition(model));
+  if (!isCfg1DistilledModelId(model)) {
+    return base;
+  }
+  return `${base} CFG-1 distilled stack: prefer dense scene-specific nouns (garments, materials, colors, pose, props) over generic quality tags or atmosphere boilerplate. Do not pad with empty lighting filler.`;
 }
 
 export function buildModelUserDirective(

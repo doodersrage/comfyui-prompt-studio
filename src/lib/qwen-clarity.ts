@@ -19,6 +19,7 @@ import {
   expansionBeatsForSanitize,
   profileSkipsProsePadding,
   profileUsesTagFormat,
+  promptHasSceneDensity,
   resolveProfile,
   splitSentences,
   splitTags,
@@ -166,6 +167,13 @@ function expandPromptToMinChars(
     return text.trim();
   }
 
+  // Prefer scene-specific density over stock atmosphere beats.
+  if (promptHasSceneDensity(text)) {
+    return text.length > maxChars
+      ? trimProseClauseToMaxChars(text, maxChars)
+      : text.trim();
+  }
+
   if (!hasRoomForMinPadding(text, minChars, maxChars)) {
     return text.length > maxChars ? trimProseClauseToMaxChars(text, maxChars) : text.trim();
   }
@@ -218,6 +226,13 @@ function padPromptToMinimum(
 
   if (!hasRoomForMinPadding(text, minChars, maxChars)) {
     return text.length > maxChars ? trimProseClauseToMaxChars(text, maxChars) : text.trim();
+  }
+
+  // Dense prompts already carry visual specificity — do not dilute with stock pads.
+  if (promptHasSceneDensity(text)) {
+    return text.length > maxChars
+      ? trimProseClauseToMaxChars(text, maxChars)
+      : text.trim();
   }
 
   if (sentences.length >= minSentences) {
