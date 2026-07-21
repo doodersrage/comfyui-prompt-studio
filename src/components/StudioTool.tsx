@@ -15,6 +15,7 @@ import {
 } from "@/hooks/usePromptHistory";
 import { DEFAULT_STUDIO_TOOL_CACHE } from "@/lib/settings-cache";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { toastQueueOutcome } from "@/lib/app-toast";
 import {
   filterHistoryEntries,
   uniqueHistoryModels,
@@ -182,21 +183,15 @@ const PromptDiagnosticsPanel = dynamic(() => import("@/components/PromptDiagnost
   loading: () => <StudioTabSkeleton />,
 });
 
+import {
+  isStudioTabId,
+  STUDIO_TABS,
+  type StudioTabId,
+} from "@/lib/studio-nav";
+
 const ACCENT = "violet" as const;
 
-type StudioTab =
-  | "history"
-  | "compare"
-  | "catalog"
-  | "templates"
-  | "presets"
-  | "diff"
-  | "iteration"
-  | "projects"
-  | "portfolio"
-  | "campaign"
-  | "analytics"
-  | "experiments";
+type StudioTab = StudioTabId;
 
 type CatalogClothing = {
   id: string;
@@ -530,20 +525,7 @@ export default function StudioTool() {
     scheduleAfterCommit(() => {
       const historyId = new URLSearchParams(window.location.search).get("history");
       const tabParam = new URLSearchParams(window.location.search).get("tab");
-      if (
-        tabParam === "experiments" ||
-        tabParam === "analytics" ||
-        tabParam === "diff" ||
-        tabParam === "history" ||
-        tabParam === "compare" ||
-        tabParam === "catalog" ||
-        tabParam === "templates" ||
-        tabParam === "presets" ||
-        tabParam === "iteration" ||
-        tabParam === "projects" ||
-        tabParam === "portfolio" ||
-        tabParam === "campaign"
-      ) {
+      if (isStudioTabId(tabParam)) {
         setTab(tabParam);
       }
       if (historyId) {
@@ -551,6 +533,20 @@ export default function StudioTool() {
         setHighlightHistoryId(historyId);
       }
     });
+  }, []);
+
+  const selectStudioTab = useCallback((next: StudioTab) => {
+    setTab(next);
+    if (typeof window === "undefined") {
+      return;
+    }
+    const url = new URL(window.location.href);
+    if (next === "history") {
+      url.searchParams.delete("tab");
+    } else {
+      url.searchParams.set("tab", next);
+    }
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
   }, []);
 
   const loadCatalog = useCallback(async (query: string) => {
@@ -723,19 +719,35 @@ export default function StudioTool() {
     );
   }
 
-  const tabs: { id: StudioTab; label: string }[] = [
-    { id: "history", label: "History" },
-    { id: "iteration", label: "Iteration tree" },
-    { id: "projects", label: "Projects" },
-    { id: "compare", label: "Compare" },
-    { id: "portfolio", label: "Portfolio" },
-    { id: "campaign", label: "Campaign" },
-    { id: "analytics", label: "Analytics" },
-    { id: "catalog", label: "Catalog" },
-    { id: "templates", label: "Templates" },
-    { id: "presets", label: "Presets" },
-    { id: "experiments", label: "Experiments" },
-    { id: "diff", label: "Diff" },
+  const tabGroups: { label: string; tabs: { id: StudioTab; label: string }[] }[] = [
+    {
+      label: "History",
+      tabs: STUDIO_TABS.filter((tab) => tab.group === "History").map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+      })),
+    },
+    {
+      label: "Library",
+      tabs: STUDIO_TABS.filter((tab) => tab.group === "Library").map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+      })),
+    },
+    {
+      label: "Analyze",
+      tabs: STUDIO_TABS.filter((tab) => tab.group === "Analyze").map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+      })),
+    },
+    {
+      label: "Experiments",
+      tabs: STUDIO_TABS.filter((tab) => tab.group === "Experiments").map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+      })),
+    },
   ];
 
   return (
@@ -747,15 +759,22 @@ export default function StudioTool() {
       description="History, model comparison, catalog browser, and template slots."
     >
       <ToolMetaPanel title="Studio views" className="overflow-x-auto">
-        <div className="flex min-w-max flex-wrap gap-2">
-          {tabs.map((entry) => (
-            <ChipButton
-              key={entry.id}
-              active={tab === entry.id}
-              onClick={() => setTab(entry.id)}
-            >
-              {entry.label}
-            </ChipButton>
+        <div className="flex min-w-max flex-wrap items-start gap-x-8 gap-y-4">
+          {tabGroups.map((group) => (
+            <div key={group.label} className="space-y-2">
+              <p className="type-overline text-[var(--text-muted)]">{group.label}</p>
+              <div className="flex flex-wrap gap-2">
+                {group.tabs.map((entry) => (
+                  <ChipButton
+                    key={entry.id}
+                    active={tab === entry.id}
+                    onClick={() => selectStudioTab(entry.id)}
+                  >
+                    {entry.label}
+                  </ChipButton>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </ToolMetaPanel>
@@ -1100,11 +1119,11 @@ export default function StudioTool() {
                   onRemove={() => removeEntry(entry.id)}
                   onDiffLeft={() => {
                     setDiffLeftId(entry.id);
-                    setTab("diff");
+                    selectStudioTab("diff");
                   }}
                   onDiffRight={() => {
                     setDiffRightId(entry.id);
-                    setTab("diff");
+                    selectStudioTab("diff");
                   }}
                   onSaveTemplate={() => {
                     const name = window.prompt("Template name", `${entry.tool} prompt`);
@@ -1124,17 +1143,18 @@ export default function StudioTool() {
                     }).then((result) => {
                       if (!result.ok) {
                         setBackupStatus(result.error ?? "Re-queue failed.");
+                        toastQueueOutcome({ ok: false, text: result.error ?? "Re-queue failed." });
                         return;
                       }
-                      setBackupStatus(
-                        [
+                      const message = [
                           "queued from history",
                           result.promptId ? `prompt_id ${result.promptId}` : null,
                           newSeed ? "new variation · new seed" : "same params",
                         ]
                           .filter(Boolean)
-                          .join(" · "),
-                      );
+                          .join(" · ");
+                      setBackupStatus(message);
+                      toastQueueOutcome({ ok: true, text: message });
                     });
                   }}
                   onUpscale={(qualityProfile) => {
@@ -1152,7 +1172,14 @@ export default function StudioTool() {
                     }).then((result) => {
                       if (!result.ok) {
                         setBackupStatus(result.error ?? "Upscale failed.");
+                        toastQueueOutcome({ ok: false, text: result.error ?? "Upscale failed." });
+                        return;
                       }
+                      const message = result.promptId
+                        ? `Upscale queued · ${result.promptId}`
+                        : "Upscale queued";
+                      setBackupStatus(message);
+                      toastQueueOutcome({ ok: true, text: message });
                     });
                   }}
                   onRefine={() => {
@@ -1169,7 +1196,14 @@ export default function StudioTool() {
                     }).then((result) => {
                       if (!result.ok) {
                         setBackupStatus(result.error ?? "Refine failed.");
+                        toastQueueOutcome({ ok: false, text: result.error ?? "Refine failed." });
+                        return;
                       }
+                      const message = result.promptId
+                        ? `Refine queued · ${result.promptId}`
+                        : "Refine queued";
+                      setBackupStatus(message);
+                      toastQueueOutcome({ ok: true, text: message });
                     });
                   }}
                   onRequeueBatch={() => {
@@ -1878,7 +1912,7 @@ export default function StudioTool() {
                       onClick={() => {
                         setActiveProjectIdState(project.id);
                         setActiveProjectId(project.id);
-                        setTab("history");
+                        selectStudioTab("history");
                       }}
                     >
                       {activeProjectId === project.id ? "Active" : "Set active"}
@@ -3047,7 +3081,7 @@ export default function StudioTool() {
               description="Choose a left and right prompt above to preview additions, removals, and unchanged text."
               action={{
                 label: "Browse history",
-                onClick: () => setTab("history"),
+                onClick: () => selectStudioTab("history"),
               }}
             />
           ) : (
@@ -3338,7 +3372,14 @@ function IterationTreeNodeCard({
     }).then((result) => {
       if (!result.ok) {
         onRequeueStatus(result.error ?? "Upscale failed.");
+        toastQueueOutcome({ ok: false, text: result.error ?? "Upscale failed." });
+        return;
       }
+      const message = result.promptId
+        ? `Upscale queued · ${result.promptId}`
+        : "Upscale queued";
+      onRequeueStatus(message);
+      toastQueueOutcome({ ok: true, text: message });
     });
   }
 
@@ -3355,7 +3396,14 @@ function IterationTreeNodeCard({
     }).then((result) => {
       if (!result.ok) {
         onRequeueStatus(result.error ?? "Refine failed.");
+        toastQueueOutcome({ ok: false, text: result.error ?? "Refine failed." });
+        return;
       }
+      const message = result.promptId
+        ? `Refine queued · ${result.promptId}`
+        : "Refine queued";
+      onRequeueStatus(message);
+      toastQueueOutcome({ ok: true, text: message });
     });
   }
 
@@ -3424,6 +3472,7 @@ function IterationTreeNodeCard({
               }).then((result) => {
                 if (!result.ok) {
                   onRequeueStatus(result.error ?? "Re-queue failed.");
+                  toastQueueOutcome({ ok: false, text: result.error ?? "Re-queue failed." });
                   return;
                 }
                 onRequeueStatus(

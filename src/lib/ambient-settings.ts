@@ -6,13 +6,13 @@ const KEY = "comfy-ambient-intensity-v1";
 
 export function loadAmbientIntensity(): AmbientIntensity {
   if (typeof window === "undefined") {
-    return "normal";
+    return "subtle";
   }
   const value = readBrowserString(KEY);
   if (value === "off" || value === "subtle" || value === "normal" || value === "vivid") {
     return value;
   }
-  return "normal";
+  return "subtle";
 }
 
 export function saveAmbientIntensity(value: AmbientIntensity): void {

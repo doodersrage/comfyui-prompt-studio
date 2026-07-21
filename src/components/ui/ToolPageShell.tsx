@@ -45,12 +45,23 @@ export function ToolPageHeader({
   description?: ReactNode;
 }) {
   return (
-    <header className="space-y-5">
+    <header className="space-y-3">
       {badge}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-end lg:gap-8">
-        <h1 className="type-display">{title}</h1>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+        <h1 className="type-display min-w-0">{title}</h1>
         {description ? (
-          <div className="ui-meta-panel type-body-lg lg:mb-1">{description}</div>
+          typeof description === "string" ? (
+            <p
+              className="type-caption max-w-xl shrink-0 text-[var(--text-secondary)] sm:max-w-sm sm:text-right"
+              title={description}
+            >
+              <span className="line-clamp-2">{description}</span>
+            </p>
+          ) : (
+            <div className="type-caption max-w-xl shrink-0 text-[var(--text-secondary)] sm:max-w-sm sm:text-right">
+              <div className="line-clamp-2">{description}</div>
+            </div>
+          )
         ) : null}
       </div>
     </header>
@@ -133,42 +144,7 @@ export function ToolSection({
   );
 }
 
-export function CollapsibleSection({
-  title,
-  summary,
-  defaultOpen = true,
-  children,
-  className = "",
-}: {
-  title: string;
-  summary?: string;
-  defaultOpen?: boolean;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <details
-      open={defaultOpen}
-      className={`ui-collapsible group ${className}`.trim()}
-    >
-      <summary className="list-none marker:content-none [&::-webkit-details-marker]:hidden">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 space-y-1.5">
-            <p className="type-heading">{title}</p>
-            {summary ? <p className="type-caption">{summary}</p> : null}
-          </div>
-          <span
-            aria-hidden
-            className="type-caption mt-0.5 shrink-0 transition group-open:rotate-180"
-          >
-            ▾
-          </span>
-        </div>
-      </summary>
-      <div className="ui-collapsible-body ui-block-group">{children}</div>
-    </details>
-  );
-}
+export { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 
 export function ActionButtonBar({
   children,

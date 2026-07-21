@@ -18,6 +18,9 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, "done">[] = [
   { id: "first-generate", label: "Generate your first prompt" },
   { id: "first-queue", label: "Queue a prompt to ComfyUI" },
   { id: "review-gallery", label: "Rate an output in Gallery review mode" },
+  { id: "discover-palette", label: "Open the command palette (⌘/Ctrl+K)" },
+  { id: "pin-tool", label: "Pin a favorite tool in the sidebar (☆)" },
+  { id: "set-density", label: "Try Compact density in Profile → Appearance" },
 ];
 
 export function loadOnboardingState(): OnboardingStep[] {

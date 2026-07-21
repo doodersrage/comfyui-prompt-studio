@@ -144,16 +144,16 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
     : "Bulk upscale (Max)";
 
   return (
-    <div className="sticky top-[var(--header-offset,0px)] z-20 rounded-2xl border border-violet-500/25 bg-zinc-950/90 p-3 shadow-[0_12px_40px_-24px_rgba(124,58,237,0.45)] backdrop-blur-md">
+    <div className="sticky top-[var(--header-offset,0px)] z-20 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 shadow-[var(--shadow-surface)] backdrop-blur-md">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="mr-1 flex items-center gap-2 border-r border-zinc-800 pr-3">
-          <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-xs font-medium text-violet-100">
+        <div className="mr-1 flex items-center gap-2 border-r border-[var(--border-subtle)] pr-3">
+          <span className="rounded-[var(--radius-full)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-1 text-xs font-medium text-[var(--accent-text)]">
             {props.selectedCount} selected
           </span>
           <button
             type="button"
             onClick={props.onClearSelection}
-            className="text-xs text-zinc-500 transition hover:text-zinc-300"
+            className="text-xs text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
           >
             Clear
           </button>
@@ -267,14 +267,14 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           <MenuItem label="Delete selected" onClick={props.onDelete} />
         </ActionMenu>
 
-        <label className="ml-auto hidden items-center gap-1 text-[11px] text-zinc-500 sm:flex">
+        <label className="ml-auto hidden items-center gap-1 text-[11px] text-[var(--text-muted)] sm:flex">
           Param axis
           <select
             value={props.paramAxis}
             onChange={(event) =>
               props.setParamAxis(event.target.value as ParamExperimentAxis)
             }
-            className="rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300"
+            className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] px-2 py-1 text-[var(--text-secondary)]"
           >
             <option value="cfg">CFG</option>
             <option value="steps">Steps</option>

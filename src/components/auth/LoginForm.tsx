@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
 import { useAuth } from "@/hooks/useAuth";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { loadLastToolRoute } from "@/lib/last-tool-route";
 
 type LoginMode = "sign-in" | "totp" | "forgot" | "reset";
 
@@ -40,7 +41,9 @@ export default function LoginForm() {
     if (!data.user) {
       throw new Error("Sign in failed.");
     }
-    const next = searchParams.get("next") || "/";
+    const explicitNext = searchParams.get("next")?.trim();
+    const remembered = loadLastToolRoute();
+    const next = explicitNext || remembered || "/";
     await refresh();
     router.replace(next);
     router.refresh();

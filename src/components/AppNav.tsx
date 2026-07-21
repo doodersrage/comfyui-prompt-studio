@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { featureForPath } from "@/lib/auth/features";
 import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
@@ -9,111 +9,130 @@ import NotificationBell from "@/components/NotificationBell";
 import { BUILTIN_TOOL_PLUGINS, type ToolPlugin } from "@/lib/tool-plugin-registry";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { prefetchGalleryPage } from "@/lib/gallery-warmup";
+import {
+  APP_NAV_GROUPS,
+  APP_NAV_SETTINGS_LINK,
+  type AppNavLink,
+} from "@/lib/app-nav-catalog";
+import {
+  isNavFavorite,
+  loadNavFavorites,
+  toggleNavFavorite,
+} from "@/lib/nav-favorites";
+import {
+  loadExpandedNavGroups,
+  saveExpandedNavGroups,
+  toggleExpandedNavGroup,
+} from "@/lib/nav-expanded-groups";
+import { pushRecentDestination } from "@/lib/recent-destinations";
+import { saveLastToolRoute } from "@/lib/last-tool-route";
 
-type NavLink = {
-  href: string;
-  label: string;
-  description: string;
-};
+function linkIsActive(link: AppNavLink, pathname: string, search: string): boolean {
+  const [path, query = ""] = link.href.split("?");
+  const normalizedPath = path || "/";
+  if (pathname !== normalizedPath) {
+    return false;
+  }
+  const current = new URLSearchParams(search);
+  if (!query) {
+    if (normalizedPath === "/variations") {
+      return !current.has("matrix");
+    }
+    return true;
+  }
+  const required = new URLSearchParams(query);
+  for (const [key, value] of required.entries()) {
+    if (current.get(key) !== value) {
+      return false;
+    }
+  }
+  return true;
+}
 
-type NavGroup = {
-  label: string;
-  links: NavLink[];
-};
-
-const navGroups: NavGroup[] = [
-  {
-    label: "Overview",
-    links: [
-      { href: "/dashboard", label: "Dashboard", description: "Jobs, queue & recent outputs" },
-      { href: "/queue", label: "Queue", description: "Central ComfyUI job queue" },
-    ],
-  },
-  {
-    label: "Prompt",
-    links: [
-      { href: "/", label: "Generate", description: "Keywords or random scene" },
-      { href: "/format", label: "Format", description: "Draft → model-ready" },
-      { href: "/prompt", label: "Prompt Editor", description: "Edit & optimize" },
-      { href: "/lint", label: "Lint", description: "Diagnostics & fix" },
-      { href: "/topics", label: "Topics", description: "Idea list" },
-    ],
-  },
-  {
-    label: "Scene",
-    links: [
-      {
-        href: "/character",
-        label: "Character",
-        description: "Solo, duo, or with background",
-      },
-      { href: "/background", label: "Background", description: "No people" },
-      { href: "/pet", label: "Pet", description: "Dogs, cats & more" },
-      { href: "/fantasy", label: "Fantasy", description: "Magic & myth" },
-    ],
-  },
-  {
-    label: "Tools",
-    links: [
-      { href: "/image-prompt", label: "Image → Prompt", description: "Vision upload" },
-      { href: "/refine", label: "Refine", description: "Image + intent fix" },
-      { href: "/inpaint", label: "Inpaint", description: "Mask + region prompt" },
-      { href: "/controlnet", label: "ControlNet", description: "Structure prompts" },
-      { href: "/video", label: "Video", description: "Motion prompts" },
-      { href: "/negative", label: "Negative", description: "SD negatives" },
-      { href: "/studio", label: "Studio", description: "History & tools" },
-      { href: "/gallery", label: "Gallery", description: "ComfyUI outputs" },
-      { href: "/variations", label: "Variations", description: "Grid queue" },
-      { href: "/variations?matrix=1", label: "Matrix", description: "Cartesian prompts" },
-      { href: "/plugins", label: "Plugins", description: "Tool registry" },
-    ],
-  },
-];
-
-const settingsLink: NavLink = {
-  href: "/settings",
-  label: "Settings",
-  description: "Health & ComfyUI",
-};
-
-function SidebarLink({ link, active }: { link: NavLink; active: boolean }) {
+function SidebarLink({
+  link,
+  active,
+  favorited,
+  onToggleFavorite,
+}: {
+  link: AppNavLink;
+  active: boolean;
+  favorited?: boolean;
+  onToggleFavorite?: () => void;
+}) {
   return (
-    <Link
-      href={link.href}
-      title={link.description}
-      data-active={active ? "true" : "false"}
-      className="ui-nav-link"
-      onMouseEnter={() => {
-        if (link.href === "/gallery") {
-          prefetchGalleryPage();
-        }
-      }}
-      onFocus={() => {
-        if (link.href === "/gallery") {
-          prefetchGalleryPage();
-        }
-      }}
-      onClick={() => {
-        if (link.href === "/gallery") {
-          prefetchGalleryPage();
-        }
-      }}
-    >
-      {link.label}
-    </Link>
+    <div className="group/nav flex items-center gap-0.5">
+      <Link
+        href={link.href}
+        title={link.description}
+        data-active={active ? "true" : "false"}
+        className="ui-nav-link min-w-0 flex-1"
+        onMouseEnter={() => {
+          if (link.href === "/gallery") {
+            prefetchGalleryPage();
+          }
+        }}
+        onFocus={() => {
+          if (link.href === "/gallery") {
+            prefetchGalleryPage();
+          }
+        }}
+        onClick={() => {
+          if (link.href === "/gallery") {
+            prefetchGalleryPage();
+          }
+        }}
+      >
+        {link.label}
+      </Link>
+      {onToggleFavorite ? (
+        <button
+          type="button"
+          aria-label={favorited ? `Unpin ${link.label}` : `Pin ${link.label}`}
+          title={favorited ? "Unpin" : "Pin"}
+          className={`shrink-0 rounded-[var(--radius-md)] px-1.5 py-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
+            favorited
+              ? "text-[var(--accent-text)] opacity-100"
+              : "text-[var(--text-muted)] opacity-0 group-hover/nav:opacity-100 focus-visible:opacity-100"
+          }`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onToggleFavorite();
+          }}
+        >
+          {favorited ? "★" : "☆"}
+        </button>
+      ) : null}
+    </div>
   );
 }
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
   const { authEnabled, user, allowedFeatures, logout, impersonating, impersonatorUsername, refresh } =
     useAuth();
   const [customPlugins, setCustomPlugins] = useState<ToolPlugin[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    setFavorites(loadNavFavorites());
+    const onStorage = () => setFavorites(loadNavFavorites());
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onStorage);
+    };
+  }, []);
 
   useEffect(() => {
     const builtinIds = new Set(BUILTIN_TOOL_PLUGINS.map((entry) => entry.id));
     const knownHrefs = new Set(
-      navGroups.flatMap((group) =>
+      APP_NAV_GROUPS.flatMap((group) =>
         group.links.map((link) => link.href.split("?")[0] ?? link.href),
       ),
     );
@@ -140,20 +159,17 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   }, []);
 
   const visibleGroups = useMemo(() => {
-    const pluginLinks: NavLink[] = customPlugins.map((plugin) => ({
+    const pluginLinks: AppNavLink[] = customPlugins.map((plugin) => ({
       href: plugin.href,
       label: plugin.label,
       description: plugin.description,
     }));
 
-    return navGroups
-      .map((group) => ({
-        ...group,
-        links:
-          group.label === "Tools"
-            ? [...group.links, ...pluginLinks]
-            : group.links,
-      }))
+    return APP_NAV_GROUPS.map((group) => ({
+      ...group,
+      links:
+        group.label === "Tools" ? [...group.links, ...pluginLinks] : group.links,
+    }))
       .map((group) => ({
         ...group,
         links: group.links.filter((link) =>
@@ -166,8 +182,85 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       .filter((group) => group.links.length > 0);
   }, [allowedFeatures, customPlugins]);
 
+  const allLinks = useMemo(
+    () => [
+      ...visibleGroups.flatMap((group) => group.links),
+      ...(canAccessNavFeature(allowedFeatures, "settings")
+        ? [APP_NAV_SETTINGS_LINK]
+        : []),
+    ],
+    [allowedFeatures, visibleGroups],
+  );
+
+  const pinnedLinks = useMemo(() => {
+    const byHref = new Map(allLinks.map((link) => [link.href, link]));
+    return favorites
+      .map((href) => byHref.get(href))
+      .filter((link): link is AppNavLink => Boolean(link));
+  }, [allLinks, favorites]);
+
+  useEffect(() => {
+    if (expandedGroups !== null || visibleGroups.length === 0) {
+      return;
+    }
+    const saved = loadExpandedNavGroups();
+    if (saved && saved.length > 0) {
+      setExpandedGroups(saved);
+      return;
+    }
+    if (favorites.length > 0) {
+      const activeGroup = visibleGroups.find((group) =>
+        group.links.some((link) => linkIsActive(link, pathname, search)),
+      );
+      setExpandedGroups(
+        ["Overview", ...(activeGroup ? [activeGroup.label] : [])].filter(
+          (label, index, list) => list.indexOf(label) === index,
+        ),
+      );
+      return;
+    }
+    setExpandedGroups(visibleGroups.map((group) => group.label));
+  }, [expandedGroups, favorites.length, pathname, search, visibleGroups]);
+
+  useEffect(() => {
+    const match =
+      allLinks.find((link) => linkIsActive(link, pathname, search)) ??
+      allLinks.find((link) => (link.href.split("?")[0] || "/") === pathname);
+    if (!match) {
+      return;
+    }
+    pushRecentDestination({ href: match.href, label: match.label });
+    saveLastToolRoute(match.href);
+  }, [allLinks, pathname, search]);
+
+  // Ensure the group containing the current route is open without collapsing others.
+  useEffect(() => {
+    if (expandedGroups === null) {
+      return;
+    }
+    const activeGroup = visibleGroups.find((group) =>
+      group.links.some((link) => linkIsActive(link, pathname, search)),
+    );
+    if (!activeGroup || expandedGroups.includes(activeGroup.label)) {
+      return;
+    }
+    const next = [...expandedGroups, activeGroup.label];
+    setExpandedGroups(next);
+    saveExpandedNavGroups(next);
+  }, [expandedGroups, pathname, search, visibleGroups]);
+
   const settingsVisible = canAccessNavFeature(allowedFeatures, "settings");
   const profileVisible = authEnabled && Boolean(user);
+  const openGroups = expandedGroups ?? visibleGroups.map((group) => group.label);
+
+  function handleToggleFavorite(href: string) {
+    setFavorites(toggleNavFavorite(href));
+  }
+
+  function handleToggleGroup(label: string) {
+    const next = toggleExpandedNavGroup(label, openGroups);
+    setExpandedGroups(next);
+  }
 
   async function endImpersonation() {
     await fetch("/api/auth/impersonate", { method: "DELETE" });
@@ -191,46 +284,81 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       ) : null}
       <div className="px-2">
-        <Link
-          href="/"
-          onClick={onNavigate}
-          className="ui-nav-brand type-title"
-        >
+        <Link href="/" onClick={onNavigate} className="ui-nav-brand type-title">
           Prompt Tools
         </Link>
         <p className="type-caption mt-1 px-3">
-          ComfyUI prompt studio for image models
+          ComfyUI prompt studio{" "}
+          <span className="text-[var(--text-muted)]">· ⌘K</span>
         </p>
       </div>
 
-      <div className="sidebar-scroll flex-1 space-y-6 overflow-y-auto px-2 pb-2">
-        {visibleGroups.map((group) => (
-          <div key={group.label} className="space-y-2">
-            <p className="type-overline px-3">{group.label}</p>
+      <div className="sidebar-scroll flex-1 space-y-4 overflow-y-auto px-2 pb-2">
+        {pinnedLinks.length > 0 ? (
+          <div className="space-y-2">
+            <p className="type-overline px-3">Pinned</p>
             <div className="space-y-1">
-              {group.links.map((link) => (
-                <div key={link.href} onClick={onNavigate}>
-                  <SidebarLink link={link} active={pathname === link.href} />
+              {pinnedLinks.map((link) => (
+                <div key={`pinned-${link.href}`} onClick={onNavigate}>
+                  <SidebarLink
+                    link={link}
+                    active={linkIsActive(link, pathname, search)}
+                    favorited
+                    onToggleFavorite={() => handleToggleFavorite(link.href)}
+                  />
                 </div>
               ))}
             </div>
           </div>
-        ))}
+        ) : null}
+
+        {visibleGroups.map((group) => {
+          const expanded = openGroups.includes(group.label);
+          return (
+            <div key={group.label} className="space-y-2">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-[var(--radius-md)] px-3 py-1 text-left transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                aria-expanded={expanded}
+                onClick={() => handleToggleGroup(group.label)}
+              >
+                <span className="type-overline">{group.label}</span>
+                <span className="type-caption text-[var(--text-muted)]" aria-hidden>
+                  {expanded ? "▾" : "▸"}
+                </span>
+              </button>
+              {expanded ? (
+                <div className="space-y-1">
+                  {group.links.map((link) => (
+                    <div key={link.href} onClick={onNavigate}>
+                      <SidebarLink
+                        link={link}
+                        active={linkIsActive(link, pathname, search)}
+                        favorited={isNavFavorite(link.href, favorites)}
+                        onToggleFavorite={() => handleToggleFavorite(link.href)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
 
-      <div className="border-t border-[var(--border-subtle)] px-2 pt-4 space-y-3">
+      <div className="space-y-3 border-t border-[var(--border-subtle)] px-2 pt-4">
         <div className="flex justify-end px-1">
           <NotificationBell />
         </div>
         {authEnabled && user ? (
-          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-3">
-            <p className="text-sm font-medium text-zinc-100">{user.username}</p>
-            <p className="type-caption mt-0.5 capitalize">{user.role}</p>
+          <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-3">
+            <p className="text-sm font-medium text-[var(--text-primary)]">{user.username}</p>
+            <p className="type-caption mt-0.5 capitalize text-[var(--text-muted)]">{user.role}</p>
             {profileVisible ? (
               <Link
                 href="/profile"
                 onClick={onNavigate}
-                className="mt-2 block text-xs text-violet-300 hover:text-violet-200"
+                className="mt-2 block text-xs text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
               >
                 Profile & preferences
               </Link>
@@ -238,7 +366,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             <button
               type="button"
               onClick={() => void logout()}
-              className="mt-2 block text-xs text-zinc-400 transition hover:text-zinc-200"
+              className="mt-2 block text-xs text-[var(--text-tertiary)] transition hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             >
               Sign out
             </button>
@@ -247,8 +375,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         {settingsVisible ? (
           <div onClick={onNavigate}>
             <SidebarLink
-              link={settingsLink}
-              active={pathname === settingsLink.href}
+              link={APP_NAV_SETTINGS_LINK}
+              active={pathname === APP_NAV_SETTINGS_LINK.href}
+              favorited={isNavFavorite(APP_NAV_SETTINGS_LINK.href, favorites)}
+              onToggleFavorite={() => handleToggleFavorite(APP_NAV_SETTINGS_LINK.href)}
             />
           </div>
         ) : null}

@@ -11,6 +11,8 @@ import {
   type SharedToolSettings,
   type ToolSettingsCache,
 } from "@/lib/settings-cache";
+import { loadToolContext, saveToolContext } from "@/lib/tool-context-memory";
+import { COMFY_MODEL_IDS } from "@/lib/comfy-models/client";
 
 export function useCachedSettings<K extends keyof ToolSettingsCache>(
   toolKey: K,
@@ -23,7 +25,26 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
   useEffect(() => {
     scheduleAfterCommit(() => {
       const cache = loadSettingsCache();
-      setShared(cache.shared);
+      const memory = loadToolContext(String(toolKey));
+      let nextShared = cache.shared;
+      if (memory?.model || memory?.selectedWorkflowFileId) {
+        nextShared = {
+          ...cache.shared,
+          ...(memory.model && COMFY_MODEL_IDS.has(memory.model)
+            ? { model: memory.model }
+            : {}),
+          ...(memory.selectedWorkflowFileId
+            ? { selectedWorkflowFileId: memory.selectedWorkflowFileId }
+            : {}),
+        };
+        if (
+          nextShared.model !== cache.shared.model ||
+          nextShared.selectedWorkflowFileId !== cache.shared.selectedWorkflowFileId
+        ) {
+          saveSharedSettings(nextShared);
+        }
+      }
+      setShared(nextShared);
       setToolSettings(loadToolSettings(toolKey, toolDefaults));
       setMounted(true);
     });
@@ -31,13 +52,22 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toolKey]);
 
-  const updateShared = useCallback((partial: Partial<SharedToolSettings>) => {
-    setShared((previous) => {
-      const next = { ...previous, ...partial };
-      saveSharedSettings(next);
-      return next;
-    });
-  }, []);
+  const updateShared = useCallback(
+    (partial: Partial<SharedToolSettings>) => {
+      setShared((previous) => {
+        const next = { ...previous, ...partial };
+        saveSharedSettings(next);
+        if ("model" in partial || "selectedWorkflowFileId" in partial) {
+          saveToolContext(String(toolKey), {
+            model: next.model,
+            selectedWorkflowFileId: next.selectedWorkflowFileId,
+          });
+        }
+        return next;
+      });
+    },
+    [toolKey],
+  );
 
   const updateToolSettings = useCallback(
     (partial: Partial<NonNullable<ToolSettingsCache[K]>>) => {

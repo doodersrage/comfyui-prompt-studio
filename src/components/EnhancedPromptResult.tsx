@@ -6,7 +6,8 @@ import PromptResultPanel from "@/components/PromptResultPanel";
 import PromptDiagnosticsPanel from "@/components/PromptDiagnosticsPanel";
 import { useComfyWorkflowSelection } from "@/hooks/useComfyWorkflowSelection";
 import {
-  ActionButtonBar,
+  CollapsibleSection,
+  ToolActionRow,
   ToolBlockGroup,
   ToolSection,
 } from "@/components/ui/ToolPageShell";
@@ -17,6 +18,9 @@ import {
 } from "@/components/ui/BatchPromptCard";
 import type { ImageLightboxState } from "@/components/ui/ImageLightbox";
 import ComfyUiJobStatusPanel from "@/components/ui/ComfyUiJobStatusPanel";
+import StatusToastStrip, {
+  type StatusToastNote,
+} from "@/components/ui/StatusToastStrip";
 import type { ComfyUiJobTrackerState } from "@/lib/comfyui-job-status";
 import {
   formatComfyUiJobStatusLine,
@@ -281,6 +285,50 @@ export default function EnhancedPromptResult({
     });
   }, [comfyUiPreviewUrl, panelProps.output]);
 
+  const statusNotes = useMemo(() => {
+    const notes: StatusToastNote[] = [];
+    const push = (
+      id: string,
+      text: string | null | undefined,
+      tone: StatusToastNote["tone"] = "neutral",
+    ) => {
+      const trimmed = text?.trim();
+      if (trimmed) {
+        notes.push({ id, text: trimmed, tone });
+      }
+    };
+    push("pipeline", pipelineStatus, "info");
+    push("preview", previewStatus, "info");
+    push("fix", fixStatus, "warning");
+    push("compact", compactStatus, "warning");
+    push("reformat", reformatStatus, "info");
+    push("comfy", comfyUiStatus, /fail|error/i.test(comfyUiStatus ?? "") ? "danger" : "success");
+    if (
+      !fixStatus &&
+      !comfyUiStatus &&
+      !pipelineStatus &&
+      !previewStatus &&
+      !compactStatus &&
+      !reformatStatus &&
+      variationSeed
+    ) {
+      const seed =
+        variationSeed.length > 120
+          ? `${variationSeed.slice(0, 120)}…`
+          : variationSeed;
+      push("seed", `${PINNED_VARIATION_SEED_LABEL}: ${seed}`, "neutral");
+    }
+    return notes;
+  }, [
+    compactStatus,
+    comfyUiStatus,
+    fixStatus,
+    pipelineStatus,
+    previewStatus,
+    reformatStatus,
+    variationSeed,
+  ]);
+
   if (!panelProps.output && resolvedBatchItems.length === 0) {
     return null;
   }
@@ -469,7 +517,8 @@ export default function EnhancedPromptResult({
         onExportSidecar ||
         onPreviewWorkflow ||
         onImprove ||
-        onRefine) &&
+        onRefine ||
+        onEditPrompt) &&
         showSingleActions && (
         <ToolSection className="space-y-5">
           {showComfyActions && workflowSelection.mounted && (
@@ -486,82 +535,112 @@ export default function EnhancedPromptResult({
             <QueueParamsPanel compact />
             </>
           )}
-        <ActionButtonBar>
-          {onRunPipeline && (
-            <Button variant="info" fullWidth onClick={onRunPipeline} className="font-semibold">
-              Prepare for ComfyUI
-            </Button>
+
+          {(onSendComfyUi || onCopyPair) && (
+            <ToolActionRow className="gap-3">
+              {onSendComfyUi && (
+                <Button
+                  variant="primary"
+                  onClick={handleSendComfyUi}
+                  data-action="send-comfyui"
+                  className={!queueReadinessAllowed ? "border-amber-500/50" : undefined}
+                >
+                  {queueReadinessAllowed
+                    ? "Send to ComfyUI"
+                    : "Send to ComfyUI (below readiness)"}
+                </Button>
+              )}
+              {onCopyPair && (
+                <Button
+                  variant="secondary"
+                  onClick={onCopyPair}
+                  data-action="copy-pair"
+                >
+                  {pairCopied ? "Pair copied!" : "Copy prompt pair"}
+                </Button>
+              )}
+            </ToolActionRow>
           )}
-          {onCompact && (
-            <Button variant="danger" fullWidth onClick={onCompact}>
-              {panelProps.limits &&
-              panelProps.output.length > panelProps.limits.maxChars
-                ? "Compact to limit"
-                : "Compact prompt"}
-            </Button>
-          )}
-          {onReformat && reformatTargetLabel && (
-            <Button variant="secondary" fullWidth onClick={onReformat}>
-              Reformat for {reformatTargetLabel}
-            </Button>
-          )}
-          {onLockSeed && variationSeed && (
-            <Button variant="accent-outline" fullWidth onClick={onLockSeed}>
-              {seedLocked ? "Seed locked" : "Lock variation seed"}
-            </Button>
-          )}
-          {onCopyPair && (
-            <Button variant="secondary" fullWidth onClick={onCopyPair} data-action="copy-pair">
-              {pairCopied ? "Pair copied!" : "Copy prompt pair"}
-            </Button>
-          )}
-          {onFixPrompt && (
-            <Button variant="secondary" fullWidth onClick={onFixPrompt}>
-              Fix prompt (rules)
-            </Button>
-          )}
-          {onSaveHistory && (
-            <Button variant="secondary" fullWidth onClick={onSaveHistory}>
-              {historySaved ? "Saved to history" : "Save to history"}
-            </Button>
-          )}
-          {onPreviewWorkflow && (
-            <Button variant="info" fullWidth onClick={onPreviewWorkflow}>
-              Preview workflow
-            </Button>
-          )}
-          {onSendComfyUi && (
-            <Button
-              variant="accent-outline"
-              fullWidth
-              onClick={handleSendComfyUi}
-              data-action="send-comfyui"
-              className={!queueReadinessAllowed ? "border-amber-500/50" : undefined}
+
+          {(onRunPipeline ||
+            onCompact ||
+            onReformat ||
+            onLockSeed ||
+            onFixPrompt ||
+            onSaveHistory ||
+            onPreviewWorkflow ||
+            onImprove ||
+            onRefine ||
+            onEditPrompt ||
+            onExportSidecar) && (
+            <CollapsibleSection
+              title="More actions"
+              summary="Prepare, compact, reformat, lock seed, fix, history, preview, improve, and export."
+              defaultOpen={false}
+              persistKey="result-more-actions"
             >
-              {queueReadinessAllowed ? "Send to ComfyUI" : "Send to ComfyUI (below readiness)"}
-            </Button>
+              <ToolActionRow>
+                {onRunPipeline && (
+                  <Button variant="info" onClick={onRunPipeline}>
+                    Prepare for ComfyUI
+                  </Button>
+                )}
+                {onCompact && (
+                  <Button variant="danger" onClick={onCompact}>
+                    {panelProps.limits &&
+                    panelProps.output.length > panelProps.limits.maxChars
+                      ? "Compact to limit"
+                      : "Compact prompt"}
+                  </Button>
+                )}
+                {onReformat && reformatTargetLabel && (
+                  <Button variant="secondary" onClick={onReformat}>
+                    Reformat for {reformatTargetLabel}
+                  </Button>
+                )}
+                {onLockSeed && variationSeed && (
+                  <Button variant="accent-outline" onClick={onLockSeed}>
+                    {seedLocked ? "Seed locked" : "Lock variation seed"}
+                  </Button>
+                )}
+                {onFixPrompt && (
+                  <Button variant="secondary" onClick={onFixPrompt}>
+                    Fix prompt (rules)
+                  </Button>
+                )}
+                {onSaveHistory && (
+                  <Button variant="secondary" onClick={onSaveHistory}>
+                    {historySaved ? "Saved to history" : "Save to history"}
+                  </Button>
+                )}
+                {onPreviewWorkflow && (
+                  <Button variant="info" onClick={onPreviewWorkflow}>
+                    Preview workflow
+                  </Button>
+                )}
+                {onImprove && (
+                  <Button variant="secondary" onClick={onImprove}>
+                    Improve output
+                  </Button>
+                )}
+                {onRefine && (
+                  <Button variant="secondary" onClick={onRefine}>
+                    Open in Refine
+                  </Button>
+                )}
+                {onEditPrompt && (
+                  <Button variant="secondary" onClick={onEditPrompt}>
+                    Edit in Prompt Editor
+                  </Button>
+                )}
+                {onExportSidecar && (
+                  <Button variant="secondary" onClick={onExportSidecar}>
+                    Export sidecar JSON
+                  </Button>
+                )}
+              </ToolActionRow>
+            </CollapsibleSection>
           )}
-          {onImprove && (
-            <Button variant="secondary" fullWidth onClick={onImprove}>
-              Improve output
-            </Button>
-          )}
-          {onRefine && (
-            <Button variant="secondary" fullWidth onClick={onRefine}>
-              Open in Refine
-            </Button>
-          )}
-          {onEditPrompt && (
-            <Button variant="secondary" fullWidth onClick={onEditPrompt}>
-              Edit in Prompt Editor
-            </Button>
-          )}
-          {onExportSidecar && (
-            <Button variant="secondary" fullWidth onClick={onExportSidecar}>
-              Export sidecar JSON
-            </Button>
-          )}
-        </ActionButtonBar>
         </ToolSection>
       )}
 
@@ -569,26 +648,10 @@ export default function EnhancedPromptResult({
         <ComfyUiJobStatusPanel job={comfyUiJob} />
       ) : null}
 
-      {(fixStatus ||
-        comfyUiStatus ||
-        compactStatus ||
-        reformatStatus ||
-        pipelineStatus ||
-        previewStatus ||
-        variationSeed) &&
-        !(comfyUiJob && isComfyUiJobProcessing(comfyUiJob)) && (
-        <p className="type-caption">
-          {pipelineStatus ||
-            previewStatus ||
-            fixStatus ||
-            compactStatus ||
-            reformatStatus ||
-            comfyUiStatus}
-          {!fixStatus && !comfyUiStatus && variationSeed
-            ? `${PINNED_VARIATION_SEED_LABEL}: ${variationSeed.length > 120 ? `${variationSeed.slice(0, 120)}…` : variationSeed}`
-            : null}
-        </p>
-      )}
+      {statusNotes.length > 0 &&
+      !(comfyUiJob && isComfyUiJobProcessing(comfyUiJob)) ? (
+        <StatusToastStrip notes={statusNotes} />
+      ) : null}
 
       {workflowPreview && (
         <WorkflowPreviewPanel preview={workflowPreview} />

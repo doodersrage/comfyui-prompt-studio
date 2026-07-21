@@ -19,6 +19,10 @@ const GalleryPwaRegister = dynamic(() => import("@/components/GalleryPwaRegister
   ssr: false,
 });
 
+const GlobalToastHost = dynamic(() => import("@/components/GlobalToastHost"), {
+  ssr: false,
+});
+
 function scheduleIdle(callback: () => void, timeoutMs: number): () => void {
   if (typeof window.requestIdleCallback === "function") {
     const id = window.requestIdleCallback(callback, { timeout: timeoutMs });
@@ -72,6 +76,7 @@ export default function DeferredShellClient() {
           <KeyboardShortcuts />
           <CommandPalette />
           <GalleryPwaRegister />
+          <GlobalToastHost />
         </>
       ) : null}
     </>

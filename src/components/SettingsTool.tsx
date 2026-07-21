@@ -89,6 +89,7 @@ import {
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import SettingsSubNav from "@/components/settings/SettingsSubNav";
 import {
+  CollapsibleSection,
   ToolBadge,
   ToolLayout,
   ToolSection,
@@ -619,7 +620,9 @@ export default function SettingsTool() {
         </>
       }
     >
+      <div className="md:grid md:grid-cols-[minmax(14rem,17rem)_minmax(0,1fr)] md:items-start md:gap-8">
       <SettingsSubNav activeTab={tab} onTabChange={handleTabChange} tabs={SETTINGS_TABS} />
+      <div className="min-w-0 space-y-[var(--section-gap)]">
 
       {tab === "overview" && (
       <>
@@ -1409,6 +1412,12 @@ export default function SettingsTool() {
             </p>
           </div>
 
+          <CollapsibleSection
+            title="Custom tokens & LoRA"
+            summary="Named placeholders and LoRA trigger library."
+            defaultOpen={false}
+            persistKey="settings-custom-tokens-lora"
+          >
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-zinc-400">Custom workflow tokens</p>
@@ -1569,7 +1578,14 @@ export default function SettingsTool() {
               </ul>
             )}
           </div>
+          </CollapsibleSection>
 
+          <CollapsibleSection
+            title="Fallback workflow & preview"
+            summary="Optional JSON fallback and dry-run injection preview."
+            defaultOpen={false}
+            persistKey="settings-fallback-workflow"
+          >
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label htmlFor="workflow-json" className="text-xs text-zinc-400">
@@ -1658,8 +1674,15 @@ export default function SettingsTool() {
               preview={workflowPreview}
             />
           </div>
+          </CollapsibleSection>
         </div>
 
+        <CollapsibleSection
+          title="Queue automation & notifications"
+          summary="Auto-save, rating-driven requeue, WebSocket progress, and browser alerts."
+          defaultOpen={false}
+          persistKey="settings-queue-automation"
+        >
         <label className="flex items-center gap-2 text-sm text-zinc-300">
           <input
             type="checkbox"
@@ -1854,6 +1877,7 @@ export default function SettingsTool() {
           />
           Auto-tag completed gallery images with vision LLM tags
         </label>
+        </CollapsibleSection>
 
         <div className="flex flex-wrap gap-2 text-sm">
           <PrimaryButton
@@ -2376,6 +2400,8 @@ export default function SettingsTool() {
       {tab === "users" ? <UsersSettingsPanel /> : null}
 
       {status && <p className="type-caption">{status}</p>}
+      </div>
+      </div>
     </ToolLayout>
   );
 }

@@ -534,7 +534,7 @@ export default function PromptGenerator() {
 
         {hintSource === "random" ? (
           <>
-            <label className="inline-flex items-center gap-2 text-sm text-zinc-300">
+            <label className="inline-flex items-center gap-2 text-sm text-[var(--text-secondary)]">
               <input
                 type="checkbox"
                 checked={includePeople}
@@ -561,47 +561,147 @@ export default function PromptGenerator() {
         ) : (
           <>
         {mode === "positive" && (
-          <SceneStarterPresetChips
-            mode="all"
-            accent={ACCENT}
-            currentHints={input}
-            variationsTarget="generate"
-            category={toolSettings.sceneStarterCategory ?? "all"}
-            onCategoryChange={(category) =>
-              updateToolSettings({ sceneStarterCategory: category })
-            }
-            filterState={{
-              category: toolSettings.sceneStarterCategory ?? "all",
-              framing: toolSettings.sceneStarterFraming ?? "all",
-              query: toolSettings.sceneStarterQuery ?? "",
-              tags: toolSettings.sceneStarterTags ?? [],
-            }}
-            onFilterChange={(filter) =>
-              updateToolSettings({
-                sceneStarterCategory: filter.category,
-                sceneStarterFraming: filter.framing,
-                sceneStarterQuery: filter.query,
-                sceneStarterTags: filter.tags,
-              })
-            }
-            selectedId={toolSettings.sceneStarterPresetId ?? toolSettings.sportPresetId}
-            onSelect={(preset) => {
-              updateToolSettings({
-                sceneStarterPresetId: preset.id,
-                sportPresetId: isSportStarterPreset(preset.id) ? preset.id : undefined,
-                hintSource: "manual",
-                generateSource: "keywords",
-              });
-              setInput(preset.hints);
-              applySceneStarterWorkflowHints(preset, updateShared);
-            }}
-          />
+          <CollapsibleSection
+            title="Browse presets & scene setup"
+            summary="Scene starters, example tags, people handling, and variation strength."
+            defaultOpen={false}
+            persistKey="generate-browse-presets"
+          >
+            <SceneStarterPresetChips
+              mode="all"
+              accent={ACCENT}
+              currentHints={input}
+              variationsTarget="generate"
+              category={toolSettings.sceneStarterCategory ?? "all"}
+              onCategoryChange={(category) =>
+                updateToolSettings({ sceneStarterCategory: category })
+              }
+              filterState={{
+                category: toolSettings.sceneStarterCategory ?? "all",
+                framing: toolSettings.sceneStarterFraming ?? "all",
+                query: toolSettings.sceneStarterQuery ?? "",
+                tags: toolSettings.sceneStarterTags ?? [],
+              }}
+              onFilterChange={(filter) =>
+                updateToolSettings({
+                  sceneStarterCategory: filter.category,
+                  sceneStarterFraming: filter.framing,
+                  sceneStarterQuery: filter.query,
+                  sceneStarterTags: filter.tags,
+                })
+              }
+              selectedId={toolSettings.sceneStarterPresetId ?? toolSettings.sportPresetId}
+              onSelect={(preset) => {
+                updateToolSettings({
+                  sceneStarterPresetId: preset.id,
+                  sportPresetId: isSportStarterPreset(preset.id) ? preset.id : undefined,
+                  hintSource: "manual",
+                  generateSource: "keywords",
+                });
+                setInput(preset.hints);
+                applySceneStarterWorkflowHints(preset, updateShared);
+              }}
+            />
+
+            <FieldDivider />
+
+            <div className="flex flex-wrap gap-2">
+              {EXAMPLE_INPUTS.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => setInput(example)}
+                  className="ui-tag"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+
+            <FieldDivider />
+
+            <div className="space-y-3">
+              <FieldLabel hint="Choose how multiple people are written into the prompt.">
+                People in scene
+              </FieldLabel>
+              <div className="flex flex-wrap gap-2">
+                <ChipButton
+                  active={distinctPeople}
+                  onClick={() => setDistinctPeople(true)}
+                >
+                  Distinct individuals
+                </ChipButton>
+                <ChipButton
+                  active={!distinctPeople}
+                  onClick={() => setDistinctPeople(false)}
+                >
+                  Grouped / couple
+                </ChipButton>
+              </div>
+              <p className="type-caption text-[var(--text-muted)]">
+                {distinctPeople
+                  ? "Splits two men / two women into separate left-right descriptions. Gender from your input is enforced."
+                  : "Writes pairs as one unified couple or ensemble—not split into separate people."}
+              </p>
+            </div>
+
+            <FieldDivider />
+
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <FieldLabel hint="Randomize people, lighting, framing, and palette each run.">
+                  {RANDOMIZE_INGREDIENTS_LABEL}
+                </FieldLabel>
+                <label className="inline-flex cursor-pointer items-center gap-2">
+                  <span className="type-caption text-[var(--text-tertiary)]">
+                    {variationEnabled ? "On" : "Off"}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={variationEnabled}
+                    onChange={(e) => setVariationEnabled(e.target.checked)}
+                    className="ui-checkbox"
+                  />
+                </label>
+              </div>
+
+              {variationEnabled && (
+                <div className="space-y-3">
+                  <VariationSliderField
+                    showLabel={false}
+                    value={variationStrength}
+                    onChange={setVariationStrength}
+                    valueLabel={`${rollVariationLabel(variationStrength)} (${variationStrength})`}
+                    minLabel="Subtle"
+                    maxLabel="Wild"
+                    accentRingClassName={accentRingClass(ACCENT)}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: "Subtle", value: 20 },
+                      { label: "Light", value: 40 },
+                      { label: "Balanced", value: 65 },
+                      { label: "Wild", value: 95 },
+                    ].map((preset) => (
+                      <ChipButton
+                        key={preset.label}
+                        active={variationStrength === preset.value}
+                        onClick={() => setVariationStrength(preset.value)}
+                      >
+                        {preset.label}
+                      </ChipButton>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CollapsibleSection>
         )}
 
         <FieldDivider />
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <label htmlFor="edit-input" className="text-sm font-medium text-zinc-200">
+          <label htmlFor="edit-input" className="text-sm font-medium text-[var(--text-primary)]">
             Scene idea or keywords
           </label>
           <SegmentedControl
@@ -637,102 +737,6 @@ export default function PromptGenerator() {
         {modelUsesTagAssist(queueModel) ? (
           <TagAssistToolbar value={input} onChange={setInput} textareaId="edit-input" />
         ) : null}
-
-        <div className="flex flex-wrap gap-2">
-          {EXAMPLE_INPUTS.map((example) => (
-            <button
-              key={example}
-              type="button"
-              onClick={() => setInput(example)}
-              className="ui-tag"
-            >
-              {example}
-            </button>
-          ))}
-        </div>
-
-        {mode === "positive" && (
-          <CollapsibleSection
-            title="Generation options"
-            summary="People handling and variation strength."
-          >
-            <div className="space-y-3">
-              <FieldLabel hint="Choose how multiple people are written into the prompt.">
-                People in scene
-              </FieldLabel>
-              <div className="flex flex-wrap gap-2">
-                <ChipButton
-                  active={distinctPeople}
-                  onClick={() => setDistinctPeople(true)}
-                >
-                  Distinct individuals
-                </ChipButton>
-                <ChipButton
-                  active={!distinctPeople}
-                  onClick={() => setDistinctPeople(false)}
-                >
-                  Grouped / couple
-                </ChipButton>
-              </div>
-              <p className="text-xs leading-relaxed text-zinc-500">
-                {distinctPeople
-                  ? "Splits two men / two women into separate left-right descriptions. Gender from your input is enforced."
-                  : "Writes pairs as one unified couple or ensemble—not split into separate people."}
-              </p>
-            </div>
-
-            <FieldDivider />
-
-            <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <FieldLabel hint="Randomize people, lighting, framing, and palette each run.">
-                {RANDOMIZE_INGREDIENTS_LABEL}
-              </FieldLabel>
-              <label className="inline-flex cursor-pointer items-center gap-2">
-                <span className="text-xs text-zinc-400">
-                  {variationEnabled ? "On" : "Off"}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={variationEnabled}
-                  onChange={(e) => setVariationEnabled(e.target.checked)}
-                  className="ui-checkbox"
-                />
-              </label>
-            </div>
-
-            {variationEnabled && (
-              <div className="space-y-3">
-                <VariationSliderField
-                  showLabel={false}
-                  value={variationStrength}
-                  onChange={setVariationStrength}
-                  valueLabel={`${rollVariationLabel(variationStrength)} (${variationStrength})`}
-                  minLabel="Subtle"
-                  maxLabel="Wild"
-                  accentRingClassName={accentRingClass(ACCENT)}
-                />
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { label: "Subtle", value: 20 },
-                    { label: "Light", value: 40 },
-                    { label: "Balanced", value: 65 },
-                    { label: "Wild", value: 95 },
-                  ].map((preset) => (
-                    <ChipButton
-                      key={preset.label}
-                      active={variationStrength === preset.value}
-                      onClick={() => setVariationStrength(preset.value)}
-                    >
-                      {preset.label}
-                    </ChipButton>
-                  ))}
-                </div>
-              </div>
-            )}
-            </div>
-          </CollapsibleSection>
-        )}
           </>
         )}
 

@@ -34,6 +34,13 @@ export function pushNotification(input: Omit<AppNotification, "id" | "at" | "rea
     read: false,
   };
   saveNotifications([entry, ...loadNotifications()]);
+  void import("./app-toast").then(({ pushAppToast }) => {
+    pushAppToast({
+      text: input.body ? `${input.title} — ${input.body}` : input.title,
+      tone: input.kind === "job" ? "info" : input.kind === "webhook" ? "success" : "neutral",
+      href: input.href,
+    });
+  });
 }
 
 export function markNotificationRead(id: string): void {

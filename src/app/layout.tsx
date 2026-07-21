@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import ThemeInit from "@/components/ThemeInit";
 import TabSyncInit from "@/components/TabSyncInit";
@@ -42,7 +43,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("comfy-app-theme-v1");if(t){document.documentElement.dataset.theme=(t==="light"||t==="\\"light\\"")?"light":"dark";}var a=localStorage.getItem("comfy-ambient-intensity-v1");if(a){var ambient=a.replace(/^"|"$/g,"");if(ambient==="off"||ambient==="subtle"||ambient==="normal"||ambient==="vivid"){document.documentElement.dataset.ambient=ambient;}}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem("comfy-app-theme-v1");if(t){document.documentElement.dataset.theme=(t==="light"||t==="\\"light\\"")?"light":"dark";}var a=localStorage.getItem("comfy-ambient-intensity-v1");var ambient="subtle";if(a){var parsed=a.replace(/^"|"$/g,"");if(parsed==="off"||parsed==="subtle"||parsed==="normal"||parsed==="vivid"){ambient=parsed;}}document.documentElement.dataset.ambient=ambient;var d=localStorage.getItem("comfy-ui-density-v1");var density="comfortable";if(d){var dens=d.replace(/^"|"$/g,"");if(dens==="compact"||dens==="comfortable"){density=dens;}}document.documentElement.dataset.density=density;}catch(e){}})();`,
           }}
         />
       </head>
@@ -52,7 +53,9 @@ export default function RootLayout({
         <TabSyncInit />
         <AuthProvider>
           <div className="relative z-[1] min-h-full lg:pl-[var(--sidebar-width)]">
-            <AppNav />
+            <Suspense fallback={null}>
+              <AppNav />
+            </Suspense>
             <ComfyGalleryBackgroundPoller />
             <UserScopeInit />
             <AutoStorageSyncInit />

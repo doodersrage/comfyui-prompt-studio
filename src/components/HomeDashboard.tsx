@@ -8,7 +8,7 @@ import { loadScheduledBatchConfig } from "@/lib/scheduled-batch";
 import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/Button";
 import { ToolPageSkeleton } from "@/components/ui/ViewState";
 import {
   StatCard,
@@ -67,29 +67,11 @@ export default function HomeDashboard() {
       description="Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way."
     >
       <OnboardingChecklist />
-      <ToolSection title="Power tools">
-        <p className="mb-3 text-sm text-zinc-400">
-          Prompt recipes, model shootout, observability, and negative learner live under Settings → Automation → Advanced.
-        </p>
-        <ToolActionRow>
-          <ButtonLink href="/gallery" size="sm">
-            Gallery & slideshow
-          </ButtonLink>
-          <ButtonLink href="/queue" size="sm">
-            Queue
-          </ButtonLink>
-          <ButtonLink href="/settings" size="sm">
-            Settings & recipes
-          </ButtonLink>
-          <ButtonLink href="/plugins" size="sm">
-            Plugins
-          </ButtonLink>
-        </ToolActionRow>
-      </ToolSection>
+
       <ToolSection>
         <ToolActionRow>
           <ButtonLink href="/" variant="primary" size="sm">
-            Generate prompts
+            Generate
           </ButtonLink>
           <ButtonLink href="/gallery" size="sm">
             Gallery
@@ -97,10 +79,40 @@ export default function HomeDashboard() {
           <ButtonLink href="/studio" size="sm">
             Studio
           </ButtonLink>
+          <ButtonLink href="/queue" size="sm">
+            Queue
+          </ButtonLink>
           <ButtonLink href="/settings" size="sm">
             Settings
           </ButtonLink>
         </ToolActionRow>
+        <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 type-caption text-[var(--text-muted)]">
+          <span>More:</span>
+          <Link
+            href="/topics"
+            className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          >
+            Topics
+          </Link>
+          <Link
+            href="/variations"
+            className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          >
+            Variations
+          </Link>
+          <Link
+            href="/variations?matrix=1"
+            className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          >
+            Matrix
+          </Link>
+          <Link
+            href="/plugins"
+            className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          >
+            Plugins
+          </Link>
+        </p>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Pending ComfyUI" value={String(pending.length)} />
@@ -126,37 +138,19 @@ export default function HomeDashboard() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={thumb} alt="" className="aspect-square w-full object-cover" />
                   ) : (
-                    <div className="flex aspect-square items-center justify-center p-2 text-xs text-zinc-500">
+                    <div className="flex aspect-square items-center justify-center p-2 type-caption text-[var(--text-muted)]">
                       No preview
                     </div>
                   )}
-                  <p className="line-clamp-2 p-2 text-[11px] text-zinc-400">{entry.prompt}</p>
+                  <p className="line-clamp-2 p-2 text-[11px] text-[var(--text-tertiary)]">
+                    {entry.prompt}
+                  </p>
                 </Link>
               );
             })}
           </div>
         </ToolSection>
       ) : null}
-
-      <ToolSection title="Quick launch">
-        <ToolActionRow>
-          <Link href="/topics">
-            <Button variant="secondary" size="sm">
-              Topics batch
-            </Button>
-          </Link>
-          <Link href="/variations?matrix=1">
-            <Button variant="secondary" size="sm">
-              Prompt matrix
-            </Button>
-          </Link>
-          <Link href="/variations">
-            <Button variant="secondary" size="sm">
-              Variations
-            </Button>
-          </Link>
-        </ToolActionRow>
-      </ToolSection>
     </ToolLayout>
   );
 }

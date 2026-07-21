@@ -1,12 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
 import { featureForPath } from "@/lib/auth/features";
+import {
+  APP_NAV_PROFILE_LINK,
+  APP_NAV_SETTINGS_LINK,
+  flattenAppNavLinks,
+} from "@/lib/app-nav-catalog";
+import { SETTINGS_TABS, settingsTabHref } from "@/lib/settings-nav";
+import { STUDIO_TABS, studioTabHref } from "@/lib/studio-nav";
+import {
+  isNavFavorite,
+  loadNavFavorites,
+  toggleNavFavorite,
+} from "@/lib/nav-favorites";
+import {
+  loadRecentDestinations,
+  type RecentDestination,
+} from "@/lib/recent-destinations";
 import type { GlobalSearchResult } from "@/lib/global-search";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import KeyboardShortcutsHelp from "@/components/KeyboardShortcutsHelp";
+import { markOnboardingDiscoverPalette } from "@/lib/onboarding-hooks";
 
 type CommandItem = {
   id: string;
@@ -17,42 +35,121 @@ type CommandItem = {
   group: string;
 };
 
-const STATIC_ITEMS: CommandItem[] = [
-  { id: "home", label: "Generate", href: "/", group: "Navigate" },
-  { id: "gallery", label: "Gallery", href: "/gallery", group: "Navigate" },
-  { id: "studio", label: "Studio", href: "/studio", group: "Navigate" },
-  { id: "settings", label: "Settings", href: "/settings", group: "Navigate" },
-  { id: "profile", label: "Profile", href: "/profile", group: "Navigate" },
-  { id: "dashboard", label: "Dashboard", href: "/dashboard", group: "Navigate" },
-  { id: "variations", label: "Variations", href: "/variations", group: "Navigate" },
-  { id: "format", label: "Format", href: "/format", group: "Navigate" },
-  { id: "prompt", label: "Prompt Editor", href: "/prompt", group: "Navigate" },
-  { id: "character", label: "Character", href: "/character", group: "Navigate" },
-  { id: "image-prompt", label: "Image → Prompt", href: "/image-prompt", group: "Navigate" },
-  { id: "queue", label: "Queue", href: "/queue", group: "Navigate" },
-  { id: "sync-now", label: "Sync storage now", action: () => void import("@/lib/auto-storage-sync").then((m) => m.autoPushStorageDebounced()), group: "Actions" },
-  { id: "review-gallery", label: "Open gallery review", href: "/gallery?review=1", group: "Actions" },
-  { id: "reload", label: "Reload page", action: () => window.location.reload(), group: "Actions" },
+const ACTION_ITEMS: CommandItem[] = [
+  {
+    id: "sync-now",
+    label: "Sync storage now",
+    action: () =>
+      void import("@/lib/auto-storage-sync").then((m) => m.autoPushStorageDebounced()),
+    group: "Actions",
+  },
+  {
+    id: "review-gallery",
+    label: "Open gallery review",
+    href: "/gallery?review=1",
+    group: "Actions",
+  },
+  {
+    id: "reload",
+    label: "Reload page",
+    action: () => window.location.reload(),
+    group: "Actions",
+  },
 ];
+
+function buildNavItems(): CommandItem[] {
+  const nav = flattenAppNavLinks().map((link) => ({
+    id: `nav-${link.href}`,
+    label: link.label,
+    subtitle: link.description,
+    href: link.href,
+    group: "Navigate",
+  }));
+  const settingsTabs = SETTINGS_TABS.map((tab) => ({
+    id: `settings-${tab.id}`,
+    label: `Settings · ${tab.label}`,
+    subtitle: tab.description,
+    href: settingsTabHref(tab.id),
+    group: "Settings",
+  }));
+  const studioTabs = STUDIO_TABS.map((tab) => ({
+    id: `studio-${tab.id}`,
+    label: `Studio · ${tab.label}`,
+    subtitle: tab.description,
+    href: studioTabHref(tab.id),
+    group: "Studio",
+  }));
+  return [
+    ...nav,
+    {
+      id: "nav-settings",
+      label: APP_NAV_SETTINGS_LINK.label,
+      subtitle: APP_NAV_SETTINGS_LINK.description,
+      href: APP_NAV_SETTINGS_LINK.href,
+      group: "Navigate",
+    },
+    {
+      id: "nav-profile",
+      label: APP_NAV_PROFILE_LINK.label,
+      subtitle: APP_NAV_PROFILE_LINK.description,
+      href: APP_NAV_PROFILE_LINK.href,
+      group: "Navigate",
+    },
+    ...settingsTabs,
+    ...studioTabs,
+    ...ACTION_ITEMS,
+  ];
+}
 
 export default function CommandPalette() {
   const router = useRouter();
   const { allowedFeatures } = useAuth();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [recent, setRecent] = useState<RecentDestination[]>([]);
   const [globalMatches, setGlobalMatches] = useState<CommandItem[]>([]);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const listRef = useRef<HTMLUListElement | null>(null);
+
+  const catalog = useMemo(() => {
+    const base = buildNavItems();
+    return [
+      ...base,
+      {
+        id: "keyboard-shortcuts",
+        label: "Keyboard shortcuts",
+        subtitle: "Cheat sheet for generate, queue, copy pair, and palette",
+        group: "Actions",
+        action: () => {
+          setOpen(false);
+          setShortcutsOpen(true);
+        },
+      } satisfies CommandItem,
+    ];
+  }, []);
 
   const items = useMemo(
     () =>
-      STATIC_ITEMS.filter((item) => {
+      catalog.filter((item) => {
         if (!item.href) {
           return true;
         }
-        const feature = featureForPath(item.href);
+        const path = item.href.split("?")[0] ?? item.href;
+        const feature = featureForPath(path);
         return canAccessNavFeature(allowedFeatures, feature);
       }),
-    [allowedFeatures],
+    [allowedFeatures, catalog],
   );
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setFavorites(loadNavFavorites());
+    setRecent(loadRecentDestinations());
+  }, [open]);
 
   useEffect(() => {
     const q = query.trim();
@@ -84,12 +181,40 @@ export default function CommandPalette() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const favoriteHrefs = new Set(favorites);
+    const recentItems: CommandItem[] = recent.map((entry) => ({
+      id: `recent-${entry.href}`,
+      label: entry.label,
+      subtitle: entry.href,
+      href: entry.href,
+      group: "Recent",
+    }));
+
+    const withFavFirst = [...items].sort((a, b) => {
+      const aFav = a.href ? favoriteHrefs.has(a.href) : false;
+      const bFav = b.href ? favoriteHrefs.has(b.href) : false;
+      if (aFav === bFav) {
+        return 0;
+      }
+      return aFav ? -1 : 1;
+    });
+
     if (!q) {
-      return items;
+      const seen = new Set<string>();
+      return [...recentItems, ...withFavFirst].filter((item) => {
+        const key = item.href ?? item.id;
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
     }
-    const staticMatches = items.filter(
+    const staticMatches = [...recentItems, ...withFavFirst].filter(
       (item) =>
-        item.label.toLowerCase().includes(q) || item.group.toLowerCase().includes(q),
+        item.label.toLowerCase().includes(q) ||
+        item.group.toLowerCase().includes(q) ||
+        (item.subtitle?.toLowerCase().includes(q) ?? false),
     );
     const seen = new Set<string>();
     return [...staticMatches, ...globalMatches].filter((item) => {
@@ -99,7 +224,11 @@ export default function CommandPalette() {
       seen.add(item.id);
       return true;
     });
-  }, [globalMatches, items, query]);
+  }, [favorites, globalMatches, items, query, recent]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [filtered.length, query, open]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -109,13 +238,20 @@ export default function CommandPalette() {
         !event.shiftKey
       ) {
         event.preventDefault();
-        setOpen((value) => !value);
+        setOpen((value) => {
+          const next = !value;
+          if (next) {
+            markOnboardingDiscoverPalette();
+          }
+          return next;
+        });
         setQuery("");
       }
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setOpen(true);
         setQuery("");
+        markOnboardingDiscoverPalette();
       }
       if (event.key === "Escape") {
         setOpen(false);
@@ -125,56 +261,142 @@ export default function CommandPalette() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const node = listRef.current?.querySelector<HTMLElement>(
+      `[data-command-index="${activeIndex}"]`,
+    );
+    node?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open]);
+
+  function runItem(item: CommandItem) {
+    setOpen(false);
+    if (item.action) {
+      item.action();
+      return;
+    }
+    if (item.href) {
+      router.push(item.href);
+    }
+  }
+
   if (!open) {
-    return null;
+    return (
+      <KeyboardShortcutsHelp
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
+    );
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 px-4 pt-[12vh] backdrop-blur-sm">
-      <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950/95 shadow-2xl">
+    <>
+    <div className="fixed inset-0 z-[100] flex items-start justify-center bg-[rgb(0_0_0_/0.55)] px-4 pt-[12vh] backdrop-blur-sm">
+      <div className="w-full max-w-xl overflow-hidden rounded-[var(--radius-xl)] border border-[var(--border-default)] bg-[var(--bg-muted)] shadow-[var(--shadow-card)]">
         <input
           autoFocus
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Jump to a page, action, or search history & gallery…"
-          className="w-full border-b border-zinc-800 bg-transparent px-4 py-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setActiveIndex((index) =>
+                filtered.length === 0 ? 0 : (index + 1) % filtered.length,
+              );
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              setActiveIndex((index) =>
+                filtered.length === 0
+                  ? 0
+                  : (index - 1 + filtered.length) % filtered.length,
+              );
+            } else if (event.key === "Enter") {
+              event.preventDefault();
+              const item = filtered[activeIndex];
+              if (item) {
+                runItem(item);
+              }
+            }
+          }}
+          placeholder="Jump to a page, Studio/Settings tab, or search…"
+          className="w-full border-b border-[var(--border-subtle)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]"
         />
-        <ul className="max-h-[50vh] overflow-y-auto py-2">
+        <ul ref={listRef} className="max-h-[50vh] overflow-y-auto py-2">
           {filtered.length === 0 ? (
-            <li className="px-4 py-3 text-sm text-zinc-500">No matches.</li>
+            <li className="px-4 py-3 text-sm text-[var(--text-muted)]">No matches.</li>
           ) : (
-            filtered.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-zinc-200 transition hover:bg-violet-500/10"
-                  onClick={() => {
-                    setOpen(false);
-                    if (item.action) {
-                      item.action();
-                      return;
-                    }
-                    if (item.href) {
-                      router.push(item.href);
-                    }
-                  }}
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate">{item.label}</span>
-                    {item.subtitle ? (
-                      <span className="block truncate text-xs text-zinc-500">{item.subtitle}</span>
+            filtered.map((item, index) => {
+              const favorited = item.href ? isNavFavorite(item.href, favorites) : false;
+              return (
+                <li key={item.id}>
+                  <div
+                    data-command-index={index}
+                    className={`flex w-full items-center gap-1 px-2 ${
+                      index === activeIndex ? "bg-[var(--accent-muted)]" : ""
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center justify-between rounded-[var(--radius-md)] px-2 py-2.5 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onClick={() => runItem(item)}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate">
+                          {favorited ? "★ " : ""}
+                          {item.label}
+                        </span>
+                        {item.subtitle ? (
+                          <span className="block truncate text-xs text-[var(--text-muted)]">
+                            {item.subtitle}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="shrink-0 text-xs text-[var(--text-muted)]">
+                        {item.group}
+                      </span>
+                    </button>
+                    {item.href ? (
+                      <button
+                        type="button"
+                        aria-label={favorited ? "Unpin from sidebar" : "Pin to sidebar"}
+                        title={favorited ? "Unpin" : "Pin"}
+                        className="shrink-0 rounded-[var(--radius-md)] px-2 py-2 text-sm text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setFavorites(toggleNavFavorite(item.href!));
+                        }}
+                      >
+                        {favorited ? "★" : "☆"}
+                      </button>
                     ) : null}
-                  </span>
-                  <span className="shrink-0 text-xs text-zinc-500">{item.group}</span>
-                </button>
-              </li>
-            ))
+                  </div>
+                </li>
+              );
+            })
           )}
         </ul>
-        <div className="border-t border-zinc-800 px-4 py-2 text-xs text-zinc-500">
-          Tip: <kbd className="rounded border border-zinc-700 px-1">Ctrl+K</kbd> palette ·{" "}
-          <kbd className="rounded border border-zinc-700 px-1">Ctrl+Shift+K</kbd> search.{" "}
-          <Link href="/settings" className="text-violet-300" onClick={() => setOpen(false)}>
+        <div className="border-t border-[var(--border-subtle)] px-4 py-2 text-xs text-[var(--text-muted)]">
+          Tip: <kbd className="rounded border border-[var(--border-default)] px-1">⌘/Ctrl+K</kbd>{" "}
+          · arrows + Enter · star to pin ·{" "}
+          <button
+            type="button"
+            className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
+            onClick={() => {
+              setOpen(false);
+              setShortcutsOpen(true);
+            }}
+          >
+            Shortcuts
+          </button>
+          .{" "}
+          <Link
+            href="/settings"
+            className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
+            onClick={() => setOpen(false)}
+          >
             Settings
           </Link>
         </div>
@@ -186,5 +408,10 @@ export default function CommandPalette() {
         onClick={() => setOpen(false)}
       />
     </div>
+    <KeyboardShortcutsHelp
+      open={shortcutsOpen}
+      onClose={() => setShortcutsOpen(false)}
+    />
+    </>
   );
 }

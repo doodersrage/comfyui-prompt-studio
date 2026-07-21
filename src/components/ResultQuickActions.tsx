@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { CollapsibleSection } from "@/components/ui/ToolPageShell";
 import { loadPromptRecipes, runPromptRecipeSteps, type PromptRecipe } from "@/lib/prompt-recipes";
 import { queueSameSeedShootout, DEFAULT_SHOOTOUT_MODELS } from "@/lib/model-shootout";
 
@@ -48,8 +49,13 @@ export default function ResultQuickActions({
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/35 p-3 space-y-2">
-      <p className="type-caption text-zinc-500">Quick actions</p>
+    <CollapsibleSection
+      title="Recipes & shootout"
+      summary="Same-seed model shootout and prompt recipe shortcuts."
+      defaultOpen={false}
+      persistKey="result-recipes-shootout"
+      className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-[var(--space-4)] py-[var(--space-3)]"
+    >
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" size="sm" onClick={() => void runShootout()}>
           Same-seed shootout
@@ -60,7 +66,9 @@ export default function ResultQuickActions({
           </Button>
         ))}
       </div>
-      {status ? <p className="text-xs text-emerald-400">{status}</p> : null}
-    </div>
+      {status ? (
+        <p className="type-caption text-[var(--tint-success-text)]">{status}</p>
+      ) : null}
+    </CollapsibleSection>
   );
 }

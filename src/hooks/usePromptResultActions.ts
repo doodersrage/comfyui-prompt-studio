@@ -38,6 +38,7 @@ import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import { resolveQueueInputImageFilename } from "@/lib/queue-input-image";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
+import { toastQueueOutcome } from "@/lib/app-toast";
 import { applyQueuePromptSteering, prepareQueuePrompts } from "@/lib/queue-prompt-prep";
 import { resolveQueueNegativePromptRaw } from "@/lib/queue-negative";
 import { joinQueueStatusNotes } from "@/lib/queue-status-notes";
@@ -516,6 +517,13 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             },
           ),
         );
+        toastQueueOutcome({
+          ok: true,
+          text: data.promptId
+            ? `Queued to ComfyUI · ${data.promptId}`
+            : "Queued to ComfyUI",
+          href: "/gallery",
+        });
 
         if (data.promptId) {
           setComfyUiJob({
@@ -548,7 +556,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           });
         }
       } catch (err) {
-        setComfyUiStatus(err instanceof Error ? err.message : "ComfyUI failed.");
+        const message = err instanceof Error ? err.message : "ComfyUI failed.";
+        setComfyUiStatus(message);
+        toastQueueOutcome({ ok: false, text: message, href: "/queue" });
       }
     },
     [config.model, config.tool, config.hints, fetchNegative, saveHistory, trackComfyUiJob, historySaved],
@@ -733,8 +743,17 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             .filter(Boolean)
             .join(" · "),
         );
+        toastQueueOutcome({
+          ok: !data.failed,
+          text: data.failed
+            ? `Batch queued with ${data.failed} failure(s)`
+            : `Batch queued ${data.queued ?? prepared.length}/${prepared.length}`,
+          href: data.failed ? "/queue" : "/gallery",
+        });
       } catch (err) {
-        setComfyUiStatus(err instanceof Error ? err.message : "ComfyUI batch failed.");
+        const message = err instanceof Error ? err.message : "ComfyUI batch failed.";
+        setComfyUiStatus(message);
+        toastQueueOutcome({ ok: false, text: message, href: "/queue" });
       }
     },
     [config.hints, config.model, config.tool, fetchNegative, trackComfyUiJob, saveHistory, historySaved],

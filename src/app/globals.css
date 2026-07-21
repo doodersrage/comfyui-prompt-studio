@@ -19,14 +19,14 @@
   --border-default: rgb(255 255 255 / 0.1);
   --border-strong: rgb(255 255 255 / 0.14);
 
-  /* Single brand accent — primary actions only */
-  --accent: #8b7cf6;
-  --accent-hover: #9d8ff8;
-  --accent-active: #7563e8;
-  --accent-muted: rgb(139 124 246 / 0.12);
-  --accent-border: rgb(139 124 246 / 0.32);
-  --accent-ring: rgb(139 124 246 / 0.28);
-  --accent-text: #c4b8fd;
+  /* Single brand accent — cooler desaturated indigo, primary actions only */
+  --accent: #6e78c4;
+  --accent-hover: #7f88cf;
+  --accent-active: #5c66b0;
+  --accent-muted: rgb(110 120 196 / 0.1);
+  --accent-border: rgb(110 120 196 / 0.26);
+  --accent-ring: rgb(110 120 196 / 0.22);
+  --accent-text: #a8b0dc;
 
   /* Functional tints — badges, status, secondary semantics */
   --tint-success-bg: rgb(52 211 153 / 0.1);
@@ -84,9 +84,9 @@
   --shadow-card-hover:
     0 1px 0 rgb(255 255 255 / 0.05) inset,
     0 28px 56px rgb(0 0 0 / 0.26),
-    0 12px 28px rgb(139 124 246 / 0.08);
-  --shadow-btn: 0 8px 24px rgb(139 124 246 / 0.22);
-  --shadow-btn-hover: 0 16px 36px rgb(139 124 246 / 0.34);
+    0 12px 28px rgb(110 120 196 / 0.05);
+  --shadow-btn: 0 8px 24px rgb(110 120 196 / 0.12);
+  --shadow-btn-hover: 0 16px 36px rgb(110 120 196 / 0.2);
   --shadow-surface: 0 4px 16px rgb(0 0 0 / 0.12);
   --shadow-surface-hover: 0 10px 28px rgb(0 0 0 / 0.2);
 
@@ -556,6 +556,16 @@ html[data-ambient="vivid"] .ambient-bg__orb {
   filter: blur(64px);
 }
 
+html[data-density="compact"] {
+  --card-padding: 1.25rem;
+  --card-padding-lg: 1.5rem;
+  --group-gap: 0.85rem;
+  --block-gap: 1.5rem;
+  --section-gap: 1.75rem;
+  --page-gutter: var(--space-4);
+  --sidebar-width: 15.5rem;
+}
+
 html[data-theme="light"] {
   --bg-base: #f3f4f8;
   --bg-elevated: rgb(255 255 255 / 0.82);
@@ -570,7 +580,7 @@ html[data-theme="light"] {
   --border-subtle: rgb(15 23 42 / 0.08);
   --border-default: rgb(15 23 42 / 0.12);
   --border-strong: rgb(15 23 42 / 0.16);
-  --accent-muted: rgb(109 92 246 / 0.1);
+  --accent-muted: rgb(110 120 196 / 0.08);
 }
 
 html[data-theme="light"] .ambient-bg__base {
@@ -579,7 +589,7 @@ html[data-theme="light"] .ambient-bg__base {
 
 html[data-theme="light"] .ambient-bg__vignette {
   background:
-    radial-gradient(ellipse 90% 60% at 50% 0%, rgb(139 124 246 / 0.05), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgb(110 120 196 / 0.04), transparent 55%),
     radial-gradient(ellipse 100% 100% at 50% 100%, rgb(15 23 42 / 0.06), transparent 55%);
 }
 
@@ -621,7 +631,7 @@ html[data-theme="light"] kbd.rounded.bg-zinc-900 {
   left: -8%;
   width: min(52vw, 36rem);
   height: min(52vw, 36rem);
-  background: radial-gradient(circle, rgb(139 124 246 / 0.22) 0%, transparent 68%);
+  background: radial-gradient(circle, rgb(110 120 196 / 0.14) 0%, transparent 68%);
   animation: ambient-drift-a 28s ease-in-out infinite;
 }
 
@@ -630,7 +640,7 @@ html[data-theme="light"] kbd.rounded.bg-zinc-900 {
   right: -10%;
   width: min(44vw, 30rem);
   height: min(44vw, 30rem);
-  background: radial-gradient(circle, rgb(56 189 248 / 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, rgb(56 189 248 / 0.06) 0%, transparent 70%);
   animation: ambient-drift-b 34s ease-in-out infinite;
 }
 
@@ -639,7 +649,7 @@ html[data-theme="light"] kbd.rounded.bg-zinc-900 {
   left: 22%;
   width: min(48vw, 32rem);
   height: min(48vw, 32rem);
-  background: radial-gradient(circle, rgb(244 114 182 / 0.08) 0%, transparent 72%);
+  background: radial-gradient(circle, rgb(180 140 160 / 0.05) 0%, transparent 72%);
   animation: ambient-drift-c 40s ease-in-out infinite;
 }
 
@@ -659,7 +669,7 @@ html[data-theme="light"] kbd.rounded.bg-zinc-900 {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 90% 60% at 50% 0%, rgb(139 124 246 / 0.07), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgb(110 120 196 / 0.045), transparent 55%),
     radial-gradient(ellipse 100% 100% at 50% 100%, rgb(0 0 0 / 0.45), transparent 55%);
 }
 

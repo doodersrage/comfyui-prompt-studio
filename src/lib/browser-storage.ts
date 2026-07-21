@@ -12,6 +12,7 @@ const PERSIST_DEBOUNCE_MS = 350;
 const SYNC_LOCALSTORAGE_KEYS = new Set([
   "comfy-app-theme-v1",
   "comfy-ambient-intensity-v1",
+  "comfy-ui-density-v1",
 ]);
 
 function readLegacyLocalStorageValue(key: string): unknown | undefined {

@@ -544,50 +544,6 @@ export default function SharedToolControls({
         ) : null}
       </div>
 
-      <ModelSamplerHints
-        model={shared.model}
-        preset={samplerPreset}
-        onPresetChange={handleSamplerPresetChange}
-      />
-
-      <ModelResolutionHints
-        model={shared.model}
-        orientation={resolutionOrientation}
-        sizeTier={resolutionSizeTier}
-        onOrientationChange={handleResolutionOrientationChange}
-        onSizeTierChange={handleResolutionSizeTierChange}
-      />
-
-      <QueueQualityProfileHints
-        profile={queueQualityProfile}
-        samplerPreset={samplerPreset}
-        resolutionSizeTier={resolutionSizeTier}
-        onProfileChange={handleQueueQualityProfileChange}
-        toolId={toolId}
-        toolProfile={toolProfileOverride}
-        onToolProfileChange={handleToolQueueQualityChange}
-      />
-
-      <RenderRealismHints
-        mode={renderRealismMode}
-        onModeChange={handleRenderRealismModeChange}
-      />
-
-      <AnatomyGuardHints
-        mode={anatomyGuardMode}
-        onModeChange={handleAnatomyGuardModeChange}
-      />
-
-      {recommendFromText ? (
-        <ModelRecommenderHints
-          text={recommendFromText}
-          currentModel={shared.model}
-          onApplyModel={(model) => handleModelChange(model)}
-        />
-      ) : null}
-
-      <FieldDivider />
-
       <div className="space-y-3">
         <FieldLabel
           hint={
@@ -635,6 +591,55 @@ export default function SharedToolControls({
         />
       )}
 
+      <CollapsibleSection
+        title="Quality & sampling"
+        summary="Sampler, resolution, queue quality, realism, anatomy, and model recommendations."
+        defaultOpen={false}
+        persistKey="shared-quality-sampling"
+      >
+        <ModelSamplerHints
+          model={shared.model}
+          preset={samplerPreset}
+          onPresetChange={handleSamplerPresetChange}
+        />
+
+        <ModelResolutionHints
+          model={shared.model}
+          orientation={resolutionOrientation}
+          sizeTier={resolutionSizeTier}
+          onOrientationChange={handleResolutionOrientationChange}
+          onSizeTierChange={handleResolutionSizeTierChange}
+        />
+
+        <QueueQualityProfileHints
+          profile={queueQualityProfile}
+          samplerPreset={samplerPreset}
+          resolutionSizeTier={resolutionSizeTier}
+          onProfileChange={handleQueueQualityProfileChange}
+          toolId={toolId}
+          toolProfile={toolProfileOverride}
+          onToolProfileChange={handleToolQueueQualityChange}
+        />
+
+        <RenderRealismHints
+          mode={renderRealismMode}
+          onModeChange={handleRenderRealismModeChange}
+        />
+
+        <AnatomyGuardHints
+          mode={anatomyGuardMode}
+          onModeChange={handleAnatomyGuardModeChange}
+        />
+
+        {recommendFromText ? (
+          <ModelRecommenderHints
+            text={recommendFromText}
+            currentModel={shared.model}
+            onApplyModel={(model) => handleModelChange(model)}
+          />
+        ) : null}
+      </CollapsibleSection>
+
       {showWardrobeOption && onAlwaysIncludeClothingChange && (
         <>
           <FieldDivider />
@@ -663,6 +668,7 @@ export default function SharedToolControls({
         <CollapsibleSection
           title="Pins & automation"
           summary="Locked scene ingredients and post-generation fixes."
+          persistKey="shared-pins-automation"
           defaultOpen={Boolean(
             lockedWardrobeId || lockedLocation || lockedVariationSeed,
           )}

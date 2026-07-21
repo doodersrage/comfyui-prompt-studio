@@ -33,6 +33,7 @@ import {
 } from "@/lib/param-experiment-queue";
 import { learnFromLowRatedPrompt } from "@/lib/negative-learner";
 import { pushNotification } from "@/lib/notification-center";
+import { toastQueueOutcome } from "@/lib/app-toast";
 import { suggestRatingMutations } from "@/lib/rating-prompt-mutations";
 import { markOnboardingGalleryReview } from "@/lib/onboarding-hooks";
 import { setLineageParent } from "@/lib/prompt-lineage-session";
@@ -618,12 +619,13 @@ export default function ComfyUiGalleryPanel({
           onStatus: setRequeueStatus,
         }).then((result) => {
           if (!result.ok) {
-            setRequeueStatus(result.error ?? "Re-queue failed.");
+            const message = result.error ?? "Re-queue failed.";
+            setRequeueStatus(message);
+            toastQueueOutcome({ ok: false, text: message });
             return;
           }
           const profileNote = qualityProfile ? `${qualityProfile} quality · ` : "";
-          setRequeueStatus(
-            [
+          const message = [
               "queued variation",
               profileNote,
               result.promptId ? `prompt_id ${result.promptId}` : null,
@@ -631,8 +633,9 @@ export default function ComfyUiGalleryPanel({
               newSeed ? "new seed" : "same params",
             ]
               .filter(Boolean)
-              .join(" · "),
-          );
+              .join(" · ");
+          setRequeueStatus(message);
+          toastQueueOutcome({ ok: true, text: message });
         });
       },
       upscale: (id: string, qualityProfile: "final" | "max") => {
@@ -647,18 +650,19 @@ export default function ComfyUiGalleryPanel({
         }).then((result) => {
           if (!result.ok) {
             setRequeueStatus(result.error ?? "Upscale failed.");
+            toastQueueOutcome({ ok: false, text: result.error ?? "Upscale failed." });
             return;
           }
-          setRequeueStatus(
-            [
+          const message = [
               "upscale queued",
               `${qualityProfile} quality · same image`,
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
               .filter(Boolean)
-              .join(" · "),
-          );
+              .join(" · ");
+          setRequeueStatus(message);
+          toastQueueOutcome({ ok: true, text: message });
         });
       },
       refine: (id: string) => {
@@ -672,18 +676,19 @@ export default function ComfyUiGalleryPanel({
         }).then((result) => {
           if (!result.ok) {
             setRequeueStatus(result.error ?? "Refine failed.");
+            toastQueueOutcome({ ok: false, text: result.error ?? "Refine failed." });
             return;
           }
-          setRequeueStatus(
-            [
+          const message = [
               "refine queued",
               "low denoise · same seed",
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
               .filter(Boolean)
-              .join(" · "),
-          );
+              .join(" · ");
+          setRequeueStatus(message);
+          toastQueueOutcome({ ok: true, text: message });
         });
       },
       moireClean: (id: string, qualityProfile: "final" | "max") => {
@@ -702,10 +707,13 @@ export default function ComfyUiGalleryPanel({
         }).then((result) => {
           if (!result.ok) {
             setRequeueStatus(result.error ?? "Moiré clean failed.");
+            toastQueueOutcome({
+              ok: false,
+              text: result.error ?? "Moiré clean failed.",
+            });
             return;
           }
-          setRequeueStatus(
-            [
+          const message = [
               "moiré clean queued",
               qualityProfile === "max"
                 ? "Max · blur → bicubic → Lanczos"
@@ -714,8 +722,9 @@ export default function ComfyUiGalleryPanel({
               result.comfyUrl,
             ]
               .filter(Boolean)
-              .join(" · "),
-          );
+              .join(" · ");
+          setRequeueStatus(message);
+          toastQueueOutcome({ ok: true, text: message });
         });
       },
       showParent: (id: string) => {

@@ -23,3 +23,15 @@ export function markOnboardingFirstQueue(): void {
 export function markOnboardingGalleryReview(): void {
   markOnboardingStepDone("review-gallery");
 }
+
+export function markOnboardingDiscoverPalette(): void {
+  markOnboardingStepDone("discover-palette");
+}
+
+export function markOnboardingPinTool(): void {
+  markOnboardingStepDone("pin-tool");
+}
+
+export function markOnboardingSetDensity(): void {
+  markOnboardingStepDone("set-density");
+}
