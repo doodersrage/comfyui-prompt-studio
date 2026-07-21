@@ -38,7 +38,7 @@ describe("model denoise defaults", () => {
     );
   });
 
-  it("skips denoise for plain T2I queue", () => {
-    assert.equal(resolveDenoiseForModel("qwen-image-2512", { tool: "generate" }), undefined);
+  it("uses full denoise for plain T2I queue", () => {
+    assert.equal(resolveDenoiseForModel("qwen-image-2512", { tool: "generate" }), 1);
   });
 });

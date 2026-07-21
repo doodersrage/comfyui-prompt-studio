@@ -72,7 +72,7 @@ export function resolveDenoiseForModel(
     isEditCapableModel(model);
 
   if (!editContext) {
-    return undefined;
+    return 1;
   }
 
   if (isInpaintModel(model) || options?.hasMaskImage) {

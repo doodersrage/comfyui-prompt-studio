@@ -1,4 +1,4 @@
-import { fetchComfyObjectInfoModelLists } from "@/lib/comfyui-object-info";
+import { fetchComfyObjectInfoPayload } from "@/lib/comfyui-object-info";
 import { stripEmptyComfyUiRuntime } from "@/lib/comfyui-config";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 import { NextResponse } from "next/server";
@@ -12,11 +12,15 @@ export async function GET(request: Request) {
   });
 
   try {
-    const models = await fetchComfyObjectInfoModelLists(runtime);
-    if (!models) {
+    const payload = await fetchComfyObjectInfoPayload(runtime);
+    if (!payload) {
       return apiError("Could not read ComfyUI object_info.", 502);
     }
-    return apiJson({ ok: true, models });
+    return apiJson({
+      ok: true,
+      models: payload.models,
+      nodeTypes: [...payload.nodeTypes],
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "ComfyUI object_info check failed.";

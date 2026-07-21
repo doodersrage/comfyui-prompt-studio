@@ -151,10 +151,9 @@ function qwenScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown
       _meta: { title: "Load UNET" },
     },
     "2": {
-      class_type: "DualCLIPLoader",
+      class_type: "CLIPLoader",
       inputs: {
-        clip_name1: loaders.clipName,
-        clip_name2: loaders.clipName,
+        clip_name: loaders.clipName,
         type: "qwen_image",
       },
       _meta: { title: "Load CLIP" },
@@ -322,10 +321,9 @@ function qwenEditImg2imgScaffold(
       _meta: { title: "Load UNET" },
     },
     "2": {
-      class_type: "DualCLIPLoader",
+      class_type: "CLIPLoader",
       inputs: {
-        clip_name1: loaders.clipName,
-        clip_name2: loaders.clipName,
+        clip_name: loaders.clipName,
         type: "qwen_image",
       },
       _meta: { title: "Load CLIP" },
@@ -555,6 +553,98 @@ function editScaffold(
   };
 }
 
+function controlNetScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  return {
+    "1": {
+      class_type: "CheckpointLoaderSimple",
+      inputs: { ckpt_name: "{{CHECKPOINT}}" },
+      _meta: { title: "Load Checkpoint" },
+    },
+    "2": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.positive, clip: ["1", 1] },
+      _meta: { title: "Positive Prompt" },
+    },
+    "3": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.negative, clip: ["1", 1] },
+      _meta: { title: "Negative Prompt" },
+    },
+    "4": {
+      class_type: "ControlNetLoader",
+      inputs: { control_net_name: "{{CONTROLNET_MODEL}}" },
+      _meta: { title: "ControlNet Loader" },
+    },
+    "5": {
+      class_type: "LoadImage",
+      inputs: { image: "{{CONTROL_IMAGE}}" },
+      _meta: { title: "Control Image" },
+    },
+    "6": {
+      class_type: "ControlNetApply",
+      inputs: {
+        strength: 1,
+        start_percent: 0,
+        end_percent: 1,
+        positive: ["2", 0],
+        negative: ["3", 0],
+        control_net: ["4", 0],
+        image: ["5", 0],
+      },
+      _meta: { title: "Apply ControlNet" },
+    },
+    "7": {
+      class_type: "EmptyLatentImage",
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: "Empty Latent" },
+    },
+    "8": {
+      class_type: "KSampler",
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ["1", 0],
+        positive: ["6", 0],
+        negative: ["6", 1],
+        latent_image: ["7", 0],
+      },
+      _meta: { title: "KSampler" },
+    },
+    "9": {
+      class_type: "VAEDecode",
+      inputs: { samples: ["8", 0], vae: ["1", 2] },
+      _meta: { title: "VAE Decode" },
+    },
+    "10": {
+      class_type: "SaveImage",
+      inputs: { images: ["9", 0], filename_prefix: "PromptStudio" },
+      _meta: { title: "Save Image" },
+    },
+  };
+}
+
+export function buildControlNetWorkflowScaffold(
+  tokens?: Partial<WorkflowPlaceholderTokens>,
+): WorkflowScaffoldResult {
+  const resolvedTokens = resolveBindingTokens(tokens);
+  const bound = bindScaffoldJson(JSON.stringify(controlNetScaffold(resolvedTokens), null, 2), resolvedTokens);
+  return {
+    json: bound.json,
+    source: "template",
+    model: "sdxl-base",
+    category: "sdxl",
+    bindingChanges: bound.bindingChanges,
+    notes: [
+      "ControlNet scaffold with {{CONTROLNET_MODEL}} and {{CONTROL_IMAGE}} placeholders.",
+      "Map ControlNet filenames in Settings → ControlNet model map, upload a control image from the ControlNet tool before queueing.",
+    ],
+  };
+}
+
 function genericScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
   return {
     "1": {
@@ -645,7 +735,7 @@ export function buildWorkflowScaffoldForModel(
           ? "FLUX inpaint scaffold wires LoadImage + LoadImageMask → InpaintModelConditioning — upload source image and mask before queueing."
           : "Edit scaffold includes LoadImage + denoise — wire VAEEncode in ComfyUI if you use the generic edit template."
       : category === "qwen"
-        ? "Qwen scaffold uses UNETLoader + DualCLIPLoader (bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs."
+        ? "Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs."
         : "Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.",
   ];
 

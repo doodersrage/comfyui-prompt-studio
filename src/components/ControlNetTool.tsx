@@ -292,7 +292,7 @@ export default function ControlNetTool() {
             onSaveHistory={() => actions.saveHistory({ prompt: output, hints: hintText })}
             onSendComfyUi={() =>
               void actions.sendComfyUi(output, null, undefined, {
-                inputImage: refFile,
+                controlImage: refFile,
                 queueParamsBase: handoffQueueParams,
               })
             }

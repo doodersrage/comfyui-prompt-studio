@@ -71,6 +71,14 @@ export function patchLoraNodesInWorkflow(
   };
 }
 
+export function listLoraBindTokens(
+  customTokens: Array<{ token: string; value: string }>,
+): string[] {
+  return customTokens
+    .map((entry) => entry.token.trim())
+    .filter((token) => token.startsWith("{{LORA_"));
+}
+
 export function buildLoraFilenameMapFromCustomTokens(
   customTokens: Array<{ token: string; value: string }>,
 ): Record<string, string> {

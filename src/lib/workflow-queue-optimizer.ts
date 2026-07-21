@@ -11,6 +11,11 @@ import {
 } from "./workflow-apply-bindings";
 import { suggestWorkflowNodeMappings } from "./workflow-node-mapper";
 import { enrichWorkflowGraph } from "./workflow-graph-enrich";
+import { listLoraBindTokens } from "./workflow-lora-patch";
+import { mergeLoraLibraryIntoCustomTokens, loadComfyUiSettings } from "./comfyui-settings";
+import { resolvePromptEncodeTextField } from "./workflow-prompt-encode";
+import { workflowContentHash } from "./workflow-content-hash";
+import { repairQwenImageClipLoaderNodes } from "./workflow-qwen-clip-repair";
 
 export type WorkflowQueueAudit = {
   nodeCount: number;
@@ -166,17 +171,25 @@ function filterMappingsForOptimize(
       return false;
     }
 
-    if (mapping.suggestedBinding === "positive" && typeof inputs.text === "string") {
-      const text = inputs.text;
-      if (text.includes(tokens.positive) || text.includes(tokens.negative)) {
-        return false;
+    if (mapping.suggestedBinding === "positive") {
+      const promptField = resolvePromptEncodeTextField(inputs);
+      const field = promptField ?? (typeof inputs.text === "string" ? "text" : null);
+      if (field && typeof inputs[field] === "string") {
+        const text = inputs[field] as string;
+        if (text.includes(tokens.positive) || text.includes(tokens.negative)) {
+          return false;
+        }
       }
     }
 
-    if (mapping.suggestedBinding === "negative" && typeof inputs.text === "string") {
-      const text = inputs.text;
-      if (text.includes(tokens.negative) || text.includes(tokens.positive)) {
-        return false;
+    if (mapping.suggestedBinding === "negative") {
+      const promptField = resolvePromptEncodeTextField(inputs);
+      const field = promptField ?? (typeof inputs.text === "string" ? "text" : null);
+      if (field && typeof inputs[field] === "string") {
+        const text = inputs[field] as string;
+        if (text.includes(tokens.negative) || text.includes(tokens.positive)) {
+          return false;
+        }
       }
     }
 
@@ -209,6 +222,27 @@ function filterMappingsForOptimize(
       }
     }
 
+    if (mapping.suggestedBinding === "controlNetLoader") {
+      const value = inputs.control_net_name;
+      if (typeof value === "string" && value.includes("{{CONTROLNET")) {
+        return false;
+      }
+    }
+
+    if (mapping.suggestedBinding === "loraLoader") {
+      const value = inputs.lora_name;
+      if (typeof value === "string" && /^\{\{LORA_/.test(value.trim())) {
+        return false;
+      }
+    }
+
+    if (mapping.suggestedBinding === "controlImage") {
+      const value = inputs.image;
+      if (typeof value === "string" && value.includes("{{CONTROL_IMAGE}}")) {
+        return false;
+      }
+    }
+
     return true;
   });
 }
@@ -234,11 +268,46 @@ export function optimizeWorkflowForQueue(input: {
   enrichSdxlRefiner?: boolean;
   enrichNeuralPolish?: boolean;
   enrichSharpen?: boolean;
+  loraBindTokens?: string[];
+  /** When set and matches current workflow hash, skip optimize/enrich if already fully bound. */
+  contentHash?: string;
+  skipIfUnchanged?: boolean;
 }): WorkflowQueueOptimizeResult {
   const enabled = input.enabled !== false;
   const enrichGraph = input.enrichGraph !== false;
-  let workflowJson = JSON.stringify(input.workflow, null, 2);
+  const loraBindTokens =
+    input.loraBindTokens ??
+    (typeof window !== "undefined"
+      ? listLoraBindTokens(mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings()).customTokens ?? [])
+      : []);
+  const qwenClipRepair = repairQwenImageClipLoaderNodes(input.workflow);
+  let workflow = qwenClipRepair.workflow;
+  let workflowJson = JSON.stringify(workflow, null, 2);
   const changes: WorkflowQueueOptimizeChange[] = [];
+  if (qwenClipRepair.repairedNodeIds.length > 0) {
+    changes.push({
+      kind: "audit",
+      severity: "info",
+      message: `Repaired Qwen CLIP loader on node(s) ${qwenClipRepair.repairedNodeIds.join(", ")} — Qwen Image uses CLIPLoader (type qwen_image), not DualCLIPLoader.`,
+    });
+  }
+
+  if (input.skipIfUnchanged && input.contentHash) {
+    const currentHash = workflowContentHash(workflowJson);
+    if (currentHash === input.contentHash) {
+      const audit = auditWorkflowStructure(workflowJson, input.tokens);
+      if (workflowIsFullyBound(audit)) {
+        return {
+          workflow,
+          workflowJson,
+          bindingChanges: [],
+          changes,
+          audit,
+        };
+      }
+    }
+  }
+
   let bindingChanges: WorkflowBindingChange[] = [];
 
   if (enabled) {
@@ -255,6 +324,7 @@ export function optimizeWorkflowForQueue(input: {
           workflowJson,
           mappings,
           input.tokens,
+          { loraBindTokens },
         );
         if (applied.changes.length > 0) {
           workflowJson = applied.json;
@@ -269,7 +339,7 @@ export function optimizeWorkflowForQueue(input: {
     }
   }
 
-  let workflow = JSON.parse(workflowJson) as Record<string, unknown>;
+  workflow = JSON.parse(workflowJson) as Record<string, unknown>;
 
   if (enabled && enrichGraph) {
     const enriched = enrichWorkflowGraph({

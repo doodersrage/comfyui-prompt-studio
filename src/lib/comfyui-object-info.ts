@@ -1,4 +1,5 @@
-import { getComfyUiBaseUrl, type ComfyUiRuntimeConfig } from "./comfyui-client";
+import { getComfyUiBaseUrl } from "./comfyui-client";
+import type { ComfyUiRuntimeConfig } from "./comfyui-config";
 
 export type ComfyUiModelLists = {
   checkpoints: string[];
@@ -7,6 +8,9 @@ export type ComfyUiModelLists = {
   upscaleModels: string[];
   clips: string[];
   dualClipTypes: string[];
+  clipLoaderTypes: string[];
+  loras: string[];
+  controlNets: string[];
 };
 
 function readStringList(value: unknown): string[] {
@@ -40,14 +44,29 @@ export function parseComfyObjectInfoModelLists(
     unets: readNodeInputOptions(objectInfo, "UNETLoader", "unet_name"),
     vaes: readNodeInputOptions(objectInfo, "VAELoader", "vae_name"),
     upscaleModels: readNodeInputOptions(objectInfo, "UpscaleModelLoader", "model_name"),
-    clips: readNodeInputOptions(objectInfo, "DualCLIPLoader", "clip_name1"),
+    clips: [
+      ...new Set([
+        ...readNodeInputOptions(objectInfo, "DualCLIPLoader", "clip_name1"),
+        ...readNodeInputOptions(objectInfo, "CLIPLoader", "clip_name"),
+      ]),
+    ],
     dualClipTypes: readNodeInputOptions(objectInfo, "DualCLIPLoader", "type"),
+    clipLoaderTypes: readNodeInputOptions(objectInfo, "CLIPLoader", "type"),
+    loras: readNodeInputOptions(objectInfo, "LoraLoader", "lora_name"),
+    controlNets: readNodeInputOptions(objectInfo, "ControlNetLoader", "control_net_name"),
   };
 }
 
 export async function fetchComfyObjectInfoModelLists(
   runtime?: ComfyUiRuntimeConfig,
 ): Promise<ComfyUiModelLists | null> {
+  const payload = await fetchComfyObjectInfoPayload(runtime);
+  return payload?.models ?? null;
+}
+
+export async function fetchComfyObjectInfoPayload(
+  runtime?: ComfyUiRuntimeConfig,
+): Promise<{ models: ComfyUiModelLists; nodeTypes: Set<string> } | null> {
   const baseUrl = getComfyUiBaseUrl(runtime).replace(/\/+$/, "");
   const response = await fetch(`${baseUrl}/object_info`, {
     cache: "no-store",
@@ -56,5 +75,15 @@ export async function fetchComfyObjectInfoModelLists(
     return null;
   }
   const objectInfo = (await response.json()) as Record<string, unknown>;
-  return parseComfyObjectInfoModelLists(objectInfo);
+  return {
+    models: parseComfyObjectInfoModelLists(objectInfo),
+    nodeTypes: new Set(Object.keys(objectInfo)),
+  };
+}
+
+export async function fetchComfyObjectInfoNodeTypes(
+  runtime?: ComfyUiRuntimeConfig,
+): Promise<Set<string> | null> {
+  const payload = await fetchComfyObjectInfoPayload(runtime);
+  return payload?.nodeTypes ?? null;
 }

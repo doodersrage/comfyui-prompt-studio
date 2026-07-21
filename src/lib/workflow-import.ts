@@ -19,6 +19,8 @@ import {
   type WorkflowPlaceholderTokens,
 } from "./comfyui-config";
 import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
+import { inferModelsFromWorkflowLabel } from "./workflow-category-defaults";
+import { loadSettingsCache } from "./settings-cache";
 
 export type WorkflowImportResult = {
   ok: boolean;
@@ -227,6 +229,10 @@ export function prepareWorkflowJsonImport(
     inputImage: DEFAULT_INPUT_IMAGE_TOKEN,
     maskImage: DEFAULT_MASK_IMAGE_TOKEN,
   },
+  options?: {
+    name?: string;
+    filename?: string;
+  },
 ): WorkflowImportResult {
   const parsedResult = parseImportJson(raw);
   if (!parsedResult.ok) {
@@ -260,7 +266,23 @@ export function prepareWorkflowJsonImport(
   let workflowJson = JSON.stringify(workflow, null, 2);
   let notice: string | undefined;
 
-  const optimized = optimizeWorkflowForQueue({ workflow, tokens });
+  const inferredModels = inferModelsFromWorkflowLabel({
+    name: options?.name ?? "",
+    filename: options?.filename ?? "",
+  });
+  const optimizeModel = inferredModels[0] ?? loadSettingsCache().shared.model;
+  const shared = loadSettingsCache().shared;
+
+  const optimized = optimizeWorkflowForQueue({
+    workflow,
+    tokens,
+    model: optimizeModel,
+    qualityProfile: shared.queueQualityProfile,
+    enrichGraph: shared.workflowGraphEnrich !== false,
+    enrichSdxlRefiner: shared.workflowSdxlRefinerEnrich !== false,
+    enrichNeuralPolish: shared.workflowNeuralUpscalePolish !== false,
+    enrichSharpen: shared.workflowSharpenAfterUpscale === true,
+  });
   workflowJson = optimized.workflowJson;
   const placeholders = optimized.audit.placeholders;
   const autoAppliedBindings = optimized.bindingChanges.length;

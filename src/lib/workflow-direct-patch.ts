@@ -44,6 +44,7 @@ const UNET_LOADER_TYPES = new Set(["UNETLoader", "UnetLoaderGGUF"]);
 const VAE_LOADER_TYPES = new Set(["VAELoader"]);
 
 const DUAL_CLIP_LOADER_TYPES = new Set(["DualCLIPLoader"]);
+const CLIP_LOADER_TYPES = new Set(["CLIPLoader"]);
 
 const DEPRECATED_QWEN_CLIP_FILENAMES: Record<string, string> = {
   "qwen_2.5_vl_7b_bf16.safetensors": "qwen_2.5_vl_7b.safetensors",
@@ -77,9 +78,13 @@ function shouldPatchStringField(
 function shouldPatchLoaderFilenameField(
   current: unknown,
   nextValue: string | undefined,
+  syncLoadersToModel?: boolean,
 ): nextValue is string {
   if (!nextValue?.trim()) {
     return false;
+  }
+  if (syncLoadersToModel) {
+    return shouldPatchStringField(current, nextValue);
   }
   if (typeof current === "string") {
     if (isUnresolvedWorkflowPlaceholder(current)) {
@@ -93,11 +98,12 @@ function shouldPatchLoaderFilenameField(
 function shouldPatchClipFilename(
   current: unknown,
   nextValue: string | undefined,
+  syncLoadersToModel?: boolean,
 ): nextValue is string {
   if (!nextValue?.trim()) {
     return false;
   }
-  if (shouldPatchLoaderFilenameField(current, nextValue)) {
+  if (shouldPatchLoaderFilenameField(current, nextValue, syncLoadersToModel)) {
     return true;
   }
   if (typeof current === "string") {
@@ -177,7 +183,9 @@ export function patchLatentSizeInWorkflow(
 export function patchLoaderNodesInWorkflow(
   workflow: Record<string, unknown>,
   loaders: ModelLoaderFilenames,
+  options?: { syncLoadersToModel?: boolean },
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
+  const syncLoadersToModel = options?.syncLoadersToModel === true;
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
 
@@ -200,7 +208,7 @@ export function patchLoaderNodesInWorkflow(
       loaders.checkpoint &&
       CHECKPOINT_LOADER_TYPES.has(classType) &&
       "ckpt_name" in inputs &&
-      shouldPatchLoaderFilenameField(inputs.ckpt_name, loaders.checkpoint)
+      shouldPatchLoaderFilenameField(inputs.ckpt_name, loaders.checkpoint, syncLoadersToModel)
     ) {
       inputs.ckpt_name = loaders.checkpoint;
       patched.checkpoint = (patched.checkpoint ?? 0) + 1;
@@ -210,7 +218,7 @@ export function patchLoaderNodesInWorkflow(
       loaders.unet &&
       UNET_LOADER_TYPES.has(classType) &&
       "unet_name" in inputs &&
-      shouldPatchLoaderFilenameField(inputs.unet_name, loaders.unet)
+      shouldPatchLoaderFilenameField(inputs.unet_name, loaders.unet, syncLoadersToModel)
     ) {
       inputs.unet_name = loaders.unet;
       patched.unet = (patched.unet ?? 0) + 1;
@@ -220,7 +228,7 @@ export function patchLoaderNodesInWorkflow(
       loaders.vae &&
       VAE_LOADER_TYPES.has(classType) &&
       "vae_name" in inputs &&
-      shouldPatchLoaderFilenameField(inputs.vae_name, loaders.vae)
+      shouldPatchLoaderFilenameField(inputs.vae_name, loaders.vae, syncLoadersToModel)
     ) {
       inputs.vae_name = loaders.vae;
       patched.vae = (patched.vae ?? 0) + 1;
@@ -230,12 +238,22 @@ export function patchLoaderNodesInWorkflow(
       for (const field of ["clip_name1", "clip_name2"] as const) {
         if (
           field in inputs &&
-          shouldPatchClipFilename(inputs[field], loaders.dualClip)
+          shouldPatchClipFilename(inputs[field], loaders.dualClip, syncLoadersToModel)
         ) {
           inputs[field] = loaders.dualClip;
           patched.dualClip = (patched.dualClip ?? 0) + 1;
         }
       }
+    }
+
+    if (
+      loaders.dualClip &&
+      CLIP_LOADER_TYPES.has(classType) &&
+      "clip_name" in inputs &&
+      shouldPatchClipFilename(inputs.clip_name, loaders.dualClip, syncLoadersToModel)
+    ) {
+      inputs.clip_name = loaders.dualClip;
+      patched.dualClip = (patched.dualClip ?? 0) + 1;
     }
   }
 
@@ -488,6 +506,19 @@ export function forceResolveLoaderPlaceholders(
       }
     }
 
+    if (loaders.dualClip && CLIP_LOADER_TYPES.has(classType) && "clip_name" in inputs) {
+      const current = coerceLoaderFieldValue(inputs.clip_name);
+      const shouldPatch =
+        current == null ||
+        current.trim() === "" ||
+        isUnresolvedWorkflowPlaceholder(current) ||
+        (typeof current === "string" &&
+          DEPRECATED_QWEN_CLIP_FILENAMES[current.trim()] === loaders.dualClip);
+      if (shouldPatch) {
+        inputs.clip_name = loaders.dualClip;
+      }
+    }
+
     for (const [field, value] of Object.entries(inputs)) {
       if (typeof value !== "string" || !isUnresolvedWorkflowPlaceholder(value)) {
         continue;
@@ -535,6 +566,40 @@ function replaceLoaderPlaceholderTokensInJson(
   return JSON.parse(json) as Record<string, unknown>;
 }
 
+export function patchImageResizeNodesInWorkflow(
+  workflow: Record<string, unknown>,
+  params: Pick<WorkflowParamValues, "width" | "height">,
+): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
+  const next = structuredClone(workflow);
+  const patched: WorkflowDirectPatchCounts = {};
+  const resizeTypes = new Set(["ImageScale", IMAGE_SCALE_BY_NODE_TYPE, "ResizeImage"]);
+
+  for (const node of Object.values(next)) {
+    if (!node || typeof node !== "object") {
+      continue;
+    }
+    const record = node as {
+      class_type?: string;
+      inputs?: Record<string, unknown>;
+    };
+    const inputs = record.inputs;
+    if (!inputs || !resizeTypes.has(record.class_type ?? "")) {
+      continue;
+    }
+
+    if (shouldPatchNumericField(inputs.width, params.width)) {
+      inputs.width = Number(params.width);
+      patched.width = (patched.width ?? 0) + 1;
+    }
+    if (shouldPatchNumericField(inputs.height, params.height)) {
+      inputs.height = Number(params.height);
+      patched.height = (patched.height ?? 0) + 1;
+    }
+  }
+
+  return { workflow: next, patched };
+}
+
 export function patchWorkflowDirectParams(
   workflow: Record<string, unknown>,
   input: {
@@ -544,13 +609,16 @@ export function patchWorkflowDirectParams(
     controlNetModelFilename?: string;
     controlImageFilename?: string;
     customTokens?: Array<{ token: string; value: string }>;
+    syncWorkflowLoadersToModel?: boolean;
   },
 ): {
   workflow: Record<string, unknown>;
   patched: WorkflowDirectPatchCounts;
 } {
   const latentPatch = patchLatentSizeInWorkflow(workflow, input.params ?? {});
-  const loaderPatch = patchLoaderNodesInWorkflow(latentPatch.workflow, input.loaders ?? {});
+  const loaderPatch = patchLoaderNodesInWorkflow(latentPatch.workflow, input.loaders ?? {}, {
+    syncLoadersToModel: input.syncWorkflowLoadersToModel,
+  });
   const loraPatch = patchLoraNodesInWorkflow(
     loaderPatch.workflow,
     buildLoraFilenameMapFromCustomTokens(input.customTokens ?? []),
@@ -571,9 +639,10 @@ export function patchWorkflowDirectParams(
     imagePatch.workflow,
     input.params?.maskImageFilename,
   );
+  const resizePatch = patchImageResizeNodesInWorkflow(maskPatch.workflow, input.params ?? {});
 
   return {
-    workflow: maskPatch.workflow,
+    workflow: resizePatch.workflow,
     patched: {
       ...latentPatch.patched,
       ...loaderPatch.patched,
@@ -582,6 +651,7 @@ export function patchWorkflowDirectParams(
       ...upscalePatch.patched,
       ...imagePatch.patched,
       ...maskPatch.patched,
+      ...resizePatch.patched,
     },
   };
 }

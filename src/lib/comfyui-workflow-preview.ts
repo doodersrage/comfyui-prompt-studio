@@ -161,6 +161,7 @@ export function previewWorkflowInjection(
       legacyPositiveNodeId: config.legacyPositiveNodeId,
       legacyNegativeNodeId: config.legacyNegativeNodeId,
       directWorkflowPatching: runtime?.directWorkflowPatching,
+      syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
       loaders,
     },
   );
@@ -189,7 +190,7 @@ export function previewWorkflowInjection(
     .filter((change) => change.severity === "warn")
     .map((change) => ({ severity: "warn", message: change.message }));
   const preflightIssues =
-    config.workflowSource === "minimal"
+    config.workflowSource === "none"
       ? []
       : [
           ...optimizerWarnings,

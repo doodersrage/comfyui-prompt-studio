@@ -135,12 +135,12 @@ export async function requeueUpscaleFromGalleryEntry(
   }
 
   const shared = loadSettingsCache().shared;
-  const customTokens = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
+  const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
   const upscaleModelFilename =
     options.qualityProfile === "max"
       ? resolveUpscaleModelFilename(model, {
           upscaleMap: shared.modelUpscaleMap,
-          customTokens,
+          customTokens: settings.customTokens,
         })
       : undefined;
 
@@ -262,7 +262,7 @@ export async function requeueRefineFromGalleryEntry(
     return { ok: false, error: "No gallery output image available to refine." };
   }
 
-  options.onStatus?.("Uploading gallery output…");
+  options?.onStatus?.("Uploading gallery output…");
 
   const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
   let inputImageFilename: string | undefined;
@@ -302,7 +302,7 @@ export async function requeueRefineFromGalleryEntry(
     queueQualityProfile: profile,
   };
 
-  options.onStatus?.("Queueing low-denoise refine…");
+  options?.onStatus?.("Queueing low-denoise refine…");
 
   const refineNegative = appendPortraitRefineNegative(entry.negativePrompt, entry.prompt);
 

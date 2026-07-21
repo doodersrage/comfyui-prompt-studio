@@ -4,6 +4,7 @@ import { workflowContentHash } from "./workflow-content-hash";
 import { resolveOptimizeModelForWorkflowFile } from "./workflow-optimize-model";
 import type { ModelWorkflowMap } from "./model-workflow-map";
 import { isEditCapableModel } from "./model-denoise-defaults";
+import { auditWorkflowStackCompatibility } from "./workflow-stack-fingerprint";
 
 export type WorkflowHealthIssue = {
   workflowId: string;
@@ -75,6 +76,22 @@ export function auditWorkflowLibraryHealth(input: {
         workflowJson: json,
         model: optimizeModel,
         hasInputImage: isEditCapableModel(optimizeModel),
+      }).map((issue) => ({
+        workflowId: file.id,
+        workflowName: file.name,
+        severity: issue.severity,
+        message: `[${optimizeModel}] ${issue.message}`,
+        action:
+          issue.severity === "error"
+            ? ("optimize-workflow" as const)
+            : ("open-workflow" as const),
+      })),
+    );
+
+    issues.push(
+      ...auditWorkflowStackCompatibility({
+        workflowJson: json,
+        model: optimizeModel,
       }).map((issue) => ({
         workflowId: file.id,
         workflowName: file.name,

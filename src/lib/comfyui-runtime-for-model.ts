@@ -14,6 +14,47 @@ import {
 import type { ComfyUiRuntimeConfig } from "./comfyui-config";
 import { resolveQueueQualityProfile, normalizeQueueQualityProfile } from "./queue-quality-profile";
 import { resolveModelForQueueTool } from "./queue-tool-model";
+import { rankWorkflowFilesForModel } from "./workflow-category-defaults";
+import {
+  extractWorkflowStackFingerprint,
+  workflowStackMatchesModel,
+} from "./workflow-stack-fingerprint";
+
+function resolveStackCompatibleWorkflowRuntime(
+  model: ComfyImageModel,
+  base: ComfyUiRuntimeConfig | undefined,
+  workflowFiles: ReturnType<typeof loadComfyWorkflowFiles>,
+): ComfyUiRuntimeConfig | undefined {
+  if (!base?.workflowJson?.trim() || base.syncWorkflowLoadersToModel) {
+    return base;
+  }
+
+  const fingerprint = extractWorkflowStackFingerprint(base.workflowJson);
+  if (!fingerprint.isMixed && workflowStackMatchesModel(fingerprint, model)) {
+    return base;
+  }
+
+  const ranked = rankWorkflowFilesForModel(model, workflowFiles);
+  const replacement = ranked.find((entry) => {
+    const candidate = extractWorkflowStackFingerprint(entry.file.workflowJson);
+    return !candidate.isMixed && workflowStackMatchesModel(candidate, model);
+  });
+  if (!replacement) {
+    return base;
+  }
+
+  const swapped = resolveSelectedWorkflowRuntime(replacement.file.id);
+  if (!swapped?.workflowJson?.trim()) {
+    return base;
+  }
+
+  return {
+    ...base,
+    ...swapped,
+    workflowJson: swapped.workflowJson,
+    workflowOptimizedHash: swapped.workflowOptimizedHash,
+  };
+}
 
 export function resolveRuntimeForModel(
   model: ComfyImageModel,
@@ -31,9 +72,11 @@ export function resolveRuntimeForModel(
       : resolveWorkflowForModel(model, shared.modelWorkflowMap)) ??
     getSelectedWorkflowFileId();
   const base = workflowId ? resolveSelectedWorkflowRuntime(workflowId) : undefined;
+  const stackCompatible = resolveStackCompatibleWorkflowRuntime(model, base, workflowFiles);
   return {
-    ...(base ?? {}),
+    ...(stackCompatible ?? {}),
     directWorkflowPatching: shared.directWorkflowPatching !== false,
+    syncWorkflowLoadersToModel: shared.syncWorkflowLoadersToModel === true,
     workflowQueueOptimize: shared.workflowQueueOptimize !== false,
     workflowGraphEnrich: shared.workflowGraphEnrich !== false,
     workflowSdxlRefinerEnrich: shared.workflowSdxlRefinerEnrich !== false,

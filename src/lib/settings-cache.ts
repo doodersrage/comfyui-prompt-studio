@@ -90,6 +90,8 @@ export type SharedToolSettings = {
   anatomyGuardMode?: AnatomyGuardMode;
   /** When true (default), patch EmptyLatentImage and loader nodes directly at queue time. */
   directWorkflowPatching?: boolean;
+  /** When true, overwrite hardcoded checkpoint/UNET/VAE/CLIP filenames with the target model at queue time. */
+  syncWorkflowLoadersToModel?: boolean;
   /** When true (default), auto-bind placeholders and audit workflow structure at queue time. */
   workflowQueueOptimize?: boolean;
   /** When true (default), insert model-sampling nodes into imported FLUX/SD3 workflows at queue time. */
@@ -345,6 +347,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   renderRealismMode: "realistic",
   anatomyGuardMode: DEFAULT_ANATOMY_GUARD_MODE,
   directWorkflowPatching: true,
+  syncWorkflowLoadersToModel: false,
   workflowQueueOptimize: true,
   workflowGraphEnrich: true,
   workflowSdxlRefinerEnrich: true,

@@ -9,6 +9,9 @@ import { resolveQueueParams } from "./queue-params-settings";
 import { auditWorkflowPreviewIssues } from "./workflow-placeholder-audit";
 import type { WorkflowParamValues } from "./comfyui-config";
 import { auditLoaderMapsAtQueueTime } from "./workflow-queue-loader-preflight";
+import { auditWorkflowStackCompatibility } from "./workflow-stack-fingerprint";
+import { auditWorkflowNodeTypes } from "./workflow-node-type-audit";
+import { fetchComfyObjectInfoNodeTypesCached } from "./comfyui-object-info-cache";
 
 export type WorkflowPreflightIssue = {
   severity: "error" | "warn";
@@ -26,6 +29,7 @@ export async function runWorkflowPreflight(input: {
   negativePrompt?: string;
   hasInputImage?: boolean;
   hasMaskImage?: boolean;
+  hasControlImage?: boolean;
   tool?: string;
   queueParams?: WorkflowParamValues;
   qualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
@@ -85,6 +89,9 @@ export async function runWorkflowPreflight(input: {
     maskImageFilename: input.hasMaskImage
       ? input.queueParams?.maskImageFilename?.trim() || "preview-mask.png"
       : undefined,
+    controlImageFilename: input.hasControlImage
+      ? input.queueParams?.controlImageFilename?.trim() || "preview-control.png"
+      : undefined,
   });
 
   try {
@@ -122,6 +129,14 @@ export async function runWorkflowPreflight(input: {
       }),
     );
 
+    issues.push(
+      ...auditWorkflowStackCompatibility({
+        workflowJson: preview.workflowJson,
+        model: input.model,
+        syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
+      }),
+    );
+
     if (
       !isEditQueueTool(input.tool) &&
       preview.workflowJson?.includes("{{INPUT_IMAGE}}")
@@ -139,6 +154,18 @@ export async function runWorkflowPreflight(input: {
       workflowJson: preview.workflowJson,
     });
     issues.push(...loaderIssues);
+
+    const nodeTypes = await fetchComfyObjectInfoNodeTypesCached({
+      comfyUrl: runtime?.apiUrl,
+    });
+    if (nodeTypes) {
+      issues.push(
+        ...auditWorkflowNodeTypes({
+          workflowJson: preview.workflowJson,
+          knownNodeTypes: nodeTypes,
+        }),
+      );
+    }
   } catch (err) {
     issues.push({
       severity: "error",

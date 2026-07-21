@@ -48,6 +48,7 @@ export type ResolveQueueParamsOptions = {
   tool?: string;
   inputImageFilename?: string;
   maskImageFilename?: string;
+  controlImageFilename?: string;
   qualityProfile?: QueueQualityProfile;
 };
 
@@ -115,7 +116,7 @@ function normalizeResolveQueueParamsInput(
   if (!input) {
     return {};
   }
-  if ("model" in input || "base" in input || "samplerPreset" in input || "resolutionOrientation" in input || "resolutionSizeTier" in input || "tool" in input || "inputImageFilename" in input || "maskImageFilename" in input || "qualityProfile" in input) {
+  if ("model" in input || "base" in input || "samplerPreset" in input || "resolutionOrientation" in input || "resolutionSizeTier" in input || "tool" in input || "inputImageFilename" in input || "maskImageFilename" in input || "controlImageFilename" in input || "qualityProfile" in input) {
     return input as ResolveQueueParamsOptions;
   }
   return { base: input as WorkflowParamValues };
@@ -124,7 +125,7 @@ function normalizeResolveQueueParamsInput(
 export function resolveQueueParams(
   input?: WorkflowParamValues | ResolveQueueParamsOptions,
 ): WorkflowParamValues {
-  const { model, base, samplerPreset, resolutionOrientation, resolutionSizeTier, tool, inputImageFilename, maskImageFilename, qualityProfile } =
+  const { model, base, samplerPreset, resolutionOrientation, resolutionSizeTier, tool, inputImageFilename, maskImageFilename, controlImageFilename, qualityProfile } =
     normalizeResolveQueueParamsInput(input);
   const settings = loadQueueParamsSettings();
   const shared = loadSettingsCache().shared;
@@ -246,6 +247,13 @@ export function resolveQueueParams(
       base?.maskImageFilename?.trim();
     if (resolvedMaskImage) {
       merged.maskImageFilename = resolvedMaskImage;
+    }
+
+    const resolvedControlImage =
+      controlImageFilename?.trim() ||
+      base?.controlImageFilename?.trim();
+    if (resolvedControlImage) {
+      merged.controlImageFilename = resolvedControlImage;
     }
 
     const denoise = resolveDenoiseForModel(model, {

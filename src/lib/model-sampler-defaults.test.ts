@@ -221,4 +221,23 @@ describe("patchSamplerParamsInWorkflow", () => {
       scheduler: 1,
     });
   });
+
+  it("resolves {{DENOISE}} placeholder to 1.0 when params omit denoise", () => {
+    const workflow = {
+      "8": {
+        class_type: "KSampler",
+        inputs: { denoise: "{{DENOISE}}" },
+      },
+    };
+    const result = patchSamplerParamsInWorkflow(workflow, {
+      seed: 1,
+      steps: 20,
+      cfg: 4,
+      samplerName: "euler",
+      scheduler: "normal",
+    });
+    const inputs = (result.workflow["8"] as { inputs: Record<string, unknown> }).inputs;
+    assert.equal(inputs.denoise, 1);
+    assert.equal(result.patched.denoise, 1);
+  });
 });

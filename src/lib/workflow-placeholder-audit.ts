@@ -1,4 +1,6 @@
 import {
+  DEFAULT_CFG_TOKEN,
+  DEFAULT_DENOISE_TOKEN,
   DEFAULT_INPUT_IMAGE_TOKEN,
   DEFAULT_MASK_IMAGE_TOKEN,
 } from "./comfyui-config";
@@ -131,6 +133,15 @@ export function auditWorkflowPreviewIssues(input: {
         severity: "warn",
         message:
           "{{CONTROL_IMAGE}} is unresolved — upload a control image or bind LoadImage at queue time.",
+      });
+      continue;
+    }
+
+    if (token === DEFAULT_DENOISE_TOKEN) {
+      issues.push({
+        severity: "error",
+        message:
+          "{{DENOISE}} was not replaced — queue params should patch KSampler denoise to 1.0 for txt2img; re-run Optimize all or queue again after updating.",
       });
       continue;
     }

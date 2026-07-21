@@ -19,7 +19,8 @@ describe("workflow scaffold", () => {
     const result = buildWorkflowScaffoldForModel("qwen-image-2512");
     assert.equal(result.category, "qwen");
     assert.match(result.json, /UNETLoader/);
-    assert.match(result.json, /DualCLIPLoader/);
+    assert.match(result.json, /CLIPLoader/);
+    assert.match(result.json, /"type": "qwen_image"/);
     assert.match(result.json, /qwen_2\.5_vl_7b\.safetensors/);
     assert.match(result.json, /\{\{UNET\}\}/);
   });

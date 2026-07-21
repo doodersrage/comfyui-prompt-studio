@@ -13,6 +13,11 @@ describe("loader-map-health-audit", () => {
         unets: [],
         vaes: [],
         upscaleModels: [],
+        clips: [],
+        dualClipTypes: [],
+        clipLoaderTypes: [],
+        loras: [],
+        controlNets: [],
       },
     });
     assert.equal(issues.length, 1);
@@ -29,6 +34,11 @@ describe("loader-map-health-audit", () => {
         unets: [],
         vaes: [],
         upscaleModels: ["RealESRGAN_x4plus.pth"],
+        clips: [],
+        dualClipTypes: [],
+        clipLoaderTypes: [],
+        loras: [],
+        controlNets: [],
       },
     });
     assert.equal(issues.length, 1);

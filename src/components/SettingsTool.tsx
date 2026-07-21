@@ -945,6 +945,29 @@ export default function SettingsTool() {
         <label className="mb-3 flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
+            checked={sharedSettings.syncWorkflowLoadersToModel === true}
+            onChange={(event) =>
+              updateSharedSettings({
+                syncWorkflowLoadersToModel: event.target.checked,
+              })
+            }
+            disabled={!sharedMounted || sharedSettings.directWorkflowPatching === false}
+            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium text-zinc-200">
+              Sync loaders to model on queue
+            </span>
+            <span className="block text-xs text-zinc-500">
+              Overwrites hardcoded checkpoint/UNET/VAE/CLIP filenames with the target model at
+              queue time. Use when switching model families on an imported workflow — otherwise
+              leave off to preserve hand-picked weights inside the JSON.
+            </span>
+          </span>
+        </label>
+        <label className="mb-3 flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
             checked={sharedSettings.workflowQueueOptimize !== false}
             onChange={(event) =>
               updateSharedSettings({

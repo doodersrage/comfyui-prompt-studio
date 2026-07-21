@@ -45,6 +45,7 @@ export function resolveSelectedWorkflowRuntime(
   return stripEmptyComfyUiRuntime({
     ...(baseRuntime ?? {}),
     workflowJson: file.workflowJson,
+    workflowOptimizedHash: file.lastOptimizedHash,
   });
 }
 

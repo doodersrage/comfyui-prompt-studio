@@ -1,4 +1,14 @@
 import { isModelSamplingFluxNode, isModelSamplingPatchNode } from "./model-sampling-patch";
+import {
+  classifyPromptEncodeBinding,
+  isPromptEncodeNode,
+  resolvePromptEncodeTextField,
+} from "./workflow-prompt-encode";
+import {
+  countLoadImageNodes,
+  inferLoadImageBinding,
+  type LoadImageBindingKind,
+} from "./workflow-load-image-bindings";
 
 export type WorkflowNodeMapping = {
   nodeId: string;
@@ -12,11 +22,14 @@ export type WorkflowNodeMapping = {
     | "modelSampling"
     | "latent"
     | "inputImage"
+    | "controlImage"
     | "maskImage"
     | "checkpointLoader"
     | "unetLoader"
     | "vaeLoader"
     | "upscaleModelLoader"
+    | "controlNetLoader"
+    | "loraLoader"
     | "steps"
     | "cfg"
     | "custom";
@@ -29,6 +42,14 @@ type WorkflowNode = {
   inputs?: Record<string, unknown>;
 };
 
+const LORA_LOADER_TYPES = new Set([
+  "LoraLoader",
+  "LoraLoaderModelOnly",
+  "Power Lora Loader (rgthree)",
+]);
+
+const CONTROLNET_LOADER_TYPES = new Set(["ControlNetLoader", "DiffControlNetLoader"]);
+
 function isLatentSizeNode(classLower: string, inputs: Record<string, unknown>): boolean {
   if (!("width" in inputs) || !("height" in inputs)) {
     return false;
@@ -36,7 +57,7 @@ function isLatentSizeNode(classLower: string, inputs: Record<string, unknown>): 
   return (
     classLower.includes("emptylatent") ||
     classLower.includes("latentimage") ||
-    classLower.includes("empty") && classLower.includes("latent")
+    (classLower.includes("empty") && classLower.includes("latent"))
   );
 }
 
@@ -45,10 +66,24 @@ function isSamplerNode(classType: string, inputs: Record<string, unknown>): bool
     return false;
   }
   const classLower = classType.toLowerCase();
-  if (classLower.includes("ksampler") || classLower.includes("samplercustom")) {
+  if (
+    classLower.includes("ksampler") ||
+    classLower.includes("samplercustom") ||
+    classLower.includes("guider") ||
+    classLower.includes("basicscheduler")
+  ) {
     return true;
   }
   return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
+}
+
+function loadImageBindingToSuggested(
+  kind: LoadImageBindingKind,
+): WorkflowNodeMapping["suggestedBinding"] {
+  if (kind === "skip") {
+    return "custom";
+  }
+  return kind;
 }
 
 export function suggestWorkflowNodeMappings(workflowJson: string): WorkflowNodeMapping[] {
@@ -60,32 +95,29 @@ export function suggestWorkflowNodeMappings(workflowJson: string): WorkflowNodeM
   }
 
   const mappings: WorkflowNodeMapping[] = [];
+  const loadImageCount = countLoadImageNodes(parsed);
+  let loadImageIndex = 0;
 
   for (const [nodeId, node] of Object.entries(parsed)) {
     const classType = node.class_type ?? "";
-    const title = node._meta?.title?.toLowerCase() ?? "";
+    const title = node._meta?.title ?? "";
     const classLower = classType.toLowerCase();
     const inputs = node.inputs ?? {};
 
-    if (classLower.includes("cliptextencode") || classLower.includes("textencode")) {
-      let binding: WorkflowNodeMapping["suggestedBinding"] = "custom";
-      let reason = "Text encode node";
-      if (title.includes("negative") || title.includes("neg")) {
-        binding = "negative";
-        reason = "Title suggests negative prompt encode";
-      } else if (title.includes("positive") || title.includes("pos") || title.includes("prompt")) {
-        binding = "positive";
-        reason = "Title suggests positive prompt encode";
-      } else if (!title.includes("negative")) {
-        binding = "positive";
-        reason = "Default positive prompt encode candidate";
-      }
+    if (isPromptEncodeNode(classType)) {
+      const binding = classifyPromptEncodeBinding(classType, title);
+      const textField = resolvePromptEncodeTextField(inputs);
       mappings.push({
         nodeId,
         classType,
         title: node._meta?.title,
-        suggestedBinding: binding,
-        reason,
+        suggestedBinding: binding === "unknown" ? "custom" : binding,
+        reason:
+          textField === "prompt"
+            ? "Qwen/text encode node — map prompt field placeholders here"
+            : binding === "negative"
+              ? "Title suggests negative prompt encode"
+              : "Text encode node — map positive prompt placeholder here",
       });
       continue;
     }
@@ -129,13 +161,25 @@ export function suggestWorkflowNodeMappings(workflowJson: string): WorkflowNodeM
       (classType === "LoadImage" || classType === "LoadImageOutput") &&
       "image" in inputs
     ) {
-      mappings.push({
-        nodeId,
-        classType,
-        title: node._meta?.title,
-        suggestedBinding: "inputImage",
-        reason: "Load image node — map input image placeholder here",
+      const kind = inferLoadImageBinding(classType, title, {
+        loadImageIndex,
+        loadImageCount,
       });
+      loadImageIndex += 1;
+      if (kind !== "skip") {
+        mappings.push({
+          nodeId,
+          classType,
+          title: node._meta?.title,
+          suggestedBinding: loadImageBindingToSuggested(kind),
+          reason:
+            kind === "controlImage"
+              ? "Load image node — map control/reference image placeholder here"
+              : kind === "maskImage"
+                ? "Load image node — map mask placeholder here"
+                : "Load image node — map input image placeholder here",
+        });
+      }
       continue;
     }
 
@@ -199,6 +243,28 @@ export function suggestWorkflowNodeMappings(workflowJson: string): WorkflowNodeM
         title: node._meta?.title,
         suggestedBinding: "upscaleModelLoader",
         reason: "Upscale model loader — map {{UPSCALE_MODEL}} placeholder here",
+      });
+      continue;
+    }
+
+    if (CONTROLNET_LOADER_TYPES.has(classType) && "control_net_name" in inputs) {
+      mappings.push({
+        nodeId,
+        classType,
+        title: node._meta?.title,
+        suggestedBinding: "controlNetLoader",
+        reason: "ControlNet loader — map {{CONTROLNET_MODEL}} placeholder here",
+      });
+      continue;
+    }
+
+    if (LORA_LOADER_TYPES.has(classType) && "lora_name" in inputs) {
+      mappings.push({
+        nodeId,
+        classType,
+        title: node._meta?.title,
+        suggestedBinding: "loraLoader",
+        reason: "LoRA loader — map {{LORA_*}} placeholder here",
       });
     }
   }

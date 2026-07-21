@@ -20,6 +20,7 @@ type ComfyHistoryEntry = {
   status?: {
     status_str?: string;
     completed?: boolean;
+    messages?: Array<[string, Record<string, unknown>]>;
   };
   outputs?: Record<string, unknown>;
   prompt?: unknown[];
@@ -187,6 +188,45 @@ export async function getComfyUiWorkflowSummary(runtime?: ComfyUiRuntimeConfig) 
   };
 }
 
+export function extractComfyExecutionErrorMessage(
+  entry: ComfyHistoryEntry,
+): string | undefined {
+  const messages = entry.status?.messages;
+  if (!Array.isArray(messages)) {
+    return undefined;
+  }
+
+  for (const message of messages) {
+    if (!Array.isArray(message) || message[0] !== "execution_error") {
+      continue;
+    }
+    const payload = message[1];
+    if (!payload || typeof payload !== "object") {
+      continue;
+    }
+
+    const exceptionMessage =
+      typeof payload.exception_message === "string"
+        ? payload.exception_message.trim()
+        : "";
+    const nodeType =
+      typeof payload.node_type === "string" ? payload.node_type.trim() : "";
+    const nodeId =
+      typeof payload.node_id === "string" || typeof payload.node_id === "number"
+        ? String(payload.node_id).trim()
+        : "";
+
+    if (exceptionMessage) {
+      const prefix = [nodeType, nodeId ? `#${nodeId}` : ""]
+        .filter(Boolean)
+        .join(" ");
+      return prefix ? `${prefix}: ${exceptionMessage}` : exceptionMessage;
+    }
+  }
+
+  return undefined;
+}
+
 function interpretHistoryEntry(
   promptId: string,
   comfyUrl: string,
@@ -195,6 +235,7 @@ function interpretHistoryEntry(
   const statusStr = entry.status?.status_str?.toLowerCase() ?? "";
   const images = extractImagesFromOutputs(entry.outputs);
   const completed = entry.status?.completed === true || images.length > 0;
+  const executionError = extractComfyExecutionErrorMessage(entry);
 
   if (completed) {
     return {
@@ -206,11 +247,11 @@ function interpretHistoryEntry(
     };
   }
 
-  if (statusStr.includes("error")) {
+  if (statusStr.includes("error") || executionError) {
     return {
       promptId,
       status: "error",
-      statusMessage: statusStr,
+      statusMessage: executionError ?? statusStr,
       comfyUrl,
       images,
     };

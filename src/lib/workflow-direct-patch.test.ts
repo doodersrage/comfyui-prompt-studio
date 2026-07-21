@@ -12,6 +12,52 @@ import {
 import { DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN } from "./model-checkpoint-map.ts";
 
 describe("workflow direct patch", () => {
+  it("sync mode overwrites hardcoded loader filenames", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_2512_bf16.safetensors", weight_dtype: "default" },
+      },
+      "2": {
+        class_type: "DualCLIPLoader",
+        inputs: {
+          clip_name1: "flux2-klein-9b-uncensored.safetensors",
+          clip_name2: "flux2-klein-9b-uncensored.safetensors",
+        },
+      },
+    };
+
+    const conservative = patchLoaderNodesInWorkflow(workflow, {
+      unet: "flux-2-klein-9b.safetensors",
+      dualClip: "qwen_2.5_vl_7b.safetensors",
+    });
+    const synced = patchLoaderNodesInWorkflow(
+      workflow,
+      {
+        unet: "flux-2-klein-9b.safetensors",
+        dualClip: "qwen_2.5_vl_7b.safetensors",
+      },
+      { syncLoadersToModel: true },
+    );
+
+    const conservativeUnet = conservative.workflow["1"] as {
+      inputs?: { unet_name?: string };
+    };
+    const syncedUnet = synced.workflow["1"] as { inputs?: { unet_name?: string } };
+    const syncedClip = synced.workflow["2"] as {
+      inputs?: { clip_name1?: string; clip_name2?: string };
+    };
+
+    assert.equal(
+      conservativeUnet.inputs?.unet_name,
+      "qwen_image_2512_bf16.safetensors",
+    );
+    assert.equal(syncedUnet.inputs?.unet_name, "flux-2-klein-9b.safetensors");
+    assert.equal(syncedClip.inputs?.clip_name1, "qwen_2.5_vl_7b.safetensors");
+    assert.equal(synced.patched.unet, 1);
+    assert.equal(synced.patched.dualClip, 2);
+  });
+
   it("patches EmptyLatentImage width and height", () => {
     const workflow = {
       "5": {

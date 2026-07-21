@@ -22,6 +22,9 @@ import {
   normalizeSafeHttpUrl,
 } from "./url-safety";
 import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
+import { runWorkflowPreflightSync } from "./workflow-preflight-sync";
+import { fetchComfyObjectInfoPayload } from "./comfyui-object-info";
+import { formatComfyUiQueueValidationError } from "./comfyui-queue-validation-error";
 
 export type ComfyQueueRequest = {
   prompt: string;
@@ -148,6 +151,8 @@ function injectPromptsIntoWorkflow(
           qualityProfile: runtime?.queueQualityProfile,
           upscaleModelFilename: params.upscaleModelFilename,
           refinerCheckpointFilename: params.refinerCheckpointFilename,
+          skipIfUnchanged: true,
+          contentHash: runtime?.workflowOptimizedHash,
           ...resolveWorkflowGraphEnrichOptions(runtime),
         })
       : { workflow };
@@ -164,18 +169,47 @@ function injectPromptsIntoWorkflow(
       legacyPositiveNodeId: config.legacyPositiveNodeId,
       legacyNegativeNodeId: config.legacyNegativeNodeId,
       directWorkflowPatching: runtime?.directWorkflowPatching,
+      syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
       loaders,
     },
   );
 }
 
+async function fetchComfyObjectInfoForPreflight(runtime?: ComfyUiRuntimeConfig) {
+  return fetchComfyObjectInfoPayload(runtime);
+}
+
+function buildPreflightFailure(
+  preflight: ReturnType<typeof runWorkflowPreflightSync>,
+  comfyUrl: string,
+): ComfyQueueResult {
+  return {
+    ok: false,
+    error: preflight.issues
+      .filter((issue) => issue.severity === "error")
+      .map((issue) => issue.message)
+      .join(" · "),
+    comfyUrl,
+  };
+}
+
 export async function queuePromptToComfyUi(
   request: ComfyQueueRequest,
   runtime?: ComfyUiRuntimeConfig,
+  options?: {
+    preflight?: boolean;
+    objectInfo?: Awaited<ReturnType<typeof fetchComfyObjectInfoForPreflight>>;
+  },
 ): Promise<ComfyQueueResult> {
   const config = resolveComfyUiConfig(runtime);
+  const runPreflight = options?.preflight !== false;
 
   try {
+    const objectInfo =
+      config.workflow && runPreflight
+        ? (options?.objectInfo ?? (await fetchComfyObjectInfoForPreflight(runtime)))
+        : null;
+
     const promptBody = config.workflow
       ? (() => {
           const injected = injectPromptsIntoWorkflow(
@@ -202,36 +236,67 @@ export async function queuePromptToComfyUi(
               `Workflow still has unresolved loader placeholders (${unresolved.join(", ")}) for model "${modelHint}"${loaderHint ? ` (${loaderHint})` : ""}. Set Settings → checkpoint/VAE maps for your model, then retry.`,
             );
           }
+
+          if (objectInfo) {
+            const preflight = runWorkflowPreflightSync({
+              workflowJson: JSON.stringify(injected.workflow),
+              model: request.model ?? runtime?.queueTargetModel ?? "qwen-image-2512",
+              syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
+              knownNodeTypes: objectInfo.nodeTypes,
+              models: objectInfo.models,
+            });
+            if (!preflight.ok) {
+              return {
+                kind: "preflight_failed" as const,
+                preflight,
+              };
+            }
+          }
+
           return {
-            prompt: injected.workflow,
-            workflowSource:
-              config.workflowSource === "env" ? ("env" as const) : ("client" as const),
-            replacements: {
-              positive: injected.positiveReplacements,
-              negative: injected.negativeReplacements,
-            },
+            kind: "ready" as const,
+            injected,
           };
         })()
       : {
-          prompt: buildMinimalWorkflow(request.prompt, request.nodeTitle),
-          workflowSource: "minimal" as const,
-          replacements: { positive: 1, negative: 0 },
+          kind: "minimal" as const,
         };
+
+    if (promptBody.kind === "preflight_failed") {
+      return buildPreflightFailure(promptBody.preflight, config.apiUrl);
+    }
+
+    const resolvedPromptBody =
+      promptBody.kind === "ready"
+        ? {
+            prompt: promptBody.injected.workflow,
+            workflowSource:
+              config.workflowSource === "env" ? ("env" as const) : ("client" as const),
+            replacements: {
+              positive: promptBody.injected.positiveReplacements,
+              negative: promptBody.injected.negativeReplacements,
+            },
+          }
+        : {
+            prompt: buildMinimalWorkflow(request.prompt, request.nodeTitle),
+            workflowSource: "minimal" as const,
+            replacements: { positive: 1, negative: 0 },
+          };
 
     const workflowResponse = await fetch(`${config.apiUrl}/prompt`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: promptBody.prompt }),
+      body: JSON.stringify({ prompt: resolvedPromptBody.prompt }),
     });
 
     if (!workflowResponse.ok) {
       const text = await workflowResponse.text();
       return {
         ok: false,
-        error: text || `ComfyUI returned ${workflowResponse.status}`,
+        error: formatComfyUiQueueValidationError(text || `ComfyUI returned ${workflowResponse.status}`),
         comfyUrl: config.apiUrl,
-        workflowSource: promptBody.workflowSource,
-        replacements: promptBody.replacements,
+        workflowSource: resolvedPromptBody.workflowSource,
+        replacements: resolvedPromptBody.replacements,
       };
     }
 
@@ -243,8 +308,8 @@ export async function queuePromptToComfyUi(
       promptId: data.prompt_id,
       comfyUrl: config.apiUrl,
       workflow:
-        typeof promptBody.prompt === "object"
-          ? (promptBody.prompt as Record<string, unknown>)
+        typeof resolvedPromptBody.prompt === "object"
+          ? (resolvedPromptBody.prompt as Record<string, unknown>)
           : undefined,
     });
 
@@ -252,8 +317,8 @@ export async function queuePromptToComfyUi(
       ok: true,
       promptId: data.prompt_id,
       comfyUrl: config.apiUrl,
-      workflowSource: promptBody.workflowSource,
-      replacements: promptBody.replacements,
+      workflowSource: resolvedPromptBody.workflowSource,
+      replacements: resolvedPromptBody.replacements,
     };
   } catch (error) {
     return {
@@ -275,15 +340,27 @@ export type ComfyBatchQueueResult = {
 export async function queueBatchToComfyUi(
   requests: ComfyQueueRequest[],
   runtime?: ComfyUiRuntimeConfig,
+  options?: { preflight?: boolean },
 ): Promise<ComfyBatchQueueResult> {
   const config = resolveComfyUiConfig(runtime);
   const results: ComfyQueueResult[] = [];
+  const runPreflight = options?.preflight !== false;
+  const objectInfo =
+    runPreflight && config.workflow
+      ? await fetchComfyObjectInfoForPreflight(runtime)
+      : null;
 
   for (const request of requests) {
     if (!request.prompt.trim()) {
       continue;
     }
-    results.push(await queuePromptToComfyUi(request, runtime));
+
+    results.push(
+      await queuePromptToComfyUi(request, runtime, {
+        preflight: runPreflight,
+        objectInfo: objectInfo ?? undefined,
+      }),
+    );
   }
 
   const queued = results.filter((entry) => entry.ok).length;

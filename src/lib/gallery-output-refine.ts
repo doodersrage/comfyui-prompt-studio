@@ -181,10 +181,9 @@ function buildQwenGalleryRefineWorkflow(): Record<string, WorkflowNode> {
       _meta: { title: "Prompt Studio — UNET" },
     },
     "2": {
-      class_type: "DualCLIPLoader",
+      class_type: "CLIPLoader",
       inputs: {
-        clip_name1: clipName,
-        clip_name2: clipName,
+        clip_name: clipName,
         type: "qwen_image",
       },
       _meta: { title: "Prompt Studio — CLIP" },
@@ -264,30 +263,43 @@ export function buildGalleryRefineWorkflow(
   return buildCheckpointGalleryRefineWorkflow();
 }
 
+import type { WorkflowParamValues } from "./comfyui-config";
+
 export function galleryRefineQueueParams(input: {
   inputImageFilename: string;
   profile?: Extract<QueueQualityProfile, "final" | "max">;
   prompt?: string;
-  queueParams?: {
-    seed?: string;
-    width?: string;
-    height?: string;
-    cfg?: string;
-    steps?: string;
-    sampler?: string;
-    scheduler?: string;
-  };
+  queueParams?: Pick<
+    WorkflowParamValues,
+    "seed" | "width" | "height" | "cfg" | "steps" | "samplerName" | "scheduler"
+  >;
 }): Record<string, string> {
   const params: Record<string, string> = {
     inputImageFilename: input.inputImageFilename,
     denoise: String(galleryRefineDenoiseForProfile(input.profile, input.prompt)),
   };
 
-  for (const key of ["seed", "width", "height", "cfg", "steps", "sampler", "scheduler"] as const) {
-    const value = input.queueParams?.[key];
-    if (value?.trim()) {
-      params[key] = value.trim();
-    }
+  const source = input.queueParams;
+  if (source?.seed != null && String(source.seed).trim()) {
+    params.seed = String(source.seed).trim();
+  }
+  if (source?.width != null && String(source.width).trim()) {
+    params.width = String(source.width).trim();
+  }
+  if (source?.height != null && String(source.height).trim()) {
+    params.height = String(source.height).trim();
+  }
+  if (source?.cfg != null && String(source.cfg).trim()) {
+    params.cfg = String(source.cfg).trim();
+  }
+  if (source?.steps != null && String(source.steps).trim()) {
+    params.steps = String(source.steps).trim();
+  }
+  if (source?.samplerName != null && String(source.samplerName).trim()) {
+    params.sampler = String(source.samplerName).trim();
+  }
+  if (source?.scheduler != null && String(source.scheduler).trim()) {
+    params.scheduler = String(source.scheduler).trim();
   }
 
   return params;

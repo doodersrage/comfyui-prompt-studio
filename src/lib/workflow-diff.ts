@@ -42,3 +42,76 @@ export function formatWorkflowForDiff(raw: string): string {
     return raw;
   }
 }
+
+export type WorkflowNodeDiffEntry = {
+  nodeId: string;
+  classType: string;
+  title?: string;
+  change: "added" | "removed" | "modified";
+  fields?: string[];
+};
+
+export function diffWorkflowNodes(leftJson: string, rightJson: string): WorkflowNodeDiffEntry[] {
+  const parse = (raw: string): Record<string, { class_type?: string; _meta?: { title?: string }; inputs?: Record<string, unknown> }> => {
+    try {
+      return JSON.parse(raw) as Record<string, { class_type?: string; _meta?: { title?: string }; inputs?: Record<string, unknown> }>;
+    } catch {
+      return {};
+    }
+  };
+
+  const left = parse(leftJson);
+  const right = parse(rightJson);
+  const entries: WorkflowNodeDiffEntry[] = [];
+  const allIds = new Set([...Object.keys(left), ...Object.keys(right)]);
+
+  for (const nodeId of allIds) {
+    const leftNode = left[nodeId];
+    const rightNode = right[nodeId];
+    if (!leftNode && rightNode) {
+      entries.push({
+        nodeId,
+        classType: rightNode.class_type ?? "unknown",
+        title: rightNode._meta?.title,
+        change: "added",
+      });
+      continue;
+    }
+    if (leftNode && !rightNode) {
+      entries.push({
+        nodeId,
+        classType: leftNode.class_type ?? "unknown",
+        title: leftNode._meta?.title,
+        change: "removed",
+      });
+      continue;
+    }
+    if (!leftNode || !rightNode) {
+      continue;
+    }
+
+    const leftInputs = JSON.stringify(leftNode.inputs ?? {});
+    const rightInputs = JSON.stringify(rightNode.inputs ?? {});
+    const classChanged = (leftNode.class_type ?? "") !== (rightNode.class_type ?? "");
+    if (classChanged || leftInputs !== rightInputs) {
+      const fields = new Set<string>();
+      for (const key of new Set([
+        ...Object.keys(leftNode.inputs ?? {}),
+        ...Object.keys(rightNode.inputs ?? {}),
+      ])) {
+        if (JSON.stringify(leftNode.inputs?.[key]) !== JSON.stringify(rightNode.inputs?.[key])) {
+          fields.add(key);
+        }
+      }
+      entries.push({
+        nodeId,
+        classType: rightNode.class_type ?? leftNode.class_type ?? "unknown",
+        title: rightNode._meta?.title ?? leftNode._meta?.title,
+        change: "modified",
+        fields: [...fields],
+      });
+    }
+  }
+
+  return entries.sort((a, b) => a.nodeId.localeCompare(b.nodeId, undefined, { numeric: true }));
+}

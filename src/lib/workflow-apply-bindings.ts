@@ -22,10 +22,23 @@ import {
   DEFAULT_VAE_TOKEN,
 } from "./model-checkpoint-map";
 import { DEFAULT_UPSCALE_MODEL_TOKEN } from "./model-upscale-map";
+import {
+  DEFAULT_CONTROLNET_MODEL_TOKEN,
+  DEFAULT_CONTROL_IMAGE_TOKEN,
+} from "./model-controlnet-map";
+import {
+  countLoadImageNodes,
+  inferLoadImageBinding,
+} from "./workflow-load-image-bindings";
 import type { WorkflowNodeMapping } from "./workflow-node-mapper";
+import {
+  isPromptEncodeNode,
+  resolvePromptEncodeTextField,
+} from "./workflow-prompt-encode";
 
 type WorkflowNode = {
   class_type?: string;
+  _meta?: { title?: string };
   inputs?: Record<string, unknown>;
 };
 
@@ -40,6 +53,12 @@ const PARAM_INPUT_FIELDS = ["seed", "steps", "cfg", "width", "height", "shift", 
 const STRING_SAMPLER_FIELDS = ["sampler_name", "scheduler"] as const;
 const MODEL_SAMPLING_FLOAT_FIELDS = ["max_shift", "base_shift"] as const;
 const IMAGE_INPUT_FIELDS = ["image"] as const;
+const LORA_LOADER_TYPES = new Set([
+  "LoraLoader",
+  "LoraLoaderModelOnly",
+  "Power Lora Loader (rgthree)",
+]);
+const CONTROLNET_LOADER_TYPES = new Set(["ControlNetLoader", "DiffControlNetLoader"]);
 
 type ParamInputField = (typeof PARAM_INPUT_FIELDS)[number];
 type StringSamplerField = (typeof STRING_SAMPLER_FIELDS)[number];
@@ -73,6 +92,9 @@ export function applyWorkflowNodeBindings(
   mappings: WorkflowNodeMapping[],
   tokens: Partial<WorkflowPlaceholderTokens> &
     Pick<WorkflowPlaceholderTokens, "positive" | "negative">,
+  options?: {
+    loraBindTokens?: string[];
+  },
 ): { json: string; changes: WorkflowBindingChange[] } {
   let parsed: Record<string, WorkflowNode>;
   try {
@@ -83,6 +105,8 @@ export function applyWorkflowNodeBindings(
 
   const resolvedTokens = resolveBindingTokens(tokens);
   const changes: WorkflowBindingChange[] = [];
+  const loraBindTokens = options?.loraBindTokens ?? [];
+  let loraBindIndex = 0;
 
   for (const mapping of mappings) {
     const node = parsed[mapping.nodeId];
@@ -91,6 +115,15 @@ export function applyWorkflowNodeBindings(
     }
 
     const binding = mapping.suggestedBinding;
+    const promptField = resolvePromptEncodeTextField(node.inputs ?? {});
+    if (binding === "positive" && promptField) {
+      applyTextInput(node, mapping.nodeId, promptField, resolvedTokens.positive, changes);
+      continue;
+    }
+    if (binding === "negative" && promptField) {
+      applyTextInput(node, mapping.nodeId, promptField, resolvedTokens.negative, changes);
+      continue;
+    }
     if (binding === "positive" && "text" in node.inputs) {
       applyTextInput(node, mapping.nodeId, "text", resolvedTokens.positive, changes);
       continue;
@@ -148,6 +181,10 @@ export function applyWorkflowNodeBindings(
       applyBindingField(node, mapping.nodeId, "image", resolvedTokens.inputImage, changes);
       continue;
     }
+    if (binding === "controlImage" && "image" in node.inputs) {
+      applyBindingField(node, mapping.nodeId, "image", DEFAULT_CONTROL_IMAGE_TOKEN, changes);
+      continue;
+    }
     if (binding === "maskImage" && "image" in node.inputs) {
       applyBindingField(node, mapping.nodeId, "image", resolvedTokens.maskImage, changes);
       continue;
@@ -166,10 +203,28 @@ export function applyWorkflowNodeBindings(
     }
     if (binding === "upscaleModelLoader" && "model_name" in node.inputs) {
       applyBindingField(node, mapping.nodeId, "model_name", DEFAULT_UPSCALE_MODEL_TOKEN, changes);
+      continue;
+    }
+    if (binding === "controlNetLoader" && "control_net_name" in node.inputs) {
+      applyBindingField(
+        node,
+        mapping.nodeId,
+        "control_net_name",
+        DEFAULT_CONTROLNET_MODEL_TOKEN,
+        changes,
+      );
+      continue;
+    }
+    if (binding === "loraLoader" && "lora_name" in node.inputs) {
+      const token = loraBindTokens[loraBindIndex] ?? loraBindTokens[0];
+      if (token) {
+        applyBindingField(node, mapping.nodeId, "lora_name", token, changes);
+        loraBindIndex += 1;
+      }
     }
   }
 
-  applyParamBindingsToAllNodes(parsed, resolvedTokens, changes);
+  applyParamBindingsToAllNodes(parsed, resolvedTokens, changes, loraBindTokens);
 
   return { json: JSON.stringify(parsed, null, 2), changes };
 }
@@ -178,7 +233,12 @@ function applyParamBindingsToAllNodes(
   parsed: Record<string, WorkflowNode>,
   tokens: WorkflowPlaceholderTokens,
   changes: WorkflowBindingChange[],
+  loraBindTokens: string[] = [],
 ): void {
+  const loadImageCount = countLoadImageNodes(parsed);
+  let loadImageIndex = 0;
+  let loraBindIndex = 0;
+
   for (const [nodeId, node] of Object.entries(parsed)) {
     if (!node?.inputs) {
       continue;
@@ -209,11 +269,27 @@ function applyParamBindingsToAllNodes(
 
     const classType = node.class_type ?? "";
     if (classType === "LoadImage" || classType === "LoadImageOutput") {
-      for (const field of IMAGE_INPUT_FIELDS) {
-        if (!(field in node.inputs)) {
-          continue;
+      const title = node._meta?.title ?? "";
+      const kind = inferLoadImageBinding(classType, title, {
+        loadImageIndex,
+        loadImageCount,
+      });
+      loadImageIndex += 1;
+      const imageToken =
+        kind === "controlImage"
+          ? DEFAULT_CONTROL_IMAGE_TOKEN
+          : kind === "maskImage"
+            ? tokens.maskImage
+            : kind === "inputImage"
+              ? tokens.inputImage
+              : null;
+      if (imageToken) {
+        for (const field of IMAGE_INPUT_FIELDS) {
+          if (!(field in node.inputs!)) {
+            continue;
+          }
+          applyBindingField(node, nodeId, field, imageToken, changes);
         }
-        applyBindingField(node, nodeId, field, tokens.inputImage, changes);
       }
       continue;
     }
@@ -253,6 +329,24 @@ function applyParamBindingsToAllNodes(
       "model_name" in node.inputs
     ) {
       applyBindingField(node, nodeId, "model_name", DEFAULT_UPSCALE_MODEL_TOKEN, changes);
+    }
+
+    if (CONTROLNET_LOADER_TYPES.has(classType) && "control_net_name" in node.inputs!) {
+      applyBindingField(
+        node,
+        nodeId,
+        "control_net_name",
+        DEFAULT_CONTROLNET_MODEL_TOKEN,
+        changes,
+      );
+    }
+
+    if (LORA_LOADER_TYPES.has(classType) && "lora_name" in node.inputs!) {
+      const token = loraBindTokens[loraBindIndex] ?? loraBindTokens[0];
+      if (token) {
+        applyBindingField(node, nodeId, "lora_name", token, changes);
+        loraBindIndex += 1;
+      }
     }
   }
 }

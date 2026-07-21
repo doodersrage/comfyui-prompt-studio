@@ -53,6 +53,7 @@ import { ChipButton, FieldDivider, FieldLabel } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { resolveModelStackFamily } from "@/lib/workflow-stack-fingerprint";
 
 type SharedToolControlsProps = {
   shared: SharedToolSettings;
@@ -201,13 +202,21 @@ export default function SharedToolControls({
   setWorkflowSelectedIdRef.current = workflowSelection.setSelectedId;
 
   const workflowManualOverrideRef = useRef(false);
+  const lastModelStackFamilyRef = useRef(
+    resolveModelStackFamily(shared.model),
+  );
 
   const applyWorkflowForModel = useCallback(
-    (model: ComfyImageModel) => {
-      if (shared.autoSelectWorkflowForModel === false || !onWorkflowPresetChangeRef.current) {
+    (model: ComfyImageModel, force = false) => {
+      if (
+        !force &&
+        (shared.autoSelectWorkflowForModel === false || !onWorkflowPresetChangeRef.current)
+      ) {
         return;
       }
-      workflowManualOverrideRef.current = false;
+      if (force) {
+        workflowManualOverrideRef.current = false;
+      }
       const workflowId = resolveWorkflowForModelSelection(model, {
         map: shared.modelWorkflowMap,
         suggestedMap: suggestedWorkflowMap,
@@ -217,8 +226,12 @@ export default function SharedToolControls({
       if (!workflowId || workflowId === selectedWorkflowId) {
         return;
       }
+      const onChange = onWorkflowPresetChangeRef.current;
+      if (!onChange) {
+        return;
+      }
       setWorkflowSelectedIdRef.current(workflowId);
-      onWorkflowPresetChangeRef.current(workflowId);
+      onChange(workflowId);
     },
     [
       selectedWorkflowId,
@@ -232,6 +245,16 @@ export default function SharedToolControls({
 
   const handleModelChange = useCallback(
     (model: ComfyImageModel) => {
+      const nextStackFamily = resolveModelStackFamily(model);
+      const stackFamilyChanged =
+        lastModelStackFamilyRef.current !== "unknown" &&
+        nextStackFamily !== "unknown" &&
+        lastModelStackFamilyRef.current !== nextStackFamily;
+      if (stackFamilyChanged) {
+        workflowManualOverrideRef.current = false;
+      }
+      lastModelStackFamilyRef.current = nextStackFamily;
+
       if (showAllModelsOverride) {
         setShowAllModelsOverride(false);
         saveSharedSettings({
@@ -240,7 +263,7 @@ export default function SharedToolControls({
         });
       }
       onModelChange(model);
-      applyWorkflowForModel(model);
+      applyWorkflowForModel(model, stackFamilyChanged);
     },
     [applyWorkflowForModel, onModelChange, showAllModelsOverride],
   );

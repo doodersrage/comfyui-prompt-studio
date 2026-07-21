@@ -41,6 +41,7 @@ import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import {
+  buildControlNetWorkflowScaffold,
   scaffoldWorkflowForModel,
   suggestedScaffoldName,
 } from "@/lib/workflow-scaffold";
@@ -51,6 +52,7 @@ import {
   suggestedOptimizedWorkflowName,
 } from "@/lib/workflow-queue-optimizer";
 import { optimizeAllWorkflowsInLibrary, optimizeWorkflowFileInLibrary } from "@/lib/workflow-library-batch";
+import { diffWorkflowNodes } from "@/lib/workflow-diff";
 import {
   WORKFLOW_HEALTH_SELECT_EVENT,
 } from "@/lib/workflow-health-audit";
@@ -79,6 +81,7 @@ export default function ComfyWorkflowLibraryPanel({
   const [importError, setImportError] = useState<string | null>(null);
   const [importErrorDetail, setImportErrorDetail] = useState<string | null>(null);
   const [importNotice, setImportNotice] = useState<string | null>(null);
+  const [optimizePreviewSummary, setOptimizePreviewSummary] = useState<string | null>(null);
   const [presetPacks, setPresetPacks] = useState<WorkflowPresetPack[]>([]);
   const [packName, setPackName] = useState("");
   const [activePackId, setActivePackId] = useState("");
@@ -319,6 +322,29 @@ export default function ComfyWorkflowLibraryPanel({
     );
   }, [assignInferredModels, newName, onStatus, placeholderTokens, refresh, startEdit]);
 
+  const createControlNetScaffold = useCallback(() => {
+    const result = buildControlNetWorkflowScaffold({
+      positive: placeholderTokens.positive,
+      negative: placeholderTokens.negative,
+      seed: placeholderTokens.seed,
+      width: placeholderTokens.width,
+      height: placeholderTokens.height,
+      cfg: placeholderTokens.cfg,
+      steps: placeholderTokens.steps,
+      sampler: placeholderTokens.sampler,
+      scheduler: placeholderTokens.scheduler,
+      denoise: placeholderTokens.denoise,
+    });
+    const saved = upsertComfyWorkflowFile({
+      name: newName.trim() || "ControlNet scaffold",
+      workflowJson: result.json,
+    });
+    refresh();
+    setNewName("");
+    startEdit(saved);
+    onStatus?.(`Created ControlNet scaffold. ${result.notes[0] ?? ""}`.trim());
+  }, [newName, onStatus, placeholderTokens, refresh, startEdit]);
+
   const cloneAndBindWorkflow = useCallback(() => {
     const sourceJson = editingJson.trim();
     if (!sourceJson) {
@@ -359,6 +385,46 @@ export default function ComfyWorkflowLibraryPanel({
     );
   }, [assignInferredModels, editingJson, newName, onStatus, placeholderTokens, refresh, startEdit]);
 
+  const previewOptimizeCopy = useCallback(() => {
+    const sourceJson = editingJson.trim();
+    if (!sourceJson) {
+      onStatus?.("Open a workflow in Edit JSON first to preview optimize changes.");
+      return;
+    }
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(sourceJson) as Record<string, unknown>;
+    } catch {
+      onStatus?.("Workflow JSON is invalid — fix syntax before previewing optimize.");
+      return;
+    }
+
+    const model = loadSettingsCache().shared.model;
+    const shared = loadSettingsCache().shared;
+    const queueParams = resolveQueueParams({
+      model,
+      qualityProfile: shared.queueQualityProfile,
+    });
+    const result = optimizeWorkflowForQueue({
+      workflow: parsed,
+      tokens: placeholderTokens,
+      model,
+      qualityProfile: shared.queueQualityProfile,
+      upscaleModelFilename: queueParams.upscaleModelFilename,
+      refinerCheckpointFilename: queueParams.refinerCheckpointFilename,
+      enrichSdxlRefiner: shared.workflowSdxlRefinerEnrich !== false,
+      enrichNeuralPolish: shared.workflowNeuralUpscalePolish !== false,
+      enrichSharpen: shared.workflowSharpenAfterUpscale === true,
+    });
+    const nodeDiff = diffWorkflowNodes(sourceJson, result.workflowJson);
+    const modified = nodeDiff.filter((entry) => entry.change === "modified").length;
+    const added = nodeDiff.filter((entry) => entry.change === "added").length;
+    setOptimizePreviewSummary(
+      `Preview: ${result.bindingChanges.length} binding(s), ${added} node(s) added, ${modified} node(s) modified, ${result.audit.warnings.length} review note(s).`,
+    );
+  }, [editingJson, onStatus, placeholderTokens]);
+
   const optimizeAndSaveCopy = useCallback(() => {
     const sourceJson = editingJson.trim();
     if (!sourceJson) {
@@ -387,6 +453,9 @@ export default function ComfyWorkflowLibraryPanel({
       qualityProfile: shared.queueQualityProfile,
       upscaleModelFilename: queueParams.upscaleModelFilename,
       refinerCheckpointFilename: queueParams.refinerCheckpointFilename,
+      enrichSdxlRefiner: shared.workflowSdxlRefinerEnrich !== false,
+      enrichNeuralPolish: shared.workflowNeuralUpscalePolish !== false,
+      enrichSharpen: shared.workflowSharpenAfterUpscale === true,
     });
     const baseName = editingName.trim() || newName.trim() || "workflow";
     const saved = upsertComfyWorkflowFile({
@@ -490,6 +559,9 @@ export default function ComfyWorkflowLibraryPanel({
         <Button type="button" variant="secondary" size="sm" onClick={createScaffoldForModel}>
           Scaffold for model
         </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={createControlNetScaffold}>
+          ControlNet scaffold
+        </Button>
         <Button
           type="button"
           variant="secondary"
@@ -498,6 +570,15 @@ export default function ComfyWorkflowLibraryPanel({
           disabled={!editingJson.trim()}
         >
           Clone &amp; bind
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={previewOptimizeCopy}
+          disabled={!editingJson.trim()}
+        >
+          Preview optimize
         </Button>
         <Button
           type="button"
@@ -530,6 +611,9 @@ export default function ComfyWorkflowLibraryPanel({
       ) : null}
       {importNotice ? (
         <p className="type-caption text-amber-300/90">{importNotice}</p>
+      ) : null}
+      {optimizePreviewSummary ? (
+        <p className="type-caption text-violet-200/90">{optimizePreviewSummary}</p>
       ) : null}
 
       {serverFiles.length > 0 && (

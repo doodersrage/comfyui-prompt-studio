@@ -9,6 +9,7 @@ type CacheEntry = {
   fetchedAt: number;
   comfyUrl: string;
   models: ComfyUiModelLists;
+  nodeTypes: Set<string>;
 };
 
 let memoryCache: CacheEntry | null = null;
@@ -47,7 +48,10 @@ export async function fetchComfyObjectInfoModelsCached(input?: {
   if (!response.ok) {
     return null;
   }
-  const data = (await response.json()) as { models?: ComfyUiModelLists };
+  const data = (await response.json()) as {
+    models?: ComfyUiModelLists;
+    nodeTypes?: string[];
+  };
   if (!data.models) {
     return null;
   }
@@ -56,8 +60,23 @@ export async function fetchComfyObjectInfoModelsCached(input?: {
     fetchedAt: Date.now(),
     comfyUrl: comfyUrl.replace(/\/+$/, "") || "default",
     models: data.models,
+    nodeTypes: new Set(data.nodeTypes ?? []),
   };
   return data.models;
+}
+
+export async function fetchComfyObjectInfoNodeTypesCached(input?: {
+  comfyUrl?: string;
+}): Promise<Set<string> | null> {
+  const runtime = resolveComfyUiRuntime();
+  const comfyUrl = input?.comfyUrl?.trim() || runtime?.apiUrl?.trim() || "";
+  const cached = readCachedComfyObjectInfoModels(comfyUrl);
+  if (cached && memoryCache?.nodeTypes.size) {
+    return memoryCache.nodeTypes;
+  }
+
+  await fetchComfyObjectInfoModelsCached({ comfyUrl });
+  return memoryCache?.nodeTypes ?? null;
 }
 
 export function clearComfyObjectInfoCache(): void {

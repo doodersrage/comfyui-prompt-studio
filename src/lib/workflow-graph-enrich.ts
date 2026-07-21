@@ -22,6 +22,10 @@ import {
 } from "./model-sampling-patch";
 import { IMAGE_SCALE_BY_NODE_TYPE } from "./workflow-direct-patch";
 import type { WorkflowQueueOptimizeChange } from "./workflow-queue-optimizer";
+import {
+  isPromptStudioOutputUpscaleNode,
+  PROMPT_STUDIO_META_PREFIX,
+} from "./workflow-enrich-markers";
 
 type WorkflowNode = {
   class_type?: string;
@@ -34,6 +38,15 @@ const LOADER_TYPES = new Set([
   "CheckpointLoader",
   "UNETLoader",
   "UnetLoaderGGUF",
+]);
+
+const MODEL_CHAIN_TYPES = new Set([
+  "LoraLoader",
+  "LoraLoaderModelOnly",
+  "Power Lora Loader (rgthree)",
+  "ControlNetApply",
+  "ControlNetApplyAdvanced",
+  "DiffControlNetApply",
 ]);
 
 const UPSCALE_NODE_TYPES = new Set([
@@ -75,16 +88,77 @@ function isLoaderNode(classType: string | undefined): boolean {
 
 function isSamplerNode(classType: string | undefined, inputs: Record<string, unknown>): boolean {
   const classLower = (classType ?? "").toLowerCase();
-  if (classLower.includes("ksampler") || classLower.includes("samplercustom")) {
+  if (
+    classLower.includes("ksampler") ||
+    classLower.includes("samplercustom") ||
+    classLower.includes("guider") ||
+    classLower.includes("basicscheduler")
+  ) {
     return true;
   }
   return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
 }
 
-function workflowHasUpscaler(workflow: Record<string, WorkflowNode>): boolean {
-  return Object.values(workflow).some((node) =>
-    UPSCALE_NODE_TYPES.has(node.class_type ?? ""),
-  );
+function resolveModelChainLoaderId(
+  workflow: Record<string, WorkflowNode>,
+  startNodeId: string,
+): string | null {
+  let current: string | null = startNodeId;
+  const visited = new Set<string>();
+
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    const node = workflow[current];
+    if (!node) {
+      return null;
+    }
+
+    const classType = node.class_type ?? "";
+    if (isLoaderNode(classType)) {
+      return current;
+    }
+    if (
+      isModelSamplingPatchNode(classType) ||
+      isModelSamplingFluxNode(classType)
+    ) {
+      return null;
+    }
+
+    const classLower = classType.toLowerCase();
+    const followsModelChain =
+      MODEL_CHAIN_TYPES.has(classType) || classLower.includes("lora");
+    if (!followsModelChain) {
+      return null;
+    }
+
+    current = getLinkedNodeId(node.inputs?.model);
+  }
+
+  return null;
+}
+
+function shouldSkipUpscaleEnrich(
+  workflow: Record<string, WorkflowNode>,
+  qualityProfile?: QueueQualityProfile,
+): boolean {
+  if (!profileUsesUpscaleEnrich(qualityProfile)) {
+    return true;
+  }
+
+  const targetScale = upscaleScaleForProfile(qualityProfile);
+  for (const node of Object.values(workflow)) {
+    if (!UPSCALE_NODE_TYPES.has(node.class_type ?? "")) {
+      continue;
+    }
+    if (isPromptStudioOutputUpscaleNode(node)) {
+      return true;
+    }
+    const scaleBy = Number(node.inputs?.scale_by);
+    if (Number.isFinite(scaleBy) && scaleBy >= targetScale * 0.85) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function resolveSamplingPatchClassType(model: string | undefined): string | null {
@@ -126,19 +200,17 @@ function enrichSamplingPatchNodes(input: {
       continue;
     }
 
+    const loaderId = resolveModelChainLoaderId(input.workflow, modelLink);
+    if (!loaderId) {
+      continue;
+    }
+
     const upstream = input.workflow[modelLink];
-    if (!upstream) {
-      continue;
-    }
-
     if (
-      isModelSamplingPatchNode(upstream.class_type ?? "") ||
-      isModelSamplingFluxNode(upstream.class_type ?? "")
+      upstream &&
+      (isModelSamplingPatchNode(upstream.class_type ?? "") ||
+        isModelSamplingFluxNode(upstream.class_type ?? ""))
     ) {
-      continue;
-    }
-
-    if (!isLoaderNode(upstream.class_type)) {
       continue;
     }
 
@@ -157,7 +229,7 @@ function enrichSamplingPatchNodes(input: {
     input.workflow[patchNodeId] = {
       class_type: patchClassType,
       inputs: patchInputs,
-      _meta: { title: "Prompt Studio — model sampling patch" },
+      _meta: { title: `${PROMPT_STUDIO_META_PREFIX} model sampling patch` },
     };
     samplerNode.inputs.model = [patchNodeId, 0];
 
@@ -421,7 +493,7 @@ function enrichLanczosUpscaleNodes(input: {
   if (!profileUsesUpscaleEnrich(input.qualityProfile)) {
     return [];
   }
-  if (workflowHasUpscaler(input.workflow)) {
+  if (shouldSkipUpscaleEnrich(input.workflow, input.qualityProfile)) {
     return [];
   }
 
@@ -487,7 +559,7 @@ function enrichNeuralUpscaleNodes(input: {
   if (!profileUsesUpscaleEnrich(input.qualityProfile)) {
     return [];
   }
-  if (workflowHasUpscaler(input.workflow)) {
+  if (shouldSkipUpscaleEnrich(input.workflow, input.qualityProfile)) {
     return [];
   }
 

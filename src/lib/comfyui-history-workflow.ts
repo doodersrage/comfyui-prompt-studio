@@ -72,7 +72,7 @@ export function extractParamsFromWorkflow(
             normalized === "sampler_name"
               ? "samplerName"
               : (normalized as keyof WorkflowParamValues);
-          params[key] = value;
+          params[key] = (typeof value === "number" ? String(value) : value) as never;
         }
       }
     }

@@ -6,6 +6,7 @@ import {
 import { isEditCapableModel } from "./model-denoise-defaults";
 import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
 import type { ModelWorkflowMap } from "./model-workflow-map";
+import { scoreWorkflowStackForModel } from "./workflow-stack-fingerprint";
 
 const CATEGORY_KEYWORDS: Record<ComfyModelCategory, string[]> = {
   "stable-diffusion": ["sd15", "sd1.5", "sd-1.5", "stable-diffusion"],
@@ -180,6 +181,8 @@ function scoreWorkflowForModel(
       }
     }
   }
+
+  score += scoreWorkflowStackForModel(file.workflowJson, modelId);
 
   return score;
 }

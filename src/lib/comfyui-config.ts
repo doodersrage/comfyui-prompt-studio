@@ -1,4 +1,10 @@
 import { patchModelSamplingInWorkflow } from "./model-sampling-patch";
+import { shouldSkipGlobalSamplerPatch } from "./workflow-enrich-markers";
+import {
+  classifyPromptEncodeBinding,
+  isPromptEncodeNode,
+  resolvePromptEncodeTextField,
+} from "./workflow-prompt-encode";
 import {
   forceResolveLoaderPlaceholders,
   patchLoaderNodesInWorkflow,
@@ -86,6 +92,8 @@ export type ComfyUiRuntimeConfig = {
   customTokens?: CustomWorkflowToken[];
   /** When false, skip direct EmptyLatentImage / loader patching (placeholder injection still runs). */
   directWorkflowPatching?: boolean;
+  /** When true, overwrite hardcoded loader filenames with the target model at queue time. */
+  syncWorkflowLoadersToModel?: boolean;
   /** When true (default), auto-bind missing placeholders before injection at queue time. */
   workflowQueueOptimize?: boolean;
   /** When true (default), insert model-sampling patch nodes when missing for FLUX/SD3 workflows. */
@@ -108,6 +116,8 @@ export type ComfyUiRuntimeConfig = {
   modelRefinerMap?: ModelRefinerMap;
   /** Client-side upscale model map forwarded for server-side loader resolution. */
   modelUpscaleMap?: ModelUpscaleMap;
+  /** Hash from last library optimize — skips redundant queue-time optimize when unchanged. */
+  workflowOptimizedHash?: string;
 };
 
 export type WorkflowPlaceholderTokens = {
@@ -646,7 +656,12 @@ function isSamplerLikeNode(classType: string, inputs: Record<string, unknown>): 
   if (lower.includes("modelsampling")) {
     return false;
   }
-  if (lower.includes("ksampler") || lower.includes("samplercustom")) {
+  if (
+    lower.includes("ksampler") ||
+    lower.includes("samplercustom") ||
+    lower.includes("guider") ||
+    lower.includes("basicscheduler")
+  ) {
     return true;
   }
   return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
@@ -669,6 +684,7 @@ export function patchSamplerParamsInWorkflow(
 
     const record = node as {
       class_type?: string;
+      _meta?: { title?: string };
       inputs?: Record<string, unknown>;
     };
     const inputs = record.inputs;
@@ -677,6 +693,10 @@ export function patchSamplerParamsInWorkflow(
     }
 
     if (!isSamplerLikeNode(record.class_type ?? "", inputs)) {
+      continue;
+    }
+
+    if (shouldSkipGlobalSamplerPatch(record)) {
       continue;
     }
 
@@ -708,13 +728,22 @@ export function patchSamplerParamsInWorkflow(
       inputs.scheduler = params.scheduler.toString().trim();
       patched.scheduler = (patched.scheduler ?? 0) + 1;
     }
-    if (
-      params.denoise != null &&
-      params.denoise.toString().trim() !== "" &&
-      "denoise" in inputs
-    ) {
-      inputs.denoise = Number(params.denoise);
-      patched.denoise = (patched.denoise ?? 0) + 1;
+    if ("denoise" in inputs) {
+      const current = inputs.denoise;
+      const isPlaceholder =
+        typeof current === "string" &&
+        (current.trim() === DEFAULT_DENOISE_TOKEN ||
+          /^\{\{DENOISE\}\}$/.test(current.trim()));
+      const resolvedDenoise =
+        params.denoise != null && params.denoise.toString().trim() !== ""
+          ? Number(params.denoise)
+          : isPlaceholder
+            ? 1
+            : null;
+      if (resolvedDenoise != null && (isPlaceholder || params.denoise != null)) {
+        inputs.denoise = resolvedDenoise;
+        patched.denoise = (patched.denoise ?? 0) + 1;
+      }
     }
   }
 
@@ -734,12 +763,17 @@ function setWorkflowNodeText(
     return false;
   }
 
-  const record = node as { inputs?: Record<string, unknown> };
-  if (!record.inputs || !("text" in record.inputs)) {
+  const record = node as { class_type?: string; inputs?: Record<string, unknown> };
+  if (!record.inputs) {
     return false;
   }
 
-  record.inputs = { ...record.inputs, text };
+  const field = resolvePromptEncodeTextField(record.inputs);
+  if (!field) {
+    return false;
+  }
+
+  record.inputs = { ...record.inputs, [field]: text };
   return true;
 }
 
@@ -747,6 +781,10 @@ function classifyClipPromptBinding(
   classType: string,
   title: string,
 ): "positive" | "negative" | "unknown" {
+  if (isPromptEncodeNode(classType)) {
+    return classifyPromptEncodeBinding(classType, title);
+  }
+
   const classLower = classType.toLowerCase();
   if (!classLower.includes("cliptextencode") && !classLower.includes("textencode")) {
     return "unknown";
@@ -794,7 +832,11 @@ export function patchClipPromptNodesInWorkflow(
       _meta?: { title?: string };
       inputs?: Record<string, unknown>;
     };
-    if (!record.inputs || !("text" in record.inputs)) {
+    if (!record.inputs) {
+      continue;
+    }
+    const promptField = resolvePromptEncodeTextField(record.inputs);
+    if (!promptField) {
       continue;
     }
     const binding = classifyClipPromptBinding(
@@ -923,6 +965,7 @@ export function injectPromptsWithFallbacks(
     legacyPositiveNodeId?: string;
     legacyNegativeNodeId?: string;
     directWorkflowPatching?: boolean;
+    syncWorkflowLoadersToModel?: boolean;
     loaders?: ModelLoaderFilenames;
   },
 ): WorkflowInjectionResult {
@@ -937,7 +980,7 @@ export function injectPromptsWithFallbacks(
   );
   injected = tryAlternatePromptTokens(
     injected.workflow,
-    { ...input, customTokens: mergedCustomTokens },
+    { positive: input.positive, negative: input.negative },
     tokens,
     injected,
   );
@@ -974,6 +1017,7 @@ export function injectPromptsWithFallbacks(
       controlNetModelFilename: input.params?.controlNetModelFilename,
       controlImageFilename: input.params?.controlImageFilename,
       customTokens: mergedCustomTokens,
+      syncWorkflowLoadersToModel: options?.syncWorkflowLoadersToModel,
     });
     nextWorkflow = directPatch.workflow;
     directPatchCounts = directPatch.patched;
@@ -1138,6 +1182,9 @@ export function stripEmptyComfyUiRuntime(
   if (runtime.directWorkflowPatching === false) {
     result.directWorkflowPatching = false;
   }
+  if (runtime.syncWorkflowLoadersToModel === true) {
+    result.syncWorkflowLoadersToModel = true;
+  }
   if (runtime.workflowQueueOptimize === false) {
     result.workflowQueueOptimize = false;
   }
@@ -1169,6 +1216,11 @@ export function stripEmptyComfyUiRuntime(
   }
   if (runtime.modelUpscaleMap && Object.keys(runtime.modelUpscaleMap).length > 0) {
     result.modelUpscaleMap = runtime.modelUpscaleMap;
+  }
+
+  const workflowOptimizedHash = runtime.workflowOptimizedHash?.trim();
+  if (workflowOptimizedHash) {
+    result.workflowOptimizedHash = workflowOptimizedHash;
   }
 
   if (runtime.queueParams) {

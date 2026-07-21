@@ -1,6 +1,10 @@
 import type { ComfyWorkflowPreset } from "./comfyui-workflow-presets";
 import { upsertComfyWorkflowFile } from "./comfyui-workflow-files";
 import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
+import { workflowContentHash } from "./workflow-content-hash";
+import { loadSettingsCache } from "./settings-cache";
+import { inferModelsFromWorkflowLabel } from "./workflow-category-defaults";
 
 export const WORKFLOW_PRESET_PACKS_KEY = "comfyui-workflow-preset-packs-v1";
 
@@ -103,13 +107,49 @@ export function applyWorkflowPresetPackToLibrary(pack: WorkflowPresetPack): numb
   if (typeof window === "undefined") {
     return 0;
   }
+  const shared = loadSettingsCache().shared;
   let count = 0;
   for (const preset of pack.presets) {
+    let workflowJson = preset.workflowJson;
+    try {
+      const parsed = JSON.parse(workflowJson) as Record<string, unknown>;
+      const optimizeModel =
+        inferModelsFromWorkflowLabel({ name: preset.name, filename: `${preset.name}.json` })[0] ??
+        shared.model;
+      const optimized = optimizeWorkflowForQueue({
+        workflow: parsed,
+        tokens: {
+          positive: "{{POSITIVE}}",
+          negative: "{{NEGATIVE}}",
+          seed: "{{SEED}}",
+          width: "{{WIDTH}}",
+          height: "{{HEIGHT}}",
+          cfg: "{{CFG}}",
+          steps: "{{STEPS}}",
+          sampler: "{{SAMPLER}}",
+          scheduler: "{{SCHEDULER}}",
+          shift: "{{SHIFT}}",
+          fluxMaxShift: "{{FLUX_MAX_SHIFT}}",
+          fluxBaseShift: "{{FLUX_BASE_SHIFT}}",
+          denoise: "{{DENOISE}}",
+          inputImage: "{{INPUT_IMAGE}}",
+          maskImage: "{{MASK_IMAGE}}",
+        },
+        model: optimizeModel,
+        qualityProfile: shared.queueQualityProfile,
+        enrichGraph: shared.workflowGraphEnrich !== false,
+      });
+      workflowJson = optimized.workflowJson;
+    } catch {
+      // keep raw preset JSON when optimize fails
+    }
+
     upsertComfyWorkflowFile({
       id: preset.id,
       name: preset.name,
-      workflowJson: preset.workflowJson,
+      workflowJson,
       createdAt: preset.createdAt,
+      lastOptimizedHash: workflowContentHash(workflowJson),
     });
     count += 1;
   }

@@ -353,6 +353,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         maskImage?: File | null;
         maskImageFilename?: string;
         maskImageUrl?: string;
+        controlImage?: File | null;
+        controlImageFilename?: string;
+        controlImageUrl?: string;
         queueParamsBase?: WorkflowParamValues;
         qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
       },
@@ -389,6 +392,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               options?.maskImageUrl?.trim() ||
               options?.maskImageFilename?.trim(),
           ),
+          hasControlImage: Boolean(
+            options?.controlImage ||
+              options?.controlImageUrl?.trim() ||
+              options?.controlImageFilename?.trim(),
+          ),
         });
         if (!preflight.ok) {
           throw new Error(
@@ -421,12 +429,24 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           });
         }
 
+        let controlImageFilename = options?.controlImageFilename?.trim();
+        if (options?.controlImage || options?.controlImageUrl?.trim()) {
+          setComfyUiStatus("Uploading control image to ComfyUI…");
+          controlImageFilename = await resolveQueueInputImageFilename({
+            file: options.controlImage,
+            filename: options.controlImageFilename,
+            imageUrl: options.controlImageUrl,
+            model: config.model,
+          });
+        }
+
         const queueParams = resolveQueueParams({
           model: config.model,
           tool: config.tool,
           base: options?.queueParamsBase,
           inputImageFilename,
           maskImageFilename,
+          controlImageFilename,
           qualityProfile: options?.qualityProfile,
         });
         const runtime = resolveRuntimeForQueue(config.model, config.tool);
