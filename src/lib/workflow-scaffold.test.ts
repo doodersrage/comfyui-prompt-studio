@@ -20,7 +20,7 @@ describe("workflow scaffold", () => {
     assert.equal(result.category, "qwen");
     assert.match(result.json, /UNETLoader/);
     assert.match(result.json, /DualCLIPLoader/);
-    assert.match(result.json, /qwen_2\.5_vl_7b_bf16\.safetensors/);
+    assert.match(result.json, /qwen_2\.5_vl_7b\.safetensors/);
     assert.match(result.json, /\{\{UNET\}\}/);
   });
 

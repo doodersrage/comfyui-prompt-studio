@@ -13,9 +13,11 @@ import {
 } from "./comfyui-runtime";
 import type { ComfyUiRuntimeConfig } from "./comfyui-config";
 import { resolveQueueQualityProfile, normalizeQueueQualityProfile } from "./queue-quality-profile";
+import { resolveModelForQueueTool } from "./queue-tool-model";
 
 export function resolveRuntimeForModel(
   model: ComfyImageModel,
+  tool?: string,
 ): ComfyUiRuntimeConfig {
   const shared = loadSettingsCache().shared;
   const workflowFiles = loadComfyWorkflowFiles();
@@ -24,6 +26,7 @@ export function resolveRuntimeForModel(
       ? resolveWorkflowForModelSelection(model, {
           map: shared.modelWorkflowMap,
           workflowFiles,
+          tool,
         })
       : resolveWorkflowForModel(model, shared.modelWorkflowMap)) ??
     getSelectedWorkflowFileId();
@@ -49,7 +52,8 @@ export function resolveRuntimeForQueue(
   model: ComfyImageModel,
   tool?: string,
 ): ComfyUiRuntimeConfig {
-  const base = resolveRuntimeForModel(model);
+  const queueModel = resolveModelForQueueTool(model, tool);
+  const base = resolveRuntimeForModel(queueModel, tool);
   const shared = loadSettingsCache().shared;
   return {
     ...base,

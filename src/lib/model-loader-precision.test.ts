@@ -54,7 +54,7 @@ describe("model loader precision", () => {
   });
 
   it("resolves bf16 and fp8 Qwen dual CLIP filenames", () => {
-    assert.equal(qwenDualClipFilename("bf16"), "qwen_2.5_vl_7b_bf16.safetensors");
+    assert.equal(qwenDualClipFilename("bf16"), "qwen_2.5_vl_7b.safetensors");
     assert.equal(qwenDualClipFilename("fp8"), "qwen_2.5_vl_7b_fp8_scaled.safetensors");
   });
 

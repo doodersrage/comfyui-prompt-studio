@@ -55,6 +55,10 @@ import {
   type GenerationSettings,
 } from "./generation-settings";
 import {
+  resolveModelForQueueTool,
+  stripEditInstructionLead,
+} from "./queue-tool-model";
+import {
   type VariationSettings,
 } from "./variation-settings";
 import {
@@ -102,6 +106,8 @@ export type GeneratePromptOptions = {
   variationSeed?: string;
   avoidedTokens?: string[];
   avoidedTokensInstruction?: string;
+  /** Queue tool id — edit models map to txt2img for scene-generation tools. */
+  tool?: string;
 };
 
 type ChatMessage = {
@@ -288,6 +294,7 @@ function finalizePrompt(
   mode: PromptMode,
   settings: GenerationSettings,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
+  tool?: string,
 ): string {
   const cleaned = sanitizePrompt(raw);
   let withDistinctPeople =
@@ -311,11 +318,15 @@ function finalizePrompt(
     },
   );
   const formatted = formatPromptForModel(sanitized, settings.model, input, mode);
+  const scenePrompt =
+    mode === "positive"
+      ? stripEditInstructionLead(formatted, tool)
+      : formatted;
   const sportAware =
     mode === "positive"
       ? (() => {
           const sport = inferAthleticSport(input);
-          let result = formatted;
+          let result = scenePrompt;
           if (sport) {
             result = stripForeignSportActionsFromPrompt(result, sport, input);
             if (sport !== "cycling") {
@@ -368,6 +379,7 @@ export async function generateWithLlm(
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
   variationSeed?: string,
   avoidedTokensInstruction?: string,
+  tool?: string,
 ): Promise<string> {
   let systemPrompt = buildModelSystemPrompt(settings.model, mode);
 
@@ -408,7 +420,14 @@ export async function generateWithLlm(
     extraBody,
   });
 
-  return finalizePrompt(content, input.trim(), mode, settings, wardrobeAssignments);
+  return finalizePrompt(
+    content,
+    input.trim(),
+    mode,
+    settings,
+    wardrobeAssignments,
+    tool,
+  );
 }
 
 function sanitizePrompt(raw: string): string {
@@ -536,6 +555,7 @@ export function generateWithTemplate(
   mode: PromptMode,
   settings: GenerationSettings = DEFAULT_GENERATION_SETTINGS,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
+  tool?: string,
 ): string {
   const trimmed = input.trim();
   if (!trimmed) {
@@ -572,6 +592,7 @@ export function generateWithTemplate(
       mode,
       settings,
       wardrobeAssignments,
+      tool,
     );
   }
 
@@ -582,6 +603,7 @@ export function generateWithTemplate(
       mode,
       settings,
       wardrobeAssignments,
+      tool,
     );
   }
 
@@ -592,6 +614,7 @@ export function generateWithTemplate(
       mode,
       settings,
       wardrobeAssignments,
+      tool,
     );
   }
 
@@ -613,20 +636,21 @@ export function generateWithTemplate(
       mode,
       settings,
       wardrobeAssignments,
+      tool,
     );
   }
 
   if (!settings.distinctPeople && isMultiPersonInput(trimmed)) {
     const groupedScene = paintGroupedPeopleScene(trimmed, settings);
     if (groupedScene) {
-      return finalizePrompt(groupedScene, trimmed, mode, settings, wardrobeAssignments);
+      return finalizePrompt(groupedScene, trimmed, mode, settings, wardrobeAssignments, tool);
     }
   }
 
   if (settings.distinctPeople && isMultiPersonInput(trimmed)) {
     const distinctScene = paintDistinctPeopleScene(trimmed, settings);
     if (distinctScene) {
-      return finalizePrompt(distinctScene, trimmed, mode, settings, wardrobeAssignments);
+      return finalizePrompt(distinctScene, trimmed, mode, settings, wardrobeAssignments, tool);
     }
   }
 
@@ -636,6 +660,7 @@ export function generateWithTemplate(
     mode,
     settings,
     wardrobeAssignments,
+    tool,
   );
 }
 
@@ -684,10 +709,15 @@ export async function generatePrompt(
     throw new Error("Input cannot be empty.");
   }
 
+  const effectiveSettings: GenerationSettings = {
+    ...settings,
+    model: resolveModelForQueueTool(settings.model, options?.tool),
+  };
+
   const llmEnabled = process.env.LLM_ENABLED !== "false";
   const wardrobeAssignments =
     mode === "positive"
-      ? buildGenerateWardrobeAssignments(trimmed, settings, {
+      ? buildGenerateWardrobeAssignments(trimmed, effectiveSettings, {
           recentClothing: options?.recentClothing,
           lockedWardrobeId: options?.lockedWardrobeId,
           avoidedTokens: options?.avoidedTokens,
@@ -699,12 +729,19 @@ export async function generatePrompt(
       const prompt = await generateWithLlm(
         trimmed,
         mode,
-        settings,
+        effectiveSettings,
         wardrobeAssignments,
         options?.variationSeed,
         options?.avoidedTokensInstruction,
+        options?.tool,
       );
-      return buildGenerateResult(prompt, mode, "llm", settings, wardrobeAssignments);
+      return buildGenerateResult(
+        prompt,
+        mode,
+        "llm",
+        effectiveSettings,
+        wardrobeAssignments,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown LLM error";
       const fallbackAllowed = process.env.ALLOW_TEMPLATE_FALLBACK !== "false";
@@ -718,10 +755,16 @@ export async function generatePrompt(
   }
 
   return buildGenerateResult(
-    generateWithTemplate(trimmed, mode, settings, wardrobeAssignments),
+    generateWithTemplate(
+      trimmed,
+      mode,
+      effectiveSettings,
+      wardrobeAssignments,
+      options?.tool,
+    ),
     mode,
     "template",
-    settings,
+    effectiveSettings,
     wardrobeAssignments,
   );
 }

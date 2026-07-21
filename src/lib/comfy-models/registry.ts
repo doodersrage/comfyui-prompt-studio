@@ -618,7 +618,7 @@ export const COMFY_MODEL_IDS = new Set(
   COMFY_IMAGE_MODELS.map((entry) => entry.id),
 );
 
-export const DEFAULT_COMFY_MODEL = "qwen-image-edit";
+export const DEFAULT_COMFY_MODEL = "qwen-image-2512";
 
 export const COMFY_MODEL_CATEGORIES: {
   id: ComfyImageModelDefinition["category"];

@@ -2,7 +2,7 @@
 
 import { modelUsesNegativePrompt } from "./prompt-pair";
 import type { ComfyImageModel } from "./comfy-models";
-import { isInpaintModel } from "./model-denoise-defaults";
+import { isInpaintModel, isEditQueueTool } from "./model-denoise-defaults";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { fetchWorkflowPreview } from "./comfyui-requeue";
 import { resolveQueueParams } from "./queue-params-settings";
@@ -122,9 +122,21 @@ export async function runWorkflowPreflight(input: {
       }),
     );
 
+    if (
+      !isEditQueueTool(input.tool) &&
+      preview.workflowJson?.includes("{{INPUT_IMAGE}}")
+    ) {
+      issues.push({
+        severity: "error",
+        message:
+          "Selected workflow expects an input image (edit/inpaint) — pick a txt2img workflow in Settings → workflow library or run Optimize all with a generate scaffold.",
+      });
+    }
+
     const loaderIssues = await auditLoaderMapsAtQueueTime({
       model: input.model,
       comfyUrl: runtime?.apiUrl,
+      workflowJson: preview.workflowJson,
     });
     issues.push(...loaderIssues);
   } catch (err) {

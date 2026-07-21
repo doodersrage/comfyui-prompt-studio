@@ -18,5 +18,7 @@ describe("comfyui-object-info", () => {
     });
     assert.deepEqual(lists.checkpoints, ["a.safetensors", "b.safetensors"]);
     assert.deepEqual(lists.upscaleModels, ["4x-UltraSharp.pth"]);
+    assert.deepEqual(lists.clips, []);
+    assert.deepEqual(lists.dualClipTypes, []);
   });
 });

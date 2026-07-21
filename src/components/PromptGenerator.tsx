@@ -51,6 +51,7 @@ import {
 } from "@/lib/rating-driven-random";
 import { sharedLlmRequestBody } from "@/lib/llm-request-options";
 import { applyLockedLocation } from "@/lib/locked-location";
+import { resolveModelForQueueTool } from "@/lib/queue-tool-model";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import {
   applyShareableSceneParams,
@@ -148,6 +149,10 @@ export default function PromptGenerator() {
   );
 
   const qwenModel = shared.model;
+  const generateModel = useMemo(
+    () => resolveModelForQueueTool(qwenModel, "generate"),
+    [qwenModel],
+  );
   const detail = shared.detail;
   const variationEnabled = toolSettings.variationEnabled ?? true;
   const variationStrength = toolSettings.variationStrength ?? 65;
@@ -157,11 +162,11 @@ export default function PromptGenerator() {
 
   const actions = usePromptResultActions({
     tool: hintSource === "random" ? "randomScene" : "generate",
-    model: qwenModel,
+    model: generateModel,
     detail,
     hints: hintSource === "random" ? genre : input,
     autoFixRules,
-    reformatTarget: getReformatTargetModel(qwenModel),
+    reformatTarget: getReformatTargetModel(generateModel),
   });
 
   const variationSeed = readVariationSeedFromResult(
@@ -182,13 +187,13 @@ export default function PromptGenerator() {
   };
 
   const selectedModel = useMemo(
-    () => getComfyModelDefinition(qwenModel),
-    [qwenModel],
+    () => getComfyModelDefinition(generateModel),
+    [generateModel],
   );
 
   const activeLimits = useMemo(
-    () => getDetailLimits(detail, qwenModel),
-    [detail, qwenModel],
+    () => getDetailLimits(detail, generateModel),
+    [detail, generateModel],
   );
 
   useEffect(() => {
@@ -287,7 +292,7 @@ export default function PromptGenerator() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: qwenModel,
+          model: generateModel,
           detail,
           genre,
           includePeople,
@@ -321,7 +326,7 @@ export default function PromptGenerator() {
       setRandomSeed(data.seed ?? null);
       setProvider(data.provider ?? null);
       setResultMeta({
-        model: data.model ?? qwenModel,
+        model: data.model ?? generateModel,
         comfyNode: data.comfyNode ?? selectedModel.comfyNode,
         limits: data.limits ?? activeLimits,
       });
@@ -344,7 +349,7 @@ export default function PromptGenerator() {
     getRecent,
     getRecentClothing,
     includePeople,
-    qwenModel,
+    generateModel,
     recordClothing,
     recordLocation,
     selectedModel.comfyNode,
@@ -393,7 +398,7 @@ export default function PromptGenerator() {
             mode === "positive" && alwaysIncludeClothing,
           recentClothing: getRecentClothing(),
           detail: mode === "positive" ? detail : "balanced",
-          model: qwenModel,
+          model: generateModel,
           lockedWardrobeId: shared.lockedWardrobeId,
           lockedLocation: shared.lockedLocation,
           variationSeed: shared.lockedVariationSeed,
@@ -434,7 +439,7 @@ export default function PromptGenerator() {
     } finally {
       setLoading(false);
     }
-  }, [generateRandom, hintSource, input, mode, variationEnabled, variationStrength, distinctPeople, alwaysIncludeClothing, detail, qwenModel, getRecentClothing, recordClothing, actions, shared.lockedLocation, shared.lockedWardrobeId, shared.lockedVariationSeed]);
+  }, [generateRandom, hintSource, input, mode, variationEnabled, variationStrength, distinctPeople, alwaysIncludeClothing, detail, generateModel, getRecentClothing, recordClothing, actions, shared.lockedLocation, shared.lockedWardrobeId, shared.lockedVariationSeed]);
 
   const copyOutput = useCallback(async () => {
     if (!output) return;
@@ -473,6 +478,7 @@ export default function PromptGenerator() {
         <SharedToolControls
           toolId="generate"
           shared={shared}
+          onSharedSettingsChange={updateShared}
           onModelChange={setQwenModel}
           onDetailChange={setDetail}
           onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
@@ -806,7 +812,7 @@ export default function PromptGenerator() {
           onCopyPair={() => void actions.copyPromptPair(output)}
           onCompact={() => void actions.compactPrompt(output, setOutput)}
           onReformat={() => void actions.reformatForModel(output, setOutput)}
-          reformatTargetLabel={getReformatTargetLabel(qwenModel)}
+          reformatTargetLabel={getReformatTargetLabel(generateModel)}
           onRunPipeline={() =>
             void actions.runExportPipeline(output, setOutput, {
               maxChars: resultMeta?.limits?.maxChars,

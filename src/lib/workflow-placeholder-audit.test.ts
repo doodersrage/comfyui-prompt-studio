@@ -28,7 +28,7 @@ describe("workflow-placeholder-audit", () => {
       model: "flux-inpaint",
       hasInputImage: false,
     });
-    assert.equal(issues[0]?.severity, "warn");
+    assert.equal(issues[0]?.severity, "error");
     assert.match(issues[0]!.message, /input image/i);
   });
 

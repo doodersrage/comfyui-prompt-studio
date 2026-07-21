@@ -7,6 +7,7 @@ import type { CustomWorkflowToken } from "./comfyui-config";
 import {
   defaultLoaderPrecisionTier,
   qwen2512UnetFilename,
+  qwenDualClipFilename,
   qwenEdit2509UnetFilename,
   qwenEdit2511UnetFilename,
   qwenGenericUnetFilename,
@@ -17,6 +18,7 @@ export type ModelLoaderFilenames = {
   checkpoint?: string;
   unet?: string;
   vae?: string;
+  dualClip?: string;
 };
 
 export type ModelCheckpointMap = Partial<Record<ComfyImageModel | string, string>>;
@@ -192,6 +194,7 @@ function inferQwenLoaderHints(
       checkpoint: unet,
       unet,
       vae: DEFAULT_QWEN_VAE,
+      dualClip: qwenDualClipFilename(tier),
     };
   }
 
@@ -201,6 +204,7 @@ function inferQwenLoaderHints(
       checkpoint: unet,
       unet,
       vae: DEFAULT_QWEN_VAE,
+      dualClip: qwenDualClipFilename(tier),
     };
   }
 
@@ -210,6 +214,7 @@ function inferQwenLoaderHints(
       checkpoint: unet,
       unet,
       vae: DEFAULT_QWEN_VAE,
+      dualClip: qwenDualClipFilename(tier),
     };
   }
 
@@ -218,6 +223,7 @@ function inferQwenLoaderHints(
     return {
       unet,
       vae: DEFAULT_QWEN_VAE,
+      dualClip: qwenDualClipFilename(tier),
     };
   }
 
@@ -226,6 +232,7 @@ function inferQwenLoaderHints(
     return {
       unet,
       vae: DEFAULT_QWEN_VAE,
+      dualClip: qwenDualClipFilename(tier),
     };
   }
 
@@ -306,6 +313,9 @@ export function resolveLoaderFilenamesForModel(
   }
   if (vae) {
     result.vae = vae;
+  }
+  if (inferred.dualClip) {
+    result.dualClip = inferred.dualClip;
   }
   return result;
 }

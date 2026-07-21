@@ -48,6 +48,10 @@ export function isInpaintModel(model: ComfyImageModel | string): boolean {
   return /inpaint/i.test(model);
 }
 
+export function isEditQueueTool(tool?: string): boolean {
+  return Boolean(tool && EDIT_TOOLS.has(tool));
+}
+
 export function resolveDenoiseForModel(
   model: ComfyImageModel | string,
   options?: {

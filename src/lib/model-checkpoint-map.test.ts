@@ -38,6 +38,7 @@ describe("model checkpoint map", () => {
     });
     assert.equal(qwen.unet, "custom-qwen.safetensors");
     assert.equal(qwen.vae, "qwen_image_vae.safetensors");
+    assert.equal(qwen.dualClip, "qwen_2.5_vl_7b.safetensors");
   });
 
   it("infers FLUX Klein UNET/VAE defaults when registry hints are sparse", () => {

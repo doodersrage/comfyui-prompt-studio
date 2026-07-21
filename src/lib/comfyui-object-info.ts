@@ -5,6 +5,8 @@ export type ComfyUiModelLists = {
   unets: string[];
   vaes: string[];
   upscaleModels: string[];
+  clips: string[];
+  dualClipTypes: string[];
 };
 
 function readStringList(value: unknown): string[] {
@@ -38,6 +40,8 @@ export function parseComfyObjectInfoModelLists(
     unets: readNodeInputOptions(objectInfo, "UNETLoader", "unet_name"),
     vaes: readNodeInputOptions(objectInfo, "VAELoader", "vae_name"),
     upscaleModels: readNodeInputOptions(objectInfo, "UpscaleModelLoader", "model_name"),
+    clips: readNodeInputOptions(objectInfo, "DualCLIPLoader", "clip_name1"),
+    dualClipTypes: readNodeInputOptions(objectInfo, "DualCLIPLoader", "type"),
   };
 }
 

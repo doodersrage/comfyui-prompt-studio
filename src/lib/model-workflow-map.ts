@@ -1,8 +1,13 @@
 import type { ComfyImageModel } from "./comfy-models";
 import { COMFY_IMAGE_MODELS } from "./comfy-models";
 import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
-import { suggestWorkflowDefaultsByCategory } from "./workflow-category-defaults";
+import {
+  suggestWorkflowDefaultsByCategory,
+  workflowRequiresInputImage,
+  rankWorkflowFilesForModel,
+} from "./workflow-category-defaults";
 import type { SharedToolSettings } from "./settings-cache";
+import { isEditQueueTool } from "./model-denoise-defaults";
 
 export type ModelWorkflowMap = Record<string, string>;
 
@@ -30,24 +35,50 @@ export function resolveWorkflowForModelSelection(
   model: ComfyImageModel,
   options?: {
     map?: ModelWorkflowMap;
-    workflowFiles?: Array<Pick<ComfyWorkflowFile, "id" | "name" | "filename">>;
+    workflowFiles?: Array<Pick<ComfyWorkflowFile, "id" | "name" | "filename" | "workflowJson">>;
     /** Precomputed from suggestWorkflowDefaultsByCategory to avoid repeat work. */
     suggestedMap?: ModelWorkflowMap;
+    /** When set to a generate-style tool, skips edit/inpaint workflows that need {{INPUT_IMAGE}}. */
+    tool?: string;
   },
 ): string | undefined {
-  const fromMap = resolveWorkflowForModel(model, options?.map);
+  const editTool = isEditQueueTool(options?.tool);
+  const files = (options?.workflowFiles ?? []) as ComfyWorkflowFile[];
+  const fileById = new Map(files.map((file) => [file.id, file]));
+
+  const acceptWorkflow = (workflowId?: string): string | undefined => {
+    const id = workflowId?.trim();
+    if (!id) {
+      return undefined;
+    }
+    const file = fileById.get(id);
+    if (!file || editTool || !workflowRequiresInputImage(file.workflowJson)) {
+      return id;
+    }
+    return undefined;
+  };
+
+  const fromMap = acceptWorkflow(resolveWorkflowForModel(model, options?.map));
   if (fromMap) {
     return fromMap;
   }
 
   const suggested =
     options?.suggestedMap ??
-    (options?.workflowFiles?.length
-      ? suggestWorkflowDefaultsByCategory(
-          options.workflowFiles as ComfyWorkflowFile[],
-        )
-      : undefined);
-  return suggested?.[model]?.trim() || undefined;
+    (files.length > 0 ? suggestWorkflowDefaultsByCategory(files) : undefined);
+  const fromSuggested = acceptWorkflow(suggested?.[model]);
+  if (fromSuggested) {
+    return fromSuggested;
+  }
+
+  if (files.length === 0) {
+    return undefined;
+  }
+
+  const ranked = rankWorkflowFilesForModel(model, files).filter(
+    (entry) => editTool || !workflowRequiresInputImage(entry.file.workflowJson),
+  );
+  return ranked[0]?.file.id;
 }
 
 export function suggestWorkflowMapForFiles(

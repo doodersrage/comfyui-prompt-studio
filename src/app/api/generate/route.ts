@@ -78,6 +78,7 @@ export async function POST(request: Request) {
       variationSeed: normalizeVariationSeed(body.variationSeed),
       avoidedTokens: avoidance.avoidedTokens,
       avoidedTokensInstruction: avoidance.avoidedTokensInstruction,
+      tool: "generate",
     });
 
     return apiJson(result);

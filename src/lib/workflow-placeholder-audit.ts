@@ -51,9 +51,9 @@ export function auditWorkflowPreviewIssues(input: {
         });
       } else if (isEditCapableModel(input.model)) {
         issues.push({
-          severity: "warn",
+          severity: "error",
           message:
-            "Workflow expects an input image ({{INPUT_IMAGE}}) but none was provided for this queue.",
+            "Workflow expects an input image ({{INPUT_IMAGE}}) but none was provided — upload a source image before Send to ComfyUI.",
         });
       } else {
         issues.push({

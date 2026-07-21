@@ -3,6 +3,7 @@ import {
   type ComfyImageModel,
   type ComfyModelCategory,
 } from "./comfy-models";
+import { isEditCapableModel } from "./model-denoise-defaults";
 import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
 import type { ModelWorkflowMap } from "./model-workflow-map";
 
@@ -78,9 +79,37 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
 const MODEL_WORKFLOW_AVOID_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
   "flux-2-klein": ["distilled", "9b", "klein-9b"],
   "flux-2-klein-4b-distilled": ["base", "klein-base", "9b", "klein-9b"],
-  "flux-2-klein-9b": ["distilled", "4b", "klein-4b"],
-  "flux-2-klein-9b-distilled": ["base", "klein-base", "4b", "klein-4b"],
+  "flux-2-klein-9b": ["distilled", "4b", "klein-4b", "inpaint", "mask", "fill"],
+  "flux-2-klein-9b-distilled": ["base", "klein-base", "4b", "klein-4b", "inpaint", "mask", "fill"],
+  "qwen-image-2512": ["edit", "inpaint", "img2img", "mask", "fill"],
+  "qwen-image-2512-lightning-4": ["edit", "inpaint", "img2img", "mask", "fill"],
+  "qwen-image-2512-lightning-8": ["edit", "inpaint", "img2img", "mask", "fill"],
+  "flux-dev": ["inpaint", "mask", "fill"],
+  "flux-2-klein-4b-distilled": ["inpaint", "mask", "fill"],
+  "sdxl": ["inpaint", "mask", "fill"],
 };
+
+export function workflowRequiresInputImage(workflowJson?: string): boolean {
+  if (!workflowJson?.trim()) {
+    return false;
+  }
+  if (workflowJson.includes("{{INPUT_IMAGE}}")) {
+    return true;
+  }
+  if (workflowJson.includes("{{MASK_IMAGE}}")) {
+    return true;
+  }
+  if (workflowJson.includes("LoadImageMask")) {
+    return true;
+  }
+  if (workflowJson.includes("InpaintModelConditioning")) {
+    return true;
+  }
+  if (/TextEncodeQwenImageEdit/i.test(workflowJson)) {
+    return true;
+  }
+  return false;
+}
 
 function scoreWorkflowForCategory(
   file: Pick<ComfyWorkflowFile, "name" | "filename">,
@@ -101,7 +130,7 @@ function scoreWorkflowForCategory(
 }
 
 function scoreWorkflowForModel(
-  file: Pick<ComfyWorkflowFile, "name" | "filename">,
+  file: Pick<ComfyWorkflowFile, "name" | "filename" | "workflowJson">,
   modelId: ComfyImageModel,
   category: ComfyModelCategory,
 ): number {
@@ -125,6 +154,13 @@ function scoreWorkflowForModel(
     }
   }
 
+  const requiresInput = workflowRequiresInputImage(file.workflowJson);
+  if (requiresInput && !isEditCapableModel(modelId)) {
+    score -= 25;
+  } else if (!requiresInput && isEditCapableModel(modelId)) {
+    score -= 2;
+  }
+
   if (workflowLabelImpliesLightning(file)) {
     const steps = inferLightningStepCount(file);
     if (steps === 4) {
@@ -146,6 +182,21 @@ function scoreWorkflowForModel(
   }
 
   return score;
+}
+
+export function rankWorkflowFilesForModel(
+  model: ComfyImageModel,
+  files: ComfyWorkflowFile[],
+): Array<{ file: ComfyWorkflowFile; score: number }> {
+  const def = COMFY_IMAGE_MODELS.find((entry) => entry.id === model);
+  const category = def?.category ?? "other-dit";
+  return files
+    .map((file) => ({
+      file,
+      score: scoreWorkflowForModel(file, model, category),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score);
 }
 
 export function suggestWorkflowDefaultsByCategory(

@@ -58,6 +58,29 @@ describe("workflow direct patch", () => {
     assert.equal(unetConcrete.inputs?.unet_name, "qwen_image_2512_bf16.safetensors");
   });
 
+  it("patches deprecated qwen dual clip filenames", () => {
+    const workflow = {
+      "2": {
+        class_type: "DualCLIPLoader",
+        inputs: {
+          clip_name1: "qwen_2.5_vl_7b_bf16.safetensors",
+          clip_name2: "qwen_2.5_vl_7b_bf16.safetensors",
+          type: "qwen_image",
+        },
+      },
+    };
+
+    const result = patchLoaderNodesInWorkflow(workflow, {
+      dualClip: "qwen_2.5_vl_7b.safetensors",
+    });
+    const node = result.workflow["2"] as {
+      inputs?: { clip_name1?: string; clip_name2?: string };
+    };
+    assert.equal(node.inputs?.clip_name1, "qwen_2.5_vl_7b.safetensors");
+    assert.equal(node.inputs?.clip_name2, "qwen_2.5_vl_7b.safetensors");
+    assert.equal(result.patched.dualClip, 2);
+  });
+
   it("patches unresolved latent placeholders", () => {
     const workflow = {
       "5": {

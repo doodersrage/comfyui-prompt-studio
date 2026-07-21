@@ -43,7 +43,7 @@ export type FormatResult = {
 };
 
 const DEFAULT_FORMAT_SETTINGS: FormatSettings = {
-  model: "qwen-image-edit",
+  model: "qwen-image-2512",
   detail: "balanced",
   mode: "positive",
   smartFormat: true,

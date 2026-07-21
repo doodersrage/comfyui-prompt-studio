@@ -309,6 +309,7 @@ export function resolveQueueInjectionContext(input: {
     checkpoint: params.checkpointFilename?.trim() || inferred.checkpoint,
     unet: params.unetFilename?.trim() || inferred.unet,
     vae: params.vaeFilename?.trim() || inferred.vae,
+    dualClip: inferred.dualClip,
   };
 
   params = { ...params };

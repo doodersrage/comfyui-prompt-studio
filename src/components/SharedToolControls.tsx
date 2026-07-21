@@ -19,6 +19,10 @@ import {
   supportedModelsFilterHint,
 } from "@/lib/model-workflow-map";
 import {
+  filterModelsForQueueTool,
+  resolveModelForQueueTool,
+} from "@/lib/queue-tool-model";
+import {
   normalizeModelSamplerPresetTier,
   type ModelSamplerPresetTier,
 } from "@/lib/model-sampler-defaults";
@@ -74,6 +78,7 @@ type SharedToolControlsProps = {
   recommendFromText?: string;
   /** When set, enables a per-tool queue quality override below the global profile. */
   toolId?: string;
+  onSharedSettingsChange?: (partial: Partial<SharedToolSettings>) => void;
 };
 
 export default function SharedToolControls({
@@ -99,6 +104,7 @@ export default function SharedToolControls({
   onActiveCharacterDescriptorChange,
   recommendFromText,
   toolId,
+  onSharedSettingsChange,
 }: SharedToolControlsProps) {
   const selectedModel = getComfyModelDefinition(shared.model);
   const activeLimits = getDetailLimits(shared.detail, shared.model);
@@ -154,8 +160,10 @@ export default function SharedToolControls({
       resolveWorkflowForModelSelection(shared.model, {
         map: shared.modelWorkflowMap,
         suggestedMap: suggestedWorkflowMap,
+        workflowFiles: workflowCatalog,
+        tool: toolId,
       }),
-    [shared.model, shared.modelWorkflowMap, suggestedWorkflowMap],
+    [shared.model, shared.modelWorkflowMap, suggestedWorkflowMap, toolId, workflowCatalog],
   );
 
   const supportedModels = useMemo(
@@ -178,6 +186,14 @@ export default function SharedToolControls({
     ],
   );
 
+  const pickerModels = useMemo(() => {
+    const filtered = filterModelsForQueueTool(supportedModels.models, toolId);
+    if (filtered.length > 0) {
+      return filtered;
+    }
+    return supportedModels.models;
+  }, [supportedModels.models, toolId]);
+
   const onWorkflowPresetChangeRef = useRef(onWorkflowPresetChange);
   onWorkflowPresetChangeRef.current = onWorkflowPresetChange;
 
@@ -195,6 +211,8 @@ export default function SharedToolControls({
       const workflowId = resolveWorkflowForModelSelection(model, {
         map: shared.modelWorkflowMap,
         suggestedMap: suggestedWorkflowMap,
+        workflowFiles: workflowCatalog,
+        tool: toolId,
       });
       if (!workflowId || workflowId === selectedWorkflowId) {
         return;
@@ -207,6 +225,8 @@ export default function SharedToolControls({
       shared.autoSelectWorkflowForModel,
       shared.modelWorkflowMap,
       suggestedWorkflowMap,
+      toolId,
+      workflowCatalog,
     ],
   );
 
@@ -237,6 +257,19 @@ export default function SharedToolControls({
     supportedModels.source,
     supportedModels.models.length,
   );
+
+  useEffect(() => {
+    if (!toolId || showAllModelsOverride) {
+      return;
+    }
+    const resolved = resolveModelForQueueTool(shared.model, toolId);
+    if (resolved === shared.model) {
+      return;
+    }
+    scheduleAfterCommit(() => {
+      onModelChange(resolved);
+    });
+  }, [toolId, shared.model, showAllModelsOverride, onModelChange]);
 
   useEffect(() => {
     if (!workflowSelection.mounted || shared.autoSelectWorkflowForModel === false) {
@@ -366,10 +399,12 @@ export default function SharedToolControls({
     } else {
       current[toolId] = profile;
     }
+    const nextProfiles = Object.keys(current).length > 0 ? current : undefined;
     saveSharedSettings({
       ...loadSettingsCache().shared,
-      toolQueueQualityProfiles: current,
+      toolQueueQualityProfiles: nextProfiles,
     });
+    onSharedSettingsChange?.({ toolQueueQualityProfiles: nextProfiles });
   };
 
   return (
@@ -387,8 +422,8 @@ export default function SharedToolControls({
         <ModelSelector
           value={shared.model}
           allowedModels={
-            supportedModels.models.length < COMFY_IMAGE_MODELS.length
-              ? supportedModels.models
+            pickerModels.length < COMFY_IMAGE_MODELS.length
+              ? pickerModels
               : undefined
           }
           filterHint={modelFilterHint}

@@ -562,10 +562,9 @@ export function loadSettingsCache(): SettingsCache {
     shared.queueQualityProfile = normalizeQueueQualityProfile(
       shared.queueQualityProfile ?? DEFAULT_QUEUE_QUALITY_PROFILE,
     );
-    shared.toolQueueQualityProfiles = normalizeToolQueueQualityProfiles({
-      ...SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
-      ...shared.toolQueueQualityProfiles,
-    });
+    shared.toolQueueQualityProfiles = normalizeToolQueueQualityProfiles(
+      shared.toolQueueQualityProfiles ?? SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
+    );
     shared.modelCheckpointMap = {
       ...SUGGESTED_MODEL_CHECKPOINT_MAP,
       ...shared.modelCheckpointMap,

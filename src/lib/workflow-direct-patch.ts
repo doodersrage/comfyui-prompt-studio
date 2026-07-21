@@ -22,6 +22,7 @@ export type WorkflowDirectPatchCounts = {
   checkpoint?: number;
   unet?: number;
   vae?: number;
+  dualClip?: number;
   upscaleModel?: number;
   inputImage?: number;
   maskImage?: number;
@@ -41,6 +42,12 @@ const CHECKPOINT_LOADER_TYPES = new Set([
 const UNET_LOADER_TYPES = new Set(["UNETLoader", "UnetLoaderGGUF"]);
 
 const VAE_LOADER_TYPES = new Set(["VAELoader"]);
+
+const DUAL_CLIP_LOADER_TYPES = new Set(["DualCLIPLoader"]);
+
+const DEPRECATED_QWEN_CLIP_FILENAMES: Record<string, string> = {
+  "qwen_2.5_vl_7b_bf16.safetensors": "qwen_2.5_vl_7b.safetensors",
+};
 
 const CONTROLNET_LOADER_TYPES = new Set(["ControlNetLoader", "DiffControlNetLoader"]);
 
@@ -81,6 +88,25 @@ function shouldPatchLoaderFilenameField(
     return false;
   }
   return current == null || current === "";
+}
+
+function shouldPatchClipFilename(
+  current: unknown,
+  nextValue: string | undefined,
+): nextValue is string {
+  if (!nextValue?.trim()) {
+    return false;
+  }
+  if (shouldPatchLoaderFilenameField(current, nextValue)) {
+    return true;
+  }
+  if (typeof current === "string") {
+    const deprecated = DEPRECATED_QWEN_CLIP_FILENAMES[current.trim()];
+    if (deprecated && deprecated === nextValue.trim()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function shouldPatchNumericField(
@@ -198,6 +224,18 @@ export function patchLoaderNodesInWorkflow(
     ) {
       inputs.vae_name = loaders.vae;
       patched.vae = (patched.vae ?? 0) + 1;
+    }
+
+    if (loaders.dualClip && DUAL_CLIP_LOADER_TYPES.has(classType)) {
+      for (const field of ["clip_name1", "clip_name2"] as const) {
+        if (
+          field in inputs &&
+          shouldPatchClipFilename(inputs[field], loaders.dualClip)
+        ) {
+          inputs[field] = loaders.dualClip;
+          patched.dualClip = (patched.dualClip ?? 0) + 1;
+        }
+      }
     }
   }
 
@@ -429,6 +467,24 @@ export function forceResolveLoaderPlaceholders(
         current === DEFAULT_VAE_TOKEN
       ) {
         inputs.vae_name = loaders.vae;
+      }
+    }
+
+    if (loaders.dualClip && DUAL_CLIP_LOADER_TYPES.has(classType)) {
+      for (const field of ["clip_name1", "clip_name2"] as const) {
+        if (!(field in inputs)) {
+          continue;
+        }
+        const current = coerceLoaderFieldValue(inputs[field]);
+        const shouldPatch =
+          current == null ||
+          current.trim() === "" ||
+          isUnresolvedWorkflowPlaceholder(current) ||
+          (typeof current === "string" &&
+            DEPRECATED_QWEN_CLIP_FILENAMES[current.trim()] === loaders.dualClip);
+        if (shouldPatch) {
+          inputs[field] = loaders.dualClip;
+        }
       }
     }
 
