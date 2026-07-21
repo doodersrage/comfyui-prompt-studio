@@ -42,19 +42,24 @@ export default function QueueQualityProfileHints({
   const neuralUpscaleAvailable = Boolean(
     resolveUpscaleModelFilename(shared.model, { upscaleMap: shared.modelUpscaleMap }),
   );
-  const hintOptions = { neuralUpscaleAvailable };
+  const effectiveProfile = resolveQueueQualityProfile({
+    global: profile,
+    model: shared.model,
+  });
+  const hintOptions = { neuralUpscaleAvailable, model: shared.model };
   const activeOption =
     QUEUE_QUALITY_PROFILE_OPTIONS.find((option) => option.id === profile) ??
     QUEUE_QUALITY_PROFILE_OPTIONS[0];
   const effectiveGlobal = formatQueueQualityProfileHint(
-    resolveQueueQualityProfile({
-      global: profile,
-      model: shared.model,
-    }),
+    effectiveProfile,
     normalizeModelSamplerPresetTier(samplerPreset),
     normalizeResolutionSizeTier(resolutionSizeTier),
     hintOptions,
   );
+  const draftBumped =
+    profile === "draft" &&
+    effectiveProfile === "final" &&
+    /^qwen-rapid-aio-/i.test(shared.model);
   const effectiveForTool = toolId
     ? formatQueueQualityProfileHint(
         resolveQueueQualityProfile({
@@ -87,7 +92,9 @@ export default function QueueQualityProfileHints({
               onClick={() => onProfileChange(option.id)}
               className="w-full justify-center px-2"
             >
-              {option.label}
+              {option.id === "draft" && draftBumped
+                ? "Draft → Final"
+                : option.label}
             </ChipButton>
           ))}
         </div>
@@ -127,10 +134,25 @@ export default function QueueQualityProfileHints({
 
       <p className="mt-2 type-caption text-zinc-500">{activeOption.description}</p>
       <p className="mt-1.5 type-caption text-zinc-500">
-        Draft favors speed; Final and Max bump sampler steps and resolution. SDXL Final/Max may
-        insert a latent upscale + refiner pass. When an upscale model is mapped, Final/Max use{" "}
-        <span className="text-zinc-400">UpscaleModel</span> (Max adds Lanczos polish); otherwise
-        Lanczos <span className="text-zinc-400">ImageScale</span> before SaveImage.
+        {/^qwen-rapid-aio-/i.test(shared.model) ? (
+          <>
+            Rapid AIO: Draft queues as Final so moiré polish runs. Final uses soft blur only;
+            Max adds a mild bicubic resample. Output upscale is skipped (it re-amplifies
+            screen-door).
+          </>
+        ) : /lightning-(4|8)\b/i.test(shared.model) ? (
+          <>
+            Lightning: CFG-1 short negatives, native square T2I. Final/Max may add light Lanczos;
+            gallery Upscale/Refine are disabled — re-queue with a new seed instead.
+          </>
+        ) : (
+          <>
+            Draft favors speed; Final and Max bump sampler steps and resolution. SDXL Final/Max may
+            insert a latent upscale + refiner pass. When an upscale model is mapped, Final/Max use{" "}
+            <span className="text-zinc-400">UpscaleModel</span> (Max adds Lanczos polish); otherwise
+            Lanczos <span className="text-zinc-400">ImageScale</span> before SaveImage.
+          </>
+        )}
       </p>
     </div>
   );

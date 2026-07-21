@@ -135,7 +135,7 @@ export function formatQueueQualityProfileHint(
   profile: QueueQualityProfile,
   userPreset: ModelSamplerPresetTier,
   userSizeTier: ResolutionSizeTier,
-  options?: { neuralUpscaleAvailable?: boolean },
+  options?: { neuralUpscaleAvailable?: boolean; model?: string },
 ): string | null {
   if (profile === "followSettings") {
     return null;
@@ -146,17 +146,39 @@ export function formatQueueQualityProfileHint(
   const option =
     QUEUE_QUALITY_PROFILE_OPTIONS.find((entry) => entry.id === profile) ??
     QUEUE_QUALITY_PROFILE_OPTIONS[0];
-  const upscaleNote = profileUsesUpscaleEnrich(profile)
-    ? options?.neuralUpscaleAvailable
+  const model = options?.model?.trim() ?? "";
+  const isRapid = /^qwen-rapid-aio-/i.test(model);
+  const isLightning = /lightning-(4|8)\b/i.test(model);
+
+  let upscaleNote = "";
+  if (isRapid) {
+    upscaleNote =
+      profile === "final" || profile === "max"
+        ? profile === "max"
+          ? " · moiré polish (blur + mild resample) · no output upscale"
+          : " · moiré polish (soft blur) · no output upscale"
+        : "";
+  } else if (isLightning) {
+    upscaleNote =
+      profile === "final" || profile === "max"
+        ? " · Lanczos polish · CFG-1 short negatives"
+        : " · CFG-1 short negatives";
+  } else if (profileUsesUpscaleEnrich(profile)) {
+    upscaleNote = options?.neuralUpscaleAvailable
       ? profileUsesNeuralUpscalePolish(profile)
         ? " · UpscaleModel + Lanczos polish"
         : " · UpscaleModel upscale"
-      : " · Lanczos upscale + light polish (Lightning) / Lanczos"
-    : "";
+      : " · Lanczos upscale";
+  }
+
   const refinerNote =
-    profileUsesSdxlRefinerEnrich(profile) ? " · SDXL refiner pass" : "";
+    !isRapid && !isLightning && profileUsesSdxlRefinerEnrich(profile)
+      ? " · SDXL refiner pass"
+      : "";
   const sharpenNote =
-    profileUsesSharpenAfterUpscale(profile) ? " · subtle sharpen" : "";
+    !isRapid && !isLightning && profileUsesSharpenAfterUpscale(profile)
+      ? " · subtle sharpen"
+      : "";
 
   return `${option.label} queue → ${effectivePreset} sampler · ${effectiveSize} resolution${upscaleNote}${refinerNote}${sharpenNote} (sidebar: ${userPreset} · ${userSizeTier}).`;
 }

@@ -7,6 +7,11 @@ import {
   type ComfyGalleryEntry,
   type GalleryLayoutMode,
 } from "@/lib/comfyui-gallery";
+import {
+  galleryEntrySupportsMoireClean,
+  galleryEntrySupportsRefine,
+  galleryEntrySupportsUpscale,
+} from "@/lib/comfyui-requeue";
 
 export type GalleryCardActions = {
   toggleSelected: (id: string) => void;
@@ -19,7 +24,7 @@ export type GalleryCardActions = {
   ) => void;
   upscale: (id: string, qualityProfile: "final" | "max") => void;
   refine: (id: string) => void;
-  moireClean: (id: string) => void;
+  moireClean: (id: string, qualityProfile: "final" | "max") => void;
   showParent: (id: string) => void;
   showDerivatives: (id: string) => void;
   openImage: (id: string, index: number) => void;
@@ -80,7 +85,8 @@ function GalleryCardItem({
     [actionsRef, entry.id],
   );
   const onMoireClean = useCallback(
-    () => actionsRef.current.moireClean(entry.id),
+    (qualityProfile: "final" | "max") =>
+      actionsRef.current.moireClean(entry.id, qualityProfile),
     [actionsRef, entry.id],
   );
   const onShowParent = useCallback(() => {
@@ -139,6 +145,9 @@ function GalleryCardItem({
       onUpscale={onUpscale}
       onRefine={onRefine}
       onMoireClean={onMoireClean}
+      showUpscaleActions={galleryEntrySupportsUpscale(entry.model)}
+      showRefineAction={galleryEntrySupportsRefine(entry.model)}
+      showMoireCleanActions={galleryEntrySupportsMoireClean(entry.model)}
       onShowParent={entry.parentGalleryEntryId ? onShowParent : undefined}
       onShowDerivatives={hasDerivatives ? onShowDerivatives : undefined}
       hasDerivatives={hasDerivatives}

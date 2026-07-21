@@ -1693,7 +1693,8 @@ export default function SettingsTool() {
             }
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
-          Auto upscale 4–5★ outputs at Final quality (same image, on by default)
+          Auto improve 4–5★ outputs (Final): upscale · Rapid AIO → moiré clean · Lightning →
+          re-queue new seed (on by default)
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-300">
@@ -1705,7 +1706,8 @@ export default function SettingsTool() {
             }
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
-          Auto upscale 5★ outputs at Max quality (same image, on by default)
+          Auto improve 5★ outputs (Max): upscale · Rapid AIO → moiré clean · Lightning →
+          re-queue new seed (on by default)
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-300">

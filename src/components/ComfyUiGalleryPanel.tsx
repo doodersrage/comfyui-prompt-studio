@@ -50,7 +50,7 @@ import {
   downloadGallerySidecarBundle,
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
-import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, bulkRefineGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry, requeueMoireCleanFromGalleryEntry } from "@/lib/comfyui-requeue";
+import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, bulkRefineGalleryEntries, bulkMoireCleanGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry, requeueMoireCleanFromGalleryEntry } from "@/lib/comfyui-requeue";
 import {
   buildGalleryLineageGroups,
   galleryLineageGroupingEnabled,
@@ -686,13 +686,18 @@ export default function ComfyUiGalleryPanel({
           );
         });
       },
-      moireClean: (id: string) => {
+      moireClean: (id: string, qualityProfile: "final" | "max") => {
         const entry = entriesRef.current.find((item) => item.id === id);
         if (!entry) {
           return;
         }
-        setRequeueStatus("Queueing moiré clean…");
+        setRequeueStatus(
+          qualityProfile === "max"
+            ? "Queueing moiré clean (Max)…"
+            : "Queueing moiré clean (Final)…",
+        );
         void requeueMoireCleanFromGalleryEntry(entry, {
+          qualityProfile,
           onStatus: setRequeueStatus,
         }).then((result) => {
           if (!result.ok) {
@@ -702,7 +707,9 @@ export default function ComfyUiGalleryPanel({
           setRequeueStatus(
             [
               "moiré clean queued",
-              "soft blur (Final)",
+              qualityProfile === "max"
+                ? "Max · blur → bicubic → Lanczos"
+                : "Final · soft blur only",
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
@@ -1116,6 +1123,22 @@ export default function ComfyUiGalleryPanel({
             void bulkRefineGalleryEntries(selectedEntries, "final", setRequeueStatus).then(
               () => setSelectedIds([]),
             );
+          }}
+          onBulkMoireCleanFinal={() => {
+            setRequeueStatus("Bulk moiré clean (Final) started…");
+            void bulkMoireCleanGalleryEntries(
+              selectedEntries,
+              "final",
+              setRequeueStatus,
+            ).then(() => setSelectedIds([]));
+          }}
+          onBulkMoireCleanMax={() => {
+            setRequeueStatus("Bulk moiré clean (Max) started…");
+            void bulkMoireCleanGalleryEntries(
+              selectedEntries,
+              "max",
+              setRequeueStatus,
+            ).then(() => setSelectedIds([]));
           }}
         />
       ) : null}

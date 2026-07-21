@@ -40,6 +40,8 @@ type GallerySelectionBarProps = {
   onBulkUpscaleFinal: () => void;
   onBulkUpscaleMax: () => void;
   onBulkRefine: () => void;
+  onBulkMoireCleanFinal: () => void;
+  onBulkMoireCleanMax: () => void;
 };
 
 function ActionMenu(props: {
@@ -159,6 +161,14 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           <MenuItem label="Bulk upscale (Final)" onClick={props.onBulkUpscaleFinal} />
           <MenuItem label="Bulk upscale (Max)" onClick={props.onBulkUpscaleMax} />
           <MenuItem label="Bulk refine (Final)" onClick={props.onBulkRefine} />
+          <MenuItem
+            label="Bulk clean moiré (Final)"
+            onClick={props.onBulkMoireCleanFinal}
+          />
+          <MenuItem
+            label="Bulk clean moiré (Max)"
+            onClick={props.onBulkMoireCleanMax}
+          />
           <MenuItem label="Bulk new variation (new seeds)" onClick={props.onBulkRequeue} />
           <MenuItem label="Seed experiment" onClick={props.onSeedExperiment} disabled={!singleSelected} />
           <MenuItem

@@ -31,6 +31,7 @@ import {
   resolveGalleryOutputImageUrl,
 } from "./gallery-output-upscale";
 import { isQwenLightningModel } from "./model-sampling-patch";
+import { isQwenRapidAioModel } from "./model-denoise-defaults";
 import {
   appendPortraitRefineNegative,
   buildGalleryRefineWorkflow,
@@ -41,6 +42,21 @@ import { isUpscaleModelInstalled, resolveUpscaleModelFilename } from "./model-up
 import { fetchComfyObjectInfoCached } from "./comfyui-object-info-cache";
 import { loadSettingsCache } from "./settings-cache";
 import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
+
+/** Gallery Upscale is for models that benefit from Lanczos/neural — not distilled ones. */
+export function galleryEntrySupportsUpscale(model?: string): boolean {
+  return !isQwenLightningModel(model) && !isQwenRapidAioModel(model);
+}
+
+/** Img2img refine is disabled for Lightning (and not the right Rapid AIO polish path). */
+export function galleryEntrySupportsRefine(model?: string): boolean {
+  return !isQwenLightningModel(model);
+}
+
+export function galleryEntrySupportsMoireClean(model?: string): boolean {
+  void model;
+  return true;
+}
 
 type WorkflowPreviewResponse = {
   ok: boolean;
@@ -111,6 +127,27 @@ export async function requeueUpscaleFromGalleryEntry(
     refineAfterComplete?: Extract<QueueQualityProfile, "final" | "max">;
   },
 ): Promise<RequeueComfyJobResult> {
+  const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
+
+  // Rapid AIO: Lanczos/neural re-amplifies moiré — use the polish chain instead.
+  if (isQwenRapidAioModel(model)) {
+    options.onStatus?.(
+      `Rapid AIO skips upscale — queueing moiré clean (${options.qualityProfile})…`,
+    );
+    return requeueMoireCleanFromGalleryEntry(entry, {
+      qualityProfile: options.qualityProfile,
+      onStatus: options.onStatus,
+    });
+  }
+
+  if (isQwenLightningModel(model)) {
+    return {
+      ok: false,
+      error:
+        "Upscale is disabled for Lightning (pass-through only). Use Re-queue (new seed) with Final/Max quality instead.",
+    };
+  }
+
   const outputUrl = resolveGalleryOutputImageUrl(entry);
   if (!outputUrl) {
     return { ok: false, error: "No gallery output image available to upscale." };
@@ -118,7 +155,6 @@ export async function requeueUpscaleFromGalleryEntry(
 
   options.onStatus?.("Uploading gallery output…");
 
-  const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
   let inputImageFilename: string | undefined;
   try {
     inputImageFilename = await resolveQueueInputImageFilename({
@@ -521,9 +557,15 @@ function summarizeBulkUpscaleLabel(entry: ComfyGalleryEntry): string {
 }
 
 export function canUpscaleGalleryEntry(
-  entry: Pick<ComfyGalleryEntry, "status" | "images" | "sourceImageUrl" | "comfyUrl">,
+  entry: Pick<
+    ComfyGalleryEntry,
+    "status" | "images" | "sourceImageUrl" | "comfyUrl" | "model"
+  >,
 ): boolean {
   if (entry.status !== "completed") {
+    return false;
+  }
+  if (!galleryEntrySupportsUpscale(entry.model)) {
     return false;
   }
   return Boolean(resolveGalleryOutputImageUrl(entry));
@@ -569,9 +611,76 @@ export async function bulkUpscaleGalleryEntries(
 }
 
 export function canRefineGalleryEntry(
-  entry: Pick<ComfyGalleryEntry, "status" | "images" | "sourceImageUrl" | "comfyUrl">,
+  entry: Pick<
+    ComfyGalleryEntry,
+    "status" | "images" | "sourceImageUrl" | "comfyUrl" | "model"
+  >,
 ): boolean {
-  return canUpscaleGalleryEntry(entry);
+  if (!galleryEntrySupportsRefine(entry.model)) {
+    return false;
+  }
+  if (entry.status !== "completed") {
+    return false;
+  }
+  return Boolean(resolveGalleryOutputImageUrl(entry));
+}
+
+export function canMoireCleanGalleryEntry(
+  entry: Pick<
+    ComfyGalleryEntry,
+    "status" | "images" | "sourceImageUrl" | "comfyUrl" | "model"
+  >,
+): boolean {
+  if (entry.status !== "completed") {
+    return false;
+  }
+  if (!galleryEntrySupportsMoireClean(entry.model)) {
+    return false;
+  }
+  return Boolean(resolveGalleryOutputImageUrl(entry));
+}
+
+export async function bulkMoireCleanGalleryEntries(
+  entries: ComfyGalleryEntry[],
+  qualityProfile: Extract<QueueQualityProfile, "final" | "max"> = "final",
+  onStatus?: (message: string) => void,
+): Promise<BulkUpscaleGalleryResult> {
+  let queued = 0;
+  let failed = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const [index, entry] of entries.entries()) {
+    if (!canMoireCleanGalleryEntry(entry)) {
+      skipped += 1;
+      errors.push(
+        `${summarizeBulkUpscaleLabel(entry)}: skipped (not completed or no output image)`,
+      );
+      continue;
+    }
+
+    onStatus?.(`Moiré clean ${index + 1}/${entries.length}…`);
+    const result = await requeueMoireCleanFromGalleryEntry(entry, {
+      qualityProfile,
+      onStatus: undefined,
+    });
+    if (result.ok) {
+      queued += 1;
+    } else {
+      failed += 1;
+      errors.push(
+        `${summarizeBulkUpscaleLabel(entry)}: ${result.error ?? "queue failed"}`,
+      );
+    }
+  }
+
+  const detail =
+    errors.length > 0 ? ` · ${errors.slice(0, 3).join(" · ")}` : "";
+  onStatus?.(
+    `Bulk moiré clean finished · ${queued} queued · ${skipped} skipped · ${failed} failed${detail}`,
+  );
+
+  return { queued, failed, skipped, errors };
 }
 
 export async function bulkRefineGalleryEntries(

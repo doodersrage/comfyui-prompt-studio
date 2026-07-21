@@ -80,6 +80,11 @@ export const RESOLUTION_ORIENTATION_QWEN_EXTRA: ResolutionOrientation[] = [
 export function resolutionOrientationsForModel(
   model: ComfyImageModel | string,
 ): ResolutionOrientation[] {
+  // T2I queues force square for Lightning and Rapid AIO (SFW/NSFW) — only offer that.
+  if (isQwenLightningModel(model) || /^qwen-rapid-aio-(sfw|nsfw)$/i.test(String(model))) {
+    return ["square"];
+  }
+
   const category = COMFY_MODEL_IDS.has(model)
     ? getComfyModelDefinition(model).category
     : "other-dit";
@@ -90,6 +95,17 @@ export function resolutionOrientationsForModel(
     ];
   }
   return RESOLUTION_ORIENTATION_CORE;
+}
+
+/** Size tiers offered in the sidebar for a model (matches what queue will use). */
+export function resolutionSizeTiersForModel(
+  model: ComfyImageModel | string,
+): ResolutionSizeTier[] {
+  // Rapid AIO caps Max→medium at queue time; square medium===max (1328) anyway.
+  if (/^qwen-rapid-aio-(sfw|nsfw)$/i.test(String(model))) {
+    return ["small", "medium"];
+  }
+  return ["small", "medium", "max"];
 }
 
 export const RESOLUTION_SIZE_TIER_OPTIONS: {

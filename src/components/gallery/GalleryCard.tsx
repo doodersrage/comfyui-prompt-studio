@@ -38,7 +38,10 @@ type GalleryCardProps = {
   onRequeue: (newSeed: boolean, qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile) => void;
   onUpscale: (qualityProfile: "final" | "max") => void;
   onRefine: () => void;
-  onMoireClean?: () => void;
+  onMoireClean?: (qualityProfile: "final" | "max") => void;
+  showUpscaleActions?: boolean;
+  showRefineAction?: boolean;
+  showMoireCleanActions?: boolean;
   onShowParent?: () => void;
   onShowDerivatives?: () => void;
   hasDerivatives?: boolean;
@@ -91,6 +94,9 @@ export default function GalleryCard({
   onUpscale,
   onRefine,
   onMoireClean,
+  showUpscaleActions = true,
+  showRefineAction = true,
+  showMoireCleanActions = true,
   onShowParent,
   onShowDerivatives,
   hasDerivatives,
@@ -665,35 +671,50 @@ export default function GalleryCard({
                     setMenuOpen(false);
                   }}
                 />
-                <GalleryMenuButton
-                  label="Upscale (Final quality)"
-                  onClick={() => {
-                    onUpscale("final");
-                    setMenuOpen(false);
-                  }}
-                />
-                <GalleryMenuButton
-                  label="Upscale (Max quality)"
-                  onClick={() => {
-                    onUpscale("max");
-                    setMenuOpen(false);
-                  }}
-                />
-                <GalleryMenuButton
-                  label="Refine (low denoise)"
-                  onClick={() => {
-                    onRefine();
-                    setMenuOpen(false);
-                  }}
-                />
-                {onMoireClean ? (
+                {showUpscaleActions ? (
+                  <>
+                    <GalleryMenuButton
+                      label="Upscale (Final quality)"
+                      onClick={() => {
+                        onUpscale("final");
+                        setMenuOpen(false);
+                      }}
+                    />
+                    <GalleryMenuButton
+                      label="Upscale (Max quality)"
+                      onClick={() => {
+                        onUpscale("max");
+                        setMenuOpen(false);
+                      }}
+                    />
+                  </>
+                ) : null}
+                {showRefineAction ? (
                   <GalleryMenuButton
-                    label="Clean moiré"
+                    label="Refine (low denoise)"
                     onClick={() => {
-                      onMoireClean();
+                      onRefine();
                       setMenuOpen(false);
                     }}
                   />
+                ) : null}
+                {onMoireClean && showMoireCleanActions ? (
+                  <>
+                    <GalleryMenuButton
+                      label="Clean moiré (Final)"
+                      onClick={() => {
+                        onMoireClean("final");
+                        setMenuOpen(false);
+                      }}
+                    />
+                    <GalleryMenuButton
+                      label="Clean moiré (Max)"
+                      onClick={() => {
+                        onMoireClean("max");
+                        setMenuOpen(false);
+                      }}
+                    />
+                  </>
                 ) : null}
                 {hasDerivatives && onShowDerivatives ? (
                   <GalleryMenuButton

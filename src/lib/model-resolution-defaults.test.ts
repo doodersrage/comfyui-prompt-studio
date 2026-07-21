@@ -6,6 +6,8 @@ import {
   getModelResolutionPreset,
   normalizeResolutionOrientation,
   normalizeResolutionSizeTier,
+  resolutionOrientationsForModel,
+  resolutionSizeTiersForModel,
   resolveModelResolutionParams,
 } from "./model-resolution-defaults.ts";
 import { resolveQueueParams } from "./queue-params-settings.ts";
@@ -74,6 +76,23 @@ describe("model resolution defaults", () => {
       getModelResolutionPreset("qwen-image-2512", "landscape-32", "medium"),
       { width: 1584, height: 1056 },
     );
+  });
+
+  it("limits Lightning and Rapid AIO T2I sidebar options to square", () => {
+    assert.deepEqual(resolutionOrientationsForModel("qwen-image-2512-lightning-8"), [
+      "square",
+    ]);
+    assert.deepEqual(resolutionOrientationsForModel("qwen-rapid-aio-nsfw"), ["square"]);
+    assert.deepEqual(resolutionSizeTiersForModel("qwen-rapid-aio-sfw"), [
+      "small",
+      "medium",
+    ]);
+    assert.ok(resolutionOrientationsForModel("qwen-image-2512").includes("portrait-34"));
+    assert.deepEqual(resolutionSizeTiersForModel("qwen-image-2512"), [
+      "small",
+      "medium",
+      "max",
+    ]);
   });
 
   it("bumps sub-native lightning queue params to native resolution", () => {
