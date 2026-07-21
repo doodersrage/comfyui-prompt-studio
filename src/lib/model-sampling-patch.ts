@@ -37,8 +37,8 @@ const CATEGORY_SHIFT_DEFAULTS: Partial<Record<ComfyModelCategory, number>> = {
 /** Official Qwen-Image AuraFlow shift (not the generic AuraFlow 1.73 default). */
 export const QWEN_IMAGE_AURA_SHIFT = 3.1;
 
-/** Official Lightning recipes keep AuraFlow; shift ~3 (not 1). Low shift → soft/blurry. */
-export const QWEN_LIGHTNING_SHIFT_DEFAULT = QWEN_IMAGE_AURA_SHIFT;
+/** Official LightX2V Lightning workflows use shift 3 (not the vanilla Qwen 3.1). */
+export const QWEN_LIGHTNING_SHIFT_DEFAULT = 3;
 
 export function isQwenLightningModel(model: ComfyImageModel | string | undefined): boolean {
   if (!model?.trim()) {

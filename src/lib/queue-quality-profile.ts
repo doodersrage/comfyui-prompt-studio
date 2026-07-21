@@ -277,15 +277,15 @@ export function profileUsesSharpenAfterUpscale(
   return normalizeQueueQualityProfile(profile) === "max";
 }
 
-/** Lightning Final/Max get a dedicated low-alpha polish after soft Lanczos scale. */
+/** Lightning Final/Max used to add Lanczos + soft sharpen; that diverges from
+ * native ComfyUI and often shows as halos/grain. Keep polish off by default. */
 export function profileUsesLightningUpscalePolish(
   profile: QueueQualityProfile | undefined,
   options?: { model?: string },
 ): boolean {
-  if (!options?.model || !/lightning-(4|8)\b/i.test(options.model)) {
-    return false;
-  }
-  return profileUsesUpscaleEnrich(profile);
+  void profile;
+  void options;
+  return false;
 }
 
 export function lightningUpscalePolishAlpha(
@@ -305,4 +305,50 @@ export function sharpenAlphaForProfile(
   profile: QueueQualityProfile | undefined,
 ): number {
   return normalizeQueueQualityProfile(profile) === "max" ? 0.1 : 0.08;
+}
+
+/**
+ * Rapid AIO often shows mild moiré / screen-door texture. A soft ImageBlur
+ * after decode (Final/Max) knocks that down without looking soft-focus.
+ */
+export function profileUsesRapidAioMoirePolish(
+  profile: QueueQualityProfile | undefined,
+  options?: { model?: string },
+): boolean {
+  const model = options?.model?.trim() ?? "";
+  if (!/^qwen-rapid-aio-/i.test(model)) {
+    return false;
+  }
+  const normalized = normalizeQueueQualityProfile(profile);
+  return normalized === "final" || normalized === "max";
+}
+
+export function rapidAioMoireBlurRadius(
+  profile: QueueQualityProfile | undefined,
+): number {
+  return normalizeQueueQualityProfile(profile) === "max" ? 1 : 1;
+}
+
+export function rapidAioMoireBlurSigma(
+  profile: QueueQualityProfile | undefined,
+): number {
+  return normalizeQueueQualityProfile(profile) === "max" ? 0.6 : 0.5;
+}
+
+/**
+ * Area downsample factor for Rapid AIO anti-moiré. Lower = stronger cleanup;
+ * paired with an inverse Lanczos upscale so output size stays ~native.
+ * (Final/Max model upscale is skipped for Rapid AIO — it re-amplified moiré.)
+ */
+export function rapidAioMoireDownscaleFactor(
+  profile: QueueQualityProfile | undefined,
+): number {
+  return normalizeQueueQualityProfile(profile) === "max" ? 0.75 : 0.8;
+}
+
+export function rapidAioMoireRestoreScale(
+  profile: QueueQualityProfile | undefined,
+): number {
+  const down = rapidAioMoireDownscaleFactor(profile);
+  return Math.round((1 / down) * 1000) / 1000;
 }

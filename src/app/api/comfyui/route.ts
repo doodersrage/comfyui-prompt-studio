@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const resolvedQueue = resolveQueueInjectionContext({
       runtime,
       override: body.params,
-      model: body.model ?? runtime?.queueTargetModel,
+      model: runtime?.queueTargetModel ?? body.model,
       workflow,
     });
     const prompts = (
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
           prompt: prompts[0]!,
           negativePrompt: body.negativePrompt,
           nodeTitle: body.nodeTitle,
-          model: body.model ?? runtime?.queueTargetModel,
+          model: runtime?.queueTargetModel ?? body.model,
           params: resolvedQueue.params,
         },
         runtime,
@@ -86,11 +86,11 @@ export async function POST(request: Request) {
         prompt,
         negativePrompt: body.negativePrompt,
         nodeTitle: body.nodeTitle,
-        model: body.model ?? runtime?.queueTargetModel,
+        model: runtime?.queueTargetModel ?? body.model,
         params: resolveQueueInjectionContext({
           runtime,
           override: body.paramsPerPrompt?.[index] ?? body.params,
-          model: body.model ?? runtime?.queueTargetModel,
+          model: runtime?.queueTargetModel ?? body.model,
           workflow,
         }).params,
       })),

@@ -18,7 +18,6 @@ import {
 } from "@/lib/model-workflow-map";
 import {
   filterModelsForQueueTool,
-  resolveModelForQueueTool,
 } from "@/lib/queue-tool-model";
 import {
   normalizeModelSamplerPresetTier,
@@ -260,7 +259,24 @@ export default function SharedToolControls({
         workflowFiles: workflowCatalog,
         tool: toolId,
       });
-      if (!workflowId || workflowId === selectedWorkflowId) {
+      if (!workflowId) {
+        return;
+      }
+
+      // Heal stale map entries (e.g. Lightning-8 still pointing at vanilla 2512
+      // after an earlier bad Suggested assign).
+      const mappedId = shared.modelWorkflowMap?.[model]?.trim();
+      if (mappedId && mappedId !== workflowId) {
+        saveSharedSettings({
+          ...loadSettingsCache().shared,
+          modelWorkflowMap: {
+            ...shared.modelWorkflowMap,
+            [model]: workflowId,
+          },
+        });
+      }
+
+      if (workflowId === selectedWorkflowId) {
         return;
       }
       const onChange = onWorkflowPresetChangeRef.current;
@@ -319,27 +335,14 @@ export default function SharedToolControls({
   );
 
   useEffect(() => {
-    if (!toolId || showAllModelsOverride) {
+    // Respect a persisted library/picker selection — do not replace it with auto-ranked defaults.
+    if (selectedWorkflowId?.trim()) {
       return;
     }
-    const resolved = resolveModelForQueueTool(shared.model, toolId);
-    if (resolved === shared.model) {
-      return;
-    }
-    scheduleAfterCommit(() => {
-      onModelChange(resolved);
-    });
-  }, [toolId, shared.model, showAllModelsOverride, onModelChange]);
-
-  useEffect(() => {
     if (!workflowSelection.mounted || shared.autoSelectWorkflowForModel === false) {
       return;
     }
     if (workflowManualOverrideRef.current) {
-      return;
-    }
-    // Respect a persisted library/picker selection — do not replace it with auto-ranked defaults.
-    if (selectedWorkflowId?.trim()) {
       return;
     }
     if (!mappedWorkflowForModel || !onWorkflowPresetChangeRef.current) {

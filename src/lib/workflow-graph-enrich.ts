@@ -7,6 +7,7 @@ import {
   profileUsesSharpenAfterUpscale,
   profileUsesUpscaleEnrich,
   profileUsesLightningUpscalePolish,
+  profileUsesRapidAioMoirePolish,
   neuralUpscaleTileSizeForProfile,
   sdxlRefinerDenoiseForProfile,
   sdxlRefinerLatentScaleForProfile,
@@ -14,10 +15,15 @@ import {
   sharpenAlphaForProfile,
   lightningUpscalePolishAlpha,
   lightningUpscalePolishSigma,
+  rapidAioMoireBlurRadius,
+  rapidAioMoireBlurSigma,
+  rapidAioMoireDownscaleFactor,
+  rapidAioMoireRestoreScale,
   upscaleMethodForProfile,
   upscaleScaleForProfile,
   type QueueQualityProfile,
 } from "./queue-quality-profile";
+import { isQwenRapidAioModel } from "./model-denoise-defaults";
 import {
   isModelSamplingFluxNode,
   isModelSamplingPatchNode,
@@ -579,6 +585,7 @@ function maybeInsertSharpenAfterUpscale(input: {
   if (
     input.enrichSharpen === false ||
     isQwenLightningModel(input.model) ||
+    isQwenRapidAioModel(input.model) ||
     !profileUsesSharpenAfterUpscale(input.qualityProfile)
   ) {
     return null;
@@ -808,6 +815,12 @@ function enrichUpscaleNodes(input: {
   availableUpscaleModels?: string[] | null;
   supportsNeuralUpscaleTileSize?: boolean;
 }): WorkflowQueueOptimizeChange[] {
+  // Final/Max Lanczos/neural upscale re-amplifies Rapid AIO screen-door / moiré.
+  // Keep native decode + dedicated moiré polish instead.
+  if (isQwenRapidAioModel(input.model)) {
+    return [];
+  }
+
   if (!profileUsesNeuralUpscaleEnrich(input.qualityProfile, { model: input.model })) {
     return enrichLanczosUpscaleNodes({
       workflow: input.workflow,
@@ -864,6 +877,88 @@ function enrichUpscaleNodes(input: {
   }
 
   return lanczosChanges;
+}
+
+/** Soft blur + area↓/lanczos↑ before SaveImage — Rapid AIO moiré cleanup. */
+function enrichRapidAioMoirePolish(input: {
+  workflow: Record<string, WorkflowNode>;
+  qualityProfile?: QueueQualityProfile;
+  model?: string;
+}): WorkflowQueueOptimizeChange[] {
+  if (!profileUsesRapidAioMoirePolish(input.qualityProfile, { model: input.model })) {
+    return [];
+  }
+
+  const changes: WorkflowQueueOptimizeChange[] = [];
+  const blurRadius = rapidAioMoireBlurRadius(input.qualityProfile);
+  const blurSigma = rapidAioMoireBlurSigma(input.qualityProfile);
+  const downscale = rapidAioMoireDownscaleFactor(input.qualityProfile);
+  const restore = rapidAioMoireRestoreScale(input.qualityProfile);
+
+  for (const [saveId, saveNode] of Object.entries(input.workflow)) {
+    if (saveNode.class_type !== "SaveImage" || !saveNode.inputs) {
+      continue;
+    }
+    const imageLink = getLinkedNodeId(saveNode.inputs.images);
+    if (!imageLink) {
+      continue;
+    }
+    const upstream = input.workflow[imageLink];
+    const upstreamTitle = upstream?._meta?.title ?? "";
+    if (
+      (upstream?.class_type === "ImageScaleBy" ||
+        upstream?.class_type === "ImageBlur") &&
+      (upstreamTitle.includes("Rapid AIO") ||
+        upstreamTitle.includes("moiré") ||
+        upstreamTitle.includes("moire"))
+    ) {
+      continue;
+    }
+
+    // Blur softens interference → area downsample kills the pattern →
+    // Lanczos restore recovers edge clarity without unsharp-mask moiré return.
+    const blurNodeId = nextWorkflowNodeId(input.workflow);
+    input.workflow[blurNodeId] = {
+      class_type: "ImageBlur",
+      inputs: {
+        image: [imageLink, 0],
+        blur_radius: blurRadius,
+        sigma: blurSigma,
+      },
+      _meta: { title: "Prompt Studio — Rapid AIO moiré polish" },
+    };
+
+    const downNodeId = nextWorkflowNodeId(input.workflow);
+    input.workflow[downNodeId] = {
+      class_type: IMAGE_SCALE_BY_NODE_TYPE,
+      inputs: {
+        image: [blurNodeId, 0],
+        upscale_method: "area",
+        scale_by: downscale,
+      },
+      _meta: { title: "Prompt Studio — Rapid AIO moiré downscale" },
+    };
+
+    const restoreNodeId = nextWorkflowNodeId(input.workflow);
+    input.workflow[restoreNodeId] = {
+      class_type: IMAGE_SCALE_BY_NODE_TYPE,
+      inputs: {
+        image: [downNodeId, 0],
+        upscale_method: "lanczos",
+        scale_by: restore,
+      },
+      _meta: { title: "Prompt Studio — Rapid AIO size restore" },
+    };
+    saveNode.inputs.images = [restoreNodeId, 0];
+
+    changes.push({
+      kind: "binding",
+      severity: "info",
+      message: `Inserted Rapid AIO moiré polish (blur → area ${downscale}× → lanczos ${restore}×) before SaveImage node ${saveId}.`,
+    });
+  }
+
+  return changes;
 }
 
 export function enrichWorkflowGraph(input: {
@@ -925,6 +1020,14 @@ export function enrichWorkflowGraph(input: {
       }),
     );
   }
+
+  changes.push(
+    ...enrichRapidAioMoirePolish({
+      workflow,
+      qualityProfile: input.qualityProfile,
+      model: input.model,
+    }),
+  );
 
   return { workflow, changes };
 }

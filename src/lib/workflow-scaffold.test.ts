@@ -40,7 +40,7 @@ describe("workflow scaffold", () => {
   it("builds lightning scaffold with EmptySD3LatentImage", () => {
     const result = buildWorkflowScaffoldForModel("qwen-image-2512-lightning-8");
     assert.match(result.json, /EmptySD3LatentImage/);
-    assert.match(result.json, /LoraLoader/);
+    assert.match(result.json, /LoraLoaderModelOnly/);
     assert.doesNotMatch(result.json, /EmptyLatentImage/);
   });
 
@@ -52,6 +52,16 @@ describe("workflow scaffold", () => {
     assert.doesNotMatch(result.json, /EmptyLatentImage/);
     assert.match(result.json, /"latent_image"/);
     assert.match(result.json, /"901"/);
+  });
+
+  it("builds lightning edit scaffold with EmptyLatent + LoRA (not VAEEncode)", () => {
+    const result = buildWorkflowScaffoldForModel("qwen-image-edit-2511-lightning-8");
+    assert.match(result.json, /TextEncodeQwenImageEditPlus/);
+    assert.match(result.json, /EmptySD3LatentImage/);
+    assert.match(result.json, /LoraLoaderModelOnly/);
+    assert.match(result.json, /\{\{LORA_LIGHTNING\}\}/);
+    assert.match(result.json, /ModelSamplingAuraFlow/);
+    assert.doesNotMatch(result.json, /VAEEncode/);
   });
 
   it("builds rapid aio edit scaffold from checkpoint loader", () => {

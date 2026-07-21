@@ -31,14 +31,33 @@ export function loraNameImpliesLightning(
   loraName: unknown,
   loraFilenames: Record<string, string> = {},
 ): boolean {
+  if (typeof loraName !== "string" || !loraName.trim()) {
+    return false;
+  }
+  const trimmed = loraName.trim();
+  // Unresolved placeholders only count once mapped to a concrete Lightning file.
+  if (isUnresolvedWorkflowPlaceholder(trimmed)) {
+    const mapped = loraFilenames[trimmed]?.trim();
+    return Boolean(mapped && loraFilenameImpliesLightning(mapped));
+  }
+  return loraFilenameImpliesLightning(trimmed);
+}
+
+/** True for Lightning LoRA slots, including unresolved {{LORA_LIGHTNING}} placeholders. */
+export function loraNameIsLightningSlot(
+  loraName: unknown,
+  loraFilenames: Record<string, string> = {},
+): boolean {
   if (typeof loraName === "string") {
     const trimmed = loraName.trim();
-    if (trimmed === LIGHTNING_LORA_TOKEN || /^\{\{LORA_.*(LIGHTNING|LIGHTX2V)/i.test(trimmed)) {
+    if (
+      trimmed === LIGHTNING_LORA_TOKEN ||
+      /^\{\{LORA_.*(LIGHTNING|LIGHTX2V).*\}\}$/i.test(trimmed)
+    ) {
       return true;
     }
   }
-  const filename = resolveLoraLoaderFilename(loraName, loraFilenames);
-  return Boolean(filename && loraFilenameImpliesLightning(filename));
+  return loraNameImpliesLightning(loraName, loraFilenames);
 }
 
 export function resolveLoraLoaderFilename(
@@ -138,6 +157,31 @@ export function buildLoraFilenameMapFromCustomTokens(
   return map;
 }
 
+function pickPreferredLightningLora(
+  candidates: string[],
+  model?: string,
+): string | undefined {
+  if (candidates.length === 0) {
+    return undefined;
+  }
+  const modelId = model?.trim().toLowerCase() ?? "";
+  const wantsEdit = /edit/.test(modelId);
+  const wants2511 = /2511/.test(modelId);
+  const ranked = [...candidates].sort((a, b) => {
+    const score = (name: string) => {
+      let value = 0;
+      const lower = name.toLowerCase();
+      if (wantsEdit && /edit/.test(lower)) value += 4;
+      if (!wantsEdit && !/edit/.test(lower)) value += 3;
+      if (wants2511 && /2511/.test(lower)) value += 2;
+      if (/lightx2v/.test(lower)) value += 1;
+      return value;
+    };
+    return score(b) - score(a);
+  });
+  return ranked[0];
+}
+
 function inferLightningLoraFilenameFromTokens(
   customTokens: Array<{ token: string; value: string }>,
   model?: string,
@@ -150,6 +194,7 @@ function inferLightningLoraFilenameFromTokens(
         ? /\b4[\s-]?step|4steps/i
         : undefined;
 
+  const fromLightningTokens: string[] = [];
   for (const entry of customTokens) {
     const token = entry.token.trim();
     const value = entry.value?.trim();
@@ -158,22 +203,26 @@ function inferLightningLoraFilenameFromTokens(
     }
     if (/lightning|lightx2v/i.test(token) && loraFilenameImpliesLightning(value)) {
       if (!stepMatch || stepMatch.test(value)) {
-        return value;
+        fromLightningTokens.push(value);
       }
     }
   }
+  const preferredToken = pickPreferredLightningLora(fromLightningTokens, model);
+  if (preferredToken) {
+    return preferredToken;
+  }
 
+  const fromAny: string[] = [];
   for (const entry of customTokens) {
     const value = entry.value?.trim();
     if (!value || !loraFilenameImpliesLightning(value)) {
       continue;
     }
     if (!stepMatch || stepMatch.test(value)) {
-      return value;
+      fromAny.push(value);
     }
   }
-
-  return undefined;
+  return pickPreferredLightningLora(fromAny, model);
 }
 
 function lightningStepFilenameMatch(model?: string): RegExp | undefined {
@@ -202,13 +251,23 @@ export function inferLightningLoraFromInventory(
   if (candidates.length === 0) {
     return undefined;
   }
-  if (stepMatch) {
-    const stepped = candidates.filter((name) => stepMatch.test(name));
-    if (stepped[0]) {
-      return stepped[0];
-    }
+  const stepped = stepMatch
+    ? candidates.filter((name) => stepMatch.test(name))
+    : candidates;
+  return pickPreferredLightningLora(stepped.length > 0 ? stepped : candidates, model);
+}
+
+export function lightningLoraMatchesModel(filename: string, model?: string): boolean {
+  if (!loraFilenameImpliesLightning(filename)) {
+    return false;
   }
-  return candidates[0];
+  const modelId = model?.trim().toLowerCase() ?? "";
+  if (!modelId) {
+    return true;
+  }
+  const modelWantsEdit = /edit/.test(modelId);
+  const loraIsEdit = /edit/.test(filename.toLowerCase());
+  return modelWantsEdit === loraIsEdit;
 }
 
 /** Resolve {{LORA_LIGHTNING}} and related placeholders from custom tokens / LoRA library / inventory. */
@@ -218,12 +277,13 @@ export function buildLightningLoraFilenameMap(
   availableLoras?: string[],
 ): Record<string, string> {
   const map = buildLoraFilenameMapFromCustomTokens(customTokens);
-  if (map[LIGHTNING_LORA_TOKEN]?.trim()) {
+  const existing = map[LIGHTNING_LORA_TOKEN]?.trim();
+  if (existing && lightningLoraMatchesModel(existing, model)) {
     return map;
   }
 
   const inferred = inferLightningLoraFilenameFromTokens(customTokens, model);
-  if (inferred) {
+  if (inferred && lightningLoraMatchesModel(inferred, model)) {
     map[LIGHTNING_LORA_TOKEN] = inferred;
     return map;
   }
@@ -231,7 +291,59 @@ export function buildLightningLoraFilenameMap(
   const fromInventory = inferLightningLoraFromInventory(availableLoras, model);
   if (fromInventory) {
     map[LIGHTNING_LORA_TOKEN] = fromInventory;
+    return map;
+  }
+
+  // Keep a mismatched library mapping only when nothing better is available.
+  if (existing) {
+    map[LIGHTNING_LORA_TOKEN] = existing;
+  } else if (inferred) {
+    map[LIGHTNING_LORA_TOKEN] = inferred;
   }
 
   return map;
+}
+
+/**
+ * Rewrite concrete Lightning LoRA filenames that don't match the selected model
+ * family (Edit-2511 vs T2I 2512). Wrong-family LoRAs cause worm/melt artifacts.
+ */
+export function alignLightningLoraFamilyInWorkflow(
+  workflow: Record<string, unknown>,
+  model?: string,
+  loraFilenames: Record<string, string> = {},
+): { workflow: Record<string, unknown>; realignedNodeIds: string[] } {
+  const preferred = loraFilenames[LIGHTNING_LORA_TOKEN]?.trim();
+  if (!preferred || !lightningLoraMatchesModel(preferred, model)) {
+    return { workflow, realignedNodeIds: [] };
+  }
+
+  const next = structuredClone(workflow) as Record<
+    string,
+    { class_type?: string; inputs?: Record<string, unknown> }
+  >;
+  const realignedNodeIds: string[] = [];
+
+  for (const [nodeId, node] of Object.entries(next)) {
+    if (!node?.inputs || !LORA_LOADER_TYPES.has(node.class_type ?? "")) {
+      continue;
+    }
+    const current = node.inputs.lora_name;
+    if (typeof current !== "string" || !current.trim()) {
+      continue;
+    }
+    if (isUnresolvedWorkflowPlaceholder(current)) {
+      continue;
+    }
+    if (!loraFilenameImpliesLightning(current)) {
+      continue;
+    }
+    if (lightningLoraMatchesModel(current, model)) {
+      continue;
+    }
+    node.inputs.lora_name = preferred;
+    realignedNodeIds.push(nodeId);
+  }
+
+  return { workflow: next, realignedNodeIds };
 }

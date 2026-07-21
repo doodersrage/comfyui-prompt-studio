@@ -154,7 +154,7 @@ export function auditWorkflowPreviewIssues(input: {
       issues.push({
         severity: isLightningToken ? "error" : "warn",
         message: isLightningToken
-          ? `Unresolved ${token} — map a Lightning LoRA in Settings → LoRA library (or ensure ComfyUI has a LightX2V .safetensors). Missing LoRA softens faces/hands.`
+          ? `Unresolved ${token} — set Lightning LoRA on this workflow’s token overrides (or Settings → LoRA library as ID “LIGHTNING”), then Save. Missing LoRA softens faces/hands.`
           : `Unresolved ${token} — add LoRA to library or bind LoRA loader in workflow.`,
       });
       continue;

@@ -108,6 +108,35 @@ export function qwenDualClipFilename(tier: LoaderPrecisionTier): string {
     : "qwen_2.5_vl_7b.safetensors";
 }
 
+/** Qwen diffusion weight family — never cross-swap under precision alignment. */
+export type QwenUnetFamily = "edit-2511" | "edit-2509" | "t2i" | "unknown";
+
+export function qwenUnetFamilyFromFilename(filename: string): QwenUnetFamily {
+  const lower = filename.toLowerCase();
+  if (/edit[_-]?2511/.test(lower)) {
+    return "edit-2511";
+  }
+  if (/edit[_-]?2509/.test(lower)) {
+    return "edit-2509";
+  }
+  if (/qwen_image_edit|qwen-image-edit/.test(lower)) {
+    return "edit-2511";
+  }
+  if (/qwen_image|2512|qwen-image/.test(lower)) {
+    return "t2i";
+  }
+  return "unknown";
+}
+
+export function qwenUnetFamiliesCompatible(a: string, b: string): boolean {
+  const familyA = qwenUnetFamilyFromFilename(a);
+  const familyB = qwenUnetFamilyFromFilename(b);
+  if (familyA === "unknown" || familyB === "unknown") {
+    return true;
+  }
+  return familyA === familyB;
+}
+
 /** Prefer bf16 when unknown — avoids fp8 UNET with bf16 CLIP in mixed workflows. */
 export function defaultLoaderPrecisionTier(): LoaderPrecisionTier {
   return "bf16";

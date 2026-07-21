@@ -7,6 +7,7 @@ import { auditDualClipNodesInWorkflow } from "./workflow-dual-clip-audit";
 import type { ComfyUiModelLists } from "./comfyui-object-info";
 import { auditLightningWorkflowIssues } from "./workflow-lightning-queue";
 import { auditLoaderFilenamesInWorkflow } from "./workflow-loader-filename-audit";
+import { buildLightningLoraFilenameMap } from "./workflow-lora-patch";
 
 export type WorkflowPreflightIssue = {
   severity: "error" | "warn";
@@ -22,6 +23,7 @@ export type WorkflowGraphPreflightInput = {
   knownNodeTypes?: Set<string> | string[];
   models?: ComfyUiModelLists | null;
   objectInfoUnavailable?: boolean;
+  customTokens?: Array<{ token: string; value: string }>;
 };
 
 /**
@@ -57,10 +59,17 @@ export function collectWorkflowGraphPreflightIssues(
     }),
   );
 
+  const loraFilenames = buildLightningLoraFilenameMap(
+    input.customTokens ?? [],
+    String(input.model),
+    input.models?.loras,
+  );
+
   issues.push(
     ...auditLightningWorkflowIssues({
       workflowJson: input.workflowJson,
       model: input.model,
+      loraFilenames,
     }),
   );
 

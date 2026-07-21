@@ -258,13 +258,11 @@ function qwenLightningScaffold(tokens: WorkflowPlaceholderTokens): Record<string
       _meta: { title: "Empty Latent" },
     },
     "7": {
-      class_type: "LoraLoader",
+      class_type: "LoraLoaderModelOnly",
       inputs: {
         model: ["1", 0],
-        clip: ["2", 0],
         lora_name: LIGHTNING_LORA_TOKEN,
         strength_model: 1,
-        strength_clip: 1,
       },
       _meta: { title: "Lightning LoRA" },
     },
@@ -340,10 +338,111 @@ function buildQwenEditEncoderInputs(
   };
 }
 
+function qwenEditLightningScaffold(
+  tokens: WorkflowPlaceholderTokens,
+  model: ComfyImageModel | string,
+): Record<string, unknown> {
+  const encodeClass = resolveQwenEditEncoderClass(model);
+  const loaders = qwenLoaderFilenames();
+
+  // Leave image1/2/3 disconnected for pure T2I (Generate). Refine/queue patches
+  // LoadImage + encode refs when an input image filename is provided.
+  const positiveEncode = {
+    prompt: tokens.positive,
+    clip: ["2", 0] as [string, number],
+    vae: ["3", 0] as [string, number],
+  };
+  const negativeEncode = {
+    prompt: tokens.negative,
+    clip: ["2", 0] as [string, number],
+    vae: ["3", 0] as [string, number],
+  };
+
+  return {
+    "1": {
+      class_type: "UNETLoader",
+      inputs: { unet_name: loaders.unetToken, weight_dtype: "default" },
+      _meta: { title: "Load UNET" },
+    },
+    "2": {
+      class_type: "CLIPLoader",
+      inputs: {
+        clip_name: loaders.clipName,
+        type: "qwen_image",
+      },
+      _meta: { title: "Load CLIP" },
+    },
+    "3": {
+      class_type: "VAELoader",
+      inputs: { vae_name: loaders.vaeName },
+      _meta: { title: "Load VAE" },
+    },
+    "4": {
+      class_type: encodeClass,
+      inputs: positiveEncode,
+      _meta: { title: "Qwen Edit Encode (+)" },
+    },
+    "5": {
+      class_type: encodeClass,
+      inputs: negativeEncode,
+      _meta: { title: "Qwen Edit Encode (−)" },
+    },
+    "6": {
+      class_type: "EmptySD3LatentImage",
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: "Empty Latent" },
+    },
+    "7": {
+      class_type: "LoraLoaderModelOnly",
+      inputs: {
+        model: ["1", 0],
+        lora_name: LIGHTNING_LORA_TOKEN,
+        strength_model: 1,
+      },
+      _meta: { title: "Lightning LoRA" },
+    },
+    "11": {
+      class_type: "ModelSamplingAuraFlow",
+      inputs: { model: ["7", 0], shift: tokens.shift },
+      _meta: { title: "ModelSamplingAuraFlow" },
+    },
+    "8": {
+      class_type: "KSampler",
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ["11", 0],
+        positive: ["4", 0],
+        negative: ["5", 0],
+        latent_image: ["6", 0],
+      },
+      _meta: { title: "KSampler" },
+    },
+    "9": {
+      class_type: "VAEDecode",
+      inputs: { samples: ["8", 0], vae: ["3", 0] },
+      _meta: { title: "VAE Decode" },
+    },
+    "10": {
+      class_type: "SaveImage",
+      inputs: { images: ["9", 0], filename_prefix: "PromptStudio" },
+      _meta: { title: "Save Image" },
+    },
+  };
+}
+
 function qwenEditImg2imgScaffold(
   tokens: WorkflowPlaceholderTokens,
   model: ComfyImageModel | string,
 ): Record<string, unknown> {
+  // Lightning edit uses EmptyLatent + denoise 1; refs go through TextEncode*.
+  if (isQwenLightningModel(model)) {
+    return qwenEditLightningScaffold(tokens, model);
+  }
   const encodeClass = resolveQwenEditEncoderClass(model);
 
   if (usesQwenCheckpointLoader(model)) {
@@ -833,7 +932,9 @@ export function buildWorkflowScaffoldForModel(
     "Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.",
     useEditScaffold
       ? isQwenEditModel(model)
-        ? "Qwen Edit scaffold wires LoadImage → VAEEncode → KSampler with denoise — upload an image from Refine or Image → Prompt before queueing."
+        ? isQwenLightningModel(model)
+          ? "Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Leave encode image slots empty for Generate (pure T2I); Refine wires refs when you upload a source image."
+          : "Qwen Edit scaffold wires LoadImage → VAEEncode → KSampler with denoise — upload an image from Refine or Image → Prompt before queueing."
         : model === "flux-inpaint"
           ? "FLUX inpaint scaffold wires LoadImage + LoadImageMask → InpaintModelConditioning — upload source image and mask before queueing."
           : "Edit scaffold includes LoadImage + denoise — wire VAEEncode in ComfyUI if you use the generic edit template."

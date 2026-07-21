@@ -1530,6 +1530,24 @@ describe("workflow category defaults", () => {
       0,
     );
   });
+
+  it("treats lightening typo as Lightning and prefers 2512-lightning-8", async () => {
+    const { inferModelsFromWorkflowLabel } = await import("./workflow-category-defaults");
+    const models = inferModelsFromWorkflowLabel({
+      name: "qwen-image-2512-lightening-8",
+      filename: "qwen-image-2512-lightening-8.json",
+    });
+    assert.ok(
+      models.includes("qwen-image-2512-lightning-8"),
+      `expected lightning-8 in ${models.join(", ")}`,
+    );
+    assert.ok(
+      !models.includes("qwen-image-2512") ||
+        models.indexOf("qwen-image-2512-lightning-8") <= models.indexOf("qwen-image-2512"),
+    );
+    // Vanilla must not be the sole/top suggestion for a Lightning-named file.
+    assert.notEqual(models[0], "qwen-image-2512");
+  });
 });
 
 describe("model workflow map", () => {

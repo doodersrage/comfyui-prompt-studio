@@ -9,6 +9,7 @@ import {
 } from "./comfyui-config";
 import {
   findComfyWorkflowFile,
+  mergeCustomWorkflowTokens,
 } from "./comfyui-workflow-files";
 import { loadSettingsCache, saveSharedSettings } from "./settings-cache";
 
@@ -42,10 +43,19 @@ export function resolveSelectedWorkflowRuntime(
     return baseRuntime;
   }
 
+  const workflowCustomTokens = file.customTokens ?? [];
+  const customTokens = mergeCustomWorkflowTokens(
+    baseRuntime?.customTokens,
+    workflowCustomTokens,
+  );
+
   return stripEmptyComfyUiRuntime({
     ...(baseRuntime ?? {}),
     workflowJson: file.workflowJson,
     workflowOptimizedHash: file.lastOptimizedHash,
+    customTokens: customTokens.length > 0 ? customTokens : undefined,
+    workflowCustomTokens:
+      workflowCustomTokens.length > 0 ? workflowCustomTokens : undefined,
   });
 }
 

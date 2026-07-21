@@ -64,6 +64,33 @@ describe("workflow-category-defaults", () => {
     assert.equal(picked, "wf-edit");
   });
 
+  it("overrides stale map that pins Lightning-8 to a vanilla 2512 workflow", () => {
+    const files = [
+      {
+        id: "wf-vanilla",
+        name: "qwen-image-2512",
+        filename: "qwen-image-2512.json",
+        workflowJson: '{"class_type":"EmptyLatentImage"}',
+      },
+      {
+        id: "wf-lightning",
+        name: "qwen-image-2512-lightening-8",
+        filename: "qwen-image-2512-lightening-8.json",
+        workflowJson: '{"class_type":"LoraLoaderModelOnly"}',
+      },
+    ];
+
+    const picked = resolveWorkflowForModelSelection("qwen-image-2512-lightning-8", {
+      map: {
+        "qwen-image-2512": "wf-vanilla",
+        "qwen-image-2512-lightning-8": "wf-vanilla",
+      },
+      workflowFiles: files,
+      tool: "generate",
+    });
+    assert.equal(picked, "wf-lightning");
+  });
+
   it("ranks txt2img above edit for generate model", () => {
     const files = [
       {

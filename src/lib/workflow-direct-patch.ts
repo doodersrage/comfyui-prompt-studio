@@ -1,3 +1,4 @@
+import { isQwenLightningModel } from "./model-sampling-patch";
 import type { WorkflowParamValues } from "./comfyui-config";
 import {
   COMFY_MODEL_IDS,
@@ -8,9 +9,10 @@ import {
   DEFAULT_CHECKPOINT_TOKEN,
   DEFAULT_UNET_TOKEN,
   DEFAULT_VAE_TOKEN,
+  filenameLooksLikeCheckpointOnly,
   type ModelLoaderFilenames,
 } from "./model-checkpoint-map";
-import { precisionHintFromFilename } from "./model-loader-precision";
+import { precisionHintFromFilename, qwenUnetFamiliesCompatible } from "./model-loader-precision";
 import {
   DEFAULT_CONTROLNET_MODEL_TOKEN,
   DEFAULT_CONTROL_IMAGE_TOKEN,
@@ -118,6 +120,11 @@ function shouldAlignLoaderPrecision(current: unknown, nextValue: string | undefi
   }
   // Never downgrade concrete bf16/fp16 weights to fp8 at queue time.
   if (currentTier === "bf16" && nextTier === "fp8") {
+    return false;
+  }
+  // Never swap Qwen T2I ↔ Edit UNETs under the guise of fp8→bf16 alignment —
+  // that produces crystalline/shattered artifacts.
+  if (!qwenUnetFamiliesCompatible(current.trim(), nextValue.trim())) {
     return false;
   }
   return true;
@@ -268,9 +275,10 @@ export function patchLatentSizeInWorkflow(
 export function patchLoaderNodesInWorkflow(
   workflow: Record<string, unknown>,
   loaders: ModelLoaderFilenames,
-  options?: { syncLoadersToModel?: boolean },
+  options?: { syncLoadersToModel?: boolean; alignClipPrecision?: boolean },
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const syncLoadersToModel = options?.syncLoadersToModel === true;
+  const alignClipPrecision = options?.alignClipPrecision !== false;
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
 
@@ -302,14 +310,27 @@ export function patchLoaderNodesInWorkflow(
 
     if (
       loaders.unet &&
+      !filenameLooksLikeCheckpointOnly(loaders.unet) &&
       UNET_LOADER_TYPES.has(classType) &&
-      "unet_name" in inputs &&
-      (shouldPatchLoaderFilenameField(inputs.unet_name, loaders.unet, syncLoadersToModel) ||
-        shouldAlignLoaderPrecision(inputs.unet_name, loaders.unet))
+      "unet_name" in inputs
     ) {
-      inputs.unet_name = loaders.unet;
-      patched.unet = (patched.unet ?? 0) + 1;
-      if (alignUnetWeightDtypeToFilename(inputs, loaders.unet)) {
+      const shouldPatch =
+        shouldPatchLoaderFilenameField(inputs.unet_name, loaders.unet, syncLoadersToModel) ||
+        shouldAlignLoaderPrecision(inputs.unet_name, loaders.unet) ||
+        (typeof inputs.unet_name === "string" &&
+          filenameLooksLikeCheckpointOnly(inputs.unet_name));
+      if (shouldPatch) {
+        inputs.unet_name = loaders.unet;
+        patched.unet = (patched.unet ?? 0) + 1;
+        if (alignUnetWeightDtypeToFilename(inputs, loaders.unet)) {
+          patched.unetWeightDtype = (patched.unetWeightDtype ?? 0) + 1;
+        }
+      } else if (
+        typeof inputs.unet_name === "string" &&
+        !isUnresolvedWorkflowPlaceholder(inputs.unet_name) &&
+        alignUnetWeightDtypeToFilename(inputs, inputs.unet_name)
+      ) {
+        // Filename already matches — still clear stale fp8 dtype on bf16 UNET.
         patched.unetWeightDtype = (patched.unetWeightDtype ?? 0) + 1;
       }
     } else if (
@@ -320,7 +341,6 @@ export function patchLoaderNodesInWorkflow(
       !isUnresolvedWorkflowPlaceholder(inputs.unet_name) &&
       alignUnetWeightDtypeToFilename(inputs, inputs.unet_name)
     ) {
-      // Filename already matches resolved bf16 — still clear stale fp8 dtype.
       patched.unetWeightDtype = (patched.unetWeightDtype ?? 0) + 1;
     }
 
@@ -339,7 +359,8 @@ export function patchLoaderNodesInWorkflow(
         if (
           field in inputs &&
           (shouldPatchClipFilename(inputs[field], loaders.dualClip, syncLoadersToModel) ||
-            shouldAlignLoaderPrecision(inputs[field], loaders.dualClip))
+            (alignClipPrecision &&
+              shouldAlignLoaderPrecision(inputs[field], loaders.dualClip)))
         ) {
           inputs[field] = loaders.dualClip;
           patched.dualClip = (patched.dualClip ?? 0) + 1;
@@ -352,7 +373,8 @@ export function patchLoaderNodesInWorkflow(
       CLIP_LOADER_TYPES.has(classType) &&
       "clip_name" in inputs &&
       (shouldPatchClipFilename(inputs.clip_name, loaders.dualClip, syncLoadersToModel) ||
-        shouldAlignLoaderPrecision(inputs.clip_name, loaders.dualClip))
+        (alignClipPrecision &&
+          shouldAlignLoaderPrecision(inputs.clip_name, loaders.dualClip)))
     ) {
       inputs.clip_name = loaders.dualClip;
       patched.dualClip = (patched.dualClip ?? 0) + 1;
@@ -722,6 +744,8 @@ export function patchWorkflowDirectParams(
   const latentPatch = patchLatentSizeInWorkflow(latentType.workflow, input.params ?? {});
   const loaderPatch = patchLoaderNodesInWorkflow(latentPatch.workflow, input.loaders ?? {}, {
     syncLoadersToModel: input.syncWorkflowLoadersToModel,
+    // LightX2V official keeps fp8_scaled CLIP with bf16 UNET — don't "upgrade" CLIP.
+    alignClipPrecision: !isQwenLightningModel(input.model),
   });
   const loraPatch = patchLoraNodesInWorkflow(
     loaderPatch.workflow,

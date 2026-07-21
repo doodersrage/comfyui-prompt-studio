@@ -15,6 +15,7 @@ import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import type { DetailLevel } from "@/lib/detail-level";
 import type { AthleticSport } from "@/lib/athletic-sport-profiles";
 import { resolveRuntimeForQueue } from "@/lib/comfyui-runtime-for-model";
+import { resolveModelForQueueTool } from "@/lib/queue-tool-model";
 import { startImproveFromResult, startPromptEditorFromResult, startRefineFromResult } from "@/lib/improve-output";
 import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import { parseWorkflowJson } from "@/lib/comfyui-config";
@@ -104,6 +105,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         historyId?: string;
         queueParams?: WorkflowParamValues;
         queueQualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
+        /** Actual model queued (may differ from picker when Generate remaps Edit Lightning). */
+        model?: ComfyImageModel;
       },
       showPreview = true,
     ) => {
@@ -112,7 +115,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         prompt: input.prompt,
         negativePrompt: input.negativePrompt,
         tool: config.tool,
-        model: config.model,
+        model: input.model ?? config.model,
         comfyUrl: input.comfyUrl,
         historyId: input.historyId,
         queueParams: input.queueParams,
@@ -370,9 +373,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       setComfyUiStatus("Queueing…");
       try {
+        const runtime = resolveRuntimeForQueue(config.model, config.tool);
+        const queueModel = resolveModelForQueueTool(config.model, config.tool);
+
         const { positive: preparedPrompt, negative: negativePrompt } =
           await prepareQueuePrompts({
-            model: config.model,
+            model: queueModel,
             positive: injectLoraTriggers(prompt),
             hints: config.hints,
             sport,
@@ -381,7 +387,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           });
 
         const preflight = await runWorkflowPreflight({
-          model: config.model,
+          model: queueModel,
           prompts: [preparedPrompt],
           negativePrompt,
           tool: config.tool,
@@ -401,6 +407,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               options?.controlImageUrl?.trim() ||
               options?.controlImageFilename?.trim(),
           ),
+          comfy: runtime,
         });
         if (!preflight.ok) {
           throw new Error(
@@ -418,7 +425,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             file: options.inputImage,
             filename: options.inputImageFilename,
             imageUrl: options.inputImageUrl,
-            model: config.model,
+            model: queueModel,
           });
         }
 
@@ -429,7 +436,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             file: options.maskImage,
             filename: options.maskImageFilename,
             imageUrl: options.maskImageUrl,
-            model: config.model,
+            model: queueModel,
           });
         }
 
@@ -440,17 +447,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             file: options.controlImage,
             filename: options.controlImageFilename,
             imageUrl: options.controlImageUrl,
-            model: config.model,
+            model: queueModel,
           });
         }
-
-        const runtime = resolveRuntimeForQueue(config.model, config.tool);
         const workflow = runtime?.workflowJson?.trim()
           ? (parseWorkflowJson(runtime.workflowJson) ?? undefined)
           : undefined;
 
         const queueParams = resolveQueueParams({
-          model: config.model,
+          model: queueModel,
           tool: config.tool,
           base: options?.queueParamsBase,
           workflow,
@@ -476,7 +481,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           body: JSON.stringify({
             prompt: preparedPrompt,
             negativePrompt,
-            model: config.model,
+            model: queueModel,
             params: queueParams,
             ...(runtime ? { comfy: runtime } : {}),
           }),
@@ -497,6 +502,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         setComfyUiStatus(
           [
             data.promptId ? `prompt_id ${data.promptId}` : "queued",
+            queueModel !== config.model ? `as ${queueModel}` : null,
             data.comfyUrl,
             data.workflowSource ? `workflow: ${data.workflowSource}` : null,
             negativePrompt ? "with negative" : null,
@@ -520,6 +526,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             historyId: resolvedHistoryId,
             queueParams,
             queueQualityProfile: runtime?.queueQualityProfile,
+            model: queueModel,
           });
           markOnboardingFirstQueue();
           void dispatchWebhook({
@@ -527,7 +534,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             promptId: data.promptId,
             prompt: preparedPrompt,
             negativePrompt,
-            model: config.model,
+            model: queueModel,
             tool: config.tool,
             status: "queued",
             queueParams,
@@ -562,8 +569,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const preview = await fetchWorkflowPreview({
           prompt: preparedPrompt,
           negativePrompt,
-          model: config.model,
-          params: resolveQueueParams({ model: config.model, tool: config.tool }),
+          model: resolveModelForQueueTool(config.model, config.tool),
+          params: resolveQueueParams({
+            model: resolveModelForQueueTool(config.model, config.tool),
+            tool: config.tool,
+          }),
+          comfy: resolveRuntimeForQueue(config.model, config.tool),
         });
         setWorkflowPreview(preview);
         setPreviewStatus("Workflow preview ready (not queued).");
@@ -583,9 +594,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       setComfyUiStatus(`Queueing ${filtered.length}…`);
       try {
-        const rawNegative = modelUsesNegativePrompt(config.model)
+        const runtime = resolveRuntimeForQueue(config.model, config.tool);
+        const queueModel = resolveModelForQueueTool(config.model, config.tool);
+        const rawNegative = modelUsesNegativePrompt(queueModel)
           ? await resolveQueueNegativePromptRaw({
-              model: config.model,
+              model: queueModel,
               hints: config.hints,
               sport,
               tool: config.tool,
@@ -594,21 +607,20 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const steered = applyQueuePromptSteering({
           positive: injectLoraTriggers(filtered[0] ?? ""),
           negative: rawNegative,
-          model: config.model,
+          model: queueModel,
         });
         const negativePrompt = steered.negative;
         const prepared = filtered.map((entry) =>
           applyQueuePromptSteering({
             positive: injectLoraTriggers(entry),
             negative: rawNegative,
-            model: config.model,
+            model: queueModel,
           }).positive,
         );
 
-        const runtime = resolveRuntimeForQueue(config.model, config.tool);
         const paramsPerPrompt = prepared.map((_, index) =>
           resolveQueueParams({
-            model: config.model,
+            model: queueModel,
             tool: config.tool,
             base: {
               seed: String(Math.floor(Math.random() * 2 ** 32) + index),
@@ -617,11 +629,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         );
 
         const preflight = await runWorkflowPreflight({
-          model: config.model,
+          model: queueModel,
           prompts: prepared,
           negativePrompt,
           tool: config.tool,
           queueParams: paramsPerPrompt[0],
+          comfy: runtime,
         });
         if (!preflight.ok) {
           throw new Error(
@@ -652,7 +665,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           body: JSON.stringify({
             prompts: prepared,
             negativePrompt,
-            model: config.model,
+            model: queueModel,
             paramsPerPrompt,
             ...(runtime ? { comfy: runtime } : {}),
           }),
@@ -688,6 +701,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               queueParams: paramsPerPrompt[index] ?? paramsPerPrompt[0],
               historyId: index === 0 ? batchHistoryId : undefined,
               queueQualityProfile: runtime?.queueQualityProfile,
+              model: queueModel,
             },
             false,
           );
@@ -696,7 +710,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         void dispatchWebhook({
           event: "comfyui.batch.completed",
           tool: config.tool,
-          model: config.model,
+          model: queueModel,
           queued: data.queued ?? prepared.length,
           failed: data.failed,
           completedAt: Date.now(),

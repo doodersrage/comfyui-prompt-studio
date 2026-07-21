@@ -30,6 +30,7 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
   "qwen-image-2512-lightning-4": [
     "2512",
     "lightning",
+    "lightening",
     "lightx2v",
     "4step",
     "4-step",
@@ -39,6 +40,7 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
   "qwen-image-2512-lightning-8": [
     "2512",
     "lightning",
+    "lightening",
     "lightx2v",
     "8step",
     "8-step",
@@ -50,6 +52,7 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
     "2511",
     "edit",
     "lightning",
+    "lightening",
     "lightx2v",
     "4step",
     "4-step",
@@ -60,6 +63,7 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
     "2511",
     "edit",
     "lightning",
+    "lightening",
     "lightx2v",
     "8step",
     "8-step",
@@ -84,7 +88,17 @@ const MODEL_WORKFLOW_AVOID_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> 
   "flux-2-klein-4b-distilled": ["base", "klein-base", "9b", "klein-9b", "inpaint", "mask", "fill"],
   "flux-2-klein-9b": ["distilled", "4b", "klein-4b", "inpaint", "mask", "fill"],
   "flux-2-klein-9b-distilled": ["base", "klein-base", "4b", "klein-4b", "inpaint", "mask", "fill"],
-  "qwen-image-2512": ["edit", "inpaint", "img2img", "mask", "fill", "lightning", "lightx2v", "2511"],
+  "qwen-image-2512": [
+    "edit",
+    "inpaint",
+    "img2img",
+    "mask",
+    "fill",
+    "lightning",
+    "lightening",
+    "lightx2v",
+    "2511",
+  ],
   "qwen-image-2512-lightning-4": ["edit", "inpaint", "img2img", "mask", "fill", "2511"],
   "qwen-image-2512-lightning-8": ["edit", "inpaint", "img2img", "mask", "fill", "2511"],
   "flux-dev": ["inpaint", "mask", "fill"],
@@ -307,7 +321,11 @@ export function workflowLabelImpliesLightning(input: {
   filename?: string;
 }): boolean {
   const haystack = `${input.name} ${input.filename ?? ""}`.toLowerCase();
-  return haystack.includes("lightning") || haystack.includes("lightx2v");
+  return (
+    haystack.includes("lightning") ||
+    haystack.includes("lightening") ||
+    haystack.includes("lightx2v")
+  );
 }
 
 /** Infer 4- vs 8-step Lightning from workflow filename when possible. */
@@ -316,10 +334,18 @@ export function inferLightningStepCount(input: {
   filename?: string;
 }): 4 | 8 | undefined {
   const haystack = `${input.name} ${input.filename ?? ""}`.toLowerCase();
-  if (/(^|[^0-9])4[\s-]?step/.test(haystack) || haystack.includes("4steps")) {
+  if (
+    /(?:lightning|lightening|lightx2v)[\s_-]*4\b/.test(haystack) ||
+    /(^|[^0-9])4[\s-]?step/.test(haystack) ||
+    haystack.includes("4steps")
+  ) {
     return 4;
   }
-  if (/(^|[^0-9])8[\s-]?step/.test(haystack) || haystack.includes("8steps")) {
+  if (
+    /(?:lightning|lightening|lightx2v)[\s_-]*8\b/.test(haystack) ||
+    /(^|[^0-9])8[\s-]?step/.test(haystack) ||
+    haystack.includes("8steps")
+  ) {
     return 8;
   }
   return undefined;

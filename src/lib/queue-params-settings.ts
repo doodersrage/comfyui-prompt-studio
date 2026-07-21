@@ -31,6 +31,12 @@ import { resolveUpscaleModelFilename } from "./model-upscale-map";
 import { resolveControlNetModelFilename } from "./model-controlnet-map";
 import { loadSettingsCache } from "./settings-cache";
 import {
+  findComfyWorkflowFile,
+  mergeCustomWorkflowTokens,
+} from "./comfyui-workflow-files";
+import { getSelectedWorkflowFileId } from "./comfyui-runtime";
+import { isQwenLightningModel } from "./model-sampling-patch";
+import {
   resolveEffectiveResolutionSizeTier,
   resolveEffectiveSamplerPreset,
   resolveQueueQualityProfile,
@@ -200,11 +206,20 @@ export function resolveQueueParams(
 
   if (model) {
     const comfySettings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
-    const customTokens = comfySettings.customTokens ?? [];
+    const selectedWorkflowId = getSelectedWorkflowFileId();
+    const workflowFile = selectedWorkflowId
+      ? findComfyWorkflowFile(selectedWorkflowId)
+      : undefined;
+    const workflowCustomTokens = workflowFile?.customTokens ?? [];
+    const customTokens = mergeCustomWorkflowTokens(
+      comfySettings.customTokens,
+      workflowCustomTokens,
+    );
     const loaderMapOptions = {
       checkpointMap: shared.modelCheckpointMap,
       vaeMap: shared.modelVaeMap,
       customTokens,
+      workflowCustomTokens,
       workflow,
       precisionTier: resolveLoaderPrecisionTier({ workflow, model }),
     };
@@ -271,18 +286,37 @@ export function resolveQueueParams(
       merged.controlImageFilename = resolvedControlImage;
     }
 
+    const hasInputImage = Boolean(merged.inputImageFilename);
+    const hasMaskImage = Boolean(merged.maskImageFilename);
+    // Lightning always denoise 1 — never inherit Settings editDenoiseStrength (0.65).
     const denoise = resolveDenoiseForModel(model, {
       tool,
-      hasInputImage: Boolean(merged.inputImageFilename),
-      hasMaskImage: Boolean(merged.maskImageFilename),
-      override: shared.editDenoiseStrength,
+      hasInputImage,
+      hasMaskImage,
+      override: isQwenLightningModel(model) ? undefined : shared.editDenoiseStrength,
     });
     if (denoise != null) {
       merged.denoise = denoise;
     }
 
+    // Pure Lightning T2I is far more stable at native 1328² than tall portrait ARs.
+    if (isQwenLightningModel(model) && !hasInputImage) {
+      const square = resolveModelResolutionParams(model, "square", sizeTier);
+      if (square.width != null) {
+        merged.width = square.width;
+      }
+      if (square.height != null) {
+        merged.height = square.height;
+      }
+    }
+
     return ensureLightningSamplerParams(
-      ensureLightningNativeResolutionParams(merged, model, orientation, sizeTier),
+      ensureLightningNativeResolutionParams(
+        merged,
+        model,
+        isQwenLightningModel(model) && !hasInputImage ? "square" : orientation,
+        sizeTier,
+      ),
       model,
       presetTier,
     );

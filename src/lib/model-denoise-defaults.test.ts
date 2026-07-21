@@ -43,4 +43,30 @@ describe("model denoise defaults", () => {
   it("uses full denoise for plain T2I queue", () => {
     assert.equal(resolveDenoiseForModel("qwen-image-2512", { tool: "generate" }), 1);
   });
+
+  it("uses full denoise for Lightning edit models (refs do not lower denoise)", () => {
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-edit-2511-lightning-8", { tool: "generate" }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-edit-2511-lightning-8", { tool: "refine" }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-edit-2511-lightning-8", {
+        tool: "refine",
+        hasInputImage: true,
+      }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-edit-2511-lightning-8", {
+        tool: "refine",
+        hasInputImage: true,
+        override: 0.65,
+      }),
+      1,
+    );
+  });
 });

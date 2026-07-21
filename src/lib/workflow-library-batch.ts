@@ -107,6 +107,7 @@ function optimizeWorkflowFileRecord(input: {
     name: input.file.name,
     filename: input.file.filename,
     workflowJson: nextJson,
+    customTokens: input.file.customTokens,
     lastOptimizedAt: Date.now(),
     lastOptimizedHash: result.contentHash ?? workflowContentHash(nextJson),
     lastOptimizedModel: String(optimizeModel),

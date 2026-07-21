@@ -170,6 +170,21 @@ const QWEN_OFFICIAL_ARS = {
   },
 } as const satisfies CategoryResolutionPresets;
 
+/**
+ * Distilled Lightning is much less stable on extreme 9:16 / 16:9 latents
+ * (928×1664). Prefer ~3:4 / 4:3 and native 1328² — soft/mosaic artifacts
+ * otherwise show up even with the correct Edit Lightning LoRA.
+ */
+const QWEN_LIGHTNING_ARS = {
+  square: QWEN_OFFICIAL_ARS.square,
+  portrait: QWEN_OFFICIAL_ARS["portrait-34"],
+  landscape: QWEN_OFFICIAL_ARS["landscape-43"],
+  "portrait-34": QWEN_OFFICIAL_ARS["portrait-34"],
+  "landscape-43": QWEN_OFFICIAL_ARS["landscape-43"],
+  "portrait-23": QWEN_OFFICIAL_ARS["portrait-34"],
+  "landscape-32": QWEN_OFFICIAL_ARS["landscape-43"],
+} as const satisfies CategoryResolutionPresets;
+
 const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolutionPresets> = {
   "stable-diffusion": {
     square: {
@@ -386,14 +401,10 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
     },
   },
   "qwen-image-2512": QWEN_OFFICIAL_ARS,
-  "qwen-image-2512-lightning-4": QWEN_OFFICIAL_ARS,
-  "qwen-image-2512-lightning-8": QWEN_OFFICIAL_ARS,
-  "qwen-image-edit-2511-lightning-4": {
-    square: QWEN_OFFICIAL_ARS.square,
-  },
-  "qwen-image-edit-2511-lightning-8": {
-    square: QWEN_OFFICIAL_ARS.square,
-  },
+  "qwen-image-2512-lightning-4": QWEN_LIGHTNING_ARS,
+  "qwen-image-2512-lightning-8": QWEN_LIGHTNING_ARS,
+  "qwen-image-edit-2511-lightning-4": QWEN_LIGHTNING_ARS,
+  "qwen-image-edit-2511-lightning-8": QWEN_LIGHTNING_ARS,
   "qwen-rapid-aio-edit": QWEN_OFFICIAL_ARS,
   "qwen-rapid-aio-sfw": {
     square: QWEN_OFFICIAL_ARS.square,
@@ -514,7 +525,7 @@ export function qwenOfficialMediumSizeLadder(): Array<{ width: number; height: n
   ];
 }
 
-/** Bump undersized Lightning queues to the orientation’s native preset — keep portrait/landscape. */
+/** Bump undersized / extreme-AR Lightning queues to a stable native preset. */
 export function ensureLightningNativeResolutionParams(
   params: WorkflowParamValues,
   model: string,
@@ -536,9 +547,22 @@ export function ensureLightningNativeResolutionParams(
     return params;
   }
 
+  // Pure T2I Lightning is most stable at native square — overwrite leftover
+  // portrait/landscape dims when the caller already chose square orientation.
+  if (orientation === "square" && (width !== native.width || height !== native.height)) {
+    return { ...params, width: native.width, height: native.height };
+  }
+
   const currentPixels = width * height;
   const nativePixels = native.width * native.height;
   if (currentPixels < nativePixels * 0.85) {
+    return { ...params, width: native.width, height: native.height };
+  }
+
+  // Rewrite ultra-tall/wide Lightning latents (e.g. leftover 928×1664) to the
+  // Lightning-safe ~3:4 / 4:3 / square presets.
+  const ratio = width / height;
+  if (ratio < 0.62 || ratio > 1.62) {
     return { ...params, width: native.width, height: native.height };
   }
 

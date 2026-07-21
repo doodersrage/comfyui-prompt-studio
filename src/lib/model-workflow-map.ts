@@ -5,9 +5,11 @@ import {
   suggestWorkflowDefaultsByCategory,
   workflowRequiresInputImage,
   rankWorkflowFilesForModel,
+  workflowLabelImpliesLightning,
 } from "./workflow-category-defaults";
 import type { SharedToolSettings } from "./settings-cache";
 import { isEditQueueTool } from "./model-denoise-defaults";
+import { isQwenLightningModel } from "./model-sampling-patch";
 
 export type ModelWorkflowMap = Record<string, string>;
 
@@ -99,8 +101,43 @@ export function resolveWorkflowForModelSelection(
     return undefined;
   };
 
+  const ranked = files.length
+    ? rankWorkflowFilesForModel(model, files).filter(
+        (entry) => editTool || !workflowRequiresInputImage(entry.file.workflowJson),
+      )
+    : [];
+  const bestRankedId = ranked[0]?.file.id;
+
   const fromMap = acceptWorkflow(resolveWorkflowForModel(model, options?.map));
   if (fromMap) {
+    const mappedFile = fileById.get(fromMap);
+    const bestFile = bestRankedId ? fileById.get(bestRankedId) : undefined;
+    // Stale map from a bad "Suggested: qwen-image-2512" assign: Lightning model
+    // pinned to a non-Lightning-labeled file while a Lightning workflow exists.
+    if (
+      mappedFile &&
+      bestFile &&
+      bestRankedId &&
+      bestRankedId !== fromMap &&
+      isQwenLightningModel(model) &&
+      !workflowLabelImpliesLightning(mappedFile) &&
+      workflowLabelImpliesLightning(bestFile)
+    ) {
+      return bestRankedId;
+    }
+    // Same stale pattern when vanilla + Lightning share one map id and a
+    // better Lightning-specific file ranks higher for this Lightning model.
+    if (
+      mappedFile &&
+      bestFile &&
+      bestRankedId &&
+      bestRankedId !== fromMap &&
+      isQwenLightningModel(model) &&
+      workflowLabelImpliesLightning(bestFile) &&
+      (ranked[0]?.score ?? 0) >= (rankWorkflowFilesForModel(model, [mappedFile])[0]?.score ?? 0) + 4
+    ) {
+      return bestRankedId;
+    }
     return fromMap;
   }
 
@@ -112,14 +149,7 @@ export function resolveWorkflowForModelSelection(
     return fromSuggested;
   }
 
-  if (files.length === 0) {
-    return undefined;
-  }
-
-  const ranked = rankWorkflowFilesForModel(model, files).filter(
-    (entry) => editTool || !workflowRequiresInputImage(entry.file.workflowJson),
-  );
-  return ranked[0]?.file.id;
+  return bestRankedId;
 }
 
 export function suggestWorkflowMapForFiles(

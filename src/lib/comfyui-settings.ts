@@ -169,6 +169,41 @@ export function mergeLoraLibraryIntoCustomTokens(
   };
 }
 
+/** Keep Settings → LoRA library in sync when a workflow sets {{LORA_LIGHTNING}}. */
+export function syncLightningLoraLibraryEntry(filename: string): void {
+  const trimmed = filename.trim();
+  if (!trimmed || typeof window === "undefined") {
+    return;
+  }
+
+  const settings = loadComfyUiSettings();
+  const library = [...(settings.loraLibrary ?? [])];
+  const existingIndex = library.findIndex(
+    (entry) => entry.id.trim().toUpperCase() === "LIGHTNING",
+  );
+  if (existingIndex >= 0) {
+    if (library[existingIndex]!.tokenValue.trim() === trimmed) {
+      return;
+    }
+    library[existingIndex] = {
+      ...library[existingIndex]!,
+      tokenValue: trimmed,
+      label: library[existingIndex]!.label.trim() || "Lightning",
+    };
+  } else {
+    library.push({
+      id: "LIGHTNING",
+      label: "Lightning",
+      triggerPhrase: "",
+      tokenValue: trimmed,
+    });
+  }
+  saveComfyUiSettings({
+    ...settings,
+    loraLibrary: library,
+  });
+}
+
 const LEGACY_SETTINGS_KEYS = [
   "comfyui-settings-v3",
   "comfyui-settings-v2",
@@ -253,8 +288,16 @@ export function resetComfyUiSettings(): void {
 export function comfyUiSettingsToRuntime(
   settings: ComfyUiSettings,
 ): ComfyUiRuntimeConfig | undefined {
+  // LoRA library lives in browser settings — always merge into custom tokens so
+  // server preview/queue can resolve {{LORA_LIGHTNING}} even with useServerDefaults.
+  const merged = mergeLoraLibraryIntoCustomTokens(settings);
+  const customTokens = merged.customTokens?.length ? merged.customTokens : undefined;
+
   if (settings.useServerDefaults) {
-    return undefined;
+    return stripEmptyComfyUiRuntime({
+      customTokens,
+      queueParams: settings.queueParams,
+    });
   }
 
   return stripEmptyComfyUiRuntime({
@@ -269,7 +312,7 @@ export function comfyUiSettingsToRuntime(
         ? undefined
         : settings.negativeToken,
     queueParams: settings.queueParams,
-    customTokens: settings.customTokens,
+    customTokens,
   });
 }
 

@@ -1484,8 +1484,14 @@ export default function SettingsTool() {
               <code className="rounded bg-zinc-800 px-1 text-violet-300">
                 {"{{LORA_<id>}}"}
               </code>{" "}
-              when you save ComfyUI settings. Use trigger phrases in prompts and
-              token values for workflow injection.
+              when you save ComfyUI settings. For Qwen Lightning, use ID{" "}
+              <code className="rounded bg-zinc-800 px-1 text-violet-300">LIGHTNING</code>{" "}
+              so the token is{" "}
+              <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                {"{{LORA_LIGHTNING}}"}
+              </code>
+              , and set Token value to your 4/8-step LightX2V{" "}
+              <code className="rounded bg-zinc-800 px-1">.safetensors</code> filename.
             </p>
             {(settings.loraLibrary ?? []).length === 0 ? (
               <p className="text-xs text-zinc-600">No LoRA entries yet.</p>

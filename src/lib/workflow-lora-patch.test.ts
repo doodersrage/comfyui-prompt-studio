@@ -57,7 +57,48 @@ describe("workflow-lora-patch", () => {
     );
   });
 
-  it("treats {{LORA_LIGHTNING}} placeholder as lightning", () => {
-    assert.equal(loraNameImpliesLightning("{{LORA_LIGHTNING}}", {}), true);
+  it("prefers edit-2511 Lightning LoRA for edit Lightning models", () => {
+    const map = buildLightningLoraFilenameMap(
+      [],
+      "qwen-image-edit-2511-lightning-8",
+      [
+        "Qwen-Image-Lightning-8steps-V2.0.safetensors",
+        "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+      ],
+    );
+    assert.equal(
+      map["{{LORA_LIGHTNING}}"],
+      "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+    );
+  });
+
+  it("overrides a mismatched T2I {{LORA_LIGHTNING}} mapping for edit models when inventory has Edit LoRA", () => {
+    const map = buildLightningLoraFilenameMap(
+      [
+        {
+          token: "{{LORA_LIGHTNING}}",
+          value: "Qwen-Image-Lightning-8steps-V2.0.safetensors",
+        },
+      ],
+      "qwen-image-edit-2511-lightning-8",
+      [
+        "Qwen-Image-Lightning-8steps-V2.0.safetensors",
+        "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+      ],
+    );
+    assert.equal(
+      map["{{LORA_LIGHTNING}}"],
+      "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+    );
+  });
+
+  it("treats unresolved {{LORA_LIGHTNING}} as lightning only when mapped", () => {
+    assert.equal(loraNameImpliesLightning("{{LORA_LIGHTNING}}", {}), false);
+    assert.equal(
+      loraNameImpliesLightning("{{LORA_LIGHTNING}}", {
+        "{{LORA_LIGHTNING}}": "qwen_lightning_8steps.safetensors",
+      }),
+      true,
+    );
   });
 });

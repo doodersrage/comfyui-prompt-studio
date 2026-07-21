@@ -130,7 +130,7 @@ describe("workflow-queue-optimizer", () => {
     assert.doesNotMatch(result.workflowJson, /\{\{SHIFT\}\}/);
   });
 
-  it("still applies Final/Max enrich when skipIfUnchanged hash matches", () => {
+  it("skips Final/Max enrich for Lightning even when skipIfUnchanged hash matches", () => {
     const scaffold = buildWorkflowScaffoldForModel("qwen-image-2512-lightning-8");
     const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
     const workflowJson = JSON.stringify(workflow, null, 2);
@@ -145,10 +145,14 @@ describe("workflow-queue-optimizer", () => {
       contentHash,
     });
 
-    assert.match(result.workflowJson, /Prompt Studio — output upscale/);
+    assert.doesNotMatch(result.workflowJson, /Prompt Studio — output upscale/);
+    assert.match(
+      result.changes.map((change) => change.message).join(" "),
+      /skipped auto-bind\/enrich/i,
+    );
   });
 
-  it("inserts Lightning Lanczos upscale + polish for final/max quality", () => {
+  it("does not insert Lightning Lanczos polish — keep native ComfyUI graph", () => {
     const scaffold = buildWorkflowScaffoldForModel("qwen-image-2512-lightning-8");
     const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
 
@@ -159,13 +163,9 @@ describe("workflow-queue-optimizer", () => {
       qualityProfile: "max",
     });
 
-    assert.match(result.workflowJson, /Prompt Studio — output upscale/);
-    assert.match(result.workflowJson, /"upscale_method": "lanczos"/);
-    assert.match(result.workflowJson, /Prompt Studio — Lightning upscale polish/);
-    assert.doesNotMatch(result.workflowJson, /Prompt Studio — neural upscale/);
-    assert.doesNotMatch(result.workflowJson, /Prompt Studio — Lightning hires pass/);
-    assert.doesNotMatch(result.workflowJson, /Prompt Studio — output sharpen/);
-    assert.match(result.workflowJson, /LoraLoader/);
+    assert.doesNotMatch(result.workflowJson, /Prompt Studio — output upscale/);
+    assert.doesNotMatch(result.workflowJson, /Prompt Studio — Lightning upscale polish/);
+    assert.match(result.workflowJson, /LoraLoaderModelOnly|LoraLoader/);
     assert.match(result.workflowJson, /ModelSamplingAuraFlow/);
   });
 
@@ -206,7 +206,7 @@ describe("workflow-queue-optimizer", () => {
     assert.doesNotMatch(JSON.stringify(result.workflow), /output upscale/);
   });
 
-  it("enriches imported ComfyUI workflows on Final without Prompt Studio placeholders", () => {
+  it("normalizes EmptyLatent for Lightning imports without Final enrich", () => {
     const workflow = {
       "1": {
         class_type: "UNETLoader",
@@ -249,7 +249,7 @@ describe("workflow-queue-optimizer", () => {
     });
 
     assert.match(result.workflowJson, /EmptySD3LatentImage/);
-    assert.match(result.workflowJson, /Prompt Studio — output upscale|ImageScaleBy/);
+    assert.doesNotMatch(result.workflowJson, /Prompt Studio — output upscale/);
   });
 
   it("inserts model sampling on imported vanilla Qwen graphs without placeholders", () => {

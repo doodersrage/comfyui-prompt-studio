@@ -133,18 +133,25 @@ export async function runWorkflowPreflight(input: {
       comfyUrl: runtime?.apiUrl,
     });
 
-    issues.push(
-      ...collectWorkflowGraphPreflightIssues({
-        workflowJson: preview.workflowJson,
-        model: input.model,
-        hasInputImage: input.hasInputImage,
-        hasMaskImage: input.hasMaskImage,
-        syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
-        knownNodeTypes: objectInfo?.nodeTypes,
-        models: objectInfo?.models,
-        objectInfoUnavailable: !objectInfo,
-      }),
-    );
+    // Prefer server-side preflight on the full prepared graph. Re-parsing the
+    // optionally truncated preview JSON can false-fail Lightning LoRA checks.
+    if (preview.preflightIssues?.length) {
+      issues.push(...preview.preflightIssues);
+    } else {
+      issues.push(
+        ...collectWorkflowGraphPreflightIssues({
+          workflowJson: preview.workflowJson,
+          model: input.model,
+          hasInputImage: input.hasInputImage,
+          hasMaskImage: input.hasMaskImage,
+          syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
+          knownNodeTypes: objectInfo?.nodeTypes,
+          models: objectInfo?.models,
+          objectInfoUnavailable: !objectInfo,
+          customTokens: runtime?.customTokens,
+        }),
+      );
+    }
 
     const loaderIssues = await auditLoaderMapsAtQueueTime({
       model: input.model,

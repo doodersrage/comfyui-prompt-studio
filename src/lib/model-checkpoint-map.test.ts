@@ -51,6 +51,26 @@ describe("model checkpoint map", () => {
     assert.equal(kleinDistilled.vae, "flux2-vae.safetensors");
   });
 
+  it("does not put Rapid AIO checkpoint merges into UNETLoader", () => {
+    const loaders = resolveLoaderFilenamesForModel("qwen-image-2512-lightning-8", {
+      checkpointMap: {
+        "qwen-image-2512-lightning-8": "Qwen-Rapid-AIO-NSFW-v21.safetensors",
+      },
+    });
+    assert.equal(loaders.checkpoint, "Qwen-Rapid-AIO-NSFW-v21.safetensors");
+    assert.equal(loaders.unet, "qwen_image_2512_bf16.safetensors");
+  });
+
+  it("keeps Rapid AIO models checkpoint-only (no invented UNET)", () => {
+    const loaders = resolveLoaderFilenamesForModel("qwen-rapid-aio-nsfw", {
+      checkpointMap: {
+        "qwen-rapid-aio-nsfw": "Qwen-Rapid-AIO-NSFW-v21.safetensors",
+      },
+    });
+    assert.equal(loaders.checkpoint, "Qwen-Rapid-AIO-NSFW-v21.safetensors");
+    assert.equal(loaders.unet, undefined);
+  });
+
   it("infers Qwen 2512 lightning UNET/VAE defaults (bf16 when tier unknown)", () => {
     const lightning = resolveLoaderFilenamesForModel("qwen-image-2512-lightning-8");
     assert.equal(lightning.unet, "qwen_image_2512_bf16.safetensors");

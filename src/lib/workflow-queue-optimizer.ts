@@ -336,6 +336,34 @@ export function optimizeWorkflowForQueue(input: {
     });
   }
 
+  // Lightning: keep the imported graph intact. Auto-binding / enrich rewrites cause
+  // worm artifacts vs native ComfyUI. Sampler CFG/steps are forced at inject time.
+  if (isQwenLightningModel(input.model)) {
+    const workflowJsonLightning = JSON.stringify(workflow, null, 2);
+    const auditLightning = auditWorkflowStructure(workflowJsonLightning, input.tokens);
+    for (const warning of auditLightning.warnings) {
+      changes.push({
+        kind: "audit",
+        severity: "warn",
+        message: warning,
+      });
+    }
+    changes.push({
+      kind: "audit",
+      severity: "info",
+      message:
+        "Lightning queue: skipped auto-bind/enrich — using workflow as exported from ComfyUI.",
+    });
+    return {
+      workflow,
+      workflowJson: workflowJsonLightning,
+      bindingChanges: [],
+      changes,
+      audit: auditLightning,
+      contentHash: workflowContentHash(workflowJsonLightning),
+    };
+  }
+
   let skipBinding = false;
   if (input.skipIfUnchanged && input.contentHash) {
     const currentHash = workflowContentHash(workflowJson);
@@ -385,11 +413,9 @@ export function optimizeWorkflowForQueue(input: {
 
   workflow = JSON.parse(workflowJson) as Record<string, unknown>;
 
-  // Imported graphs without PS placeholders still benefit from Final/Max enrich + sampling inserts.
-  const shouldEnrichGraph =
-    enrichGraph &&
-    (!isQwenLightningModel(input.model) ||
-      profileUsesUpscaleEnrich(input.qualityProfile));
+  // Imported Lightning graphs should match native ComfyUI — skip Final/Max
+  // Lanczos/sharpen enrich that introduces halos and grain.
+  const shouldEnrichGraph = enrichGraph && !isQwenLightningModel(input.model);
 
   // Batch queue: when bindings are stable and enrich markers already exist, skip re-enrich.
   const skipEnrich =

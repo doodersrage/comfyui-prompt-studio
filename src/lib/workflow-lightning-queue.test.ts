@@ -129,13 +129,13 @@ describe("workflow-lightning-queue", () => {
       inputs: { shift: number; model: [string, number] };
     };
     assert.equal(aura.class_type, "ModelSamplingAuraFlow");
-    assert.equal(aura.inputs.shift, 3.1);
+    assert.equal(aura.inputs.shift, 3);
     const loraId = aura.inputs.model[0];
     const lora = result[loraId] as {
       class_type: string;
       inputs: { lora_name: string; model: [string, number]; strength_model: number };
     };
-    assert.equal(lora.class_type, "LoraLoader");
+    assert.equal(lora.class_type, "LoraLoaderModelOnly");
     assert.equal(lora.inputs.lora_name, "qwen_lightning_8steps.safetensors");
     assert.equal(lora.inputs.strength_model, 1);
     assert.deepEqual(lora.inputs.model, ["1", 0]);
@@ -192,12 +192,85 @@ describe("workflow-lightning-queue", () => {
   it("errors when lightning workflow lacks a LoraLoader", () => {
     const issues = auditLightningWorkflowIssues({
       model: "qwen-image-2512-lightning-8",
+      // No loaders and no samplers — queue prep cannot insert a LoRA node.
       workflowJson: JSON.stringify({
-        "1": { class_type: "UNETLoader", inputs: { unet_name: "qwen_image_2512_bf16.safetensors" } },
+        "9": { class_type: "SaveImage", inputs: { images: ["8", 0] } },
       }),
     });
     assert.equal(issues[0]?.severity, "error");
     assert.match(issues[0]?.message ?? "", /LoraLoader/i);
+  });
+
+  it("does not false-error when queue prep can insert Lightning LoRA onto UNET graphs", () => {
+    const issues = auditLightningWorkflowIssues({
+      model: "qwen-image-2512-lightning-8",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+        },
+        "8": {
+          class_type: "KSampler",
+          inputs: {
+            model: ["1", 0],
+            seed: 1,
+            steps: 8,
+            cfg: 1,
+            denoise: 1,
+          },
+        },
+      }),
+      loraFilenames: {
+        "{{LORA_LIGHTNING}}": "qwen_lightning_8steps.safetensors",
+      },
+    });
+    assert.equal(
+      issues.filter((issue) => /LoraLoader|Lightning LoRA mapped/i.test(issue.message))
+        .length,
+      0,
+    );
+  });
+
+  it("inserts Lightning LoRA on SamplerCustom graphs via UNET consumers", () => {
+    const workflow = {
+      "1": { class_type: "UNETLoader", inputs: { unet_name: "qwen.safetensors" } },
+      "2": { class_type: "CLIPLoader", inputs: { clip_name: "clip.safetensors", type: "qwen_image" } },
+      "3": {
+        class_type: "BasicGuider",
+        inputs: { model: ["1", 0], conditioning: ["4", 0] },
+      },
+      "8": {
+        class_type: "SamplerCustom",
+        inputs: {
+          guider: ["3", 0],
+          noise: ["9", 0],
+          sampler: ["10", 0],
+          sigmas: ["11", 0],
+          latent_image: ["6", 0],
+        },
+      },
+    };
+
+    const result = ensureLightningModelChainInWorkflow(
+      workflow,
+      "qwen-image-2512-lightning-8",
+      { "{{LORA_LIGHTNING}}": "qwen_lightning_8steps.safetensors" },
+    );
+
+    const guider = result["3"] as { inputs: { model: [string, number] } };
+    const auraId = guider.inputs.model[0];
+    const aura = result[auraId] as {
+      class_type: string;
+      inputs: { model: [string, number]; shift: number };
+    };
+    assert.equal(aura.class_type, "ModelSamplingAuraFlow");
+    const loraId = aura.inputs.model[0];
+    const lora = result[loraId] as {
+      class_type: string;
+      inputs: { lora_name: string };
+    };
+    assert.match(lora.class_type, /LoraLoader/);
+    assert.equal(lora.inputs.lora_name, "qwen_lightning_8steps.safetensors");
   });
 
   it("detects LoraLoader nodes", () => {
@@ -289,7 +362,7 @@ describe("lightning queue precision and sampling", () => {
       {
         "7": {
           class_type: "ModelSamplingAuraFlow",
-          inputs: { model: ["1", 0], shift: 3.1 },
+          inputs: { model: ["1", 0], shift: 3 },
         },
       },
       {},
@@ -297,7 +370,7 @@ describe("lightning queue precision and sampling", () => {
     );
     assert.equal(
       (kept.workflow["7"] as { inputs: { shift: number } }).inputs.shift,
-      3.1,
+      3,
     );
 
     const recovered = patchModelSamplingInWorkflow(
@@ -312,7 +385,7 @@ describe("lightning queue precision and sampling", () => {
     );
     assert.equal(
       (recovered.workflow["7"] as { inputs: { shift: number } }).inputs.shift,
-      3.1,
+      3,
     );
   });
 
@@ -364,7 +437,7 @@ describe("lightning queue precision and sampling", () => {
     );
   });
 
-  it("forces latent size and bf16 loaders at queue prep", () => {
+  it("forces UNET bf16 at queue prep but leaves CLIP filenames alone", () => {
     const workflow = {
       "1": {
         class_type: "UNETLoader",
@@ -397,7 +470,7 @@ describe("lightning queue precision and sampling", () => {
         params: { width: 1328, height: 1328 },
         loaders: {
           unet: "qwen_image_2512_bf16.safetensors",
-          dualClip: "qwen_2.5_vl_7b.safetensors",
+          dualClip: "qwen_2.5_vl_7b_fp8_scaled.safetensors",
         },
       },
     );
@@ -411,15 +484,199 @@ describe("lightning queue precision and sampling", () => {
     );
     assert.equal(
       (result["2"] as { inputs: { clip_name: string } }).inputs.clip_name,
-      "qwen_2.5_vl_7b.safetensors",
+      "qwen_2.5_vl_7b_fp8_scaled.safetensors",
     );
+    // Lightning LoRA present — still apply queue latent size (avoids mosaic from stale 1024).
     assert.deepEqual(
       (result["6"] as { inputs: { width: number; height: number } }).inputs,
       { width: 1328, height: 1328, batch_size: 1 },
     );
   });
 
-  it("forces Lightning LoRA strength to 1 at queue prep", () => {
+  it("does not rewrite T2I fp8 UNET to Edit when model id is edit-lightning", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: {
+          unet_name: "qwen_image_2512_fp8_e4m3fn.safetensors",
+          weight_dtype: "fp8_e4m3fn",
+        },
+      },
+      "7": {
+        class_type: "LoraLoader",
+        inputs: { lora_name: "qwen_lightning_8steps.safetensors", strength_model: 1 },
+      },
+    };
+    const result = prepareLightningWorkflowForQueue(
+      workflow,
+      "qwen-image-edit-2511-lightning-8",
+      {},
+      {
+        params: { width: 1328, height: 1328 },
+        loaders: { unet: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+    );
+    assert.equal(
+      (result["1"] as { inputs: { unet_name: string } }).inputs.unet_name,
+      "qwen_image_2512_bf16.safetensors",
+    );
+  });
+
+  it("realigns T2I Lightning LoRA to Edit LoRA for edit-2511 Lightning models", () => {
+    const workflow = {
+      "7": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name: "Qwen-Image-Lightning-8steps-V2.0.safetensors",
+          strength_model: 1,
+        },
+      },
+      "11": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["7", 0], shift: 3 },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 8,
+          cfg: 1,
+          denoise: 1,
+          model: ["11", 0],
+        },
+      },
+    };
+    const result = prepareLightningWorkflowForQueue(
+      workflow,
+      "qwen-image-edit-2511-lightning-8",
+      {
+        "{{LORA_LIGHTNING}}":
+          "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+      },
+    );
+    assert.equal(
+      (result["7"] as { inputs: { lora_name: string } }).inputs.lora_name,
+      "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+    );
+  });
+
+  it("passthrough still force-resizes latent on native-complete Lightning graphs", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: {
+          unet_name: "qwen_image_edit_2511_bf16.safetensors",
+          weight_dtype: "default",
+        },
+      },
+      "7": {
+        class_type: "LoraLoader",
+        inputs: {
+          model: ["1", 0],
+          lora_name: "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "11": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["7", 0], shift: 3.1 },
+      },
+      "6": {
+        class_type: "EmptySD3LatentImage",
+        inputs: { width: 1024, height: 1024, batch_size: 1 },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 8,
+          cfg: 1,
+          sampler_name: "euler",
+          scheduler: "simple",
+          denoise: 1,
+          model: ["11", 0],
+          latent_image: ["6", 0],
+        },
+      },
+    };
+    const result = prepareLightningWorkflowForQueue(
+      workflow,
+      "qwen-image-edit-2511-lightning-8",
+      {},
+      {
+        params: { width: 1328, height: 1328 },
+        loaders: { unet: "qwen_image_2512_bf16.safetensors" },
+      },
+    );
+    assert.deepEqual(
+      (result["6"] as { inputs: { width: number; height: number } }).inputs,
+      { width: 1328, height: 1328, batch_size: 1 },
+    );
+    assert.equal(
+      (result["1"] as { inputs: { unet_name: string } }).inputs.unet_name,
+      "qwen_image_edit_2511_bf16.safetensors",
+    );
+    assert.equal(
+      (result["11"] as { inputs: { model: [string, number] } }).inputs.model[0],
+      "7",
+    );
+  });
+
+  it("disconnects EditPlus reference images for Lightning txt2img queues", () => {
+    const workflow = {
+      "900": {
+        class_type: "LoadImage",
+        inputs: { image: "baked-ref.png" },
+      },
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "a scene",
+          clip: ["2", 0],
+          vae: ["3", 0],
+          image1: ["900", 0],
+        },
+      },
+      "5": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "bad",
+          clip: ["2", 0],
+          vae: ["3", 0],
+          image1: ["900", 0],
+        },
+      },
+      "7": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name: "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+    };
+    const result = prepareLightningWorkflowForQueue(
+      workflow,
+      "qwen-image-edit-2511-lightning-8",
+      {
+        "{{LORA_LIGHTNING}}":
+          "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+      },
+      { params: { width: 1328, height: 1328 } },
+    );
+    assert.equal(
+      "image1" in (result["4"] as { inputs: Record<string, unknown> }).inputs,
+      false,
+    );
+    assert.equal(
+      "image1" in (result["5"] as { inputs: Record<string, unknown> }).inputs,
+      false,
+    );
+    assert.equal(result["900"], undefined);
+  });
+
+  it("forces Lightning LoRA model strength to 1 without changing CLIP strength", () => {
     const workflow = {
       "7": {
         class_type: "LoraLoader",
@@ -436,7 +693,7 @@ describe("lightning queue precision and sampling", () => {
     );
     const lora = (result["7"] as { inputs: Record<string, number> }).inputs;
     assert.equal(lora.strength_model, 1);
-    assert.equal(lora.strength_clip, 1);
+    assert.equal(lora.strength_clip, 0.65);
   });
 
   it("resolves {{LORA_LIGHTNING}} from custom tokens at queue prep", () => {

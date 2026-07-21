@@ -44,4 +44,29 @@ describe("comfyui settings lora migration", () => {
       true,
     );
   });
+
+  it("ships LoRA library tokens in runtime even when useServerDefaults is on", async () => {
+    const { comfyUiSettingsToRuntime } = await import("./comfyui-settings.ts");
+    const runtime = comfyUiSettingsToRuntime({
+      useServerDefaults: true,
+      loraLibrary: [
+        {
+          id: "LIGHTNING",
+          label: "Lightning",
+          triggerPhrase: "",
+          tokenValue: "qwen_lightning_8steps.safetensors",
+        },
+      ],
+    });
+
+    assert.ok(runtime);
+    assert.equal(
+      runtime?.customTokens?.some(
+        (entry) =>
+          entry.token === "{{LORA_LIGHTNING}}" &&
+          entry.value === "qwen_lightning_8steps.safetensors",
+      ),
+      true,
+    );
+  });
 });

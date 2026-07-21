@@ -43,7 +43,7 @@ describe("model sampling patch", () => {
     assert.equal(modelUsesShiftSamplingPatch("qwen-image-2512"), true);
   });
 
-  it("resolves lightning shift placeholders to Qwen AuraFlow shift (~3.1)", () => {
+  it("resolves lightning shift placeholders to LightX2V AuraFlow shift (3)", () => {
     const workflow = {
       "7": {
         class_type: "ModelSamplingAuraFlow",
@@ -57,7 +57,7 @@ describe("model sampling patch", () => {
       "qwen-image-2512-lightning-8",
     );
     const inputs = (result.workflow["7"] as { inputs: Record<string, unknown> }).inputs;
-    assert.equal(inputs.shift, 3.1);
+    assert.equal(inputs.shift, 3);
     assert.equal(result.patched.samplingShift, 1);
   });
 

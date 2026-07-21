@@ -18,6 +18,7 @@ export function runWorkflowPreflightSync(input: {
   knownNodeTypes?: Set<string> | string[];
   models?: ComfyUiModelLists | null;
   objectInfoUnavailable?: boolean;
+  customTokens?: Array<{ token: string; value: string }>;
 }): { ok: boolean; issues: WorkflowPreflightIssue[] } {
   void input.negativePrompt;
   return summarizeWorkflowGraphPreflight(input);

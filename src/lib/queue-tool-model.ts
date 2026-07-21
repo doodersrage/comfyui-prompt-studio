@@ -82,13 +82,15 @@ function normalizeModel(model: ComfyImageModel | string): ComfyImageModel {
 }
 
 /**
- * Keep the user's selected target model for workflow / checkpoint queueing.
- * Do not silently swap edit Lightning presets away from their mapped workflows.
+ * Queue uses the selected model as-is. Edit-2511 Lightning stays on its own
+ * stack (and {{LORA_LIGHTNING}} overrides) — remapping Generate → 2512 broke
+ * LoRA resolution when only the Edit LightX2V file is installed.
  */
 export function resolveModelForQueueTool(
   model: ComfyImageModel | string,
   _tool?: string,
 ): ComfyImageModel {
+  void _tool;
   return normalizeModel(model);
 }
 

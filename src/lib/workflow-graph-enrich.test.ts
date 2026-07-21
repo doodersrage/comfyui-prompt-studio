@@ -429,6 +429,113 @@ describe("workflow-graph-enrich", () => {
     assert.notEqual(outputNode.class_type, "ImageSharpen");
   });
 
+  it("inserts soft ImageBlur moiré polish for Rapid AIO on final/max", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-rapid-aio-nsfw",
+      qualityProfile: "final",
+      enrichSampling: false,
+      enrichUpscale: false,
+    });
+
+    const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
+    const restoreId = saveNode.inputs.images[0];
+    const restoreNode = result.workflow[restoreId] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+      _meta?: { title?: string };
+    };
+    assert.equal(restoreNode.class_type, "ImageScaleBy");
+    assert.equal(restoreNode.inputs.upscale_method, "lanczos");
+    assert.equal(restoreNode.inputs.scale_by, 1.25);
+    assert.match(restoreNode._meta?.title ?? "", /size restore/i);
+
+    const downId = (restoreNode.inputs.image as [string, number])[0];
+    const downNode = result.workflow[downId] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
+    assert.equal(downNode.class_type, "ImageScaleBy");
+    assert.equal(downNode.inputs.upscale_method, "area");
+    assert.equal(downNode.inputs.scale_by, 0.8);
+
+    const blurId = (downNode.inputs.image as [string, number])[0];
+    const blurNode = result.workflow[blurId] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
+    assert.equal(blurNode.class_type, "ImageBlur");
+    assert.equal(blurNode.inputs.sigma, 0.5);
+    assert.ok(result.changes.some((change) => /moiré|moire/i.test(change.message)));
+  });
+
+  it("skips Final/Max output upscale for Rapid AIO so moiré is not re-amplified", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-rapid-aio-nsfw",
+      qualityProfile: "max",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+      enrichSampling: false,
+    });
+
+    assert.equal(
+      result.changes.some((change) => /output upscale|neural upscale/i.test(change.message)),
+      false,
+    );
+    assert.ok(result.changes.some((change) => /moiré|moire/i.test(change.message)));
+  });
+
+  it("skips Rapid AIO moiré polish on draft profile", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-rapid-aio-sfw",
+      qualityProfile: "draft",
+      enrichSampling: false,
+      enrichUpscale: false,
+    });
+
+    assert.equal(
+      result.changes.some((change) => /moiré|moire/i.test(change.message)),
+      false,
+    );
+  });
+
   it("inserts SDXL refiner pass before VAEDecode on final quality", () => {
     const workflow = {
       "1": {

@@ -75,12 +75,14 @@ export function workflowFileToPreset(input: {
   name: string;
   workflowJson: string;
   createdAt?: number;
+  customTokens?: import("./comfyui-config").CustomWorkflowToken[];
 }): ComfyWorkflowPreset {
   return {
     id: input.id ?? crypto.randomUUID(),
     name: input.name,
     createdAt: input.createdAt ?? Date.now(),
     workflowJson: input.workflowJson,
+    customTokens: input.customTokens,
   };
 }
 
@@ -149,6 +151,7 @@ export function applyWorkflowPresetPackToLibrary(pack: WorkflowPresetPack): numb
       name: preset.name,
       workflowJson,
       createdAt: preset.createdAt,
+      customTokens: preset.customTokens,
       lastOptimizedHash: workflowContentHash(workflowJson),
     });
     count += 1;

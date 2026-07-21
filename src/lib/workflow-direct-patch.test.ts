@@ -12,6 +12,29 @@ import {
 import { DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN } from "./model-checkpoint-map.ts";
 
 describe("workflow direct patch", () => {
+  it("does not swap Qwen T2I UNET to Edit under fp8→bf16 precision align", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: {
+          unet_name: "qwen_image_2512_fp8_e4m3fn.safetensors",
+          weight_dtype: "fp8_e4m3fn",
+        },
+      },
+    };
+
+    const result = patchLoaderNodesInWorkflow(workflow, {
+      unet: "qwen_image_edit_2511_bf16.safetensors",
+    });
+    const node = result.workflow["1"] as {
+      inputs?: { unet_name?: string; weight_dtype?: string };
+    };
+    // Family mismatch — leave the concrete T2I UNET alone (Lightning prep rewrites
+    // fp8→bf16 within-family separately).
+    assert.equal(node.inputs?.unet_name, "qwen_image_2512_fp8_e4m3fn.safetensors");
+    assert.equal(result.patched.unet, undefined);
+  });
+
   it("aligns fp8 weight_dtype to default when UNET filename is bf16", () => {
     const workflow = {
       "1": {

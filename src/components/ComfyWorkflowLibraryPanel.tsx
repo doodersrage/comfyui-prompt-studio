@@ -2,17 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { prepareWorkflowJsonImport } from "@/lib/workflow-import";
+import type { CustomWorkflowToken } from "@/lib/comfyui-config";
 import {
   validateWorkflowJson,
   type WorkflowPlaceholderTokens,
 } from "@/lib/comfyui-config";
 import {
   deleteComfyWorkflowFile,
+  getWorkflowTokenValue,
   loadComfyWorkflowFiles,
+  setWorkflowTokenValue,
   upsertComfyWorkflowFile,
   workflowFileDisplayName,
   workflowFileNameFromPath,
   workflowFileSourceFilename,
+  WORKFLOW_TOKEN_FIELDS,
   type ComfyWorkflowFile,
 } from "@/lib/comfyui-workflow-files";
 import {
@@ -39,7 +43,7 @@ import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { markOnboardingWorkflowImported } from "@/lib/onboarding-hooks";
 import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
-import { loadComfyUiSettings } from "@/lib/comfyui-settings";
+import { loadComfyUiSettings, syncLightningLoraLibraryEntry } from "@/lib/comfyui-settings";
 import {
   buildControlNetWorkflowScaffold,
   scaffoldWorkflowForModel,
@@ -47,6 +51,7 @@ import {
 } from "@/lib/workflow-scaffold";
 import { inferModelsFromWorkflowLabel } from "@/lib/workflow-category-defaults";
 import { assignWorkflowToInferredModels } from "@/lib/model-workflow-map";
+import { COMFY_IMAGE_MODELS } from "@/lib/comfy-models/client";
 import {
   optimizeWorkflowForQueue,
   suggestedOptimizedWorkflowName,
@@ -77,6 +82,7 @@ export default function ComfyWorkflowLibraryPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingJson, setEditingJson] = useState("");
+  const [editingTokens, setEditingTokens] = useState<CustomWorkflowToken[]>([]);
   const [editError, setEditError] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importErrorDetail, setImportErrorDetail] = useState<string | null>(null);
@@ -162,8 +168,42 @@ export default function ComfyWorkflowLibraryPanel({
     setEditingId(file.id);
     setEditingName(file.name);
     setEditingJson(file.workflowJson);
+    setEditingTokens(file.customTokens ?? []);
     setEditError(null);
   }, []);
+
+  /** Persist token overrides immediately — users often set Lightning LoRA then leave without Save. */
+  const persistEditingTokens = useCallback(
+    (nextTokens: CustomWorkflowToken[]) => {
+      setEditingTokens(nextTokens);
+      if (!editingId) {
+        return;
+      }
+      const existing = files.find((entry) => entry.id === editingId);
+      if (!existing) {
+        return;
+      }
+      const saved = upsertComfyWorkflowFile({
+        id: editingId,
+        createdAt: existing.createdAt,
+        filename: existing.filename,
+        name: existing.name,
+        workflowJson: existing.workflowJson,
+        customTokens: nextTokens,
+        lastOptimizedAt: existing.lastOptimizedAt,
+        lastOptimizedHash: existing.lastOptimizedHash,
+        lastOptimizedModel: existing.lastOptimizedModel,
+      });
+      setFiles((previous) =>
+        previous.map((entry) => (entry.id === saved.id ? saved : entry)),
+      );
+      const lightning = getWorkflowTokenValue(nextTokens, "{{LORA_LIGHTNING}}").trim();
+      if (lightning) {
+        syncLightningLoraLibraryEntry(lightning);
+      }
+    },
+    [editingId, files],
+  );
 
   const assignInferredModels = useCallback(
     (workflowId: string, models: ReturnType<typeof inferModelsFromWorkflowLabel>, overwrite = false) => {
@@ -173,7 +213,13 @@ export default function ComfyWorkflowLibraryPanel({
       }
       const shared = loadSettingsCache().shared;
       const nextMap = assignWorkflowToInferredModels(workflowId, models, shared.modelWorkflowMap, overwrite);
-      saveSharedSettings({ ...shared, modelWorkflowMap: nextMap });
+      saveSharedSettings({
+        ...shared,
+        modelWorkflowMap: nextMap,
+        selectedWorkflowFileId: workflowId,
+      });
+      setSelectedWorkflowFileId(workflowId);
+      setSelectedId(workflowId);
       onStatus?.(`Assigned workflow to ${models.length} model(s): ${models.join(", ")}`);
     },
     [onStatus],
@@ -232,6 +278,7 @@ export default function ComfyWorkflowLibraryPanel({
     setEditingId(null);
     setEditingName("");
     setEditingJson("");
+    setEditingTokens([]);
     setEditError(null);
   }, []);
 
@@ -253,6 +300,10 @@ export default function ComfyWorkflowLibraryPanel({
       filename: existing?.filename,
       name: editingName.trim() || existing?.name || "Workflow",
       workflowJson: editingJson.trim(),
+      customTokens: editingTokens,
+      lastOptimizedAt: existing?.lastOptimizedAt,
+      lastOptimizedHash: existing?.lastOptimizedHash,
+      lastOptimizedModel: existing?.lastOptimizedModel,
     });
     refresh();
     cancelEdit();
@@ -262,6 +313,7 @@ export default function ComfyWorkflowLibraryPanel({
     editingId,
     editingJson,
     editingName,
+    editingTokens,
     files,
     onStatus,
     placeholderTokens,
@@ -689,30 +741,61 @@ export default function ComfyWorkflowLibraryPanel({
                         {sourceFilename ? `${sourceFilename} · ` : ""}
                         {new Date(file.createdAt).toLocaleString()} ·{" "}
                         {(file.workflowJson.length / 1024).toFixed(1)} KB
+                        {file.customTokens && file.customTokens.length > 0
+                          ? ` · ${file.customTokens.length} token override${file.customTokens.length === 1 ? "" : "s"}`
+                          : ""}
                       </p>
-                      {inferredModels.length > 0 ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <p className="type-caption text-violet-300/80">
-                            Suggested: {inferredModels.join(", ")}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {inferredModels.length > 0 ? (
+                          <>
+                            <p className="type-caption text-violet-300/80">
+                              Suggested: {inferredModels.join(", ")}
+                            </p>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => assignInferredModels(file.id, inferredModels)}
+                            >
+                              Assign to models
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                assignInferredModels(file.id, inferredModels, true)
+                              }
+                            >
+                              Overwrite map
+                            </Button>
+                          </>
+                        ) : (
+                          <p className="type-caption text-zinc-500">
+                            No model inferred from the name — assign manually:
                           </p>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => assignInferredModels(file.id, inferredModels)}
-                          >
-                            Assign to models
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => assignInferredModels(file.id, inferredModels, true)}
-                          >
-                            Overwrite map
-                          </Button>
-                        </div>
-                      ) : null}
+                        )}
+                        <SelectInput
+                          aria-label={`Manually assign ${displayName} to a model`}
+                          className="max-w-[16rem] text-xs"
+                          defaultValue=""
+                          onChange={(event) => {
+                            const modelId = event.target.value.trim();
+                            if (!modelId) {
+                              return;
+                            }
+                            assignInferredModels(file.id, [modelId], true);
+                            event.target.value = "";
+                          }}
+                        >
+                          <option value="">Assign to model…</option>
+                          {COMFY_IMAGE_MODELS.map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.id}
+                            </option>
+                          ))}
+                        </SelectInput>
+                      </div>
                     </div>
                     <ToolActionRow>
                       <Button
@@ -750,6 +833,44 @@ export default function ComfyWorkflowLibraryPanel({
                           onChange={(event) => setEditingName(event.target.value)}
                         />
                       </label>
+                      <div className="space-y-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3">
+                        <div>
+                          <p className="type-caption text-zinc-300">
+                            Per-workflow token overrides
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-600">
+                            Unique to this workflow. Beat Settings → LoRA library and the
+                            global checkpoint map when this file is selected for Send.
+                            Token overrides save as you type.
+                          </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {WORKFLOW_TOKEN_FIELDS.map((field) => (
+                            <label key={field.token} className="block space-y-1.5">
+                              <span className="type-caption">
+                                {field.label}{" "}
+                                <code className="text-[10px] text-violet-300/90">
+                                  {field.token}
+                                </code>
+                              </span>
+                              <TextInput
+                                value={getWorkflowTokenValue(editingTokens, field.token)}
+                                onChange={(event) =>
+                                  persistEditingTokens(
+                                    setWorkflowTokenValue(
+                                      editingTokens,
+                                      field.token,
+                                      event.target.value,
+                                    ),
+                                  )
+                                }
+                                placeholder={field.hint}
+                                className="font-mono text-xs"
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                       <label className="block space-y-2">
                         <span className="type-caption">Workflow JSON (ComfyUI API format)</span>
                         <MonoTextArea

@@ -9,10 +9,14 @@ import {
 } from "./queue-tool-model";
 
 describe("queue-tool-model", () => {
-  it("keeps the selected Lightning edit model on generate (no silent remap)", () => {
+  it("keeps Edit Lightning on generate queue (same model + LoRA stack)", () => {
     assert.equal(
       resolveModelForQueueTool("qwen-image-edit-2511-lightning-8", "generate"),
       "qwen-image-edit-2511-lightning-8",
+    );
+    assert.equal(
+      resolveModelForQueueTool("qwen-image-edit-2511-lightning-4", "generate"),
+      "qwen-image-edit-2511-lightning-4",
     );
   });
 
@@ -36,7 +40,7 @@ describe("queue-tool-model", () => {
     );
   });
 
-  it("keeps edit model on refine tool", () => {
+  it("keeps edit model on refine tool queue", () => {
     assert.equal(
       resolveModelForQueueTool("qwen-image-edit-2511-lightning-8", "refine"),
       "qwen-image-edit-2511-lightning-8",

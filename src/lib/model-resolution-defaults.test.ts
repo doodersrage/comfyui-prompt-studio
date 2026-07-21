@@ -91,20 +91,44 @@ describe("model resolution defaults", () => {
   it("keeps lightning portrait/landscape presets (not forced square)", () => {
     assert.deepEqual(
       getModelResolutionPreset("qwen-image-2512-lightning-8", "portrait", "max"),
-      { width: 928, height: 1664 },
+      { width: 1104, height: 1472 },
     );
     assert.deepEqual(
       getModelResolutionPreset("qwen-image-2512-lightning-8", "landscape", "medium"),
-      { width: 1664, height: 928 },
+      { width: 1472, height: 1104 },
     );
     assert.deepEqual(
       ensureLightningNativeResolutionParams(
-        { width: 928, height: 1664 },
+        { width: 1104, height: 1472 },
         "qwen-image-2512-lightning-8",
         "portrait",
         "max",
       ),
-      { width: 928, height: 1664 },
+      { width: 1104, height: 1472 },
+    );
+  });
+
+  it("rewrites mild portrait to native square when orientation is forced square", () => {
+    assert.deepEqual(
+      ensureLightningNativeResolutionParams(
+        { width: 1104, height: 1472 },
+        "qwen-image-2512-lightning-8",
+        "square",
+        "max",
+      ),
+      { width: 1328, height: 1328 },
+    );
+  });
+
+  it("rewrites extreme 928×1664 lightning portrait queues to ~3:4", () => {
+    assert.deepEqual(
+      ensureLightningNativeResolutionParams(
+        { width: 928, height: 1664 },
+        "qwen-image-edit-2511-lightning-8",
+        "portrait",
+        "max",
+      ),
+      { width: 1104, height: 1472 },
     );
   });
 
@@ -116,7 +140,7 @@ describe("model resolution defaults", () => {
         "portrait",
         "medium",
       ),
-      { width: 928, height: 1664 },
+      { width: 1104, height: 1472 },
     );
   });
 

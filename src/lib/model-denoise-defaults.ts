@@ -2,6 +2,7 @@ import {
   getComfyModelDefinition,
   type ComfyImageModel,
 } from "./comfy-models/client";
+import { isQwenLightningModel } from "./model-sampling-patch";
 
 export const DEFAULT_EDIT_DENOISE = 0.65;
 
@@ -37,6 +38,11 @@ export function isEditCapableModel(model: ComfyImageModel | string): boolean {
   return /edit|inpaint/i.test(model);
 }
 
+/** Phr00t Rapid AIO single-file checkpoints (SFW / NSFW / Edit). */
+export function isQwenRapidAioModel(model?: string): boolean {
+  return /^qwen-rapid-aio-/i.test(String(model ?? "").trim());
+}
+
 export function isQwenEditModel(model: ComfyImageModel | string): boolean {
   const def = getComfyModelDefinition(model);
   if (def?.profile === "qwen_edit" || def?.profile === "qwen_edit_instruction") {
@@ -56,6 +62,12 @@ export function isEditQueueTool(tool?: string): boolean {
   return Boolean(tool && EDIT_TOOLS.has(tool));
 }
 
+/**
+ * Lightning distilled recipes (including edit-2511 Lightning) expect denoise 1
+ * with TextEncodeQwenImageEditPlus + EmptyLatent. Soft img2img denoise (0.65)
+ * fights the LoRA and causes soft/garbled artifacts vs native ComfyUI — even
+ * when a reference image is attached (refs go through the encode node, not VAEEncode).
+ */
 export function resolveDenoiseForModel(
   model: ComfyImageModel | string,
   options?: {
@@ -65,6 +77,11 @@ export function resolveDenoiseForModel(
     override?: number;
   },
 ): number | undefined {
+  // Lightning must ignore Settings editDenoiseStrength / soft overrides.
+  if (isQwenLightningModel(model)) {
+    return 1;
+  }
+
   if (options?.override != null && options.override.toString().trim() !== "") {
     return clampDenoise(Number(options.override));
   }

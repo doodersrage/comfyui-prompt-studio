@@ -151,7 +151,7 @@ function injectPromptsIntoWorkflow(
   const { params, loaders, customTokens } = resolveQueueInjectionContext({
     runtime,
     override: request.params,
-    model: request.model ?? runtime?.queueTargetModel,
+    model: runtime?.queueTargetModel ?? request.model,
     workflow,
   });
   const model = runtime?.queueTargetModel ?? request.model;
@@ -213,7 +213,7 @@ function injectPromptsIntoWorkflow(
       directWorkflowPatching: runtime?.directWorkflowPatching,
       syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
       loaders,
-      model: request.model ?? runtime?.queueTargetModel,
+      model: runtime?.queueTargetModel ?? request.model,
       availableLoras: enrichInventory?.availableLoras,
     },
   );
@@ -295,6 +295,7 @@ export async function queuePromptToComfyUi(
               knownNodeTypes: objectInfo?.nodeTypes,
               models: objectInfo?.models,
               objectInfoUnavailable: !objectInfo,
+              customTokens: runtime?.customTokens,
             });
             if (!preflight.ok) {
               return {

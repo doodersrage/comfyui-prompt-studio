@@ -9,6 +9,8 @@ import {
 } from "./workflow-prompt-encode";
 import {
   forceResolveLoaderPlaceholders,
+  patchLoadImageMaskNodesInWorkflow,
+  patchLoadImageNodesInWorkflow,
   patchLoaderNodesInWorkflow,
   patchWorkflowDirectParams,
 } from "./workflow-direct-patch";
@@ -100,6 +102,11 @@ export type ComfyUiRuntimeConfig = {
   negativeToken?: string;
   queueParams?: WorkflowParamValues;
   customTokens?: CustomWorkflowToken[];
+  /**
+   * Tokens from the selected workflow library file only. Beat Settings tokens for
+   * the same key, and beat modelCheckpointMap for CHECKPOINT/UNET/VAE.
+   */
+  workflowCustomTokens?: CustomWorkflowToken[];
   /** When false, skip direct EmptyLatentImage / loader patching (placeholder injection still runs). */
   directWorkflowPatching?: boolean;
   /** When true, overwrite hardcoded loader filenames with the target model at queue time. */
@@ -323,6 +330,7 @@ export function ensureQueueLoaderParams(
     vaeMap?: ModelVaeMap;
     unetMap?: ModelUnetMap;
     customTokens?: CustomWorkflowToken[];
+    workflowCustomTokens?: CustomWorkflowToken[];
     precisionTier?: LoaderPrecisionTier;
     workflow?: Record<string, unknown>;
   },
@@ -333,14 +341,24 @@ export function ensureQueueLoaderParams(
 
   const loaders = resolveLoaderFilenamesForModel(model, options);
   const next = { ...params };
+  const workflowTokens = options?.workflowCustomTokens ?? [];
+  const hasWorkflowCheckpoint = workflowTokens.some(
+    (entry) => entry.token.trim() === DEFAULT_CHECKPOINT_TOKEN && entry.value.trim(),
+  );
+  const hasWorkflowUnet = workflowTokens.some(
+    (entry) => entry.token.trim() === DEFAULT_UNET_TOKEN && entry.value.trim(),
+  );
+  const hasWorkflowVae = workflowTokens.some(
+    (entry) => entry.token.trim() === DEFAULT_VAE_TOKEN && entry.value.trim(),
+  );
 
-  if (!next.checkpointFilename?.trim() && loaders.checkpoint) {
+  if ((hasWorkflowCheckpoint || !next.checkpointFilename?.trim()) && loaders.checkpoint) {
     next.checkpointFilename = loaders.checkpoint;
   }
-  if (!next.unetFilename?.trim() && loaders.unet) {
+  if ((hasWorkflowUnet || !next.unetFilename?.trim()) && loaders.unet) {
     next.unetFilename = loaders.unet;
   }
-  if (!next.vaeFilename?.trim() && loaders.vae) {
+  if ((hasWorkflowVae || !next.vaeFilename?.trim()) && loaders.vae) {
     next.vaeFilename = loaders.vae;
   }
 
@@ -377,6 +395,9 @@ export function resolveQueueInjectionContext(input: {
   customTokens: CustomWorkflowToken[];
 } {
   const baseCustomTokens = resolveCustomWorkflowTokens(input.runtime);
+  const workflowCustomTokens = normalizeCustomWorkflowTokens(
+    input.runtime?.workflowCustomTokens,
+  );
   const model = input.model?.trim() || input.runtime?.queueTargetModel?.trim();
   const precisionTier = resolveLoaderPrecisionTier({
     workflow: input.workflow,
@@ -385,6 +406,7 @@ export function resolveQueueInjectionContext(input: {
   });
   const loaderMapOptions = {
     customTokens: baseCustomTokens,
+    workflowCustomTokens,
     checkpointMap: input.runtime?.modelCheckpointMap,
     vaeMap: input.runtime?.modelVaeMap,
     precisionTier,
@@ -454,9 +476,14 @@ export function resolveQueueInjectionContext(input: {
     }
   }
 
-  const customTokens =
-    mergeLoaderTokensIntoCustomTokens(params, baseCustomTokens) ??
-    baseCustomTokens;
+  const loaderMerged =
+    mergeLoaderTokensIntoCustomTokens(params, baseCustomTokens) ?? baseCustomTokens;
+  // Per-workflow token overrides always win (e.g. {{LORA_LIGHTNING}} on the library file).
+  const customTokenByKey = new Map<string, CustomWorkflowToken>();
+  for (const entry of [...loaderMerged, ...workflowCustomTokens]) {
+    customTokenByKey.set(entry.token, entry);
+  }
+  const customTokens = [...customTokenByKey.values()];
 
   return { params, loaders, customTokens };
 }
@@ -1082,10 +1109,27 @@ export function injectPromptsWithFallbacks(
     availableLoras?: string[] | null;
   },
 ): WorkflowInjectionResult {
-  const mergedCustomTokens = mergeLoaderTokensIntoCustomTokens(
+  const loaderMerged = mergeLoaderTokensIntoCustomTokens(
     input.params,
     input.customTokens,
   );
+  // Fill {{LORA_LIGHTNING}} from workflow tokens / LoRA library / ComfyUI inventory
+  // before string injection so unresolved placeholders cannot survive into preflight.
+  const lightningMap = buildLightningLoraFilenameMap(
+    loaderMerged ?? [],
+    options?.model,
+    options?.availableLoras ?? undefined,
+  );
+  const customTokenByKey = new Map<string, CustomWorkflowToken>();
+  for (const entry of loaderMerged ?? []) {
+    customTokenByKey.set(entry.token, entry);
+  }
+  for (const [token, value] of Object.entries(lightningMap)) {
+    if (token.trim() && value.trim()) {
+      customTokenByKey.set(token, { token, value });
+    }
+  }
+  const mergedCustomTokens = [...customTokenByKey.values()];
   let injected = injectWorkflowPlaceholders(
     workflow,
     { ...input, customTokens: mergedCustomTokens },
@@ -1127,7 +1171,21 @@ export function injectPromptsWithFallbacks(
     loaders.dualClip = options.loaders.dualClip;
   }
 
-  if (options?.directWorkflowPatching !== false) {
+  const isLightning = isQwenLightningModel(options?.model);
+
+  if (isLightning) {
+    // Native Lightning graphs: do not rewrite concrete loaders / latent sizes.
+    // Only fill unresolved placeholders and attach queue input images.
+    nextWorkflow = forceResolveLoaderPlaceholders(nextWorkflow, loaders);
+    nextWorkflow = patchLoadImageNodesInWorkflow(
+      nextWorkflow,
+      input.params?.inputImageFilename,
+    ).workflow;
+    nextWorkflow = patchLoadImageMaskNodesInWorkflow(
+      nextWorkflow,
+      input.params?.maskImageFilename,
+    ).workflow;
+  } else if (options?.directWorkflowPatching !== false) {
     const directPatch = patchWorkflowDirectParams(nextWorkflow, {
       params: input.params,
       loaders,
@@ -1162,6 +1220,7 @@ export function injectPromptsWithFallbacks(
     {
       params: input.params,
       loaders,
+      syncLoadersToModel: isLightning ? false : options?.syncWorkflowLoadersToModel,
     },
   );
 
@@ -1383,6 +1442,13 @@ export function stripEmptyComfyUiRuntime(
   const customTokens = normalizeCustomWorkflowTokens(runtime.customTokens);
   if (customTokens.length > 0) {
     result.customTokens = customTokens;
+  }
+
+  const workflowCustomTokens = normalizeCustomWorkflowTokens(
+    runtime.workflowCustomTokens,
+  );
+  if (workflowCustomTokens.length > 0) {
+    result.workflowCustomTokens = workflowCustomTokens;
   }
 
   if (Object.keys(result).length === 0) {

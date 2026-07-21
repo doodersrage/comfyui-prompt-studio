@@ -140,17 +140,33 @@ export function previewWorkflowInjection(
     };
   }
 
-  const { params: resolvedParams, loaders, customTokens } = resolveQueueInjectionContext({
-    runtime,
-    override: input.params,
-    model: input.model ?? runtime?.queueTargetModel,
-    workflow: config.workflow,
-  });
+  const { params: resolvedParams, loaders, customTokens: runtimeTokens } =
+    resolveQueueInjectionContext({
+      runtime,
+      override: input.params,
+      model: input.model ?? runtime?.queueTargetModel,
+      workflow: config.workflow,
+    });
 
   const modelId = input.model ?? runtime?.queueTargetModel ?? "qwen-image-2512";
   const shared = loadSettingsCache().shared;
   const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
   const inventoryModels = input.inventory?.models;
+
+  // Settings → runtime merged tokens → per-workflow overrides (last wins).
+  const customTokenByKey = new Map<string, { token: string; value: string }>();
+  for (const entry of [
+    ...(settings.customTokens ?? []),
+    ...runtimeTokens,
+    ...(runtime?.workflowCustomTokens ?? []),
+  ]) {
+    const token = entry.token?.trim();
+    const value = entry.value?.trim();
+    if (token && value) {
+      customTokenByKey.set(token, { token, value });
+    }
+  }
+  const customTokens = [...customTokenByKey.values()];
 
   if (inventoryModels?.upscaleModels?.length) {
     const upscale = resolveUpscaleModelFilename(modelId, {
@@ -250,6 +266,7 @@ export function previewWorkflowInjection(
             syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
             models: inventoryModels,
             objectInfoUnavailable: input.inventory?.objectInfoUnavailable === true,
+            customTokens,
           }),
         ];
 

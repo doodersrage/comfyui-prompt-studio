@@ -46,6 +46,8 @@ export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
   "qwen-image-2512-lightning-4": "qwen_image_2512_bf16.safetensors",
   "qwen-image-2512-lightning-8": "qwen_image_2512_bf16.safetensors",
   "qwen-image-edit-2511": "qwen_image_edit_2511_bf16.safetensors",
+  "qwen-image-edit-2511-lightning-4": "qwen_image_edit_2511_bf16.safetensors",
+  "qwen-image-edit-2511-lightning-8": "qwen_image_edit_2511_bf16.safetensors",
   "qwen-image-edit-2509": "qwen_image_edit_2509_bf16.safetensors",
   "flux-2-klein": "flux-2-klein-base-4b-fp8.safetensors",
   "flux-2-klein-4b-distilled": "flux-2-klein-4b-fp8.safetensors",
@@ -66,6 +68,8 @@ export const SUGGESTED_MODEL_VAE_MAP: ModelVaeMap = {
   "qwen-image-2512-lightning-4": "qwen_image_vae.safetensors",
   "qwen-image-2512-lightning-8": "qwen_image_vae.safetensors",
   "qwen-image-edit-2511": "qwen_image_vae.safetensors",
+  "qwen-image-edit-2511-lightning-4": "qwen_image_vae.safetensors",
+  "qwen-image-edit-2511-lightning-8": "qwen_image_vae.safetensors",
   "qwen-image-edit-2509": "qwen_image_vae.safetensors",
 };
 
@@ -161,6 +165,35 @@ function trimFilename(value: unknown): string | undefined {
   return trimmed || undefined;
 }
 
+/**
+ * Phr00t Rapid AIO / Wan Rapid AIO merges are full checkpoints for CheckpointLoader,
+ * not diffusion_models UNETs. Never write these into UNETLoader.unet_name.
+ */
+export function filenameLooksLikeCheckpointOnly(filename: string | undefined): boolean {
+  const name = trimFilename(filename)?.toLowerCase();
+  if (!name) {
+    return false;
+  }
+  if (/rapid[\s_-]*aio/.test(name)) {
+    return true;
+  }
+  if (/phr00t/.test(name) && /aio/.test(name)) {
+    return true;
+  }
+  return false;
+}
+
+function preferUnetCompatibleFilename(
+  candidate: string | undefined,
+  fallback?: string,
+): string | undefined {
+  const trimmed = trimFilename(candidate);
+  if (!trimmed || filenameLooksLikeCheckpointOnly(trimmed)) {
+    return trimFilename(fallback);
+  }
+  return trimmed;
+}
+
 function resolveCustomTokenValue(
   token: string,
   customTokens?: CustomWorkflowToken[],
@@ -190,6 +223,13 @@ function inferQwenLoaderHints(
   const id = modelId.toLowerCase();
   if (!id.includes("qwen")) {
     return {};
+  }
+
+  if (id.includes("qwen-rapid-aio") || id.includes("qwen_rapid_aio")) {
+    return {
+      // Checkpoint-only family — never invent a UNET name from the Rapid AIO merge.
+      vae: DEFAULT_QWEN_VAE,
+    };
   }
 
   if (id.includes("qwen-image-2512") || id.includes("qwen_image_2512")) {
@@ -300,6 +340,7 @@ export function realignLoaderFilenamesToWorkflowPrecision(
     checkpointMap?: ModelCheckpointMap;
     vaeMap?: ModelVaeMap;
     customTokens?: CustomWorkflowToken[];
+    workflowCustomTokens?: CustomWorkflowToken[];
   },
 ): WorkflowParamValues {
   const workflowTier = workflow ? detectLoaderPrecisionTier(workflow) : undefined;
@@ -343,6 +384,8 @@ export function resolveLoaderFilenamesForModel(
     unetMap?: ModelUnetMap;
     vaeMap?: ModelVaeMap;
     customTokens?: CustomWorkflowToken[];
+    /** Per-workflow tokens — beat modelCheckpointMap for CHECKPOINT/UNET/VAE. */
+    workflowCustomTokens?: CustomWorkflowToken[];
     precisionTier?: LoaderPrecisionTier;
     workflow?: Record<string, unknown>;
   },
@@ -358,6 +401,18 @@ export function resolveLoaderFilenamesForModel(
   };
   const mappedCheckpoint = trimFilename(options?.checkpointMap?.[model]);
   const mappedUnet = trimFilename(options?.unetMap?.[model]);
+  const workflowCheckpoint = resolveCustomTokenValue(
+    DEFAULT_CHECKPOINT_TOKEN,
+    options?.workflowCustomTokens,
+  );
+  const workflowUnet = resolveCustomTokenValue(
+    DEFAULT_UNET_TOKEN,
+    options?.workflowCustomTokens,
+  );
+  const workflowVae = resolveCustomTokenValue(
+    DEFAULT_VAE_TOKEN,
+    options?.workflowCustomTokens,
+  );
   const customCheckpoint = resolveCustomTokenValue(
     DEFAULT_CHECKPOINT_TOKEN,
     options?.customTokens,
@@ -369,33 +424,47 @@ export function resolveLoaderFilenamesForModel(
 
   if (workflowTier) {
     checkpoint =
+      preferTierAlignedLoaderFilename(workflowCheckpoint, tier, undefined, workflowTier) ??
       preferTierAlignedLoaderFilename(mappedCheckpoint, tier, undefined, workflowTier) ??
       preferTierAlignedLoaderFilename(customCheckpoint, tier, undefined, workflowTier) ??
       trimFilename(def?.checkpointHint) ??
       inferred.checkpoint;
     unet =
-      preferTierAlignedLoaderFilename(mappedUnet, tier, undefined, workflowTier) ??
-      preferTierAlignedLoaderFilename(mappedCheckpoint, tier, undefined, workflowTier) ??
-      preferTierAlignedLoaderFilename(customUnet, tier, undefined, workflowTier) ??
-      preferTierAlignedLoaderFilename(checkpoint, tier, undefined, workflowTier) ??
+      preferUnetCompatibleFilename(
+        preferTierAlignedLoaderFilename(workflowUnet, tier, undefined, workflowTier),
+      ) ??
+      preferUnetCompatibleFilename(
+        preferTierAlignedLoaderFilename(mappedUnet, tier, undefined, workflowTier),
+      ) ??
+      preferUnetCompatibleFilename(
+        preferTierAlignedLoaderFilename(mappedCheckpoint, tier, undefined, workflowTier),
+      ) ??
+      preferUnetCompatibleFilename(
+        preferTierAlignedLoaderFilename(customUnet, tier, undefined, workflowTier),
+      ) ??
+      preferUnetCompatibleFilename(
+        preferTierAlignedLoaderFilename(checkpoint, tier, undefined, workflowTier),
+      ) ??
       inferred.unet ??
-      trimFilename(def?.unetHint) ??
-      checkpoint;
+      trimFilename(def?.unetHint);
   } else {
     checkpoint =
+      workflowCheckpoint ??
       mappedCheckpoint ??
       customCheckpoint ??
       trimFilename(def?.checkpointHint) ??
       inferred.checkpoint;
     unet =
-      mappedUnet ??
-      mappedCheckpoint ??
-      customUnet ??
-      inferred.unet ??
-      trimFilename(def?.unetHint) ??
-      checkpoint;
+      preferUnetCompatibleFilename(workflowUnet) ??
+      preferUnetCompatibleFilename(mappedUnet) ??
+      preferUnetCompatibleFilename(mappedCheckpoint) ??
+      preferUnetCompatibleFilename(customUnet) ??
+      preferUnetCompatibleFilename(inferred.unet) ??
+      preferUnetCompatibleFilename(trimFilename(def?.unetHint)) ??
+      preferUnetCompatibleFilename(checkpoint);
   }
   const vae =
+    workflowVae ??
     trimFilename(options?.vaeMap?.[model]) ??
     trimFilename(def?.vaeHint) ??
     (def?.category ? CATEGORY_VAE_HINTS[def.category] : undefined);
