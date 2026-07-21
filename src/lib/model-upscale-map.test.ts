@@ -10,13 +10,33 @@ import {
 } from "./model-upscale-map.ts";
 
 describe("model upscale map", () => {
-  it("suggests UltraSharp as the default neural upscaler", () => {
+  it("suggests UltraSharp as the default and Siax for vanilla Qwen", () => {
     assert.equal(SUGGESTED_MODEL_UPSCALE_MAP.default, "4x-UltraSharp.pth");
+    assert.equal(
+      resolveUpscaleModelFilename("flux-dev", {
+        upscaleMap: SUGGESTED_MODEL_UPSCALE_MAP,
+      }),
+      "4x-UltraSharp.pth",
+    );
     assert.equal(
       resolveUpscaleModelFilename("qwen-image-2512", {
         upscaleMap: SUGGESTED_MODEL_UPSCALE_MAP,
       }),
-      "4x-UltraSharp.pth",
+      "4x_NMKD-Siax_200k.pth",
+    );
+  });
+
+  it("prefers skin-friendly inventory matches for Qwen when preferred is missing", () => {
+    assert.equal(
+      resolveUpscaleModelFilename("qwen-image-2512", {
+        upscaleMap: { default: "missing.pth" },
+        availableUpscaleModels: [
+          "RealESRGAN_x4plus.pth",
+          "4x_NMKD-Siax_200k.pth",
+          "4x-UltraSharp.pth",
+        ],
+      }),
+      "4x_NMKD-Siax_200k.pth",
     );
   });
 
@@ -39,6 +59,20 @@ describe("model upscale map", () => {
         availableUpscaleModels: ["RealESRGAN_x4plus.pth", "other.pth"],
       }),
       "RealESRGAN_x4plus.pth",
+    );
+  });
+
+  it("prefers 4× inventory matches over RealESRGAN x2plus", () => {
+    assert.equal(
+      resolveUpscaleModelFilename("sdxl", {
+        upscaleMap: { default: "missing.pth" },
+        availableUpscaleModels: [
+          "RealESRGAN_x2plus.pth",
+          "4x-AnimeSharp.pth",
+          "other.pth",
+        ],
+      }),
+      "4x-AnimeSharp.pth",
     );
   });
 

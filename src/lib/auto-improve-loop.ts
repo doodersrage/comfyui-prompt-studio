@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  galleryEntryAlreadyEnrichedForUpscale,
+  galleryEntryIsFinalToMaxBump,
   requeueComfyJobFromEntry,
   requeueMoireCleanFromGalleryEntry,
   requeueUpscaleFromGalleryEntry,
@@ -20,23 +22,44 @@ function formatRequeueFailure(
   return `Auto-improve: ${label} re-queue failed — ${result.error ?? "ComfyUI queue failed."}`;
 }
 
+type ImproveResult = {
+  ok: boolean;
+  error?: string;
+  kind: string;
+  /** Already at requested quality — not a queued success. */
+  skipped?: boolean;
+};
+
 async function improveHighRatingEntry(
   entry: ComfyGalleryEntry,
   qualityProfile: "final" | "max",
   options?: {
     refineAfterComplete?: "final" | "max";
   },
-): Promise<{ ok: boolean; error?: string; kind: string }> {
+): Promise<ImproveResult> {
   const model = entry.model ?? "qwen-image-2512";
 
   if (isQwenRapidAioModel(model)) {
+    if (galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)) {
+      return {
+        ok: true,
+        skipped: true,
+        kind: "skipped moiré clean (already polished)",
+      };
+    }
     const result = await requeueMoireCleanFromGalleryEntry(entry, {
       qualityProfile,
     });
+    const bumped = galleryEntryIsFinalToMaxBump(entry, qualityProfile);
     return {
       ok: result.ok,
       error: result.error,
-      kind: qualityProfile === "max" ? "moiré clean (Max)" : "moiré clean (Final)",
+      kind:
+        qualityProfile === "max"
+          ? bumped
+            ? "moiré clean Max (bumped from Final)"
+            : "moiré clean (Max)"
+          : "moiré clean (Final)",
     };
   }
 
@@ -55,15 +78,63 @@ async function improveHighRatingEntry(
     };
   }
 
+  if (galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)) {
+    return {
+      ok: true,
+      skipped: true,
+      kind:
+        qualityProfile === "max"
+          ? "skipped Max upscale (already enriched)"
+          : "skipped Final upscale (already enriched)",
+    };
+  }
+
   const result = await requeueUpscaleFromGalleryEntry(entry, {
     qualityProfile,
     refineAfterComplete: options?.refineAfterComplete,
   });
+  const bumped = galleryEntryIsFinalToMaxBump(entry, qualityProfile);
   return {
     ok: result.ok,
     error: result.error,
-    kind: qualityProfile === "max" ? "Max upscale" : "Final upscale",
+    kind:
+      qualityProfile === "max"
+        ? bumped
+          ? "Max upscale (bumped from Final)"
+          : "Max upscale"
+        : "Final upscale",
   };
+}
+
+async function runFallbackHighRatingImprove(
+  entry: ComfyGalleryEntry,
+  rating: NonNullable<ComfyGalleryEntry["reviewRating"]>,
+  settings: ReturnType<typeof loadComfyUiSettings>,
+  priorNote?: string,
+): Promise<string | null> {
+  if (settings.autoMutateOnHighRating) {
+    const queued = await queueMutatedGalleryJobs({
+      entry,
+      kinds: ["variation", "location", "wardrobe"],
+      count: 3,
+    });
+    const prefix = priorNote ? `${priorNote}; ` : "Auto-improve: ";
+    return `${prefix}queued ${queued} mutations for ${rating}★ output.`;
+  }
+
+  if (settings.autoSeedExperimentOnHighRating) {
+    const { queued } = await queueSeedExperiment({
+      prompt: entry.prompt,
+      model: entry.model ?? "qwen-image-2512",
+      negativePrompt: entry.negativePrompt,
+      hints: entry.prompt.slice(0, 200),
+      count: 4,
+    });
+    const prefix = priorNote ? `${priorNote}; ` : "Auto-improve: ";
+    return `${prefix}queued ${queued} seed experiments for ${rating}★ output.`;
+  }
+
+  return priorNote ? `${priorNote}.` : null;
 }
 
 export async function runAutoImproveOnRating(
@@ -94,7 +165,7 @@ export async function runAutoImproveOnRating(
     const maxResult = await improveHighRatingEntry(entry, "max", {
       refineAfterComplete,
     });
-    if (maxResult.ok) {
+    if (maxResult.ok && !maxResult.skipped) {
       if (refineAfterComplete) {
         return `Auto-improve: ${maxResult.kind}; refine will queue when upscale finishes.`;
       }
@@ -107,10 +178,27 @@ export async function runAutoImproveOnRating(
       return `Auto-improve: ${maxResult.kind}.`;
     }
 
+    if (maxResult.skipped) {
+      return runFallbackHighRatingImprove(
+        entry,
+        rating,
+        settings,
+        `Auto-improve: ${maxResult.kind}`,
+      );
+    }
+
     if (settings.autoRequeueFinalOnHighRating !== false) {
       const finalResult = await improveHighRatingEntry(entry, "final");
-      if (finalResult.ok) {
+      if (finalResult.ok && !finalResult.skipped) {
         return `Auto-improve: Max path failed (${maxResult.error ?? "queue error"}); used ${finalResult.kind} instead.`;
+      }
+      if (finalResult.skipped) {
+        return runFallbackHighRatingImprove(
+          entry,
+          rating,
+          settings,
+          `Auto-improve: ${finalResult.kind}`,
+        );
       }
       return formatRequeueFailure("Max and Final improve", finalResult);
     }
@@ -120,33 +208,21 @@ export async function runAutoImproveOnRating(
 
   if (rating >= 4 && settings.autoRequeueFinalOnHighRating !== false) {
     const result = await improveHighRatingEntry(entry, "final");
-    if (result.ok) {
+    if (result.ok && !result.skipped) {
       return `Auto-improve: ${result.kind}.`;
+    }
+    if (result.skipped) {
+      return runFallbackHighRatingImprove(
+        entry,
+        rating,
+        settings,
+        `Auto-improve: ${result.kind}`,
+      );
     }
     return formatRequeueFailure(result.kind, result);
   }
 
-  if (rating >= 4 && settings.autoMutateOnHighRating) {
-    const queued = await queueMutatedGalleryJobs({
-      entry,
-      kinds: ["variation", "location", "wardrobe"],
-      count: 3,
-    });
-    return `Auto-improve: queued ${queued} mutations for ${rating}★ output.`;
-  }
-
-  if (rating >= 4 && settings.autoSeedExperimentOnHighRating) {
-    const { queued } = await queueSeedExperiment({
-      prompt: entry.prompt,
-      model: entry.model ?? "qwen-image-2512",
-      negativePrompt: entry.negativePrompt,
-      hints: entry.prompt.slice(0, 200),
-      count: 4,
-    });
-    return `Auto-improve: queued ${queued} seed experiments for ${rating}★ output.`;
-  }
-
-  return null;
+  return runFallbackHighRatingImprove(entry, rating, settings);
 }
 
 export async function runAutoImproveOnFavorite(

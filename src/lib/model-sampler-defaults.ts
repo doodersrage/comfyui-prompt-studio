@@ -6,6 +6,7 @@ import {
   type ComfyModelCategory,
 } from "./comfy-models/client";
 import type { WorkflowParamValues } from "./comfyui-config";
+import { isQwenRapidAioModel } from "./model-denoise-defaults";
 
 function isLightningModelId(model: string): boolean {
   const id = model.trim();
@@ -159,11 +160,17 @@ const QWEN_RAPID_AIO_NSFW_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "s
 function rapidAioPresets(
   sampler: Pick<ModelSamplerDefaults, "samplerName" | "scheduler">,
 ): Record<ModelSamplerPresetTier, ModelSamplerDefaults> {
+  // Max adds two steps + sgm_uniform — sampling-side anti-moiré before blur polish.
   return {
     base: { steps: 4, cfg: 1, ...sampler },
     optimized: { steps: 6, cfg: 1, ...sampler },
     maxCompatible: { steps: 8, cfg: 1, ...sampler },
-    max: { steps: 8, cfg: 1, ...sampler },
+    max: {
+      steps: 10,
+      cfg: 1,
+      samplerName: sampler.samplerName,
+      scheduler: "sgm_uniform",
+    },
   };
 }
 
@@ -253,11 +260,12 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     max: { steps: 35, cfg: 3.5, ...FLUX_SAMPLER },
   },
   "qwen-image-2512": {
-    // Draft → official 50-step/CFG4 ladder (ComfyUI native 2512 template).
+    // Official template climbs toward 50/CFG4; we stay a notch under CFG4 so
+    // Final/Max don't push chroma into oversaturation (Lightning is CFG-1).
     base: { steps: 20, cfg: 2.5, ...QWEN_2512_SAMPLER },
-    optimized: { steps: 30, cfg: 3.5, ...QWEN_2512_SAMPLER },
-    maxCompatible: { steps: 40, cfg: 4, ...QWEN_2512_SAMPLER },
-    max: { steps: 50, cfg: 4, ...QWEN_2512_SAMPLER },
+    optimized: { steps: 30, cfg: 3.2, ...QWEN_2512_SAMPLER },
+    maxCompatible: { steps: 40, cfg: 3.5, ...QWEN_2512_SAMPLER },
+    max: { steps: 50, cfg: 3.5, ...QWEN_2512_SAMPLER },
   },
   "qwen-image-2512-lightning-4": fixedSamplerPresets({
     steps: 4,
@@ -389,6 +397,80 @@ export function ensureLightningSamplerParams(
     ...(lightning.samplerName != null ? { samplerName: lightning.samplerName } : {}),
     ...(lightning.scheduler != null ? { scheduler: lightning.scheduler } : {}),
   };
+}
+
+const RAPID_AIO_TIER_ORDER: ModelSamplerPresetTier[] = [
+  "base",
+  "optimized",
+  "maxCompatible",
+  "max",
+];
+
+/**
+ * Prefer an exact Rapid step-count match over the caller tier so Max (10) /
+ * maxCompatible (8) survive inject/server paths that still pass "base".
+ */
+function resolveRapidAioForceTier(
+  model: string,
+  params: WorkflowParamValues,
+  requested: ModelSamplerPresetTier,
+): ModelSamplerPresetTier {
+  const requestedTier = normalizeModelSamplerPresetTier(requested);
+  const currentSteps = Number(params.steps);
+  if (!Number.isFinite(currentSteps)) {
+    return requestedTier;
+  }
+
+  let matched: ModelSamplerPresetTier | undefined;
+  for (const candidate of RAPID_AIO_TIER_ORDER) {
+    const preset = resolveModelSamplerParams(model, candidate);
+    if (preset.steps === currentSteps) {
+      matched = candidate;
+    }
+  }
+  if (!matched) {
+    return requestedTier;
+  }
+  return RAPID_AIO_TIER_ORDER.indexOf(matched) >= RAPID_AIO_TIER_ORDER.indexOf(requestedTier)
+    ? matched
+    : requestedTier;
+}
+
+/**
+ * Rapid AIO is CFG-1 distilled (Lightning baked in). Force sampler defaults so
+ * Advanced/stale CFG>1 cannot plasticize output — same idea as Lightning.
+ * Never downgrades a higher Rapid tier already present in params (e.g. Max 10).
+ */
+export function ensureRapidAioSamplerParams(
+  params: WorkflowParamValues,
+  model: string,
+  tier: ModelSamplerPresetTier = DEFAULT_MODEL_SAMPLER_PRESET_TIER,
+): WorkflowParamValues {
+  if (!isQwenRapidAioModel(model)) {
+    return params;
+  }
+  const forceTier = resolveRapidAioForceTier(model, params, tier);
+  const rapid = resolveModelSamplerParams(model, forceTier);
+  return {
+    ...params,
+    ...(rapid.steps != null ? { steps: rapid.steps } : {}),
+    ...(rapid.cfg != null ? { cfg: rapid.cfg } : {}),
+    ...(rapid.samplerName != null ? { samplerName: rapid.samplerName } : {}),
+    ...(rapid.scheduler != null ? { scheduler: rapid.scheduler } : {}),
+  };
+}
+
+/** Force CFG-1 distilled sampler stacks (Lightning + Rapid AIO). */
+export function ensureDistilledSamplerParams(
+  params: WorkflowParamValues,
+  model: string,
+  tier: ModelSamplerPresetTier = DEFAULT_MODEL_SAMPLER_PRESET_TIER,
+): WorkflowParamValues {
+  return ensureRapidAioSamplerParams(
+    ensureLightningSamplerParams(params, model, tier),
+    model,
+    tier,
+  );
 }
 
 export function formatModelSamplerHint(

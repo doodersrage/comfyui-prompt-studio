@@ -56,7 +56,17 @@ import {
   ensureLightningNativeResolutionParams,
   resolveModelResolutionParams,
 } from "./model-resolution-defaults";
-import { resolveModelSamplerParams, ensureLightningSamplerParams } from "./model-sampler-defaults";
+import {
+  resolveModelSamplerParams,
+  ensureDistilledSamplerParams,
+  type ModelSamplerPresetTier,
+} from "./model-sampler-defaults";
+import { isQwenRapidAioModel } from "./model-denoise-defaults";
+import {
+  normalizeQueueQualityProfile,
+  resolveEffectiveSamplerPreset,
+  type QueueQualityProfile,
+} from "./queue-quality-profile";
 import {
   DEFAULT_UPSCALE_MODEL_TOKEN,
   resolveUpscaleModelFilename,
@@ -232,7 +242,11 @@ export function resolveQueueParams(
   const model = options?.model?.trim() || runtime?.queueTargetModel?.trim();
   const orientation = DEFAULT_RESOLUTION_ORIENTATION;
   const sizeTier = DEFAULT_RESOLUTION_SIZE_TIER;
-  const modelSampler = model ? resolveModelSamplerParams(model, "base") : undefined;
+  const presetTier = resolveEffectiveSamplerPreset(
+    "base",
+    runtime?.queueQualityProfile,
+  );
+  const modelSampler = model ? resolveModelSamplerParams(model, presetTier) : undefined;
   const modelResolution = model
     ? resolveModelResolutionParams(model, orientation, sizeTier)
     : undefined;
@@ -313,7 +327,7 @@ export function resolveQueueParams(
     if (aligned.height != null) {
       result.height = aligned.height.toString();
     }
-    const samplerAligned = ensureLightningSamplerParams(result, model, "base");
+    const samplerAligned = ensureDistilledSamplerParams(result, model, presetTier);
     if (samplerAligned.steps != null) {
       result.steps = samplerAligned.steps.toString();
     }
@@ -1119,6 +1133,8 @@ export function injectPromptsWithFallbacks(
     loaders?: ModelLoaderFilenames;
     model?: string;
     availableLoras?: string[] | null;
+    qualityProfile?: QueueQualityProfile;
+    samplerPresetTier?: ModelSamplerPresetTier;
   },
 ): WorkflowInjectionResult {
   const loaderMerged = mergeLoaderTokensIntoCustomTokens(
@@ -1239,16 +1255,26 @@ export function injectPromptsWithFallbacks(
     },
   );
 
-  const lightningModelId = options?.model;
-  if (lightningModelId && isQwenLightningModel(lightningModelId)) {
-    const lightningSampler = ensureLightningSamplerParams(
+  const distilledModelId = options?.model;
+  if (
+    distilledModelId &&
+    (isQwenLightningModel(distilledModelId) || isQwenRapidAioModel(distilledModelId))
+  ) {
+    const distilledTier = resolveEffectiveSamplerPreset(
+      options?.samplerPresetTier,
+      options?.qualityProfile != null
+        ? normalizeQueueQualityProfile(options.qualityProfile)
+        : undefined,
+    );
+    const distilledSampler = ensureDistilledSamplerParams(
       input.params ?? {},
-      lightningModelId,
+      distilledModelId,
+      distilledTier,
     );
     nextWorkflow = patchSamplerParamsInWorkflow(
       nextWorkflow,
-      lightningSampler,
-      lightningModelId,
+      distilledSampler,
+      distilledModelId,
       { force: true, mutateInPlace: true },
     ).workflow;
   }
@@ -1418,7 +1444,10 @@ export function stripEmptyComfyUiRuntime(
   if (runtime.workflowNeuralUpscalePolish === false) {
     result.workflowNeuralUpscalePolish = false;
   }
-  if (runtime.workflowSharpenAfterUpscale === false) {
+  // Sharpen is opt-in — persist both true and false so server enrich matches Settings.
+  if (runtime.workflowSharpenAfterUpscale === true) {
+    result.workflowSharpenAfterUpscale = true;
+  } else if (runtime.workflowSharpenAfterUpscale === false) {
     result.workflowSharpenAfterUpscale = false;
   }
   if (runtime.compactDraftSaves === false) {
@@ -1516,7 +1545,8 @@ export function resolveWorkflowGraphEnrichOptions(
       enrichGraph && runtime?.workflowSdxlRefinerEnrich !== false,
     enrichNeuralPolish:
       enrichGraph && runtime?.workflowNeuralUpscalePolish !== false,
+    // Max sharpen is opt-in (off by default) — never treat undefined as enabled.
     enrichSharpen:
-      enrichGraph && runtime?.workflowSharpenAfterUpscale !== false,
+      enrichGraph && runtime?.workflowSharpenAfterUpscale === true,
   };
 }

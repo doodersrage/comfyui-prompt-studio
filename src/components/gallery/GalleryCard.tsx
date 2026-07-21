@@ -40,12 +40,25 @@ type GalleryCardProps = {
   onToggleFavorite: () => void;
   onDownloadError: (message: string | null) => void;
   onRequeue: (newSeed: boolean, qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile) => void;
-  onUpscale: (qualityProfile: "final" | "max") => void;
+  onUpscale: (
+    qualityProfile: "final" | "max",
+    options?: { force?: boolean },
+  ) => void;
   onRefine: () => void;
-  onMoireClean?: (qualityProfile: "final" | "max") => void;
+  onMoireClean?: (
+    qualityProfile: "final" | "max",
+    options?: { force?: boolean },
+  ) => void;
+  /** When false, hide both Final and Max upscale items (unless finer flags set). */
   showUpscaleActions?: boolean;
+  showUpscaleFinal?: boolean;
+  showUpscaleMax?: boolean;
+  showForceUpscaleMax?: boolean;
   showRefineAction?: boolean;
   showMoireCleanActions?: boolean;
+  showMoireCleanFinal?: boolean;
+  showMoireCleanMax?: boolean;
+  showForceMoireCleanMax?: boolean;
   onShowParent?: () => void;
   onShowDerivatives?: () => void;
   hasDerivatives?: boolean;
@@ -99,8 +112,14 @@ export default function GalleryCard({
   onRefine,
   onMoireClean,
   showUpscaleActions = true,
+  showUpscaleFinal,
+  showUpscaleMax,
+  showForceUpscaleMax = false,
   showRefineAction = true,
   showMoireCleanActions = true,
+  showMoireCleanFinal,
+  showMoireCleanMax,
+  showForceMoireCleanMax = false,
   onShowParent,
   onShowDerivatives,
   hasDerivatives,
@@ -707,12 +726,26 @@ export default function GalleryCard({
                   />
                 </GalleryMenuGroup>
 
-                {showUpscaleActions ||
-                showRefineAction ||
-                (onMoireClean && showMoireCleanActions) ? (
+                {(() => {
+                  const canUpscaleFinal =
+                    showUpscaleFinal ?? showUpscaleActions;
+                  const canUpscaleMax = showUpscaleMax ?? showUpscaleActions;
+                  const canMoireFinal =
+                    showMoireCleanFinal ?? showMoireCleanActions;
+                  const canMoireMax = showMoireCleanMax ?? showMoireCleanActions;
+                  const showEnhance =
+                    canUpscaleFinal ||
+                    canUpscaleMax ||
+                    showForceUpscaleMax ||
+                    showRefineAction ||
+                    (onMoireClean &&
+                      (canMoireFinal || canMoireMax || showForceMoireCleanMax));
+                  if (!showEnhance) {
+                    return null;
+                  }
+                  return (
                   <GalleryMenuGroup label="Enhance">
-                    {showUpscaleActions ? (
-                      <>
+                    {canUpscaleFinal ? (
                         <GalleryMenuButton
                           label="Upscale · Final"
                           onClick={() => {
@@ -720,6 +753,8 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
+                    ) : null}
+                    {canUpscaleMax ? (
                         <GalleryMenuButton
                           label="Upscale · Max"
                           onClick={() => {
@@ -727,7 +762,15 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
-                      </>
+                    ) : null}
+                    {showForceUpscaleMax ? (
+                        <GalleryMenuButton
+                          label="Force Upscale · Max"
+                          onClick={() => {
+                            onUpscale("max", { force: true });
+                            setMenuOpen(false);
+                          }}
+                        />
                     ) : null}
                     {showRefineAction ? (
                       <GalleryMenuButton
@@ -738,8 +781,7 @@ export default function GalleryCard({
                         }}
                       />
                     ) : null}
-                    {onMoireClean && showMoireCleanActions ? (
-                      <>
+                    {onMoireClean && canMoireFinal ? (
                         <GalleryMenuButton
                           label="Moiré · Final"
                           onClick={() => {
@@ -747,6 +789,8 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
+                    ) : null}
+                    {onMoireClean && canMoireMax ? (
                         <GalleryMenuButton
                           label="Moiré · Max"
                           onClick={() => {
@@ -754,10 +798,19 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
-                      </>
+                    ) : null}
+                    {onMoireClean && showForceMoireCleanMax ? (
+                        <GalleryMenuButton
+                          label="Force Moiré · Max"
+                          onClick={() => {
+                            onMoireClean("max", { force: true });
+                            setMenuOpen(false);
+                          }}
+                        />
                     ) : null}
                   </GalleryMenuGroup>
-                ) : null}
+                  );
+                })()}
 
                 {hasDerivatives && onShowDerivatives ? (
                   <GalleryMenuGroup label="Lineage">

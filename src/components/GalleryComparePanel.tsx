@@ -10,6 +10,13 @@ import {
   updateEloRatings,
   type EloEntry,
 } from "@/lib/gallery-elo";
+import {
+  canUpscaleGalleryEntry,
+  galleryEntryAlreadyEnrichedForUpscale,
+  galleryEntrySupportsMoireClean,
+  galleryEntrySupportsRefine,
+  galleryEntrySupportsUpscale,
+} from "@/lib/comfyui-requeue";
 
 type GalleryComparePanelProps = {
   entries: ComfyGalleryEntry[];
@@ -22,9 +29,36 @@ type GalleryComparePanelProps = {
   onMutate?: (entry: ComfyGalleryEntry) => void;
   onImprove?: (entry: ComfyGalleryEntry) => void;
   onUpscale?: (entry: ComfyGalleryEntry, qualityProfile: "final" | "max") => void;
+  onMoireClean?: (
+    entry: ComfyGalleryEntry,
+    qualityProfile: "final" | "max",
+  ) => void;
   onRefine?: (entry: ComfyGalleryEntry) => void;
   status?: string | null;
 };
+
+function entryEnhanceCapabilities(entry: ComfyGalleryEntry) {
+  const isRapid = galleryEntrySupportsMoireClean(entry.model);
+  const canUpscaleFinal = canUpscaleGalleryEntry(entry, "final");
+  const canUpscaleMax = canUpscaleGalleryEntry(entry, "max");
+  const canMoireFinal =
+    isRapid &&
+    entry.status === "completed" &&
+    !galleryEntryAlreadyEnrichedForUpscale(entry, "final");
+  const canMoireMax =
+    isRapid &&
+    entry.status === "completed" &&
+    !galleryEntryAlreadyEnrichedForUpscale(entry, "max");
+  return {
+    isRapid,
+    canUpscaleFinal,
+    canUpscaleMax,
+    canMoireFinal,
+    canMoireMax,
+    canRefine: galleryEntrySupportsRefine(entry.model) && entry.status === "completed",
+    supportsUpscaleModel: galleryEntrySupportsUpscale(entry.model),
+  };
+}
 
 export default function GalleryComparePanel({
   entries,
@@ -37,6 +71,7 @@ export default function GalleryComparePanel({
   onMutate,
   onImprove,
   onUpscale,
+  onMoireClean,
   onRefine,
   status,
 }: GalleryComparePanelProps) {
@@ -47,6 +82,18 @@ export default function GalleryComparePanel({
     () => (tournament ? createEloBracket(entries.map((entry) => entry.id)) : []),
     [tournament, entries],
   );
+
+  const winnerCanUpscaleMax = useMemo(() => {
+    if (!compareWinnerId) {
+      return false;
+    }
+    const winner = entries.find((entry) => entry.id === compareWinnerId);
+    if (!winner) {
+      return false;
+    }
+    const caps = entryEnhanceCapabilities(winner);
+    return caps.isRapid ? caps.canMoireMax : caps.canUpscaleMax;
+  }, [compareWinnerId, entries]);
 
   if (entries.length === 0) {
     return null;
@@ -85,7 +132,7 @@ export default function GalleryComparePanel({
           <Button size="sm" variant="secondary" onClick={startTournament}>
             ELO tournament
           </Button>
-          {onUpscaleWinner && compareWinnerId ? (
+          {onUpscaleWinner && compareWinnerId && winnerCanUpscaleMax ? (
             <Button
               size="sm"
               variant="secondary"
@@ -117,6 +164,7 @@ export default function GalleryComparePanel({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {entries.map((entry) => {
           const url = galleryEntryThumbUrls(entry)[0] ?? null;
+          const caps = entryEnhanceCapabilities(entry);
           return (
             <article key={entry.id} className="space-y-2 rounded-lg border border-zinc-800 p-2">
               {url ? (
@@ -200,25 +248,51 @@ export default function GalleryComparePanel({
                     Improve
                   </button>
                 ) : null}
-                {onUpscale ? (
+                {caps.isRapid && onMoireClean ? (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => onUpscale(entry, "final")}
-                      className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
-                    >
-                      Upscale Final
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onUpscale(entry, "max")}
-                      className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
-                    >
-                      Upscale Max
-                    </button>
+                    {caps.canMoireFinal ? (
+                      <button
+                        type="button"
+                        onClick={() => onMoireClean(entry, "final")}
+                        className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
+                      >
+                        Moiré Final
+                      </button>
+                    ) : null}
+                    {caps.canMoireMax ? (
+                      <button
+                        type="button"
+                        onClick={() => onMoireClean(entry, "max")}
+                        className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
+                      >
+                        Moiré Max
+                      </button>
+                    ) : null}
                   </>
                 ) : null}
-                {onRefine ? (
+                {!caps.isRapid && onUpscale ? (
+                  <>
+                    {caps.canUpscaleFinal ? (
+                      <button
+                        type="button"
+                        onClick={() => onUpscale(entry, "final")}
+                        className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
+                      >
+                        Upscale Final
+                      </button>
+                    ) : null}
+                    {caps.canUpscaleMax ? (
+                      <button
+                        type="button"
+                        onClick={() => onUpscale(entry, "max")}
+                        className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
+                      >
+                        Upscale Max
+                      </button>
+                    ) : null}
+                  </>
+                ) : null}
+                {onRefine && caps.canRefine ? (
                   <button
                     type="button"
                     onClick={() => onRefine(entry)}

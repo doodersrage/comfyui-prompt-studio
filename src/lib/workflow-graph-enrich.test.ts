@@ -132,9 +132,18 @@ describe("workflow-graph-enrich", () => {
       enrichSampling: false,
     });
 
-    assert.equal(result.changes.length, 1);
+    assert.ok(result.changes.length >= 2);
     const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
-    const upscaleId = saveNode.inputs.images[0];
+    const targetId = saveNode.inputs.images[0];
+    const targetNode = result.workflow[targetId] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+      _meta?: { title?: string };
+    };
+    assert.equal(targetNode.class_type, "ImageScaleBy");
+    assert.equal(targetNode.inputs.scale_by, 0.3125);
+    assert.equal(targetNode.inputs.upscale_method, "area");
+    const upscaleId = (targetNode.inputs.image as [string, number])[0];
     const upscaleNode = result.workflow[upscaleId] as {
       class_type: string;
       inputs: Record<string, unknown>;
@@ -171,19 +180,23 @@ describe("workflow-graph-enrich", () => {
 
     assert.ok(result.changes.length >= 2);
     const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
-    const sharpenId = saveNode.inputs.images[0];
-    const sharpenNode = result.workflow[sharpenId] as {
-      class_type: string;
-      inputs: Record<string, unknown>;
-    };
-    assert.equal(sharpenNode.class_type, "ImageSharpen");
-    const polishId = (sharpenNode.inputs.image as [string, number])[0];
+    const polishId = saveNode.inputs.images[0];
     const polishNode = result.workflow[polishId] as {
       class_type: string;
       inputs: Record<string, unknown>;
     };
+    // Sharpen stays off unless enrichSharpen is explicitly true.
     assert.equal(polishNode.class_type, "ImageScaleBy");
     assert.equal(polishNode.inputs.scale_by, 1.05);
+    const targetId = (polishNode.inputs.image as [string, number])[0];
+    const targetNode = result.workflow[targetId] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
+    assert.equal(targetNode.class_type, "ImageScaleBy");
+    // 1.5 / 4 / 1.05 — polish baked into target so net Max size stays 1.5×.
+    assert.equal(targetNode.inputs.scale_by, 0.3571);
+    assert.equal(targetNode.inputs.upscale_method, "area");
   });
 
   it("sets tile_size on neural upscale for max profile when ComfyUI supports it", () => {
@@ -259,6 +272,45 @@ describe("workflow-graph-enrich", () => {
     }
     assert.equal(node.class_type, "ImageUpscaleWithModel");
     assert.equal("tile_size" in node.inputs, false);
+  });
+
+  it("skips output enrich when a community ImageUpscaleWithModel is already present", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "9": {
+        class_type: "ImageUpscaleWithModel",
+        inputs: { image: ["7", 0], upscale_model: ["10", 0] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["9", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      qualityProfile: "max",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+      enrichSampling: false,
+    });
+
+    assert.equal(
+      Object.values(result.workflow).filter(
+        (node) =>
+          (node as { class_type?: string }).class_type === "ImageUpscaleWithModel",
+      ).length,
+      1,
+    );
+    assert.equal(
+      result.changes.some((change) =>
+        /Inserted.*(?:output upscale|neural upscale)/i.test(change.message),
+      ),
+      false,
+    );
   });
 
   it("falls back to Lanczos when neural upscaler is missing from ComfyUI inventory", () => {
@@ -372,7 +424,7 @@ describe("workflow-graph-enrich", () => {
     );
   });
 
-  it("inserts ImageSharpen after upscale on max profile", () => {
+  it("inserts ImageSharpen after neural upscale when sharpen is opted in", () => {
     const workflow = {
       "7": {
         class_type: "VAEDecode",
@@ -390,6 +442,7 @@ describe("workflow-graph-enrich", () => {
       qualityProfile: "max",
       upscaleModelFilename: "4x-UltraSharp.pth",
       enrichSampling: false,
+      enrichSharpen: true,
     });
 
     const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
@@ -402,7 +455,7 @@ describe("workflow-graph-enrich", () => {
     assert.equal(sharpenNode.inputs.alpha, 0.1);
   });
 
-  it("skips sharpen when enrichSharpen is false", () => {
+  it("skips sharpen unless enrichSharpen is explicitly true", () => {
     const workflow = {
       "7": {
         class_type: "VAEDecode",
@@ -420,13 +473,174 @@ describe("workflow-graph-enrich", () => {
       qualityProfile: "max",
       upscaleModelFilename: "4x-UltraSharp.pth",
       enrichSampling: false,
-      enrichSharpen: false,
     });
 
     const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
     const outputId = saveNode.inputs.images[0];
     const outputNode = result.workflow[outputId] as { class_type: string };
     assert.notEqual(outputNode.class_type, "ImageSharpen");
+  });
+
+  it("inserts latent detail pass for vanilla Qwen Final", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen.safetensors" },
+      },
+      "6": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 30,
+          cfg: 3.5,
+          sampler_name: "euler",
+          scheduler: "beta",
+          denoise: 1,
+          model: ["1", 0],
+          positive: ["4", 0],
+          negative: ["5", 0],
+          latent_image: ["3", 0],
+        },
+      },
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["2", 0] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-image-2512",
+      qualityProfile: "final",
+      enrichSampling: false,
+      enrichUpscale: false,
+    });
+
+    assert.ok(
+      result.changes.some((change) => /latent detail pass/i.test(change.message)),
+    );
+    const decode = result.workflow["7"] as { inputs: { samples: [string, number] } };
+    const detailId = decode.inputs.samples[0];
+    const detail = result.workflow[detailId] as {
+      _meta?: { title?: string };
+      inputs: { denoise: number };
+    };
+    assert.match(detail._meta?.title ?? "", /latent detail pass/i);
+    // Vanilla Qwen Final uses a softer second-pass denoise to limit chroma climb.
+    assert.equal(detail.inputs.denoise, 0.14);
+  });
+
+  it("scales neural target down when latent detail already enlarged decode", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen.safetensors" },
+      },
+      "6": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 30,
+          cfg: 3.5,
+          sampler_name: "euler",
+          scheduler: "beta",
+          denoise: 1,
+          model: ["1", 0],
+          positive: ["4", 0],
+          negative: ["5", 0],
+          latent_image: ["3", 0],
+        },
+      },
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["2", 0] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-image-2512",
+      qualityProfile: "max",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+      enrichSampling: false,
+    });
+
+    assert.ok(
+      result.changes.some((change) => /latent detail pass/i.test(change.message)),
+    );
+    const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
+    let nodeId = saveNode.inputs.images[0];
+    let node = result.workflow[nodeId] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
+    // Walk past polish (1.05) to the area target node.
+    while (
+      node.class_type === "ImageScaleBy" &&
+      node.inputs.scale_by === 1.05
+    ) {
+      nodeId = (node.inputs.image as [string, number])[0];
+      node = result.workflow[nodeId] as {
+        class_type: string;
+        inputs: Record<string, unknown>;
+      };
+    }
+    assert.equal(node.class_type, "ImageScaleBy");
+    assert.equal(node.inputs.upscale_method, "area");
+    // 1.5 / 4 / 1.05 / 1.2 (latent detail Max) ≈ 0.2976
+    assert.equal(node.inputs.scale_by, 0.2976);
+  });
+
+  it("skips latent detail pass for Lightning", () => {
+    const workflow = {
+      "6": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 8,
+          cfg: 1,
+          sampler_name: "euler",
+          scheduler: "simple",
+          denoise: 1,
+          model: ["1", 0],
+          positive: ["4", 0],
+          negative: ["5", 0],
+          latent_image: ["3", 0],
+        },
+      },
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["2", 0] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-image-2512-lightning-8",
+      qualityProfile: "final",
+      enrichSampling: false,
+      enrichUpscale: false,
+    });
+
+    assert.equal(
+      result.changes.some((change) => /latent detail pass/i.test(change.message)),
+      false,
+    );
   });
 
   it("inserts soft ImageBlur moiré polish for Rapid AIO on Final (no resample)", () => {

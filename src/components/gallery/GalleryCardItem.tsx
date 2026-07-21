@@ -8,6 +8,8 @@ import {
   type GalleryLayoutMode,
 } from "@/lib/comfyui-gallery";
 import {
+  canUpscaleGalleryEntry,
+  galleryEntryAlreadyEnrichedForUpscale,
   galleryEntrySupportsMoireClean,
   galleryEntrySupportsRefine,
   galleryEntrySupportsUpscale,
@@ -22,9 +24,17 @@ export type GalleryCardActions = {
     newSeed: boolean,
     qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile,
   ) => void;
-  upscale: (id: string, qualityProfile: "final" | "max") => void;
+  upscale: (
+    id: string,
+    qualityProfile: "final" | "max",
+    options?: { force?: boolean },
+  ) => void;
   refine: (id: string) => void;
-  moireClean: (id: string, qualityProfile: "final" | "max") => void;
+  moireClean: (
+    id: string,
+    qualityProfile: "final" | "max",
+    options?: { force?: boolean },
+  ) => void;
   showParent: (id: string) => void;
   showDerivatives: (id: string) => void;
   openImage: (id: string, index: number) => void;
@@ -76,8 +86,8 @@ function GalleryCardItem({
     [actionsRef, entry.id],
   );
   const onUpscale = useCallback(
-    (qualityProfile: "final" | "max") =>
-      actionsRef.current.upscale(entry.id, qualityProfile),
+    (qualityProfile: "final" | "max", options?: { force?: boolean }) =>
+      actionsRef.current.upscale(entry.id, qualityProfile, options),
     [actionsRef, entry.id],
   );
   const onRefine = useCallback(
@@ -85,8 +95,8 @@ function GalleryCardItem({
     [actionsRef, entry.id],
   );
   const onMoireClean = useCallback(
-    (qualityProfile: "final" | "max") =>
-      actionsRef.current.moireClean(entry.id, qualityProfile),
+    (qualityProfile: "final" | "max", options?: { force?: boolean }) =>
+      actionsRef.current.moireClean(entry.id, qualityProfile, options),
     [actionsRef, entry.id],
   );
   const onShowParent = useCallback(() => {
@@ -146,8 +156,30 @@ function GalleryCardItem({
       onRefine={onRefine}
       onMoireClean={onMoireClean}
       showUpscaleActions={galleryEntrySupportsUpscale(entry.model)}
+      showUpscaleFinal={canUpscaleGalleryEntry(entry, "final")}
+      showUpscaleMax={canUpscaleGalleryEntry(entry, "max")}
+      showForceUpscaleMax={
+        galleryEntrySupportsUpscale(entry.model) &&
+        entry.status === "completed" &&
+        galleryEntryAlreadyEnrichedForUpscale(entry, "max")
+      }
       showRefineAction={galleryEntrySupportsRefine(entry.model)}
       showMoireCleanActions={galleryEntrySupportsMoireClean(entry.model)}
+      showMoireCleanFinal={
+        galleryEntrySupportsMoireClean(entry.model) &&
+        entry.status === "completed" &&
+        !galleryEntryAlreadyEnrichedForUpscale(entry, "final")
+      }
+      showMoireCleanMax={
+        galleryEntrySupportsMoireClean(entry.model) &&
+        entry.status === "completed" &&
+        !galleryEntryAlreadyEnrichedForUpscale(entry, "max")
+      }
+      showForceMoireCleanMax={
+        galleryEntrySupportsMoireClean(entry.model) &&
+        entry.status === "completed" &&
+        galleryEntryAlreadyEnrichedForUpscale(entry, "max")
+      }
       onShowParent={entry.parentGalleryEntryId ? onShowParent : undefined}
       onShowDerivatives={hasDerivatives ? onShowDerivatives : undefined}
       hasDerivatives={hasDerivatives}

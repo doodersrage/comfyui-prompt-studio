@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { canUpscaleGalleryEntry } from "./comfyui-requeue.ts";
+import {
+  canMoireCleanGalleryEntry,
+  canUpscaleGalleryEntry,
+  galleryEntryAlreadyEnrichedForUpscale,
+} from "./comfyui-requeue.ts";
 
 describe("comfyui-requeue upscale guards", () => {
   it("allows completed entries with output images", () => {
@@ -42,6 +46,118 @@ describe("comfyui-requeue upscale guards", () => {
         comfyUrl: "http://127.0.0.1:8188",
       }),
       false,
+    );
+  });
+
+  it("skips already Final/Max enriched keepers but allows Final→Max bumps", () => {
+    assert.equal(
+      galleryEntryAlreadyEnrichedForUpscale(
+        { queueQualityProfile: "final" },
+        "final",
+      ),
+      true,
+    );
+    assert.equal(
+      galleryEntryAlreadyEnrichedForUpscale(
+        { queueQualityProfile: "final" },
+        "max",
+      ),
+      false,
+    );
+    assert.equal(
+      galleryEntryAlreadyEnrichedForUpscale(
+        { queueQualityProfile: "max" },
+        "max",
+      ),
+      true,
+    );
+    // Final upscale child may still bump to Max.
+    assert.equal(
+      galleryEntryAlreadyEnrichedForUpscale(
+        { derivedKind: "upscale", queueQualityProfile: "final" },
+        "max",
+      ),
+      false,
+    );
+    assert.equal(
+      galleryEntryAlreadyEnrichedForUpscale(
+        { derivedKind: "upscale", queueQualityProfile: "final" },
+        "final",
+      ),
+      true,
+    );
+    assert.equal(
+      galleryEntryAlreadyEnrichedForUpscale(
+        { derivedKind: "upscale", queueQualityProfile: "draft" },
+        "max",
+      ),
+      false,
+    );
+    assert.equal(
+      canUpscaleGalleryEntry(
+        {
+          status: "completed",
+          images: [{ filename: "out.png", subfolder: "", type: "output" }],
+          comfyUrl: "http://127.0.0.1:8188",
+          queueQualityProfile: "final",
+        },
+        "final",
+      ),
+      false,
+    );
+    assert.equal(
+      canUpscaleGalleryEntry(
+        {
+          status: "completed",
+          images: [{ filename: "out.png", subfolder: "", type: "output" }],
+          comfyUrl: "http://127.0.0.1:8188",
+          queueQualityProfile: "final",
+        },
+        "max",
+      ),
+      true,
+    );
+    assert.equal(
+      canUpscaleGalleryEntry(
+        {
+          status: "completed",
+          images: [{ filename: "out.png", subfolder: "", type: "output" }],
+          comfyUrl: "http://127.0.0.1:8188",
+          derivedKind: "upscale",
+          queueQualityProfile: "final",
+        },
+        "max",
+      ),
+      true,
+    );
+  });
+
+  it("pre-skips already Max polished Rapid entries for moiré clean", () => {
+    assert.equal(
+      canMoireCleanGalleryEntry(
+        {
+          status: "completed",
+          images: [{ filename: "out.png", subfolder: "", type: "output" }],
+          comfyUrl: "http://127.0.0.1:8188",
+          model: "qwen-rapid-aio-sfw",
+          queueQualityProfile: "max",
+        },
+        "max",
+      ),
+      false,
+    );
+    assert.equal(
+      canMoireCleanGalleryEntry(
+        {
+          status: "completed",
+          images: [{ filename: "out.png", subfolder: "", type: "output" }],
+          comfyUrl: "http://127.0.0.1:8188",
+          model: "qwen-rapid-aio-sfw",
+          queueQualityProfile: "final",
+        },
+        "max",
+      ),
+      true,
     );
   });
 });

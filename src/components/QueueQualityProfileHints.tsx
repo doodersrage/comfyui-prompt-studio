@@ -59,7 +59,8 @@ export default function QueueQualityProfileHints({
   const draftBumped =
     profile === "draft" &&
     effectiveProfile === "final" &&
-    /^qwen-rapid-aio-/i.test(shared.model);
+    (/^qwen-rapid-aio-/i.test(shared.model) ||
+      /^qwen-image-2512$/i.test(shared.model));
   const effectiveForTool = toolId
     ? formatQueueQualityProfileHint(
         resolveQueueQualityProfile({
@@ -136,23 +137,25 @@ export default function QueueQualityProfileHints({
       <p className="mt-1.5 type-caption text-zinc-500">
         {/^qwen-rapid-aio-/i.test(shared.model) ? (
           <>
-            Rapid AIO: Draft queues as Final so moiré polish runs. Final uses soft blur only;
-            Max adds a mild bicubic resample. Output upscale is skipped (it re-amplifies
-            screen-door).
+            Rapid AIO: Draft queues as Final so moiré polish runs. Max uses 10-step sgm_uniform
+            plus short anti-moiré cues; Final uses soft blur only, Max adds a mild bicubic
+            resample. Output upscale is skipped (it re-amplifies screen-door).
           </>
         ) : /lightning-(4|8)\b/i.test(shared.model) ? (
           <>
-            Lightning: CFG-1 short negatives (no long realism/anatomy positives). Final/Max
-            add Lanczos on native 2512 Lightning — Draft stays native. Edit Lightning T2I
-            skips Lanczos. Gallery Upscale/Refine are disabled — re-queue with a new seed
-            instead.
+            Lightning: CFG-1 short negatives. Sidebar ARs stick to 1:1 / 3:4 / 4:3 (extreme
+            9:16/16:9 softens). Final/Max add Lanczos on native 2512 Lightning — Draft stays
+            native. Edit Lightning T2I skips Lanczos. Gallery Upscale/Refine are disabled —
+            re-queue with a new seed instead.
           </>
         ) : (
           <>
-            Draft favors speed; Final and Max bump sampler steps and resolution. SDXL Final/Max may
-            insert a latent upscale + refiner pass. When an upscale model is mapped, Final/Max use{" "}
-            <span className="text-zinc-400">UpscaleModel</span> (Max adds Lanczos polish); otherwise
-            Lanczos <span className="text-zinc-400">ImageScale</span> before SaveImage.
+            Draft favors speed; Final and Max bump sampler steps and resolution. Flux/vanilla
+            Qwen Final/Max may insert a soft latent detail pass; SDXL may insert a refiner.
+            When an upscale model is mapped, Final/Max run{" "}
+            <span className="text-zinc-400">UpscaleModel</span> then area-scale to ~1.25×/1.5×
+            (Max may add Lanczos polish + opt-in sharpen); otherwise Lanczos{" "}
+            <span className="text-zinc-400">ImageScale</span> before SaveImage.
           </>
         )}
       </p>

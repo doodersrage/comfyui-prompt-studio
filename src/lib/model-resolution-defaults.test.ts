@@ -78,18 +78,23 @@ describe("model resolution defaults", () => {
     );
   });
 
-  it("limits Rapid AIO T2I sidebar options to square; Lightning keeps full Qwen set", () => {
+  it("limits Rapid AIO to square and Lightning to safe ARs only", () => {
     assert.deepEqual(resolutionOrientationsForModel("qwen-rapid-aio-nsfw"), ["square"]);
     assert.deepEqual(resolutionSizeTiersForModel("qwen-rapid-aio-sfw"), [
       "small",
       "medium",
     ]);
-    assert.ok(
-      resolutionOrientationsForModel("qwen-image-2512-lightning-8").includes(
-        "portrait-34",
-      ),
+    assert.deepEqual(resolutionOrientationsForModel("qwen-image-2512-lightning-8"), [
+      "square",
+      "portrait-34",
+      "landscape-43",
+    ]);
+    assert.equal(
+      resolutionOrientationsForModel("qwen-image-2512-lightning-8").includes("portrait"),
+      false,
     );
     assert.ok(resolutionOrientationsForModel("qwen-image-2512").includes("portrait-34"));
+    assert.ok(resolutionOrientationsForModel("qwen-image-2512").includes("portrait"));
     assert.deepEqual(resolutionSizeTiersForModel("qwen-image-2512"), [
       "small",
       "medium",

@@ -125,6 +125,40 @@ describe("queue-quality-profile", () => {
       false,
     );
     assert.equal(profileUsesNeuralUpscaleEnrich("max"), true);
+    const { neuralTargetScaleAfterUpscale, parseNeuralUpscaleFactor } =
+      await import("./queue-quality-profile.ts");
+    assert.equal(neuralTargetScaleAfterUpscale("final"), 0.3125);
+    assert.equal(neuralTargetScaleAfterUpscale("max"), 0.375);
+    assert.equal(
+      neuralTargetScaleAfterUpscale("max", { polishScale: 1.05 }),
+      0.3571,
+    );
+    assert.equal(
+      neuralTargetScaleAfterUpscale("final", {
+        neuralFactor: 2,
+      }),
+      0.625,
+    );
+    assert.equal(
+      neuralTargetScaleAfterUpscale("max", {
+        polishScale: 1.05,
+        priorLatentScale: 1.2,
+      }),
+      0.2976,
+    );
+    const { outputUpscaleScaleAfterLatent } = await import(
+      "./queue-quality-profile.ts"
+    );
+    assert.equal(
+      outputUpscaleScaleAfterLatent("max", { priorLatentScale: 1.5 }),
+      1,
+    );
+    assert.equal(
+      outputUpscaleScaleAfterLatent("max", { priorLatentScale: 1.2 }),
+      1.25,
+    );
+    assert.equal(parseNeuralUpscaleFactor("4x-UltraSharp.pth"), 4);
+    assert.equal(parseNeuralUpscaleFactor("RealESRGAN_x2plus.pth"), 2);
   });
 
   it("enables SDXL refiner and neural polish only on appropriate profiles", async () => {
@@ -141,5 +175,49 @@ describe("queue-quality-profile", () => {
     assert.equal(lanczosPolishScaleAfterNeural(), 1.05);
     assert.equal(sdxlRefinerDenoiseForProfile("max"), 0.3);
     assert.equal(sdxlRefinerDenoiseForProfile("final"), 0.22);
+  });
+
+  it("gates latent detail pass and neural-only sharpen by model", async () => {
+    const {
+      profileUsesLatentDetailPass,
+      profileUsesSharpenAfterNeuralUpscale,
+      sharpenAlphaForProfile,
+      latentDetailDenoiseForProfile,
+    } = await import("./queue-quality-profile.ts");
+    assert.equal(
+      profileUsesLatentDetailPass("final", { model: "qwen-image-2512" }),
+      true,
+    );
+    assert.equal(
+      profileUsesLatentDetailPass("final", { model: "flux-dev" }),
+      true,
+    );
+    assert.equal(
+      profileUsesLatentDetailPass("final", {
+        model: "qwen-image-2512-lightning-8",
+      }),
+      false,
+    );
+    assert.equal(
+      profileUsesSharpenAfterNeuralUpscale("max", { afterNeural: true }),
+      true,
+    );
+    assert.equal(
+      profileUsesSharpenAfterNeuralUpscale("max", { afterNeural: false }),
+      false,
+    );
+    assert.equal(
+      sharpenAlphaForProfile("max", { model: "qwen-image-2512" }),
+      0.06,
+    );
+    assert.equal(latentDetailDenoiseForProfile("final"), 0.2);
+    assert.equal(
+      latentDetailDenoiseForProfile("final", { model: "qwen-image-2512" }),
+      0.14,
+    );
+    assert.equal(
+      latentDetailDenoiseForProfile("max", { model: "qwen-image-2512" }),
+      0.2,
+    );
   });
 });

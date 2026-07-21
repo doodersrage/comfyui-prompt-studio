@@ -234,6 +234,7 @@ export function previewWorkflowInjection(
       loaders,
       model: modelId,
       availableLoras: inventoryModels?.loras,
+      qualityProfile: runtime?.queueQualityProfile,
     },
   );
 

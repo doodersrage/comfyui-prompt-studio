@@ -26,10 +26,10 @@ const LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS = 160;
 
 /** Short CFG-1-friendly anti-moiré terms for Phr00t Rapid AIO. */
 const RAPID_AIO_MOIRE_NEGATIVE =
-  "moire, moiré, halftone, screen door, mesh pattern, wavy interference";
+  "moire, moiré, halftone, screen door, mesh pattern, wavy interference, grid artifacts, banding, crosshatch";
 
 const RAPID_AIO_MOIRE_POSITIVE =
-  "clean continuous tones, smooth natural skin texture";
+  "clean continuous tones, smooth natural skin texture, even gradients";
 
 function appendUniqueCsv(base: string | undefined, extra: string): string {
   const existing = base?.trim() ?? "";

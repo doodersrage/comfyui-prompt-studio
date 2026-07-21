@@ -1043,9 +1043,10 @@ export default function SettingsTool() {
               For FLUX and SD3-family workflows, inserts{" "}
               <code className="rounded bg-zinc-800 px-1 text-violet-300">ModelSamplingFlux</code>{" "}
               or shift patch nodes when a loader connects directly to KSampler. On{" "}
-              <strong className="font-medium text-zinc-400">Final/Max</strong>, SDXL base workflows
-              may get a latent upscale + refiner pass; outputs may also get neural or Lanczos upscale
-              (with optional Lanczos polish and sharpen on Max) before SaveImage.
+              <strong className="font-medium text-zinc-400">Final/Max</strong>, SDXL may get a
+              latent refiner pass and Flux/vanilla Qwen a soft latent detail pass; outputs then get
+              neural or Lanczos upscale capped to ~1.25×/1.5× net (optional Max Lanczos polish +
+              opt-in sharpen).
             </span>
           </span>
         </label>
@@ -1085,7 +1086,7 @@ export default function SettingsTool() {
               <span className="space-y-1">
                 <span className="block text-sm text-zinc-300">Lanczos polish after neural upscale (Max)</span>
                 <span className="block text-xs text-zinc-500">
-                  Chains a 1.1× Lanczos pass after UpscaleModel on Max profile.
+                  Chains a 1.05× Lanczos pass after UpscaleModel on Max profile.
                 </span>
               </span>
             </label>
@@ -1104,7 +1105,7 @@ export default function SettingsTool() {
               <span className="space-y-1">
                 <span className="block text-sm text-zinc-300">Subtle sharpen after upscale (Max)</span>
                 <span className="block text-xs text-zinc-500">
-                  Optional ImageSharpen after neural or Lanczos upscale on Max. Off by default — enable for crisp edges, not natural skin.
+                  Optional ImageSharpen after neural UpscaleModel on Max only (not Lanczos-only). Off by default — enable for crisp edges; Qwen/Klein use a lighter alpha.
                 </span>
               </span>
             </label>
@@ -1270,7 +1271,7 @@ export default function SettingsTool() {
           rows={3}
           spellCheck={false}
           disabled={!sharedMounted}
-          placeholder={`# used by Final/Max neural upscale when present in ComfyUI\ndefault=4x-UltraSharp.pth`}
+          placeholder={`# Final/Max neural upscale (must exist in models/upscale_models/)\ndefault=4x-UltraSharp.pth\nqwen-image-2512=4x_NMKD-Siax_200k.pth\nflux-dev=4x-UltraSharp.pth`}
           className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
         />
         <p className="mb-2 mt-4 text-sm text-zinc-400">

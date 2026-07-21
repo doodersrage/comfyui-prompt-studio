@@ -19,7 +19,8 @@ export function isPromptStudioProtectedSampler(node: WorkflowNodeMeta): boolean 
   return title.includes("refiner pass") ||
     title.includes("refiner ksampler") ||
     title.includes("hires pass") ||
-    title.includes("lightning hires");
+    title.includes("lightning hires") ||
+    title.includes("latent detail");
 }
 
 /** Skip global queue sampler patch on enriched refiner passes and low-denoise stages. */

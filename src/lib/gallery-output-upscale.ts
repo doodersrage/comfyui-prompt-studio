@@ -3,9 +3,11 @@ import { buildComfyViewPath } from "./comfyui-outputs";
 import { isQwenLightningModel } from "./model-sampling-patch";
 import {
   lanczosPolishScaleAfterNeural,
+  neuralTargetScaleAfterUpscale,
   neuralUpscaleTileSizeForProfile,
+  parseNeuralUpscaleFactor,
   profileUsesNeuralUpscalePolish,
-  profileUsesSharpenAfterUpscale,
+  profileUsesSharpenAfterNeuralUpscale,
   rapidAioMoireBlurRadius,
   rapidAioMoireBlurSigma,
   rapidAioMoireDownscaleFactor,
@@ -184,7 +186,7 @@ export function buildGalleryUpscaleWorkflow(
   let outputNodeId = loadId;
   const modelName = input.upscaleModelFilename?.trim();
   const useNeural =
-    input.qualityProfile === "max" &&
+    (input.qualityProfile === "final" || input.qualityProfile === "max") &&
     Boolean(modelName) &&
     isUpscaleModelInstalled(modelName, input.availableUpscaleModels);
 
@@ -218,14 +220,37 @@ export function buildGalleryUpscaleWorkflow(
     const usePolish =
       input.enrichNeuralPolish !== false &&
       profileUsesNeuralUpscalePolish(input.qualityProfile, { model: input.model });
-    if (usePolish) {
+    const polishScale = usePolish
+      ? lanczosPolishScaleAfterNeural({ model: input.model })
+      : 1;
+
+    const targetScale = neuralTargetScaleAfterUpscale(input.qualityProfile, {
+      model: input.model,
+      neuralFactor: parseNeuralUpscaleFactor(modelName),
+      polishScale: polishScale > 1 ? polishScale : undefined,
+    });
+    if (targetScale > 0 && targetScale !== 1) {
+      const targetId = id();
+      workflow[targetId] = {
+        class_type: IMAGE_SCALE_BY_NODE_TYPE,
+        inputs: {
+          image: [outputNodeId, 0],
+          upscale_method: "area",
+          scale_by: targetScale,
+        },
+        _meta: { title: "Prompt Studio — neural target upscale" },
+      };
+      outputNodeId = targetId;
+    }
+
+    if (usePolish && polishScale > 1) {
       const polishId = id();
       workflow[polishId] = {
         class_type: IMAGE_SCALE_BY_NODE_TYPE,
         inputs: {
           image: [outputNodeId, 0],
           upscale_method: "lanczos",
-          scale_by: lanczosPolishScaleAfterNeural({ model: input.model }),
+          scale_by: polishScale,
         },
         _meta: { title: "Prompt Studio — Lanczos polish" },
       };
@@ -247,7 +272,10 @@ export function buildGalleryUpscaleWorkflow(
 
   if (
     input.enrichSharpen === true &&
-    profileUsesSharpenAfterUpscale(input.qualityProfile)
+    profileUsesSharpenAfterNeuralUpscale(input.qualityProfile, {
+      afterNeural: useNeural,
+      model: input.model,
+    })
   ) {
     const sharpenId = id();
     workflow[sharpenId] = {
@@ -256,7 +284,7 @@ export function buildGalleryUpscaleWorkflow(
         image: [outputNodeId, 0],
         sharpen_radius: 1,
         sigma: 0.45,
-        alpha: sharpenAlphaForProfile(input.qualityProfile),
+        alpha: sharpenAlphaForProfile(input.qualityProfile, { model: input.model }),
       },
       _meta: { title: "Prompt Studio — output sharpen" },
     };

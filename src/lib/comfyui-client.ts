@@ -273,6 +273,7 @@ function injectPromptsIntoWorkflow(
       loaders,
       model: runtime?.queueTargetModel ?? request.model,
       availableLoras: enrichInventory?.availableLoras,
+      qualityProfile: runtime?.queueQualityProfile,
     },
   );
 }

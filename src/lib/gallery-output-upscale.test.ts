@@ -7,7 +7,7 @@ import {
 } from "./gallery-output-upscale.ts";
 
 describe("gallery-output-upscale", () => {
-  it("builds a Lanczos-only Final upscale workflow", () => {
+  it("builds a Lanczos-only Final upscale workflow when no neural model is set", () => {
     const workflow = buildGalleryUpscaleWorkflow({
       qualityProfile: "final",
     });
@@ -26,6 +26,27 @@ describe("gallery-output-upscale", () => {
 
     const scaleNode = nodes.find((node) => node.class_type === "ImageScaleBy");
     assert.equal(scaleNode?.inputs.scale_by, 1.25);
+  });
+
+  it("builds neural upscale chain for Final when an upscale model is set", () => {
+    const workflow = buildGalleryUpscaleWorkflow({
+      qualityProfile: "final",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+    });
+
+    const classTypes = Object.values(workflow).map((node) => node.class_type);
+    assert.deepEqual(classTypes, [
+      "LoadImage",
+      "UpscaleModelLoader",
+      "ImageUpscaleWithModel",
+      "ImageScaleBy",
+      "SaveImage",
+    ]);
+    const scaleNode = Object.values(workflow).find(
+      (node) => node.class_type === "ImageScaleBy",
+    );
+    assert.equal(scaleNode?.inputs.scale_by, 0.3125);
+    assert.equal(scaleNode?.inputs.upscale_method, "area");
   });
 
   it("builds Max Lanczos upscale when no neural model is configured", () => {
@@ -51,8 +72,17 @@ describe("gallery-output-upscale", () => {
       "UpscaleModelLoader",
       "ImageUpscaleWithModel",
       "ImageScaleBy",
+      "ImageScaleBy",
       "SaveImage",
     ]);
+    const scaleNodes = Object.values(workflow).filter(
+      (node) => node.class_type === "ImageScaleBy",
+    );
+    // 1.5 / 4 / 1.05 — polish baked into target so net Max size stays 1.5×.
+    assert.equal(scaleNodes[0]?.inputs.scale_by, 0.3571);
+    assert.equal(scaleNodes[0]?.inputs.upscale_method, "area");
+    assert.equal(scaleNodes[1]?.inputs.scale_by, 1.05);
+    assert.equal(scaleNodes[1]?.inputs.upscale_method, "lanczos");
   });
 
   it("falls back to Lanczos Max when neural model is not installed", () => {

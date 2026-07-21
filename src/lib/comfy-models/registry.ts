@@ -345,7 +345,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     comfyNode: "CLIPTextEncode",
     comfyClass: "QwenImage",
     description:
-      "December T2I update. Factual natural language—color, shape, texture, spatial layout. Use euler/beta; draft CFG ~2.5, Final/Max climb toward official 50 steps / CFG 4.",
+      "December T2I update. Factual natural language—color, shape, texture, spatial layout. Use euler/beta; draft CFG ~2.5, Final/Max climb toward 50 steps / CFG ~3.5 (a notch under official CFG 4 to keep chroma natural).",
     profile: "qwen_t2i_factual",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.qwen_t2i_factual,

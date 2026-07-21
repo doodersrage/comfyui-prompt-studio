@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { patchSamplerParamsInWorkflow } from "./comfyui-config.ts";
 import {
+  ensureDistilledSamplerParams,
   ensureLightningSamplerParams,
+  ensureRapidAioSamplerParams,
   formatModelSamplerHint,
   getModelSamplerDefaults,
   normalizeModelSamplerPresetTier,
@@ -46,13 +48,13 @@ describe("model sampler defaults", () => {
   it("resolves queue params from optimized model defaults", () => {
     assert.deepEqual(resolveModelSamplerParams("qwen-image-2512", "optimized"), {
       steps: 30,
-      cfg: 3.5,
+      cfg: 3.2,
       samplerName: "euler",
       scheduler: "beta",
     });
   });
 
-  it("uses official 50-step CFG4 max ladder for vanilla qwen 2512", () => {
+  it("uses a calmer 50-step CFG ladder for vanilla qwen 2512", () => {
     assert.deepEqual(getModelSamplerDefaults("qwen-image-2512", "base"), {
       steps: 20,
       cfg: 2.5,
@@ -61,13 +63,13 @@ describe("model sampler defaults", () => {
     });
     assert.deepEqual(getModelSamplerDefaults("qwen-image-2512", "maxCompatible"), {
       steps: 40,
-      cfg: 4,
+      cfg: 3.5,
       samplerName: "euler",
       scheduler: "beta",
     });
     assert.deepEqual(getModelSamplerDefaults("qwen-image-2512", "max"), {
       steps: 50,
-      cfg: 4,
+      cfg: 3.5,
       samplerName: "euler",
       scheduler: "beta",
     });
@@ -109,6 +111,46 @@ describe("model sampler defaults", () => {
       ensureLightningSamplerParams({ cfg: 7, steps: 28 }, "qwen-image-2512"),
       { cfg: 7, steps: 28 },
     );
+  });
+
+  it("clamps stale overrides to Rapid AIO sampler params", () => {
+    const rapid = getModelSamplerDefaults("qwen-rapid-aio-sfw", "base");
+    assert.deepEqual(
+      ensureRapidAioSamplerParams(
+        { steps: 28, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras", seed: "3" },
+        "qwen-rapid-aio-sfw",
+      ),
+      {
+        steps: rapid.steps,
+        cfg: rapid.cfg,
+        samplerName: rapid.samplerName,
+        scheduler: rapid.scheduler,
+        seed: "3",
+      },
+    );
+    assert.deepEqual(
+      ensureDistilledSamplerParams(
+        { cfg: 7, steps: 20 },
+        "qwen-rapid-aio-nsfw",
+      ).cfg,
+      1,
+    );
+  });
+
+  it("preserves Rapid AIO Max steps when inject passes base tier", () => {
+    const preserved = ensureDistilledSamplerParams(
+      {
+        steps: 10,
+        cfg: 1,
+        samplerName: "euler",
+        scheduler: "sgm_uniform",
+      },
+      "qwen-rapid-aio-sfw",
+      "base",
+    );
+    assert.equal(preserved.steps, 10);
+    assert.equal(preserved.cfg, 1);
+    assert.equal(preserved.scheduler, "sgm_uniform");
   });
 
   it("returns klein distilled and base sampler presets", () => {
@@ -173,6 +215,12 @@ describe("model sampler defaults", () => {
       steps: 6,
       cfg: 1,
       samplerName: "euler_ancestral",
+      scheduler: "sgm_uniform",
+    });
+    assert.deepEqual(getModelSamplerDefaults("qwen-rapid-aio-sfw", "max"), {
+      steps: 10,
+      cfg: 1,
+      samplerName: "euler",
       scheduler: "sgm_uniform",
     });
   });

@@ -13,7 +13,10 @@ import {
 } from "./comfyui-config";
 import { resolveQueueInputImageFilename } from "./queue-input-image";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
-import type { QueueQualityProfile } from "./queue-quality-profile";
+import {
+  normalizeQueueQualityProfile,
+  type QueueQualityProfile,
+} from "./queue-quality-profile";
 import { resolveComfyUiRuntime } from "./comfyui-runtime";
 import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
@@ -46,6 +49,51 @@ import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui
 /** Gallery Upscale is for models that benefit from Lanczos/neural — not distilled ones. */
 export function galleryEntrySupportsUpscale(model?: string): boolean {
   return !isQwenLightningModel(model) && !isQwenRapidAioModel(model);
+}
+
+/**
+ * True when another Final/Max enhance would be redundant.
+ * Max may still bump a Final keeper or Final upscale/moire child.
+ */
+export function galleryEntryAlreadyEnrichedForUpscale(
+  entry: Pick<ComfyGalleryEntry, "derivedKind" | "queueQualityProfile">,
+  qualityProfile: Extract<QueueQualityProfile, "final" | "max">,
+): boolean {
+  const stored = normalizeQueueQualityProfile(entry.queueQualityProfile);
+  if (stored === "max") {
+    return true;
+  }
+  if (stored === "final") {
+    return qualityProfile === "final";
+  }
+  // Upscale/moire children without a stored Final/Max profile still count as
+  // Final-enriched — allow Max bump, block another Final pass.
+  if (
+    entry.derivedKind === "upscale" ||
+    entry.derivedKind === "moire-clean"
+  ) {
+    return qualityProfile === "final";
+  }
+  return false;
+}
+
+/** True when requesting Max on a Final (or Final-tier derivative) keeper. */
+export function galleryEntryIsFinalToMaxBump(
+  entry: Pick<ComfyGalleryEntry, "derivedKind" | "queueQualityProfile">,
+  qualityProfile: Extract<QueueQualityProfile, "final" | "max">,
+): boolean {
+  if (qualityProfile !== "max") {
+    return false;
+  }
+  if (galleryEntryAlreadyEnrichedForUpscale(entry, "max")) {
+    return false;
+  }
+  const stored = normalizeQueueQualityProfile(entry.queueQualityProfile);
+  return (
+    stored === "final" ||
+    entry.derivedKind === "upscale" ||
+    entry.derivedKind === "moire-clean"
+  );
 }
 
 /** Img2img refine: skip Lightning; Rapid AIO T2I uses moiré clean instead. */
@@ -132,9 +180,22 @@ export async function requeueUpscaleFromGalleryEntry(
     onStatus?: (message: string) => void;
     /** Queue low-denoise refine after upscale completes (uses upscaled output). */
     refineAfterComplete?: Extract<QueueQualityProfile, "final" | "max">;
+    /** Bypass keeper skip (manual force re-upscale). */
+    force?: boolean;
   },
 ): Promise<RequeueComfyJobResult> {
   const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
+
+  if (
+    !options.force &&
+    galleryEntryAlreadyEnrichedForUpscale(entry, options.qualityProfile)
+  ) {
+    return {
+      ok: false,
+      error:
+        "Already Final/Max enriched — skip re-upscale (use Draft source or a new seed).",
+    };
+  }
 
   // Rapid AIO: Lanczos/neural re-amplifies moiré — use the polish chain instead.
   if (isQwenRapidAioModel(model)) {
@@ -144,6 +205,7 @@ export async function requeueUpscaleFromGalleryEntry(
     return requeueMoireCleanFromGalleryEntry(entry, {
       qualityProfile: options.qualityProfile,
       onStatus: options.onStatus,
+      force: options.force,
     });
   }
 
@@ -184,7 +246,8 @@ export async function requeueUpscaleFromGalleryEntry(
   const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
   const isLightning = isQwenLightningModel(model);
   const mappedUpscale =
-    !isLightning && options.qualityProfile === "max"
+    !isLightning &&
+    (options.qualityProfile === "final" || options.qualityProfile === "max")
       ? resolveUpscaleModelFilename(model, {
           upscaleMap: shared.modelUpscaleMap,
           customTokens: settings.customTokens,
@@ -323,8 +386,21 @@ export async function requeueMoireCleanFromGalleryEntry(
   options?: {
     qualityProfile?: Extract<QueueQualityProfile, "final" | "max">;
     onStatus?: (message: string) => void;
+    force?: boolean;
   },
 ): Promise<RequeueComfyJobResult> {
+  const profile = options?.qualityProfile ?? "final";
+  if (
+    !options?.force &&
+    galleryEntryAlreadyEnrichedForUpscale(entry, profile)
+  ) {
+    return {
+      ok: false,
+      error:
+        "Already Final/Max polished — skip moiré re-clean (use Draft source or a new seed).",
+    };
+  }
+
   const outputUrl = resolveGalleryOutputImageUrl(entry);
   if (!outputUrl) {
     return { ok: false, error: "No gallery output image available to clean." };
@@ -566,13 +642,26 @@ function summarizeBulkUpscaleLabel(entry: ComfyGalleryEntry): string {
 export function canUpscaleGalleryEntry(
   entry: Pick<
     ComfyGalleryEntry,
-    "status" | "images" | "sourceImageUrl" | "comfyUrl" | "model"
+    | "status"
+    | "images"
+    | "sourceImageUrl"
+    | "comfyUrl"
+    | "model"
+    | "derivedKind"
+    | "queueQualityProfile"
   >,
+  qualityProfile?: Extract<QueueQualityProfile, "final" | "max">,
 ): boolean {
   if (entry.status !== "completed") {
     return false;
   }
   if (!galleryEntrySupportsUpscale(entry.model)) {
+    return false;
+  }
+  if (
+    qualityProfile &&
+    galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)
+  ) {
     return false;
   }
   return Boolean(resolveGalleryOutputImageUrl(entry));
@@ -589,9 +678,12 @@ export async function bulkUpscaleGalleryEntries(
   const errors: string[] = [];
 
   for (const [index, entry] of entries.entries()) {
-    if (!canUpscaleGalleryEntry(entry)) {
+    if (!canUpscaleGalleryEntry(entry, qualityProfile)) {
       skipped += 1;
-      errors.push(`${summarizeBulkUpscaleLabel(entry)}: skipped (not completed or no output image)`);
+      const reason = galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)
+        ? "already Final/Max enriched"
+        : "not completed or no output image";
+      errors.push(`${summarizeBulkUpscaleLabel(entry)}: skipped (${reason})`);
       continue;
     }
 
@@ -635,13 +727,26 @@ export function canRefineGalleryEntry(
 export function canMoireCleanGalleryEntry(
   entry: Pick<
     ComfyGalleryEntry,
-    "status" | "images" | "sourceImageUrl" | "comfyUrl" | "model"
+    | "status"
+    | "images"
+    | "sourceImageUrl"
+    | "comfyUrl"
+    | "model"
+    | "derivedKind"
+    | "queueQualityProfile"
   >,
+  qualityProfile?: Extract<QueueQualityProfile, "final" | "max">,
 ): boolean {
   if (entry.status !== "completed") {
     return false;
   }
   if (!galleryEntrySupportsMoireClean(entry.model)) {
+    return false;
+  }
+  if (
+    qualityProfile &&
+    galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)
+  ) {
     return false;
   }
   return Boolean(resolveGalleryOutputImageUrl(entry));
@@ -658,11 +763,12 @@ export async function bulkMoireCleanGalleryEntries(
   const errors: string[] = [];
 
   for (const [index, entry] of entries.entries()) {
-    if (!canMoireCleanGalleryEntry(entry)) {
+    if (!canMoireCleanGalleryEntry(entry, qualityProfile)) {
       skipped += 1;
-      errors.push(
-        `${summarizeBulkUpscaleLabel(entry)}: skipped (not completed or no output image)`,
-      );
+      const reason = galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)
+        ? "already Final/Max polished"
+        : "not completed or no output image";
+      errors.push(`${summarizeBulkUpscaleLabel(entry)}: skipped (${reason})`);
       continue;
     }
 

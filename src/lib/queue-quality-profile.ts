@@ -142,13 +142,17 @@ export function formatQueueQualityProfileHint(
   }
 
   const effectivePreset = resolveEffectiveSamplerPreset(userPreset, profile);
-  const effectiveSize = resolveEffectiveResolutionSizeTier(userSizeTier, profile);
-  const option =
-    QUEUE_QUALITY_PROFILE_OPTIONS.find((entry) => entry.id === profile) ??
-    QUEUE_QUALITY_PROFILE_OPTIONS[0];
   const model = options?.model?.trim() ?? "";
   const isRapid = /^qwen-rapid-aio-/i.test(model);
   const isLightning = /lightning-(4|8)\b/i.test(model);
+  // Rapid T2I clamps Max→medium at queue time — don't advertise "max resolution".
+  let effectiveSize = resolveEffectiveResolutionSizeTier(userSizeTier, profile);
+  if (isRapid && effectiveSize === "max") {
+    effectiveSize = "medium";
+  }
+  const option =
+    QUEUE_QUALITY_PROFILE_OPTIONS.find((entry) => entry.id === profile) ??
+    QUEUE_QUALITY_PROFILE_OPTIONS[0];
 
   let upscaleNote = "";
   if (isRapid) {
@@ -169,23 +173,31 @@ export function formatQueueQualityProfileHint(
         ? " · Lanczos polish · CFG-1 short negatives"
         : " · Draft (no Lanczos) · CFG-1 short negatives";
   } else if (profileUsesUpscaleEnrich(profile)) {
+    const targetScale = upscaleScaleForProfile(profile, { model });
     upscaleNote = options?.neuralUpscaleAvailable
       ? profileUsesNeuralUpscalePolish(profile)
-        ? " · UpscaleModel + Lanczos polish"
-        : " · UpscaleModel upscale"
+        ? ` · UpscaleModel → ~${targetScale}× (area) + Lanczos polish`
+        : ` · UpscaleModel → ~${targetScale}× (area)`
       : " · Lanczos upscale";
   }
 
   const refinerNote =
-    !isRapid && !isLightning && profileUsesSdxlRefinerEnrich(profile)
+    !isRapid && !isLightning && profileUsesSdxlRefinerEnrich(profile) && /^sdxl/i.test(model)
       ? " · SDXL refiner pass"
       : "";
+  const detailNote =
+    !isRapid && !isLightning && profileUsesLatentDetailPass(profile, { model })
+      ? " · latent detail pass"
+      : "";
   const sharpenNote =
-    !isRapid && !isLightning && profileUsesSharpenAfterUpscale(profile)
-      ? " · subtle sharpen"
+    !isRapid &&
+    !isLightning &&
+    profile === "max" &&
+    options?.neuralUpscaleAvailable
+      ? " · opt-in sharpen"
       : "";
 
-  return `${option.label} queue → ${effectivePreset} sampler · ${effectiveSize} resolution${upscaleNote}${refinerNote}${sharpenNote} (sidebar: ${userPreset} · ${userSizeTier}).`;
+  return `${option.label} queue → ${effectivePreset} sampler · ${effectiveSize} resolution${upscaleNote}${refinerNote}${detailNote}${sharpenNote} (sidebar: ${userPreset} · ${userSizeTier}).`;
 }
 
 export function resolveQueueQualityProfile(input: {
@@ -256,6 +268,20 @@ export function formatQueuePipelineStatusNotes(input: {
     } else if (profile === "draft") {
       notes.push("Draft · no Lanczos");
     }
+  } else if (profile === "final" || profile === "max") {
+    if (profileUsesLatentDetailPass(profile, { model })) {
+      notes.push("latent detail pass");
+    }
+    if (profileUsesSdxlRefinerEnrich(profile) && /^sdxl/i.test(model)) {
+      notes.push("SDXL refiner");
+    }
+    if (!profileSkipsOutputUpscaleForModel(profile, { model })) {
+      notes.push(
+        profileUsesNeuralUpscaleEnrich(profile, { model })
+          ? `neural → ~${upscaleScaleForProfile(profile, { model })}×`
+          : "Lanczos upscale",
+      );
+    }
   }
 
   if (
@@ -307,6 +333,78 @@ export function upscaleScaleForProfile(
     return mode === "max" ? 1.28 : 1.18;
   }
   return mode === "max" ? 1.5 : 1.25;
+}
+
+/** Most ESRGAN / UltraSharp / Siax models are 4×; used to land on Final/Max target scale. */
+export const ASSUMED_NEURAL_UPSCALE_FACTOR = 4;
+
+/** Parse 2×/4×/8× from common UpscaleModel filenames (`4x-UltraSharp`, `RealESRGAN_x2plus`). */
+export function parseNeuralUpscaleFactor(filename?: string): number {
+  const name = filename?.trim() ?? "";
+  if (!name) {
+    return ASSUMED_NEURAL_UPSCALE_FACTOR;
+  }
+  const match = name.match(/(\d)\s*[xX]|[xX]\s*(\d)/);
+  const factor = Number(match?.[1] ?? match?.[2]);
+  if (factor === 2 || factor === 4 || factor === 8) {
+    return factor;
+  }
+  return ASSUMED_NEURAL_UPSCALE_FACTOR;
+}
+
+/**
+ * After a neural UpscaleModel, scale to Final/Max target (≈1.25× / 1.5×) so
+ * output matches Lanczos intent instead of the raw model factor (~2×/4×).
+ * When a Lanczos polish scale follows, bake it in so the net size stays exact.
+ * `priorLatentScale` accounts for SDXL refiner / latent detail already applied
+ * before decode (so net ≠ latent × neural).
+ */
+export function neuralTargetScaleAfterUpscale(
+  profile: QueueQualityProfile | undefined,
+  options?: {
+    model?: string;
+    neuralFactor?: number;
+    polishScale?: number;
+    priorLatentScale?: number;
+  },
+): number {
+  const target = upscaleScaleForProfile(profile, options);
+  const factor = options?.neuralFactor ?? ASSUMED_NEURAL_UPSCALE_FACTOR;
+  const polish =
+    options?.polishScale != null && options.polishScale > 1
+      ? options.polishScale
+      : 1;
+  const prior =
+    options?.priorLatentScale != null && options.priorLatentScale > 1
+      ? options.priorLatentScale
+      : 1;
+  if (!(factor > 0) || !(target > 0) || !(polish > 0) || !(prior > 0)) {
+    return 1;
+  }
+  return Math.round((target / factor / polish / prior) * 10000) / 10000;
+}
+
+/**
+ * Lanczos (or soft) output scale after a Prompt Studio latent pass so net size
+ * matches Final/Max target instead of compounding with refiner/detail.
+ */
+export function outputUpscaleScaleAfterLatent(
+  profile: QueueQualityProfile | undefined,
+  options?: { model?: string; priorLatentScale?: number },
+): number {
+  const target = upscaleScaleForProfile(profile, options);
+  const prior =
+    options?.priorLatentScale != null && options.priorLatentScale > 1
+      ? options.priorLatentScale
+      : 1;
+  if (!(target > 0) || !(prior > 0)) {
+    return 1;
+  }
+  const scale = target / prior;
+  if (scale <= 1.001) {
+    return 1;
+  }
+  return Math.round(scale * 10000) / 10000;
 }
 
 /** Lightning Final/Max use Lanczos now that native generate is clean. */
@@ -372,6 +470,62 @@ export function sdxlRefinerDenoiseForProfile(
   return normalizeQueueQualityProfile(profile) === "max" ? 0.3 : 0.22;
 }
 
+/**
+ * Soft latent detail pass for Flux / vanilla Qwen Final/Max (not Lightning, Rapid, SDXL).
+ * Mild LatentUpscale + low-denoise second KSampler before VAEDecode.
+ */
+export function profileUsesLatentDetailPass(
+  profile: QueueQualityProfile | undefined,
+  options?: { model?: string },
+): boolean {
+  if (!profileUsesUpscaleEnrich(profile)) {
+    return false;
+  }
+  const model = options?.model?.trim() ?? "";
+  if (!model) {
+    return false;
+  }
+  if (
+    /lightning-(4|8)\b/i.test(model) ||
+    /^qwen-rapid-aio-/i.test(model) ||
+    /distilled|schnell/i.test(model)
+  ) {
+    return false;
+  }
+  if (/edit/i.test(model) && /qwen|flux/i.test(model)) {
+    return false;
+  }
+  // SDXL already has a dedicated refiner enrich path.
+  if (/^sdxl/i.test(model) || model === "sdxl") {
+    return false;
+  }
+  return (
+    /^qwen-image-2512$/i.test(model) ||
+    /^qwen-image-2\.0$/i.test(model) ||
+    /^flux/i.test(model)
+  );
+}
+
+export function latentDetailScaleForProfile(
+  profile: QueueQualityProfile | undefined,
+): number {
+  return normalizeQueueQualityProfile(profile) === "max" ? 1.2 : 1.12;
+}
+
+export function latentDetailDenoiseForProfile(
+  profile: QueueQualityProfile | undefined,
+  options?: { model?: string },
+): number {
+  const isMax = normalizeQueueQualityProfile(profile) === "max";
+  const model = options?.model?.trim() ?? "";
+  // Vanilla Qwen re-cooks at CFG ~3.2–3.5 — keep the second pass softer so
+  // chroma doesn't climb into oversaturation (Flux stays on the prior ladder).
+  if (/^qwen-image-2512$/i.test(model) || /^qwen-image-2\.0$/i.test(model)) {
+    return isMax ? 0.2 : 0.14;
+  }
+  return isMax ? 0.28 : 0.2;
+}
+
 /** Tiled neural upscale on Max reduces VRAM spikes on large outputs (0 = no tiling). */
 export function neuralUpscaleTileSizeForProfile(
   profile: QueueQualityProfile | undefined,
@@ -392,10 +546,38 @@ export function profileUsesSharpenAfterUpscale(
   return normalizeQueueQualityProfile(profile) === "max";
 }
 
+/**
+ * Max sharpen only after neural UpscaleModel — Lanczos-only paths stay soft.
+ * Skin/Qwen stacks get a lighter alpha to avoid wax.
+ */
+export function profileUsesSharpenAfterNeuralUpscale(
+  profile: QueueQualityProfile | undefined,
+  options?: { model?: string; afterNeural?: boolean },
+): boolean {
+  if (!profileUsesSharpenAfterUpscale(profile)) {
+    return false;
+  }
+  if (options?.afterNeural !== true) {
+    return false;
+  }
+  const model = options?.model?.trim() ?? "";
+  if (/lightning-(4|8)\b/i.test(model) || /^qwen-rapid-aio-/i.test(model)) {
+    return false;
+  }
+  return true;
+}
+
 export function sharpenAlphaForProfile(
   profile: QueueQualityProfile | undefined,
+  options?: { model?: string },
 ): number {
-  return normalizeQueueQualityProfile(profile) === "max" ? 0.1 : 0.08;
+  const isMax = normalizeQueueQualityProfile(profile) === "max";
+  const model = options?.model?.trim() ?? "";
+  // People / Qwen stacks wax easily — keep polish subtle.
+  if (/qwen|flux-2-klein/i.test(model)) {
+    return isMax ? 0.06 : 0.045;
+  }
+  return isMax ? 0.1 : 0.08;
 }
 
 /**

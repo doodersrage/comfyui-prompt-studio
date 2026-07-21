@@ -77,13 +77,24 @@ export const RESOLUTION_ORIENTATION_QWEN_EXTRA: ResolutionOrientation[] = [
   "landscape-32",
 ];
 
+/** Safer Lightning ARs — extreme 9:16 / 16:9 latents soft/mosaic even with correct LoRA. */
+export const RESOLUTION_ORIENTATION_LIGHTNING_SAFE: ResolutionOrientation[] = [
+  "square",
+  "portrait-34",
+  "landscape-43",
+];
+
 export function resolutionOrientationsForModel(
   model: ComfyImageModel | string,
 ): ResolutionOrientation[] {
   // Rapid AIO SFW/NSFW is most stable at square — keep that as the only T2I option.
-  // Vanilla 2512 + Lightning keep the full official Qwen aspect set.
   if (/^qwen-rapid-aio-(sfw|nsfw)$/i.test(String(model))) {
     return ["square"];
+  }
+
+  // Distilled Lightning: only native square + classic 3:4 / 4:3.
+  if (isQwenLightningModel(model)) {
+    return [...RESOLUTION_ORIENTATION_LIGHTNING_SAFE];
   }
 
   const category = COMFY_MODEL_IDS.has(model)

@@ -16,6 +16,8 @@ describe("queue-prompt-prep Rapid AIO / Lightning", () => {
     assert.equal(/photorealistic|anatomically/i.test(result.positive ?? ""), false);
     assert.match(result.negative ?? "", /blurry/);
     assert.match(result.negative ?? "", /moire|moiré/i);
+    assert.match(result.negative ?? "", /grid artifacts|banding/i);
+    assert.match(result.positive ?? "", /even gradients/i);
   });
 
   it("drops long auto-negatives for Rapid AIO", () => {

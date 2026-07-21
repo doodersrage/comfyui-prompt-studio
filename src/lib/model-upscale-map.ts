@@ -2,9 +2,22 @@ import type { CustomWorkflowToken } from "./comfyui-config";
 
 export const DEFAULT_UPSCALE_MODEL_TOKEN = "{{UPSCALE_MODEL}}";
 
-/** Default UpscaleModel for non-Lightning Final/Max enrich when no per-model override exists. */
+/**
+ * Suggested UpscaleModel filenames for Final/Max neural enrich when no
+ * per-model override exists. Prefer skin-friendly models for people stacks;
+ * UltraSharp remains the generic default.
+ */
 export const SUGGESTED_MODEL_UPSCALE_MAP: ModelUpscaleMap = {
   default: "4x-UltraSharp.pth",
+  "qwen-image-2512": "4x_NMKD-Siax_200k.pth",
+  "qwen-image-2.0": "4x_NMKD-Siax_200k.pth",
+  "flux-dev": "4x-UltraSharp.pth",
+  flux2: "4x-UltraSharp.pth",
+  "flux-2-klein": "4x-UltraSharp.pth",
+  "flux-2-klein-9b": "4x-UltraSharp.pth",
+  "flux-2-klein-4b-distilled": "4x-UltraSharp.pth",
+  "flux-2-klein-9b-distilled": "4x-UltraSharp.pth",
+  sdxl: "4x-UltraSharp.pth",
 };
 
 export type ModelUpscaleMap = Partial<Record<string, string>>;
@@ -28,13 +41,28 @@ function resolveCustomTokenValue(
   return trimFilename(match?.value);
 }
 
+/** Prefer skin-friendly ESRGAN families for Qwen / people-oriented stacks. */
+function upscalePreferencePatternsForModel(model?: string): RegExp[] {
+  // Prefer true 4× before generic RealESRGAN (which often matches x2plus).
+  if (model && /qwen/i.test(model)) {
+    return [
+      /siax|remacri|nomos|foliage|skin|universalupscaler/i,
+      /ultrasharp/i,
+      /\b4x\b|_x4|x4_/i,
+      /realesrgan/i,
+    ];
+  }
+  return [/ultrasharp/i, /\b4x\b|_x4|x4_/i, /realesrgan/i, /siax|remacri|nomos/i];
+}
+
 /**
  * Prefer the mapped/suggested upscaler when installed; otherwise pick a sensible
- * UltraSharp / RealESRGAN / 4x file from ComfyUI inventory.
+ * file from ComfyUI inventory using model-aware preference order.
  */
 export function pickUpscaleModelFromInventory(
   availableUpscaleModels?: string[] | null,
   preferred?: string,
+  model?: string,
 ): string | undefined {
   const preferredName = trimFilename(preferred);
   if (preferredName && isUpscaleModelInstalled(preferredName, availableUpscaleModels)) {
@@ -44,8 +72,7 @@ export function pickUpscaleModelFromInventory(
     return preferredName;
   }
   const trimmed = availableUpscaleModels.map((name) => name.trim()).filter(Boolean);
-  const patterns = [/ultrasharp/i, /realesrgan/i, /\b4x\b/i];
-  for (const pattern of patterns) {
+  for (const pattern of upscalePreferencePatternsForModel(model)) {
     const hit = trimmed.find((name) => pattern.test(name));
     if (hit) {
       return hit;
@@ -66,14 +93,17 @@ export function resolveUpscaleModelFilename(
   const mapped =
     trimFilename(options?.upscaleMap?.[model]) ??
     trimFilename(options?.upscaleMap?.default);
+  const suggested = trimFilename(SUGGESTED_MODEL_UPSCALE_MAP[model]);
   const resolved =
     mapped ??
-    resolveCustomTokenValue(DEFAULT_UPSCALE_MODEL_TOKEN, options?.customTokens);
+    resolveCustomTokenValue(DEFAULT_UPSCALE_MODEL_TOKEN, options?.customTokens) ??
+    suggested;
 
   if (options?.availableUpscaleModels && options.availableUpscaleModels.length > 0) {
     return pickUpscaleModelFromInventory(
       options.availableUpscaleModels,
       resolved ?? SUGGESTED_MODEL_UPSCALE_MAP.default,
+      model,
     );
   }
   return resolved;

@@ -2,7 +2,7 @@ import type { WorkflowParamValues } from "./comfyui-config";
 import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 import {
   DEFAULT_MODEL_SAMPLER_PRESET_TIER,
-  ensureLightningSamplerParams,
+  ensureDistilledSamplerParams,
   normalizeModelSamplerPresetTier,
   resolveModelSamplerParams,
   type ModelSamplerPresetTier,
@@ -314,7 +314,7 @@ export function resolveQueueParams(
       }
     }
 
-    return ensureLightningSamplerParams(
+    return ensureDistilledSamplerParams(
       ensureLightningNativeResolutionParams(
         merged,
         model,

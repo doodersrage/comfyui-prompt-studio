@@ -7,10 +7,8 @@ import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { injectLoraTriggers } from "./lora-prompt-injection";
 import { loadActiveProjectId } from "./prompt-projects";
-import { resolveQueueNegativePromptRaw } from "./queue-negative";
-import { prepareNegativeForQueue, preparePositiveForQueue } from "./queue-prompt-prep";
+import { prepareQueuePrompts } from "./queue-prompt-prep";
 import { resolveQueueParams } from "./queue-params-settings";
-import { modelUsesNegativePrompt } from "./prompt-pair";
 
 export type CampaignStepResult = {
   index: number;
@@ -85,20 +83,19 @@ export async function runPromptCampaign(input: {
     }
   }
 
-  let negativePrompt: string | undefined;
-  if (input.queueToComfyUi && modelUsesNegativePrompt(model)) {
-    negativePrompt = await resolveQueueNegativePromptRaw({
-      model,
-      hints: input.hints,
-      tool: "campaign",
-    });
-  }
-
   for (const [index, rawPrompt] of prompts.entries()) {
-    const prompt = preparePositiveForQueue(injectLoraTriggers(rawPrompt));
-    const steeredNegative = negativePrompt
-      ? prepareNegativeForQueue(negativePrompt)
-      : undefined;
+    const steered = input.queueToComfyUi
+      ? await prepareQueuePrompts({
+          model,
+          positive: injectLoraTriggers(rawPrompt),
+          hints: input.hints,
+          tool: "campaign",
+        })
+      : {
+          positive: injectLoraTriggers(rawPrompt),
+          negative: undefined as string | undefined,
+        };
+    const prompt = steered.positive;
     if (!input.queueToComfyUi) {
       results.push({ index, prompt, queued: false });
       continue;
@@ -110,7 +107,7 @@ export async function runPromptCampaign(input: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
-        negativePrompt: steeredNegative,
+        negativePrompt: steered.negative,
         params,
         ...(runtime ? { comfy: runtime } : {}),
       }),
@@ -129,7 +126,7 @@ export async function runPromptCampaign(input: {
     registerComfyGalleryJob({
       promptId: data.promptId,
       prompt,
-      negativePrompt: steeredNegative,
+      negativePrompt: steered.negative,
       tool: "campaign",
       model,
       comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",

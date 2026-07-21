@@ -679,14 +679,19 @@ export default function ComfyUiGalleryPanel({
           toastQueueOutcome({ ok: true, text: message });
         });
       },
-      upscale: (id: string, qualityProfile: "final" | "max") => {
+      upscale: (
+        id: string,
+        qualityProfile: "final" | "max",
+        options?: { force?: boolean },
+      ) => {
         const entry = entriesRef.current.find((item) => item.id === id);
         if (!entry) {
           return;
         }
-        setRequeueStatus("Upscaling…");
+        setRequeueStatus(options?.force ? "Force upscaling…" : "Upscaling…");
         void requeueUpscaleFromGalleryEntry(entry, {
           qualityProfile,
+          force: options?.force,
           onStatus: setRequeueStatus,
         }).then((result) => {
           if (!result.ok) {
@@ -695,7 +700,7 @@ export default function ComfyUiGalleryPanel({
             return;
           }
           const message = [
-              "upscale queued",
+              options?.force ? "force upscale queued" : "upscale queued",
               `${qualityProfile} quality · same image`,
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
@@ -732,18 +737,27 @@ export default function ComfyUiGalleryPanel({
           toastQueueOutcome({ ok: true, text: message });
         });
       },
-      moireClean: (id: string, qualityProfile: "final" | "max") => {
+      moireClean: (
+        id: string,
+        qualityProfile: "final" | "max",
+        options?: { force?: boolean },
+      ) => {
         const entry = entriesRef.current.find((item) => item.id === id);
         if (!entry) {
           return;
         }
         setRequeueStatus(
-          qualityProfile === "max"
-            ? "Queueing moiré clean (Max)…"
-            : "Queueing moiré clean (Final)…",
+          options?.force
+            ? qualityProfile === "max"
+              ? "Force moiré clean (Max)…"
+              : "Force moiré clean (Final)…"
+            : qualityProfile === "max"
+              ? "Queueing moiré clean (Max)…"
+              : "Queueing moiré clean (Final)…",
         );
         void requeueMoireCleanFromGalleryEntry(entry, {
           qualityProfile,
+          force: options?.force,
           onStatus: setRequeueStatus,
         }).then((result) => {
           if (!result.ok) {
@@ -755,7 +769,7 @@ export default function ComfyUiGalleryPanel({
             return;
           }
           const message = [
-              "moiré clean queued",
+              options?.force ? "force moiré clean queued" : "moiré clean queued",
               qualityProfile === "max"
                 ? "Max · blur → bicubic → Lanczos"
                 : "Final · soft blur only",
@@ -1408,6 +1422,21 @@ export default function ComfyUiGalleryPanel({
             }).then((result) => {
               if (!result.ok) {
                 setCompareStatus(result.error ?? "Upscale failed.");
+              }
+            });
+          }}
+          onMoireClean={(entry, qualityProfile) => {
+            setCompareStatus(
+              qualityProfile === "max"
+                ? "Queueing moiré clean (Max)…"
+                : "Queueing moiré clean (Final)…",
+            );
+            void requeueMoireCleanFromGalleryEntry(entry, {
+              qualityProfile,
+              onStatus: setCompareStatus,
+            }).then((result) => {
+              if (!result.ok) {
+                setCompareStatus(result.error ?? "Moiré clean failed.");
               }
             });
           }}

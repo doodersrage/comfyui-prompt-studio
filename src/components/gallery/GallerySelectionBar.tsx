@@ -6,9 +6,10 @@ import type { PromptProject } from "@/lib/prompt-projects";
 import type { ParamExperimentAxis } from "@/lib/param-experiment-queue";
 import { Button } from "@/components/ui/Button";
 import {
+  canUpscaleGalleryEntry,
+  galleryEntryAlreadyEnrichedForUpscale,
   galleryEntrySupportsMoireClean,
   galleryEntrySupportsRefine,
-  galleryEntrySupportsUpscale,
 } from "@/lib/comfyui-requeue";
 import { isQwenRapidAioModel } from "@/lib/model-denoise-defaults";
 import { isQwenLightningModel } from "@/lib/model-sampling-patch";
@@ -116,18 +117,44 @@ function MenuItem(props: { label: string; onClick: () => void; disabled?: boolea
 export default function GallerySelectionBar(props: GallerySelectionBarProps) {
   const queueCapabilities = useMemo(() => {
     const entries = props.selectedEntries;
-    const canUpscale = entries.some((entry) => galleryEntrySupportsUpscale(entry.model));
-    const canRefine = entries.some((entry) => galleryEntrySupportsRefine(entry.model));
-    const canMoire = entries.some((entry) =>
-      galleryEntrySupportsMoireClean(entry.model),
+    const canUpscaleFinal = entries.some((entry) =>
+      canUpscaleGalleryEntry(entry, "final"),
     );
+    const canUpscaleMax = entries.some((entry) =>
+      canUpscaleGalleryEntry(entry, "max"),
+    );
+    const canUpscale = canUpscaleFinal || canUpscaleMax;
+    const canRefine = entries.some((entry) => galleryEntrySupportsRefine(entry.model));
+    const canMoireFinal = entries.some(
+      (entry) =>
+        galleryEntrySupportsMoireClean(entry.model) &&
+        entry.status === "completed" &&
+        !galleryEntryAlreadyEnrichedForUpscale(entry, "final"),
+    );
+    const canMoireMax = entries.some(
+      (entry) =>
+        galleryEntrySupportsMoireClean(entry.model) &&
+        entry.status === "completed" &&
+        !galleryEntryAlreadyEnrichedForUpscale(entry, "max"),
+    );
+    const canMoire = canMoireFinal || canMoireMax;
     const allRapid =
       entries.length > 0 &&
       entries.every((entry) => isQwenRapidAioModel(entry.model));
     const allLightning =
       entries.length > 0 &&
       entries.every((entry) => isQwenLightningModel(entry.model));
-    return { canUpscale, canRefine, canMoire, allRapid, allLightning };
+    return {
+      canUpscale,
+      canUpscaleFinal,
+      canUpscaleMax,
+      canRefine,
+      canMoire,
+      canMoireFinal,
+      canMoireMax,
+      allRapid,
+      allLightning,
+    };
   }, [props.selectedEntries]);
 
   if (props.selectedCount === 0) {
@@ -187,10 +214,15 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
         </ActionMenu>
 
         <ActionMenu label="Queue" disabled={props.selectedCount === 0}>
-          {queueCapabilities.canUpscale || queueCapabilities.allRapid ? (
+          {(queueCapabilities.canUpscale || queueCapabilities.canMoire) ? (
             <>
               <MenuItem
                 label={upscaleFinalLabel}
+                disabled={
+                  queueCapabilities.allRapid
+                    ? !queueCapabilities.canMoireFinal
+                    : !queueCapabilities.canUpscaleFinal
+                }
                 onClick={
                   queueCapabilities.allRapid
                     ? props.onBulkMoireCleanFinal
@@ -199,6 +231,11 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
               />
               <MenuItem
                 label={upscaleMaxLabel}
+                disabled={
+                  queueCapabilities.allRapid
+                    ? !queueCapabilities.canMoireMax
+                    : !queueCapabilities.canUpscaleMax
+                }
                 onClick={
                   queueCapabilities.allRapid
                     ? props.onBulkMoireCleanMax
