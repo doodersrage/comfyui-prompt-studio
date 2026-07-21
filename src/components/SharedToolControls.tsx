@@ -501,6 +501,17 @@ export default function SharedToolControls({
           }
           onChange={handleModelChange}
         />
+        {toolId === "generate" &&
+        /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
+          <p className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs leading-relaxed text-amber-100/85">
+            Edit-2511 Lightning on Generate runs as T2I (reference images
+            disconnected). For clean scene generation prefer{" "}
+            <span className="font-medium text-amber-50">
+              Qwen-Image-2512 Lightning
+            </span>
+            ; keep Edit Lightning for Refine / img2img.
+          </p>
+        ) : null}
       </div>
 
       <ModelSamplerHints

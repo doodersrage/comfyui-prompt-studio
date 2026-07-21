@@ -166,15 +166,69 @@ export function resolveQueueQualityProfile(input: {
   override?: QueueQualityProfile;
   global?: QueueQualityProfile;
   toolProfiles?: Partial<Record<string, QueueQualityProfile>>;
+  /** When set, Rapid AIO Draft is promoted to Final so moiré polish always runs. */
+  model?: string;
 }): QueueQualityProfile {
   if (input.override) {
     return normalizeQueueQualityProfile(input.override);
   }
   const tool = input.tool?.trim();
-  if (tool && input.toolProfiles?.[tool]) {
-    return normalizeQueueQualityProfile(input.toolProfiles[tool]);
+  let profile =
+    tool && input.toolProfiles?.[tool]
+      ? normalizeQueueQualityProfile(input.toolProfiles[tool])
+      : normalizeQueueQualityProfile(input.global);
+
+  // Rapid AIO moiré polish only runs on Final/Max — bump Draft so Generate stays clean.
+  if (
+    input.model &&
+    /^qwen-rapid-aio-/i.test(String(input.model).trim()) &&
+    profile === "draft"
+  ) {
+    return "final";
   }
-  return normalizeQueueQualityProfile(input.global);
+
+  return profile;
+}
+
+/**
+ * Short queue-status chips for the result panel (moiré polish, upscale skip, etc.).
+ * Pure client-side — does not require API enrich change plumbing.
+ */
+export function formatQueuePipelineStatusNotes(input: {
+  model?: string;
+  qualityProfile?: QueueQualityProfile;
+  tool?: string;
+}): string[] {
+  const model = String(input.model ?? "").trim();
+  const profile = normalizeQueueQualityProfile(input.qualityProfile);
+  const notes: string[] = [];
+
+  if (profile === "final" || profile === "max" || profile === "draft") {
+    notes.push(`${profile} quality`);
+  }
+
+  if (/^qwen-rapid-aio-/i.test(model)) {
+    if (profileUsesRapidAioMoirePolish(profile, { model })) {
+      notes.push("moiré polish on");
+      notes.push("upscale skipped (Rapid AIO)");
+    } else {
+      notes.push("moiré polish off (use Final/Max)");
+    }
+  } else if (/lightning-(4|8)\b/i.test(model)) {
+    notes.push("Lightning CFG-1 · short negatives");
+  }
+
+  if (
+    /qwen-image-edit-2511-lightning/i.test(model) &&
+    (!input.tool ||
+      /generate|format|topics|variations|character|pet|fantasy|duo|background/i.test(
+        input.tool,
+      ))
+  ) {
+    notes.push("Edit Lightning T2I · refs disconnected");
+  }
+
+  return notes;
 }
 
 export function profileUsesUpscaleEnrich(profile: QueueQualityProfile | undefined): boolean {
@@ -332,23 +386,52 @@ export function rapidAioMoireBlurRadius(
 export function rapidAioMoireBlurSigma(
   profile: QueueQualityProfile | undefined,
 ): number {
-  return normalizeQueueQualityProfile(profile) === "max" ? 0.6 : 0.5;
+  // Final stays soft-blur only (no resample) — stronger blur was mushy without helping moiré.
+  return normalizeQueueQualityProfile(profile) === "max" ? 0.55 : 0.45;
 }
 
 /**
- * Area downsample factor for Rapid AIO anti-moiré. Lower = stronger cleanup;
- * paired with an inverse Lanczos upscale so output size stays ~native.
- * (Final/Max model upscale is skipped for Rapid AIO — it re-amplified moiré.)
+ * Whether Rapid AIO polish includes a downsample→restore resample.
+ * Final skips it (blur only) — area↓/lanczos↑ looked pixelated when gallery-scaled.
+ * Max keeps a mild bicubic pass for stubborn screen-door.
+ */
+export function profileUsesRapidAioMoireResample(
+  profile: QueueQualityProfile | undefined,
+): boolean {
+  return normalizeQueueQualityProfile(profile) === "max";
+}
+
+/**
+ * Mild bicubic downsample factor for Rapid AIO Max anti-moiré.
+ * Paired with inverse Lanczos restore; Final does not resample.
  */
 export function rapidAioMoireDownscaleFactor(
   profile: QueueQualityProfile | undefined,
 ): number {
-  return normalizeQueueQualityProfile(profile) === "max" ? 0.75 : 0.8;
+  return profileUsesRapidAioMoireResample(profile) ? 0.9 : 1;
+}
+
+export function rapidAioMoireDownscaleMethod(
+  profile: QueueQualityProfile | undefined,
+): "bicubic" | "area" | "lanczos" {
+  void profile;
+  // Bicubic preserves micro-detail better than area (which block-averages → pixelation).
+  return "bicubic";
 }
 
 export function rapidAioMoireRestoreScale(
   profile: QueueQualityProfile | undefined,
 ): number {
   const down = rapidAioMoireDownscaleFactor(profile);
+  if (down >= 0.999) {
+    return 1;
+  }
   return Math.round((1 / down) * 1000) / 1000;
+}
+
+/** Soft edge recovery after Max resample — lighter than generic Max sharpen. */
+export function rapidAioMoireRestoreSharpenAlpha(
+  profile: QueueQualityProfile | undefined,
+): number {
+  return profileUsesRapidAioMoireResample(profile) ? 0.04 : 0;
 }

@@ -19,6 +19,7 @@ export type GalleryCardActions = {
   ) => void;
   upscale: (id: string, qualityProfile: "final" | "max") => void;
   refine: (id: string) => void;
+  moireClean: (id: string) => void;
   showParent: (id: string) => void;
   showDerivatives: (id: string) => void;
   openImage: (id: string, index: number) => void;
@@ -78,6 +79,10 @@ function GalleryCardItem({
     () => actionsRef.current.refine(entry.id),
     [actionsRef, entry.id],
   );
+  const onMoireClean = useCallback(
+    () => actionsRef.current.moireClean(entry.id),
+    [actionsRef, entry.id],
+  );
   const onShowParent = useCallback(() => {
     actionsRef.current.showParent(entry.id);
   }, [actionsRef, entry.id]);
@@ -133,6 +138,7 @@ function GalleryCardItem({
       onRequeue={onRequeue}
       onUpscale={onUpscale}
       onRefine={onRefine}
+      onMoireClean={onMoireClean}
       onShowParent={entry.parentGalleryEntryId ? onShowParent : undefined}
       onShowDerivatives={hasDerivatives ? onShowDerivatives : undefined}
       hasDerivatives={hasDerivatives}

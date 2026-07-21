@@ -40,6 +40,7 @@ import { resolveQueueInputImageFilename } from "@/lib/queue-input-image";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { applyQueuePromptSteering, prepareQueuePrompts } from "@/lib/queue-prompt-prep";
 import { resolveQueueNegativePromptRaw } from "@/lib/queue-negative";
+import { joinQueueStatusNotes } from "@/lib/queue-status-notes";
 import { runWorkflowPreflight } from "@/lib/workflow-preflight";
 import { dispatchWebhook } from "@/lib/webhook-settings";
 import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
@@ -500,15 +501,20 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
 
         setComfyUiStatus(
-          [
-            data.promptId ? `prompt_id ${data.promptId}` : "queued",
-            queueModel !== config.model ? `as ${queueModel}` : null,
-            data.comfyUrl,
-            data.workflowSource ? `workflow: ${data.workflowSource}` : null,
-            negativePrompt ? "with negative" : null,
-          ]
-            .filter(Boolean)
-            .join(" · "),
+          joinQueueStatusNotes(
+            [
+              data.promptId ? `prompt_id ${data.promptId}` : "queued",
+              queueModel !== config.model ? `as ${queueModel}` : null,
+              data.comfyUrl,
+              data.workflowSource ? `workflow: ${data.workflowSource}` : null,
+              negativePrompt ? "with negative" : null,
+            ],
+            {
+              model: queueModel,
+              qualityProfile: runtime?.queueQualityProfile,
+              tool: config.tool,
+            },
+          ),
         );
 
         if (data.promptId) {

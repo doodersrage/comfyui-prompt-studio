@@ -36,6 +36,7 @@ import {
 } from "./comfyui-workflow-files";
 import { getSelectedWorkflowFileId } from "./comfyui-runtime";
 import { isQwenLightningModel } from "./model-sampling-patch";
+import { isQwenRapidAioModel } from "./model-denoise-defaults";
 import {
   resolveEffectiveResolutionSizeTier,
   resolveEffectiveSamplerPreset,
@@ -145,6 +146,7 @@ export function resolveQueueParams(
     override: qualityProfile,
     global: shared.queueQualityProfile,
     toolProfiles: shared.toolQueueQualityProfiles,
+    model,
   });
   const presetTier = resolveEffectiveSamplerPreset(
     samplerPreset ?? loadModelSamplerPresetTier(),
@@ -299,9 +301,16 @@ export function resolveQueueParams(
       merged.denoise = denoise;
     }
 
-    // Pure Lightning T2I is far more stable at native 1328² than tall portrait ARs.
-    if (isQwenLightningModel(model) && !hasInputImage) {
-      const square = resolveModelResolutionParams(model, "square", sizeTier);
+    // Pure Lightning / Rapid AIO T2I is far more stable at native square than tall ARs.
+    if ((isQwenLightningModel(model) || isQwenRapidAioModel(model)) && !hasInputImage) {
+      // Rapid AIO: prefer medium square over max — extreme latents worsen screen-door.
+      const rapidTier =
+        isQwenRapidAioModel(model) && sizeTier === "max" ? "medium" : sizeTier;
+      const square = resolveModelResolutionParams(
+        model,
+        "square",
+        isQwenRapidAioModel(model) ? rapidTier : sizeTier,
+      );
       if (square.width != null) {
         merged.width = square.width;
       }
@@ -314,8 +323,13 @@ export function resolveQueueParams(
       ensureLightningNativeResolutionParams(
         merged,
         model,
-        isQwenLightningModel(model) && !hasInputImage ? "square" : orientation,
-        sizeTier,
+        (isQwenLightningModel(model) || isQwenRapidAioModel(model)) &&
+          !hasInputImage
+          ? "square"
+          : orientation,
+        isQwenRapidAioModel(model) && !hasInputImage && sizeTier === "max"
+          ? "medium"
+          : sizeTier,
       ),
       model,
       presetTier,

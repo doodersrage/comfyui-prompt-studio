@@ -52,6 +52,33 @@ describe("queue-quality-profile", () => {
     );
   });
 
+  it("promotes Rapid AIO Draft to Final so moiré polish runs", async () => {
+    const {
+      resolveQueueQualityProfile,
+      formatQueuePipelineStatusNotes,
+    } = await import("./queue-quality-profile.ts");
+    assert.equal(
+      resolveQueueQualityProfile({
+        global: "draft",
+        model: "qwen-rapid-aio-nsfw",
+      }),
+      "final",
+    );
+    assert.equal(
+      resolveQueueQualityProfile({
+        override: "draft",
+        model: "qwen-rapid-aio-nsfw",
+      }),
+      "draft",
+    );
+    const notes = formatQueuePipelineStatusNotes({
+      model: "qwen-rapid-aio-nsfw",
+      qualityProfile: "final",
+    });
+    assert.ok(notes.some((note) => /moiré polish on/i.test(note)));
+    assert.ok(notes.some((note) => /upscale skipped/i.test(note)));
+  });
+
   it("flags final and max profiles for upscale enrichment", async () => {
     const {
       profileUsesUpscaleEnrich,

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildGalleryMoireCleanWorkflow,
   buildGalleryUpscaleWorkflow,
   resolveGalleryOutputImageUrl,
 } from "./gallery-output-upscale.ts";
@@ -73,6 +74,31 @@ describe("gallery-output-upscale", () => {
     });
     const classTypes = Object.values(workflow).map((node) => node.class_type);
     assert.deepEqual(classTypes, ["LoadImage", "SaveImage"]);
+  });
+
+  it("builds gallery moiré clean as blur-only on Final", () => {
+    const workflow = buildGalleryMoireCleanWorkflow("final");
+    const classTypes = Object.values(workflow).map((node) => node.class_type);
+    assert.deepEqual(classTypes, ["LoadImage", "ImageBlur", "SaveImage"]);
+  });
+
+  it("builds gallery moiré clean with mild resample on Max", () => {
+    const workflow = buildGalleryMoireCleanWorkflow("max");
+    const classTypes = Object.values(workflow).map((node) => node.class_type);
+    assert.deepEqual(classTypes, [
+      "LoadImage",
+      "ImageBlur",
+      "ImageScaleBy",
+      "ImageScaleBy",
+      "ImageSharpen",
+      "SaveImage",
+    ]);
+    const down = Object.values(workflow).find(
+      (node) =>
+        node.class_type === "ImageScaleBy" &&
+        node.inputs.upscale_method === "bicubic",
+    );
+    assert.equal(down?.inputs.scale_by, 0.9);
   });
 
   it("resolves gallery output view URL", () => {

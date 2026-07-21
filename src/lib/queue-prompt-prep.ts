@@ -53,9 +53,10 @@ export function applyQueuePromptSteering(input: {
   realismMode?: RenderRealismMode;
   anatomyMode?: AnatomyGuardMode;
 }): { positive: string; negative?: string } {
+  const realismMode = input.realismMode ?? loadRenderRealismMode();
+  const anatomyMode = input.anatomyMode ?? loadAnatomyGuardMode();
+
   if (isQwenLightningModel(input.model)) {
-    const realismMode = input.realismMode ?? loadRenderRealismMode();
-    const anatomyMode = input.anatomyMode ?? loadAnatomyGuardMode();
     const positive = applyAnatomyGuardToPositive(
       applyRenderRealismToPositive(input.positive, realismMode),
       anatomyMode,
@@ -70,29 +71,40 @@ export function applyQueuePromptSteering(input: {
     };
   }
 
+  // Rapid AIO is CFG-1 distilled (Lightning baked in) — skip long auto-negatives;
+  // keep short explicit + anti-moiré cues only.
+  if (isQwenRapidAioModel(input.model)) {
+    const positive = appendUniqueCsv(
+      applyAnatomyGuardToPositive(
+        applyRenderRealismToPositive(input.positive, realismMode),
+        anatomyMode,
+      ),
+      RAPID_AIO_MOIRE_POSITIVE,
+    );
+    const explicit = input.negative?.trim();
+    const shortExplicit =
+      explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS
+        ? explicit
+        : undefined;
+    return {
+      positive,
+      negative: appendUniqueCsv(shortExplicit, RAPID_AIO_MOIRE_NEGATIVE),
+    };
+  }
+
   const withRealism = applyRenderRealismForModel({
     positive: input.positive,
     negative: input.negative,
     model: input.model,
-    mode: input.realismMode ?? loadRenderRealismMode(),
+    mode: realismMode,
   });
 
-  const steered = applyAnatomyGuardForModel({
+  return applyAnatomyGuardForModel({
     positive: withRealism.positive,
     negative: withRealism.negative,
     model: input.model,
-    mode: input.anatomyMode ?? loadAnatomyGuardMode(),
+    mode: anatomyMode,
   });
-
-  if (!isQwenRapidAioModel(input.model)) {
-    return steered;
-  }
-
-  // Rapid AIO is CFG-1 distilled — keep anti-moiré cues short on both sides.
-  return {
-    positive: appendUniqueCsv(steered.positive, RAPID_AIO_MOIRE_POSITIVE),
-    negative: appendUniqueCsv(steered.negative, RAPID_AIO_MOIRE_NEGATIVE),
-  };
 }
 
 export async function prepareQueuePrompts(input: {
@@ -106,9 +118,10 @@ export async function prepareQueuePrompts(input: {
   anatomyMode?: AnatomyGuardMode;
 }): Promise<{ positive: string; negative?: string }> {
   let negative: string | undefined;
-  const lightning = isQwenLightningModel(input.model);
-  if (lightning) {
-    // Skip auto-negative profiles — they fight CFG-1 Lightning distillation.
+  const distilledCfg1 =
+    isQwenLightningModel(input.model) || isQwenRapidAioModel(input.model);
+  if (distilledCfg1) {
+    // Skip auto-negative profiles — they fight CFG-1 distillation.
     negative = input.explicitNegative?.trim() || undefined;
   } else if (modelUsesNegativePrompt(input.model)) {
     negative = await resolveQueueNegativePromptRaw({

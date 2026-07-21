@@ -185,6 +185,7 @@ export function resolveRuntimeForQueue(
       tool,
       global: shared.queueQualityProfile,
       toolProfiles: shared.toolQueueQualityProfiles,
+      model: queueModel,
     }),
   };
 

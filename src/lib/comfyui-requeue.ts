@@ -26,6 +26,7 @@ import type { ComfyGalleryEntry } from "./comfyui-gallery";
 import { findGalleryEntryForHistory } from "./prompt-lineage";
 import { runWorkflowPreflight } from "./workflow-preflight";
 import {
+  buildGalleryMoireCleanWorkflow,
   buildGalleryUpscaleWorkflow,
   resolveGalleryOutputImageUrl,
 } from "./gallery-output-upscale";
@@ -272,6 +273,113 @@ export async function requeueUpscaleFromGalleryEntry(
   }
 
   return result;
+}
+
+export async function requeueMoireCleanFromGalleryEntry(
+  entry: ComfyGalleryEntry,
+  options?: {
+    qualityProfile?: Extract<QueueQualityProfile, "final" | "max">;
+    onStatus?: (message: string) => void;
+  },
+): Promise<RequeueComfyJobResult> {
+  const outputUrl = resolveGalleryOutputImageUrl(entry);
+  if (!outputUrl) {
+    return { ok: false, error: "No gallery output image available to clean." };
+  }
+
+  options?.onStatus?.("Uploading gallery output…");
+
+  const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
+  let inputImageFilename: string | undefined;
+  try {
+    inputImageFilename = await resolveQueueInputImageFilename({
+      imageUrl: outputUrl,
+      model,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Could not upload gallery output.",
+    };
+  }
+
+  if (!inputImageFilename?.trim()) {
+    return { ok: false, error: "Could not upload gallery output to ComfyUI." };
+  }
+
+  const qualityProfile = options?.qualityProfile ?? "final";
+  const workflow = buildGalleryMoireCleanWorkflow(qualityProfile);
+  const baseRuntime = resolveRuntimeForQueue(model, entry.tool);
+
+  const runtime: ComfyUiRuntimeConfig = {
+    ...baseRuntime,
+    workflowJson: JSON.stringify(workflow),
+    workflowQueueOptimize: false,
+    workflowGraphEnrich: false,
+    directWorkflowPatching: true,
+    queueQualityProfile: qualityProfile,
+  };
+
+  options?.onStatus?.(
+    qualityProfile === "max"
+      ? "Queueing moiré clean (Max: blur → bicubic → Lanczos)…"
+      : "Queueing moiré clean (Final: soft blur only)…",
+  );
+
+  const response = await fetch("/api/comfyui", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt: entry.prompt.trim() || "moire clean",
+      negativePrompt: entry.negativePrompt,
+      model,
+      params: { inputImageFilename },
+      comfy: runtime,
+    }),
+  });
+
+  const data = (await response.json()) as {
+    ok?: boolean;
+    promptId?: string;
+    error?: string;
+    comfyUrl?: string;
+  };
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "ComfyUI moiré-clean queue failed.",
+      comfyUrl: data.comfyUrl,
+    };
+  }
+
+  if (data.promptId) {
+    registerComfyGalleryJob({
+      promptId: data.promptId,
+      prompt: entry.prompt.trim() || "moire clean",
+      negativePrompt: entry.negativePrompt,
+      tool: entry.tool,
+      model: entry.model,
+      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      queueParams: { inputImageFilename },
+      sourceImageUrl: outputUrl,
+      queueQualityProfile: qualityProfile,
+      parentGalleryEntryId: entry.id,
+      derivedKind: "moire-clean",
+      historyId: entry.historyId,
+    });
+    void scheduleComfyGalleryPoll(data.promptId, {
+      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      onStatus: options?.onStatus,
+    });
+  }
+
+  return {
+    ok: true,
+    promptId: data.promptId,
+    comfyUrl: data.comfyUrl ?? entry.comfyUrl,
+  };
 }
 
 export async function requeueRefineFromGalleryEntry(

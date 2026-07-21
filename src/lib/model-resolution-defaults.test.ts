@@ -172,4 +172,20 @@ describe("model resolution defaults", () => {
     assert.equal(params.height, 1216);
     assert.equal(params.steps, 30);
   });
+
+  it("forces Rapid AIO T2I to medium square when size tier is max", () => {
+    const params = resolveQueueParams({
+      model: "qwen-rapid-aio-nsfw",
+      resolutionOrientation: "portrait",
+      resolutionSizeTier: "max",
+    });
+    assert.equal(params.width, params.height);
+    const mediumSquare = getModelResolutionPreset(
+      "qwen-rapid-aio-nsfw",
+      "square",
+      "medium",
+    );
+    assert.equal(params.width, mediumSquare?.width);
+    assert.equal(params.height, mediumSquare?.height);
+  });
 });

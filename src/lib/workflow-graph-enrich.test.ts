@@ -429,7 +429,7 @@ describe("workflow-graph-enrich", () => {
     assert.notEqual(outputNode.class_type, "ImageSharpen");
   });
 
-  it("inserts soft ImageBlur moiré polish for Rapid AIO on final/max", () => {
+  it("inserts soft ImageBlur moiré polish for Rapid AIO on Final (no resample)", () => {
     const workflow = {
       "7": {
         class_type: "VAEDecode",
@@ -451,34 +451,70 @@ describe("workflow-graph-enrich", () => {
     });
 
     const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
-    const restoreId = saveNode.inputs.images[0];
-    const restoreNode = result.workflow[restoreId] as {
+    const blurId = saveNode.inputs.images[0];
+    const blurNode = result.workflow[blurId] as {
       class_type: string;
       inputs: Record<string, unknown>;
       _meta?: { title?: string };
     };
+    assert.equal(blurNode.class_type, "ImageBlur");
+    assert.equal(blurNode.inputs.blur_radius, 1);
+    assert.equal(blurNode.inputs.sigma, 0.45);
+    assert.match(blurNode._meta?.title ?? "", /moiré|moire/i);
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) => (node as { class_type?: string }).class_type === "ImageScaleBy",
+      ),
+      false,
+    );
+    assert.ok(result.changes.some((change) => /soft blur only/i.test(change.message)));
+  });
+
+  it("resamples Rapid AIO moiré polish on Max with mild bicubic↓/Lanczos↑", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-rapid-aio-nsfw",
+      qualityProfile: "max",
+      enrichSampling: false,
+      enrichUpscale: false,
+    });
+
+    const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
+    const sharpenId = saveNode.inputs.images[0];
+    const sharpenNode = result.workflow[sharpenId] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
+    assert.equal(sharpenNode.class_type, "ImageSharpen");
+
+    const restoreId = (sharpenNode.inputs.image as [string, number])[0];
+    const restoreNode = result.workflow[restoreId] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
     assert.equal(restoreNode.class_type, "ImageScaleBy");
     assert.equal(restoreNode.inputs.upscale_method, "lanczos");
-    assert.equal(restoreNode.inputs.scale_by, 1.25);
-    assert.match(restoreNode._meta?.title ?? "", /size restore/i);
+    assert.equal(restoreNode.inputs.scale_by, Math.round((1 / 0.9) * 1000) / 1000);
 
     const downId = (restoreNode.inputs.image as [string, number])[0];
     const downNode = result.workflow[downId] as {
       class_type: string;
       inputs: Record<string, unknown>;
     };
-    assert.equal(downNode.class_type, "ImageScaleBy");
-    assert.equal(downNode.inputs.upscale_method, "area");
-    assert.equal(downNode.inputs.scale_by, 0.8);
-
-    const blurId = (downNode.inputs.image as [string, number])[0];
-    const blurNode = result.workflow[blurId] as {
-      class_type: string;
-      inputs: Record<string, unknown>;
-    };
-    assert.equal(blurNode.class_type, "ImageBlur");
-    assert.equal(blurNode.inputs.sigma, 0.5);
-    assert.ok(result.changes.some((change) => /moiré|moire/i.test(change.message)));
+    assert.equal(downNode.inputs.upscale_method, "bicubic");
+    assert.equal(downNode.inputs.scale_by, 0.9);
   });
 
   it("skips Final/Max output upscale for Rapid AIO so moiré is not re-amplified", () => {
@@ -503,8 +539,13 @@ describe("workflow-graph-enrich", () => {
     });
 
     assert.equal(
-      result.changes.some((change) => /output upscale|neural upscale/i.test(change.message)),
+      result.changes.some((change) =>
+        /Inserted.*(?:output upscale|neural upscale)/i.test(change.message),
+      ),
       false,
+    );
+    assert.ok(
+      result.changes.some((change) => /Skipped Final\/Max output upscale/i.test(change.message)),
     );
     assert.ok(result.changes.some((change) => /moiré|moire/i.test(change.message)));
   });

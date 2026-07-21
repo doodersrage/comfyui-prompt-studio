@@ -38,6 +38,7 @@ type GalleryCardProps = {
   onRequeue: (newSeed: boolean, qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile) => void;
   onUpscale: (qualityProfile: "final" | "max") => void;
   onRefine: () => void;
+  onMoireClean?: () => void;
   onShowParent?: () => void;
   onShowDerivatives?: () => void;
   hasDerivatives?: boolean;
@@ -89,6 +90,7 @@ export default function GalleryCard({
   onRequeue,
   onUpscale,
   onRefine,
+  onMoireClean,
   onShowParent,
   onShowDerivatives,
   hasDerivatives,
@@ -199,7 +201,9 @@ export default function GalleryCard({
         ? "refined from prior"
         : entry.derivedKind === "variation"
           ? "variation of prior"
-          : undefined;
+          : entry.derivedKind === "moire-clean"
+            ? "moiré-cleaned from prior"
+            : undefined;
 
   const metaLine = [entry.tool, entry.model, entry.parentGalleryEntryId ? undefined : derivedLabel]
     .filter(Boolean)
@@ -682,6 +686,15 @@ export default function GalleryCard({
                     setMenuOpen(false);
                   }}
                 />
+                {onMoireClean ? (
+                  <GalleryMenuButton
+                    label="Clean moiré"
+                    onClick={() => {
+                      onMoireClean();
+                      setMenuOpen(false);
+                    }}
+                  />
+                ) : null}
                 {hasDerivatives && onShowDerivatives ? (
                   <GalleryMenuButton
                     label="Show derivatives"

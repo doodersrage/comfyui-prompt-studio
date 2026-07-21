@@ -6,6 +6,13 @@ import {
   neuralUpscaleTileSizeForProfile,
   profileUsesNeuralUpscalePolish,
   profileUsesSharpenAfterUpscale,
+  rapidAioMoireBlurRadius,
+  rapidAioMoireBlurSigma,
+  rapidAioMoireDownscaleFactor,
+  rapidAioMoireDownscaleMethod,
+  rapidAioMoireRestoreScale,
+  rapidAioMoireRestoreSharpenAlpha,
+  profileUsesRapidAioMoireResample,
   sharpenAlphaForProfile,
   upscaleScaleForProfile,
   type QueueQualityProfile,
@@ -64,6 +71,95 @@ export function buildLightningGalleryUpscaleWorkflow(): Record<string, WorkflowN
       _meta: { title: "Prompt Studio — save" },
     },
   };
+}
+
+/**
+ * Gallery-only moiré cleanup matching queue polish:
+ * Final → soft blur only (keeps acuity); Max → blur + mild bicubic↓/Lanczos↑.
+ */
+export function buildGalleryMoireCleanWorkflow(
+  qualityProfile: Extract<QueueQualityProfile, "final" | "max"> = "final",
+): Record<string, WorkflowNode> {
+  const blurRadius = rapidAioMoireBlurRadius(qualityProfile);
+  const blurSigma = rapidAioMoireBlurSigma(qualityProfile);
+  const resample = profileUsesRapidAioMoireResample(qualityProfile);
+
+  const workflow: Record<string, WorkflowNode> = {
+    "1": {
+      class_type: "LoadImage",
+      inputs: { image: DEFAULT_INPUT_IMAGE_TOKEN },
+      _meta: { title: "Prompt Studio — gallery output" },
+    },
+    "2": {
+      class_type: "ImageBlur",
+      inputs: {
+        image: ["1", 0],
+        blur_radius: blurRadius,
+        sigma: blurSigma,
+      },
+      _meta: { title: "Prompt Studio — moiré polish" },
+    },
+  };
+
+  let outputId = "2";
+  let nextId = 3;
+
+  if (resample) {
+    const downscale = rapidAioMoireDownscaleFactor(qualityProfile);
+    const downMethod = rapidAioMoireDownscaleMethod(qualityProfile);
+    const restore = rapidAioMoireRestoreScale(qualityProfile);
+    const sharpenAlpha = rapidAioMoireRestoreSharpenAlpha(qualityProfile);
+
+    const downId = String(nextId++);
+    workflow[downId] = {
+      class_type: IMAGE_SCALE_BY_NODE_TYPE,
+      inputs: {
+        image: [outputId, 0],
+        upscale_method: downMethod,
+        scale_by: downscale,
+      },
+      _meta: { title: "Prompt Studio — moiré downscale" },
+    };
+
+    const restoreId = String(nextId++);
+    workflow[restoreId] = {
+      class_type: IMAGE_SCALE_BY_NODE_TYPE,
+      inputs: {
+        image: [downId, 0],
+        upscale_method: "lanczos",
+        scale_by: restore,
+      },
+      _meta: { title: "Prompt Studio — moiré size restore" },
+    };
+    outputId = restoreId;
+
+    if (sharpenAlpha > 0) {
+      const sharpenId = String(nextId++);
+      workflow[sharpenId] = {
+        class_type: "ImageSharpen",
+        inputs: {
+          image: [outputId, 0],
+          sharpen_radius: 1,
+          sigma: 0.6,
+          alpha: sharpenAlpha,
+        },
+        _meta: { title: "Prompt Studio — moiré edge recovery" },
+      };
+      outputId = sharpenId;
+    }
+  }
+
+  const saveId = String(nextId);
+  workflow[saveId] = {
+    class_type: "SaveImage",
+    inputs: {
+      filename_prefix: "PromptStudio-moire-clean",
+      images: [outputId, 0],
+    },
+    _meta: { title: "Prompt Studio — save" },
+  };
+
+  return workflow;
 }
 
 export function buildGalleryUpscaleWorkflow(

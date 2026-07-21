@@ -47,7 +47,10 @@ export default function QueueQualityProfileHints({
     QUEUE_QUALITY_PROFILE_OPTIONS.find((option) => option.id === profile) ??
     QUEUE_QUALITY_PROFILE_OPTIONS[0];
   const effectiveGlobal = formatQueueQualityProfileHint(
-    profile,
+    resolveQueueQualityProfile({
+      global: profile,
+      model: shared.model,
+    }),
     normalizeModelSamplerPresetTier(samplerPreset),
     normalizeResolutionSizeTier(resolutionSizeTier),
     hintOptions,
@@ -58,6 +61,7 @@ export default function QueueQualityProfileHints({
           tool: toolId,
           global: profile,
           toolProfiles: toolProfile ? { [toolId]: toolProfile } : undefined,
+          model: shared.model,
         }),
         normalizeModelSamplerPresetTier(samplerPreset),
         normalizeResolutionSizeTier(resolutionSizeTier),

@@ -50,7 +50,7 @@ import {
   downloadGallerySidecarBundle,
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
-import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, bulkRefineGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry } from "@/lib/comfyui-requeue";
+import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, bulkRefineGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry, requeueMoireCleanFromGalleryEntry } from "@/lib/comfyui-requeue";
 import {
   buildGalleryLineageGroups,
   galleryLineageGroupingEnabled,
@@ -181,6 +181,7 @@ export default function ComfyUiGalleryPanel({
     requeue: () => undefined,
     upscale: () => undefined,
     refine: () => undefined,
+    moireClean: () => undefined,
     showParent: () => undefined,
     showDerivatives: () => undefined,
     openImage: () => undefined,
@@ -685,6 +686,31 @@ export default function ComfyUiGalleryPanel({
           );
         });
       },
+      moireClean: (id: string) => {
+        const entry = entriesRef.current.find((item) => item.id === id);
+        if (!entry) {
+          return;
+        }
+        setRequeueStatus("Queueing moiré clean…");
+        void requeueMoireCleanFromGalleryEntry(entry, {
+          onStatus: setRequeueStatus,
+        }).then((result) => {
+          if (!result.ok) {
+            setRequeueStatus(result.error ?? "Moiré clean failed.");
+            return;
+          }
+          setRequeueStatus(
+            [
+              "moiré clean queued",
+              "soft blur (Final)",
+              result.promptId ? `prompt_id ${result.promptId}` : null,
+              result.comfyUrl,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          );
+        });
+      },
       showParent: (id: string) => {
         const entry = entriesRef.current.find((item) => item.id === id);
         if (!entry?.parentGalleryEntryId) {
@@ -1123,7 +1149,7 @@ export default function ComfyUiGalleryPanel({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          {(["upscale", "refine", "variation"] as const).map((kind) => (
+          {(["upscale", "refine", "variation", "moire-clean"] as const).map((kind) => (
             <button
               key={kind}
               type="button"
@@ -1139,7 +1165,13 @@ export default function ComfyUiGalleryPanel({
                   : "border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
               }`}
             >
-              {kind === "upscale" ? "Upscaled" : kind === "refine" ? "Refined" : "Variations"}
+              {kind === "upscale"
+                ? "Upscaled"
+                : kind === "refine"
+                  ? "Refined"
+                  : kind === "variation"
+                    ? "Variations"
+                    : "Moiré clean"}
             </button>
           ))}
         </div>
