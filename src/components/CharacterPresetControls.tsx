@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import type { ClothingCatalogFieldKey } from "@/lib/clothing-catalog-fields";
-import { loadClothingCatalogModule } from "@/lib/clothing-catalog-client";
+import { fetchClothingSelectOptions } from "@/lib/clothing-catalog-client";
 import { parseCharacterHints } from "@/lib/character-hints";
-import { subjectGenderToClothingGender } from "@/lib/clothing-tags";
+import { subjectGenderToClothingGender } from "@/lib/clothing-gender";
 import {
   CHARACTER_POSE_TARGET_PLACEHOLDERS,
   CHARACTER_PRESET_UI_SECTIONS,
@@ -36,32 +36,31 @@ function ClothingCatalogSelect({
   hints?: string;
   onChange: (value: string) => void;
 }) {
-  const [catalogReady, setCatalogReady] = useState(false);
   const [options, setOptions] = useState<
     Array<{ value: string; label: string; group?: string }>
   >([{ value: "", label: "Default (random / LLM)" }]);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
   const clothingGender = useMemo(
     () => subjectGenderToClothingGender(parseCharacterHints(hints).gender),
     [hints],
   );
+  const optionsKey = `${catalogKey}:${clothingGender}`;
+  const catalogReady = loadedKey === optionsKey;
 
   useEffect(() => {
     let cancelled = false;
-    void loadClothingCatalogModule().then((catalog) => {
+    void fetchClothingSelectOptions(catalogKey, clothingGender).then((next) => {
       if (cancelled) {
         return;
       }
-      const categories = catalog.getClothingCatalogFieldCategories(catalogKey);
-      setOptions(
-        catalog.getClothingSelectOptions(categories, { gender: clothingGender }),
-      );
-      setCatalogReady(true);
+      setOptions(next);
+      setLoadedKey(optionsKey);
     });
     return () => {
       cancelled = true;
     };
-  }, [catalogKey, clothingGender]);
+  }, [catalogKey, clothingGender, optionsKey]);
 
   const groups = new Map<string, Array<{ value: string; label: string }>>();
 

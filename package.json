@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev --webpack -p 47832",
     "build": "next build",
+    "analyze": "ANALYZE=true next build",
     "start": "next start -p 47832",
     "lint": "eslint",
     "locations:count": "node scripts/generate-locations.mjs --count",
@@ -22,14 +23,17 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.7",
     "dexie": "^4.4.4",
     "next": "^16.2.10",
     "nodemailer": "^9.0.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "sharp": "^0.34.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.2.10",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.20.1",

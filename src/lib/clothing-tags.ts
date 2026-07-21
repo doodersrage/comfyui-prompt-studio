@@ -6,6 +6,9 @@ import {
   hintsDescribeCyclingActivity,
   inferAthleticSport,
 } from "./athletic-sport-profiles";
+import { subjectGenderToClothingGender } from "./clothing-gender";
+
+export { subjectGenderToClothingGender } from "./clothing-gender";
 
 export type { AthleticSport } from "./athletic-sport-profiles";
 export { hintsDescribeCyclingActivity, inferAthleticSport };
@@ -534,16 +537,6 @@ export function inferClothingContexts(text: string): ClothingContextTag[] {
   resolveClothingContextConflicts(tags, value);
 
   return [...tags];
-}
-
-export function subjectGenderToClothingGender(
-  gender: SubjectGender | undefined,
-): "women" | "men" | "any" {
-  if (gender === "women" || gender === "men") {
-    return gender;
-  }
-
-  return "any";
 }
 
 export function inferSceneClothingContexts(input: {

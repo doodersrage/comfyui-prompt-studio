@@ -1,5 +1,5 @@
 import type { ComfyOutputImage } from "./comfyui-outputs";
-import { buildComfyViewPath } from "./comfyui-outputs";
+import { buildComfyViewPath, GALLERY_THUMB_WIDTH } from "./comfyui-outputs";
 import { filterBySemanticQuery } from "./semantic-search";
 import { orderGalleryBySimilarity } from "./gallery-similarity";
 import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
@@ -619,8 +619,18 @@ export function galleryEntryViewUrls(entry: ComfyGalleryEntry): string[] {
   return entry.images.map((image) => buildComfyViewPath(entry.comfyUrl, image));
 }
 
+export function galleryEntryThumbUrls(entry: ComfyGalleryEntry): string[] {
+  return entry.images.map((image) =>
+    buildComfyViewPath(entry.comfyUrl, image, { width: GALLERY_THUMB_WIDTH }),
+  );
+}
+
 export function galleryEntryPrimaryViewUrl(entry: ComfyGalleryEntry): string | null {
   return galleryEntryViewUrls(entry)[0] ?? null;
+}
+
+export function galleryEntryPrimaryThumbUrl(entry: ComfyGalleryEntry): string | null {
+  return galleryEntryThumbUrls(entry)[0] ?? null;
 }
 
 export type GalleryLightboxPlaylist = {

@@ -90,18 +90,21 @@ export function ChipButton({
   children,
   className = "",
   disabled = false,
+  title,
 }: {
   active: boolean;
   onClick: () => void;
   children: ReactNode;
   className?: string;
   disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       data-active={active ? "true" : "false"}
       className={`ui-chip ${className}`.trim()}
     >

@@ -37,7 +37,15 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("comfy-app-theme-v1");if(t){document.documentElement.dataset.theme=(t==="light"||t==="\\"light\\"")?"light":"dark";}var a=localStorage.getItem("comfy-ambient-intensity-v1");if(a){var ambient=a.replace(/^"|"$/g,"");if(ambient==="off"||ambient==="subtle"||ambient==="normal"||ambient==="vivid"){document.documentElement.dataset.ambient=ambient;}}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="relative min-h-full overflow-x-hidden text-[var(--text-primary)]">
         <AmbientBackground />
         <ThemeInit />

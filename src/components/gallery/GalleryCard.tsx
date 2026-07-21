@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import ModalPortal from "@/components/ui/ModalPortal";
 import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPanel";
 import {
   buildGalleryHandoff,
@@ -95,9 +96,15 @@ export default function GalleryCard({
   onViewWorkflow,
 }: GalleryCardProps) {
   const router = useRouter();
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    left: number;
+    maxHeight: number;
+  } | null>(null);
   const aestheticScore = useMemo(
     () => scoreGalleryEntryHeuristic(entry),
     [
@@ -109,15 +116,62 @@ export default function GalleryCard({
     ],
   );
 
+  useLayoutEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    const updatePosition = () => {
+      const button = menuButtonRef.current;
+      if (!button) {
+        return;
+      }
+
+      const rect = button.getBoundingClientRect();
+      const padding = 8;
+      const menuWidth = 208;
+      const estimatedHeight = 360;
+      const spaceBelow = window.innerHeight - rect.bottom - padding;
+      const spaceAbove = rect.top - padding;
+      const openUp = spaceBelow < 240 && spaceAbove > spaceBelow;
+      const maxHeight = Math.max(
+        160,
+        Math.min(estimatedHeight, openUp ? spaceAbove - 4 : spaceBelow - 4),
+      );
+      const left = Math.min(
+        Math.max(padding, rect.right - menuWidth),
+        window.innerWidth - menuWidth - padding,
+      );
+      const top = openUp
+        ? Math.max(padding, rect.top - maxHeight - 6)
+        : Math.min(rect.bottom + 6, window.innerHeight - maxHeight - padding);
+
+      setMenuPosition({ top, left, maxHeight });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [menuOpen]);
+
   useEffect(() => {
     if (!menuOpen) {
       return;
     }
 
     function handlePointerDown(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
+      const target = event.target as Node;
+      if (
+        menuButtonRef.current?.contains(target) ||
+        menuPanelRef.current?.contains(target)
+      ) {
+        return;
       }
+      setMenuOpen(false);
     }
 
     function handleEscape(event: KeyboardEvent) {
@@ -177,6 +231,13 @@ export default function GalleryCard({
               alt={entry.prompt.slice(0, 80)}
               loading="lazy"
               decoding="async"
+              sizes={
+                layout === "list"
+                  ? "9rem"
+                  : layout === "dense"
+                    ? "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                    : "(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
+              }
               className="h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02]"
             />
           </button>
@@ -451,23 +512,36 @@ export default function GalleryCard({
           </button>
         ) : null}
 
-        <div ref={menuRef} className="relative ml-auto">
+        <div className="relative ml-auto">
           <button
+            ref={menuButtonRef}
             type="button"
             aria-expanded={menuOpen}
             aria-haspopup="menu"
-            onClick={() => setMenuOpen((previous) => !previous)}
+            onClick={() => {
+              if (menuOpen) {
+                setMenuOpen(false);
+                setMenuPosition(null);
+                return;
+              }
+              setMenuOpen(true);
+            }}
             className="ui-btn-ghost ui-btn-sm text-xs"
           >
             More
           </button>
-          {menuOpen ? (
-            <div
-              role="menu"
-              className={`absolute z-50 min-w-[12rem] overflow-hidden rounded-xl border border-zinc-700/80 bg-zinc-950 p-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] ring-1 ring-white/5 ${
-                layout === "list" ? "right-0 top-full mt-1.5" : "bottom-full right-0 mb-1.5"
-              }`}
-            >
+          {menuOpen && menuPosition ? (
+            <ModalPortal>
+              <div
+                ref={menuPanelRef}
+                role="menu"
+                className="fixed z-[200] min-w-[13rem] overflow-y-auto rounded-xl border border-zinc-700/80 bg-zinc-950 p-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] ring-1 ring-white/5"
+                style={{
+                  top: menuPosition.top,
+                  left: menuPosition.left,
+                  maxHeight: menuPosition.maxHeight,
+                }}
+              >
                 <GalleryMenuButton
                   label="Copy prompt"
                   onClick={() => {
@@ -631,8 +705,9 @@ export default function GalleryCard({
                   }}
                 />
               </div>
-            ) : null}
-          </div>
+            </ModalPortal>
+          ) : null}
+        </div>
         </div>
     </div>
   );
@@ -641,9 +716,11 @@ export default function GalleryCard({
     <article
       ref={cardRef}
       data-gallery-entry={entry.id}
-      className={`group/card relative min-w-0 rounded-2xl border bg-gradient-to-b from-zinc-950/80 to-zinc-950/40 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)] transition hover:border-zinc-700/80 ${cardTone} ${
-        menuOpen ? "z-30" : "z-0"
-      }`}
+      className={`group/card relative min-w-0 rounded-2xl border bg-gradient-to-b from-zinc-950/80 to-zinc-950/40 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)] transition hover:border-zinc-700/80 ${
+        menuOpen
+          ? "z-30"
+          : "z-0 [content-visibility:auto] [contain-intrinsic-size:auto_320px]"
+      } ${cardTone}`}
     >
       {layout === "list" ? (
         <div className="flex gap-4 p-3">{imageBlock}{bodyBlock}</div>

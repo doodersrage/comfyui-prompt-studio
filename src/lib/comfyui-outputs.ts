@@ -4,6 +4,9 @@ export type ComfyOutputImage = {
   type: string;
 };
 
+/** Max long-edge for gallery grid/list thumbs (proxy resize). */
+export const GALLERY_THUMB_WIDTH = 512;
+
 export function extractImagesFromOutputs(
   outputs: Record<string, unknown> | undefined,
 ): ComfyOutputImage[] {
@@ -44,9 +47,15 @@ export function extractImagesFromOutputs(
   return images;
 }
 
+export type ComfyViewPathOptions = {
+  /** When set, `/api/comfyui/view` returns a resized JPEG thumb. */
+  width?: number;
+};
+
 export function buildComfyViewPath(
   comfyUrl: string,
   image: ComfyOutputImage,
+  options?: ComfyViewPathOptions,
 ): string {
   const params = new URLSearchParams({
     filename: image.filename,
@@ -54,5 +63,9 @@ export function buildComfyViewPath(
     type: image.type,
     comfyUrl: comfyUrl.replace(/\/+$/, ""),
   });
+  const width = options?.width;
+  if (typeof width === "number" && Number.isFinite(width) && width > 0) {
+    params.set("w", String(Math.min(Math.floor(width), 2048)));
+  }
   return `/api/comfyui/view?${params.toString()}`;
 }

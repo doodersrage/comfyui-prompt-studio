@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
-import { galleryEntryViewUrls } from "@/lib/comfyui-gallery";
+import { galleryEntryThumbUrls } from "@/lib/comfyui-gallery";
 import { Button } from "@/components/ui/Button";
 import {
   createEloBracket,
@@ -116,7 +116,7 @@ export default function GalleryComparePanel({
       {status ? <p className="text-xs text-violet-300/90">{status}</p> : null}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {entries.map((entry) => {
-          const url = galleryEntryViewUrls(entry)[0] ?? null;
+          const url = galleryEntryThumbUrls(entry)[0] ?? null;
           return (
             <article key={entry.id} className="space-y-2 rounded-lg border border-zinc-800 p-2">
               {url ? (

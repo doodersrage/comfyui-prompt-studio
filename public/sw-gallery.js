@@ -1,4 +1,5 @@
-const IMAGE_CACHE = "gallery-images-v2";
+const IMAGE_CACHE = "gallery-images-v3";
+const MAX_CACHED_IMAGES = 200;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -19,6 +20,15 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+async function trimImageCache(cache) {
+  const keys = await cache.keys();
+  if (keys.length <= MAX_CACHED_IMAGES) {
+    return;
+  }
+  const overflow = keys.length - MAX_CACHED_IMAGES;
+  await Promise.all(keys.slice(0, overflow).map((key) => cache.delete(key)));
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET") {
@@ -38,7 +48,8 @@ self.addEventListener("fetch", (event) => {
       }
       const response = await fetch(event.request);
       if (response.ok) {
-        void cache.put(event.request, response.clone());
+        await cache.put(event.request, response.clone());
+        void trimImageCache(cache);
       }
       return response;
     }),

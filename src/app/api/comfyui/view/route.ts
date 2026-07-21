@@ -10,6 +10,17 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+function parseThumbWidth(raw: string | null): number | null {
+  if (!raw?.trim()) {
+    return null;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return Math.min(Math.floor(value), 2048);
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
@@ -26,6 +37,8 @@ export async function GET(request: Request) {
       400,
     );
   }
+
+  const thumbWidth = parseThumbWidth(searchParams.get("w"));
 
   const runtime = stripEmptyComfyUiRuntime({
     apiUrl: searchParams.get("comfyUrl") ?? undefined,
@@ -61,13 +74,40 @@ export async function GET(request: Request) {
       return apiError("ComfyUI view did not return an image.", 502);
     }
 
-    const buffer = await response.arrayBuffer();
+    const buffer = Buffer.from(await response.arrayBuffer());
 
-    return new NextResponse(buffer, {
+    if (thumbWidth) {
+      try {
+        const sharp = (await import("sharp")).default;
+        const resized = await sharp(buffer)
+          .rotate()
+          .resize({
+            width: thumbWidth,
+            height: thumbWidth,
+            fit: "inside",
+            withoutEnlargement: true,
+          })
+          .jpeg({ quality: 78, mozjpeg: true })
+          .toBuffer();
+
+        return new NextResponse(new Uint8Array(resized), {
+          status: 200,
+          headers: {
+            "Content-Type": "image/jpeg",
+            "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+            "X-Image-Variant": "thumb",
+          },
+        });
+      } catch {
+        // Fall through to original bytes if resize fails.
+      }
+    }
+
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
       },
     });
   } catch (error) {

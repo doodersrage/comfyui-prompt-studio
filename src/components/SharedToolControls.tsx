@@ -1,17 +1,15 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import ModelSelector from "@/components/ModelSelector";
-import ComfyWorkflowSelector from "@/components/ComfyWorkflowSelector";
 import { useComfyWorkflowSelection } from "@/hooks/useComfyWorkflowSelection";
 import type { DetailLevel } from "@/lib/detail-level";
 import { getDetailLimits } from "@/lib/detail-level";
-import ModelRecommenderHints from "@/components/ModelRecommenderHints";
-import ModelSamplerHints from "@/components/ModelSamplerHints";
-import ModelResolutionHints from "@/components/ModelResolutionHints";
-import RenderRealismHints from "@/components/RenderRealismHints";
-import AnatomyGuardHints from "@/components/AnatomyGuardHints";
-import QueueQualityProfileHints from "@/components/QueueQualityProfileHints";
-import { getComfyModelDefinition, COMFY_IMAGE_MODELS, type ComfyImageModel } from "@/lib/comfy-models";
+import {
+  getComfyModelDefinition,
+  COMFY_IMAGE_MODELS,
+  type ComfyImageModel,
+} from "@/lib/comfy-models/client";
 import {
   modelsSupportedByAvailableWorkflows,
   resolveWorkflowForModelSelection,
@@ -54,6 +52,35 @@ import { Button } from "@/components/ui/Button";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { resolveModelStackFamily } from "@/lib/workflow-stack-fingerprint";
+
+const ComfyWorkflowSelector = dynamic(
+  () => import("@/components/ComfyWorkflowSelector"),
+  { ssr: false, loading: () => null },
+);
+const ModelRecommenderHints = dynamic(
+  () => import("@/components/ModelRecommenderHints"),
+  { ssr: false, loading: () => null },
+);
+const ModelSamplerHints = dynamic(
+  () => import("@/components/ModelSamplerHints"),
+  { ssr: false, loading: () => null },
+);
+const ModelResolutionHints = dynamic(
+  () => import("@/components/ModelResolutionHints"),
+  { ssr: false, loading: () => null },
+);
+const RenderRealismHints = dynamic(
+  () => import("@/components/RenderRealismHints"),
+  { ssr: false, loading: () => null },
+);
+const AnatomyGuardHints = dynamic(
+  () => import("@/components/AnatomyGuardHints"),
+  { ssr: false, loading: () => null },
+);
+const QueueQualityProfileHints = dynamic(
+  () => import("@/components/QueueQualityProfileHints"),
+  { ssr: false, loading: () => null },
+);
 
 type SharedToolControlsProps = {
   shared: SharedToolSettings;

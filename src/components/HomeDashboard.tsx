@@ -3,7 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { galleryEntryViewUrls, initGalleryStore, loadComfyGallery } from "@/lib/comfyui-gallery";
+import { galleryEntryThumbUrls, initGalleryStore, loadComfyGallery } from "@/lib/comfyui-gallery";
 import { loadScheduledBatchConfig } from "@/lib/scheduled-batch";
 import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
@@ -119,7 +119,7 @@ export default function HomeDashboard() {
         <ToolSection title="Recent outputs">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {recentCompleted.map((entry) => {
-              const thumb = galleryEntryViewUrls(entry)[0];
+              const thumb = galleryEntryThumbUrls(entry)[0];
               return (
                 <Link key={entry.id} href="/gallery" className="ui-media-card">
                   {thumb ? (

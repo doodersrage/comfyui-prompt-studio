@@ -34,7 +34,7 @@ import { getDetailLimits } from "@/lib/detail-level";
 import {
   getComfyModelDefinition,
   type ComfyImageModel,
-} from "@/lib/comfy-models";
+} from "@/lib/comfy-models/client";
 import {
   DEFAULT_GENERATE_TOOL_CACHE,
 } from "@/lib/settings-cache";

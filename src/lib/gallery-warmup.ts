@@ -1,6 +1,6 @@
 let storeWarmed = false;
 
-/** Warm gallery IndexedDB + route chunks before navigation. */
+/** Prefetch gallery route chunks (and warm IndexedDB once) before navigation. */
 export function prefetchGalleryPage(): void {
   if (typeof window === "undefined") {
     return;

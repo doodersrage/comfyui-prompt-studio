@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ToolSection } from "@/components/ui/ToolPageShell";
 import { Button } from "@/components/ui/Button";
 import {
-  galleryEntryViewUrls,
+  galleryEntryThumbUrls,
   loadComfyGallery,
   COMFYUI_GALLERY_UPDATED_EVENT,
 } from "@/lib/comfyui-gallery";
@@ -122,7 +122,7 @@ export default function ExperimentDashboardPanel() {
 
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {group.entries.slice(0, 4).map((entry) => {
-                    const thumb = galleryEntryViewUrls(entry)[0];
+                    const thumb = galleryEntryThumbUrls(entry)[0];
                     const isWinner = winner?.entryId === entry.id;
                     return (
                       <div

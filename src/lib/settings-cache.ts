@@ -1,4 +1,4 @@
-import { DEFAULT_QWEN_MODEL, type ComfyImageModel } from "./comfy-models";
+import { DEFAULT_QWEN_MODEL, type ComfyImageModel } from "./comfy-models/client";
 import { DEFAULT_MODEL_SAMPLER_PRESET_TIER, normalizeModelSamplerPresetTier } from "./model-sampler-defaults";
 import type { ModelSamplerPresetTier } from "./model-sampler-defaults";
 import {
@@ -357,10 +357,10 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   useLibraryUpscaleWorkflow: false,
   queueQualityProfile: "followSettings",
   toolQueueQualityProfiles: SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
-  modelCheckpointMap: SUGGESTED_MODEL_CHECKPOINT_MAP,
-  modelVaeMap: SUGGESTED_MODEL_VAE_MAP,
-  modelRefinerMap: SUGGESTED_MODEL_REFINER_MAP,
-  modelUpscaleMap: SUGGESTED_MODEL_UPSCALE_MAP,
+  modelCheckpointMap: {},
+  modelVaeMap: {},
+  modelRefinerMap: {},
+  modelUpscaleMap: {},
   autoSelectWorkflowForModel: true,
   limitModelsToAvailableWorkflows: true,
   showAllModelsOverride: false,

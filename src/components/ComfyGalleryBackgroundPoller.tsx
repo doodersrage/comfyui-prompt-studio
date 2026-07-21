@@ -2,26 +2,34 @@
 
 import { useEffect } from "react";
 import { COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
-import { warmGalleryStore } from "@/lib/gallery-db-store";
-import { prefetchGalleryPage } from "@/lib/gallery-warmup";
 import { initBrowserStorage } from "@/lib/browser-storage";
+import { hasPendingGalleryPollMeta } from "@/lib/gallery-pending-polls";
 import { resumePendingGalleryPolls } from "@/lib/comfyui-gallery-poller";
 
 export default function ComfyGalleryBackgroundPoller() {
   useEffect(() => {
-    prefetchGalleryPage();
-    void warmGalleryStore().then(() => {
-      resumePendingGalleryPolls();
-    });
     void initBrowserStorage();
 
+    const resumeIfNeeded = () => {
+      if (!hasPendingGalleryPollMeta()) {
+        return;
+      }
+      void import("@/lib/gallery-db-store").then(({ warmGalleryStore }) =>
+        warmGalleryStore().then(() => {
+          resumePendingGalleryPolls();
+        }),
+      );
+    };
+
+    resumeIfNeeded();
+
     const onGalleryUpdated = () => {
-      resumePendingGalleryPolls();
+      resumeIfNeeded();
     };
 
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        resumePendingGalleryPolls();
+        resumeIfNeeded();
       }
     };
 

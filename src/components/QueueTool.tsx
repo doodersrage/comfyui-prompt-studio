@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadComfyGallery, type ComfyGalleryEntry } from "@/lib/comfyui-gallery";
-import { galleryEntryViewUrls } from "@/lib/comfyui-gallery";
+import { galleryEntryThumbUrls } from "@/lib/comfyui-gallery";
 import { Button } from "@/components/ui/Button";
 import { ToolLayout, ToolSection, ToolBadge } from "@/components/ui/ToolPageShell";
 import { requeueComfyJobFromEntry, requeueComfyJobs } from "@/lib/comfyui-requeue";
@@ -193,7 +193,7 @@ export default function QueueTool() {
       <ToolSection title="Recent completed">
         <ul className="ui-list">
           {recent.map((entry) => {
-            const url = galleryEntryViewUrls(entry)[0];
+            const url = galleryEntryThumbUrls(entry)[0];
             return (
               <li key={entry.id} className="ui-list-row items-center gap-3">
                 {url ? (

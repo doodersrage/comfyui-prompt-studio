@@ -5,6 +5,11 @@ import {
   type PollComfyGalleryJobOptions,
 } from "./comfyui-gallery-client";
 import { loadComfyGallery, type ComfyGalleryEntry } from "./comfyui-gallery";
+import {
+  forgetPendingGalleryPoll,
+  listPendingGalleryPollMeta,
+  rememberPendingGalleryPoll,
+} from "./gallery-pending-polls";
 
 export {
   scheduleRefineAfterUpscaleComplete,
@@ -32,13 +37,23 @@ export function scheduleComfyGalleryPoll(
   }
 
   const entry = loadComfyGallery().find((item) => item.promptId === trimmed);
+  const comfyUrl = options?.comfyUrl ?? entry?.comfyUrl;
+  rememberPendingGalleryPoll(trimmed, comfyUrl);
+
   const promise = pollComfyGalleryJob(trimmed, options?.onStatus, {
     ...options,
-    comfyUrl: options?.comfyUrl ?? entry?.comfyUrl,
+    comfyUrl,
     onJobUpdate: options?.onJobUpdate,
-  }).finally(() => {
-    activePolls.delete(trimmed);
-  });
+  })
+    .then((result) => {
+      if (!result || result.status === "completed" || result.status === "error") {
+        forgetPendingGalleryPoll(trimmed);
+      }
+      return result;
+    })
+    .finally(() => {
+      activePolls.delete(trimmed);
+    });
 
   activePolls.set(trimmed, promise);
   return promise;
@@ -46,6 +61,14 @@ export function scheduleComfyGalleryPoll(
 
 export function resumePendingGalleryPolls(): void {
   if (typeof window === "undefined") {
+    return;
+  }
+
+  const pendingMeta = listPendingGalleryPollMeta();
+  if (pendingMeta.length > 0) {
+    for (const item of pendingMeta) {
+      void scheduleComfyGalleryPoll(item.promptId, { comfyUrl: item.comfyUrl });
+    }
     return;
   }
 

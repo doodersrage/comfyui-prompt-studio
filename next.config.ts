@@ -1,9 +1,14 @@
 import type { NextConfig } from "next";
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
 
 const nextConfig: NextConfig = {
   output: "standalone",
   allowedDevOrigins: ["127.0.0.1"],
-  serverExternalPackages: ["nodemailer"],
+  serverExternalPackages: ["nodemailer", "sharp"],
   compiler: {
     removeConsole:
       process.env.NODE_ENV === "production"
@@ -31,4 +36,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

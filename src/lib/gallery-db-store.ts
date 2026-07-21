@@ -17,6 +17,27 @@ let cacheDirty = false;
 let ready = false;
 let readyPromise: Promise<void> | null = null;
 let fullLoadPromise: Promise<void> | null = null;
+/** Fingerprints of entries last written to IndexedDB (incremental sync). */
+let persistedFingerprints = new Map<string, string>();
+
+function galleryEntryFingerprint(entry: ComfyGalleryEntry): string {
+  return [
+    entry.status,
+    entry.completedAt ?? 0,
+    entry.favorite ? 1 : 0,
+    entry.reviewRating ?? 0,
+    entry.images.map((image) => `${image.filename}:${image.subfolder}:${image.type}`).join(","),
+    entry.statusMessage ?? "",
+    entry.queuePosition ?? "",
+    entry.visionTags?.join(",") ?? "",
+    entry.projectId ?? "",
+    entry.promptId,
+    entry.prompt.length,
+    entry.negativePrompt?.length ?? 0,
+    entry.derivedKind ?? "",
+    entry.parentGalleryEntryId ?? "",
+  ].join("|");
+}
 
 /** Sync legacy localStorage into memory for instant first paint. */
 export function primeGalleryCacheSync(): void {
@@ -167,6 +188,9 @@ async function loadRemainingGalleryEntries(): Promise<void> {
       allEntries = full;
       assignLegacyGalleryEntriesToActiveUser();
       refreshCacheFromAll();
+      persistedFingerprints = new Map(
+        allEntries.map((entry) => [entry.id, galleryEntryFingerprint(entry)]),
+      );
       notifyGalleryUpdated();
     } catch {
       /* keep partial cache */
@@ -228,6 +252,9 @@ export async function hydrateGalleryStore(): Promise<void> {
           .toArray();
         assignLegacyGalleryEntriesToActiveUser();
         refreshCacheFromAll();
+        persistedFingerprints = new Map(
+          allEntries.map((entry) => [entry.id, galleryEntryFingerprint(entry)]),
+        );
         scheduleLoadRemainingGalleryEntries();
       } else {
         await persistGalleryCache();
@@ -255,16 +282,42 @@ export async function persistGalleryCache(): Promise<void> {
   const db = appDb;
   if (!db) {
     writeLegacyLocalStorageGallery(allEntries);
+    persistedFingerprints = new Map(
+      allEntries.map((entry) => [entry.id, galleryEntryFingerprint(entry)]),
+    );
     return;
   }
 
   try {
-    await db.transaction("rw", db.galleryEntries, async () => {
-      await db.galleryEntries.clear();
-      if (allEntries.length > 0) {
-        await db.galleryEntries.bulkPut(allEntries);
+    const nextFingerprints = new Map<string, string>();
+    const toPut: ComfyGalleryEntry[] = [];
+    for (const entry of allEntries) {
+      const fingerprint = galleryEntryFingerprint(entry);
+      nextFingerprints.set(entry.id, fingerprint);
+      if (persistedFingerprints.get(entry.id) !== fingerprint) {
+        toPut.push(entry);
       }
-    });
+    }
+
+    const toDelete: string[] = [];
+    for (const id of persistedFingerprints.keys()) {
+      if (!nextFingerprints.has(id)) {
+        toDelete.push(id);
+      }
+    }
+
+    if (toPut.length > 0 || toDelete.length > 0) {
+      await db.transaction("rw", db.galleryEntries, async () => {
+        if (toDelete.length > 0) {
+          await db.galleryEntries.bulkDelete(toDelete);
+        }
+        if (toPut.length > 0) {
+          await db.galleryEntries.bulkPut(toPut);
+        }
+      });
+    }
+
+    persistedFingerprints = nextFingerprints;
     removeBrowserKey(COMFYUI_GALLERY_KEY);
   } catch {
     writeLegacyLocalStorageGallery(allEntries);
@@ -284,6 +337,7 @@ export async function clearGalleryDb(): Promise<void> {
   allEntries = [];
   cache = [];
   cacheDirty = false;
+  persistedFingerprints = new Map();
   removeBrowserKey(COMFYUI_GALLERY_KEY);
 
   if (appDb) {

@@ -5,6 +5,9 @@ const cache = new Map<string, unknown>();
 const dirtyKeys = new Set<string>();
 let ready = false;
 let readyPromise: Promise<void> | null = null;
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let flushListenersAttached = false;
+const PERSIST_DEBOUNCE_MS = 350;
 
 function readLegacyLocalStorageValue(key: string): unknown | undefined {
   if (typeof window === "undefined") {
@@ -93,7 +96,9 @@ export function writeBrowserValue(key: string, value: unknown): void {
 
   cache.set(key, value);
   dirtyKeys.add(key);
-  void initBrowserStorage().then(() => persistBrowserKey(key));
+  // Keep localStorage in sync immediately so FOUC/theme scripts and tab sync see values.
+  writeLegacyLocalStorageValue(key, value);
+  schedulePersistDirtyKeys();
 }
 
 export function writeBrowserString(key: string, value: string): void {
@@ -106,9 +111,52 @@ export function removeBrowserKey(key: string): void {
   }
 
   cache.delete(key);
-  dirtyKeys.delete(key);
+  dirtyKeys.add(key);
   removeLegacyLocalStorageValue(key);
-  void initBrowserStorage().then(() => persistBrowserKey(key));
+  schedulePersistDirtyKeys();
+}
+
+function schedulePersistDirtyKeys(): void {
+  attachBrowserStorageFlushListeners();
+  if (persistTimer) {
+    return;
+  }
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    void initBrowserStorage().then(() => persistDirtyBrowserKeys());
+  }, PERSIST_DEBOUNCE_MS);
+}
+
+export function flushBrowserStorage(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  void initBrowserStorage().then(() => persistDirtyBrowserKeys());
+}
+
+function attachBrowserStorageFlushListeners(): void {
+  if (typeof window === "undefined" || flushListenersAttached) {
+    return;
+  }
+  if (typeof window.addEventListener !== "function") {
+    return;
+  }
+  flushListenersAttached = true;
+  const flush = () => {
+    flushBrowserStorage();
+  };
+  window.addEventListener("pagehide", flush);
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        flush();
+      }
+    });
+  }
 }
 
 async function persistBrowserKey(key: string): Promise<void> {
@@ -131,7 +179,7 @@ async function persistBrowserKey(key: string): Promise<void> {
     }
 
     await db.kv.put({ key, value: cache.get(key) });
-    removeLegacyLocalStorageValue(key);
+    // Keep a localStorage mirror so pre-paint theme/ambient scripts stay accurate.
   } catch {
     const value = cache.get(key);
     if (value !== undefined) {

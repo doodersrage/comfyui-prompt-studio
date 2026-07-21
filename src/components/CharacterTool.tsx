@@ -1,15 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import BackgroundPresetControls from "@/components/BackgroundPresetControls";
-import CharacterPresetControls from "@/components/CharacterPresetControls";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import RegionalPromptBuilderPanel from "@/components/RegionalPromptBuilderPanel";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import SharedToolControls from "@/components/SharedToolControls";
-import SceneStarterPresetChips, {
-  applySceneStarterWorkflowHints,
-} from "@/components/SceneStarterPresetChips";
+import { applySceneStarterWorkflowHints } from "@/lib/scene-starter-workflow-hints";
 import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
 import { SubjectShotScaleControl } from "@/components/ShotScaleControl";
 import {
@@ -37,7 +35,7 @@ import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { presetOptionsFromBackgroundCache } from "@/lib/background-options";
 import { readSceneLocationFromMetadata } from "@/lib/recent-locations";
 import { readClothingIdsFromMetadata } from "@/lib/recent-clothing";
-import { getComfyModelDefinition } from "@/lib/comfy-models";
+import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import { sharedLlmRequestBody } from "@/lib/llm-request-options";
@@ -74,6 +72,23 @@ import {
 } from "@/components/ui/ToolPageShell";
 import { ChipButton, FieldDivider, FieldLabel } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+
+const SceneStarterPresetChips = dynamic(
+  () => import("@/components/SceneStarterPresetChips"),
+  {
+    loading: () => (
+      <div className="h-24 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />
+    ),
+  },
+);
+const CharacterPresetControls = dynamic(
+  () => import("@/components/CharacterPresetControls"),
+  {
+    loading: () => (
+      <div className="h-48 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />
+    ),
+  },
+);
 
 const SOLO_BATCH_COUNT = 3;
 

@@ -6,7 +6,7 @@ import {
   COMFY_MODEL_CATEGORIES,
   type ComfyImageModel,
   type ComfyModelCategory,
-} from "@/lib/comfy-models";
+} from "@/lib/comfy-models/client";
 
 type ModelSelectorProps = {
   value: ComfyImageModel;

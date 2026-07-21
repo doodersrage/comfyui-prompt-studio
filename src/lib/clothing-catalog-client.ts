@@ -1,16 +1,16 @@
 import type { CatalogClothingEntry } from "./catalog-index";
-
-let clothingCatalogPromise: Promise<typeof import("./clothing-catalog")> | null =
-  null;
-
-export function loadClothingCatalogModule() {
-  if (!clothingCatalogPromise) {
-    clothingCatalogPromise = import("./clothing-catalog");
-  }
-  return clothingCatalogPromise;
-}
+import type { ClothingCatalogFieldKey } from "./clothing-catalog-fields";
 
 const labelCache = new Map<string, string | null>();
+
+type ClothingSelectOption = {
+  value: string;
+  label: string;
+  group?: string;
+};
+
+const selectOptionsCache = new Map<string, ClothingSelectOption[]>();
+const selectOptionsInflight = new Map<string, Promise<ClothingSelectOption[]>>();
 
 export async function fetchClothingLabels(
   ids: readonly string[],
@@ -39,21 +39,15 @@ export async function fetchClothingLabels(
             labelCache.set(id, null);
           }
         }
+      } else {
+        for (const id of pending) {
+          labelCache.set(id, null);
+        }
       }
     } catch {
-      // Fall back to lazy module lookup below.
-    }
-  }
-
-  const unresolved = ids
-    .map((id) => id.trim())
-    .filter(Boolean)
-    .filter((id) => !labelCache.has(id));
-
-  if (unresolved.length > 0) {
-    const catalog = await loadClothingCatalogModule();
-    for (const id of unresolved) {
-      labelCache.set(id, catalog.getClothingLabel(id));
+      for (const id of pending) {
+        labelCache.set(id, null);
+      }
     }
   }
 
@@ -73,4 +67,51 @@ export function getCachedClothingLabel(id: string | undefined): string | null {
     return null;
   }
   return labelCache.get(id.trim()) ?? null;
+}
+
+export async function fetchClothingSelectOptions(
+  field: ClothingCatalogFieldKey,
+  gender: "women" | "men" | "any" = "any",
+): Promise<ClothingSelectOption[]> {
+  const cacheKey = `${field}:${gender}`;
+  const cached = selectOptionsCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const inflight = selectOptionsInflight.get(cacheKey);
+  if (inflight) {
+    return inflight;
+  }
+
+  const request = (async () => {
+    const fallback: ClothingSelectOption[] = [
+      { value: "", label: "Default (random / LLM)" },
+    ];
+
+    try {
+      const response = await fetch(
+        `/api/catalog?type=clothing-options&field=${encodeURIComponent(field)}&gender=${encodeURIComponent(gender)}`,
+      );
+      if (!response.ok) {
+        return fallback;
+      }
+      const data = (await response.json()) as {
+        options?: ClothingSelectOption[];
+      };
+      const options =
+        Array.isArray(data.options) && data.options.length > 0
+          ? data.options
+          : fallback;
+      selectOptionsCache.set(cacheKey, options);
+      return options;
+    } catch {
+      return fallback;
+    } finally {
+      selectOptionsInflight.delete(cacheKey);
+    }
+  })();
+
+  selectOptionsInflight.set(cacheKey, request);
+  return request;
 }

@@ -14,6 +14,9 @@ import GalleryVisionReviewButton from "@/components/gallery/GalleryVisionReviewB
 import GalleryCardItem, {
   type GalleryCardActions,
 } from "@/components/gallery/GalleryCardItem";
+import VirtualizedGalleryGrid, {
+  shouldVirtualizeGalleryGrid,
+} from "@/components/gallery/VirtualizedGalleryGrid";
 import GalleryFiltersBar from "@/components/gallery/GalleryFiltersBar";
 import GallerySelectionBar from "@/components/gallery/GallerySelectionBar";
 import GalleryStatsBar from "@/components/gallery/GalleryStatsBar";
@@ -110,7 +113,7 @@ export default function ComfyUiGalleryPanel({
     setProjectIds,
     clearAll,
     refreshPending,
-    primaryViewUrl,
+    primaryThumbUrl,
     setReviewRating,
     embeddingSearchActive,
     similarSearchActive,
@@ -306,6 +309,17 @@ export default function ComfyUiGalleryPanel({
       : compact
         ? "grid grid-cols-2 gap-4 sm:grid-cols-3"
         : "grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
+  const galleryVirtualGridClass =
+    layout === "dense"
+      ? compact
+        ? "grid gap-3"
+        : "grid gap-4"
+      : compact
+        ? "grid gap-4"
+        : "grid gap-6";
+  const virtualizeFlatGrid =
+    !lineageGrouping &&
+    shouldVirtualizeGalleryGrid(visibleEntries.length);
 
   const lightboxPlaylist = useMemo(
     () => buildGalleryLightboxPlaylist(visibleEntries),
@@ -1286,6 +1300,41 @@ export default function ComfyUiGalleryPanel({
             }}
           />
         )
+      ) : virtualizeFlatGrid ? (
+        <VirtualizedGalleryGrid
+          items={visibleEntries}
+          getKey={(entry) => entry.id}
+          layout={layout}
+          compact={compact}
+          gridClassName={
+            layout === "list" ? "flex flex-col gap-3" : galleryVirtualGridClass
+          }
+          estimateRowHeight={
+            layout === "list" ? 180 : layout === "dense" || compact ? 280 : 360
+          }
+          renderItem={(entry) => (
+            <GalleryCardItem
+              entry={entry}
+              actionsRef={galleryCardActionsRef}
+              compact={compact || layout === "dense"}
+              layout={layout}
+              selectable={bulkEnabled}
+              selected={selectedIdSet.has(entry.id)}
+              reviewFocus={filter.reviewMode === true && reviewFocusEntry?.id === entry.id}
+              previewUrl={primaryThumbUrl(entry)}
+              imageUrls={galleryEntryViewUrls(entry)}
+              reviewMode={filter.reviewMode === true}
+              reviewMutationHints={
+                filter.reviewMode &&
+                reviewFocusEntry?.id === entry.id &&
+                !entry.reviewRating
+                  ? suggestRatingMutations(entry, 2).map((item) => item.detail)
+                  : undefined
+              }
+              hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
+            />
+          )}
+        />
       ) : (
         <div
           className={
@@ -1306,7 +1355,7 @@ export default function ComfyUiGalleryPanel({
                   selectable={bulkEnabled}
                   selected={selectedIdSet.has(entry.id)}
                   reviewFocus={filter.reviewMode === true && reviewFocusEntry?.id === entry.id}
-                  previewUrl={primaryViewUrl(entry)}
+                  previewUrl={primaryThumbUrl(entry)}
                   imageUrls={galleryEntryViewUrls(entry)}
                   reviewMode={filter.reviewMode === true}
                   reviewMutationHints={

@@ -673,7 +673,10 @@ html[data-theme="light"] kbd.rounded.bg-zinc-900 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ambient-bg__orb,
+  .ambient-bg__orb {
+    display: none !important;
+  }
+
   .ambient-bg__sheen {
     animation: none !important;
   }
