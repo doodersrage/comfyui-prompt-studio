@@ -130,14 +130,21 @@ export default function ComfyUiGalleryPanel({
     if (typeof window === "undefined") {
       return;
     }
-    const query = new URLSearchParams(window.location.search).get("q");
-    if (query?.trim()) {
-      setFilter((previous) => ({
-        ...previous,
-        query: query.trim(),
-        semanticSearch: true,
-      }));
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get("q");
+    const focus = params.get("focus");
+    const review = params.get("review");
+    if (!query?.trim() && !focus?.trim() && review !== "1") {
+      return;
     }
+    setFilter((previous) => ({
+      ...previous,
+      ...(query?.trim()
+        ? { query: query.trim(), semanticSearch: true }
+        : {}),
+      ...(focus?.trim() ? { focusEntryId: focus.trim() } : {}),
+      ...(review === "1" ? { reviewMode: true } : {}),
+    }));
   }, [setFilter]);
 
   const router = useRouter();

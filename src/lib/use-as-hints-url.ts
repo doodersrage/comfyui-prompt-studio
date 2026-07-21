@@ -1,4 +1,5 @@
 import type { PromptHistoryEntry } from "@/hooks/usePromptHistory";
+import type { ComfyGalleryEntry } from "./comfyui-gallery";
 import {
   extractHintsFromHistoryEntry,
   resolveHistoryEntryNavigation,
@@ -29,4 +30,24 @@ export function buildUseAsHintsUrl(entry: PromptHistoryEntry): string {
   }
 
   return `${path}?${params.toString()}`;
+}
+
+/** Build a Generate/Character/… hints URL from a completed gallery entry. */
+export function buildUseAsHintsUrlFromGallery(entry: ComfyGalleryEntry): string {
+  return buildUseAsHintsUrl({
+    id: entry.id,
+    prompt: entry.prompt,
+    model: entry.model ?? "n/a",
+    tool: entry.tool || "generate",
+    hints: entry.prompt.slice(0, 500),
+    timestamp: entry.completedAt ?? entry.queuedAt ?? Date.now(),
+  });
+}
+
+export function buildGalleryFocusUrl(entryId: string): string {
+  const id = entryId.trim();
+  if (!id) {
+    return "/gallery";
+  }
+  return `/gallery?focus=${encodeURIComponent(id)}`;
 }

@@ -15,6 +15,7 @@ import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-t
 import { buildInpaintInstruction } from "@/lib/regional-prompt-builder";
 import { isInpaintModel } from "@/lib/model-denoise-defaults";
 import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from "@/lib/settings-cache";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import {
   ToolBadge,
   ToolLayout,
@@ -242,7 +243,16 @@ export default function InpaintTool() {
             <TextArea
               rows={2}
               value={maskDescription}
-              onChange={(event) => setMaskDescription(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setMaskDescription(value);
+                rememberDraftFields({
+                  toolKey: "inpaint",
+                  label: "Inpaint",
+                  href: "/inpaint",
+                  fields: [value, changeDescription, directPrompt],
+                });
+              }}
               placeholder="e.g. sky above the horizon, subject's jacket"
               className={accentFocusClass(ACCENT)}
             />
@@ -252,7 +262,16 @@ export default function InpaintTool() {
             <TextArea
               rows={2}
               value={changeDescription}
-              onChange={(event) => setChangeDescription(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setChangeDescription(value);
+                rememberDraftFields({
+                  toolKey: "inpaint",
+                  label: "Inpaint",
+                  href: "/inpaint",
+                  fields: [maskDescription, value, directPrompt],
+                });
+              }}
               placeholder="e.g. dramatic storm clouds with warm edge light"
               className={accentFocusClass(ACCENT)}
             />
@@ -265,7 +284,16 @@ export default function InpaintTool() {
         <TextArea
           rows={3}
           value={directPrompt}
-          onChange={(event) => setDirectPrompt(event.target.value)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setDirectPrompt(value);
+            rememberDraftFields({
+              toolKey: "inpaint",
+              label: "Inpaint",
+              href: "/inpaint",
+              fields: [maskDescription, changeDescription, value],
+            });
+          }}
           placeholder="Leave empty to use the composed inpaint instruction…"
           className={`font-mono ${accentFocusClass(ACCENT)}`}
         />

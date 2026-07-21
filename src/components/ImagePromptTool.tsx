@@ -12,6 +12,7 @@ import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from "@/lib/settings-cache";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import type { EnrichedToolGenerateResult, ImagePromptFocus, ToolGenerateResult } from "@/lib/specialized/types";
 import {
   IMAGE_PROMPT_DESCRIPTION_PRESETS,
@@ -116,6 +117,12 @@ export default function ImagePromptTool() {
     }) => {
       updateToolSettings({
         extraHints: `Reference prompt from gallery:\n${handoff.prompt.slice(0, 1200)}`,
+      });
+      rememberDraftFields({
+        toolKey: "image-prompt",
+        label: "Image → Prompt",
+        href: "/image-prompt",
+        fields: [handoff.prompt.slice(0, 240)],
       });
       setHandoffQueueParams(handoff.queueParams);
       if (handoff.model) {
@@ -222,6 +229,12 @@ export default function ImagePromptTool() {
       const prompt = await actions.finalizePrompt(data.prompt, toolSettings.extraHints);
       setOutput(prompt);
       setResult({ ...data, prompt });
+      rememberDraftFields({
+        toolKey: "image-prompt",
+        label: "Image → Prompt",
+        href: "/image-prompt",
+        fields: [prompt, toolSettings.extraHints],
+      });
     } catch (err) {
       setOutput("");
       setResult(null);
@@ -461,7 +474,16 @@ export default function ImagePromptTool() {
         <FieldLabel>{EXTRA_HINTS_LABEL}</FieldLabel>
         <TextArea
           value={toolSettings.extraHints ?? ""}
-          onChange={(e) => updateToolSettings({ extraHints: e.target.value })}
+          onChange={(e) => {
+            const value = e.target.value;
+            updateToolSettings({ extraHints: value });
+            rememberDraftFields({
+              toolKey: "image-prompt",
+              label: "Image → Prompt",
+              href: "/image-prompt",
+              fields: [value],
+            });
+          }}
           placeholder="e.g. two cyclists side by side, gravel bikes, helmets on"
           rows={2}
           className={accentFocusClass(ACCENT)}

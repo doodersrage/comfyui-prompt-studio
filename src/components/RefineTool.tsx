@@ -16,6 +16,7 @@ import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-t
 import { diffPromptWords } from "@/lib/prompt-diff";
 import { resolveParentHistoryId } from "@/lib/prompt-lineage-session";
 import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from "@/lib/settings-cache";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import {
   ToolBadge,
   ToolLayout,
@@ -292,7 +293,16 @@ export default function RefineTool() {
         <TextArea
           rows={4}
           value={currentPrompt}
-          onChange={(event) => setCurrentPrompt(event.target.value)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setCurrentPrompt(value);
+            rememberDraftFields({
+              toolKey: "refine",
+              label: "Refine",
+              href: "/refine",
+              fields: [intentHints, value],
+            });
+          }}
           placeholder="Paste the prompt you want corrected…"
           className={`font-mono ${accentFocusClass(ACCENT)}`}
         />
@@ -301,7 +311,16 @@ export default function RefineTool() {
         <TextArea
           rows={3}
           value={intentHints}
-          onChange={(event) => setIntentHints(event.target.value)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setIntentHints(value);
+            rememberDraftFields({
+              toolKey: "refine",
+              label: "Refine",
+              href: "/refine",
+              fields: [value, currentPrompt],
+            });
+          }}
           placeholder="What you wanted: gravel cyclists with helmets, muddy doubletrack, no street clothes…"
           className={accentFocusClass(ACCENT)}
         />

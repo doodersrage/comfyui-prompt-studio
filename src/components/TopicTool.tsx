@@ -19,6 +19,7 @@ import { sharedLlmRequestBody } from "@/lib/llm-request-options";
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import { resolveQueueNegativePrompt } from "@/lib/queue-negative";
 import { DEFAULT_TOPIC_TOOL_CACHE } from "@/lib/settings-cache";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import { runWorkflowPreflight } from "@/lib/workflow-preflight";
 import {
   batchFixPrompts,
@@ -459,12 +460,26 @@ export default function TopicTool() {
           onHistorySeedScopeChange={(scope) =>
             updateToolSettings({ historySeedScope: scope })
           }
-          onHintsChange={(value) => updateToolSettings({ seedTopic: value })}
+          onHintsChange={(value) => {
+            updateToolSettings({ seedTopic: value });
+            rememberDraftFields({
+              toolKey: "topics",
+              label: "Topics",
+              href: "/topics",
+              fields: [value],
+            });
+          }}
           onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
           onHistorySeedApplied={(result) => {
             updateToolSettings({
               seedTopic: result.hints,
               lastHistorySeedEntryId: result.entryId,
+            });
+            rememberDraftFields({
+              toolKey: "topics",
+              label: "Topics",
+              href: "/topics",
+              fields: [result.hints],
             });
           }}
           accentFocusClassName={accentFocusClass(ACCENT)}
@@ -475,7 +490,16 @@ export default function TopicTool() {
         <FieldLabel>Starting theme (optional)</FieldLabel>
         <TextArea
           value={toolSettings.seedTopic ?? ""}
-          onChange={(e) => updateToolSettings({ seedTopic: e.target.value })}
+          onChange={(e) => {
+            const value = e.target.value;
+            updateToolSettings({ seedTopic: value });
+            rememberDraftFields({
+              toolKey: "topics",
+              label: "Topics",
+              href: "/topics",
+              fields: [value],
+            });
+          }}
           placeholder="e.g. solarpunk, lonely robots, underwater cities — or leave blank"
           rows={2}
           className={accentFocusClass(ACCENT)}

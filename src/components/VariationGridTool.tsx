@@ -31,6 +31,7 @@ import { runWorkflowPreflight } from "@/lib/workflow-preflight";
 import { resolveRuntimeForQueue } from "@/lib/comfyui-runtime-for-model";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { DEFAULT_VARIATIONS_TOOL_CACHE } from "@/lib/settings-cache";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import { loadGalleryVariationsHandoff } from "@/lib/gallery-variations-handoff";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
@@ -280,6 +281,12 @@ export default function VariationGridTool() {
         if (handoff?.prompt) {
           importedAppliedRef.current = true;
           updateToolSettings({ hints: handoff.hints, gridMode: "imported" });
+          rememberDraftFields({
+            toolKey: "variations",
+            label: "Variations",
+            href: "/variations",
+            fields: [handoff.hints, handoff.prompt],
+          });
           setResults([{ prompt: handoff.prompt, rowLabel: "gallery" }]);
           setStatus("Loaded prompt from Gallery.");
           if (handoff.model) {
@@ -300,6 +307,12 @@ export default function VariationGridTool() {
             sportPresetId: handoff.sportPresetId,
             gridMode: "roll",
             hintSource: "manual",
+          });
+          rememberDraftFields({
+            toolKey: "variations",
+            label: "Variations",
+            href: "/variations",
+            fields: [handoff.hints],
           });
           setStatus(`Loaded preset hints for ${handoff.count} variations.`);
           return;
@@ -871,7 +884,15 @@ export default function VariationGridTool() {
           onHistorySeedScopeChange={(scope) =>
             updateToolSettings({ historySeedScope: scope })
           }
-          onHintsChange={(value) => updateToolSettings({ hints: value })}
+          onHintsChange={(value) => {
+            updateToolSettings({ hints: value });
+            rememberDraftFields({
+              toolKey: "variations",
+              label: "Variations",
+              href: "/variations",
+              fields: [value],
+            });
+          }}
           onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
           onHistorySeedApplied={(result) => {
             updateToolSettings({
@@ -885,7 +906,16 @@ export default function VariationGridTool() {
         <FieldLabel>Hints / base input</FieldLabel>
         <TextArea
           value={toolSettings.hints ?? ""}
-          onChange={(event) => updateToolSettings({ hints: event.target.value })}
+          onChange={(event) => {
+            const value = event.target.value;
+            updateToolSettings({ hints: value });
+            rememberDraftFields({
+              toolKey: "variations",
+              label: "Variations",
+              href: "/variations",
+              fields: [value],
+            });
+          }}
           rows={4}
           placeholder="neon alley, rain, black cat"
           className={accentFocusClass(ACCENT)}

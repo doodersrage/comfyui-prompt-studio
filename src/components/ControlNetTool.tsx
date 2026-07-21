@@ -11,6 +11,7 @@ import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { DEFAULT_CHARACTER_TOOL_CACHE } from "@/lib/settings-cache";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import type { ControlNetMode } from "@/lib/controlnet-prompt";
 import {
   ToolBadge,
@@ -234,7 +235,16 @@ export default function ControlNetTool() {
             <textarea
               id="controlnet-subject"
               value={subject}
-              onChange={(event) => setSubject(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSubject(value);
+                rememberDraftFields({
+                  toolKey: "controlnet",
+                  label: "ControlNet",
+                  href: "/controlnet",
+                  fields: [value, scene, detail],
+                });
+              }}
               rows={4}
               className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${accentFocusClass(ACCENT)}`}
               placeholder="e.g. woman standing, weight on left leg, arms crossed — or leave blank when using image"
@@ -245,7 +255,16 @@ export default function ControlNetTool() {
             <input
               id="controlnet-scene"
               value={scene}
-              onChange={(event) => setScene(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setScene(value);
+                rememberDraftFields({
+                  toolKey: "controlnet",
+                  label: "ControlNet",
+                  href: "/controlnet",
+                  fields: [subject, value, detail],
+                });
+              }}
               className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
               placeholder="e.g. narrow alley, low camera angle"
             />
@@ -255,7 +274,16 @@ export default function ControlNetTool() {
             <input
               id="controlnet-detail"
               value={detail}
-              onChange={(event) => setDetail(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setDetail(value);
+                rememberDraftFields({
+                  toolKey: "controlnet",
+                  label: "ControlNet",
+                  href: "/controlnet",
+                  fields: [subject, scene, value],
+                });
+              }}
               className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
             />
           </div>

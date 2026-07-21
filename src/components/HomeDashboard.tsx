@@ -9,6 +9,11 @@ import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
 import { loadLastToolDraft, type ToolDraftSummary } from "@/lib/tool-draft-memory";
 import { loadLastToolRoute } from "@/lib/last-tool-route";
 import { flattenAppNavLinks } from "@/lib/app-nav-catalog";
+import {
+  buildGalleryFocusUrl,
+  buildUseAsHintsUrlFromGallery,
+} from "@/lib/use-as-hints-url";
+import { startPromptEditorFromGalleryEntry } from "@/lib/improve-output";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { ButtonLink } from "@/components/ui/Button";
@@ -188,26 +193,66 @@ export default function HomeDashboard() {
       <QueueOrchestrationPanel compact />
 
       {recentCompleted.length > 0 ? (
-        <ToolSection title="Recent outputs">
+        <ToolSection
+          title="Recent outputs"
+          description="Open a result, continue editing, or seed a new scene from its prompt."
+        >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {recentCompleted.map((entry) => {
               const thumb = galleryEntryThumbUrls(entry)[0];
+              const focusHref = buildGalleryFocusUrl(entry.id);
+              const hintsHref = buildUseAsHintsUrlFromGallery(entry);
               return (
-                <Link key={entry.id} href="/gallery" className="ui-media-card">
-                  {thumb ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={thumb} alt="" className="aspect-square w-full object-cover" />
-                  ) : (
-                    <div className="flex aspect-square items-center justify-center p-2 type-caption text-[var(--text-muted)]">
-                      No preview
-                    </div>
-                  )}
-                  <p className="line-clamp-2 p-2 text-[11px] text-[var(--text-tertiary)]">
-                    {entry.prompt}
-                  </p>
-                </Link>
+                <div
+                  key={entry.id}
+                  className="group ui-media-card relative overflow-hidden transition hover:border-[var(--border-strong)] focus-within:border-[var(--border-strong)] focus-within:ring-2 focus-within:ring-[var(--accent-ring)]"
+                >
+                  <Link href={focusHref} className="block">
+                    {thumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={thumb}
+                        alt=""
+                        className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                      />
+                    ) : (
+                      <div className="flex aspect-square items-center justify-center p-2 type-caption text-[var(--text-muted)]">
+                        No preview
+                      </div>
+                    )}
+                    <p className="line-clamp-2 p-2 text-[11px] text-[var(--text-tertiary)]">
+                      {entry.prompt}
+                    </p>
+                  </Link>
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1 gap-1 bg-gradient-to-t from-[rgb(0_0_0_/0.72)] via-[rgb(0_0_0_/0.45)] to-transparent p-2 pt-8 opacity-0 transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
+                    <button
+                      type="button"
+                      className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                      onClick={() => startPromptEditorFromGalleryEntry(entry)}
+                    >
+                      Edit
+                    </button>
+                    <Link
+                      href={hintsHref}
+                      className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                    >
+                      Hints
+                    </Link>
+                    <Link
+                      href={focusHref}
+                      className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                    >
+                      Open
+                    </Link>
+                  </div>
+                </div>
               );
             })}
+          </div>
+          <div className="mt-3">
+            <ButtonLink href="/gallery" size="sm">
+              Open gallery
+            </ButtonLink>
           </div>
         </ToolSection>
       ) : null}

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { PromptHistoryEntry } from "@/hooks/usePromptHistory";
-import { buildUseAsHintsUrl } from "./use-as-hints-url";
+import { buildUseAsHintsUrl, buildGalleryFocusUrl, buildUseAsHintsUrlFromGallery } from "./use-as-hints-url";
 
 function entry(
   partial: Partial<PromptHistoryEntry> & Pick<PromptHistoryEntry, "tool">,
@@ -49,5 +49,20 @@ describe("buildUseAsHintsUrl", () => {
       }),
     );
     assert.match(url, /^\/pet\?/);
+  });
+
+  it("builds gallery focus and hints urls", () => {
+    assert.equal(buildGalleryFocusUrl("abc-123"), "/gallery?focus=abc-123");
+    const hints = buildUseAsHintsUrlFromGallery({
+      id: "g1",
+      prompt: "neon alley with rain",
+      tool: "generate",
+      model: "qwen-image-2512",
+      status: "completed",
+      images: [],
+      queuedAt: Date.now(),
+    } as never);
+    assert.match(hints, /^\/?\?/);
+    assert.match(hints, /hints=/);
   });
 });

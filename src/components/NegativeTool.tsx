@@ -10,6 +10,7 @@ import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { DEFAULT_NEGATIVE_TOOL_CACHE } from "@/lib/settings-cache";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import { SPORT_PRESETS } from "@/lib/sport-presets";
 import {
   ToolBadge,
@@ -81,6 +82,12 @@ export default function NegativeTool() {
         sport: data.sport ?? null,
         mode: data.mode,
       });
+      rememberDraftFields({
+        toolKey: "negative",
+        label: "Negative",
+        href: "/negative",
+        fields: [prompt, toolSettings.extra, toolSettings.sport],
+      });
     } catch (err) {
       setOutput("");
       setResult(null);
@@ -133,9 +140,15 @@ export default function NegativeTool() {
         <FieldLabel>Sport context</FieldLabel>
         <select
           value={toolSettings.sport ?? ""}
-          onChange={(event) =>
-            updateToolSettings({ sport: event.target.value })
-          }
+          onChange={(event) => {
+            updateToolSettings({ sport: event.target.value });
+            rememberDraftFields({
+              toolKey: "negative",
+              label: "Negative",
+              href: "/negative",
+              fields: [toolSettings.extra, event.target.value],
+            });
+          }}
           className="ui-input w-full px-4 py-2 text-sm"
         >
           <option value="">Auto / general</option>
@@ -169,9 +182,16 @@ export default function NegativeTool() {
         <TextArea
           rows={3}
           value={toolSettings.extra ?? ""}
-          onChange={(event) =>
-            updateToolSettings({ extra: event.target.value })
-          }
+          onChange={(event) => {
+            const value = event.target.value;
+            updateToolSettings({ extra: value });
+            rememberDraftFields({
+              toolKey: "negative",
+              label: "Negative",
+              href: "/negative",
+              fields: [value, toolSettings.sport],
+            });
+          }}
           placeholder="watermark, text, duplicate limbs"
           className={accentFocusClass(ACCENT)}
         />
