@@ -4,6 +4,10 @@ export function allowTemplateFallback(): boolean {
   return process.env.ALLOW_TEMPLATE_FALLBACK !== "false";
 }
 
+export function isLlmEnabled(): boolean {
+  return process.env.LLM_ENABLED !== "false";
+}
+
 export function getLlmTemperature(override?: number): number {
   if (typeof override === "number" && override >= 0 && override <= 2) {
     return override;

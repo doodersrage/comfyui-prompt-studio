@@ -38,6 +38,9 @@ type TopicsBatchRequestBody = {
   variationSeed?: string;
   llmTemperature?: number;
   allowTemplateFallback?: boolean;
+  llmModel?: string;
+  llmVisionModel?: string;
+  llmEnabled?: boolean;
   avoidedTokens?: string[];
   avoidedTokensInstruction?: string;
 };

@@ -8,6 +8,7 @@ import {
 import { isQueueArtifactExportEnabled } from "./queue-artifacts";
 import { isServerStorageEnabled } from "./server-storage";
 import { getEmailConfig, isEmailConfigured } from "./email/config";
+import { isAuthExplicitlyEnabled } from "./auth/config";
 
 export type ServerEnvField = {
   key: string;
@@ -19,7 +20,7 @@ export type ServerEnvField = {
 };
 
 export type ServerEnvGroup = {
-  id: "llm" | "comfyui" | "security" | "storage" | "email";
+  id: "llm" | "comfyui" | "security" | "storage" | "email" | "automation";
   title: string;
   fields: ServerEnvField[];
 };
@@ -57,6 +58,7 @@ export function getServerEnvSummary(): ServerEnvSummary {
           label: "LLM enabled",
           value: isLlmEnabled() ? "true" : "false",
           configured: true,
+          uiOverride: "Settings → LLM → template only / force on",
           hint: "Set false for template-only mode.",
         },
         {
@@ -76,14 +78,15 @@ export function getServerEnvSummary(): ServerEnvSummary {
           label: "Text model",
           value: llm.model,
           configured: true,
+          uiOverride: "Settings → LLM → session text model override",
         },
         {
           key: "LLM_VISION_MODEL",
           label: "Vision model",
           value: llm.visionModel,
           configured: flag(process.env.LLM_VISION_MODEL),
-          uiOverride: "Required for Image → Prompt and Refine.",
-          hint: "Falls back to LLM_MODEL when unset.",
+          uiOverride: "Settings → LLM → session vision model override",
+          hint: "Falls back to LLM_MODEL when unset. Required for Image → Prompt and Refine.",
         },
         {
           key: "LLM_TEMPERATURE",
@@ -109,7 +112,7 @@ export function getServerEnvSummary(): ServerEnvSummary {
           label: "Template fallback",
           value: allowTemplateFallback() ? "allowed" : "disabled",
           configured: true,
-          uiOverride: "Settings → LLM → allow template fallback",
+          uiOverride: "Settings → LLM → template fallback chips",
         },
       ],
     },
@@ -198,6 +201,20 @@ export function getServerEnvSummary(): ServerEnvSummary {
           configured: isQueueArtifactExportEnabled(),
           hint: "Writes JSON sidecars after queue when set.",
         },
+        {
+          key: "COMFYUI_POSITIVE_TOKEN",
+          label: "Positive placeholder token",
+          value: process.env.COMFYUI_POSITIVE_TOKEN?.trim() || "default ({{POSITIVE}})",
+          configured: flag(process.env.COMFYUI_POSITIVE_TOKEN),
+          uiOverride: "Settings → ComfyUI → injection tokens (browser override)",
+        },
+        {
+          key: "COMFYUI_NEGATIVE_TOKEN",
+          label: "Negative placeholder token",
+          value: process.env.COMFYUI_NEGATIVE_TOKEN?.trim() || "default ({{NEGATIVE}})",
+          configured: flag(process.env.COMFYUI_NEGATIVE_TOKEN),
+          uiOverride: "Settings → ComfyUI → injection tokens (browser override)",
+        },
       ],
     },
     {
@@ -210,6 +227,25 @@ export function getServerEnvSummary(): ServerEnvSummary {
           value: flag(process.env.PROMPT_API_TOKEN) ? "•••• configured" : "not set",
           configured: flag(process.env.PROMPT_API_TOKEN),
           hint: "Protects API routes for scripts and ComfyUI nodes.",
+        },
+        {
+          key: "PROMPT_AUTH_ENABLED",
+          label: "Login required",
+          value: isAuthExplicitlyEnabled() ? "true" : "false",
+          configured: true,
+          hint: "Set 1/true/yes to require sign-in for the app.",
+        },
+        {
+          key: "API_RATE_LIMIT_MAX",
+          label: "API rate limit (requests/window)",
+          value: process.env.API_RATE_LIMIT_MAX?.trim() || "120 (default)",
+          configured: flag(process.env.API_RATE_LIMIT_MAX),
+        },
+        {
+          key: "API_RATE_LIMIT_WINDOW_SEC",
+          label: "API rate limit window (seconds)",
+          value: process.env.API_RATE_LIMIT_WINDOW_SEC?.trim() || "60 (default)",
+          configured: flag(process.env.API_RATE_LIMIT_WINDOW_SEC),
         },
         {
           key: "WEBHOOK_ALLOW_PRIVATE",
@@ -285,6 +321,53 @@ export function getServerEnvSummary(): ServerEnvSummary {
           label: "Notify on password change",
           value: email.notifyPassword ? "true" : "false",
           configured: true,
+        },
+      ],
+    },
+    {
+      id: "automation",
+      title: "Server scheduled batch",
+      fields: [
+        {
+          key: "SERVER_SCHEDULED_BATCH",
+          label: "Server scheduled batch enabled",
+          value: process.env.SERVER_SCHEDULED_BATCH === "true" ? "true" : "false",
+          configured: true,
+          uiOverride: "Settings → Automation → scheduled batch (browser-only alternative)",
+          hint: "Runs on the server itself, independent of any open browser tab.",
+        },
+        {
+          key: "SERVER_SCHEDULED_BATCH_INTERVAL_MIN",
+          label: "Interval (minutes)",
+          value: process.env.SERVER_SCHEDULED_BATCH_INTERVAL_MIN?.trim() || "60 (default)",
+          configured: flag(process.env.SERVER_SCHEDULED_BATCH_INTERVAL_MIN),
+        },
+        {
+          key: "SERVER_SCHEDULED_BATCH_TARGET",
+          label: "Target",
+          value:
+            process.env.SERVER_SCHEDULED_BATCH_TARGET === "topics"
+              ? "topics"
+              : "random-scene (default)",
+          configured: flag(process.env.SERVER_SCHEDULED_BATCH_TARGET),
+        },
+        {
+          key: "SERVER_SCHEDULED_BATCH_COUNT",
+          label: "Count per run",
+          value: process.env.SERVER_SCHEDULED_BATCH_COUNT?.trim() || "3 (default)",
+          configured: flag(process.env.SERVER_SCHEDULED_BATCH_COUNT),
+        },
+        {
+          key: "SERVER_SCHEDULED_BATCH_QUEUE",
+          label: "Auto-queue to ComfyUI",
+          value: process.env.SERVER_SCHEDULED_BATCH_QUEUE === "true" ? "true" : "false",
+          configured: true,
+        },
+        {
+          key: "SERVER_SCHEDULED_BATCH_GENRE",
+          label: "Genre / theme steer",
+          value: process.env.SERVER_SCHEDULED_BATCH_GENRE?.trim() || "not set",
+          configured: flag(process.env.SERVER_SCHEDULED_BATCH_GENRE),
         },
       ],
     },

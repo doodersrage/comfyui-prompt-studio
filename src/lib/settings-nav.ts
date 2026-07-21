@@ -3,6 +3,7 @@ export type SettingsTab =
   | "llm"
   | "comfyui"
   | "automation"
+  | "advanced"
   | "data"
   | "users";
 
@@ -21,12 +22,12 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
   {
     id: "llm",
     label: "LLM",
-    description: "Session overrides for temperature and template fallback.",
+    description: "Server snapshot, session model overrides, and vision tags.",
   },
   {
     id: "comfyui",
     label: "ComfyUI",
-    description: "Workflows, connection, queue params, and injection tokens.",
+    description: "Presets, workflows, prompt quality, VRAM guard, and injection.",
   },
   {
     id: "automation",
@@ -34,9 +35,14 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     description: "Webhooks, scheduled batch, and avoided tokens.",
   },
   {
+    id: "advanced",
+    label: "Advanced",
+    description: "Recipes, negative learner, shootout, usage, and storage sync.",
+  },
+  {
     id: "data",
     label: "Data",
-    description: "Backup, sync, gallery preview, and shared descriptors.",
+    description: "Backup, settings export, gallery preview, and descriptors.",
   },
   {
     id: "users",

@@ -5,6 +5,7 @@ import {
 } from "@/lib/specialized/image-prompt-generator";
 import { normalizeDetailLevel } from "@/lib/detail-level";
 import { normalizeComfyModel } from "@/lib/comfy-models";
+import { parseLlmRequestOptions } from "@/lib/llm-request-options";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 
@@ -36,6 +37,7 @@ async function parseRefineRequest(request: Request) {
       detail: String(formData.get("detail") ?? ""),
       currentPrompt: String(formData.get("currentPrompt") ?? "").trim() || undefined,
       intentHints: String(formData.get("intentHints") ?? "").trim() || undefined,
+      llm: parseLlmRequestOptions(null),
     };
   }
 
@@ -46,6 +48,11 @@ async function parseRefineRequest(request: Request) {
     detail?: string;
     currentPrompt?: string;
     intentHints?: string;
+    llmTemperature?: number;
+    allowTemplateFallback?: boolean;
+    llmModel?: string;
+    llmVisionModel?: string;
+    llmEnabled?: boolean;
   };
 
   if (!body.image?.trim()) {
@@ -63,6 +70,7 @@ async function parseRefineRequest(request: Request) {
     detail: body.detail ?? "",
     currentPrompt: body.currentPrompt?.trim() || undefined,
     intentHints: body.intentHints?.trim() || undefined,
+    llm: parseLlmRequestOptions(body),
   };
 }
 
@@ -80,6 +88,7 @@ export async function POST(request: Request) {
       mimeType: parsed.mimeType,
       currentPrompt: parsed.currentPrompt,
       intentHints: parsed.intentHints,
+      llm: parsed.llm,
     });
 
     return apiJson(result);

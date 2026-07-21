@@ -1,18 +1,52 @@
 import type { ComfyUiRuntimeConfig } from "./comfyui-config";
 import type { QueueQualityProfile } from "./queue-quality-profile";
 import { normalizeQueueQualityProfile } from "./queue-quality-profile";
+import { loadSettingsCache } from "./settings-cache";
 
-/** Free VRAM below this (bytes) → Max enrich is too heavy for most 24GB cards mid-queue. */
+/** Default free VRAM below which Max enrich is too heavy for most 24GB cards mid-queue. */
 export const MAX_VRAM_FREE_BYTES_THRESHOLD = 6 * 1e9;
 
 export type VramSnapshot = { free?: number; total?: number };
 
-export function isVramTightForMax(vram?: VramSnapshot | null): boolean {
+export type VramGuardOptions = {
+  enabled?: boolean;
+  /** Free VRAM threshold in bytes. */
+  freeBytesThreshold?: number;
+};
+
+export function getVramGuardOptions(): Required<VramGuardOptions> {
+  if (typeof window === "undefined") {
+    return { enabled: true, freeBytesThreshold: MAX_VRAM_FREE_BYTES_THRESHOLD };
+  }
+  const shared = loadSettingsCache().shared;
+  const gb = shared.vramGuardMinFreeGb;
+  const freeBytesThreshold =
+    typeof gb === "number" && Number.isFinite(gb)
+      ? Math.min(48, Math.max(1, gb)) * 1e9
+      : MAX_VRAM_FREE_BYTES_THRESHOLD;
+  return {
+    enabled: shared.vramGuardEnabled !== false,
+    freeBytesThreshold,
+  };
+}
+
+export function isVramTightForMax(
+  vram?: VramSnapshot | null,
+  options?: VramGuardOptions,
+): boolean {
+  const resolved = {
+    enabled: options?.enabled ?? getVramGuardOptions().enabled,
+    freeBytesThreshold:
+      options?.freeBytesThreshold ?? getVramGuardOptions().freeBytesThreshold,
+  };
+  if (!resolved.enabled) {
+    return false;
+  }
   const free = vram?.free;
   if (typeof free !== "number" || !Number.isFinite(free)) {
     return false;
   }
-  return free < MAX_VRAM_FREE_BYTES_THRESHOLD;
+  return free < resolved.freeBytesThreshold;
 }
 
 /**
@@ -21,9 +55,10 @@ export function isVramTightForMax(vram?: VramSnapshot | null): boolean {
 export function maybeDowngradeMaxForVram(
   profile: QueueQualityProfile | undefined,
   vram?: VramSnapshot | null,
+  options?: VramGuardOptions,
 ): { profile: QueueQualityProfile; downgraded: boolean } {
   const normalized = normalizeQueueQualityProfile(profile);
-  if (normalized !== "max" || !isVramTightForMax(vram)) {
+  if (normalized !== "max" || !isVramTightForMax(vram, options)) {
     return { profile: normalized, downgraded: false };
   }
   return { profile: "final", downgraded: true };

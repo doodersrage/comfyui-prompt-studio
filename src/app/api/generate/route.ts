@@ -16,6 +16,7 @@ import {
   apiJson,
   apiMethodNotAllowed,
 } from "@/lib/api/response";
+import { parseLlmRequestOptions } from "@/lib/llm-request-options";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -37,6 +38,11 @@ type GenerateRequestBody = {
   model?: string;
   avoidedTokens?: string[];
   avoidedTokensInstruction?: string;
+  llmTemperature?: number;
+  allowTemplateFallback?: boolean;
+  llmModel?: string;
+  llmVisionModel?: string;
+  llmEnabled?: boolean;
 };
 
 export async function GET() {
@@ -78,6 +84,7 @@ export async function POST(request: Request) {
       avoidedTokens: avoidance.avoidedTokens,
       avoidedTokensInstruction: avoidance.avoidedTokensInstruction,
       tool: "generate",
+      llm: parseLlmRequestOptions(body),
     });
 
     return apiJson(result);

@@ -139,6 +139,8 @@ export async function generateFantasyPrompt(
     userMessage,
     temperature: options.llm?.temperature ?? temperature,
     allowTemplateFallback: options.llm?.allowTemplateFallback,
+    llmModel: options.llm?.llmModel,
+    llmEnabled: options.llm?.llmEnabled,
     templateFallback: () =>
       buildFantasyTemplate(
         seed,

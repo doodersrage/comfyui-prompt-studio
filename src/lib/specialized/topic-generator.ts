@@ -2,11 +2,12 @@ import {
   buildMandatoryLocationBlock,
   parseSettingHint,
 } from "../hint-location";
+import { chatCompletion } from "../llm-client";
 import {
-  allowTemplateFallback,
-  chatCompletion,
-  isLlmEnabled,
-} from "../llm-client";
+  resolveRequestLlmEnabled,
+  resolveRequestLlmModel,
+  resolveRequestTemplateFallback,
+} from "../llm-request-options";
 import { stripPromptArtifacts } from "../prompt-cleanup";
 import { buildTemplateTopicList, normalizeTopicPhrase } from "./scene-pools";
 import { mergeLocationExclusions } from "../location-exclusions";
@@ -82,7 +83,7 @@ ${options.avoidedTokensInstruction ? `- ${options.avoidedTokensInstruction}` : "
     .filter(Boolean)
     .join("\n\n");
 
-  if (isLlmEnabled()) {
+  if (resolveRequestLlmEnabled(options.llm)) {
     try {
       const content = await chatCompletion({
         messages: [
@@ -90,7 +91,8 @@ ${options.avoidedTokensInstruction ? `- ${options.avoidedTokensInstruction}` : "
           { role: "user", content: userMessage },
         ],
         maxTokens: Math.min(1400, count * 48),
-        temperature: 0.72 + variety / 140,
+        temperature: options.llm?.temperature ?? 0.72 + variety / 140,
+        model: resolveRequestLlmModel(options.llm),
       });
 
       const topics = parseTopicLines(content, count);
@@ -107,7 +109,7 @@ ${options.avoidedTokensInstruction ? `- ${options.avoidedTokensInstruction}` : "
 
       throw new Error("LLM returned too few topics.");
     } catch (error) {
-      if (!allowTemplateFallback()) {
+      if (!resolveRequestTemplateFallback(options.llm)) {
         throw error instanceof Error ? error : new Error("Topic generation failed.");
       }
 

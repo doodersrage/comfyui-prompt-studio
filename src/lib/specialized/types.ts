@@ -130,6 +130,7 @@ export type TopicOptions = {
   blockedLocations?: string[];
   avoidedTokens?: string[];
   avoidedTokensInstruction?: string;
+  llm?: LlmRequestOptions;
 };
 
 export type TopicGenerateResult = {

@@ -27,6 +27,25 @@ describe("vram-queue-guard", () => {
     assert.equal(final.profile, "final");
   });
 
+  it("honors disabled guard and custom free-byte threshold", () => {
+    assert.equal(
+      isVramTightForMax({ free: 1e9 }, { enabled: false }),
+      false,
+    );
+    assert.equal(
+      maybeDowngradeMaxForVram("max", { free: 1e9 }, { enabled: false }).downgraded,
+      false,
+    );
+    assert.equal(
+      isVramTightForMax({ free: 8e9 }, { enabled: true, freeBytesThreshold: 10e9 }),
+      true,
+    );
+    assert.equal(
+      isVramTightForMax({ free: 8e9 }, { enabled: true, freeBytesThreshold: 6e9 }),
+      false,
+    );
+  });
+
   it("applies guard to runtime queueQualityProfile", async () => {
     const { guardQueueQualityForVram } = await import("./vram-queue-guard.ts");
     const originalFetch = globalThis.fetch;

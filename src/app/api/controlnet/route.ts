@@ -7,6 +7,7 @@ import { generateImagePrompt } from "@/lib/specialized/image-prompt-generator";
 import { normalizeDetailLevel } from "@/lib/detail-level";
 import { normalizeComfyModel } from "@/lib/comfy-models";
 import type { ImagePromptFocus } from "@/lib/specialized/types";
+import { parseLlmRequestOptions } from "@/lib/llm-request-options";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 
 export const runtime = "nodejs";
@@ -32,6 +33,11 @@ export async function POST(request: Request) {
       mimeType?: string;
       model?: string;
       detailLevel?: string;
+      llmTemperature?: number;
+      allowTemplateFallback?: boolean;
+      llmModel?: string;
+      llmVisionModel?: string;
+      llmEnabled?: boolean;
     };
 
     const mode = normalizeControlNetMode(body.mode);
@@ -45,6 +51,7 @@ export async function POST(request: Request) {
         mimeType: body.mimeType,
         focus: modeToFocus(mode),
         extraHints: `ControlNet ${mode} structure analysis. ${body.detail?.trim() || ""}`.trim(),
+        llm: parseLlmRequestOptions(body),
       });
       subject = vision.prompt;
     }

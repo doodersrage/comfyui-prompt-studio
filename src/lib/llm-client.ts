@@ -4,9 +4,9 @@ import {
   repairVisionDraft,
   stripPromptArtifacts,
 } from "./prompt-cleanup";
-import { allowTemplateFallback, getLlmTemperature } from "./llm-env";
+import { getLlmTemperature } from "./llm-env";
 
-export { allowTemplateFallback, getLlmTemperature } from "./llm-env";
+export { allowTemplateFallback, getLlmTemperature, isLlmEnabled } from "./llm-env";
 
 export type LlmUsageContext = {
   userId?: string;
@@ -66,7 +66,12 @@ export function getLlmConfig(): LlmConfig {
   return { baseUrl, apiKey, model, visionModel };
 }
 
-export function getVisionModel(): string {
+/** Prefer a request-scoped override (session vision model) over the server env default. */
+export function getVisionModel(override?: string): string {
+  const requested = override?.trim();
+  if (requested) {
+    return requested;
+  }
   const visionModel = process.env.LLM_VISION_MODEL?.trim();
   if (!visionModel) {
     throw new Error(
@@ -74,10 +79,6 @@ export function getVisionModel(): string {
     );
   }
   return visionModel;
-}
-
-export function isLlmEnabled(): boolean {
-  return process.env.LLM_ENABLED !== "false";
 }
 
 function isOllamaBaseUrl(baseUrl: string): boolean {
@@ -558,9 +559,11 @@ export async function visionCompletion(options: {
   imageDataUrl: string;
   maxTokens: number;
   temperature?: number;
+  /** Request-scoped vision model override (falls back to LLM_VISION_MODEL). */
+  model?: string;
 }): Promise<string> {
   const { baseUrl, apiKey } = getLlmConfig();
-  const visionModel = getVisionModel();
+  const visionModel = getVisionModel(options.model);
   const { base64 } = extractBase64FromDataUrl(options.imageDataUrl);
 
   if (isOllamaBaseUrl(baseUrl)) {

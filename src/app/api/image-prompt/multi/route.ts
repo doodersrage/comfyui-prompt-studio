@@ -4,6 +4,7 @@ import { normalizeComfyModel } from "@/lib/comfy-models";
 import { normalizeImagePromptDescriptionPreset } from "@/lib/image-prompt-presets";
 import { mergeImagePromptParts, type ImageRefPart } from "@/lib/image-prompt-merge";
 import type { ImagePromptFocus } from "@/lib/specialized/types";
+import { parseLlmRequestOptions } from "@/lib/llm-request-options";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 
 export const runtime = "nodejs";
@@ -38,6 +39,11 @@ export async function POST(request: Request) {
       detail?: string;
       extraHints?: string;
       descriptionPreset?: string;
+      llmTemperature?: number;
+      allowTemplateFallback?: boolean;
+      llmModel?: string;
+      llmVisionModel?: string;
+      llmEnabled?: boolean;
     };
 
     const images = body.images?.filter((entry) => entry.image?.trim()) ?? [];
@@ -51,6 +57,7 @@ export async function POST(request: Request) {
     const model = normalizeComfyModel(body.model);
     const detail = normalizeDetailLevel(body.detail);
     const descriptionPreset = normalizeImagePromptDescriptionPreset(body.descriptionPreset);
+    const llm = parseLlmRequestOptions(body);
     const parts: ImageRefPart[] = [];
 
     for (const [index, ref] of images.entries()) {
@@ -63,6 +70,7 @@ export async function POST(request: Request) {
         focus: normalizeFocus(ref.focus),
         descriptionPreset,
         extraHints: `Reference role: ${role}. ${body.extraHints?.trim() || ""}`.trim(),
+        llm,
       });
       parts.push({
         role,

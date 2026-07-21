@@ -3,7 +3,8 @@ import {
   comfyModelLabel,
 } from "./comfy-models";
 import { getDetailLimits } from "./detail-level";
-import { visionCompletion, isLlmEnabled } from "./llm-client";
+import { visionCompletion } from "./llm-client";
+import { resolveRequestLlmEnabled, resolveRequestVisionModel } from "./llm-request-options";
 import { stripPromptArtifacts } from "./prompt-cleanup";
 import { formatPromptForModel, sanitizeQwenPrompt } from "./qwen-clarity";
 import { buildToolResult } from "./specialized/runner";
@@ -12,7 +13,7 @@ import { enrichGenerateResult } from "./generation-diagnostics";
 
 export type RefinePromptOptions = Pick<
   ImagePromptOptions,
-  "model" | "detail" | "imageDataUrl" | "mimeType"
+  "model" | "detail" | "imageDataUrl" | "mimeType" | "llm"
 > & {
   currentPrompt?: string;
   intentHints?: string;
@@ -21,11 +22,12 @@ export type RefinePromptOptions = Pick<
 export async function refineImagePrompt(
   options: RefinePromptOptions,
 ): Promise<ToolGenerateResult & { diagnostics: ReturnType<typeof enrichGenerateResult>["diagnostics"] }> {
-  if (!isLlmEnabled()) {
+  if (!resolveRequestLlmEnabled(options.llm)) {
     throw new Error("Image refine requires LLM_ENABLED=true.");
   }
 
-  const visionModel = process.env.LLM_VISION_MODEL?.trim();
+  const visionModel =
+    resolveRequestVisionModel(options.llm) ?? process.env.LLM_VISION_MODEL?.trim();
   if (!visionModel) {
     throw new Error("LLM_VISION_MODEL is not set.");
   }
@@ -60,6 +62,7 @@ Rules:
     imageDataUrl: options.imageDataUrl,
     maxTokens: Math.max(limits.maxTokens + 256, 768),
     temperature: 0.35,
+    model: visionModel,
   });
 
   const cleaned = stripPromptArtifacts(content);

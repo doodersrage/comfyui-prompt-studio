@@ -174,6 +174,7 @@ export default function TopicTool() {
           recentLocations: [],
           blockedLocations: getBlocklist(),
           ...avoidedTokensRequestBody(),
+          ...sharedLlmRequestBody(shared),
         }),
       });
 
@@ -194,7 +195,7 @@ export default function TopicTool() {
     } finally {
       setLoading(false);
     }
-  }, [toolSettings, getBlocklist, effectiveSeedTopic]);
+  }, [toolSettings, getBlocklist, effectiveSeedTopic, shared]);
 
   const batchGenerate = useCallback(async () => {
     if (topics.length === 0) {

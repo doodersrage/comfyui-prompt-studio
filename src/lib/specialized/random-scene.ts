@@ -148,6 +148,8 @@ export async function generateRandomScene(
       postProcessPrompt,
       temperature: options.llm?.temperature ?? 0.85 + wildness / 200,
       allowTemplateFallback: options.llm?.allowTemplateFallback,
+      llmModel: options.llm?.llmModel,
+      llmEnabled: options.llm?.llmEnabled,
       seed,
       metadata,
       resultModel: options.model,

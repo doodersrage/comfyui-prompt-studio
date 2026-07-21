@@ -68,6 +68,8 @@ export async function generateBackgroundPrompt(
     userMessage,
     allowTemplateFallback: options.llm?.allowTemplateFallback,
     temperature: options.llm?.temperature,
+    llmModel: options.llm?.llmModel,
+    llmEnabled: options.llm?.llmEnabled,
     templateFallback: () => buildBackgroundTemplate(seed, presetOptions),
     sanitizeInput: sanitizeContext,
     enforceMinimum: !hasPresets,

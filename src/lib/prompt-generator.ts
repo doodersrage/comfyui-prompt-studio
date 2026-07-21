@@ -16,6 +16,12 @@ import {
 import { stripPromptArtifacts, isThinkingOnlyArtifact } from "./prompt-cleanup";
 import { chatCompletion } from "./llm-client";
 import {
+  resolveRequestLlmEnabled,
+  resolveRequestLlmModel,
+  resolveRequestTemplateFallback,
+  type LlmRequestOptions,
+} from "./llm-request-options";
+import {
   expandSparsePromptWithLlm,
   needsSparsePromptExpand,
 } from "./sparse-prompt-expand";
@@ -113,6 +119,8 @@ export type GeneratePromptOptions = {
   avoidedTokensInstruction?: string;
   /** Queue tool id — edit models map to txt2img for scene-generation tools. */
   tool?: string;
+  /** Session LLM overrides (model / enabled / template fallback). */
+  llm?: LlmRequestOptions;
 };
 
 type ChatMessage = {
@@ -448,6 +456,7 @@ export async function generateWithLlm(
   variationSeed?: string,
   avoidedTokensInstruction?: string,
   tool?: string,
+  llm?: LlmRequestOptions,
 ): Promise<string> {
   let systemPrompt = buildModelSystemPrompt(settings.model, mode);
 
@@ -485,6 +494,7 @@ export async function generateWithLlm(
     messages,
     maxTokens: getDetailLimits(settings.detail, settings.model).maxTokens,
     temperature: getLlmTemperature(settings.variation),
+    model: resolveRequestLlmModel(llm),
     extraBody,
   });
 
@@ -790,7 +800,7 @@ export async function generatePrompt(
     model: selectedModel,
   };
 
-  const llmEnabled = process.env.LLM_ENABLED !== "false";
+  const llmEnabled = resolveRequestLlmEnabled(options?.llm);
   const wardrobeAssignments =
     mode === "positive"
       ? buildGenerateWardrobeAssignments(trimmed, writeSettings, {
@@ -810,6 +820,7 @@ export async function generatePrompt(
         options?.variationSeed,
         options?.avoidedTokensInstruction,
         options?.tool,
+        options?.llm,
       );
       return buildGenerateResult(
         prompt,
@@ -820,7 +831,7 @@ export async function generatePrompt(
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown LLM error";
-      const fallbackAllowed = process.env.ALLOW_TEMPLATE_FALLBACK !== "false";
+      const fallbackAllowed = resolveRequestTemplateFallback(options?.llm);
 
       if (!fallbackAllowed) {
         throw new Error(message);

@@ -405,6 +405,8 @@ ${soloRules}
     postProcessPrompt,
     temperature: options.llm?.temperature ?? temperature,
     allowTemplateFallback: options.llm?.allowTemplateFallback,
+    llmModel: options.llm?.llmModel,
+    llmEnabled: options.llm?.llmEnabled,
     soloSubject: !duoMode,
     seed: environmentSeed,
     metadata: {

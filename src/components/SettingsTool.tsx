@@ -13,6 +13,7 @@ import {
 } from "@/lib/comfyui-config";
 import {
   DEFAULT_COMFYUI_SETTINGS,
+  loadComfyUiSettings,
   mergeLoraLibraryIntoCustomTokens,
   placeholderTokensFromSettings,
   resetComfyUiSettings,
@@ -107,6 +108,11 @@ import {
   SETTINGS_TABS,
   type SettingsTab,
 } from "@/lib/settings-nav";
+import {
+  normalizeComfyUiSettingsSection,
+  settingsComfyUiSectionHref,
+  type ComfyUiSettingsSectionId,
+} from "@/lib/settings-comfyui-nav";
 import type { ServerEnvSummary } from "@/lib/server-env-summary";
 import {
   markOnboardingComfyHealthOk,
@@ -148,7 +154,54 @@ const QueueParamsPanel = dynamic(() => import("@/components/QueueParamsPanel"), 
 const WorkflowPreviewPanel = dynamic(() => import("@/components/WorkflowPreviewPanel"), {
   loading: () => <ToolPageSkeleton label="Loading workflow preview" />,
 });
+const SettingsPromptQualityPanel = dynamic(
+  () => import("@/components/settings/SettingsPromptQualityPanel"),
+  { loading: () => <ToolPageSkeleton label="Loading prompt quality" /> },
+);
+const SettingsLlmPanel = dynamic(
+  () => import("@/components/settings/SettingsLlmPanel"),
+  { loading: () => <ToolPageSkeleton label="Loading LLM settings" /> },
+);
+const ComfyUiSettingsJumpNav = dynamic(
+  () => import("@/components/settings/ComfyUiSettingsJumpNav"),
+  { loading: () => <ToolPageSkeleton label="Loading section nav" /> },
+);
+const SettingsBrowserPresetsPanel = dynamic(
+  () => import("@/components/settings/SettingsBrowserPresetsPanel"),
+  { loading: () => <ToolPageSkeleton label="Loading presets" /> },
+);
+const SettingsBundlePanel = dynamic(
+  () => import("@/components/settings/SettingsBundlePanel"),
+  { loading: () => <ToolPageSkeleton label="Loading settings export" /> },
+);
 const ACCENT = "neutral" as const;
+
+const COMFYUI_SECTION_ELEMENT_IDS: Record<ComfyUiSettingsSectionId, string> = {
+  presets: "settings-comfyui-presets",
+  "workflow-map": "settings-comfyui-workflow-map",
+  "workflow-patching": "settings-comfyui-workflow-patching",
+  "workflow-library": "settings-comfyui-workflow-library",
+  connection: "settings-comfyui-connection",
+  "auto-improve": "settings-comfyui-auto-improve",
+  "queue-params": "settings-comfyui-queue-params",
+  "prompt-quality": "settings-comfyui-prompt-quality",
+  "vram-guard": "settings-comfyui-vram-guard",
+  "hold-max": "settings-comfyui-hold-max",
+  "sampler-memory": "settings-comfyui-sampler-memory",
+};
+
+function serverEnvFieldValue(
+  serverEnv: ServerEnvSummary | undefined,
+  key: string,
+): string | undefined {
+  for (const group of serverEnv?.groups ?? []) {
+    const field = group.fields.find((entry) => entry.key === key);
+    if (field?.value) {
+      return field.value;
+    }
+  }
+  return undefined;
+}
 
 function formatModelWorkflowMap(map?: Record<string, string>): string {
   if (!map) {
@@ -246,6 +299,8 @@ type HealthResponse = {
 export default function SettingsTool() {
   const { mounted, settings, updateSettings } = useComfyUiSettings();
   const [tab, setTab] = useState<SettingsTab>("overview");
+  const [comfyUiSection, setComfyUiSection] =
+    useState<ComfyUiSettingsSectionId | null>(null);
   const [sharedSettings, setSharedSettings] =
     useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
   const [sharedMounted, setSharedMounted] = useState(false);
@@ -320,17 +375,63 @@ export default function SettingsTool() {
       return;
     }
     scheduleAfterCommit(() => {
-      const tabParam = new URLSearchParams(window.location.search).get("tab");
-      setTab(normalizeSettingsTab(tabParam));
+      const params = new URLSearchParams(window.location.search);
+      setTab(normalizeSettingsTab(params.get("tab")));
+      setComfyUiSection(normalizeComfyUiSettingsSection(params.get("section")));
     });
+  }, []);
+
+  const scrollToComfyUiSection = useCallback((section: ComfyUiSettingsSectionId) => {
+    const element = document.getElementById(COMFYUI_SECTION_ELEMENT_IDS[section]);
+    element?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
   const handleTabChange = useCallback((next: SettingsTab) => {
     setTab(next);
+    if (next !== "comfyui") {
+      setComfyUiSection(null);
+    }
     if (typeof window !== "undefined") {
       window.history.replaceState(null, "", settingsTabHref(next));
     }
   }, []);
+
+  const handleComfyUiSectionJump = useCallback(
+    (section: ComfyUiSettingsSectionId) => {
+      setComfyUiSection(section);
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", settingsComfyUiSectionHref(section));
+      }
+      scheduleAfterCommit(() => {
+        scrollToComfyUiSection(section);
+      });
+    },
+    [scrollToComfyUiSection],
+  );
+
+  const reloadBrowserSettingsState = useCallback(() => {
+    const cache = loadSettingsCache();
+    setSharedSettings(cache.shared);
+    setModelWorkflowMapText(formatModelWorkflowMap(cache.shared.modelWorkflowMap));
+    setModelCheckpointMapText(formatModelCheckpointMap(cache.shared.modelCheckpointMap));
+    setModelVaeMapText(formatModelVaeMap(cache.shared.modelVaeMap));
+    setModelRefinerMapText(formatModelRefinerMap(cache.shared.modelRefinerMap));
+    setModelUpscaleMapText(formatModelUpscaleMap(cache.shared.modelUpscaleMap));
+    setModelControlNetMapText(formatModelControlNetMap(cache.shared.modelControlNetMap));
+    updateSettings(loadComfyUiSettings());
+    setWebhookSettings(loadWebhookSettings());
+    setScheduledBatch(loadScheduledBatchConfig());
+    setAvoidedTokens(exportAvoidedTokenList());
+  }, [updateSettings]);
+
+  useEffect(() => {
+    if (tab !== "comfyui" || !comfyUiSection) {
+      return;
+    }
+    scheduleAfterCommit(() => {
+      scrollToComfyUiSection(comfyUiSection);
+    });
+  }, [tab, comfyUiSection, scrollToComfyUiSection]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -627,6 +728,19 @@ export default function SettingsTool() {
 
       {tab === "overview" && (
       <>
+      <ToolSection title="Appearance & chrome">
+        <p className="text-sm text-zinc-400">
+          Theme (Auto / Light / Dark), ambient intensity, density, and queue toasts live in{" "}
+          <a
+            href="/profile"
+            className="text-[var(--accent-text)] underline-offset-2 hover:underline"
+          >
+            Profile → Appearance
+          </a>
+          . Prompt quality and VRAM guards are under the ComfyUI tab.
+        </p>
+      </ToolSection>
+
       <ToolSection title="Service health">
         <div className="flex flex-wrap items-center justify-end gap-3">
           <Button
@@ -749,84 +863,45 @@ export default function SettingsTool() {
       )}
 
       {tab === "llm" && (
-      <ToolSection title="Session LLM preferences">
-        <p className="text-sm text-zinc-400">
-          Browser-session overrides sent with generation requests. Server env vars
-          still define the base model and API key.
-        </p>
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span>LLM temperature</span>
-            <span className="font-medium text-zinc-200">
-              {typeof sharedSettings.sessionLlmTemperature === "number"
-                ? sharedSettings.sessionLlmTemperature.toFixed(2)
-                : "server default"}
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={2}
-            step={0.05}
-            value={sharedSettings.sessionLlmTemperature ?? 1}
-            onChange={(event) =>
-              updateSharedSettings({
-                sessionLlmTemperature: Number(event.target.value),
-              })
-            }
-            disabled={!sharedMounted}
-            className="h-2 w-full accent-violet-500"
-          />
-          <div className="flex justify-between text-xs text-zinc-600">
-            <span>0</span>
-            <span>1</span>
-            <span>2</span>
-          </div>
-          {typeof sharedSettings.sessionLlmTemperature === "number" && (
-            <button
-              type="button"
-              disabled={!sharedMounted}
-              onClick={() =>
-                updateSharedSettings({ sessionLlmTemperature: undefined })
-              }
-              className="text-xs text-violet-300 hover:text-violet-200 disabled:opacity-50"
-            >
-              Reset to server default
-            </button>
-          )}
-        </div>
-
-        <label className="flex items-start gap-3 text-sm text-zinc-300">
-          <input
-            type="checkbox"
-            checked={sharedSettings.sessionAllowTemplateFallback === true}
-            onChange={(event) =>
-              updateSharedSettings({
-                sessionAllowTemplateFallback: event.target.checked
-                  ? true
-                  : undefined,
-              })
-            }
-            disabled={!sharedMounted}
-            className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-          />
-          <span className="space-y-1">
-            <span className="block font-medium text-zinc-200">
-              Allow template fallback when LLM fails
-            </span>
-            <span className="block text-xs text-zinc-500">
-              When enabled, generators may fall back to template output if the LLM
-              request errors or times out.
-            </span>
-          </span>
-        </label>
-      </ToolSection>
+      <SettingsLlmPanel
+        sharedSettings={sharedSettings}
+        sharedMounted={sharedMounted}
+        updateSharedSettings={updateSharedSettings}
+        server={{
+          enabled: health?.config.llmEnabled,
+          ok: health?.llm.ok,
+          model: health?.llm.model ?? health?.config.llmModel,
+          baseUrl: health?.llm.baseUrl,
+          error: health?.llm.error,
+          visionModel: health?.config.visionModel,
+          allowTemplateFallback: health?.config.allowTemplateFallback,
+          serverTemperature: serverEnvFieldValue(health?.serverEnv, "LLM_TEMPERATURE"),
+          embedModel: serverEnvFieldValue(health?.serverEnv, "LLM_EMBED_MODEL"),
+        }}
+        autoVisionTags={settings.autoVisionTags !== false}
+        onAutoVisionTagsChange={(value) =>
+          updateSettings({ autoVisionTags: value })
+        }
+        onTestConnection={() => void refreshHealth()}
+        testingConnection={loading}
+      />
       )}
 
       {tab === "comfyui" && (
       <>
-      <ToolSection title="Model → workflow map">
+      <ComfyUiSettingsJumpNav
+        activeSection={comfyUiSection}
+        onJump={handleComfyUiSectionJump}
+      />
+      <SettingsBrowserPresetsPanel
+        disabled={!sharedMounted || !mounted}
+        onApply={(preset) => {
+          updateSharedSettings(preset.shared);
+          updateSettings(preset.comfyUi);
+          setStatus(`Applied ${preset.label} browser preset.`);
+        }}
+      />
+      <ToolSection id="settings-comfyui-workflow-map" title="Model → workflow map">
         <p className="text-sm text-zinc-400">
           One mapping per line:{" "}
           <code className="rounded bg-zinc-800 px-1 text-violet-300">
@@ -920,7 +995,7 @@ export default function SettingsTool() {
         </button>
       </ToolSection>
 
-      <ToolSection title="Workflow patching & checkpoints">
+      <ToolSection id="settings-comfyui-workflow-patching" title="Workflow patching & checkpoints">
         <p className="text-sm text-zinc-400">
           Direct patching updates <code className="rounded bg-zinc-800 px-1 text-violet-300">EmptyLatentImage</code>{" "}
           and loader nodes at queue time even when placeholders are missing. Disable to compare
@@ -1317,6 +1392,7 @@ export default function SettingsTool() {
         </label>
       </ToolSection>
 
+      <div id="settings-comfyui-workflow-library" className="scroll-mt-28 space-y-6">
       <ComfyWorkflowLibraryPanel
         placeholderTokens={placeholderTokensFromSettings(settings)}
         onStatus={(msg) => {
@@ -1328,8 +1404,9 @@ export default function SettingsTool() {
       <WorkflowHealthPanel refreshKey={workflowHealthRefresh} />
 
       <WorkflowDiffPanel />
+      </div>
 
-      <ToolSection title="ComfyUI connection & injection">
+      <ToolSection id="settings-comfyui-connection" title="ComfyUI connection & injection">
         <p className="text-sm text-zinc-400">
           Override the server&apos;s{" "}
           <code className="rounded bg-zinc-800 px-1 text-violet-300">
@@ -1716,9 +1793,113 @@ export default function SettingsTool() {
           </CollapsibleSection>
         </div>
 
+        <ToolSection id="settings-comfyui-auto-improve" title="Auto-improve on gallery ratings">
+          <p className="text-sm text-zinc-400">
+            Rating-driven queue actions. Prefer the calm preset if you do not want
+            surprise Max jobs.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                updateSettings({
+                  autoRequeueFinalOnHighRating: true,
+                  autoRequeueMaxOnFiveStar: false,
+                  autoImg2imgRefineOnFiveStar: false,
+                  autoMutateOnHighRating: false,
+                  autoSeedExperimentOnHighRating: false,
+                  autoRefineOnLowRating: true,
+                });
+                setStatus("Auto-improve preset: calm (Final on 4–5★, Max off).");
+              }}
+            >
+              Calm preset
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                updateSettings({
+                  autoRequeueFinalOnHighRating: true,
+                  autoRequeueMaxOnFiveStar: true,
+                  autoImg2imgRefineOnFiveStar: false,
+                  autoMutateOnHighRating: false,
+                  autoSeedExperimentOnHighRating: false,
+                  autoRefineOnLowRating: true,
+                });
+                setStatus("Auto-improve preset: aggressive (Final + Max).");
+              }}
+            >
+              Aggressive preset
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                updateSettings({
+                  autoRequeueFinalOnHighRating: false,
+                  autoRequeueMaxOnFiveStar: false,
+                  autoImg2imgRefineOnFiveStar: false,
+                  autoMutateOnHighRating: false,
+                  autoSeedExperimentOnHighRating: false,
+                  autoRefineOnLowRating: false,
+                });
+                setStatus("Auto-improve disabled.");
+              }}
+            >
+              Off
+            </Button>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={settings.autoRequeueFinalOnHighRating !== false}
+              onChange={(event) =>
+                updateSettings({ autoRequeueFinalOnHighRating: event.target.checked })
+              }
+              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            />
+            Auto improve 4–5★ → Final (upscale / moiré / Lightning re-seed)
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={settings.autoRequeueMaxOnFiveStar !== false}
+              onChange={(event) =>
+                updateSettings({ autoRequeueMaxOnFiveStar: event.target.checked })
+              }
+              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            />
+            Auto improve 5★ → Max
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={settings.autoImg2imgRefineOnFiveStar === true}
+              onChange={(event) =>
+                updateSettings({ autoImg2imgRefineOnFiveStar: event.target.checked })
+              }
+              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            />
+            After 5★ upscale, also queue low-denoise refine (experimental)
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              checked={settings.autoRefineOnLowRating !== false}
+              onChange={(event) =>
+                updateSettings({ autoRefineOnLowRating: event.target.checked })
+              }
+              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            />
+            Auto-open Refine when rated 1–2★
+          </label>
+        </ToolSection>
+
         <CollapsibleSection
           title="Queue automation & notifications"
-          summary="Auto-save, rating-driven requeue, WebSocket progress, and browser alerts."
+          summary="Auto-save, mutate/seed fallbacks, WebSocket progress, and browser alerts."
           defaultOpen={false}
           persistKey="settings-queue-automation"
         >
@@ -1737,58 +1918,6 @@ export default function SettingsTool() {
         <label className="flex items-center gap-2 text-sm text-zinc-300">
           <input
             type="checkbox"
-            checked={settings.autoRefineOnLowRating !== false}
-            onChange={(event) =>
-              updateSettings({ autoRefineOnLowRating: event.target.checked })
-            }
-            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-          />
-          Auto-open Refine when a gallery output is rated 1–2★
-        </label>
-
-        <label className="flex items-center gap-2 text-sm text-zinc-300">
-          <input
-            type="checkbox"
-            checked={settings.autoRequeueFinalOnHighRating !== false}
-            onChange={(event) =>
-              updateSettings({ autoRequeueFinalOnHighRating: event.target.checked })
-            }
-            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-          />
-          Auto improve 4–5★ outputs (Final): upscale · Rapid AIO → moiré clean · Lightning →
-          re-queue new seed (on by default). When this is on, mutate/seed-experiment
-          toggles below only run if this improve path fails or is turned off.
-        </label>
-
-        <label className="flex items-center gap-2 text-sm text-zinc-300">
-          <input
-            type="checkbox"
-            checked={settings.autoRequeueMaxOnFiveStar !== false}
-            onChange={(event) =>
-              updateSettings({ autoRequeueMaxOnFiveStar: event.target.checked })
-            }
-            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-          />
-          Auto improve 5★ outputs (Max): upscale · Rapid AIO → moiré clean · Lightning →
-          re-queue new seed (on by default)
-        </label>
-
-        <label className="flex items-center gap-2 text-sm text-zinc-300">
-          <input
-            type="checkbox"
-            checked={settings.autoImg2imgRefineOnFiveStar === true}
-            onChange={(event) =>
-              updateSettings({ autoImg2imgRefineOnFiveStar: event.target.checked })
-            }
-            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-          />
-          After 5★ upscale, also queue low-denoise img2img refine (experimental, off by
-          default; skipped for Lightning and Rapid AIO)
-        </label>
-
-        <label className="flex items-center gap-2 text-sm text-zinc-300">
-          <input
-            type="checkbox"
             checked={settings.autoMutateOnHighRating ?? false}
             onChange={(event) =>
               updateSettings({ autoMutateOnHighRating: event.target.checked })
@@ -1796,6 +1925,7 @@ export default function SettingsTool() {
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
           Auto-queue mutations when a gallery output is rated 4–5★
+          (fallback when Final/Max improve is off or fails)
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-300">
@@ -1914,7 +2044,7 @@ export default function SettingsTool() {
             }
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
-          Auto-tag completed gallery images with vision LLM tags
+          Auto-tag completed gallery images with vision LLM tags (also on LLM tab)
         </label>
         </CollapsibleSection>
 
@@ -1956,11 +2086,27 @@ export default function SettingsTool() {
         </p>
       </ToolSection>
 
-      <ToolSection title="Queue parameters">
+      <ToolSection id="settings-comfyui-queue-params" title="Queue parameters">
         <QueueParamsPanel />
       </ToolSection>
 
-      <ToolSection title="Queue Max hold">
+      <SettingsPromptQualityPanel
+        sharedSettings={sharedSettings}
+        sharedMounted={sharedMounted}
+        updateSharedSettings={updateSharedSettings}
+        freeVramGb={
+          typeof health?.comfyui.vram?.free === "number"
+            ? health.comfyui.vram.free / 1e9
+            : null
+        }
+        totalVramGb={
+          typeof health?.comfyui.vram?.total === "number"
+            ? health.comfyui.vram.total / 1e9
+            : null
+        }
+      />
+
+      <ToolSection id="settings-comfyui-hold-max" title="Queue Max hold">
         <p className="text-sm text-zinc-400">
           When on, Max Generate / re-queue / Upscale / Moiré / Refine wait until the ComfyUI
           queue is idle, then flush from Queue → Orchestration.
@@ -1984,77 +2130,14 @@ export default function SettingsTool() {
               Hold Max until idle
             </span>
             <span className="block text-xs text-zinc-500">
-              Avoid stacking Max enrich while ComfyUI is already busy.
+              Avoid stacking Max enrich while ComfyUI is already busy. Also shown on Queue →
+              Orchestration.
             </span>
           </span>
         </label>
       </ToolSection>
-      </>
-      )}
 
-      {tab === "automation" && (
-      <>
-      <ToolSection title="Webhooks">
-        <p className="text-sm text-zinc-400">
-          POST ComfyUI job completion events to an external URL (via server proxy).
-        </p>
-        <label className="flex items-center gap-3 text-sm text-zinc-300">
-          <input
-            type="checkbox"
-            checked={webhookSettings.enabled}
-            onChange={(event) => {
-              const next = { ...webhookSettings, enabled: event.target.checked };
-              setWebhookSettings(next);
-              saveWebhookSettings(next);
-            }}
-            className={`h-4 w-4 rounded ${accentFocusClass()}`}
-          />
-          Enable webhooks
-        </label>
-        <FieldLabel htmlFor="webhook-url">Webhook URL</FieldLabel>
-        <input
-          id="webhook-url"
-          value={webhookSettings.url ?? ""}
-          onChange={(event) => {
-            const next = { ...webhookSettings, url: event.target.value };
-            setWebhookSettings(next);
-            saveWebhookSettings(next);
-          }}
-          placeholder="https://example.com/hooks/comfyui"
-          className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-        />
-        <FieldLabel htmlFor="webhook-secret">Shared secret (optional)</FieldLabel>
-        <input
-          id="webhook-secret"
-          value={webhookSettings.secret ?? ""}
-          onChange={(event) => {
-            const next = { ...webhookSettings, secret: event.target.value };
-            setWebhookSettings(next);
-            saveWebhookSettings(next);
-          }}
-          className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-        />
-        <FieldLabel htmlFor="webhook-template">Payload template</FieldLabel>
-        <select
-          id="webhook-template"
-          value={webhookSettings.template ?? "generic"}
-          onChange={(event) => {
-            const next = {
-              ...webhookSettings,
-              template: event.target.value as WebhookSettings["template"],
-            };
-            setWebhookSettings(next);
-            saveWebhookSettings(next);
-          }}
-          className="ui-input w-full max-w-xs"
-        >
-          <option value="generic">Generic JSON</option>
-          <option value="discord">Discord embed</option>
-          <option value="slack">Slack blocks</option>
-        </select>
-      </ToolSection>
-
-      <ToolSection title="Sampler memory">
+      <ToolSection id="settings-comfyui-sampler-memory" title="Sampler memory">
         <p className="text-sm text-zinc-400">
           4–5★ gallery ratings remember per-model CFG / steps / sampler / scheduler for the
           next queue (Lightning and Rapid AIO stay CFG-1).
@@ -2122,6 +2205,70 @@ export default function SettingsTool() {
             </div>
           );
         })()}
+      </ToolSection>
+      </>
+      )}
+
+      {tab === "automation" && (
+      <>
+      <ToolSection title="Webhooks">
+        <p className="text-sm text-zinc-400">
+          POST ComfyUI job completion events to an external URL (via server proxy).
+        </p>
+        <label className="flex items-center gap-3 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={webhookSettings.enabled}
+            onChange={(event) => {
+              const next = { ...webhookSettings, enabled: event.target.checked };
+              setWebhookSettings(next);
+              saveWebhookSettings(next);
+            }}
+            className={`h-4 w-4 rounded ${accentFocusClass()}`}
+          />
+          Enable webhooks
+        </label>
+        <FieldLabel htmlFor="webhook-url">Webhook URL</FieldLabel>
+        <input
+          id="webhook-url"
+          value={webhookSettings.url ?? ""}
+          onChange={(event) => {
+            const next = { ...webhookSettings, url: event.target.value };
+            setWebhookSettings(next);
+            saveWebhookSettings(next);
+          }}
+          placeholder="https://example.com/hooks/comfyui"
+          className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+        />
+        <FieldLabel htmlFor="webhook-secret">Shared secret (optional)</FieldLabel>
+        <input
+          id="webhook-secret"
+          value={webhookSettings.secret ?? ""}
+          onChange={(event) => {
+            const next = { ...webhookSettings, secret: event.target.value };
+            setWebhookSettings(next);
+            saveWebhookSettings(next);
+          }}
+          className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+        />
+        <FieldLabel htmlFor="webhook-template">Payload template</FieldLabel>
+        <select
+          id="webhook-template"
+          value={webhookSettings.template ?? "generic"}
+          onChange={(event) => {
+            const next = {
+              ...webhookSettings,
+              template: event.target.value as WebhookSettings["template"],
+            };
+            setWebhookSettings(next);
+            saveWebhookSettings(next);
+          }}
+          className="ui-input w-full max-w-xs"
+        >
+          <option value="generic">Generic JSON</option>
+          <option value="discord">Discord embed</option>
+          <option value="slack">Slack blocks</option>
+        </select>
       </ToolSection>
 
       <ToolSection title="Avoided tokens">
@@ -2502,11 +2649,17 @@ export default function SettingsTool() {
         />
       </ToolSection>
 
+      <SettingsBundlePanel
+        onImported={reloadBrowserSettingsState}
+        onStatus={setStatus}
+      />
+
       <ToolSection title="Local data">
         <p className="text-sm text-zinc-400">
-          Backup includes history, settings, scene presets, user templates, location
-          blocklist, ComfyUI settings, gallery entries, workflow JSON (v2), avoided
-          tokens, webhook log/settings, projects, and scheduled batch (v3).
+          Full studio backup includes history, settings, scene presets, user templates,
+          location blocklist, ComfyUI settings, gallery entries, workflow JSON (v2),
+          avoided tokens, webhook log/settings, projects, and scheduled batch (v3). Prefer
+          Settings export above when you only need prefs.
         </p>
         {backupReminder ? (
           <p className="mb-3 text-sm text-amber-300/90">{backupReminder}</p>
@@ -2564,10 +2717,10 @@ export default function SettingsTool() {
           Keys: {LOCAL_DATA_KEYS.join(", ")}
         </p>
       </ToolSection>
-
-      <SettingsAdvancedPanel />
       </>
       )}
+
+      {tab === "advanced" && <SettingsAdvancedPanel />}
 
       {tab === "users" ? <UsersSettingsPanel /> : null}
 

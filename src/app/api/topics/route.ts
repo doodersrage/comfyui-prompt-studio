@@ -1,6 +1,7 @@
 import { resolveAvoidanceOptions } from "@/lib/avoidance-options";
 import { normalizeRecentLocations, normalizeBlockedLocations } from "@/lib/specialized/normalize";
 import { generateTopics } from "@/lib/specialized/topic-generator";
+import { parseLlmRequestOptions } from "@/lib/llm-request-options";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 
@@ -14,6 +15,11 @@ type TopicsRequestBody = {
   blockedLocations?: string[];
   avoidedTokens?: string[];
   avoidedTokensInstruction?: string;
+  llmTemperature?: number;
+  allowTemplateFallback?: boolean;
+  llmModel?: string;
+  llmVisionModel?: string;
+  llmEnabled?: boolean;
 };
 
 export async function GET() {
@@ -44,6 +50,7 @@ export async function POST(request: Request) {
       recentLocations: normalizeRecentLocations(body.recentLocations),
       blockedLocations: normalizeBlockedLocations(body.blockedLocations),
       ...resolveAvoidanceOptions(body),
+      llm: parseLlmRequestOptions(body),
     });
 
     return apiJson(result);

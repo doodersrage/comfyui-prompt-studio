@@ -119,6 +119,7 @@ export function ToolSection({
   title,
   description,
   variant = "primary",
+  id,
 }: {
   children: ReactNode;
   className?: string;
@@ -126,10 +127,12 @@ export function ToolSection({
   title?: string;
   description?: string;
   variant?: ToolSectionVariant;
+  id?: string;
 }) {
   return (
     <section
-      className={`${sectionSurfaceClasses[variant]} ${padded ? "p-[var(--card-padding)] sm:p-[var(--card-padding-lg)]" : ""} ${className}`.trim()}
+      id={id}
+      className={`${id ? "scroll-mt-28 " : ""}${sectionSurfaceClasses[variant]} ${padded ? "p-[var(--card-padding)] sm:p-[var(--card-padding-lg)]" : ""} ${className}`.trim()}
     >
       {title ? (
         <div className="mb-6 space-y-2">

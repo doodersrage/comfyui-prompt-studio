@@ -14,6 +14,7 @@ import {
 } from "./anatomy-guard";
 import type { AnatomyGuardMode } from "./anatomy-guard";
 import {
+  DEFAULT_RENDER_REALISM_MODE,
   normalizeRenderRealismMode,
 } from "./render-realism";
 import type { RenderRealismMode } from "./render-realism";
@@ -76,6 +77,12 @@ export type SharedToolSettings = {
   sessionLlmTemperature?: number;
   /** Session override for template fallback when LLM fails. */
   sessionAllowTemplateFallback?: boolean;
+  /** Session override for the text LLM model (undefined = server LLM_MODEL default). */
+  sessionLlmModel?: string;
+  /** Session override for the vision LLM model (undefined = server LLM_VISION_MODEL default). */
+  sessionLlmVisionModel?: string;
+  /** Session LLM enabled override (undefined = server default; false = template-only for this browser). */
+  sessionLlmEnabled?: boolean;
   /** Pinned character appearance block injected into Character/Duo generations. */
   activeCharacterDescriptor?: string;
   /** KSampler preset tier applied when queueing (base, optimized, max compatible, or max quality). */
@@ -116,6 +123,10 @@ export type SharedToolSettings = {
   sessionQueueMode?: "iterate" | "keeper" | "off";
   /** When true, Max gallery Upscale/Moiré jobs wait until ComfyUI queue is idle. */
   holdMaxUntilIdle?: boolean;
+  /** When true (default), Max→Final if free VRAM is below the threshold. */
+  vramGuardEnabled?: boolean;
+  /** Free VRAM (GB) below which Max enrich downgrades to Final. */
+  vramGuardMinFreeGb?: number;
   /** Per-model sampler params learned from 4–5★ gallery ratings. */
   modelSamplerMemory?: import("./sampler-memory").ModelSamplerMemoryMap;
   /** Per-tool queue quality overrides (tool id → profile). */
@@ -406,7 +417,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelSamplerPreset: "base",
   modelResolutionOrientation: DEFAULT_RESOLUTION_ORIENTATION,
   modelResolutionSizeTier: DEFAULT_RESOLUTION_SIZE_TIER,
-  renderRealismMode: "realistic",
+  renderRealismMode: DEFAULT_RENDER_REALISM_MODE,
   anatomyGuardMode: DEFAULT_ANATOMY_GUARD_MODE,
   directWorkflowPatching: true,
   syncWorkflowLoadersToModel: false,
@@ -421,6 +432,8 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   queueQualityProfile: "followSettings",
   sessionQueueMode: "off",
   holdMaxUntilIdle: false,
+  vramGuardEnabled: true,
+  vramGuardMinFreeGb: 6,
   modelSamplerMemory: {},
   toolQueueQualityProfiles: SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
   modelCheckpointMap: {},
@@ -671,6 +684,12 @@ export function loadSettingsCache(): SettingsCache {
     shared.queueQualityProfile = normalizeQueueQualityProfile(
       shared.queueQualityProfile ?? DEFAULT_QUEUE_QUALITY_PROFILE,
     );
+    shared.vramGuardEnabled = shared.vramGuardEnabled !== false;
+    const freeGb = shared.vramGuardMinFreeGb;
+    shared.vramGuardMinFreeGb =
+      typeof freeGb === "number" && Number.isFinite(freeGb)
+        ? Math.min(48, Math.max(1, Math.round(freeGb * 10) / 10))
+        : DEFAULT_SHARED_SETTINGS.vramGuardMinFreeGb;
     shared.toolQueueQualityProfiles = normalizeToolQueueQualityProfiles(
       shared.toolQueueQualityProfiles ?? SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
     );

@@ -6,10 +6,11 @@ import {
 } from "../comfy-models";
 import { getDetailLimits } from "../detail-level";
 import {
+  resolveRequestLlmEnabled,
   resolveRequestTemplateFallback,
   resolveRequestTemperature,
 } from "../llm-request-options";
-import { chatCompletion, isLlmEnabled } from "../llm-client";
+import { chatCompletion } from "../llm-client";
 import { isThinkingOnlyArtifact, stripPromptArtifacts } from "../prompt-cleanup";
 import { ensureSinglePersonPrompt } from "../single-person";
 import { sanitizeQwenPrompt, formatPromptForModel, trimPromptToMaxChars, compactPromptForProfile } from "../qwen-clarity";
@@ -54,6 +55,10 @@ export async function runSpecializedPrompt(options: {
   sanitizeInput?: string;
   temperature?: number;
   allowTemplateFallback?: boolean;
+  /** Text model override for this request (falls back to server LLM_MODEL). */
+  llmModel?: string;
+  /** false = template-only for this request/browser; undefined = server LLM_ENABLED default. */
+  llmEnabled?: boolean;
   maxTokens?: number;
   metadata?: Record<string, unknown>;
   seed?: string;
@@ -74,7 +79,7 @@ ${buildModelClarityAddendum(options.detail, options.model)}
 
 Output ONLY the raw prompt text. No quotes around the whole prompt, labels, markdown, numbered analysis, thinking steps, or explanations.`;
 
-  if (isLlmEnabled()) {
+  if (resolveRequestLlmEnabled({ llmEnabled: options.llmEnabled })) {
     try {
       const content = await chatCompletion({
         messages: [
@@ -83,6 +88,7 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
         ],
         maxTokens,
         temperature: resolveRequestTemperature({ temperature: options.temperature }),
+        model: options.llmModel,
       });
 
       const prompt = await finalizeSpecializedPrompt(

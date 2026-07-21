@@ -3,11 +3,8 @@ import {
   comfyModelLabel,
 } from "../comfy-models";
 import { getDetailLimits, type DetailLevel } from "../detail-level";
-import {
-  allowTemplateFallback,
-  isLlmEnabled,
-  visionCompletion,
-} from "../llm-client";
+import { allowTemplateFallback, visionCompletion } from "../llm-client";
+import { resolveRequestLlmEnabled, resolveRequestVisionModel } from "../llm-request-options";
 import {
   applyVisionFocusTrim,
   stripPromptArtifacts,
@@ -196,13 +193,14 @@ export async function generateImagePrompt(
   );
   const limits = getDetailLimits(options.detail, options.model);
 
-  if (!isLlmEnabled()) {
+  if (!resolveRequestLlmEnabled(options.llm)) {
     throw new Error(
       "Image prompt generation requires a vision-capable LLM. Set LLM_ENABLED=true and configure LLM_VISION_MODEL (e.g. qwen3-vl:latest).",
     );
   }
 
-  const visionModel = process.env.LLM_VISION_MODEL?.trim();
+  const visionModel =
+    resolveRequestVisionModel(options.llm) ?? process.env.LLM_VISION_MODEL?.trim();
   if (!visionModel) {
     throw new Error(
       "LLM_VISION_MODEL is not set. Add LLM_VISION_MODEL=qwen3-vl:latest to .env.local and restart the dev server.",
@@ -217,6 +215,7 @@ export async function generateImagePrompt(
       imageDataUrl: options.imageDataUrl,
       maxTokens: visionMaxTokens,
       temperature: 0.35,
+      model: visionModel,
     });
 
     let prompt = finalizeImagePrompt(
@@ -243,6 +242,7 @@ export async function generateImagePrompt(
         imageDataUrl: options.imageDataUrl,
         maxTokens: visionMaxTokens,
         temperature: attempt === 0 ? 0.25 : 0.15,
+        model: visionModel,
       });
       prompt = finalizeImagePrompt(
         content,

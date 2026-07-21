@@ -9,6 +9,9 @@ export function normalizeSharedGenerationOptions(
     detail?: string | DetailLevel;
     llmTemperature?: number;
     allowTemplateFallback?: boolean;
+    llmModel?: string;
+    llmVisionModel?: string;
+    llmEnabled?: boolean;
   }> | null,
 ): SharedGenerationOptions {
   return {
