@@ -11,6 +11,7 @@ import {
 } from "./workflow-apply-bindings";
 import { suggestWorkflowNodeMappings } from "./workflow-node-mapper";
 import { enrichWorkflowGraph } from "./workflow-graph-enrich";
+import { patchWorkflowSaveFormat } from "./workflow-save-format";
 import { listLoraBindTokens } from "./workflow-lora-patch";
 import { mergeLoraLibraryIntoCustomTokens, loadComfyUiSettings } from "./comfyui-settings";
 import { resolvePromptEncodeTextField } from "./workflow-prompt-encode";
@@ -307,6 +308,12 @@ export function optimizeWorkflowForQueue(input: {
   availableUpscaleModels?: string[] | null;
   availableCheckpoints?: string[] | null;
   supportsNeuralUpscaleTileSize?: boolean;
+  /** ComfyUI object_info node class names — used to pick WebP save nodes for Draft. */
+  availableNodeTypes?: Iterable<string> | null;
+  /** Live object_info WebP save adapters (from format combo discovery). */
+  webpSaveAdapters?: import("./workflow-save-format").WebpSaveAdapter[] | null;
+  /** When true (default), Draft queues prefer WebP save nodes when installed. */
+  compactDraftSaves?: boolean;
 }): WorkflowQueueOptimizeResult {
   const enabled = input.enabled !== false;
   const enrichGraph = input.enrichGraph !== false;
@@ -338,7 +345,17 @@ export function optimizeWorkflowForQueue(input: {
 
   // Lightning: keep the imported graph intact. Auto-binding / enrich rewrites cause
   // worm artifacts vs native ComfyUI. Sampler CFG/steps are forced at inject time.
+  // Still apply profile-aware save format (Draft WebP / keeper PNG) — save-node only.
   if (isQwenLightningModel(input.model)) {
+    const saveFormatPatch = patchWorkflowSaveFormat({
+      workflow,
+      qualityProfile: input.qualityProfile,
+      compactDraftSaves: input.compactDraftSaves,
+      availableNodeTypes: input.availableNodeTypes,
+      webpSaveAdapters: input.webpSaveAdapters,
+    });
+    workflow = saveFormatPatch.workflow;
+    changes.push(...saveFormatPatch.changes);
     const workflowJsonLightning = JSON.stringify(workflow, null, 2);
     const auditLightning = auditWorkflowStructure(workflowJsonLightning, input.tokens);
     for (const warning of auditLightning.warnings) {
@@ -475,6 +492,19 @@ export function optimizeWorkflowForQueue(input: {
         message: "Resolved model-sampling placeholders (shift / Flux max-base).",
       });
     }
+  }
+
+  const saveFormatPatch = patchWorkflowSaveFormat({
+    workflow,
+    qualityProfile: input.qualityProfile,
+    compactDraftSaves: input.compactDraftSaves,
+    availableNodeTypes: input.availableNodeTypes,
+    webpSaveAdapters: input.webpSaveAdapters,
+  });
+  if (saveFormatPatch.changes.length > 0) {
+    workflow = saveFormatPatch.workflow;
+    workflowJson = JSON.stringify(workflow, null, 2);
+    changes.push(...saveFormatPatch.changes);
   }
 
   const audit = auditWorkflowStructure(workflowJson, input.tokens);

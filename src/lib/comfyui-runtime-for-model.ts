@@ -158,6 +158,7 @@ export function resolveRuntimeForModel(
     workflowSdxlRefinerEnrich: shared.workflowSdxlRefinerEnrich !== false,
     workflowNeuralUpscalePolish: shared.workflowNeuralUpscalePolish !== false,
     workflowSharpenAfterUpscale: shared.workflowSharpenAfterUpscale !== false,
+    compactDraftSaves: shared.compactDraftSaves !== false,
     queueTargetModel: model,
     queueQualityProfile: normalizeQueueQualityProfile(shared.queueQualityProfile),
     modelCheckpointMap: shared.modelCheckpointMap,

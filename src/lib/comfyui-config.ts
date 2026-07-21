@@ -121,6 +121,11 @@ export type ComfyUiRuntimeConfig = {
   workflowNeuralUpscalePolish?: boolean;
   /** When true (default), add a subtle ImageSharpen after upscale on Max. */
   workflowSharpenAfterUpscale?: boolean;
+  /**
+   * When true (default), Draft queues rewrite SaveImage to a WebP-capable custom
+   * node when ComfyUI has one installed; Final/Max stay PNG.
+   */
+  compactDraftSaves?: boolean;
   /** Model id used for queue-time workflow optimize / graph enrich heuristics. */
   queueTargetModel?: string;
   /** Effective queue quality profile for this request (sampler, resolution, upscale). */
@@ -1405,6 +1410,9 @@ export function stripEmptyComfyUiRuntime(
   }
   if (runtime.workflowSharpenAfterUpscale === false) {
     result.workflowSharpenAfterUpscale = false;
+  }
+  if (runtime.compactDraftSaves === false) {
+    result.compactDraftSaves = false;
   }
 
   if (runtime.queueQualityProfile) {

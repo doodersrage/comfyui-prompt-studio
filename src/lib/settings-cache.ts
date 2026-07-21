@@ -102,6 +102,11 @@ export type SharedToolSettings = {
   workflowNeuralUpscalePolish?: boolean;
   /** When true, add subtle ImageSharpen after upscale on Max (off by default — sharpen can look waxy on skin). */
   workflowSharpenAfterUpscale?: boolean;
+  /**
+   * When true (default), Draft queues save via WebP when a compatible ComfyUI
+   * save node is installed; Final/Max keep PNG.
+   */
+  compactDraftSaves?: boolean;
   /** Overrides sidebar sampler/resolution when queueing (draft / final / max). */
   queueQualityProfile?: QueueQualityProfile;
   /** Per-tool queue quality overrides (tool id → profile). */
@@ -401,6 +406,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   workflowSdxlRefinerEnrich: true,
   workflowNeuralUpscalePolish: true,
   workflowSharpenAfterUpscale: false,
+  compactDraftSaves: true,
   neuralUpscaleTileSize: 512,
   useLibraryUpscaleWorkflow: false,
   queueQualityProfile: "followSettings",

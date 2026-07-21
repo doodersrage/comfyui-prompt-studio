@@ -22,6 +22,8 @@ export type WorkflowPreviewInventory = {
   models?: ComfyUiModelLists | null;
   supportsNeuralUpscaleTileSize?: boolean;
   objectInfoUnavailable?: boolean;
+  nodeTypes?: Iterable<string> | null;
+  webpSaveAdapters?: import("./workflow-save-format").WebpSaveAdapter[] | null;
 };
 
 export type WorkflowPreviewInput = {
@@ -201,6 +203,9 @@ export function previewWorkflowInjection(
           availableUpscaleModels: inventoryModels?.upscaleModels,
           availableCheckpoints: inventoryModels?.checkpoints,
           supportsNeuralUpscaleTileSize: input.inventory?.supportsNeuralUpscaleTileSize,
+          availableNodeTypes: input.inventory?.nodeTypes,
+          webpSaveAdapters: input.inventory?.webpSaveAdapters,
+          compactDraftSaves: runtime?.compactDraftSaves,
           ...resolveWorkflowGraphEnrichOptions(runtime),
         })
       : {

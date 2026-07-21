@@ -41,6 +41,8 @@ export async function POST(request: Request) {
         models: objectInfo?.models ?? null,
         supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
         objectInfoUnavailable: !objectInfo,
+        nodeTypes: objectInfo?.nodeTypes ?? null,
+        webpSaveAdapters: objectInfo?.webpSaveAdapters ?? null,
       },
     });
 

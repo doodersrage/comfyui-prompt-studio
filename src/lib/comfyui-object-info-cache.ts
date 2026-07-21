@@ -2,6 +2,7 @@
 
 import type { ComfyUiModelLists } from "./comfyui-object-info";
 import { resolveComfyUiRuntime } from "./comfyui-runtime";
+import type { WebpSaveAdapter } from "./workflow-save-format";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -9,6 +10,7 @@ export type ComfyObjectInfoCachePayload = {
   models: ComfyUiModelLists;
   nodeTypes: Set<string>;
   supportsNeuralUpscaleTileSize: boolean;
+  webpSaveAdapters: WebpSaveAdapter[];
 };
 
 type CacheEntry = {
@@ -49,6 +51,7 @@ export function readCachedComfyObjectInfo(
     models: memoryCache.models,
     nodeTypes: memoryCache.nodeTypes,
     supportsNeuralUpscaleTileSize: memoryCache.supportsNeuralUpscaleTileSize,
+    webpSaveAdapters: memoryCache.webpSaveAdapters,
   };
 }
 
@@ -71,6 +74,7 @@ export async function fetchComfyObjectInfoCached(input?: {
     models?: ComfyUiModelLists;
     nodeTypes?: string[];
     supportsNeuralUpscaleTileSize?: boolean;
+    webpSaveAdapters?: WebpSaveAdapter[];
   };
   if (!data.models) {
     return null;
@@ -82,11 +86,13 @@ export async function fetchComfyObjectInfoCached(input?: {
     models: data.models,
     nodeTypes: new Set(data.nodeTypes ?? []),
     supportsNeuralUpscaleTileSize: data.supportsNeuralUpscaleTileSize === true,
+    webpSaveAdapters: Array.isArray(data.webpSaveAdapters) ? data.webpSaveAdapters : [],
   };
   return {
     models: memoryCache.models,
     nodeTypes: memoryCache.nodeTypes,
     supportsNeuralUpscaleTileSize: memoryCache.supportsNeuralUpscaleTileSize,
+    webpSaveAdapters: memoryCache.webpSaveAdapters,
   };
 }
 

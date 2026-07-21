@@ -1,5 +1,9 @@
 import { getComfyUiBaseUrl } from "./comfyui-client";
 import type { ComfyUiRuntimeConfig } from "./comfyui-config";
+import {
+  discoverWebpSaveAdapters,
+  type WebpSaveAdapter,
+} from "./workflow-save-format";
 
 export type ComfyUiModelLists = {
   checkpoints: string[];
@@ -100,6 +104,7 @@ export type ComfyObjectInfoPayload = {
   models: ComfyUiModelLists;
   nodeTypes: Set<string>;
   supportsNeuralUpscaleTileSize: boolean;
+  webpSaveAdapters: WebpSaveAdapter[];
 };
 
 export async function fetchComfyObjectInfoPayload(
@@ -121,6 +126,7 @@ export async function fetchComfyObjectInfoPayload(
       "ImageUpscaleWithModel",
       "tile_size",
     ),
+    webpSaveAdapters: discoverWebpSaveAdapters(objectInfo),
   };
 }
 

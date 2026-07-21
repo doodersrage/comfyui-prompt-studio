@@ -146,6 +146,8 @@ function injectPromptsIntoWorkflow(
     availableCheckpoints?: string[] | null;
     availableLoras?: string[] | null;
     supportsNeuralUpscaleTileSize?: boolean;
+    availableNodeTypes?: Iterable<string> | null;
+    webpSaveAdapters?: import("./workflow-save-format").WebpSaveAdapter[] | null;
   },
 ) {
   const { params, loaders, customTokens } = resolveQueueInjectionContext({
@@ -160,6 +162,9 @@ function injectPromptsIntoWorkflow(
     String(enrichInventory?.availableCheckpoints?.length ?? 0),
     String(enrichInventory?.availableLoras?.length ?? 0),
     enrichInventory?.supportsNeuralUpscaleTileSize ? "1" : "0",
+    enrichInventory?.availableNodeTypes
+      ? [...enrichInventory.availableNodeTypes].filter((name) => /saveimage|image save/i.test(name)).sort().join(",")
+      : "",
   ].join(";");
   const optimizeKey = [
     runtime?.queueQualityProfile ?? "draft",
@@ -167,6 +172,7 @@ function injectPromptsIntoWorkflow(
     params.upscaleModelFilename ?? "",
     params.refinerCheckpointFilename ?? "",
     runtime?.workflowGraphEnrich === false ? "0" : "1",
+    runtime?.compactDraftSaves === false ? "0" : "1",
     inventoryFingerprint,
   ].join("|");
 
@@ -188,6 +194,9 @@ function injectPromptsIntoWorkflow(
         availableUpscaleModels: enrichInventory?.availableUpscaleModels,
         availableCheckpoints: enrichInventory?.availableCheckpoints,
         supportsNeuralUpscaleTileSize: enrichInventory?.supportsNeuralUpscaleTileSize,
+        availableNodeTypes: enrichInventory?.availableNodeTypes,
+        webpSaveAdapters: enrichInventory?.webpSaveAdapters,
+        compactDraftSaves: runtime?.compactDraftSaves,
         ...resolveWorkflowGraphEnrichOptions(runtime),
       });
       optimizedWorkflow = optimized.workflow;
@@ -266,6 +275,8 @@ export async function queuePromptToComfyUi(
               availableCheckpoints: objectInfo?.models.checkpoints,
               availableLoras: objectInfo?.models.loras,
               supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
+              availableNodeTypes: objectInfo?.nodeTypes,
+              webpSaveAdapters: objectInfo?.webpSaveAdapters,
             },
           );
           const unresolved = findUnresolvedLoaderPlaceholders(injected.workflow);

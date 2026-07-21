@@ -88,6 +88,7 @@ import {
 } from "@/lib/comfyui-notifications";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import SettingsSubNav from "@/components/settings/SettingsSubNav";
+import CompactDraftSavesStatus from "@/components/settings/CompactDraftSavesStatus";
 import {
   CollapsibleSection,
   ToolBadge,
@@ -994,6 +995,34 @@ export default function SettingsTool() {
             </span>
           </span>
         </label>
+        <label className="mb-3 flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={sharedSettings.compactDraftSaves !== false}
+            onChange={(event) =>
+              updateSharedSettings({
+                compactDraftSaves: event.target.checked,
+              })
+            }
+            disabled={!sharedMounted}
+            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium text-zinc-200">
+              Compact Draft saves (WebP when available)
+            </span>
+            <span className="block text-xs text-zinc-500">
+              On <strong className="font-medium text-zinc-400">Draft</strong>, rewrite SaveImage to a
+              WebP-capable custom node when ComfyUI has one installed (e.g. SaveImageExtended).{" "}
+              <strong className="font-medium text-zinc-400">Final/Max</strong> stay PNG for keepers.
+              Stock SaveImage alone cannot emit WebP — install a save custom node to shrink draft
+              files on disk.
+            </span>
+          </span>
+        </label>
+        <CompactDraftSavesStatus
+          enabled={sharedMounted && sharedSettings.compactDraftSaves !== false}
+        />
         <label className="mb-3 flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"

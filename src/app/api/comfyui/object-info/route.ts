@@ -21,6 +21,7 @@ export async function GET(request: Request) {
       models: payload.models,
       nodeTypes: [...payload.nodeTypes],
       supportsNeuralUpscaleTileSize: payload.supportsNeuralUpscaleTileSize,
+      webpSaveAdapters: payload.webpSaveAdapters,
     });
   } catch (error) {
     const message =
