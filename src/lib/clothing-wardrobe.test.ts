@@ -30,6 +30,7 @@ import {
   inferWorkProfession,
   hintsFantasyWardrobe,
   hintsImplyNoClothing,
+  scoreClothingLabelAgainstHints,
 } from "./clothing-tags";
 import { summaryMatchesSportWardrobe } from "./athletic-sport-profiles";
 import {
@@ -61,10 +62,118 @@ describe("hintsLockPrimaryGarment", () => {
     assert.equal(hintsSpecifyDress("neon alley, rain, black cat"), false);
   });
 
-  it("does not lock on generic clothing tokens alone", () => {
+  it("locks on structured outfit clauses from the brief", () => {
+    assert.equal(hintsLockPrimaryGarment("woman in a red top and jeans"), true);
+    assert.equal(hintsLockPrimaryGarment("wearing a black hoodie and sneakers"), true);
+  });
+
+  it("does not lock on scene text without structured garments", () => {
     assert.equal(hintsLockPrimaryGarment("neon alley, rain, black cat"), false);
     assert.equal(hintsLockPrimaryGarment("vendor near the docks at dusk"), false);
-    assert.equal(hintsLockPrimaryGarment("woman in a red top and jeans"), false);
+  });
+});
+
+describe("brief garment matching", () => {
+  it("extracts separates named in the brief", () => {
+    const phrases = extractBriefGarmentPhrases("woman in a red top and jeans");
+    assert.ok(phrases.some((phrase) => /top/i.test(phrase)));
+    assert.ok(phrases.some((phrase) => /jeans/i.test(phrase)));
+  });
+
+  it("scores catalog labels against brief colors and garment types", () => {
+    const hint = "woman in a red top and jeans";
+    assert.ok(
+      scoreClothingLabelAgainstHints("crimson mesh v-neck tee", hint) >
+        scoreClothingLabelAgainstHints("mint flannel long-sleeve tee", hint),
+    );
+    assert.ok(scoreClothingLabelAgainstHints("indigo straight-leg jeans", hint) >= 8);
+  });
+
+  it("picks jeans and a top-like piece when the brief names them", () => {
+    const outfit = pickRandomCharacterOutfit(
+      buildClothingPickFilters({
+        hints: "woman in a red top and jeans",
+        gender: "women",
+      }),
+    );
+    assert.equal(outfit.filters.lockPrimaryGarment, true);
+    assert.match(outfit.summary, /\bjeans\b/i);
+    assert.match(outfit.summary, /\b(?:top|tee|blouse|shirt|hoodie|sweater)\b/i);
+    assert.doesNotMatch(outfit.summary, /\b(?:gown|tuxedo|bikini)\b/i);
+  });
+});
+
+describe("activity and location wardrobe", () => {
+  it("maps beach/pool/sauna scenes to swimwear contexts", () => {
+    assert.ok(
+      buildClothingPickFilters({ hints: "woman at a tropical beach" }).contexts.includes(
+        "swimwear",
+      ),
+    );
+    assert.ok(
+      buildClothingPickFilters({ hints: "woman at the swimming pool" }).swimwearOnly,
+    );
+    assert.ok(
+      buildClothingPickFilters({ hints: "woman at a sauna" }).contexts.includes("swimwear"),
+    );
+  });
+
+  it("prefers swimwear over street jeans at the pool", () => {
+    const filters = buildClothingPickFilters({
+      hints: "woman in jeans at the swimming pool",
+      gender: "women",
+    });
+    assert.equal(filters.lockPrimaryGarment, false);
+    assert.equal(filters.swimwearOnly, true);
+    const outfit = pickRandomCharacterOutfit(filters);
+    assert.match(outfit.summary, /\b(?:bikini|swimsuit|swim|tankini|rash|board shorts|monokini)\b/i);
+    assert.doesNotMatch(outfit.summary, /\bjeans\b/i);
+  });
+
+  it("keeps intentional clothed poolside outfits when requested", () => {
+    const filters = buildClothingPickFilters({
+      hints: "woman fully clothed poolside in jeans",
+      gender: "women",
+    });
+    assert.equal(filters.lockPrimaryGarment, true);
+  });
+
+  it("treats gym venues as athletic activity", () => {
+    const filters = buildClothingPickFilters({ hints: "woman at the gym" });
+    assert.equal(filters.athleticActivity, true);
+    assert.ok(filters.contexts.includes("athletic"));
+    const outfit = pickRandomCharacterOutfit(filters);
+    assert.doesNotMatch(outfit.summary, /\b(?:evening gown|tuxedo|bikini|wizard)\b/i);
+  });
+
+  it("infers running sport from track venues", () => {
+    const filters = buildClothingPickFilters({
+      hints: "runner on a track",
+      gender: "women",
+    });
+    assert.equal(filters.athleticSport, "running");
+    const outfit = pickRandomCharacterOutfit(filters);
+    assert.match(
+      outfit.summary,
+      /\b(?:running|singlet|track pants|shorts|trainer|sneaker)\b/i,
+    );
+  });
+
+  it("does not roll service uniforms for bare office settings", () => {
+    const filters = buildClothingPickFilters({ hints: "woman at the office" });
+    assert.equal(filters.workWardrobe, false);
+    assert.equal(filters.contexts.includes("work"), false);
+    const outfit = pickRandomCharacterOutfit(filters);
+    assert.doesNotMatch(
+      outfit.summary,
+      /\b(?:chef|scrubs|firefighter|coveralls|lab coat|police duty|steel-toe|chore coat)\b/i,
+    );
+  });
+
+  it("still rolls profession uniforms when the job is named", () => {
+    const filters = buildClothingPickFilters({ hints: "portrait of a chef in a kitchen" });
+    assert.equal(filters.workWardrobe, true);
+    assert.equal(filters.workProfession, "chef");
   });
 });
 

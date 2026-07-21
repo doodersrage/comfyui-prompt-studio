@@ -111,7 +111,7 @@ export function hintsExplicitUndergarment(hints?: string): boolean {
 
 /** Active sport or physical exertion—not aesthetic words like "mythic folktale style". */
 const ATHLETIC_ACTIVITY_HINT =
-  /\b(?:sprinter|sprinting|somersault|backflip|hurdler|hurdles|marathon|triathlon|decathlon|pole vault|long jump|high jump|javelin|discus|shot put|track and field|track meet|relay race|competition|competing|athlete|athletic|workout|weightlifting|crossfit|parkour|gymnast|gymnastics|basketball|soccer|tennis|boxer|fencer|figure skater|skateboarder|climber|mountain biker|cyclist|cycling|hay bale|obstacle course|finish line|starting blocks|100m dash|400m dash|top speed|running at|mid-flight|trail runner|running shoes|running shorts|running singlet|sports bra|jersey|cleats|track pants|workout gear|training gear)\b/i;
+  /\b(?:sprinter|sprinting|somersault|backflip|hurdler|hurdles|marathon|triathlon|decathlon|pole vault|long jump|high jump|javelin|discus|shot put|track and field|track meet|relay race|competition|competing|athlete|athletic|workout|weightlifting|crossfit|parkour|gymnast|gymnastics|basketball|soccer|tennis|boxer|fencer|figure skater|skateboarder|climber|mountain biker|cyclist|cycling|hay bale|obstacle course|finish line|starting blocks|100m dash|400m dash|top speed|running at|running on|running through|running along|mid-flight|trail runner|running shoes|running shorts|running singlet|sports bra|jersey|cleats|track pants|workout gear|training gear|aerobics|cardio|at the gym|in the gym|gym session|working out|runner\b|jogger|jogging|yoga class|boxing|sparring|lifting weights|surf(?:ing|er)?|ski(?:ing|er)?|snowboard(?:ing|er)?)\b/i;
 
 const EXPLICIT_COSTUME_HINT =
   /\b(?:wizard robe|knight armor|plate armor|chain mail|cosplay|costume party|in costume|wearing a costume|nun habit|monk robes|ballerina tutu|superhero suit|vampire cape|renaissance faire|halloween costume|elven gown|dwarven armor|circus ringmaster|magician cape|dressed as a wizard|dressed as a knight|dressed as a|dressed as the)\b/i;
@@ -247,6 +247,9 @@ export function inferWorkProfession(hints?: string): WorkProfession | null {
   return null;
 }
 
+const SWIMWEAR_HINT =
+  /\b(?:beach|pool|swim|swimming|swimwear|bikini|trunks|tropical|resort|yacht|hot tub|jacuzzi|snorkel|surfer|aquatic|lakeside|lake shore|board shorts|one-piece|sauna|onsen|hot spring|hot springs|bathhouse|steam room|water park|natatorium)\b/i;
+
 export function hintsSwimwearOnlyMode(
   hints: string | undefined,
   contexts: readonly ClothingContextTag[],
@@ -259,7 +262,9 @@ export function hintsSwimwearOnlyMode(
   if (
     contexts.includes("cold") &&
     !contexts.includes("warm") &&
-    !/\b(?:heated pool|indoor pool|hot tub|jacuzzi)\b/i.test(corpus)
+    !/\b(?:heated pool|indoor pool|hot tub|jacuzzi|sauna|onsen|hot spring|steam room)\b/i.test(
+      corpus,
+    )
   ) {
     return false;
   }
@@ -274,16 +279,14 @@ export function hintsSwimwearOnlyMode(
 
   if (
     hintsWorkWardrobeAllowed(corpus) &&
-    !/\b(?:beach|pool|swim|swimming|swimwear|bikini|trunks|tropical|resort|yacht|hot tub|jacuzzi|snorkel|surfer|aquatic|lakeside|board shorts|one-piece)\b/i.test(
-      corpus,
-    )
+    !SWIMWEAR_HINT.test(corpus)
   ) {
     return false;
   }
 
   return (
     contexts.includes("beach") ||
-    /\b(?:pool|swimming|swimwear|bikini|swim trunks|one-piece|hot tub|jacuzzi|poolside|swim briefs|board shorts|monokini|tankini|rash guard)\b/i.test(
+    /\b(?:pool|swimming|swimwear|bikini|swim trunks|one-piece|hot tub|jacuzzi|poolside|swim briefs|board shorts|monokini|tankini|rash guard|sauna|onsen|hot spring|hot springs|bathhouse|steam room|water park|lakeside|lake shore|natatorium)\b/i.test(
       corpus,
     )
   );
@@ -316,7 +319,8 @@ function resolveClothingContextConflicts(
   tags: Set<ClothingContextTag>,
   corpus: string,
 ): void {
-  const athletic = hintsDescribeAthleticActivity(corpus);
+  const athletic =
+    hintsDescribeAthleticActivity(corpus) || tags.has("athletic");
   const fantasyWardrobe = hintsFantasyWardrobe(corpus);
   const explicitCostume =
     hintsExplicitCostume(corpus) ||
@@ -438,16 +442,16 @@ const CONTEXT_RULES: Array<{ tag: ClothingContextTag; pattern: RegExp }> = [
 
 const SCENE_CONTEXT_RULES: Array<{ tag: ClothingContextTag; pattern: RegExp }> = [
   { tag: "cold", pattern: /\b(?:snow|frost|winter|arctic|glacier|blizzard|ice|polar|alpine|hoarfrost|siberian|tundra|iceland|antarctica|cold|freezing|subzero|mountain lodge|ski slope|frozen)\b/i },
-  { tag: "warm", pattern: /\b(?:desert|heat haze|humid|summer|tropical|palm|sahara|savanna|oasis|jungle|rainforest|noon sun|midsummer|arid|dry heat)\b/i },
+  { tag: "warm", pattern: /\b(?:desert|heat haze|humid|summer|tropical|palm|sahara|savanna|oasis|jungle|rainforest|noon sun|midsummer|arid|dry heat|sauna|onsen|hot spring|steam room)\b/i },
   { tag: "wet", pattern: /\b(?:rain|monsoon|drizzle|downpour|puddle|storm|wet pavement|after a recent rain|spray|misty rain|showers)\b/i },
   { tag: "beach", pattern: /\b(?:beach|seaside|shoreline|oceanfront|boardwalk|tidal pool|sandy beach|rocky shore|surf break|beach club|poolside|black sand beach|tropical reef|overwater|harbor quay|snorkel(?:ing)?|lagoon)\b/i },
-  { tag: "swimwear", pattern: /\b(?:pool|swimming|swim\b|aquatic|hot tub|jacuzzi|yacht deck|lakeside|water park|infinity pool|rooftop pool|spa pool|snorkeling|surfing|tropical resort|beach club pool)\b/i },
+  { tag: "swimwear", pattern: /\b(?:pool|swimming|swim\b|aquatic|hot tub|jacuzzi|yacht deck|lakeside|lake shore|lake beach|water park|infinity pool|rooftop pool|spa pool|snorkeling|surfing|tropical resort|beach club pool|sauna|onsen|hot spring|hot springs|bathhouse|steam room|natatorium)\b/i },
   { tag: "outdoor", pattern: /\b(?:forest|mountain|trail|meadow|field|garden|canyon|lake|river|farm|barn|countryside|hiking|pine|valley|cliff|rooftop garden|park|orchard|vineyard|steppe|prairie|wetland|marsh|glade|fjord)\b/i },
   { tag: "formal", pattern: /\b(?:ballroom|gala|opera house|wedding|cathedral|courthouse|formal hall|banquet|black tie|reception|palais|palace hall|symphony|orchestra pit|red carpet|premiere)\b/i },
   { tag: "evening", pattern: /\b(?:midnight|dusk|twilight|blue hour|night|after hours|neon|jazz club|speakeasy|wine bar|cocktail bar|rooftop bar|night market|moonlit|starry|late evening|sunset|golden hour window)\b/i },
   { tag: "work", pattern: WORK_SETTING_HINT },
   { tag: "urban", pattern: /\b(?:alley|street|city|downtown|metro|subway|skyline|urban|neon|cyberpunk|penthouse|loft|brick facade|shophouse|bodega|parking garage|overpass)\b/i },
-  { tag: "athletic", pattern: /\b(?:gym|dojo|stadium|arena|court|track|rink|pool deck|skate park|climbing gym|yoga studio|boxing gym|ballet studio|soccer|baseball field|ferry deck running)\b/i },
+  { tag: "athletic", pattern: /\b(?:gym|dojo|stadium|arena|court|track|rink|pool deck|skate park|climbing gym|yoga studio|boxing gym|ballet studio|soccer|baseball field|ferry deck running|fitness center|weight room)\b/i },
   { tag: "uniform", pattern: /\b(?:barracks|prison|dungeon|military|naval|submarine|aircraft hangar|police station|fire station|hospital ward|monastery|convent|academy|school campus|parade ground)\b/i },
   { tag: "costume", pattern: SCENE_COSTUME_SETTING_HINT },
 ];
@@ -596,7 +600,7 @@ export function inferSceneClothingContexts(input: {
 
   if (
     tags.has("swimwear") ||
-    /\b(?:pool|swimming|swimwear|jacuzzi|hot tub|poolside|infinity pool|rooftop pool|beach club pool)\b/i.test(
+    /\b(?:pool|swimming|swimwear|jacuzzi|hot tub|poolside|infinity pool|rooftop pool|beach club pool|sauna|onsen|hot spring|water park|natatorium)\b/i.test(
       corpus,
     )
   ) {
@@ -637,6 +641,130 @@ const DRESS_STYLE_HINTS: Array<{ phrase: RegExp; label: RegExp }> = [
   { phrase: /\bsummer dress\b/i, label: /\bsummer dress\b/i },
   { phrase: /\bevening gown\b/i, label: /\b(?:evening gown|ballroom dance dress|ball gown)\b/i },
 ];
+
+/**
+ * Named separates / outer layers in the brief — used for lock + catalog label scoring.
+ * Order matters: more specific phrases first.
+ */
+export type BriefGarmentHint = {
+  phrase: RegExp;
+  brief: string;
+  /** Catalog categories that can satisfy this garment. */
+  categories: readonly ("top" | "bottom" | "outerwear" | "outfit" | "footwear")[];
+  label: RegExp;
+};
+
+const COLOR_TOKEN =
+  "(?:brick[- ]?red|burnt orange|powder blue|off[- ]?white|heather gray|sunflower yellow|forest green|sky blue|light blue|dark blue|navy|black|white|red|crimson|scarlet|burgundy|wine|rust|coral|salmon|pink|rose|lilac|purple|violet|blue|teal|aqua|mint|green|olive|moss|pine|yellow|gold|mustard|orange|terracotta|brown|tan|beige|khaki|sand|ivory|cream|gray|grey|charcoal|silver|bronze|copper)";
+
+const SEPARATE_GARMENT_HINTS: BriefGarmentHint[] = [
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:crop(?:ped)?\\s+top|crop\\s+tee)\\b`, "i"),
+    brief: "crop top",
+    categories: ["top"],
+    label: /\b(?:crop(?:ped)?\s+top|crop\s+tee)\b/i,
+  },
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:graphic\\s+tee|band\\s+tee|v-neck\\s+tee|crewneck\\s+tee|long-sleeve\\s+tee|t-shirt|tee)\\b`, "i"),
+    brief: "tee",
+    categories: ["top"],
+    label: /\b(?:graphic\s+tee|band\s+tee|v-neck\s+tee|crewneck\s+tee|long-sleeve\s+tee|t-shirt|tee)\b/i,
+  },
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:blouse|peasant blouse|wrap blouse|off-shoulder blouse)\\b`, "i"),
+    brief: "blouse",
+    categories: ["top"],
+    label: /\bblouse\b/i,
+  },
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:hoodie|pullover hoodie|zip hoodie|cropped hoodie)\\b`, "i"),
+    brief: "hoodie",
+    categories: ["top", "outerwear"],
+    label: /\bhoodie\b/i,
+  },
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:sweater|cardigan|jumper)\\b`, "i"),
+    brief: "sweater",
+    categories: ["top"],
+    label: /\b(?:sweater|cardigan|jumper)\b/i,
+  },
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:denim jacket|leather jacket|bomber jacket|field jacket|jacket|coat|peacoat|trench)\\b`, "i"),
+    brief: "jacket",
+    categories: ["outerwear", "top"],
+    label: /\b(?:jacket|coat|peacoat|trench|shell)\b/i,
+  },
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:shirt|button[- ]?down|western snap shirt)\\b`, "i"),
+    brief: "shirt",
+    categories: ["top"],
+    label: /\b(?:shirt|button[- ]?down)\b/i,
+  },
+  {
+    phrase: new RegExp(
+      `\\b(?:(?:a|an|her|his|their)\\s+)?(?:${COLOR_TOKEN}\\s+){1,2}top\\b`,
+      "i",
+    ),
+    brief: "top",
+    categories: ["top"],
+    label: /\b(?:top|tee|blouse|shirt|hoodie|sweater)\b/i,
+  },
+  {
+    phrase: new RegExp(
+      `\\b(?:(?:a|an|her|his|their)\\s+)(?:${COLOR_TOKEN}\\s+){0,2}top\\b`,
+      "i",
+    ),
+    brief: "top",
+    categories: ["top"],
+    label: /\b(?:top|tee|blouse|shirt|hoodie|sweater)\b/i,
+  },
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:straight-leg jeans|slim jeans|baggy jeans|wide-leg jeans|cargo jeans|jeans)\\b`, "i"),
+    brief: "jeans",
+    categories: ["bottom"],
+    label: /\bjeans\b/i,
+  },
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:trousers|slacks|chinos|pants)\\b`, "i"),
+    brief: "pants",
+    categories: ["bottom"],
+    label: /\b(?:trousers|slacks|chinos|pants)\b/i,
+  },
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:shorts|cargo shorts|denim shorts)\\b`, "i"),
+    brief: "shorts",
+    categories: ["bottom"],
+    label: /\bshorts\b/i,
+  },
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:skirt|mini skirt|maxi skirt|pencil skirt|a-line skirt)\\b`, "i"),
+    brief: "skirt",
+    categories: ["bottom"],
+    label: /\bskirt\b/i,
+  },
+  {
+    phrase: new RegExp(`\\b(?:${COLOR_TOKEN}\\s+){0,2}(?:leggings|yoga pants|joggers|sweatpants)\\b`, "i"),
+    brief: "leggings",
+    categories: ["bottom"],
+    label: /\b(?:leggings|yoga pants|joggers|sweatpants)\b/i,
+  },
+  {
+    phrase: /\b(?:sneakers|trainers|running shoes|athletic shoes)\b/i,
+    brief: "sneakers",
+    categories: ["footwear"],
+    label: /\b(?:sneaker|trainer|running shoe|athletic shoe)\b/i,
+  },
+  {
+    phrase: /\b(?:boots|ankle boots|combat boots|chelsea boots)\b/i,
+    brief: "boots",
+    categories: ["footwear"],
+    label: /\bboots?\b/i,
+  },
+];
+
+/** Structured “in/wearing …” outfit clauses — stronger than lone garment tokens. */
+const EXPLICIT_STRUCTURED_OUTFIT_CLAUSE =
+  /\b(?:in|wearing|wears|dressed in)\s+(?:(?:a|an|her|his|their)\s+)?(?:[\w''-]+\s+){0,6}(?:top|shirt|blouse|tee|t-shirt|hoodie|sweater|jacket|coat|dress|skirt|jeans|pants|trousers|shorts|romper|jumpsuit|suit|gown|bikini|swimsuit|leggings|joggers)\b/i;
 
 const FOOTWEAR_STYLE_HINTS: Array<{ phrase: RegExp; label: RegExp; brief: string }> = [
   {
@@ -734,7 +862,98 @@ export function extractBriefGarmentPhrases(hints?: string): string[] {
     }
   }
 
+  for (const hint of SEPARATE_GARMENT_HINTS) {
+    const match = value.match(hint.phrase);
+    if (!match?.[0]) {
+      continue;
+    }
+    const matched = match[0].toLowerCase().replace(/\s+/g, " ").trim();
+    if (!phrases.includes(matched) && !phrases.includes(hint.brief)) {
+      phrases.push(matched);
+    }
+  }
+
   return phrases;
+}
+
+/** Separates named in the brief with catalog label filters (tops, jeans, jackets…). */
+export function inferSeparateGarmentHints(hints?: string): BriefGarmentHint[] {
+  const value = hints?.trim() ?? "";
+  if (!value) {
+    return [];
+  }
+
+  const matched: BriefGarmentHint[] = [];
+  const seenBriefs = new Set<string>();
+  for (const hint of SEPARATE_GARMENT_HINTS) {
+    if (!hint.phrase.test(value)) {
+      continue;
+    }
+    if (seenBriefs.has(hint.brief)) {
+      continue;
+    }
+    seenBriefs.add(hint.brief);
+    matched.push(hint);
+  }
+  return matched;
+}
+
+const COLOR_SYNONYMS: Array<{ hint: RegExp; label: RegExp }> = [
+  { hint: /\b(?:red|crimson|scarlet|brick[- ]?red)\b/i, label: /\b(?:red|crimson|scarlet|brick[- ]?red|burgundy|wine|rust|coral)\b/i },
+  { hint: /\b(?:blue|navy|indigo|cobalt|teal|aqua|powder blue|sky blue)\b/i, label: /\b(?:blue|navy|indigo|cobalt|teal|aqua|powder blue|sky blue)\b/i },
+  { hint: /\b(?:black|obsidian|charcoal|ink)\b/i, label: /\b(?:black|obsidian|charcoal|ink|gunmetal)\b/i },
+  { hint: /\b(?:white|ivory|cream|off[- ]?white|snow)\b/i, label: /\b(?:white|ivory|cream|off[- ]?white|snow)\b/i },
+  { hint: /\b(?:green|olive|moss|pine|mint|forest green)\b/i, label: /\b(?:green|olive|moss|pine|mint|forest green)\b/i },
+  { hint: /\b(?:yellow|gold|mustard|sunflower)\b/i, label: /\b(?:yellow|gold|mustard|sunflower)\b/i },
+  { hint: /\b(?:pink|rose|lilac|fuchsia|magenta)\b/i, label: /\b(?:pink|rose|lilac|fuchsia|magenta|coral)\b/i },
+  { hint: /\b(?:brown|tan|beige|khaki|sand|terracotta|bronze)\b/i, label: /\b(?:brown|tan|beige|khaki|sand|terracotta|bronze|sepia|clay)\b/i },
+  { hint: /\b(?:gray|grey|silver|heather|ash|steel)\b/i, label: /\b(?:gray|grey|silver|heather|ash|steel)\b/i },
+  { hint: /\b(?:orange|rust|coral|salmon|burnt orange)\b/i, label: /\b(?:orange|rust|coral|salmon|burnt orange|terracotta)\b/i },
+];
+
+/**
+ * Score how well a catalog label matches garments named in the user brief.
+ * Strong matches beat scene-context ties so rolled pieces follow the submission.
+ */
+export function scoreClothingLabelAgainstHints(
+  label: string,
+  hintCorpus?: string,
+): number {
+  const corpus = hintCorpus?.trim() ?? "";
+  if (!corpus || !label.trim()) {
+    return 0;
+  }
+
+  let score = 0;
+  const separates = inferSeparateGarmentHints(corpus);
+  for (const hint of separates) {
+    if (hint.label.test(label)) {
+      score += 8;
+      const phraseMatch = corpus.match(hint.phrase);
+      const phrase = phraseMatch?.[0] ?? hint.brief;
+      for (const { hint: colorHint, label: colorLabel } of COLOR_SYNONYMS) {
+        if (colorHint.test(phrase) && colorLabel.test(label)) {
+          score += 6;
+          break;
+        }
+      }
+    }
+  }
+
+  for (const { phrase, label: dressLabel } of DRESS_STYLE_HINTS) {
+    if (phrase.test(corpus) && dressLabel.test(label)) {
+      score += 10;
+    }
+  }
+
+  for (const { phrase, label: shoeLabel } of FOOTWEAR_STYLE_HINTS) {
+    if (phrase.test(corpus) && shoeLabel.test(label)) {
+      score += 8;
+      break;
+    }
+  }
+
+  return score;
 }
 
 export function hintsSpecifyDress(hints?: string): boolean {
@@ -799,6 +1018,9 @@ export function hintsLockPrimaryGarment(hints?: string): boolean {
   if (EXPLICIT_WEARING_PHRASE.test(value)) {
     return true;
   }
+  if (EXPLICIT_STRUCTURED_OUTFIT_CLAUSE.test(value)) {
+    return true;
+  }
   if (hintsSpecifyDress(value)) {
     return true;
   }
@@ -831,6 +1053,87 @@ export type ClothingPickFilters = {
   avoidedTokens?: readonly string[];
 };
 
+/** Street separates that conflict with swim/sauna attire unless the brief insists. */
+const STREETWEAR_BRIEF_TYPES = new Set([
+  "jeans",
+  "hoodie",
+  "jacket",
+  "pants",
+  "skirt",
+  "sweater",
+  "shirt",
+  "top",
+  "tee",
+  "blouse",
+  "leggings",
+  "shorts",
+  "sneakers",
+  "boots",
+]);
+
+const SWIM_COMPATIBLE_BRIEF =
+  /\b(?:bikini|swimsuit|swimwear|swim trunks|swim briefs|rash guard|board shorts|one-piece|tankini|monokini|towel|robe|bathrobe)\b/i;
+
+const CLOTHED_SWIM_VENUE_INTENT =
+  /\b(?:fully clothed|street clothes|clothed poolside|jeans poolside|wearing jeans (?:at|by|near) (?:the )?(?:pool|beach|sauna)|poolside in jeans|beach in jeans)\b/i;
+
+const SPORT_COMPATIBLE_BRIEF =
+  /\b(?:jersey|kit|singlet|bib shorts|cycling|running shorts|track pants|sports bra|leotard|judogi|gi\b|cleats|running shoes|cycling shoes|helmet)\b/i;
+
+export function briefNamesStreetwearSeparates(hints?: string): boolean {
+  return inferSeparateGarmentHints(hints).some((hint) =>
+    STREETWEAR_BRIEF_TYPES.has(hint.brief),
+  );
+}
+
+export function briefNamesSwimCompatibleGarments(hints?: string): boolean {
+  const value = hints?.trim() ?? "";
+  if (!value) {
+    return false;
+  }
+  if (SWIM_COMPATIBLE_BRIEF.test(value)) {
+    return true;
+  }
+  return extractBriefGarmentPhrases(value).some((phrase) =>
+    SWIM_COMPATIBLE_BRIEF.test(phrase),
+  );
+}
+
+/**
+ * Strong swim/sauna/sport scenes should keep scene attire when the brief only
+ * names conflicting street separates (unless the user explicitly wants clothes on).
+ */
+export function sceneAttireShouldOverrideBrief(input: {
+  hints?: string;
+  contexts: readonly ClothingContextTag[];
+  athleticSport?: AthleticSport | null;
+  athleticActivity?: boolean;
+  swimwearOnlyCandidate?: boolean;
+}): boolean {
+  const hints = input.hints?.trim() ?? "";
+  if (!hints || !briefNamesStreetwearSeparates(hints)) {
+    return false;
+  }
+
+  if (CLOTHED_SWIM_VENUE_INTENT.test(hints) || briefNamesSwimCompatibleGarments(hints)) {
+    return false;
+  }
+
+  if (input.swimwearOnlyCandidate || input.contexts.includes("swimwear")) {
+    return true;
+  }
+
+  if (input.athleticSport) {
+    return !SPORT_COMPATIBLE_BRIEF.test(hints);
+  }
+
+  if (input.athleticActivity && input.contexts.includes("athletic")) {
+    return !SPORT_COMPATIBLE_BRIEF.test(hints);
+  }
+
+  return false;
+}
+
 export function buildClothingPickFilters(input: {
   gender?: SubjectGender;
   sceneLocation?: string | null;
@@ -841,7 +1144,9 @@ export function buildClothingPickFilters(input: {
   fantasyWardrobe?: boolean;
   avoidedTokens?: readonly string[];
 }): ClothingPickFilters {
-  const hintCorpus = [input.hints, input.environmentSeed].filter(Boolean).join(" ");
+  const hintCorpus = [input.hints, input.environmentSeed, input.sceneLocation]
+    .filter(Boolean)
+    .join(" ");
   const resolvedGender =
     input.gender === "women" || input.gender === "men"
       ? input.gender
@@ -861,28 +1166,49 @@ export function buildClothingPickFilters(input: {
     contexts = contexts.filter((tag) => tag !== "casual" && tag !== "urban");
   }
 
+  const athleticActivity =
+    hintsDescribeAthleticActivity(hintCorpus) || contexts.includes("athletic");
+  const athleticSport = inferAthleticSport(hintCorpus);
+  const workProfession = inferWorkProfession(hintCorpus);
+  // Setting-only "office" keeps work in contexts for scoring, but does not enable
+  // random service-uniform rolls without a profession or explicit uniform cue.
+  const workWardrobe =
+    Boolean(workProfession) || hintsExplicitUniform(hintCorpus);
+
+  if (!workWardrobe) {
+    contexts = contexts.filter((tag) => tag !== "work" && tag !== "uniform");
+  }
+
+  const swimwearOnlyCandidate = hintsSwimwearOnlyMode(hintCorpus, contexts);
+  const skipRolls = hintsSkipWardrobeRolls(input.hints);
+  const wantsLock =
+    hintsLockPrimaryGarment(input.hints) && !skipRolls;
+  const overrideBrief = sceneAttireShouldOverrideBrief({
+    hints: input.hints,
+    contexts,
+    athleticSport,
+    athleticActivity,
+    swimwearOnlyCandidate,
+  });
+  const lockPrimaryGarment = wantsLock && !overrideBrief;
+
   return {
     gender: subjectGenderToClothingGender(resolvedGender),
     contexts,
     excludeIds: input.excludeIds,
-    athleticActivity: hintsDescribeAthleticActivity(hintCorpus),
-    athleticSport: inferAthleticSport(hintCorpus),
+    athleticActivity,
+    athleticSport,
     intimateWardrobe: hintsIntimateWardrobeAllowed(hintCorpus),
-    workWardrobe: hintsWorkWardrobeAllowed(hintCorpus),
-    workProfession: inferWorkProfession(hintCorpus),
-    swimwearOnly:
-      !hintsSkipWardrobeRolls(input.hints) &&
-      !hintsLockPrimaryGarment(input.hints) &&
-      hintsSwimwearOnlyMode(hintCorpus, contexts),
+    workWardrobe,
+    workProfession,
+    swimwearOnly: !skipRolls && !lockPrimaryGarment && swimwearOnlyCandidate,
     explicitCostume:
       hintsExplicitCostume(hintCorpus) ||
       hintsSceneSuggestsCostume(hintCorpus) ||
       fantasyWardrobe,
     fantasyWardrobe,
-    skipWardrobeRolls: hintsSkipWardrobeRolls(input.hints),
-    lockPrimaryGarment:
-      hintsLockPrimaryGarment(input.hints) &&
-      !hintsSkipWardrobeRolls(input.hints),
+    skipWardrobeRolls: skipRolls,
+    lockPrimaryGarment,
     hintCorpus: hintCorpus || undefined,
     avoidedTokens: input.avoidedTokens,
   };
@@ -957,9 +1283,6 @@ export function clothingAllowedInScene(
 
   return true;
 }
-
-const SWIMWEAR_HINT =
-  /\b(?:beach|pool|swim|swimming|swimwear|bikini|trunks|tropical|resort|yacht|hot tub|jacuzzi|snorkel|surfer|aquatic|lakeside|board shorts|one-piece)\b/i;
 
 const FORMALWEAR_HINT =
   /\b(?:formal|gala|ballroom|black tie|cocktail|evening gown|opera|wedding reception|red carpet|premiere|skirt suit|pants suit|twinset|fascinator|opera gloves|formalwear|dress suit|banquet|charity ball)\b/i;

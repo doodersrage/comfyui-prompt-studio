@@ -30,10 +30,13 @@ import {
   extractBriefGarmentPhrases,
   inferClothingContexts,
   inferClothingGender,
+  inferSeparateGarmentHints,
   normalizeClothingContextTags,
   PROFESSION_UNIFORM_LABEL_HINTS,
   RESTRICTED_CLOTHING_CONTEXTS,
+  sceneAttireShouldOverrideBrief,
   scoreClothingContextMatch,
+  scoreClothingLabelAgainstHints,
   type ClothingContextTag,
   type ClothingGenderTag,
   type ClothingPickFilters,
@@ -487,7 +490,8 @@ function filterPoolByScene(
   >,
 ): EnrichedClothingEntry[] {
   let working = [...pool];
-  const athleticActivity = filters?.athleticActivity;
+  const athleticActivity =
+    filters?.athleticActivity || sceneContexts.includes("athletic");
   const workWardrobe = filters?.workWardrobe;
   const explicitCostume = filters?.explicitCostume;
   const fantasyWardrobe = filters?.fantasyWardrobe;
@@ -598,6 +602,7 @@ function pickScoredEntry(
     | "explicitCostume"
     | "fantasyWardrobe"
     | "avoidedTokens"
+    | "hintCorpus"
   >,
 ): EnrichedClothingEntry | null {
   if (pool.length === 0) {
@@ -614,13 +619,22 @@ function pickScoredEntry(
 
   const scored = scenePool.map((entry) => ({
     entry,
-    score: scoreClothingContextMatch(entry.contexts, contexts),
+    score:
+      scoreClothingContextMatch(entry.contexts, contexts) +
+      scoreClothingLabelAgainstHints(entry.label, filters?.hintCorpus),
   }));
   scored.sort((a, b) => b.score - a.score);
 
   const topScore = scored[0]?.score ?? 0;
-  const tier = scored.filter(
-    (item) => item.score >= topScore || (topScore === 0 && item.score === 0),
+  // Prefer a tight top tier when hint-label matches dominate; otherwise keep the
+  // prior "all at top score" behavior for pure context rolls.
+  const labelMatched = scored.some(
+    (item) => scoreClothingLabelAgainstHints(item.entry.label, filters?.hintCorpus) > 0,
+  );
+  const tier = scored.filter((item) =>
+    labelMatched
+      ? item.score >= Math.max(topScore - 2, topScore * 0.85)
+      : item.score >= topScore || (topScore === 0 && item.score === 0),
   );
 
   if (tier.length === 0) {
@@ -648,13 +662,20 @@ function pickFilterFlags(
   filters: ClothingPickFilters,
 ): Pick<
   ClothingPickFilters,
-  "athleticActivity" | "workWardrobe" | "explicitCostume" | "fantasyWardrobe"
+  | "athleticActivity"
+  | "workWardrobe"
+  | "explicitCostume"
+  | "fantasyWardrobe"
+  | "hintCorpus"
+  | "avoidedTokens"
 > {
   return {
     athleticActivity: filters.athleticActivity,
     workWardrobe: filters.workWardrobe,
     explicitCostume: filters.explicitCostume,
     fantasyWardrobe: filters.fantasyWardrobe,
+    hintCorpus: filters.hintCorpus,
+    avoidedTokens: filters.avoidedTokens,
   };
 }
 
@@ -844,20 +865,97 @@ function pickFootwearFromHints(
   );
 }
 
+function pickLayersMatchingBriefSeparates(
+  filters: ClothingPickFilters,
+): {
+  wardrobe: EnrichedClothingEntry | null;
+  bottom: EnrichedClothingEntry | null;
+} {
+  const separates = inferSeparateGarmentHints(filters.hintCorpus);
+  if (separates.length === 0) {
+    return { wardrobe: null, bottom: null };
+  }
+
+  let wardrobe: EnrichedClothingEntry | null = null;
+  let bottom: EnrichedClothingEntry | null = null;
+
+  for (const hint of separates) {
+    for (const category of hint.categories) {
+      if (category === "footwear") {
+        continue;
+      }
+      const picked = pickFromCategoryMatchingLabel(category, filters, hint.label);
+      if (!picked) {
+        continue;
+      }
+      if ((category === "top" || category === "outerwear" || category === "outfit") && !wardrobe) {
+        wardrobe = picked;
+        break;
+      }
+      if (category === "bottom" && !bottom) {
+        bottom = picked;
+        break;
+      }
+    }
+  }
+
+  return { wardrobe, bottom };
+}
+
+function pickFootwearMatchingBriefSeparates(
+  filters: ClothingPickFilters,
+): EnrichedClothingEntry | null {
+  const separates = inferSeparateGarmentHints(filters.hintCorpus).filter((hint) =>
+    hint.categories.includes("footwear"),
+  );
+  for (const hint of separates) {
+    const picked = pickFromCategoryMatchingLabel("footwear", filters, hint.label);
+    if (picked) {
+      return picked;
+    }
+  }
+  return null;
+}
+
 function pickWardrobeLayers(
   filters: ClothingPickFilters,
 ): {
   wardrobe: EnrichedClothingEntry | null;
   bottom: EnrichedClothingEntry | null;
 } {
-  if (filters.lockPrimaryGarment) {
+  const overrideBrief = sceneAttireShouldOverrideBrief({
+    hints: filters.hintCorpus,
+    contexts: filters.contexts,
+    athleticSport: filters.athleticSport,
+    athleticActivity: filters.athleticActivity,
+    swimwearOnlyCandidate: filters.swimwearOnly || filters.contexts.includes("swimwear"),
+  });
+
+  if (filters.lockPrimaryGarment && !overrideBrief) {
     if (hintsSpecifyDress(filters.hintCorpus)) {
       const dress = pickDressGarment(filters);
       if (dress) {
         return { wardrobe: dress, bottom: null };
       }
     }
+    const briefLayers = pickLayersMatchingBriefSeparates(filters);
+    if (briefLayers.wardrobe || briefLayers.bottom) {
+      return briefLayers;
+    }
     return { wardrobe: null, bottom: null };
+  }
+
+  if (!overrideBrief) {
+    const briefLayers = pickLayersMatchingBriefSeparates(filters);
+    if (briefLayers.wardrobe && briefLayers.bottom) {
+      return briefLayers;
+    }
+    if (briefLayers.wardrobe || briefLayers.bottom) {
+      return {
+        wardrobe: briefLayers.wardrobe ?? pickFromCategory("top", filters),
+        bottom: briefLayers.bottom ?? pickFromCategory("bottom", filters),
+      };
+    }
   }
 
   if (filters.fantasyWardrobe) {
@@ -1464,7 +1562,7 @@ export function pickRandomCharacterOutfit(
       : filters.lockPrimaryGarment && hintsSpecifyFootwear(workingFilters.hintCorpus)
         ? pickFootwearFromHints(workingFilters)
         : filters.lockPrimaryGarment
-          ? null
+          ? pickFootwearMatchingBriefSeparates(workingFilters)
           : pickFromCategory("footwear", workingFilters);
 
   const deduped = dedupeWardrobeLayers(wardrobe, bottom, footwear);
