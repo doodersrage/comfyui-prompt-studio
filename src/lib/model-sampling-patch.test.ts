@@ -27,7 +27,9 @@ describe("model sampling patch", () => {
     assert.deepEqual(getModelSamplingPatchDefaults("sd3-medium", "optimized"), {
       samplingShift: 3,
     });
-    assert.deepEqual(getModelSamplingPatchDefaults("qwen-image-2512", "base"), {});
+    assert.deepEqual(getModelSamplingPatchDefaults("qwen-image-2512", "base"), {
+      samplingShift: 3.1,
+    });
     assert.deepEqual(getModelSamplingPatchDefaults("qwen-image-2512", "optimized"), {
       samplingShift: 3.1,
     });
@@ -120,7 +122,7 @@ describe("model sampling patch", () => {
     });
   });
 
-  it("does not overwrite concrete ModelSamplingAuraFlow shift values", () => {
+  it("does not overwrite concrete ModelSamplingAuraFlow shift values in the healthy band", () => {
     const workflow = {
       "7": {
         class_type: "ModelSamplingAuraFlow",
@@ -130,10 +132,28 @@ describe("model sampling patch", () => {
     const result = patchModelSamplingInWorkflow(
       workflow,
       resolveModelSamplingParams("qwen-image-2512", "optimized"),
+      "qwen-image-2512",
     );
     const inputs = (result.workflow["7"] as { inputs: Record<string, unknown> }).inputs;
     assert.equal(inputs.shift, 2.8);
     assert.equal(result.patched.samplingShift, undefined);
+  });
+
+  it("repairs concrete Comfy AuraFlow defaults (~1.73) toward official Qwen 3.1", () => {
+    const workflow = {
+      "7": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["1", 0], shift: 1.73 },
+      },
+    };
+    const result = patchModelSamplingInWorkflow(
+      workflow,
+      resolveModelSamplingParams("qwen-image-2512", "base"),
+      "qwen-image-2512",
+    );
+    const inputs = (result.workflow["7"] as { inputs: Record<string, unknown> }).inputs;
+    assert.equal(inputs.shift, 3.1);
+    assert.equal(result.patched.samplingShift, 1);
   });
 
   it("resolves qwen shift placeholders from model defaults", () => {
@@ -147,6 +167,7 @@ describe("model sampling patch", () => {
     const result = patchModelSamplingInWorkflow(
       workflow,
       resolveModelSamplingParams("qwen-image-2512", "optimized"),
+      "qwen-image-2512",
     );
     const inputs = (result.workflow["7"] as { inputs: Record<string, unknown> }).inputs;
     assert.equal(inputs.shift, 3.1);

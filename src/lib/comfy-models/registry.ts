@@ -205,7 +205,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     profile: "flux_klein",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.flux_klein,
-    checkpointHint: "flux-2-klein-9b.safetensors",
+    checkpointHint: "flux-2-klein-base-9b.safetensors",
   },
   {
     id: "flux-2-klein-9b-distilled",

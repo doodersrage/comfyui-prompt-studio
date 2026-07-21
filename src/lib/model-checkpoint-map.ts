@@ -49,10 +49,10 @@ export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
   "qwen-image-edit-2511-lightning-4": "qwen_image_edit_2511_bf16.safetensors",
   "qwen-image-edit-2511-lightning-8": "qwen_image_edit_2511_bf16.safetensors",
   "qwen-image-edit-2509": "qwen_image_edit_2509_bf16.safetensors",
-  "flux-2-klein": "flux-2-klein-base-4b-fp8.safetensors",
-  "flux-2-klein-4b-distilled": "flux-2-klein-4b-fp8.safetensors",
-  "flux-2-klein-9b": "flux-2-klein-9b.safetensors",
-  "flux-2-klein-9b-distilled": "flux-2-klein-9b-fp8.safetensors",
+  "flux-2-klein": "flux-2-klein-base-4b.safetensors",
+  "flux-2-klein-4b-distilled": "flux-2-klein-4b.safetensors",
+  "flux-2-klein-9b": "flux-2-klein-base-9b.safetensors",
+  "flux-2-klein-9b-distilled": "flux-2-klein-9b.safetensors",
   "flux-dev": "flux1-dev.safetensors",
   sdxl: "sd_xl_base_1.0.safetensors",
 };
@@ -283,34 +283,64 @@ function inferQwenLoaderHints(
   return { vae: DEFAULT_QWEN_VAE };
 }
 
-/** Default UNET/checkpoint filenames when registry hints are missing (matches common ComfyUI installs). */
+/**
+ * Prefer bf16 Klein weights (no `-fp8` suffix). Official Comfy installs ship both;
+ * fp8 is a VRAM fallback — map/settings can still force fp8 explicitly.
+ */
 function inferKleinLoaderHints(modelId: string): ModelLoaderFilenames {
   const id = modelId.toLowerCase();
   if (id.includes("flux-2-klein-9b-distilled") || id.includes("flux-2-klein-9b-distill")) {
-    return {
-      checkpoint: "flux-2-klein-9b-fp8.safetensors",
-      unet: "flux-2-klein-9b-fp8.safetensors",
-    };
-  }
-  if (id.includes("flux-2-klein-9b")) {
     return {
       checkpoint: "flux-2-klein-9b.safetensors",
       unet: "flux-2-klein-9b.safetensors",
     };
   }
+  if (id.includes("flux-2-klein-9b")) {
+    return {
+      checkpoint: "flux-2-klein-base-9b.safetensors",
+      unet: "flux-2-klein-base-9b.safetensors",
+    };
+  }
   if (id.includes("flux-2-klein-4b-distilled") || id.includes("flux-2-klein-4b-distill")) {
     return {
-      checkpoint: "flux-2-klein-4b-fp8.safetensors",
-      unet: "flux-2-klein-4b-fp8.safetensors",
+      checkpoint: "flux-2-klein-4b.safetensors",
+      unet: "flux-2-klein-4b.safetensors",
     };
   }
   if (id.includes("flux-2-klein")) {
     return {
-      checkpoint: "flux-2-klein-base-4b-fp8.safetensors",
-      unet: "flux-2-klein-base-4b-fp8.safetensors",
+      checkpoint: "flux-2-klein-base-4b.safetensors",
+      unet: "flux-2-klein-base-4b.safetensors",
     };
   }
   return {};
+}
+
+/** Prefer installed bf16 Klein filename when inventory lists both bf16 and fp8. */
+export function preferKleinBf16FromInventory(
+  preferred: string | undefined,
+  inventory?: string[] | null,
+): string | undefined {
+  const preferredName = preferred?.trim();
+  if (!preferredName) {
+    return undefined;
+  }
+  if (!inventory?.length) {
+    return preferredName;
+  }
+  const trimmed = inventory.map((name) => name.trim()).filter(Boolean);
+  if (trimmed.includes(preferredName)) {
+    return preferredName;
+  }
+  const fp8Variant = preferredName.replace(/\.safetensors$/i, "-fp8.safetensors");
+  if (trimmed.includes(fp8Variant)) {
+    return fp8Variant;
+  }
+  const withoutFp8 = preferredName.replace(/-fp8(?=\.safetensors$)/i, "");
+  if (withoutFp8 !== preferredName && trimmed.includes(withoutFp8)) {
+    return withoutFp8;
+  }
+  return preferredName;
 }
 
 function preferTierAlignedLoaderFilename(
@@ -388,6 +418,9 @@ export function resolveLoaderFilenamesForModel(
     workflowCustomTokens?: CustomWorkflowToken[];
     precisionTier?: LoaderPrecisionTier;
     workflow?: Record<string, unknown>;
+    /** When set, Klein prefers installed bf16 weights and falls back to fp8 if needed. */
+    availableCheckpoints?: string[] | null;
+    availableUnets?: string[] | null;
   },
 ): ModelLoaderFilenames {
   const workflowTier = options?.workflow
@@ -474,12 +507,26 @@ export function resolveLoaderFilenamesForModel(
     workflowTier ??
     tier;
 
+  const kleinInventory = [
+    ...(options?.availableUnets ?? []),
+    ...(options?.availableCheckpoints ?? []),
+  ];
   const result: ModelLoaderFilenames = {};
   if (checkpoint) {
-    result.checkpoint = checkpoint;
+    result.checkpoint = /flux-2-klein/i.test(String(model))
+      ? preferKleinBf16FromInventory(
+          checkpoint,
+          kleinInventory.length > 0 ? kleinInventory : null,
+        ) ?? checkpoint
+      : checkpoint;
   }
   if (unet) {
-    result.unet = unet;
+    result.unet = /flux-2-klein/i.test(String(model))
+      ? preferKleinBf16FromInventory(
+          unet,
+          kleinInventory.length > 0 ? kleinInventory : null,
+        ) ?? unet
+      : unet;
   }
   if (vae) {
     result.vae = vae;

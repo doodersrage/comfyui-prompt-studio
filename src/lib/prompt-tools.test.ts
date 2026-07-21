@@ -1869,7 +1869,7 @@ describe("comfyui runtime queue params", () => {
   it("fills missing loader filenames from model registry on the server", async () => {
     const { ensureQueueLoaderParams } = await import("./comfyui-config");
     const params = ensureQueueLoaderParams({ seed: "1" }, "flux-2-klein-9b");
-    assert.equal(params.unetFilename, "flux-2-klein-9b.safetensors");
+    assert.equal(params.unetFilename, "flux-2-klein-base-9b.safetensors");
     assert.equal(params.vaeFilename, "flux2-vae.safetensors");
   });
 
@@ -2005,7 +2005,7 @@ describe("comfyui runtime queue params", () => {
       model: "flux-2-klein-9b",
     });
 
-    assert.equal(params.unetFilename, "flux-2-klein-9b.safetensors");
+    assert.equal(params.unetFilename, "flux-2-klein-base-9b.safetensors");
     assert.equal(params.vaeFilename, "flux2-vae.safetensors");
 
     const result = injectPromptsWithFallbacks(
@@ -2046,7 +2046,7 @@ describe("comfyui runtime queue params", () => {
 
     const unet = result.workflow["228"] as { inputs?: { unet_name?: string } };
     const vae = result.workflow["230"] as { inputs?: { vae_name?: string } };
-    assert.equal(unet.inputs?.unet_name, "flux-2-klein-9b.safetensors");
+    assert.equal(unet.inputs?.unet_name, "flux-2-klein-base-9b.safetensors");
     assert.equal(vae.inputs?.vae_name, "flux2-vae.safetensors");
   });
 

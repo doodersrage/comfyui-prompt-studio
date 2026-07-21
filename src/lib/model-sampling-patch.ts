@@ -74,6 +74,22 @@ function isUnresolvedWorkflowPlaceholder(value: unknown): boolean {
   return typeof value === "string" && /^\{\{[A-Z0-9_]+\}\}$/.test(value.trim());
 }
 
+function isQwenAuraFlowModel(model?: string): boolean {
+  if (!model?.trim() || isQwenLightningModel(model)) {
+    return false;
+  }
+  const id = model.trim();
+  if (COMFY_MODEL_IDS.has(id)) {
+    return getComfyModelDefinition(id).category === "qwen";
+  }
+  return /qwen/i.test(id);
+}
+
+/** Comfy AuraFlow default (~1.73) or otherwise outside the healthy Qwen band. */
+function shouldRepairQwenAuraShift(current: number): boolean {
+  return !Number.isFinite(current) || current < 2.5 || current > 4.5;
+}
+
 function resolveShiftForNode(
   classType: ModelSamplingShiftNodeType,
   params: WorkflowParamValues,
@@ -85,6 +101,9 @@ function resolveShiftForNode(
   if (params.samplingShift != null && params.samplingShift.toString().trim() !== "") {
     const parsed = Number(params.samplingShift);
     return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  if (isQwenAuraFlowModel(model) && classType === "ModelSamplingAuraFlow") {
+    return QWEN_IMAGE_AURA_SHIFT;
   }
   return NODE_SHIFT_DEFAULTS[classType];
 }
@@ -168,22 +187,18 @@ export function getModelSamplingPatchDefaults(
   const definition = getComfyModelDefinition(normalized);
   const patch: ModelSamplingPatchValues = {};
 
-  // Base-tier Qwen drafts keep workflow shift (often 1.73 fallback) — forcing 3.1 caused banding.
-  const applyShift =
-    tier !== "base" || definition.category !== "qwen";
+  // Always apply official Qwen AuraFlow shift (3.1), including Base/followSettings.
+  // Native templates use ~3.1; leaving Base on Comfy's 1.73 undercooks structure.
+  const shiftOverride = MODEL_SHIFT_OVERRIDES[normalized as ComfyImageModel];
+  if (shiftOverride != null) {
+    patch.samplingShift = shiftOverride;
+    return patch;
+  }
 
-  if (applyShift) {
-    const shiftOverride = MODEL_SHIFT_OVERRIDES[normalized as ComfyImageModel];
-    if (shiftOverride != null) {
-      patch.samplingShift = shiftOverride;
-      return patch;
-    }
-
-    const categoryShift = CATEGORY_SHIFT_DEFAULTS[definition.category];
-    if (categoryShift != null) {
-      patch.samplingShift = categoryShift;
-      return patch;
-    }
+  const categoryShift = CATEGORY_SHIFT_DEFAULTS[definition.category];
+  if (categoryShift != null) {
+    patch.samplingShift = categoryShift;
+    return patch;
   }
 
   if (definition.category === "flux") {
@@ -289,6 +304,21 @@ export function patchModelSamplingInWorkflow(
             if (patchNumericInput(inputs, "shift", QWEN_LIGHTNING_SHIFT_DEFAULT)) {
               patched.samplingShift = (patched.samplingShift ?? 0) + 1;
             }
+          }
+        }
+      } else if (isQwenAuraFlowModel(model) && "shift" in inputs) {
+        const target =
+          params.samplingShift != null && params.samplingShift.toString().trim() !== ""
+            ? Number(params.samplingShift)
+            : QWEN_IMAGE_AURA_SHIFT;
+        if (isUnresolvedWorkflowPlaceholder(inputs.shift)) {
+          if (patchNumericInput(inputs, "shift", target)) {
+            patched.samplingShift = (patched.samplingShift ?? 0) + 1;
+          }
+        } else if (shouldRepairQwenAuraShift(Number(inputs.shift))) {
+          // Repair concrete Comfy defaults (~1.73) on imported graphs toward official 3.1.
+          if (patchNumericInput(inputs, "shift", Number.isFinite(target) ? target : QWEN_IMAGE_AURA_SHIFT)) {
+            patched.samplingShift = (patched.samplingShift ?? 0) + 1;
           }
         }
       } else if ("shift" in inputs && isUnresolvedWorkflowPlaceholder(inputs.shift)) {

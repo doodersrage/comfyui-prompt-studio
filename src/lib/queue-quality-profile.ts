@@ -206,12 +206,15 @@ export function resolveQueueQualityProfile(input: {
       : normalizeQueueQualityProfile(input.global);
 
   // Rapid AIO moiré polish only runs on Final/Max — bump Draft so Generate stays clean.
-  if (
-    input.model &&
-    /^qwen-rapid-aio-/i.test(String(input.model).trim()) &&
-    profile === "draft"
-  ) {
-    return "final";
+  // Vanilla 2512 Base undercooks similarly — promote Draft → Final for fuller steps/CFG.
+  if (profile === "draft" && input.model) {
+    const modelId = String(input.model).trim();
+    if (
+      /^qwen-rapid-aio-/i.test(modelId) ||
+      /^qwen-image-2512$/i.test(modelId)
+    ) {
+      return "final";
+    }
   }
 
   return profile;

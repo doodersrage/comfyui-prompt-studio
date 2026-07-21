@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   formatModelCheckpointMap,
   parseModelCheckpointMap,
+  preferKleinBf16FromInventory,
   resolveLoaderFilenamesForModel,
   resolveRefinerFilenameForModel,
   SUGGESTED_MODEL_CHECKPOINT_MAP,
@@ -43,12 +44,30 @@ describe("model checkpoint map", () => {
 
   it("infers FLUX Klein UNET/VAE defaults when registry hints are sparse", () => {
     const klein9b = resolveLoaderFilenamesForModel("flux-2-klein-9b");
-    assert.equal(klein9b.unet, "flux-2-klein-9b.safetensors");
+    assert.equal(klein9b.unet, "flux-2-klein-base-9b.safetensors");
     assert.equal(klein9b.vae, "flux2-vae.safetensors");
 
     const kleinDistilled = resolveLoaderFilenamesForModel("flux-2-klein-9b-distilled");
-    assert.equal(kleinDistilled.unet, "flux-2-klein-9b-fp8.safetensors");
+    assert.equal(kleinDistilled.unet, "flux-2-klein-9b.safetensors");
     assert.equal(kleinDistilled.vae, "flux2-vae.safetensors");
+
+    const klein4b = resolveLoaderFilenamesForModel("flux-2-klein");
+    assert.equal(klein4b.unet, "flux-2-klein-base-4b.safetensors");
+    const klein4bDistilled = resolveLoaderFilenamesForModel("flux-2-klein-4b-distilled");
+    assert.equal(klein4bDistilled.unet, "flux-2-klein-4b.safetensors");
+  });
+
+  it("falls back to fp8 Klein weights when inventory only has fp8", () => {
+    assert.equal(
+      preferKleinBf16FromInventory("flux-2-klein-4b.safetensors", [
+        "flux-2-klein-4b-fp8.safetensors",
+      ]),
+      "flux-2-klein-4b-fp8.safetensors",
+    );
+    const loaders = resolveLoaderFilenamesForModel("flux-2-klein-4b-distilled", {
+      availableUnets: ["flux-2-klein-4b-fp8.safetensors"],
+    });
+    assert.equal(loaders.unet, "flux-2-klein-4b-fp8.safetensors");
   });
 
   it("does not put Rapid AIO checkpoint merges into UNETLoader", () => {
@@ -153,7 +172,7 @@ describe("model checkpoint map", () => {
     assert.equal(merged.modelCheckpointMap["qwen-image-2512"], "my-custom-unet.safetensors");
     assert.equal(
       merged.modelCheckpointMap["flux-2-klein-9b"],
-      "flux-2-klein-9b.safetensors",
+      "flux-2-klein-base-9b.safetensors",
     );
     assert.equal(merged.modelVaeMap["flux-2-klein-9b"], "FLUX.2-klein-9B.safetensors");
     assert.equal(merged.modelVaeMap["qwen-image-2512"], "qwen_image_vae.safetensors");

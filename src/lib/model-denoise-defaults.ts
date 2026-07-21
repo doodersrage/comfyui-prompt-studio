@@ -67,6 +67,9 @@ export function isEditQueueTool(tool?: string): boolean {
  * with TextEncodeQwenImageEditPlus + EmptyLatent. Soft img2img denoise (0.65)
  * fights the LoRA and causes soft/garbled artifacts vs native ComfyUI — even
  * when a reference image is attached (refs go through the encode node, not VAEEncode).
+ *
+ * Rapid AIO is the same class of CFG-1 distilled checkpoint: T2I / TextEncode
+ * paths need denoise 1. Soft denoise only for masked inpaint (true latent paint).
  */
 export function resolveDenoiseForModel(
   model: ComfyImageModel | string,
@@ -79,6 +82,13 @@ export function resolveDenoiseForModel(
 ): number | undefined {
   // Lightning must ignore Settings editDenoiseStrength / soft overrides.
   if (isQwenLightningModel(model)) {
+    return 1;
+  }
+
+  if (isQwenRapidAioModel(model)) {
+    if (options?.hasMaskImage || isInpaintModel(model)) {
+      return DEFAULT_INPAINT_DENOISE;
+    }
     return 1;
   }
 

@@ -701,8 +701,10 @@ export function normalizeLightningLoraStrengths(
     if ("strength_model" in node.inputs) {
       node.inputs.strength_model = 1;
     }
-    // Do not force strength_clip — ModelOnly inserts omit it; existing LoraLoader
-    // graphs may route CLIP through the node and must keep the author's value.
+    // Official LightX2V recipes keep CLIP at 0 (model-only adaptation).
+    if ("strength_clip" in node.inputs) {
+      node.inputs.strength_clip = 0;
+    }
     if ("strength" in node.inputs) {
       node.inputs.strength = 1;
     }

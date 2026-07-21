@@ -676,7 +676,7 @@ describe("lightning queue precision and sampling", () => {
     assert.equal(result["900"], undefined);
   });
 
-  it("forces Lightning LoRA model strength to 1 without changing CLIP strength", () => {
+  it("forces Lightning LoRA model strength to 1 and CLIP strength to 0", () => {
     const workflow = {
       "7": {
         class_type: "LoraLoader",
@@ -693,7 +693,7 @@ describe("lightning queue precision and sampling", () => {
     );
     const lora = (result["7"] as { inputs: Record<string, number> }).inputs;
     assert.equal(lora.strength_model, 1);
-    assert.equal(lora.strength_clip, 0.65);
+    assert.equal(lora.strength_clip, 0);
   });
 
   it("resolves {{LORA_LIGHTNING}} from custom tokens at queue prep", () => {

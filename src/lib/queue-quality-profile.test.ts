@@ -79,6 +79,24 @@ describe("queue-quality-profile", () => {
     assert.ok(notes.some((note) => /upscale skipped/i.test(note)));
   });
 
+  it("promotes vanilla 2512 Draft to Final for fuller Base sampling", async () => {
+    const { resolveQueueQualityProfile } = await import("./queue-quality-profile.ts");
+    assert.equal(
+      resolveQueueQualityProfile({
+        global: "draft",
+        model: "qwen-image-2512",
+      }),
+      "final",
+    );
+    assert.equal(
+      resolveQueueQualityProfile({
+        global: "draft",
+        model: "qwen-image-2512-lightning-8",
+      }),
+      "draft",
+    );
+  });
+
   it("flags final and max profiles for upscale enrichment", async () => {
     const {
       profileUsesUpscaleEnrich,

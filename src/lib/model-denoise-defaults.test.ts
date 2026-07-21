@@ -69,4 +69,27 @@ describe("model denoise defaults", () => {
       1,
     );
   });
+
+  it("uses full denoise for Rapid AIO even with input images or soft overrides", () => {
+    assert.equal(resolveDenoiseForModel("qwen-rapid-aio-sfw", { tool: "generate" }), 1);
+    assert.equal(
+      resolveDenoiseForModel("qwen-rapid-aio-nsfw", {
+        tool: "refine",
+        hasInputImage: true,
+      }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-rapid-aio-edit", {
+        tool: "refine",
+        hasInputImage: true,
+        override: 0.65,
+      }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-rapid-aio-edit", { hasMaskImage: true }),
+      0.75,
+    );
+  });
 });
