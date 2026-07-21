@@ -6,6 +6,7 @@ import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { injectLoraTriggers } from "./lora-prompt-injection";
+import { isQwenLightningModel } from "./model-sampling-patch";
 import { loadActiveProjectId } from "./prompt-projects";
 import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
@@ -19,8 +20,18 @@ export async function queueParamExperimentGrid(input: {
   baseParams?: WorkflowParamValues;
   cfgValues?: string[];
   stepValues?: string[];
-}): Promise<{ queued: number; cells: string[] }> {
+}): Promise<{ queued: number; cells: string[]; skippedReason?: string }> {
   const model = input.model as ComfyImageModel;
+
+  if (isQwenLightningModel(model)) {
+    return {
+      queued: 0,
+      cells: [],
+      skippedReason:
+        "Lightning locks CFG and steps — CFG×steps grids are skipped. Use seed experiments instead.",
+    };
+  }
+
   const runtime = resolveRuntimeForQueue(model, "param-grid");
   const prompt = injectLoraTriggers(input.prompt.trim());
   const base = input.baseParams ?? resolveQueueParams({ model });
@@ -48,7 +59,7 @@ export async function queueParamExperimentGrid(input: {
         steps,
         seed: String(Math.floor(Math.random() * 2 ** 32)),
       };
-      cells.push(`cfg=${cfg} steps=${steps}`);
+      cells.push(`cfg=${cfg},steps=${steps}`);
 
       const response = await fetch("/api/comfyui", {
         method: "POST",
@@ -74,6 +85,7 @@ export async function queueParamExperimentGrid(input: {
         model,
         comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
         queueParams: params,
+        projectId,
         queueQualityProfile: runtime.queueQualityProfile,
       });
       void scheduleComfyGalleryPoll(data.promptId, {

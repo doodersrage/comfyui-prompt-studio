@@ -1,17 +1,24 @@
 "use client";
 
 import type { ComfyImageModel } from "./comfy-models";
+import { getComfyModelDefinition } from "./comfy-models";
 import type { WorkflowParamValues } from "./comfyui-config";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { injectLoraTriggers } from "./lora-prompt-injection";
+import { isQwenLightningModel } from "./model-sampling-patch";
+import { qwenOfficialMediumSizeLadder } from "./model-resolution-defaults";
 import { loadActiveProjectId } from "./prompt-projects";
 import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
 import { modelUsesNegativePrompt } from "./prompt-pair";
 
 export type ParamExperimentAxis = "seed" | "cfg" | "steps" | "width";
+
+function usesQwenOfficialSizes(model: string): boolean {
+  return getComfyModelDefinition(model).category === "qwen";
+}
 
 export async function queueParamExperiment(input: {
   prompt: string;
@@ -22,9 +29,17 @@ export async function queueParamExperiment(input: {
   axis?: ParamExperimentAxis;
   count?: number;
   values?: string[];
-}): Promise<{ queued: number; labels: string[] }> {
+}): Promise<{ queued: number; labels: string[]; redirectedAxis?: ParamExperimentAxis }> {
   const model = input.model as ComfyImageModel;
-  const axis = input.axis ?? "cfg";
+  let axis = input.axis ?? "cfg";
+  let redirectedAxis: ParamExperimentAxis | undefined;
+
+  // Lightning locks CFG/steps — sweeping them wastes queue slots.
+  if (isQwenLightningModel(model) && (axis === "cfg" || axis === "steps")) {
+    redirectedAxis = axis;
+    axis = "seed";
+  }
+
   const count = Math.min(8, Math.max(2, input.count ?? 4));
   const runtime = resolveRuntimeForQueue(model, "param-experiment");
   const prompt = injectLoraTriggers(input.prompt.trim());
@@ -40,16 +55,16 @@ export async function queueParamExperiment(input: {
     });
   }
 
+  const qwenSizes = qwenOfficialMediumSizeLadder();
   const defaultValues: Record<ParamExperimentAxis, string[]> = {
     seed: Array.from({ length: count }, (_, index) =>
       String(Math.floor(Math.random() * 2 ** 32) + index),
     ),
     cfg: ["5", "6", "7", "8", "9", "10", "11", "12"].slice(0, count),
     steps: ["16", "20", "24", "28", "32", "36", "40", "44"].slice(0, count),
-    width: ["768", "896", "1024", "1152", "1280", "1408", "1536", "1664"].slice(
-      0,
-      count,
-    ),
+    width: usesQwenOfficialSizes(model)
+      ? qwenSizes.slice(0, count).map((size) => String(size.width))
+      : ["768", "896", "1024", "1152", "1280", "1408", "1536", "1664"].slice(0, count),
   };
 
   const values = (input.values?.length ? input.values : defaultValues[axis]).slice(
@@ -59,7 +74,8 @@ export async function queueParamExperiment(input: {
   const labels: string[] = [];
   let queued = 0;
 
-  for (const value of values) {
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index]!;
     const params: WorkflowParamValues = {
       ...base,
       seed:
@@ -70,7 +86,22 @@ export async function queueParamExperiment(input: {
       steps: axis === "steps" ? value : base.steps,
       width: axis === "width" ? value : base.width,
     };
-    labels.push(`${axis}=${value}`);
+
+    if (axis === "width" && usesQwenOfficialSizes(model)) {
+      const size = qwenSizes[index] ?? qwenSizes.find((entry) => String(entry.width) === value);
+      if (size) {
+        params.width = String(size.width);
+        params.height = String(size.height);
+      }
+    }
+
+    labels.push(
+      redirectedAxis
+        ? `${redirectedAxis}→seed=${params.seed}`
+        : axis === "width" && params.height
+          ? `size=${params.width}x${params.height}`
+          : `${axis}=${value}`,
+    );
 
     const response = await fetch("/api/comfyui", {
       method: "POST",
@@ -105,5 +136,5 @@ export async function queueParamExperiment(input: {
     queued += 1;
   }
 
-  return { queued, labels };
+  return { queued, labels, redirectedAxis };
 }

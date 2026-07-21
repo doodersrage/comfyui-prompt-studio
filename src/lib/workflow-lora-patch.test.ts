@@ -41,6 +41,22 @@ describe("workflow-lora-patch", () => {
     assert.equal(map["{{LORA_LIGHTNING}}"], "qwen_lightning_8steps.safetensors");
   });
 
+  it("infers {{LORA_LIGHTNING}} from ComfyUI loras inventory when library is empty", () => {
+    const map = buildLightningLoraFilenameMap(
+      [],
+      "qwen-image-2512-lightning-8",
+      [
+        "style_portrait.safetensors",
+        "Qwen-Image-Lightning-8steps-V2.0.safetensors",
+        "Qwen-Image-Lightning-4steps-V2.0.safetensors",
+      ],
+    );
+    assert.equal(
+      map["{{LORA_LIGHTNING}}"],
+      "Qwen-Image-Lightning-8steps-V2.0.safetensors",
+    );
+  });
+
   it("treats {{LORA_LIGHTNING}} placeholder as lightning", () => {
     assert.equal(loraNameImpliesLightning("{{LORA_LIGHTNING}}", {}), true);
   });

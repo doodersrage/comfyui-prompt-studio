@@ -28,6 +28,7 @@ import {
 } from "./model-sampling-patch";
 import { IMAGE_SCALE_BY_NODE_TYPE } from "./workflow-direct-patch";
 import { isUpscaleModelInstalled } from "./model-upscale-map";
+import { pickSdxlRefinerFromInventory } from "./model-checkpoint-map";
 import type { WorkflowQueueOptimizeChange } from "./workflow-queue-optimizer";
 import {
   isPromptStudioOutputUpscaleNode,
@@ -389,7 +390,20 @@ function enrichSdxlRefinerNodes(input: {
     return [];
   }
 
-  const refinerCkpt = input.refinerCheckpointFilename?.trim();
+  const refinerCkptMapped = input.refinerCheckpointFilename?.trim();
+  let refinerCkpt = refinerCkptMapped;
+  if (
+    !refinerCkpt ||
+    (input.availableCheckpoints &&
+      input.availableCheckpoints.length > 0 &&
+      !input.availableCheckpoints.includes(refinerCkpt))
+  ) {
+    const picked = pickSdxlRefinerFromInventory(input.availableCheckpoints);
+    if (picked) {
+      refinerCkpt = picked;
+    }
+  }
+
   if (!refinerCkpt) {
     return [
       {

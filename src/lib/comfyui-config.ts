@@ -505,6 +505,7 @@ export function findUnresolvedLoaderPlaceholders(
 ): string[] {
   const unresolved = new Set<string>();
   const loaderTokens = [DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN, DEFAULT_CHECKPOINT_TOKEN];
+  const loraTokenPattern = /^\{\{LORA_[A-Z0-9_]+\}\}$/;
 
   for (const node of Object.values(workflow)) {
     if (!node || typeof node !== "object") {
@@ -518,10 +519,14 @@ export function findUnresolvedLoaderPlaceholders(
       if (typeof value !== "string") {
         continue;
       }
+      const trimmed = value.trim();
       for (const token of loaderTokens) {
-        if (value.includes(token)) {
+        if (trimmed.includes(token)) {
           unresolved.add(token);
         }
+      }
+      if (loraTokenPattern.test(trimmed)) {
+        unresolved.add(trimmed);
       }
     }
   }
@@ -1074,6 +1079,7 @@ export function injectPromptsWithFallbacks(
     syncWorkflowLoadersToModel?: boolean;
     loaders?: ModelLoaderFilenames;
     model?: string;
+    availableLoras?: string[] | null;
   },
 ): WorkflowInjectionResult {
   const mergedCustomTokens = mergeLoaderTokensIntoCustomTokens(
@@ -1148,7 +1154,11 @@ export function injectPromptsWithFallbacks(
   nextWorkflow = prepareLightningWorkflowForQueue(
     nextWorkflow,
     options?.model,
-    buildLightningLoraFilenameMap(mergedCustomTokens ?? [], options?.model),
+    buildLightningLoraFilenameMap(
+      mergedCustomTokens ?? [],
+      options?.model,
+      options?.availableLoras ?? undefined,
+    ),
     {
       params: input.params,
       loaders,

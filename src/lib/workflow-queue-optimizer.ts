@@ -22,6 +22,7 @@ import {
   resolveEffectiveSamplerPreset,
 } from "./queue-quality-profile";
 import { normalizeEmptyLatentForModel } from "./workflow-direct-patch";
+import { workflowHasPromptStudioQueueEnrich } from "./workflow-enrich-markers";
 
 export type WorkflowQueueAudit = {
   nodeCount: number;
@@ -389,7 +390,14 @@ export function optimizeWorkflowForQueue(input: {
     (!isQwenLightningModel(input.model) ||
       profileUsesUpscaleEnrich(input.qualityProfile));
 
-  if (enabled && shouldEnrichGraph) {
+  // Batch queue: when bindings are stable and enrich markers already exist, skip re-enrich.
+  const skipEnrich =
+    skipBinding &&
+    input.skipIfUnchanged &&
+    (!profileUsesUpscaleEnrich(input.qualityProfile) ||
+      workflowHasPromptStudioQueueEnrich(workflow));
+
+  if (enabled && shouldEnrichGraph && !skipEnrich) {
     const enriched = enrichWorkflowGraph({
       workflow,
       tokens: input.tokens,
@@ -409,6 +417,12 @@ export function optimizeWorkflowForQueue(input: {
     workflow = enriched.workflow;
     workflowJson = JSON.stringify(workflow, null, 2);
     changes.push(...enriched.changes);
+  } else if (skipEnrich && shouldEnrichGraph) {
+    changes.push({
+      kind: "audit",
+      severity: "info",
+      message: "Skipped re-enrich — workflow hash unchanged and Prompt Studio enrich markers present.",
+    });
   }
 
   if (input.model) {

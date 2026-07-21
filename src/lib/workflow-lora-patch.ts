@@ -176,10 +176,46 @@ function inferLightningLoraFilenameFromTokens(
   return undefined;
 }
 
-/** Resolve {{LORA_LIGHTNING}} and related placeholders from custom tokens / LoRA library. */
+function lightningStepFilenameMatch(model?: string): RegExp | undefined {
+  const modelId = model?.trim().toLowerCase() ?? "";
+  if (modelId.includes("lightning-8") || modelId.includes("lightning_8")) {
+    return /\b8[\s-]?step|8steps/i;
+  }
+  if (modelId.includes("lightning-4") || modelId.includes("lightning_4")) {
+    return /\b4[\s-]?step|4steps/i;
+  }
+  return undefined;
+}
+
+/** Prefer step-matched LightX2V files from ComfyUI's loras inventory. */
+export function inferLightningLoraFromInventory(
+  availableLoras: string[] | undefined,
+  model?: string,
+): string | undefined {
+  if (!availableLoras?.length) {
+    return undefined;
+  }
+  const stepMatch = lightningStepFilenameMatch(model);
+  const candidates = availableLoras
+    .map((name) => name.trim())
+    .filter((name) => name && loraFilenameImpliesLightning(name));
+  if (candidates.length === 0) {
+    return undefined;
+  }
+  if (stepMatch) {
+    const stepped = candidates.filter((name) => stepMatch.test(name));
+    if (stepped[0]) {
+      return stepped[0];
+    }
+  }
+  return candidates[0];
+}
+
+/** Resolve {{LORA_LIGHTNING}} and related placeholders from custom tokens / LoRA library / inventory. */
 export function buildLightningLoraFilenameMap(
   customTokens: Array<{ token: string; value: string }> = [],
   model?: string,
+  availableLoras?: string[],
 ): Record<string, string> {
   const map = buildLoraFilenameMapFromCustomTokens(customTokens);
   if (map[LIGHTNING_LORA_TOKEN]?.trim()) {
@@ -189,6 +225,12 @@ export function buildLightningLoraFilenameMap(
   const inferred = inferLightningLoraFilenameFromTokens(customTokens, model);
   if (inferred) {
     map[LIGHTNING_LORA_TOKEN] = inferred;
+    return map;
+  }
+
+  const fromInventory = inferLightningLoraFromInventory(availableLoras, model);
+  if (fromInventory) {
+    map[LIGHTNING_LORA_TOKEN] = fromInventory;
   }
 
   return map;

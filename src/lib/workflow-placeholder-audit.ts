@@ -15,6 +15,7 @@ import {
   DEFAULT_CONTROLNET_MODEL_TOKEN,
   DEFAULT_CONTROL_IMAGE_TOKEN,
 } from "./model-controlnet-map";
+import { LIGHTNING_LORA_TOKEN } from "./workflow-lora-patch";
 
 const LORA_TOKEN_PATTERN = /^\{\{LORA_[A-Z0-9_]+\}\}$/;
 
@@ -147,9 +148,14 @@ export function auditWorkflowPreviewIssues(input: {
     }
 
     if (LORA_TOKEN_PATTERN.test(token)) {
+      const isLightningToken =
+        token === LIGHTNING_LORA_TOKEN ||
+        /^\{\{LORA_.*(LIGHTNING|LIGHTX2V).*\}\}$/i.test(token);
       issues.push({
-        severity: "warn",
-        message: `Unresolved ${token} — add LoRA to library or bind LoRA loader in workflow.`,
+        severity: isLightningToken ? "error" : "warn",
+        message: isLightningToken
+          ? `Unresolved ${token} — map a Lightning LoRA in Settings → LoRA library (or ensure ComfyUI has a LightX2V .safetensors). Missing LoRA softens faces/hands.`
+          : `Unresolved ${token} — add LoRA to library or bind LoRA loader in workflow.`,
       });
       continue;
     }

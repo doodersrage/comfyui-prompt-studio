@@ -54,4 +54,13 @@ describe("workflow-placeholder-audit", () => {
     assert.equal(issues.filter((issue) => issue.message.includes("LORA")).length, 1);
     assert.equal(issues.filter((issue) => issue.message.includes("CONTROL_IMAGE")).length, 1);
   });
+
+  it("errors for unresolved Lightning LoRA token", () => {
+    const issues = auditWorkflowPreviewIssues({
+      workflowJson: '{"lora":"{{LORA_LIGHTNING}}"}',
+      model: "qwen-image-2512-lightning-8",
+    });
+    const lightning = issues.find((issue) => issue.message.includes("LORA_LIGHTNING"));
+    assert.equal(lightning?.severity, "error");
+  });
 });

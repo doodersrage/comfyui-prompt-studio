@@ -164,4 +164,17 @@ describe("model checkpoint map", () => {
     );
     assert.equal(resolveRefinerFilenameForModel("flux-dev"), undefined);
   });
+
+  it("picks SDXL refiner from ComfyUI checkpoint inventory when mapped file is missing", () => {
+    assert.equal(
+      resolveRefinerFilenameForModel("sdxl", {
+        refinerMap: { sdxl: "missing_refiner.safetensors" },
+        availableCheckpoints: [
+          "sd_xl_base_1.0.safetensors",
+          "sd_xl_refiner_1.0.safetensors",
+        ],
+      }),
+      "sd_xl_refiner_1.0.safetensors",
+    );
+  });
 });

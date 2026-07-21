@@ -38,7 +38,7 @@ export const DEFAULT_UNET_TOKEN = "{{UNET}}";
 export const DEFAULT_VAE_TOKEN = "{{VAE}}";
 export const DEFAULT_REFINER_TOKEN = "{{REFINER}}";
 
-const DEFAULT_SDXL_REFINER_CHECKPOINT = "sd_xl_refiner_1.0.safetensors";
+export const DEFAULT_SDXL_REFINER_CHECKPOINT = "sd_xl_refiner_1.0.safetensors";
 
 /** Suggested checkpoint/UNET filenames for common models (merged into Settings; user entries win). */
 export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
@@ -437,11 +437,27 @@ export function loaderFilenameCustomTokens(
   return tokens;
 }
 
+/** Prefer official SDXL refiner, else any checkpoint whose name looks like a refiner. */
+export function pickSdxlRefinerFromInventory(
+  checkpoints?: string[] | null,
+): string | undefined {
+  if (!checkpoints?.length) {
+    return undefined;
+  }
+  const trimmed = checkpoints.map((name) => name.trim()).filter(Boolean);
+  const preferred = trimmed.find((name) => /sd_xl_refiner/i.test(name));
+  if (preferred) {
+    return preferred;
+  }
+  return trimmed.find((name) => /refiner/i.test(name));
+}
+
 export function resolveRefinerFilenameForModel(
   model: ComfyImageModel | string,
   options?: {
     refinerMap?: ModelRefinerMap;
     customTokens?: CustomWorkflowToken[];
+    availableCheckpoints?: string[] | null;
   },
 ): string | undefined {
   const def = getComfyModelDefinition(model);
@@ -449,12 +465,21 @@ export function resolveRefinerFilenameForModel(
     return undefined;
   }
 
-  return (
+  const mapped =
     trimFilename(options?.refinerMap?.[model]) ??
     trimFilename(options?.refinerMap?.default) ??
     resolveCustomTokenValue(DEFAULT_REFINER_TOKEN, options?.customTokens) ??
-    DEFAULT_SDXL_REFINER_CHECKPOINT
-  );
+    DEFAULT_SDXL_REFINER_CHECKPOINT;
+
+  const inventory = options?.availableCheckpoints;
+  if (inventory && inventory.length > 0) {
+    if (mapped && inventory.includes(mapped)) {
+      return mapped;
+    }
+    return pickSdxlRefinerFromInventory(inventory) ?? mapped;
+  }
+
+  return mapped;
 }
 
 export function formatModelCheckpointMap(map: ModelCheckpointMap | undefined): string {

@@ -277,7 +277,7 @@ export function profileUsesSharpenAfterUpscale(
   return normalizeQueueQualityProfile(profile) === "max";
 }
 
-/** Lightning Final/Max get a dedicated low-alpha polish after soft area scale. */
+/** Lightning Final/Max get a dedicated low-alpha polish after soft Lanczos scale. */
 export function profileUsesLightningUpscalePolish(
   profile: QueueQualityProfile | undefined,
   options?: { model?: string },

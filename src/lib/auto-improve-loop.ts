@@ -6,6 +6,7 @@ import { queueSeedExperiment } from "./seed-experiment-queue";
 import { loadComfyUiSettings } from "./comfyui-settings";
 import { runLowRatingMutation } from "./rating-prompt-mutations";
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
+import { isQwenLightningModel } from "./model-sampling-patch";
 
 function formatRequeueFailure(
   label: string,
@@ -32,7 +33,11 @@ export async function runAutoImproveOnRating(
   const settings = loadComfyUiSettings();
 
   if (rating === 5 && settings.autoRequeueMaxOnFiveStar !== false) {
-    const refineAfterComplete = settings.autoImg2imgRefineOnFiveStar ? ("max" as const) : undefined;
+    const model = entry.model ?? "qwen-image-2512";
+    const refineAfterComplete =
+      settings.autoImg2imgRefineOnFiveStar && !isQwenLightningModel(model)
+        ? ("max" as const)
+        : undefined;
     const maxResult = await requeueUpscaleFromGalleryEntry(entry, {
       qualityProfile: "max",
       refineAfterComplete,
@@ -40,6 +45,9 @@ export async function runAutoImproveOnRating(
     if (maxResult.ok) {
       if (refineAfterComplete) {
         return "Auto-improve: upscaled your 5★ output at Max; refine will queue when upscale finishes.";
+      }
+      if (settings.autoImg2imgRefineOnFiveStar && isQwenLightningModel(model)) {
+        return "Auto-improve: upscaled your 5★ output at Max (Lightning skips img2img refine).";
       }
       return "Auto-improve: upscaled your 5★ output at Max quality (same image).";
     }

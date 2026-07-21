@@ -247,7 +247,7 @@ export async function requeueUpscaleFromGalleryEntry(
         derivedKind: "upscale",
         historyId: entry.historyId,
       });
-      if (options.refineAfterComplete) {
+      if (options.refineAfterComplete && !isLightning) {
         scheduleRefineAfterUpscaleComplete(data.promptId, options.refineAfterComplete);
       }
       void scheduleComfyGalleryPoll(data.promptId, {
@@ -289,6 +289,13 @@ export async function requeueRefineFromGalleryEntry(
   options?.onStatus?.("Uploading gallery output…");
 
   const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
+  if (isQwenLightningModel(model)) {
+    return {
+      ok: false,
+      error:
+        "Img2img refine is disabled for Lightning models — use Final/Max Lanczos polish (or requeue a new seed) instead.",
+    };
+  }
   let inputImageFilename: string | undefined;
   try {
     inputImageFilename = await resolveQueueInputImageFilename({

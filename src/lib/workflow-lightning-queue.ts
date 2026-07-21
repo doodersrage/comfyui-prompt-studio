@@ -345,6 +345,10 @@ export function workflowHasLightningLora(
 }
 
 /** Keep ModelSamplingAuraFlow for Lightning (official LightX2V shift ~3). */
+/**
+ * Intentionally a no-op: Lightning must keep ModelSamplingAuraFlow (shift ~3.1).
+ * Do not "bypass"/remove AuraFlow here — that softens anatomy.
+ */
 export function bypassModelSamplingAuraFlowForLightning(
   workflow: Record<string, unknown>,
   model?: string,
@@ -804,13 +808,13 @@ export function auditLightningWorkflowIssues(input: {
 
   if (!workflowHasLoraLoader(parsed)) {
     issues.push({
-      severity: "warn",
+      severity: "error",
       message:
-        "Lightning model queued without a LoraLoader — Prompt Studio inserts Lightning LoRA + AuraFlow at queue time when possible. Map {{LORA_LIGHTNING}} in Settings → LoRA library (missing LoRA causes soft, malformed hands/faces).",
+        "Lightning model queued without a LoraLoader — map {{LORA_LIGHTNING}} in Settings → LoRA library (or install a LightX2V LoRA in ComfyUI). Missing LoRA causes soft, malformed hands/faces.",
     });
   } else if (!workflowHasLightningLora(parsed, {})) {
     issues.push({
-      severity: "warn",
+      severity: "error",
       message:
         "Lightning workflow has no Lightning LoRA mapped — map {{LORA_LIGHTNING}} in Settings → LoRA library to your 8-step LightX2V .safetensors (wrong/missing LoRA causes soft, malformed hands and faces).",
     });
@@ -836,9 +840,9 @@ export function auditLightningWorkflowIssues(input: {
   }
   if (hasMainSampler && (!hasAuraFlow || !samplerUsesAuraFlow)) {
     issues.push({
-      severity: "warn",
+      severity: "error",
       message:
-        "Lightning KSampler is missing ModelSamplingAuraFlow (shift ~3) on the model chain — Prompt Studio inserts it at queue time. Without it, output is soft and anatomy drifts.",
+        "Lightning KSampler is missing ModelSamplingAuraFlow (shift ~3) on the model chain — without it, output is soft and anatomy drifts. Queue prep normally inserts this; check the workflow graph.",
     });
   }
 

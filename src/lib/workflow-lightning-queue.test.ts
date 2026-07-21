@@ -189,13 +189,14 @@ describe("workflow-lightning-queue", () => {
     );
   });
 
-  it("warns when lightning workflow lacks a LoraLoader", () => {
+  it("errors when lightning workflow lacks a LoraLoader", () => {
     const issues = auditLightningWorkflowIssues({
       model: "qwen-image-2512-lightning-8",
       workflowJson: JSON.stringify({
         "1": { class_type: "UNETLoader", inputs: { unet_name: "qwen_image_2512_bf16.safetensors" } },
       }),
     });
+    assert.equal(issues[0]?.severity, "error");
     assert.match(issues[0]?.message ?? "", /LoraLoader/i);
   });
 

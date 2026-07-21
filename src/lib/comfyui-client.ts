@@ -130,6 +130,12 @@ export function resolveComfyUiConfig(
   };
 }
 
+/** Cache optimized graphs across batch queue requests that share the same workflow object. */
+const optimizedWorkflowCache = new WeakMap<
+  object,
+  { key: string; workflow: Record<string, unknown> }
+>();
+
 function injectPromptsIntoWorkflow(
   workflow: Record<string, unknown>,
   request: ComfyQueueRequest,
@@ -138,6 +144,7 @@ function injectPromptsIntoWorkflow(
   enrichInventory?: {
     availableUpscaleModels?: string[] | null;
     availableCheckpoints?: string[] | null;
+    availableLoras?: string[] | null;
     supportsNeuralUpscaleTileSize?: boolean;
   },
 ) {
@@ -147,25 +154,45 @@ function injectPromptsIntoWorkflow(
     model: request.model ?? runtime?.queueTargetModel,
     workflow,
   });
-  const optimized =
-    runtime?.workflowQueueOptimize !== false
-      ? optimizeWorkflowForQueue({
-          workflow,
-          tokens: config.placeholderTokens,
-          model: runtime?.queueTargetModel ?? request.model,
-          qualityProfile: runtime?.queueQualityProfile,
-          upscaleModelFilename: params.upscaleModelFilename,
-          refinerCheckpointFilename: params.refinerCheckpointFilename,
-          skipIfUnchanged: true,
-          contentHash: runtime?.workflowOptimizedHash,
-          availableUpscaleModels: enrichInventory?.availableUpscaleModels,
-          availableCheckpoints: enrichInventory?.availableCheckpoints,
-          supportsNeuralUpscaleTileSize: enrichInventory?.supportsNeuralUpscaleTileSize,
-          ...resolveWorkflowGraphEnrichOptions(runtime),
-        })
-      : { workflow };
+  const model = runtime?.queueTargetModel ?? request.model;
+  const optimizeKey = [
+    runtime?.queueQualityProfile ?? "draft",
+    model ?? "",
+    params.upscaleModelFilename ?? "",
+    params.refinerCheckpointFilename ?? "",
+    runtime?.workflowGraphEnrich === false ? "0" : "1",
+  ].join("|");
+
+  let optimizedWorkflow = workflow;
+  if (runtime?.workflowQueueOptimize !== false) {
+    const cached = optimizedWorkflowCache.get(workflow);
+    if (cached && cached.key === optimizeKey) {
+      optimizedWorkflow = structuredClone(cached.workflow);
+    } else {
+      const optimized = optimizeWorkflowForQueue({
+        workflow,
+        tokens: config.placeholderTokens,
+        model,
+        qualityProfile: runtime?.queueQualityProfile,
+        upscaleModelFilename: params.upscaleModelFilename,
+        refinerCheckpointFilename: params.refinerCheckpointFilename,
+        skipIfUnchanged: true,
+        contentHash: runtime?.workflowOptimizedHash,
+        availableUpscaleModels: enrichInventory?.availableUpscaleModels,
+        availableCheckpoints: enrichInventory?.availableCheckpoints,
+        supportsNeuralUpscaleTileSize: enrichInventory?.supportsNeuralUpscaleTileSize,
+        ...resolveWorkflowGraphEnrichOptions(runtime),
+      });
+      optimizedWorkflow = optimized.workflow;
+      optimizedWorkflowCache.set(workflow, {
+        key: optimizeKey,
+        workflow: structuredClone(optimized.workflow),
+      });
+    }
+  }
+
   return injectPromptsWithFallbacks(
-    optimized.workflow,
+    optimizedWorkflow,
     {
       positive: request.prompt,
       negative: request.negativePrompt,
@@ -180,6 +207,7 @@ function injectPromptsIntoWorkflow(
       syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
       loaders,
       model: request.model ?? runtime?.queueTargetModel,
+      availableLoras: enrichInventory?.availableLoras,
     },
   );
 }
@@ -229,6 +257,7 @@ export async function queuePromptToComfyUi(
             {
               availableUpscaleModels: objectInfo?.models.upscaleModels,
               availableCheckpoints: objectInfo?.models.checkpoints,
+              availableLoras: objectInfo?.models.loras,
               supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
             },
           );

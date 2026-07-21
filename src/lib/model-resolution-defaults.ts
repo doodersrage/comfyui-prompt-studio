@@ -501,6 +501,19 @@ export function resolveModelResolutionParams(
   );
 }
 
+/** Official Qwen medium sizes for param experiments (width+height pairs). */
+export function qwenOfficialMediumSizeLadder(): Array<{ width: number; height: number }> {
+  return [
+    QWEN_OFFICIAL_ARS.square.medium,
+    QWEN_OFFICIAL_ARS.portrait.medium,
+    QWEN_OFFICIAL_ARS.landscape.medium,
+    QWEN_OFFICIAL_ARS["portrait-34"].medium,
+    QWEN_OFFICIAL_ARS["landscape-43"].medium,
+    QWEN_OFFICIAL_ARS["portrait-23"].medium,
+    QWEN_OFFICIAL_ARS["landscape-32"].medium,
+  ];
+}
+
 /** Bump undersized Lightning queues to the orientation’s native preset — keep portrait/landscape. */
 export function ensureLightningNativeResolutionParams(
   params: WorkflowParamValues,
