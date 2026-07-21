@@ -27,6 +27,7 @@ import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import { ROUTE_TINT_CLASSES, type ToolAccent } from "@/lib/tool-theme";
 import { TextInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/ViewState";
 
 const FRAMING_OPTIONS: { value: SceneStarterFramingFilter; label: string }[] = [
   { value: "all", label: "All framing" },
@@ -311,9 +312,16 @@ export default function SceneStarterPresetChips({
 
       <div className="ui-surface-inset max-h-56 space-y-2 overflow-y-auto p-2">
         {filtered.length === 0 ? (
-          <p className="type-caption px-1 py-4 text-center">
-            No presets match these filters. Try clearing search or tags.
-          </p>
+          <EmptyState
+            compact
+            icon="search"
+            title="No presets match"
+            description="Try clearing search or tags to see more scene starters."
+            action={{
+              label: "Clear filters",
+              onClick: clearFilters,
+            }}
+          />
         ) : (
           <div className="flex flex-wrap gap-2">
             {visiblePresets.map((preset) => {

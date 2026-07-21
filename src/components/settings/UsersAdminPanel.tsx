@@ -10,6 +10,7 @@ import type { UserAnalyticsSnapshot } from "@/lib/user-analytics";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
 import { ToolSection } from "@/components/ui/ToolPageShell";
+import { EmptyState } from "@/components/ui/ViewState";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 function FeaturePicker({
@@ -437,7 +438,12 @@ export default function UsersAdminPanel() {
           <code className="text-zinc-300">API_RATE_LIMIT_MAX</code> when unset.
         </p>
         {users.length === 0 ? (
-          <p className="text-sm text-zinc-500">No users loaded.</p>
+          <EmptyState
+            compact
+            icon="inbox"
+            title="No users loaded"
+            description="User accounts appear here once the auth directory is available. Create a user above or check server auth configuration."
+          />
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-zinc-800/80">
             <table className="min-w-full text-left text-sm">
@@ -485,10 +491,12 @@ export default function UsersAdminPanel() {
 
       <ToolSection title="User analytics">
         {analyticsSnapshots.length === 0 ? (
-          <p className="text-sm text-zinc-500">
-            No analytics synced yet. Users need to sign in and use Studio or Gallery on their
-            device.
-          </p>
+          <EmptyState
+            compact
+            icon="compare"
+            title="No analytics synced yet"
+            description="Users need to sign in and use Studio or Gallery on their device before snapshots appear here."
+          />
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-zinc-800/80">
             <table className="min-w-full text-left text-sm">
@@ -746,7 +754,12 @@ export default function UsersAdminPanel() {
 
       <ToolSection title="Audit log">
         {auditEntries.length === 0 ? (
-          <p className="text-sm text-zinc-500">No admin actions logged yet.</p>
+          <EmptyState
+            compact
+            icon="inbox"
+            title="No admin actions yet"
+            description="User, group, and impersonation changes will show up here as an audit trail."
+          />
         ) : (
           <ul className="max-h-64 space-y-2 overflow-y-auto text-sm">
             {auditEntries.slice(0, 40).map((entry) => (

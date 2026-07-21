@@ -65,6 +65,7 @@ import type { ServerWorkflowOption } from "@/hooks/useComfyWorkflowSelection";
 import { Button } from "@/components/ui/Button";
 import { ChipButton, MonoTextArea, SelectInput, TextInput } from "@/components/ui/Field";
 import { ToolActionRow } from "@/components/ui/ToolPageShell";
+import { EmptyState } from "@/components/ui/ViewState";
 
 type ComfyWorkflowLibraryPanelProps = {
   placeholderTokens: WorkflowPlaceholderTokens;
@@ -704,12 +705,12 @@ export default function ComfyWorkflowLibraryPanel({
           Imported workflow files ({files.length})
         </p>
         {files.length === 0 ? (
-          <div className="ui-empty-state">
-            <p className="type-body">No workflow files yet.</p>
-            <p className="type-caption mt-1">
-              Export workflows from ComfyUI (Save → API format) and import them here.
-            </p>
-          </div>
+          <EmptyState
+            compact
+            icon="catalog"
+            title="No workflow files yet"
+            description="Export workflows from ComfyUI (Save → API format) and import them here to bind tokens and queue from Studio tools."
+          />
         ) : (
           <ul className="ui-list">
             {files.map((file) => {
@@ -1090,7 +1091,12 @@ export default function ComfyWorkflowLibraryPanel({
           </label>
         </ToolActionRow>
         {presetPacks.length === 0 ? (
-          <p className="type-caption">No preset packs saved yet.</p>
+          <EmptyState
+            compact
+            icon="preset"
+            title="No preset packs yet"
+            description="Create a pack above to group workflow presets for export, import, and reuse across machines."
+          />
         ) : (
           <>
             <label className="block space-y-2">

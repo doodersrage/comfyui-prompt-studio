@@ -188,6 +188,7 @@ import {
   STUDIO_TABS,
   type StudioTabId,
 } from "@/lib/studio-nav";
+import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
 
 const ACCENT = "violet" as const;
 
@@ -1500,6 +1501,7 @@ export default function StudioTool() {
             </p>
             <div className="flex flex-wrap gap-2">
               <input
+                id="studio-campaign-template-name"
                 value={campaignTemplateName}
                 onChange={(event) => setCampaignTemplateName(event.target.value)}
                 placeholder="Template name"
@@ -1572,7 +1574,18 @@ export default function StudioTool() {
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-zinc-500">No saved templates yet.</p>
+              <EmptyState
+                compact
+                icon="template"
+                title="No campaign templates yet"
+                description="Name the current campaign settings above and save them as a reusable recipe for later batches."
+                action={{
+                  label: "Name a template",
+                  onClick: () => {
+                    document.getElementById("studio-campaign-template-name")?.focus();
+                  },
+                }}
+              />
             )}
           </div>
         </ToolSection>
@@ -2795,10 +2808,16 @@ export default function StudioTool() {
               </label>
             </div>
             {userSceneStarters.length === 0 ? (
-              <p className="text-xs text-zinc-500">
-                No saved scene starters yet — save from Generate/Character or promote tokens in
-                Analytics.
-              </p>
+              <EmptyState
+                compact
+                icon="preset"
+                title="No scene starters yet"
+                description="Save a starter from Generate or Character, or promote high-scoring tokens from Analytics. They appear in those tools’ preset catalogs."
+                action={resolveGenerateEmptyCta({
+                  label: "Open Generate",
+                  href: "/",
+                })}
+              />
             ) : (
               <DataList scrollable={false}>
                 {userSceneStarters.map((preset) => (

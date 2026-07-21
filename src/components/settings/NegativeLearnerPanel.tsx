@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ToolSection } from "@/components/ui/ToolPageShell";
+import { EmptyState } from "@/components/ui/ViewState";
 import { addAvoidedToken } from "@/lib/avoided-tokens";
 import {
   loadComfyUiSettings,
@@ -65,7 +66,13 @@ export default function NegativeLearnerPanel() {
         Tokens from gallery prompts rated 1–2 stars. Add frequent ones to avoided tokens or your negative profile.
       </p>
       {items.length === 0 ? (
-        <p className="text-sm text-zinc-500">No suggestions yet — rate a few low outputs in Gallery review.</p>
+        <EmptyState
+          compact
+          icon="inbox"
+          title="No suggestions yet"
+          description="Rate a few low outputs in Gallery review — frequent tokens from 1–2 star prompts will show up here."
+          action={{ label: "Open gallery review", href: "/gallery?review=1" }}
+        />
       ) : (
         <ul className="space-y-2">
           {items.map((item) => (

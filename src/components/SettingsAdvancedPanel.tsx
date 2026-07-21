@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ToolSection } from "@/components/ui/ToolPageShell";
+import { EmptyState } from "@/components/ui/ViewState";
 import { Button } from "@/components/ui/Button";
 import { syncNamespaceToServer, pullNamespaceFromServer } from "@/lib/storage-sync";
 import ObservabilityDashboard from "@/components/ObservabilityDashboard";
@@ -138,7 +139,13 @@ export default function SettingsAdvancedPanel() {
             <li>By model: {Object.entries(llmUsage.byModel).map(([model, count]) => `${model} (${count})`).join(", ") || "—"}</li>
           </ul>
         ) : (
-          <p className="text-sm text-zinc-500">Sign in to view LLM usage stats.</p>
+          <EmptyState
+            compact
+            icon="inbox"
+            title="Sign in for LLM usage"
+            description="LLM call counts and token estimates are available when authentication is enabled and you are signed in."
+            action={{ label: "Open login", href: "/login" }}
+          />
         )}
       </ToolSection>
 
@@ -151,7 +158,12 @@ export default function SettingsAdvancedPanel() {
             <li>Average duration: {usage.avgDurationMs}ms</li>
           </ul>
         ) : (
-          <p className="text-sm text-zinc-500">No API usage recorded yet.</p>
+          <EmptyState
+            compact
+            icon="inbox"
+            title="No API usage recorded yet"
+            description="In-memory request stats appear here after the server handles a few API calls."
+          />
         )}
       </ToolSection>
 

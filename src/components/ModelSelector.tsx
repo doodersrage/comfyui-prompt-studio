@@ -7,6 +7,7 @@ import {
   type ComfyImageModel,
   type ComfyModelCategory,
 } from "@/lib/comfy-models/client";
+import { EmptyState } from "@/components/ui/ViewState";
 
 type ModelSelectorProps = {
   value: ComfyImageModel;
@@ -138,9 +139,19 @@ export default function ModelSelector({
 
       <div className="sidebar-scroll max-h-80 space-y-2 overflow-y-auto pr-1">
         {filteredModels.length === 0 ? (
-          <p className="type-caption rounded-[var(--radius-md)] border border-dashed border-[var(--border-default)] px-4 py-6 text-center">
-            No models match your search.
-          </p>
+          <EmptyState
+            compact
+            icon="search"
+            title="No models match"
+            description="Try a shorter search term or switch back to All categories."
+            action={{
+              label: "Clear search",
+              onClick: () => {
+                setQuery("");
+                setCategory("all");
+              },
+            }}
+          />
         ) : (
           filteredModels.map((entry) => (
             <button

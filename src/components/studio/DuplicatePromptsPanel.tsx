@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
 import { findDuplicatePrompts } from "@/lib/prompt-duplicate-detection";
 import { ToolSection } from "@/components/ui/ToolPageShell";
+import { EmptyState } from "@/components/ui/ViewState";
+import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
 
 export default function DuplicatePromptsPanel() {
   const { entries } = usePromptHistory();
@@ -31,7 +33,17 @@ export default function DuplicatePromptsPanel() {
         <span>{Math.round(threshold * 100)}%</span>
       </label>
       {groups.length === 0 ? (
-        <p className="text-sm text-zinc-500">No duplicate clusters found.</p>
+        <EmptyState
+          compact
+          icon="compare"
+          title="No duplicate clusters"
+          description="Near-identical history prompts will group here. Save more variations or lower the similarity threshold."
+          action={
+            entries.length === 0
+              ? resolveGenerateEmptyCta({ label: "Open Generate", href: "/" })
+              : undefined
+          }
+        />
       ) : (
         <ul className="space-y-3">
           {groups.slice(0, 12).map((group) => (

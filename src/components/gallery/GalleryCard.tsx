@@ -257,11 +257,11 @@ export default function GalleryCard({
             />
           </button>
           {layout !== "list" ? (
-            <div className="pointer-events-none absolute inset-0 flex items-end justify-center gap-2 bg-gradient-to-t from-zinc-950/95 via-zinc-950/35 to-transparent p-3 opacity-0 transition duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100">
+            <div className="pointer-events-none absolute inset-0 flex items-end justify-center gap-2 bg-gradient-to-t from-zinc-950/95 via-zinc-950/35 to-transparent p-3 opacity-0 transition duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100 group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100">
               <button
                 type="button"
                 onClick={() => onOpenImage(0)}
-                className="pointer-events-auto rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-2.5 py-1 text-[11px] text-zinc-200 backdrop-blur transition hover:border-zinc-500"
+                className="pointer-events-auto rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-2.5 py-1 text-[11px] text-zinc-200 backdrop-blur transition hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
               >
                 Open
               </button>
@@ -270,14 +270,14 @@ export default function GalleryCard({
                   <button
                     type="button"
                     onClick={() => startImproveFromGalleryEntry(entry)}
-                    className="pointer-events-auto rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200 backdrop-blur transition hover:bg-emerald-500/20"
+                    className="pointer-events-auto rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200 backdrop-blur transition hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/45 active:scale-[0.98]"
                   >
                     Improve
                   </button>
                   <button
                     type="button"
                     onClick={() => startInpaintFromGalleryEntry(entry)}
-                    className="pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100 backdrop-blur transition hover:bg-amber-500/20"
+                    className="pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100 backdrop-blur transition hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/45 active:scale-[0.98]"
                   >
                     Inpaint
                   </button>
@@ -494,33 +494,6 @@ export default function GalleryCard({
         >
           {promptExpanded ? "Less" : "Prompt"}
         </button>
-        {previewUrl ? (
-          <button
-            type="button"
-            onClick={() => onOpenImage(0)}
-            className="ui-btn-ghost ui-btn-sm text-xs"
-          >
-            Open
-          </button>
-        ) : null}
-        {entry.status === "completed" && previewUrl ? (
-          <>
-            <button
-              type="button"
-              onClick={() => startImproveFromGalleryEntry(entry)}
-              className="ui-btn-ghost ui-btn-sm text-xs text-emerald-300 hover:text-emerald-200"
-            >
-              Improve
-            </button>
-            <button
-              type="button"
-              onClick={() => startInpaintFromGalleryEntry(entry)}
-              className="ui-btn-ghost ui-btn-sm text-xs text-amber-200 hover:text-amber-100"
-            >
-              Inpaint
-            </button>
-          </>
-        ) : null}
         {layout === "list" ? (
           <button
             type="button"
@@ -554,64 +527,67 @@ export default function GalleryCard({
               <div
                 ref={menuPanelRef}
                 role="menu"
-                className="fixed z-[200] min-w-[13rem] overflow-y-auto rounded-xl border border-zinc-700/80 bg-zinc-950 p-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] ring-1 ring-white/5"
+                className="fixed z-[200] min-w-[12.5rem] overflow-y-auto rounded-xl border border-zinc-700/80 bg-zinc-950 p-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] ring-1 ring-white/5"
                 style={{
                   top: menuPosition.top,
                   left: menuPosition.left,
                   maxHeight: menuPosition.maxHeight,
                 }}
               >
-                <GalleryMenuButton
-                  label="Copy prompt"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(entry.prompt).catch(() => {
-                      onDownloadError("Could not copy prompt.");
-                    });
-                    setMenuOpen(false);
-                  }}
-                />
-                {entry.status === "completed" && previewUrl ? (
+                <GalleryMenuGroup label="Export">
                   <GalleryMenuButton
-                    label="Download image"
+                    label="Copy prompt"
                     onClick={() => {
-                      onDownloadError(null);
-                      void downloadGalleryImage(entry).catch((error) => {
-                        onDownloadError(
-                          error instanceof Error ? error.message : "Download failed.",
-                        );
+                      void navigator.clipboard.writeText(entry.prompt).catch(() => {
+                        onDownloadError("Could not copy prompt.");
                       });
                       setMenuOpen(false);
                     }}
                   />
-                ) : null}
-                <GalleryMenuButton
-                  label="Sidecar JSON"
-                  onClick={() => {
-                    downloadGallerySidecar(entry);
-                    setMenuOpen(false);
-                  }}
-                />
-                {onViewWorkflow ? (
+                  {entry.status === "completed" && previewUrl ? (
+                    <GalleryMenuButton
+                      label="Download image"
+                      onClick={() => {
+                        onDownloadError(null);
+                        void downloadGalleryImage(entry).catch((error) => {
+                          onDownloadError(
+                            error instanceof Error ? error.message : "Download failed.",
+                          );
+                        });
+                        setMenuOpen(false);
+                      }}
+                    />
+                  ) : null}
                   <GalleryMenuButton
-                    label="View workflow"
+                    label="Sidecar JSON"
                     onClick={() => {
-                      onViewWorkflow();
+                      downloadGallerySidecar(entry);
                       setMenuOpen(false);
                     }}
                   />
-                ) : null}
-                {entry.historyId ? (
-                  <Link
-                    href={studioHistoryUrl(entry.historyId)}
-                    role="menuitem"
-                    className="block rounded-lg px-3 py-2 text-xs text-sky-300 transition hover:bg-zinc-900 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Studio history
-                  </Link>
-                ) : null}
+                  {onViewWorkflow ? (
+                    <GalleryMenuButton
+                      label="View workflow"
+                      onClick={() => {
+                        onViewWorkflow();
+                        setMenuOpen(false);
+                      }}
+                    />
+                  ) : null}
+                  {entry.historyId ? (
+                    <Link
+                      href={studioHistoryUrl(entry.historyId)}
+                      role="menuitem"
+                      className="block rounded-lg px-3 py-2 text-xs text-sky-300 transition hover:bg-zinc-900 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:bg-zinc-900/80"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Studio history
+                    </Link>
+                  ) : null}
+                </GalleryMenuGroup>
+
                 {entry.status === "completed" && entry.prompt?.trim() ? (
-                  <>
+                  <GalleryMenuGroup label="Edit">
                     <GalleryMenuButton
                       label="Edit prompt"
                       onClick={() => {
@@ -622,18 +598,29 @@ export default function GalleryCard({
                     />
                     {previewUrl ? (
                       <>
+                        {layout === "list" ? (
+                          <>
+                            <GalleryMenuButton
+                              label="Improve"
+                              onClick={() => {
+                                startImproveFromGalleryEntry(entry);
+                                setMenuOpen(false);
+                              }}
+                            />
+                            <GalleryMenuButton
+                              label="Inpaint"
+                              onClick={() => {
+                                startInpaintFromGalleryEntry(entry);
+                                setMenuOpen(false);
+                              }}
+                            />
+                          </>
+                        ) : null}
                         <GalleryMenuButton
                           label="Refine"
                           onClick={() => {
                             saveGalleryHandoff(buildGalleryHandoff(entry, "refine"));
                             router.push(galleryHandoffPath("refine"));
-                            setMenuOpen(false);
-                          }}
-                        />
-                        <GalleryMenuButton
-                          label="Inpaint region"
-                          onClick={() => {
-                            startInpaintFromGalleryEntry(entry);
                             setMenuOpen(false);
                           }}
                         />
@@ -655,103 +642,119 @@ export default function GalleryCard({
                         />
                       </>
                     ) : null}
-                  </>
+                  </GalleryMenuGroup>
                 ) : null}
-                <GalleryMenuButton
-                  label="Re-queue"
-                  onClick={() => {
-                    onRequeue(false);
-                    setMenuOpen(false);
-                  }}
-                />
-                <GalleryMenuButton
-                  label="Re-queue (new seed)"
-                  onClick={() => {
-                    onRequeue(true);
-                    setMenuOpen(false);
-                  }}
-                />
-                {showUpscaleActions ? (
-                  <>
-                    <GalleryMenuButton
-                      label="Upscale (Final quality)"
-                      onClick={() => {
-                        onUpscale("final");
-                        setMenuOpen(false);
-                      }}
-                    />
-                    <GalleryMenuButton
-                      label="Upscale (Max quality)"
-                      onClick={() => {
-                        onUpscale("max");
-                        setMenuOpen(false);
-                      }}
-                    />
-                  </>
-                ) : null}
-                {showRefineAction ? (
+
+                <GalleryMenuGroup label="Queue">
                   <GalleryMenuButton
-                    label="Refine (low denoise)"
+                    label="Re-queue"
                     onClick={() => {
-                      onRefine();
+                      onRequeue(false);
                       setMenuOpen(false);
                     }}
                   />
+                  <GalleryMenuButton
+                    label="New seed"
+                    onClick={() => {
+                      onRequeue(true);
+                      setMenuOpen(false);
+                    }}
+                  />
+                  <GalleryMenuButton
+                    label="Variation · Final"
+                    onClick={() => {
+                      onRequeue(true, "final");
+                      setMenuOpen(false);
+                    }}
+                  />
+                  <GalleryMenuButton
+                    label="Variation · Max"
+                    onClick={() => {
+                      onRequeue(true, "max");
+                      setMenuOpen(false);
+                    }}
+                  />
+                </GalleryMenuGroup>
+
+                {showUpscaleActions ||
+                showRefineAction ||
+                (onMoireClean && showMoireCleanActions) ? (
+                  <GalleryMenuGroup label="Enhance">
+                    {showUpscaleActions ? (
+                      <>
+                        <GalleryMenuButton
+                          label="Upscale · Final"
+                          onClick={() => {
+                            onUpscale("final");
+                            setMenuOpen(false);
+                          }}
+                        />
+                        <GalleryMenuButton
+                          label="Upscale · Max"
+                          onClick={() => {
+                            onUpscale("max");
+                            setMenuOpen(false);
+                          }}
+                        />
+                      </>
+                    ) : null}
+                    {showRefineAction ? (
+                      <GalleryMenuButton
+                        label="Refine · low denoise"
+                        onClick={() => {
+                          onRefine();
+                          setMenuOpen(false);
+                        }}
+                      />
+                    ) : null}
+                    {onMoireClean && showMoireCleanActions ? (
+                      <>
+                        <GalleryMenuButton
+                          label="Moiré · Final"
+                          onClick={() => {
+                            onMoireClean("final");
+                            setMenuOpen(false);
+                          }}
+                        />
+                        <GalleryMenuButton
+                          label="Moiré · Max"
+                          onClick={() => {
+                            onMoireClean("max");
+                            setMenuOpen(false);
+                          }}
+                        />
+                      </>
+                    ) : null}
+                  </GalleryMenuGroup>
                 ) : null}
-                {onMoireClean && showMoireCleanActions ? (
-                  <>
-                    <GalleryMenuButton
-                      label="Clean moiré (Final)"
-                      onClick={() => {
-                        onMoireClean("final");
-                        setMenuOpen(false);
-                      }}
-                    />
-                    <GalleryMenuButton
-                      label="Clean moiré (Max)"
-                      onClick={() => {
-                        onMoireClean("max");
-                        setMenuOpen(false);
-                      }}
-                    />
-                  </>
-                ) : null}
+
                 {hasDerivatives && onShowDerivatives ? (
+                  <GalleryMenuGroup label="Lineage">
+                    <GalleryMenuButton
+                      label="Show derivatives"
+                      onClick={() => {
+                        onShowDerivatives();
+                        setMenuOpen(false);
+                      }}
+                    />
+                  </GalleryMenuGroup>
+                ) : null}
+
+                <GalleryMenuGroup>
                   <GalleryMenuButton
-                    label="Show derivatives"
+                    label="Remove"
+                    tone="danger"
                     onClick={() => {
-                      onShowDerivatives();
+                      onRemove();
                       setMenuOpen(false);
                     }}
                   />
-                ) : null}
-                <GalleryMenuButton
-                  label="New variation (Final quality)"
-                  onClick={() => {
-                    onRequeue(true, "final");
-                    setMenuOpen(false);
-                  }}
-                />
-                <GalleryMenuButton
-                  label="New variation (Max quality)"
-                  onClick={() => {
-                    onRequeue(true, "max");
-                    setMenuOpen(false);
-                  }}
-                />
-                <GalleryMenuButton
-                  label="Remove"
-                  tone="danger"
-                  onClick={() => {
-                    onRemove();
-                    setMenuOpen(false);
-                  }}
-                />
+                </GalleryMenuGroup>
               </div>
             </ModalPortal>
           ) : null}
         </div>
-        </div>
+      </div>
     </div>
   );
 
@@ -777,6 +780,25 @@ export default function GalleryCard({
   );
 }
 
+function GalleryMenuGroup({
+  label,
+  children,
+}: {
+  label?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border-t border-zinc-800/80 py-1 first:border-t-0 first:pt-0">
+      {label ? (
+        <p className="px-3 pb-1 pt-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-500">
+          {label}
+        </p>
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
 function GalleryMenuButton(props: {
   label: string;
   onClick: () => void;
@@ -787,7 +809,7 @@ function GalleryMenuButton(props: {
       type="button"
       role="menuitem"
       onClick={props.onClick}
-      className={`block w-full rounded-lg px-3 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 ${
+      className={`block w-full rounded-lg px-3 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.99] ${
         props.tone === "danger"
           ? "text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
           : "text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"

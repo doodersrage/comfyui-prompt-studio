@@ -97,7 +97,7 @@ import {
   accentButtonClass,
   accentFocusClass,
 } from "@/components/ui/ToolPageShell";
-import { ToolPageSkeleton } from "@/components/ui/ViewState";
+import { EmptyState, ToolPageSkeleton } from "@/components/ui/ViewState";
 import { FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
 import { Button, PrimaryButton } from "@/components/ui/Button";
 import {
@@ -1503,7 +1503,16 @@ export default function SettingsTool() {
               <code className="rounded bg-zinc-800 px-1">.safetensors</code> filename.
             </p>
             {(settings.loraLibrary ?? []).length === 0 ? (
-              <p className="text-xs text-zinc-600">No LoRA entries yet.</p>
+              <EmptyState
+                compact
+                icon="catalog"
+                title="No LoRA entries yet"
+                description="Add a LoRA ID and token filename so custom workflows can resolve {{LORA_<id>}} placeholders when you save ComfyUI settings."
+                action={{
+                  label: "Add LoRA",
+                  onClick: addLoraEntry,
+                }}
+              />
             ) : (
               <ul className="space-y-3">
                 {(settings.loraLibrary ?? []).map((entry, index) => (
@@ -1992,6 +2001,7 @@ export default function SettingsTool() {
         </p>
         <div className="flex flex-wrap gap-2">
           <input
+            id="settings-avoided-token-draft"
             value={avoidedTokenDraft}
             onChange={(event) => setAvoidedTokenDraft(event.target.value)}
             placeholder="Add token"
@@ -2052,7 +2062,18 @@ export default function SettingsTool() {
           </label>
         </div>
         {avoidedTokens.length === 0 ? (
-          <p className="text-sm text-zinc-500">No avoided tokens yet.</p>
+          <EmptyState
+            compact
+            icon="inbox"
+            title="No avoided tokens yet"
+            description="Add motifs to steer generators away from, or rate low Gallery outputs so tokens append automatically."
+            action={{
+              label: "Add a token",
+              onClick: () => {
+                document.getElementById("settings-avoided-token-draft")?.focus();
+              },
+            }}
+          />
         ) : (
           <div className="flex flex-wrap gap-2">
             {avoidedTokens.map((token) => (
@@ -2156,7 +2177,28 @@ export default function SettingsTool() {
           </Button>
         </div>
         {filteredWebhookLog.length === 0 ? (
-          <p className="text-sm text-zinc-500">No webhook events logged yet.</p>
+          <EmptyState
+            compact
+            icon="inbox"
+            title={
+              webhookLog.length === 0
+                ? "No webhook events yet"
+                : "No events for this filter"
+            }
+            description={
+              webhookLog.length === 0
+                ? "Dispatch attempts appear here once webhooks fire for queue, gallery, or storage events."
+                : "Try another event type or clear the filter to see the full log."
+            }
+            action={
+              webhookLog.length > 0 && webhookEventFilter !== "all"
+                ? {
+                    label: "Show all events",
+                    onClick: () => setWebhookEventFilter("all"),
+                  }
+                : undefined
+            }
+          />
         ) : (
           <ol className="space-y-2">
             {filteredWebhookLog.slice(0, 12).map((entry) => (

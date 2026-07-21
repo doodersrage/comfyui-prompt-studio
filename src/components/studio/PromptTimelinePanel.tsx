@@ -1,6 +1,7 @@
 "use client";
 
 import type { IterationTreeNode } from "@/lib/prompt-iteration-tree";
+import { EmptyState } from "@/components/ui/ViewState";
 
 type PromptTimelinePanelProps = {
   nodes: IterationTreeNode[];
@@ -25,7 +26,7 @@ function TimelineNode({
       <button
         type="button"
         onClick={() => onSelect?.(node.entry.id)}
-        className={`block w-full rounded-lg border px-3 py-2 text-left text-xs transition ${
+        className={`block w-full rounded-lg border px-3 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99] ${
           active
             ? "border-violet-500/40 bg-violet-500/10 text-violet-100"
             : "border-zinc-800/80 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
@@ -54,7 +55,14 @@ export default function PromptTimelinePanel({
   selectedId,
 }: PromptTimelinePanelProps) {
   if (nodes.length === 0) {
-    return <p className="text-sm text-zinc-500">No iteration branches yet.</p>;
+    return (
+      <EmptyState
+        compact
+        icon="diff"
+        title="No iteration branches yet"
+        description="Save refined prompts to history with lineage to build a parent/child timeline here."
+      />
+    );
   }
 
   return (
