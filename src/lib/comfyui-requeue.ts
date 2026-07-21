@@ -48,14 +48,21 @@ export function galleryEntrySupportsUpscale(model?: string): boolean {
   return !isQwenLightningModel(model) && !isQwenRapidAioModel(model);
 }
 
-/** Img2img refine is disabled for Lightning (and not the right Rapid AIO polish path). */
+/** Img2img refine: skip Lightning; Rapid AIO T2I uses moiré clean instead. */
 export function galleryEntrySupportsRefine(model?: string): boolean {
-  return !isQwenLightningModel(model);
+  if (isQwenLightningModel(model)) {
+    return false;
+  }
+  // Rapid AIO Edit keeps refine; SFW/NSFW polish path is moiré clean.
+  if (/^qwen-rapid-aio-(sfw|nsfw)$/i.test(String(model ?? ""))) {
+    return false;
+  }
+  return true;
 }
 
+/** Moiré clean is the Rapid AIO polish path (blur / mild Max resample). */
 export function galleryEntrySupportsMoireClean(model?: string): boolean {
-  void model;
-  return true;
+  return isQwenRapidAioModel(model);
 }
 
 type WorkflowPreviewResponse = {

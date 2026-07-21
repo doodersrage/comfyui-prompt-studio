@@ -5,6 +5,7 @@ import {
   isSceneGenerationModel,
   resolveModelForPromptGeneration,
   resolveModelForQueueTool,
+  resolveTxt2iCounterpartForGenerate,
   stripEditInstructionLead,
 } from "./queue-tool-model";
 
@@ -55,16 +56,31 @@ describe("queue-tool-model", () => {
     assert.deepEqual(filtered, ["qwen-image-2512"]);
   });
 
-  it("keeps workflow-backed edit models on generate", () => {
+  it("prefers scene models even when includeEditModels is off by default", () => {
     const filtered = filterModelsForQueueTool(
       ["qwen-image-2512", "qwen-image-edit-2511-lightning-8"],
       "generate",
-      { workflowBacked: true },
+    );
+    assert.deepEqual(filtered, ["qwen-image-2512"]);
+  });
+
+  it("keeps edit models on generate only when includeEditModels is set", () => {
+    const filtered = filterModelsForQueueTool(
+      ["qwen-image-2512", "qwen-image-edit-2511-lightning-8"],
+      "generate",
+      { includeEditModels: true },
     );
     assert.deepEqual(filtered, [
       "qwen-image-2512",
       "qwen-image-edit-2511-lightning-8",
     ]);
+  });
+
+  it("resolves Edit Lightning T2I counterpart for Generate switch", () => {
+    assert.equal(
+      resolveTxt2iCounterpartForGenerate("qwen-image-edit-2511-lightning-8"),
+      "qwen-image-2512-lightning-8",
+    );
   });
 
   it("recognizes txt2img models as scene generation models", () => {

@@ -80,8 +80,9 @@ export const RESOLUTION_ORIENTATION_QWEN_EXTRA: ResolutionOrientation[] = [
 export function resolutionOrientationsForModel(
   model: ComfyImageModel | string,
 ): ResolutionOrientation[] {
-  // T2I queues force square for Lightning and Rapid AIO (SFW/NSFW) — only offer that.
-  if (isQwenLightningModel(model) || /^qwen-rapid-aio-(sfw|nsfw)$/i.test(String(model))) {
+  // Rapid AIO SFW/NSFW is most stable at square — keep that as the only T2I option.
+  // Vanilla 2512 + Lightning keep the full official Qwen aspect set.
+  if (/^qwen-rapid-aio-(sfw|nsfw)$/i.test(String(model))) {
     return ["square"];
   }
 

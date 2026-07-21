@@ -301,16 +301,11 @@ export function resolveQueueParams(
       merged.denoise = denoise;
     }
 
-    // Pure Lightning / Rapid AIO T2I is far more stable at native square than tall ARs.
-    if ((isQwenLightningModel(model) || isQwenRapidAioModel(model)) && !hasInputImage) {
-      // Rapid AIO: prefer medium square over max — extreme latents worsen screen-door.
-      const rapidTier =
-        isQwenRapidAioModel(model) && sizeTier === "max" ? "medium" : sizeTier;
-      const square = resolveModelResolutionParams(
-        model,
-        "square",
-        isQwenRapidAioModel(model) ? rapidTier : sizeTier,
-      );
+    // Rapid AIO T2I stays on native square — extreme ARs worsen screen-door.
+    // Lightning / vanilla 2512 keep the user's aspect chips as-is.
+    if (isQwenRapidAioModel(model) && !hasInputImage) {
+      const rapidTier = sizeTier === "max" ? "medium" : sizeTier;
+      const square = resolveModelResolutionParams(model, "square", rapidTier);
       if (square.width != null) {
         merged.width = square.width;
       }
@@ -323,10 +318,7 @@ export function resolveQueueParams(
       ensureLightningNativeResolutionParams(
         merged,
         model,
-        (isQwenLightningModel(model) || isQwenRapidAioModel(model)) &&
-          !hasInputImage
-          ? "square"
-          : orientation,
+        isQwenRapidAioModel(model) && !hasInputImage ? "square" : orientation,
         isQwenRapidAioModel(model) && !hasInputImage && sizeTier === "max"
           ? "medium"
           : sizeTier,

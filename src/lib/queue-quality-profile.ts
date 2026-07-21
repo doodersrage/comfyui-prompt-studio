@@ -158,11 +158,16 @@ export function formatQueueQualityProfileHint(
           ? " · moiré polish (blur + mild resample) · no output upscale"
           : " · moiré polish (soft blur) · no output upscale"
         : "";
+  } else if (/qwen-image-edit-2511-lightning/i.test(model)) {
+    upscaleNote =
+      profile === "final" || profile === "max"
+        ? " · no Lanczos (Edit T2I) · CFG-1 short negatives"
+        : " · CFG-1 short negatives";
   } else if (isLightning) {
     upscaleNote =
       profile === "final" || profile === "max"
         ? " · Lanczos polish · CFG-1 short negatives"
-        : " · CFG-1 short negatives";
+        : " · Draft (no Lanczos) · CFG-1 short negatives";
   } else if (profileUsesUpscaleEnrich(profile)) {
     upscaleNote = options?.neuralUpscaleAvailable
       ? profileUsesNeuralUpscalePolish(profile)
@@ -195,7 +200,7 @@ export function resolveQueueQualityProfile(input: {
     return normalizeQueueQualityProfile(input.override);
   }
   const tool = input.tool?.trim();
-  let profile =
+  const profile =
     tool && input.toolProfiles?.[tool]
       ? normalizeQueueQualityProfile(input.toolProfiles[tool])
       : normalizeQueueQualityProfile(input.global);
@@ -236,8 +241,18 @@ export function formatQueuePipelineStatusNotes(input: {
     } else {
       notes.push("moiré polish off (use Final/Max)");
     }
+  } else if (/qwen-image-edit-2511-lightning/i.test(model)) {
+    notes.push("Lightning CFG-1 · short negatives");
+    if (profile === "final" || profile === "max") {
+      notes.push("Lanczos skipped (Edit T2I)");
+    }
   } else if (/lightning-(4|8)\b/i.test(model)) {
     notes.push("Lightning CFG-1 · short negatives");
+    if (profile === "final" || profile === "max") {
+      notes.push("Final/Max adds Lanczos");
+    } else if (profile === "draft") {
+      notes.push("Draft · no Lanczos");
+    }
   }
 
   if (
@@ -258,12 +273,33 @@ export function profileUsesUpscaleEnrich(profile: QueueQualityProfile | undefine
   return mode === "final" || mode === "max";
 }
 
+/** Edit-2511 Lightning T2I: Final/Max Lanczos enlarges soft mush — skip output upscale. */
+export function profileSkipsOutputUpscaleForModel(
+  profile: QueueQualityProfile | undefined,
+  options?: { model?: string },
+): boolean {
+  if (!profileUsesUpscaleEnrich(profile)) {
+    return false;
+  }
+  const model = options?.model?.trim() ?? "";
+  if (/^qwen-rapid-aio-/i.test(model)) {
+    return true;
+  }
+  if (/qwen-image-edit-2511-lightning/i.test(model)) {
+    return true;
+  }
+  return false;
+}
+
 export function upscaleScaleForProfile(
   profile: QueueQualityProfile | undefined,
   options?: { model?: string },
 ): number {
   const mode = normalizeQueueQualityProfile(profile);
-  // Lightning: Lanczos is fine on a clean native generate; earlier grain was bad CFG/LoRA/shift.
+  if (profileSkipsOutputUpscaleForModel(profile, options)) {
+    return 1;
+  }
+  // Lightning (non-edit): Lanczos is fine on a clean native generate.
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
     return mode === "max" ? 1.28 : 1.18;
   }

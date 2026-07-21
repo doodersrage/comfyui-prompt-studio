@@ -1015,13 +1015,17 @@ describe("comfyui workflow files", () => {
   });
 
   it("keeps server defaults when no workflow file is selected", () => {
-    assert.equal(
-      comfyUiSettingsToRuntime({
-        ...DEFAULT_COMFYUI_SETTINGS,
-        useServerDefaults: true,
-      }),
-      undefined,
-    );
+    const runtime = comfyUiSettingsToRuntime({
+      ...DEFAULT_COMFYUI_SETTINGS,
+      useServerDefaults: true,
+    });
+    // useServerDefaults still ships queue params / LoRA tokens for injection,
+    // but not client workflow JSON or API URL overrides.
+    assert.ok(runtime);
+    assert.equal(runtime?.workflowJson, undefined);
+    assert.equal(runtime?.apiUrl, undefined);
+    assert.equal(runtime?.queueParams?.width, "1328");
+    assert.equal(runtime?.queueParams?.height, "1328");
   });
 
   it("lists server workflow paths from env", () => {

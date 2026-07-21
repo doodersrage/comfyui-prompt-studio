@@ -1694,7 +1694,8 @@ export default function SettingsTool() {
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
           Auto improve 4–5★ outputs (Final): upscale · Rapid AIO → moiré clean · Lightning →
-          re-queue new seed (on by default)
+          re-queue new seed (on by default). When this is on, mutate/seed-experiment
+          toggles below only run if this improve path fails or is turned off.
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-300">
@@ -1719,7 +1720,8 @@ export default function SettingsTool() {
             }
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
-          After 5★ upscale, also queue low-denoise img2img refine (experimental, off by default)
+          After 5★ upscale, also queue low-denoise img2img refine (experimental, off by
+          default; skipped for Lightning and Rapid AIO)
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-300">

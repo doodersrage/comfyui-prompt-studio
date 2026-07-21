@@ -406,17 +406,17 @@ Loader precision: queue injection detects **fp8 vs bf16** from existing workflow
 | Direct workflow patching | Patch `EmptyLatentImage`, loaders, LoadImage/Mask, UpscaleModel without placeholders |
 | Optimize workflows on queue | Auto-bind missing placeholders before injection |
 | Insert model-sampling nodes | Add `ModelSamplingFlux` / shift nodes when loader → KSampler is direct |
-| Auto upscale on 4–5★ | Upscale high-rated gallery outputs at Final quality (same pixels, on by default) |
-| Auto upscale on 5★ | Upscale five-star outputs at Max quality (same pixels, on by default; falls back to Lanczos if neural upscale map entry is missing or fails) |
-| Auto img2img refine on 5★ | Optional low-denoise refine after 5★ upscale (experimental, off by default) |
+| Auto improve on 4–5★ | Final-quality improve: upscale (same pixels); Rapid AIO → moiré clean; Lightning → re-queue new seed (on by default). When enabled, mutate/seed-experiment toggles only run if this path fails or is off |
+| Auto improve on 5★ | Max-quality improve (same model-aware paths as above; neural upscale falls back to Lanczos when the mapped file is missing) |
+| Auto img2img refine on 5★ | Optional low-denoise refine after 5★ upscale (experimental, off by default; skipped for Lightning and Rapid AIO) |
 | Subtle sharpen after upscale (Max) | Optional ImageSharpen — off by default to avoid waxy skin |
 | WebSocket progress | On by default — faster gallery job status via ComfyUI WebSocket |
 
-Gallery **5★** auto-improve upscales the rated output (Lanczos by default). Set an upscale model map entry only when that file exists in ComfyUI; missing entries fall back to Lanczos automatically.
+Gallery **5★** auto-improve is model-aware: standard models upscale, Rapid AIO runs moiré clean, Lightning re-queues a Final/Max seed. Set an upscale model map entry only when that file exists in ComfyUI; missing entries fall back to Lanczos automatically.
 
 Use **Optimize all in library** (Settings → workflow library) after importing community JSON so placeholders bind to your checkpoint/VAE filenames.
 
-Gallery card menus separate **Upscale** (same pixels), **Refine** (low-denoise img2img), and **New variation** (new seed). Bulk upscale is available from multi-select → Queue.
+Gallery card menus separate **Upscale** (same pixels), **Refine** (low-denoise img2img), **Clean moiré** (Rapid AIO), and **New variation** (new seed). Bulk actions from multi-select → Queue adapt labels to the selection.
 
 Preflight and **Workflow configuration** on gallery entries show unresolved tokens and the stored/effective params.
 

@@ -550,6 +550,37 @@ describe("workflow-graph-enrich", () => {
     assert.ok(result.changes.some((change) => /moiré|moire/i.test(change.message)));
   });
 
+  it("skips Final/Max Lanczos for Edit-2511 Lightning T2I", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-image-edit-2511-lightning-8",
+      qualityProfile: "final",
+      enrichSampling: false,
+    });
+
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) => (node as { class_type?: string }).class_type === "ImageScaleBy",
+      ),
+      false,
+    );
+    assert.ok(
+      result.changes.some((change) => /Skipped Final\/Max Lanczos for Edit/i.test(change.message)),
+    );
+  });
+
   it("skips Rapid AIO moiré polish on draft profile", () => {
     const workflow = {
       "7": {

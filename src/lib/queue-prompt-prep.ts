@@ -4,6 +4,7 @@ import { modelUsesNegativePrompt } from "./prompt-pair";
 import type { ComfyImageModel } from "./comfy-models/client";
 import {
   applyAnatomyGuardForModel,
+  applyAnatomyGuardToNegative,
   applyAnatomyGuardToPositive,
   type AnatomyGuardMode,
 } from "./anatomy-guard";
@@ -57,13 +58,10 @@ export function applyQueuePromptSteering(input: {
   const anatomyMode = input.anatomyMode ?? loadAnatomyGuardMode();
 
   if (isQwenLightningModel(input.model)) {
-    const positive = applyAnatomyGuardToPositive(
-      applyRenderRealismToPositive(input.positive, realismMode),
-      anatomyMode,
-    );
+    // CFG-1: skip long realism/anatomy positive suffixes — they soften distilled stacks.
     const explicit = input.negative?.trim();
     return {
-      positive,
+      positive: input.positive,
       negative:
         explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS
           ? explicit
@@ -71,23 +69,16 @@ export function applyQueuePromptSteering(input: {
     };
   }
 
-  // Rapid AIO is CFG-1 distilled (Lightning baked in) — skip long auto-negatives;
-  // keep short explicit + anti-moiré cues only.
+  // Rapid AIO is CFG-1 distilled (Lightning baked in) — skip long auto-negatives
+  // and long realism/anatomy positives; keep short anti-moiré cues only.
   if (isQwenRapidAioModel(input.model)) {
-    const positive = appendUniqueCsv(
-      applyAnatomyGuardToPositive(
-        applyRenderRealismToPositive(input.positive, realismMode),
-        anatomyMode,
-      ),
-      RAPID_AIO_MOIRE_POSITIVE,
-    );
     const explicit = input.negative?.trim();
     const shortExplicit =
       explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS
         ? explicit
         : undefined;
     return {
-      positive,
+      positive: appendUniqueCsv(input.positive, RAPID_AIO_MOIRE_POSITIVE),
       negative: appendUniqueCsv(shortExplicit, RAPID_AIO_MOIRE_NEGATIVE),
     };
   }

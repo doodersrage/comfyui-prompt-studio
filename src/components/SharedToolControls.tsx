@@ -18,6 +18,9 @@ import {
 } from "@/lib/model-workflow-map";
 import {
   filterModelsForQueueTool,
+  isSceneGenerationModel,
+  resolveTxt2iCounterpartForGenerate,
+  shouldUseSceneGenerationModel,
 } from "@/lib/queue-tool-model";
 import {
   normalizeModelSamplerPresetTier,
@@ -214,17 +217,27 @@ export default function SharedToolControls({
   );
 
   const pickerModels = useMemo(() => {
-    const workflowBacked =
-      supportedModels.source === "available_workflows" ||
-      supportedModels.source === "override";
     const filtered = filterModelsForQueueTool(supportedModels.models, toolId, {
-      workflowBacked,
+      includeEditModels: showAllModelsOverride,
     });
     if (filtered.length > 0) {
       return filtered;
     }
+    // Never fall back to an edit-heavy list on Generate — prefer scene models.
+    if (toolId && shouldUseSceneGenerationModel(toolId)) {
+      const sceneOnly = COMFY_IMAGE_MODELS.filter((entry) =>
+        isSceneGenerationModel(entry.id),
+      ).map((entry) => entry.id);
+      if (sceneOnly.length > 0) {
+        return sceneOnly;
+      }
+    }
     return supportedModels.models;
-  }, [supportedModels.models, supportedModels.source, toolId]);
+  }, [
+    showAllModelsOverride,
+    supportedModels.models,
+    toolId,
+  ]);
 
   const onWorkflowPresetChangeRef = useRef(onWorkflowPresetChange);
   const setWorkflowSelectedIdRef = useRef(workflowSelection.setSelectedId);
@@ -503,14 +516,31 @@ export default function SharedToolControls({
         />
         {toolId === "generate" &&
         /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
-          <p className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs leading-relaxed text-amber-100/85">
-            Edit-2511 Lightning on Generate runs as T2I (reference images
-            disconnected). For clean scene generation prefer{" "}
-            <span className="font-medium text-amber-50">
-              Qwen-Image-2512 Lightning
-            </span>
-            ; keep Edit Lightning for Refine / img2img.
-          </p>
+          <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2.5">
+            <p className="text-xs leading-relaxed text-amber-100/85">
+              Edit-2511 Lightning on Generate runs as T2I (reference images
+              disconnected). For clean scene generation prefer{" "}
+              <span className="font-medium text-amber-50">
+                Qwen-Image-2512 Lightning
+              </span>
+              ; keep Edit Lightning for Refine / img2img.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-8 px-3 text-xs"
+              onClick={() =>
+                handleModelChange(resolveTxt2iCounterpartForGenerate(shared.model))
+              }
+            >
+              Switch to{" "}
+              {
+                getComfyModelDefinition(
+                  resolveTxt2iCounterpartForGenerate(shared.model),
+                ).label
+              }
+            </Button>
+          </div>
         ) : null}
       </div>
 

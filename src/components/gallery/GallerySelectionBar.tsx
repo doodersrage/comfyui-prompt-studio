@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
 import type { PromptProject } from "@/lib/prompt-projects";
 import type { ParamExperimentAxis } from "@/lib/param-experiment-queue";
 import { Button } from "@/components/ui/Button";
+import {
+  galleryEntrySupportsMoireClean,
+  galleryEntrySupportsRefine,
+  galleryEntrySupportsUpscale,
+} from "@/lib/comfyui-requeue";
+import { isQwenRapidAioModel } from "@/lib/model-denoise-defaults";
+import { isQwenLightningModel } from "@/lib/model-sampling-patch";
 
 type GallerySelectionBarProps = {
   selectedCount: number;
@@ -107,12 +114,34 @@ function MenuItem(props: { label: string; onClick: () => void; disabled?: boolea
 }
 
 export default function GallerySelectionBar(props: GallerySelectionBarProps) {
+  const queueCapabilities = useMemo(() => {
+    const entries = props.selectedEntries;
+    const canUpscale = entries.some((entry) => galleryEntrySupportsUpscale(entry.model));
+    const canRefine = entries.some((entry) => galleryEntrySupportsRefine(entry.model));
+    const canMoire = entries.some((entry) =>
+      galleryEntrySupportsMoireClean(entry.model),
+    );
+    const allRapid =
+      entries.length > 0 &&
+      entries.every((entry) => isQwenRapidAioModel(entry.model));
+    const allLightning =
+      entries.length > 0 &&
+      entries.every((entry) => isQwenLightningModel(entry.model));
+    return { canUpscale, canRefine, canMoire, allRapid, allLightning };
+  }, [props.selectedEntries]);
+
   if (props.selectedCount === 0) {
     return null;
   }
 
   const singleSelected = props.selectedCount === 1;
   const compareReady = props.selectedCount >= 2 && props.selectedCount <= 4;
+  const upscaleFinalLabel = queueCapabilities.allRapid
+    ? "Bulk moiré clean (Final) — Rapid AIO"
+    : "Bulk upscale (Final)";
+  const upscaleMaxLabel = queueCapabilities.allRapid
+    ? "Bulk moiré clean (Max) — Rapid AIO"
+    : "Bulk upscale (Max)";
 
   return (
     <div className="sticky top-[var(--header-offset,0px)] z-20 rounded-2xl border border-violet-500/25 bg-zinc-950/90 p-3 shadow-[0_12px_40px_-24px_rgba(124,58,237,0.45)] backdrop-blur-md">
@@ -158,18 +187,52 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
         </ActionMenu>
 
         <ActionMenu label="Queue" disabled={props.selectedCount === 0}>
-          <MenuItem label="Bulk upscale (Final)" onClick={props.onBulkUpscaleFinal} />
-          <MenuItem label="Bulk upscale (Max)" onClick={props.onBulkUpscaleMax} />
-          <MenuItem label="Bulk refine (Final)" onClick={props.onBulkRefine} />
-          <MenuItem
-            label="Bulk clean moiré (Final)"
-            onClick={props.onBulkMoireCleanFinal}
-          />
-          <MenuItem
-            label="Bulk clean moiré (Max)"
-            onClick={props.onBulkMoireCleanMax}
-          />
-          <MenuItem label="Bulk new variation (new seeds)" onClick={props.onBulkRequeue} />
+          {queueCapabilities.canUpscale || queueCapabilities.allRapid ? (
+            <>
+              <MenuItem
+                label={upscaleFinalLabel}
+                onClick={
+                  queueCapabilities.allRapid
+                    ? props.onBulkMoireCleanFinal
+                    : props.onBulkUpscaleFinal
+                }
+              />
+              <MenuItem
+                label={upscaleMaxLabel}
+                onClick={
+                  queueCapabilities.allRapid
+                    ? props.onBulkMoireCleanMax
+                    : props.onBulkUpscaleMax
+                }
+              />
+            </>
+          ) : null}
+          {queueCapabilities.canRefine ? (
+            <MenuItem label="Bulk refine (Final)" onClick={props.onBulkRefine} />
+          ) : null}
+          {queueCapabilities.canMoire && !queueCapabilities.allRapid ? (
+            <>
+              <MenuItem
+                label="Bulk clean moiré (Final)"
+                onClick={props.onBulkMoireCleanFinal}
+              />
+              <MenuItem
+                label="Bulk clean moiré (Max)"
+                onClick={props.onBulkMoireCleanMax}
+              />
+            </>
+          ) : null}
+          {queueCapabilities.allLightning ? (
+            <MenuItem
+              label="Bulk new variation (Final, new seeds) — Lightning"
+              onClick={props.onBulkRequeue}
+            />
+          ) : (
+            <MenuItem
+              label="Bulk new variation (new seeds)"
+              onClick={props.onBulkRequeue}
+            />
+          )}
           <MenuItem label="Seed experiment" onClick={props.onSeedExperiment} disabled={!singleSelected} />
           <MenuItem
             label={`Param experiment (${props.paramAxis})`}

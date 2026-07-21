@@ -142,8 +142,10 @@ export default function QueueQualityProfileHints({
           </>
         ) : /lightning-(4|8)\b/i.test(shared.model) ? (
           <>
-            Lightning: CFG-1 short negatives, native square T2I. Final/Max may add light Lanczos;
-            gallery Upscale/Refine are disabled — re-queue with a new seed instead.
+            Lightning: CFG-1 short negatives (no long realism/anatomy positives). Final/Max
+            add Lanczos on native 2512 Lightning — Draft stays native. Edit Lightning T2I
+            skips Lanczos. Gallery Upscale/Refine are disabled — re-queue with a new seed
+            instead.
           </>
         ) : (
           <>

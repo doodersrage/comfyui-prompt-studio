@@ -117,10 +117,10 @@ export function resolveModelForPromptGeneration(
 
 export type FilterModelsForQueueToolOptions = {
   /**
-   * When true (workflow library matches / show-all override), keep every matched
-   * model — including edit Lightning presets the user just imported.
+   * When true, show-all / override mode — keep edit models even on Generate.
+   * Workflow-backed catalogs still prefer scene models when any exist.
    */
-  workflowBacked?: boolean;
+  includeEditModels?: boolean;
 };
 
 export function filterModelsForQueueTool(
@@ -128,10 +128,22 @@ export function filterModelsForQueueTool(
   tool?: string,
   options?: FilterModelsForQueueToolOptions,
 ): ComfyImageModel[] {
-  if (!shouldUseSceneGenerationModel(tool) || options?.workflowBacked) {
+  if (!shouldUseSceneGenerationModel(tool)) {
     return models;
   }
-  return models.filter((model) => isSceneGenerationModel(model));
+  if (options?.includeEditModels) {
+    return models;
+  }
+  const scene = models.filter((model) => isSceneGenerationModel(model));
+  // Prefer scene models; only keep the full list if nothing scene-capable remains.
+  return scene.length > 0 ? scene : models;
+}
+
+/** T2I counterpart for an edit/inpaint preset (e.g. Edit-2511 Lightning → 2512 Lightning). */
+export function resolveTxt2iCounterpartForGenerate(
+  model: ComfyImageModel | string,
+): ComfyImageModel {
+  return inferTxt2iCounterpart(normalizeModel(model));
 }
 
 const EDIT_INSTRUCTION_LEAD =

@@ -943,7 +943,7 @@ export function isNativeLightningWorkflowReady(
       continue;
     }
 
-    let modelLink = getLinkedNodeId(node.inputs.model);
+    const modelLink = getLinkedNodeId(node.inputs.model);
     // SamplerCustom graphs often put the model on the guider instead.
     if (!modelLink) {
       continue;

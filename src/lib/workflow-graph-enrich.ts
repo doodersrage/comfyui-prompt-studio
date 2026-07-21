@@ -8,6 +8,7 @@ import {
   profileUsesUpscaleEnrich,
   profileUsesLightningUpscalePolish,
   profileUsesRapidAioMoirePolish,
+  profileSkipsOutputUpscaleForModel,
   neuralUpscaleTileSizeForProfile,
   sdxlRefinerDenoiseForProfile,
   sdxlRefinerLatentScaleForProfile,
@@ -818,16 +819,25 @@ function enrichUpscaleNodes(input: {
   availableUpscaleModels?: string[] | null;
   supportsNeuralUpscaleTileSize?: boolean;
 }): WorkflowQueueOptimizeChange[] {
-  // Final/Max Lanczos/neural upscale re-amplifies Rapid AIO screen-door / moiré.
-  // Keep native decode + dedicated moiré polish instead.
-  if (isQwenRapidAioModel(input.model)) {
-    if (profileUsesUpscaleEnrich(input.qualityProfile)) {
+  // Rapid AIO / Edit Lightning T2I: skip Final/Max output upscale (moiré or mush).
+  if (profileSkipsOutputUpscaleForModel(input.qualityProfile, { model: input.model })) {
+    if (isQwenRapidAioModel(input.model)) {
       return [
         {
           kind: "audit",
           severity: "info",
           message:
             "Skipped Final/Max output upscale for Rapid AIO (re-amplifies moiré) — moiré polish runs instead.",
+        },
+      ];
+    }
+    if (/qwen-image-edit-2511-lightning/i.test(String(input.model ?? ""))) {
+      return [
+        {
+          kind: "audit",
+          severity: "info",
+          message:
+            "Skipped Final/Max Lanczos for Edit-2511 Lightning T2I (enlarges soft artifacts) — keep native decode.",
         },
       ];
     }
