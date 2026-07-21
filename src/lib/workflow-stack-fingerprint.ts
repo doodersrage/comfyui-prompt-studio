@@ -251,9 +251,12 @@ export function extractWorkflowStackFingerprint(
       classType === "ModelSamplingSD3" ||
       classType === "ModelSamplingAuraFlow"
     ) {
-      const shift = coerceLoaderFilename(inputs.shift);
-      if (shift && isBindablePlaceholder(shift)) {
-        hasUnresolvedModelSamplingShift = true;
+      for (const field of ["shift", "max_shift", "base_shift"] as const) {
+        const value = coerceLoaderFilename(inputs[field]);
+        if (value && isBindablePlaceholder(value)) {
+          hasUnresolvedModelSamplingShift = true;
+          break;
+        }
       }
     }
   }
@@ -391,9 +394,9 @@ export function auditWorkflowStackCompatibility(input: {
 
   if (fingerprint.hasUnresolvedModelSamplingShift) {
     issues.push({
-      severity: "error",
+      severity: "warn",
       message:
-        "ModelSampling node still has unresolved {{SHIFT}} — run Optimize all or pick a scaffold for this model family.",
+        "ModelSampling still has unresolved {{SHIFT}} or Flux shift placeholders — Prompt Studio resolves these when you queue; run Optimize all to save concrete values in the library.",
     });
   }
 

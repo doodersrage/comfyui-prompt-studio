@@ -10,6 +10,8 @@ import {
   optimizeWorkflowForQueue,
   suggestedOptimizedWorkflowName,
 } from "./workflow-queue-optimizer.ts";
+import { buildWorkflowScaffoldForModel } from "./workflow-scaffold.ts";
+import { workflowContentHash } from "./workflow-content-hash.ts";
 
 const FULL_TOKENS = {
   positive: DEFAULT_POSITIVE_TOKEN,
@@ -107,6 +109,143 @@ describe("workflow-queue-optimizer", () => {
 
     assert.match(result.workflowJson, /\{\{NEGATIVE\}\}/);
     assert.doesNotMatch(result.workflowJson, /\{\{POSITIVE\}\}.*\{\{POSITIVE\}\}/);
+  });
+
+  it("resolves model-sampling shift placeholders during optimize", () => {
+    const result = optimizeWorkflowForQueue({
+      workflow: {
+        "2": {
+          class_type: "ModelSamplingAuraFlow",
+          inputs: { model: ["1", 0], shift: "{{SHIFT}}" },
+        },
+      },
+      tokens: FULL_TOKENS,
+      model: "flux-2-klein-9b-distilled",
+    });
+
+    assert.equal(
+      (result.workflow["2"] as { inputs: { shift: number } }).inputs.shift,
+      1.73,
+    );
+    assert.doesNotMatch(result.workflowJson, /\{\{SHIFT\}\}/);
+  });
+
+  it("still applies Final/Max enrich when skipIfUnchanged hash matches", () => {
+    const scaffold = buildWorkflowScaffoldForModel("qwen-image-2512-lightning-8");
+    const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
+    const workflowJson = JSON.stringify(workflow, null, 2);
+    const contentHash = workflowContentHash(workflowJson);
+
+    const result = optimizeWorkflowForQueue({
+      workflow,
+      tokens: FULL_TOKENS,
+      model: "qwen-image-2512-lightning-8",
+      qualityProfile: "final",
+      skipIfUnchanged: true,
+      contentHash,
+    });
+
+    assert.match(result.workflowJson, /Prompt Studio — output upscale/);
+  });
+
+  it("inserts Lightning Lanczos upscale + polish for final/max quality", () => {
+    const scaffold = buildWorkflowScaffoldForModel("qwen-image-2512-lightning-8");
+    const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
+
+    const result = optimizeWorkflowForQueue({
+      workflow,
+      tokens: FULL_TOKENS,
+      model: "qwen-image-2512-lightning-8",
+      qualityProfile: "max",
+    });
+
+    assert.match(result.workflowJson, /Prompt Studio — output upscale/);
+    assert.match(result.workflowJson, /"upscale_method": "lanczos"/);
+    assert.match(result.workflowJson, /Prompt Studio — Lightning upscale polish/);
+    assert.doesNotMatch(result.workflowJson, /Prompt Studio — neural upscale/);
+    assert.doesNotMatch(result.workflowJson, /Prompt Studio — Lightning hires pass/);
+    assert.doesNotMatch(result.workflowJson, /Prompt Studio — output sharpen/);
+    assert.match(result.workflowJson, /LoraLoader/);
+    assert.match(result.workflowJson, /ModelSamplingAuraFlow/);
+  });
+
+  it("does not insert Lightning upscale enrich on draft quality", async () => {
+    const { enrichWorkflowGraph } = await import("./workflow-graph-enrich.ts");
+    const workflow = {
+      "7": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 8,
+          cfg: 1,
+          sampler_name: "euler",
+          scheduler: "simple",
+          denoise: 1,
+          model: ["1", 0],
+          positive: ["4", 0],
+          negative: ["5", 0],
+          latent_image: ["6", 0],
+        },
+      },
+      "9": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["7", 0], vae: ["3", 0] },
+      },
+      "10": {
+        class_type: "SaveImage",
+        inputs: { images: ["9", 0], filename_prefix: "x" },
+      },
+    };
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: FULL_TOKENS,
+      model: "qwen-image-2512-lightning-8",
+      qualityProfile: "draft",
+    });
+    assert.equal(result.changes.length, 0);
+    assert.doesNotMatch(JSON.stringify(result.workflow), /output upscale/);
+  });
+
+  it("skips graph enrich for imported ComfyUI workflows without Prompt Studio placeholders", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 8,
+          cfg: 1,
+          sampler_name: "euler",
+          scheduler: "simple",
+          denoise: 1,
+          model: ["1", 0],
+          positive: ["4", 0],
+          negative: ["5", 0],
+          latent_image: ["6", 0],
+        },
+      },
+      "9": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["8", 0], vae: ["3", 0] },
+      },
+      "10": {
+        class_type: "SaveImage",
+        inputs: { images: ["9", 0], filename_prefix: "ComfyUI" },
+      },
+    };
+
+    const result = optimizeWorkflowForQueue({
+      workflow,
+      tokens: FULL_TOKENS,
+      model: "qwen-image-2512-lightning-8",
+      qualityProfile: "final",
+    });
+
+    assert.doesNotMatch(result.workflowJson, /Prompt Studio — output upscale/);
+    assert.doesNotMatch(result.workflowJson, /ImageScaleBy/);
   });
 
   it("suggests optimized workflow names", () => {

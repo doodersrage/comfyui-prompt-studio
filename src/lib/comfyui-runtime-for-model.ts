@@ -19,6 +19,8 @@ import {
   extractWorkflowStackFingerprint,
   workflowStackMatchesModel,
 } from "./workflow-stack-fingerprint";
+import { isQwenLightningModel } from "./model-sampling-patch";
+import { workflowHasLoraLoader } from "./workflow-lightning-queue";
 
 function resolveStackCompatibleWorkflowRuntime(
   model: ComfyImageModel,
@@ -31,13 +33,35 @@ function resolveStackCompatibleWorkflowRuntime(
 
   const fingerprint = extractWorkflowStackFingerprint(base.workflowJson);
   if (!fingerprint.isMixed && workflowStackMatchesModel(fingerprint, model)) {
-    return base;
+    if (isQwenLightningModel(model)) {
+      try {
+        const parsed = JSON.parse(base.workflowJson) as Record<string, unknown>;
+        if (workflowHasLoraLoader(parsed)) {
+          return base;
+        }
+      } catch {
+        return base;
+      }
+    } else {
+      return base;
+    }
   }
 
   const ranked = rankWorkflowFilesForModel(model, workflowFiles);
   const replacement = ranked.find((entry) => {
-    const candidate = extractWorkflowStackFingerprint(entry.file.workflowJson);
-    return !candidate.isMixed && workflowStackMatchesModel(candidate, model);
+    try {
+      const candidate = extractWorkflowStackFingerprint(entry.file.workflowJson);
+      if (candidate.isMixed || !workflowStackMatchesModel(candidate, model)) {
+        return false;
+      }
+      if (isQwenLightningModel(model)) {
+        const parsed = JSON.parse(entry.file.workflowJson) as Record<string, unknown>;
+        return workflowHasLoraLoader(parsed);
+      }
+      return true;
+    } catch {
+      return false;
+    }
   });
   if (!replacement) {
     return base;
@@ -62,17 +86,23 @@ export function resolveRuntimeForModel(
 ): ComfyUiRuntimeConfig {
   const shared = loadSettingsCache().shared;
   const workflowFiles = loadComfyWorkflowFiles();
-  const workflowId =
-    (shared.autoSelectWorkflowForModel !== false
+  const manualId = getSelectedWorkflowFileId();
+  const mappedId = resolveWorkflowForModel(model, shared.modelWorkflowMap);
+  const autoId =
+    shared.autoSelectWorkflowForModel !== false
       ? resolveWorkflowForModelSelection(model, {
           map: shared.modelWorkflowMap,
           workflowFiles,
           tool,
         })
-      : resolveWorkflowForModel(model, shared.modelWorkflowMap)) ??
-    getSelectedWorkflowFileId();
+      : undefined;
+  // Explicit map assignment, then the workflow picker selection, then auto-ranked default.
+  const workflowId = mappedId ?? manualId ?? autoId;
   const base = workflowId ? resolveSelectedWorkflowRuntime(workflowId) : undefined;
-  const stackCompatible = resolveStackCompatibleWorkflowRuntime(model, base, workflowFiles);
+  const trustManualSelection = Boolean(manualId?.trim() && workflowId === manualId);
+  const stackCompatible = trustManualSelection
+    ? base
+    : resolveStackCompatibleWorkflowRuntime(model, base, workflowFiles);
   return {
     ...(stackCompatible ?? {}),
     directWorkflowPatching: shared.directWorkflowPatching !== false,

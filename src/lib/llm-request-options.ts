@@ -1,4 +1,4 @@
-import { allowTemplateFallback, getLlmTemperature } from "./llm-client";
+import { allowTemplateFallback, getLlmTemperature } from "./llm-env";
 import type { SharedToolSettings } from "./settings-cache";
 
 export type LlmRequestOptions = {

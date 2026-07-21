@@ -6,6 +6,7 @@ import {
   getModelResolutionPreset,
   RESOLUTION_ORIENTATION_OPTIONS,
   RESOLUTION_SIZE_TIER_OPTIONS,
+  resolutionOrientationsForModel,
   type ResolutionOrientation,
   type ResolutionSizeTier,
 } from "@/lib/model-resolution-defaults";
@@ -30,6 +31,10 @@ export default function ModelResolutionHints({
   const activeTier =
     RESOLUTION_SIZE_TIER_OPTIONS.find((option) => option.id === sizeTier) ??
     RESOLUTION_SIZE_TIER_OPTIONS[1];
+  const allowedOrientations = new Set(resolutionOrientationsForModel(model));
+  const orientationOptions = RESOLUTION_ORIENTATION_OPTIONS.filter((option) =>
+    allowedOrientations.has(option.id),
+  );
 
   return (
     <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2.5">
@@ -42,7 +47,7 @@ export default function ModelResolutionHints({
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-1.5">
-            {RESOLUTION_ORIENTATION_OPTIONS.map((option) => (
+            {orientationOptions.map((option) => (
               <ChipButton
                 key={option.id}
                 active={orientation === option.id}

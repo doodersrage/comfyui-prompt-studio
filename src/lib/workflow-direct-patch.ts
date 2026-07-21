@@ -5,6 +5,7 @@ import {
   DEFAULT_VAE_TOKEN,
   type ModelLoaderFilenames,
 } from "./model-checkpoint-map";
+import { precisionHintFromFilename } from "./model-loader-precision";
 import {
   DEFAULT_CONTROLNET_MODEL_TOKEN,
   DEFAULT_CONTROL_IMAGE_TOKEN,
@@ -93,6 +94,26 @@ function shouldPatchLoaderFilenameField(
     return false;
   }
   return current == null || current === "";
+}
+
+/** Overwrite concrete loader filenames when queue resolved a different precision tier. */
+function shouldAlignLoaderPrecision(current: unknown, nextValue: string | undefined): boolean {
+  if (!nextValue?.trim() || typeof current !== "string") {
+    return false;
+  }
+  if (isUnresolvedWorkflowPlaceholder(current)) {
+    return false;
+  }
+  const currentTier = precisionHintFromFilename(current.trim());
+  const nextTier = precisionHintFromFilename(nextValue.trim());
+  if (!currentTier || !nextTier || currentTier === nextTier) {
+    return false;
+  }
+  // Never downgrade concrete bf16/fp16 weights to fp8 at queue time.
+  if (currentTier === "bf16" && nextTier === "fp8") {
+    return false;
+  }
+  return true;
 }
 
 function shouldPatchClipFilename(
@@ -208,7 +229,8 @@ export function patchLoaderNodesInWorkflow(
       loaders.checkpoint &&
       CHECKPOINT_LOADER_TYPES.has(classType) &&
       "ckpt_name" in inputs &&
-      shouldPatchLoaderFilenameField(inputs.ckpt_name, loaders.checkpoint, syncLoadersToModel)
+      (shouldPatchLoaderFilenameField(inputs.ckpt_name, loaders.checkpoint, syncLoadersToModel) ||
+        shouldAlignLoaderPrecision(inputs.ckpt_name, loaders.checkpoint))
     ) {
       inputs.ckpt_name = loaders.checkpoint;
       patched.checkpoint = (patched.checkpoint ?? 0) + 1;
@@ -218,7 +240,8 @@ export function patchLoaderNodesInWorkflow(
       loaders.unet &&
       UNET_LOADER_TYPES.has(classType) &&
       "unet_name" in inputs &&
-      shouldPatchLoaderFilenameField(inputs.unet_name, loaders.unet, syncLoadersToModel)
+      (shouldPatchLoaderFilenameField(inputs.unet_name, loaders.unet, syncLoadersToModel) ||
+        shouldAlignLoaderPrecision(inputs.unet_name, loaders.unet))
     ) {
       inputs.unet_name = loaders.unet;
       patched.unet = (patched.unet ?? 0) + 1;
@@ -238,7 +261,8 @@ export function patchLoaderNodesInWorkflow(
       for (const field of ["clip_name1", "clip_name2"] as const) {
         if (
           field in inputs &&
-          shouldPatchClipFilename(inputs[field], loaders.dualClip, syncLoadersToModel)
+          (shouldPatchClipFilename(inputs[field], loaders.dualClip, syncLoadersToModel) ||
+            shouldAlignLoaderPrecision(inputs[field], loaders.dualClip))
         ) {
           inputs[field] = loaders.dualClip;
           patched.dualClip = (patched.dualClip ?? 0) + 1;
@@ -250,7 +274,8 @@ export function patchLoaderNodesInWorkflow(
       loaders.dualClip &&
       CLIP_LOADER_TYPES.has(classType) &&
       "clip_name" in inputs &&
-      shouldPatchClipFilename(inputs.clip_name, loaders.dualClip, syncLoadersToModel)
+      (shouldPatchClipFilename(inputs.clip_name, loaders.dualClip, syncLoadersToModel) ||
+        shouldAlignLoaderPrecision(inputs.clip_name, loaders.dualClip))
     ) {
       inputs.clip_name = loaders.dualClip;
       patched.dualClip = (patched.dualClip ?? 0) + 1;
@@ -572,7 +597,7 @@ export function patchImageResizeNodesInWorkflow(
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
-  const resizeTypes = new Set(["ImageScale", IMAGE_SCALE_BY_NODE_TYPE, "ResizeImage"]);
+  const resizeTypes = new Set(["ImageScale", "ResizeImage"]);
 
   for (const node of Object.values(next)) {
     if (!node || typeof node !== "object") {

@@ -1548,6 +1548,7 @@ describe("model workflow map", () => {
     assert.equal(supported.source, "available_workflows");
     assert.ok(supported.models.includes("flux-2-klein"));
     assert.ok(supported.models.includes("qwen-image-2512"));
+    assert.ok(supported.models.includes("qwen-image-2512-lightning-8"));
     assert.ok(supported.models.includes("sdxl-base"));
 
     const override = modelsSupportedByAvailableWorkflows({
@@ -1557,6 +1558,29 @@ describe("model workflow map", () => {
     });
     assert.equal(override.source, "override");
     assert.ok(override.models.length > supported.models.length);
+  });
+
+  it("keeps vanilla Qwen selectable when only Lightning is mapped", async () => {
+    const { modelsSupportedByAvailableWorkflows } = await import("./model-workflow-map");
+    const supported = modelsSupportedByAvailableWorkflows({
+      map: { "qwen-image-2512-lightning-8": "wf-lightning" },
+      workflowFiles: [
+        {
+          id: "wf-lightning",
+          name: "Qwen Lightning 8",
+          filename: "qwen-lightning-8.json",
+        },
+        {
+          id: "wf-vanilla",
+          name: "Qwen 2512 vanilla",
+          filename: "qwen-image-2512.json",
+        },
+      ],
+      currentModel: "qwen-image-2512-lightning-8",
+    });
+    assert.ok(supported.models.includes("qwen-image-2512"));
+    assert.ok(supported.models.includes("qwen-image-2512-lightning-4"));
+    assert.ok(supported.models.includes("qwen-image-2512-lightning-8"));
   });
 });
 
@@ -1691,6 +1715,24 @@ describe("context negative profile", () => {
     });
     assert.equal(profile?.id, "pet");
   });
+
+  it("defaults to qwen-general for qwen models", async () => {
+    const { resolveContextNegativeProfile } = await import("./context-negative-profile");
+    const profile = resolveContextNegativeProfile(undefined, undefined, {
+      model: "qwen-image-2512",
+      hints: "city street at dusk",
+    });
+    assert.equal(profile?.id, "qwen-general");
+  });
+
+  it("uses qwen-portrait for portrait hints on qwen models", async () => {
+    const { resolveContextNegativeProfile } = await import("./context-negative-profile");
+    const profile = resolveContextNegativeProfile(undefined, undefined, {
+      model: "qwen-image-2512-lightning-8",
+      hints: "portrait headshot",
+    });
+    assert.equal(profile?.id, "qwen-portrait");
+  });
 });
 
 describe("gallery mutations", () => {
@@ -1771,6 +1813,71 @@ describe("comfyui runtime queue params", () => {
     const params = ensureQueueLoaderParams({ seed: "1" }, "flux-2-klein-9b");
     assert.equal(params.unetFilename, "flux-2-klein-9b.safetensors");
     assert.equal(params.vaeFilename, "flux2-vae.safetensors");
+  });
+
+  it("uses lightning-native resolution on the server when overrides omit size", async () => {
+    const { resolveQueueParams } = await import("./comfyui-config");
+    const params = resolveQueueParams(undefined, { seed: "42" }, {
+      model: "qwen-image-2512-lightning-8",
+    });
+    assert.equal(params.width, "1328");
+    assert.equal(params.height, "1328");
+    assert.equal(params.steps, "8");
+    assert.equal(params.cfg, "1");
+  });
+
+  it("bumps sub-native lightning overrides to 1328 on the server merge path", async () => {
+    const { resolveQueueParams } = await import("./comfyui-config");
+    const params = resolveQueueParams(
+      { queueParams: { width: "1024", height: "1024", steps: "20", cfg: "4" } },
+      {},
+      { model: "qwen-image-2512-lightning-8" },
+    );
+    assert.equal(params.width, "1328");
+    assert.equal(params.height, "1328");
+    assert.equal(params.steps, "8");
+    assert.equal(params.cfg, "1");
+    assert.equal(params.samplerName, "euler");
+    assert.equal(params.scheduler, "simple");
+  });
+
+  it("injects native lightning latent size even when workflow JSON still says 1024", async () => {
+    const {
+      injectPromptsWithFallbacks,
+      resolvePlaceholderTokens,
+      resolveQueueParams,
+    } = await import("./comfyui-config");
+    const tokens = resolvePlaceholderTokens();
+    const result = injectPromptsWithFallbacks(
+      {
+        "6": {
+          class_type: "EmptyLatentImage",
+          inputs: { width: 1024, height: 1024, batch_size: 1 },
+        },
+        "8": {
+          class_type: "KSampler",
+          inputs: { steps: 20, cfg: 4, seed: 1, sampler_name: "dpmpp_2m", scheduler: "karras" },
+        },
+      },
+      {
+        positive: "test prompt",
+        params: resolveQueueParams(undefined, {}, { model: "qwen-image-2512-lightning-8" }),
+      },
+      tokens,
+      {
+        model: "qwen-image-2512-lightning-8",
+        loaders: {
+          unet: "qwen_image_2512_bf16.safetensors",
+          dualClip: "qwen_2.5_vl_7b.safetensors",
+        },
+      },
+    );
+    const latent = (result.workflow["6"] as { inputs: { width: number; height: number } }).inputs;
+    assert.equal(latent.width, 1328);
+    assert.equal(latent.height, 1328);
+    const sampler = (result.workflow["8"] as { inputs: { steps: number; cfg: number } }).inputs;
+    assert.equal(sampler.steps, 8);
+    assert.equal(sampler.cfg, 1);
   });
 
   it("replaces UNET and VAE placeholders during injection", async () => {

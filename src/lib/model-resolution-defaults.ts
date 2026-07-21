@@ -6,8 +6,16 @@ import {
   type ComfyModelCategory,
 } from "./comfy-models";
 import type { WorkflowParamValues } from "./comfyui-config";
+import { isQwenLightningModel } from "./model-sampling-patch";
 
-export type ResolutionOrientation = "portrait" | "landscape" | "square";
+export type ResolutionOrientation =
+  | "portrait"
+  | "landscape"
+  | "square"
+  | "portrait-34"
+  | "landscape-43"
+  | "portrait-23"
+  | "landscape-32";
 export type ResolutionSizeTier = "small" | "medium" | "max";
 
 export const DEFAULT_RESOLUTION_ORIENTATION: ResolutionOrientation = "square";
@@ -20,20 +28,69 @@ export const RESOLUTION_ORIENTATION_OPTIONS: {
 }[] = [
   {
     id: "square",
-    label: "Square",
-    description: "Balanced framing for subjects and scenes.",
+    label: "1:1",
+    description: "Official Qwen 1328² / balanced framing.",
   },
   {
     id: "portrait",
-    label: "Portrait",
-    description: "Taller canvas — people, fashion, posters.",
+    label: "9:16",
+    description: "Tall poster framing (928×1664 on Qwen).",
   },
   {
     id: "landscape",
-    label: "Landscape",
-    description: "Wider canvas — environments and cinematic shots.",
+    label: "16:9",
+    description: "Wide cinematic framing (1664×928 on Qwen).",
+  },
+  {
+    id: "portrait-34",
+    label: "3:4",
+    description: "Classic portrait (1104×1472 on Qwen).",
+  },
+  {
+    id: "landscape-43",
+    label: "4:3",
+    description: "Classic landscape (1472×1104 on Qwen).",
+  },
+  {
+    id: "portrait-23",
+    label: "2:3",
+    description: "Photo portrait (1056×1584 on Qwen).",
+  },
+  {
+    id: "landscape-32",
+    label: "3:2",
+    description: "Photo landscape (1584×1056 on Qwen).",
   },
 ];
+
+/** Core chips always shown; extra official Qwen ARs shown for Qwen models. */
+export const RESOLUTION_ORIENTATION_CORE: ResolutionOrientation[] = [
+  "square",
+  "portrait",
+  "landscape",
+];
+
+export const RESOLUTION_ORIENTATION_QWEN_EXTRA: ResolutionOrientation[] = [
+  "portrait-34",
+  "landscape-43",
+  "portrait-23",
+  "landscape-32",
+];
+
+export function resolutionOrientationsForModel(
+  model: ComfyImageModel | string,
+): ResolutionOrientation[] {
+  const category = COMFY_MODEL_IDS.has(model)
+    ? getComfyModelDefinition(model).category
+    : "other-dit";
+  if (category === "qwen" || /qwen/i.test(model)) {
+    return [
+      ...RESOLUTION_ORIENTATION_CORE,
+      ...RESOLUTION_ORIENTATION_QWEN_EXTRA,
+    ];
+  }
+  return RESOLUTION_ORIENTATION_CORE;
+}
 
 export const RESOLUTION_SIZE_TIER_OPTIONS: {
   id: ResolutionSizeTier;
@@ -63,7 +120,55 @@ export type ModelResolutionPreset = {
 };
 
 type OrientationPresets = Record<ResolutionSizeTier, ModelResolutionPreset>;
-type CategoryResolutionPresets = Record<ResolutionOrientation, OrientationPresets>;
+type CategoryResolutionPresets = {
+  square: OrientationPresets;
+  portrait: OrientationPresets;
+  landscape: OrientationPresets;
+} & Partial<
+  Record<
+    "portrait-34" | "landscape-43" | "portrait-23" | "landscape-32",
+    OrientationPresets
+  >
+>;
+
+/** Official Qwen-Image-2512 aspect sizes (ComfyUI native template). */
+const QWEN_OFFICIAL_ARS = {
+  square: {
+    small: { width: 1024, height: 1024 },
+    medium: { width: 1328, height: 1328 },
+    max: { width: 1328, height: 1328 },
+  },
+  portrait: {
+    small: { width: 768, height: 1344 },
+    medium: { width: 928, height: 1664 },
+    max: { width: 928, height: 1664 },
+  },
+  landscape: {
+    small: { width: 1344, height: 768 },
+    medium: { width: 1664, height: 928 },
+    max: { width: 1664, height: 928 },
+  },
+  "portrait-34": {
+    small: { width: 896, height: 1152 },
+    medium: { width: 1104, height: 1472 },
+    max: { width: 1104, height: 1472 },
+  },
+  "landscape-43": {
+    small: { width: 1152, height: 896 },
+    medium: { width: 1472, height: 1104 },
+    max: { width: 1472, height: 1104 },
+  },
+  "portrait-23": {
+    small: { width: 832, height: 1216 },
+    medium: { width: 1056, height: 1584 },
+    max: { width: 1056, height: 1584 },
+  },
+  "landscape-32": {
+    small: { width: 1216, height: 832 },
+    medium: { width: 1584, height: 1056 },
+    max: { width: 1584, height: 1056 },
+  },
+} as const satisfies CategoryResolutionPresets;
 
 const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolutionPresets> = {
   "stable-diffusion": {
@@ -134,23 +239,7 @@ const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolution
       max: { width: 1536, height: 1024 },
     },
   },
-  qwen: {
-    square: {
-      small: { width: 768, height: 768 },
-      medium: { width: 1024, height: 1024 },
-      max: { width: 1328, height: 1328 },
-    },
-    portrait: {
-      small: { width: 768, height: 1024 },
-      medium: { width: 928, height: 1664 },
-      max: { width: 1024, height: 1536 },
-    },
-    landscape: {
-      small: { width: 1024, height: 768 },
-      medium: { width: 1664, height: 928 },
-      max: { width: 1536, height: 1024 },
-    },
-  },
+  qwen: QWEN_OFFICIAL_ARS,
   hunyuan: {
     square: {
       small: { width: 768, height: 768 },
@@ -296,90 +385,24 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
       max: { width: 1280, height: 1024 },
     },
   },
-  "qwen-image-2512": {
-    square: {
-      medium: { width: 1024, height: 1024 },
-      max: { width: 1328, height: 1328 },
-    },
-    portrait: {
-      medium: { width: 928, height: 1664 },
-      max: { width: 1024, height: 1536 },
-    },
-    landscape: {
-      medium: { width: 1664, height: 928 },
-      max: { width: 1536, height: 1024 },
-    },
-  },
-  "qwen-image-2512-lightning-4": {
-    square: {
-      medium: { width: 1024, height: 1024 },
-      max: { width: 1328, height: 1328 },
-    },
-    portrait: {
-      medium: { width: 928, height: 1664 },
-      max: { width: 1024, height: 1536 },
-    },
-    landscape: {
-      medium: { width: 1664, height: 928 },
-      max: { width: 1536, height: 1024 },
-    },
-  },
-  "qwen-image-2512-lightning-8": {
-    square: {
-      medium: { width: 1024, height: 1024 },
-      max: { width: 1328, height: 1328 },
-    },
-    portrait: {
-      medium: { width: 928, height: 1664 },
-      max: { width: 1024, height: 1536 },
-    },
-    landscape: {
-      medium: { width: 1664, height: 928 },
-      max: { width: 1536, height: 1024 },
-    },
-  },
+  "qwen-image-2512": QWEN_OFFICIAL_ARS,
+  "qwen-image-2512-lightning-4": QWEN_OFFICIAL_ARS,
+  "qwen-image-2512-lightning-8": QWEN_OFFICIAL_ARS,
   "qwen-image-edit-2511-lightning-4": {
-    square: {
-      medium: { width: 1024, height: 1024 },
-      max: { width: 1328, height: 1328 },
-    },
+    square: QWEN_OFFICIAL_ARS.square,
   },
   "qwen-image-edit-2511-lightning-8": {
-    square: {
-      medium: { width: 1024, height: 1024 },
-      max: { width: 1328, height: 1328 },
-    },
+    square: QWEN_OFFICIAL_ARS.square,
   },
-  "qwen-rapid-aio-edit": {
-    square: {
-      medium: { width: 1024, height: 1024 },
-      max: { width: 1328, height: 1328 },
-    },
-    portrait: {
-      medium: { width: 928, height: 1664 },
-      max: { width: 1024, height: 1536 },
-    },
-    landscape: {
-      medium: { width: 1664, height: 928 },
-      max: { width: 1536, height: 1024 },
-    },
-  },
+  "qwen-rapid-aio-edit": QWEN_OFFICIAL_ARS,
   "qwen-rapid-aio-sfw": {
-    square: {
-      medium: { width: 1024, height: 1024 },
-      max: { width: 1328, height: 1328 },
-    },
+    square: QWEN_OFFICIAL_ARS.square,
   },
   "qwen-rapid-aio-nsfw": {
-    square: {
-      medium: { width: 1024, height: 1024 },
-      max: { width: 1328, height: 1328 },
-    },
+    square: QWEN_OFFICIAL_ARS.square,
   },
   "qwen-image-2.0": {
-    square: {
-      max: { width: 1328, height: 1328 },
-    },
+    square: QWEN_OFFICIAL_ARS.square,
   },
   "sd15-instruct-pix2pix": {
     square: {
@@ -394,10 +417,33 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
 };
 
 export function normalizeResolutionOrientation(value: unknown): ResolutionOrientation {
-  if (value === "portrait" || value === "landscape" || value === "square") {
+  if (
+    value === "portrait" ||
+    value === "landscape" ||
+    value === "square" ||
+    value === "portrait-34" ||
+    value === "landscape-43" ||
+    value === "portrait-23" ||
+    value === "landscape-32"
+  ) {
     return value;
   }
   return DEFAULT_RESOLUTION_ORIENTATION;
+}
+
+function fallbackResolutionOrientation(
+  orientation: ResolutionOrientation,
+): "square" | "portrait" | "landscape" {
+  if (orientation === "portrait-34" || orientation === "portrait-23") {
+    return "portrait";
+  }
+  if (orientation === "landscape-43" || orientation === "landscape-32") {
+    return "landscape";
+  }
+  if (orientation === "portrait" || orientation === "landscape" || orientation === "square") {
+    return orientation;
+  }
+  return "square";
 }
 
 export function normalizeResolutionSizeTier(value: unknown): ResolutionSizeTier {
@@ -415,17 +461,22 @@ export function getModelResolutionPreset(
   const normalized = COMFY_MODEL_IDS.has(model) ? model : DEFAULT_COMFY_MODEL;
   const normalizedOrientation = normalizeResolutionOrientation(orientation);
   const normalizedTier = normalizeResolutionSizeTier(tier);
+  const fallbackOrientation = fallbackResolutionOrientation(normalizedOrientation);
 
+  const modelPresets = MODEL_RESOLUTION_PRESETS[normalized as ComfyImageModel];
   const modelOverride =
-    MODEL_RESOLUTION_PRESETS[normalized as ComfyImageModel]?.[normalizedOrientation]?.[
-      normalizedTier
-    ];
+    modelPresets?.[normalizedOrientation]?.[normalizedTier] ??
+    modelPresets?.[fallbackOrientation]?.[normalizedTier];
   if (modelOverride) {
     return modelOverride;
   }
 
   const definition = getComfyModelDefinition(normalized);
-  return CATEGORY_RESOLUTION_PRESETS[definition.category][normalizedOrientation][normalizedTier];
+  const categoryPresets = CATEGORY_RESOLUTION_PRESETS[definition.category];
+  return (
+    categoryPresets[normalizedOrientation]?.[normalizedTier] ??
+    categoryPresets[fallbackOrientation][normalizedTier]
+  );
 }
 
 export function modelResolutionPresetToParams(
@@ -448,6 +499,37 @@ export function resolveModelResolutionParams(
   return modelResolutionPresetToParams(
     getModelResolutionPreset(model, orientation, tier),
   );
+}
+
+/** Bump undersized Lightning queues to the orientation’s native preset — keep portrait/landscape. */
+export function ensureLightningNativeResolutionParams(
+  params: WorkflowParamValues,
+  model: string,
+  orientation: ResolutionOrientation = DEFAULT_RESOLUTION_ORIENTATION,
+  tier: ResolutionSizeTier = DEFAULT_RESOLUTION_SIZE_TIER,
+): WorkflowParamValues {
+  if (!isQwenLightningModel(model)) {
+    return params;
+  }
+
+  const native = getModelResolutionPreset(model, orientation, tier);
+  const width = Number(params.width);
+  const height = Number(params.height);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return { ...params, width: native.width, height: native.height };
+  }
+
+  if (tier === "small") {
+    return params;
+  }
+
+  const currentPixels = width * height;
+  const nativePixels = native.width * native.height;
+  if (currentPixels < nativePixels * 0.85) {
+    return { ...params, width: native.width, height: native.height };
+  }
+
+  return params;
 }
 
 export function formatModelResolutionHint(

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { patchSamplerParamsInWorkflow } from "./comfyui-config.ts";
 import {
+  ensureLightningSamplerParams,
   formatModelSamplerHint,
   getModelSamplerDefaults,
   normalizeModelSamplerPresetTier,
@@ -45,9 +46,30 @@ describe("model sampler defaults", () => {
   it("resolves queue params from optimized model defaults", () => {
     assert.deepEqual(resolveModelSamplerParams("qwen-image-2512", "optimized"), {
       steps: 30,
+      cfg: 3.5,
+      samplerName: "euler",
+      scheduler: "beta",
+    });
+  });
+
+  it("uses official 50-step CFG4 max ladder for vanilla qwen 2512", () => {
+    assert.deepEqual(getModelSamplerDefaults("qwen-image-2512", "base"), {
+      steps: 20,
       cfg: 2.5,
       samplerName: "euler",
-      scheduler: "simple",
+      scheduler: "beta",
+    });
+    assert.deepEqual(getModelSamplerDefaults("qwen-image-2512", "maxCompatible"), {
+      steps: 40,
+      cfg: 4,
+      samplerName: "euler",
+      scheduler: "beta",
+    });
+    assert.deepEqual(getModelSamplerDefaults("qwen-image-2512", "max"), {
+      steps: 50,
+      cfg: 4,
+      samplerName: "euler",
+      scheduler: "beta",
     });
   });
 
@@ -66,6 +88,26 @@ describe("model sampler defaults", () => {
         samplerName: "euler",
         scheduler: "simple",
       },
+    );
+  });
+
+  it("clamps stale overrides to lightning sampler params", () => {
+    assert.deepEqual(
+      ensureLightningSamplerParams(
+        { steps: 20, cfg: 4, samplerName: "dpmpp_2m", scheduler: "karras", seed: "9" },
+        "qwen-image-2512-lightning-8",
+      ),
+      {
+        steps: 8,
+        cfg: 1,
+        samplerName: "euler",
+        scheduler: "simple",
+        seed: "9",
+      },
+    );
+    assert.deepEqual(
+      ensureLightningSamplerParams({ cfg: 7, steps: 28 }, "qwen-image-2512"),
+      { cfg: 7, steps: 28 },
     );
   });
 

@@ -10,6 +10,51 @@ function isUnresolvedWorkflowPlaceholder(value: unknown): boolean {
   return typeof value === "string" && /^\{\{[A-Z0-9_]+\}\}$/.test(value.trim());
 }
 
+export function isConcreteLoraFilename(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    /\.safetensors$/i.test(value.trim()) &&
+    !isUnresolvedWorkflowPlaceholder(value)
+  );
+}
+
+const LIGHTNING_LORA_FILENAME_HINT =
+  /lightning|lightx2v|(\b4[\s-]?step\b)|(\b8[\s-]?step\b)|4steps|8steps/i;
+
+export const LIGHTNING_LORA_TOKEN = "{{LORA_LIGHTNING}}";
+
+export function loraFilenameImpliesLightning(filename: string): boolean {
+  return LIGHTNING_LORA_FILENAME_HINT.test(filename.trim());
+}
+
+export function loraNameImpliesLightning(
+  loraName: unknown,
+  loraFilenames: Record<string, string> = {},
+): boolean {
+  if (typeof loraName === "string") {
+    const trimmed = loraName.trim();
+    if (trimmed === LIGHTNING_LORA_TOKEN || /^\{\{LORA_.*(LIGHTNING|LIGHTX2V)/i.test(trimmed)) {
+      return true;
+    }
+  }
+  const filename = resolveLoraLoaderFilename(loraName, loraFilenames);
+  return Boolean(filename && loraFilenameImpliesLightning(filename));
+}
+
+export function resolveLoraLoaderFilename(
+  loraName: unknown,
+  loraFilenames: Record<string, string>,
+): string | null {
+  if (typeof loraName !== "string" || !loraName.trim()) {
+    return null;
+  }
+  const trimmed = loraName.trim();
+  if (isUnresolvedWorkflowPlaceholder(trimmed)) {
+    return loraFilenames[trimmed]?.trim() ?? null;
+  }
+  return trimmed;
+}
+
 function shouldPatchLoraField(current: unknown, nextValue: string | undefined): nextValue is string {
   if (!nextValue?.trim()) {
     return false;
@@ -80,7 +125,7 @@ export function listLoraBindTokens(
 }
 
 export function buildLoraFilenameMapFromCustomTokens(
-  customTokens: Array<{ token: string; value: string }>,
+  customTokens: Array<{ token: string; value: string }> = [],
 ): Record<string, string> {
   const map: Record<string, string> = {};
   for (const entry of customTokens) {
@@ -90,5 +135,61 @@ export function buildLoraFilenameMapFromCustomTokens(
       map[token] = value;
     }
   }
+  return map;
+}
+
+function inferLightningLoraFilenameFromTokens(
+  customTokens: Array<{ token: string; value: string }>,
+  model?: string,
+): string | undefined {
+  const modelId = model?.trim().toLowerCase() ?? "";
+  const stepMatch =
+    modelId.includes("lightning-8") || modelId.includes("lightning_8")
+      ? /\b8[\s-]?step|8steps/i
+      : modelId.includes("lightning-4") || modelId.includes("lightning_4")
+        ? /\b4[\s-]?step|4steps/i
+        : undefined;
+
+  for (const entry of customTokens) {
+    const token = entry.token.trim();
+    const value = entry.value?.trim();
+    if (!value || !token.startsWith("{{LORA_")) {
+      continue;
+    }
+    if (/lightning|lightx2v/i.test(token) && loraFilenameImpliesLightning(value)) {
+      if (!stepMatch || stepMatch.test(value)) {
+        return value;
+      }
+    }
+  }
+
+  for (const entry of customTokens) {
+    const value = entry.value?.trim();
+    if (!value || !loraFilenameImpliesLightning(value)) {
+      continue;
+    }
+    if (!stepMatch || stepMatch.test(value)) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+/** Resolve {{LORA_LIGHTNING}} and related placeholders from custom tokens / LoRA library. */
+export function buildLightningLoraFilenameMap(
+  customTokens: Array<{ token: string; value: string }> = [],
+  model?: string,
+): Record<string, string> {
+  const map = buildLoraFilenameMapFromCustomTokens(customTokens);
+  if (map[LIGHTNING_LORA_TOKEN]?.trim()) {
+    return map;
+  }
+
+  const inferred = inferLightningLoraFilenameFromTokens(customTokens, model);
+  if (inferred) {
+    map[LIGHTNING_LORA_TOKEN] = inferred;
+  }
+
   return map;
 }

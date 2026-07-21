@@ -1,5 +1,7 @@
-import { patchModelSamplingInWorkflow } from "./model-sampling-patch";
-import { shouldSkipGlobalSamplerPatch } from "./workflow-enrich-markers";
+import { isQwenLightningModel, patchModelSamplingInWorkflow } from "./model-sampling-patch";
+import { isPromptStudioProtectedSampler, shouldSkipGlobalSamplerPatch } from "./workflow-enrich-markers";
+import { prepareLightningWorkflowForQueue, resolveLightningBf16Loaders } from "./workflow-lightning-queue";
+import { buildLightningLoraFilenameMap } from "./workflow-lora-patch";
 import {
   classifyPromptEncodeBinding,
   isPromptEncodeNode,
@@ -34,6 +36,7 @@ import {
   DEFAULT_VAE_TOKEN,
   DEFAULT_REFINER_TOKEN,
   loaderFilenameCustomTokens,
+  realignLoaderFilenamesToWorkflowPrecision,
   resolveLoaderFilenamesForModel,
   resolveRefinerFilenameForModel,
   type ModelCheckpointMap,
@@ -45,6 +48,13 @@ import {
   resolveLoaderPrecisionTier,
   type LoaderPrecisionTier,
 } from "./model-loader-precision";
+import {
+  DEFAULT_RESOLUTION_ORIENTATION,
+  DEFAULT_RESOLUTION_SIZE_TIER,
+  ensureLightningNativeResolutionParams,
+  resolveModelResolutionParams,
+} from "./model-resolution-defaults";
+import { resolveModelSamplerParams, ensureLightningSamplerParams } from "./model-sampler-defaults";
 import {
   DEFAULT_UPSCALE_MODEL_TOKEN,
   resolveUpscaleModelFilename,
@@ -196,22 +206,48 @@ export function resolvePlaceholderTokens(
 export function resolveQueueParams(
   runtime?: ComfyUiRuntimeConfig,
   override?: WorkflowParamValues,
+  options?: { model?: string },
 ): WorkflowParamValues {
   const merged = {
     ...(runtime?.queueParams ?? {}),
     ...(override ?? {}),
   };
 
+  const model = options?.model?.trim() || runtime?.queueTargetModel?.trim();
+  const orientation = DEFAULT_RESOLUTION_ORIENTATION;
+  const sizeTier = DEFAULT_RESOLUTION_SIZE_TIER;
+  const modelSampler = model ? resolveModelSamplerParams(model, "base") : undefined;
+  const modelResolution = model
+    ? resolveModelResolutionParams(model, orientation, sizeTier)
+    : undefined;
+
   const result: WorkflowParamValues = {
     seed:
       merged.seed?.toString().trim() ||
+      modelSampler?.seed?.toString().trim() ||
       String(Math.floor(Math.random() * 2 ** 32)),
-    width: merged.width?.toString().trim() || "1024",
-    height: merged.height?.toString().trim() || "1024",
-    cfg: merged.cfg?.toString().trim() || "7",
-    steps: merged.steps?.toString().trim() || "20",
-    samplerName: merged.samplerName?.toString().trim() || "euler",
-    scheduler: merged.scheduler?.toString().trim() || "normal",
+    width:
+      merged.width?.toString().trim() ||
+      modelResolution?.width?.toString() ||
+      "1024",
+    height:
+      merged.height?.toString().trim() ||
+      modelResolution?.height?.toString() ||
+      "1024",
+    cfg:
+      merged.cfg?.toString().trim() ||
+      (modelSampler?.cfg != null ? String(modelSampler.cfg) : "7"),
+    steps:
+      merged.steps?.toString().trim() ||
+      (modelSampler?.steps != null ? String(modelSampler.steps) : "20"),
+    samplerName:
+      merged.samplerName?.toString().trim() ||
+      modelSampler?.samplerName?.toString() ||
+      "euler",
+    scheduler:
+      merged.scheduler?.toString().trim() ||
+      modelSampler?.scheduler?.toString() ||
+      "normal",
   };
 
   if (merged.samplingShift != null && merged.samplingShift.toString().trim() !== "") {
@@ -248,6 +284,34 @@ export function resolveQueueParams(
     result.refinerCheckpointFilename = merged.refinerCheckpointFilename.trim();
   }
 
+  if (model) {
+    const aligned = ensureLightningNativeResolutionParams(
+      result,
+      model,
+      orientation,
+      sizeTier,
+    );
+    if (aligned.width != null) {
+      result.width = aligned.width.toString();
+    }
+    if (aligned.height != null) {
+      result.height = aligned.height.toString();
+    }
+    const samplerAligned = ensureLightningSamplerParams(result, model, "base");
+    if (samplerAligned.steps != null) {
+      result.steps = samplerAligned.steps.toString();
+    }
+    if (samplerAligned.cfg != null) {
+      result.cfg = samplerAligned.cfg.toString();
+    }
+    if (samplerAligned.samplerName != null) {
+      result.samplerName = samplerAligned.samplerName.toString();
+    }
+    if (samplerAligned.scheduler != null) {
+      result.scheduler = samplerAligned.scheduler.toString();
+    }
+  }
+
   return result;
 }
 
@@ -260,6 +324,7 @@ export function ensureQueueLoaderParams(
     unetMap?: ModelUnetMap;
     customTokens?: CustomWorkflowToken[];
     precisionTier?: LoaderPrecisionTier;
+    workflow?: Record<string, unknown>;
   },
 ): WorkflowParamValues {
   if (!model?.trim()) {
@@ -277,6 +342,24 @@ export function ensureQueueLoaderParams(
   }
   if (!next.vaeFilename?.trim() && loaders.vae) {
     next.vaeFilename = loaders.vae;
+  }
+
+  if (isQwenLightningModel(model)) {
+    const bf16 = resolveLightningBf16Loaders(model, {
+      checkpoint: next.checkpointFilename?.toString(),
+      unet: next.unetFilename?.toString(),
+      vae: next.vaeFilename?.toString(),
+      dualClip: loaders.dualClip,
+    });
+    if (bf16.unet) {
+      next.unetFilename = bf16.unet;
+    }
+    if (bf16.checkpoint) {
+      next.checkpointFilename = bf16.checkpoint;
+    }
+    if (bf16.vae) {
+      next.vaeFilename = bf16.vae;
+    }
   }
 
   return next;
@@ -298,18 +381,22 @@ export function resolveQueueInjectionContext(input: {
   const precisionTier = resolveLoaderPrecisionTier({
     workflow: input.workflow,
     explicit: input.precisionTier,
+    model,
   });
   const loaderMapOptions = {
     customTokens: baseCustomTokens,
     checkpointMap: input.runtime?.modelCheckpointMap,
     vaeMap: input.runtime?.modelVaeMap,
     precisionTier,
+    workflow: input.workflow,
   };
-  let params = ensureQueueLoaderParams(
-    resolveQueueParams(input.runtime, input.override),
-    model,
+  const mergedParams = realignLoaderFilenamesToWorkflowPrecision(
+    resolveQueueParams(input.runtime, input.override, { model }),
+    model ?? "",
+    input.workflow,
     loaderMapOptions,
   );
+  let params = ensureQueueLoaderParams(mergedParams, model, loaderMapOptions);
 
   const inferred = model
     ? resolveLoaderFilenamesForModel(model, loaderMapOptions)
@@ -321,6 +408,19 @@ export function resolveQueueInjectionContext(input: {
     vae: params.vaeFilename?.trim() || inferred.vae,
     dualClip: inferred.dualClip,
   };
+
+  if (isQwenLightningModel(model)) {
+    Object.assign(loaders, resolveLightningBf16Loaders(model, loaders));
+    if (loaders.unet) {
+      params.unetFilename = loaders.unet;
+    }
+    if (loaders.checkpoint) {
+      params.checkpointFilename = loaders.checkpoint;
+    }
+    if (loaders.vae) {
+      params.vaeFilename = loaders.vae;
+    }
+  }
 
   params = { ...params };
   if (!params.checkpointFilename?.trim() && loaders.checkpoint) {
@@ -670,6 +770,8 @@ function isSamplerLikeNode(classType: string, inputs: Record<string, unknown>): 
 export function patchSamplerParamsInWorkflow(
   workflow: Record<string, unknown>,
   params: WorkflowParamValues,
+  model?: string,
+  options?: { force?: boolean },
 ): {
   workflow: Record<string, unknown>;
   patched: Partial<Record<keyof WorkflowParamValues, number>>;
@@ -696,7 +798,11 @@ export function patchSamplerParamsInWorkflow(
       continue;
     }
 
-    if (shouldSkipGlobalSamplerPatch(record)) {
+    if (isPromptStudioProtectedSampler(record)) {
+      continue;
+    }
+
+    if (!options?.force && shouldSkipGlobalSamplerPatch(record)) {
       continue;
     }
 
@@ -967,6 +1073,7 @@ export function injectPromptsWithFallbacks(
     directWorkflowPatching?: boolean;
     syncWorkflowLoadersToModel?: boolean;
     loaders?: ModelLoaderFilenames;
+    model?: string;
   },
 ): WorkflowInjectionResult {
   const mergedCustomTokens = mergeLoaderTokensIntoCustomTokens(
@@ -988,10 +1095,12 @@ export function injectPromptsWithFallbacks(
   const samplerPatch = patchSamplerParamsInWorkflow(
     injected.workflow,
     input.params ?? {},
+    options?.model,
   );
   const modelSamplingPatch = patchModelSamplingInWorkflow(
     samplerPatch.workflow,
     input.params ?? {},
+    options?.model,
   );
   let nextWorkflow = modelSamplingPatch.workflow;
   let directPatchCounts: Partial<Record<string, number>> = {};
@@ -1007,6 +1116,9 @@ export function injectPromptsWithFallbacks(
   }
   if (input.params?.vaeFilename?.trim()) {
     loaders.vae = input.params.vaeFilename.trim();
+  }
+  if (!loaders.dualClip && options?.loaders?.dualClip) {
+    loaders.dualClip = options.loaders.dualClip;
   }
 
   if (options?.directWorkflowPatching !== false) {
@@ -1030,6 +1142,29 @@ export function injectPromptsWithFallbacks(
         Object.entries(loaderPatch.patched).filter(([, count]) => (count ?? 0) > 0),
       ),
     };
+  }
+
+  nextWorkflow = prepareLightningWorkflowForQueue(
+    nextWorkflow,
+    options?.model,
+    buildLightningLoraFilenameMap(mergedCustomTokens ?? [], options?.model),
+    {
+      params: input.params,
+      loaders,
+    },
+  );
+
+  if (isQwenLightningModel(options?.model)) {
+    const lightningSampler = ensureLightningSamplerParams(
+      input.params ?? {},
+      options.model!,
+    );
+    nextWorkflow = patchSamplerParamsInWorkflow(
+      nextWorkflow,
+      lightningSampler,
+      options.model,
+      { force: true },
+    ).workflow;
   }
 
   injected = {

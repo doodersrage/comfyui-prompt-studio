@@ -2,8 +2,10 @@ import type { CustomWorkflowToken } from "./comfyui-config";
 
 export const DEFAULT_UPSCALE_MODEL_TOKEN = "{{UPSCALE_MODEL}}";
 
-/** Leave empty — set `default=your-upscale.pth` in Settings when the file exists in ComfyUI. */
-export const SUGGESTED_MODEL_UPSCALE_MAP: ModelUpscaleMap = {};
+/** Default UpscaleModel for non-Lightning Final/Max enrich when no per-model override exists. */
+export const SUGGESTED_MODEL_UPSCALE_MAP: ModelUpscaleMap = {
+  default: "4x-UltraSharp.pth",
+};
 
 export type ModelUpscaleMap = Partial<Record<string, string>>;
 

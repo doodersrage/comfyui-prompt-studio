@@ -17,6 +17,22 @@ export const DEFAULT_NEGATIVE_PROFILES: NegativeProfile[] = [
     preserveSubject: true,
   },
   {
+    id: "qwen-general",
+    label: "Qwen · general",
+    hints: "qwen image quality",
+    preserveSubject: true,
+    staticPrompt:
+      "blurry, low quality, distorted, deformed, watermark, text, logo, oversaturated, noisy grain",
+  },
+  {
+    id: "qwen-portrait",
+    label: "Qwen · portrait",
+    hints: "qwen portrait face skin",
+    preserveSubject: true,
+    staticPrompt:
+      "blurry face, distorted hands, extra fingers, deformed anatomy, plastic skin, watermark, text, logo",
+  },
+  {
     id: "portrait",
     label: "Portrait",
     hints: "portrait, face, skin texture",

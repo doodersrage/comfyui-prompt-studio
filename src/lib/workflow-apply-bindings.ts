@@ -31,10 +31,12 @@ import {
   inferLoadImageBinding,
 } from "./workflow-load-image-bindings";
 import type { WorkflowNodeMapping } from "./workflow-node-mapper";
+import { isConcreteLoraFilename } from "./workflow-lora-patch";
 import {
   isPromptEncodeNode,
   resolvePromptEncodeTextField,
 } from "./workflow-prompt-encode";
+import { MODEL_SAMPLING_FLUX_NODE_TYPE } from "./model-sampling-patch";
 
 type WorkflowNode = {
   class_type?: string;
@@ -159,22 +161,24 @@ export function applyWorkflowNodeBindings(
     }
     if (binding === "modelSampling") {
       applyParamField(node, mapping.nodeId, "shift", resolvedTokens.shift, changes);
-      applyModelSamplingFloatField(
-        node,
-        mapping.nodeId,
-        "max_shift",
-        resolvedTokens.fluxMaxShift,
-        changes,
-      );
-      applyModelSamplingFloatField(
-        node,
-        mapping.nodeId,
-        "base_shift",
-        resolvedTokens.fluxBaseShift,
-        changes,
-      );
-      applyParamField(node, mapping.nodeId, "width", resolvedTokens.width, changes);
-      applyParamField(node, mapping.nodeId, "height", resolvedTokens.height, changes);
+      if ((node.class_type ?? "") === MODEL_SAMPLING_FLUX_NODE_TYPE) {
+        applyModelSamplingFloatField(
+          node,
+          mapping.nodeId,
+          "max_shift",
+          resolvedTokens.fluxMaxShift,
+          changes,
+        );
+        applyModelSamplingFloatField(
+          node,
+          mapping.nodeId,
+          "base_shift",
+          resolvedTokens.fluxBaseShift,
+          changes,
+        );
+        applyParamField(node, mapping.nodeId, "width", resolvedTokens.width, changes);
+        applyParamField(node, mapping.nodeId, "height", resolvedTokens.height, changes);
+      }
       continue;
     }
     if (binding === "inputImage" && "image" in node.inputs) {
@@ -216,6 +220,9 @@ export function applyWorkflowNodeBindings(
       continue;
     }
     if (binding === "loraLoader" && "lora_name" in node.inputs) {
+      if (isConcreteLoraFilename(node.inputs.lora_name)) {
+        continue;
+      }
       const token = loraBindTokens[loraBindIndex] ?? loraBindTokens[0];
       if (token) {
         applyBindingField(node, mapping.nodeId, "lora_name", token, changes);
@@ -261,6 +268,9 @@ function applyParamBindingsToAllNodes(
 
     for (const field of MODEL_SAMPLING_FLOAT_FIELDS) {
       if (!(field in node.inputs)) {
+        continue;
+      }
+      if ((node.class_type ?? "") !== MODEL_SAMPLING_FLUX_NODE_TYPE) {
         continue;
       }
       const token = field === "max_shift" ? tokens.fluxMaxShift : tokens.fluxBaseShift;
@@ -342,6 +352,9 @@ function applyParamBindingsToAllNodes(
     }
 
     if (LORA_LOADER_TYPES.has(classType) && "lora_name" in node.inputs!) {
+      if (isConcreteLoraFilename(node.inputs.lora_name)) {
+        continue;
+      }
       const token = loraBindTokens[loraBindIndex] ?? loraBindTokens[0];
       if (token) {
         applyBindingField(node, nodeId, "lora_name", token, changes);

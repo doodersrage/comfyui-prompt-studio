@@ -5,6 +5,8 @@ import {
   formatModelSamplingHint,
   getModelSamplingPatchDefaults,
   isModelSamplingPatchNode,
+  isQwenLightningModel,
+  modelUsesShiftSamplingPatch,
   patchModelSamplingInWorkflow,
   resolveModelSamplingParams,
 } from "./model-sampling-patch.ts";
@@ -18,23 +20,57 @@ describe("model sampling patch", () => {
     assert.equal(isModelSamplingPatchNode("KSampler"), false);
   });
 
-  it("returns aura and sd3 shift defaults", () => {
+  it("returns aura, sd3, and qwen shift defaults", () => {
     assert.deepEqual(getModelSamplingPatchDefaults("auraflow", "base"), {
       samplingShift: 1.73,
     });
     assert.deepEqual(getModelSamplingPatchDefaults("sd3-medium", "optimized"), {
       samplingShift: 3,
     });
+    assert.deepEqual(getModelSamplingPatchDefaults("qwen-image-2512", "base"), {});
+    assert.deepEqual(getModelSamplingPatchDefaults("qwen-image-2512", "optimized"), {
+      samplingShift: 3.1,
+    });
+    assert.deepEqual(getModelSamplingPatchDefaults("qwen-image-2512-lightning-8", "optimized"), {});
+    assert.deepEqual(getModelSamplingPatchDefaults("qwen-image-2512-lightning-8", "max"), {});
+  });
+
+  it("skips shift sampling patch for lightning models", () => {
+    assert.equal(isQwenLightningModel("qwen-image-2512-lightning-8"), true);
+    assert.equal(isQwenLightningModel("qwen-image-edit-2511-lightning-4"), true);
+    assert.equal(isQwenLightningModel("qwen-image-2512"), false);
+    assert.equal(modelUsesShiftSamplingPatch("qwen-image-2512-lightning-8"), false);
+    assert.equal(modelUsesShiftSamplingPatch("qwen-image-2512"), true);
+  });
+
+  it("resolves lightning shift placeholders to Qwen AuraFlow shift (~3.1)", () => {
+    const workflow = {
+      "7": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["1", 0], shift: "{{SHIFT}}" },
+      },
+    };
+
+    const result = patchModelSamplingInWorkflow(
+      workflow,
+      resolveModelSamplingParams("qwen-image-2512", "optimized"),
+      "qwen-image-2512-lightning-8",
+    );
+    const inputs = (result.workflow["7"] as { inputs: Record<string, unknown> }).inputs;
+    assert.equal(inputs.shift, 3.1);
+    assert.equal(result.patched.samplingShift, 1);
   });
 
   it("returns flux model sampling defaults", () => {
     assert.deepEqual(getModelSamplingPatchDefaults("flux-dev", "base"), {
       fluxMaxShift: 1.15,
       fluxBaseShift: 0.5,
+      samplingShift: 1.73,
     });
     assert.deepEqual(resolveModelSamplingParams("flux-2-klein-9b", "base"), {
       fluxMaxShift: 1.15,
       fluxBaseShift: 0.5,
+      samplingShift: 1.73,
     });
   });
 
@@ -43,7 +79,7 @@ describe("model sampling patch", () => {
     assert.match(formatModelSamplingHint("flux-dev", "base") ?? "", /Flux max 1\.15/);
   });
 
-  it("patches shift nodes and flux model sampling nodes", () => {
+  it("patches flux model sampling nodes and leaves concrete aura shift unchanged", () => {
     const workflow = {
       "10": {
         class_type: "ModelSamplingAuraFlow",
@@ -71,13 +107,12 @@ describe("model sampling patch", () => {
 
     const aura = (result.workflow["10"] as { inputs: Record<string, unknown> }).inputs;
     const flux = (result.workflow["11"] as { inputs: Record<string, unknown> }).inputs;
-    assert.equal(aura.shift, 1.73);
+    assert.equal(aura.shift, 1.5);
     assert.equal(flux.max_shift, 1.15);
     assert.equal(flux.base_shift, 0.5);
     assert.equal(flux.width, 1024);
     assert.equal(flux.height, 1152);
     assert.deepEqual(result.patched, {
-      samplingShift: 1,
       fluxMaxShift: 1,
       fluxBaseShift: 1,
       width: 1,
@@ -85,7 +120,40 @@ describe("model sampling patch", () => {
     });
   });
 
-  it("patches unreplaced shift placeholders using node defaults", () => {
+  it("does not overwrite concrete ModelSamplingAuraFlow shift values", () => {
+    const workflow = {
+      "7": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["1", 0], shift: 2.8 },
+      },
+    };
+    const result = patchModelSamplingInWorkflow(
+      workflow,
+      resolveModelSamplingParams("qwen-image-2512", "optimized"),
+    );
+    const inputs = (result.workflow["7"] as { inputs: Record<string, unknown> }).inputs;
+    assert.equal(inputs.shift, 2.8);
+    assert.equal(result.patched.samplingShift, undefined);
+  });
+
+  it("resolves qwen shift placeholders from model defaults", () => {
+    const workflow = {
+      "7": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["1", 0], shift: "{{SHIFT}}" },
+      },
+    };
+
+    const result = patchModelSamplingInWorkflow(
+      workflow,
+      resolveModelSamplingParams("qwen-image-2512", "optimized"),
+    );
+    const inputs = (result.workflow["7"] as { inputs: Record<string, unknown> }).inputs;
+    assert.equal(inputs.shift, 3.1);
+    assert.equal(result.patched.samplingShift, 1);
+  });
+
+  it("resolves unreplaced shift placeholders using node defaults", () => {
     const result = patchModelSamplingInWorkflow(
       {
         "324": {
@@ -132,7 +200,7 @@ describe("model sampling patch", () => {
     );
 
     const inputs = (injected.workflow["324"] as { inputs: Record<string, unknown> }).inputs;
-    assert.equal(inputs.shift, 1.73);
+    assert.equal(Number(inputs.shift), 1.73);
   });
 
   it("patches model sampling nodes during queue injection", () => {

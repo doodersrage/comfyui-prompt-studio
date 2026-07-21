@@ -100,12 +100,61 @@ export const DEFAULT_COMFYUI_SETTINGS: ComfyUiSettings = {
 
 const LORA_TOKEN_PREFIX = "{{LORA_";
 
+function parseLoraTokenId(token: string): string | null {
+  const trimmed = token.trim();
+  if (!trimmed.startsWith(LORA_TOKEN_PREFIX) || !trimmed.endsWith("}}")) {
+    return null;
+  }
+  const id = trimmed.slice(LORA_TOKEN_PREFIX.length, -2).trim();
+  return id || null;
+}
+
+/** Move legacy {{LORA_*}} custom tokens into loraLibrary so Save does not drop them. */
+export function migrateOrphanLoraTokensToLibrary(
+  settings: ComfyUiSettings,
+): ComfyUiSettings {
+  const library = [...(settings.loraLibrary ?? [])];
+  const knownIds = new Set(library.map((entry) => entry.id.trim()).filter(Boolean));
+  const manualTokens: CustomWorkflowToken[] = [];
+  let changed = false;
+
+  for (const entry of settings.customTokens ?? []) {
+    const loraId = parseLoraTokenId(entry.token);
+    const filename = entry.value?.trim() ?? "";
+    if (loraId && filename && !knownIds.has(loraId)) {
+      library.push({
+        id: loraId,
+        label: loraId,
+        triggerPhrase: "",
+        tokenValue: filename,
+      });
+      knownIds.add(loraId);
+      changed = true;
+      continue;
+    }
+    if (!loraId) {
+      manualTokens.push(entry);
+    }
+  }
+
+  if (!changed) {
+    return settings;
+  }
+
+  return {
+    ...settings,
+    loraLibrary: library,
+    customTokens: manualTokens,
+  };
+}
+
 export function mergeLoraLibraryIntoCustomTokens(
   settings: ComfyUiSettings,
 ): ComfyUiSettings {
-  const library = settings.loraLibrary ?? [];
-  const manualTokens = (settings.customTokens ?? []).filter(
-    (entry) => !entry.token.trim().startsWith(LORA_TOKEN_PREFIX),
+  const normalized = migrateOrphanLoraTokensToLibrary(settings);
+  const library = normalized.loraLibrary ?? [];
+  const manualTokens = (normalized.customTokens ?? []).filter(
+    (entry) => !parseLoraTokenId(entry.token),
   );
   const loraTokens: CustomWorkflowToken[] = library
     .filter((entry) => entry.id.trim())
@@ -115,7 +164,7 @@ export function mergeLoraLibraryIntoCustomTokens(
     }));
 
   return {
-    ...settings,
+    ...normalized,
     customTokens: [...manualTokens, ...loraTokens],
   };
 }
@@ -156,7 +205,7 @@ export function loadComfyUiSettings(): ComfyUiSettings {
   try {
     const current = readBrowserValue<Partial<ComfyUiSettings>>(COMFYUI_SETTINGS_KEY);
     if (current) {
-      return { ...DEFAULT_COMFYUI_SETTINGS, ...current };
+      return { ...DEFAULT_COMFYUI_SETTINGS, ...migrateOrphanLoraTokensToLibrary(current) };
     }
 
     for (const legacyKey of LEGACY_SETTINGS_KEYS) {

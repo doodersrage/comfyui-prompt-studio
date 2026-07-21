@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ensureLightningNativeResolutionParams,
   formatModelResolutionHint,
   getModelResolutionPreset,
   normalizeResolutionOrientation,
@@ -32,6 +33,91 @@ describe("model resolution defaults", () => {
       width: 1328,
       height: 1328,
     });
+  });
+
+  it("uses native 1328 square at medium for vanilla and lightning", () => {
+    assert.deepEqual(getModelResolutionPreset("qwen-image-2512", "square", "medium"), {
+      width: 1328,
+      height: 1328,
+    });
+    assert.deepEqual(
+      getModelResolutionPreset("qwen-image-2512-lightning-8", "square", "medium"),
+      { width: 1328, height: 1328 },
+    );
+  });
+
+  it("keeps max portrait/landscape at least as large as medium official ARs", () => {
+    assert.deepEqual(
+      getModelResolutionPreset("qwen-image-2512", "portrait", "max"),
+      { width: 928, height: 1664 },
+    );
+    assert.deepEqual(
+      getModelResolutionPreset("qwen-image-2512", "landscape", "max"),
+      { width: 1664, height: 928 },
+    );
+  });
+
+  it("exposes official extra Qwen aspect ratios", () => {
+    assert.deepEqual(
+      getModelResolutionPreset("qwen-image-2512", "portrait-34", "medium"),
+      { width: 1104, height: 1472 },
+    );
+    assert.deepEqual(
+      getModelResolutionPreset("qwen-image-2512", "landscape-43", "medium"),
+      { width: 1472, height: 1104 },
+    );
+    assert.deepEqual(
+      getModelResolutionPreset("qwen-image-2512", "portrait-23", "medium"),
+      { width: 1056, height: 1584 },
+    );
+    assert.deepEqual(
+      getModelResolutionPreset("qwen-image-2512", "landscape-32", "medium"),
+      { width: 1584, height: 1056 },
+    );
+  });
+
+  it("bumps sub-native lightning queue params to native resolution", () => {
+    assert.deepEqual(
+      ensureLightningNativeResolutionParams(
+        { width: 1024, height: 1024, steps: 8 },
+        "qwen-image-2512-lightning-8",
+        "square",
+        "medium",
+      ),
+      { width: 1328, height: 1328, steps: 8 },
+    );
+  });
+
+  it("keeps lightning portrait/landscape presets (not forced square)", () => {
+    assert.deepEqual(
+      getModelResolutionPreset("qwen-image-2512-lightning-8", "portrait", "max"),
+      { width: 928, height: 1664 },
+    );
+    assert.deepEqual(
+      getModelResolutionPreset("qwen-image-2512-lightning-8", "landscape", "medium"),
+      { width: 1664, height: 928 },
+    );
+    assert.deepEqual(
+      ensureLightningNativeResolutionParams(
+        { width: 928, height: 1664 },
+        "qwen-image-2512-lightning-8",
+        "portrait",
+        "max",
+      ),
+      { width: 928, height: 1664 },
+    );
+  });
+
+  it("bumps undersized lightning portrait queues to the portrait preset", () => {
+    assert.deepEqual(
+      ensureLightningNativeResolutionParams(
+        { width: 512, height: 768 },
+        "qwen-image-2512-lightning-8",
+        "portrait",
+        "medium",
+      ),
+      { width: 928, height: 1664 },
+    );
   });
 
   it("resolves queue width and height params", () => {

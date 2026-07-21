@@ -4,6 +4,9 @@ import {
   repairVisionDraft,
   stripPromptArtifacts,
 } from "./prompt-cleanup";
+import { allowTemplateFallback, getLlmTemperature } from "./llm-env";
+
+export { allowTemplateFallback, getLlmTemperature } from "./llm-env";
 
 export type LlmUsageContext = {
   userId?: string;
@@ -11,7 +14,20 @@ export type LlmUsageContext = {
   route?: string;
 };
 
-function logLlmUsageSafe(entry: Parameters<typeof import("./llm-usage-log").logLlmUsage>[0]): void {
+type LlmUsageLogInput = {
+  at: number;
+  userId?: string;
+  username?: string;
+  route: string;
+  model: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  durationMs: number;
+  ok: boolean;
+};
+
+function logLlmUsageSafe(entry: LlmUsageLogInput): void {
   if (typeof window !== "undefined") {
     return;
   }
@@ -62,21 +78,6 @@ export function getVisionModel(): string {
 
 export function isLlmEnabled(): boolean {
   return process.env.LLM_ENABLED !== "false";
-}
-
-export function allowTemplateFallback(): boolean {
-  return process.env.ALLOW_TEMPLATE_FALLBACK !== "false";
-}
-
-export function getLlmTemperature(override?: number): number {
-  if (typeof override === "number" && override >= 0 && override <= 2) {
-    return override;
-  }
-
-  const configured = Number(process.env.LLM_TEMPERATURE);
-  return Number.isFinite(configured) && configured >= 0 && configured <= 2
-    ? configured
-    : 0.95;
 }
 
 function isOllamaBaseUrl(baseUrl: string): boolean {

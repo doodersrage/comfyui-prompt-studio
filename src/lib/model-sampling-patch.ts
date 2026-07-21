@@ -31,11 +31,31 @@ const SHIFT_NODE_SET = new Set<string>(MODEL_SAMPLING_SHIFT_NODE_TYPES);
 
 const CATEGORY_SHIFT_DEFAULTS: Partial<Record<ComfyModelCategory, number>> = {
   sd3: 3,
+  qwen: 3.1,
 };
+
+/** Official Qwen-Image AuraFlow shift (not the generic AuraFlow 1.73 default). */
+export const QWEN_IMAGE_AURA_SHIFT = 3.1;
+
+/** Official Lightning recipes keep AuraFlow; shift ~3 (not 1). Low shift → soft/blurry. */
+export const QWEN_LIGHTNING_SHIFT_DEFAULT = QWEN_IMAGE_AURA_SHIFT;
+
+export function isQwenLightningModel(model: ComfyImageModel | string | undefined): boolean {
+  if (!model?.trim()) {
+    return false;
+  }
+  const id = model.trim();
+  if (COMFY_MODEL_IDS.has(id)) {
+    return id.includes("lightning-");
+  }
+  return /lightning-(4|8)\b/.test(id);
+}
 
 const MODEL_SHIFT_OVERRIDES: Partial<Record<ComfyImageModel, number>> = {
   auraflow: 1.73,
   "stable-cascade-b": 2,
+  "qwen-image-2512": QWEN_IMAGE_AURA_SHIFT,
+  "qwen-image-2.0": QWEN_IMAGE_AURA_SHIFT,
 };
 
 const FLUX_SAMPLING_DEFAULTS: Pick<ModelSamplingPatchValues, "fluxMaxShift" | "fluxBaseShift"> =
@@ -57,7 +77,11 @@ function isUnresolvedWorkflowPlaceholder(value: unknown): boolean {
 function resolveShiftForNode(
   classType: ModelSamplingShiftNodeType,
   params: WorkflowParamValues,
+  model?: string,
 ): number | undefined {
+  if (isQwenLightningModel(model)) {
+    return QWEN_LIGHTNING_SHIFT_DEFAULT;
+  }
   if (params.samplingShift != null && params.samplingShift.toString().trim() !== "") {
     const parsed = Number(params.samplingShift);
     return Number.isFinite(parsed) ? parsed : undefined;
@@ -118,6 +142,9 @@ export function modelUsesFluxSamplingPatch(model: ComfyImageModel | string): boo
 }
 
 export function modelUsesShiftSamplingPatch(model: ComfyImageModel | string): boolean {
+  if (isQwenLightningModel(model)) {
+    return false;
+  }
   if (!COMFY_MODEL_IDS.has(model)) {
     return false;
   }
@@ -125,7 +152,8 @@ export function modelUsesShiftSamplingPatch(model: ComfyImageModel | string): bo
   if (MODEL_SHIFT_OVERRIDES[normalized] != null) {
     return true;
   }
-  return getComfyModelDefinition(normalized).category === "sd3";
+  const category = getComfyModelDefinition(normalized).category;
+  return category === "sd3" || category === "qwen";
 }
 
 export function getModelSamplingPatchDefaults(
@@ -134,23 +162,35 @@ export function getModelSamplingPatchDefaults(
 ): ModelSamplingPatchValues {
   normalizeModelSamplerPresetTier(tier);
   const normalized = COMFY_MODEL_IDS.has(model) ? model : DEFAULT_COMFY_MODEL;
+  if (isQwenLightningModel(normalized)) {
+    return {};
+  }
+  const definition = getComfyModelDefinition(normalized);
   const patch: ModelSamplingPatchValues = {};
 
-  const shiftOverride = MODEL_SHIFT_OVERRIDES[normalized as ComfyImageModel];
-  if (shiftOverride != null) {
-    patch.samplingShift = shiftOverride;
-    return patch;
-  }
+  // Base-tier Qwen drafts keep workflow shift (often 1.73 fallback) — forcing 3.1 caused banding.
+  const applyShift =
+    tier !== "base" || definition.category !== "qwen";
 
-  const definition = getComfyModelDefinition(normalized);
-  const categoryShift = CATEGORY_SHIFT_DEFAULTS[definition.category];
-  if (categoryShift != null) {
-    patch.samplingShift = categoryShift;
-    return patch;
+  if (applyShift) {
+    const shiftOverride = MODEL_SHIFT_OVERRIDES[normalized as ComfyImageModel];
+    if (shiftOverride != null) {
+      patch.samplingShift = shiftOverride;
+      return patch;
+    }
+
+    const categoryShift = CATEGORY_SHIFT_DEFAULTS[definition.category];
+    if (categoryShift != null) {
+      patch.samplingShift = categoryShift;
+      return patch;
+    }
   }
 
   if (definition.category === "flux") {
-    return { ...FLUX_SAMPLING_DEFAULTS };
+    return {
+      ...FLUX_SAMPLING_DEFAULTS,
+      samplingShift: NODE_SHIFT_DEFAULTS.ModelSamplingAuraFlow,
+    };
   }
 
   return patch;
@@ -187,6 +227,16 @@ export function formatModelSamplingHint(
   tier: ModelSamplerPresetTier = "base",
 ): string | null {
   const patch = getModelSamplingPatchDefaults(model, tier);
+  const definition = COMFY_MODEL_IDS.has(model)
+    ? getComfyModelDefinition(model)
+    : getComfyModelDefinition(DEFAULT_COMFY_MODEL);
+  if (
+    definition.category === "flux" &&
+    patch.fluxMaxShift != null &&
+    patch.fluxBaseShift != null
+  ) {
+    return `Model sampling · Flux max ${patch.fluxMaxShift} · base ${patch.fluxBaseShift} · syncs width/height on queue`;
+  }
   if (patch.samplingShift != null) {
     return `Model sampling · shift ${patch.samplingShift}`;
   }
@@ -199,6 +249,7 @@ export function formatModelSamplingHint(
 export function patchModelSamplingInWorkflow(
   workflow: Record<string, unknown>,
   params: WorkflowParamValues,
+  model?: string,
 ): {
   workflow: Record<string, unknown>;
   patched: Partial<
@@ -226,11 +277,26 @@ export function patchModelSamplingInWorkflow(
     }
 
     if (isModelSamplingShiftNode(classType)) {
-      if (
-        shouldPatchNumericInput(inputs.shift, params, "samplingShift") &&
-        "shift" in inputs
-      ) {
-        const resolved = resolveShiftForNode(classType as ModelSamplingShiftNodeType, params);
+      if (isQwenLightningModel(model) && "shift" in inputs) {
+        if (isUnresolvedWorkflowPlaceholder(inputs.shift)) {
+          if (patchNumericInput(inputs, "shift", QWEN_LIGHTNING_SHIFT_DEFAULT)) {
+            patched.samplingShift = (patched.samplingShift ?? 0) + 1;
+          }
+        } else {
+          const current = Number(inputs.shift);
+          // Recover bad defaults (1 / 1.73). Official LightX2V uses ~3.
+          if (!Number.isFinite(current) || current < 2.5 || current > 4) {
+            if (patchNumericInput(inputs, "shift", QWEN_LIGHTNING_SHIFT_DEFAULT)) {
+              patched.samplingShift = (patched.samplingShift ?? 0) + 1;
+            }
+          }
+        }
+      } else if ("shift" in inputs && isUnresolvedWorkflowPlaceholder(inputs.shift)) {
+        const resolved = isQwenLightningModel(model)
+          ? QWEN_LIGHTNING_SHIFT_DEFAULT
+          : params.samplingShift != null && params.samplingShift.toString().trim() !== ""
+            ? Number(params.samplingShift)
+            : resolveShiftForNode(classType as ModelSamplingShiftNodeType, params, model);
         if (patchNumericInput(inputs, "shift", resolved)) {
           patched.samplingShift = (patched.samplingShift ?? 0) + 1;
         }

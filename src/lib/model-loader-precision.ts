@@ -1,3 +1,5 @@
+import { isQwenLightningModel } from "./model-sampling-patch";
+
 export type LoaderPrecisionTier = "fp8" | "bf16";
 
 const LOADER_STRING_FIELDS = [
@@ -22,7 +24,22 @@ export function precisionHintFromFilename(filename: string): LoaderPrecisionTier
   if (/bf16|fp16|_f16/.test(lower)) {
     return "bf16";
   }
+  // Common Qwen installs omit a bf16 suffix — treat non-fp8 Qwen weights as bf16/fp16 tier.
+  if (/qwen_image|qwen_2\.5_vl/.test(lower) && !/fp8|e4m3fn|fp8_scaled/.test(lower)) {
+    return "bf16";
+  }
   return undefined;
+}
+
+export function filenameMatchesPrecisionTier(
+  filename: string | undefined,
+  tier: LoaderPrecisionTier,
+): boolean {
+  if (!filename?.trim()) {
+    return true;
+  }
+  const hint = precisionHintFromFilename(filename);
+  return hint == null || hint === tier;
 }
 
 /** Infer fp8 vs bf16/fp16 tier already present in a workflow (before placeholder injection). */
@@ -99,10 +116,22 @@ export function defaultLoaderPrecisionTier(): LoaderPrecisionTier {
 export function resolveLoaderPrecisionTier(input: {
   workflow?: Record<string, unknown>;
   explicit?: LoaderPrecisionTier;
+  model?: string;
 }): LoaderPrecisionTier {
-  return (
-    input.explicit ??
-    (input.workflow ? detectLoaderPrecisionTier(input.workflow) : undefined) ??
-    defaultLoaderPrecisionTier()
-  );
+  if (input.explicit) {
+    return input.explicit;
+  }
+
+  if (isQwenLightningModel(input.model)) {
+    return "bf16";
+  }
+
+  const fromWorkflow = input.workflow
+    ? detectLoaderPrecisionTier(input.workflow)
+    : undefined;
+  if (fromWorkflow) {
+    return fromWorkflow;
+  }
+
+  return defaultLoaderPrecisionTier();
 }

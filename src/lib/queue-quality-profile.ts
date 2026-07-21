@@ -151,7 +151,7 @@ export function formatQueueQualityProfileHint(
       ? profileUsesNeuralUpscalePolish(profile)
         ? " · UpscaleModel + Lanczos polish"
         : " · UpscaleModel upscale"
-      : " · Lanczos upscale"
+      : " · Lanczos upscale + light polish (Lightning) / Lanczos"
     : "";
   const refinerNote =
     profileUsesSdxlRefinerEnrich(profile) ? " · SDXL refiner pass" : "";
@@ -182,18 +182,59 @@ export function profileUsesUpscaleEnrich(profile: QueueQualityProfile | undefine
   return mode === "final" || mode === "max";
 }
 
-export function upscaleScaleForProfile(profile: QueueQualityProfile | undefined): number {
-  return normalizeQueueQualityProfile(profile) === "max" ? 1.5 : 1.25;
+export function upscaleScaleForProfile(
+  profile: QueueQualityProfile | undefined,
+  options?: { model?: string },
+): number {
+  const mode = normalizeQueueQualityProfile(profile);
+  // Lightning: Lanczos is fine on a clean native generate; earlier grain was bad CFG/LoRA/shift.
+  if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
+    return mode === "max" ? 1.28 : 1.18;
+  }
+  return mode === "max" ? 1.5 : 1.25;
+}
+
+/** Lightning Final/Max use Lanczos now that native generate is clean. */
+export function upscaleMethodForProfile(
+  profile: QueueQualityProfile | undefined,
+  options?: { model?: string },
+): "lanczos" | "area" | "bilinear" {
+  void profile;
+  void options;
+  return "lanczos";
+}
+
+/** Neural UpscaleModel + Lanczos polish amplify texture on Lightning — use soft ImageScaleBy only. */
+export function profileUsesNeuralUpscaleEnrich(
+  profile: QueueQualityProfile | undefined,
+  options?: { model?: string },
+): boolean {
+  if (!profileUsesUpscaleEnrich(profile)) {
+    return false;
+  }
+  if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
+    return false;
+  }
+  return true;
 }
 
 /** Small Lanczos pass chained after neural UpscaleModel on Max profile. */
-export function lanczosPolishScaleAfterNeural(): number {
+export function lanczosPolishScaleAfterNeural(
+  options?: { model?: string },
+): number {
+  if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
+    return 1;
+  }
   return 1.05;
 }
 
 export function profileUsesNeuralUpscalePolish(
   profile: QueueQualityProfile | undefined,
+  options?: { model?: string },
 ): boolean {
+  if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
+    return false;
+  }
   return normalizeQueueQualityProfile(profile) === "max";
 }
 
@@ -234,6 +275,30 @@ export function profileUsesSharpenAfterUpscale(
   profile: QueueQualityProfile | undefined,
 ): boolean {
   return normalizeQueueQualityProfile(profile) === "max";
+}
+
+/** Lightning Final/Max get a dedicated low-alpha polish after soft area scale. */
+export function profileUsesLightningUpscalePolish(
+  profile: QueueQualityProfile | undefined,
+  options?: { model?: string },
+): boolean {
+  if (!options?.model || !/lightning-(4|8)\b/i.test(options.model)) {
+    return false;
+  }
+  return profileUsesUpscaleEnrich(profile);
+}
+
+export function lightningUpscalePolishAlpha(
+  profile: QueueQualityProfile | undefined,
+): number {
+  // Lanczos already restores edge clarity — keep polish light so skin/hair stay natural.
+  return normalizeQueueQualityProfile(profile) === "max" ? 0.045 : 0.03;
+}
+
+export function lightningUpscalePolishSigma(
+  profile: QueueQualityProfile | undefined,
+): number {
+  return normalizeQueueQualityProfile(profile) === "max" ? 0.7 : 0.75;
 }
 
 export function sharpenAlphaForProfile(

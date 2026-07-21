@@ -7,6 +7,7 @@ import { isEditCapableModel } from "./model-denoise-defaults";
 import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
 import type { ModelWorkflowMap } from "./model-workflow-map";
 import { scoreWorkflowStackForModel } from "./workflow-stack-fingerprint";
+import { workflowHasLoraLoader } from "./workflow-lightning-queue";
 
 const CATEGORY_KEYWORDS: Record<ComfyModelCategory, string[]> = {
   "stable-diffusion": ["sd15", "sd1.5", "sd-1.5", "stable-diffusion"],
@@ -44,6 +45,7 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
     "8steps",
     "8-steps",
   ],
+  "qwen-image-2512": ["2512", "vanilla", "standard", "base", "txt2img", "t2i"],
   "qwen-image-edit-2511-lightning-4": [
     "2511",
     "edit",
@@ -82,7 +84,7 @@ const MODEL_WORKFLOW_AVOID_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> 
   "flux-2-klein-4b-distilled": ["base", "klein-base", "9b", "klein-9b"],
   "flux-2-klein-9b": ["distilled", "4b", "klein-4b", "inpaint", "mask", "fill"],
   "flux-2-klein-9b-distilled": ["base", "klein-base", "4b", "klein-4b", "inpaint", "mask", "fill"],
-  "qwen-image-2512": ["edit", "inpaint", "img2img", "mask", "fill"],
+  "qwen-image-2512": ["edit", "inpaint", "img2img", "mask", "fill", "lightning", "lightx2v"],
   "qwen-image-2512-lightning-4": ["edit", "inpaint", "img2img", "mask", "fill"],
   "qwen-image-2512-lightning-8": ["edit", "inpaint", "img2img", "mask", "fill"],
   "flux-dev": ["inpaint", "mask", "fill"],
@@ -180,9 +182,27 @@ function scoreWorkflowForModel(
         score += 4;
       }
     }
+    // Vanilla / non-Lightning Qwen must not claim Lightning LoRA graphs.
+    if (!modelId.includes("lightning")) {
+      score -= 10;
+    }
+  } else if (modelId.includes("lightning")) {
+    // Prefer labeled Lightning workflows for Lightning model ids.
+    score -= 3;
   }
 
   score += scoreWorkflowStackForModel(file.workflowJson, modelId);
+
+  if (modelId.includes("lightning") && file.workflowJson?.trim()) {
+    try {
+      const parsed = JSON.parse(file.workflowJson) as Record<string, unknown>;
+      if (workflowHasLoraLoader(parsed)) {
+        score += 6;
+      }
+    } catch {
+      // ignore invalid workflow JSON during ranking
+    }
+  }
 
   return score;
 }

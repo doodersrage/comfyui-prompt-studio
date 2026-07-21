@@ -259,6 +259,30 @@ describe("workflow direct patch", () => {
     assert.equal(vae.inputs?.vae_name, "flux2-vae.safetensors");
   });
 
+  it("aligns concrete fp8 clip loaders to resolved bf16 queue loaders", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+      },
+      "2": {
+        class_type: "CLIPLoader",
+        inputs: {
+          clip_name: "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+          type: "qwen_image",
+        },
+      },
+    };
+
+    const result = patchLoaderNodesInWorkflow(workflow, {
+      unet: "qwen_image_2512_bf16.safetensors",
+      dualClip: "qwen_2.5_vl_7b.safetensors",
+    });
+    const clip = result.workflow["2"] as { inputs?: { clip_name?: string } };
+    assert.equal(clip.inputs?.clip_name, "qwen_2.5_vl_7b.safetensors");
+    assert.equal(result.patched.dualClip, 1);
+  });
+
   it("replaces loader tokens anywhere in loader node inputs via json fallback", () => {
     const workflow = {
       "228": {

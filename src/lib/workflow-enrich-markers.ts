@@ -16,7 +16,10 @@ export function isPromptStudioProtectedSampler(node: WorkflowNodeMeta): boolean 
     return false;
   }
   const title = node._meta?.title?.toLowerCase() ?? "";
-  return title.includes("refiner pass") || title.includes("refiner ksampler");
+  return title.includes("refiner pass") ||
+    title.includes("refiner ksampler") ||
+    title.includes("hires pass") ||
+    title.includes("lightning hires");
 }
 
 /** Skip global queue sampler patch on enriched refiner passes and low-denoise stages. */
@@ -39,5 +42,9 @@ export function isPromptStudioOutputUpscaleNode(node: WorkflowNodeMeta): boolean
     return false;
   }
   const title = node._meta?.title?.toLowerCase() ?? "";
-  return title.includes("upscale") || title.includes("sharpen") || title.includes("polish");
+  return (
+    title.includes("upscale") ||
+    title.includes("sharpen") ||
+    title.includes("polish")
+  );
 }

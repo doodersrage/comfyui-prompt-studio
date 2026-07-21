@@ -1,5 +1,9 @@
 import type { AthleticSport } from "./athletic-sport-profiles";
-import type { ComfyImageModel } from "./comfy-models";
+import {
+  COMFY_MODEL_IDS,
+  getComfyModelDefinition,
+  type ComfyImageModel,
+} from "./comfy-models";
 import {
   DEFAULT_NEGATIVE_PROFILES,
   resolveNegativeProfile,
@@ -24,6 +28,19 @@ function hintsMatch(profile: NegativeProfile, corpus: string): boolean {
   return tokens.some((token) => corpus.includes(token));
 }
 
+function isQwenModelContext(model: ComfyImageModel | string | undefined): boolean {
+  if (!model) {
+    return false;
+  }
+  if (/qwen/i.test(model)) {
+    return true;
+  }
+  if (!COMFY_MODEL_IDS.has(model)) {
+    return false;
+  }
+  return getComfyModelDefinition(model).category === "qwen";
+}
+
 export function resolveContextNegativeProfile(
   profiles: NegativeProfile[] | undefined,
   selectedId: string | undefined,
@@ -31,6 +48,7 @@ export function resolveContextNegativeProfile(
 ): NegativeProfile | undefined {
   const list = profiles?.length ? profiles : DEFAULT_NEGATIVE_PROFILES;
   const corpus = `${context.tool ?? ""} ${context.hints ?? ""}`.toLowerCase();
+  const qwenModel = isQwenModelContext(context.model);
 
   if (context.sport) {
     const sportMatch = list.find(
@@ -66,9 +84,22 @@ export function resolveContextNegativeProfile(
   }
 
   if (/\b(portrait|face|headshot|skin texture)\b/i.test(corpus)) {
+    if (qwenModel) {
+      const qwenPortrait = list.find((entry) => entry.id === "qwen-portrait");
+      if (qwenPortrait) {
+        return qwenPortrait;
+      }
+    }
     const portrait = list.find((entry) => entry.id === "portrait");
     if (portrait) {
       return portrait;
+    }
+  }
+
+  if (qwenModel) {
+    const qwenGeneral = list.find((entry) => entry.id === "qwen-general");
+    if (qwenGeneral && !selectedId?.trim()) {
+      return qwenGeneral;
     }
   }
 

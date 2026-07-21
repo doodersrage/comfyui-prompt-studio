@@ -29,6 +29,7 @@ import {
   buildGalleryUpscaleWorkflow,
   resolveGalleryOutputImageUrl,
 } from "./gallery-output-upscale";
+import { isQwenLightningModel } from "./model-sampling-patch";
 import {
   appendPortraitRefineNegative,
   buildGalleryRefineWorkflow,
@@ -136,8 +137,9 @@ export async function requeueUpscaleFromGalleryEntry(
 
   const shared = loadSettingsCache().shared;
   const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
+  const isLightning = isQwenLightningModel(model);
   const upscaleModelFilename =
-    options.qualityProfile === "max"
+    !isLightning && options.qualityProfile === "max"
       ? resolveUpscaleModelFilename(model, {
           upscaleMap: shared.modelUpscaleMap,
           customTokens: settings.customTokens,
@@ -161,6 +163,7 @@ export async function requeueUpscaleFromGalleryEntry(
           upscaleModelFilename: neuralModel,
           enrichNeuralPolish: enrichOptions.enrichNeuralPolish,
           enrichSharpen: enrichOptions.enrichSharpen,
+          model,
         });
 
     const runtime: ComfyUiRuntimeConfig = {
@@ -173,12 +176,16 @@ export async function requeueUpscaleFromGalleryEntry(
       ...(libraryWorkflow ? { workflowFileId: libraryWorkflow.id } : {}),
     };
 
+    const params = { inputImageFilename };
+
     options.onStatus?.(
       libraryWorkflow
         ? `Queueing library upscale workflow “${libraryWorkflow.name}”…`
-        : neuralModel
-          ? "Queueing neural upscale…"
-          : "Queueing Lanczos upscale…",
+        : isLightning
+          ? "Queueing Lightning pass-through (no reprocess)…"
+          : neuralModel
+            ? "Queueing neural upscale…"
+            : "Queueing Lanczos upscale…",
     );
 
     const response = await fetch("/api/comfyui", {
@@ -188,7 +195,7 @@ export async function requeueUpscaleFromGalleryEntry(
         prompt: entry.prompt.trim() || "upscale",
         negativePrompt: entry.negativePrompt,
         model,
-        params: { inputImageFilename },
+        params,
         comfy: runtime,
       }),
     });

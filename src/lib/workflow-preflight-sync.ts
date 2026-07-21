@@ -5,6 +5,7 @@ import { auditWorkflowNodeTypes } from "./workflow-node-type-audit";
 import { auditDualClipNodesInWorkflow } from "./workflow-dual-clip-audit";
 import type { ComfyUiModelLists } from "./comfyui-object-info";
 import type { WorkflowPreflightIssue } from "./workflow-preflight";
+import { auditLightningWorkflowIssues } from "./workflow-lightning-queue";
 
 export function runWorkflowPreflightSync(input: {
   workflowJson?: string;
@@ -41,6 +42,11 @@ export function runWorkflowPreflightSync(input: {
       knownNodeTypes: input.knownNodeTypes,
     }),
   );
+
+  issues.push(...auditLightningWorkflowIssues({
+    workflowJson: input.workflowJson,
+    model: input.model,
+  }));
 
   if (input.models) {
     issues.push(

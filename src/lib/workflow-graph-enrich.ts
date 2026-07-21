@@ -2,20 +2,26 @@ import type { WorkflowPlaceholderTokens } from "./comfyui-config";
 import { getComfyModelDefinition, type ComfyImageModel } from "./comfy-models";
 import {
   profileUsesNeuralUpscalePolish,
+  profileUsesNeuralUpscaleEnrich,
   profileUsesSdxlRefinerEnrich,
   profileUsesSharpenAfterUpscale,
   profileUsesUpscaleEnrich,
+  profileUsesLightningUpscalePolish,
   neuralUpscaleTileSizeForProfile,
   sdxlRefinerDenoiseForProfile,
   sdxlRefinerLatentScaleForProfile,
   lanczosPolishScaleAfterNeural,
   sharpenAlphaForProfile,
+  lightningUpscalePolishAlpha,
+  lightningUpscalePolishSigma,
+  upscaleMethodForProfile,
   upscaleScaleForProfile,
   type QueueQualityProfile,
 } from "./queue-quality-profile";
 import {
   isModelSamplingFluxNode,
   isModelSamplingPatchNode,
+  isQwenLightningModel,
   modelUsesFluxSamplingPatch,
   modelUsesShiftSamplingPatch,
   MODEL_SAMPLING_FLUX_NODE_TYPE,
@@ -140,12 +146,13 @@ function resolveModelChainLoaderId(
 function shouldSkipUpscaleEnrich(
   workflow: Record<string, WorkflowNode>,
   qualityProfile?: QueueQualityProfile,
+  model?: string,
 ): boolean {
   if (!profileUsesUpscaleEnrich(qualityProfile)) {
     return true;
   }
 
-  const targetScale = upscaleScaleForProfile(qualityProfile);
+  const targetScale = upscaleScaleForProfile(qualityProfile, { model });
   for (const node of Object.values(workflow)) {
     if (!UPSCALE_NODE_TYPES.has(node.class_type ?? "")) {
       continue;
@@ -450,6 +457,40 @@ function insertLanczosPolishAfterNode(input: {
   return polishNodeId;
 }
 
+function maybeInsertLightningUpscalePolish(input: {
+  workflow: Record<string, WorkflowNode>;
+  saveNode: WorkflowNode;
+  sourceNodeId: string;
+  qualityProfile?: QueueQualityProfile;
+  saveId: string;
+  model?: string;
+}): WorkflowQueueOptimizeChange | null {
+  if (!profileUsesLightningUpscalePolish(input.qualityProfile, { model: input.model })) {
+    return null;
+  }
+
+  const alpha = lightningUpscalePolishAlpha(input.qualityProfile);
+  const sigma = lightningUpscalePolishSigma(input.qualityProfile);
+  const polishNodeId = nextWorkflowNodeId(input.workflow);
+  input.workflow[polishNodeId] = {
+    class_type: "ImageSharpen",
+    inputs: {
+      image: [input.sourceNodeId, 0],
+      sharpen_radius: 1,
+      sigma,
+      alpha,
+    },
+    _meta: { title: "Prompt Studio — Lightning upscale polish" },
+  };
+  input.saveNode.inputs!.images = [polishNodeId, 0];
+
+  return {
+    kind: "binding",
+    severity: "info",
+    message: `Inserted Lightning upscale polish (ImageSharpen α${alpha}) before SaveImage node ${input.saveId} for ${input.qualityProfile} quality.`,
+  };
+}
+
 function maybeInsertSharpenAfterUpscale(input: {
   workflow: Record<string, WorkflowNode>;
   saveNode: WorkflowNode;
@@ -457,9 +498,11 @@ function maybeInsertSharpenAfterUpscale(input: {
   qualityProfile?: QueueQualityProfile;
   enrichSharpen?: boolean;
   saveId: string;
+  model?: string;
 }): WorkflowQueueOptimizeChange | null {
   if (
     input.enrichSharpen === false ||
+    isQwenLightningModel(input.model) ||
     !profileUsesSharpenAfterUpscale(input.qualityProfile)
   ) {
     return null;
@@ -489,16 +532,19 @@ function enrichLanczosUpscaleNodes(input: {
   workflow: Record<string, WorkflowNode>;
   qualityProfile?: QueueQualityProfile;
   enrichSharpen?: boolean;
+  model?: string;
 }): WorkflowQueueOptimizeChange[] {
+  // Lightning Final/Max: Lanczos + light polish (neural/hires still amplify grain).
   if (!profileUsesUpscaleEnrich(input.qualityProfile)) {
     return [];
   }
-  if (shouldSkipUpscaleEnrich(input.workflow, input.qualityProfile)) {
+  if (shouldSkipUpscaleEnrich(input.workflow, input.qualityProfile, input.model)) {
     return [];
   }
 
   const changes: WorkflowQueueOptimizeChange[] = [];
-  const scaleBy = upscaleScaleForProfile(input.qualityProfile);
+  const scaleBy = upscaleScaleForProfile(input.qualityProfile, { model: input.model });
+  const method = upscaleMethodForProfile(input.qualityProfile, { model: input.model });
 
   for (const [saveId, saveNode] of Object.entries(input.workflow)) {
     if (saveNode.class_type !== "SaveImage" || !saveNode.inputs) {
@@ -520,7 +566,7 @@ function enrichLanczosUpscaleNodes(input: {
       class_type: IMAGE_SCALE_BY_NODE_TYPE,
       inputs: {
         image: [imageLink, 0],
-        upscale_method: "lanczos",
+        upscale_method: method,
         scale_by: scaleBy,
       },
       _meta: { title: "Prompt Studio — output upscale" },
@@ -530,8 +576,21 @@ function enrichLanczosUpscaleNodes(input: {
     changes.push({
       kind: "binding",
       severity: "info",
-      message: `Inserted ImageScaleBy (${scaleBy}× Lanczos) before SaveImage node ${saveId} for ${input.qualityProfile} quality.`,
+      message: `Inserted ImageScaleBy (${scaleBy}× ${method}) before SaveImage node ${saveId} for ${input.qualityProfile} quality.`,
     });
+
+    const lightningPolish = maybeInsertLightningUpscalePolish({
+      workflow: input.workflow,
+      saveNode,
+      sourceNodeId: scaleNodeId,
+      qualityProfile: input.qualityProfile,
+      saveId,
+      model: input.model,
+    });
+    if (lightningPolish) {
+      changes.push(lightningPolish);
+      continue;
+    }
 
     const sharpenChange = maybeInsertSharpenAfterUpscale({
       workflow: input.workflow,
@@ -540,6 +599,7 @@ function enrichLanczosUpscaleNodes(input: {
       qualityProfile: input.qualityProfile,
       enrichSharpen: input.enrichSharpen,
       saveId,
+      model: input.model,
     });
     if (sharpenChange) {
       changes.push(sharpenChange);
@@ -555,11 +615,15 @@ function enrichNeuralUpscaleNodes(input: {
   upscaleModelFilename: string;
   enrichNeuralPolish?: boolean;
   enrichSharpen?: boolean;
+  model?: string;
 }): WorkflowQueueOptimizeChange[] {
+  if (isQwenLightningModel(input.model)) {
+    return [];
+  }
   if (!profileUsesUpscaleEnrich(input.qualityProfile)) {
     return [];
   }
-  if (shouldSkipUpscaleEnrich(input.workflow, input.qualityProfile)) {
+  if (shouldSkipUpscaleEnrich(input.workflow, input.qualityProfile, input.model)) {
     return [];
   }
 
@@ -610,21 +674,23 @@ function enrichNeuralUpscaleNodes(input: {
 
     const usePolish =
       input.enrichNeuralPolish !== false &&
-      profileUsesNeuralUpscalePolish(input.qualityProfile);
+      profileUsesNeuralUpscalePolish(input.qualityProfile, { model: input.model });
     if (usePolish) {
-      const polishScale = lanczosPolishScaleAfterNeural();
-      outputNodeId = insertLanczosPolishAfterNode({
-        workflow: input.workflow,
-        saveNode,
-        sourceNodeId: outputNodeId,
-        scaleBy: polishScale,
-        title: "Prompt Studio — Lanczos polish",
-      });
-      changes.push({
-        kind: "binding",
-        severity: "info",
-        message: `Chained ${polishScale}× Lanczos polish after neural upscale before SaveImage node ${saveId}.`,
-      });
+      const polishScale = lanczosPolishScaleAfterNeural({ model: input.model });
+      if (polishScale > 1) {
+        outputNodeId = insertLanczosPolishAfterNode({
+          workflow: input.workflow,
+          saveNode,
+          sourceNodeId: outputNodeId,
+          scaleBy: polishScale,
+          title: "Prompt Studio — Lanczos polish",
+        });
+        changes.push({
+          kind: "binding",
+          severity: "info",
+          message: `Chained ${polishScale}× Lanczos polish after neural upscale before SaveImage node ${saveId}.`,
+        });
+      }
     }
 
     const tileNote =
@@ -642,6 +708,7 @@ function enrichNeuralUpscaleNodes(input: {
       qualityProfile: input.qualityProfile,
       enrichSharpen: input.enrichSharpen,
       saveId,
+      model: input.model,
     });
     if (sharpenChange) {
       changes.push(sharpenChange);
@@ -657,20 +724,26 @@ function enrichUpscaleNodes(input: {
   upscaleModelFilename?: string;
   enrichNeuralPolish?: boolean;
   enrichSharpen?: boolean;
+  model?: string;
 }): WorkflowQueueOptimizeChange[] {
-  if (input.upscaleModelFilename?.trim()) {
+  if (
+    input.upscaleModelFilename?.trim() &&
+    profileUsesNeuralUpscaleEnrich(input.qualityProfile, { model: input.model })
+  ) {
     return enrichNeuralUpscaleNodes({
       workflow: input.workflow,
       qualityProfile: input.qualityProfile,
       upscaleModelFilename: input.upscaleModelFilename,
       enrichNeuralPolish: input.enrichNeuralPolish,
       enrichSharpen: input.enrichSharpen,
+      model: input.model,
     });
   }
   return enrichLanczosUpscaleNodes({
     workflow: input.workflow,
     qualityProfile: input.qualityProfile,
     enrichSharpen: input.enrichSharpen,
+    model: input.model,
   });
 }
 
@@ -723,6 +796,7 @@ export function enrichWorkflowGraph(input: {
         upscaleModelFilename: input.upscaleModelFilename,
         enrichNeuralPolish: input.enrichNeuralPolish,
         enrichSharpen: input.enrichSharpen,
+        model: input.model,
       }),
     );
   }

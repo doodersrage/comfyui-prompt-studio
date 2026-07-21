@@ -5,9 +5,20 @@ import {
   formatModelUpscaleMap,
   parseModelUpscaleMap,
   resolveUpscaleModelFilename,
+  SUGGESTED_MODEL_UPSCALE_MAP,
 } from "./model-upscale-map.ts";
 
 describe("model upscale map", () => {
+  it("suggests UltraSharp as the default neural upscaler", () => {
+    assert.equal(SUGGESTED_MODEL_UPSCALE_MAP.default, "4x-UltraSharp.pth");
+    assert.equal(
+      resolveUpscaleModelFilename("qwen-image-2512", {
+        upscaleMap: SUGGESTED_MODEL_UPSCALE_MAP,
+      }),
+      "4x-UltraSharp.pth",
+    );
+  });
+
   it("resolves per-model and default entries", () => {
     const map = parseModelUpscaleMap(
       "default=4x-UltraSharp.pth\nflux-dev=RealESRGAN_x4plus.pth",

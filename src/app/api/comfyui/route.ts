@@ -6,6 +6,7 @@ import {
 import {
   stripEmptyComfyUiRuntime,
   resolveQueueInjectionContext,
+  parseWorkflowJson,
   type ComfyUiRuntimeConfig,
   type WorkflowParamValues,
 } from "@/lib/comfyui-config";
@@ -33,10 +34,14 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as ComfyUiRequestBody;
     const runtime = stripEmptyComfyUiRuntime(body.comfy);
+    const workflow = runtime?.workflowJson?.trim()
+      ? (parseWorkflowJson(runtime.workflowJson) ?? undefined)
+      : undefined;
     const resolvedQueue = resolveQueueInjectionContext({
       runtime,
       override: body.params,
       model: body.model ?? runtime?.queueTargetModel,
+      workflow,
     });
     const prompts = (
       body.prompts?.map((entry) => entry.trim()).filter(Boolean) ??
@@ -86,6 +91,7 @@ export async function POST(request: Request) {
           runtime,
           override: body.paramsPerPrompt?.[index] ?? body.params,
           model: body.model ?? runtime?.queueTargetModel,
+          workflow,
         }).params,
       })),
       runtime,

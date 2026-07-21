@@ -3,9 +3,12 @@ import {
   type ComfyImageModel,
   type ComfyModelCategory,
 } from "./comfy-models";
-import type { CustomWorkflowToken } from "./comfyui-config";
+import type { CustomWorkflowToken, WorkflowParamValues } from "./comfyui-config";
 import {
   defaultLoaderPrecisionTier,
+  detectLoaderPrecisionTier,
+  filenameMatchesPrecisionTier,
+  precisionHintFromFilename,
   qwen2512UnetFilename,
   qwenDualClipFilename,
   qwenEdit2509UnetFilename,
@@ -13,6 +16,7 @@ import {
   qwenGenericUnetFilename,
   type LoaderPrecisionTier,
 } from "./model-loader-precision";
+import { isQwenLightningModel } from "./model-sampling-patch";
 
 export type ModelLoaderFilenames = {
   checkpoint?: string;
@@ -269,6 +273,69 @@ function inferKleinLoaderHints(modelId: string): ModelLoaderFilenames {
   return {};
 }
 
+function preferTierAlignedLoaderFilename(
+  candidate: string | undefined,
+  tier: LoaderPrecisionTier,
+  fallback: string | undefined,
+  workflowTier?: LoaderPrecisionTier,
+): string | undefined {
+  const trimmed = trimFilename(candidate);
+  if (!trimmed) {
+    return fallback;
+  }
+  if (workflowTier && !filenameMatchesPrecisionTier(trimmed, workflowTier)) {
+    return fallback;
+  }
+  if (!filenameMatchesPrecisionTier(trimmed, tier)) {
+    return fallback;
+  }
+  return trimmed;
+}
+
+export function realignLoaderFilenamesToWorkflowPrecision(
+  params: WorkflowParamValues,
+  model: string,
+  workflow: Record<string, unknown> | undefined,
+  options?: {
+    checkpointMap?: ModelCheckpointMap;
+    vaeMap?: ModelVaeMap;
+    customTokens?: CustomWorkflowToken[];
+  },
+): WorkflowParamValues {
+  const workflowTier = workflow ? detectLoaderPrecisionTier(workflow) : undefined;
+  const tier =
+    isQwenLightningModel(model) ? "bf16" : workflowTier;
+  if (!tier || !model.trim()) {
+    return params;
+  }
+
+  const aligned = resolveLoaderFilenamesForModel(model, {
+    ...options,
+    precisionTier: tier,
+    workflow,
+  });
+  const next = { ...params };
+
+  if (
+    next.unetFilename?.toString().trim() &&
+    !filenameMatchesPrecisionTier(next.unetFilename.toString(), tier)
+  ) {
+    if (aligned.unet) {
+      next.unetFilename = aligned.unet;
+    }
+  }
+  if (
+    next.checkpointFilename?.toString().trim() &&
+    !filenameMatchesPrecisionTier(next.checkpointFilename.toString(), tier)
+  ) {
+    if (aligned.checkpoint) {
+      next.checkpointFilename = aligned.checkpoint;
+    }
+  }
+
+  return next;
+}
+
 export function resolveLoaderFilenamesForModel(
   model: ComfyImageModel | string,
   options?: {
@@ -277,32 +344,66 @@ export function resolveLoaderFilenamesForModel(
     vaeMap?: ModelVaeMap;
     customTokens?: CustomWorkflowToken[];
     precisionTier?: LoaderPrecisionTier;
+    workflow?: Record<string, unknown>;
   },
 ): ModelLoaderFilenames {
-  const tier = options?.precisionTier ?? defaultLoaderPrecisionTier();
+  const workflowTier = options?.workflow
+    ? detectLoaderPrecisionTier(options.workflow)
+    : undefined;
+  const tier = options?.precisionTier ?? workflowTier ?? defaultLoaderPrecisionTier();
   const def = getComfyModelDefinition(model);
   const inferred = {
-    ...inferQwenLoaderHints(model, tier),
+    ...inferQwenLoaderHints(model, workflowTier ?? tier),
     ...inferKleinLoaderHints(model),
   };
   const mappedCheckpoint = trimFilename(options?.checkpointMap?.[model]);
   const mappedUnet = trimFilename(options?.unetMap?.[model]);
-  const checkpoint =
-    mappedCheckpoint ??
-    resolveCustomTokenValue(DEFAULT_CHECKPOINT_TOKEN, options?.customTokens) ??
-    trimFilename(def?.checkpointHint) ??
-    inferred.checkpoint;
-  const unet =
-    mappedUnet ??
-    mappedCheckpoint ??
-    resolveCustomTokenValue(DEFAULT_UNET_TOKEN, options?.customTokens) ??
-    inferred.unet ??
-    trimFilename(def?.unetHint) ??
-    checkpoint;
+  const customCheckpoint = resolveCustomTokenValue(
+    DEFAULT_CHECKPOINT_TOKEN,
+    options?.customTokens,
+  );
+  const customUnet = resolveCustomTokenValue(DEFAULT_UNET_TOKEN, options?.customTokens);
+
+  let checkpoint: string | undefined;
+  let unet: string | undefined;
+
+  if (workflowTier) {
+    checkpoint =
+      preferTierAlignedLoaderFilename(mappedCheckpoint, tier, undefined, workflowTier) ??
+      preferTierAlignedLoaderFilename(customCheckpoint, tier, undefined, workflowTier) ??
+      trimFilename(def?.checkpointHint) ??
+      inferred.checkpoint;
+    unet =
+      preferTierAlignedLoaderFilename(mappedUnet, tier, undefined, workflowTier) ??
+      preferTierAlignedLoaderFilename(mappedCheckpoint, tier, undefined, workflowTier) ??
+      preferTierAlignedLoaderFilename(customUnet, tier, undefined, workflowTier) ??
+      preferTierAlignedLoaderFilename(checkpoint, tier, undefined, workflowTier) ??
+      inferred.unet ??
+      trimFilename(def?.unetHint) ??
+      checkpoint;
+  } else {
+    checkpoint =
+      mappedCheckpoint ??
+      customCheckpoint ??
+      trimFilename(def?.checkpointHint) ??
+      inferred.checkpoint;
+    unet =
+      mappedUnet ??
+      mappedCheckpoint ??
+      customUnet ??
+      inferred.unet ??
+      trimFilename(def?.unetHint) ??
+      checkpoint;
+  }
   const vae =
     trimFilename(options?.vaeMap?.[model]) ??
     trimFilename(def?.vaeHint) ??
     (def?.category ? CATEGORY_VAE_HINTS[def.category] : undefined);
+
+  const effectiveTier =
+    precisionHintFromFilename(unet ?? checkpoint ?? "") ??
+    workflowTier ??
+    tier;
 
   const result: ModelLoaderFilenames = {};
   if (checkpoint) {
@@ -314,8 +415,8 @@ export function resolveLoaderFilenamesForModel(
   if (vae) {
     result.vae = vae;
   }
-  if (inferred.dualClip) {
-    result.dualClip = inferred.dualClip;
+  if (inferred.dualClip || model.toLowerCase().includes("qwen")) {
+    result.dualClip = qwenDualClipFilename(effectiveTier);
   }
   return result;
 }

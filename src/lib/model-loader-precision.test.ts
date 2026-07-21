@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   detectLoaderPrecisionTier,
+  precisionHintFromFilename,
   qwenDualClipFilename,
   resolveLoaderPrecisionTier,
 } from "./model-loader-precision.ts";
@@ -83,5 +84,14 @@ describe("model loader precision", () => {
       precisionTier: "fp8",
     });
     assert.equal(fp8Loaders.unet, "qwen_image_2512_fp8_e4m3fn.safetensors");
+  });
+
+  it("infers bf16 tier from qwen filenames without an explicit suffix", () => {
+    assert.equal(precisionHintFromFilename("qwen_2.5_vl_7b.safetensors"), "bf16");
+    assert.equal(precisionHintFromFilename("qwen_image_2512.safetensors"), "bf16");
+  });
+
+  it("defaults to bf16 when workflow and map provide no precision hints", () => {
+    assert.equal(resolveLoaderPrecisionTier({}), "bf16");
   });
 });

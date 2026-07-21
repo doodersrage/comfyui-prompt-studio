@@ -22,6 +22,7 @@ import {
   type ComfyModelCategory,
 } from "./comfy-models";
 import { isEditCapableModel, isQwenEditModel } from "./model-denoise-defaults";
+import { isQwenLightningModel } from "./model-sampling-patch";
 import { DEFAULT_UNET_TOKEN } from "./model-checkpoint-map";
 import {
   defaultLoaderPrecisionTier,
@@ -174,7 +175,7 @@ function qwenScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown
       _meta: { title: "Negative Prompt" },
     },
     "6": {
-      class_type: "EmptyLatentImage",
+      class_type: "EmptySD3LatentImage",
       inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
       _meta: { title: "Empty Latent" },
     },
@@ -193,6 +194,89 @@ function qwenScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown
         scheduler: tokens.scheduler,
         denoise: tokens.denoise,
         model: ["7", 0],
+        positive: ["4", 0],
+        negative: ["5", 0],
+        latent_image: ["6", 0],
+      },
+      _meta: { title: "KSampler" },
+    },
+    "9": {
+      class_type: "VAEDecode",
+      inputs: { samples: ["8", 0], vae: ["3", 0] },
+      _meta: { title: "VAE Decode" },
+    },
+    "10": {
+      class_type: "SaveImage",
+      inputs: { images: ["9", 0], filename_prefix: "PromptStudio" },
+      _meta: { title: "Save Image" },
+    },
+  };
+}
+
+const LIGHTNING_LORA_TOKEN = "{{LORA_LIGHTNING}}";
+
+function qwenLightningScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  const loaders = qwenLoaderFilenames();
+  return {
+    "1": {
+      class_type: "UNETLoader",
+      inputs: { unet_name: loaders.unetToken, weight_dtype: "default" },
+      _meta: { title: "Load UNET" },
+    },
+    "2": {
+      class_type: "CLIPLoader",
+      inputs: {
+        clip_name: loaders.clipName,
+        type: "qwen_image",
+      },
+      _meta: { title: "Load CLIP" },
+    },
+    "3": {
+      class_type: "VAELoader",
+      inputs: { vae_name: loaders.vaeName },
+      _meta: { title: "Load VAE" },
+    },
+    "4": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.positive, clip: ["2", 0] },
+      _meta: { title: "Positive Prompt" },
+    },
+    "5": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.negative, clip: ["2", 0] },
+      _meta: { title: "Negative Prompt" },
+    },
+    "6": {
+      class_type: "EmptySD3LatentImage",
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: "Empty Latent" },
+    },
+    "7": {
+      class_type: "LoraLoader",
+      inputs: {
+        model: ["1", 0],
+        clip: ["2", 0],
+        lora_name: LIGHTNING_LORA_TOKEN,
+        strength_model: 1,
+        strength_clip: 1,
+      },
+      _meta: { title: "Lightning LoRA" },
+    },
+    "11": {
+      class_type: "ModelSamplingAuraFlow",
+      inputs: { model: ["7", 0], shift: tokens.shift },
+      _meta: { title: "ModelSamplingAuraFlow" },
+    },
+    "8": {
+      class_type: "KSampler",
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ["11", 0],
         positive: ["4", 0],
         negative: ["5", 0],
         latent_image: ["6", 0],
@@ -719,13 +803,16 @@ export function buildWorkflowScaffoldForModel(
   const resolvedTokens = resolveBindingTokens(tokens);
   const category = resolveScaffoldCategory(model);
   const useEditScaffold = isEditCapableModel(model);
+  const useLightningScaffold = category === "qwen" && isQwenLightningModel(model);
   const graph = useEditScaffold
     ? editScaffold(resolvedTokens, category, model)
     : category === "flux"
       ? fluxScaffold(resolvedTokens)
-      : category === "qwen"
-        ? qwenScaffold(resolvedTokens)
-        : genericScaffold(resolvedTokens);
+      : useLightningScaffold
+        ? qwenLightningScaffold(resolvedTokens)
+        : category === "qwen"
+          ? qwenScaffold(resolvedTokens)
+          : genericScaffold(resolvedTokens);
   const notes = [
     "Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.",
     useEditScaffold
@@ -735,7 +822,9 @@ export function buildWorkflowScaffoldForModel(
           ? "FLUX inpaint scaffold wires LoadImage + LoadImageMask → InpaintModelConditioning — upload source image and mask before queueing."
           : "Edit scaffold includes LoadImage + denoise — wire VAEEncode in ComfyUI if you use the generic edit template."
       : category === "qwen"
-        ? "Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs."
+        ? useLightningScaffold
+          ? "Lightning scaffold uses UNETLoader + Lightning LoRA ({{LORA_LIGHTNING}}) + ModelSamplingAuraFlow (shift ~3). Map your 4/8-step bf16 Lightning LoRA in Settings → LoRA library."
+          : "Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs."
         : "Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.",
   ];
 

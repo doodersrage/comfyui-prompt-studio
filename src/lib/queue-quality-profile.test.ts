@@ -53,13 +53,33 @@ describe("queue-quality-profile", () => {
   });
 
   it("flags final and max profiles for upscale enrichment", async () => {
-    const { profileUsesUpscaleEnrich, upscaleScaleForProfile } = await import(
-      "./queue-quality-profile.ts"
-    );
+    const {
+      profileUsesUpscaleEnrich,
+      profileUsesNeuralUpscaleEnrich,
+      upscaleScaleForProfile,
+      upscaleMethodForProfile,
+    } = await import("./queue-quality-profile.ts");
     assert.equal(profileUsesUpscaleEnrich("final"), true);
     assert.equal(profileUsesUpscaleEnrich("draft"), false);
     assert.equal(upscaleScaleForProfile("final"), 1.25);
     assert.equal(upscaleScaleForProfile("max"), 1.5);
+    assert.equal(
+      upscaleScaleForProfile("final", { model: "qwen-image-2512-lightning-8" }),
+      1.18,
+    );
+    assert.equal(
+      upscaleScaleForProfile("max", { model: "qwen-image-2512-lightning-8" }),
+      1.28,
+    );
+    assert.equal(
+      upscaleMethodForProfile("max", { model: "qwen-image-2512-lightning-8" }),
+      "lanczos",
+    );
+    assert.equal(
+      profileUsesNeuralUpscaleEnrich("max", { model: "qwen-image-2512-lightning-8" }),
+      false,
+    );
+    assert.equal(profileUsesNeuralUpscaleEnrich("max"), true);
   });
 
   it("enables SDXL refiner and neural polish only on appropriate profiles", async () => {

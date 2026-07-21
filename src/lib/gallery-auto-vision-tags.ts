@@ -1,8 +1,13 @@
 "use client";
 
-import { reviewGalleryImage } from "./gallery-vision-review";
 import { galleryEntryViewUrls, updateComfyGalleryEntryById, type ComfyGalleryEntry } from "./comfyui-gallery";
 import { loadComfyUiSettings } from "./comfyui-settings";
+
+type VisionReviewResult = {
+  suggestedRating: 1 | 2 | 3 | 4 | 5;
+  tags: string[];
+  critique: string;
+};
 
 export async function autoTagGalleryEntry(entry: ComfyGalleryEntry): Promise<void> {
   if (entry.visionTags?.length || entry.status !== "completed") {
@@ -27,10 +32,18 @@ export async function autoTagGalleryEntry(entry: ComfyGalleryEntry): Promise<voi
       reader.readAsDataURL(blob);
     });
 
-    const review = await reviewGalleryImage({
-      imageDataUrl: dataUrl,
-      prompt: entry.prompt,
+    const reviewResponse = await fetch("/api/gallery/vision-review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageDataUrl: dataUrl,
+        prompt: entry.prompt,
+      }),
     });
+    if (!reviewResponse.ok) {
+      return;
+    }
+    const review = (await reviewResponse.json()) as VisionReviewResult;
     if (review.tags.length > 0) {
       updateComfyGalleryEntryById(entry.id, { visionTags: review.tags });
     }

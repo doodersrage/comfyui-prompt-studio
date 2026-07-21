@@ -1,3 +1,5 @@
+import "server-only";
+
 import { findUserById } from "@/lib/auth/store";
 import type { AuthUser } from "@/lib/auth/types";
 import { getEmailConfig } from "./config";

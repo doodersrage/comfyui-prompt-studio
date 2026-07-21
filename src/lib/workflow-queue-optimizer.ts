@@ -16,6 +16,11 @@ import { mergeLoraLibraryIntoCustomTokens, loadComfyUiSettings } from "./comfyui
 import { resolvePromptEncodeTextField } from "./workflow-prompt-encode";
 import { workflowContentHash } from "./workflow-content-hash";
 import { repairQwenImageClipLoaderNodes } from "./workflow-qwen-clip-repair";
+import { isQwenLightningModel, patchModelSamplingInWorkflow, resolveModelSamplingParams } from "./model-sampling-patch";
+import {
+  profileUsesUpscaleEnrich,
+  resolveEffectiveSamplerPreset,
+} from "./queue-quality-profile";
 
 export type WorkflowQueueAudit = {
   nodeCount: number;
@@ -234,6 +239,13 @@ function filterMappingsForOptimize(
       if (typeof value === "string" && /^\{\{LORA_/.test(value.trim())) {
         return false;
       }
+      if (
+        typeof value === "string" &&
+        value.trim() &&
+        /\.safetensors$/i.test(value.trim())
+      ) {
+        return false;
+      }
     }
 
     if (mapping.suggestedBinding === "controlImage") {
@@ -245,6 +257,23 @@ function filterMappingsForOptimize(
 
     return true;
   });
+}
+
+function workflowUsesPromptStudioPlaceholders(
+  workflowJson: string,
+  tokens: WorkflowPlaceholderTokens,
+): boolean {
+  const placeholders = detectWorkflowPlaceholders(workflowJson, tokens);
+  return (
+    placeholders.positive > 0 ||
+    placeholders.negative > 0 ||
+    placeholders.seed > 0 ||
+    placeholders.steps > 0 ||
+    placeholders.width > 0 ||
+    placeholders.height > 0 ||
+    countToken(workflowJson, DEFAULT_CHECKPOINT_TOKEN) > 0 ||
+    countToken(workflowJson, DEFAULT_UNET_TOKEN) > 0
+  );
 }
 
 function workflowIsFullyBound(audit: WorkflowQueueAudit): boolean {
@@ -269,7 +298,7 @@ export function optimizeWorkflowForQueue(input: {
   enrichNeuralPolish?: boolean;
   enrichSharpen?: boolean;
   loraBindTokens?: string[];
-  /** When set and matches current workflow hash, skip optimize/enrich if already fully bound. */
+  /** When set and matches current workflow hash, skip re-binding if already fully bound. */
   contentHash?: string;
   skipIfUnchanged?: boolean;
 }): WorkflowQueueOptimizeResult {
@@ -292,25 +321,23 @@ export function optimizeWorkflowForQueue(input: {
     });
   }
 
+  let skipBinding = false;
   if (input.skipIfUnchanged && input.contentHash) {
     const currentHash = workflowContentHash(workflowJson);
     if (currentHash === input.contentHash) {
       const audit = auditWorkflowStructure(workflowJson, input.tokens);
-      if (workflowIsFullyBound(audit)) {
-        return {
-          workflow,
-          workflowJson,
-          bindingChanges: [],
-          changes,
-          audit,
-        };
-      }
+      // Bindings are stable — Final/Max enrich still depends on queue quality profile.
+      skipBinding = workflowIsFullyBound(audit);
     }
   }
 
   let bindingChanges: WorkflowBindingChange[] = [];
+  const usesPromptStudioPlaceholders = workflowUsesPromptStudioPlaceholders(
+    workflowJson,
+    input.tokens,
+  );
 
-  if (enabled) {
+  if (enabled && !skipBinding) {
     const initialAudit = auditWorkflowStructure(workflowJson, input.tokens);
     if (!workflowIsFullyBound(initialAudit)) {
       const mappings = filterMappingsForOptimize(
@@ -324,7 +351,9 @@ export function optimizeWorkflowForQueue(input: {
           workflowJson,
           mappings,
           input.tokens,
-          { loraBindTokens },
+          {
+            loraBindTokens: usesPromptStudioPlaceholders ? loraBindTokens : [],
+          },
         );
         if (applied.changes.length > 0) {
           workflowJson = applied.json;
@@ -341,7 +370,13 @@ export function optimizeWorkflowForQueue(input: {
 
   workflow = JSON.parse(workflowJson) as Record<string, unknown>;
 
-  if (enabled && enrichGraph) {
+  const shouldEnrichGraph =
+    enrichGraph &&
+    usesPromptStudioPlaceholders &&
+    (!isQwenLightningModel(input.model) ||
+      profileUsesUpscaleEnrich(input.qualityProfile));
+
+  if (enabled && shouldEnrichGraph) {
     const enriched = enrichWorkflowGraph({
       workflow,
       tokens: input.tokens,
@@ -351,11 +386,38 @@ export function optimizeWorkflowForQueue(input: {
       refinerCheckpointFilename: input.refinerCheckpointFilename,
       enrichSdxlRefiner: input.enrichSdxlRefiner,
       enrichNeuralPolish: input.enrichNeuralPolish,
-      enrichSharpen: input.enrichSharpen,
+      // Sharpen on Lightning tends to halo — keep Final/Max soft scale only.
+      enrichSharpen: isQwenLightningModel(input.model) ? false : input.enrichSharpen,
+      enrichSampling: !isQwenLightningModel(input.model),
     });
     workflow = enriched.workflow;
     workflowJson = JSON.stringify(workflow, null, 2);
     changes.push(...enriched.changes);
+  }
+
+  if (input.model) {
+    const samplingParams = resolveModelSamplingParams(
+      input.model,
+      resolveEffectiveSamplerPreset("base", input.qualityProfile),
+    );
+    const samplingPatch = patchModelSamplingInWorkflow(
+      workflow,
+      samplingParams,
+      input.model,
+    );
+    const patchedFields = Object.values(samplingPatch.patched).reduce(
+      (sum, count) => sum + (count ?? 0),
+      0,
+    );
+    if (patchedFields > 0) {
+      workflow = samplingPatch.workflow;
+      workflowJson = JSON.stringify(workflow, null, 2);
+      changes.push({
+        kind: "binding",
+        severity: "info",
+        message: "Resolved model-sampling placeholders (shift / Flux max-base).",
+      });
+    }
   }
 
   const audit = auditWorkflowStructure(workflowJson, input.tokens);

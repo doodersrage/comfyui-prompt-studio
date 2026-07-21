@@ -13,6 +13,39 @@ export type ModelWorkflowMap = Record<string, string>;
 
 const ALL_MODELS = COMFY_IMAGE_MODELS.map((entry) => entry.id);
 
+/** When any member is available, keep sibling presets selectable (e.g. vanilla + Lightning). */
+const MODEL_FAMILY_GROUPS: readonly (readonly ComfyImageModel[])[] = [
+  [
+    "qwen-image-2512",
+    "qwen-image-2512-lightning-4",
+    "qwen-image-2512-lightning-8",
+  ],
+  [
+    "qwen-image-edit-2511",
+    "qwen-image-edit-2511-lightning-4",
+    "qwen-image-edit-2511-lightning-8",
+  ],
+  [
+    "flux-2-klein",
+    "flux-2-klein-4b-distilled",
+    "flux-2-klein-9b",
+    "flux-2-klein-9b-distilled",
+  ],
+];
+
+function expandSupportedModelFamilies(supported: Set<ComfyImageModel>): void {
+  for (const family of MODEL_FAMILY_GROUPS) {
+    if (!family.some((id) => supported.has(id))) {
+      continue;
+    }
+    for (const id of family) {
+      if (ALL_MODELS.includes(id)) {
+        supported.add(id);
+      }
+    }
+  }
+}
+
 export type SupportedModelsSource =
   | "disabled"
   | "override"
@@ -190,6 +223,8 @@ export function modelsSupportedByAvailableWorkflows(input: {
     const noCatalog = files.length === 0 && !input.map;
     return { models: ALL_MODELS, source: noCatalog ? "disabled" : "empty_fallback" };
   }
+
+  expandSupportedModelFamilies(supported);
 
   const models = [...supported];
   if (!models.includes(input.currentModel)) {

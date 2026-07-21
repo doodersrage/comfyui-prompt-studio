@@ -1236,7 +1236,7 @@ export default function SettingsTool() {
           rows={3}
           spellCheck={false}
           disabled={!sharedMounted}
-          placeholder={`# optional — only if file exists in ComfyUI\ndefault=4x-UltraSharp.pth`}
+          placeholder={`# used by Final/Max neural upscale when present in ComfyUI\ndefault=4x-UltraSharp.pth`}
           className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
         />
         <p className="mb-2 mt-4 text-sm text-zinc-400">

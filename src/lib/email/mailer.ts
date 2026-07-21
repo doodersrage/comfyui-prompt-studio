@@ -1,3 +1,5 @@
+import "server-only";
+
 import nodemailer from "nodemailer";
 import { getEmailConfig, isEmailConfigured } from "./config";
 

@@ -2,6 +2,7 @@ import type { WorkflowParamValues } from "./comfyui-config";
 import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 import {
   DEFAULT_MODEL_SAMPLER_PRESET_TIER,
+  ensureLightningSamplerParams,
   normalizeModelSamplerPresetTier,
   resolveModelSamplerParams,
   type ModelSamplerPresetTier,
@@ -11,6 +12,7 @@ import { resolveDenoiseForModel } from "./model-denoise-defaults";
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
   DEFAULT_RESOLUTION_SIZE_TIER,
+  ensureLightningNativeResolutionParams,
   normalizeResolutionOrientation,
   normalizeResolutionSizeTier,
   resolveModelResolutionParams,
@@ -20,9 +22,11 @@ import {
 import type { ComfyImageModel } from "./comfy-models";
 import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
 import {
+  realignLoaderFilenamesToWorkflowPrecision,
   resolveLoaderFilenamesForModel,
   resolveRefinerFilenameForModel,
 } from "./model-checkpoint-map";
+import { resolveLoaderPrecisionTier } from "./model-loader-precision";
 import { resolveUpscaleModelFilename } from "./model-upscale-map";
 import { resolveControlNetModelFilename } from "./model-controlnet-map";
 import { loadSettingsCache } from "./settings-cache";
@@ -50,6 +54,7 @@ export type ResolveQueueParamsOptions = {
   maskImageFilename?: string;
   controlImageFilename?: string;
   qualityProfile?: QueueQualityProfile;
+  workflow?: Record<string, unknown>;
 };
 
 function loadModelSamplerPresetTier(): ModelSamplerPresetTier {
@@ -116,7 +121,7 @@ function normalizeResolveQueueParamsInput(
   if (!input) {
     return {};
   }
-  if ("model" in input || "base" in input || "samplerPreset" in input || "resolutionOrientation" in input || "resolutionSizeTier" in input || "tool" in input || "inputImageFilename" in input || "maskImageFilename" in input || "controlImageFilename" in input || "qualityProfile" in input) {
+  if ("model" in input || "base" in input || "samplerPreset" in input || "resolutionOrientation" in input || "resolutionSizeTier" in input || "tool" in input || "inputImageFilename" in input || "maskImageFilename" in input || "controlImageFilename" in input || "qualityProfile" in input || "workflow" in input) {
     return input as ResolveQueueParamsOptions;
   }
   return { base: input as WorkflowParamValues };
@@ -125,7 +130,7 @@ function normalizeResolveQueueParamsInput(
 export function resolveQueueParams(
   input?: WorkflowParamValues | ResolveQueueParamsOptions,
 ): WorkflowParamValues {
-  const { model, base, samplerPreset, resolutionOrientation, resolutionSizeTier, tool, inputImageFilename, maskImageFilename, controlImageFilename, qualityProfile } =
+  const { model, base, samplerPreset, resolutionOrientation, resolutionSizeTier, tool, inputImageFilename, maskImageFilename, controlImageFilename, qualityProfile, workflow } =
     normalizeResolveQueueParamsInput(input);
   const settings = loadQueueParamsSettings();
   const shared = loadSettingsCache().shared;
@@ -196,20 +201,30 @@ export function resolveQueueParams(
   if (model) {
     const comfySettings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
     const customTokens = comfySettings.customTokens ?? [];
-    const loaders = resolveLoaderFilenamesForModel(model, {
+    const loaderMapOptions = {
       checkpointMap: shared.modelCheckpointMap,
       vaeMap: shared.modelVaeMap,
       customTokens,
-    });
+      workflow,
+      precisionTier: resolveLoaderPrecisionTier({ workflow, model }),
+    };
+    const aligned = realignLoaderFilenamesToWorkflowPrecision(
+      merged,
+      model,
+      workflow,
+      loaderMapOptions,
+    );
+    const loaders = resolveLoaderFilenamesForModel(model, loaderMapOptions);
     if (loaders.checkpoint) {
-      merged.checkpointFilename = loaders.checkpoint;
+      aligned.checkpointFilename = loaders.checkpoint;
     }
     if (loaders.unet) {
-      merged.unetFilename = loaders.unet;
+      aligned.unetFilename = loaders.unet;
     }
     if (loaders.vae) {
-      merged.vaeFilename = loaders.vae;
+      aligned.vaeFilename = loaders.vae;
     }
+    Object.assign(merged, aligned);
 
     const upscaleModel = resolveUpscaleModelFilename(model, {
       upscaleMap: shared.modelUpscaleMap,
@@ -265,6 +280,12 @@ export function resolveQueueParams(
     if (denoise != null) {
       merged.denoise = denoise;
     }
+
+    return ensureLightningSamplerParams(
+      ensureLightningNativeResolutionParams(merged, model, orientation, sizeTier),
+      model,
+      presetTier,
+    );
   }
 
   return merged;

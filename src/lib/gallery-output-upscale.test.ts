@@ -54,6 +54,16 @@ describe("gallery-output-upscale", () => {
     ]);
   });
 
+  it("builds Lightning pass-through without reprocess", () => {
+    const workflow = buildGalleryUpscaleWorkflow({
+      qualityProfile: "final",
+      model: "qwen-image-2512-lightning-8",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+    });
+    const classTypes = Object.values(workflow).map((node) => node.class_type);
+    assert.deepEqual(classTypes, ["LoadImage", "SaveImage"]);
+  });
+
   it("resolves gallery output view URL", () => {
     const url = resolveGalleryOutputImageUrl({
       comfyUrl: "http://127.0.0.1:8188",

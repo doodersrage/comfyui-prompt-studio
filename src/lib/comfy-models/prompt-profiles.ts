@@ -197,6 +197,7 @@ FLUX Schnell rules:
 Qwen-Image-2512 rules:
 - Do NOT output chat tokens, system templates, or labels like "prompt:"—plain descriptive prose only.
 - Describe color, shape, size, texture, quantity, visible text, and spatial relationships between subjects and background.
+- Use photographic scene language—light direction, material surfaces, skin and fabric texture, depth—without bare quality tags.
 - Keep prompts concise and factual—clear beats verbose. One unified scene, not tag soup.
 - For signage, posters, or UI text, quote the exact wording in double quotes.
 - Follow the DETAIL LEVEL block for length. Rich adds detail on the SAME scene—do not wander.

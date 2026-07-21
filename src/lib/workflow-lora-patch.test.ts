@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildLightningLoraFilenameMap,
   buildLoraFilenameMapFromCustomTokens,
+  loraNameImpliesLightning,
   patchLoraNodesInWorkflow,
 } from "./workflow-lora-patch.ts";
 
@@ -29,5 +31,17 @@ describe("workflow-lora-patch", () => {
       { token: "{{POSITIVE}}", value: "ignored" },
     ]);
     assert.deepEqual(map, { "{{LORA_SKIN}}": "skin.safetensors" });
+  });
+
+  it("infers {{LORA_LIGHTNING}} from lightning custom tokens", () => {
+    const map = buildLightningLoraFilenameMap(
+      [{ token: "{{LORA_LIGHTNING_8}}", value: "qwen_lightning_8steps.safetensors" }],
+      "qwen-image-2512-lightning-8",
+    );
+    assert.equal(map["{{LORA_LIGHTNING}}"], "qwen_lightning_8steps.safetensors");
+  });
+
+  it("treats {{LORA_LIGHTNING}} placeholder as lightning", () => {
+    assert.equal(loraNameImpliesLightning("{{LORA_LIGHTNING}}", {}), true);
   });
 });

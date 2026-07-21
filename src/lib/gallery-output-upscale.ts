@@ -1,6 +1,6 @@
-import { DEFAULT_INPUT_IMAGE_TOKEN } from "./comfyui-config";
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
 import { buildComfyViewPath } from "./comfyui-outputs";
+import { isQwenLightningModel } from "./model-sampling-patch";
 import {
   lanczosPolishScaleAfterNeural,
   neuralUpscaleTileSizeForProfile,
@@ -11,6 +11,7 @@ import {
   type QueueQualityProfile,
 } from "./queue-quality-profile";
 import { IMAGE_SCALE_BY_NODE_TYPE } from "./workflow-direct-patch";
+import { DEFAULT_INPUT_IMAGE_TOKEN } from "./comfyui-config";
 
 type WorkflowNode = {
   class_type: string;
@@ -23,6 +24,8 @@ export type BuildGalleryUpscaleWorkflowInput = {
   upscaleModelFilename?: string;
   enrichNeuralPolish?: boolean;
   enrichSharpen?: boolean;
+  /** Lightning skips upscale reprocess entirely. */
+  model?: string;
 };
 
 export function resolveGalleryOutputImageUrl(
@@ -38,9 +41,35 @@ export function resolveGalleryOutputImageUrl(
   return undefined;
 }
 
+/**
+ * Lightning must not re-encode or resample gallery outputs — soft scale still looks mushy.
+ * Pass-through LoadImage → SaveImage only.
+ */
+export function buildLightningGalleryUpscaleWorkflow(): Record<string, WorkflowNode> {
+  return {
+    "1": {
+      class_type: "LoadImage",
+      inputs: { image: DEFAULT_INPUT_IMAGE_TOKEN },
+      _meta: { title: "Prompt Studio — gallery output" },
+    },
+    "2": {
+      class_type: "SaveImage",
+      inputs: {
+        filename_prefix: "PromptStudio-upscale",
+        images: ["1", 0],
+      },
+      _meta: { title: "Prompt Studio — save" },
+    },
+  };
+}
+
 export function buildGalleryUpscaleWorkflow(
   input: BuildGalleryUpscaleWorkflowInput,
 ): Record<string, WorkflowNode> {
+  if (isQwenLightningModel(input.model)) {
+    return buildLightningGalleryUpscaleWorkflow();
+  }
+
   let nextId = 1;
   const id = () => String(nextId++);
 
@@ -83,7 +112,7 @@ export function buildGalleryUpscaleWorkflow(
 
     const usePolish =
       input.enrichNeuralPolish !== false &&
-      profileUsesNeuralUpscalePolish(input.qualityProfile);
+      profileUsesNeuralUpscalePolish(input.qualityProfile, { model: input.model });
     if (usePolish) {
       const polishId = id();
       workflow[polishId] = {
@@ -91,7 +120,7 @@ export function buildGalleryUpscaleWorkflow(
         inputs: {
           image: [outputNodeId, 0],
           upscale_method: "lanczos",
-          scale_by: lanczosPolishScaleAfterNeural(),
+          scale_by: lanczosPolishScaleAfterNeural({ model: input.model }),
         },
         _meta: { title: "Prompt Studio — Lanczos polish" },
       };
@@ -104,7 +133,7 @@ export function buildGalleryUpscaleWorkflow(
       inputs: {
         image: [outputNodeId, 0],
         upscale_method: "lanczos",
-        scale_by: upscaleScaleForProfile(input.qualityProfile),
+        scale_by: upscaleScaleForProfile(input.qualityProfile, { model: input.model }),
       },
       _meta: { title: "Prompt Studio — output upscale" },
     };

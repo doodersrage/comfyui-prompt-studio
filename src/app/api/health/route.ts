@@ -4,7 +4,7 @@ import { getComfyUiBaseUrl } from "@/lib/comfyui-client";
 import { getComfyUiWorkflowSummary } from "@/lib/comfyui-status";
 import { summarizeApiUsage } from "@/lib/api-usage-log";
 import { isServerStorageEnabled } from "@/lib/server-storage";
-import { isEmailConfigured } from "@/lib/email/mailer";
+import { isEmailConfigured } from "@/lib/email/config";
 import {
   stripEmptyComfyUiRuntime,
   type ComfyUiRuntimeConfig,

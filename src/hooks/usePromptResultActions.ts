@@ -17,6 +17,7 @@ import type { AthleticSport } from "@/lib/athletic-sport-profiles";
 import { resolveRuntimeForQueue } from "@/lib/comfyui-runtime-for-model";
 import { startImproveFromResult, startPromptEditorFromResult, startRefineFromResult } from "@/lib/improve-output";
 import type { WorkflowParamValues } from "@/lib/comfyui-config";
+import { parseWorkflowJson } from "@/lib/comfyui-config";
 import {
   galleryEntryPrimaryViewUrl,
 } from "@/lib/comfyui-gallery";
@@ -440,16 +441,21 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           });
         }
 
+        const runtime = resolveRuntimeForQueue(config.model, config.tool);
+        const workflow = runtime?.workflowJson?.trim()
+          ? (parseWorkflowJson(runtime.workflowJson) ?? undefined)
+          : undefined;
+
         const queueParams = resolveQueueParams({
           model: config.model,
           tool: config.tool,
           base: options?.queueParamsBase,
+          workflow,
           inputImageFilename,
           maskImageFilename,
           controlImageFilename,
           qualityProfile: options?.qualityProfile,
         });
-        const runtime = resolveRuntimeForQueue(config.model, config.tool);
         const autoSaveEnabled = loadComfyUiSettings().autoSaveHistoryOnQueue !== false;
         const resolvedHistoryId =
           historyId ??

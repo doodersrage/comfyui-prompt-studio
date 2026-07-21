@@ -1,3 +1,5 @@
+import "server-only";
+
 import { listUsersWithCampaigns, updateUserProfile } from "./auth/store";
 import { runUserCampaignWithBestOfN } from "./best-of-n-server";
 import {

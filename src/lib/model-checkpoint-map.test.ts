@@ -64,6 +64,51 @@ describe("model checkpoint map", () => {
     assert.equal(fp8.unet, "qwen_image_2512_fp8_e4m3fn.safetensors");
   });
 
+  it("prefers workflow bf16 tier over conflicting fp8 checkpoint map", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+      },
+    };
+    const loaders = resolveLoaderFilenamesForModel("qwen-image-2512-lightning-8", {
+      checkpointMap: {
+        "qwen-image-2512-lightning-8": "qwen_image_2512_fp8_e4m3fn.safetensors",
+      },
+      workflow,
+      precisionTier: "bf16",
+    });
+    assert.equal(loaders.unet, "qwen_image_2512_bf16.safetensors");
+    assert.equal(loaders.dualClip, "qwen_2.5_vl_7b.safetensors");
+  });
+
+  it("realigns queue params when client sent fp8 but workflow is bf16", async () => {
+    const { realignLoaderFilenamesToWorkflowPrecision } = await import(
+      "./model-checkpoint-map.ts"
+    );
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+      },
+    };
+    const realigned = realignLoaderFilenamesToWorkflowPrecision(
+      {
+        unetFilename: "qwen_image_2512_fp8_e4m3fn.safetensors",
+        checkpointFilename: "qwen_image_2512_fp8_e4m3fn.safetensors",
+      },
+      "qwen-image-2512-lightning-8",
+      workflow,
+      {
+        checkpointMap: {
+          "qwen-image-2512-lightning-8": "qwen_image_2512_fp8_e4m3fn.safetensors",
+        },
+      },
+    );
+    assert.equal(realigned.unetFilename, "qwen_image_2512_bf16.safetensors");
+    assert.equal(realigned.checkpointFilename, "qwen_image_2512_bf16.safetensors");
+  });
+
   it("applies per-model VAE map overrides", () => {
     const mapped = resolveLoaderFilenamesForModel("flux-2-klein-9b", {
       vaeMap: { "flux-2-klein-9b": "FLUX.2-klein-9B.safetensors" },

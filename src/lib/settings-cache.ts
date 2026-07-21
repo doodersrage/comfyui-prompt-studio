@@ -360,6 +360,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelCheckpointMap: SUGGESTED_MODEL_CHECKPOINT_MAP,
   modelVaeMap: SUGGESTED_MODEL_VAE_MAP,
   modelRefinerMap: SUGGESTED_MODEL_REFINER_MAP,
+  modelUpscaleMap: SUGGESTED_MODEL_UPSCALE_MAP,
   autoSelectWorkflowForModel: true,
   limitModelsToAvailableWorkflows: true,
   showAllModelsOverride: false,
@@ -584,13 +585,6 @@ export function loadSettingsCache(): SettingsCache {
       ...SUGGESTED_MODEL_UPSCALE_MAP,
       ...shared.modelUpscaleMap,
     };
-    if (
-      shared.modelUpscaleMap &&
-      Object.keys(shared.modelUpscaleMap).length === 1 &&
-      shared.modelUpscaleMap.default === "4x-UltraSharp.pth"
-    ) {
-      shared.modelUpscaleMap = undefined;
-    }
 
     const rawTools = parsed.tools ?? {};
     const migrated = migrateLegacyToolSettings(rawTools);

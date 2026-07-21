@@ -20,9 +20,17 @@ describe("workflow scaffold", () => {
     assert.equal(result.category, "qwen");
     assert.match(result.json, /UNETLoader/);
     assert.match(result.json, /CLIPLoader/);
+    assert.match(result.json, /EmptySD3LatentImage/);
     assert.match(result.json, /"type": "qwen_image"/);
     assert.match(result.json, /qwen_2\.5_vl_7b\.safetensors/);
     assert.match(result.json, /\{\{UNET\}\}/);
+  });
+
+  it("builds lightning scaffold with EmptySD3LatentImage", () => {
+    const result = buildWorkflowScaffoldForModel("qwen-image-2512-lightning-8");
+    assert.match(result.json, /EmptySD3LatentImage/);
+    assert.match(result.json, /LoraLoader/);
+    assert.doesNotMatch(result.json, /EmptyLatentImage/);
   });
 
   it("builds a wired qwen edit img2img scaffold", () => {

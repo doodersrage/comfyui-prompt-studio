@@ -301,6 +301,10 @@ export default function SharedToolControls({
     if (workflowManualOverrideRef.current) {
       return;
     }
+    // Respect a persisted library/picker selection — do not replace it with auto-ranked defaults.
+    if (selectedWorkflowId?.trim()) {
+      return;
+    }
     if (!mappedWorkflowForModel || !onWorkflowPresetChangeRef.current) {
       return;
     }
@@ -539,7 +543,7 @@ export default function SharedToolControls({
           serverFiles={workflowSelection.serverFiles}
           helpText={
             shared.autoSelectWorkflowForModel !== false
-              ? "Usually follows the target model via Settings → model→workflow map. Pick a different file here to override for this session."
+              ? "Your picker choice is used at queue time unless Settings → model→workflow map assigns a file for this model."
               : undefined
           }
           onChange={(fileId) => {

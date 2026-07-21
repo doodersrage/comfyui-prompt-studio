@@ -171,6 +171,7 @@ function injectPromptsIntoWorkflow(
       directWorkflowPatching: runtime?.directWorkflowPatching,
       syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
       loaders,
+      model: request.model ?? runtime?.queueTargetModel,
     },
   );
 }

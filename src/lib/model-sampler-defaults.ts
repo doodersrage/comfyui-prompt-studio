@@ -7,6 +7,17 @@ import {
 } from "./comfy-models";
 import type { WorkflowParamValues } from "./comfyui-config";
 
+function isLightningModelId(model: string): boolean {
+  const id = model.trim();
+  if (!id) {
+    return false;
+  }
+  if (COMFY_MODEL_IDS.has(id)) {
+    return id.includes("lightning-");
+  }
+  return /lightning-(4|8)\b/.test(id);
+}
+
 export type ModelSamplerPresetTier = "base" | "optimized" | "maxCompatible" | "max";
 
 export const DEFAULT_MODEL_SAMPLER_PRESET_TIER: ModelSamplerPresetTier = "base";
@@ -126,7 +137,8 @@ const QWEN_LIGHTNING_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "schedu
 
 const QWEN_2512_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
   samplerName: "euler",
-  scheduler: "simple",
+  // Official Qwen-Image-2512 ComfyUI templates prefer beta over simple for vanilla T2I.
+  scheduler: "beta",
 };
 
 const QWEN_RAPID_AIO_EDIT_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
@@ -241,10 +253,11 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     max: { steps: 35, cfg: 3.5, ...FLUX_SAMPLER },
   },
   "qwen-image-2512": {
-    base: { steps: 25, cfg: 2.5, ...QWEN_2512_SAMPLER },
-    optimized: { steps: 30, cfg: 2.5, ...QWEN_2512_SAMPLER },
-    maxCompatible: { steps: 35, cfg: 2.5, ...QWEN_2512_SAMPLER },
-    max: { steps: 50, cfg: 3, ...QWEN_2512_SAMPLER },
+    // Draft → official 50-step/CFG4 ladder (ComfyUI native 2512 template).
+    base: { steps: 20, cfg: 2.5, ...QWEN_2512_SAMPLER },
+    optimized: { steps: 30, cfg: 3.5, ...QWEN_2512_SAMPLER },
+    maxCompatible: { steps: 40, cfg: 4, ...QWEN_2512_SAMPLER },
+    max: { steps: 50, cfg: 4, ...QWEN_2512_SAMPLER },
   },
   "qwen-image-2512-lightning-4": fixedSamplerPresets({
     steps: 4,
@@ -353,6 +366,29 @@ export function resolveModelSamplerParams(
     return {};
   }
   return modelSamplerDefaultsToParams(getModelSamplerDefaults(model, tier));
+}
+
+/**
+ * Lightning LoRAs require their baked CFG/steps. Overrides (Advanced queue,
+ * stale runtime, handoff) with CFG > 1 cause plastic/smooth skin; wrong step
+ * counts overcook into grain.
+ */
+export function ensureLightningSamplerParams(
+  params: WorkflowParamValues,
+  model: string,
+  tier: ModelSamplerPresetTier = DEFAULT_MODEL_SAMPLER_PRESET_TIER,
+): WorkflowParamValues {
+  if (!isLightningModelId(model)) {
+    return params;
+  }
+  const lightning = resolveModelSamplerParams(model, tier);
+  return {
+    ...params,
+    ...(lightning.steps != null ? { steps: lightning.steps } : {}),
+    ...(lightning.cfg != null ? { cfg: lightning.cfg } : {}),
+    ...(lightning.samplerName != null ? { samplerName: lightning.samplerName } : {}),
+    ...(lightning.scheduler != null ? { scheduler: lightning.scheduler } : {}),
+  };
 }
 
 export function formatModelSamplerHint(

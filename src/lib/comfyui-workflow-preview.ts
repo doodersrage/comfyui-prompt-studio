@@ -163,6 +163,7 @@ export function previewWorkflowInjection(
       directWorkflowPatching: runtime?.directWorkflowPatching,
       syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
       loaders,
+      model: input.model ?? runtime?.queueTargetModel,
     },
   );
 
