@@ -12,6 +12,7 @@ import {
 } from "./queue-quality-profile";
 import { IMAGE_SCALE_BY_NODE_TYPE } from "./workflow-direct-patch";
 import { DEFAULT_INPUT_IMAGE_TOKEN } from "./comfyui-config";
+import { isUpscaleModelInstalled } from "./model-upscale-map";
 
 type WorkflowNode = {
   class_type: string;
@@ -26,6 +27,8 @@ export type BuildGalleryUpscaleWorkflowInput = {
   enrichSharpen?: boolean;
   /** Lightning skips upscale reprocess entirely. */
   model?: string;
+  availableUpscaleModels?: string[] | null;
+  supportsNeuralUpscaleTileSize?: boolean;
 };
 
 export function resolveGalleryOutputImageUrl(
@@ -84,7 +87,10 @@ export function buildGalleryUpscaleWorkflow(
 
   let outputNodeId = loadId;
   const modelName = input.upscaleModelFilename?.trim();
-  const useNeural = input.qualityProfile === "max" && Boolean(modelName);
+  const useNeural =
+    input.qualityProfile === "max" &&
+    Boolean(modelName) &&
+    isUpscaleModelInstalled(modelName, input.availableUpscaleModels);
 
   if (useNeural && modelName) {
     const loaderId = id();
@@ -95,7 +101,10 @@ export function buildGalleryUpscaleWorkflow(
     };
 
     const upscaleId = id();
-    const tileSize = neuralUpscaleTileSizeForProfile(input.qualityProfile);
+    const tileSize =
+      input.supportsNeuralUpscaleTileSize === true
+        ? neuralUpscaleTileSizeForProfile(input.qualityProfile)
+        : 0;
     const upscaleInputs: Record<string, unknown> = {
       upscale_model: [loaderId, 0],
       image: [outputNodeId, 0],

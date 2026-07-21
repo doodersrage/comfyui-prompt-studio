@@ -1130,6 +1130,7 @@ export function injectPromptsWithFallbacks(
       controlImageFilename: input.params?.controlImageFilename,
       customTokens: mergedCustomTokens,
       syncWorkflowLoadersToModel: options?.syncWorkflowLoadersToModel,
+      model: options?.model,
     });
     nextWorkflow = directPatch.workflow;
     directPatchCounts = directPatch.patched;

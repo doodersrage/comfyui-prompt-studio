@@ -6,6 +6,7 @@ import { auditDualClipNodesInWorkflow } from "./workflow-dual-clip-audit";
 import type { ComfyUiModelLists } from "./comfyui-object-info";
 import type { WorkflowPreflightIssue } from "./workflow-preflight";
 import { auditLightningWorkflowIssues } from "./workflow-lightning-queue";
+import { auditLoaderFilenamesInWorkflow } from "./workflow-loader-filename-audit";
 
 export function runWorkflowPreflightSync(input: {
   workflowJson?: string;
@@ -16,6 +17,7 @@ export function runWorkflowPreflightSync(input: {
   syncWorkflowLoadersToModel?: boolean;
   knownNodeTypes?: Set<string> | string[];
   models?: ComfyUiModelLists | null;
+  objectInfoUnavailable?: boolean;
 }): { ok: boolean; issues: WorkflowPreflightIssue[] } {
   const issues: WorkflowPreflightIssue[] = [];
 
@@ -48,9 +50,23 @@ export function runWorkflowPreflightSync(input: {
     model: input.model,
   }));
 
+  if (input.objectInfoUnavailable) {
+    issues.push({
+      severity: "warn",
+      message:
+        "ComfyUI object_info unavailable — skipped loader filename and node-type inventory checks.",
+    });
+  }
+
   if (input.models) {
     issues.push(
       ...auditDualClipNodesInWorkflow({
+        workflowJson: input.workflowJson,
+        models: input.models,
+      }),
+    );
+    issues.push(
+      ...auditLoaderFilenamesInWorkflow({
         workflowJson: input.workflowJson,
         models: input.models,
       }),

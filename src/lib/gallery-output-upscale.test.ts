@@ -54,6 +54,17 @@ describe("gallery-output-upscale", () => {
     ]);
   });
 
+  it("falls back to Lanczos Max when neural model is not installed", () => {
+    const workflow = buildGalleryUpscaleWorkflow({
+      qualityProfile: "max",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+      availableUpscaleModels: ["RealESRGAN_x4plus.pth"],
+    });
+    const classTypes = Object.values(workflow).map((node) => node.class_type);
+    assert.equal(classTypes.includes("UpscaleModelLoader"), false);
+    assert.equal(classTypes.includes("ImageScaleBy"), true);
+  });
+
   it("builds Lightning pass-through without reprocess", () => {
     const workflow = buildGalleryUpscaleWorkflow({
       qualityProfile: "final",

@@ -1,5 +1,10 @@
 import type { WorkflowParamValues } from "./comfyui-config";
 import {
+  COMFY_MODEL_IDS,
+  getComfyModelDefinition,
+  type ComfyImageModel,
+} from "./comfy-models";
+import {
   DEFAULT_CHECKPOINT_TOKEN,
   DEFAULT_UNET_TOKEN,
   DEFAULT_VAE_TOKEN,
@@ -28,6 +33,7 @@ export type WorkflowDirectPatchCounts = {
   inputImage?: number;
   maskImage?: number;
   lora?: number;
+  emptySd3Latent?: number;
   controlNet?: number;
   controlImage?: number;
 };
@@ -165,6 +171,42 @@ export function isLatentSizeNode(classType: string, inputs: Record<string, unkno
     classLower.includes("latentimage") ||
     (classLower.includes("empty") && classLower.includes("latent"))
   );
+}
+
+/** Qwen / SD3 official templates use EmptySD3LatentImage — convert imported EmptyLatentImage. */
+export function normalizeEmptyLatentForModel(
+  workflow: Record<string, unknown>,
+  model?: string,
+): { workflow: Record<string, unknown>; converted: number } {
+  if (!model?.trim()) {
+    return { workflow, converted: 0 };
+  }
+
+  const category = COMFY_MODEL_IDS.has(model)
+    ? getComfyModelDefinition(model as ComfyImageModel).category
+    : /qwen/i.test(model)
+      ? "qwen"
+      : /sd3/i.test(model)
+        ? "sd3"
+        : null;
+  if (category !== "qwen" && category !== "sd3") {
+    return { workflow, converted: 0 };
+  }
+
+  const next = structuredClone(workflow);
+  let converted = 0;
+  for (const node of Object.values(next)) {
+    if (!node || typeof node !== "object") {
+      continue;
+    }
+    const record = node as { class_type?: string };
+    if (record.class_type === "EmptyLatentImage") {
+      record.class_type = "EmptySD3LatentImage";
+      converted += 1;
+    }
+  }
+
+  return converted > 0 ? { workflow: next, converted } : { workflow, converted: 0 };
 }
 
 export function patchLatentSizeInWorkflow(
@@ -635,12 +677,14 @@ export function patchWorkflowDirectParams(
     controlImageFilename?: string;
     customTokens?: Array<{ token: string; value: string }>;
     syncWorkflowLoadersToModel?: boolean;
+    model?: string;
   },
 ): {
   workflow: Record<string, unknown>;
   patched: WorkflowDirectPatchCounts;
 } {
-  const latentPatch = patchLatentSizeInWorkflow(workflow, input.params ?? {});
+  const latentType = normalizeEmptyLatentForModel(workflow, input.model);
+  const latentPatch = patchLatentSizeInWorkflow(latentType.workflow, input.params ?? {});
   const loaderPatch = patchLoaderNodesInWorkflow(latentPatch.workflow, input.loaders ?? {}, {
     syncLoadersToModel: input.syncWorkflowLoadersToModel,
   });
@@ -669,6 +713,7 @@ export function patchWorkflowDirectParams(
   return {
     workflow: resizePatch.workflow,
     patched: {
+      ...(latentType.converted > 0 ? { emptySd3Latent: latentType.converted } : {}),
       ...latentPatch.patched,
       ...loaderPatch.patched,
       ...loraPatch.patched,

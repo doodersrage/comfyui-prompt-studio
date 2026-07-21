@@ -1096,7 +1096,7 @@ export default function SettingsTool() {
             <label className="block space-y-2">
               <span className="block text-sm text-zinc-300">Neural upscale tile size (Max)</span>
               <span className="block text-xs text-zinc-500">
-                Tiled UpscaleModel pass tile size in pixels. Set 0 to disable tiling override (uses profile default).
+                Only applied when ComfyUI’s ImageUpscaleWithModel declares tile_size. Set 0 to disable.
               </span>
               <input
                 type="number"

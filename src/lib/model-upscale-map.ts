@@ -44,6 +44,24 @@ export function resolveUpscaleModelFilename(
   );
 }
 
+/**
+ * When ComfyUI inventory is known and non-empty, only treat filenames present in
+ * that list as usable. Unknown inventory (empty/undefined) keeps the mapped name.
+ */
+export function isUpscaleModelInstalled(
+  filename: string | undefined,
+  availableUpscaleModels?: string[] | null,
+): boolean {
+  const trimmed = trimFilename(filename);
+  if (!trimmed) {
+    return false;
+  }
+  if (!availableUpscaleModels || availableUpscaleModels.length === 0) {
+    return true;
+  }
+  return availableUpscaleModels.includes(trimmed);
+}
+
 export function formatModelUpscaleMap(map: ModelUpscaleMap | undefined): string {
   if (!map) {
     return "";

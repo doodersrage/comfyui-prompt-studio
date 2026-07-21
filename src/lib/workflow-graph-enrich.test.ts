@@ -186,7 +186,45 @@ describe("workflow-graph-enrich", () => {
     assert.equal(polishNode.inputs.scale_by, 1.05);
   });
 
-  it("sets tile_size on neural upscale for max profile", () => {
+  it("sets tile_size on neural upscale for max profile when ComfyUI supports it", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      qualityProfile: "max",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+      enrichSampling: false,
+      supportsNeuralUpscaleTileSize: true,
+    });
+
+    const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
+    let nodeId = saveNode.inputs.images[0];
+    let node = result.workflow[nodeId] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
+    while (node.class_type === "ImageScaleBy" || node.class_type === "ImageSharpen") {
+      nodeId = (node.inputs.image as [string, number])[0];
+      node = result.workflow[nodeId] as {
+        class_type: string;
+        inputs: Record<string, unknown>;
+      };
+    }
+    assert.equal(node.class_type, "ImageUpscaleWithModel");
+    assert.equal(node.inputs.tile_size, 512);
+  });
+
+  it("omits tile_size unless ComfyUI declares the input", () => {
     const workflow = {
       "7": {
         class_type: "VAEDecode",
@@ -220,7 +258,85 @@ describe("workflow-graph-enrich", () => {
       };
     }
     assert.equal(node.class_type, "ImageUpscaleWithModel");
-    assert.equal(node.inputs.tile_size, 512);
+    assert.equal("tile_size" in node.inputs, false);
+  });
+
+  it("falls back to Lanczos when neural upscaler is missing from ComfyUI inventory", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      qualityProfile: "final",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+      enrichSampling: false,
+      availableUpscaleModels: ["RealESRGAN_x4plus.pth"],
+    });
+
+    assert.ok(
+      result.changes.some((change) =>
+        /not installed in ComfyUI — using Lanczos/i.test(change.message),
+      ),
+    );
+    const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
+    const upscaleId = saveNode.inputs.images[0];
+    const upscaleNode = result.workflow[upscaleId] as { class_type: string };
+    assert.equal(upscaleNode.class_type, "ImageScaleBy");
+  });
+
+  it("warns when SDXL Final/Max has no refiner checkpoint mapped", () => {
+    const workflow = {
+      "1": {
+        class_type: "CheckpointLoaderSimple",
+        inputs: { ckpt_name: "sd_xl_base_1.0.safetensors" },
+      },
+      "6": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 20,
+          cfg: 7,
+          sampler_name: "euler",
+          scheduler: "normal",
+          model: ["1", 0],
+          positive: ["2", 0],
+          negative: ["3", 0],
+          latent_image: ["4", 0],
+        },
+      },
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "sdxl",
+      qualityProfile: "final",
+      enrichSampling: false,
+      enrichUpscale: false,
+    });
+
+    assert.ok(
+      result.changes.some((change) =>
+        /refiner skipped — map a refiner checkpoint/i.test(change.message),
+      ),
+    );
   });
 
   it("inserts ImageSharpen after upscale on max profile", () => {

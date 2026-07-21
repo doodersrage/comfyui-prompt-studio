@@ -27,6 +27,7 @@ import {
   MODEL_SAMPLING_FLUX_NODE_TYPE,
 } from "./model-sampling-patch";
 import { IMAGE_SCALE_BY_NODE_TYPE } from "./workflow-direct-patch";
+import { isUpscaleModelInstalled } from "./model-upscale-map";
 import type { WorkflowQueueOptimizeChange } from "./workflow-queue-optimizer";
 import {
   isPromptStudioOutputUpscaleNode,
@@ -338,19 +339,45 @@ function enrichSdxlRefinerNodes(input: {
   model?: string;
   qualityProfile?: QueueQualityProfile;
   refinerCheckpointFilename?: string;
+  availableCheckpoints?: string[] | null;
 }): WorkflowQueueOptimizeChange[] {
   if (!profileUsesSdxlRefinerEnrich(input.qualityProfile)) {
     return [];
   }
 
-  const refinerCkpt = input.refinerCheckpointFilename?.trim();
-  if (!refinerCkpt || !input.model) {
+  if (!input.model) {
     return [];
   }
 
   const def = getComfyModelDefinition(input.model as ComfyImageModel);
   if (def.category !== "sdxl" || input.model.toLowerCase().includes("refiner")) {
     return [];
+  }
+
+  const refinerCkpt = input.refinerCheckpointFilename?.trim();
+  if (!refinerCkpt) {
+    return [
+      {
+        kind: "audit",
+        severity: "warn",
+        message:
+          "SDXL Final/Max refiner skipped — map a refiner checkpoint in Settings (e.g. sd_xl_refiner_1.0.safetensors).",
+      },
+    ];
+  }
+
+  if (
+    input.availableCheckpoints &&
+    input.availableCheckpoints.length > 0 &&
+    !input.availableCheckpoints.includes(refinerCkpt)
+  ) {
+    return [
+      {
+        kind: "audit",
+        severity: "warn",
+        message: `SDXL Final/Max refiner skipped — “${refinerCkpt}” not found in ComfyUI checkpoints.`,
+      },
+    ];
   }
 
   if (workflowHasRefinerPass(input.workflow) || countSamplerNodes(input.workflow) > 1) {
@@ -616,6 +643,7 @@ function enrichNeuralUpscaleNodes(input: {
   enrichNeuralPolish?: boolean;
   enrichSharpen?: boolean;
   model?: string;
+  supportsNeuralUpscaleTileSize?: boolean;
 }): WorkflowQueueOptimizeChange[] {
   if (isQwenLightningModel(input.model)) {
     return [];
@@ -655,7 +683,10 @@ function enrichNeuralUpscaleNodes(input: {
     };
 
     const upscaleNodeId = nextWorkflowNodeId(input.workflow);
-    const tileSize = neuralUpscaleTileSizeForProfile(input.qualityProfile);
+    const tileSize =
+      input.supportsNeuralUpscaleTileSize === true
+        ? neuralUpscaleTileSizeForProfile(input.qualityProfile)
+        : 0;
     const upscaleInputs: Record<string, unknown> = {
       upscale_model: [loaderNodeId, 0],
       image: [imageLink, 0],
@@ -725,11 +756,34 @@ function enrichUpscaleNodes(input: {
   enrichNeuralPolish?: boolean;
   enrichSharpen?: boolean;
   model?: string;
+  availableUpscaleModels?: string[] | null;
+  supportsNeuralUpscaleTileSize?: boolean;
 }): WorkflowQueueOptimizeChange[] {
-  if (
-    input.upscaleModelFilename?.trim() &&
-    profileUsesNeuralUpscaleEnrich(input.qualityProfile, { model: input.model })
-  ) {
+  const wantsNeural =
+    Boolean(input.upscaleModelFilename?.trim()) &&
+    profileUsesNeuralUpscaleEnrich(input.qualityProfile, { model: input.model });
+  const neuralAvailable =
+    wantsNeural &&
+    isUpscaleModelInstalled(input.upscaleModelFilename, input.availableUpscaleModels);
+
+  if (wantsNeural && !neuralAvailable) {
+    const lanczosChanges = enrichLanczosUpscaleNodes({
+      workflow: input.workflow,
+      qualityProfile: input.qualityProfile,
+      enrichSharpen: input.enrichSharpen,
+      model: input.model,
+    });
+    return [
+      {
+        kind: "audit",
+        severity: "warn",
+        message: `Neural upscaler “${input.upscaleModelFilename?.trim()}” not installed in ComfyUI — using Lanczos Final/Max upscale instead.`,
+      },
+      ...lanczosChanges,
+    ];
+  }
+
+  if (wantsNeural && neuralAvailable && input.upscaleModelFilename?.trim()) {
     return enrichNeuralUpscaleNodes({
       workflow: input.workflow,
       qualityProfile: input.qualityProfile,
@@ -737,6 +791,7 @@ function enrichUpscaleNodes(input: {
       enrichNeuralPolish: input.enrichNeuralPolish,
       enrichSharpen: input.enrichSharpen,
       model: input.model,
+      supportsNeuralUpscaleTileSize: input.supportsNeuralUpscaleTileSize,
     });
   }
   return enrichLanczosUpscaleNodes({
@@ -759,6 +814,9 @@ export function enrichWorkflowGraph(input: {
   enrichSdxlRefiner?: boolean;
   enrichNeuralPolish?: boolean;
   enrichSharpen?: boolean;
+  availableUpscaleModels?: string[] | null;
+  availableCheckpoints?: string[] | null;
+  supportsNeuralUpscaleTileSize?: boolean;
 }): {
   workflow: Record<string, unknown>;
   changes: WorkflowQueueOptimizeChange[];
@@ -784,6 +842,7 @@ export function enrichWorkflowGraph(input: {
         model: input.model,
         qualityProfile: input.qualityProfile,
         refinerCheckpointFilename: input.refinerCheckpointFilename,
+        availableCheckpoints: input.availableCheckpoints,
       }),
     );
   }
@@ -797,6 +856,8 @@ export function enrichWorkflowGraph(input: {
         enrichNeuralPolish: input.enrichNeuralPolish,
         enrichSharpen: input.enrichSharpen,
         model: input.model,
+        availableUpscaleModels: input.availableUpscaleModels,
+        supportsNeuralUpscaleTileSize: input.supportsNeuralUpscaleTileSize,
       }),
     );
   }

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   DEFAULT_UPSCALE_MODEL_TOKEN,
   formatModelUpscaleMap,
+  isUpscaleModelInstalled,
   parseModelUpscaleMap,
   resolveUpscaleModelFilename,
   SUGGESTED_MODEL_UPSCALE_MAP,
@@ -17,6 +18,18 @@ describe("model upscale map", () => {
       }),
       "4x-UltraSharp.pth",
     );
+  });
+
+  it("treats missing inventory entries as not installed", () => {
+    assert.equal(
+      isUpscaleModelInstalled("4x-UltraSharp.pth", ["RealESRGAN_x4plus.pth"]),
+      false,
+    );
+    assert.equal(
+      isUpscaleModelInstalled("4x-UltraSharp.pth", ["4x-UltraSharp.pth"]),
+      true,
+    );
+    assert.equal(isUpscaleModelInstalled("4x-UltraSharp.pth", []), true);
   });
 
   it("resolves per-model and default entries", () => {

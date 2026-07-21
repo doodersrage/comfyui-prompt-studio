@@ -36,6 +36,32 @@ function readNodeInputOptions(
   return readStringList(input[0]);
 }
 
+/** True when ComfyUI object_info declares an input on the node (required or optional). */
+export function nodeDefinesInput(
+  objectInfo: Record<string, unknown>,
+  classType: string,
+  inputName: string,
+): boolean {
+  const node = objectInfo[classType];
+  if (!node || typeof node !== "object") {
+    return false;
+  }
+  const input = (node as { input?: Record<string, unknown> }).input;
+  if (!input || typeof input !== "object") {
+    return false;
+  }
+  if (inputName in input) {
+    return true;
+  }
+  for (const group of ["required", "optional"] as const) {
+    const section = input[group];
+    if (section && typeof section === "object" && inputName in section) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function parseComfyObjectInfoModelLists(
   objectInfo: Record<string, unknown>,
 ): ComfyUiModelLists {
@@ -64,9 +90,15 @@ export async function fetchComfyObjectInfoModelLists(
   return payload?.models ?? null;
 }
 
+export type ComfyObjectInfoPayload = {
+  models: ComfyUiModelLists;
+  nodeTypes: Set<string>;
+  supportsNeuralUpscaleTileSize: boolean;
+};
+
 export async function fetchComfyObjectInfoPayload(
   runtime?: ComfyUiRuntimeConfig,
-): Promise<{ models: ComfyUiModelLists; nodeTypes: Set<string> } | null> {
+): Promise<ComfyObjectInfoPayload | null> {
   const baseUrl = getComfyUiBaseUrl(runtime).replace(/\/+$/, "");
   const response = await fetch(`${baseUrl}/object_info`, {
     cache: "no-store",
@@ -78,6 +110,11 @@ export async function fetchComfyObjectInfoPayload(
   return {
     models: parseComfyObjectInfoModelLists(objectInfo),
     nodeTypes: new Set(Object.keys(objectInfo)),
+    supportsNeuralUpscaleTileSize: nodeDefinesInput(
+      objectInfo,
+      "ImageUpscaleWithModel",
+      "tile_size",
+    ),
   };
 }
 

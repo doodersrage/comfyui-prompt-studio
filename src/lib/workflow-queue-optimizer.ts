@@ -21,6 +21,7 @@ import {
   profileUsesUpscaleEnrich,
   resolveEffectiveSamplerPreset,
 } from "./queue-quality-profile";
+import { normalizeEmptyLatentForModel } from "./workflow-direct-patch";
 
 export type WorkflowQueueAudit = {
   nodeCount: number;
@@ -301,6 +302,9 @@ export function optimizeWorkflowForQueue(input: {
   /** When set and matches current workflow hash, skip re-binding if already fully bound. */
   contentHash?: string;
   skipIfUnchanged?: boolean;
+  availableUpscaleModels?: string[] | null;
+  availableCheckpoints?: string[] | null;
+  supportsNeuralUpscaleTileSize?: boolean;
 }): WorkflowQueueOptimizeResult {
   const enabled = input.enabled !== false;
   const enrichGraph = input.enrichGraph !== false;
@@ -311,6 +315,8 @@ export function optimizeWorkflowForQueue(input: {
       : []);
   const qwenClipRepair = repairQwenImageClipLoaderNodes(input.workflow);
   let workflow = qwenClipRepair.workflow;
+  const latentNormalize = normalizeEmptyLatentForModel(workflow, input.model);
+  workflow = latentNormalize.workflow;
   let workflowJson = JSON.stringify(workflow, null, 2);
   const changes: WorkflowQueueOptimizeChange[] = [];
   if (qwenClipRepair.repairedNodeIds.length > 0) {
@@ -318,6 +324,13 @@ export function optimizeWorkflowForQueue(input: {
       kind: "audit",
       severity: "info",
       message: `Repaired Qwen CLIP loader on node(s) ${qwenClipRepair.repairedNodeIds.join(", ")} — Qwen Image uses CLIPLoader (type qwen_image), not DualCLIPLoader.`,
+    });
+  }
+  if (latentNormalize.converted > 0) {
+    changes.push({
+      kind: "audit",
+      severity: "info",
+      message: `Converted ${latentNormalize.converted} EmptyLatentImage node(s) to EmptySD3LatentImage for ${input.model ?? "Qwen/SD3"}.`,
     });
   }
 
@@ -370,9 +383,9 @@ export function optimizeWorkflowForQueue(input: {
 
   workflow = JSON.parse(workflowJson) as Record<string, unknown>;
 
+  // Imported graphs without PS placeholders still benefit from Final/Max enrich + sampling inserts.
   const shouldEnrichGraph =
     enrichGraph &&
-    usesPromptStudioPlaceholders &&
     (!isQwenLightningModel(input.model) ||
       profileUsesUpscaleEnrich(input.qualityProfile));
 
@@ -389,6 +402,9 @@ export function optimizeWorkflowForQueue(input: {
       // Sharpen on Lightning tends to halo — keep Final/Max soft scale only.
       enrichSharpen: isQwenLightningModel(input.model) ? false : input.enrichSharpen,
       enrichSampling: !isQwenLightningModel(input.model),
+      availableUpscaleModels: input.availableUpscaleModels,
+      availableCheckpoints: input.availableCheckpoints,
+      supportsNeuralUpscaleTileSize: input.supportsNeuralUpscaleTileSize,
     });
     workflow = enriched.workflow;
     workflowJson = JSON.stringify(workflow, null, 2);

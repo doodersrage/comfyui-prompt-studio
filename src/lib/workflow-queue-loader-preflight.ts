@@ -21,7 +21,13 @@ export async function auditLoaderMapsAtQueueTime(input?: {
     comfyUrl: input?.comfyUrl ?? resolveComfyUiRuntime()?.apiUrl,
   });
   if (!models) {
-    return [];
+    return [
+      {
+        severity: "warn",
+        message:
+          "ComfyUI object_info unavailable — skipped loader map and filename inventory checks.",
+      },
+    ];
   }
 
   const shared = loadSettingsCache().shared;

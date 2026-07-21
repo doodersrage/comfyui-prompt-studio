@@ -206,11 +206,15 @@ describe("workflow-queue-optimizer", () => {
     assert.doesNotMatch(JSON.stringify(result.workflow), /output upscale/);
   });
 
-  it("skips graph enrich for imported ComfyUI workflows without Prompt Studio placeholders", () => {
+  it("enriches imported ComfyUI workflows on Final without Prompt Studio placeholders", () => {
     const workflow = {
       "1": {
         class_type: "UNETLoader",
         inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+      },
+      "6": {
+        class_type: "EmptyLatentImage",
+        inputs: { width: 1024, height: 1024, batch_size: 1 },
       },
       "8": {
         class_type: "KSampler",
@@ -244,8 +248,51 @@ describe("workflow-queue-optimizer", () => {
       qualityProfile: "final",
     });
 
-    assert.doesNotMatch(result.workflowJson, /Prompt Studio — output upscale/);
-    assert.doesNotMatch(result.workflowJson, /ImageScaleBy/);
+    assert.match(result.workflowJson, /EmptySD3LatentImage/);
+    assert.match(result.workflowJson, /Prompt Studio — output upscale|ImageScaleBy/);
+  });
+
+  it("inserts model sampling on imported vanilla Qwen graphs without placeholders", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 20,
+          cfg: 2.5,
+          sampler_name: "euler",
+          scheduler: "simple",
+          denoise: 1,
+          model: ["1", 0],
+          positive: ["4", 0],
+          negative: ["5", 0],
+          latent_image: ["6", 0],
+        },
+      },
+      "9": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["8", 0], vae: ["3", 0] },
+      },
+      "10": {
+        class_type: "SaveImage",
+        inputs: { images: ["9", 0], filename_prefix: "ComfyUI" },
+      },
+    };
+
+    const result = optimizeWorkflowForQueue({
+      workflow,
+      tokens: FULL_TOKENS,
+      model: "qwen-image-2512",
+      qualityProfile: "draft",
+      enrichSdxlRefiner: false,
+      enrichSharpen: false,
+    });
+
+    assert.match(result.workflowJson, /ModelSamplingAuraFlow/);
   });
 
   it("suggests optimized workflow names", () => {

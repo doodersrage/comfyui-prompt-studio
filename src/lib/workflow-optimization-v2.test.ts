@@ -150,6 +150,49 @@ describe("workflow optimization v2", () => {
     assert.equal(result.ok, false);
   });
 
+  it("fails sync preflight when workflow loaders are missing from ComfyUI inventory", () => {
+    const workflow = JSON.stringify({
+      "1": {
+        class_type: "UpscaleModelLoader",
+        inputs: { model_name: "missing-upscaler.pth" },
+      },
+    });
+
+    const result = runWorkflowPreflightSync({
+      workflowJson: workflow,
+      model: "qwen-image-2512",
+      models: {
+        checkpoints: [],
+        unets: [],
+        vaes: [],
+        upscaleModels: ["4x-UltraSharp.pth"],
+        clips: [],
+        dualClipTypes: [],
+        clipLoaderTypes: [],
+        loras: [],
+        controlNets: [],
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(
+      result.issues.some((issue) => /missing-upscaler\.pth/i.test(issue.message)),
+    );
+  });
+
+  it("warns when object_info is unavailable", () => {
+    const result = runWorkflowPreflightSync({
+      workflowJson: JSON.stringify({
+        "1": { class_type: "EmptySD3LatentImage", inputs: { width: 1, height: 1 } },
+      }),
+      model: "qwen-image-2512",
+      objectInfoUnavailable: true,
+    });
+    assert.equal(result.ok, true);
+    assert.ok(
+      result.issues.some((issue) => /object_info unavailable/i.test(issue.message)),
+    );
+  });
+
   it("diffs workflow nodes after optimize", () => {
     const left = JSON.stringify({ "1": { class_type: "KSampler", inputs: { seed: 1 } } });
     const right = JSON.stringify({

@@ -135,6 +135,11 @@ function injectPromptsIntoWorkflow(
   request: ComfyQueueRequest,
   config: ResolvedComfyUiConfig,
   runtime?: ComfyUiRuntimeConfig,
+  enrichInventory?: {
+    availableUpscaleModels?: string[] | null;
+    availableCheckpoints?: string[] | null;
+    supportsNeuralUpscaleTileSize?: boolean;
+  },
 ) {
   const { params, loaders, customTokens } = resolveQueueInjectionContext({
     runtime,
@@ -153,6 +158,9 @@ function injectPromptsIntoWorkflow(
           refinerCheckpointFilename: params.refinerCheckpointFilename,
           skipIfUnchanged: true,
           contentHash: runtime?.workflowOptimizedHash,
+          availableUpscaleModels: enrichInventory?.availableUpscaleModels,
+          availableCheckpoints: enrichInventory?.availableCheckpoints,
+          supportsNeuralUpscaleTileSize: enrichInventory?.supportsNeuralUpscaleTileSize,
           ...resolveWorkflowGraphEnrichOptions(runtime),
         })
       : { workflow };
@@ -218,6 +226,11 @@ export async function queuePromptToComfyUi(
             request,
             config,
             runtime,
+            {
+              availableUpscaleModels: objectInfo?.models.upscaleModels,
+              availableCheckpoints: objectInfo?.models.checkpoints,
+              supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
+            },
           );
           const unresolved = findUnresolvedLoaderPlaceholders(injected.workflow);
           if (unresolved.length > 0) {
@@ -238,13 +251,14 @@ export async function queuePromptToComfyUi(
             );
           }
 
-          if (objectInfo) {
+          if (runPreflight) {
             const preflight = runWorkflowPreflightSync({
               workflowJson: JSON.stringify(injected.workflow),
               model: request.model ?? runtime?.queueTargetModel ?? "qwen-image-2512",
               syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
-              knownNodeTypes: objectInfo.nodeTypes,
-              models: objectInfo.models,
+              knownNodeTypes: objectInfo?.nodeTypes,
+              models: objectInfo?.models,
+              objectInfoUnavailable: !objectInfo,
             });
             if (!preflight.ok) {
               return {
