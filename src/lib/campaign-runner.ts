@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import { avoidedTokensRequestBody } from "./avoided-tokens";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";

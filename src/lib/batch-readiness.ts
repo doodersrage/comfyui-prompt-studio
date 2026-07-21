@@ -1,4 +1,4 @@
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import type { DetailLevel } from "./detail-level";
 import {
   DEFAULT_READINESS_MIN_SCORE,

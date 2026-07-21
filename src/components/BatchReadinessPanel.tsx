@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import type { DetailLevel } from "@/lib/detail-level";
 import {
   filterBatchByReadiness,

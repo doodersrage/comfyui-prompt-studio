@@ -8,7 +8,7 @@ import SharedToolControls from "@/components/SharedToolControls";
 import SidecarImportButton from "@/components/SidecarImportButton";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { getComfyModelDefinition } from "@/lib/comfy-models";
+import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { getDetailLimits } from "@/lib/detail-level";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { DEFAULT_FORMAT_TOOL_CACHE } from "@/lib/settings-cache";

@@ -1,4 +1,4 @@
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import type { SceneStarterPreset } from "./scene-starter-presets";
 
 export function applySceneStarterWorkflowHints(

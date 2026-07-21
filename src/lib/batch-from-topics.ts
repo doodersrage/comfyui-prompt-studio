@@ -6,7 +6,7 @@ import { generateBackgroundPrompt } from "./specialized/background-generator";
 import { generateCharacterPrompt } from "./specialized/character-generator";
 import { generateFantasyPrompt } from "./specialized/fantasy-generator";
 import { generatePetPrompt } from "./specialized/pet-generator";
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import type { DetailLevel } from "./detail-level";
 import type { LlmRequestOptions } from "./llm-request-options";
 

@@ -6,7 +6,7 @@ import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { getComfyModelDefinition } from "@/lib/comfy-models";
+import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";

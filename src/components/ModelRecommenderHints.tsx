@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { recommendModels, type ModelRecommendation } from "@/lib/model-recommender";
-import type { ComfyImageModel } from "@/lib/comfy-models";
-import { getComfyModelDefinition } from "@/lib/comfy-models";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
+import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 
 type ModelRecommenderHintsProps = {
   text: string;

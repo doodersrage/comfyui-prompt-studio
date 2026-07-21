@@ -8,7 +8,7 @@ import {
   readinessGateMessage,
 } from "@/lib/readiness-gate";
 import { planReadinessAutoFix } from "@/lib/readiness-auto-fix";
-import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import type { DetailLevel } from "@/lib/detail-level";
 import { Button } from "@/components/ui/Button";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";

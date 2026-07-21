@@ -11,7 +11,7 @@ import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { presetOptionsFromPetCache } from "@/lib/pet-options";
-import { getComfyModelDefinition } from "@/lib/comfy-models";
+import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";

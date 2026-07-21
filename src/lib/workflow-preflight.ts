@@ -1,7 +1,7 @@
 "use client";
 
 import { modelUsesNegativePrompt } from "./prompt-pair";
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import { isInpaintModel, isEditQueueTool } from "./model-denoise-defaults";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { fetchWorkflowPreview } from "./comfyui-requeue";

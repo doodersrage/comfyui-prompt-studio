@@ -1,5 +1,5 @@
 import type { WorkflowParamValues } from "./comfyui-config";
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import type { DetailLevel } from "./detail-level";
 import type { GenerationDiagnostics } from "./generation-diagnostics";
 import { buildComfyViewPath, type ComfyOutputImage } from "./comfyui-outputs";

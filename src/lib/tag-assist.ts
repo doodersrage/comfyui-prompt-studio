@@ -1,4 +1,4 @@
-import { getComfyModelDefinition, type ComfyImageModel } from "./comfy-models";
+import { getComfyModelDefinition, type ComfyImageModel } from "./comfy-models/client";
 
 export function modelUsesTagAssist(model: ComfyImageModel): boolean {
   const profile = getComfyModelDefinition(model).profile;

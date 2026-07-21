@@ -1,4 +1,4 @@
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import { isQwenLightningModel } from "./model-sampling-patch";
 import { auditWorkflowStackCompatibility } from "./workflow-stack-fingerprint";
 import { auditWorkflowPreviewIssues } from "./workflow-placeholder-audit";

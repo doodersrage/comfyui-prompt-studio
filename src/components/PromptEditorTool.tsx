@@ -10,7 +10,7 @@ import PromptWeightInspector from "@/components/PromptWeightInspector";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { usePromptEditorHandoff, type PromptEditorHandoffMeta } from "@/hooks/usePromptEditorHandoff";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { getComfyModelDefinition } from "@/lib/comfy-models";
+import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { getDetailLimits } from "@/lib/detail-level";
 import { modelUsesNegativePrompt } from "@/lib/prompt-pair";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";

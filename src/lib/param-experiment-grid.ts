@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import type { WorkflowParamValues } from "./comfyui-config";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";

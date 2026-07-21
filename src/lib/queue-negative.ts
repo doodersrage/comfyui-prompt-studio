@@ -1,7 +1,7 @@
 "use client";
 
 import { modelUsesNegativePrompt } from "./prompt-pair";
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import {
   DEFAULT_NEGATIVE_PROFILES,
   fetchNegativeWithProfile,

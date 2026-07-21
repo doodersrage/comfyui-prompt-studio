@@ -23,7 +23,7 @@ import {
   presetVariationsPath,
   savePresetVariationsHandoff,
 } from "@/lib/preset-variations-handoff";
-import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import { ROUTE_TINT_CLASSES, type ToolAccent } from "@/lib/tool-theme";
 import { TextInput } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";

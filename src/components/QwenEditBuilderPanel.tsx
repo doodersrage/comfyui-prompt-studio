@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import {
   buildQwenEditPrompt,
   qwenEditTemplate,

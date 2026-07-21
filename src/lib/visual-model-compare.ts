@@ -5,7 +5,7 @@ import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import { galleryEntryPrimaryViewUrl } from "./comfyui-gallery";
 
 export type VisualCompareResult = {

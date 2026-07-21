@@ -2,11 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import {
-  downloadStudioBackup,
-  importStudioBackup,
-  parseStudioBackupFile,
-} from "@/lib/studio-backup";
 import { STUDIO_BACKUP_LAST_EXPORT_KEY } from "@/lib/studio-backup-meta";
 import { readBrowserString, writeBrowserString } from "@/lib/browser-storage";
 import { clearAllLocalPromptData, LOCAL_DATA_KEYS } from "@/lib/local-data-reset";
@@ -93,7 +88,6 @@ import {
 } from "@/lib/comfyui-notifications";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import SettingsSubNav from "@/components/settings/SettingsSubNav";
-import ToolQualityProfilesSettings from "@/components/settings/ToolQualityProfilesSettings";
 import {
   ToolBadge,
   ToolLayout,
@@ -118,8 +112,14 @@ import {
 } from "@/lib/onboarding-hooks";
 import { fetchWorkflowPreview } from "@/lib/comfyui-requeue";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
-import WorkflowHealthPanel from "@/components/WorkflowHealthPanel";
 
+const ToolQualityProfilesSettings = dynamic(
+  () => import("@/components/settings/ToolQualityProfilesSettings"),
+  { loading: () => <ToolPageSkeleton label="Loading quality profiles" /> },
+);
+const WorkflowHealthPanel = dynamic(() => import("@/components/WorkflowHealthPanel"), {
+  loading: () => <ToolPageSkeleton label="Loading workflow health" />,
+});
 const ComfyUiGalleryPanel = dynamic(() => import("@/components/ComfyUiGalleryPanel"), {
   loading: () => <ToolPageSkeleton label="Loading gallery panel" />,
 });
@@ -146,7 +146,6 @@ const QueueParamsPanel = dynamic(() => import("@/components/QueueParamsPanel"), 
 const WorkflowPreviewPanel = dynamic(() => import("@/components/WorkflowPreviewPanel"), {
   loading: () => <ToolPageSkeleton label="Loading workflow preview" />,
 });
-
 const ACCENT = "neutral" as const;
 
 function formatModelWorkflowMap(map?: Record<string, string>): string {
@@ -445,6 +444,9 @@ export default function SettingsTool() {
   const handleImport = useCallback(async (file: File) => {
     try {
       const raw = await file.text();
+      const { importStudioBackup, parseStudioBackupFile } = await import(
+        "@/lib/studio-backup"
+      );
       importStudioBackup(parseStudioBackupFile(raw));
       setStatus("Backup imported. Reload the page to apply all settings.");
     } catch (err) {
@@ -2307,10 +2309,12 @@ export default function SettingsTool() {
           <button
             type="button"
             onClick={() => {
-              downloadStudioBackup();
-              writeBrowserString(STUDIO_BACKUP_LAST_EXPORT_KEY, String(Date.now()));
-              setBackupReminder(null);
-              setStatus("Studio backup downloaded.");
+              void import("@/lib/studio-backup").then(({ downloadStudioBackup }) => {
+                downloadStudioBackup();
+                writeBrowserString(STUDIO_BACKUP_LAST_EXPORT_KEY, String(Date.now()));
+                setBackupReminder(null);
+                setStatus("Studio backup downloaded.");
+              });
             }}
             className="rounded-lg border border-zinc-700 px-4 py-2 text-zinc-200 hover:border-zinc-500"
           >

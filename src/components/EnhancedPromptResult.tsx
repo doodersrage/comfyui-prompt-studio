@@ -1,11 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useMemo, useState } from "react";
 import PromptResultPanel from "@/components/PromptResultPanel";
 import PromptDiagnosticsPanel from "@/components/PromptDiagnosticsPanel";
-import WorkflowPreviewPanel from "@/components/WorkflowPreviewPanel";
-import ComfyWorkflowSelector from "@/components/ComfyWorkflowSelector";
-import ResultQuickActions from "@/components/ResultQuickActions";
 import { useComfyWorkflowSelection } from "@/hooks/useComfyWorkflowSelection";
 import {
   ActionButtonBar,
@@ -13,12 +11,11 @@ import {
   ToolSection,
 } from "@/components/ui/ToolPageShell";
 import { Button } from "@/components/ui/Button";
-import QueueParamsPanel from "@/components/QueueParamsPanel";
 import {
   BatchPromptCard,
   type BatchPromptCrossLinks,
 } from "@/components/ui/BatchPromptCard";
-import ImageLightbox, { type ImageLightboxState } from "@/components/ui/ImageLightbox";
+import type { ImageLightboxState } from "@/components/ui/ImageLightbox";
 import ComfyUiJobStatusPanel from "@/components/ui/ComfyUiJobStatusPanel";
 import type { ComfyUiJobTrackerState } from "@/lib/comfyui-job-status";
 import {
@@ -27,9 +24,7 @@ import {
 } from "@/lib/comfyui-job-status";
 import type { GenerationDiagnostics } from "@/lib/generation-diagnostics";
 import { PINNED_VARIATION_SEED_LABEL } from "@/lib/tool-ui-labels";
-import ReadinessBadge from "@/components/ReadinessBadge";
-import PromptWeightInspector from "@/components/PromptWeightInspector";
-import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import type { DetailLevel } from "@/lib/detail-level";
 import {
   DEFAULT_READINESS_MIN_SCORE,
@@ -42,6 +37,34 @@ import {
 } from "@/lib/lora-trigger-lint";
 import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
 
+const WorkflowPreviewPanel = dynamic(() => import("@/components/WorkflowPreviewPanel"), {
+  ssr: false,
+  loading: () => null,
+});
+const ComfyWorkflowSelector = dynamic(() => import("@/components/ComfyWorkflowSelector"), {
+  ssr: false,
+  loading: () => null,
+});
+const ResultQuickActions = dynamic(() => import("@/components/ResultQuickActions"), {
+  ssr: false,
+  loading: () => null,
+});
+const QueueParamsPanel = dynamic(() => import("@/components/QueueParamsPanel"), {
+  ssr: false,
+  loading: () => null,
+});
+const ImageLightbox = dynamic(() => import("@/components/ui/ImageLightbox"), {
+  ssr: false,
+  loading: () => null,
+});
+const ReadinessBadge = dynamic(() => import("@/components/ReadinessBadge"), {
+  ssr: false,
+  loading: () => null,
+});
+const PromptWeightInspector = dynamic(() => import("@/components/PromptWeightInspector"), {
+  ssr: false,
+  loading: () => null,
+});
 export type BatchPromptItem = {
   prompt: string;
   metadata?: Record<string, unknown>;

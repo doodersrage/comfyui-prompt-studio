@@ -1,7 +1,7 @@
 "use client";
 
 import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 
 export type ComfyUploadedImage = {
   name: string;

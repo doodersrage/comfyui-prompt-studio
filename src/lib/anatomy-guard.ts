@@ -1,4 +1,4 @@
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import { modelUsesNegativePrompt } from "./prompt-pair";
 
 export type AnatomyGuardMode = "off" | "standard" | "strict";

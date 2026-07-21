@@ -19,7 +19,7 @@ import {
   type ResolutionOrientation,
   type ResolutionSizeTier,
 } from "./model-resolution-defaults";
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
 import {
   realignLoaderFilenamesToWorkflowPrecision,

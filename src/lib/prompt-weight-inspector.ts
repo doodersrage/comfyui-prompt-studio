@@ -1,4 +1,4 @@
-import { getComfyModelDefinition, type ComfyImageModel } from "./comfy-models";
+import { getComfyModelDefinition, type ComfyImageModel } from "./comfy-models/client";
 import { modelUsesTagAssist } from "./tag-assist";
 
 export type WeightToken = {

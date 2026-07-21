@@ -47,17 +47,14 @@ import {
 } from "@/lib/prompt-templates";
 import { buildRegenerateUrl } from "@/lib/regenerate-url";
 import { buildUseAsHintsUrl } from "@/lib/use-as-hints-url";
-import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import {
   applyCharacterIdentityBundle,
   buildCharacterIdentityBundle,
   downloadCharacterIdentityBundle,
   parseCharacterIdentityBundle,
 } from "@/lib/character-identity-bundle";
-import {
-  runVisualModelCompare,
-  type VisualCompareResult,
-} from "@/lib/visual-model-compare";
+import type { VisualCompareResult } from "@/lib/visual-model-compare";
 import { diffPromptWords } from "@/lib/prompt-diff";
 import {
   createUserTemplate,
@@ -67,12 +64,6 @@ import {
   upsertUserTemplate,
   type UserPromptTemplate,
 } from "@/lib/user-templates";
-import {
-  downloadHistoryExport,
-  downloadStudioBackup,
-  importStudioBackup,
-  parseStudioBackupFile,
-} from "@/lib/studio-backup";
 import {
   downloadTextFile,
   exportHistoryCsv,
@@ -109,16 +100,12 @@ import {
   upsertUserSceneStarterPreset,
   type UserSceneStarterPreset,
 } from "@/lib/user-scene-starter-presets";
-import {
-  generateModelPortfolio,
-  queueModelPortfolio,
-  type ModelPortfolioItem,
-} from "@/lib/model-portfolio";
+import type { ModelPortfolioItem } from "@/lib/model-portfolio";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
 import { startRefineFromHistoryEntry, startPromptEditorFromHistoryEntry } from "@/lib/improve-output";
-import { analyzeGalleryRatingTokens, negativeScoringTokens, positiveScoringTokens, buildSceneHintsFromPositiveTokens } from "@/lib/rating-token-analytics";
-import { analyzePromptHistoryEntries } from "@/lib/user-analytics";
-import { computeGalleryStats } from "@/lib/gallery-stats";
+import type { RatedTokenStat } from "@/lib/rating-token-analytics";
+import type { UserHistoryAnalytics } from "@/lib/user-analytics";
+import type { GalleryStats } from "@/lib/gallery-stats";
 import { scopeLabel, USER_SCOPE_CHANGED_EVENT } from "@/lib/user-scope";
 import {
   buildPromptBriefFromCurrent,
@@ -129,34 +116,18 @@ import {
 import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
 import { buildGalleryLineageGroups } from "@/lib/gallery-lineage-groups";
 import { addAvoidedToken, addAvoidedTokens } from "@/lib/avoided-tokens";
-import {
-  appendTokensToNegativeProfileExtra,
-  DEFAULT_NEGATIVE_PROFILES,
-} from "@/lib/negative-profiles";
-import {
-  loadComfyUiSettings,
-  saveComfyUiSettings,
-} from "@/lib/comfyui-settings";
+import { DEFAULT_NEGATIVE_PROFILES } from "@/lib/negative-profiles";
 import { downloadIterationForestJson } from "@/lib/iteration-tree-export";
-import {
-  diffHistoryEntries,
-  listIterationEntries,
-} from "@/lib/iteration-branch-diff";
-import { runPromptCampaign, type CampaignStepResult } from "@/lib/campaign-runner";
+import type { CampaignStepResult } from "@/lib/campaign-runner";
 import {
   deleteCampaignTemplate,
   loadCampaignTemplates,
   upsertCampaignTemplate,
   type CampaignTemplate,
 } from "@/lib/campaign-templates";
-import { downloadPortfolioDiffReport } from "@/lib/portfolio-diff-report";
-import {
-  buildProjectBundle,
-  exportProjectBundleJson,
-  parseProjectBundle,
-} from "@/lib/project-bundle";
 import { importProjectBundle } from "@/lib/project-bundle-import";
 import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
+import type { BranchDiffResult } from "@/lib/iteration-branch-diff";
 import {
   ToolBadge,
   ToolBlockGroup,
@@ -320,6 +291,26 @@ export default function StudioTool() {
   const [campaignTemplateName, setCampaignTemplateName] = useState("");
   const [iterationDiffLeftId, setIterationDiffLeftId] = useState("");
   const [iterationDiffRightId, setIterationDiffRightId] = useState("");
+  const [ratingTokenStats, setRatingTokenStats] = useState<RatedTokenStat[]>([]);
+  const [historyAnalytics, setHistoryAnalytics] = useState<UserHistoryAnalytics>({
+    total: 0,
+    rated: 0,
+    favorites: 0,
+    byTool: [],
+    avgRating: null,
+  });
+  const [galleryAnalytics, setGalleryAnalytics] = useState<GalleryStats>({
+    total: 0,
+    completed: 0,
+    pending: 0,
+    running: 0,
+    error: 0,
+    favorites: 0,
+    unreviewed: 0,
+    avgRating: null,
+  });
+  const [iterationEntries, setIterationEntries] = useState<PromptHistoryEntry[]>([]);
+  const [iterationDiff, setIterationDiff] = useState<BranchDiffResult | null>(null);
 
   const actions = usePromptResultActions({
     tool: "studio",
@@ -332,6 +323,65 @@ export default function StudioTool() {
       setCampaignTemplates(loadCampaignTemplates());
     });
   }, []);
+
+  useEffect(() => {
+    if (tab !== "analytics") {
+      setRatingTokenStats([]);
+      setGalleryAnalytics({
+        total: 0,
+        completed: 0,
+        pending: 0,
+        running: 0,
+        error: 0,
+        favorites: 0,
+        unreviewed: 0,
+        avgRating: null,
+      });
+      return;
+    }
+    let cancelled = false;
+    void Promise.all([
+      import("@/lib/rating-token-analytics"),
+      import("@/lib/gallery-stats"),
+      import("@/lib/user-analytics"),
+    ]).then(([ratingMod, galleryMod, historyMod]) => {
+      if (cancelled) return;
+      setRatingTokenStats(ratingMod.analyzeGalleryRatingTokens(loadComfyGallery()));
+      setGalleryAnalytics(galleryMod.computeGalleryStats(loadComfyGallery()));
+      setHistoryAnalytics(historyMod.analyzePromptHistoryEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, galleryRevision, scopeRevision, entries]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void import("@/lib/iteration-branch-diff").then(({ listIterationEntries }) => {
+      if (cancelled) return;
+      setIterationEntries(listIterationEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [entries]);
+
+  useEffect(() => {
+    const left = iterationEntries.find((entry) => entry.id === iterationDiffLeftId);
+    const right = iterationEntries.find((entry) => entry.id === iterationDiffRightId);
+    if (!left || !right) {
+      setIterationDiff(null);
+      return;
+    }
+    let cancelled = false;
+    void import("@/lib/iteration-branch-diff").then(({ diffHistoryEntries }) => {
+      if (cancelled) return;
+      setIterationDiff(diffHistoryEntries(left, right));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [iterationDiffLeftId, iterationDiffRightId, iterationEntries]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -407,22 +457,6 @@ export default function StudioTool() {
     () => buildPromptIterationForest(entries),
     [entries],
   );
-  const ratingTokenStats = useMemo(() => {
-    if (tab !== "analytics") {
-      return analyzeGalleryRatingTokens([]);
-    }
-    return analyzeGalleryRatingTokens(loadComfyGallery());
-  }, [tab, galleryRevision, scopeRevision]);
-  const historyAnalytics = useMemo(
-    () => analyzePromptHistoryEntries(entries),
-    [entries, scopeRevision],
-  );
-  const galleryAnalytics = useMemo(() => {
-    if (tab !== "analytics") {
-      return computeGalleryStats([]);
-    }
-    return computeGalleryStats(loadComfyGallery());
-  }, [tab, galleryRevision, scopeRevision]);
   const galleryLineageClusters = useMemo(() => {
     if (tab !== "analytics") {
       return [];
@@ -432,15 +466,6 @@ export default function StudioTool() {
       .sort((left, right) => right.derivatives.length - left.derivatives.length)
       .slice(0, 8);
   }, [tab, galleryRevision, scopeRevision]);
-  const iterationEntries = useMemo(() => listIterationEntries(entries), [entries]);
-  const iterationDiff = useMemo(() => {
-    const left = iterationEntries.find((entry) => entry.id === iterationDiffLeftId);
-    const right = iterationEntries.find((entry) => entry.id === iterationDiffRightId);
-    if (!left || !right) {
-      return null;
-    }
-    return diffHistoryEntries(left, right);
-  }, [iterationDiffLeftId, iterationDiffRightId, iterationEntries]);
 
   const favoriteEntries = useMemo(
     () => entries.filter((entry) => entry.favorite),
@@ -615,6 +640,7 @@ export default function StudioTool() {
     setVisualA(null);
     setVisualB(null);
     try {
+      const { runVisualModelCompare } = await import("@/lib/visual-model-compare");
       const result = await runVisualModelCompare({
         prompt: compareA.prompt,
         modelA: shared.model,
@@ -653,6 +679,7 @@ export default function StudioTool() {
   const handleImportBackup = useCallback(async (file: File) => {
     try {
       const raw = await file.text();
+      const { importStudioBackup, parseStudioBackupFile } = await import("@/lib/studio-backup");
       importStudioBackup(parseStudioBackupFile(raw));
       setBlocklist(loadLocationBlocklist());
       setScenePresets(loadScenePresets());
@@ -785,14 +812,22 @@ export default function StudioTool() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => downloadHistoryExport(filteredEntries)}
+                      onClick={() => {
+                        void import("@/lib/studio-backup").then(({ downloadHistoryExport }) => {
+                          downloadHistoryExport(filteredEntries);
+                        });
+                      }}
                     >
                       Export filtered
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => downloadHistoryExport(entries)}
+                      onClick={() => {
+                        void import("@/lib/studio-backup").then(({ downloadHistoryExport }) => {
+                          downloadHistoryExport(entries);
+                        });
+                      }}
                     >
                       Export all
                     </Button>
@@ -805,8 +840,10 @@ export default function StudioTool() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    downloadStudioBackup();
-                    setBackupStatus("Studio backup downloaded.");
+                    void import("@/lib/studio-backup").then(({ downloadStudioBackup }) => {
+                      downloadStudioBackup();
+                      setBackupStatus("Studio backup downloaded.");
+                    });
                   }}
                 >
                   Export backup
@@ -1361,6 +1398,7 @@ export default function StudioTool() {
                             .map((line) => line.trim())
                             .filter(Boolean)
                         : undefined;
+                    const { runPromptCampaign } = await import("@/lib/campaign-runner");
                     const results = await runPromptCampaign({
                       model: shared.model,
                       target: campaignTarget,
@@ -1562,12 +1600,14 @@ export default function StudioTool() {
               <Button
                 variant="secondary"
                 onClick={() => {
-                  const added = addAvoidedTokens(negativeScoringTokens(ratingTokenStats));
-                  setBackupStatus(
-                    added > 0
-                      ? `Added ${added} negative-scoring token(s) to avoided list.`
-                      : "No new negative-scoring tokens to add.",
-                  );
+                  void import("@/lib/rating-token-analytics").then(({ negativeScoringTokens }) => {
+                    const added = addAvoidedTokens(negativeScoringTokens(ratingTokenStats));
+                    setBackupStatus(
+                      added > 0
+                        ? `Added ${added} negative-scoring token(s) to avoided list.`
+                        : "No new negative-scoring tokens to add.",
+                    );
+                  });
                 }}
               >
                 Add negative tokens to avoidance
@@ -1575,33 +1615,42 @@ export default function StudioTool() {
               <Button
                 variant="secondary"
                 onClick={() => {
-                  const tokens = negativeScoringTokens(ratingTokenStats);
-                  if (tokens.length === 0) {
-                    setBackupStatus("No negative-scoring tokens to append yet.");
-                    return;
-                  }
-                  const settings = loadComfyUiSettings();
-                  const profiles =
-                    (settings.negativeProfiles?.length ?? 0) > 0
-                      ? [...settings.negativeProfiles!]
-                      : [...DEFAULT_NEGATIVE_PROFILES];
-                  const profileId = settings.selectedNegativeProfileId ?? profiles[0]?.id ?? "general-sd";
-                  const profileLabel =
-                    profiles.find((entry) => entry.id === profileId)?.label ?? profileId;
-                  const { profiles: nextProfiles, added } = appendTokensToNegativeProfileExtra(
-                    profiles,
-                    profileId,
-                    tokens,
-                  );
-                  saveComfyUiSettings({
-                    ...settings,
-                    negativeProfiles: nextProfiles,
-                  });
-                  setBackupStatus(
-                    added > 0
-                      ? `Appended ${added} token(s) to negative profile “${profileLabel}”.`
-                      : `Negative profile “${profileLabel}” already includes those tokens.`,
-                  );
+                  void (async () => {
+                    const [{ negativeScoringTokens }, { appendTokensToNegativeProfileExtra }, settingsMod] =
+                      await Promise.all([
+                        import("@/lib/rating-token-analytics"),
+                        import("@/lib/negative-profiles"),
+                        import("@/lib/comfyui-settings"),
+                      ]);
+                    const tokens = negativeScoringTokens(ratingTokenStats);
+                    if (tokens.length === 0) {
+                      setBackupStatus("No negative-scoring tokens to append yet.");
+                      return;
+                    }
+                    const settings = settingsMod.loadComfyUiSettings();
+                    const profiles =
+                      (settings.negativeProfiles?.length ?? 0) > 0
+                        ? [...settings.negativeProfiles!]
+                        : [...DEFAULT_NEGATIVE_PROFILES];
+                    const profileId =
+                      settings.selectedNegativeProfileId ?? profiles[0]?.id ?? "general-sd";
+                    const profileLabel =
+                      profiles.find((entry) => entry.id === profileId)?.label ?? profileId;
+                    const { profiles: nextProfiles, added } = appendTokensToNegativeProfileExtra(
+                      profiles,
+                      profileId,
+                      tokens,
+                    );
+                    settingsMod.saveComfyUiSettings({
+                      ...settings,
+                      negativeProfiles: nextProfiles,
+                    });
+                    setBackupStatus(
+                      added > 0
+                        ? `Appended ${added} token(s) to negative profile “${profileLabel}”.`
+                        : `Negative profile “${profileLabel}” already includes those tokens.`,
+                    );
+                  })();
                 }}
               >
                 Apply negatives to profile
@@ -1609,22 +1658,26 @@ export default function StudioTool() {
               <Button
                 variant="secondary"
                 onClick={() => {
-                  const tokens = positiveScoringTokens(ratingTokenStats);
-                  if (tokens.length === 0) {
-                    setBackupStatus("No positive-scoring tokens to promote yet.");
-                    return;
-                  }
-                  const hints = buildSceneHintsFromPositiveTokens(tokens);
-                  const preset = buildUserSceneStarterFromHints({
-                    label: `Gallery tokens (${tokens.slice(0, 3).join(", ")})`,
-                    hints,
-                    category: "lifestyle",
-                    source: "promoted",
-                  });
-                  upsertUserSceneStarterPreset(preset);
-                  setUserSceneStarters(loadUserSceneStarterPresets());
-                  setBackupStatus(
-                    `Saved scene starter preset from ${tokens.length} high-scoring token(s).`,
+                  void import("@/lib/rating-token-analytics").then(
+                    ({ positiveScoringTokens, buildSceneHintsFromPositiveTokens }) => {
+                      const tokens = positiveScoringTokens(ratingTokenStats);
+                      if (tokens.length === 0) {
+                        setBackupStatus("No positive-scoring tokens to promote yet.");
+                        return;
+                      }
+                      const hints = buildSceneHintsFromPositiveTokens(tokens);
+                      const preset = buildUserSceneStarterFromHints({
+                        label: `Gallery tokens (${tokens.slice(0, 3).join(", ")})`,
+                        hints,
+                        category: "lifestyle",
+                        source: "promoted",
+                      });
+                      upsertUserSceneStarterPreset(preset);
+                      setUserSceneStarters(loadUserSceneStarterPresets());
+                      setBackupStatus(
+                        `Saved scene starter preset from ${tokens.length} high-scoring token(s).`,
+                      );
+                    },
                   );
                 }}
               >
@@ -1843,18 +1896,23 @@ export default function StudioTool() {
                       variant="ghost"
                       size="sm" className="type-caption"
                       onClick={() => {
-                        const bundle = buildProjectBundle({
-                          project,
-                          history: entries,
-                          gallery: loadComfyGallery(),
-                          scenePresets: loadScenePresets(),
-                        });
-                        downloadTextFile(
-                          exportProjectBundleJson(bundle),
-                          `${project.name.replace(/\s+/g, "-").toLowerCase()}-bundle.json`,
-                          "application/json",
-                        );
-                        setBackupStatus(`Exported bundle for “${project.name}”.`);
+                        void (async () => {
+                          const { buildProjectBundle, exportProjectBundleJson } = await import(
+                            "@/lib/project-bundle"
+                          );
+                          const bundle = buildProjectBundle({
+                            project,
+                            history: entries,
+                            gallery: loadComfyGallery(),
+                            scenePresets: loadScenePresets(),
+                          });
+                          downloadTextFile(
+                            exportProjectBundleJson(bundle),
+                            `${project.name.replace(/\s+/g, "-").toLowerCase()}-bundle.json`,
+                            "application/json",
+                          );
+                          setBackupStatus(`Exported bundle for “${project.name}”.`);
+                        })();
                       }}
                     >
                       Export bundle
@@ -1874,8 +1932,9 @@ export default function StudioTool() {
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (!file) return;
-                  void file.text().then((raw) => {
+                  void file.text().then(async (raw) => {
                     try {
+                      const { parseProjectBundle } = await import("@/lib/project-bundle");
                       const bundle = parseProjectBundle(raw);
                       const result = importProjectBundle(bundle);
                       setProjects(loadPromptProjects());
@@ -2053,6 +2112,7 @@ export default function StudioTool() {
                       .split(",")
                       .map((entry) => entry.trim())
                       .filter(Boolean) as ComfyImageModel[];
+                    const { generateModelPortfolio } = await import("@/lib/model-portfolio");
                     const items = await generateModelPortfolio({
                       draft: portfolioDraft,
                       models,
@@ -2074,11 +2134,13 @@ export default function StudioTool() {
               variant="secondary"
               disabled={portfolioItems.every((item) => !item.prompt.trim())}
               onClick={() => {
-                void queueModelPortfolio({
-                  items: portfolioItems,
-                  hints: portfolioDraft,
-                  tool: "portfolio",
-                }).then((queued) => setPortfolioStatus(`Queued ${queued} jobs.`));
+                void import("@/lib/model-portfolio").then(({ queueModelPortfolio }) =>
+                  queueModelPortfolio({
+                    items: portfolioItems,
+                    hints: portfolioDraft,
+                    tool: "portfolio",
+                  }).then((queued) => setPortfolioStatus(`Queued ${queued} jobs.`)),
+                );
               }}
             >
               Queue all to ComfyUI
@@ -2087,8 +2149,10 @@ export default function StudioTool() {
               variant="ghost"
               disabled={portfolioItems.length === 0}
               onClick={() => {
-                downloadPortfolioDiffReport(portfolioItems, portfolioDraft, "markdown");
-                setPortfolioStatus("Downloaded portfolio diff (Markdown).");
+                void import("@/lib/portfolio-diff-report").then(({ downloadPortfolioDiffReport }) => {
+                  downloadPortfolioDiffReport(portfolioItems, portfolioDraft, "markdown");
+                  setPortfolioStatus("Downloaded portfolio diff (Markdown).");
+                });
               }}
             >
               Export diff (MD)
@@ -2097,8 +2161,10 @@ export default function StudioTool() {
               variant="ghost"
               disabled={portfolioItems.length === 0}
               onClick={() => {
-                downloadPortfolioDiffReport(portfolioItems, portfolioDraft, "html");
-                setPortfolioStatus("Downloaded portfolio diff (HTML).");
+                void import("@/lib/portfolio-diff-report").then(({ downloadPortfolioDiffReport }) => {
+                  downloadPortfolioDiffReport(portfolioItems, portfolioDraft, "html");
+                  setPortfolioStatus("Downloaded portfolio diff (HTML).");
+                });
               }}
             >
               Export diff (HTML)

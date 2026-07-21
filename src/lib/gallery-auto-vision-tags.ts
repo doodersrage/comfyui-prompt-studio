@@ -1,6 +1,10 @@
 "use client";
 
-import { galleryEntryViewUrls, updateComfyGalleryEntryById, type ComfyGalleryEntry } from "./comfyui-gallery";
+import {
+  galleryEntryThumbUrls,
+  updateComfyGalleryEntryById,
+  type ComfyGalleryEntry,
+} from "./comfyui-gallery";
 import { loadComfyUiSettings } from "./comfyui-settings";
 
 type VisionReviewResult = {
@@ -8,6 +12,15 @@ type VisionReviewResult = {
   tags: string[];
   critique: string;
 };
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Failed to read image."));
+    reader.readAsDataURL(blob);
+  });
+}
 
 export async function autoTagGalleryEntry(entry: ComfyGalleryEntry): Promise<void> {
   if (entry.visionTags?.length || entry.status !== "completed") {
@@ -17,20 +30,19 @@ export async function autoTagGalleryEntry(entry: ComfyGalleryEntry): Promise<voi
     return;
   }
 
-  const imageUrl = galleryEntryViewUrls(entry)[0];
+  // Prefer thumbnails to cut bandwidth/CPU vs full-resolution outputs.
+  const imageUrl = galleryEntryThumbUrls(entry)[0];
   if (!imageUrl) {
     return;
   }
 
   try {
     const response = await fetch(imageUrl);
+    if (!response.ok) {
+      return;
+    }
     const blob = await response.blob();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error("Failed to read image."));
-      reader.readAsDataURL(blob);
-    });
+    const dataUrl = await blobToDataUrl(blob);
 
     const reviewResponse = await fetch("/api/gallery/vision-review", {
       method: "POST",

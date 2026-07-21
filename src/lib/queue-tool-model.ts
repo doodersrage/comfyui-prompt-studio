@@ -3,7 +3,7 @@ import {
   DEFAULT_COMFY_MODEL,
   getComfyModelDefinition,
   type ComfyImageModel,
-} from "./comfy-models";
+} from "./comfy-models/client";
 import {
   isEditCapableModel,
   isEditQueueTool,

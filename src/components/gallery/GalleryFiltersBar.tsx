@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import {
-  backfillVisionTags,
-  listUntaggedCompletedEntries,
-  type VisionBackfillProgress,
-} from "@/lib/gallery-vision-backfill";
+import type { VisionBackfillProgress } from "@/lib/gallery-vision-backfill";
 import { COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
 import type { PromptProject } from "@/lib/prompt-projects";
 import type {
@@ -146,6 +142,10 @@ export default function GalleryFiltersBar({
   }, [queryDraft, setFilter]);
 
   async function runVisionBackfill() {
+    const {
+      backfillVisionTags,
+      listUntaggedCompletedEntries,
+    } = await import("@/lib/gallery-vision-backfill");
     const entries = listUntaggedCompletedEntries(100);
     if (entries.length === 0) {
       return;

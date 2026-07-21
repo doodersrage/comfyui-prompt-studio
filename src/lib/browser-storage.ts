@@ -8,6 +8,11 @@ let readyPromise: Promise<void> | null = null;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let flushListenersAttached = false;
 const PERSIST_DEBOUNCE_MS = 350;
+/** Keys that FOUC / pre-paint scripts read from localStorage — keep sync. */
+const SYNC_LOCALSTORAGE_KEYS = new Set([
+  "comfy-app-theme-v1",
+  "comfy-ambient-intensity-v1",
+]);
 
 function readLegacyLocalStorageValue(key: string): unknown | undefined {
   if (typeof window === "undefined") {
@@ -96,8 +101,10 @@ export function writeBrowserValue(key: string, value: unknown): void {
 
   cache.set(key, value);
   dirtyKeys.add(key);
-  // Keep localStorage in sync immediately so FOUC/theme scripts and tab sync see values.
-  writeLegacyLocalStorageValue(key, value);
+  // Theme/ambient must hit localStorage immediately for the pre-paint script.
+  if (SYNC_LOCALSTORAGE_KEYS.has(key)) {
+    writeLegacyLocalStorageValue(key, value);
+  }
   schedulePersistDirtyKeys();
 }
 
@@ -179,7 +186,11 @@ async function persistBrowserKey(key: string): Promise<void> {
     }
 
     await db.kv.put({ key, value: cache.get(key) });
-    // Keep a localStorage mirror so pre-paint theme/ambient scripts stay accurate.
+    // Mirror to localStorage after debounced persist (theme/ambient already synced).
+    const value = cache.get(key);
+    if (value !== undefined) {
+      writeLegacyLocalStorageValue(key, value);
+    }
   } catch {
     const value = cache.get(key);
     if (value !== undefined) {

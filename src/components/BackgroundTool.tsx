@@ -27,7 +27,7 @@ import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
 import { presetOptionsFromBackgroundCache } from "@/lib/background-options";
 import { readSceneLocationFromMetadata } from "@/lib/recent-locations";
-import { getComfyModelDefinition } from "@/lib/comfy-models";
+import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import {
   applyBackgroundHintsFromSearchParams,

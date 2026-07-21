@@ -11,7 +11,7 @@ import { getDetailLimits } from "@/lib/detail-level";
 import {
   getComfyModelDefinition,
   type ComfyImageModel,
-} from "@/lib/comfy-models";
+} from "@/lib/comfy-models/client";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import {
   ToolBadge,

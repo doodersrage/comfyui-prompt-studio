@@ -236,7 +236,10 @@ export async function loadComfyGalleryAsync(): Promise<ComfyGalleryEntry[]> {
   return loadComfyGallery();
 }
 
-export function saveComfyGallery(entries: ComfyGalleryEntry[]): void {
+export function saveComfyGallery(
+  entries: ComfyGalleryEntry[],
+  options?: { syncRemote?: boolean },
+): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -244,7 +247,11 @@ export function saveComfyGallery(entries: ComfyGalleryEntry[]): void {
   setGalleryCache(entries);
   notifyGalleryUpdated();
   scheduleUserAnalyticsSync();
-  void import("./auto-storage-sync").then(({ scheduleAutoPushStorage }) => scheduleAutoPushStorage());
+  if (options?.syncRemote !== false) {
+    void import("./auto-storage-sync").then(({ scheduleAutoPushStorage }) =>
+      scheduleAutoPushStorage(),
+    );
+  }
   void import("./tab-sync").then(({ broadcastTabSync }) => broadcastTabSync({ type: "gallery-updated" }));
   void initGalleryStore().then(() => persistGalleryCache());
 }
@@ -537,6 +544,35 @@ export function updateComfyGalleryEntryById(
   return updated;
 }
 
+function galleryPatchIsEphemeralProgress(
+  patch: Partial<ComfyGalleryEntry>,
+): boolean {
+  if (patch.status === "completed" || patch.status === "error") {
+    return false;
+  }
+  if (patch.images || patch.completedAt != null || patch.favorite != null) {
+    return false;
+  }
+  if (patch.historyId || patch.queueParams || patch.reviewRating != null || patch.projectId) {
+    return false;
+  }
+  const keys = Object.keys(patch);
+  if (keys.length === 0) {
+    return false;
+  }
+  return keys.every((key) =>
+    [
+      "status",
+      "statusMessage",
+      "queuePosition",
+      "progressValue",
+      "progressMax",
+      "progressNode",
+      "comfyUrl",
+    ].includes(key),
+  );
+}
+
 export function updateComfyGalleryByPromptId(
   promptId: string,
   patch: Partial<
@@ -559,7 +595,9 @@ export function updateComfyGalleryByPromptId(
     return null;
   }
 
-  saveComfyGallery(next);
+  saveComfyGallery(next, {
+    syncRemote: !galleryPatchIsEphemeralProgress(patch),
+  });
   return updated;
 }
 

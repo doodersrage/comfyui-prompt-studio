@@ -1,4 +1,4 @@
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import { modelUsesNegativePrompt } from "./prompt-pair";
 
 export type RenderRealismMode = "off" | "realistic" | "hyper-realistic" | "anime";

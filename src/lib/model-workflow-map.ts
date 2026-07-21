@@ -1,5 +1,5 @@
-import type { ComfyImageModel } from "./comfy-models";
-import { COMFY_IMAGE_MODELS } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
+import { COMFY_IMAGE_MODELS } from "./comfy-models/client";
 import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
 import {
   suggestWorkflowDefaultsByCategory,

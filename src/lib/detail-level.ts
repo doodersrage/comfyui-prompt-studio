@@ -2,7 +2,7 @@ import {
   DEFAULT_QWEN_MODEL,
   getPromptLimits,
   type ComfyImageModel,
-} from "./comfy-models";
+} from "./comfy-models/client";
 
 export type DetailLevel = "concise" | "balanced" | "rich";
 
@@ -127,4 +127,4 @@ export const QWEN_FEW_SHOT_BY_DETAIL: Record<DetailLevel, FewShotExample[]> = {
   ],
 };
 
-export type { ComfyImageModel, QwenImageModel } from "./comfy-models";
+export type { ComfyImageModel, QwenImageModel } from "./comfy-models/client";

@@ -31,7 +31,7 @@ import { runWorkflowPreflight } from "@/lib/workflow-preflight";
 import { resolveRuntimeForQueue } from "@/lib/comfyui-runtime-for-model";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { DEFAULT_VARIATIONS_TOOL_CACHE } from "@/lib/settings-cache";
-import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import { loadGalleryVariationsHandoff } from "@/lib/gallery-variations-handoff";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { loadPresetVariationsHandoff } from "@/lib/preset-variations-handoff";

@@ -10,7 +10,7 @@ import {
   type ResolutionOrientation,
   type ResolutionSizeTier,
 } from "@/lib/model-resolution-defaults";
-import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
 
 type ModelResolutionHintsProps = {
   model: ComfyImageModel;

@@ -1,7 +1,7 @@
 import {
   getComfyModelDefinition,
   type ComfyImageModel,
-} from "./comfy-models";
+} from "./comfy-models/client";
 
 export const DEFAULT_EDIT_DENOISE = 0.65;
 

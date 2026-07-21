@@ -4,7 +4,7 @@ import {
   getComfyModelDefinition,
   type ComfyImageModel,
   type ComfyModelCategory,
-} from "./comfy-models";
+} from "./comfy-models/client";
 import type { WorkflowParamValues } from "./comfyui-config";
 import { isQwenLightningModel } from "./model-sampling-patch";
 

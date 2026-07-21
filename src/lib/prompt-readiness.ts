@@ -1,6 +1,6 @@
 import { getDetailLimits, type DetailLevel } from "./detail-level";
 import { analyzePromptDiagnostics } from "./prompt-diagnostics";
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 
 export type ReadinessCheck = {
   id: string;

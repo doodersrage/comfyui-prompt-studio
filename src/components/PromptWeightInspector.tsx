@@ -1,7 +1,7 @@
 "use client";
 
 import { inspectPromptWeights } from "@/lib/prompt-weight-inspector";
-import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import TagAssistToolbar from "@/components/TagAssistToolbar";
 
 export default function PromptWeightInspector(props: {

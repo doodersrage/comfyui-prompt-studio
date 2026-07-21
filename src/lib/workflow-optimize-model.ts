@@ -1,4 +1,4 @@
-import type { ComfyImageModel } from "./comfy-models";
+import type { ComfyImageModel } from "./comfy-models/client";
 import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
 import { inferModelsFromWorkflowLabel } from "./workflow-category-defaults";
 import type { ModelWorkflowMap } from "./model-workflow-map";

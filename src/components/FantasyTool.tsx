@@ -16,7 +16,7 @@ import {
   presetOptionsFromFantasyCache,
   resolveFantasyFocus,
 } from "@/lib/fantasy-options";
-import { getComfyModelDefinition } from "@/lib/comfy-models";
+import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";

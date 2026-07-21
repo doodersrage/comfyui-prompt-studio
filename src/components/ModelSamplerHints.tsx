@@ -9,7 +9,7 @@ import {
   type ModelSamplerPresetTier,
 } from "@/lib/model-sampler-defaults";
 import { formatModelSamplingHint } from "@/lib/model-sampling-patch";
-import type { ComfyImageModel } from "@/lib/comfy-models";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
 
 type ModelSamplerHintsProps = {
   model: ComfyImageModel;

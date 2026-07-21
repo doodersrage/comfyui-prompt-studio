@@ -10,6 +10,14 @@ const SceneStarterPresetChips = dynamic(
   () => import("@/components/SceneStarterPresetChips"),
   { loading: () => <div className="h-24 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden /> },
 );
+const TagAssistToolbar = dynamic(() => import("@/components/TagAssistToolbar"), {
+  ssr: false,
+  loading: () => <div className="h-12 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
+});
+const QwenEditBuilderPanel = dynamic(() => import("@/components/QwenEditBuilderPanel"), {
+  ssr: false,
+  loading: () => <div className="h-24 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
+});
 import SharedToolControls from "@/components/SharedToolControls";
 import {
   VariationSliderField,
@@ -41,8 +49,6 @@ import {
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
 import { readVariationSeedFromResult } from "@/lib/variation-seed-metadata";
-import TagAssistToolbar from "@/components/TagAssistToolbar";
-import QwenEditBuilderPanel from "@/components/QwenEditBuilderPanel";
 import { modelUsesTagAssist } from "@/lib/tag-assist";
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import {

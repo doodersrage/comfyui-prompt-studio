@@ -1,4 +1,4 @@
-import { getComfyModelDefinition, type ComfyImageModel } from "./comfy-models";
+import { getComfyModelDefinition, type ComfyImageModel } from "./comfy-models/client";
 import { findUnresolvedPlaceholderTokens } from "./workflow-placeholder-audit";
 
 export type WorkflowStackFamily =
