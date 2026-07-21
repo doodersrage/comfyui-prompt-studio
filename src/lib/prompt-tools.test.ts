@@ -34,7 +34,7 @@ import {
   sidecarRequeueContext,
 } from "./prompt-sidecar";
 import { previewWorkflowInjection } from "./comfyui-workflow-preview";
-import { formatComfyUiJobStatusLine } from "./comfyui-job-status";
+import { comfyUiJobStatusLabel, formatComfyUiJobStatusLine } from "./comfyui-job-status";
 import { validateWorkflowJson, stripEmptyComfyUiRuntime, injectWorkflowPlaceholders } from "./comfyui-config";
 import { extractImagesFromOutputs } from "./comfyui-outputs";
 import {
@@ -1305,6 +1305,27 @@ describe("comfyui job status formatting", () => {
       statusMessage: "Running now",
     });
     assert.match(line, /Running in ComfyUI/);
+  });
+
+  it("includes sampler progress while running", () => {
+    const line = formatComfyUiJobStatusLine({
+      promptId: "abc-123",
+      status: "running",
+      progressValue: 7,
+      progressMax: 28,
+      progressNode: "3",
+    });
+    assert.match(line, /Running · 7\/28 \(25%\)/);
+    assert.match(line, /node 3/);
+    assert.equal(
+      comfyUiJobStatusLabel({
+        promptId: "abc-123",
+        status: "running",
+        progressValue: 7,
+        progressMax: 28,
+      }),
+      "Running · 25%",
+    );
   });
 });
 

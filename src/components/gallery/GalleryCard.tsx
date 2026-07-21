@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ModalPortal from "@/components/ui/ModalPortal";
 import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPanel";
+import { comfyUiJobProgressPercent } from "@/lib/comfyui-job-status";
 import {
   buildGalleryHandoff,
   galleryHandoffPath,
@@ -48,9 +49,12 @@ type GalleryCardProps = {
   onViewWorkflow?: () => void;
 };
 
-function statusLabel(status: ComfyGalleryEntry["status"]): string {
+function statusLabel(status: ComfyGalleryEntry["status"], entry?: ComfyGalleryEntry): string {
   if (status === "completed") return "Done";
-  if (status === "running") return "Running";
+  if (status === "running") {
+    const percent = entry ? comfyUiJobProgressPercent(entry) : null;
+    return percent != null ? `Running · ${percent}%` : "Running";
+  }
   if (status === "pending") return "Queued";
   return "Error";
 }
@@ -200,6 +204,7 @@ export default function GalleryCard({
   const metaLine = [entry.tool, entry.model, entry.parentGalleryEntryId ? undefined : derivedLabel]
     .filter(Boolean)
     .join(" · ");
+  const progressPercent = comfyUiJobProgressPercent(entry);
 
   const cardTone = selected
     ? "border-violet-500/50 ring-1 ring-violet-500/25"
@@ -287,7 +292,7 @@ export default function GalleryCard({
             <span
               className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide backdrop-blur-sm ${statusTone(entry.status)}`}
             >
-              {statusLabel(entry.status)}
+              {statusLabel(entry.status, entry)}
             </span>
             {entry.reviewRating ? (
               <span className="rounded-full border border-violet-500/30 bg-violet-500/15 px-2 py-0.5 text-[10px] text-violet-100 backdrop-blur-sm">
@@ -338,6 +343,10 @@ export default function GalleryCard({
         <p className="absolute bottom-2 left-2 rounded-full border border-zinc-700/60 bg-zinc-950/80 px-2 py-0.5 text-[10px] text-zinc-400 backdrop-blur">
           Queue #{entry.queuePosition}
         </p>
+      ) : entry.status === "running" && progressPercent != null ? (
+        <p className="absolute bottom-2 left-2 rounded-full border border-sky-500/30 bg-zinc-950/80 px-2 py-0.5 text-[10px] text-sky-200/90 backdrop-blur">
+          {progressPercent}%
+        </p>
       ) : null}
     </div>
   );
@@ -349,7 +358,7 @@ export default function GalleryCard({
           <span
             className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusTone(entry.status)}`}
           >
-            {statusLabel(entry.status)}
+            {statusLabel(entry.status, entry)}
           </span>
           {entry.reviewRating ? (
             <span className="text-[10px] text-violet-300">{entry.reviewRating}★</span>

@@ -492,6 +492,9 @@ export function updateComfyGalleryEntryById(
       | "status"
       | "statusMessage"
       | "queuePosition"
+      | "progressValue"
+      | "progressMax"
+      | "progressNode"
       | "completedAt"
       | "images"
       | "comfyUrl"
@@ -539,7 +542,7 @@ export function updateComfyGalleryByPromptId(
   patch: Partial<
     Pick<
       ComfyGalleryEntry,
-      "status" | "statusMessage" | "queuePosition" | "completedAt" | "images" | "comfyUrl" | "favorite" | "historyId" | "queueParams" | "reviewRating" | "projectId"
+      "status" | "statusMessage" | "queuePosition" | "progressValue" | "progressMax" | "progressNode" | "completedAt" | "images" | "comfyUrl" | "favorite" | "historyId" | "queueParams" | "reviewRating" | "projectId"
     >
   >,
 ): ComfyGalleryEntry | null {

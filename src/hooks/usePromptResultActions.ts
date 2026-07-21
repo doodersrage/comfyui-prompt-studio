@@ -155,6 +155,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           statusMessage: entry.statusMessage,
           comfyUrl: entry.comfyUrl,
           imageCount: entry.images.length,
+          progressValue: undefined,
+          progressMax: undefined,
+          progressNode: undefined,
         };
         setComfyUiJob(finishedJob);
         setComfyUiStatus(formatComfyUiJobStatusLine(finishedJob));

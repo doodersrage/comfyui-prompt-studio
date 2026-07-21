@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import {
+  comfyUiJobProgressPercent,
   comfyUiJobStatusLabel,
+  formatComfyUiJobProgressLabel,
   isComfyUiJobProcessing,
   type ComfyUiJobTrackerState,
 } from "@/lib/comfyui-job-status";
@@ -25,12 +27,43 @@ function statusTone(job: ComfyUiJobTrackerState): string {
   return "text-[var(--tint-success-text)] border-[var(--tint-success-border)] bg-[var(--tint-success-bg)]";
 }
 
+function ProgressBar({
+  percent,
+  label,
+}: {
+  percent: number;
+  label?: string | null;
+}) {
+  return (
+    <div className="space-y-1.5 pt-1">
+      <div
+        className="h-1.5 overflow-hidden rounded-full bg-zinc-800/80"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        aria-label={label ?? `Generation progress ${percent}%`}
+      >
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-sky-500/80 to-violet-400/90 transition-[width] duration-300 ease-out"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      {label ? (
+        <p className="type-caption text-[var(--text-tertiary)]">{label}</p>
+      ) : null}
+    </div>
+  );
+}
+
 export default function ComfyUiJobStatusPanel({
   job,
   compact = false,
 }: ComfyUiJobStatusPanelProps) {
   const processing = isComfyUiJobProcessing(job);
   const label = comfyUiJobStatusLabel(job);
+  const percent = comfyUiJobProgressPercent(job);
+  const progressLabel = formatComfyUiJobProgressLabel(job);
 
   return (
     <div
@@ -67,8 +100,13 @@ export default function ComfyUiJobStatusPanel({
             </span>
           </div>
 
-          {job.statusMessage?.trim() ? (
+          {job.statusMessage?.trim() &&
+          job.statusMessage.trim() !== progressLabel ? (
             <p className="type-caption text-[var(--text-secondary)]">{job.statusMessage}</p>
+          ) : null}
+
+          {percent != null ? (
+            <ProgressBar percent={percent} label={progressLabel} />
           ) : null}
 
           <p className="type-caption text-[var(--text-tertiary)]">
@@ -104,27 +142,56 @@ export function ComfyUiGalleryJobPlaceholder({
     status: ComfyUiJobTrackerState["status"];
     statusMessage?: string;
     queuePosition?: number | null;
+    progressValue?: number;
+    progressMax?: number;
+    progressNode?: string | null;
   };
 }) {
   const processing = entry.status === "pending" || entry.status === "running";
+  const percent = comfyUiJobProgressPercent(entry);
+  const progressLabel = formatComfyUiJobProgressLabel(entry);
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
       {processing ? (
         <span className="ui-spinner ui-spinner-lg" aria-hidden />
       ) : null}
-      <div className="space-y-1">
+      <div className="w-full max-w-[14rem] space-y-2">
         <p className="text-xs font-medium uppercase tracking-wide text-violet-300">
-          {entry.status === "running" ? "Running" : entry.status === "pending" ? "Queued" : "Waiting"}
+          {entry.status === "running"
+            ? percent != null
+              ? `Running · ${percent}%`
+              : "Running"
+            : entry.status === "pending"
+              ? "Queued"
+              : "Waiting"}
         </p>
         {entry.queuePosition != null && entry.queuePosition > 0 ? (
           <p className="text-[11px] text-zinc-400">
             Position {entry.queuePosition} in queue
           </p>
-        ) : entry.status === "running" ? (
+        ) : entry.status === "running" && percent == null ? (
           <p className="text-[11px] text-zinc-400">Executing workflow…</p>
         ) : null}
-        {entry.statusMessage?.trim() ? (
+        {percent != null ? (
+          <div className="space-y-1.5">
+            <div
+              className="h-1.5 overflow-hidden rounded-full bg-zinc-800/90"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percent}
+            >
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-sky-500/80 to-violet-400/90 transition-[width] duration-300 ease-out"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+            {progressLabel ? (
+              <p className="text-[11px] text-zinc-400">{progressLabel}</p>
+            ) : null}
+          </div>
+        ) : entry.statusMessage?.trim() ? (
           <p className="text-[11px] text-zinc-600">{entry.statusMessage}</p>
         ) : null}
       </div>

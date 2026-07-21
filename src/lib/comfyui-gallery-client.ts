@@ -235,6 +235,9 @@ function applyComfyJobStatus(
       status: "error",
       statusMessage: tracker.statusMessage,
       queuePosition: null,
+      progressValue: undefined,
+      progressMax: undefined,
+      progressNode: undefined,
       completedAt: Date.now(),
       comfyUrl: tracker.comfyUrl,
     });
@@ -262,6 +265,9 @@ function applyComfyJobStatus(
     status: "completed",
     statusMessage: tracker.statusMessage,
     queuePosition: null,
+    progressValue: undefined,
+    progressMax: undefined,
+    progressNode: undefined,
     completedAt: Date.now(),
     comfyUrl: tracker.comfyUrl,
     images: status.images ?? [],
@@ -316,18 +322,94 @@ export async function pollComfyGalleryJob(
   const settings = loadComfyUiSettings();
   let wsFinished = false;
   let unsubscribe: (() => void) | undefined;
+  let lastProgressWriteAt = 0;
+  let trailingProgressTimer: number | null = null;
+  let latestProgress: {
+    value?: number;
+    max?: number;
+    node?: string | null;
+    message?: string;
+  } | null = null;
+
+  const clearTrailingProgress = () => {
+    if (trailingProgressTimer != null) {
+      window.clearTimeout(trailingProgressTimer);
+      trailingProgressTimer = null;
+    }
+  };
+
+  const publishProgress = (force = false) => {
+    if (!latestProgress) {
+      return;
+    }
+    const now = Date.now();
+    if (!force && now - lastProgressWriteAt < 250) {
+      if (trailingProgressTimer == null) {
+        trailingProgressTimer = window.setTimeout(() => {
+          trailingProgressTimer = null;
+          publishProgress(true);
+        }, 250);
+      }
+      return;
+    }
+
+    lastProgressWriteAt = now;
+    clearTrailingProgress();
+
+    const tracker: ComfyUiJobTrackerState = {
+      promptId,
+      status: "running",
+      statusMessage: latestProgress.message ?? "Running in ComfyUI",
+      comfyUrl,
+      queuePosition: 0,
+      progressValue: latestProgress.value,
+      progressMax: latestProgress.max,
+      progressNode: latestProgress.node,
+    };
+    onJobUpdate?.(tracker);
+    onStatus?.(formatComfyUiJobStatusLine(tracker));
+    updateComfyGalleryByPromptId(promptId, {
+      status: "running",
+      statusMessage: tracker.statusMessage,
+      queuePosition: 0,
+      progressValue: tracker.progressValue,
+      progressMax: tracker.progressMax,
+      progressNode: tracker.progressNode,
+      comfyUrl,
+    });
+  };
 
   if (settings.useWebSocketProgress && comfyUrl) {
     unsubscribe = subscribeComfyUiWebSocket({
       comfyUrl,
       promptId,
       onProgress: (progress) => {
-        if (progress.message) {
-          onStatus?.(progress.message);
-        }
         if (progress.status === "finished") {
           wsFinished = true;
+          clearTrailingProgress();
+          if (progress.message) {
+            onStatus?.(progress.message);
+          }
+          return;
         }
+
+        if (progress.status === "error") {
+          if (progress.message) {
+            onStatus?.(progress.message);
+          }
+          return;
+        }
+
+        latestProgress = {
+          value: progress.value ?? latestProgress?.value,
+          max: progress.max ?? latestProgress?.max,
+          node:
+            progress.node !== undefined
+              ? progress.node
+              : latestProgress?.node,
+          message: progress.message ?? latestProgress?.message,
+        };
+        publishProgress();
       },
     });
   }
@@ -358,6 +440,7 @@ export async function pollComfyGalleryJob(
       }
     }
   } finally {
+    clearTrailingProgress();
     unsubscribe?.();
   }
 

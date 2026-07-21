@@ -35,6 +35,10 @@ export type ComfyGalleryEntry = {
   visionTags?: string[];
   statusMessage?: string;
   queuePosition?: number | null;
+  /** Live sampler/node progress from ComfyUI WebSocket (cleared when finished). */
+  progressValue?: number;
+  progressMax?: number;
+  progressNode?: string | null;
   queuedAt: number;
   completedAt?: number;
   favorite?: boolean;

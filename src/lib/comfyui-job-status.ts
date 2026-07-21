@@ -8,6 +8,12 @@ export type ComfyUiJobTrackerState = {
   /** 1-based position in ComfyUI pending queue; 0 means running now. */
   queuePosition?: number | null;
   imageCount?: number;
+  /** Current sampler/node progress value from ComfyUI WebSocket. */
+  progressValue?: number;
+  /** Progress denominator (e.g. total steps). */
+  progressMax?: number;
+  /** Active ComfyUI node id when known. */
+  progressNode?: string | null;
 };
 
 export function isComfyUiJobProcessing(
@@ -16,11 +22,41 @@ export function isComfyUiJobProcessing(
   return job?.status === "pending" || job?.status === "running";
 }
 
+export function comfyUiJobProgressPercent(
+  job: Pick<ComfyUiJobTrackerState, "progressValue" | "progressMax"> | null | undefined,
+): number | null {
+  const value = job?.progressValue;
+  const max = job?.progressMax;
+  if (value == null || max == null || !(max > 0)) {
+    return null;
+  }
+  return Math.min(100, Math.max(0, Math.round((value / max) * 100)));
+}
+
+export function formatComfyUiJobProgressLabel(
+  job: Pick<
+    ComfyUiJobTrackerState,
+    "progressValue" | "progressMax" | "progressNode"
+  > | null | undefined,
+): string | null {
+  const value = job?.progressValue;
+  const max = job?.progressMax;
+  if (value == null || max == null || !(max > 0)) {
+    return null;
+  }
+  const safeMax = Math.max(1, Math.floor(max));
+  const safeValue = Math.max(0, Math.min(Math.floor(value), safeMax));
+  const percent = Math.round((safeValue / safeMax) * 100);
+  const step = `${safeValue}/${safeMax} (${percent}%)`;
+  return job?.progressNode ? `${step} · node ${job.progressNode}` : step;
+}
+
 export function formatComfyUiJobStatusLine(job: ComfyUiJobTrackerState): string {
   const parts: string[] = [];
 
   if (job.status === "running") {
-    parts.push("Running in ComfyUI");
+    const progress = formatComfyUiJobProgressLabel(job);
+    parts.push(progress ? `Running · ${progress}` : "Running in ComfyUI");
   } else if (job.status === "pending") {
     if (job.queuePosition != null && job.queuePosition > 0) {
       parts.push(`Queued · position ${job.queuePosition}`);
@@ -53,6 +89,13 @@ export function formatComfyUiJobStatusLine(job: ComfyUiJobTrackerState): string 
 
 export function comfyUiJobStatusLabel(job: ComfyUiJobTrackerState): string {
   if (job.status === "running") {
+    const percent = comfyUiJobProgressPercent(job);
+    if (percent != null) {
+      return `Running · ${percent}%`;
+    }
+    if (job.progressValue != null && job.progressMax != null && job.progressMax > 0) {
+      return `Running · ${job.progressValue}/${job.progressMax}`;
+    }
     return "Running";
   }
   if (job.status === "pending") {
