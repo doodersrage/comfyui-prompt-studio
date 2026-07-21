@@ -121,7 +121,13 @@ export default function GalleryComparePanel({
             <article key={entry.id} className="space-y-2 rounded-lg border border-zinc-800 p-2">
               {url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={url} alt="" className="aspect-square w-full rounded object-cover" />
+                <img
+                  src={url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="aspect-square w-full rounded object-cover"
+                />
               ) : (
                 <div className="flex aspect-square items-center justify-center rounded bg-zinc-900 text-xs text-zinc-500">
                   No image

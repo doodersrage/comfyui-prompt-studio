@@ -225,6 +225,8 @@ export default function HomeDashboard() {
                       <img
                         src={thumb}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                         className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                       />
                     ) : (

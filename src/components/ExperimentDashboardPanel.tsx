@@ -140,7 +140,13 @@ export default function ExperimentDashboardPanel() {
                       >
                         {thumb ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={thumb} alt="" className="aspect-square w-full object-cover" />
+                          <img
+                            src={thumb}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            className="aspect-square w-full object-cover"
+                          />
                         ) : (
                           <div className="flex aspect-square items-center justify-center text-[10px] text-zinc-500">
                             No preview

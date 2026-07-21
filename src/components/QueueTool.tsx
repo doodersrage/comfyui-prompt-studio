@@ -259,7 +259,13 @@ export default function QueueTool() {
                 <li key={entry.id} className="ui-list-row items-center gap-3">
                   {url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={url} alt="" className="h-12 w-12 rounded object-cover" />
+                    <img
+                      src={url}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="h-12 w-12 rounded object-cover"
+                    />
                   ) : null}
                   <div className="ui-list-primary min-w-0">
                     <p className="truncate text-sm text-zinc-300">{entry.prompt}</p>

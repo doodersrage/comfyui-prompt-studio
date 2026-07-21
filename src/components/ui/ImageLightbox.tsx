@@ -341,6 +341,33 @@ export default function ImageLightbox({
     isTransitioning,
   ]);
 
+  useEffect(() => {
+    if (!open || images.length === 0) {
+      return;
+    }
+
+    const neighborIndexes = [index - 1, index + 1].filter(
+      (neighbor) => neighbor >= 0 && neighbor < images.length,
+    );
+    const prefetched: HTMLImageElement[] = [];
+    for (const neighbor of neighborIndexes) {
+      const url = images[neighbor];
+      if (!url) {
+        continue;
+      }
+      const img = new Image();
+      img.decoding = "async";
+      img.src = url;
+      prefetched.push(img);
+    }
+
+    return () => {
+      for (const img of prefetched) {
+        img.src = "";
+      }
+    };
+  }, [open, index, images]);
+
   if (!mounted || !open || !currentUrl) {
     return null;
   }
@@ -363,12 +390,14 @@ export default function ImageLightbox({
               src={images[previousIndex]}
               alt=""
               aria-hidden
+              decoding="async"
               className={`absolute inset-0 m-auto max-h-full max-w-full object-contain ${exitClass}`}
             />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={currentUrl}
               alt={currentTitle ?? "Gallery image preview"}
+              decoding="async"
               className={`relative z-[1] ${imageClassName} ${enterClass}`}
             />
           </>
@@ -377,6 +406,7 @@ export default function ImageLightbox({
           <img
             src={currentUrl}
             alt={currentTitle ?? "Gallery image preview"}
+            decoding="async"
             className={`relative ${imageClassName}`}
           />
         )}

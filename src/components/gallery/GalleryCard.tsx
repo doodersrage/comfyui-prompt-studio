@@ -18,8 +18,12 @@ import {
   downloadGallerySidecar,
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
-import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
-import type { GalleryLayoutMode } from "@/lib/comfyui-gallery";
+import {
+  galleryEntryPrimaryLqipUrl,
+  galleryEntryPrimaryThumbSrcSet,
+  type ComfyGalleryEntry,
+  type GalleryLayoutMode,
+} from "@/lib/comfyui-gallery";
 
 type GalleryCardProps = {
   entry: ComfyGalleryEntry;
@@ -111,12 +115,20 @@ export default function GalleryCard({
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
   const [promptExpanded, setPromptExpanded] = useState(false);
+  const [heroLoaded, setHeroLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{
     top: number;
     left: number;
     maxHeight: number;
   } | null>(null);
+  const heroSrcSet = useMemo(() => galleryEntryPrimaryThumbSrcSet(entry), [entry]);
+  const lqipUrl = useMemo(() => galleryEntryPrimaryLqipUrl(entry), [entry]);
+
+  useEffect(() => {
+    setHeroLoaded(false);
+  }, [previewUrl]);
+
   const aestheticScore = useMemo(
     () => scoreGalleryEntryHeuristic(entry),
     [
@@ -237,12 +249,22 @@ export default function GalleryCard({
           <button
             type="button"
             onClick={() => onOpenImage(0)}
-            className="block h-full w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+            className="relative block h-full w-full cursor-zoom-in overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             aria-label="Open image preview"
           >
+            {lqipUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={lqipUrl}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 h-full w-full scale-110 object-cover opacity-80 blur-xl"
+              />
+            ) : null}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={previewUrl}
+              srcSet={heroSrcSet ?? undefined}
               alt={entry.prompt.slice(0, 80)}
               loading="lazy"
               decoding="async"
@@ -253,7 +275,10 @@ export default function GalleryCard({
                     ? "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                     : "(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
               }
-              className="h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02]"
+              onLoad={() => setHeroLoaded(true)}
+              className={`relative h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02] ${
+                heroLoaded ? "opacity-100" : "opacity-0"
+              }`}
             />
           </button>
           {layout !== "list" ? (
@@ -452,7 +477,13 @@ export default function GalleryCard({
               aria-label={`Open image ${thumbIndex + 2} preview`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="h-9 w-9 object-cover" />
+              <img
+                src={url}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-9 w-9 object-cover"
+              />
             </button>
           ))}
         </div>

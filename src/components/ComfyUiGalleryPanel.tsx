@@ -62,6 +62,7 @@ import {
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import {
   buildGalleryLightboxPlaylist,
+  galleryEntryStripThumbUrls,
   galleryEntryViewUrls,
   GALLERY_ALL_RENDER_CHUNK,
   GALLERY_PAGE_SIZE_ALL,
@@ -331,9 +332,24 @@ export default function ComfyUiGalleryPanel({
       : compact
         ? "grid gap-4"
         : "grid gap-6";
-  const virtualizeFlatGrid =
-    !lineageGrouping &&
-    shouldVirtualizeGalleryGrid(visibleEntries.length);
+  const lineageFlatEntries = useMemo(() => {
+    if (!lineageGroups) {
+      return visibleEntries;
+    }
+    const flat: ComfyGalleryEntry[] = [];
+    for (const group of lineageGroups) {
+      flat.push(group.root);
+      if (!collapsedLineageGroups.has(group.root.id)) {
+        flat.push(...group.derivatives);
+      }
+    }
+    return flat;
+  }, [collapsedLineageGroups, lineageGroups, visibleEntries]);
+
+  const virtualizeGrid = shouldVirtualizeGalleryGrid(
+    lineageGrouping ? lineageFlatEntries.length : visibleEntries.length,
+  );
+  const virtualizedEntries = lineageGrouping ? lineageFlatEntries : visibleEntries;
 
   const lightboxPlaylist = useMemo(
     () => buildGalleryLightboxPlaylist(visibleEntries),
@@ -1441,9 +1457,9 @@ export default function ComfyUiGalleryPanel({
             }}
           />
         )
-      ) : virtualizeFlatGrid ? (
+      ) : virtualizeGrid ? (
         <VirtualizedGalleryGrid
-          items={visibleEntries}
+          items={virtualizedEntries}
           getKey={(entry) => entry.id}
           layout={layout}
           compact={compact}
@@ -1466,7 +1482,7 @@ export default function ComfyUiGalleryPanel({
                 filter.focusEntryId === entry.id
               }
               previewUrl={primaryThumbUrl(entry)}
-              imageUrls={galleryEntryViewUrls(entry)}
+              imageUrls={galleryEntryStripThumbUrls(entry)}
               reviewMode={filter.reviewMode === true}
               reviewMutationHints={
                 filter.reviewMode &&
@@ -1503,7 +1519,7 @@ export default function ComfyUiGalleryPanel({
                     filter.focusEntryId === entry.id
                   }
                   previewUrl={primaryThumbUrl(entry)}
-                  imageUrls={galleryEntryViewUrls(entry)}
+                  imageUrls={galleryEntryStripThumbUrls(entry)}
                   reviewMode={filter.reviewMode === true}
                   reviewMutationHints={
                     filter.reviewMode &&

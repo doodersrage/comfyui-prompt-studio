@@ -1,5 +1,12 @@
 import type { ComfyOutputImage } from "./comfyui-outputs";
-import { buildComfyViewPath, GALLERY_THUMB_WIDTH } from "./comfyui-outputs";
+import {
+  buildComfyViewPath,
+  buildComfyViewSrcSet,
+  GALLERY_LIGHTBOX_WIDTH,
+  GALLERY_LQIP_WIDTH,
+  GALLERY_STRIP_THUMB_WIDTH,
+  GALLERY_THUMB_WIDTH,
+} from "./comfyui-outputs";
 import { filterBySemanticQuery } from "./semantic-search";
 import { orderGalleryBySimilarity } from "./gallery-similarity";
 import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
@@ -666,12 +673,40 @@ export function galleryEntryThumbUrls(entry: ComfyGalleryEntry): string[] {
   );
 }
 
+export function galleryEntryStripThumbUrls(entry: ComfyGalleryEntry): string[] {
+  return entry.images.map((image) =>
+    buildComfyViewPath(entry.comfyUrl, image, { width: GALLERY_STRIP_THUMB_WIDTH }),
+  );
+}
+
+export function galleryEntryLightboxUrls(entry: ComfyGalleryEntry): string[] {
+  return entry.images.map((image) =>
+    buildComfyViewPath(entry.comfyUrl, image, { width: GALLERY_LIGHTBOX_WIDTH }),
+  );
+}
+
 export function galleryEntryPrimaryViewUrl(entry: ComfyGalleryEntry): string | null {
   return galleryEntryViewUrls(entry)[0] ?? null;
 }
 
 export function galleryEntryPrimaryThumbUrl(entry: ComfyGalleryEntry): string | null {
   return galleryEntryThumbUrls(entry)[0] ?? null;
+}
+
+export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string | null {
+  const image = entry.images[0];
+  if (!image) {
+    return null;
+  }
+  return buildComfyViewSrcSet(entry.comfyUrl, image);
+}
+
+export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | null {
+  const image = entry.images[0];
+  if (!image) {
+    return null;
+  }
+  return buildComfyViewPath(entry.comfyUrl, image, { width: GALLERY_LQIP_WIDTH });
 }
 
 export type GalleryLightboxPlaylist = {
@@ -687,7 +722,7 @@ export function buildGalleryLightboxPlaylist(
   const titles: string[] = [];
 
   for (const entry of entries) {
-    const urls = galleryEntryViewUrls(entry);
+    const urls = galleryEntryLightboxUrls(entry);
     if (urls.length === 0) {
       continue;
     }
@@ -710,7 +745,7 @@ export function resolveGalleryLightboxOpenIndex(
   let flatIndex = 0;
 
   for (const entry of entries) {
-    const urls = galleryEntryViewUrls(entry);
+    const urls = galleryEntryLightboxUrls(entry);
     if (urls.length === 0) {
       continue;
     }

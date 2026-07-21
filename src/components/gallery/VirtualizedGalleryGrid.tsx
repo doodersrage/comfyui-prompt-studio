@@ -11,7 +11,7 @@ import {
 } from "react";
 import type { GalleryLayoutMode } from "@/lib/comfyui-gallery";
 
-const VIRTUALIZE_MIN_ITEMS = 36;
+const VIRTUALIZE_MIN_ITEMS = 18;
 
 export function galleryGridColumnCount(
   layout: GalleryLayoutMode,

@@ -2,6 +2,14 @@ import { getComfyUiBaseUrl } from "@/lib/comfyui-client";
 import { stripEmptyComfyUiRuntime } from "@/lib/comfyui-config";
 import { apiError, apiMethodNotAllowed } from "@/lib/api/response";
 import {
+  buildViewCacheKey,
+  contentTypeForViewFormat,
+  negotiateViewFormat,
+  readViewCache,
+  writeViewCache,
+  type ViewCacheFormat,
+} from "@/lib/comfyui-view-cache";
+import {
   normalizeComfyViewType,
   sanitizeComfyViewFilename,
   sanitizeComfyViewSubfolder,
@@ -19,6 +27,30 @@ function parseThumbWidth(raw: string | null): number | null {
     return null;
   }
   return Math.min(Math.floor(value), 2048);
+}
+
+async function encodeThumb(
+  buffer: Buffer,
+  thumbWidth: number,
+  format: ViewCacheFormat,
+): Promise<Buffer> {
+  const sharp = (await import("sharp")).default;
+  const pipeline = sharp(buffer)
+    .rotate()
+    .resize({
+      width: thumbWidth,
+      height: thumbWidth,
+      fit: "inside",
+      withoutEnlargement: true,
+    });
+
+  if (format === "avif") {
+    return pipeline.avif({ quality: 52 }).toBuffer();
+  }
+  if (format === "webp") {
+    return pipeline.webp({ quality: 72 }).toBuffer();
+  }
+  return pipeline.jpeg({ quality: 78, mozjpeg: true }).toBuffer();
 }
 
 export async function GET(request: Request) {
@@ -54,6 +86,31 @@ export async function GET(request: Request) {
     );
   }
 
+  const format = negotiateViewFormat(request.headers.get("accept"));
+
+  if (thumbWidth) {
+    const cacheKey = buildViewCacheKey({
+      comfyUrl,
+      filename,
+      subfolder,
+      type,
+      width: thumbWidth,
+      format,
+    });
+    const cached = readViewCache(cacheKey, format);
+    if (cached) {
+      return new NextResponse(new Uint8Array(cached.buffer), {
+        status: 200,
+        headers: {
+          "Content-Type": cached.contentType,
+          "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+          "X-Image-Variant": "thumb",
+          "X-Image-Cache": "hit",
+        },
+      });
+    }
+  }
+
   const viewUrl = new URL(`${comfyUrl}/view`);
   viewUrl.searchParams.set("filename", filename);
   viewUrl.searchParams.set("subfolder", subfolder);
@@ -78,24 +135,28 @@ export async function GET(request: Request) {
 
     if (thumbWidth) {
       try {
-        const sharp = (await import("sharp")).default;
-        const resized = await sharp(buffer)
-          .rotate()
-          .resize({
-            width: thumbWidth,
-            height: thumbWidth,
-            fit: "inside",
-            withoutEnlargement: true,
-          })
-          .jpeg({ quality: 78, mozjpeg: true })
-          .toBuffer();
+        const resized = await encodeThumb(buffer, thumbWidth, format);
+        const encodedType = contentTypeForViewFormat(format);
+        const cacheKey = buildViewCacheKey({
+          comfyUrl,
+          filename,
+          subfolder,
+          type,
+          width: thumbWidth,
+          format,
+        });
+        writeViewCache(cacheKey, format, {
+          buffer: resized,
+          contentType: encodedType,
+        });
 
         return new NextResponse(new Uint8Array(resized), {
           status: 200,
           headers: {
-            "Content-Type": "image/jpeg",
+            "Content-Type": encodedType,
             "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
             "X-Image-Variant": "thumb",
+            "X-Image-Cache": "miss",
           },
         });
       } catch {
