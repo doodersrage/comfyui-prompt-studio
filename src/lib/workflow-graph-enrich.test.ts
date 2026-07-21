@@ -458,4 +458,80 @@ describe("workflow-graph-enrich", () => {
     assert.equal(refinerSampler.class_type, "KSampler");
     assert.equal(refinerSampler.inputs.denoise, 0.22);
   });
+
+  it("inserts SDXL refiner when LoRA sits between checkpoint and KSampler", () => {
+    const workflow = {
+      "1": {
+        class_type: "CheckpointLoaderSimple",
+        inputs: { ckpt_name: "sd_xl_base_1.0.safetensors" },
+      },
+      "10": {
+        class_type: "LoraLoader",
+        inputs: {
+          model: ["1", 0],
+          clip: ["1", 1],
+          lora_name: "style.safetensors",
+          strength_model: 0.8,
+          strength_clip: 0.8,
+        },
+      },
+      "2": {
+        class_type: "CLIPTextEncode",
+        inputs: { text: "{{POSITIVE}}", clip: ["10", 1] },
+      },
+      "3": {
+        class_type: "CLIPTextEncode",
+        inputs: { text: "{{NEGATIVE}}", clip: ["10", 1] },
+      },
+      "4": {
+        class_type: "EmptyLatentImage",
+        inputs: { width: 1024, height: 1024, batch_size: 1 },
+      },
+      "5": {
+        class_type: "KSampler",
+        inputs: {
+          seed: "{{SEED}}",
+          steps: "{{STEPS}}",
+          cfg: "{{CFG}}",
+          sampler_name: "euler",
+          scheduler: "normal",
+          denoise: 1,
+          model: ["10", 0],
+          positive: ["2", 0],
+          negative: ["3", 0],
+          latent_image: ["4", 0],
+        },
+      },
+      "6": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["5", 0], vae: ["1", 2] },
+      },
+      "7": {
+        class_type: "SaveImage",
+        inputs: { images: ["6", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "sdxl",
+      qualityProfile: "final",
+      refinerCheckpointFilename: "sd_xl_refiner_1.0.safetensors",
+      enrichUpscale: false,
+      enrichSampling: false,
+    });
+
+    assert.ok(
+      result.changes.some((change) => /Inserted SDXL latent upscale/i.test(change.message)),
+    );
+    const decodeNode = result.workflow["6"] as { inputs: { samples: [string, number] } };
+    const refinerSamplerId = decodeNode.inputs.samples[0];
+    const refinerSampler = result.workflow[refinerSamplerId] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
+    assert.equal(refinerSampler.class_type, "KSampler");
+    assert.equal(refinerSampler.inputs.denoise, 0.22);
+  });
 });

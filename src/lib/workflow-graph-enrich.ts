@@ -292,6 +292,41 @@ type SdxlVaeDecodeChain = {
   loaderId: string;
 };
 
+function resolveCheckpointLoaderIdThroughModelChain(
+  workflow: Record<string, WorkflowNode>,
+  startNodeId: string,
+): string | null {
+  let current: string | null = startNodeId;
+  const visited = new Set<string>();
+
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    const node = workflow[current];
+    if (!node) {
+      return null;
+    }
+
+    const classType = node.class_type ?? "";
+    if (CHECKPOINT_LOADER_TYPES.has(classType)) {
+      return current;
+    }
+
+    const classLower = classType.toLowerCase();
+    const followsModelChain =
+      MODEL_CHAIN_TYPES.has(classType) ||
+      classLower.includes("lora") ||
+      isModelSamplingPatchNode(classType) ||
+      isModelSamplingFluxNode(classType);
+    if (!followsModelChain) {
+      return null;
+    }
+
+    current = getLinkedNodeId(node.inputs?.model);
+  }
+
+  return null;
+}
+
 function findSdxlVaeDecodeChains(
   workflow: Record<string, WorkflowNode>,
 ): SdxlVaeDecodeChain[] {
@@ -317,13 +352,13 @@ function findSdxlVaeDecodeChains(
       continue;
     }
 
-    const loaderId = getLinkedNodeId(sampler.inputs.model);
-    if (!loaderId) {
+    const modelLink = getLinkedNodeId(sampler.inputs.model);
+    if (!modelLink) {
       continue;
     }
 
-    const loader = workflow[loaderId];
-    if (!CHECKPOINT_LOADER_TYPES.has(loader?.class_type ?? "")) {
+    const loaderId = resolveCheckpointLoaderIdThroughModelChain(workflow, modelLink);
+    if (!loaderId) {
       continue;
     }
 

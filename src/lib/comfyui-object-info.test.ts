@@ -24,4 +24,23 @@ describe("comfyui-object-info", () => {
     assert.deepEqual(lists.loras, []);
     assert.deepEqual(lists.controlNets, []);
   });
+
+  it("merges UnetLoaderGGUF filenames into the UNET inventory", () => {
+    const lists = parseComfyObjectInfoModelLists({
+      UNETLoader: {
+        input: {
+          unet_name: [["flux1-dev.safetensors"], {}],
+        },
+      },
+      UnetLoaderGGUF: {
+        input: {
+          unet_name: [["flux1-dev-Q4_K_S.gguf"], {}],
+        },
+      },
+    });
+    assert.deepEqual(lists.unets, [
+      "flux1-dev.safetensors",
+      "flux1-dev-Q4_K_S.gguf",
+    ]);
+  });
 });

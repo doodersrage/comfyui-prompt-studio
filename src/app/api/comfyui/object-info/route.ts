@@ -20,6 +20,7 @@ export async function GET(request: Request) {
       ok: true,
       models: payload.models,
       nodeTypes: [...payload.nodeTypes],
+      supportsNeuralUpscaleTileSize: payload.supportsNeuralUpscaleTileSize,
     });
   } catch (error) {
     const message =

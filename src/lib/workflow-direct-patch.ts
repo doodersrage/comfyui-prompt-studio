@@ -34,6 +34,7 @@ export type WorkflowDirectPatchCounts = {
   maskImage?: number;
   lora?: number;
   emptySd3Latent?: number;
+  unetWeightDtype?: number;
   controlNet?: number;
   controlImage?: number;
 };
@@ -119,6 +120,26 @@ function shouldAlignLoaderPrecision(current: unknown, nextValue: string | undefi
   if (currentTier === "bf16" && nextTier === "fp8") {
     return false;
   }
+  return true;
+}
+
+/** fp8 weight_dtype on bf16 UNET causes grain/grid — clear dtype when filename is bf16-tier. */
+function alignUnetWeightDtypeToFilename(
+  inputs: Record<string, unknown>,
+  filename: string,
+): boolean {
+  if (!("weight_dtype" in inputs)) {
+    return false;
+  }
+  const tier = precisionHintFromFilename(filename);
+  if (tier !== "bf16") {
+    return false;
+  }
+  const dtype = inputs.weight_dtype;
+  if (typeof dtype !== "string" || !/fp8|e4m3fn/i.test(dtype)) {
+    return false;
+  }
+  inputs.weight_dtype = "default";
   return true;
 }
 
@@ -287,6 +308,19 @@ export function patchLoaderNodesInWorkflow(
     ) {
       inputs.unet_name = loaders.unet;
       patched.unet = (patched.unet ?? 0) + 1;
+      if (alignUnetWeightDtypeToFilename(inputs, loaders.unet)) {
+        patched.unetWeightDtype = (patched.unetWeightDtype ?? 0) + 1;
+      }
+    } else if (
+      loaders.unet &&
+      UNET_LOADER_TYPES.has(classType) &&
+      "unet_name" in inputs &&
+      typeof inputs.unet_name === "string" &&
+      !isUnresolvedWorkflowPlaceholder(inputs.unet_name) &&
+      alignUnetWeightDtypeToFilename(inputs, inputs.unet_name)
+    ) {
+      // Filename already matches resolved bf16 — still clear stale fp8 dtype.
+      patched.unetWeightDtype = (patched.unetWeightDtype ?? 0) + 1;
     }
 
     if (

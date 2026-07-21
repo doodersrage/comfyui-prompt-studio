@@ -36,7 +36,8 @@ import {
   galleryRefineQueueParams,
 } from "./gallery-output-refine";
 import { findLibraryUpscaleWorkflowForModel } from "./workflow-library-upscale";
-import { resolveUpscaleModelFilename } from "./model-upscale-map";
+import { isUpscaleModelInstalled, resolveUpscaleModelFilename } from "./model-upscale-map";
+import { fetchComfyObjectInfoCached } from "./comfyui-object-info-cache";
 import { loadSettingsCache } from "./settings-cache";
 import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
 
@@ -138,13 +139,27 @@ export async function requeueUpscaleFromGalleryEntry(
   const shared = loadSettingsCache().shared;
   const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
   const isLightning = isQwenLightningModel(model);
-  const upscaleModelFilename =
+  const mappedUpscale =
     !isLightning && options.qualityProfile === "max"
       ? resolveUpscaleModelFilename(model, {
           upscaleMap: shared.modelUpscaleMap,
           customTokens: settings.customTokens,
         })
       : undefined;
+
+  const objectInfo = await fetchComfyObjectInfoCached({
+    comfyUrl: entry.comfyUrl ?? resolveComfyUiRuntime()?.apiUrl,
+  });
+  const upscaleModelFilename =
+    mappedUpscale &&
+    isUpscaleModelInstalled(mappedUpscale, objectInfo?.models.upscaleModels)
+      ? mappedUpscale
+      : undefined;
+  if (mappedUpscale && !upscaleModelFilename) {
+    options.onStatus?.(
+      `Neural upscaler “${mappedUpscale}” not installed — using Lanczos…`,
+    );
+  }
 
   const baseRuntime = resolveRuntimeForQueue(model, entry.tool);
   const enrichOptions = resolveWorkflowGraphEnrichOptions(baseRuntime);
@@ -164,6 +179,8 @@ export async function requeueUpscaleFromGalleryEntry(
           enrichNeuralPolish: enrichOptions.enrichNeuralPolish,
           enrichSharpen: enrichOptions.enrichSharpen,
           model,
+          availableUpscaleModels: objectInfo?.models.upscaleModels,
+          supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
         });
 
     const runtime: ComfyUiRuntimeConfig = {

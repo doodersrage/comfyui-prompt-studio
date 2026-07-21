@@ -5,22 +5,37 @@ import { resolveComfyUiRuntime } from "./comfyui-runtime";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
+export type ComfyObjectInfoCachePayload = {
+  models: ComfyUiModelLists;
+  nodeTypes: Set<string>;
+  supportsNeuralUpscaleTileSize: boolean;
+};
+
 type CacheEntry = {
   fetchedAt: number;
   comfyUrl: string;
-  models: ComfyUiModelLists;
-  nodeTypes: Set<string>;
-};
+} & ComfyObjectInfoCachePayload;
 
 let memoryCache: CacheEntry | null = null;
+
+function resolveCacheUrl(comfyUrl?: string): string {
+  return (
+    comfyUrl?.trim().replace(/\/+$/, "") ||
+    resolveComfyUiRuntime()?.apiUrl?.trim().replace(/\/+$/, "") ||
+    ""
+  );
+}
 
 export function readCachedComfyObjectInfoModels(
   comfyUrl?: string,
 ): ComfyUiModelLists | null {
-  const resolved =
-    comfyUrl?.trim().replace(/\/+$/, "") ||
-    resolveComfyUiRuntime()?.apiUrl?.trim().replace(/\/+$/, "") ||
-    "";
+  return readCachedComfyObjectInfo(comfyUrl)?.models ?? null;
+}
+
+export function readCachedComfyObjectInfo(
+  comfyUrl?: string,
+): ComfyObjectInfoCachePayload | null {
+  const resolved = resolveCacheUrl(comfyUrl);
   if (!resolved || !memoryCache) {
     return null;
   }
@@ -30,15 +45,19 @@ export function readCachedComfyObjectInfoModels(
   if (Date.now() - memoryCache.fetchedAt > CACHE_TTL_MS) {
     return null;
   }
-  return memoryCache.models;
+  return {
+    models: memoryCache.models,
+    nodeTypes: memoryCache.nodeTypes,
+    supportsNeuralUpscaleTileSize: memoryCache.supportsNeuralUpscaleTileSize,
+  };
 }
 
-export async function fetchComfyObjectInfoModelsCached(input?: {
+export async function fetchComfyObjectInfoCached(input?: {
   comfyUrl?: string;
-}): Promise<ComfyUiModelLists | null> {
+}): Promise<ComfyObjectInfoCachePayload | null> {
   const runtime = resolveComfyUiRuntime();
   const comfyUrl = input?.comfyUrl?.trim() || runtime?.apiUrl?.trim() || "";
-  const cached = readCachedComfyObjectInfoModels(comfyUrl);
+  const cached = readCachedComfyObjectInfo(comfyUrl);
   if (cached) {
     return cached;
   }
@@ -51,6 +70,7 @@ export async function fetchComfyObjectInfoModelsCached(input?: {
   const data = (await response.json()) as {
     models?: ComfyUiModelLists;
     nodeTypes?: string[];
+    supportsNeuralUpscaleTileSize?: boolean;
   };
   if (!data.models) {
     return null;
@@ -61,22 +81,33 @@ export async function fetchComfyObjectInfoModelsCached(input?: {
     comfyUrl: comfyUrl.replace(/\/+$/, "") || "default",
     models: data.models,
     nodeTypes: new Set(data.nodeTypes ?? []),
+    supportsNeuralUpscaleTileSize: data.supportsNeuralUpscaleTileSize === true,
   };
-  return data.models;
+  return {
+    models: memoryCache.models,
+    nodeTypes: memoryCache.nodeTypes,
+    supportsNeuralUpscaleTileSize: memoryCache.supportsNeuralUpscaleTileSize,
+  };
+}
+
+export async function fetchComfyObjectInfoModelsCached(input?: {
+  comfyUrl?: string;
+}): Promise<ComfyUiModelLists | null> {
+  const payload = await fetchComfyObjectInfoCached(input);
+  return payload?.models ?? null;
 }
 
 export async function fetchComfyObjectInfoNodeTypesCached(input?: {
   comfyUrl?: string;
 }): Promise<Set<string> | null> {
-  const runtime = resolveComfyUiRuntime();
-  const comfyUrl = input?.comfyUrl?.trim() || runtime?.apiUrl?.trim() || "";
-  const cached = readCachedComfyObjectInfoModels(comfyUrl);
-  if (cached && memoryCache?.nodeTypes.size) {
-    return memoryCache.nodeTypes;
+  const comfyUrl = input?.comfyUrl?.trim() || resolveComfyUiRuntime()?.apiUrl?.trim() || "";
+  const cached = readCachedComfyObjectInfo(comfyUrl);
+  if (cached && cached.nodeTypes.size) {
+    return cached.nodeTypes;
   }
 
-  await fetchComfyObjectInfoModelsCached({ comfyUrl });
-  return memoryCache?.nodeTypes ?? null;
+  const payload = await fetchComfyObjectInfoCached({ comfyUrl });
+  return payload?.nodeTypes ?? null;
 }
 
 export function clearComfyObjectInfoCache(): void {

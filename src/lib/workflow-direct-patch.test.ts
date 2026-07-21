@@ -12,6 +12,48 @@ import {
 import { DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN } from "./model-checkpoint-map.ts";
 
 describe("workflow direct patch", () => {
+  it("aligns fp8 weight_dtype to default when UNET filename is bf16", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: {
+          unet_name: "qwen_image_2512_fp8_e4m3fn.safetensors",
+          weight_dtype: "fp8_e4m3fn",
+        },
+      },
+    };
+
+    const result = patchLoaderNodesInWorkflow(workflow, {
+      unet: "qwen_image_2512_bf16.safetensors",
+    });
+    const node = result.workflow["1"] as {
+      inputs?: { unet_name?: string; weight_dtype?: string };
+    };
+    assert.equal(node.inputs?.unet_name, "qwen_image_2512_bf16.safetensors");
+    assert.equal(node.inputs?.weight_dtype, "default");
+    assert.equal(result.patched.unet, 1);
+    assert.equal(result.patched.unetWeightDtype, 1);
+  });
+
+  it("clears stale fp8 weight_dtype when filename already bf16", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: {
+          unet_name: "qwen_image_2512_bf16.safetensors",
+          weight_dtype: "fp8_e4m3fn",
+        },
+      },
+    };
+
+    const result = patchLoaderNodesInWorkflow(workflow, {
+      unet: "qwen_image_2512_bf16.safetensors",
+    });
+    const node = result.workflow["1"] as { inputs?: { weight_dtype?: string } };
+    assert.equal(node.inputs?.weight_dtype, "default");
+    assert.equal(result.patched.unetWeightDtype, 1);
+  });
+
   it("sync mode overwrites hardcoded loader filenames", () => {
     const workflow = {
       "1": {

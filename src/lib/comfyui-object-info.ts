@@ -67,7 +67,13 @@ export function parseComfyObjectInfoModelLists(
 ): ComfyUiModelLists {
   return {
     checkpoints: readNodeInputOptions(objectInfo, "CheckpointLoaderSimple", "ckpt_name"),
-    unets: readNodeInputOptions(objectInfo, "UNETLoader", "unet_name"),
+    unets: [
+      ...new Set([
+        ...readNodeInputOptions(objectInfo, "UNETLoader", "unet_name"),
+        // GGUF custom node uses a separate loader with its own filename list.
+        ...readNodeInputOptions(objectInfo, "UnetLoaderGGUF", "unet_name"),
+      ]),
+    ],
     vaes: readNodeInputOptions(objectInfo, "VAELoader", "vae_name"),
     upscaleModels: readNodeInputOptions(objectInfo, "UpscaleModelLoader", "model_name"),
     clips: [

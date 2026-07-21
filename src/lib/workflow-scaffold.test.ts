@@ -10,9 +10,20 @@ describe("workflow scaffold", () => {
   it("builds a flux scaffold with placeholders", () => {
     const result = buildWorkflowScaffoldForModel("flux-2-klein-9b");
     assert.equal(result.category, "flux");
-    assert.match(result.json, /ModelSamplingAuraFlow/);
+    assert.match(result.json, /ModelSamplingFlux/);
+    assert.match(result.json, /\{\{FLUX_MAX_SHIFT\}\}/);
     assert.match(result.json, /\{\{POSITIVE\}\}/);
     assert.match(result.json, /\{\{WIDTH\}\}/);
+  });
+
+  it("builds flux inpaint scaffold with ModelSamplingFlux", () => {
+    const result = buildWorkflowScaffoldForModel("flux-inpaint");
+    assert.match(result.json, /ModelSamplingFlux/);
+    assert.doesNotMatch(result.json, /ModelSamplingAuraFlow/);
+    assert.match(result.json, /LoadImageMask/);
+    assert.match(result.json, /InpaintModelConditioning/);
+    assert.match(result.json, /\{\{MASK_IMAGE\}\}/);
+    assert.match(result.json, /\{\{INPUT_IMAGE\}\}/);
   });
 
   it("builds a qwen scaffold with UNET loader", () => {
@@ -48,14 +59,6 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /CheckpointLoaderSimple/);
     assert.match(result.json, /TextEncodeQwenImageEditPlus/);
     assert.match(result.json, /VAEEncode/);
-  });
-
-  it("builds a flux inpaint scaffold with mask and conditioning nodes", () => {
-    const result = buildWorkflowScaffoldForModel("flux-inpaint");
-    assert.match(result.json, /LoadImageMask/);
-    assert.match(result.json, /InpaintModelConditioning/);
-    assert.match(result.json, /\{\{MASK_IMAGE\}\}/);
-    assert.match(result.json, /\{\{INPUT_IMAGE\}\}/);
   });
 
   it("clones an existing workflow and applies bindings", () => {
