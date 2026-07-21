@@ -53,6 +53,8 @@ export function resolveSelectedWorkflowRuntime(
     ...(baseRuntime ?? {}),
     workflowJson: file.workflowJson,
     workflowOptimizedHash: file.lastOptimizedHash,
+    workflowOptimizedModel: file.lastOptimizedModel,
+    workflowOptimizedProfile: file.lastOptimizedProfile,
     customTokens: customTokens.length > 0 ? customTokens : undefined,
     workflowCustomTokens:
       workflowCustomTokens.length > 0 ? workflowCustomTokens : undefined,

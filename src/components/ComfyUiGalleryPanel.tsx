@@ -370,6 +370,7 @@ export default function ComfyUiGalleryPanel({
 
       setLightbox({
         images: lightboxPlaylist.images,
+        originalImages: lightboxPlaylist.originalImages,
         titles: lightboxPlaylist.titles,
         index,
         title: lightboxPlaylist.titles[index],
@@ -397,6 +398,7 @@ export default function ComfyUiGalleryPanel({
 
     setLightbox({
       images: lightboxPlaylist.images,
+      originalImages: lightboxPlaylist.originalImages,
       titles: lightboxPlaylist.titles,
       index: 0,
       title: lightboxPlaylist.titles[0],
@@ -412,6 +414,7 @@ export default function ComfyUiGalleryPanel({
 
     setLightbox({
       images: lightboxPlaylist.images,
+      originalImages: lightboxPlaylist.originalImages,
       titles: lightboxPlaylist.titles,
       index: 0,
       title: lightboxPlaylist.titles[0],

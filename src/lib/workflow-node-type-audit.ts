@@ -3,20 +3,24 @@ export type WorkflowNodeTypeIssue = {
   message: string;
 };
 
-export function listWorkflowClassTypes(workflowJson?: string): string[] {
-  if (!workflowJson?.trim()) {
-    return [];
-  }
-
-  let workflow: Record<string, unknown>;
-  try {
-    workflow = JSON.parse(workflowJson) as Record<string, unknown>;
-  } catch {
-    return [];
+export function listWorkflowClassTypes(
+  workflowJson?: string,
+  workflow?: Record<string, unknown> | null,
+): string[] {
+  let graph = workflow ?? null;
+  if (!graph) {
+    if (!workflowJson?.trim()) {
+      return [];
+    }
+    try {
+      graph = JSON.parse(workflowJson) as Record<string, unknown>;
+    } catch {
+      return [];
+    }
   }
 
   const types = new Set<string>();
-  for (const node of Object.values(workflow)) {
+  for (const node of Object.values(graph)) {
     if (!node || typeof node !== "object") {
       continue;
     }
@@ -30,6 +34,7 @@ export function listWorkflowClassTypes(workflowJson?: string): string[] {
 
 export function auditWorkflowNodeTypes(input: {
   workflowJson?: string;
+  workflow?: Record<string, unknown> | null;
   knownNodeTypes?: Set<string> | string[];
 }): WorkflowNodeTypeIssue[] {
   const known =
@@ -42,7 +47,7 @@ export function auditWorkflowNodeTypes(input: {
   }
 
   const issues: WorkflowNodeTypeIssue[] = [];
-  for (const classType of listWorkflowClassTypes(input.workflowJson)) {
+  for (const classType of listWorkflowClassTypes(input.workflowJson, input.workflow)) {
     if (!known.has(classType)) {
       issues.push({
         severity: "error",

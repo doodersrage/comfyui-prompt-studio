@@ -6,7 +6,6 @@ import {
   profileUsesSdxlRefinerEnrich,
   profileUsesSharpenAfterUpscale,
   profileUsesUpscaleEnrich,
-  profileUsesLightningUpscalePolish,
   profileUsesRapidAioMoirePolish,
   profileSkipsOutputUpscaleForModel,
   neuralUpscaleTileSizeForProfile,
@@ -14,8 +13,6 @@ import {
   sdxlRefinerLatentScaleForProfile,
   lanczosPolishScaleAfterNeural,
   sharpenAlphaForProfile,
-  lightningUpscalePolishAlpha,
-  lightningUpscalePolishSigma,
   rapidAioMoireBlurRadius,
   rapidAioMoireBlurSigma,
   rapidAioMoireDownscaleFactor,
@@ -543,40 +540,6 @@ function insertLanczosPolishAfterNode(input: {
   return polishNodeId;
 }
 
-function maybeInsertLightningUpscalePolish(input: {
-  workflow: Record<string, WorkflowNode>;
-  saveNode: WorkflowNode;
-  sourceNodeId: string;
-  qualityProfile?: QueueQualityProfile;
-  saveId: string;
-  model?: string;
-}): WorkflowQueueOptimizeChange | null {
-  if (!profileUsesLightningUpscalePolish(input.qualityProfile, { model: input.model })) {
-    return null;
-  }
-
-  const alpha = lightningUpscalePolishAlpha(input.qualityProfile);
-  const sigma = lightningUpscalePolishSigma(input.qualityProfile);
-  const polishNodeId = nextWorkflowNodeId(input.workflow);
-  input.workflow[polishNodeId] = {
-    class_type: "ImageSharpen",
-    inputs: {
-      image: [input.sourceNodeId, 0],
-      sharpen_radius: 1,
-      sigma,
-      alpha,
-    },
-    _meta: { title: "Prompt Studio — Lightning upscale polish" },
-  };
-  input.saveNode.inputs!.images = [polishNodeId, 0];
-
-  return {
-    kind: "binding",
-    severity: "info",
-    message: `Inserted Lightning upscale polish (ImageSharpen α${alpha}) before SaveImage node ${input.saveId} for ${input.qualityProfile} quality.`,
-  };
-}
-
 function maybeInsertSharpenAfterUpscale(input: {
   workflow: Record<string, WorkflowNode>;
   saveNode: WorkflowNode;
@@ -621,7 +584,7 @@ function enrichLanczosUpscaleNodes(input: {
   enrichSharpen?: boolean;
   model?: string;
 }): WorkflowQueueOptimizeChange[] {
-  // Lightning Final/Max: Lanczos + light polish (neural/hires still amplify grain).
+  // Lightning Final/Max: soft Lanczos only (ImageSharpen polish stays off).
   if (!profileUsesUpscaleEnrich(input.qualityProfile)) {
     return [];
   }
@@ -665,19 +628,6 @@ function enrichLanczosUpscaleNodes(input: {
       severity: "info",
       message: `Inserted ImageScaleBy (${scaleBy}× ${method}) before SaveImage node ${saveId} for ${input.qualityProfile} quality.`,
     });
-
-    const lightningPolish = maybeInsertLightningUpscalePolish({
-      workflow: input.workflow,
-      saveNode,
-      sourceNodeId: scaleNodeId,
-      qualityProfile: input.qualityProfile,
-      saveId,
-      model: input.model,
-    });
-    if (lightningPolish) {
-      changes.push(lightningPolish);
-      continue;
-    }
 
     const sharpenChange = maybeInsertSharpenAfterUpscale({
       workflow: input.workflow,

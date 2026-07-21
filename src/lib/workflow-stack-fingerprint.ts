@@ -170,6 +170,7 @@ function uniqueConcreteFamilies(families: WorkflowStackFamily[]): WorkflowStackF
 
 export function extractWorkflowStackFingerprint(
   workflowJson?: string,
+  workflow?: Record<string, unknown> | null,
 ): WorkflowStackFingerprint {
   const empty: WorkflowStackFingerprint = {
     family: "unknown",
@@ -184,16 +185,18 @@ export function extractWorkflowStackFingerprint(
     hasUnresolvedModelSamplingShift: false,
   };
 
-  if (!workflowJson?.trim()) {
-    return empty;
+  let graph = workflow ?? null;
+  if (!graph) {
+    if (!workflowJson?.trim()) {
+      return empty;
+    }
+    try {
+      graph = JSON.parse(workflowJson) as Record<string, unknown>;
+    } catch {
+      return empty;
+    }
   }
-
-  let workflow: Record<string, unknown>;
-  try {
-    workflow = JSON.parse(workflowJson) as Record<string, unknown>;
-  } catch {
-    return empty;
-  }
+  const workflowGraph = graph;
 
   const unetFilenames: string[] = [];
   const clipFilenames: string[] = [];
@@ -201,7 +204,7 @@ export function extractWorkflowStackFingerprint(
   const checkpointFilenames: string[] = [];
   let hasUnresolvedModelSamplingShift = false;
 
-  for (const node of Object.values(workflow)) {
+  for (const node of Object.values(workflowGraph)) {
     if (!node || typeof node !== "object") {
       continue;
     }
@@ -293,7 +296,11 @@ export function extractWorkflowStackFingerprint(
     ...vaeFamilies,
   ]);
 
-  const unresolvedPlaceholders = findUnresolvedPlaceholderTokens(workflowJson).filter(
+  const jsonForPlaceholders =
+    workflowJson?.trim() || JSON.stringify(workflowGraph);
+  const unresolvedPlaceholders = findUnresolvedPlaceholderTokens(
+    jsonForPlaceholders,
+  ).filter(
     (token) =>
       token.includes("UNET") ||
       token.includes("CHECKPOINT") ||
@@ -385,10 +392,14 @@ function formatStackFamilyLabel(family: WorkflowStackFamily): string {
 
 export function auditWorkflowStackCompatibility(input: {
   workflowJson?: string;
+  workflow?: Record<string, unknown> | null;
   model: ComfyImageModel | string;
   syncWorkflowLoadersToModel?: boolean;
 }): WorkflowStackAuditIssue[] {
-  const fingerprint = extractWorkflowStackFingerprint(input.workflowJson);
+  const fingerprint = extractWorkflowStackFingerprint(
+    input.workflowJson,
+    input.workflow,
+  );
   const issues: WorkflowStackAuditIssue[] = [];
   const modelFamily = resolveModelStackFamily(input.model);
 

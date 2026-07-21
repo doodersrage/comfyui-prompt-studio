@@ -49,6 +49,8 @@ export type ComfyWorkflowFile = {
   lastOptimizedHash?: string;
   /** Model id used for the last optimize enrich pass. */
   lastOptimizedModel?: string;
+  /** Quality profile used for the last optimize enrich pass. */
+  lastOptimizedProfile?: import("./queue-quality-profile").QueueQualityProfile;
   /**
    * Per-workflow token overrides ({{CHECKPOINT}}, {{LORA_LIGHTNING}}, …).
    * Beat Settings custom tokens for the same key; loader tokens also beat the
@@ -232,6 +234,7 @@ export function upsertComfyWorkflowFile(
     lastOptimizedAt: file.lastOptimizedAt,
     lastOptimizedHash: file.lastOptimizedHash,
     lastOptimizedModel: file.lastOptimizedModel,
+    lastOptimizedProfile: file.lastOptimizedProfile,
     customTokens: normalizeWorkflowCustomTokens(file.customTokens),
   };
 

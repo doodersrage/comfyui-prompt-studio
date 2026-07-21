@@ -10,6 +10,7 @@ export type { WorkflowPreflightIssue };
 
 export function runWorkflowPreflightSync(input: {
   workflowJson?: string;
+  workflow?: Record<string, unknown> | null;
   model: ComfyImageModel | string;
   negativePrompt?: string;
   hasInputImage?: boolean;
@@ -19,6 +20,7 @@ export function runWorkflowPreflightSync(input: {
   models?: ComfyUiModelLists | null;
   objectInfoUnavailable?: boolean;
   customTokens?: Array<{ token: string; value: string }>;
+  lightningAlreadyPrepared?: boolean;
 }): { ok: boolean; issues: WorkflowPreflightIssue[] } {
   void input.negativePrompt;
   return summarizeWorkflowGraphPreflight(input);

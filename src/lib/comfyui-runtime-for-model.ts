@@ -93,6 +93,8 @@ function resolveStackCompatibleWorkflowRuntime(
     ...swapped,
     workflowJson: swapped.workflowJson,
     workflowOptimizedHash: swapped.workflowOptimizedHash,
+    workflowOptimizedModel: swapped.workflowOptimizedModel,
+    workflowOptimizedProfile: swapped.workflowOptimizedProfile,
   };
 }
 

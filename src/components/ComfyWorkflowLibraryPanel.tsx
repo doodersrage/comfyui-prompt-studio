@@ -194,6 +194,7 @@ export default function ComfyWorkflowLibraryPanel({
         lastOptimizedAt: existing.lastOptimizedAt,
         lastOptimizedHash: existing.lastOptimizedHash,
         lastOptimizedModel: existing.lastOptimizedModel,
+        lastOptimizedProfile: existing.lastOptimizedProfile,
       });
       setFiles((previous) =>
         previous.map((entry) => (entry.id === saved.id ? saved : entry)),
@@ -305,6 +306,7 @@ export default function ComfyWorkflowLibraryPanel({
       lastOptimizedAt: existing?.lastOptimizedAt,
       lastOptimizedHash: existing?.lastOptimizedHash,
       lastOptimizedModel: existing?.lastOptimizedModel,
+      lastOptimizedProfile: existing?.lastOptimizedProfile,
     });
     refresh();
     cancelEdit();
@@ -514,6 +516,10 @@ export default function ComfyWorkflowLibraryPanel({
     const saved = upsertComfyWorkflowFile({
       name: suggestedOptimizedWorkflowName(baseName),
       workflowJson: result.workflowJson,
+      lastOptimizedAt: Date.now(),
+      lastOptimizedHash: result.contentHash,
+      lastOptimizedModel: String(model),
+      lastOptimizedProfile: shared.queueQualityProfile,
     });
     refresh();
     setNewName("");
@@ -651,7 +657,8 @@ export default function ComfyWorkflowLibraryPanel({
       </ToolActionRow>
       <p className="mb-4 text-xs text-zinc-500">
         After importing community JSON, run <strong className="font-medium text-zinc-400">Optimize all in library</strong>{" "}
-        so placeholders bind to your checkpoint/VAE maps. Confirm filenames match ComfyUI&apos;s model lists.
+        so placeholders bind to your checkpoint/VAE maps and queue can skip re-bind/enrich via a fresh hash.
+        Confirm filenames match ComfyUI&apos;s model lists. Workflow Health flags missing or stale optimize hashes.
       </p>
 
       {importError ? (

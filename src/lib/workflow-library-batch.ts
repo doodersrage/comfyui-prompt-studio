@@ -8,7 +8,7 @@ import { loadSettingsCache } from "./settings-cache";
 import { resolveQueueParams } from "./queue-params-settings";
 import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
 import { resolveOptimizeModelForWorkflowFile } from "./workflow-optimize-model";
-import { workflowContentHash } from "./workflow-content-hash";
+import { normalizeQueueQualityProfile } from "./queue-quality-profile";
 
 export type OptimizeAllWorkflowsResult = {
   updated: number;
@@ -109,8 +109,9 @@ function optimizeWorkflowFileRecord(input: {
     workflowJson: nextJson,
     customTokens: input.file.customTokens,
     lastOptimizedAt: Date.now(),
-    lastOptimizedHash: result.contentHash ?? workflowContentHash(nextJson),
+    lastOptimizedHash: result.contentHash,
     lastOptimizedModel: String(optimizeModel),
+    lastOptimizedProfile: normalizeQueueQualityProfile(input.queueQualityProfile),
   });
 
   const warning =

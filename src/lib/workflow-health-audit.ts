@@ -1,6 +1,9 @@
 import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
 import { auditWorkflowPreviewIssues } from "./workflow-placeholder-audit";
-import { workflowContentHash } from "./workflow-content-hash";
+import {
+  workflowContentHash,
+  workflowJsonContentHash,
+} from "./workflow-content-hash";
 import { resolveOptimizeModelForWorkflowFile } from "./workflow-optimize-model";
 import type { ModelWorkflowMap } from "./model-workflow-map";
 import { isEditCapableModel } from "./model-denoise-defaults";
@@ -53,8 +56,17 @@ export function auditWorkflowLibraryHealth(input: {
       continue;
     }
 
-    if (
-      file.lastOptimizedHash &&
+    if (!file.lastOptimizedHash) {
+      issues.push({
+        workflowId: file.id,
+        workflowName: file.name,
+        severity: "warn",
+        message:
+          "Not optimized yet — run Optimize all so queue can skip re-bind/enrich on unchanged graphs.",
+        action: "optimize-workflow",
+      });
+    } else if (
+      file.lastOptimizedHash !== workflowJsonContentHash(json) &&
       file.lastOptimizedHash !== workflowContentHash(json)
     ) {
       issues.push({

@@ -15,15 +15,63 @@ import { patchWorkflowSaveFormat } from "./workflow-save-format";
 import { listLoraBindTokens } from "./workflow-lora-patch";
 import { mergeLoraLibraryIntoCustomTokens, loadComfyUiSettings } from "./comfyui-settings";
 import { resolvePromptEncodeTextField } from "./workflow-prompt-encode";
-import { workflowContentHash } from "./workflow-content-hash";
+import {
+  stringifyWorkflowCompact,
+  stringifyWorkflowPretty,
+  workflowContentHash,
+  workflowObjectContentHash,
+} from "./workflow-content-hash";
+
+/** Match object hash (current) or legacy pretty-JSON hash from older Optimize all runs. */
+function workflowHashMatches(
+  workflow: Record<string, unknown>,
+  contentHash: string,
+): boolean {
+  if (workflowObjectContentHash(workflow) === contentHash) {
+    return true;
+  }
+  return workflowContentHash(stringifyWorkflowPretty(workflow)) === contentHash;
+}
 import { repairQwenImageClipLoaderNodes } from "./workflow-qwen-clip-repair";
 import { isQwenLightningModel, patchModelSamplingInWorkflow, resolveModelSamplingParams } from "./model-sampling-patch";
 import {
+  normalizeQueueQualityProfile,
+  profileSkipsOutputUpscaleForModel,
   profileUsesUpscaleEnrich,
   resolveEffectiveSamplerPreset,
+  type QueueQualityProfile,
 } from "./queue-quality-profile";
 import { normalizeEmptyLatentForModel } from "./workflow-direct-patch";
 import { workflowHasPromptStudioQueueEnrich } from "./workflow-enrich-markers";
+
+function canSkipFullOptimize(input: {
+  skipIfUnchanged?: boolean;
+  contentHash?: string;
+  workflow: Record<string, unknown>;
+  model?: string;
+  qualityProfile?: QueueQualityProfile;
+  optimizedModel?: string;
+  optimizedProfile?: QueueQualityProfile;
+}): boolean {
+  if (!input.skipIfUnchanged || !input.contentHash) {
+    return false;
+  }
+  const optimizedModel = input.optimizedModel?.trim();
+  const model = input.model?.trim();
+  if (!optimizedModel || !model || optimizedModel !== model) {
+    return false;
+  }
+  if (input.optimizedProfile == null) {
+    return false;
+  }
+  if (
+    normalizeQueueQualityProfile(input.optimizedProfile) !==
+    normalizeQueueQualityProfile(input.qualityProfile)
+  ) {
+    return false;
+  }
+  return workflowHashMatches(input.workflow, input.contentHash);
+}
 
 export type WorkflowQueueAudit = {
   nodeCount: number;
@@ -293,7 +341,7 @@ export function optimizeWorkflowForQueue(input: {
   workflow: Record<string, unknown>;
   tokens: WorkflowPlaceholderTokens;
   model?: string;
-  qualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
+  qualityProfile?: QueueQualityProfile;
   upscaleModelFilename?: string;
   refinerCheckpointFilename?: string;
   enabled?: boolean;
@@ -305,6 +353,10 @@ export function optimizeWorkflowForQueue(input: {
   /** When set and matches current workflow hash, skip re-binding if already fully bound. */
   contentHash?: string;
   skipIfUnchanged?: boolean;
+  /** Model id used when lastOptimizedHash was written — required for full early-exit. */
+  optimizedModel?: string;
+  /** Quality profile used when lastOptimizedHash was written — required for full early-exit. */
+  optimizedProfile?: QueueQualityProfile;
   availableUpscaleModels?: string[] | null;
   availableCheckpoints?: string[] | null;
   supportsNeuralUpscaleTileSize?: boolean;
@@ -322,12 +374,53 @@ export function optimizeWorkflowForQueue(input: {
     (typeof window !== "undefined"
       ? listLoraBindTokens(mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings()).customTokens ?? [])
       : []);
+  const changes: WorkflowQueueOptimizeChange[] = [];
+
+  // Library-optimized graphs: skip bind/enrich/sampling when hash+model+profile match.
+  // Still apply save-format so Draft can pick up live WebP adapters.
+  if (canSkipFullOptimize(input)) {
+    const saveFormatPatch = patchWorkflowSaveFormat({
+      workflow: input.workflow,
+      qualityProfile: input.qualityProfile,
+      compactDraftSaves: input.compactDraftSaves,
+      availableNodeTypes: input.availableNodeTypes,
+      webpSaveAdapters: input.webpSaveAdapters,
+    });
+    const workflow = saveFormatPatch.workflow;
+    changes.push(...saveFormatPatch.changes);
+    changes.push({
+      kind: "audit",
+      severity: "info",
+      message:
+        "Skipped full optimize — workflow hash, model, and quality profile unchanged since last Optimize all.",
+    });
+    const workflowJson = stringifyWorkflowPretty(workflow);
+    const audit = auditWorkflowStructure(
+      stringifyWorkflowCompact(workflow),
+      input.tokens,
+    );
+    for (const warning of audit.warnings) {
+      changes.push({
+        kind: "audit",
+        severity: "warn",
+        message: warning,
+      });
+    }
+    return {
+      workflow,
+      workflowJson,
+      bindingChanges: [],
+      changes,
+      audit,
+      contentHash: workflowObjectContentHash(workflow),
+    };
+  }
+
   const qwenClipRepair = repairQwenImageClipLoaderNodes(input.workflow);
   let workflow = qwenClipRepair.workflow;
   const latentNormalize = normalizeEmptyLatentForModel(workflow, input.model);
   workflow = latentNormalize.workflow;
-  let workflowJson = JSON.stringify(workflow, null, 2);
-  const changes: WorkflowQueueOptimizeChange[] = [];
+  let workflowJson = stringifyWorkflowCompact(workflow);
   if (qwenClipRepair.repairedNodeIds.length > 0) {
     changes.push({
       kind: "audit",
@@ -343,10 +436,51 @@ export function optimizeWorkflowForQueue(input: {
     });
   }
 
-  // Lightning: keep the imported graph intact. Auto-binding / enrich rewrites cause
-  // worm artifacts vs native ComfyUI. Sampler CFG/steps are forced at inject time.
+  // Lightning: keep the imported graph intact (no auto-bind / sampling / refiner).
+  // Sampler CFG/steps are forced at inject time. Final/Max may add a soft Lanczos
+  // ImageScaleBy after VAEDecode (no ImageSharpen) — lightning prep preserves those markers.
   // Still apply profile-aware save format (Draft WebP / keeper PNG) — save-node only.
   if (isQwenLightningModel(input.model)) {
+    const wantsLightningLanczos =
+      enabled &&
+      enrichGraph &&
+      profileUsesUpscaleEnrich(input.qualityProfile) &&
+      !profileSkipsOutputUpscaleForModel(input.qualityProfile, {
+        model: input.model,
+      });
+
+    let skipLightningLanczos = false;
+    if (wantsLightningLanczos && input.skipIfUnchanged && input.contentHash) {
+      if (
+        workflowHashMatches(workflow, input.contentHash) &&
+        workflowHasPromptStudioQueueEnrich(workflow)
+      ) {
+        skipLightningLanczos = true;
+      }
+    }
+
+    if (wantsLightningLanczos && !skipLightningLanczos) {
+      const enriched = enrichWorkflowGraph({
+        workflow,
+        tokens: input.tokens,
+        model: input.model,
+        qualityProfile: input.qualityProfile,
+        enrichSampling: false,
+        enrichSdxlRefiner: false,
+        enrichSharpen: false,
+        enrichNeuralPolish: false,
+      });
+      workflow = enriched.workflow;
+      changes.push(...enriched.changes);
+    } else if (skipLightningLanczos) {
+      changes.push({
+        kind: "audit",
+        severity: "info",
+        message:
+          "Skipped Lightning Lanczos re-enrich — workflow hash unchanged and Prompt Studio upscale markers present.",
+      });
+    }
+
     const saveFormatPatch = patchWorkflowSaveFormat({
       workflow,
       qualityProfile: input.qualityProfile,
@@ -356,8 +490,11 @@ export function optimizeWorkflowForQueue(input: {
     });
     workflow = saveFormatPatch.workflow;
     changes.push(...saveFormatPatch.changes);
-    const workflowJsonLightning = JSON.stringify(workflow, null, 2);
-    const auditLightning = auditWorkflowStructure(workflowJsonLightning, input.tokens);
+    const workflowJsonLightning = stringifyWorkflowPretty(workflow);
+    const auditLightning = auditWorkflowStructure(
+      stringifyWorkflowCompact(workflow),
+      input.tokens,
+    );
     for (const warning of auditLightning.warnings) {
       changes.push({
         kind: "audit",
@@ -368,8 +505,9 @@ export function optimizeWorkflowForQueue(input: {
     changes.push({
       kind: "audit",
       severity: "info",
-      message:
-        "Lightning queue: skipped auto-bind/enrich — using workflow as exported from ComfyUI.",
+      message: wantsLightningLanczos
+        ? "Lightning queue: skipped auto-bind — native Comfy graph; Final/Max Lanczos after decode when needed."
+        : "Lightning queue: skipped auto-bind/enrich — using workflow as exported from ComfyUI.",
     });
     return {
       workflow,
@@ -377,14 +515,13 @@ export function optimizeWorkflowForQueue(input: {
       bindingChanges: [],
       changes,
       audit: auditLightning,
-      contentHash: workflowContentHash(workflowJsonLightning),
+      contentHash: workflowObjectContentHash(workflow),
     };
   }
 
   let skipBinding = false;
   if (input.skipIfUnchanged && input.contentHash) {
-    const currentHash = workflowContentHash(workflowJson);
-    if (currentHash === input.contentHash) {
+    if (workflowHashMatches(workflow, input.contentHash)) {
       const audit = auditWorkflowStructure(workflowJson, input.tokens);
       // Bindings are stable — Final/Max enrich still depends on queue quality profile.
       skipBinding = workflowIsFullyBound(audit);
@@ -430,8 +567,7 @@ export function optimizeWorkflowForQueue(input: {
 
   workflow = JSON.parse(workflowJson) as Record<string, unknown>;
 
-  // Imported Lightning graphs should match native ComfyUI — skip Final/Max
-  // Lanczos/sharpen enrich that introduces halos and grain.
+  // Lightning uses the early-return path above (Lanczos-only for Final/Max).
   const shouldEnrichGraph = enrichGraph && !isQwenLightningModel(input.model);
 
   // Batch queue: when bindings are stable and enrich markers already exist, skip re-enrich.
@@ -459,7 +595,7 @@ export function optimizeWorkflowForQueue(input: {
       supportsNeuralUpscaleTileSize: input.supportsNeuralUpscaleTileSize,
     });
     workflow = enriched.workflow;
-    workflowJson = JSON.stringify(workflow, null, 2);
+    workflowJson = stringifyWorkflowCompact(workflow);
     changes.push(...enriched.changes);
   } else if (skipEnrich && shouldEnrichGraph) {
     changes.push({
@@ -485,7 +621,7 @@ export function optimizeWorkflowForQueue(input: {
     );
     if (patchedFields > 0) {
       workflow = samplingPatch.workflow;
-      workflowJson = JSON.stringify(workflow, null, 2);
+      workflowJson = stringifyWorkflowCompact(workflow);
       changes.push({
         kind: "binding",
         severity: "info",
@@ -503,7 +639,7 @@ export function optimizeWorkflowForQueue(input: {
   });
   if (saveFormatPatch.changes.length > 0) {
     workflow = saveFormatPatch.workflow;
-    workflowJson = JSON.stringify(workflow, null, 2);
+    workflowJson = stringifyWorkflowCompact(workflow);
     changes.push(...saveFormatPatch.changes);
   }
 
@@ -518,11 +654,11 @@ export function optimizeWorkflowForQueue(input: {
 
   return {
     workflow,
-    workflowJson,
+    workflowJson: stringifyWorkflowPretty(workflow),
     bindingChanges,
     changes,
     audit,
-    /** Hash of the fully optimized graph — callers can persist as lastOptimizedHash. */
-    contentHash: workflowContentHash(workflowJson),
+    /** Object hash of the fully optimized graph — persist as lastOptimizedHash. */
+    contentHash: workflowObjectContentHash(workflow),
   };
 }

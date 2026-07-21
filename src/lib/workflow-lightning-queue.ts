@@ -1235,26 +1235,45 @@ export type LightningWorkflowAuditIssue = {
 
 export function auditLightningWorkflowIssues(input: {
   workflowJson?: string;
+  workflow?: Record<string, unknown> | null;
   model?: string;
   loraFilenames?: Record<string, string>;
+  /** When true, graph was already run through prepareLightningWorkflowForQueue. */
+  alreadyPrepared?: boolean;
 }): LightningWorkflowAuditIssue[] {
-  if (!isQwenLightningModel(input.model) || !input.workflowJson?.trim()) {
+  if (!isQwenLightningModel(input.model)) {
     return [];
   }
 
-  let parsed: Record<string, { class_type?: string; inputs?: Record<string, unknown> }> = {};
-  try {
-    parsed = JSON.parse(input.workflowJson) as typeof parsed;
-  } catch {
+  type LightningNode = {
+    class_type?: string;
+    inputs?: Record<string, unknown>;
+  };
+  let parsed: Record<string, LightningNode> | null = null;
+  if (input.workflow && typeof input.workflow === "object") {
+    parsed = input.workflow as Record<string, LightningNode>;
+  } else if (input.workflowJson?.trim()) {
+    try {
+      parsed = JSON.parse(input.workflowJson) as Record<string, LightningNode>;
+    } catch {
+      return [];
+    }
+  }
+  if (!parsed) {
     return [];
   }
 
   // Audit the post-prep graph so missing LoRA nodes that queue injection would add
   // are not false errors when {{LORA_LIGHTNING}} is already mapped in Settings.
-  const prepared = prepareLightningWorkflowForQueue(
-    parsed,
-    input.model,
-    input.loraFilenames ?? {},
+  // Queue path passes alreadyPrepared after inject — skip a second full prep.
+  const prepared = (
+    input.alreadyPrepared
+      ? parsed
+      : prepareLightningWorkflowForQueue(
+          parsed,
+          input.model,
+          input.loraFilenames ?? {},
+        )
   ) as typeof parsed;
 
   const issues: LightningWorkflowAuditIssue[] = [];

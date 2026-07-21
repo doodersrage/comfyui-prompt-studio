@@ -140,6 +140,10 @@ export type ComfyUiRuntimeConfig = {
   modelUpscaleMap?: ModelUpscaleMap;
   /** Hash from last library optimize — skips redundant queue-time optimize when unchanged. */
   workflowOptimizedHash?: string;
+  /** Model id from last library optimize — required with hash for full early-exit. */
+  workflowOptimizedModel?: string;
+  /** Quality profile from last library optimize — required with hash for full early-exit. */
+  workflowOptimizedProfile?: import("./queue-quality-profile").QueueQualityProfile;
 };
 
 export type WorkflowPlaceholderTokens = {
@@ -718,7 +722,8 @@ export function injectWorkflowPlaceholders(
   },
   tokens: WorkflowPlaceholderTokens,
 ): WorkflowInjectionResult {
-  let current = structuredClone(workflow);
+  // replaceTokenInValue builds a new tree — no defensive clone needed here.
+  let current = workflow;
   const paramReplacements: Partial<Record<keyof WorkflowParamValues, number>> =
     {};
   const customReplacements: Record<string, number> = {};
@@ -808,12 +813,14 @@ export function patchSamplerParamsInWorkflow(
   workflow: Record<string, unknown>,
   params: WorkflowParamValues,
   model?: string,
-  options?: { force?: boolean },
+  options?: { force?: boolean; mutateInPlace?: boolean },
 ): {
   workflow: Record<string, unknown>;
   patched: Partial<Record<keyof WorkflowParamValues, number>>;
 } {
-  const next = structuredClone(workflow);
+  const next = options?.mutateInPlace
+    ? workflow
+    : structuredClone(workflow);
   const patched: Partial<Record<keyof WorkflowParamValues, number>> = {};
 
   for (const node of Object.values(next)) {
@@ -1147,15 +1154,18 @@ export function injectPromptsWithFallbacks(
     injected,
   );
 
+  // Placeholder inject returns a private tree — mutate sampler/sampling in place.
   const samplerPatch = patchSamplerParamsInWorkflow(
     injected.workflow,
     input.params ?? {},
     options?.model,
+    { mutateInPlace: true },
   );
   const modelSamplingPatch = patchModelSamplingInWorkflow(
     samplerPatch.workflow,
     input.params ?? {},
     options?.model,
+    { mutateInPlace: true },
   );
   let nextWorkflow = modelSamplingPatch.workflow;
   let directPatchCounts: Partial<Record<string, number>> = {};
@@ -1239,7 +1249,7 @@ export function injectPromptsWithFallbacks(
       nextWorkflow,
       lightningSampler,
       lightningModelId,
-      { force: true },
+      { force: true, mutateInPlace: true },
     ).workflow;
   }
 
@@ -1435,6 +1445,13 @@ export function stripEmptyComfyUiRuntime(
   const workflowOptimizedHash = runtime.workflowOptimizedHash?.trim();
   if (workflowOptimizedHash) {
     result.workflowOptimizedHash = workflowOptimizedHash;
+  }
+  const workflowOptimizedModel = runtime.workflowOptimizedModel?.trim();
+  if (workflowOptimizedModel) {
+    result.workflowOptimizedModel = workflowOptimizedModel;
+  }
+  if (runtime.workflowOptimizedProfile) {
+    result.workflowOptimizedProfile = runtime.workflowOptimizedProfile;
   }
 
   if (runtime.queueParams) {

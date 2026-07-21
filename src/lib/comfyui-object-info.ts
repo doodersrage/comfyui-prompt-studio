@@ -107,10 +107,52 @@ export type ComfyObjectInfoPayload = {
   webpSaveAdapters: WebpSaveAdapter[];
 };
 
+const SERVER_OBJECT_INFO_TTL_MS = 5 * 60 * 1000;
+
+type ServerObjectInfoCacheEntry = {
+  fetchedAt: number;
+  baseUrl: string;
+  payload: ComfyObjectInfoPayload;
+};
+
+/** Process-local cache for server queue / API routes (client has its own cache). */
+const serverObjectInfoCache = new Map<string, ServerObjectInfoCacheEntry>();
+
+export function clearServerComfyObjectInfoCache(): void {
+  serverObjectInfoCache.clear();
+}
+
+function cloneObjectInfoPayload(payload: ComfyObjectInfoPayload): ComfyObjectInfoPayload {
+  return {
+    models: {
+      checkpoints: [...payload.models.checkpoints],
+      unets: [...payload.models.unets],
+      vaes: [...payload.models.vaes],
+      upscaleModels: [...payload.models.upscaleModels],
+      clips: [...payload.models.clips],
+      dualClipTypes: [...payload.models.dualClipTypes],
+      clipLoaderTypes: [...payload.models.clipLoaderTypes],
+      loras: [...payload.models.loras],
+      controlNets: [...payload.models.controlNets],
+    },
+    nodeTypes: new Set(payload.nodeTypes),
+    supportsNeuralUpscaleTileSize: payload.supportsNeuralUpscaleTileSize,
+    webpSaveAdapters: payload.webpSaveAdapters.map((adapter) => ({ ...adapter })),
+  };
+}
+
 export async function fetchComfyObjectInfoPayload(
   runtime?: ComfyUiRuntimeConfig,
+  options?: { forceRefresh?: boolean },
 ): Promise<ComfyObjectInfoPayload | null> {
   const baseUrl = getComfyUiBaseUrl(runtime).replace(/\/+$/, "");
+  if (!options?.forceRefresh) {
+    const cached = serverObjectInfoCache.get(baseUrl);
+    if (cached && Date.now() - cached.fetchedAt <= SERVER_OBJECT_INFO_TTL_MS) {
+      return cloneObjectInfoPayload(cached.payload);
+    }
+  }
+
   const response = await fetch(`${baseUrl}/object_info`, {
     cache: "no-store",
   });
@@ -118,7 +160,7 @@ export async function fetchComfyObjectInfoPayload(
     return null;
   }
   const objectInfo = (await response.json()) as Record<string, unknown>;
-  return {
+  const payload: ComfyObjectInfoPayload = {
     models: parseComfyObjectInfoModelLists(objectInfo),
     nodeTypes: new Set(Object.keys(objectInfo)),
     supportsNeuralUpscaleTileSize: nodeDefinesInput(
@@ -128,6 +170,12 @@ export async function fetchComfyObjectInfoPayload(
     ),
     webpSaveAdapters: discoverWebpSaveAdapters(objectInfo),
   };
+  serverObjectInfoCache.set(baseUrl, {
+    fetchedAt: Date.now(),
+    baseUrl,
+    payload,
+  });
+  return cloneObjectInfoPayload(payload);
 }
 
 export async function fetchComfyObjectInfoNodeTypes(

@@ -201,6 +201,51 @@ describe("workflow-lightning-queue", () => {
     assert.match(issues[0]?.message ?? "", /LoraLoader/i);
   });
 
+  it("skips Lightning re-prep when alreadyPrepared (post-inject preflight)", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["1", 0],
+          seed: 1,
+          steps: 8,
+          cfg: 1,
+          denoise: 1,
+        },
+      },
+    };
+    // Without alreadyPrepared, prep would insert LoRA and clear the error.
+    const preparedIssues = auditLightningWorkflowIssues({
+      model: "qwen-image-2512-lightning-8",
+      workflow,
+      loraFilenames: {
+        "{{LORA_LIGHTNING}}": "qwen_lightning_8steps.safetensors",
+      },
+    });
+    assert.equal(
+      preparedIssues.filter((issue) => /LoraLoader|Lightning LoRA mapped/i.test(issue.message))
+        .length,
+      0,
+    );
+
+    // With alreadyPrepared, audit the graph as-is (no LoRA insert).
+    const rawIssues = auditLightningWorkflowIssues({
+      model: "qwen-image-2512-lightning-8",
+      workflow,
+      alreadyPrepared: true,
+      loraFilenames: {
+        "{{LORA_LIGHTNING}}": "qwen_lightning_8steps.safetensors",
+      },
+    });
+    assert.ok(
+      rawIssues.some((issue) => /LoraLoader/i.test(issue.message)),
+    );
+  });
+
   it("does not false-error when queue prep can insert Lightning LoRA onto UNET graphs", () => {
     const issues = auditLightningWorkflowIssues({
       model: "qwen-image-2512-lightning-8",

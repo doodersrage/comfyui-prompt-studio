@@ -392,30 +392,6 @@ export function profileUsesSharpenAfterUpscale(
   return normalizeQueueQualityProfile(profile) === "max";
 }
 
-/** Lightning Final/Max used to add Lanczos + soft sharpen; that diverges from
- * native ComfyUI and often shows as halos/grain. Keep polish off by default. */
-export function profileUsesLightningUpscalePolish(
-  profile: QueueQualityProfile | undefined,
-  options?: { model?: string },
-): boolean {
-  void profile;
-  void options;
-  return false;
-}
-
-export function lightningUpscalePolishAlpha(
-  profile: QueueQualityProfile | undefined,
-): number {
-  // Lanczos already restores edge clarity — keep polish light so skin/hair stay natural.
-  return normalizeQueueQualityProfile(profile) === "max" ? 0.045 : 0.03;
-}
-
-export function lightningUpscalePolishSigma(
-  profile: QueueQualityProfile | undefined,
-): number {
-  return normalizeQueueQualityProfile(profile) === "max" ? 0.7 : 0.75;
-}
-
 export function sharpenAlphaForProfile(
   profile: QueueQualityProfile | undefined,
 ): number {

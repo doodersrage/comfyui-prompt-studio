@@ -12,17 +12,19 @@ function filenameInList(filename: string, list: string[]): boolean {
 
 export function auditDualClipNodesInWorkflow(input: {
   workflowJson?: string;
+  workflow?: Record<string, unknown> | null;
   models: ComfyUiModelLists;
 }): WorkflowDualClipAuditIssue[] {
-  if (!input.workflowJson?.trim()) {
-    return [];
-  }
-
-  let workflow: Record<string, unknown>;
-  try {
-    workflow = JSON.parse(input.workflowJson) as Record<string, unknown>;
-  } catch {
-    return [];
+  let workflow = input.workflow ?? null;
+  if (!workflow) {
+    if (!input.workflowJson?.trim()) {
+      return [];
+    }
+    try {
+      workflow = JSON.parse(input.workflowJson) as Record<string, unknown>;
+    } catch {
+      return [];
+    }
   }
 
   const issues: WorkflowDualClipAuditIssue[] = [];

@@ -251,7 +251,8 @@ export default function WorkflowHealthPanel({
         </ul>
       ) : (
         <p className="text-xs text-emerald-300/90">
-          Placeholders and loader maps look ready. Run Optimize all after importing new community JSON.
+          Placeholders and loader maps look ready. Run Optimize all after importing new community JSON so
+          queue hash-skip stays warm.
         </p>
       )}
     </div>

@@ -8,6 +8,7 @@ import type { ComfyUiModelLists } from "./comfyui-object-info";
 import { auditLightningWorkflowIssues } from "./workflow-lightning-queue";
 import { auditLoaderFilenamesInWorkflow } from "./workflow-loader-filename-audit";
 import { buildLightningLoraFilenameMap } from "./workflow-lora-patch";
+import { resolveWorkflowGraphInput } from "./workflow-graph-input";
 
 export type WorkflowPreflightIssue = {
   severity: "error" | "warn";
@@ -16,6 +17,8 @@ export type WorkflowPreflightIssue = {
 
 export type WorkflowGraphPreflightInput = {
   workflowJson?: string;
+  /** Prefer passing the live graph after inject to avoid re-parse. */
+  workflow?: Record<string, unknown> | null;
   model: ComfyImageModel | string;
   hasInputImage?: boolean;
   hasMaskImage?: boolean;
@@ -24,6 +27,8 @@ export type WorkflowGraphPreflightInput = {
   models?: ComfyUiModelLists | null;
   objectInfoUnavailable?: boolean;
   customTokens?: Array<{ token: string; value: string }>;
+  /** Inject already ran prepareLightningWorkflowForQueue — skip a second prep in audit. */
+  lightningAlreadyPrepared?: boolean;
 };
 
 /**
@@ -34,10 +39,11 @@ export function collectWorkflowGraphPreflightIssues(
   input: WorkflowGraphPreflightInput,
 ): WorkflowPreflightIssue[] {
   const issues: WorkflowPreflightIssue[] = [];
+  const { workflow, workflowJson } = resolveWorkflowGraphInput(input);
 
   issues.push(
     ...auditWorkflowPreviewIssues({
-      workflowJson: input.workflowJson,
+      workflowJson,
       model: input.model,
       hasInputImage: input.hasInputImage,
       hasMaskImage: input.hasMaskImage,
@@ -46,7 +52,8 @@ export function collectWorkflowGraphPreflightIssues(
 
   issues.push(
     ...auditWorkflowStackCompatibility({
-      workflowJson: input.workflowJson,
+      workflowJson,
+      workflow,
       model: input.model,
       syncWorkflowLoadersToModel: input.syncWorkflowLoadersToModel,
     }),
@@ -54,7 +61,8 @@ export function collectWorkflowGraphPreflightIssues(
 
   issues.push(
     ...auditWorkflowNodeTypes({
-      workflowJson: input.workflowJson,
+      workflowJson,
+      workflow,
       knownNodeTypes: input.knownNodeTypes,
     }),
   );
@@ -67,9 +75,11 @@ export function collectWorkflowGraphPreflightIssues(
 
   issues.push(
     ...auditLightningWorkflowIssues({
-      workflowJson: input.workflowJson,
+      workflowJson,
+      workflow,
       model: input.model,
       loraFilenames,
+      alreadyPrepared: input.lightningAlreadyPrepared === true,
     }),
   );
 
@@ -85,13 +95,15 @@ export function collectWorkflowGraphPreflightIssues(
   if (input.models) {
     issues.push(
       ...auditDualClipNodesInWorkflow({
-        workflowJson: input.workflowJson,
+        workflowJson,
+        workflow,
         models: input.models,
       }),
     );
     issues.push(
       ...auditLoaderFilenamesInWorkflow({
-        workflowJson: input.workflowJson,
+        workflowJson,
+        workflow,
         models: input.models,
       }),
     );

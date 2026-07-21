@@ -18,6 +18,8 @@ export type ImageLightboxState = {
   title?: string;
   /** Optional per-image titles; falls back to `title` when omitted. */
   titles?: string[];
+  /** Full-res URLs parallel to `images` — used by “Open original”. */
+  originalImages?: string[];
 };
 
 export type ImageLightboxSlideshowOptions = {
@@ -106,6 +108,10 @@ export default function ImageLightbox({
   const transition = slideshow?.transition ?? "slide";
   const transitionMs = resolveGallerySlideshowTransitionMs(transition);
   const currentUrl = images[displayIndex] ?? images[0];
+  const currentOriginalUrl =
+    state?.originalImages?.[displayIndex] ??
+    state?.originalImages?.[0] ??
+    currentUrl;
   const currentTitle = state?.titles?.[displayIndex] ?? state?.title;
   const canGoPrevious = index > 0;
   const canGoNext = index < images.length - 1;
@@ -583,9 +589,21 @@ export default function ImageLightbox({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-4 pt-12 sm:px-6">
           <div className="pointer-events-auto flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">{renderSlideshowControls(true)}</div>
-            <p className="type-caption text-white/45">
-              Space play/pause · ←/→ navigate · F fullscreen · Esc exit
-            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              {currentOriginalUrl ? (
+                <a
+                  href={currentOriginalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="type-caption text-white/70 underline-offset-4 transition-colors hover:text-white hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                >
+                  Open original
+                </a>
+              ) : null}
+              <p className="type-caption text-white/45">
+                Space play/pause · ←/→ navigate · F fullscreen · Esc exit
+              </p>
+            </div>
           </div>
         </div>
       </div>,
@@ -676,14 +694,16 @@ export default function ImageLightbox({
             <span />
           )}
           <div className="flex flex-wrap gap-2">
-            <a
-              href={currentUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="ui-btn-ghost !min-h-9 px-4 type-caption"
-            >
-              Open in new tab
-            </a>
+            {currentOriginalUrl ? (
+              <a
+                href={currentOriginalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="ui-btn-ghost !min-h-9 px-4 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                Open original
+              </a>
+            ) : null}
           </div>
         </div>
       </div>

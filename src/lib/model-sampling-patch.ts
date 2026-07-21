@@ -265,13 +265,16 @@ export function patchModelSamplingInWorkflow(
   workflow: Record<string, unknown>,
   params: WorkflowParamValues,
   model?: string,
+  options?: { mutateInPlace?: boolean },
 ): {
   workflow: Record<string, unknown>;
   patched: Partial<
     Record<"samplingShift" | "fluxMaxShift" | "fluxBaseShift" | "width" | "height", number>
   >;
 } {
-  const next = structuredClone(workflow);
+  const next = options?.mutateInPlace
+    ? workflow
+    : structuredClone(workflow);
   const patched: Partial<
     Record<"samplingShift" | "fluxMaxShift" | "fluxBaseShift" | "width" | "height", number>
   > = {};

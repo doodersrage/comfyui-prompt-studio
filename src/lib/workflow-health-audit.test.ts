@@ -19,9 +19,8 @@ describe("workflow-health-audit", () => {
 
     assert.equal(report.scanned, 1);
     assert.equal(report.healthy, 0);
-    assert.equal(report.issues.length, 1);
-    assert.equal(report.issues[0]?.severity, "error");
-    assert.match(report.issues[0]?.message ?? "", /CHECKPOINT/);
+    assert.ok(report.issues.some((issue) => issue.severity === "error" && /CHECKPOINT/.test(issue.message)));
+    assert.ok(report.issues.some((issue) => /Not optimized yet/i.test(issue.message)));
   });
 
   it("summarizes clean libraries", () => {
@@ -31,5 +30,23 @@ describe("workflow-health-audit", () => {
       issues: [],
     });
     assert.match(summary, /2 workflow\(s\) look ready/);
+  });
+
+  it("flags workflows that have never been optimized", () => {
+    const report = auditWorkflowLibraryHealth({
+      workflowFiles: [
+        {
+          id: "wf-2",
+          name: "Fresh import",
+          workflowJson:
+            '{"1":{"class_type":"CheckpointLoaderSimple","inputs":{"ckpt_name":"model.safetensors"}}}',
+        },
+      ],
+    });
+
+    assert.equal(report.scanned, 1);
+    assert.ok(
+      report.issues.some((issue) => /Not optimized yet/i.test(issue.message)),
+    );
   });
 });

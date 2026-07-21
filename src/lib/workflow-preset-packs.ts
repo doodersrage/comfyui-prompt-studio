@@ -2,6 +2,7 @@ import type { ComfyWorkflowPreset } from "./comfyui-workflow-presets";
 import { upsertComfyWorkflowFile } from "./comfyui-workflow-files";
 import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
+import { normalizeQueueQualityProfile } from "./queue-quality-profile";
 import { workflowContentHash } from "./workflow-content-hash";
 import { loadSettingsCache } from "./settings-cache";
 import { inferModelsFromWorkflowLabel } from "./workflow-category-defaults";
@@ -113,11 +114,12 @@ export function applyWorkflowPresetPackToLibrary(pack: WorkflowPresetPack): numb
   let count = 0;
   for (const preset of pack.presets) {
     let workflowJson = preset.workflowJson;
+    let lastOptimizedHash: string | undefined;
+    const optimizeModel =
+      inferModelsFromWorkflowLabel({ name: preset.name, filename: `${preset.name}.json` })[0] ??
+      shared.model;
     try {
       const parsed = JSON.parse(workflowJson) as Record<string, unknown>;
-      const optimizeModel =
-        inferModelsFromWorkflowLabel({ name: preset.name, filename: `${preset.name}.json` })[0] ??
-        shared.model;
       const optimized = optimizeWorkflowForQueue({
         workflow: parsed,
         tokens: {
@@ -142,6 +144,7 @@ export function applyWorkflowPresetPackToLibrary(pack: WorkflowPresetPack): numb
         enrichGraph: shared.workflowGraphEnrich !== false,
       });
       workflowJson = optimized.workflowJson;
+      lastOptimizedHash = optimized.contentHash;
     } catch {
       // keep raw preset JSON when optimize fails
     }
@@ -152,7 +155,10 @@ export function applyWorkflowPresetPackToLibrary(pack: WorkflowPresetPack): numb
       workflowJson,
       createdAt: preset.createdAt,
       customTokens: preset.customTokens,
-      lastOptimizedHash: workflowContentHash(workflowJson),
+      lastOptimizedAt: Date.now(),
+      lastOptimizedHash: lastOptimizedHash ?? workflowContentHash(workflowJson),
+      lastOptimizedModel: String(optimizeModel),
+      lastOptimizedProfile: normalizeQueueQualityProfile(shared.queueQualityProfile),
     });
     count += 1;
   }

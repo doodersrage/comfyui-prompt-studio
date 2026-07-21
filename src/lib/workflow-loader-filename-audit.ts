@@ -54,17 +54,19 @@ function auditFilenameField(
 
 export function auditLoaderFilenamesInWorkflow(input: {
   workflowJson?: string;
+  workflow?: Record<string, unknown> | null;
   models: ComfyUiModelLists;
 }): WorkflowLoaderFilenameIssue[] {
-  if (!input.workflowJson?.trim()) {
-    return [];
-  }
-
-  let workflow: Record<string, unknown>;
-  try {
-    workflow = JSON.parse(input.workflowJson) as Record<string, unknown>;
-  } catch {
-    return [];
+  let workflow = input.workflow ?? null;
+  if (!workflow) {
+    if (!input.workflowJson?.trim()) {
+      return [];
+    }
+    try {
+      workflow = JSON.parse(input.workflowJson) as Record<string, unknown>;
+    } catch {
+      return [];
+    }
   }
 
   const issues: WorkflowLoaderFilenameIssue[] = [];

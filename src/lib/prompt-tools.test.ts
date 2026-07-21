@@ -1283,7 +1283,10 @@ describe("comfyui gallery outputs", () => {
 
     const playlist = buildGalleryLightboxPlaylist(entries);
     assert.equal(playlist.images.length, 3);
+    assert.equal(playlist.originalImages.length, 3);
     assert.equal(playlist.titles[0], "first prompt");
+    assert.match(playlist.images[0] ?? "", /[?&]w=1280(?:&|$)/);
+    assert.doesNotMatch(playlist.originalImages[0] ?? "", /[?&]w=/);
     assert.equal(resolveGalleryLightboxOpenIndex(entries, "b", 1), 2);
   });
 });

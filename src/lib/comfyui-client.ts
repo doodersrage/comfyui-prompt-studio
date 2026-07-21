@@ -25,6 +25,7 @@ import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
 import { runWorkflowPreflightSync } from "./workflow-preflight-sync";
 import { fetchComfyObjectInfoPayload } from "./comfyui-object-info";
 import { formatComfyUiQueueValidationError } from "./comfyui-queue-validation-error";
+import { workflowContentHash } from "./workflow-content-hash";
 
 export type ComfyQueueRequest = {
   prompt: string;
@@ -136,6 +137,39 @@ const optimizedWorkflowCache = new WeakMap<
   { key: string; workflow: Record<string, unknown> }
 >();
 
+/**
+ * Content-hash cache for rebuilt workflow objects (WeakMap misses when identity changes).
+ * Insertion-order eviction keeps recent batch profiles warm.
+ */
+const optimizedWorkflowByHash = new Map<
+  string,
+  { optimizeKey: string; workflow: Record<string, unknown> }
+>();
+const OPTIMIZED_WORKFLOW_HASH_CACHE_MAX = 48;
+
+function rememberOptimizedWorkflowByHash(
+  sourceHash: string,
+  optimizeKey: string,
+  /** Already-cloned snapshot — shared with WeakMap; do not mutate. */
+  workflow: Record<string, unknown>,
+) {
+  const cacheKey = `${sourceHash}|${optimizeKey}`;
+  if (optimizedWorkflowByHash.has(cacheKey)) {
+    optimizedWorkflowByHash.delete(cacheKey);
+  }
+  optimizedWorkflowByHash.set(cacheKey, {
+    optimizeKey,
+    workflow,
+  });
+  while (optimizedWorkflowByHash.size > OPTIMIZED_WORKFLOW_HASH_CACHE_MAX) {
+    const oldest = optimizedWorkflowByHash.keys().next().value;
+    if (oldest == null) {
+      break;
+    }
+    optimizedWorkflowByHash.delete(oldest);
+  }
+}
+
 function injectPromptsIntoWorkflow(
   workflow: Record<string, unknown>,
   request: ComfyQueueRequest,
@@ -182,28 +216,43 @@ function injectPromptsIntoWorkflow(
     if (cached && cached.key === optimizeKey) {
       optimizedWorkflow = structuredClone(cached.workflow);
     } else {
-      const optimized = optimizeWorkflowForQueue({
-        workflow,
-        tokens: config.placeholderTokens,
-        model,
-        qualityProfile: runtime?.queueQualityProfile,
-        upscaleModelFilename: params.upscaleModelFilename,
-        refinerCheckpointFilename: params.refinerCheckpointFilename,
-        skipIfUnchanged: true,
-        contentHash: runtime?.workflowOptimizedHash,
-        availableUpscaleModels: enrichInventory?.availableUpscaleModels,
-        availableCheckpoints: enrichInventory?.availableCheckpoints,
-        supportsNeuralUpscaleTileSize: enrichInventory?.supportsNeuralUpscaleTileSize,
-        availableNodeTypes: enrichInventory?.availableNodeTypes,
-        webpSaveAdapters: enrichInventory?.webpSaveAdapters,
-        compactDraftSaves: runtime?.compactDraftSaves,
-        ...resolveWorkflowGraphEnrichOptions(runtime),
-      });
-      optimizedWorkflow = optimized.workflow;
-      optimizedWorkflowCache.set(workflow, {
-        key: optimizeKey,
-        workflow: structuredClone(optimized.workflow),
-      });
+      const sourceHash = workflowContentHash(JSON.stringify(workflow));
+      const byHash = optimizedWorkflowByHash.get(`${sourceHash}|${optimizeKey}`);
+      if (byHash) {
+        optimizedWorkflow = structuredClone(byHash.workflow);
+        optimizedWorkflowCache.set(workflow, {
+          key: optimizeKey,
+          workflow: byHash.workflow,
+        });
+      } else {
+        const optimized = optimizeWorkflowForQueue({
+          workflow,
+          tokens: config.placeholderTokens,
+          model,
+          qualityProfile: runtime?.queueQualityProfile,
+          upscaleModelFilename: params.upscaleModelFilename,
+          refinerCheckpointFilename: params.refinerCheckpointFilename,
+          skipIfUnchanged: true,
+          contentHash: runtime?.workflowOptimizedHash,
+          optimizedModel: runtime?.workflowOptimizedModel,
+          optimizedProfile: runtime?.workflowOptimizedProfile,
+          availableUpscaleModels: enrichInventory?.availableUpscaleModels,
+          availableCheckpoints: enrichInventory?.availableCheckpoints,
+          supportsNeuralUpscaleTileSize: enrichInventory?.supportsNeuralUpscaleTileSize,
+          availableNodeTypes: enrichInventory?.availableNodeTypes,
+          webpSaveAdapters: enrichInventory?.webpSaveAdapters,
+          compactDraftSaves: runtime?.compactDraftSaves,
+          ...resolveWorkflowGraphEnrichOptions(runtime),
+        });
+        // One snapshot shared by WeakMap + hash cache; inject clones before mutating.
+        const cloned = structuredClone(optimized.workflow);
+        optimizedWorkflow = cloned;
+        optimizedWorkflowCache.set(workflow, {
+          key: optimizeKey,
+          workflow: cloned,
+        });
+        rememberOptimizedWorkflowByHash(sourceHash, optimizeKey, cloned);
+      }
     }
   }
 
@@ -300,13 +349,14 @@ export async function queuePromptToComfyUi(
 
           if (runPreflight) {
             const preflight = runWorkflowPreflightSync({
-              workflowJson: JSON.stringify(injected.workflow),
+              workflow: injected.workflow,
               model: request.model ?? runtime?.queueTargetModel ?? "qwen-image-2512",
               syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
               knownNodeTypes: objectInfo?.nodeTypes,
               models: objectInfo?.models,
               objectInfoUnavailable: !objectInfo,
               customTokens: runtime?.customTokens,
+              lightningAlreadyPrepared: true,
             });
             if (!preflight.ok) {
               return {
