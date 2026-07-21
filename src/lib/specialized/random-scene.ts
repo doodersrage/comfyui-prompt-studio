@@ -18,6 +18,7 @@ import { generatePrompt } from "../prompt-generator";
 import { mergeLocationExclusions } from "../location-exclusions";
 import { applyLockedLocation } from "../locked-location";
 import { applyLockedVariationSeed } from "../locked-variation-seed";
+import { resolveModelForPromptGeneration } from "../queue-tool-model";
 import { buildRandomSceneSeed } from "./scene-pools";
 import { buildToolResult, runSpecializedPrompt } from "./runner";
 import type { RandomSceneOptions, ToolGenerateResult } from "./types";
@@ -31,6 +32,7 @@ export async function generateRandomScene(
     options.lockedLocation?.trim() || genreHint.location || null;
   const includePeople = options.includePeople !== false;
   const alwaysIncludeClothing = options.alwaysIncludeClothing !== false;
+  const promptModel = resolveModelForPromptGeneration(options.model, "generate");
   const { seed: rolledSeed, location: sceneLocation } = buildRandomSceneSeed({
     genre: options.genre,
     includePeople,
@@ -47,7 +49,7 @@ export async function generateRandomScene(
   const distinctPeople = isMultiPersonInput(seed);
   const wardrobeSettings = {
     ...DEFAULT_GENERATION_SETTINGS,
-    model: options.model,
+    model: promptModel,
     detail: options.detail,
     alwaysIncludeClothing,
     distinctPeople,
@@ -103,7 +105,7 @@ export async function generateRandomScene(
 
   const postProcessPrompt = wardrobeAssignments?.length
     ? (prompt: string) => {
-        const { maxChars } = getDetailLimits(options.detail, options.model);
+        const { maxChars } = getDetailLimits(options.detail, promptModel);
         return mergeGenerateWardrobeIntoPrompt(
           prompt,
           wardrobeAssignments,
@@ -114,14 +116,19 @@ export async function generateRandomScene(
     : undefined;
 
   const templateFallback = async () => {
-    const result = await generatePrompt(seed, "positive", {
-      ...wardrobeSettings,
-      alwaysIncludeClothing: false,
-    });
+    const result = await generatePrompt(
+      seed,
+      "positive",
+      {
+        ...wardrobeSettings,
+        alwaysIncludeClothing: false,
+      },
+      { tool: "generate" },
+    );
     if (!wardrobeAssignments?.length) {
       return result.prompt;
     }
-    const { maxChars } = getDetailLimits(options.detail, options.model);
+    const { maxChars } = getDetailLimits(options.detail, promptModel);
     return mergeGenerateWardrobeIntoPrompt(
       result.prompt,
       wardrobeAssignments,
@@ -132,7 +139,7 @@ export async function generateRandomScene(
 
   try {
     return await runSpecializedPrompt({
-      model: options.model,
+      model: promptModel,
       detail: options.detail,
       toolInstructions,
       userMessage,
@@ -143,6 +150,7 @@ export async function generateRandomScene(
       allowTemplateFallback: options.llm?.allowTemplateFallback,
       seed,
       metadata,
+      resultModel: options.model,
     });
   } catch {
     const result = await templateFallback();

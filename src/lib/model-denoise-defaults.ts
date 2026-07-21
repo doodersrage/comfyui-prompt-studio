@@ -27,10 +27,14 @@ export function isEditCapableModel(model: ComfyImageModel | string): boolean {
   if (def.profile === "qwen_edit" || def.profile === "qwen_edit_instruction") {
     return true;
   }
-  if (model === "flux-inpaint") {
+  if (model === "flux-inpaint" || model === "qwen-rapid-aio-edit") {
     return true;
   }
-  return /edit|inpaint|rapid-aio/i.test(model);
+  // Rapid AIO SFW/NSFW are T2I-first dual-purpose checkpoints — not edit-primary.
+  if (/^qwen-rapid-aio-(sfw|nsfw)$/i.test(String(model))) {
+    return false;
+  }
+  return /edit|inpaint/i.test(model);
 }
 
 export function isQwenEditModel(model: ComfyImageModel | string): boolean {
@@ -38,7 +42,7 @@ export function isQwenEditModel(model: ComfyImageModel | string): boolean {
   if (def?.profile === "qwen_edit" || def?.profile === "qwen_edit_instruction") {
     return true;
   }
-  return /qwen.*edit|qwen-rapid-aio/i.test(model);
+  return /qwen.*edit|qwen-rapid-aio-edit/i.test(String(model));
 }
 
 export function isInpaintModel(model: ComfyImageModel | string): boolean {

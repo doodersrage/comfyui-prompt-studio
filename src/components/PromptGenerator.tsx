@@ -14,10 +14,6 @@ const TagAssistToolbar = dynamic(() => import("@/components/TagAssistToolbar"), 
   ssr: false,
   loading: () => <div className="h-12 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
 });
-const QwenEditBuilderPanel = dynamic(() => import("@/components/QwenEditBuilderPanel"), {
-  ssr: false,
-  loading: () => <div className="h-24 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
-});
 import SharedToolControls from "@/components/SharedToolControls";
 import {
   VariationSliderField,
@@ -57,7 +53,7 @@ import {
 } from "@/lib/rating-driven-random";
 import { sharedLlmRequestBody } from "@/lib/llm-request-options";
 import { applyLockedLocation } from "@/lib/locked-location";
-import { resolveModelForQueueTool } from "@/lib/queue-tool-model";
+import { resolveModelForPromptGeneration } from "@/lib/queue-tool-model";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import {
   applyShareableSceneParams,
@@ -154,10 +150,11 @@ export default function PromptGenerator() {
     [wildness],
   );
 
-  const qwenModel = shared.model;
+  const queueModel = shared.model;
+  // Prompt writing uses a T2I profile when an edit checkpoint is selected for queueing.
   const generateModel = useMemo(
-    () => resolveModelForQueueTool(qwenModel, "generate"),
-    [qwenModel],
+    () => resolveModelForPromptGeneration(queueModel, "generate"),
+    [queueModel],
   );
   const detail = shared.detail;
   const variationEnabled = toolSettings.variationEnabled ?? true;
@@ -168,7 +165,7 @@ export default function PromptGenerator() {
 
   const actions = usePromptResultActions({
     tool: hintSource === "random" ? "randomScene" : "generate",
-    model: generateModel,
+    model: queueModel,
     detail,
     hints: hintSource === "random" ? genre : input,
     autoFixRules,
@@ -179,7 +176,7 @@ export default function PromptGenerator() {
     randomResult ?? { metadata: undefined, seed: undefined },
   );
 
-  const setQwenModel = (model: ComfyImageModel) => updateShared({ model });
+  const setQueueModel = (model: ComfyImageModel) => updateShared({ model });
   const setDetail = (value: DetailLevel) => updateShared({ detail: value });
   const setVariationEnabled = (enabled: boolean) =>
     updateToolSettings({ variationEnabled: enabled });
@@ -298,7 +295,7 @@ export default function PromptGenerator() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: generateModel,
+          model: queueModel,
           detail,
           genre,
           includePeople,
@@ -332,7 +329,7 @@ export default function PromptGenerator() {
       setRandomSeed(data.seed ?? null);
       setProvider(data.provider ?? null);
       setResultMeta({
-        model: data.model ?? generateModel,
+        model: data.model ?? queueModel,
         comfyNode: data.comfyNode ?? selectedModel.comfyNode,
         limits: data.limits ?? activeLimits,
       });
@@ -355,7 +352,7 @@ export default function PromptGenerator() {
     getRecent,
     getRecentClothing,
     includePeople,
-    generateModel,
+    queueModel,
     recordClothing,
     recordLocation,
     selectedModel.comfyNode,
@@ -404,7 +401,7 @@ export default function PromptGenerator() {
             mode === "positive" && alwaysIncludeClothing,
           recentClothing: getRecentClothing(),
           detail: mode === "positive" ? detail : "balanced",
-          model: generateModel,
+          model: queueModel,
           lockedWardrobeId: shared.lockedWardrobeId,
           lockedLocation: shared.lockedLocation,
           variationSeed: shared.lockedVariationSeed,
@@ -445,7 +442,7 @@ export default function PromptGenerator() {
     } finally {
       setLoading(false);
     }
-  }, [generateRandom, hintSource, input, mode, variationEnabled, variationStrength, distinctPeople, alwaysIncludeClothing, detail, generateModel, getRecentClothing, recordClothing, actions, shared.lockedLocation, shared.lockedWardrobeId, shared.lockedVariationSeed]);
+  }, [generateRandom, hintSource, input, mode, variationEnabled, variationStrength, distinctPeople, alwaysIncludeClothing, detail, queueModel, getRecentClothing, recordClothing, actions, shared.lockedLocation, shared.lockedWardrobeId, shared.lockedVariationSeed]);
 
   const copyOutput = useCallback(async () => {
     if (!output) return;
@@ -485,7 +482,7 @@ export default function PromptGenerator() {
           toolId="generate"
           shared={shared}
           onSharedSettingsChange={updateShared}
-          onModelChange={setQwenModel}
+          onModelChange={setQueueModel}
           onDetailChange={setDetail}
           onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
           showWardrobeOption={
@@ -637,12 +634,8 @@ export default function PromptGenerator() {
           className={`text-base ${accentFocusClass(ACCENT)}`}
         />
 
-        {modelUsesTagAssist(qwenModel) ? (
+        {modelUsesTagAssist(queueModel) ? (
           <TagAssistToolbar value={input} onChange={setInput} textareaId="edit-input" />
-        ) : null}
-
-        {mode === "positive" ? (
-          <QwenEditBuilderPanel model={qwenModel} onApply={setInput} />
         ) : null}
 
         <div className="flex flex-wrap gap-2">

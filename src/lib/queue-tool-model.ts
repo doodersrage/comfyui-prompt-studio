@@ -10,9 +10,42 @@ import {
   isInpaintModel,
 } from "./model-denoise-defaults";
 
+const EDIT_TO_TXT2I: Partial<Record<ComfyImageModel, ComfyImageModel>> = {
+  "qwen-image-edit": "qwen-image-2512",
+  "qwen-image-edit-2511": "qwen-image-2512",
+  "qwen-image-edit-2511-lightning-4": "qwen-image-2512-lightning-4",
+  "qwen-image-edit-2511-lightning-8": "qwen-image-2512-lightning-8",
+  "qwen-rapid-aio-edit": "qwen-image-2512-lightning-8",
+  "flux-inpaint": "flux-dev",
+};
+
+function inferTxt2iCounterpart(model: ComfyImageModel | string): ComfyImageModel {
+  const mapped = EDIT_TO_TXT2I[model as ComfyImageModel];
+  if (mapped) {
+    return mapped;
+  }
+
+  const id = model.toLowerCase();
+  if (id.includes("lightning-4")) {
+    return "qwen-image-2512-lightning-4";
+  }
+  if (id.includes("lightning-8")) {
+    return "qwen-image-2512-lightning-8";
+  }
+  if (id.includes("qwen")) {
+    return "qwen-image-2512";
+  }
+  if (id.includes("flux")) {
+    return "flux-dev";
+  }
+  if (id.includes("sdxl")) {
+    return "sdxl-base";
+  }
+  return DEFAULT_COMFY_MODEL;
+}
+
 export function isSceneGenerationModel(model: ComfyImageModel | string): boolean {
   const id = String(model);
-  // Rapid AIO SFW/NSFW are dual-purpose T2I checkpoints (edit optional).
   if (/^qwen-rapid-aio-(sfw|nsfw)$/i.test(id)) {
     return true;
   }
@@ -41,18 +74,43 @@ export function shouldUseSceneGenerationModel(tool?: string): boolean {
   return Boolean(tool && !isEditQueueTool(tool));
 }
 
+function normalizeModel(model: ComfyImageModel | string): ComfyImageModel {
+  if (COMFY_MODEL_IDS.has(model as ComfyImageModel)) {
+    return model as ComfyImageModel;
+  }
+  return DEFAULT_COMFY_MODEL;
+}
+
 /**
- * Normalize a model id for queue/tool use.
- * Never silently remap edit→T2I — that hid workflow-backed targets (Rapid AIO, 2511 Lightning, etc.).
+ * Keep the user's selected target model for workflow / checkpoint queueing.
+ * Do not silently swap edit Lightning presets away from their mapped workflows.
  */
 export function resolveModelForQueueTool(
   model: ComfyImageModel | string,
   _tool?: string,
 ): ComfyImageModel {
-  if (COMFY_MODEL_IDS.has(model as ComfyImageModel)) {
-    return model as ComfyImageModel;
+  return normalizeModel(model);
+}
+
+/**
+ * Prompt writing on Generate should use scene/T2I profiles — not edit-instruction
+ * "Keep/Replace" templates — even when an edit checkpoint is selected for queueing.
+ */
+export function resolveModelForPromptGeneration(
+  model: ComfyImageModel | string,
+  tool?: string,
+): ComfyImageModel {
+  const normalized = normalizeModel(model);
+
+  if (!shouldUseSceneGenerationModel(tool)) {
+    return normalized;
   }
-  return DEFAULT_COMFY_MODEL;
+
+  if (isSceneGenerationModel(normalized)) {
+    return normalized;
+  }
+
+  return inferTxt2iCounterpart(normalized);
 }
 
 export type FilterModelsForQueueToolOptions = {

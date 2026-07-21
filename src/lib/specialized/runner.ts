@@ -56,9 +56,12 @@ export async function runSpecializedPrompt(options: {
   soloSubject?: boolean;
   enforceMinimum?: boolean;
   postProcessPrompt?: (prompt: string) => string;
+  /** When set, report this model in the result (e.g. selected edit checkpoint). */
+  resultModel?: ComfyImageModel;
 }): Promise<ToolGenerateResult> {
   const limits = getDetailLimits(options.detail, options.model);
   const maxTokens = options.maxTokens ?? limits.maxTokens;
+  const reportedModel = options.resultModel ?? options.model;
   const systemPrompt = `${buildModelSystemPrompt(options.model, "positive")}
 
 ${options.toolInstructions}
@@ -88,7 +91,7 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
         options.postProcessPrompt,
       );
 
-      return buildToolResult(prompt, "llm", options.model, options.detail, {
+      return buildToolResult(prompt, "llm", reportedModel, options.detail, {
         seed: options.seed,
         metadata: options.metadata,
       });
@@ -113,7 +116,7 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
     options.postProcessPrompt,
   );
 
-  return buildToolResult(prompt, "template", options.model, options.detail, {
+  return buildToolResult(prompt, "template", reportedModel, options.detail, {
     seed: options.seed,
     metadata: options.metadata,
   });

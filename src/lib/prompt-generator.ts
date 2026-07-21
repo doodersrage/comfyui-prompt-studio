@@ -55,6 +55,7 @@ import {
   type GenerationSettings,
 } from "./generation-settings";
 import {
+  resolveModelForPromptGeneration,
   resolveModelForQueueTool,
   stripEditInstructionLead,
 } from "./queue-tool-model";
@@ -709,15 +710,23 @@ export async function generatePrompt(
     throw new Error("Input cannot be empty.");
   }
 
-  const effectiveSettings: GenerationSettings = {
+  // Write prompts with a scene/T2I profile when on Generate, even if an edit
+  // checkpoint is selected for queueing. Report the user's selected model back.
+  const selectedModel = resolveModelForQueueTool(settings.model, options?.tool);
+  const promptModel = resolveModelForPromptGeneration(selectedModel, options?.tool);
+  const writeSettings: GenerationSettings = {
     ...settings,
-    model: resolveModelForQueueTool(settings.model, options?.tool),
+    model: promptModel,
+  };
+  const resultSettings: GenerationSettings = {
+    ...writeSettings,
+    model: selectedModel,
   };
 
   const llmEnabled = process.env.LLM_ENABLED !== "false";
   const wardrobeAssignments =
     mode === "positive"
-      ? buildGenerateWardrobeAssignments(trimmed, effectiveSettings, {
+      ? buildGenerateWardrobeAssignments(trimmed, writeSettings, {
           recentClothing: options?.recentClothing,
           lockedWardrobeId: options?.lockedWardrobeId,
           avoidedTokens: options?.avoidedTokens,
@@ -729,7 +738,7 @@ export async function generatePrompt(
       const prompt = await generateWithLlm(
         trimmed,
         mode,
-        effectiveSettings,
+        writeSettings,
         wardrobeAssignments,
         options?.variationSeed,
         options?.avoidedTokensInstruction,
@@ -739,7 +748,7 @@ export async function generatePrompt(
         prompt,
         mode,
         "llm",
-        effectiveSettings,
+        resultSettings,
         wardrobeAssignments,
       );
     } catch (error) {
@@ -758,13 +767,13 @@ export async function generatePrompt(
     generateWithTemplate(
       trimmed,
       mode,
-      effectiveSettings,
+      writeSettings,
       wardrobeAssignments,
       options?.tool,
     ),
     mode,
     "template",
-    effectiveSettings,
+    resultSettings,
     wardrobeAssignments,
   );
 }

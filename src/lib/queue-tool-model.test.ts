@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   filterModelsForQueueTool,
   isSceneGenerationModel,
+  resolveModelForPromptGeneration,
   resolveModelForQueueTool,
   stripEditInstructionLead,
 } from "./queue-tool-model";
@@ -11,6 +12,26 @@ describe("queue-tool-model", () => {
   it("keeps the selected Lightning edit model on generate (no silent remap)", () => {
     assert.equal(
       resolveModelForQueueTool("qwen-image-edit-2511-lightning-8", "generate"),
+      "qwen-image-edit-2511-lightning-8",
+    );
+  });
+
+  it("maps edit Lightning to T2I counterpart for prompt writing on generate", () => {
+    assert.equal(
+      resolveModelForPromptGeneration(
+        "qwen-image-edit-2511-lightning-8",
+        "generate",
+      ),
+      "qwen-image-2512-lightning-8",
+    );
+  });
+
+  it("keeps edit model for prompt writing on refine", () => {
+    assert.equal(
+      resolveModelForPromptGeneration(
+        "qwen-image-edit-2511-lightning-8",
+        "refine",
+      ),
       "qwen-image-edit-2511-lightning-8",
     );
   });

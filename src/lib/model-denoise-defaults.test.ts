@@ -9,7 +9,8 @@ import {
 describe("model denoise defaults", () => {
   it("detects edit-capable models", () => {
     assert.equal(isEditCapableModel("qwen-image-edit-2511"), true);
-    assert.equal(isEditCapableModel("qwen-rapid-aio-sfw"), true);
+    assert.equal(isEditCapableModel("qwen-rapid-aio-sfw"), false);
+    assert.equal(isEditCapableModel("qwen-rapid-aio-edit"), true);
     assert.equal(isEditCapableModel("flux-inpaint"), true);
     assert.equal(isEditCapableModel("qwen-image-2512"), false);
   });
@@ -17,6 +18,7 @@ describe("model denoise defaults", () => {
   it("detects qwen edit models for wired scaffolds", () => {
     assert.equal(isQwenEditModel("qwen-image-edit-2511"), true);
     assert.equal(isQwenEditModel("qwen-rapid-aio-edit"), true);
+    assert.equal(isQwenEditModel("qwen-rapid-aio-sfw"), false);
     assert.equal(isQwenEditModel("qwen-image-2512"), false);
   });
 
