@@ -90,7 +90,11 @@ export default function ScheduledBatchRunner() {
               hints: config.genre,
               tool: "scheduled-batch",
             });
-            const runtime = resolveRuntimeForQueue(shared.model, "scheduled-batch");
+            const { guardQueueQualityForVram } = await import("@/lib/vram-queue-guard");
+            const { maybeHoldMaxGenerateJobs } = await import("@/lib/held-max-queue");
+            const baseRuntime = resolveRuntimeForQueue(shared.model, "scheduled-batch");
+            const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+            const runtime = vramGuard.runtime ?? baseRuntime;
             const paramsPerPrompt = prompts.map((_, index) =>
               resolveQueueParams({
                 model: shared.model,
@@ -98,45 +102,59 @@ export default function ScheduledBatchRunner() {
                 base: {
                   seed: String(Math.floor(Math.random() * 2 ** 32) + index),
                 },
+                qualityProfile: vramGuard.profile,
               }),
             );
-            const response = await fetch("/api/comfyui", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                prompts,
+            const held = await maybeHoldMaxGenerateJobs({
+              profile: vramGuard.profile,
+              jobs: prompts.map((prompt, index) => ({
+                prompt,
                 negativePrompt,
-                paramsPerPrompt,
-                ...(runtime ? { comfy: runtime } : {}),
-              }),
+                model: shared.model,
+                tool: "scheduled-batch",
+                params: paramsPerPrompt[index],
+                comfy: runtime,
+              })),
             });
-            const data = (await response.json()) as {
-              results?: Array<{ promptId?: string; comfyUrl?: string }>;
-              comfyUrl?: string;
-            };
-            if (response.ok) {
-              let queuedJobs = 0;
-              for (const [index, result] of (data.results ?? []).entries()) {
-                if (!result.promptId) {
-                  continue;
-                }
-                queuedJobs += 1;
-                const comfyUrl = result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188";
-                registerComfyGalleryJob({
-                  promptId: result.promptId,
-                  prompt: prompts[index] ?? "",
+            if (!held.held) {
+              const response = await fetch("/api/comfyui", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  prompts,
                   negativePrompt,
-                  tool: "scheduled-batch",
-                  model: shared.model,
-                  comfyUrl,
-                  queueParams: paramsPerPrompt[index],
-                  queueQualityProfile: runtime.queueQualityProfile,
-                });
-                void scheduleComfyGalleryPoll(result.promptId, {
-                  comfyUrl,
-                });
+                  paramsPerPrompt,
+                  ...(runtime ? { comfy: runtime } : {}),
+                }),
+              });
+              const data = (await response.json()) as {
+                results?: Array<{ promptId?: string; comfyUrl?: string }>;
+                comfyUrl?: string;
+              };
+              if (response.ok) {
+                let queuedJobs = 0;
+                for (const [index, result] of (data.results ?? []).entries()) {
+                  if (!result.promptId) {
+                    continue;
+                  }
+                  queuedJobs += 1;
+                  const comfyUrl = result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188";
+                  registerComfyGalleryJob({
+                    promptId: result.promptId,
+                    prompt: prompts[index] ?? "",
+                    negativePrompt,
+                    tool: "scheduled-batch",
+                    model: shared.model,
+                    comfyUrl,
+                    queueParams: paramsPerPrompt[index],
+                    queueQualityProfile: runtime.queueQualityProfile,
+                  });
+                  void scheduleComfyGalleryPoll(result.promptId, {
+                    comfyUrl,
+                  });
+                }
+                registerScheduledBatchQueue(queuedJobs);
               }
-              registerScheduledBatchQueue(queuedJobs);
             }
           }
 

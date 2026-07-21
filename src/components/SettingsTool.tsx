@@ -1959,6 +1959,36 @@ export default function SettingsTool() {
       <ToolSection title="Queue parameters">
         <QueueParamsPanel />
       </ToolSection>
+
+      <ToolSection title="Queue Max hold">
+        <p className="text-sm text-zinc-400">
+          When on, Max Generate / re-queue / Upscale / Moiré / Refine wait until the ComfyUI
+          queue is idle, then flush from Queue → Orchestration.
+        </p>
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={sharedSettings.holdMaxUntilIdle === true}
+            onChange={(event) => {
+              updateSharedSettings({ holdMaxUntilIdle: event.target.checked });
+              setStatus(
+                event.target.checked
+                  ? "Hold Max until idle enabled."
+                  : "Hold Max until idle disabled.",
+              );
+            }}
+            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium text-zinc-200">
+              Hold Max until idle
+            </span>
+            <span className="block text-xs text-zinc-500">
+              Avoid stacking Max enrich while ComfyUI is already busy.
+            </span>
+          </span>
+        </label>
+      </ToolSection>
       </>
       )}
 
@@ -2022,6 +2052,76 @@ export default function SettingsTool() {
           <option value="discord">Discord embed</option>
           <option value="slack">Slack blocks</option>
         </select>
+      </ToolSection>
+
+      <ToolSection title="Sampler memory">
+        <p className="text-sm text-zinc-400">
+          4–5★ gallery ratings remember per-model CFG / steps / sampler / scheduler for the
+          next queue (Lightning and Rapid AIO stay CFG-1).
+        </p>
+        {(() => {
+          const memory = sharedSettings.modelSamplerMemory ?? {};
+          const entries = Object.entries(memory).sort(([a], [b]) => a.localeCompare(b));
+          if (entries.length === 0) {
+            return (
+              <EmptyState
+                compact
+                icon="inbox"
+                title="No sampler memory yet"
+                description="Rate a completed gallery image 4–5★ to remember its sampler params for that model."
+              />
+            );
+          }
+          return (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    updateSharedSettings({ modelSamplerMemory: {} });
+                    setStatus("Cleared all sampler memory.");
+                  }}
+                >
+                  Clear all
+                </Button>
+              </div>
+              <ul className="space-y-2">
+                {entries.map(([model, remembered]) => (
+                  <li
+                    key={model}
+                    className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 px-3 py-2"
+                  >
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="truncate text-sm text-zinc-200">{model}</p>
+                      <p className="type-caption text-zinc-500">
+                        {[
+                          remembered.cfg ? `CFG ${remembered.cfg}` : null,
+                          remembered.steps ? `${remembered.steps} steps` : null,
+                          remembered.samplerName,
+                          remembered.scheduler,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "—"}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const next = { ...(sharedSettings.modelSamplerMemory ?? {}) };
+                        delete next[model];
+                        updateSharedSettings({ modelSamplerMemory: next });
+                        setStatus(`Cleared sampler memory for ${model}.`);
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
       </ToolSection>
 
       <ToolSection title="Avoided tokens">

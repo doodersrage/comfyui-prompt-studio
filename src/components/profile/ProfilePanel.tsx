@@ -103,9 +103,14 @@ export default function ProfilePanel() {
 
   if (!authEnabled) {
     return (
-      <ToolSection title="Profile">
-        <p className="text-sm text-zinc-400">Sign-in is disabled. Profile settings are unavailable.</p>
-      </ToolSection>
+      <div className="space-y-8">
+        <ToolSection title="Profile">
+          <p className="text-sm text-zinc-400">
+            Sign-in is disabled. Account settings are unavailable; appearance still works below.
+          </p>
+        </ToolSection>
+        <ProfileAppearancePanel />
+      </div>
     );
   }
 

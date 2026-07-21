@@ -283,20 +283,47 @@ export default function TopicTool() {
               .join(" · ") || "Workflow pre-flight failed.",
           );
         }
-        const runtime = resolveRuntimeForQueue(shared.model, "topics");
+        const { guardQueueQualityForVram } = await import("@/lib/vram-queue-guard");
+        const { maybeHoldMaxGenerateJobs } = await import("@/lib/held-max-queue");
+        const { toastHeldMax } = await import("@/lib/app-toast");
+        const baseRuntime = resolveRuntimeForQueue(shared.model, "topics");
+        const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+        const runtime = vramGuard.runtime ?? baseRuntime;
         setQueueProgress({
           phase: "queueing",
           current: 0,
           total: prompts.length,
-          message: "Submitting prompts to ComfyUI…",
+          message: vramGuard.downgraded
+            ? "Max → Final (VRAM) · submitting…"
+            : "Submitting prompts to ComfyUI…",
         });
         const paramsPerPrompt = prompts.map((_, index) =>
           resolveQueueParams({
             model: shared.model,
             tool: "topics",
             base: { seed: String(Math.floor(Math.random() * 2 ** 32) + index) },
+            qualityProfile: vramGuard.profile,
           }),
         );
+        const held = await maybeHoldMaxGenerateJobs({
+          profile: vramGuard.profile,
+          jobs: prompts.map((prompt, index) => ({
+            prompt,
+            negativePrompt,
+            model: shared.model,
+            tool: "topics",
+            params: paramsPerPrompt[index],
+            comfy: runtime,
+          })),
+        });
+        if (held.held) {
+          setQueueProgress(null);
+          toastHeldMax({
+            text: "Max topics held until ComfyUI queue is idle",
+            count: held.count,
+          });
+          return;
+        }
         const response = await fetch("/api/comfyui", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

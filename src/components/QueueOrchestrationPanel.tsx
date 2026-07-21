@@ -1,11 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { ChipButton } from "@/components/ui/Field";
 import { StatCard, ToolActionRow } from "@/components/ui/ToolPageShell";
-import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
+import {
+  loadComfyGallery,
+  COMFYUI_GALLERY_UPDATED_EVENT,
+} from "@/lib/comfyui-gallery";
 import { scheduleComfyGalleryPoll } from "@/lib/comfyui-gallery-poller";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import {
+  clearHeldMaxJobs,
+  isComfyQueueIdle,
+  removeHeldMaxJob,
+  type HeldMaxJob,
+} from "@/lib/held-max-queue";
+import { useHeldMaxJobs } from "@/hooks/useHeldMaxJobs";
+import {
+  requeueMoireCleanFromGalleryEntry,
+  requeueRefineFromGalleryEntry,
+  requeueUpscaleFromGalleryEntry,
+} from "@/lib/comfyui-requeue";
+import {
+  loadSettingsCache,
+  saveSharedSettings,
+} from "@/lib/settings-cache";
 
 type ComfyHealth = {
   ok: boolean;
@@ -21,6 +41,12 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [galleryRevision, setGalleryRevision] = useState(0);
+  const heldJobs = useHeldMaxJobs();
+  const [holdMaxUntilIdle, setHoldMaxUntilIdle] = useState(
+    () => loadSettingsCache().shared.holdMaxUntilIdle === true,
+  );
+  const [flushing, setFlushing] = useState(false);
+  const flushingRef = useRef(false);
 
   const refreshHealth = useCallback(async () => {
     setLoading(true);
@@ -62,6 +88,120 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
     [localJobs],
   );
 
+  const flushHeldJobs = useCallback(
+    async (jobs: HeldMaxJob[]) => {
+      if (jobs.length === 0 || flushingRef.current) {
+        return;
+      }
+      flushingRef.current = true;
+      setFlushing(true);
+      setStatus(`Flushing ${jobs.length} held Max job(s)…`);
+      const gallery = loadComfyGallery();
+      let flushed = 0;
+      try {
+        for (const job of jobs) {
+          if (job.kind === "generate") {
+            const { guardQueueQualityForVram } = await import(
+              "@/lib/vram-queue-guard"
+            );
+            const vramGuard = await guardQueueQualityForVram({
+              profile: job.qualityProfile,
+              runtime: job.comfy,
+            });
+            const response = await fetch("/api/comfyui", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                prompt: job.prompt,
+                negativePrompt: job.negativePrompt,
+                model: job.model,
+                params: job.params,
+                ...(vramGuard.runtime
+                  ? { comfy: vramGuard.runtime }
+                  : job.comfy
+                    ? { comfy: job.comfy }
+                    : {}),
+              }),
+            });
+            const data = (await response.json()) as {
+              promptId?: string;
+              comfyUrl?: string;
+              error?: string;
+            };
+            if (!response.ok || !data.promptId) {
+              setStatus(data.error ?? "Held generate flush failed.");
+              continue;
+            }
+            const { registerComfyGalleryJob } = await import(
+              "@/lib/comfyui-gallery-client"
+            );
+            registerComfyGalleryJob({
+              promptId: data.promptId,
+              prompt: job.prompt,
+              negativePrompt: job.negativePrompt,
+              tool: job.tool ?? "held-max",
+              model: job.model,
+              comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
+              queueParams: job.params,
+              queueQualityProfile: job.qualityProfile,
+            });
+            void scheduleComfyGalleryPoll(data.promptId, {
+              comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
+            });
+            removeHeldMaxJob(job.id);
+            flushed += 1;
+            continue;
+          }
+
+          const entry = gallery.find((item) => item.id === job.entryId);
+          if (!entry) {
+            removeHeldMaxJob(job.id);
+            continue;
+          }
+          const result =
+            job.kind === "moire"
+              ? await requeueMoireCleanFromGalleryEntry(entry, {
+                  qualityProfile: job.qualityProfile,
+                  force: true,
+                  onStatus: setStatus,
+                })
+              : job.kind === "refine"
+                ? await requeueRefineFromGalleryEntry(entry, {
+                    qualityProfile: job.qualityProfile,
+                    force: true,
+                    onStatus: setStatus,
+                  })
+                : await requeueUpscaleFromGalleryEntry(entry, {
+                    qualityProfile: job.qualityProfile,
+                    force: true,
+                    onStatus: setStatus,
+                  });
+          if (result.ok && !result.held) {
+            removeHeldMaxJob(job.id);
+            flushed += 1;
+          }
+        }
+        setStatus(
+          flushed > 0
+            ? `Flushed ${flushed} held Max job(s).`
+            : "No held Max jobs could be flushed yet.",
+        );
+      } finally {
+        flushingRef.current = false;
+        setFlushing(false);
+        setGalleryRevision((value) => value + 1);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!health?.ok || !isComfyQueueIdle(health) || heldJobs.length === 0) {
+      return;
+    }
+    void flushHeldJobs(heldJobs);
+  }, [health, heldJobs, flushHeldJobs]);
+
   async function refreshPendingJobs() {
     setStatus(null);
     await Promise.all(
@@ -71,6 +211,12 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
     );
     setStatus(`Refreshed ${pendingLocal.length} tracked job(s).`);
     setGalleryRevision((value) => value + 1);
+  }
+
+  function toggleHoldMax(next: boolean) {
+    setHoldMaxUntilIdle(next);
+    const shared = loadSettingsCache().shared;
+    saveSharedSettings({ ...shared, holdMaxUntilIdle: next });
   }
 
   const vramLabel =
@@ -122,8 +268,13 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
           detail={`${runningLocal.length} running · ${pendingLocal.length - runningLocal.length} pending`}
         />
         <StatCard
-          label="Completed locally"
-          value={String(localJobs.filter((entry) => entry.status === "completed").length)}
+          label="Held Max jobs"
+          value={String(heldJobs.length)}
+          detail={
+            holdMaxUntilIdle
+              ? "Hold Max until idle is on"
+              : "Hold Max until idle is off"
+          }
         />
         <StatCard
           label="Failed locally"
@@ -134,6 +285,52 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
               : undefined
           }
         />
+      </div>
+
+      <div className="mt-4 space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/60 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <ChipButton
+            active={holdMaxUntilIdle}
+            onClick={() => toggleHoldMax(!holdMaxUntilIdle)}
+          >
+            Hold Max until idle
+          </ChipButton>
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={flushing}
+            disabled={heldJobs.length === 0}
+            onClick={() => void flushHeldJobs(heldJobs)}
+          >
+            Flush held Max
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={heldJobs.length === 0}
+            onClick={() => {
+              clearHeldMaxJobs();
+              setStatus("Cleared held Max jobs.");
+            }}
+          >
+            Clear held
+          </Button>
+        </div>
+        {heldJobs.length > 0 ? (
+          <p className="type-caption text-zinc-400">
+            Waiting:{" "}
+            {heldJobs
+              .slice(0, 4)
+              .map((job) => `${job.kind} · ${job.label}`)
+              .join(" · ")}
+            {heldJobs.length > 4 ? ` · +${heldJobs.length - 4} more` : ""}
+          </p>
+        ) : (
+          <p className="type-caption text-zinc-500">
+            When on, Max Generate / re-queue / gallery Upscale / Moiré / Refine wait until the
+            ComfyUI queue is empty, then flush automatically (VRAM is re-checked on flush).
+          </p>
+        )}
       </div>
 
       <ToolActionRow className="mt-4">

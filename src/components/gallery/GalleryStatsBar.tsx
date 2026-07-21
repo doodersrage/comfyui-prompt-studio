@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ComfyGalleryFilter } from "@/lib/comfyui-gallery";
 import type { GalleryStats } from "@/lib/gallery-stats";
 import { GALLERY_ENTRY_LIMIT } from "@/lib/gallery-stats";
@@ -10,6 +11,7 @@ type GalleryStatsBarProps = {
   onQuickFilter: (patch: Partial<ComfyGalleryFilter>) => void;
   onRefreshPending?: () => void;
   activeJobs: number;
+  heldMaxJobs?: number;
 };
 
 function StatChip(props: {
@@ -60,6 +62,7 @@ export default function GalleryStatsBar({
   onQuickFilter,
   onRefreshPending,
   activeJobs,
+  heldMaxJobs = 0,
 }: GalleryStatsBarProps) {
   const nearCapacity = stats.total >= GALLERY_ENTRY_LIMIT - 5;
 
@@ -67,6 +70,15 @@ export default function GalleryStatsBar({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <StatChip label="Total" value={stats.total} />
+        {heldMaxJobs > 0 ? (
+          <Link
+            href="/queue"
+            className="inline-flex min-w-0 items-baseline gap-2 rounded-[var(--radius-md)] border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2.5 py-1.5 text-left text-[var(--tint-warning-text)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          >
+            <span className="type-caption shrink-0 opacity-80">Held Max</span>
+            <span className="type-heading tabular-nums">{heldMaxJobs}</span>
+          </Link>
+        ) : null}
         <StatChip
           label="Done"
           value={stats.completed}

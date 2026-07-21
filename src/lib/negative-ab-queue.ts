@@ -8,6 +8,8 @@ import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
 import { injectLoraTriggers } from "./lora-prompt-injection";
 import { modelUsesNegativePrompt } from "./prompt-pair";
+import { guardQueueQualityForVram } from "./vram-queue-guard";
+import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
 
 export async function queueNegativeAbTest(input: {
   prompt: string;
@@ -17,11 +19,17 @@ export async function queueNegativeAbTest(input: {
   hints?: string;
   tool?: string;
   sharedSeed?: string;
-}): Promise<{ queued: number; seed: string }> {
+}): Promise<{ queued: number; held: number; seed: string }> {
   const model = input.model as ComfyImageModel;
   const seed = input.sharedSeed ?? String(Math.floor(Math.random() * 2 ** 32));
-  const params = resolveQueueParams({ model, base: { seed } });
-  const runtime = resolveRuntimeForQueue(model, input.tool ?? "negative-ab");
+  const baseRuntime = resolveRuntimeForQueue(model, input.tool ?? "negative-ab");
+  const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+  const runtime = vramGuard.runtime ?? baseRuntime;
+  const params = resolveQueueParams({
+    model,
+    base: { seed },
+    qualityProfile: vramGuard.profile,
+  });
   const prompt = injectLoraTriggers(input.prompt.trim());
 
   let negativeA = input.negativeA?.trim();
@@ -39,6 +47,7 @@ export async function queueNegativeAbTest(input: {
   }
 
   let queued = 0;
+  let held = 0;
   const variants: Array<{ label: string; negativePrompt?: string }> = [
     { label: "with-negative", negativePrompt: negativeA },
     { label: "without-negative", negativePrompt: undefined },
@@ -49,6 +58,23 @@ export async function queueNegativeAbTest(input: {
   }
 
   for (const variant of variants) {
+    const hold = await maybeHoldMaxGenerateJobs({
+      profile: vramGuard.profile,
+      jobs: [
+        {
+          prompt: `${prompt} [${variant.label}]`,
+          negativePrompt: variant.negativePrompt,
+          model,
+          tool: "negative-ab",
+          params,
+          comfy: runtime,
+        },
+      ],
+    });
+    if (hold.held) {
+      held += 1;
+      continue;
+    }
     const response = await fetch("/api/comfyui", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -79,5 +105,5 @@ export async function queueNegativeAbTest(input: {
     queued += 1;
   }
 
-  return { queued, seed };
+  return { queued, held, seed };
 }

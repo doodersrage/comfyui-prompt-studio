@@ -10,6 +10,8 @@ export function joinQueueStatusNotes(
     model?: string;
     qualityProfile?: QueueQualityProfile;
     tool?: string;
+    vramDowngraded?: boolean;
+    samplerMemory?: boolean;
   },
 ): string {
   const fromPipeline = pipeline

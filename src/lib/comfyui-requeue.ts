@@ -45,6 +45,17 @@ import { isUpscaleModelInstalled, resolveUpscaleModelFilename } from "./model-up
 import { fetchComfyObjectInfoCached } from "./comfyui-object-info-cache";
 import { loadSettingsCache } from "./settings-cache";
 import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
+import {
+  fetchComfyQueueIdle,
+  holdMaxGalleryEnhance,
+  holdMaxGenerateJob,
+  shouldHoldMaxUntilIdle,
+} from "./held-max-queue";
+import {
+  fetchComfyVramSnapshot,
+  guardQueueQualityForVram,
+  maybeDowngradeMaxForVram,
+} from "./vram-queue-guard";
 
 /** Gallery Upscale is for models that benefit from Lanczos/neural — not distilled ones. */
 export function galleryEntrySupportsUpscale(model?: string): boolean {
@@ -165,7 +176,59 @@ export type RequeueComfyJobResult = {
   promptId?: string;
   error?: string;
   comfyUrl?: string;
+  /** Max job parked until ComfyUI queue is idle. */
+  held?: boolean;
+  vramDowngraded?: boolean;
 };
+
+async function resolveEnhanceQualityProfile(input: {
+  entry: Pick<ComfyGalleryEntry, "id" | "model" | "tool">;
+  qualityProfile: Extract<QueueQualityProfile, "final" | "max">;
+  kind: "upscale" | "moire" | "refine";
+  force?: boolean;
+  onStatus?: (message: string) => void;
+}): Promise<
+  | { action: "hold" }
+  | {
+      action: "queue";
+      qualityProfile: Extract<QueueQualityProfile, "final" | "max">;
+      vramDowngraded: boolean;
+    }
+> {
+  let qualityProfile = input.qualityProfile;
+  if (qualityProfile === "max" && !input.force) {
+    const shared = loadSettingsCache().shared;
+    if (shared.holdMaxUntilIdle) {
+      const idle = await fetchComfyQueueIdle();
+      if (!idle) {
+        holdMaxGalleryEnhance({
+          entry: input.entry,
+          kind: input.kind,
+          qualityProfile: "max",
+        });
+        input.onStatus?.(
+          "Max held until ComfyUI queue is idle (Queue → Orchestration).",
+        );
+        return { action: "hold" };
+      }
+    }
+  }
+  // Always re-check VRAM for Max (including force flush) — hold bypass stays force-only.
+  if (qualityProfile === "max") {
+    const vram = await fetchComfyVramSnapshot();
+    const guard = maybeDowngradeMaxForVram(qualityProfile, vram);
+    if (guard.downgraded) {
+      qualityProfile = "final";
+      input.onStatus?.("Max → Final (VRAM) — free VRAM under 6 GB.");
+    }
+    return {
+      action: "queue",
+      qualityProfile,
+      vramDowngraded: guard.downgraded,
+    };
+  }
+  return { action: "queue", qualityProfile, vramDowngraded: false };
+}
 
 export function requeueSourceImageUrlFromEntry(
   entry: Pick<ComfyGalleryEntry, "comfyUrl" | "images" | "tool" | "model" | "queueParams" | "sourceImageUrl" | "maskImageUrl">,
@@ -186,9 +249,22 @@ export async function requeueUpscaleFromGalleryEntry(
 ): Promise<RequeueComfyJobResult> {
   const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
 
+  const resolved = await resolveEnhanceQualityProfile({
+    entry,
+    qualityProfile: options.qualityProfile,
+    kind: "upscale",
+    force: options.force,
+    onStatus: options.onStatus,
+  });
+  if (resolved.action === "hold") {
+    return { ok: true, held: true };
+  }
+  const qualityProfile = resolved.qualityProfile;
+  const vramDowngraded = resolved.vramDowngraded;
+
   if (
     !options.force &&
-    galleryEntryAlreadyEnrichedForUpscale(entry, options.qualityProfile)
+    galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)
   ) {
     return {
       ok: false,
@@ -200,10 +276,10 @@ export async function requeueUpscaleFromGalleryEntry(
   // Rapid AIO: Lanczos/neural re-amplifies moiré — use the polish chain instead.
   if (isQwenRapidAioModel(model)) {
     options.onStatus?.(
-      `Rapid AIO skips upscale — queueing moiré clean (${options.qualityProfile})…`,
+      `Rapid AIO skips upscale — queueing moiré clean (${qualityProfile})…`,
     );
     return requeueMoireCleanFromGalleryEntry(entry, {
-      qualityProfile: options.qualityProfile,
+      qualityProfile,
       onStatus: options.onStatus,
       force: options.force,
     });
@@ -247,7 +323,7 @@ export async function requeueUpscaleFromGalleryEntry(
   const isLightning = isQwenLightningModel(model);
   const mappedUpscale =
     !isLightning &&
-    (options.qualityProfile === "final" || options.qualityProfile === "max")
+    (qualityProfile === "final" || qualityProfile === "max")
       ? resolveUpscaleModelFilename(model, {
           upscaleMap: shared.modelUpscaleMap,
           customTokens: settings.customTokens,
@@ -281,7 +357,7 @@ export async function requeueUpscaleFromGalleryEntry(
     const workflow = libraryWorkflow
       ? (JSON.parse(libraryWorkflow.workflowJson) as Record<string, unknown>)
       : buildGalleryUpscaleWorkflow({
-          qualityProfile: options.qualityProfile,
+          qualityProfile,
           upscaleModelFilename: neuralModel,
           enrichNeuralPolish: enrichOptions.enrichNeuralPolish,
           enrichSharpen: enrichOptions.enrichSharpen,
@@ -296,7 +372,7 @@ export async function requeueUpscaleFromGalleryEntry(
       workflowQueueOptimize: libraryWorkflow ? true : false,
       workflowGraphEnrich: libraryWorkflow ? baseRuntime.workflowGraphEnrich : false,
       directWorkflowPatching: true,
-      queueQualityProfile: options.qualityProfile,
+      queueQualityProfile: qualityProfile,
       ...(libraryWorkflow ? { workflowFileId: libraryWorkflow.id } : {}),
     };
 
@@ -349,7 +425,7 @@ export async function requeueUpscaleFromGalleryEntry(
         comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
         queueParams: { inputImageFilename },
         sourceImageUrl: outputUrl,
-        queueQualityProfile: options.qualityProfile,
+        queueQualityProfile: qualityProfile,
         parentGalleryEntryId: entry.id,
         derivedKind: "upscale",
         historyId: entry.historyId,
@@ -367,6 +443,7 @@ export async function requeueUpscaleFromGalleryEntry(
       ok: true,
       promptId: data.promptId,
       comfyUrl: data.comfyUrl ?? entry.comfyUrl,
+      vramDowngraded,
     };
   };
 
@@ -378,7 +455,7 @@ export async function requeueUpscaleFromGalleryEntry(
     result = await queueUpscale(undefined);
   }
 
-  return result;
+  return { ...result, vramDowngraded };
 }
 
 export async function requeueMoireCleanFromGalleryEntry(
@@ -389,7 +466,18 @@ export async function requeueMoireCleanFromGalleryEntry(
     force?: boolean;
   },
 ): Promise<RequeueComfyJobResult> {
-  const profile = options?.qualityProfile ?? "final";
+  const requested = options?.qualityProfile ?? "final";
+  const resolved = await resolveEnhanceQualityProfile({
+    entry,
+    qualityProfile: requested,
+    kind: "moire",
+    force: options?.force,
+    onStatus: options?.onStatus,
+  });
+  if (resolved.action === "hold") {
+    return { ok: true, held: true };
+  }
+  const profile = resolved.qualityProfile;
   if (
     !options?.force &&
     galleryEntryAlreadyEnrichedForUpscale(entry, profile)
@@ -427,7 +515,7 @@ export async function requeueMoireCleanFromGalleryEntry(
     return { ok: false, error: "Could not upload gallery output to ComfyUI." };
   }
 
-  const qualityProfile = options?.qualityProfile ?? "final";
+  const qualityProfile = profile;
   const workflow = buildGalleryMoireCleanWorkflow(qualityProfile);
   const baseRuntime = resolveRuntimeForQueue(model, entry.tool);
 
@@ -498,6 +586,7 @@ export async function requeueMoireCleanFromGalleryEntry(
     ok: true,
     promptId: data.promptId,
     comfyUrl: data.comfyUrl ?? entry.comfyUrl,
+    vramDowngraded: resolved.vramDowngraded,
   };
 }
 
@@ -506,6 +595,7 @@ export async function requeueRefineFromGalleryEntry(
   options?: {
     qualityProfile?: Extract<QueueQualityProfile, "final" | "max">;
     onStatus?: (message: string) => void;
+    force?: boolean;
   },
 ): Promise<RequeueComfyJobResult> {
   const outputUrl = resolveGalleryOutputImageUrl(entry);
@@ -523,6 +613,20 @@ export async function requeueRefineFromGalleryEntry(
         "Img2img refine is disabled for Lightning models — use Final/Max Lanczos polish (or requeue a new seed) instead.",
     };
   }
+
+  const requested = options?.qualityProfile ?? "final";
+  const resolved = await resolveEnhanceQualityProfile({
+    entry,
+    qualityProfile: requested,
+    kind: "refine",
+    force: options?.force,
+    onStatus: options?.onStatus,
+  });
+  if (resolved.action === "hold") {
+    return { ok: true, held: true };
+  }
+  const profile = resolved.qualityProfile;
+
   let inputImageFilename: string | undefined;
   try {
     inputImageFilename = await resolveQueueInputImageFilename({
@@ -541,7 +645,6 @@ export async function requeueRefineFromGalleryEntry(
     return { ok: false, error: "Could not upload gallery output to ComfyUI." };
   }
 
-  const profile = options?.qualityProfile ?? "final";
   const workflow = buildGalleryRefineWorkflow(model);
   const baseRuntime = resolveRuntimeForQueue(model, "refine");
   const refineParams = galleryRefineQueueParams({
@@ -570,7 +673,11 @@ export async function requeueRefineFromGalleryEntry(
     queueQualityProfile: profile,
   };
 
-  options?.onStatus?.("Queueing low-denoise refine…");
+  options?.onStatus?.(
+    resolved.vramDowngraded
+      ? "Max → Final (VRAM) · queueing low-denoise refine…"
+      : "Queueing low-denoise refine…",
+  );
 
   const refineNegative = appendPortraitRefineNegative(entry.negativePrompt, entry.prompt);
 
@@ -625,6 +732,7 @@ export async function requeueRefineFromGalleryEntry(
     ok: true,
     promptId: data.promptId,
     comfyUrl: data.comfyUrl ?? entry.comfyUrl,
+    vramDowngraded: resolved.vramDowngraded,
   };
 }
 
@@ -930,24 +1038,32 @@ export async function requeueComfyJob(
     forceInputImage: input.forceInputImage,
   });
 
+  const requestedProfile =
+    input.qualityProfile ?? input.storedQualityProfile ?? undefined;
+  const baseRuntime = resolveRuntimeForQueue(model, input.tool);
+  const withRequested = baseRuntime
+    ? {
+        ...baseRuntime,
+        queueQualityProfile:
+          requestedProfile ?? baseRuntime.queueQualityProfile,
+      }
+    : undefined;
+  const vramGuard = await guardQueueQualityForVram({
+    profile: requestedProfile ?? withRequested?.queueQualityProfile,
+    runtime: withRequested,
+  });
+  const effectiveQualityProfile = vramGuard.profile;
+  const comfyRuntime = vramGuard.runtime;
+  if (vramGuard.downgraded) {
+    input.onStatus?.("Max → Final (VRAM) — free VRAM under 6 GB.");
+  }
+
   const params = resolveQueueParams({
     model,
     tool: input.tool,
     base: refreshedParams,
-    qualityProfile:
-      input.qualityProfile ?? input.storedQualityProfile ?? undefined,
+    qualityProfile: effectiveQualityProfile,
   });
-
-  const effectiveQualityProfile =
-    input.qualityProfile ?? input.storedQualityProfile;
-  const runtime = resolveRuntimeForQueue(model, input.tool);
-  const comfyRuntime = runtime
-    ? {
-        ...runtime,
-        queueQualityProfile:
-          effectiveQualityProfile ?? runtime.queueQualityProfile,
-      }
-    : undefined;
 
   input.onStatus?.("Validating workflow…");
   const preflight = await runWorkflowPreflight({
@@ -983,6 +1099,25 @@ export async function requeueComfyJob(
   const requeueImageError = requeueImageIssues.find((issue) => issue.severity === "error");
   if (requeueImageError) {
     return { ok: false, error: requeueImageError.message };
+  }
+
+  if (
+    effectiveQualityProfile === "max" &&
+    (await shouldHoldMaxUntilIdle())
+  ) {
+    holdMaxGenerateJob({
+      prompt: input.prompt.trim(),
+      negativePrompt,
+      model: String(model),
+      tool: input.tool,
+      params,
+      comfy: comfyRuntime,
+      qualityProfile: "max",
+    });
+    input.onStatus?.(
+      "Max held until ComfyUI queue is idle (Queue → Orchestration).",
+    );
+    return { ok: true, held: true, vramDowngraded: vramGuard.downgraded };
   }
 
   const response = await fetch("/api/comfyui", {
@@ -1045,6 +1180,7 @@ export async function requeueComfyJob(
     ok: true,
     promptId: data.promptId,
     comfyUrl: data.comfyUrl,
+    vramDowngraded: vramGuard.downgraded,
   };
 }
 

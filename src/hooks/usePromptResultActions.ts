@@ -16,6 +16,12 @@ import type { DetailLevel } from "@/lib/detail-level";
 import type { AthleticSport } from "@/lib/athletic-sport-profiles";
 import { resolveRuntimeForQueue } from "@/lib/comfyui-runtime-for-model";
 import { resolveModelForQueueTool } from "@/lib/queue-tool-model";
+import { guardQueueQualityForVram } from "@/lib/vram-queue-guard";
+import {
+  holdMaxGenerateJob,
+  shouldHoldMaxUntilIdle,
+} from "@/lib/held-max-queue";
+import { rememberedSamplerOverrides } from "@/lib/sampler-memory";
 import { startImproveFromResult, startPromptEditorFromResult, startRefineFromResult } from "@/lib/improve-output";
 import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import { parseWorkflowJson } from "@/lib/comfyui-config";
@@ -38,7 +44,7 @@ import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import { resolveQueueInputImageFilename } from "@/lib/queue-input-image";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
-import { toastQueueOutcome } from "@/lib/app-toast";
+import { toastHeldMax, toastQueueOutcome } from "@/lib/app-toast";
 import { applyQueuePromptSteering, prepareQueuePrompts } from "@/lib/queue-prompt-prep";
 import { resolveQueueNegativePromptRaw } from "@/lib/queue-negative";
 import { joinQueueStatusNotes } from "@/lib/queue-status-notes";
@@ -375,8 +381,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       setComfyUiStatus("Queueing…");
       try {
-        const runtime = resolveRuntimeForQueue(config.model, config.tool);
+        const baseRuntime = resolveRuntimeForQueue(config.model, config.tool);
         const queueModel = resolveModelForQueueTool(config.model, config.tool);
+        const vramGuard = await guardQueueQualityForVram({
+          profile: options?.qualityProfile ?? baseRuntime.queueQualityProfile,
+          runtime: baseRuntime,
+        });
+        const runtime = vramGuard.runtime ?? baseRuntime;
+        const effectiveQualityProfile = vramGuard.profile;
 
         const { positive: preparedPrompt, negative: negativePrompt } =
           await prepareQueuePrompts({
@@ -464,8 +476,29 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           inputImageFilename,
           maskImageFilename,
           controlImageFilename,
-          qualityProfile: options?.qualityProfile,
+          qualityProfile: effectiveQualityProfile,
         });
+
+        if (
+          effectiveQualityProfile === "max" &&
+          (await shouldHoldMaxUntilIdle())
+        ) {
+          holdMaxGenerateJob({
+            prompt: preparedPrompt,
+            negativePrompt,
+            model: queueModel,
+            tool: config.tool,
+            params: queueParams,
+            comfy: runtime,
+            qualityProfile: "max",
+          });
+          setComfyUiStatus(
+            "Max held until ComfyUI queue is idle (Queue → Orchestration).",
+          );
+          toastHeldMax({ text: "Max job held until ComfyUI is idle" });
+          return;
+        }
+
         const autoSaveEnabled = loadComfyUiSettings().autoSaveHistoryOnQueue !== false;
         const resolvedHistoryId =
           historyId ??
@@ -514,6 +547,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               model: queueModel,
               qualityProfile: runtime?.queueQualityProfile,
               tool: config.tool,
+              vramDowngraded: vramGuard.downgraded,
+              samplerMemory:
+                Object.keys(rememberedSamplerOverrides(queueModel)).length > 0,
             },
           ),
         );
@@ -610,8 +646,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       setComfyUiStatus(`Queueing ${filtered.length}…`);
       try {
-        const runtime = resolveRuntimeForQueue(config.model, config.tool);
+        const baseRuntime = resolveRuntimeForQueue(config.model, config.tool);
         const queueModel = resolveModelForQueueTool(config.model, config.tool);
+        const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+        const runtime = vramGuard.runtime ?? baseRuntime;
         const rawNegative = modelUsesNegativePrompt(queueModel)
           ? await resolveQueueNegativePromptRaw({
               model: queueModel,
@@ -641,8 +679,34 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             base: {
               seed: String(Math.floor(Math.random() * 2 ** 32) + index),
             },
+            qualityProfile: vramGuard.profile,
           }),
         );
+
+        if (
+          vramGuard.profile === "max" &&
+          (await shouldHoldMaxUntilIdle())
+        ) {
+          for (const [index, prompt] of prepared.entries()) {
+            holdMaxGenerateJob({
+              prompt,
+              negativePrompt,
+              model: queueModel,
+              tool: config.tool,
+              params: paramsPerPrompt[index],
+              comfy: runtime,
+              qualityProfile: "max",
+            });
+          }
+          setComfyUiStatus(
+            `Held ${prepared.length} Max job(s) until ComfyUI queue is idle.`,
+          );
+          toastHeldMax({
+            text: "Max jobs held until ComfyUI is idle",
+            count: prepared.length,
+          });
+          return;
+        }
 
         const preflight = await runWorkflowPreflight({
           model: queueModel,

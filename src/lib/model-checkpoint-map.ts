@@ -293,24 +293,28 @@ function inferKleinLoaderHints(modelId: string): ModelLoaderFilenames {
     return {
       checkpoint: "flux-2-klein-9b.safetensors",
       unet: "flux-2-klein-9b.safetensors",
+      dualClip: "flux2-klein-9b-uncensored.safetensors",
     };
   }
   if (id.includes("flux-2-klein-9b")) {
     return {
       checkpoint: "flux-2-klein-base-9b.safetensors",
       unet: "flux-2-klein-base-9b.safetensors",
+      dualClip: "flux2-klein-9b-uncensored.safetensors",
     };
   }
   if (id.includes("flux-2-klein-4b-distilled") || id.includes("flux-2-klein-4b-distill")) {
     return {
       checkpoint: "flux-2-klein-4b.safetensors",
       unet: "flux-2-klein-4b.safetensors",
+      dualClip: "flux2-klein-4b.safetensors",
     };
   }
   if (id.includes("flux-2-klein")) {
     return {
       checkpoint: "flux-2-klein-base-4b.safetensors",
       unet: "flux-2-klein-base-4b.safetensors",
+      dualClip: "flux2-klein-4b.safetensors",
     };
   }
   return {};
@@ -531,8 +535,10 @@ export function resolveLoaderFilenamesForModel(
   if (vae) {
     result.vae = vae;
   }
-  if (inferred.dualClip || model.toLowerCase().includes("qwen")) {
+  if (model.toLowerCase().includes("qwen")) {
     result.dualClip = qwenDualClipFilename(effectiveTier);
+  } else if (inferred.dualClip) {
+    result.dualClip = inferred.dualClip;
   }
   return result;
 }

@@ -9,11 +9,14 @@ import { injectLoraTriggers } from "./lora-prompt-injection";
 import { loadActiveProjectId } from "./prompt-projects";
 import { prepareQueuePrompts } from "./queue-prompt-prep";
 import { resolveQueueParams } from "./queue-params-settings";
+import { guardQueueQualityForVram } from "./vram-queue-guard";
+import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
 
 export type CampaignStepResult = {
   index: number;
   prompt: string;
   queued: boolean;
+  held?: boolean;
   promptId?: string;
   error?: string;
 };
@@ -31,7 +34,9 @@ export async function runPromptCampaign(input: {
   const count = Math.min(12, Math.max(1, input.count));
   const results: CampaignStepResult[] = [];
   const projectId = loadActiveProjectId();
-  const runtime = resolveRuntimeForQueue(model, "campaign");
+  const baseRuntime = resolveRuntimeForQueue(model, "campaign");
+  const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+  const runtime = vramGuard.runtime ?? baseRuntime;
 
   let prompts: string[] = [];
 
@@ -101,7 +106,33 @@ export async function runPromptCampaign(input: {
       continue;
     }
 
-    const params = resolveQueueParams({ model: input.model, tool: "campaign" });
+    const params = resolveQueueParams({
+      model: input.model,
+      tool: "campaign",
+      qualityProfile: vramGuard.profile,
+    });
+    const held = await maybeHoldMaxGenerateJobs({
+      profile: vramGuard.profile,
+      jobs: [
+        {
+          prompt,
+          negativePrompt: steered.negative,
+          model,
+          tool: "campaign",
+          params,
+          comfy: runtime,
+        },
+      ],
+    });
+    if (held.held) {
+      results.push({
+        index,
+        prompt,
+        queued: false,
+        held: true,
+      });
+      continue;
+    }
     const response = await fetch("/api/comfyui", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

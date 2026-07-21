@@ -74,6 +74,23 @@ export function toastQueueOutcome(input: {
   });
 }
 
+/** Sticky warning when Max jobs are parked until ComfyUI is idle. */
+export function toastHeldMax(input: {
+  text: string;
+  count?: number;
+}): string | null {
+  const countNote =
+    typeof input.count === "number" && input.count > 1
+      ? ` (${input.count})`
+      : "";
+  return pushAppToast({
+    text: `${input.text.trim()}${countNote}`,
+    tone: "warning",
+    href: "/queue",
+    ttlMs: 14_000,
+  });
+}
+
 /** One summary toast for bulk gallery/queue ops (avoids per-item noise). */
 export function toastBulkQueueSummary(input: {
   label: string;

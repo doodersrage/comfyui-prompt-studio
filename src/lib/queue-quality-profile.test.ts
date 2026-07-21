@@ -124,7 +124,29 @@ describe("queue-quality-profile", () => {
       profileUsesNeuralUpscaleEnrich("max", { model: "qwen-image-2512-lightning-8" }),
       false,
     );
+    assert.equal(
+      profileUsesNeuralUpscaleEnrich("final", { model: "qwen-image-2512" }),
+      false,
+    );
+    assert.equal(
+      profileUsesNeuralUpscaleEnrich("max", { model: "qwen-image-2512" }),
+      true,
+    );
     assert.equal(profileUsesNeuralUpscaleEnrich("max"), true);
+    const { formatQueueQualityProfileHint } = await import(
+      "./queue-quality-profile.ts"
+    );
+    const finalHint = formatQueueQualityProfileHint("final", "base", "medium", {
+      neuralUpscaleAvailable: true,
+      model: "qwen-image-2512",
+    });
+    assert.match(String(finalHint), /chroma guard|Lanczos/i);
+    assert.doesNotMatch(String(finalHint), /UpscaleModel/);
+    const maxHint = formatQueueQualityProfileHint("max", "base", "medium", {
+      neuralUpscaleAvailable: true,
+      model: "qwen-image-2512",
+    });
+    assert.match(String(maxHint), /UpscaleModel/);
     const { neuralTargetScaleAfterUpscale, parseNeuralUpscaleFactor } =
       await import("./queue-quality-profile.ts");
     assert.equal(neuralTargetScaleAfterUpscale("final"), 0.3125);

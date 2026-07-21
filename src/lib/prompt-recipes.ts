@@ -6,6 +6,8 @@ import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { resolveQueueParams } from "./queue-params-settings";
+import { guardQueueQualityForVram } from "./vram-queue-guard";
+import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
 
 export type PromptRecipeStep =
   | "generate"
@@ -90,8 +92,30 @@ export async function runPromptRecipeSteps(
     }
     if (step === "queue") {
       const comfyModel = model as ComfyImageModel;
-      const runtime = resolveRuntimeForQueue(comfyModel, "recipe");
-      const params = resolveQueueParams({ model: comfyModel, tool: "recipe" });
+      const baseRuntime = resolveRuntimeForQueue(comfyModel, "recipe");
+      const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+      const runtime = vramGuard.runtime ?? baseRuntime;
+      const params = resolveQueueParams({
+        model: comfyModel,
+        tool: "recipe",
+        qualityProfile: vramGuard.profile,
+      });
+      const held = await maybeHoldMaxGenerateJobs({
+        profile: vramGuard.profile,
+        jobs: [
+          {
+            prompt: current,
+            model: comfyModel,
+            tool: "recipe",
+            params,
+            comfy: runtime,
+          },
+        ],
+      });
+      if (held.held) {
+        log.push("Held Max until ComfyUI queue is idle");
+        continue;
+      }
       const response = await fetch("/api/comfyui", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -221,6 +221,9 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Gallery embedding search** — semantic and find-similar use `/api/search/embeddings` when available
 - **Workflow preset pack builder** — add workflows or settings snapshots to packs; install packs into library
 - **Queue orchestration panel** — home/gallery view of ComfyUI server queue, VRAM, and local tracked jobs
+- **VRAM-aware Max → Final** — when free VRAM is under ~6 GB, Max queues downgrade to Final (status chip + gallery enhance)
+- **Hold Max until idle** — optional park for Max Generate / re-queue / Upscale / Moiré / Refine / batches until ComfyUI is empty; flush from Orchestration
+- **Sampler memory** — 4–5★ gallery ratings remember per-model CFG/steps/sampler/scheduler (Settings → Sampler memory)
 - **Server storage pull** — Settings advanced panel restores server namespaces into the app database
 - **IP-Adapter multi-ref merge** — Image tool roles + per-reference strength influence (`/api/image-prompt/multi`)
 - **ControlNet from image** — upload reference for vision-assisted structure extraction on `/controlnet`

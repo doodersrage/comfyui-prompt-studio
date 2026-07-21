@@ -6,6 +6,8 @@ import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
+import { guardQueueQualityForVram } from "./vram-queue-guard";
+import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
 
 export type ModelPortfolioItem = {
   model: ComfyImageModel;
@@ -59,13 +61,16 @@ export async function queueModelPortfolio(input: {
   items: ModelPortfolioItem[];
   hints?: string;
   tool?: string;
-}): Promise<number> {
+}): Promise<{ queued: number; held: number }> {
   let queued = 0;
+  let held = 0;
   for (const item of input.items) {
     if (!item.prompt.trim()) {
       continue;
     }
-    const runtime = resolveRuntimeForQueue(item.model, input.tool ?? "portfolio");
+    const baseRuntime = resolveRuntimeForQueue(item.model, input.tool ?? "portfolio");
+    const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+    const runtime = vramGuard.runtime ?? baseRuntime;
     const negativePrompt = await resolveQueueNegativePrompt({
       model: item.model,
       hints: input.hints,
@@ -74,7 +79,25 @@ export async function queueModelPortfolio(input: {
     const params = resolveQueueParams({
       model: item.model,
       tool: input.tool ?? "portfolio",
+      qualityProfile: vramGuard.profile,
     });
+    const hold = await maybeHoldMaxGenerateJobs({
+      profile: vramGuard.profile,
+      jobs: [
+        {
+          prompt: item.prompt,
+          negativePrompt,
+          model: item.model,
+          tool: input.tool ?? "portfolio",
+          params,
+          comfy: runtime,
+        },
+      ],
+    });
+    if (hold.held) {
+      held += 1;
+      continue;
+    }
     const response = await fetch("/api/comfyui", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -103,5 +126,5 @@ export async function queueModelPortfolio(input: {
       queued += 1;
     }
   }
-  return queued;
+  return { queued, held };
 }

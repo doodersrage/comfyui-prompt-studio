@@ -46,6 +46,7 @@ describe("model checkpoint map", () => {
     const klein9b = resolveLoaderFilenamesForModel("flux-2-klein-9b");
     assert.equal(klein9b.unet, "flux-2-klein-base-9b.safetensors");
     assert.equal(klein9b.vae, "flux2-vae.safetensors");
+    assert.equal(klein9b.dualClip, "flux2-klein-9b-uncensored.safetensors");
 
     const kleinDistilled = resolveLoaderFilenamesForModel("flux-2-klein-9b-distilled");
     assert.equal(kleinDistilled.unet, "flux-2-klein-9b.safetensors");

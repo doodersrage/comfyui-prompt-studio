@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import type { AmbientIntensity } from "@/lib/ambient-settings";
 import { loadAmbientIntensity, saveAmbientIntensity } from "@/lib/ambient-settings";
-import type { AppTheme } from "@/lib/theme-store";
-import { loadAppTheme, saveAppTheme } from "@/lib/theme-store";
 import type { UiDensity } from "@/lib/density-settings";
 import { loadUiDensity, saveUiDensity } from "@/lib/density-settings";
 import {
@@ -16,10 +14,10 @@ import { pushAppToast } from "@/lib/app-toast";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { Button } from "@/components/ui/Button";
 import { ToolSection } from "@/components/ui/ToolPageShell";
+import ThemePreferenceControl from "@/components/ThemePreferenceControl";
 
 export default function ProfileAppearancePanel() {
   const [ambient, setAmbient] = useState<AmbientIntensity>("subtle");
-  const [theme, setTheme] = useState<AppTheme>("dark");
   const [density, setDensity] = useState<UiDensity>("comfortable");
   const [toastsEnabled, setToastsEnabled] = useState(true);
   const [resetNote, setResetNote] = useState<string | null>(null);
@@ -27,7 +25,6 @@ export default function ProfileAppearancePanel() {
   useEffect(() => {
     scheduleAfterCommit(() => {
       setAmbient(loadAmbientIntensity());
-      setTheme(loadAppTheme());
       setDensity(loadUiDensity());
       setToastsEnabled(loadToastPreferenceEnabled());
     });
@@ -35,22 +32,9 @@ export default function ProfileAppearancePanel() {
 
   return (
     <ToolSection title="Appearance">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <label className="space-y-2 text-sm">
-          <span className="type-caption text-[var(--text-muted)]">Theme</span>
-          <select
-            value={theme}
-            onChange={(event) => {
-              const next = event.target.value as AppTheme;
-              setTheme(next);
-              saveAppTheme(next);
-            }}
-            className="ui-input w-full"
-          >
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
-        </label>
+      <ThemePreferenceControl />
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm">
           <span className="type-caption text-[var(--text-muted)]">Ambient background</span>
           <select

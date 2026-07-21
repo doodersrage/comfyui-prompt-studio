@@ -4,7 +4,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { CollapsibleSection } from "@/components/ui/ToolPageShell";
 import { loadPromptRecipes, runPromptRecipeSteps, type PromptRecipe } from "@/lib/prompt-recipes";
-import { queueSameSeedShootout, DEFAULT_SHOOTOUT_MODELS } from "@/lib/model-shootout";
+import {
+  queueSameSeedShootout,
+  queueFamilySameSeedShootout,
+  DEFAULT_SHOOTOUT_MODELS,
+} from "@/lib/model-shootout";
+import { modelsInSameFamily } from "@/lib/model-workflow-map";
+import { toastHeldMax } from "@/lib/app-toast";
 
 type ResultQuickActionsProps = {
   prompt: string;
@@ -41,12 +47,50 @@ export default function ResultQuickActions({
       models: DEFAULT_SHOOTOUT_MODELS.map((entry) => entry.model),
       seed: resolvedSeed,
     });
+    if (result.held > 0) {
+      toastHeldMax({
+        text: "Max shootout jobs held until ComfyUI is idle",
+        count: result.held,
+      });
+    }
     setStatus(
-      result.errors.length > 0
-        ? `Queued ${result.queued} · ${result.errors[0]}`
-        : `Queued ${result.queued} models (seed ${resolvedSeed}).`,
+      [
+        `Queued ${result.queued}`,
+        result.held > 0 ? `held ${result.held}` : null,
+        result.errors.length > 0 ? result.errors[0] : `seed ${resolvedSeed}`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
     );
   }
+
+  async function runFamilyShootout() {
+    setStatus("Queueing family shootout…");
+    const resolvedSeed = seed ?? Math.floor(Math.random() * 1_000_000);
+    const result = await queueFamilySameSeedShootout({
+      prompt: prompt.trim(),
+      negativePrompt,
+      model,
+      seed: resolvedSeed,
+    });
+    if (result.held > 0) {
+      toastHeldMax({
+        text: "Max family shootout held until ComfyUI is idle",
+        count: result.held,
+      });
+    }
+    setStatus(
+      [
+        `Queued ${result.queued}`,
+        result.held > 0 ? `held ${result.held}` : null,
+        result.errors.length > 0 ? result.errors[0] : `seed ${resolvedSeed}`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    );
+  }
+
+  const familyPeerCount = modelsInSameFamily(model).length;
 
   return (
     <CollapsibleSection
@@ -60,6 +104,11 @@ export default function ResultQuickActions({
         <Button variant="secondary" size="sm" onClick={() => void runShootout()}>
           Same-seed shootout
         </Button>
+        {familyPeerCount > 1 ? (
+          <Button variant="secondary" size="sm" onClick={() => void runFamilyShootout()}>
+            Family shootout
+          </Button>
+        ) : null}
         {recipes.map((recipe) => (
           <Button key={recipe.id} variant="ghost" size="sm" onClick={() => void runRecipe(recipe)}>
             {recipe.name}

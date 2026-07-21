@@ -1,6 +1,9 @@
 import {
   DEFAULT_CFG_TOKEN,
   DEFAULT_DENOISE_TOKEN,
+  DEFAULT_FLUX_BASE_SHIFT_TOKEN,
+  DEFAULT_FLUX_MAX_SHIFT_TOKEN,
+  DEFAULT_HEIGHT_TOKEN,
   DEFAULT_INPUT_IMAGE_TOKEN,
   DEFAULT_NEGATIVE_TOKEN,
   DEFAULT_POSITIVE_TOKEN,
@@ -11,6 +14,7 @@ import {
   DEFAULT_STEPS_TOKEN,
   DEFAULT_UNET_TOKEN,
   DEFAULT_VAE_TOKEN,
+  DEFAULT_WIDTH_TOKEN,
 } from "./comfyui-config";
 import {
   getComfyModelDefinition,
@@ -23,6 +27,7 @@ import {
 } from "./model-loader-precision";
 import type { QueueQualityProfile } from "./queue-quality-profile";
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
+import { resolveLoaderFilenamesForModel } from "./model-checkpoint-map";
 
 export const GALLERY_REFINE_DENOISE: Record<"final" | "max", number> = {
   final: 0.22,
@@ -170,6 +175,105 @@ function buildCheckpointGalleryRefineWorkflow(
   return workflow;
 }
 
+function fluxKleinDualClipFilename(model: string): string {
+  const loaders = resolveLoaderFilenamesForModel(model);
+  if (loaders.dualClip?.trim()) {
+    return loaders.dualClip.trim();
+  }
+  if (/9b/i.test(model)) {
+    return "flux2-klein-9b-uncensored.safetensors";
+  }
+  return "flux2-klein-4b.safetensors";
+}
+
+/** Klein uses UNET + DualCLIP + VAE + ModelSamplingFlux — not CheckpointLoaderSimple. */
+function buildFluxKleinGalleryRefineWorkflow(
+  model: string,
+): Record<string, WorkflowNode> {
+  const clipName = fluxKleinDualClipFilename(model);
+  return {
+    "1": {
+      class_type: "UNETLoader",
+      inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: "default" },
+      _meta: { title: "Prompt Studio — UNET" },
+    },
+    "2": {
+      class_type: "DualCLIPLoader",
+      inputs: {
+        clip_name1: clipName,
+        clip_name2: clipName,
+        type: "flux",
+      },
+      _meta: { title: "Prompt Studio — DualCLIP" },
+    },
+    "3": {
+      class_type: "VAELoader",
+      inputs: { vae_name: DEFAULT_VAE_TOKEN },
+      _meta: { title: "Prompt Studio — VAE" },
+    },
+    "4": {
+      class_type: "LoadImage",
+      inputs: { image: DEFAULT_INPUT_IMAGE_TOKEN },
+      _meta: { title: "Prompt Studio — gallery output" },
+    },
+    "5": {
+      class_type: "VAEEncode",
+      inputs: { pixels: ["4", 0], vae: ["3", 0] },
+      _meta: { title: "Prompt Studio — encode input" },
+    },
+    "6": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: DEFAULT_POSITIVE_TOKEN, clip: ["2", 0] },
+      _meta: { title: "Prompt Studio — positive" },
+    },
+    "7": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: DEFAULT_NEGATIVE_TOKEN, clip: ["2", 0] },
+      _meta: { title: "Prompt Studio — negative" },
+    },
+    "8": {
+      class_type: "ModelSamplingFlux",
+      inputs: {
+        model: ["1", 0],
+        max_shift: DEFAULT_FLUX_MAX_SHIFT_TOKEN,
+        base_shift: DEFAULT_FLUX_BASE_SHIFT_TOKEN,
+        width: DEFAULT_WIDTH_TOKEN,
+        height: DEFAULT_HEIGHT_TOKEN,
+      },
+      _meta: { title: "Prompt Studio — ModelSamplingFlux" },
+    },
+    "9": {
+      class_type: "KSampler",
+      inputs: {
+        seed: DEFAULT_SEED_TOKEN,
+        steps: DEFAULT_STEPS_TOKEN,
+        cfg: DEFAULT_CFG_TOKEN,
+        sampler_name: DEFAULT_SAMPLER_TOKEN,
+        scheduler: DEFAULT_SCHEDULER_TOKEN,
+        denoise: DEFAULT_DENOISE_TOKEN,
+        model: ["8", 0],
+        positive: ["6", 0],
+        negative: ["7", 0],
+        latent_image: ["5", 0],
+      },
+      _meta: { title: "Prompt Studio — refine sampler" },
+    },
+    "10": {
+      class_type: "VAEDecode",
+      inputs: { samples: ["9", 0], vae: ["3", 0] },
+      _meta: { title: "Prompt Studio — decode" },
+    },
+    "11": {
+      class_type: "SaveImage",
+      inputs: {
+        filename_prefix: "PromptStudio-refine",
+        images: ["10", 0],
+      },
+      _meta: { title: "Prompt Studio — save" },
+    },
+  };
+}
+
 function buildQwenGalleryRefineWorkflow(): Record<string, WorkflowNode> {
   const tier = defaultLoaderPrecisionTier();
   const clipName = qwenDualClipFilename(tier);
@@ -253,7 +357,11 @@ function buildQwenGalleryRefineWorkflow(): Record<string, WorkflowNode> {
 export function buildGalleryRefineWorkflow(
   model: ComfyImageModel | string = "qwen-image-2512",
 ): Record<string, WorkflowNode> {
-  const definition = getComfyModelDefinition(normalizeComfyModel(model));
+  const normalized = normalizeComfyModel(model);
+  if (/^flux-2-klein/i.test(String(normalized))) {
+    return buildFluxKleinGalleryRefineWorkflow(String(normalized));
+  }
+  const definition = getComfyModelDefinition(normalized);
   if (definition.category === "qwen") {
     return buildQwenGalleryRefineWorkflow();
   }

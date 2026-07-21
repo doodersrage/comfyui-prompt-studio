@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { featureForPath } from "@/lib/auth/features";
 import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
 import NotificationBell from "@/components/NotificationBell";
+import ThemePreferenceControl from "@/components/ThemePreferenceControl";
 import { BUILTIN_TOOL_PLUGINS, type ToolPlugin } from "@/lib/tool-plugin-registry";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { prefetchGalleryPage } from "@/lib/gallery-warmup";
@@ -347,6 +348,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="space-y-3 border-t border-[var(--border-subtle)] px-2 pt-4">
+        <div className="px-1">
+          <ThemePreferenceControl showHint={false} />
+        </div>
         <div className="flex justify-end px-1">
           <NotificationBell />
         </div>

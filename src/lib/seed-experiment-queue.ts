@@ -9,6 +9,8 @@ import { injectLoraTriggers } from "./lora-prompt-injection";
 import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
 import { modelUsesNegativePrompt } from "./prompt-pair";
+import { guardQueueQualityForVram } from "./vram-queue-guard";
+import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
 
 export async function queueSeedExperiment(input: {
   prompt: string;
@@ -18,10 +20,12 @@ export async function queueSeedExperiment(input: {
   tool?: string;
   count?: number;
   sharedSeed?: string;
-}): Promise<{ queued: number; seeds: string[] }> {
+}): Promise<{ queued: number; held: number; seeds: string[] }> {
   const model = input.model as ComfyImageModel;
   const count = Math.min(12, Math.max(2, input.count ?? 4));
-  const runtime = resolveRuntimeForQueue(model, input.tool ?? "seed-experiment");
+  const baseRuntime = resolveRuntimeForQueue(model, input.tool ?? "seed-experiment");
+  const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+  const runtime = vramGuard.runtime ?? baseRuntime;
   const prompt = injectLoraTriggers(input.prompt.trim());
 
   let negativePrompt = input.negativePrompt?.trim();
@@ -35,6 +39,7 @@ export async function queueSeedExperiment(input: {
 
   const seeds: string[] = [];
   let queued = 0;
+  let held = 0;
   const projectId = loadActiveProjectId();
 
   for (let index = 0; index < count; index += 1) {
@@ -43,7 +48,29 @@ export async function queueSeedExperiment(input: {
         ? input.sharedSeed
         : String(Math.floor(Math.random() * 2 ** 32) + index);
     seeds.push(seed);
-    const params = resolveQueueParams({ model, base: { seed } });
+    const params = resolveQueueParams({
+      model,
+      base: { seed },
+      qualityProfile: vramGuard.profile,
+    });
+
+    const hold = await maybeHoldMaxGenerateJobs({
+      profile: vramGuard.profile,
+      jobs: [
+        {
+          prompt,
+          negativePrompt,
+          model,
+          tool: input.tool ?? "seed-experiment",
+          params,
+          comfy: runtime,
+        },
+      ],
+    });
+    if (hold.held) {
+      held += 1;
+      continue;
+    }
 
     const response = await fetch("/api/comfyui", {
       method: "POST",
@@ -78,5 +105,5 @@ export async function queueSeedExperiment(input: {
     queued += 1;
   }
 
-  return { queued, seeds };
+  return { queued, held, seeds };
 }

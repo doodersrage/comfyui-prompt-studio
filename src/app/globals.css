@@ -2,6 +2,7 @@
 
 /* ─── Design tokens ─────────────────────────────────────────────────────── */
 :root {
+  color-scheme: dark;
   /* Neutral base — crisp, never pure black */
   --bg-base: #0c0c10;
   --bg-elevated: rgb(20 20 26 / 0.72);
@@ -567,6 +568,7 @@ html[data-density="compact"] {
 }
 
 html[data-theme="light"] {
+  color-scheme: light;
   --bg-base: #f3f4f8;
   --bg-elevated: rgb(255 255 255 / 0.82);
   --bg-muted: rgb(255 255 255 / 0.94);

@@ -174,11 +174,21 @@ export function formatQueueQualityProfileHint(
         : " · Draft (no Lanczos) · CFG-1 short negatives";
   } else if (profileUsesUpscaleEnrich(profile)) {
     const targetScale = upscaleScaleForProfile(profile, { model });
-    upscaleNote = options?.neuralUpscaleAvailable
-      ? profileUsesNeuralUpscalePolish(profile)
+    const usesNeural =
+      options?.neuralUpscaleAvailable &&
+      profileUsesNeuralUpscaleEnrich(profile, { model });
+    if (usesNeural) {
+      upscaleNote = profileUsesNeuralUpscalePolish(profile, { model })
         ? ` · UpscaleModel → ~${targetScale}× (area) + Lanczos polish`
-        : ` · UpscaleModel → ~${targetScale}× (area)`
-      : " · Lanczos upscale";
+        : ` · UpscaleModel → ~${targetScale}× (area)`;
+    } else if (
+      /^qwen-image-2512$/i.test(model) &&
+      normalizeQueueQualityProfile(profile) === "final"
+    ) {
+      upscaleNote = " · Lanczos upscale (chroma guard)";
+    } else {
+      upscaleNote = " · Lanczos upscale";
+    }
   }
 
   const refinerNote =
@@ -193,7 +203,8 @@ export function formatQueueQualityProfileHint(
     !isRapid &&
     !isLightning &&
     profile === "max" &&
-    options?.neuralUpscaleAvailable
+    options?.neuralUpscaleAvailable &&
+    profileUsesNeuralUpscaleEnrich(profile, { model })
       ? " · opt-in sharpen"
       : "";
 
@@ -240,13 +251,23 @@ export function formatQueuePipelineStatusNotes(input: {
   model?: string;
   qualityProfile?: QueueQualityProfile;
   tool?: string;
+  /** When Max was downgraded to Final due to free VRAM. */
+  vramDowngraded?: boolean;
+  /** When 4–5★ remembered sampler params are active for this model. */
+  samplerMemory?: boolean;
 }): string[] {
   const model = String(input.model ?? "").trim();
   const profile = normalizeQueueQualityProfile(input.qualityProfile);
   const notes: string[] = [];
 
-  if (profile === "final" || profile === "max" || profile === "draft") {
+  if (input.vramDowngraded) {
+    notes.push("Max → Final (VRAM)");
+  } else if (profile === "final" || profile === "max" || profile === "draft") {
     notes.push(`${profile} quality`);
+  }
+
+  if (input.samplerMemory) {
+    notes.push("sampler memory");
   }
 
   if (/^qwen-rapid-aio-/i.test(model)) {
@@ -426,6 +447,14 @@ export function profileUsesNeuralUpscaleEnrich(
     return false;
   }
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
+    return false;
+  }
+  // Vanilla 2512 Final: Lanczos only — neural 4× can push chroma/saturation hard.
+  if (
+    options?.model &&
+    /^qwen-image-2512$/i.test(options.model) &&
+    normalizeQueueQualityProfile(profile) === "final"
+  ) {
     return false;
   }
   return true;

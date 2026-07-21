@@ -4,7 +4,10 @@ import type { ComfyImageModel } from "./comfy-models/client";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
+import { modelsInSameFamily } from "./model-workflow-map";
 import { resolveQueueParams } from "./queue-params-settings";
+import { guardQueueQualityForVram } from "./vram-queue-guard";
+import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
 
 export type ShootoutModel = {
   model: string;
@@ -23,20 +26,41 @@ export async function queueSameSeedShootout(input: {
   negativePrompt?: string;
   models: string[];
   seed: number;
-}): Promise<{ queued: number; errors: string[] }> {
+}): Promise<{ queued: number; held: number; errors: string[] }> {
   const errors: string[] = [];
   let queued = 0;
+  let heldCount = 0;
   const seed = String(input.seed);
 
   for (const modelId of input.models) {
     try {
       const model = modelId as ComfyImageModel;
-      const runtime = resolveRuntimeForQueue(model, "shootout");
+      const baseRuntime = resolveRuntimeForQueue(model, "shootout");
+      const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+      const runtime = vramGuard.runtime ?? baseRuntime;
       const params = resolveQueueParams({
         model,
         tool: "shootout",
         base: { seed },
+        qualityProfile: vramGuard.profile,
       });
+      const held = await maybeHoldMaxGenerateJobs({
+        profile: vramGuard.profile,
+        jobs: [
+          {
+            prompt: input.prompt,
+            negativePrompt: input.negativePrompt,
+            model: modelId,
+            tool: "shootout",
+            params,
+            comfy: runtime,
+          },
+        ],
+      });
+      if (held.held) {
+        heldCount += 1;
+        continue;
+      }
       const response = await fetch("/api/comfyui", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,5 +99,30 @@ export async function queueSameSeedShootout(input: {
     }
   }
 
-  return { queued, errors };
+  return { queued, held: heldCount, errors };
+}
+
+/** Same-seed shootout across sibling presets (e.g. vanilla + Lightning 4/8). */
+export async function queueFamilySameSeedShootout(input: {
+  prompt: string;
+  negativePrompt?: string;
+  model: string;
+  seed: number;
+}): Promise<{ queued: number; held: number; errors: string[]; models: string[] }> {
+  const models = modelsInSameFamily(input.model).map(String);
+  if (models.length === 0) {
+    return {
+      queued: 0,
+      held: 0,
+      errors: [`No family peers for ${input.model}`],
+      models: [],
+    };
+  }
+  const result = await queueSameSeedShootout({
+    prompt: input.prompt,
+    negativePrompt: input.negativePrompt,
+    models,
+    seed: input.seed,
+  });
+  return { ...result, models };
 }

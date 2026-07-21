@@ -113,17 +113,18 @@ async function runFallbackHighRatingImprove(
   priorNote?: string,
 ): Promise<string | null> {
   if (settings.autoMutateOnHighRating) {
-    const queued = await queueMutatedGalleryJobs({
+    const { queued, held } = await queueMutatedGalleryJobs({
       entry,
       kinds: ["variation", "location", "wardrobe"],
       count: 3,
     });
     const prefix = priorNote ? `${priorNote}; ` : "Auto-improve: ";
-    return `${prefix}queued ${queued} mutations for ${rating}★ output.`;
+    const heldNote = held > 0 ? ` · held ${held} Max` : "";
+    return `${prefix}queued ${queued} mutations for ${rating}★ output${heldNote}.`;
   }
 
   if (settings.autoSeedExperimentOnHighRating) {
-    const { queued } = await queueSeedExperiment({
+    const { queued, held } = await queueSeedExperiment({
       prompt: entry.prompt,
       model: entry.model ?? "qwen-image-2512",
       negativePrompt: entry.negativePrompt,
@@ -131,7 +132,8 @@ async function runFallbackHighRatingImprove(
       count: 4,
     });
     const prefix = priorNote ? `${priorNote}; ` : "Auto-improve: ";
-    return `${prefix}queued ${queued} seed experiments for ${rating}★ output.`;
+    const heldNote = held > 0 ? ` · held ${held} Max` : "";
+    return `${prefix}queued ${queued} seed experiments for ${rating}★ output${heldNote}.`;
   }
 
   return priorNote ? `${priorNote}.` : null;
@@ -233,12 +235,13 @@ export async function runAutoImproveOnFavorite(
     return null;
   }
 
-  const { queued } = await queueSeedExperiment({
+  const { queued, held } = await queueSeedExperiment({
     prompt: entry.prompt,
     model: entry.model ?? "qwen-image-2512",
     negativePrompt: entry.negativePrompt,
     hints: entry.prompt.slice(0, 200),
     count: 3,
   });
-  return `Auto-improve: queued ${queued} seed experiments for favorite.`;
+  const heldNote = held > 0 ? ` · held ${held} Max` : "";
+  return `Auto-improve: queued ${queued} seed experiments for favorite${heldNote}.`;
 }

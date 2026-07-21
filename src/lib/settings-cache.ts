@@ -109,6 +109,15 @@ export type SharedToolSettings = {
   compactDraftSaves?: boolean;
   /** Overrides sidebar sampler/resolution when queueing (draft / final / max). */
   queueQualityProfile?: QueueQualityProfile;
+  /**
+   * Session intent shortcuts: Iterate → Draft, Keeper → Final.
+   * Cleared when the user picks Max / Follow settings manually.
+   */
+  sessionQueueMode?: "iterate" | "keeper" | "off";
+  /** When true, Max gallery Upscale/Moiré jobs wait until ComfyUI queue is idle. */
+  holdMaxUntilIdle?: boolean;
+  /** Per-model sampler params learned from 4–5★ gallery ratings. */
+  modelSamplerMemory?: import("./sampler-memory").ModelSamplerMemoryMap;
   /** Per-tool queue quality overrides (tool id → profile). */
   toolQueueQualityProfiles?: import("./tool-quality-profiles").ToolQueueQualityProfiles;
   /** Per-model checkpoint filename overrides for loader patching (modelId=filename). */
@@ -410,6 +419,9 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   neuralUpscaleTileSize: 512,
   useLibraryUpscaleWorkflow: false,
   queueQualityProfile: "followSettings",
+  sessionQueueMode: "off",
+  holdMaxUntilIdle: false,
+  modelSamplerMemory: {},
   toolQueueQualityProfiles: SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
   modelCheckpointMap: {},
   modelVaeMap: {},

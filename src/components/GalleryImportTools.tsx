@@ -18,6 +18,7 @@ import {
   sidecarRequeueContext,
   type PromptSidecar,
 } from "@/lib/prompt-sidecar";
+import { toastHeldMax } from "@/lib/app-toast";
 import { Button } from "@/components/ui/Button";
 import QueueOrchestrationPanel from "@/components/QueueOrchestrationPanel";
 
@@ -104,6 +105,12 @@ export default function GalleryImportTools() {
                   storedQualityProfile: requeue.queueQualityProfile,
                   newSeed: false,
                   onStatus: setImportStatus,
+                }).then((result) => {
+                  if (result.ok && result.held) {
+                    const message = "Max re-queue held until ComfyUI queue is idle";
+                    setImportStatus(message);
+                    toastHeldMax({ text: message });
+                  }
                 });
               }}
             >
@@ -127,6 +134,12 @@ export default function GalleryImportTools() {
                   storedQualityProfile: requeue.queueQualityProfile,
                   newSeed: true,
                   onStatus: setImportStatus,
+                }).then((result) => {
+                  if (result.ok && result.held) {
+                    const message = "Max re-queue held until ComfyUI queue is idle";
+                    setImportStatus(message);
+                    toastHeldMax({ text: message });
+                  }
                 });
               }}
             >
@@ -142,6 +155,12 @@ export default function GalleryImportTools() {
                     void requeueUpscaleFromGalleryEntry(pseudoEntry, {
                       qualityProfile: "final",
                       onStatus: setImportStatus,
+                    }).then((result) => {
+                      if (result.ok && result.held) {
+                        const message = "Max upscale held until ComfyUI queue is idle";
+                        setImportStatus(message);
+                        toastHeldMax({ text: message });
+                      }
                     });
                   }}
                 >
@@ -155,6 +174,12 @@ export default function GalleryImportTools() {
                     void requeueUpscaleFromGalleryEntry(pseudoEntry, {
                       qualityProfile: "max",
                       onStatus: setImportStatus,
+                    }).then((result) => {
+                      if (result.ok && result.held) {
+                        const message = "Max upscale held until ComfyUI queue is idle";
+                        setImportStatus(message);
+                        toastHeldMax({ text: message });
+                      }
                     });
                   }}
                 >
@@ -167,6 +192,12 @@ export default function GalleryImportTools() {
                     setImportStatus("Queueing low-denoise refine…");
                     void requeueRefineFromGalleryEntry(pseudoEntry, {
                       onStatus: setImportStatus,
+                    }).then((result) => {
+                      if (result.ok && result.held) {
+                        const message = "Max refine held until ComfyUI queue is idle";
+                        setImportStatus(message);
+                        toastHeldMax({ text: message });
+                      }
                     });
                   }}
                 >

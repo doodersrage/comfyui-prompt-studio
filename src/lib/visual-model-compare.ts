@@ -7,12 +7,15 @@ import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
 import type { ComfyImageModel } from "./comfy-models/client";
 import { galleryEntryPrimaryViewUrl } from "./comfyui-gallery";
+import { guardQueueQualityForVram } from "./vram-queue-guard";
+import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
 
 export type VisualCompareResult = {
   model: string;
   prompt: string;
   promptId?: string;
   previewUrl?: string | null;
+  held?: boolean;
   error?: string;
 };
 
@@ -28,7 +31,9 @@ export async function runVisualModelCompare(input: {
     input.seed?.trim() || String(Math.floor(Math.random() * 2 ** 32));
 
   async function queueOne(model: ComfyImageModel): Promise<VisualCompareResult> {
-    const runtime = resolveRuntimeForQueue(model, "studio-compare");
+    const baseRuntime = resolveRuntimeForQueue(model, "studio-compare");
+    const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+    const runtime = vramGuard.runtime ?? baseRuntime;
     const negativePrompt = await resolveQueueNegativePrompt({
       model,
       hints: input.hints ?? input.prompt.slice(0, 200),
@@ -39,7 +44,29 @@ export async function runVisualModelCompare(input: {
       model,
       tool: "studio-compare",
       base: { seed },
+      qualityProfile: vramGuard.profile,
     });
+
+    const held = await maybeHoldMaxGenerateJobs({
+      profile: vramGuard.profile,
+      jobs: [
+        {
+          prompt: input.prompt.trim(),
+          negativePrompt,
+          model,
+          tool: "studio-compare",
+          params,
+          comfy: runtime,
+        },
+      ],
+    });
+    if (held.held) {
+      return {
+        model,
+        prompt: input.prompt,
+        held: true,
+      };
+    }
 
     const response = await fetch("/api/comfyui", {
       method: "POST",

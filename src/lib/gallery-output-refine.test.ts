@@ -32,4 +32,14 @@ describe("gallery-output-refine", () => {
     assert.equal(Object.values(workflow).some((node) => node.class_type === "CheckpointLoaderSimple"), true);
     assert.equal(Object.values(workflow).some((node) => node.class_type === "VAEEncode"), true);
   });
+
+  it("builds Flux Klein refine with UNET + DualCLIP + ModelSamplingFlux", () => {
+    const workflow = buildGalleryRefineWorkflow("flux-2-klein-9b");
+    const classTypes = Object.values(workflow).map((node) => node.class_type);
+    assert.equal(classTypes.includes("UNETLoader"), true);
+    assert.equal(classTypes.includes("DualCLIPLoader"), true);
+    assert.equal(classTypes.includes("ModelSamplingFlux"), true);
+    assert.equal(classTypes.includes("CheckpointLoaderSimple"), false);
+    assert.equal(classTypes.includes("ModelSamplingAuraFlow"), false);
+  });
 });

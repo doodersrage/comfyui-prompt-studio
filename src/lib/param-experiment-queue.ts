@@ -13,6 +13,8 @@ import { loadActiveProjectId } from "./prompt-projects";
 import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
 import { modelUsesNegativePrompt } from "./prompt-pair";
+import { guardQueueQualityForVram } from "./vram-queue-guard";
+import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
 
 export type ParamExperimentAxis = "seed" | "cfg" | "steps" | "width";
 
@@ -29,7 +31,12 @@ export async function queueParamExperiment(input: {
   axis?: ParamExperimentAxis;
   count?: number;
   values?: string[];
-}): Promise<{ queued: number; labels: string[]; redirectedAxis?: ParamExperimentAxis }> {
+}): Promise<{
+  queued: number;
+  held: number;
+  labels: string[];
+  redirectedAxis?: ParamExperimentAxis;
+}> {
   const model = input.model as ComfyImageModel;
   let axis = input.axis ?? "cfg";
   let redirectedAxis: ParamExperimentAxis | undefined;
@@ -41,9 +48,13 @@ export async function queueParamExperiment(input: {
   }
 
   const count = Math.min(8, Math.max(2, input.count ?? 4));
-  const runtime = resolveRuntimeForQueue(model, "param-experiment");
+  const baseRuntime = resolveRuntimeForQueue(model, "param-experiment");
+  const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+  const runtime = vramGuard.runtime ?? baseRuntime;
   const prompt = injectLoraTriggers(input.prompt.trim());
-  const base = input.baseParams ?? resolveQueueParams({ model });
+  const base =
+    input.baseParams ??
+    resolveQueueParams({ model, qualityProfile: vramGuard.profile });
   const projectId = loadActiveProjectId();
 
   let negativePrompt = input.negativePrompt?.trim();
@@ -73,6 +84,7 @@ export async function queueParamExperiment(input: {
   );
   const labels: string[] = [];
   let queued = 0;
+  let held = 0;
 
   for (let index = 0; index < values.length; index += 1) {
     const value = values[index]!;
@@ -102,6 +114,24 @@ export async function queueParamExperiment(input: {
           ? `size=${params.width}x${params.height}`
           : `${axis}=${value}`,
     );
+
+    const hold = await maybeHoldMaxGenerateJobs({
+      profile: vramGuard.profile,
+      jobs: [
+        {
+          prompt,
+          negativePrompt,
+          model,
+          tool: "param-experiment",
+          params,
+          comfy: runtime,
+        },
+      ],
+    });
+    if (hold.held) {
+      held += 1;
+      continue;
+    }
 
     const response = await fetch("/api/comfyui", {
       method: "POST",
@@ -136,5 +166,5 @@ export async function queueParamExperiment(input: {
     queued += 1;
   }
 
-  return { queued, labels, redirectedAxis };
+  return { queued, held, labels, redirectedAxis };
 }

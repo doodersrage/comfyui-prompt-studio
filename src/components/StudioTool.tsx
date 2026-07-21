@@ -15,7 +15,7 @@ import {
 } from "@/hooks/usePromptHistory";
 import { DEFAULT_STUDIO_TOOL_CACHE } from "@/lib/settings-cache";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { toastBulkQueueSummary, toastQueueOutcome } from "@/lib/app-toast";
+import { toastBulkQueueSummary, toastHeldMax, toastQueueOutcome } from "@/lib/app-toast";
 import {
   filterHistoryEntries,
   uniqueHistoryModels,
@@ -651,7 +651,18 @@ export default function StudioTool() {
       });
       setVisualA(result.a);
       setVisualB(result.b);
-      setVisualCompareStatus("Visual compare finished.");
+      const heldCount = [result.a, result.b].filter((side) => side.held).length;
+      if (heldCount > 0) {
+        toastHeldMax({
+          text: "Max visual compare held until ComfyUI is idle",
+          count: heldCount,
+        });
+        setVisualCompareStatus(
+          `Visual compare · held ${heldCount} Max until idle`,
+        );
+      } else {
+        setVisualCompareStatus("Visual compare finished.");
+      }
     } catch (err) {
       setVisualCompareStatus(
         err instanceof Error ? err.message : "Visual compare failed.",
@@ -1147,6 +1158,12 @@ export default function StudioTool() {
                         toastQueueOutcome({ ok: false, text: result.error ?? "Re-queue failed." });
                         return;
                       }
+                      if (result.held) {
+                        const message = "Max re-queue held until ComfyUI queue is idle";
+                        setBackupStatus(message);
+                        toastHeldMax({ text: message });
+                        return;
+                      }
                       const message = [
                           "queued from history",
                           result.promptId ? `prompt_id ${result.promptId}` : null,
@@ -1176,6 +1193,12 @@ export default function StudioTool() {
                         toastQueueOutcome({ ok: false, text: result.error ?? "Upscale failed." });
                         return;
                       }
+                      if (result.held) {
+                        const message = "Max upscale held until ComfyUI queue is idle";
+                        setBackupStatus(message);
+                        toastHeldMax({ text: message });
+                        return;
+                      }
                       const message = result.promptId
                         ? `Upscale queued · ${result.promptId}`
                         : "Upscale queued";
@@ -1198,6 +1221,12 @@ export default function StudioTool() {
                       if (!result.ok) {
                         setBackupStatus(result.error ?? "Refine failed.");
                         toastQueueOutcome({ ok: false, text: result.error ?? "Refine failed." });
+                        return;
+                      }
+                      if (result.held) {
+                        const message = "Max refine held until ComfyUI queue is idle";
+                        setBackupStatus(message);
+                        toastHeldMax({ text: message });
                         return;
                       }
                       const message = result.promptId
@@ -1454,9 +1483,23 @@ export default function StudioTool() {
                     });
                     setCampaignResults(results);
                     const queued = results.filter((step) => step.queued).length;
+                    const held = results.filter((step) => step.held).length;
+                    const errors = results.filter((step) => step.error).length;
                     setCampaignStatus(
-                      `Campaign finished · ${queued}/${results.length} queued · ${results.filter((step) => step.error).length} errors`,
+                      [
+                        `Campaign finished · ${queued}/${results.length} queued`,
+                        held > 0 ? `${held} held Max` : null,
+                        errors > 0 ? `${errors} errors` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · "),
                     );
+                    if (held > 0) {
+                      toastHeldMax({
+                        text: "Max campaign jobs held until ComfyUI is idle",
+                        count: held,
+                      });
+                    }
                     setGalleryRevision((previous) => previous + 1);
                   } catch (err) {
                     setCampaignStatus(
@@ -1481,6 +1524,7 @@ export default function StudioTool() {
                   <p className="type-caption text-zinc-500">
                     Step {step.index + 1}
                     {step.queued ? " · queued" : ""}
+                    {step.held ? " · held Max until idle" : ""}
                     {step.promptId ? ` · ${step.promptId}` : ""}
                     {step.error ? ` · ${step.error}` : ""}
                   </p>
@@ -2106,28 +2150,49 @@ export default function StudioTool() {
             />
           )}
 
-          {(visualA?.previewUrl || visualB?.previewUrl) && (
+          {(visualA?.previewUrl ||
+            visualB?.previewUrl ||
+            visualA?.held ||
+            visualB?.held ||
+            visualA?.error ||
+            visualB?.error) && (
             <div className="grid gap-4 lg:grid-cols-2">
-              {visualA?.previewUrl ? (
+              {visualA ? (
                 <div className="space-y-2">
                   <p className="text-xs text-zinc-400">Visual · {visualA.model}</p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={visualA.previewUrl}
-                    alt={`Visual compare ${visualA.model}`}
-                    className="w-full rounded-xl border border-zinc-800"
-                  />
+                  {visualA.previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={visualA.previewUrl}
+                      alt={`Visual compare ${visualA.model}`}
+                      className="w-full rounded-xl border border-zinc-800"
+                    />
+                  ) : (
+                    <p className="text-sm text-amber-300/90">
+                      {visualA.held
+                        ? "Held Max until ComfyUI is idle"
+                        : visualA.error ?? "No preview"}
+                    </p>
+                  )}
                 </div>
               ) : null}
-              {visualB?.previewUrl ? (
+              {visualB ? (
                 <div className="space-y-2">
                   <p className="text-xs text-zinc-400">Visual · {visualB.model}</p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={visualB.previewUrl}
-                    alt={`Visual compare ${visualB.model}`}
-                    className="w-full rounded-xl border border-zinc-800"
-                  />
+                  {visualB.previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={visualB.previewUrl}
+                      alt={`Visual compare ${visualB.model}`}
+                      className="w-full rounded-xl border border-zinc-800"
+                    />
+                  ) : (
+                    <p className="text-sm text-amber-300/90">
+                      {visualB.held
+                        ? "Held Max until ComfyUI is idle"
+                        : visualB.error ?? "No preview"}
+                    </p>
+                  )}
                 </div>
               ) : null}
             </div>
@@ -2195,7 +2260,19 @@ export default function StudioTool() {
                     items: portfolioItems,
                     hints: portfolioDraft,
                     tool: "portfolio",
-                  }).then((queued) => setPortfolioStatus(`Queued ${queued} jobs.`)),
+                  }).then((result) => {
+                    if (result.held > 0) {
+                      setPortfolioStatus(
+                        `Queued ${result.queued} · held ${result.held} Max until idle`,
+                      );
+                      toastHeldMax({
+                        text: "Max portfolio jobs held until ComfyUI is idle",
+                        count: result.held,
+                      });
+                      return;
+                    }
+                    setPortfolioStatus(`Queued ${result.queued} jobs.`);
+                  }),
                 );
               }}
             >
@@ -3399,6 +3476,12 @@ function IterationTreeNodeCard({
         toastQueueOutcome({ ok: false, text: result.error ?? "Upscale failed." });
         return;
       }
+      if (result.held) {
+        const message = "Max upscale held until ComfyUI queue is idle";
+        onRequeueStatus(message);
+        toastHeldMax({ text: message });
+        return;
+      }
       const message = result.promptId
         ? `Upscale queued · ${result.promptId}`
         : "Upscale queued";
@@ -3421,6 +3504,12 @@ function IterationTreeNodeCard({
       if (!result.ok) {
         onRequeueStatus(result.error ?? "Refine failed.");
         toastQueueOutcome({ ok: false, text: result.error ?? "Refine failed." });
+        return;
+      }
+      if (result.held) {
+        const message = "Max refine held until ComfyUI queue is idle";
+        onRequeueStatus(message);
+        toastHeldMax({ text: message });
         return;
       }
       const message = result.promptId
@@ -3497,6 +3586,12 @@ function IterationTreeNodeCard({
                 if (!result.ok) {
                   onRequeueStatus(result.error ?? "Re-queue failed.");
                   toastQueueOutcome({ ok: false, text: result.error ?? "Re-queue failed." });
+                  return;
+                }
+                if (result.held) {
+                  const message = "Max re-queue held until ComfyUI queue is idle";
+                  onRequeueStatus(message);
+                  toastHeldMax({ text: message });
                   return;
                 }
                 onRequeueStatus(

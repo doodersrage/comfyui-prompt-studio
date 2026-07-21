@@ -11,6 +11,8 @@ import {
   resolveRequeueImageUrlsFromEntry,
 } from "./queue-requeue-images";
 import { injectLoraTriggers } from "./lora-prompt-injection";
+import { guardQueueQualityForVram } from "./vram-queue-guard";
+import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
 
 export type MutationKind = "variation" | "location" | "wardrobe" | "wildness";
 
@@ -42,13 +44,15 @@ export async function queueMutatedGalleryJobs(input: {
   kinds: MutationKind[];
   values?: Partial<Record<MutationKind, string>>;
   count?: number;
-}): Promise<number> {
+}): Promise<{ queued: number; held: number }> {
   const count = Math.min(6, Math.max(1, input.count ?? input.kinds.length));
   const model = (input.entry.model ?? "qwen-image-2512") as Parameters<
     typeof resolveRuntimeForQueue
   >[0];
   const tool = input.entry.tool ?? "gallery-mutate";
-  const runtime = resolveRuntimeForQueue(model, tool);
+  const baseRuntime = resolveRuntimeForQueue(model, tool);
+  const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+  const runtime = vramGuard.runtime ?? baseRuntime;
   const negativePrompt =
     input.entry.negativePrompt?.trim() ||
     (await resolveQueueNegativePrompt({
@@ -58,6 +62,7 @@ export async function queueMutatedGalleryJobs(input: {
     }));
 
   let queued = 0;
+  let heldCount = 0;
   for (let index = 0; index < count; index += 1) {
     const kind = input.kinds[index % input.kinds.length] ?? "variation";
     const prompt = injectLoraTriggers(
@@ -83,8 +88,26 @@ export async function queueMutatedGalleryJobs(input: {
       model: input.entry.model,
       tool: "gallery-mutate",
       base: refreshedParams,
-      qualityProfile: runtime.queueQualityProfile,
+      qualityProfile: vramGuard.profile,
     });
+
+    const held = await maybeHoldMaxGenerateJobs({
+      profile: vramGuard.profile,
+      jobs: [
+        {
+          prompt,
+          negativePrompt,
+          model: String(model),
+          tool: "gallery-mutate",
+          params,
+          comfy: runtime,
+        },
+      ],
+    });
+    if (held.held) {
+      heldCount += 1;
+      continue;
+    }
 
     const response = await fetch("/api/comfyui", {
       method: "POST",
@@ -126,5 +149,5 @@ export async function queueMutatedGalleryJobs(input: {
     queued += 1;
   }
 
-  return queued;
+  return { queued, held: heldCount };
 }

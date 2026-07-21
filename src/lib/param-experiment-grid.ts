@@ -11,6 +11,8 @@ import { loadActiveProjectId } from "./prompt-projects";
 import { resolveQueueNegativePrompt } from "./queue-negative";
 import { resolveQueueParams } from "./queue-params-settings";
 import { modelUsesNegativePrompt } from "./prompt-pair";
+import { guardQueueQualityForVram } from "./vram-queue-guard";
+import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
 
 export async function queueParamExperimentGrid(input: {
   prompt: string;
@@ -20,21 +22,31 @@ export async function queueParamExperimentGrid(input: {
   baseParams?: WorkflowParamValues;
   cfgValues?: string[];
   stepValues?: string[];
-}): Promise<{ queued: number; cells: string[]; skippedReason?: string }> {
+}): Promise<{
+  queued: number;
+  held: number;
+  cells: string[];
+  skippedReason?: string;
+}> {
   const model = input.model as ComfyImageModel;
 
   if (isQwenLightningModel(model)) {
     return {
       queued: 0,
+      held: 0,
       cells: [],
       skippedReason:
         "Lightning locks CFG and steps — CFG×steps grids are skipped. Use seed experiments instead.",
     };
   }
 
-  const runtime = resolveRuntimeForQueue(model, "param-grid");
+  const baseRuntime = resolveRuntimeForQueue(model, "param-grid");
+  const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
+  const runtime = vramGuard.runtime ?? baseRuntime;
   const prompt = injectLoraTriggers(input.prompt.trim());
-  const base = input.baseParams ?? resolveQueueParams({ model });
+  const base =
+    input.baseParams ??
+    resolveQueueParams({ model, qualityProfile: vramGuard.profile });
   const cfgValues = (input.cfgValues ?? ["6", "7", "8", "9"]).slice(0, 4);
   const stepValues = (input.stepValues ?? ["18", "22", "26", "30"]).slice(0, 4);
   const projectId = loadActiveProjectId();
@@ -50,6 +62,7 @@ export async function queueParamExperimentGrid(input: {
 
   const cells: string[] = [];
   let queued = 0;
+  let held = 0;
 
   for (const cfg of cfgValues) {
     for (const steps of stepValues) {
@@ -60,6 +73,24 @@ export async function queueParamExperimentGrid(input: {
         seed: String(Math.floor(Math.random() * 2 ** 32)),
       };
       cells.push(`cfg=${cfg},steps=${steps}`);
+
+      const hold = await maybeHoldMaxGenerateJobs({
+        profile: vramGuard.profile,
+        jobs: [
+          {
+            prompt,
+            negativePrompt,
+            model,
+            tool: "param-grid",
+            params,
+            comfy: runtime,
+          },
+        ],
+      });
+      if (hold.held) {
+        held += 1;
+        continue;
+      }
 
       const response = await fetch("/api/comfyui", {
         method: "POST",
@@ -95,5 +126,5 @@ export async function queueParamExperimentGrid(input: {
     }
   }
 
-  return { queued, cells };
+  return { queued, held, cells };
 }

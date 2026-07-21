@@ -43,7 +43,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("comfy-app-theme-v1");if(t){document.documentElement.dataset.theme=(t==="light"||t==="\\"light\\"")?"light":"dark";}var a=localStorage.getItem("comfy-ambient-intensity-v1");var ambient="subtle";if(a){var parsed=a.replace(/^"|"$/g,"");if(parsed==="off"||parsed==="subtle"||parsed==="normal"||parsed==="vivid"){ambient=parsed;}}document.documentElement.dataset.ambient=ambient;var d=localStorage.getItem("comfy-ui-density-v1");var density="comfortable";if(d){var dens=d.replace(/^"|"$/g,"");if(dens==="compact"||dens==="comfortable"){density=dens;}}document.documentElement.dataset.density=density;}catch(e){}})();`,
+            __html: `(function(){try{var raw=localStorage.getItem("comfy-app-theme-v1");var pref="auto";if(raw){var t=raw.replace(/^"|"$/g,"");if(t==="light"||t==="dark"||t==="auto"){pref=t;}}var resolved=pref==="auto"?(window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"):pref;document.documentElement.dataset.theme=resolved;document.documentElement.style.colorScheme=resolved;var a=localStorage.getItem("comfy-ambient-intensity-v1");var ambient="subtle";if(a){var parsed=a.replace(/^"|"$/g,"");if(parsed==="off"||parsed==="subtle"||parsed==="normal"||parsed==="vivid"){ambient=parsed;}}document.documentElement.dataset.ambient=ambient;var d=localStorage.getItem("comfy-ui-density-v1");var density="comfortable";if(d){var dens=d.replace(/^"|"$/g,"");if(dens==="compact"||dens==="comfortable"){density=dens;}}document.documentElement.dataset.density=density;}catch(e){}})();`,
           }}
         />
       </head>

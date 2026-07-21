@@ -69,10 +69,24 @@ export default function ModelShootoutPanel() {
             models,
             seed: Number(seed) || 0,
           }).then((result) => {
+            if (result.held > 0) {
+              void import("@/lib/app-toast").then(({ toastHeldMax }) =>
+                toastHeldMax({
+                  text: "Max shootout jobs held until ComfyUI is idle",
+                  count: result.held,
+                }),
+              );
+            }
             setStatus(
-              result.errors.length > 0
-                ? `Queued ${result.queued} · ${result.errors.join(" · ")}`
-                : `Queued ${result.queued} model(s). Check Gallery.`,
+              [
+                `Queued ${result.queued}`,
+                result.held > 0 ? `held ${result.held} Max` : null,
+                result.errors.length > 0
+                  ? result.errors.join(" · ")
+                  : "Check Gallery.",
+              ]
+                .filter(Boolean)
+                .join(" · "),
             );
           });
         }}

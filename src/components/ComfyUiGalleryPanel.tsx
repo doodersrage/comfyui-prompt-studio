@@ -36,7 +36,8 @@ import {
 } from "@/lib/param-experiment-queue";
 import { learnFromLowRatedPrompt } from "@/lib/negative-learner";
 import { pushNotification } from "@/lib/notification-center";
-import { toastBulkQueueSummary, toastQueueOutcome } from "@/lib/app-toast";
+import { toastBulkQueueSummary, toastHeldMax, toastQueueOutcome } from "@/lib/app-toast";
+import { useHeldMaxCount } from "@/hooks/useHeldMaxJobs";
 import { suggestRatingMutations } from "@/lib/rating-prompt-mutations";
 import { markOnboardingGalleryReview } from "@/lib/onboarding-hooks";
 import { setLineageParent } from "@/lib/prompt-lineage-session";
@@ -151,6 +152,7 @@ export default function ComfyUiGalleryPanel({
   }, [setFilter]);
 
   const router = useRouter();
+  const heldMaxCount = useHeldMaxCount();
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [requeueStatus, setRequeueStatus] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -479,6 +481,11 @@ export default function ComfyUiGalleryPanel({
     (entry: ComfyGalleryEntry, rating: NonNullable<ComfyGalleryEntry["reviewRating"]>) => {
       setReviewRating(entry.id, rating);
       recordCatalogBiasFromPrompt(entry.prompt, rating);
+      if (rating >= 4) {
+        void import("@/lib/sampler-memory").then(({ rememberSamplerFromGalleryEntry }) => {
+          rememberSamplerFromGalleryEntry(entry);
+        });
+      }
       if (rating <= 2) {
         const added = recordAvoidedTokensFromGalleryEntry({
           prompt: entry.prompt,
@@ -699,9 +706,17 @@ export default function ComfyUiGalleryPanel({
             toastQueueOutcome({ ok: false, text: result.error ?? "Upscale failed." });
             return;
           }
+          if (result.held) {
+            const message = "Max upscale held until ComfyUI queue is idle";
+            setRequeueStatus(message);
+            toastHeldMax({ text: message });
+            return;
+          }
           const message = [
               options?.force ? "force upscale queued" : "upscale queued",
-              `${qualityProfile} quality · same image`,
+              result.vramDowngraded
+                ? "Max → Final (VRAM)"
+                : `${qualityProfile} quality · same image`,
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
@@ -725,9 +740,17 @@ export default function ComfyUiGalleryPanel({
             toastQueueOutcome({ ok: false, text: result.error ?? "Refine failed." });
             return;
           }
+          if (result.held) {
+            const message = "Max refine held until ComfyUI queue is idle";
+            setRequeueStatus(message);
+            toastHeldMax({ text: message });
+            return;
+          }
           const message = [
               "refine queued",
-              "low denoise · same seed",
+              result.vramDowngraded
+                ? "Max → Final (VRAM)"
+                : "low denoise · same seed",
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
@@ -768,11 +791,19 @@ export default function ComfyUiGalleryPanel({
             });
             return;
           }
+          if (result.held) {
+            const message = "Max moiré clean held until ComfyUI queue is idle";
+            setRequeueStatus(message);
+            toastHeldMax({ text: message });
+            return;
+          }
           const message = [
               options?.force ? "force moiré clean queued" : "moiré clean queued",
-              qualityProfile === "max"
-                ? "Max · blur → bicubic → Lanczos"
-                : "Final · soft blur only",
+              result.vramDowngraded
+                ? "Max → Final (VRAM)"
+                : qualityProfile === "max"
+                  ? "Max · blur → bicubic → Lanczos"
+                  : "Final · soft blur only",
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
@@ -918,6 +949,7 @@ export default function ComfyUiGalleryPanel({
           stats={galleryStats}
           filter={filter}
           activeJobs={activeJobs}
+          heldMaxJobs={heldMaxCount}
           onRefreshPending={() => void refreshPending()}
           onQuickFilter={(patch) => setFilter((previous) => ({ ...previous, ...patch }))}
         />
@@ -1067,11 +1099,23 @@ export default function ComfyUiGalleryPanel({
               negativePrompt: entry.negativePrompt,
               hints: entry.prompt.slice(0, 200),
               count: 4,
-            }).then(({ queued, seeds }) =>
+            }).then(({ queued, held, seeds }) => {
+              if (held > 0) {
+                toastHeldMax({
+                  text: "Max seed experiment held until ComfyUI is idle",
+                  count: held,
+                });
+              }
               setRequeueStatus(
-                `Seed experiment queued ${queued} jobs · seeds ${seeds.join(", ")}`,
-              ),
-            );
+                [
+                  `Seed experiment queued ${queued}`,
+                  held > 0 ? `held ${held}` : null,
+                  `seeds ${seeds.join(", ")}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              );
+            });
           }}
           onParamExperiment={() => {
             const entry = selectedEntries[0];
@@ -1085,11 +1129,23 @@ export default function ComfyUiGalleryPanel({
               axis: paramAxis,
               baseParams: entry.queueParams,
               count: 4,
-            }).then(({ queued, labels }) =>
+            }).then(({ queued, held, labels }) => {
+              if (held > 0) {
+                toastHeldMax({
+                  text: "Max param experiment held until ComfyUI is idle",
+                  count: held,
+                });
+              }
               setRequeueStatus(
-                `Param experiment queued ${queued} jobs · ${labels.join(", ")}`,
-              ),
-            );
+                [
+                  `Param experiment queued ${queued}`,
+                  held > 0 ? `held ${held}` : null,
+                  labels.join(", "),
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              );
+            });
           }}
           onParamGrid={() => {
             const entry = selectedEntries[0];
@@ -1103,11 +1159,23 @@ export default function ComfyUiGalleryPanel({
                 hints: entry.prompt.slice(0, 200),
                 baseParams: entry.queueParams,
               }),
-            ).then(({ queued, cells }) =>
+            ).then(({ queued, held, cells }) => {
+              if (held > 0) {
+                toastHeldMax({
+                  text: "Max param grid held until ComfyUI is idle",
+                  count: held,
+                });
+              }
               setRequeueStatus(
-                `Param grid queued ${queued} jobs · ${cells.slice(0, 4).join("; ")}${cells.length > 4 ? "…" : ""}`,
-              ),
-            );
+                [
+                  `Param grid queued ${queued}`,
+                  held > 0 ? `held ${held}` : null,
+                  `${cells.slice(0, 4).join("; ")}${cells.length > 4 ? "…" : ""}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              );
+            });
           }}
           onMutateWinner={() => {
             const entry = selectedEntries[0];
@@ -1117,7 +1185,19 @@ export default function ComfyUiGalleryPanel({
               entry,
               kinds: ["variation", "location", "wardrobe"],
               count: 3,
-            }).then((queued) => setRequeueStatus(`Queued ${queued} mutations.`));
+            }).then(({ queued, held }) => {
+              if (held > 0) {
+                toastHeldMax({
+                  text: "Max mutations held until ComfyUI is idle",
+                  count: held,
+                });
+              }
+              setRequeueStatus(
+                held > 0
+                  ? `Queued ${queued} mutations · held ${held} Max`
+                  : `Queued ${queued} mutations.`,
+              );
+            });
           }}
           onVariations={() => {
             const entry = selectedEntries[0];
@@ -1139,9 +1219,23 @@ export default function ComfyUiGalleryPanel({
               model: entry.model ?? "qwen-image-2512",
               negativeA: entry.negativePrompt,
               hints: entry.prompt.slice(0, 200),
-            }).then(({ queued, seed }) =>
-              setRequeueStatus(`Negative A/B queued ${queued} jobs · seed ${seed}`),
-            );
+            }).then(({ queued, held, seed }) => {
+              if (held > 0) {
+                toastHeldMax({
+                  text: "Max negative A/B held until ComfyUI is idle",
+                  count: held,
+                });
+              }
+              setRequeueStatus(
+                [
+                  `Negative A/B queued ${queued}`,
+                  held > 0 ? `held ${held}` : null,
+                  `seed ${seed}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              );
+            });
           }}
           onExportCsv={() => {
             downloadTextFile(
@@ -1412,7 +1506,19 @@ export default function ComfyUiGalleryPanel({
               entry,
               kinds: ["variation", "location", "wardrobe"],
               count: 3,
-            }).then((queued) => setCompareStatus(`Queued ${queued} mutations.`));
+            }).then(({ queued, held }) => {
+              if (held > 0) {
+                toastHeldMax({
+                  text: "Max mutations held until ComfyUI is idle",
+                  count: held,
+                });
+              }
+              setCompareStatus(
+                held > 0
+                  ? `Queued ${queued} mutations · held ${held} Max`
+                  : `Queued ${queued} mutations.`,
+              );
+            });
           }}
           onUpscale={(entry, qualityProfile) => {
             setCompareStatus(`Upscaling (${qualityProfile})…`);
@@ -1422,6 +1528,12 @@ export default function ComfyUiGalleryPanel({
             }).then((result) => {
               if (!result.ok) {
                 setCompareStatus(result.error ?? "Upscale failed.");
+                return;
+              }
+              if (result.held) {
+                const message = "Max upscale held until ComfyUI queue is idle";
+                setCompareStatus(message);
+                toastHeldMax({ text: message });
               }
             });
           }}
@@ -1437,6 +1549,12 @@ export default function ComfyUiGalleryPanel({
             }).then((result) => {
               if (!result.ok) {
                 setCompareStatus(result.error ?? "Moiré clean failed.");
+                return;
+              }
+              if (result.held) {
+                const message = "Max moiré clean held until ComfyUI queue is idle";
+                setCompareStatus(message);
+                toastHeldMax({ text: message });
               }
             });
           }}
@@ -1447,6 +1565,12 @@ export default function ComfyUiGalleryPanel({
             }).then((result) => {
               if (!result.ok) {
                 setCompareStatus(result.error ?? "Refine failed.");
+                return;
+              }
+              if (result.held) {
+                const message = "Max refine held until ComfyUI queue is idle";
+                setCompareStatus(message);
+                toastHeldMax({ text: message });
               }
             });
           }}
@@ -1458,6 +1582,12 @@ export default function ComfyUiGalleryPanel({
             }).then((result) => {
               if (!result.ok) {
                 setCompareStatus(result.error ?? "Upscale failed.");
+                return;
+              }
+              if (result.held) {
+                const message = "Max upscale held until ComfyUI queue is idle";
+                setCompareStatus(message);
+                toastHeldMax({ text: message });
               }
             });
           }}

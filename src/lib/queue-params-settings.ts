@@ -43,6 +43,7 @@ import {
   resolveQueueQualityProfile,
   type QueueQualityProfile,
 } from "./queue-quality-profile";
+import { rememberedSamplerOverrides } from "./sampler-memory";
 
 export const QUEUE_PARAMS_KEY = "comfy-queue-params-v1";
 
@@ -162,6 +163,8 @@ export function resolveQueueParams(
         ...resolveModelSamplerParams(model, presetTier),
         ...resolveModelResolutionParams(model, orientation, sizeTier),
         ...resolveModelSamplingParams(model, presetTier),
+        // 4–5★ gallery memory overrides catalog sampler defaults (not sidebar overrides).
+        ...rememberedSamplerOverrides(model),
       }
     : {};
 

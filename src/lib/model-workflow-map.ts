@@ -16,7 +16,7 @@ export type ModelWorkflowMap = Record<string, string>;
 const ALL_MODELS = COMFY_IMAGE_MODELS.map((entry) => entry.id);
 
 /** When any member is available, keep sibling presets selectable (e.g. vanilla + Lightning). */
-const MODEL_FAMILY_GROUPS: readonly (readonly ComfyImageModel[])[] = [
+export const MODEL_FAMILY_GROUPS: readonly (readonly ComfyImageModel[])[] = [
   [
     "qwen-image-2512",
     "qwen-image-2512-lightning-4",
@@ -39,6 +39,19 @@ const MODEL_FAMILY_GROUPS: readonly (readonly ComfyImageModel[])[] = [
     "flux-2-klein-9b-distilled",
   ],
 ];
+
+/** Sibling presets in the same family (vanilla + Lightning, Rapid AIO, Klein, …). */
+export function modelsInSameFamily(
+  model: ComfyImageModel | string,
+): ComfyImageModel[] {
+  const id = String(model).trim() as ComfyImageModel;
+  for (const family of MODEL_FAMILY_GROUPS) {
+    if (family.includes(id)) {
+      return [...family];
+    }
+  }
+  return ALL_MODELS.includes(id) ? [id] : [];
+}
 
 function expandSupportedModelFamilies(supported: Set<ComfyImageModel>): void {
   for (const family of MODEL_FAMILY_GROUPS) {
