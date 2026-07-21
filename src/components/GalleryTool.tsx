@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/ToolPageShell";
 
 const ComfyUiGalleryPanel = dynamic(() => import("@/components/ComfyUiGalleryPanel"), {
+  ssr: false,
   loading: () => <GalleryPanelSkeleton showFilters />,
 });
 

@@ -639,11 +639,9 @@ function editScaffold(
   }
 
   const base =
-    category === "flux"
-      ? fluxScaffold(tokens)
-      : category === "qwen"
-        ? qwenScaffold(tokens)
-        : genericScaffold(tokens);
+    category === "qwen"
+      ? qwenScaffold(tokens)
+      : genericScaffold(tokens);
 
   return {
     ...base,
@@ -860,7 +858,8 @@ export function cloneWorkflowWithBindings(
   sourceJson: string,
   tokens?: Partial<WorkflowPlaceholderTokens>,
 ): WorkflowScaffoldResult {
-  const prepared = prepareWorkflowJsonImport(sourceJson, tokens);
+  const resolvedTokens = resolveBindingTokens(tokens);
+  const prepared = prepareWorkflowJsonImport(sourceJson, resolvedTokens);
   if (!prepared.ok || !prepared.workflowJson) {
     return {
       json: sourceJson,
@@ -871,7 +870,6 @@ export function cloneWorkflowWithBindings(
       notes: [prepared.error ?? "Could not parse workflow JSON for cloning."],
     };
   }
-  const resolvedTokens = resolveBindingTokens(tokens);
   const bound = bindScaffoldJson(prepared.workflowJson, resolvedTokens);
 
   return {

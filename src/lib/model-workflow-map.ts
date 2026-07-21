@@ -68,7 +68,10 @@ export function resolveWorkflowForModelSelection(
   model: ComfyImageModel,
   options?: {
     map?: ModelWorkflowMap;
-    workflowFiles?: Array<Pick<ComfyWorkflowFile, "id" | "name" | "filename" | "workflowJson">>;
+    workflowFiles?: Array<
+      Pick<ComfyWorkflowFile, "id" | "name" | "filename"> &
+        Partial<Pick<ComfyWorkflowFile, "workflowJson">>
+    >;
     /** Precomputed from suggestWorkflowDefaultsByCategory to avoid repeat work. */
     suggestedMap?: ModelWorkflowMap;
     /** When set to a generate-style tool, skips edit/inpaint workflows that need {{INPUT_IMAGE}}. */

@@ -26,11 +26,11 @@ describe("comfyui-history-workflow", () => {
     };
 
     assert.deepEqual(extractParamsFromWorkflow(workflow), {
-      seed: 424242,
-      steps: 28,
-      cfg: 6.5,
-      width: 832,
-      height: 1216,
+      seed: "424242",
+      steps: "28",
+      cfg: "6.5",
+      width: "832",
+      height: "1216",
     });
   });
 

@@ -21,6 +21,7 @@ import {
   suggestLoaderMapRepairs,
 } from "@/lib/workflow-loader-map-repair";
 import { saveSharedSettings } from "@/lib/settings-cache";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type WorkflowHealthPanelProps = {
   refreshKey?: number;
@@ -85,7 +86,9 @@ export default function WorkflowHealthPanel({
     const runtime = resolveComfyUiRuntime();
     const comfyUrl = runtime?.apiUrl?.trim();
     const params = comfyUrl ? `?comfyUrl=${encodeURIComponent(comfyUrl)}` : "";
-    setLoaderStatus("Checking loader maps against ComfyUI…");
+    scheduleAfterCommit(() => {
+      setLoaderStatus("Checking loader maps against ComfyUI…");
+    });
 
     void fetch(`/api/comfyui/object-info${params}`)
       .then(async (response) => {

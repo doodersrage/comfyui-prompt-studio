@@ -4,7 +4,6 @@ import {
 } from "@/lib/prompt-generator";
 import { resolveAvoidanceOptions } from "@/lib/avoidance-options";
 import { applyLockedLocation } from "@/lib/locked-location";
-import { applyLockedVariationSeed } from "@/lib/locked-variation-seed";
 import { normalizeGenerationSettings } from "@/lib/generation-settings";
 import {
   normalizeRecentClothing,

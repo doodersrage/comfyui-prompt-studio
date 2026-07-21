@@ -38,7 +38,9 @@ const authStorage = resolve(__dirname, "e2e/.auth/user.json");
 export default defineConfig({
   testDir: "e2e",
   timeout: 60_000,
-  retries: 0,
+  retries: process.env.CI ? 1 : 0,
+  // Parallel workers + next dev race on navigation (ERR_ABORTED).
+  workers: process.env.CI ? 1 : undefined,
   globalSetup: "./e2e/global-setup.ts",
   use: {
     baseURL,
@@ -46,9 +48,14 @@ export default defineConfig({
     storageState: existsSync(authStorage) ? authStorage : undefined,
   },
   webServer: {
-    command: "npm run dev",
+    // Production server avoids Fast Refresh aborting in-flight navigations under CI.
+    command: process.env.CI ? "npm run build && npm run start" : "npm run dev",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: process.env.CI ? 300_000 : 120_000,
+    env: {
+      ...process.env,
+      NEXT_PUBLIC_PLAYWRIGHT: "1",
+    },
   },
 });

@@ -1155,15 +1155,16 @@ export function injectPromptsWithFallbacks(
     },
   );
 
-  if (isQwenLightningModel(options?.model)) {
+  const lightningModelId = options?.model;
+  if (lightningModelId && isQwenLightningModel(lightningModelId)) {
     const lightningSampler = ensureLightningSamplerParams(
       input.params ?? {},
-      options.model!,
+      lightningModelId,
     );
     nextWorkflow = patchSamplerParamsInWorkflow(
       nextWorkflow,
       lightningSampler,
-      options.model,
+      lightningModelId,
       { force: true },
     ).workflow;
   }

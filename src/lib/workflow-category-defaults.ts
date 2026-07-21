@@ -81,14 +81,13 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
 /** Penalize workflow labels that clearly target a different model variant. */
 const MODEL_WORKFLOW_AVOID_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
   "flux-2-klein": ["distilled", "9b", "klein-9b"],
-  "flux-2-klein-4b-distilled": ["base", "klein-base", "9b", "klein-9b"],
+  "flux-2-klein-4b-distilled": ["base", "klein-base", "9b", "klein-9b", "inpaint", "mask", "fill"],
   "flux-2-klein-9b": ["distilled", "4b", "klein-4b", "inpaint", "mask", "fill"],
   "flux-2-klein-9b-distilled": ["base", "klein-base", "4b", "klein-4b", "inpaint", "mask", "fill"],
   "qwen-image-2512": ["edit", "inpaint", "img2img", "mask", "fill", "lightning", "lightx2v"],
   "qwen-image-2512-lightning-4": ["edit", "inpaint", "img2img", "mask", "fill"],
   "qwen-image-2512-lightning-8": ["edit", "inpaint", "img2img", "mask", "fill"],
   "flux-dev": ["inpaint", "mask", "fill"],
-  "flux-2-klein-4b-distilled": ["inpaint", "mask", "fill"],
   "sdxl": ["inpaint", "mask", "fill"],
 };
 
@@ -133,7 +132,8 @@ function scoreWorkflowForCategory(
 }
 
 function scoreWorkflowForModel(
-  file: Pick<ComfyWorkflowFile, "name" | "filename" | "workflowJson">,
+  file: Pick<ComfyWorkflowFile, "name" | "filename"> &
+    Partial<Pick<ComfyWorkflowFile, "workflowJson">>,
   modelId: ComfyImageModel,
   category: ComfyModelCategory,
 ): number {

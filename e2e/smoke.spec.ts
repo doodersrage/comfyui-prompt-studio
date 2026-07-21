@@ -1,46 +1,50 @@
 import { test, expect } from "@playwright/test";
 import { ensureAuthenticated } from "./helpers/auth";
+import { seedGalleryFixture } from "./helpers/gallery";
+import { gotoStable } from "./helpers/navigation";
 
 test.beforeEach(async ({ page }) => {
   await ensureAuthenticated(page);
 });
 
 test("home page loads", async ({ page }) => {
-  await page.goto("/");
+  await gotoStable(page, "/");
   await expect(page.getByRole("heading", { name: /ComfyUI Image Prompt Generator/i })).toBeVisible();
 });
 
 test("dashboard page loads", async ({ page }) => {
-  await page.goto("/dashboard");
+  await gotoStable(page, "/dashboard");
   await expect(page.getByRole("heading", { name: /^Dashboard$/i })).toBeVisible();
   await expect(page.getByRole("link", { name: /Gallery & slideshow/i })).toBeVisible();
 });
 
 test("gallery page loads", async ({ page }) => {
-  await page.goto("/gallery");
+  await gotoStable(page, "/gallery");
   await expect(page.getByRole("heading", { name: /ComfyUI Gallery/i })).toBeVisible();
 });
 
 test("queue page loads", async ({ page }) => {
-  await page.goto("/queue");
+  await gotoStable(page, "/queue");
   await expect(page.getByRole("heading", { name: /ComfyUI job queue/i })).toBeVisible();
 });
 
 test("settings page loads", async ({ page }) => {
-  await page.goto("/settings");
+  await gotoStable(page, "/settings");
   await expect(page.getByRole("heading", { name: /Settings & Health/i })).toBeVisible();
   await expect(page.getByRole("navigation", { name: /Settings sections/i })).toBeVisible();
   await page.getByRole("button", { name: "Automation", exact: true }).click();
-  await expect(page.getByRole("heading", { name: /Avoided tokens/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Avoided tokens/i })).toBeVisible({
+    timeout: 15_000,
+  });
 });
 
 test("controlnet page loads", async ({ page }) => {
-  await page.goto("/controlnet");
+  await gotoStable(page, "/controlnet");
   await expect(page.getByRole("heading", { name: /ControlNet prompt builder/i })).toBeVisible();
 });
 
 test("studio analytics tab loads", async ({ page }) => {
-  await page.goto("/studio");
+  await gotoStable(page, "/studio");
   const analyticsTab = page.getByRole("button", { name: "Analytics", exact: true });
   await expect(analyticsTab).toBeVisible({ timeout: 60_000 });
   await analyticsTab.click();
@@ -48,23 +52,29 @@ test("studio analytics tab loads", async ({ page }) => {
 });
 
 test("settings comfyui loader maps section loads", async ({ page }) => {
-  await page.goto("/settings");
+  await gotoStable(page, "/settings");
   await page.getByRole("button", { name: "ComfyUI", exact: true }).click();
-  await expect(page.getByRole("button", { name: /Merge suggested loader maps/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Merge suggested loader maps/i })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByRole("button", { name: /Optimize all in library/i })).toBeVisible();
   await expect(page.getByText(/Checkpoint map/i)).toBeVisible();
 });
 
 test("settings workflow health panel loads", async ({ page }) => {
-  await page.goto("/settings");
+  await gotoStable(page, "/settings");
   await page.getByRole("button", { name: "ComfyUI", exact: true }).click();
-  await expect(page.getByText(/Workflow library health/i)).toBeVisible();
+  await expect(page.getByText(/Workflow library health/i)).toBeVisible({ timeout: 15_000 });
 });
 
 test("gallery selection bar documents bulk upscale actions", async ({ page }) => {
-  await page.goto("/gallery");
+  await seedGalleryFixture(page);
+  await gotoStable(page, "/gallery");
   await expect(page.getByRole("heading", { name: /ComfyUI Gallery/i })).toBeVisible();
-  await page.getByRole("button", { name: /Select visible/i }).click();
+  await expect(page.getByRole("button", { name: /Select visible \(1\)/i })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.getByRole("button", { name: /Select visible \(1\)/i }).click();
   await page.getByRole("button", { name: "Queue", exact: true }).click();
   await expect(page.getByRole("button", { name: /Bulk upscale \(Final\)/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /Bulk refine \(Final\)/i })).toBeVisible();
@@ -93,7 +103,7 @@ const ADDITIONAL_ROUTES: Array<{ path: string; heading: RegExp; level?: 1 | 2 | 
 
 for (const route of ADDITIONAL_ROUTES) {
   test(`${route.path} loads`, async ({ page }) => {
-    await page.goto(route.path);
+    await gotoStable(page, route.path);
     await expect(
       page.getByRole("heading", { name: route.heading, level: route.level }),
     ).toBeVisible({

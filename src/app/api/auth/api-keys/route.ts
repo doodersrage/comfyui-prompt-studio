@@ -5,7 +5,6 @@ import {
   listUserApiKeys,
   revokeUserApiKey,
 } from "@/lib/auth/api-keys";
-import { findUserById } from "@/lib/auth/store";
 
 export const runtime = "nodejs";
 

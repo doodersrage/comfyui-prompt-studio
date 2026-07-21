@@ -11,10 +11,10 @@ function filenameInList(filename: string, list: string[]): boolean {
 }
 
 export function auditLoaderMapsAgainstComfyUi(input: {
-  checkpointMap: Record<string, string>;
-  vaeMap: Record<string, string>;
-  upscaleMap: Record<string, string>;
-  controlNetMap?: Record<string, string>;
+  checkpointMap: Partial<Record<string, string>>;
+  vaeMap: Partial<Record<string, string>>;
+  upscaleMap: Partial<Record<string, string>>;
+  controlNetMap?: Partial<Record<string, string>>;
   customTokens?: Array<{ token: string; value: string }>;
   models: ComfyUiModelLists;
 }): WorkflowHealthIssue[] {

@@ -28,23 +28,10 @@ import {
   sortByRankIds,
 } from "@/lib/embedding-rank";
 
-function readGalleryEntriesSync(): ComfyGalleryEntry[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  primeGalleryCacheSync();
-  return loadComfyGallery();
-}
-
 export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
-  const initialEntries = readGalleryEntriesSync();
-  const [storeReady, setStoreReady] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-    return isGalleryStoreReady();
-  });
-  const [entries, setEntries] = useState<ComfyGalleryEntry[]>(() => initialEntries);
+  // Keep first client render identical to SSR (empty / not ready) to avoid hydration mismatch.
+  const [storeReady, setStoreReady] = useState(false);
+  const [entries, setEntries] = useState<ComfyGalleryEntry[]>([]);
   const [filter, setFilter] = useState<ComfyGalleryFilter>(
     initialFilter ?? { status: "all" },
   );
@@ -61,6 +48,7 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   }, []);
 
   useEffect(() => {
+    primeGalleryCacheSync();
     refresh();
 
     scheduleAfterCommit(() => {

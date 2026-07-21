@@ -196,10 +196,15 @@ export default function SharedToolControls({
   }, [supportedModels.models, toolId]);
 
   const onWorkflowPresetChangeRef = useRef(onWorkflowPresetChange);
-  onWorkflowPresetChangeRef.current = onWorkflowPresetChange;
-
   const setWorkflowSelectedIdRef = useRef(workflowSelection.setSelectedId);
-  setWorkflowSelectedIdRef.current = workflowSelection.setSelectedId;
+
+  useEffect(() => {
+    onWorkflowPresetChangeRef.current = onWorkflowPresetChange;
+  }, [onWorkflowPresetChange]);
+
+  useEffect(() => {
+    setWorkflowSelectedIdRef.current = workflowSelection.setSelectedId;
+  }, [workflowSelection.setSelectedId]);
 
   const workflowManualOverrideRef = useRef(false);
   const lastModelStackFamilyRef = useRef(

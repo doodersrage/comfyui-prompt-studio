@@ -148,7 +148,8 @@ function shouldPatchClipFilename(
   nextValue: string | undefined,
   syncLoadersToModel?: boolean,
 ): nextValue is string {
-  if (!nextValue?.trim()) {
+  const trimmedNext = nextValue?.trim();
+  if (!trimmedNext) {
     return false;
   }
   if (shouldPatchLoaderFilenameField(current, nextValue, syncLoadersToModel)) {
@@ -156,7 +157,7 @@ function shouldPatchClipFilename(
   }
   if (typeof current === "string") {
     const deprecated = DEPRECATED_QWEN_CLIP_FILENAMES[current.trim()];
-    if (deprecated && deprecated === nextValue.trim()) {
+    if (deprecated && deprecated === trimmedNext) {
       return true;
     }
   }

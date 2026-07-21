@@ -33,3 +33,4 @@ jobs:
         env:
           CI: true
           PROMPT_AUTH_ENABLED: "false"
+          NEXT_PUBLIC_PLAYWRIGHT: "1"

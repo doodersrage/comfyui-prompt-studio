@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from "react";
 import ModalPortal from "@/components/ui/ModalPortal";
 import ImageLightbox, { type ImageLightboxState } from "@/components/ui/ImageLightbox";
-import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPanel";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { useComfyUiGallery } from "@/hooks/useComfyUiGallery";
 import { startImproveFromGalleryEntry } from "@/lib/improve-output";
@@ -45,8 +43,6 @@ import {
 } from "@/lib/gallery-variations-handoff";
 import { exportGalleryCsv, exportGalleryJsonl, downloadTextFile } from "@/lib/history-export-formats";
 import {
-  downloadGalleryImage,
-  downloadGallerySidecar,
   downloadGalleryImagesSequential,
   downloadGallerySidecarBundle,
 } from "@/lib/comfyui-gallery-export";

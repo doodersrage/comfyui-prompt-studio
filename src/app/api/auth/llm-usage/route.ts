@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 import { resolveRequestUser } from "@/lib/auth/access";
 import { findUserById } from "@/lib/auth/store";

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
 import type { PromptProject } from "@/lib/prompt-projects";
 import type { ParamExperimentAxis } from "@/lib/param-experiment-queue";
@@ -43,9 +44,25 @@ type GallerySelectionBarProps = {
 
 function ActionMenu(props: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
   disabled?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
   if (props.disabled) {
     return (
       <button
@@ -59,14 +76,18 @@ function ActionMenu(props: {
   }
 
   return (
-    <details className="relative">
-      <summary className="ui-btn-ghost ui-btn-sm cursor-pointer list-none text-xs [&::-webkit-details-marker]:hidden">
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="ui-btn-ghost ui-btn-sm text-xs"
+        onClick={() => setOpen((value) => !value)}
+      >
         {props.label}
-      </summary>
-      <div className="ui-menu left-0">
-        {props.children}
-      </div>
-    </details>
+      </button>
+      {open ? <div className="ui-menu left-0">{props.children}</div> : null}
+    </div>
   );
 }
 

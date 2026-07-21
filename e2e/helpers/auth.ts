@@ -1,5 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
+import { gotoStable } from "./navigation";
+import { dismissBlockingOverlays } from "./overlays";
 
 function envCredential(name: string, fallback: string): string {
   const value = process.env[name]?.trim();
@@ -14,9 +16,10 @@ export function e2eCredentials(): { username: string; password: string } {
 }
 
 export async function ensureAuthenticated(page: Page): Promise<void> {
-  await page.goto("/");
+  await gotoStable(page, "/");
   if (page.url().includes("/login")) {
     await loginThroughApi(page);
+    await dismissBlockingOverlays(page);
     return;
   }
 
@@ -27,6 +30,7 @@ export async function ensureAuthenticated(page: Page): Promise<void> {
   if (signInVisible) {
     await loginThroughApi(page);
   }
+  await dismissBlockingOverlays(page);
 }
 
 async function loginThroughApi(page: Page): Promise<void> {
@@ -37,7 +41,7 @@ async function loginThroughApi(page: Page): Promise<void> {
   if (!response.ok()) {
     throw new Error(`E2E login failed (${response.status()}): ${await response.text()}`);
   }
-  await page.goto("/");
+  await gotoStable(page, "/");
   await expect(page.getByRole("heading", { name: "Sign in", exact: true })).not.toBeVisible({
     timeout: 15_000,
   });

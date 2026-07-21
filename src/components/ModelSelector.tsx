@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   COMFY_IMAGE_MODELS,
   COMFY_MODEL_CATEGORIES,
@@ -49,19 +49,16 @@ export default function ModelSelector({
     return counts;
   }, [catalog]);
 
-  useEffect(() => {
-    if (
-      category !== "all" &&
-      !visibleCategories.some((entry) => entry.id === category)
-    ) {
-      setCategory("all");
-    }
-  }, [category, visibleCategories]);
+  const effectiveCategory =
+    category !== "all" &&
+    !visibleCategories.some((entry) => entry.id === category)
+      ? "all"
+      : category;
 
   const filteredModels = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return catalog.filter((entry) => {
-      if (category !== "all" && entry.category !== category) {
+      if (effectiveCategory !== "all" && entry.category !== effectiveCategory) {
         return false;
       }
       if (!normalizedQuery) {
@@ -74,7 +71,7 @@ export default function ModelSelector({
         entry.description.toLowerCase().includes(normalizedQuery)
       );
     });
-  }, [catalog, category, query]);
+  }, [catalog, effectiveCategory, query]);
 
   const selected = useMemo(
     () =>
@@ -113,7 +110,7 @@ export default function ModelSelector({
           className="ui-input min-h-11 w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body-lg"
         />
         <select
-          value={category}
+          value={effectiveCategory}
           onChange={(e) =>
             setCategory(e.target.value as ComfyModelCategory | "all")
           }
@@ -131,8 +128,8 @@ export default function ModelSelector({
 
       <p className="type-caption">
         {filteredModels.length} model{filteredModels.length === 1 ? "" : "s"}
-        {category !== "all" &&
-          ` in ${visibleCategories.find((entry) => entry.id === category)?.label ?? category}`}
+        {effectiveCategory !== "all" &&
+          ` in ${visibleCategories.find((entry) => entry.id === effectiveCategory)?.label ?? effectiveCategory}`}
         {query.trim() ? ` matching “${query.trim()}”` : ""}
         {" · "}
         Selected:{" "}

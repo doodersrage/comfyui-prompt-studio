@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import BackgroundPresetControls from "@/components/BackgroundPresetControls";
 import CharacterPresetControls from "@/components/CharacterPresetControls";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";

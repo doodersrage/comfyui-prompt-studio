@@ -205,7 +205,10 @@ export function loadComfyUiSettings(): ComfyUiSettings {
   try {
     const current = readBrowserValue<Partial<ComfyUiSettings>>(COMFYUI_SETTINGS_KEY);
     if (current) {
-      return { ...DEFAULT_COMFYUI_SETTINGS, ...migrateOrphanLoraTokensToLibrary(current) };
+      return migrateOrphanLoraTokensToLibrary({
+        ...DEFAULT_COMFYUI_SETTINGS,
+        ...current,
+      });
     }
 
     for (const legacyKey of LEGACY_SETTINGS_KEYS) {

@@ -27,7 +27,7 @@ export default function AutoStorageSyncInit() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (loading || !user) {
+    if (loading || !user || process.env.NEXT_PUBLIC_PLAYWRIGHT === "1") {
       return;
     }
 
@@ -44,6 +44,8 @@ export default function AutoStorageSyncInit() {
         }
       });
     });
+    // Intentionally key off user id so object identity churn does not re-trigger sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user?.id is the stable identity
   }, [loading, user?.id]);
 
   async function resolveConflicts(choices: Partial<Record<StorageNamespace, MergeChoice>>) {
