@@ -4,6 +4,7 @@ import {
   type WorkflowParamValues,
 } from "@/lib/comfyui-config";
 import { previewWorkflowInjection } from "@/lib/comfyui-workflow-preview";
+import { fetchComfyObjectInfoPayload } from "@/lib/comfyui-object-info";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 
@@ -26,15 +27,21 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as PreviewRequestBody;
-    const runtime = stripEmptyComfyUiRuntime(body.comfy);
+    const runtimeConfig = stripEmptyComfyUiRuntime(body.comfy);
+    const objectInfo = await fetchComfyObjectInfoPayload(runtimeConfig);
     const result = previewWorkflowInjection({
       prompt: body.prompt?.trim() ?? "",
       negativePrompt: body.negativePrompt,
       params: body.params,
-      comfy: runtime,
+      comfy: runtimeConfig,
       model: body.model,
       hasInputImage: body.hasInputImage,
       hasMaskImage: body.hasMaskImage,
+      inventory: {
+        models: objectInfo?.models ?? null,
+        supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
+        objectInfoUnavailable: !objectInfo,
+      },
     });
 
     if (!result.ok) {

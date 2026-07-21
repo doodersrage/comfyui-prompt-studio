@@ -8,10 +8,21 @@ import {
   type WorkflowParamValues,
 } from "./comfyui-config";
 import {
-  auditWorkflowPreviewIssues,
   type WorkflowPlaceholderAuditIssue,
 } from "./workflow-placeholder-audit";
 import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
+import type { ComfyUiModelLists } from "./comfyui-object-info";
+import { collectWorkflowGraphPreflightIssues } from "./workflow-preflight-core";
+import { resolveUpscaleModelFilename } from "./model-upscale-map";
+import { resolveRefinerFilenameForModel } from "./model-checkpoint-map";
+import { loadSettingsCache } from "./settings-cache";
+import { mergeLoraLibraryIntoCustomTokens, loadComfyUiSettings } from "./comfyui-settings";
+
+export type WorkflowPreviewInventory = {
+  models?: ComfyUiModelLists | null;
+  supportsNeuralUpscaleTileSize?: boolean;
+  objectInfoUnavailable?: boolean;
+};
 
 export type WorkflowPreviewInput = {
   prompt: string;
@@ -21,6 +32,7 @@ export type WorkflowPreviewInput = {
   model?: string;
   hasInputImage?: boolean;
   hasMaskImage?: boolean;
+  inventory?: WorkflowPreviewInventory;
 };
 
 export type WorkflowPreviewSnippet = {
@@ -135,18 +147,50 @@ export function previewWorkflowInjection(
     workflow: config.workflow,
   });
 
+  const modelId = input.model ?? runtime?.queueTargetModel ?? "qwen-image-2512";
+  const shared = loadSettingsCache().shared;
+  const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
+  const inventoryModels = input.inventory?.models;
+
+  if (inventoryModels?.upscaleModels?.length) {
+    const upscale = resolveUpscaleModelFilename(modelId, {
+      upscaleMap: shared.modelUpscaleMap,
+      customTokens: settings.customTokens,
+      availableUpscaleModels: inventoryModels.upscaleModels,
+    });
+    if (upscale) {
+      resolvedParams.upscaleModelFilename = upscale;
+    }
+  }
+  if (inventoryModels?.checkpoints?.length) {
+    const refiner = resolveRefinerFilenameForModel(modelId, {
+      refinerMap: shared.modelRefinerMap,
+      customTokens: settings.customTokens,
+      availableCheckpoints: inventoryModels.checkpoints,
+    });
+    if (refiner) {
+      resolvedParams.refinerCheckpointFilename = refiner;
+    }
+  }
+
   const optimized =
     runtime?.workflowQueueOptimize !== false
       ? optimizeWorkflowForQueue({
           workflow: config.workflow,
           tokens: config.placeholderTokens,
-          model: input.model ?? runtime?.queueTargetModel,
+          model: modelId,
           qualityProfile: runtime?.queueQualityProfile,
           upscaleModelFilename: resolvedParams.upscaleModelFilename,
           refinerCheckpointFilename: resolvedParams.refinerCheckpointFilename,
+          availableUpscaleModels: inventoryModels?.upscaleModels,
+          availableCheckpoints: inventoryModels?.checkpoints,
+          supportsNeuralUpscaleTileSize: input.inventory?.supportsNeuralUpscaleTileSize,
           ...resolveWorkflowGraphEnrichOptions(runtime),
         })
-      : { workflow: config.workflow, changes: [] as import("./workflow-queue-optimizer").WorkflowQueueOptimizeChange[] };
+      : {
+          workflow: config.workflow,
+          changes: [] as import("./workflow-queue-optimizer").WorkflowQueueOptimizeChange[],
+        };
 
   const injected = injectPromptsWithFallbacks(
     optimized.workflow,
@@ -163,7 +207,8 @@ export function previewWorkflowInjection(
       directWorkflowPatching: runtime?.directWorkflowPatching,
       syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
       loaders,
-      model: input.model ?? runtime?.queueTargetModel,
+      model: modelId,
+      availableLoras: inventoryModels?.loras,
     },
   );
 
@@ -186,22 +231,25 @@ export function previewWorkflowInjection(
 
   const workflowJson = JSON.stringify(injected.workflow, null, 2);
   const truncated = workflowJson.length > MAX_PREVIEW_CHARS;
-  const model = input.model ?? "qwen-image-2512";
-  const optimizerWarnings: WorkflowPlaceholderAuditIssue[] = optimized.changes
+  const model = modelId;
+  const optimizerWarnings: WorkflowPlaceholderAuditIssue[] = (optimized.changes ?? [])
     .filter((change) => change.severity === "warn")
-    .map((change) => ({ severity: "warn", message: change.message }));
+    .map((change) => ({ severity: "warn" as const, message: change.message }));
   const preflightIssues =
     config.workflowSource === "none"
       ? []
       : [
           ...optimizerWarnings,
-          ...auditWorkflowPreviewIssues({
+          ...collectWorkflowGraphPreflightIssues({
             workflowJson,
             model,
             hasInputImage:
               input.hasInputImage ?? Boolean(resolvedParams.inputImageFilename),
             hasMaskImage:
               input.hasMaskImage ?? Boolean(resolvedParams.maskImageFilename),
+            syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
+            models: inventoryModels,
+            objectInfoUnavailable: input.inventory?.objectInfoUnavailable === true,
           }),
         ];
 

@@ -317,17 +317,27 @@ export async function requeueRefineFromGalleryEntry(
   const profile = options?.qualityProfile ?? "final";
   const workflow = buildGalleryRefineWorkflow(model);
   const baseRuntime = resolveRuntimeForQueue(model, "refine");
-  const params = galleryRefineQueueParams({
+  const refineParams = galleryRefineQueueParams({
     inputImageFilename,
     profile,
     prompt: entry.prompt,
     queueParams: entry.queueParams,
   });
+  const params = {
+    ...resolveQueueParams({
+      model,
+      tool: "refine",
+      qualityProfile: profile,
+      inputImageFilename,
+      base: refineParams,
+    }),
+    ...refineParams,
+  };
 
   const runtime: ComfyUiRuntimeConfig = {
     ...baseRuntime,
     workflowJson: JSON.stringify(workflow),
-    workflowQueueOptimize: false,
+    workflowQueueOptimize: true,
     workflowGraphEnrich: false,
     directWorkflowPatching: true,
     queueQualityProfile: profile,

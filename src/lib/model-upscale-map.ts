@@ -28,20 +28,55 @@ function resolveCustomTokenValue(
   return trimFilename(match?.value);
 }
 
+/**
+ * Prefer the mapped/suggested upscaler when installed; otherwise pick a sensible
+ * UltraSharp / RealESRGAN / 4x file from ComfyUI inventory.
+ */
+export function pickUpscaleModelFromInventory(
+  availableUpscaleModels?: string[] | null,
+  preferred?: string,
+): string | undefined {
+  const preferredName = trimFilename(preferred);
+  if (preferredName && isUpscaleModelInstalled(preferredName, availableUpscaleModels)) {
+    return preferredName;
+  }
+  if (!availableUpscaleModels?.length) {
+    return preferredName;
+  }
+  const trimmed = availableUpscaleModels.map((name) => name.trim()).filter(Boolean);
+  const patterns = [/ultrasharp/i, /realesrgan/i, /\b4x\b/i];
+  for (const pattern of patterns) {
+    const hit = trimmed.find((name) => pattern.test(name));
+    if (hit) {
+      return hit;
+    }
+  }
+  // Prefer an installed preferred name only; do not grab arbitrary inventory files.
+  return preferredName && trimmed.includes(preferredName) ? preferredName : undefined;
+}
+
 export function resolveUpscaleModelFilename(
   model: string,
   options?: {
     upscaleMap?: ModelUpscaleMap;
     customTokens?: CustomWorkflowToken[];
+    availableUpscaleModels?: string[] | null;
   },
 ): string | undefined {
   const mapped =
     trimFilename(options?.upscaleMap?.[model]) ??
     trimFilename(options?.upscaleMap?.default);
-  return (
+  const resolved =
     mapped ??
-    resolveCustomTokenValue(DEFAULT_UPSCALE_MODEL_TOKEN, options?.customTokens)
-  );
+    resolveCustomTokenValue(DEFAULT_UPSCALE_MODEL_TOKEN, options?.customTokens);
+
+  if (options?.availableUpscaleModels && options.availableUpscaleModels.length > 0) {
+    return pickUpscaleModelFromInventory(
+      options.availableUpscaleModels,
+      resolved ?? SUGGESTED_MODEL_UPSCALE_MAP.default,
+    );
+  }
+  return resolved;
 }
 
 /**

@@ -193,6 +193,45 @@ describe("workflow optimization v2", () => {
     );
   });
 
+  it("fails Lightning preflight when object_info is unavailable", () => {
+    const result = runWorkflowPreflightSync({
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "LoraLoader",
+          inputs: { lora_name: "qwen_lightning_8steps.safetensors", strength_model: 1 },
+        },
+        "2": {
+          class_type: "ModelSamplingAuraFlow",
+          inputs: { model: ["1", 0], shift: 3.1 },
+        },
+        "3": {
+          class_type: "KSampler",
+          inputs: {
+            model: ["2", 0],
+            seed: 1,
+            steps: 8,
+            cfg: 1,
+            sampler_name: "euler",
+            scheduler: "simple",
+            denoise: 1,
+            positive: ["4", 0],
+            negative: ["5", 0],
+            latent_image: ["6", 0],
+          },
+        },
+      }),
+      model: "qwen-image-2512-lightning-8",
+      objectInfoUnavailable: true,
+    });
+    assert.equal(result.ok, false);
+    assert.ok(
+      result.issues.some(
+        (issue) =>
+          issue.severity === "error" && /object_info unavailable/i.test(issue.message),
+      ),
+    );
+  });
+
   it("diffs workflow nodes after optimize", () => {
     const left = JSON.stringify({ "1": { class_type: "KSampler", inputs: { seed: 1 } } });
     const right = JSON.stringify({

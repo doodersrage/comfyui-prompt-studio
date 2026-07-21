@@ -47,6 +47,7 @@ export type WorkflowQueueOptimizeResult = {
   bindingChanges: WorkflowBindingChange[];
   changes: WorkflowQueueOptimizeChange[];
   audit: WorkflowQueueAudit;
+  contentHash?: string;
 };
 
 const CHECKPOINT_LOADER_TYPES = new Set([
@@ -465,5 +466,7 @@ export function optimizeWorkflowForQueue(input: {
     bindingChanges,
     changes,
     audit,
+    /** Hash of the fully optimized graph — callers can persist as lastOptimizedHash. */
+    contentHash: workflowContentHash(workflowJson),
   };
 }

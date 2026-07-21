@@ -32,6 +32,16 @@ describe("model upscale map", () => {
     assert.equal(isUpscaleModelInstalled("4x-UltraSharp.pth", []), true);
   });
 
+  it("picks an installed upscaler from inventory when mapped file is missing", () => {
+    assert.equal(
+      resolveUpscaleModelFilename("sdxl", {
+        upscaleMap: { default: "4x-UltraSharp.pth" },
+        availableUpscaleModels: ["RealESRGAN_x4plus.pth", "other.pth"],
+      }),
+      "RealESRGAN_x4plus.pth",
+    );
+  });
+
   it("resolves per-model and default entries", () => {
     const map = parseModelUpscaleMap(
       "default=4x-UltraSharp.pth\nflux-dev=RealESRGAN_x4plus.pth",

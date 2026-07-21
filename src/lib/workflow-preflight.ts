@@ -6,17 +6,15 @@ import { isInpaintModel, isEditQueueTool } from "./model-denoise-defaults";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { fetchWorkflowPreview } from "./comfyui-requeue";
 import { resolveQueueParams } from "./queue-params-settings";
-import { auditWorkflowPreviewIssues } from "./workflow-placeholder-audit";
 import type { WorkflowParamValues } from "./comfyui-config";
 import { auditLoaderMapsAtQueueTime } from "./workflow-queue-loader-preflight";
-import { auditWorkflowStackCompatibility } from "./workflow-stack-fingerprint";
-import { auditWorkflowNodeTypes } from "./workflow-node-type-audit";
-import { fetchComfyObjectInfoNodeTypesCached } from "./comfyui-object-info-cache";
+import { fetchComfyObjectInfoCached } from "./comfyui-object-info-cache";
+import {
+  collectWorkflowGraphPreflightIssues,
+  type WorkflowPreflightIssue,
+} from "./workflow-preflight-core";
 
-export type WorkflowPreflightIssue = {
-  severity: "error" | "warn";
-  message: string;
-};
+export type { WorkflowPreflightIssue };
 
 export type WorkflowPreflightResult = {
   ok: boolean;
@@ -116,26 +114,9 @@ export async function runWorkflowPreflight(input: {
       issues.push({
         severity: "error",
         message:
-          "Workflow has no positive prompt placeholder replacements. Add {{POSITIVE}} to a CLIP Text Encode node in Settings → ComfyUI workflow library (Apply bindings), or pick a workflow that includes prompt placeholders.",
+          "Workflow has no positive prompt placeholder replacements. Add {{POSITIVE}} to a CLIPText Encode node in Settings → ComfyUI workflow library (Apply bindings), or pick a workflow that includes prompt placeholders.",
       });
     }
-
-    issues.push(
-      ...auditWorkflowPreviewIssues({
-        workflowJson: preview.workflowJson,
-        model: input.model,
-        hasInputImage: input.hasInputImage,
-        hasMaskImage: input.hasMaskImage,
-      }),
-    );
-
-    issues.push(
-      ...auditWorkflowStackCompatibility({
-        workflowJson: preview.workflowJson,
-        model: input.model,
-        syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
-      }),
-    );
 
     if (
       !isEditQueueTool(input.tool) &&
@@ -148,24 +129,29 @@ export async function runWorkflowPreflight(input: {
       });
     }
 
+    const objectInfo = await fetchComfyObjectInfoCached({
+      comfyUrl: runtime?.apiUrl,
+    });
+
+    issues.push(
+      ...collectWorkflowGraphPreflightIssues({
+        workflowJson: preview.workflowJson,
+        model: input.model,
+        hasInputImage: input.hasInputImage,
+        hasMaskImage: input.hasMaskImage,
+        syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
+        knownNodeTypes: objectInfo?.nodeTypes,
+        models: objectInfo?.models,
+        objectInfoUnavailable: !objectInfo,
+      }),
+    );
+
     const loaderIssues = await auditLoaderMapsAtQueueTime({
       model: input.model,
       comfyUrl: runtime?.apiUrl,
       workflowJson: preview.workflowJson,
     });
     issues.push(...loaderIssues);
-
-    const nodeTypes = await fetchComfyObjectInfoNodeTypesCached({
-      comfyUrl: runtime?.apiUrl,
-    });
-    if (nodeTypes) {
-      issues.push(
-        ...auditWorkflowNodeTypes({
-          workflowJson: preview.workflowJson,
-          knownNodeTypes: nodeTypes,
-        }),
-      );
-    }
   } catch (err) {
     issues.push({
       severity: "error",

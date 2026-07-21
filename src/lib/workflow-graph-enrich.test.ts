@@ -284,6 +284,39 @@ describe("workflow-graph-enrich", () => {
 
     assert.ok(
       result.changes.some((change) =>
+        /using installed “RealESRGAN_x4plus\.pth”/i.test(change.message),
+      ),
+    );
+    assert.ok(
+      Object.values(result.workflow).some(
+        (node) => (node as { class_type?: string }).class_type === "ImageUpscaleWithModel",
+      ),
+    );
+  });
+
+  it("falls back to Lanczos when no neural upscaler is installed", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      qualityProfile: "final",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+      enrichSampling: false,
+      availableUpscaleModels: ["not-an-upscaler.bin"],
+    });
+
+    assert.ok(
+      result.changes.some((change) =>
         /not installed in ComfyUI — using Lanczos/i.test(change.message),
       ),
     );

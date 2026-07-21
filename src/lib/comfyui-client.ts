@@ -155,12 +155,19 @@ function injectPromptsIntoWorkflow(
     workflow,
   });
   const model = runtime?.queueTargetModel ?? request.model;
+  const inventoryFingerprint = [
+    enrichInventory?.availableUpscaleModels?.slice().sort().join(",") ?? "",
+    String(enrichInventory?.availableCheckpoints?.length ?? 0),
+    String(enrichInventory?.availableLoras?.length ?? 0),
+    enrichInventory?.supportsNeuralUpscaleTileSize ? "1" : "0",
+  ].join(";");
   const optimizeKey = [
     runtime?.queueQualityProfile ?? "draft",
     model ?? "",
     params.upscaleModelFilename ?? "",
     params.refinerCheckpointFilename ?? "",
     runtime?.workflowGraphEnrich === false ? "0" : "1",
+    inventoryFingerprint,
   ].join("|");
 
   let optimizedWorkflow = workflow;

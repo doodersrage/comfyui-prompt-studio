@@ -27,7 +27,7 @@ import {
   MODEL_SAMPLING_FLUX_NODE_TYPE,
 } from "./model-sampling-patch";
 import { IMAGE_SCALE_BY_NODE_TYPE } from "./workflow-direct-patch";
-import { isUpscaleModelInstalled } from "./model-upscale-map";
+import { isUpscaleModelInstalled, pickUpscaleModelFromInventory } from "./model-upscale-map";
 import { pickSdxlRefinerFromInventory } from "./model-checkpoint-map";
 import type { WorkflowQueueOptimizeChange } from "./workflow-queue-optimizer";
 import {
@@ -808,47 +808,62 @@ function enrichUpscaleNodes(input: {
   availableUpscaleModels?: string[] | null;
   supportsNeuralUpscaleTileSize?: boolean;
 }): WorkflowQueueOptimizeChange[] {
-  const wantsNeural =
-    Boolean(input.upscaleModelFilename?.trim()) &&
-    profileUsesNeuralUpscaleEnrich(input.qualityProfile, { model: input.model });
-  const neuralAvailable =
-    wantsNeural &&
-    isUpscaleModelInstalled(input.upscaleModelFilename, input.availableUpscaleModels);
-
-  if (wantsNeural && !neuralAvailable) {
-    const lanczosChanges = enrichLanczosUpscaleNodes({
+  if (!profileUsesNeuralUpscaleEnrich(input.qualityProfile, { model: input.model })) {
+    return enrichLanczosUpscaleNodes({
       workflow: input.workflow,
       qualityProfile: input.qualityProfile,
       enrichSharpen: input.enrichSharpen,
       model: input.model,
     });
-    return [
-      {
+  }
+
+  const mapped = input.upscaleModelFilename?.trim();
+  const picked = pickUpscaleModelFromInventory(input.availableUpscaleModels, mapped);
+  const neuralAvailable =
+    Boolean(picked) && isUpscaleModelInstalled(picked, input.availableUpscaleModels);
+
+  if (neuralAvailable && picked) {
+    const changes: WorkflowQueueOptimizeChange[] = [];
+    if (mapped && picked !== mapped) {
+      changes.push({
         kind: "audit",
-        severity: "warn",
-        message: `Neural upscaler “${input.upscaleModelFilename?.trim()}” not installed in ComfyUI — using Lanczos Final/Max upscale instead.`,
-      },
-      ...lanczosChanges,
+        severity: "info",
+        message: `Neural upscaler “${mapped}” missing — using installed “${picked}” from ComfyUI inventory.`,
+      });
+    }
+    return [
+      ...changes,
+      ...enrichNeuralUpscaleNodes({
+        workflow: input.workflow,
+        qualityProfile: input.qualityProfile,
+        upscaleModelFilename: picked,
+        enrichNeuralPolish: input.enrichNeuralPolish,
+        enrichSharpen: input.enrichSharpen,
+        model: input.model,
+        supportsNeuralUpscaleTileSize: input.supportsNeuralUpscaleTileSize,
+      }),
     ];
   }
 
-  if (wantsNeural && neuralAvailable && input.upscaleModelFilename?.trim()) {
-    return enrichNeuralUpscaleNodes({
-      workflow: input.workflow,
-      qualityProfile: input.qualityProfile,
-      upscaleModelFilename: input.upscaleModelFilename,
-      enrichNeuralPolish: input.enrichNeuralPolish,
-      enrichSharpen: input.enrichSharpen,
-      model: input.model,
-      supportsNeuralUpscaleTileSize: input.supportsNeuralUpscaleTileSize,
-    });
-  }
-  return enrichLanczosUpscaleNodes({
+  const lanczosChanges = enrichLanczosUpscaleNodes({
     workflow: input.workflow,
     qualityProfile: input.qualityProfile,
     enrichSharpen: input.enrichSharpen,
     model: input.model,
   });
+
+  if (mapped) {
+    return [
+      {
+        kind: "audit",
+        severity: "warn",
+        message: `Neural upscaler “${mapped}” not installed in ComfyUI — using Lanczos Final/Max upscale instead.`,
+      },
+      ...lanczosChanges,
+    ];
+  }
+
+  return lanczosChanges;
 }
 
 export function enrichWorkflowGraph(input: {
