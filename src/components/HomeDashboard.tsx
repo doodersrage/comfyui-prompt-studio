@@ -6,6 +6,9 @@ import { useEffect, useMemo, useState } from "react";
 import { galleryEntryThumbUrls, initGalleryStore, loadComfyGallery } from "@/lib/comfyui-gallery";
 import { loadScheduledBatchConfig } from "@/lib/scheduled-batch";
 import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
+import { loadLastToolDraft, type ToolDraftSummary } from "@/lib/tool-draft-memory";
+import { loadLastToolRoute } from "@/lib/last-tool-route";
+import { flattenAppNavLinks } from "@/lib/app-nav-catalog";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { ButtonLink } from "@/components/ui/Button";
@@ -25,12 +28,22 @@ const QueueOrchestrationPanel = dynamic(
 
 const ACCENT = "neutral" as const;
 
+function labelForRoute(href: string): string {
+  const path = href.split("?")[0] || href;
+  const link = flattenAppNavLinks().find(
+    (entry) => entry.href === href || (entry.href.split("?")[0] || entry.href) === path,
+  );
+  return link?.label ?? path;
+}
+
 export default function HomeDashboard() {
   const { entries } = usePromptHistory();
   const [gallery, setGallery] = useState<ReturnType<typeof loadComfyGallery>>([]);
   const [scheduled, setScheduled] = useState(loadScheduledBatchConfig());
   const [activeProjectId, setActiveProjectId] = useState<string | undefined>();
   const [projects, setProjects] = useState(loadPromptProjects());
+  const [draft, setDraft] = useState<ToolDraftSummary | null>(null);
+  const [lastRoute, setLastRoute] = useState<string | null>(null);
 
   useEffect(() => {
     const refresh = () => {
@@ -38,10 +51,16 @@ export default function HomeDashboard() {
       setScheduled(loadScheduledBatchConfig());
       setActiveProjectId(loadActiveProjectId());
       setProjects(loadPromptProjects());
+      setDraft(loadLastToolDraft());
+      setLastRoute(loadLastToolRoute());
     };
     void initGalleryStore().then(refresh);
     window.addEventListener("comfyui-gallery-updated", refresh);
-    return () => window.removeEventListener("comfyui-gallery-updated", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("comfyui-gallery-updated", refresh);
+      window.removeEventListener("focus", refresh);
+    };
   }, []);
 
   const pending = useMemo(
@@ -57,6 +76,9 @@ export default function HomeDashboard() {
     [gallery],
   );
   const activeProject = projects.find((project) => project.id === activeProjectId);
+  const showContinue =
+    Boolean(draft) ||
+    (Boolean(lastRoute) && lastRoute !== "/dashboard" && lastRoute !== draft?.href);
 
   return (
     <ToolLayout
@@ -67,6 +89,44 @@ export default function HomeDashboard() {
       description="Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way."
     >
       <OnboardingChecklist />
+
+      {showContinue ? (
+        <ToolSection title="Pick up where you left off">
+          <div className="flex flex-col gap-4 rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/60 p-4 shadow-[var(--shadow-surface)] sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              {draft ? (
+                <>
+                  <p className="type-caption text-[var(--text-muted)]">
+                    Draft · {draft.label}
+                  </p>
+                  <p className="truncate text-sm text-[var(--text-secondary)]">
+                    {draft.preview}
+                  </p>
+                </>
+              ) : lastRoute ? (
+                <>
+                  <p className="type-caption text-[var(--text-muted)]">Last tool</p>
+                  <p className="truncate text-sm text-[var(--text-secondary)]">
+                    {labelForRoute(lastRoute)}
+                  </p>
+                </>
+              ) : null}
+            </div>
+            <ToolActionRow className="shrink-0">
+              {draft ? (
+                <ButtonLink href={draft.href} variant="primary" size="sm">
+                  Resume draft
+                </ButtonLink>
+              ) : null}
+              {lastRoute && lastRoute !== draft?.href ? (
+                <ButtonLink href={lastRoute} size="sm">
+                  Open {labelForRoute(lastRoute)}
+                </ButtonLink>
+              ) : null}
+            </ToolActionRow>
+          </div>
+        </ToolSection>
+      ) : null}
 
       <ToolSection>
         <ToolActionRow>

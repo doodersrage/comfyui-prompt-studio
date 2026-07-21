@@ -15,6 +15,7 @@ import {
   loadExperimentWinners,
   markExperimentWinner,
 } from "@/lib/experiment-winners";
+import { toastBulkQueueSummary } from "@/lib/app-toast";
 import { downloadCompareExport } from "@/lib/gallery-compare-export";
 import { requeueComfyJobs } from "@/lib/comfyui-requeue";
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
@@ -206,9 +207,14 @@ export default function ExperimentDashboardPanel() {
                             };
                           }),
                           (message) => setStatus(message),
-                        ).then(({ queued }) =>
-                          setStatus(`Re-queued ${queued} job(s) with new seeds.`),
-                        );
+                        ).then(({ queued, failed }) => {
+                          setStatus(`Re-queued ${queued} job(s) with new seeds.`);
+                          toastBulkQueueSummary({
+                            label: "Experiment re-queue finished",
+                            queued,
+                            failed,
+                          });
+                        });
                       }}
                     >
                       Re-queue with new seeds

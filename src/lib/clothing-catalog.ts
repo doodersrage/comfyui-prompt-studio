@@ -534,8 +534,12 @@ function filterPoolByScene(
   if (!workWardrobe) {
     const withoutServiceUniform = working.filter(
       (entry) =>
-        !entry.contexts.includes("uniform") ||
-        entry.contexts.includes("athletic"),
+        (!entry.contexts.includes("uniform") ||
+          entry.contexts.includes("athletic")) &&
+        !entry.contexts.includes("work") &&
+        !/\b(?:steel-toe|work boot|coveralls|chore coat|hi-vis|scrubs|lab coat)\b/i.test(
+          entry.label,
+        ),
     );
     if (withoutServiceUniform.length > 0) {
       working = withoutServiceUniform;
@@ -1146,7 +1150,7 @@ function filterPoolByCategory(
       if (formal.length > 0) {
         working = formal;
       }
-    } else if (filters.workWardrobe || contexts.includes("work")) {
+    } else if (filters.workWardrobe) {
       const work = working.filter(
         (entry) =>
           entry.contexts.includes("work") ||

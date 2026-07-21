@@ -9,6 +9,7 @@ const KEYS_TO_CLEAR = [
   "comfy-nav-expanded-groups-v1",
   "comfy-collapsible-open-v1",
   "comfy-tool-context-memory-v1",
+  "comfy-last-tool-draft-v1",
 ] as const;
 
 /** Clears pins, recent destinations, nav expand state, collapsible memory, and tool context. Density returns to comfortable. */
@@ -24,5 +25,6 @@ export function resetUiChrome(): void {
   writeBrowserValue("comfy-recent-destinations-v1", []);
   writeBrowserValue("comfy-collapsible-open-v1", {});
   writeBrowserValue("comfy-tool-context-memory-v1", {});
+  writeBrowserValue("comfy-last-tool-draft-v1", null);
   saveUiDensity("comfortable");
 }

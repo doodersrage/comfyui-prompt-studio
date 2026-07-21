@@ -19,6 +19,7 @@ import {
 import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import {
@@ -345,12 +346,18 @@ export default function FantasyTool() {
           onHistorySeedScopeChange={(scope) =>
             updateToolSettings({ historySeedScope: scope })
           }
-          onHintsChange={(value) =>
+          onHintsChange={(value) => {
             updateToolSettings({
               hints: value,
               fantasyPresetId: undefined,
-            })
-          }
+            });
+            rememberDraftFields({
+              toolKey: "fantasy",
+              label: "Fantasy",
+              href: "/fantasy",
+              fields: [value],
+            });
+          }}
           onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
           onHistorySeedApplied={(result) =>
             updateToolSettings({
@@ -367,12 +374,18 @@ export default function FantasyTool() {
             <FieldDivider />
             <SceneHintsField
               value={toolSettings.hints ?? ""}
-              onChange={(value) =>
+              onChange={(value) => {
                 updateToolSettings({
                   hints: value,
                   fantasyPresetId: undefined,
-                })
-              }
+                });
+                rememberDraftFields({
+                  toolKey: "fantasy",
+                  label: "Fantasy",
+                  href: "/fantasy",
+                  fields: [value],
+                });
+              }}
               placeholder="e.g. elven spellblade in a crystal cavern, location: floating ruins above the clouds"
               className={accentFocusClass(ACCENT)}
             />

@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadComfyGallery, type ComfyGalleryEntry } from "@/lib/comfyui-gallery";
 import { galleryEntryThumbUrls } from "@/lib/comfyui-gallery";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/ViewState";
 import { ToolLayout, ToolSection, ToolBadge } from "@/components/ui/ToolPageShell";
+import { toastBulkQueueSummary, toastQueueOutcome } from "@/lib/app-toast";
+import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
 import { requeueComfyJobFromEntry, requeueComfyJobs } from "@/lib/comfyui-requeue";
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
@@ -104,8 +107,15 @@ export default function QueueTool() {
     );
     markOnboardingFirstQueue();
     setStatus(`Retried ${results.queued}/${failed.length}.`);
+    toastBulkQueueSummary({
+      label: "Retry failed finished",
+      queued: results.queued,
+      failed: results.failed,
+    });
     refreshEntries();
   }
+
+  const generateCta = resolveGenerateEmptyCta();
 
   return (
     <ToolLayout
@@ -131,7 +141,23 @@ export default function QueueTool() {
 
       <ToolSection title={`Active (${pending.length})`}>
         {pending.length === 0 ? (
-          <p className="text-sm text-zinc-500">No pending jobs.</p>
+          entries.length === 0 ? (
+            <EmptyState
+              compact
+              icon="inbox"
+              title="Queue is empty"
+              description="Send a prompt to ComfyUI from a prompt tool — jobs will show up here while they run."
+              action={generateCta}
+            />
+          ) : (
+            <EmptyState
+              compact
+              icon="inbox"
+              title="No pending jobs"
+              description="Nothing is running right now. Queue another prompt or browse completed outputs."
+              action={generateCta}
+            />
+          )
         ) : (
           <ul className="ui-list">
             {pending.map((entry) => (
@@ -150,6 +176,17 @@ export default function QueueTool() {
                     void requeueComfyJobFromEntry(entry).then((result) => {
                       if (result.ok) {
                         markOnboardingFirstQueue();
+                        toastQueueOutcome({
+                          ok: true,
+                          text: result.promptId
+                            ? `Retry queued · ${result.promptId}`
+                            : "Retry queued",
+                        });
+                      } else {
+                        toastQueueOutcome({
+                          ok: false,
+                          text: result.error ?? "Retry failed.",
+                        });
                       }
                       refreshEntries();
                     });
@@ -165,7 +202,17 @@ export default function QueueTool() {
 
       <ToolSection title={`Failed (${failed.length})`}>
         {failed.length === 0 ? (
-          <p className="text-sm text-zinc-500">No failed jobs in gallery.</p>
+          <EmptyState
+            compact
+            icon="inbox"
+            title="No failed jobs"
+            description="Failed gallery jobs will appear here so you can retry them in one place."
+            action={
+              pending.length === 0 && recent.length === 0
+                ? generateCta
+                : { label: "Open Gallery", href: "/gallery" }
+            }
+          />
         ) : (
           <>
             <Button variant="secondary" className="mb-3" onClick={() => void retryFailed()}>
@@ -191,23 +238,33 @@ export default function QueueTool() {
       </ToolSection>
 
       <ToolSection title="Recent completed">
-        <ul className="ui-list">
-          {recent.map((entry) => {
-            const url = galleryEntryThumbUrls(entry)[0];
-            return (
-              <li key={entry.id} className="ui-list-row items-center gap-3">
-                {url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={url} alt="" className="h-12 w-12 rounded object-cover" />
-                ) : null}
-                <div className="ui-list-primary min-w-0">
-                  <p className="truncate text-sm text-zinc-300">{entry.prompt}</p>
-                  <p className="type-caption">{entry.status} · {entry.model}</p>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        {recent.length === 0 ? (
+          <EmptyState
+            compact
+            icon="inbox"
+            title="No completed jobs yet"
+            description="Finished outputs land in Gallery — start from a prompt tool to queue your first run."
+            action={generateCta}
+          />
+        ) : (
+          <ul className="ui-list">
+            {recent.map((entry) => {
+              const url = galleryEntryThumbUrls(entry)[0];
+              return (
+                <li key={entry.id} className="ui-list-row items-center gap-3">
+                  {url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={url} alt="" className="h-12 w-12 rounded object-cover" />
+                  ) : null}
+                  <div className="ui-list-primary min-w-0">
+                    <p className="truncate text-sm text-zinc-300">{entry.prompt}</p>
+                    <p className="type-caption">{entry.status} · {entry.model}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </ToolSection>
 
       {status ? <p className="text-sm text-emerald-400">{status}</p> : null}

@@ -74,6 +74,30 @@ export function toastQueueOutcome(input: {
   });
 }
 
+/** One summary toast for bulk gallery/queue ops (avoids per-item noise). */
+export function toastBulkQueueSummary(input: {
+  label: string;
+  queued: number;
+  failed: number;
+  skipped?: number;
+}): string | null {
+  const skippedPart =
+    typeof input.skipped === "number" ? ` · ${input.skipped} skipped` : "";
+  const text = `${input.label} · ${input.queued} queued${skippedPart} · ${input.failed} failed`;
+  if (input.failed > 0) {
+    return toastQueueOutcome({ ok: false, text, href: "/queue" });
+  }
+  if (input.queued === 0) {
+    return pushAppToast({
+      text,
+      tone: "warning",
+      href: "/gallery",
+      ttlMs: 7000,
+    });
+  }
+  return toastQueueOutcome({ ok: true, text, href: "/queue" });
+}
+
 export function dismissAppToast(id: string): void {
   const before = toasts.length;
   toasts = toasts.filter((toast) => toast.id !== id);

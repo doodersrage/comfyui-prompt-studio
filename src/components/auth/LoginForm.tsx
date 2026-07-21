@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
 import { useAuth } from "@/hooks/useAuth";
+import type { AppFeatureId } from "@/lib/auth/features";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { loadLastToolRoute } from "@/lib/last-tool-route";
+import { loadLastToolRoute, resolveLandingRoute } from "@/lib/last-tool-route";
 
 type LoginMode = "sign-in" | "totp" | "forgot" | "reset";
 
@@ -41,9 +42,17 @@ export default function LoginForm() {
     if (!data.user) {
       throw new Error("Sign in failed.");
     }
-    const explicitNext = searchParams.get("next")?.trim();
-    const remembered = loadLastToolRoute();
-    const next = explicitNext || remembered || "/";
+    const allowedFeatures: AppFeatureId[] | "all" =
+      data.allowedFeatures === "all"
+        ? "all"
+        : Array.isArray(data.allowedFeatures)
+          ? (data.allowedFeatures as AppFeatureId[])
+          : [];
+    const next = resolveLandingRoute({
+      explicitNext: searchParams.get("next"),
+      remembered: loadLastToolRoute(),
+      allowedFeatures,
+    });
     await refresh();
     router.replace(next);
     router.refresh();

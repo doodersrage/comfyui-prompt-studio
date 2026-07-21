@@ -29,6 +29,7 @@ import { presetOptionsFromBackgroundCache } from "@/lib/background-options";
 import { readSceneLocationFromMetadata } from "@/lib/recent-locations";
 import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import {
   applyBackgroundHintsFromSearchParams,
   applyHintSourceFromSearchParams,
@@ -208,6 +209,12 @@ export default function BackgroundTool() {
               settingType: tags.settingType,
               timeOfDay: tags.timeOfDay,
               mood: tags.mood,
+            });
+            rememberDraftFields({
+              toolKey: "background",
+              label: "Background",
+              href: "/background",
+              fields: [value],
             });
           }}
           onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}

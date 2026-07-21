@@ -9,6 +9,7 @@ import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import SharedToolControls from "@/components/SharedToolControls";
 import { applySceneStarterWorkflowHints } from "@/lib/scene-starter-workflow-hints";
 import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import { SubjectShotScaleControl } from "@/components/ShotScaleControl";
 import {
   SceneGenerateFooter,
@@ -680,7 +681,15 @@ export default function CharacterTool() {
           onHistorySeedScopeChange={(scope) =>
             updateToolSettings({ historySeedScope: scope })
           }
-          onHintsChange={(value) => updateToolSettings({ hints: value })}
+          onHintsChange={(value) => {
+            updateToolSettings({ hints: value });
+            rememberDraftFields({
+              toolKey: "character",
+              label: "Character",
+              href: "/character",
+              fields: [value],
+            });
+          }}
           onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
           onHistorySeedApplied={(result) =>
             updateToolSettings({
@@ -696,7 +705,15 @@ export default function CharacterTool() {
             <FieldDivider />
             <SceneHintsField
               value={toolSettings.hints ?? ""}
-              onChange={(value) => updateToolSettings({ hints: value })}
+              onChange={(value) => {
+                updateToolSettings({ hints: value });
+                rememberDraftFields({
+                  toolKey: "character",
+                  label: "Character",
+                  href: "/character",
+                  fields: [value],
+                });
+              }}
               placeholder={
                 sceneMode === "duo"
                   ? "two female gravel cyclists in a fierce competition on a muddy doubletrack"

@@ -24,6 +24,7 @@ import {
 import { FieldDivider, FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
 import { Button, PrimaryButton } from "@/components/ui/Button";
 import { DEFAULT_FORMAT_TOOL_CACHE } from "@/lib/settings-cache";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 const ACCENT = "emerald" as const;
@@ -55,7 +56,6 @@ const EXAMPLE_DRAFTS = [
 export default function PromptFormatter() {
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
     useCachedSettings("format", DEFAULT_FORMAT_TOOL_CACHE);
-  const [input, setInput] = useState("");
   const [mode, setMode] = useState<FormatMode>(
     DEFAULT_FORMAT_TOOL_CACHE.mode ?? "positive",
   );
@@ -68,6 +68,20 @@ export default function PromptFormatter() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const input = toolSettings.draft ?? "";
+  const setInput = useCallback(
+    (value: string) => {
+      updateToolSettings({ draft: value });
+      rememberDraftFields({
+        toolKey: "format",
+        label: "Format",
+        href: "/format",
+        fields: [value],
+      });
+    },
+    [updateToolSettings],
+  );
 
   const targetModel = shared.model;
   const detail = shared.detail;

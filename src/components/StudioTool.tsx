@@ -15,7 +15,7 @@ import {
 } from "@/hooks/usePromptHistory";
 import { DEFAULT_STUDIO_TOOL_CACHE } from "@/lib/settings-cache";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { toastQueueOutcome } from "@/lib/app-toast";
+import { toastBulkQueueSummary, toastQueueOutcome } from "@/lib/app-toast";
 import {
   filterHistoryEntries,
   uniqueHistoryModels,
@@ -1225,6 +1225,11 @@ export default function StudioTool() {
                       setBackupStatus(
                         `Batch re-queue finished · ${queued} queued · ${failed} failed`,
                       );
+                      toastBulkQueueSummary({
+                        label: "Batch re-queue finished",
+                        queued,
+                        failed,
+                      });
                     });
                   }}
                   batchPromptCount={readHistoryBatchPrompts(entry).length}

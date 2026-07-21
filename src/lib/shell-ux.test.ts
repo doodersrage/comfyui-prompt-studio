@@ -9,12 +9,25 @@ import {
   getAppToasts,
   pushAppToast,
   rememberToastPreference,
+  toastBulkQueueSummary,
   toastQueueOutcome,
 } from "./app-toast.ts";
 import { loadToolContext, saveToolContext } from "./tool-context-memory.ts";
 import { resetUiChrome } from "./reset-ui-chrome.ts";
 import { loadNavFavorites } from "./nav-favorites.ts";
-import { loadLastToolRoute, saveLastToolRoute } from "./last-tool-route.ts";
+import {
+  loadLastToolRoute,
+  resolveLandingRoute,
+  saveLastToolRoute,
+} from "./last-tool-route.ts";
+import {
+  loadLastToolDraft,
+  rememberToolDraft,
+} from "./tool-draft-memory.ts";
+import { rememberDraftFields } from "./remember-draft-fields.ts";
+import { resolveGenerateEmptyCta } from "./empty-cta.ts";
+import { isTransientProgressStatus, toneForStatusText } from "./status-progress.ts";
+import { saveNavFavorites } from "./nav-favorites.ts";
 
 function withMockLocalStorage(run: () => void): void {
   const storage = new Map<string, string>();
@@ -187,6 +200,127 @@ describe("last tool route", () => {
       assert.equal(loadLastToolRoute(), "/gallery");
       saveLastToolRoute("/login");
       assert.equal(loadLastToolRoute(), "/gallery");
+    });
+  });
+
+  it("feature-guards remembered landing routes", () => {
+    assert.equal(
+      resolveLandingRoute({
+        explicitNext: "/gallery",
+        remembered: "/studio",
+        allowedFeatures: ["gallery", "profile"],
+      }),
+      "/gallery",
+    );
+    assert.equal(
+      resolveLandingRoute({
+        explicitNext: null,
+        remembered: "/studio",
+        allowedFeatures: ["gallery", "profile"],
+      }),
+      "/gallery",
+    );
+    assert.equal(
+      resolveLandingRoute({
+        explicitNext: "/login",
+        remembered: null,
+        allowedFeatures: "all",
+      }),
+      "/",
+    );
+  });
+});
+
+describe("tool draft memory", () => {
+  beforeEach(() => {
+    withMockLocalStorage(() => resetBrowserStorageCache());
+  });
+  afterEach(() => {
+    withMockLocalStorage(() => resetBrowserStorageCache());
+  });
+
+  it("remembers the latest draft for resume", () => {
+    withMockLocalStorage(() => {
+      rememberToolDraft({
+        toolKey: "generate",
+        label: "Generate",
+        href: "/",
+        text: "neon alley rain",
+      });
+      const draft = loadLastToolDraft();
+      assert.equal(draft?.toolKey, "generate");
+      assert.match(draft?.preview ?? "", /neon alley/);
+    });
+  });
+
+  it("joins multi-field drafts for editor resume", () => {
+    withMockLocalStorage(() => {
+      rememberDraftFields({
+        toolKey: "prompt-editor",
+        label: "Prompt Editor",
+        href: "/prompt",
+        fields: ["a woman in rain", "city night", "blurry"],
+      });
+      const draft = loadLastToolDraft();
+      assert.equal(draft?.href, "/prompt");
+      assert.match(draft?.preview ?? "", /woman in rain/);
+    });
+  });
+});
+
+describe("empty cta pins", () => {
+  beforeEach(() => {
+    withMockLocalStorage(() => resetBrowserStorageCache());
+  });
+  afterEach(() => {
+    withMockLocalStorage(() => resetBrowserStorageCache());
+  });
+
+  it("prefers a pinned scene tool over Generate", () => {
+    withMockLocalStorage(() => {
+      saveNavFavorites(["/character"]);
+      assert.deepEqual(resolveGenerateEmptyCta(), {
+        label: "Open Character",
+        href: "/character",
+      });
+    });
+  });
+});
+
+describe("status progress", () => {
+  it("detects bulk progress lines", () => {
+    assert.equal(isTransientProgressStatus("Upscaling 2/12…"), true);
+    assert.equal(isTransientProgressStatus("Bulk upscale finished · 2 queued"), false);
+    assert.equal(toneForStatusText("Re-queueing 1/3…"), "neutral");
+    assert.equal(toneForStatusText("Bulk re-queue finished · 2 queued · 1 failed"), "danger");
+  });
+});
+
+describe("bulk queue toast", () => {
+  beforeEach(() => {
+    withMockLocalStorage(() => {
+      resetBrowserStorageCache();
+      rememberToastPreference(true);
+      while (getAppToasts().length) {
+        dismissAppToast(getAppToasts()[0]!.id);
+      }
+    });
+  });
+
+  it("summarizes bulk results in one toast", () => {
+    withMockLocalStorage(() => {
+      rememberToastPreference(true);
+      assert.ok(
+        toastBulkQueueSummary({
+          label: "Bulk upscale finished",
+          queued: 2,
+          failed: 1,
+          skipped: 1,
+        }),
+      );
+      assert.equal(getAppToasts().length, 1);
+      assert.match(getAppToasts()[0]!.text, /Bulk upscale finished/);
+      assert.equal(getAppToasts()[0]!.tone, "danger");
     });
   });
 });

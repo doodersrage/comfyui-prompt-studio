@@ -23,6 +23,9 @@ import GalleryStatsBar from "@/components/gallery/GalleryStatsBar";
 import GalleryReviewTouchBar from "@/components/gallery/GalleryReviewTouchBar";
 import GalleryPanelSkeleton from "@/components/gallery/GalleryPanelSkeleton";
 import { EmptyState } from "@/components/ui/ViewState";
+import StatusToastStrip from "@/components/ui/StatusToastStrip";
+import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
+import { toneForStatusText } from "@/lib/status-progress";
 import { computeGalleryStats } from "@/lib/gallery-stats";
 import { queueMutatedGalleryJobs } from "@/lib/gallery-mutations";
 import { queueNegativeAbTest } from "@/lib/negative-ab-queue";
@@ -33,7 +36,7 @@ import {
 } from "@/lib/param-experiment-queue";
 import { learnFromLowRatedPrompt } from "@/lib/negative-learner";
 import { pushNotification } from "@/lib/notification-center";
-import { toastQueueOutcome } from "@/lib/app-toast";
+import { toastBulkQueueSummary, toastQueueOutcome } from "@/lib/app-toast";
 import { suggestRatingMutations } from "@/lib/rating-prompt-mutations";
 import { markOnboardingGalleryReview } from "@/lib/onboarding-hooks";
 import { setLineageParent } from "@/lib/prompt-lineage-session";
@@ -1113,24 +1116,55 @@ export default function ComfyUiGalleryPanel({
                 };
               }),
               setRequeueStatus,
-            ).then(() => setSelectedIds([]));
+            ).then(({ queued, failed }) => {
+              setSelectedIds([]);
+              toastBulkQueueSummary({
+                label: "Bulk variation queue finished",
+                queued,
+                failed,
+              });
+            });
           }}
           onBulkUpscaleFinal={() => {
             setRequeueStatus("Bulk upscale (Final) started…");
             void bulkUpscaleGalleryEntries(selectedEntries, "final", setRequeueStatus).then(
-              () => setSelectedIds([]),
+              ({ queued, failed, skipped }) => {
+                setSelectedIds([]);
+                toastBulkQueueSummary({
+                  label: "Bulk upscale (Final) finished",
+                  queued,
+                  failed,
+                  skipped,
+                });
+              },
             );
           }}
           onBulkUpscaleMax={() => {
             setRequeueStatus("Bulk upscale (Max) started…");
             void bulkUpscaleGalleryEntries(selectedEntries, "max", setRequeueStatus).then(
-              () => setSelectedIds([]),
+              ({ queued, failed, skipped }) => {
+                setSelectedIds([]);
+                toastBulkQueueSummary({
+                  label: "Bulk upscale (Max) finished",
+                  queued,
+                  failed,
+                  skipped,
+                });
+              },
             );
           }}
           onBulkRefine={() => {
             setRequeueStatus("Bulk refine (Final) started…");
             void bulkRefineGalleryEntries(selectedEntries, "final", setRequeueStatus).then(
-              () => setSelectedIds([]),
+              ({ queued, failed, skipped }) => {
+                setSelectedIds([]);
+                toastBulkQueueSummary({
+                  label: "Bulk refine finished",
+                  queued,
+                  failed,
+                  skipped,
+                });
+              },
             );
           }}
           onBulkMoireCleanFinal={() => {
@@ -1139,7 +1173,15 @@ export default function ComfyUiGalleryPanel({
               selectedEntries,
               "final",
               setRequeueStatus,
-            ).then(() => setSelectedIds([]));
+            ).then(({ queued, failed, skipped }) => {
+              setSelectedIds([]);
+              toastBulkQueueSummary({
+                label: "Bulk moiré clean (Final) finished",
+                queued,
+                failed,
+                skipped,
+              });
+            });
           }}
           onBulkMoireCleanMax={() => {
             setRequeueStatus("Bulk moiré clean (Max) started…");
@@ -1147,7 +1189,15 @@ export default function ComfyUiGalleryPanel({
               selectedEntries,
               "max",
               setRequeueStatus,
-            ).then(() => setSelectedIds([]));
+            ).then(({ queued, failed, skipped }) => {
+              setSelectedIds([]);
+              toastBulkQueueSummary({
+                label: "Bulk moiré clean (Max) finished",
+                queued,
+                failed,
+                skipped,
+              });
+            });
           }}
         />
       ) : null}
@@ -1208,9 +1258,17 @@ export default function ComfyUiGalleryPanel({
           ))}
         </div>
       )}
-      {requeueStatus && (
-        <p className="text-xs text-violet-300/90">{requeueStatus}</p>
-      )}
+      {requeueStatus ? (
+        <StatusToastStrip
+          notes={[
+            {
+              id: "gallery-requeue",
+              text: requeueStatus,
+              tone: toneForStatusText(requeueStatus),
+            },
+          ]}
+        />
+      ) : null}
 
       {compareOpen && selectedEntries.length >= 2 ? (
         <ModalPortal>
@@ -1348,7 +1406,7 @@ export default function ComfyUiGalleryPanel({
             icon="inbox"
             title="No gallery outputs yet"
             description="Queue prompts from any tool with Send to ComfyUI, or import sidecars and ComfyUI history below."
-            action={{ label: "Open Generate", href: "/" }}
+            action={resolveGenerateEmptyCta()}
           />
         ) : (
           <EmptyState

@@ -43,6 +43,7 @@ import {
   DEFAULT_GENERATE_TOOL_CACHE,
 } from "@/lib/settings-cache";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
 import { readVariationSeedFromResult } from "@/lib/variation-seed-metadata";
 import { modelUsesTagAssist } from "@/lib/tag-assist";
@@ -121,7 +122,6 @@ export default function PromptGenerator() {
   const { getRecent, record: recordLocation } = useRecentLocations();
   const { getRecent: getRecentClothing, record: recordClothing } = useRecentClothing();
   const { getBlocklist } = useLocationBlocklist();
-  const [input, setInput] = useState("");
   const [mode, setMode] = useState<PromptMode>(
     DEFAULT_GENERATE_TOOL_CACHE.mode ?? "positive",
   );
@@ -138,6 +138,20 @@ export default function PromptGenerator() {
     GenerateResponse,
     "model" | "comfyNode" | "limits"
   > | null>(null);
+
+  const input = toolSettings.hints ?? "";
+  const setInput = useCallback(
+    (value: string) => {
+      updateToolSettings({ hints: value });
+      rememberDraftFields({
+        toolKey: "generate",
+        label: "Generate",
+        href: "/",
+        fields: [value],
+      });
+    },
+    [updateToolSettings],
+  );
 
   const hintSource = resolveGenerateHintSource(toolSettings);
   const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);

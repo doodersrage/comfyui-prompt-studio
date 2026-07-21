@@ -15,6 +15,7 @@ import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import {
   applyShareableSceneParams,
   parseScenePresetFromSearch,
@@ -271,9 +272,15 @@ export default function PetTool() {
           onHistorySeedScopeChange={(scope) =>
             updateToolSettings({ historySeedScope: scope })
           }
-          onHintsChange={(value) =>
-            updateToolSettings({ hints: value, petPresetId: undefined })
-          }
+          onHintsChange={(value) => {
+            updateToolSettings({ hints: value, petPresetId: undefined });
+            rememberDraftFields({
+              toolKey: "pet",
+              label: "Pet",
+              href: "/pet",
+              fields: [value],
+            });
+          }}
           onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
           onHistorySeedApplied={(result) =>
             updateToolSettings({
@@ -290,9 +297,15 @@ export default function PetTool() {
             <FieldDivider />
             <SceneHintsField
               value={toolSettings.hints ?? ""}
-              onChange={(value) =>
-                updateToolSettings({ hints: value, petPresetId: undefined })
-              }
+              onChange={(value) => {
+                updateToolSettings({ hints: value, petPresetId: undefined });
+                rememberDraftFields({
+                  toolKey: "pet",
+                  label: "Pet",
+                  href: "/pet",
+                  fields: [value],
+                });
+              }}
               placeholder="e.g. golden retriever puppy playing fetch, location: sunny dog park"
               className={accentFocusClass(ACCENT)}
             />

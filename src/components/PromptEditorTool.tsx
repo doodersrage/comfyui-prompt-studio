@@ -14,8 +14,9 @@ import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { getDetailLimits } from "@/lib/detail-level";
 import { modelUsesNegativePrompt } from "@/lib/prompt-pair";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { DEFAULT_FORMAT_TOOL_CACHE } from "@/lib/settings-cache";
+import { DEFAULT_PROMPT_EDITOR_TOOL_CACHE } from "@/lib/settings-cache";
 import {
   ToolBadge,
   ToolLayout,
@@ -29,17 +30,53 @@ import { PrimaryButton } from "@/components/ui/Button";
 const ACCENT = "sky" as const;
 
 export default function PromptEditorTool() {
-  const { mounted, shared, updateShared } = useCachedSettings(
-    "format",
-    DEFAULT_FORMAT_TOOL_CACHE,
-  );
-  const [hints, setHints] = useState("");
-  const [positive, setPositive] = useState("");
-  const [negative, setNegative] = useState("");
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
+    useCachedSettings("promptEditor", DEFAULT_PROMPT_EDITOR_TOOL_CACHE);
+  const hints = toolSettings.hints ?? "";
+  const positive = toolSettings.positive ?? "";
+  const negative = toolSettings.negative ?? "";
   const [copied, setCopied] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [negativeStatus, setNegativeStatus] = useState<string | null>(null);
   const [sourceMeta, setSourceMeta] = useState<PromptEditorHandoffMeta | null>(null);
+
+  const rememberEditorDraft = useCallback(
+    (next: { hints?: string; positive?: string; negative?: string }) => {
+      rememberDraftFields({
+        toolKey: "prompt-editor",
+        label: "Prompt Editor",
+        href: "/prompt",
+        fields: [
+          next.positive ?? positive,
+          next.hints ?? hints,
+          next.negative ?? negative,
+        ],
+      });
+    },
+    [hints, negative, positive],
+  );
+
+  const setHints = useCallback(
+    (value: string) => {
+      updateToolSettings({ hints: value });
+      rememberEditorDraft({ hints: value });
+    },
+    [rememberEditorDraft, updateToolSettings],
+  );
+  const setPositive = useCallback(
+    (value: string) => {
+      updateToolSettings({ positive: value });
+      rememberEditorDraft({ positive: value });
+    },
+    [rememberEditorDraft, updateToolSettings],
+  );
+  const setNegative = useCallback(
+    (value: string) => {
+      updateToolSettings({ negative: value });
+      rememberEditorDraft({ negative: value });
+    },
+    [rememberEditorDraft, updateToolSettings],
+  );
 
   const reformatTarget = getReformatTargetModel(shared.model);
   const actions = usePromptResultActions({
@@ -70,7 +107,7 @@ export default function PromptEditorTool() {
         setSourceMeta(payload.meta);
         actions.resetStatuses();
       },
-      [actions, updateShared],
+      [actions, setHints, setNegative, setPositive, updateShared],
     ),
   );
 
@@ -111,7 +148,7 @@ export default function PromptEditorTool() {
     } catch (err) {
       setNegativeStatus(err instanceof Error ? err.message : "Negative generation failed.");
     }
-  }, [hints, positive, sport]);
+  }, [hints, positive, setNegative, sport]);
 
   const queueOptions = { explicitNegative: negative.trim() || undefined };
 

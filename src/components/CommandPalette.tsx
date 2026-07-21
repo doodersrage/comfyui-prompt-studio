@@ -21,6 +21,11 @@ import {
   loadRecentDestinations,
   type RecentDestination,
 } from "@/lib/recent-destinations";
+import { loadLastToolRoute } from "@/lib/last-tool-route";
+import {
+  loadLastToolDraft,
+  type ToolDraftSummary,
+} from "@/lib/tool-draft-memory";
 import type { GlobalSearchResult } from "@/lib/global-search";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import KeyboardShortcutsHelp from "@/components/KeyboardShortcutsHelp";
@@ -109,6 +114,8 @@ export default function CommandPalette() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [recent, setRecent] = useState<RecentDestination[]>([]);
+  const [lastRoute, setLastRoute] = useState<string | null>(null);
+  const [lastDraft, setLastDraft] = useState<ToolDraftSummary | null>(null);
   const [globalMatches, setGlobalMatches] = useState<CommandItem[]>([]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const listRef = useRef<HTMLUListElement | null>(null);
@@ -149,6 +156,8 @@ export default function CommandPalette() {
     }
     setFavorites(loadNavFavorites());
     setRecent(loadRecentDestinations());
+    setLastRoute(loadLastToolRoute());
+    setLastDraft(loadLastToolDraft());
   }, [open]);
 
   useEffect(() => {
@@ -182,6 +191,25 @@ export default function CommandPalette() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const favoriteHrefs = new Set(favorites);
+    const continueItems: CommandItem[] = [];
+    if (lastDraft) {
+      continueItems.push({
+        id: "resume-draft",
+        label: `Resume draft · ${lastDraft.label}`,
+        subtitle: lastDraft.preview,
+        href: lastDraft.href,
+        group: "Continue",
+      });
+    }
+    if (lastRoute && lastRoute !== lastDraft?.href) {
+      continueItems.push({
+        id: "continue-route",
+        label: "Continue where you left off",
+        subtitle: lastRoute,
+        href: lastRoute,
+        group: "Continue",
+      });
+    }
     const recentItems: CommandItem[] = recent.map((entry) => ({
       id: `recent-${entry.href}`,
       label: entry.label,
@@ -201,8 +229,8 @@ export default function CommandPalette() {
 
     if (!q) {
       const seen = new Set<string>();
-      return [...recentItems, ...withFavFirst].filter((item) => {
-        const key = item.href ?? item.id;
+      return [...continueItems, ...recentItems, ...withFavFirst].filter((item) => {
+        const key = item.group === "Continue" ? item.id : (item.href ?? item.id);
         if (seen.has(key)) {
           return false;
         }
@@ -210,7 +238,7 @@ export default function CommandPalette() {
         return true;
       });
     }
-    const staticMatches = [...recentItems, ...withFavFirst].filter(
+    const staticMatches = [...continueItems, ...recentItems, ...withFavFirst].filter(
       (item) =>
         item.label.toLowerCase().includes(q) ||
         item.group.toLowerCase().includes(q) ||
@@ -224,7 +252,7 @@ export default function CommandPalette() {
       seen.add(item.id);
       return true;
     });
-  }, [favorites, globalMatches, items, query, recent]);
+  }, [favorites, globalMatches, items, lastDraft, lastRoute, query, recent]);
 
   useEffect(() => {
     setActiveIndex(0);

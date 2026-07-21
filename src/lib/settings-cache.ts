@@ -134,6 +134,8 @@ export type GenerateToolCache = {
   hintSource?: import("./scene-hint-source").SceneHintSource;
   historySeedScope?: import("./scene-hint-source").HistorySeedScope;
   lastHistorySeedEntryId?: string;
+  /** Persisted keyword / scene draft for Generate. */
+  hints?: string;
   variationEnabled?: boolean;
   variationStrength?: number;
   distinctPeople?: boolean;
@@ -152,6 +154,14 @@ export type GenerateToolCache = {
 export type FormatToolCache = {
   mode?: "positive" | "negative";
   smartFormat?: boolean;
+  /** Persisted Format draft input. */
+  draft?: string;
+};
+
+export type PromptEditorToolCache = {
+  hints?: string;
+  positive?: string;
+  negative?: string;
 };
 
 import type { CharacterPresetOptions } from "./character-options";
@@ -290,6 +300,7 @@ export type VariationsToolCache = {
 export type ToolSettingsCache = {
   generate?: GenerateToolCache;
   format?: FormatToolCache;
+  promptEditor?: PromptEditorToolCache;
   background?: BackgroundToolCache;
   pet?: PetToolCache;
   fantasy?: FantasyToolCache;
@@ -371,6 +382,7 @@ export const DEFAULT_GENERATE_TOOL_CACHE: GenerateToolCache = {
   generateSource: "keywords",
   hintSource: "manual",
   historySeedScope: "related",
+  hints: "",
   variationEnabled: DEFAULT_VARIATION_SETTINGS.enabled,
   variationStrength: DEFAULT_VARIATION_SETTINGS.strength,
   distinctPeople: true,
@@ -382,6 +394,13 @@ export const DEFAULT_GENERATE_TOOL_CACHE: GenerateToolCache = {
 export const DEFAULT_FORMAT_TOOL_CACHE: FormatToolCache = {
   mode: "positive",
   smartFormat: true,
+  draft: "",
+};
+
+export const DEFAULT_PROMPT_EDITOR_TOOL_CACHE: PromptEditorToolCache = {
+  hints: "",
+  positive: "",
+  negative: "",
 };
 
 export const DEFAULT_CHARACTER_TOOL_CACHE: CharacterToolCache = {

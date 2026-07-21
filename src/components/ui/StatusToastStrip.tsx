@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { isTransientProgressStatus } from "@/lib/status-progress";
 
 export type StatusToastNote = {
   id: string;
@@ -22,7 +23,7 @@ const TONE_CLASS: Record<NonNullable<StatusToastNote["tone"]>, string> = {
 
 /**
  * Collapses stacked status strings into one strip showing the latest note,
- * with optional expand for the rest.
+ * with optional expand for the rest. Progress lines stay visually quieter.
  */
 export default function StatusToastStrip({
   notes,
@@ -31,16 +32,30 @@ export default function StatusToastStrip({
   notes: StatusToastNote[];
   className?: string;
 }) {
-  const cleaned = useMemo(
-    () =>
-      notes
-        .map((note) => ({
-          ...note,
-          text: note.text.trim(),
-        }))
-        .filter((note) => note.text.length > 0),
-    [notes],
-  );
+  const cleaned = useMemo(() => {
+    const mapped = notes
+      .map((note) => ({
+        ...note,
+        text: note.text.trim(),
+      }))
+      .filter((note) => note.text.length > 0);
+
+    // Keep only the latest progress line per id so bulk 1/N updates don't stack.
+    const byId = new Map<string, StatusToastNote>();
+    for (const note of mapped) {
+      const previous = byId.get(note.id);
+      if (
+        previous &&
+        isTransientProgressStatus(previous.text) &&
+        isTransientProgressStatus(note.text)
+      ) {
+        byId.set(note.id, note);
+        continue;
+      }
+      byId.set(note.id, note);
+    }
+    return [...byId.values()];
+  }, [notes]);
   const [expanded, setExpanded] = useState(false);
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
 
@@ -57,11 +72,17 @@ export default function StatusToastStrip({
 
   const latest = cleaned[cleaned.length - 1]!;
   const older = cleaned.slice(0, -1);
+  const quiet = isTransientProgressStatus(latest.text);
 
   return (
     <div
       role="status"
-      className={`rounded-[var(--radius-lg)] border px-3 py-2.5 shadow-[var(--shadow-surface)] ${TONE_CLASS[latest.tone ?? "neutral"]} ${className}`.trim()}
+      aria-live={quiet ? "polite" : "assertive"}
+      className={`rounded-[var(--radius-lg)] border ${
+        quiet
+          ? "border-[var(--border-subtle)] bg-[var(--bg-elevated)]/70 px-3 py-2 text-[var(--text-muted)] shadow-none"
+          : `px-3 py-2.5 shadow-[var(--shadow-surface)] ${TONE_CLASS[latest.tone ?? "neutral"]}`
+      } ${className}`.trim()}
     >
       <div className="flex items-start gap-3">
         <p className="type-caption min-w-0 flex-1 leading-relaxed">{latest.text}</p>
