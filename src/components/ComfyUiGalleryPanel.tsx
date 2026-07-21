@@ -948,7 +948,9 @@ export default function ComfyUiGalleryPanel({
 
       {bulkEnabled && visibleEntries.length > 0 && selectedIds.length === 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-zinc-800/80 bg-zinc-950/20 px-4 py-3 text-xs text-zinc-500">
-          <span>Select cards to compare, export, queue experiments, or assign projects.</span>
+          <span>
+            Select cards to compare, export, queue, assign projects, or remove.
+          </span>
           <button
             type="button"
             onClick={() => setSelectedIds(visibleEntries.map((entry) => entry.id))}
@@ -984,11 +986,17 @@ export default function ComfyUiGalleryPanel({
           }}
           onFavorite={(favorite) => setFavorites(selectedIds, favorite)}
           onDelete={() => {
-            if (!window.confirm(`Delete ${selectedIds.length} selected entries?`)) {
+            const count = selectedIds.length;
+            if (
+              !window.confirm(
+                `Remove ${count} selected ${count === 1 ? "entry" : "entries"} from the gallery?`,
+              )
+            ) {
               return;
             }
             removeEntries(selectedIds);
             setSelectedIds([]);
+            setRequeueStatus(`Removed ${count} ${count === 1 ? "entry" : "entries"}.`);
           }}
           onExportSidecars={() => {
             downloadGallerySidecarBundle(selectedEntries);

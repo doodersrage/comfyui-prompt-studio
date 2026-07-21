@@ -264,8 +264,15 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           ))}
           <MenuItem label="Favorite" onClick={() => props.onFavorite(true)} />
           <MenuItem label="Unfavorite" onClick={() => props.onFavorite(false)} />
-          <MenuItem label="Delete selected" onClick={props.onDelete} />
         </ActionMenu>
+
+        <Button
+          variant="danger"
+          className="!min-h-9 px-3 text-xs"
+          onClick={props.onDelete}
+        >
+          Remove selected
+        </Button>
 
         <label className="ml-auto hidden items-center gap-1 text-[11px] text-[var(--text-muted)] sm:flex">
           Param axis
