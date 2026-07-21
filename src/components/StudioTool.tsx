@@ -326,16 +326,18 @@ export default function StudioTool() {
 
   useEffect(() => {
     if (tab !== "analytics") {
-      setRatingTokenStats([]);
-      setGalleryAnalytics({
-        total: 0,
-        completed: 0,
-        pending: 0,
-        running: 0,
-        error: 0,
-        favorites: 0,
-        unreviewed: 0,
-        avgRating: null,
+      scheduleAfterCommit(() => {
+        setRatingTokenStats([]);
+        setGalleryAnalytics({
+          total: 0,
+          completed: 0,
+          pending: 0,
+          running: 0,
+          error: 0,
+          favorites: 0,
+          unreviewed: 0,
+          avgRating: null,
+        });
       });
       return;
     }
@@ -370,7 +372,9 @@ export default function StudioTool() {
     const left = iterationEntries.find((entry) => entry.id === iterationDiffLeftId);
     const right = iterationEntries.find((entry) => entry.id === iterationDiffRightId);
     if (!left || !right) {
-      setIterationDiff(null);
+      scheduleAfterCommit(() => {
+        setIterationDiff(null);
+      });
       return;
     }
     let cancelled = false;

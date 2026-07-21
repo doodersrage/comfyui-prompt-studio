@@ -266,7 +266,6 @@ export function inferModelsFromWorkflowLabel(input: {
   name: string;
   filename?: string;
 }): ComfyImageModel[] {
-  const haystack = `${input.name} ${input.filename ?? ""}`.toLowerCase();
   const scored = COMFY_IMAGE_MODELS.map((model) => ({
     model: model.id,
     score: scoreWorkflowForModel(input, model.id, model.category),
