@@ -22,6 +22,7 @@ import {
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
@@ -57,6 +58,13 @@ export default function BackgroundTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useSeedToolDraft(mounted, {
+    toolKey: "background",
+    label: "Background",
+    href: "/background",
+    fields: [toolSettings.settingType, toolSettings.timeOfDay, toolSettings.mood],
+  });
 
   const actions = usePromptResultActions({
     tool: "background",

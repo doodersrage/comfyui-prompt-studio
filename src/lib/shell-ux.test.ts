@@ -355,14 +355,23 @@ describe("reset ui chrome", () => {
     withMockLocalStorage(() => resetBrowserStorageCache());
   });
 
-  it("clears favorites and resets density", () => {
+  it("clears favorites, drafts, routes, and resets density", () => {
     withMockLocalStorage(() => {
       saveToolContext("generate", { model: "qwen-image-2512" });
       saveUiDensity("compact");
+      saveLastToolRoute("/gallery");
+      rememberToolDraft({
+        toolKey: "generate",
+        label: "Generate",
+        href: "/",
+        text: "neon alley rain",
+      });
       resetUiChrome();
       assert.deepEqual(loadNavFavorites(), []);
       assert.equal(loadUiDensity(), "comfortable");
       assert.equal(loadToolContext("generate"), undefined);
+      assert.equal(loadLastToolRoute(), null);
+      assert.equal(loadLastToolDraft(), null);
     });
   });
 });

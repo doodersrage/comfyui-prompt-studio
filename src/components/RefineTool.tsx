@@ -6,6 +6,7 @@ import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import InpaintMaskEditor from "@/components/InpaintMaskEditor";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import type { ComfyImageModel } from "@/lib/comfy-models/client";
@@ -15,7 +16,7 @@ import { isInpaintModel } from "@/lib/model-denoise-defaults";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { diffPromptWords } from "@/lib/prompt-diff";
 import { resolveParentHistoryId } from "@/lib/prompt-lineage-session";
-import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from "@/lib/settings-cache";
+import { DEFAULT_REFINE_TOOL_CACHE } from "@/lib/settings-cache";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import {
   ToolBadge,
@@ -31,13 +32,43 @@ const ACCENT = "fuchsia" as const;
 
 export default function RefineTool() {
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("imagePrompt", DEFAULT_IMAGE_PROMPT_TOOL_CACHE);
+    useCachedSettings("refine", DEFAULT_REFINE_TOOL_CACHE);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [maskFile, setMaskFile] = useState<File | null>(null);
   const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
-  const [currentPrompt, setCurrentPrompt] = useState("");
-  const [intentHints, setIntentHints] = useState("");
+  const currentPrompt = toolSettings.currentPrompt ?? "";
+  const intentHints = toolSettings.intentHints ?? "";
+  const setCurrentPrompt = useCallback(
+    (value: string) => {
+      updateToolSettings({ currentPrompt: value });
+      rememberDraftFields({
+        toolKey: "refine",
+        label: "Refine",
+        href: "/refine",
+        fields: [intentHints, value],
+      });
+    },
+    [intentHints, updateToolSettings],
+  );
+  const setIntentHints = useCallback(
+    (value: string) => {
+      updateToolSettings({ intentHints: value });
+      rememberDraftFields({
+        toolKey: "refine",
+        label: "Refine",
+        href: "/refine",
+        fields: [value, currentPrompt],
+      });
+    },
+    [currentPrompt, updateToolSettings],
+  );
+  useSeedToolDraft(mounted, {
+    toolKey: "refine",
+    label: "Refine",
+    href: "/refine",
+    fields: [intentHints, currentPrompt],
+  });
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -293,16 +324,7 @@ export default function RefineTool() {
         <TextArea
           rows={4}
           value={currentPrompt}
-          onChange={(event) => {
-            const value = event.target.value;
-            setCurrentPrompt(value);
-            rememberDraftFields({
-              toolKey: "refine",
-              label: "Refine",
-              href: "/refine",
-              fields: [intentHints, value],
-            });
-          }}
+          onChange={(event) => setCurrentPrompt(event.target.value)}
           placeholder="Paste the prompt you want corrected…"
           className={`font-mono ${accentFocusClass(ACCENT)}`}
         />
@@ -311,16 +333,7 @@ export default function RefineTool() {
         <TextArea
           rows={3}
           value={intentHints}
-          onChange={(event) => {
-            const value = event.target.value;
-            setIntentHints(value);
-            rememberDraftFields({
-              toolKey: "refine",
-              label: "Refine",
-              href: "/refine",
-              fields: [value, currentPrompt],
-            });
-          }}
+          onChange={(event) => setIntentHints(event.target.value)}
           placeholder="What you wanted: gravel cyclists with helmets, muddy doubletrack, no street clothes…"
           className={accentFocusClass(ACCENT)}
         />

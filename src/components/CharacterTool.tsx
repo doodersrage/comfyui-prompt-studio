@@ -27,6 +27,7 @@ import {
 } from "@/lib/scene-hint-source";
 import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
@@ -156,6 +157,12 @@ export default function CharacterTool() {
   const { getRecent, record: recordLocation } = useRecentLocations();
   const { getRecent: getRecentClothing, record: recordClothing } = useRecentClothing();
   const { getBlocklist } = useLocationBlocklist();
+  useSeedToolDraft(mounted, {
+    toolKey: "character",
+    label: "Character",
+    href: "/character",
+    fields: [toolSettings.hints],
+  });
   const [output, setOutput] = useState("");
   const [batchResults, setBatchResults] = useState<EnrichedToolGenerateResult[]>([]);
   const [result, setResult] = useState<EnrichedToolGenerateResult | null>(null);

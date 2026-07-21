@@ -164,6 +164,38 @@ export type PromptEditorToolCache = {
   negative?: string;
 };
 
+export type RefineToolCache = {
+  intentHints?: string;
+  currentPrompt?: string;
+};
+
+export type InpaintToolCache = {
+  maskDescription?: string;
+  changeDescription?: string;
+  directPrompt?: string;
+};
+
+export type ControlNetToolCache = {
+  mode?: import("./controlnet-prompt").ControlNetMode;
+  subject?: string;
+  scene?: string;
+  /** Extra constraints — not DetailLevel. */
+  detailNotes?: string;
+};
+
+export type VideoToolCache = {
+  subject?: string;
+  motion?: string;
+  camera?: string;
+  style?: string;
+  durationSec?: number;
+};
+
+export type LintToolCache = {
+  hints?: string;
+  prompt?: string;
+};
+
 import type { CharacterPresetOptions } from "./character-options";
 
 export type CharacterSceneMode = "solo" | "duo" | "compose";
@@ -301,6 +333,11 @@ export type ToolSettingsCache = {
   generate?: GenerateToolCache;
   format?: FormatToolCache;
   promptEditor?: PromptEditorToolCache;
+  refine?: RefineToolCache;
+  inpaint?: InpaintToolCache;
+  controlnet?: ControlNetToolCache;
+  video?: VideoToolCache;
+  lint?: LintToolCache;
   background?: BackgroundToolCache;
   pet?: PetToolCache;
   fantasy?: FantasyToolCache;
@@ -401,6 +438,37 @@ export const DEFAULT_PROMPT_EDITOR_TOOL_CACHE: PromptEditorToolCache = {
   hints: "",
   positive: "",
   negative: "",
+};
+
+export const DEFAULT_REFINE_TOOL_CACHE: RefineToolCache = {
+  intentHints: "",
+  currentPrompt: "",
+};
+
+export const DEFAULT_INPAINT_TOOL_CACHE: InpaintToolCache = {
+  maskDescription: "",
+  changeDescription: "",
+  directPrompt: "",
+};
+
+export const DEFAULT_CONTROLNET_TOOL_CACHE: ControlNetToolCache = {
+  mode: "depth",
+  subject: "",
+  scene: "",
+  detailNotes: "",
+};
+
+export const DEFAULT_VIDEO_TOOL_CACHE: VideoToolCache = {
+  subject: "",
+  motion: "",
+  camera: "",
+  style: "",
+  durationSec: 4,
+};
+
+export const DEFAULT_LINT_TOOL_CACHE: LintToolCache = {
+  hints: "",
+  prompt: "",
 };
 
 export const DEFAULT_CHARACTER_TOOL_CACHE: CharacterToolCache = {

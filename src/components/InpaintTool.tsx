@@ -6,6 +6,7 @@ import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import InpaintMaskEditor from "@/components/InpaintMaskEditor";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import type { ComfyImageModel } from "@/lib/comfy-models/client";
@@ -14,7 +15,7 @@ import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { buildInpaintInstruction } from "@/lib/regional-prompt-builder";
 import { isInpaintModel } from "@/lib/model-denoise-defaults";
-import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from "@/lib/settings-cache";
+import { DEFAULT_INPAINT_TOOL_CACHE } from "@/lib/settings-cache";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import {
   ToolBadge,
@@ -30,10 +31,8 @@ const ACCENT = "amber" as const;
 const DEFAULT_INPAINT_MODEL: ComfyImageModel = "flux-inpaint";
 
 export default function InpaintTool() {
-  const { mounted, shared, updateShared } = useCachedSettings(
-    "imagePrompt",
-    DEFAULT_IMAGE_PROMPT_TOOL_CACHE,
-  );
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
+    useCachedSettings("inpaint", DEFAULT_INPAINT_TOOL_CACHE);
   const modelInitializedRef = useRef(false);
 
   const [file, setFile] = useState<File | null>(null);
@@ -43,9 +42,51 @@ export default function InpaintTool() {
   const [handoffQueueParams, setHandoffQueueParams] = useState<
     WorkflowParamValues | undefined
   >();
-  const [maskDescription, setMaskDescription] = useState("");
-  const [changeDescription, setChangeDescription] = useState("");
-  const [directPrompt, setDirectPrompt] = useState("");
+  const maskDescription = toolSettings.maskDescription ?? "";
+  const changeDescription = toolSettings.changeDescription ?? "";
+  const directPrompt = toolSettings.directPrompt ?? "";
+  const setMaskDescription = useCallback(
+    (value: string) => {
+      updateToolSettings({ maskDescription: value });
+      rememberDraftFields({
+        toolKey: "inpaint",
+        label: "Inpaint",
+        href: "/inpaint",
+        fields: [value, changeDescription, directPrompt],
+      });
+    },
+    [changeDescription, directPrompt, updateToolSettings],
+  );
+  const setChangeDescription = useCallback(
+    (value: string) => {
+      updateToolSettings({ changeDescription: value });
+      rememberDraftFields({
+        toolKey: "inpaint",
+        label: "Inpaint",
+        href: "/inpaint",
+        fields: [maskDescription, value, directPrompt],
+      });
+    },
+    [directPrompt, maskDescription, updateToolSettings],
+  );
+  const setDirectPrompt = useCallback(
+    (value: string) => {
+      updateToolSettings({ directPrompt: value });
+      rememberDraftFields({
+        toolKey: "inpaint",
+        label: "Inpaint",
+        href: "/inpaint",
+        fields: [maskDescription, changeDescription, value],
+      });
+    },
+    [changeDescription, maskDescription, updateToolSettings],
+  );
+  useSeedToolDraft(mounted, {
+    toolKey: "inpaint",
+    label: "Inpaint",
+    href: "/inpaint",
+    fields: [maskDescription, changeDescription, directPrompt],
+  });
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -243,16 +284,7 @@ export default function InpaintTool() {
             <TextArea
               rows={2}
               value={maskDescription}
-              onChange={(event) => {
-                const value = event.target.value;
-                setMaskDescription(value);
-                rememberDraftFields({
-                  toolKey: "inpaint",
-                  label: "Inpaint",
-                  href: "/inpaint",
-                  fields: [value, changeDescription, directPrompt],
-                });
-              }}
+              onChange={(event) => setMaskDescription(event.target.value)}
               placeholder="e.g. sky above the horizon, subject's jacket"
               className={accentFocusClass(ACCENT)}
             />
@@ -262,16 +294,7 @@ export default function InpaintTool() {
             <TextArea
               rows={2}
               value={changeDescription}
-              onChange={(event) => {
-                const value = event.target.value;
-                setChangeDescription(value);
-                rememberDraftFields({
-                  toolKey: "inpaint",
-                  label: "Inpaint",
-                  href: "/inpaint",
-                  fields: [maskDescription, value, directPrompt],
-                });
-              }}
+              onChange={(event) => setChangeDescription(event.target.value)}
               placeholder="e.g. dramatic storm clouds with warm edge light"
               className={accentFocusClass(ACCENT)}
             />
@@ -284,16 +307,7 @@ export default function InpaintTool() {
         <TextArea
           rows={3}
           value={directPrompt}
-          onChange={(event) => {
-            const value = event.target.value;
-            setDirectPrompt(value);
-            rememberDraftFields({
-              toolKey: "inpaint",
-              label: "Inpaint",
-              href: "/inpaint",
-              fields: [maskDescription, changeDescription, value],
-            });
-          }}
+          onChange={(event) => setDirectPrompt(event.target.value)}
           placeholder="Leave empty to use the composed inpaint instruction…"
           className={`font-mono ${accentFocusClass(ACCENT)}`}
         />

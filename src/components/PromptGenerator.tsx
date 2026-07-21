@@ -27,6 +27,7 @@ import {
 } from "@/lib/scene-hint-source";
 import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
 import { useRecentLocations } from "@/hooks/useRecentLocations";
@@ -152,6 +153,13 @@ export default function PromptGenerator() {
     },
     [updateToolSettings],
   );
+
+  useSeedToolDraft(mounted, {
+    toolKey: "generate",
+    label: "Generate",
+    href: "/",
+    fields: [input],
+  });
 
   const hintSource = resolveGenerateHintSource(toolSettings);
   const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);

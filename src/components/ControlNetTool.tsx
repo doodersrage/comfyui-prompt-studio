@@ -4,15 +4,19 @@ import { useCallback, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { DEFAULT_CHARACTER_TOOL_CACHE } from "@/lib/settings-cache";
+import { DEFAULT_CONTROLNET_TOOL_CACHE } from "@/lib/settings-cache";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import type { ControlNetMode } from "@/lib/controlnet-prompt";
+import {
+  normalizeControlNetMode,
+  type ControlNetMode,
+} from "@/lib/controlnet-prompt";
 import {
   ToolBadge,
   ToolLayout,
@@ -43,10 +47,8 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 export default function ControlNetTool() {
-  const { mounted, shared, updateShared } = useCachedSettings(
-    "character",
-    DEFAULT_CHARACTER_TOOL_CACHE,
-  );
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
+    useCachedSettings("controlnet", DEFAULT_CONTROLNET_TOOL_CACHE);
   const actions = usePromptResultActions({
     tool: "controlnet",
     model: shared.model,
@@ -56,10 +58,56 @@ export default function ControlNetTool() {
     reformatTarget: getReformatTargetModel(shared.model),
   });
 
-  const [mode, setMode] = useState<ControlNetMode>("depth");
-  const [subject, setSubject] = useState("");
-  const [scene, setScene] = useState("");
-  const [detail, setDetail] = useState("");
+  const mode = normalizeControlNetMode(toolSettings.mode);
+  const subject = toolSettings.subject ?? "";
+  const scene = toolSettings.scene ?? "";
+  const detailNotes = toolSettings.detailNotes ?? "";
+  const setMode = useCallback(
+    (value: ControlNetMode) => updateToolSettings({ mode: value }),
+    [updateToolSettings],
+  );
+  const setSubject = useCallback(
+    (value: string) => {
+      updateToolSettings({ subject: value });
+      rememberDraftFields({
+        toolKey: "controlnet",
+        label: "ControlNet",
+        href: "/controlnet",
+        fields: [value, scene, detailNotes],
+      });
+    },
+    [detailNotes, scene, updateToolSettings],
+  );
+  const setScene = useCallback(
+    (value: string) => {
+      updateToolSettings({ scene: value });
+      rememberDraftFields({
+        toolKey: "controlnet",
+        label: "ControlNet",
+        href: "/controlnet",
+        fields: [subject, value, detailNotes],
+      });
+    },
+    [detailNotes, subject, updateToolSettings],
+  );
+  const setDetailNotes = useCallback(
+    (value: string) => {
+      updateToolSettings({ detailNotes: value });
+      rememberDraftFields({
+        toolKey: "controlnet",
+        label: "ControlNet",
+        href: "/controlnet",
+        fields: [subject, scene, value],
+      });
+    },
+    [scene, subject, updateToolSettings],
+  );
+  useSeedToolDraft(mounted, {
+    toolKey: "controlnet",
+    label: "ControlNet",
+    href: "/controlnet",
+    fields: [subject, scene, detailNotes],
+  });
   const [refFile, setRefFile] = useState<File | null>(null);
   const [refPreview, setRefPreview] = useState<string | null>(null);
   const [output, setOutput] = useState("");
@@ -72,7 +120,7 @@ export default function ControlNetTool() {
   >();
 
   const selectedModel = getComfyModelDefinition(shared.model);
-  const hintText = [subject, scene, detail].filter(Boolean).join(" · ");
+  const hintText = [subject, scene, detailNotes].filter(Boolean).join(" · ");
 
   const onRefChange = useCallback(
     (file: File | null) => {
@@ -121,7 +169,7 @@ export default function ControlNetTool() {
         mode,
         subject,
         scene,
-        detail,
+        detail: detailNotes,
         model: shared.model,
         detailLevel: shared.detail,
       };
@@ -153,7 +201,7 @@ export default function ControlNetTool() {
     } finally {
       setLoading(false);
     }
-  }, [actions, detail, hintText, mode, refFile, scene, shared.detail, shared.model, subject]);
+  }, [actions, detailNotes, hintText, mode, refFile, scene, shared.detail, shared.model, subject]);
 
   const copyOutput = useCallback(async () => {
     if (!output) {
@@ -235,16 +283,7 @@ export default function ControlNetTool() {
             <textarea
               id="controlnet-subject"
               value={subject}
-              onChange={(event) => {
-                const value = event.target.value;
-                setSubject(value);
-                rememberDraftFields({
-                  toolKey: "controlnet",
-                  label: "ControlNet",
-                  href: "/controlnet",
-                  fields: [value, scene, detail],
-                });
-              }}
+              onChange={(event) => setSubject(event.target.value)}
               rows={4}
               className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${accentFocusClass(ACCENT)}`}
               placeholder="e.g. woman standing, weight on left leg, arms crossed — or leave blank when using image"
@@ -255,16 +294,7 @@ export default function ControlNetTool() {
             <input
               id="controlnet-scene"
               value={scene}
-              onChange={(event) => {
-                const value = event.target.value;
-                setScene(value);
-                rememberDraftFields({
-                  toolKey: "controlnet",
-                  label: "ControlNet",
-                  href: "/controlnet",
-                  fields: [subject, value, detail],
-                });
-              }}
+              onChange={(event) => setScene(event.target.value)}
               className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
               placeholder="e.g. narrow alley, low camera angle"
             />
@@ -273,17 +303,8 @@ export default function ControlNetTool() {
             <FieldLabel htmlFor="controlnet-detail">Extra constraints (optional)</FieldLabel>
             <input
               id="controlnet-detail"
-              value={detail}
-              onChange={(event) => {
-                const value = event.target.value;
-                setDetail(value);
-                rememberDraftFields({
-                  toolKey: "controlnet",
-                  label: "ControlNet",
-                  href: "/controlnet",
-                  fields: [subject, scene, value],
-                });
-              }}
+              value={detailNotes}
+              onChange={(event) => setDetailNotes(event.target.value)}
               className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
             />
           </div>

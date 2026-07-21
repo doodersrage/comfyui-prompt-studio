@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import ModelSelector from "@/components/ModelSelector";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import type { DetailLevel } from "@/lib/detail-level";
 import { getDetailLimits } from "@/lib/detail-level";
@@ -82,6 +83,13 @@ export default function PromptFormatter() {
     },
     [updateToolSettings],
   );
+
+  useSeedToolDraft(mounted, {
+    toolKey: "format",
+    label: "Format",
+    href: "/format",
+    fields: [input],
+  });
 
   const targetModel = shared.model;
   const detail = shared.detail;

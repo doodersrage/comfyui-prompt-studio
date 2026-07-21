@@ -6,6 +6,7 @@ import FantasyPresetChips from "@/components/FantasyPresetChips";
 import FantasyPresetControls from "@/components/FantasyPresetControls";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
@@ -77,6 +78,13 @@ export default function FantasyTool() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [lockedWardrobeLabel, setLockedWardrobeLabel] = useState<string | undefined>();
+
+  useSeedToolDraft(mounted, {
+    toolKey: "fantasy",
+    label: "Fantasy",
+    href: "/fantasy",
+    fields: [toolSettings.hints],
+  });
 
   useEffect(() => {
     const id = shared.lockedWardrobeId?.trim();

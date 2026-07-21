@@ -61,7 +61,8 @@ export default function KeyboardShortcutsHelp({
           </li>
         </ul>
         <div className="border-t border-[var(--border-subtle)] px-4 py-2 type-caption text-[var(--text-muted)]">
-          Tip: customize bindings under Settings when available.
+          Tip: open the command palette (⌘/Ctrl+K) for Resume draft, Continue where
+          you left off, and Dismiss continue. Customize bindings under Settings when available.
         </div>
       </div>
       <button

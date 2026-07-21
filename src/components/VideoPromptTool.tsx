@@ -4,10 +4,12 @@ import { useCallback, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { getReformatTargetLabel } from "@/lib/reformat-target";
-import { DEFAULT_FORMAT_TOOL_CACHE } from "@/lib/settings-cache";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
+import { DEFAULT_VIDEO_TOOL_CACHE } from "@/lib/settings-cache";
 import {
   ToolBadge,
   ToolLayout,
@@ -21,15 +23,76 @@ import { PrimaryButton } from "@/components/ui/Button";
 const ACCENT = "violet" as const;
 
 export default function VideoPromptTool() {
-  const { mounted, shared, updateShared } = useCachedSettings(
-    "format",
-    DEFAULT_FORMAT_TOOL_CACHE,
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
+    useCachedSettings("video", DEFAULT_VIDEO_TOOL_CACHE);
+  const subject = toolSettings.subject ?? "";
+  const motion = toolSettings.motion ?? "";
+  const camera = toolSettings.camera ?? "";
+  const style = toolSettings.style ?? "";
+  const durationSec = toolSettings.durationSec ?? 4;
+
+  const rememberVideoDraft = useCallback(
+    (next: {
+      subject?: string;
+      motion?: string;
+      camera?: string;
+      style?: string;
+    }) => {
+      rememberDraftFields({
+        toolKey: "video",
+        label: "Video",
+        href: "/video",
+        fields: [
+          next.subject ?? subject,
+          next.motion ?? motion,
+          next.camera ?? camera,
+          next.style ?? style,
+        ],
+      });
+    },
+    [camera, motion, style, subject],
   );
-  const [subject, setSubject] = useState("");
-  const [motion, setMotion] = useState("");
-  const [camera, setCamera] = useState("");
-  const [style, setStyle] = useState("");
-  const [durationSec, setDurationSec] = useState(4);
+
+  const setSubject = useCallback(
+    (value: string) => {
+      updateToolSettings({ subject: value });
+      rememberVideoDraft({ subject: value });
+    },
+    [rememberVideoDraft, updateToolSettings],
+  );
+  const setMotion = useCallback(
+    (value: string) => {
+      updateToolSettings({ motion: value });
+      rememberVideoDraft({ motion: value });
+    },
+    [rememberVideoDraft, updateToolSettings],
+  );
+  const setCamera = useCallback(
+    (value: string) => {
+      updateToolSettings({ camera: value });
+      rememberVideoDraft({ camera: value });
+    },
+    [rememberVideoDraft, updateToolSettings],
+  );
+  const setStyle = useCallback(
+    (value: string) => {
+      updateToolSettings({ style: value });
+      rememberVideoDraft({ style: value });
+    },
+    [rememberVideoDraft, updateToolSettings],
+  );
+  const setDurationSec = useCallback(
+    (value: number) => updateToolSettings({ durationSec: value }),
+    [updateToolSettings],
+  );
+
+  useSeedToolDraft(mounted, {
+    toolKey: "video",
+    label: "Video",
+    href: "/video",
+    fields: [subject, motion, camera, style],
+  });
+
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +135,12 @@ export default function VideoPromptTool() {
       }
       const prompt = await actions.finalizePrompt(data.prompt ?? "", motion);
       setOutput(prompt);
+      rememberDraftFields({
+        toolKey: "video",
+        label: "Video",
+        href: "/video",
+        fields: [prompt, subject, motion],
+      });
     } catch (err) {
       setOutput("");
       setError(err instanceof Error ? err.message : "Video prompt failed.");

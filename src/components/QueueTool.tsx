@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadComfyGallery, type ComfyGalleryEntry } from "@/lib/comfyui-gallery";
 import { galleryEntryThumbUrls } from "@/lib/comfyui-gallery";
 import { Button } from "@/components/ui/Button";
-import { EmptyState } from "@/components/ui/ViewState";
+import { EmptyState, ErrorState } from "@/components/ui/ViewState";
 import { ToolLayout, ToolSection, ToolBadge } from "@/components/ui/ToolPageShell";
 import { toastBulkQueueSummary, toastQueueOutcome } from "@/lib/app-toast";
 import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
@@ -136,7 +136,12 @@ export default function QueueTool() {
           ) : null}
         </div>
       ) : (
-        <p className="text-sm text-zinc-500">ComfyUI health unavailable — check Settings.</p>
+        <ErrorState
+          compact
+          title="ComfyUI health unavailable"
+          description="The queue stats endpoint did not respond. Check your ComfyUI URL and connectivity in Settings."
+          action={{ label: "Open Settings", href: "/settings" }}
+        />
       )}
 
       <ToolSection title={`Active (${pending.length})`}>

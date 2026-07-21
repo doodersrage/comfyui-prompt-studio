@@ -21,8 +21,9 @@ import {
   loadRecentDestinations,
   type RecentDestination,
 } from "@/lib/recent-destinations";
-import { loadLastToolRoute } from "@/lib/last-tool-route";
+import { clearLastToolRoute, loadLastToolRoute } from "@/lib/last-tool-route";
 import {
+  clearLastToolDraft,
   loadLastToolDraft,
   type ToolDraftSummary,
 } from "@/lib/tool-draft-memory";
@@ -127,7 +128,7 @@ export default function CommandPalette() {
       {
         id: "keyboard-shortcuts",
         label: "Keyboard shortcuts",
-        subtitle: "Cheat sheet for generate, queue, copy pair, and palette",
+        subtitle: "Cheat sheet · palette also lists Resume draft & Continue",
         group: "Actions",
         action: () => {
           setOpen(false);
@@ -208,6 +209,20 @@ export default function CommandPalette() {
         subtitle: lastRoute,
         href: lastRoute,
         group: "Continue",
+      });
+    }
+    if (lastDraft || lastRoute) {
+      continueItems.push({
+        id: "dismiss-continue",
+        label: "Dismiss continue",
+        subtitle: "Clear resume draft and last tool",
+        group: "Continue",
+        action: () => {
+          clearLastToolDraft();
+          clearLastToolRoute();
+          setLastDraft(null);
+          setLastRoute(null);
+        },
       });
     }
     const recentItems: CommandItem[] = recent.map((entry) => ({
@@ -300,11 +315,14 @@ export default function CommandPalette() {
   }, [activeIndex, open]);
 
   function runItem(item: CommandItem) {
-    setOpen(false);
     if (item.action) {
       item.action();
+      if (item.id !== "dismiss-continue") {
+        setOpen(false);
+      }
       return;
     }
+    setOpen(false);
     if (item.href) {
       router.push(item.href);
     }

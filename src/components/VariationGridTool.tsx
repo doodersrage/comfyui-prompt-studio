@@ -12,6 +12,7 @@ import BatchQueueProgress, {
 import SharedToolControls from "@/components/SharedToolControls";
 import SportPresetChips from "@/components/SportPresetChips";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
 import { useRecentLocations } from "@/hooks/useRecentLocations";
@@ -259,6 +260,13 @@ export default function VariationGridTool() {
     null,
   );
   const importedAppliedRef = useRef(false);
+
+  useSeedToolDraft(mounted, {
+    toolKey: "variations",
+    label: "Variations",
+    href: "/variations",
+    fields: [toolSettings.hints],
+  });
 
   useEffect(() => {
     if (!mounted) {

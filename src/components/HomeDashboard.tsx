@@ -6,8 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { galleryEntryThumbUrls, initGalleryStore, loadComfyGallery } from "@/lib/comfyui-gallery";
 import { loadScheduledBatchConfig } from "@/lib/scheduled-batch";
 import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
-import { loadLastToolDraft, type ToolDraftSummary } from "@/lib/tool-draft-memory";
-import { loadLastToolRoute } from "@/lib/last-tool-route";
+import { loadLastToolDraft, clearLastToolDraft, type ToolDraftSummary } from "@/lib/tool-draft-memory";
+import { loadLastToolRoute, clearLastToolRoute } from "@/lib/last-tool-route";
 import { flattenAppNavLinks } from "@/lib/app-nav-catalog";
 import {
   buildGalleryFocusUrl,
@@ -16,7 +16,7 @@ import {
 import { startPromptEditorFromGalleryEntry } from "@/lib/improve-output";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
-import { ButtonLink } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { ToolPageSkeleton } from "@/components/ui/ViewState";
 import {
   StatCard,
@@ -128,6 +128,18 @@ export default function HomeDashboard() {
                   Open {labelForRoute(lastRoute)}
                 </ButtonLink>
               ) : null}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  clearLastToolDraft();
+                  clearLastToolRoute();
+                  setDraft(null);
+                  setLastRoute(null);
+                }}
+              >
+                Dismiss
+              </Button>
             </ToolActionRow>
           </div>
         </ToolSection>

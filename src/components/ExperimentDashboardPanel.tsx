@@ -20,6 +20,7 @@ import { downloadCompareExport } from "@/lib/gallery-compare-export";
 import { requeueComfyJobs } from "@/lib/comfyui-requeue";
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { EmptyState } from "@/components/ui/ViewState";
 
 export default function ExperimentDashboardPanel() {
   const [groups, setGroups] = useState<ExperimentGroup[]>([]);
@@ -72,9 +73,14 @@ export default function ExperimentDashboardPanel() {
       </div>
 
       {groups.length === 0 ? (
-        <p className="mt-4 text-sm text-zinc-500">
-          No experiment groups yet. Queue multiple seeds for the same prompt in Gallery.
-        </p>
+        <EmptyState
+          compact
+          className="mt-4"
+          icon="compare"
+          title="No experiment groups yet"
+          description="Queue multiple seeds or CFG/steps variants for the same prompt in Gallery — they'll group here automatically."
+          action={{ label: "Open Gallery", href: "/gallery" }}
+        />
       ) : (
         <ul className="mt-4 space-y-3">
           {groups.map((group) => {

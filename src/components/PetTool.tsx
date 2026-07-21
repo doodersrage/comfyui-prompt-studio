@@ -6,6 +6,7 @@ import PetPresetControls from "@/components/PetPresetControls";
 import PetPresetChips from "@/components/PetPresetChips";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
@@ -65,6 +66,13 @@ export default function PetTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useSeedToolDraft(mounted, {
+    toolKey: "pet",
+    label: "Pet",
+    href: "/pet",
+    fields: [toolSettings.hints],
+  });
 
   const actions = usePromptResultActions({
     tool: "pet",

@@ -5,6 +5,7 @@ import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import type { ComfyImageModel } from "@/lib/comfy-models/client";
@@ -68,6 +69,13 @@ export default function ImagePromptTool() {
   const [handoffQueueParams, setHandoffQueueParams] = useState<
     WorkflowParamValues | undefined
   >();
+
+  useSeedToolDraft(mounted, {
+    toolKey: "image-prompt",
+    label: "Image → Prompt",
+    href: "/image-prompt",
+    fields: [toolSettings.extraHints, output],
+  });
 
   const actions = usePromptResultActions({
     tool: "imagePrompt",

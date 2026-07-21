@@ -111,8 +111,8 @@ export default function ProfileAppearancePanel() {
         <p className="type-heading">Reset chrome</p>
         <p className="type-caption text-[var(--text-muted)]">
           Clears pinned tools, recent destinations, expanded nav groups, remembered
-          collapsibles, and per-tool model/workflow memory. Density returns to Comfortable.
-          Theme, ambient, and toast preference stay unchanged.
+          collapsibles, per-tool model/workflow memory, last draft, and last tool route.
+          Density returns to Comfortable. Theme, ambient, and toast preference stay unchanged.
         </p>
         <Button
           variant="secondary"
@@ -120,7 +120,7 @@ export default function ProfileAppearancePanel() {
           onClick={() => {
             if (
               !window.confirm(
-                "Reset pins, recent destinations, nav expand state, collapsibles, and per-tool model memory?",
+                "Reset pins, recent destinations, nav expand state, collapsibles, per-tool model memory, last draft, and last tool route?",
               )
             ) {
               return;

@@ -143,7 +143,9 @@ export default function ComfyUiGalleryPanel({
         ? { query: query.trim(), semanticSearch: true }
         : {}),
       ...(focus?.trim() ? { focusEntryId: focus.trim() } : {}),
-      ...(review === "1" ? { reviewMode: true } : {}),
+      ...(review === "1"
+        ? { reviewMode: true, unreviewedOnly: true }
+        : {}),
     }));
   }, [setFilter]);
 
@@ -509,6 +511,16 @@ export default function ComfyUiGalleryPanel({
       }
     }
   }, [filter.reviewMode, visibleEntries, selectedIds.length]);
+
+  useEffect(() => {
+    if (!filter.focusEntryId?.trim()) {
+      return;
+    }
+    const id = filter.focusEntryId.trim();
+    const node = document.querySelector(`[data-gallery-entry="${CSS.escape(id)}"]`);
+    node?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    setSelectedIds((previous) => (previous.includes(id) ? previous : [id]));
+  }, [filter.focusEntryId, visibleEntries.length]);
 
   useEffect(() => {
     if (!filter.reviewMode || !reviewFocusEntry) {
@@ -1449,7 +1461,10 @@ export default function ComfyUiGalleryPanel({
               layout={layout}
               selectable={bulkEnabled}
               selected={selectedIdSet.has(entry.id)}
-              reviewFocus={filter.reviewMode === true && reviewFocusEntry?.id === entry.id}
+              reviewFocus={
+                (filter.reviewMode === true && reviewFocusEntry?.id === entry.id) ||
+                filter.focusEntryId === entry.id
+              }
               previewUrl={primaryThumbUrl(entry)}
               imageUrls={galleryEntryViewUrls(entry)}
               reviewMode={filter.reviewMode === true}
@@ -1483,7 +1498,10 @@ export default function ComfyUiGalleryPanel({
                   layout={layout}
                   selectable={bulkEnabled}
                   selected={selectedIdSet.has(entry.id)}
-                  reviewFocus={filter.reviewMode === true && reviewFocusEntry?.id === entry.id}
+                  reviewFocus={
+                    (filter.reviewMode === true && reviewFocusEntry?.id === entry.id) ||
+                    filter.focusEntryId === entry.id
+                  }
                   previewUrl={primaryThumbUrl(entry)}
                   imageUrls={galleryEntryViewUrls(entry)}
                   reviewMode={filter.reviewMode === true}

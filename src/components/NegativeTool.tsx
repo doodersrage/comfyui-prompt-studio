@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import type { AthleticSport } from "@/lib/athletic-sport-profiles";
 import { getComfyModelDefinition } from "@/lib/comfy-models/client";
@@ -47,6 +48,13 @@ export default function NegativeTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useSeedToolDraft(mounted, {
+    toolKey: "negative",
+    label: "Negative",
+    href: "/negative",
+    fields: [toolSettings.extra, toolSettings.sport, output],
+  });
 
   const selectedModel = getComfyModelDefinition(shared.model);
 

@@ -12,6 +12,7 @@ import BatchQueueProgress, {
 } from "@/components/BatchQueueProgress";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
 import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
@@ -76,6 +77,14 @@ export default function TopicTool() {
   const { getRecent: getRecentClothing } = useRecentClothing();
   const { getRecent: getRecentLocations } = useRecentLocations();
   const { getBlocklist } = useLocationBlocklist();
+
+  useSeedToolDraft(mounted, {
+    toolKey: "topics",
+    label: "Topics",
+    href: "/topics",
+    fields: [toolSettings.seedTopic],
+  });
+
   const [topics, setTopics] = useState<string[]>([]);
   const [batchResults, setBatchResults] = useState<BatchFromTopicsItem[]>([]);
   const [provider, setProvider] = useState<TopicGenerateResult["provider"] | null>(

@@ -8,6 +8,7 @@ import SharedToolControls from "@/components/SharedToolControls";
 import SidecarImportButton from "@/components/SidecarImportButton";
 import PromptWeightInspector from "@/components/PromptWeightInspector";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptEditorHandoff, type PromptEditorHandoffMeta } from "@/hooks/usePromptEditorHandoff";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { getComfyModelDefinition } from "@/lib/comfy-models/client";
@@ -77,6 +78,13 @@ export default function PromptEditorTool() {
     },
     [rememberEditorDraft, updateToolSettings],
   );
+
+  useSeedToolDraft(mounted, {
+    toolKey: "prompt-editor",
+    label: "Prompt Editor",
+    href: "/prompt",
+    fields: [positive, hints, negative],
+  });
 
   const reformatTarget = getReformatTargetModel(shared.model);
   const actions = usePromptResultActions({

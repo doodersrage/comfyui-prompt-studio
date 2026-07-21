@@ -7,11 +7,13 @@ import PromptDiagnosticsPanel from "@/components/PromptDiagnosticsPanel";
 import SharedToolControls from "@/components/SharedToolControls";
 import SidecarImportButton from "@/components/SidecarImportButton";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { getDetailLimits } from "@/lib/detail-level";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { DEFAULT_FORMAT_TOOL_CACHE } from "@/lib/settings-cache";
+import { rememberDraftFields } from "@/lib/remember-draft-fields";
+import { DEFAULT_LINT_TOOL_CACHE } from "@/lib/settings-cache";
 import {
   ToolBadge,
   ToolLayout,
@@ -26,14 +28,43 @@ import PromptWeightInspector from "@/components/PromptWeightInspector";
 const ACCENT = "amber" as const;
 
 export default function LintTool() {
-  const { mounted, shared, updateShared } = useCachedSettings(
-    "format",
-    DEFAULT_FORMAT_TOOL_CACHE,
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
+    useCachedSettings("lint", DEFAULT_LINT_TOOL_CACHE);
+  const hints = toolSettings.hints ?? "";
+  const prompt = toolSettings.prompt ?? "";
+  const setHints = useCallback(
+    (value: string) => {
+      updateToolSettings({ hints: value });
+      rememberDraftFields({
+        toolKey: "lint",
+        label: "Lint",
+        href: "/lint",
+        fields: [prompt, value],
+      });
+    },
+    [prompt, updateToolSettings],
   );
-  const [hints, setHints] = useState("");
-  const [prompt, setPrompt] = useState("");
+  const setPrompt = useCallback(
+    (value: string) => {
+      updateToolSettings({ prompt: value });
+      rememberDraftFields({
+        toolKey: "lint",
+        label: "Lint",
+        href: "/lint",
+        fields: [value, hints],
+      });
+    },
+    [hints, updateToolSettings],
+  );
   const [copied, setCopied] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  useSeedToolDraft(mounted, {
+    toolKey: "lint",
+    label: "Lint",
+    href: "/lint",
+    fields: [prompt, hints],
+  });
 
   const reformatTarget = getReformatTargetModel(shared.model);
   const actions = usePromptResultActions({
