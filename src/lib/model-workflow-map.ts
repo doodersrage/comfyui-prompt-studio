@@ -26,6 +26,11 @@ const MODEL_FAMILY_GROUPS: readonly (readonly ComfyImageModel[])[] = [
     "qwen-image-edit-2511-lightning-8",
   ],
   [
+    "qwen-rapid-aio-edit",
+    "qwen-rapid-aio-sfw",
+    "qwen-rapid-aio-nsfw",
+  ],
+  [
     "flux-2-klein",
     "flux-2-klein-4b-distilled",
     "flux-2-klein-9b",

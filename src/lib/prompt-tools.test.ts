@@ -1500,7 +1500,22 @@ describe("workflow category defaults", () => {
       },
     ]);
     assert.equal(map["qwen-rapid-aio-nsfw"], "rapid-aio");
+    assert.notEqual(map["qwen-rapid-aio-sfw"], "rapid-aio");
     assert.equal(map["qwen-image-edit-2511"], "qwen-standard");
+  });
+
+  it("maps 2511 lightning 8 workflows to the edit lightning target model", async () => {
+    const { suggestWorkflowDefaultsByCategory } = await import("./workflow-category-defaults");
+    const map = suggestWorkflowDefaultsByCategory([
+      {
+        id: "qwen-2511-l8",
+        name: "Qwen 2511 Lightning 8-step",
+        filename: "qwen-2511-lightning-8step.json",
+        workflowJson: "{}",
+      },
+    ]);
+    assert.equal(map["qwen-image-edit-2511-lightning-8"], "qwen-2511-l8");
+    assert.notEqual(map["qwen-image-2512-lightning-8"], "qwen-2511-l8");
   });
 
   it("infers models from workflow labels", async () => {

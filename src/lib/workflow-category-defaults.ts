@@ -84,12 +84,28 @@ const MODEL_WORKFLOW_AVOID_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> 
   "flux-2-klein-4b-distilled": ["base", "klein-base", "9b", "klein-9b", "inpaint", "mask", "fill"],
   "flux-2-klein-9b": ["distilled", "4b", "klein-4b", "inpaint", "mask", "fill"],
   "flux-2-klein-9b-distilled": ["base", "klein-base", "4b", "klein-4b", "inpaint", "mask", "fill"],
-  "qwen-image-2512": ["edit", "inpaint", "img2img", "mask", "fill", "lightning", "lightx2v"],
-  "qwen-image-2512-lightning-4": ["edit", "inpaint", "img2img", "mask", "fill"],
-  "qwen-image-2512-lightning-8": ["edit", "inpaint", "img2img", "mask", "fill"],
+  "qwen-image-2512": ["edit", "inpaint", "img2img", "mask", "fill", "lightning", "lightx2v", "2511"],
+  "qwen-image-2512-lightning-4": ["edit", "inpaint", "img2img", "mask", "fill", "2511"],
+  "qwen-image-2512-lightning-8": ["edit", "inpaint", "img2img", "mask", "fill", "2511"],
   "flux-dev": ["inpaint", "mask", "fill"],
   "sdxl": ["inpaint", "mask", "fill"],
+  "qwen-rapid-aio-edit": ["sfw", "nsfw"],
+  "qwen-rapid-aio-sfw": ["nsfw"],
+  "qwen-rapid-aio-nsfw": ["sfw"],
 };
+
+/** Word-aware match so "sfw" does not hit inside "nsfw". */
+function haystackHasKeyword(haystack: string, keyword: string): boolean {
+  const normalized = keyword.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  if (normalized.length <= 4 || /^(sfw|nsfw|4b|9b|8step|4step)$/i.test(normalized)) {
+    const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`, "i").test(haystack);
+  }
+  return haystack.includes(normalized);
+}
 
 export function workflowRequiresInputImage(workflowJson?: string): boolean {
   if (!workflowJson?.trim()) {
@@ -107,9 +123,7 @@ export function workflowRequiresInputImage(workflowJson?: string): boolean {
   if (workflowJson.includes("InpaintModelConditioning")) {
     return true;
   }
-  if (/TextEncodeQwenImageEdit/i.test(workflowJson)) {
-    return true;
-  }
+  // TextEncodeQwenImageEdit* can run T2I with empty refs — do not block Generate auto-select.
   return false;
 }
 
@@ -121,11 +135,11 @@ function scoreWorkflowForCategory(
   const keywords = CATEGORY_KEYWORDS[category] ?? [];
   let score = 0;
   for (const keyword of keywords) {
-    if (haystack.includes(keyword)) {
+    if (haystackHasKeyword(haystack, keyword)) {
       score += 2;
     }
   }
-  if (haystack.includes(category)) {
+  if (haystackHasKeyword(haystack, category)) {
     score += 3;
   }
   return score;
@@ -142,7 +156,7 @@ function scoreWorkflowForModel(
   const modelKeywords = MODEL_WORKFLOW_KEYWORDS[modelId];
   if (modelKeywords) {
     for (const keyword of modelKeywords) {
-      if (haystack.includes(keyword)) {
+      if (haystackHasKeyword(haystack, keyword)) {
         score += 3;
       }
     }
@@ -151,8 +165,9 @@ function scoreWorkflowForModel(
   const avoidKeywords = MODEL_WORKFLOW_AVOID_KEYWORDS[modelId];
   if (avoidKeywords) {
     for (const keyword of avoidKeywords) {
-      if (haystack.includes(keyword)) {
-        score -= 5;
+      if (haystackHasKeyword(haystack, keyword)) {
+        // Version / family mismatches (2511 vs 2512, sfw vs nsfw) must zero out the match.
+        score -= 20;
       }
     }
   }

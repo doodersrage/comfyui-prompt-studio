@@ -321,7 +321,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     comfyNode: "Load Checkpoint",
     comfyClass: "QwenImage",
     description:
-      "Phr00t Rapid AIO SFW checkpoint. Single-file merge for fast edit/T2I — euler/beta, 4–8 steps, cfg 1.",
+      "Phr00t Rapid AIO SFW checkpoint. Dual-purpose T2I/edit merge — euler/beta, 4–8 steps, cfg 1.",
     profile: "qwen_edit_instruction",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.qwen_edit_instruction,
@@ -333,7 +333,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     comfyNode: "Load Checkpoint",
     comfyClass: "QwenImage",
     description:
-      "Phr00t Rapid AIO NSFW checkpoint. Single-file merge — euler_ancestral/sgm_uniform, 4–8 steps, cfg 1.",
+      "Phr00t Rapid AIO NSFW checkpoint. Dual-purpose T2I/edit merge — euler_ancestral/sgm_uniform, 4–8 steps, cfg 1.",
     profile: "qwen_edit_instruction",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.qwen_edit_instruction,

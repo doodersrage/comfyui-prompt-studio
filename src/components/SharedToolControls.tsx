@@ -215,12 +215,17 @@ export default function SharedToolControls({
   );
 
   const pickerModels = useMemo(() => {
-    const filtered = filterModelsForQueueTool(supportedModels.models, toolId);
+    const workflowBacked =
+      supportedModels.source === "available_workflows" ||
+      supportedModels.source === "override";
+    const filtered = filterModelsForQueueTool(supportedModels.models, toolId, {
+      workflowBacked,
+    });
     if (filtered.length > 0) {
       return filtered;
     }
     return supportedModels.models;
-  }, [supportedModels.models, toolId]);
+  }, [supportedModels.models, supportedModels.source, toolId]);
 
   const onWorkflowPresetChangeRef = useRef(onWorkflowPresetChange);
   const setWorkflowSelectedIdRef = useRef(workflowSelection.setSelectedId);

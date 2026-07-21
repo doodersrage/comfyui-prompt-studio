@@ -10,46 +10,16 @@ import {
   isInpaintModel,
 } from "./model-denoise-defaults";
 
-const EDIT_TO_TXT2I: Partial<Record<ComfyImageModel, ComfyImageModel>> = {
-  "qwen-image-edit": "qwen-image-2512",
-  "qwen-image-edit-2511": "qwen-image-2512",
-  "qwen-image-edit-2511-lightning-4": "qwen-image-2512-lightning-4",
-  "qwen-image-edit-2511-lightning-8": "qwen-image-2512-lightning-8",
-  "qwen-rapid-aio-edit": "qwen-image-2512-lightning-8",
-  "qwen-rapid-aio-sfw": "qwen-image-2512-lightning-8",
-  "qwen-rapid-aio-nsfw": "qwen-image-2512-lightning-8",
-  "flux-inpaint": "flux-dev",
-};
-
-function inferTxt2iCounterpart(model: ComfyImageModel | string): ComfyImageModel {
-  const mapped = EDIT_TO_TXT2I[model as ComfyImageModel];
-  if (mapped) {
-    return mapped;
-  }
-
-  const id = model.toLowerCase();
-  if (id.includes("lightning-4")) {
-    return "qwen-image-2512-lightning-4";
-  }
-  if (id.includes("lightning-8")) {
-    return "qwen-image-2512-lightning-8";
-  }
-  if (id.includes("qwen")) {
-    return "qwen-image-2512";
-  }
-  if (id.includes("flux")) {
-    return "flux-dev";
-  }
-  if (id.includes("sdxl")) {
-    return "sdxl-base";
-  }
-  return DEFAULT_COMFY_MODEL;
-}
-
 export function isSceneGenerationModel(model: ComfyImageModel | string): boolean {
+  const id = String(model);
+  // Rapid AIO SFW/NSFW are dual-purpose T2I checkpoints (edit optional).
+  if (/^qwen-rapid-aio-(sfw|nsfw)$/i.test(id)) {
+    return true;
+  }
+
   const def = getComfyModelDefinition(model);
   if (!def) {
-    return !/edit|inpaint|ip2p|pix2pix/i.test(model);
+    return !/edit|inpaint|ip2p|pix2pix/i.test(id);
   }
   if (def.category === "instruct-edit") {
     return false;
@@ -71,37 +41,41 @@ export function shouldUseSceneGenerationModel(tool?: string): boolean {
   return Boolean(tool && !isEditQueueTool(tool));
 }
 
+/**
+ * Normalize a model id for queue/tool use.
+ * Never silently remap edit→T2I — that hid workflow-backed targets (Rapid AIO, 2511 Lightning, etc.).
+ */
 export function resolveModelForQueueTool(
   model: ComfyImageModel | string,
-  tool?: string,
+  _tool?: string,
 ): ComfyImageModel {
-  const normalized = COMFY_MODEL_IDS.has(model as ComfyImageModel)
-    ? (model as ComfyImageModel)
-    : DEFAULT_COMFY_MODEL;
-
-  if (!shouldUseSceneGenerationModel(tool)) {
-    return normalized;
+  if (COMFY_MODEL_IDS.has(model as ComfyImageModel)) {
+    return model as ComfyImageModel;
   }
-
-  if (isSceneGenerationModel(normalized)) {
-    return normalized;
-  }
-
-  return inferTxt2iCounterpart(normalized);
+  return DEFAULT_COMFY_MODEL;
 }
+
+export type FilterModelsForQueueToolOptions = {
+  /**
+   * When true (workflow library matches / show-all override), keep every matched
+   * model — including edit Lightning presets the user just imported.
+   */
+  workflowBacked?: boolean;
+};
 
 export function filterModelsForQueueTool(
   models: ComfyImageModel[],
   tool?: string,
+  options?: FilterModelsForQueueToolOptions,
 ): ComfyImageModel[] {
-  if (!shouldUseSceneGenerationModel(tool)) {
+  if (!shouldUseSceneGenerationModel(tool) || options?.workflowBacked) {
     return models;
   }
   return models.filter((model) => isSceneGenerationModel(model));
 }
 
 const EDIT_INSTRUCTION_LEAD =
-  /^Keep (?:the )?(?:person|subject|figure(?:\s*1)?)[^.]*?(?:unchanged|the same|identity|pose(?: and (?:lighting|proportions))?)[^.]*?(?:from [^.]*?)?\.?\s*/i;
+  /^Keep (?:the )?(?:person|subject|figure(?:\s*1)?)\b.*?\.\s*/i;
 
 const REPLACE_SCENE_LEAD = /^Replace the scene with\s+/i;
 
