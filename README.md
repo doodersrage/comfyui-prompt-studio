@@ -2,6 +2,18 @@
 
 A Next.js app that turns topics or keywords into model-specific prompts for ComfyUI image workflows, and reformats existing drafts for any supported architecture.
 
+## Workspace modes
+
+Use **Simple / Studio / Full** from the sidebar footer or **Profile → Appearance**:
+
+| Mode | Sidebar | Shared controls | Studio tabs |
+|------|---------|-----------------|-------------|
+| **Simple** | Essentials + More tools | Advanced collapsed | History, Compare, Templates, Presets, Analytics |
+| **Studio** (default) | Edit / Media / Library groups | Collapsed advanced sections | All tabs |
+| **Full** | Same as Studio, groups expanded | Quality sections open by default | All tabs |
+
+New installs see a one-time welcome picker. Returning users keep Studio silently.
+
 ## Supported models
 
 The app includes **40+ ComfyUI image model targets**, grouped by architecture family:
@@ -38,9 +50,9 @@ Audio and 3D architectures are available via dedicated **Audio** (`/audio`) and 
 | **Outpaint** | `/outpaint` | Expand canvas borders (pad + mask) and queue through the inpaint path with Final quality recipes |
 | **Compose** | `/compose` | Multi-image transfer / edit with optional identity lock, regional edit, and gallery re-edit handoffs |
 | **Workflow editor** | `/workflow-editor` | Edit Comfy API graphs (React Flow), save to library, queue |
-| **Audio** | `/audio` | Stable Audio prompts + `{{AUDIO_SECONDS}}` |
-| **3D Mesh** | `/mesh` | Hunyuan3D-style mesh prompts + optional reference image |
-| **Video** | `/video` | Motion/camera prompts for WAN / Hunyuan Video; optional init image + `{{VIDEO_FRAMES}}` / `{{VIDEO_FPS}}` / `{{INIT_IMAGE}}` for I2V workflows |
+| **Audio** | `/audio` | Stable Audio prompts + `{{AUDIO_SECONDS}}`; auto-creates a starter scaffold (replace with your pack graph when ready) |
+| **3D Mesh** | `/mesh` | Hunyuan3D-style mesh prompts + optional reference image + `{{MESH_RESOLUTION}}`; auto-creates a starter scaffold |
+| **Video** | `/video` | Motion/camera prompts for WAN / Hunyuan Video; optional init image + `{{VIDEO_FRAMES}}` / `{{VIDEO_FPS}}` / `{{INIT_IMAGE}}` for I2V workflows; auto-scaffold like Audio/Mesh |
 | **Negative** | `/negative` | Sport-aware negative/preserve prompts for SD models |
 | **Studio** | `/studio` | History, iteration tree, projects, compare, portfolio, campaign, analytics, catalog, templates |
 | **Lint** | `/lint` | Paste prompts for diagnostics, fix, compact, reformat |
@@ -49,7 +61,7 @@ Audio and 3D architectures are available via dedicated **Audio** (`/audio`) and 
 | **Gallery** | `/gallery` | Stats dashboard, grid/dense/list layouts, review focus, compare modal, semantic search |
 | **Variations** | `/variations` | Roll N prompt variations and batch-queue to ComfyUI |
 | **ControlNet** | `/controlnet` | Structure prompts (text or image-assisted) |
-| **Plugins** | `/plugins` | Installable plugin manifests (nav + queue hooks + iframe tools) |
+| **Plugins** | `/plugins` | Installable plugin manifests (nav + queue mutators + custom tool pages) |
 
 Legacy URLs `/duo` and `/random-scene` redirect to Character and Generate. Character’s scene-compose mode lives at `/character?mode=compose`. `/compose` is the multi-image Compose / Transfer tool.
 

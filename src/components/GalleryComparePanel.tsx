@@ -117,15 +117,21 @@ export default function GalleryComparePanel({
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-violet-700/40 bg-violet-950/20 p-4">
+    <div className="space-y-4 rounded-[var(--radius-xl)] border border-[var(--accent-border)] bg-[var(--accent-muted)] p-4 shadow-[var(--shadow-soft)]">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-violet-100">
-          Compare {entries.length} selected outputs
-        </p>
+        <div>
+          <p className="text-sm font-medium text-[var(--accent-text)]">
+            Compare {entries.length} selected outputs
+          </p>
+          <p className="type-caption mt-0.5 text-[var(--text-muted)]">
+            Pick a winner to unlock recipe save and Max upscale. Or run an ELO
+            tournament for 3+ images.
+          </p>
+        </div>
         <button
           type="button"
           onClick={onClose}
-          className="text-xs text-zinc-400 hover:text-zinc-200"
+          className="rounded-[var(--radius-md)] px-2 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
         >
           Close
         </button>
@@ -152,7 +158,7 @@ export default function GalleryComparePanel({
           {onSaveWinnerRecipe && compareWinnerId ? (
             <Button
               size="sm"
-              variant="secondary"
+              variant="primary"
               onClick={() => {
                 const winner = entries.find((entry) => entry.id === compareWinnerId);
                 if (winner) {
@@ -162,7 +168,11 @@ export default function GalleryComparePanel({
             >
               Save winner as recipe
             </Button>
-          ) : null}
+          ) : (
+            <p className="self-center text-[11px] text-[var(--text-muted)]">
+              Select a winner below to save its quality recipe
+            </p>
+          )}
         </div>
       ) : null}
       {tournament && pairs[pairIndex] ? (
@@ -183,7 +193,14 @@ export default function GalleryComparePanel({
           const url = galleryEntryThumbUrls(entry)[0] ?? null;
           const caps = entryEnhanceCapabilities(entry);
           return (
-            <article key={entry.id} className="space-y-2 rounded-lg border border-zinc-800 p-2">
+            <article
+              key={entry.id}
+              className={`space-y-2 rounded-[var(--radius-lg)] border p-2 transition ${
+                compareWinnerId === entry.id
+                  ? "border-[var(--accent-border)] bg-[var(--accent-soft)] ring-2 ring-[var(--accent-ring)]"
+                  : "border-[var(--border-subtle)] bg-[var(--bg-elevated)]"
+              }`}
+            >
               {url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -208,7 +225,7 @@ export default function GalleryComparePanel({
               <div className="flex flex-wrap gap-1">
                 {onPickWinner ? (
                   <Button
-                    variant="secondary"
+                    variant={compareWinnerId === entry.id ? "primary" : "secondary"}
                     className="!min-h-7 px-2 text-[11px]"
                     onClick={() => {
                       if (tournament && pairs[pairIndex]) {
@@ -220,7 +237,11 @@ export default function GalleryComparePanel({
                       onPickWinner(entry);
                     }}
                   >
-                    {tournament ? "Win match" : "Pick winner"}
+                    {tournament
+                      ? "Win match"
+                      : compareWinnerId === entry.id
+                        ? "Winner"
+                        : "Pick winner"}
                   </Button>
                 ) : null}
                 {[5, 4, 3, 2, 1].map((rating) => (

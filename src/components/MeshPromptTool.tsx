@@ -12,7 +12,9 @@ import {
   MESH_RESOLUTION_TOKEN,
   buildMeshPrompt,
 } from "@/lib/audio-mesh-prompt";
+import { ensureMeshWorkflowScaffold } from "@/lib/ensure-media-workflow";
 import { DEFAULT_MESH_TOOL_CACHE } from "@/lib/settings-cache";
+import { fetchComfyObjectInfoCached } from "@/lib/comfyui-object-info-cache";
 import {
   ToolBadge,
   ToolLayout,
@@ -49,6 +51,38 @@ export default function MeshPromptTool() {
     if (getComfyModelDefinition(shared.model).category !== "mesh") {
       updateShared({ model: DEFAULT_MESH_MODEL });
     }
+  }, [mounted, shared.model, updateShared]);
+
+  const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+    let cancelled = false;
+    try {
+      const model =
+        getComfyModelDefinition(shared.model).category === "mesh"
+          ? shared.model
+          : DEFAULT_MESH_MODEL;
+      void fetchComfyObjectInfoCached().catch(() => null);
+      const result = ensureMeshWorkflowScaffold(model);
+      if (!cancelled) {
+        updateShared(result.sharedPatch);
+        setWorkflowStatus(result.note);
+      }
+    } catch (error) {
+      if (!cancelled) {
+        setWorkflowStatus(
+          error instanceof Error
+            ? error.message
+            : "Could not create mesh workflow scaffold. Import a Hunyuan3D pack in Settings → workflows.",
+        );
+      }
+    }
+    return () => {
+      cancelled = true;
+    };
   }, [mounted, shared.model, updateShared]);
 
   const output = useMemo(
@@ -96,6 +130,11 @@ export default function MeshPromptTool() {
       }
     >
       <ToolSection>
+        {workflowStatus ? (
+          <p className="mb-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+            {workflowStatus}
+          </p>
+        ) : null}
         <FieldLabel>Reference image (optional)</FieldLabel>
         <input
           type="file"

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { resetBrowserStorageCache } from "./browser-storage.ts";
 import { loadRecentDestinations, pushRecentDestination } from "./recent-destinations.ts";
-import { isStudioTabId, studioTabHref, STUDIO_TABS } from "./studio-nav.ts";
+import { isStudioTabId, studioTabHref, STUDIO_TABS, studioTabsForWorkspaceMode } from "./studio-nav.ts";
 import { loadUiDensity, saveUiDensity } from "./density-settings.ts";
 import { loadWorkspaceMode, saveWorkspaceMode } from "./workspace-mode.ts";
 import {
@@ -110,6 +110,16 @@ describe("studio nav", () => {
     assert.equal(studioTabHref("history"), "/studio");
     assert.equal(studioTabHref("analytics"), "/studio?tab=analytics");
     assert.ok(STUDIO_TABS.length >= 10);
+  });
+
+  it("slims Studio tabs in Simple workspace", () => {
+    const simple = studioTabsForWorkspaceMode("simple");
+    assert.ok(
+      simple.every((tab) =>
+        ["history", "compare", "templates", "presets", "analytics"].includes(tab.id),
+      ),
+    );
+    assert.equal(studioTabsForWorkspaceMode("full").length, STUDIO_TABS.length);
   });
 });
 

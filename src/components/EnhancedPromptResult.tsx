@@ -388,14 +388,21 @@ export default function EnhancedPromptResult({
           </div>
 
           {showWorkflowSelector && (
-            <ComfyWorkflowSelector
-              compact
-              selectedId={workflowSelection.selectedId}
-              defaultLabel={workflowSelection.defaultLabel}
-              localFiles={workflowSelection.localFiles}
-              serverFiles={workflowSelection.serverFiles}
-              onChange={workflowSelection.setSelectedId}
-            />
+            <CollapsibleSection
+              title="Batch workflow override"
+              summary="Optional — Shared settings already pick the workflow."
+              defaultOpen={false}
+              persistKey="result-batch-workflow-override"
+            >
+              <ComfyWorkflowSelector
+                compact
+                selectedId={workflowSelection.selectedId}
+                defaultLabel={workflowSelection.defaultLabel}
+                localFiles={workflowSelection.localFiles}
+                serverFiles={workflowSelection.serverFiles}
+                onChange={workflowSelection.setSelectedId}
+              />
+            </CollapsibleSection>
           )}
 
           <ToolBlockGroup className="mt-[var(--group-gap)]">
@@ -503,7 +510,12 @@ export default function EnhancedPromptResult({
         showSingleActions && (
         <ToolSection className="space-y-5">
           {showComfyActions && (
-            <>
+            <CollapsibleSection
+              title="Queue overrides"
+              summary="Workflow picker and advanced queue params — model/detail live in Shared settings."
+              defaultOpen={false}
+              persistKey="result-queue-overrides"
+            >
             {showWorkflowSelector ? (
               <ComfyWorkflowSelector
                 compact
@@ -512,11 +524,11 @@ export default function EnhancedPromptResult({
                 localFiles={workflowSelection.localFiles}
                 serverFiles={workflowSelection.serverFiles}
                 onChange={workflowSelection.setSelectedId}
-                helpText="Workflow JSON used by Send to ComfyUI and Preview workflow below."
+                helpText="Optional override for Send to ComfyUI. Prefer Shared settings when possible."
               />
             ) : null}
             <QueueParamsPanel compact />
-            </>
+            </CollapsibleSection>
           )}
 
           {(onSendComfyUi || onCopyPair) && (

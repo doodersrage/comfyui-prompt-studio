@@ -192,9 +192,10 @@ const PromptDiagnosticsPanel = dynamic(() => import("@/components/PromptDiagnost
 
 import {
   isStudioTabId,
-  STUDIO_TABS,
+  studioTabGroupsForWorkspaceMode,
   type StudioTabId,
 } from "@/lib/studio-nav";
+import { useWorkspaceMode } from "@/hooks/useWorkspaceMode";
 import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
 
 const ACCENT = "violet" as const;
@@ -213,6 +214,7 @@ type CatalogLocation = {
 };
 
 export default function StudioTool() {
+  const workspaceMode = useWorkspaceMode();
   const { authEnabled, user } = useAuth();
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
     useCachedSettings("studio", DEFAULT_STUDIO_TOOL_CACHE);
@@ -756,6 +758,30 @@ export default function StudioTool() {
     return diffPromptWords(diffLeft.prompt, diffRight.prompt);
   }, [diffLeft, diffRight]);
 
+  const tabGroups: { label: string; tabs: { id: StudioTab; label: string }[] }[] =
+    useMemo(
+      () =>
+        studioTabGroupsForWorkspaceMode(workspaceMode).map((group) => ({
+          label: group.label,
+          tabs: group.tabs.map((tabDef) => ({
+            id: tabDef.id,
+            label: tabDef.label,
+          })),
+        })),
+      [workspaceMode],
+    );
+
+  const visibleTabIds = useMemo(
+    () => new Set(tabGroups.flatMap((group) => group.tabs.map((entry) => entry.id))),
+    [tabGroups],
+  );
+
+  useEffect(() => {
+    if (!visibleTabIds.has(tab)) {
+      setTab("history");
+    }
+  }, [tab, visibleTabIds]);
+
   if (!mounted) {
     return (
       <ToolLayout
@@ -769,37 +795,6 @@ export default function StudioTool() {
       </ToolLayout>
     );
   }
-
-  const tabGroups: { label: string; tabs: { id: StudioTab; label: string }[] }[] = [
-    {
-      label: "History",
-      tabs: STUDIO_TABS.filter((tab) => tab.group === "History").map((tab) => ({
-        id: tab.id,
-        label: tab.label,
-      })),
-    },
-    {
-      label: "Library",
-      tabs: STUDIO_TABS.filter((tab) => tab.group === "Library").map((tab) => ({
-        id: tab.id,
-        label: tab.label,
-      })),
-    },
-    {
-      label: "Analyze",
-      tabs: STUDIO_TABS.filter((tab) => tab.group === "Analyze").map((tab) => ({
-        id: tab.id,
-        label: tab.label,
-      })),
-    },
-    {
-      label: "Experiments",
-      tabs: STUDIO_TABS.filter((tab) => tab.group === "Experiments").map((tab) => ({
-        id: tab.id,
-        label: tab.label,
-      })),
-    },
-  ];
 
   return (
     <ToolLayout

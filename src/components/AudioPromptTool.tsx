@@ -13,7 +13,9 @@ import {
   AUDIO_SECONDS_TOKEN,
   buildAudioPrompt,
 } from "@/lib/audio-mesh-prompt";
+import { ensureAudioWorkflowScaffold } from "@/lib/ensure-media-workflow";
 import { DEFAULT_AUDIO_TOOL_CACHE } from "@/lib/settings-cache";
+import { fetchComfyObjectInfoCached } from "@/lib/comfyui-object-info-cache";
 import {
   ToolBadge,
   ToolLayout,
@@ -48,6 +50,38 @@ export default function AudioPromptTool() {
     if (getComfyModelDefinition(shared.model).category !== "audio") {
       updateShared({ model: DEFAULT_AUDIO_MODEL });
     }
+  }, [mounted, shared.model, updateShared]);
+
+  const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+    let cancelled = false;
+    try {
+      const model =
+        getComfyModelDefinition(shared.model).category === "audio"
+          ? shared.model
+          : DEFAULT_AUDIO_MODEL;
+      void fetchComfyObjectInfoCached().catch(() => null);
+      const result = ensureAudioWorkflowScaffold(model);
+      if (!cancelled) {
+        updateShared(result.sharedPatch);
+        setWorkflowStatus(result.note);
+      }
+    } catch (error) {
+      if (!cancelled) {
+        setWorkflowStatus(
+          error instanceof Error
+            ? error.message
+            : "Could not create audio workflow scaffold. Import a Stable Audio pack in Settings → workflows.",
+        );
+      }
+    }
+    return () => {
+      cancelled = true;
+    };
   }, [mounted, shared.model, updateShared]);
 
   const output = useMemo(
@@ -95,6 +129,11 @@ export default function AudioPromptTool() {
       }
     >
       <ToolSection>
+        {workflowStatus ? (
+          <p className="mb-3 rounded-xl border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs text-sky-100">
+            {workflowStatus}
+          </p>
+        ) : null}
         <FieldLabel>Subject / scene sound</FieldLabel>
         <TextArea
           rows={3}

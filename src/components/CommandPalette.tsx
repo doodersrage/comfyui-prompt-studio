@@ -16,7 +16,10 @@ import {
   navGroupsForWorkspaceMode,
 } from "@/lib/workspace-mode";
 import { SETTINGS_TABS, settingsTabHref } from "@/lib/settings-nav";
-import { STUDIO_TABS, studioTabHref } from "@/lib/studio-nav";
+import {
+  studioTabHref,
+  studioTabsForWorkspaceMode,
+} from "@/lib/studio-nav";
 import {
   isNavFavorite,
   loadNavFavorites,
@@ -125,7 +128,7 @@ function buildNavItems(): CommandItem[] {
   const studioTabs =
     mode === "simple"
       ? []
-      : STUDIO_TABS.map((tab) => ({
+      : studioTabsForWorkspaceMode(mode).map((tab) => ({
           id: `studio-${tab.id}`,
           label: `Studio · ${tab.label}`,
           subtitle: tab.description,

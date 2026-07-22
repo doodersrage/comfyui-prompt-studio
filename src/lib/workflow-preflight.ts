@@ -1,7 +1,10 @@
 "use client";
 
 import { modelUsesNegativePrompt } from "./prompt-pair";
-import type { ComfyImageModel } from "./comfy-models/client";
+import {
+  getComfyModelDefinition,
+  type ComfyImageModel,
+} from "./comfy-models/client";
 import { isInpaintModel, isEditQueueTool } from "./model-denoise-defaults";
 import { resolveRuntimeForQueueAsync } from "./comfyui-runtime-for-model";
 import { fetchWorkflowPreview } from "./comfyui-requeue";
@@ -42,10 +45,31 @@ export async function runWorkflowPreflight(input: {
     ));
 
   if (!runtime?.workflowJson && !runtime?.workflowFileId) {
-    issues.push({
-      severity: "warn",
-      message: "No workflow JSON configured — server/env fallback will be used.",
-    });
+    const category = getComfyModelDefinition(input.model).category;
+    if (category === "audio") {
+      issues.push({
+        severity: "error",
+        message:
+          "No audio workflow mapped — open /audio to auto-create a scaffold, or import your Stable Audio pack in Settings → workflows and map it to stable-audio.",
+      });
+    } else if (category === "mesh") {
+      issues.push({
+        severity: "error",
+        message:
+          "No mesh workflow mapped — open /mesh to auto-create a scaffold, or import your Hunyuan3D pack in Settings → workflows and map it to hunyuan-3d.",
+      });
+    } else if (category === "video") {
+      issues.push({
+        severity: "error",
+        message:
+          "No video workflow mapped — open /video to auto-create a WAN/Hunyuan scaffold, or import a pack workflow in Settings.",
+      });
+    } else {
+      issues.push({
+        severity: "warn",
+        message: "No workflow JSON configured — server/env fallback will be used.",
+      });
+    }
   }
 
   if (modelUsesNegativePrompt(input.model) && !input.negativePrompt?.trim()) {

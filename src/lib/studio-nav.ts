@@ -103,3 +103,35 @@ export function isStudioTabId(value: string | null | undefined): value is Studio
 export function studioTabHref(tab: StudioTabId): string {
   return tab === "history" ? "/studio" : `/studio?tab=${tab}`;
 }
+
+/** Essentials for Simple workspace — power tabs stay available in Studio/Full. */
+export const SIMPLE_STUDIO_TAB_IDS: StudioTabId[] = [
+  "history",
+  "compare",
+  "templates",
+  "presets",
+  "analytics",
+];
+
+export function studioTabsForWorkspaceMode(
+  mode: "simple" | "studio" | "full",
+): StudioTabDefinition[] {
+  if (mode === "simple") {
+    return STUDIO_TABS.filter((tab) => SIMPLE_STUDIO_TAB_IDS.includes(tab.id));
+  }
+  return STUDIO_TABS;
+}
+
+export function studioTabGroupsForWorkspaceMode(
+  mode: "simple" | "studio" | "full",
+): { label: string; tabs: StudioTabDefinition[] }[] {
+  const tabs = studioTabsForWorkspaceMode(mode);
+  const order = ["History", "Library", "Analyze", "Experiments"] as const;
+  return order
+    .map((label) => ({
+      label,
+      tabs: tabs.filter((tab) => tab.group === label),
+    }))
+    .filter((group) => group.tabs.length > 0);
+}
+

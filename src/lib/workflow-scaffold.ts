@@ -1282,6 +1282,131 @@ function videoScaffold(
   };
 }
 
+/** Starter graph for Stable Audio–style packs — replace with pack JSON when available. */
+function audioScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  return {
+    "1": {
+      class_type: "CheckpointLoaderSimple",
+      inputs: { ckpt_name: "{{CHECKPOINT}}" },
+      _meta: { title: "Load Audio Checkpoint" },
+    },
+    "2": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.positive, clip: ["1", 1] },
+      _meta: { title: "Positive Prompt" },
+    },
+    "3": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.negative, clip: ["1", 1] },
+      _meta: { title: "Negative Prompt" },
+    },
+    "4": {
+      class_type: "EmptyLatentImage",
+      inputs: { width: 64, height: 64, batch_size: 1 },
+      _meta: { title: "Latent placeholder (swap for audio latent)" },
+    },
+    "5": {
+      class_type: "KSampler",
+      inputs: {
+        model: ["1", 0],
+        positive: ["2", 0],
+        negative: ["3", 0],
+        latent_image: ["4", 0],
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: 1,
+      },
+      _meta: { title: "KSampler" },
+    },
+    "6": {
+      class_type: "VAEDecode",
+      inputs: { samples: ["5", 0], vae: ["1", 2] },
+      _meta: { title: "VAE Decode" },
+    },
+    "7": {
+      class_type: "SaveAudio",
+      inputs: { audio: ["6", 0], filename_prefix: "audio/ComfyUI" },
+      _meta: { title: "Save Audio (requires audio custom nodes)" },
+    },
+    "8": {
+      class_type: "Note",
+      inputs: { text: "Duration hint token: {{AUDIO_SECONDS}} seconds. Replace this graph with your Stable Audio pack when ready." },
+      _meta: { title: "Audio seconds note" },
+    },
+  };
+}
+
+/** Starter graph for Hunyuan3D–style image→mesh — replace with pack JSON when available. */
+function meshScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  return {
+    "1": {
+      class_type: "CheckpointLoaderSimple",
+      inputs: { ckpt_name: "{{CHECKPOINT}}" },
+      _meta: { title: "Load Mesh Checkpoint" },
+    },
+    "2": {
+      class_type: "LoadImage",
+      inputs: { image: tokens.inputImage },
+      _meta: { title: "Reference Image" },
+    },
+    "3": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.positive, clip: ["1", 1] },
+      _meta: { title: "Positive Prompt" },
+    },
+    "4": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.negative, clip: ["1", 1] },
+      _meta: { title: "Negative Prompt" },
+    },
+    "5": {
+      class_type: "EmptyLatentImage",
+      inputs: {
+        width: tokens.width,
+        height: tokens.height,
+        batch_size: 1,
+      },
+      _meta: { title: "Latent (resolution hint)" },
+    },
+    "6": {
+      class_type: "KSampler",
+      inputs: {
+        model: ["1", 0],
+        positive: ["3", 0],
+        negative: ["4", 0],
+        latent_image: ["5", 0],
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: 1,
+      },
+      _meta: { title: "KSampler" },
+    },
+    "7": {
+      class_type: "VAEDecode",
+      inputs: { samples: ["6", 0], vae: ["1", 2] },
+      _meta: { title: "VAE Decode" },
+    },
+    "8": {
+      class_type: "SaveImage",
+      inputs: { images: ["7", 0], filename_prefix: "mesh/ComfyUI" },
+      _meta: { title: "Save preview (swap for mesh export node)" },
+    },
+    "9": {
+      class_type: "Note",
+      inputs: {
+        text: "Mesh resolution hint: {{MESH_RESOLUTION}}. Wire Hunyuan3D / mesh export nodes from your pack; LoadImage receives {{INPUT_IMAGE}}.",
+      },
+      _meta: { title: "Mesh resolution note" },
+    },
+  };
+}
+
 function resolveScaffoldCategory(
   model: ComfyImageModel | string,
 ): ComfyModelCategory | "generic" {
@@ -1316,6 +1441,10 @@ export function buildWorkflowScaffoldForModel(
           ? qwenScaffold(resolvedTokens)
           : category === "video"
             ? videoScaffold(resolvedTokens, model)
+            : category === "audio"
+              ? audioScaffold(resolvedTokens)
+              : category === "mesh"
+                ? meshScaffold(resolvedTokens)
             : genericScaffold(resolvedTokens);
   const videoLatentClass =
     category === "video" ? resolveVideoLatentClass(model) : null;
@@ -1339,6 +1468,10 @@ export function buildWorkflowScaffoldForModel(
             : "FLUX scaffold uses UNETLoader + DualCLIPLoader (clip_l + t5xxl) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available."
           : category === "video"
             ? `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom pack with LTXVImgToVideo.`
+            : category === "audio"
+              ? "Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow."
+              : category === "mesh"
+                ? "Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available."
             : "Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.",
   ];
 
