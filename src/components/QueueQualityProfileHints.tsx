@@ -20,11 +20,17 @@ import {
 } from "@/lib/queue-quality-profile";
 import { resolveUpscaleModelFilename } from "@/lib/model-upscale-map";
 import {
+  DEFAULT_VIDEO_TOOL_CACHE,
   loadSettingsCache,
+  loadToolSettings,
   saveSharedSettings,
 } from "@/lib/settings-cache";
 import { rememberedSamplerOverrides } from "@/lib/sampler-memory";
 import { toolQueueQualityLabel } from "@/lib/tool-quality-profiles";
+import { describeSystemWorkflowChoice } from "@/lib/system-workflow-runtime";
+import { loadComfyWorkflowFiles } from "@/lib/comfyui-workflow-files";
+import { readCachedComfyObjectInfoModels } from "@/lib/comfyui-object-info-cache";
+import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 
 type QueueQualityProfileHintsProps = {
   profile: QueueQualityProfile;
@@ -73,11 +79,31 @@ export default function QueueQualityProfileHints({
       /^qwen-image-2512$/i.test(shared.model));
   const hasSamplerMemory =
     Object.keys(rememberedSamplerOverrides(shared.model)).length > 0;
+  const systemChoice =
+    shared.useSystemWorkflows === true
+      ? describeSystemWorkflowChoice(
+          shared.model,
+          loadComfyWorkflowFiles(),
+          readCachedComfyObjectInfoModels(),
+          {
+            preferI2v:
+              getComfyModelDefinition(shared.model)?.category === "video" &&
+              Boolean(
+                loadToolSettings("video", DEFAULT_VIDEO_TOOL_CACHE).initImageUrl?.trim(),
+              ),
+          },
+        )
+      : null;
   const pipelinePreview = formatQueuePipelineStatusNotes({
     model: shared.model,
     qualityProfile: effectiveProfile,
     tool: toolId,
     samplerMemory: hasSamplerMemory,
+    systemWorkflowSource: systemChoice?.source,
+    systemWorkflowLabel:
+      systemChoice?.source === "pack"
+        ? systemChoice.label
+        : systemChoice?.display,
   });
   const sessionMode = shared.sessionQueueMode ?? "off";
   const effectiveForTool = toolId
@@ -272,7 +298,7 @@ export default function QueueQualityProfileHints({
             Qwen Final/Max may insert a soft latent detail pass; SDXL may insert a refiner.
             When an upscale model is mapped, Final/Max run{" "}
             <span className="text-zinc-400">UpscaleModel</span> then area-scale to ~1.25×/1.5×
-            (Max may add Lanczos polish + opt-in sharpen); otherwise Lanczos{" "}
+            (Max may add Lanczos polish + sharpen); otherwise Lanczos{" "}
             <span className="text-zinc-400">ImageScale</span> before SaveImage.
           </>
         )}

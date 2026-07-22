@@ -38,6 +38,7 @@ import {
 } from "@/lib/anatomy-guard";
 import {
   normalizeQueueQualityProfile,
+  formatQueueQualityProfileHint,
   type QueueQualityProfile,
 } from "@/lib/queue-quality-profile";
 import {
@@ -45,7 +46,21 @@ import {
   type RenderRealismMode,
 } from "@/lib/render-realism";
 import type { SharedToolSettings } from "@/lib/settings-cache";
-import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
+import {
+  DEFAULT_VIDEO_TOOL_CACHE,
+  loadSettingsCache,
+  loadToolSettings,
+  saveSharedSettings,
+} from "@/lib/settings-cache";
+import {
+  describeSystemWorkflowChoice,
+  isSystemWorkflowSupportedModel,
+  listSystemWorkflowSupportedModels,
+  resolveSystemWorkflowFallbackModel,
+} from "@/lib/system-workflow-runtime";
+import { readCachedComfyObjectInfoModels } from "@/lib/comfyui-object-info-cache";
+import { scanAndAdaptSystemWorkflowInventory } from "@/lib/comfyui-runtime-for-model";
+import { loadComfyWorkflowFiles } from "@/lib/comfyui-workflow-files";
 import { PINNED_VARIATION_SEED_LABEL } from "@/lib/tool-ui-labels";
 import { accentRingClass } from "@/lib/tool-theme";
 import { CollapsibleSection } from "@/components/ui/ToolPageShell";
@@ -221,13 +236,17 @@ export default function SharedToolControls({
         workflowFiles: workflowCatalog,
         suggestedMap: suggestedWorkflowMap,
         currentModel: shared.model,
-        limitEnabled: shared.limitModelsToAvailableWorkflows !== false,
+        limitEnabled:
+          shared.useSystemWorkflows === true
+            ? false
+            : shared.limitModelsToAvailableWorkflows !== false,
         showAllOverride: showAllModelsOverride,
       }),
     [
       shared.model,
       shared.modelWorkflowMap,
       shared.limitModelsToAvailableWorkflows,
+      shared.useSystemWorkflows,
       showAllModelsOverride,
       suggestedWorkflowMap,
       workflowCatalog,
@@ -238,21 +257,31 @@ export default function SharedToolControls({
     const filtered = filterModelsForQueueTool(supportedModels.models, toolId, {
       includeEditModels: showAllModelsOverride,
     });
-    if (filtered.length > 0) {
-      return filtered;
+    const base =
+      filtered.length > 0
+        ? filtered
+        : toolId && shouldUseSceneGenerationModel(toolId)
+          ? COMFY_IMAGE_MODELS.filter((entry) =>
+              isSceneGenerationModel(entry.id),
+            ).map((entry) => entry.id)
+          : supportedModels.models;
+
+    if (shared.useSystemWorkflows !== true) {
+      return base.length > 0 ? base : supportedModels.models;
     }
-    // Never fall back to an edit-heavy list on Generate — prefer scene models.
-    if (toolId && shouldUseSceneGenerationModel(toolId)) {
-      const sceneOnly = COMFY_IMAGE_MODELS.filter((entry) =>
-        isSceneGenerationModel(entry.id),
-      ).map((entry) => entry.id);
-      if (sceneOnly.length > 0) {
-        return sceneOnly;
-      }
+
+    const systemOnly = base.filter((model) => isSystemWorkflowSupportedModel(model));
+    if (systemOnly.length > 0) {
+      return systemOnly;
     }
-    return supportedModels.models;
+    return listSystemWorkflowSupportedModels().filter((model) =>
+      filterModelsForQueueTool([model], toolId, {
+        includeEditModels: showAllModelsOverride,
+      }).includes(model),
+    );
   }, [
     showAllModelsOverride,
+    shared.useSystemWorkflows,
     supportedModels.models,
     toolId,
   ]);
@@ -360,10 +389,114 @@ export default function SharedToolControls({
     });
   }, []);
 
-  const modelFilterHint = supportedModelsFilterHint(
-    supportedModels.source,
-    supportedModels.models.length,
-  );
+  // System workflows only support FLUX / Qwen / video scaffolds — snap off unsupported picks.
+  useEffect(() => {
+    if (shared.useSystemWorkflows !== true) {
+      return;
+    }
+    if (isSystemWorkflowSupportedModel(shared.model)) {
+      return;
+    }
+    const fallback =
+      pickerModels.find((model) => isSystemWorkflowSupportedModel(model)) ??
+      resolveSystemWorkflowFallbackModel(shared.model);
+    if (fallback !== shared.model) {
+      onModelChange(fallback);
+    }
+  }, [
+    onModelChange,
+    pickerModels,
+    shared.model,
+    shared.useSystemWorkflows,
+  ]);
+
+  const [inventoryTick, setInventoryTick] = useState(0);
+
+  useEffect(() => {
+    if (shared.useSystemWorkflows !== true) {
+      return;
+    }
+    let cancelled = false;
+    void scanAndAdaptSystemWorkflowInventory({ persist: true }).then(
+      (models) => {
+        if (!cancelled && models) {
+          setInventoryTick((value) => value + 1);
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [shared.useSystemWorkflows, shared.model]);
+
+  const videoInitKey =
+    toolId === "video"
+      ? loadToolSettings("video", DEFAULT_VIDEO_TOOL_CACHE).initImageUrl?.trim() ??
+        ""
+      : "";
+
+  const systemWorkflowChoice = useMemo(() => {
+    if (shared.useSystemWorkflows !== true) {
+      return null;
+    }
+    try {
+      const preferI2v =
+        getComfyModelDefinition(shared.model)?.category === "video" &&
+        Boolean(videoInitKey);
+      return describeSystemWorkflowChoice(
+        shared.model,
+        loadComfyWorkflowFiles(),
+        readCachedComfyObjectInfoModels(),
+        { preferI2v },
+      );
+    } catch {
+      return {
+        source: "scaffold" as const,
+        label: "Built-in scaffold",
+        reason: "no-worthy-pack" as const,
+        display: "Built-in scaffold",
+      };
+    }
+  }, [
+    inventoryTick,
+    shared.model,
+    shared.useSystemWorkflows,
+    videoInitKey,
+    workflowCatalog,
+  ]);
+
+  const systemQualityHint = useMemo(() => {
+    if (shared.useSystemWorkflows !== true) {
+      return null;
+    }
+    if (
+      queueQualityProfile !== "draft" &&
+      queueQualityProfile !== "final" &&
+      queueQualityProfile !== "max"
+    ) {
+      return null;
+    }
+    return formatQueueQualityProfileHint(
+      queueQualityProfile,
+      samplerPreset,
+      resolutionSizeTier,
+      { model: shared.model },
+    );
+  }, [
+    queueQualityProfile,
+    resolutionSizeTier,
+    samplerPreset,
+    shared.model,
+    shared.useSystemWorkflows,
+  ]);
+
+  const modelFilterHint =
+    shared.useSystemWorkflows === true
+      ? `System scaffolds cover FLUX, Qwen, and video (${pickerModels.length} models).`
+      : supportedModelsFilterHint(
+          supportedModels.source,
+          supportedModels.models.length,
+        );
 
   useEffect(() => {
     // Respect a persisted library/picker selection — do not replace it with auto-ranked defaults.
@@ -507,6 +640,17 @@ export default function SharedToolControls({
     });
   };
 
+  // Snap Follow sidebar → Final when enabling system workflows (chips need an active profile).
+  useEffect(() => {
+    if (shared.useSystemWorkflows !== true) {
+      return;
+    }
+    if (normalizeQueueQualityProfile(shared.queueQualityProfile) !== "followSettings") {
+      return;
+    }
+    handleQueueQualityProfileChange("final");
+  }, [shared.queueQualityProfile, shared.useSystemWorkflows]);
+
   const handleExpandWildcardsChange = (value: boolean) => {
     setExpandWildcards(value);
     saveSharedSettings({
@@ -566,12 +710,14 @@ export default function SharedToolControls({
       <div className="space-y-4">
         <FieldLabel
           hint={
-            shared.autoSelectWorkflowForModel !== false
-              ? "Choosing a model auto-selects its mapped ComfyUI workflow below (when configured)."
-              : "Shared across tools and remembered between page reloads."
+            shared.useSystemWorkflows === true
+              ? undefined
+              : shared.autoSelectWorkflowForModel !== false
+                ? "Choosing a model auto-selects its mapped ComfyUI workflow below (when configured)."
+                : "Shared across tools and remembered between page reloads."
           }
         >
-          Target model
+          {shared.useSystemWorkflows === true ? "Model" : "Target model"}
         </FieldLabel>
         <ModelSelector
           value={shared.model}
@@ -582,12 +728,51 @@ export default function SharedToolControls({
           }
           filterHint={modelFilterHint}
           onShowAllModels={
-            showAllModelsOverride || supportedModels.source === "disabled"
+            shared.useSystemWorkflows === true ||
+            showAllModelsOverride ||
+            supportedModels.source === "disabled"
               ? undefined
               : handleShowAllModels
           }
           onChange={handleModelChange}
         />
+        {shared.useSystemWorkflows === true ? (
+          <div className="space-y-2">
+            <FieldLabel hint="Steps, resolution, and polish scale with this choice.">
+              Queue quality
+            </FieldLabel>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { id: "draft" as const, label: "Draft" },
+                  { id: "final" as const, label: "Final" },
+                  { id: "max" as const, label: "Max" },
+                ] as const
+              ).map((option) => (
+                <ChipButton
+                  key={option.id}
+                  active={queueQualityProfile === option.id}
+                  onClick={() => handleQueueQualityProfileChange(option.id)}
+                >
+                  {option.label}
+                </ChipButton>
+              ))}
+            </div>
+            {systemQualityHint ? (
+              <p className="text-xs leading-relaxed text-zinc-500">
+                {systemQualityHint}
+              </p>
+            ) : null}
+            {systemWorkflowChoice ? (
+              <p className="text-xs leading-relaxed text-zinc-500">
+                Graph:{" "}
+                <span className="text-zinc-300">
+                  {systemWorkflowChoice.display}
+                </span>
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {toolId === "generate" &&
         /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
           <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2.5">
@@ -646,7 +831,9 @@ export default function SharedToolControls({
         </div>
       </div>
 
-      {onWorkflowPresetChange && workflowSelection.mounted && (
+      {onWorkflowPresetChange &&
+        workflowSelection.mounted &&
+        shared.useSystemWorkflows !== true && (
         <ComfyWorkflowSelector
           selectedId={selectedWorkflowId}
           defaultLabel={workflowSelection.defaultLabel}
@@ -667,7 +854,11 @@ export default function SharedToolControls({
 
       <CollapsibleSection
         title="Quality & sampling"
-        summary="Sampler, resolution, queue quality, realism, anatomy, and model recommendations."
+        summary={
+          shared.useSystemWorkflows === true
+            ? "Sampler, resolution, realism, and anatomy overrides."
+            : "Sampler, resolution, queue quality, realism, anatomy, and model recommendations."
+        }
         defaultOpen={false}
         persistKey="shared-quality-sampling"
       >
@@ -685,15 +876,17 @@ export default function SharedToolControls({
           onSizeTierChange={handleResolutionSizeTierChange}
         />
 
-        <QueueQualityProfileHints
-          profile={queueQualityProfile}
-          samplerPreset={samplerPreset}
-          resolutionSizeTier={resolutionSizeTier}
-          onProfileChange={handleQueueQualityProfileChange}
-          toolId={toolId}
-          toolProfile={toolProfileOverride}
-          onToolProfileChange={handleToolQueueQualityChange}
-        />
+        {shared.useSystemWorkflows !== true ? (
+          <QueueQualityProfileHints
+            profile={queueQualityProfile}
+            samplerPreset={samplerPreset}
+            resolutionSizeTier={resolutionSizeTier}
+            onProfileChange={handleQueueQualityProfileChange}
+            toolId={toolId}
+            toolProfile={toolProfileOverride}
+            onToolProfileChange={handleToolQueueQualityChange}
+          />
+        ) : null}
 
         <RenderRealismHints
           mode={renderRealismMode}

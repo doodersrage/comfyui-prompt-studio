@@ -378,6 +378,41 @@ describe("workflow-graph-enrich", () => {
     assert.equal(upscaleNode.class_type, "ImageScaleBy");
   });
 
+  it("falls back to Lanczos when upscale inventory is known empty", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-image-2512",
+      qualityProfile: "final",
+      upscaleModelFilename: "4x_NMKD-Siax_200k.pth",
+      enrichSampling: false,
+      availableUpscaleModels: [],
+    });
+
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) =>
+          (node as { class_type?: string }).class_type === "UpscaleModelLoader",
+      ),
+      false,
+    );
+    const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
+    const upscaleId = saveNode.inputs.images[0];
+    const upscaleNode = result.workflow[upscaleId] as { class_type: string };
+    assert.equal(upscaleNode.class_type, "ImageScaleBy");
+  });
+
   it("warns when SDXL Final/Max has no refiner checkpoint mapped", () => {
     const workflow = {
       "1": {
@@ -528,11 +563,14 @@ describe("workflow-graph-enrich", () => {
     const detailId = decode.inputs.samples[0];
     const detail = result.workflow[detailId] as {
       _meta?: { title?: string };
-      inputs: { denoise: number };
+      inputs: { denoise: number; latent_image: [string, number] };
     };
     assert.match(detail._meta?.title ?? "", /latent detail pass/i);
     // Vanilla Qwen Final uses a softer second-pass denoise to limit chroma climb.
     assert.equal(detail.inputs.denoise, 0.14);
+    const latentId = detail.inputs.latent_image[0];
+    const latent = result.workflow[latentId] as { class_type?: string };
+    assert.equal(latent.class_type, "LatentUpscaleBy");
   });
 
   it("scales neural target down when latent detail already enlarged decode", () => {

@@ -266,6 +266,16 @@ describe("model sampler defaults", () => {
     assert.ok(compatible.steps >= getModelSamplerDefaults("sdxl", "optimized").steps);
   });
 
+  it("returns video model family sampler presets", () => {
+    assert.deepEqual(getModelSamplerDefaults("wan-video", "optimized"), {
+      steps: 30,
+      cfg: 6,
+      samplerName: "uni_pc",
+      scheduler: "simple",
+    });
+    assert.equal(getModelSamplerDefaults("ltx-video", "base").scheduler, "ltxv");
+  });
+
   it("formats sampler hint with preset label", () => {
     assert.match(
       formatModelSamplerHint("flux-dev", "optimized"),

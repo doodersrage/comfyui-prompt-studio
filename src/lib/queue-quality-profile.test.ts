@@ -27,8 +27,8 @@ describe("queue-quality-profile", () => {
     assert.equal(resolveEffectiveResolutionSizeTier("small", "final"), "medium");
   });
 
-  it("uses max compatible sampler and max resolution for max profile", () => {
-    assert.equal(resolveEffectiveSamplerPreset("base", "max"), "maxCompatible");
+  it("uses full max sampler and max resolution for max profile", () => {
+    assert.equal(resolveEffectiveSamplerPreset("base", "max"), "max");
     assert.equal(resolveEffectiveResolutionSizeTier("small", "max"), "max");
   });
 

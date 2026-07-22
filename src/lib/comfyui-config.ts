@@ -183,6 +183,10 @@ export type ComfyUiRuntimeConfig = {
   workflowOptimizedModel?: string;
   /** Quality profile from last library optimize — required with hash for full early-exit. */
   workflowOptimizedProfile?: import("./queue-quality-profile").QueueQualityProfile;
+  /** When Use system workflows is on: whether queue used a library pack or built-in scaffold. */
+  systemWorkflowSource?: "pack" | "scaffold";
+  /** Display label for the pack filename or "Built-in scaffold". */
+  systemWorkflowLabel?: string;
   /**
    * LoRA library forwarded from Settings — carries strengths/enabled/order that
    * {{LORA_*}} custom tokens alone cannot express for queue-time stacking.
@@ -1566,6 +1570,13 @@ export function stripEmptyComfyUiRuntime(
   if (runtime.workflowOptimizedProfile) {
     result.workflowOptimizedProfile = runtime.workflowOptimizedProfile;
   }
+  if (runtime.systemWorkflowSource === "pack" || runtime.systemWorkflowSource === "scaffold") {
+    result.systemWorkflowSource = runtime.systemWorkflowSource;
+  }
+  const systemWorkflowLabel = runtime.systemWorkflowLabel?.trim();
+  if (systemWorkflowLabel) {
+    result.systemWorkflowLabel = systemWorkflowLabel;
+  }
 
   if (runtime.queueParams) {
     const params = { ...runtime.queueParams };
@@ -1636,14 +1647,20 @@ export function resolveWorkflowGraphEnrichOptions(
   enrichSharpen: boolean;
 } {
   const enrichGraph = runtime?.workflowGraphEnrich !== false;
+  const isMax =
+    normalizeQueueQualityProfile(runtime?.queueQualityProfile) === "max";
   return {
     enrichGraph,
     enrichSdxlRefiner:
       enrichGraph && runtime?.workflowSdxlRefinerEnrich !== false,
     enrichNeuralPolish:
-      enrichGraph && runtime?.workflowNeuralUpscalePolish !== false,
-    // Max sharpen is opt-in (off by default) — never treat undefined as enabled.
+      enrichGraph &&
+      (isMax || runtime?.workflowNeuralUpscalePolish !== false),
+    // Max quality enables sharpen unless the user explicitly turned it off.
     enrichSharpen:
-      enrichGraph && runtime?.workflowSharpenAfterUpscale === true,
+      enrichGraph &&
+      (isMax
+        ? runtime?.workflowSharpenAfterUpscale !== false
+        : runtime?.workflowSharpenAfterUpscale === true),
   };
 }

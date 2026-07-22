@@ -322,6 +322,25 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     maxCompatible: { steps: 28, cfg: 8, samplerName: "dpmpp_2m", scheduler: "karras" },
     max: { steps: 35, cfg: 8, samplerName: "dpmpp_2m", scheduler: "karras" },
   },
+  // Video family presets — beat the generic category euler/normal defaults.
+  "wan-video": {
+    base: { steps: 20, cfg: 6, samplerName: "uni_pc", scheduler: "simple" },
+    optimized: { steps: 30, cfg: 6, samplerName: "uni_pc", scheduler: "simple" },
+    maxCompatible: { steps: 30, cfg: 5.5, samplerName: "uni_pc", scheduler: "simple" },
+    max: { steps: 40, cfg: 5, samplerName: "uni_pc", scheduler: "simple" },
+  },
+  "hunyuan-video": {
+    base: { steps: 20, cfg: 6, samplerName: "euler", scheduler: "simple" },
+    optimized: { steps: 30, cfg: 6, samplerName: "euler", scheduler: "simple" },
+    maxCompatible: { steps: 30, cfg: 5.5, samplerName: "dpmpp_2m", scheduler: "simple" },
+    max: { steps: 40, cfg: 5, samplerName: "dpmpp_2m", scheduler: "simple" },
+  },
+  "ltx-video": {
+    base: { steps: 20, cfg: 3, samplerName: "euler", scheduler: "ltxv" },
+    optimized: { steps: 30, cfg: 3, samplerName: "euler", scheduler: "ltxv" },
+    maxCompatible: { steps: 30, cfg: 2.5, samplerName: "euler", scheduler: "ltxv" },
+    max: { steps: 40, cfg: 2.5, samplerName: "euler", scheduler: "ltxv" },
+  },
 };
 
 export function normalizeModelSamplerPresetTier(

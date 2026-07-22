@@ -3,7 +3,7 @@
 import { modelUsesNegativePrompt } from "./prompt-pair";
 import type { ComfyImageModel } from "./comfy-models/client";
 import { isInpaintModel, isEditQueueTool } from "./model-denoise-defaults";
-import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
+import { resolveRuntimeForQueueAsync } from "./comfyui-runtime-for-model";
 import { fetchWorkflowPreview } from "./comfyui-requeue";
 import { resolveQueueParams } from "./queue-params-settings";
 import type { WorkflowParamValues } from "./comfyui-config";
@@ -36,7 +36,10 @@ export async function runWorkflowPreflight(input: {
   const issues: WorkflowPreflightIssue[] = [];
   const runtime =
     input.comfy ??
-    resolveRuntimeForQueue(input.model as ComfyImageModel, input.tool);
+    (await resolveRuntimeForQueueAsync(
+      input.model as ComfyImageModel,
+      input.tool,
+    ));
 
   if (!runtime?.workflowJson && !runtime?.workflowFileId) {
     issues.push({

@@ -14,7 +14,7 @@ import {
 import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import type { DetailLevel } from "@/lib/detail-level";
 import type { AthleticSport } from "@/lib/athletic-sport-profiles";
-import { resolveRuntimeForQueue } from "@/lib/comfyui-runtime-for-model";
+import { resolveRuntimeForQueueAsync } from "@/lib/comfyui-runtime-for-model";
 import { resolveModelForQueueTool } from "@/lib/queue-tool-model";
 import { guardQueueQualityForVram } from "@/lib/vram-queue-guard";
 import {
@@ -388,7 +388,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       setComfyUiStatus("Queueing…");
       try {
-        const baseRuntime = resolveRuntimeForQueue(config.model, config.tool);
+        const baseRuntime = await resolveRuntimeForQueueAsync(
+          config.model,
+          config.tool,
+        );
         const queueModel = resolveModelForQueueTool(config.model, config.tool);
         const vramGuard = await guardQueueQualityForVram({
           profile: options?.qualityProfile ?? baseRuntime.queueQualityProfile,
@@ -670,7 +673,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             model: resolveModelForQueueTool(config.model, config.tool),
             tool: config.tool,
           }),
-          comfy: resolveRuntimeForQueue(config.model, config.tool),
+          comfy: await resolveRuntimeForQueueAsync(config.model, config.tool),
         });
         setWorkflowPreview(preview);
         setPreviewStatus("Workflow preview ready (not queued).");
@@ -690,7 +693,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       setComfyUiStatus(`Queueing ${filtered.length}…`);
       try {
-        const baseRuntime = resolveRuntimeForQueue(config.model, config.tool);
+        const baseRuntime = await resolveRuntimeForQueueAsync(
+          config.model,
+          config.tool,
+        );
         const queueModel = resolveModelForQueueTool(config.model, config.tool);
         const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
         const runtime = vramGuard.runtime ?? baseRuntime;

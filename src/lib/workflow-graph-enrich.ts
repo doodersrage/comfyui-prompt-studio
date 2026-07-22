@@ -284,13 +284,16 @@ function countSamplerNodes(workflow: Record<string, WorkflowNode>): number {
   ).length;
 }
 
-/** Largest Prompt Studio LatentUpscale factor already inserted (refiner / detail). */
+/** Largest Prompt Studio LatentUpscale(By) factor already inserted (refiner / detail). */
 function promptStudioPriorLatentScale(
   workflow: Record<string, WorkflowNode>,
 ): number {
   let maxScale = 1;
   for (const node of Object.values(workflow)) {
-    if (node.class_type !== "LatentUpscale") {
+    if (
+      node.class_type !== "LatentUpscale" &&
+      node.class_type !== "LatentUpscaleBy"
+    ) {
       continue;
     }
     const title = node._meta?.title?.toLowerCase() ?? "";
@@ -401,7 +404,7 @@ function enrichLatentDetailPassNodes(input: {
 
     const latentUpscaleId = nextWorkflowNodeId(input.workflow);
     input.workflow[latentUpscaleId] = {
-      class_type: "LatentUpscale",
+      class_type: "LatentUpscaleBy",
       inputs: {
         samples: [chain.samplerId, 0],
         upscale_method: "bislerp",
@@ -624,7 +627,7 @@ function enrichSdxlRefinerNodes(input: {
 
     const latentUpscaleId = nextWorkflowNodeId(input.workflow);
     input.workflow[latentUpscaleId] = {
-      class_type: "LatentUpscale",
+      class_type: "LatentUpscaleBy",
       inputs: {
         samples: [chain.samplerId, 0],
         upscale_method: "bislerp",

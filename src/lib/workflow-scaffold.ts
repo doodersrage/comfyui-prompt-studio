@@ -26,7 +26,11 @@ import {
 } from "./comfy-models";
 import { isEditCapableModel, isQwenEditModel } from "./model-denoise-defaults";
 import { isQwenLightningModel } from "./model-sampling-patch";
-import { DEFAULT_UNET_TOKEN } from "./model-checkpoint-map";
+import {
+  DEFAULT_UNET_TOKEN,
+  resolveLoaderFilenamesForModel,
+  SUGGESTED_MODEL_VAE_MAP,
+} from "./model-checkpoint-map";
 import {
   defaultLoaderPrecisionTier,
   qwenDualClipFilename,
@@ -45,6 +49,61 @@ export type WorkflowScaffoldResult = {
   bindingChanges: number;
   notes: string[];
 };
+
+const DEFAULT_FLUX_CLIP_L = "clip_l.safetensors";
+const DEFAULT_FLUX_CLIP_T5 = "t5xxl_fp16.safetensors";
+
+function isFluxKleinModel(model?: ComfyImageModel | string): boolean {
+  return typeof model === "string" && /flux-2-klein/i.test(model);
+}
+
+/** Klein DualCLIP uses one shared stem in both slots (not Dev clip_l + t5xxl). */
+export function fluxKleinDualClipFilename(model?: ComfyImageModel | string): string {
+  if (!model) {
+    return "flux2-klein-4b.safetensors";
+  }
+  const loaders = resolveLoaderFilenamesForModel(String(model));
+  if (loaders.dualClip?.trim()) {
+    return loaders.dualClip.trim();
+  }
+  if (/9b/i.test(String(model))) {
+    return "flux2-klein-9b-uncensored.safetensors";
+  }
+  return "flux2-klein-4b.safetensors";
+}
+
+function fluxVaeFilename(model?: ComfyImageModel | string): string {
+  if (model && SUGGESTED_MODEL_VAE_MAP[model as ComfyImageModel]) {
+    return SUGGESTED_MODEL_VAE_MAP[model as ComfyImageModel]!;
+  }
+  if (typeof model === "string" && /klein|flux.?2/i.test(model)) {
+    return "flux2-vae.safetensors";
+  }
+  return "ae.safetensors";
+}
+
+function fluxDiffusionLoaders(model?: ComfyImageModel | string): {
+  unetToken: string;
+  clipL: string;
+  clipT5: string;
+  vaeName: string;
+} {
+  if (isFluxKleinModel(model)) {
+    const dual = fluxKleinDualClipFilename(model);
+    return {
+      unetToken: DEFAULT_UNET_TOKEN,
+      clipL: dual,
+      clipT5: dual,
+      vaeName: fluxVaeFilename(model),
+    };
+  }
+  return {
+    unetToken: DEFAULT_UNET_TOKEN,
+    clipL: DEFAULT_FLUX_CLIP_L,
+    clipT5: DEFAULT_FLUX_CLIP_T5,
+    vaeName: fluxVaeFilename(model),
+  };
+}
 
 function resolveBindingTokens(
   tokens?: Partial<WorkflowPlaceholderTokens>,
@@ -80,14 +139,32 @@ function bindScaffoldJson(
   return { json: bound.json, bindingChanges: bound.changes.length };
 }
 
-function fluxScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+function fluxScaffold(
+  tokens: WorkflowPlaceholderTokens,
+  model?: ComfyImageModel | string,
+): Record<string, unknown> {
+  const loaders = fluxDiffusionLoaders(model);
   return {
     "1": {
-      class_type: "CheckpointLoaderSimple",
-      inputs: { ckpt_name: "{{CHECKPOINT}}" },
-      _meta: { title: "Load Checkpoint" },
+      class_type: "UNETLoader",
+      inputs: { unet_name: loaders.unetToken, weight_dtype: "default" },
+      _meta: { title: "Load UNET" },
     },
     "2": {
+      class_type: "DualCLIPLoader",
+      inputs: {
+        clip_name1: loaders.clipL,
+        clip_name2: loaders.clipT5,
+        type: "flux",
+      },
+      _meta: { title: "DualCLIPLoader" },
+    },
+    "3": {
+      class_type: "VAELoader",
+      inputs: { vae_name: loaders.vaeName },
+      _meta: { title: "Load VAE" },
+    },
+    "4": {
       class_type: "ModelSamplingFlux",
       inputs: {
         model: ["1", 0],
@@ -98,22 +175,22 @@ function fluxScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown
       },
       _meta: { title: "ModelSamplingFlux" },
     },
-    "3": {
+    "5": {
       class_type: "CLIPTextEncode",
-      inputs: { text: tokens.positive, clip: ["1", 1] },
+      inputs: { text: tokens.positive, clip: ["2", 0] },
       _meta: { title: "Positive Prompt" },
     },
-    "4": {
+    "6": {
       class_type: "CLIPTextEncode",
-      inputs: { text: tokens.negative, clip: ["1", 1] },
+      inputs: { text: tokens.negative, clip: ["2", 0] },
       _meta: { title: "Negative Prompt" },
     },
-    "5": {
+    "7": {
       class_type: "EmptyLatentImage",
       inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
       _meta: { title: "Empty Latent" },
     },
-    "6": {
+    "8": {
       class_type: "KSampler",
       inputs: {
         seed: tokens.seed,
@@ -122,21 +199,21 @@ function fluxScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown
         sampler_name: tokens.sampler,
         scheduler: tokens.scheduler,
         denoise: tokens.denoise,
-        model: ["2", 0],
-        positive: ["3", 0],
-        negative: ["4", 0],
-        latent_image: ["5", 0],
+        model: ["4", 0],
+        positive: ["5", 0],
+        negative: ["6", 0],
+        latent_image: ["7", 0],
       },
       _meta: { title: "KSampler" },
     },
-    "7": {
+    "9": {
       class_type: "VAEDecode",
-      inputs: { samples: ["6", 0], vae: ["1", 2] },
+      inputs: { samples: ["8", 0], vae: ["3", 0] },
       _meta: { title: "VAE Decode" },
     },
-    "8": {
+    "10": {
       class_type: "SaveImage",
-      inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      inputs: { images: ["9", 0], filename_prefix: "PromptStudio" },
       _meta: { title: "Save Image" },
     },
   };
@@ -583,14 +660,32 @@ function qwenEditImg2imgScaffold(
   };
 }
 
-function fluxInpaintScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+function fluxInpaintScaffold(
+  tokens: WorkflowPlaceholderTokens,
+  model?: ComfyImageModel | string,
+): Record<string, unknown> {
+  const loaders = fluxDiffusionLoaders(model);
   return {
     "1": {
-      class_type: "CheckpointLoaderSimple",
-      inputs: { ckpt_name: "{{CHECKPOINT}}" },
-      _meta: { title: "Load Checkpoint" },
+      class_type: "UNETLoader",
+      inputs: { unet_name: loaders.unetToken, weight_dtype: "default" },
+      _meta: { title: "Load UNET" },
     },
     "2": {
+      class_type: "DualCLIPLoader",
+      inputs: {
+        clip_name1: loaders.clipL,
+        clip_name2: loaders.clipT5,
+        type: "flux",
+      },
+      _meta: { title: "DualCLIPLoader" },
+    },
+    "3": {
+      class_type: "VAELoader",
+      inputs: { vae_name: loaders.vaeName },
+      _meta: { title: "Load VAE" },
+    },
+    "4": {
       class_type: "ModelSamplingFlux",
       inputs: {
         model: ["1", 0],
@@ -611,28 +706,28 @@ function fluxInpaintScaffold(tokens: WorkflowPlaceholderTokens): Record<string, 
       inputs: { image: tokens.maskImage },
       _meta: { title: "Inpaint Mask" },
     },
-    "3": {
+    "5": {
       class_type: "CLIPTextEncode",
-      inputs: { text: tokens.positive, clip: ["1", 1] },
+      inputs: { text: tokens.positive, clip: ["2", 0] },
       _meta: { title: "Positive Prompt" },
     },
-    "4": {
+    "6": {
       class_type: "CLIPTextEncode",
-      inputs: { text: tokens.negative, clip: ["1", 1] },
+      inputs: { text: tokens.negative, clip: ["2", 0] },
       _meta: { title: "Negative Prompt" },
     },
     "903": {
       class_type: "InpaintModelConditioning",
       inputs: {
-        positive: ["3", 0],
-        negative: ["4", 0],
-        vae: ["1", 2],
+        positive: ["5", 0],
+        negative: ["6", 0],
+        vae: ["3", 0],
         pixels: ["900", 0],
         mask: ["902", 0],
       },
       _meta: { title: "Inpaint Conditioning" },
     },
-    "6": {
+    "8": {
       class_type: "KSampler",
       inputs: {
         seed: tokens.seed,
@@ -641,34 +736,52 @@ function fluxInpaintScaffold(tokens: WorkflowPlaceholderTokens): Record<string, 
         sampler_name: tokens.sampler,
         scheduler: tokens.scheduler,
         denoise: tokens.denoise,
-        model: ["2", 0],
+        model: ["4", 0],
         positive: ["903", 0],
         negative: ["903", 1],
         latent_image: ["903", 2],
       },
       _meta: { title: "KSampler" },
     },
-    "7": {
+    "9": {
       class_type: "VAEDecode",
-      inputs: { samples: ["6", 0], vae: ["1", 2] },
+      inputs: { samples: ["8", 0], vae: ["3", 0] },
       _meta: { title: "VAE Decode" },
     },
-    "8": {
+    "10": {
       class_type: "SaveImage",
-      inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      inputs: { images: ["9", 0], filename_prefix: "PromptStudio" },
       _meta: { title: "Save Image" },
     },
   };
 }
 
-function fluxImg2imgScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+function fluxImg2imgScaffold(
+  tokens: WorkflowPlaceholderTokens,
+  model?: ComfyImageModel | string,
+): Record<string, unknown> {
+  const loaders = fluxDiffusionLoaders(model);
   return {
     "1": {
-      class_type: "CheckpointLoaderSimple",
-      inputs: { ckpt_name: "{{CHECKPOINT}}" },
-      _meta: { title: "Load Checkpoint" },
+      class_type: "UNETLoader",
+      inputs: { unet_name: loaders.unetToken, weight_dtype: "default" },
+      _meta: { title: "Load UNET" },
     },
     "2": {
+      class_type: "DualCLIPLoader",
+      inputs: {
+        clip_name1: loaders.clipL,
+        clip_name2: loaders.clipT5,
+        type: "flux",
+      },
+      _meta: { title: "DualCLIPLoader" },
+    },
+    "3": {
+      class_type: "VAELoader",
+      inputs: { vae_name: loaders.vaeName },
+      _meta: { title: "Load VAE" },
+    },
+    "4": {
       class_type: "ModelSamplingFlux",
       inputs: {
         model: ["1", 0],
@@ -686,20 +799,20 @@ function fluxImg2imgScaffold(tokens: WorkflowPlaceholderTokens): Record<string, 
     },
     "901": {
       class_type: "VAEEncode",
-      inputs: { pixels: ["900", 0], vae: ["1", 2] },
+      inputs: { pixels: ["900", 0], vae: ["3", 0] },
       _meta: { title: "VAE Encode Input" },
     },
-    "3": {
+    "5": {
       class_type: "CLIPTextEncode",
-      inputs: { text: tokens.positive, clip: ["1", 1] },
+      inputs: { text: tokens.positive, clip: ["2", 0] },
       _meta: { title: "Positive Prompt" },
     },
-    "4": {
+    "6": {
       class_type: "CLIPTextEncode",
-      inputs: { text: tokens.negative, clip: ["1", 1] },
+      inputs: { text: tokens.negative, clip: ["2", 0] },
       _meta: { title: "Negative Prompt" },
     },
-    "6": {
+    "8": {
       class_type: "KSampler",
       inputs: {
         seed: tokens.seed,
@@ -708,21 +821,21 @@ function fluxImg2imgScaffold(tokens: WorkflowPlaceholderTokens): Record<string, 
         sampler_name: tokens.sampler,
         scheduler: tokens.scheduler,
         denoise: tokens.denoise,
-        model: ["2", 0],
-        positive: ["3", 0],
-        negative: ["4", 0],
+        model: ["4", 0],
+        positive: ["5", 0],
+        negative: ["6", 0],
         latent_image: ["901", 0],
       },
       _meta: { title: "KSampler" },
     },
-    "7": {
+    "9": {
       class_type: "VAEDecode",
-      inputs: { samples: ["6", 0], vae: ["1", 2] },
+      inputs: { samples: ["8", 0], vae: ["3", 0] },
       _meta: { title: "VAE Decode" },
     },
-    "8": {
+    "10": {
       class_type: "SaveImage",
-      inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      inputs: { images: ["9", 0], filename_prefix: "PromptStudio" },
       _meta: { title: "Save Image" },
     },
   };
@@ -737,10 +850,10 @@ function editScaffold(
     return qwenEditImg2imgScaffold(tokens, model);
   }
   if (model === "flux-inpaint") {
-    return fluxInpaintScaffold(tokens);
+    return fluxInpaintScaffold(tokens, model);
   }
   if (category === "flux") {
-    return fluxImg2imgScaffold(tokens);
+    return fluxImg2imgScaffold(tokens, model);
   }
 
   const base =
@@ -1162,7 +1275,7 @@ export function buildWorkflowScaffoldForModel(
   const graph = useEditScaffold
     ? editScaffold(resolvedTokens, category, model)
     : category === "flux"
-      ? fluxScaffold(resolvedTokens)
+      ? fluxScaffold(resolvedTokens, model)
       : useLightningScaffold
         ? qwenLightningScaffold(resolvedTokens)
         : category === "qwen"
@@ -1186,9 +1299,13 @@ export function buildWorkflowScaffoldForModel(
         ? useLightningScaffold
           ? "Lightning scaffold uses UNETLoader + Lightning LoRA ({{LORA_LIGHTNING}}) + ModelSamplingAuraFlow (shift ~3). Map your 4/8-step bf16 Lightning LoRA in Settings → LoRA library."
           : "Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs."
-        : category === "video"
-          ? `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom graph.`
-          : "Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.",
+        : category === "flux"
+          ? isFluxKleinModel(model)
+            ? "FLUX Klein scaffold uses UNETLoader + DualCLIPLoader (shared Klein dual-CLIP stem in both slots) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available."
+            : "FLUX scaffold uses UNETLoader + DualCLIPLoader (clip_l + t5xxl) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available."
+          : category === "video"
+            ? `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom pack with LTXVImgToVideo.`
+            : "Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.",
   ];
 
   return {

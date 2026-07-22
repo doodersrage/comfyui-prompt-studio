@@ -17,6 +17,12 @@ export type LoaderMapInventorySyncInput = {
   vaeMap?: ModelVaeMap;
   upscaleMap?: ModelUpscaleMap;
   controlNetMap?: ModelControlNetMap;
+  /**
+   * When true, rewrite map values missing from inventory to a near-miss
+   * installed filename (fp8↔bf16, renamed stems). Empty upscale inventory
+   * clears unusable upscale keys.
+   */
+  healMissing?: boolean;
 };
 
 export type LoaderMapInventorySyncResult = {
@@ -28,6 +34,11 @@ export type LoaderMapInventorySyncResult = {
   filledVaeKeys: string[];
   filledUpscaleKeys: string[];
   filledControlNetKeys: string[];
+  healedCheckpointKeys: string[];
+  healedVaeKeys: string[];
+  healedUpscaleKeys: string[];
+  healedControlNetKeys: string[];
+  clearedUpscaleKeys: string[];
 };
 
 function trimFilename(value: unknown): string | undefined {
@@ -36,6 +47,16 @@ function trimFilename(value: unknown): string | undefined {
   }
   const trimmed = value.trim();
   return trimmed || undefined;
+}
+
+function loaderStemWithoutPrecision(filename: string): string {
+  return filename
+    .toLowerCase()
+    .replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, "")
+    .replace(
+      /[-_]?(bf16|fp16|fp8_scaled|fp8|e4m3fn|q[2-8]_k[_-][a-z]|q[2-8]_0)/gi,
+      "",
+    );
 }
 
 /** Closest installed filename for a suggested stem (exact → stem includes). */
@@ -56,43 +77,123 @@ export function matchInventoryFilename(
   if (exactCi) {
     return exactCi;
   }
-  const stem = lower.replace(/\.(safetensors|ckpt|pt|pth|bin)$/i, "");
+  const stem = lower.replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, "");
   return inventory.find((entry) => {
     const entryLower = entry.toLowerCase();
-    const entryStem = entryLower.replace(/\.(safetensors|ckpt|pt|pth|bin)$/i, "");
+    const entryStem = entryLower.replace(
+      /\.(safetensors|ckpt|pt|pth|bin|gguf)$/i,
+      "",
+    );
     return entryLower.includes(stem) || stem.includes(entryStem);
   });
 }
 
-function fillEmptyMapKeys(input: {
+/**
+ * Exact/stem match, then precision-stripped near-miss (fp8↔bf16, GGUF quant).
+ */
+export function matchInventoryFilenameNearMiss(
+  preferred: string | undefined,
+  inventory: string[],
+): string | undefined {
+  const close = matchInventoryFilename(preferred, inventory);
+  if (close) {
+    return close;
+  }
+  const trimmed = preferred?.trim();
+  if (!trimmed || inventory.length === 0) {
+    return undefined;
+  }
+  const baseStem = loaderStemWithoutPrecision(trimmed);
+  if (!baseStem) {
+    return undefined;
+  }
+  return inventory.find((entry) => {
+    const entryStem = loaderStemWithoutPrecision(entry);
+    return (
+      entryStem === baseStem ||
+      entryStem.includes(baseStem) ||
+      baseStem.includes(entryStem)
+    );
+  });
+}
+
+function fillAndHealMapKeys(input: {
   current?: Record<string, string | undefined>;
   suggested: Record<string, string | undefined>;
   inventory: string[];
-}): { map: Record<string, string>; filledKeys: string[] } {
+  healMissing?: boolean;
+  /** Drop keys that cannot resolve when inventory is known empty. */
+  clearWhenEmpty?: boolean;
+}): {
+  map: Record<string, string>;
+  filledKeys: string[];
+  healedKeys: string[];
+  clearedKeys: string[];
+} {
   const map: Record<string, string> = {};
+  const filledKeys: string[] = [];
+  const healedKeys: string[] = [];
+  const clearedKeys: string[] = [];
+  const inventoryEmpty = input.inventory.length === 0;
+
   for (const [key, value] of Object.entries(input.current ?? {})) {
     const trimmed = trimFilename(value);
-    if (trimmed) {
-      map[key] = trimmed;
+    if (!trimmed) {
+      continue;
     }
+    if (!input.healMissing) {
+      map[key] = trimmed;
+      continue;
+    }
+    if (inventoryEmpty) {
+      if (input.clearWhenEmpty) {
+        clearedKeys.push(key);
+      } else {
+        map[key] = trimmed;
+      }
+      continue;
+    }
+    const installed = matchInventoryFilenameNearMiss(trimmed, input.inventory);
+    if (installed) {
+      map[key] = installed;
+      if (installed !== trimmed) {
+        healedKeys.push(key);
+      }
+      continue;
+    }
+    const fromSuggested = matchInventoryFilenameNearMiss(
+      input.suggested[key],
+      input.inventory,
+    );
+    if (fromSuggested) {
+      map[key] = fromSuggested;
+      healedKeys.push(key);
+      continue;
+    }
+    // Keep stale value when heal cannot find a replacement (user may install later).
+    map[key] = trimmed;
   }
-  const filledKeys: string[] = [];
+
   for (const [key, preferred] of Object.entries(input.suggested)) {
     if (trimFilename(map[key])) {
       continue;
     }
-    const matched = matchInventoryFilename(preferred, input.inventory);
+    if (inventoryEmpty) {
+      continue;
+    }
+    const matched = matchInventoryFilenameNearMiss(preferred, input.inventory);
     if (matched) {
       map[key] = matched;
       filledKeys.push(key);
     }
   }
-  return { map, filledKeys };
+
+  return { map, filledKeys, healedKeys, clearedKeys };
 }
 
 /**
  * Fill empty loader-map keys from live ComfyUI inventory using curated suggest
- * stems. Never overwrites a non-empty user value.
+ * stems. With `healMissing`, also rewrite values missing from inventory.
  */
 export function syncLoaderMapsFromInventory(
   input: LoaderMapInventorySyncInput,
@@ -100,30 +201,36 @@ export function syncLoaderMapsFromInventory(
   const checkpointInventory = [
     ...new Set([...input.models.unets, ...input.models.checkpoints]),
   ];
+  const healMissing = input.healMissing === true;
 
-  const checkpoint = fillEmptyMapKeys({
+  const checkpoint = fillAndHealMapKeys({
     current: input.checkpointMap,
     suggested: SUGGESTED_MODEL_CHECKPOINT_MAP,
     inventory: checkpointInventory,
+    healMissing,
   });
-  const vae = fillEmptyMapKeys({
+  const vae = fillAndHealMapKeys({
     current: input.vaeMap,
     suggested: SUGGESTED_MODEL_VAE_MAP,
     inventory: input.models.vaes,
+    healMissing,
   });
-  const upscale = fillEmptyMapKeys({
+  const upscale = fillAndHealMapKeys({
     current: input.upscaleMap,
     suggested: SUGGESTED_MODEL_UPSCALE_MAP,
     inventory: input.models.upscaleModels,
+    healMissing,
+    clearWhenEmpty: healMissing,
   });
 
   const controlNetSuggested: ModelControlNetMap = {
     default: input.models.controlNets[0],
   };
-  const controlNet = fillEmptyMapKeys({
+  const controlNet = fillAndHealMapKeys({
     current: input.controlNetMap,
     suggested: controlNetSuggested,
     inventory: input.models.controlNets,
+    healMissing,
   });
 
   return {
@@ -135,32 +242,64 @@ export function syncLoaderMapsFromInventory(
     filledVaeKeys: vae.filledKeys,
     filledUpscaleKeys: upscale.filledKeys,
     filledControlNetKeys: controlNet.filledKeys,
+    healedCheckpointKeys: checkpoint.healedKeys,
+    healedVaeKeys: vae.healedKeys,
+    healedUpscaleKeys: upscale.healedKeys,
+    healedControlNetKeys: controlNet.healedKeys,
+    clearedUpscaleKeys: upscale.clearedKeys,
   };
 }
 
 export function formatInventorySyncMessage(
   result: LoaderMapInventorySyncResult,
 ): string {
-  const total =
+  const filled =
     result.filledCheckpointKeys.length +
     result.filledVaeKeys.length +
     result.filledUpscaleKeys.length +
     result.filledControlNetKeys.length;
-  if (total === 0) {
-    return "No empty map keys matched ComfyUI inventory.";
+  const healed =
+    result.healedCheckpointKeys.length +
+    result.healedVaeKeys.length +
+    result.healedUpscaleKeys.length +
+    result.healedControlNetKeys.length;
+  const cleared = result.clearedUpscaleKeys.length;
+
+  if (filled === 0 && healed === 0 && cleared === 0) {
+    return "No map keys needed inventory updates.";
   }
+
   const parts: string[] = [];
-  if (result.filledCheckpointKeys.length) {
-    parts.push(`${result.filledCheckpointKeys.length} checkpoint/UNET`);
+  if (filled) {
+    parts.push(`filled ${filled}`);
   }
-  if (result.filledVaeKeys.length) {
-    parts.push(`${result.filledVaeKeys.length} VAE`);
+  if (healed) {
+    parts.push(`healed ${healed}`);
   }
-  if (result.filledUpscaleKeys.length) {
-    parts.push(`${result.filledUpscaleKeys.length} upscale`);
+  if (cleared) {
+    parts.push(`cleared ${cleared} missing upscale`);
   }
-  if (result.filledControlNetKeys.length) {
-    parts.push(`${result.filledControlNetKeys.length} ControlNet`);
-  }
-  return `Filled ${total} empty map key(s) from inventory (${parts.join(", ")}).`;
+  return `Updated loader maps from ComfyUI inventory (${parts.join(", ")}).`;
+}
+
+/** True when sync changed any persisted map values. */
+export function loaderMapsChanged(
+  before: {
+    checkpointMap?: ModelCheckpointMap;
+    vaeMap?: ModelVaeMap;
+    upscaleMap?: ModelUpscaleMap;
+    controlNetMap?: ModelControlNetMap;
+  },
+  after: LoaderMapInventorySyncResult,
+): boolean {
+  const same = (
+    a?: Record<string, string | undefined>,
+    b?: Record<string, string | undefined>,
+  ) => JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
+  return !(
+    same(before.checkpointMap, after.modelCheckpointMap) &&
+    same(before.vaeMap, after.modelVaeMap) &&
+    same(before.upscaleMap, after.modelUpscaleMap) &&
+    same(before.controlNetMap, after.modelControlNetMap)
+  );
 }

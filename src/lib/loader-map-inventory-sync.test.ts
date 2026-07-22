@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   formatInventorySyncMessage,
   matchInventoryFilename,
+  matchInventoryFilenameNearMiss,
   syncLoaderMapsFromInventory,
 } from "./loader-map-inventory-sync.ts";
 
@@ -22,8 +23,19 @@ describe("matchInventoryFilename", () => {
   });
 });
 
+describe("matchInventoryFilenameNearMiss", () => {
+  it("matches across bf16/fp8 precision suffixes", () => {
+    assert.equal(
+      matchInventoryFilenameNearMiss("qwen_image_2512_bf16.safetensors", [
+        "qwen_image_2512_fp8_e4m3fn.safetensors",
+      ]),
+      "qwen_image_2512_fp8_e4m3fn.safetensors",
+    );
+  });
+});
+
 describe("syncLoaderMapsFromInventory", () => {
-  it("fills empty keys only and never overwrites user values", () => {
+  it("fills empty keys only and never overwrites user values without heal", () => {
     const result = syncLoaderMapsFromInventory({
       models: {
         checkpoints: ["sd_xl_base_1.0.safetensors"],
@@ -52,10 +64,41 @@ describe("syncLoaderMapsFromInventory", () => {
       result.modelControlNetMap.default,
       "control_v11p_sd15_canny.pth",
     );
-    assert.match(formatInventorySyncMessage(result), /Filled \d+ empty map key/);
+    assert.match(formatInventorySyncMessage(result), /filled \d+/i);
   });
 
-  it("reports zero fills when nothing matches", () => {
+  it("heals missing map filenames to near-miss inventory entries", () => {
+    const result = syncLoaderMapsFromInventory({
+      models: {
+        checkpoints: [],
+        unets: ["qwen_image_2512_fp8_e4m3fn.safetensors"],
+        vaes: ["qwen_image_vae.safetensors"],
+        upscaleModels: [],
+        clips: [],
+        dualClipTypes: [],
+        clipLoaderTypes: [],
+        loras: [],
+        controlNets: [],
+      },
+      checkpointMap: {
+        "qwen-image-2512": "qwen_image_2512_bf16.safetensors",
+      },
+      upscaleMap: {
+        "qwen-image-2512": "4x_NMKD-Siax_200k.pth",
+      },
+      healMissing: true,
+    });
+
+    assert.equal(
+      result.modelCheckpointMap["qwen-image-2512"],
+      "qwen_image_2512_fp8_e4m3fn.safetensors",
+    );
+    assert.ok(result.healedCheckpointKeys.includes("qwen-image-2512"));
+    assert.equal(result.modelUpscaleMap["qwen-image-2512"], undefined);
+    assert.ok(result.clearedUpscaleKeys.includes("qwen-image-2512"));
+  });
+
+  it("reports zero updates when nothing matches", () => {
     const result = syncLoaderMapsFromInventory({
       models: {
         checkpoints: [],
@@ -73,7 +116,7 @@ describe("syncLoaderMapsFromInventory", () => {
     assert.equal(result.filledCheckpointKeys.length, 0);
     assert.equal(
       formatInventorySyncMessage(result),
-      "No empty map keys matched ComfyUI inventory.",
+      "No map keys needed inventory updates.",
     );
   });
 });

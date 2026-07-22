@@ -49,7 +49,21 @@ describe("model upscale map", () => {
       isUpscaleModelInstalled("4x-UltraSharp.pth", ["4x-UltraSharp.pth"]),
       true,
     );
-    assert.equal(isUpscaleModelInstalled("4x-UltraSharp.pth", []), true);
+    // Unknown inventory — optimistic.
+    assert.equal(isUpscaleModelInstalled("4x-UltraSharp.pth", undefined), true);
+    assert.equal(isUpscaleModelInstalled("4x-UltraSharp.pth", null), true);
+    // Known-empty inventory — nothing installed.
+    assert.equal(isUpscaleModelInstalled("4x-UltraSharp.pth", []), false);
+  });
+
+  it("returns undefined when ComfyUI upscale inventory is known empty", () => {
+    assert.equal(
+      resolveUpscaleModelFilename("qwen-image-2512", {
+        upscaleMap: SUGGESTED_MODEL_UPSCALE_MAP,
+        availableUpscaleModels: [],
+      }),
+      undefined,
+    );
   });
 
   it("picks an installed upscaler from inventory when mapped file is missing", () => {

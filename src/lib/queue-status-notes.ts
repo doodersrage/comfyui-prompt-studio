@@ -12,6 +12,8 @@ export function joinQueueStatusNotes(
     tool?: string;
     vramDowngraded?: boolean;
     samplerMemory?: boolean;
+    systemWorkflowSource?: "pack" | "scaffold";
+    systemWorkflowLabel?: string;
   },
 ): string {
   const fromPipeline = pipeline

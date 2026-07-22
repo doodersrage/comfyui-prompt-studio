@@ -589,6 +589,51 @@ describe("video I2V auto-wiring (patchVideoImageToVideoWiringInWorkflow)", () =>
     );
   });
 
+  it("hard-fails LTX Video I2V on the system scaffold with a pack-import hint", () => {
+    const scaffold = buildWorkflowScaffoldForModel("ltx-video");
+    const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
+
+    const result = patchVideoImageToVideoWiringInWorkflow(workflow, {
+      model: "ltx-video",
+      inputImageFilename: "start-frame.png",
+      params: { width: 768, height: 512, videoFrames: 97 },
+    });
+
+    assert.equal(result.patched.videoImageToVideoWired, undefined);
+    assert.match(result.error ?? "", /LTX Video I2V needs an imported pack/i);
+    assert.match(result.error ?? "", /LTXVImgToVideo/);
+  });
+
+  it("respects an already-wired LTXVImgToVideo pack instead of failing", () => {
+    const workflow = {
+      "900": {
+        class_type: "LoadImage",
+        inputs: { image: "{{INIT_IMAGE}}" },
+        _meta: { title: "Init Image" },
+      },
+      "10": {
+        class_type: "LTXVImgToVideo",
+        inputs: { start_image: ["900", 0] },
+      },
+      "5": {
+        class_type: "KSampler",
+        inputs: {
+          positive: ["10", 0],
+          negative: ["10", 1],
+          latent_image: ["10", 2],
+        },
+      },
+    };
+
+    const result = patchVideoImageToVideoWiringInWorkflow(workflow, {
+      model: "ltx-video",
+      inputImageFilename: "start-frame.png",
+    });
+
+    assert.equal(result.error, undefined);
+    assert.equal(result.patched.videoImageToVideoWired, undefined);
+  });
+
   it("hard-fails when a video model has an init image but the graph cannot be I2V-wired", () => {
     const workflow = {
       "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "wan.safetensors" } },

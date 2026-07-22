@@ -71,6 +71,12 @@ export type SharedToolSettings = {
   autoSelectWorkflowForModel?: boolean;
   /** When true (default), limit the model picker to models with available workflows. */
   limitModelsToAvailableWorkflows?: boolean;
+  /**
+   * When true, queue uses built-in scaffolds for the target model instead of
+   * library / mapped / picker workflow JSON. Checkpoint/VAE/LoRA maps and
+   * queue optimize still apply.
+   */
+  useSystemWorkflows?: boolean;
   /** Temporary override to show every model in the picker. */
   showAllModelsOverride?: boolean;
   /** Session LLM temperature override (0–2) sent with generation requests. */
@@ -461,7 +467,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   workflowGraphEnrich: true,
   workflowSdxlRefinerEnrich: true,
   workflowNeuralUpscalePolish: true,
-  workflowSharpenAfterUpscale: false,
+  workflowSharpenAfterUpscale: true,
   compactDraftSaves: true,
   neuralUpscaleTileSize: 512,
   useLibraryUpscaleWorkflow: false,
@@ -479,6 +485,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelUpscaleMap: {},
   autoSelectWorkflowForModel: true,
   limitModelsToAvailableWorkflows: true,
+  useSystemWorkflows: false,
   showAllModelsOverride: false,
   ipAdapterStrength: 0.6,
   expandWildcards: true,

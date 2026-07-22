@@ -39,7 +39,8 @@ export const QUEUE_QUALITY_PROFILE_OPTIONS: {
   {
     id: "max",
     label: "Max",
-    description: "Best quality — Max compatible sampler and largest safe resolution.",
+    description:
+      "Best quality — full Max sampler tier, largest resolution, and Max graph polish (upscale / detail / sharpen).",
   },
 ];
 
@@ -92,8 +93,9 @@ export function resolveEffectiveSamplerPreset(
       Math.max(samplerTierRank(user), samplerTierRank("optimized"))
     ]!;
   }
+  // Max uses the full max sampler tier (steps/CFG ceiling), not maxCompatible.
   return SAMPLER_TIER_ORDER[
-    Math.max(samplerTierRank(user), samplerTierRank("maxCompatible"))
+    Math.max(samplerTierRank(user), samplerTierRank("max"))
   ]!;
 }
 
@@ -205,7 +207,7 @@ export function formatQueueQualityProfileHint(
     profile === "max" &&
     options?.neuralUpscaleAvailable &&
     profileUsesNeuralUpscaleEnrich(profile, { model })
-      ? " · opt-in sharpen"
+      ? " · Max sharpen"
       : "";
 
   return `${option.label} queue → ${effectivePreset} sampler · ${effectiveSize} resolution${upscaleNote}${refinerNote}${detailNote}${sharpenNote} (sidebar: ${userPreset} · ${userSizeTier}).`;
@@ -255,6 +257,9 @@ export function formatQueuePipelineStatusNotes(input: {
   vramDowngraded?: boolean;
   /** When 4–5★ remembered sampler params are active for this model. */
   samplerMemory?: boolean;
+  /** System-workflow path: pack vs scaffold. */
+  systemWorkflowSource?: "pack" | "scaffold";
+  systemWorkflowLabel?: string;
 }): string[] {
   const model = String(input.model ?? "").trim();
   const profile = normalizeQueueQualityProfile(input.qualityProfile);
@@ -268,6 +273,24 @@ export function formatQueuePipelineStatusNotes(input: {
 
   if (input.samplerMemory) {
     notes.push("sampler memory");
+  }
+
+  if (input.systemWorkflowSource === "pack") {
+    const label = input.systemWorkflowLabel?.trim();
+    notes.push(label ? `system pack · ${label}` : "system pack");
+  } else if (input.systemWorkflowSource === "scaffold") {
+    const label = input.systemWorkflowLabel?.trim();
+    if (label && /·/.test(label)) {
+      notes.push(label.replace(/^Built-in scaffold/i, "system scaffold"));
+    } else if (/^(wan|hunyuan|ltx)-video$/i.test(model) || /ltx/i.test(model)) {
+      notes.push(
+        /ltx/i.test(model)
+          ? "system scaffold · LTX I2V needs pack"
+          : "system scaffold · prefer video pack for I2V",
+      );
+    } else {
+      notes.push("system scaffold");
+    }
   }
 
   if (/^qwen-rapid-aio-/i.test(model)) {
@@ -501,7 +524,7 @@ export function sdxlRefinerDenoiseForProfile(
 
 /**
  * Soft latent detail pass for Flux / vanilla Qwen Final/Max (not Lightning, Rapid, SDXL).
- * Mild LatentUpscale + low-denoise second KSampler before VAEDecode.
+ * Mild LatentUpscaleBy + low-denoise second KSampler before VAEDecode.
  */
 export function profileUsesLatentDetailPass(
   profile: QueueQualityProfile | undefined,

@@ -584,6 +584,7 @@ export default function SettingsTool() {
       vaeMap: sharedSettings.modelVaeMap,
       upscaleMap: sharedSettings.modelUpscaleMap,
       controlNetMap: sharedSettings.modelControlNetMap,
+      healMissing: true,
     });
     const message = formatInventorySyncMessage(synced);
     updateSharedSettings({
@@ -1035,104 +1036,225 @@ export default function SettingsTool() {
         }}
       />
       <ToolSection id="settings-comfyui-workflow-map" title="Model → workflow map">
-        <p className="text-sm text-zinc-400">
-          One mapping per line:{" "}
-          <code className="rounded bg-zinc-800 px-1 text-violet-300">
-            modelId=workflowFileId
-          </code>
-          . When you change the target model in a generator, the mapped workflow
-          file is selected automatically.
-        </p>
         <label className="mb-3 flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
-            checked={sharedSettings.autoSelectWorkflowForModel !== false}
-            onChange={(event) =>
+            checked={sharedSettings.useSystemWorkflows === true}
+            onChange={(event) => {
+              const enabled = event.target.checked;
               updateSharedSettings({
-                autoSelectWorkflowForModel: event.target.checked,
-              })
-            }
+                useSystemWorkflows: enabled,
+                ...(enabled &&
+                (sharedSettings.queueQualityProfile === "followSettings" ||
+                  sharedSettings.queueQualityProfile == null)
+                  ? { queueQualityProfile: "final" as const }
+                  : {}),
+              });
+              if (enabled) {
+                void (async () => {
+                  setStatus("Scanning ComfyUI inventory for system workflows…");
+                  const { scanAndAdaptSystemWorkflowInventory } = await import(
+                    "@/lib/comfyui-runtime-for-model"
+                  );
+                  const models = await scanAndAdaptSystemWorkflowInventory({
+                    comfyUrl: settings.apiUrl || undefined,
+                    persist: true,
+                  });
+                  if (!models) {
+                    setStatus(
+                      "System workflows on — could not reach ComfyUI inventory yet; scaffolds will adapt on next queue.",
+                    );
+                    return;
+                  }
+                  const adapted = loadSettingsCache().shared;
+                  updateSharedSettings({
+                    modelCheckpointMap: adapted.modelCheckpointMap,
+                    modelVaeMap: adapted.modelVaeMap,
+                    modelUpscaleMap: adapted.modelUpscaleMap,
+                    modelControlNetMap: adapted.modelControlNetMap,
+                  });
+                  setModelCheckpointMapText(
+                    formatModelCheckpointMap(adapted.modelCheckpointMap),
+                  );
+                  setModelVaeMapText(formatModelVaeMap(adapted.modelVaeMap));
+                  setModelUpscaleMapText(
+                    formatModelUpscaleMap(adapted.modelUpscaleMap),
+                  );
+                  setStatus(
+                    "System workflows on — loader maps adapted from ComfyUI inventory.",
+                  );
+                  setWorkflowHealthRefresh((n) => n + 1);
+                })();
+              }
+            }}
             disabled={!sharedMounted}
             className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
           />
           <span className="space-y-1">
             <span className="block text-sm font-medium text-zinc-200">
-              Auto-select workflow when target model changes
+              Use system workflows
             </span>
             <span className="block text-xs text-zinc-500">
-              Uses the map below, or filename-based defaults when no line exists.
-              You can still pick a different workflow manually to override for the
-              session.
+              Queue from the best matching library pack when one scores well,
+              otherwise a built-in scaffold. Draft / Final / Max still drive
+              sampler, resolution, and polish. Checkpoint/VAE maps still apply.
+              Hides the workflow picker and model→workflow map while enabled.
+              Model list is limited to FLUX, Qwen, and video (dedicated scaffolds).
+              Enabling scans ComfyUI inventory and adapts checkpoint/VAE/upscale maps.
             </span>
           </span>
         </label>
-        <label className="mb-3 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={sharedSettings.limitModelsToAvailableWorkflows !== false}
-            onChange={(event) =>
-              updateSharedSettings({
-                limitModelsToAvailableWorkflows: event.target.checked,
-              })
-            }
-            disabled={!sharedMounted}
-            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
-          />
-          <span className="space-y-1">
-            <span className="block text-sm font-medium text-zinc-200">
-              Limit model picker to available workflows
-            </span>
-            <span className="block text-xs text-zinc-500">
-              Generators only list models that have a workflow in your library or
-              assignment map. Use &quot;Show all models&quot; in a tool sidebar to
-              override temporarily.
-            </span>
-          </span>
-        </label>
-        <textarea
-          value={modelWorkflowMapText}
-          onChange={(event) => {
-            const text = event.target.value;
-            setModelWorkflowMapText(text);
-            updateSharedSettings({
-              modelWorkflowMap: parseModelWorkflowMap(text),
-            });
-          }}
-          rows={6}
-          spellCheck={false}
-          disabled={!sharedMounted}
-          placeholder={`qwen-image-2512=my-qwen-workflow.json\nflux-2-klein=flux-klein-default.json\nfaceDetailer=my-facedetailer-workflow.json`}
-          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
-        />
-        <p className="text-xs text-zinc-500">
-          Pin a FaceDetailer/ReActor graph with{" "}
-          <code className="rounded bg-zinc-800 px-1 text-violet-300">
-            faceDetailer=&lt;workflowId&gt;
-          </code>{" "}
-          (required for Gallery → Face detail).
-        </p>
-        <button
-          type="button"
-          disabled={!sharedMounted}
-          onClick={() => {
-            const suggested = suggestWorkflowDefaultsByCategory(
-              loadComfyWorkflowFiles(),
-            );
-            const merged = mergeModelWorkflowMap(
-              loadSettingsCache().shared.modelWorkflowMap,
-              suggested,
-              false,
-            );
-            updateSharedSettings({ modelWorkflowMap: merged });
-            setModelWorkflowMapText(formatModelWorkflowMap(merged));
-            setStatus(
-              `Applied ${countMappedModels(merged)} model→workflow mappings from workflow filenames.`,
-            );
-          }}
-          className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500"
-        >
-          Apply smart defaults by category
-        </button>
+
+        {sharedSettings.useSystemWorkflows === true ? (
+          <p className="mb-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-3 text-xs leading-relaxed text-zinc-500">
+            Map, auto-select, and workflow picker are unused for queueing.
+            Matching pack graphs in your library are still preferred automatically.
+            Expand below only if you need a{" "}
+            <code className="rounded bg-zinc-800 px-1 text-violet-300">
+              faceDetailer=
+            </code>{" "}
+            pin for Gallery → Face detail.
+          </p>
+        ) : (
+          <p className="mb-3 text-sm text-zinc-400">
+            One mapping per line:{" "}
+            <code className="rounded bg-zinc-800 px-1 text-violet-300">
+              modelId=workflowFileId
+            </code>
+            . When you change the target model in a generator, the mapped workflow
+            file is selected automatically.
+          </p>
+        )}
+
+        {sharedSettings.useSystemWorkflows !== true ? (
+          <>
+            <label className="mb-3 flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={sharedSettings.autoSelectWorkflowForModel !== false}
+                onChange={(event) =>
+                  updateSharedSettings({
+                    autoSelectWorkflowForModel: event.target.checked,
+                  })
+                }
+                disabled={!sharedMounted}
+                className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+              />
+              <span className="space-y-1">
+                <span className="block text-sm font-medium text-zinc-200">
+                  Auto-select workflow when target model changes
+                </span>
+                <span className="block text-xs text-zinc-500">
+                  Uses the map below, or filename-based defaults when no line exists.
+                  You can still pick a different workflow manually to override for the
+                  session.
+                </span>
+              </span>
+            </label>
+            <label className="mb-3 flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={sharedSettings.limitModelsToAvailableWorkflows !== false}
+                onChange={(event) =>
+                  updateSharedSettings({
+                    limitModelsToAvailableWorkflows: event.target.checked,
+                  })
+                }
+                disabled={!sharedMounted}
+                className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+              />
+              <span className="space-y-1">
+                <span className="block text-sm font-medium text-zinc-200">
+                  Limit model picker to available workflows
+                </span>
+                <span className="block text-xs text-zinc-500">
+                  Generators only list models that have a workflow in your library or
+                  assignment map. Use &quot;Show all models&quot; in a tool sidebar to
+                  override temporarily.
+                </span>
+              </span>
+            </label>
+          </>
+        ) : null}
+
+        {sharedSettings.useSystemWorkflows === true ? (
+          <CollapsibleSection
+            title="Library map (advanced)"
+            summary="FaceDetailer pin and unused model→workflow lines."
+            defaultOpen={false}
+            persistKey="settings-system-workflow-map-advanced"
+          >
+            <textarea
+              value={modelWorkflowMapText}
+              onChange={(event) => {
+                const text = event.target.value;
+                setModelWorkflowMapText(text);
+                updateSharedSettings({
+                  modelWorkflowMap: parseModelWorkflowMap(text),
+                });
+              }}
+              rows={4}
+              spellCheck={false}
+              disabled={!sharedMounted}
+              placeholder={`faceDetailer=my-facedetailer-workflow.json`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+            />
+            <p className="mt-2 text-xs text-zinc-500">
+              Pin a FaceDetailer/ReActor graph with{" "}
+              <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                faceDetailer=&lt;workflowId&gt;
+              </code>
+              .
+            </p>
+          </CollapsibleSection>
+        ) : (
+          <>
+            <textarea
+              value={modelWorkflowMapText}
+              onChange={(event) => {
+                const text = event.target.value;
+                setModelWorkflowMapText(text);
+                updateSharedSettings({
+                  modelWorkflowMap: parseModelWorkflowMap(text),
+                });
+              }}
+              rows={6}
+              spellCheck={false}
+              disabled={!sharedMounted}
+              placeholder={`qwen-image-2512=my-qwen-workflow.json\nflux-2-klein=flux-klein-default.json\nfaceDetailer=my-facedetailer-workflow.json`}
+              className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+            />
+            <p className="text-xs text-zinc-500">
+              Pin a FaceDetailer/ReActor graph with{" "}
+              <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                faceDetailer=&lt;workflowId&gt;
+              </code>{" "}
+              (required for Gallery → Face detail).
+            </p>
+            <button
+              type="button"
+              disabled={!sharedMounted}
+              onClick={() => {
+                const suggested = suggestWorkflowDefaultsByCategory(
+                  loadComfyWorkflowFiles(),
+                );
+                const merged = mergeModelWorkflowMap(
+                  loadSettingsCache().shared.modelWorkflowMap,
+                  suggested,
+                  false,
+                );
+                updateSharedSettings({ modelWorkflowMap: merged });
+                setModelWorkflowMapText(formatModelWorkflowMap(merged));
+                setStatus(
+                  `Applied ${countMappedModels(merged)} model→workflow mappings from workflow filenames.`,
+                );
+              }}
+              className="mt-3 rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 transition hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.99]"
+            >
+              Apply smart defaults by category
+            </button>
+          </>
+        )}
       </ToolSection>
 
       <ToolSection id="settings-comfyui-workflow-patching" title="Workflow patching & checkpoints">
@@ -1260,8 +1382,8 @@ export default function SettingsTool() {
               or shift patch nodes when a loader connects directly to KSampler. On{" "}
               <strong className="font-medium text-zinc-400">Final/Max</strong>, SDXL may get a
               latent refiner pass and Flux/vanilla Qwen a soft latent detail pass; outputs then get
-              neural or Lanczos upscale capped to ~1.25×/1.5× net (optional Max Lanczos polish +
-              opt-in sharpen).
+              neural or Lanczos upscale capped to ~1.25×/1.5× net (Max Lanczos polish +
+              Max sharpen when enabled).
             </span>
           </span>
         </label>
@@ -1320,7 +1442,8 @@ export default function SettingsTool() {
               <span className="space-y-1">
                 <span className="block text-sm text-zinc-300">Subtle sharpen after upscale (Max)</span>
                 <span className="block text-xs text-zinc-500">
-                  Optional ImageSharpen after neural UpscaleModel on Max only (not Lanczos-only). Off by default — enable for crisp edges; Qwen/Klein use a lighter alpha.
+                  ImageSharpen after neural UpscaleModel on Max quality (not Lanczos-only).
+                  On by default for Max; uncheck if edges look waxy. Qwen/Klein use a lighter alpha.
                 </span>
               </span>
             </label>

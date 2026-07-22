@@ -58,6 +58,8 @@ function upscalePreferencePatternsForModel(model?: string): RegExp[] {
 /**
  * Prefer the mapped/suggested upscaler when installed; otherwise pick a sensible
  * file from ComfyUI inventory using model-aware preference order.
+ * Empty inventory (`[]`) means nothing is installed — returns undefined.
+ * Unknown inventory (`null`/`undefined`) keeps the preferred name.
  */
 export function pickUpscaleModelFromInventory(
   availableUpscaleModels?: string[] | null,
@@ -67,6 +69,10 @@ export function pickUpscaleModelFromInventory(
   const preferredName = trimFilename(preferred);
   if (preferredName && isUpscaleModelInstalled(preferredName, availableUpscaleModels)) {
     return preferredName;
+  }
+  // Known-empty inventory: do not invent a filename ComfyUI will reject.
+  if (Array.isArray(availableUpscaleModels) && availableUpscaleModels.length === 0) {
+    return undefined;
   }
   if (!availableUpscaleModels?.length) {
     return preferredName;
@@ -99,7 +105,10 @@ export function resolveUpscaleModelFilename(
     resolveCustomTokenValue(DEFAULT_UPSCALE_MODEL_TOKEN, options?.customTokens) ??
     suggested;
 
-  if (options?.availableUpscaleModels && options.availableUpscaleModels.length > 0) {
+  if (Array.isArray(options?.availableUpscaleModels)) {
+    if (options.availableUpscaleModels.length === 0) {
+      return undefined;
+    }
     return pickUpscaleModelFromInventory(
       options.availableUpscaleModels,
       resolved ?? SUGGESTED_MODEL_UPSCALE_MAP.default,
@@ -110,8 +119,9 @@ export function resolveUpscaleModelFilename(
 }
 
 /**
- * When ComfyUI inventory is known and non-empty, only treat filenames present in
- * that list as usable. Unknown inventory (empty/undefined) keeps the mapped name.
+ * When ComfyUI inventory is a known non-empty list, only treat filenames present
+ * in that list as usable. Unknown inventory (`null`/`undefined`) keeps the mapped
+ * name. Known-empty inventory (`[]`) means nothing is installed.
  */
 export function isUpscaleModelInstalled(
   filename: string | undefined,
@@ -121,8 +131,11 @@ export function isUpscaleModelInstalled(
   if (!trimmed) {
     return false;
   }
-  if (!availableUpscaleModels || availableUpscaleModels.length === 0) {
+  if (availableUpscaleModels == null) {
     return true;
+  }
+  if (availableUpscaleModels.length === 0) {
+    return false;
   }
   return availableUpscaleModels.includes(trimmed);
 }

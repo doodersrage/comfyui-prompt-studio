@@ -453,6 +453,57 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
       max: { width: 1024, height: 1024 },
     },
   },
+  "wan-video": {
+    square: {
+      small: { width: 512, height: 512 },
+      medium: { width: 640, height: 640 },
+      max: { width: 768, height: 768 },
+    },
+    landscape: {
+      small: { width: 640, height: 368 },
+      medium: { width: 832, height: 480 },
+      max: { width: 1024, height: 576 },
+    },
+    portrait: {
+      small: { width: 368, height: 640 },
+      medium: { width: 480, height: 832 },
+      max: { width: 576, height: 1024 },
+    },
+  },
+  "hunyuan-video": {
+    square: {
+      small: { width: 544, height: 544 },
+      medium: { width: 720, height: 720 },
+      max: { width: 960, height: 960 },
+    },
+    landscape: {
+      small: { width: 768, height: 432 },
+      medium: { width: 1280, height: 720 },
+      max: { width: 1280, height: 720 },
+    },
+    portrait: {
+      small: { width: 432, height: 768 },
+      medium: { width: 720, height: 1280 },
+      max: { width: 720, height: 1280 },
+    },
+  },
+  "ltx-video": {
+    square: {
+      small: { width: 512, height: 512 },
+      medium: { width: 768, height: 768 },
+      max: { width: 768, height: 768 },
+    },
+    landscape: {
+      small: { width: 768, height: 512 },
+      medium: { width: 768, height: 512 },
+      max: { width: 1280, height: 720 },
+    },
+    portrait: {
+      small: { width: 512, height: 768 },
+      medium: { width: 512, height: 768 },
+      max: { width: 720, height: 1280 },
+    },
+  },
 };
 
 export function normalizeResolutionOrientation(value: unknown): ResolutionOrientation {

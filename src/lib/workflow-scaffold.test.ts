@@ -11,9 +11,22 @@ describe("workflow scaffold", () => {
     const result = buildWorkflowScaffoldForModel("flux-2-klein-9b");
     assert.equal(result.category, "flux");
     assert.match(result.json, /ModelSamplingFlux/);
+    assert.match(result.json, /UNETLoader/);
+    assert.match(result.json, /DualCLIPLoader/);
+    assert.match(result.json, /VAELoader/);
+    assert.doesNotMatch(result.json, /CheckpointLoaderSimple/);
+    assert.match(result.json, /\{\{UNET\}\}/);
+    assert.match(result.json, /flux2-klein-9b-uncensored/);
+    assert.doesNotMatch(result.json, /clip_l\.safetensors/);
     assert.match(result.json, /\{\{FLUX_MAX_SHIFT\}\}/);
     assert.match(result.json, /\{\{POSITIVE\}\}/);
     assert.match(result.json, /\{\{WIDTH\}\}/);
+  });
+
+  it("builds flux-dev scaffold with clip_l + t5xxl DualCLIP", () => {
+    const result = buildWorkflowScaffoldForModel("flux-dev");
+    assert.match(result.json, /clip_l\.safetensors/);
+    assert.match(result.json, /t5xxl_fp16\.safetensors/);
   });
 
   it("builds flux inpaint scaffold with ModelSamplingFlux", () => {
