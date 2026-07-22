@@ -140,14 +140,10 @@ export default function LoraLibrarySettingsPanel({
   return (
     <div className="space-y-4">
       <p className="text-sm text-zinc-400">
-        Pick LoRAs from your ComfyUI inventory, then set ID and label yourself.
-        Enabled entries always load; disabled ones with{" "}
-        <span className="text-zinc-300">Auto from prompt</span> load only when the
-        positive prompt contains their trigger phrase. Entries also sync to{" "}
-        <code className="rounded bg-zinc-800 px-1 text-violet-300">
-          {"{{LORA_<id>}}"}
-        </code>{" "}
-        when you save ComfyUI settings.
+        Pick LoRAs from your ComfyUI inventory, then set ID and label. New entries
+        start unchecked — turn on <span className="text-zinc-300">Enabled</span>{" "}
+        for Settings defaults, or use the tool sidebar{" "}
+        <span className="text-zinc-300">LoRA stack</span> for the current session.
       </p>
 
       <div className="space-y-2">
@@ -228,11 +224,6 @@ export default function LoraLibrarySettingsPanel({
         {entries.length > 0 ? (
           <p className="ui-surface-inset text-xs text-zinc-300">
             {activeSummary}
-            {entries.some(
-              (entry) => entry.enabled === false && entry.autoFromPrompt,
-            )
-              ? " · + auto at queue when prompt matches"
-              : ""}
           </p>
         ) : null}
         {entries.length === 0 ? (
@@ -250,8 +241,6 @@ export default function LoraLibrarySettingsPanel({
           <ul className="space-y-3">
             {entries.map((entry, index) => {
               const enabled = entry.enabled !== false;
-              const autoFromPrompt = entry.autoFromPrompt === true;
-              const hasTrigger = Boolean(entry.triggerPhrase?.trim());
               const strengthModel = entry.strengthModel ?? 1;
               const strengthClip = entry.strengthClip ?? 1;
               const tokenOptions = (() => {
@@ -281,29 +270,6 @@ export default function LoraLibrarySettingsPanel({
                           className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
                         />
                         Enabled
-                      </label>
-                      <label
-                        className={`flex items-center gap-2 text-xs ${
-                          hasTrigger ? "text-zinc-300" : "text-zinc-500"
-                        }`}
-                        title={
-                          hasTrigger
-                            ? "When disabled, load if the prompt contains the trigger phrase"
-                            : "Set a trigger phrase to use Auto from prompt"
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={autoFromPrompt}
-                          disabled={!hasTrigger && !autoFromPrompt}
-                          onChange={(event) =>
-                            updateEntry(index, {
-                              autoFromPrompt: event.target.checked,
-                            })
-                          }
-                          className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
-                        />
-                        Auto from prompt
                       </label>
                     </div>
                     <div className="flex items-center gap-1">
@@ -368,19 +334,6 @@ export default function LoraLibrarySettingsPanel({
                       />
                     </label>
                   </div>
-                  <label className="space-y-1 text-xs text-zinc-400">
-                    Trigger phrase
-                    <input
-                      value={entry.triggerPhrase}
-                      onChange={(event) =>
-                        updateEntry(index, {
-                          triggerPhrase: event.target.value,
-                        })
-                      }
-                      placeholder="portrait lighting, soft skin"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                    />
-                  </label>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="space-y-1 text-xs text-zinc-400">
                       <span className="flex items-center justify-between">

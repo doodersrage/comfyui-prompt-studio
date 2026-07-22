@@ -52,6 +52,43 @@ describe("queue-quality-profile", () => {
     );
   });
 
+  it("promotes Compose Draft to Final for Lanczos polish", async () => {
+    const {
+      resolveQueueQualityProfile,
+      profileSkipsOutputUpscaleForModel,
+      upscaleScaleForProfile,
+    } = await import("./queue-quality-profile.ts");
+    assert.equal(
+      resolveQueueQualityProfile({
+        tool: "compose",
+        global: "draft",
+        toolProfiles: {},
+      }),
+      "final",
+    );
+    assert.equal(
+      profileSkipsOutputUpscaleForModel("final", {
+        model: "qwen-image-edit-2511-lightning-8",
+        hasInputImage: true,
+      }),
+      false,
+    );
+    assert.equal(
+      upscaleScaleForProfile("final", {
+        model: "qwen-image-edit-2511-lightning-8",
+        hasInputImage: true,
+      }),
+      1.05,
+    );
+    assert.equal(
+      upscaleScaleForProfile("max", {
+        model: "qwen-image-edit-2511-lightning-8",
+        hasInputImage: true,
+      }),
+      1.08,
+    );
+  });
+
   it("promotes Rapid AIO Draft to Final so moiré polish runs", async () => {
     const {
       resolveQueueQualityProfile,

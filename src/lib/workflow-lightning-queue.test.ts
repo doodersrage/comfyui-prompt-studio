@@ -361,6 +361,123 @@ describe("workflow-lightning-queue", () => {
     );
   });
 
+  it("turns off Power Lora style slots while keeping Edit Lightning slots", () => {
+    const workflow = {
+      "9": {
+        class_type: "Power Lora Loader (rgthree)",
+        inputs: {
+          model: ["1", 0],
+          lora_1: {
+            on: true,
+            lora: "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+            strength: 1,
+          },
+          lora_2: {
+            on: true,
+            lora: "nsfw_style.safetensors",
+            strength: 0.75,
+          },
+        },
+      },
+    };
+    const result = neutralizeNonLightningLoras(
+      workflow,
+      "qwen-image-edit-2511-lightning-8",
+    );
+    assert.deepEqual(result.neutralizedNodeIds, ["9:lora_2"]);
+    const inputs = (
+      result.workflow["9"] as {
+        inputs: {
+          lora_1: { on: boolean; strength: number };
+          lora_2: { on: boolean; strength: number };
+        };
+      }
+    ).inputs;
+    assert.equal(inputs.lora_1.on, true);
+    assert.equal(inputs.lora_1.strength, 1);
+    assert.equal(inputs.lora_2.on, false);
+    assert.equal(inputs.lora_2.strength, 0);
+  });
+
+  it("zeroes LoraLoader|pysssss style stack and duplicate Lightning on Edit Compose packs", () => {
+    const workflow = {
+      "3": {
+        class_type: "KSampler",
+        inputs: { model: ["66", 0], seed: 1, steps: 8, cfg: 1 },
+      },
+      "66": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["125", 0], shift: 3 },
+      },
+      "125": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["116", 0],
+          lora_name: "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "116": {
+        class_type: "LoraLoader|pysssss",
+        inputs: {
+          model: ["115", 0],
+          lora_name: "2511-AnyPose-helper-00006000.safetensors",
+          strength_model: 0.7,
+          strength_clip: 0.7,
+        },
+      },
+      "115": {
+        class_type: "LoraLoader|pysssss",
+        inputs: {
+          model: ["114", 0],
+          lora_name: "flymy_realism.safetensors",
+          strength_model: 0.8,
+          strength_clip: 0.5,
+        },
+      },
+      "114": {
+        class_type: "LoraLoader|pysssss",
+        inputs: {
+          model: ["110", 0],
+          lora_name: "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+          strength_clip: 1,
+        },
+      },
+      "110": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+    };
+    const result = neutralizeNonLightningLoras(
+      workflow,
+      "qwen-image-edit-2511-lightning-8",
+    );
+    assert.ok(result.neutralizedNodeIds.includes("116"));
+    assert.ok(result.neutralizedNodeIds.includes("115"));
+    assert.ok(result.neutralizedNodeIds.includes("114"));
+    assert.equal(
+      (result.workflow["125"] as { inputs: { strength_model: number } }).inputs
+        .strength_model,
+      1,
+    );
+    assert.equal(
+      (result.workflow["116"] as { inputs: { strength_model: number } }).inputs
+        .strength_model,
+      0,
+    );
+    assert.equal(
+      (result.workflow["115"] as { inputs: { strength_model: number } }).inputs
+        .strength_model,
+      0,
+    );
+    assert.equal(
+      (result.workflow["114"] as { inputs: { strength_model: number } }).inputs
+        .strength_model,
+      0,
+    );
+  });
+
   it("warns when non-lightning LoRAs are stacked in the workflow", () => {
     const issues = auditLightningWorkflowIssues({
       model: "qwen-image-2512-lightning-8",
@@ -780,6 +897,50 @@ describe("lightning queue precision and sampling", () => {
     >;
     assert.equal(parsed["7"].inputs.lora_name, "qwen_lightning_8steps.safetensors");
     assert.equal(parsed["8"].inputs.lora_name, "nsfw_style.safetensors");
+  });
+  it("converts EmptyFlux2LatentImage to EmptySD3 and forces 1328 on Lightning prep", async () => {
+    const { forceLightningLatentSizeInWorkflow, prepareLightningWorkflowForQueue } =
+      await import("./workflow-lightning-queue.ts");
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+      "120": {
+        class_type: "EmptyFlux2LatentImage",
+        inputs: { width: 1024, height: 1024, batch_size: 1 },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: { model: ["1", 0], latent_image: ["120", 0], steps: 8, cfg: 1 },
+      },
+    };
+
+    const sized = forceLightningLatentSizeInWorkflow(
+      workflow,
+      { width: 1328, height: 1328 },
+      "qwen-image-edit-2511-lightning-8",
+    );
+    const latent = sized["120"] as { class_type: string; inputs: { width: number; height: number } };
+    assert.equal(latent.class_type, "EmptySD3LatentImage");
+    assert.equal(latent.inputs.width, 1328);
+    assert.equal(latent.inputs.height, 1328);
+
+    const prepared = prepareLightningWorkflowForQueue(
+      workflow,
+      "qwen-image-edit-2511-lightning-8",
+      {},
+      { params: { width: 1328, height: 1328 } },
+    );
+    const preparedLatent = Object.values(prepared).find(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        "class_type" in node &&
+        String((node as { class_type?: string }).class_type).includes("Empty"),
+    ) as { class_type: string; inputs: { width: number } };
+    assert.equal(preparedLatent.class_type, "EmptySD3LatentImage");
+    assert.equal(preparedLatent.inputs.width, 1328);
   });
 });
 

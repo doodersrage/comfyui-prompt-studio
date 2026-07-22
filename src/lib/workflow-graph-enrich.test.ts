@@ -911,7 +911,7 @@ describe("workflow-graph-enrich", () => {
     assert.ok(result.changes.some((change) => /moiré|moire/i.test(change.message)));
   });
 
-  it("skips Final/Max Lanczos for Edit-2511 Lightning T2I", () => {
+  it("skips Final/Max Lanczos for Edit-2511 Lightning T2I but keeps it for I2I", () => {
     const workflow = {
       "7": {
         class_type: "VAEDecode",
@@ -923,23 +923,40 @@ describe("workflow-graph-enrich", () => {
       },
     };
 
-    const result = enrichWorkflowGraph({
+    const t2i = enrichWorkflowGraph({
       workflow,
       tokens: TOKENS,
       model: "qwen-image-edit-2511-lightning-8",
       qualityProfile: "final",
       enrichSampling: false,
+      hasInputImage: false,
     });
-
     assert.equal(
-      Object.values(result.workflow).some(
+      Object.values(t2i.workflow).some(
         (node) => (node as { class_type?: string }).class_type === "ImageScaleBy",
       ),
       false,
     );
     assert.ok(
-      result.changes.some((change) => /Skipped Final\/Max Lanczos for Edit/i.test(change.message)),
+      t2i.changes.some((change) =>
+        /Skipped Final\/Max Lanczos for Edit/i.test(change.message),
+      ),
     );
+
+    const i2i = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-image-edit-2511-lightning-8",
+      qualityProfile: "final",
+      enrichSampling: false,
+      hasInputImage: true,
+    });
+    const scale = Object.values(i2i.workflow).find(
+      (node) => (node as { class_type?: string }).class_type === "ImageScaleBy",
+    ) as { inputs?: { scale_by?: number; upscale_method?: string } } | undefined;
+    assert.ok(scale);
+    assert.equal(scale?.inputs?.upscale_method, "lanczos");
+    assert.equal(scale?.inputs?.scale_by, 1.05);
   });
 
   it("skips Rapid AIO moiré polish on draft profile", () => {

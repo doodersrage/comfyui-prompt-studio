@@ -1049,13 +1049,14 @@ export default function SettingsTool() {
 
         {sharedSettings.useSystemWorkflows === true ? (
           <p className="mb-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-3 text-xs leading-relaxed text-zinc-500">
-            Map, auto-select, and workflow picker are unused for queueing.
-            Matching pack graphs in your library are still preferred automatically.
-            Expand below only if you need a{" "}
+            Explicit model→workflow map entries still win at queue time. When a
+            model has no map entry, matching pack graphs in your library are
+            preferred automatically, otherwise a built-in scaffold is used.
+            Expand below to edit the map or pin{" "}
             <code className="rounded bg-zinc-800 px-1 text-violet-300">
               faceDetailer=
             </code>{" "}
-            pin for Gallery → Face detail.
+            for Gallery → Face detail.
           </p>
         ) : (
           <p className="mb-3 text-sm text-zinc-400">
@@ -1654,9 +1655,10 @@ export default function SettingsTool() {
           tokens <strong className="font-medium text-zinc-300">or auto-inserts</strong> a
           minimal LoadImage → IPAdapterModelLoader → IPAdapterAdvanced chain when
           none exist. Requires ComfyUI-IPAdapter-Plus-class nodes installed.
-          InstantID / PuLID are bring-your-own — use Workflow library → InstantID /
-          PuLID scaffold, wire your node pack in ComfyUI, then import. This path is
-          IP-Adapter only.
+          Extra reference filenames stack additional Apply nodes. When IP-Adapter
+          Plus is missing but InstantID/PuLID nodes are installed, Studio falls
+          back to auto-inserting those instead. You can also import a BYO InstantID
+          / PuLID scaffold from the Workflow library.
         </p>
 
         <div className="space-y-2">
@@ -1704,6 +1706,35 @@ export default function SettingsTool() {
               <span className="text-xs text-zinc-500">{ipAdapterUploadStatus}</span>
             ) : null}
           </div>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <FieldLabel htmlFor="settings-ipadapter-extra">
+            Extra reference filenames (multi-ref stack)
+          </FieldLabel>
+          <input
+            id="settings-ipadapter-extra"
+            value={(sharedSettings.ipAdapterImageFilenames ?? []).join(", ")}
+            onChange={(event) => {
+              const names = event.target.value
+                .split(",")
+                .map((entry) => entry.trim())
+                .filter(Boolean);
+              updateSharedSettings({
+                ipAdapterImageFilenames: names.length > 0 ? names : undefined,
+                ...(names[0] && !sharedSettings.ipAdapterImageFilename?.trim()
+                  ? { ipAdapterImageFilename: names[0] }
+                  : {}),
+              });
+            }}
+            placeholder="ref-a.png, ref-b.png (comma-separated; index 0 can mirror the primary)"
+            disabled={!sharedMounted}
+            className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${accentFocusClass(ACCENT)}`}
+          />
+          <p className="text-xs text-zinc-500">
+            Two or more filenames stack additional IPAdapterAdvanced nodes onto the
+            sampler model chain at queue time.
+          </p>
         </div>
 
         <label className="mt-4 block space-y-2">
@@ -1920,7 +1951,7 @@ export default function SettingsTool() {
                 <code className="rounded bg-zinc-800 px-1 text-violet-300">
                   {"{{LORA}}"}
                 </code>
-                . LoRA files and triggers live in the{" "}
+                . LoRA files live in the{" "}
                 <button
                   type="button"
                   onClick={() => handleComfyUiSectionJump("lora-library")}

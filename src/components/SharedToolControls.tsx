@@ -69,10 +69,12 @@ import { Button } from "@/components/ui/Button";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { resolveModelStackFamily } from "@/lib/workflow-stack-fingerprint";
+import { isQwenLightningModel } from "@/lib/model-sampling-patch";
 import {
   expandWildcardText,
   textHasWildcardTokens,
 } from "@/lib/wildcard-expand";
+import LoraStackSessionPicker from "@/components/LoraStackSessionPicker";
 
 const ComfyWorkflowSelector = dynamic(
   () => import("@/components/ComfyWorkflowSelector"),
@@ -194,6 +196,9 @@ export default function SharedToolControls({
   const [oomRetryDowngrade, setOomRetryDowngrade] = useState(
     () => shared.oomRetryDowngrade !== false,
   );
+  const [sessionActiveLoraIds, setSessionActiveLoraIds] = useState<
+    string[] | undefined
+  >(() => shared.sessionActiveLoraIds);
 
   const workflowCatalog = useMemo(
     () => [
@@ -323,10 +328,15 @@ export default function SharedToolControls({
         return;
       }
 
-      // Heal stale map entries (e.g. Lightning-8 still pointing at vanilla 2512
-      // after an earlier bad Suggested assign).
+      // Heal only the intentional Lightning stale-map cases (selection resolver
+      // already returns a better Lightning workflow id). Never rewrite a normal
+      // user assignment just because auto-rank prefers another file.
       const mappedId = shared.modelWorkflowMap?.[model]?.trim();
-      if (mappedId && mappedId !== workflowId) {
+      if (
+        mappedId &&
+        mappedId !== workflowId &&
+        isQwenLightningModel(model)
+      ) {
         saveSharedSettings({
           ...loadSettingsCache().shared,
           modelWorkflowMap: {
@@ -593,6 +603,20 @@ export default function SharedToolControls({
     });
   }, [shared.oomRetryDowngrade]);
 
+  useEffect(() => {
+    scheduleAfterCommit(() => {
+      setSessionActiveLoraIds(shared.sessionActiveLoraIds);
+    });
+  }, [shared.sessionActiveLoraIds]);
+
+  const handleSessionActiveLoraIdsChange = (ids: string[] | undefined) => {
+    setSessionActiveLoraIds(ids);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      sessionActiveLoraIds: ids,
+    });
+    onSharedSettingsChange?.({ sessionActiveLoraIds: ids });
+  };
   const handleSamplerPresetChange = (preset: ModelSamplerPresetTier) => {
     setSamplerPreset(preset);
     saveSharedSettings({
@@ -852,6 +876,23 @@ export default function SharedToolControls({
           }}
         />
       )}
+
+      <CollapsibleSection
+        title="LoRA stack"
+        summary={
+          sessionActiveLoraIds !== undefined
+            ? `${sessionActiveLoraIds.length} selected for this session`
+            : "Pick LoRAs for queue without trigger keywords"
+        }
+        defaultOpen={false}
+        persistKey="shared-lora-stack"
+      >
+        <LoraStackSessionPicker
+          sessionActiveLoraIds={sessionActiveLoraIds}
+          checkboxClassName={checkboxClass}
+          onChange={handleSessionActiveLoraIdsChange}
+        />
+      </CollapsibleSection>
 
       <CollapsibleSection
         title="Quality & sampling"

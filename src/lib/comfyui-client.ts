@@ -210,6 +210,11 @@ function injectPromptsIntoWorkflow(
       ? [...enrichInventory.availableNodeTypes].filter((name) => /saveimage|image save/i.test(name)).sort().join(",")
       : "",
   ].join(";");
+  const hasInputImage = Boolean(
+    params.inputImageFilename?.toString().trim() ||
+      (Array.isArray(params.inputImageFilenames) &&
+        params.inputImageFilenames.some((name) => String(name ?? "").trim())),
+  );
   const optimizeKey = [
     runtime?.queueQualityProfile ?? "draft",
     model ?? "",
@@ -217,6 +222,7 @@ function injectPromptsIntoWorkflow(
     params.refinerCheckpointFilename ?? "",
     runtime?.workflowGraphEnrich === false ? "0" : "1",
     runtime?.compactDraftSaves === false ? "0" : "1",
+    hasInputImage ? "i1" : "i0",
     inventoryFingerprint,
   ].join("|");
 
@@ -252,6 +258,7 @@ function injectPromptsIntoWorkflow(
           availableNodeTypes: enrichInventory?.availableNodeTypes,
           webpSaveAdapters: enrichInventory?.webpSaveAdapters,
           compactDraftSaves: runtime?.compactDraftSaves,
+          hasInputImage,
           ...resolveWorkflowGraphEnrichOptions(runtime),
         });
         // One snapshot shared by WeakMap + hash cache; inject clones before mutating.

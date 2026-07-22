@@ -150,18 +150,26 @@ export type SharedToolSettings = {
   /** Per-model ControlNet filenames (modelId or default=filename). */
   modelControlNetMap?: import("./model-controlnet-map").ModelControlNetMap;
   /**
-   * Session IP-Adapter identity/style reference — a single active reference.
+   * Session IP-Adapter identity/style reference(s).
    * At queue time, patches existing {{IPADAPTER_*}} tokens/nodes or auto-inserts
    * a minimal IPAdapter chain when none exist (requires ComfyUI-IPAdapter-Plus
-   * class nodes). Unlike modelControlNetMap this is not per-model.
+   * class nodes). Extra filenames stack additional Apply nodes. When IP-Adapter
+   * Plus is missing, InstantID/PuLID auto-insert is attempted as a fallback.
    */
   ipAdapterImageFilename?: string;
+  /** Extra IP-Adapter refs (index 0 mirrors ipAdapterImageFilename). */
+  ipAdapterImageFilenames?: string[];
   /** Convenience source URL for the IP-Adapter reference — uploaded to ComfyUI on queue. */
   ipAdapterImageUrl?: string;
   /** IP-Adapter weight (0–1) patched onto IPAdapter-family nodes at queue time. */
   ipAdapterStrength?: number;
   /** Optional ipadapter_file filename override for {{IPADAPTER_MODEL}}. */
   ipAdapterModelFilename?: string;
+  /**
+   * Session LoRA picks from the tool sidebar. When set, only these library ids
+   * are enabled at queue time. Undefined = follow Settings LoRA library enabled flags.
+   */
+  sessionActiveLoraIds?: string[];
   /** Tiled neural upscale tile size (0 disables tiling). Overrides Max default when set. */
   neuralUpscaleTileSize?: number;
   /** Prefer mapped library workflow with upscale nodes for gallery upscale actions. */
@@ -297,6 +305,8 @@ export type CharacterToolCache = {
   settingType?: string;
   timeOfDay?: string;
   mood?: string;
+  /** Regional prompt segments for {{REGION_*}} queue injection. */
+  regionalSegments?: import("./regional-prompt-builder").RegionalPromptSegment[];
 } & Partial<CharacterPresetOptions> &
   Partial<Omit<BackgroundPresetOptions, "surfaceMaterials">> & {
     surfaceMaterials?: string;
@@ -760,9 +770,10 @@ export function loadSettingsCache(): SettingsCache {
       typeof freeGb === "number" && Number.isFinite(freeGb)
         ? Math.min(48, Math.max(1, Math.round(freeGb * 10) / 10))
         : DEFAULT_SHARED_SETTINGS.vramGuardMinFreeGb;
-    shared.toolQueueQualityProfiles = normalizeToolQueueQualityProfiles(
-      shared.toolQueueQualityProfiles ?? SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
-    );
+    shared.toolQueueQualityProfiles = {
+      ...SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
+      ...normalizeToolQueueQualityProfiles(shared.toolQueueQualityProfiles),
+    };
     shared.modelCheckpointMap = {
       ...SUGGESTED_MODEL_CHECKPOINT_MAP,
       ...shared.modelCheckpointMap,

@@ -38,6 +38,10 @@ import { presetOptionsFromBackgroundCache } from "@/lib/background-options";
 import { readSceneLocationFromMetadata } from "@/lib/recent-locations";
 import { readClothingIdsFromMetadata } from "@/lib/recent-clothing";
 import { getComfyModelDefinition } from "@/lib/comfy-models/client";
+import {
+  regionalPromptCustomTokens,
+  type RegionalPromptSegment,
+} from "@/lib/regional-prompt-builder";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import { sharedLlmRequestBody } from "@/lib/llm-request-options";
@@ -752,6 +756,10 @@ export default function CharacterTool() {
         {hintSource !== "random" ? (
           <RegionalPromptBuilderPanel
             accentClassName={accentFocusClass(accent)}
+            segments={toolSettings.regionalSegments}
+            onSegmentsChange={(segments: RegionalPromptSegment[]) =>
+              updateToolSettings({ regionalSegments: segments })
+            }
             onApply={(prompt) =>
               updateToolSettings({
                 hints: toolSettings.hints?.trim()
@@ -896,7 +904,13 @@ export default function CharacterTool() {
             metadata: result?.metadata,
           })
         }
-        onSendComfyUi={() => void actions.sendComfyUi(output, inferredSport)}
+        onSendComfyUi={() =>
+          void actions.sendComfyUi(output, inferredSport, undefined, {
+            customTokens: regionalPromptCustomTokens(
+              toolSettings.regionalSegments ?? [],
+            ),
+          })
+        }
         onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
         onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
         onEditPrompt={() =>
@@ -947,7 +961,12 @@ export default function CharacterTool() {
           hintsForCharacter: toolSettings.hints,
         }}
         batchPromptActions={{
-          onQueueComfyUi: (prompt) => void actions.sendComfyUi(prompt, inferredSport),
+          onQueueComfyUi: (prompt) =>
+            void actions.sendComfyUi(prompt, inferredSport, undefined, {
+              customTokens: regionalPromptCustomTokens(
+                toolSettings.regionalSegments ?? [],
+              ),
+            }),
           onSaveHistory: ({ prompt, metadata }) =>
             actions.saveHistory({
               prompt,

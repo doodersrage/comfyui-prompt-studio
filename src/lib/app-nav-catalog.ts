@@ -49,6 +49,11 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
       { href: "/refine", label: "Refine", description: "Image + intent fix" },
       { href: "/inpaint", label: "Inpaint", description: "Mask + region prompt" },
       {
+        href: "/outpaint",
+        label: "Outpaint",
+        description: "Expand canvas borders",
+      },
+      {
         href: "/compose",
         label: "Compose",
         description: "Multi-image transfer & edit",

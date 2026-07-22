@@ -24,9 +24,18 @@ import {
 import { applyLoraStackToWorkflow, type LoraLibraryEntry } from "./lora-stack";
 import {
   insertIpAdapterChainIfMissing,
+  insertIpAdapterStack,
   patchIpAdapterTokensInWorkflow,
 } from "./ipadapter-workflow-patch";
-import { insertControlNetChainIfMissing } from "./controlnet-workflow-patch";
+import {
+  insertControlNetChainIfMissing,
+  insertControlNetStack,
+} from "./controlnet-workflow-patch";
+import { insertIdentityChainIfMissing } from "./identity-workflow-patch";
+import {
+  patchRegionalTokensInWorkflow,
+  type RegionalPromptSegment,
+} from "./regional-prompt-builder";
 import {
   inferLoadImageBinding,
   normalizeInputImageFilenames,
@@ -57,6 +66,10 @@ export type WorkflowDirectPatchCounts = {
   ipAdapterModel?: number;
   /** Nodes spliced in by insertIpAdapterChainIfMissing when the workflow had none. */
   ipAdapterInserted?: number;
+  /** InstantID/PuLID nodes spliced when IP-Adapter Plus is absent. */
+  identityInserted?: number;
+  /** {{REGION_*}} placeholders resolved from custom tokens. */
+  regionalTokens?: number;
   /** WAN/Hunyuan Video I2V node spliced in to wire an uploaded init image into the sampler chain. */
   videoImageToVideoWired?: number;
 };
@@ -259,7 +272,14 @@ export function normalizeEmptyLatentForModel(
       continue;
     }
     const record = node as { class_type?: string };
-    if (record.class_type === "EmptyLatentImage") {
+    const classType = record.class_type ?? "";
+    // Packs sometimes ship EmptyFlux2LatentImage with Qwen UNET — wrong latent
+    // family yields undersized / soft decode. Always prefer EmptySD3 for Qwen/SD3.
+    if (
+      classType === "EmptyLatentImage" ||
+      classType === "EmptyFluxLatentImage" ||
+      classType === "EmptyFlux2LatentImage"
+    ) {
       record.class_type = "EmptySD3LatentImage";
       converted += 1;
     }
@@ -475,21 +495,61 @@ export function patchControlNetInWorkflow(
   input: {
     controlNetModelFilename?: string;
     controlImageFilename?: string;
+    /** Extra control images for stacked ControlNetApply chains. */
+    controlImageFilenames?: string[];
     availableNodeTypes?: Iterable<string> | null;
     controlNetMode?: string;
   },
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
-  const insertResult = insertControlNetChainIfMissing(workflow, {
-    controlImageFilename: input.controlImageFilename,
-    availableNodeTypes: input.availableNodeTypes,
-    controlNetMode: input.controlNetMode,
-  });
+  const stackEntries = (() => {
+    const fromArray = (input.controlImageFilenames ?? [])
+      .map((name) => name?.trim())
+      .filter(Boolean) as string[];
+    if (fromArray.length > 0) {
+      return fromArray.map((controlImageFilename, index) => ({
+        controlImageFilename,
+        controlNetModelFilename:
+          index === 0 ? input.controlNetModelFilename : undefined,
+        controlNetMode: input.controlNetMode,
+      }));
+    }
+    const primary = input.controlImageFilename?.trim();
+    return primary
+      ? [
+          {
+            controlImageFilename: primary,
+            controlNetModelFilename: input.controlNetModelFilename,
+            controlNetMode: input.controlNetMode,
+          },
+        ]
+      : [];
+  })();
+
+  const insertResult =
+    stackEntries.length > 1
+      ? insertControlNetStack(workflow, stackEntries, {
+          availableNodeTypes: input.availableNodeTypes,
+        })
+      : (() => {
+          const single = insertControlNetChainIfMissing(workflow, {
+            controlImageFilename: stackEntries[0]?.controlImageFilename,
+            availableNodeTypes: input.availableNodeTypes,
+            controlNetMode: input.controlNetMode,
+          });
+          return {
+            workflow: single.workflow,
+            insertedCount: single.inserted ? 1 : 0,
+            insertedNodeIds: single.insertedNodeIds,
+          };
+        })();
+
   const nodePatch = patchControlNetNodesInWorkflow(insertResult.workflow, {
     controlNetModelFilename: input.controlNetModelFilename,
-    controlImageFilename: input.controlImageFilename,
+    controlImageFilename:
+      stackEntries[0]?.controlImageFilename ?? input.controlImageFilename,
   });
   const patched: WorkflowDirectPatchCounts = { ...nodePatch.patched };
-  if (insertResult.inserted) {
+  if (insertResult.insertedCount > 0) {
     patched.controlNetInserted = insertResult.insertedNodeIds.length;
   }
   return { workflow: nodePatch.workflow, patched };
@@ -505,21 +565,86 @@ export function patchIpAdapterInWorkflow(
   workflow: Record<string, unknown>,
   input: {
     ipAdapterImageFilename?: string;
+    /** Extra identity/style refs for stacked IP-Adapter apply chains. */
+    ipAdapterImageFilenames?: string[];
     ipAdapterStrength?: number | string;
     ipAdapterModelFilename?: string;
     availableNodeTypes?: Iterable<string> | null;
   },
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
-  const insertResult = insertIpAdapterChainIfMissing(workflow, {
-    imageFilename: input.ipAdapterImageFilename,
-    availableNodeTypes: input.availableNodeTypes,
-  });
-  const result = patchIpAdapterTokensInWorkflow(insertResult.workflow, {
-    imageFilename: input.ipAdapterImageFilename,
+  const stackEntries = (() => {
+    const fromArray = (input.ipAdapterImageFilenames ?? [])
+      .map((name) => name?.trim())
+      .filter(Boolean) as string[];
+    if (fromArray.length > 0) {
+      return fromArray.map((imageFilename, index) => ({
+        imageFilename,
+        strength:
+          index === 0 && input.ipAdapterStrength != null
+            ? Number(input.ipAdapterStrength)
+            : undefined,
+        modelFilename:
+          index === 0 ? input.ipAdapterModelFilename : undefined,
+      }));
+    }
+    const primary = input.ipAdapterImageFilename?.trim();
+    return primary
+      ? [
+          {
+            imageFilename: primary,
+            strength:
+              input.ipAdapterStrength != null
+                ? Number(input.ipAdapterStrength)
+                : undefined,
+            modelFilename: input.ipAdapterModelFilename,
+          },
+        ]
+      : [];
+  })();
+
+  const insertResult =
+    stackEntries.length > 1
+      ? insertIpAdapterStack(workflow, stackEntries, {
+          availableNodeTypes: input.availableNodeTypes,
+        })
+      : (() => {
+          const single = insertIpAdapterChainIfMissing(workflow, {
+            imageFilename: stackEntries[0]?.imageFilename,
+            availableNodeTypes: input.availableNodeTypes,
+          });
+          return {
+            workflow: single.workflow,
+            insertedCount: single.inserted ? 1 : 0,
+            insertedNodeIds: single.insertedNodeIds,
+          };
+        })();
+
+  let nextWorkflow = insertResult.workflow;
+  const patched: WorkflowDirectPatchCounts = {};
+  if (insertResult.insertedCount > 0) {
+    patched.ipAdapterInserted = insertResult.insertedNodeIds.length;
+  }
+
+  // If IP-Adapter Plus isn't available, fall back to InstantID/PuLID when installed.
+  if (
+    insertResult.insertedCount === 0 &&
+    stackEntries[0]?.imageFilename?.trim()
+  ) {
+    const identity = insertIdentityChainIfMissing(nextWorkflow, {
+      imageFilename: stackEntries[0].imageFilename,
+      availableNodeTypes: input.availableNodeTypes,
+    });
+    if (identity.inserted) {
+      nextWorkflow = identity.workflow;
+      patched.identityInserted = identity.insertedNodeIds.length;
+    }
+  }
+
+  const result = patchIpAdapterTokensInWorkflow(nextWorkflow, {
+    imageFilename: stackEntries[0]?.imageFilename ?? input.ipAdapterImageFilename,
     strength: input.ipAdapterStrength,
     modelFilename: input.ipAdapterModelFilename,
   });
-  const patched: WorkflowDirectPatchCounts = {};
   if (result.patched.image) {
     patched.ipAdapterImage = result.patched.image;
   }
@@ -528,9 +653,6 @@ export function patchIpAdapterInWorkflow(
   }
   if (result.patched.model) {
     patched.ipAdapterModel = result.patched.model;
-  }
-  if (insertResult.inserted) {
-    patched.ipAdapterInserted = insertResult.insertedNodeIds.length;
   }
   return { workflow: result.workflow, patched };
 }
@@ -1201,6 +1323,28 @@ function nextAvailableWorkflowNodeId(workflow: Record<string, unknown>): string 
   return String(max + 1);
 }
 
+function regionalSegmentsFromCustomTokens(
+  customTokens?: Array<{ token: string; value: string }>,
+): RegionalPromptSegment[] {
+  if (!customTokens?.length) {
+    return [];
+  }
+  const map: Record<string, string> = {
+    "{{REGION_SUBJECT}}": "subject",
+    "{{REGION_BACKGROUND}}": "background",
+    "{{REGION_FOREGROUND}}": "foreground",
+    "{{REGION_LIGHTING}}": "lighting",
+  };
+  const segments: RegionalPromptSegment[] = [];
+  for (const entry of customTokens) {
+    const regionId = map[entry.token.trim()];
+    if (regionId && entry.value.trim()) {
+      segments.push({ regionId, prompt: entry.value.trim() });
+    }
+  }
+  return segments;
+}
+
 export function patchWorkflowDirectParams(
   workflow: Record<string, unknown>,
   input: {
@@ -1209,7 +1353,9 @@ export function patchWorkflowDirectParams(
     upscaleModelFilename?: string;
     controlNetModelFilename?: string;
     controlImageFilename?: string;
+    controlImageFilenames?: string[];
     ipAdapterImageFilename?: string;
+    ipAdapterImageFilenames?: string[];
     ipAdapterStrength?: number | string;
     ipAdapterModelFilename?: string;
     /** ComfyUI object_info node class names — gates the optional CLIPVisionLoader when inserting an IP-Adapter chain. */
@@ -1219,7 +1365,7 @@ export function patchWorkflowDirectParams(
     model?: string;
     /** Active LoRA stack — strengths patched onto LoraLoader nodes, extras chained in. */
     loraLibrary?: LoraLibraryEntry[];
-    /** Positive prompt — used for autoFromPrompt LoRA matching. */
+    /** Positive prompt — kept for call-site compat; keyword LoRA matching removed. */
     prompt?: string;
   },
 ): {
@@ -1244,11 +1390,15 @@ export function patchWorkflowDirectParams(
   const controlPatch = patchControlNetInWorkflow(loraStackPatch.workflow, {
     controlNetModelFilename: input.controlNetModelFilename,
     controlImageFilename: input.controlImageFilename,
+    controlImageFilenames:
+      input.controlImageFilenames ?? input.params?.controlImageFilenames,
     availableNodeTypes: input.availableNodeTypes,
     controlNetMode: input.params?.controlNetMode,
   });
   const ipAdapterPatch = patchIpAdapterInWorkflow(controlPatch.workflow, {
     ipAdapterImageFilename: input.ipAdapterImageFilename,
+    ipAdapterImageFilenames:
+      input.ipAdapterImageFilenames ?? input.params?.ipAdapterImageFilenames,
     ipAdapterStrength: input.ipAdapterStrength,
     ipAdapterModelFilename: input.ipAdapterModelFilename,
     availableNodeTypes: input.availableNodeTypes,
@@ -1267,7 +1417,12 @@ export function patchWorkflowDirectParams(
     input.params?.maskImageFilename,
   );
   const resizePatch = patchImageResizeNodesInWorkflow(maskPatch.workflow, input.params ?? {});
-  const videoWirePatch = patchVideoImageToVideoWiringInWorkflow(resizePatch.workflow, {
+  const regionalSegments = regionalSegmentsFromCustomTokens(input.customTokens);
+  const regionalPatch = patchRegionalTokensInWorkflow(
+    resizePatch.workflow,
+    regionalSegments,
+  );
+  const videoWirePatch = patchVideoImageToVideoWiringInWorkflow(regionalPatch.workflow, {
     model: input.model,
     inputImageFilename: input.params?.inputImageFilename,
     params: input.params,
@@ -1287,6 +1442,7 @@ export function patchWorkflowDirectParams(
       ...imagePatch.patched,
       ...maskPatch.patched,
       ...resizePatch.patched,
+      ...(regionalPatch.patched > 0 ? { regionalTokens: regionalPatch.patched } : {}),
       ...videoWirePatch.patched,
     },
     error: videoWirePatch.error,

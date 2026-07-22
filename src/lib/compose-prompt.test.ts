@@ -28,7 +28,7 @@ describe("compose tool defaults", () => {
     assert.equal(isEditQueueTool("compose"), true);
   });
 
-  it("defaults model id is Lightning 8 edit", () => {
+  it("defaults Compose to Edit-2511 Lightning 8", () => {
     assert.equal(COMPOSE_DEFAULT_MODEL, "qwen-image-edit-2511-lightning-8");
   });
 

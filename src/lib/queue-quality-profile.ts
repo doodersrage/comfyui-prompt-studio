@@ -167,7 +167,7 @@ export function formatQueueQualityProfileHint(
   } else if (/qwen-image-edit-2511-lightning/i.test(model)) {
     upscaleNote =
       profile === "final" || profile === "max"
-        ? " · no Lanczos (Edit T2I) · CFG-1 short negatives"
+        ? " · light Lanczos on Compose I2I · CFG-1 short negatives"
         : " · CFG-1 short negatives";
   } else if (isLightning) {
     upscaleNote =
@@ -232,6 +232,7 @@ export function resolveQueueQualityProfile(input: {
 
   // Rapid AIO moiré polish only runs on Final/Max — bump Draft so Generate stays clean.
   // Vanilla 2512 Base undercooks similarly — promote Draft → Final for fuller steps/CFG.
+  // Compose/Transfer on Edit Lightning needs Final for mild Lanczos polish.
   if (profile === "draft" && input.model) {
     const modelId = String(input.model).trim();
     if (
@@ -240,6 +241,12 @@ export function resolveQueueQualityProfile(input: {
     ) {
       return "final";
     }
+  }
+  if (
+    profile === "draft" &&
+    input.tool?.trim() === "compose"
+  ) {
+    return "final";
   }
 
   return profile;
@@ -260,6 +267,8 @@ export function formatQueuePipelineStatusNotes(input: {
   /** System-workflow path: pack vs scaffold. */
   systemWorkflowSource?: "pack" | "scaffold";
   systemWorkflowLabel?: string;
+  /** Compose/Transfer and other I2I queues — enables Edit Lightning Lanczos. */
+  hasInputImage?: boolean;
 }): string[] {
   const model = String(input.model ?? "").trim();
   const profile = normalizeQueueQualityProfile(input.qualityProfile);
@@ -303,7 +312,13 @@ export function formatQueuePipelineStatusNotes(input: {
   } else if (/qwen-image-edit-2511-lightning/i.test(model)) {
     notes.push("Lightning CFG-1 · short negatives");
     if (profile === "final" || profile === "max") {
-      notes.push("Lanczos skipped (Edit T2I)");
+      if (profileSkipsOutputUpscaleForModel(profile, { model, hasInputImage: input.hasInputImage })) {
+        notes.push("Lanczos skipped (Edit T2I)");
+      } else {
+        notes.push("Final/Max adds Lanczos");
+      }
+    } else if (profile === "draft") {
+      notes.push("Draft · no Lanczos");
     }
   } else if (/lightning-(4|8)\b/i.test(model)) {
     notes.push("Lightning CFG-1 · short negatives");
@@ -346,10 +361,11 @@ export function profileUsesUpscaleEnrich(profile: QueueQualityProfile | undefine
   return mode === "final" || mode === "max";
 }
 
-/** Edit-2511 Lightning T2I: Final/Max Lanczos enlarges soft mush — skip output upscale. */
+/** Edit-2511 Lightning T2I: Final/Max Lanczos enlarges soft mush — skip output upscale.
+ * Compose/Transfer I2I gets a *light* Lanczos polish only (heavy resize rings on 8-step decode). */
 export function profileSkipsOutputUpscaleForModel(
   profile: QueueQualityProfile | undefined,
-  options?: { model?: string },
+  options?: { model?: string; hasInputImage?: boolean },
 ): boolean {
   if (!profileUsesUpscaleEnrich(profile)) {
     return false;
@@ -359,20 +375,30 @@ export function profileSkipsOutputUpscaleForModel(
     return true;
   }
   if (/qwen-image-edit-2511-lightning/i.test(model)) {
-    return true;
+    // Reference-image edits (Compose/Transfer/Refine) get light Final Lanczos;
+    // plain T2I Generate still skips to avoid enlarging soft mush.
+    return options?.hasInputImage !== true;
   }
   return false;
 }
 
 export function upscaleScaleForProfile(
   profile: QueueQualityProfile | undefined,
-  options?: { model?: string },
+  options?: { model?: string; hasInputImage?: boolean },
 ): number {
   const mode = normalizeQueueQualityProfile(profile);
   if (profileSkipsOutputUpscaleForModel(profile, options)) {
     return 1;
   }
-  // Lightning (non-edit): Lanczos is fine on a clean native generate.
+  // Edit Lightning Compose I2I: keep near-native (1328→~1394/1461) — 1.18×+ rings.
+  if (
+    options?.model &&
+    /qwen-image-edit-2511-lightning/i.test(options.model) &&
+    options.hasInputImage === true
+  ) {
+    return mode === "max" ? 1.08 : 1.05;
+  }
+  // Other Lightning (T2I 2512, etc.): soft Lanczos on a clean native generate.
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
     return mode === "max" ? 1.28 : 1.18;
   }
@@ -442,7 +468,7 @@ export function neuralTargetScaleAfterUpscale(
  */
 export function outputUpscaleScaleAfterLatent(
   profile: QueueQualityProfile | undefined,
-  options?: { model?: string; priorLatentScale?: number },
+  options?: { model?: string; priorLatentScale?: number; hasInputImage?: boolean },
 ): number {
   const target = upscaleScaleForProfile(profile, options);
   const prior =

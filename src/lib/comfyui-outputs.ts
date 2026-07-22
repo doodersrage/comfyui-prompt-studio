@@ -49,7 +49,12 @@ export function resolveComfyOutputMediaKind(
   }
 
   const ext = fileExtensionOf(image.filename);
-  if (VIDEO_FILE_EXTENSIONS.has(ext) || ANIMATED_IMAGE_EXTENSIONS.has(ext)) {
+  if (VIDEO_FILE_EXTENSIONS.has(ext)) {
+    return "video";
+  }
+  // Bare .webp/.gif without format are ambiguous (photo vs animated). Prefer
+  // still image unless Comfy explicitly tagged video/* or image/webp|gif above.
+  if (ANIMATED_IMAGE_EXTENSIONS.has(ext) && format.includes("anim")) {
     return "video";
   }
   return "image";

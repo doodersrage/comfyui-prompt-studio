@@ -356,3 +356,142 @@ export function insertIpAdapterChainIfMissing(
 
   return { workflow: next, inserted: true, insertedNodeIds };
 }
+
+export type IpAdapterStackEntry = {
+  imageFilename?: string;
+  strength?: number;
+  modelFilename?: string;
+};
+
+/**
+ * Stack additional IP-Adapter apply nodes for multi-ref identity/style.
+ * First entry uses insertIpAdapterChainIfMissing; further entries append
+ * LoadImage → IPAdapterAdvanced onto the latest sampler model link.
+ */
+export function insertIpAdapterStack(
+  workflow: Record<string, unknown>,
+  entries: IpAdapterStackEntry[],
+  options?: { availableNodeTypes?: Iterable<string> | null },
+): {
+  workflow: Record<string, unknown>;
+  insertedCount: number;
+  insertedNodeIds: string[];
+} {
+  const usable = entries
+    .map((entry) => ({
+      ...entry,
+      imageFilename: entry.imageFilename?.trim(),
+    }))
+    .filter((entry) => Boolean(entry.imageFilename));
+  if (usable.length === 0) {
+    return { workflow, insertedCount: 0, insertedNodeIds: [] };
+  }
+
+  let current = workflow;
+  const insertedNodeIds: string[] = [];
+  let insertedCount = 0;
+
+  const first = insertIpAdapterChainIfMissing(current, {
+    imageFilename: usable[0]!.imageFilename,
+    availableNodeTypes: options?.availableNodeTypes,
+  });
+  current = first.workflow;
+  if (first.inserted) {
+    insertedCount += 1;
+    insertedNodeIds.push(...first.insertedNodeIds);
+  }
+
+  for (let index = 1; index < usable.length; index += 1) {
+    const entry = usable[index]!;
+    const typed = current as Record<string, WorkflowNode>;
+    const availableTypes = options?.availableNodeTypes
+      ? options.availableNodeTypes instanceof Set
+        ? options.availableNodeTypes
+        : new Set(options.availableNodeTypes)
+      : undefined;
+    if (
+      availableTypes &&
+      !availableTypes.has(IPADAPTER_ADVANCED_NODE_TYPE) &&
+      !availableTypes.has(IPADAPTER_MODEL_LOADER_NODE_TYPE)
+    ) {
+      break;
+    }
+    const chain = findPrimarySamplerModelLink(typed);
+    if (!chain) {
+      break;
+    }
+
+    const next = structuredClone(current) as Record<string, WorkflowNode>;
+    const tokenSuffix = index + 1;
+    const imageToken =
+      tokenSuffix === 2 ? "{{IPADAPTER_IMAGE_2}}" : `{{IPADAPTER_IMAGE_${tokenSuffix}}}`;
+
+    const loadImageId = nextIpAdapterWorkflowNodeId(next);
+    next[loadImageId] = {
+      class_type: "LoadImage",
+      inputs: {
+        image: entry.imageFilename ?? imageToken,
+      },
+      _meta: { title: `Prompt Studio — IP-Adapter reference ${tokenSuffix}` },
+    };
+    insertedNodeIds.push(loadImageId);
+
+    let clipVisionId: string | undefined;
+    if (!availableTypes || availableTypes.has(CLIP_VISION_LOADER_NODE_TYPE)) {
+      clipVisionId = nextIpAdapterWorkflowNodeId(next);
+      next[clipVisionId] = {
+        class_type: CLIP_VISION_LOADER_NODE_TYPE,
+        inputs: { clip_name: DEFAULT_IPADAPTER_CLIP_VISION_FILENAME },
+        _meta: { title: `Prompt Studio — IP-Adapter CLIP vision ${tokenSuffix}` },
+      };
+      insertedNodeIds.push(clipVisionId);
+    }
+
+    const loaderId = nextIpAdapterWorkflowNodeId(next);
+    next[loaderId] = {
+      class_type: IPADAPTER_MODEL_LOADER_NODE_TYPE,
+      inputs: {
+        ipadapter_file:
+          entry.modelFilename?.trim() || DEFAULT_IPADAPTER_MODEL_TOKEN,
+      },
+      _meta: { title: `Prompt Studio — IP-Adapter model ${tokenSuffix}` },
+    };
+    insertedNodeIds.push(loaderId);
+
+    const strength =
+      typeof entry.strength === "number" && Number.isFinite(entry.strength)
+        ? Math.min(1, Math.max(0, entry.strength))
+        : undefined;
+    const applyId = nextIpAdapterWorkflowNodeId(next);
+    const applyInputs: Record<string, unknown> = {
+      model: [chain.modelLinkId, 0],
+      ipadapter: [loaderId, 0],
+      image: [loadImageId, 0],
+      weight: strength ?? DEFAULT_IPADAPTER_STRENGTH_TOKEN,
+      weight_type: "linear",
+      combine_embeds: "concat",
+      start_at: 0,
+      end_at: 1,
+      embeds_scaling: "V only",
+    };
+    if (clipVisionId) {
+      applyInputs.clip_vision = [clipVisionId, 0];
+    }
+    next[applyId] = {
+      class_type: IPADAPTER_ADVANCED_NODE_TYPE,
+      inputs: applyInputs,
+      _meta: { title: `Prompt Studio — IP-Adapter apply ${tokenSuffix}` },
+    };
+    insertedNodeIds.push(applyId);
+
+    const samplerNode = next[chain.samplerId];
+    if (samplerNode?.inputs) {
+      samplerNode.inputs.model = [applyId, 0];
+    }
+
+    current = next;
+    insertedCount += 1;
+  }
+
+  return { workflow: current, insertedCount, insertedNodeIds };
+}

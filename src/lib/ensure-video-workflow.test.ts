@@ -44,6 +44,17 @@ describe("WAN video workflow scaffold", () => {
     );
   });
 
+  it("prefers WAN 2.2 / 14B over older 2.1 / 1.3B when both are installed", () => {
+    assert.equal(
+      pickVideoCheckpointFromInventory("wan-video", [
+        "wan2.1_t2v_1.3B_fp8_scaled.safetensors",
+        "wan2.2_t2v_high_noise_14B_fp16.safetensors",
+        "sd_xl_base_1.0.safetensors",
+      ]),
+      "wan2.2_t2v_high_noise_14B_fp16.safetensors",
+    );
+  });
+
   it("does not invent a WAN filename when inventory has only image checkpoints", () => {
     assert.equal(
       pickVideoCheckpointFromInventory("wan-video", [

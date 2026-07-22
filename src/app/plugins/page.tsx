@@ -15,6 +15,11 @@ import {
   saveCustomToolPlugins,
   type ToolPlugin,
 } from "@/lib/tool-plugin-registry";
+import {
+  loadPluginQueueHooks,
+  savePluginQueueHooks,
+  type PluginQueueHook,
+} from "@/lib/plugin-queue-hooks";
 
 const EMPTY_FORM = {
   id: "",
@@ -24,11 +29,20 @@ const EMPTY_FORM = {
   category: "plugin" as ToolPlugin["category"],
 };
 
+const EMPTY_HOOK = {
+  id: "",
+  label: "",
+  url: "",
+};
+
 export default function PluginsPage() {
   const [plugins, setPlugins] = useState<ToolPlugin[]>(BUILTIN_TOOL_PLUGINS);
   const [customJson, setCustomJson] = useState("[]");
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
+  const [hooks, setHooks] = useState<PluginQueueHook[]>([]);
+  const [hookForm, setHookForm] = useState(EMPTY_HOOK);
+  const [hookError, setHookError] = useState<string | null>(null);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -38,6 +52,7 @@ export default function PluginsPage() {
         (plugin) => !BUILTIN_TOOL_PLUGINS.some((builtIn) => builtIn.id === plugin.id),
       );
       setCustomJson(JSON.stringify(custom, null, 2));
+      setHooks(loadPluginQueueHooks());
     });
   }, []);
 
@@ -48,6 +63,7 @@ export default function PluginsPage() {
       (plugin) => !BUILTIN_TOOL_PLUGINS.some((builtIn) => builtIn.id === plugin.id),
     );
     setCustomJson(JSON.stringify(custom, null, 2));
+    setHooks(loadPluginQueueHooks());
   }
 
   function saveCustom() {
@@ -97,13 +113,136 @@ export default function PluginsPage() {
     refreshFromStorage();
   }
 
+  function addHook() {
+    const id = hookForm.id.trim().toLowerCase().replace(/\s+/g, "-");
+    const url = hookForm.url.trim();
+    if (!id || !url) {
+      setHookError("id and url are required.");
+      return;
+    }
+    if (!url.startsWith("/") && !/^https?:\/\//i.test(url)) {
+      setHookError("url must be http(s) or a same-origin path.");
+      return;
+    }
+    if (hooks.some((hook) => hook.id === id)) {
+      setHookError("That hook id already exists.");
+      return;
+    }
+    const next = [
+      ...hooks,
+      {
+        id,
+        label: hookForm.label.trim() || id,
+        url,
+        enabled: true,
+      },
+    ];
+    savePluginQueueHooks(next);
+    setHooks(next);
+    setHookForm(EMPTY_HOOK);
+    setHookError(null);
+  }
+
   return (
     <ToolLayout
       accent="violet"
       badge={<ToolBadge accent="violet">Tools</ToolBadge>}
       title="Plugins"
-      description="Nav bookmarks for built-in tools plus custom localStorage entries. This is not a runnable plugin runtime — entries are hrefs opened in the app shell."
+      description="Nav bookmarks plus optional queue-preflight hooks that can rewrite or block prompts before ComfyUI receives them."
     >
+      <ToolSection title="Queue preflight hooks">
+        <p className="type-caption">
+          Enabled hooks receive a POST with{" "}
+          <code className="text-violet-300">
+            {"{ event, prompt, negativePrompt?, model?, tool? }"}
+          </code>
+          . Respond with JSON to rewrite{" "}
+          <code className="text-violet-300">prompt</code> /{" "}
+          <code className="text-violet-300">negativePrompt</code>, or set{" "}
+          <code className="text-violet-300">blocked: true</code> to stop the queue.
+        </p>
+        {hooks.length === 0 ? (
+          <p className="type-caption text-zinc-500">No hooks configured yet.</p>
+        ) : (
+          <ul className="ui-list">
+            {hooks.map((hook) => (
+              <li key={hook.id} className="ui-list-row items-start">
+                <div className="ui-list-primary min-w-0 space-y-1">
+                  <p className="type-heading">{hook.label}</p>
+                  <p className="type-caption break-all">{hook.url}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      const next = hooks.map((entry) =>
+                        entry.id === hook.id
+                          ? { ...entry, enabled: entry.enabled === false }
+                          : entry,
+                      );
+                      savePluginQueueHooks(next);
+                      setHooks(next);
+                    }}
+                  >
+                    {hook.enabled === false ? "Enable" : "Disable"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="danger"
+                    onClick={() => {
+                      const next = hooks.filter((entry) => entry.id !== hook.id);
+                      savePluginQueueHooks(next);
+                      setHooks(next);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <label className="block space-y-1.5">
+            <FieldLabel>Id</FieldLabel>
+            <TextInput
+              value={hookForm.id}
+              onChange={(event) =>
+                setHookForm((prev) => ({ ...prev, id: event.target.value }))
+              }
+              placeholder="rewrite-nsfw"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>Label</FieldLabel>
+            <TextInput
+              value={hookForm.label}
+              onChange={(event) =>
+                setHookForm((prev) => ({ ...prev, label: event.target.value }))
+              }
+              placeholder="NSFW filter"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>URL</FieldLabel>
+            <TextInput
+              value={hookForm.url}
+              onChange={(event) =>
+                setHookForm((prev) => ({ ...prev, url: event.target.value }))
+              }
+              placeholder="/api/my-hook or https://…"
+            />
+          </label>
+        </div>
+        {hookError ? <p className="type-caption text-rose-300">{hookError}</p> : null}
+        <Button type="button" variant="primary" size="sm" className="mt-3" onClick={addHook}>
+          Add queue hook
+        </Button>
+      </ToolSection>
+
       <ToolSection title="Registered tools">
         <ul className="ui-list">
           {plugins.map((plugin) => (

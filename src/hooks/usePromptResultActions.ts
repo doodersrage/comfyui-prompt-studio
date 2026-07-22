@@ -54,6 +54,7 @@ import { applyQueuePromptSteering, prepareQueuePrompts } from "@/lib/queue-promp
 import { resolveQueueNegativePromptRaw } from "@/lib/queue-negative";
 import { joinQueueStatusNotes } from "@/lib/queue-status-notes";
 import { runWorkflowPreflight } from "@/lib/workflow-preflight";
+import { runPluginQueuePreflight } from "@/lib/plugin-queue-hooks";
 import { dispatchWebhook } from "@/lib/webhook-settings";
 import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
 import {
@@ -382,8 +383,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         controlImage?: File | null;
         controlImageFilename?: string;
         controlImageUrl?: string;
+        /** Extra control images for multi-ControlNet stack (index 0 ignored — use controlImage). */
+        controlImages?: Array<File | null | undefined>;
+        controlImageUrls?: Array<string | undefined>;
+        controlImageFilenames?: string[];
         queueParamsBase?: WorkflowParamValues;
         qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
+        /** Merged into runtime customTokens before inject (e.g. {{REGION_*}}). */
+        customTokens?: Array<{ token: string; value: string }>;
       },
     ) => {
       if (!prompt) {
@@ -392,6 +399,20 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       setComfyUiStatus("Queueing…");
       try {
+        const pluginPreflight = await runPluginQueuePreflight({
+          event: "queue-preflight",
+          prompt,
+          model: config.model,
+          tool: config.tool,
+        });
+        if (pluginPreflight.blocked) {
+          throw new Error(
+            pluginPreflight.messages.join(" · ") || "Plugin hook blocked the queue.",
+          );
+        }
+        let workingPrompt = pluginPreflight.payload.prompt || prompt;
+        const pluginNegative = pluginPreflight.payload.negativePrompt;
+
         const baseRuntime = await resolveRuntimeForQueueAsync(
           config.model,
           config.tool,
@@ -401,17 +422,34 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           profile: options?.qualityProfile ?? baseRuntime.queueQualityProfile,
           runtime: baseRuntime,
         });
-        const runtime = vramGuard.runtime ?? baseRuntime;
+        const runtime = {
+          ...(vramGuard.runtime ?? baseRuntime),
+        };
         const effectiveQualityProfile = vramGuard.profile;
+
+        if (options?.customTokens?.length) {
+          const byToken = new Map(
+            (runtime.customTokens ?? []).map((entry) => [entry.token, entry]),
+          );
+          for (const entry of options.customTokens) {
+            if (entry.token?.trim() && entry.value?.trim()) {
+              byToken.set(entry.token.trim(), {
+                token: entry.token.trim(),
+                value: entry.value.trim(),
+              });
+            }
+          }
+          runtime.customTokens = [...byToken.values()];
+        }
 
         const { positive: preparedPrompt, negative: negativePrompt } =
           await prepareQueuePrompts({
             model: queueModel,
-            positive: injectLoraTriggers(prompt),
+            positive: injectLoraTriggers(workingPrompt),
             hints: config.hints,
             sport,
             tool: config.tool,
-            explicitNegative: options?.explicitNegative,
+            explicitNegative: options?.explicitNegative ?? pluginNegative,
           });
 
         const preflight = await runWorkflowPreflight({
@@ -436,7 +474,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           hasControlImage: Boolean(
             options?.controlImage ||
               options?.controlImageUrl?.trim() ||
-              options?.controlImageFilename?.trim(),
+              options?.controlImageFilename?.trim() ||
+              options?.controlImages?.some(Boolean) ||
+              options?.controlImageUrls?.some((url) => url?.trim()) ||
+              options?.controlImageFilenames?.some((name) => name?.trim()),
           ),
           comfy: runtime,
         });
@@ -510,6 +551,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
 
         let controlImageFilename = options?.controlImageFilename?.trim();
+        const controlUploaded: string[] = [
+          ...(options?.controlImageFilenames ?? []).map((name) => name?.trim() ?? ""),
+        ];
+        while (controlUploaded.length < 4) {
+          controlUploaded.push("");
+        }
         if (options?.controlImage || options?.controlImageUrl?.trim()) {
           setComfyUiStatus("Uploading control image to ComfyUI…");
           controlImageFilename = await resolveQueueInputImageFilename({
@@ -518,6 +565,38 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             imageUrl: options.controlImageUrl,
             model: queueModel,
           });
+          if (controlImageFilename) {
+            controlUploaded[0] = controlImageFilename;
+          }
+        } else if (controlImageFilename) {
+          controlUploaded[0] = controlImageFilename;
+        }
+        for (let i = 1; i < 4; i += 1) {
+          const file = options?.controlImages?.[i];
+          const imageUrl = options?.controlImageUrls?.[i];
+          const existing = controlUploaded[i]?.trim();
+          if (!file && !imageUrl?.trim() && !existing) {
+            continue;
+          }
+          if (!file && !imageUrl?.trim()) {
+            continue;
+          }
+          setComfyUiStatus(`Uploading control image ${i + 1} to ComfyUI…`);
+          const uploaded = await resolveQueueInputImageFilename({
+            file: file ?? undefined,
+            filename: existing || undefined,
+            imageUrl: imageUrl?.trim() || undefined,
+            model: queueModel,
+          });
+          if (uploaded) {
+            controlUploaded[i] = uploaded;
+          }
+        }
+        const controlImageFilenames = controlUploaded
+          .map((name) => name.trim())
+          .filter(Boolean);
+        if (!controlImageFilename && controlImageFilenames[0]) {
+          controlImageFilename = controlImageFilenames[0];
         }
         const workflow = runtime?.workflowJson?.trim()
           ? (parseWorkflowJson(runtime.workflowJson) ?? undefined)
@@ -533,6 +612,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             inputImageFilenames.length > 0 ? inputImageFilenames : undefined,
           maskImageFilename,
           controlImageFilename,
+          controlImageFilenames:
+            controlImageFilenames.length > 0 ? controlImageFilenames : undefined,
           qualityProfile: effectiveQualityProfile,
         });
 

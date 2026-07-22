@@ -16,6 +16,7 @@ import {
 } from "./comfyui-runtime";
 import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
 import { pickVideoCheckpointFromInventory } from "./ensure-video-workflow";
+import { resolveWorkflowForModel } from "./model-workflow-map";
 import {
   syncLoaderMapsFromInventory,
   matchInventoryFilename,
@@ -74,6 +75,7 @@ import {
 } from "./system-workflow-pack-loaders";
 import { rankWorkflowFilesForModel } from "./workflow-category-defaults";
 import { workflowHasLoraLoader } from "./workflow-lightning-queue";
+import { lightningLoraMatchesModel } from "./workflow-lora-patch";
 import {
   buildWorkflowScaffoldForModel,
   fluxKleinDualClipFilename,
@@ -525,9 +527,10 @@ export function softBindScaffoldFromInventory(
       ? inventory.checkpoints
       : [...inventory.unets, ...inventory.checkpoints];
   const resolvedUnet = resolveInventoryUnetForModel(model, inventory);
+  const videoPool = [...inventory.checkpoints, ...inventory.unets];
   const resolvedCheckpoint =
     (isVideoModel(model)
-      ? pickVideoCheckpointFromInventory(model, inventory.checkpoints)
+      ? pickVideoCheckpointFromInventory(model, videoPool)
       : undefined) ??
     matchNearMissInventoryFilename(
       SUGGESTED_MODEL_CHECKPOINT_MAP[model],
@@ -833,7 +836,10 @@ export function resolveSystemLoaderMaps(
     modelUpscaleMap = synced.modelUpscaleMap;
 
     if (isVideoModel(model) && !modelCheckpointMap[model]?.trim()) {
-      const picked = pickVideoCheckpointFromInventory(model, models.checkpoints);
+      const picked = pickVideoCheckpointFromInventory(model, [
+        ...models.checkpoints,
+        ...models.unets,
+      ]);
       if (picked) {
         modelCheckpointMap = { ...modelCheckpointMap, [model]: picked };
       }
@@ -1145,6 +1151,39 @@ export function resolveSystemWorkflowForModel(
   const loaders = resolveSystemLoaderMaps(model, shared, models);
   const queueParams = buildSystemWorkflowQueueParams(model, shared);
   const pickOptions = resolvePickPackOptions(model, options);
+
+  // Explicit Settings / library "Assign to model" wins over auto pack scoring.
+  const mappedId = resolveWorkflowForModel(model, shared.modelWorkflowMap)?.trim();
+  if (mappedId) {
+    const mappedFile = workflowFiles.find((file) => file.id === mappedId);
+    const runtime = resolveSelectedWorkflowRuntime(mappedId);
+    if (runtime?.workflowJson?.trim()) {
+      const repaired = softRepairPackLoadersFromInventory(
+        runtime.workflowJson,
+        model,
+        models,
+      );
+      const customTokens = softFillLightningTokenForGraph(
+        model,
+        repaired.workflowJson,
+        [...(runtime.customTokens ?? [])],
+        models,
+      );
+      return {
+        workflowJson: repaired.workflowJson,
+        source: "pack",
+        workflowFileId: mappedId,
+        workflowLabel:
+          mappedFile?.name.trim() ||
+          mappedFile?.filename?.trim() ||
+          mappedId,
+        queueParams,
+        ...loaders,
+        ...(customTokens.length ? { customTokens } : {}),
+      };
+    }
+  }
+
   const pack = pickPackWorkflowForModel(
     model,
     workflowFiles,
@@ -1206,14 +1245,19 @@ export function resolveSystemWorkflowForModel(
   };
 }
 
-function hasBoundLightningToken(tokens: CustomWorkflowToken[]): boolean {
+function hasMatchingBoundLightningToken(
+  tokens: CustomWorkflowToken[],
+  model: ComfyImageModel,
+): boolean {
   return tokens.some(
     (entry) =>
-      entry.token.trim() === "{{LORA_LIGHTNING}}" && entry.value.trim(),
+      entry.token.trim() === "{{LORA_LIGHTNING}}" &&
+      entry.value.trim() &&
+      lightningLoraMatchesModel(entry.value, model),
   );
 }
 
-/** Soft-fill {{LORA_LIGHTNING}} on pack graphs from live inventory when unset. */
+/** Soft-fill {{LORA_LIGHTNING}} on pack graphs from live inventory when unset or wrong-family. */
 function softFillLightningTokenForGraph(
   model: ComfyImageModel,
   workflowJson: string,
@@ -1223,7 +1267,7 @@ function softFillLightningTokenForGraph(
   if (!isQwenLightningModel(model)) {
     return tokens;
   }
-  if (hasBoundLightningToken(tokens)) {
+  if (hasMatchingBoundLightningToken(tokens, model)) {
     return tokens;
   }
   if (!workflowJson.includes("{{LORA_LIGHTNING}}")) {

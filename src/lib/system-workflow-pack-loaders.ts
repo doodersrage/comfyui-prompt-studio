@@ -6,6 +6,7 @@ import {
 } from "./loader-map-inventory-sync";
 import { isQwenLightningModel } from "./model-sampling-patch";
 import {
+  isLoraLoaderClassType,
   loraFilenameImpliesLightning,
   pickLightningLoraFromInventory,
 } from "./workflow-lora-patch";
@@ -290,7 +291,7 @@ export function inspectPackLoadersInInventory(
         clipVisionPool,
       );
     }
-    if (classType === "LoraLoader" || classType === "LoraLoaderModelOnly") {
+    if (isLoraLoaderClassType(classType) && classType !== POWER_LORA_CLASS) {
       const loraName = inputs.lora_name;
       if (
         typeof loraName !== "string" ||
@@ -615,7 +616,7 @@ export function softRepairPackLoadersFromInventory(
         repaired += 1;
       }
     }
-    if (classType === "LoraLoader" || classType === "LoraLoaderModelOnly") {
+    if (isLoraLoaderClassType(classType) && classType !== POWER_LORA_CLASS) {
       const current = record.inputs.lora_name;
       if (typeof current !== "string" || isPlaceholderFilename(current)) {
         continue;

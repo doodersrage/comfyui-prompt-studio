@@ -275,6 +275,13 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     steps: 8,
     ...QWEN_LIGHTNING_SAMPLER,
   }),
+  // Full Edit-2511 — Compose Final/Max; more steps than Lightning 8 mush.
+  "qwen-image-edit-2511": {
+    base: { steps: 28, cfg: 2.5, ...QWEN_2512_SAMPLER },
+    optimized: { steps: 30, cfg: 3.2, ...QWEN_2512_SAMPLER },
+    maxCompatible: { steps: 40, cfg: 3.5, ...QWEN_2512_SAMPLER },
+    max: { steps: 50, cfg: 3.5, ...QWEN_2512_SAMPLER },
+  },
   "qwen-image-edit-2511-lightning-4": fixedSamplerPresets({
     steps: 4,
     ...QWEN_LIGHTNING_SAMPLER,

@@ -6,6 +6,27 @@ const LORA_LOADER_TYPES = new Set([
   "Power Lora Loader (rgthree)",
 ]);
 
+/**
+ * True for stock LoRA loaders and ComfyUI-Custom-Scripts variants such as
+ * `LoraLoader|pysssss` (class_type uses `|` for the UI extension id).
+ */
+export function isLoraLoaderClassType(
+  classType: string | undefined | null,
+): boolean {
+  const raw = (classType ?? "").trim();
+  if (!raw) {
+    return false;
+  }
+  if (raw === "Power Lora Loader (rgthree)") {
+    return true;
+  }
+  if (LORA_LOADER_TYPES.has(raw)) {
+    return true;
+  }
+  const base = raw.split("|")[0]?.trim() ?? "";
+  return base === "LoraLoader" || base === "LoraLoaderModelOnly";
+}
+
 function isUnresolvedWorkflowPlaceholder(value: unknown): boolean {
   return typeof value === "string" && /^\{\{[A-Z0-9_]+\}\}$/.test(value.trim());
 }
@@ -19,7 +40,7 @@ export function isConcreteLoraFilename(value: unknown): boolean {
 }
 
 const LIGHTNING_LORA_FILENAME_HINT =
-  /lightning|lightx2v|(\b4[\s-]?step\b)|(\b8[\s-]?step\b)|4steps|8steps/i;
+  /lightning|lightx2v/i;
 
 export const LIGHTNING_LORA_TOKEN = "{{LORA_LIGHTNING}}";
 
@@ -100,7 +121,7 @@ export function patchLoraNodesInWorkflow(
       class_type?: string;
       inputs?: Record<string, unknown>;
     };
-    if (!LORA_LOADER_TYPES.has(record.class_type ?? "") || !record.inputs) {
+    if (!isLoraLoaderClassType(record.class_type) || !record.inputs) {
       continue;
     }
 
@@ -342,7 +363,34 @@ export function alignLightningLoraFamilyInWorkflow(
   const realignedNodeIds: string[] = [];
 
   for (const [nodeId, node] of Object.entries(next)) {
-    if (!node?.inputs || !LORA_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
+      continue;
+    }
+    if (node.class_type === "Power Lora Loader (rgthree)") {
+      for (const [key, value] of Object.entries(node.inputs)) {
+        if (!/^lora_/i.test(key) || !value || typeof value !== "object") {
+          continue;
+        }
+        const slot = value as { on?: boolean; lora?: unknown };
+        if (slot.on === false) {
+          continue;
+        }
+        const current = slot.lora;
+        if (typeof current !== "string" || !current.trim()) {
+          continue;
+        }
+        if (isUnresolvedWorkflowPlaceholder(current)) {
+          continue;
+        }
+        if (!loraFilenameImpliesLightning(current)) {
+          continue;
+        }
+        if (lightningLoraMatchesModel(current, model)) {
+          continue;
+        }
+        slot.lora = preferred;
+        realignedNodeIds.push(`${nodeId}:${key}`);
+      }
       continue;
     }
     const current = node.inputs.lora_name;

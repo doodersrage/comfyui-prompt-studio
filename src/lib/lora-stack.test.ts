@@ -130,7 +130,7 @@ describe("resolveActiveLoraStack", () => {
     assert.deepEqual(stack.map((entry) => entry.id), ["always"]);
   });
 
-  it("auto-activates disabled LoRAs when the prompt contains the trigger", () => {
+  it("does not activate disabled LoRAs from prompt keywords", () => {
     const stack = resolveActiveLoraStack(
       [
         makeEntry({
@@ -143,26 +143,10 @@ describe("resolveActiveLoraStack", () => {
       ],
       { prompt: "Neon Cyberpunk street at night" },
     );
-    assert.deepEqual(stack.map((entry) => entry.id), ["cyber"]);
-  });
-
-  it("skips disabled auto LoRAs when the prompt does not match", () => {
-    const stack = resolveActiveLoraStack(
-      [
-        makeEntry({
-          id: "cyber",
-          tokenValue: "cyber.safetensors",
-          enabled: false,
-          autoFromPrompt: true,
-          triggerPhrase: "cyberpunk",
-        }),
-      ],
-      { prompt: "a quiet pastoral landscape" },
-    );
     assert.deepEqual(stack.map((entry) => entry.id), []);
   });
 
-  it("does not auto-activate disabled LoRAs without the autoFromPrompt flag", () => {
+  it("does not activate disabled LoRAs without autoFromPrompt either", () => {
     const stack = resolveActiveLoraStack(
       [
         makeEntry({
@@ -177,7 +161,7 @@ describe("resolveActiveLoraStack", () => {
     assert.deepEqual(stack.map((entry) => entry.id), []);
   });
 
-  it("never auto-activates Lightning library entries", () => {
+  it("never activates disabled Lightning library entries from keywords", () => {
     const stack = resolveActiveLoraStack(
       [
         makeEntry({
@@ -199,21 +183,47 @@ describe("resolveActiveLoraStack", () => {
     );
     assert.deepEqual(stack.map((entry) => entry.id), []);
   });
+});
 
-  it("skips auto LoRAs with an empty trigger phrase", () => {
-    const stack = resolveActiveLoraStack(
-      [
-        makeEntry({
-          id: "empty-trigger",
-          tokenValue: "style.safetensors",
-          enabled: false,
-          autoFromPrompt: true,
-          triggerPhrase: "   ",
-        }),
-      ],
-      { prompt: "anything goes" },
+describe("applySessionLoraSelection", () => {
+  it("leaves library unchanged when session ids are undefined", async () => {
+    const { applySessionLoraSelection } = await import("./lora-stack.ts");
+    const library = [
+      makeEntry({ id: "a", enabled: true }),
+      makeEntry({ id: "b", enabled: false, tokenValue: "b.safetensors" }),
+    ];
+    assert.deepEqual(
+      applySessionLoraSelection(library, undefined).map((entry) => entry.enabled),
+      [true, false],
     );
-    assert.deepEqual(stack.map((entry) => entry.id), []);
+  });
+
+  it("enables only selected ids and disables auto-from-prompt", async () => {
+    const { applySessionLoraSelection, resolveActiveLoraStack } = await import(
+      "./lora-stack.ts"
+    );
+    const library = [
+      makeEntry({
+        id: "a",
+        enabled: false,
+        autoFromPrompt: true,
+        triggerPhrase: "alpha",
+        tokenValue: "a.safetensors",
+      }),
+      makeEntry({
+        id: "b",
+        enabled: true,
+        tokenValue: "b.safetensors",
+      }),
+    ];
+    const next = applySessionLoraSelection(library, ["a"]);
+    assert.equal(next.find((entry) => entry.id === "a")?.enabled, true);
+    assert.equal(next.find((entry) => entry.id === "a")?.autoFromPrompt, false);
+    assert.equal(next.find((entry) => entry.id === "b")?.enabled, false);
+    assert.deepEqual(
+      resolveActiveLoraStack(next).map((entry) => entry.id),
+      ["a"],
+    );
   });
 });
 
@@ -347,7 +357,7 @@ describe("chainLoraStackInWorkflow / applyLoraStackToWorkflow", () => {
     assert.equal(node.inputs.lora_name, "{{LORA_LIGHTNING}}");
   });
 
-  it("is a no-op when the stack is empty", () => {
+  it("zeroes non-Lightning loader strengths when the stack is empty", () => {
     const workflow = {
       "1": {
         class_type: "LoraLoader",
@@ -355,8 +365,141 @@ describe("chainLoraStackInWorkflow / applyLoraStackToWorkflow", () => {
       },
     };
     const result = applyLoraStackToWorkflow(workflow, []);
-    assert.deepEqual(result.patched, {});
-    assert.equal(result.workflow, workflow);
+    assert.equal(result.patched.loraStack, 1);
+    const node = result.workflow["1"] as {
+      inputs: { strength_model: number; strength_clip: number };
+    };
+    assert.equal(node.inputs.strength_model, 0);
+    assert.equal(node.inputs.strength_clip, 0);
+  });
+
+  it("neutralizes leftover anchors beyond the active stack", () => {
+    const workflow = {
+      "1": {
+        class_type: "LoraLoader",
+        inputs: {
+          model: ["0", 0],
+          clip: ["0", 1],
+          lora_name: "first.safetensors",
+          strength_model: 0.9,
+          strength_clip: 0.9,
+        },
+      },
+      "2": {
+        class_type: "LoraLoader",
+        inputs: {
+          model: ["1", 0],
+          clip: ["1", 1],
+          lora_name: "second.safetensors",
+          strength_model: 0.8,
+          strength_clip: 0.8,
+        },
+      },
+    };
+    const result = applyLoraStackToWorkflow(workflow, [
+      makeEntry({
+        id: "only",
+        tokenValue: "only.safetensors",
+        strengthModel: 0.5,
+        strengthClip: 0.5,
+      }),
+    ]);
+    const first = result.workflow["1"] as {
+      inputs: { lora_name: string; strength_model: number };
+    };
+    const second = result.workflow["2"] as {
+      inputs: { lora_name: string; strength_model: number };
+    };
+    assert.equal(first.inputs.lora_name, "only.safetensors");
+    assert.equal(first.inputs.strength_model, 0.5);
+    assert.equal(second.inputs.strength_model, 0);
+  });
+
+  it("chains selected style LoRAs after Lightning when no style anchors exist", () => {
+    const workflow = {
+      "3": {
+        class_type: "KSampler",
+        inputs: { model: ["66", 0], seed: 1, steps: 8, cfg: 1 },
+      },
+      "66": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["7", 0], shift: 3 },
+      },
+      "7": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name: "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+    };
+    const result = chainLoraStackInWorkflow(workflow, [
+      {
+        id: "skin",
+        label: "Skin",
+        filename: "qwen-edit-skin.safetensors",
+        strengthModel: 0.8,
+        strengthClip: 0.5,
+      },
+    ]);
+    assert.equal(result.insertedNodeIds.length, 1);
+    const inserted = result.workflow[result.insertedNodeIds[0]!] as {
+      class_type: string;
+      inputs: { model: [string, number]; lora_name: string; strength_model: number };
+    };
+    assert.equal(inserted.class_type, "LoraLoaderModelOnly");
+    assert.equal(inserted.inputs.lora_name, "qwen-edit-skin.safetensors");
+    assert.equal(inserted.inputs.strength_model, 0.8);
+    assert.deepEqual(inserted.inputs.model, ["7", 0]);
+    assert.deepEqual(
+      (result.workflow["66"] as { inputs: { model: [string, number] } }).inputs.model,
+      [result.insertedNodeIds[0]!, 0],
+    );
+  });
+
+  it("applies stack onto neutralized LoraLoader|pysssss anchors", () => {
+    const workflow = {
+      "125": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["115", 0],
+          lora_name: "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "115": {
+        class_type: "LoraLoader|pysssss",
+        inputs: {
+          model: ["110", 0],
+          lora_name: "flymy_realism.safetensors",
+          strength_model: 0,
+          strength_clip: 0,
+        },
+      },
+      "110": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+    };
+    const result = applyLoraStackToWorkflow(workflow, [
+      makeEntry({
+        id: "skin",
+        tokenValue: "qwen-edit-skin.safetensors",
+        strengthModel: 0.8,
+        strengthClip: 0.5,
+      }),
+    ]);
+    const node = result.workflow["115"] as {
+      inputs: { lora_name: string; strength_model: number; strength_clip: number };
+    };
+    assert.equal(node.inputs.lora_name, "qwen-edit-skin.safetensors");
+    assert.equal(node.inputs.strength_model, 0.8);
+    assert.equal(node.inputs.strength_clip, 0.5);
   });
 
   it("applyLoraStackToWorkflow reports a loraStack patch count", () => {

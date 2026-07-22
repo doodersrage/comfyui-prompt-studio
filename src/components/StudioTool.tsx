@@ -240,7 +240,6 @@ export default function StudioTool() {
   const [visualA, setVisualA] = useState<VisualCompareResult | null>(null);
   const [visualB, setVisualB] = useState<VisualCompareResult | null>(null);
   const [identityBundleName, setIdentityBundleName] = useState("");
-  const [identityBundleLoraTriggers, setIdentityBundleLoraTriggers] = useState("");
   const [blocklist, setBlocklist] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
@@ -561,9 +560,16 @@ export default function StudioTool() {
         setPresetHints(patch.hints);
       }
       setIdentityBundleName(bundle.name);
-      setIdentityBundleLoraTriggers((bundle.loraTriggerPhrases ?? []).join(", "));
     },
     [shared.detail, shared.model, updateShared],
+  );
+
+  const openCharacterWithIdentity = useCallback(
+    (bundle: import("@/lib/character-identity-bundle").CharacterIdentityBundle) => {
+      applyIdentityBundle(bundle);
+      window.location.href = "/character";
+    },
+    [applyIdentityBundle],
   );
 
   const selectStudioTab = useCallback((next: StudioTab) => {
@@ -2972,19 +2978,14 @@ export default function StudioTool() {
             <p className="text-sm font-medium text-zinc-200">Character identity bundles</p>
             <p className="text-xs text-zinc-500">
               Export/import — or save to a browser-local list — reusable character sheets:
-              locks, hints, pinned descriptor, LoRA trigger phrases, and a portable
-              IP-Adapter reference (image/strength/model — see Settings → ComfyUI).
+              locks, hints, pinned descriptor, and a portable IP-Adapter reference
+              (image/strength/model — see Settings → ComfyUI). Enable LoRAs from the
+              LoRA stack on each tool.
             </p>
             <input
               value={identityBundleName}
               onChange={(event) => setIdentityBundleName(event.target.value)}
               placeholder="Character name"
-              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-            />
-            <input
-              value={identityBundleLoraTriggers}
-              onChange={(event) => setIdentityBundleLoraTriggers(event.target.value)}
-              placeholder="LoRA trigger phrases, comma separated (optional)"
               className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
             />
             <div className="flex flex-wrap gap-2">
@@ -2997,10 +2998,6 @@ export default function StudioTool() {
                       name: identityBundleName,
                       shared,
                       hints: presetHints || compareHints,
-                      loraTriggerPhrases: identityBundleLoraTriggers
-                        .split(",")
-                        .map((entry) => entry.trim())
-                        .filter(Boolean),
                     }),
                   )
                 }
@@ -3015,10 +3012,6 @@ export default function StudioTool() {
                     name: identityBundleName,
                     shared,
                     hints: presetHints || compareHints,
-                    loraTriggerPhrases: identityBundleLoraTriggers
-                      .split(",")
-                      .map((entry) => entry.trim())
-                      .filter(Boolean),
                   });
                   updateToolSettings({
                     savedIdentityBundles: upsertSavedIdentityBundle(
@@ -3068,9 +3061,6 @@ export default function StudioTool() {
                         subtitle={
                           [
                             bundle.model,
-                            bundle.loraTriggerPhrases?.length
-                              ? `${bundle.loraTriggerPhrases.length} LoRA trigger(s)`
-                              : null,
                             bundle.ipAdapterImageFilename ? "IP-Adapter ref" : null,
                           ]
                             .filter(Boolean)
@@ -3088,6 +3078,14 @@ export default function StudioTool() {
                           }}
                         >
                           Apply
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="type-caption"
+                          onClick={() => openCharacterWithIdentity(bundle)}
+                        >
+                          Open Character
                         </Button>
                         <Button
                           variant="danger"

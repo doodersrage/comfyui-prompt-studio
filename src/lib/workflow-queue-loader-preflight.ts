@@ -31,25 +31,44 @@ export async function auditLoaderMapsAtQueueTime(input?: {
   }
 
   const shared = loadSettingsCache().shared;
-  const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
+  const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings(), {
+    activeOnly: true,
+  });
   const model = input?.model?.trim();
   const checkpointMap = { ...(shared.modelCheckpointMap ?? {}) };
   const vaeMap = { ...(shared.modelVaeMap ?? {}) };
   const upscaleMap = { ...(shared.modelUpscaleMap ?? {}) };
-
-  const scopedCheckpoint = model && checkpointMap[model]
-    ? { [model]: checkpointMap[model]! }
-    : checkpointMap;
-  const scopedVae = model && vaeMap[model] ? { [model]: vaeMap[model]! } : vaeMap;
-  const scopedUpscale = model && upscaleMap[model]
-    ? { [model]: upscaleMap[model]!, ...(upscaleMap.default ? { default: upscaleMap.default } : {}) }
-    : upscaleMap;
-
   const controlNetMap = { ...(shared.modelControlNetMap ?? {}) };
-  const scopedControlNet =
-    model && controlNetMap[model]
-      ? { [model]: controlNetMap[model]!, ...(controlNetMap.default ? { default: controlNetMap.default } : {}) }
-      : controlNetMap;
+
+  // Queue-time: only audit the active model (+ optional default upscale/CN).
+  // Suggested map entries for unrelated models (flux/sdxl/video) must not block
+  // Compose / Rapid AIO queues when those weights aren't installed.
+  const scopedCheckpoint = model
+    ? checkpointMap[model]?.trim()
+      ? { [model]: checkpointMap[model]! }
+      : {}
+    : checkpointMap;
+  const scopedVae = model
+    ? vaeMap[model]?.trim()
+      ? { [model]: vaeMap[model]! }
+      : {}
+    : vaeMap;
+  const scopedUpscale = model
+    ? {
+        ...(upscaleMap[model]?.trim() ? { [model]: upscaleMap[model]! } : {}),
+        ...(upscaleMap.default?.trim() ? { default: upscaleMap.default } : {}),
+      }
+    : upscaleMap;
+  const scopedControlNet = model
+    ? {
+        ...(controlNetMap[model]?.trim()
+          ? { [model]: controlNetMap[model]! }
+          : {}),
+        ...(controlNetMap.default?.trim()
+          ? { default: controlNetMap.default }
+          : {}),
+      }
+    : controlNetMap;
 
   return [
     ...auditLoaderMapsAgainstComfyUi({

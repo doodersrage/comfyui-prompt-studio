@@ -1127,7 +1127,7 @@ export function buildIdentityWorkflowScaffold(
     category: "sdxl",
     bindingChanges: 0,
     notes: [
-      `${label} BYO scaffold — identity image uses {{IPADAPTER_IMAGE}}; Studio does not auto-insert InstantID/PuLID nodes.`,
+      `${label} BYO scaffold — identity image uses {{IPADAPTER_IMAGE}}. At queue time Studio may also auto-insert InstantID/PuLID when IP-Adapter Plus is absent and those nodes are installed.`,
       `Wire your ComfyUI ${label} apply node between checkpoint and KSampler, keep the identity LoadImage, then import this JSON into the workflow library.`,
     ],
   };

@@ -35,11 +35,6 @@ import {
   isReadinessQueueAllowed,
 } from "@/lib/readiness-gate";
 import type { PromptReadinessResult } from "@/lib/prompt-readiness";
-import {
-  lintLoraTriggers,
-  formatLoraTriggerLintSummary,
-} from "@/lib/lora-trigger-lint";
-import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
 import { loadSettingsCache } from "@/lib/settings-cache";
 
 const WorkflowPreviewPanel = dynamic(() => import("@/components/WorkflowPreviewPanel"), {
@@ -230,10 +225,6 @@ export default function EnhancedPromptResult({
     !readinessResult ||
     isReadinessQueueAllowed(readinessResult.score, readinessMinScore);
 
-  const loraLintIssues = useMemo(
-    () => (panelProps.output.trim() ? lintLoraTriggers(panelProps.output) : []),
-    [panelProps.output],
-  );
   const parsedSeed = useMemo(() => {
     if (!variationSeed?.trim()) {
       return undefined;
@@ -485,21 +476,6 @@ export default function EnhancedPromptResult({
           model={readinessModel}
           onChange={onOutputChange}
         />
-      ) : null}
-
-      {panelProps.output.trim() && loraLintIssues.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
-          <span className="flex-1">LoRA triggers: {formatLoraTriggerLintSummary(loraLintIssues)}</span>
-          {onOutputChange ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onOutputChange(injectLoraTriggers(panelProps.output))}
-            >
-              Insert triggers
-            </Button>
-          ) : null}
-        </div>
       ) : null}
 
       {panelProps.output.trim() && (onSendComfyUi || onQueueBatchComfyUi) ? (

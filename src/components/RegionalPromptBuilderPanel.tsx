@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   buildInpaintInstruction,
   buildRegionalPrompt,
   buildRegionalPromptParenForm,
   DEFAULT_REGIONAL_REGIONS,
   parseRegionalSegments,
+  REGIONAL_PROMPT_TOKENS,
   type RegionalPromptSegment,
 } from "@/lib/regional-prompt-builder";
 import { FieldLabel, TextArea } from "@/components/ui/Field";
@@ -15,18 +16,43 @@ import { Button } from "@/components/ui/Button";
 type RegionalPromptBuilderPanelProps = {
   onApply: (prompt: string) => void;
   accentClassName?: string;
+  segments?: RegionalPromptSegment[];
+  onSegmentsChange?: (segments: RegionalPromptSegment[]) => void;
 };
+
+function defaultSegments(): RegionalPromptSegment[] {
+  return DEFAULT_REGIONAL_REGIONS.map((region) => ({
+    regionId: region.id,
+    prompt: "",
+  }));
+}
 
 export default function RegionalPromptBuilderPanel({
   onApply,
   accentClassName,
+  segments: controlledSegments,
+  onSegmentsChange,
 }: RegionalPromptBuilderPanelProps) {
   const [segments, setSegments] = useState<RegionalPromptSegment[]>(
-    DEFAULT_REGIONAL_REGIONS.map((region) => ({ regionId: region.id, prompt: "" })),
+    controlledSegments?.length ? controlledSegments : defaultSegments(),
   );
   const [maskDescription, setMaskDescription] = useState("");
   const [changeDescription, setChangeDescription] = useState("");
   const [rawImport, setRawImport] = useState("");
+
+  useEffect(() => {
+    if (!controlledSegments) {
+      return;
+    }
+    setSegments(
+      controlledSegments.length > 0 ? controlledSegments : defaultSegments(),
+    );
+  }, [controlledSegments]);
+
+  const updateSegments = (next: RegionalPromptSegment[]) => {
+    setSegments(next);
+    onSegmentsChange?.(next);
+  };
 
   const composed = useMemo(() => buildRegionalPrompt(segments), [segments]);
   const parenForm = useMemo(
@@ -45,10 +71,10 @@ export default function RegionalPromptBuilderPanel({
     <div className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
       <p className="text-sm text-zinc-300">Regional prompt builder</p>
       <p className="text-xs text-zinc-500">
-        Text composer for labeled subject/background/lighting segments (or an
-        inpaint instruction). This does not wire ComfyUI regional/attention-mask
-        nodes — copy the paren form into packs that understand{" "}
-        <code className="text-zinc-400">(region: …)</code> weighting.
+        Labeled subject/background/lighting segments feed hints and, at queue
+        time, fill{" "}
+        <code className="text-zinc-400">{REGIONAL_PROMPT_TOKENS.subject}</code>{" "}
+        (and related) tokens on imported regional/attention-mask packs.
       </p>
 
       {DEFAULT_REGIONAL_REGIONS.map((region) => {
@@ -60,8 +86,8 @@ export default function RegionalPromptBuilderPanel({
               rows={2}
               value={segment?.prompt ?? ""}
               onChange={(event) =>
-                setSegments((previous) =>
-                  previous.map((entry) =>
+                updateSegments(
+                  segments.map((entry) =>
                     entry.regionId === region.id
                       ? { ...entry, prompt: event.target.value }
                       : entry,
@@ -114,7 +140,7 @@ export default function RegionalPromptBuilderPanel({
             if (!rawImport.trim()) {
               return;
             }
-            setSegments(parseRegionalSegments(rawImport));
+            updateSegments(parseRegionalSegments(rawImport));
           }}
         >
           Parse import

@@ -340,7 +340,7 @@ export default function VideoPromptTool() {
 
         <FieldLabel
           htmlFor="video-init-image"
-          hint="Optional. With an init image, queue hard-fails unless ComfyUI can wire WanImageToVideo / HunyuanImageToVideo. Without one, the job is text-to-video."
+          hint="Optional. With an init image, queue hard-fails unless ComfyUI can wire WanImageToVideo / HunyuanImageToVideo. LTX Video is T2V-only unless you import an LTXVImgToVideo pack. Without an init image, the job is text-to-video."
         >
           Init image (optional, I2V)
         </FieldLabel>

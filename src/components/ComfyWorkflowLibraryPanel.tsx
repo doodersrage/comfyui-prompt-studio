@@ -830,7 +830,9 @@ export default function ComfyWorkflowLibraryPanel({
                               type="button"
                               variant="secondary"
                               size="sm"
-                              onClick={() => assignInferredModels(file.id, inferredModels)}
+                              onClick={() =>
+                                assignInferredModels(file.id, inferredModels, true)
+                              }
                             >
                               Assign to models
                             </Button>
@@ -839,10 +841,11 @@ export default function ComfyWorkflowLibraryPanel({
                               variant="ghost"
                               size="sm"
                               onClick={() =>
-                                assignInferredModels(file.id, inferredModels, true)
+                                assignInferredModels(file.id, inferredModels, false)
                               }
+                              title="Only fill models that have no mapping yet"
                             >
-                              Overwrite map
+                              Fill empty only
                             </Button>
                           </>
                         ) : (

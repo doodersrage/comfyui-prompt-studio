@@ -24,6 +24,30 @@ describe("loader-map-health-audit", () => {
     assert.equal(issues[0]?.severity, "error");
   });
 
+  it("warns for missing curated suggested defaults instead of hard-failing", () => {
+    const issues = auditLoaderMapsAgainstComfyUi({
+      checkpointMap: {
+        "flux-dev": "flux1-dev.safetensors",
+        sdxl: "sd_xl_base_1.0.safetensors",
+      },
+      vaeMap: {},
+      upscaleMap: {},
+      models: {
+        checkpoints: ["Qwen-Rapid-AIO-NSFW-v23.safetensors"],
+        unets: [],
+        vaes: [],
+        upscaleModels: [],
+        clips: [],
+        dualClipTypes: [],
+        clipLoaderTypes: [],
+        loras: [],
+        controlNets: [],
+      },
+    });
+    assert.equal(issues.length, 2);
+    assert.ok(issues.every((issue) => issue.severity === "warn"));
+  });
+
   it("warns when upscale model is not installed", () => {
     const issues = auditLoaderMapsAgainstComfyUi({
       checkpointMap: {},

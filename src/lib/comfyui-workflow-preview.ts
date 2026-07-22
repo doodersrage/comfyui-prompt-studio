@@ -152,7 +152,9 @@ export function previewWorkflowInjection(
 
   const modelId = input.model ?? runtime?.queueTargetModel ?? "qwen-image-2512";
   const shared = loadSettingsCache().shared;
-  const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
+  const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings(), {
+    activeOnly: true,
+  });
   const inventoryModels = input.inventory?.models;
 
   // Settings → runtime merged tokens → per-workflow overrides (last wins).

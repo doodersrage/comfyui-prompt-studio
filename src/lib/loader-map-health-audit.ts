@@ -1,5 +1,7 @@
 import type { ComfyUiModelLists } from "./comfyui-object-info";
 import { buildLoraFilenameMapFromCustomTokens } from "./workflow-lora-patch";
+import { matchInventoryFilename } from "./loader-map-inventory-sync";
+import { SUGGESTED_MODEL_CHECKPOINT_MAP } from "./model-checkpoint-map";
 import type { WorkflowHealthIssue } from "./workflow-health-audit";
 
 function filenameInList(filename: string, list: string[]): boolean {
@@ -7,7 +9,12 @@ function filenameInList(filename: string, list: string[]): boolean {
   if (!trimmed || list.length === 0) {
     return false;
   }
-  return list.includes(trimmed);
+  return Boolean(matchInventoryFilename(trimmed, list) ?? list.includes(trimmed));
+}
+
+function isSuggestedCheckpointDefault(model: string, filename: string): boolean {
+  const suggested = SUGGESTED_MODEL_CHECKPOINT_MAP[model]?.trim();
+  return Boolean(suggested && suggested === filename.trim());
 }
 
 export function auditLoaderMapsAgainstComfyUi(input: {
@@ -29,10 +36,14 @@ export function auditLoaderMapsAgainstComfyUi(input: {
     const inCheckpoint = filenameInList(filename, input.models.checkpoints);
     const inUnet = filenameInList(filename, input.models.unets);
     if (!inCheckpoint && !inUnet) {
+      // Curated defaults for unused families are advisory; user overrides stay errors.
+      const severity = isSuggestedCheckpointDefault(model, filename)
+        ? "warn"
+        : "error";
       issues.push({
         workflowId: "loader-map",
         workflowName: "Checkpoint map",
-        severity: "error",
+        severity,
         message: `${model} → “${filename}” not found in ComfyUI checkpoints or UNET list.`,
       });
     }

@@ -43,13 +43,17 @@ import {
 } from "./gallery-output-refine";
 import { findLibraryUpscaleWorkflowForModel } from "./workflow-library-upscale";
 import { findLibraryFaceDetailerWorkflow } from "./workflow-library-face-detailer";
+import { buildAutoFaceDetailerWorkflow } from "./facedetailer-workflow-patch";
 import {
   faceDetailCustomTokens,
   faceDetailQueueParams,
   normalizeFaceDetailDenoise,
 } from "./gallery-output-face-detail";
 import { isUpscaleModelInstalled, resolveUpscaleModelFilename } from "./model-upscale-map";
-import { fetchComfyObjectInfoCached } from "./comfyui-object-info-cache";
+import {
+  fetchComfyObjectInfoCached,
+  fetchComfyObjectInfoNodeTypesCached,
+} from "./comfyui-object-info-cache";
 import { loadSettingsCache } from "./settings-cache";
 import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
 import {
@@ -338,7 +342,9 @@ export async function requeueUpscaleFromGalleryEntry(
   }
 
   const shared = loadSettingsCache().shared;
-  const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
+  const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings(), {
+    activeOnly: true,
+  });
   const isLightning = isQwenLightningModel(model);
   const mappedUpscale =
     !isLightning &&
@@ -758,12 +764,23 @@ export async function requeueFaceDetailFromGalleryEntry(
   }
 
   const libraryWorkflow = findLibraryFaceDetailerWorkflow();
-  if (!libraryWorkflow) {
-    return {
-      ok: false,
-      error:
-        "No FaceDetailer/ReActor workflow found. Import one with {{FACE_DETAIL_IMAGE}} (and optionally {{FACE_DETAIL_DENOISE}}), or pin it via Settings → model map: faceDetailer=<workflowId>.",
-    };
+  let workflowJson = libraryWorkflow?.workflowJson;
+  let workflowFileId = libraryWorkflow?.id;
+
+  if (!workflowJson) {
+    const objectInfo = await fetchComfyObjectInfoNodeTypesCached().catch(() => null);
+    const auto = buildAutoFaceDetailerWorkflow({
+      availableNodeTypes: objectInfo ?? undefined,
+    });
+    if (!auto.inserted) {
+      return {
+        ok: false,
+        error:
+          auto.reason ??
+          "No FaceDetailer/ReActor workflow found. Import one with {{FACE_DETAIL_IMAGE}}, pin faceDetailer=<workflowId> in Settings, or install Impact Pack FaceDetailer for auto-insert.",
+      };
+    }
+    workflowJson = JSON.stringify(auto.workflow);
   }
 
   options?.onStatus?.("Uploading gallery output…");
@@ -791,10 +808,7 @@ export async function requeueFaceDetailFromGalleryEntry(
     options?.denoise ?? shared.faceDetailerDenoise,
   );
 
-  const workflow = JSON.parse(libraryWorkflow.workflowJson) as Record<
-    string,
-    unknown
-  >;
+  const workflow = JSON.parse(workflowJson) as Record<string, unknown>;
 
   const faceDetailParams = faceDetailQueueParams({
     inputImageFilename,
@@ -809,11 +823,13 @@ export async function requeueFaceDetailFromGalleryEntry(
     workflowGraphEnrich: false,
     directWorkflowPatching: true,
     customTokens: faceDetailCustomTokens({ inputImageFilename, denoise }),
-    workflowFileId: libraryWorkflow.id,
+    workflowFileId,
   };
 
   options?.onStatus?.(
-    `Queueing library face-detail workflow “${libraryWorkflow.name}”…`,
+    workflowFileId
+      ? `Queueing library face-detail workflow…`
+      : "Queueing auto FaceDetailer graph…",
   );
 
   const queued = await postComfyUiPrompt({
@@ -973,8 +989,9 @@ export function canFaceDetailGalleryEntry(
   if (!resolveGalleryOutputImageUrl(entry)) {
     return false;
   }
-  // Hide the action when no real FaceDetailer/ReActor workflow is available.
-  return Boolean(findLibraryFaceDetailerWorkflow());
+  // Prefer a library FaceDetailer; otherwise allow the action when Impact Pack
+  // may be installed (queue path auto-inserts when object_info confirms it).
+  return true;
 }
 
 export function canMoireCleanGalleryEntry(

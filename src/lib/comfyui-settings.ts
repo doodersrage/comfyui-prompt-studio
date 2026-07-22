@@ -24,8 +24,13 @@ import {
   type WorkflowPlaceholderTokens,
 } from "./comfyui-config";
 import { readBrowserValue, removeBrowserKey, writeBrowserValue } from "./browser-storage";
-import { normalizeLoraLibrary } from "./lora-stack";
-import type { LoraLibraryEntry } from "./lora-stack";
+import {
+  applySessionLoraSelection,
+  isLightningLibraryEntry,
+  normalizeLoraLibrary,
+  type LoraLibraryEntry,
+} from "./lora-stack";
+import { loadSettingsCache } from "./settings-cache";
 
 export const COMFYUI_SETTINGS_KEY = "comfyui-settings-v4";
 
@@ -153,9 +158,26 @@ export function migrateOrphanLoraTokensToLibrary(
 
 export function mergeLoraLibraryIntoCustomTokens(
   settings: ComfyUiSettings,
+  options?: {
+    /**
+     * When true, only session-active (or Settings-enabled) LoRAs become `{{LORA_*}}`
+     * substitutions — except Lightning, which always ships for Lightning workflows.
+     * Use at queue/preview time so deselected catalog entries cannot still resolve.
+     */
+    activeOnly?: boolean;
+  },
 ): ComfyUiSettings {
   const normalized = migrateOrphanLoraTokensToLibrary(settings);
-  const library = normalized.loraLibrary ?? [];
+  let library = normalizeLoraLibrary(normalized.loraLibrary);
+  if (options?.activeOnly) {
+    library = applySessionLoraSelection(
+      library,
+      loadSettingsCache().shared.sessionActiveLoraIds,
+    ).filter(
+      (entry) =>
+        entry.enabled !== false || isLightningLibraryEntry(entry),
+    );
+  }
   const manualTokens = (normalized.customTokens ?? []).filter(
     (entry) => !parseLoraTokenId(entry.token),
   );
@@ -168,6 +190,7 @@ export function mergeLoraLibraryIntoCustomTokens(
 
   return {
     ...normalized,
+    loraLibrary: normalizeLoraLibrary(normalized.loraLibrary),
     customTokens: [...manualTokens, ...loraTokens],
   };
 }
@@ -304,11 +327,17 @@ export function comfyUiSettingsToRuntime(
 ): ComfyUiRuntimeConfig | undefined {
   // LoRA library lives in browser settings — always merge into custom tokens so
   // server preview/queue can resolve {{LORA_LIGHTNING}} even with useServerDefaults.
-  const merged = mergeLoraLibraryIntoCustomTokens(settings);
+  // Queue/preview only substitute session-active (or Settings-enabled) LoRAs so
+  // deselected catalog entries cannot still resolve into the graph.
+  const merged = mergeLoraLibraryIntoCustomTokens(settings, { activeOnly: true });
   const customTokens = merged.customTokens?.length ? merged.customTokens : undefined;
   // Strengths/enabled/order can't be encoded as {{LORA_*}} custom tokens — forward the
   // normalized library itself so queue-time LoRA stacking survives the client→server hop.
-  const loraLibrary = normalizeLoraLibrary(settings.loraLibrary);
+  // Session sidebar picks override Settings enabled flags when set.
+  const loraLibrary = applySessionLoraSelection(
+    settings.loraLibrary,
+    loadSettingsCache().shared.sessionActiveLoraIds,
+  );
 
   if (settings.useServerDefaults) {
     return stripEmptyComfyUiRuntime({

@@ -54,6 +54,7 @@ export function isQwenEditModel(model: ComfyImageModel | string): boolean {
 /**
  * Multi-ref Compose / Transfer — Qwen Edit only (image1–4 encode path).
  * Excludes FLUX inpaint and other single-mask edit models.
+ * Rapid AIO Edit is included; Rapid AIO SFW/NSFW are T2I-first — use Edit for Compose.
  */
 export function isComposeCapableModel(model: ComfyImageModel | string | null | undefined): boolean {
   if (!model?.toString().trim()) {

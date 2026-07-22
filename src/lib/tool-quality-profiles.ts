@@ -14,6 +14,7 @@ export const TOOL_QUEUE_QUALITY_OPTIONS: ToolQueueQualityOption[] = [
   { id: "inpaint", label: "Inpaint" },
   { id: "imagePrompt", label: "Image → Prompt" },
   { id: "controlnet", label: "ControlNet" },
+  { id: "compose", label: "Compose" },
   { id: "variations", label: "Variations" },
   { id: "topics", label: "Topics" },
   { id: "duo", label: "Duo" },
@@ -40,6 +41,7 @@ export const SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES: ToolQueueQualityProfiles = {
   character: "final",
   refine: "final",
   inpaint: "final",
+  compose: "final",
   duo: "final",
   format: "followSettings",
 };

@@ -23,10 +23,12 @@ import {
 } from "./model-loader-precision";
 import {
   isLatentSizeNode,
+  normalizeEmptyLatentForModel,
   patchLoaderNodesInWorkflow,
 } from "./workflow-direct-patch";
 import { isPromptStudioOutputUpscaleNode } from "./workflow-enrich-markers";
 import {
+  isLoraLoaderClassType,
   loraFilenameImpliesLightning,
   loraNameImpliesLightning,
   loraNameIsLightningSlot,
@@ -45,12 +47,6 @@ const OUTPUT_POST_PROCESS_TYPES = new Set([
   "ImageUpscaleWithModel",
   "LatentUpscale",
   "LatentUpscaleBy",
-]);
-
-const LORA_LOADER_TYPES = new Set([
-  "LoraLoader",
-  "LoraLoaderModelOnly",
-  "Power Lora Loader (rgthree)",
 ]);
 
 const QWEN_EDIT_ENCODE_TYPES = new Set([
@@ -198,7 +194,7 @@ function chainHasLightningLora(
 ): boolean {
   return chainIds.some((id) => {
     const node = workflow[id];
-    if (!node?.inputs || !LORA_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
       return false;
     }
     return loraNameIsLightningSlot(node.inputs.lora_name, loraFilenames);
@@ -222,7 +218,7 @@ function findLightningLoraNodeId(
   loraFilenames: Record<string, string>,
 ): string | null {
   for (const [nodeId, node] of Object.entries(workflow)) {
-    if (!node?.inputs || !LORA_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
       continue;
     }
     if (loraNameIsLightningSlot(node.inputs.lora_name, loraFilenames)) {
@@ -469,8 +465,8 @@ export function workflowHasLoraLoader(workflow: Record<string, unknown>): boolea
     if (!node || typeof node !== "object") {
       return false;
     }
-    return LORA_LOADER_TYPES.has(
-      (node as { class_type?: string }).class_type ?? "",
+    return isLoraLoaderClassType(
+      (node as { class_type?: string }).class_type,
     );
   });
 }
@@ -484,10 +480,27 @@ export function workflowHasLightningLora(
       return false;
     }
     const record = node as { class_type?: string; inputs?: Record<string, unknown> };
-    if (!record.inputs || !LORA_LOADER_TYPES.has(record.class_type ?? "")) {
+    if (!record.inputs || !isLoraLoaderClassType(record.class_type)) {
       return false;
     }
-    return loraNameImpliesLightning(record.inputs.lora_name, loraFilenames);
+    if (loraNameImpliesLightning(record.inputs.lora_name, loraFilenames)) {
+      return true;
+    }
+    if (record.class_type === "Power Lora Loader (rgthree)") {
+      for (const [key, value] of Object.entries(record.inputs)) {
+        if (!/^lora_/i.test(key) || !value || typeof value !== "object") {
+          continue;
+        }
+        const slot = value as { on?: boolean; lora?: unknown };
+        if (slot.on === false) {
+          continue;
+        }
+        if (loraNameImpliesLightning(slot.lora, loraFilenames)) {
+          return true;
+        }
+      }
+    }
+    return false;
   });
 }
 
@@ -645,7 +658,41 @@ export function neutralizeNonLightningLoras(
   const neutralizedNodeIds: string[] = [];
 
   for (const [nodeId, node] of Object.entries(next)) {
-    if (!node?.inputs || !LORA_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
+      continue;
+    }
+
+    if (node.class_type === "Power Lora Loader (rgthree)") {
+      for (const [key, value] of Object.entries(node.inputs)) {
+        if (!/^lora_/i.test(key) || !value || typeof value !== "object") {
+          continue;
+        }
+        const slot = value as {
+          on?: boolean;
+          lora?: unknown;
+          strength?: number;
+          strengthTwo?: number | null;
+        };
+        if (slot.on === false) {
+          continue;
+        }
+        if (loraNameImpliesLightning(slot.lora, loraFilenames)) {
+          continue;
+        }
+        const hasLora =
+          typeof slot.lora === "string" && slot.lora.trim().length > 0;
+        if (!hasLora && slot.on !== true) {
+          continue;
+        }
+        slot.on = false;
+        if ("strength" in slot) {
+          slot.strength = 0;
+        }
+        if ("strengthTwo" in slot && slot.strengthTwo != null) {
+          slot.strengthTwo = 0;
+        }
+        neutralizedNodeIds.push(`${nodeId}:${key}`);
+      }
       continue;
     }
 
@@ -673,6 +720,66 @@ export function neutralizeNonLightningLoras(
     neutralizedNodeIds.push(nodeId);
   }
 
+  // Pack graphs often bake Lightning once in a LoraLoader|pysssss chain and again as
+  // LoraLoaderModelOnly — keep only the sampler-nearest Lightning loader at strength.
+  const samplerModelLink = (() => {
+    for (const node of Object.values(next)) {
+      const classType = node?.class_type ?? "";
+      if (
+        classType !== "KSampler" &&
+        classType !== "KSamplerAdvanced" &&
+        classType !== "SamplerCustom" &&
+        classType !== "SamplerCustomAdvanced" &&
+        classType !== "ModelSamplingAuraFlow"
+      ) {
+        continue;
+      }
+      const link = getLinkedNodeId(node?.inputs?.model);
+      if (link) {
+        return link;
+      }
+    }
+    return null;
+  })();
+  if (samplerModelLink) {
+    const lightningOnChain: string[] = [];
+    const seen = new Set<string>();
+    let cursor: string | null = samplerModelLink;
+    while (cursor && !seen.has(cursor)) {
+      seen.add(cursor);
+      const node = next[cursor];
+      if (!node?.inputs) {
+        break;
+      }
+      if (
+        isLoraLoaderClassType(node.class_type) &&
+        node.class_type !== "Power Lora Loader (rgthree)" &&
+        loraNameImpliesLightning(node.inputs.lora_name, loraFilenames)
+      ) {
+        lightningOnChain.push(cursor);
+      }
+      cursor = getLinkedNodeId(node.inputs.model);
+    }
+    for (const nodeId of lightningOnChain.slice(1)) {
+      const node = next[nodeId];
+      if (!node?.inputs) {
+        continue;
+      }
+      if ("strength_model" in node.inputs) {
+        node.inputs.strength_model = 0;
+      }
+      if ("strength_clip" in node.inputs) {
+        node.inputs.strength_clip = 0;
+      }
+      if ("strength" in node.inputs) {
+        node.inputs.strength = 0;
+      }
+      if (!neutralizedNodeIds.includes(nodeId)) {
+        neutralizedNodeIds.push(nodeId);
+      }
+    }
+  }
+
   return { workflow: next, neutralizedNodeIds };
 }
 
@@ -692,7 +799,27 @@ export function normalizeLightningLoraStrengths(
   >;
 
   for (const node of Object.values(next)) {
-    if (!node?.inputs || !LORA_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
+      continue;
+    }
+    if (node.class_type === "Power Lora Loader (rgthree)") {
+      for (const [key, value] of Object.entries(node.inputs)) {
+        if (!/^lora_/i.test(key) || !value || typeof value !== "object") {
+          continue;
+        }
+        const slot = value as {
+          on?: boolean;
+          lora?: unknown;
+          strength?: number;
+        };
+        if (!loraNameImpliesLightning(slot.lora, loraFilenames)) {
+          continue;
+        }
+        slot.on = true;
+        if ("strength" in slot) {
+          slot.strength = 1;
+        }
+      }
       continue;
     }
     if (!loraNameImpliesLightning(node.inputs.lora_name, loraFilenames)) {
@@ -714,7 +841,9 @@ export function normalizeLightningLoraStrengths(
   return next;
 }
 
-/** Always apply queue width/height on latent nodes — imported workflows often keep 1024. */
+/** Always apply queue width/height on latent nodes — imported workflows often keep 1024.
+ * Also convert EmptyFlux2LatentImage → EmptySD3LatentImage: Edit packs sometimes ship
+ * Flux2 empty latents; with Qwen VAE those decode at ~½ spatial size (1328→664→996 with Lanczos). */
 export function forceLightningLatentSizeInWorkflow(
   workflow: Record<string, unknown>,
   params: Pick<WorkflowParamValues, "width" | "height"> | undefined,
@@ -748,7 +877,8 @@ export function forceLightningLatentSizeInWorkflow(
     return workflow;
   }
 
-  const next = structuredClone(workflow) as Record<
+  const normalized = normalizeEmptyLatentForModel(workflow, model).workflow;
+  const next = structuredClone(normalized) as Record<
     string,
     { class_type?: string; inputs?: Record<string, unknown> }
   >;
@@ -1415,7 +1545,7 @@ export function auditLightningWorkflowIssues(input: {
     const modelId = String(input.model ?? "");
     const wantsEdit = /edit/i.test(modelId);
     for (const node of Object.values(prepared)) {
-      if (!node?.inputs || !LORA_LOADER_TYPES.has(node.class_type ?? "")) {
+      if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
         continue;
       }
       const filename = resolveLoraLoaderFilename(
@@ -1465,7 +1595,7 @@ export function auditLightningWorkflowIssues(input: {
   }
 
   for (const node of Object.values(prepared)) {
-    if (!node?.inputs || !LORA_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
       continue;
     }
     if (loraNameImpliesLightning(node.inputs.lora_name, input.loraFilenames ?? {})) {

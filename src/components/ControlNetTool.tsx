@@ -110,6 +110,16 @@ export default function ControlNetTool() {
   });
   const [refFile, setRefFile] = useState<File | null>(null);
   const [refPreview, setRefPreview] = useState<string | null>(null);
+  const [extraRefFiles, setExtraRefFiles] = useState<Array<File | null>>([
+    null,
+    null,
+    null,
+  ]);
+  const [extraRefPreviews, setExtraRefPreviews] = useState<Array<string | null>>([
+    null,
+    null,
+    null,
+  ]);
   const [output, setOutput] = useState("");
   const [source, setSource] = useState<"text" | "vision" | null>(null);
   const [loading, setLoading] = useState(false);
@@ -131,6 +141,25 @@ export default function ControlNetTool() {
       setRefPreview(file ? URL.createObjectURL(file) : null);
     },
     [refPreview],
+  );
+
+  const onExtraRefChange = useCallback(
+    (index: number, file: File | null) => {
+      setExtraRefPreviews((previous) => {
+        const next = [...previous];
+        if (next[index]) {
+          URL.revokeObjectURL(next[index]!);
+        }
+        next[index] = file ? URL.createObjectURL(file) : null;
+        return next;
+      });
+      setExtraRefFiles((previous) => {
+        const next = [...previous];
+        next[index] = file;
+        return next;
+      });
+    },
+    [],
   );
 
   const applyGalleryHandoff = useCallback(
@@ -274,6 +303,35 @@ export default function ControlNetTool() {
             When uploaded, vision extracts structure and merges it with the selected ControlNet mode.
           </p>
         )}
+        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-zinc-500">
+          Extra control images (stack)
+        </p>
+        <p className="mt-1 text-xs text-zinc-500">
+          Optional second–fourth images append additional ControlNetApply chains at queue time.
+        </p>
+        <div className="mt-2 grid gap-3 sm:grid-cols-3">
+          {[0, 1, 2].map((index) => (
+            <div key={index} className="space-y-2">
+              <FieldLabel>Control {index + 2}</FieldLabel>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) =>
+                  onExtraRefChange(index, event.target.files?.[0] ?? null)
+                }
+                className="block w-full text-xs text-zinc-400 file:mr-2 file:rounded-md file:border-0 file:bg-zinc-800 file:px-2 file:py-1.5 file:text-xs file:text-zinc-200"
+              />
+              {extraRefPreviews[index] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={extraRefPreviews[index]!}
+                  alt={`Control ${index + 2}`}
+                  className="max-h-28 rounded-lg border border-zinc-800 object-contain"
+                />
+              ) : null}
+            </div>
+          ))}
+        </div>
       </ToolSection>
 
       <ToolSection title="Structure description">
@@ -342,6 +400,7 @@ export default function ControlNetTool() {
             onSendComfyUi={() =>
               void actions.sendComfyUi(output, null, undefined, {
                 controlImage: refFile,
+                controlImages: [null, ...extraRefFiles],
                 queueParamsBase: {
                   ...handoffQueueParams,
                   controlNetMode: mode,

@@ -599,7 +599,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     profile: "video_motion",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.video_motion,
-    checkpointHint: "wan2.1_t2v_1.3B_fp8_scaled.safetensors",
+    checkpointHint: "wan2.2_t2v_high_noise_14B_fp16.safetensors",
   },
   {
     id: "hunyuan-video",

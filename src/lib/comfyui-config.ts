@@ -2,8 +2,11 @@ import { isQwenLightningModel, patchModelSamplingInWorkflow } from "./model-samp
 import { isPromptStudioProtectedSampler, shouldSkipGlobalSamplerPatch } from "./workflow-enrich-markers";
 import { prepareLightningWorkflowForQueue, prepareQwenEditReferenceImagesForQueue, resolveLightningBf16Loaders } from "./workflow-lightning-queue";
 import { isEditCapableModel, isQwenRapidAioModel } from "./model-denoise-defaults";
-import { buildLightningLoraFilenameMap } from "./workflow-lora-patch";
-import { normalizeLoraLibrary, type LoraLibraryEntry } from "./lora-stack";
+import {
+  buildLightningLoraFilenameMap,
+  loraFilenameImpliesLightning,
+} from "./workflow-lora-patch";
+import { normalizeLoraLibrary, applyLoraStackToWorkflow, type LoraLibraryEntry } from "./lora-stack";
 import {
   classifyPromptEncodeBinding,
   isPromptEncodeNode,
@@ -119,10 +122,14 @@ export type WorkflowParamValues = {
   maskImageFilename?: string;
   controlNetModelFilename?: string;
   controlImageFilename?: string;
+  /** Extra control images for stacked ControlNetApply (index 0 mirrors controlImageFilename). */
+  controlImageFilenames?: string[];
   /** ControlNet preprocessor mode (canny/pose/depth/…) when auto-inserting a chain. */
   controlNetMode?: string;
   /** {{IPADAPTER_IMAGE}} — filename of the identity/style reference image on a LoadImage node. */
   ipAdapterImageFilename?: string;
+  /** Extra IP-Adapter refs for stacked apply chains (index 0 mirrors ipAdapterImageFilename). */
+  ipAdapterImageFilenames?: string[];
   /** {{IPADAPTER_STRENGTH}} — 0–1 weight patched onto IPAdapter-family nodes. */
   ipAdapterStrength?: string | number;
   /** {{IPADAPTER_MODEL}} — optional ipadapter_file filename override. */
@@ -1247,7 +1254,7 @@ export function injectPromptsWithFallbacks(
     availableLoras?: string[] | null;
     qualityProfile?: QueueQualityProfile;
     samplerPresetTier?: ModelSamplerPresetTier;
-    /** Active LoRA stack (strengths/enabled/order) — patched onto non-Lightning workflows. */
+    /** Active LoRA stack (strengths/enabled/order) — patched at queue time (incl. Lightning). */
     loraLibrary?: LoraLibraryEntry[];
     /** ComfyUI object_info node class names — gates the optional CLIPVisionLoader on IP-Adapter insert. */
     availableNodeTypes?: Iterable<string> | null;
@@ -1273,7 +1280,22 @@ export function injectPromptsWithFallbacks(
       customTokenByKey.set(token, { token, value });
     }
   }
-  const mergedCustomTokens = [...customTokenByKey.values()];
+  // Lightning graphs must not resolve style/catalog {{LORA_*}} tokens — they cause
+  // banding / melt even when neutralize later zeros strengths. Keep only Lightning.
+  const isLightningModel = isQwenLightningModel(options?.model);
+  const mergedCustomTokens = [...customTokenByKey.values()].filter((entry) => {
+    if (!isLightningModel) {
+      return true;
+    }
+    const token = entry.token.trim();
+    if (!/^\{\{LORA_/i.test(token)) {
+      return true;
+    }
+    if (/LIGHTNING|LIGHTX2V/i.test(token)) {
+      return true;
+    }
+    return loraFilenameImpliesLightning(entry.value ?? "");
+  });
   let injected = injectWorkflowPlaceholders(
     workflow,
     { ...input, customTokens: mergedCustomTokens },
@@ -1347,7 +1369,9 @@ export function injectPromptsWithFallbacks(
       upscaleModelFilename: input.params?.upscaleModelFilename,
       controlNetModelFilename: input.params?.controlNetModelFilename,
       controlImageFilename: input.params?.controlImageFilename,
+      controlImageFilenames: input.params?.controlImageFilenames,
       ipAdapterImageFilename: input.params?.ipAdapterImageFilename,
+      ipAdapterImageFilenames: input.params?.ipAdapterImageFilenames,
       ipAdapterStrength: input.params?.ipAdapterStrength,
       ipAdapterModelFilename: input.params?.ipAdapterModelFilename,
       availableNodeTypes: options?.availableNodeTypes,
@@ -1387,6 +1411,26 @@ export function injectPromptsWithFallbacks(
       syncLoadersToModel: isLightning ? false : options?.syncWorkflowLoadersToModel,
     },
   );
+
+  // Lightning prep zeros baked-in pack style LoRAs. Re-apply the session/Settings
+  // stack afterward so sidebar picks still load (on neutralized anchors or after
+  // the Lightning node when the graph has no style loaders).
+  if (isLightning) {
+    const loraStackPatch = applyLoraStackToWorkflow(
+      nextWorkflow,
+      options?.loraLibrary,
+      { prompt: input.positive },
+    );
+    nextWorkflow = loraStackPatch.workflow;
+    directPatchCounts = {
+      ...directPatchCounts,
+      ...Object.fromEntries(
+        Object.entries(loraStackPatch.patched).filter(
+          ([, count]) => (count ?? 0) > 0,
+        ),
+      ),
+    };
+  }
 
   // Non-Lightning edit packs/scaffolds still need Figure→encode wiring.
   if (

@@ -63,6 +63,7 @@ export function applyCharacterIdentityBundle(
 ): Partial<SharedToolSettings> & {
   hints?: string;
   negativeProfileId?: string;
+  loraTriggerPhrases?: string[];
 } {
   return {
     model: bundle.model as SharedToolSettings["model"] | undefined,
@@ -77,6 +78,7 @@ export function applyCharacterIdentityBundle(
     ipAdapterImageFilename: bundle.ipAdapterImageFilename,
     ipAdapterStrength: bundle.ipAdapterStrength,
     ipAdapterModelFilename: bundle.ipAdapterModelFilename,
+    loraTriggerPhrases: bundle.loraTriggerPhrases,
   };
 }
 

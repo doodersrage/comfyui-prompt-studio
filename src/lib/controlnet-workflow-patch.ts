@@ -245,3 +245,148 @@ export function insertControlNetChainIfMissing(
     preprocessorClass,
   };
 }
+
+export type ControlNetStackEntry = {
+  controlImageFilename?: string;
+  controlNetModelFilename?: string;
+  controlNetMode?: ControlNetMode | string;
+  strength?: number;
+};
+
+/**
+ * Append additional ControlNetApply chains onto the current sampler
+ * positive/negative links. First missing chain still uses insertControlNetChainIfMissing;
+ * further entries stack Apply nodes.
+ */
+export function insertControlNetStack(
+  workflow: Record<string, unknown>,
+  entries: ControlNetStackEntry[],
+  options?: { availableNodeTypes?: Iterable<string> | null },
+): {
+  workflow: Record<string, unknown>;
+  insertedCount: number;
+  insertedNodeIds: string[];
+} {
+  const usable = entries
+    .map((entry) => ({
+      ...entry,
+      controlImageFilename: entry.controlImageFilename?.trim(),
+    }))
+    .filter((entry) => Boolean(entry.controlImageFilename));
+  if (usable.length === 0) {
+    return { workflow, insertedCount: 0, insertedNodeIds: [] };
+  }
+
+  let current = workflow;
+  const insertedNodeIds: string[] = [];
+  let insertedCount = 0;
+
+  // First entry: classic insert-if-missing (no-op when graph already has ControlNet).
+  const first = insertControlNetChainIfMissing(current, {
+    controlImageFilename: usable[0]!.controlImageFilename,
+    controlNetMode: usable[0]!.controlNetMode,
+    availableNodeTypes: options?.availableNodeTypes,
+  });
+  current = first.workflow;
+  if (first.inserted) {
+    insertedCount += 1;
+    insertedNodeIds.push(...first.insertedNodeIds);
+  }
+
+  // Additional entries always append a new Apply on the latest sampler cond links.
+  for (let index = 1; index < usable.length; index += 1) {
+    const entry = usable[index]!;
+    const typed = current as Record<string, WorkflowNode>;
+    const availableTypes = options?.availableNodeTypes
+      ? options.availableNodeTypes instanceof Set
+        ? options.availableNodeTypes
+        : new Set(options.availableNodeTypes)
+      : undefined;
+    if (availableTypes && !availableTypes.has("ControlNetApply")) {
+      break;
+    }
+    const chain = findPrimarySamplerCondLinks(typed);
+    if (!chain) {
+      break;
+    }
+
+    const next = structuredClone(current) as Record<string, WorkflowNode>;
+    const tokenSuffix = index + 1;
+    const imageToken =
+      tokenSuffix === 2 ? "{{CONTROL_IMAGE_2}}" : `{{CONTROL_IMAGE_${tokenSuffix}}}`;
+    const modelToken =
+      tokenSuffix === 2 ? "{{CONTROLNET_MODEL_2}}" : `{{CONTROLNET_MODEL_${tokenSuffix}}}`;
+
+    const loadImageId = nextWorkflowNodeId(next);
+    next[loadImageId] = {
+      class_type: "LoadImage",
+      inputs: {
+        image: entry.controlImageFilename
+          ? entry.controlImageFilename
+          : imageToken,
+      },
+      _meta: { title: `Prompt Studio — Control image ${tokenSuffix}` },
+    };
+    insertedNodeIds.push(loadImageId);
+
+    const preprocessorClass = resolveControlNetPreprocessorClass(
+      entry.controlNetMode,
+      availableTypes,
+    );
+    let imageSourceId = loadImageId;
+    if (preprocessorClass) {
+      const preprocessorId = nextWorkflowNodeId(next);
+      next[preprocessorId] = {
+        class_type: preprocessorClass,
+        inputs: {
+          image: [loadImageId, 0],
+          resolution: 512,
+        },
+        _meta: { title: `Prompt Studio — ${preprocessorClass}` },
+      };
+      insertedNodeIds.push(preprocessorId);
+      imageSourceId = preprocessorId;
+    }
+
+    const loaderId = nextWorkflowNodeId(next);
+    next[loaderId] = {
+      class_type: "ControlNetLoader",
+      inputs: {
+        control_net_name: entry.controlNetModelFilename?.trim() || modelToken,
+      },
+      _meta: { title: `Prompt Studio — ControlNet loader ${tokenSuffix}` },
+    };
+    insertedNodeIds.push(loaderId);
+
+    const strength =
+      typeof entry.strength === "number" && Number.isFinite(entry.strength)
+        ? Math.min(2, Math.max(0, entry.strength))
+        : 1;
+    const applyId = nextWorkflowNodeId(next);
+    next[applyId] = {
+      class_type: "ControlNetApply",
+      inputs: {
+        strength,
+        start_percent: 0,
+        end_percent: 1,
+        positive: [chain.positiveLinkId, 0],
+        negative: [chain.negativeLinkId, 0],
+        control_net: [loaderId, 0],
+        image: [imageSourceId, 0],
+      },
+      _meta: { title: `Prompt Studio — ControlNet apply ${tokenSuffix}` },
+    };
+    insertedNodeIds.push(applyId);
+
+    const samplerNode = next[chain.samplerId];
+    if (samplerNode?.inputs) {
+      samplerNode.inputs.positive = [applyId, 0];
+      samplerNode.inputs.negative = [applyId, 1];
+    }
+
+    current = next;
+    insertedCount += 1;
+  }
+
+  return { workflow: current, insertedCount, insertedNodeIds };
+}

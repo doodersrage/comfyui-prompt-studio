@@ -162,12 +162,16 @@ function shouldSkipUpscaleEnrich(
   workflow: Record<string, WorkflowNode>,
   qualityProfile?: QueueQualityProfile,
   model?: string,
+  hasInputImage?: boolean,
 ): boolean {
   if (!profileUsesUpscaleEnrich(qualityProfile)) {
     return true;
   }
 
-  const targetScale = upscaleScaleForProfile(qualityProfile, { model });
+  const targetScale = upscaleScaleForProfile(qualityProfile, {
+    model,
+    hasInputImage,
+  });
   for (const node of Object.values(workflow)) {
     const classType = node.class_type ?? "";
     if (!UPSCALE_NODE_TYPES.has(classType)) {
@@ -740,12 +744,20 @@ function enrichLanczosUpscaleNodes(input: {
   qualityProfile?: QueueQualityProfile;
   enrichSharpen?: boolean;
   model?: string;
+  hasInputImage?: boolean;
 }): WorkflowQueueOptimizeChange[] {
   // Lightning Final/Max: soft Lanczos only (ImageSharpen polish stays off).
   if (!profileUsesUpscaleEnrich(input.qualityProfile)) {
     return [];
   }
-  if (shouldSkipUpscaleEnrich(input.workflow, input.qualityProfile, input.model)) {
+  if (
+    shouldSkipUpscaleEnrich(
+      input.workflow,
+      input.qualityProfile,
+      input.model,
+      input.hasInputImage,
+    )
+  ) {
     return [];
   }
 
@@ -754,6 +766,7 @@ function enrichLanczosUpscaleNodes(input: {
   const scaleBy = outputUpscaleScaleAfterLatent(input.qualityProfile, {
     model: input.model,
     priorLatentScale,
+    hasInputImage: input.hasInputImage,
   });
   if (scaleBy <= 1) {
     return [];
@@ -947,9 +960,15 @@ function enrichUpscaleNodes(input: {
   model?: string;
   availableUpscaleModels?: string[] | null;
   supportsNeuralUpscaleTileSize?: boolean;
+  hasInputImage?: boolean;
 }): WorkflowQueueOptimizeChange[] {
   // Rapid AIO / Edit Lightning T2I: skip Final/Max output upscale (moiré or mush).
-  if (profileSkipsOutputUpscaleForModel(input.qualityProfile, { model: input.model })) {
+  if (
+    profileSkipsOutputUpscaleForModel(input.qualityProfile, {
+      model: input.model,
+      hasInputImage: input.hasInputImage,
+    })
+  ) {
     if (isQwenRapidAioModel(input.model)) {
       return [
         {
@@ -979,6 +998,7 @@ function enrichUpscaleNodes(input: {
       qualityProfile: input.qualityProfile,
       enrichSharpen: input.enrichSharpen,
       model: input.model,
+      hasInputImage: input.hasInputImage,
     });
   }
 
@@ -1159,6 +1179,7 @@ export function enrichWorkflowGraph(input: {
   availableUpscaleModels?: string[] | null;
   availableCheckpoints?: string[] | null;
   supportsNeuralUpscaleTileSize?: boolean;
+  hasInputImage?: boolean;
 }): {
   workflow: Record<string, unknown>;
   changes: WorkflowQueueOptimizeChange[];
@@ -1210,6 +1231,7 @@ export function enrichWorkflowGraph(input: {
         model: input.model,
         availableUpscaleModels: input.availableUpscaleModels,
         supportsNeuralUpscaleTileSize: input.supportsNeuralUpscaleTileSize,
+        hasInputImage: input.hasInputImage,
       }),
     );
   }

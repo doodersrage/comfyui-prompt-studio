@@ -6,7 +6,7 @@ import {
   mergeCustomWorkflowTokens,
   collectLightningLoraTokenFromWorkflowLibrary,
 } from "./comfyui-workflow-files";
-import { syncLightningLoraLibraryEntry } from "./comfyui-settings";
+import { syncLightningLoraLibraryEntry, comfyUiSettingsToRuntime, loadComfyUiSettings } from "./comfyui-settings";
 import {
   loadSettingsCache,
   saveSharedSettings,
@@ -245,11 +245,21 @@ export function resolveRuntimeForModel(
   // else built-in scaffold. Inventory fills/heals loader maps; family presets seed params.
   if (shared.useSystemWorkflows === true) {
     const workflowFiles = loadComfyWorkflowFiles();
+    // System packs replace workflow JSON / loader maps but must keep the session
+    // LoRA stack from Settings — otherwise Lightning neutralize leaves style LoRAs
+    // at 0 and sidebar picks never re-apply.
+    const settingsRuntime = comfyUiSettingsToRuntime(loadComfyUiSettings());
     const base = applySystemWorkflowToRuntime(
       model,
       shared,
       workflowFiles,
-      sharedQueueFlags(shared, model),
+      sharedQueueFlags(shared, model, {
+        loraLibrary: settingsRuntime?.loraLibrary,
+        apiUrl: settingsRuntime?.apiUrl,
+        ...(settingsRuntime?.customTokens?.length
+          ? { customTokens: settingsRuntime.customTokens }
+          : {}),
+      }),
       inventory,
       { tool },
     );
@@ -328,14 +338,23 @@ export function resolveRuntimeForQueue(
     ignoreManualWorkflow: remapped || options?.ignoreManualWorkflow,
   });
   const shared = loadSettingsCache().shared;
+  const resolvedProfile = resolveQueueQualityProfile({
+    tool,
+    global: shared.queueQualityProfile,
+    toolProfiles: shared.toolQueueQualityProfiles,
+    model: queueModel,
+  });
   const withProfile: ComfyUiRuntimeConfig = {
     ...base,
-    queueQualityProfile: resolveQueueQualityProfile({
-      tool,
-      global: shared.queueQualityProfile,
-      toolProfiles: shared.toolQueueQualityProfiles,
-      model: queueModel,
-    }),
+    queueQualityProfile: resolvedProfile,
+    // System packs may disable enrich when the *global* profile is Draft. Tool-level
+    // Final/Max (e.g. Compose) must still get Lanczos / polish enrich.
+    ...(resolvedProfile === "final" || resolvedProfile === "max"
+      ? {
+          workflowGraphEnrich:
+            shared.workflowGraphEnrich !== false ? true : false,
+        }
+      : {}),
   };
 
   if (!remapped) {

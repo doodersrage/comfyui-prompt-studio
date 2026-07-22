@@ -161,6 +161,27 @@ describe("workflow direct patch", () => {
     assert.equal(result.patched.emptySd3Latent, 1);
   });
 
+  it("converts EmptyFlux2LatentImage to EmptySD3LatentImage for Qwen edit packs", () => {
+    const workflow = {
+      "120": {
+        class_type: "EmptyFlux2LatentImage",
+        inputs: { width: 664, height: 664, batch_size: 1 },
+      },
+    };
+    const result = patchWorkflowDirectParams(workflow, {
+      model: "qwen-image-edit-2511",
+      params: { width: 1328, height: 1328 },
+    });
+    const node = result.workflow["120"] as {
+      class_type: string;
+      inputs: { width: number; height: number };
+    };
+    assert.equal(node.class_type, "EmptySD3LatentImage");
+    assert.equal(node.inputs.width, 1328);
+    assert.equal(node.inputs.height, 1328);
+    assert.equal(result.patched.emptySd3Latent, 1);
+  });
+
   it("patches checkpoint and unet loader placeholders without clobbering concrete filenames", () => {
     const workflow = {
       "1": {

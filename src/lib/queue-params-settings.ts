@@ -62,6 +62,7 @@ export type ResolveQueueParamsOptions = {
   inputImageFilenames?: string[];
   maskImageFilename?: string;
   controlImageFilename?: string;
+  controlImageFilenames?: string[];
   qualityProfile?: QueueQualityProfile;
   workflow?: Record<string, unknown>;
 };
@@ -130,7 +131,7 @@ function normalizeResolveQueueParamsInput(
   if (!input) {
     return {};
   }
-  if ("model" in input || "base" in input || "samplerPreset" in input || "resolutionOrientation" in input || "resolutionSizeTier" in input || "tool" in input || "inputImageFilename" in input || "inputImageFilenames" in input || "maskImageFilename" in input || "controlImageFilename" in input || "qualityProfile" in input || "workflow" in input) {
+  if ("model" in input || "base" in input || "samplerPreset" in input || "resolutionOrientation" in input || "resolutionSizeTier" in input || "tool" in input || "inputImageFilename" in input || "inputImageFilenames" in input || "maskImageFilename" in input || "controlImageFilename" in input || "controlImageFilenames" in input || "qualityProfile" in input || "workflow" in input) {
     return input as ResolveQueueParamsOptions;
   }
   return { base: input as WorkflowParamValues };
@@ -139,7 +140,7 @@ function normalizeResolveQueueParamsInput(
 export function resolveQueueParams(
   input?: WorkflowParamValues | ResolveQueueParamsOptions,
 ): WorkflowParamValues {
-  const { model, base, samplerPreset, resolutionOrientation, resolutionSizeTier, tool, inputImageFilename, inputImageFilenames, maskImageFilename, controlImageFilename, qualityProfile, workflow } =
+  const { model, base, samplerPreset, resolutionOrientation, resolutionSizeTier, tool, inputImageFilename, inputImageFilenames, maskImageFilename, controlImageFilename, controlImageFilenames, qualityProfile, workflow } =
     normalizeResolveQueueParamsInput(input);
   const settings = loadQueueParamsSettings();
   const shared = loadSettingsCache().shared;
@@ -220,7 +221,9 @@ export function resolveQueueParams(
   }
 
   if (model) {
-    const comfySettings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings());
+    const comfySettings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings(), {
+      activeOnly: true,
+    });
     const selectedWorkflowId = getSelectedWorkflowFileId();
     const workflowFile = selectedWorkflowId
       ? findComfyWorkflowFile(selectedWorkflowId)
@@ -280,10 +283,20 @@ export function resolveQueueParams(
       merged.controlNetModelFilename = controlNetModel;
     }
 
-    // Session-level IP-Adapter reference — a single active reference per browser
-    // session (unlike ControlNet's per-model map), so it forwards as-is.
+    // Session-level IP-Adapter reference — primary + optional multi-ref stack.
     if (shared.ipAdapterImageFilename?.trim()) {
       merged.ipAdapterImageFilename = shared.ipAdapterImageFilename.trim();
+    }
+    const ipAdapterStack = (shared.ipAdapterImageFilenames ?? [])
+      .map((name) => name?.trim())
+      .filter(Boolean) as string[];
+    if (ipAdapterStack.length > 0) {
+      merged.ipAdapterImageFilenames = ipAdapterStack;
+      if (!merged.ipAdapterImageFilename) {
+        merged.ipAdapterImageFilename = ipAdapterStack[0];
+      }
+    } else if (merged.ipAdapterImageFilename) {
+      merged.ipAdapterImageFilenames = [merged.ipAdapterImageFilename];
     }
     if (shared.ipAdapterStrength != null) {
       merged.ipAdapterStrength = shared.ipAdapterStrength;
@@ -330,8 +343,25 @@ export function resolveQueueParams(
     const resolvedControlImage =
       controlImageFilename?.trim() ||
       base?.controlImageFilename?.trim();
-    if (resolvedControlImage) {
-      merged.controlImageFilename = resolvedControlImage;
+    const controlStack = (() => {
+      const fromArg = (controlImageFilenames ?? [])
+        .map((entry) => entry?.trim() ?? "")
+        .filter(Boolean);
+      const fromBase = (base?.controlImageFilenames ?? [])
+        .map((entry) => entry?.trim() ?? "")
+        .filter(Boolean);
+      const list = (fromArg.length > 0 ? fromArg : fromBase).slice(0, 4);
+      if (list.length === 0 && resolvedControlImage) {
+        return [resolvedControlImage];
+      }
+      if (resolvedControlImage && list[0] !== resolvedControlImage) {
+        list[0] = resolvedControlImage;
+      }
+      return list;
+    })();
+    if (controlStack.length > 0) {
+      merged.controlImageFilename = controlStack[0];
+      merged.controlImageFilenames = controlStack;
     }
 
     const hasInputImage = Boolean(merged.inputImageFilename);

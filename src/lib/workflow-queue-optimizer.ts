@@ -366,6 +366,8 @@ export function optimizeWorkflowForQueue(input: {
   webpSaveAdapters?: import("./workflow-save-format").WebpSaveAdapter[] | null;
   /** When true (default), Draft queues prefer WebP save nodes when installed. */
   compactDraftSaves?: boolean;
+  /** When true, Edit-2511 Lightning Final/Max may add mild Lanczos (Compose I2I). */
+  hasInputImage?: boolean;
 }): WorkflowQueueOptimizeResult {
   const enabled = input.enabled !== false;
   const enrichGraph = input.enrichGraph !== false;
@@ -432,7 +434,7 @@ export function optimizeWorkflowForQueue(input: {
     changes.push({
       kind: "audit",
       severity: "info",
-      message: `Converted ${latentNormalize.converted} EmptyLatentImage node(s) to EmptySD3LatentImage for ${input.model ?? "Qwen/SD3"}.`,
+      message: `Converted ${latentNormalize.converted} empty-latent node(s) to EmptySD3LatentImage for ${input.model ?? "Qwen/SD3"}.`,
     });
   }
 
@@ -447,6 +449,7 @@ export function optimizeWorkflowForQueue(input: {
       profileUsesUpscaleEnrich(input.qualityProfile) &&
       !profileSkipsOutputUpscaleForModel(input.qualityProfile, {
         model: input.model,
+        hasInputImage: input.hasInputImage,
       });
 
     let skipLightningLanczos = false;
@@ -469,6 +472,7 @@ export function optimizeWorkflowForQueue(input: {
         enrichSdxlRefiner: false,
         enrichSharpen: false,
         enrichNeuralPolish: false,
+        hasInputImage: input.hasInputImage,
       });
       workflow = enriched.workflow;
       changes.push(...enriched.changes);
@@ -593,6 +597,7 @@ export function optimizeWorkflowForQueue(input: {
       availableUpscaleModels: input.availableUpscaleModels,
       availableCheckpoints: input.availableCheckpoints,
       supportsNeuralUpscaleTileSize: input.supportsNeuralUpscaleTileSize,
+      hasInputImage: input.hasInputImage,
     });
     workflow = enriched.workflow;
     workflowJson = stringifyWorkflowCompact(workflow);

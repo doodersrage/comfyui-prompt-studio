@@ -69,4 +69,42 @@ describe("comfyui settings lora migration", () => {
       true,
     );
   });
+
+  it("omits disabled LoRAs from activeOnly token merge but keeps Lightning", () => {
+    const merged = mergeLoraLibraryIntoCustomTokens(
+      {
+        useServerDefaults: false,
+        loraLibrary: [
+          {
+            id: "style",
+            label: "Style",
+            triggerPhrase: "",
+            tokenValue: "style.safetensors",
+            enabled: false,
+          },
+          {
+            id: "LIGHTNING",
+            label: "Lightning",
+            triggerPhrase: "",
+            tokenValue: "qwen_lightning_8steps.safetensors",
+            enabled: false,
+          },
+        ],
+      },
+      { activeOnly: true },
+    );
+
+    assert.equal(
+      merged.customTokens?.some((entry) => entry.token === "{{LORA_style}}"),
+      false,
+    );
+    assert.equal(
+      merged.customTokens?.some(
+        (entry) =>
+          entry.token === "{{LORA_LIGHTNING}}" &&
+          entry.value === "qwen_lightning_8steps.safetensors",
+      ),
+      true,
+    );
+  });
 });
