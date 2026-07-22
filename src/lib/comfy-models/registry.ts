@@ -599,6 +599,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     profile: "video_motion",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.video_motion,
+    checkpointHint: "wan2.1_t2v_1.3B_fp8_scaled.safetensors",
   },
   {
     id: "hunyuan-video",
@@ -611,6 +612,20 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     profile: "video_motion",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.video_motion,
+    checkpointHint: "hunyuan_video_t2v_720p_bf16.safetensors",
+  },
+  {
+    id: "ltx-video",
+    label: "LTX Video",
+    category: "video",
+    comfyNode: "LTXVImgToVideo",
+    comfyClass: "LTXV",
+    description:
+      "LTX Video — concise motion prompts with stable subject identity across frames.",
+    profile: "video_motion",
+    referenceTokenLimit: 512,
+    limitsByDetail: PROFILE_LIMITS.video_motion,
+    checkpointHint: "ltx-video-2b-v0.9.safetensors",
   },
 ];
 

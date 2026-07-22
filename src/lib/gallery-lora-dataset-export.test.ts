@@ -81,6 +81,26 @@ describe("buildLoraCaptionText", () => {
       "courier, night city",
     );
   });
+
+  it("appends vision tags in tags mode", () => {
+    assert.equal(
+      buildLoraCaptionText(
+        { prompt: "a courier", visionTags: ["night", "city"] },
+        { captionMode: "tags" },
+      ),
+      "a courier, night, city",
+    );
+  });
+
+  it("prefers vision caption in vision mode", () => {
+    assert.equal(
+      buildLoraCaptionText(
+        { prompt: "ignored prompt" },
+        { captionMode: "vision", visionCaption: "silver courier under neon rain" },
+      ),
+      "silver courier under neon rain",
+    );
+  });
 });
 
 describe("sanitizeLoraDatasetSlug", () => {

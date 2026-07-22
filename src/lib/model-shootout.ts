@@ -3,6 +3,7 @@
 import type { ComfyImageModel } from "./comfy-models/client";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
+import { postComfyUiPrompt } from "./comfyui-queue-request";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { modelsInSameFamily } from "./model-workflow-map";
 import { resolveQueueParams } from "./queue-params-settings";
@@ -61,38 +62,33 @@ export async function queueSameSeedShootout(input: {
         heldCount += 1;
         continue;
       }
-      const response = await fetch("/api/comfyui", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: input.prompt,
-          negativePrompt: input.negativePrompt,
-          params,
-          ...(runtime ? { comfy: runtime } : {}),
-        }),
+      const queuedJob = await postComfyUiPrompt({
+        prompt: input.prompt,
+        negativePrompt: input.negativePrompt,
+        params,
+        ...(runtime ? { comfy: runtime } : {}),
       });
-      const data = (await response.json()) as {
-        ok?: boolean;
-        promptId?: string;
-        error?: string;
-      };
-      if (!response.ok || !data.promptId) {
-        errors.push(data.error ?? `Failed for ${modelId}`);
+      if (!queuedJob.ok || !queuedJob.promptId) {
+        queuedJob.releaseLiveSocket();
+        errors.push(queuedJob.error ?? `Failed for ${modelId}`);
         continue;
       }
       registerComfyGalleryJob({
-        promptId: data.promptId,
+        promptId: queuedJob.promptId,
         prompt: input.prompt,
         negativePrompt: input.negativePrompt,
         tool: "shootout",
         model: modelId,
-        comfyUrl: (data as { comfyUrl?: string }).comfyUrl ?? "http://127.0.0.1:8188",
+        comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+        clientId: queuedJob.clientId,
         queueParams: params,
         queueQualityProfile: runtime.queueQualityProfile,
       });
-      void scheduleComfyGalleryPoll(data.promptId, {
-        comfyUrl: (data as { comfyUrl?: string }).comfyUrl,
+      void scheduleComfyGalleryPoll(queuedJob.promptId, {
+        comfyUrl: queuedJob.comfyUrl,
+        clientId: queuedJob.clientId,
       });
+      queuedJob.releaseLiveSocket();
       queued += 1;
     } catch (error) {
       errors.push(error instanceof Error ? error.message : `Failed for ${modelId}`);

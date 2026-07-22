@@ -9,6 +9,7 @@ import {
   COMFYUI_GALLERY_UPDATED_EVENT,
 } from "@/lib/comfyui-gallery";
 import { scheduleComfyGalleryPoll } from "@/lib/comfyui-gallery-poller";
+import { postComfyUiPrompt } from "@/lib/comfyui-queue-request";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   clearHeldMaxJobs,
@@ -108,46 +109,41 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
               profile: job.qualityProfile,
               runtime: job.comfy,
             });
-            const response = await fetch("/api/comfyui", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                prompt: job.prompt,
-                negativePrompt: job.negativePrompt,
-                model: job.model,
-                params: job.params,
-                ...(vramGuard.runtime
-                  ? { comfy: vramGuard.runtime }
-                  : job.comfy
-                    ? { comfy: job.comfy }
-                    : {}),
-              }),
+            const queued = await postComfyUiPrompt({
+              prompt: job.prompt,
+              negativePrompt: job.negativePrompt,
+              model: job.model,
+              params: job.params,
+              ...(vramGuard.runtime
+                ? { comfy: vramGuard.runtime }
+                : job.comfy
+                  ? { comfy: job.comfy }
+                  : {}),
             });
-            const data = (await response.json()) as {
-              promptId?: string;
-              comfyUrl?: string;
-              error?: string;
-            };
-            if (!response.ok || !data.promptId) {
-              setStatus(data.error ?? "Held generate flush failed.");
+            if (!queued.ok || !queued.promptId) {
+              queued.releaseLiveSocket();
+              setStatus(queued.error ?? "Held generate flush failed.");
               continue;
             }
             const { registerComfyGalleryJob } = await import(
               "@/lib/comfyui-gallery-client"
             );
             registerComfyGalleryJob({
-              promptId: data.promptId,
+              promptId: queued.promptId,
               prompt: job.prompt,
               negativePrompt: job.negativePrompt,
               tool: job.tool ?? "held-max",
               model: job.model,
-              comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
+              comfyUrl: queued.comfyUrl ?? "http://127.0.0.1:8188",
+              clientId: queued.clientId,
               queueParams: job.params,
               queueQualityProfile: job.qualityProfile,
             });
-            void scheduleComfyGalleryPoll(data.promptId, {
-              comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
+            void scheduleComfyGalleryPoll(queued.promptId, {
+              comfyUrl: queued.comfyUrl ?? "http://127.0.0.1:8188",
+              clientId: queued.clientId,
             });
+            queued.releaseLiveSocket();
             removeHeldMaxJob(job.id);
             flushed += 1;
             continue;

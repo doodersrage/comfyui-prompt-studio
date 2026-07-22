@@ -850,6 +850,142 @@ export function buildControlNetWorkflowScaffold(
   };
 }
 
+/**
+ * FaceDetailer-ready scaffold: checkpoint + encode + LoadImage + SaveImage with
+ * portable tokens. Insert Impact FaceDetailer / ReActor between image load and
+ * save (bbox detector + FaceDetailer node), then pin `faceDetailer=<workflowId>`.
+ */
+export function buildFaceDetailerWorkflowScaffold(): WorkflowScaffoldResult {
+  const workflow = {
+    "1": {
+      class_type: "CheckpointLoaderSimple",
+      inputs: { ckpt_name: "{{CHECKPOINT}}" },
+      _meta: { title: "Load Checkpoint (face detail)" },
+    },
+    "2": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: "{{POSITIVE}}", clip: ["1", 1] },
+      _meta: { title: "Positive (optional FaceDetailer guide)" },
+    },
+    "3": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: "{{NEGATIVE}}", clip: ["1", 1] },
+      _meta: { title: "Negative (optional FaceDetailer guide)" },
+    },
+    "4": {
+      class_type: "LoadImage",
+      inputs: { image: "{{FACE_DETAIL_IMAGE}}" },
+      _meta: { title: "Face detail input" },
+    },
+    "5": {
+      class_type: "SaveImage",
+      inputs: {
+        filename_prefix: "PromptStudio-face-detail",
+        images: ["4", 0],
+      },
+      _meta: {
+        title:
+          "Save — insert Impact FaceDetailer/ReActor before this; keep {{FACE_DETAIL_IMAGE}} / {{FACE_DETAIL_DENOISE}}",
+      },
+    },
+  };
+  return {
+    json: JSON.stringify(workflow, null, 2),
+    source: "template",
+    model: "sdxl-base",
+    category: "sdxl",
+    bindingChanges: 0,
+    notes: [
+      "FaceDetailer scaffold: Checkpoint + CLIP encodes + {{FACE_DETAIL_IMAGE}} + SaveImage.",
+      "In ComfyUI, insert UltralyticsDetectorProvider (or bbox) + FaceDetailer between LoadImage and SaveImage; wire model/clip/vae from node 1 and denoise from {{FACE_DETAIL_DENOISE}}.",
+      "Pin faceDetailer=<workflowId> in Settings → model workflow map after saving.",
+    ],
+  };
+}
+
+/**
+ * InstantID / PuLID bring-your-own scaffold — LoadImage identity ref + save stub.
+ * Replace the middle with your InstantID/PuLID node pack, then import into the library.
+ */
+export function buildIdentityWorkflowScaffold(
+  kind: "instantid" | "pulid" = "instantid",
+): WorkflowScaffoldResult {
+  const label = kind === "pulid" ? "PuLID" : "InstantID";
+  const workflow = {
+    "1": {
+      class_type: "CheckpointLoaderSimple",
+      inputs: { ckpt_name: "{{CHECKPOINT}}" },
+      _meta: { title: `Load Checkpoint (${label})` },
+    },
+    "2": {
+      class_type: "LoadImage",
+      inputs: { image: "{{IPADAPTER_IMAGE}}" },
+      _meta: { title: `${label} identity reference` },
+    },
+    "3": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: "{{POSITIVE}}", clip: ["1", 1] },
+      _meta: { title: "Positive Prompt" },
+    },
+    "4": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: "{{NEGATIVE}}", clip: ["1", 1] },
+      _meta: { title: "Negative Prompt" },
+    },
+    "5": {
+      class_type: "EmptyLatentImage",
+      inputs: {
+        width: "{{WIDTH}}",
+        height: "{{HEIGHT}}",
+        batch_size: 1,
+      },
+      _meta: { title: "Empty Latent" },
+    },
+    "6": {
+      class_type: "KSampler",
+      inputs: {
+        seed: "{{SEED}}",
+        steps: "{{STEPS}}",
+        cfg: "{{CFG}}",
+        sampler_name: "{{SAMPLER}}",
+        scheduler: "{{SCHEDULER}}",
+        denoise: "{{DENOISE}}",
+        model: ["1", 0],
+        positive: ["3", 0],
+        negative: ["4", 0],
+        latent_image: ["5", 0],
+      },
+      _meta: {
+        title: `KSampler — insert ${label} apply between checkpoint and sampler`,
+      },
+    },
+    "7": {
+      class_type: "VAEDecode",
+      inputs: { samples: ["6", 0], vae: ["1", 2] },
+      _meta: { title: "VAE Decode" },
+    },
+    "8": {
+      class_type: "SaveImage",
+      inputs: {
+        filename_prefix: `PromptStudio-${kind}`,
+        images: ["7", 0],
+      },
+      _meta: { title: "Save Image" },
+    },
+  };
+  return {
+    json: JSON.stringify(workflow, null, 2),
+    source: "template",
+    model: "sdxl-base",
+    category: "sdxl",
+    bindingChanges: 0,
+    notes: [
+      `${label} BYO scaffold — identity image uses {{IPADAPTER_IMAGE}}; Studio does not auto-insert InstantID/PuLID nodes.`,
+      `Wire your ComfyUI ${label} apply node between checkpoint and KSampler, keep the identity LoadImage, then import this JSON into the workflow library.`,
+    ],
+  };
+}
+
 function genericScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
   return {
     "1": {
@@ -901,17 +1037,37 @@ function genericScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unkn
   };
 }
 
+type VideoLatentClass =
+  | "EmptyHunyuanLatentVideo"
+  | "EmptyLTXVLatentVideo"
+  | "EmptyMochiLatentVideo";
+
+function resolveVideoLatentClass(model: ComfyImageModel | string): VideoLatentClass {
+  if (model === "ltx-video" || /ltx/i.test(String(model))) {
+    return "EmptyLTXVLatentVideo";
+  }
+  if (/mochi/i.test(String(model))) {
+    return "EmptyMochiLatentVideo";
+  }
+  // WAN and Hunyuan both commonly use EmptyHunyuanLatentVideo in stock Comfy graphs.
+  return "EmptyHunyuanLatentVideo";
+}
+
 /**
- * Starter graph for WAN Video / Hunyuan Video. Ships as a plain T2V graph
- * (CheckpointLoaderSimple → CLIPTextEncode → EmptyHunyuanLatentVideo → KSampler),
- * but node "900" (LoadImage, title "Init Image") is recognized by the queue-time
- * auto-wiring in `patchVideoImageToVideoWiringInWorkflow` (workflow-direct-patch.ts):
- * whenever this graph is queued for a `category: "video"` model *with* an init
- * image resolved, a built-in `WanImageToVideo` / `HunyuanImageToVideo` node is
- * spliced in automatically — VAE-encoding node 900's image into the sampler's
- * start_image/latent slot — so this single scaffold serves both T2V and I2V.
+ * Starter T2V graph for video models. Node "900" (LoadImage, title "Init Image")
+ * is recognized by queue-time `patchVideoImageToVideoWiringInWorkflow` for WAN/Hunyuan I2V.
+ * LTX scaffolds use EmptyLTXVLatentVideo; I2V auto-splice stays WAN/Hunyuan-only.
  */
-function videoScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+function videoScaffold(
+  tokens: WorkflowPlaceholderTokens,
+  model: ComfyImageModel | string = "wan-video",
+): Record<string, unknown> {
+  const latentClass = resolveVideoLatentClass(model);
+  const i2vHint =
+    latentClass === "EmptyLTXVLatentVideo"
+      ? "Init Image (optional — import an LTX I2V graph for image-to-video; auto-splice is WAN/Hunyuan only)"
+      : "Init Image (optional — auto-wired into WanImageToVideo/HunyuanImageToVideo at queue time)";
+
   return {
     "1": {
       class_type: "CheckpointLoaderSimple",
@@ -931,12 +1087,10 @@ function videoScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknow
     "900": {
       class_type: "LoadImage",
       inputs: { image: tokens.initImage },
-      _meta: {
-        title: "Init Image (optional — auto-wired into WanImageToVideo/HunyuanImageToVideo at queue time)",
-      },
+      _meta: { title: i2vHint },
     },
     "4": {
-      class_type: "EmptyHunyuanLatentVideo",
+      class_type: latentClass,
       inputs: {
         width: tokens.width,
         height: tokens.height,
@@ -1014,8 +1168,10 @@ export function buildWorkflowScaffoldForModel(
         : category === "qwen"
           ? qwenScaffold(resolvedTokens)
           : category === "video"
-            ? videoScaffold(resolvedTokens)
+            ? videoScaffold(resolvedTokens, model)
             : genericScaffold(resolvedTokens);
+  const videoLatentClass =
+    category === "video" ? resolveVideoLatentClass(model) : null;
   const notes = [
     "Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.",
     useEditScaffold
@@ -1031,7 +1187,7 @@ export function buildWorkflowScaffoldForModel(
           ? "Lightning scaffold uses UNETLoader + Lightning LoRA ({{LORA_LIGHTNING}}) + ModelSamplingAuraFlow (shift ~3). Map your 4/8-step bf16 Lightning LoRA in Settings → LoRA library."
           : "Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs."
         : category === "video"
-          ? "Video scaffold uses EmptyHunyuanLatentVideo ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). {{INIT_IMAGE}} loads an optional reference frame — queue with an init image set (Video tool's \"Init image\" field) and Send to ComfyUI auto-wires node 900 into a built-in WanImageToVideo/HunyuanImageToVideo node for real I2V; queue without one and it stays a plain T2V graph."
+          ? `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom graph.`
           : "Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.",
   ];
 

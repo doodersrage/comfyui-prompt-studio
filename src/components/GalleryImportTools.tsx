@@ -18,6 +18,7 @@ import {
   sidecarRequeueContext,
   type PromptSidecar,
 } from "@/lib/prompt-sidecar";
+import { resolveComfyUiRuntime } from "@/lib/comfyui-runtime";
 import { toastHeldMax } from "@/lib/app-toast";
 import { Button } from "@/components/ui/Button";
 import QueueOrchestrationPanel from "@/components/QueueOrchestrationPanel";
@@ -57,11 +58,12 @@ export default function GalleryImportTools() {
           loadingLabel="Importing ComfyUI history"
           onClick={() => {
             setHistoryLoading(true);
-            void fetchComfyHistoryImports(40)
+            const stickyUrl = resolveComfyUiRuntime()?.apiUrl?.trim();
+            void fetchComfyHistoryImports(40, stickyUrl)
               .then((payload) => {
                 const result = importComfyGalleryFromHistory(payload.items ?? []);
                 setImportStatus(
-                  `Imported ${result.imported} job(s) from ComfyUI history (${result.skipped} duplicate(s) skipped).`,
+                  `Imported ${result.imported}, upgraded ${result.upgraded}, skipped ${result.skipped} from ComfyUI history.`,
                 );
               })
               .catch((error) => {
@@ -103,6 +105,7 @@ export default function GalleryImportTools() {
                   sourceImageUrl: requeue.sourceImageUrl,
                   maskImageUrl: requeue.maskImageUrl,
                   storedQualityProfile: requeue.queueQualityProfile,
+                  workflowJson: requeue.workflowJson,
                   newSeed: false,
                   onStatus: setImportStatus,
                 }).then((result) => {
@@ -132,6 +135,7 @@ export default function GalleryImportTools() {
                   sourceImageUrl: requeue.sourceImageUrl,
                   maskImageUrl: requeue.maskImageUrl,
                   storedQualityProfile: requeue.queueQualityProfile,
+                  workflowJson: requeue.workflowJson,
                   newSeed: true,
                   onStatus: setImportStatus,
                 }).then((result) => {

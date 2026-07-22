@@ -342,7 +342,10 @@ export default function ControlNetTool() {
             onSendComfyUi={() =>
               void actions.sendComfyUi(output, null, undefined, {
                 controlImage: refFile,
-                queueParamsBase: handoffQueueParams,
+                queueParamsBase: {
+                  ...handoffQueueParams,
+                  controlNetMode: mode,
+                },
               })
             }
             onFixPrompt={() => void actions.fixPrompt(output, setOutput, hintText)}

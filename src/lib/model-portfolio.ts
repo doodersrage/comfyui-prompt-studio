@@ -4,6 +4,7 @@ import type { ComfyImageModel } from "./comfy-models/client";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
+import { postComfyUiPrompt } from "./comfyui-queue-request";
 import { resolveQueueParams } from "./queue-params-settings";
 import { guardQueueQualityForVram } from "./vram-queue-guard";
 import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
@@ -99,33 +100,33 @@ export async function queueModelPortfolio(input: {
       held += 1;
       continue;
     }
-    const response = await fetch("/api/comfyui", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: prepared.positive,
-        negativePrompt: prepared.negative,
-        params,
-        ...(runtime ? { comfy: runtime } : {}),
-      }),
+    const queuedJob = await postComfyUiPrompt({
+      prompt: prepared.positive,
+      negativePrompt: prepared.negative,
+      params,
+      ...(runtime ? { comfy: runtime } : {}),
     });
-    const data = (await response.json()) as { promptId?: string; comfyUrl?: string };
-    if (response.ok && data.promptId) {
-      registerComfyGalleryJob({
-        promptId: data.promptId,
-        prompt: prepared.positive,
-        negativePrompt: prepared.negative,
-        tool: input.tool ?? "portfolio",
-        model: item.model,
-        comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
-        queueParams: params,
-        queueQualityProfile: runtime.queueQualityProfile,
-      });
-      void scheduleComfyGalleryPoll(data.promptId, {
-        comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
-      });
-      queued += 1;
+    if (!queuedJob.ok || !queuedJob.promptId) {
+      queuedJob.releaseLiveSocket();
+      continue;
     }
+    registerComfyGalleryJob({
+      promptId: queuedJob.promptId,
+      prompt: prepared.positive,
+      negativePrompt: prepared.negative,
+      tool: input.tool ?? "portfolio",
+      model: item.model,
+      comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+      clientId: queuedJob.clientId,
+      queueParams: params,
+      queueQualityProfile: runtime.queueQualityProfile,
+    });
+    void scheduleComfyGalleryPoll(queuedJob.promptId, {
+      comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+      clientId: queuedJob.clientId,
+    });
+    queuedJob.releaseLiveSocket();
+    queued += 1;
   }
   return { queued, held };
 }

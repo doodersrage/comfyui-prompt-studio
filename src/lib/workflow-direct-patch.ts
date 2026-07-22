@@ -26,6 +26,7 @@ import {
   insertIpAdapterChainIfMissing,
   patchIpAdapterTokensInWorkflow,
 } from "./ipadapter-workflow-patch";
+import { insertControlNetChainIfMissing } from "./controlnet-workflow-patch";
 
 export const IMAGE_SCALE_BY_NODE_TYPE = "ImageScaleBy";
 
@@ -45,6 +46,8 @@ export type WorkflowDirectPatchCounts = {
   unetWeightDtype?: number;
   controlNet?: number;
   controlImage?: number;
+  /** Nodes spliced in by insertControlNetChainIfMissing when the workflow had none. */
+  controlNetInserted?: number;
   ipAdapterImage?: number;
   ipAdapterStrength?: number;
   ipAdapterModel?: number;
@@ -55,7 +58,11 @@ export type WorkflowDirectPatchCounts = {
 };
 
 const VIDEO_I2V_WIRE_ERROR =
-  "Init image was set for a video model, but I2V could not be wired. Import a WAN/Hunyuan workflow with WanImageToVideo or HunyuanImageToVideo (or a scaffold with LoadImage + Empty*LatentVideo + VAEDecode + KSampler), or clear the init image for text-to-video.";
+  "Init image was set for a video model, but I2V could not be wired. Import a WAN/Hunyuan workflow with WanImageToVideo or HunyuanImageToVideo (or a scaffold with LoadImage + Empty*LatentVideo + VAEDecode/Checkpoint VAE + KSampler), or clear the init image for text-to-video.";
+
+function videoI2vWireError(detail: string): string {
+  return `${VIDEO_I2V_WIRE_ERROR} (${detail})`;
+}
 
 const INPUT_IMAGE_TYPES = new Set(["LoadImage", "LoadImageOutput"]);
 const MASK_IMAGE_TYPES = new Set(["LoadImageMask"]);
@@ -450,6 +457,35 @@ export function patchControlNetNodesInWorkflow(
   }
 
   return { workflow: next, patched };
+}
+
+/**
+ * Insert a ControlNet chain when a control image is set but the graph has none,
+ * then patch loader/image tokens (IP-Adapter parity).
+ */
+export function patchControlNetInWorkflow(
+  workflow: Record<string, unknown>,
+  input: {
+    controlNetModelFilename?: string;
+    controlImageFilename?: string;
+    availableNodeTypes?: Iterable<string> | null;
+    controlNetMode?: string;
+  },
+): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
+  const insertResult = insertControlNetChainIfMissing(workflow, {
+    controlImageFilename: input.controlImageFilename,
+    availableNodeTypes: input.availableNodeTypes,
+    controlNetMode: input.controlNetMode,
+  });
+  const nodePatch = patchControlNetNodesInWorkflow(insertResult.workflow, {
+    controlNetModelFilename: input.controlNetModelFilename,
+    controlImageFilename: input.controlImageFilename,
+  });
+  const patched: WorkflowDirectPatchCounts = { ...nodePatch.patched };
+  if (insertResult.inserted) {
+    patched.controlNetInserted = insertResult.insertedNodeIds.length;
+  }
+  return { workflow: nodePatch.workflow, patched };
 }
 
 /**
@@ -910,14 +946,33 @@ export function patchVideoImageToVideoWiringInWorkflow(
 
   const loadImageId = findInitImageLoadNodeId(next);
   const latentNodeId = findFirstNodeIdByClassTypes(next, VIDEO_LATENT_NODE_TYPES);
-  if (!loadImageId || !latentNodeId) {
-    return { workflow: next, patched, error: VIDEO_I2V_WIRE_ERROR };
+  if (!loadImageId && !latentNodeId) {
+    return {
+      workflow: next,
+      patched,
+      error: videoI2vWireError("missing LoadImage init node and Empty*LatentVideo"),
+    };
+  }
+  if (!loadImageId) {
+    return {
+      workflow: next,
+      patched,
+      error: videoI2vWireError("missing LoadImage titled Init Image (or an unused LoadImage)"),
+    };
+  }
+  if (!latentNodeId) {
+    return {
+      workflow: next,
+      patched,
+      error: videoI2vWireError("missing EmptyHunyuanLatentVideo / EmptyLTXVLatentVideo"),
+    };
   }
 
   const latentInputs = asNodeRecord(next[latentNodeId])?.inputs ?? {};
 
   let samplerId: string | null = null;
   let samplerInputs: Record<string, unknown> | null = null;
+  // Prefer sampler whose latent_image points at the empty video latent.
   for (const [nodeId, node] of Object.entries(next)) {
     const record = asNodeRecord(node);
     if (!record?.inputs) {
@@ -930,13 +985,41 @@ export function patchVideoImageToVideoWiringInWorkflow(
       break;
     }
   }
+  // Fallback: any sampler-like node with latent_image + positive conditioning.
   if (!samplerId || !samplerInputs) {
-    return { workflow: next, patched, error: VIDEO_I2V_WIRE_ERROR };
+    for (const [nodeId, node] of Object.entries(next)) {
+      const record = asNodeRecord(node);
+      if (!record?.inputs || !isNodeOutputRef(record.inputs.latent_image)) {
+        continue;
+      }
+      const classType = (record.class_type ?? "").toLowerCase();
+      const looksLikeSampler =
+        classType.includes("ksampler") ||
+        classType.includes("samplercustom") ||
+        ("seed" in record.inputs && ("steps" in record.inputs || "cfg" in record.inputs));
+      if (!looksLikeSampler || !isNodeOutputRef(record.inputs.positive)) {
+        continue;
+      }
+      samplerId = nodeId;
+      samplerInputs = record.inputs;
+      break;
+    }
+  }
+  if (!samplerId || !samplerInputs) {
+    return {
+      workflow: next,
+      patched,
+      error: videoI2vWireError("no KSampler (or sampler-like node) with latent_image + positive"),
+    };
   }
 
   const positiveRef = samplerInputs.positive;
   if (!isNodeOutputRef(positiveRef)) {
-    return { workflow: next, patched, error: VIDEO_I2V_WIRE_ERROR };
+    return {
+      workflow: next,
+      patched,
+      error: videoI2vWireError("sampler positive conditioning is not a node link"),
+    };
   }
   const negativeRef = isNodeOutputRef(samplerInputs.negative) ? samplerInputs.negative : null;
 
@@ -949,7 +1032,25 @@ export function patchVideoImageToVideoWiringInWorkflow(
     }
   }
   if (!vaeRef) {
-    return { workflow: next, patched, error: VIDEO_I2V_WIRE_ERROR };
+    for (const [nodeId, node] of Object.entries(next)) {
+      const record = asNodeRecord(node);
+      if (
+        record?.class_type &&
+        (CHECKPOINT_LOADER_TYPES.has(record.class_type) ||
+          VAE_LOADER_TYPES.has(record.class_type))
+      ) {
+        // CheckpointLoaderSimple: MODEL/CLIP/VAE → output index 2; VAELoader → 0.
+        vaeRef = [nodeId, VAE_LOADER_TYPES.has(record.class_type) ? 0 : 2];
+        break;
+      }
+    }
+  }
+  if (!vaeRef) {
+    return {
+      workflow: next,
+      patched,
+      error: videoI2vWireError("no VAE link from VAEDecode / CheckpointLoader / VAELoader"),
+    };
   }
 
   const isHunyuan = /hunyuan/i.test(input.model);
@@ -1053,9 +1154,11 @@ export function patchWorkflowDirectParams(
     buildLoraFilenameMapFromCustomTokens(input.customTokens ?? []),
   );
   const loraStackPatch = applyLoraStackToWorkflow(loraPatch.workflow, input.loraLibrary);
-  const controlPatch = patchControlNetNodesInWorkflow(loraStackPatch.workflow, {
+  const controlPatch = patchControlNetInWorkflow(loraStackPatch.workflow, {
     controlNetModelFilename: input.controlNetModelFilename,
     controlImageFilename: input.controlImageFilename,
+    availableNodeTypes: input.availableNodeTypes,
+    controlNetMode: input.params?.controlNetMode,
   });
   const ipAdapterPatch = patchIpAdapterInWorkflow(controlPatch.workflow, {
     ipAdapterImageFilename: input.ipAdapterImageFilename,

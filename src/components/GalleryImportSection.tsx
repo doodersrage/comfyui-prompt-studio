@@ -9,11 +9,12 @@ const GalleryImportTools = dynamic(() => import("@/components/GalleryImportTools
 });
 
 export default function GalleryImportSection() {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   return (
     <details
       className="ui-collapsible group"
+      open
       onToggle={(event) => {
         setExpanded((event.currentTarget as HTMLDetailsElement).open);
       }}

@@ -37,24 +37,27 @@ function QueueActiveJobRow({
   onCancel: () => void;
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(() =>
-    getComfyLivePreviewUrl(entry.promptId),
+    getComfyLivePreviewUrl(entry.promptId, [entry.clientId]),
   );
   const percent = comfyUiJobProgressPercent(entry);
 
   useEffect(() => {
-    setPreviewUrl(getComfyLivePreviewUrl(entry.promptId));
+    setPreviewUrl(getComfyLivePreviewUrl(entry.promptId, [entry.clientId]));
     const onPreview = (event: Event) => {
-      const detail = (event as CustomEvent<{ promptId?: string }>).detail;
-      if (detail?.promptId && detail.promptId !== entry.promptId) {
+      const detail = (event as CustomEvent<{ promptId?: string; keys?: string[] }>)
+        .detail;
+      const keys = detail?.keys ?? (detail?.promptId ? [detail.promptId] : []);
+      const ours = [entry.promptId, entry.clientId].filter(Boolean) as string[];
+      if (keys.length > 0 && ours.length > 0 && !keys.some((key) => ours.includes(key))) {
         return;
       }
-      setPreviewUrl(getComfyLivePreviewUrl(entry.promptId));
+      setPreviewUrl(getComfyLivePreviewUrl(entry.promptId, [entry.clientId]));
     };
     window.addEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
     return () => {
       window.removeEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
     };
-  }, [entry.promptId]);
+  }, [entry.promptId, entry.clientId]);
 
   return (
     <li className="ui-list-row items-start">

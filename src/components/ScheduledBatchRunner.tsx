@@ -31,6 +31,7 @@ export default function ScheduledBatchRunner() {
           const { resolveQueueParams } = await import("@/lib/queue-params-settings");
           const { registerComfyGalleryJob } = await import("@/lib/comfyui-gallery-client");
           const { scheduleComfyGalleryPoll } = await import("@/lib/comfyui-gallery-poller");
+          const { postComfyUiPrompt } = await import("@/lib/comfyui-queue-request");
           const { registerScheduledBatchQueue } = await import("@/lib/scheduled-batch-tracker");
           const { dispatchWebhook } = await import("@/lib/webhook-settings");
 
@@ -117,28 +118,25 @@ export default function ScheduledBatchRunner() {
               })),
             });
             if (!held.held) {
-              const response = await fetch("/api/comfyui", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  prompts,
-                  negativePrompt,
-                  paramsPerPrompt,
-                  ...(runtime ? { comfy: runtime } : {}),
-                }),
+              const queued = await postComfyUiPrompt({
+                prompts,
+                negativePrompt,
+                paramsPerPrompt,
+                ...(runtime ? { comfy: runtime } : {}),
               });
-              const data = (await response.json()) as {
+              const data = queued.raw as {
                 results?: Array<{ promptId?: string; comfyUrl?: string }>;
                 comfyUrl?: string;
               };
-              if (response.ok) {
+              if (queued.status < 400) {
                 let queuedJobs = 0;
                 for (const [index, result] of (data.results ?? []).entries()) {
                   if (!result.promptId) {
                     continue;
                   }
                   queuedJobs += 1;
-                  const comfyUrl = result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188";
+                  const comfyUrl =
+                    result.comfyUrl ?? data.comfyUrl ?? queued.comfyUrl ?? "http://127.0.0.1:8188";
                   registerComfyGalleryJob({
                     promptId: result.promptId,
                     prompt: prompts[index] ?? "",
@@ -146,15 +144,18 @@ export default function ScheduledBatchRunner() {
                     tool: "scheduled-batch",
                     model: shared.model,
                     comfyUrl,
+                    clientId: queued.clientId,
                     queueParams: paramsPerPrompt[index],
                     queueQualityProfile: runtime.queueQualityProfile,
                   });
                   void scheduleComfyGalleryPoll(result.promptId, {
                     comfyUrl,
+                    clientId: queued.clientId,
                   });
                 }
                 registerScheduledBatchQueue(queuedJobs);
               }
+              queued.releaseLiveSocket();
             }
           }
 

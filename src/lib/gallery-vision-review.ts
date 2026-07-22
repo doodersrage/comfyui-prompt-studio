@@ -6,6 +6,36 @@ export type VisionReviewResult = {
   critique: string;
 };
 
+/** Short training-style caption for LoRA dataset export. */
+export async function captionGalleryImage(input: {
+  imageDataUrl: string;
+  prompt?: string;
+  model?: string;
+}): Promise<string> {
+  const text = await visionCompletion({
+    systemPrompt:
+      'Write a short LoRA training caption for the image. Reply with JSON only: {"caption":"..."}. Prefer concrete visual details, 12–40 words, no quotes around the whole caption.',
+    textPrompt: input.prompt?.trim()
+      ? `Original prompt (for context, do not copy verbatim):\n${input.prompt.trim()}`
+      : "Describe the image for LoRA training.",
+    imageDataUrl: input.imageDataUrl,
+    maxTokens: 220,
+    temperature: 0.3,
+  });
+
+  try {
+    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim()) as {
+      caption?: string;
+    };
+    if (parsed.caption?.trim()) {
+      return parsed.caption.trim();
+    }
+  } catch {
+    // fall through
+  }
+  return text.replace(/^["']|["']$/g, "").trim().slice(0, 320);
+}
+
 export async function reviewGalleryImage(input: {
   imageDataUrl: string;
   prompt: string;

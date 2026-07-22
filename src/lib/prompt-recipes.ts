@@ -4,6 +4,7 @@ import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 import type { ComfyImageModel } from "./comfy-models/client";
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
+import { postComfyUiPrompt } from "./comfyui-queue-request";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { resolveQueueParams } from "./queue-params-settings";
 import { guardQueueQualityForVram } from "./vram-queue-guard";
@@ -116,37 +117,32 @@ export async function runPromptRecipeSteps(
         log.push("Held Max until ComfyUI queue is idle");
         continue;
       }
-      const response = await fetch("/api/comfyui", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: current,
-          params,
-          ...(runtime ? { comfy: runtime } : {}),
-        }),
+      const queued = await postComfyUiPrompt({
+        prompt: current,
+        params,
+        ...(runtime ? { comfy: runtime } : {}),
       });
-      const data = (await response.json()) as {
-        promptId?: string;
-        comfyUrl?: string;
-        error?: string;
-      };
-      if (response.ok && data.promptId) {
-        registerComfyGalleryJob({
-          promptId: data.promptId,
-          prompt: current,
-          tool: "recipe",
-          model: comfyModel,
-          comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
-          queueParams: params,
-          queueQualityProfile: runtime.queueQualityProfile,
-        });
-        void scheduleComfyGalleryPoll(data.promptId, {
-          comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
-        });
-        log.push("Queued to ComfyUI");
-      } else {
-        log.push(data.error ?? "ComfyUI queue failed");
+      if (!queued.ok || !queued.promptId) {
+        queued.releaseLiveSocket();
+        log.push(queued.error ?? "ComfyUI queue failed");
+        continue;
       }
+      registerComfyGalleryJob({
+        promptId: queued.promptId,
+        prompt: current,
+        tool: "recipe",
+        model: comfyModel,
+        comfyUrl: queued.comfyUrl ?? "http://127.0.0.1:8188",
+        clientId: queued.clientId,
+        queueParams: params,
+        queueQualityProfile: runtime.queueQualityProfile,
+      });
+      void scheduleComfyGalleryPoll(queued.promptId, {
+        comfyUrl: queued.comfyUrl ?? "http://127.0.0.1:8188",
+        clientId: queued.clientId,
+      });
+      queued.releaseLiveSocket();
+      log.push("Queued to ComfyUI");
     }
   }
 

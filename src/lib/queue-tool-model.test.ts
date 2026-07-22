@@ -121,19 +121,20 @@ describe("queue-tool-model", () => {
     );
   });
 
-  it("recognizes WAN/Hunyuan Video as video models, images/edit as not", () => {
+  it("recognizes WAN/Hunyuan/LTX Video as video models, images/edit as not", () => {
     assert.equal(isVideoModel("wan-video"), true);
     assert.equal(isVideoModel("hunyuan-video"), true);
+    assert.equal(isVideoModel("ltx-video"), true);
     assert.equal(isVideoModel("qwen-image-2512"), false);
     assert.equal(isVideoModel("qwen-image-edit-2511"), false);
   });
 
   it("scopes the Video tool picker to video-category models only", () => {
     const filtered = filterModelsForQueueTool(
-      ["qwen-image-2512", "wan-video", "hunyuan-video", "flux-dev"],
+      ["qwen-image-2512", "wan-video", "hunyuan-video", "ltx-video", "flux-dev"],
       "video",
     );
-    assert.deepEqual(filtered, ["wan-video", "hunyuan-video"]);
+    assert.deepEqual(filtered, ["wan-video", "hunyuan-video", "ltx-video"]);
   });
 
   it("keeps the full catalog for the Video tool when no video models are present", () => {

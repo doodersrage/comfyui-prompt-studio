@@ -51,6 +51,8 @@ export type ComfyGalleryFilter = {
   focusEntryId?: string;
   /** Filter by derivative kind (upscale, refine, variation). */
   derivedKind?: ComfyGalleryEntry["derivedKind"];
+  /** Filter by primary media kind (image stills vs video). */
+  mediaKind?: "image" | "video" | "all";
   projectId?: string;
   reviewMode?: boolean;
   unreviewedOnly?: boolean;
@@ -83,6 +85,11 @@ export function galleryEntryRenderKey(entry: ComfyGalleryEntry): string {
     entry.promptId ?? "",
     entry.visionTags?.join(",") ?? "",
     entry.projectId ?? "",
+    // Keep in-flight cards live while sampler progress / queue position ticks.
+    entry.queuePosition ?? "",
+    entry.progressValue ?? "",
+    entry.progressMax ?? "",
+    entry.progressNode ?? "",
   ].join("|");
 }
 export type GalleryPageSize =
@@ -264,6 +271,12 @@ export function saveComfyGallery(
       void import("./storage-sync").then(({ syncNamespaceToServer }) =>
         syncNamespaceToServer("comfy-gallery", entries),
       );
+      // Also download a local archive of evicted entries so nothing is only on the server.
+      void import("./gallery-zip-export").then(({ downloadGalleryZipBundle }) =>
+        downloadGalleryZipBundle(evicted, {
+          filename: `gallery-archive-evicted-${Date.now()}.zip`,
+        }),
+      );
     }
     void import("./auto-storage-sync").then(({ scheduleAutoPushStorage }) =>
       scheduleAutoPushStorage(),
@@ -331,6 +344,11 @@ export function filterComfyGalleryEntries(
     }
     if (filter.derivedKind && entry.derivedKind !== filter.derivedKind) {
       return false;
+    }
+    if (filter.mediaKind && filter.mediaKind !== "all") {
+      if (galleryEntryPrimaryMediaKind(entry) !== filter.mediaKind) {
+        return false;
+      }
     }
     if (query && !filter.semanticSearch) {
       const needle = query.toLowerCase();
@@ -530,6 +548,8 @@ export function updateComfyGalleryEntryById(
       | "reviewRating"
       | "projectId"
       | "visionTags"
+      | "aestheticScore"
+      | "aestheticScoreMethod"
     >
   >,
 ): ComfyGalleryEntry | null {
@@ -596,7 +616,22 @@ export function updateComfyGalleryByPromptId(
   patch: Partial<
     Pick<
       ComfyGalleryEntry,
-      "status" | "statusMessage" | "queuePosition" | "progressValue" | "progressMax" | "progressNode" | "completedAt" | "images" | "comfyUrl" | "favorite" | "historyId" | "queueParams" | "reviewRating" | "projectId" | "oomRetryAttempted"
+      | "status"
+      | "statusMessage"
+      | "queuePosition"
+      | "progressValue"
+      | "progressMax"
+      | "progressNode"
+      | "completedAt"
+      | "images"
+      | "comfyUrl"
+      | "clientId"
+      | "favorite"
+      | "historyId"
+      | "queueParams"
+      | "reviewRating"
+      | "projectId"
+      | "oomRetryAttempted"
     >
   >,
 ): ComfyGalleryEntry | null {

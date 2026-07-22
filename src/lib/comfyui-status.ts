@@ -1,10 +1,11 @@
 import { getComfyUiBaseUrl, resolveComfyUiConfig } from "./comfyui-client";
-import type { ComfyUiRuntimeConfig } from "./comfyui-config";
+import type { ComfyUiRuntimeConfig, WorkflowParamValues } from "./comfyui-config";
 import { detectWorkflowPlaceholders } from "./comfyui-config";
 import {
   extractImagesFromOutputs,
   type ComfyOutputImage,
 } from "./comfyui-outputs";
+import { extractParamsFromWorkflow } from "./workflow-param-extract";
 
 export type ComfyPromptStatus = {
   promptId: string;
@@ -33,6 +34,10 @@ export type ComfyHistoryImportItem = {
   comfyUrl: string;
   images: ComfyOutputImage[];
   statusMessage?: string;
+  /** Sampler/latent params extracted from the history workflow graph. */
+  queueParams?: WorkflowParamValues;
+  model?: string;
+  workflowJson?: string;
 };
 
 type ComfyQueueResponse = {
@@ -274,17 +279,26 @@ function interpretHistoryEntry(
   };
 }
 
+function extractWorkflowFromHistoryEntry(
+  entry: ComfyHistoryEntry,
+): Record<string, unknown> | null {
+  const promptField = entry.prompt;
+  if (!Array.isArray(promptField) || promptField.length < 3) {
+    return null;
+  }
+  const workflow = promptField[2];
+  if (!workflow || typeof workflow !== "object") {
+    return null;
+  }
+  return workflow as Record<string, unknown>;
+}
+
 function extractPromptFromHistoryEntry(entry: ComfyHistoryEntry): {
   positive?: string;
   negative?: string;
 } {
-  const promptField = entry.prompt;
-  if (!Array.isArray(promptField) || promptField.length < 3) {
-    return {};
-  }
-
-  const workflow = promptField[2];
-  if (!workflow || typeof workflow !== "object") {
+  const workflow = extractWorkflowFromHistoryEntry(entry);
+  if (!workflow) {
     return {};
   }
 
@@ -302,6 +316,27 @@ function extractPromptFromHistoryEntry(entry: ComfyHistoryEntry): {
     positive: texts[0],
     negative: texts[1],
   };
+}
+
+function extractCheckpointHintFromWorkflow(
+  workflow: Record<string, unknown>,
+): string | undefined {
+  for (const node of Object.values(workflow)) {
+    if (!node || typeof node !== "object") {
+      continue;
+    }
+    const inputs = (node as { inputs?: Record<string, unknown> }).inputs;
+    const ckpt =
+      typeof inputs?.ckpt_name === "string"
+        ? inputs.ckpt_name.trim()
+        : typeof inputs?.unet_name === "string"
+          ? inputs.unet_name.trim()
+          : "";
+    if (ckpt && !ckpt.includes("{{")) {
+      return ckpt;
+    }
+  }
+  return undefined;
 }
 
 export async function listComfyUiHistoryImports(
@@ -328,7 +363,10 @@ export async function listComfyUiHistoryImports(
         continue;
       }
 
+      const workflow = extractWorkflowFromHistoryEntry(entry);
       const extracted = extractPromptFromHistoryEntry(entry);
+      const queueParams = workflow ? extractParamsFromWorkflow(workflow) : undefined;
+      const hasParams = queueParams && Object.keys(queueParams).length > 0;
       items.push({
         promptId,
         prompt:
@@ -338,6 +376,9 @@ export async function listComfyUiHistoryImports(
         comfyUrl,
         images: status.images,
         statusMessage: status.statusMessage,
+        queueParams: hasParams ? queueParams : undefined,
+        model: workflow ? extractCheckpointHintFromWorkflow(workflow) : undefined,
+        workflowJson: workflow ? JSON.stringify(workflow) : undefined,
       });
     }
 

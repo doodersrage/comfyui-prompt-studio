@@ -46,9 +46,12 @@ import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { loadComfyUiSettings, syncLightningLoraLibraryEntry } from "@/lib/comfyui-settings";
 import {
   buildControlNetWorkflowScaffold,
+  buildFaceDetailerWorkflowScaffold,
+  buildIdentityWorkflowScaffold,
   scaffoldWorkflowForModel,
   suggestedScaffoldName,
 } from "@/lib/workflow-scaffold";
+import { inspectWorkflowGraphJson } from "@/lib/workflow-graph-inspect";
 import { inferModelsFromWorkflowLabel } from "@/lib/workflow-category-defaults";
 import { assignWorkflowToInferredModels } from "@/lib/model-workflow-map";
 import { COMFY_IMAGE_MODELS } from "@/lib/comfy-models/client";
@@ -164,6 +167,11 @@ export default function ComfyWorkflowLibraryPanel({
     }
     return suggestWorkflowNodeMappings(editingJson);
   }, [editingJson]);
+
+  const editingGraphInspect = useMemo(
+    () => (editingJson.trim() ? inspectWorkflowGraphJson(editingJson) : null),
+    [editingJson],
+  );
 
   const startEdit = useCallback((file: ComfyWorkflowFile) => {
     setEditingId(file.id);
@@ -400,6 +408,46 @@ export default function ComfyWorkflowLibraryPanel({
     onStatus?.(`Created ControlNet scaffold. ${result.notes[0] ?? ""}`.trim());
   }, [newName, onStatus, placeholderTokens, refresh, startEdit]);
 
+  const createFaceDetailerScaffold = useCallback(() => {
+    const result = buildFaceDetailerWorkflowScaffold();
+    const saved = upsertComfyWorkflowFile({
+      name: newName.trim() || "FaceDetailer scaffold",
+      workflowJson: result.json,
+    });
+    const shared = loadSettingsCache().shared;
+    saveSharedSettings({
+      ...shared,
+      modelWorkflowMap: {
+        ...(shared.modelWorkflowMap ?? {}),
+        faceDetailer: saved.id,
+      },
+    });
+    refresh();
+    setNewName("");
+    startEdit(saved);
+    onStatus?.(
+      `Created FaceDetailer scaffold and pinned faceDetailer=${saved.id}. ${result.notes[0] ?? ""}`.trim(),
+    );
+  }, [newName, onStatus, refresh, startEdit]);
+
+  const createIdentityScaffold = useCallback(
+    (kind: "instantid" | "pulid") => {
+      const result = buildIdentityWorkflowScaffold(kind);
+      const label = kind === "pulid" ? "PuLID" : "InstantID";
+      const saved = upsertComfyWorkflowFile({
+        name: newName.trim() || `${label} scaffold`,
+        workflowJson: result.json,
+      });
+      refresh();
+      setNewName("");
+      startEdit(saved);
+      onStatus?.(
+        `Created ${label} BYO scaffold. ${result.notes[0] ?? ""}`.trim(),
+      );
+    },
+    [newName, onStatus, refresh, startEdit],
+  );
+
   const cloneAndBindWorkflow = useCallback(() => {
     const sourceJson = editingJson.trim();
     if (!sourceJson) {
@@ -620,6 +668,25 @@ export default function ComfyWorkflowLibraryPanel({
         </Button>
         <Button type="button" variant="secondary" size="sm" onClick={createControlNetScaffold}>
           ControlNet scaffold
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={createFaceDetailerScaffold}>
+          FaceDetailer scaffold
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => createIdentityScaffold("instantid")}
+        >
+          InstantID scaffold
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => createIdentityScaffold("pulid")}
+        >
+          PuLID scaffold
         </Button>
         <Button
           type="button"
@@ -892,6 +959,35 @@ export default function ComfyWorkflowLibraryPanel({
                           className="text-emerald-200"
                         />
                       </label>
+                      {editingGraphInspect?.ok ? (
+                        <div className="ui-surface-inset space-y-2">
+                          <p className="type-caption text-violet-200">
+                            Graph inspector · {editingGraphInspect.nodeCount} nodes
+                          </p>
+                          <p className="type-caption text-zinc-500">
+                            {editingGraphInspect.classCounts
+                              .slice(0, 8)
+                              .map((entry) => `${entry.classType}×${entry.count}`)
+                              .join(" · ")}
+                            {editingGraphInspect.classCounts.length > 8
+                              ? ` · +${editingGraphInspect.classCounts.length - 8} more`
+                              : ""}
+                          </p>
+                          {editingGraphInspect.unresolvedTokens.length > 0 ? (
+                            <p className="type-caption text-amber-300/90">
+                              Unresolved tokens:{" "}
+                              {editingGraphInspect.unresolvedTokens.slice(0, 12).join(" ")}
+                              {editingGraphInspect.unresolvedTokens.length > 12
+                                ? "…"
+                                : ""}
+                            </p>
+                          ) : (
+                            <p className="type-caption text-zinc-600">
+                              No {"{{TOKEN}}"} placeholders in this JSON.
+                            </p>
+                          )}
+                        </div>
+                      ) : null}
                       {editError && (
                         <p className="text-xs text-rose-300">{editError}</p>
                       )}

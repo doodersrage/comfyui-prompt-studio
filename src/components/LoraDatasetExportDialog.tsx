@@ -1,0 +1,106 @@
+"use client";
+
+import { useEffect, useId, useState } from "react";
+import ModalPortal from "@/components/ui/ModalPortal";
+import { Button } from "@/components/ui/Button";
+import { FieldLabel, SelectInput, TextInput } from "@/components/ui/Field";
+import type { LoraCaptionMode } from "@/lib/gallery-lora-dataset-export";
+import type { LoraDatasetExportUiOptions } from "@/lib/lora-dataset-export-ui";
+
+type LoraDatasetExportDialogProps = {
+  open: boolean;
+  onCancel: () => void;
+  onConfirm: (options: LoraDatasetExportUiOptions) => void;
+};
+
+export default function LoraDatasetExportDialog({
+  open,
+  onCancel,
+  onConfirm,
+}: LoraDatasetExportDialogProps) {
+  const titleId = useId();
+  const [triggerWord, setTriggerWord] = useState("");
+  const [captionMode, setCaptionMode] = useState<LoraCaptionMode>("prompt");
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setTriggerWord("");
+    setCaptionMode("prompt");
+  }, [open]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <ModalPortal>
+      <div
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-zinc-950/70 p-4 backdrop-blur-sm"
+        role="presentation"
+        onClick={onCancel}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          className="w-full max-w-md space-y-4 rounded-2xl border border-zinc-800/80 bg-zinc-950/95 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="space-y-1">
+            <h2 id={titleId} className="type-heading text-zinc-100">
+              Export LoRA dataset
+            </h2>
+            <p className="type-caption text-zinc-500">
+              Caption mode and optional trigger word for the ZIP export.
+            </p>
+          </div>
+
+          <label className="block space-y-1.5">
+            <FieldLabel>Trigger word (optional)</FieldLabel>
+            <TextInput
+              value={triggerWord}
+              onChange={(event) => setTriggerWord(event.target.value)}
+              placeholder="e.g. ohwx person"
+              autoFocus
+            />
+          </label>
+
+          <label className="block space-y-1.5">
+            <FieldLabel>Caption mode</FieldLabel>
+            <SelectInput
+              value={captionMode}
+              onChange={(event) =>
+                setCaptionMode(event.target.value as LoraCaptionMode)
+              }
+            >
+              <option value="prompt">prompt — cleaned gallery prompt</option>
+              <option value="tags">tags — prompt + vision tags</option>
+              <option value="vision">vision — LLM caption (slower)</option>
+            </SelectInput>
+          </label>
+
+          <div className="flex flex-wrap justify-end gap-2 pt-1">
+            <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() =>
+                onConfirm({
+                  triggerWord: triggerWord.trim() || undefined,
+                  captionMode,
+                })
+              }
+            >
+              Export ZIP
+            </Button>
+          </div>
+        </div>
+      </div>
+    </ModalPortal>
+  );
+}

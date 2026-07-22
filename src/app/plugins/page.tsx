@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
-import { MonoTextArea } from "@/components/ui/Field";
+import { FieldLabel, MonoTextArea, SelectInput, TextInput } from "@/components/ui/Field";
 import {
   ToolBadge,
   ToolLayout,
@@ -16,24 +16,85 @@ import {
   type ToolPlugin,
 } from "@/lib/tool-plugin-registry";
 
+const EMPTY_FORM = {
+  id: "",
+  label: "",
+  description: "",
+  href: "",
+  category: "plugin" as ToolPlugin["category"],
+};
+
 export default function PluginsPage() {
   const [plugins, setPlugins] = useState<ToolPlugin[]>(BUILTIN_TOOL_PLUGINS);
   const [customJson, setCustomJson] = useState("[]");
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
-      setPlugins(loadToolPlugins());
+      const loaded = loadToolPlugins();
+      setPlugins(loaded);
+      const custom = loaded.filter(
+        (plugin) => !BUILTIN_TOOL_PLUGINS.some((builtIn) => builtIn.id === plugin.id),
+      );
+      setCustomJson(JSON.stringify(custom, null, 2));
     });
   }, []);
+
+  function refreshFromStorage() {
+    const loaded = loadToolPlugins();
+    setPlugins(loaded);
+    const custom = loaded.filter(
+      (plugin) => !BUILTIN_TOOL_PLUGINS.some((builtIn) => builtIn.id === plugin.id),
+    );
+    setCustomJson(JSON.stringify(custom, null, 2));
+  }
 
   function saveCustom() {
     try {
       const parsed = JSON.parse(customJson) as ToolPlugin[];
       saveCustomToolPlugins(parsed);
-      setPlugins(loadToolPlugins());
+      refreshFromStorage();
+      setFormError(null);
     } catch {
-      window.alert("Invalid plugin JSON.");
+      setFormError("Invalid plugin JSON.");
     }
+  }
+
+  function addFromForm() {
+    const id = form.id.trim().toLowerCase().replace(/\s+/g, "-");
+    const label = form.label.trim();
+    const href = form.href.trim();
+    if (!id || !label || !href) {
+      setFormError("id, label, and href are required.");
+      return;
+    }
+    if (!href.startsWith("/")) {
+      setFormError("href should be an in-app path starting with /.");
+      return;
+    }
+    const existing = loadToolPlugins().filter(
+      (plugin) => !BUILTIN_TOOL_PLUGINS.some((builtIn) => builtIn.id === plugin.id),
+    );
+    if (existing.some((plugin) => plugin.id === id) || BUILTIN_TOOL_PLUGINS.some((p) => p.id === id)) {
+      setFormError("That id is already registered.");
+      return;
+    }
+    const next: ToolPlugin[] = [
+      ...existing,
+      {
+        id,
+        label,
+        description: form.description.trim() || "Custom plugin bookmark",
+        href,
+        category: form.category,
+        enabled: true,
+      },
+    ];
+    saveCustomToolPlugins(next);
+    setForm(EMPTY_FORM);
+    setFormError(null);
+    refreshFromStorage();
   }
 
   return (
@@ -60,9 +121,70 @@ export default function PluginsPage() {
         </ul>
       </ToolSection>
 
-      <ToolSection title="Custom plugins (app database)">
+      <ToolSection title="Add custom bookmark">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block space-y-1.5">
+            <FieldLabel>Id</FieldLabel>
+            <TextInput
+              value={form.id}
+              onChange={(event) => setForm((prev) => ({ ...prev, id: event.target.value }))}
+              placeholder="my-tool"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>Label</FieldLabel>
+            <TextInput
+              value={form.label}
+              onChange={(event) => setForm((prev) => ({ ...prev, label: event.target.value }))}
+              placeholder="My tool"
+            />
+          </label>
+          <label className="block space-y-1.5 sm:col-span-2">
+            <FieldLabel>Description</FieldLabel>
+            <TextInput
+              value={form.description}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, description: event.target.value }))
+              }
+              placeholder="Short note shown in the list"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>Href</FieldLabel>
+            <TextInput
+              value={form.href}
+              onChange={(event) => setForm((prev) => ({ ...prev, href: event.target.value }))}
+              placeholder="/lint"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <FieldLabel>Category</FieldLabel>
+            <SelectInput
+              value={form.category}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  category: event.target.value as ToolPlugin["category"],
+                }))
+              }
+            >
+              <option value="plugin">plugin</option>
+              <option value="prompt">prompt</option>
+              <option value="scene">scene</option>
+              <option value="tools">tools</option>
+              <option value="video">video</option>
+            </SelectInput>
+          </label>
+        </div>
+        {formError ? <p className="type-caption text-rose-300">{formError}</p> : null}
+        <Button type="button" variant="primary" size="sm" className="mt-3" onClick={addFromForm}>
+          Add bookmark
+        </Button>
+      </ToolSection>
+
+      <ToolSection title="Custom plugins (JSON)">
         <p className="type-caption">
-          Append custom entries as JSON array. Each item needs id, label, description, href, and
+          Advanced: edit the full custom array. Each item needs id, label, description, href, and
           category. See <code className="text-violet-300">examples/custom-plugin.example.json</code>.
         </p>
         <Button
@@ -88,17 +210,16 @@ export default function PluginsPage() {
             );
           }}
         >
-          Load example JSON
+          Load example
         </Button>
         <MonoTextArea
           value={customJson}
           onChange={(event) => setCustomJson(event.target.value)}
-          rows={8}
+          rows={10}
           spellCheck={false}
-          className="text-emerald-200"
         />
-        <Button variant="primary" onClick={saveCustom}>
-          Save custom plugins
+        <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={saveCustom}>
+          Save JSON
         </Button>
       </ToolSection>
     </ToolLayout>

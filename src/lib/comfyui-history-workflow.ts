@@ -1,5 +1,7 @@
 import { getComfyUiBaseUrl } from "./comfyui-client";
 import type { ComfyUiRuntimeConfig, WorkflowParamValues } from "./comfyui-config";
+export { extractParamsFromWorkflow } from "./workflow-param-extract";
+import { extractParamsFromWorkflow } from "./workflow-param-extract";
 
 type ComfyHistoryEntry = {
   prompt?: unknown[];
@@ -39,46 +41,6 @@ function extractWorkflowFromHistoryEntry(
   }
 
   return workflow as Record<string, unknown>;
-}
-
-export function extractParamsFromWorkflow(
-  workflow: Record<string, unknown>,
-): WorkflowParamValues {
-  const params: WorkflowParamValues = {};
-
-  for (const node of Object.values(workflow)) {
-    if (!node || typeof node !== "object") {
-      continue;
-    }
-
-    const inputs = (node as { inputs?: Record<string, unknown> }).inputs;
-    if (!inputs) {
-      continue;
-    }
-
-    for (const [key, value] of Object.entries(inputs)) {
-      const normalized = key.toLowerCase();
-      if (
-        normalized === "seed" ||
-        normalized === "steps" ||
-        normalized === "cfg" ||
-        normalized === "width" ||
-        normalized === "height" ||
-        normalized === "sampler_name" ||
-        normalized === "scheduler"
-      ) {
-        if (typeof value === "number" || typeof value === "string") {
-          const key =
-            normalized === "sampler_name"
-              ? "samplerName"
-              : (normalized as keyof WorkflowParamValues);
-          params[key] = (typeof value === "number" ? String(value) : value) as never;
-        }
-      }
-    }
-  }
-
-  return params;
 }
 
 export function listWorkflowNodeInputs(

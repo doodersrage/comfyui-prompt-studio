@@ -35,6 +35,10 @@ export type ComfyGalleryEntry = {
   status: ComfyGalleryJobStatus;
   /** Optional vision-derived tags for search/filter. */
   visionTags?: string[];
+  /** Cached aesthetic score (0–100) from heuristic or vision. */
+  aestheticScore?: number;
+  /** How aestheticScore was produced. */
+  aestheticScoreMethod?: "heuristic" | "vision" | "embedding";
   statusMessage?: string;
   queuePosition?: number | null;
   /** Live sampler/node progress from ComfyUI WebSocket (cleared when finished). */

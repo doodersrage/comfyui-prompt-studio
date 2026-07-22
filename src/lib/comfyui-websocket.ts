@@ -103,7 +103,10 @@ function publish(
 }
 
 function emitPreview(shared: SharedLiveSession, promptId: string, previewUrl: string): void {
-  setComfyLivePreviewUrl(promptId, previewUrl);
+  // Index under prompt id and client id so gallery cards can resolve either key.
+  setComfyLivePreviewUrl(promptId, previewUrl, {
+    alsoKeys: shared.clientId ? [shared.clientId] : [],
+  });
   publish(shared, {
     promptId,
     status: "preview",

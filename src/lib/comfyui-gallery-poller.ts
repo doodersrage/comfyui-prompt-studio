@@ -5,7 +5,11 @@ import {
   pollComfyGalleryJob,
   type PollComfyGalleryJobOptions,
 } from "./comfyui-gallery-client";
-import { loadComfyGallery, type ComfyGalleryEntry } from "./comfyui-gallery";
+import {
+  loadComfyGallery,
+  updateComfyGalleryByPromptId,
+  type ComfyGalleryEntry,
+} from "./comfyui-gallery";
 import {
   forgetPendingGalleryPoll,
   listPendingGalleryPollMeta,
@@ -39,11 +43,16 @@ export function scheduleComfyGalleryPoll(
 
   const entry = loadComfyGallery().find((item) => item.promptId === trimmed);
   const comfyUrl = options?.comfyUrl ?? entry?.comfyUrl;
+  const clientId = options?.clientId?.trim() || entry?.clientId?.trim();
+  if (clientId && !entry?.clientId?.trim()) {
+    updateComfyGalleryByPromptId(trimmed, { clientId });
+  }
   rememberPendingGalleryPoll(trimmed, comfyUrl);
 
   const promise = pollComfyGalleryJob(trimmed, options?.onStatus, {
     ...options,
     comfyUrl,
+    clientId,
     onJobUpdate: options?.onJobUpdate,
   })
     .then((result) => {

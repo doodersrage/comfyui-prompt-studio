@@ -16,6 +16,7 @@ import {
   scoreGalleryEntryHeuristic,
   type AestheticScoreResult,
 } from "@/lib/aesthetic-score";
+import { updateComfyGalleryEntryById } from "@/lib/comfyui-gallery";
 import {
   downloadGalleryImage,
   downloadGallerySidecar,
@@ -157,6 +158,8 @@ export default function GalleryCard({
   const primaryMediaKind = useMemo(() => galleryEntryPrimaryMediaKind(entry), [entry]);
   const stripMediaKinds = useMemo(() => galleryEntryMediaKinds(entry), [entry]);
   const isVideoHero = primaryMediaKind === "video";
+  const isRendering =
+    entry.status === "pending" || entry.status === "running";
 
   useEffect(() => {
     setHeroLoaded(false);
@@ -172,13 +175,27 @@ export default function GalleryCard({
       entry.prompt.length,
     ],
   );
-  const [aestheticScore, setAestheticScore] =
-    useState<AestheticScoreResult>(heuristicScore);
+  const cachedScore = useMemo((): AestheticScoreResult | null => {
+    if (
+      typeof entry.aestheticScore === "number" &&
+      entry.aestheticScoreMethod
+    ) {
+      return {
+        score: entry.aestheticScore,
+        method: entry.aestheticScoreMethod,
+        notes: ["Cached score"],
+      };
+    }
+    return null;
+  }, [entry.aestheticScore, entry.aestheticScoreMethod]);
+  const [aestheticScore, setAestheticScore] = useState<AestheticScoreResult>(
+    cachedScore ?? heuristicScore,
+  );
   const [aestheticBusy, setAestheticBusy] = useState(false);
 
   useEffect(() => {
-    setAestheticScore(heuristicScore);
-  }, [heuristicScore]);
+    setAestheticScore(cachedScore ?? heuristicScore);
+  }, [cachedScore, heuristicScore]);
 
   const scoreWithVision = async () => {
     if (!previewUrl || aestheticBusy || entry.status !== "completed") {
@@ -221,10 +238,15 @@ export default function GalleryCard({
       if (!response.ok) {
         throw new Error(data.error ?? "Aesthetic score failed.");
       }
-      setAestheticScore({
+      const nextScore: AestheticScoreResult = {
         score: data.score,
         method: data.method,
         notes: data.notes ?? [],
+      };
+      setAestheticScore(nextScore);
+      updateComfyGalleryEntryById(entry.id, {
+        aestheticScore: nextScore.score,
+        aestheticScoreMethod: nextScore.method,
       });
     } catch {
       setAestheticScore(heuristicScore);
@@ -339,7 +361,7 @@ export default function GalleryCard({
             : "aspect-[4/5] rounded-t-2xl sm:aspect-square"
       }`}
     >
-      {previewUrl ? (
+      {previewUrl && !isRendering ? (
         <>
           <button
             type="button"
@@ -426,13 +448,13 @@ export default function GalleryCard({
             </div>
           ) : null}
         </>
-      ) : entry.status === "pending" || entry.status === "running" ? (
+      ) : isRendering ? (
         <div className="relative flex h-full flex-col">
           <ComfyUiGalleryJobPlaceholder entry={entry} />
           <button
             type="button"
             onClick={onCancel}
-            className="absolute bottom-2.5 right-2.5 rounded-full border border-rose-500/30 bg-zinc-950/85 px-2.5 py-1 text-[11px] text-rose-200 backdrop-blur transition hover:border-rose-400/50 hover:bg-rose-500/15 hover:text-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.97]"
+            className="absolute bottom-2.5 right-2.5 z-30 rounded-full border border-rose-500/30 bg-zinc-950/85 px-2.5 py-1 text-[11px] text-rose-200 backdrop-blur transition hover:border-rose-400/50 hover:bg-rose-500/15 hover:text-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.97]"
           >
             Cancel
           </button>
@@ -456,6 +478,11 @@ export default function GalleryCard({
             {entry.reviewRating ? (
               <span className="rounded-full border border-violet-500/30 bg-violet-500/15 px-2 py-0.5 text-[10px] text-violet-100 backdrop-blur-sm">
                 {entry.reviewRating}★
+              </span>
+            ) : null}
+            {primaryMediaKind === "video" ? (
+              <span className="rounded-full border border-sky-500/30 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-100 backdrop-blur-sm">
+                {entry.sourceImageUrl?.trim() ? "I2V" : "Video"}
               </span>
             ) : null}
             {entry.status === "completed" && !entry.reviewRating ? (
@@ -506,15 +533,13 @@ export default function GalleryCard({
         </div>
       ) : null}
 
+      {/* Percent is overlaid inside ComfyUiGalleryJobPlaceholder while rendering. */}
       {(entry.status === "pending" || entry.status === "running") &&
       entry.queuePosition != null &&
-      entry.queuePosition > 0 ? (
-        <p className="absolute bottom-2 left-2 rounded-full border border-zinc-700/60 bg-zinc-950/80 px-2 py-0.5 text-[10px] text-zinc-400 backdrop-blur">
+      entry.queuePosition > 0 &&
+      progressPercent == null ? (
+        <p className="absolute bottom-2 left-2 z-10 rounded-full border border-zinc-700/60 bg-zinc-950/80 px-2 py-0.5 text-[10px] text-zinc-400 backdrop-blur">
           Queue #{entry.queuePosition}
-        </p>
-      ) : entry.status === "running" && progressPercent != null ? (
-        <p className="absolute bottom-2 left-2 rounded-full border border-sky-500/30 bg-zinc-950/80 px-2 py-0.5 text-[10px] text-sky-200/90 backdrop-blur">
-          {progressPercent}%
         </p>
       ) : null}
     </div>
@@ -569,6 +594,12 @@ export default function GalleryCard({
               ) : null}
               {metaLine}
               {entry.queueParams?.seed != null ? ` · seed ${entry.queueParams.seed}` : ""}
+              {entry.queueParams?.videoFrames != null
+                ? ` · ${entry.queueParams.videoFrames}f`
+                : ""}
+              {entry.queueParams?.videoFps != null
+                ? ` @ ${entry.queueParams.videoFps}fps`
+                : ""}
               {entry.queuedAt ? ` · ${new Date(entry.queuedAt).toLocaleDateString()}` : ""}
             </p>
           ) : null}
@@ -824,6 +855,16 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
+                        {primaryMediaKind === "image" && entry.status === "completed" ? (
+                          <GalleryMenuButton
+                            label="Send to Video (I2V)"
+                            onClick={() => {
+                              saveGalleryHandoff(buildGalleryHandoff(entry, "video"));
+                              router.push(galleryHandoffPath("video"));
+                              setMenuOpen(false);
+                            }}
+                          />
+                        ) : null}
                       </>
                     ) : null}
                   </GalleryMenuGroup>

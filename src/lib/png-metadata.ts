@@ -1,11 +1,14 @@
 import type { PromptSidecar } from "./prompt-sidecar";
 import { buildPromptSidecar } from "./prompt-sidecar";
+import { extractParamsFromWorkflow } from "./workflow-param-extract";
+import type { WorkflowParamValues } from "./comfyui-config";
 
 export type PngMetadataResult = {
   positive?: string;
   negative?: string;
   seed?: string;
   workflowJson?: string;
+  queueParams?: WorkflowParamValues;
   rawParameters?: string;
   source: "comfyui" | "a1111" | "unknown";
 };
@@ -96,35 +99,91 @@ function parseA1111Parameters(raw: string): Pick<PngMetadataResult, "positive" |
   };
 }
 
+function tryParseJsonObject(raw: string | undefined): Record<string, unknown> | null {
+  const trimmed = raw?.trim();
+  if (!trimmed || (!trimmed.startsWith("{") && !trimmed.startsWith("["))) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function extractTextsFromWorkflow(workflow: Record<string, unknown>): {
+  positive?: string;
+  negative?: string;
+} {
+  const texts: string[] = [];
+  for (const node of Object.values(workflow)) {
+    if (!node || typeof node !== "object") {
+      continue;
+    }
+    const text = (node as { inputs?: { text?: unknown } }).inputs?.text;
+    if (typeof text === "string" && text.trim()) {
+      texts.push(text.trim());
+    }
+  }
+  return { positive: texts[0], negative: texts[1] };
+}
+
+/**
+ * Prefer Comfy `workflow` / API `prompt` JSON graphs over treating JSON as A1111
+ * parameters text.
+ */
 export function parsePngMetadata(buffer: ArrayBuffer): PngMetadataResult | null {
   const chunks = parseTextChunks(buffer);
-  const parameters =
-    chunks.parameters ??
-    chunks.Parameters ??
-    chunks.prompt ??
-    chunks.Prompt ??
-    chunks.description;
 
-  const workflowJson =
+  const workflowChunk =
     chunks.workflow ??
     chunks.Workflow ??
     chunks.prompt_json ??
     chunks["comfyui-workflow"];
+  const promptChunk = chunks.prompt ?? chunks.Prompt;
 
-  if (!parameters && !workflowJson) {
+  const workflowFromWorkflow = tryParseJsonObject(workflowChunk);
+  const workflowFromPrompt = tryParseJsonObject(promptChunk);
+  const workflow = workflowFromWorkflow ?? workflowFromPrompt;
+
+  const a1111Raw =
+    chunks.parameters ??
+    chunks.Parameters ??
+    (!workflowFromPrompt && typeof promptChunk === "string" ? promptChunk : undefined) ??
+    chunks.description;
+
+  if (!workflow && !a1111Raw) {
     return null;
   }
 
-  const parsed = parameters ? parseA1111Parameters(parameters) : {};
-  const source = workflowJson ? "comfyui" : parameters?.includes("Negative prompt:") ? "a1111" : "unknown";
+  if (workflow) {
+    const texts = extractTextsFromWorkflow(workflow);
+    const queueParams = extractParamsFromWorkflow(workflow);
+    const a1111 = a1111Raw && a1111Raw.includes("Negative prompt:")
+      ? parseA1111Parameters(a1111Raw)
+      : {};
+    return {
+      positive: texts.positive ?? a1111.positive,
+      negative: texts.negative ?? a1111.negative,
+      seed: queueParams.seed ?? a1111.seed,
+      workflowJson: JSON.stringify(workflow),
+      queueParams: Object.keys(queueParams).length > 0 ? queueParams : undefined,
+      rawParameters: a1111Raw,
+      source: "comfyui",
+    };
+  }
 
+  const parsed = a1111Raw ? parseA1111Parameters(a1111Raw) : {};
   return {
     positive: parsed.positive,
     negative: parsed.negative,
     seed: parsed.seed,
-    workflowJson,
-    rawParameters: parameters,
-    source,
+    rawParameters: a1111Raw,
+    source: a1111Raw?.includes("Negative prompt:") ? "a1111" : "unknown",
   };
 }
 
@@ -145,6 +204,13 @@ export function pngMetadataToSidecar(
     metadata.positive?.trim() ||
     (metadata.source === "comfyui" ? "Imported ComfyUI output" : "Imported PNG prompt");
 
+  const queueParams: WorkflowParamValues = {
+    ...(metadata.queueParams ?? {}),
+    ...(metadata.seed && !metadata.queueParams?.seed
+      ? { seed: metadata.seed }
+      : {}),
+  };
+
   return buildPromptSidecar({
     positive,
     negative: metadata.negative,
@@ -152,8 +218,9 @@ export function pngMetadataToSidecar(
     tool: metadata.source === "comfyui" ? "comfyui-import" : "png-import",
     hints: metadata.rawParameters?.slice(0, 500),
     variationSeed: metadata.seed,
-    metadata: metadata.workflowJson
-      ? { workflowJson: metadata.workflowJson }
-      : undefined,
+    metadata: {
+      ...(metadata.workflowJson ? { workflowJson: metadata.workflowJson } : {}),
+      ...(Object.keys(queueParams).length > 0 ? { queueParams } : {}),
+    },
   });
 }

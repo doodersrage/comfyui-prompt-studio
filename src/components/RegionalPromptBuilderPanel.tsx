@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   buildInpaintInstruction,
   buildRegionalPrompt,
+  buildRegionalPromptParenForm,
   DEFAULT_REGIONAL_REGIONS,
   parseRegionalSegments,
   type RegionalPromptSegment,
@@ -28,6 +29,10 @@ export default function RegionalPromptBuilderPanel({
   const [rawImport, setRawImport] = useState("");
 
   const composed = useMemo(() => buildRegionalPrompt(segments), [segments]);
+  const parenForm = useMemo(
+    () => buildRegionalPromptParenForm(segments),
+    [segments],
+  );
   const inpaint = useMemo(
     () =>
       maskDescription.trim() && changeDescription.trim()
@@ -42,7 +47,8 @@ export default function RegionalPromptBuilderPanel({
       <p className="text-xs text-zinc-500">
         Text composer for labeled subject/background/lighting segments (or an
         inpaint instruction). This does not wire ComfyUI regional/attention-mask
-        nodes — it only builds prompt text.
+        nodes — copy the paren form into packs that understand{" "}
+        <code className="text-zinc-400">(region: …)</code> weighting.
       </p>
 
       {DEFAULT_REGIONAL_REGIONS.map((region) => {
@@ -128,6 +134,13 @@ export default function RegionalPromptBuilderPanel({
           onClick={() => onApply(composed)}
         >
           Apply regional prompt
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={!parenForm.trim()}
+          onClick={() => onApply(parenForm)}
+        >
+          Apply (region: …) form
         </Button>
         <Button
           variant="secondary"

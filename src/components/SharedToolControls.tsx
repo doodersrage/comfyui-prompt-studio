@@ -54,6 +54,10 @@ import { Button } from "@/components/ui/Button";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { resolveModelStackFamily } from "@/lib/workflow-stack-fingerprint";
+import {
+  expandWildcardText,
+  textHasWildcardTokens,
+} from "@/lib/wildcard-expand";
 
 const ComfyWorkflowSelector = dynamic(
   () => import("@/components/ComfyWorkflowSelector"),
@@ -106,6 +110,8 @@ type SharedToolControlsProps = {
   activeCharacterDescriptor?: string;
   onActiveCharacterDescriptorChange?: (value: string) => void;
   recommendFromText?: string;
+  /** Text used for wildcard expand preview (defaults to recommendFromText). */
+  wildcardPreviewText?: string;
   /** When set, enables a per-tool queue quality override below the global profile. */
   toolId?: string;
   onSharedSettingsChange?: (partial: Partial<SharedToolSettings>) => void;
@@ -133,6 +139,7 @@ export default function SharedToolControls({
   activeCharacterDescriptor,
   onActiveCharacterDescriptorChange,
   recommendFromText,
+  wildcardPreviewText,
   toolId,
   onSharedSettingsChange,
 }: SharedToolControlsProps) {
@@ -165,6 +172,7 @@ export default function SharedToolControls({
     () => shared.expandWildcards !== false,
   );
   const [wildcardSeed, setWildcardSeed] = useState(() => shared.wildcardSeed ?? "");
+  const [wildcardPreview, setWildcardPreview] = useState<string | null>(null);
   const [autoRetryOnOom, setAutoRetryOnOom] = useState(
     () => shared.autoRetryOnOom !== false,
   );
@@ -740,6 +748,57 @@ export default function SharedToolControls({
               placeholder="e.g. my-batch-01"
               className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
             />
+            {textHasWildcardTokens(wildcardPreviewText ?? recommendFromText) ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const source = (wildcardPreviewText ?? recommendFromText ?? "").trim();
+                      if (!source) {
+                        setWildcardPreview(null);
+                        return;
+                      }
+                      const seed =
+                        wildcardSeed.trim() ||
+                        `preview-${Math.floor(Math.random() * 1e9)}`;
+                      setWildcardPreview(
+                        expandWildcardText(source, {
+                          seed,
+                          wildcards: shared.wildcardLists,
+                        }),
+                      );
+                    }}
+                  >
+                    {wildcardPreview ? "Roll again" : "Preview expand"}
+                  </Button>
+                  {wildcardPreview ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(wildcardPreview);
+                      }}
+                    >
+                      Copy preview
+                    </Button>
+                  ) : null}
+                </div>
+                {wildcardPreview ? (
+                  <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3 text-xs leading-relaxed text-zinc-300">
+                    {wildcardPreview}
+                  </pre>
+                ) : null}
+              </div>
+            ) : (
+              <p className="type-caption text-zinc-500">
+                Add <code>__list__</code> or <code>{"{a|b}"}</code> tokens to the
+                draft/hints to preview expansion here.
+              </p>
+            )}
           </div>
         )}
 

@@ -76,11 +76,13 @@ export default function ComfyUiJobStatusPanel({
   useEffect(() => {
     setPreviewUrl(job.previewUrl ?? getComfyLivePreviewUrl(job.promptId));
     const onPreview = (event: Event) => {
-      const detail = (event as CustomEvent<{ promptId?: string }>).detail;
-      if (detail?.promptId && detail.promptId !== job.promptId) {
+      const detail = (event as CustomEvent<{ promptId?: string; keys?: string[] }>)
+        .detail;
+      const keys = detail?.keys ?? (detail?.promptId ? [detail.promptId] : []);
+      if (keys.length > 0 && !keys.includes(job.promptId)) {
         return;
       }
-      setPreviewUrl(getComfyLivePreviewUrl(job.promptId));
+      setPreviewUrl(job.previewUrl ?? getComfyLivePreviewUrl(job.promptId));
     };
     window.addEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
     return () => {
@@ -121,6 +123,11 @@ export default function ComfyUiJobStatusPanel({
             <span className="rounded-full border border-current/20 px-2 py-0.5 type-overline opacity-90">
               {label}
             </span>
+            {percent != null ? (
+              <span className="rounded-full border border-current/20 px-2 py-0.5 type-caption tabular-nums">
+                {percent}%
+              </span>
+            ) : null}
           </div>
 
           {processing && previewUrl ? (
@@ -172,6 +179,7 @@ export function ComfyUiGalleryJobPlaceholder({
 }: {
   entry: {
     promptId?: string;
+    clientId?: string;
     status: ComfyUiJobTrackerState["status"];
     statusMessage?: string;
     queuePosition?: number | null;
@@ -184,47 +192,52 @@ export function ComfyUiGalleryJobPlaceholder({
   const percent = comfyUiJobProgressPercent(entry);
   const progressLabel = formatComfyUiJobProgressLabel(entry);
   const [previewUrl, setPreviewUrl] = useState<string | null>(() =>
-    entry.promptId ? getComfyLivePreviewUrl(entry.promptId) : null,
+    getComfyLivePreviewUrl(entry.promptId, [entry.clientId]),
   );
 
   useEffect(() => {
-    if (!entry.promptId) {
-      setPreviewUrl(null);
-      return;
-    }
-    setPreviewUrl(getComfyLivePreviewUrl(entry.promptId));
+    setPreviewUrl(getComfyLivePreviewUrl(entry.promptId, [entry.clientId]));
     const onPreview = (event: Event) => {
-      const detail = (event as CustomEvent<{ promptId?: string }>).detail;
-      if (detail?.promptId && detail.promptId !== entry.promptId) {
+      const detail = (event as CustomEvent<{ promptId?: string; keys?: string[] }>)
+        .detail;
+      const keys = detail?.keys ?? (detail?.promptId ? [detail.promptId] : []);
+      const ours = [entry.promptId, entry.clientId].filter(Boolean) as string[];
+      if (keys.length > 0 && ours.length > 0 && !keys.some((key) => ours.includes(key))) {
         return;
       }
-      setPreviewUrl(getComfyLivePreviewUrl(entry.promptId!));
+      setPreviewUrl(getComfyLivePreviewUrl(entry.promptId, [entry.clientId]));
     };
     window.addEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
     return () => {
       window.removeEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
     };
-  }, [entry.promptId]);
+  }, [entry.promptId, entry.clientId]);
 
   return (
-    <div className="relative flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
+    <div
+      className="relative flex h-full flex-col items-center justify-center gap-3 bg-zinc-950/80 px-4 text-center"
+      role="status"
+      aria-live="polite"
+      aria-busy={processing}
+    >
       {processing && previewUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={previewUrl}
-          alt="Live preview"
-          className="absolute inset-0 h-full w-full object-contain bg-zinc-950/80"
+          alt="Latent render preview"
+          className="absolute inset-0 h-full w-full object-contain"
         />
       ) : null}
+
       {processing && !previewUrl ? (
         <span className="ui-spinner ui-spinner-lg" aria-hidden />
       ) : null}
-      <div className="relative z-10 w-full max-w-[14rem] space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-violet-300">
+
+      <div className="relative z-10 w-full max-w-[14rem] space-y-2 rounded-xl bg-zinc-950/55 px-3 py-2 backdrop-blur-sm">
+        <p className="text-xs font-medium uppercase tracking-wide text-violet-200">
+          {previewUrl ? "Latent · " : ""}
           {entry.status === "running"
-            ? percent != null
-              ? `Running · ${percent}%`
-              : "Running"
+            ? "Rendering"
             : entry.status === "pending"
               ? "Queued"
               : "Waiting"}
@@ -234,7 +247,9 @@ export function ComfyUiGalleryJobPlaceholder({
             Position {entry.queuePosition} in queue
           </p>
         ) : entry.status === "running" && percent == null ? (
-          <p className="text-[11px] text-zinc-400">Executing workflow…</p>
+          <p className="text-[11px] text-zinc-400">
+            {previewUrl ? "Receiving latent frames…" : "Executing workflow…"}
+          </p>
         ) : null}
         {percent != null ? (
           <div className="space-y-1.5">
@@ -255,7 +270,7 @@ export function ComfyUiGalleryJobPlaceholder({
             ) : null}
           </div>
         ) : entry.statusMessage?.trim() ? (
-          <p className="text-[11px] text-zinc-600">{entry.statusMessage}</p>
+          <p className="text-[11px] text-zinc-500">{entry.statusMessage}</p>
         ) : null}
       </div>
     </div>

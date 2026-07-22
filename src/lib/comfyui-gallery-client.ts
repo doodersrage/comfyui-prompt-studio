@@ -52,6 +52,8 @@ export type RegisterComfyGalleryJobInput = {
 
 export type PollComfyGalleryJobOptions = {
   comfyUrl?: string;
+  /** Must match the client_id used when the prompt was queued. */
+  clientId?: string;
   maxAttempts?: number;
   intervalMs?: number;
   onJobUpdate?: (job: ComfyUiJobTrackerState) => void;
@@ -119,45 +121,92 @@ export function registerComfyGalleryJob(
   return entry;
 }
 
-export function importComfyGalleryFromHistory(
+/** Pure merge for history → gallery (import + upgrade thin duplicates). */
+export function mergeHistoryImportItems(
+  existing: ComfyGalleryEntry[],
   items: ComfyHistoryImportItem[],
-): { imported: number; skipped: number } {
-  const existing = loadComfyGallery();
-  const known = new Set(existing.map((entry) => entry.promptId));
+  createId: () => string = () => crypto.randomUUID(),
+  now: () => number = () => Date.now(),
+): {
+  entries: ComfyGalleryEntry[];
+  imported: number;
+  upgraded: number;
+  skipped: number;
+} {
+  const nextExisting = existing.map((entry) => ({ ...entry }));
+  const byPromptId = new Map(nextExisting.map((entry) => [entry.promptId, entry]));
   const imported: ComfyGalleryEntry[] = [];
+  let upgraded = 0;
   let skipped = 0;
 
   for (const item of items) {
-    if (known.has(item.promptId)) {
-      skipped += 1;
+    const prior = byPromptId.get(item.promptId);
+    if (prior) {
+      const needsParams = !prior.queueParams || Object.keys(prior.queueParams).length === 0;
+      if (needsParams && item.queueParams && Object.keys(item.queueParams).length > 0) {
+        prior.queueParams = item.queueParams;
+        if (!prior.model?.trim() && item.model?.trim()) {
+          prior.model = item.model;
+        }
+        if (!prior.negativePrompt?.trim() && item.negativePrompt?.trim()) {
+          prior.negativePrompt = item.negativePrompt;
+        }
+        prior.statusMessage = item.statusMessage ?? prior.statusMessage;
+        upgraded += 1;
+      } else {
+        skipped += 1;
+      }
       continue;
     }
 
-    imported.push({
-      id: crypto.randomUUID(),
+    const entry: ComfyGalleryEntry = {
+      id: createId(),
       promptId: item.promptId,
       prompt: item.prompt,
       negativePrompt: item.negativePrompt,
+      model: item.model,
       tool: "comfyui-import",
       comfyUrl: item.comfyUrl,
       status: "completed",
       statusMessage: item.statusMessage ?? "Imported from ComfyUI history",
-      queuedAt: Date.now(),
-      completedAt: Date.now(),
+      queuedAt: now(),
+      completedAt: now(),
       images: item.images,
-    });
-    known.add(item.promptId);
+      queueParams: item.queueParams,
+    };
+    imported.push(entry);
+    byPromptId.set(item.promptId, entry);
   }
 
-  if (imported.length > 0) {
-    saveComfyGallery([...imported, ...existing]);
-  }
-
-  return { imported: imported.length, skipped };
+  return {
+    entries: [...imported, ...nextExisting],
+    imported: imported.length,
+    upgraded,
+    skipped,
+  };
 }
 
-export async function fetchComfyHistoryImports(limit = 40) {
+export function importComfyGalleryFromHistory(
+  items: ComfyHistoryImportItem[],
+): { imported: number; upgraded: number; skipped: number } {
+  const existing = loadComfyGallery();
+  const merged = mergeHistoryImportItems(existing, items);
+  if (merged.imported > 0 || merged.upgraded > 0) {
+    saveComfyGallery(merged.entries);
+  }
+  return {
+    imported: merged.imported,
+    upgraded: merged.upgraded,
+    skipped: merged.skipped,
+  };
+}
+
+export async function fetchComfyHistoryImports(limit = 40, comfyUrl?: string) {
   const params = new URLSearchParams({ limit: String(limit) });
+  const sticky = comfyUrl?.trim();
+  if (sticky) {
+    params.set("comfyUrl", sticky);
+  }
   const response = await fetch(`/api/comfyui/history?${params.toString()}`);
   if (!response.ok) {
     throw new Error("Could not load ComfyUI history.");
@@ -411,10 +460,13 @@ export async function pollComfyGalleryJob(
     });
   };
 
-  if (settings.useWebSocketProgress && comfyUrl) {
-    const clientId = loadComfyGallery()
-      .find((entry) => entry.promptId === promptId)
-      ?.clientId?.trim();
+  // Prefer explicit option, then gallery entry — must match /prompt client_id.
+  if (settings.useWebSocketProgress !== false && comfyUrl) {
+    const clientId =
+      options?.clientId?.trim() ||
+      loadComfyGallery()
+        .find((entry) => entry.promptId === promptId)
+        ?.clientId?.trim();
     wsSubscription = subscribeComfyUiWebSocket({
       // Live bridge resolves Comfy server-side; pass entry URL only as a hint.
       comfyUrl,

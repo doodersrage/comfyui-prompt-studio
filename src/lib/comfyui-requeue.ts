@@ -5,6 +5,7 @@ import {
   registerComfyGalleryJob,
 } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
+import { postComfyUiPrompt } from "./comfyui-queue-request";
 import { scheduleRefineAfterUpscaleComplete } from "./gallery-pending-actions";
 import {
   resolveWorkflowGraphEnrichOptions,
@@ -181,6 +182,11 @@ export type RequeueComfyJobInput = {
   forceInputImage?: boolean;
   /** Force a specific ComfyUI endpoint for this re-queue (e.g. pool failover on OOM). */
   comfyUrlOverride?: string;
+  /**
+   * Exact API workflow graph (e.g. from PNG/Comfy history). When set, queues with
+   * directWorkflowPatching instead of rebuilding from the library template.
+   */
+  workflowJson?: string;
   onStatus?: (message: string) => void;
 };
 
@@ -401,61 +407,52 @@ export async function requeueUpscaleFromGalleryEntry(
             : "Queueing Lanczos upscale…",
     );
 
-    const response = await fetch("/api/comfyui", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: entry.prompt.trim() || "upscale",
-        negativePrompt: entry.negativePrompt,
-        model,
-        params,
-        comfy: runtime,
-      }),
+    const queued = await postComfyUiPrompt({
+      prompt: entry.prompt.trim() || "upscale",
+      negativePrompt: entry.negativePrompt,
+      model,
+      params,
+      comfy: runtime,
     });
 
-    const data = (await response.json()) as {
-      ok?: boolean;
-      promptId?: string;
-      error?: string;
-      comfyUrl?: string;
-    };
-
-    if (!response.ok) {
+    if (!queued.ok || !queued.promptId) {
+      queued.releaseLiveSocket();
       return {
         ok: false,
-        error: data.error ?? "ComfyUI upscale queue failed.",
-        comfyUrl: data.comfyUrl,
+        error: queued.error ?? "ComfyUI upscale queue failed.",
+        comfyUrl: queued.comfyUrl,
       };
     }
 
-    if (data.promptId) {
-      registerComfyGalleryJob({
-        promptId: data.promptId,
-        prompt: entry.prompt.trim() || "upscale",
-        negativePrompt: entry.negativePrompt,
-        tool: entry.tool,
-        model: entry.model,
-        comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
-        queueParams: { inputImageFilename },
-        sourceImageUrl: outputUrl,
-        queueQualityProfile: qualityProfile,
-        parentGalleryEntryId: entry.id,
-        derivedKind: "upscale",
-        historyId: entry.historyId,
-      });
-      if (options.refineAfterComplete && !isLightning) {
-        scheduleRefineAfterUpscaleComplete(data.promptId, options.refineAfterComplete);
-      }
-      void scheduleComfyGalleryPoll(data.promptId, {
-        comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
-        onStatus: options.onStatus,
-      });
+    registerComfyGalleryJob({
+      promptId: queued.promptId,
+      prompt: entry.prompt.trim() || "upscale",
+      negativePrompt: entry.negativePrompt,
+      tool: entry.tool,
+      model: entry.model,
+      comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      clientId: queued.clientId,
+      queueParams: { inputImageFilename },
+      sourceImageUrl: outputUrl,
+      queueQualityProfile: qualityProfile,
+      parentGalleryEntryId: entry.id,
+      derivedKind: "upscale",
+      historyId: entry.historyId,
+    });
+    if (options.refineAfterComplete && !isLightning) {
+      scheduleRefineAfterUpscaleComplete(queued.promptId, options.refineAfterComplete);
     }
+    void scheduleComfyGalleryPoll(queued.promptId, {
+      comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      clientId: queued.clientId,
+      onStatus: options.onStatus,
+    });
+    queued.releaseLiveSocket();
 
     return {
       ok: true,
-      promptId: data.promptId,
-      comfyUrl: data.comfyUrl ?? entry.comfyUrl,
+      promptId: queued.promptId,
+      comfyUrl: queued.comfyUrl ?? entry.comfyUrl,
       vramDowngraded,
     };
   };
@@ -547,58 +544,49 @@ export async function requeueMoireCleanFromGalleryEntry(
       : "Queueing moiré clean (Final: soft blur only)…",
   );
 
-  const response = await fetch("/api/comfyui", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt: entry.prompt.trim() || "moire clean",
-      negativePrompt: entry.negativePrompt,
-      model,
-      params: { inputImageFilename },
-      comfy: runtime,
-    }),
+  const queued = await postComfyUiPrompt({
+    prompt: entry.prompt.trim() || "moire clean",
+    negativePrompt: entry.negativePrompt,
+    model,
+    params: { inputImageFilename },
+    comfy: runtime,
   });
 
-  const data = (await response.json()) as {
-    ok?: boolean;
-    promptId?: string;
-    error?: string;
-    comfyUrl?: string;
-  };
-
-  if (!response.ok) {
+  if (!queued.ok || !queued.promptId) {
+    queued.releaseLiveSocket();
     return {
       ok: false,
-      error: data.error ?? "ComfyUI moiré-clean queue failed.",
-      comfyUrl: data.comfyUrl,
+      error: queued.error ?? "ComfyUI moiré-clean queue failed.",
+      comfyUrl: queued.comfyUrl,
     };
   }
 
-  if (data.promptId) {
-    registerComfyGalleryJob({
-      promptId: data.promptId,
-      prompt: entry.prompt.trim() || "moire clean",
-      negativePrompt: entry.negativePrompt,
-      tool: entry.tool,
-      model: entry.model,
-      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
-      queueParams: { inputImageFilename },
-      sourceImageUrl: outputUrl,
-      queueQualityProfile: qualityProfile,
-      parentGalleryEntryId: entry.id,
-      derivedKind: "moire-clean",
-      historyId: entry.historyId,
-    });
-    void scheduleComfyGalleryPoll(data.promptId, {
-      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
-      onStatus: options?.onStatus,
-    });
-  }
+  registerComfyGalleryJob({
+    promptId: queued.promptId,
+    prompt: entry.prompt.trim() || "moire clean",
+    negativePrompt: entry.negativePrompt,
+    tool: entry.tool,
+    model: entry.model,
+    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    clientId: queued.clientId,
+    queueParams: { inputImageFilename },
+    sourceImageUrl: outputUrl,
+    queueQualityProfile: qualityProfile,
+    parentGalleryEntryId: entry.id,
+    derivedKind: "moire-clean",
+    historyId: entry.historyId,
+  });
+  void scheduleComfyGalleryPoll(queued.promptId, {
+    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    clientId: queued.clientId,
+    onStatus: options?.onStatus,
+  });
+  queued.releaseLiveSocket();
 
   return {
     ok: true,
-    promptId: data.promptId,
-    comfyUrl: data.comfyUrl ?? entry.comfyUrl,
+    promptId: queued.promptId,
+    comfyUrl: queued.comfyUrl ?? entry.comfyUrl,
     vramDowngraded: resolved.vramDowngraded,
   };
 }
@@ -694,57 +682,48 @@ export async function requeueRefineFromGalleryEntry(
 
   const refineNegative = appendPortraitRefineNegative(entry.negativePrompt, entry.prompt);
 
-  const response = await fetch("/api/comfyui", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt: entry.prompt.trim() || "refine",
-      negativePrompt: refineNegative,
-      model,
-      params,
-      comfy: runtime,
-    }),
+  const queued = await postComfyUiPrompt({
+    prompt: entry.prompt.trim() || "refine",
+    negativePrompt: refineNegative,
+    model,
+    params,
+    comfy: runtime,
   });
 
-  const data = (await response.json()) as {
-    ok?: boolean;
-    promptId?: string;
-    error?: string;
-    comfyUrl?: string;
-  };
-
-  if (!response.ok) {
+  if (!queued.ok || !queued.promptId) {
+    queued.releaseLiveSocket();
     return {
       ok: false,
-      error: data.error ?? "ComfyUI refine queue failed.",
-      comfyUrl: data.comfyUrl,
+      error: queued.error ?? "ComfyUI refine queue failed.",
+      comfyUrl: queued.comfyUrl,
     };
   }
 
-  if (data.promptId) {
-    registerComfyGalleryJob({
-      promptId: data.promptId,
-      prompt: entry.prompt.trim() || "refine",
-      negativePrompt: entry.negativePrompt,
-      tool: "refine",
-      model: entry.model,
-      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
-      queueParams: params,
-      sourceImageUrl: outputUrl,
-      queueQualityProfile: profile,
-      parentGalleryEntryId: entry.id,
-      derivedKind: "refine",
-    });
-    void scheduleComfyGalleryPoll(data.promptId, {
-      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
-      onStatus: options?.onStatus,
-    });
-  }
+  registerComfyGalleryJob({
+    promptId: queued.promptId,
+    prompt: entry.prompt.trim() || "refine",
+    negativePrompt: entry.negativePrompt,
+    tool: "refine",
+    model: entry.model,
+    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    clientId: queued.clientId,
+    queueParams: params,
+    sourceImageUrl: outputUrl,
+    queueQualityProfile: profile,
+    parentGalleryEntryId: entry.id,
+    derivedKind: "refine",
+  });
+  void scheduleComfyGalleryPoll(queued.promptId, {
+    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    clientId: queued.clientId,
+    onStatus: options?.onStatus,
+  });
+  queued.releaseLiveSocket();
 
   return {
     ok: true,
-    promptId: data.promptId,
-    comfyUrl: data.comfyUrl ?? entry.comfyUrl,
+    promptId: queued.promptId,
+    comfyUrl: queued.comfyUrl ?? entry.comfyUrl,
     vramDowngraded: resolved.vramDowngraded,
   };
 }
@@ -837,58 +816,49 @@ export async function requeueFaceDetailFromGalleryEntry(
     `Queueing library face-detail workflow “${libraryWorkflow.name}”…`,
   );
 
-  const response = await fetch("/api/comfyui", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt: entry.prompt.trim() || "face detail",
-      negativePrompt: entry.negativePrompt,
-      model,
-      params: faceDetailParams,
-      comfy: runtime,
-    }),
+  const queued = await postComfyUiPrompt({
+    prompt: entry.prompt.trim() || "face detail",
+    negativePrompt: entry.negativePrompt,
+    model,
+    params: faceDetailParams,
+    comfy: runtime,
   });
 
-  const data = (await response.json()) as {
-    ok?: boolean;
-    promptId?: string;
-    error?: string;
-    comfyUrl?: string;
-  };
-
-  if (!response.ok) {
+  if (!queued.ok || !queued.promptId) {
+    queued.releaseLiveSocket();
     return {
       ok: false,
-      error: data.error ?? "ComfyUI face-detail queue failed.",
-      comfyUrl: data.comfyUrl,
+      error: queued.error ?? "ComfyUI face-detail queue failed.",
+      comfyUrl: queued.comfyUrl,
     };
   }
 
-  if (data.promptId) {
-    registerComfyGalleryJob({
-      promptId: data.promptId,
-      prompt: entry.prompt.trim() || "face detail",
-      negativePrompt: entry.negativePrompt,
-      tool: entry.tool,
-      model: entry.model,
-      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
-      queueParams: faceDetailParams,
-      sourceImageUrl: outputUrl,
-      queueQualityProfile: entry.queueQualityProfile,
-      parentGalleryEntryId: entry.id,
-      derivedKind: "face-detail",
-      historyId: entry.historyId,
-    });
-    void scheduleComfyGalleryPoll(data.promptId, {
-      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
-      onStatus: options?.onStatus,
-    });
-  }
+  registerComfyGalleryJob({
+    promptId: queued.promptId,
+    prompt: entry.prompt.trim() || "face detail",
+    negativePrompt: entry.negativePrompt,
+    tool: entry.tool,
+    model: entry.model,
+    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    clientId: queued.clientId,
+    queueParams: faceDetailParams,
+    sourceImageUrl: outputUrl,
+    queueQualityProfile: entry.queueQualityProfile,
+    parentGalleryEntryId: entry.id,
+    derivedKind: "face-detail",
+    historyId: entry.historyId,
+  });
+  void scheduleComfyGalleryPoll(queued.promptId, {
+    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    clientId: queued.clientId,
+    onStatus: options?.onStatus,
+  });
+  queued.releaseLiveSocket();
 
   return {
     ok: true,
-    promptId: data.promptId,
-    comfyUrl: data.comfyUrl ?? entry.comfyUrl,
+    promptId: queued.promptId,
+    comfyUrl: queued.comfyUrl ?? entry.comfyUrl,
   };
 }
 
@@ -1301,66 +1271,66 @@ export async function requeueComfyJob(
     return { ok: true, held: true, vramDowngraded: vramGuard.downgraded };
   }
 
-  const response = await fetch("/api/comfyui", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt: input.prompt.trim(),
-      negativePrompt,
-      model,
-      ...(params ? { params } : {}),
-      ...(comfyRuntime ? { comfy: comfyRuntime } : {}),
-    }),
+  const workflowJson = input.workflowJson?.trim();
+  const comfyPayload = workflowJson
+    ? {
+        ...comfyRuntime,
+        workflowJson,
+        directWorkflowPatching: true,
+        workflowQueueOptimize: true,
+      }
+    : comfyRuntime;
+
+  const queued = await postComfyUiPrompt({
+    prompt: input.prompt.trim(),
+    negativePrompt,
+    model,
+    ...(params ? { params } : {}),
+    ...(comfyPayload ? { comfy: comfyPayload } : {}),
   });
 
-  const data = (await response.json()) as {
-    ok?: boolean;
-    promptId?: string;
-    error?: string;
-    comfyUrl?: string;
-    workflowSource?: string;
-  };
-
-  if (!response.ok) {
+  if (!queued.ok || !queued.promptId) {
+    queued.releaseLiveSocket();
     return {
       ok: false,
-      error: data.error ?? "ComfyUI queue failed.",
-      comfyUrl: data.comfyUrl,
+      error: queued.error ?? "ComfyUI queue failed.",
+      comfyUrl: queued.comfyUrl,
     };
   }
 
-  if (data.promptId) {
-    registerComfyGalleryJob({
-      promptId: data.promptId,
-      prompt: input.prompt.trim(),
-      negativePrompt,
-      tool: input.tool,
-      model: input.model,
-      comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
-      queueParams: params,
-      sourceImageUrl: input.sourceImageUrl,
-      maskImageUrl: input.maskImageUrl,
-      queueQualityProfile: comfyRuntime?.queueQualityProfile,
-      parentGalleryEntryId: input.parentGalleryEntryId,
-      derivedKind: input.derivedKind,
-    });
-    void scheduleComfyGalleryPoll(data.promptId, {
-      comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
-      onStatus: input.onStatus,
-    });
+  registerComfyGalleryJob({
+    promptId: queued.promptId,
+    prompt: input.prompt.trim(),
+    negativePrompt,
+    tool: input.tool,
+    model: input.model,
+    comfyUrl: queued.comfyUrl ?? "http://127.0.0.1:8188",
+    clientId: queued.clientId,
+    queueParams: params,
+    sourceImageUrl: input.sourceImageUrl,
+    maskImageUrl: input.maskImageUrl,
+    queueQualityProfile: comfyRuntime?.queueQualityProfile,
+    parentGalleryEntryId: input.parentGalleryEntryId,
+    derivedKind: input.derivedKind,
+  });
+  void scheduleComfyGalleryPoll(queued.promptId, {
+    comfyUrl: queued.comfyUrl ?? "http://127.0.0.1:8188",
+    clientId: queued.clientId,
+    onStatus: input.onStatus,
+  });
+  queued.releaseLiveSocket();
 
-    const warnMessages = requeueImageIssues
-      .filter((issue) => issue.severity === "warn")
-      .map((issue) => issue.message);
-    if (warnMessages.length > 0) {
-      input.onStatus?.(`Queued · ${warnMessages.join(" · ")}`);
-    }
+  const warnMessages = requeueImageIssues
+    .filter((issue) => issue.severity === "warn")
+    .map((issue) => issue.message);
+  if (warnMessages.length > 0) {
+    input.onStatus?.(`Queued · ${warnMessages.join(" · ")}`);
   }
 
   return {
     ok: true,
-    promptId: data.promptId,
-    comfyUrl: data.comfyUrl,
+    promptId: queued.promptId,
+    comfyUrl: queued.comfyUrl,
     vramDowngraded: vramGuard.downgraded,
   };
 }

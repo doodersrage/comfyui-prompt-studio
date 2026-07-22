@@ -27,6 +27,21 @@ export function buildRegionalPrompt(
     .join(". ");
 }
 
+/** Compact `(region: text)` form useful for attention/weighted prompt packs. */
+export function buildRegionalPromptParenForm(
+  segments: RegionalPromptSegment[],
+  regions: RegionalPromptRegion[] = DEFAULT_REGIONAL_REGIONS,
+): string {
+  const labelById = Object.fromEntries(regions.map((region) => [region.id, region.label]));
+  return segments
+    .filter((segment) => segment.prompt.trim())
+    .map(
+      (segment) =>
+        `(${(labelById[segment.regionId] ?? segment.regionId).toLowerCase()}: ${segment.prompt.trim()})`,
+    )
+    .join(" ");
+}
+
 export function buildInpaintInstruction(
   maskDescription: string,
   changeDescription: string,

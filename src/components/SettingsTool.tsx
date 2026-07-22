@@ -43,6 +43,11 @@ import {
   formatModelControlNetMap,
   parseModelControlNetMap,
 } from "@/lib/model-controlnet-map";
+import {
+  formatInventorySyncMessage,
+  syncLoaderMapsFromInventory,
+} from "@/lib/loader-map-inventory-sync";
+import { fetchComfyObjectInfoCached } from "@/lib/comfyui-object-info-cache";
 import { uploadComfyInputImage } from "@/lib/comfyui-image-upload";
 import {
   DEFAULT_IPADAPTER_IMAGE_TOKEN,
@@ -103,6 +108,7 @@ import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import SettingsSubNav from "@/components/settings/SettingsSubNav";
 import CompactDraftSavesStatus from "@/components/settings/CompactDraftSavesStatus";
 import WildcardListsEditor from "@/components/settings/WildcardListsEditor";
+import FaceDetailerHealthChip from "@/components/settings/FaceDetailerHealthChip";
 import {
   CollapsibleSection,
   ToolBadge,
@@ -562,6 +568,45 @@ export default function SettingsTool() {
     setLoaderMapMergeHint(message);
     setStatus(message);
   }, [sharedSettings.modelCheckpointMap, sharedSettings.modelRefinerMap, sharedSettings.modelVaeMap, updateSharedSettings]);
+
+  const syncLoaderMapsFromComfyInventory = useCallback(async () => {
+    setStatus("Fetching ComfyUI inventory…");
+    const objectInfo = await fetchComfyObjectInfoCached({
+      comfyUrl: settings.apiUrl || undefined,
+    });
+    if (!objectInfo?.models) {
+      setStatus("Could not fetch ComfyUI object_info — is ComfyUI reachable?");
+      return;
+    }
+    const synced = syncLoaderMapsFromInventory({
+      models: objectInfo.models,
+      checkpointMap: sharedSettings.modelCheckpointMap,
+      vaeMap: sharedSettings.modelVaeMap,
+      upscaleMap: sharedSettings.modelUpscaleMap,
+      controlNetMap: sharedSettings.modelControlNetMap,
+    });
+    const message = formatInventorySyncMessage(synced);
+    updateSharedSettings({
+      modelCheckpointMap: synced.modelCheckpointMap,
+      modelVaeMap: synced.modelVaeMap,
+      modelUpscaleMap: synced.modelUpscaleMap,
+      modelControlNetMap: synced.modelControlNetMap,
+    });
+    setModelCheckpointMapText(formatModelCheckpointMap(synced.modelCheckpointMap));
+    setModelVaeMapText(formatModelVaeMap(synced.modelVaeMap));
+    setModelUpscaleMapText(formatModelUpscaleMap(synced.modelUpscaleMap));
+    setModelControlNetMapText(formatModelControlNetMap(synced.modelControlNetMap));
+    setLoaderMapMergeHint(message);
+    setStatus(message);
+    setWorkflowHealthRefresh((n) => n + 1);
+  }, [
+    settings.apiUrl,
+    sharedSettings.modelCheckpointMap,
+    sharedSettings.modelControlNetMap,
+    sharedSettings.modelUpscaleMap,
+    sharedSettings.modelVaeMap,
+    updateSharedSettings,
+  ]);
 
   const workflowValidation = useMemo(() => {
     if (!settings.workflowJson?.trim()) {
@@ -1363,6 +1408,14 @@ export default function SettingsTool() {
           >
             Merge suggested loader maps
           </button>
+          <button
+            type="button"
+            disabled={!sharedMounted}
+            onClick={() => void syncLoaderMapsFromComfyInventory()}
+            className={`rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 transition hover:bg-emerald-500/20 ${accentFocusClass(ACCENT)}`}
+          >
+            Sync from ComfyUI inventory
+          </button>
         </div>
         {loaderMapMergeHint ? (
           <p className="mt-2 text-xs leading-relaxed text-emerald-300/90">{loaderMapMergeHint}</p>
@@ -1511,6 +1564,7 @@ export default function SettingsTool() {
             className={`ui-input w-32 ${accentFocusClass(ACCENT)}`}
           />
         </label>
+        <FaceDetailerHealthChip refreshKey={workflowHealthRefresh} />
       </ToolSection>
 
       <ToolSection
@@ -1535,8 +1589,9 @@ export default function SettingsTool() {
           tokens <strong className="font-medium text-zinc-300">or auto-inserts</strong> a
           minimal LoadImage → IPAdapterModelLoader → IPAdapterAdvanced chain when
           none exist. Requires ComfyUI-IPAdapter-Plus-class nodes installed.
-          InstantID / PuLID are bring-your-own workflows — this path is IP-Adapter
-          only.
+          InstantID / PuLID are bring-your-own — use Workflow library → InstantID /
+          PuLID scaffold, wire your node pack in ComfyUI, then import. This path is
+          IP-Adapter only.
         </p>
 
         <div className="space-y-2">

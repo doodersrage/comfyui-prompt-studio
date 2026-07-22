@@ -113,6 +113,8 @@ export type WorkflowParamValues = {
   maskImageFilename?: string;
   controlNetModelFilename?: string;
   controlImageFilename?: string;
+  /** ControlNet preprocessor mode (canny/pose/depth/…) when auto-inserting a chain. */
+  controlNetMode?: string;
   /** {{IPADAPTER_IMAGE}} — filename of the identity/style reference image on a LoadImage node. */
   ipAdapterImageFilename?: string;
   /** {{IPADAPTER_STRENGTH}} — 0–1 weight patched onto IPAdapter-family nodes. */

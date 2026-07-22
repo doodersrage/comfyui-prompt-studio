@@ -13,6 +13,12 @@ import { DEFAULT_VIDEO_TOOL_CACHE } from "@/lib/settings-cache";
 import { isVideoModel } from "@/lib/queue-tool-model";
 import { DEFAULT_VIDEO_MODEL } from "@/lib/comfy-models/client";
 import {
+  clearGalleryHandoff,
+  loadGalleryHandoff,
+} from "@/lib/gallery-handoff";
+import { ensureVideoWorkflowScaffold } from "@/lib/ensure-video-workflow";
+import { fetchComfyObjectInfoCached } from "@/lib/comfyui-object-info-cache";
+import {
   ToolBadge,
   ToolLayout,
   ToolSection,
@@ -94,6 +100,21 @@ export default function VideoPromptTool() {
     (value: string) => updateToolSettings({ initImageUrl: value }),
     [updateToolSettings],
   );
+
+  useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+    const handoff = loadGalleryHandoff("video");
+    if (!handoff?.imageUrl?.trim()) {
+      return;
+    }
+    updateToolSettings({
+      initImageUrl: handoff.imageUrl.trim(),
+      ...(handoff.prompt?.trim() ? { subject: handoff.prompt.trim().slice(0, 400) } : {}),
+    });
+    clearGalleryHandoff();
+  }, [mounted, updateToolSettings]);
   const setFrames = useCallback(
     (value: number | undefined) => updateToolSettings({ frames: value }),
     [updateToolSettings],
@@ -121,10 +142,54 @@ export default function VideoPromptTool() {
     updateShared({ model: DEFAULT_VIDEO_MODEL });
   }, [mounted, shared.model, updateShared]);
 
+  const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Create + assign a WAN video scaffold when none is mapped yet.
+  // Apply the full sharedPatch (including modelWorkflowMap + checkpoint map)
+  // so React state does not clobber settings with a stale partial update.
+  useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const model = isVideoModel(shared.model) ? shared.model : DEFAULT_VIDEO_MODEL;
+        const objectInfo = await fetchComfyObjectInfoCached();
+        if (cancelled) {
+          return;
+        }
+        const result = ensureVideoWorkflowScaffold(model, {
+          inventory: objectInfo?.models ?? null,
+        });
+        updateShared(result.sharedPatch);
+        const parts = [
+          result.created
+            ? `Created and assigned “${result.workflow.name}” for ${result.model}.`
+            : `Using workflow “${result.workflow.name}” for ${result.model}.`,
+          result.checkpointNote,
+        ].filter(Boolean);
+        setWorkflowStatus(parts.join(" "));
+      } catch (ensureError) {
+        if (!cancelled) {
+          setWorkflowStatus(
+            ensureError instanceof Error
+              ? ensureError.message
+              : "Could not create WAN video workflow scaffold.",
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally once after settings hydrate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted]);
 
   const actions = usePromptResultActions({
     tool: "video",
@@ -155,9 +220,14 @@ export default function VideoPromptTool() {
           camera,
           style,
           durationSec,
+          model: shared.model,
         }),
       });
-      const data = (await response.json()) as { prompt?: string; error?: string };
+      const data = (await response.json()) as {
+        prompt?: string;
+        method?: string;
+        error?: string;
+      };
       if (!response.ok) {
         throw new Error(data.error ?? "Video prompt failed.");
       }
@@ -209,6 +279,11 @@ export default function VideoPromptTool() {
       }
     >
       <ToolSection>
+        {workflowStatus ? (
+          <p className="mb-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+            {workflowStatus}
+          </p>
+        ) : null}
         <FieldLabel htmlFor="video-subject">Subject / action</FieldLabel>
         <TextArea
           id="video-subject"

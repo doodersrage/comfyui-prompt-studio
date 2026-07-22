@@ -114,6 +114,7 @@ export function buildZipBlob(files: ZipFileEntry[]): Blob {
 
 export async function downloadGalleryZipBundle(
   entries: ComfyGalleryEntry[],
+  options?: { filename?: string },
 ): Promise<number> {
   const files: ZipFileEntry[] = [];
 
@@ -151,7 +152,7 @@ export async function downloadGalleryZipBundle(
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `gallery-export-${Date.now()}.zip`;
+  anchor.download = options?.filename?.trim() || `gallery-export-${Date.now()}.zip`;
   anchor.click();
   URL.revokeObjectURL(url);
   return entries.length;

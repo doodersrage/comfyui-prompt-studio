@@ -2,6 +2,7 @@
 
 import { registerComfyGalleryJob } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
+import { postComfyUiPrompt } from "./comfyui-queue-request";
 import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
 import { resolveQueueParams } from "./queue-params-settings";
 import type { ComfyImageModel } from "./comfy-models/client";
@@ -69,53 +70,46 @@ export async function runVisualModelCompare(input: {
       };
     }
 
-    const response = await fetch("/api/comfyui", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: prepared.positive,
-        negativePrompt: prepared.negative,
-        params,
-        ...(runtime ? { comfy: runtime } : {}),
-      }),
+    const queued = await postComfyUiPrompt({
+      prompt: prepared.positive,
+      negativePrompt: prepared.negative,
+      params,
+      ...(runtime ? { comfy: runtime } : {}),
     });
 
-    const data = (await response.json()) as {
-      ok?: boolean;
-      promptId?: string;
-      error?: string;
-      comfyUrl?: string;
-    };
-
-    if (!response.ok || !data.promptId) {
+    if (!queued.ok || !queued.promptId) {
+      queued.releaseLiveSocket();
       return {
         model,
         prompt: input.prompt,
-        error: data.error ?? "Queue failed.",
+        error: queued.error ?? "Queue failed.",
       };
     }
 
     registerComfyGalleryJob({
-      promptId: data.promptId,
+      promptId: queued.promptId,
       prompt: prepared.positive,
       negativePrompt: prepared.negative,
       tool: "studio-compare",
       model,
-      comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
+      comfyUrl: queued.comfyUrl ?? "http://127.0.0.1:8188",
+      clientId: queued.clientId,
       queueParams: params,
       queueQualityProfile: runtime.queueQualityProfile,
     });
 
     input.onStatus?.(`Polling ${model}…`);
-    const entry = await scheduleComfyGalleryPoll(data.promptId, {
-      comfyUrl: data.comfyUrl,
+    const entry = await scheduleComfyGalleryPoll(queued.promptId, {
+      comfyUrl: queued.comfyUrl,
+      clientId: queued.clientId,
       onStatus: input.onStatus,
     });
+    queued.releaseLiveSocket();
 
     return {
       model,
       prompt: input.prompt,
-      promptId: data.promptId,
+      promptId: queued.promptId,
       previewUrl: entry ? galleryEntryPrimaryViewUrl(entry) : null,
       error: entry?.status === "error" ? entry.statusMessage : undefined,
     };

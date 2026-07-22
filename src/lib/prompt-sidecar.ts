@@ -164,13 +164,20 @@ export function sidecarOutputViewUrl(sidecar: PromptSidecar): string | undefined
   return buildComfyViewPath(comfyUrl, image);
 }
 
+export function sidecarWorkflowJson(sidecar: PromptSidecar): string | undefined {
+  const raw = sidecar.metadata?.workflowJson;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
+}
+
 export function sidecarRequeueContext(sidecar: PromptSidecar): {
   queueParams?: WorkflowParamValues;
   sourceImageUrl?: string;
   maskImageUrl?: string;
   queueQualityProfile?: QueueQualityProfile;
+  workflowJson?: string;
 } {
   const queueParams = sidecarQueueParams(sidecar);
+  const workflowJson = sidecarWorkflowJson(sidecar);
   const rawProfile = sidecar.metadata?.queueQualityProfile;
   const queueQualityProfile =
     rawProfile === "followSettings" ||
@@ -194,6 +201,7 @@ export function sidecarRequeueContext(sidecar: PromptSidecar): {
       sourceImageUrl: storedSource ?? outputViewUrl,
       maskImageUrl: storedMask,
       queueQualityProfile,
+      workflowJson,
     };
   }
 
@@ -210,5 +218,6 @@ export function sidecarRequeueContext(sidecar: PromptSidecar): {
     sourceImageUrl: derived.sourceImageUrl,
     maskImageUrl: derived.maskImageUrl,
     queueQualityProfile,
+    workflowJson,
   };
 }

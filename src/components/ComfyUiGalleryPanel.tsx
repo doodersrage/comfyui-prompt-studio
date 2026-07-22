@@ -84,6 +84,7 @@ import {
   type GallerySlideshowTransition,
 } from "@/lib/comfyui-gallery";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import LoraDatasetExportDialog from "@/components/LoraDatasetExportDialog";
 
 const GalleryComparePanel = dynamic(() => import("@/components/GalleryComparePanel"), {
   loading: () => null,
@@ -170,6 +171,10 @@ export default function ComfyUiGalleryPanel({
   const [layout, setLayout] = useState<GalleryLayoutMode>("grid");
   const [viewPrefsLoaded, setViewPrefsLoaded] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [loraExportOpen, setLoraExportOpen] = useState(false);
+  const [loraExportScope, setLoraExportScope] = useState<"favorites" | "selected">(
+    "favorites",
+  );
   const [compareWinnerId, setCompareWinnerId] = useState<string | null>(null);
   const [workflowEntry, setWorkflowEntry] = useState<ComfyGalleryEntry | null>(null);
   const [compareStatus, setCompareStatus] = useState<string | null>(null);
@@ -1058,17 +1063,8 @@ export default function ComfyUiGalleryPanel({
             <button
               type="button"
               onClick={() => {
-                setRequeueStatus("Building LoRA dataset export…");
-                void import("@/lib/gallery-lora-dataset-export").then(
-                  ({ downloadLoraDatasetZip, selectLoraDatasetEntries }) =>
-                    downloadLoraDatasetZip(selectLoraDatasetEntries(entries)),
-                ).then(({ count }) => {
-                  setRequeueStatus(
-                    count > 0
-                      ? `LoRA dataset exported (${count} image/caption pairs from favorites/4–5★).`
-                      : "No favorited or 4–5★ entries found for the LoRA dataset export.",
-                  );
-                });
+                setLoraExportScope("favorites");
+                setLoraExportOpen(true);
               }}
               className="ui-btn-ghost ui-btn-sm"
             >
@@ -1141,19 +1137,8 @@ export default function ComfyUiGalleryPanel({
             });
           }}
           onExportLoraDataset={() => {
-            setRequeueStatus("Building LoRA dataset export…");
-            void import("@/lib/gallery-lora-dataset-export").then(
-              ({ downloadLoraDatasetZip, selectLoraDatasetEntries }) =>
-                downloadLoraDatasetZip(selectLoraDatasetEntries(selectedEntries, {
-                  selectedIds: selectedEntries.map((entry) => entry.id),
-                })),
-            ).then(({ count }) => {
-              setRequeueStatus(
-                count > 0
-                  ? `LoRA dataset exported (${count} image/caption pairs).`
-                  : "No eligible images found for the LoRA dataset export.",
-              );
-            });
+            setLoraExportScope("selected");
+            setLoraExportOpen(true);
           }}
           onExportCompareJson={() => {
             void import("@/lib/gallery-compare-export").then(({ downloadCompareExport }) =>
@@ -1908,6 +1893,38 @@ export default function ComfyUiGalleryPanel({
           />
         </>
       ) : null}
+
+      <LoraDatasetExportDialog
+        open={loraExportOpen}
+        onCancel={() => setLoraExportOpen(false)}
+        onConfirm={(options) => {
+          setLoraExportOpen(false);
+          setRequeueStatus("Building LoRA dataset export…");
+          void import("@/lib/gallery-lora-dataset-export").then(
+            ({ downloadLoraDatasetZip, selectLoraDatasetEntries }) => {
+              const source =
+                loraExportScope === "selected" ? selectedEntries : entries;
+              return downloadLoraDatasetZip(
+                selectLoraDatasetEntries(
+                  source,
+                  loraExportScope === "selected"
+                    ? { selectedIds: selectedEntries.map((entry) => entry.id) }
+                    : undefined,
+                ),
+                options,
+              );
+            },
+          ).then(({ count }) => {
+            setRequeueStatus(
+              count > 0
+                ? `LoRA dataset exported (${count} image/caption pairs, ${options.captionMode}).`
+                : loraExportScope === "selected"
+                  ? "No eligible images found for the LoRA dataset export."
+                  : "No favorited or 4–5★ entries found for the LoRA dataset export.",
+            );
+          });
+        }}
+      />
     </section>
   );
 }

@@ -20,6 +20,7 @@ import {
   registerComfyGalleryJob,
 } from "@/lib/comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "@/lib/comfyui-gallery-poller";
+import { postComfyUiPrompt } from "@/lib/comfyui-queue-request";
 import {
   batchFixPrompts,
   filterBatchByLintIndexes,
@@ -598,33 +599,30 @@ export default function VariationGridTool() {
           });
           return;
         }
-        const response = await fetch("/api/comfyui", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompts,
-            negativePrompt,
-            paramsPerPrompt,
-            ...(runtime ? { comfy: runtime } : {}),
-          }),
+        const queued = await postComfyUiPrompt({
+          prompts,
+          negativePrompt,
+          paramsPerPrompt,
+          ...(runtime ? { comfy: runtime } : {}),
         });
 
-        const data = (await response.json()) as {
+        const data = queued.raw as {
           queued?: number;
           error?: string;
           comfyUrl?: string;
           results?: Array<{ promptId?: string; comfyUrl?: string }>;
         };
 
-        if (!response.ok) {
-          throw new Error(data.error ?? "ComfyUI batch queue failed.");
+        if (queued.status >= 400) {
+          queued.releaseLiveSocket();
+          throw new Error(queued.error ?? data.error ?? "ComfyUI batch queue failed.");
         }
 
         for (const [index, result] of (data.results ?? []).entries()) {
           if (!result.promptId) {
             continue;
           }
-          const comfyUrl = result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188";
+          const comfyUrl = result.comfyUrl ?? data.comfyUrl ?? queued.comfyUrl ?? "http://127.0.0.1:8188";
           registerComfyGalleryJob({
             promptId: result.promptId,
             prompt: prompts[index] ?? "",
@@ -632,15 +630,18 @@ export default function VariationGridTool() {
             tool: "variations",
             model: shared.model,
             comfyUrl,
-          queueParams: paramsPerPrompt[index],
-          queueQualityProfile: runtime.queueQualityProfile,
-        });
+            clientId: queued.clientId,
+            queueParams: paramsPerPrompt[index],
+            queueQualityProfile: runtime.queueQualityProfile,
+          });
           void scheduleComfyGalleryPoll(result.promptId, {
             comfyUrl,
+            clientId: queued.clientId,
           });
         }
+        queued.releaseLiveSocket();
 
-        const queued = data.queued ?? (data.results ?? []).filter((r) => r.promptId).length;
+        const queuedCount = data.queued ?? (data.results ?? []).filter((r) => r.promptId).length;
         const failures = (data.results ?? [])
           .map((result, index) =>
             result.promptId
@@ -654,14 +655,14 @@ export default function VariationGridTool() {
 
         setQueueProgress({
           phase: "done",
-          current: queued,
+          current: queuedCount,
           total: prompts.length,
-          message: `Queued ${queued}/${prompts.length}`,
+          message: `Queued ${queuedCount}/${prompts.length}`,
           failures: failures.length > 0 ? failures : undefined,
         });
 
         setComfyStatus(
-          `Queued ${queued}/${prompts.length} · ${data.comfyUrl ?? ""}`.trim(),
+          `Queued ${queuedCount}/${prompts.length} · ${data.comfyUrl ?? queued.comfyUrl ?? ""}`.trim(),
         );
         setLintSummary(null);
       } catch (err) {

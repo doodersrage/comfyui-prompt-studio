@@ -612,9 +612,13 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               queueQualityProfile: runtime?.queueQualityProfile,
               model: queueModel,
             });
-            // Poller now holds the shared socket; release our early ref.
-            earlyPreviewSocket?.close();
+            // Let the gallery poller attach to the shared live session before we
+            // drop the early ref (avoids aborting the bridge on refCount 0).
+            const earlyToRelease = earlyPreviewSocket;
             earlyPreviewSocket = undefined;
+            queueMicrotask(() => {
+              earlyToRelease?.close();
+            });
             markOnboardingFirstQueue();
             void dispatchWebhook({
               event: "comfyui.job.queued",
@@ -854,8 +858,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               false,
             );
           }
-          earlyPreviewSocket?.close();
+          const earlyToRelease = earlyPreviewSocket;
           earlyPreviewSocket = undefined;
+          queueMicrotask(() => {
+            earlyToRelease?.close();
+          });
 
           void dispatchWebhook({
             event: "comfyui.batch.completed",

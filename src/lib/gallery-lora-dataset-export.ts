@@ -76,20 +76,51 @@ export function cleanLoraCaptionText(prompt: string | undefined): string {
     .trim();
 }
 
+export type LoraCaptionMode = "prompt" | "tags" | "vision";
+
+export type LoraCaptionOptions = {
+  triggerWord?: string;
+  captionMode?: LoraCaptionMode;
+  /** Precomputed vision caption when mode is `vision`. */
+  visionCaption?: string;
+};
+
+function applyTriggerWord(caption: string, triggerWord?: string): string {
+  const trigger = triggerWord?.trim();
+  if (!trigger) {
+    return caption;
+  }
+  if (caption.toLowerCase().includes(trigger.toLowerCase())) {
+    return caption;
+  }
+  return caption ? `${trigger}, ${caption}` : trigger;
+}
+
 /** Cleaned caption text, optionally prefixed with a LoRA trigger word (skipped if already present). */
 export function buildLoraCaptionText(
-  entry: Pick<ComfyGalleryEntry, "prompt">,
-  options?: { triggerWord?: string },
+  entry: Pick<ComfyGalleryEntry, "prompt" | "visionTags">,
+  options?: LoraCaptionOptions,
 ): string {
+  const mode = options?.captionMode ?? "prompt";
   const cleaned = cleanLoraCaptionText(entry.prompt);
-  const trigger = options?.triggerWord?.trim();
-  if (!trigger) {
-    return cleaned;
+  let caption = cleaned;
+
+  if (mode === "tags") {
+    const tags = (entry.visionTags ?? [])
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+    if (tags.length > 0) {
+      caption = cleaned ? `${cleaned}, ${tags.join(", ")}` : tags.join(", ");
+    }
+  } else if (mode === "vision") {
+    const vision = cleanLoraCaptionText(options?.visionCaption);
+    if (vision) {
+      caption = vision;
+    }
   }
-  if (cleaned.toLowerCase().includes(trigger.toLowerCase())) {
-    return cleaned;
-  }
-  return cleaned ? `${trigger}, ${cleaned}` : trigger;
+
+  return applyTriggerWord(caption, options?.triggerWord);
 }
 
 /** Lowercase, hyphenated, filesystem-safe slug — falls back to "image" when nothing usable remains. */
@@ -133,7 +164,9 @@ export type LoraDatasetManifestEntry = {
 /** Builds the per-entry image/caption filename + caption text plan, without fetching any bytes. */
 export function buildLoraDatasetManifest(
   entries: ComfyGalleryEntry[],
-  options?: { triggerWord?: string },
+  options?: LoraCaptionOptions & {
+    visionCaptionsById?: Record<string, string>;
+  },
 ): LoraDatasetManifestEntry[] {
   const manifest: LoraDatasetManifestEntry[] = [];
   let ordinal = 0;
@@ -151,7 +184,11 @@ export function buildLoraDatasetManifest(
       baseName,
       imageFilename: `${baseName}.${extension}`,
       captionFilename: `${baseName}.txt`,
-      caption: buildLoraCaptionText(entry, options),
+      caption: buildLoraCaptionText(entry, {
+        triggerWord: options?.triggerWord,
+        captionMode: options?.captionMode,
+        visionCaption: options?.visionCaptionsById?.[entry.id],
+      }),
       sourceImageUrl: buildComfyViewPath(entry.comfyUrl, image),
       model: entry.model,
       favorite: Boolean(entry.favorite),
@@ -173,11 +210,63 @@ export type LoraDatasetExportResult = {
  * whose image fetch fails are skipped (not fatal) so a partial dataset is
  * still exported.
  */
+async function fetchVisionCaptionsForEntries(
+  entries: ComfyGalleryEntry[],
+): Promise<Record<string, string>> {
+  const captions: Record<string, string> = {};
+  for (const entry of entries) {
+    const image = entry.images[0];
+    if (!image) {
+      continue;
+    }
+    try {
+      const imageUrl = buildComfyViewPath(entry.comfyUrl, image);
+      const imageResponse = await fetch(imageUrl);
+      if (!imageResponse.ok) {
+        continue;
+      }
+      const blob = await imageResponse.blob();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? ""));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      const response = await fetch("/api/gallery/caption", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageDataUrl: dataUrl,
+          prompt: entry.prompt,
+          model: entry.model,
+        }),
+      });
+      if (!response.ok) {
+        continue;
+      }
+      const data = (await response.json()) as { caption?: string };
+      if (data.caption?.trim()) {
+        captions[entry.id] = data.caption.trim();
+      }
+    } catch {
+      // Fall back to cleaned prompt for this entry.
+    }
+  }
+  return captions;
+}
+
 export async function downloadLoraDatasetZip(
   entries: ComfyGalleryEntry[],
-  options?: { triggerWord?: string },
+  options?: LoraCaptionOptions,
 ): Promise<LoraDatasetExportResult> {
-  const manifest = buildLoraDatasetManifest(entries, options);
+  const captionMode = options?.captionMode ?? "prompt";
+  const visionCaptionsById =
+    captionMode === "vision" ? await fetchVisionCaptionsForEntries(entries) : undefined;
+  const manifest = buildLoraDatasetManifest(entries, {
+    ...options,
+    captionMode,
+    visionCaptionsById,
+  });
   const files: ZipFileEntry[] = [];
 
   for (const item of manifest) {

@@ -362,6 +362,21 @@ export default function GalleryFiltersBar({
 
         <div className="flex flex-wrap items-center gap-2">
           <FilterChip
+            active={!filter.mediaKind || filter.mediaKind === "all"}
+            label="All media"
+            onClick={() => setFilter({ ...filter, mediaKind: "all" })}
+          />
+          <FilterChip
+            active={filter.mediaKind === "image"}
+            label="Stills"
+            onClick={() => setFilter({ ...filter, mediaKind: "image" })}
+          />
+          <FilterChip
+            active={filter.mediaKind === "video"}
+            label="Videos"
+            onClick={() => setFilter({ ...filter, mediaKind: "video" })}
+          />
+          <FilterChip
             active={Boolean(filter.favoritesOnly)}
             label="Favorites"
             onClick={() =>
