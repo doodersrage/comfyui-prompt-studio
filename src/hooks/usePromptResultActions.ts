@@ -30,7 +30,11 @@ import {
 } from "@/lib/comfyui-gallery";
 import { scheduleComfyGalleryPoll } from "@/lib/comfyui-gallery-poller";
 import { registerComfyGalleryJob } from "@/lib/comfyui-gallery-client";
-import { createComfyUiClientId } from "@/lib/comfyui-websocket";
+import {
+  createComfyUiClientId,
+  openComfyPreviewSocketBeforeQueue,
+  type ComfyUiWebSocketSubscription,
+} from "@/lib/comfyui-websocket";
 import {
   attachGalleryPromptIdToHistory,
   linkGalleryToHistory,
@@ -514,89 +518,118 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             : undefined);
 
         const clientId = createComfyUiClientId();
-        const response = await fetch("/api/comfyui", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: preparedPrompt,
-            negativePrompt,
-            model: queueModel,
-            params: queueParams,
-            clientId,
-            ...(runtime ? { comfy: runtime } : {}),
-          }),
-        });
+        // Hint only — the live bridge resolves the real Comfy URL server-side
+        // (Docker hostname safe). Do not default to 127.0.0.1 here.
+        const previewComfyUrlHint =
+          runtime?.apiUrl?.trim() ||
+          loadComfyUiSettings().apiUrl?.trim() ||
+          undefined;
 
-        const data = (await response.json()) as {
-          ok?: boolean;
-          promptId?: string;
-          error?: string;
-          comfyUrl?: string;
-          clientId?: string;
-          workflowSource?: string;
-        };
-
-        if (!response.ok) {
-          throw new Error(data.error ?? "ComfyUI queue failed.");
+        // Open same-origin live bridge before /prompt so Comfy can bind previews to client_id.
+        let earlyPreviewSocket: ComfyUiWebSocketSubscription | undefined;
+        if (loadComfyUiSettings().useWebSocketProgress !== false) {
+          try {
+            earlyPreviewSocket = await openComfyPreviewSocketBeforeQueue({
+              clientId,
+              comfyUrl: previewComfyUrlHint,
+            });
+          } catch {
+            earlyPreviewSocket = undefined;
+          }
         }
 
-        setComfyUiStatus(
-          joinQueueStatusNotes(
-            [
-              data.promptId ? `prompt_id ${data.promptId}` : "queued",
-              queueModel !== config.model ? `as ${queueModel}` : null,
-              data.comfyUrl,
-              data.workflowSource ? `workflow: ${data.workflowSource}` : null,
-              negativePrompt ? "with negative" : null,
-            ],
-            {
+        try {
+          const response = await fetch("/api/comfyui", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: preparedPrompt,
+              negativePrompt,
               model: queueModel,
-              qualityProfile: runtime?.queueQualityProfile,
-              tool: config.tool,
-              vramDowngraded: vramGuard.downgraded,
-              samplerMemory:
-                Object.keys(rememberedSamplerOverrides(queueModel)).length > 0,
-            },
-          ),
-        );
-        toastQueueOutcome({
-          ok: true,
-          text: data.promptId
-            ? `Queued to ComfyUI · ${data.promptId}`
-            : "Queued to ComfyUI",
-          href: "/gallery",
-        });
+              params: queueParams,
+              clientId,
+              ...(runtime ? { comfy: runtime } : {}),
+            }),
+          });
 
-        if (data.promptId) {
-          setComfyUiJob({
-            promptId: data.promptId,
-            status: "pending",
-            statusMessage: "Submitted to ComfyUI",
-            comfyUrl: data.comfyUrl,
+          const data = (await response.json()) as {
+            ok?: boolean;
+            promptId?: string;
+            error?: string;
+            comfyUrl?: string;
+            clientId?: string;
+            workflowSource?: string;
+          };
+
+          if (!response.ok) {
+            throw new Error(data.error ?? "ComfyUI queue failed.");
+          }
+
+          setComfyUiStatus(
+            joinQueueStatusNotes(
+              [
+                data.promptId ? `prompt_id ${data.promptId}` : "queued",
+                queueModel !== config.model ? `as ${queueModel}` : null,
+                data.comfyUrl,
+                data.workflowSource ? `workflow: ${data.workflowSource}` : null,
+                negativePrompt ? "with negative" : null,
+              ],
+              {
+                model: queueModel,
+                qualityProfile: runtime?.queueQualityProfile,
+                tool: config.tool,
+                vramDowngraded: vramGuard.downgraded,
+                samplerMemory:
+                  Object.keys(rememberedSamplerOverrides(queueModel)).length > 0,
+              },
+            ),
+          );
+          toastQueueOutcome({
+            ok: true,
+            text: data.promptId
+              ? `Queued to ComfyUI · ${data.promptId}`
+              : "Queued to ComfyUI",
+            href: "/gallery",
           });
-          trackComfyUiJob({
-            promptId: data.promptId,
-            prompt: preparedPrompt,
-            negativePrompt,
-            comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
-            clientId: data.clientId ?? clientId,
-            historyId: resolvedHistoryId,
-            queueParams,
-            queueQualityProfile: runtime?.queueQualityProfile,
-            model: queueModel,
-          });
-          markOnboardingFirstQueue();
-          void dispatchWebhook({
-            event: "comfyui.job.queued",
-            promptId: data.promptId,
-            prompt: preparedPrompt,
-            negativePrompt,
-            model: queueModel,
-            tool: config.tool,
-            status: "queued",
-            queueParams,
-            completedAt: Date.now(),
-          });
+
+          if (data.promptId) {
+            earlyPreviewSocket?.setPromptId(data.promptId);
+            setComfyUiJob({
+              promptId: data.promptId,
+              status: "pending",
+              statusMessage: "Submitted to ComfyUI",
+              comfyUrl: data.comfyUrl,
+            });
+            trackComfyUiJob({
+              promptId: data.promptId,
+              prompt: preparedPrompt,
+              negativePrompt,
+              comfyUrl:
+                data.comfyUrl ?? previewComfyUrlHint ?? "http://127.0.0.1:8188",
+              clientId: data.clientId ?? clientId,
+              historyId: resolvedHistoryId,
+              queueParams,
+              queueQualityProfile: runtime?.queueQualityProfile,
+              model: queueModel,
+            });
+            // Poller now holds the shared socket; release our early ref.
+            earlyPreviewSocket?.close();
+            earlyPreviewSocket = undefined;
+            markOnboardingFirstQueue();
+            void dispatchWebhook({
+              event: "comfyui.job.queued",
+              promptId: data.promptId,
+              prompt: preparedPrompt,
+              negativePrompt,
+              model: queueModel,
+              tool: config.tool,
+              status: "queued",
+              queueParams,
+              completedAt: Date.now(),
+            });
+          }
+        } finally {
+          earlyPreviewSocket?.close();
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "ComfyUI failed.";
@@ -746,81 +779,114 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               })
             : undefined;
 
-        const response = await fetch("/api/comfyui", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompts: prepared,
-            negativePrompt,
-            model: queueModel,
-            paramsPerPrompt,
-            ...(runtime ? { comfy: runtime } : {}),
-          }),
-        });
+        const batchClientId = createComfyUiClientId();
+        const previewComfyUrlHint =
+          runtime?.apiUrl?.trim() ||
+          loadComfyUiSettings().apiUrl?.trim() ||
+          undefined;
 
-        const data = (await response.json()) as {
-          ok?: boolean;
-          queued?: number;
-          failed?: number;
-          error?: string;
-          comfyUrl?: string;
-          results?: Array<{
-            ok?: boolean;
-            promptId?: string;
-            comfyUrl?: string;
-          }>;
-        };
-
-        if (!response.ok) {
-          throw new Error(data.error ?? "ComfyUI batch queue failed.");
-        }
-
-        for (const [index, result] of (data.results ?? []).entries()) {
-          if (!result.promptId) {
-            continue;
+        let earlyPreviewSocket: ComfyUiWebSocketSubscription | undefined;
+        if (loadComfyUiSettings().useWebSocketProgress !== false) {
+          try {
+            earlyPreviewSocket = await openComfyPreviewSocketBeforeQueue({
+              clientId: batchClientId,
+              comfyUrl: previewComfyUrlHint,
+            });
+          } catch {
+            earlyPreviewSocket = undefined;
           }
-          trackComfyUiJob(
-            {
-              promptId: result.promptId,
-              prompt: prepared[index] ?? prepared[0] ?? "",
-              negativePrompt,
-              comfyUrl: result.comfyUrl ?? data.comfyUrl ?? "http://127.0.0.1:8188",
-              queueParams: paramsPerPrompt[index] ?? paramsPerPrompt[0],
-              historyId: index === 0 ? batchHistoryId : undefined,
-              queueQualityProfile: runtime?.queueQualityProfile,
-              model: queueModel,
-            },
-            false,
-          );
         }
 
-        void dispatchWebhook({
-          event: "comfyui.batch.completed",
-          tool: config.tool,
-          model: queueModel,
-          queued: data.queued ?? prepared.length,
-          failed: data.failed,
-          completedAt: Date.now(),
-          message: `Batch queued ${data.queued ?? prepared.length}/${prepared.length}`,
-        });
+        try {
+          const response = await fetch("/api/comfyui", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompts: prepared,
+              negativePrompt,
+              model: queueModel,
+              paramsPerPrompt,
+              clientId: batchClientId,
+              ...(runtime ? { comfy: runtime } : {}),
+            }),
+          });
 
-        setComfyUiStatus(
-          [
-            `queued ${data.queued ?? prepared.length}/${prepared.length}`,
-            data.failed ? `${data.failed} failed` : null,
-            data.comfyUrl,
-            negativePrompt ? "with negative" : null,
-          ]
-            .filter(Boolean)
-            .join(" · "),
-        );
-        toastQueueOutcome({
-          ok: !data.failed,
-          text: data.failed
-            ? `Batch queued with ${data.failed} failure(s)`
-            : `Batch queued ${data.queued ?? prepared.length}/${prepared.length}`,
-          href: data.failed ? "/queue" : "/gallery",
-        });
+          const data = (await response.json()) as {
+            ok?: boolean;
+            queued?: number;
+            failed?: number;
+            error?: string;
+            comfyUrl?: string;
+            results?: Array<{
+              ok?: boolean;
+              promptId?: string;
+              comfyUrl?: string;
+            }>;
+          };
+
+          if (!response.ok) {
+            throw new Error(data.error ?? "ComfyUI batch queue failed.");
+          }
+
+          for (const [index, result] of (data.results ?? []).entries()) {
+            if (!result.promptId) {
+              continue;
+            }
+            if (index === 0) {
+              earlyPreviewSocket?.setPromptId(result.promptId);
+            }
+            trackComfyUiJob(
+              {
+                promptId: result.promptId,
+                prompt: prepared[index] ?? prepared[0] ?? "",
+                negativePrompt,
+                comfyUrl:
+                  result.comfyUrl ??
+                  data.comfyUrl ??
+                  previewComfyUrlHint ??
+                  "http://127.0.0.1:8188",
+                clientId: batchClientId,
+                queueParams: paramsPerPrompt[index] ?? paramsPerPrompt[0],
+                historyId: index === 0 ? batchHistoryId : undefined,
+                queueQualityProfile: runtime?.queueQualityProfile,
+                model: queueModel,
+              },
+              false,
+            );
+          }
+          earlyPreviewSocket?.close();
+          earlyPreviewSocket = undefined;
+
+          void dispatchWebhook({
+            event: "comfyui.batch.completed",
+            tool: config.tool,
+            model: queueModel,
+            queued: data.queued ?? prepared.length,
+            failed: data.failed,
+            completedAt: Date.now(),
+            message: `Batch queued ${data.queued ?? prepared.length}/${prepared.length}`,
+          });
+
+          setComfyUiStatus(
+            [
+              `queued ${data.queued ?? prepared.length}/${prepared.length}`,
+              data.failed ? `${data.failed} failed` : null,
+              data.comfyUrl,
+              negativePrompt ? "with negative" : null,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          );
+          toastQueueOutcome({
+            ok: !data.failed,
+            text: data.failed
+              ? `Batch queued with ${data.failed} failure(s)`
+              : `Batch queued ${data.queued ?? prepared.length}/${prepared.length}`,
+            href: data.failed ? "/queue" : "/gallery",
+          });
+        } finally {
+          earlyPreviewSocket?.close();
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : "ComfyUI batch failed.";
         setComfyUiStatus(message);

@@ -419,6 +419,11 @@ export async function queuePromptToComfyUi(
       body: JSON.stringify({
         prompt: resolvedPromptBody.prompt,
         client_id: clientId,
+        // Comfy defaults to --preview-method none; without this override, no
+        // latent preview frames are emitted on the WebSocket during sampling.
+        extra_data: {
+          preview_method: "auto",
+        },
       }),
     });
 

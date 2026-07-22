@@ -1,6 +1,6 @@
 "use client";
 
-import { comfyPreviewBinaryToObjectUrl } from "./comfyui-preview-binary";
+import { setComfyLivePreviewUrl } from "./comfyui-live-preview-store";
 
 export type ComfyUiWebSocketProgress = {
   promptId: string;
@@ -9,58 +9,54 @@ export type ComfyUiWebSocketProgress = {
   message?: string;
   value?: number;
   max?: number;
-  /** Object URL for the latest latent preview frame (caller should revoke prior). */
+  /** Object URL for the latest latent preview frame (caller/store should revoke prior). */
   previewUrl?: string;
 };
 
-function toWebSocketUrl(comfyUrl: string, clientId: string): string {
-  const trimmed = comfyUrl.trim().replace(/\/+$/, "");
-  let base: string;
-  if (trimmed.startsWith("https://")) {
-    base = trimmed.replace(/^https:/, "wss:") + "/ws";
-  } else if (trimmed.startsWith("http://")) {
-    base = trimmed.replace(/^http:/, "ws:") + "/ws";
-  } else {
-    base = `ws://${trimmed}/ws`;
-  }
-  return `${base}?clientId=${encodeURIComponent(clientId)}`;
-}
-
-function asFiniteNumber(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return undefined;
-  }
-  return value;
-}
-
-function formatStepMessage(value: number, max: number, node?: string | null): string {
-  const safeMax = Math.max(1, Math.floor(max));
-  const safeValue = Math.max(0, Math.min(Math.floor(value), safeMax));
-  const percent = Math.round((safeValue / safeMax) * 100);
-  const step = `Step ${safeValue}/${safeMax} (${percent}%)`;
-  return node ? `${step} · node ${node}` : step;
-}
-
-type WsPayload = {
-  type?: string;
-  data?: {
-    prompt_id?: string;
-    node?: string | null;
-    value?: number;
-    max?: number;
-    exception_message?: string;
-    nodes?: Record<
-      string,
-      {
-        value?: number;
-        max?: number;
-        state?: string;
-        node_id?: string;
-        real_node_id?: string;
-      }
-    >;
-  };
+export type ComfyUiWebSocketSubscription = {
+  close: () => void;
+  /** Resolves once the live bridge is ready (or settles on failure). */
+  ready: Promise<void>;
+  /** Update which prompt_id text progress events are accepted for. */
+  setPromptId: (promptId: string) => void;
+  clientId: string;
 };
+
+type LiveBridgeEvent =
+  | { type: "ready"; comfyUrl?: string; clientId?: string }
+  | {
+      type: "preview";
+      mimeType?: "image/jpeg" | "image/png";
+      base64?: string;
+      promptId?: string;
+    }
+  | {
+      type: "progress";
+      promptId?: string;
+      node?: string | null;
+      value?: number;
+      max?: number;
+      message?: string;
+      status?: "executing" | "progress" | "finished" | "error";
+    }
+  | { type: "error"; message?: string };
+
+type SharedLiveSession = {
+  clientId: string;
+  comfyUrlHint?: string;
+  abort: AbortController;
+  ready: Promise<void>;
+  resolveReady: () => void;
+  refCount: number;
+  promptId: string;
+  /** Latest preview URL waiting for promptId (owned here until flushed). */
+  bufferedPreviewUrl: string | null;
+  listeners: Set<(progress: ComfyUiWebSocketProgress) => void>;
+  errorListeners: Set<(message: string) => void>;
+};
+
+/** One browser→app live stream per clientId (server shares the Comfy WS). */
+const sharedSessions = new Map<string, SharedLiveSession>();
 
 export function createComfyUiClientId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -69,158 +65,333 @@ export function createComfyUiClientId(): string {
   return `client${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
 }
 
+export function normalizeComfyUrlForWs(comfyUrl: string): string {
+  const raw = comfyUrl.trim().replace(/\/+$/, "");
+  try {
+    const url = new URL(raw.includes("://") ? raw : `http://${raw}`);
+    const host = url.hostname === "localhost" ? "127.0.0.1" : url.hostname;
+    const port = url.port ? `:${url.port}` : "";
+    return `${url.protocol}//${host}${port}`;
+  } catch {
+    return raw;
+  }
+}
+
+function base64ToObjectUrl(
+  base64: string,
+  mimeType: "image/jpeg" | "image/png",
+): string | null {
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+  } catch {
+    return null;
+  }
+}
+
+function publish(
+  shared: SharedLiveSession,
+  progress: ComfyUiWebSocketProgress,
+): void {
+  for (const listener of shared.listeners) {
+    listener(progress);
+  }
+}
+
+function emitPreview(shared: SharedLiveSession, promptId: string, previewUrl: string): void {
+  setComfyLivePreviewUrl(promptId, previewUrl);
+  publish(shared, {
+    promptId,
+    status: "preview",
+    previewUrl,
+    message: "Live preview",
+  });
+}
+
+function flushBufferedPreview(shared: SharedLiveSession): void {
+  if (!shared.bufferedPreviewUrl || !shared.promptId) {
+    return;
+  }
+  const url = shared.bufferedPreviewUrl;
+  shared.bufferedPreviewUrl = null;
+  emitPreview(shared, shared.promptId, url);
+}
+
+function handleBridgeEvent(
+  shared: SharedLiveSession,
+  event: LiveBridgeEvent,
+): void {
+  if (event.type === "ready") {
+    shared.resolveReady();
+    return;
+  }
+
+  if (event.type === "error") {
+    const message = event.message?.trim() || "ComfyUI live bridge error";
+    for (const listener of shared.errorListeners) {
+      listener(message);
+    }
+    shared.resolveReady();
+    return;
+  }
+
+  if (event.type === "preview") {
+    if (!event.base64 || !event.mimeType) {
+      return;
+    }
+    const previewUrl = base64ToObjectUrl(event.base64, event.mimeType);
+    if (!previewUrl) {
+      return;
+    }
+    const promptId = event.promptId || shared.promptId;
+    if (!promptId) {
+      if (shared.bufferedPreviewUrl) {
+        URL.revokeObjectURL(shared.bufferedPreviewUrl);
+      }
+      shared.bufferedPreviewUrl = previewUrl;
+      return;
+    }
+    if (shared.bufferedPreviewUrl) {
+      URL.revokeObjectURL(shared.bufferedPreviewUrl);
+      shared.bufferedPreviewUrl = null;
+    }
+    emitPreview(shared, promptId, previewUrl);
+    return;
+  }
+
+  if (event.type === "progress") {
+    const promptId = event.promptId || shared.promptId || shared.clientId;
+    if (
+      shared.promptId &&
+      event.promptId &&
+      event.promptId !== shared.promptId
+    ) {
+      return;
+    }
+    publish(shared, {
+      promptId,
+      node: event.node,
+      status: event.status ?? "progress",
+      value: event.value,
+      max: event.max,
+      message: event.message,
+    });
+  }
+}
+
+async function readNdjsonStream(
+  shared: SharedLiveSession,
+  response: Response,
+): Promise<void> {
+  const body = response.body;
+  if (!body) {
+    throw new Error("Live bridge returned an empty body.");
+  }
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    buffer += decoder.decode(value, { stream: true });
+    let newline = buffer.indexOf("\n");
+    while (newline >= 0) {
+      const line = buffer.slice(0, newline).trim();
+      buffer = buffer.slice(newline + 1);
+      if (line) {
+        try {
+          handleBridgeEvent(shared, JSON.parse(line) as LiveBridgeEvent);
+        } catch {
+          // ignore bad lines
+        }
+      }
+      newline = buffer.indexOf("\n");
+    }
+  }
+}
+
+function ensureSharedLiveSession(input: {
+  clientId: string;
+  comfyUrl?: string;
+}): SharedLiveSession {
+  const clientId = input.clientId.trim();
+  const existing = sharedSessions.get(clientId);
+  if (existing) {
+    existing.refCount += 1;
+    return existing;
+  }
+
+  let resolveReady: () => void = () => {};
+  const ready = new Promise<void>((resolve) => {
+    resolveReady = resolve;
+  });
+
+  const abort = new AbortController();
+  const shared: SharedLiveSession = {
+    clientId,
+    comfyUrlHint: input.comfyUrl?.trim() || undefined,
+    abort,
+    ready,
+    resolveReady: () => {
+      resolveReady();
+    },
+    refCount: 1,
+    promptId: "",
+    bufferedPreviewUrl: null,
+    listeners: new Set(),
+    errorListeners: new Set(),
+  };
+
+  sharedSessions.set(clientId, shared);
+
+  const params = new URLSearchParams({ clientId });
+  if (shared.comfyUrlHint) {
+    params.set("comfyUrl", shared.comfyUrlHint);
+  }
+
+  void fetch(`/api/comfyui/live?${params.toString()}`, {
+    method: "GET",
+    signal: abort.signal,
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: { Accept: "application/x-ndjson" },
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        let detail = "";
+        try {
+          const payload = (await response.json()) as { error?: string };
+          detail = payload.error?.trim() || "";
+        } catch {
+          detail = (await response.text().catch(() => "")).trim();
+        }
+        throw new Error(
+          detail || `Live bridge failed (${response.status})`,
+        );
+      }
+      await readNdjsonStream(shared, response);
+    })
+    .catch((error: unknown) => {
+      if (abort.signal.aborted) {
+        shared.resolveReady();
+        return;
+      }
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to connect live preview bridge.";
+      for (const listener of shared.errorListeners) {
+        listener(message);
+      }
+      shared.resolveReady();
+    })
+    .finally(() => {
+      if (sharedSessions.get(clientId) === shared) {
+        sharedSessions.delete(clientId);
+      }
+    });
+
+  return shared;
+}
+
+/**
+ * Subscribe to ComfyUI progress + latent previews via the same-origin
+ * `/api/comfyui/live` bridge (server holds the real Comfy WebSocket).
+ */
 export function subscribeComfyUiWebSocket(input: {
-  comfyUrl: string;
-  promptId: string;
-  /** Must match the client_id sent with /prompt for preview association. */
+  /** Optional hint; server resolves the real Comfy URL (Docker-safe). */
+  comfyUrl?: string;
+  promptId?: string;
   clientId?: string;
   onProgress: (progress: ComfyUiWebSocketProgress) => void;
   onError?: (message: string) => void;
-}): () => void {
-  if (typeof window === "undefined" || typeof WebSocket === "undefined") {
-    return () => {};
+}): ComfyUiWebSocketSubscription {
+  if (typeof window === "undefined") {
+    return {
+      close: () => {},
+      ready: Promise.resolve(),
+      setPromptId: () => {},
+      clientId: input.clientId?.trim() || createComfyUiClientId(),
+    };
   }
 
   const clientId = input.clientId?.trim() || createComfyUiClientId();
-  let socket: WebSocket | null = null;
-  let closed = false;
-  let lastPreviewUrl: string | null = null;
+  const shared = ensureSharedLiveSession({
+    clientId,
+    comfyUrl: input.comfyUrl,
+  });
 
-  try {
-    socket = new WebSocket(toWebSocketUrl(input.comfyUrl, clientId));
-  } catch (err) {
-    input.onError?.(
-      err instanceof Error ? err.message : "WebSocket connection failed.",
-    );
-    return () => {};
+  if (input.promptId?.trim()) {
+    shared.promptId = input.promptId.trim();
+    flushBufferedPreview(shared);
   }
 
-  const publishPreview = (buffer: ArrayBuffer) => {
-    const url = comfyPreviewBinaryToObjectUrl(buffer);
-    if (!url) {
-      return;
-    }
-    if (lastPreviewUrl) {
-      URL.revokeObjectURL(lastPreviewUrl);
-    }
-    lastPreviewUrl = url;
-    input.onProgress({
-      promptId: input.promptId,
-      status: "preview",
-      previewUrl: url,
-      message: "Live preview",
-    });
-  };
+  shared.listeners.add(input.onProgress);
+  if (input.onError) {
+    shared.errorListeners.add(input.onError);
+  }
 
-  socket.binaryType = "arraybuffer";
-
-  socket.onmessage = (event) => {
-    if (typeof event.data !== "string") {
-      if (event.data instanceof ArrayBuffer) {
-        publishPreview(event.data);
-      } else if (event.data instanceof Blob) {
-        void event.data.arrayBuffer().then((buffer) => {
-          if (!closed) {
-            publishPreview(buffer);
-          }
-        });
-      }
-      return;
-    }
-
-    try {
-      const payload = JSON.parse(event.data) as WsPayload;
-      const promptId = payload.data?.prompt_id;
-      if (promptId && promptId !== input.promptId) {
+  let closed = false;
+  return {
+    clientId,
+    ready: shared.ready,
+    setPromptId: (promptId: string) => {
+      shared.promptId = promptId.trim();
+      flushBufferedPreview(shared);
+    },
+    close: () => {
+      if (closed) {
         return;
       }
-
-      if (payload.type === "progress") {
-        const value = asFiniteNumber(payload.data?.value);
-        const max = asFiniteNumber(payload.data?.max);
-        if (value == null || max == null || max <= 0) {
-          return;
-        }
-        const node = payload.data?.node ?? null;
-        input.onProgress({
-          promptId: input.promptId,
-          node,
-          status: "progress",
-          value,
-          max,
-          message: formatStepMessage(value, max, node),
-        });
-        return;
+      closed = true;
+      shared.listeners.delete(input.onProgress);
+      if (input.onError) {
+        shared.errorListeners.delete(input.onError);
       }
-
-      if (payload.type === "progress_state") {
-        const nodes = payload.data?.nodes;
-        if (!nodes || typeof nodes !== "object") {
-          return;
+      shared.refCount -= 1;
+      if (shared.refCount <= 0) {
+        if (shared.bufferedPreviewUrl) {
+          URL.revokeObjectURL(shared.bufferedPreviewUrl);
+          shared.bufferedPreviewUrl = null;
         }
-        const running = Object.values(nodes).find(
-          (node) => node?.state === "running" && asFiniteNumber(node.max),
-        );
-        if (!running) {
-          return;
-        }
-        const value = asFiniteNumber(running.value) ?? 0;
-        const max = asFiniteNumber(running.max) ?? 1;
-        const node = running.real_node_id ?? running.node_id ?? null;
-        input.onProgress({
-          promptId: input.promptId,
-          node,
-          status: "progress",
-          value,
-          max,
-          message: formatStepMessage(value, max, node),
-        });
-        return;
+        sharedSessions.delete(clientId);
+        shared.abort.abort();
       }
-
-      if (payload.type === "executing") {
-        if (promptId !== input.promptId) {
-          return;
-        }
-        const node = payload.data?.node ?? null;
-        input.onProgress({
-          promptId: input.promptId,
-          node,
-          status: node ? "executing" : "finished",
-          message: node ? `Running node ${node}` : "Execution finished",
-        });
-        return;
-      }
-
-      if (payload.type === "execution_error") {
-        if (promptId !== input.promptId) {
-          return;
-        }
-        const detail = payload.data?.exception_message?.trim();
-        input.onProgress({
-          promptId: input.promptId,
-          status: "error",
-          message: detail ? `ComfyUI error: ${detail}` : "ComfyUI execution error",
-        });
-      }
-    } catch {
-      // ignore malformed text frames
-    }
+    },
   };
+}
 
-  socket.onerror = () => {
-    if (!closed) {
-      input.onError?.("WebSocket error");
-    }
-  };
-
-  return () => {
-    closed = true;
-    if (lastPreviewUrl) {
-      URL.revokeObjectURL(lastPreviewUrl);
-      lastPreviewUrl = null;
-    }
-    socket?.close();
-    socket = null;
-  };
+/**
+ * Open the live preview bridge before POSTing /prompt so ComfyUI can
+ * associate binary preview frames with this client_id from the first step.
+ */
+export async function openComfyPreviewSocketBeforeQueue(input: {
+  clientId: string;
+  /** Optional URL hint for the server bridge (usually omitted — server env wins). */
+  comfyUrl?: string;
+}): Promise<ComfyUiWebSocketSubscription> {
+  const subscription = subscribeComfyUiWebSocket({
+    clientId: input.clientId,
+    comfyUrl: input.comfyUrl,
+    onProgress: () => {
+      // Holder ref on the shared live session; poller attaches the real listener.
+      // Previews are written to the live-preview store when promptId is known.
+    },
+  });
+  // Wait for the server↔Comfy socket to open, but never block queueing for long.
+  await Promise.race([
+    subscription.ready,
+    new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 2500);
+    }),
+  ]);
+  return subscription;
 }

@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { scorePromptReadiness, type PromptReadinessResult } from "@/lib/prompt-readiness";
+import {
+  scorePromptReadiness,
+  type PromptReadinessResult,
+  type ReadinessCheck,
+} from "@/lib/prompt-readiness";
 import {
   DEFAULT_READINESS_MIN_SCORE,
   isReadinessQueueAllowed,
@@ -12,6 +16,35 @@ import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import type { DetailLevel } from "@/lib/detail-level";
 import { Button } from "@/components/ui/Button";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+
+function isPromptReadinessResult(value: unknown): value is PromptReadinessResult {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<PromptReadinessResult>;
+  return (
+    typeof candidate.score === "number" &&
+    typeof candidate.grade === "string" &&
+    Array.isArray(candidate.checks) &&
+    Array.isArray(candidate.suggestions)
+  );
+}
+
+function localReadiness(props: {
+  prompt: string;
+  hints?: string;
+  model: ComfyImageModel | string;
+  detail: DetailLevel | string;
+  negativePrompt?: string;
+}): PromptReadinessResult {
+  return scorePromptReadiness({
+    prompt: props.prompt,
+    hints: props.hints,
+    model: props.model as ComfyImageModel,
+    detail: props.detail as DetailLevel,
+    negativePrompt: props.negativePrompt,
+  });
+}
 
 export default function ReadinessBadge(props: {
   prompt: string;
@@ -39,21 +72,27 @@ export default function ReadinessBadge(props: {
       void fetch("/api/readiness", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(props),
+        body: JSON.stringify({
+          prompt: props.prompt,
+          hints: props.hints,
+          model: props.model,
+          detail: props.detail,
+          negativePrompt: props.negativePrompt,
+        }),
       })
-        .then((response) => response.json())
-        .then((data: PromptReadinessResult) => {
+        .then(async (response) => {
+          const data: unknown = await response.json().catch(() => null);
+          if (!response.ok || !isPromptReadinessResult(data)) {
+            throw new Error("Invalid readiness response");
+          }
+          return data;
+        })
+        .then((data) => {
           setResult(data);
           props.onResult?.(data);
         })
         .catch(() => {
-          const fallback = scorePromptReadiness({
-            prompt: props.prompt,
-            hints: props.hints,
-            model: props.model as ComfyImageModel,
-            detail: props.detail as DetailLevel,
-            negativePrompt: props.negativePrompt,
-          });
+          const fallback = localReadiness(props);
           setResult(fallback);
           props.onResult?.(fallback);
         });
@@ -84,10 +123,12 @@ export default function ReadinessBadge(props: {
     return null;
   }
 
+  const checks: ReadinessCheck[] = Array.isArray(result.checks) ? result.checks : [];
+  const suggestions = Array.isArray(result.suggestions) ? result.suggestions : [];
   const queueAllowed = isReadinessQueueAllowed(result.score, minScore);
-  const failedChecks = result.checks.filter((check) => !check.passed);
+  const failedChecks = checks.filter((check) => !check.passed);
   const canAutoFix =
-    planReadinessAutoFix(result).length > 0 &&
+    planReadinessAutoFix({ ...result, checks, suggestions }).length > 0 &&
     (props.onCompact || props.onFixRules || props.onReformat);
 
   return (
@@ -112,7 +153,7 @@ export default function ReadinessBadge(props: {
       ) : null}
 
       <ul className="mt-2 space-y-1 text-zinc-400">
-        {result.checks.map((check) => (
+        {checks.map((check) => (
           <li key={check.id}>
             {check.passed ? "✓" : "✗"} {check.label}
             {check.detail ? ` — ${check.detail}` : ""}
@@ -120,9 +161,9 @@ export default function ReadinessBadge(props: {
         ))}
       </ul>
 
-      {result.suggestions.length > 0 ? (
+      {suggestions.length > 0 ? (
         <ul className="mt-3 space-y-1 text-xs text-zinc-500">
-          {result.suggestions.map((suggestion) => (
+          {suggestions.map((suggestion) => (
             <li key={suggestion}>• {suggestion}</li>
           ))}
         </ul>

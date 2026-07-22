@@ -14,11 +14,11 @@ import {
 import { notifyComfyJobComplete } from "./comfyui-notifications";
 import { resolveComfyUiRuntime } from "./comfyui-runtime";
 import { loadComfyUiSettings } from "./comfyui-settings";
+import { clearComfyLivePreviewUrl } from "./comfyui-live-preview-store";
 import {
-  clearComfyLivePreviewUrl,
-  setComfyLivePreviewUrl,
-} from "./comfyui-live-preview-store";
-import { subscribeComfyUiWebSocket } from "./comfyui-websocket";
+  subscribeComfyUiWebSocket,
+  type ComfyUiWebSocketSubscription,
+} from "./comfyui-websocket";
 import { dispatchWebhook } from "./webhook-settings";
 import { noteScheduledBatchJobComplete } from "./scheduled-batch-tracker";
 import { noteJobCompletionEmail } from "./job-completion-email";
@@ -353,7 +353,7 @@ export async function pollComfyGalleryJob(
   const onJobUpdate = options?.onJobUpdate;
   const settings = loadComfyUiSettings();
   let wsFinished = false;
-  let unsubscribe: (() => void) | undefined;
+  let wsSubscription: ComfyUiWebSocketSubscription | undefined;
   let lastProgressWriteAt = 0;
   let trailingProgressTimer: number | null = null;
   let latestProgress: {
@@ -415,13 +415,22 @@ export async function pollComfyGalleryJob(
     const clientId = loadComfyGallery()
       .find((entry) => entry.promptId === promptId)
       ?.clientId?.trim();
-    unsubscribe = subscribeComfyUiWebSocket({
+    wsSubscription = subscribeComfyUiWebSocket({
+      // Live bridge resolves Comfy server-side; pass entry URL only as a hint.
       comfyUrl,
       promptId,
       clientId,
       onProgress: (progress) => {
         if (progress.status === "preview" && progress.previewUrl) {
-          setComfyLivePreviewUrl(promptId, progress.previewUrl);
+          // Type-4 frames carry prompt_id; ignore frames for other jobs on a shared socket.
+          if (
+            progress.promptId &&
+            progress.promptId !== promptId &&
+            progress.promptId !== clientId
+          ) {
+            return;
+          }
+          // Preview bytes are already in the live-preview store from the bridge client.
           const tracker: ComfyUiJobTrackerState = {
             promptId,
             status: "running",
@@ -505,7 +514,7 @@ export async function pollComfyGalleryJob(
     }
   } finally {
     clearTrailingProgress();
-    unsubscribe?.();
+    wsSubscription?.close();
     cancelledPollPromptIds.delete(promptId);
   }
 

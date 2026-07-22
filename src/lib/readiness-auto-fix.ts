@@ -4,7 +4,8 @@ export type ReadinessAutoFixAction = "compact" | "fix-rules" | "reformat";
 
 export function planReadinessAutoFix(result: PromptReadinessResult): ReadinessAutoFixAction[] {
   const actions: ReadinessAutoFixAction[] = [];
-  const failedIds = new Set(result.checks.filter((check) => !check.passed).map((check) => check.id));
+  const checks = Array.isArray(result.checks) ? result.checks : [];
+  const failedIds = new Set(checks.filter((check) => !check.passed).map((check) => check.id));
 
   if (failedIds.has("max-length")) {
     actions.push("compact");

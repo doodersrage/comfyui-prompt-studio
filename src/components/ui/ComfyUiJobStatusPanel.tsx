@@ -128,7 +128,7 @@ export default function ComfyUiJobStatusPanel({
             <img
               src={previewUrl}
               alt="Live ComfyUI preview"
-              className="mt-1 max-h-40 w-full rounded-lg border border-zinc-700/60 object-contain bg-zinc-950/60"
+              className="mt-1 max-h-56 w-full rounded-lg border border-zinc-600/50 object-contain bg-zinc-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
             />
           ) : null}
 
@@ -213,7 +213,7 @@ export function ComfyUiGalleryJobPlaceholder({
         <img
           src={previewUrl}
           alt="Live preview"
-          className="absolute inset-0 h-full w-full object-cover opacity-40"
+          className="absolute inset-0 h-full w-full object-contain bg-zinc-950/80"
         />
       ) : null}
       {processing && !previewUrl ? (
