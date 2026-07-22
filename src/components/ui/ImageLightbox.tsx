@@ -11,6 +11,7 @@ import {
   type GallerySlideshowTransition,
 } from "@/lib/comfyui-gallery";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import type { ComfyOutputMediaKind } from "@/lib/comfyui-outputs";
 
 export type ImageLightboxState = {
   images: string[];
@@ -20,6 +21,8 @@ export type ImageLightboxState = {
   titles?: string[];
   /** Full-res URLs parallel to `images` — used by “Open original”. */
   originalImages?: string[];
+  /** Per-slide media kind (image vs. video/animated), parallel to `images`. */
+  mediaKinds?: ComfyOutputMediaKind[];
 };
 
 export type ImageLightboxSlideshowOptions = {
@@ -358,7 +361,7 @@ export default function ImageLightbox({
     const prefetched: HTMLImageElement[] = [];
     for (const neighbor of neighborIndexes) {
       const url = images[neighbor];
-      if (!url) {
+      if (!url || state?.mediaKinds?.[neighbor] === "video") {
         continue;
       }
       const img = new Image();
@@ -372,7 +375,7 @@ export default function ImageLightbox({
         img.src = "";
       }
     };
-  }, [open, index, images]);
+  }, [open, index, images, state?.mediaKinds]);
 
   if (!mounted || !open || !currentUrl) {
     return null;
@@ -385,36 +388,62 @@ export default function ImageLightbox({
   const imageClassName = isFullscreen
     ? "h-full w-full max-h-[100vh] max-w-[100vw] object-contain"
     : "mx-auto max-h-[min(72vh,900px)] w-full object-contain bg-[var(--bg-subtle)]";
+  const currentMediaKind = state?.mediaKinds?.[displayIndex] ?? "image";
+  const previousMediaKind =
+    previousIndex !== null ? state?.mediaKinds?.[previousIndex] ?? "image" : "image";
+
+  const renderSlide = (
+    url: string,
+    kind: ComfyOutputMediaKind,
+    className: string,
+    key: string,
+    ariaHidden = false,
+  ) =>
+    kind === "video" ? (
+      <video
+        key={key}
+        src={url}
+        className={className}
+        aria-hidden={ariaHidden || undefined}
+        autoPlay
+        loop
+        muted
+        playsInline
+        controls={!ariaHidden}
+      />
+    ) : (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img
+        key={key}
+        src={url}
+        alt={ariaHidden ? "" : currentTitle ?? "Gallery image preview"}
+        aria-hidden={ariaHidden || undefined}
+        decoding="async"
+        className={className}
+      />
+    );
 
   const renderImageStage = (stageClassName: string) => (
     <div className={`relative overflow-hidden ${stageClassName}`}>
       <div className="relative flex h-full min-h-0 items-center justify-center">
         {previousIndex !== null && images[previousIndex] ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={images[previousIndex]}
-              alt=""
-              aria-hidden
-              decoding="async"
-              className={`absolute inset-0 m-auto max-h-full max-w-full object-contain ${exitClass}`}
-            />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={currentUrl}
-              alt={currentTitle ?? "Gallery image preview"}
-              decoding="async"
-              className={`relative z-[1] ${imageClassName} ${enterClass}`}
-            />
+            {renderSlide(
+              images[previousIndex],
+              previousMediaKind,
+              `absolute inset-0 m-auto max-h-full max-w-full object-contain ${exitClass}`,
+              "previous-slide",
+              true,
+            )}
+            {renderSlide(
+              currentUrl,
+              currentMediaKind,
+              `relative z-[1] ${imageClassName} ${enterClass}`,
+              `current-slide-${displayIndex}`,
+            )}
           </>
         ) : (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={currentUrl}
-            alt={currentTitle ?? "Gallery image preview"}
-            decoding="async"
-            className={`relative ${imageClassName}`}
-          />
+          renderSlide(currentUrl, currentMediaKind, `relative ${imageClassName}`, `solo-slide-${displayIndex}`)
         )}
       </div>
 

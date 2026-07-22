@@ -30,6 +30,7 @@ type GallerySelectionBarProps = {
   onExportSidecars: () => void;
   onDownloadImages: () => void;
   onExportZip: () => void;
+  onExportLoraDataset: () => void;
   onExportCompareJson: () => void;
   onExportCompareHtml: () => void;
   onFindSimilar: () => void;
@@ -199,6 +200,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           <MenuItem label="Sidecars" onClick={props.onExportSidecars} />
           <MenuItem label="Images" onClick={props.onDownloadImages} />
           <MenuItem label="ZIP bundle" onClick={props.onExportZip} />
+          <MenuItem label="Export LoRA dataset" onClick={props.onExportLoraDataset} />
           <MenuItem label="CSV" onClick={props.onExportCsv} />
           <MenuItem label="JSONL" onClick={props.onExportJsonl} />
           <MenuItem

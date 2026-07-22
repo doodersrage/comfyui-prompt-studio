@@ -18,6 +18,7 @@ export {
   COMFY_MODEL_CATEGORIES,
   COMFY_MODEL_IDS,
   DEFAULT_COMFY_MODEL,
+  DEFAULT_VIDEO_MODEL,
 } from "./registry";
 export type {
   ComfyImageModel,

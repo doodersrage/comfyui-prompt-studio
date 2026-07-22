@@ -68,6 +68,7 @@ function containsToken(value: unknown, token: string): boolean {
 type WorkflowNode = {
   class_type?: string;
   inputs?: Record<string, unknown>;
+  _meta?: { title?: string };
 };
 
 /**
@@ -188,4 +189,169 @@ export function patchIpAdapterTokensInWorkflow(
 export function findUnresolvedIpAdapterTokens(workflow: Record<string, unknown> | string): string[] {
   const raw = typeof workflow === "string" ? workflow : JSON.stringify(workflow);
   return IPADAPTER_WORKFLOW_TOKENS.filter((token) => raw.includes(token));
+}
+
+/**
+ * Graph-insert enrichment (the IP-Adapter analogue of workflow-graph-enrich.ts's
+ * ModelSamplingFlux insert): when a session has a reference image configured but
+ * the workflow has neither IPAdapter-family nodes nor `{{IPADAPTER_*}}` tokens,
+ * splice a minimal portable chain — LoadImage → IPAdapterModelLoader (+ optional
+ * CLIPVisionLoader when confirmed installed) → IPAdapterAdvanced — into the
+ * primary sampler's model chain, using the same token placeholders so the
+ * existing patch/fallback passes above resolve the actual values.
+ */
+const IPADAPTER_MODEL_LOADER_NODE_TYPE = "IPAdapterModelLoader";
+const IPADAPTER_ADVANCED_NODE_TYPE = "IPAdapterAdvanced";
+const CLIP_VISION_LOADER_NODE_TYPE = "CLIPVisionLoader";
+const DEFAULT_IPADAPTER_CLIP_VISION_FILENAME = "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors";
+
+export type IpAdapterChainInsertOptions = {
+  /** Session-level reference image filename; presence gates whether an insert happens. */
+  imageFilename?: string;
+  /** ComfyUI object_info node class names, when known — gates the optional CLIPVisionLoader node. */
+  availableNodeTypes?: Iterable<string> | null;
+};
+
+export type IpAdapterChainInsertResult = {
+  workflow: Record<string, unknown>;
+  inserted: boolean;
+  insertedNodeIds: string[];
+};
+
+function hasIpAdapterNodes(workflow: Record<string, WorkflowNode>): boolean {
+  return Object.values(workflow).some((node) =>
+    IPADAPTER_CLASS_PATTERN.test(node?.class_type ?? ""),
+  );
+}
+
+function isSamplerLikeNode(classType: string, inputs: Record<string, unknown>): boolean {
+  const lower = classType.toLowerCase();
+  if (
+    lower.includes("ksampler") ||
+    lower.includes("samplercustom") ||
+    lower.includes("guider") ||
+    lower.includes("basicscheduler")
+  ) {
+    return true;
+  }
+  return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
+}
+
+function nextIpAdapterWorkflowNodeId(workflow: Record<string, unknown>): string {
+  let maxId = 0;
+  for (const key of Object.keys(workflow)) {
+    const parsed = Number(key);
+    if (Number.isFinite(parsed) && parsed > maxId) {
+      maxId = parsed;
+    }
+  }
+  return String(maxId + 1);
+}
+
+type PrimarySamplerModelLink = { samplerId: string; modelLinkId: string };
+
+/** First sampler-like node with a resolvable (node-linked) `model` input — kept to one insert for a minimal, conservative chain. */
+function findPrimarySamplerModelLink(
+  workflow: Record<string, WorkflowNode>,
+): PrimarySamplerModelLink | null {
+  for (const [samplerId, node] of Object.entries(workflow)) {
+    if (!node?.inputs || !isSamplerLikeNode(node.class_type ?? "", node.inputs)) {
+      continue;
+    }
+    const modelLink = node.inputs.model;
+    if (Array.isArray(modelLink) && typeof modelLink[0] === "string") {
+      return { samplerId, modelLinkId: modelLink[0] };
+    }
+  }
+  return null;
+}
+
+/**
+ * Inserts a minimal IP-Adapter chain when the session has a reference image
+ * configured but the workflow lacks any IPAdapter nodes/tokens. No-op when the
+ * image filename is unset, the workflow already has IPAdapter nodes/tokens, or
+ * no sampler with a resolvable model chain can be found to splice into.
+ */
+export function insertIpAdapterChainIfMissing(
+  workflow: Record<string, unknown>,
+  options: IpAdapterChainInsertOptions,
+): IpAdapterChainInsertResult {
+  const imageFilename = options.imageFilename?.trim();
+  if (!imageFilename) {
+    return { workflow, inserted: false, insertedNodeIds: [] };
+  }
+
+  const typed = workflow as Record<string, WorkflowNode>;
+  if (hasIpAdapterNodes(typed) || findUnresolvedIpAdapterTokens(workflow).length > 0) {
+    return { workflow, inserted: false, insertedNodeIds: [] };
+  }
+
+  const chain = findPrimarySamplerModelLink(typed);
+  if (!chain) {
+    return { workflow, inserted: false, insertedNodeIds: [] };
+  }
+
+  const next = structuredClone(workflow) as Record<string, WorkflowNode>;
+  const insertedNodeIds: string[] = [];
+  const availableTypes = options.availableNodeTypes
+    ? options.availableNodeTypes instanceof Set
+      ? options.availableNodeTypes
+      : new Set(options.availableNodeTypes)
+    : undefined;
+
+  const loadImageId = nextIpAdapterWorkflowNodeId(next);
+  next[loadImageId] = {
+    class_type: "LoadImage",
+    inputs: { image: DEFAULT_IPADAPTER_IMAGE_TOKEN },
+    _meta: { title: "Prompt Studio — IP-Adapter reference" },
+  };
+  insertedNodeIds.push(loadImageId);
+
+  let clipVisionId: string | undefined;
+  if (!availableTypes || availableTypes.has(CLIP_VISION_LOADER_NODE_TYPE)) {
+    clipVisionId = nextIpAdapterWorkflowNodeId(next);
+    next[clipVisionId] = {
+      class_type: CLIP_VISION_LOADER_NODE_TYPE,
+      inputs: { clip_name: DEFAULT_IPADAPTER_CLIP_VISION_FILENAME },
+      _meta: { title: "Prompt Studio — IP-Adapter CLIP vision" },
+    };
+    insertedNodeIds.push(clipVisionId);
+  }
+
+  const loaderId = nextIpAdapterWorkflowNodeId(next);
+  next[loaderId] = {
+    class_type: IPADAPTER_MODEL_LOADER_NODE_TYPE,
+    inputs: { ipadapter_file: DEFAULT_IPADAPTER_MODEL_TOKEN },
+    _meta: { title: "Prompt Studio — IP-Adapter model" },
+  };
+  insertedNodeIds.push(loaderId);
+
+  const applyId = nextIpAdapterWorkflowNodeId(next);
+  const applyInputs: Record<string, unknown> = {
+    model: [chain.modelLinkId, 0],
+    ipadapter: [loaderId, 0],
+    image: [loadImageId, 0],
+    weight: DEFAULT_IPADAPTER_STRENGTH_TOKEN,
+    weight_type: "linear",
+    combine_embeds: "concat",
+    start_at: 0,
+    end_at: 1,
+    embeds_scaling: "V only",
+  };
+  if (clipVisionId) {
+    applyInputs.clip_vision = [clipVisionId, 0];
+  }
+  next[applyId] = {
+    class_type: IPADAPTER_ADVANCED_NODE_TYPE,
+    inputs: applyInputs,
+    _meta: { title: "Prompt Studio — IP-Adapter apply" },
+  };
+  insertedNodeIds.push(applyId);
+
+  const samplerNode = next[chain.samplerId];
+  if (samplerNode?.inputs) {
+    samplerNode.inputs.model = [applyId, 0];
+  }
+
+  return { workflow: next, inserted: true, insertedNodeIds };
 }

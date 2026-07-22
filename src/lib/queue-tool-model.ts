@@ -44,6 +44,11 @@ function inferTxt2iCounterpart(model: ComfyImageModel | string): ComfyImageModel
   return DEFAULT_COMFY_MODEL;
 }
 
+/** True for WAN Video / Hunyuan Video (`category: "video"`) models. */
+export function isVideoModel(model: ComfyImageModel | string): boolean {
+  return getComfyModelDefinition(model).category === "video";
+}
+
 export function isSceneGenerationModel(model: ComfyImageModel | string): boolean {
   const id = String(model);
   if (/^qwen-rapid-aio-(sfw|nsfw)$/i.test(id)) {
@@ -128,6 +133,13 @@ export function filterModelsForQueueTool(
   tool?: string,
   options?: FilterModelsForQueueToolOptions,
 ): ComfyImageModel[] {
+  // The Video tool only speaks to WAN/Hunyuan video graphs — never mix in
+  // still-image checkpoints, even under the "show all" override.
+  if (tool === "video") {
+    const video = models.filter((model) => isVideoModel(model));
+    return video.length > 0 ? video : models;
+  }
+
   if (!shouldUseSceneGenerationModel(tool)) {
     return models;
   }

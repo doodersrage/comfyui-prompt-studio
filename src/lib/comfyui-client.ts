@@ -285,6 +285,7 @@ function injectPromptsIntoWorkflow(
       availableLoras: enrichInventory?.availableLoras,
       qualityProfile: runtime?.queueQualityProfile,
       loraLibrary: runtime?.loraLibrary,
+      availableNodeTypes: enrichInventory?.availableNodeTypes,
     },
   );
 }

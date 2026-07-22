@@ -22,12 +22,16 @@ import {
   uniqueGalleryTools,
 } from "@/lib/comfyui-gallery";
 import { primeGalleryCacheSync } from "@/lib/gallery-db-store";
+import { pullAndMergeGalleryFromServer } from "@/lib/gallery-server-sync";
 import { scheduleComfyGalleryPoll } from "@/lib/comfyui-gallery-poller";
 import {
   fetchEmbeddingRankIds,
   galleryEntryCorpus,
   sortByRankIds,
 } from "@/lib/embedding-rank";
+
+/** Guards the opportunistic server-gallery merge to run once per page session. */
+let serverGalleryMergeAttempted = false;
 
 export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
   // Keep first client render identical to SSR (empty / not ready) to avoid hydration mismatch.
@@ -66,6 +70,17 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
       .then(() => {
         refresh();
         setStoreReady(true);
+        if (!serverGalleryMergeAttempted) {
+          serverGalleryMergeAttempted = true;
+          // Opportunistic, non-destructive merge — picks up entries appended
+          // server-side (e.g. headless scheduled batch) without requiring the
+          // manual storage-conflict flow. No-ops when server storage is disabled.
+          void pullAndMergeGalleryFromServer().then((result) => {
+            if (result.changed) {
+              refresh();
+            }
+          });
+        }
       })
       .catch(() => {
         setStoreReady(true);

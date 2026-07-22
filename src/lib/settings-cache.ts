@@ -162,8 +162,23 @@ export type SharedToolSettings = {
   useLibraryUpscaleWorkflow?: boolean;
   /** img2img / edit denoise strength (0.05–1) applied when queueing with an input image. */
   editDenoiseStrength?: number;
+  /**
+   * Default denoise for the gallery "Face detail" requeue action — feeds
+   * {{FACE_DETAIL_DENOISE}} (and {{DENOISE}}) on the resolved workflow.
+   */
+  faceDetailerDenoise?: number;
   /** @deprecated Use selectedWorkflowFileId */
   selectedWorkflowPresetId?: string;
+  /** When true (default), expand `__name__` / `{a|b|c}` wildcard tokens before queueing. */
+  expandWildcards?: boolean;
+  /** Optional seed for reproducible wildcard expands (blank = fresh random roll each queue). */
+  wildcardSeed?: string;
+  /** User-defined `__name__` list overrides/additions layered on top of the built-in defaults. */
+  wildcardLists?: import("./wildcard-expand").WildcardMap;
+  /** When true (default), auto-retry once on OOM/CUDA/execution_error gallery job failures. */
+  autoRetryOnOom?: boolean;
+  /** When true (default), downgrade Max→Final / Final→Draft on OOM auto-retry. */
+  oomRetryDowngrade?: boolean;
 };
 
 export type GenerateSource = "keywords" | "random";
@@ -466,6 +481,12 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   limitModelsToAvailableWorkflows: true,
   showAllModelsOverride: false,
   ipAdapterStrength: 0.6,
+  expandWildcards: true,
+  autoRetryOnOom: true,
+  oomRetryDowngrade: true,
+  // Keep in sync with DEFAULT_FACE_DETAIL_DENOISE in gallery-output-face-detail.ts
+  // (not imported here to avoid a module cycle through comfyui-config.ts).
+  faceDetailerDenoise: 0.35,
 };
 
 export const DEFAULT_GENERATE_TOOL_CACHE: GenerateToolCache = {
@@ -707,6 +728,9 @@ export function loadSettingsCache(): SettingsCache {
     shared.queueQualityProfile = normalizeQueueQualityProfile(
       shared.queueQualityProfile ?? DEFAULT_QUEUE_QUALITY_PROFILE,
     );
+    shared.expandWildcards = shared.expandWildcards !== false;
+    shared.autoRetryOnOom = shared.autoRetryOnOom !== false;
+    shared.oomRetryDowngrade = shared.oomRetryDowngrade !== false;
     shared.vramGuardEnabled = shared.vramGuardEnabled !== false;
     const freeGb = shared.vramGuardMinFreeGb;
     shared.vramGuardMinFreeGb =

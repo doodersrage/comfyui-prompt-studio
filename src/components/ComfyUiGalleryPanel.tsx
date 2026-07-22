@@ -55,7 +55,7 @@ import {
   downloadGallerySidecarBundle,
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
-import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, bulkRefineGalleryEntries, bulkMoireCleanGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry, requeueMoireCleanFromGalleryEntry } from "@/lib/comfyui-requeue";
+import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, bulkRefineGalleryEntries, bulkMoireCleanGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry, requeueMoireCleanFromGalleryEntry, requeueFaceDetailFromGalleryEntry } from "@/lib/comfyui-requeue";
 import { cancelComfyGalleryJob } from "@/lib/comfyui-queue-cancel";
 import {
   buildGalleryLineageGroups,
@@ -199,6 +199,7 @@ export default function ComfyUiGalleryPanel({
     cancel: () => undefined,
     upscale: () => undefined,
     refine: () => undefined,
+    faceDetail: () => undefined,
     moireClean: () => undefined,
     showParent: () => undefined,
     showDerivatives: () => undefined,
@@ -376,6 +377,7 @@ export default function ComfyUiGalleryPanel({
         images: lightboxPlaylist.images,
         originalImages: lightboxPlaylist.originalImages,
         titles: lightboxPlaylist.titles,
+        mediaKinds: lightboxPlaylist.mediaKinds,
         index,
         title: lightboxPlaylist.titles[index],
       });
@@ -404,6 +406,7 @@ export default function ComfyUiGalleryPanel({
       images: lightboxPlaylist.images,
       originalImages: lightboxPlaylist.originalImages,
       titles: lightboxPlaylist.titles,
+      mediaKinds: lightboxPlaylist.mediaKinds,
       index: 0,
       title: lightboxPlaylist.titles[0],
     });
@@ -420,6 +423,7 @@ export default function ComfyUiGalleryPanel({
       images: lightboxPlaylist.images,
       originalImages: lightboxPlaylist.originalImages,
       titles: lightboxPlaylist.titles,
+      mediaKinds: lightboxPlaylist.mediaKinds,
       index: 0,
       title: lightboxPlaylist.titles[0],
     });
@@ -779,6 +783,37 @@ export default function ComfyUiGalleryPanel({
           toastQueueOutcome({ ok: true, text: message });
         });
       },
+      faceDetail: (id: string) => {
+        const entry = entriesRef.current.find((item) => item.id === id);
+        if (!entry) {
+          return;
+        }
+        setRequeueStatus("Queueing face detail…");
+        void requeueFaceDetailFromGalleryEntry(entry, {
+          onStatus: setRequeueStatus,
+        }).then((result) => {
+          if (!result.ok) {
+            setRequeueStatus(result.error ?? "Face detail failed.");
+            toastQueueOutcome({ ok: false, text: result.error ?? "Face detail failed." });
+            return;
+          }
+          if (result.held) {
+            const message = "Face detail held until ComfyUI queue is idle";
+            setRequeueStatus(message);
+            toastHeldMax({ text: message });
+            return;
+          }
+          const message = [
+              "face detail queued",
+              result.promptId ? `prompt_id ${result.promptId}` : null,
+              result.comfyUrl,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+          setRequeueStatus(message);
+          toastQueueOutcome({ ok: true, text: message });
+        });
+      },
       moireClean: (
         id: string,
         qualityProfile: "final" | "max",
@@ -1019,13 +1054,34 @@ export default function ComfyUiGalleryPanel({
           <span>
             Select cards to compare, export, queue, assign projects, or remove.
           </span>
-          <button
-            type="button"
-            onClick={() => setSelectedIds(visibleEntries.map((entry) => entry.id))}
-            className="ui-btn-ghost ui-btn-sm"
-          >
-            Select visible ({visibleEntries.length})
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setRequeueStatus("Building LoRA dataset export…");
+                void import("@/lib/gallery-lora-dataset-export").then(
+                  ({ downloadLoraDatasetZip, selectLoraDatasetEntries }) =>
+                    downloadLoraDatasetZip(selectLoraDatasetEntries(entries)),
+                ).then(({ count }) => {
+                  setRequeueStatus(
+                    count > 0
+                      ? `LoRA dataset exported (${count} image/caption pairs from favorites/4–5★).`
+                      : "No favorited or 4–5★ entries found for the LoRA dataset export.",
+                  );
+                });
+              }}
+              className="ui-btn-ghost ui-btn-sm"
+            >
+              Export LoRA dataset (favorites/4–5★)
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(visibleEntries.map((entry) => entry.id))}
+              className="ui-btn-ghost ui-btn-sm"
+            >
+              Select visible ({visibleEntries.length})
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -1082,6 +1138,21 @@ export default function ComfyUiGalleryPanel({
               downloadGalleryZipBundle(selectedEntries),
             ).then((count) => {
               setRequeueStatus(`ZIP export prepared for ${count} entries.`);
+            });
+          }}
+          onExportLoraDataset={() => {
+            setRequeueStatus("Building LoRA dataset export…");
+            void import("@/lib/gallery-lora-dataset-export").then(
+              ({ downloadLoraDatasetZip, selectLoraDatasetEntries }) =>
+                downloadLoraDatasetZip(selectLoraDatasetEntries(selectedEntries, {
+                  selectedIds: selectedEntries.map((entry) => entry.id),
+                })),
+            ).then(({ count }) => {
+              setRequeueStatus(
+                count > 0
+                  ? `LoRA dataset exported (${count} image/caption pairs).`
+                  : "No eligible images found for the LoRA dataset export.",
+              );
             });
           }}
           onExportCompareJson={() => {

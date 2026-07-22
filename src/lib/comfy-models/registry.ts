@@ -620,6 +620,9 @@ export const COMFY_MODEL_IDS = new Set(
 
 export const DEFAULT_COMFY_MODEL = "qwen-image-2512";
 
+/** Default model for the Video tool (`category: "video"`). */
+export const DEFAULT_VIDEO_MODEL = "wan-video";
+
 export const COMFY_MODEL_CATEGORIES: {
   id: ComfyImageModelDefinition["category"];
   label: string;

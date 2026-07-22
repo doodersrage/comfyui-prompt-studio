@@ -41,6 +41,13 @@ import {
   galleryRefineQueueParams,
 } from "./gallery-output-refine";
 import { findLibraryUpscaleWorkflowForModel } from "./workflow-library-upscale";
+import { findLibraryFaceDetailerWorkflow } from "./workflow-library-face-detailer";
+import {
+  buildGalleryFaceDetailFallbackWorkflow,
+  faceDetailCustomTokens,
+  faceDetailQueueParams,
+  normalizeFaceDetailDenoise,
+} from "./gallery-output-face-detail";
 import { isUpscaleModelInstalled, resolveUpscaleModelFilename } from "./model-upscale-map";
 import { fetchComfyObjectInfoCached } from "./comfyui-object-info-cache";
 import { loadSettingsCache } from "./settings-cache";
@@ -124,6 +131,11 @@ export function galleryEntrySupportsMoireClean(model?: string): boolean {
   return isQwenRapidAioModel(model);
 }
 
+/** Face detail is an img2img-style requeue — same constraint as refine (no Lightning pass-through). */
+export function galleryEntrySupportsFaceDetail(model?: string): boolean {
+  return !isQwenLightningModel(model);
+}
+
 type WorkflowPreviewResponse = {
   ok: boolean;
   replacements?: {
@@ -168,6 +180,8 @@ export type RequeueComfyJobInput = {
   derivedKind?: ComfyGalleryEntry["derivedKind"];
   /** Upload sourceImageUrl even when the model/tool is normally text-to-image. */
   forceInputImage?: boolean;
+  /** Force a specific ComfyUI endpoint for this re-queue (e.g. pool failover on OOM). */
+  comfyUrlOverride?: string;
   onStatus?: (message: string) => void;
 };
 
@@ -736,6 +750,145 @@ export async function requeueRefineFromGalleryEntry(
   };
 }
 
+/**
+ * Requeues the gallery output through a face-detailer / ReActor-style workflow.
+ *
+ * Prefers a dedicated library workflow (Settings → workflow library, pinned
+ * via `modelWorkflowMap.faceDetailer` or auto-detected by name/node type)
+ * containing {{FACE_DETAIL_IMAGE}} / {{FACE_DETAIL_DENOISE}} — or the portable
+ * {{INPUT_IMAGE}} / {{DENOISE}} tokens. FaceDetailer / ReActor / Impact-Pack
+ * nodes vary by ComfyUI install, so when no library workflow matches, this
+ * still queues a pass-through (LoadImage → SaveImage) job and surfaces a
+ * status message asking the user to add a workflow with those tokens.
+ */
+export async function requeueFaceDetailFromGalleryEntry(
+  entry: ComfyGalleryEntry,
+  options?: {
+    denoise?: number;
+    onStatus?: (message: string) => void;
+  },
+): Promise<RequeueComfyJobResult> {
+  const outputUrl = resolveGalleryOutputImageUrl(entry);
+  if (!outputUrl) {
+    return { ok: false, error: "No gallery output image available to face-detail." };
+  }
+
+  const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
+  if (isQwenLightningModel(model)) {
+    return {
+      ok: false,
+      error:
+        "Face detail is disabled for Lightning (img2img pass-through only) — use Refine or Upscale instead.",
+    };
+  }
+
+  options?.onStatus?.("Uploading gallery output…");
+
+  let inputImageFilename: string | undefined;
+  try {
+    inputImageFilename = await resolveQueueInputImageFilename({
+      imageUrl: outputUrl,
+      model,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : "Could not upload gallery output.",
+    };
+  }
+
+  if (!inputImageFilename?.trim()) {
+    return { ok: false, error: "Could not upload gallery output to ComfyUI." };
+  }
+
+  const shared = loadSettingsCache().shared;
+  const denoise = normalizeFaceDetailDenoise(
+    options?.denoise ?? shared.faceDetailerDenoise,
+  );
+
+  const libraryWorkflow = findLibraryFaceDetailerWorkflow();
+  const workflow = libraryWorkflow
+    ? (JSON.parse(libraryWorkflow.workflowJson) as Record<string, unknown>)
+    : buildGalleryFaceDetailFallbackWorkflow();
+
+  const faceDetailParams = faceDetailQueueParams({
+    inputImageFilename,
+    denoise,
+    queueParams: entry.queueParams,
+  });
+  const baseRuntime = resolveRuntimeForQueue(model, "face-detail");
+  const runtime: ComfyUiRuntimeConfig = {
+    ...baseRuntime,
+    workflowJson: JSON.stringify(workflow),
+    workflowQueueOptimize: Boolean(libraryWorkflow),
+    workflowGraphEnrich: false,
+    directWorkflowPatching: true,
+    customTokens: faceDetailCustomTokens({ inputImageFilename, denoise }),
+    ...(libraryWorkflow ? { workflowFileId: libraryWorkflow.id } : {}),
+  };
+
+  options?.onStatus?.(
+    libraryWorkflow
+      ? `Queueing library face-detail workflow “${libraryWorkflow.name}”…`
+      : "No library face-detailer workflow found — queueing pass-through (add one with {{FACE_DETAIL_IMAGE}})…",
+  );
+
+  const response = await fetch("/api/comfyui", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt: entry.prompt.trim() || "face detail",
+      negativePrompt: entry.negativePrompt,
+      model,
+      params: faceDetailParams,
+      comfy: runtime,
+    }),
+  });
+
+  const data = (await response.json()) as {
+    ok?: boolean;
+    promptId?: string;
+    error?: string;
+    comfyUrl?: string;
+  };
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: data.error ?? "ComfyUI face-detail queue failed.",
+      comfyUrl: data.comfyUrl,
+    };
+  }
+
+  if (data.promptId) {
+    registerComfyGalleryJob({
+      promptId: data.promptId,
+      prompt: entry.prompt.trim() || "face detail",
+      negativePrompt: entry.negativePrompt,
+      tool: entry.tool,
+      model: entry.model,
+      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      queueParams: faceDetailParams,
+      sourceImageUrl: outputUrl,
+      queueQualityProfile: entry.queueQualityProfile,
+      parentGalleryEntryId: entry.id,
+      derivedKind: "face-detail",
+      historyId: entry.historyId,
+    });
+    void scheduleComfyGalleryPoll(data.promptId, {
+      comfyUrl: data.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      onStatus: options?.onStatus,
+    });
+  }
+
+  return {
+    ok: true,
+    promptId: data.promptId,
+    comfyUrl: data.comfyUrl ?? entry.comfyUrl,
+  };
+}
+
 export type BulkUpscaleGalleryResult = {
   queued: number;
   failed: number;
@@ -824,6 +977,21 @@ export function canRefineGalleryEntry(
   >,
 ): boolean {
   if (!galleryEntrySupportsRefine(entry.model)) {
+    return false;
+  }
+  if (entry.status !== "completed") {
+    return false;
+  }
+  return Boolean(resolveGalleryOutputImageUrl(entry));
+}
+
+export function canFaceDetailGalleryEntry(
+  entry: Pick<
+    ComfyGalleryEntry,
+    "status" | "images" | "sourceImageUrl" | "comfyUrl" | "model"
+  >,
+): boolean {
+  if (!galleryEntrySupportsFaceDetail(entry.model)) {
     return false;
   }
   if (entry.status !== "completed") {
@@ -945,7 +1113,10 @@ export async function bulkRefineGalleryEntries(
 
 export function requeueComfyJobFromEntry(
   entry: ComfyGalleryEntry,
-  options?: Pick<RequeueComfyJobInput, "newSeed" | "onStatus" | "hints" | "qualityProfile">,
+  options?: Pick<
+    RequeueComfyJobInput,
+    "newSeed" | "onStatus" | "hints" | "qualityProfile" | "comfyUrlOverride"
+  >,
 ): Promise<RequeueComfyJobResult> {
   const urls = resolveRequeueImageUrlsFromEntry(entry);
   const isVariation = Boolean(options?.newSeed || options?.qualityProfile);
@@ -961,6 +1132,7 @@ export function requeueComfyJobFromEntry(
     newSeed: options?.newSeed,
     hints: options?.hints,
     qualityProfile: options?.qualityProfile,
+    comfyUrlOverride: options?.comfyUrlOverride,
     parentGalleryEntryId: isVariation ? entry.id : undefined,
     derivedKind: isVariation ? "variation" : undefined,
     onStatus: options?.onStatus,
@@ -1053,7 +1225,9 @@ export async function requeueComfyJob(
     runtime: withRequested,
   });
   const effectiveQualityProfile = vramGuard.profile;
-  const comfyRuntime = vramGuard.runtime;
+  const comfyRuntime = input.comfyUrlOverride?.trim()
+    ? { ...vramGuard.runtime, apiUrl: input.comfyUrlOverride.trim() }
+    : vramGuard.runtime;
   if (vramGuard.downgraded) {
     input.onStatus?.("Max → Final (VRAM) — free VRAM under 6 GB.");
   }

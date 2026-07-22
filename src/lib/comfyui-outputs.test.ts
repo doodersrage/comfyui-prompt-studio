@@ -3,9 +3,11 @@ import { describe, it } from "node:test";
 import {
   buildComfyViewPath,
   buildComfyViewSrcSet,
+  extractImagesFromOutputs,
   GALLERY_STRIP_THUMB_WIDTH,
   GALLERY_THUMB_SRCSET_WIDTHS,
   GALLERY_THUMB_WIDTH,
+  resolveComfyOutputMediaKind,
 } from "./comfyui-outputs.ts";
 
 describe("comfyui outputs view paths", () => {
@@ -36,5 +38,63 @@ describe("comfyui outputs view paths", () => {
     for (const width of GALLERY_THUMB_SRCSET_WIDTHS) {
       assert.match(srcSet, new RegExp(`w=${width} ${width}w`));
     }
+  });
+});
+
+describe("comfyui output media kind resolution", () => {
+  it("treats plain photo formats as images", () => {
+    assert.equal(resolveComfyOutputMediaKind({ filename: "out.png" }), "image");
+    assert.equal(resolveComfyOutputMediaKind({ filename: "out.jpg" }), "image");
+    assert.equal(
+      resolveComfyOutputMediaKind({ filename: "out.bin", format: "image/png" }),
+      "image",
+    );
+  });
+
+  it("treats mp4/webm and animated webp/gif as video for gallery rendering", () => {
+    assert.equal(resolveComfyOutputMediaKind({ filename: "clip.mp4" }), "video");
+    assert.equal(resolveComfyOutputMediaKind({ filename: "clip.webm" }), "video");
+    assert.equal(resolveComfyOutputMediaKind({ filename: "clip.gif" }), "video");
+    assert.equal(resolveComfyOutputMediaKind({ filename: "clip.webp" }), "video");
+    assert.equal(
+      resolveComfyOutputMediaKind({ filename: "out.bin", format: "video/h264-mp4" }),
+      "video",
+    );
+    assert.equal(
+      resolveComfyOutputMediaKind({ filename: "out.bin", format: "image/gif" }),
+      "video",
+    );
+  });
+
+  it("prefers the explicit format hint over the file extension", () => {
+    // ComfyUI sometimes emits a generic filename with the real kind only in `format`.
+    assert.equal(
+      resolveComfyOutputMediaKind({ filename: "ComfyUI_00001_.png", format: "video/webp" }),
+      "video",
+    );
+  });
+
+  it("extracts refs from both the images and gifs output keys", () => {
+    const images = extractImagesFromOutputs({
+      "6": {
+        images: [{ filename: "frame.png", subfolder: "PromptStudio", type: "output" }],
+      },
+      "7": {
+        gifs: [
+          {
+            filename: "clip.webp",
+            subfolder: "PromptStudio",
+            type: "output",
+            format: "image/webp",
+          },
+        ],
+      },
+    });
+
+    assert.equal(images.length, 2);
+    assert.equal(images[0]?.filename, "frame.png");
+    assert.equal(images[1]?.filename, "clip.webp");
+    assert.equal(images[1]?.format, "image/webp");
+    assert.equal(resolveComfyOutputMediaKind(images[1]!), "video");
   });
 });

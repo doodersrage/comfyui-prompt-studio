@@ -20,6 +20,12 @@ import type { AthleticSport } from "./athletic-sport-profiles";
 import { resolveQueueNegativePromptRaw } from "./queue-negative";
 import { isQwenLightningModel } from "./model-sampling-patch";
 import { isQwenRapidAioModel } from "./model-denoise-defaults";
+import { expandWildcardText } from "./wildcard-expand";
+import {
+  loadCustomWildcardLists,
+  loadWildcardExpansionEnabled,
+  loadWildcardSeed,
+} from "./wildcard-settings";
 
 /** Distilled Lightning (CFG 1) softens with long auto-negatives — keep only short explicit ones. */
 const LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS = 160;
@@ -114,6 +120,28 @@ export function applyQueuePromptSteering(input: {
   });
 }
 
+/**
+ * Wildcards / dynamic prompts: `__name__` list tokens and `{a|b|c}` choice
+ * groups, expanded before any other queue-prep step. Gated by the shared
+ * `expandWildcards` setting (default on) and reproducible via `wildcardSeed`.
+ */
+function expandWildcardsForQueue(
+  text: string | undefined,
+  options?: { expandWildcards?: boolean; wildcardSeed?: string },
+): string | undefined {
+  if (!text) {
+    return text;
+  }
+  const enabled = options?.expandWildcards ?? loadWildcardExpansionEnabled();
+  if (!enabled) {
+    return text;
+  }
+  return expandWildcardText(text, {
+    seed: options?.wildcardSeed ?? loadWildcardSeed(),
+    wildcards: loadCustomWildcardLists(),
+  });
+}
+
 export async function prepareQueuePrompts(input: {
   model: ComfyImageModel | string;
   positive: string;
@@ -123,25 +151,41 @@ export async function prepareQueuePrompts(input: {
   explicitNegative?: string;
   realismMode?: RenderRealismMode;
   anatomyMode?: AnatomyGuardMode;
+  /** Overrides the shared `expandWildcards` setting for this call. */
+  expandWildcards?: boolean;
+  /** Overrides the shared `wildcardSeed` setting for this call (reproducible expands). */
+  wildcardSeed?: string;
 }): Promise<{ positive: string; negative?: string }> {
+  const wildcardOptions = {
+    expandWildcards: input.expandWildcards,
+    wildcardSeed: input.wildcardSeed,
+  };
+  const positive =
+    expandWildcardsForQueue(input.positive, wildcardOptions) ?? input.positive;
+  const hints = expandWildcardsForQueue(input.hints, wildcardOptions);
+  const explicitNegative = expandWildcardsForQueue(
+    input.explicitNegative,
+    wildcardOptions,
+  );
+
   let negative: string | undefined;
   const distilledCfg1 =
     isQwenLightningModel(input.model) || isQwenRapidAioModel(input.model);
   if (distilledCfg1) {
     // Skip auto-negative profiles — they fight CFG-1 distillation.
-    negative = input.explicitNegative?.trim() || undefined;
+    negative = explicitNegative?.trim() || undefined;
   } else if (modelUsesNegativePrompt(input.model)) {
     negative = await resolveQueueNegativePromptRaw({
       model: input.model,
-      hints: input.hints,
+      hints,
       sport: input.sport,
       tool: input.tool,
-      explicitNegative: input.explicitNegative,
+      explicitNegative,
     });
   }
 
   return applyQueuePromptSteering({
-    positive: input.positive,
+    positive,
     negative,
     model: input.model,
     realismMode: input.realismMode,

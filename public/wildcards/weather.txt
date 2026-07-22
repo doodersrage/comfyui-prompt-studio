@@ -1,0 +1,11 @@
+# One weather condition per line. Loaded by loadWildcardsFromPublicDir("weather").
+sunny
+overcast
+light rain
+foggy
+stormy
+snowy
+misty
+clear skies
+golden hour haze
+dramatic clouds

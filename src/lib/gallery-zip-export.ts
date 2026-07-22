@@ -37,12 +37,13 @@ function concat(chunks: Uint8Array[]): Uint8Array {
   return output;
 }
 
-type ZipFileEntry = {
+export type ZipFileEntry = {
   filename: string;
   data: Uint8Array;
 };
 
-function buildZipBlob(files: ZipFileEntry[]): Blob {
+/** Tiny inline STORE-only (uncompressed) ZIP writer — no external dep required. */
+export function buildZipBlob(files: ZipFileEntry[]): Blob {
   const localParts: Uint8Array[] = [];
   const centralParts: Uint8Array[] = [];
   let offset = 0;

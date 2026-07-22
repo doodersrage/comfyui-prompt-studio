@@ -1,4 +1,4 @@
-import type { ComfyOutputImage } from "./comfyui-outputs";
+import type { ComfyOutputImage, ComfyOutputMediaKind } from "./comfyui-outputs";
 import {
   buildComfyViewPath,
   buildComfyViewSrcSet,
@@ -6,6 +6,7 @@ import {
   GALLERY_LQIP_WIDTH,
   GALLERY_STRIP_THUMB_WIDTH,
   GALLERY_THUMB_WIDTH,
+  resolveComfyOutputMediaKind,
 } from "./comfyui-outputs";
 import { filterBySemanticQuery } from "./semantic-search";
 import { orderGalleryBySimilarity } from "./gallery-similarity";
@@ -18,7 +19,7 @@ import {
   setGalleryCache,
   clearGalleryDb,
 } from "./gallery-db-store";
-import { COMFYUI_GALLERY_KEY } from "./comfyui-gallery-storage-meta";
+import { COMFYUI_GALLERY_KEY, MAX_GALLERY_ENTRIES } from "./comfyui-gallery-storage-meta";
 import {
   readBrowserValue,
   writeBrowserValue,
@@ -26,6 +27,7 @@ import {
 import { initGalleryStore } from "./app-db-init";
 import { getActiveUserId } from "./user-scope";
 import { scheduleUserAnalyticsSync } from "./user-analytics-sync";
+import { capGalleryEntriesForLocalStorage } from "./gallery-cap";
 
 export type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
 export type { ComfyGalleryJobStatus } from "./comfyui-gallery-types";
@@ -251,10 +253,18 @@ export function saveComfyGallery(
     return;
   }
 
-  setGalleryCache(entries);
+  const { kept, evicted } = capGalleryEntriesForLocalStorage(entries, MAX_GALLERY_ENTRIES);
+  setGalleryCache(kept);
   notifyGalleryUpdated();
   scheduleUserAnalyticsSync();
   if (options?.syncRemote !== false) {
+    if (evicted.length > 0) {
+      // The local cap prefers keeping favorites/high ratings — push the full,
+      // untrimmed list so server storage still has the complete history.
+      void import("./storage-sync").then(({ syncNamespaceToServer }) =>
+        syncNamespaceToServer("comfy-gallery", entries),
+      );
+    }
     void import("./auto-storage-sync").then(({ scheduleAutoPushStorage }) =>
       scheduleAutoPushStorage(),
     );
@@ -268,7 +278,8 @@ export async function saveComfyGalleryAsync(entries: ComfyGalleryEntry[]): Promi
     return;
   }
 
-  setGalleryCache(entries);
+  const { kept } = capGalleryEntriesForLocalStorage(entries, MAX_GALLERY_ENTRIES);
+  setGalleryCache(kept);
   await initGalleryStore();
   await persistGalleryCache();
   notifyGalleryUpdated();
@@ -585,7 +596,7 @@ export function updateComfyGalleryByPromptId(
   patch: Partial<
     Pick<
       ComfyGalleryEntry,
-      "status" | "statusMessage" | "queuePosition" | "progressValue" | "progressMax" | "progressNode" | "completedAt" | "images" | "comfyUrl" | "favorite" | "historyId" | "queueParams" | "reviewRating" | "projectId"
+      "status" | "statusMessage" | "queuePosition" | "progressValue" | "progressMax" | "progressNode" | "completedAt" | "images" | "comfyUrl" | "favorite" | "historyId" | "queueParams" | "reviewRating" | "projectId" | "oomRetryAttempted"
     >
   >,
 ): ComfyGalleryEntry | null {
@@ -701,6 +712,17 @@ export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string
   return buildComfyViewSrcSet(entry.comfyUrl, image);
 }
 
+/** Per-image media kind (image vs. video/animated) for gallery rendering. */
+export function galleryEntryMediaKinds(entry: ComfyGalleryEntry): ComfyOutputMediaKind[] {
+  return entry.images.map((image) => resolveComfyOutputMediaKind(image));
+}
+
+/** Media kind of the entry's primary (first) output. */
+export function galleryEntryPrimaryMediaKind(entry: ComfyGalleryEntry): ComfyOutputMediaKind {
+  const image = entry.images[0];
+  return image ? resolveComfyOutputMediaKind(image) : "image";
+}
+
 export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | null {
   const image = entry.images[0];
   if (!image) {
@@ -715,6 +737,8 @@ export type GalleryLightboxPlaylist = {
   /** Full-res view URLs (no width resize) for “Open original”. */
   originalImages: string[];
   titles: string[];
+  /** Per-slide media kind, parallel to `images`/`originalImages`. */
+  mediaKinds: ComfyOutputMediaKind[];
 };
 
 export function buildGalleryLightboxPlaylist(
@@ -724,10 +748,12 @@ export function buildGalleryLightboxPlaylist(
   const images: string[] = [];
   const originalImages: string[] = [];
   const titles: string[] = [];
+  const mediaKinds: ComfyOutputMediaKind[] = [];
 
   for (const entry of entries) {
     const urls = galleryEntryLightboxUrls(entry);
     const originals = galleryEntryViewUrls(entry);
+    const kinds = galleryEntryMediaKinds(entry);
     if (urls.length === 0) {
       continue;
     }
@@ -737,10 +763,11 @@ export function buildGalleryLightboxPlaylist(
       images.push(urls[i]!);
       originalImages.push(originals[i] ?? urls[i]!);
       titles.push(title);
+      mediaKinds.push(kinds[i] ?? "image");
     }
   }
 
-  return { images, originalImages, titles };
+  return { images, originalImages, titles, mediaKinds };
 }
 
 export function resolveGalleryLightboxOpenIndex(

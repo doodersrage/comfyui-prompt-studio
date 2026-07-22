@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
@@ -10,6 +10,8 @@ import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { getReformatTargetLabel } from "@/lib/reformat-target";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import { DEFAULT_VIDEO_TOOL_CACHE } from "@/lib/settings-cache";
+import { isVideoModel } from "@/lib/queue-tool-model";
+import { DEFAULT_VIDEO_MODEL } from "@/lib/comfy-models/client";
 import {
   ToolBadge,
   ToolLayout,
@@ -108,6 +110,17 @@ export default function VideoPromptTool() {
     fields: [subject, motion, camera, style],
   });
 
+  // Video prompts/workflows only make sense against WAN/Hunyuan video
+  // checkpoints — steer the shared model picker to a video model the moment
+  // this tool is open, rather than silently queueing against whatever
+  // still-image model another tool last left selected.
+  useEffect(() => {
+    if (!mounted || isVideoModel(shared.model)) {
+      return;
+    }
+    updateShared({ model: DEFAULT_VIDEO_MODEL });
+  }, [mounted, shared.model, updateShared]);
+
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,11 +197,13 @@ export default function VideoPromptTool() {
       sidebar={
         <SharedToolControls
           shared={shared}
+          toolId="video"
           onModelChange={(model) => updateShared({ model })}
           onDetailChange={(detail) => updateShared({ detail })}
           onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
           autoFixRules={shared.autoFixRules !== false}
           onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          onSharedSettingsChange={updateShared}
           recommendFromText={output}
         />
       }
@@ -332,10 +347,14 @@ export default function VideoPromptTool() {
           onSaveHistory={() => actions.saveHistory({ prompt: output, hints: motion })}
           onSendComfyUi={() => {
             const initImage = initImageUrl.trim();
-            const initImageIsUrl = /^https?:\/\//i.test(initImage);
+            // Both http(s) URLs and data: URLs (e.g. pasted/dragged image data)
+            // go through the ComfyUI upload helper; anything else is treated
+            // as an already-uploaded filename on the ComfyUI server.
+            const initImageIsFetchable = /^(?:https?:|data:)/i.test(initImage);
             void actions.sendComfyUi(output, null, undefined, {
-              inputImageUrl: initImageIsUrl ? initImage : undefined,
-              inputImageFilename: !initImageIsUrl && initImage ? initImage : undefined,
+              inputImageUrl: initImageIsFetchable ? initImage : undefined,
+              inputImageFilename:
+                !initImageIsFetchable && initImage ? initImage : undefined,
               queueParamsBase: {
                 ...(frames ? { videoFrames: frames } : {}),
                 ...(fps ? { videoFps: fps } : {}),

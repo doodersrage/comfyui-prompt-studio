@@ -2,7 +2,58 @@ export type ComfyOutputImage = {
   filename: string;
   subfolder: string;
   type: string;
+  /** Explicit format hint from ComfyUI (e.g. "video/webp", "image/png"). */
+  format?: string;
 };
+
+/** Media kind for gallery rendering: still image vs. video/animated clip. */
+export type ComfyOutputMediaKind = "image" | "video";
+
+const VIDEO_FILE_EXTENSIONS = new Set([
+  "mp4",
+  "webm",
+  "mov",
+  "mkv",
+  "avi",
+]);
+
+/** Animated formats that should be rendered like video (looping, no controls needed). */
+const ANIMATED_IMAGE_EXTENSIONS = new Set(["webp", "gif"]);
+
+function fileExtensionOf(filename: string): string {
+  const match = /\.([a-z0-9]+)$/i.exec(filename.trim());
+  return match ? match[1].toLowerCase() : "";
+}
+
+/**
+ * Resolves whether a ComfyUI output should be rendered as a `<video>` element
+ * (mp4/webm/etc, or animated webp/gif) versus a plain `<img>`.
+ *
+ * Animated webp/gif are treated as "video" so the gallery can render them
+ * with the same looping/muted playback UX as true video containers, while
+ * plain photographic outputs remain classic images.
+ */
+export function resolveComfyOutputMediaKind(
+  image: Pick<ComfyOutputImage, "filename" | "format">,
+): ComfyOutputMediaKind {
+  const format = image.format?.toLowerCase() ?? "";
+  if (format.startsWith("video/")) {
+    return "video";
+  }
+  if (format.startsWith("image/")) {
+    const formatExt = format.split("/")[1] ?? "";
+    if (ANIMATED_IMAGE_EXTENSIONS.has(formatExt)) {
+      return "video";
+    }
+    return "image";
+  }
+
+  const ext = fileExtensionOf(image.filename);
+  if (VIDEO_FILE_EXTENSIONS.has(ext) || ANIMATED_IMAGE_EXTENSIONS.has(ext)) {
+    return "video";
+  }
+  return "image";
+}
 
 /** Default long-edge for gallery grid/list thumbs (proxy resize). */
 export const GALLERY_THUMB_WIDTH = 512;
@@ -33,26 +84,32 @@ export function extractImagesFromOutputs(
       continue;
     }
 
-    const record = nodeOutput as { images?: unknown[] };
-    if (!Array.isArray(record.images)) {
-      continue;
-    }
+    // Most nodes (SaveImage, PreviewVideo, SaveAnimatedWEBP, SaveVideo) emit
+    // refs under "images"; some custom video nodes (e.g. VHS_VideoCombine)
+    // emit under "gifs" instead, using the same {filename,subfolder,type} shape.
+    const record = nodeOutput as { images?: unknown[]; gifs?: unknown[] };
+    const refLists = [record.images, record.gifs].filter((list): list is unknown[] =>
+      Array.isArray(list),
+    );
 
-    for (const image of record.images) {
-      if (!image || typeof image !== "object") {
-        continue;
+    for (const refList of refLists) {
+      for (const image of refList) {
+        if (!image || typeof image !== "object") {
+          continue;
+        }
+
+        const ref = image as Record<string, unknown>;
+        if (typeof ref.filename !== "string" || !ref.filename.trim()) {
+          continue;
+        }
+
+        images.push({
+          filename: ref.filename,
+          subfolder: typeof ref.subfolder === "string" ? ref.subfolder : "",
+          type: typeof ref.type === "string" ? ref.type : "output",
+          format: typeof ref.format === "string" ? ref.format : undefined,
+        });
       }
-
-      const ref = image as Record<string, unknown>;
-      if (typeof ref.filename !== "string" || !ref.filename.trim()) {
-        continue;
-      }
-
-      images.push({
-        filename: ref.filename,
-        subfolder: typeof ref.subfolder === "string" ? ref.subfolder : "",
-        type: typeof ref.type === "string" ? ref.type : "output",
-      });
     }
   }
 

@@ -8,10 +8,12 @@ import {
   patchLoadImageMaskNodesInWorkflow,
   patchLoaderNodesInWorkflow,
   patchUpscaleModelNodesInWorkflow,
+  patchVideoImageToVideoWiringInWorkflow,
   patchWorkflowDirectParams,
 } from "./workflow-direct-patch.ts";
 import { DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN } from "./model-checkpoint-map.ts";
 import { DEFAULT_IPADAPTER_IMAGE_TOKEN, DEFAULT_IPADAPTER_STRENGTH_TOKEN } from "./ipadapter-workflow-patch.ts";
+import { buildWorkflowScaffoldForModel } from "./workflow-scaffold.ts";
 
 describe("workflow direct patch", () => {
   it("does not swap Qwen T2I UNET to Edit under fp8→bf16 precision align", () => {
@@ -425,5 +427,212 @@ describe("workflow direct patch", () => {
     assert.equal(loader.inputs.ipadapter_file, "ip-adapter-plus_sdxl.safetensors");
     assert.equal(result.patched.ipAdapterImage, 1);
     assert.equal(result.patched.ipAdapterModel, 1);
+  });
+
+  it("inserts and resolves a minimal IP-Adapter chain when the workflow has none, via patchWorkflowDirectParams", () => {
+    const workflow = {
+      "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "sdxl.safetensors" } },
+      "5": {
+        class_type: "KSampler",
+        inputs: { seed: 1, steps: 20, cfg: 7, model: ["1", 0] },
+      },
+    };
+
+    const result = patchWorkflowDirectParams(workflow, {
+      ipAdapterImageFilename: "identity-ref.png",
+      ipAdapterStrength: 0.55,
+      ipAdapterModelFilename: "ip-adapter-plus_sdxl.safetensors",
+    });
+
+    assert.ok((result.patched.ipAdapterInserted ?? 0) > 0);
+    const sampler = result.workflow["5"] as { inputs: { model: [string, number] } };
+    const applyNode = result.workflow[sampler.inputs.model[0]] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
+    assert.equal(applyNode.class_type, "IPAdapterAdvanced");
+    assert.equal(applyNode.inputs.weight, 0.55);
+    // Original checkpoint stays the model source feeding into the new apply node.
+    assert.deepEqual(applyNode.inputs.model, ["1", 0]);
+
+    const loaderNode = result.workflow[(applyNode.inputs.ipadapter as [string, number])[0]] as {
+      inputs: Record<string, unknown>;
+    };
+    assert.equal(loaderNode.inputs.ipadapter_file, "ip-adapter-plus_sdxl.safetensors");
+    const loadImageNode = result.workflow[(applyNode.inputs.image as [string, number])[0]] as {
+      inputs: Record<string, unknown>;
+    };
+    assert.equal(loadImageNode.inputs.image, "identity-ref.png");
+  });
+
+  it("does not insert an IP-Adapter chain when no reference image is configured", () => {
+    const workflow = {
+      "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "sdxl.safetensors" } },
+      "5": {
+        class_type: "KSampler",
+        inputs: { seed: 1, steps: 20, cfg: 7, model: ["1", 0] },
+      },
+    };
+
+    const result = patchWorkflowDirectParams(workflow, {});
+
+    assert.equal(result.patched.ipAdapterInserted, undefined);
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) => (node as { class_type?: string }).class_type === "IPAdapterAdvanced",
+      ),
+      false,
+    );
+  });
+});
+
+describe("video I2V auto-wiring (patchVideoImageToVideoWiringInWorkflow)", () => {
+  type AnyNode = { class_type?: string; inputs?: Record<string, unknown> };
+
+  it("splices a WanImageToVideo node into the WAN video scaffold when an init image is queued", () => {
+    const scaffold = buildWorkflowScaffoldForModel("wan-video");
+    const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
+
+    const result = patchVideoImageToVideoWiringInWorkflow(workflow, {
+      model: "wan-video",
+      inputImageFilename: "start-frame.png",
+      params: { width: 832, height: 480, videoFrames: 81 },
+    });
+
+    assert.equal(result.patched.videoImageToVideoWired, 1);
+
+    const sampler = result.workflow["5"] as AnyNode;
+    const wireNodeId = (sampler.inputs?.latent_image as [string, number])[0];
+    const wireNode = result.workflow[wireNodeId] as AnyNode;
+    assert.equal(wireNode.class_type, "WanImageToVideo");
+    assert.deepEqual(wireNode.inputs?.start_image, ["900", 0]);
+    assert.deepEqual(wireNode.inputs?.positive, ["2", 0]);
+    assert.deepEqual(wireNode.inputs?.negative, ["3", 0]);
+    assert.equal(wireNode.inputs?.width, 832);
+    assert.equal(wireNode.inputs?.height, 480);
+    assert.equal(wireNode.inputs?.length, 81);
+
+    // Sampler now reads positive/negative/latent from the new I2V node.
+    assert.deepEqual(sampler.inputs?.positive, [wireNodeId, 0]);
+    assert.deepEqual(sampler.inputs?.negative, [wireNodeId, 1]);
+    assert.deepEqual(sampler.inputs?.latent_image, [wireNodeId, 2]);
+  });
+
+  it("splices a HunyuanImageToVideo node into the Hunyuan video scaffold when an init image is queued", () => {
+    const scaffold = buildWorkflowScaffoldForModel("hunyuan-video");
+    const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
+
+    const result = patchVideoImageToVideoWiringInWorkflow(workflow, {
+      model: "hunyuan-video",
+      inputImageFilename: "start-frame.png",
+      params: { width: 960, height: 544, videoFrames: 53 },
+    });
+
+    assert.equal(result.patched.videoImageToVideoWired, 1);
+
+    const sampler = result.workflow["5"] as AnyNode;
+    const wireNodeId = (sampler.inputs?.latent_image as [string, number])[0];
+    const wireNode = result.workflow[wireNodeId] as AnyNode;
+    assert.equal(wireNode.class_type, "HunyuanImageToVideo");
+    assert.deepEqual(wireNode.inputs?.start_image, ["900", 0]);
+    assert.deepEqual(wireNode.inputs?.positive, ["2", 0]);
+    assert.equal(wireNode.inputs?.width, 960);
+    assert.equal(wireNode.inputs?.height, 544);
+    assert.equal(wireNode.inputs?.length, 53);
+
+    assert.deepEqual(sampler.inputs?.positive, [wireNodeId, 0]);
+    assert.deepEqual(sampler.inputs?.latent_image, [wireNodeId, 1]);
+  });
+
+  it("leaves the video scaffold as plain T2V when no init image is queued", () => {
+    const scaffold = buildWorkflowScaffoldForModel("wan-video");
+    const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
+
+    const result = patchVideoImageToVideoWiringInWorkflow(workflow, {
+      model: "wan-video",
+      inputImageFilename: undefined,
+      params: { width: 832, height: 480, videoFrames: 81 },
+    });
+
+    assert.equal(result.patched.videoImageToVideoWired, undefined);
+    const sampler = result.workflow["5"] as AnyNode;
+    assert.deepEqual(sampler.inputs?.latent_image, ["4", 0]);
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) => (node as AnyNode).class_type === "WanImageToVideo",
+      ),
+      false,
+    );
+  });
+
+  it("is a no-op for non-video models even when an init image is queued", () => {
+    const workflow = {
+      "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "sdxl.safetensors" } },
+      "900": { class_type: "LoadImage", inputs: { image: "{{INIT_IMAGE}}" }, _meta: { title: "Init Image" } },
+      "4": { class_type: "EmptyHunyuanLatentVideo", inputs: { width: 832, height: 480, length: 81 } },
+      "5": {
+        class_type: "KSampler",
+        inputs: { positive: ["2", 0], negative: ["3", 0], latent_image: ["4", 0] },
+      },
+    };
+
+    const result = patchVideoImageToVideoWiringInWorkflow(workflow, {
+      model: "qwen-image-2512",
+      inputImageFilename: "start-frame.png",
+    });
+
+    assert.equal(result.patched.videoImageToVideoWired, undefined);
+    assert.deepEqual(
+      (result.workflow["5"] as AnyNode).inputs?.latent_image,
+      ["4", 0],
+    );
+  });
+
+  it("respects an already-wired custom WanImageToVideo graph instead of double-wiring", () => {
+    const workflow = {
+      "900": { class_type: "LoadImage", inputs: { image: "{{INIT_IMAGE}}" }, _meta: { title: "Init Image" } },
+      "10": {
+        class_type: "WanImageToVideo",
+        inputs: { positive: ["2", 0], negative: ["3", 0], start_image: ["900", 0] },
+      },
+      "5": {
+        class_type: "KSampler",
+        inputs: { positive: ["10", 0], negative: ["10", 1], latent_image: ["10", 2] },
+      },
+    };
+
+    const result = patchVideoImageToVideoWiringInWorkflow(workflow, {
+      model: "wan-video",
+      inputImageFilename: "start-frame.png",
+    });
+
+    assert.equal(result.patched.videoImageToVideoWired, undefined);
+    const nodeIds = Object.keys(result.workflow);
+    assert.equal(nodeIds.length, 3);
+  });
+
+  it("wires I2V end-to-end through patchWorkflowDirectParams when queueing an init image", () => {
+    const scaffold = buildWorkflowScaffoldForModel("wan-video");
+    const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
+
+    const result = patchWorkflowDirectParams(workflow, {
+      model: "wan-video",
+      params: {
+        inputImageFilename: "start-frame.png",
+        width: 832,
+        height: 480,
+        videoFrames: 81,
+      },
+    });
+
+    assert.equal(result.patched.videoImageToVideoWired, 1);
+    const loadImageNode = result.workflow["900"] as AnyNode;
+    assert.equal(loadImageNode.inputs?.image, "start-frame.png");
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) => (node as AnyNode).class_type === "WanImageToVideo",
+      ),
+      true,
+    );
   });
 });

@@ -54,6 +54,40 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /"901"/);
   });
 
+  it("builds a video scaffold with an optional init image node ready for I2V auto-wiring", () => {
+    const result = buildWorkflowScaffoldForModel("wan-video");
+    assert.equal(result.category, "video");
+    assert.match(result.json, /EmptyHunyuanLatentVideo/);
+    assert.match(result.json, /SaveAnimatedWEBP/);
+    assert.match(result.json, /\{\{VIDEO_FRAMES\}\}/);
+    assert.match(result.json, /\{\{VIDEO_FPS\}\}/);
+    assert.match(result.json, /\{\{INIT_IMAGE\}\}/);
+    // Node "900" is the unwired LoadImage placeholder — queue-time patching
+    // (patchVideoImageToVideoWiringInWorkflow) splices in the real I2V node.
+    assert.match(result.json, /"900"/);
+    const graph = JSON.parse(result.json) as Record<
+      string,
+      { class_type?: string; _meta?: { title?: string } }
+    >;
+    assert.equal(graph["900"]?.class_type, "LoadImage");
+    assert.match(graph["900"]?._meta?.title ?? "", /init/i);
+    // The scaffold ships as plain T2V — no I2V conditioning node exists yet;
+    // it's only spliced in later by patchVideoImageToVideoWiringInWorkflow.
+    assert.equal(
+      Object.values(graph).some((node) =>
+        ["WanImageToVideo", "HunyuanImageToVideo"].includes(node.class_type ?? ""),
+      ),
+      false,
+    );
+  });
+
+  it("builds the same T2V-by-default scaffold shape for hunyuan-video", () => {
+    const result = buildWorkflowScaffoldForModel("hunyuan-video");
+    assert.equal(result.category, "video");
+    assert.match(result.json, /EmptyHunyuanLatentVideo/);
+    assert.match(result.json, /"900"/);
+  });
+
   it("builds lightning edit scaffold with EmptyLatent + LoRA (not VAEEncode)", () => {
     const result = buildWorkflowScaffoldForModel("qwen-image-edit-2511-lightning-8");
     assert.match(result.json, /TextEncodeQwenImageEditPlus/);

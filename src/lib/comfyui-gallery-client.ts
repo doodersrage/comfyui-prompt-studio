@@ -30,6 +30,7 @@ import { buildGalleryImageUrlsFromQueueParams } from "./queue-requeue-images";
 import { freeComfyUiMemory } from "./comfyui-queue-control";
 import { normalizeQueueQualityProfile } from "./queue-quality-profile";
 import { loadSettingsCache } from "./settings-cache";
+import { attemptOomAutoRetry } from "./oom-retry";
 
 export type RegisterComfyGalleryJobInput = {
   promptId: string;
@@ -278,6 +279,8 @@ function applyComfyJobStatus(
         status: entry.status,
         completedAt: Date.now(),
       });
+      // Best-effort — never blocks the error path or surfaces failures to the user.
+      void attemptOomAutoRetry(entry, tracker.statusMessage, onStatus);
     }
     return entry;
   }

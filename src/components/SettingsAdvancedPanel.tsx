@@ -18,8 +18,14 @@ import {
 import {
   loadComfyGallery,
   saveComfyGalleryAsync,
+  MAX_GALLERY_ENTRIES,
   type ComfyGalleryEntry,
 } from "@/lib/comfyui-gallery";
+import {
+  fetchServerGalleryCount,
+  pullAndMergeGalleryFromServer,
+  pushGalleryToServer,
+} from "@/lib/gallery-server-sync";
 
 type UsageSummary = {
   total: number;
@@ -33,6 +39,9 @@ export default function SettingsAdvancedPanel() {
   const [status, setStatus] = useState<string | null>(null);
   const [storageEnabled, setStorageEnabled] = useState(false);
   const [exportPassphrase, setExportPassphrase] = useState("");
+  const [serverGalleryCount, setServerGalleryCount] = useState<number | null>(null);
+  const [localGalleryCount, setLocalGalleryCount] = useState<number | null>(null);
+  const [gallerySyncBusy, setGallerySyncBusy] = useState(false);
   const storageNamespaces = ["settings-cache", "prompt-history", "comfy-gallery"];
 
   const [llmUsage, setLlmUsage] = useState<{
@@ -48,10 +57,15 @@ export default function SettingsAdvancedPanel() {
       .catch(() => setUsage(null));
     void fetch("/api/health")
       .then((response) => response.json())
-      .then((data: { storage?: { enabled?: boolean } }) =>
-        setStorageEnabled(Boolean(data.storage?.enabled)),
-      )
+      .then((data: { storage?: { enabled?: boolean } }) => {
+        const enabled = Boolean(data.storage?.enabled);
+        setStorageEnabled(enabled);
+        if (enabled) {
+          void fetchServerGalleryCount().then(setServerGalleryCount);
+        }
+      })
       .catch(() => setStorageEnabled(false));
+    void Promise.resolve().then(() => setLocalGalleryCount(loadComfyGallery().length));
     void fetch("/api/auth/llm-usage")
       .then((response) => (response.ok ? response.json() : null))
       .then((data: { summary?: { last24h: number; last24hTokens: number; byModel: Record<string, number> } } | null) =>
@@ -103,6 +117,57 @@ export default function SettingsAdvancedPanel() {
         ? "Synced local settings, history, and gallery to server storage."
         : "Some namespaces failed to sync.",
     );
+  }
+
+  async function pushGalleryOnly() {
+    if (!storageEnabled) {
+      setStatus("Set PROMPT_DATA_DIR on the server to enable storage sync.");
+      return;
+    }
+    setGallerySyncBusy(true);
+    try {
+      await initAppDb();
+      const result = await pushGalleryToServer();
+      setStatus(
+        result.ok
+          ? `Pushed ${result.count} gallery entr${result.count === 1 ? "y" : "ies"} to server.`
+          : result.error ?? "Push failed.",
+      );
+      if (result.ok) {
+        setServerGalleryCount(result.count);
+      }
+    } finally {
+      setGallerySyncBusy(false);
+    }
+  }
+
+  async function pullGalleryOnly() {
+    if (!storageEnabled) {
+      setStatus("Set PROMPT_DATA_DIR on the server to enable storage sync.");
+      return;
+    }
+    setGallerySyncBusy(true);
+    try {
+      await initAppDb();
+      const result = await pullAndMergeGalleryFromServer();
+      if (!result.ok) {
+        setStatus(result.error ?? "Pull failed.");
+        return;
+      }
+      setStatus(
+        result.changed
+          ? `Merged server gallery — added ${result.addedFromServer}, updated ${result.updatedFromServer}${
+              result.evictedLocally > 0
+                ? ` (local cap kept favorites/high ratings, dropped ${result.evictedLocally} low-value entries — server still has the full history)`
+                : ""
+            }.`
+          : "Local gallery already up to date with server.",
+      );
+      setLocalGalleryCount(loadComfyGallery().length);
+      void fetchServerGalleryCount().then(setServerGalleryCount);
+    } finally {
+      setGallerySyncBusy(false);
+    }
   }
 
   async function pullServerStorageToBrowser() {
@@ -232,6 +297,47 @@ export default function SettingsAdvancedPanel() {
             </Button>
           </div>
         ) : null}
+      </ToolSection>
+
+      <ToolSection title="Comfy gallery sync">
+        <p className="text-sm text-zinc-400">
+          Keeps the browser gallery and server storage (
+          <code className="text-zinc-300">comfy-gallery</code>) durably in sync — merges
+          rather than overwrites, and prefers newer entries by completion time. Local
+          storage caps at{" "}
+          <code className="text-zinc-300">{MAX_GALLERY_ENTRIES.toLocaleString()}</code>{" "}
+          entries, keeping favorites and 4-5★ ratings first; the server always keeps the
+          full history.
+        </p>
+        <ul className="mt-2 space-y-1 text-sm text-zinc-500">
+          <li>
+            Local gallery: {localGalleryCount != null ? localGalleryCount.toLocaleString() : "—"} entries
+          </li>
+          <li>
+            Server gallery:{" "}
+            {storageEnabled
+              ? serverGalleryCount != null
+                ? `${serverGalleryCount.toLocaleString()} entries`
+                : "unknown (not pulled yet)"
+              : "disabled (browser database only)"}
+          </li>
+        </ul>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            disabled={gallerySyncBusy}
+            onClick={() => void pullGalleryOnly()}
+          >
+            Pull gallery from server
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={gallerySyncBusy}
+            onClick={() => void pushGalleryOnly()}
+          >
+            Push gallery to server
+          </Button>
+        </div>
       </ToolSection>
 
       <ToolSection title="Server scheduled batch">

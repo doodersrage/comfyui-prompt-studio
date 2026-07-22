@@ -20,7 +20,9 @@ import {
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
 import {
   galleryEntryPrimaryLqipUrl,
+  galleryEntryPrimaryMediaKind,
   galleryEntryPrimaryThumbSrcSet,
+  galleryEntryMediaKinds,
   type ComfyGalleryEntry,
   type GalleryLayoutMode,
 } from "@/lib/comfyui-gallery";
@@ -46,6 +48,7 @@ type GalleryCardProps = {
     options?: { force?: boolean },
   ) => void;
   onRefine: () => void;
+  onFaceDetail?: () => void;
   onMoireClean?: (
     qualityProfile: "final" | "max",
     options?: { force?: boolean },
@@ -56,6 +59,7 @@ type GalleryCardProps = {
   showUpscaleMax?: boolean;
   showForceUpscaleMax?: boolean;
   showRefineAction?: boolean;
+  showFaceDetailAction?: boolean;
   showMoireCleanActions?: boolean;
   showMoireCleanFinal?: boolean;
   showMoireCleanMax?: boolean;
@@ -112,12 +116,14 @@ export default function GalleryCard({
   onCancel,
   onUpscale,
   onRefine,
+  onFaceDetail,
   onMoireClean,
   showUpscaleActions = true,
   showUpscaleFinal,
   showUpscaleMax,
   showForceUpscaleMax = false,
   showRefineAction = true,
+  showFaceDetailAction = false,
   showMoireCleanActions = true,
   showMoireCleanFinal,
   showMoireCleanMax,
@@ -145,6 +151,9 @@ export default function GalleryCard({
   } | null>(null);
   const heroSrcSet = useMemo(() => galleryEntryPrimaryThumbSrcSet(entry), [entry]);
   const lqipUrl = useMemo(() => galleryEntryPrimaryLqipUrl(entry), [entry]);
+  const primaryMediaKind = useMemo(() => galleryEntryPrimaryMediaKind(entry), [entry]);
+  const stripMediaKinds = useMemo(() => galleryEntryMediaKinds(entry), [entry]);
+  const isVideoHero = primaryMediaKind === "video";
 
   useEffect(() => {
     setHeroLoaded(false);
@@ -242,7 +251,9 @@ export default function GalleryCard({
           ? "variation of prior"
           : entry.derivedKind === "moire-clean"
             ? "moiré-cleaned from prior"
-            : undefined;
+            : entry.derivedKind === "face-detail"
+              ? "face-detailed from prior"
+              : undefined;
 
   const metaLine = [entry.tool, entry.model, entry.parentGalleryEntryId ? undefined : derivedLabel]
     .filter(Boolean)
@@ -273,7 +284,7 @@ export default function GalleryCard({
             className="relative block h-full w-full cursor-zoom-in overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
             aria-label="Open image preview"
           >
-            {lqipUrl ? (
+            {lqipUrl && !isVideoHero ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={lqipUrl}
@@ -282,25 +293,45 @@ export default function GalleryCard({
                 className="absolute inset-0 h-full w-full scale-110 object-cover opacity-80 blur-xl"
               />
             ) : null}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewUrl}
-              srcSet={heroSrcSet ?? undefined}
-              alt={entry.prompt.slice(0, 80)}
-              loading="lazy"
-              decoding="async"
-              sizes={
-                layout === "list"
-                  ? "9rem"
-                  : layout === "dense"
-                    ? "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                    : "(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
-              }
-              onLoad={() => setHeroLoaded(true)}
-              className={`relative h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02] ${
-                heroLoaded ? "opacity-100" : "opacity-0"
-              }`}
-            />
+            {isVideoHero ? (
+              <video
+                src={previewUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                onLoadedData={() => setHeroLoaded(true)}
+                className={`relative h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02] ${
+                  heroLoaded ? "opacity-100" : "opacity-0"
+                }`}
+              />
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={previewUrl}
+                srcSet={heroSrcSet ?? undefined}
+                alt={entry.prompt.slice(0, 80)}
+                loading="lazy"
+                decoding="async"
+                sizes={
+                  layout === "list"
+                    ? "9rem"
+                    : layout === "dense"
+                      ? "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                      : "(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                }
+                onLoad={() => setHeroLoaded(true)}
+                className={`relative h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02] ${
+                  heroLoaded ? "opacity-100" : "opacity-0"
+                }`}
+              />
+            )}
+            {isVideoHero ? (
+              <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-white/15 bg-black/55 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-white/85 backdrop-blur-sm">
+                Video
+              </span>
+            ) : null}
           </button>
           {layout !== "list" ? (
             <div className="pointer-events-none absolute inset-0 flex items-end justify-center gap-2 bg-gradient-to-t from-zinc-950/95 via-zinc-950/35 to-transparent p-3 opacity-0 transition duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100 group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100">
@@ -311,7 +342,7 @@ export default function GalleryCard({
               >
                 Open
               </button>
-              {entry.status === "completed" ? (
+              {entry.status === "completed" && !isVideoHero ? (
                 <>
                   <button
                     type="button"
@@ -498,24 +529,43 @@ export default function GalleryCard({
 
       {!compact && layout !== "list" && imageUrls.length > 1 ? (
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-          {imageUrls.slice(1, 5).map((url, thumbIndex) => (
-            <button
-              key={url}
-              type="button"
-              onClick={() => onOpenImage(thumbIndex + 1)}
-              className="shrink-0 overflow-hidden rounded-lg border border-zinc-800 transition hover:border-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
-              aria-label={`Open image ${thumbIndex + 2} preview`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={url}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                className="h-9 w-9 object-cover"
-              />
-            </button>
-          ))}
+          {imageUrls.slice(1, 5).map((url, thumbIndex) =>
+            stripMediaKinds[thumbIndex + 1] === "video" ? (
+              <button
+                key={url}
+                type="button"
+                onClick={() => onOpenImage(thumbIndex + 1)}
+                className="shrink-0 overflow-hidden rounded-lg border border-zinc-800 transition hover:border-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
+                aria-label={`Open video ${thumbIndex + 2} preview`}
+              >
+                <video
+                  src={url}
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  className="h-9 w-9 object-cover"
+                />
+              </button>
+            ) : (
+              <button
+                key={url}
+                type="button"
+                onClick={() => onOpenImage(thumbIndex + 1)}
+                className="shrink-0 overflow-hidden rounded-lg border border-zinc-800 transition hover:border-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
+                aria-label={`Open image ${thumbIndex + 2} preview`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="h-9 w-9 object-cover"
+                />
+              </button>
+            ),
+          )}
         </div>
       ) : null}
 
@@ -759,6 +809,7 @@ export default function GalleryCard({
                     canUpscaleMax ||
                     showForceUpscaleMax ||
                     showRefineAction ||
+                    (onFaceDetail && showFaceDetailAction) ||
                     (onMoireClean &&
                       (canMoireFinal || canMoireMax || showForceMoireCleanMax));
                   if (!showEnhance) {
@@ -798,6 +849,15 @@ export default function GalleryCard({
                         label="Refine · low denoise"
                         onClick={() => {
                           onRefine();
+                          setMenuOpen(false);
+                        }}
+                      />
+                    ) : null}
+                    {onFaceDetail && showFaceDetailAction ? (
+                      <GalleryMenuButton
+                        label="Face detail"
+                        onClick={() => {
+                          onFaceDetail();
                           setMenuOpen(false);
                         }}
                       />

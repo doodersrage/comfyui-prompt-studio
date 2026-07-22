@@ -88,6 +88,49 @@ export async function GET(request: Request) {
 
   const format = negotiateViewFormat(request.headers.get("accept"));
 
+  // Range requests (video seeking/scrubbing) bypass the thumbnail cache and
+  // are proxied straight through so the browser can stream/seek video.
+  const rangeHeader = request.headers.get("range");
+  if (rangeHeader) {
+    const rangeViewUrl = new URL(`${comfyUrl}/view`);
+    rangeViewUrl.searchParams.set("filename", filename);
+    rangeViewUrl.searchParams.set("subfolder", subfolder);
+    rangeViewUrl.searchParams.set("type", type);
+
+    try {
+      const rangeResponse = await fetch(rangeViewUrl.toString(), {
+        signal: AbortSignal.timeout(15000),
+        redirect: "manual",
+        headers: { range: rangeHeader },
+      });
+
+      if (!rangeResponse.ok && rangeResponse.status !== 206) {
+        return apiError(`ComfyUI view returned HTTP ${rangeResponse.status}`, 502);
+      }
+
+      const rangeBuffer = Buffer.from(await rangeResponse.arrayBuffer());
+      const passthroughHeaders: Record<string, string> = {
+        "Content-Type": rangeResponse.headers.get("content-type") ?? "application/octet-stream",
+        "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+        "Accept-Ranges": "bytes",
+      };
+      const contentRange = rangeResponse.headers.get("content-range");
+      if (contentRange) {
+        passthroughHeaders["Content-Range"] = contentRange;
+      }
+
+      return new NextResponse(new Uint8Array(rangeBuffer), {
+        status: rangeResponse.status,
+        headers: passthroughHeaders,
+      });
+    } catch (error) {
+      return apiError(
+        error instanceof Error ? error.message : "Failed to fetch ComfyUI video",
+        502,
+      );
+    }
+  }
+
   if (thumbWidth) {
     const cacheKey = buildViewCacheKey({
       comfyUrl,
@@ -127,13 +170,15 @@ export async function GET(request: Request) {
     }
 
     const contentType = response.headers.get("content-type") ?? "image/png";
-    if (!contentType.startsWith("image/")) {
+    const isVideo = contentType.startsWith("video/");
+    if (!contentType.startsWith("image/") && !isVideo) {
       return apiError("ComfyUI view did not return an image.", 502);
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
 
-    if (thumbWidth) {
+    // Videos can't be resized by sharp; always return the original bytes.
+    if (thumbWidth && !isVideo) {
       try {
         const resized = await encodeThumb(buffer, thumbWidth, format);
         const encodedType = contentTypeForViewFormat(format);
@@ -169,6 +214,7 @@ export async function GET(request: Request) {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+        ...(isVideo ? { "Accept-Ranges": "bytes" } : {}),
       },
     });
   } catch (error) {

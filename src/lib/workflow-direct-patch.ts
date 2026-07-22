@@ -22,7 +22,10 @@ import {
   patchLoraNodesInWorkflow,
 } from "./workflow-lora-patch";
 import { applyLoraStackToWorkflow, type LoraLibraryEntry } from "./lora-stack";
-import { patchIpAdapterTokensInWorkflow } from "./ipadapter-workflow-patch";
+import {
+  insertIpAdapterChainIfMissing,
+  patchIpAdapterTokensInWorkflow,
+} from "./ipadapter-workflow-patch";
 
 export const IMAGE_SCALE_BY_NODE_TYPE = "ImageScaleBy";
 
@@ -45,6 +48,10 @@ export type WorkflowDirectPatchCounts = {
   ipAdapterImage?: number;
   ipAdapterStrength?: number;
   ipAdapterModel?: number;
+  /** Nodes spliced in by insertIpAdapterChainIfMissing when the workflow had none. */
+  ipAdapterInserted?: number;
+  /** WAN/Hunyuan Video I2V node spliced in to wire an uploaded init image into the sampler chain. */
+  videoImageToVideoWired?: number;
 };
 
 const INPUT_IMAGE_TYPES = new Set(["LoadImage", "LoadImageOutput"]);
@@ -442,16 +449,26 @@ export function patchControlNetNodesInWorkflow(
   return { workflow: next, patched };
 }
 
-/** Portable IP-Adapter tokens ({{IPADAPTER_IMAGE}}/{{IPADAPTER_STRENGTH}}/{{IPADAPTER_MODEL}}). */
+/**
+ * Portable IP-Adapter tokens ({{IPADAPTER_IMAGE}}/{{IPADAPTER_STRENGTH}}/{{IPADAPTER_MODEL}}).
+ * First inserts a minimal IP-Adapter chain when the session has a reference
+ * image but the workflow has neither IPAdapter nodes nor tokens, then runs the
+ * usual token patch pass so the inserted (and any pre-wired) tokens resolve.
+ */
 export function patchIpAdapterInWorkflow(
   workflow: Record<string, unknown>,
   input: {
     ipAdapterImageFilename?: string;
     ipAdapterStrength?: number | string;
     ipAdapterModelFilename?: string;
+    availableNodeTypes?: Iterable<string> | null;
   },
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
-  const result = patchIpAdapterTokensInWorkflow(workflow, {
+  const insertResult = insertIpAdapterChainIfMissing(workflow, {
+    imageFilename: input.ipAdapterImageFilename,
+    availableNodeTypes: input.availableNodeTypes,
+  });
+  const result = patchIpAdapterTokensInWorkflow(insertResult.workflow, {
     imageFilename: input.ipAdapterImageFilename,
     strength: input.ipAdapterStrength,
     modelFilename: input.ipAdapterModelFilename,
@@ -465,6 +482,9 @@ export function patchIpAdapterInWorkflow(
   }
   if (result.patched.model) {
     patched.ipAdapterModel = result.patched.model;
+  }
+  if (insertResult.inserted) {
+    patched.ipAdapterInserted = insertResult.insertedNodeIds.length;
   }
   return { workflow: result.workflow, patched };
 }
@@ -757,6 +777,238 @@ export function patchImageResizeNodesInWorkflow(
   return { workflow: next, patched };
 }
 
+/** Empty-latent nodes used as the "no init image" latent source in WAN/Hunyuan T2V starter graphs. */
+const VIDEO_LATENT_NODE_TYPES = new Set([
+  "EmptyHunyuanLatentVideo",
+  "EmptyLTXVLatentVideo",
+  "EmptyMochiLatentVideo",
+  "EmptyCosmosLatentVideo",
+]);
+
+/** Built-in ComfyUI I2V conditioning nodes — presence means the graph is already wired. */
+const VIDEO_IMAGE_TO_VIDEO_NODE_TYPES = new Set([
+  "WanImageToVideo",
+  "WanCameraImageToVideo",
+  "HunyuanImageToVideo",
+]);
+
+function asNodeRecord(
+  node: unknown,
+): { class_type?: string; _meta?: { title?: string }; inputs?: Record<string, unknown> } | null {
+  if (!node || typeof node !== "object") {
+    return null;
+  }
+  return node as { class_type?: string; _meta?: { title?: string }; inputs?: Record<string, unknown> };
+}
+
+function isNodeOutputRef(value: unknown): value is [string, number] {
+  return Array.isArray(value) && typeof value[0] === "string" && typeof value[1] === "number";
+}
+
+function findFirstNodeIdByClassTypes(
+  workflow: Record<string, unknown>,
+  classTypes: Set<string>,
+): string | null {
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    const record = asNodeRecord(node);
+    if (record?.class_type && classTypes.has(record.class_type)) {
+      return nodeId;
+    }
+  }
+  return null;
+}
+
+function collectReferencedNodeIds(workflow: Record<string, unknown>): Set<string> {
+  const referenced = new Set<string>();
+  for (const node of Object.values(workflow)) {
+    const record = asNodeRecord(node);
+    if (!record?.inputs) {
+      continue;
+    }
+    for (const value of Object.values(record.inputs)) {
+      if (isNodeOutputRef(value)) {
+        referenced.add(value[0]);
+      }
+    }
+  }
+  return referenced;
+}
+
+/** Prefer a LoadImage node titled "init" (our own scaffolds); fall back to any unwired LoadImage. */
+function findInitImageLoadNodeId(workflow: Record<string, unknown>): string | null {
+  const referenced = collectReferencedNodeIds(workflow);
+  let orphanCandidate: string | null = null;
+
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    const record = asNodeRecord(node);
+    if (record?.class_type !== "LoadImage" || !record.inputs) {
+      continue;
+    }
+    const title = record._meta?.title?.toLowerCase() ?? "";
+    if (title.includes("init")) {
+      return nodeId;
+    }
+    if (!referenced.has(nodeId) && orphanCandidate === null) {
+      orphanCandidate = nodeId;
+    }
+  }
+
+  return orphanCandidate;
+}
+
+function resolveNumericLikeField(value: unknown, fallback: number): number | string {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() && !isUnresolvedWorkflowPlaceholder(value)) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+  return fallback;
+}
+
+/**
+ * When a video (WAN / Hunyuan Video) model is queued with an init image, splice a built-in
+ * WanImageToVideo / HunyuanImageToVideo node between the text encoders and the sampler so the
+ * uploaded LoadImage frame actually drives I2V conditioning (VAE-encoded start_image → latent).
+ * No-op for T2V (no image) or graphs that already wire their own I2V node.
+ */
+export function patchVideoImageToVideoWiringInWorkflow(
+  workflow: Record<string, unknown>,
+  input: {
+    model?: string;
+    inputImageFilename?: string;
+    params?: Pick<WorkflowParamValues, "width" | "height" | "videoFrames">;
+  },
+): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
+  const next = structuredClone(workflow);
+  const patched: WorkflowDirectPatchCounts = {};
+
+  if (!input.inputImageFilename?.trim() || !input.model?.trim()) {
+    return { workflow: next, patched };
+  }
+
+  const def = COMFY_MODEL_IDS.has(input.model)
+    ? getComfyModelDefinition(input.model as ComfyImageModel)
+    : null;
+  if (def?.category !== "video") {
+    return { workflow: next, patched };
+  }
+
+  if (findFirstNodeIdByClassTypes(next, VIDEO_IMAGE_TO_VIDEO_NODE_TYPES)) {
+    // Already has a native I2V node — respect the user's custom wiring.
+    return { workflow: next, patched };
+  }
+
+  const loadImageId = findInitImageLoadNodeId(next);
+  const latentNodeId = findFirstNodeIdByClassTypes(next, VIDEO_LATENT_NODE_TYPES);
+  if (!loadImageId || !latentNodeId) {
+    return { workflow: next, patched };
+  }
+
+  const latentInputs = asNodeRecord(next[latentNodeId])?.inputs ?? {};
+
+  let samplerId: string | null = null;
+  let samplerInputs: Record<string, unknown> | null = null;
+  for (const [nodeId, node] of Object.entries(next)) {
+    const record = asNodeRecord(node);
+    if (!record?.inputs) {
+      continue;
+    }
+    const latentRef = record.inputs.latent_image;
+    if (isNodeOutputRef(latentRef) && latentRef[0] === latentNodeId) {
+      samplerId = nodeId;
+      samplerInputs = record.inputs;
+      break;
+    }
+  }
+  if (!samplerId || !samplerInputs) {
+    return { workflow: next, patched };
+  }
+
+  const positiveRef = samplerInputs.positive;
+  if (!isNodeOutputRef(positiveRef)) {
+    return { workflow: next, patched };
+  }
+  const negativeRef = isNodeOutputRef(samplerInputs.negative) ? samplerInputs.negative : null;
+
+  let vaeRef: [string, number] | null = null;
+  for (const node of Object.values(next)) {
+    const record = asNodeRecord(node);
+    if (record?.class_type === "VAEDecode" && isNodeOutputRef(record.inputs?.vae)) {
+      vaeRef = record.inputs!.vae as [string, number];
+      break;
+    }
+  }
+  if (!vaeRef) {
+    return { workflow: next, patched };
+  }
+
+  const isHunyuan = /hunyuan/i.test(input.model);
+  const width = resolveNumericLikeField(latentInputs.width, Number(input.params?.width) || 832);
+  const height = resolveNumericLikeField(latentInputs.height, Number(input.params?.height) || 480);
+  const length = resolveNumericLikeField(
+    latentInputs.length,
+    Number(input.params?.videoFrames) || (isHunyuan ? 53 : 81),
+  );
+  const batchSize = resolveNumericLikeField(latentInputs.batch_size, 1);
+
+  const newNodeId = nextAvailableWorkflowNodeId(next);
+  const startImageRef: [string, number] = [loadImageId, 0];
+
+  if (isHunyuan) {
+    next[newNodeId] = {
+      class_type: "HunyuanImageToVideo",
+      inputs: {
+        positive: positiveRef,
+        vae: vaeRef,
+        width,
+        height,
+        length,
+        batch_size: batchSize,
+        guidance_type: "v1 (concat)",
+        start_image: startImageRef,
+      },
+      _meta: { title: "Hunyuan Image → Video (auto-wired I2V)" },
+    };
+    samplerInputs.positive = [newNodeId, 0];
+    samplerInputs.latent_image = [newNodeId, 1];
+  } else {
+    next[newNodeId] = {
+      class_type: "WanImageToVideo",
+      inputs: {
+        positive: positiveRef,
+        negative: negativeRef ?? positiveRef,
+        vae: vaeRef,
+        width,
+        height,
+        length,
+        batch_size: batchSize,
+        start_image: startImageRef,
+      },
+      _meta: { title: "Wan Image → Video (auto-wired I2V)" },
+    };
+    samplerInputs.positive = [newNodeId, 0];
+    if (negativeRef) {
+      samplerInputs.negative = [newNodeId, 1];
+    }
+    samplerInputs.latent_image = [newNodeId, 2];
+  }
+
+  patched.videoImageToVideoWired = 1;
+  return { workflow: next, patched };
+}
+
+function nextAvailableWorkflowNodeId(workflow: Record<string, unknown>): string {
+  let max = 0;
+  for (const key of Object.keys(workflow)) {
+    if (/^\d+$/.test(key)) {
+      max = Math.max(max, Number(key));
+    }
+  }
+  return String(max + 1);
+}
+
 export function patchWorkflowDirectParams(
   workflow: Record<string, unknown>,
   input: {
@@ -768,6 +1020,8 @@ export function patchWorkflowDirectParams(
     ipAdapterImageFilename?: string;
     ipAdapterStrength?: number | string;
     ipAdapterModelFilename?: string;
+    /** ComfyUI object_info node class names — gates the optional CLIPVisionLoader when inserting an IP-Adapter chain. */
+    availableNodeTypes?: Iterable<string> | null;
     customTokens?: Array<{ token: string; value: string }>;
     syncWorkflowLoadersToModel?: boolean;
     model?: string;
@@ -798,6 +1052,7 @@ export function patchWorkflowDirectParams(
     ipAdapterImageFilename: input.ipAdapterImageFilename,
     ipAdapterStrength: input.ipAdapterStrength,
     ipAdapterModelFilename: input.ipAdapterModelFilename,
+    availableNodeTypes: input.availableNodeTypes,
   });
   const upscalePatch = patchUpscaleModelNodesInWorkflow(
     ipAdapterPatch.workflow,
@@ -812,9 +1067,14 @@ export function patchWorkflowDirectParams(
     input.params?.maskImageFilename,
   );
   const resizePatch = patchImageResizeNodesInWorkflow(maskPatch.workflow, input.params ?? {});
+  const videoWirePatch = patchVideoImageToVideoWiringInWorkflow(resizePatch.workflow, {
+    model: input.model,
+    inputImageFilename: input.params?.inputImageFilename,
+    params: input.params,
+  });
 
   return {
-    workflow: resizePatch.workflow,
+    workflow: videoWirePatch.workflow,
     patched: {
       ...(latentType.converted > 0 ? { emptySd3Latent: latentType.converted } : {}),
       ...latentPatch.patched,
@@ -827,6 +1087,7 @@ export function patchWorkflowDirectParams(
       ...imagePatch.patched,
       ...maskPatch.patched,
       ...resizePatch.patched,
+      ...videoWirePatch.patched,
     },
   };
 }

@@ -902,9 +902,14 @@ function genericScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unkn
 }
 
 /**
- * Minimal starter graph for WAN Video / Hunyuan Video (T2V). {{INIT_IMAGE}} loads
- * an optional reference frame — wire its output into your I2V node (e.g. WanImageToVideo)
- * manually, since custom video wrapper nodes vary by ComfyUI install.
+ * Starter graph for WAN Video / Hunyuan Video. Ships as a plain T2V graph
+ * (CheckpointLoaderSimple → CLIPTextEncode → EmptyHunyuanLatentVideo → KSampler),
+ * but node "900" (LoadImage, title "Init Image") is recognized by the queue-time
+ * auto-wiring in `patchVideoImageToVideoWiringInWorkflow` (workflow-direct-patch.ts):
+ * whenever this graph is queued for a `category: "video"` model *with* an init
+ * image resolved, a built-in `WanImageToVideo` / `HunyuanImageToVideo` node is
+ * spliced in automatically — VAE-encoding node 900's image into the sampler's
+ * start_image/latent slot — so this single scaffold serves both T2V and I2V.
  */
 function videoScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
   return {
@@ -926,7 +931,9 @@ function videoScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknow
     "900": {
       class_type: "LoadImage",
       inputs: { image: tokens.initImage },
-      _meta: { title: "Init Image (optional — wire into I2V node)" },
+      _meta: {
+        title: "Init Image (optional — auto-wired into WanImageToVideo/HunyuanImageToVideo at queue time)",
+      },
     },
     "4": {
       class_type: "EmptyHunyuanLatentVideo",
@@ -1024,7 +1031,7 @@ export function buildWorkflowScaffoldForModel(
           ? "Lightning scaffold uses UNETLoader + Lightning LoRA ({{LORA_LIGHTNING}}) + ModelSamplingAuraFlow (shift ~3). Map your 4/8-step bf16 Lightning LoRA in Settings → LoRA library."
           : "Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs."
         : category === "video"
-          ? "Video scaffold uses EmptyHunyuanLatentVideo ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). {{INIT_IMAGE}} loads an optional reference frame — for WAN/Hunyuan I2V wrapper nodes (e.g. WanImageToVideo), replace the sampler chain with your installed video nodes and wire node 900's image output in manually."
+          ? "Video scaffold uses EmptyHunyuanLatentVideo ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). {{INIT_IMAGE}} loads an optional reference frame — queue with an init image set (Video tool's \"Init image\" field) and Send to ComfyUI auto-wires node 900 into a built-in WanImageToVideo/HunyuanImageToVideo node for real I2V; queue without one and it stays a plain T2V graph."
           : "Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.",
   ];
 

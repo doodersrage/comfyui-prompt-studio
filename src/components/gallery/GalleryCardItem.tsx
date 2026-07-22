@@ -8,6 +8,7 @@ import {
   type GalleryLayoutMode,
 } from "@/lib/comfyui-gallery";
 import {
+  canFaceDetailGalleryEntry,
   canUpscaleGalleryEntry,
   galleryEntryAlreadyEnrichedForUpscale,
   galleryEntrySupportsMoireClean,
@@ -31,6 +32,7 @@ export type GalleryCardActions = {
     options?: { force?: boolean },
   ) => void;
   refine: (id: string) => void;
+  faceDetail: (id: string) => void;
   moireClean: (
     id: string,
     qualityProfile: "final" | "max",
@@ -93,6 +95,10 @@ function GalleryCardItem({
   );
   const onRefine = useCallback(
     () => actionsRef.current.refine(entry.id),
+    [actionsRef, entry.id],
+  );
+  const onFaceDetail = useCallback(
+    () => actionsRef.current.faceDetail(entry.id),
     [actionsRef, entry.id],
   );
   const onMoireClean = useCallback(
@@ -160,6 +166,7 @@ function GalleryCardItem({
       onCancel={onCancel}
       onUpscale={onUpscale}
       onRefine={onRefine}
+      onFaceDetail={onFaceDetail}
       onMoireClean={onMoireClean}
       showUpscaleActions={galleryEntrySupportsUpscale(entry.model)}
       showUpscaleFinal={canUpscaleGalleryEntry(entry, "final")}
@@ -170,6 +177,7 @@ function GalleryCardItem({
         galleryEntryAlreadyEnrichedForUpscale(entry, "max")
       }
       showRefineAction={galleryEntrySupportsRefine(entry.model)}
+      showFaceDetailAction={canFaceDetailGalleryEntry(entry)}
       showMoireCleanActions={galleryEntrySupportsMoireClean(entry.model)}
       showMoireCleanFinal={
         galleryEntrySupportsMoireClean(entry.model) &&

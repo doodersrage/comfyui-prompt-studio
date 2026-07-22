@@ -1207,6 +1207,8 @@ export function injectPromptsWithFallbacks(
     samplerPresetTier?: ModelSamplerPresetTier;
     /** Active LoRA stack (strengths/enabled/order) — patched onto non-Lightning workflows. */
     loraLibrary?: LoraLibraryEntry[];
+    /** ComfyUI object_info node class names — gates the optional CLIPVisionLoader on IP-Adapter insert. */
+    availableNodeTypes?: Iterable<string> | null;
   },
 ): WorkflowInjectionResult {
   const loaderMerged = mergeLoaderTokensIntoCustomTokens(
@@ -1298,6 +1300,7 @@ export function injectPromptsWithFallbacks(
       ipAdapterImageFilename: input.params?.ipAdapterImageFilename,
       ipAdapterStrength: input.params?.ipAdapterStrength,
       ipAdapterModelFilename: input.params?.ipAdapterModelFilename,
+      availableNodeTypes: options?.availableNodeTypes,
       customTokens: mergedCustomTokens,
       syncWorkflowLoadersToModel: options?.syncWorkflowLoadersToModel,
       model: options?.model,

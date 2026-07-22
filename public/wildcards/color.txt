@@ -1,0 +1,13 @@
+# One color per line. Loaded by loadWildcardsFromPublicDir("color").
+red
+crimson
+amber
+gold
+emerald
+teal
+azure
+cobalt
+violet
+magenta
+charcoal
+silver

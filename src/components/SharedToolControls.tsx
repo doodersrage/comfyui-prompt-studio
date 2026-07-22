@@ -161,6 +161,16 @@ export default function SharedToolControls({
   const [showAllModelsOverride, setShowAllModelsOverride] = useState(
     () => shared.showAllModelsOverride === true,
   );
+  const [expandWildcards, setExpandWildcards] = useState(
+    () => shared.expandWildcards !== false,
+  );
+  const [wildcardSeed, setWildcardSeed] = useState(() => shared.wildcardSeed ?? "");
+  const [autoRetryOnOom, setAutoRetryOnOom] = useState(
+    () => shared.autoRetryOnOom !== false,
+  );
+  const [oomRetryDowngrade, setOomRetryDowngrade] = useState(
+    () => shared.oomRetryDowngrade !== false,
+  );
 
   const workflowCatalog = useMemo(
     () => [
@@ -417,6 +427,30 @@ export default function SharedToolControls({
     });
   }, [shared.showAllModelsOverride]);
 
+  useEffect(() => {
+    scheduleAfterCommit(() => {
+      setExpandWildcards(shared.expandWildcards !== false);
+    });
+  }, [shared.expandWildcards]);
+
+  useEffect(() => {
+    scheduleAfterCommit(() => {
+      setWildcardSeed(shared.wildcardSeed ?? "");
+    });
+  }, [shared.wildcardSeed]);
+
+  useEffect(() => {
+    scheduleAfterCommit(() => {
+      setAutoRetryOnOom(shared.autoRetryOnOom !== false);
+    });
+  }, [shared.autoRetryOnOom]);
+
+  useEffect(() => {
+    scheduleAfterCommit(() => {
+      setOomRetryDowngrade(shared.oomRetryDowngrade !== false);
+    });
+  }, [shared.oomRetryDowngrade]);
+
   const handleSamplerPresetChange = (preset: ModelSamplerPresetTier) => {
     setSamplerPreset(preset);
     saveSharedSettings({
@@ -462,6 +496,38 @@ export default function SharedToolControls({
     saveSharedSettings({
       ...loadSettingsCache().shared,
       queueQualityProfile: profile,
+    });
+  };
+
+  const handleExpandWildcardsChange = (value: boolean) => {
+    setExpandWildcards(value);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      expandWildcards: value,
+    });
+  };
+
+  const handleWildcardSeedChange = (value: string) => {
+    setWildcardSeed(value);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      wildcardSeed: value.trim() || undefined,
+    });
+  };
+
+  const handleAutoRetryOnOomChange = (value: boolean) => {
+    setAutoRetryOnOom(value);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      autoRetryOnOom: value,
+    });
+  };
+
+  const handleOomRetryDowngradeChange = (value: boolean) => {
+    setOomRetryDowngrade(value);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      oomRetryDowngrade: value,
     });
   };
 
@@ -638,6 +704,83 @@ export default function SharedToolControls({
             onApplyModel={(model) => handleModelChange(model)}
           />
         ) : null}
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Wildcards & auto-retry"
+        summary="Dynamic prompt tokens and OOM/execution_error auto-retry."
+        defaultOpen={false}
+        persistKey="shared-wildcards-oom-retry"
+      >
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={expandWildcards}
+            onChange={(e) => handleExpandWildcardsChange(e.target.checked)}
+            className={checkboxClass}
+          />
+          <span className="space-y-1">
+            <span className="type-heading block">Expand wildcards</span>
+            <span className="type-caption block">
+              Replace <code>__color__</code> / <code>{"{a|b|c}"}</code> style
+              tokens in the prompt before queueing.
+            </span>
+          </span>
+        </label>
+
+        {expandWildcards && (
+          <div className="space-y-2 pl-7">
+            <FieldLabel hint="Same seed always expands the same way — leave blank for a fresh random roll each queue.">
+              Wildcard seed (optional)
+            </FieldLabel>
+            <input
+              type="text"
+              value={wildcardSeed}
+              onChange={(e) => handleWildcardSeedChange(e.target.value)}
+              placeholder="e.g. my-batch-01"
+              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+            />
+          </div>
+        )}
+
+        <FieldDivider />
+
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={autoRetryOnOom}
+            onChange={(e) => handleAutoRetryOnOomChange(e.target.checked)}
+            className={checkboxClass}
+          />
+          <span className="space-y-1">
+            <span className="type-heading block">Auto-retry on OOM</span>
+            <span className="type-caption block">
+              When a Max/Final gallery job fails with an OOM/CUDA/execution_error,
+              automatically re-queue it once.
+            </span>
+          </span>
+        </label>
+
+        <label
+          className={`flex items-start gap-3 ${
+            autoRetryOnOom ? "cursor-pointer" : "cursor-not-allowed opacity-60"
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={oomRetryDowngrade}
+            disabled={!autoRetryOnOom}
+            onChange={(e) => handleOomRetryDowngradeChange(e.target.checked)}
+            className={checkboxClass}
+          />
+          <span className="space-y-1">
+            <span className="type-heading block">Downgrade quality on retry</span>
+            <span className="type-caption block">
+              Max → Final / Final → Draft on the same host; if a pool has
+              multiple endpoints, an alternate one is also tried.
+            </span>
+          </span>
+        </label>
       </CollapsibleSection>
 
       {showWardrobeOption && onAlwaysIncludeClothingChange && (
