@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  cancelComfyGalleryJobPoll,
   pollComfyGalleryJob,
   type PollComfyGalleryJobOptions,
 } from "./comfyui-gallery-client";
@@ -81,4 +82,15 @@ export function resumePendingGalleryPolls(): void {
 
 export function isComfyGalleryPollActive(promptId: string): boolean {
   return activePolls.has(promptId.trim());
+}
+
+/** Stops any in-flight poll for a cancelled job and forgets its resume metadata. */
+export function cancelComfyGalleryPoll(promptId: string): void {
+  const trimmed = promptId.trim();
+  if (!trimmed) {
+    return;
+  }
+  cancelComfyGalleryJobPoll(trimmed);
+  forgetPendingGalleryPoll(trimmed);
+  activePolls.delete(trimmed);
 }

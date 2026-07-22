@@ -4,6 +4,7 @@ import {
   DEFAULT_FLUX_BASE_SHIFT_TOKEN,
   DEFAULT_FLUX_MAX_SHIFT_TOKEN,
   DEFAULT_HEIGHT_TOKEN,
+  DEFAULT_INIT_IMAGE_TOKEN,
   DEFAULT_INPUT_IMAGE_TOKEN,
   DEFAULT_MASK_IMAGE_TOKEN,
   DEFAULT_NEGATIVE_TOKEN,
@@ -13,6 +14,8 @@ import {
   DEFAULT_SEED_TOKEN,
   DEFAULT_SHIFT_TOKEN,
   DEFAULT_STEPS_TOKEN,
+  DEFAULT_VIDEO_FPS_TOKEN,
+  DEFAULT_VIDEO_FRAMES_TOKEN,
   DEFAULT_WIDTH_TOKEN,
   type WorkflowPlaceholderTokens,
 } from "./comfyui-config";
@@ -62,6 +65,9 @@ function resolveBindingTokens(
     denoise: tokens?.denoise?.trim() || DEFAULT_DENOISE_TOKEN,
     inputImage: tokens?.inputImage?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
     maskImage: tokens?.maskImage?.trim() || DEFAULT_MASK_IMAGE_TOKEN,
+    initImage: tokens?.initImage?.trim() || DEFAULT_INIT_IMAGE_TOKEN,
+    videoFrames: tokens?.videoFrames?.trim() || DEFAULT_VIDEO_FRAMES_TOKEN,
+    videoFps: tokens?.videoFps?.trim() || DEFAULT_VIDEO_FPS_TOKEN,
   };
 }
 
@@ -895,6 +901,79 @@ function genericScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unkn
   };
 }
 
+/**
+ * Minimal starter graph for WAN Video / Hunyuan Video (T2V). {{INIT_IMAGE}} loads
+ * an optional reference frame — wire its output into your I2V node (e.g. WanImageToVideo)
+ * manually, since custom video wrapper nodes vary by ComfyUI install.
+ */
+function videoScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  return {
+    "1": {
+      class_type: "CheckpointLoaderSimple",
+      inputs: { ckpt_name: "{{CHECKPOINT}}" },
+      _meta: { title: "Load Checkpoint" },
+    },
+    "2": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.positive, clip: ["1", 1] },
+      _meta: { title: "Positive Prompt" },
+    },
+    "3": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.negative, clip: ["1", 1] },
+      _meta: { title: "Negative Prompt" },
+    },
+    "900": {
+      class_type: "LoadImage",
+      inputs: { image: tokens.initImage },
+      _meta: { title: "Init Image (optional — wire into I2V node)" },
+    },
+    "4": {
+      class_type: "EmptyHunyuanLatentVideo",
+      inputs: {
+        width: tokens.width,
+        height: tokens.height,
+        length: tokens.videoFrames,
+        batch_size: 1,
+      },
+      _meta: { title: "Empty Video Latent" },
+    },
+    "5": {
+      class_type: "KSampler",
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ["1", 0],
+        positive: ["2", 0],
+        negative: ["3", 0],
+        latent_image: ["4", 0],
+      },
+      _meta: { title: "KSampler" },
+    },
+    "6": {
+      class_type: "VAEDecode",
+      inputs: { samples: ["5", 0], vae: ["1", 2] },
+      _meta: { title: "VAE Decode" },
+    },
+    "7": {
+      class_type: "SaveAnimatedWEBP",
+      inputs: {
+        images: ["6", 0],
+        filename_prefix: "PromptStudio",
+        fps: tokens.videoFps,
+        lossless: false,
+        quality: 90,
+        method: "default",
+      },
+      _meta: { title: "Save Video (WEBP)" },
+    },
+  };
+}
+
 function resolveScaffoldCategory(
   model: ComfyImageModel | string,
 ): ComfyModelCategory | "generic" {
@@ -927,7 +1006,9 @@ export function buildWorkflowScaffoldForModel(
         ? qwenLightningScaffold(resolvedTokens)
         : category === "qwen"
           ? qwenScaffold(resolvedTokens)
-          : genericScaffold(resolvedTokens);
+          : category === "video"
+            ? videoScaffold(resolvedTokens)
+            : genericScaffold(resolvedTokens);
   const notes = [
     "Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.",
     useEditScaffold
@@ -942,7 +1023,9 @@ export function buildWorkflowScaffoldForModel(
         ? useLightningScaffold
           ? "Lightning scaffold uses UNETLoader + Lightning LoRA ({{LORA_LIGHTNING}}) + ModelSamplingAuraFlow (shift ~3). Map your 4/8-step bf16 Lightning LoRA in Settings → LoRA library."
           : "Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs."
-        : "Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.",
+        : category === "video"
+          ? "Video scaffold uses EmptyHunyuanLatentVideo ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). {{INIT_IMAGE}} loads an optional reference frame — for WAN/Hunyuan I2V wrapper nodes (e.g. WanImageToVideo), replace the sampler chain with your installed video nodes and wire node 900's image output in manually."
+          : "Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.",
   ];
 
   return {

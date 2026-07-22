@@ -21,6 +21,8 @@ import {
   buildLoraFilenameMapFromCustomTokens,
   patchLoraNodesInWorkflow,
 } from "./workflow-lora-patch";
+import { applyLoraStackToWorkflow, type LoraLibraryEntry } from "./lora-stack";
+import { patchIpAdapterTokensInWorkflow } from "./ipadapter-workflow-patch";
 
 export const IMAGE_SCALE_BY_NODE_TYPE = "ImageScaleBy";
 
@@ -35,10 +37,14 @@ export type WorkflowDirectPatchCounts = {
   inputImage?: number;
   maskImage?: number;
   lora?: number;
+  loraStack?: number;
   emptySd3Latent?: number;
   unetWeightDtype?: number;
   controlNet?: number;
   controlImage?: number;
+  ipAdapterImage?: number;
+  ipAdapterStrength?: number;
+  ipAdapterModel?: number;
 };
 
 const INPUT_IMAGE_TYPES = new Set(["LoadImage", "LoadImageOutput"]);
@@ -436,6 +442,33 @@ export function patchControlNetNodesInWorkflow(
   return { workflow: next, patched };
 }
 
+/** Portable IP-Adapter tokens ({{IPADAPTER_IMAGE}}/{{IPADAPTER_STRENGTH}}/{{IPADAPTER_MODEL}}). */
+export function patchIpAdapterInWorkflow(
+  workflow: Record<string, unknown>,
+  input: {
+    ipAdapterImageFilename?: string;
+    ipAdapterStrength?: number | string;
+    ipAdapterModelFilename?: string;
+  },
+): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
+  const result = patchIpAdapterTokensInWorkflow(workflow, {
+    imageFilename: input.ipAdapterImageFilename,
+    strength: input.ipAdapterStrength,
+    modelFilename: input.ipAdapterModelFilename,
+  });
+  const patched: WorkflowDirectPatchCounts = {};
+  if (result.patched.image) {
+    patched.ipAdapterImage = result.patched.image;
+  }
+  if (result.patched.strength) {
+    patched.ipAdapterStrength = result.patched.strength;
+  }
+  if (result.patched.model) {
+    patched.ipAdapterModel = result.patched.model;
+  }
+  return { workflow: result.workflow, patched };
+}
+
 export function patchUpscaleModelNodesInWorkflow(
   workflow: Record<string, unknown>,
   upscaleModelFilename?: string,
@@ -732,9 +765,14 @@ export function patchWorkflowDirectParams(
     upscaleModelFilename?: string;
     controlNetModelFilename?: string;
     controlImageFilename?: string;
+    ipAdapterImageFilename?: string;
+    ipAdapterStrength?: number | string;
+    ipAdapterModelFilename?: string;
     customTokens?: Array<{ token: string; value: string }>;
     syncWorkflowLoadersToModel?: boolean;
     model?: string;
+    /** Active LoRA stack — strengths patched onto LoraLoader nodes, extras chained in. */
+    loraLibrary?: LoraLibraryEntry[];
   },
 ): {
   workflow: Record<string, unknown>;
@@ -751,12 +789,18 @@ export function patchWorkflowDirectParams(
     loaderPatch.workflow,
     buildLoraFilenameMapFromCustomTokens(input.customTokens ?? []),
   );
-  const controlPatch = patchControlNetNodesInWorkflow(loraPatch.workflow, {
+  const loraStackPatch = applyLoraStackToWorkflow(loraPatch.workflow, input.loraLibrary);
+  const controlPatch = patchControlNetNodesInWorkflow(loraStackPatch.workflow, {
     controlNetModelFilename: input.controlNetModelFilename,
     controlImageFilename: input.controlImageFilename,
   });
+  const ipAdapterPatch = patchIpAdapterInWorkflow(controlPatch.workflow, {
+    ipAdapterImageFilename: input.ipAdapterImageFilename,
+    ipAdapterStrength: input.ipAdapterStrength,
+    ipAdapterModelFilename: input.ipAdapterModelFilename,
+  });
   const upscalePatch = patchUpscaleModelNodesInWorkflow(
-    controlPatch.workflow,
+    ipAdapterPatch.workflow,
     input.upscaleModelFilename,
   );
   const imagePatch = patchLoadImageNodesInWorkflow(
@@ -776,7 +820,9 @@ export function patchWorkflowDirectParams(
       ...latentPatch.patched,
       ...loaderPatch.patched,
       ...loraPatch.patched,
+      ...loraStackPatch.patched,
       ...controlPatch.patched,
+      ...ipAdapterPatch.patched,
       ...upscalePatch.patched,
       ...imagePatch.patched,
       ...maskPatch.patched,

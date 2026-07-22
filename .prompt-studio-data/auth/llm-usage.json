@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "at": 1784680943876,
+      "route": "chat-stream",
+      "model": "test-model",
+      "durationMs": 9,
+      "ok": true,
+      "id": "7034405d-bcb5-4776-8c2c-6e6f247fe394"
+    },
+    {
+      "at": 1784680943854,
+      "route": "chat-stream",
+      "model": "test-model",
+      "durationMs": 19,
+      "ok": true,
+      "id": "8f4b7d56-1e52-4aef-bfbb-cfc271e042fe"
+    }
+  ]
+}

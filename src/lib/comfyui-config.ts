@@ -2,6 +2,7 @@ import { isQwenLightningModel, patchModelSamplingInWorkflow } from "./model-samp
 import { isPromptStudioProtectedSampler, shouldSkipGlobalSamplerPatch } from "./workflow-enrich-markers";
 import { prepareLightningWorkflowForQueue, resolveLightningBf16Loaders } from "./workflow-lightning-queue";
 import { buildLightningLoraFilenameMap } from "./workflow-lora-patch";
+import { normalizeLoraLibrary, type LoraLibraryEntry } from "./lora-stack";
 import {
   classifyPromptEncodeBinding,
   isPromptEncodeNode,
@@ -31,6 +32,12 @@ export const DEFAULT_FLUX_BASE_SHIFT_TOKEN = "{{FLUX_BASE_SHIFT}}";
 export const DEFAULT_DENOISE_TOKEN = "{{DENOISE}}";
 export const DEFAULT_INPUT_IMAGE_TOKEN = "{{INPUT_IMAGE}}";
 export const DEFAULT_MASK_IMAGE_TOKEN = "{{MASK_IMAGE}}";
+/** Video (WAN / Hunyuan Video) init-image placeholder — mirrors {{INPUT_IMAGE}} for I2V graphs. */
+export const DEFAULT_INIT_IMAGE_TOKEN = "{{INIT_IMAGE}}";
+/** Video frame count / length placeholder (e.g. EmptyHunyuanLatentVideo `length`). */
+export const DEFAULT_VIDEO_FRAMES_TOKEN = "{{VIDEO_FRAMES}}";
+/** Video output frame rate placeholder (e.g. SaveAnimatedWEBP `fps`). */
+export const DEFAULT_VIDEO_FPS_TOKEN = "{{VIDEO_FPS}}";
 
 import {
   DEFAULT_CHECKPOINT_TOKEN,
@@ -72,8 +79,18 @@ import {
   resolveUpscaleModelFilename,
   type ModelUpscaleMap,
 } from "./model-upscale-map";
+import {
+  DEFAULT_IPADAPTER_IMAGE_TOKEN,
+  DEFAULT_IPADAPTER_MODEL_TOKEN,
+  DEFAULT_IPADAPTER_STRENGTH_TOKEN,
+} from "./ipadapter-workflow-patch";
 
 export { DEFAULT_CHECKPOINT_TOKEN, DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN, DEFAULT_UPSCALE_MODEL_TOKEN, DEFAULT_REFINER_TOKEN };
+export {
+  DEFAULT_IPADAPTER_IMAGE_TOKEN,
+  DEFAULT_IPADAPTER_MODEL_TOKEN,
+  DEFAULT_IPADAPTER_STRENGTH_TOKEN,
+};
 
 export type WorkflowParamValues = {
   seed?: string | number;
@@ -96,6 +113,16 @@ export type WorkflowParamValues = {
   maskImageFilename?: string;
   controlNetModelFilename?: string;
   controlImageFilename?: string;
+  /** {{IPADAPTER_IMAGE}} — filename of the identity/style reference image on a LoadImage node. */
+  ipAdapterImageFilename?: string;
+  /** {{IPADAPTER_STRENGTH}} — 0–1 weight patched onto IPAdapter-family nodes. */
+  ipAdapterStrength?: string | number;
+  /** {{IPADAPTER_MODEL}} — optional ipadapter_file filename override. */
+  ipAdapterModelFilename?: string;
+  /** Video (WAN / Hunyuan Video) frame count / length — feeds {{VIDEO_FRAMES}}. */
+  videoFrames?: string | number;
+  /** Video output frame rate — feeds {{VIDEO_FPS}}. */
+  videoFps?: string | number;
 };
 
 export type CustomWorkflowToken = {
@@ -154,6 +181,11 @@ export type ComfyUiRuntimeConfig = {
   workflowOptimizedModel?: string;
   /** Quality profile from last library optimize — required with hash for full early-exit. */
   workflowOptimizedProfile?: import("./queue-quality-profile").QueueQualityProfile;
+  /**
+   * LoRA library forwarded from Settings — carries strengths/enabled/order that
+   * {{LORA_*}} custom tokens alone cannot express for queue-time stacking.
+   */
+  loraLibrary?: LoraLibraryEntry[];
 };
 
 export type WorkflowPlaceholderTokens = {
@@ -172,6 +204,10 @@ export type WorkflowPlaceholderTokens = {
   denoise: string;
   inputImage: string;
   maskImage: string;
+  /** Video init-image placeholder — same resolved value as inputImage, distinct token. Optional so pre-existing token sets built elsewhere don't need updating. */
+  initImage?: string;
+  videoFrames?: string;
+  videoFps?: string;
 };
 
 export type ResolvedComfyUiConfig = {
@@ -226,6 +262,12 @@ export function resolvePlaceholderTokens(
       process.env.COMFYUI_INPUT_IMAGE_TOKEN?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
     maskImage:
       process.env.COMFYUI_MASK_IMAGE_TOKEN?.trim() || DEFAULT_MASK_IMAGE_TOKEN,
+    initImage:
+      process.env.COMFYUI_INIT_IMAGE_TOKEN?.trim() || DEFAULT_INIT_IMAGE_TOKEN,
+    videoFrames:
+      process.env.COMFYUI_VIDEO_FRAMES_TOKEN?.trim() || DEFAULT_VIDEO_FRAMES_TOKEN,
+    videoFps:
+      process.env.COMFYUI_VIDEO_FPS_TOKEN?.trim() || DEFAULT_VIDEO_FPS_TOKEN,
   };
 }
 
@@ -312,6 +354,12 @@ export function resolveQueueParams(
   }
   if (merged.refinerCheckpointFilename?.trim()) {
     result.refinerCheckpointFilename = merged.refinerCheckpointFilename.trim();
+  }
+  if (merged.videoFrames != null && merged.videoFrames.toString().trim() !== "") {
+    result.videoFrames = merged.videoFrames;
+  }
+  if (merged.videoFps != null && merged.videoFps.toString().trim() !== "") {
+    result.videoFps = merged.videoFps;
   }
 
   if (model) {
@@ -626,6 +674,9 @@ export function detectWorkflowPlaceholders(
   denoise: number;
   inputImage: number;
   maskImage: number;
+  initImage: number;
+  videoFrames: number;
+  videoFps: number;
 } {
   return {
     positive: countPlaceholders(raw, tokens.positive),
@@ -643,6 +694,9 @@ export function detectWorkflowPlaceholders(
     denoise: countPlaceholders(raw, DEFAULT_DENOISE_TOKEN),
     inputImage: countPlaceholders(raw, DEFAULT_INPUT_IMAGE_TOKEN),
     maskImage: countPlaceholders(raw, DEFAULT_MASK_IMAGE_TOKEN),
+    initImage: countPlaceholders(raw, DEFAULT_INIT_IMAGE_TOKEN),
+    videoFrames: countPlaceholders(raw, DEFAULT_VIDEO_FRAMES_TOKEN),
+    videoFps: countPlaceholders(raw, DEFAULT_VIDEO_FPS_TOKEN),
   };
 }
 
@@ -775,6 +829,22 @@ export function injectWorkflowPlaceholders(
       ["denoise", tokens.denoise, input.params.denoise?.toString() ?? ""],
       ["inputImageFilename", tokens.inputImage, input.params.inputImageFilename?.toString() ?? ""],
       ["maskImageFilename", tokens.maskImage, input.params.maskImageFilename?.toString() ?? ""],
+      // {{INIT_IMAGE}} mirrors the same resolved input image for video I2V graphs.
+      [
+        "inputImageFilename",
+        tokens.initImage ?? DEFAULT_INIT_IMAGE_TOKEN,
+        input.params.inputImageFilename?.toString() ?? "",
+      ],
+      [
+        "videoFrames",
+        tokens.videoFrames ?? DEFAULT_VIDEO_FRAMES_TOKEN,
+        input.params.videoFrames?.toString() ?? "",
+      ],
+      [
+        "videoFps",
+        tokens.videoFps ?? DEFAULT_VIDEO_FPS_TOKEN,
+        input.params.videoFps?.toString() ?? "",
+      ],
     ];
 
     for (const [key, token, value] of paramEntries) {
@@ -784,7 +854,7 @@ export function injectWorkflowPlaceholders(
       const [next, count] = injectParamToken(current, token, value);
       current = next;
       if (count > 0) {
-        paramReplacements[key] = count;
+        paramReplacements[key] = (paramReplacements[key] ?? 0) + count;
       }
     }
   }
@@ -1135,6 +1205,8 @@ export function injectPromptsWithFallbacks(
     availableLoras?: string[] | null;
     qualityProfile?: QueueQualityProfile;
     samplerPresetTier?: ModelSamplerPresetTier;
+    /** Active LoRA stack (strengths/enabled/order) — patched onto non-Lightning workflows. */
+    loraLibrary?: LoraLibraryEntry[];
   },
 ): WorkflowInjectionResult {
   const loaderMerged = mergeLoaderTokensIntoCustomTokens(
@@ -1223,9 +1295,13 @@ export function injectPromptsWithFallbacks(
       upscaleModelFilename: input.params?.upscaleModelFilename,
       controlNetModelFilename: input.params?.controlNetModelFilename,
       controlImageFilename: input.params?.controlImageFilename,
+      ipAdapterImageFilename: input.params?.ipAdapterImageFilename,
+      ipAdapterStrength: input.params?.ipAdapterStrength,
+      ipAdapterModelFilename: input.params?.ipAdapterModelFilename,
       customTokens: mergedCustomTokens,
       syncWorkflowLoadersToModel: options?.syncWorkflowLoadersToModel,
       model: options?.model,
+      loraLibrary: options?.loraLibrary,
     });
     nextWorkflow = directPatch.workflow;
     directPatchCounts = directPatch.patched;
@@ -1505,6 +1581,13 @@ export function stripEmptyComfyUiRuntime(
     result.workflowCustomTokens = workflowCustomTokens;
   }
 
+  const loraLibrary = normalizeLoraLibrary(runtime.loraLibrary).filter((entry) =>
+    entry.tokenValue?.trim(),
+  );
+  if (loraLibrary.length > 0) {
+    result.loraLibrary = loraLibrary;
+  }
+
   if (Object.keys(result).length === 0) {
     return undefined;
   }
@@ -1523,11 +1606,17 @@ export const WORKFLOW_PARAM_TOKEN_HELP = [
   DEFAULT_DENOISE_TOKEN,
   DEFAULT_INPUT_IMAGE_TOKEN,
   DEFAULT_MASK_IMAGE_TOKEN,
+  DEFAULT_INIT_IMAGE_TOKEN,
+  DEFAULT_VIDEO_FRAMES_TOKEN,
+  DEFAULT_VIDEO_FPS_TOKEN,
   DEFAULT_CHECKPOINT_TOKEN,
   DEFAULT_UNET_TOKEN,
   DEFAULT_VAE_TOKEN,
   DEFAULT_UPSCALE_MODEL_TOKEN,
   DEFAULT_REFINER_TOKEN,
+  DEFAULT_IPADAPTER_IMAGE_TOKEN,
+  DEFAULT_IPADAPTER_STRENGTH_TOKEN,
+  DEFAULT_IPADAPTER_MODEL_TOKEN,
 ] as const;
 
 export function resolveWorkflowGraphEnrichOptions(

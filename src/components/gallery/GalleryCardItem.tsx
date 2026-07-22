@@ -24,6 +24,7 @@ export type GalleryCardActions = {
     newSeed: boolean,
     qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile,
   ) => void;
+  cancel: (id: string) => void;
   upscale: (
     id: string,
     qualityProfile: "final" | "max",
@@ -112,6 +113,10 @@ function GalleryCardItem({
     ) => actionsRef.current.requeue(entry.id, newSeed, qualityProfile),
     [actionsRef, entry.id],
   );
+  const onCancel = useCallback(
+    () => actionsRef.current.cancel(entry.id),
+    [actionsRef, entry.id],
+  );
   const onOpenImage = useCallback(
     (index: number) => actionsRef.current.openImage(entry.id, index),
     [actionsRef, entry.id],
@@ -152,6 +157,7 @@ function GalleryCardItem({
       onToggleFavorite={onToggleFavorite}
       onDownloadError={onDownloadError}
       onRequeue={onRequeue}
+      onCancel={onCancel}
       onUpscale={onUpscale}
       onRefine={onRefine}
       onMoireClean={onMoireClean}

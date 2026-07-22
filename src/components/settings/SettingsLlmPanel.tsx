@@ -30,6 +30,9 @@ type ServerLlmSnapshot = {
   allowTemplateFallback?: boolean;
   serverTemperature?: string;
   embedModel?: string;
+  inFlight?: number;
+  maxInflight?: number;
+  busy?: boolean;
 };
 
 type SettingsLlmPanelProps = {
@@ -100,6 +103,20 @@ export default function SettingsLlmPanel({
           <div>
             <dt className="type-caption text-zinc-500">Server temperature</dt>
             <dd className="text-zinc-200">{server?.serverTemperature ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="type-caption text-zinc-500">LLM concurrency</dt>
+            <dd
+              className={
+                server?.busy
+                  ? "font-medium text-amber-400"
+                  : "text-zinc-200"
+              }
+            >
+              {typeof server?.inFlight === "number"
+                ? `LLM busy: ${server.inFlight}/${server.maxInflight ?? "?"} in flight`
+                : "—"}
+            </dd>
           </div>
           <div>
             <dt className="type-caption text-zinc-500">Server template fallback</dt>

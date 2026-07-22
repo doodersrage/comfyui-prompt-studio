@@ -40,6 +40,7 @@ type GalleryCardProps = {
   onToggleFavorite: () => void;
   onDownloadError: (message: string | null) => void;
   onRequeue: (newSeed: boolean, qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile) => void;
+  onCancel: () => void;
   onUpscale: (
     qualityProfile: "final" | "max",
     options?: { force?: boolean },
@@ -108,6 +109,7 @@ export default function GalleryCard({
   onToggleFavorite,
   onDownloadError,
   onRequeue,
+  onCancel,
   onUpscale,
   onRefine,
   onMoireClean,
@@ -331,7 +333,16 @@ export default function GalleryCard({
           ) : null}
         </>
       ) : entry.status === "pending" || entry.status === "running" ? (
-        <ComfyUiGalleryJobPlaceholder entry={entry} />
+        <div className="relative flex h-full flex-col">
+          <ComfyUiGalleryJobPlaceholder entry={entry} />
+          <button
+            type="button"
+            onClick={onCancel}
+            className="absolute bottom-2.5 right-2.5 rounded-full border border-rose-500/30 bg-zinc-950/85 px-2.5 py-1 text-[11px] text-rose-200 backdrop-blur transition hover:border-rose-400/50 hover:bg-rose-500/15 hover:text-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.97]"
+          >
+            Cancel
+          </button>
+        </div>
       ) : (
         <div className="flex h-full items-center justify-center px-4 text-center text-xs text-zinc-500">
           {entry.status === "error"
@@ -696,6 +707,16 @@ export default function GalleryCard({
                 ) : null}
 
                 <GalleryMenuGroup label="Queue">
+                  {entry.status === "pending" || entry.status === "running" ? (
+                    <GalleryMenuButton
+                      label="Cancel job"
+                      tone="danger"
+                      onClick={() => {
+                        onCancel();
+                        setMenuOpen(false);
+                      }}
+                    />
+                  ) : null}
                   <GalleryMenuButton
                     label="Re-queue"
                     onClick={() => {

@@ -20,6 +20,7 @@ import {
   saveComfyUiSettings,
   type LoraLibraryEntry,
 } from "@/lib/comfyui-settings";
+import { describeLoraStack, resolveActiveLoraStack } from "@/lib/lora-stack";
 import {
   DEFAULT_NEGATIVE_PROFILES,
   type NegativeProfile,
@@ -42,6 +43,12 @@ import {
   formatModelControlNetMap,
   parseModelControlNetMap,
 } from "@/lib/model-controlnet-map";
+import { uploadComfyInputImage } from "@/lib/comfyui-image-upload";
+import {
+  DEFAULT_IPADAPTER_IMAGE_TOKEN,
+  DEFAULT_IPADAPTER_MODEL_TOKEN,
+  DEFAULT_IPADAPTER_STRENGTH_TOKEN,
+} from "@/lib/ipadapter-workflow-patch";
 import { loadComfyWorkflowFiles } from "@/lib/comfyui-workflow-files";
 import {
   countMappedModels,
@@ -60,6 +67,11 @@ import {
   saveScheduledBatchConfig,
   type ScheduledBatchConfig,
 } from "@/lib/scheduled-batch";
+import {
+  fetchScheduledBatchServerStatus,
+  pushScheduledBatchProfile,
+  type ScheduledBatchServerStatus,
+} from "@/lib/scheduled-batch-profile-sync";
 import {
   DEFAULT_WEBHOOK_SETTINGS,
   loadWebhookSettings,
@@ -239,6 +251,9 @@ function createLoraLibraryEntry(): LoraLibraryEntry {
     label: "",
     triggerPhrase: "",
     tokenValue: "",
+    strengthModel: 1,
+    strengthClip: 1,
+    enabled: true,
   };
 }
 
@@ -250,6 +265,9 @@ type HealthResponse = {
     visionModel?: string;
     baseUrl?: string;
     error?: string;
+    inFlight?: number;
+    maxInflight?: number;
+    busy?: boolean;
   };
   comfyui: {
     ok: boolean;
@@ -311,6 +329,8 @@ export default function SettingsTool() {
   const [modelUpscaleMapText, setModelUpscaleMapText] = useState("");
   const [modelControlNetMapText, setModelControlNetMapText] = useState("");
   const [loaderMapMergeHint, setLoaderMapMergeHint] = useState<string | null>(null);
+  const [ipAdapterUploadStatus, setIpAdapterUploadStatus] = useState<string | null>(null);
+  const [ipAdapterUploading, setIpAdapterUploading] = useState(false);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
@@ -333,6 +353,8 @@ export default function SettingsTool() {
   const [scheduledBatch, setScheduledBatch] = useState<ScheduledBatchConfig>(
     DEFAULT_SCHEDULED_BATCH,
   );
+  const [serverScheduledBatchStatus, setServerScheduledBatchStatus] =
+    useState<ScheduledBatchServerStatus | null>(null);
   const [avoidedTokens, setAvoidedTokens] = useState<string[]>([]);
   const [avoidedTokenDraft, setAvoidedTokenDraft] = useState("");
   const [avoidancePreviewPrompt, setAvoidancePreviewPrompt] = useState("");
@@ -448,6 +470,7 @@ export default function SettingsTool() {
       setScheduledBatch(loadScheduledBatchConfig());
       setAvoidedTokens(exportAvoidedTokenList());
       setWebhookLog(loadWebhookLog());
+      void fetchScheduledBatchServerStatus().then(setServerScheduledBatchStatus);
       try {
         const lastBackupRaw = readBrowserString(STUDIO_BACKUP_LAST_EXPORT_KEY);
         const lastBackup = lastBackupRaw ? Number(lastBackupRaw) : 0;
@@ -481,6 +504,44 @@ export default function SettingsTool() {
       return next;
     });
   }, []);
+
+  // Mirrors Studio Automation config to server storage so the headless scheduled
+  // batch runner (src/instrumentation.ts) queues with the same model/detail/quality.
+  useEffect(() => {
+    if (!sharedMounted) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void pushScheduledBatchProfile({
+        model: sharedSettings.model,
+        detail: sharedSettings.detail,
+        qualityProfile: sharedSettings.queueQualityProfile,
+        target: scheduledBatch.target,
+        count: scheduledBatch.count,
+        genre: scheduledBatch.genre,
+        autoQueueComfyUi: scheduledBatch.autoQueueComfyUi,
+      }).then((result) => {
+        if (result) {
+          setServerScheduledBatchStatus((previous) => ({
+            profile: result.profile,
+            persisted: result.persisted,
+            lastRunAt: previous?.lastRunAt,
+            enabled: previous?.enabled ?? false,
+          }));
+        }
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [
+    sharedMounted,
+    sharedSettings.model,
+    sharedSettings.detail,
+    sharedSettings.queueQualityProfile,
+    scheduledBatch.target,
+    scheduledBatch.count,
+    scheduledBatch.genre,
+    scheduledBatch.autoQueueComfyUi,
+  ]);
 
   const applySuggestedLoaderMaps = useCallback(() => {
     const merged = mergeSuggestedLoaderMaps({
@@ -690,6 +751,26 @@ export default function SettingsTool() {
     [settings.loraLibrary, updateSettings],
   );
 
+  const moveLoraEntry = useCallback(
+    (index: number, direction: -1 | 1) => {
+      const current = settings.loraLibrary ?? [];
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= current.length) {
+        return;
+      }
+      const next = [...current];
+      const [moved] = next.splice(index, 1);
+      next.splice(targetIndex, 0, moved!);
+      updateSettings({ loraLibrary: next });
+    },
+    [settings.loraLibrary, updateSettings],
+  );
+
+  const activeLoraStackSummary = useMemo(
+    () => describeLoraStack(resolveActiveLoraStack(settings.loraLibrary)),
+    [settings.loraLibrary],
+  );
+
   const handlePreviewWorkflow = useCallback(async () => {
     setPreviewLoading(true);
     setPreviewError(null);
@@ -763,6 +844,9 @@ export default function SettingsTool() {
               detail={[
                 health.llm.enabled ? health.llm.model : "disabled",
                 health.llm.baseUrl,
+                health.llm.enabled && typeof health.llm.inFlight === "number"
+                  ? `LLM busy: ${health.llm.inFlight}/${health.llm.maxInflight ?? "?"} in flight`
+                  : null,
                 health.llm.error,
               ]
                 .filter(Boolean)
@@ -877,6 +961,9 @@ export default function SettingsTool() {
           allowTemplateFallback: health?.config.allowTemplateFallback,
           serverTemperature: serverEnvFieldValue(health?.serverEnv, "LLM_TEMPERATURE"),
           embedModel: serverEnvFieldValue(health?.serverEnv, "LLM_EMBED_MODEL"),
+          inFlight: health?.llm.inFlight,
+          maxInflight: health?.llm.maxInflight,
+          busy: health?.llm.busy,
         }}
         autoVisionTags={settings.autoVisionTags !== false}
         onAutoVisionTagsChange={(value) =>
@@ -1392,6 +1479,111 @@ export default function SettingsTool() {
         </label>
       </ToolSection>
 
+      <ToolSection
+        id="settings-comfyui-ipadapter"
+        title="IP-Adapter identity reference (portable, workflow-token based)"
+      >
+        <p className="text-sm text-zinc-400">
+          A single session-wide reference — unlike Image → Prompt&apos;s multi-ref tool
+          (which merges descriptions into the text prompt), this patches the actual
+          reference image/strength/model onto any workflow that contains{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">
+            {DEFAULT_IPADAPTER_IMAGE_TOKEN}
+          </code>
+          ,{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">
+            {DEFAULT_IPADAPTER_STRENGTH_TOKEN}
+          </code>
+          , and optionally{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">
+            {DEFAULT_IPADAPTER_MODEL_TOKEN}
+          </code>{" "}
+          — place those tokens on a LoadImage node&apos;s filename field and an
+          IPAdapter node&apos;s weight / ipadapter_file fields in your workflow file.
+        </p>
+
+        <div className="space-y-2">
+          <FieldLabel htmlFor="settings-ipadapter-image">Reference image filename</FieldLabel>
+          <input
+            id="settings-ipadapter-image"
+            value={sharedSettings.ipAdapterImageFilename ?? ""}
+            onChange={(event) =>
+              updateSharedSettings({ ipAdapterImageFilename: event.target.value })
+            }
+            placeholder="already-uploaded-file.png (or upload below)"
+            disabled={!sharedMounted}
+            className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${accentFocusClass(ACCENT)}`}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">
+              {ipAdapterUploading ? "Uploading…" : "Upload reference image"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={!sharedMounted || ipAdapterUploading}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) {
+                    return;
+                  }
+                  setIpAdapterUploading(true);
+                  setIpAdapterUploadStatus(null);
+                  void uploadComfyInputImage({ file, model: sharedSettings.model })
+                    .then((uploaded) => {
+                      updateSharedSettings({ ipAdapterImageFilename: uploaded.name });
+                      setIpAdapterUploadStatus(`Uploaded as ${uploaded.name}.`);
+                    })
+                    .catch((err) => {
+                      setIpAdapterUploadStatus(
+                        err instanceof Error ? err.message : "Upload failed.",
+                      );
+                    })
+                    .finally(() => setIpAdapterUploading(false));
+                }}
+              />
+            </label>
+            {ipAdapterUploadStatus ? (
+              <span className="text-xs text-zinc-500">{ipAdapterUploadStatus}</span>
+            ) : null}
+          </div>
+        </div>
+
+        <label className="mt-4 block space-y-2">
+          <span className="block text-sm font-medium text-zinc-200">
+            Strength — {(sharedSettings.ipAdapterStrength ?? 0.6).toFixed(2)}
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={sharedSettings.ipAdapterStrength ?? 0.6}
+            onChange={(event) =>
+              updateSharedSettings({ ipAdapterStrength: Number(event.target.value) })
+            }
+            disabled={!sharedMounted}
+            className={`w-full accent-violet-500 ${accentFocusClass(ACCENT)}`}
+          />
+        </label>
+
+        <div className="mt-4 space-y-2">
+          <FieldLabel htmlFor="settings-ipadapter-model">
+            IP-Adapter model filename (optional)
+          </FieldLabel>
+          <input
+            id="settings-ipadapter-model"
+            value={sharedSettings.ipAdapterModelFilename ?? ""}
+            onChange={(event) =>
+              updateSharedSettings({ ipAdapterModelFilename: event.target.value })
+            }
+            placeholder="ip-adapter-plus_sdxl.safetensors (leave blank to keep the workflow's default)"
+            disabled={!sharedMounted}
+            className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${accentFocusClass(ACCENT)}`}
+          />
+        </div>
+      </ToolSection>
+
       <div id="settings-comfyui-workflow-library" className="scroll-mt-28 space-y-6">
       <ComfyWorkflowLibraryPanel
         placeholderTokens={placeholderTokensFromSettings(settings)}
@@ -1609,6 +1801,9 @@ export default function SettingsTool() {
               , and set Token value to your 4/8-step LightX2V{" "}
               <code className="rounded bg-zinc-800 px-1">.safetensors</code> filename.
             </p>
+            {(settings.loraLibrary ?? []).length > 0 ? (
+              <p className="ui-surface-inset text-xs text-zinc-300">{activeLoraStackSummary}</p>
+            ) : null}
             {(settings.loraLibrary ?? []).length === 0 ? (
               <EmptyState
                 compact
@@ -1622,75 +1817,160 @@ export default function SettingsTool() {
               />
             ) : (
               <ul className="space-y-3">
-                {(settings.loraLibrary ?? []).map((entry, index) => (
-                  <li
-                    key={entry.id || index}
-                    className="ui-surface-inset space-y-2"
-                  >
-                    <div className="grid gap-2 sm:grid-cols-2">
+                {(settings.loraLibrary ?? []).map((entry, index) => {
+                  const enabled = entry.enabled !== false;
+                  const strengthModel = entry.strengthModel ?? 1;
+                  const strengthClip = entry.strengthClip ?? 1;
+                  const total = (settings.loraLibrary ?? []).length;
+                  return (
+                    <li
+                      key={entry.id || index}
+                      className={`ui-surface-inset space-y-2 transition-opacity ${
+                        enabled ? "" : "opacity-60"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <label className="flex items-center gap-2 text-xs text-zinc-300">
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            onChange={(event) =>
+                              updateLoraEntry(index, { enabled: event.target.checked })
+                            }
+                            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                          />
+                          Enabled
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveLoraEntry(index, -1)}
+                            disabled={index === 0}
+                            aria-label="Move LoRA up"
+                            className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-400 transition hover:border-violet-500 hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-zinc-700 disabled:hover:text-zinc-400"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveLoraEntry(index, 1)}
+                            disabled={index === total - 1}
+                            aria-label="Move LoRA down"
+                            className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-400 transition hover:border-violet-500 hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-zinc-700 disabled:hover:text-zinc-400"
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <label className="space-y-1 text-xs text-zinc-400">
+                          ID
+                          <input
+                            value={entry.id}
+                            onChange={(event) =>
+                              updateLoraEntry(index, { id: event.target.value })
+                            }
+                            placeholder="portrait-style"
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
+                          />
+                        </label>
+                        <label className="space-y-1 text-xs text-zinc-400">
+                          Label
+                          <input
+                            value={entry.label}
+                            onChange={(event) =>
+                              updateLoraEntry(index, { label: event.target.value })
+                            }
+                            placeholder="Portrait style LoRA"
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                          />
+                        </label>
+                      </div>
                       <label className="space-y-1 text-xs text-zinc-400">
-                        ID
+                        Trigger phrase
                         <input
-                          value={entry.id}
+                          value={entry.triggerPhrase}
                           onChange={(event) =>
-                            updateLoraEntry(index, { id: event.target.value })
+                            updateLoraEntry(index, {
+                              triggerPhrase: event.target.value,
+                            })
                           }
-                          placeholder="portrait-style"
-                          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
-                        />
-                      </label>
-                      <label className="space-y-1 text-xs text-zinc-400">
-                        Label
-                        <input
-                          value={entry.label}
-                          onChange={(event) =>
-                            updateLoraEntry(index, { label: event.target.value })
-                          }
-                          placeholder="Portrait style LoRA"
+                          placeholder="portrait lighting, soft skin"
                           className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                         />
                       </label>
-                    </div>
-                    <label className="space-y-1 text-xs text-zinc-400">
-                      Trigger phrase
-                      <input
-                        value={entry.triggerPhrase}
-                        onChange={(event) =>
-                          updateLoraEntry(index, {
-                            triggerPhrase: event.target.value,
-                          })
-                        }
-                        placeholder="portrait lighting, soft skin"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                      />
-                    </label>
-                    <label className="space-y-1 text-xs text-zinc-400">
-                      Token value
-                      <input
-                        value={entry.tokenValue}
-                        onChange={(event) =>
-                          updateLoraEntry(index, { tokenValue: event.target.value })
-                        }
-                        placeholder="portrait_lora.safetensors"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
-                      />
-                    </label>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <code className="text-xs text-violet-300">
-                        {entry.id.trim()
-                          ? `{{LORA_${entry.id.trim()}}}`
-                          : "{{LORA_<id>}}"}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => removeLoraEntry(index)}
-                        className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 hover:border-rose-500 hover:text-rose-200"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </li>
-                ))}
+                      <label className="space-y-1 text-xs text-zinc-400">
+                        Token value
+                        <input
+                          value={entry.tokenValue}
+                          onChange={(event) =>
+                            updateLoraEntry(index, { tokenValue: event.target.value })
+                          }
+                          placeholder="portrait_lora.safetensors"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
+                        />
+                      </label>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="space-y-1 text-xs text-zinc-400">
+                          <span className="flex items-center justify-between">
+                            <span>Model strength</span>
+                            <span className="font-mono text-zinc-300">
+                              {strengthModel.toFixed(2)}
+                            </span>
+                          </span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={2}
+                            step={0.05}
+                            value={strengthModel}
+                            onChange={(event) =>
+                              updateLoraEntry(index, {
+                                strengthModel: Number(event.target.value),
+                              })
+                            }
+                            className="h-8 w-full cursor-pointer accent-violet-500"
+                          />
+                        </label>
+                        <label className="space-y-1 text-xs text-zinc-400">
+                          <span className="flex items-center justify-between">
+                            <span>Clip strength</span>
+                            <span className="font-mono text-zinc-300">
+                              {strengthClip.toFixed(2)}
+                            </span>
+                          </span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={2}
+                            step={0.05}
+                            value={strengthClip}
+                            onChange={(event) =>
+                              updateLoraEntry(index, {
+                                strengthClip: Number(event.target.value),
+                              })
+                            }
+                            className="h-8 w-full cursor-pointer accent-violet-500"
+                          />
+                        </label>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <code className="text-xs text-violet-300">
+                          {entry.id.trim()
+                            ? `{{LORA_${entry.id.trim()}}}`
+                            : "{{LORA_<id>}}"}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => removeLoraEntry(index)}
+                          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-rose-500 hover:text-rose-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -2526,6 +2806,40 @@ export default function SettingsTool() {
           Background runner (in app layout) periodically generates prompts and optionally
           queues them to ComfyUI.
         </p>
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 text-xs text-zinc-400">
+          <p className="mb-1 font-medium text-zinc-300">Headless server runner</p>
+          {serverScheduledBatchStatus ? (
+            <>
+              <p>
+                {serverScheduledBatchStatus.enabled
+                  ? "Active — runs in-process on the server (SERVER_SCHEDULED_BATCH=true)."
+                  : "Disabled — set SERVER_SCHEDULED_BATCH=true on the server to enable."}
+                {" "}
+                {serverScheduledBatchStatus.persisted
+                  ? "Profile persisted to server storage."
+                  : "Profile not persisted (set PROMPT_DATA_DIR to survive restarts)."}
+              </p>
+              <p className="mt-1">
+                Using model{" "}
+                <span className="text-zinc-200">{serverScheduledBatchStatus.profile.model}</span>{" "}
+                · detail{" "}
+                <span className="text-zinc-200">{serverScheduledBatchStatus.profile.detail}</span>{" "}
+                · quality{" "}
+                <span className="text-zinc-200">
+                  {serverScheduledBatchStatus.profile.qualityProfile}
+                </span>
+              </p>
+              <p className="mt-1">
+                Last run:{" "}
+                {serverScheduledBatchStatus.lastRunAt
+                  ? new Date(serverScheduledBatchStatus.lastRunAt).toLocaleString()
+                  : "never"}
+              </p>
+            </>
+          ) : (
+            <p>Checking server status…</p>
+          )}
+        </div>
         <label className="flex items-center gap-3 text-sm text-zinc-300">
           <input
             type="checkbox"

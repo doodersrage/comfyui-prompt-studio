@@ -202,6 +202,15 @@ export function resolveQueueParams(
         }),
   };
 
+  // Video frame count / fps aren't part of the manual override UI — always
+  // forward from base (queueParamsBase) regardless of settings.enabled.
+  if (base?.videoFrames != null && base.videoFrames.toString().trim() !== "") {
+    merged.videoFrames = base.videoFrames;
+  }
+  if (base?.videoFps != null && base.videoFps.toString().trim() !== "") {
+    merged.videoFps = base.videoFps;
+  }
+
   for (const key of Object.keys(merged) as Array<keyof WorkflowParamValues>) {
     const value = merged[key];
     if (value == null || value.toString().trim() === "") {
@@ -268,6 +277,18 @@ export function resolveQueueParams(
     });
     if (controlNetModel) {
       merged.controlNetModelFilename = controlNetModel;
+    }
+
+    // Session-level IP-Adapter reference — a single active reference per browser
+    // session (unlike ControlNet's per-model map), so it forwards as-is.
+    if (shared.ipAdapterImageFilename?.trim()) {
+      merged.ipAdapterImageFilename = shared.ipAdapterImageFilename.trim();
+    }
+    if (shared.ipAdapterStrength != null) {
+      merged.ipAdapterStrength = shared.ipAdapterStrength;
+    }
+    if (shared.ipAdapterModelFilename?.trim()) {
+      merged.ipAdapterModelFilename = shared.ipAdapterModelFilename.trim();
     }
 
     const resolvedInputImage =

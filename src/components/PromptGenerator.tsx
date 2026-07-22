@@ -54,6 +54,7 @@ import {
   ratingDrivenWildnessLabel,
 } from "@/lib/rating-driven-random";
 import { sharedLlmRequestBody } from "@/lib/llm-request-options";
+import { streamGeneratePrompt } from "@/lib/generate-stream-client";
 import { applyLockedLocation } from "@/lib/locked-location";
 import { resolveModelForPromptGeneration } from "@/lib/queue-tool-model";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
@@ -408,36 +409,53 @@ export default function PromptGenerator() {
         await actions.runPreLint(effectiveInput);
       }
 
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          input: effectiveInput,
-          mode,
-          variation: {
-            enabled: mode === "positive" && variationEnabled,
-            strength: variationStrength,
-          },
-          distinctPeople: mode === "positive" && distinctPeople,
-          alwaysIncludeClothing:
-            mode === "positive" && alwaysIncludeClothing,
-          recentClothing: getRecentClothing(),
-          detail: mode === "positive" ? detail : "balanced",
-          model: queueModel,
-          lockedWardrobeId: shared.lockedWardrobeId,
-          lockedLocation: shared.lockedLocation,
-          variationSeed: shared.lockedVariationSeed,
-          ...avoidedTokensRequestBody(),
-          ...sharedLlmRequestBody(shared),
-        }),
-      });
-
-      const data = (await response.json()) as GenerateResponse & {
-        error?: string;
+      const requestBody = {
+        input: effectiveInput,
+        mode,
+        variation: {
+          enabled: mode === "positive" && variationEnabled,
+          strength: variationStrength,
+        },
+        distinctPeople: mode === "positive" && distinctPeople,
+        alwaysIncludeClothing: mode === "positive" && alwaysIncludeClothing,
+        recentClothing: getRecentClothing(),
+        detail: mode === "positive" ? detail : "balanced",
+        model: queueModel,
+        lockedWardrobeId: shared.lockedWardrobeId,
+        lockedLocation: shared.lockedLocation,
+        variationSeed: shared.lockedVariationSeed,
+        ...avoidedTokensRequestBody(),
+        ...sharedLlmRequestBody(shared),
       };
 
-      if (!response.ok) {
-        throw new Error(data.error ?? "Generation failed.");
+      let data: GenerateResponse;
+      try {
+        // Prefer the streaming endpoint for progressive fill; fall back to the
+        // plain JSON endpoint on busy (429), network, or parse failures.
+        data = (await streamGeneratePrompt(requestBody, {
+          onDelta: (_delta, accumulated) => setOutput(accumulated),
+        })) as GenerateResponse;
+      } catch (streamErr) {
+        console.warn(
+          "[generate] stream failed, falling back to /api/generate:",
+          streamErr instanceof Error ? streamErr.message : streamErr,
+        );
+
+        const response = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+
+        const fallback = (await response.json()) as GenerateResponse & {
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(fallback.error ?? "Generation failed.");
+        }
+
+        data = fallback;
       }
 
       recordClothing(readClothingIdsFromMetadata(data.metadata));

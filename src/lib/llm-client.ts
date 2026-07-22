@@ -5,8 +5,10 @@ import {
   stripPromptArtifacts,
 } from "./prompt-cleanup";
 import { getLlmTemperature } from "./llm-env";
+import { acquireLlmSlot, withLlmSlot } from "./llm-backpressure";
 
 export { allowTemplateFallback, getLlmTemperature, isLlmEnabled } from "./llm-env";
+export { LlmBusyError, getLlmInflightCount, getLlmMaxInflight, isLlmBusy } from "./llm-backpressure";
 
 export type LlmUsageContext = {
   userId?: string;
@@ -477,7 +479,256 @@ async function openAiCompatibleChatCompletion(options: {
   return text;
 }
 
+/** Decodes a fetch Response body into complete lines, buffering partial chunks. */
+async function* readResponseLines(response: Response): AsyncGenerator<string> {
+  const body = response.body;
+  if (!body) {
+    return;
+  }
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      let newlineIndex = buffer.indexOf("\n");
+      while (newlineIndex !== -1) {
+        const line = buffer.slice(0, newlineIndex);
+        buffer = buffer.slice(newlineIndex + 1);
+        if (line.trim()) {
+          yield line;
+        }
+        newlineIndex = buffer.indexOf("\n");
+      }
+    }
+    if (buffer.trim()) {
+      yield buffer;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+async function* ollamaNativeChatCompletionStream(options: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  messages: ChatMessage[];
+  maxTokens: number;
+  temperature?: number;
+  extraBody?: Record<string, unknown>;
+  signal?: AbortSignal;
+}): AsyncGenerator<string> {
+  const response = await fetch(`${ollamaNativeBaseUrl(options.baseUrl)}/api/chat`, {
+    method: "POST",
+    headers: buildAuthHeaders(options.apiKey),
+    signal: options.signal,
+    body: JSON.stringify({
+      model: options.model,
+      messages: options.messages.map((message) => ({
+        role: message.role,
+        content: chatMessageToOllamaContent(message.content),
+      })),
+      stream: true,
+      think: false,
+      options: {
+        temperature: getLlmTemperature(options.temperature),
+        num_predict: options.maxTokens,
+        ...mapExtraBodyToOllamaOptions(options.extraBody),
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(
+      `Ollama chat stream request failed (${response.status}): ${detail.slice(0, 300)}`,
+    );
+  }
+
+  for await (const line of readResponseLines(response)) {
+    let parsed: { message?: { content?: string }; done?: boolean; error?: string };
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      continue;
+    }
+
+    if (parsed.error) {
+      throw new Error(parsed.error);
+    }
+
+    const delta = parsed.message?.content;
+    if (delta) {
+      yield delta;
+    }
+
+    if (parsed.done) {
+      break;
+    }
+  }
+}
+
+async function* openAiCompatibleChatCompletionStream(options: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  messages: ChatMessage[];
+  maxTokens: number;
+  temperature?: number;
+  extraBody?: Record<string, unknown>;
+  signal?: AbortSignal;
+}): AsyncGenerator<string> {
+  const response = await fetch(`${options.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: buildAuthHeaders(options.apiKey),
+    signal: options.signal,
+    body: JSON.stringify({
+      model: options.model,
+      messages: options.messages,
+      temperature: getLlmTemperature(options.temperature),
+      max_tokens: options.maxTokens,
+      stream: true,
+      top_p: 0.9,
+      think: false,
+      ...options.extraBody,
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(
+      `LLM stream request failed (${response.status}): ${detail.slice(0, 300)}`,
+    );
+  }
+
+  for await (const line of readResponseLines(response)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) {
+      continue;
+    }
+
+    const payload = trimmed.slice("data:".length).trim();
+    if (payload === "[DONE]") {
+      break;
+    }
+
+    let parsed: { choices?: Array<{ delta?: { content?: string } }> };
+    try {
+      parsed = JSON.parse(payload);
+    } catch {
+      continue;
+    }
+
+    const delta = parsed.choices?.[0]?.delta?.content;
+    if (delta) {
+      yield delta;
+    }
+  }
+}
+
+/**
+ * Streams chat completion text deltas as they arrive from the LLM. Prefers
+ * the Ollama native NDJSON stream (falling back to the OpenAI-compatible SSE
+ * stream on request-start failure) and mirrors the `think:false` /
+ * fallback conventions used by `chatCompletion`. Concurrency is bounded by
+ * the same in-flight slot used by `chatCompletion`.
+ *
+ * Once any delta has been yielded from one transport, errors no longer fall
+ * back to the other transport (the caller has already seen partial output).
+ */
+export async function* chatCompletionStream(options: {
+  messages: ChatMessage[];
+  maxTokens: number;
+  temperature?: number;
+  model?: string;
+  extraBody?: Record<string, unknown>;
+  usageContext?: LlmUsageContext;
+  signal?: AbortSignal;
+}): AsyncGenerator<string, void, unknown> {
+  const started = Date.now();
+  const { baseUrl, apiKey, model } = getLlmConfig();
+  const resolvedModel = options.model ?? model;
+  const extraBody = { think: false, ...options.extraBody };
+  const release = acquireLlmSlot();
+  let ok = false;
+
+  try {
+    let yieldedAny = false;
+
+    if (isOllamaBaseUrl(baseUrl)) {
+      try {
+        for await (const delta of ollamaNativeChatCompletionStream({
+          baseUrl,
+          apiKey,
+          model: resolvedModel,
+          messages: options.messages,
+          maxTokens: options.maxTokens,
+          temperature: options.temperature,
+          extraBody,
+          signal: options.signal,
+        })) {
+          yieldedAny = true;
+          yield delta;
+        }
+        ok = true;
+        return;
+      } catch (nativeError) {
+        if (yieldedAny) {
+          throw nativeError;
+        }
+        console.warn(
+          "[llm-client] Ollama native chat stream failed, trying OpenAI-compatible stream:",
+          nativeError instanceof Error ? nativeError.message : nativeError,
+        );
+      }
+    }
+
+    for await (const delta of openAiCompatibleChatCompletionStream({
+      baseUrl,
+      apiKey,
+      model: resolvedModel,
+      messages: options.messages,
+      maxTokens: options.maxTokens,
+      temperature: options.temperature,
+      extraBody,
+      signal: options.signal,
+    })) {
+      yieldedAny = true;
+      yield delta;
+    }
+    ok = true;
+  } finally {
+    release();
+    logLlmUsageSafe({
+      at: started,
+      userId: options.usageContext?.userId,
+      username: options.usageContext?.username,
+      route: options.usageContext?.route ?? "chat-stream",
+      model: resolvedModel,
+      durationMs: Date.now() - started,
+      ok,
+    });
+  }
+}
+
 export async function chatCompletion(options: {
+  messages: ChatMessage[];
+  maxTokens: number;
+  temperature?: number;
+  model?: string;
+  extraBody?: Record<string, unknown>;
+  usageContext?: LlmUsageContext;
+}): Promise<string> {
+  return withLlmSlot(() => chatCompletionUnthrottled(options));
+}
+
+async function chatCompletionUnthrottled(options: {
   messages: ChatMessage[];
   maxTokens: number;
   temperature?: number;

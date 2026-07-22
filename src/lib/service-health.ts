@@ -1,7 +1,13 @@
 import { getComfyUiBaseUrl } from "./comfyui-client";
 import type { ComfyUiRuntimeConfig } from "./comfyui-config";
-import { parseComfyUiPool } from "./comfyui-pool";
-import { getLlmConfig, isLlmEnabled } from "./llm-client";
+import { parseComfyUiPool, setComfyUiPoolStatsCache } from "./comfyui-pool";
+import {
+  getLlmConfig,
+  getLlmInflightCount,
+  getLlmMaxInflight,
+  isLlmBusy,
+  isLlmEnabled,
+} from "./llm-client";
 
 export type LlmHealth = {
   ok: boolean;
@@ -10,6 +16,9 @@ export type LlmHealth = {
   visionModel?: string;
   baseUrl?: string;
   error?: string;
+  inFlight: number;
+  maxInflight: number;
+  busy: boolean;
 };
 
 export type ComfyUiHealth = {
@@ -79,6 +88,9 @@ export async function getExpandedComfyUiHealth(
 export async function checkLlmHealth(): Promise<LlmHealth> {
   const enabled = isLlmEnabled();
   const config = getLlmConfig();
+  const inFlight = getLlmInflightCount();
+  const maxInflight = getLlmMaxInflight();
+  const busy = isLlmBusy();
 
   if (!enabled) {
     return {
@@ -88,6 +100,9 @@ export async function checkLlmHealth(): Promise<LlmHealth> {
       visionModel: config.visionModel,
       baseUrl: config.baseUrl,
       error: "LLM_ENABLED=false",
+      inFlight,
+      maxInflight,
+      busy,
     };
   }
 
@@ -105,6 +120,9 @@ export async function checkLlmHealth(): Promise<LlmHealth> {
         visionModel: config.visionModel,
         baseUrl: config.baseUrl,
         error: `HTTP ${response.status}`,
+        inFlight,
+        maxInflight,
+        busy,
       };
     }
 
@@ -114,6 +132,9 @@ export async function checkLlmHealth(): Promise<LlmHealth> {
       model: config.model,
       visionModel: config.visionModel,
       baseUrl: config.baseUrl,
+      inFlight,
+      maxInflight,
+      busy,
     };
   } catch (error) {
     return {
@@ -123,6 +144,9 @@ export async function checkLlmHealth(): Promise<LlmHealth> {
       visionModel: config.visionModel,
       baseUrl: config.baseUrl,
       error: error instanceof Error ? error.message : "LLM unreachable",
+      inFlight,
+      maxInflight,
+      busy,
     };
   }
 }
@@ -173,6 +197,18 @@ export async function checkComfyUiPoolHealth(): Promise<ComfyUiPoolHealth> {
       const expanded = health.ok ? await getExpandedComfyUiHealth({ apiUrl: url }) : health;
       return { ...expanded, index };
     }),
+  );
+
+  // Feed the VRAM-aware pool pick cache in comfyui-pool.ts so getComfyUiBaseUrl()
+  // can prefer the healthiest/most-free-VRAM endpoint on the next request.
+  setComfyUiPoolStatsCache(
+    endpoints.map((endpoint) => ({
+      url: endpoint.url,
+      ok: endpoint.ok,
+      vram: endpoint.vram,
+      queuePending: endpoint.queuePending,
+      queueRunning: endpoint.queueRunning,
+    })),
   );
 
   return { enabled: true, endpoints };

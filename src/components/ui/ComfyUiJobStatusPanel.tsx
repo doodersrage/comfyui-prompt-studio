@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   comfyUiJobProgressPercent,
@@ -8,6 +9,10 @@ import {
   isComfyUiJobProcessing,
   type ComfyUiJobTrackerState,
 } from "@/lib/comfyui-job-status";
+import {
+  COMFY_LIVE_PREVIEW_UPDATED_EVENT,
+  getComfyLivePreviewUrl,
+} from "@/lib/comfyui-live-preview-store";
 
 type ComfyUiJobStatusPanelProps = {
   job: ComfyUiJobTrackerState;
@@ -64,6 +69,24 @@ export default function ComfyUiJobStatusPanel({
   const label = comfyUiJobStatusLabel(job);
   const percent = comfyUiJobProgressPercent(job);
   const progressLabel = formatComfyUiJobProgressLabel(job);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    () => job.previewUrl ?? getComfyLivePreviewUrl(job.promptId),
+  );
+
+  useEffect(() => {
+    setPreviewUrl(job.previewUrl ?? getComfyLivePreviewUrl(job.promptId));
+    const onPreview = (event: Event) => {
+      const detail = (event as CustomEvent<{ promptId?: string }>).detail;
+      if (detail?.promptId && detail.promptId !== job.promptId) {
+        return;
+      }
+      setPreviewUrl(getComfyLivePreviewUrl(job.promptId));
+    };
+    window.addEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
+    return () => {
+      window.removeEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
+    };
+  }, [job.previewUrl, job.promptId]);
 
   return (
     <div
@@ -73,16 +96,16 @@ export default function ComfyUiJobStatusPanel({
       aria-busy={processing}
     >
       <div className={`flex items-start gap-3 ${compact ? "px-3 py-2.5" : "px-4 py-3"}`}>
-        {processing ? (
+        {processing && !previewUrl ? (
           <span className="ui-spinner ui-spinner-sm mt-0.5 shrink-0" aria-hidden />
-        ) : (
+        ) : !processing ? (
           <span
             className={`mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${
               job.status === "error" ? "bg-[var(--tint-danger)]" : "bg-[var(--tint-success)]"
             }`}
             aria-hidden
           />
-        )}
+        ) : null}
 
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -99,6 +122,15 @@ export default function ComfyUiJobStatusPanel({
               {label}
             </span>
           </div>
+
+          {processing && previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={previewUrl}
+              alt="Live ComfyUI preview"
+              className="mt-1 max-h-40 w-full rounded-lg border border-zinc-700/60 object-contain bg-zinc-950/60"
+            />
+          ) : null}
 
           {job.statusMessage?.trim() &&
           job.statusMessage.trim() !== progressLabel ? (
@@ -139,6 +171,7 @@ export function ComfyUiGalleryJobPlaceholder({
   entry,
 }: {
   entry: {
+    promptId?: string;
     status: ComfyUiJobTrackerState["status"];
     statusMessage?: string;
     queuePosition?: number | null;
@@ -150,13 +183,43 @@ export function ComfyUiGalleryJobPlaceholder({
   const processing = entry.status === "pending" || entry.status === "running";
   const percent = comfyUiJobProgressPercent(entry);
   const progressLabel = formatComfyUiJobProgressLabel(entry);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(() =>
+    entry.promptId ? getComfyLivePreviewUrl(entry.promptId) : null,
+  );
+
+  useEffect(() => {
+    if (!entry.promptId) {
+      setPreviewUrl(null);
+      return;
+    }
+    setPreviewUrl(getComfyLivePreviewUrl(entry.promptId));
+    const onPreview = (event: Event) => {
+      const detail = (event as CustomEvent<{ promptId?: string }>).detail;
+      if (detail?.promptId && detail.promptId !== entry.promptId) {
+        return;
+      }
+      setPreviewUrl(getComfyLivePreviewUrl(entry.promptId!));
+    };
+    window.addEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
+    return () => {
+      window.removeEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
+    };
+  }, [entry.promptId]);
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
-      {processing ? (
+    <div className="relative flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
+      {processing && previewUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={previewUrl}
+          alt="Live preview"
+          className="absolute inset-0 h-full w-full object-cover opacity-40"
+        />
+      ) : null}
+      {processing && !previewUrl ? (
         <span className="ui-spinner ui-spinner-lg" aria-hidden />
       ) : null}
-      <div className="w-full max-w-[14rem] space-y-2">
+      <div className="relative z-10 w-full max-w-[14rem] space-y-2">
         <p className="text-xs font-medium uppercase tracking-wide text-violet-300">
           {entry.status === "running"
             ? percent != null

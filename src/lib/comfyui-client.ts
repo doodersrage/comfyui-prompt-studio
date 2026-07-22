@@ -15,7 +15,7 @@ import {
 import { writeQueueArtifact } from "./queue-artifacts";
 import { loadServerWorkflowJson } from "./comfyui-server-workflows";
 import { applyUserComfyUiOverride } from "./user-comfy-url";
-import { resolveComfyUiUrlWithPool } from "./comfyui-pool";
+import { getComfyUiPoolStatsCache, resolveComfyUiUrlWithPool } from "./comfyui-pool";
 import {
   getComfyUiAllowedHosts,
   isComfyClientUrlAllowed,
@@ -35,6 +35,11 @@ export type ComfyQueueRequest = {
   model?: string;
   workflowId?: string;
   nodeTitle?: string;
+  /**
+   * ComfyUI WebSocket client id — must match `?clientId=` on the browser WS
+   * so latent preview frames are associated with this session.
+   */
+  clientId?: string;
 };
 
 export type ComfyQueueResult = {
@@ -42,6 +47,7 @@ export type ComfyQueueResult = {
   promptId?: string;
   error?: string;
   comfyUrl: string;
+  clientId?: string;
   workflowSource?: "client" | "env" | "minimal";
   replacements?: { positive: number; negative: number };
 };
@@ -74,6 +80,10 @@ export function getComfyUiBaseUrl(runtime?: ComfyUiRuntimeConfig, routingSeed?: 
       userUrl: runtimeWithUser.apiUrl,
       envUrl: envComfyUiBaseUrl(),
       routingSeed,
+      // Best-effort VRAM-aware pick from the last known pool health snapshot —
+      // stays synchronous (no fetch here); the cache is refreshed by
+      // checkComfyUiPoolHealth() (health polling) and pool pick misses.
+      poolStats: getComfyUiPoolStatsCache(),
     }),
     {
       allowPrivate: true,
@@ -274,6 +284,7 @@ function injectPromptsIntoWorkflow(
       model: runtime?.queueTargetModel ?? request.model,
       availableLoras: enrichInventory?.availableLoras,
       qualityProfile: runtime?.queueQualityProfile,
+      loraLibrary: runtime?.loraLibrary,
     },
   );
 }
@@ -397,10 +408,17 @@ export async function queuePromptToComfyUi(
             replacements: { positive: 1, negative: 0 },
           };
 
+    const clientId =
+      request.clientId?.trim() ||
+      `srv${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+
     const workflowResponse = await fetch(`${config.apiUrl}/prompt`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: resolvedPromptBody.prompt }),
+      body: JSON.stringify({
+        prompt: resolvedPromptBody.prompt,
+        client_id: clientId,
+      }),
     });
 
     if (!workflowResponse.ok) {
@@ -409,6 +427,7 @@ export async function queuePromptToComfyUi(
         ok: false,
         error: formatComfyUiQueueValidationError(text || `ComfyUI returned ${workflowResponse.status}`),
         comfyUrl: config.apiUrl,
+        clientId,
         workflowSource: resolvedPromptBody.workflowSource,
         replacements: resolvedPromptBody.replacements,
       };
@@ -431,6 +450,7 @@ export async function queuePromptToComfyUi(
       ok: true,
       promptId: data.prompt_id,
       comfyUrl: config.apiUrl,
+      clientId,
       workflowSource: resolvedPromptBody.workflowSource,
       replacements: resolvedPromptBody.replacements,
     };

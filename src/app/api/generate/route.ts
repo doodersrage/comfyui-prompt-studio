@@ -16,7 +16,11 @@ import {
   apiJson,
   apiMethodNotAllowed,
 } from "@/lib/api/response";
-import { parseLlmRequestOptions } from "@/lib/llm-request-options";
+import {
+  parseLlmRequestOptions,
+  resolveRequestLlmEnabled,
+} from "@/lib/llm-request-options";
+import { isLlmBusy, LlmBusyError } from "@/lib/llm-client";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -77,6 +81,14 @@ export async function POST(request: Request) {
       return apiError("Input must be 4000 characters or fewer.", 400);
     }
 
+    const llm = parseLlmRequestOptions(body);
+    if (resolveRequestLlmEnabled(llm) && isLlmBusy()) {
+      return apiError("LLM is busy handling other requests.", 429, {
+        busy: true,
+        retryAfter: 2,
+      }, { "Retry-After": "2" });
+    }
+
     const result = await generatePrompt(effectiveInput, mode, settings, {
       recentClothing: normalizeRecentClothing(body.recentClothing),
       lockedWardrobeId: normalizeLockedWardrobeId(body.lockedWardrobeId),
@@ -84,11 +96,18 @@ export async function POST(request: Request) {
       avoidedTokens: avoidance.avoidedTokens,
       avoidedTokensInstruction: avoidance.avoidedTokensInstruction,
       tool: "generate",
-      llm: parseLlmRequestOptions(body),
+      llm,
     });
 
     return apiJson(result);
   } catch (error) {
+    if (error instanceof LlmBusyError) {
+      return apiError(error.message, 429, {
+        busy: true,
+        retryAfter: error.retryAfterSeconds,
+      }, { "Retry-After": String(error.retryAfterSeconds) });
+    }
+
     const message =
       error instanceof Error ? error.message : "Failed to generate prompt.";
 

@@ -30,6 +30,7 @@ import {
 } from "@/lib/comfyui-gallery";
 import { scheduleComfyGalleryPoll } from "@/lib/comfyui-gallery-poller";
 import { registerComfyGalleryJob } from "@/lib/comfyui-gallery-client";
+import { createComfyUiClientId } from "@/lib/comfyui-websocket";
 import {
   attachGalleryPromptIdToHistory,
   linkGalleryToHistory,
@@ -110,6 +111,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         prompt: string;
         negativePrompt?: string;
         comfyUrl: string;
+        clientId?: string;
         historyId?: string;
         queueParams?: WorkflowParamValues;
         queueQualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
@@ -125,6 +127,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         tool: config.tool,
         model: input.model ?? config.model,
         comfyUrl: input.comfyUrl,
+        clientId: input.clientId,
         historyId: input.historyId,
         queueParams: input.queueParams,
         queueQualityProfile: input.queueQualityProfile,
@@ -510,6 +513,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               })
             : undefined);
 
+        const clientId = createComfyUiClientId();
         const response = await fetch("/api/comfyui", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -518,6 +522,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             negativePrompt,
             model: queueModel,
             params: queueParams,
+            clientId,
             ...(runtime ? { comfy: runtime } : {}),
           }),
         });
@@ -527,6 +532,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           promptId?: string;
           error?: string;
           comfyUrl?: string;
+          clientId?: string;
           workflowSource?: string;
         };
 
@@ -573,6 +579,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             prompt: preparedPrompt,
             negativePrompt,
             comfyUrl: data.comfyUrl ?? "http://127.0.0.1:8188",
+            clientId: data.clientId ?? clientId,
             historyId: resolvedHistoryId,
             queueParams,
             queueQualityProfile: runtime?.queueQualityProfile,

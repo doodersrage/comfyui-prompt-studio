@@ -127,6 +127,8 @@ export type SharedToolSettings = {
   vramGuardEnabled?: boolean;
   /** Free VRAM (GB) below which Max enrich downgrades to Final. */
   vramGuardMinFreeGb?: number;
+  /** When true, call ComfyUI's `/free` (unload + free VRAM) after a Max-quality gallery job completes. */
+  freeVramAfterMax?: boolean;
   /** Per-model sampler params learned from 4–5★ gallery ratings. */
   modelSamplerMemory?: import("./sampler-memory").ModelSamplerMemoryMap;
   /** Per-tool queue quality overrides (tool id → profile). */
@@ -141,6 +143,19 @@ export type SharedToolSettings = {
   modelUpscaleMap?: ModelUpscaleMap;
   /** Per-model ControlNet filenames (modelId or default=filename). */
   modelControlNetMap?: import("./model-controlnet-map").ModelControlNetMap;
+  /**
+   * Session IP-Adapter identity/style reference — a single active reference
+   * forwarded to any workflow containing {{IPADAPTER_IMAGE}}/{{IPADAPTER_STRENGTH}}/
+   * {{IPADAPTER_MODEL}} tokens (see ipadapter-workflow-patch.ts). Unlike
+   * modelControlNetMap this is not per-model — it's a portable session value.
+   */
+  ipAdapterImageFilename?: string;
+  /** Convenience source URL for the IP-Adapter reference — uploaded to ComfyUI on queue. */
+  ipAdapterImageUrl?: string;
+  /** IP-Adapter weight (0–1) patched onto IPAdapter-family nodes at queue time. */
+  ipAdapterStrength?: number;
+  /** Optional ipadapter_file filename override for {{IPADAPTER_MODEL}}. */
+  ipAdapterModelFilename?: string;
   /** Tiled neural upscale tile size (0 disables tiling). Overrides Max default when set. */
   neuralUpscaleTileSize?: number;
   /** Prefer mapped library workflow with upscale nodes for gallery upscale actions. */
@@ -214,6 +229,12 @@ export type VideoToolCache = {
   camera?: string;
   style?: string;
   durationSec?: number;
+  /** Optional I2V reference frame — a ComfyUI-uploaded filename or a fetchable URL. */
+  initImageUrl?: string;
+  /** Frame count / length fed to {{VIDEO_FRAMES}} at queue time. */
+  frames?: number;
+  /** Output frame rate fed to {{VIDEO_FPS}} at queue time. */
+  fps?: number;
 };
 
 export type LintToolCache = {
@@ -434,6 +455,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   holdMaxUntilIdle: false,
   vramGuardEnabled: true,
   vramGuardMinFreeGb: 6,
+  freeVramAfterMax: false,
   modelSamplerMemory: {},
   toolQueueQualityProfiles: SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
   modelCheckpointMap: {},
@@ -443,6 +465,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   autoSelectWorkflowForModel: true,
   limitModelsToAvailableWorkflows: true,
   showAllModelsOverride: false,
+  ipAdapterStrength: 0.6,
 };
 
 export const DEFAULT_GENERATE_TOOL_CACHE: GenerateToolCache = {
@@ -764,4 +787,32 @@ export function loadToolSettings<K extends keyof ToolSettingsCache>(
     ...defaults,
     ...(cache.tools[tool] ?? {}),
   } as NonNullable<ToolSettingsCache[K]>;
+}
+
+/**
+ * Pure list helpers for `StudioToolCache.savedIdentityBundles` — a saved library of
+ * portable character sheets (descriptor + LoRA triggers + IP-Adapter ref settings)
+ * on top of the single-bundle export/import already in character-identity-bundle.ts.
+ * Callers persist the result via saveToolSettings("studio", { savedIdentityBundles }).
+ */
+export function upsertSavedIdentityBundle(
+  list: import("./character-identity-bundle").CharacterIdentityBundle[] | undefined,
+  bundle: import("./character-identity-bundle").CharacterIdentityBundle,
+): import("./character-identity-bundle").CharacterIdentityBundle[] {
+  const key = bundle.name.trim().toLowerCase();
+  const next = (list ?? []).filter((entry) => entry.name.trim().toLowerCase() !== key);
+  next.push(bundle);
+  return next;
+}
+
+export function removeSavedIdentityBundle(
+  list: import("./character-identity-bundle").CharacterIdentityBundle[] | undefined,
+  name: string,
+): import("./character-identity-bundle").CharacterIdentityBundle[] {
+  const key = name.trim().toLowerCase();
+  return (list ?? []).filter((entry) => entry.name.trim().toLowerCase() !== key);
+}
+
+export function listSavedIdentityBundles(): import("./character-identity-bundle").CharacterIdentityBundle[] {
+  return loadToolSettings("studio", DEFAULT_STUDIO_TOOL_CACHE).savedIdentityBundles ?? [];
 }

@@ -1,23 +1,29 @@
 "use client";
 
+import { comfyPreviewBinaryToObjectUrl } from "./comfyui-preview-binary";
+
 export type ComfyUiWebSocketProgress = {
   promptId: string;
   node?: string | null;
-  status: "executing" | "progress" | "finished" | "error";
+  status: "executing" | "progress" | "finished" | "error" | "preview";
   message?: string;
   value?: number;
   max?: number;
+  /** Object URL for the latest latent preview frame (caller should revoke prior). */
+  previewUrl?: string;
 };
 
-function toWebSocketUrl(comfyUrl: string): string {
+function toWebSocketUrl(comfyUrl: string, clientId: string): string {
   const trimmed = comfyUrl.trim().replace(/\/+$/, "");
+  let base: string;
   if (trimmed.startsWith("https://")) {
-    return trimmed.replace(/^https:/, "wss:") + "/ws";
+    base = trimmed.replace(/^https:/, "wss:") + "/ws";
+  } else if (trimmed.startsWith("http://")) {
+    base = trimmed.replace(/^http:/, "ws:") + "/ws";
+  } else {
+    base = `ws://${trimmed}/ws`;
   }
-  if (trimmed.startsWith("http://")) {
-    return trimmed.replace(/^http:/, "ws:") + "/ws";
-  }
-  return `ws://${trimmed}/ws`;
+  return `${base}?clientId=${encodeURIComponent(clientId)}`;
 }
 
 function asFiniteNumber(value: unknown): number | undefined {
@@ -56,9 +62,18 @@ type WsPayload = {
   };
 };
 
+export function createComfyUiClientId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID().replace(/-/g, "");
+  }
+  return `client${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
+}
+
 export function subscribeComfyUiWebSocket(input: {
   comfyUrl: string;
   promptId: string;
+  /** Must match the client_id sent with /prompt for preview association. */
+  clientId?: string;
   onProgress: (progress: ComfyUiWebSocketProgress) => void;
   onError?: (message: string) => void;
 }): () => void {
@@ -66,12 +81,13 @@ export function subscribeComfyUiWebSocket(input: {
     return () => {};
   }
 
-  const clientId = crypto.randomUUID().replace(/-/g, "");
+  const clientId = input.clientId?.trim() || createComfyUiClientId();
   let socket: WebSocket | null = null;
   let closed = false;
+  let lastPreviewUrl: string | null = null;
 
   try {
-    socket = new WebSocket(`${toWebSocketUrl(input.comfyUrl)}?clientId=${clientId}`);
+    socket = new WebSocket(toWebSocketUrl(input.comfyUrl, clientId));
   } catch (err) {
     input.onError?.(
       err instanceof Error ? err.message : "WebSocket connection failed.",
@@ -79,8 +95,36 @@ export function subscribeComfyUiWebSocket(input: {
     return () => {};
   }
 
+  const publishPreview = (buffer: ArrayBuffer) => {
+    const url = comfyPreviewBinaryToObjectUrl(buffer);
+    if (!url) {
+      return;
+    }
+    if (lastPreviewUrl) {
+      URL.revokeObjectURL(lastPreviewUrl);
+    }
+    lastPreviewUrl = url;
+    input.onProgress({
+      promptId: input.promptId,
+      status: "preview",
+      previewUrl: url,
+      message: "Live preview",
+    });
+  };
+
+  socket.binaryType = "arraybuffer";
+
   socket.onmessage = (event) => {
     if (typeof event.data !== "string") {
+      if (event.data instanceof ArrayBuffer) {
+        publishPreview(event.data);
+      } else if (event.data instanceof Blob) {
+        void event.data.arrayBuffer().then((buffer) => {
+          if (!closed) {
+            publishPreview(buffer);
+          }
+        });
+      }
       return;
     }
 
@@ -160,7 +204,7 @@ export function subscribeComfyUiWebSocket(input: {
         });
       }
     } catch {
-      // ignore malformed / binary frames
+      // ignore malformed text frames
     }
   };
 
@@ -172,6 +216,10 @@ export function subscribeComfyUiWebSocket(input: {
 
   return () => {
     closed = true;
+    if (lastPreviewUrl) {
+      URL.revokeObjectURL(lastPreviewUrl);
+      lastPreviewUrl = null;
+    }
     socket?.close();
     socket = null;
   };

@@ -44,6 +44,7 @@ export default function SettingsPromptQualityPanel({
   const detail = sharedSettings.detail ?? "balanced";
   const vramEnabled = sharedSettings.vramGuardEnabled !== false;
   const minFreeGb = sharedSettings.vramGuardMinFreeGb ?? 6;
+  const freeVramAfterMax = sharedSettings.freeVramAfterMax === true;
   const samplerPreset = normalizeModelSamplerPresetTier(
     sharedSettings.modelSamplerPreset,
   );
@@ -204,6 +205,26 @@ export default function SettingsPromptQualityPanel({
             }
             className="ui-input w-full max-w-[10rem]"
           />
+        </label>
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={freeVramAfterMax}
+            disabled={!sharedMounted}
+            onChange={(event) =>
+              updateSharedSettings({ freeVramAfterMax: event.target.checked })
+            }
+            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass()}`}
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium text-zinc-200">
+              Free VRAM after Max jobs
+            </span>
+            <span className="block text-xs text-zinc-500">
+              Calls ComfyUI&apos;s unload/free-memory endpoint once a Max-quality gallery
+              job finishes, so the next job on that host starts with a clean slate.
+            </span>
+          </span>
         </label>
       </ToolSection>
     </>

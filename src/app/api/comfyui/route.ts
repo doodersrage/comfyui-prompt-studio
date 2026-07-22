@@ -23,6 +23,8 @@ type ComfyUiRequestBody = {
   model?: string;
   params?: WorkflowParamValues;
   paramsPerPrompt?: WorkflowParamValues[];
+  /** Browser WebSocket client id for live latent previews. */
+  clientId?: string;
   comfy?: ComfyUiRuntimeConfig;
 };
 
@@ -67,6 +69,7 @@ export async function POST(request: Request) {
           nodeTitle: body.nodeTitle,
           model: runtime?.queueTargetModel ?? body.model,
           params: resolvedQueue.params,
+          clientId: body.clientId?.trim() || undefined,
         },
         runtime,
       );
@@ -81,12 +84,14 @@ export async function POST(request: Request) {
       return apiJson(result);
     }
 
+    const batchClientId = body.clientId?.trim() || undefined;
     const batch = await queueBatchToComfyUi(
       prompts.map((prompt, index) => ({
         prompt,
         negativePrompt: body.negativePrompt,
         nodeTitle: body.nodeTitle,
         model: runtime?.queueTargetModel ?? body.model,
+        clientId: batchClientId,
         params: resolveQueueInjectionContext({
           runtime,
           override: body.paramsPerPrompt?.[index] ?? body.params,

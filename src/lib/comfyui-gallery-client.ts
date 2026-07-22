@@ -14,6 +14,10 @@ import {
 import { notifyComfyJobComplete } from "./comfyui-notifications";
 import { resolveComfyUiRuntime } from "./comfyui-runtime";
 import { loadComfyUiSettings } from "./comfyui-settings";
+import {
+  clearComfyLivePreviewUrl,
+  setComfyLivePreviewUrl,
+} from "./comfyui-live-preview-store";
 import { subscribeComfyUiWebSocket } from "./comfyui-websocket";
 import { dispatchWebhook } from "./webhook-settings";
 import { noteScheduledBatchJobComplete } from "./scheduled-batch-tracker";
@@ -23,6 +27,9 @@ import { backfillHistoryGalleryLink } from "./prompt-lineage";
 import { consumePendingRefineAfterUpscale } from "./gallery-pending-actions";
 import type { WorkflowParamValues } from "./comfyui-config";
 import { buildGalleryImageUrlsFromQueueParams } from "./queue-requeue-images";
+import { freeComfyUiMemory } from "./comfyui-queue-control";
+import { normalizeQueueQualityProfile } from "./queue-quality-profile";
+import { loadSettingsCache } from "./settings-cache";
 
 export type RegisterComfyGalleryJobInput = {
   promptId: string;
@@ -39,6 +46,7 @@ export type RegisterComfyGalleryJobInput = {
   queueQualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
   projectId?: string;
   comfyUrl: string;
+  clientId?: string;
 };
 
 export type PollComfyGalleryJobOptions = {
@@ -50,6 +58,17 @@ export type PollComfyGalleryJobOptions = {
 
 const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_MAX_POLL_ATTEMPTS = 450;
+
+/** Prompt IDs whose in-flight poll loop should stop on the next tick (e.g. cancelled jobs). */
+const cancelledPollPromptIds = new Set<string>();
+
+/** Marks an in-flight `pollComfyGalleryJob` loop for the given prompt to stop early. */
+export function cancelComfyGalleryJobPoll(promptId: string): void {
+  const trimmed = promptId.trim();
+  if (trimmed) {
+    cancelledPollPromptIds.add(trimmed);
+  }
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -91,6 +110,7 @@ export function registerComfyGalleryJob(
     queueQualityProfile: input.queueQualityProfile,
     projectId: input.projectId,
     comfyUrl: input.comfyUrl,
+    clientId: input.clientId,
     status: "pending",
     statusMessage: "Queued",
   });
@@ -231,6 +251,7 @@ function applyComfyJobStatus(
   }
 
   if (tracker.status === "error") {
+    clearComfyLivePreviewUrl(promptId);
     const entry = updateComfyGalleryByPromptId(promptId, {
       status: "error",
       statusMessage: tracker.statusMessage,
@@ -261,6 +282,7 @@ function applyComfyJobStatus(
     return entry;
   }
 
+  clearComfyLivePreviewUrl(promptId);
   const entry = updateComfyGalleryByPromptId(promptId, {
     status: "completed",
     statusMessage: tracker.statusMessage,
@@ -282,6 +304,13 @@ function applyComfyJobStatus(
       status: "completed",
       prompt: entry.prompt,
     });
+    if (
+      loadSettingsCache().shared.freeVramAfterMax === true &&
+      normalizeQueueQualityProfile(entry.queueQualityProfile) === "max"
+    ) {
+      // Best-effort — never blocks the completion path or surfaces errors to the user.
+      void freeComfyUiMemory(entry.comfyUrl);
+    }
     void autoTagGalleryEntry(entry);
     noteScheduledBatchJobComplete(entry.tool);
     void dispatchWebhook({
@@ -380,10 +409,31 @@ export async function pollComfyGalleryJob(
   };
 
   if (settings.useWebSocketProgress && comfyUrl) {
+    const clientId = loadComfyGallery()
+      .find((entry) => entry.promptId === promptId)
+      ?.clientId?.trim();
     unsubscribe = subscribeComfyUiWebSocket({
       comfyUrl,
       promptId,
+      clientId,
       onProgress: (progress) => {
+        if (progress.status === "preview" && progress.previewUrl) {
+          setComfyLivePreviewUrl(promptId, progress.previewUrl);
+          const tracker: ComfyUiJobTrackerState = {
+            promptId,
+            status: "running",
+            statusMessage: latestProgress?.message ?? "Live preview",
+            comfyUrl,
+            queuePosition: 0,
+            progressValue: latestProgress?.value,
+            progressMax: latestProgress?.max,
+            progressNode: latestProgress?.node,
+            previewUrl: progress.previewUrl,
+          };
+          onJobUpdate?.(tracker);
+          return;
+        }
+
         if (progress.status === "finished") {
           wsFinished = true;
           clearTrailingProgress();
@@ -414,10 +464,21 @@ export async function pollComfyGalleryJob(
     });
   }
 
+  let cancelled = false;
+
   try {
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      if (cancelledPollPromptIds.has(promptId)) {
+        cancelled = true;
+        break;
+      }
+
       if (attempt > 0) {
         await sleep(wsFinished ? 250 : intervalMs);
+        if (cancelledPollPromptIds.has(promptId)) {
+          cancelled = true;
+          break;
+        }
       }
 
       try {
@@ -442,6 +503,11 @@ export async function pollComfyGalleryJob(
   } finally {
     clearTrailingProgress();
     unsubscribe?.();
+    cancelledPollPromptIds.delete(promptId);
+  }
+
+  if (cancelled) {
+    return null;
   }
 
   return updateComfyGalleryByPromptId(promptId, {

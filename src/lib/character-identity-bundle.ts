@@ -16,6 +16,15 @@ export type CharacterIdentityBundle = {
   loraTriggerPhrases?: string[];
   characterPreset?: Record<string, unknown>;
   notes?: string;
+  /** Pinned appearance block (SharedToolSettings.activeCharacterDescriptor). */
+  descriptor?: string;
+  /**
+   * Portable IP-Adapter reference (see ipadapter-workflow-patch.ts) — the
+   * workflow-token-based counterpart to this bundle's prompt-merge fields above.
+   */
+  ipAdapterImageFilename?: string;
+  ipAdapterStrength?: number;
+  ipAdapterModelFilename?: string;
 };
 
 export function buildCharacterIdentityBundle(input: {
@@ -42,6 +51,10 @@ export function buildCharacterIdentityBundle(input: {
     loraTriggerPhrases: input.loraTriggerPhrases?.filter(Boolean),
     characterPreset: input.characterPreset,
     notes: input.notes?.trim() || undefined,
+    descriptor: input.shared.activeCharacterDescriptor?.trim() || undefined,
+    ipAdapterImageFilename: input.shared.ipAdapterImageFilename?.trim() || undefined,
+    ipAdapterStrength: input.shared.ipAdapterStrength,
+    ipAdapterModelFilename: input.shared.ipAdapterModelFilename?.trim() || undefined,
   };
 }
 
@@ -60,6 +73,10 @@ export function applyCharacterIdentityBundle(
     alwaysIncludeClothing: bundle.alwaysIncludeClothing,
     hints: bundle.hints,
     negativeProfileId: bundle.negativeProfileId,
+    activeCharacterDescriptor: bundle.descriptor,
+    ipAdapterImageFilename: bundle.ipAdapterImageFilename,
+    ipAdapterStrength: bundle.ipAdapterStrength,
+    ipAdapterModelFilename: bundle.ipAdapterModelFilename,
   };
 }
 

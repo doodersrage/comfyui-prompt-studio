@@ -14,7 +14,7 @@ import {
   trimPromptToMaxChars,
 } from "./qwen-clarity";
 import { stripPromptArtifacts, isThinkingOnlyArtifact } from "./prompt-cleanup";
-import { chatCompletion } from "./llm-client";
+import { chatCompletion, chatCompletionStream } from "./llm-client";
 import {
   resolveRequestLlmEnabled,
   resolveRequestLlmModel,
@@ -448,16 +448,22 @@ async function finalizePromptWithSparseExpand(
   );
 }
 
-export async function generateWithLlm(
+export type GenerateLlmRequest = {
+  messages: ChatMessage[];
+  maxTokens: number;
+  temperature: number;
+  extraBody: Record<string, unknown>;
+};
+
+/** Builds the chat messages / sampling params shared by streaming and non-streaming LLM calls. */
+export function buildGenerateLlmRequest(
   input: string,
   mode: PromptMode,
-  settings: GenerationSettings = DEFAULT_GENERATION_SETTINGS,
+  settings: GenerationSettings,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
   variationSeed?: string,
   avoidedTokensInstruction?: string,
-  tool?: string,
-  llm?: LlmRequestOptions,
-): Promise<string> {
+): GenerateLlmRequest {
   let systemPrompt = buildModelSystemPrompt(settings.model, mode);
 
   if (mode === "positive") {
@@ -490,12 +496,39 @@ export async function generateWithLlm(
     extraBody.seed = getLlmSeed(variationSeed);
   }
 
-  const content = await chatCompletion({
+  return {
     messages,
     maxTokens: getDetailLimits(settings.detail, settings.model).maxTokens,
     temperature: getLlmTemperature(settings.variation),
-    model: resolveRequestLlmModel(llm),
     extraBody,
+  };
+}
+
+export async function generateWithLlm(
+  input: string,
+  mode: PromptMode,
+  settings: GenerationSettings = DEFAULT_GENERATION_SETTINGS,
+  wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
+  variationSeed?: string,
+  avoidedTokensInstruction?: string,
+  tool?: string,
+  llm?: LlmRequestOptions,
+): Promise<string> {
+  const request = buildGenerateLlmRequest(
+    input,
+    mode,
+    settings,
+    wardrobeAssignments,
+    variationSeed,
+    avoidedTokensInstruction,
+  );
+
+  const content = await chatCompletion({
+    messages: request.messages,
+    maxTokens: request.maxTokens,
+    temperature: request.temperature,
+    model: resolveRequestLlmModel(llm),
+    extraBody: request.extraBody,
   });
 
   return finalizePromptWithSparseExpand(
@@ -854,4 +887,117 @@ export async function generatePrompt(
     resultSettings,
     wardrobeAssignments,
   );
+}
+
+export type GenerateStreamEvent =
+  | { type: "delta"; text: string }
+  | { type: "done"; result: GenerateResult }
+  | { type: "error"; message: string };
+
+/**
+ * Streaming counterpart to `generatePrompt`. Mirrors the same LLM → template
+ * fallback control flow, but yields raw text deltas as they arrive so a
+ * caller can progressively fill a UI, then finalizes with the same
+ * sanitize/format pipeline once the LLM response completes.
+ */
+export async function* generatePromptStream(
+  input: string,
+  mode: PromptMode,
+  settings: GenerationSettings = DEFAULT_GENERATION_SETTINGS,
+  options?: GeneratePromptOptions,
+): AsyncGenerator<GenerateStreamEvent, void, unknown> {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    yield { type: "error", message: "Input cannot be empty." };
+    return;
+  }
+
+  const selectedModel = resolveModelForQueueTool(settings.model, options?.tool);
+  const promptModel = resolveModelForPromptGeneration(selectedModel, options?.tool);
+  const writeSettings: GenerationSettings = {
+    ...settings,
+    model: promptModel,
+  };
+  const resultSettings: GenerationSettings = {
+    ...writeSettings,
+    model: selectedModel,
+  };
+
+  const llmEnabled = resolveRequestLlmEnabled(options?.llm);
+  const wardrobeAssignments =
+    mode === "positive"
+      ? buildGenerateWardrobeAssignments(trimmed, writeSettings, {
+          recentClothing: options?.recentClothing,
+          lockedWardrobeId: options?.lockedWardrobeId,
+          avoidedTokens: options?.avoidedTokens,
+        })
+      : null;
+
+  if (llmEnabled) {
+    try {
+      const request = buildGenerateLlmRequest(
+        trimmed,
+        mode,
+        writeSettings,
+        wardrobeAssignments,
+        options?.variationSeed,
+        options?.avoidedTokensInstruction,
+      );
+
+      let raw = "";
+      for await (const delta of chatCompletionStream({
+        messages: request.messages,
+        maxTokens: request.maxTokens,
+        temperature: request.temperature,
+        model: resolveRequestLlmModel(options?.llm),
+        extraBody: request.extraBody,
+        usageContext: { route: "generate-stream" },
+      })) {
+        raw += delta;
+        yield { type: "delta", text: delta };
+      }
+
+      const prompt = await finalizePromptWithSparseExpand(
+        raw,
+        trimmed,
+        mode,
+        writeSettings,
+        wardrobeAssignments,
+        options?.tool,
+      );
+
+      yield {
+        type: "done",
+        result: buildGenerateResult(prompt, mode, "llm", resultSettings, wardrobeAssignments),
+      };
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown LLM error";
+      const fallbackAllowed = resolveRequestTemplateFallback(options?.llm);
+
+      if (!fallbackAllowed) {
+        yield { type: "error", message };
+        return;
+      }
+
+      console.warn("[prompt-generator] LLM stream failed, using template fallback:", message);
+    }
+  }
+
+  yield {
+    type: "done",
+    result: buildGenerateResult(
+      generateWithTemplate(
+        trimmed,
+        mode,
+        writeSettings,
+        wardrobeAssignments,
+        options?.tool,
+      ),
+      mode,
+      "template",
+      resultSettings,
+      wardrobeAssignments,
+    ),
+  };
 }

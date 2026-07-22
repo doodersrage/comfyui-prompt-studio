@@ -30,6 +30,8 @@ export type ComfyGalleryEntry = {
   /** Owner account when user auth is enabled. */
   userId?: string;
   comfyUrl: string;
+  /** WebSocket client id used when queueing (for live latent previews). */
+  clientId?: string;
   status: ComfyGalleryJobStatus;
   /** Optional vision-derived tags for search/filter. */
   visionTags?: string[];

@@ -6,6 +6,9 @@ import {
   DEFAULT_HEIGHT_TOKEN,
   DEFAULT_INPUT_IMAGE_TOKEN,
   DEFAULT_MASK_IMAGE_TOKEN,
+  DEFAULT_INIT_IMAGE_TOKEN,
+  DEFAULT_VIDEO_FRAMES_TOKEN,
+  DEFAULT_VIDEO_FPS_TOKEN,
   DEFAULT_NEGATIVE_TOKEN,
   DEFAULT_POSITIVE_TOKEN,
   DEFAULT_SAMPLER_TOKEN,
@@ -86,6 +89,9 @@ export function resolveBindingTokens(
     denoise: tokens.denoise?.trim() || DEFAULT_DENOISE_TOKEN,
     inputImage: tokens.inputImage?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
     maskImage: tokens.maskImage?.trim() || DEFAULT_MASK_IMAGE_TOKEN,
+    initImage: tokens.initImage?.trim() || DEFAULT_INIT_IMAGE_TOKEN,
+    videoFrames: tokens.videoFrames?.trim() || DEFAULT_VIDEO_FRAMES_TOKEN,
+    videoFps: tokens.videoFps?.trim() || DEFAULT_VIDEO_FPS_TOKEN,
   };
 }
 

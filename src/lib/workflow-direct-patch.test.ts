@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   forceResolveLoaderPlaceholders,
+  patchIpAdapterInWorkflow,
   patchLatentSizeInWorkflow,
   patchLoadImageNodesInWorkflow,
   patchLoadImageMaskNodesInWorkflow,
@@ -10,6 +11,7 @@ import {
   patchWorkflowDirectParams,
 } from "./workflow-direct-patch.ts";
 import { DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN } from "./model-checkpoint-map.ts";
+import { DEFAULT_IPADAPTER_IMAGE_TOKEN, DEFAULT_IPADAPTER_STRENGTH_TOKEN } from "./ipadapter-workflow-patch.ts";
 
 describe("workflow direct patch", () => {
   it("does not swap Qwen T2I UNET to Edit under fp8→bf16 precision align", () => {
@@ -379,5 +381,49 @@ describe("workflow direct patch", () => {
 
     const unet = result["228"] as { inputs?: { model?: string } };
     assert.equal(unet.inputs?.model, "flux-2-klein-9b.safetensors");
+  });
+
+  it("patches IP-Adapter image/strength tokens via patchIpAdapterInWorkflow", () => {
+    const workflow = {
+      "1": { class_type: "LoadImage", inputs: { image: DEFAULT_IPADAPTER_IMAGE_TOKEN } },
+      "2": {
+        class_type: "IPAdapterAdvanced",
+        inputs: { weight: DEFAULT_IPADAPTER_STRENGTH_TOKEN },
+      },
+    };
+
+    const result = patchIpAdapterInWorkflow(workflow, {
+      ipAdapterImageFilename: "identity-ref.png",
+      ipAdapterStrength: 0.5,
+    });
+
+    const image = result.workflow["1"] as { inputs: Record<string, unknown> };
+    const adapter = result.workflow["2"] as { inputs: Record<string, unknown> };
+    assert.equal(image.inputs.image, "identity-ref.png");
+    assert.equal(adapter.inputs.weight, 0.5);
+    assert.equal(result.patched.ipAdapterImage, 1);
+    assert.equal(result.patched.ipAdapterStrength, 1);
+  });
+
+  it("wires IP-Adapter tokens through patchWorkflowDirectParams", () => {
+    const workflow = {
+      "1": { class_type: "LoadImage", inputs: { image: DEFAULT_IPADAPTER_IMAGE_TOKEN } },
+      "2": {
+        class_type: "IPAdapterModelLoader",
+        inputs: { ipadapter_file: "{{IPADAPTER_MODEL}}" },
+      },
+    };
+
+    const result = patchWorkflowDirectParams(workflow, {
+      ipAdapterImageFilename: "identity-ref.png",
+      ipAdapterModelFilename: "ip-adapter-plus_sdxl.safetensors",
+    });
+
+    const image = result.workflow["1"] as { inputs: Record<string, unknown> };
+    const loader = result.workflow["2"] as { inputs: Record<string, unknown> };
+    assert.equal(image.inputs.image, "identity-ref.png");
+    assert.equal(loader.inputs.ipadapter_file, "ip-adapter-plus_sdxl.safetensors");
+    assert.equal(result.patched.ipAdapterImage, 1);
+    assert.equal(result.patched.ipAdapterModel, 1);
   });
 });

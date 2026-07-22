@@ -14,6 +14,8 @@ export type ComfyUiJobTrackerState = {
   progressMax?: number;
   /** Active ComfyUI node id when known. */
   progressNode?: string | null;
+  /** Object URL for the latest live latent preview frame. */
+  previewUrl?: string | null;
 };
 
 export function isComfyUiJobProcessing(

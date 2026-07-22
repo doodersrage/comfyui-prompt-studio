@@ -12,12 +12,80 @@ import { requeueComfyJobFromEntry, requeueComfyJobs } from "@/lib/comfyui-requeu
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { freeComfyUiMemory, interruptComfyUiQueue } from "@/lib/comfyui-queue-control";
+import { cancelComfyGalleryJob } from "@/lib/comfyui-queue-cancel";
+import {
+  COMFY_LIVE_PREVIEW_UPDATED_EVENT,
+  getComfyLivePreviewUrl,
+} from "@/lib/comfyui-live-preview-store";
+import { comfyUiJobProgressPercent } from "@/lib/comfyui-job-status";
 
 type ComfyQueueHealth = {
   queueRunning?: number;
   queuePending?: number;
   ok?: boolean;
+  url?: string;
 };
+
+function QueueActiveJobRow({
+  entry,
+  onRetry,
+  onCancel,
+}: {
+  entry: ComfyGalleryEntry;
+  onRetry: () => void;
+  onCancel: () => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(() =>
+    getComfyLivePreviewUrl(entry.promptId),
+  );
+  const percent = comfyUiJobProgressPercent(entry);
+
+  useEffect(() => {
+    setPreviewUrl(getComfyLivePreviewUrl(entry.promptId));
+    const onPreview = (event: Event) => {
+      const detail = (event as CustomEvent<{ promptId?: string }>).detail;
+      if (detail?.promptId && detail.promptId !== entry.promptId) {
+        return;
+      }
+      setPreviewUrl(getComfyLivePreviewUrl(entry.promptId));
+    };
+    window.addEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
+    return () => {
+      window.removeEventListener(COMFY_LIVE_PREVIEW_UPDATED_EVENT, onPreview);
+    };
+  }, [entry.promptId]);
+
+  return (
+    <li className="ui-list-row items-start">
+      {previewUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={previewUrl}
+          alt=""
+          className="h-14 w-14 shrink-0 rounded-md object-cover border border-zinc-700/70"
+        />
+      ) : null}
+      <div className="ui-list-primary min-w-0 space-y-1">
+        <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
+        <p className="type-caption">
+          {entry.status}
+          {entry.queuePosition ? ` · #${entry.queuePosition}` : ""}
+          {percent != null ? ` · ${percent}%` : ""}
+          {entry.model ? ` · ${entry.model}` : ""}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button size="sm" variant="secondary" onClick={onRetry}>
+          Retry
+        </Button>
+        <Button size="sm" variant="danger" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </li>
+  );
+}
 
 export default function QueueTool() {
   const [entries, setEntries] = useState<ComfyGalleryEntry[]>([]);
@@ -73,17 +141,31 @@ export default function QueueTool() {
 
   async function interruptComfyQueue() {
     setStatus("Sending interrupt to ComfyUI…");
-    try {
-      const response = await fetch("/api/comfyui/interrupt", { method: "POST" });
-      const data = (await response.json()) as { error?: string; ok?: boolean };
-      if (!response.ok) {
-        throw new Error(data.error ?? "Interrupt failed.");
-      }
-      setStatus("ComfyUI interrupt sent.");
-      void refreshHealth();
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Interrupt failed.");
+    const result = await interruptComfyUiQueue(queueHealth?.url);
+    if (!result.ok) {
+      setStatus(result.error ?? "Interrupt failed.");
+      return;
     }
+    setStatus("ComfyUI interrupt sent.");
+    void refreshHealth();
+  }
+
+  async function freeComfyVram() {
+    setStatus("Freeing ComfyUI VRAM…");
+    const result = await freeComfyUiMemory(queueHealth?.url);
+    if (!result.ok) {
+      setStatus(result.error ?? "Free VRAM failed.");
+      return;
+    }
+    setStatus("ComfyUI VRAM freed.");
+    void refreshHealth();
+  }
+
+  async function cancelJob(entry: ComfyGalleryEntry) {
+    setStatus(`Cancelling ${entry.promptId || "job"}…`);
+    const result = await cancelComfyGalleryJob(entry);
+    setStatus(result.ok ? "Job cancelled." : result.error ?? "Cancel failed.");
+    refreshEntries();
   }
 
   async function retryFailed() {
@@ -134,6 +216,9 @@ export default function QueueTool() {
               Interrupt queue
             </Button>
           ) : null}
+          <Button size="sm" variant="secondary" onClick={() => void freeComfyVram()}>
+            Free VRAM
+          </Button>
         </div>
       ) : (
         <ErrorState
@@ -166,40 +251,30 @@ export default function QueueTool() {
         ) : (
           <ul className="ui-list">
             {pending.map((entry) => (
-              <li key={entry.id} className="ui-list-row items-start">
-                <div className="ui-list-primary min-w-0 space-y-1">
-                  <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
-                  <p className="type-caption">
-                    {entry.status}
-                    {entry.queuePosition ? ` · #${entry.queuePosition}` : ""} · {entry.model}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    void requeueComfyJobFromEntry(entry).then((result) => {
-                      if (result.ok) {
-                        markOnboardingFirstQueue();
-                        toastQueueOutcome({
-                          ok: true,
-                          text: result.promptId
-                            ? `Retry queued · ${result.promptId}`
-                            : "Retry queued",
-                        });
-                      } else {
-                        toastQueueOutcome({
-                          ok: false,
-                          text: result.error ?? "Retry failed.",
-                        });
-                      }
-                      refreshEntries();
-                    });
-                  }}
-                >
-                  Retry
-                </Button>
-              </li>
+              <QueueActiveJobRow
+                key={entry.id}
+                entry={entry}
+                onRetry={() => {
+                  void requeueComfyJobFromEntry(entry).then((result) => {
+                    if (result.ok) {
+                      markOnboardingFirstQueue();
+                      toastQueueOutcome({
+                        ok: true,
+                        text: result.promptId
+                          ? `Retry queued · ${result.promptId}`
+                          : "Retry queued",
+                      });
+                    } else {
+                      toastQueueOutcome({
+                        ok: false,
+                        text: result.error ?? "Retry failed.",
+                      });
+                    }
+                    refreshEntries();
+                  });
+                }}
+                onCancel={() => void cancelJob(entry)}
+              />
             ))}
           </ul>
         )}

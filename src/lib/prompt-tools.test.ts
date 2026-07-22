@@ -1676,6 +1676,56 @@ describe("character identity bundle", () => {
     assert.equal(parsed.name, "Night courier");
     assert.equal(parsed.lockedLocation, "neon alley");
   });
+
+  it("carries descriptor, LoRA triggers, and IP-Adapter ref settings", async () => {
+    const { applyCharacterIdentityBundle, buildCharacterIdentityBundle } =
+      await import("./character-identity-bundle");
+    const bundle = buildCharacterIdentityBundle({
+      name: "Courier bundle",
+      shared: {
+        model: "qwen-image-2512",
+        detail: "balanced",
+        activeCharacterDescriptor: "tall courier, silver jacket",
+        ipAdapterImageFilename: "courier-ref.png",
+        ipAdapterStrength: 0.55,
+        ipAdapterModelFilename: "ip-adapter-plus.safetensors",
+      },
+      loraTriggerPhrases: ["courierlora", ""],
+    });
+    assert.equal(bundle.descriptor, "tall courier, silver jacket");
+    assert.equal(bundle.ipAdapterImageFilename, "courier-ref.png");
+    assert.equal(bundle.ipAdapterStrength, 0.55);
+    assert.deepEqual(bundle.loraTriggerPhrases, ["courierlora"]);
+
+    const patch = applyCharacterIdentityBundle(bundle);
+    assert.equal(patch.activeCharacterDescriptor, "tall courier, silver jacket");
+    assert.equal(patch.ipAdapterModelFilename, "ip-adapter-plus.safetensors");
+  });
+
+  it("upserts and removes saved identity bundles by name (case-insensitive)", async () => {
+    const { buildCharacterIdentityBundle } = await import("./character-identity-bundle");
+    const { upsertSavedIdentityBundle, removeSavedIdentityBundle } = await import(
+      "./settings-cache"
+    );
+    const first = buildCharacterIdentityBundle({
+      name: "Courier",
+      shared: { model: "qwen-image-2512", detail: "balanced" },
+    });
+    const updated = buildCharacterIdentityBundle({
+      name: "COURIER",
+      shared: { model: "flux-2-klein", detail: "rich" },
+    });
+
+    const afterFirst = upsertSavedIdentityBundle(undefined, first);
+    assert.equal(afterFirst.length, 1);
+
+    const afterUpdate = upsertSavedIdentityBundle(afterFirst, updated);
+    assert.equal(afterUpdate.length, 1);
+    assert.equal(afterUpdate[0]?.model, "flux-2-klein");
+
+    const afterRemove = removeSavedIdentityBundle(afterUpdate, "courier");
+    assert.equal(afterRemove.length, 0);
+  });
 });
 
 describe("batch lint helpers", () => {

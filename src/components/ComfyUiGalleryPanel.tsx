@@ -56,6 +56,7 @@ import {
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
 import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, bulkRefineGalleryEntries, bulkMoireCleanGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry, requeueMoireCleanFromGalleryEntry } from "@/lib/comfyui-requeue";
+import { cancelComfyGalleryJob } from "@/lib/comfyui-queue-cancel";
 import {
   buildGalleryLineageGroups,
   galleryLineageGroupingEnabled,
@@ -195,6 +196,7 @@ export default function ComfyUiGalleryPanel({
     remove: () => undefined,
     toggleFavorite: () => undefined,
     requeue: () => undefined,
+    cancel: () => undefined,
     upscale: () => undefined,
     refine: () => undefined,
     moireClean: () => undefined,
@@ -684,6 +686,23 @@ export default function ComfyUiGalleryPanel({
               .join(" · ");
           setRequeueStatus(message);
           toastQueueOutcome({ ok: true, text: message });
+        });
+      },
+      cancel: (id: string) => {
+        const entry = entriesRef.current.find((item) => item.id === id);
+        if (!entry) {
+          return;
+        }
+        setRequeueStatus("Cancelling job…");
+        void cancelComfyGalleryJob(entry).then((result) => {
+          if (!result.ok) {
+            const message = result.error ?? "Cancel failed.";
+            setRequeueStatus(message);
+            toastQueueOutcome({ ok: false, text: message });
+            return;
+          }
+          setRequeueStatus("Job cancelled.");
+          toastQueueOutcome({ ok: true, text: "Job cancelled" });
         });
       },
       upscale: (

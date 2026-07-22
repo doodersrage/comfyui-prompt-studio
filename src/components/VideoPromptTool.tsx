@@ -30,6 +30,9 @@ export default function VideoPromptTool() {
   const camera = toolSettings.camera ?? "";
   const style = toolSettings.style ?? "";
   const durationSec = toolSettings.durationSec ?? 4;
+  const initImageUrl = toolSettings.initImageUrl ?? "";
+  const frames = toolSettings.frames;
+  const fps = toolSettings.fps;
 
   const rememberVideoDraft = useCallback(
     (next: {
@@ -83,6 +86,18 @@ export default function VideoPromptTool() {
   );
   const setDurationSec = useCallback(
     (value: number) => updateToolSettings({ durationSec: value }),
+    [updateToolSettings],
+  );
+  const setInitImageUrl = useCallback(
+    (value: string) => updateToolSettings({ initImageUrl: value }),
+    [updateToolSettings],
+  );
+  const setFrames = useCallback(
+    (value: number | undefined) => updateToolSettings({ frames: value }),
+    [updateToolSettings],
+  );
+  const setFps = useCallback(
+    (value: number | undefined) => updateToolSettings({ fps: value }),
     [updateToolSettings],
   );
 
@@ -233,6 +248,63 @@ export default function VideoPromptTool() {
           className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
         />
 
+        <FieldLabel
+          htmlFor="video-init-image"
+          hint="Filename already on ComfyUI, or a fetchable image URL — patched into {{INIT_IMAGE}} for I2V workflows."
+        >
+          Init image (optional, I2V)
+        </FieldLabel>
+        <input
+          id="video-init-image"
+          value={initImageUrl}
+          onChange={(event) => setInitImageUrl(event.target.value)}
+          placeholder="https://… or an uploaded ComfyUI filename"
+          className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <FieldLabel
+              htmlFor="video-frames"
+              hint="Patched into {{VIDEO_FRAMES}} (e.g. EmptyHunyuanLatentVideo length)."
+            >
+              Frames / length (optional)
+            </FieldLabel>
+            <input
+              id="video-frames"
+              type="number"
+              min={1}
+              max={480}
+              value={frames ?? ""}
+              onChange={(event) =>
+                setFrames(event.target.value ? Number(event.target.value) : undefined)
+              }
+              placeholder="e.g. 81"
+              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+            />
+          </div>
+          <div>
+            <FieldLabel
+              htmlFor="video-fps"
+              hint="Patched into {{VIDEO_FPS}} (e.g. SaveAnimatedWEBP fps)."
+            >
+              FPS (optional)
+            </FieldLabel>
+            <input
+              id="video-fps"
+              type="number"
+              min={1}
+              max={60}
+              value={fps ?? ""}
+              onChange={(event) =>
+                setFps(event.target.value ? Number(event.target.value) : undefined)
+              }
+              placeholder="e.g. 16"
+              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+            />
+          </div>
+        </div>
+
         <PrimaryButton
           accentClassName={accentButtonClass(ACCENT)}
           onClick={() => void generate()}
@@ -258,7 +330,18 @@ export default function VideoPromptTool() {
           onCopy={() => void copyOutput()}
           onOutputChange={setOutput}
           onSaveHistory={() => actions.saveHistory({ prompt: output, hints: motion })}
-          onSendComfyUi={() => void actions.sendComfyUi(output)}
+          onSendComfyUi={() => {
+            const initImage = initImageUrl.trim();
+            const initImageIsUrl = /^https?:\/\//i.test(initImage);
+            void actions.sendComfyUi(output, null, undefined, {
+              inputImageUrl: initImageIsUrl ? initImage : undefined,
+              inputImageFilename: !initImageIsUrl && initImage ? initImage : undefined,
+              queueParamsBase: {
+                ...(frames ? { videoFrames: frames } : {}),
+                ...(fps ? { videoFps: fps } : {}),
+              },
+            });
+          }}
           onExportSidecar={() =>
             actions.exportSidecar(output, { metadata: { hints: motion } })
           }

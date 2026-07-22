@@ -8,6 +8,9 @@ import {
   DEFAULT_HEIGHT_TOKEN,
   DEFAULT_INPUT_IMAGE_TOKEN,
   DEFAULT_MASK_IMAGE_TOKEN,
+  DEFAULT_INIT_IMAGE_TOKEN,
+  DEFAULT_VIDEO_FRAMES_TOKEN,
+  DEFAULT_VIDEO_FPS_TOKEN,
   DEFAULT_NEGATIVE_TOKEN,
   DEFAULT_POSITIVE_TOKEN,
   DEFAULT_SAMPLER_TOKEN,
@@ -21,15 +24,12 @@ import {
   type WorkflowPlaceholderTokens,
 } from "./comfyui-config";
 import { readBrowserValue, removeBrowserKey, writeBrowserValue } from "./browser-storage";
+import { normalizeLoraLibrary } from "./lora-stack";
+import type { LoraLibraryEntry } from "./lora-stack";
 
 export const COMFYUI_SETTINGS_KEY = "comfyui-settings-v4";
 
-export type LoraLibraryEntry = {
-  id: string;
-  label: string;
-  triggerPhrase: string;
-  tokenValue: string;
-};
+export type { LoraLibraryEntry };
 
 export type ComfyUiSettings = {
   useServerDefaults: boolean;
@@ -127,6 +127,9 @@ export function migrateOrphanLoraTokensToLibrary(
         label: loraId,
         triggerPhrase: "",
         tokenValue: filename,
+        strengthModel: 1,
+        strengthClip: 1,
+        enabled: true,
       });
       knownIds.add(loraId);
       changed = true;
@@ -143,7 +146,7 @@ export function migrateOrphanLoraTokensToLibrary(
 
   return {
     ...settings,
-    loraLibrary: library,
+    loraLibrary: normalizeLoraLibrary(library),
     customTokens: manualTokens,
   };
 }
@@ -196,6 +199,9 @@ export function syncLightningLoraLibraryEntry(filename: string): void {
       label: "Lightning",
       triggerPhrase: "",
       tokenValue: trimmed,
+      strengthModel: 1,
+      strengthClip: 1,
+      enabled: true,
     });
   }
   saveComfyUiSettings({
@@ -223,7 +229,7 @@ function migrateLegacySettings(
       workflowJson: parsed.workflowJson ?? "",
       queueParams: parsed.queueParams ?? DEFAULT_COMFYUI_SETTINGS.queueParams,
       customTokens: parsed.customTokens ?? [],
-      loraLibrary: parsed.loraLibrary ?? [],
+      loraLibrary: normalizeLoraLibrary(parsed.loraLibrary),
       notifyOnComplete: parsed.notifyOnComplete ?? false,
       autoVisionTags: parsed.autoVisionTags ?? true,
     };
@@ -240,10 +246,14 @@ export function loadComfyUiSettings(): ComfyUiSettings {
   try {
     const current = readBrowserValue<Partial<ComfyUiSettings>>(COMFYUI_SETTINGS_KEY);
     if (current) {
-      return migrateOrphanLoraTokensToLibrary({
+      const migrated = migrateOrphanLoraTokensToLibrary({
         ...DEFAULT_COMFYUI_SETTINGS,
         ...current,
       });
+      return {
+        ...migrated,
+        loraLibrary: normalizeLoraLibrary(migrated.loraLibrary),
+      };
     }
 
     for (const legacyKey of LEGACY_SETTINGS_KEYS) {
@@ -268,7 +278,11 @@ export function saveComfyUiSettings(settings: ComfyUiSettings): void {
     return;
   }
 
-  writeBrowserValue(COMFYUI_SETTINGS_KEY, settings);
+  const normalized: ComfyUiSettings = {
+    ...settings,
+    loraLibrary: normalizeLoraLibrary(settings.loraLibrary),
+  };
+  writeBrowserValue(COMFYUI_SETTINGS_KEY, normalized);
   for (const legacyKey of LEGACY_SETTINGS_KEYS) {
     removeBrowserKey(legacyKey);
   }
@@ -292,17 +306,22 @@ export function comfyUiSettingsToRuntime(
   // server preview/queue can resolve {{LORA_LIGHTNING}} even with useServerDefaults.
   const merged = mergeLoraLibraryIntoCustomTokens(settings);
   const customTokens = merged.customTokens?.length ? merged.customTokens : undefined;
+  // Strengths/enabled/order can't be encoded as {{LORA_*}} custom tokens — forward the
+  // normalized library itself so queue-time LoRA stacking survives the client→server hop.
+  const loraLibrary = normalizeLoraLibrary(settings.loraLibrary);
 
   if (settings.useServerDefaults) {
     return stripEmptyComfyUiRuntime({
       customTokens,
       queueParams: settings.queueParams,
+      loraLibrary,
     });
   }
 
   return stripEmptyComfyUiRuntime({
     apiUrl: settings.apiUrl,
     workflowJson: settings.workflowJson,
+    loraLibrary,
     positiveToken:
       settings.positiveToken === DEFAULT_POSITIVE_TOKEN
         ? undefined
@@ -335,5 +354,8 @@ export function placeholderTokensFromSettings(
     denoise: DEFAULT_DENOISE_TOKEN,
     inputImage: DEFAULT_INPUT_IMAGE_TOKEN,
     maskImage: DEFAULT_MASK_IMAGE_TOKEN,
+    initImage: DEFAULT_INIT_IMAGE_TOKEN,
+    videoFrames: DEFAULT_VIDEO_FRAMES_TOKEN,
+    videoFps: DEFAULT_VIDEO_FPS_TOKEN,
   };
 }

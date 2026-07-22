@@ -24,8 +24,9 @@ export function apiError(
   message: string,
   status: number,
   extra?: Record<string, unknown>,
+  headers?: HeadersInit,
 ) {
-  return apiJson({ error: message, ...extra }, { status });
+  return apiJson({ error: message, ...extra }, { status, headers });
 }
 
 export function apiMethodNotAllowed(allowed: string[], path: string) {

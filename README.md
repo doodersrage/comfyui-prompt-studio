@@ -35,6 +35,7 @@ Video, audio, and 3D-only architectures (WAN, Hunyuan Video, Stable Audio, etc.)
 | **Background** | `/background` | Environment-only prompt with no people |
 | **Image → Prompt** | `/image-prompt` | Upload an image; vision LLM writes the prompt |
 | **Inpaint** | `/inpaint` | Mask a region and queue FLUX/Qwen inpaint with `{{INPUT_IMAGE}}` / `{{MASK_IMAGE}}` |
+| **Video** | `/video` | Motion/camera prompts for WAN / Hunyuan Video; optional init image + `{{VIDEO_FRAMES}}` / `{{VIDEO_FPS}}` / `{{INIT_IMAGE}}` for I2V workflows |
 | **Negative** | `/negative` | Sport-aware negative/preserve prompts for SD models |
 | **Studio** | `/studio` | History, iteration tree, projects, compare, portfolio, campaign, analytics, catalog, templates |
 | **Lint** | `/lint` | Paste prompts for diagnostics, fix, compact, reformat |
@@ -225,7 +226,9 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Hold Max until idle** — optional park for Max Generate / re-queue / Upscale / Moiré / Refine / batches until ComfyUI is empty; flush from Orchestration
 - **Sampler memory** — 4–5★ gallery ratings remember per-model CFG/steps/sampler/scheduler (Settings → Sampler memory)
 - **Server storage pull** — Settings advanced panel restores server namespaces into the app database
-- **IP-Adapter multi-ref merge** — Image tool roles + per-reference strength influence (`/api/image-prompt/multi`)
+- **IP-Adapter multi-ref merge** — Image tool roles + per-reference strength influence (`/api/image-prompt/multi`). This is a **prompt-merge** tool: reference images are described by a vision LLM and blended into the text prompt — no ComfyUI IP-Adapter nodes involved.
+- **Portable IP-Adapter tokens** — Settings → ComfyUI → "IP-Adapter identity reference" sets a session-wide reference image/strength/optional model that's patched directly onto a workflow's ComfyUI IP-Adapter nodes at queue time via `{{IPADAPTER_IMAGE}}` / `{{IPADAPTER_STRENGTH}}` / `{{IPADAPTER_MODEL}}` tokens (see `src/lib/ipadapter-workflow-patch.ts`). Use this when your workflow file actually has IPAdapter loader/apply nodes; use the multi-ref merge above when it doesn't.
+- **Character identity bundles with saved list** — Studio → Character identity bundles now also saves to a browser-local list (descriptor, LoRA trigger phrases, IP-Adapter ref) alongside the existing JSON export/import, for quick apply without a file round-trip.
 - **ControlNet from image** — upload reference for vision-assisted structure extraction on `/controlnet`
 - **Token / weight inspector** — `(tag:1.2)` analysis on Lint, Format, and result panels
 - **Low-rating refine loop** — 1–2★ gallery ratings open Refine with corrective intent automatically
@@ -373,6 +376,16 @@ Target model + tool → resolveRuntimeForQueue
 ### Placeholders
 
 Standard tokens: `{{POSITIVE}}`, `{{NEGATIVE}}`, `{{SEED}}`, `{{WIDTH}}`, `{{HEIGHT}}`, `{{CFG}}`, `{{STEPS}}`, `{{DENOISE}}`, `{{INPUT_IMAGE}}`, `{{MASK_IMAGE}}`.
+
+Video tokens (WAN Video / Hunyuan Video, patched from the **Video** tool's optional init image + frames/FPS fields):
+
+| Token | Typical target |
+|-------|-----------------|
+| `{{INIT_IMAGE}}` | `LoadImage` feeding an I2V node's start-frame input — resolves to the same uploaded/fetched filename as `{{INPUT_IMAGE}}` |
+| `{{VIDEO_FRAMES}}` | Frame count / length, e.g. `EmptyHunyuanLatentVideo.length` |
+| `{{VIDEO_FPS}}` | Output frame rate, e.g. `SaveAnimatedWEBP.fps` |
+
+These are only injected when the Video tool has a value for that field — add them to your library workflow's nodes and they'll be patched at queue time like any other placeholder. **Scaffold for model** in the workflow library builds a starter WAN/Hunyuan Video graph with all three wired in when `wan-video` / `hunyuan-video` is the selected model.
 
 Loader / upscale tokens (patched directly even when placeholders are missing, when **Direct workflow patching** is enabled):
 

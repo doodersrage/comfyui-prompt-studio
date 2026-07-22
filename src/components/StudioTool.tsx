@@ -13,7 +13,11 @@ import {
   usePromptHistory,
   type PromptHistoryEntry,
 } from "@/hooks/usePromptHistory";
-import { DEFAULT_STUDIO_TOOL_CACHE } from "@/lib/settings-cache";
+import {
+  DEFAULT_STUDIO_TOOL_CACHE,
+  removeSavedIdentityBundle,
+  upsertSavedIdentityBundle,
+} from "@/lib/settings-cache";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { toastBulkQueueSummary, toastHeldMax, toastQueueOutcome } from "@/lib/app-toast";
 import {
@@ -236,6 +240,7 @@ export default function StudioTool() {
   const [visualA, setVisualA] = useState<VisualCompareResult | null>(null);
   const [visualB, setVisualB] = useState<VisualCompareResult | null>(null);
   const [identityBundleName, setIdentityBundleName] = useState("");
+  const [identityBundleLoraTriggers, setIdentityBundleLoraTriggers] = useState("");
   const [blocklist, setBlocklist] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
@@ -535,6 +540,31 @@ export default function StudioTool() {
       }
     });
   }, []);
+
+  const applyIdentityBundle = useCallback(
+    (bundle: import("@/lib/character-identity-bundle").CharacterIdentityBundle) => {
+      const patch = applyCharacterIdentityBundle(bundle);
+      updateShared({
+        model: patch.model ?? shared.model,
+        detail: patch.detail ?? shared.detail,
+        lockedWardrobeId: patch.lockedWardrobeId,
+        lockedLocation: patch.lockedLocation,
+        lockedVariationSeed: patch.lockedVariationSeed,
+        alwaysIncludeClothing: patch.alwaysIncludeClothing,
+        activeCharacterDescriptor: patch.activeCharacterDescriptor,
+        ipAdapterImageFilename: patch.ipAdapterImageFilename,
+        ipAdapterStrength: patch.ipAdapterStrength,
+        ipAdapterModelFilename: patch.ipAdapterModelFilename,
+      });
+      if (patch.hints) {
+        setCompareHints(patch.hints);
+        setPresetHints(patch.hints);
+      }
+      setIdentityBundleName(bundle.name);
+      setIdentityBundleLoraTriggers((bundle.loraTriggerPhrases ?? []).join(", "));
+    },
+    [shared.detail, shared.model, updateShared],
+  );
 
   const selectStudioTab = useCallback((next: StudioTab) => {
     setTab(next);
@@ -2941,12 +2971,20 @@ export default function StudioTool() {
           <div className="space-y-3 border-t border-zinc-800 pt-4">
             <p className="text-sm font-medium text-zinc-200">Character identity bundles</p>
             <p className="text-xs text-zinc-500">
-              Export/import reusable character sheets with locks, hints, and negative profile ids.
+              Export/import — or save to a browser-local list — reusable character sheets:
+              locks, hints, pinned descriptor, LoRA trigger phrases, and a portable
+              IP-Adapter reference (image/strength/model — see Settings → ComfyUI).
             </p>
             <input
               value={identityBundleName}
               onChange={(event) => setIdentityBundleName(event.target.value)}
               placeholder="Character name"
+              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+            />
+            <input
+              value={identityBundleLoraTriggers}
+              onChange={(event) => setIdentityBundleLoraTriggers(event.target.value)}
+              placeholder="LoRA trigger phrases, comma separated (optional)"
               className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
             />
             <div className="flex flex-wrap gap-2">
@@ -2959,11 +2997,39 @@ export default function StudioTool() {
                       name: identityBundleName,
                       shared,
                       hints: presetHints || compareHints,
+                      loraTriggerPhrases: identityBundleLoraTriggers
+                        .split(",")
+                        .map((entry) => entry.trim())
+                        .filter(Boolean),
                     }),
                   )
                 }
               >
                 Export bundle
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={!identityBundleName.trim()}
+                onClick={() => {
+                  const bundle = buildCharacterIdentityBundle({
+                    name: identityBundleName,
+                    shared,
+                    hints: presetHints || compareHints,
+                    loraTriggerPhrases: identityBundleLoraTriggers
+                      .split(",")
+                      .map((entry) => entry.trim())
+                      .filter(Boolean),
+                  });
+                  updateToolSettings({
+                    savedIdentityBundles: upsertSavedIdentityBundle(
+                      toolSettings.savedIdentityBundles,
+                      bundle,
+                    ),
+                  });
+                  setBackupStatus(`Saved identity bundle “${bundle.name}” to your list.`);
+                }}
+              >
+                Save to list
               </Button>
               <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">
                 Import bundle
@@ -2978,20 +3044,7 @@ export default function StudioTool() {
                     }
                     void file.text().then((raw) => {
                       const bundle = parseCharacterIdentityBundle(raw);
-                      const patch = applyCharacterIdentityBundle(bundle);
-                      updateShared({
-                        model: patch.model ?? shared.model,
-                        detail: patch.detail ?? shared.detail,
-                        lockedWardrobeId: patch.lockedWardrobeId,
-                        lockedLocation: patch.lockedLocation,
-                        lockedVariationSeed: patch.lockedVariationSeed,
-                        alwaysIncludeClothing: patch.alwaysIncludeClothing,
-                      });
-                      if (patch.hints) {
-                        setCompareHints(patch.hints);
-                        setPresetHints(patch.hints);
-                      }
-                      setIdentityBundleName(bundle.name);
+                      applyIdentityBundle(bundle);
                       setBackupStatus(`Imported identity bundle “${bundle.name}”.`);
                     }).catch((err) => {
                       setBackupStatus(
@@ -3002,6 +3055,61 @@ export default function StudioTool() {
                 />
               </label>
             </div>
+            {(toolSettings.savedIdentityBundles ?? []).length > 0 ? (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Saved bundles ({(toolSettings.savedIdentityBundles ?? []).length})
+                </p>
+                <DataList scrollable={false}>
+                  {(toolSettings.savedIdentityBundles ?? []).map((bundle) => (
+                    <DataListRow key={bundle.name} className="!items-start !py-3">
+                      <DataListPrimary
+                        title={bundle.name}
+                        subtitle={
+                          [
+                            bundle.model,
+                            bundle.loraTriggerPhrases?.length
+                              ? `${bundle.loraTriggerPhrases.length} LoRA trigger(s)`
+                              : null,
+                            bundle.ipAdapterImageFilename ? "IP-Adapter ref" : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || undefined
+                        }
+                      />
+                      <div className="ui-list-actions">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="type-caption"
+                          onClick={() => {
+                            applyIdentityBundle(bundle);
+                            setBackupStatus(`Applied identity bundle “${bundle.name}”.`);
+                          }}
+                        >
+                          Apply
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          className="type-caption"
+                          onClick={() =>
+                            updateToolSettings({
+                              savedIdentityBundles: removeSavedIdentityBundle(
+                                toolSettings.savedIdentityBundles,
+                                bundle.name,
+                              ),
+                            })
+                          }
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </DataListRow>
+                  ))}
+                </DataList>
+              </div>
+            ) : null}
           </div>
 
           {scenePresets.length === 0 ? (
