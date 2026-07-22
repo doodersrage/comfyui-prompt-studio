@@ -1,8 +1,10 @@
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
 
+export type AestheticScoreMethod = "heuristic" | "vision" | "embedding";
+
 export type AestheticScoreResult = {
   score: number;
-  method: "heuristic" | "embedding";
+  method: AestheticScoreMethod;
   notes: string[];
 };
 
@@ -34,4 +36,10 @@ export function scoreGalleryEntryHeuristic(entry: ComfyGalleryEntry): AestheticS
     method: "heuristic",
     notes,
   };
+}
+
+/** Map a 1–5 vision rating onto the 0–100 aesthetic scale. */
+export function aestheticScoreFromVisionRating(rating: number): number {
+  const clamped = Math.min(5, Math.max(1, Math.round(rating)));
+  return clamped * 20;
 }

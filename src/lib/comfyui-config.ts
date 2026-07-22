@@ -1306,6 +1306,9 @@ export function injectPromptsWithFallbacks(
       model: options?.model,
       loraLibrary: options?.loraLibrary,
     });
+    if (directPatch.error) {
+      throw new Error(directPatch.error);
+    }
     nextWorkflow = directPatch.workflow;
     directPatchCounts = directPatch.patched;
   } else if (loaders.checkpoint || loaders.unet || loaders.vae) {

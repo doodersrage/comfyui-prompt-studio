@@ -582,10 +582,27 @@ describe("video I2V auto-wiring (patchVideoImageToVideoWiringInWorkflow)", () =>
     });
 
     assert.equal(result.patched.videoImageToVideoWired, undefined);
+    assert.equal(result.error, undefined);
     assert.deepEqual(
       (result.workflow["5"] as AnyNode).inputs?.latent_image,
       ["4", 0],
     );
+  });
+
+  it("hard-fails when a video model has an init image but the graph cannot be I2V-wired", () => {
+    const workflow = {
+      "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "wan.safetensors" } },
+      // Missing LoadImage + latent video + VAEDecode chain
+      "2": { class_type: "CLIPTextEncode", inputs: { text: "pos", clip: ["1", 1] } },
+    };
+
+    const result = patchVideoImageToVideoWiringInWorkflow(workflow, {
+      model: "wan-video",
+      inputImageFilename: "start-frame.png",
+    });
+
+    assert.equal(result.patched.videoImageToVideoWired, undefined);
+    assert.match(result.error ?? "", /I2V could not be wired/i);
   });
 
   it("respects an already-wired custom WanImageToVideo graph instead of double-wiring", () => {

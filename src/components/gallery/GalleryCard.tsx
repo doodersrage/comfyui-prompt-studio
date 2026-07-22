@@ -12,7 +12,10 @@ import {
   saveGalleryHandoff,
 } from "@/lib/gallery-handoff";
 import { startImproveFromGalleryEntry, startInpaintFromGalleryEntry } from "@/lib/improve-output";
-import { scoreGalleryEntryHeuristic } from "@/lib/aesthetic-score";
+import {
+  scoreGalleryEntryHeuristic,
+  type AestheticScoreResult,
+} from "@/lib/aesthetic-score";
 import {
   downloadGalleryImage,
   downloadGallerySidecar,
@@ -159,7 +162,7 @@ export default function GalleryCard({
     setHeroLoaded(false);
   }, [previewUrl]);
 
-  const aestheticScore = useMemo(
+  const heuristicScore = useMemo(
     () => scoreGalleryEntryHeuristic(entry),
     [
       entry.id,
@@ -169,6 +172,66 @@ export default function GalleryCard({
       entry.prompt.length,
     ],
   );
+  const [aestheticScore, setAestheticScore] =
+    useState<AestheticScoreResult>(heuristicScore);
+  const [aestheticBusy, setAestheticBusy] = useState(false);
+
+  useEffect(() => {
+    setAestheticScore(heuristicScore);
+  }, [heuristicScore]);
+
+  const scoreWithVision = async () => {
+    if (!previewUrl || aestheticBusy || entry.status !== "completed") {
+      return;
+    }
+    setAestheticBusy(true);
+    try {
+      const imageResponse = await fetch(previewUrl);
+      if (!imageResponse.ok) {
+        throw new Error("Could not load preview for vision scoring.");
+      }
+      const blob = await imageResponse.blob();
+      const imageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? ""));
+        reader.onerror = () => reject(new Error("Could not encode preview."));
+        reader.readAsDataURL(blob);
+      });
+      const response = await fetch("/api/aesthetic/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          method: "vision",
+          imageDataUrl,
+          prompt: entry.prompt,
+          model: entry.model,
+          tool: entry.tool,
+          status: entry.status,
+          favorite: entry.favorite,
+          reviewRating: entry.reviewRating,
+          images: entry.images,
+          comfyUrl: entry.comfyUrl,
+          promptId: entry.promptId,
+          id: entry.id,
+        }),
+      });
+      const data = (await response.json()) as AestheticScoreResult & {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Aesthetic score failed.");
+      }
+      setAestheticScore({
+        score: data.score,
+        method: data.method,
+        notes: data.notes ?? [],
+      });
+    } catch {
+      setAestheticScore(heuristicScore);
+    } finally {
+      setAestheticBusy(false);
+    }
+  };
 
   useLayoutEffect(() => {
     if (!menuOpen) {
@@ -396,12 +459,22 @@ export default function GalleryCard({
               </span>
             ) : null}
             {entry.status === "completed" && !entry.reviewRating ? (
-              <span
-                className="rounded-full border border-zinc-700/60 bg-zinc-950/70 px-2 py-0.5 text-[10px] text-zinc-400 backdrop-blur-sm"
-                title={aestheticScore.notes.join(" · ")}
+              <button
+                type="button"
+                disabled={!previewUrl || aestheticBusy}
+                onClick={() => void scoreWithVision()}
+                className="pointer-events-auto rounded-full border border-zinc-700/60 bg-zinc-950/70 px-2 py-0.5 text-[10px] text-zinc-400 backdrop-blur-sm transition hover:border-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98] disabled:opacity-50"
+                title={
+                  aestheticScore.notes.join(" · ") ||
+                  "Click to score with vision LLM (falls back to heuristic)"
+                }
               >
-                {aestheticScore.score}
-              </span>
+                {aestheticBusy
+                  ? "…"
+                  : `${aestheticScore.score}${
+                      aestheticScore.method === "vision" ? "★" : ""
+                    }`}
+              </button>
             ) : null}
           </div>
 

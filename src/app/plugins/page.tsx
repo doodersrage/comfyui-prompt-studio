@@ -41,7 +41,7 @@ export default function PluginsPage() {
       accent="violet"
       badge={<ToolBadge accent="violet">Tools</ToolBadge>}
       title="Plugins"
-      description="Built-in and custom tool entries for extending the prompt studio navigation."
+      description="Nav bookmarks for built-in tools plus custom localStorage entries. This is not a runnable plugin runtime — entries are hrefs opened in the app shell."
     >
       <ToolSection title="Registered tools">
         <ul className="ui-list">

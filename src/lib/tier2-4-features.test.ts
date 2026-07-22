@@ -106,6 +106,13 @@ describe("aesthetic score", () => {
     const score = scoreGalleryEntryHeuristic(entry);
     assert.ok(score.score >= 90);
   });
+
+  it("maps vision ratings onto the 0–100 scale", async () => {
+    const { aestheticScoreFromVisionRating } = await import("./aesthetic-score.ts");
+    assert.equal(aestheticScoreFromVisionRating(5), 100);
+    assert.equal(aestheticScoreFromVisionRating(1), 20);
+    assert.equal(aestheticScoreFromVisionRating(3.4), 60);
+  });
 });
 
 describe("project bundle", () => {

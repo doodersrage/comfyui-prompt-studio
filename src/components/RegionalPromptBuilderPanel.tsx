@@ -40,7 +40,9 @@ export default function RegionalPromptBuilderPanel({
     <div className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
       <p className="text-sm text-zinc-300">Regional prompt builder</p>
       <p className="text-xs text-zinc-500">
-        Compose subject/background/lighting segments or build an inpaint instruction.
+        Text composer for labeled subject/background/lighting segments (or an
+        inpaint instruction). This does not wire ComfyUI regional/attention-mask
+        nodes — it only builds prompt text.
       </p>
 
       {DEFAULT_REGIONAL_REGIONS.map((region) => {

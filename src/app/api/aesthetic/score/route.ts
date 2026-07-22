@@ -1,12 +1,18 @@
 import { scoreGalleryEntryHeuristic } from "@/lib/aesthetic-score";
+import { scoreGalleryEntryVision } from "@/lib/aesthetic-score-vision";
 import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 
 export const runtime = "nodejs";
 
+type AestheticScoreBody = Partial<ComfyGalleryEntry> & {
+  method?: "heuristic" | "vision";
+  imageDataUrl?: string;
+};
+
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as Partial<ComfyGalleryEntry>;
+    const body = (await request.json()) as AestheticScoreBody;
     if (!body.prompt?.trim()) {
       return apiError("prompt is required.", 400);
     }
@@ -28,6 +34,27 @@ export async function POST(request: Request) {
       historyId: body.historyId,
       queueParams: body.queueParams,
     };
+
+    if (body.method === "vision" && body.imageDataUrl?.trim()) {
+      try {
+        const vision = await scoreGalleryEntryVision({
+          entry,
+          imageDataUrl: body.imageDataUrl.trim(),
+        });
+        return apiJson(vision);
+      } catch (error) {
+        const fallback = scoreGalleryEntryHeuristic(entry);
+        return apiJson({
+          ...fallback,
+          notes: [
+            `Vision scoring failed — used heuristic (${
+              error instanceof Error ? error.message : "unknown error"
+            })`,
+            ...fallback.notes,
+          ],
+        });
+      }
+    }
 
     return apiJson(scoreGalleryEntryHeuristic(entry));
   } catch (error) {

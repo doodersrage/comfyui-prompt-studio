@@ -193,7 +193,7 @@ export default function VideoPromptTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Video · motion prompts</ToolBadge>}
       title="Video prompt builder"
-      description="Compose motion, camera, and continuity prompts for WAN / Hunyuan Video workflows in ComfyUI."
+      description="Compose motion, camera, and continuity prompts for WAN / Hunyuan Video. Text-to-video by default; add an init image for image-to-video (requires WanImageToVideo or HunyuanImageToVideo in ComfyUI)."
       sidebar={
         <SharedToolControls
           shared={shared}
@@ -265,7 +265,7 @@ export default function VideoPromptTool() {
 
         <FieldLabel
           htmlFor="video-init-image"
-          hint="Filename already on ComfyUI, or a fetchable image URL — patched into {{INIT_IMAGE}} for I2V workflows."
+          hint="Optional. With an init image, queue hard-fails unless ComfyUI can wire WanImageToVideo / HunyuanImageToVideo. Without one, the job is text-to-video."
         >
           Init image (optional, I2V)
         </FieldLabel>
@@ -281,7 +281,7 @@ export default function VideoPromptTool() {
           <div>
             <FieldLabel
               htmlFor="video-frames"
-              hint="Patched into {{VIDEO_FRAMES}} (e.g. EmptyHunyuanLatentVideo length)."
+              hint="Patched into {{VIDEO_FRAMES}}. Leave empty to derive from duration × FPS."
             >
               Frames / length (optional)
             </FieldLabel>
@@ -351,13 +351,26 @@ export default function VideoPromptTool() {
             // go through the ComfyUI upload helper; anything else is treated
             // as an already-uploaded filename on the ComfyUI server.
             const initImageIsFetchable = /^(?:https?:|data:)/i.test(initImage);
+            const resolvedFps =
+              typeof fps === "number" && Number.isFinite(fps) && fps > 0
+                ? Math.floor(fps)
+                : 16;
+            const resolvedFrames =
+              typeof frames === "number" && Number.isFinite(frames) && frames > 0
+                ? Math.floor(frames)
+                : Math.max(
+                    1,
+                    Math.round(
+                      Math.max(1, Number(durationSec) || 4) * resolvedFps,
+                    ),
+                  );
             void actions.sendComfyUi(output, null, undefined, {
               inputImageUrl: initImageIsFetchable ? initImage : undefined,
               inputImageFilename:
                 !initImageIsFetchable && initImage ? initImage : undefined,
               queueParamsBase: {
-                ...(frames ? { videoFrames: frames } : {}),
-                ...(fps ? { videoFps: fps } : {}),
+                videoFrames: resolvedFrames,
+                videoFps: resolvedFps,
               },
             });
           }}

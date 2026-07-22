@@ -54,6 +54,9 @@ export type WorkflowDirectPatchCounts = {
   videoImageToVideoWired?: number;
 };
 
+const VIDEO_I2V_WIRE_ERROR =
+  "Init image was set for a video model, but I2V could not be wired. Import a WAN/Hunyuan workflow with WanImageToVideo or HunyuanImageToVideo (or a scaffold with LoadImage + Empty*LatentVideo + VAEDecode + KSampler), or clear the init image for text-to-video.";
+
 const INPUT_IMAGE_TYPES = new Set(["LoadImage", "LoadImageOutput"]);
 const MASK_IMAGE_TYPES = new Set(["LoadImageMask"]);
 
@@ -880,7 +883,12 @@ export function patchVideoImageToVideoWiringInWorkflow(
     inputImageFilename?: string;
     params?: Pick<WorkflowParamValues, "width" | "height" | "videoFrames">;
   },
-): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
+): {
+  workflow: Record<string, unknown>;
+  patched: WorkflowDirectPatchCounts;
+  /** Set when a video model has an init image but I2V wiring failed. */
+  error?: string;
+} {
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
 
@@ -903,7 +911,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
   const loadImageId = findInitImageLoadNodeId(next);
   const latentNodeId = findFirstNodeIdByClassTypes(next, VIDEO_LATENT_NODE_TYPES);
   if (!loadImageId || !latentNodeId) {
-    return { workflow: next, patched };
+    return { workflow: next, patched, error: VIDEO_I2V_WIRE_ERROR };
   }
 
   const latentInputs = asNodeRecord(next[latentNodeId])?.inputs ?? {};
@@ -923,12 +931,12 @@ export function patchVideoImageToVideoWiringInWorkflow(
     }
   }
   if (!samplerId || !samplerInputs) {
-    return { workflow: next, patched };
+    return { workflow: next, patched, error: VIDEO_I2V_WIRE_ERROR };
   }
 
   const positiveRef = samplerInputs.positive;
   if (!isNodeOutputRef(positiveRef)) {
-    return { workflow: next, patched };
+    return { workflow: next, patched, error: VIDEO_I2V_WIRE_ERROR };
   }
   const negativeRef = isNodeOutputRef(samplerInputs.negative) ? samplerInputs.negative : null;
 
@@ -941,7 +949,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
     }
   }
   if (!vaeRef) {
-    return { workflow: next, patched };
+    return { workflow: next, patched, error: VIDEO_I2V_WIRE_ERROR };
   }
 
   const isHunyuan = /hunyuan/i.test(input.model);
@@ -1031,6 +1039,7 @@ export function patchWorkflowDirectParams(
 ): {
   workflow: Record<string, unknown>;
   patched: WorkflowDirectPatchCounts;
+  error?: string;
 } {
   const latentType = normalizeEmptyLatentForModel(workflow, input.model);
   const latentPatch = patchLatentSizeInWorkflow(latentType.workflow, input.params ?? {});
@@ -1089,5 +1098,6 @@ export function patchWorkflowDirectParams(
       ...resizePatch.patched,
       ...videoWirePatch.patched,
     },
+    error: videoWirePatch.error,
   };
 }

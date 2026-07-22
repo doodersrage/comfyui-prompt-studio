@@ -1,9 +1,10 @@
 /**
- * Portable IP-Adapter tokens — the "identity reference" analogue of the
- * ControlNet map pattern (see model-controlnet-map.ts / workflow-direct-patch.ts's
- * patchControlNetNodesInWorkflow). Any workflow JSON that contains these tokens
- * can be queued with a session-level reference image/strength/model without
- * hand-editing node IDs:
+ * Portable IP-Adapter tokens + optional auto-insert.
+ *
+ * Queue-time patching updates existing tokens/nodes, or inserts a minimal
+ * LoadImage → IPAdapterModelLoader → IPAdapterAdvanced chain when a reference
+ * image is set and the graph has neither IPAdapter nodes nor tokens
+ * (requires ComfyUI-IPAdapter-Plus-class nodes).
  *
  *   {{IPADAPTER_IMAGE}}    — LoadImage node's `image` filename field
  *   {{IPADAPTER_STRENGTH}} — IPAdapter-family node's weight/strength field (0–1)

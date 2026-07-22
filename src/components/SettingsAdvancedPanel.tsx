@@ -233,6 +233,23 @@ export default function SettingsAdvancedPanel() {
       </ToolSection>
 
       <ToolSection title="Server storage">
+        <div className="mb-3 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 text-xs text-zinc-400">
+          <p className="font-medium text-zinc-300">Enablement checklist</p>
+          <ul className="mt-1 list-disc space-y-1 pl-4">
+            <li>
+              Durable gallery/history: set{" "}
+              <code className="text-zinc-300">PROMPT_DATA_DIR</code>
+            </li>
+            <li>
+              Headless scheduled batch: that <em>plus</em>{" "}
+              <code className="text-zinc-300">SERVER_SCHEDULED_BATCH=true</code>
+            </li>
+            <li>
+              Browser scheduled batch (Settings → Automation) only runs while a
+              tab stays open — unrelated to the env flag
+            </li>
+          </ul>
+        </div>
         <p className="text-sm text-zinc-400">
           Optional file-backed storage when <code className="text-zinc-300">PROMPT_DATA_DIR</code> is
           set on the server. When signed in, history and gallery sync to your personal namespace under{" "}
@@ -342,8 +359,11 @@ export default function SettingsAdvancedPanel() {
 
       <ToolSection title="Server scheduled batch">
         <p className="text-sm text-zinc-400">
-          Run batch generation on the server via <code className="text-zinc-300">POST /api/scheduled-batch/run</code>.
-          Enable automatic runs with <code className="text-zinc-300">SERVER_SCHEDULED_BATCH=true</code>.
+          Headless runner via{" "}
+          <code className="text-zinc-300">POST /api/scheduled-batch/run</code>. Automatic ticks
+          need <code className="text-zinc-300">SERVER_SCHEDULED_BATCH=true</code> (and{" "}
+          <code className="text-zinc-300">PROMPT_DATA_DIR</code> to persist the profile). This is
+          separate from the browser “Enable browser scheduled batch” toggle.
         </p>
         <Button variant="secondary" className="mt-3" onClick={() => void runServerBatch()}>
           Run server batch now

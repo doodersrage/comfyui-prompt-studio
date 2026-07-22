@@ -43,7 +43,6 @@ import {
 import { findLibraryUpscaleWorkflowForModel } from "./workflow-library-upscale";
 import { findLibraryFaceDetailerWorkflow } from "./workflow-library-face-detailer";
 import {
-  buildGalleryFaceDetailFallbackWorkflow,
   faceDetailCustomTokens,
   faceDetailQueueParams,
   normalizeFaceDetailDenoise,
@@ -753,13 +752,10 @@ export async function requeueRefineFromGalleryEntry(
 /**
  * Requeues the gallery output through a face-detailer / ReActor-style workflow.
  *
- * Prefers a dedicated library workflow (Settings → workflow library, pinned
+ * Requires a dedicated library workflow (Settings → workflow library, pinned
  * via `modelWorkflowMap.faceDetailer` or auto-detected by name/node type)
- * containing {{FACE_DETAIL_IMAGE}} / {{FACE_DETAIL_DENOISE}} — or the portable
- * {{INPUT_IMAGE}} / {{DENOISE}} tokens. FaceDetailer / ReActor / Impact-Pack
- * nodes vary by ComfyUI install, so when no library workflow matches, this
- * still queues a pass-through (LoadImage → SaveImage) job and surfaces a
- * status message asking the user to add a workflow with those tokens.
+ * containing {{FACE_DETAIL_IMAGE}} / {{FACE_DETAIL_DENOISE}}. Refuses when
+ * none is available — never queues the LoadImage→SaveImage pass-through stub.
  */
 export async function requeueFaceDetailFromGalleryEntry(
   entry: ComfyGalleryEntry,
@@ -779,6 +775,15 @@ export async function requeueFaceDetailFromGalleryEntry(
       ok: false,
       error:
         "Face detail is disabled for Lightning (img2img pass-through only) — use Refine or Upscale instead.",
+    };
+  }
+
+  const libraryWorkflow = findLibraryFaceDetailerWorkflow();
+  if (!libraryWorkflow) {
+    return {
+      ok: false,
+      error:
+        "No FaceDetailer/ReActor workflow found. Import one with {{FACE_DETAIL_IMAGE}} (and optionally {{FACE_DETAIL_DENOISE}}), or pin it via Settings → model map: faceDetailer=<workflowId>.",
     };
   }
 
@@ -807,10 +812,10 @@ export async function requeueFaceDetailFromGalleryEntry(
     options?.denoise ?? shared.faceDetailerDenoise,
   );
 
-  const libraryWorkflow = findLibraryFaceDetailerWorkflow();
-  const workflow = libraryWorkflow
-    ? (JSON.parse(libraryWorkflow.workflowJson) as Record<string, unknown>)
-    : buildGalleryFaceDetailFallbackWorkflow();
+  const workflow = JSON.parse(libraryWorkflow.workflowJson) as Record<
+    string,
+    unknown
+  >;
 
   const faceDetailParams = faceDetailQueueParams({
     inputImageFilename,
@@ -821,17 +826,15 @@ export async function requeueFaceDetailFromGalleryEntry(
   const runtime: ComfyUiRuntimeConfig = {
     ...baseRuntime,
     workflowJson: JSON.stringify(workflow),
-    workflowQueueOptimize: Boolean(libraryWorkflow),
+    workflowQueueOptimize: true,
     workflowGraphEnrich: false,
     directWorkflowPatching: true,
     customTokens: faceDetailCustomTokens({ inputImageFilename, denoise }),
-    ...(libraryWorkflow ? { workflowFileId: libraryWorkflow.id } : {}),
+    workflowFileId: libraryWorkflow.id,
   };
 
   options?.onStatus?.(
-    libraryWorkflow
-      ? `Queueing library face-detail workflow “${libraryWorkflow.name}”…`
-      : "No library face-detailer workflow found — queueing pass-through (add one with {{FACE_DETAIL_IMAGE}})…",
+    `Queueing library face-detail workflow “${libraryWorkflow.name}”…`,
   );
 
   const response = await fetch("/api/comfyui", {
@@ -997,7 +1000,11 @@ export function canFaceDetailGalleryEntry(
   if (entry.status !== "completed") {
     return false;
   }
-  return Boolean(resolveGalleryOutputImageUrl(entry));
+  if (!resolveGalleryOutputImageUrl(entry)) {
+    return false;
+  }
+  // Hide the action when no real FaceDetailer/ReActor workflow is available.
+  return Boolean(findLibraryFaceDetailerWorkflow());
 }
 
 export function canMoireCleanGalleryEntry(

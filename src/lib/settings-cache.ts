@@ -144,10 +144,10 @@ export type SharedToolSettings = {
   /** Per-model ControlNet filenames (modelId or default=filename). */
   modelControlNetMap?: import("./model-controlnet-map").ModelControlNetMap;
   /**
-   * Session IP-Adapter identity/style reference — a single active reference
-   * forwarded to any workflow containing {{IPADAPTER_IMAGE}}/{{IPADAPTER_STRENGTH}}/
-   * {{IPADAPTER_MODEL}} tokens (see ipadapter-workflow-patch.ts). Unlike
-   * modelControlNetMap this is not per-model — it's a portable session value.
+   * Session IP-Adapter identity/style reference — a single active reference.
+   * At queue time, patches existing {{IPADAPTER_*}} tokens/nodes or auto-inserts
+   * a minimal IPAdapter chain when none exist (requires ComfyUI-IPAdapter-Plus
+   * class nodes). Unlike modelControlNetMap this is not per-model.
    */
   ipAdapterImageFilename?: string;
   /** Convenience source URL for the IP-Adapter reference — uploaded to ComfyUI on queue. */

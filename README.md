@@ -19,7 +19,7 @@ The app includes **40+ ComfyUI image model targets**, grouped by architecture fa
 
 Use the **search + category filter** in the UI to pick a model. Each entry shows its ComfyUI node name (e.g. `CLIP Text Encode (Flux)`, `TextEncodeQwenImageEditPlus`).
 
-Video, audio, and 3D-only architectures (WAN, Hunyuan Video, Stable Audio, etc.) are not included—their prompt semantics differ from static image generation.
+Audio and 3D-only architectures (Stable Audio, etc.) are not in the main image model table. **WAN / Hunyuan Video** are available via the dedicated **Video** tool (`/video`) and `wan-video` / `hunyuan-video` model profiles — not as rows in the still-image family table above.
 
 ## Tools
 
@@ -44,8 +44,7 @@ Video, audio, and 3D-only architectures (WAN, Hunyuan Video, Stable Audio, etc.)
 | **Gallery** | `/gallery` | Stats dashboard, grid/dense/list layouts, review focus, compare modal, semantic search |
 | **Variations** | `/variations` | Roll N prompt variations and batch-queue to ComfyUI |
 | **ControlNet** | `/controlnet` | Structure prompts (text or image-assisted) |
-| **Video** | `/video` | Motion / camera prompts for video workflows |
-| **Plugins** | `/plugins` | Tool plugin registry |
+| **Plugins** | `/plugins` | Nav bookmark registry (not runnable extensions) |
 
 Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Character and Generate pages.
 
@@ -148,7 +147,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Multi-model portfolio** — Studio Portfolio tab formats one draft for several models and batch-queues
 - **Workflow pre-flight** — Topics/Variations batch queue validates workflow placeholders before submit
 - **ComfyUI param recovery** — gallery re-queue restores saved seed/params from `queueParams`
-- **Regional/inpaint builder** — Character tool composes labeled subject/background/lighting segments
+- **Regional prompt composer** — Character tool merges labeled subject/background/lighting text segments (prompt text only — not ComfyUI regional/attention-mask nodes)
 - **Semantic search** — token-overlap ranking in Studio history and Gallery filters
 - **Scheduled batch** — Settings configures periodic random-scene/topics generation (+ optional ComfyUI queue)
 - **Webhooks** — POST job completion payloads to an external URL via server proxy
@@ -207,7 +206,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **TOTP 2FA** — optional authenticator setup on Profile
 - **Encrypted exports** — `POST /api/storage/export` with optional passphrase
 - **Onboarding checklist** — Dashboard getting-started steps
-- **Gallery PWA** — optional read-only service worker (`sw-gallery.js`) caches gallery routes for faster revisits; does not replace full offline app mode
+- **Gallery PWA** — optional service worker (`sw-gallery.js`) caches `/api/comfyui/view` image responses for faster revisits; does not cache gallery HTML/RSC or provide full offline app mode
 - **Keyboard shortcut editor** — customize bindings on Profile
 - **Prompt brief** — export/import portable prompt bundles from Studio Presets
 - **Webhook templates** — Discord/Slack rich payload formats in Settings
@@ -227,7 +226,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Sampler memory** — 4–5★ gallery ratings remember per-model CFG/steps/sampler/scheduler (Settings → Sampler memory)
 - **Server storage pull** — Settings advanced panel restores server namespaces into the app database
 - **IP-Adapter multi-ref merge** — Image tool roles + per-reference strength influence (`/api/image-prompt/multi`). This is a **prompt-merge** tool: reference images are described by a vision LLM and blended into the text prompt — no ComfyUI IP-Adapter nodes involved.
-- **Portable IP-Adapter tokens** — Settings → ComfyUI → "IP-Adapter identity reference" sets a session-wide reference image/strength/optional model that's patched directly onto a workflow's ComfyUI IP-Adapter nodes at queue time via `{{IPADAPTER_IMAGE}}` / `{{IPADAPTER_STRENGTH}}` / `{{IPADAPTER_MODEL}}` tokens (see `src/lib/ipadapter-workflow-patch.ts`). Use this when your workflow file actually has IPAdapter loader/apply nodes; use the multi-ref merge above when it doesn't.
+- **Portable IP-Adapter identity** — Settings → ComfyUI → "IP-Adapter identity reference" sets a session-wide reference image/strength/optional model. At queue time the app patches existing `{{IPADAPTER_*}}` tokens/nodes **or auto-inserts** a minimal IPAdapter chain (requires ComfyUI-IPAdapter-Plus-class nodes). InstantID / PuLID are bring-your-own workflows — use the multi-ref merge above when you only need text blending.
 - **Character identity bundles with saved list** — Studio → Character identity bundles now also saves to a browser-local list (descriptor, LoRA trigger phrases, IP-Adapter ref) alongside the existing JSON export/import, for quick apply without a file round-trip.
 - **ControlNet from image** — upload reference for vision-assisted structure extraction on `/controlnet`
 - **Token / weight inspector** — `(tag:1.2)` analysis on Lint, Format, and result panels
@@ -259,7 +258,7 @@ Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Chara
 - **Project bundles** — export/import project history + gallery JSON from Studio Projects tab
 - **Aesthetic scoring** — heuristic gallery score on cards; `POST /api/aesthetic/score` for snapshots
 - **PWA manifest** — installable web app metadata (`manifest.json`); gallery service worker is optional and separate from Next.js dev HMR
-- **Plugin registry** — `/plugins` lists built-in tools and accepts custom localStorage plugin entries
+- **Plugin registry** — `/plugins` lists built-in tools and accepts custom localStorage **nav bookmarks** (not a runnable plugin runtime)
 
 ## Prompt size limits (selected models)
 

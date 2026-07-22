@@ -102,6 +102,7 @@ import {
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import SettingsSubNav from "@/components/settings/SettingsSubNav";
 import CompactDraftSavesStatus from "@/components/settings/CompactDraftSavesStatus";
+import WildcardListsEditor from "@/components/settings/WildcardListsEditor";
 import {
   CollapsibleSection,
   ToolBadge,
@@ -1055,9 +1056,16 @@ export default function SettingsTool() {
           rows={6}
           spellCheck={false}
           disabled={!sharedMounted}
-          placeholder={`qwen-image-2512=my-qwen-workflow.json\nflux-2-klein=flux-klein-default.json`}
+          placeholder={`qwen-image-2512=my-qwen-workflow.json\nflux-2-klein=flux-klein-default.json\nfaceDetailer=my-facedetailer-workflow.json`}
           className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
         />
+        <p className="text-xs text-zinc-500">
+          Pin a FaceDetailer/ReActor graph with{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">
+            faceDetailer=&lt;workflowId&gt;
+          </code>{" "}
+          (required for Gallery → Face detail).
+        </p>
         <button
           type="button"
           disabled={!sharedMounted}
@@ -1477,29 +1485,58 @@ export default function SettingsTool() {
             className={`ui-input w-32 ${accentFocusClass(ACCENT)}`}
           />
         </label>
+        <label className="mt-4 block space-y-2">
+          <span className="block text-sm font-medium text-zinc-200">
+            Face detail denoise
+          </span>
+          <span className="block text-xs text-zinc-500">
+            Gallery → Face detail strength for{" "}
+            <code className="rounded bg-zinc-800 px-1 text-violet-300">
+              {"{{FACE_DETAIL_DENOISE}}"}
+            </code>{" "}
+            (0.05–1). Requires a pinned FaceDetailer/ReActor workflow.
+          </span>
+          <input
+            type="number"
+            min={0.05}
+            max={1}
+            step={0.05}
+            value={sharedSettings.faceDetailerDenoise ?? 0.35}
+            onChange={(event) =>
+              updateSharedSettings({
+                faceDetailerDenoise: Number(event.target.value),
+              })
+            }
+            disabled={!sharedMounted}
+            className={`ui-input w-32 ${accentFocusClass(ACCENT)}`}
+          />
+        </label>
       </ToolSection>
 
       <ToolSection
         id="settings-comfyui-ipadapter"
-        title="IP-Adapter identity reference (portable, workflow-token based)"
+        title="IP-Adapter identity reference"
       >
         <p className="text-sm text-zinc-400">
-          A single session-wide reference — unlike Image → Prompt&apos;s multi-ref tool
-          (which merges descriptions into the text prompt), this patches the actual
-          reference image/strength/model onto any workflow that contains{" "}
+          Session-wide identity/style reference (not Image → Prompt&apos;s text
+          multi-ref). At queue time, with a reference image set, the app updates
+          existing{" "}
           <code className="rounded bg-zinc-800 px-1 text-violet-300">
             {DEFAULT_IPADAPTER_IMAGE_TOKEN}
           </code>
-          ,{" "}
+          {" / "}
           <code className="rounded bg-zinc-800 px-1 text-violet-300">
             {DEFAULT_IPADAPTER_STRENGTH_TOKEN}
           </code>
-          , and optionally{" "}
+          {" / "}
           <code className="rounded bg-zinc-800 px-1 text-violet-300">
             {DEFAULT_IPADAPTER_MODEL_TOKEN}
           </code>{" "}
-          — place those tokens on a LoadImage node&apos;s filename field and an
-          IPAdapter node&apos;s weight / ipadapter_file fields in your workflow file.
+          tokens <strong className="font-medium text-zinc-300">or auto-inserts</strong> a
+          minimal LoadImage → IPAdapterModelLoader → IPAdapterAdvanced chain when
+          none exist. Requires ComfyUI-IPAdapter-Plus-class nodes installed.
+          InstantID / PuLID are bring-your-own workflows — this path is IP-Adapter
+          only.
         </p>
 
         <div className="space-y-2">
@@ -1582,6 +1619,23 @@ export default function SettingsTool() {
             className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${accentFocusClass(ACCENT)}`}
           />
         </div>
+      </ToolSection>
+
+      <ToolSection
+        id="settings-comfyui-wildcards"
+        title="Custom wildcard lists"
+      >
+        <WildcardListsEditor
+          lists={sharedSettings.wildcardLists}
+          disabled={!sharedMounted}
+          focusClassName={accentFocusClass(ACCENT)}
+          onChange={(wildcardLists) =>
+            updateSharedSettings({
+              wildcardLists:
+                Object.keys(wildcardLists).length > 0 ? wildcardLists : undefined,
+            })
+          }
+        />
       </ToolSection>
 
       <div id="settings-comfyui-workflow-library" className="scroll-mt-28 space-y-6">
@@ -2803,16 +2857,26 @@ export default function SettingsTool() {
 
       <ToolSection title="Scheduled batch">
         <p className="text-sm text-zinc-400">
-          Background runner (in app layout) periodically generates prompts and optionally
-          queues them to ComfyUI.
+          Two runners exist: a <strong className="font-medium text-zinc-300">browser</strong>{" "}
+          scheduler (needs this tab open) and an optional{" "}
+          <strong className="font-medium text-zinc-300">headless server</strong> cron
+          gated by env.
         </p>
         <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 text-xs text-zinc-400">
-          <p className="mb-1 font-medium text-zinc-300">Headless server runner</p>
+          <p className="mb-1 font-medium text-zinc-300">
+            Headless server runner (env)
+          </p>
+          <p className="mb-2">
+            Requires <code className="text-zinc-300">PROMPT_DATA_DIR</code> for durable
+            profile storage, plus{" "}
+            <code className="text-zinc-300">SERVER_SCHEDULED_BATCH=true</code>. The
+            checkbox below only controls the in-browser runner.
+          </p>
           {serverScheduledBatchStatus ? (
             <>
               <p>
                 {serverScheduledBatchStatus.enabled
-                  ? "Active — runs in-process on the server (SERVER_SCHEDULED_BATCH=true)."
+                  ? "Active — server cron enabled (SERVER_SCHEDULED_BATCH=true)."
                   : "Disabled — set SERVER_SCHEDULED_BATCH=true on the server to enable."}
                 {" "}
                 {serverScheduledBatchStatus.persisted
@@ -2851,7 +2915,7 @@ export default function SettingsTool() {
             }}
             className={`h-4 w-4 rounded ${accentFocusClass()}`}
           />
-          Enable scheduled batch
+          Enable browser scheduled batch (tab must stay open)
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>

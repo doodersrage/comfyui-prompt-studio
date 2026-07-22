@@ -6,29 +6,6 @@ import {
 } from "./comfyui-requeue.ts";
 
 describe("comfyui-requeue face detail guards", () => {
-  it("allows completed entries with output images", () => {
-    assert.equal(
-      canFaceDetailGalleryEntry({
-        status: "completed",
-        images: [{ filename: "out.png", subfolder: "", type: "output" }],
-        comfyUrl: "http://127.0.0.1:8188",
-      }),
-      true,
-    );
-  });
-
-  it("allows completed entries with sourceImageUrl fallback", () => {
-    assert.equal(
-      canFaceDetailGalleryEntry({
-        status: "completed",
-        images: [],
-        sourceImageUrl: "http://127.0.0.1:8188/view?filename=out.png",
-        comfyUrl: "http://127.0.0.1:8188",
-      }),
-      true,
-    );
-  });
-
   it("skips non-completed or imageless entries", () => {
     assert.equal(
       canFaceDetailGalleryEntry({
@@ -61,8 +38,22 @@ describe("comfyui-requeue face detail guards", () => {
     );
   });
 
-  it("allows non-Lightning models", () => {
+  it("allows non-Lightning models at the model-guard layer", () => {
     assert.equal(galleryEntrySupportsFaceDetail("qwen-image-2512"), true);
     assert.equal(galleryEntrySupportsFaceDetail(undefined), true);
+  });
+
+  it("hides the gallery action when no FaceDetailer library workflow is available", () => {
+    // Without a pinned/imported FaceDetailer graph, the action must stay hidden
+    // so we never queue the old LoadImage→SaveImage pass-through.
+    assert.equal(
+      canFaceDetailGalleryEntry({
+        status: "completed",
+        images: [{ filename: "out.png", subfolder: "", type: "output" }],
+        comfyUrl: "http://127.0.0.1:8188",
+        model: "qwen-image-2512",
+      }),
+      false,
+    );
   });
 });
