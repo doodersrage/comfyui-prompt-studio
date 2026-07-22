@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
 import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
+import ComfyPackImportControl from "@/components/ComfyPackImportControl";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
@@ -135,6 +136,18 @@ export default function MeshPromptTool() {
             {workflowStatus}
           </p>
         ) : null}
+        <div className="mb-4 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3">
+          <ComfyPackImportControl
+            preferKind="mesh"
+            compact
+            onImported={(summary, result) => {
+              if (result.sharedPatch) {
+                updateShared(result.sharedPatch);
+              }
+              setWorkflowStatus(summary);
+            }}
+          />
+        </div>
         <FieldLabel>Reference image (optional)</FieldLabel>
         <input
           type="file"

@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import BrandMark from "@/components/BrandMark";
 import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
 import { useAuth } from "@/hooks/useAuth";
@@ -162,11 +163,14 @@ export default function LoginForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="mx-auto w-full max-w-md space-y-5 rounded-3xl border border-zinc-800/80 bg-zinc-950/70 p-8 shadow-[0_24px_80px_-40px_rgba(124,58,237,0.45)] backdrop-blur-md"
+      className="mx-auto w-full max-w-md space-y-5 rounded-3xl border border-zinc-800/80 bg-zinc-950/70 p-8 shadow-[0_24px_80px_-40px_rgba(56,189,248,0.28)] backdrop-blur-md"
     >
-      <div className="space-y-2">
-        <h1 className="type-title text-zinc-50">{title}</h1>
-        <p className="text-sm text-zinc-400">{description}</p>
+      <div className="space-y-3">
+        <BrandMark size={40} withWordmark wordmarkClassName="type-title tracking-tight text-zinc-50" />
+        <div className="space-y-1">
+          <h1 className="type-heading text-zinc-100">{title}</h1>
+          <p className="text-sm text-zinc-400">{description}</p>
+        </div>
       </div>
 
       {mode === "sign-in" ? (

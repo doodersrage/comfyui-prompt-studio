@@ -25,6 +25,7 @@ export type WorkflowNodeMapping = {
     | "inputImage2"
     | "inputImage3"
     | "inputImage4"
+    | "initImage"
     | "controlImage"
     | "maskImage"
     | "checkpointLoader"
@@ -131,7 +132,10 @@ export function suggestWorkflowNodeMappings(workflowJson: string): WorkflowNodeM
         classType,
         title: node._meta?.title,
         suggestedBinding: "latent",
-        reason: "Latent size node — map width/height placeholders here",
+        reason:
+          "length" in inputs && classLower.includes("video")
+            ? "Video latent — map width/height/{{VIDEO_FRAMES}} here"
+            : "Latent size node — map width/height placeholders here",
       });
       continue;
     }
@@ -164,6 +168,17 @@ export function suggestWorkflowNodeMappings(workflowJson: string): WorkflowNodeM
       (classType === "LoadImage" || classType === "LoadImageOutput") &&
       "image" in inputs
     ) {
+      if (/\b(init|i2v|start\s*frame|first\s*frame)\b/i.test(title)) {
+        mappings.push({
+          nodeId,
+          classType,
+          title: node._meta?.title,
+          suggestedBinding: "initImage",
+          reason: "Init / I2V load image — map {{INIT_IMAGE}} here",
+        });
+        loadImageIndex += 1;
+        continue;
+      }
       const kind = inferLoadImageBinding(classType, title, {
         loadImageIndex,
         loadImageCount,

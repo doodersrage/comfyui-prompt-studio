@@ -33,6 +33,7 @@ import {
   saveExpandedNavGroups,
   toggleExpandedNavGroup,
 } from "@/lib/nav-expanded-groups";
+import BrandMark from "@/components/BrandMark";
 import { pushRecentDestination } from "@/lib/recent-destinations";
 import { saveLastToolRoute } from "@/lib/last-tool-route";
 
@@ -314,11 +315,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       ) : null}
       <div className="px-2">
-        <Link href="/" onClick={onNavigate} className="ui-nav-brand type-title">
-          Prompt Tools
+        <Link
+          href="/"
+          onClick={onNavigate}
+          className="ui-nav-brand inline-flex items-center gap-2.5 rounded-[var(--radius-md)] px-1 py-1 transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
+        >
+          <BrandMark size={32} withWordmark wordmarkClassName="type-title tracking-tight" />
         </Link>
         <p className="type-caption mt-1 px-3">
-          ComfyUI prompt studio{" "}
+          for ComfyUI{" "}
           <span className="text-[var(--text-muted)]">· ⌘K</span>
         </p>
       </div>
@@ -448,8 +453,11 @@ export default function AppNav() {
   return (
     <>
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-muted)] px-4 py-3 backdrop-blur-md lg:hidden">
-        <Link href="/" className="type-heading">
-          Prompt Tools
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-[var(--radius-md)] py-0.5 transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99]"
+        >
+          <BrandMark size={28} withWordmark wordmarkClassName="type-heading tracking-tight" />
         </Link>
         <button
           type="button"

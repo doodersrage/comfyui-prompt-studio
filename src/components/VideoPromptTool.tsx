@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
 import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
+import ComfyPackImportControl from "@/components/ComfyPackImportControl";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
@@ -316,6 +317,18 @@ export default function VideoPromptTool() {
             {workflowStatus}
           </p>
         ) : null}
+        <div className="mb-4 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3">
+          <ComfyPackImportControl
+            preferKind="video"
+            compact
+            onImported={(summary, result) => {
+              if (result.sharedPatch) {
+                updateShared(result.sharedPatch);
+              }
+              setWorkflowStatus(summary);
+            }}
+          />
+        </div>
         <FieldLabel htmlFor="video-subject">Subject / action</FieldLabel>
         <TextArea
           id="video-subject"

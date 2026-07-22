@@ -69,6 +69,7 @@ import { Button } from "@/components/ui/Button";
 import { ChipButton, MonoTextArea, SelectInput, TextInput } from "@/components/ui/Field";
 import { ToolActionRow } from "@/components/ui/ToolPageShell";
 import { EmptyState } from "@/components/ui/ViewState";
+import ComfyPackImportControl from "@/components/ComfyPackImportControl";
 
 type ComfyWorkflowLibraryPanelProps = {
   placeholderTokens: WorkflowPlaceholderTokens;
@@ -256,6 +257,10 @@ export default function ComfyWorkflowLibraryPanel({
             `Workflow ${new Date().toLocaleString()}`,
           filename: file.name,
           workflowJson: prepared.workflowJson,
+          lastOptimizedAt: Date.now(),
+          lastOptimizedHash: prepared.contentHash,
+          lastOptimizedModel: prepared.optimizeModel,
+          lastOptimizedProfile: prepared.optimizeProfile,
         });
         refresh();
         setNewName("");
@@ -636,6 +641,17 @@ export default function ComfyWorkflowLibraryPanel({
           any result panel. URL, tokens, and queue params still come from the connection
           settings below (or server env).
         </p>
+      </div>
+
+      <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4">
+        <p className="type-heading mb-2">Import Comfy pack</p>
+        <ComfyPackImportControl
+          onImported={(summary) => {
+            refresh();
+            setImportNotice(summary);
+            onStatus?.(summary);
+          }}
+        />
       </div>
 
       <ToolActionRow>

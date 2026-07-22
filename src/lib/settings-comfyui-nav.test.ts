@@ -22,9 +22,19 @@ describe("settings-comfyui-nav", () => {
     const hits = filterComfyUiSettingsSections("lora");
     assert.ok(hits.some((section) => section.id === "lora-library"));
     assert.ok(hits.some((section) => section.id === "lora-train"));
+    assert.ok(hits.some((section) => section.id === "model-assets"));
     assert.equal(
       settingsComfyUiSectionHref("lora-library"),
       "/settings?tab=comfyui&section=lora-library",
+    );
+  });
+
+  it("surfaces model assets from download/checkpoint keywords", () => {
+    const hits = filterComfyUiSettingsSections("download");
+    assert.ok(hits.some((section) => section.id === "model-assets"));
+    assert.equal(
+      settingsComfyUiSectionHref("model-assets"),
+      "/settings?tab=comfyui&section=model-assets",
     );
   });
 

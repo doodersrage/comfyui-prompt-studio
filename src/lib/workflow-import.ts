@@ -24,6 +24,10 @@ import {
 import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
 import { inferModelsFromWorkflowLabel } from "./workflow-category-defaults";
 import { loadSettingsCache } from "./settings-cache";
+import {
+  normalizeQueueQualityProfile,
+  type QueueQualityProfile,
+} from "./queue-quality-profile";
 
 export type WorkflowImportResult = {
   ok: boolean;
@@ -33,6 +37,10 @@ export type WorkflowImportResult = {
   workflowJson?: string;
   placeholders?: ReturnType<typeof detectWorkflowPlaceholders>;
   autoAppliedBindings?: number;
+  /** Persist on upsert so Health / queue skip match the import optimize pass. */
+  contentHash?: string;
+  optimizeModel?: string;
+  optimizeProfile?: QueueQualityProfile;
 };
 
 function stripUtf8Bom(raw: string): string {
@@ -309,5 +317,8 @@ export function prepareWorkflowJsonImport(
     notice,
     placeholders,
     autoAppliedBindings,
+    contentHash: optimized.contentHash,
+    optimizeModel: String(optimizeModel),
+    optimizeProfile: normalizeQueueQualityProfile(shared.queueQualityProfile),
   };
 }

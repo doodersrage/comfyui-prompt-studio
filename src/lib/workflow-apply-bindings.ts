@@ -33,6 +33,10 @@ import {
   DEFAULT_CONTROL_IMAGE_TOKEN,
 } from "./model-controlnet-map";
 import {
+  AUDIO_SECONDS_TOKEN,
+  MESH_RESOLUTION_TOKEN,
+} from "./audio-mesh-prompt";
+import {
   countLoadImageNodes,
   figureIndexForLoadImageBinding,
   inferLoadImageBinding,
@@ -44,6 +48,42 @@ import {
   isPromptEncodeNode,
   resolvePromptEncodeTextField,
 } from "./workflow-prompt-encode";
+
+const INIT_IMAGE_TITLE = /\b(init|i2v|start\s*frame|first\s*frame)\b/i;
+
+function classLooksLikeVideo(classType: string): boolean {
+  const lower = classType.toLowerCase();
+  return (
+    lower.includes("video") ||
+    lower.includes("hunyuan") ||
+    lower.includes("ltx") ||
+    lower.includes("wan") ||
+    lower.includes("webp") ||
+    lower.includes("vhs") ||
+    lower.includes("animate")
+  );
+}
+
+function classLooksLikeAudio(classType: string): boolean {
+  const lower = classType.toLowerCase();
+  return (
+    lower.includes("audio") ||
+    lower.includes("stableaudio") ||
+    lower.includes("musicgen") ||
+    lower.includes("audioldm")
+  );
+}
+
+function classLooksLikeMesh(classType: string): boolean {
+  const lower = classType.toLowerCase();
+  return (
+    lower.includes("mesh") ||
+    lower.includes("3d") ||
+    lower.includes("glb") ||
+    lower.includes("tripo") ||
+    lower.includes("hunyuan3d")
+  );
+}
 
 const MULTI_INPUT_IMAGE_TOKENS = [
   DEFAULT_INPUT_IMAGE_TOKEN,
@@ -183,6 +223,19 @@ export function applyWorkflowNodeBindings(
     if (binding === "latent") {
       applyParamField(node, mapping.nodeId, "width", resolvedTokens.width, changes);
       applyParamField(node, mapping.nodeId, "height", resolvedTokens.height, changes);
+      if ("length" in node.inputs && classLooksLikeVideo(node.class_type ?? "")) {
+        applyBindingField(
+          node,
+          mapping.nodeId,
+          "length",
+          resolvedTokens.videoFrames,
+          changes,
+        );
+      }
+      continue;
+    }
+    if (binding === "initImage" && "image" in node.inputs) {
+      applyBindingField(node, mapping.nodeId, "image", resolvedTokens.initImage, changes);
       continue;
     }
     if (binding === "modelSampling") {
@@ -318,11 +371,20 @@ function applyParamBindingsToAllNodes(
     const classType = node.class_type ?? "";
     if (classType === "LoadImage" || classType === "LoadImageOutput") {
       const title = node._meta?.title ?? "";
+      loadImageIndex += 1;
+      if (INIT_IMAGE_TITLE.test(title)) {
+        for (const field of IMAGE_INPUT_FIELDS) {
+          if (!(field in node.inputs!)) {
+            continue;
+          }
+          applyBindingField(node, nodeId, field, tokens.initImage, changes);
+        }
+        continue;
+      }
       const kind = inferLoadImageBinding(classType, title, {
-        loadImageIndex,
+        loadImageIndex: loadImageIndex - 1,
         loadImageCount,
       });
-      loadImageIndex += 1;
       const imageToken =
         kind === "controlImage"
           ? DEFAULT_CONTROL_IMAGE_TOKEN
@@ -338,6 +400,27 @@ function applyParamBindingsToAllNodes(
         }
       }
       continue;
+    }
+
+    // Soft-bind media pack fields when the node already exposes them.
+    if ("length" in node.inputs && classLooksLikeVideo(classType)) {
+      applyBindingField(node, nodeId, "length", tokens.videoFrames, changes);
+    }
+    if ("fps" in node.inputs && classLooksLikeVideo(classType)) {
+      applyBindingField(node, nodeId, "fps", tokens.videoFps, changes);
+    }
+    if ("frame_rate" in node.inputs && classLooksLikeVideo(classType)) {
+      applyBindingField(node, nodeId, "frame_rate", tokens.videoFps, changes);
+    }
+    if (classLooksLikeAudio(classType)) {
+      for (const field of ["seconds", "duration", "length"] as const) {
+        if (field in node.inputs && !(field === "length" && classLooksLikeVideo(classType))) {
+          applyBindingField(node, nodeId, field, AUDIO_SECONDS_TOKEN, changes);
+        }
+      }
+    }
+    if (classLooksLikeMesh(classType) && "resolution" in node.inputs) {
+      applyBindingField(node, nodeId, "resolution", MESH_RESOLUTION_TOKEN, changes);
     }
     if (classType === "LoadImageMask") {
       for (const field of IMAGE_INPUT_FIELDS) {

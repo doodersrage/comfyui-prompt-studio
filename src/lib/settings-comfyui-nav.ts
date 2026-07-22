@@ -1,6 +1,7 @@
 export type ComfyUiSettingsSectionId =
   | "presets"
   | "workflow-map"
+  | "model-assets"
   | "workflow-patching"
   | "lora-library"
   | "lora-train"
@@ -29,6 +30,22 @@ export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
     id: "workflow-map",
     label: "Workflow map",
     keywords: ["model", "workflow", "map", "assignment"],
+  },
+  {
+    id: "model-assets",
+    label: "Model assets",
+    keywords: [
+      "download",
+      "checkpoint",
+      "unet",
+      "vae",
+      "lora",
+      "upscale",
+      "install",
+      "huggingface",
+      "weights",
+      "comfyui_root",
+    ],
   },
   {
     id: "workflow-patching",

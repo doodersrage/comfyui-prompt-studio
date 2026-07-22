@@ -128,6 +128,25 @@ export function getServerEnvSummary(): ServerEnvSummary {
           uiOverride: "Settings → ComfyUI → connection (browser override)",
         },
         {
+          key: "COMFYUI_ROOT",
+          label: "ComfyUI install root",
+          value: flag(process.env.COMFYUI_ROOT)
+            ? process.env.COMFYUI_ROOT!.trim()
+            : "not set",
+          configured: flag(process.env.COMFYUI_ROOT),
+          hint: "Same-machine path for curated model weight downloads into models/.",
+          uiOverride: "Settings → ComfyUI → Model assets",
+        },
+        {
+          key: "HF_TOKEN",
+          label: "Hugging Face token",
+          value: flag(process.env.HF_TOKEN ?? process.env.HUGGING_FACE_HUB_TOKEN)
+            ? "configured"
+            : "not set",
+          configured: flag(process.env.HF_TOKEN ?? process.env.HUGGING_FACE_HUB_TOKEN),
+          hint: "Optional Bearer token for gated / rate-limited Hugging Face downloads.",
+        },
+        {
           key: "COMFYUI_ALLOW_CLIENT_URL",
           label: "Allow client URL override",
           value:

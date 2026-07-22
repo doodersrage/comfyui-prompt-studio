@@ -1,4 +1,4 @@
-# ComfyUI Image Prompt Tools
+# Prompt Studio
 
 A Next.js app that turns topics or keywords into model-specific prompts for ComfyUI image workflows, and reformats existing drafts for any supported architecture.
 
@@ -32,6 +32,19 @@ The app includes **40+ ComfyUI image model targets**, grouped by architecture fa
 Use the **search + category filter** in the UI to pick a model. Each entry shows its ComfyUI node name (e.g. `CLIP Text Encode (Flux)`, `TextEncodeQwenImageEditPlus`).
 
 Audio and 3D architectures are available via dedicated **Audio** (`/audio`) and **3D Mesh** (`/mesh`) tools — not as rows in the still-image family table above. **WAN / Hunyuan Video** use the **Video** tool (`/video`).
+
+### Import real Comfy packs
+
+1. In ComfyUI, open the workflow and use **Save (API Format)** (not the UI nodes/links export).
+2. In Prompt Studio, use **Settings → ComfyUI → workflow library → Import Comfy pack**, or the import card on **Video / Audio / Mesh**.
+3. Select one or more `.json` files, or a `.zip` containing API workflows.
+4. Leave **Auto-map** on so graphs bind to `wan-video` / `stable-audio` / `hunyuan-3d` (and friends) from filename + node types; media tokens (`{{AUDIO_SECONDS}}`, `{{MESH_RESOLUTION}}`, video frames) are attached when the graph matches.
+
+Starter scaffolds still auto-create when you open those tools with nothing mapped — replace them with pack graphs when you have them.
+
+### Curated model weight downloads (same machine)
+
+Set `COMFYUI_ROOT` to your ComfyUI install directory, then use **Settings → ComfyUI → Model assets**. Prompt Studio installs allowlisted Hugging Face weights into `models/checkpoints`, `diffusion_models`, `vae`, `loras`, and `upscale_models`. Entries without a public URL stay docs-only (expected filename only). Custom nodes are not installed here.
 
 ## Tools
 
@@ -476,6 +489,8 @@ The generator calls any **OpenAI-compatible** chat completions API. Configure vi
 | `API_RATE_LIMIT_WINDOW_MS` | `60000` | Rate limit window (ms) for API proxy |
 | `API_RATE_LIMIT_MAX` | `120` | Default max requests per window; overridable per user/group in Settings → Users |
 | `COMFYUI_API_URL` | `http://127.0.0.1:8188` | Default ComfyUI base URL |
+| `COMFYUI_ROOT` | _(empty)_ | Absolute path to the ComfyUI install (same machine). Enables **Settings → ComfyUI → Model assets** curated weight downloads into `models/checkpoints`, `diffusion_models`, `vae`, etc. |
+| `HF_TOKEN` | _(empty)_ | Optional Hugging Face token for curated downloads (also accepts `HUGGING_FACE_HUB_TOKEN`) |
 | `COMFYUI_ALLOW_CLIENT_URL` | `true` | Allow clients to override ComfyUI URL |
 | `COMFYUI_ALLOWED_HOSTS` | _(empty)_ | Optional comma-separated ComfyUI host allowlist |
 | `WEBHOOK_ALLOW_PRIVATE` | `false` | Allow webhook POSTs to private/LAN URLs |
@@ -638,3 +653,7 @@ npm run clothing:generate -- --add 1000 --seed 42
 ```
 
 In the Character tool, open **Wardrobe & props** presets to pick library items (grouped dropdowns covering all **16 categories**: tops, bottoms, outerwear, footwear, swimwear, intimates, hosiery, formalwear, sleepwear, underwear, socks, headwear, traditional dress, and more). Custom text fields override library picks. **Every catalog item is always selectable** in the dropdowns (gender filtering only). Random outfit rolls still respect scene context for specialized items. Word pools: `scripts/clothing-word-pools.mjs`.
+
+## License
+
+[MIT](./LICENSE) © 2026 Robert McDowell. Third-party model weights you download (e.g. via Hugging Face) remain under their own licenses.

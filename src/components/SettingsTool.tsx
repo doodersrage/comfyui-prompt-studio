@@ -200,11 +200,16 @@ const LoraTrainPanel = dynamic(
   () => import("@/components/settings/LoraTrainPanel"),
   { loading: () => <ToolPageSkeleton label="Loading LoRA train" /> },
 );
+const ComfyModelAssetsPanel = dynamic(
+  () => import("@/components/settings/ComfyModelAssetsPanel"),
+  { loading: () => <ToolPageSkeleton label="Loading model assets" /> },
+);
 const ACCENT = "neutral" as const;
 
 const COMFYUI_SECTION_ELEMENT_IDS: Record<ComfyUiSettingsSectionId, string> = {
   presets: "settings-comfyui-presets",
   "workflow-map": "settings-comfyui-workflow-map",
+  "model-assets": "settings-comfyui-model-assets",
   "workflow-patching": "settings-comfyui-workflow-patching",
   "lora-library": "settings-comfyui-lora-library",
   "lora-train": "settings-comfyui-lora-train",
@@ -1240,6 +1245,15 @@ export default function SettingsTool() {
             </button>
           </>
         )}
+      </ToolSection>
+
+      <ToolSection id="settings-comfyui-model-assets" title="Model assets">
+        <ComfyModelAssetsPanel
+          onStatus={setStatus}
+          onInstalled={() => {
+            void syncLoaderMapsFromComfyInventory();
+          }}
+        />
       </ToolSection>
 
       <ToolSection id="settings-comfyui-workflow-patching" title="Workflow patching & checkpoints">

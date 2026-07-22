@@ -23,10 +23,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ComfyUI Image Prompt Tools",
+  title: {
+    default: "Prompt Studio",
+    template: "%s · Prompt Studio",
+  },
   description:
-    "Generate and format prompts for SD, SDXL, SD3, Flux, Qwen Image, Hunyuan, and other ComfyUI image models.",
+    "Prompt, queue, and gallery studio for ComfyUI — image, video, audio, and 3D workflows.",
+  applicationName: "Prompt Studio",
   manifest: "/manifest.json",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut: ["/icon.svg"],
+  },
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0b0f14" },
+    { media: "(prefers-color-scheme: light)", color: "#0b0f14" },
+  ],
 };
 
 export default function RootLayout({
