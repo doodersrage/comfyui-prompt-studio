@@ -23,6 +23,8 @@ export type ComfyGalleryEntry = {
   maskImageUrl?: string;
   /** Queue quality profile used when this job was queued (draft / final / max). */
   queueQualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
+  /** Session LoRA library ids active when this job was queued (for re-edit same stack). */
+  sessionActiveLoraIds?: string[];
   /** Quick review rating from gallery review mode. */
   reviewRating?: 1 | 2 | 3 | 4 | 5;
   /** Optional project/campaign id. */

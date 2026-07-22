@@ -17,6 +17,8 @@ import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-t
 import { diffPromptWords } from "@/lib/prompt-diff";
 import { resolveParentHistoryId } from "@/lib/prompt-lineage-session";
 import { DEFAULT_REFINE_TOOL_CACHE } from "@/lib/settings-cache";
+import { sharedPatchFromGalleryHandoff } from "@/lib/gallery-handoff";
+import type { GalleryHandoffPayload } from "@/lib/gallery-handoff";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import {
   ToolBadge,
@@ -142,7 +144,7 @@ export default function RefineTool() {
       queueParams?: WorkflowParamValues;
       file: File | null;
       previewUrl: string | null;
-      payload: { historyId?: string };
+      payload: GalleryHandoffPayload;
     }) => {
       setCurrentPrompt(handoff.prompt);
       setBeforePrompt(handoff.prompt);
@@ -151,8 +153,14 @@ export default function RefineTool() {
       if (handoff.improveIntent) {
         setIntentHints(handoff.improveIntent);
       }
+      const sharedPatch = sharedPatchFromGalleryHandoff(handoff.payload);
       if (handoff.model) {
-        updateShared({ model: handoff.model as ComfyImageModel });
+        updateShared({
+          model: handoff.model as ComfyImageModel,
+          ...sharedPatch,
+        });
+      } else if (Object.keys(sharedPatch).length > 0) {
+        updateShared(sharedPatch);
       }
       if (handoff.file) {
         setFile(handoff.file);
@@ -288,6 +296,7 @@ export default function RefineTool() {
           onDetailChange={(detail) => updateShared({ detail })}
           onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
           recommendFromText={output || currentPrompt || intentHints}
+          onSharedSettingsChange={updateShared}
         />
       }
     >

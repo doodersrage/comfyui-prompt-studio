@@ -8,10 +8,11 @@ import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPa
 import { comfyUiJobProgressPercent } from "@/lib/comfyui-job-status";
 import {
   buildGalleryHandoff,
+  buildReeditGalleryHandoff,
   galleryHandoffPath,
   saveGalleryHandoff,
 } from "@/lib/gallery-handoff";
-import { startImproveFromGalleryEntry, startInpaintFromGalleryEntry } from "@/lib/improve-output";
+import { startImproveFromGalleryEntry, startInpaintFromGalleryEntry, startOutpaintFromGalleryEntry } from "@/lib/improve-output";
 import {
   scoreGalleryEntryHeuristic,
   type AestheticScoreResult,
@@ -443,6 +444,13 @@ export default function GalleryCard({
                   >
                     Inpaint
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => startOutpaintFromGalleryEntry(entry)}
+                    className="pointer-events-auto rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-100 backdrop-blur transition hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/45 active:scale-[0.98]"
+                  >
+                    Outpaint
+                  </button>
                 </>
               ) : null}
             </div>
@@ -829,12 +837,27 @@ export default function GalleryCard({
                                 setMenuOpen(false);
                               }}
                             />
+                            <GalleryMenuButton
+                              label="Outpaint"
+                              onClick={() => {
+                                startOutpaintFromGalleryEntry(entry);
+                                setMenuOpen(false);
+                              }}
+                            />
                           </>
                         ) : null}
                         <GalleryMenuButton
                           label="Refine"
                           onClick={() => {
                             saveGalleryHandoff(buildGalleryHandoff(entry, "refine"));
+                            router.push(galleryHandoffPath("refine"));
+                            setMenuOpen(false);
+                          }}
+                        />
+                        <GalleryMenuButton
+                          label="Re-edit · Refine (same stack)"
+                          onClick={() => {
+                            saveGalleryHandoff(buildReeditGalleryHandoff(entry, "refine"));
                             router.push(galleryHandoffPath("refine"));
                             setMenuOpen(false);
                           }}
@@ -847,6 +870,23 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
+                        <GalleryMenuButton
+                          label="Re-edit · Compose (same stack)"
+                          onClick={() => {
+                            saveGalleryHandoff(buildReeditGalleryHandoff(entry, "compose"));
+                            router.push(galleryHandoffPath("compose"));
+                            setMenuOpen(false);
+                          }}
+                        />
+                        {layout !== "list" ? (
+                          <GalleryMenuButton
+                            label="Outpaint"
+                            onClick={() => {
+                              startOutpaintFromGalleryEntry(entry);
+                              setMenuOpen(false);
+                            }}
+                          />
+                        ) : null}
                         <GalleryMenuButton
                           label="Image → Prompt"
                           onClick={() => {
@@ -941,7 +981,7 @@ export default function GalleryCard({
                   <GalleryMenuGroup label="Enhance">
                     {canUpscaleFinal ? (
                         <GalleryMenuButton
-                          label="Upscale · Final"
+                          label="Upscale · native (Final)"
                           onClick={() => {
                             onUpscale("final");
                             setMenuOpen(false);
@@ -950,7 +990,7 @@ export default function GalleryCard({
                     ) : null}
                     {canUpscaleMax ? (
                         <GalleryMenuButton
-                          label="Upscale · Max"
+                          label="Upscale · polish (Max)"
                           onClick={() => {
                             onUpscale("max");
                             setMenuOpen(false);

@@ -50,6 +50,40 @@ const ACTION_ITEMS: CommandItem[] = [
     group: "Actions",
   },
   {
+    id: "save-session-recipe",
+    label: "Save session snapshot",
+    subtitle: "Model, quality, LoRAs, sampler — restore anytime",
+    action: () => {
+      void import("@/lib/session-recipes").then(async (m) => {
+        const { loadSettingsCache } = await import("@/lib/settings-cache");
+        const shared = loadSettingsCache().shared;
+        const recipe = m.buildSessionRecipeFromShared({ shared });
+        m.pushSessionRecipe(recipe);
+      });
+    },
+    group: "Actions",
+  },
+  {
+    id: "restore-session-recipe",
+    label: "Restore latest session snapshot",
+    subtitle: "Applies the most recent Save session snapshot",
+    action: () => {
+      void import("@/lib/session-recipes").then(async (m) => {
+        const { loadSettingsCache, saveSharedSettings } = await import(
+          "@/lib/settings-cache"
+        );
+        const latest = m.loadSessionRecipes()[0];
+        if (!latest) {
+          return;
+        }
+        const next = m.applySessionRecipeShared(loadSettingsCache().shared, latest);
+        saveSharedSettings(next);
+        window.location.reload();
+      });
+    },
+    group: "Actions",
+  },
+  {
     id: "review-gallery",
     label: "Open gallery review",
     href: "/gallery?review=1",

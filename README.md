@@ -35,6 +35,8 @@ Audio and 3D-only architectures (Stable Audio, etc.) are not in the main image m
 | **Background** | `/background` | Environment-only prompt with no people |
 | **Image → Prompt** | `/image-prompt` | Upload an image; vision LLM writes the prompt |
 | **Inpaint** | `/inpaint` | Mask a region and queue FLUX/Qwen inpaint with `{{INPUT_IMAGE}}` / `{{MASK_IMAGE}}` |
+| **Outpaint** | `/outpaint` | Expand canvas borders (pad + mask) and queue through the inpaint path with Final quality recipes |
+| **Compose** | `/compose` | Multi-image transfer / edit with optional identity lock and gallery re-edit handoffs |
 | **Video** | `/video` | Motion/camera prompts for WAN / Hunyuan Video; optional init image + `{{VIDEO_FRAMES}}` / `{{VIDEO_FPS}}` / `{{INIT_IMAGE}}` for I2V workflows |
 | **Negative** | `/negative` | Sport-aware negative/preserve prompts for SD models |
 | **Studio** | `/studio` | History, iteration tree, projects, compare, portfolio, campaign, analytics, catalog, templates |

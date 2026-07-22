@@ -16,6 +16,9 @@ export function useGalleryHandoff(
     model?: string;
     improveIntent?: string;
     queueParams?: GalleryHandoffPayload["queueParams"];
+    sessionActiveLoraIds?: string[];
+    queueQualityProfile?: GalleryHandoffPayload["queueQualityProfile"];
+    handoffMode?: GalleryHandoffPayload["handoffMode"];
     file: File | null;
     previewUrl: string | null;
     payload: GalleryHandoffPayload;
@@ -56,6 +59,9 @@ export function useGalleryHandoff(
         model: payload.model,
         improveIntent: payload.improveIntent,
         queueParams: payload.queueParams,
+        sessionActiveLoraIds: payload.sessionActiveLoraIds,
+        queueQualityProfile: payload.queueQualityProfile,
+        handoffMode: payload.handoffMode,
         file,
         previewUrl,
         payload,

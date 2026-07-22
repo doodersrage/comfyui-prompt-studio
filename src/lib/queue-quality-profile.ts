@@ -3,7 +3,10 @@ import {
   type ModelSamplerPresetTier,
 } from "./model-sampler-defaults";
 import {
+  normalizeResolutionOrientation,
   normalizeResolutionSizeTier,
+  resolveModelResolutionParams,
+  type ResolutionOrientation,
   type ResolutionSizeTier,
 } from "./model-resolution-defaults";
 import { loadSettingsCache } from "./settings-cache";
@@ -354,6 +357,84 @@ export function formatQueuePipelineStatusNotes(input: {
   }
 
   return notes;
+}
+
+/**
+ * One-line size/quality path for sidebar preflight (EmptySD3 · 1328×1328 · Final · Lanczos 1.05× → ~1394).
+ */
+export function formatQueueSizeQualityExplain(input: {
+  model?: string;
+  qualityProfile?: QueueQualityProfile;
+  width?: number;
+  height?: number;
+  orientation?: ResolutionOrientation;
+  sizeTier?: ResolutionSizeTier;
+  hasInputImage?: boolean;
+  /** Expected latent class after queue prep (default EmptySD3 for Qwen/SD3). */
+  latentClass?: string;
+  /** When queue prep converts EmptyFlux2 → EmptySD3. */
+  latentConvertedFrom?: string;
+  systemWorkflowSource?: "pack" | "scaffold";
+}): string {
+  const model = String(input.model ?? "").trim();
+  const profile = normalizeQueueQualityProfile(input.qualityProfile);
+  const resolved =
+    input.width != null &&
+    input.height != null &&
+    Number.isFinite(input.width) &&
+    Number.isFinite(input.height) &&
+    input.width > 0 &&
+    input.height > 0
+      ? { width: Math.round(input.width), height: Math.round(input.height) }
+      : model
+        ? resolveModelResolutionParams(
+            model,
+            normalizeResolutionOrientation(input.orientation),
+            resolveEffectiveResolutionSizeTier(input.sizeTier, profile),
+          )
+        : {};
+  const width = Number(resolved.width);
+  const height = Number(resolved.height);
+  const parts: string[] = [];
+
+  const latent =
+    input.latentClass?.trim() ||
+    (/qwen|sd3/i.test(model) ? "EmptySD3" : "latent");
+  if (input.latentConvertedFrom?.trim()) {
+    parts.push(
+      `${latent} (from ${input.latentConvertedFrom.trim().replace(/LatentImage$/i, "")})`,
+    );
+  } else {
+    parts.push(latent.replace(/LatentImage$/i, "") || latent);
+  }
+
+  if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+    parts.push(`${width}×${height}`);
+  }
+
+  if (profile === "draft" || profile === "final" || profile === "max") {
+    parts.push(profile);
+  }
+
+  const scale = upscaleScaleForProfile(profile, {
+    model,
+    hasInputImage: input.hasInputImage,
+  });
+  if (scale > 1.001 && Number.isFinite(width) && width > 0) {
+    const outW = Math.round(width * scale);
+    const outH = Math.round(height * scale);
+    parts.push(`Lanczos ${scale}× → ~${outW}×${outH}`);
+  } else if (profileUsesUpscaleEnrich(profile)) {
+    parts.push("native decode");
+  }
+
+  if (input.systemWorkflowSource === "pack") {
+    parts.push("pack");
+  } else if (input.systemWorkflowSource === "scaffold") {
+    parts.push("scaffold");
+  }
+
+  return parts.join(" · ");
 }
 
 export function profileUsesUpscaleEnrich(profile: QueueQualityProfile | undefined): boolean {

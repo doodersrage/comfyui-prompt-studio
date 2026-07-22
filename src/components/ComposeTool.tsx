@@ -22,6 +22,12 @@ import {
   MAX_COMPOSE_FIGURES,
   type ComposeMode,
 } from "@/lib/compose-prompt";
+import {
+  DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH,
+  formatComposeIdentityLockHint,
+  normalizeComposeIdentityLockStrength,
+} from "@/lib/compose-identity-lock";
+import { sharedPatchFromGalleryHandoff } from "@/lib/gallery-handoff";
 import { DEFAULT_IMAGE_COMPOSE_TOOL_CACHE } from "@/lib/settings-cache";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import {
@@ -184,17 +190,33 @@ export default function ComposeTool() {
       prompt: string;
       model?: string;
       queueParams?: WorkflowParamValues;
+      sessionActiveLoraIds?: string[];
+      queueQualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
+      handoffMode?: import("@/lib/gallery-handoff").GalleryHandoffMode;
       file: File | null;
       previewUrl: string | null;
+      payload?: import("@/lib/gallery-handoff").GalleryHandoffPayload;
     }) => {
       if (handoff.prompt.trim()) {
         setInstruction(handoff.prompt.trim());
       }
       setHandoffQueueParams(handoff.queueParams);
+      const sharedPatch = handoff.payload
+        ? sharedPatchFromGalleryHandoff(handoff.payload)
+        : {
+            sessionActiveLoraIds: handoff.sessionActiveLoraIds,
+            queueQualityProfile: handoff.queueQualityProfile,
+          };
       if (handoff.model && isComposeCapableModel(handoff.model)) {
-        updateShared({ model: handoff.model as ComfyImageModel });
+        updateShared({
+          model: handoff.model as ComfyImageModel,
+          ...sharedPatch,
+        });
       } else {
-        updateShared({ model: COMPOSE_DEFAULT_MODEL });
+        updateShared({
+          model: COMPOSE_DEFAULT_MODEL,
+          ...sharedPatch,
+        });
       }
       setSlots((current) => {
         const next = current.map((slot) => ({ ...slot }));
@@ -214,6 +236,11 @@ export default function ComposeTool() {
 
   useGalleryHandoff("compose", applyGalleryHandoff);
 
+  const identityLock = toolSettings.identityLock === true;
+  const identityLockStrength = normalizeComposeIdentityLockStrength(
+    toolSettings.identityLockStrength ?? DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH,
+  );
+
   const queueImageOptions = useMemo(() => {
     const fig1 = slots[0];
     return {
@@ -227,8 +254,18 @@ export default function ComposeTool() {
       maskImageUrl:
         showMaskEditor && !maskFile ? maskPreviewUrl ?? undefined : undefined,
       queueParamsBase: handoffQueueParams,
+      identityLock,
+      identityLockStrength,
     };
-  }, [handoffQueueParams, maskFile, maskPreviewUrl, showMaskEditor, slots]);
+  }, [
+    handoffQueueParams,
+    identityLock,
+    identityLockStrength,
+    maskFile,
+    maskPreviewUrl,
+    showMaskEditor,
+    slots,
+  ]);
 
   const assertReadyToQueue = useCallback(() => {
     const fig1 = slots[0];
@@ -298,6 +335,7 @@ export default function ComposeTool() {
           onDetailChange={(detail) => updateShared({ detail })}
           onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
           recommendFromText={output || instruction}
+          onSharedSettingsChange={updateShared}
         />
       }
     >
@@ -394,6 +432,52 @@ export default function ComposeTool() {
               </div>
             );
           })}
+        </div>
+
+        <div className="space-y-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] px-3.5 py-3 shadow-[0_0_28px_-18px_rgba(34,211,238,0.4)]">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={identityLock}
+              onChange={(event) =>
+                updateToolSettings({ identityLock: event.target.checked })
+              }
+              className="mt-1 rounded border-zinc-700 bg-zinc-950 text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+            />
+            <span className="min-w-0 space-y-1">
+              <span className="block text-sm font-medium text-cyan-50/95">
+                Lock identity from Figure 1
+              </span>
+              <span className="block text-xs leading-relaxed text-zinc-500">
+                {formatComposeIdentityLockHint({
+                  enabled: identityLock,
+                  strength: identityLockStrength,
+                })}
+              </span>
+            </span>
+          </label>
+          {identityLock ? (
+            <label className="block space-y-1.5 pl-7">
+              <span className="type-caption text-cyan-200/70">
+                IP-Adapter strength — {identityLockStrength.toFixed(2)}
+              </span>
+              <input
+                type="range"
+                min={0.15}
+                max={0.85}
+                step={0.05}
+                value={identityLockStrength}
+                onChange={(event) =>
+                  updateToolSettings({
+                    identityLockStrength: normalizeComposeIdentityLockStrength(
+                      event.target.value,
+                    ),
+                  })
+                }
+                className="w-full accent-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+              />
+            </label>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

@@ -45,6 +45,8 @@ export type RegisterComfyGalleryJobInput = {
   sourceImageUrl?: string;
   maskImageUrl?: string;
   queueQualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
+  /** Session LoRA ids active at queue time (for re-edit same stack). */
+  sessionActiveLoraIds?: string[];
   projectId?: string;
   comfyUrl: string;
   clientId?: string;
@@ -111,6 +113,7 @@ export function registerComfyGalleryJob(
     sourceImageUrl: imageUrls.sourceImageUrl,
     maskImageUrl: imageUrls.maskImageUrl,
     queueQualityProfile: input.queueQualityProfile,
+    sessionActiveLoraIds: input.sessionActiveLoraIds,
     projectId: input.projectId,
     comfyUrl: input.comfyUrl,
     clientId: input.clientId,

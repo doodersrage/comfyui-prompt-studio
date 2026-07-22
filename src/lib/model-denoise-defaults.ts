@@ -8,7 +8,16 @@ export const DEFAULT_EDIT_DENOISE = 0.65;
 
 export const DEFAULT_INPAINT_DENOISE = 0.75;
 
-const EDIT_TOOLS = new Set(["refine", "image-prompt", "controlnet", "inpaint", "compose"]);
+const EDIT_TOOLS = new Set([
+  "refine",
+  "image-prompt",
+  "controlnet",
+  "inpaint",
+  "outpaint",
+  "compose",
+]);
+
+export const DEFAULT_OUTPAINT_DENOISE = 0.85;
 
 function clampDenoise(value: number): number {
   if (!Number.isFinite(value)) {
@@ -118,8 +127,10 @@ export function resolveDenoiseForModel(
     return 1;
   }
 
-  if (isInpaintModel(model) || options?.hasMaskImage) {
-    return DEFAULT_INPAINT_DENOISE;
+  if (isInpaintModel(model) || options?.hasMaskImage || options?.tool === "outpaint") {
+    return options?.tool === "outpaint"
+      ? DEFAULT_OUTPAINT_DENOISE
+      : DEFAULT_INPAINT_DENOISE;
   }
 
   return DEFAULT_EDIT_DENOISE;

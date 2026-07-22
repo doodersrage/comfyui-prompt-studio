@@ -22,6 +22,8 @@ type GalleryComparePanelProps = {
   entries: ComfyGalleryEntry[];
   onClose: () => void;
   onPickWinner?: (entry: ComfyGalleryEntry) => void;
+  /** Persist the preferred stack as a reusable tool quality recipe. */
+  onSaveWinnerRecipe?: (entry: ComfyGalleryEntry) => void;
   compareWinnerId?: string | null;
   onUpscaleWinner?: (entry: ComfyGalleryEntry) => void;
   onRate?: (entryId: string, rating: ComfyGalleryEntry["reviewRating"]) => void;
@@ -64,6 +66,7 @@ export default function GalleryComparePanel({
   entries,
   onClose,
   onPickWinner,
+  onSaveWinnerRecipe,
   compareWinnerId,
   onUpscaleWinner,
   onRate,
@@ -144,6 +147,20 @@ export default function GalleryComparePanel({
               }}
             >
               Upscale winner (Max)
+            </Button>
+          ) : null}
+          {onSaveWinnerRecipe && compareWinnerId ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                const winner = entries.find((entry) => entry.id === compareWinnerId);
+                if (winner) {
+                  onSaveWinnerRecipe(winner);
+                }
+              }}
+            >
+              Save winner as recipe
             </Button>
           ) : null}
         </div>

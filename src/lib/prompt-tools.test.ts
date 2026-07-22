@@ -1740,6 +1740,7 @@ describe("gallery handoff", () => {
     const { galleryHandoffPath, galleryImprovePath } = await import("./gallery-handoff");
     assert.equal(galleryHandoffPath("refine"), "/refine?from=gallery");
     assert.equal(galleryHandoffPath("inpaint"), "/inpaint?from=gallery");
+    assert.equal(galleryHandoffPath("outpaint"), "/outpaint?from=gallery");
     assert.equal(galleryHandoffPath("imagePrompt"), "/image-prompt?from=gallery");
     assert.equal(galleryHandoffPath("controlnet"), "/controlnet?from=gallery");
     assert.equal(galleryHandoffPath("promptEditor"), "/prompt?from=gallery");

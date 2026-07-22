@@ -8,6 +8,11 @@ import ImageLightbox, { type ImageLightboxState } from "@/components/ui/ImageLig
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { useComfyUiGallery } from "@/hooks/useComfyUiGallery";
 import { startImproveFromGalleryEntry } from "@/lib/improve-output";
+import {
+  appendUserToolQualityRecipe,
+  buildToolQualityRecipeFromGalleryEntry,
+} from "@/lib/tool-quality-recipes";
+import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
 import { recordAvoidedTokensFromGalleryEntry } from "@/lib/avoided-tokens";
 import { recordCatalogBiasFromPrompt } from "@/lib/catalog-rating-bias";
 import GalleryVisionReviewButton from "@/components/gallery/GalleryVisionReviewButton";
@@ -1544,6 +1549,27 @@ export default function ComfyUiGalleryPanel({
                   error instanceof Error ? error.message : "Auto-improve failed.",
                 );
               });
+          }}
+          onSaveWinnerRecipe={(entry) => {
+            const built = buildToolQualityRecipeFromGalleryEntry(entry);
+            if (!built.ok) {
+              setCompareStatus(built.error);
+              return;
+            }
+            const shared = loadSettingsCache().shared;
+            const nextRecipes = appendUserToolQualityRecipe(
+              shared.toolQualityRecipes,
+              built.recipe,
+            );
+            saveSharedSettings({
+              ...shared,
+              toolQualityRecipes: nextRecipes,
+            });
+            setCompareStatus(
+              `Saved recipe “${built.recipe.label}” · ${built.recipe.queueQualityProfile}${
+                built.recipe.model ? ` · ${built.recipe.model}` : ""
+              }`,
+            );
           }}
           onRate={(entryId, rating) => {
             setReviewRating(entryId, rating);

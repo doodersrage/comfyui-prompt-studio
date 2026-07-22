@@ -104,6 +104,10 @@ const QueueQualityProfileHints = dynamic(
   () => import("@/components/QueueQualityProfileHints"),
   { ssr: false, loading: () => null },
 );
+const QueueRecipesPanel = dynamic(
+  () => import("@/components/QueueRecipesPanel"),
+  { ssr: false, loading: () => null },
+);
 
 type SharedToolControlsProps = {
   shared: SharedToolSettings;
@@ -730,6 +734,56 @@ export default function SharedToolControls({
     onSharedSettingsChange?.({ toolQueueQualityProfiles: nextProfiles });
   };
 
+  const handleRecipesApplied = (next: SharedToolSettings) => {
+    setQueueQualityProfile(
+      normalizeQueueQualityProfile(next.queueQualityProfile ?? queueQualityProfile),
+    );
+    setSamplerPreset(
+      normalizeModelSamplerPresetTier(next.modelSamplerPreset ?? samplerPreset),
+    );
+    setResolutionOrientation(
+      normalizeResolutionOrientation(
+        next.modelResolutionOrientation ?? resolutionOrientation,
+      ),
+    );
+    setResolutionSizeTier(
+      normalizeResolutionSizeTier(next.modelResolutionSizeTier ?? resolutionSizeTier),
+    );
+    setSessionActiveLoraIds(next.sessionActiveLoraIds);
+    if (next.model !== shared.model) {
+      onModelChange(next.model);
+    }
+    onSharedSettingsChange?.({
+      model: next.model,
+      queueQualityProfile: next.queueQualityProfile,
+      sessionQueueMode: next.sessionQueueMode,
+      sessionActiveLoraIds: next.sessionActiveLoraIds,
+      modelSamplerPreset: next.modelSamplerPreset,
+      modelResolutionOrientation: next.modelResolutionOrientation,
+      modelResolutionSizeTier: next.modelResolutionSizeTier,
+      editDenoiseStrength: next.editDenoiseStrength,
+      toolQueueQualityProfiles: next.toolQueueQualityProfiles,
+      toolQualityRecipes: next.toolQualityRecipes,
+    });
+  };
+
+  const recipesShared = useMemo(
+    () => ({
+      ...shared,
+      queueQualityProfile,
+      modelResolutionOrientation: resolutionOrientation,
+      modelResolutionSizeTier: resolutionSizeTier,
+      sessionActiveLoraIds,
+    }),
+    [
+      shared,
+      queueQualityProfile,
+      resolutionOrientation,
+      resolutionSizeTier,
+      sessionActiveLoraIds,
+    ],
+  );
+
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -796,6 +850,15 @@ export default function SharedToolControls({
                 </span>
               </p>
             ) : null}
+            <QueueRecipesPanel
+              toolId={toolId}
+              shared={recipesShared}
+              qualityProfile={queueQualityProfile}
+              orientation={resolutionOrientation}
+              sizeTier={resolutionSizeTier}
+              systemWorkflowSource={systemWorkflowChoice?.source}
+              onApplied={handleRecipesApplied}
+            />
           </div>
         ) : null}
         {toolId === "generate" &&
@@ -919,15 +982,25 @@ export default function SharedToolControls({
         />
 
         {shared.useSystemWorkflows !== true ? (
-          <QueueQualityProfileHints
-            profile={queueQualityProfile}
-            samplerPreset={samplerPreset}
-            resolutionSizeTier={resolutionSizeTier}
-            onProfileChange={handleQueueQualityProfileChange}
-            toolId={toolId}
-            toolProfile={toolProfileOverride}
-            onToolProfileChange={handleToolQueueQualityChange}
-          />
+          <>
+            <QueueQualityProfileHints
+              profile={queueQualityProfile}
+              samplerPreset={samplerPreset}
+              resolutionSizeTier={resolutionSizeTier}
+              onProfileChange={handleQueueQualityProfileChange}
+              toolId={toolId}
+              toolProfile={toolProfileOverride}
+              onToolProfileChange={handleToolQueueQualityChange}
+            />
+            <QueueRecipesPanel
+              toolId={toolId}
+              shared={recipesShared}
+              qualityProfile={queueQualityProfile}
+              orientation={resolutionOrientation}
+              sizeTier={resolutionSizeTier}
+              onApplied={handleRecipesApplied}
+            />
+          </>
         ) : null}
 
         <RenderRealismHints

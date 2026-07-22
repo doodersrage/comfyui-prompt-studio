@@ -1,11 +1,15 @@
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
 import { buildComfyViewPath } from "./comfyui-outputs";
 import type { WorkflowParamValues } from "./comfyui-config";
+import type { QueueQualityProfile } from "./queue-quality-profile";
 import { setLineageParent } from "./prompt-lineage-session";
+import { loadSettingsCache } from "./settings-cache";
 
 export const GALLERY_HANDOFF_KEY = "gallery-handoff-v1";
 export const IMPROVE_INTENT_DEFAULT =
   "Improve fidelity, composition, and prompt alignment while preserving subject identity and scene intent.";
+
+export type GalleryHandoffMode = "reedit" | "upscale-native" | "upscale-polish";
 
 export type GalleryHandoffPayload = {
   source: "gallery" | "history";
@@ -19,11 +23,39 @@ export type GalleryHandoffPayload = {
   historyId?: string;
   imageUrl?: string;
   imageFilename?: string;
-  target: "refine" | "imagePrompt" | "promptEditor" | "inpaint" | "controlnet" | "video" | "compose";
+  target: "refine" | "imagePrompt" | "promptEditor" | "inpaint" | "outpaint" | "controlnet" | "video" | "compose";
   improveIntent?: string;
   queueParams?: WorkflowParamValues;
+  /** Restore LoRA session picks (from entry or current session). */
+  sessionActiveLoraIds?: string[];
+  queueQualityProfile?: QueueQualityProfile;
+  /** reedit = open tool with same stack; upscale-* routed via gallery enhance actions. */
+  handoffMode?: GalleryHandoffMode;
   savedAt: number;
 };
+
+export type BuildGalleryHandoffOptions = {
+  handoffMode?: GalleryHandoffMode;
+  /** Prefer entry.sessionActiveLoraIds; fall back to current session when true. */
+  includeSessionLoras?: boolean;
+};
+
+function resolveHandoffLoraIds(
+  entry: ComfyGalleryEntry,
+  includeSessionLoras: boolean,
+): string[] | undefined {
+  if (entry.sessionActiveLoraIds && entry.sessionActiveLoraIds.length > 0) {
+    return entry.sessionActiveLoraIds.map((id) => id.trim()).filter(Boolean);
+  }
+  if (!includeSessionLoras) {
+    return undefined;
+  }
+  const session = loadSettingsCache().shared.sessionActiveLoraIds;
+  if (!session || session.length === 0) {
+    return undefined;
+  }
+  return session.map((id) => id.trim()).filter(Boolean);
+}
 
 export function buildImproveGalleryHandoff(entry: ComfyGalleryEntry): GalleryHandoffPayload {
   return {
@@ -39,6 +71,7 @@ export function galleryImprovePath(): string {
 export function buildGalleryHandoff(
   entry: ComfyGalleryEntry,
   target: GalleryHandoffPayload["target"],
+  options?: BuildGalleryHandoffOptions,
 ): GalleryHandoffPayload {
   const image = entry.images[0];
   if (entry.historyId) {
@@ -48,6 +81,8 @@ export function buildGalleryHandoff(
       sourceTool: entry.tool,
     });
   }
+  const handoffMode = options?.handoffMode ?? "reedit";
+  const includeLoras = options?.includeSessionLoras ?? handoffMode === "reedit";
   return {
     source: "gallery",
     galleryEntryId: entry.id,
@@ -60,9 +95,23 @@ export function buildGalleryHandoff(
     imageUrl: image ? buildComfyViewPath(entry.comfyUrl, image) : undefined,
     imageFilename: image?.filename,
     queueParams: entry.queueParams,
+    queueQualityProfile: entry.queueQualityProfile,
+    sessionActiveLoraIds: resolveHandoffLoraIds(entry, includeLoras),
+    handoffMode,
     target,
     savedAt: Date.now(),
   };
+}
+
+/** Re-edit with the same LoRA stack / quality when available. */
+export function buildReeditGalleryHandoff(
+  entry: ComfyGalleryEntry,
+  target: Extract<GalleryHandoffPayload["target"], "compose" | "refine">,
+): GalleryHandoffPayload {
+  return buildGalleryHandoff(entry, target, {
+    handoffMode: "reedit",
+    includeSessionLoras: true,
+  });
 }
 
 export function saveGalleryHandoff(payload: GalleryHandoffPayload): void {
@@ -137,6 +186,9 @@ export function galleryHandoffPath(target: GalleryHandoffPayload["target"]): str
   if (target === "inpaint") {
     return "/inpaint?from=gallery";
   }
+  if (target === "outpaint") {
+    return "/outpaint?from=gallery";
+  }
   if (target === "compose") {
     return "/compose?from=gallery";
   }
@@ -154,4 +206,28 @@ export function galleryHandoffPath(target: GalleryHandoffPayload["target"]): str
 
 export function galleryPromptEditorPathFromHistory(): string {
   return "/prompt?from=history";
+}
+
+/** Shared settings slice to apply after a re-edit handoff lands. */
+export function sharedPatchFromGalleryHandoff(
+  payload: GalleryHandoffPayload,
+): {
+  sessionActiveLoraIds?: string[];
+  queueQualityProfile?: QueueQualityProfile;
+} {
+  const patch: {
+    sessionActiveLoraIds?: string[];
+    queueQualityProfile?: QueueQualityProfile;
+  } = {};
+  if (payload.sessionActiveLoraIds) {
+    patch.sessionActiveLoraIds = payload.sessionActiveLoraIds;
+  }
+  if (
+    payload.handoffMode === "reedit" &&
+    payload.queueQualityProfile &&
+    payload.queueQualityProfile !== "followSettings"
+  ) {
+    patch.queueQualityProfile = payload.queueQualityProfile;
+  }
+  return patch;
 }

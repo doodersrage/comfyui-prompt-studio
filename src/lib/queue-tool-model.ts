@@ -146,6 +146,13 @@ export function filterModelsForQueueTool(
     return compose.length > 0 ? compose : models;
   }
 
+  if (tool === "inpaint" || tool === "outpaint") {
+    const masked = models.filter(
+      (model) => isInpaintModel(model) || isEditCapableModel(model),
+    );
+    return masked.length > 0 ? masked : models;
+  }
+
   if (!shouldUseSceneGenerationModel(tool)) {
     return models;
   }

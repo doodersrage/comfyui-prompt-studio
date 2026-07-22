@@ -30,6 +30,7 @@ import {
   type QueueQualityProfile,
 } from "./queue-quality-profile";
 import { normalizeToolQueueQualityProfiles, SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES } from "./tool-quality-profiles";
+import { mergeToolQualityRecipes } from "./tool-quality-recipes";
 import {
   formatModelCheckpointMap,
   parseModelCheckpointMap,
@@ -139,6 +140,8 @@ export type SharedToolSettings = {
   modelSamplerMemory?: import("./sampler-memory").ModelSamplerMemoryMap;
   /** Per-tool queue quality overrides (tool id → profile). */
   toolQueueQualityProfiles?: import("./tool-quality-profiles").ToolQueueQualityProfiles;
+  /** Named quality recipes (model + profile + optional LoRA session). */
+  toolQualityRecipes?: import("./tool-quality-recipes").ToolQualityRecipe[];
   /** Per-model checkpoint filename overrides for loader patching (modelId=filename). */
   modelCheckpointMap?: ModelCheckpointMap;
   /** Per-model VAE filename overrides for VAELoader patching (modelId=filename). */
@@ -244,12 +247,25 @@ export type InpaintToolCache = {
   directPrompt?: string;
 };
 
+/** Outpaint / expand — pad canvas + border mask. */
+export type OutpaintToolCache = {
+  intent?: string;
+  padTop?: number;
+  padRight?: number;
+  padBottom?: number;
+  padLeft?: number;
+};
+
 /** Compose / Transfer tool — key is `imageCompose` (legacy `compose` was CharacterTool). */
 export type ImageComposeToolCache = {
   instruction?: string;
   mode?: "transfer" | "modify";
   /** Last figure-slot count hint (1–4). */
   figureCountHint?: number;
+  /** Pull identity from Figure 1 via IP-Adapter at queue time. */
+  identityLock?: boolean;
+  /** IP-Adapter weight when identityLock is on (default 0.5). */
+  identityLockStrength?: number;
 };
 
 export type ControlNetToolCache = {
@@ -420,6 +436,7 @@ export type ToolSettingsCache = {
   promptEditor?: PromptEditorToolCache;
   refine?: RefineToolCache;
   inpaint?: InpaintToolCache;
+  outpaint?: OutpaintToolCache;
   /** Compose / Transfer multi-image edit (not CharacterTool legacy `compose`). */
   imageCompose?: ImageComposeToolCache;
   controlnet?: ControlNetToolCache;
@@ -499,6 +516,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   freeVramAfterMax: false,
   modelSamplerMemory: {},
   toolQueueQualityProfiles: SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
+  toolQualityRecipes: mergeToolQualityRecipes(undefined),
   modelCheckpointMap: {},
   modelVaeMap: {},
   modelRefinerMap: {},
@@ -553,10 +571,20 @@ export const DEFAULT_INPAINT_TOOL_CACHE: InpaintToolCache = {
   directPrompt: "",
 };
 
+export const DEFAULT_OUTPAINT_TOOL_CACHE: OutpaintToolCache = {
+  intent: "continue the scene naturally with matching lighting",
+  padTop: 128,
+  padRight: 128,
+  padBottom: 128,
+  padLeft: 128,
+};
+
 export const DEFAULT_IMAGE_COMPOSE_TOOL_CACHE: ImageComposeToolCache = {
   instruction: "",
   mode: "transfer",
   figureCountHint: 2,
+  identityLock: false,
+  identityLockStrength: 0.5,
 };
 
 export const DEFAULT_CONTROLNET_TOOL_CACHE: ControlNetToolCache = {
@@ -774,6 +802,7 @@ export function loadSettingsCache(): SettingsCache {
       ...SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
       ...normalizeToolQueueQualityProfiles(shared.toolQueueQualityProfiles),
     };
+    shared.toolQualityRecipes = mergeToolQualityRecipes(shared.toolQualityRecipes);
     shared.modelCheckpointMap = {
       ...SUGGESTED_MODEL_CHECKPOINT_MAP,
       ...shared.modelCheckpointMap,

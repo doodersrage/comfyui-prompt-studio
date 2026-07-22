@@ -47,6 +47,7 @@ import {
 } from "@/lib/prompt-lineage-session";
 import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
+import { loadSettingsCache } from "@/lib/settings-cache";
 import { resolveQueueInputImageFilename } from "@/lib/queue-input-image";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { toastHeldMax, toastQueueOutcome } from "@/lib/app-toast";
@@ -122,6 +123,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         queueQualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
         /** Actual model queued (may differ from picker when Generate remaps Edit Lightning). */
         model?: ComfyImageModel;
+        sessionActiveLoraIds?: string[];
       },
       showPreview = true,
     ) => {
@@ -136,6 +138,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         historyId: input.historyId,
         queueParams: input.queueParams,
         queueQualityProfile: input.queueQualityProfile,
+        sessionActiveLoraIds: input.sessionActiveLoraIds,
         projectId: loadActiveProjectId(),
       });
 
@@ -391,6 +394,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
         /** Merged into runtime customTokens before inject (e.g. {{REGION_*}}). */
         customTokens?: Array<{ token: string; value: string }>;
+        /** Compose: lock identity from Figure 1 via IP-Adapter after upload. */
+        identityLock?: boolean;
+        identityLockStrength?: number;
       },
     ) => {
       if (!prompt) {
@@ -617,6 +623,20 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           qualityProfile: effectiveQualityProfile,
         });
 
+        if (options?.identityLock) {
+          const { buildComposeIdentityLockQueuePatch } = await import(
+            "@/lib/compose-identity-lock"
+          );
+          const identityPatch = buildComposeIdentityLockQueuePatch({
+            enabled: true,
+            strength: options.identityLockStrength,
+            inputImageFilename,
+          });
+          if (identityPatch) {
+            Object.assign(queueParams, identityPatch);
+          }
+        }
+
         if (
           effectiveQualityProfile === "max" &&
           (await shouldHoldMaxUntilIdle())
@@ -704,6 +724,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 data.comfyUrl,
                 data.workflowSource ? `workflow: ${data.workflowSource}` : null,
                 negativePrompt ? "with negative" : null,
+                options?.identityLock && queueParams.ipAdapterImageFilename
+                  ? `identity lock · IP-Adapter ${Number(queueParams.ipAdapterStrength ?? 0.5).toFixed(2)}`
+                  : null,
               ],
               {
                 model: queueModel,
@@ -712,6 +735,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 vramDowngraded: vramGuard.downgraded,
                 samplerMemory:
                   Object.keys(rememberedSamplerOverrides(queueModel)).length > 0,
+                hasInputImage: Boolean(inputImageFilename),
               },
             ),
           );
@@ -742,6 +766,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               queueParams,
               queueQualityProfile: runtime?.queueQualityProfile,
               model: queueModel,
+              sessionActiveLoraIds: loadSettingsCache().shared.sessionActiveLoraIds,
             });
             // Let the gallery poller attach to the shared live session before we
             // drop the early ref (avoids aborting the bridge on refCount 0).
@@ -988,6 +1013,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 historyId: index === 0 ? batchHistoryId : undefined,
                 queueQualityProfile: runtime?.queueQualityProfile,
                 model: queueModel,
+                sessionActiveLoraIds: loadSettingsCache().shared.sessionActiveLoraIds,
               },
               false,
             );
@@ -1220,6 +1246,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         maskImage?: File | null;
         maskImageFilename?: string;
         maskImageUrl?: string;
+        queueParamsBase?: WorkflowParamValues;
+        identityLock?: boolean;
+        identityLockStrength?: number;
       },
     ) => {
       if (!prompt.trim()) {
@@ -1276,6 +1305,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             maskImage: options?.maskImage,
             maskImageFilename: options?.maskImageFilename,
             maskImageUrl: options?.maskImageUrl,
+            queueParamsBase: options?.queueParamsBase,
+            identityLock: options?.identityLock,
+            identityLockStrength: options?.identityLockStrength,
           });
           setPipelineStatus("Pipeline complete · pair copied · queued");
         } else {
