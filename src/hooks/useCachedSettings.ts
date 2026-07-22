@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { whenBrowserStorageReady } from "@/lib/browser-storage";
 import {
   DEFAULT_SHARED_SETTINGS,
   loadSettingsCache,
@@ -19,6 +19,8 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
   toolDefaults: NonNullable<ToolSettingsCache[K]>,
 ) {
   const defaultsRef = useRef(toolDefaults);
+  const toolDirtyRef = useRef(false);
+  const sharedDirtyRef = useRef(false);
   const [mounted, setMounted] = useState(false);
   const [shared, setShared] = useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
   const [toolSettings, setToolSettings] = useState<
@@ -30,7 +32,11 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
   }, [toolDefaults]);
 
   useEffect(() => {
-    scheduleAfterCommit(() => {
+    let cancelled = false;
+    void whenBrowserStorageReady().then(() => {
+      if (cancelled) {
+        return;
+      }
       const cache = loadSettingsCache();
       const memory = loadToolContext(String(toolKey));
       let nextShared = cache.shared;
@@ -51,19 +57,27 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
           saveSharedSettings(nextShared);
         }
       }
-      setShared(nextShared);
-      const defaults =
-        defaultsRef.current ??
-        ({} as NonNullable<ToolSettingsCache[K]>);
-      setToolSettings(loadToolSettings(toolKey, defaults));
+      // Don't clobber edits made before IndexedDB finished hydrating.
+      if (!sharedDirtyRef.current) {
+        setShared(nextShared);
+      }
+      if (!toolDirtyRef.current) {
+        const defaults =
+          defaultsRef.current ??
+          ({} as NonNullable<ToolSettingsCache[K]>);
+        setToolSettings(loadToolSettings(toolKey, defaults));
+      }
       setMounted(true);
     });
     // toolDefaults are module-level constants; toolKey selects the cache slice
-     
+    return () => {
+      cancelled = true;
+    };
   }, [toolKey]);
 
   const updateShared = useCallback(
     (partial: Partial<SharedToolSettings>) => {
+      sharedDirtyRef.current = true;
       setShared((previous) => {
         const next = { ...previous, ...partial };
         saveSharedSettings(next);
@@ -81,6 +95,7 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
 
   const updateToolSettings = useCallback(
     (partial: Partial<NonNullable<ToolSettingsCache[K]>>) => {
+      toolDirtyRef.current = true;
       setToolSettings((previous) => {
         const defaults =
           defaultsRef.current ??

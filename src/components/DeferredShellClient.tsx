@@ -37,11 +37,17 @@ function scheduleIdle(callback: () => void, timeoutMs: number): () => void {
 }
 
 export default function DeferredShellClient() {
+  const [toastReady, setToastReady] = useState(false);
   const [shellReady, setShellReady] = useState(false);
   const [batchEnabled, setBatchEnabled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    const enableToast = () => {
+      if (!cancelled) {
+        setToastReady(true);
+      }
+    };
     const enableShell = () => {
       if (!cancelled) {
         setShellReady(true);
@@ -63,24 +69,29 @@ export default function DeferredShellClient() {
       }
     };
     window.addEventListener("keydown", onKeyDown, { passive: true });
-    const cancelIdle = scheduleIdle(enableShell, 2500);
+
+    // Toast feedback should appear quickly after first paint.
+    const cancelToastIdle = scheduleIdle(enableToast, 400);
+    // Command palette / shortcuts / welcome can wait longer or until Ctrl/Cmd+K.
+    const cancelShellIdle = scheduleIdle(enableShell, 7000);
 
     return () => {
       cancelled = true;
       window.removeEventListener("keydown", onKeyDown);
-      cancelIdle();
+      cancelToastIdle();
+      cancelShellIdle();
     };
   }, []);
 
   return (
     <>
       {batchEnabled || shellReady ? <ScheduledBatchRunner /> : null}
+      {toastReady || shellReady ? <GlobalToastHost /> : null}
       {shellReady ? (
         <>
           <KeyboardShortcuts />
           <CommandPalette />
           <GalleryPwaRegister />
-          <GlobalToastHost />
           <WorkspaceWelcome />
         </>
       ) : null}

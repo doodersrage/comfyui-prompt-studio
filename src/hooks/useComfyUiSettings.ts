@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { whenBrowserStorageReady } from "@/lib/browser-storage";
 import type { ComfyUiRuntimeConfig } from "@/lib/comfyui-config";
 import {
   comfyUiSettingsToRuntime,
@@ -8,17 +9,23 @@ import {
   saveComfyUiSettings,
   type ComfyUiSettings,
 } from "@/lib/comfyui-settings";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export function useComfyUiSettings() {
   const [mounted, setMounted] = useState(false);
   const [settings, setSettings] = useState<ComfyUiSettings>(() => loadComfyUiSettings());
 
   useEffect(() => {
-    scheduleAfterCommit(() => {
-      setMounted(true);
+    let cancelled = false;
+    void whenBrowserStorageReady().then(() => {
+      if (cancelled) {
+        return;
+      }
       setSettings(loadComfyUiSettings());
+      setMounted(true);
     });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const updateSettings = useCallback((patch: Partial<ComfyUiSettings>) => {

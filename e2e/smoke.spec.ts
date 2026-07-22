@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { ensureAuthenticated } from "./helpers/auth";
 import { seedGalleryFixture } from "./helpers/gallery";
 import { gotoStable } from "./helpers/navigation";
+import { dismissBlockingOverlays } from "./helpers/overlays";
 
 test.beforeEach(async ({ page }) => {
   await ensureAuthenticated(page);
@@ -15,7 +16,7 @@ test("home page loads", async ({ page }) => {
 test("dashboard page loads", async ({ page }) => {
   await gotoStable(page, "/dashboard");
   await expect(page.getByRole("heading", { name: /^Dashboard$/i })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Gallery & slideshow/i })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: "Gallery", exact: true })).toBeVisible();
 });
 
 test("gallery page loads", async ({ page }) => {
@@ -29,11 +30,11 @@ test("queue page loads", async ({ page }) => {
 });
 
 test("settings page loads", async ({ page }) => {
-  await gotoStable(page, "/settings");
+  await gotoStable(page, "/settings?tab=automation");
   await expect(page.getByRole("heading", { name: /Settings & Health/i })).toBeVisible();
   await expect(page.getByRole("navigation", { name: /Settings sections/i })).toBeVisible();
-  await page.getByRole("button", { name: "Automation", exact: true }).click();
-  await expect(page.getByRole("heading", { name: /Avoided tokens/i })).toBeVisible({
+  // Exact heading — empty state also has "No avoided tokens yet".
+  await expect(page.getByRole("heading", { name: "Avoided tokens", exact: true })).toBeVisible({
     timeout: 15_000,
   });
 });
@@ -52,18 +53,19 @@ test("studio analytics tab loads", async ({ page }) => {
 });
 
 test("settings comfyui loader maps section loads", async ({ page }) => {
-  await gotoStable(page, "/settings");
-  await page.getByRole("button", { name: "ComfyUI", exact: true }).click();
+  // Desktop tab buttons include description text in the accessible name.
+  await gotoStable(page, "/settings?tab=comfyui");
   await expect(page.getByRole("button", { name: /Merge suggested loader maps/i })).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.getByRole("button", { name: /Optimize all in library/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Optimize all in library/i })).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(page.getByText(/Checkpoint map/i)).toBeVisible();
 });
 
 test("settings workflow health panel loads", async ({ page }) => {
-  await gotoStable(page, "/settings");
-  await page.getByRole("button", { name: "ComfyUI", exact: true }).click();
+  await gotoStable(page, "/settings?tab=comfyui");
   await expect(page.getByText(/Workflow library health/i)).toBeVisible({ timeout: 15_000 });
 });
 
@@ -71,10 +73,12 @@ test("gallery selection bar documents bulk upscale actions", async ({ page }) =>
   await seedGalleryFixture(page);
   await gotoStable(page, "/gallery");
   await expect(page.getByRole("heading", { name: /ComfyUI Gallery/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Select visible \(1\)/i })).toBeVisible({
-    timeout: 15_000,
-  });
-  await page.getByRole("button", { name: /Select visible \(1\)/i }).click();
+  // Count may be 1 (CI fixture) or higher when a local gallery store already exists.
+  const selectVisible = page.getByRole("button", { name: /Select visible \(\d+\)/i });
+  await expect(selectVisible).toBeVisible({ timeout: 15_000 });
+  // Storage sync can reappear after gallery hydrate; clear again before clicking.
+  await dismissBlockingOverlays(page);
+  await selectVisible.click();
   await page.getByRole("button", { name: "Queue", exact: true }).click();
   await expect(page.getByRole("button", { name: /Bulk upscale \(Final\)/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /Bulk refine \(Final\)/i })).toBeVisible();

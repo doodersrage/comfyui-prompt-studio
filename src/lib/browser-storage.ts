@@ -59,6 +59,14 @@ export function isBrowserStorageReady(): boolean {
   return ready;
 }
 
+/** Resolves once IndexedDB KV (or legacy fallback) has finished hydrating. */
+export function whenBrowserStorageReady(): Promise<void> {
+  if (typeof window === "undefined" || ready) {
+    return Promise.resolve();
+  }
+  return initBrowserStorage();
+}
+
 export function resetBrowserStorageCache(): void {
   cache.clear();
   dirtyKeys.clear();
@@ -233,6 +241,13 @@ async function migrateLocalStorageToBrowserDb(): Promise<void> {
   await persistDirtyBrowserKeys();
 }
 
+/** Keys loaded before the full KV table so settings/history hydrate sooner. */
+const HOT_KV_KEYS = [
+  "comfy-prompt-tool-settings-v1",
+  "comfyui-settings-v4",
+  "comfy-prompt-tool-history-v1",
+] as const;
+
 export async function initBrowserStorage(): Promise<void> {
   if (typeof window === "undefined") {
     return;
@@ -254,6 +269,21 @@ export async function initBrowserStorage(): Promise<void> {
     }
 
     try {
+      // Prefer hot keys first so settings hooks can hydrate without waiting on
+      // the full KV dump (gallery mirrors, drafts, experiments, …).
+      await Promise.all(
+        HOT_KV_KEYS.map(async (key) => {
+          try {
+            const record = await db.kv.get(key);
+            if (record) {
+              cache.set(record.key, record.value);
+            }
+          } catch {
+            // ignore per-key failures; full hydrate follows
+          }
+        }),
+      );
+
       const records = await db.kv.toArray();
       for (const record of records) {
         cache.set(record.key, record.value);

@@ -10,7 +10,7 @@ import {
   galleryEntryAlreadyEnrichedForUpscale,
   galleryEntrySupportsMoireClean,
   galleryEntrySupportsRefine,
-} from "@/lib/comfyui-requeue";
+} from "@/lib/gallery-entry-actions";
 import { isQwenRapidAioModel } from "@/lib/model-denoise-defaults";
 import { isQwenLightningModel } from "@/lib/model-sampling-patch";
 

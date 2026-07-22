@@ -1,8 +1,7 @@
 "use client";
 
+import { galleryEntryAlreadyEnrichedForUpscale, galleryEntryIsFinalToMaxBump } from "./gallery-entry-actions";
 import {
-  galleryEntryAlreadyEnrichedForUpscale,
-  galleryEntryIsFinalToMaxBump,
   requeueComfyJobFromEntry,
   requeueMoireCleanFromGalleryEntry,
   requeueUpscaleFromGalleryEntry,

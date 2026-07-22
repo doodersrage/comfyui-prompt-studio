@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { whenBrowserStorageReady } from "@/lib/browser-storage";
 import {
   loadPromptHistoryStore,
   savePromptHistoryStore,
@@ -8,7 +9,6 @@ import {
 } from "@/lib/prompt-history";
 import { USER_SCOPE_CHANGED_EVENT } from "@/lib/user-scope";
 import { scheduleUserAnalyticsSync } from "@/lib/user-analytics-sync";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export type { PromptHistoryEntry } from "@/lib/prompt-history";
 export { PROMPT_HISTORY_KEY, LOCATION_BLOCKLIST_KEY } from "@/lib/prompt-history";
@@ -37,14 +37,21 @@ export function usePromptHistory() {
   }, []);
 
   useEffect(() => {
-    scheduleAfterCommit(() => {
+    let cancelled = false;
+    void whenBrowserStorageReady().then(() => {
+      if (cancelled) {
+        return;
+      }
       refresh();
       setMounted(true);
     });
 
     const onScopeChanged = () => refresh();
     window.addEventListener(USER_SCOPE_CHANGED_EVENT, onScopeChanged);
-    return () => window.removeEventListener(USER_SCOPE_CHANGED_EVENT, onScopeChanged);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(USER_SCOPE_CHANGED_EVENT, onScopeChanged);
+    };
   }, [refresh]);
 
   const persist = useCallback((next: PromptHistoryEntry[]) => {

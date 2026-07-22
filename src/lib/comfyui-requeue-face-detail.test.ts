@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   canFaceDetailGalleryEntry,
   galleryEntrySupportsFaceDetail,
-} from "./comfyui-requeue.ts";
+} from "./gallery-entry-actions.ts";
 
 describe("comfyui-requeue face detail guards", () => {
   it("skips non-completed or imageless entries", () => {

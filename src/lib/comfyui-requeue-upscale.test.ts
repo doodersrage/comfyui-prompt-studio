@@ -4,7 +4,7 @@ import {
   canMoireCleanGalleryEntry,
   canUpscaleGalleryEntry,
   galleryEntryAlreadyEnrichedForUpscale,
-} from "./comfyui-requeue.ts";
+} from "./gallery-entry-actions.ts";
 
 describe("comfyui-requeue upscale guards", () => {
   it("allows completed entries with output images", () => {

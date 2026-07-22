@@ -60,7 +60,6 @@ import {
   downloadGallerySidecarBundle,
 } from "@/lib/comfyui-gallery-export";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
-import { requeueComfyJobFromEntry, requeueComfyJobs, bulkUpscaleGalleryEntries, bulkRefineGalleryEntries, bulkMoireCleanGalleryEntries, requeueRefineFromGalleryEntry, requeueUpscaleFromGalleryEntry, requeueMoireCleanFromGalleryEntry, requeueFaceDetailFromGalleryEntry } from "@/lib/comfyui-requeue";
 import { cancelComfyGalleryJob } from "@/lib/comfyui-queue-cancel";
 import {
   buildGalleryLineageGroups,
@@ -98,6 +97,9 @@ const GalleryWorkflowModal = dynamic(
   () => import("@/components/gallery/GalleryWorkflowModal"),
   { loading: () => null },
 );
+
+/** Lazy-load the requeue pipeline so gallery browse TTI stays light. */
+const loadGalleryRequeue = () => import("@/lib/comfyui-requeue");
 
 type ComfyUiGalleryPanelProps = {
   limit?: number;
@@ -679,11 +681,15 @@ export default function ComfyUiGalleryPanel({
           return;
         }
         setRequeueStatus("Queueing variation…");
-        void requeueComfyJobFromEntry(entry, {
-          newSeed,
-          qualityProfile,
-          onStatus: setRequeueStatus,
-        }).then((result) => {
+        void loadGalleryRequeue()
+          .then(({ requeueComfyJobFromEntry }) =>
+            requeueComfyJobFromEntry(entry, {
+              newSeed,
+              qualityProfile,
+              onStatus: setRequeueStatus,
+            }),
+          )
+          .then((result) => {
           if (!result.ok) {
             const message = result.error ?? "Re-queue failed.";
             setRequeueStatus(message);
@@ -731,11 +737,15 @@ export default function ComfyUiGalleryPanel({
           return;
         }
         setRequeueStatus(options?.force ? "Force upscaling…" : "Upscaling…");
-        void requeueUpscaleFromGalleryEntry(entry, {
-          qualityProfile,
-          force: options?.force,
-          onStatus: setRequeueStatus,
-        }).then((result) => {
+        void loadGalleryRequeue()
+          .then(({ requeueUpscaleFromGalleryEntry }) =>
+            requeueUpscaleFromGalleryEntry(entry, {
+              qualityProfile,
+              force: options?.force,
+              onStatus: setRequeueStatus,
+            }),
+          )
+          .then((result) => {
           if (!result.ok) {
             setRequeueStatus(result.error ?? "Upscale failed.");
             toastQueueOutcome({ ok: false, text: result.error ?? "Upscale failed." });
@@ -767,9 +777,13 @@ export default function ComfyUiGalleryPanel({
           return;
         }
         setRequeueStatus("Queueing low-denoise refine…");
-        void requeueRefineFromGalleryEntry(entry, {
-          onStatus: setRequeueStatus,
-        }).then((result) => {
+        void loadGalleryRequeue()
+          .then(({ requeueRefineFromGalleryEntry }) =>
+            requeueRefineFromGalleryEntry(entry, {
+              onStatus: setRequeueStatus,
+            }),
+          )
+          .then((result) => {
           if (!result.ok) {
             setRequeueStatus(result.error ?? "Refine failed.");
             toastQueueOutcome({ ok: false, text: result.error ?? "Refine failed." });
@@ -801,9 +815,13 @@ export default function ComfyUiGalleryPanel({
           return;
         }
         setRequeueStatus("Queueing face detail…");
-        void requeueFaceDetailFromGalleryEntry(entry, {
-          onStatus: setRequeueStatus,
-        }).then((result) => {
+        void loadGalleryRequeue()
+          .then(({ requeueFaceDetailFromGalleryEntry }) =>
+            requeueFaceDetailFromGalleryEntry(entry, {
+              onStatus: setRequeueStatus,
+            }),
+          )
+          .then((result) => {
           if (!result.ok) {
             setRequeueStatus(result.error ?? "Face detail failed.");
             toastQueueOutcome({ ok: false, text: result.error ?? "Face detail failed." });
@@ -844,11 +862,15 @@ export default function ComfyUiGalleryPanel({
               ? "Queueing moiré clean (Max)…"
               : "Queueing moiré clean (Final)…",
         );
-        void requeueMoireCleanFromGalleryEntry(entry, {
-          qualityProfile,
-          force: options?.force,
-          onStatus: setRequeueStatus,
-        }).then((result) => {
+        void loadGalleryRequeue()
+          .then(({ requeueMoireCleanFromGalleryEntry }) =>
+            requeueMoireCleanFromGalleryEntry(entry, {
+              qualityProfile,
+              force: options?.force,
+              onStatus: setRequeueStatus,
+            }),
+          )
+          .then((result) => {
           if (!result.ok) {
             setRequeueStatus(result.error ?? "Moiré clean failed.");
             toastQueueOutcome({
@@ -1335,24 +1357,28 @@ export default function ComfyUiGalleryPanel({
           }}
           onBulkRequeue={() => {
             setRequeueStatus("Bulk variation queue started…");
-            void requeueComfyJobs(
-              selectedEntries.map((entry) => {
-                const urls = resolveRequeueImageUrlsFromEntry(entry);
-                return {
-                  prompt: entry.prompt,
-                  negativePrompt: entry.negativePrompt,
-                  tool: entry.tool,
-                  model: entry.model,
-                  queueParams: entry.queueParams,
-                  sourceImageUrl: urls.sourceImageUrl,
-                  maskImageUrl: urls.maskImageUrl,
-                  newSeed: true,
-                  parentGalleryEntryId: entry.id,
-                  derivedKind: "variation" as const,
-                };
-              }),
-              setRequeueStatus,
-            ).then(({ queued, failed }) => {
+            void loadGalleryRequeue()
+              .then(({ requeueComfyJobs }) =>
+                requeueComfyJobs(
+                  selectedEntries.map((entry) => {
+                    const urls = resolveRequeueImageUrlsFromEntry(entry);
+                    return {
+                      prompt: entry.prompt,
+                      negativePrompt: entry.negativePrompt,
+                      tool: entry.tool,
+                      model: entry.model,
+                      queueParams: entry.queueParams,
+                      sourceImageUrl: urls.sourceImageUrl,
+                      maskImageUrl: urls.maskImageUrl,
+                      newSeed: true,
+                      parentGalleryEntryId: entry.id,
+                      derivedKind: "variation" as const,
+                    };
+                  }),
+                  setRequeueStatus,
+                ),
+              )
+              .then(({ queued, failed }) => {
               setSelectedIds([]);
               toastBulkQueueSummary({
                 label: "Bulk variation queue finished",
@@ -1363,7 +1389,11 @@ export default function ComfyUiGalleryPanel({
           }}
           onBulkUpscaleFinal={() => {
             setRequeueStatus("Bulk upscale (Final) started…");
-            void bulkUpscaleGalleryEntries(selectedEntries, "final", setRequeueStatus).then(
+            void loadGalleryRequeue()
+              .then(({ bulkUpscaleGalleryEntries }) =>
+                bulkUpscaleGalleryEntries(selectedEntries, "final", setRequeueStatus),
+              )
+              .then(
               ({ queued, failed, skipped }) => {
                 setSelectedIds([]);
                 toastBulkQueueSummary({
@@ -1377,7 +1407,11 @@ export default function ComfyUiGalleryPanel({
           }}
           onBulkUpscaleMax={() => {
             setRequeueStatus("Bulk upscale (Max) started…");
-            void bulkUpscaleGalleryEntries(selectedEntries, "max", setRequeueStatus).then(
+            void loadGalleryRequeue()
+              .then(({ bulkUpscaleGalleryEntries }) =>
+                bulkUpscaleGalleryEntries(selectedEntries, "max", setRequeueStatus),
+              )
+              .then(
               ({ queued, failed, skipped }) => {
                 setSelectedIds([]);
                 toastBulkQueueSummary({
@@ -1391,7 +1425,11 @@ export default function ComfyUiGalleryPanel({
           }}
           onBulkRefine={() => {
             setRequeueStatus("Bulk refine (Final) started…");
-            void bulkRefineGalleryEntries(selectedEntries, "final", setRequeueStatus).then(
+            void loadGalleryRequeue()
+              .then(({ bulkRefineGalleryEntries }) =>
+                bulkRefineGalleryEntries(selectedEntries, "final", setRequeueStatus),
+              )
+              .then(
               ({ queued, failed, skipped }) => {
                 setSelectedIds([]);
                 toastBulkQueueSummary({
@@ -1405,11 +1443,15 @@ export default function ComfyUiGalleryPanel({
           }}
           onBulkMoireCleanFinal={() => {
             setRequeueStatus("Bulk moiré clean (Final) started…");
-            void bulkMoireCleanGalleryEntries(
-              selectedEntries,
-              "final",
-              setRequeueStatus,
-            ).then(({ queued, failed, skipped }) => {
+            void loadGalleryRequeue()
+              .then(({ bulkMoireCleanGalleryEntries }) =>
+                bulkMoireCleanGalleryEntries(
+                  selectedEntries,
+                  "final",
+                  setRequeueStatus,
+                ),
+              )
+              .then(({ queued, failed, skipped }) => {
               setSelectedIds([]);
               toastBulkQueueSummary({
                 label: "Bulk moiré clean (Final) finished",
@@ -1421,11 +1463,15 @@ export default function ComfyUiGalleryPanel({
           }}
           onBulkMoireCleanMax={() => {
             setRequeueStatus("Bulk moiré clean (Max) started…");
-            void bulkMoireCleanGalleryEntries(
-              selectedEntries,
-              "max",
-              setRequeueStatus,
-            ).then(({ queued, failed, skipped }) => {
+            void loadGalleryRequeue()
+              .then(({ bulkMoireCleanGalleryEntries }) =>
+                bulkMoireCleanGalleryEntries(
+                  selectedEntries,
+                  "max",
+                  setRequeueStatus,
+                ),
+              )
+              .then(({ queued, failed, skipped }) => {
               setSelectedIds([]);
               toastBulkQueueSummary({
                 label: "Bulk moiré clean (Max) finished",
@@ -1625,10 +1671,14 @@ export default function ComfyUiGalleryPanel({
           }}
           onUpscale={(entry, qualityProfile) => {
             setCompareStatus(`Upscaling (${qualityProfile})…`);
-            void requeueUpscaleFromGalleryEntry(entry, {
-              qualityProfile,
-              onStatus: setCompareStatus,
-            }).then((result) => {
+            void loadGalleryRequeue()
+              .then(({ requeueUpscaleFromGalleryEntry }) =>
+                requeueUpscaleFromGalleryEntry(entry, {
+                  qualityProfile,
+                  onStatus: setCompareStatus,
+                }),
+              )
+              .then((result) => {
               if (!result.ok) {
                 setCompareStatus(result.error ?? "Upscale failed.");
                 return;
@@ -1646,10 +1696,14 @@ export default function ComfyUiGalleryPanel({
                 ? "Queueing moiré clean (Max)…"
                 : "Queueing moiré clean (Final)…",
             );
-            void requeueMoireCleanFromGalleryEntry(entry, {
-              qualityProfile,
-              onStatus: setCompareStatus,
-            }).then((result) => {
+            void loadGalleryRequeue()
+              .then(({ requeueMoireCleanFromGalleryEntry }) =>
+                requeueMoireCleanFromGalleryEntry(entry, {
+                  qualityProfile,
+                  onStatus: setCompareStatus,
+                }),
+              )
+              .then((result) => {
               if (!result.ok) {
                 setCompareStatus(result.error ?? "Moiré clean failed.");
                 return;
@@ -1663,9 +1717,13 @@ export default function ComfyUiGalleryPanel({
           }}
           onRefine={(entry) => {
             setCompareStatus("Queueing low-denoise refine…");
-            void requeueRefineFromGalleryEntry(entry, {
-              onStatus: setCompareStatus,
-            }).then((result) => {
+            void loadGalleryRequeue()
+              .then(({ requeueRefineFromGalleryEntry }) =>
+                requeueRefineFromGalleryEntry(entry, {
+                  onStatus: setCompareStatus,
+                }),
+              )
+              .then((result) => {
               if (!result.ok) {
                 setCompareStatus(result.error ?? "Refine failed.");
                 return;
@@ -1679,10 +1737,14 @@ export default function ComfyUiGalleryPanel({
           }}
           onUpscaleWinner={(entry) => {
             setCompareStatus("Upscaling compare winner at Max…");
-            void requeueUpscaleFromGalleryEntry(entry, {
-              qualityProfile: "max",
-              onStatus: setCompareStatus,
-            }).then((result) => {
+            void loadGalleryRequeue()
+              .then(({ requeueUpscaleFromGalleryEntry }) =>
+                requeueUpscaleFromGalleryEntry(entry, {
+                  qualityProfile: "max",
+                  onStatus: setCompareStatus,
+                }),
+              )
+              .then((result) => {
               if (!result.ok) {
                 setCompareStatus(result.error ?? "Upscale failed.");
                 return;

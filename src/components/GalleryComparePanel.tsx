@@ -16,7 +16,7 @@ import {
   galleryEntrySupportsMoireClean,
   galleryEntrySupportsRefine,
   galleryEntrySupportsUpscale,
-} from "@/lib/comfyui-requeue";
+} from "@/lib/gallery-entry-actions";
 
 type GalleryComparePanelProps = {
   entries: ComfyGalleryEntry[];

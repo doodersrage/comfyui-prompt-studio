@@ -446,15 +446,26 @@ export default function SharedToolControls({
       return;
     }
     let cancelled = false;
-    void scanAndAdaptSystemWorkflowInventory({ persist: true }).then(
-      (models) => {
-        if (!cancelled && models) {
-          setInventoryTick((value) => value + 1);
-        }
-      },
-    );
+    const runScan = () => {
+      void scanAndAdaptSystemWorkflowInventory({ persist: true }).then(
+        (models) => {
+          if (!cancelled && models) {
+            setInventoryTick((value) => value + 1);
+          }
+        },
+      );
+    };
+    let cancelIdle: (() => void) | undefined;
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(runScan, { timeout: 4000 });
+      cancelIdle = () => window.cancelIdleCallback(id);
+    } else {
+      const id = window.setTimeout(runScan, 500);
+      cancelIdle = () => window.clearTimeout(id);
+    }
     return () => {
       cancelled = true;
+      cancelIdle?.();
     };
   }, [shared.useSystemWorkflows, shared.model]);
 
@@ -556,77 +567,43 @@ export default function SharedToolControls({
     workflowSelection.mounted,
   ]);
 
+  // Batch mirrored shared settings into one post-commit update to avoid a
+  // cascade of re-renders when useCachedSettings hydrates.
   useEffect(() => {
     scheduleAfterCommit(() => {
       setSamplerPreset(normalizeModelSamplerPresetTier(shared.modelSamplerPreset));
-    });
-  }, [shared.modelSamplerPreset]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
-      setResolutionOrientation(normalizeResolutionOrientation(shared.modelResolutionOrientation));
-    });
-  }, [shared.modelResolutionOrientation]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
-      setResolutionSizeTier(normalizeResolutionSizeTier(shared.modelResolutionSizeTier));
-    });
-  }, [shared.modelResolutionSizeTier]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
+      setResolutionOrientation(
+        normalizeResolutionOrientation(shared.modelResolutionOrientation),
+      );
+      setResolutionSizeTier(
+        normalizeResolutionSizeTier(shared.modelResolutionSizeTier),
+      );
       setRenderRealismMode(normalizeRenderRealismMode(shared.renderRealismMode));
-    });
-  }, [shared.renderRealismMode]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
       setAnatomyGuardMode(normalizeAnatomyGuardMode(shared.anatomyGuardMode));
-    });
-  }, [shared.anatomyGuardMode]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
-      setQueueQualityProfile(normalizeQueueQualityProfile(shared.queueQualityProfile));
-    });
-  }, [shared.queueQualityProfile]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
+      setQueueQualityProfile(
+        normalizeQueueQualityProfile(shared.queueQualityProfile),
+      );
       setShowAllModelsOverride(shared.showAllModelsOverride === true);
-    });
-  }, [shared.showAllModelsOverride]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
       setExpandWildcards(shared.expandWildcards !== false);
-    });
-  }, [shared.expandWildcards]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
       setWildcardSeed(shared.wildcardSeed ?? "");
-    });
-  }, [shared.wildcardSeed]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
       setAutoRetryOnOom(shared.autoRetryOnOom !== false);
-    });
-  }, [shared.autoRetryOnOom]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
       setOomRetryDowngrade(shared.oomRetryDowngrade !== false);
-    });
-  }, [shared.oomRetryDowngrade]);
-
-  useEffect(() => {
-    scheduleAfterCommit(() => {
       setSessionActiveLoraIds(shared.sessionActiveLoraIds);
     });
-  }, [shared.sessionActiveLoraIds]);
+  }, [
+    shared.modelSamplerPreset,
+    shared.modelResolutionOrientation,
+    shared.modelResolutionSizeTier,
+    shared.renderRealismMode,
+    shared.anatomyGuardMode,
+    shared.queueQualityProfile,
+    shared.showAllModelsOverride,
+    shared.expandWildcards,
+    shared.wildcardSeed,
+    shared.autoRetryOnOom,
+    shared.oomRetryDowngrade,
+    shared.sessionActiveLoraIds,
+  ]);
 
   const handleSessionActiveLoraIdsChange = (ids: string[] | undefined) => {
     setSessionActiveLoraIds(ids);
