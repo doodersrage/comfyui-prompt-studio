@@ -10,9 +10,10 @@ export async function GET(request: Request) {
   const runtime = stripEmptyComfyUiRuntime({
     apiUrl: searchParams.get("comfyUrl") ?? undefined,
   });
+  const forceRefresh = searchParams.get("forceRefresh") === "1";
 
   try {
-    const payload = await fetchComfyObjectInfoPayload(runtime);
+    const payload = await fetchComfyObjectInfoPayload(runtime, { forceRefresh });
     if (!payload) {
       return apiError("Could not read ComfyUI object_info.", 502);
     }

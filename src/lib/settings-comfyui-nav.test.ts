@@ -18,6 +18,15 @@ describe("settings-comfyui-nav", () => {
     assert.equal(filterComfyUiSettingsSections("zzzz").length, 0);
   });
 
+  it("surfaces LoRA library from lora/trigger keywords", () => {
+    const hits = filterComfyUiSettingsSections("lora");
+    assert.ok(hits.some((section) => section.id === "lora-library"));
+    assert.equal(
+      settingsComfyUiSectionHref("lora-library"),
+      "/settings?tab=comfyui&section=lora-library",
+    );
+  });
+
   it("builds deep-link hrefs", () => {
     assert.equal(
       settingsComfyUiSectionHref("auto-improve"),

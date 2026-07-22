@@ -1219,6 +1219,8 @@ export function patchWorkflowDirectParams(
     model?: string;
     /** Active LoRA stack — strengths patched onto LoraLoader nodes, extras chained in. */
     loraLibrary?: LoraLibraryEntry[];
+    /** Positive prompt — used for autoFromPrompt LoRA matching. */
+    prompt?: string;
   },
 ): {
   workflow: Record<string, unknown>;
@@ -1236,7 +1238,9 @@ export function patchWorkflowDirectParams(
     loaderPatch.workflow,
     buildLoraFilenameMapFromCustomTokens(input.customTokens ?? []),
   );
-  const loraStackPatch = applyLoraStackToWorkflow(loraPatch.workflow, input.loraLibrary);
+  const loraStackPatch = applyLoraStackToWorkflow(loraPatch.workflow, input.loraLibrary, {
+    prompt: input.prompt,
+  });
   const controlPatch = patchControlNetInWorkflow(loraStackPatch.workflow, {
     controlNetModelFilename: input.controlNetModelFilename,
     controlImageFilename: input.controlImageFilename,

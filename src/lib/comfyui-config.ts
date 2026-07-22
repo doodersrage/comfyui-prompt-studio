@@ -1355,6 +1355,7 @@ export function injectPromptsWithFallbacks(
       syncWorkflowLoadersToModel: options?.syncWorkflowLoadersToModel,
       model: options?.model,
       loraLibrary: options?.loraLibrary,
+      prompt: input.positive,
     });
     if (directPatch.error) {
       throw new Error(directPatch.error);

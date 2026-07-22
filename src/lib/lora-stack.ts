@@ -12,6 +12,11 @@ export type LoraLibraryEntry = {
   strengthClip?: number;
   /** Included in the active queue-time LoRA stack. Defaults to true. */
   enabled?: boolean;
+  /**
+   * When not enabled, load at queue time if the positive prompt contains
+   * `triggerPhrase`. Defaults to false.
+   */
+  autoFromPrompt?: boolean;
   /** Explicit stack position; falls back to array order when omitted. */
   order?: number;
 };
@@ -47,7 +52,126 @@ export function normalizeLoraLibraryEntry(entry: LoraLibraryEntry): LoraLibraryE
     strengthModel: clampLoraStrength(entry.strengthModel),
     strengthClip: clampLoraStrength(entry.strengthClip),
     enabled: entry.enabled ?? true,
+    autoFromPrompt: entry.autoFromPrompt === true,
   };
+}
+
+/** Stem of a LoRA filename without extension / folder prefix. */
+export function loraFilenameStem(filename: string): string {
+  const base = filename.trim().split(/[/\\]/).pop() ?? filename.trim();
+  return base.replace(/\.(safetensors|ckpt|pt|bin)$/i, "");
+}
+
+/** Suggest a stable {{LORA_<id>}} id from a ComfyUI LoRA filename. */
+export function suggestLoraIdFromFilename(filename: string): string {
+  const stem = loraFilenameStem(filename);
+  if (!stem) {
+    return `lora-${Date.now().toString(36)}`;
+  }
+  if (loraFilenameImpliesLightning(filename)) {
+    return "LIGHTNING";
+  }
+  const slug = stem
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return slug || `lora-${Date.now().toString(36)}`;
+}
+
+/** Suggest a human label from a ComfyUI LoRA filename. */
+export function suggestLoraLabelFromFilename(filename: string): string {
+  const stem = loraFilenameStem(filename);
+  if (!stem) {
+    return "";
+  }
+  return stem
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Ensure the suggested id is unique within an existing library. */
+export function uniqueLoraLibraryId(
+  preferredId: string,
+  existingIds: Iterable<string>,
+): string {
+  const taken = new Set(
+    [...existingIds].map((id) => id.trim().toLowerCase()).filter(Boolean),
+  );
+  const base = preferredId.trim() || `lora-${Date.now().toString(36)}`;
+  if (!taken.has(base.toLowerCase())) {
+    return base;
+  }
+  let suffix = 2;
+  while (taken.has(`${base}-${suffix}`.toLowerCase())) {
+    suffix += 1;
+  }
+  return `${base}-${suffix}`;
+}
+
+export function createLoraLibraryEntryFromFilename(
+  filename: string,
+  existing?: LoraLibraryEntry[],
+): LoraLibraryEntry {
+  const tokenValue = filename.trim();
+  const preferredId = suggestLoraIdFromFilename(tokenValue);
+  const id = uniqueLoraLibraryId(
+    preferredId,
+    (existing ?? []).map((entry) => entry.id),
+  );
+  return {
+    id,
+    label: suggestLoraLabelFromFilename(tokenValue),
+    triggerPhrase: "",
+    tokenValue,
+    strengthModel: 1,
+    strengthClip: 1,
+    enabled: true,
+    autoFromPrompt: false,
+  };
+}
+
+export function createEmptyLoraLibraryEntry(): LoraLibraryEntry {
+  return {
+    id: `lora-${Date.now().toString(36)}`,
+    label: "",
+    triggerPhrase: "",
+    tokenValue: "",
+    strengthModel: 1,
+    strengthClip: 1,
+    enabled: true,
+    autoFromPrompt: false,
+  };
+}
+
+/** Case-insensitive substring match (same rule as injectLoraTriggers). */
+export function promptContainsLoraTrigger(
+  prompt: string | undefined,
+  triggerPhrase: string | undefined,
+): boolean {
+  const trigger = triggerPhrase?.trim() ?? "";
+  if (!trigger) {
+    return false;
+  }
+  const haystack = prompt?.trim() ?? "";
+  if (!haystack) {
+    return false;
+  }
+  return haystack.toLowerCase().includes(trigger.toLowerCase());
+}
+
+function loraEntryActiveForPrompt(
+  entry: LoraLibraryEntry,
+  prompt?: string,
+): boolean {
+  if (entry.enabled !== false) {
+    return true;
+  }
+  if (!entry.autoFromPrompt) {
+    return false;
+  }
+  return promptContainsLoraTrigger(prompt, entry.triggerPhrase);
 }
 
 export function normalizeLoraLibrary(
@@ -63,15 +187,22 @@ export function isLightningLibraryEntry(entry: LoraLibraryEntry): boolean {
   return loraFilenameImpliesLightning(entry.tokenValue ?? "");
 }
 
-/** Ordered, enabled, non-Lightning LoRA entries with concrete filenames — the "active stack". */
+export type ResolveActiveLoraStackOptions = {
+  /** Positive prompt used for autoFromPrompt matching. */
+  prompt?: string;
+};
+
+/** Ordered active non-Lightning LoRA entries with concrete filenames — the "active stack". */
 export function resolveActiveLoraStack(
   library: LoraLibraryEntry[] | undefined,
+  options?: ResolveActiveLoraStackOptions,
 ): ActiveLoraStackEntry[] {
   const normalized = normalizeLoraLibrary(library);
+  const prompt = options?.prompt;
   return normalized
     .map((entry, index) => ({ entry, index }))
     .filter(({ entry }) => {
-      if (entry.enabled === false) {
+      if (!loraEntryActiveForPrompt(entry, prompt)) {
         return false;
       }
       if (!entry.tokenValue?.trim()) {
@@ -276,8 +407,9 @@ export function chainLoraStackInWorkflow(
 export function applyLoraStackToWorkflow(
   workflow: Record<string, unknown>,
   library: LoraLibraryEntry[] | undefined,
+  options?: ResolveActiveLoraStackOptions,
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
-  const stack = resolveActiveLoraStack(library);
+  const stack = resolveActiveLoraStack(library, options);
   if (stack.length === 0) {
     return { workflow, patched: {} };
   }

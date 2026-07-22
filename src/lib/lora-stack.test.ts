@@ -27,6 +27,7 @@ describe("lora-stack normalization", () => {
     assert.equal(normalized.strengthModel, 1);
     assert.equal(normalized.strengthClip, 1);
     assert.equal(normalized.enabled, true);
+    assert.equal(normalized.autoFromPrompt, false);
   });
 
   it("clamps strengths into the 0–2 range", () => {
@@ -46,10 +47,52 @@ describe("lora-stack normalization", () => {
     assert.equal(normalized.strengthClip, 0.8);
   });
 
+  it("normalizes autoFromPrompt to a strict boolean", () => {
+    assert.equal(
+      normalizeLoraLibraryEntry(makeEntry({ autoFromPrompt: true })).autoFromPrompt,
+      true,
+    );
+    assert.equal(
+      normalizeLoraLibraryEntry(makeEntry({ autoFromPrompt: false })).autoFromPrompt,
+      false,
+    );
+  });
+
   it("normalizeLoraLibrary maps over the whole array", () => {
     const normalized = normalizeLoraLibrary([makeEntry(), makeEntry({ id: "style" })]);
     assert.equal(normalized.length, 2);
     assert.ok(normalized.every((entry) => entry.enabled === true));
+  });
+});
+
+describe("lora filename suggestions", () => {
+  it("suggests id and label from a style filename", async () => {
+    const {
+      suggestLoraIdFromFilename,
+      suggestLoraLabelFromFilename,
+      createLoraLibraryEntryFromFilename,
+      uniqueLoraLibraryId,
+    } = await import("./lora-stack.ts");
+    assert.equal(
+      suggestLoraIdFromFilename("styles/Portrait_Soft_v2.safetensors"),
+      "portrait-soft-v2",
+    );
+    assert.equal(
+      suggestLoraLabelFromFilename("styles/Portrait_Soft_v2.safetensors"),
+      "Portrait Soft v2",
+    );
+    assert.equal(
+      suggestLoraIdFromFilename("Qwen-Image-Lightning-8steps-V2.0.safetensors"),
+      "LIGHTNING",
+    );
+    const entry = createLoraLibraryEntryFromFilename(
+      "cyberpunk_neon.safetensors",
+      [makeEntry({ id: "cyberpunk-neon" })],
+    );
+    assert.equal(entry.tokenValue, "cyberpunk_neon.safetensors");
+    assert.equal(entry.id, "cyberpunk-neon-2");
+    assert.equal(entry.label, "cyberpunk neon");
+    assert.equal(uniqueLoraLibraryId("LIGHTNING", ["LIGHTNING"]), "LIGHTNING-2");
   });
 });
 
@@ -71,6 +114,106 @@ describe("resolveActiveLoraStack", () => {
       makeEntry({ id: "third", tokenValue: "third.safetensors" }),
     ]);
     assert.deepEqual(stack.map((entry) => entry.id), ["first", "second", "third"]);
+  });
+
+  it("keeps enabled LoRAs without requiring a prompt match", () => {
+    const stack = resolveActiveLoraStack(
+      [
+        makeEntry({
+          id: "always",
+          tokenValue: "always.safetensors",
+          triggerPhrase: "never-mentioned",
+        }),
+      ],
+      { prompt: "a portrait in soft light" },
+    );
+    assert.deepEqual(stack.map((entry) => entry.id), ["always"]);
+  });
+
+  it("auto-activates disabled LoRAs when the prompt contains the trigger", () => {
+    const stack = resolveActiveLoraStack(
+      [
+        makeEntry({
+          id: "cyber",
+          tokenValue: "cyber.safetensors",
+          enabled: false,
+          autoFromPrompt: true,
+          triggerPhrase: "cyberpunk",
+        }),
+      ],
+      { prompt: "Neon Cyberpunk street at night" },
+    );
+    assert.deepEqual(stack.map((entry) => entry.id), ["cyber"]);
+  });
+
+  it("skips disabled auto LoRAs when the prompt does not match", () => {
+    const stack = resolveActiveLoraStack(
+      [
+        makeEntry({
+          id: "cyber",
+          tokenValue: "cyber.safetensors",
+          enabled: false,
+          autoFromPrompt: true,
+          triggerPhrase: "cyberpunk",
+        }),
+      ],
+      { prompt: "a quiet pastoral landscape" },
+    );
+    assert.deepEqual(stack.map((entry) => entry.id), []);
+  });
+
+  it("does not auto-activate disabled LoRAs without the autoFromPrompt flag", () => {
+    const stack = resolveActiveLoraStack(
+      [
+        makeEntry({
+          id: "cyber",
+          tokenValue: "cyber.safetensors",
+          enabled: false,
+          triggerPhrase: "cyberpunk",
+        }),
+      ],
+      { prompt: "cyberpunk alley" },
+    );
+    assert.deepEqual(stack.map((entry) => entry.id), []);
+  });
+
+  it("never auto-activates Lightning library entries", () => {
+    const stack = resolveActiveLoraStack(
+      [
+        makeEntry({
+          id: "LIGHTNING",
+          tokenValue: "Qwen-Image-Lightning-8steps-V2.0.safetensors",
+          enabled: false,
+          autoFromPrompt: true,
+          triggerPhrase: "lightning",
+        }),
+        makeEntry({
+          id: "style",
+          tokenValue: "Qwen-Image-Edit-2511-Lightning-8steps.safetensors",
+          enabled: false,
+          autoFromPrompt: true,
+          triggerPhrase: "edit style",
+        }),
+      ],
+      { prompt: "lightning edit style scene" },
+    );
+    assert.deepEqual(stack.map((entry) => entry.id), []);
+  });
+
+  it("skips auto LoRAs with an empty trigger phrase", () => {
+    const stack = resolveActiveLoraStack(
+      [
+        makeEntry({
+          id: "empty-trigger",
+          tokenValue: "style.safetensors",
+          enabled: false,
+          autoFromPrompt: true,
+          triggerPhrase: "   ",
+        }),
+      ],
+      { prompt: "anything goes" },
+    );
+    assert.deepEqual(stack.map((entry) => entry.id), []);
   });
 });
 

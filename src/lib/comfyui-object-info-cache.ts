@@ -57,16 +57,28 @@ export function readCachedComfyObjectInfo(
 
 export async function fetchComfyObjectInfoCached(input?: {
   comfyUrl?: string;
+  forceRefresh?: boolean;
 }): Promise<ComfyObjectInfoCachePayload | null> {
   const runtime = resolveComfyUiRuntime();
   const comfyUrl = input?.comfyUrl?.trim() || runtime?.apiUrl?.trim() || "";
-  const cached = readCachedComfyObjectInfo(comfyUrl);
-  if (cached) {
-    return cached;
+  if (!input?.forceRefresh) {
+    const cached = readCachedComfyObjectInfo(comfyUrl);
+    if (cached) {
+      return cached;
+    }
+  } else {
+    clearComfyObjectInfoCache();
   }
 
-  const params = comfyUrl ? `?comfyUrl=${encodeURIComponent(comfyUrl)}` : "";
-  const response = await fetch(`/api/comfyui/object-info${params}`);
+  const params = new URLSearchParams();
+  if (comfyUrl) {
+    params.set("comfyUrl", comfyUrl);
+  }
+  if (input?.forceRefresh) {
+    params.set("forceRefresh", "1");
+  }
+  const query = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetch(`/api/comfyui/object-info${query}`);
   if (!response.ok) {
     return null;
   }
@@ -98,6 +110,7 @@ export async function fetchComfyObjectInfoCached(input?: {
 
 export async function fetchComfyObjectInfoModelsCached(input?: {
   comfyUrl?: string;
+  forceRefresh?: boolean;
 }): Promise<ComfyUiModelLists | null> {
   const payload = await fetchComfyObjectInfoCached(input);
   return payload?.models ?? null;

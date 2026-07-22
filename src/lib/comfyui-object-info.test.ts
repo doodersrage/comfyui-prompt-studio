@@ -25,6 +25,38 @@ describe("comfyui-object-info", () => {
     assert.deepEqual(lists.controlNets, []);
   });
 
+  it("reads combo lists nested under input.required (live ComfyUI shape)", () => {
+    const lists = parseComfyObjectInfoModelLists({
+      CheckpointLoaderSimple: {
+        input: {
+          required: {
+            ckpt_name: [["dream.safetensors"], {}],
+          },
+        },
+      },
+      LoraLoader: {
+        input: {
+          required: {
+            lora_name: [["style.safetensors", "lightning.safetensors"], {}],
+          },
+        },
+      },
+      LoraLoaderModelOnly: {
+        input: {
+          required: {
+            lora_name: [["lightning.safetensors", "extra.safetensors"], {}],
+          },
+        },
+      },
+    });
+    assert.deepEqual(lists.checkpoints, ["dream.safetensors"]);
+    assert.deepEqual(lists.loras, [
+      "style.safetensors",
+      "lightning.safetensors",
+      "extra.safetensors",
+    ]);
+  });
+
   it("merges UnetLoaderGGUF filenames into the UNET inventory", () => {
     const lists = parseComfyObjectInfoModelLists({
       UNETLoader: {

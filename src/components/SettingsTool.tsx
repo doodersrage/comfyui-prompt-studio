@@ -18,9 +18,7 @@ import {
   placeholderTokensFromSettings,
   resetComfyUiSettings,
   saveComfyUiSettings,
-  type LoraLibraryEntry,
 } from "@/lib/comfyui-settings";
-import { describeLoraStack, resolveActiveLoraStack } from "@/lib/lora-stack";
 import {
   DEFAULT_NEGATIVE_PROFILES,
   type NegativeProfile,
@@ -193,12 +191,17 @@ const SettingsBundlePanel = dynamic(
   () => import("@/components/settings/SettingsBundlePanel"),
   { loading: () => <ToolPageSkeleton label="Loading settings export" /> },
 );
+const LoraLibrarySettingsPanel = dynamic(
+  () => import("@/components/settings/LoraLibrarySettingsPanel"),
+  { loading: () => <ToolPageSkeleton label="Loading LoRA library" /> },
+);
 const ACCENT = "neutral" as const;
 
 const COMFYUI_SECTION_ELEMENT_IDS: Record<ComfyUiSettingsSectionId, string> = {
   presets: "settings-comfyui-presets",
   "workflow-map": "settings-comfyui-workflow-map",
   "workflow-patching": "settings-comfyui-workflow-patching",
+  "lora-library": "settings-comfyui-lora-library",
   "workflow-library": "settings-comfyui-workflow-library",
   connection: "settings-comfyui-connection",
   "auto-improve": "settings-comfyui-auto-improve",
@@ -249,19 +252,6 @@ function parseModelWorkflowMap(text: string): Record<string, string> {
     }
   }
   return map;
-}
-
-function createLoraLibraryEntry(): LoraLibraryEntry {
-  const id = `lora-${Date.now().toString(36)}`;
-  return {
-    id,
-    label: "",
-    triggerPhrase: "",
-    tokenValue: "",
-    strengthModel: 1,
-    strengthClip: 1,
-    enabled: true,
-  };
 }
 
 type HealthResponse = {
@@ -768,54 +758,6 @@ export default function SettingsTool() {
       });
     },
     [settings.customTokens, updateSettings],
-  );
-
-  const updateLoraEntry = useCallback(
-    (index: number, patch: Partial<LoraLibraryEntry>) => {
-      const current = settings.loraLibrary ?? [];
-      const next = current.map((entry, entryIndex) =>
-        entryIndex === index ? { ...entry, ...patch } : entry,
-      );
-      updateSettings({ loraLibrary: next });
-    },
-    [settings.loraLibrary, updateSettings],
-  );
-
-  const addLoraEntry = useCallback(() => {
-    updateSettings({
-      loraLibrary: [...(settings.loraLibrary ?? []), createLoraLibraryEntry()],
-    });
-  }, [settings.loraLibrary, updateSettings]);
-
-  const removeLoraEntry = useCallback(
-    (index: number) => {
-      updateSettings({
-        loraLibrary: (settings.loraLibrary ?? []).filter(
-          (_, entryIndex) => entryIndex !== index,
-        ),
-      });
-    },
-    [settings.loraLibrary, updateSettings],
-  );
-
-  const moveLoraEntry = useCallback(
-    (index: number, direction: -1 | 1) => {
-      const current = settings.loraLibrary ?? [];
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= current.length) {
-        return;
-      }
-      const next = [...current];
-      const [moved] = next.splice(index, 1);
-      next.splice(targetIndex, 0, moved!);
-      updateSettings({ loraLibrary: next });
-    },
-    [settings.loraLibrary, updateSettings],
-  );
-
-  const activeLoraStackSummary = useMemo(
-    () => describeLoraStack(resolveActiveLoraStack(settings.loraLibrary)),
-    [settings.loraLibrary],
   );
 
   const handlePreviewWorkflow = useCallback(async () => {
@@ -1830,6 +1772,14 @@ export default function SettingsTool() {
       <WorkflowDiffPanel />
       </div>
 
+      <ToolSection id="settings-comfyui-lora-library" title="LoRA library">
+        <LoraLibrarySettingsPanel
+          library={settings.loraLibrary}
+          comfyUrl={settings.apiUrl}
+          onChange={(loraLibrary) => updateSettings({ loraLibrary })}
+        />
+      </ToolSection>
+
       <ToolSection id="settings-comfyui-connection" title="ComfyUI connection & injection">
         <p className="text-sm text-zinc-400">
           Override the server&apos;s{" "}
@@ -1944,8 +1894,8 @@ export default function SettingsTool() {
           </div>
 
           <CollapsibleSection
-            title="Custom tokens & LoRA"
-            summary="Named placeholders and LoRA trigger library."
+            title="Custom tokens"
+            summary="Named {{TOKEN}} placeholders for workflow injection."
             defaultOpen={false}
             persistKey="settings-custom-tokens-lora"
           >
@@ -1970,7 +1920,15 @@ export default function SettingsTool() {
                 <code className="rounded bg-zinc-800 px-1 text-violet-300">
                   {"{{LORA}}"}
                 </code>
-                .
+                . LoRA files and triggers live in the{" "}
+                <button
+                  type="button"
+                  onClick={() => handleComfyUiSectionJump("lora-library")}
+                  className="text-violet-300 underline-offset-2 hover:underline"
+                >
+                  LoRA library
+                </button>{" "}
+                section.
               </p>
             ) : (
               <ul className="space-y-2">
@@ -2004,205 +1962,6 @@ export default function SettingsTool() {
                     </button>
                   </li>
                 ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-zinc-400">LoRA / trigger library</p>
-              <button
-                type="button"
-                onClick={addLoraEntry}
-                className="text-xs text-violet-300 hover:text-violet-200"
-              >
-                Add LoRA
-              </button>
-            </div>
-            <p className="text-xs text-zinc-600">
-              Saved entries sync to custom workflow tokens as{" "}
-              <code className="rounded bg-zinc-800 px-1 text-violet-300">
-                {"{{LORA_<id>}}"}
-              </code>{" "}
-              when you save ComfyUI settings. For Qwen Lightning, use ID{" "}
-              <code className="rounded bg-zinc-800 px-1 text-violet-300">LIGHTNING</code>{" "}
-              so the token is{" "}
-              <code className="rounded bg-zinc-800 px-1 text-violet-300">
-                {"{{LORA_LIGHTNING}}"}
-              </code>
-              , and set Token value to your 4/8-step LightX2V{" "}
-              <code className="rounded bg-zinc-800 px-1">.safetensors</code> filename.
-            </p>
-            {(settings.loraLibrary ?? []).length > 0 ? (
-              <p className="ui-surface-inset text-xs text-zinc-300">{activeLoraStackSummary}</p>
-            ) : null}
-            {(settings.loraLibrary ?? []).length === 0 ? (
-              <EmptyState
-                compact
-                icon="catalog"
-                title="No LoRA entries yet"
-                description="Add a LoRA ID and token filename so custom workflows can resolve {{LORA_<id>}} placeholders when you save ComfyUI settings."
-                action={{
-                  label: "Add LoRA",
-                  onClick: addLoraEntry,
-                }}
-              />
-            ) : (
-              <ul className="space-y-3">
-                {(settings.loraLibrary ?? []).map((entry, index) => {
-                  const enabled = entry.enabled !== false;
-                  const strengthModel = entry.strengthModel ?? 1;
-                  const strengthClip = entry.strengthClip ?? 1;
-                  const total = (settings.loraLibrary ?? []).length;
-                  return (
-                    <li
-                      key={entry.id || index}
-                      className={`ui-surface-inset space-y-2 transition-opacity ${
-                        enabled ? "" : "opacity-60"
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <label className="flex items-center gap-2 text-xs text-zinc-300">
-                          <input
-                            type="checkbox"
-                            checked={enabled}
-                            onChange={(event) =>
-                              updateLoraEntry(index, { enabled: event.target.checked })
-                            }
-                            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
-                          />
-                          Enabled
-                        </label>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => moveLoraEntry(index, -1)}
-                            disabled={index === 0}
-                            aria-label="Move LoRA up"
-                            className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-400 transition hover:border-violet-500 hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-zinc-700 disabled:hover:text-zinc-400"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveLoraEntry(index, 1)}
-                            disabled={index === total - 1}
-                            aria-label="Move LoRA down"
-                            className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-400 transition hover:border-violet-500 hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-zinc-700 disabled:hover:text-zinc-400"
-                          >
-                            ↓
-                          </button>
-                        </div>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <label className="space-y-1 text-xs text-zinc-400">
-                          ID
-                          <input
-                            value={entry.id}
-                            onChange={(event) =>
-                              updateLoraEntry(index, { id: event.target.value })
-                            }
-                            placeholder="portrait-style"
-                            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
-                          />
-                        </label>
-                        <label className="space-y-1 text-xs text-zinc-400">
-                          Label
-                          <input
-                            value={entry.label}
-                            onChange={(event) =>
-                              updateLoraEntry(index, { label: event.target.value })
-                            }
-                            placeholder="Portrait style LoRA"
-                            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                          />
-                        </label>
-                      </div>
-                      <label className="space-y-1 text-xs text-zinc-400">
-                        Trigger phrase
-                        <input
-                          value={entry.triggerPhrase}
-                          onChange={(event) =>
-                            updateLoraEntry(index, {
-                              triggerPhrase: event.target.value,
-                            })
-                          }
-                          placeholder="portrait lighting, soft skin"
-                          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                        />
-                      </label>
-                      <label className="space-y-1 text-xs text-zinc-400">
-                        Token value
-                        <input
-                          value={entry.tokenValue}
-                          onChange={(event) =>
-                            updateLoraEntry(index, { tokenValue: event.target.value })
-                          }
-                          placeholder="portrait_lora.safetensors"
-                          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
-                        />
-                      </label>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="space-y-1 text-xs text-zinc-400">
-                          <span className="flex items-center justify-between">
-                            <span>Model strength</span>
-                            <span className="font-mono text-zinc-300">
-                              {strengthModel.toFixed(2)}
-                            </span>
-                          </span>
-                          <input
-                            type="range"
-                            min={0}
-                            max={2}
-                            step={0.05}
-                            value={strengthModel}
-                            onChange={(event) =>
-                              updateLoraEntry(index, {
-                                strengthModel: Number(event.target.value),
-                              })
-                            }
-                            className="h-8 w-full cursor-pointer accent-violet-500"
-                          />
-                        </label>
-                        <label className="space-y-1 text-xs text-zinc-400">
-                          <span className="flex items-center justify-between">
-                            <span>Clip strength</span>
-                            <span className="font-mono text-zinc-300">
-                              {strengthClip.toFixed(2)}
-                            </span>
-                          </span>
-                          <input
-                            type="range"
-                            min={0}
-                            max={2}
-                            step={0.05}
-                            value={strengthClip}
-                            onChange={(event) =>
-                              updateLoraEntry(index, {
-                                strengthClip: Number(event.target.value),
-                              })
-                            }
-                            className="h-8 w-full cursor-pointer accent-violet-500"
-                          />
-                        </label>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <code className="text-xs text-violet-300">
-                          {entry.id.trim()
-                            ? `{{LORA_${entry.id.trim()}}}`
-                            : "{{LORA_<id>}}"}
-                        </code>
-                        <button
-                          type="button"
-                          onClick={() => removeLoraEntry(index)}
-                          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-rose-500 hover:text-rose-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
               </ul>
             )}
           </div>

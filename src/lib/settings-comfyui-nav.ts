@@ -2,6 +2,7 @@ export type ComfyUiSettingsSectionId =
   | "presets"
   | "workflow-map"
   | "workflow-patching"
+  | "lora-library"
   | "workflow-library"
   | "connection"
   | "auto-improve"
@@ -31,12 +32,17 @@ export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
   {
     id: "workflow-patching",
     label: "Patching & maps",
-    keywords: ["checkpoint", "vae", "refiner", "upscale", "controlnet", "lora", "patch"],
+    keywords: ["checkpoint", "vae", "refiner", "upscale", "controlnet", "patch"],
   },
   {
     id: "workflow-library",
     label: "Workflow library",
     keywords: ["library", "import", "health", "diff"],
+  },
+  {
+    id: "lora-library",
+    label: "LoRA library",
+    keywords: ["lora", "trigger", "auto", "stack", "lightx2v"],
   },
   {
     id: "connection",

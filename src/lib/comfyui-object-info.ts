@@ -35,11 +35,38 @@ function readNodeInputOptions(
   if (!node || typeof node !== "object") {
     return [];
   }
-  const input = (node as { input?: Record<string, unknown> }).input?.[inputName];
-  if (!Array.isArray(input) || !Array.isArray(input[0])) {
+  const input = (node as { input?: Record<string, unknown> }).input;
+  if (!input || typeof input !== "object") {
     return [];
   }
-  return readStringList(input[0]);
+
+  const candidates: unknown[] = [input[inputName]];
+  for (const group of ["required", "optional"] as const) {
+    const section = input[group];
+    if (section && typeof section === "object") {
+      candidates.push((section as Record<string, unknown>)[inputName]);
+    }
+  }
+
+  for (const candidate of candidates) {
+    // Classic combo: [["a.safetensors", "b.safetensors"], { … }]
+    if (Array.isArray(candidate) && Array.isArray(candidate[0])) {
+      const list = readStringList(candidate[0]);
+      if (list.length > 0) {
+        return list;
+      }
+    }
+    // Newer combo object: { options: [...], default: "…" }
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+      const options = (candidate as { options?: unknown }).options;
+      const list = readStringList(options);
+      if (list.length > 0) {
+        return list;
+      }
+    }
+  }
+
+  return [];
 }
 
 /** True when ComfyUI object_info declares an input on the node (required or optional). */
@@ -90,7 +117,12 @@ export function parseComfyObjectInfoModelLists(
     ],
     dualClipTypes: readNodeInputOptions(objectInfo, "DualCLIPLoader", "type"),
     clipLoaderTypes: readNodeInputOptions(objectInfo, "CLIPLoader", "type"),
-    loras: readNodeInputOptions(objectInfo, "LoraLoader", "lora_name"),
+    loras: [
+      ...new Set([
+        ...readNodeInputOptions(objectInfo, "LoraLoader", "lora_name"),
+        ...readNodeInputOptions(objectInfo, "LoraLoaderModelOnly", "lora_name"),
+      ]),
+    ],
     controlNets: readNodeInputOptions(objectInfo, "ControlNetLoader", "control_net_name"),
     clipVisions: readNodeInputOptions(objectInfo, "CLIPVisionLoader", "clip_name"),
   };
