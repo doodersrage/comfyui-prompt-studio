@@ -36,6 +36,11 @@ import {
   patchRegionalTokensInWorkflow,
   type RegionalPromptSegment,
 } from "./regional-prompt-builder";
+import { applyRegionalEditToWorkflow } from "./workflow-regional-patch";
+import {
+  normalizeRegionalPromptSlots,
+  type RegionalPromptSlot,
+} from "./regional-prompt-slots";
 import {
   inferLoadImageBinding,
   normalizeInputImageFilenames,
@@ -70,6 +75,8 @@ export type WorkflowDirectPatchCounts = {
   identityInserted?: number;
   /** {{REGION_*}} placeholders resolved from custom tokens. */
   regionalTokens?: number;
+  /** Regional/attention nodes bound from multi-slot regional edit. */
+  regionalNodes?: number;
   /** WAN/Hunyuan Video I2V node spliced in to wire an uploaded init image into the sampler chain. */
   videoImageToVideoWired?: number;
 };
@@ -570,6 +577,11 @@ export function patchIpAdapterInWorkflow(
     ipAdapterStrength?: number | string;
     ipAdapterModelFilename?: string;
     availableNodeTypes?: Iterable<string> | null;
+    /**
+     * When instantid|pulid|auto, prefer InstantID/PuLID insert over IP-Adapter.
+     * ipadapter (default) keeps IP-Adapter-first with InstantID/PuLID fallback.
+     */
+    identityKind?: "ipadapter" | "instantid" | "pulid" | "auto";
   },
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const stackEntries = (() => {
@@ -602,41 +614,63 @@ export function patchIpAdapterInWorkflow(
       : [];
   })();
 
-  const insertResult =
-    stackEntries.length > 1
-      ? insertIpAdapterStack(workflow, stackEntries, {
-          availableNodeTypes: input.availableNodeTypes,
-        })
-      : (() => {
-          const single = insertIpAdapterChainIfMissing(workflow, {
-            imageFilename: stackEntries[0]?.imageFilename,
-            availableNodeTypes: input.availableNodeTypes,
-          });
-          return {
-            workflow: single.workflow,
-            insertedCount: single.inserted ? 1 : 0,
-            insertedNodeIds: single.insertedNodeIds,
-          };
-        })();
+  const preferIdentityChain =
+    input.identityKind === "instantid" ||
+    input.identityKind === "pulid" ||
+    input.identityKind === "auto";
 
-  let nextWorkflow = insertResult.workflow;
+  let nextWorkflow = workflow;
   const patched: WorkflowDirectPatchCounts = {};
-  if (insertResult.insertedCount > 0) {
-    patched.ipAdapterInserted = insertResult.insertedNodeIds.length;
-  }
 
-  // If IP-Adapter Plus isn't available, fall back to InstantID/PuLID when installed.
-  if (
-    insertResult.insertedCount === 0 &&
-    stackEntries[0]?.imageFilename?.trim()
-  ) {
-    const identity = insertIdentityChainIfMissing(nextWorkflow, {
+  if (preferIdentityChain && stackEntries[0]?.imageFilename?.trim()) {
+      const identity = insertIdentityChainIfMissing(nextWorkflow, {
       imageFilename: stackEntries[0].imageFilename,
+      kind:
+        input.identityKind === "instantid" || input.identityKind === "pulid"
+          ? input.identityKind
+          : "auto",
       availableNodeTypes: input.availableNodeTypes,
     });
     if (identity.inserted) {
       nextWorkflow = identity.workflow;
       patched.identityInserted = identity.insertedNodeIds.length;
+    }
+  } else {
+    const insertResult =
+      stackEntries.length > 1
+        ? insertIpAdapterStack(workflow, stackEntries, {
+            availableNodeTypes: input.availableNodeTypes,
+          })
+        : (() => {
+            const single = insertIpAdapterChainIfMissing(workflow, {
+              imageFilename: stackEntries[0]?.imageFilename,
+              availableNodeTypes: input.availableNodeTypes,
+            });
+            return {
+              workflow: single.workflow,
+              insertedCount: single.inserted ? 1 : 0,
+              insertedNodeIds: single.insertedNodeIds,
+            };
+          })();
+
+    nextWorkflow = insertResult.workflow;
+    if (insertResult.insertedCount > 0) {
+      patched.ipAdapterInserted = insertResult.insertedNodeIds.length;
+    }
+
+    // If IP-Adapter Plus isn't available, fall back to InstantID/PuLID when installed.
+    if (
+      insertResult.insertedCount === 0 &&
+      stackEntries[0]?.imageFilename?.trim()
+    ) {
+      const identity = insertIdentityChainIfMissing(nextWorkflow, {
+        imageFilename: stackEntries[0].imageFilename,
+        availableNodeTypes: input.availableNodeTypes,
+      });
+      if (identity.inserted) {
+        nextWorkflow = identity.workflow;
+        patched.identityInserted = identity.insertedNodeIds.length;
+      }
     }
   }
 
@@ -1360,6 +1394,7 @@ export function patchWorkflowDirectParams(
     ipAdapterModelFilename?: string;
     /** ComfyUI object_info node class names — gates the optional CLIPVisionLoader when inserting an IP-Adapter chain. */
     availableNodeTypes?: Iterable<string> | null;
+    identityKind?: "ipadapter" | "instantid" | "pulid" | "auto";
     customTokens?: Array<{ token: string; value: string }>;
     syncWorkflowLoadersToModel?: boolean;
     model?: string;
@@ -1367,6 +1402,8 @@ export function patchWorkflowDirectParams(
     loraLibrary?: LoraLibraryEntry[];
     /** Positive prompt — kept for call-site compat; keyword LoRA matching removed. */
     prompt?: string;
+    /** Multi-slot regional edit (masks + prompts). */
+    regionalSlots?: RegionalPromptSlot[];
   },
 ): {
   workflow: Record<string, unknown>;
@@ -1402,6 +1439,7 @@ export function patchWorkflowDirectParams(
     ipAdapterStrength: input.ipAdapterStrength,
     ipAdapterModelFilename: input.ipAdapterModelFilename,
     availableNodeTypes: input.availableNodeTypes,
+    identityKind: input.params?.identityKind ?? input.identityKind,
   });
   const upscalePatch = patchUpscaleModelNodesInWorkflow(
     ipAdapterPatch.workflow,
@@ -1418,11 +1456,21 @@ export function patchWorkflowDirectParams(
   );
   const resizePatch = patchImageResizeNodesInWorkflow(maskPatch.workflow, input.params ?? {});
   const regionalSegments = regionalSegmentsFromCustomTokens(input.customTokens);
-  const regionalPatch = patchRegionalTokensInWorkflow(
+  const regionalSlots: RegionalPromptSlot[] =
+    input.regionalSlots && input.regionalSlots.length > 0
+      ? normalizeRegionalPromptSlots(input.regionalSlots)
+      : regionalSegments.map((segment) => ({
+          id: segment.regionId,
+          label: segment.regionId,
+          prompt: segment.prompt,
+          strength: 1,
+        }));
+  const regionalEdit = applyRegionalEditToWorkflow(
     resizePatch.workflow,
-    regionalSegments,
+    regionalSlots,
+    { availableNodeTypes: input.availableNodeTypes },
   );
-  const videoWirePatch = patchVideoImageToVideoWiringInWorkflow(regionalPatch.workflow, {
+  const videoWirePatch = patchVideoImageToVideoWiringInWorkflow(regionalEdit.workflow, {
     model: input.model,
     inputImageFilename: input.params?.inputImageFilename,
     params: input.params,
@@ -1442,7 +1490,12 @@ export function patchWorkflowDirectParams(
       ...imagePatch.patched,
       ...maskPatch.patched,
       ...resizePatch.patched,
-      ...(regionalPatch.patched > 0 ? { regionalTokens: regionalPatch.patched } : {}),
+      ...(regionalEdit.patchedTokens > 0
+        ? { regionalTokens: regionalEdit.patchedTokens }
+        : {}),
+      ...(regionalEdit.patchedNodes > 0
+        ? { regionalNodes: regionalEdit.patchedNodes }
+        : {}),
       ...videoWirePatch.patched,
     },
     error: videoWirePatch.error,

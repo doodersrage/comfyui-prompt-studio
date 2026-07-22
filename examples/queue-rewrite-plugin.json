@@ -1,0 +1,24 @@
+{
+  "id": "queue-rewrite-denoise",
+  "label": "Denoise rewrite",
+  "version": "1.0.0",
+  "enabled": true,
+  "nav": [
+    {
+      "href": "/plugins/queue-rewrite-denoise",
+      "label": "Denoise rewrite",
+      "description": "Example plugin that softens denoise on queue"
+    }
+  ],
+  "queueHooks": {
+    "url": "/api/plugin-hooks/denoise-rewrite",
+    "events": ["queue-preflight"]
+  },
+  "tools": [
+    {
+      "id": "overview",
+      "title": "Denoise rewrite",
+      "route": "/plugins/queue-rewrite-denoise"
+    }
+  ]
+}

@@ -1,9 +1,12 @@
 "use client";
 
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import InpaintMaskEditor from "@/components/InpaintMaskEditor";
+import RegionalEditPanel, {
+  regionalSlotsQueueExtras,
+} from "@/components/RegionalEditPanel";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
@@ -17,6 +20,7 @@ import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-t
 import { diffPromptWords } from "@/lib/prompt-diff";
 import { resolveParentHistoryId } from "@/lib/prompt-lineage-session";
 import { DEFAULT_REFINE_TOOL_CACHE } from "@/lib/settings-cache";
+import { createDefaultRegionalSlots } from "@/lib/regional-prompt-slots";
 import { sharedPatchFromGalleryHandoff } from "@/lib/gallery-handoff";
 import type { GalleryHandoffPayload } from "@/lib/gallery-handoff";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
@@ -93,6 +97,13 @@ export default function RefineTool() {
   const selectedModel = getComfyModelDefinition(shared.model);
   const needsInpaintMask = isInpaintModel(shared.model);
 
+  const regionalSlots =
+    toolSettings.regionalSlots ?? createDefaultRegionalSlots();
+  const regionalQueue = useMemo(
+    () => regionalSlotsQueueExtras(regionalSlots),
+    [regionalSlots],
+  );
+
   const queueImageOptions = {
     inputImage: file,
     inputImageUrl: !file ? previewUrl ?? undefined : undefined,
@@ -100,6 +111,8 @@ export default function RefineTool() {
     maskImageUrl:
       needsInpaintMask && !maskFile ? maskPreviewUrl ?? undefined : undefined,
     queueParamsBase: handoffQueueParams,
+    customTokens: regionalQueue.customTokens,
+    regionalSlots: regionalQueue.regionalSlots,
   };
 
   const assertInpaintMaskReady = useCallback(() => {
@@ -328,6 +341,13 @@ export default function RefineTool() {
             Upload a reference image first, then draw or upload an inpaint mask.
           </p>
         ) : null}
+
+        <RegionalEditPanel
+          slots={regionalSlots}
+          onSlotsChange={(next) => updateToolSettings({ regionalSlots: next })}
+          sourceImageUrl={previewUrl}
+          accentClassName={accentFocusClass(ACCENT)}
+        />
 
         <FieldLabel>Current prompt (optional)</FieldLabel>
         <TextArea

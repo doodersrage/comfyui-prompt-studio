@@ -16,6 +16,9 @@ export const TOOL_QUEUE_QUALITY_OPTIONS: ToolQueueQualityOption[] = [
   { id: "imagePrompt", label: "Image → Prompt" },
   { id: "controlnet", label: "ControlNet" },
   { id: "compose", label: "Compose" },
+  { id: "video", label: "Video" },
+  { id: "audio", label: "Audio" },
+  { id: "mesh", label: "3D Mesh" },
   { id: "variations", label: "Variations" },
   { id: "topics", label: "Topics" },
   { id: "duo", label: "Duo" },
@@ -24,6 +27,7 @@ export const TOOL_QUEUE_QUALITY_OPTIONS: ToolQueueQualityOption[] = [
   { id: "background", label: "Background" },
   { id: "recipe", label: "Prompt recipes" },
   { id: "campaign", label: "Campaign" },
+  { id: "video", label: "Video" },
 ];
 
 export function toolQueueQualityLabel(toolId: string): string {
@@ -44,8 +48,12 @@ export const SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES: ToolQueueQualityProfiles = {
   inpaint: "final",
   outpaint: "final",
   compose: "final",
+  video: "final",
+  audio: "final",
+  mesh: "final",
   duo: "final",
   format: "followSettings",
+  video: "final",
 };
 
 export function normalizeToolQueueQualityProfiles(

@@ -21,9 +21,17 @@ describe("settings-comfyui-nav", () => {
   it("surfaces LoRA library from lora/trigger keywords", () => {
     const hits = filterComfyUiSettingsSections("lora");
     assert.ok(hits.some((section) => section.id === "lora-library"));
+    assert.ok(hits.some((section) => section.id === "lora-train"));
     assert.equal(
       settingsComfyUiSectionHref("lora-library"),
       "/settings?tab=comfyui&section=lora-library",
+    );
+  });
+
+  it("deep-links LoRA train section", () => {
+    assert.equal(
+      settingsComfyUiSectionHref("lora-train"),
+      "/settings?tab=comfyui&section=lora-train",
     );
   });
 

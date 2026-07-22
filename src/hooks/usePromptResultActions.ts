@@ -48,6 +48,11 @@ import {
 import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import { loadSettingsCache } from "@/lib/settings-cache";
+import {
+  computePromptContentHash,
+  nextPromptVersionFields,
+} from "@/lib/prompt-versioning";
+import { loadPromptHistoryStore } from "@/lib/prompt-history";
 import { resolveQueueInputImageFilename } from "@/lib/queue-input-image";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { toastHeldMax, toastQueueOutcome } from "@/lib/app-toast";
@@ -345,12 +350,48 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       const projectId = loadActiveProjectId();
       const parentHistoryId = resolveParentHistoryId(input.parentHistoryId);
+      const shared = loadSettingsCache().shared;
+      const versioningEnabled = shared.promptVersioningEnabled !== false;
+
+      let versionFields:
+        | {
+            promptVersion: number;
+            promptContentHash: string;
+            versionRootId: string;
+          }
+        | undefined;
+      let entryId: string | undefined;
+
+      if (versioningEnabled) {
+        entryId = crypto.randomUUID();
+        const parent = parentHistoryId
+          ? loadPromptHistoryStore().find((entry) => entry.id === parentHistoryId)
+          : undefined;
+        versionFields = nextPromptVersionFields({
+          contentHash: computePromptContentHash({
+            prompt: input.prompt,
+            model: config.model,
+            loraIds: shared.sessionActiveLoraIds,
+          }),
+          parent: parent
+            ? {
+                id: parent.id,
+                promptVersion: parent.promptVersion,
+                versionRootId: parent.versionRootId,
+              }
+            : null,
+          newEntryId: entryId,
+        });
+      }
+
       const historyId = addEntry({
+        ...(entryId ? { id: entryId } : {}),
         tool: config.tool,
         prompt: input.prompt,
         hints: input.hints ?? config.hints,
         model: config.model,
         diagnostics: diagnostics ?? undefined,
+        ...(versionFields ?? {}),
         metadata: {
           ...(input.metadata ?? {}),
           ...(parentHistoryId ? { parentHistoryId } : {}),
@@ -394,9 +435,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
         /** Merged into runtime customTokens before inject (e.g. {{REGION_*}}). */
         customTokens?: Array<{ token: string; value: string }>;
+        /** Multi-slot regional edit for AttentionCouple / {{REGION_*}} binding. */
+        regionalSlots?: import("@/lib/regional-prompt-slots").RegionalPromptSlot[];
         /** Compose: lock identity from Figure 1 via IP-Adapter after upload. */
         identityLock?: boolean;
         identityLockStrength?: number;
+        identityKind?: import("@/lib/compose-identity-lock").ComposeIdentityKind;
       },
     ) => {
       if (!prompt) {
@@ -410,14 +454,20 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           prompt,
           model: config.model,
           tool: config.tool,
+          denoise: options?.queueParamsBase?.denoise,
+          cfg: options?.queueParamsBase?.cfg,
         });
         if (pluginPreflight.blocked) {
           throw new Error(
-            pluginPreflight.messages.join(" · ") || "Plugin hook blocked the queue.",
+            pluginPreflight.reason ||
+              pluginPreflight.messages.join(" · ") ||
+              "Plugin hook blocked the queue.",
           );
         }
         let workingPrompt = pluginPreflight.payload.prompt || prompt;
         const pluginNegative = pluginPreflight.payload.negativePrompt;
+        const pluginDenoise = pluginPreflight.payload.denoise;
+        const pluginCfg = pluginPreflight.payload.cfg;
 
         const baseRuntime = await resolveRuntimeForQueueAsync(
           config.model,
@@ -446,6 +496,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             }
           }
           runtime.customTokens = [...byToken.values()];
+        }
+
+        if (options?.regionalSlots?.length) {
+          runtime.regionalSlots = options.regionalSlots;
         }
 
         const { positive: preparedPrompt, negative: negativePrompt } =
@@ -623,6 +677,13 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           qualityProfile: effectiveQualityProfile,
         });
 
+        if (pluginDenoise != null && pluginDenoise.toString().trim() !== "") {
+          queueParams.denoise = pluginDenoise;
+        }
+        if (pluginCfg != null && pluginCfg.toString().trim() !== "") {
+          queueParams.cfg = pluginCfg;
+        }
+
         if (options?.identityLock) {
           const { buildComposeIdentityLockQueuePatch } = await import(
             "@/lib/compose-identity-lock"
@@ -630,6 +691,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           const identityPatch = buildComposeIdentityLockQueuePatch({
             enabled: true,
             strength: options.identityLockStrength,
+            identityKind: options.identityKind,
             inputImageFilename,
           });
           if (identityPatch) {
@@ -721,11 +783,18 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               [
                 data.promptId ? `prompt_id ${data.promptId}` : "queued",
                 queueModel !== config.model ? `as ${queueModel}` : null,
-                data.comfyUrl,
                 data.workflowSource ? `workflow: ${data.workflowSource}` : null,
                 negativePrompt ? "with negative" : null,
                 options?.identityLock && queueParams.ipAdapterImageFilename
-                  ? `identity lock · IP-Adapter ${Number(queueParams.ipAdapterStrength ?? 0.5).toFixed(2)}`
+                  ? `identity lock · ${
+                      queueParams.identityKind === "instantid"
+                        ? "InstantID"
+                        : queueParams.identityKind === "pulid"
+                          ? "PuLID"
+                          : queueParams.identityKind === "auto"
+                            ? "InstantID/PuLID auto"
+                            : "IP-Adapter"
+                    } ${Number(queueParams.ipAdapterStrength ?? 0.5).toFixed(2)}`
                   : null,
               ],
               {
@@ -736,6 +805,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 samplerMemory:
                   Object.keys(rememberedSamplerOverrides(queueModel)).length > 0,
                 hasInputImage: Boolean(inputImageFilename),
+                comfyUrl: data.comfyUrl,
               },
             ),
           );
@@ -1249,6 +1319,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         queueParamsBase?: WorkflowParamValues;
         identityLock?: boolean;
         identityLockStrength?: number;
+        identityKind?: import("@/lib/compose-identity-lock").ComposeIdentityKind;
       },
     ) => {
       if (!prompt.trim()) {
@@ -1308,6 +1379,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             queueParamsBase: options?.queueParamsBase,
             identityLock: options?.identityLock,
             identityLockStrength: options?.identityLockStrength,
+            identityKind: options?.identityKind,
           });
           setPipelineStatus("Pipeline complete · pair copied · queued");
         } else {

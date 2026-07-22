@@ -21,6 +21,7 @@ import {
   isSceneGenerationModel,
   resolveTxt2iCounterpartForGenerate,
   shouldUseSceneGenerationModel,
+  toolIgnoresSystemWorkflowSnap,
 } from "@/lib/queue-tool-model";
 import {
   normalizeModelSamplerPresetTier,
@@ -275,7 +276,10 @@ export default function SharedToolControls({
             ).map((entry) => entry.id)
           : supportedModels.models;
 
-    if (shared.useSystemWorkflows !== true) {
+    if (
+      shared.useSystemWorkflows !== true ||
+      toolIgnoresSystemWorkflowSnap(toolId)
+    ) {
       return base.length > 0 ? base : supportedModels.models;
     }
 
@@ -404,8 +408,10 @@ export default function SharedToolControls({
   }, []);
 
   // System workflows only support FLUX / Qwen / video scaffolds — snap off unsupported picks.
+  // Audio/mesh tools keep their own categories; snapping them to FLUX fights tool model locks
+  // and can infinite-loop (Maximum update depth).
   useEffect(() => {
-    if (shared.useSystemWorkflows !== true) {
+    if (shared.useSystemWorkflows !== true || toolIgnoresSystemWorkflowSnap(toolId)) {
       return;
     }
     if (isSystemWorkflowSupportedModel(shared.model)) {
@@ -422,6 +428,7 @@ export default function SharedToolControls({
     pickerModels,
     shared.model,
     shared.useSystemWorkflows,
+    toolId,
   ]);
 
   const [inventoryTick, setInventoryTick] = useState(0);

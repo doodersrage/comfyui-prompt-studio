@@ -48,6 +48,11 @@ import {
   parseModelUpscaleMap,
   SUGGESTED_MODEL_UPSCALE_MAP,
 } from "./model-upscale-map";
+import {
+  normalizeLoraDatasetExportPrefs,
+  normalizeLoraTrainTrainerPrefs,
+  normalizeTrainJobs,
+} from "./lora-train-job";
 
 export const SETTINGS_CACHE_KEY = "comfy-prompt-tool-settings-v1";
 
@@ -184,6 +189,11 @@ export type SharedToolSettings = {
    * {{FACE_DETAIL_DENOISE}} (and {{DENOISE}}) on the resolved workflow.
    */
   faceDetailerDenoise?: number;
+  /**
+   * When true (default), stamp promptVersion / promptContentHash / versionRootId
+   * on history saves and show vN labels in Studio.
+   */
+  promptVersioningEnabled?: boolean;
   /** @deprecated Use selectedWorkflowFileId */
   selectedWorkflowPresetId?: string;
   /** When true (default), expand `__name__` / `{a|b|c}` wildcard tokens before queueing. */
@@ -196,6 +206,17 @@ export type SharedToolSettings = {
   autoRetryOnOom?: boolean;
   /** When true (default), downgrade Max→Final / Final→Draft on OOM auto-retry. */
   oomRetryDowngrade?: boolean;
+  /**
+   * Preferred ComfyUI pool host URL. When set and the host is in COMFYUI_POOL
+   * and healthy-ish, queue routing prefers it over VRAM-aware / round-robin picks.
+   */
+  preferredComfyHost?: string;
+  /** Last-used gallery LoRA dataset export prefs (trigger + caption mode). */
+  loraDatasetExportPrefs?: import("./lora-train-job").LoraDatasetExportPrefs;
+  /** External LoRA trainer URL / command / output prefs (app owns the loop). */
+  loraTrainTrainerPrefs?: import("./lora-train-job").LoraTrainTrainerPrefs;
+  /** Recent LoRA train jobs (localStorage / Dexie settings slice). */
+  loraTrainJobs?: import("./lora-train-job").TrainJob[];
 };
 
 export type GenerateSource = "keywords" | "random";
@@ -239,12 +260,14 @@ export type PromptEditorToolCache = {
 export type RefineToolCache = {
   intentHints?: string;
   currentPrompt?: string;
+  regionalSlots?: import("./regional-prompt-slots").RegionalPromptSlot[];
 };
 
 export type InpaintToolCache = {
   maskDescription?: string;
   changeDescription?: string;
   directPrompt?: string;
+  regionalSlots?: import("./regional-prompt-slots").RegionalPromptSlot[];
 };
 
 /** Outpaint / expand — pad canvas + border mask. */
@@ -266,6 +289,9 @@ export type ImageComposeToolCache = {
   identityLock?: boolean;
   /** IP-Adapter weight when identityLock is on (default 0.5). */
   identityLockStrength?: number;
+  /** Identity backend when lock is on (default ipadapter). */
+  identityKind?: import("./compose-identity-lock").ComposeIdentityKind;
+  regionalSlots?: import("./regional-prompt-slots").RegionalPromptSlot[];
 };
 
 export type ControlNetToolCache = {
@@ -288,6 +314,20 @@ export type VideoToolCache = {
   frames?: number;
   /** Output frame rate fed to {{VIDEO_FPS}} at queue time. */
   fps?: number;
+};
+
+export type AudioToolCache = {
+  subject?: string;
+  mood?: string;
+  instruments?: string;
+  durationSec?: number;
+};
+
+export type MeshToolCache = {
+  subject?: string;
+  materials?: string;
+  style?: string;
+  resolution?: number;
 };
 
 export type LintToolCache = {
@@ -441,6 +481,8 @@ export type ToolSettingsCache = {
   imageCompose?: ImageComposeToolCache;
   controlnet?: ControlNetToolCache;
   video?: VideoToolCache;
+  audio?: AudioToolCache;
+  mesh?: MeshToolCache;
   lint?: LintToolCache;
   background?: BackgroundToolCache;
   pet?: PetToolCache;
@@ -486,6 +528,8 @@ type LegacyToolSettingsCache = ToolSettingsCache & {
 export type SettingsCache = {
   shared: SharedToolSettings;
   tools: ToolSettingsCache;
+  /** Installed plugin runtime manifests (Sprint 8). */
+  installedPlugins?: import("./plugin-manifest").PluginManifest[];
 };
 
 export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
@@ -532,6 +576,8 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   // Keep in sync with DEFAULT_FACE_DETAIL_DENOISE in gallery-output-face-detail.ts
   // (not imported here to avoid a module cycle through comfyui-config.ts).
   faceDetailerDenoise: 0.35,
+  promptVersioningEnabled: true,
+  preferredComfyHost: undefined,
 };
 
 export const DEFAULT_GENERATE_TOOL_CACHE: GenerateToolCache = {
@@ -585,6 +631,7 @@ export const DEFAULT_IMAGE_COMPOSE_TOOL_CACHE: ImageComposeToolCache = {
   figureCountHint: 2,
   identityLock: false,
   identityLockStrength: 0.5,
+  identityKind: "ipadapter",
 };
 
 export const DEFAULT_CONTROLNET_TOOL_CACHE: ControlNetToolCache = {
@@ -600,6 +647,20 @@ export const DEFAULT_VIDEO_TOOL_CACHE: VideoToolCache = {
   camera: "",
   style: "",
   durationSec: 4,
+};
+
+export const DEFAULT_AUDIO_TOOL_CACHE: AudioToolCache = {
+  subject: "",
+  mood: "",
+  instruments: "",
+  durationSec: 10,
+};
+
+export const DEFAULT_MESH_TOOL_CACHE: MeshToolCache = {
+  subject: "",
+  materials: "",
+  style: "",
+  resolution: 512,
 };
 
 export const DEFAULT_LINT_TOOL_CACHE: LintToolCache = {
@@ -754,13 +815,13 @@ export function migrateLegacyToolSettings(
 
 export function loadSettingsCache(): SettingsCache {
   if (typeof window === "undefined") {
-    return { shared: DEFAULT_SHARED_SETTINGS, tools: {} };
+    return { shared: DEFAULT_SHARED_SETTINGS, tools: {}, installedPlugins: [] };
   }
 
   try {
     const parsed = readBrowserValue<Partial<SettingsCache>>(SETTINGS_CACHE_KEY);
     if (!parsed) {
-      return { shared: DEFAULT_SHARED_SETTINGS, tools: {} };
+      return { shared: DEFAULT_SHARED_SETTINGS, tools: {}, installedPlugins: [] };
     }
     const shared = {
       ...DEFAULT_SHARED_SETTINGS,
@@ -793,6 +854,7 @@ export function loadSettingsCache(): SettingsCache {
     shared.autoRetryOnOom = shared.autoRetryOnOom !== false;
     shared.oomRetryDowngrade = shared.oomRetryDowngrade !== false;
     shared.vramGuardEnabled = shared.vramGuardEnabled !== false;
+    shared.promptVersioningEnabled = shared.promptVersioningEnabled !== false;
     const freeGb = shared.vramGuardMinFreeGb;
     shared.vramGuardMinFreeGb =
       typeof freeGb === "number" && Number.isFinite(freeGb)
@@ -803,6 +865,18 @@ export function loadSettingsCache(): SettingsCache {
       ...normalizeToolQueueQualityProfiles(shared.toolQueueQualityProfiles),
     };
     shared.toolQualityRecipes = mergeToolQualityRecipes(shared.toolQualityRecipes);
+    const preferredHost =
+      typeof shared.preferredComfyHost === "string"
+        ? shared.preferredComfyHost.trim()
+        : "";
+    shared.preferredComfyHost = preferredHost || undefined;
+    shared.loraDatasetExportPrefs = normalizeLoraDatasetExportPrefs(
+      shared.loraDatasetExportPrefs,
+    );
+    shared.loraTrainTrainerPrefs = normalizeLoraTrainTrainerPrefs(
+      shared.loraTrainTrainerPrefs,
+    );
+    shared.loraTrainJobs = normalizeTrainJobs(shared.loraTrainJobs);
     shared.modelCheckpointMap = {
       ...SUGGESTED_MODEL_CHECKPOINT_MAP,
       ...shared.modelCheckpointMap,
@@ -829,9 +903,12 @@ export function loadSettingsCache(): SettingsCache {
     return {
       shared,
       tools: migrated.tools,
+      installedPlugins: Array.isArray(parsed.installedPlugins)
+        ? (parsed.installedPlugins as SettingsCache["installedPlugins"])
+        : [],
     };
   } catch {
-    return { shared: DEFAULT_SHARED_SETTINGS, tools: {} };
+    return { shared: DEFAULT_SHARED_SETTINGS, tools: {}, installedPlugins: [] };
   }
 }
 

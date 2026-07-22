@@ -19,7 +19,7 @@ The app includes **40+ ComfyUI image model targets**, grouped by architecture fa
 
 Use the **search + category filter** in the UI to pick a model. Each entry shows its ComfyUI node name (e.g. `CLIP Text Encode (Flux)`, `TextEncodeQwenImageEditPlus`).
 
-Audio and 3D-only architectures (Stable Audio, etc.) are not in the main image model table. **WAN / Hunyuan Video** are available via the dedicated **Video** tool (`/video`) and `wan-video` / `hunyuan-video` model profiles — not as rows in the still-image family table above.
+Audio and 3D architectures are available via dedicated **Audio** (`/audio`) and **3D Mesh** (`/mesh`) tools — not as rows in the still-image family table above. **WAN / Hunyuan Video** use the **Video** tool (`/video`).
 
 ## Tools
 
@@ -36,7 +36,10 @@ Audio and 3D-only architectures (Stable Audio, etc.) are not in the main image m
 | **Image → Prompt** | `/image-prompt` | Upload an image; vision LLM writes the prompt |
 | **Inpaint** | `/inpaint` | Mask a region and queue FLUX/Qwen inpaint with `{{INPUT_IMAGE}}` / `{{MASK_IMAGE}}` |
 | **Outpaint** | `/outpaint` | Expand canvas borders (pad + mask) and queue through the inpaint path with Final quality recipes |
-| **Compose** | `/compose` | Multi-image transfer / edit with optional identity lock and gallery re-edit handoffs |
+| **Compose** | `/compose` | Multi-image transfer / edit with optional identity lock, regional edit, and gallery re-edit handoffs |
+| **Workflow editor** | `/workflow-editor` | Edit Comfy API graphs (React Flow), save to library, queue |
+| **Audio** | `/audio` | Stable Audio prompts + `{{AUDIO_SECONDS}}` |
+| **3D Mesh** | `/mesh` | Hunyuan3D-style mesh prompts + optional reference image |
 | **Video** | `/video` | Motion/camera prompts for WAN / Hunyuan Video; optional init image + `{{VIDEO_FRAMES}}` / `{{VIDEO_FPS}}` / `{{INIT_IMAGE}}` for I2V workflows |
 | **Negative** | `/negative` | Sport-aware negative/preserve prompts for SD models |
 | **Studio** | `/studio` | History, iteration tree, projects, compare, portfolio, campaign, analytics, catalog, templates |
@@ -46,7 +49,7 @@ Audio and 3D-only architectures (Stable Audio, etc.) are not in the main image m
 | **Gallery** | `/gallery` | Stats dashboard, grid/dense/list layouts, review focus, compare modal, semantic search |
 | **Variations** | `/variations` | Roll N prompt variations and batch-queue to ComfyUI |
 | **ControlNet** | `/controlnet` | Structure prompts (text or image-assisted) |
-| **Plugins** | `/plugins` | Nav bookmark registry (not runnable extensions) |
+| **Plugins** | `/plugins` | Installable plugin manifests (nav + queue hooks + iframe tools) |
 
 Legacy URLs `/duo` and `/random-scene` redirect to Character and Generate. Character’s scene-compose mode lives at `/character?mode=compose`. `/compose` is the multi-image Compose / Transfer tool.
 

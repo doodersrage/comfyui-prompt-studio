@@ -19,6 +19,8 @@ const CATEGORY_KEYWORDS: Record<ComfyModelCategory, string[]> = {
   "other-dit": ["pixart", "lumina", "z-image", "omnigen", "kandinsky", "cascade"],
   "instruct-edit": ["instruct", "ip2p", "lotus", "edit"],
   video: ["video", "wan", "hunyuan-video", "motion"],
+  audio: ["audio", "stable-audio", "sound", "music"],
+  mesh: ["mesh", "3d", "hunyuan3d", "hunyuan-3d"],
 };
 
 const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {

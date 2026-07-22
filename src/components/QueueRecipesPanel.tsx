@@ -31,7 +31,8 @@ import {
 } from "@/lib/settings-cache";
 
 export function toolLikelyHasInputImage(toolId?: string): boolean {
-  return /^(compose|refine|inpaint|outpaint|controlnet|imagePrompt|image-prompt)$/i.test(
+  // Video I2V (init image) counts as an edit-with-image context for size explain.
+  return /^(compose|refine|inpaint|outpaint|controlnet|imagePrompt|image-prompt|video)$/i.test(
     toolId ?? "",
   );
 }

@@ -201,6 +201,42 @@ export function pickComfyUiFromPoolVramAware(input?: {
   return pickComfyUiFromPool(input?.seed);
 }
 
+/**
+ * When a preferred pool host is configured, return it if it appears in the pool
+ * and is healthy-ish (unknown health or `ok !== false`). Unhealthy preferred
+ * hosts are skipped so VRAM-aware / round-robin can take over.
+ */
+export function resolvePreferredComfyUiHost(input: {
+  preferredComfyHost?: string;
+  poolUrls?: string[];
+  poolStats?: ComfyUiPoolEndpointStat[] | null;
+}): string | null {
+  const preferred = input.preferredComfyHost?.trim();
+  if (!preferred) {
+    return null;
+  }
+  const pool = input.poolUrls ?? parseComfyUiPool();
+  if (pool.length === 0) {
+    return null;
+  }
+  const preferredNorm = normalizeUrlForCompare(preferred);
+  const match = pool.find((url) => normalizeUrlForCompare(url) === preferredNorm);
+  if (!match) {
+    return null;
+  }
+  const stats = input.poolStats ?? getComfyUiPoolStatsCache();
+  if (!stats || stats.length === 0) {
+    return match;
+  }
+  const stat = stats.find(
+    (entry) => normalizeUrlForCompare(entry.url) === preferredNorm,
+  );
+  if (stat && stat.ok === false) {
+    return null;
+  }
+  return match;
+}
+
 export function resolveComfyUiUrlWithPool(input: {
   userUrl?: string;
   clientUrl?: string;
@@ -208,12 +244,21 @@ export function resolveComfyUiUrlWithPool(input: {
   routingSeed?: string;
   /** VRAM/queue snapshot to prefer over round-robin (falls back to the last cached one). */
   poolStats?: ComfyUiPoolEndpointStat[] | null;
+  /** Preferred pool host from SharedToolSettings — wins when in-pool and healthy-ish. */
+  preferredComfyHost?: string;
 }): string {
   if (input.userUrl?.trim()) {
     return input.userUrl.trim();
   }
   if (input.clientUrl?.trim()) {
     return input.clientUrl.trim();
+  }
+  const preferred = resolvePreferredComfyUiHost({
+    preferredComfyHost: input.preferredComfyHost,
+    poolStats: input.poolStats,
+  });
+  if (preferred) {
+    return preferred;
   }
   const pooled = pickComfyUiFromPoolVramAware({
     seed: input.routingSeed,

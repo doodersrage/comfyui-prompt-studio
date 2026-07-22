@@ -17,6 +17,12 @@ export type PromptHistoryEntry = {
   tags?: string[];
   diagnostics?: GenerationDiagnostics;
   metadata?: Record<string, unknown>;
+  /** Named prompt version number within a versionRootId lineage (1-based). */
+  promptVersion?: number;
+  /** Hash of prompt + model + LoRA ids at save time. */
+  promptContentHash?: string;
+  /** Shared root id for a version lineage (root entry id when version=1). */
+  versionRootId?: string;
   /** Set when user auth scopes history per account. */
   userId?: string;
 };

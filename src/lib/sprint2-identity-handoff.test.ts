@@ -23,6 +23,7 @@ describe("compose identity lock", () => {
       ipAdapterImageFilename: "fig1.png",
       ipAdapterImageFilenames: ["fig1.png"],
       ipAdapterStrength: 0.55,
+      identityKind: "ipadapter",
     });
   });
 
@@ -53,6 +54,14 @@ describe("compose identity lock", () => {
     assert.match(
       formatComposeIdentityLockHint({ enabled: true, strength: 0.5 }),
       /IP-Adapter @ 0\.50/,
+    );
+    assert.match(
+      formatComposeIdentityLockHint({
+        enabled: true,
+        strength: 0.5,
+        identityKind: "instantid",
+      }),
+      /InstantID @ 0\.50/,
     );
   });
 });

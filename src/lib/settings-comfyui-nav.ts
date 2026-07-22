@@ -3,6 +3,7 @@ export type ComfyUiSettingsSectionId =
   | "workflow-map"
   | "workflow-patching"
   | "lora-library"
+  | "lora-train"
   | "workflow-library"
   | "connection"
   | "auto-improve"
@@ -43,6 +44,11 @@ export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
     id: "lora-library",
     label: "LoRA library",
     keywords: ["lora", "trigger", "auto", "stack", "lightx2v"],
+  },
+  {
+    id: "lora-train",
+    label: "LoRA train",
+    keywords: ["lora", "train", "kohya", "dataset", "trigger", "trainer"],
   },
   {
     id: "connection",

@@ -208,6 +208,7 @@ function sharedQueueFlags(
 ): ComfyUiRuntimeConfig {
   const profile = normalizeQueueQualityProfile(shared.queueQualityProfile);
   const isMax = profile === "max";
+  const preferredComfyHost = shared.preferredComfyHost?.trim() || undefined;
   return {
     directWorkflowPatching: shared.directWorkflowPatching !== false,
     syncWorkflowLoadersToModel: shared.syncWorkflowLoadersToModel === true,
@@ -226,6 +227,7 @@ function sharedQueueFlags(
     modelVaeMap: shared.modelVaeMap,
     modelRefinerMap: shared.modelRefinerMap,
     modelUpscaleMap: shared.modelUpscaleMap,
+    ...(preferredComfyHost ? { preferredComfyHost } : {}),
     ...overrides,
   };
 }

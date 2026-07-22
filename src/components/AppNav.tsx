@@ -13,6 +13,7 @@ import { prefetchGalleryPage } from "@/lib/gallery-warmup";
 import {
   APP_NAV_GROUPS,
   APP_NAV_SETTINGS_LINK,
+  mergePluginLinksIntoNav,
   type AppNavLink,
 } from "@/lib/app-nav-catalog";
 import {
@@ -116,6 +117,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { authEnabled, user, allowedFeatures, logout, impersonating, impersonatorUsername, refresh } =
     useAuth();
   const [customPlugins, setCustomPlugins] = useState<ToolPlugin[]>([]);
+  const [manifestNavLinks, setManifestNavLinks] = useState<AppNavLink[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<string[] | null>(null);
 
@@ -139,7 +141,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     );
 
     const loadPlugins = () => {
-      void import("@/lib/tool-plugin-registry").then(({ loadToolPlugins }) => {
+      void Promise.all([
+        import("@/lib/tool-plugin-registry"),
+        import("@/lib/plugin-manifest"),
+      ]).then(([{ loadToolPlugins }, { navLinksFromInstalledPlugins }]) => {
         setCustomPlugins(
           loadToolPlugins().filter(
             (entry) =>
@@ -147,6 +152,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               !knownHrefs.has(entry.href.split("?")[0] ?? entry.href),
           ),
         );
+        setManifestNavLinks(navLinksFromInstalledPlugins());
       });
     };
 
@@ -160,17 +166,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   }, []);
 
   const visibleGroups = useMemo(() => {
-    const pluginLinks: AppNavLink[] = customPlugins.map((plugin) => ({
+    const bookmarkLinks: AppNavLink[] = customPlugins.map((plugin) => ({
       href: plugin.href,
       label: plugin.label,
       description: plugin.description,
     }));
+    const pluginLinks = [...bookmarkLinks, ...manifestNavLinks];
 
-    return APP_NAV_GROUPS.map((group) => ({
-      ...group,
-      links:
-        group.label === "Tools" ? [...group.links, ...pluginLinks] : group.links,
-    }))
+    return mergePluginLinksIntoNav(APP_NAV_GROUPS, pluginLinks)
       .map((group) => ({
         ...group,
         links: group.links.filter((link) =>
@@ -181,7 +184,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ),
       }))
       .filter((group) => group.links.length > 0);
-  }, [allowedFeatures, customPlugins]);
+  }, [allowedFeatures, customPlugins, manifestNavLinks]);
 
   const allLinks = useMemo(
     () => [

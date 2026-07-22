@@ -329,6 +329,26 @@ export function getServerEnvSummary(): ServerEnvSummary {
       title: "Server scheduled batch",
       fields: [
         {
+          key: "TRAINER_URL",
+          label: "LoRA trainer webhook URL",
+          value: flag(process.env.TRAINER_URL)
+            ? process.env.TRAINER_URL!.trim()
+            : "not set",
+          configured: flag(process.env.TRAINER_URL),
+          uiOverride: "Settings → ComfyUI → LoRA train (browser trainer URL fallback)",
+          hint: "When set, POST /api/lora-train start posts a job payload here instead of spawning a process.",
+        },
+        {
+          key: "TRAINER_COMMAND",
+          label: "LoRA trainer command",
+          value: flag(process.env.TRAINER_COMMAND)
+            ? process.env.TRAINER_COMMAND!.trim()
+            : "not set",
+          configured: flag(process.env.TRAINER_COMMAND),
+          uiOverride: "Settings → ComfyUI → LoRA train (browser trainer command fallback)",
+          hint: "Spawned without a shell when TRAINER_URL is unset. Otherwise start records a manual job.",
+        },
+        {
           key: "SERVER_SCHEDULED_BATCH",
           label: "Server scheduled batch enabled",
           value: process.env.SERVER_SCHEDULED_BATCH === "true" ? "true" : "false",

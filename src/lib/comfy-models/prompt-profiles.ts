@@ -326,6 +326,8 @@ PixArt rules:
     case "lumina_nlp":
     case "generic_nlp":
     case "video_motion":
+    case "audio_sound":
+    case "mesh_3d":
       return `You are an expert uncensored visual writer for ${ref}. The user provides a topic, keywords, mood, or brief fragments. Write ONE natural-language scene description—one unified image, not a pile of ideas.
 
 Rules:
@@ -626,6 +628,8 @@ export function buildProfileClarityAddendum(
     case "lumina_nlp":
     case "generic_nlp":
     case "video_motion":
+    case "audio_sound":
+    case "mesh_3d":
       return buildGenericNlpClarityAddendum(detail, def, "nlp");
     default:
       return buildGenericNlpClarityAddendum(detail, def, "nlp");
@@ -800,6 +804,8 @@ export function buildProfileUserDirective(
     case "lumina_nlp":
     case "generic_nlp":
     case "video_motion":
+    case "audio_sound":
+    case "mesh_3d":
       return buildGenericUserDirective(detail, def, "nlp");
     default:
       return buildGenericUserDirective(detail, def, "nlp");

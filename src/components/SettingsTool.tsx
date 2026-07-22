@@ -107,6 +107,7 @@ import SettingsSubNav from "@/components/settings/SettingsSubNav";
 import CompactDraftSavesStatus from "@/components/settings/CompactDraftSavesStatus";
 import WildcardListsEditor from "@/components/settings/WildcardListsEditor";
 import FaceDetailerHealthChip from "@/components/settings/FaceDetailerHealthChip";
+import IdentityPackHealthChips from "@/components/settings/IdentityPackHealthChips";
 import {
   CollapsibleSection,
   ToolBadge,
@@ -195,6 +196,10 @@ const LoraLibrarySettingsPanel = dynamic(
   () => import("@/components/settings/LoraLibrarySettingsPanel"),
   { loading: () => <ToolPageSkeleton label="Loading LoRA library" /> },
 );
+const LoraTrainPanel = dynamic(
+  () => import("@/components/settings/LoraTrainPanel"),
+  { loading: () => <ToolPageSkeleton label="Loading LoRA train" /> },
+);
 const ACCENT = "neutral" as const;
 
 const COMFYUI_SECTION_ELEMENT_IDS: Record<ComfyUiSettingsSectionId, string> = {
@@ -202,6 +207,7 @@ const COMFYUI_SECTION_ELEMENT_IDS: Record<ComfyUiSettingsSectionId, string> = {
   "workflow-map": "settings-comfyui-workflow-map",
   "workflow-patching": "settings-comfyui-workflow-patching",
   "lora-library": "settings-comfyui-lora-library",
+  "lora-train": "settings-comfyui-lora-train",
   "workflow-library": "settings-comfyui-workflow-library",
   connection: "settings-comfyui-connection",
   "auto-improve": "settings-comfyui-auto-improve",
@@ -861,13 +867,18 @@ export default function SettingsTool() {
         )}
 
         {health?.comfyuiPool?.enabled && health.comfyuiPool.endpoints.length > 0 ? (
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 space-y-3">
             <p className="type-caption text-zinc-400">ComfyUI pool endpoints</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {health.comfyuiPool.endpoints.map((endpoint) => (
                 <HealthCard
                   key={endpoint.url}
-                  title={`Pool #${endpoint.index + 1}`}
+                  title={`Pool #${endpoint.index + 1}${
+                    sharedSettings.preferredComfyHost?.replace(/\/+$/, "") ===
+                    endpoint.url.replace(/\/+$/, "")
+                      ? " · preferred"
+                      : ""
+                  }`}
                   ok={endpoint.ok}
                   detail={[
                     endpoint.url,
@@ -883,6 +894,37 @@ export default function SettingsTool() {
                     .join(" · ")}
                 />
               ))}
+            </div>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="preferred-comfy-host"
+                className="text-xs text-zinc-400"
+              >
+                Preferred pool host
+              </label>
+              <select
+                id="preferred-comfy-host"
+                value={sharedSettings.preferredComfyHost ?? ""}
+                onChange={(event) =>
+                  updateSharedSettings({
+                    preferredComfyHost: event.target.value.trim() || undefined,
+                  })
+                }
+                className="w-full rounded-xl border border-zinc-700/80 bg-zinc-950/80 px-3 py-2.5 text-sm text-zinc-100 shadow-inner shadow-black/20 transition hover:border-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:border-zinc-500"
+              >
+                <option value="">Auto (VRAM / round-robin)</option>
+                {health.comfyuiPool.endpoints.map((endpoint) => (
+                  <option key={endpoint.url} value={endpoint.url}>
+                    {endpoint.ok ? "●" : "○"} Pool #{endpoint.index + 1} —{" "}
+                    {endpoint.url}
+                    {endpoint.ok ? "" : " (unhealthy)"}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] leading-relaxed text-zinc-500">
+                When the preferred host is in the pool and healthy, queues use it
+                first. Unhealthy preferred hosts fall back to VRAM-aware routing.
+              </p>
             </div>
           </div>
         ) : null}
@@ -1631,6 +1673,7 @@ export default function SettingsTool() {
           />
         </label>
         <FaceDetailerHealthChip refreshKey={workflowHealthRefresh} />
+        <IdentityPackHealthChips refreshKey={workflowHealthRefresh} />
       </ToolSection>
 
       <ToolSection
@@ -1809,6 +1852,14 @@ export default function SettingsTool() {
           comfyUrl={settings.apiUrl}
           onChange={(loraLibrary) => updateSettings({ loraLibrary })}
         />
+      </ToolSection>
+
+      <ToolSection
+        id="settings-comfyui-lora-train"
+        title="LoRA train loop"
+        description="External trainer jobs — webhook or command — then register weights into the library."
+      >
+        <LoraTrainPanel onStatus={setStatus} />
       </ToolSection>
 
       <ToolSection id="settings-comfyui-connection" title="ComfyUI connection & injection">
@@ -2215,6 +2266,21 @@ export default function SettingsTool() {
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
           Auto-save to history when queueing from result panels (skips if already saved)
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={sharedSettings.promptVersioningEnabled !== false}
+            onChange={(event) =>
+              updateSharedSettings({
+                promptVersioningEnabled: event.target.checked,
+              })
+            }
+            disabled={!sharedMounted}
+            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+          />
+          Named prompt versions (vN labels + lineage on history saves)
         </label>
 
         <label className="flex items-center gap-2 text-sm text-zinc-300">

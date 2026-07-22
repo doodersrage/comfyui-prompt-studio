@@ -50,6 +50,19 @@ export function isVideoModel(model: ComfyImageModel | string): boolean {
   return getComfyModelDefinition(model).category === "video";
 }
 
+export function isAudioModel(model: ComfyImageModel | string): boolean {
+  return getComfyModelDefinition(model).category === "audio";
+}
+
+export function isMeshModel(model: ComfyImageModel | string): boolean {
+  return getComfyModelDefinition(model).category === "mesh";
+}
+
+/** System FLUX/Qwen scaffolds don't cover these tools — don't snap their models away. */
+export function toolIgnoresSystemWorkflowSnap(tool?: string): boolean {
+  return tool === "audio" || tool === "mesh";
+}
+
 export function isSceneGenerationModel(model: ComfyImageModel | string): boolean {
   const id = String(model);
   if (/^qwen-rapid-aio-(sfw|nsfw)$/i.test(id)) {
@@ -139,6 +152,16 @@ export function filterModelsForQueueTool(
   if (tool === "video") {
     const video = models.filter((model) => isVideoModel(model));
     return video.length > 0 ? video : models;
+  }
+
+  if (tool === "audio") {
+    const audio = models.filter((model) => isAudioModel(model));
+    return audio.length > 0 ? audio : models;
+  }
+
+  if (tool === "mesh") {
+    const mesh = models.filter((model) => isMeshModel(model));
+    return mesh.length > 0 ? mesh : models;
   }
 
   if (tool === "compose") {

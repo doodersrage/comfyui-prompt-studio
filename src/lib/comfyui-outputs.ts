@@ -6,8 +6,8 @@ export type ComfyOutputImage = {
   format?: string;
 };
 
-/** Media kind for gallery rendering: still image vs. video/animated clip. */
-export type ComfyOutputMediaKind = "image" | "video";
+/** Media kind for gallery rendering: still image, video/animated, audio, or mesh download. */
+export type ComfyOutputMediaKind = "image" | "video" | "audio" | "mesh";
 
 const VIDEO_FILE_EXTENSIONS = new Set([
   "mp4",
@@ -16,6 +16,10 @@ const VIDEO_FILE_EXTENSIONS = new Set([
   "mkv",
   "avi",
 ]);
+
+const AUDIO_FILE_EXTENSIONS = new Set(["wav", "mp3", "flac", "ogg", "m4a"]);
+
+const MESH_FILE_EXTENSIONS = new Set(["obj", "glb", "gltf", "stl", "ply"]);
 
 /** Animated formats that should be rendered like video (looping, no controls needed). */
 const ANIMATED_IMAGE_EXTENSIONS = new Set(["webp", "gif"]);
@@ -49,6 +53,16 @@ export function resolveComfyOutputMediaKind(
   }
 
   const ext = fileExtensionOf(image.filename);
+  if (format.startsWith("audio/") || AUDIO_FILE_EXTENSIONS.has(ext)) {
+    return "audio";
+  }
+  if (
+    format.includes("model") ||
+    format.includes("mesh") ||
+    MESH_FILE_EXTENSIONS.has(ext)
+  ) {
+    return "mesh";
+  }
   if (VIDEO_FILE_EXTENSIONS.has(ext)) {
     return "video";
   }

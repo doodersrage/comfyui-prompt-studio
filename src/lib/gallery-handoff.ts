@@ -29,6 +29,8 @@ export type GalleryHandoffPayload = {
   /** Restore LoRA session picks (from entry or current session). */
   sessionActiveLoraIds?: string[];
   queueQualityProfile?: QueueQualityProfile;
+  /** Compose identity lock backend restored on re-edit. */
+  identityKind?: import("./compose-identity-lock").ComposeIdentityKind;
   /** reedit = open tool with same stack; upscale-* routed via gallery enhance actions. */
   handoffMode?: GalleryHandoffMode;
   savedAt: number;
@@ -83,6 +85,7 @@ export function buildGalleryHandoff(
   }
   const handoffMode = options?.handoffMode ?? "reedit";
   const includeLoras = options?.includeSessionLoras ?? handoffMode === "reedit";
+  const identityKind = entry.queueParams?.identityKind;
   return {
     source: "gallery",
     galleryEntryId: entry.id,
@@ -97,6 +100,7 @@ export function buildGalleryHandoff(
     queueParams: entry.queueParams,
     queueQualityProfile: entry.queueQualityProfile,
     sessionActiveLoraIds: resolveHandoffLoraIds(entry, includeLoras),
+    ...(identityKind ? { identityKind } : {}),
     handoffMode,
     target,
     savedAt: Date.now(),
@@ -106,7 +110,7 @@ export function buildGalleryHandoff(
 /** Re-edit with the same LoRA stack / quality when available. */
 export function buildReeditGalleryHandoff(
   entry: ComfyGalleryEntry,
-  target: Extract<GalleryHandoffPayload["target"], "compose" | "refine">,
+  target: Extract<GalleryHandoffPayload["target"], "compose" | "refine" | "video">,
 ): GalleryHandoffPayload {
   return buildGalleryHandoff(entry, target, {
     handoffMode: "reedit",

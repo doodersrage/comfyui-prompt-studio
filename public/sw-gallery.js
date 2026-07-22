@@ -35,7 +35,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache ComfyUI image proxy responses only — never /gallery HTML or RSC payloads.
+  // Cache ComfyUI image proxy responses only — never HTML/RSC navigations
+  // (hijacking navigate/text/html breaks Next soft-refresh and looks like a load loop).
   if (!url.pathname.startsWith("/api/comfyui/view")) {
     return;
   }

@@ -53,10 +53,14 @@ export function usePromptHistory() {
   }, []);
 
   const addEntry = useCallback(
-    (entry: Omit<PromptHistoryEntry, "id" | "timestamp" | "userId">) => {
+    (
+      entry: Omit<PromptHistoryEntry, "id" | "timestamp" | "userId"> & {
+        id?: string;
+      },
+    ) => {
       const next: PromptHistoryEntry = {
         ...entry,
-        id: crypto.randomUUID(),
+        id: entry.id?.trim() || crypto.randomUUID(),
         timestamp: Date.now(),
       };
       persist([next, ...loadHistory()].slice(0, 100));

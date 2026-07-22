@@ -11,10 +11,14 @@ import { getReformatTargetLabel } from "@/lib/reformat-target";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import { DEFAULT_VIDEO_TOOL_CACHE } from "@/lib/settings-cache";
 import { isVideoModel } from "@/lib/queue-tool-model";
-import { DEFAULT_VIDEO_MODEL } from "@/lib/comfy-models/client";
+import {
+  DEFAULT_VIDEO_MODEL,
+  type ComfyImageModel,
+} from "@/lib/comfy-models/client";
 import {
   clearGalleryHandoff,
   loadGalleryHandoff,
+  sharedPatchFromGalleryHandoff,
 } from "@/lib/gallery-handoff";
 import { ensureVideoWorkflowScaffold } from "@/lib/ensure-video-workflow";
 import { fetchComfyObjectInfoCached } from "@/lib/comfyui-object-info-cache";
@@ -106,15 +110,36 @@ export default function VideoPromptTool() {
       return;
     }
     const handoff = loadGalleryHandoff("video");
-    if (!handoff?.imageUrl?.trim()) {
+    if (!handoff) {
       return;
     }
+    const framesFromHandoff = Number(handoff.queueParams?.videoFrames);
+    const fpsFromHandoff = Number(handoff.queueParams?.videoFps);
     updateToolSettings({
-      initImageUrl: handoff.imageUrl.trim(),
-      ...(handoff.prompt?.trim() ? { subject: handoff.prompt.trim().slice(0, 400) } : {}),
+      ...(handoff.imageUrl?.trim()
+        ? { initImageUrl: handoff.imageUrl.trim() }
+        : {}),
+      ...(handoff.prompt?.trim()
+        ? { subject: handoff.prompt.trim().slice(0, 400) }
+        : {}),
+      ...(Number.isFinite(framesFromHandoff) && framesFromHandoff > 0
+        ? { frames: Math.floor(framesFromHandoff) }
+        : {}),
+      ...(Number.isFinite(fpsFromHandoff) && fpsFromHandoff > 0
+        ? { fps: Math.floor(fpsFromHandoff) }
+        : {}),
     });
+    const sharedPatch = sharedPatchFromGalleryHandoff(handoff);
+    if (handoff.model?.trim()) {
+      updateShared({
+        model: handoff.model.trim() as ComfyImageModel,
+        ...sharedPatch,
+      });
+    } else if (Object.keys(sharedPatch).length > 0) {
+      updateShared(sharedPatch);
+    }
     clearGalleryHandoff();
-  }, [mounted, updateToolSettings]);
+  }, [mounted, updateShared, updateToolSettings]);
   const setFrames = useCallback(
     (value: number | undefined) => updateToolSettings({ frames: value }),
     [updateToolSettings],
@@ -258,6 +283,12 @@ export default function VideoPromptTool() {
     }
   }, [output]);
 
+  // Avoid first-paint crashes when shared.model is still audio/mesh/image
+  // from another tool — effects sync storage, but controls need a video model now.
+  const controlsShared = isVideoModel(shared.model)
+    ? shared
+    : { ...shared, model: DEFAULT_VIDEO_MODEL as ComfyImageModel };
+
   return (
     <ToolLayout
       accent={ACCENT}
@@ -266,7 +297,7 @@ export default function VideoPromptTool() {
       description="Compose motion, camera, and continuity prompts for WAN / Hunyuan Video. Text-to-video by default; add an init image for image-to-video (requires WanImageToVideo or HunyuanImageToVideo in ComfyUI)."
       sidebar={
         <SharedToolControls
-          shared={shared}
+          shared={controlsShared}
           toolId="video"
           onModelChange={(model) => updateShared({ model })}
           onDetailChange={(detail) => updateShared({ detail })}

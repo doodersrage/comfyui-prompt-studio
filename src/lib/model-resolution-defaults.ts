@@ -351,6 +351,41 @@ const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolution
       max: { width: 1152, height: 832 },
     },
   },
+  // Placeholder pixel sizes for queue UI explain; audio/mesh use seconds/resolution tokens instead.
+  audio: {
+    square: {
+      small: { width: 512, height: 512 },
+      medium: { width: 768, height: 768 },
+      max: { width: 1024, height: 1024 },
+    },
+    portrait: {
+      small: { width: 512, height: 768 },
+      medium: { width: 768, height: 1024 },
+      max: { width: 832, height: 1152 },
+    },
+    landscape: {
+      small: { width: 768, height: 512 },
+      medium: { width: 1024, height: 768 },
+      max: { width: 1152, height: 832 },
+    },
+  },
+  mesh: {
+    square: {
+      small: { width: 512, height: 512 },
+      medium: { width: 768, height: 768 },
+      max: { width: 1024, height: 1024 },
+    },
+    portrait: {
+      small: { width: 512, height: 768 },
+      medium: { width: 768, height: 1024 },
+      max: { width: 832, height: 1152 },
+    },
+    landscape: {
+      small: { width: 768, height: 512 },
+      medium: { width: 1024, height: 768 },
+      max: { width: 1152, height: 832 },
+    },
+  },
 };
 
 type ModelResolutionPresetMap = Partial<
@@ -562,7 +597,9 @@ export function getModelResolutionPreset(
   }
 
   const definition = getComfyModelDefinition(normalized);
-  const categoryPresets = CATEGORY_RESOLUTION_PRESETS[definition.category];
+  const categoryPresets =
+    CATEGORY_RESOLUTION_PRESETS[definition.category] ??
+    CATEGORY_RESOLUTION_PRESETS["other-dit"];
   return (
     categoryPresets[normalizedOrientation]?.[normalizedTier] ??
     categoryPresets[fallbackOrientation][normalizedTier]

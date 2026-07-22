@@ -8,6 +8,7 @@ import {
   resolveModelForQueueTool,
   resolveTxt2iCounterpartForGenerate,
   stripEditInstructionLead,
+  toolIgnoresSystemWorkflowSnap,
 } from "./queue-tool-model";
 
 describe("queue-tool-model", () => {
@@ -149,5 +150,29 @@ describe("queue-tool-model", () => {
       { includeEditModels: true },
     );
     assert.deepEqual(filtered, ["wan-video"]);
+  });
+
+  it("scopes Audio and Mesh tool pickers to their categories", () => {
+    assert.deepEqual(
+      filterModelsForQueueTool(
+        ["qwen-image-2512", "stable-audio", "hunyuan-3d", "wan-video"],
+        "audio",
+      ),
+      ["stable-audio"],
+    );
+    assert.deepEqual(
+      filterModelsForQueueTool(
+        ["qwen-image-2512", "stable-audio", "hunyuan-3d", "wan-video"],
+        "mesh",
+      ),
+      ["hunyuan-3d"],
+    );
+  });
+
+  it("skips system-workflow snap for audio and mesh tools", () => {
+    assert.equal(toolIgnoresSystemWorkflowSnap("audio"), true);
+    assert.equal(toolIgnoresSystemWorkflowSnap("mesh"), true);
+    assert.equal(toolIgnoresSystemWorkflowSnap("video"), false);
+    assert.equal(toolIgnoresSystemWorkflowSnap("generate"), false);
   });
 });

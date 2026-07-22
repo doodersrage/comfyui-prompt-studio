@@ -119,6 +119,18 @@ const CATEGORY_SAMPLER_PRESETS: Record<ComfyModelCategory, CategorySamplerPreset
     maxCompatible: { steps: 40, cfg: 5.5, samplerName: "euler", scheduler: "normal" },
     max: { steps: 50, cfg: 5, samplerName: "euler", scheduler: "normal" },
   },
+  audio: {
+    base: { steps: 50, cfg: 7, samplerName: "euler", scheduler: "normal" },
+    optimized: { steps: 80, cfg: 7, samplerName: "euler", scheduler: "normal" },
+    maxCompatible: { steps: 100, cfg: 7, samplerName: "euler", scheduler: "normal" },
+    max: { steps: 150, cfg: 7, samplerName: "euler", scheduler: "normal" },
+  },
+  mesh: {
+    base: { steps: 30, cfg: 5, samplerName: "euler", scheduler: "normal" },
+    optimized: { steps: 40, cfg: 5, samplerName: "euler", scheduler: "normal" },
+    maxCompatible: { steps: 50, cfg: 5, samplerName: "euler", scheduler: "normal" },
+    max: { steps: 60, cfg: 5, samplerName: "euler", scheduler: "normal" },
+  },
 };
 
 type ModelSamplerPresetMap = Partial<
@@ -377,7 +389,10 @@ export function getModelSamplerDefaults(
   }
 
   const definition = getComfyModelDefinition(normalized);
-  return CATEGORY_SAMPLER_PRESETS[definition.category][presetTier];
+  const categoryPresets =
+    CATEGORY_SAMPLER_PRESETS[definition.category] ??
+    CATEGORY_SAMPLER_PRESETS["other-dit"];
+  return categoryPresets[presetTier];
 }
 
 export function modelSamplerDefaultsToParams(

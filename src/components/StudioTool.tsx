@@ -108,6 +108,9 @@ import {
 import type { ModelPortfolioItem } from "@/lib/model-portfolio";
 import { studioHistoryUrl } from "@/lib/prompt-lineage";
 import { startRefineFromHistoryEntry, startPromptEditorFromHistoryEntry } from "@/lib/improve-output";
+import {
+  formatPromptVersionLabel,
+} from "@/lib/prompt-versioning";
 import type { RatedTokenStat } from "@/lib/rating-token-analytics";
 import type { UserHistoryAnalytics } from "@/lib/user-analytics";
 import type { GalleryStats } from "@/lib/gallery-stats";
@@ -3630,6 +3633,11 @@ function IterationTreeNodeCard({
     <div className="space-y-3" style={{ marginLeft: depth * 16 }}>
       <ToolContentPanel className="ui-block-group">
         <p className="type-caption text-zinc-500">
+          {formatPromptVersionLabel(node.entry.promptVersion) ? (
+            <span className="mr-1.5 inline-flex items-center rounded-md border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-200">
+              {formatPromptVersionLabel(node.entry.promptVersion)}
+            </span>
+          ) : null}
           {node.entry.tool} · {node.entry.model} ·{" "}
           {new Date(node.entry.timestamp).toLocaleString()}
         </p>
@@ -3655,6 +3663,22 @@ function IterationTreeNodeCard({
             className="type-caption text-violet-300 hover:text-violet-200"
           >
             Edit & refine prompt
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(node.entry.prompt).then(
+                () => {
+                  startPromptEditorFromHistoryEntry(node.entry);
+                },
+                () => {
+                  startPromptEditorFromHistoryEntry(node.entry);
+                },
+              );
+            }}
+            className="type-caption text-emerald-300 transition hover:text-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
+          >
+            Restore as current
           </button>
           {linkedGalleryEntry ? (
             <>

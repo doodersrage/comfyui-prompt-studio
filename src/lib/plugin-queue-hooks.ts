@@ -1,9 +1,11 @@
 /**
  * Optional plugin queue hooks — URL callbacks invoked before a job is queued.
  * Bookmarks remain in tool-plugin-registry; this adds a thin executable surface.
+ * Installed manifests (plugin-manifest) can also register queueHooks.
  */
 
 import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { loadInstalledPlugins } from "./plugin-manifest";
 
 export type PluginQueueHook = {
   id: string;
@@ -21,15 +23,62 @@ export type PluginQueueHookPayload = {
   negativePrompt?: string;
   model?: string;
   tool?: string;
+  /** Sampler denoise — hooks may rewrite within a safe range. */
+  denoise?: string | number;
+  /** Sampler CFG — hooks may rewrite within a safe range. */
+  cfg?: string | number;
 };
 
 export type PluginQueueHookResult = {
-  ok: boolean;
+  ok?: boolean;
   blocked?: boolean;
+  /** Human-readable block / status note (legacy). */
   message?: string;
+  /** Preferred block reason when `blocked: true`. */
+  reason?: string;
   prompt?: string;
   negativePrompt?: string;
+  denoise?: string | number;
+  cfg?: string | number;
 };
+
+const DENOISE_MIN = 0.05;
+const DENOISE_MAX = 1;
+const CFG_MIN = 0;
+const CFG_MAX = 30;
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function parseFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/** Sanitize a hook-supplied denoise into a safe queue range, or null if invalid. */
+export function normalizeHookDenoise(value: unknown): number | null {
+  const parsed = parseFiniteNumber(value);
+  if (parsed == null) {
+    return null;
+  }
+  return clampNumber(parsed, DENOISE_MIN, DENOISE_MAX);
+}
+
+/** Sanitize a hook-supplied cfg into a safe queue range, or null if invalid. */
+export function normalizeHookCfg(value: unknown): number | null {
+  const parsed = parseFiniteNumber(value);
+  if (parsed == null) {
+    return null;
+  }
+  return clampNumber(parsed, CFG_MIN, CFG_MAX);
+}
 
 export function loadPluginQueueHooks(): PluginQueueHook[] {
   if (typeof window === "undefined") {
@@ -62,6 +111,44 @@ export function savePluginQueueHooks(hooks: PluginQueueHook[]): void {
   );
 }
 
+/** Queue hooks registered on enabled installed plugin manifests. */
+export function loadManifestPluginQueueHooks(): PluginQueueHook[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  try {
+    return loadInstalledPlugins()
+      .filter((plugin) => plugin.enabled !== false && plugin.queueHooks?.url)
+      .filter((plugin) => {
+        const events = plugin.queueHooks?.events ?? ["queue-preflight"];
+        return events.includes("queue-preflight");
+      })
+      .map((plugin) => ({
+        id: `manifest:${plugin.id}`,
+        label: plugin.label,
+        url: plugin.queueHooks!.url,
+        enabled: true,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/** Manual hooks + enabled manifest queueHooks (manual ids win on collision). */
+export function resolveActivePluginQueueHooks(
+  manual: PluginQueueHook[] = loadPluginQueueHooks(),
+  fromManifests: PluginQueueHook[] = loadManifestPluginQueueHooks(),
+): PluginQueueHook[] {
+  const byId = new Map<string, PluginQueueHook>();
+  for (const hook of fromManifests) {
+    byId.set(hook.id, hook);
+  }
+  for (const hook of manual) {
+    byId.set(hook.id, hook);
+  }
+  return [...byId.values()];
+}
+
 function isAllowedHookUrl(url: string): boolean {
   if (url.startsWith("/")) {
     return true;
@@ -75,16 +162,61 @@ function isAllowedHookUrl(url: string): boolean {
 }
 
 /**
- * Run enabled queue-preflight hooks sequentially. A hook may rewrite prompts
- * or block the queue (`blocked: true`).
+ * Apply a single hook JSON result onto the payload (pure — used by preflight
+ * and unit tests). Returns blocked + reason when the hook stops the queue.
+ */
+export function applyPluginQueueHookMutation(
+  payload: PluginQueueHookPayload,
+  result: PluginQueueHookResult,
+): {
+  payload: PluginQueueHookPayload;
+  blocked: boolean;
+  reason?: string;
+} {
+  const blockReason =
+    (typeof result.reason === "string" && result.reason.trim()) ||
+    (typeof result.message === "string" && result.message.trim()) ||
+    undefined;
+
+  if (result.blocked) {
+    return {
+      payload,
+      blocked: true,
+      reason: blockReason || "Plugin hook blocked the queue.",
+    };
+  }
+
+  let next = { ...payload };
+  if (typeof result.prompt === "string" && result.prompt.trim()) {
+    next = { ...next, prompt: result.prompt.trim() };
+  }
+  if (typeof result.negativePrompt === "string") {
+    next = { ...next, negativePrompt: result.negativePrompt };
+  }
+  const denoise = normalizeHookDenoise(result.denoise);
+  if (denoise != null) {
+    next = { ...next, denoise };
+  }
+  const cfg = normalizeHookCfg(result.cfg);
+  if (cfg != null) {
+    next = { ...next, cfg };
+  }
+
+  return { payload: next, blocked: false, reason: blockReason };
+}
+
+/**
+ * Run enabled queue-preflight hooks sequentially. A hook may rewrite prompts /
+ * denoise / cfg, or block the queue (`blocked: true` + reason/message).
  */
 export async function runPluginQueuePreflight(
   payload: PluginQueueHookPayload,
-  hooks: PluginQueueHook[] = loadPluginQueueHooks(),
+  hooks: PluginQueueHook[] = resolveActivePluginQueueHooks(),
 ): Promise<{
   payload: PluginQueueHookPayload;
   blocked: boolean;
   messages: string[];
+  reason?: string;
 }> {
   let next = { ...payload };
   const messages: string[] = [];
@@ -104,24 +236,21 @@ export async function runPluginQueuePreflight(
         continue;
       }
       const data = (await response.json()) as PluginQueueHookResult;
-      if (data.message?.trim()) {
-        messages.push(`${hook.label || hook.id}: ${data.message.trim()}`);
+      const applied = applyPluginQueueHookMutation(next, data);
+      if (applied.reason && !applied.blocked) {
+        messages.push(`${hook.label || hook.id}: ${applied.reason}`);
       }
-      if (data.blocked) {
+      if (applied.blocked) {
+        const reason = applied.reason || `${hook.label || hook.id} blocked the queue.`;
+        messages.push(`${hook.label || hook.id}: ${reason}`);
         return {
           payload: next,
           blocked: true,
-          messages: messages.length
-            ? messages
-            : [`${hook.label || hook.id} blocked the queue.`],
+          messages,
+          reason,
         };
       }
-      if (typeof data.prompt === "string" && data.prompt.trim()) {
-        next = { ...next, prompt: data.prompt.trim() };
-      }
-      if (typeof data.negativePrompt === "string") {
-        next = { ...next, negativePrompt: data.negativePrompt };
-      }
+      next = applied.payload;
     } catch (error) {
       messages.push(
         `${hook.label || hook.id}: ${

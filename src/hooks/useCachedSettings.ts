@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   DEFAULT_SHARED_SETTINGS,
@@ -18,9 +18,13 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
   toolKey: K,
   toolDefaults: NonNullable<ToolSettingsCache[K]>,
 ) {
+  const defaultsRef = useRef(toolDefaults);
+  defaultsRef.current = toolDefaults ?? defaultsRef.current;
   const [mounted, setMounted] = useState(false);
   const [shared, setShared] = useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
-  const [toolSettings, setToolSettings] = useState(toolDefaults);
+  const [toolSettings, setToolSettings] = useState<
+    NonNullable<ToolSettingsCache[K]>
+  >(() => (toolDefaults ?? {}) as NonNullable<ToolSettingsCache[K]>);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -45,7 +49,10 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
         }
       }
       setShared(nextShared);
-      setToolSettings(loadToolSettings(toolKey, toolDefaults));
+      const defaults =
+        defaultsRef.current ??
+        ({} as NonNullable<ToolSettingsCache[K]>);
+      setToolSettings(loadToolSettings(toolKey, defaults));
       setMounted(true);
     });
     // toolDefaults are module-level constants; toolKey selects the cache slice
@@ -72,9 +79,13 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
   const updateToolSettings = useCallback(
     (partial: Partial<NonNullable<ToolSettingsCache[K]>>) => {
       setToolSettings((previous) => {
-        const next = { ...previous, ...partial } as NonNullable<
-          ToolSettingsCache[K]
-        >;
+        const defaults =
+          defaultsRef.current ??
+          ({} as NonNullable<ToolSettingsCache[K]>);
+        const next = {
+          ...(previous ?? defaults),
+          ...partial,
+        } as NonNullable<ToolSettingsCache[K]>;
         saveToolSettings(toolKey, next);
         return next;
       });
@@ -85,7 +96,10 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
   return {
     mounted,
     shared,
-    toolSettings,
+    toolSettings:
+      toolSettings ??
+      defaultsRef.current ??
+      ({} as NonNullable<ToolSettingsCache[K]>),
     updateShared,
     updateToolSettings,
     setModel: (model: SharedToolSettings["model"]) => updateShared({ model }),

@@ -627,6 +627,32 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     limitsByDetail: PROFILE_LIMITS.video_motion,
     checkpointHint: "ltx-video-2b-v0.9.safetensors",
   },
+  {
+    id: "stable-audio",
+    label: "Stable Audio",
+    category: "audio",
+    comfyNode: "CLIPTextEncode",
+    comfyClass: "StableAudio",
+    description:
+      "Stable Audio — describe instruments, texture, tempo, and space for sound generation packs.",
+    profile: "audio_sound",
+    referenceTokenLimit: 256,
+    limitsByDetail: PROFILE_LIMITS.audio_sound,
+    checkpointHint: "stable-audio-open.safetensors",
+  },
+  {
+    id: "hunyuan-3d",
+    label: "Hunyuan 3D",
+    category: "mesh",
+    comfyNode: "CLIPTextEncode",
+    comfyClass: "Hunyuan3D",
+    description:
+      "Hunyuan 3D / mesh — describe shape, materials, and silhouette for image-to-mesh scaffolds.",
+    profile: "mesh_3d",
+    referenceTokenLimit: 256,
+    limitsByDetail: PROFILE_LIMITS.mesh_3d,
+    checkpointHint: "hunyuan3d.safetensors",
+  },
 ];
 
 export const COMFY_MODEL_IDS = new Set(
@@ -637,6 +663,9 @@ export const DEFAULT_COMFY_MODEL = "qwen-image-2512";
 
 /** Default model for the Video tool (`category: "video"`). */
 export const DEFAULT_VIDEO_MODEL = "wan-video";
+
+export const DEFAULT_AUDIO_MODEL = "stable-audio";
+export const DEFAULT_MESH_MODEL = "hunyuan-3d";
 
 export const COMFY_MODEL_CATEGORIES: {
   id: ComfyImageModelDefinition["category"];
@@ -651,4 +680,6 @@ export const COMFY_MODEL_CATEGORIES: {
   { id: "other-dit", label: "PixArt / Lumina / Other" },
   { id: "instruct-edit", label: "Instruct / Edit" },
   { id: "video", label: "Video" },
+  { id: "audio", label: "Audio" },
+  { id: "mesh", label: "3D Mesh" },
 ];

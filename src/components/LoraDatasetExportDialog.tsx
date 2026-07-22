@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { FieldLabel, SelectInput, TextInput } from "@/components/ui/Field";
 import type { LoraCaptionMode } from "@/lib/gallery-lora-dataset-export";
 import type { LoraDatasetExportUiOptions } from "@/lib/lora-dataset-export-ui";
+import { normalizeLoraDatasetExportPrefs } from "@/lib/lora-train-job";
+import {
+  loadSettingsCache,
+  saveSharedSettings,
+} from "@/lib/settings-cache";
 
 type LoraDatasetExportDialogProps = {
   open: boolean;
@@ -26,8 +31,11 @@ export default function LoraDatasetExportDialog({
     if (!open) {
       return;
     }
-    setTriggerWord("");
-    setCaptionMode("prompt");
+    const prefs = normalizeLoraDatasetExportPrefs(
+      loadSettingsCache().shared.loraDatasetExportPrefs,
+    );
+    setTriggerWord(prefs.triggerWord ?? "");
+    setCaptionMode(prefs.captionMode ?? "prompt");
   }, [open]);
 
   if (!open) {
@@ -53,7 +61,8 @@ export default function LoraDatasetExportDialog({
               Export LoRA dataset
             </h2>
             <p className="type-caption text-zinc-500">
-              Caption mode and optional trigger word for the ZIP export.
+              Caption mode and optional trigger word for the ZIP export. Prefs are
+              remembered for the next export.
             </p>
           </div>
 
@@ -89,12 +98,21 @@ export default function LoraDatasetExportDialog({
               type="button"
               variant="primary"
               size="sm"
-              onClick={() =>
-                onConfirm({
+              onClick={() => {
+                const options: LoraDatasetExportUiOptions = {
                   triggerWord: triggerWord.trim() || undefined,
                   captionMode,
-                })
-              }
+                };
+                const shared = loadSettingsCache().shared;
+                saveSharedSettings({
+                  ...shared,
+                  loraDatasetExportPrefs: normalizeLoraDatasetExportPrefs({
+                    triggerWord: options.triggerWord,
+                    captionMode: options.captionMode,
+                  }),
+                });
+                onConfirm(options);
+              }}
             >
               Export ZIP
             </Button>

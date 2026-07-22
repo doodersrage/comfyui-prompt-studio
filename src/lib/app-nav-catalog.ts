@@ -58,8 +58,15 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
         label: "Compose",
         description: "Multi-image transfer & edit",
       },
+      {
+        href: "/workflow-editor",
+        label: "Workflow editor",
+        description: "Edit Comfy node graphs",
+      },
       { href: "/controlnet", label: "ControlNet", description: "Structure prompts" },
       { href: "/video", label: "Video", description: "Motion prompts" },
+      { href: "/audio", label: "Audio", description: "Sound / music prompts" },
+      { href: "/mesh", label: "3D Mesh", description: "Image → mesh prompts" },
       { href: "/negative", label: "Negative", description: "SD negatives" },
       { href: "/studio", label: "Studio", description: "History & tools" },
       { href: "/gallery", label: "Gallery", description: "ComfyUI outputs" },
@@ -84,4 +91,45 @@ export const APP_NAV_PROFILE_LINK: AppNavLink = {
 
 export function flattenAppNavLinks(groups: AppNavGroup[] = APP_NAV_GROUPS): AppNavLink[] {
   return groups.flatMap((group) => group.links);
+}
+
+/**
+ * Append plugin-contributed links into the Tools group, skipping hrefs already
+ * present in the catalog (path match, query ignored).
+ */
+export function mergePluginLinksIntoNav(
+  groups: AppNavGroup[] = APP_NAV_GROUPS,
+  pluginLinks: AppNavLink[],
+): AppNavGroup[] {
+  if (!pluginLinks.length) {
+    return groups;
+  }
+  const existing = new Set(
+    groups.flatMap((group) =>
+      group.links.map((link) => link.href.split("?")[0] ?? link.href),
+    ),
+  );
+  const unique = pluginLinks.filter((link) => {
+    const path = link.href.split("?")[0] ?? link.href;
+    if (existing.has(path)) {
+      return false;
+    }
+    existing.add(path);
+    return true;
+  });
+  if (!unique.length) {
+    return groups;
+  }
+  let merged = false;
+  const next = groups.map((group) => {
+    if (group.label !== "Tools") {
+      return group;
+    }
+    merged = true;
+    return { ...group, links: [...group.links, ...unique] };
+  });
+  if (merged) {
+    return next;
+  }
+  return [...next, { label: "Plugins", links: unique }];
 }

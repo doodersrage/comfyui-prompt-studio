@@ -19,6 +19,8 @@ export {
   COMFY_MODEL_IDS,
   DEFAULT_COMFY_MODEL,
   DEFAULT_VIDEO_MODEL,
+  DEFAULT_AUDIO_MODEL,
+  DEFAULT_MESH_MODEL,
 } from "./registry";
 export type {
   ComfyImageModel,

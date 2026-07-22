@@ -12,6 +12,7 @@ import {
   galleryHandoffPath,
   saveGalleryHandoff,
 } from "@/lib/gallery-handoff";
+import { formatComfyHostLabel } from "@/lib/queue-status-notes";
 import { startImproveFromGalleryEntry, startInpaintFromGalleryEntry, startOutpaintFromGalleryEntry } from "@/lib/improve-output";
 import {
   scoreGalleryEntryHeuristic,
@@ -341,7 +342,13 @@ export default function GalleryCard({
               ? "face-detailed from prior"
               : undefined;
 
-  const metaLine = [entry.tool, entry.model, entry.parentGalleryEntryId ? undefined : derivedLabel]
+  const comfyHostLabel = formatComfyHostLabel(entry.comfyUrl);
+  const metaLine = [
+    entry.tool,
+    entry.model,
+    entry.parentGalleryEntryId ? undefined : derivedLabel,
+    comfyHostLabel ? `host ${comfyHostLabel}` : undefined,
+  ]
     .filter(Boolean)
     .join(" · ");
   const progressPercent = comfyUiJobProgressPercent(entry);
@@ -908,6 +915,16 @@ export default function GalleryCard({
                             label="Send to Video (I2V)"
                             onClick={() => {
                               saveGalleryHandoff(buildGalleryHandoff(entry, "video"));
+                              router.push(galleryHandoffPath("video"));
+                              setMenuOpen(false);
+                            }}
+                          />
+                        ) : null}
+                        {entry.status === "completed" ? (
+                          <GalleryMenuButton
+                            label="Re-edit · Video (same stack)"
+                            onClick={() => {
+                              saveGalleryHandoff(buildReeditGalleryHandoff(entry, "video"));
                               router.push(galleryHandoffPath("video"));
                               setMenuOpen(false);
                             }}

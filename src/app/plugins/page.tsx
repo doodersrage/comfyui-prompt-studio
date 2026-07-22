@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { FieldLabel, MonoTextArea, SelectInput, TextInput } from "@/components/ui/Field";
 import {
@@ -20,6 +20,15 @@ import {
   savePluginQueueHooks,
   type PluginQueueHook,
 } from "@/lib/plugin-queue-hooks";
+import {
+  loadInstalledPlugins,
+  normalizePluginManifest,
+  removeInstalledPlugin,
+  setInstalledPluginEnabled,
+  upsertInstalledPlugin,
+  type PluginManifest,
+} from "@/lib/plugin-manifest";
+import queueRewriteExample from "../../../examples/queue-rewrite-plugin.json";
 
 const EMPTY_FORM = {
   id: "",
@@ -43,16 +52,14 @@ export default function PluginsPage() {
   const [hooks, setHooks] = useState<PluginQueueHook[]>([]);
   const [hookForm, setHookForm] = useState(EMPTY_HOOK);
   const [hookError, setHookError] = useState<string | null>(null);
+  const [installed, setInstalled] = useState<PluginManifest[]>([]);
+  const [manifestError, setManifestError] = useState<string | null>(null);
+  const [manifestStatus, setManifestStatus] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
-      const loaded = loadToolPlugins();
-      setPlugins(loaded);
-      const custom = loaded.filter(
-        (plugin) => !BUILTIN_TOOL_PLUGINS.some((builtIn) => builtIn.id === plugin.id),
-      );
-      setCustomJson(JSON.stringify(custom, null, 2));
-      setHooks(loadPluginQueueHooks());
+      refreshFromStorage();
     });
   }, []);
 
@@ -64,6 +71,7 @@ export default function PluginsPage() {
     );
     setCustomJson(JSON.stringify(custom, null, 2));
     setHooks(loadPluginQueueHooks());
+    setInstalled(loadInstalledPlugins());
   }
 
   function saveCustom() {
@@ -143,23 +151,167 @@ export default function PluginsPage() {
     setHookError(null);
   }
 
+  function importManifestText(raw: string) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      const candidates = Array.isArray(parsed) ? parsed : [parsed];
+      let imported = 0;
+      for (const candidate of candidates) {
+        const normalized = normalizePluginManifest(candidate);
+        if (!normalized) {
+          continue;
+        }
+        upsertInstalledPlugin(normalized);
+        imported += 1;
+      }
+      if (!imported) {
+        setManifestError("No valid plugin manifests found in that JSON.");
+        setManifestStatus(null);
+        return;
+      }
+      setManifestError(null);
+      setManifestStatus(
+        imported === 1
+          ? `Installed ${loadInstalledPlugins().at(-1)?.label ?? "plugin"}.`
+          : `Installed ${imported} plugins.`,
+      );
+      refreshFromStorage();
+    } catch {
+      setManifestError("Invalid JSON — expected a plugin manifest object or array.");
+      setManifestStatus(null);
+    }
+  }
+
+  async function onManifestFile(file: File | undefined) {
+    if (!file) {
+      return;
+    }
+    const text = await file.text();
+    importManifestText(text);
+  }
+
   return (
     <ToolLayout
       accent="violet"
       badge={<ToolBadge accent="violet">Tools</ToolBadge>}
       title="Plugins"
-      description="Nav bookmarks plus optional queue-preflight hooks that can rewrite or block prompts before ComfyUI receives them."
+      description="Install runtime manifests, manage queue-preflight hooks, and keep nav bookmarks for custom tools."
     >
+      <ToolSection title="Installed plugins">
+        <p className="type-caption">
+          Import a JSON manifest to register nav entries, queue hooks, and optional iframe tools.
+          See <code className="text-violet-300">examples/queue-rewrite-plugin.json</code>.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              void onManifestFile(file);
+              event.target.value = "";
+            }}
+          />
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Import JSON manifest
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              importManifestText(JSON.stringify(queueRewriteExample));
+            }}
+          >
+            Load denoise example
+          </Button>
+        </div>
+        {manifestError ? (
+          <p className="type-caption mt-2 text-rose-300">{manifestError}</p>
+        ) : null}
+        {manifestStatus ? (
+          <p className="type-caption mt-2 text-[var(--text-secondary)]">{manifestStatus}</p>
+        ) : null}
+        {installed.length === 0 ? (
+          <p className="type-caption mt-4 text-zinc-500">No runtime plugins installed yet.</p>
+        ) : (
+          <ul className="ui-list mt-4">
+            {installed.map((plugin) => (
+              <li key={plugin.id} className="ui-list-row items-start">
+                <div className="ui-list-primary min-w-0 space-y-1">
+                  <p className="type-heading">{plugin.label}</p>
+                  <p className="type-caption">
+                    v{plugin.version}
+                    {plugin.queueHooks?.url ? ` · hook ${plugin.queueHooks.url}` : ""}
+                    {plugin.tools?.length ? ` · ${plugin.tools.length} tool(s)` : ""}
+                  </p>
+                  <p className="type-overline">
+                    {plugin.enabled === false ? "disabled" : "enabled"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <ButtonLink
+                    href={`/plugins/${plugin.id}`}
+                    size="sm"
+                    variant="accent-outline"
+                  >
+                    Open
+                  </ButtonLink>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setInstalled(
+                        setInstalledPluginEnabled(plugin.id, plugin.enabled === false),
+                      );
+                      setManifestStatus(
+                        plugin.enabled === false
+                          ? `Enabled ${plugin.label}.`
+                          : `Disabled ${plugin.label}.`,
+                      );
+                    }}
+                  >
+                    {plugin.enabled === false ? "Enable" : "Disable"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="danger"
+                    onClick={() => {
+                      setInstalled(removeInstalledPlugin(plugin.id));
+                      setManifestStatus(`Removed ${plugin.label}.`);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </ToolSection>
+
       <ToolSection title="Queue preflight hooks">
         <p className="type-caption">
           Enabled hooks receive a POST with{" "}
           <code className="text-violet-300">
-            {"{ event, prompt, negativePrompt?, model?, tool? }"}
+            {"{ event, prompt, negativePrompt?, model?, tool?, denoise?, cfg? }"}
           </code>
           . Respond with JSON to rewrite{" "}
           <code className="text-violet-300">prompt</code> /{" "}
-          <code className="text-violet-300">negativePrompt</code>, or set{" "}
-          <code className="text-violet-300">blocked: true</code> to stop the queue.
+          <code className="text-violet-300">negativePrompt</code> /{" "}
+          <code className="text-violet-300">denoise</code> /{" "}
+          <code className="text-violet-300">cfg</code>, or set{" "}
+          <code className="text-violet-300">blocked: true</code> with a{" "}
+          <code className="text-violet-300">reason</code> to stop the queue.
         </p>
         {hooks.length === 0 ? (
           <p className="type-caption text-zinc-500">No hooks configured yet.</p>
@@ -323,8 +475,9 @@ export default function PluginsPage() {
 
       <ToolSection title="Custom plugins (JSON)">
         <p className="type-caption">
-          Advanced: edit the full custom array. Each item needs id, label, description, href, and
-          category. See <code className="text-violet-300">examples/custom-plugin.example.json</code>.
+          Advanced: edit the full custom bookmark array. Each item needs id, label, description,
+          href, and category. See{" "}
+          <code className="text-violet-300">examples/custom-plugin.example.json</code>.
         </p>
         <Button
           variant="secondary"

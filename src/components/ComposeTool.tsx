@@ -3,7 +3,12 @@
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
+import CollabPresenceBar from "@/components/CollabPresenceBar";
+import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
 import InpaintMaskEditor from "@/components/InpaintMaskEditor";
+import RegionalEditPanel, {
+  regionalSlotsQueueExtras,
+} from "@/components/RegionalEditPanel";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
@@ -25,8 +30,11 @@ import {
 import {
   DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH,
   formatComposeIdentityLockHint,
+  normalizeComposeIdentityKind,
   normalizeComposeIdentityLockStrength,
+  type ComposeIdentityKind,
 } from "@/lib/compose-identity-lock";
+import { createDefaultRegionalSlots } from "@/lib/regional-prompt-slots";
 import { sharedPatchFromGalleryHandoff } from "@/lib/gallery-handoff";
 import { DEFAULT_IMAGE_COMPOSE_TOOL_CACHE } from "@/lib/settings-cache";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
@@ -218,6 +226,15 @@ export default function ComposeTool() {
           ...sharedPatch,
         });
       }
+      const restoredKind =
+        handoff.payload?.identityKind ??
+        handoff.queueParams?.identityKind;
+      if (restoredKind) {
+        updateToolSettings({
+          identityKind: normalizeComposeIdentityKind(restoredKind),
+          identityLock: true,
+        });
+      }
       setSlots((current) => {
         const next = current.map((slot) => ({ ...slot }));
         if (next[0]?.previewUrl && next[0].file) {
@@ -231,7 +248,7 @@ export default function ComposeTool() {
       });
       clearMaskState();
     },
-    [clearMaskState, setInstruction, updateShared],
+    [clearMaskState, setInstruction, updateShared, updateToolSettings],
   );
 
   useGalleryHandoff("compose", applyGalleryHandoff);
@@ -239,6 +256,13 @@ export default function ComposeTool() {
   const identityLock = toolSettings.identityLock === true;
   const identityLockStrength = normalizeComposeIdentityLockStrength(
     toolSettings.identityLockStrength ?? DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH,
+  );
+  const identityKind = normalizeComposeIdentityKind(toolSettings.identityKind);
+  const regionalSlots =
+    toolSettings.regionalSlots ?? createDefaultRegionalSlots();
+  const regionalQueue = useMemo(
+    () => regionalSlotsQueueExtras(regionalSlots),
+    [regionalSlots],
   );
 
   const queueImageOptions = useMemo(() => {
@@ -256,13 +280,18 @@ export default function ComposeTool() {
       queueParamsBase: handoffQueueParams,
       identityLock,
       identityLockStrength,
+      identityKind,
+      customTokens: regionalQueue.customTokens,
+      regionalSlots: regionalQueue.regionalSlots,
     };
   }, [
     handoffQueueParams,
+    identityKind,
     identityLock,
     identityLockStrength,
     maskFile,
     maskPreviewUrl,
+    regionalQueue,
     showMaskEditor,
     slots,
   ]);
@@ -339,6 +368,7 @@ export default function ComposeTool() {
         />
       }
     >
+      <CollabPresenceBar tool="compose" draft={instruction} />
       <ToolSection>
         <FieldLabel>Mode</FieldLabel>
         <div className="flex flex-wrap gap-2">
@@ -435,31 +465,69 @@ export default function ComposeTool() {
         </div>
 
         <div className="space-y-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] px-3.5 py-3 shadow-[0_0_28px_-18px_rgba(34,211,238,0.4)]">
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={identityLock}
-              onChange={(event) =>
-                updateToolSettings({ identityLock: event.target.checked })
-              }
-              className="mt-1 rounded border-zinc-700 bg-zinc-950 text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
-            />
-            <span className="min-w-0 space-y-1">
-              <span className="block text-sm font-medium text-cyan-50/95">
-                Lock identity from Figure 1
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={identityLock}
+                onChange={(event) =>
+                  updateToolSettings({ identityLock: event.target.checked })
+                }
+                className="mt-1 rounded border-zinc-700 bg-zinc-950 text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+              />
+              <span className="min-w-0 space-y-1">
+                <span className="block text-sm font-medium text-cyan-50/95">
+                  Lock identity from Figure 1
+                </span>
+                <span className="block text-xs leading-relaxed text-zinc-500">
+                  {formatComposeIdentityLockHint({
+                    enabled: identityLock,
+                    strength: identityLockStrength,
+                    identityKind,
+                  })}
+                </span>
               </span>
-              <span className="block text-xs leading-relaxed text-zinc-500">
-                {formatComposeIdentityLockHint({
-                  enabled: identityLock,
-                  strength: identityLockStrength,
-                })}
-              </span>
-            </span>
-          </label>
+            </label>
+            <label className="shrink-0 space-y-1">
+              <span className="type-caption text-cyan-200/70">Kind</span>
+              <select
+                value={identityKind}
+                disabled={!identityLock}
+                onChange={(event) =>
+                  updateToolSettings({
+                    identityKind: normalizeComposeIdentityKind(
+                      event.target.value,
+                    ),
+                  })
+                }
+                className="block rounded-xl border border-zinc-800/90 bg-zinc-950/70 px-2.5 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {(
+                  [
+                    { id: "ipadapter" as const, label: "IP-Adapter" },
+                    { id: "instantid" as const, label: "InstantID" },
+                    { id: "pulid" as const, label: "PuLID" },
+                    { id: "auto" as const, label: "Auto" },
+                  ] satisfies Array<{ id: ComposeIdentityKind; label: string }>
+                ).map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           {identityLock ? (
             <label className="block space-y-1.5 pl-7">
               <span className="type-caption text-cyan-200/70">
-                IP-Adapter strength — {identityLockStrength.toFixed(2)}
+                {identityKind === "ipadapter"
+                  ? "IP-Adapter"
+                  : identityKind === "instantid"
+                    ? "InstantID"
+                    : identityKind === "pulid"
+                      ? "PuLID"
+                      : "Identity"}{" "}
+                strength — {identityLockStrength.toFixed(2)}
               </span>
               <input
                 type="range"
@@ -508,6 +576,13 @@ export default function ComposeTool() {
             onMaskChange={onMaskChange}
           />
         ) : null}
+
+        <RegionalEditPanel
+          slots={regionalSlots}
+          onSlotsChange={(next) => updateToolSettings({ regionalSlots: next })}
+          sourceImageUrl={fig1Preview}
+          accentClassName={accentFocusClass(ACCENT)}
+        />
 
         <FieldLabel>Starter templates</FieldLabel>
         <div className="flex flex-wrap gap-2">
@@ -604,6 +679,17 @@ export default function ComposeTool() {
         comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
         historySaved={actions.historySaved}
         pairCopied={actions.pairCopied}
+      />
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue Compose"
+        status={actions.comfyUiStatus}
+        onQueue={() => {
+          if (!assertReadyToQueue()) {
+            return;
+          }
+          void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
+        }}
       />
     </ToolLayout>
   );

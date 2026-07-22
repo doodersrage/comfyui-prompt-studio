@@ -9,7 +9,9 @@ export type ComfyModelCategory =
   | "hunyuan"
   | "other-dit"
   | "instruct-edit"
-  | "video";
+  | "video"
+  | "audio"
+  | "mesh";
 
 export type PromptProfileId =
   | "sd15_weighted"
@@ -29,7 +31,9 @@ export type PromptProfileId =
   | "instruct_pix2pix"
   | "omnigen_instruction"
   | "generic_nlp"
-  | "video_motion";
+  | "video_motion"
+  | "audio_sound"
+  | "mesh_3d";
 
 export type PromptLimits = {
   minSentences: number;

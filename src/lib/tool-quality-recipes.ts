@@ -73,6 +73,36 @@ export const SUGGESTED_TOOL_QUALITY_RECIPES: ToolQualityRecipe[] = [
     queueQualityProfile: "draft",
     builtin: true,
   },
+  {
+    id: "video-draft",
+    label: "Video draft",
+    toolIds: ["video"],
+    queueQualityProfile: "draft",
+    builtin: true,
+  },
+  {
+    id: "video-keeper",
+    label: "Video keeper",
+    toolIds: ["video"],
+    queueQualityProfile: "final",
+    builtin: true,
+  },
+  {
+    id: "audio-keeper",
+    label: "Audio keeper",
+    toolIds: ["audio"],
+    model: "stable-audio",
+    queueQualityProfile: "final",
+    builtin: true,
+  },
+  {
+    id: "mesh-keeper",
+    label: "Mesh keeper",
+    toolIds: ["mesh"],
+    model: "hunyuan-3d",
+    queueQualityProfile: "final",
+    builtin: true,
+  },
 ];
 
 function normalizeRecipeId(value: unknown): string | null {

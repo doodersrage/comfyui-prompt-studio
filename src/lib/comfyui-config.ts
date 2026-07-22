@@ -134,6 +134,11 @@ export type WorkflowParamValues = {
   ipAdapterStrength?: string | number;
   /** {{IPADAPTER_MODEL}} — optional ipadapter_file filename override. */
   ipAdapterModelFilename?: string;
+  /**
+   * Compose identity lock backend: IP-Adapter (default) or InstantID / PuLID / auto.
+   * When instantid|pulid|auto, queue prefers insertIdentityChainIfMissing.
+   */
+  identityKind?: "ipadapter" | "instantid" | "pulid" | "auto";
   /** Video (WAN / Hunyuan Video) frame count / length — feeds {{VIDEO_FRAMES}}. */
   videoFrames?: string | number;
   /** Video output frame rate — feeds {{VIDEO_FPS}}. */
@@ -205,6 +210,13 @@ export type ComfyUiRuntimeConfig = {
    * {{LORA_*}} custom tokens alone cannot express for queue-time stacking.
    */
   loraLibrary?: LoraLibraryEntry[];
+  /** Multi-slot regional edit — bound at inject / direct-patch time. */
+  regionalSlots?: import("./regional-prompt-slots").RegionalPromptSlot[];
+  /**
+   * Preferred ComfyUI pool host from SharedToolSettings. When set and the host
+   * is in COMFYUI_POOL and healthy-ish, pool routing prefers it.
+   */
+  preferredComfyHost?: string;
 };
 
 export type WorkflowPlaceholderTokens = {
@@ -1258,6 +1270,8 @@ export function injectPromptsWithFallbacks(
     loraLibrary?: LoraLibraryEntry[];
     /** ComfyUI object_info node class names — gates the optional CLIPVisionLoader on IP-Adapter insert. */
     availableNodeTypes?: Iterable<string> | null;
+    /** Multi-slot regional edit prompts/masks. */
+    regionalSlots?: import("./regional-prompt-slots").RegionalPromptSlot[];
   },
 ): WorkflowInjectionResult {
   const loaderMerged = mergeLoaderTokensIntoCustomTokens(
@@ -1375,11 +1389,13 @@ export function injectPromptsWithFallbacks(
       ipAdapterStrength: input.params?.ipAdapterStrength,
       ipAdapterModelFilename: input.params?.ipAdapterModelFilename,
       availableNodeTypes: options?.availableNodeTypes,
+      identityKind: input.params?.identityKind,
       customTokens: mergedCustomTokens,
       syncWorkflowLoadersToModel: options?.syncWorkflowLoadersToModel,
       model: options?.model,
       loraLibrary: options?.loraLibrary,
       prompt: input.positive,
+      regionalSlots: options?.regionalSlots,
     });
     if (directPatch.error) {
       throw new Error(directPatch.error);
@@ -1589,6 +1605,11 @@ export function stripEmptyComfyUiRuntime(
   const apiUrl = runtime.apiUrl?.trim();
   if (apiUrl) {
     result.apiUrl = apiUrl;
+  }
+
+  const preferredComfyHost = runtime.preferredComfyHost?.trim();
+  if (preferredComfyHost) {
+    result.preferredComfyHost = preferredComfyHost;
   }
 
   const workflowJson = runtime.workflowJson?.trim();

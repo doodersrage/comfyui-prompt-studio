@@ -84,6 +84,7 @@ export function getComfyUiBaseUrl(runtime?: ComfyUiRuntimeConfig, routingSeed?: 
       // stays synchronous (no fetch here); the cache is refreshed by
       // checkComfyUiPoolHealth() (health polling) and pool pick misses.
       poolStats: getComfyUiPoolStatsCache(),
+      preferredComfyHost: runtime?.preferredComfyHost,
     }),
     {
       allowPrivate: true,
@@ -293,6 +294,7 @@ function injectPromptsIntoWorkflow(
       qualityProfile: runtime?.queueQualityProfile,
       loraLibrary: runtime?.loraLibrary,
       availableNodeTypes: enrichInventory?.availableNodeTypes,
+      regionalSlots: runtime?.regionalSlots,
     },
   );
 }

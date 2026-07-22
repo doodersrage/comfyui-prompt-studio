@@ -129,6 +129,16 @@ export const PROFILE_LIMITS: Record<
     { ...S3, maxChars: 480, maxTokens: 360 },
     { ...S45, maxChars: 720, maxTokens: 520 },
   ),
+  audio_sound: limits(
+    { ...S2, maxChars: 240, maxTokens: 180 },
+    { ...S3, maxChars: 420, maxTokens: 320 },
+    { ...S45, maxChars: 640, maxTokens: 480 },
+  ),
+  mesh_3d: limits(
+    { ...S2, maxChars: 240, maxTokens: 180 },
+    { ...S3, maxChars: 420, maxTokens: 320 },
+    { ...S45, maxChars: 640, maxTokens: 480 },
+  ),
 };
 
 /** CFG-1 Lightning / Rapid T2I — denser nouns, lower floors (less stock padding). */

@@ -153,12 +153,18 @@ export default function CommandPalette() {
   const [lastDraft, setLastDraft] = useState<ToolDraftSummary | null>(null);
   const [globalMatches, setGlobalMatches] = useState<CommandItem[]>([]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [pluginNavItems, setPluginNavItems] = useState<CommandItem[]>([]);
   const listRef = useRef<HTMLUListElement | null>(null);
 
   const catalog = useMemo(() => {
     const base = buildNavItems();
+    const existing = new Set(base.map((item) => item.href).filter(Boolean));
+    const pluginExtras = pluginNavItems.filter(
+      (item) => item.href && !existing.has(item.href),
+    );
     return [
       ...base,
+      ...pluginExtras,
       {
         id: "keyboard-shortcuts",
         label: "Keyboard shortcuts",
@@ -170,7 +176,7 @@ export default function CommandPalette() {
         },
       } satisfies CommandItem,
     ];
-  }, []);
+  }, [pluginNavItems]);
 
   const items = useMemo(
     () =>
@@ -193,6 +199,17 @@ export default function CommandPalette() {
     setRecent(loadRecentDestinations());
     setLastRoute(loadLastToolRoute());
     setLastDraft(loadLastToolDraft());
+    void import("@/lib/plugin-manifest").then(({ navLinksFromInstalledPlugins }) => {
+      setPluginNavItems(
+        navLinksFromInstalledPlugins().map((link) => ({
+          id: `plugin-nav-${link.href}`,
+          label: link.label,
+          subtitle: link.description,
+          href: link.href,
+          group: "Plugins",
+        })),
+      );
+    });
   }, [open]);
 
   useEffect(() => {

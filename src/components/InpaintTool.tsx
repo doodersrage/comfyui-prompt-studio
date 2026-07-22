@@ -4,6 +4,9 @@ import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import InpaintMaskEditor from "@/components/InpaintMaskEditor";
+import RegionalEditPanel, {
+  regionalSlotsQueueExtras,
+} from "@/components/RegionalEditPanel";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
@@ -16,6 +19,7 @@ import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-t
 import { buildInpaintInstruction } from "@/lib/regional-prompt-builder";
 import { isInpaintModel } from "@/lib/model-denoise-defaults";
 import { DEFAULT_INPAINT_TOOL_CACHE } from "@/lib/settings-cache";
+import { createDefaultRegionalSlots } from "@/lib/regional-prompt-slots";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import {
   ToolBadge,
@@ -112,6 +116,13 @@ export default function InpaintTool() {
     return changeDescription.trim();
   }, [changeDescription, directPrompt, maskDescription]);
 
+  const regionalSlots =
+    toolSettings.regionalSlots ?? createDefaultRegionalSlots();
+  const regionalQueue = useMemo(
+    () => regionalSlotsQueueExtras(regionalSlots),
+    [regionalSlots],
+  );
+
   const queueImageOptions = {
     inputImage: file,
     inputImageUrl: !file ? previewUrl ?? undefined : undefined,
@@ -119,6 +130,8 @@ export default function InpaintTool() {
     maskImageUrl:
       needsInpaintMask && !maskFile ? maskPreviewUrl ?? undefined : undefined,
     queueParamsBase: handoffQueueParams,
+    customTokens: regionalQueue.customTokens,
+    regionalSlots: regionalQueue.regionalSlots,
   };
 
   useEffect(() => {
@@ -329,6 +342,15 @@ export default function InpaintTool() {
         </div>
 
         <FieldError>{error}</FieldError>
+      </ToolSection>
+
+      <ToolSection title="Regional edit">
+        <RegionalEditPanel
+          slots={regionalSlots}
+          onSlotsChange={(next) => updateToolSettings({ regionalSlots: next })}
+          sourceImageUrl={previewUrl}
+          accentClassName={accentFocusClass(ACCENT)}
+        />
       </ToolSection>
 
       <EnhancedPromptResult
