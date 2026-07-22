@@ -1381,9 +1381,9 @@ export default function SettingsTool() {
               <code className="rounded bg-zinc-800 px-1 text-violet-300">ModelSamplingFlux</code>{" "}
               or shift patch nodes when a loader connects directly to KSampler. On{" "}
               <strong className="font-medium text-zinc-400">Final/Max</strong>, SDXL may get a
-              latent refiner pass and Flux/vanilla Qwen a soft latent detail pass; outputs then get
-              neural or Lanczos upscale capped to ~1.25×/1.5× net (Max Lanczos polish +
-              Max sharpen when enabled).
+              latent refiner pass and Flux a soft latent detail pass (vanilla Qwen skips that —
+              anatomy guard); outputs then get neural or Lanczos upscale capped to ~1.25×/1.5×
+              net (vanilla 2512 stays Lanczos-only; Max Lanczos polish + Max sharpen when enabled).
             </span>
           </span>
         </label>

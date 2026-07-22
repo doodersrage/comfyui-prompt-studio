@@ -447,7 +447,7 @@ export default function SharedToolControls({
         shared.model,
         loadComfyWorkflowFiles(),
         readCachedComfyObjectInfoModels(),
-        { preferI2v },
+        { preferI2v, tool: toolId },
       );
     } catch {
       return {
@@ -463,6 +463,7 @@ export default function SharedToolControls({
     shared.useSystemWorkflows,
     videoInitKey,
     workflowCatalog,
+    toolId,
   ]);
 
   const systemQualityHint = useMemo(() => {

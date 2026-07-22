@@ -21,6 +21,21 @@ describe("matchInventoryFilename", () => {
       "models/flux1-dev-fp8.safetensors",
     );
   });
+
+  it("refuses Qwen T2I↔edit family cross-binds on stem match", () => {
+    assert.equal(
+      matchInventoryFilename("qwen_image_2512_bf16.safetensors", [
+        "qwen_image_edit_2511_bf16.safetensors",
+      ]),
+      undefined,
+    );
+    assert.equal(
+      matchInventoryFilename("qwen_image_edit_2511_bf16.safetensors", [
+        "qwen_image_2512_bf16.safetensors",
+      ]),
+      undefined,
+    );
+  });
 });
 
 describe("matchInventoryFilenameNearMiss", () => {

@@ -35,6 +35,7 @@ import {
   patchLoraNodesInWorkflow,
   resolveLoraLoaderFilename,
 } from "./workflow-lora-patch";
+import { normalizeInputImageFilenames } from "./workflow-load-image-bindings";
 
 const VAE_DECODE_TYPES = new Set(["VAEDecode"]);
 const OUTPUT_POST_PROCESS_TYPES = new Set([
@@ -1087,7 +1088,16 @@ export function disconnectQwenEditReferenceImagesForTxt2Img(
 /** When a reference image is queued, ensure EditPlus encode nodes receive it. */
 export function ensureQwenEditReferenceImagesForImg2Img(
   workflow: Record<string, unknown>,
-  options?: { hasInputImage?: boolean; inputImageFilename?: string },
+  options?: {
+    hasInputImage?: boolean;
+    inputImageFilename?: string;
+    inputImageFilenames?: string[];
+    /**
+     * When true (default), overwrite existing encode→LoadImage links so stale
+     * pack refs adopt Figure 1–N from the queue.
+     */
+    forceRewire?: boolean;
+  },
 ): {
   workflow: Record<string, unknown>;
   wiredNodeIds: string[];
@@ -1096,44 +1106,160 @@ export function ensureQwenEditReferenceImagesForImg2Img(
     return { workflow, wiredNodeIds: [] };
   }
 
-  const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
-  let loadImageId =
-    Object.entries(next).find(([, node]) => node?.class_type === "LoadImage")?.[0] ??
-    null;
+  const filenames = normalizeInputImageFilenames(
+    options.inputImageFilename,
+    options.inputImageFilenames,
+  );
 
-  if (!loadImageId) {
-    loadImageId = String(
+  if (filenames.length === 0) {
+    return { workflow, wiredNodeIds: [] };
+  }
+
+  const forceRewire = options.forceRewire !== false;
+  const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
+  const encodeImageKeys = ["image1", "image2", "image3", "image4"] as const;
+
+  const findOrCreateFigureLoader = (figureIndex: number, filename: string): string => {
+    const title = `Figure ${figureIndex}`;
+    const existing = Object.entries(next).find(([, node]) => {
+      if (node?.class_type !== "LoadImage" && node?.class_type !== "LoadImageOutput") {
+        return false;
+      }
+      const nodeTitle = node._meta?.title?.trim() ?? "";
+      return (
+        nodeTitle === title ||
+        new RegExp(`\\b(?:figure|image|ref|reference|photo|picture)\\s*${figureIndex}\\b`, "i").test(
+          nodeTitle,
+        )
+      );
+    });
+    if (existing) {
+      const [id, node] = existing;
+      if (node?.inputs) {
+        node.inputs.image = filename;
+      }
+      if (node && !node._meta?.title) {
+        node._meta = { ...(node._meta ?? {}), title };
+      }
+      return id;
+    }
+
+    // Prefer reusing the first untitled LoadImage for Figure 1 only.
+    if (figureIndex === 1) {
+      const first = Object.entries(next).find(
+        ([, node]) => node?.class_type === "LoadImage" || node?.class_type === "LoadImageOutput",
+      );
+      if (first) {
+        const [id, node] = first;
+        if (node?.inputs) {
+          node.inputs.image = filename;
+        }
+        if (node) {
+          node._meta = { ...(node._meta ?? {}), title };
+        }
+        return id;
+      }
+    }
+
+    const loadImageId = String(
       Math.max(0, ...Object.keys(next).map((id) => Number(id) || 0)) + 1,
     );
     next[loadImageId] = {
       class_type: "LoadImage",
-      inputs: {
-        image: options.inputImageFilename?.trim() || "{{INPUT_IMAGE}}",
-      },
-      _meta: { title: "Reference Image" },
+      inputs: { image: filename },
+      _meta: { title },
     };
-  } else if (options.inputImageFilename?.trim()) {
-    const loader = next[loadImageId];
-    if (loader?.inputs) {
-      loader.inputs.image = options.inputImageFilename.trim();
+    return loadImageId;
+  };
+
+  const loaderIds = filenames.map((filename, index) =>
+    findOrCreateFigureLoader(index + 1, filename),
+  );
+
+  const shouldWireSlot = (current: unknown): boolean => {
+    if (forceRewire) {
+      return true;
     }
-  }
+    return current == null || typeof current === "string";
+  };
 
   const wiredNodeIds: string[] = [];
   for (const [nodeId, node] of Object.entries(next)) {
     if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? "")) {
       continue;
     }
-    const primaryKey =
-      node.class_type === "TextEncodeQwenImageEdit" ? "image" : "image1";
-    const current = node.inputs[primaryKey];
-    if (current == null || typeof current === "string") {
-      node.inputs[primaryKey] = [loadImageId, 0];
+    if (node.class_type === "TextEncodeQwenImageEdit") {
+      const current = node.inputs.image;
+      if (shouldWireSlot(current)) {
+        node.inputs.image = [loaderIds[0]!, 0];
+        wiredNodeIds.push(nodeId);
+      }
+      continue;
+    }
+
+    let changed = false;
+    for (let i = 0; i < loaderIds.length && i < encodeImageKeys.length; i += 1) {
+      const key = encodeImageKeys[i]!;
+      const current = node.inputs[key];
+      if (shouldWireSlot(current)) {
+        node.inputs[key] = [loaderIds[i]!, 0];
+        changed = true;
+      }
+    }
+    // Clear leftover higher image slots when queueing fewer figures than the pack had.
+    if (forceRewire) {
+      for (let i = loaderIds.length; i < encodeImageKeys.length; i += 1) {
+        const key = encodeImageKeys[i]!;
+        if (key in node.inputs) {
+          delete node.inputs[key];
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
       wiredNodeIds.push(nodeId);
     }
   }
 
   return { workflow: next, wiredNodeIds };
+}
+
+/**
+ * Ensure / disconnect Qwen edit encode refs for any edit-capable model
+ * (Lightning and non-Lightning packs/scaffolds).
+ */
+export function prepareQwenEditReferenceImagesForQueue(
+  workflow: Record<string, unknown>,
+  model?: string,
+  params?: Pick<WorkflowParamValues, "inputImageFilename" | "inputImageFilenames">,
+  options?: { forceRewire?: boolean },
+): Record<string, unknown> {
+  const modelId = model?.trim() ?? "";
+  if (!modelId) {
+    return workflow;
+  }
+  if (!isEditCapableModel(modelId) && !/edit/i.test(modelId)) {
+    return workflow;
+  }
+
+  const hasInputImage = Boolean(
+    params?.inputImageFilename?.toString().trim() ||
+      params?.inputImageFilenames?.some((name) => Boolean(name?.toString().trim())),
+  );
+
+  if (hasInputImage) {
+    return ensureQwenEditReferenceImagesForImg2Img(workflow, {
+      hasInputImage: true,
+      inputImageFilename: params?.inputImageFilename?.toString(),
+      inputImageFilenames: params?.inputImageFilenames,
+      forceRewire: options?.forceRewire,
+    }).workflow;
+  }
+
+  return disconnectQwenEditReferenceImagesForTxt2Img(workflow, {
+    hasInputImage: false,
+    model: modelId,
+  }).workflow;
 }
 
 export function prepareLightningWorkflowForQueue(
@@ -1150,16 +1276,11 @@ export function prepareLightningWorkflowForQueue(
     return workflow;
   }
 
-  const hasInputImage = Boolean(options?.params?.inputImageFilename?.toString().trim());
-  const refsPrepared = hasInputImage
-    ? ensureQwenEditReferenceImagesForImg2Img(workflow, {
-        hasInputImage: true,
-        inputImageFilename: options?.params?.inputImageFilename?.toString(),
-      }).workflow
-    : disconnectQwenEditReferenceImagesForTxt2Img(workflow, {
-        hasInputImage: false,
-        model,
-      }).workflow;
+  const refsPrepared = prepareQwenEditReferenceImagesForQueue(
+    workflow,
+    model,
+    options?.params,
+  );
 
   const loraPatch = patchLoraNodesInWorkflow(refsPrepared, loraFilenames);
   const familyAligned = alignLightningLoraFamilyInWorkflow(

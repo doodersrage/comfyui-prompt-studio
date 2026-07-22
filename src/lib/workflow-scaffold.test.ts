@@ -7,16 +7,18 @@ import {
 } from "./workflow-scaffold.ts";
 
 describe("workflow scaffold", () => {
-  it("builds a flux scaffold with placeholders", () => {
+  it("builds a flux Klein scaffold with CLIPLoader type flux2", () => {
     const result = buildWorkflowScaffoldForModel("flux-2-klein-9b");
     assert.equal(result.category, "flux");
     assert.match(result.json, /ModelSamplingFlux/);
     assert.match(result.json, /UNETLoader/);
-    assert.match(result.json, /DualCLIPLoader/);
+    assert.match(result.json, /CLIPLoader/);
+    assert.match(result.json, /"type": "flux2"/);
+    assert.doesNotMatch(result.json, /DualCLIPLoader/);
     assert.match(result.json, /VAELoader/);
     assert.doesNotMatch(result.json, /CheckpointLoaderSimple/);
     assert.match(result.json, /\{\{UNET\}\}/);
-    assert.match(result.json, /flux2-klein-9b-uncensored/);
+    assert.match(result.json, /qwen_3_8b_fp8mixed/);
     assert.doesNotMatch(result.json, /clip_l\.safetensors/);
     assert.match(result.json, /\{\{FLUX_MAX_SHIFT\}\}/);
     assert.match(result.json, /\{\{POSITIVE\}\}/);
@@ -109,6 +111,33 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /\{\{LORA_LIGHTNING\}\}/);
     assert.match(result.json, /ModelSamplingAuraFlow/);
     assert.doesNotMatch(result.json, /VAEEncode/);
+    assert.match(result.json, /"title": "Figure 1"/);
+    assert.match(result.json, /"title": "Figure 2"/);
+    assert.match(result.json, /"title": "Figure 4"/);
+    assert.match(result.json, /\{\{INPUT_IMAGE\}\}/);
+    assert.match(result.json, /\{\{INPUT_IMAGE_2\}\}/);
+    assert.match(result.json, /\{\{INPUT_IMAGE_4\}\}/);
+    // Encode slots stay disconnected in the template.
+    assert.doesNotMatch(result.json, /"image1"\s*:/);
+  });
+
+  it("strips unused Figure LoadImages on Lightning edit txt2img disconnect", async () => {
+    const { disconnectQwenEditReferenceImagesForTxt2Img } = await import(
+      "./workflow-lightning-queue.ts"
+    );
+    const scaffold = buildWorkflowScaffoldForModel("qwen-image-edit-2511-lightning-8");
+    const parsed = JSON.parse(scaffold.json) as Record<string, unknown>;
+    const { workflow } = disconnectQwenEditReferenceImagesForTxt2Img(parsed, {
+      hasInputImage: false,
+      model: "qwen-image-edit-2511-lightning-8",
+    });
+    const loadImages = Object.values(workflow).filter(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { class_type?: string }).class_type === "LoadImage",
+    );
+    assert.equal(loadImages.length, 0);
   });
 
   it("builds rapid aio edit scaffold from checkpoint loader", () => {

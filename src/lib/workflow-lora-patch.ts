@@ -157,6 +157,41 @@ export function buildLoraFilenameMapFromCustomTokens(
   return map;
 }
 
+function scoreLightningLoraCandidate(name: string, model?: string): number {
+  const modelId = model?.trim().toLowerCase() ?? "";
+  const wantsEdit = /edit/.test(modelId);
+  const wants2511 = /2511/.test(modelId);
+  const want4 = /lightning-4|lightning_4/.test(modelId);
+  const want8 = /lightning-8|lightning_8/.test(modelId);
+  const lower = name.toLowerCase();
+  let score = 1;
+  if (wantsEdit && /edit/.test(lower)) {
+    score += 4;
+  }
+  if (!wantsEdit && !/edit/.test(lower)) {
+    score += 3;
+  }
+  if (wantsEdit && !/edit/.test(lower)) {
+    score -= 5;
+  }
+  if (!wantsEdit && /edit/.test(lower)) {
+    score -= 5;
+  }
+  if (wants2511 && /2511/.test(lower)) {
+    score += 2;
+  }
+  if (want4 && /(4[\s-]?step|4steps)/i.test(lower)) {
+    score += 2;
+  }
+  if (want8 && /(8[\s-]?step|8steps)/i.test(lower)) {
+    score += 2;
+  }
+  if (/lightx2v/.test(lower)) {
+    score += 1;
+  }
+  return score;
+}
+
 function pickPreferredLightningLora(
   candidates: string[],
   model?: string,
@@ -164,22 +199,28 @@ function pickPreferredLightningLora(
   if (candidates.length === 0) {
     return undefined;
   }
-  const modelId = model?.trim().toLowerCase() ?? "";
-  const wantsEdit = /edit/.test(modelId);
-  const wants2511 = /2511/.test(modelId);
-  const ranked = [...candidates].sort((a, b) => {
-    const score = (name: string) => {
-      let value = 0;
-      const lower = name.toLowerCase();
-      if (wantsEdit && /edit/.test(lower)) value += 4;
-      if (!wantsEdit && !/edit/.test(lower)) value += 3;
-      if (wants2511 && /2511/.test(lower)) value += 2;
-      if (/lightx2v/.test(lower)) value += 1;
-      return value;
-    };
-    return score(b) - score(a);
-  });
-  return ranked[0];
+  const ranked = [...candidates]
+    .map((name) => ({ name, score: scoreLightningLoraCandidate(name, model) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return ranked[0]?.name;
+}
+
+/**
+ * Score Lightning LoRAs in inventory for the active model (edit vs t2i, 4 vs 8 step).
+ * Single source used by pack soft-repair and queue `{{LORA_LIGHTNING}}` resolution.
+ */
+export function pickLightningLoraFromInventory(
+  model: string | undefined,
+  loras: string[],
+): string | undefined {
+  if (!loras.length) {
+    return undefined;
+  }
+  const candidates = loras
+    .map((name) => name.trim())
+    .filter((name) => name && loraFilenameImpliesLightning(name));
+  return pickPreferredLightningLora(candidates, model);
 }
 
 function inferLightningLoraFilenameFromTokens(
@@ -225,36 +266,12 @@ function inferLightningLoraFilenameFromTokens(
   return pickPreferredLightningLora(fromAny, model);
 }
 
-function lightningStepFilenameMatch(model?: string): RegExp | undefined {
-  const modelId = model?.trim().toLowerCase() ?? "";
-  if (modelId.includes("lightning-8") || modelId.includes("lightning_8")) {
-    return /\b8[\s-]?step|8steps/i;
-  }
-  if (modelId.includes("lightning-4") || modelId.includes("lightning_4")) {
-    return /\b4[\s-]?step|4steps/i;
-  }
-  return undefined;
-}
-
 /** Prefer step-matched LightX2V files from ComfyUI's loras inventory. */
 export function inferLightningLoraFromInventory(
   availableLoras: string[] | undefined,
   model?: string,
 ): string | undefined {
-  if (!availableLoras?.length) {
-    return undefined;
-  }
-  const stepMatch = lightningStepFilenameMatch(model);
-  const candidates = availableLoras
-    .map((name) => name.trim())
-    .filter((name) => name && loraFilenameImpliesLightning(name));
-  if (candidates.length === 0) {
-    return undefined;
-  }
-  const stepped = stepMatch
-    ? candidates.filter((name) => stepMatch.test(name))
-    : candidates;
-  return pickPreferredLightningLora(stepped.length > 0 ? stepped : candidates, model);
+  return pickLightningLoraFromInventory(model, availableLoras ?? []);
 }
 
 export function lightningLoraMatchesModel(filename: string, model?: string): boolean {

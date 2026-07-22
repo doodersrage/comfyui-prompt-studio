@@ -181,12 +181,12 @@ function fluxKleinDualClipFilename(model: string): string {
     return loaders.dualClip.trim();
   }
   if (/9b/i.test(model)) {
-    return "flux2-klein-9b-uncensored.safetensors";
+    return "qwen_3_8b_fp8mixed.safetensors";
   }
-  return "flux2-klein-4b.safetensors";
+  return "qwen_3_4b.safetensors";
 }
 
-/** Klein uses UNET + DualCLIP + VAE + ModelSamplingFlux — not CheckpointLoaderSimple. */
+/** Klein uses UNET + CLIPLoader (flux2) + VAE + ModelSamplingFlux — not CheckpointLoaderSimple. */
 function buildFluxKleinGalleryRefineWorkflow(
   model: string,
 ): Record<string, WorkflowNode> {
@@ -198,13 +198,12 @@ function buildFluxKleinGalleryRefineWorkflow(
       _meta: { title: "Prompt Studio — UNET" },
     },
     "2": {
-      class_type: "DualCLIPLoader",
+      class_type: "CLIPLoader",
       inputs: {
-        clip_name1: clipName,
-        clip_name2: clipName,
-        type: "flux",
+        clip_name: clipName,
+        type: "flux2",
       },
-      _meta: { title: "Prompt Studio — DualCLIP" },
+      _meta: { title: "Prompt Studio — CLIP (FLUX.2 Klein)" },
     },
     "3": {
       class_type: "VAELoader",

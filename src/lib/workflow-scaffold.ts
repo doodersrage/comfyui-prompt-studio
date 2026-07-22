@@ -6,6 +6,9 @@ import {
   DEFAULT_HEIGHT_TOKEN,
   DEFAULT_INIT_IMAGE_TOKEN,
   DEFAULT_INPUT_IMAGE_TOKEN,
+  DEFAULT_INPUT_IMAGE_2_TOKEN,
+  DEFAULT_INPUT_IMAGE_3_TOKEN,
+  DEFAULT_INPUT_IMAGE_4_TOKEN,
   DEFAULT_MASK_IMAGE_TOKEN,
   DEFAULT_NEGATIVE_TOKEN,
   DEFAULT_POSITIVE_TOKEN,
@@ -57,19 +60,19 @@ function isFluxKleinModel(model?: ComfyImageModel | string): boolean {
   return typeof model === "string" && /flux-2-klein/i.test(model);
 }
 
-/** Klein DualCLIP uses one shared stem in both slots (not Dev clip_l + t5xxl). */
+/** Klein text encoder — official Comfy uses Qwen3 CLIPLoader type flux2 (not DualCLIP type flux). */
 export function fluxKleinDualClipFilename(model?: ComfyImageModel | string): string {
   if (!model) {
-    return "flux2-klein-4b.safetensors";
+    return "qwen_3_4b.safetensors";
   }
   const loaders = resolveLoaderFilenamesForModel(String(model));
   if (loaders.dualClip?.trim()) {
     return loaders.dualClip.trim();
   }
   if (/9b/i.test(String(model))) {
-    return "flux2-klein-9b-uncensored.safetensors";
+    return "qwen_3_8b_fp8mixed.safetensors";
   }
-  return "flux2-klein-4b.safetensors";
+  return "qwen_3_4b.safetensors";
 }
 
 function fluxVaeFilename(model?: ComfyImageModel | string): string {
@@ -102,6 +105,32 @@ function fluxDiffusionLoaders(model?: ComfyImageModel | string): {
     clipL: DEFAULT_FLUX_CLIP_L,
     clipT5: DEFAULT_FLUX_CLIP_T5,
     vaeName: fluxVaeFilename(model),
+  };
+}
+
+/** Klein: CLIPLoader type flux2. Classic FLUX: DualCLIP clip_l + t5xxl type flux. */
+function fluxTextEncoderNode(
+  model: ComfyImageModel | string | undefined,
+  loaders: ReturnType<typeof fluxDiffusionLoaders>,
+): Record<string, unknown> {
+  if (isFluxKleinModel(model)) {
+    return {
+      class_type: "CLIPLoader",
+      inputs: {
+        clip_name: loaders.clipL,
+        type: "flux2",
+      },
+      _meta: { title: "CLIPLoader (FLUX.2 Klein)" },
+    };
+  }
+  return {
+    class_type: "DualCLIPLoader",
+    inputs: {
+      clip_name1: loaders.clipL,
+      clip_name2: loaders.clipT5,
+      type: "flux",
+    },
+    _meta: { title: "DualCLIPLoader" },
   };
 }
 
@@ -150,15 +179,7 @@ function fluxScaffold(
       inputs: { unet_name: loaders.unetToken, weight_dtype: "default" },
       _meta: { title: "Load UNET" },
     },
-    "2": {
-      class_type: "DualCLIPLoader",
-      inputs: {
-        clip_name1: loaders.clipL,
-        clip_name2: loaders.clipT5,
-        type: "flux",
-      },
-      _meta: { title: "DualCLIPLoader" },
-    },
+    "2": fluxTextEncoderNode(model, loaders),
     "3": {
       class_type: "VAELoader",
       inputs: { vae_name: loaders.vaeName },
@@ -428,8 +449,10 @@ function qwenEditLightningScaffold(
   const encodeClass = resolveQwenEditEncoderClass(model);
   const loaders = qwenLoaderFilenames();
 
-  // Leave image1/2/3 disconnected for pure T2I (Generate). Refine/queue patches
-  // LoadImage + encode refs when an input image filename is provided.
+  // Encode image1–4 stay disconnected for pure T2I (Generate). Figure LoadImages
+  // are present with INPUT_IMAGE tokens for Compose/Refine soft-bind; queue
+  // ensureQwenEditReferenceImagesForImg2Img wires encode slots when files exist,
+  // and disconnectQwenEdit strips unused LoadImages for txt2img.
   const positiveEncode = {
     prompt: tokens.positive,
     clip: ["2", 0] as [string, number],
@@ -440,6 +463,13 @@ function qwenEditLightningScaffold(
     clip: ["2", 0] as [string, number],
     vae: ["3", 0] as [string, number],
   };
+
+  const figureTokens = [
+    tokens.inputImage?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
+    DEFAULT_INPUT_IMAGE_2_TOKEN,
+    DEFAULT_INPUT_IMAGE_3_TOKEN,
+    DEFAULT_INPUT_IMAGE_4_TOKEN,
+  ];
 
   return {
     "1": {
@@ -514,6 +544,26 @@ function qwenEditLightningScaffold(
       class_type: "SaveImage",
       inputs: { images: ["9", 0], filename_prefix: "PromptStudio" },
       _meta: { title: "Save Image" },
+    },
+    "900": {
+      class_type: "LoadImage",
+      inputs: { image: figureTokens[0] },
+      _meta: { title: "Figure 1" },
+    },
+    "901": {
+      class_type: "LoadImage",
+      inputs: { image: figureTokens[1] },
+      _meta: { title: "Figure 2" },
+    },
+    "902": {
+      class_type: "LoadImage",
+      inputs: { image: figureTokens[2] },
+      _meta: { title: "Figure 3" },
+    },
+    "903": {
+      class_type: "LoadImage",
+      inputs: { image: figureTokens[3] },
+      _meta: { title: "Figure 4" },
     },
   };
 }
@@ -671,15 +721,7 @@ function fluxInpaintScaffold(
       inputs: { unet_name: loaders.unetToken, weight_dtype: "default" },
       _meta: { title: "Load UNET" },
     },
-    "2": {
-      class_type: "DualCLIPLoader",
-      inputs: {
-        clip_name1: loaders.clipL,
-        clip_name2: loaders.clipT5,
-        type: "flux",
-      },
-      _meta: { title: "DualCLIPLoader" },
-    },
+    "2": fluxTextEncoderNode(model, loaders),
     "3": {
       class_type: "VAELoader",
       inputs: { vae_name: loaders.vaeName },
@@ -767,15 +809,7 @@ function fluxImg2imgScaffold(
       inputs: { unet_name: loaders.unetToken, weight_dtype: "default" },
       _meta: { title: "Load UNET" },
     },
-    "2": {
-      class_type: "DualCLIPLoader",
-      inputs: {
-        clip_name1: loaders.clipL,
-        clip_name2: loaders.clipT5,
-        type: "flux",
-      },
-      _meta: { title: "DualCLIPLoader" },
-    },
+    "2": fluxTextEncoderNode(model, loaders),
     "3": {
       class_type: "VAELoader",
       inputs: { vae_name: loaders.vaeName },
@@ -1290,8 +1324,8 @@ export function buildWorkflowScaffoldForModel(
     useEditScaffold
       ? isQwenEditModel(model)
         ? isQwenLightningModel(model)
-          ? "Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Leave encode image slots empty for Generate (pure T2I); Refine wires refs when you upload a source image."
-          : "Qwen Edit scaffold wires LoadImage → VAEEncode → KSampler with denoise — upload an image from Refine or Image → Prompt before queueing."
+          ? "Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Figure 1–4 LoadImages use {{INPUT_IMAGE}}…{{INPUT_IMAGE_4}} but encode slots stay empty for Generate; Compose/Refine queue wires refs when you upload sources."
+          : "Qwen Edit scaffold wires LoadImage → VAEEncode → KSampler with denoise — upload an image from Refine, Compose, or Image → Prompt before queueing."
         : model === "flux-inpaint"
           ? "FLUX inpaint scaffold wires LoadImage + LoadImageMask → InpaintModelConditioning — upload source image and mask before queueing."
           : "Edit scaffold includes LoadImage + denoise — wire VAEEncode in ComfyUI if you use the generic edit template."
@@ -1301,7 +1335,7 @@ export function buildWorkflowScaffoldForModel(
           : "Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs."
         : category === "flux"
           ? isFluxKleinModel(model)
-            ? "FLUX Klein scaffold uses UNETLoader + DualCLIPLoader (shared Klein dual-CLIP stem in both slots) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available."
+            ? "FLUX Klein scaffold uses UNETLoader + CLIPLoader (type flux2, Qwen3-8B for 9B / Qwen3-4B for 4B) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available."
             : "FLUX scaffold uses UNETLoader + DualCLIPLoader (clip_l + t5xxl) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available."
           : category === "video"
             ? `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom pack with LTXVImgToVideo.`

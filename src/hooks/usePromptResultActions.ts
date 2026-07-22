@@ -372,6 +372,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         inputImage?: File | null;
         inputImageFilename?: string;
         inputImageUrl?: string;
+        /** Extra figures for Compose (Figure 2–4). Index 0 is ignored — use inputImage. */
+        inputImages?: Array<File | null | undefined>;
+        inputImageUrls?: Array<string | undefined>;
+        inputImageFilenames?: string[];
         maskImage?: File | null;
         maskImageFilename?: string;
         maskImageUrl?: string;
@@ -419,7 +423,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           hasInputImage: Boolean(
             options?.inputImage ||
               options?.inputImageUrl?.trim() ||
-              options?.inputImageFilename?.trim(),
+              options?.inputImageFilename?.trim() ||
+              options?.inputImages?.some(Boolean) ||
+              options?.inputImageUrls?.some((url) => url?.trim()) ||
+              options?.inputImageFilenames?.some((name) => name?.trim()),
           ),
           hasMaskImage: Boolean(
             options?.maskImage ||
@@ -443,6 +450,13 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
 
         let inputImageFilename = options?.inputImageFilename?.trim();
+        const uploadedFilenames: string[] = [
+          ...(options?.inputImageFilenames ?? []).map((name) => name?.trim() ?? ""),
+        ];
+        while (uploadedFilenames.length < 4) {
+          uploadedFilenames.push("");
+        }
+
         if (options?.inputImage || options?.inputImageUrl?.trim()) {
           setComfyUiStatus("Uploading image to ComfyUI…");
           inputImageFilename = await resolveQueueInputImageFilename({
@@ -451,6 +465,37 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             imageUrl: options.inputImageUrl,
             model: queueModel,
           });
+          if (inputImageFilename) {
+            uploadedFilenames[0] = inputImageFilename;
+          }
+        } else if (inputImageFilename) {
+          uploadedFilenames[0] = inputImageFilename;
+        }
+
+        for (let i = 1; i < 4; i += 1) {
+          const file = options?.inputImages?.[i];
+          const imageUrl = options?.inputImageUrls?.[i];
+          const existing = uploadedFilenames[i]?.trim();
+          if (!file && !imageUrl?.trim()) {
+            continue;
+          }
+          setComfyUiStatus(`Uploading Figure ${i + 1} to ComfyUI…`);
+          const uploaded = await resolveQueueInputImageFilename({
+            file: file ?? undefined,
+            filename: existing || undefined,
+            imageUrl: imageUrl?.trim() || undefined,
+            model: queueModel,
+          });
+          if (uploaded) {
+            uploadedFilenames[i] = uploaded;
+          }
+        }
+
+        const inputImageFilenames = uploadedFilenames
+          .map((name) => name.trim())
+          .filter(Boolean);
+        if (!inputImageFilename && inputImageFilenames[0]) {
+          inputImageFilename = inputImageFilenames[0];
         }
 
         let maskImageFilename = options?.maskImageFilename?.trim();
@@ -484,6 +529,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           base: options?.queueParamsBase,
           workflow,
           inputImageFilename,
+          inputImageFilenames:
+            inputImageFilenames.length > 0 ? inputImageFilenames : undefined,
           maskImageFilename,
           controlImageFilename,
           qualityProfile: effectiveQualityProfile,
@@ -1086,6 +1133,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         inputImage?: File | null;
         inputImageFilename?: string;
         inputImageUrl?: string;
+        inputImages?: Array<File | null | undefined>;
+        inputImageUrls?: Array<string | undefined>;
+        inputImageFilenames?: string[];
         maskImage?: File | null;
         maskImageFilename?: string;
         maskImageUrl?: string;
@@ -1139,6 +1189,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             inputImage: options?.inputImage,
             inputImageFilename: options?.inputImageFilename,
             inputImageUrl: options?.inputImageUrl,
+            inputImages: options?.inputImages,
+            inputImageUrls: options?.inputImageUrls,
+            inputImageFilenames: options?.inputImageFilenames,
             maskImage: options?.maskImage,
             maskImageFilename: options?.maskImageFilename,
             maskImageUrl: options?.maskImageUrl,

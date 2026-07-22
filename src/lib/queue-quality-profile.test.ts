@@ -130,7 +130,7 @@ describe("queue-quality-profile", () => {
     );
     assert.equal(
       profileUsesNeuralUpscaleEnrich("max", { model: "qwen-image-2512" }),
-      true,
+      false,
     );
     assert.equal(profileUsesNeuralUpscaleEnrich("max"), true);
     const { formatQueueQualityProfileHint } = await import(
@@ -146,7 +146,8 @@ describe("queue-quality-profile", () => {
       neuralUpscaleAvailable: true,
       model: "qwen-image-2512",
     });
-    assert.match(String(maxHint), /UpscaleModel/);
+    assert.match(String(maxHint), /chroma guard|Lanczos/i);
+    assert.doesNotMatch(String(maxHint), /UpscaleModel/);
     const { neuralTargetScaleAfterUpscale, parseNeuralUpscaleFactor } =
       await import("./queue-quality-profile.ts");
     assert.equal(neuralTargetScaleAfterUpscale("final"), 0.3125);
@@ -208,7 +209,7 @@ describe("queue-quality-profile", () => {
     } = await import("./queue-quality-profile.ts");
     assert.equal(
       profileUsesLatentDetailPass("final", { model: "qwen-image-2512" }),
-      true,
+      false,
     );
     assert.equal(
       profileUsesLatentDetailPass("final", { model: "flux-dev" }),

@@ -840,6 +840,14 @@ export default function GalleryCard({
                           }}
                         />
                         <GalleryMenuButton
+                          label="Compose"
+                          onClick={() => {
+                            saveGalleryHandoff(buildGalleryHandoff(entry, "compose"));
+                            router.push(galleryHandoffPath("compose"));
+                            setMenuOpen(false);
+                          }}
+                        />
+                        <GalleryMenuButton
                           label="Image → Prompt"
                           onClick={() => {
                             saveGalleryHandoff(buildGalleryHandoff(entry, "imagePrompt"));

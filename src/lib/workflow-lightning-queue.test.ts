@@ -782,3 +782,97 @@ describe("lightning queue precision and sampling", () => {
     assert.equal(parsed["8"].inputs.lora_name, "nsfw_style.safetensors");
   });
 });
+
+describe("qwen edit reference image prep", () => {
+  it("force-rewires stale encode links to Figure loaders", async () => {
+    const { ensureQwenEditReferenceImagesForImg2Img } = await import(
+      "./workflow-lightning-queue.ts"
+    );
+    const workflow = {
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "edit",
+          image1: ["99", 0],
+          image2: ["98", 0],
+        },
+      },
+      "99": {
+        class_type: "LoadImage",
+        inputs: { image: "stale-a.png" },
+        _meta: { title: "Old Ref" },
+      },
+      "98": {
+        class_type: "LoadImage",
+        inputs: { image: "stale-b.png" },
+        _meta: { title: "Other" },
+      },
+    };
+    const { workflow: next, wiredNodeIds } = ensureQwenEditReferenceImagesForImg2Img(
+      workflow,
+      {
+        hasInputImage: true,
+        inputImageFilenames: ["fig1.png", "fig2.png"],
+        forceRewire: true,
+      },
+    );
+    assert.ok(wiredNodeIds.includes("4"));
+    const encode = next["4"] as {
+      inputs: Record<string, [string, number]>;
+    };
+    assert.equal(
+      (next[encode.inputs.image1[0]] as { inputs: { image: string } }).inputs.image,
+      "fig1.png",
+    );
+    assert.equal(
+      (next[encode.inputs.image2[0]] as { inputs: { image: string } }).inputs.image,
+      "fig2.png",
+    );
+    assert.equal(
+      (next[encode.inputs.image1[0]] as { _meta?: { title?: string } })._meta?.title,
+      "Figure 1",
+    );
+  });
+
+  it("prepares refs for non-Lightning edit models", async () => {
+    const { prepareQwenEditReferenceImagesForQueue } = await import(
+      "./workflow-lightning-queue.ts"
+    );
+    const workflow = {
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: { prompt: "edit", clip: ["2", 0], vae: ["3", 0] },
+      },
+    };
+    const next = prepareQwenEditReferenceImagesForQueue(
+      workflow,
+      "qwen-image-edit-2511",
+      { inputImageFilenames: ["a.png", "b.png"] },
+    );
+    const encode = next["4"] as {
+      inputs: Record<string, [string, number] | string>;
+    };
+    assert.ok(Array.isArray(encode.inputs.image1));
+    assert.ok(Array.isArray(encode.inputs.image2));
+    const loaders = Object.values(next).filter(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { class_type?: string }).class_type === "LoadImage",
+    );
+    assert.equal(loaders.length, 2);
+  });
+
+  it("leaves non-edit models untouched", async () => {
+    const { prepareQwenEditReferenceImagesForQueue } = await import(
+      "./workflow-lightning-queue.ts"
+    );
+    const workflow = {
+      "1": { class_type: "UNETLoader", inputs: { unet_name: "x.safetensors" } },
+    };
+    const next = prepareQwenEditReferenceImagesForQueue(workflow, "flux-dev", {
+      inputImageFilename: "a.png",
+    });
+    assert.deepEqual(next, workflow);
+  });
+});

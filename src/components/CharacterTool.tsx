@@ -118,7 +118,21 @@ function accentForSceneMode(mode: CharacterSceneMode): ToolAccent {
   return "sky";
 }
 
-function historyToolForSceneMode(mode: CharacterSceneMode): "character" | "duo" | "compose" {
+function historyToolForSceneMode(mode: CharacterSceneMode): "character" | "duo" | "scene-compose" {
+  if (mode === "duo") {
+    return "duo";
+  }
+  if (mode === "compose") {
+    // Distinct from multi-image Compose / Transfer (`compose` → /compose).
+    return "scene-compose";
+  }
+  return "character";
+}
+
+/** History-seed scopes still key off the Character “compose” scene label. */
+function historySeedToolForSceneMode(
+  mode: CharacterSceneMode,
+): "character" | "duo" | "compose" {
   if (mode === "duo") {
     return "duo";
   }
@@ -200,9 +214,10 @@ export default function CharacterTool() {
   const sceneMode = toolSettings.sceneMode ?? "solo";
   const accent = accentForSceneMode(sceneMode);
   const historyTool = historyToolForSceneMode(sceneMode);
+  const historySeedTool = historySeedToolForSceneMode(sceneMode);
   const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
   const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
-  const historyCandidateCount = countHistorySeedCandidates(historyTool, historySeedScope);
+  const historyCandidateCount = countHistorySeedCandidates(historySeedTool, historySeedScope);
   const generateDisabledReason =
     hintSource === "history" && historyCandidateCount === 0
       ? "Save a few character prompts to Studio history first, or switch hint source."
@@ -678,7 +693,7 @@ export default function CharacterTool() {
         <FieldDivider />
 
         <HistoryHintSeedPanel
-          tool={historyTool}
+          tool={historySeedTool}
           hintSource={hintSource}
           historySeedScope={historySeedScope}
           hints={toolSettings.hints ?? ""}

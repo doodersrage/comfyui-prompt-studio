@@ -8,7 +8,7 @@ export const DEFAULT_EDIT_DENOISE = 0.65;
 
 export const DEFAULT_INPAINT_DENOISE = 0.75;
 
-const EDIT_TOOLS = new Set(["refine", "image-prompt", "controlnet", "inpaint"]);
+const EDIT_TOOLS = new Set(["refine", "image-prompt", "controlnet", "inpaint", "compose"]);
 
 function clampDenoise(value: number): number {
   if (!Number.isFinite(value)) {
@@ -49,6 +49,17 @@ export function isQwenEditModel(model: ComfyImageModel | string): boolean {
     return true;
   }
   return /qwen.*edit|qwen-rapid-aio-edit/i.test(String(model));
+}
+
+/**
+ * Multi-ref Compose / Transfer — Qwen Edit only (image1–4 encode path).
+ * Excludes FLUX inpaint and other single-mask edit models.
+ */
+export function isComposeCapableModel(model: ComfyImageModel | string | null | undefined): boolean {
+  if (!model?.toString().trim()) {
+    return false;
+  }
+  return isQwenEditModel(model);
 }
 
 export function isInpaintModel(model: ComfyImageModel | string): boolean {

@@ -5,6 +5,7 @@ import {
   type ComfyImageModel,
 } from "./comfy-models/client";
 import {
+  isComposeCapableModel,
   isEditCapableModel,
   isEditQueueTool,
   isInpaintModel,
@@ -138,6 +139,11 @@ export function filterModelsForQueueTool(
   if (tool === "video") {
     const video = models.filter((model) => isVideoModel(model));
     return video.length > 0 ? video : models;
+  }
+
+  if (tool === "compose") {
+    const compose = models.filter((model) => isComposeCapableModel(model));
+    return compose.length > 0 ? compose : models;
   }
 
   if (!shouldUseSceneGenerationModel(tool)) {

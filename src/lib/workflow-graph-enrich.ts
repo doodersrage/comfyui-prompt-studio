@@ -1189,7 +1189,7 @@ export function enrichWorkflowGraph(input: {
     );
   }
 
-  // Flux / vanilla Qwen Final/Max — soft second pass (self-gated; skips SDXL/Lightning/Rapid).
+  // Flux Final/Max — soft second pass (self-gated; skips Qwen 2512/2.0, SDXL, Lightning, Rapid).
   changes.push(
     ...enrichLatentDetailPassNodes({
       workflow,

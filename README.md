@@ -46,7 +46,7 @@ Audio and 3D-only architectures (Stable Audio, etc.) are not in the main image m
 | **ControlNet** | `/controlnet` | Structure prompts (text or image-assisted) |
 | **Plugins** | `/plugins` | Nav bookmark registry (not runnable extensions) |
 
-Legacy URLs `/duo`, `/compose`, and `/random-scene` redirect to the merged Character and Generate pages.
+Legacy URLs `/duo` and `/random-scene` redirect to Character and Generate. Character’s scene-compose mode lives at `/character?mode=compose`. `/compose` is the multi-image Compose / Transfer tool.
 
 ## Features
 

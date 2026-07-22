@@ -91,6 +91,7 @@ export default function QueueQualityProfileHints({
               Boolean(
                 loadToolSettings("video", DEFAULT_VIDEO_TOOL_CACHE).initImageUrl?.trim(),
               ),
+            tool: toolId,
           },
         )
       : null;
@@ -288,14 +289,14 @@ export default function QueueQualityProfileHints({
           </>
         ) : /^qwen-image-2512$/i.test(shared.model) ? (
           <>
-            Vanilla 2512: Draft queues as Final. Final uses Lanczos (chroma guard — skips neural
-            4×); Max may still run neural upscale. Soft latent detail denoise is tuned milder
-            than Flux.
+            Vanilla 2512: Draft queues as Final. Final/Max bump sampler steps and use
+            Lanczos-only image upscale (~1.25× chroma guard — no neural 4×). Latent detail
+            hires-fix is off — it melted anatomy on hard poses.
           </>
         ) : (
           <>
-            Draft favors speed; Final and Max bump sampler steps and resolution. Flux/vanilla
-            Qwen Final/Max may insert a soft latent detail pass; SDXL may insert a refiner.
+            Draft favors speed; Final and Max bump sampler steps and resolution. Flux
+            Final/Max may insert a soft latent detail pass; SDXL may insert a refiner.
             When an upscale model is mapped, Final/Max run{" "}
             <span className="text-zinc-400">UpscaleModel</span> then area-scale to ~1.25×/1.5×
             (Max may add Lanczos polish + sharpen); otherwise Lanczos{" "}

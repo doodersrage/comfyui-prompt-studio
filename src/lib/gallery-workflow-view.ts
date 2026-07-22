@@ -97,10 +97,11 @@ export function workflowParamDisplayRows(
   if (!params) {
     return [];
   }
-  return GALLERY_WORKFLOW_PARAM_KEYS.map((key) => ({
-    key,
-    value: params[key],
-  }));
+  return GALLERY_WORKFLOW_PARAM_KEYS.map((key) => {
+    const raw = params[key];
+    const value = Array.isArray(raw) ? raw.join(", ") : raw;
+    return { key, value };
+  });
 }
 
 export function formatWorkflowParamValue(value: string | number | undefined): string {

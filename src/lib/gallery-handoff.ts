@@ -19,7 +19,7 @@ export type GalleryHandoffPayload = {
   historyId?: string;
   imageUrl?: string;
   imageFilename?: string;
-  target: "refine" | "imagePrompt" | "promptEditor" | "inpaint" | "controlnet" | "video";
+  target: "refine" | "imagePrompt" | "promptEditor" | "inpaint" | "controlnet" | "video" | "compose";
   improveIntent?: string;
   queueParams?: WorkflowParamValues;
   savedAt: number;
@@ -136,6 +136,9 @@ export function galleryHandoffPath(target: GalleryHandoffPayload["target"]): str
   }
   if (target === "inpaint") {
     return "/inpaint?from=gallery";
+  }
+  if (target === "compose") {
+    return "/compose?from=gallery";
   }
   if (target === "promptEditor") {
     return "/prompt?from=gallery";

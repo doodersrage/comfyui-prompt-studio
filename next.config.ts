@@ -23,11 +23,6 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: "/compose",
-        destination: "/character?mode=compose",
-        permanent: true,
-      },
-      {
         source: "/random-scene",
         destination: "/?source=random",
         permanent: true,

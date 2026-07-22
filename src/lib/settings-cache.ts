@@ -236,6 +236,14 @@ export type InpaintToolCache = {
   directPrompt?: string;
 };
 
+/** Compose / Transfer tool — key is `imageCompose` (legacy `compose` was CharacterTool). */
+export type ImageComposeToolCache = {
+  instruction?: string;
+  mode?: "transfer" | "modify";
+  /** Last figure-slot count hint (1–4). */
+  figureCountHint?: number;
+};
+
 export type ControlNetToolCache = {
   mode?: import("./controlnet-prompt").ControlNetMode;
   subject?: string;
@@ -402,6 +410,8 @@ export type ToolSettingsCache = {
   promptEditor?: PromptEditorToolCache;
   refine?: RefineToolCache;
   inpaint?: InpaintToolCache;
+  /** Compose / Transfer multi-image edit (not CharacterTool legacy `compose`). */
+  imageCompose?: ImageComposeToolCache;
   controlnet?: ControlNetToolCache;
   video?: VideoToolCache;
   lint?: LintToolCache;
@@ -531,6 +541,12 @@ export const DEFAULT_INPAINT_TOOL_CACHE: InpaintToolCache = {
   maskDescription: "",
   changeDescription: "",
   directPrompt: "",
+};
+
+export const DEFAULT_IMAGE_COMPOSE_TOOL_CACHE: ImageComposeToolCache = {
+  instruction: "",
+  mode: "transfer",
+  figureCountHint: 2,
 };
 
 export const DEFAULT_CONTROLNET_TOOL_CACHE: ControlNetToolCache = {

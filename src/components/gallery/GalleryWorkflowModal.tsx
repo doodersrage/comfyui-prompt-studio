@@ -6,6 +6,7 @@ import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import WorkflowPreviewPanel from "@/components/WorkflowPreviewPanel";
 import { Spinner } from "@/components/ui/Button";
 import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
+import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import {
   formatWorkflowParamValue,
   loadGalleryWorkflowView,
@@ -30,7 +31,7 @@ function ParamGrid({
   params,
 }: {
   label: string;
-  params: Record<string, string | number | undefined>;
+  params: WorkflowParamValues | Record<string, string | number | undefined>;
 }) {
   const rows = workflowParamDisplayRows(params);
 

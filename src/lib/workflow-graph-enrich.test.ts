@@ -516,7 +516,7 @@ describe("workflow-graph-enrich", () => {
     assert.notEqual(outputNode.class_type, "ImageSharpen");
   });
 
-  it("inserts latent detail pass for vanilla Qwen Final", () => {
+  it("skips latent detail pass for vanilla Qwen Final (anatomy guard)", () => {
     const workflow = {
       "1": {
         class_type: "UNETLoader",
@@ -556,28 +556,19 @@ describe("workflow-graph-enrich", () => {
       enrichUpscale: false,
     });
 
-    assert.ok(
+    assert.equal(
       result.changes.some((change) => /latent detail pass/i.test(change.message)),
+      false,
     );
     const decode = result.workflow["7"] as { inputs: { samples: [string, number] } };
-    const detailId = decode.inputs.samples[0];
-    const detail = result.workflow[detailId] as {
-      _meta?: { title?: string };
-      inputs: { denoise: number; latent_image: [string, number] };
-    };
-    assert.match(detail._meta?.title ?? "", /latent detail pass/i);
-    // Vanilla Qwen Final uses a softer second-pass denoise to limit chroma climb.
-    assert.equal(detail.inputs.denoise, 0.14);
-    const latentId = detail.inputs.latent_image[0];
-    const latent = result.workflow[latentId] as { class_type?: string };
-    assert.equal(latent.class_type, "LatentUpscaleBy");
+    assert.equal(decode.inputs.samples[0], "6");
   });
 
-  it("scales neural target down when latent detail already enlarged decode", () => {
+  it("inserts latent detail pass for Flux Final", () => {
     const workflow = {
       "1": {
         class_type: "UNETLoader",
-        inputs: { unet_name: "qwen.safetensors" },
+        inputs: { unet_name: "flux.safetensors" },
       },
       "6": {
         class_type: "KSampler",
@@ -607,7 +598,63 @@ describe("workflow-graph-enrich", () => {
     const result = enrichWorkflowGraph({
       workflow,
       tokens: TOKENS,
-      model: "qwen-image-2512",
+      model: "flux-dev",
+      qualityProfile: "final",
+      enrichSampling: false,
+      enrichUpscale: false,
+    });
+
+    assert.ok(
+      result.changes.some((change) => /latent detail pass/i.test(change.message)),
+    );
+    const decode = result.workflow["7"] as { inputs: { samples: [string, number] } };
+    const detailId = decode.inputs.samples[0];
+    const detail = result.workflow[detailId] as {
+      _meta?: { title?: string };
+      inputs: { denoise: number; latent_image: [string, number] };
+    };
+    assert.match(detail._meta?.title ?? "", /latent detail pass/i);
+    assert.equal(detail.inputs.denoise, 0.2);
+    const latentId = detail.inputs.latent_image[0];
+    const latent = result.workflow[latentId] as { class_type?: string };
+    assert.equal(latent.class_type, "LatentUpscaleBy");
+  });
+
+  it("scales neural target down when latent detail already enlarged decode", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "flux.safetensors" },
+      },
+      "6": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 30,
+          cfg: 3.5,
+          sampler_name: "euler",
+          scheduler: "beta",
+          denoise: 1,
+          model: ["1", 0],
+          positive: ["4", 0],
+          negative: ["5", 0],
+          latent_image: ["3", 0],
+        },
+      },
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["2", 0] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "flux-dev",
       qualityProfile: "max",
       upscaleModelFilename: "4x-UltraSharp.pth",
       enrichSampling: false,
@@ -637,6 +684,68 @@ describe("workflow-graph-enrich", () => {
     assert.equal(node.inputs.upscale_method, "area");
     // 1.5 / 4 / 1.05 / 1.2 (latent detail Max) ≈ 0.2976
     assert.equal(node.inputs.scale_by, 0.2976);
+  });
+
+  it("vanilla Qwen Max uses Lanczos chroma guard (no neural)", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen.safetensors" },
+      },
+      "6": {
+        class_type: "KSampler",
+        inputs: {
+          seed: 1,
+          steps: 50,
+          cfg: 3.5,
+          sampler_name: "euler",
+          scheduler: "beta",
+          denoise: 1,
+          model: ["1", 0],
+          positive: ["4", 0],
+          negative: ["5", 0],
+          latent_image: ["3", 0],
+        },
+      },
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["2", 0] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const result = enrichWorkflowGraph({
+      workflow,
+      tokens: TOKENS,
+      model: "qwen-image-2512",
+      qualityProfile: "max",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+      enrichSampling: false,
+    });
+
+    assert.equal(
+      result.changes.some((change) => /latent detail pass/i.test(change.message)),
+      false,
+    );
+    assert.equal(
+      Object.values(result.workflow).some(
+        (node) =>
+          (node as { class_type?: string }).class_type === "UpscaleModelLoader",
+      ),
+      false,
+    );
+    const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
+    const upscaleId = saveNode.inputs.images[0];
+    const upscaleNode = result.workflow[upscaleId] as {
+      class_type: string;
+      inputs: { scale_by?: number; upscale_method?: string };
+    };
+    assert.equal(upscaleNode.class_type, "ImageScaleBy");
+    assert.equal(upscaleNode.inputs.upscale_method, "lanczos");
+    assert.equal(upscaleNode.inputs.scale_by, 1.25);
   });
 
   it("skips latent detail pass for Lightning", () => {

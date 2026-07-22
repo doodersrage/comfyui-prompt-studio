@@ -27,6 +27,10 @@ import {
   patchIpAdapterTokensInWorkflow,
 } from "./ipadapter-workflow-patch";
 import { insertControlNetChainIfMissing } from "./controlnet-workflow-patch";
+import {
+  inferLoadImageBinding,
+  normalizeInputImageFilenames,
+} from "./workflow-load-image-bindings";
 
 export const IMAGE_SCALE_BY_NODE_TYPE = "ImageScaleBy";
 
@@ -606,13 +610,79 @@ function patchImageLoaderNodesInWorkflow(
 export function patchLoadImageNodesInWorkflow(
   workflow: Record<string, unknown>,
   inputImageFilename?: string,
+  inputImageFilenames?: string[],
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
-  return patchImageLoaderNodesInWorkflow(
-    workflow,
-    INPUT_IMAGE_TYPES,
+  const filenames = normalizeInputImageFilenames(
     inputImageFilename,
-    "inputImage",
+    inputImageFilenames,
   );
+
+  if (filenames.length === 0) {
+    return { workflow: structuredClone(workflow), patched: {} };
+  }
+
+  // Single-image path: keep legacy blanket patch (placeholder / overwrite).
+  if (filenames.length === 1) {
+    return patchImageLoaderNodesInWorkflow(
+      workflow,
+      INPUT_IMAGE_TYPES,
+      filenames[0],
+      "inputImage",
+    );
+  }
+
+  const next = structuredClone(workflow) as Record<
+    string,
+    {
+      class_type?: string;
+      inputs?: Record<string, unknown>;
+      _meta?: { title?: string };
+    }
+  >;
+  const patched: WorkflowDirectPatchCounts = {};
+  const loadImageEntries = Object.entries(next).filter(([, node]) =>
+    INPUT_IMAGE_TYPES.has(node?.class_type ?? ""),
+  );
+  const loadImageCount = loadImageEntries.length;
+  let loadImageIndex = 0;
+
+  for (const [, node] of loadImageEntries) {
+    const classType = node?.class_type ?? "";
+    const title = node?._meta?.title ?? "";
+    const inputs = node?.inputs;
+    const kind = inferLoadImageBinding(classType, title, {
+      loadImageIndex,
+      loadImageCount,
+    });
+    loadImageIndex += 1;
+    if (!inputs || !("image" in inputs)) {
+      continue;
+    }
+
+    const figure =
+      kind === "inputImage"
+        ? 0
+        : kind === "inputImage2"
+          ? 1
+          : kind === "inputImage3"
+            ? 2
+            : kind === "inputImage4"
+              ? 3
+              : -1;
+    if (figure < 0) {
+      continue;
+    }
+    const filename = filenames[figure];
+    if (!filename?.trim()) {
+      continue;
+    }
+    if (shouldPatchStringField(inputs.image, filename)) {
+      inputs.image = filename.trim();
+      patched.inputImage = (patched.inputImage ?? 0) + 1;
+    }
+  }
+
+  return { workflow: next, patched };
 }
 
 export function patchLoadImageMaskNodesInWorkflow(
@@ -1186,6 +1256,7 @@ export function patchWorkflowDirectParams(
   const imagePatch = patchLoadImageNodesInWorkflow(
     upscalePatch.workflow,
     input.params?.inputImageFilename,
+    input.params?.inputImageFilenames,
   );
   const maskPatch = patchLoadImageMaskNodesInWorkflow(
     imagePatch.workflow,

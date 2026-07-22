@@ -113,7 +113,7 @@ describe("workflow optimization v2", () => {
         loadImageIndex: 2,
         loadImageCount: 3,
       }),
-      "inputImage",
+      "inputImage2",
     );
   });
 

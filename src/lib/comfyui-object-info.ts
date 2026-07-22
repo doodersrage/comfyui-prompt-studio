@@ -15,6 +15,8 @@ export type ComfyUiModelLists = {
   clipLoaderTypes: string[];
   loras: string[];
   controlNets: string[];
+  /** CLIPVisionLoader clip_name inventory (IP-Adapter packs). Optional for older caches. */
+  clipVisions?: string[];
 };
 
 function readStringList(value: unknown): string[] {
@@ -90,6 +92,7 @@ export function parseComfyObjectInfoModelLists(
     clipLoaderTypes: readNodeInputOptions(objectInfo, "CLIPLoader", "type"),
     loras: readNodeInputOptions(objectInfo, "LoraLoader", "lora_name"),
     controlNets: readNodeInputOptions(objectInfo, "ControlNetLoader", "control_net_name"),
+    clipVisions: readNodeInputOptions(objectInfo, "CLIPVisionLoader", "clip_name"),
   };
 }
 
@@ -134,6 +137,7 @@ function cloneObjectInfoPayload(payload: ComfyObjectInfoPayload): ComfyObjectInf
       clipLoaderTypes: [...payload.models.clipLoaderTypes],
       loras: [...payload.models.loras],
       controlNets: [...payload.models.controlNets],
+      clipVisions: [...(payload.models.clipVisions ?? [])],
     },
     nodeTypes: new Set(payload.nodeTypes),
     supportsNeuralUpscaleTileSize: payload.supportsNeuralUpscaleTileSize,

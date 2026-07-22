@@ -287,25 +287,30 @@ describe("system-workflow-runtime", () => {
     );
   });
 
-  it("soft-binds Klein DualCLIP stem (not Dev clip_l/t5)", () => {
-    const scaffold = buildWorkflowScaffoldForModel("flux-2-klein-9b");
-    assert.match(scaffold.json, /flux2-klein-9b-uncensored/);
+  it("soft-binds Klein CLIPLoader type flux2 (not Dev clip_l/t5)", () => {
+    const scaffold = buildWorkflowScaffoldForModel("flux-2-klein-9b-distilled");
+    assert.match(scaffold.json, /qwen_3_8b_fp8mixed/);
+    assert.match(scaffold.json, /"type": "flux2"/);
+    assert.doesNotMatch(scaffold.json, /DualCLIPLoader/);
     assert.doesNotMatch(scaffold.json, /clip_l\.safetensors/);
     const bound = softBindScaffoldFromInventory(
       scaffold.json,
-      "flux-2-klein-9b",
+      "flux-2-klein-9b-distilled",
       {
         ...emptyInventory,
-        unets: ["flux-2-klein-base-9b.safetensors"],
+        unets: ["flux-2-klein-9b.safetensors"],
         clips: [
           "clip_l.safetensors",
           "t5xxl_fp16.safetensors",
-          "flux2-klein-9b-uncensored.safetensors",
+          "qwen_3_4b.safetensors",
+          "qwen_3_8b_fp8mixed.safetensors",
         ],
         vaes: ["flux2-vae.safetensors"],
       },
     );
-    assert.match(bound.workflowJson, /flux2-klein-9b-uncensored/);
+    assert.match(bound.workflowJson, /qwen_3_8b_fp8mixed/);
+    assert.match(bound.workflowJson, /"type": "flux2"/);
+    assert.doesNotMatch(bound.workflowJson, /qwen_3_4b/);
     assert.doesNotMatch(bound.workflowJson, /"clip_l\.safetensors"/);
   });
 
@@ -463,6 +468,513 @@ describe("system-workflow-runtime", () => {
     });
     assert.equal(missing.reason, "missing-loaders");
     assert.match(missing.display, /pack loaders not installed/i);
+    assert.match(missing.display, /missing UNET:/i);
+  });
+
+  it("prefers edit packs when preferEdit is set", () => {
+    const t2i = fakeWorkflow({
+      id: "qwen-t2i",
+      name: "qwen-image-2512 official t2i",
+      filename: "qwen_2512_txt2img.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+      }),
+    });
+    const edit = fakeWorkflow({
+      id: "qwen-edit",
+      name: "qwen-image-2512 official instruct",
+      filename: "qwen_2512_instruct.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+        "4": {
+          class_type: "TextEncodeQwenImageEdit",
+          inputs: { prompt: "fix hair" },
+        },
+      }),
+    });
+    const inventory = {
+      ...emptyInventory,
+      unets: ["qwen_image_2512_bf16.safetensors"],
+      clips: ["qwen_2.5_vl_7b.safetensors"],
+      vaes: ["qwen_image_vae.safetensors"],
+    };
+    assert.equal(
+      pickPackWorkflowForModel("qwen-image-2512", [t2i, edit], inventory, {
+        preferEdit: true,
+      })?.file.id,
+      "qwen-edit",
+    );
+  });
+
+  it("treats compose/refine tools as preferEdit without IP-Adapter", () => {
+    const t2i = fakeWorkflow({
+      id: "qwen-t2i-tool",
+      name: "qwen-image-edit-2511-lightning-8 official t2i",
+      filename: "qwen_edit_l8_txt2img.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+        "7": {
+          class_type: "LoraLoaderModelOnly",
+          inputs: { lora_name: "{{LORA_LIGHTNING}}", strength_model: 1 },
+        },
+      }),
+    });
+    const edit = fakeWorkflow({
+      id: "qwen-edit-tool",
+      name: "qwen-image-edit-2511-lightning-8 official instruct",
+      filename: "qwen_edit_l8_instruct.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+        "4": {
+          class_type: "TextEncodeQwenImageEditPlus",
+          inputs: { prompt: "edit" },
+        },
+        "7": {
+          class_type: "LoraLoaderModelOnly",
+          inputs: { lora_name: "{{LORA_LIGHTNING}}", strength_model: 1 },
+        },
+      }),
+    });
+    const inventory = {
+      ...emptyInventory,
+      unets: ["qwen_image_edit_2511_bf16.safetensors"],
+      clips: ["qwen_2.5_vl_7b.safetensors"],
+      vaes: ["qwen_image_vae.safetensors"],
+      loras: ["qwen_edit_lightning_8.safetensors"],
+    };
+    assert.equal(
+      pickPackWorkflowForModel(
+        "qwen-image-edit-2511-lightning-8",
+        [t2i, edit],
+        inventory,
+        { tool: "refine" },
+      )?.file.id,
+      "qwen-edit-tool",
+    );
+  });
+
+  it("prefers multi-ref edit packs for compose; else returns null for scaffold", () => {
+    const singleRef = fakeWorkflow({
+      id: "single-ref",
+      name: "qwen-image-edit-2511-lightning-8 official single",
+      filename: "qwen_edit_l8_single.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+        "4": {
+          class_type: "TextEncodeQwenImageEditPlus",
+          inputs: { prompt: "edit" },
+        },
+        "900": {
+          class_type: "LoadImage",
+          inputs: { image: "{{INPUT_IMAGE}}" },
+          _meta: { title: "Figure 1" },
+        },
+        "7": {
+          class_type: "LoraLoaderModelOnly",
+          inputs: { lora_name: "{{LORA_LIGHTNING}}", strength_model: 1 },
+        },
+      }),
+    });
+    const multiRef = fakeWorkflow({
+      id: "multi-ref",
+      name: "qwen-image-edit-2511-lightning-8 official multi",
+      filename: "qwen_edit_l8_multi.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+        "4": {
+          class_type: "TextEncodeQwenImageEditPlus",
+          inputs: { prompt: "edit" },
+        },
+        "900": {
+          class_type: "LoadImage",
+          inputs: { image: "{{INPUT_IMAGE}}" },
+          _meta: { title: "Figure 1" },
+        },
+        "901": {
+          class_type: "LoadImage",
+          inputs: { image: "{{INPUT_IMAGE_2}}" },
+          _meta: { title: "Figure 2" },
+        },
+        "7": {
+          class_type: "LoraLoaderModelOnly",
+          inputs: { lora_name: "{{LORA_LIGHTNING}}", strength_model: 1 },
+        },
+      }),
+    });
+    const inventory = {
+      ...emptyInventory,
+      unets: ["qwen_image_edit_2511_bf16.safetensors"],
+      clips: ["qwen_2.5_vl_7b.safetensors"],
+      vaes: ["qwen_image_vae.safetensors"],
+      loras: ["qwen_edit_lightning_8.safetensors"],
+    };
+    assert.equal(
+      pickPackWorkflowForModel(
+        "qwen-image-edit-2511-lightning-8",
+        [singleRef, multiRef],
+        inventory,
+        { tool: "compose" },
+      )?.file.id,
+      "multi-ref",
+    );
+    assert.equal(
+      pickPackWorkflowForModel(
+        "qwen-image-edit-2511-lightning-8",
+        [singleRef],
+        inventory,
+        { tool: "compose" },
+      ),
+      null,
+    );
+    const composeScaffold = describeSystemWorkflowChoice(
+      "qwen-image-edit-2511-lightning-8",
+      [singleRef],
+      inventory,
+      { tool: "compose" },
+    );
+    assert.equal(composeScaffold.source, "scaffold");
+    assert.match(composeScaffold.display, /Compose figures \(no multi-ref pack\)/i);
+
+    const editScaffold = describeSystemWorkflowChoice(
+      "qwen-image-edit-2511-lightning-8",
+      [],
+      inventory,
+      { tool: "refine" },
+    );
+    assert.equal(editScaffold.source, "scaffold");
+    assert.match(editScaffold.display, /edit path \(no edit pack\)/i);
+  });
+
+  it("re-ranks multi-ref compose packs by inventory fitness", () => {
+    const weakMulti = fakeWorkflow({
+      id: "weak-multi",
+      name: "qwen-image-edit-2511-lightning-8 official weak multi",
+      filename: "qwen_edit_l8_weak_multi.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+        "4": {
+          class_type: "TextEncodeQwenImageEditPlus",
+          inputs: { prompt: "edit" },
+        },
+        "900": {
+          class_type: "LoadImage",
+          inputs: { image: "{{INPUT_IMAGE}}" },
+          _meta: { title: "Figure 1" },
+        },
+        "901": {
+          class_type: "LoadImage",
+          inputs: { image: "{{INPUT_IMAGE_2}}" },
+          _meta: { title: "Figure 2" },
+        },
+        "7": {
+          class_type: "LoraLoaderModelOnly",
+          inputs: { lora_name: "{{LORA_LIGHTNING}}", strength_model: 1 },
+        },
+      }),
+    });
+    const strongMulti = fakeWorkflow({
+      id: "strong-multi",
+      name: "qwen-image-edit-2511-lightning-8 official strong multi",
+      filename: "qwen_edit_l8_strong_multi.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_edit_2511_fp8_e4m3fn.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+        "4": {
+          class_type: "TextEncodeQwenImageEditPlus",
+          inputs: { prompt: "edit" },
+        },
+        "900": {
+          class_type: "LoadImage",
+          inputs: { image: "{{INPUT_IMAGE}}" },
+          _meta: { title: "Figure 1" },
+        },
+        "901": {
+          class_type: "LoadImage",
+          inputs: { image: "{{INPUT_IMAGE_2}}" },
+          _meta: { title: "Figure 2" },
+        },
+        "7": {
+          class_type: "LoraLoaderModelOnly",
+          inputs: { lora_name: "{{LORA_LIGHTNING}}", strength_model: 1 },
+        },
+      }),
+    });
+    const inventory = {
+      ...emptyInventory,
+      unets: ["qwen_image_edit_2511_fp8_e4m3fn.safetensors"],
+      clips: ["qwen_2.5_vl_7b.safetensors"],
+      vaes: ["qwen_image_vae.safetensors"],
+      loras: ["qwen_edit_lightning_8.safetensors"],
+    };
+    assert.equal(
+      pickPackWorkflowForModel(
+        "qwen-image-edit-2511-lightning-8",
+        [weakMulti, strongMulti],
+        inventory,
+        { tool: "compose" },
+      )?.file.id,
+      "strong-multi",
+    );
+  });
+
+  it("re-ranks pack candidates by inventory fitness", () => {
+    const near = fakeWorkflow({
+      id: "near-pack",
+      name: "qwen-image-2512 official near",
+      filename: "qwen_2512_near.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+      }),
+    });
+    const exact = fakeWorkflow({
+      id: "exact-pack",
+      name: "qwen-image-2512 official exact",
+      filename: "qwen_2512_exact.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_2512_fp8_e4m3fn.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+      }),
+    });
+    const inventory = {
+      ...emptyInventory,
+      unets: ["qwen_image_2512_fp8_e4m3fn.safetensors"],
+      clips: ["qwen_2.5_vl_7b.safetensors"],
+      vaes: ["qwen_image_vae.safetensors"],
+    };
+    assert.equal(
+      pickPackWorkflowForModel("qwen-image-2512", [near, exact], inventory)
+        ?.file.id,
+      "exact-pack",
+    );
+  });
+
+  it("soft-gates missing ControlNet on plain T2I and soft-drops style LoRAs", () => {
+    const withControlNet = fakeWorkflow({
+      id: "cn-pack",
+      name: "qwen-image-2512 official controlnet",
+      filename: "qwen_cn.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+        "4": {
+          class_type: "ControlNetLoader",
+          inputs: { control_net_name: "missing_canny.pth" },
+        },
+      }),
+    });
+    const withStyleLora = fakeWorkflow({
+      id: "style-pack",
+      name: "qwen-image-2512 official style",
+      filename: "qwen_style.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+        "4": {
+          class_type: "LoraLoader",
+          inputs: {
+            model: ["1", 0],
+            clip: ["2", 0],
+            lora_name: "missing_style.safetensors",
+            strength_model: 0.8,
+            strength_clip: 0.8,
+          },
+        },
+        "5": {
+          class_type: "KSampler",
+          inputs: { model: ["4", 0], positive: ["2", 0] },
+        },
+      }),
+    });
+    const inventory = {
+      ...emptyInventory,
+      unets: ["qwen_image_2512_bf16.safetensors"],
+      clips: ["qwen_2.5_vl_7b.safetensors"],
+      vaes: ["qwen_image_vae.safetensors"],
+      controlNets: [] as string[],
+    };
+    // Plain T2I: missing ControlNet no longer rejects the pack.
+    assert.equal(
+      pickPackWorkflowForModel("qwen-image-2512", [withControlNet], inventory)
+        ?.file.id,
+      "cn-pack",
+    );
+    assert.equal(
+      pickPackWorkflowForModel("qwen-image-2512", [withStyleLora], inventory)
+        ?.file.id,
+      "style-pack",
+    );
+    const repaired = softRepairPackLoadersFromInventory(
+      withStyleLora.workflowJson!,
+      "qwen-image-2512",
+      inventory,
+    );
+    assert.ok(repaired.droppedLoras.includes("missing_style.safetensors"));
+    assert.doesNotMatch(repaired.workflowJson, /missing_style/);
+    assert.match(repaired.workflowJson, /"model":\s*\[\s*"1",\s*0\s*\]/);
   });
 
   it("soft-binds video CheckpointLoader from inventory", () => {
@@ -503,5 +1015,83 @@ describe("system-workflow-runtime", () => {
       /Qwen-Image-Lightning-8steps-V2\.0\.safetensors/,
     );
     assert.ok(repaired.repaired >= 1);
+  });
+
+  it("repairs Qwen DualCLIPLoader to CLIPLoader during pack soft-repair", () => {
+    const json = JSON.stringify({
+      "1": {
+        class_type: "DualCLIPLoader",
+        inputs: {
+          clip_name1: "qwen_2.5_vl_7b.safetensors",
+          clip_name2: "qwen_2.5_vl_7b.safetensors",
+          type: "qwen_image",
+        },
+      },
+    });
+    const repaired = softRepairPackLoadersFromInventory(
+      json,
+      "qwen-image-2512",
+      {
+        ...emptyInventory,
+        clips: ["qwen_2.5_vl_7b.safetensors"],
+      },
+    );
+    assert.match(repaired.workflowJson, /"class_type":\s*"CLIPLoader"/);
+    assert.doesNotMatch(repaired.workflowJson, /DualCLIPLoader/);
+    assert.ok(repaired.repaired >= 1);
+  });
+
+  it("soft-disables missing Power Lora slots instead of rejecting packs", () => {
+    const pack = fakeWorkflow({
+      id: "power-lora",
+      name: "qwen-image-2512 official power",
+      filename: "qwen_power.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+        "4": {
+          class_type: "Power Lora Loader (rgthree)",
+          inputs: {
+            model: ["1", 0],
+            clip: ["2", 0],
+            lora_1: {
+              on: true,
+              lora: "missing_style.safetensors",
+              strength: 0.8,
+            },
+          },
+        },
+      }),
+    });
+    const inventory = {
+      ...emptyInventory,
+      unets: ["qwen_image_2512_bf16.safetensors"],
+      clips: ["qwen_2.5_vl_7b.safetensors"],
+      vaes: ["qwen_image_vae.safetensors"],
+    };
+    assert.equal(
+      pickPackWorkflowForModel("qwen-image-2512", [pack], inventory)?.file.id,
+      "power-lora",
+    );
+    const repaired = softRepairPackLoadersFromInventory(
+      pack.workflowJson!,
+      "qwen-image-2512",
+      inventory,
+    );
+    assert.ok(repaired.droppedLoras.includes("missing_style.safetensors"));
+    assert.match(repaired.workflowJson, /"on":\s*false/);
   });
 });

@@ -40,6 +40,7 @@ import {
   formatLoraTriggerLintSummary,
 } from "@/lib/lora-trigger-lint";
 import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
+import { loadSettingsCache } from "@/lib/settings-cache";
 
 const WorkflowPreviewPanel = dynamic(() => import("@/components/WorkflowPreviewPanel"), {
   ssr: false,
@@ -209,7 +210,11 @@ export default function EnhancedPromptResult({
   ...panelProps
 }: EnhancedPromptResultProps) {
   const workflowSelection = useComfyWorkflowSelection();
+  const useSystemWorkflows =
+    loadSettingsCache().shared.useSystemWorkflows === true;
   const showComfyActions = Boolean(onSendComfyUi || onQueueBatchComfyUi || onPreviewWorkflow);
+  const showWorkflowSelector =
+    workflowSelection.mounted && useSystemWorkflows !== true;
   const [readinessResult, setReadinessResult] = useState<PromptReadinessResult | null>(null);
   const [copiedBatchIndex, setCopiedBatchIndex] = useState<number | null>(null);
   const [savedBatchIndices, setSavedBatchIndices] = useState<Set<number>>(
@@ -391,7 +396,7 @@ export default function EnhancedPromptResult({
             )}
           </div>
 
-          {workflowSelection.mounted && (
+          {showWorkflowSelector && (
             <ComfyWorkflowSelector
               compact
               selectedId={workflowSelection.selectedId}
@@ -521,17 +526,19 @@ export default function EnhancedPromptResult({
         onEditPrompt) &&
         showSingleActions && (
         <ToolSection className="space-y-5">
-          {showComfyActions && workflowSelection.mounted && (
+          {showComfyActions && (
             <>
-            <ComfyWorkflowSelector
-              compact
-              selectedId={workflowSelection.selectedId}
-              defaultLabel={workflowSelection.defaultLabel}
-              localFiles={workflowSelection.localFiles}
-              serverFiles={workflowSelection.serverFiles}
-              onChange={workflowSelection.setSelectedId}
-              helpText="Workflow JSON used by Send to ComfyUI and Preview workflow below."
-            />
+            {showWorkflowSelector ? (
+              <ComfyWorkflowSelector
+                compact
+                selectedId={workflowSelection.selectedId}
+                defaultLabel={workflowSelection.defaultLabel}
+                localFiles={workflowSelection.localFiles}
+                serverFiles={workflowSelection.serverFiles}
+                onChange={workflowSelection.setSelectedId}
+                helpText="Workflow JSON used by Send to ComfyUI and Preview workflow below."
+              />
+            ) : null}
             <QueueParamsPanel compact />
             </>
           )}

@@ -46,16 +46,19 @@ describe("model checkpoint map", () => {
     const klein9b = resolveLoaderFilenamesForModel("flux-2-klein-9b");
     assert.equal(klein9b.unet, "flux-2-klein-base-9b.safetensors");
     assert.equal(klein9b.vae, "flux2-vae.safetensors");
-    assert.equal(klein9b.dualClip, "flux2-klein-9b-uncensored.safetensors");
+    assert.equal(klein9b.dualClip, "qwen_3_8b_fp8mixed.safetensors");
 
     const kleinDistilled = resolveLoaderFilenamesForModel("flux-2-klein-9b-distilled");
     assert.equal(kleinDistilled.unet, "flux-2-klein-9b.safetensors");
     assert.equal(kleinDistilled.vae, "flux2-vae.safetensors");
+    assert.equal(kleinDistilled.dualClip, "qwen_3_8b_fp8mixed.safetensors");
 
     const klein4b = resolveLoaderFilenamesForModel("flux-2-klein");
     assert.equal(klein4b.unet, "flux-2-klein-base-4b.safetensors");
+    assert.equal(klein4b.dualClip, "qwen_3_4b.safetensors");
     const klein4bDistilled = resolveLoaderFilenamesForModel("flux-2-klein-4b-distilled");
     assert.equal(klein4bDistilled.unet, "flux-2-klein-4b.safetensors");
+    assert.equal(klein4bDistilled.dualClip, "qwen_3_4b.safetensors");
   });
 
   it("falls back to fp8 Klein weights when inventory only has fp8", () => {

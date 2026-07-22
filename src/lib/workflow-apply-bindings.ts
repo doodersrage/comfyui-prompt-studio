@@ -5,6 +5,9 @@ import {
   DEFAULT_FLUX_MAX_SHIFT_TOKEN,
   DEFAULT_HEIGHT_TOKEN,
   DEFAULT_INPUT_IMAGE_TOKEN,
+  DEFAULT_INPUT_IMAGE_2_TOKEN,
+  DEFAULT_INPUT_IMAGE_3_TOKEN,
+  DEFAULT_INPUT_IMAGE_4_TOKEN,
   DEFAULT_MASK_IMAGE_TOKEN,
   DEFAULT_INIT_IMAGE_TOKEN,
   DEFAULT_VIDEO_FRAMES_TOKEN,
@@ -31,7 +34,9 @@ import {
 } from "./model-controlnet-map";
 import {
   countLoadImageNodes,
+  figureIndexForLoadImageBinding,
   inferLoadImageBinding,
+  type LoadImageBindingKind,
 } from "./workflow-load-image-bindings";
 import type { WorkflowNodeMapping } from "./workflow-node-mapper";
 import { isConcreteLoraFilename } from "./workflow-lora-patch";
@@ -39,6 +44,21 @@ import {
   isPromptEncodeNode,
   resolvePromptEncodeTextField,
 } from "./workflow-prompt-encode";
+
+const MULTI_INPUT_IMAGE_TOKENS = [
+  DEFAULT_INPUT_IMAGE_TOKEN,
+  DEFAULT_INPUT_IMAGE_2_TOKEN,
+  DEFAULT_INPUT_IMAGE_3_TOKEN,
+  DEFAULT_INPUT_IMAGE_4_TOKEN,
+] as const;
+
+function tokenForInputImageBinding(kind: LoadImageBindingKind): string | null {
+  const figure = figureIndexForLoadImageBinding(kind);
+  if (figure == null) {
+    return null;
+  }
+  return MULTI_INPUT_IMAGE_TOKENS[figure - 1] ?? null;
+}
 import { MODEL_SAMPLING_FLUX_NODE_TYPE } from "./model-sampling-patch";
 
 type WorkflowNode = {
@@ -191,6 +211,18 @@ export function applyWorkflowNodeBindings(
       applyBindingField(node, mapping.nodeId, "image", resolvedTokens.inputImage, changes);
       continue;
     }
+    if (binding === "inputImage2" && "image" in node.inputs) {
+      applyBindingField(node, mapping.nodeId, "image", DEFAULT_INPUT_IMAGE_2_TOKEN, changes);
+      continue;
+    }
+    if (binding === "inputImage3" && "image" in node.inputs) {
+      applyBindingField(node, mapping.nodeId, "image", DEFAULT_INPUT_IMAGE_3_TOKEN, changes);
+      continue;
+    }
+    if (binding === "inputImage4" && "image" in node.inputs) {
+      applyBindingField(node, mapping.nodeId, "image", DEFAULT_INPUT_IMAGE_4_TOKEN, changes);
+      continue;
+    }
     if (binding === "controlImage" && "image" in node.inputs) {
       applyBindingField(node, mapping.nodeId, "image", DEFAULT_CONTROL_IMAGE_TOKEN, changes);
       continue;
@@ -296,9 +328,7 @@ function applyParamBindingsToAllNodes(
           ? DEFAULT_CONTROL_IMAGE_TOKEN
           : kind === "maskImage"
             ? tokens.maskImage
-            : kind === "inputImage"
-              ? tokens.inputImage
-              : null;
+            : tokenForInputImageBinding(kind);
       if (imageToken) {
         for (const field of IMAGE_INPUT_FIELDS) {
           if (!(field in node.inputs!)) {

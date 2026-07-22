@@ -11,10 +11,10 @@ export type HistoryHintSeedResult = {
 
 const RELATED_TOOLS: Record<HistorySeedTool, readonly string[]> = {
   generate: ["generate", "randomScene", "character", "background", "pet", "fantasy"],
-  character: ["character", "generate", "duo", "compose"],
-  duo: ["duo", "character", "generate", "compose"],
-  compose: ["compose", "character", "duo", "generate", "background"],
-  background: ["background", "generate", "fantasy", "compose"],
+  character: ["character", "generate", "duo", "compose", "scene-compose"],
+  duo: ["duo", "character", "generate", "compose", "scene-compose"],
+  compose: ["compose", "scene-compose", "character", "duo", "generate", "background"],
+  background: ["background", "generate", "fantasy", "compose", "scene-compose"],
   pet: ["pet", "generate", "character"],
   fantasy: ["fantasy", "generate", "character", "background"],
 };

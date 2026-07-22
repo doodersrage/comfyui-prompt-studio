@@ -18,13 +18,13 @@ describe("workflow-load-image-bindings", () => {
     );
   });
 
-  it("maps second LoadImage to control when multiple exist", () => {
+  it("maps second LoadImage to Figure 2 when untitled", () => {
     assert.equal(
       inferLoadImageBinding("LoadImage", "Side angle", {
         loadImageIndex: 1,
         loadImageCount: 2,
       }),
-      "controlImage",
+      "inputImage2",
     );
   });
 });

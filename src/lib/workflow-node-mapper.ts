@@ -22,6 +22,9 @@ export type WorkflowNodeMapping = {
     | "modelSampling"
     | "latent"
     | "inputImage"
+    | "inputImage2"
+    | "inputImage3"
+    | "inputImage4"
     | "controlImage"
     | "maskImage"
     | "checkpointLoader"
@@ -177,7 +180,13 @@ export function suggestWorkflowNodeMappings(workflowJson: string): WorkflowNodeM
               ? "Load image node — map control/reference image placeholder here"
               : kind === "maskImage"
                 ? "Load image node — map mask placeholder here"
-                : "Load image node — map input image placeholder here",
+                : kind === "inputImage2"
+                  ? "Load image node — map {{INPUT_IMAGE_2}} (Figure 2)"
+                  : kind === "inputImage3"
+                    ? "Load image node — map {{INPUT_IMAGE_3}} (Figure 3)"
+                    : kind === "inputImage4"
+                      ? "Load image node — map {{INPUT_IMAGE_4}} (Figure 4)"
+                      : "Load image node — map input image placeholder here",
         });
       }
       continue;

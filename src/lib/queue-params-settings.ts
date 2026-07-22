@@ -59,6 +59,7 @@ export type ResolveQueueParamsOptions = {
   resolutionSizeTier?: ResolutionSizeTier;
   tool?: string;
   inputImageFilename?: string;
+  inputImageFilenames?: string[];
   maskImageFilename?: string;
   controlImageFilename?: string;
   qualityProfile?: QueueQualityProfile;
@@ -129,7 +130,7 @@ function normalizeResolveQueueParamsInput(
   if (!input) {
     return {};
   }
-  if ("model" in input || "base" in input || "samplerPreset" in input || "resolutionOrientation" in input || "resolutionSizeTier" in input || "tool" in input || "inputImageFilename" in input || "maskImageFilename" in input || "controlImageFilename" in input || "qualityProfile" in input || "workflow" in input) {
+  if ("model" in input || "base" in input || "samplerPreset" in input || "resolutionOrientation" in input || "resolutionSizeTier" in input || "tool" in input || "inputImageFilename" in input || "inputImageFilenames" in input || "maskImageFilename" in input || "controlImageFilename" in input || "qualityProfile" in input || "workflow" in input) {
     return input as ResolveQueueParamsOptions;
   }
   return { base: input as WorkflowParamValues };
@@ -138,7 +139,7 @@ function normalizeResolveQueueParamsInput(
 export function resolveQueueParams(
   input?: WorkflowParamValues | ResolveQueueParamsOptions,
 ): WorkflowParamValues {
-  const { model, base, samplerPreset, resolutionOrientation, resolutionSizeTier, tool, inputImageFilename, maskImageFilename, controlImageFilename, qualityProfile, workflow } =
+  const { model, base, samplerPreset, resolutionOrientation, resolutionSizeTier, tool, inputImageFilename, inputImageFilenames, maskImageFilename, controlImageFilename, qualityProfile, workflow } =
     normalizeResolveQueueParamsInput(input);
   const settings = loadQueueParamsSettings();
   const shared = loadSettingsCache().shared;
@@ -291,11 +292,32 @@ export function resolveQueueParams(
       merged.ipAdapterModelFilename = shared.ipAdapterModelFilename.trim();
     }
 
-    const resolvedInputImage =
-      inputImageFilename?.trim() ||
-      base?.inputImageFilename?.trim();
-    if (resolvedInputImage) {
-      merged.inputImageFilename = resolvedInputImage;
+    const resolvedFilenames = (() => {
+      const fromArg = (inputImageFilenames ?? [])
+        .map((entry) => entry?.trim() ?? "")
+        .filter(Boolean);
+      const fromBase = (base?.inputImageFilenames ?? [])
+        .map((entry) => entry?.trim() ?? "")
+        .filter(Boolean);
+      const list = (fromArg.length > 0 ? fromArg : fromBase).slice(0, 4);
+      const primary =
+        inputImageFilename?.trim() ||
+        base?.inputImageFilename?.trim() ||
+        list[0];
+      if (!primary && list.length === 0) {
+        return [] as string[];
+      }
+      if (list.length === 0 && primary) {
+        return [primary];
+      }
+      if (primary && list[0] !== primary) {
+        list[0] = primary;
+      }
+      return list;
+    })();
+    if (resolvedFilenames.length > 0) {
+      merged.inputImageFilename = resolvedFilenames[0];
+      merged.inputImageFilenames = resolvedFilenames;
     }
 
     const resolvedMaskImage =

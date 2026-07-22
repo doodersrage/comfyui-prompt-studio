@@ -6,7 +6,7 @@ import { buildComfyViewPath } from "./comfyui-outputs";
 import { isEditCapableModel, isInpaintModel } from "./model-denoise-defaults";
 import { resolveQueueInputImageFilename } from "./queue-input-image";
 
-const EDIT_TOOLS = new Set(["refine", "inpaint", "image-prompt", "controlnet"]);
+const EDIT_TOOLS = new Set(["refine", "inpaint", "image-prompt", "controlnet", "compose"]);
 
 export function resolveRequeueImageUrlsFromEntry(
   entry: Pick<

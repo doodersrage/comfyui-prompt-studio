@@ -251,6 +251,7 @@ export function resolveRuntimeForModel(
       workflowFiles,
       sharedQueueFlags(shared, model),
       inventory,
+      { tool },
     );
     const lightning = attachLightningTokens(
       model,

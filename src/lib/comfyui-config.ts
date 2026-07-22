@@ -1,6 +1,7 @@
 import { isQwenLightningModel, patchModelSamplingInWorkflow } from "./model-sampling-patch";
 import { isPromptStudioProtectedSampler, shouldSkipGlobalSamplerPatch } from "./workflow-enrich-markers";
-import { prepareLightningWorkflowForQueue, resolveLightningBf16Loaders } from "./workflow-lightning-queue";
+import { prepareLightningWorkflowForQueue, prepareQwenEditReferenceImagesForQueue, resolveLightningBf16Loaders } from "./workflow-lightning-queue";
+import { isEditCapableModel, isQwenRapidAioModel } from "./model-denoise-defaults";
 import { buildLightningLoraFilenameMap } from "./workflow-lora-patch";
 import { normalizeLoraLibrary, type LoraLibraryEntry } from "./lora-stack";
 import {
@@ -15,6 +16,7 @@ import {
   patchLoaderNodesInWorkflow,
   patchWorkflowDirectParams,
 } from "./workflow-direct-patch";
+import { normalizeInputImageFilenames } from "./workflow-load-image-bindings";
 import type { ModelLoaderFilenames } from "./model-checkpoint-map";
 
 export const DEFAULT_POSITIVE_TOKEN = "{{POSITIVE}}";
@@ -31,6 +33,9 @@ export const DEFAULT_FLUX_MAX_SHIFT_TOKEN = "{{FLUX_MAX_SHIFT}}";
 export const DEFAULT_FLUX_BASE_SHIFT_TOKEN = "{{FLUX_BASE_SHIFT}}";
 export const DEFAULT_DENOISE_TOKEN = "{{DENOISE}}";
 export const DEFAULT_INPUT_IMAGE_TOKEN = "{{INPUT_IMAGE}}";
+export const DEFAULT_INPUT_IMAGE_2_TOKEN = "{{INPUT_IMAGE_2}}";
+export const DEFAULT_INPUT_IMAGE_3_TOKEN = "{{INPUT_IMAGE_3}}";
+export const DEFAULT_INPUT_IMAGE_4_TOKEN = "{{INPUT_IMAGE_4}}";
 export const DEFAULT_MASK_IMAGE_TOKEN = "{{MASK_IMAGE}}";
 /** Video (WAN / Hunyuan Video) init-image placeholder — mirrors {{INPUT_IMAGE}} for I2V graphs. */
 export const DEFAULT_INIT_IMAGE_TOKEN = "{{INIT_IMAGE}}";
@@ -68,7 +73,6 @@ import {
   ensureDistilledSamplerParams,
   type ModelSamplerPresetTier,
 } from "./model-sampler-defaults";
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
 import {
   normalizeQueueQualityProfile,
   resolveEffectiveSamplerPreset,
@@ -110,6 +114,8 @@ export type WorkflowParamValues = {
   refinerCheckpointFilename?: string;
   denoise?: string | number;
   inputImageFilename?: string;
+  /** Additional reference images for multi-image edit (Figure 1–4). Index 0 mirrors `inputImageFilename`. */
+  inputImageFilenames?: string[];
   maskImageFilename?: string;
   controlNetModelFilename?: string;
   controlImageFilename?: string;
@@ -342,6 +348,18 @@ export function resolveQueueParams(
   }
   if (merged.inputImageFilename?.trim()) {
     result.inputImageFilename = merged.inputImageFilename.trim();
+  }
+  if (Array.isArray(merged.inputImageFilenames) && merged.inputImageFilenames.length > 0) {
+    const filenames = merged.inputImageFilenames
+      .map((entry) => entry?.trim() ?? "")
+      .filter(Boolean)
+      .slice(0, 4);
+    if (filenames.length > 0) {
+      result.inputImageFilenames = filenames;
+      if (!result.inputImageFilename) {
+        result.inputImageFilename = filenames[0];
+      }
+    }
   }
   if (merged.maskImageFilename?.trim()) {
     result.maskImageFilename = merged.maskImageFilename.trim();
@@ -1181,6 +1199,24 @@ function mergeLoaderTokensIntoCustomTokens(
       value: params.refinerCheckpointFilename.trim(),
     });
   }
+
+  const multiImageTokens = [
+    DEFAULT_INPUT_IMAGE_TOKEN,
+    DEFAULT_INPUT_IMAGE_2_TOKEN,
+    DEFAULT_INPUT_IMAGE_3_TOKEN,
+    DEFAULT_INPUT_IMAGE_4_TOKEN,
+  ] as const;
+  const filenames = normalizeInputImageFilenames(
+    params?.inputImageFilename,
+    params?.inputImageFilenames,
+  );
+  for (let i = 0; i < multiImageTokens.length; i += 1) {
+    const value = filenames[i]?.trim();
+    if (value) {
+      fromParams.push({ token: multiImageTokens[i], value });
+    }
+  }
+
   if (fromParams.length === 0) {
     return customTokens;
   }
@@ -1288,10 +1324,18 @@ export function injectPromptsWithFallbacks(
     // Native Lightning graphs: do not rewrite concrete loaders / latent sizes.
     // Only fill unresolved placeholders and attach queue input images.
     nextWorkflow = forceResolveLoaderPlaceholders(nextWorkflow, loaders);
-    nextWorkflow = patchLoadImageNodesInWorkflow(
-      nextWorkflow,
+    const figureFilenames = normalizeInputImageFilenames(
       input.params?.inputImageFilename,
-    ).workflow;
+      input.params?.inputImageFilenames,
+    );
+    // Single figure: patch LoadImage early. Multi-figure Compose refs are owned
+    // by prepareLightning → ensure (LoadImage create/title + encode wiring).
+    if (figureFilenames.length <= 1) {
+      nextWorkflow = patchLoadImageNodesInWorkflow(
+        nextWorkflow,
+        figureFilenames[0],
+      ).workflow;
+    }
     nextWorkflow = patchLoadImageMaskNodesInWorkflow(
       nextWorkflow,
       input.params?.maskImageFilename,
@@ -1342,6 +1386,19 @@ export function injectPromptsWithFallbacks(
       syncLoadersToModel: isLightning ? false : options?.syncWorkflowLoadersToModel,
     },
   );
+
+  // Non-Lightning edit packs/scaffolds still need Figure→encode wiring.
+  if (
+    options?.model &&
+    !isQwenLightningModel(options.model) &&
+    (isEditCapableModel(options.model) || /edit/i.test(options.model))
+  ) {
+    nextWorkflow = prepareQwenEditReferenceImagesForQueue(
+      nextWorkflow,
+      options.model,
+      input.params,
+    );
+  }
 
   const distilledModelId = options?.model;
   if (
@@ -1624,6 +1681,9 @@ export const WORKFLOW_PARAM_TOKEN_HELP = [
   DEFAULT_STEPS_TOKEN,
   DEFAULT_DENOISE_TOKEN,
   DEFAULT_INPUT_IMAGE_TOKEN,
+  DEFAULT_INPUT_IMAGE_2_TOKEN,
+  DEFAULT_INPUT_IMAGE_3_TOKEN,
+  DEFAULT_INPUT_IMAGE_4_TOKEN,
   DEFAULT_MASK_IMAGE_TOKEN,
   DEFAULT_INIT_IMAGE_TOKEN,
   DEFAULT_VIDEO_FRAMES_TOKEN,

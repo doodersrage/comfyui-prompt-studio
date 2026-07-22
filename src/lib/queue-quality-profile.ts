@@ -184,8 +184,8 @@ export function formatQueueQualityProfileHint(
         ? ` · UpscaleModel → ~${targetScale}× (area) + Lanczos polish`
         : ` · UpscaleModel → ~${targetScale}× (area)`;
     } else if (
-      /^qwen-image-2512$/i.test(model) &&
-      normalizeQueueQualityProfile(profile) === "final"
+      /^qwen-image-2512$/i.test(model) ||
+      /^qwen-image-2\.0$/i.test(model)
     ) {
       upscaleNote = " · Lanczos upscale (chroma guard)";
     } else {
@@ -376,6 +376,14 @@ export function upscaleScaleForProfile(
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
     return mode === "max" ? 1.28 : 1.18;
   }
+  // Vanilla Qwen: keep Max at Final-scale Lanczos (~1.25×) for safer chroma.
+  if (
+    options?.model &&
+    (/^qwen-image-2512$/i.test(options.model) ||
+      /^qwen-image-2\.0$/i.test(options.model))
+  ) {
+    return 1.25;
+  }
   return mode === "max" ? 1.5 : 1.25;
 }
 
@@ -472,11 +480,12 @@ export function profileUsesNeuralUpscaleEnrich(
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
     return false;
   }
-  // Vanilla 2512 Final: Lanczos only — neural 4× can push chroma/saturation hard.
+  // Vanilla 2512 / 2.0: Lanczos only on Final and Max — neural 4× pushes chroma and
+  // can amplify any residual anatomy noise after latent-detail was disabled.
   if (
     options?.model &&
-    /^qwen-image-2512$/i.test(options.model) &&
-    normalizeQueueQualityProfile(profile) === "final"
+    (/^qwen-image-2512$/i.test(options.model) ||
+      /^qwen-image-2\.0$/i.test(options.model))
   ) {
     return false;
   }
@@ -523,8 +532,9 @@ export function sdxlRefinerDenoiseForProfile(
 }
 
 /**
- * Soft latent detail pass for Flux / vanilla Qwen Final/Max (not Lightning, Rapid, SDXL).
+ * Soft latent detail pass for Flux Final/Max (not Lightning, Rapid, SDXL, vanilla Qwen).
  * Mild LatentUpscaleBy + low-denoise second KSampler before VAEDecode.
+ * Vanilla Qwen 2512 / 2.0 skip this — the second pass melts complex anatomy.
  */
 export function profileUsesLatentDetailPass(
   profile: QueueQualityProfile | undefined,
@@ -551,11 +561,12 @@ export function profileUsesLatentDetailPass(
   if (/^sdxl/i.test(model) || model === "sdxl") {
     return false;
   }
-  return (
-    /^qwen-image-2512$/i.test(model) ||
-    /^qwen-image-2\.0$/i.test(model) ||
-    /^flux/i.test(model)
-  );
+  // Vanilla Qwen: image-space Final/Max upscale only — latent hires-fix
+  // (1.12–1.2× + denoise 0.14–0.2) warps limbs/clothing on hard poses.
+  if (/^qwen-image-2512$/i.test(model) || /^qwen-image-2\.0$/i.test(model)) {
+    return false;
+  }
+  return /^flux/i.test(model);
 }
 
 export function latentDetailScaleForProfile(

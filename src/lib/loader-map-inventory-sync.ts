@@ -6,6 +6,7 @@ import {
   type ModelVaeMap,
 } from "./model-checkpoint-map";
 import type { ModelControlNetMap } from "./model-controlnet-map";
+import { qwenUnetFamiliesCompatible } from "./model-loader-precision";
 import {
   SUGGESTED_MODEL_UPSCALE_MAP,
   type ModelUpscaleMap,
@@ -79,6 +80,9 @@ export function matchInventoryFilename(
   }
   const stem = lower.replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, "");
   return inventory.find((entry) => {
+    if (!qwenUnetFamiliesCompatible(trimmed, entry)) {
+      return false;
+    }
     const entryLower = entry.toLowerCase();
     const entryStem = entryLower.replace(
       /\.(safetensors|ckpt|pt|pth|bin|gguf)$/i,
@@ -108,6 +112,9 @@ export function matchInventoryFilenameNearMiss(
     return undefined;
   }
   return inventory.find((entry) => {
+    if (!qwenUnetFamiliesCompatible(trimmed, entry)) {
+      return false;
+    }
     const entryStem = loaderStemWithoutPrecision(entry);
     return (
       entryStem === baseStem ||

@@ -296,28 +296,29 @@ function inferKleinLoaderHints(modelId: string): ModelLoaderFilenames {
     return {
       checkpoint: "flux-2-klein-9b.safetensors",
       unet: "flux-2-klein-9b.safetensors",
-      dualClip: "flux2-klein-9b-uncensored.safetensors",
+      // Official Comfy Klein 9B text encoder (CLIPLoader type flux2).
+      dualClip: "qwen_3_8b_fp8mixed.safetensors",
     };
   }
   if (id.includes("flux-2-klein-9b")) {
     return {
       checkpoint: "flux-2-klein-base-9b.safetensors",
       unet: "flux-2-klein-base-9b.safetensors",
-      dualClip: "flux2-klein-9b-uncensored.safetensors",
+      dualClip: "qwen_3_8b_fp8mixed.safetensors",
     };
   }
   if (id.includes("flux-2-klein-4b-distilled") || id.includes("flux-2-klein-4b-distill")) {
     return {
       checkpoint: "flux-2-klein-4b.safetensors",
       unet: "flux-2-klein-4b.safetensors",
-      dualClip: "flux2-klein-4b.safetensors",
+      dualClip: "qwen_3_4b.safetensors",
     };
   }
   if (id.includes("flux-2-klein")) {
     return {
       checkpoint: "flux-2-klein-base-4b.safetensors",
       unet: "flux-2-klein-base-4b.safetensors",
-      dualClip: "flux2-klein-4b.safetensors",
+      dualClip: "qwen_3_4b.safetensors",
     };
   }
   return {};
