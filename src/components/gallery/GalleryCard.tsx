@@ -18,6 +18,7 @@ import {
   scoreGalleryEntryHeuristic,
   type AestheticScoreResult,
 } from "@/lib/aesthetic-score";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { updateComfyGalleryEntryById } from "@/lib/comfyui-gallery";
 import {
   downloadGalleryImage,
@@ -164,7 +165,9 @@ export default function GalleryCard({
     entry.status === "pending" || entry.status === "running";
 
   useEffect(() => {
-    setHeroLoaded(false);
+    scheduleAfterCommit(() => {
+      setHeroLoaded(false);
+    });
   }, [previewUrl]);
 
   const heuristicScore = useMemo(
@@ -196,7 +199,9 @@ export default function GalleryCard({
   const [aestheticBusy, setAestheticBusy] = useState(false);
 
   useEffect(() => {
-    setAestheticScore(cachedScore ?? heuristicScore);
+    scheduleAfterCommit(() => {
+      setAestheticScore(cachedScore ?? heuristicScore);
+    });
   }, [cachedScore, heuristicScore]);
 
   const scoreWithVision = async () => {

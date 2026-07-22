@@ -692,7 +692,9 @@ export default function SharedToolControls({
     if (normalizeQueueQualityProfile(shared.queueQualityProfile) !== "followSettings") {
       return;
     }
-    handleQueueQualityProfileChange("final");
+    scheduleAfterCommit(() => {
+      handleQueueQualityProfileChange("final");
+    });
   }, [shared.queueQualityProfile, shared.useSystemWorkflows]);
 
   const handleExpandWildcardsChange = (value: boolean) => {

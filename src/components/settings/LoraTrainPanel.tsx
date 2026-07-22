@@ -22,6 +22,7 @@ import {
   loadSettingsCache,
   saveSharedSettings,
 } from "@/lib/settings-cache";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type LoraTrainPanelProps = {
   onStatus?: (message: string) => void;
@@ -119,7 +120,9 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
   }, [persistJobs]);
 
   useEffect(() => {
-    void refreshFromServer();
+    scheduleAfterCommit(() => {
+      void refreshFromServer();
+    });
     const timer = window.setInterval(() => {
       void refreshFromServer();
     }, 8_000);

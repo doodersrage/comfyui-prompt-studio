@@ -38,6 +38,7 @@ import { createDefaultRegionalSlots } from "@/lib/regional-prompt-slots";
 import { sharedPatchFromGalleryHandoff } from "@/lib/gallery-handoff";
 import { DEFAULT_IMAGE_COMPOSE_TOOL_CACHE } from "@/lib/settings-cache";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   ToolBadge,
   ToolLayout,
@@ -149,7 +150,9 @@ export default function ComposeTool() {
   );
 
   useEffect(() => {
-    setOutput(builtOutput);
+    scheduleAfterCommit(() => {
+      setOutput(builtOutput);
+    });
   }, [builtOutput]);
 
   const clearMaskState = useCallback(() => {

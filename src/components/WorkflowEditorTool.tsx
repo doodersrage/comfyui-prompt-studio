@@ -105,6 +105,10 @@ export default function WorkflowEditorTool() {
     }
     try {
       const parsed = parseWorkflowJson(file.workflowJson);
+      if (!parsed) {
+        setStatus("Workflow JSON parsed to empty.");
+        return;
+      }
       loadWorkflowObject(parsed, file.name);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Parse failed.");
@@ -114,6 +118,10 @@ export default function WorkflowEditorTool() {
   const onLoadJson = useCallback(() => {
     try {
       const parsed = parseWorkflowJson(rawJson);
+      if (!parsed) {
+        setStatus("JSON parsed to empty.");
+        return;
+      }
       loadWorkflowObject(parsed, "pasted JSON");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Parse failed.");

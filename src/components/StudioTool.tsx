@@ -778,7 +778,9 @@ export default function StudioTool() {
 
   useEffect(() => {
     if (!visibleTabIds.has(tab)) {
-      setTab("history");
+      scheduleAfterCommit(() => {
+        setTab("history");
+      });
     }
   }, [tab, visibleTabIds]);
 

@@ -51,17 +51,23 @@ describe("comfyui output media kind resolution", () => {
     );
   });
 
-  it("treats mp4/webm and animated webp/gif as video for gallery rendering", () => {
+  it("treats mp4/webm and format-tagged gif/webp as video for gallery rendering", () => {
     assert.equal(resolveComfyOutputMediaKind({ filename: "clip.mp4" }), "video");
     assert.equal(resolveComfyOutputMediaKind({ filename: "clip.webm" }), "video");
-    assert.equal(resolveComfyOutputMediaKind({ filename: "clip.gif" }), "video");
-    assert.equal(resolveComfyOutputMediaKind({ filename: "clip.webp" }), "video");
+    // Bare .gif/.webp are ambiguous (still vs animated) — prefer image unless
+    // Comfy tagged image/gif|webp or video/* (see resolveComfyOutputMediaKind).
+    assert.equal(resolveComfyOutputMediaKind({ filename: "clip.gif" }), "image");
+    assert.equal(resolveComfyOutputMediaKind({ filename: "clip.webp" }), "image");
     assert.equal(
       resolveComfyOutputMediaKind({ filename: "out.bin", format: "video/h264-mp4" }),
       "video",
     );
     assert.equal(
       resolveComfyOutputMediaKind({ filename: "out.bin", format: "image/gif" }),
+      "video",
+    );
+    assert.equal(
+      resolveComfyOutputMediaKind({ filename: "out.bin", format: "image/webp" }),
       "video",
     );
   });

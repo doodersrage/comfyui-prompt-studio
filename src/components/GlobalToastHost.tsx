@@ -8,6 +8,7 @@ import {
   getAppToasts,
   type AppToast,
 } from "@/lib/app-toast";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 const TONE_CLASS: Record<AppToast["tone"], string> = {
   neutral:
@@ -25,7 +26,9 @@ export default function GlobalToastHost() {
   const [toasts, setToasts] = useState<AppToast[]>([]);
 
   useEffect(() => {
-    setToasts(getAppToasts());
+    scheduleAfterCommit(() => {
+      setToasts(getAppToasts());
+    });
     const onUpdate = (event: Event) => {
       const detail = (event as CustomEvent<AppToast[]>).detail;
       setToasts(Array.isArray(detail) ? detail : getAppToasts());

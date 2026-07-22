@@ -13,6 +13,7 @@ import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
   getComfyLivePreviewUrl,
 } from "@/lib/comfyui-live-preview-store";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type ComfyUiJobStatusPanelProps = {
   job: ComfyUiJobTrackerState;
@@ -74,7 +75,9 @@ export default function ComfyUiJobStatusPanel({
   );
 
   useEffect(() => {
-    setPreviewUrl(job.previewUrl ?? getComfyLivePreviewUrl(job.promptId));
+    scheduleAfterCommit(() => {
+      setPreviewUrl(job.previewUrl ?? getComfyLivePreviewUrl(job.promptId));
+    });
     const onPreview = (event: Event) => {
       const detail = (event as CustomEvent<{ promptId?: string; keys?: string[] }>)
         .detail;
@@ -196,7 +199,9 @@ export function ComfyUiGalleryJobPlaceholder({
   );
 
   useEffect(() => {
-    setPreviewUrl(getComfyLivePreviewUrl(entry.promptId, [entry.clientId]));
+    scheduleAfterCommit(() => {
+      setPreviewUrl(getComfyLivePreviewUrl(entry.promptId, [entry.clientId]));
+    });
     const onPreview = (event: Event) => {
       const detail = (event as CustomEvent<{ promptId?: string; keys?: string[] }>)
         .detail;

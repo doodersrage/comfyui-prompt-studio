@@ -12,6 +12,7 @@ import {
 } from "@/lib/regional-prompt-builder";
 import { FieldLabel, TextArea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type RegionalPromptBuilderPanelProps = {
   onApply: (prompt: string) => void;
@@ -44,9 +45,11 @@ export default function RegionalPromptBuilderPanel({
     if (!controlledSegments) {
       return;
     }
-    setSegments(
-      controlledSegments.length > 0 ? controlledSegments : defaultSegments(),
-    );
+    scheduleAfterCommit(() => {
+      setSegments(
+        controlledSegments.length > 0 ? controlledSegments : defaultSegments(),
+      );
+    });
   }, [controlledSegments]);
 
   const updateSegments = (next: RegionalPromptSegment[]) => {

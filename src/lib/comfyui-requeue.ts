@@ -765,7 +765,7 @@ export async function requeueFaceDetailFromGalleryEntry(
 
   const libraryWorkflow = findLibraryFaceDetailerWorkflow();
   let workflowJson = libraryWorkflow?.workflowJson;
-  let workflowFileId = libraryWorkflow?.id;
+  const workflowFileId = libraryWorkflow?.id;
 
   if (!workflowJson) {
     const objectInfo = await fetchComfyObjectInfoNodeTypesCached().catch(() => null);

@@ -19,12 +19,15 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
   toolDefaults: NonNullable<ToolSettingsCache[K]>,
 ) {
   const defaultsRef = useRef(toolDefaults);
-  defaultsRef.current = toolDefaults ?? defaultsRef.current;
   const [mounted, setMounted] = useState(false);
   const [shared, setShared] = useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
   const [toolSettings, setToolSettings] = useState<
     NonNullable<ToolSettingsCache[K]>
   >(() => (toolDefaults ?? {}) as NonNullable<ToolSettingsCache[K]>);
+
+  useEffect(() => {
+    defaultsRef.current = toolDefaults ?? defaultsRef.current;
+  }, [toolDefaults]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -56,7 +59,7 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
       setMounted(true);
     });
     // toolDefaults are module-level constants; toolKey selects the cache slice
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [toolKey]);
 
   const updateShared = useCallback(
@@ -98,7 +101,7 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
     shared,
     toolSettings:
       toolSettings ??
-      defaultsRef.current ??
+      toolDefaults ??
       ({} as NonNullable<ToolSettingsCache[K]>),
     updateShared,
     updateToolSettings,

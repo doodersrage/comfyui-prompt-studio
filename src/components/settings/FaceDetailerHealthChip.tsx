@@ -5,6 +5,7 @@ import {
   getFaceDetailerHealth,
   type FaceDetailerHealth,
 } from "@/lib/face-detailer-health";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type FaceDetailerHealthChipProps = {
   refreshKey?: number;
@@ -16,7 +17,9 @@ export default function FaceDetailerHealthChip({
   const [health, setHealth] = useState<FaceDetailerHealth | null>(null);
 
   useEffect(() => {
-    setHealth(getFaceDetailerHealth());
+    scheduleAfterCommit(() => {
+      setHealth(getFaceDetailerHealth());
+    });
   }, [refreshKey]);
 
   if (!health) {

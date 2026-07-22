@@ -464,7 +464,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               "Plugin hook blocked the queue.",
           );
         }
-        let workingPrompt = pluginPreflight.payload.prompt || prompt;
+        const workingPrompt = pluginPreflight.payload.prompt || prompt;
         const pluginNegative = pluginPreflight.payload.negativePrompt;
         const pluginDenoise = pluginPreflight.payload.denoise;
         const pluginCfg = pluginPreflight.payload.cfg;

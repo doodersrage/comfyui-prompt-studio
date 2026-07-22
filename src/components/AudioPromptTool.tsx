@@ -9,6 +9,7 @@ import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { DEFAULT_AUDIO_MODEL } from "@/lib/comfy-models/client";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import {
   AUDIO_SECONDS_TOKEN,
@@ -69,15 +70,19 @@ export default function AudioPromptTool() {
       const result = ensureAudioWorkflowScaffold(model);
       if (!cancelled) {
         updateShared(result.sharedPatch);
-        setWorkflowStatus(result.note);
+        scheduleAfterCommit(() => {
+          setWorkflowStatus(result.note);
+        });
       }
     } catch (error) {
       if (!cancelled) {
-        setWorkflowStatus(
-          error instanceof Error
-            ? error.message
-            : "Could not create audio workflow scaffold. Import a Stable Audio pack in Settings → workflows.",
-        );
+        scheduleAfterCommit(() => {
+          setWorkflowStatus(
+            error instanceof Error
+              ? error.message
+              : "Could not create audio workflow scaffold. Import a Stable Audio pack in Settings → workflows.",
+          );
+        });
       }
     }
     return () => {

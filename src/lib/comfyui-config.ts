@@ -235,10 +235,10 @@ export type WorkflowPlaceholderTokens = {
   denoise: string;
   inputImage: string;
   maskImage: string;
-  /** Video init-image placeholder — same resolved value as inputImage, distinct token. Optional so pre-existing token sets built elsewhere don't need updating. */
-  initImage?: string;
-  videoFrames?: string;
-  videoFps?: string;
+  /** Video init-image placeholder — same resolved value as inputImage, distinct token. */
+  initImage: string;
+  videoFrames: string;
+  videoFps: string;
 };
 
 export type ResolvedComfyUiConfig = {

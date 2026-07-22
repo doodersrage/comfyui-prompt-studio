@@ -43,9 +43,9 @@ describe("comfyui-requeue face detail guards", () => {
     assert.equal(galleryEntrySupportsFaceDetail(undefined), true);
   });
 
-  it("hides the gallery action when no FaceDetailer library workflow is available", () => {
-    // Without a pinned/imported FaceDetailer graph, the action must stay hidden
-    // so we never queue the old LoadImage→SaveImage pass-through.
+  it("shows the gallery action for completed outputs when Impact Pack may auto-insert", () => {
+    // Library FaceDetailer is preferred at queue time; the action stays visible
+    // so Impact Pack auto-insert can run when object_info confirms it.
     assert.equal(
       canFaceDetailGalleryEntry({
         status: "completed",
@@ -53,7 +53,7 @@ describe("comfyui-requeue face detail guards", () => {
         comfyUrl: "http://127.0.0.1:8188",
         model: "qwen-image-2512",
       }),
-      false,
+      true,
     );
   });
 });

@@ -9,6 +9,7 @@ import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { DEFAULT_MESH_MODEL, getComfyModelDefinition } from "@/lib/comfy-models/client";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   MESH_RESOLUTION_TOKEN,
   buildMeshPrompt,
@@ -70,15 +71,19 @@ export default function MeshPromptTool() {
       const result = ensureMeshWorkflowScaffold(model);
       if (!cancelled) {
         updateShared(result.sharedPatch);
-        setWorkflowStatus(result.note);
+        scheduleAfterCommit(() => {
+          setWorkflowStatus(result.note);
+        });
       }
     } catch (error) {
       if (!cancelled) {
-        setWorkflowStatus(
-          error instanceof Error
-            ? error.message
-            : "Could not create mesh workflow scaffold. Import a Hunyuan3D pack in Settings → workflows.",
-        );
+        scheduleAfterCommit(() => {
+          setWorkflowStatus(
+            error instanceof Error
+              ? error.message
+              : "Could not create mesh workflow scaffold. Import a Hunyuan3D pack in Settings → workflows.",
+          );
+        });
       }
     }
     return () => {

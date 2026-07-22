@@ -11,6 +11,7 @@ import {
   loadSettingsCache,
   saveSharedSettings,
 } from "@/lib/settings-cache";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type LoraDatasetExportDialogProps = {
   open: boolean;
@@ -34,8 +35,10 @@ export default function LoraDatasetExportDialog({
     const prefs = normalizeLoraDatasetExportPrefs(
       loadSettingsCache().shared.loraDatasetExportPrefs,
     );
-    setTriggerWord(prefs.triggerWord ?? "");
-    setCaptionMode(prefs.captionMode ?? "prompt");
+    scheduleAfterCommit(() => {
+      setTriggerWord(prefs.triggerWord ?? "");
+      setCaptionMode(prefs.captionMode ?? "prompt");
+    });
   }, [open]);
 
   if (!open) {

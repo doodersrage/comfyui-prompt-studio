@@ -131,8 +131,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("studio");
 
   useEffect(() => {
-    setFavorites(loadNavFavorites());
-    setWorkspaceMode(loadWorkspaceMode());
+    scheduleAfterCommit(() => {
+      setFavorites(loadNavFavorites());
+      setWorkspaceMode(loadWorkspaceMode());
+    });
     const onStorage = () => {
       setFavorites(loadNavFavorites());
       setWorkspaceMode(loadWorkspaceMode());
@@ -226,22 +228,28 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     }
     const saved = loadExpandedNavGroups();
     if (saved && saved.length > 0) {
-      setExpandedGroups(saved);
+      scheduleAfterCommit(() => {
+        setExpandedGroups(saved);
+      });
       return;
     }
     if (favorites.length > 0) {
       const activeGroup = visibleGroups.find((group) =>
         group.links.some((link) => linkIsActive(link, pathname, search)),
       );
-      setExpandedGroups(
-        [
-          ...defaultExpandedNavGroups(workspaceMode, visibleGroups).slice(0, 1),
-          ...(activeGroup ? [activeGroup.label] : []),
-        ].filter((label, index, list) => list.indexOf(label) === index),
-      );
+      scheduleAfterCommit(() => {
+        setExpandedGroups(
+          [
+            ...defaultExpandedNavGroups(workspaceMode, visibleGroups).slice(0, 1),
+            ...(activeGroup ? [activeGroup.label] : []),
+          ].filter((label, index, list) => list.indexOf(label) === index),
+        );
+      });
       return;
     }
-    setExpandedGroups(defaultExpandedNavGroups(workspaceMode, visibleGroups));
+    scheduleAfterCommit(() => {
+      setExpandedGroups(defaultExpandedNavGroups(workspaceMode, visibleGroups));
+    });
   }, [expandedGroups, favorites.length, pathname, search, visibleGroups, workspaceMode]);
 
   // When workspace mode changes, re-seed expand defaults (unless user already toggled).
@@ -250,7 +258,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     if (saved && saved.length > 0) {
       return;
     }
-    setExpandedGroups(defaultExpandedNavGroups(workspaceMode, visibleGroups));
+    scheduleAfterCommit(() => {
+      setExpandedGroups(defaultExpandedNavGroups(workspaceMode, visibleGroups));
+    });
   }, [workspaceMode]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional mode switch reset
 
   useEffect(() => {
@@ -276,7 +286,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       return;
     }
     const next = [...expandedGroups, activeGroup.label];
-    setExpandedGroups(next);
+    scheduleAfterCommit(() => {
+      setExpandedGroups(next);
+    });
     saveExpandedNavGroups(next);
   }, [expandedGroups, pathname, search, visibleGroups]);
 

@@ -42,7 +42,9 @@ function QueueActiveJobRow({
   const percent = comfyUiJobProgressPercent(entry);
 
   useEffect(() => {
-    setPreviewUrl(getComfyLivePreviewUrl(entry.promptId, [entry.clientId]));
+    scheduleAfterCommit(() => {
+      setPreviewUrl(getComfyLivePreviewUrl(entry.promptId, [entry.clientId]));
+    });
     const onPreview = (event: Event) => {
       const detail = (event as CustomEvent<{ promptId?: string; keys?: string[] }>)
         .detail;

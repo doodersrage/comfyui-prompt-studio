@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import { loadSettingsCache } from "@/lib/settings-cache";
 import { fetchComfyObjectInfoCached } from "@/lib/comfyui-object-info-cache";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type AssetRow = {
   id: string;
@@ -102,8 +103,9 @@ export default function ComfyModelAssetsPanel({
         ? loadSettingsCache().shared.model
         : undefined;
       const params = new URLSearchParams();
-      if (settings.apiUrl.trim()) {
-        params.set("comfyUrl", settings.apiUrl.trim());
+      const apiUrl = settings.apiUrl?.trim() ?? "";
+      if (apiUrl) {
+        params.set("comfyUrl", apiUrl);
       }
       if (modelId) {
         params.set("modelId", modelId);
@@ -131,7 +133,9 @@ export default function ComfyModelAssetsPanel({
   }, [filterCurrentModel]);
 
   useEffect(() => {
-    void load();
+    scheduleAfterCommit(() => {
+      void load();
+    });
   }, [load]);
 
   useEffect(() => {

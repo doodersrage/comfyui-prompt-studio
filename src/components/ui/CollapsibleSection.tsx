@@ -6,6 +6,7 @@ import {
   loadCollapsibleOpen,
   saveCollapsibleOpen,
 } from "@/lib/collapsible-persist";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export function CollapsibleSection({
   title,
@@ -30,7 +31,9 @@ export function CollapsibleSection({
     if (!storageId) {
       return;
     }
-    setOpen(loadCollapsibleOpen(storageId, defaultOpen));
+    scheduleAfterCommit(() => {
+      setOpen(loadCollapsibleOpen(storageId, defaultOpen));
+    });
   }, [defaultOpen, storageId]);
 
   return (

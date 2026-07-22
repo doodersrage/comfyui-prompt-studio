@@ -211,10 +211,12 @@ export default function CommandPalette() {
     if (!open) {
       return;
     }
-    setFavorites(loadNavFavorites());
-    setRecent(loadRecentDestinations());
-    setLastRoute(loadLastToolRoute());
-    setLastDraft(loadLastToolDraft());
+    scheduleAfterCommit(() => {
+      setFavorites(loadNavFavorites());
+      setRecent(loadRecentDestinations());
+      setLastRoute(loadLastToolRoute());
+      setLastDraft(loadLastToolDraft());
+    });
     void import("@/lib/plugin-manifest").then(({ navLinksFromInstalledPlugins }) => {
       setPluginNavItems(
         navLinksFromInstalledPlugins().map((link) => ({
@@ -337,7 +339,9 @@ export default function CommandPalette() {
   }, [favorites, globalMatches, items, lastDraft, lastRoute, query, recent]);
 
   useEffect(() => {
-    setActiveIndex(0);
+    scheduleAfterCommit(() => {
+      setActiveIndex(0);
+    });
   }, [filtered.length, query, open]);
 
   useEffect(() => {

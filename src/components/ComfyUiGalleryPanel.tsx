@@ -561,7 +561,9 @@ export default function ComfyUiGalleryPanel({
     const id = filter.focusEntryId.trim();
     const node = document.querySelector(`[data-gallery-entry="${CSS.escape(id)}"]`);
     node?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    setSelectedIds((previous) => (previous.includes(id) ? previous : [id]));
+    scheduleAfterCommit(() => {
+      setSelectedIds((previous) => (previous.includes(id) ? previous : [id]));
+    });
   }, [filter.focusEntryId, visibleEntries.length]);
 
   useEffect(() => {

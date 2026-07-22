@@ -18,7 +18,10 @@ export function useSeedToolDraft(
 ): void {
   const seededRef = useRef(false);
   const draftRef = useRef(draft);
-  draftRef.current = draft;
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
   useEffect(() => {
     if (!mounted || seededRef.current) {
@@ -31,5 +34,5 @@ export function useSeedToolDraft(
     }
     seededRef.current = true;
     rememberDraftFields(current);
-  }, [mounted]);
+  }, [mounted, draft]);
 }

@@ -169,7 +169,10 @@ export function parsePngMetadata(buffer: ArrayBuffer): PngMetadataResult | null 
     return {
       positive: texts.positive ?? a1111.positive,
       negative: texts.negative ?? a1111.negative,
-      seed: queueParams.seed ?? a1111.seed,
+      seed:
+        queueParams.seed != null
+          ? String(queueParams.seed)
+          : a1111.seed,
       workflowJson: JSON.stringify(workflow),
       queueParams: Object.keys(queueParams).length > 0 ? queueParams : undefined,
       rawParameters: a1111Raw,

@@ -365,15 +365,3 @@ export function OPTIONS() {
   });
 }
 
-/** @internal test helper */
-export function __resetLoraTrainJobsForTests(): void {
-  serverJobs.clear();
-  for (const child of childByJobId.values()) {
-    try {
-      child.kill("SIGTERM");
-    } catch {
-      // ignore
-    }
-  }
-  childByJobId.clear();
-}

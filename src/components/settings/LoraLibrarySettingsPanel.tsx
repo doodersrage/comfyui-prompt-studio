@@ -10,6 +10,7 @@ import {
   resolveActiveLoraStack,
   type LoraLibraryEntry,
 } from "@/lib/lora-stack";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 type LoraLibrarySettingsPanelProps = {
   library: LoraLibraryEntry[] | undefined;
@@ -57,7 +58,9 @@ export default function LoraLibrarySettingsPanel({
   }, [comfyUrl]);
 
   useEffect(() => {
-    void refreshInventory();
+    scheduleAfterCommit(() => {
+      void refreshInventory();
+    });
   }, [refreshInventory]);
 
   const libraryFilenames = useMemo(() => {

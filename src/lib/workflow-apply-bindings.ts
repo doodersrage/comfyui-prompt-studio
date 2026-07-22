@@ -12,8 +12,6 @@ import {
   DEFAULT_INIT_IMAGE_TOKEN,
   DEFAULT_VIDEO_FRAMES_TOKEN,
   DEFAULT_VIDEO_FPS_TOKEN,
-  DEFAULT_NEGATIVE_TOKEN,
-  DEFAULT_POSITIVE_TOKEN,
   DEFAULT_SAMPLER_TOKEN,
   DEFAULT_SCHEDULER_TOKEN,
   DEFAULT_SEED_TOKEN,
@@ -44,10 +42,7 @@ import {
 } from "./workflow-load-image-bindings";
 import type { WorkflowNodeMapping } from "./workflow-node-mapper";
 import { isConcreteLoraFilename } from "./workflow-lora-patch";
-import {
-  isPromptEncodeNode,
-  resolvePromptEncodeTextField,
-} from "./workflow-prompt-encode";
+import { resolvePromptEncodeTextField } from "./workflow-prompt-encode";
 
 const INIT_IMAGE_TITLE = /\b(init|i2v|start\s*frame|first\s*frame)\b/i;
 

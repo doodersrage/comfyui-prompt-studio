@@ -550,7 +550,11 @@ export function softBindScaffoldFromInventory(
     if (!node || typeof node !== "object") {
       continue;
     }
-    const record = node as { class_type?: string; inputs?: Record<string, unknown> };
+    const record = node as {
+      class_type?: string;
+      inputs?: Record<string, unknown>;
+      _meta?: { title?: string };
+    };
     if (!record.inputs) {
       continue;
     }

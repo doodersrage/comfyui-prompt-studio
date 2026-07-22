@@ -111,7 +111,7 @@ export function normalizeSessionRecipe(value: unknown): SessionRecipe | null {
 }
 
 export function loadSessionRecipes(): SessionRecipe[] {
-  const raw = readBrowserValue<unknown>(SESSION_RECIPES_KEY, []);
+  const raw = readBrowserValue<unknown>(SESSION_RECIPES_KEY) ?? [];
   if (!Array.isArray(raw)) {
     return [];
   }

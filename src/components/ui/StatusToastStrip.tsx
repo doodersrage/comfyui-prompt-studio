@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { isTransientProgressStatus } from "@/lib/status-progress";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 
 export type StatusToastNote = {
   id: string;
@@ -62,8 +63,10 @@ export default function StatusToastStrip({
   const fingerprint = cleaned.map((note) => `${note.id}:${note.text}`).join("|");
 
   useEffect(() => {
-    setDismissedKey(null);
-    setExpanded(false);
+    scheduleAfterCommit(() => {
+      setDismissedKey(null);
+      setExpanded(false);
+    });
   }, [fingerprint]);
 
   if (cleaned.length === 0 || dismissedKey === fingerprint) {

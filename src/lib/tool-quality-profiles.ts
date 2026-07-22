@@ -53,7 +53,6 @@ export const SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES: ToolQueueQualityProfiles = {
   mesh: "final",
   duo: "final",
   format: "followSettings",
-  video: "final",
 };
 
 export function normalizeToolQueueQualityProfiles(

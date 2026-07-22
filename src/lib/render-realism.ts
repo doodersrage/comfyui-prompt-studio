@@ -177,7 +177,7 @@ export function applyRenderRealismForModel(input: {
     maxAppendChars: input.maxPositiveAppendChars,
   });
   const usedAppend = Math.max(0, positive.length - input.positive.trim().length);
-  let remaining =
+  const remaining =
     typeof input.maxPositiveAppendChars === "number"
       ? Math.max(0, input.maxPositiveAppendChars - usedAppend)
       : undefined;

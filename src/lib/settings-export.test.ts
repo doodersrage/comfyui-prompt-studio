@@ -84,7 +84,8 @@ describe("settings-export", () => {
     const bundle = exportSettingsBundle();
     const json = JSON.stringify(bundle);
     const parsed = parseSettingsBundle(json);
-    assert.deepEqual(parsed, bundle);
+    // JSON.stringify drops `undefined` fields; compare against the serialized shape.
+    assert.deepEqual(parsed, JSON.parse(json));
   });
 
   it("rejects invalid or wrong-version bundle files", async () => {
