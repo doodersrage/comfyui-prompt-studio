@@ -281,7 +281,7 @@ export function ToolPageShell({
 }) {
   return (
     <div
-      className={`mx-auto flex w-full flex-col gap-[var(--section-gap)] px-[var(--page-gutter)] py-10 sm:py-12 lg:py-14 ${widthClasses[width]} ${className}`.trim()}
+      className={`mx-auto flex w-full flex-col gap-[var(--section-gap)] px-[var(--page-gutter)] py-10 pb-28 sm:py-12 md:pb-12 lg:py-14 ${widthClasses[width]} ${className}`.trim()}
     >
       {children}
     </div>

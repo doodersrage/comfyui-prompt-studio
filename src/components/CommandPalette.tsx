@@ -6,10 +6,15 @@ import { useRouter } from "next/navigation";
 import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
 import { featureForPath } from "@/lib/auth/features";
 import {
+  APP_NAV_GROUPS,
   APP_NAV_PROFILE_LINK,
   APP_NAV_SETTINGS_LINK,
   flattenAppNavLinks,
 } from "@/lib/app-nav-catalog";
+import {
+  loadWorkspaceMode,
+  navGroupsForWorkspaceMode,
+} from "@/lib/workspace-mode";
 import { SETTINGS_TABS, settingsTabHref } from "@/lib/settings-nav";
 import { STUDIO_TABS, studioTabHref } from "@/lib/studio-nav";
 import {
@@ -98,27 +103,35 @@ const ACTION_ITEMS: CommandItem[] = [
 ];
 
 function buildNavItems(): CommandItem[] {
-  const nav = flattenAppNavLinks().map((link) => ({
+  const mode = loadWorkspaceMode();
+  const groups = navGroupsForWorkspaceMode(mode, APP_NAV_GROUPS);
+  const nav = flattenAppNavLinks(groups).map((link) => ({
     id: `nav-${link.href}`,
     label: link.label,
     subtitle: link.description,
     href: link.href,
     group: "Navigate",
   }));
-  const settingsTabs = SETTINGS_TABS.map((tab) => ({
-    id: `settings-${tab.id}`,
-    label: `Settings · ${tab.label}`,
-    subtitle: tab.description,
-    href: settingsTabHref(tab.id),
-    group: "Settings",
-  }));
-  const studioTabs = STUDIO_TABS.map((tab) => ({
-    id: `studio-${tab.id}`,
-    label: `Studio · ${tab.label}`,
-    subtitle: tab.description,
-    href: studioTabHref(tab.id),
-    group: "Studio",
-  }));
+  const settingsTabs =
+    mode === "simple"
+      ? []
+      : SETTINGS_TABS.map((tab) => ({
+          id: `settings-${tab.id}`,
+          label: `Settings · ${tab.label}`,
+          subtitle: tab.description,
+          href: settingsTabHref(tab.id),
+          group: "Settings",
+        }));
+  const studioTabs =
+    mode === "simple"
+      ? []
+      : STUDIO_TABS.map((tab) => ({
+          id: `studio-${tab.id}`,
+          label: `Studio · ${tab.label}`,
+          subtitle: tab.description,
+          href: studioTabHref(tab.id),
+          group: "Studio",
+        }));
   return [
     ...nav,
     {

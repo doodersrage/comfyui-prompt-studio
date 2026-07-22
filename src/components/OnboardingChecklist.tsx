@@ -37,7 +37,7 @@ export default function OnboardingChecklist() {
     ].includes(step.id),
   );
   const chrome = steps.filter((step) =>
-    ["discover-palette", "pin-tool", "set-density"].includes(step.id),
+    ["discover-palette", "pin-tool", "set-density", "set-workspace"].includes(step.id),
   );
 
   return (

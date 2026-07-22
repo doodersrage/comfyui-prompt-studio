@@ -8,6 +8,7 @@ import RegionalEditPanel, {
   regionalSlotsQueueExtras,
 } from "@/components/RegionalEditPanel";
 import SharedToolControls from "@/components/SharedToolControls";
+import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
@@ -456,6 +457,14 @@ export default function RefineTool() {
         comfyUiPreviewUrl={actions.comfyUiPreviewUrl}
         historySaved={actions.historySaved}
         pairCopied={actions.pairCopied}
+      />
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue refine"
+        status={actions.comfyUiStatus}
+        onQueue={() => {
+          void actions.sendComfyUi(output, undefined, undefined, queueImageOptions);
+        }}
       />
     </ToolLayout>
   );

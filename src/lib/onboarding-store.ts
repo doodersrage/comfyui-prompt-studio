@@ -21,6 +21,7 @@ export const ONBOARDING_STEPS: Omit<OnboardingStep, "done">[] = [
   { id: "discover-palette", label: "Open the command palette (⌘/Ctrl+K)" },
   { id: "pin-tool", label: "Pin a favorite tool in the sidebar (☆)" },
   { id: "set-density", label: "Try Compact density in Profile → Appearance" },
+  { id: "set-workspace", label: "Pick Simple / Studio / Full workspace in Profile or the sidebar" },
 ];
 
 export function loadOnboardingState(): OnboardingStep[] {

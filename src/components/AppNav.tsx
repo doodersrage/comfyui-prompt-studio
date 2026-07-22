@@ -17,6 +17,13 @@ import {
   type AppNavLink,
 } from "@/lib/app-nav-catalog";
 import {
+  defaultExpandedNavGroups,
+  loadWorkspaceMode,
+  navGroupsForWorkspaceMode,
+  type WorkspaceMode,
+} from "@/lib/workspace-mode";
+import WorkspaceModeControl from "@/components/WorkspaceModeControl";
+import {
   isNavFavorite,
   loadNavFavorites,
   toggleNavFavorite,
@@ -120,10 +127,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const [manifestNavLinks, setManifestNavLinks] = useState<AppNavLink[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<string[] | null>(null);
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("studio");
 
   useEffect(() => {
     setFavorites(loadNavFavorites());
-    const onStorage = () => setFavorites(loadNavFavorites());
+    setWorkspaceMode(loadWorkspaceMode());
+    const onStorage = () => {
+      setFavorites(loadNavFavorites());
+      setWorkspaceMode(loadWorkspaceMode());
+    };
     window.addEventListener("storage", onStorage);
     window.addEventListener("focus", onStorage);
     return () => {
@@ -172,8 +184,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       description: plugin.description,
     }));
     const pluginLinks = [...bookmarkLinks, ...manifestNavLinks];
+    const catalog = navGroupsForWorkspaceMode(
+      workspaceMode,
+      mergePluginLinksIntoNav(APP_NAV_GROUPS, pluginLinks),
+    );
 
-    return mergePluginLinksIntoNav(APP_NAV_GROUPS, pluginLinks)
+    return catalog
       .map((group) => ({
         ...group,
         links: group.links.filter((link) =>
@@ -184,7 +200,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ),
       }))
       .filter((group) => group.links.length > 0);
-  }, [allowedFeatures, customPlugins, manifestNavLinks]);
+  }, [allowedFeatures, customPlugins, manifestNavLinks, workspaceMode]);
 
   const allLinks = useMemo(
     () => [
@@ -217,14 +233,24 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         group.links.some((link) => linkIsActive(link, pathname, search)),
       );
       setExpandedGroups(
-        ["Overview", ...(activeGroup ? [activeGroup.label] : [])].filter(
-          (label, index, list) => list.indexOf(label) === index,
-        ),
+        [
+          ...defaultExpandedNavGroups(workspaceMode, visibleGroups).slice(0, 1),
+          ...(activeGroup ? [activeGroup.label] : []),
+        ].filter((label, index, list) => list.indexOf(label) === index),
       );
       return;
     }
-    setExpandedGroups(visibleGroups.map((group) => group.label));
-  }, [expandedGroups, favorites.length, pathname, search, visibleGroups]);
+    setExpandedGroups(defaultExpandedNavGroups(workspaceMode, visibleGroups));
+  }, [expandedGroups, favorites.length, pathname, search, visibleGroups, workspaceMode]);
+
+  // When workspace mode changes, re-seed expand defaults (unless user already toggled).
+  useEffect(() => {
+    const saved = loadExpandedNavGroups();
+    if (saved && saved.length > 0) {
+      return;
+    }
+    setExpandedGroups(defaultExpandedNavGroups(workspaceMode, visibleGroups));
+  }, [workspaceMode]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional mode switch reset
 
   useEffect(() => {
     const match =
@@ -351,6 +377,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="space-y-3 border-t border-[var(--border-subtle)] px-2 pt-4">
+        <WorkspaceModeControl
+          variant="chips"
+          onChanged={(mode) => {
+            setWorkspaceMode(mode);
+            setExpandedGroups(null);
+            saveExpandedNavGroups([]);
+          }}
+        />
         <div className="px-1">
           <ThemePreferenceControl showHint={false} />
         </div>

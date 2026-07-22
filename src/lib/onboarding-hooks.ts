@@ -35,3 +35,7 @@ export function markOnboardingPinTool(): void {
 export function markOnboardingSetDensity(): void {
   markOnboardingStepDone("set-density");
 }
+
+export function markOnboardingSetWorkspace(): void {
+  markOnboardingStepDone("set-workspace");
+}

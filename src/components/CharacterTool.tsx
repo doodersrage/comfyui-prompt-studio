@@ -7,6 +7,7 @@ import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import RegionalPromptBuilderPanel from "@/components/RegionalPromptBuilderPanel";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import SharedToolControls from "@/components/SharedToolControls";
+import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
 import { applySceneStarterWorkflowHints } from "@/lib/scene-starter-workflow-hints";
 import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
@@ -1007,6 +1008,18 @@ export default function CharacterTool() {
           sceneMode === "duo" && toolSettings.sportPresetId
             ? getSportPreset(toolSettings.sportPresetId)?.label
             : undefined
+        }
+      />
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue character"
+        status={actions.comfyUiStatus}
+        onQueue={() =>
+          void actions.sendComfyUi(output, inferredSport, undefined, {
+            customTokens: regionalPromptCustomTokens(
+              toolSettings.regionalSegments ?? [],
+            ),
+          })
         }
       />
     </ToolLayout>

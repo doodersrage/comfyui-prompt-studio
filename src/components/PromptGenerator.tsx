@@ -15,6 +15,7 @@ const TagAssistToolbar = dynamic(() => import("@/components/TagAssistToolbar"), 
   loading: () => <div className="h-12 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
 });
 import SharedToolControls from "@/components/SharedToolControls";
+import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
 import {
   VariationSliderField,
 } from "@/components/scene-tool/SceneToolSections";
@@ -974,6 +975,12 @@ export default function PromptGenerator() {
           </li>
         </ul>
       </ToolSection>
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue to ComfyUI"
+        status={actions.comfyUiStatus}
+        onQueue={() => void actions.sendComfyUi(output)}
+      />
     </ToolLayout>
   );
 }

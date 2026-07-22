@@ -69,6 +69,11 @@ import { ChipButton, FieldDivider, FieldLabel } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { useWorkspaceMode } from "@/hooks/useWorkspaceMode";
+import {
+  workspaceControlsDefaultOpen,
+  workspaceShowsAdvancedControls,
+} from "@/lib/workspace-mode";
 import { resolveModelStackFamily } from "@/lib/workflow-stack-fingerprint";
 import { isQwenLightningModel } from "@/lib/model-sampling-patch";
 import {
@@ -165,6 +170,9 @@ export default function SharedToolControls({
   toolId,
   onSharedSettingsChange,
 }: SharedToolControlsProps) {
+  const workspaceMode = useWorkspaceMode();
+  const showAdvancedInline = workspaceShowsAdvancedControls(workspaceMode);
+  const advancedOpenByDefault = workspaceControlsDefaultOpen(workspaceMode);
   const selectedModel = getComfyModelDefinition(shared.model);
   const activeLimits = getDetailLimits(shared.detail, shared.model);
   const workflowSelection = useComfyWorkflowSelection();
@@ -947,6 +955,9 @@ export default function SharedToolControls({
         />
       )}
 
+      {(() => {
+        const advancedSections = (
+          <>
       <CollapsibleSection
         title="LoRA stack"
         summary={
@@ -954,7 +965,7 @@ export default function SharedToolControls({
             ? `${sessionActiveLoraIds.length} selected for this session`
             : "Pick LoRAs for queue without trigger keywords"
         }
-        defaultOpen={false}
+        defaultOpen={advancedOpenByDefault}
         persistKey="shared-lora-stack"
       >
         <LoraStackSessionPicker
@@ -971,7 +982,7 @@ export default function SharedToolControls({
             ? "Sampler, resolution, realism, and anatomy overrides."
             : "Sampler, resolution, queue quality, realism, anatomy, and model recommendations."
         }
-        defaultOpen={false}
+        defaultOpen={advancedOpenByDefault}
         persistKey="shared-quality-sampling"
       >
         <ModelSamplerHints
@@ -1270,6 +1281,23 @@ export default function SharedToolControls({
           )}
         </CollapsibleSection>
       )}
+          </>
+        );
+
+        if (!showAdvancedInline) {
+          return (
+            <CollapsibleSection
+              title="Advanced controls"
+              summary="LoRA, sampling, wildcards, pins, and automation."
+              defaultOpen={false}
+              persistKey="shared-advanced-simple"
+            >
+              {advancedSections}
+            </CollapsibleSection>
+          );
+        }
+        return advancedSections;
+      })()}
     </div>
   );
 }

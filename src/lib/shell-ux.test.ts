@@ -4,6 +4,7 @@ import { resetBrowserStorageCache } from "./browser-storage.ts";
 import { loadRecentDestinations, pushRecentDestination } from "./recent-destinations.ts";
 import { isStudioTabId, studioTabHref, STUDIO_TABS } from "./studio-nav.ts";
 import { loadUiDensity, saveUiDensity } from "./density-settings.ts";
+import { loadWorkspaceMode, saveWorkspaceMode } from "./workspace-mode.ts";
 import {
   dismissAppToast,
   getAppToasts,
@@ -359,6 +360,7 @@ describe("reset ui chrome", () => {
     withMockLocalStorage(() => {
       saveToolContext("generate", { model: "qwen-image-2512" });
       saveUiDensity("compact");
+      saveWorkspaceMode("simple");
       saveLastToolRoute("/gallery");
       rememberToolDraft({
         toolKey: "generate",
@@ -369,6 +371,7 @@ describe("reset ui chrome", () => {
       resetUiChrome();
       assert.deepEqual(loadNavFavorites(), []);
       assert.equal(loadUiDensity(), "comfortable");
+      assert.equal(loadWorkspaceMode(), "studio");
       assert.equal(loadToolContext("generate"), undefined);
       assert.equal(loadLastToolRoute(), null);
       assert.equal(loadLastToolDraft(), null);

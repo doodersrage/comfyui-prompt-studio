@@ -15,6 +15,7 @@ import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { Button } from "@/components/ui/Button";
 import { ToolSection } from "@/components/ui/ToolPageShell";
 import ThemePreferenceControl from "@/components/ThemePreferenceControl";
+import WorkspaceModeControl from "@/components/WorkspaceModeControl";
 
 export default function ProfileAppearancePanel() {
   const [ambient, setAmbient] = useState<AmbientIntensity>("subtle");
@@ -33,6 +34,10 @@ export default function ProfileAppearancePanel() {
   return (
     <ToolSection title="Appearance">
       <ThemePreferenceControl />
+
+      <div className="mt-6">
+        <WorkspaceModeControl variant="panel" />
+      </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm">
@@ -96,7 +101,8 @@ export default function ProfileAppearancePanel() {
         <p className="type-caption text-[var(--text-muted)]">
           Clears pinned tools, recent destinations, expanded nav groups, remembered
           collapsibles, per-tool model/workflow memory, last draft, and last tool route.
-          Density returns to Comfortable. Theme, ambient, and toast preference stay unchanged.
+          Density returns to Comfortable. Workspace returns to Studio. Theme, ambient, and
+          toast preference stay unchanged.
         </p>
         <Button
           variant="secondary"

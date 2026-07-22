@@ -73,7 +73,7 @@ describe("sprint8 plugin runtime", () => {
     assert.equal(manifest!.tools?.[1]?.title, "Panel");
   });
 
-  it("dedupes installed plugins and merges enabled nav into Tools", () => {
+  it("dedupes installed plugins and merges enabled nav into Library", () => {
     const list = normalizeInstalledPlugins([
       { id: "a", label: "A", version: "1" },
       { id: "a", label: "A2", version: "2" },

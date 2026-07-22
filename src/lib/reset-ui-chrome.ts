@@ -1,5 +1,6 @@
 import { removeBrowserKey, writeBrowserValue } from "./browser-storage";
 import { saveUiDensity } from "./density-settings";
+import { saveWorkspaceMode } from "./workspace-mode";
 import { saveNavFavorites } from "./nav-favorites";
 import { saveExpandedNavGroups } from "./nav-expanded-groups";
 import { clearLastToolDraft } from "./tool-draft-memory";
@@ -15,7 +16,7 @@ const KEYS_TO_CLEAR = [
   "comfy-last-tool-route-v1",
 ] as const;
 
-/** Clears pins, recent destinations, nav expand state, collapsible memory, and tool context. Density returns to comfortable. */
+/** Clears pins, recent destinations, nav expand state, collapsible memory, and tool context. Density returns to comfortable; workspace to Studio. */
 export function resetUiChrome(): void {
   if (typeof window === "undefined") {
     return;
@@ -31,4 +32,5 @@ export function resetUiChrome(): void {
   clearLastToolDraft();
   clearLastToolRoute();
   saveUiDensity("comfortable");
+  saveWorkspaceMode("studio");
 }

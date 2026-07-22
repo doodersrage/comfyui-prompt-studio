@@ -43,7 +43,7 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
     ],
   },
   {
-    label: "Tools",
+    label: "Edit",
     links: [
       { href: "/image-prompt", label: "Image → Prompt", description: "Vision upload" },
       { href: "/refine", label: "Refine", description: "Image + intent fix" },
@@ -64,10 +64,20 @@ export const APP_NAV_GROUPS: AppNavGroup[] = [
         description: "Edit Comfy node graphs",
       },
       { href: "/controlnet", label: "ControlNet", description: "Structure prompts" },
+      { href: "/negative", label: "Negative", description: "SD negatives" },
+    ],
+  },
+  {
+    label: "Media",
+    links: [
       { href: "/video", label: "Video", description: "Motion prompts" },
       { href: "/audio", label: "Audio", description: "Sound / music prompts" },
       { href: "/mesh", label: "3D Mesh", description: "Image → mesh prompts" },
-      { href: "/negative", label: "Negative", description: "SD negatives" },
+    ],
+  },
+  {
+    label: "Library",
+    links: [
       { href: "/studio", label: "Studio", description: "History & tools" },
       { href: "/gallery", label: "Gallery", description: "ComfyUI outputs" },
       { href: "/variations", label: "Variations", description: "Grid queue" },
@@ -94,7 +104,7 @@ export function flattenAppNavLinks(groups: AppNavGroup[] = APP_NAV_GROUPS): AppN
 }
 
 /**
- * Append plugin-contributed links into the Tools group, skipping hrefs already
+ * Append plugin-contributed links into the Library group, skipping hrefs already
  * present in the catalog (path match, query ignored).
  */
 export function mergePluginLinksIntoNav(
@@ -122,7 +132,7 @@ export function mergePluginLinksIntoNav(
   }
   let merged = false;
   const next = groups.map((group) => {
-    if (group.label !== "Tools") {
+    if (group.label !== "Library" && group.label !== "Tools") {
       return group;
     }
     merged = true;

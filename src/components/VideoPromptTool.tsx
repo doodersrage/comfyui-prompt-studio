@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
+import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
@@ -495,6 +496,12 @@ export default function VideoPromptTool() {
           historySaved={actions.historySaved}
         />
       ) : null}
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue video"
+        status={actions.comfyUiStatus}
+        onQueue={() => void actions.sendComfyUi(output)}
+      />
     </ToolLayout>
   );
 }

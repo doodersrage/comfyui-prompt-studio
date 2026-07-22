@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import SharedToolControls from "@/components/SharedToolControls";
+import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
@@ -202,6 +203,20 @@ export default function MeshPromptTool() {
         comfyUiStatus={actions.comfyUiStatus}
         comfyUiJob={actions.comfyUiJob}
         historySaved={actions.historySaved}
+      />
+      <MobileStickyQueueBar
+        disabled={!output.trim()}
+        label="Queue mesh"
+        status={actions.comfyUiStatus}
+        onQueue={() =>
+          void actions.sendComfyUi(output, undefined, undefined, {
+            inputImage: file,
+            inputImageUrl: !file ? previewUrl ?? undefined : undefined,
+            customTokens: [
+              { token: MESH_RESOLUTION_TOKEN, value: String(resolution) },
+            ],
+          })
+        }
       />
     </ToolLayout>
   );
