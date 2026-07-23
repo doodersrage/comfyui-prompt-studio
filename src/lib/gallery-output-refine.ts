@@ -26,7 +26,6 @@ import {
   qwenDualClipFilename,
 } from "./model-loader-precision";
 import type { QueueQualityProfile } from "./queue-quality-profile";
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
 import { resolveLoaderFilenamesForModel } from "./model-checkpoint-map";
 
 export const GALLERY_REFINE_DENOISE: Record<"final" | "max", number> = {
@@ -102,7 +101,7 @@ export function galleryRefineDenoiseForProfile(
 }
 
 export function galleryRefineDenoiseForEntry(
-  entry: Pick<ComfyGalleryEntry, "prompt" | "model">,
+  entry: { prompt?: string; model?: string },
   profile: Extract<QueueQualityProfile, "final" | "max"> | undefined,
   mode: GalleryRefineMode = "refine",
 ): number {
