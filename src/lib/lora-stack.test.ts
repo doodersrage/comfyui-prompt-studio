@@ -462,6 +462,73 @@ describe("chainLoraStackInWorkflow / applyLoraStackToWorkflow", () => {
     );
   });
 
+  it("ignores orphaned off-chain style loaders and chains after Lightning instead", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+      },
+      // Neutralized leftover — not on the sampler model chain.
+      "2": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name: "baked_style.safetensors",
+          strength_model: 0,
+        },
+      },
+      "3": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name: "Qwen-Image-Lightning-8steps-V2.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "4": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["3", 0], shift: 3 },
+      },
+      "5": {
+        class_type: "KSampler",
+        inputs: { model: ["4", 0], seed: 1, steps: 8, cfg: 1 },
+      },
+    };
+    const result = applyLoraStackToWorkflow(workflow, [
+      makeEntry({
+        id: "skin",
+        tokenValue: "skin_detail_v1.safetensors",
+        strengthModel: 0.7,
+        strengthClip: 0.7,
+      }),
+    ]);
+    assert.ok((result.patched.loraStack ?? 0) >= 1);
+    const orphan = result.workflow["2"] as {
+      inputs: { lora_name: string; strength_model: number };
+    };
+    // Must not "apply" onto the dead branch.
+    assert.equal(orphan.inputs.lora_name, "baked_style.safetensors");
+    assert.equal(orphan.inputs.strength_model, 0);
+
+    const insertedId = Object.keys(result.workflow).find((id) => {
+      const node = result.workflow[id] as {
+        class_type?: string;
+        inputs?: { lora_name?: string };
+      };
+      return node?.inputs?.lora_name === "skin_detail_v1.safetensors";
+    });
+    assert.ok(insertedId);
+    assert.deepEqual(
+      (result.workflow[insertedId!] as { inputs: { model: [string, number] } }).inputs
+        .model,
+      ["3", 0],
+    );
+    assert.deepEqual(
+      (result.workflow["4"] as { inputs: { model: [string, number] } }).inputs.model,
+      [insertedId!, 0],
+    );
+  });
+
   it("applies stack onto neutralized LoraLoader|pysssss anchors", () => {
     const workflow = {
       "125": {
@@ -484,6 +551,11 @@ describe("chainLoraStackInWorkflow / applyLoraStackToWorkflow", () => {
       "110": {
         class_type: "UNETLoader",
         inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+      // Sampler keeps 115 on-chain so it remains a valid stack anchor.
+      "200": {
+        class_type: "KSampler",
+        inputs: { model: ["125", 0], seed: 1 },
       },
     };
     const result = applyLoraStackToWorkflow(workflow, [

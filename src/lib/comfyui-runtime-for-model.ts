@@ -320,10 +320,17 @@ export function resolveRuntimeForModel(
     stackCompatible?.customTokens,
     stackCompatible?.workflowCustomTokens,
   );
+  // Same as the system-workflow path: always forward the session-filtered LoRA
+  // library. Mapped/manual graphs may omit it when no workflow file resolves,
+  // and Lightning cannot fall back to {{LORA_*}} custom-token injection.
+  const settingsRuntime = comfyUiSettingsToRuntime(loadComfyUiSettings());
 
   return {
     ...(stackCompatible ?? {}),
     ...sharedQueueFlags(shared, model, {
+      loraLibrary:
+        settingsRuntime?.loraLibrary ?? stackCompatible?.loraLibrary,
+      apiUrl: settingsRuntime?.apiUrl ?? stackCompatible?.apiUrl,
       ...(lightning.customTokens?.length
         ? { customTokens: lightning.customTokens }
         : {}),

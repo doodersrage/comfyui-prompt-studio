@@ -96,6 +96,59 @@ describe("comfyui-runtime-for-model system path", () => {
     });
   });
 
+  it("forwards session LoRA library on system and non-system paths", async () => {
+    await withMockLocalStorage(async () => {
+      const { saveComfyUiSettings } = await import("./comfyui-settings.ts");
+      saveComfyUiSettings({
+        useServerDefaults: true,
+        loraLibrary: [
+          {
+            id: "skin",
+            label: "Skin",
+            triggerPhrase: "",
+            tokenValue: "skin_detail_v1.safetensors",
+            enabled: false,
+            strengthModel: 0.7,
+            strengthClip: 0.7,
+          },
+        ],
+      });
+      saveSharedSettings({
+        ...DEFAULT_SHARED_SETTINGS,
+        ...loadSettingsCache().shared,
+        useSystemWorkflows: true,
+        model: "qwen-image-2512-lightning-8",
+        sessionActiveLoraIds: ["skin"],
+        sessionActiveLoraIdsByModel: {
+          "qwen-image-2512-lightning-8": ["skin"],
+        },
+      });
+      const systemRuntime = resolveRuntimeForModel(
+        "qwen-image-2512-lightning-8",
+        "generate",
+      );
+      assert.ok(
+        systemRuntime.loraLibrary?.some(
+          (entry) => entry.id === "skin" && entry.enabled === true,
+        ),
+      );
+
+      saveSharedSettings({
+        ...loadSettingsCache().shared,
+        useSystemWorkflows: false,
+      });
+      const mappedRuntime = resolveRuntimeForModel(
+        "qwen-image-2512-lightning-8",
+        "generate",
+      );
+      assert.ok(
+        mappedRuntime.loraLibrary?.some(
+          (entry) => entry.id === "skin" && entry.enabled === true,
+        ),
+      );
+    });
+  });
+
   it("re-enables enrich for tool Final when global profile is Draft", async () => {
     await withMockLocalStorage(() => {
       saveSharedSettings({

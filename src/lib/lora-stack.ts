@@ -340,6 +340,44 @@ function linkOutputIndex(value: unknown, nodeId: string): number | null {
   return null;
 }
 
+const SAMPLER_MODEL_CHAIN_TYPES = new Set([
+  "KSampler",
+  "KSamplerAdvanced",
+  "SamplerCustom",
+  "SamplerCustomAdvanced",
+  "ModelSamplingAuraFlow",
+]);
+
+/** Node ids on any sampler/AuraFlow → model upstream walk. */
+function collectSamplerModelChainIds(
+  workflow: Record<string, WorkflowNode>,
+): Set<string> {
+  const chain = new Set<string>();
+  for (const node of Object.values(workflow)) {
+    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? "")) {
+      continue;
+    }
+    let cursor = linkedModelNodeId(node?.inputs?.model);
+    const seen = new Set<string>();
+    while (cursor && !seen.has(cursor)) {
+      seen.add(cursor);
+      chain.add(cursor);
+      const upstream = workflow[cursor];
+      if (!upstream?.inputs) {
+        break;
+      }
+      cursor = linkedModelNodeId(upstream.inputs.model);
+    }
+  }
+  return chain;
+}
+
+/**
+ * Non-Lightning LoRA loader ids that can receive the session stack.
+ * When a sampler chain exists, only on-chain anchors count — Lightning prep often
+ * leaves neutralized style loaders orphaned off the generate path; patching those
+ * would look like the stack "applied" while the image never sees the LoRA.
+ */
 function findLoraAnchorNodeIds(workflow: Record<string, WorkflowNode>): string[] {
   const ids: string[] = [];
   for (const [nodeId, node] of Object.entries(workflow)) {
@@ -354,7 +392,12 @@ function findLoraAnchorNodeIds(workflow: Record<string, WorkflowNode>): string[]
     }
     ids.push(nodeId);
   }
-  return ids.sort(compareNodeIds);
+  ids.sort(compareNodeIds);
+  const chain = collectSamplerModelChainIds(workflow);
+  if (chain.size === 0) {
+    return ids;
+  }
+  return ids.filter((id) => chain.has(id));
 }
 
 function applyEntryToNode(node: WorkflowNode, entry: ActiveLoraStackEntry): void {
@@ -385,16 +428,9 @@ function linkedModelNodeId(value: unknown): string | null {
 function findActiveLightningLoaderId(
   workflow: Record<string, WorkflowNode>,
 ): string | null {
-  const samplerTypes = new Set([
-    "KSampler",
-    "KSamplerAdvanced",
-    "SamplerCustom",
-    "SamplerCustomAdvanced",
-    "ModelSamplingAuraFlow",
-  ]);
   let start: string | null = null;
   for (const node of Object.values(workflow)) {
-    if (!samplerTypes.has(node?.class_type ?? "")) {
+    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? "")) {
       continue;
     }
     start = linkedModelNodeId(node?.inputs?.model);
