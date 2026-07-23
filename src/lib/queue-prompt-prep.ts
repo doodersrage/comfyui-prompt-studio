@@ -26,6 +26,8 @@ import {
   loadWildcardExpansionEnabled,
   loadWildcardSeed,
 } from "./wildcard-settings";
+import { buildClothingNegativePack } from "./clothing-quality";
+import { inferAthleticSport } from "./clothing-tags";
 
 /** Distilled Lightning (CFG 1) softens with long auto-negatives — keep only short explicit ones. */
 const LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS = 160;
@@ -207,6 +209,33 @@ export async function prepareQueuePrompts(input: {
       tool: input.tool,
       explicitNegative,
     });
+  }
+
+  // People / wardrobe queues: append high-signal clothing artifact negatives.
+  const clothingHints = hints ?? positive;
+  const clothingTool =
+    input.tool === "character" ||
+    input.tool === "duo" ||
+    input.tool === "generate" ||
+    input.tool === "gallery-mutate" ||
+    input.tool === "pet" ||
+    input.tool === "fantasy";
+  if (
+    !distilledCfg1 &&
+    modelUsesNegativePrompt(input.model) &&
+    (clothingTool ||
+      /\b(?:wearing|outfit|wardrobe|jersey|helmet|scrubs|uniform)\b/i.test(
+        clothingHints,
+      ))
+  ) {
+    negative = appendUniqueCsv(
+      negative,
+      buildClothingNegativePack({
+        hints: clothingHints,
+        tool: input.tool,
+        sport: input.sport ?? inferAthleticSport(clothingHints),
+      }),
+    );
   }
 
   return applyQueuePromptSteering({

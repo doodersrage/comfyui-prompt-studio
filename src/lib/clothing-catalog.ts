@@ -14,6 +14,10 @@ import {
 import { hasDistinctPeopleStructure } from "./distinct-people";
 import { splitSentences } from "./prompt-shape";
 import {
+  compactClothingScript,
+  prioritizeWardrobeSummaryItems,
+} from "./clothing-quality";
+import {
   promptContainsAvoidedTokensFromList,
 } from "./avoidance-options";
 import {
@@ -33,6 +37,9 @@ import {
   inferSeparateGarmentHints,
   normalizeClothingContextTags,
   PROFESSION_UNIFORM_LABEL_HINTS,
+  PROFESSION_KIT_EXTRAS,
+  PROFESSION_KIT_FALLBACKS,
+  labelMatchesProfessionUniform,
   RESTRICTED_CLOTHING_CONTEXTS,
   sceneAttireShouldOverrideBrief,
   scoreClothingContextMatch,
@@ -40,6 +47,7 @@ import {
   type ClothingContextTag,
   type ClothingGenderTag,
   type ClothingPickFilters,
+  type WorkProfession,
 } from "./clothing-tags";
 
 export type ClothingCategory =
@@ -242,17 +250,29 @@ function mergeCategoryContexts(
     tags.delete("casual");
   }
 
+  // Runtime retag: profession kit labels often land as "casual" in old batches.
+  if (
+    (category === "outfit" || category === "outerwear" || category === "top") &&
+    labelMatchesProfessionUniform(text)
+  ) {
+    tags.add("work");
+    tags.add("uniform");
+    tags.delete("casual");
+  }
+
   return [...tags];
 }
 
 function enrichEntry(raw: ClothingCatalogEntry): EnrichedClothingEntry {
-  const text = `${raw.label} ${raw.script}`;
+  const compactScript = compactClothingScript(raw.script) || raw.script;
+  const text = `${raw.label} ${compactScript}`;
   const baseContexts = raw.contexts?.length
     ? normalizeClothingContextTags([...raw.contexts])
     : inferClothingContexts(text);
 
   return {
     ...raw,
+    script: compactScript,
     gender:
       raw.gender ??
       (raw.category === "hosiery" ||
@@ -717,16 +737,20 @@ function pickProfessionGarment(
 
   const categories: ClothingCategory[] = ["outfit", "outerwear", "top"];
   for (const category of categories) {
-    const basePool = (BY_CATEGORY[category] ?? []).filter(
-      (entry) =>
-        labelHint.test(entry.label) &&
-        (entry.contexts.includes("work") || entry.contexts.includes("uniform")),
+    const basePool = (BY_CATEGORY[category] ?? []).filter((entry) =>
+      labelHint.test(entry.label),
     );
     if (basePool.length === 0) {
       continue;
     }
 
-    const genderPool = filterPoolByGender(basePool, filters.gender);
+    const taggedPool = basePool.filter(
+      (entry) =>
+        entry.contexts.includes("work") || entry.contexts.includes("uniform"),
+    );
+    const preferred = taggedPool.length > 0 ? taggedPool : basePool;
+
+    const genderPool = filterPoolByGender(preferred, filters.gender);
     const categoryPool = filterPoolByCategory(genderPool, category, filters);
     const pickFlags = pickFilterFlags(filters);
     const picked =
@@ -748,7 +772,22 @@ function pickProfessionGarment(
     }
   }
 
-  return null;
+  return professionFallbackEntry(profession);
+}
+
+function professionFallbackEntry(
+  profession: WorkProfession,
+): EnrichedClothingEntry {
+  const summary = PROFESSION_KIT_FALLBACKS[profession];
+  const label = summary.split(",")[0]?.trim() || profession;
+  return {
+    id: `profession-fallback-${profession.replace(/\s+/g, "-")}`,
+    label,
+    category: "outfit",
+    script: summary,
+    gender: "neutral",
+    contexts: ["work", "uniform"],
+  };
 }
 
 function pickFantasyGarment(
@@ -1603,6 +1642,25 @@ export function pickRandomCharacterOutfit(
   }
 
   const labels = layers.map((entry) => entry.label);
+  if (
+    filters.workProfession &&
+    filters.workWardrobe &&
+    deduped.wardrobe &&
+    (PROFESSION_UNIFORM_LABEL_HINTS[filters.workProfession]?.test(
+      deduped.wardrobe.label,
+    ) ||
+      deduped.wardrobe.id.startsWith("profession-fallback-"))
+  ) {
+    for (const extra of PROFESSION_KIT_EXTRAS[filters.workProfession] ?? []) {
+      if (!labels.some((label) => label.toLowerCase().includes(extra.toLowerCase()))) {
+        labels.push(extra);
+      }
+      if (labels.length >= 5) {
+        break;
+      }
+    }
+  }
+
   let summary =
     filters.athleticSport === "cycling"
       ? appendCyclingHelmetToSummary(labels.join(", "), filters.hintCorpus)
@@ -1670,9 +1728,10 @@ export function buildOutfitFromLockedWardrobeId(
 }
 
 export function wardrobeBudgetForPrompt(maxChars: number, peopleCount = 1): number {
-  const share = peopleCount > 1 ? 0.22 : 0.18;
+  // High-signal labels need more room than filler scripts — allow denser kits.
+  const share = peopleCount > 1 ? 0.26 : 0.22;
   const budget = Math.floor(maxChars * share);
-  return Math.max(40, Math.min(peopleCount > 1 ? 100 : 120, budget));
+  return Math.max(48, Math.min(peopleCount > 1 ? 140 : 168, budget));
 }
 
 export type WardrobeAssignmentLike = {
@@ -2132,13 +2191,15 @@ export function trimWardrobeSummaryToMaxChars(
   summary: string,
   maxChars: number,
 ): string {
-  const items = summary
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const items = prioritizeWardrobeSummaryItems(
+    summary
+      .split(",")
+      .map((part) => compactClothingScript(part.trim()))
+      .filter(Boolean),
+  );
 
   if (items.length === 0) {
-    return summary.trim();
+    return compactClothingScript(summary).trim();
   }
 
   const kept: string[] = [];

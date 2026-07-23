@@ -88,6 +88,22 @@ export const DEFAULT_NEGATIVE_PROFILES: NegativeProfile[] = [
     staticPrompt:
       "flicker, morphing, identity drift, abrupt cuts, extra limbs, warped hands, duplicate subjects, floating props",
   },
+  {
+    id: "wardrobe-people",
+    label: "Wardrobe · people / character",
+    hints: "wardrobe outfit clothing character portrait fashion",
+    preserveSubject: true,
+    staticPrompt:
+      "wrong outfit layers, mismatched clothing, clothing clipping through body, floating garments, duplicate outfits, wardrobe text overlay, clothing label watermark",
+  },
+  {
+    id: "wardrobe-athletic",
+    label: "Wardrobe · athletic",
+    hints: "athlete athletic sport kit race training workout",
+    preserveSubject: true,
+    staticPrompt:
+      "street clothes on athlete, casual jeans on sport kit, hoodie over race kit, missing athletic bottoms, barefoot athlete, wrong sport uniform, clothing clipping through body",
+  },
 ];
 
 export function appendTokensToNegativeProfileExtra(

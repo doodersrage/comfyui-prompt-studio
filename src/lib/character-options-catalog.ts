@@ -12,6 +12,11 @@ import {
 } from "./clothing-catalog";
 import { parseCharacterHints } from "./character-hints";
 import { subjectGenderToClothingGender } from "./clothing-tags";
+import {
+  enrichAccessoriesHighSignal,
+  enrichFootwearHighSignal,
+  enrichWardrobeHighSignal,
+} from "./clothing-quality";
 
 export type CharacterHeadcount = "" | "solo" | "duo";
 
@@ -1266,18 +1271,15 @@ function enrichPoseTarget(value: string): string {
 }
 
 function enrichWardrobe(value: string): string {
-  const base = withArticle(value);
-  return `${base}, displaying a distinct fabric weave and natural fabric creases`;
+  return enrichWardrobeHighSignal(value);
 }
 
 function enrichFootwear(value: string): string {
-  const base = withArticle(value);
-  return `${base}, showing sole wear, material scuffing, and believable weight on the foot`;
+  return enrichFootwearHighSignal(value);
 }
 
 function enrichAccessories(value: string): string {
-  const base = withArticle(value);
-  return `${base}, rendered with readable material weight, fine detail, and natural placement on the body`;
+  return enrichAccessoriesHighSignal(value);
 }
 
 function enrichProp(value: string): string {

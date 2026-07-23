@@ -124,10 +124,14 @@ export const outfits = [
   "wizard robe outfit", "knight armor cuirass look", "samurai hakama set", "monk robes",
   "nun habit", "priest cassock", "nurse scrubs set", "doctor white coat outfit",
   "paramedic uniform", "police duty uniform", "firefighter turnout gear", "pilot uniform",
-  "flight attendant uniform", "chef whites set", "barista apron outfit", "bar tender vest look",
+  "flight attendant uniform", "chef whites set", "barista apron outfit", "bartender vest look",
   "waiter black tie service outfit", "hotel concierge uniform", "bellhop uniform",
   "construction hi-vis outfit", "warehouse picker vest look", "mechanic coveralls",
+  "butcher apron over whites", "baker whites with apron", "barber smock outfit",
+  "mail carrier uniform", "postal carrier kit", "referee striped jersey kit", "umpire plate gear",
+  "soldier combat uniform", "military fatigue set", "police duty uniform",
   "farmer chore outfit", "fisherman rain gear", "sailor deck outfit", "submariner jumper",
+  "paramedic uniform", "ems duty kit", "doctor white coat outfit", "nurse scrubs set",
   "wedding dress", "bridal gown", "bridesmaid dress", "prom dress", "quinceañera dress",
   "graduation gown and cap", "academic regalia", "beekeeper suit", "hazmat suit",
   "maternity dress outfit", "nursing-friendly outfit", "modest layered outfit",
@@ -135,14 +139,13 @@ export const outfits = [
 ];
 
 export const details = [
-  "with visible fabric weave", "with natural creases", "with worn edges", "with faded wash",
-  "with raw hem", "with rolled sleeves", "with buttoned collar", "with open collar",
-  "with patch pockets", "with contrast stitching", "with embroidered logo", "with pin badges",
-  "with paint splatter", "with oil stains", "with mud spatters", "with grass stains",
-  "with lint specks", "with cat hair", "with loose threads", "with frayed cuffs",
-  "with scuffed knees", "with stretched waistband", "with mismatched buttons", "with safety pins",
-  "with duct tape repair", "with ironed creases", "with crisp starch", "with wrinkled pack lines",
-  "with rain-darkened fabric", "with salt crusted edges", "with sun-bleached shoulders",
+  "with secure coverage", "with clear silhouette", "with visible seams", "with structured shoulders",
+  "with tapered fit", "with high waistband", "with reinforced stitching", "with functional pockets",
+  "with matte finish", "with subtle sheen", "with layered collar", "with zip closure",
+  "with button placket", "with ribbed cuffs", "with weatherproof shell", "with athletic cut",
+  "with tailored drape", "with cropped hem", "with wide-leg fall", "with compression fit",
+  "with breathable panels", "with reflective trim", "with worn-in softness", "with crisp press",
+  "with rain-darkened fabric", "with sun-faded shoulders", "with salt-edged cuffs",
 ];
 
 export const fits = [

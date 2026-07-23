@@ -77,6 +77,28 @@ export function resolveContextNegativeProfile(
   }
 
   if (
+    context.sport ||
+    /\b(?:athlete|athletic|sport|cycling|running|workout|race kit|training)\b/i.test(corpus)
+  ) {
+    const athletic = list.find((entry) => entry.id === "wardrobe-athletic");
+    if (athletic) {
+      return athletic;
+    }
+  }
+
+  if (
+    context.tool === "character" ||
+    context.tool === "duo" ||
+    context.tool === "gallery-mutate" ||
+    /\b(?:wardrobe|outfit|clothing|fashion|wearing)\b/i.test(corpus)
+  ) {
+    const wardrobe = list.find((entry) => entry.id === "wardrobe-people");
+    if (wardrobe) {
+      return wardrobe;
+    }
+  }
+
+  if (
     context.tool === "video" ||
     videoModel ||
     /\b(video|i2v|t2v|wan\s*video|motion clip)\b/i.test(corpus)

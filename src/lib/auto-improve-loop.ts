@@ -112,14 +112,18 @@ async function runFallbackHighRatingImprove(
   priorNote?: string,
 ): Promise<string | null> {
   if (settings.autoMutateOnHighRating) {
-    const { queued, held } = await queueMutatedGalleryJobs({
+    const { queued, held, jobs } = await queueMutatedGalleryJobs({
       entry,
       kinds: ["variation", "location", "wardrobe"],
       count: 3,
     });
     const prefix = priorNote ? `${priorNote}; ` : "Auto-improve: ";
+    const wardrobe = jobs.find((job) => job.kind === "wardrobe" && job.summary)?.summary;
+    const wardrobeNote = wardrobe
+      ? ` · wardrobe ${wardrobe.split(",")[0]?.trim()}`
+      : "";
     const heldNote = held > 0 ? ` · held ${held} Max` : "";
-    return `${prefix}queued ${queued} mutations for ${rating}★ output${heldNote}.`;
+    return `${prefix}queued ${queued} mutations for ${rating}★ output${heldNote}${wardrobeNote}.`;
   }
 
   if (settings.autoSeedExperimentOnHighRating) {

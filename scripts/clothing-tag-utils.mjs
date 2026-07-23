@@ -13,7 +13,7 @@ const MEN_LEAN =
   /\b(?:rugby shirt|fatigue jacket|military fatigue|dress shirt and tie|suit jacket|sport coat|tweed sport coat|work chore coat|steel-toe boots|hi-vis safety vest)\b/i;
 
 const EXPLICIT_UNIFORM_HINT =
-  /\b(?:in uniform|wearing uniform|service uniform|dress uniform|police uniform|military uniform|firefighter turnout|pilot uniform|flight attendant uniform|nurse scrubs|postal uniform|mail carrier uniform|bellhop uniform|referee uniform|school uniform|chef whites)\b/i;
+  /\b(?:in uniform|wearing uniform|service uniform|dress uniform|police uniform|military uniform|firefighter turnout|pilot uniform|flight attendant uniform|nurse scrubs|postal uniform|mail carrier uniform|bellhop uniform|referee uniform|umpire uniform|school uniform|chef whites|waiter (?:black tie )?service outfit|bartender vest|bar tender vest|sailor deck outfit|naval deck|barber smock|butcher apron|baker whites|barista apron|construction hi-vis|warehouse picker|mechanic coveralls|paramedic uniform|doctor white coat|police duty uniform)\b/i;
 
 const EXPLICIT_COSTUME_HINT =
   /\b(?:wizard robe|knight armor|plate armor|chain mail|cosplay|costume party|in costume|wearing a costume|nun habit|monk robes|ballerina tutu|superhero suit|vampire cape|renaissance faire|halloween costume|elven gown|dwarven armor|circus ringmaster|magician cape|dressed as a wizard|dressed as a knight|dressed as a|dressed as the)\b/i;
@@ -29,7 +29,7 @@ const CONTEXT_RULES = [
   { tag: "cold", pattern: /\b(?:parka|puffer|wool|fleece|peacoat|duffle coat|shearling|down|beanie|scarf|mittens|balaclava|moon boots|overcoat|quilted|insulated|ear muffs|winter)\b/i },
   { tag: "warm", pattern: /\b(?:shorts|sandals|flip-flops|tank top|linen|hawaiian shirt|board shorts|muscle tank|racerback|espadrilles|sun hat|crop top|sleeveless|mesh jersey|sleeveless)\b/i },
   { tag: "wet", pattern: /\b(?:rain|slicker|wellington|rubber boots|gore-tex|poncho|oilskin|waterproof|hardshell|rain boots|cagoule|packable shell)\b/i },
-  { tag: "work", pattern: /\b(?:coveralls|overalls|workbench|apron|hi-vis|safety vest|tool belt|warehouse|scrubs|lab coat|forge|paint-stained|work boots|steel-toe|utilitarian|chore coat|boiler suit)\b/i },
+  { tag: "work", pattern: /\b(?:coveralls|overalls|workbench|apron|hi-vis|safety vest|tool belt|warehouse|scrubs|lab coat|forge|paint-stained|work boots|steel-toe|utilitarian|chore coat|boiler suit|waiter|bartender|bar tender|sailor deck|barber smock|mail carrier|postal carrier|referee|umpire|chef whites|paramedic|flight attendant|bellhop|mechanic|construction hi-vis|warehouse picker)\b/i },
   { tag: "uniform", pattern: EXPLICIT_UNIFORM_HINT },
   { tag: "costume", pattern: EXPLICIT_COSTUME_HINT },
   { tag: "beach", pattern: /\b(?:board shorts|flip-flops|sarong|snorkel|bikini|swim trunks|rash guard|beach|shoreline|seaside|poolside|kaftan cover-up)\b/i },

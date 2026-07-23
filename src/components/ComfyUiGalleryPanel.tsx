@@ -32,7 +32,10 @@ import StatusToastStrip from "@/components/ui/StatusToastStrip";
 import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
 import { toneForStatusText } from "@/lib/status-progress";
 import { computeGalleryStats } from "@/lib/gallery-stats";
-import { queueMutatedGalleryJobs } from "@/lib/gallery-mutations";
+import {
+  formatMutatedJobsStatus,
+  queueMutatedGalleryJobs,
+} from "@/lib/gallery-mutations";
 import { queueNegativeAbTest } from "@/lib/negative-ab-queue";
 import { queueSeedExperiment } from "@/lib/seed-experiment-queue";
 import {
@@ -1343,18 +1346,14 @@ export default function ComfyUiGalleryPanel({
               entry,
               kinds: ["variation", "location", "wardrobe"],
               count: 3,
-            }).then(({ queued, held }) => {
+            }).then(({ queued, held, jobs }) => {
               if (held > 0) {
                 toastHeldMax({
                   text: "Max mutations held until ComfyUI is idle",
                   count: held,
                 });
               }
-              setRequeueStatus(
-                held > 0
-                  ? `Queued ${queued} mutations · held ${held} Max`
-                  : `Queued ${queued} mutations.`,
-              );
+              setRequeueStatus(formatMutatedJobsStatus(jobs, queued, held));
             });
           }}
           onVariations={() => {
@@ -1709,18 +1708,14 @@ export default function ComfyUiGalleryPanel({
               entry,
               kinds: ["variation", "location", "wardrobe"],
               count: 3,
-            }).then(({ queued, held }) => {
+            }).then(({ queued, held, jobs }) => {
               if (held > 0) {
                 toastHeldMax({
                   text: "Max mutations held until ComfyUI is idle",
                   count: held,
                 });
               }
-              setCompareStatus(
-                held > 0
-                  ? `Queued ${queued} mutations · held ${held} Max`
-                  : `Queued ${queued} mutations.`,
-              );
+              setCompareStatus(formatMutatedJobsStatus(jobs, queued, held));
             });
           }}
           onUpscale={(entry, qualityProfile) => {

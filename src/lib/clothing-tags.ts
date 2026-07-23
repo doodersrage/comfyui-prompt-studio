@@ -125,7 +125,7 @@ const SCENE_COSTUME_SETTING_HINT =
   /\b(?:cosplay|larp|renaissance faire|medieval faire|halloween costume|amusement park|circus tent|circus ring|on stage in costume|performance costume|theater costume|costume party|gothic lolita)\b/i;
 
 const EXPLICIT_UNIFORM_HINT =
-  /\b(?:in uniform|wearing uniform|service uniform|dress uniform|police uniform|military uniform|firefighter turnout|pilot uniform|flight attendant uniform|nurse scrubs|postal uniform|mail carrier uniform|bellhop uniform|referee uniform|school uniform|chef whites)\b/i;
+  /\b(?:in uniform|wearing uniform|service uniform|dress uniform|police uniform|military uniform|firefighter turnout|pilot uniform|flight attendant uniform|nurse scrubs|postal uniform|mail carrier uniform|bellhop uniform|referee uniform|umpire uniform|school uniform|chef whites|waiter (?:black tie )?service outfit|bartender vest|bar tender vest|sailor deck outfit|naval deck|barber smock|butcher apron|baker whites|barista apron|construction hi-vis|warehouse picker|mechanic coveralls|paramedic uniform|doctor white coat|police duty uniform)\b/i;
 
 const WORK_SETTING_HINT =
   /\b(?:office|workshop|factory|kitchen|hospital|clinic|server room|warehouse|construction site|studio backlot|laboratory|courtroom|pharmacy|garage|mill|forge|bakery|butcher shop|newsroom|trading floor|barracks|police station|fire station|aircraft hangar|on duty|at work|work clothes)\b/i;
@@ -184,29 +184,95 @@ const WORK_PROFESSION_PATTERNS: Array<{ key: WorkProfession; pattern: RegExp }> 
 
 /** Maps catalog label keywords for profession-aligned uniform picks. */
 export const PROFESSION_UNIFORM_LABEL_HINTS: Record<WorkProfession, RegExp> = {
-  chef: /\b(?:chef(?:'s)?\s*whites|chef\s*coat|chef\s*hat|chef\s*toque|toque)\b/i,
-  nurse: /\b(?:nurse|scrubs)\b/i,
-  doctor: /\b(?:doctor|scrubs|white coat|lab coat)\b/i,
-  mechanic: /\b(?:mechanic|coveralls?)\b/i,
-  barista: /\b(?:barista|apron)\b/i,
-  butcher: /\b(?:butcher|apron)\b/i,
-  baker: /\b(?:baker|apron)\b/i,
-  paramedic: /\b(?:paramedic|ems)\b/i,
-  pilot: /\bpilot\b/i,
-  "flight attendant": /\b(?:flight attendant|airline)\b/i,
-  barber: /\b(?:barber|smock)\b/i,
-  waiter: /\b(?:waiter|waitress|server|service outfit|black tie service)\b/i,
-  bartender: /\b(?:bartender|bar apron|service)\b/i,
-  "construction worker": /\b(?:construction|coveralls?|hi-vis|hard hat)\b/i,
-  "warehouse worker": /\b(?:warehouse|coveralls?|hi-vis)\b/i,
-  "mail carrier": /\b(?:postal|mail carrier)\b/i,
+  chef: /\b(?:chef(?:'s)?\s*whites|chef\s*coat|chef\s*hat|chef\s*toque)\b/i,
+  nurse: /\b(?:nurse scrubs|nurse uniform|scrubs set|medical scrubs|\bscrubs\b)\b/i,
+  doctor: /\b(?:doctor white coat|physician coat|white coat|lab coat)\b/i,
+  mechanic: /\b(?:mechanic coveralls?|shop coveralls?)\b/i,
+  barista: /\b(?:barista apron|barista outfit|cafe apron)\b/i,
+  butcher: /\b(?:butcher apron|butcher whites|butcher coat)\b/i,
+  baker: /\b(?:baker whites|baker apron|pastry chef)\b/i,
+  paramedic: /\b(?:paramedic|ems uniform|emt uniform)\b/i,
+  pilot: /\b(?:pilot uniform|aviator uniform)\b/i,
+  "flight attendant": /\b(?:flight attendant|airline cabin)\b/i,
+  barber: /\b(?:barber smock|barber apron|barber coat)\b/i,
+  waiter: /\b(?:waiter|waitress|black tie service|server vest|service waistcoat)\b/i,
+  bartender: /\b(?:bar\s*tender|bartender vest|bar apron outfit)\b/i,
+  "construction worker": /\b(?:construction hi-vis|construction coveralls?|builder hi-vis|hard hat outfit)\b/i,
+  "warehouse worker": /\b(?:warehouse picker|warehouse vest|warehouse coveralls?)\b/i,
+  "mail carrier": /\b(?:mail carrier|postal (?:carrier|worker|uniform)|letter carrier)\b/i,
   firefighter: /\b(?:firefighter|turnout)\b/i,
-  "police officer": /\b(?:police|duty uniform)\b/i,
-  soldier: /\b(?:soldier|military|fatigue|bdu)\b/i,
-  sailor: /\b(?:sailor|naval|deck)\b/i,
+  "police officer": /\b(?:police duty|police uniform|duty uniform)\b/i,
+  soldier: /\b(?:soldier|military fatigue|bdu|combat uniform)\b/i,
+  sailor: /\b(?:sailor deck|naval deck|sailor uniform|submariner jumper)\b/i,
   referee: /\b(?:referee|umpire)\b/i,
   bellhop: /\bbellhop\b/i,
 };
+
+/**
+ * High-signal kit accents appended when a profession uniform is rolled.
+ * Keep short — these burn wardrobe budget.
+ */
+export const PROFESSION_KIT_EXTRAS: Record<WorkProfession, readonly string[]> = {
+  chef: ["chef toque", "kitchen clogs"],
+  nurse: ["nursing clogs", "badge reel"],
+  doctor: ["stethoscope", "ID badge"],
+  mechanic: ["steel-toe boots", "shop rag in pocket"],
+  barista: ["cafe apron ties", "slip-resistant shoes"],
+  butcher: ["cut-resistant apron strap", "non-slip clogs"],
+  baker: ["flour-dusted apron", "kitchen clogs"],
+  paramedic: ["duty boots", "radio mic"],
+  pilot: ["epaulette shirt", "pilot wings pin"],
+  "flight attendant": ["scarf accent", "cabin heels or flats"],
+  barber: ["comb pocket", "closed-toe shoes"],
+  waiter: ["service napkin fold", "polished dress shoes"],
+  bartender: ["bar towel", "non-slip shoes"],
+  "construction worker": ["hard hat", "steel-toe boots"],
+  "warehouse worker": ["safety vest", "steel-toe shoes"],
+  "mail carrier": ["satchel strap", "walking shoes"],
+  firefighter: ["turnout boots", "helmet"],
+  "police officer": ["duty belt", "patrol boots"],
+  soldier: ["combat boots", "unit patch"],
+  sailor: ["deck shoes", "watch cap"],
+  referee: ["whistle", "cleats or court shoes"],
+  bellhop: ["pillbox hat", "polished oxfords"],
+};
+
+/** Guaranteed profession summaries when catalog tags miss the job. */
+export const PROFESSION_KIT_FALLBACKS: Record<WorkProfession, string> = {
+  chef: "chef whites set, chef toque, kitchen clogs",
+  nurse: "nurse scrubs set, nursing clogs, badge reel",
+  doctor: "doctor white coat over scrubs, stethoscope",
+  mechanic: "mechanic coveralls, steel-toe boots",
+  barista: "barista apron outfit, slip-resistant shoes",
+  butcher: "butcher apron over whites, non-slip clogs",
+  baker: "baker whites with flour-dusted apron, kitchen clogs",
+  paramedic: "paramedic uniform, duty boots, radio mic",
+  pilot: "pilot uniform with epaulettes, polished shoes",
+  "flight attendant": "flight attendant uniform, scarf accent",
+  barber: "barber smock, closed-toe shoes",
+  waiter: "waiter black tie service outfit, polished dress shoes",
+  bartender: "bartender vest look, bar towel, non-slip shoes",
+  "construction worker": "construction hi-vis outfit, hard hat, steel-toe boots",
+  "warehouse worker": "warehouse picker vest look, steel-toe shoes",
+  "mail carrier": "mail carrier uniform, satchel strap, walking shoes",
+  firefighter: "firefighter turnout gear, helmet, turnout boots",
+  "police officer": "police duty uniform, duty belt, patrol boots",
+  soldier: "military fatigue uniform, combat boots",
+  sailor: "sailor deck outfit, deck shoes",
+  referee: "referee striped jersey kit, whistle, court shoes",
+  bellhop: "bellhop uniform, pillbox hat, polished oxfords",
+};
+
+/** True when a catalog label reads as a named profession kit. */
+export function labelMatchesProfessionUniform(label: string): boolean {
+  const text = label.trim();
+  if (!text) {
+    return false;
+  }
+  return Object.values(PROFESSION_UNIFORM_LABEL_HINTS).some((hint) =>
+    hint.test(text),
+  );
+}
 
 /** Enables lingerie/intimate catalog picks—not plain bedroom or hotel location alone. */
 const INTIMATE_WARDROBE_HINT =
@@ -425,7 +491,7 @@ const CONTEXT_RULES: Array<{ tag: ClothingContextTag; pattern: RegExp }> = [
   { tag: "cold", pattern: /\b(?:parka|puffer|wool|fleece|peacoat|duffle coat|shearling|down|beanie|scarf|mittens|balaclava|moon boots|overcoat|quilted|insulated|ear muffs|winter)\b/i },
   { tag: "warm", pattern: /\b(?:shorts|sandals|flip-flops|tank top|linen|hawaiian shirt|board shorts|muscle tank|racerback|espadrilles|sun hat|crop top|sleeveless|mesh jersey|sleeveless)\b/i },
   { tag: "wet", pattern: /\b(?:rain|slicker|wellington|rubber boots|gore-tex|poncho|oilskin|waterproof|hardshell|rain boots|cagoule|packable shell)\b/i },
-  { tag: "work", pattern: /\b(?:coveralls|overalls|workbench|apron|hi-vis|safety vest|tool belt|warehouse|scrubs|lab coat|forge|paint-stained|work boots|steel-toe|utilitarian|chore coat|boiler suit)\b/i },
+  { tag: "work", pattern: /\b(?:coveralls|overalls|workbench|apron|hi-vis|safety vest|tool belt|warehouse|scrubs|lab coat|forge|paint-stained|work boots|steel-toe|utilitarian|chore coat|boiler suit|waiter|bartender|bar tender|sailor deck|barber smock|mail carrier|postal carrier|referee|umpire|chef whites|paramedic|flight attendant|bellhop|mechanic|construction hi-vis|warehouse picker)\b/i },
   { tag: "uniform", pattern: EXPLICIT_UNIFORM_HINT },
   { tag: "costume", pattern: EXPLICIT_COSTUME_HINT },
   { tag: "beach", pattern: /\b(?:board shorts|flip-flops|sarong|snorkel|bikini|swim trunks|rash guard|beach|shoreline|seaside|poolside|kaftan cover-up)\b/i },
@@ -915,6 +981,18 @@ const COLOR_SYNONYMS: Array<{ hint: RegExp; label: RegExp }> = [
  * Score how well a catalog label matches garments named in the user brief.
  * Strong matches beat scene-context ties so rolled pieces follow the submission.
  */
+const MATERIAL_HINT_TOKENS = [
+  /\b(?:denim|leather|suede|silk|satin|linen|cotton|wool|cashmere|mesh|lace|velvet|nylon|gore-tex|neoprene|tweed|flannel|jersey|canvas)\b/i,
+];
+
+const FIT_HINT_TOKENS = [
+  /\b(?:slim|relaxed|oversized|cropped|tailored|high-waist(?:ed)?|low-rise|wide-leg|tapered|fitted|boxy)\b/i,
+];
+
+/**
+ * Score how well a catalog label matches garments named in the user brief.
+ * Strong matches beat scene-context ties so rolled pieces follow the submission.
+ */
 export function scoreClothingLabelAgainstHints(
   label: string,
   hintCorpus?: string,
@@ -928,12 +1006,26 @@ export function scoreClothingLabelAgainstHints(
   const separates = inferSeparateGarmentHints(corpus);
   for (const hint of separates) {
     if (hint.label.test(label)) {
-      score += 8;
+      score += 10;
       const phraseMatch = corpus.match(hint.phrase);
       const phrase = phraseMatch?.[0] ?? hint.brief;
       for (const { hint: colorHint, label: colorLabel } of COLOR_SYNONYMS) {
         if (colorHint.test(phrase) && colorLabel.test(label)) {
-          score += 6;
+          score += 8;
+          break;
+        }
+      }
+      // Material / fabric cues in the brief should lock matching catalog rolls.
+      for (const material of MATERIAL_HINT_TOKENS) {
+        if (material.test(phrase) && material.test(label)) {
+          score += 5;
+          break;
+        }
+      }
+      // Silhouette / fit language (cropped, high-waist, oversized…).
+      for (const fit of FIT_HINT_TOKENS) {
+        if (fit.test(phrase) && fit.test(label)) {
+          score += 4;
           break;
         }
       }
@@ -942,13 +1034,21 @@ export function scoreClothingLabelAgainstHints(
 
   for (const { phrase, label: dressLabel } of DRESS_STYLE_HINTS) {
     if (phrase.test(corpus) && dressLabel.test(label)) {
-      score += 10;
+      score += 12;
     }
   }
 
   for (const { phrase, label: shoeLabel } of FOOTWEAR_STYLE_HINTS) {
     if (phrase.test(corpus) && shoeLabel.test(label)) {
-      score += 8;
+      score += 10;
+      break;
+    }
+  }
+
+  // Whole-corpus color match even without a structured separate phrase.
+  for (const { hint: colorHint, label: colorLabel } of COLOR_SYNONYMS) {
+    if (colorHint.test(corpus) && colorLabel.test(label)) {
+      score += 2;
       break;
     }
   }
@@ -1401,6 +1501,7 @@ export function buildClothingGuardrailLines(
     briefGarments.length > 0
       ? `The brief specifies ${briefGarments.join(" and ")}—keep those garment types and proportions exactly; do not substitute loafers for heels, long dresses for mini dresses, or unrelated accessories like ties.`
       : null,
+    "Prefer clear silhouette, coverage, color, and material words over fabric-crease filler.",
   ].filter((line): line is string => Boolean(line));
 }
 

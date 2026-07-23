@@ -191,7 +191,6 @@ function createRng(seed) {
 
 function buildPhrase(category, pick) {
   const color = pick(colors);
-  const material = pick(materials);
   const detail = pick(details);
   const fit = pick(fits);
 
@@ -199,15 +198,16 @@ function buildPhrase(category, pick) {
     const outfit = pick(outfits);
     return {
       label: `${fit} ${color} ${outfit}`,
-      script: `a ${fit} ${color} ${outfit}, ${detail} and natural fabric creases`,
+      script: `a ${fit} ${color} ${outfit}, clear silhouette and coverage`,
     };
   }
 
   if (category === "top") {
     const top = pick(tops);
+    const material = pickCompatibleMaterial(top, pick);
     return {
       label: `${color} ${material} ${top}`,
-      script: `a ${color} ${material} ${top}, ${detail} and natural fabric creases`,
+      script: `a ${color} ${material} ${top}, ${detail}`,
     };
   }
 
@@ -215,15 +215,16 @@ function buildPhrase(category, pick) {
     const bottom = pick(bottoms);
     return {
       label: `${color} ${bottom}`,
-      script: `${color} ${bottom}, ${detail} and believable drape`,
+      script: `${color} ${bottom}, ${detail}`,
     };
   }
 
   if (category === "outerwear") {
     const piece = pick(outerwear);
+    const material = pickCompatibleMaterial(piece, pick);
     return {
       label: `${color} ${material} ${piece}`,
-      script: `a ${color} ${material} ${piece}, ${detail} and weight on the shoulders`,
+      script: `a ${color} ${material} ${piece}, ${detail}`,
     };
   }
 
@@ -231,95 +232,132 @@ function buildPhrase(category, pick) {
     const shoe = pick(footwear);
     return {
       label: `${color} ${shoe}`,
-      script: `${color} ${shoe}, showing sole wear, material scuffing, and believable weight on the foot`,
+      script: `${color} ${shoe}, grounded sole contact`,
     };
   }
 
   if (category === "swimwear") {
     const piece = pick(swimwearPieces);
+    const material = pickFrom(["nylon", "polyester", "technical fabric", "neoprene", "mesh"], pick);
     return {
       label: `${color} ${material} ${piece}`,
-      script: `a ${color} ${material} ${piece}, damp fabric sheen, secure fit, and realistic swimwear construction for pool or beach use`,
+      script: `a ${color} ${material} ${piece}, secure coverage and swim-ready fit`,
     };
   }
 
   if (category === "intimate") {
     const piece = pick(intimatePieces);
+    const material = pickFrom(["silk", "satin", "lace", "mesh", "cotton", "modal"], pick);
     return {
       label: `${color} ${material} ${piece}`,
-      script: `a ${color} ${material} ${piece}, fine lingerie detailing, soft fabric drape, and believable fit for a private indoor setting`,
+      script: `a ${color} ${material} ${piece}, soft drape and private-setting fit`,
     };
   }
 
   if (category === "hosiery") {
     const piece = pick(hosieryPieces);
+    const material = pickFrom(["nylon", "silk", "microfiber", "wool", "mesh"], pick);
     return {
       label: `${color} ${material} ${piece}`,
-      script: `${color} ${material} ${piece}, rendered with believable sheer or opaque texture, fine seam detail, and natural fit on the legs`,
+      script: `${color} ${material} ${piece}, sheer or opaque coverage on the legs`,
     };
   }
 
   if (category === "formalwear") {
     const piece = pick(formalwearPieces);
+    const material = pickCompatibleMaterial(piece, pick);
     return {
       label: `${fit} ${color} ${material} ${piece}`,
-      script: `a ${fit} ${color} ${material} ${piece}, refined tailoring, polished fabric drape, and elegant formal styling`,
+      script: `a ${fit} ${color} ${material} ${piece}, refined tailoring and formal coverage`,
     };
   }
 
   if (category === "dressy-accessory") {
     const piece = pick(dressyAccessories);
+    const material = pickFrom(["satin", "silk", "velvet", "lace", "leather"], pick);
     return {
       label: `${color} ${material} ${piece}`,
-      script: `a ${color} ${material} ${piece}, rendered with formal occasion detail, fine finish, and natural placement for an evening or gala setting`,
+      script: `a ${color} ${material} ${piece}, formal scale and natural placement`,
     };
   }
 
   if (category === "sleepwear") {
     const piece = pick(sleepwearPieces);
+    const material = pickFrom(["cotton", "flannel", "silk", "satin", "jersey", "modal", "linen"], pick);
     return {
       label: `${color} ${material} ${piece}`,
-      script: `a ${color} ${material} ${piece}, soft sleepwear drape, comfortable fit, and believable at-home fabric texture`,
+      script: `a ${color} ${material} ${piece}, soft coverage and at-home fit`,
     };
   }
 
   if (category === "underwear") {
     const piece = pick(underwearPieces);
+    const material = pickFrom(["cotton", "jersey", "modal", "mesh"], pick);
     return {
       label: `${color} ${material} ${piece}`,
-      script: `a ${color} ${material} ${piece}, rendered as base-layer underwear with natural fit and realistic fabric stretch`,
+      script: `a ${color} ${material} ${piece}, base-layer stretch and natural fit`,
     };
   }
 
   if (category === "socks") {
     const piece = pick(socksPieces);
+    const material = pickFrom(["cotton", "wool", "merino wool", "nylon", "mesh"], pick);
     return {
       label: `${color} ${material} ${piece}`,
-      script: `${color} ${material} ${piece}, showing knit texture, natural stretch, and believable fit on the feet and calves`,
+      script: `${color} ${material} ${piece}, knit texture and secure ankle fit`,
     };
   }
 
   if (category === "headwear") {
     const piece = pick(headwearPieces);
+    const material = pickCompatibleMaterial(piece, pick);
     return {
       label: `${color} ${material} ${piece}`,
-      script: `a ${color} ${material} ${piece}, rendered with readable shape, material weight, and natural placement on the head`,
+      script: `a ${color} ${material} ${piece}, readable shape on the head`,
     };
   }
 
   if (category === "traditional") {
     const piece = pick(traditionalPieces);
+    const material = pickCompatibleMaterial(piece, pick);
     return {
       label: `${fit} ${color} ${material} ${piece}`,
-      script: `a ${fit} ${color} ${material} ${piece}, culturally specific tailoring, authentic drape, and respectful traditional garment construction`,
+      script: `a ${fit} ${color} ${material} ${piece}, authentic drape and traditional silhouette`,
     };
   }
 
   const accessory = pick(accessories);
   return {
     label: `${color} ${accessory}`,
-    script: `a ${color} ${accessory}, rendered with readable material weight, fine detail, and natural placement on the body`,
+    script: `a ${color} ${accessory}, natural scale and placement`,
   };
+}
+
+/** Ban nonsense material×garment combos models misread (silk work boots, latex hijab…). */
+const MATERIAL_BAN = [
+  { garment: /\b(?:boots?|sneakers?|cleats|oxford|loafer|heel|sandal|clog)\b/i, ban: /\b(?:silk|chiffon|lace|tulle|sequin)\b/i },
+  { garment: /\b(?:helmet|goggles|visor|toque|kippah)\b/i, ban: /\b(?:silk|chiffon|lace|latex|sequin)\b/i },
+  { garment: /\b(?:jeans|denim|coveralls|overalls|chore)\b/i, ban: /\b(?:silk|chiffon|lace|satin|sequin)\b/i },
+  { garment: /\b(?:raincoat|slicker|gore-tex|hardshell|softshell)\b/i, ban: /\b(?:silk|lace|chiffon|cashmere|velvet)\b/i },
+  { garment: /\b(?:scrubs|lab coat|surgical)\b/i, ban: /\b(?:leather|latex|sequin|velvet|brocade)\b/i },
+  { garment: /\b(?:hijab|turban|abaya|kaftan)\b/i, ban: /\b(?:latex|neoprene|gore-tex|sequin)\b/i },
+];
+
+function pickFrom(pool, pick) {
+  return pool[Math.floor(pick() * pool.length) % pool.length] ?? pool[0];
+}
+
+function pickCompatibleMaterial(garment, pickFn) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const material = materials[Math.floor(pickFn() * materials.length) % materials.length];
+    const banned = MATERIAL_BAN.some(
+      (rule) => rule.garment.test(garment) && rule.ban.test(material),
+    );
+    if (!banned) {
+      return material;
+    }
+  }
+  return "cotton";
 }
 
 function generateEntries(byId, byLabel, countNeeded, seed) {
