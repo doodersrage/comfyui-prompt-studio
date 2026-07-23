@@ -56,7 +56,11 @@ import {
   fetchComfyObjectInfoNodeTypesCached,
 } from "./comfyui-object-info-cache";
 import { loadSettingsCache } from "./settings-cache";
-import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
+import {
+  loadComfyUiSettings,
+  mergeLoraLibraryIntoCustomTokens,
+  resolveSharedEffectiveSessionLoraIds,
+} from "./comfyui-settings";
 import {
   fetchComfyQueueIdle,
   holdMaxGalleryEnhance,
@@ -141,8 +145,23 @@ export type RequeueComfyJobInput = {
    * directWorkflowPatching instead of rebuilding from the library template.
    */
   workflowJson?: string;
+  /**
+   * LoRA library ids to restore for this re-queue (from the gallery entry).
+   * When omitted, falls back to the current Shared stack for the entry model.
+   */
+  sessionActiveLoraIds?: string[];
   onStatus?: (message: string) => void;
 };
+
+/** Prefer LoRAs recorded on the gallery entry; else the current stack for that model. */
+export function resolveRequeueSessionLoraIds(
+  entry: Pick<ComfyGalleryEntry, "sessionActiveLoraIds" | "model">,
+): string[] | undefined {
+  if (entry.sessionActiveLoraIds !== undefined) {
+    return entry.sessionActiveLoraIds;
+  }
+  return resolveSharedEffectiveSessionLoraIds(entry.model);
+}
 
 export type RequeueComfyJobResult = {
   ok: boolean;
@@ -1007,6 +1026,7 @@ export function requeueComfyJobFromEntry(
     sourceImageUrl: urls.sourceImageUrl,
     maskImageUrl: urls.maskImageUrl,
     storedQualityProfile: entry.queueQualityProfile,
+    sessionActiveLoraIds: resolveRequeueSessionLoraIds(entry),
     newSeed: options?.newSeed,
     hints: options?.hints,
     qualityProfile: options?.qualityProfile,
@@ -1090,7 +1110,13 @@ export async function requeueComfyJob(
 
   const requestedProfile =
     input.qualityProfile ?? input.storedQualityProfile ?? undefined;
-  const baseRuntime = resolveRuntimeForQueue(model, input.tool);
+  const sessionActiveLoraIds =
+    input.sessionActiveLoraIds !== undefined
+      ? input.sessionActiveLoraIds
+      : resolveSharedEffectiveSessionLoraIds(model);
+  const baseRuntime = resolveRuntimeForQueue(model, input.tool, {
+    sessionActiveLoraIds,
+  });
   const withRequested = baseRuntime
     ? {
         ...baseRuntime,
@@ -1211,6 +1237,7 @@ export async function requeueComfyJob(
     sourceImageUrl: input.sourceImageUrl,
     maskImageUrl: input.maskImageUrl,
     queueQualityProfile: comfyRuntime?.queueQualityProfile,
+    sessionActiveLoraIds,
     parentGalleryEntryId: input.parentGalleryEntryId,
     derivedKind: input.derivedKind,
   });

@@ -3,7 +3,7 @@ import { buildComfyViewPath } from "./comfyui-outputs";
 import type { WorkflowParamValues } from "./comfyui-config";
 import type { QueueQualityProfile } from "./queue-quality-profile";
 import { setLineageParent } from "./prompt-lineage-session";
-import { loadSettingsCache } from "./settings-cache";
+import { resolveSharedEffectiveSessionLoraIds } from "./comfyui-settings";
 
 export const GALLERY_HANDOFF_KEY = "gallery-handoff-v1";
 export const IMPROVE_INTENT_DEFAULT =
@@ -46,13 +46,13 @@ function resolveHandoffLoraIds(
   entry: ComfyGalleryEntry,
   includeSessionLoras: boolean,
 ): string[] | undefined {
-  if (entry.sessionActiveLoraIds && entry.sessionActiveLoraIds.length > 0) {
+  if (entry.sessionActiveLoraIds !== undefined) {
     return entry.sessionActiveLoraIds.map((id) => id.trim()).filter(Boolean);
   }
   if (!includeSessionLoras) {
     return undefined;
   }
-  const session = loadSettingsCache().shared.sessionActiveLoraIds;
+  const session = resolveSharedEffectiveSessionLoraIds(entry.model);
   if (!session || session.length === 0) {
     return undefined;
   }

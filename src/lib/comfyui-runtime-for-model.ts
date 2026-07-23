@@ -47,6 +47,11 @@ export type ResolveRuntimeOptions = {
   ignoreManualWorkflow?: boolean;
   /** Live ComfyUI inventory — when set, system scaffolds/maps adapt to it. */
   inventory?: ComfyUiModelLists | null;
+  /**
+   * Override the Shared session LoRA stack (e.g. gallery re-queue restoring the
+   * stack recorded on the original entry).
+   */
+  sessionActiveLoraIds?: string[];
 };
 
 /**
@@ -258,7 +263,10 @@ export function resolveRuntimeForModel(
     // System packs replace workflow JSON / loader maps but must keep the session
     // LoRA stack from Settings — otherwise Lightning neutralize leaves style LoRAs
     // at 0 and sidebar picks never re-apply.
-    const settingsRuntime = comfyUiSettingsToRuntime(loadComfyUiSettings());
+    const settingsRuntime = comfyUiSettingsToRuntime(loadComfyUiSettings(), {
+      sessionActiveLoraIds: options?.sessionActiveLoraIds,
+      model,
+    });
     const base = applySystemWorkflowToRuntime(
       model,
       shared,
@@ -323,7 +331,10 @@ export function resolveRuntimeForModel(
   // Same as the system-workflow path: always forward the session-filtered LoRA
   // library. Mapped/manual graphs may omit it when no workflow file resolves,
   // and Lightning cannot fall back to {{LORA_*}} custom-token injection.
-  const settingsRuntime = comfyUiSettingsToRuntime(loadComfyUiSettings());
+  const settingsRuntime = comfyUiSettingsToRuntime(loadComfyUiSettings(), {
+    sessionActiveLoraIds: options?.sessionActiveLoraIds,
+    model,
+  });
 
   return {
     ...(stackCompatible ?? {}),

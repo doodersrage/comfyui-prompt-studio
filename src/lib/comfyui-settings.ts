@@ -33,12 +33,18 @@ import {
 import { resolveEffectiveSessionLoraIds } from "./model-lora-map";
 import { loadSettingsCache } from "./settings-cache";
 
-/** Per-model session → model LoRA map → library enabled flags. */
-function resolveSharedEffectiveSessionLoraIds(): string[] | undefined {
+/**
+ * Per-model session → model LoRA map → library enabled flags.
+ * Pass `model` to resolve the stack for a gallery/history entry rather than
+ * whatever model is currently selected in Shared settings.
+ */
+export function resolveSharedEffectiveSessionLoraIds(
+  model?: string,
+): string[] | undefined {
   const shared = loadSettingsCache().shared;
   return resolveEffectiveSessionLoraIds(
     shared.sessionActiveLoraIds,
-    shared.model,
+    model?.trim() || shared.model,
     shared.modelLoraMap,
     shared.sessionActiveLoraIdsByModel,
   );
@@ -177,15 +183,23 @@ export function mergeLoraLibraryIntoCustomTokens(
      * Use at queue/preview time so deselected catalog entries cannot still resolve.
      */
     activeOnly?: boolean;
+    /**
+     * Override shared session picks (gallery re-queue / same-stack restore).
+     * When omitted, uses the current Shared settings stack for the active model.
+     */
+    sessionActiveLoraIds?: string[];
+    /** Model used when resolving the shared stack (defaults to Shared settings model). */
+    model?: string;
   },
 ): ComfyUiSettings {
   const normalized = migrateOrphanLoraTokensToLibrary(settings);
   let library = normalizeLoraLibrary(normalized.loraLibrary);
   if (options?.activeOnly) {
-    library = applySessionLoraSelection(
-      library,
-      resolveSharedEffectiveSessionLoraIds(),
-    ).filter(
+    const sessionIds =
+      options.sessionActiveLoraIds !== undefined
+        ? options.sessionActiveLoraIds
+        : resolveSharedEffectiveSessionLoraIds(options.model);
+    library = applySessionLoraSelection(library, sessionIds).filter(
       (entry) =>
         entry.enabled !== false || isLightningLibraryEntry(entry),
     );
@@ -336,12 +350,24 @@ export function resetComfyUiSettings(): void {
 
 export function comfyUiSettingsToRuntime(
   settings: ComfyUiSettings,
+  options?: {
+    sessionActiveLoraIds?: string[];
+    model?: string;
+  },
 ): ComfyUiRuntimeConfig | undefined {
   // LoRA library lives in browser settings — always merge into custom tokens so
   // server preview/queue can resolve {{LORA_LIGHTNING}} even with useServerDefaults.
   // Queue/preview only substitute session-active (or Settings-enabled) LoRAs so
   // deselected catalog entries cannot still resolve into the graph.
-  const merged = mergeLoraLibraryIntoCustomTokens(settings, { activeOnly: true });
+  const sessionActiveLoraIds =
+    options?.sessionActiveLoraIds !== undefined
+      ? options.sessionActiveLoraIds
+      : resolveSharedEffectiveSessionLoraIds(options?.model);
+  const merged = mergeLoraLibraryIntoCustomTokens(settings, {
+    activeOnly: true,
+    sessionActiveLoraIds,
+    model: options?.model,
+  });
   const customTokens = merged.customTokens?.length ? merged.customTokens : undefined;
   // Strengths/enabled/order can't be encoded as {{LORA_*}} custom tokens — forward the
   // normalized library itself so queue-time LoRA stacking survives the client→server hop.
@@ -349,7 +375,7 @@ export function comfyUiSettingsToRuntime(
   // otherwise the per-model LoRA map applies when present.
   const loraLibrary = applySessionLoraSelection(
     settings.loraLibrary,
-    resolveSharedEffectiveSessionLoraIds(),
+    sessionActiveLoraIds,
   );
 
   if (settings.useServerDefaults) {

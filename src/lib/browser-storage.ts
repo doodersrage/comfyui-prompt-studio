@@ -70,7 +70,9 @@ export function whenBrowserStorageReady(): Promise<void> {
 export function resetBrowserStorageCache(): void {
   cache.clear();
   dirtyKeys.clear();
-  ready = false;
+  // No Dexie (SSR / unit tests): there is nothing to hydrate — treat as ready so
+  // settings writes are not refused. Real browsers keep ready=false until init.
+  ready = !appDb;
   readyPromise = null;
 }
 

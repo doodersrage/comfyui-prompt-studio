@@ -149,6 +149,80 @@ describe("comfyui-runtime-for-model system path", () => {
     });
   });
 
+  it("honors sessionActiveLoraIds override for gallery re-queue (ignores current empty stack)", async () => {
+    await withMockLocalStorage(async () => {
+      const { saveComfyUiSettings } = await import("./comfyui-settings.ts");
+      saveComfyUiSettings({
+        useServerDefaults: true,
+        loraLibrary: [
+          {
+            id: "skin",
+            label: "Skin",
+            triggerPhrase: "",
+            tokenValue: "skin_detail_v1.safetensors",
+            enabled: false,
+            strengthModel: 0.7,
+            strengthClip: 0.7,
+          },
+        ],
+      });
+      // Current UI has a different model / empty LoRA stack (typical after browsing).
+      saveSharedSettings({
+        ...DEFAULT_SHARED_SETTINGS,
+        ...loadSettingsCache().shared,
+        useSystemWorkflows: true,
+        model: "flux-dev",
+        sessionActiveLoraIds: [],
+        sessionActiveLoraIdsByModel: {
+          "flux-dev": [],
+          "qwen-image-2512-lightning-8": ["skin"],
+        },
+      });
+      const withoutOverride = resolveRuntimeForQueue(
+        "qwen-image-2512-lightning-8",
+        "generate",
+      );
+      assert.equal(
+        withoutOverride.loraLibrary?.some(
+          (entry) => entry.id === "skin" && entry.enabled === true,
+        ),
+        true,
+        "per-model map still applies when resolving that model",
+      );
+
+      // Simulate clearing the Lightning model stack after the original render.
+      saveSharedSettings({
+        ...loadSettingsCache().shared,
+        sessionActiveLoraIdsByModel: {
+          "flux-dev": [],
+          "qwen-image-2512-lightning-8": [],
+        },
+      });
+      const cleared = resolveRuntimeForQueue(
+        "qwen-image-2512-lightning-8",
+        "generate",
+      );
+      assert.equal(
+        cleared.loraLibrary?.some(
+          (entry) => entry.id === "skin" && entry.enabled === true,
+        ),
+        false,
+      );
+
+      const restored = resolveRuntimeForQueue(
+        "qwen-image-2512-lightning-8",
+        "generate",
+        { sessionActiveLoraIds: ["skin"] },
+      );
+      assert.ok(
+        restored.loraLibrary?.some(
+          (entry) => entry.id === "skin" && entry.enabled === true,
+        ),
+        "gallery re-queue override must restore the recorded LoRA stack",
+      );
+    });
+  });
+
   it("re-enables enrich for tool Final when global profile is Draft", async () => {
     await withMockLocalStorage(() => {
       saveSharedSettings({

@@ -46,7 +46,10 @@ import {
   resolveParentHistoryId,
 } from "@/lib/prompt-lineage-session";
 import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
-import { loadComfyUiSettings } from "@/lib/comfyui-settings";
+import {
+  loadComfyUiSettings,
+  resolveSharedEffectiveSessionLoraIds,
+} from "@/lib/comfyui-settings";
 import { loadSettingsCache } from "@/lib/settings-cache";
 import {
   computePromptContentHash,
@@ -836,7 +839,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               queueParams,
               queueQualityProfile: runtime?.queueQualityProfile,
               model: queueModel,
-              sessionActiveLoraIds: loadSettingsCache().shared.sessionActiveLoraIds,
+              sessionActiveLoraIds:
+                resolveSharedEffectiveSessionLoraIds(queueModel),
             });
             // Let the gallery poller attach to the shared live session before we
             // drop the early ref (avoids aborting the bridge on refCount 0).
@@ -1083,7 +1087,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 historyId: index === 0 ? batchHistoryId : undefined,
                 queueQualityProfile: runtime?.queueQualityProfile,
                 model: queueModel,
-                sessionActiveLoraIds: loadSettingsCache().shared.sessionActiveLoraIds,
+                sessionActiveLoraIds:
+                  resolveSharedEffectiveSessionLoraIds(queueModel),
               },
               false,
             );
