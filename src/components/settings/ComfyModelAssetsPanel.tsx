@@ -139,9 +139,17 @@ export default function ComfyModelAssetsPanel({
     }
   }, [filterCurrentModel]);
 
-  jobsRef.current = jobs;
-  loadRef.current = load;
-  onInstalledRef.current = onInstalled;
+  useEffect(() => {
+    jobsRef.current = jobs;
+  }, [jobs]);
+
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
+
+  useEffect(() => {
+    onInstalledRef.current = onInstalled;
+  }, [onInstalled]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {

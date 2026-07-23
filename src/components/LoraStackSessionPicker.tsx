@@ -14,6 +14,7 @@ import {
   type ModelLoraMap,
   type SessionActiveLoraIdsByModel,
 } from "@/lib/model-lora-map";
+import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { loadSettingsCache } from "@/lib/settings-cache";
 import { Button } from "@/components/ui/Button";
 import { FieldLabel } from "@/components/ui/Field";
@@ -44,12 +45,14 @@ export default function LoraStackSessionPicker({
   const [snapshot, setSnapshot] = useState<PickerSnapshot | null>(null);
 
   useEffect(() => {
-    const shared = loadSettingsCache().shared;
-    setSnapshot({
-      library: loadComfyUiSettings().loraLibrary ?? [],
-      model: model ?? shared.model,
-      modelLoraMap: shared.modelLoraMap,
-      sessionActiveLoraIdsByModel: shared.sessionActiveLoraIdsByModel,
+    scheduleAfterCommit(() => {
+      const shared = loadSettingsCache().shared;
+      setSnapshot({
+        library: loadComfyUiSettings().loraLibrary ?? [],
+        model: model ?? shared.model,
+        modelLoraMap: shared.modelLoraMap,
+        sessionActiveLoraIdsByModel: shared.sessionActiveLoraIdsByModel,
+      });
     });
   }, [model, sessionActiveLoraIds]);
 

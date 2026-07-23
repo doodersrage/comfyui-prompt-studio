@@ -85,6 +85,7 @@ import {
   hasSessionLoraIdsForModel,
   resolveLoraIdsForModelSelection,
   setSessionLoraIdsForModel,
+  type SessionActiveLoraIdsByModel,
 } from "@/lib/model-lora-map";
 
 const ComfyWorkflowSelector = dynamic(
@@ -218,7 +219,7 @@ export default function SharedToolControls({
     string[] | undefined
   >(undefined);
   const [sessionActiveLoraIdsByModel, setSessionActiveLoraIdsByModel] =
-    useState<Record<string, string[]>>({});
+    useState<SessionActiveLoraIdsByModel>({});
 
   const workflowCatalog = useMemo(
     () => [
