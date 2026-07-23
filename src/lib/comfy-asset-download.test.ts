@@ -25,6 +25,18 @@ import {
 } from "./comfy-asset-status";
 
 describe("comfy asset paths", () => {
+  it("maps clip and controlnet folders and blocks traversal", () => {
+    const root = "/tmp/comfy-root-test";
+    assert.equal(
+      resolveKindModelsDir(root, "clip"),
+      path.resolve(root, "models/text_encoders"),
+    );
+    assert.equal(
+      resolveKindModelsDir(root, "controlnet"),
+      path.resolve(root, "models/controlnet"),
+    );
+  });
+
   it("maps kinds to models subfolders and blocks traversal", () => {
     const root = "/tmp/comfy-root-test";
     assert.equal(
@@ -91,13 +103,20 @@ describe("comfy asset catalog", () => {
     assert.equal(isAllowlistedAssetUrl("http://huggingface.co/x"), false);
   });
 
-  it("marks SDXL base downloadable and flux docs-only", () => {
+  it("marks SDXL base and Qwen VAE downloadable; gated FLUX AE docs-only", () => {
     const sdxl = getCatalogAsset("sdxl-base");
     assert.ok(sdxl);
     assert.equal(assetIsDownloadable(sdxl!), true);
-    const flux = getCatalogAsset("flux1-dev-unet");
-    assert.ok(flux);
-    assert.equal(assetIsDownloadable(flux!), false);
+    const qwenVae = getCatalogAsset("qwen-image-vae");
+    assert.ok(qwenVae);
+    assert.equal(assetIsDownloadable(qwenVae!), true);
+    const clip = getCatalogAsset("qwen-2.5-vl-7b-fp8");
+    assert.ok(clip);
+    assert.equal(clip!.kind, "clip");
+    assert.equal(assetIsDownloadable(clip!), true);
+    const fluxAe = getCatalogAsset("flux1-ae");
+    assert.ok(fluxAe);
+    assert.equal(assetIsDownloadable(fluxAe!), false);
   });
 });
 
@@ -142,6 +161,17 @@ describe("comfy asset status", () => {
       await fsp.rm(root, { recursive: true, force: true });
     }
   });
+  it("reports clip inventory hits", () => {
+    const { rows } = buildComfyAssetStatusRows({
+      root: null,
+      inventory: {
+        clips: ["qwen_2.5_vl_7b_fp8_scaled.safetensors"],
+      },
+    });
+    const clip = rows.find((row) => row.id === "qwen-2.5-vl-7b-fp8");
+    assert.equal(clip?.status, "installed");
+    assert.equal(clip?.inInventory, true);
+  });
 });
 
 describe("comfy asset download", () => {
@@ -152,7 +182,7 @@ describe("comfy asset download", () => {
   it("refuses unknown and docs-only assets", () => {
     assert.throws(() => startComfyAssetDownload({ assetId: "nope" }));
     assert.throws(() =>
-      startComfyAssetDownload({ assetId: "flux1-dev-unet", root: "/tmp" }),
+      startComfyAssetDownload({ assetId: "flux1-ae", root: "/tmp" }),
     );
   });
 

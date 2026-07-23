@@ -17,6 +17,8 @@ export type ComfyAssetInventory = {
   vaes?: string[];
   loras?: string[];
   upscaleModels?: string[];
+  clips?: string[];
+  controlNets?: string[];
 };
 
 export type ComfyAssetStatus =
@@ -37,6 +39,7 @@ export type ComfyAssetStatusRow = {
   inInventory: boolean;
   notes?: string;
   urlHost?: string;
+  requiresHfToken?: boolean;
 };
 
 function inventoryListForKind(
@@ -58,6 +61,10 @@ function inventoryListForKind(
       return inventory.loras ?? [];
     case "upscale":
       return inventory.upscaleModels ?? [];
+    case "clip":
+      return inventory.clips ?? [];
+    case "controlnet":
+      return inventory.controlNets ?? [];
     default:
       return [];
   }
@@ -147,6 +154,7 @@ export function buildComfyAssetStatusRows(input?: {
       inInventory,
       notes: asset.notes,
       urlHost,
+      requiresHfToken: asset.requiresHfToken,
     };
   });
 

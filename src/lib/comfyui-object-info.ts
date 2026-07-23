@@ -112,6 +112,7 @@ export function parseComfyObjectInfoModelLists(
     clips: [
       ...new Set([
         ...readNodeInputOptions(objectInfo, "DualCLIPLoader", "clip_name1"),
+        ...readNodeInputOptions(objectInfo, "DualCLIPLoader", "clip_name2"),
         ...readNodeInputOptions(objectInfo, "CLIPLoader", "clip_name"),
       ]),
     ],

@@ -1,15 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
+import {
+  type ComfyAssetKind,
+  COMFY_ASSET_KIND_LABELS,
+  COMFY_ASSET_KIND_ORDER,
+} from "./comfy-asset-kinds";
 
-export type ComfyAssetKind =
-  | "checkpoint"
-  | "unet"
-  | "vae"
-  | "lora"
-  | "upscale"
-  | "refiner";
+export type { ComfyAssetKind };
+export { COMFY_ASSET_KIND_LABELS, COMFY_ASSET_KIND_ORDER };
 
-/** Preferred relative folders under COMFYUI_ROOT (first existing wins for unet). */
+/** Preferred relative folders under COMFYUI_ROOT (first existing wins for multi-path kinds). */
 const KIND_RELATIVE_DIRS: Record<ComfyAssetKind, string[]> = {
   checkpoint: ["models/checkpoints"],
   refiner: ["models/checkpoints"],
@@ -17,6 +17,9 @@ const KIND_RELATIVE_DIRS: Record<ComfyAssetKind, string[]> = {
   vae: ["models/vae"],
   lora: ["models/loras"],
   upscale: ["models/upscale_models"],
+  // ComfyUI dual-CLIP / text encoders: newer trees use text_encoders; older use clip.
+  clip: ["models/text_encoders", "models/clip"],
+  controlnet: ["models/controlnet"],
 };
 
 export function getComfyUiRoot(env: NodeJS.ProcessEnv = process.env): string | null {
