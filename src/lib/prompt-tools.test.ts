@@ -1322,7 +1322,8 @@ describe("comfyui job status formatting", () => {
       progressMax: 28,
       progressNode: "3",
     });
-    assert.match(line, /Running · 7\/28 \(25%\)/);
+    assert.match(line, /Running · 7\/28/);
+    assert.doesNotMatch(line, /\(25%\)/);
     assert.match(line, /node 3/);
     assert.equal(
       comfyUiJobStatusLabel({
