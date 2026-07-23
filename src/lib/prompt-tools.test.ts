@@ -1747,6 +1747,20 @@ describe("gallery handoff", () => {
     assert.equal(galleryHandoffPath("promptEditor"), "/prompt?from=gallery");
     assert.equal(galleryImprovePath(), "/refine?from=gallery&improve=1");
   });
+
+  it("builds gallery pick mode URLs", async () => {
+    const {
+      galleryPickPath,
+      parseGalleryPickTarget,
+      galleryHandoffHomePath,
+      galleryPickActionLabel,
+    } = await import("./gallery-handoff");
+    assert.equal(galleryPickPath("video"), "/gallery?pickFor=video");
+    assert.equal(parseGalleryPickTarget("video"), "video");
+    assert.equal(parseGalleryPickTarget("bogus"), null);
+    assert.equal(galleryHandoffHomePath("video"), "/video");
+    assert.equal(galleryPickActionLabel("video"), "Use for Video");
+  });
 });
 
 describe("semantic search", () => {
@@ -1845,6 +1859,31 @@ describe("context negative profile", () => {
       hints: "portrait headshot",
     });
     assert.equal(profile?.id, "qwen-portrait");
+  });
+
+  it("selects video-motion profile for video tool / WAN models", async () => {
+    const { resolveContextNegativeProfile } = await import("./context-negative-profile");
+    assert.equal(
+      resolveContextNegativeProfile(undefined, undefined, {
+        tool: "video",
+        hints: "cyclist cresting a hill",
+      })?.id,
+      "video-motion",
+    );
+    assert.equal(
+      resolveContextNegativeProfile(undefined, undefined, {
+        model: "wan-video",
+        hints: "camera push-in",
+      })?.id,
+      "video-motion",
+    );
+    assert.equal(
+      resolveContextNegativeProfile(undefined, undefined, {
+        model: "wan-video-lightning-4",
+        tool: "video",
+      })?.id,
+      "video-motion-lightning",
+    );
   });
 });
 

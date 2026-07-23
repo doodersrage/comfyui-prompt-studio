@@ -41,6 +41,22 @@ function isQwenModelContext(model: ComfyImageModel | string | undefined): boolea
   return getComfyModelDefinition(model).category === "qwen";
 }
 
+function isVideoModelContext(model: ComfyImageModel | string | undefined): boolean {
+  if (!model) {
+    return false;
+  }
+  if (/video|wan|hunyuan|ltx/i.test(String(model))) {
+    if (COMFY_MODEL_IDS.has(model)) {
+      return getComfyModelDefinition(model).category === "video";
+    }
+    return /video/i.test(String(model));
+  }
+  if (!COMFY_MODEL_IDS.has(model)) {
+    return false;
+  }
+  return getComfyModelDefinition(model).category === "video";
+}
+
 export function resolveContextNegativeProfile(
   profiles: NegativeProfile[] | undefined,
   selectedId: string | undefined,
@@ -49,6 +65,7 @@ export function resolveContextNegativeProfile(
   const list = profiles?.length ? profiles : DEFAULT_NEGATIVE_PROFILES;
   const corpus = `${context.tool ?? ""} ${context.hints ?? ""}`.toLowerCase();
   const qwenModel = isQwenModelContext(context.model);
+  const videoModel = isVideoModelContext(context.model);
 
   if (context.sport) {
     const sportMatch = list.find(
@@ -56,6 +73,27 @@ export function resolveContextNegativeProfile(
     );
     if (sportMatch) {
       return sportMatch;
+    }
+  }
+
+  if (
+    context.tool === "video" ||
+    videoModel ||
+    /\b(video|i2v|t2v|wan\s*video|motion clip)\b/i.test(corpus)
+  ) {
+    if (
+      /wan.*lightning|lightning.*wan|4[\s-]?step.*video|video.*4[\s-]?step/i.test(
+        `${context.model ?? ""} ${corpus}`,
+      )
+    ) {
+      const lightning = list.find((entry) => entry.id === "video-motion-lightning");
+      if (lightning) {
+        return lightning;
+      }
+    }
+    const video = list.find((entry) => entry.id === "video-motion");
+    if (video) {
+      return video;
     }
   }
 

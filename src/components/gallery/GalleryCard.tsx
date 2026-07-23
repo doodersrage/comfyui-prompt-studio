@@ -84,6 +84,11 @@ type GalleryCardProps = {
   reviewMutationHints?: string[];
   onVisionTagClick?: (tag: string) => void;
   onViewWorkflow?: () => void;
+  /** When set, clicking a pickable card returns the image to the calling tool. */
+  pickMode?: boolean;
+  pickable?: boolean;
+  pickLabel?: string;
+  onPick?: () => void;
 };
 
 function statusLabel(status: ComfyGalleryEntry["status"], entry?: ComfyGalleryEntry): string {
@@ -148,6 +153,10 @@ export default function GalleryCard({
   reviewMutationHints,
   onVisionTagClick,
   onViewWorkflow,
+  pickMode = false,
+  pickable = false,
+  pickLabel = "Use this image",
+  onPick,
 }: GalleryCardProps) {
   const router = useRouter();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -380,15 +389,26 @@ export default function GalleryCard({
           : layout === "dense"
             ? "aspect-[3/4] rounded-t-2xl"
             : "aspect-[4/5] rounded-t-2xl sm:aspect-square"
-      }`}
+      } ${pickMode && !pickable ? "opacity-45" : ""}`}
     >
       {previewUrl && !isRendering ? (
         <>
           <button
             type="button"
-            onClick={() => onOpenImage(0)}
-            className="relative block h-full w-full cursor-zoom-in overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
-            aria-label="Open image preview"
+            onClick={() => {
+              if (pickMode && pickable && onPick) {
+                onPick();
+                return;
+              }
+              onOpenImage(0);
+            }}
+            className={`relative block h-full w-full overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+              pickMode && pickable ? "cursor-pointer" : "cursor-zoom-in"
+            }`}
+            aria-label={
+              pickMode && pickable ? pickLabel : "Open image preview"
+            }
+            disabled={pickMode && !pickable}
           >
             {lqipUrl && !isVideoHero ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -441,38 +461,50 @@ export default function GalleryCard({
           </button>
           {layout !== "list" ? (
             <div className="pointer-events-none absolute inset-0 flex items-end justify-center gap-2 bg-gradient-to-t from-zinc-950/95 via-zinc-950/35 to-transparent p-3 opacity-0 transition duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100 group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100">
-              <button
-                type="button"
-                onClick={() => onOpenImage(0)}
-                className="pointer-events-auto rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-2.5 py-1 text-[11px] text-zinc-200 backdrop-blur transition hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
-              >
-                Open
-              </button>
-              {entry.status === "completed" && !isVideoHero ? (
+              {pickMode && pickable && onPick ? (
+                <button
+                  type="button"
+                  onClick={onPick}
+                  className="pointer-events-auto rounded-lg border border-violet-400/40 bg-violet-500/25 px-3 py-1.5 text-[11px] font-medium text-violet-50 backdrop-blur transition hover:bg-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
+                >
+                  {pickLabel}
+                </button>
+              ) : (
                 <>
                   <button
                     type="button"
-                    onClick={() => startImproveFromGalleryEntry(entry)}
-                    className="pointer-events-auto rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200 backdrop-blur transition hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/45 active:scale-[0.98]"
+                    onClick={() => onOpenImage(0)}
+                    className="pointer-events-auto rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-2.5 py-1 text-[11px] text-zinc-200 backdrop-blur transition hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
                   >
-                    Improve
+                    Open
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => startInpaintFromGalleryEntry(entry)}
-                    className="pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100 backdrop-blur transition hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/45 active:scale-[0.98]"
-                  >
-                    Inpaint
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => startOutpaintFromGalleryEntry(entry)}
-                    className="pointer-events-auto rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-100 backdrop-blur transition hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/45 active:scale-[0.98]"
-                  >
-                    Outpaint
-                  </button>
+                  {entry.status === "completed" && !isVideoHero ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => startImproveFromGalleryEntry(entry)}
+                        className="pointer-events-auto rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200 backdrop-blur transition hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/45 active:scale-[0.98]"
+                      >
+                        Improve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startInpaintFromGalleryEntry(entry)}
+                        className="pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100 backdrop-blur transition hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/45 active:scale-[0.98]"
+                      >
+                        Inpaint
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startOutpaintFromGalleryEntry(entry)}
+                        className="pointer-events-auto rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-100 backdrop-blur transition hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/45 active:scale-[0.98]"
+                      >
+                        Outpaint
+                      </button>
+                    </>
+                  ) : null}
                 </>
-              ) : null}
+              )}
             </div>
           ) : null}
         </>
@@ -575,6 +607,19 @@ export default function GalleryCard({
 
   const bodyBlock = (
     <div className={`min-w-0 flex-1 space-y-2.5 ${layout === "list" ? "py-1" : "p-3.5"}`}>
+      {pickMode && pickable && onPick ? (
+        <button
+          type="button"
+          onClick={onPick}
+          className="w-full rounded-xl border border-violet-400/35 bg-violet-500/15 px-3 py-2 text-sm font-medium text-violet-50 transition hover:border-violet-300/50 hover:bg-violet-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.99]"
+        >
+          {pickLabel}
+        </button>
+      ) : pickMode && !pickable ? (
+        <p className="type-caption text-zinc-500">
+          Only completed still images can be selected here.
+        </p>
+      ) : null}
       {layout === "list" ? (
         <div className="flex flex-wrap items-center gap-2">
           <span

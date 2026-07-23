@@ -45,6 +45,7 @@ export type GalleryCardActions = {
   downloadError: (message: string | null) => void;
   visionTagClick: (tag: string) => void;
   viewWorkflow: (id: string) => void;
+  pick?: (id: string) => void;
 };
 
 type GalleryCardItemProps = {
@@ -60,6 +61,9 @@ type GalleryCardItemProps = {
   reviewMode: boolean;
   reviewMutationHints?: string[];
   hasDerivatives?: boolean;
+  pickMode?: boolean;
+  pickable?: boolean;
+  pickLabel?: string;
 };
 
 function GalleryCardItem({
@@ -75,6 +79,9 @@ function GalleryCardItem({
   reviewMode,
   reviewMutationHints,
   hasDerivatives,
+  pickMode = false,
+  pickable = false,
+  pickLabel,
 }: GalleryCardItemProps) {
   const onToggleSelected = useCallback(
     () => actionsRef.current.toggleSelected(entry.id),
@@ -147,6 +154,10 @@ function GalleryCardItem({
     () => actionsRef.current.viewWorkflow(entry.id),
     [actionsRef, entry.id],
   );
+  const onPick = useCallback(
+    () => actionsRef.current.pick?.(entry.id),
+    [actionsRef, entry.id],
+  );
 
   return (
     <GalleryCard
@@ -203,6 +214,10 @@ function GalleryCardItem({
       onVisionTagClick={onVisionTagClick}
       onReviewRating={onReviewRating}
       onViewWorkflow={onViewWorkflow}
+      pickMode={pickMode}
+      pickable={pickable}
+      pickLabel={pickLabel}
+      onPick={pickMode ? onPick : undefined}
     />
   );
 }
@@ -222,6 +237,9 @@ function propsEqual(
     previous.reviewMode === next.reviewMode &&
     previous.reviewMutationHints === next.reviewMutationHints &&
     previous.hasDerivatives === next.hasDerivatives &&
+    previous.pickMode === next.pickMode &&
+    previous.pickable === next.pickable &&
+    previous.pickLabel === next.pickLabel &&
     previous.imageUrls.length === next.imageUrls.length &&
     previous.imageUrls[0] === next.imageUrls[0]
   );

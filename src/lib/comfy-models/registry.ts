@@ -595,7 +595,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     comfyNode: "WanVideoTextEncode",
     comfyClass: "WanVideo",
     description:
-      "WAN video generation — describe subject motion, camera movement, and temporal continuity.",
+      "WAN 2.2 video — preferred for people and complex motion. Use Optimized sampler for fewer limb/prop artifacts.",
     profile: "video_motion",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.video_motion,
@@ -608,7 +608,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     comfyNode: "WanVideoTextEncode",
     comfyClass: "WanVideo",
     description:
-      "WAN 2.2 video with 4-step Lightning LoRA (Wan2.2-Lightning-low_noise_model) — fast motion prompts.",
+      "4-step CFG-1 WAN with Lightning LoRA — optimized short temporal/limb negatives and simple-motion prompts. Use full WAN Video for busy multi-person shots.",
     profile: "video_motion",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.video_motion,

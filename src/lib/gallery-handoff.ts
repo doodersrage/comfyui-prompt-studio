@@ -208,6 +208,86 @@ export function galleryHandoffPath(target: GalleryHandoffPayload["target"]): str
   return "/image-prompt?from=gallery";
 }
 
+/** Open Gallery in pick mode — click an image to hand off back to the tool. */
+export function galleryPickPath(target: GalleryHandoffPayload["target"]): string {
+  return `/gallery?pickFor=${encodeURIComponent(target)}`;
+}
+
+export function galleryHandoffHomePath(
+  target: GalleryHandoffPayload["target"],
+): string {
+  return galleryHandoffPath(target).split("?")[0] || "/";
+}
+
+const GALLERY_PICK_TARGETS = new Set<GalleryHandoffPayload["target"]>([
+  "refine",
+  "imagePrompt",
+  "promptEditor",
+  "inpaint",
+  "outpaint",
+  "controlnet",
+  "video",
+  "compose",
+]);
+
+export function parseGalleryPickTarget(
+  raw: string | null | undefined,
+): GalleryHandoffPayload["target"] | null {
+  const value = raw?.trim();
+  if (!value || !GALLERY_PICK_TARGETS.has(value as GalleryHandoffPayload["target"])) {
+    return null;
+  }
+  return value as GalleryHandoffPayload["target"];
+}
+
+export function galleryPickPurposeLabel(
+  target: GalleryHandoffPayload["target"],
+): string {
+  switch (target) {
+    case "video":
+      return "Video init image (I2V)";
+    case "refine":
+      return "Refine reference";
+    case "inpaint":
+      return "Inpaint source";
+    case "outpaint":
+      return "Outpaint source";
+    case "controlnet":
+      return "ControlNet reference";
+    case "compose":
+      return "Compose figure";
+    case "imagePrompt":
+      return "Image → Prompt reference";
+    case "promptEditor":
+      return "Prompt editor";
+    default:
+      return "tool reference";
+  }
+}
+
+export function galleryPickActionLabel(
+  target: GalleryHandoffPayload["target"],
+): string {
+  switch (target) {
+    case "video":
+      return "Use for Video";
+    case "refine":
+      return "Use for Refine";
+    case "inpaint":
+      return "Use for Inpaint";
+    case "outpaint":
+      return "Use for Outpaint";
+    case "controlnet":
+      return "Use for ControlNet";
+    case "compose":
+      return "Use for Compose";
+    case "imagePrompt":
+      return "Use for Image → Prompt";
+    default:
+      return "Use this image";
+  }
+}
+
 export function galleryPromptEditorPathFromHistory(): string {
   return "/prompt?from=history";
 }

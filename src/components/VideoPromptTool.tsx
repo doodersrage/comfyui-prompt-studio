@@ -6,6 +6,7 @@ import SharedToolControls from "@/components/SharedToolControls";
 import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
 import ComfyPackImportControl from "@/components/ComfyPackImportControl";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
+import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
 import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
@@ -18,12 +19,13 @@ import {
   type ComfyImageModel,
 } from "@/lib/comfy-models/client";
 import {
-  clearGalleryHandoff,
-  loadGalleryHandoff,
   sharedPatchFromGalleryHandoff,
+  galleryPickPath,
+  type GalleryHandoffPayload,
 } from "@/lib/gallery-handoff";
 import { ensureVideoWorkflowScaffold } from "@/lib/ensure-video-workflow";
 import { fetchComfyObjectInfoCached } from "@/lib/comfyui-object-info-cache";
+import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import {
   ToolBadge,
   ToolLayout,
@@ -32,9 +34,15 @@ import {
   accentFocusClass,
 } from "@/components/ui/ToolPageShell";
 import { FieldLabel, TextArea } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+import { Button, ButtonLink, PrimaryButton } from "@/components/ui/Button";
 
 const ACCENT = "violet" as const;
+
+const LOCAL_INIT_IMAGE_MARKER = "local-upload";
+
+function isFetchableImageRef(value: string): boolean {
+  return /^(?:https?:|data:|blob:)/i.test(value.trim());
+}
 
 export default function VideoPromptTool() {
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
@@ -47,6 +55,9 @@ export default function VideoPromptTool() {
   const initImageUrl = toolSettings.initImageUrl ?? "";
   const frames = toolSettings.frames;
   const fps = toolSettings.fps;
+
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const rememberVideoDraft = useCallback(
     (next: {
@@ -107,41 +118,84 @@ export default function VideoPromptTool() {
     [updateToolSettings],
   );
 
-  useEffect(() => {
-    if (!mounted) {
-      return;
+  const revokePreviewIfBlob = useCallback((url: string | null | undefined) => {
+    if (url?.startsWith("blob:")) {
+      URL.revokeObjectURL(url);
     }
-    const handoff = loadGalleryHandoff("video");
-    if (!handoff) {
-      return;
-    }
-    const framesFromHandoff = Number(handoff.queueParams?.videoFrames);
-    const fpsFromHandoff = Number(handoff.queueParams?.videoFps);
-    updateToolSettings({
-      ...(handoff.imageUrl?.trim()
-        ? { initImageUrl: handoff.imageUrl.trim() }
-        : {}),
-      ...(handoff.prompt?.trim()
-        ? { subject: handoff.prompt.trim().slice(0, 400) }
-        : {}),
-      ...(Number.isFinite(framesFromHandoff) && framesFromHandoff > 0
-        ? { frames: Math.floor(framesFromHandoff) }
-        : {}),
-      ...(Number.isFinite(fpsFromHandoff) && fpsFromHandoff > 0
-        ? { fps: Math.floor(fpsFromHandoff) }
-        : {}),
+  }, []);
+
+  const clearInitImage = useCallback(() => {
+    setFile(null);
+    setPreviewUrl((current) => {
+      revokePreviewIfBlob(current);
+      return null;
     });
-    const sharedPatch = sharedPatchFromGalleryHandoff(handoff);
-    if (handoff.model?.trim()) {
-      updateShared({
-        model: handoff.model.trim() as ComfyImageModel,
-        ...sharedPatch,
+    setInitImageUrl("");
+  }, [revokePreviewIfBlob, setInitImageUrl]);
+
+  const onInitFileChange = useCallback(
+    (nextFile: File | null) => {
+      setFile(nextFile);
+      setPreviewUrl((current) => {
+        revokePreviewIfBlob(current);
+        return nextFile ? URL.createObjectURL(nextFile) : null;
       });
-    } else if (Object.keys(sharedPatch).length > 0) {
-      updateShared(sharedPatch);
-    }
-    clearGalleryHandoff();
-  }, [mounted, updateShared, updateToolSettings]);
+      // Keep Settings/preferI2v in sync — concrete upload happens at queue time.
+      setInitImageUrl(nextFile ? LOCAL_INIT_IMAGE_MARKER : "");
+    },
+    [revokePreviewIfBlob, setInitImageUrl],
+  );
+
+  const applyGalleryHandoff = useCallback(
+    (handoff: {
+      prompt: string;
+      model?: string;
+      queueParams?: WorkflowParamValues;
+      file: File | null;
+      previewUrl: string | null;
+      payload: GalleryHandoffPayload;
+    }) => {
+      const framesFromHandoff = Number(handoff.queueParams?.videoFrames);
+      const fpsFromHandoff = Number(handoff.queueParams?.videoFps);
+      const imageRef =
+        handoff.payload.imageUrl?.trim() ||
+        handoff.previewUrl?.trim() ||
+        (handoff.file ? LOCAL_INIT_IMAGE_MARKER : "");
+
+      updateToolSettings({
+        ...(imageRef ? { initImageUrl: imageRef } : {}),
+        ...(handoff.prompt?.trim()
+          ? { subject: handoff.prompt.trim().slice(0, 400) }
+          : {}),
+        ...(Number.isFinite(framesFromHandoff) && framesFromHandoff > 0
+          ? { frames: Math.floor(framesFromHandoff) }
+          : {}),
+        ...(Number.isFinite(fpsFromHandoff) && fpsFromHandoff > 0
+          ? { fps: Math.floor(fpsFromHandoff) }
+          : {}),
+      });
+
+      const sharedPatch = sharedPatchFromGalleryHandoff(handoff.payload);
+      if (handoff.model?.trim()) {
+        updateShared({
+          model: handoff.model.trim() as ComfyImageModel,
+          ...sharedPatch,
+        });
+      } else if (Object.keys(sharedPatch).length > 0) {
+        updateShared(sharedPatch);
+      }
+
+      setPreviewUrl((current) => {
+        revokePreviewIfBlob(current);
+        return handoff.previewUrl;
+      });
+      setFile(handoff.file);
+    },
+    [revokePreviewIfBlob, updateShared, updateToolSettings],
+  );
+
+  useGalleryHandoff("video", applyGalleryHandoff);
+
   const setFrames = useCallback(
     (value: number | undefined) => updateToolSettings({ frames: value }),
     [updateToolSettings],
@@ -230,6 +284,56 @@ export default function VideoPromptTool() {
     autoFixRules: shared.autoFixRules !== false,
   });
 
+  const buildVideoQueueOptions = useCallback(() => {
+    const initImage = initImageUrl.trim();
+    const initImageIsFetchable =
+      initImage !== LOCAL_INIT_IMAGE_MARKER && isFetchableImageRef(initImage);
+    const previewIsFetchable = Boolean(
+      previewUrl && isFetchableImageRef(previewUrl),
+    );
+    const resolvedFps =
+      typeof fps === "number" && Number.isFinite(fps) && fps > 0
+        ? Math.floor(fps)
+        : 16;
+    const resolvedFrames =
+      typeof frames === "number" && Number.isFinite(frames) && frames > 0
+        ? Math.floor(frames)
+        : Math.max(
+            1,
+            Math.round(Math.max(1, Number(durationSec) || 4) * resolvedFps),
+          );
+
+    return {
+      inputImage: file,
+      inputImageUrl: file
+        ? undefined
+        : previewIsFetchable
+          ? previewUrl!
+          : initImageIsFetchable
+            ? initImage
+            : undefined,
+      inputImageFilename:
+        !file &&
+        !previewIsFetchable &&
+        !initImageIsFetchable &&
+        initImage &&
+        initImage !== LOCAL_INIT_IMAGE_MARKER
+          ? initImage
+          : undefined,
+      queueParamsBase: {
+        videoFrames: resolvedFrames,
+        videoFps: resolvedFps,
+      },
+    };
+  }, [durationSec, file, frames, fps, initImageUrl, previewUrl]);
+
+  const queueVideo = useCallback(() => {
+    if (!output.trim()) {
+      return;
+    }
+    void actions.sendComfyUi(output, null, undefined, buildVideoQueueOptions());
+  }, [actions, buildVideoQueueOptions, output]);
+
   const generate = useCallback(async () => {
     if (!subject.trim()) {
       setError("Describe the subject or action.");
@@ -276,7 +380,7 @@ export default function VideoPromptTool() {
     } finally {
       setLoading(false);
     }
-  }, [subject, motion, camera, style, durationSec, actions]);
+  }, [actions, camera, durationSec, motion, shared.model, style, subject]);
 
   const copyOutput = useCallback(async () => {
     if (!output) return;
@@ -295,12 +399,16 @@ export default function VideoPromptTool() {
     ? shared
     : { ...shared, model: DEFAULT_VIDEO_MODEL as ComfyImageModel };
 
+  const pastedInitValue =
+    initImageUrl === LOCAL_INIT_IMAGE_MARKER ? "" : initImageUrl;
+  const hasInitImage = Boolean(file || previewUrl || pastedInitValue.trim());
+
   return (
     <ToolLayout
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Video · motion prompts</ToolBadge>}
       title="Video prompt builder"
-      description="Compose motion, camera, and continuity prompts for WAN / Hunyuan Video. Text-to-video by default; add an init image for image-to-video (requires WanImageToVideo or HunyuanImageToVideo in ComfyUI)."
+      description="Compose motion, camera, and continuity prompts for WAN / Hunyuan Video. Prefer WAN Video (not Lightning) for people and complex motion. Text-to-video by default; add an init image for image-to-video (requires WanImageToVideo or HunyuanImageToVideo in ComfyUI)."
       sidebar={
         <SharedToolControls
           shared={controlsShared}
@@ -393,13 +501,67 @@ export default function VideoPromptTool() {
         >
           Init image (optional, I2V)
         </FieldLabel>
-        <input
-          id="video-init-image"
-          value={initImageUrl}
-          onChange={(event) => setInitImageUrl(event.target.value)}
-          placeholder="https://… or an uploaded ComfyUI filename"
-          className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-        />
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              id="video-init-image"
+              type="file"
+              accept="image/*"
+              onChange={(event) =>
+                onInitFileChange(event.target.files?.[0] ?? null)
+              }
+              className="block min-w-0 flex-1 text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-violet-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white file:transition hover:file:bg-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
+            />
+            <ButtonLink href={galleryPickPath("video")} variant="secondary" size="sm">
+              Choose from Gallery
+            </ButtonLink>
+          </div>
+          <p className="type-caption text-zinc-500">
+            Opens Gallery in pick mode — click a completed still to return here as the I2V init image.
+          </p>
+          {previewUrl ? (
+            <div className="flex flex-wrap items-start gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt="Video init preview"
+                className="max-h-48 rounded-xl border border-zinc-800 object-contain shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+              />
+              <Button variant="ghost" size="sm" onClick={clearInitImage}>
+                Remove image
+              </Button>
+            </div>
+          ) : null}
+          <div>
+            <FieldLabel
+              htmlFor="video-init-image-url"
+              hint="Optional fallback when you already have a ComfyUI input filename or remote URL."
+            >
+              Or paste URL / Comfy filename
+            </FieldLabel>
+            <input
+              id="video-init-image-url"
+              value={pastedInitValue}
+              onChange={(event) => {
+                const next = event.target.value;
+                setInitImageUrl(next);
+                if (!file) {
+                  setPreviewUrl((current) => {
+                    revokePreviewIfBlob(current);
+                    return isFetchableImageRef(next) ? next.trim() : null;
+                  });
+                }
+              }}
+              placeholder="https://… or an uploaded ComfyUI filename"
+              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+            />
+          </div>
+          {hasInitImage ? (
+            <p className="type-caption text-emerald-200/80">
+              I2V init image ready — queue will upload and wire it into the video graph.
+            </p>
+          ) : null}
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -469,35 +631,7 @@ export default function VideoPromptTool() {
           onCopy={() => void copyOutput()}
           onOutputChange={setOutput}
           onSaveHistory={() => actions.saveHistory({ prompt: output, hints: motion })}
-          onSendComfyUi={() => {
-            const initImage = initImageUrl.trim();
-            // Both http(s) URLs and data: URLs (e.g. pasted/dragged image data)
-            // go through the ComfyUI upload helper; anything else is treated
-            // as an already-uploaded filename on the ComfyUI server.
-            const initImageIsFetchable = /^(?:https?:|data:)/i.test(initImage);
-            const resolvedFps =
-              typeof fps === "number" && Number.isFinite(fps) && fps > 0
-                ? Math.floor(fps)
-                : 16;
-            const resolvedFrames =
-              typeof frames === "number" && Number.isFinite(frames) && frames > 0
-                ? Math.floor(frames)
-                : Math.max(
-                    1,
-                    Math.round(
-                      Math.max(1, Number(durationSec) || 4) * resolvedFps,
-                    ),
-                  );
-            void actions.sendComfyUi(output, null, undefined, {
-              inputImageUrl: initImageIsFetchable ? initImage : undefined,
-              inputImageFilename:
-                !initImageIsFetchable && initImage ? initImage : undefined,
-              queueParamsBase: {
-                videoFrames: resolvedFrames,
-                videoFps: resolvedFps,
-              },
-            });
-          }}
+          onSendComfyUi={queueVideo}
           onExportSidecar={() =>
             actions.exportSidecar(output, { metadata: { hints: motion } })
           }
@@ -517,7 +651,7 @@ export default function VideoPromptTool() {
         disabled={!output.trim()}
         label="Queue video"
         status={actions.comfyUiStatus}
-        onQueue={() => void actions.sendComfyUi(output)}
+        onQueue={queueVideo}
       />
     </ToolLayout>
   );

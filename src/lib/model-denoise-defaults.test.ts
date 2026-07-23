@@ -92,4 +92,26 @@ describe("model denoise defaults", () => {
       0.75,
     );
   });
+
+  it("forces denoise 1 for WAN video even with init images (I2V)", () => {
+    assert.equal(
+      resolveDenoiseForModel("wan-video", {
+        tool: "video",
+        hasInputImage: true,
+      }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("wan-video-lightning-4", {
+        tool: "video",
+        hasInputImage: true,
+        override: 0.65,
+      }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("wan-video", { hasInputImage: true }),
+      1,
+    );
+  });
 });

@@ -68,6 +68,7 @@ import {
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import {
   buildGalleryLightboxPlaylist,
+  galleryEntryPrimaryMediaKind,
   galleryEntryStripThumbUrls,
   galleryEntryViewUrls,
   GALLERY_ALL_RENDER_CHUNK,
@@ -87,6 +88,16 @@ import {
   type GallerySlideshowIntervalMs,
   type GallerySlideshowTransition,
 } from "@/lib/comfyui-gallery";
+import {
+  buildGalleryHandoff,
+  galleryHandoffHomePath,
+  galleryHandoffPath,
+  galleryPickActionLabel,
+  galleryPickPurposeLabel,
+  parseGalleryPickTarget,
+  saveGalleryHandoff,
+  type GalleryHandoffPayload,
+} from "@/lib/gallery-handoff";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import LoraDatasetExportDialog from "@/components/LoraDatasetExportDialog";
 
@@ -160,6 +171,15 @@ export default function ComfyUiGalleryPanel({
     }));
   }, [setFilter]);
 
+  const [pickFor] = useState<GalleryHandoffPayload["target"] | null>(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    return parseGalleryPickTarget(
+      new URLSearchParams(window.location.search).get("pickFor"),
+    );
+  });
+
   const router = useRouter();
   const heldMaxCount = useHeldMaxCount();
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -220,6 +240,7 @@ export default function ComfyUiGalleryPanel({
     downloadError: () => undefined,
     visionTagClick: () => undefined,
     viewWorkflow: () => undefined,
+    pick: () => undefined,
   });
   const resolvedProjectFilterId = useMemo(() => {
     if (projectFilterId === "active") {
@@ -940,6 +961,23 @@ export default function ComfyUiGalleryPanel({
           setWorkflowEntry(entry);
         }
       },
+      pick: (id: string) => {
+        const target = pickFor;
+        if (!target) {
+          return;
+        }
+        const entry = entriesRef.current.find((item) => item.id === id);
+        if (!entry || entry.status !== "completed") {
+          setRequeueStatus("Pick a completed still image.");
+          return;
+        }
+        if (galleryEntryPrimaryMediaKind(entry) !== "image") {
+          setRequeueStatus("Only still images can be picked in this mode.");
+          return;
+        }
+        saveGalleryHandoff(buildGalleryHandoff(entry, target));
+        router.push(galleryHandoffPath(target));
+      },
     };
   }, [
     toggleSelected,
@@ -948,6 +986,8 @@ export default function ComfyUiGalleryPanel({
     openLightboxForEntryId,
     handleReviewRating,
     setFilter,
+    pickFor,
+    router,
   ]);
 
   if (entries.length === 0 && !storeReady) {
@@ -1031,6 +1071,22 @@ export default function ComfyUiGalleryPanel({
           </div>
         </div>
       )}
+
+      {pickFor ? (
+        <div className="sticky top-2 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-400/30 bg-violet-500/10 px-4 py-3 shadow-[0_12px_40px_-20px_rgba(109,40,217,0.55)] backdrop-blur-md">
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-sm font-medium text-violet-50">
+              Choosing {galleryPickPurposeLabel(pickFor)}
+            </p>
+            <p className="type-caption text-violet-100/70">
+              Click a completed still image to send it back. Video clips are skipped.
+            </p>
+          </div>
+          <ButtonLink href={galleryHandoffHomePath(pickFor)} variant="ghost" size="sm">
+            Cancel
+          </ButtonLink>
+        </div>
+      ) : null}
 
       {showFilters && entries.length > 0 ? (
         <GalleryStatsBar
@@ -1810,7 +1866,7 @@ export default function ComfyUiGalleryPanel({
               actionsRef={galleryCardActionsRef}
               compact={compact || layout === "dense"}
               layout={layout}
-              selectable={bulkEnabled}
+              selectable={bulkEnabled && !pickFor}
               selected={selectedIdSet.has(entry.id)}
               reviewFocus={
                 (filter.reviewMode === true && reviewFocusEntry?.id === entry.id) ||
@@ -1818,15 +1874,23 @@ export default function ComfyUiGalleryPanel({
               }
               previewUrl={primaryThumbUrl(entry)}
               imageUrls={galleryEntryStripThumbUrls(entry)}
-              reviewMode={filter.reviewMode === true}
+              reviewMode={filter.reviewMode === true && !pickFor}
               reviewMutationHints={
                 filter.reviewMode &&
+                !pickFor &&
                 reviewFocusEntry?.id === entry.id &&
                 !entry.reviewRating
                   ? suggestRatingMutations(entry, 2).map((item) => item.detail)
                   : undefined
               }
               hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
+              pickMode={Boolean(pickFor)}
+              pickable={
+                Boolean(pickFor) &&
+                entry.status === "completed" &&
+                galleryEntryPrimaryMediaKind(entry) === "image"
+              }
+              pickLabel={pickFor ? galleryPickActionLabel(pickFor) : undefined}
             />
           )}
         />
@@ -1847,7 +1911,7 @@ export default function ComfyUiGalleryPanel({
                   actionsRef={galleryCardActionsRef}
                   compact={compact || layout === "dense"}
                   layout={layout}
-                  selectable={bulkEnabled}
+                  selectable={bulkEnabled && !pickFor}
                   selected={selectedIdSet.has(entry.id)}
                   reviewFocus={
                     (filter.reviewMode === true && reviewFocusEntry?.id === entry.id) ||
@@ -1855,15 +1919,23 @@ export default function ComfyUiGalleryPanel({
                   }
                   previewUrl={primaryThumbUrl(entry)}
                   imageUrls={galleryEntryStripThumbUrls(entry)}
-                  reviewMode={filter.reviewMode === true}
+                  reviewMode={filter.reviewMode === true && !pickFor}
                   reviewMutationHints={
                     filter.reviewMode &&
+                    !pickFor &&
                     reviewFocusEntry?.id === entry.id &&
                     !entry.reviewRating
                       ? suggestRatingMutations(entry, 2).map((item) => item.detail)
                       : undefined
                   }
                   hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
+                  pickMode={Boolean(pickFor)}
+                  pickable={
+                    Boolean(pickFor) &&
+                    entry.status === "completed" &&
+                    galleryEntryPrimaryMediaKind(entry) === "image"
+                  }
+                  pickLabel={pickFor ? galleryPickActionLabel(pickFor) : undefined}
                 />
               );
 

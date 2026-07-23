@@ -115,6 +115,19 @@ describe("model sampler defaults", () => {
     );
   });
 
+  it("hints to prefer full WAN Video over Lightning for people/complex motion", async () => {
+    const { formatWanVideoSamplerHint } = await import("./model-sampler-defaults.ts");
+    assert.match(
+      formatWanVideoSamplerHint("wan-video-lightning-4", "base") ?? "",
+      /4-step|cfg 1|simple/i,
+    );
+    assert.match(
+      formatWanVideoSamplerHint("wan-video", "base") ?? "",
+      /optimized/i,
+    );
+    assert.equal(formatWanVideoSamplerHint("wan-video", "optimized"), null);
+  });
+
   it("clamps stale overrides to lightning sampler params", () => {
     assert.deepEqual(
       ensureLightningSamplerParams(

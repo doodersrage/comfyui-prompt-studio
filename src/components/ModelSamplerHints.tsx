@@ -4,6 +4,7 @@ import { ChipButton } from "@/components/ui/Field";
 import {
   formatKleinSamplerPeopleHint,
   formatModelSamplerHint,
+  formatWanVideoSamplerHint,
   getModelSamplerDefaults,
   MODEL_SAMPLER_PRESET_OPTIONS,
   type ModelSamplerPresetTier,
@@ -26,7 +27,9 @@ export default function ModelSamplerHints({
   const activeOption =
     MODEL_SAMPLER_PRESET_OPTIONS.find((option) => option.id === preset) ??
     MODEL_SAMPLER_PRESET_OPTIONS[0];
-  const peopleHint = formatKleinSamplerPeopleHint(model, preset);
+  const peopleHint =
+    formatWanVideoSamplerHint(model, preset) ??
+    formatKleinSamplerPeopleHint(model, preset);
   const samplingHint = formatModelSamplingHint(model, preset);
 
   return (

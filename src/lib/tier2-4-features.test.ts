@@ -62,6 +62,17 @@ describe("video prompt builder", () => {
     });
     assert.match(prompt, /6s clip/);
     assert.match(prompt, /temporal continuity/i);
+    assert.match(prompt, /limb count|extra arms/i);
+  });
+
+  it("adds Lightning-specific simple-motion guidance", () => {
+    const prompt = buildVideoPrompt({
+      subject: "A fox runs through snow",
+      motion: "bounding strides",
+      durationSec: 4,
+      model: "wan-video-lightning-4",
+    });
+    assert.match(prompt, /single clear subject|4-step lightning/i);
   });
 });
 

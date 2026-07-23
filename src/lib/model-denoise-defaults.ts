@@ -2,7 +2,7 @@ import {
   getComfyModelDefinition,
   type ComfyImageModel,
 } from "./comfy-models/client";
-import { isQwenLightningModel } from "./model-sampling-patch";
+import { isQwenLightningModel, isWanLightningModel } from "./model-sampling-patch";
 
 export const DEFAULT_EDIT_DENOISE = 0.65;
 
@@ -24,6 +24,14 @@ function clampDenoise(value: number): number {
     return DEFAULT_EDIT_DENOISE;
   }
   return Math.min(1, Math.max(0.05, value));
+}
+
+function isVideoCategoryModel(model: ComfyImageModel | string): boolean {
+  const def = getComfyModelDefinition(model);
+  if (def?.category === "video") {
+    return true;
+  }
+  return /-(video)$/i.test(String(model));
 }
 
 export function isEditCapableModel(model: ComfyImageModel | string): boolean {
@@ -102,7 +110,7 @@ export function resolveDenoiseForModel(
   },
 ): number | undefined {
   // Lightning must ignore Settings editDenoiseStrength / soft overrides.
-  if (isQwenLightningModel(model)) {
+  if (isQwenLightningModel(model) || isWanLightningModel(model)) {
     return 1;
   }
 
@@ -110,6 +118,12 @@ export function resolveDenoiseForModel(
     if (options?.hasMaskImage || isInpaintModel(model)) {
       return DEFAULT_INPAINT_DENOISE;
     }
+    return 1;
+  }
+
+  // Video T2V/I2V should not reuse still-image soft edit denoise (0.65) —
+  // that morphs limbs/objects across frames. Keep denoise 1 for video graphs.
+  if (options?.tool === "video" || isVideoCategoryModel(model)) {
     return 1;
   }
 

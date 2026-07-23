@@ -72,6 +72,22 @@ export const DEFAULT_NEGATIVE_PROFILES: NegativeProfile[] = [
     sport: "running",
     preserveSubject: true,
   },
+  {
+    id: "video-motion",
+    label: "Video · motion / WAN",
+    hints: "video wan motion temporal continuity i2v t2v",
+    preserveSubject: true,
+    staticPrompt:
+      "flicker, morphing, identity drift, abrupt cuts, extra limbs, extra arms, extra legs, duplicate subjects, warped hands, fused fingers, deformed anatomy, floating objects, suddenly appearing props, disappearing props, face melt, body warp, temporal jitter",
+  },
+  {
+    id: "video-motion-lightning",
+    label: "Video · WAN Lightning",
+    hints: "wan lightning 4step 4-step fast video",
+    preserveSubject: true,
+    staticPrompt:
+      "flicker, morphing, identity drift, abrupt cuts, extra limbs, warped hands, duplicate subjects, floating props",
+  },
 ];
 
 export function appendTokensToNegativeProfileExtra(

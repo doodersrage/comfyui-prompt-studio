@@ -7,6 +7,7 @@ import {
 } from "./comfy-models/client";
 import type { WorkflowParamValues } from "./comfyui-config";
 import { isQwenRapidAioModel } from "./model-denoise-defaults";
+import { isWanLightningModel } from "./model-sampling-patch";
 
 function isLightningModelId(model: string): boolean {
   const id = model.trim();
@@ -554,6 +555,26 @@ export function formatKleinSamplerPeopleHint(
     }
     if (tier === "max") {
       return "Max quality raises CFG — if forms warp or colors clip, use Optimized or Max compat. instead.";
+    }
+    return null;
+  }
+
+  return null;
+}
+
+/** WAN Lightning uses short CFG-1 artifact cues; full WAN uses higher step counts. */
+export function formatWanVideoSamplerHint(
+  model: ComfyImageModel | string,
+  tier: ModelSamplerPresetTier = DEFAULT_MODEL_SAMPLER_PRESET_TIER,
+): string | null {
+  if (isWanLightningModel(model)) {
+    return "Lightning is optimized for 4-step / CFG 1: short temporal negatives, simple single-subject motion. Keep prompts uncluttered — switch to WAN Video for busy multi-person shots.";
+  }
+
+  const def = getComfyModelDefinition(model);
+  if (def?.category === "video" && /wan/i.test(String(model))) {
+    if (tier === "base") {
+      return "For people or busy motion, switch to Optimized (more steps) — Base can invent limbs or props across frames.";
     }
     return null;
   }

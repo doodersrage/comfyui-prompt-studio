@@ -18,7 +18,7 @@ import {
 import { loadRenderRealismMode } from "./render-realism-settings";
 import type { AthleticSport } from "./athletic-sport-profiles";
 import { resolveQueueNegativePromptRaw } from "./queue-negative";
-import { isQwenLightningModel } from "./model-sampling-patch";
+import { isQwenLightningModel, isWanLightningModel } from "./model-sampling-patch";
 import { isQwenRapidAioModel } from "./model-denoise-defaults";
 import { expandWildcardText } from "./wildcard-expand";
 import {
@@ -42,6 +42,13 @@ const RAPID_AIO_MOIRE_NEGATIVE =
 
 const RAPID_AIO_MOIRE_POSITIVE =
   "clean continuous tones, smooth natural skin texture, even gradients";
+
+/** Short CFG-1-friendly temporal / anatomy cues for WAN Lightning 4-step. */
+export const WAN_LIGHTNING_ARTIFACT_NEGATIVE =
+  "flicker, morphing, identity drift, abrupt cuts, extra limbs, warped hands, duplicate subjects, floating props";
+
+export const WAN_LIGHTNING_ARTIFACT_POSITIVE =
+  "stable identity, consistent limb count, coherent hands, temporal continuity";
 
 function appendUniqueCsv(base: string | undefined, extra: string): string {
   const existing = base?.trim() ?? "";
@@ -78,6 +85,20 @@ export function applyQueuePromptSteering(input: {
         explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS
           ? explicit
           : undefined,
+    };
+  }
+
+  // WAN Lightning is CFG-1 / 4-step — long video-motion + anatomy lists fight the LoRA.
+  // Keep short temporal/limb cues instead of full still-image steering.
+  if (isWanLightningModel(input.model)) {
+    const explicit = input.negative?.trim();
+    const shortExplicit =
+      explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS
+        ? explicit
+        : undefined;
+    return {
+      positive: appendUniqueCsv(input.positive, WAN_LIGHTNING_ARTIFACT_POSITIVE),
+      negative: appendUniqueCsv(shortExplicit, WAN_LIGHTNING_ARTIFACT_NEGATIVE),
     };
   }
 
@@ -170,9 +191,12 @@ export async function prepareQueuePrompts(input: {
 
   let negative: string | undefined;
   const distilledCfg1 =
-    isQwenLightningModel(input.model) || isQwenRapidAioModel(input.model);
+    isQwenLightningModel(input.model) ||
+    isWanLightningModel(input.model) ||
+    isQwenRapidAioModel(input.model);
   if (distilledCfg1) {
     // Skip auto-negative profiles — they fight CFG-1 distillation.
+    // WAN Lightning gets a short artifact pack in applyQueuePromptSteering.
     negative = explicitNegative?.trim() || undefined;
   } else if (modelUsesNegativePrompt(input.model)) {
     negative = await resolveQueueNegativePromptRaw({
