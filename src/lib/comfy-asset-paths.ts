@@ -34,6 +34,50 @@ export function isComfyUiRootConfigured(
   return Boolean(root && fs.existsSync(root));
 }
 
+/**
+ * True when this process can create files under COMFYUI_ROOT/models
+ * (Install buttons write here as the Prompt Studio OS user).
+ */
+export function canWriteComfyModelsRoot(
+  root: string | null = getComfyUiRoot(),
+): boolean {
+  if (!root || !fs.existsSync(root)) {
+    return false;
+  }
+  const modelsRoot = path.resolve(root, "models");
+  try {
+    fs.mkdirSync(modelsRoot, { recursive: true });
+  } catch {
+    return false;
+  }
+  const probe = path.join(
+    modelsRoot,
+    `.prompt-studio-write-${process.pid}-${Date.now()}`,
+  );
+  try {
+    fs.writeFileSync(probe, "ok", { flag: "wx" });
+    fs.unlinkSync(probe);
+    return true;
+  } catch {
+    try {
+      fs.unlinkSync(probe);
+    } catch {
+      // ignore
+    }
+    return false;
+  }
+}
+
+export function comfyModelsWriteErrorMessage(root: string): string {
+  return (
+    `Permission denied writing under ${root}/models. ` +
+    `Prompt Studio runs as the app OS user and must be able to create files there ` +
+    `(COMFYUI_ROOT is often owned by a dedicated ComfyUI user). ` +
+    `Grant write access, e.g. sudo setfacl -R -m u:$(whoami):rwx ${root}/models` +
+    ` && sudo setfacl -R -d -m u:$(whoami):rwx ${root}/models`
+  );
+}
+
 export function relativeDirsForKind(kind: ComfyAssetKind): string[] {
   return KIND_RELATIVE_DIRS[kind];
 }

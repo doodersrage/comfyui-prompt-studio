@@ -49,6 +49,13 @@ export type ComfyGalleryEntry = {
   progressNode?: string | null;
   queuedAt: number;
   completedAt?: number;
+  /**
+   * Workflow execution duration in ms (ComfyUI execution_start → success/error
+   * when available; otherwise may be filled from queuedAt→completedAt wall clock).
+   */
+  renderDurationMs?: number;
+  /** ComfyUI execution_start timestamp (ms) when parsed from history messages. */
+  executionStartedAt?: number;
   favorite?: boolean;
   images: ComfyOutputImage[];
   /** Set once an OOM/execution_error auto-retry has been attempted for this job (max one retry). */

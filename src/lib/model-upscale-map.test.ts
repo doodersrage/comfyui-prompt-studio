@@ -115,6 +115,37 @@ describe("model upscale map", () => {
     );
   });
 
+  it("falls back to UltraSharp default when the model has no map entry", () => {
+    assert.equal(
+      resolveUpscaleModelFilename("wan-video-unknown"),
+      "4x-UltraSharp.pth",
+    );
+  });
+
+  it("picks installed UltraSharp when preferred Siax is missing from inventory", () => {
+    assert.equal(
+      resolveUpscaleModelFilename("qwen-image-2512", {
+        upscaleMap: SUGGESTED_MODEL_UPSCALE_MAP,
+        availableUpscaleModels: ["4x-UltraSharp.pth"],
+      }),
+      "4x-UltraSharp.pth",
+    );
+  });
+
+  it("applies system suggested defaults under an empty user map", () => {
+    assert.equal(
+      resolveUpscaleModelFilename("flux-dev", { upscaleMap: {} }),
+      "4x-UltraSharp.pth",
+    );
+    assert.equal(
+      resolveUpscaleModelFilename("qwen-image-2512", {
+        upscaleMap: {},
+        availableUpscaleModels: ["4x-UltraSharp.pth"],
+      }),
+      "4x-UltraSharp.pth",
+    );
+  });
+
   it("formats map text", () => {
     assert.equal(
       formatModelUpscaleMap({ default: "4x-UltraSharp.pth" }),

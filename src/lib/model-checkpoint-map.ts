@@ -55,7 +55,7 @@ export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
   "flux-2-klein-9b-distilled": "flux-2-klein-9b.safetensors",
   "flux-dev": "flux1-dev.safetensors",
   sdxl: "sd_xl_base_1.0.safetensors",
-  "wan-video": "wan2.2_t2v_high_noise_14B_fp16.safetensors",
+  "wan-video": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
   "hunyuan-video": "hunyuan_video_t2v_720p_bf16.safetensors",
   "ltx-video": "ltx-video-2b-v0.9.safetensors",
 };

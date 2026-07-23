@@ -42,6 +42,10 @@ import {
   parseModelControlNetMap,
 } from "@/lib/model-controlnet-map";
 import {
+  formatModelLoraMap,
+  parseModelLoraMap,
+} from "@/lib/model-lora-map";
+import {
   formatInventorySyncMessage,
   syncLoaderMapsFromInventory,
 } from "@/lib/loader-map-inventory-sync";
@@ -336,6 +340,7 @@ export default function SettingsTool() {
   const [modelRefinerMapText, setModelRefinerMapText] = useState("");
   const [modelUpscaleMapText, setModelUpscaleMapText] = useState("");
   const [modelControlNetMapText, setModelControlNetMapText] = useState("");
+  const [modelLoraMapText, setModelLoraMapText] = useState("");
   const [loaderMapMergeHint, setLoaderMapMergeHint] = useState<string | null>(null);
   const [ipAdapterUploadStatus, setIpAdapterUploadStatus] = useState<string | null>(null);
   const [ipAdapterUploading, setIpAdapterUploading] = useState(false);
@@ -448,6 +453,7 @@ export default function SettingsTool() {
     setModelRefinerMapText(formatModelRefinerMap(cache.shared.modelRefinerMap));
     setModelUpscaleMapText(formatModelUpscaleMap(cache.shared.modelUpscaleMap));
     setModelControlNetMapText(formatModelControlNetMap(cache.shared.modelControlNetMap));
+    setModelLoraMapText(formatModelLoraMap(cache.shared.modelLoraMap));
     updateSettings(loadComfyUiSettings());
     setWebhookSettings(loadWebhookSettings());
     setScheduledBatch(loadScheduledBatchConfig());
@@ -473,6 +479,7 @@ export default function SettingsTool() {
       setModelRefinerMapText(formatModelRefinerMap(cache.shared.modelRefinerMap));
       setModelUpscaleMapText(formatModelUpscaleMap(cache.shared.modelUpscaleMap));
       setModelControlNetMapText(formatModelControlNetMap(cache.shared.modelControlNetMap));
+      setModelLoraMapText(formatModelLoraMap(cache.shared.modelLoraMap));
       setSharedMounted(true);
       setWebhookSettings(loadWebhookSettings());
       setScheduledBatch(loadScheduledBatchConfig());
@@ -1639,6 +1646,56 @@ export default function SettingsTool() {
           placeholder={`# optional — file in ComfyUI models/controlnet/\ndefault=control_v11p_sd15_openpose.pth`}
           className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
         />
+        <p className="mb-2 mt-4 text-sm text-zinc-400">
+          Model LoRA map — default library entries per model:{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">
+            modelId=loraId1,loraId2
+          </code>
+          . Values are{" "}
+          <strong className="font-medium text-zinc-300">library ids</strong> from the LoRA
+          library panel (not filenames). Empty value (
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">modelId=</code>
+          ) means no LoRAs for that model. Applied when the session picker is still following
+          defaults.
+        </p>
+        <textarea
+          value={modelLoraMapText}
+          onChange={(event) => {
+            const text = event.target.value;
+            setModelLoraMapText(text);
+            updateSharedSettings({
+              modelLoraMap: parseModelLoraMap(text),
+            });
+          }}
+          rows={4}
+          spellCheck={false}
+          disabled={!sharedMounted}
+          placeholder={`# library ids from Settings → LoRA library\nwan-video=skin,motion\nflux-dev=`}
+          className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
+        />
+        <label className="mb-3 mt-3 flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={sharedSettings.autoSelectLorasForModel !== false}
+            onChange={(event) =>
+              updateSharedSettings({
+                autoSelectLorasForModel: event.target.checked,
+              })
+            }
+            disabled={!sharedMounted}
+            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+          />
+          <span className="space-y-1">
+            <span className="block text-sm font-medium text-zinc-200">
+              Auto-select LoRAs for model
+            </span>
+            <span className="block text-xs text-zinc-500">
+              When you change the target model, load that model&apos;s stored LoRA
+              picks (or the map above). Explicit picks are remembered per model and
+              never overwrite another model&apos;s stack.
+            </span>
+          </span>
+        </label>
         <label className="mt-4 block space-y-2">
           <span className="block text-sm font-medium text-zinc-200">Edit denoise strength</span>
           <span className="block text-xs text-zinc-500">

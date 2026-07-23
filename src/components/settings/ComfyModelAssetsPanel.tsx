@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { loadComfyUiSettings } from "@/lib/comfyui-settings";
 import { loadSettingsCache } from "@/lib/settings-cache";
@@ -37,6 +37,7 @@ type AssetJob = {
 type AssetsResponse = {
   ok?: boolean;
   rootConfigured?: boolean;
+  rootWritable?: boolean;
   rootPath?: string | null;
   rootHint?: string;
   rows?: AssetRow[];
@@ -87,12 +88,17 @@ export default function ComfyModelAssetsPanel({
   const [rows, setRows] = useState<AssetRow[]>([]);
   const [jobs, setJobs] = useState<AssetJob[]>([]);
   const [rootConfigured, setRootConfigured] = useState(false);
+  const [rootWritable, setRootWritable] = useState(true);
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [rootHint, setRootHint] = useState<string | undefined>();
   const [filterCurrentModel, setFilterCurrentModel] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const jobsRef = useRef<AssetJob[]>([]);
+  const loadRef = useRef<(forceRefresh?: boolean) => Promise<void>>(async () => {});
+  const onInstalledRef = useRef(onInstalled);
+  const pollInFlightRef = useRef(false);
 
   const load = useCallback(async (forceRefresh = false) => {
     setLoading(true);
@@ -123,6 +129,7 @@ export default function ComfyModelAssetsPanel({
       setRows(data.rows ?? []);
       setJobs(data.jobs ?? []);
       setRootConfigured(Boolean(data.rootConfigured));
+      setRootWritable(data.rootWritable !== false);
       setRootPath(data.rootPath ?? null);
       setRootHint(data.rootHint);
     } catch (err) {
@@ -132,26 +139,35 @@ export default function ComfyModelAssetsPanel({
     }
   }, [filterCurrentModel]);
 
+  jobsRef.current = jobs;
+  loadRef.current = load;
+  onInstalledRef.current = onInstalled;
+
   useEffect(() => {
     scheduleAfterCommit(() => {
       void load();
     });
   }, [load]);
 
+  // Stable poller — do not depend on `jobs` or each tick tears down the
+  // in-flight fetch and the progress counter appears frozen.
   useEffect(() => {
-    const activeIds = jobs
-      .filter(
+    let cancelled = false;
+    const poll = async () => {
+      if (cancelled || pollInFlightRef.current) {
+        return;
+      }
+      const active = jobsRef.current.filter(
         (job) =>
           job.status === "queued" ||
           job.status === "downloading" ||
           job.status === "verifying",
-      )
-      .map((job) => job.id);
-    if (activeIds.length === 0) {
-      return;
-    }
-    let cancelled = false;
-    const poll = async () => {
+      );
+      if (active.length === 0) {
+        return;
+      }
+      pollInFlightRef.current = true;
+      const activeIds = active.map((job) => job.id);
       try {
         const response = await fetch(
           `/api/comfyui/assets?jobId=${encodeURIComponent(activeIds[0]!)}`,
@@ -174,23 +190,25 @@ export default function ComfyModelAssetsPanel({
           if (failed?.error) {
             setError(failed.error);
           }
-          await load(true);
+          await loadRef.current(true);
           if (nextJobs.some((job) => job.status === "complete")) {
             void fetchComfyObjectInfoCached({ forceRefresh: true }).catch(() => null);
-            onInstalled?.();
+            onInstalledRef.current?.();
           }
         }
       } catch {
         // keep polling
+      } finally {
+        pollInFlightRef.current = false;
       }
     };
     void poll();
-    const timer = window.setInterval(() => void poll(), 1000);
+    const timer = window.setInterval(() => void poll(), 750);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [jobs, load, onInstalled]);
+  }, []);
 
   const install = useCallback(
     async (assetId: string): Promise<AssetJob | null> => {
@@ -324,7 +342,7 @@ export default function ComfyModelAssetsPanel({
           type="button"
           variant="secondary"
           size="sm"
-          disabled={loading || !rootConfigured}
+          disabled={loading || !rootConfigured || !rootWritable}
           onClick={() => void installMissingForModel()}
         >
           Install missing{filterCurrentModel ? " for model" : ""}
@@ -338,6 +356,12 @@ export default function ComfyModelAssetsPanel({
             <code className="rounded bg-zinc-800 px-1 text-emerald-200/90">
               {rootPath}
             </code>
+            {!rootWritable ? (
+              <span className="mt-1 block text-amber-300/90">
+                {rootHint ??
+                  "Not writable by this app process — Install cannot save files until COMFYUI_ROOT/models allows write access."}
+              </span>
+            ) : null}
           </>
         ) : (
           <>{rootHint ?? "Set COMFYUI_ROOT to enable Install."}</>
@@ -389,12 +413,12 @@ export default function ComfyModelAssetsPanel({
                         {job.status}
                         {job.attempt && job.attempt > 1 ? ` · try ${job.attempt}` : ""}
                         {" · "}
-                        {Math.round(job.progress * 100)}%
-                        {job.bytesTotal
-                          ? ` · ${formatBytes(job.bytesReceived)} / ${formatBytes(job.bytesTotal)}`
+                        {job.bytesTotal &&
+                        job.bytesReceived <= job.bytesTotal * 1.02
+                          ? `${Math.round(job.progress * 100)}% · ${formatBytes(job.bytesReceived)} / ${formatBytes(job.bytesTotal)}`
                           : job.bytesReceived
-                            ? ` · ${formatBytes(job.bytesReceived)}`
-                            : ""}
+                            ? `${formatBytes(job.bytesReceived)} received`
+                            : `${Math.round(job.progress * 100)}%`}
                         {job.error ? ` · ${job.error}` : ""}
                       </p>
                     ) : null}
@@ -409,6 +433,7 @@ export default function ComfyModelAssetsPanel({
                       size="sm"
                       disabled={
                         !rootConfigured ||
+                        !rootWritable ||
                         busyId === row.id ||
                         Boolean(installing) ||
                         row.status === "root-missing"

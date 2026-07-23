@@ -31,6 +31,7 @@ import { freeComfyUiMemory } from "./comfyui-queue-control";
 import { normalizeQueueQualityProfile } from "./queue-quality-profile";
 import { loadSettingsCache } from "./settings-cache";
 import { attemptOomAutoRetry } from "./oom-retry";
+import { resolveGalleryRenderDurationMs } from "./comfyui-render-duration";
 
 export type RegisterComfyGalleryJobInput = {
   promptId: string;
@@ -172,8 +173,17 @@ export function mergeHistoryImportItems(
       comfyUrl: item.comfyUrl,
       status: "completed",
       statusMessage: item.statusMessage ?? "Imported from ComfyUI history",
-      queuedAt: now(),
-      completedAt: now(),
+      queuedAt: item.executionStartedAt ?? now(),
+      completedAt:
+        item.executionStartedAt != null && item.renderDurationMs != null
+          ? item.executionStartedAt + item.renderDurationMs
+          : now(),
+      ...(item.renderDurationMs != null
+        ? { renderDurationMs: item.renderDurationMs }
+        : {}),
+      ...(item.executionStartedAt != null
+        ? { executionStartedAt: item.executionStartedAt }
+        : {}),
       images: item.images,
       queueParams: item.queueParams,
     };
@@ -242,6 +252,8 @@ export async function fetchComfyJobStatus(
     comfyUrl?: string;
     queuePosition?: number | null;
     images?: ComfyGalleryEntry["images"];
+    renderDurationMs?: number;
+    executionStartedAt?: number;
   };
 }
 
@@ -305,6 +317,13 @@ function applyComfyJobStatus(
 
   if (tracker.status === "error") {
     clearComfyLivePreviewUrl(promptId);
+    const completedAt = Date.now();
+    const prior = loadComfyGallery().find((item) => item.promptId === promptId);
+    const renderDurationMs = resolveGalleryRenderDurationMs({
+      renderDurationMs: status.renderDurationMs,
+      queuedAt: prior?.queuedAt,
+      completedAt,
+    });
     const entry = updateComfyGalleryByPromptId(promptId, {
       status: "error",
       statusMessage: tracker.statusMessage,
@@ -312,7 +331,11 @@ function applyComfyJobStatus(
       progressValue: undefined,
       progressMax: undefined,
       progressNode: undefined,
-      completedAt: Date.now(),
+      completedAt,
+      ...(status.executionStartedAt != null
+        ? { executionStartedAt: status.executionStartedAt }
+        : {}),
+      ...(renderDurationMs != null ? { renderDurationMs } : {}),
       comfyUrl: tracker.comfyUrl,
     });
     if (entry) {
@@ -338,6 +361,15 @@ function applyComfyJobStatus(
   }
 
   clearComfyLivePreviewUrl(promptId);
+  const completedAt = Date.now();
+  const priorCompleted = loadComfyGallery().find(
+    (item) => item.promptId === promptId,
+  );
+  const renderDurationMs = resolveGalleryRenderDurationMs({
+    renderDurationMs: status.renderDurationMs,
+    queuedAt: priorCompleted?.queuedAt,
+    completedAt,
+  });
   const entry = updateComfyGalleryByPromptId(promptId, {
     status: "completed",
     statusMessage: tracker.statusMessage,
@@ -345,7 +377,11 @@ function applyComfyJobStatus(
     progressValue: undefined,
     progressMax: undefined,
     progressNode: undefined,
-    completedAt: Date.now(),
+    completedAt,
+    ...(status.executionStartedAt != null
+      ? { executionStartedAt: status.executionStartedAt }
+      : {}),
+    ...(renderDurationMs != null ? { renderDurationMs } : {}),
     comfyUrl: tracker.comfyUrl,
     images: status.images ?? [],
   });

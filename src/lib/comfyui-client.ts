@@ -200,6 +200,8 @@ function injectPromptsIntoWorkflow(
     override: request.params,
     model: runtime?.queueTargetModel ?? request.model,
     workflow,
+    availableCheckpoints: enrichInventory?.availableCheckpoints,
+    availableUpscaleModels: enrichInventory?.availableUpscaleModels,
   });
   const model = runtime?.queueTargetModel ?? request.model;
   const inventoryFingerprint = [
@@ -290,6 +292,7 @@ function injectPromptsIntoWorkflow(
       syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
       loaders,
       model: runtime?.queueTargetModel ?? request.model,
+      availableCheckpoints: enrichInventory?.availableCheckpoints,
       availableLoras: enrichInventory?.availableLoras,
       qualityProfile: runtime?.queueQualityProfile,
       loraLibrary: runtime?.loraLibrary,

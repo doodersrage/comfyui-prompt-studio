@@ -18,6 +18,10 @@ import {
   DEFAULT_CONTROL_IMAGE_TOKEN,
 } from "./model-controlnet-map";
 import {
+  DEFAULT_UPSCALE_MODEL_TOKEN,
+  SUGGESTED_MODEL_UPSCALE_MAP,
+} from "./model-upscale-map";
+import {
   buildLoraFilenameMapFromCustomTokens,
   patchLoraNodesInWorkflow,
 } from "./workflow-lora-patch";
@@ -134,11 +138,30 @@ function shouldPatchStringField(
   return current == null || current === "";
 }
 
+function loaderFilenameMissingFromInventory(
+  current: string,
+  inventory?: string[] | null,
+): boolean {
+  if (!inventory?.length) {
+    return false;
+  }
+  const trimmed = current.trim();
+  if (!trimmed || isUnresolvedWorkflowPlaceholder(trimmed)) {
+    return false;
+  }
+  const lower = trimmed.toLowerCase();
+  return !inventory.some((entry) => {
+    const e = entry.trim();
+    return e === trimmed || e.toLowerCase() === lower;
+  });
+}
+
 /** Loader filenames: only fill placeholders/empty fields — never clobber a chosen checkpoint/UNET/VAE. */
 function shouldPatchLoaderFilenameField(
   current: unknown,
   nextValue: string | undefined,
   syncLoadersToModel?: boolean,
+  availableInventory?: string[] | null,
 ): nextValue is string {
   if (!nextValue?.trim()) {
     return false;
@@ -148,6 +171,11 @@ function shouldPatchLoaderFilenameField(
   }
   if (typeof current === "string") {
     if (isUnresolvedWorkflowPlaceholder(current)) {
+      return true;
+    }
+    // Concrete names that ComfyUI does not have installed will fail at queue —
+    // rewrite them to the resolved inventory-backed loader.
+    if (loaderFilenameMissingFromInventory(current, availableInventory)) {
       return true;
     }
     return false;
@@ -332,10 +360,25 @@ export function patchLatentSizeInWorkflow(
 export function patchLoaderNodesInWorkflow(
   workflow: Record<string, unknown>,
   loaders: ModelLoaderFilenames,
-  options?: { syncLoadersToModel?: boolean; alignClipPrecision?: boolean },
+  options?: {
+    syncLoadersToModel?: boolean;
+    alignClipPrecision?: boolean;
+    availableCheckpoints?: string[] | null;
+    availableUnets?: string[] | null;
+  },
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const syncLoadersToModel = options?.syncLoadersToModel === true;
   const alignClipPrecision = options?.alignClipPrecision !== false;
+  const checkpointInventory = options?.availableCheckpoints;
+  const unetInventory =
+    options?.availableUnets && options.availableUnets.length > 0
+      ? [
+          ...new Set([
+            ...options.availableUnets,
+            ...(options.availableCheckpoints ?? []),
+          ]),
+        ]
+      : options?.availableCheckpoints;
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
 
@@ -358,7 +401,12 @@ export function patchLoaderNodesInWorkflow(
       loaders.checkpoint &&
       CHECKPOINT_LOADER_TYPES.has(classType) &&
       "ckpt_name" in inputs &&
-      (shouldPatchLoaderFilenameField(inputs.ckpt_name, loaders.checkpoint, syncLoadersToModel) ||
+      (shouldPatchLoaderFilenameField(
+        inputs.ckpt_name,
+        loaders.checkpoint,
+        syncLoadersToModel,
+        checkpointInventory,
+      ) ||
         shouldAlignLoaderPrecision(inputs.ckpt_name, loaders.checkpoint))
     ) {
       inputs.ckpt_name = loaders.checkpoint;
@@ -372,7 +420,12 @@ export function patchLoaderNodesInWorkflow(
       "unet_name" in inputs
     ) {
       const shouldPatch =
-        shouldPatchLoaderFilenameField(inputs.unet_name, loaders.unet, syncLoadersToModel) ||
+        shouldPatchLoaderFilenameField(
+          inputs.unet_name,
+          loaders.unet,
+          syncLoadersToModel,
+          unetInventory,
+        ) ||
         shouldAlignLoaderPrecision(inputs.unet_name, loaders.unet) ||
         (typeof inputs.unet_name === "string" &&
           filenameLooksLikeCheckpointOnly(inputs.unet_name));
@@ -695,12 +748,12 @@ export function patchUpscaleModelNodesInWorkflow(
   workflow: Record<string, unknown>,
   upscaleModelFilename?: string,
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
+  const resolved =
+    upscaleModelFilename?.trim() ||
+    SUGGESTED_MODEL_UPSCALE_MAP.default ||
+    "4x-UltraSharp.pth";
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
-
-  if (!upscaleModelFilename?.trim()) {
-    return { workflow: next, patched };
-  }
 
   for (const node of Object.values(next)) {
     if (!node || typeof node !== "object") {
@@ -717,13 +770,34 @@ export function patchUpscaleModelNodesInWorkflow(
       continue;
     }
 
-    if (shouldPatchLoaderFilenameField(inputs.model_name, upscaleModelFilename)) {
-      inputs.model_name = upscaleModelFilename.trim();
+    if (shouldPatchLoaderFilenameField(inputs.model_name, resolved)) {
+      inputs.model_name = resolved;
       patched.upscaleModel = (patched.upscaleModel ?? 0) + 1;
     }
   }
 
-  return { workflow: next, patched };
+  return {
+    workflow: replaceUpscaleModelTokenInJson(next, resolved),
+    patched,
+  };
+}
+
+/** Last-resort JSON replace so {{UPSCALE_MODEL}} cannot leak into ComfyUI. */
+export function replaceUpscaleModelTokenInJson(
+  workflow: Record<string, unknown>,
+  upscaleModelFilename?: string,
+): Record<string, unknown> {
+  const resolved =
+    upscaleModelFilename?.trim() ||
+    SUGGESTED_MODEL_UPSCALE_MAP.default ||
+    "4x-UltraSharp.pth";
+  const json = JSON.stringify(workflow);
+  if (!json.includes(DEFAULT_UPSCALE_MODEL_TOKEN)) {
+    return workflow;
+  }
+  return JSON.parse(
+    json.split(DEFAULT_UPSCALE_MODEL_TOKEN).join(resolved),
+  ) as Record<string, unknown>;
 }
 
 function patchImageLoaderNodesInWorkflow(
@@ -867,8 +941,13 @@ function coerceLoaderFieldValue(value: unknown): string | null {
 export function forceResolveLoaderPlaceholders(
   workflow: Record<string, unknown>,
   loaders: ModelLoaderFilenames,
+  options?: { upscaleModelFilename?: string },
 ): Record<string, unknown> {
   const next = structuredClone(workflow) as Record<string, unknown>;
+  const upscaleName =
+    options?.upscaleModelFilename?.trim() ||
+    SUGGESTED_MODEL_UPSCALE_MAP.default ||
+    "4x-UltraSharp.pth";
 
   for (const node of Object.values(next)) {
     if (!node || typeof node !== "object") {
@@ -933,6 +1012,18 @@ export function forceResolveLoaderPlaceholders(
       }
     }
 
+    if (UPSCALE_MODEL_LOADER_TYPES.has(classType) && "model_name" in inputs) {
+      const current = coerceLoaderFieldValue(inputs.model_name);
+      if (
+        current == null ||
+        current.trim() === "" ||
+        isUnresolvedWorkflowPlaceholder(current) ||
+        current === DEFAULT_UPSCALE_MODEL_TOKEN
+      ) {
+        inputs.model_name = upscaleName;
+      }
+    }
+
     if (loaders.dualClip && DUAL_CLIP_LOADER_TYPES.has(classType)) {
       for (const field of ["clip_name1", "clip_name2"] as const) {
         if (!(field in inputs)) {
@@ -982,11 +1073,19 @@ export function forceResolveLoaderPlaceholders(
         CHECKPOINT_LOADER_TYPES.has(classType)
       ) {
         inputs[field] = loaders.checkpoint;
+      } else if (
+        value.includes(DEFAULT_UPSCALE_MODEL_TOKEN) &&
+        UPSCALE_MODEL_LOADER_TYPES.has(classType)
+      ) {
+        inputs[field] = upscaleName;
       }
     }
   }
 
-  return replaceLoaderPlaceholderTokensInJson(next, loaders);
+  return replaceUpscaleModelTokenInJson(
+    replaceLoaderPlaceholderTokensInJson(next, loaders),
+    upscaleName,
+  );
 }
 
 function replaceLoaderPlaceholderTokensInJson(
@@ -1398,6 +1497,8 @@ export function patchWorkflowDirectParams(
     customTokens?: Array<{ token: string; value: string }>;
     syncWorkflowLoadersToModel?: boolean;
     model?: string;
+    availableCheckpoints?: string[] | null;
+    availableUnets?: string[] | null;
     /** Active LoRA stack — strengths patched onto LoraLoader nodes, extras chained in. */
     loraLibrary?: LoraLibraryEntry[];
     /** Positive prompt — kept for call-site compat; keyword LoRA matching removed. */
@@ -1416,6 +1517,8 @@ export function patchWorkflowDirectParams(
     syncLoadersToModel: input.syncWorkflowLoadersToModel,
     // LightX2V official keeps fp8_scaled CLIP with bf16 UNET — don't "upgrade" CLIP.
     alignClipPrecision: !isQwenLightningModel(input.model),
+    availableCheckpoints: input.availableCheckpoints,
+    availableUnets: input.availableUnets,
   });
   const loraPatch = patchLoraNodesInWorkflow(
     loaderPatch.workflow,

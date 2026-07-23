@@ -47,13 +47,23 @@ export async function GET(request: Request) {
     modelId,
   });
 
+  const rootConfigured = status.rootConfigured && isComfyUiRootConfigured();
+  let rootHint: string | undefined;
+  if (!rootConfigured) {
+    rootHint =
+      "Set COMFYUI_ROOT to your ComfyUI install path (same machine as this app).";
+  } else if (!status.rootWritable) {
+    rootHint =
+      `COMFYUI_ROOT is set but not writable by this process (${status.rootPath}/models). ` +
+      `Grant write access so Install can save weights (e.g. setfacl for your app user).`;
+  }
+
   return apiJson({
     ok: true,
-    rootConfigured: status.rootConfigured && isComfyUiRootConfigured(),
+    rootConfigured,
+    rootWritable: status.rootWritable,
     rootPath: status.rootPath,
-    rootHint: status.rootConfigured
-      ? undefined
-      : "Set COMFYUI_ROOT to your ComfyUI install path (same machine as this app).",
+    rootHint,
     rows: status.rows,
     jobs: listComfyAssetJobs(),
   });
@@ -86,11 +96,12 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Could not start download.";
-    const status = /not set|does not exist|Unknown asset|no allowlisted|not allowlisted/i.test(
-      message,
-    )
-      ? 400
-      : 500;
+    const status =
+      /not set|does not exist|Unknown asset|no allowlisted|not allowlisted|Permission denied|not writable/i.test(
+        message,
+      )
+        ? 400
+        : 500;
     return apiError(message, status);
   }
 }

@@ -6,6 +6,7 @@ import {
   type ComfyOutputImage,
 } from "./comfyui-outputs";
 import { extractParamsFromWorkflow } from "./workflow-param-extract";
+import { extractComfyExecutionTiming } from "./comfyui-render-duration";
 
 export type ComfyPromptStatus = {
   promptId: string;
@@ -15,6 +16,10 @@ export type ComfyPromptStatus = {
   images?: ComfyOutputImage[];
   /** 1-based pending queue position; 0 means running now. */
   queuePosition?: number | null;
+  /** ComfyUI execution_start → success/error duration when message timestamps exist. */
+  renderDurationMs?: number;
+  executionStartedAt?: number;
+  executionEndedAt?: number;
 };
 
 type ComfyHistoryEntry = {
@@ -38,6 +43,8 @@ export type ComfyHistoryImportItem = {
   queueParams?: WorkflowParamValues;
   model?: string;
   workflowJson?: string;
+  renderDurationMs?: number;
+  executionStartedAt?: number;
 };
 
 type ComfyQueueResponse = {
@@ -241,6 +248,20 @@ function interpretHistoryEntry(
   const images = extractImagesFromOutputs(entry.outputs);
   const completed = entry.status?.completed === true || images.length > 0;
   const executionError = extractComfyExecutionErrorMessage(entry);
+  const timing = extractComfyExecutionTiming({
+    messages: entry.status?.messages,
+  });
+  const timingFields = {
+    ...(timing.renderDurationMs != null
+      ? { renderDurationMs: timing.renderDurationMs }
+      : {}),
+    ...(timing.executionStartedAt != null
+      ? { executionStartedAt: timing.executionStartedAt }
+      : {}),
+    ...(timing.executionEndedAt != null
+      ? { executionEndedAt: timing.executionEndedAt }
+      : {}),
+  };
 
   if (completed) {
     return {
@@ -249,6 +270,7 @@ function interpretHistoryEntry(
       statusMessage: statusStr || "completed",
       comfyUrl,
       images,
+      ...timingFields,
     };
   }
 
@@ -259,6 +281,7 @@ function interpretHistoryEntry(
       statusMessage: executionError ?? statusStr,
       comfyUrl,
       images,
+      ...timingFields,
     };
   }
 
@@ -268,6 +291,7 @@ function interpretHistoryEntry(
       status: "running",
       statusMessage: statusStr,
       comfyUrl,
+      ...timingFields,
     };
   }
 
@@ -276,6 +300,7 @@ function interpretHistoryEntry(
     status: "pending",
     statusMessage: statusStr || "pending",
     comfyUrl,
+    ...timingFields,
   };
 }
 
@@ -379,6 +404,12 @@ export async function listComfyUiHistoryImports(
         queueParams: hasParams ? queueParams : undefined,
         model: workflow ? extractCheckpointHintFromWorkflow(workflow) : undefined,
         workflowJson: workflow ? JSON.stringify(workflow) : undefined,
+        ...(status.renderDurationMs != null
+          ? { renderDurationMs: status.renderDurationMs }
+          : {}),
+        ...(status.executionStartedAt != null
+          ? { executionStartedAt: status.executionStartedAt }
+          : {}),
       });
     }
 

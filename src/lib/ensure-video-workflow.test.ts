@@ -2,7 +2,28 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildWorkflowScaffoldForModel, suggestedScaffoldName } from "./workflow-scaffold.ts";
 import { assignWorkflowToInferredModels } from "./model-workflow-map.ts";
-import { pickVideoCheckpointFromInventory } from "./ensure-video-workflow.ts";
+import {
+  pickVideoCheckpointFromInventory,
+  resolveVideoCheckpointFilename,
+} from "./ensure-video-workflow.ts";
+import type { ComfyUiModelLists } from "./comfyui-object-info.ts";
+
+const rapidAio = "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors";
+const staleT2v = "wan2.2_t2v_high_noise_14B_fp16.safetensors";
+
+function inventoryWith(...checkpoints: string[]): ComfyUiModelLists {
+  return {
+    checkpoints,
+    unets: [],
+    vaes: [],
+    upscaleModels: [],
+    clips: [],
+    dualClipTypes: [],
+    clipLoaderTypes: [],
+    loras: [],
+    controlNets: [],
+  };
+}
 
 describe("WAN video workflow scaffold", () => {
   it("builds a T2V/I2V-ready graph with video tokens", () => {
@@ -55,6 +76,17 @@ describe("WAN video workflow scaffold", () => {
     );
   });
 
+  it("prefers Rapid AIO / I2V packs over official T2V when both are installed", () => {
+    assert.equal(
+      pickVideoCheckpointFromInventory("wan-video", [
+        "wan2.2_t2v_high_noise_14B_fp16.safetensors",
+        "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+        "sd_xl_base_1.0.safetensors",
+      ]),
+      "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+    );
+  });
+
   it("does not invent a WAN filename when inventory has only image checkpoints", () => {
     assert.equal(
       pickVideoCheckpointFromInventory("wan-video", [
@@ -63,5 +95,50 @@ describe("WAN video workflow scaffold", () => {
       ]),
       undefined,
     );
+  });
+
+  it("prefers the workflow CHECKPOINT token over a stale T2V map entry", () => {
+    const resolved = resolveVideoCheckpointFilename({
+      model: "wan-video",
+      sharedCheckpointMap: { "wan-video": staleT2v },
+      workflowCheckpoint: rapidAio,
+      inventory: inventoryWith(
+        "DreamShaper_8_pruned.safetensors",
+        rapidAio,
+      ),
+    });
+    assert.equal(resolved.filename, rapidAio);
+  });
+
+  it("keeps the workflow CHECKPOINT token when inventory is unavailable", () => {
+    const resolved = resolveVideoCheckpointFilename({
+      model: "wan-video",
+      sharedCheckpointMap: { "wan-video": staleT2v },
+      workflowCheckpoint: rapidAio,
+      inventory: null,
+    });
+    assert.equal(resolved.filename, rapidAio);
+  });
+
+  it("keeps the workflow CHECKPOINT token instead of a missing T2V map entry", () => {
+    const resolved = resolveVideoCheckpointFilename({
+      model: "wan-video",
+      sharedCheckpointMap: { "wan-video": staleT2v },
+      workflowCheckpoint: rapidAio,
+      inventory: inventoryWith("DreamShaper_8_pruned.safetensors"),
+    });
+    assert.equal(resolved.filename, rapidAio);
+  });
+
+  it("heals a stale T2V map to Rapid AIO from inventory when the workflow token is empty", () => {
+    const resolved = resolveVideoCheckpointFilename({
+      model: "wan-video",
+      sharedCheckpointMap: { "wan-video": staleT2v },
+      inventory: inventoryWith(
+        "DreamShaper_8_pruned.safetensors",
+        rapidAio,
+      ),
+    });
+    assert.equal(resolved.filename, rapidAio);
   });
 });

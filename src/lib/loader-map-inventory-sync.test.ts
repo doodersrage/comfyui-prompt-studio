@@ -113,6 +113,35 @@ describe("syncLoaderMapsFromInventory", () => {
     assert.ok(result.clearedUpscaleKeys.includes("qwen-image-2512"));
   });
 
+  it("heals stale wan-video T2V map entries to installed Rapid AIO packs", () => {
+    const result = syncLoaderMapsFromInventory({
+      models: {
+        checkpoints: [
+          "DreamShaper_8_pruned.safetensors",
+          "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+        ],
+        unets: [],
+        vaes: [],
+        upscaleModels: [],
+        clips: [],
+        dualClipTypes: [],
+        clipLoaderTypes: [],
+        loras: [],
+        controlNets: [],
+      },
+      checkpointMap: {
+        "wan-video": "wan2.2_t2v_high_noise_14B_fp16.safetensors",
+      },
+      healMissing: true,
+    });
+
+    assert.equal(
+      result.modelCheckpointMap["wan-video"],
+      "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+    );
+    assert.ok(result.healedCheckpointKeys.includes("wan-video"));
+  });
+
   it("reports zero updates when nothing matches", () => {
     const result = syncLoaderMapsFromInventory({
       models: {

@@ -2125,6 +2125,45 @@ describe("comfyui runtime queue params", () => {
     assert.equal(loaders.unet, "flux-2-klein-9b-fp8.safetensors");
     assert.equal(loaders.vae, "FLUX.2-klein-9B.safetensors");
   });
+
+  it("replaces missing wan-video T2V map entries with installed Rapid AIO at queue time", async () => {
+    const { resolveQueueInjectionContext, DEFAULT_CHECKPOINT_TOKEN } =
+      await import("./comfyui-config");
+
+    const inventory = [
+      "DreamShaper_8_pruned.safetensors",
+      "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+    ];
+    const { params, loaders, customTokens } = resolveQueueInjectionContext({
+      runtime: {
+        queueTargetModel: "wan-video",
+        modelCheckpointMap: {
+          "wan-video": "wan2.2_t2v_high_noise_14B_fp16.safetensors",
+        },
+        workflowCustomTokens: [
+          {
+            token: DEFAULT_CHECKPOINT_TOKEN,
+            value: "wan2.2_t2v_high_noise_14B_fp16.safetensors",
+          },
+        ],
+      },
+      model: "wan-video",
+      availableCheckpoints: inventory,
+    });
+
+    assert.equal(
+      loaders.checkpoint,
+      "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+    );
+    assert.equal(
+      params.checkpointFilename,
+      "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+    );
+    assert.equal(
+      customTokens.find((entry) => entry.token === DEFAULT_CHECKPOINT_TOKEN)?.value,
+      "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+    );
+  });
 });
 
 describe("avoidance options", () => {

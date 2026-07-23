@@ -127,6 +127,31 @@ describe("workflow direct patch", () => {
     assert.equal(synced.patched.dualClip, 2);
   });
 
+  it("rewrites concrete checkpoint names missing from ComfyUI inventory", () => {
+    const workflow = {
+      "1": {
+        class_type: "CheckpointLoaderSimple",
+        inputs: { ckpt_name: "wan2.2_t2v_high_noise_14B_fp16.safetensors" },
+      },
+    };
+    const result = patchLoaderNodesInWorkflow(
+      workflow,
+      { checkpoint: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors" },
+      {
+        availableCheckpoints: [
+          "DreamShaper_8_pruned.safetensors",
+          "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+        ],
+      },
+    );
+    const node = result.workflow["1"] as { inputs?: { ckpt_name?: string } };
+    assert.equal(
+      node.inputs?.ckpt_name,
+      "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+    );
+    assert.equal(result.patched.checkpoint, 1);
+  });
+
   it("patches EmptyLatentImage width and height", () => {
     const workflow = {
       "5": {
@@ -305,6 +330,19 @@ describe("workflow direct patch", () => {
     const node = result.workflow["20"] as { inputs?: { model_name?: string } };
     assert.equal(node.inputs?.model_name, "4x-UltraSharp.pth");
     assert.equal(result.patched.upscaleModel, 1);
+  });
+
+  it("force-resolves {{UPSCALE_MODEL}} with the system default", () => {
+    const workflow = {
+      "331": {
+        class_type: "UpscaleModelLoader",
+        inputs: { model_name: "{{UPSCALE_MODEL}}" },
+      },
+    };
+    const result = forceResolveLoaderPlaceholders(workflow, {});
+    const node = result["331"] as { inputs?: { model_name?: string } };
+    assert.equal(node.inputs?.model_name, "4x-UltraSharp.pth");
+    assert.equal(JSON.stringify(result).includes("{{UPSCALE_MODEL}}"), false);
   });
 
   it("skips direct patching when disabled via inject options", async () => {

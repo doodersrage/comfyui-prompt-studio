@@ -9,6 +9,8 @@ import {
   isAllowlistedAssetUrl,
 } from "./comfy-asset-catalog";
 import {
+  canWriteComfyModelsRoot,
+  comfyModelsWriteErrorMessage,
   getComfyUiRoot,
   resolveAssetDestinationPath,
 } from "./comfy-asset-paths";
@@ -186,6 +188,9 @@ export function startComfyAssetDownload(
   }
   if (!fs.existsSync(root)) {
     throw new Error(`COMFYUI_ROOT does not exist: ${root}`);
+  }
+  if (!canWriteComfyModelsRoot(root)) {
+    throw new Error(comfyModelsWriteErrorMessage(root));
   }
 
   const { destPath, partialPath, modelsDir } = resolveAssetDestinationPath({
@@ -466,12 +471,12 @@ async function runDownload(input: {
 
     contentLength = Number(response.headers.get("content-length") || 0);
     const linkedSize = Number(response.headers.get("x-linked-size") || 0);
-    total =
-      contentLength > 0
-        ? contentLength
-        : linkedSize > 0
-          ? linkedSize
-          : (input.expectedBytes ?? null);
+    // Prefer the largest credible size — HF often sends a short content-length
+    // for the first hop while x-linked-size / catalog bytes are the real total.
+    const sizeCandidates = [contentLength, linkedSize, input.expectedBytes ?? 0].filter(
+      (value) => Number.isFinite(value) && value > 0,
+    );
+    total = sizeCandidates.length > 0 ? Math.max(...sizeCandidates) : null;
 
     const started = jobs.get(input.jobId);
     if (started) {
@@ -525,15 +530,20 @@ async function runDownload(input: {
           continue;
         }
         received += value.byteLength;
+        // If the declared total was too small (common with HF redirects), drop it
+        // so the UI keeps showing a growing byte count instead of a stuck fraction.
+        if (total != null && received > total * 1.02) {
+          total = null;
+        }
         const now = Date.now();
-        if (now - lastProgressWrite >= 250) {
+        if (now - lastProgressWrite >= 200) {
           lastProgressWrite = now;
           const job = jobs.get(input.jobId);
           if (job) {
             const progress =
               total && total > 0
                 ? Math.min(0.99, received / total)
-                : Math.min(0.95, 0.05 + received / (500 * 1024 * 1024));
+                : Math.min(0.95, 0.05 + received / (2 * 1024 * 1024 * 1024));
             saveJob({
               ...job,
               status: "downloading",
@@ -547,6 +557,9 @@ async function runDownload(input: {
         const ok = file.write(Buffer.from(value));
         if (!ok) {
           await new Promise<void>((resolve) => file.once("drain", () => resolve()));
+          // Push a progress tick after backpressure so the UI does not freeze
+          // while the disk catches up.
+          lastProgressWrite = 0;
         }
       }
     } finally {
@@ -604,8 +617,19 @@ async function runDownload(input: {
     }
     const failed = jobs.get(input.jobId);
     if (failed) {
-      const message =
+      let message =
         error instanceof Error ? error.message : "Download failed.";
+      const err = error as NodeJS.ErrnoException;
+      if (
+        err?.code === "EACCES" ||
+        err?.code === "EPERM" ||
+        /eacces|permission denied/i.test(message)
+      ) {
+        const root = getComfyUiRoot();
+        message = root
+          ? comfyModelsWriteErrorMessage(root)
+          : "Permission denied writing model files.";
+      }
       saveJob({
         ...failed,
         status: "error",

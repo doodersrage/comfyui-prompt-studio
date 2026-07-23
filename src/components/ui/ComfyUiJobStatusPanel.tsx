@@ -124,7 +124,9 @@ export default function ComfyUiJobStatusPanel({
                     : "ComfyUI job finished"}
             </p>
             <span className="rounded-full border border-current/20 px-2 py-0.5 type-overline opacity-90">
-              {label}
+              {percent != null && job.status === "running"
+                ? "Running"
+                : label}
             </span>
             {percent != null ? (
               <span className="rounded-full border border-current/20 px-2 py-0.5 type-caption tabular-nums">
@@ -271,7 +273,11 @@ export function ComfyUiGalleryJobPlaceholder({
               />
             </div>
             {progressLabel ? (
-              <p className="text-[11px] text-zinc-400">{progressLabel}</p>
+              <p className="text-[11px] text-zinc-400">
+                {percent != null ? `${percent}% · ${progressLabel}` : progressLabel}
+              </p>
+            ) : percent != null ? (
+              <p className="text-[11px] tabular-nums text-zinc-400">{percent}%</p>
             ) : null}
           </div>
         ) : entry.statusMessage?.trim() ? (

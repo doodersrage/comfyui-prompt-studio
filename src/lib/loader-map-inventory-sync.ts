@@ -11,6 +11,10 @@ import {
   SUGGESTED_MODEL_UPSCALE_MAP,
   type ModelUpscaleMap,
 } from "./model-upscale-map";
+import {
+  isVideoCheckpointMapKey,
+  pickVideoCheckpointFromInventory,
+} from "./video-checkpoint-pick";
 
 export type LoaderMapInventorySyncInput = {
   models: ComfyUiModelLists;
@@ -177,6 +181,19 @@ function fillAndHealMapKeys(input: {
       healedKeys.push(key);
       continue;
     }
+    // Video suggested stems (official T2V) often cannot near-miss to Rapid AIO
+    // packs — family-pick an installed WAN/Hunyuan/LTX weight instead of keeping
+    // a filename ComfyUI will reject.
+    if (isVideoCheckpointMapKey(key)) {
+      const fromFamily = pickVideoCheckpointFromInventory(key, input.inventory);
+      if (fromFamily) {
+        map[key] = fromFamily;
+        if (fromFamily !== trimmed) {
+          healedKeys.push(key);
+        }
+        continue;
+      }
+    }
     // Keep stale value when heal cannot find a replacement (user may install later).
     map[key] = trimmed;
   }
@@ -192,6 +209,14 @@ function fillAndHealMapKeys(input: {
     if (matched) {
       map[key] = matched;
       filledKeys.push(key);
+      continue;
+    }
+    if (isVideoCheckpointMapKey(key)) {
+      const fromFamily = pickVideoCheckpointFromInventory(key, input.inventory);
+      if (fromFamily) {
+        map[key] = fromFamily;
+        filledKeys.push(key);
+      }
     }
   }
 

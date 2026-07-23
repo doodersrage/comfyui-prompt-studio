@@ -30,7 +30,19 @@ import {
   normalizeLoraLibrary,
   type LoraLibraryEntry,
 } from "./lora-stack";
+import { resolveEffectiveSessionLoraIds } from "./model-lora-map";
 import { loadSettingsCache } from "./settings-cache";
+
+/** Per-model session → model LoRA map → library enabled flags. */
+function resolveSharedEffectiveSessionLoraIds(): string[] | undefined {
+  const shared = loadSettingsCache().shared;
+  return resolveEffectiveSessionLoraIds(
+    shared.sessionActiveLoraIds,
+    shared.model,
+    shared.modelLoraMap,
+    shared.sessionActiveLoraIdsByModel,
+  );
+}
 
 export const COMFYUI_SETTINGS_KEY = "comfyui-settings-v4";
 
@@ -172,7 +184,7 @@ export function mergeLoraLibraryIntoCustomTokens(
   if (options?.activeOnly) {
     library = applySessionLoraSelection(
       library,
-      loadSettingsCache().shared.sessionActiveLoraIds,
+      resolveSharedEffectiveSessionLoraIds(),
     ).filter(
       (entry) =>
         entry.enabled !== false || isLightningLibraryEntry(entry),
@@ -333,10 +345,11 @@ export function comfyUiSettingsToRuntime(
   const customTokens = merged.customTokens?.length ? merged.customTokens : undefined;
   // Strengths/enabled/order can't be encoded as {{LORA_*}} custom tokens — forward the
   // normalized library itself so queue-time LoRA stacking survives the client→server hop.
-  // Session sidebar picks override Settings enabled flags when set.
+  // Session sidebar picks override Settings enabled flags when set;
+  // otherwise the per-model LoRA map applies when present.
   const loraLibrary = applySessionLoraSelection(
     settings.loraLibrary,
-    loadSettingsCache().shared.sessionActiveLoraIds,
+    resolveSharedEffectiveSessionLoraIds(),
   );
 
   if (settings.useServerDefaults) {

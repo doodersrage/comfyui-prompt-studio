@@ -48,8 +48,7 @@ export function formatComfyUiJobProgressLabel(
   }
   const safeMax = Math.max(1, Math.floor(max));
   const safeValue = Math.max(0, Math.min(Math.floor(value), safeMax));
-  const percent = Math.round((safeValue / safeMax) * 100);
-  const step = `${safeValue}/${safeMax} (${percent}%)`;
+  const step = `${safeValue}/${safeMax}`;
   return job?.progressNode ? `${step} · node ${job.progressNode}` : step;
 }
 

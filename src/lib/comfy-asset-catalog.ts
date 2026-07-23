@@ -147,12 +147,20 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     ],
   },
   {
+    id: "wan-video-rapid-aio",
+    label: "WAN 2.2 I2V Rapid AIO",
+    kind: "checkpoint",
+    filename: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+    modelIds: ["wan-video"],
+    notes: "All-in-one I2V Rapid pack — preferred for Prompt Studio video scaffolds.",
+  },
+  {
     id: "wan-video-14b",
     label: "WAN 2.2 T2V 14B",
     kind: "unet",
     filename: "wan2.2_t2v_high_noise_14B_fp16.safetensors",
     modelIds: ["wan-video"],
-    notes: "Use the Comfy-Org WAN repack when available.",
+    notes: "Official dual-noise T2V weight when not using a Rapid AIO pack.",
   },
   {
     id: "hunyuan-video",

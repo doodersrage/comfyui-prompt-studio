@@ -20,6 +20,10 @@ import {
 import { loadSettingsCache } from "@/lib/settings-cache";
 import { normalizeModelSamplerPresetTier } from "@/lib/model-sampler-defaults";
 import { normalizeResolutionSizeTier } from "@/lib/model-resolution-defaults";
+import {
+  formatRenderDuration,
+  resolveGalleryRenderDurationMs,
+} from "@/lib/comfyui-render-duration";
 
 type GalleryWorkflowModalProps = {
   entry: ComfyGalleryEntry;
@@ -94,6 +98,9 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
           normalizeResolutionSizeTier(shared.modelResolutionSizeTier),
         )
       : null;
+  const renderDurationLabel = formatRenderDuration(
+    resolveGalleryRenderDurationMs(entry),
+  );
 
   return (
     <ModalPortal>
@@ -115,6 +122,7 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
             <p className="type-caption truncate text-zinc-500">
               {entry.tool ?? "gallery"} · {entry.model ?? "unknown model"} · prompt{" "}
               {entry.promptId.slice(0, 12)}
+              {renderDurationLabel ? ` · render ${renderDurationLabel}` : ""}
             </p>
           </div>
           <button

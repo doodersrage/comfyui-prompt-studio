@@ -17,10 +17,17 @@ import {
   patchLoadImageMaskNodesInWorkflow,
   patchLoadImageNodesInWorkflow,
   patchLoaderNodesInWorkflow,
+  patchUpscaleModelNodesInWorkflow,
   patchWorkflowDirectParams,
+  replaceUpscaleModelTokenInJson,
 } from "./workflow-direct-patch";
 import { normalizeInputImageFilenames } from "./workflow-load-image-bindings";
 import type { ModelLoaderFilenames } from "./model-checkpoint-map";
+import { matchInventoryFilenameNearMiss } from "./loader-map-inventory-sync";
+import {
+  isVideoCheckpointMapKey,
+  pickVideoCheckpointFromInventory,
+} from "./video-checkpoint-pick";
 
 export const DEFAULT_POSITIVE_TOKEN = "{{POSITIVE}}";
 export const DEFAULT_NEGATIVE_TOKEN = "{{NEGATIVE}}";
@@ -84,6 +91,7 @@ import {
 import {
   DEFAULT_UPSCALE_MODEL_TOKEN,
   resolveUpscaleModelFilename,
+  SUGGESTED_MODEL_UPSCALE_MAP,
   type ModelUpscaleMap,
 } from "./model-upscale-map";
 import {
@@ -497,12 +505,37 @@ export function ensureQueueLoaderParams(
   return next;
 }
 
+function constrainQueueCheckpointToInventory(
+  filename: string | undefined,
+  model: string | undefined,
+  inventory: string[] | null | undefined,
+): string | undefined {
+  const trimmed = filename?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if (!inventory?.length) {
+    return trimmed;
+  }
+  const near = matchInventoryFilenameNearMiss(trimmed, inventory);
+  if (near) {
+    return near;
+  }
+  if (model && isVideoCheckpointMapKey(model)) {
+    return pickVideoCheckpointFromInventory(model, inventory) ?? trimmed;
+  }
+  return trimmed;
+}
+
 export function resolveQueueInjectionContext(input: {
   runtime?: ComfyUiRuntimeConfig;
   override?: WorkflowParamValues;
   model?: string;
   workflow?: Record<string, unknown>;
   precisionTier?: LoaderPrecisionTier;
+  availableCheckpoints?: string[] | null;
+  availableUnets?: string[] | null;
+  availableUpscaleModels?: string[] | null;
 }): {
   params: WorkflowParamValues;
   loaders: ModelLoaderFilenames;
@@ -518,6 +551,12 @@ export function resolveQueueInjectionContext(input: {
     explicit: input.precisionTier,
     model,
   });
+  const loaderInventory = [
+    ...new Set([
+      ...(input.availableUnets ?? []),
+      ...(input.availableCheckpoints ?? []),
+    ]),
+  ];
   const loaderMapOptions = {
     customTokens: baseCustomTokens,
     workflowCustomTokens,
@@ -525,6 +564,8 @@ export function resolveQueueInjectionContext(input: {
     vaeMap: input.runtime?.modelVaeMap,
     precisionTier,
     workflow: input.workflow,
+    availableCheckpoints: input.availableCheckpoints,
+    availableUnets: input.availableUnets,
   };
   const mergedParams = realignLoaderFilenamesToWorkflowPrecision(
     resolveQueueParams(input.runtime, input.override, { model }),
@@ -539,7 +580,11 @@ export function resolveQueueInjectionContext(input: {
     : ({} as ModelLoaderFilenames);
 
   const loaders: ModelLoaderFilenames = {
-    checkpoint: params.checkpointFilename?.trim() || inferred.checkpoint,
+    checkpoint: constrainQueueCheckpointToInventory(
+      params.checkpointFilename?.trim() || inferred.checkpoint,
+      model,
+      loaderInventory,
+    ),
     unet: params.unetFilename?.trim() || inferred.unet,
     vae: params.vaeFilename?.trim() || inferred.vae,
     dualClip: inferred.dualClip,
@@ -559,7 +604,7 @@ export function resolveQueueInjectionContext(input: {
   }
 
   params = { ...params };
-  if (!params.checkpointFilename?.trim() && loaders.checkpoint) {
+  if (loaders.checkpoint) {
     params.checkpointFilename = loaders.checkpoint;
   }
   if (!params.unetFilename?.trim() && loaders.unet) {
@@ -569,17 +614,30 @@ export function resolveQueueInjectionContext(input: {
     params.vaeFilename = loaders.vae;
   }
 
-  if (model) {
-    if (!params.upscaleModelFilename?.trim()) {
-      const upscale = resolveUpscaleModelFilename(model, {
-        upscaleMap: input.runtime?.modelUpscaleMap,
-        customTokens: baseCustomTokens,
-      });
-      if (upscale) {
-        params.upscaleModelFilename = upscale;
-      }
+  // Always resolve an upscale filename so {{UPSCALE_MODEL}} cannot leak.
+  // Inventory constrains the pick when known; otherwise use the system default.
+  {
+    const preferredUpscale = params.upscaleModelFilename?.trim();
+    const upscale =
+      (model
+        ? resolveUpscaleModelFilename(model, {
+            upscaleMap: preferredUpscale
+              ? {
+                  ...(input.runtime?.modelUpscaleMap ?? {}),
+                  [model]: preferredUpscale,
+                }
+              : input.runtime?.modelUpscaleMap,
+            customTokens: baseCustomTokens,
+            availableUpscaleModels: input.availableUpscaleModels,
+          })
+        : undefined) ||
+      preferredUpscale ||
+      SUGGESTED_MODEL_UPSCALE_MAP.default;
+    if (upscale) {
+      params.upscaleModelFilename = upscale;
     }
-    if (!params.refinerCheckpointFilename?.trim()) {
+  }
+  if (model && !params.refinerCheckpointFilename?.trim()) {
       const refiner = resolveRefinerFilenameForModel(model, {
         refinerMap: input.runtime?.modelRefinerMap,
         customTokens: baseCustomTokens,
@@ -587,7 +645,6 @@ export function resolveQueueInjectionContext(input: {
       if (refiner) {
         params.refinerCheckpointFilename = refiner;
       }
-    }
   }
 
   const loaderMerged =
@@ -596,6 +653,21 @@ export function resolveQueueInjectionContext(input: {
   const customTokenByKey = new Map<string, CustomWorkflowToken>();
   for (const entry of [...loaderMerged, ...workflowCustomTokens]) {
     customTokenByKey.set(entry.token, entry);
+  }
+  // Stale workflow {{CHECKPOINT}} values (suggested T2V stems) must not beat
+  // inventory-constrained loaders when ComfyUI cannot load that file.
+  if (loaders.checkpoint && loaderInventory.length > 0) {
+    const checkpointToken = customTokenByKey.get(DEFAULT_CHECKPOINT_TOKEN);
+    const tokenValue = checkpointToken?.value?.trim();
+    if (
+      tokenValue &&
+      !matchInventoryFilenameNearMiss(tokenValue, loaderInventory)
+    ) {
+      customTokenByKey.set(DEFAULT_CHECKPOINT_TOKEN, {
+        token: DEFAULT_CHECKPOINT_TOKEN,
+        value: loaders.checkpoint,
+      });
+    }
   }
   const customTokens = [...customTokenByKey.values()];
 
@@ -1218,6 +1290,18 @@ function mergeLoaderTokensIntoCustomTokens(
       value: params.refinerCheckpointFilename.trim(),
     });
   }
+  if (params?.upscaleModelFilename?.trim()) {
+    fromParams.push({
+      token: DEFAULT_UPSCALE_MODEL_TOKEN,
+      value: params.upscaleModelFilename.trim(),
+    });
+  } else if (SUGGESTED_MODEL_UPSCALE_MAP.default) {
+    // System default — ensure {{UPSCALE_MODEL}} is never left unresolved.
+    fromParams.push({
+      token: DEFAULT_UPSCALE_MODEL_TOKEN,
+      value: SUGGESTED_MODEL_UPSCALE_MAP.default,
+    });
+  }
 
   const multiImageTokens = [
     DEFAULT_INPUT_IMAGE_TOKEN,
@@ -1263,6 +1347,7 @@ export function injectPromptsWithFallbacks(
     syncWorkflowLoadersToModel?: boolean;
     loaders?: ModelLoaderFilenames;
     model?: string;
+    availableCheckpoints?: string[] | null;
     availableLoras?: string[] | null;
     qualityProfile?: QueueQualityProfile;
     samplerPresetTier?: ModelSamplerPresetTier;
@@ -1359,7 +1444,9 @@ export function injectPromptsWithFallbacks(
   if (isLightning) {
     // Native Lightning graphs: do not rewrite concrete loaders / latent sizes.
     // Only fill unresolved placeholders and attach queue input images.
-    nextWorkflow = forceResolveLoaderPlaceholders(nextWorkflow, loaders);
+    nextWorkflow = forceResolveLoaderPlaceholders(nextWorkflow, loaders, {
+      upscaleModelFilename: input.params?.upscaleModelFilename,
+    });
     const figureFilenames = normalizeInputImageFilenames(
       input.params?.inputImageFilename,
       input.params?.inputImageFilenames,
@@ -1393,6 +1480,7 @@ export function injectPromptsWithFallbacks(
       customTokens: mergedCustomTokens,
       syncWorkflowLoadersToModel: options?.syncWorkflowLoadersToModel,
       model: options?.model,
+      availableCheckpoints: options?.availableCheckpoints,
       loraLibrary: options?.loraLibrary,
       prompt: input.positive,
       regionalSlots: options?.regionalSlots,
@@ -1403,7 +1491,9 @@ export function injectPromptsWithFallbacks(
     nextWorkflow = directPatch.workflow;
     directPatchCounts = directPatch.patched;
   } else if (loaders.checkpoint || loaders.unet || loaders.vae) {
-    const loaderPatch = patchLoaderNodesInWorkflow(nextWorkflow, loaders);
+    const loaderPatch = patchLoaderNodesInWorkflow(nextWorkflow, loaders, {
+      availableCheckpoints: options?.availableCheckpoints,
+    });
     nextWorkflow = loaderPatch.workflow;
     directPatchCounts = {
       ...directPatchCounts,
@@ -1548,9 +1638,24 @@ export function injectPromptsWithFallbacks(
   if (loaders.checkpoint || loaders.unet || loaders.vae) {
     injected = {
       ...injected,
-      workflow: forceResolveLoaderPlaceholders(injected.workflow, loaders),
+      workflow: forceResolveLoaderPlaceholders(injected.workflow, loaders, {
+        upscaleModelFilename: input.params?.upscaleModelFilename,
+      }),
     };
   }
+
+  // Final safety: never let {{UPSCALE_MODEL}} reach ComfyUI.
+  const upscaleFallback =
+    input.params?.upscaleModelFilename?.trim() ||
+    SUGGESTED_MODEL_UPSCALE_MAP.default ||
+    "4x-UltraSharp.pth";
+  injected = {
+    ...injected,
+    workflow: replaceUpscaleModelTokenInJson(
+      patchUpscaleModelNodesInWorkflow(injected.workflow, upscaleFallback).workflow,
+      upscaleFallback,
+    ),
+  };
 
   return injected;
 }

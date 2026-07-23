@@ -27,7 +27,7 @@ import {
   resolveRefinerFilenameForModel,
 } from "./model-checkpoint-map";
 import { resolveLoaderPrecisionTier } from "./model-loader-precision";
-import { resolveUpscaleModelFilename } from "./model-upscale-map";
+import { resolveUpscaleModelFilename, SUGGESTED_MODEL_UPSCALE_MAP } from "./model-upscale-map";
 import { resolveControlNetModelFilename } from "./model-controlnet-map";
 import { loadSettingsCache } from "./settings-cache";
 import {
@@ -44,6 +44,7 @@ import {
   type QueueQualityProfile,
 } from "./queue-quality-profile";
 import { rememberedSamplerOverrides } from "./sampler-memory";
+import { readCachedComfyObjectInfoModels } from "./comfyui-object-info-cache";
 
 export const QUEUE_PARAMS_KEY = "comfy-queue-params-v1";
 
@@ -259,10 +260,15 @@ export function resolveQueueParams(
     }
     Object.assign(merged, aligned);
 
-    const upscaleModel = resolveUpscaleModelFilename(model, {
-      upscaleMap: shared.modelUpscaleMap,
-      customTokens,
-    });
+    const upscaleModel =
+      resolveUpscaleModelFilename(model, {
+        upscaleMap: shared.modelUpscaleMap,
+        customTokens,
+        availableUpscaleModels:
+          typeof window !== "undefined"
+            ? readCachedComfyObjectInfoModels()?.upscaleModels ?? null
+            : null,
+      }) || SUGGESTED_MODEL_UPSCALE_MAP.default;
     if (upscaleModel) {
       merged.upscaleModelFilename = upscaleModel;
     }

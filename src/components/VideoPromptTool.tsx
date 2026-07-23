@@ -178,6 +178,7 @@ export default function VideoPromptTool() {
   // Create + assign a WAN video scaffold when none is mapped yet.
   // Apply the full sharedPatch (including modelWorkflowMap + checkpoint map)
   // so React state does not clobber settings with a stale partial update.
+  // Existing scaffolds keep their {{CHECKPOINT}} token — ensure must not rewrite it.
   useEffect(() => {
     if (!mounted) {
       return;
@@ -193,6 +194,9 @@ export default function VideoPromptTool() {
         const result = ensureVideoWorkflowScaffold(model, {
           inventory: objectInfo?.models ?? null,
         });
+        if (cancelled) {
+          return;
+        }
         updateShared(result.sharedPatch);
         const parts = [
           result.created

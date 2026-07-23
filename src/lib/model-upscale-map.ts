@@ -22,6 +22,16 @@ export const SUGGESTED_MODEL_UPSCALE_MAP: ModelUpscaleMap = {
 
 export type ModelUpscaleMap = Partial<Record<string, string>>;
 
+/** Suggested system defaults under user overrides (user wins on conflict). */
+export function mergeSuggestedUpscaleMap(
+  userMap?: ModelUpscaleMap | null,
+): ModelUpscaleMap {
+  return {
+    ...SUGGESTED_MODEL_UPSCALE_MAP,
+    ...(userMap ?? {}),
+  };
+}
+
 function trimFilename(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
@@ -96,10 +106,13 @@ export function resolveUpscaleModelFilename(
     availableUpscaleModels?: string[] | null;
   },
 ): string | undefined {
+  // User map first; otherwise suggested system defaults (optimized).
   const mapped =
     trimFilename(options?.upscaleMap?.[model]) ??
     trimFilename(options?.upscaleMap?.default);
-  const suggested = trimFilename(SUGGESTED_MODEL_UPSCALE_MAP[model]);
+  const suggested =
+    trimFilename(SUGGESTED_MODEL_UPSCALE_MAP[model]) ??
+    trimFilename(SUGGESTED_MODEL_UPSCALE_MAP.default);
   const resolved =
     mapped ??
     resolveCustomTokenValue(DEFAULT_UPSCALE_MODEL_TOKEN, options?.customTokens) ??

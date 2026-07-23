@@ -26,7 +26,12 @@ import {
   SUGGESTED_MODEL_CHECKPOINT_MAP,
 } from "./model-checkpoint-map";
 import { matchInventoryFilename } from "./loader-map-inventory-sync";
+import {
+  pickVideoCheckpointFromInventory,
+} from "./video-checkpoint-pick";
 import type { ComfyUiModelLists } from "./comfyui-object-info";
+
+export { pickVideoCheckpointFromInventory } from "./video-checkpoint-pick";
 
 export type EnsureVideoWorkflowResult = {
   created: boolean;
@@ -86,88 +91,61 @@ function videoWeightPool(inventory?: ComfyUiModelLists | null): string[] {
   return [...(inventory.checkpoints ?? []), ...(inventory.unets ?? [])];
 }
 
-/** Score WAN/Hunyuan/LTX candidates so 2.2 / 14B beat older 2.1 / 1.3B defaults. */
-function scoreVideoWeightFilename(
-  model: ComfyImageModel | string,
-  filename: string,
-): number {
-  const lower = filename.toLowerCase();
-  let score = 0;
-  if (model === "hunyuan-video") {
-    if (/hunyuan|hy[-_]?video/.test(lower)) score += 100;
-  } else if (model === "ltx-video") {
-    if (/ltx/.test(lower)) score += 100;
-  } else if (/wan/.test(lower)) {
-    score += 100;
-  }
-  const version = /(?:wan|ltx|hunyuan)[^\d]*(\d+(?:\.\d+)?)/i.exec(filename);
-  if (version?.[1]) {
-    score += Number.parseFloat(version[1]) * 20;
-  }
-  const billions = /(\d+(?:\.\d+)?)\s*b\b/i.exec(filename);
-  if (billions?.[1]) {
-    score += Number.parseFloat(billions[1]);
-  }
-  if (/high[_\s-]?noise/i.test(filename)) score += 2;
-  if (/t2v/i.test(filename)) score += 1;
-  if (/fp8/i.test(filename)) score -= 0.5;
-  return score;
-}
-
-/** Prefer installed WAN/Hunyuan/LTX weights for the video scaffold loader. */
-export function pickVideoCheckpointFromInventory(
-  model: ComfyImageModel | string,
-  inventory: string[],
+function workflowCheckpointTokenValue(
+  workflow: ComfyWorkflowFile,
 ): string | undefined {
-  if (inventory.length === 0) {
-    return undefined;
-  }
-  const preferredPatterns =
-    model === "hunyuan-video"
-      ? [/hunyuan/i, /hy[-_]?video/i, /wan/i, /ltx/i]
-      : model === "ltx-video"
-        ? [/ltx/i, /wan/i, /hunyuan/i]
-        : [/wan/i, /hunyuan/i, /hy[-_]?video/i, /ltx/i];
-
-  const matched = inventory.filter((name) =>
-    preferredPatterns.some((pattern) => pattern.test(name)),
-  );
-  if (matched.length > 0) {
-    return matched
-      .slice()
-      .sort(
-        (a, b) =>
-          scoreVideoWeightFilename(model, b) - scoreVideoWeightFilename(model, a),
-      )[0];
-  }
-
-  const hinted =
-    getComfyModelDefinition(model)?.checkpointHint ??
-    SUGGESTED_MODEL_CHECKPOINT_MAP[model];
-  // Only return a suggested name when that exact weight is installed.
-  return matchInventoryFilename(hinted, inventory);
+  const value = (workflow.customTokens ?? []).find(
+    (token) => token.token.trim() === DEFAULT_CHECKPOINT_TOKEN,
+  )?.value?.trim();
+  return value || undefined;
 }
 
-function resolveVideoCheckpointFilename(input: {
+/** Exported for unit tests — video page ensure uses the same preference order. */
+export function resolveVideoCheckpointFilename(input: {
   model: ComfyImageModel;
   sharedCheckpointMap?: SharedToolSettings["modelCheckpointMap"];
   inventory?: ComfyUiModelLists | null;
+  /** Per-workflow {{CHECKPOINT}} — beats a stale modelCheckpointMap entry. */
+  workflowCheckpoint?: string;
 }): { filename?: string; note?: string; clearInvalid?: boolean } {
   const pool = videoWeightPool(input.inventory);
   const hasInventory = pool.length > 0;
+  const workflowCkpt = input.workflowCheckpoint?.trim();
   const mapped = input.sharedCheckpointMap?.[input.model]?.trim();
 
-  if (mapped) {
-    if (!hasInventory || inventoryHasVideoWeight(mapped, input.inventory)) {
+  // Workflow token is what the user edits in Settings → library. Prefer it over
+  // the shared map so video-page ensure cannot clobber Rapid AIO with a stale
+  // suggested T2V stem.
+  if (workflowCkpt) {
+    if (!hasInventory || inventoryHasVideoWeight(workflowCkpt, input.inventory)) {
       const resolved = hasInventory
-        ? matchInventoryFilename(mapped, pool) ?? mapped
-        : mapped;
+        ? matchInventoryFilename(workflowCkpt, pool) ?? workflowCkpt
+        : workflowCkpt;
       return { filename: resolved };
     }
-    // Mapped file is not in checkpoints or UNETs — fall through to pick a better one.
+    // Token not listed in inventory yet — still prefer it over a missing map
+    // stem; only replace below when an installed WAN weight is available.
+  }
+
+  if (mapped) {
+    // Only trust the map when inventory confirms the file exists. Without
+    // inventory, never use the map to overwrite a workflow token we already
+    // considered above; if there is no workflow token, keep the map as a soft hint.
+    if (hasInventory && inventoryHasVideoWeight(mapped, input.inventory)) {
+      return {
+        filename: matchInventoryFilename(mapped, pool) ?? mapped,
+      };
+    }
+    if (!hasInventory && !workflowCkpt) {
+      return { filename: mapped };
+    }
+    // Mapped file is not in checkpoints or UNETs — fall through to pick.
   }
 
   if (!hasInventory) {
+    if (workflowCkpt) {
+      return { filename: workflowCkpt };
+    }
     return {
       note: "Connect ComfyUI to auto-map a video weight, or set Settings → checkpoint map for wan-video.",
     };
@@ -181,6 +159,11 @@ function resolveVideoCheckpointFilename(input: {
     };
   }
 
+  // Keep a user-edited workflow token even if object_info did not list it.
+  if (workflowCkpt) {
+    return { filename: workflowCkpt };
+  }
+
   const hinted =
     getComfyModelDefinition(input.model)?.checkpointHint ??
     SUGGESTED_MODEL_CHECKPOINT_MAP[input.model];
@@ -192,37 +175,30 @@ function resolveVideoCheckpointFilename(input: {
   };
 }
 
-function withCheckpointToken(
+/**
+ * Fill {{CHECKPOINT}} only when the workflow has no override yet.
+ * Never rewrite a non-empty token — video page load was clobbering user edits
+ * (Rapid AIO) with stale map/suggested T2V stems.
+ */
+function withCheckpointTokenFillEmptyOnly(
   workflow: ComfyWorkflowFile,
   filename: string | undefined,
-  clearInvalid: boolean,
 ): ComfyWorkflowFile {
+  const existingValue = workflowCheckpointTokenValue(workflow);
+  if (existingValue) {
+    return workflow;
+  }
+  const next = filename?.trim();
+  if (!next) {
+    return workflow;
+  }
   const others = (workflow.customTokens ?? []).filter(
     (token) => token.token.trim() !== DEFAULT_CHECKPOINT_TOKEN,
   );
-  const existing = (workflow.customTokens ?? []).find(
-    (token) => token.token.trim() === DEFAULT_CHECKPOINT_TOKEN,
-  );
-  const existingValue = existing?.value?.trim();
-
-  if (filename) {
-    if (existingValue === filename) {
-      return workflow;
-    }
-    return upsertComfyWorkflowFile({
-      ...workflow,
-      customTokens: [...others, { token: DEFAULT_CHECKPOINT_TOKEN, value: filename }],
-    });
-  }
-
-  if (clearInvalid && existingValue) {
-    return upsertComfyWorkflowFile({
-      ...workflow,
-      customTokens: others,
-    });
-  }
-
-  return workflow;
+  return upsertComfyWorkflowFile({
+    ...workflow,
+    customTokens: [...others, { token: DEFAULT_CHECKPOINT_TOKEN, value: next }],
+  });
 }
 
 /**
@@ -252,30 +228,19 @@ export function ensureVideoWorkflowScaffold(
   // User already mapped this model to a real library workflow — don't steal the
   // picker or reassign wan/hunyuan/ltx to a scaffold.
   if (workflow && existingId?.trim() && !options?.overwriteMap) {
-    const existingMapped = shared.modelCheckpointMap?.[model]?.trim();
-    const existingMappedValid =
-      Boolean(existingMapped) &&
-      inventoryHasVideoWeight(existingMapped, options?.inventory);
+    const workflowCkpt = workflowCheckpointTokenValue(workflow);
     const checkpoint = resolveVideoCheckpointFilename({
       model,
       sharedCheckpointMap: shared.modelCheckpointMap,
       inventory: options?.inventory,
+      workflowCheckpoint: workflowCkpt,
     });
     const nextCheckpointMap = { ...(shared.modelCheckpointMap ?? {}) };
-    const pool = videoWeightPool(options?.inventory);
     if (checkpoint.filename) {
-      if (!existingMappedValid) {
-        nextCheckpointMap[model] = checkpoint.filename;
-      } else if (existingMapped) {
-        nextCheckpointMap[model] =
-          matchInventoryFilename(existingMapped, pool) ?? existingMapped;
-      }
+      nextCheckpointMap[model] = checkpoint.filename;
     }
-    workflow = withCheckpointToken(
-      workflow,
-      nextCheckpointMap[model]?.trim() || checkpoint.filename,
-      checkpoint.clearInvalid === true,
-    );
+    // Existing mapped workflow: never touch customTokens on page load.
+    // Heal the shared checkpoint map only (from workflow token / inventory).
     const sharedPatch: Partial<SharedToolSettings> = {
       model,
       modelCheckpointMap: nextCheckpointMap,
@@ -312,21 +277,24 @@ export function ensureVideoWorkflowScaffold(
     created = true;
   }
 
-  const existingMapped = shared.modelCheckpointMap?.[model]?.trim();
-  const existingMappedValid =
-    Boolean(existingMapped) &&
-    inventoryHasVideoWeight(existingMapped, options?.inventory);
-
+  const workflowCkpt = workflowCheckpointTokenValue(workflow);
   const checkpoint = resolveVideoCheckpointFilename({
     model,
     sharedCheckpointMap: shared.modelCheckpointMap,
     inventory: options?.inventory,
+    workflowCheckpoint: workflowCkpt,
   });
 
-  workflow = withCheckpointToken(
+  const pool = videoWeightPool(options?.inventory);
+  const hasInventory = pool.length > 0;
+  // Auto-fill empty tokens only from live inventory — never plant a suggested
+  // / stale map stem (e.g. official T2V) into the workflow library token.
+  const inventoryFill = hasInventory
+    ? pickVideoCheckpointFromInventory(model, pool)
+    : undefined;
+  workflow = withCheckpointTokenFillEmptyOnly(
     workflow,
-    checkpoint.filename,
-    checkpoint.clearInvalid === true,
+    inventoryFill ?? (created ? checkpoint.filename : undefined),
   );
 
   const nextMap = assignWorkflowToInferredModels(
@@ -339,18 +307,10 @@ export function ensureVideoWorkflowScaffold(
   );
 
   const nextCheckpointMap = { ...(shared.modelCheckpointMap ?? {}) };
-  const pool = videoWeightPool(options?.inventory);
-  const hasInventory = pool.length > 0;
 
-  // Keep a valid user assignment. Only write when empty, invalid, or ensure picked
-  // a different installed weight (e.g. first-time auto-map).
+  // Persist whatever resolve preferred (workflow token > valid map > inventory pick).
   if (checkpoint.filename) {
-    if (!existingMappedValid || options?.overwriteMap) {
-      nextCheckpointMap[model] = checkpoint.filename;
-    } else if (existingMapped) {
-      nextCheckpointMap[model] =
-        matchInventoryFilename(existingMapped, pool) ?? existingMapped;
-    }
+    nextCheckpointMap[model] = checkpoint.filename;
     if (model === "wan-video" && !nextCheckpointMap["hunyuan-video"]?.trim()) {
       const hunyuan = pickVideoCheckpointFromInventory("hunyuan-video", pool);
       if (hunyuan) {

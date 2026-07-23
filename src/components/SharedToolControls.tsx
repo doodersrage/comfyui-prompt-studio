@@ -81,6 +81,11 @@ import {
   textHasWildcardTokens,
 } from "@/lib/wildcard-expand";
 import LoraStackSessionPicker from "@/components/LoraStackSessionPicker";
+import {
+  hasSessionLoraIdsForModel,
+  resolveLoraIdsForModelSelection,
+  setSessionLoraIdsForModel,
+} from "@/lib/model-lora-map";
 
 const ComfyWorkflowSelector = dynamic(
   () => import("@/components/ComfyWorkflowSelector"),
@@ -211,7 +216,9 @@ export default function SharedToolControls({
   );
   const [sessionActiveLoraIds, setSessionActiveLoraIds] = useState<
     string[] | undefined
-  >(() => shared.sessionActiveLoraIds);
+  >(undefined);
+  const [sessionActiveLoraIdsByModel, setSessionActiveLoraIdsByModel] =
+    useState<Record<string, string[]>>({});
 
   const workflowCatalog = useMemo(
     () => [
@@ -403,8 +410,28 @@ export default function SharedToolControls({
       }
       onModelChange(model);
       applyWorkflowForModel(model, stackFamilyChanged);
+
+      // Swap LoRA stack to this model's stored picks (or map defaults).
+      const sharedNow = loadSettingsCache().shared;
+      if (sharedNow.autoSelectLorasForModel !== false) {
+        const nextIds = resolveLoraIdsForModelSelection(model, {
+          sessionActiveLoraIdsByModel: sharedNow.sessionActiveLoraIdsByModel,
+          modelLoraMap: sharedNow.modelLoraMap,
+        });
+        setSessionActiveLoraIds(nextIds);
+        saveSharedSettings({
+          ...loadSettingsCache().shared,
+          sessionActiveLoraIds: nextIds,
+        });
+        onSharedSettingsChange?.({ sessionActiveLoraIds: nextIds });
+      }
     },
-    [applyWorkflowForModel, onModelChange, showAllModelsOverride],
+    [
+      applyWorkflowForModel,
+      onModelChange,
+      onSharedSettingsChange,
+      showAllModelsOverride,
+    ],
   );
 
   const handleShowAllModels = useCallback(() => {
@@ -588,7 +615,14 @@ export default function SharedToolControls({
       setWildcardSeed(shared.wildcardSeed ?? "");
       setAutoRetryOnOom(shared.autoRetryOnOom !== false);
       setOomRetryDowngrade(shared.oomRetryDowngrade !== false);
-      setSessionActiveLoraIds(shared.sessionActiveLoraIds);
+      setSessionActiveLoraIdsByModel(shared.sessionActiveLoraIdsByModel ?? {});
+      setSessionActiveLoraIds(
+        resolveLoraIdsForModelSelection(shared.model, {
+          sessionActiveLoraIdsByModel: shared.sessionActiveLoraIdsByModel,
+          modelLoraMap: shared.modelLoraMap,
+          sessionActiveLoraIds: shared.sessionActiveLoraIds,
+        }),
+      );
     });
   }, [
     shared.modelSamplerPreset,
@@ -603,15 +637,37 @@ export default function SharedToolControls({
     shared.autoRetryOnOom,
     shared.oomRetryDowngrade,
     shared.sessionActiveLoraIds,
+    shared.sessionActiveLoraIdsByModel,
+    shared.modelLoraMap,
+    shared.model,
   ]);
 
   const handleSessionActiveLoraIdsChange = (ids: string[] | undefined) => {
-    setSessionActiveLoraIds(ids);
+    const modelId = shared.model;
+    const nextByModel = setSessionLoraIdsForModel(
+      loadSettingsCache().shared.sessionActiveLoraIdsByModel,
+      modelId,
+      ids,
+    );
+    // When clearing to defaults, mirror the resolved defaults for the current model.
+    const mirrored =
+      ids !== undefined
+        ? ids
+        : resolveLoraIdsForModelSelection(modelId, {
+            sessionActiveLoraIdsByModel: nextByModel,
+            modelLoraMap: loadSettingsCache().shared.modelLoraMap,
+          });
+    setSessionActiveLoraIds(mirrored);
+    setSessionActiveLoraIdsByModel(nextByModel);
     saveSharedSettings({
       ...loadSettingsCache().shared,
-      sessionActiveLoraIds: ids,
+      sessionActiveLoraIds: mirrored,
+      sessionActiveLoraIdsByModel: nextByModel,
     });
-    onSharedSettingsChange?.({ sessionActiveLoraIds: ids });
+    onSharedSettingsChange?.({
+      sessionActiveLoraIds: mirrored,
+      sessionActiveLoraIdsByModel: nextByModel,
+    });
   };
   const handleSamplerPresetChange = (preset: ModelSamplerPresetTier) => {
     setSamplerPreset(preset);
@@ -743,7 +799,18 @@ export default function SharedToolControls({
     setResolutionSizeTier(
       normalizeResolutionSizeTier(next.modelResolutionSizeTier ?? resolutionSizeTier),
     );
+    const nextByModel =
+      next.sessionActiveLoraIds !== undefined
+        ? setSessionLoraIdsForModel(
+            next.sessionActiveLoraIdsByModel ??
+              loadSettingsCache().shared.sessionActiveLoraIdsByModel,
+            next.model,
+            next.sessionActiveLoraIds,
+          )
+        : (next.sessionActiveLoraIdsByModel ??
+          loadSettingsCache().shared.sessionActiveLoraIdsByModel);
     setSessionActiveLoraIds(next.sessionActiveLoraIds);
+    setSessionActiveLoraIdsByModel(nextByModel ?? {});
     if (next.model !== shared.model) {
       onModelChange(next.model);
     }
@@ -752,6 +819,7 @@ export default function SharedToolControls({
       queueQualityProfile: next.queueQualityProfile,
       sessionQueueMode: next.sessionQueueMode,
       sessionActiveLoraIds: next.sessionActiveLoraIds,
+      sessionActiveLoraIdsByModel: nextByModel,
       modelSamplerPreset: next.modelSamplerPreset,
       modelResolutionOrientation: next.modelResolutionOrientation,
       modelResolutionSizeTier: next.modelResolutionSizeTier,
@@ -768,6 +836,7 @@ export default function SharedToolControls({
       modelResolutionOrientation: resolutionOrientation,
       modelResolutionSizeTier: resolutionSizeTier,
       sessionActiveLoraIds,
+      sessionActiveLoraIdsByModel,
     }),
     [
       shared,
@@ -775,6 +844,7 @@ export default function SharedToolControls({
       resolutionOrientation,
       resolutionSizeTier,
       sessionActiveLoraIds,
+      sessionActiveLoraIdsByModel,
     ],
   );
 
@@ -941,14 +1011,19 @@ export default function SharedToolControls({
         title="LoRA stack"
         summary={
           sessionActiveLoraIds !== undefined
-            ? `${sessionActiveLoraIds.length} selected for this session`
-            : "Pick LoRAs for queue without trigger keywords"
+            ? `${sessionActiveLoraIds.length} selected for this model`
+            : "Pick LoRAs for this model without trigger keywords"
         }
         defaultOpen={advancedOpenByDefault}
         persistKey="shared-lora-stack"
       >
         <LoraStackSessionPicker
-          sessionActiveLoraIds={sessionActiveLoraIds}
+          model={shared.model}
+          sessionActiveLoraIds={
+            hasSessionLoraIdsForModel(sessionActiveLoraIdsByModel, shared.model)
+              ? sessionActiveLoraIds
+              : undefined
+          }
           checkboxClassName={checkboxClass}
           onChange={handleSessionActiveLoraIdsChange}
         />

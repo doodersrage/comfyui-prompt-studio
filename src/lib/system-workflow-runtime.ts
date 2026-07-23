@@ -20,6 +20,7 @@ import { resolveWorkflowForModel } from "./model-workflow-map";
 import {
   syncLoaderMapsFromInventory,
   matchInventoryFilename,
+  matchInventoryFilenameNearMiss,
 } from "./loader-map-inventory-sync";
 import {
   filenameMatchesPrecisionTier,
@@ -839,13 +840,16 @@ export function resolveSystemLoaderMaps(
     modelVaeMap = synced.modelVaeMap;
     modelUpscaleMap = synced.modelUpscaleMap;
 
-    if (isVideoModel(model) && !modelCheckpointMap[model]?.trim()) {
-      const picked = pickVideoCheckpointFromInventory(model, [
-        ...models.checkpoints,
-        ...models.unets,
-      ]);
-      if (picked) {
-        modelCheckpointMap = { ...modelCheckpointMap, [model]: picked };
+    if (isVideoModel(model)) {
+      const pool = [...models.checkpoints, ...models.unets];
+      const current = modelCheckpointMap[model]?.trim();
+      // Suggested T2V stems often linger in the map after settings merge even when
+      // only Rapid AIO / I2V packs are installed — heal to an installed video weight.
+      if (!current || !matchInventoryFilenameNearMiss(current, pool)) {
+        const picked = pickVideoCheckpointFromInventory(model, pool);
+        if (picked) {
+          modelCheckpointMap = { ...modelCheckpointMap, [model]: picked };
+        }
       }
     }
 

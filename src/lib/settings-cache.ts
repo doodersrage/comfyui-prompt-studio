@@ -22,6 +22,7 @@ import { DEFAULT_VARIATION_SETTINGS } from "./variation-settings";
 import type { DetailLevel } from "./detail-level";
 import { readBrowserValue, writeBrowserValue } from "./browser-storage";
 import type { ModelCheckpointMap, ModelRefinerMap, ModelVaeMap } from "./model-checkpoint-map";
+import type { ModelLoraMap, SessionActiveLoraIdsByModel } from "./model-lora-map";
 import type { ModelUpscaleMap } from "./model-upscale-map";
 import {
   DEFAULT_QUEUE_QUALITY_PROFILE,
@@ -45,9 +46,10 @@ import {
 } from "./model-checkpoint-map";
 import {
   formatModelUpscaleMap,
+  mergeSuggestedUpscaleMap,
   parseModelUpscaleMap,
-  SUGGESTED_MODEL_UPSCALE_MAP,
 } from "./model-upscale-map";
+import { SUGGESTED_MODEL_LORA_MAP } from "./model-lora-map";
 import {
   normalizeLoraDatasetExportPrefs,
   normalizeLoraTrainTrainerPrefs,
@@ -75,6 +77,11 @@ export type SharedToolSettings = {
   modelWorkflowMap?: Record<string, string>;
   /** When true (default), pick the mapped workflow when the target model changes. */
   autoSelectWorkflowForModel?: boolean;
+  /**
+   * When true (default), apply the model LoRA map to the session picker when the
+   * target model changes and the user is still following defaults (session unset).
+   */
+  autoSelectLorasForModel?: boolean;
   /** When true (default), limit the model picker to models with available workflows. */
   limitModelsToAvailableWorkflows?: boolean;
   /**
@@ -155,6 +162,11 @@ export type SharedToolSettings = {
   modelRefinerMap?: ModelRefinerMap;
   /** Per-model UpscaleModel loader filenames (modelId or default=filename). */
   modelUpscaleMap?: ModelUpscaleMap;
+  /**
+   * Per-model default LoRA library ids (modelId=id1,id2). Empty value = no LoRAs.
+   * Used when this model has no entry in sessionActiveLoraIdsByModel.
+   */
+  modelLoraMap?: ModelLoraMap;
   /** Per-model ControlNet filenames (modelId or default=filename). */
   modelControlNetMap?: import("./model-controlnet-map").ModelControlNetMap;
   /**
@@ -174,10 +186,15 @@ export type SharedToolSettings = {
   /** Optional ipadapter_file filename override for {{IPADAPTER_MODEL}}. */
   ipAdapterModelFilename?: string;
   /**
-   * Session LoRA picks from the tool sidebar. When set, only these library ids
-   * are enabled at queue time. Undefined = follow Settings LoRA library enabled flags.
+   * Current-model LoRA picks mirrored for queue/recipes. Prefer
+   * sessionActiveLoraIdsByModel for per-model persistence.
    */
   sessionActiveLoraIds?: string[];
+  /**
+   * Per-model session LoRA picks. Key present (even with []) = explicit override
+   * for that model; missing key = follow model LoRA map / library enabled.
+   */
+  sessionActiveLoraIdsByModel?: SessionActiveLoraIdsByModel;
   /** Tiled neural upscale tile size (0 disables tiling). Overrides Max default when set. */
   neuralUpscaleTileSize?: number;
   /** Prefer mapped library workflow with upscale nodes for gallery upscale actions. */
@@ -565,7 +582,10 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelVaeMap: {},
   modelRefinerMap: {},
   modelUpscaleMap: {},
+  modelLoraMap: {},
+  sessionActiveLoraIdsByModel: {},
   autoSelectWorkflowForModel: true,
+  autoSelectLorasForModel: true,
   limitModelsToAvailableWorkflows: true,
   useSystemWorkflows: false,
   showAllModelsOverride: false,
@@ -889,10 +909,27 @@ export function loadSettingsCache(): SettingsCache {
       ...SUGGESTED_MODEL_REFINER_MAP,
       ...shared.modelRefinerMap,
     };
-    shared.modelUpscaleMap = {
-      ...SUGGESTED_MODEL_UPSCALE_MAP,
-      ...shared.modelUpscaleMap,
+    shared.modelUpscaleMap = mergeSuggestedUpscaleMap(shared.modelUpscaleMap);
+    shared.modelLoraMap = {
+      ...SUGGESTED_MODEL_LORA_MAP,
+      ...shared.modelLoraMap,
     };
+
+    // Migrate sticky global LoRA session → per-model for the current model only.
+    // Other models keep the system default (map or empty) until the user picks.
+    const byModel = shared.sessionActiveLoraIdsByModel ?? {};
+    const byModelEmpty = Object.keys(byModel).length === 0;
+    if (
+      byModelEmpty &&
+      Array.isArray(shared.sessionActiveLoraIds) &&
+      shared.model?.trim()
+    ) {
+      shared.sessionActiveLoraIdsByModel = {
+        [shared.model.trim()]: shared.sessionActiveLoraIds,
+      };
+    } else if (!shared.sessionActiveLoraIdsByModel) {
+      shared.sessionActiveLoraIdsByModel = {};
+    }
 
     const rawTools = parsed.tools ?? {};
     const migrated = migrateLegacyToolSettings(rawTools);

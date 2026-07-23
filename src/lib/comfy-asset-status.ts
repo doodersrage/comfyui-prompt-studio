@@ -6,6 +6,7 @@ import {
 } from "./comfy-asset-catalog";
 import {
   assetFileExistsOnDisk,
+  canWriteComfyModelsRoot,
   getComfyUiRoot,
   type ComfyAssetKind,
 } from "./comfy-asset-paths";
@@ -91,10 +92,12 @@ export function buildComfyAssetStatusRows(input?: {
 }): {
   rootConfigured: boolean;
   rootPath: string | null;
+  rootWritable: boolean;
   rows: ComfyAssetStatusRow[];
 } {
   const root = input?.root !== undefined ? input.root : getComfyUiRoot();
   const rootConfigured = Boolean(root);
+  const rootWritable = canWriteComfyModelsRoot(root);
   const catalog =
     input?.modelId?.trim()
       ? catalogAssetsForModel(input.modelId)
@@ -147,5 +150,5 @@ export function buildComfyAssetStatusRows(input?: {
     };
   });
 
-  return { rootConfigured, rootPath: root, rows };
+  return { rootConfigured, rootPath: root, rootWritable, rows };
 }

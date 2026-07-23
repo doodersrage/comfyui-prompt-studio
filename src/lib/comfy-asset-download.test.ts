@@ -15,6 +15,7 @@ import {
   startComfyAssetDownload,
 } from "./comfy-asset-download";
 import {
+  canWriteComfyModelsRoot,
   resolveAssetDestinationPath,
   resolveKindModelsDir,
 } from "./comfy-asset-paths";
@@ -59,6 +60,16 @@ describe("comfy asset paths", () => {
         resolveKindModelsDir(root, "unet"),
         path.resolve(root, "models/unet"),
       );
+    } finally {
+      await fsp.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("detects writable models roots", async () => {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "comfy-write-"));
+    try {
+      assert.equal(canWriteComfyModelsRoot(root), true);
+      assert.equal(canWriteComfyModelsRoot("/no/such/comfy/root"), false);
     } finally {
       await fsp.rm(root, { recursive: true, force: true });
     }

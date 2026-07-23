@@ -13,6 +13,10 @@ import {
   saveGalleryHandoff,
 } from "@/lib/gallery-handoff";
 import { formatComfyHostLabel } from "@/lib/queue-status-notes";
+import {
+  formatRenderDuration,
+  resolveGalleryRenderDurationMs,
+} from "@/lib/comfyui-render-duration";
 import { startImproveFromGalleryEntry, startInpaintFromGalleryEntry, startOutpaintFromGalleryEntry } from "@/lib/improve-output";
 import {
   scoreGalleryEntryHeuristic,
@@ -348,11 +352,15 @@ export default function GalleryCard({
               : undefined;
 
   const comfyHostLabel = formatComfyHostLabel(entry.comfyUrl);
+  const renderDurationLabel = formatRenderDuration(
+    resolveGalleryRenderDurationMs(entry),
+  );
   const metaLine = [
     entry.tool,
     entry.model,
     entry.parentGalleryEntryId ? undefined : derivedLabel,
     comfyHostLabel ? `host ${comfyHostLabel}` : undefined,
+    renderDurationLabel ? `render ${renderDurationLabel}` : undefined,
   ]
     .filter(Boolean)
     .join(" · ");
