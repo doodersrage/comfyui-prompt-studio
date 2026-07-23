@@ -44,6 +44,10 @@ const LIGHTNING_LORA_FILENAME_HINT =
 
 export const LIGHTNING_LORA_TOKEN = "{{LORA_LIGHTNING}}";
 
+/** Preferred WAN 2.2 Lightning LoRA for 4-step video scaffolds. */
+export const WAN_LIGHTNING_LOW_NOISE_LORA =
+  "Wan2.2-Lightning-low_noise_model.safetensors";
+
 export function loraFilenameImpliesLightning(filename: string): boolean {
   return LIGHTNING_LORA_FILENAME_HINT.test(filename.trim());
 }
@@ -180,12 +184,36 @@ export function buildLoraFilenameMapFromCustomTokens(
 
 function scoreLightningLoraCandidate(name: string, model?: string): number {
   const modelId = model?.trim().toLowerCase() ?? "";
+  const wantsWan = /wan/.test(modelId);
   const wantsEdit = /edit/.test(modelId);
   const wants2511 = /2511/.test(modelId);
   const want4 = /lightning-4|lightning_4/.test(modelId);
   const want8 = /lightning-8|lightning_8/.test(modelId);
   const lower = name.toLowerCase();
   let score = 1;
+
+  if (wantsWan) {
+    if (lower === WAN_LIGHTNING_LOW_NOISE_LORA.toLowerCase()) {
+      score += 30;
+    }
+    if (/wan/.test(lower)) {
+      score += 10;
+    }
+    if (/low[_\s-]?noise/.test(lower)) {
+      score += 8;
+    }
+    if (/qwen|lightx2v|2512|2511/.test(lower) && !/wan/.test(lower)) {
+      score -= 20;
+    }
+    if (want4 && /(4[\s-]?step|4steps)/i.test(lower)) {
+      score += 2;
+    }
+    return score;
+  }
+
+  if (/wan/.test(lower) && /lightning/.test(lower)) {
+    score -= 15;
+  }
   if (wantsEdit && /edit/.test(lower)) {
     score += 4;
   }
@@ -303,8 +331,19 @@ export function lightningLoraMatchesModel(filename: string, model?: string): boo
   if (!modelId) {
     return true;
   }
+  const lower = filename.toLowerCase();
+  if (/wan/.test(modelId)) {
+    // Prefer WAN Lightning LoRAs; reject obvious Qwen/LightX2V packs.
+    if (/qwen|lightx2v|2512|2511/.test(lower) && !/wan/.test(lower)) {
+      return false;
+    }
+    return /wan/.test(lower) || /low[_\s-]?noise/.test(lower);
+  }
+  if (/wan/.test(lower) && /lightning/.test(lower)) {
+    return false;
+  }
   const modelWantsEdit = /edit/.test(modelId);
-  const loraIsEdit = /edit/.test(filename.toLowerCase());
+  const loraIsEdit = /edit/.test(lower);
   return modelWantsEdit === loraIsEdit;
 }
 

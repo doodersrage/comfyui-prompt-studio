@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildLightningLoraFilenameMap,
   buildLoraFilenameMapFromCustomTokens,
+  lightningLoraMatchesModel,
   loraNameImpliesLightning,
   patchLoraNodesInWorkflow,
 } from "./workflow-lora-patch.ts";
@@ -89,6 +90,39 @@ describe("workflow-lora-patch", () => {
     assert.equal(
       map["{{LORA_LIGHTNING}}"],
       "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+    );
+  });
+
+  it("prefers Wan2.2-Lightning-low_noise_model for WAN Lightning", () => {
+    const map = buildLightningLoraFilenameMap(
+      [],
+      "wan-video-lightning-4",
+      [
+        "Qwen-Image-Lightning-4steps-V2.0.safetensors",
+        "Wan2.2-Lightning-low_noise_model.safetensors",
+        "style_portrait.safetensors",
+      ],
+    );
+    assert.equal(
+      map["{{LORA_LIGHTNING}}"],
+      "Wan2.2-Lightning-low_noise_model.safetensors",
+    );
+  });
+
+  it("rejects Qwen Lightning LoRAs for WAN Lightning models", () => {
+    assert.equal(
+      lightningLoraMatchesModel(
+        "Qwen-Image-Lightning-4steps-V2.0.safetensors",
+        "wan-video-lightning-4",
+      ),
+      false,
+    );
+    assert.equal(
+      lightningLoraMatchesModel(
+        "Wan2.2-Lightning-low_noise_model.safetensors",
+        "wan-video-lightning-4",
+      ),
+      true,
     );
   });
 

@@ -14,4 +14,9 @@ describe("modelsInSameFamily", () => {
     const family = modelsInSameFamily("qwen-rapid-aio-nsfw");
     assert.equal(family.length, 3);
   });
+
+  it("returns WAN Video Lightning siblings", () => {
+    const family = modelsInSameFamily("wan-video");
+    assert.deepEqual(family, ["wan-video", "wan-video-lightning-4"]);
+  });
 });

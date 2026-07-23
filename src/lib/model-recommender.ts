@@ -11,6 +11,8 @@ const RULES: Array<{ pattern: RegExp; model: string; reason: string }> = [
   { pattern: /\b(rapid aio nsfw|aio nsfw)\b/i, model: "qwen-rapid-aio-nsfw", reason: "Rapid AIO NSFW checkpoint" },
   { pattern: /\b(lightning|lightx2v|fast qwen|4[\s-]?step qwen)\b/i, model: "qwen-image-2512-lightning-4", reason: "Fast Lightning 4-step generation" },
   { pattern: /\b(8[\s-]?step qwen|qwen lightning 8)\b/i, model: "qwen-image-2512-lightning-8", reason: "Lightning 8-step quality/speed balance" },
+  { pattern: /\b(wan\s*lightning|wan\s*4[\s-]?step|lightning\s*video|fast\s*wan)\b/i, model: "wan-video-lightning-4", reason: "WAN Video Lightning 4-step" },
+  { pattern: /\b(wan\s*video|video\s*motion|camera\s*move|i2v)\b/i, model: "wan-video", reason: "WAN video motion generation" },
   { pattern: /\b(duo|two people|couple|sport|team)\b/i, model: "sdxl", reason: "Multi-person or sport scene" },
   { pattern: /\b(flux|photographic|bokeh|lens|35mm)\b/i, model: "flux-2-klein-9b-distilled", reason: "Photographic prose fits FLUX Klein 9B distilled" },
   { pattern: /\b(fast flux|klein 4b|lightweight flux|klein distilled)\b/i, model: "flux-2-klein-4b-distilled", reason: "Fast 4B Klein distilled for quick photographic drafts" },

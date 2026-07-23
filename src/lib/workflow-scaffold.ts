@@ -28,7 +28,7 @@ import {
   type ComfyModelCategory,
 } from "./comfy-models";
 import { isEditCapableModel, isQwenEditModel } from "./model-denoise-defaults";
-import { isQwenLightningModel } from "./model-sampling-patch";
+import { isQwenLightningModel, isWanLightningModel } from "./model-sampling-patch";
 import {
   DEFAULT_UNET_TOKEN,
   resolveLoaderFilenamesForModel,
@@ -1204,18 +1204,20 @@ function resolveVideoLatentClass(model: ComfyImageModel | string): VideoLatentCl
  * Starter T2V graph for video models. Node "900" (LoadImage, title "Init Image")
  * is recognized by queue-time `patchVideoImageToVideoWiringInWorkflow` for WAN/Hunyuan I2V.
  * LTX scaffolds use EmptyLTXVLatentVideo; I2V auto-splice stays WAN/Hunyuan-only.
+ * WAN Lightning adds LoraLoaderModelOnly ({{LORA_LIGHTNING}}) between checkpoint and KSampler.
  */
 function videoScaffold(
   tokens: WorkflowPlaceholderTokens,
   model: ComfyImageModel | string = "wan-video",
 ): Record<string, unknown> {
   const latentClass = resolveVideoLatentClass(model);
+  const useLightning = isWanLightningModel(model);
   const i2vHint =
     latentClass === "EmptyLTXVLatentVideo"
       ? "Init Image (optional — import an LTX I2V graph for image-to-video; auto-splice is WAN/Hunyuan only)"
       : "Init Image (optional — auto-wired into WanImageToVideo/HunyuanImageToVideo at queue time)";
 
-  return {
+  const graph: Record<string, unknown> = {
     "1": {
       class_type: "CheckpointLoaderSimple",
       inputs: { ckpt_name: "{{CHECKPOINT}}" },
@@ -1255,7 +1257,7 @@ function videoScaffold(
         sampler_name: tokens.sampler,
         scheduler: tokens.scheduler,
         denoise: tokens.denoise,
-        model: ["1", 0],
+        model: useLightning ? ["8", 0] : ["1", 0],
         positive: ["2", 0],
         negative: ["3", 0],
         latent_image: ["4", 0],
@@ -1280,6 +1282,20 @@ function videoScaffold(
       _meta: { title: "Save Video (WEBP)" },
     },
   };
+
+  if (useLightning) {
+    graph["8"] = {
+      class_type: "LoraLoaderModelOnly",
+      inputs: {
+        model: ["1", 0],
+        lora_name: LIGHTNING_LORA_TOKEN,
+        strength_model: 1,
+      },
+      _meta: { title: "Lightning LoRA" },
+    };
+  }
+
+  return graph;
 }
 
 /** Starter graph for Stable Audio–style packs — replace with pack JSON when available. */
@@ -1467,7 +1483,9 @@ export function buildWorkflowScaffoldForModel(
             ? "FLUX Klein scaffold uses UNETLoader + CLIPLoader (type flux2, Qwen3-8B for 9B / Qwen3-4B for 4B) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available."
             : "FLUX scaffold uses UNETLoader + DualCLIPLoader (clip_l + t5xxl) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available."
           : category === "video"
-            ? `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom pack with LTXVImgToVideo.`
+            ? isWanLightningModel(model)
+              ? "WAN Lightning scaffold uses CheckpointLoader + LoraLoaderModelOnly ({{LORA_LIGHTNING}} → Wan2.2-Lightning-low_noise_model) + EmptyHunyuanLatentVideo + SaveAnimatedWEBP. Map the low-noise Lightning LoRA in Settings → LoRA library or keep it in ComfyUI’s loras folder."
+              : `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom pack with LTXVImgToVideo.`
             : category === "audio"
               ? "Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow."
               : category === "mesh"

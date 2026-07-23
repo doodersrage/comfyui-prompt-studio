@@ -93,6 +93,28 @@ describe("model sampler defaults", () => {
     );
   });
 
+  it("returns lightning defaults for WAN video 4-step", () => {
+    assert.deepEqual(getModelSamplerDefaults("wan-video-lightning-4", "base"), {
+      steps: 4,
+      cfg: 1,
+      samplerName: "uni_pc",
+      scheduler: "simple",
+    });
+    assert.deepEqual(
+      ensureLightningSamplerParams(
+        { steps: 20, cfg: 6, samplerName: "uni_pc", scheduler: "simple", seed: "1" },
+        "wan-video-lightning-4",
+      ),
+      {
+        steps: 4,
+        cfg: 1,
+        samplerName: "uni_pc",
+        scheduler: "simple",
+        seed: "1",
+      },
+    );
+  });
+
   it("clamps stale overrides to lightning sampler params", () => {
     assert.deepEqual(
       ensureLightningSamplerParams(

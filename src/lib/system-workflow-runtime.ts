@@ -43,7 +43,7 @@ import {
 } from "./model-sampler-defaults";
 import { isEditCapableModel, isEditQueueTool } from "./model-denoise-defaults";
 import {
-  isQwenLightningModel,
+  isLightningDistilledModel,
   resolveModelSamplingParams,
 } from "./model-sampling-patch";
 import {
@@ -397,7 +397,7 @@ export function pickPackWorkflowForModel(
       }
     }
 
-    if (isQwenLightningModel(model)) {
+    if (isLightningDistilledModel(model)) {
       try {
         const parsed = JSON.parse(json) as Record<string, unknown>;
         const hasLightningToken = json.includes("{{LORA_LIGHTNING}}");
@@ -768,7 +768,7 @@ export function softBindScaffoldFromInventory(
     }
   }
 
-  const lightningLora = isQwenLightningModel(model)
+  const lightningLora = isLightningDistilledModel(model)
     ? pickLightningLoraFromInventory(model, inventory.loras)
     : undefined;
 
@@ -1272,7 +1272,7 @@ function softFillLightningTokenForGraph(
   tokens: CustomWorkflowToken[],
   inventory?: ComfyUiModelLists | null,
 ): CustomWorkflowToken[] {
-  if (!isQwenLightningModel(model)) {
+  if (!isLightningDistilledModel(model)) {
     return tokens;
   }
   if (hasMatchingBoundLightningToken(tokens, model)) {

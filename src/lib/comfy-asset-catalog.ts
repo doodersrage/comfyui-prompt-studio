@@ -151,7 +151,7 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     label: "WAN 2.2 I2V Rapid AIO",
     kind: "checkpoint",
     filename: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
-    modelIds: ["wan-video"],
+    modelIds: ["wan-video", "wan-video-lightning-4"],
     notes: "All-in-one I2V Rapid pack — preferred for Prompt Studio video scaffolds.",
   },
   {
@@ -159,8 +159,16 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     label: "WAN 2.2 T2V 14B",
     kind: "unet",
     filename: "wan2.2_t2v_high_noise_14B_fp16.safetensors",
-    modelIds: ["wan-video"],
+    modelIds: ["wan-video", "wan-video-lightning-4"],
     notes: "Official dual-noise T2V weight when not using a Rapid AIO pack.",
+  },
+  {
+    id: "wan-video-lightning-low-noise",
+    label: "WAN 2.2 Lightning low-noise LoRA",
+    kind: "lora",
+    filename: "Wan2.2-Lightning-low_noise_model.safetensors",
+    modelIds: ["wan-video-lightning-4"],
+    notes: "4-step Lightning LoRA for WAN Video Lightning scaffolds.",
   },
   {
     id: "hunyuan-video",

@@ -94,6 +94,23 @@ describe("workflow scaffold", () => {
       ),
       false,
     );
+    assert.doesNotMatch(result.json, /LoraLoaderModelOnly/);
+  });
+
+  it("builds WAN Lightning scaffold with LoraLoaderModelOnly (no AuraFlow)", () => {
+    const result = buildWorkflowScaffoldForModel("wan-video-lightning-4");
+    assert.equal(result.category, "video");
+    assert.match(result.json, /EmptyHunyuanLatentVideo/);
+    assert.match(result.json, /LoraLoaderModelOnly/);
+    assert.match(result.json, /\{\{LORA_LIGHTNING\}\}/);
+    assert.match(result.json, /CheckpointLoaderSimple/);
+    assert.doesNotMatch(result.json, /ModelSamplingAuraFlow/);
+    const graph = JSON.parse(result.json) as Record<
+      string,
+      { class_type?: string; inputs?: { model?: [string, number] } }
+    >;
+    assert.equal(graph["8"]?.class_type, "LoraLoaderModelOnly");
+    assert.deepEqual(graph["5"]?.inputs?.model, ["8", 0]);
   });
 
   it("builds the same T2V-by-default scaffold shape for hunyuan-video", () => {

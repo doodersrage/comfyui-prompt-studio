@@ -4,7 +4,7 @@ import {
   matchInventoryFilename,
   matchInventoryFilenameNearMiss,
 } from "./loader-map-inventory-sync";
-import { isQwenLightningModel } from "./model-sampling-patch";
+import { isLightningDistilledModel } from "./model-sampling-patch";
 import {
   isLoraLoaderClassType,
   loraFilenameImpliesLightning,
@@ -173,7 +173,7 @@ export function inspectPackLoadersInInventory(
   const checkpointPool =
     inventory.checkpoints.length > 0 ? inventory.checkpoints : unetPool;
   const lightningFallback =
-    model && isQwenLightningModel(model)
+    model && isLightningDistilledModel(model)
       ? pickLightningLoraFromInventory(model, loraPool)
       : undefined;
 
@@ -537,7 +537,7 @@ export function softRepairPackLoadersFromInventory(
   const clipVisionPool = [...(inventory.clipVisions ?? []), ...inventory.clips];
   const checkpointPool =
     inventory.checkpoints.length > 0 ? inventory.checkpoints : unetPool;
-  const lightningLora = isQwenLightningModel(model)
+  const lightningLora = isLightningDistilledModel(model)
     ? pickLightningLoraFromInventory(model, loraPool)
     : undefined;
 

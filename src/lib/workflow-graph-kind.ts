@@ -75,7 +75,7 @@ export function defaultModelsForGraphKind(
 ): ComfyImageModel[] {
   switch (kind) {
     case "video":
-      return ["wan-video", "hunyuan-video", "ltx-video"];
+      return ["wan-video", "wan-video-lightning-4", "hunyuan-video", "ltx-video"];
     case "audio":
       return ["stable-audio"];
     case "mesh":

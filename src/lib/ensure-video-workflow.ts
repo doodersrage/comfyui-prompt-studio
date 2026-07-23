@@ -311,7 +311,10 @@ export function ensureVideoWorkflowScaffold(
   // Persist whatever resolve preferred (workflow token > valid map > inventory pick).
   if (checkpoint.filename) {
     nextCheckpointMap[model] = checkpoint.filename;
-    if (model === "wan-video" && !nextCheckpointMap["hunyuan-video"]?.trim()) {
+    if (
+      (model === "wan-video" || model === "wan-video-lightning-4") &&
+      !nextCheckpointMap["hunyuan-video"]?.trim()
+    ) {
       const hunyuan = pickVideoCheckpointFromInventory("hunyuan-video", pool);
       if (hunyuan) {
         nextCheckpointMap["hunyuan-video"] = hunyuan;

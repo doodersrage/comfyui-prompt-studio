@@ -82,6 +82,18 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
   ],
   "qwen-rapid-aio-sfw": ["rapid", "aio", "sfw", "qwen-rapid", "rapid-aio"],
   "qwen-rapid-aio-nsfw": ["rapid", "aio", "nsfw", "qwen-rapid", "rapid-aio"],
+  "wan-video": ["wan", "video", "i2v", "t2v", "motion"],
+  "wan-video-lightning-4": [
+    "wan",
+    "video",
+    "lightning",
+    "lightening",
+    "4step",
+    "4-step",
+    "4steps",
+    "low_noise",
+    "low-noise",
+  ],
 };
 
 /** Penalize workflow labels that clearly target a different model variant. */
@@ -108,6 +120,8 @@ const MODEL_WORKFLOW_AVOID_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> 
   "qwen-rapid-aio-edit": ["sfw", "nsfw"],
   "qwen-rapid-aio-sfw": ["nsfw"],
   "qwen-rapid-aio-nsfw": ["sfw"],
+  "wan-video": ["lightning", "lightening", "lightx2v", "4step", "4-step"],
+  "wan-video-lightning-4": ["hunyuan", "ltx"],
 };
 
 /** Word-aware match so "sfw" does not hit inside "nsfw". */

@@ -14,6 +14,7 @@ function isLightningModelId(model: string): boolean {
     return false;
   }
   if (COMFY_MODEL_IDS.has(id)) {
+    // Qwen + WAN Lightning distilled ids.
     return id.includes("lightning-");
   }
   return /lightning-(4|8)\b/.test(id);
@@ -145,6 +146,12 @@ const FLUX_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
 const QWEN_LIGHTNING_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler" | "cfg"> = {
   cfg: 1,
   samplerName: "euler",
+  scheduler: "simple",
+};
+
+const WAN_LIGHTNING_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler" | "cfg"> = {
+  cfg: 1,
+  samplerName: "uni_pc",
   scheduler: "simple",
 };
 
@@ -348,6 +355,10 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     maxCompatible: { steps: 30, cfg: 5.5, samplerName: "uni_pc", scheduler: "simple" },
     max: { steps: 40, cfg: 5, samplerName: "uni_pc", scheduler: "simple" },
   },
+  "wan-video-lightning-4": fixedSamplerPresets({
+    steps: 4,
+    ...WAN_LIGHTNING_SAMPLER,
+  }),
   "hunyuan-video": {
     base: { steps: 20, cfg: 6, samplerName: "euler", scheduler: "simple" },
     optimized: { steps: 30, cfg: 6, samplerName: "euler", scheduler: "simple" },

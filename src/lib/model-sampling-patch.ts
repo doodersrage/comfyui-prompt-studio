@@ -46,9 +46,30 @@ export function isQwenLightningModel(model: ComfyImageModel | string | undefined
   }
   const id = model.trim();
   if (COMFY_MODEL_IDS.has(id)) {
-    return id.includes("lightning-");
+    const category = getComfyModelDefinition(id)?.category;
+    return category === "qwen" && id.includes("lightning-");
   }
-  return /lightning-(4|8)\b/.test(id);
+  return /qwen.*lightning-(4|8)\b/i.test(id);
+}
+
+/** WAN Video Lightning (4/8-step LoRA) — keep separate from Qwen Lightning paths. */
+export function isWanLightningModel(model: ComfyImageModel | string | undefined): boolean {
+  if (!model?.trim()) {
+    return false;
+  }
+  const id = model.trim();
+  if (COMFY_MODEL_IDS.has(id)) {
+    const category = getComfyModelDefinition(id)?.category;
+    return category === "video" && /wan/i.test(id) && id.includes("lightning-");
+  }
+  return /wan.*lightning-(4|8)\b/i.test(id);
+}
+
+/** Any registered Lightning distilled model (Qwen or WAN). */
+export function isLightningDistilledModel(
+  model: ComfyImageModel | string | undefined,
+): boolean {
+  return isQwenLightningModel(model) || isWanLightningModel(model);
 }
 
 const MODEL_SHIFT_OVERRIDES: Partial<Record<ComfyImageModel, number>> = {

@@ -4,8 +4,10 @@ import { injectPromptsWithFallbacks, resolvePlaceholderTokens, resolveQueueParam
 import {
   formatModelSamplingHint,
   getModelSamplingPatchDefaults,
+  isLightningDistilledModel,
   isModelSamplingPatchNode,
   isQwenLightningModel,
+  isWanLightningModel,
   modelUsesShiftSamplingPatch,
   patchModelSamplingInWorkflow,
   resolveModelSamplingParams,
@@ -41,6 +43,10 @@ describe("model sampling patch", () => {
     assert.equal(isQwenLightningModel("qwen-image-2512-lightning-8"), true);
     assert.equal(isQwenLightningModel("qwen-image-edit-2511-lightning-4"), true);
     assert.equal(isQwenLightningModel("qwen-image-2512"), false);
+    assert.equal(isQwenLightningModel("wan-video-lightning-4"), false);
+    assert.equal(isWanLightningModel("wan-video-lightning-4"), true);
+    assert.equal(isWanLightningModel("qwen-image-2512-lightning-4"), false);
+    assert.equal(isLightningDistilledModel("wan-video-lightning-4"), true);
     assert.equal(modelUsesShiftSamplingPatch("qwen-image-2512-lightning-8"), false);
     assert.equal(modelUsesShiftSamplingPatch("qwen-image-2512"), true);
   });

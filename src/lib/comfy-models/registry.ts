@@ -602,6 +602,19 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     checkpointHint: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
   },
   {
+    id: "wan-video-lightning-4",
+    label: "WAN Video Lightning 4-step",
+    category: "video",
+    comfyNode: "WanVideoTextEncode",
+    comfyClass: "WanVideo",
+    description:
+      "WAN 2.2 video with 4-step Lightning LoRA (Wan2.2-Lightning-low_noise_model) — fast motion prompts.",
+    profile: "video_motion",
+    referenceTokenLimit: 512,
+    limitsByDetail: PROFILE_LIMITS.video_motion,
+    checkpointHint: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+  },
+  {
     id: "hunyuan-video",
     label: "Hunyuan Video",
     category: "video",

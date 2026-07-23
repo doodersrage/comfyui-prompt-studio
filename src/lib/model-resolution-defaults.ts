@@ -505,6 +505,23 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
       max: { width: 576, height: 1024 },
     },
   },
+  "wan-video-lightning-4": {
+    square: {
+      small: { width: 512, height: 512 },
+      medium: { width: 640, height: 640 },
+      max: { width: 768, height: 768 },
+    },
+    landscape: {
+      small: { width: 640, height: 368 },
+      medium: { width: 832, height: 480 },
+      max: { width: 1024, height: 576 },
+    },
+    portrait: {
+      small: { width: 368, height: 640 },
+      medium: { width: 480, height: 832 },
+      max: { width: 576, height: 1024 },
+    },
+  },
   "hunyuan-video": {
     square: {
       small: { width: 544, height: 544 },
