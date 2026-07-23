@@ -2,6 +2,8 @@
 
 A Next.js app that turns topics or keywords into model-specific prompts for ComfyUI image workflows, and reformats existing drafts for any supported architecture.
 
+Contributor map (storage, queue path, auth/ACL, plugins): [docs/architecture.md](docs/architecture.md).
+
 ## Workspace modes
 
 Use **Simple / Studio / Full** from the sidebar footer or **Profile → Appearance**:

@@ -27,7 +27,6 @@ export const TOOL_QUEUE_QUALITY_OPTIONS: ToolQueueQualityOption[] = [
   { id: "background", label: "Background" },
   { id: "recipe", label: "Prompt recipes" },
   { id: "campaign", label: "Campaign" },
-  { id: "video", label: "Video" },
 ];
 
 export function toolQueueQualityLabel(toolId: string): string {
