@@ -6,7 +6,7 @@ import {
   type ComfyModelCategory,
 } from "./comfy-models/client";
 import type { WorkflowParamValues } from "./comfyui-config";
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
+import { isQwenRapidAioModel, isWanRapidAioModel } from "./model-denoise-defaults";
 import { isWanLightningModel } from "./model-sampling-patch";
 
 function isLightningModelId(model: string): boolean {
@@ -154,6 +154,12 @@ const WAN_LIGHTNING_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "schedul
   cfg: 1,
   samplerName: "uni_pc",
   scheduler: "simple",
+};
+
+/** Phr00t WAN Rapid AIO — author recommends euler_a / beta at CFG 1. */
+const WAN_RAPID_AIO_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
+  samplerName: "euler_ancestral",
+  scheduler: "beta",
 };
 
 const QWEN_2512_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
@@ -356,6 +362,7 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     maxCompatible: { steps: 30, cfg: 5.5, samplerName: "uni_pc", scheduler: "simple" },
     max: { steps: 40, cfg: 5, samplerName: "uni_pc", scheduler: "simple" },
   },
+  "wan-video-rapid-aio": rapidAioPresets(WAN_RAPID_AIO_SAMPLER),
   "wan-video-lightning-4": fixedSamplerPresets({
     steps: 4,
     ...WAN_LIGHTNING_SAMPLER,
@@ -499,7 +506,7 @@ export function ensureRapidAioSamplerParams(
   model: string,
   tier: ModelSamplerPresetTier = DEFAULT_MODEL_SAMPLER_PRESET_TIER,
 ): WorkflowParamValues {
-  if (!isQwenRapidAioModel(model)) {
+  if (!isQwenRapidAioModel(model) && !isWanRapidAioModel(model)) {
     return params;
   }
   const forceTier = resolveRapidAioForceTier(model, params, tier);
@@ -569,6 +576,13 @@ export function formatWanVideoSamplerHint(
 ): string | null {
   if (isWanLightningModel(model)) {
     return "Lightning is optimized for 4-step / CFG 1: short temporal negatives, simple single-subject motion. Keep prompts uncluttered — switch to WAN Video for busy multi-person shots.";
+  }
+
+  if (isWanRapidAioModel(model)) {
+    if (tier === "base") {
+      return "Phr00t Rapid AIO is CFG-1 distilled — switch to Optimized (6 steps) for better motion coherence; Max raises steps further.";
+    }
+    return "Rapid AIO stays CFG 1 (accelerators baked in). Prefer simple single-subject motion; use full WAN Video for busy multi-person shots.";
   }
 
   const def = getComfyModelDefinition(model);

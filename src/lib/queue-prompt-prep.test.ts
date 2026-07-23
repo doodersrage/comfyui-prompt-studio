@@ -72,4 +72,17 @@ describe("queue-prompt-prep Rapid AIO / Lightning", () => {
     assert.equal((result.negative ?? "").includes(longNegative), false);
     assert.match(result.negative ?? "", /flicker|extra limbs/i);
   });
+
+  it("applies short temporal/limb cues for WAN Rapid AIO CFG-1", () => {
+    const result = applyQueuePromptSteering({
+      positive: "a fox runs through snow",
+      negative: "blurry",
+      model: "wan-video-rapid-aio",
+      realismMode: "realistic",
+      anatomyMode: "strict",
+    });
+    assert.match(result.positive ?? "", /temporal continuity|stable identity/i);
+    assert.equal(/photorealistic|anatomically correct hands/i.test(result.positive ?? ""), false);
+    assert.match(result.negative ?? "", /flicker|extra limbs/i);
+  });
 });

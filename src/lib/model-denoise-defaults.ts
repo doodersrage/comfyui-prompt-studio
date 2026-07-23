@@ -60,6 +60,23 @@ export function isQwenRapidAioModel(model?: string): boolean {
   return /^qwen-rapid-aio-/i.test(String(model ?? "").trim());
 }
 
+/** Phr00t WAN Rapid All-In-One — CFG-1 distilled video checkpoint (no Lightning LoRA). */
+export function isWanRapidAioModel(model?: string): boolean {
+  const id = String(model ?? "").trim();
+  if (!id) {
+    return false;
+  }
+  if (id === "wan-video-rapid-aio") {
+    return true;
+  }
+  return /wan.*rapid[\s_-]*aio/i.test(id);
+}
+
+/** Any Phr00t Rapid AIO stack (Qwen stills or WAN video). */
+export function isRapidAioModel(model?: string): boolean {
+  return isQwenRapidAioModel(model) || isWanRapidAioModel(model);
+}
+
 export function isQwenEditModel(model: ComfyImageModel | string): boolean {
   const def = getComfyModelDefinition(model);
   if (def?.profile === "qwen_edit" || def?.profile === "qwen_edit_instruction") {
@@ -110,7 +127,7 @@ export function resolveDenoiseForModel(
   },
 ): number | undefined {
   // Lightning must ignore Settings editDenoiseStrength / soft overrides.
-  if (isQwenLightningModel(model) || isWanLightningModel(model)) {
+  if (isQwenLightningModel(model) || isWanLightningModel(model) || isWanRapidAioModel(model)) {
     return 1;
   }
 

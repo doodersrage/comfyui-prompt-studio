@@ -312,7 +312,9 @@ export function ensureVideoWorkflowScaffold(
   if (checkpoint.filename) {
     nextCheckpointMap[model] = checkpoint.filename;
     if (
-      (model === "wan-video" || model === "wan-video-lightning-4") &&
+      (model === "wan-video" ||
+        model === "wan-video-rapid-aio" ||
+        model === "wan-video-lightning-4") &&
       !nextCheckpointMap["hunyuan-video"]?.trim()
     ) {
       const hunyuan = pickVideoCheckpointFromInventory("hunyuan-video", pool);

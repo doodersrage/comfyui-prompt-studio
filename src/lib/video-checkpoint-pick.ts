@@ -88,6 +88,7 @@ export function pickVideoCheckpointFromInventory(
 export function isVideoCheckpointMapKey(model: string): boolean {
   return (
     model === "wan-video" ||
+    model === "wan-video-rapid-aio" ||
     model === "wan-video-lightning-4" ||
     model === "hunyuan-video" ||
     model === "ltx-video"

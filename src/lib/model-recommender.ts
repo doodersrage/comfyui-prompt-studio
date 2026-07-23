@@ -12,6 +12,7 @@ const RULES: Array<{ pattern: RegExp; model: string; reason: string }> = [
   { pattern: /\b(lightning|lightx2v|fast qwen|4[\s-]?step qwen)\b/i, model: "qwen-image-2512-lightning-4", reason: "Fast Lightning 4-step generation" },
   { pattern: /\b(8[\s-]?step qwen|qwen lightning 8)\b/i, model: "qwen-image-2512-lightning-8", reason: "Lightning 8-step quality/speed balance" },
   { pattern: /\b(wan\s*lightning|wan\s*4[\s-]?step|lightning\s*video|fast\s*wan)\b/i, model: "wan-video-lightning-4", reason: "WAN Video Lightning 4-step (CFG-1 optimized)" },
+  { pattern: /\b(wan\s*rapid|phr00t\s*wan|wan\s*aio|rapid\s*aio\s*wan|wan\s*all[\s-]?in[\s-]?one)\b/i, model: "wan-video-rapid-aio", reason: "WAN Video Phr00t Rapid AIO (CFG-1 optimized)" },
   { pattern: /\b(wan\s*video|video\s*motion|camera\s*move|i2v|t2v|image[\s-]?to[\s-]?video)\b/i, model: "wan-video", reason: "WAN Video — preferred for people and complex motion" },
   { pattern: /\b(duo|two people|couple|sport|team)\b/i, model: "sdxl", reason: "Multi-person or sport scene" },
   { pattern: /\b(flux|photographic|bokeh|lens|35mm)\b/i, model: "flux-2-klein-9b-distilled", reason: "Photographic prose fits FLUX Klein 9B distilled" },

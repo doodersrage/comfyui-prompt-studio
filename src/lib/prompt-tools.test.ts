@@ -1884,6 +1884,13 @@ describe("context negative profile", () => {
       })?.id,
       "video-motion-lightning",
     );
+    assert.equal(
+      resolveContextNegativeProfile(undefined, undefined, {
+        model: "wan-video-rapid-aio",
+        tool: "video",
+      })?.id,
+      "video-motion-lightning",
+    );
   });
 });
 

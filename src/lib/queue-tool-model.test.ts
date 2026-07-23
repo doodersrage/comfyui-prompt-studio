@@ -124,6 +124,7 @@ describe("queue-tool-model", () => {
 
   it("recognizes WAN/Hunyuan/LTX Video as video models, images/edit as not", () => {
     assert.equal(isVideoModel("wan-video"), true);
+    assert.equal(isVideoModel("wan-video-rapid-aio"), true);
     assert.equal(isVideoModel("wan-video-lightning-4"), true);
     assert.equal(isVideoModel("hunyuan-video"), true);
     assert.equal(isVideoModel("ltx-video"), true);
@@ -136,6 +137,7 @@ describe("queue-tool-model", () => {
       [
         "qwen-image-2512",
         "wan-video",
+        "wan-video-rapid-aio",
         "wan-video-lightning-4",
         "hunyuan-video",
         "ltx-video",
@@ -145,6 +147,7 @@ describe("queue-tool-model", () => {
     );
     assert.deepEqual(filtered, [
       "wan-video",
+      "wan-video-rapid-aio",
       "wan-video-lightning-4",
       "hunyuan-video",
       "ltx-video",

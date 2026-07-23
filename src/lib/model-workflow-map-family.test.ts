@@ -15,8 +15,12 @@ describe("modelsInSameFamily", () => {
     assert.equal(family.length, 3);
   });
 
-  it("returns WAN Video Lightning siblings", () => {
+  it("returns WAN Video siblings including Rapid AIO and Lightning", () => {
     const family = modelsInSameFamily("wan-video");
-    assert.deepEqual(family, ["wan-video", "wan-video-lightning-4"]);
+    assert.deepEqual(family, [
+      "wan-video",
+      "wan-video-rapid-aio",
+      "wan-video-lightning-4",
+    ]);
   });
 });

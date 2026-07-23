@@ -74,6 +74,16 @@ describe("video prompt builder", () => {
     });
     assert.match(prompt, /single clear subject|4-step lightning/i);
   });
+
+  it("adds Rapid AIO-specific simple-motion guidance", () => {
+    const prompt = buildVideoPrompt({
+      subject: "A fox runs through snow",
+      motion: "bounding strides",
+      durationSec: 4,
+      model: "wan-video-rapid-aio",
+    });
+    assert.match(prompt, /single clear subject|rapid aio/i);
+  });
 });
 
 describe("workflow node mapper", () => {

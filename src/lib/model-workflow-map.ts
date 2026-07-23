@@ -38,7 +38,7 @@ export const MODEL_FAMILY_GROUPS: readonly (readonly ComfyImageModel[])[] = [
     "flux-2-klein-9b",
     "flux-2-klein-9b-distilled",
   ],
-  ["wan-video", "wan-video-lightning-4"],
+  ["wan-video", "wan-video-rapid-aio", "wan-video-lightning-4"],
 ];
 
 /** Sibling presets in the same family (vanilla + Lightning, Rapid AIO, Klein, …). */

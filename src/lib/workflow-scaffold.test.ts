@@ -113,6 +113,15 @@ describe("workflow scaffold", () => {
     assert.deepEqual(graph["5"]?.inputs?.model, ["8", 0]);
   });
 
+  it("builds WAN Rapid AIO scaffold without Lightning LoRA", () => {
+    const result = buildWorkflowScaffoldForModel("wan-video-rapid-aio");
+    assert.equal(result.category, "video");
+    assert.match(result.json, /EmptyHunyuanLatentVideo/);
+    assert.match(result.json, /CheckpointLoaderSimple/);
+    assert.doesNotMatch(result.json, /LoraLoaderModelOnly/);
+    assert.doesNotMatch(result.json, /\{\{LORA_LIGHTNING\}\}/);
+  });
+
   it("builds the same T2V-by-default scaffold shape for hunyuan-video", () => {
     const result = buildWorkflowScaffoldForModel("hunyuan-video");
     assert.equal(result.category, "video");

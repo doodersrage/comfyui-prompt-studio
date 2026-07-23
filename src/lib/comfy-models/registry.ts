@@ -602,6 +602,19 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     checkpointHint: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
   },
   {
+    id: "wan-video-rapid-aio",
+    label: "WAN Video Rapid AIO (Phr00t)",
+    category: "video",
+    comfyNode: "WanVideoTextEncode",
+    comfyClass: "WanVideo",
+    description:
+      "Phr00t WAN 2.2 Rapid All-In-One — CFG-1, 4–10 steps, euler_ancestral/beta. Accelerators baked in (no Lightning LoRA). Use Optimized for the best speed/quality balance.",
+    profile: "video_motion",
+    referenceTokenLimit: 512,
+    limitsByDetail: PROFILE_LIMITS.video_motion,
+    checkpointHint: "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+  },
+  {
     id: "wan-video-lightning-4",
     label: "WAN Video Lightning 4-step",
     category: "video",

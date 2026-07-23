@@ -83,6 +83,17 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
   "qwen-rapid-aio-sfw": ["rapid", "aio", "sfw", "qwen-rapid", "rapid-aio"],
   "qwen-rapid-aio-nsfw": ["rapid", "aio", "nsfw", "qwen-rapid", "rapid-aio"],
   "wan-video": ["wan", "video", "i2v", "t2v", "motion"],
+  "wan-video-rapid-aio": [
+    "wan",
+    "video",
+    "rapid",
+    "aio",
+    "phr00t",
+    "phroot",
+    "allinone",
+    "all-in-one",
+    "i2v",
+  ],
   "wan-video-lightning-4": [
     "wan",
     "video",
@@ -120,8 +131,9 @@ const MODEL_WORKFLOW_AVOID_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> 
   "qwen-rapid-aio-edit": ["sfw", "nsfw"],
   "qwen-rapid-aio-sfw": ["nsfw"],
   "qwen-rapid-aio-nsfw": ["sfw"],
-  "wan-video": ["lightning", "lightening", "lightx2v", "4step", "4-step"],
-  "wan-video-lightning-4": ["hunyuan", "ltx"],
+  "wan-video": ["lightning", "lightening", "lightx2v", "4step", "4-step", "rapid", "aio", "phr00t"],
+  "wan-video-rapid-aio": ["lightning", "lightening", "lightx2v", "4step", "4-step", "hunyuan", "ltx"],
+  "wan-video-lightning-4": ["hunyuan", "ltx", "rapid", "aio", "phr00t"],
 };
 
 /** Word-aware match so "sfw" does not hit inside "nsfw". */

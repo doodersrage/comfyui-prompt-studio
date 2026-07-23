@@ -149,6 +149,7 @@ export function formatQueueQualityProfileHint(
   const effectivePreset = resolveEffectiveSamplerPreset(userPreset, profile);
   const model = options?.model?.trim() ?? "";
   const isRapid = /^qwen-rapid-aio-/i.test(model);
+  const isWanRapid = /wan.*rapid[\s_-]*aio/i.test(model) || model === "wan-video-rapid-aio";
   const isWanLightning = /wan.*lightning-(4|8)\b/i.test(model);
   const isLightning = /lightning-(4|8)\b/i.test(model) && !isWanLightning;
   // Rapid T2I clamps Max→medium at queue time — don't advertise "max resolution".
@@ -173,7 +174,7 @@ export function formatQueueQualityProfileHint(
       profile === "final" || profile === "max"
         ? " · light Lanczos on Compose I2I · CFG-1 short negatives"
         : " · CFG-1 short negatives";
-  } else if (isWanLightning) {
+  } else if (isWanLightning || isWanRapid) {
     upscaleNote = " · CFG-1 short temporal negatives · simple motion prompts";
   } else if (isLightning) {
     upscaleNote =
@@ -328,6 +329,8 @@ export function formatQueuePipelineStatusNotes(input: {
     }
   } else if (/wan.*lightning-(4|8)\b/i.test(model)) {
     notes.push("WAN Lightning · CFG-1 short temporal negatives");
+  } else if (/wan.*rapid[\s_-]*aio/i.test(model) || model === "wan-video-rapid-aio") {
+    notes.push("WAN Rapid AIO · CFG-1 short temporal negatives");
   } else if (/lightning-(4|8)\b/i.test(model)) {
     notes.push("Lightning CFG-1 · short negatives");
     if (profile === "final" || profile === "max") {

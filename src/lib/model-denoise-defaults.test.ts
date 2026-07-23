@@ -110,6 +110,14 @@ describe("model denoise defaults", () => {
       1,
     );
     assert.equal(
+      resolveDenoiseForModel("wan-video-rapid-aio", {
+        tool: "video",
+        hasInputImage: true,
+        override: 0.65,
+      }),
+      1,
+    );
+    assert.equal(
       resolveDenoiseForModel("wan-video", { hasInputImage: true }),
       1,
     );

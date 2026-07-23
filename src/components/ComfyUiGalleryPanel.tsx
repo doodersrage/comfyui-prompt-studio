@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from "react";
 import ModalPortal from "@/components/ui/ModalPortal";
 import ImageLightbox, { type ImageLightboxState } from "@/components/ui/ImageLightbox";
@@ -96,7 +96,6 @@ import {
   galleryPickPurposeLabel,
   parseGalleryPickTarget,
   saveGalleryHandoff,
-  type GalleryHandoffPayload,
 } from "@/lib/gallery-handoff";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import LoraDatasetExportDialog from "@/components/LoraDatasetExportDialog";
@@ -171,14 +170,13 @@ export default function ComfyUiGalleryPanel({
     }));
   }, [setFilter]);
 
-  const [pickFor] = useState<GalleryHandoffPayload["target"] | null>(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-    return parseGalleryPickTarget(
-      new URLSearchParams(window.location.search).get("pickFor"),
-    );
-  });
+  // Derive from the live URL — Soft nav from /gallery → /gallery?pickFor=… reuses
+  // this panel; a one-shot useState initializer would leave pick mode stuck off.
+  const searchParams = useSearchParams();
+  const pickFor = useMemo(
+    () => parseGalleryPickTarget(searchParams.get("pickFor")),
+    [searchParams],
+  );
 
   const router = useRouter();
   const heldMaxCount = useHeldMaxCount();

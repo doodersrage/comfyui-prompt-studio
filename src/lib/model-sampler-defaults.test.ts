@@ -115,11 +115,43 @@ describe("model sampler defaults", () => {
     );
   });
 
-  it("hints to prefer full WAN Video over Lightning for people/complex motion", async () => {
+  it("returns Phr00t Rapid AIO presets for WAN video", () => {
+    assert.deepEqual(getModelSamplerDefaults("wan-video-rapid-aio", "base"), {
+      steps: 4,
+      cfg: 1,
+      samplerName: "euler_ancestral",
+      scheduler: "beta",
+    });
+    assert.deepEqual(getModelSamplerDefaults("wan-video-rapid-aio", "optimized"), {
+      steps: 6,
+      cfg: 1,
+      samplerName: "euler_ancestral",
+      scheduler: "beta",
+    });
+    assert.deepEqual(
+      ensureRapidAioSamplerParams(
+        { steps: 30, cfg: 6, samplerName: "uni_pc", scheduler: "simple", seed: "2" },
+        "wan-video-rapid-aio",
+      ),
+      {
+        steps: 4,
+        cfg: 1,
+        samplerName: "euler_ancestral",
+        scheduler: "beta",
+        seed: "2",
+      },
+    );
+  });
+
+  it("hints CFG-1 WAN presets (Lightning / Rapid AIO) and full WAN Optimized", async () => {
     const { formatWanVideoSamplerHint } = await import("./model-sampler-defaults.ts");
     assert.match(
       formatWanVideoSamplerHint("wan-video-lightning-4", "base") ?? "",
       /4-step|cfg 1|simple/i,
+    );
+    assert.match(
+      formatWanVideoSamplerHint("wan-video-rapid-aio", "base") ?? "",
+      /rapid aio|optimized|cfg.?1/i,
     );
     assert.match(
       formatWanVideoSamplerHint("wan-video", "base") ?? "",

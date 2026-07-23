@@ -19,7 +19,7 @@ import { loadRenderRealismMode } from "./render-realism-settings";
 import type { AthleticSport } from "./athletic-sport-profiles";
 import { resolveQueueNegativePromptRaw } from "./queue-negative";
 import { isQwenLightningModel, isWanLightningModel } from "./model-sampling-patch";
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
+import { isQwenRapidAioModel, isWanRapidAioModel } from "./model-denoise-defaults";
 import { expandWildcardText } from "./wildcard-expand";
 import {
   loadCustomWildcardLists,
@@ -88,9 +88,9 @@ export function applyQueuePromptSteering(input: {
     };
   }
 
-  // WAN Lightning is CFG-1 / 4-step — long video-motion + anatomy lists fight the LoRA.
+  // WAN Lightning / Rapid AIO are CFG-1 distilled — long video-motion + anatomy lists fight them.
   // Keep short temporal/limb cues instead of full still-image steering.
-  if (isWanLightningModel(input.model)) {
+  if (isWanLightningModel(input.model) || isWanRapidAioModel(input.model)) {
     const explicit = input.negative?.trim();
     const shortExplicit =
       explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS
@@ -193,6 +193,7 @@ export async function prepareQueuePrompts(input: {
   const distilledCfg1 =
     isQwenLightningModel(input.model) ||
     isWanLightningModel(input.model) ||
+    isWanRapidAioModel(input.model) ||
     isQwenRapidAioModel(input.model);
   if (distilledCfg1) {
     // Skip auto-negative profiles — they fight CFG-1 distillation.

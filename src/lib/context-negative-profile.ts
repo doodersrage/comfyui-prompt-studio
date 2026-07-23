@@ -82,7 +82,7 @@ export function resolveContextNegativeProfile(
     /\b(video|i2v|t2v|wan\s*video|motion clip)\b/i.test(corpus)
   ) {
     if (
-      /wan.*lightning|lightning.*wan|4[\s-]?step.*video|video.*4[\s-]?step/i.test(
+      /wan.*lightning|lightning.*wan|4[\s-]?step.*video|video.*4[\s-]?step|wan.*rapid[\s_-]*aio|rapid[\s_-]*aio.*wan|phr00t.*wan/i.test(
         `${context.model ?? ""} ${corpus}`,
       )
     ) {
