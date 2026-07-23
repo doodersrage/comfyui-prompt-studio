@@ -855,7 +855,12 @@ function replaceTokenInValue(
   value: unknown,
   token: string,
   replacement: string,
+  seen: WeakSet<object> = new WeakSet(),
 ): [unknown, number] {
+  if (!token) {
+    return [value, 0];
+  }
+
   if (typeof value === "string") {
     if (!value.includes(token)) {
       return [value, 0];
@@ -864,9 +869,20 @@ function replaceTokenInValue(
   }
 
   if (Array.isArray(value)) {
+    // Link tuples and nested inputs can form object cycles after graph rewires;
+    // without a seen-set this recurses until "Maximum call stack size exceeded".
+    if (seen.has(value)) {
+      return [value, 0];
+    }
+    seen.add(value);
     let total = 0;
     const next = value.map((entry) => {
-      const [replaced, count] = replaceTokenInValue(entry, token, replacement);
+      const [replaced, count] = replaceTokenInValue(
+        entry,
+        token,
+        replacement,
+        seen,
+      );
       total += count;
       return replaced;
     });
@@ -874,10 +890,19 @@ function replaceTokenInValue(
   }
 
   if (value && typeof value === "object") {
+    if (seen.has(value)) {
+      return [value, 0];
+    }
+    seen.add(value);
     let total = 0;
     const next: Record<string, unknown> = {};
     for (const [key, entry] of Object.entries(value)) {
-      const [replaced, count] = replaceTokenInValue(entry, token, replacement);
+      const [replaced, count] = replaceTokenInValue(
+        entry,
+        token,
+        replacement,
+        seen,
+      );
       next[key] = replaced;
       total += count;
     }

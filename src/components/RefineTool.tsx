@@ -37,6 +37,15 @@ import { PrimaryButton } from "@/components/ui/Button";
 
 const ACCENT = "fuchsia" as const;
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read image file."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function RefineTool() {
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
     useCachedSettings("refine", DEFAULT_REFINE_TOOL_CACHE);
@@ -233,30 +242,40 @@ export default function RefineTool() {
     setCopied(false);
     actions.resetStatuses();
 
+    let stage = "load-image";
     try {
       const refineFile = await resolveRefineImageFile();
-      const formData = new FormData();
-      formData.append("image", refineFile);
-      formData.append("model", shared.model);
-      formData.append("detail", shared.detail);
-      if (currentPrompt.trim()) {
-        formData.append("currentPrompt", currentPrompt.trim());
-      }
-      if (intentHints.trim()) {
-        formData.append("intentHints", intentHints.trim());
-      }
-
+      stage = "read-image";
+      // JSON + data URL avoids Next/undici "Failed to parse body as FormData"
+      // failures that hit multipart uploads (missing boundary / truncated body).
+      const image = await fileToDataUrl(refineFile);
+      stage = "request";
       const response = await fetch("/api/refine", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image,
+          mimeType: refineFile.type || "image/png",
+          model: shared.model,
+          detail: shared.detail,
+          currentPrompt: currentPrompt.trim() || undefined,
+          intentHints: intentHints.trim() || undefined,
+        }),
       });
 
-      const data = (await response.json()) as { prompt?: string; error?: string };
+      stage = "parse-response";
+      const data = (await response.json()) as {
+        prompt?: string;
+        error?: string;
+        stage?: string;
+      };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Refine failed.");
+        const serverStage = data.stage ? ` [${data.stage}]` : "";
+        throw new Error(`${data.error ?? "Refine failed."}${serverStage}`);
       }
 
+      stage = "finalize";
       const prompt = await actions.finalizePrompt(
         data.prompt ?? "",
         intentHints.trim() || currentPrompt.trim(),
@@ -265,7 +284,12 @@ export default function RefineTool() {
       setOutput(prompt);
     } catch (err) {
       setOutput("");
-      setError(err instanceof Error ? err.message : "Refine failed.");
+      const message = err instanceof Error ? err.message : "Refine failed.";
+      setError(
+        message.includes("[") || message.startsWith("Refine failed")
+          ? message
+          : `Refine failed at ${stage}: ${message}`,
+      );
     } finally {
       setLoading(false);
     }

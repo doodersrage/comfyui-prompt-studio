@@ -462,6 +462,55 @@ describe("chainLoraStackInWorkflow / applyLoraStackToWorkflow", () => {
     );
   });
 
+  it("breaks Lightning model self-cycles before chaining style LoRAs", () => {
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+      },
+      "7": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          // Bad pack: Lightning model edge points at Aura (cycle with Aura→Lightning).
+          model: ["8", 0],
+          lora_name: "Qwen-Image-Lightning-8steps-V2.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "8": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["7", 0], shift: 3 },
+      },
+      "9": {
+        class_type: "KSampler",
+        inputs: { model: ["8", 0], seed: 1, steps: 8, cfg: 1 },
+      },
+    };
+    const result = chainLoraStackInWorkflow(workflow, [
+      {
+        id: "skin",
+        label: "Skin",
+        filename: "skin.safetensors",
+        strengthModel: 0.7,
+        strengthClip: 0.7,
+      },
+    ]);
+    assert.equal(result.insertedNodeIds.length, 1);
+    const lightning = result.workflow["7"] as {
+      inputs: { model: [string, number] };
+    };
+    assert.deepEqual(lightning.inputs.model, ["1", 0]);
+    const inserted = result.workflow[result.insertedNodeIds[0]!] as {
+      inputs: { model: [string, number]; lora_name: string };
+    };
+    assert.equal(inserted.inputs.lora_name, "skin.safetensors");
+    assert.deepEqual(inserted.inputs.model, ["7", 0]);
+    assert.deepEqual(
+      (result.workflow["8"] as { inputs: { model: [string, number] } }).inputs.model,
+      [result.insertedNodeIds[0]!, 0],
+    );
+  });
+
   it("ignores orphaned off-chain style loaders and chains after Lightning instead", () => {
     const workflow = {
       "1": {

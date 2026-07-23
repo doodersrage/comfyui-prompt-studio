@@ -6,6 +6,10 @@ import {
 } from "./prompt-cleanup";
 import { getLlmTemperature } from "./llm-env";
 import { acquireLlmSlot, withLlmSlot } from "./llm-backpressure";
+import {
+  prepareVisionImageDataUrl,
+  splitImageDataUrl,
+} from "./vision-image-prepare";
 
 export { allowTemplateFallback, getLlmTemperature, isLlmEnabled } from "./llm-env";
 export { LlmBusyError, getLlmInflightCount, getLlmMaxInflight, isLlmBusy } from "./llm-backpressure";
@@ -95,15 +99,7 @@ export function extractBase64FromDataUrl(dataUrl: string): {
   mimeType: string;
   base64: string;
 } {
-  const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/i);
-  if (!match) {
-    throw new Error("Image must be a base64 data URL (data:image/...;base64,...).");
-  }
-
-  return {
-    mimeType: match[1]!,
-    base64: match[2]!,
-  };
+  return splitImageDataUrl(dataUrl);
 }
 
 type AssistantMessage = {
@@ -126,6 +122,51 @@ function extractContentText(content?: string | ChatContentPart[] | null): string
   }
 
   return "";
+}
+
+function safeIsThinkingOnlyArtifact(text: string): boolean {
+  try {
+    return isThinkingOnlyArtifact(text);
+  } catch (error) {
+    // Checklist / meta heuristics used to mutual-recurse; keep vision usable
+    // even if a new recursive edge slips back in.
+    if (error instanceof RangeError) {
+      return true;
+    }
+    throw error;
+  }
+}
+
+function safeStripPromptArtifacts(text: string): string {
+  try {
+    return stripPromptArtifacts(text);
+  } catch (error) {
+    if (error instanceof RangeError) {
+      return text.replace(/\s+/g, " ").trim().slice(0, 8_000);
+    }
+    throw error;
+  }
+}
+
+function safeRepairVisionDraft(text: string): string {
+  try {
+    return repairVisionDraft(text);
+  } catch (error) {
+    if (error instanceof RangeError) {
+      return "";
+    }
+    throw error;
+  }
+}
+
+/** Cap model dumps before cleanup — unbounded thinking blobs blow regex/JSON stacks. */
+function clipVisionModelText(text: string, maxChars = 24_000): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) {
+    return trimmed;
+  }
+  // Prefer the tail — final prompt usually lands at the end of thinking dumps.
+  return trimmed.slice(trimmed.length - maxChars).trim();
 }
 
 function extractThinkingFallback(
@@ -160,10 +201,12 @@ function extractThinkingFallback(
       }
     }
 
-    candidate = repairVisionDraft(stripPromptArtifacts(candidate));
+    candidate = safeRepairVisionDraft(
+      safeStripPromptArtifacts(clipVisionModelText(candidate)),
+    );
     if (
-      candidate.length >= 20 &&
-      !isThinkingOnlyArtifact(candidate) &&
+      candidate.length >= 12 &&
+      !safeIsThinkingOnlyArtifact(candidate) &&
       !isIncompleteVisionFragment(candidate)
     ) {
       return candidate;
@@ -174,35 +217,36 @@ function extractThinkingFallback(
 }
 
 function normalizeVisionModelOutput(text: string): string {
-  const trimmed = text.trim();
+  const trimmed = clipVisionModelText(text);
   if (!trimmed) {
     return "";
   }
 
-  const repaired = repairVisionDraft(stripPromptArtifacts(trimmed));
+  const repaired = safeRepairVisionDraft(safeStripPromptArtifacts(trimmed));
   const minUsable = 60;
 
   if (
     repaired.length >= minUsable &&
-    !isThinkingOnlyArtifact(repaired) &&
+    !safeIsThinkingOnlyArtifact(repaired) &&
     !isIncompleteVisionFragment(repaired)
   ) {
     return repaired;
   }
 
-  const lightlyCleaned = stripPromptArtifacts(trimmed);
+  const lightlyCleaned = safeStripPromptArtifacts(trimmed);
   if (
     lightlyCleaned.length >= minUsable &&
     lightlyCleaned.length > repaired.length &&
-    !isThinkingOnlyArtifact(lightlyCleaned) &&
+    !safeIsThinkingOnlyArtifact(lightlyCleaned) &&
     !isIncompleteVisionFragment(lightlyCleaned)
   ) {
     return lightlyCleaned;
   }
 
+  // Checklist repairs are often short ("A person standing.") — still usable.
   if (
-    repaired.length >= 20 &&
-    !isThinkingOnlyArtifact(repaired) &&
+    repaired.length >= 12 &&
+    !safeIsThinkingOnlyArtifact(repaired) &&
     !isIncompleteVisionFragment(repaired)
   ) {
     return repaired;
@@ -216,35 +260,49 @@ function extractModelOutputText(message?: AssistantMessage): string {
     return "";
   }
 
-  const contentText = extractContentText(message.content);
-  if (contentText) {
-    const normalized = normalizeVisionModelOutput(contentText);
+  try {
+    const contentText = extractContentText(message.content);
+    if (contentText) {
+      const normalized = normalizeVisionModelOutput(contentText);
+      if (
+        normalized &&
+        !safeIsThinkingOnlyArtifact(normalized) &&
+        !isIncompleteVisionFragment(normalized)
+      ) {
+        return normalized;
+      }
+    }
+
+    const thinkingText = extractThinkingFallback(
+      message.reasoning,
+      message.thinking,
+    );
     if (
-      normalized &&
-      !isThinkingOnlyArtifact(normalized) &&
-      !isIncompleteVisionFragment(normalized)
+      thinkingText &&
+      !isIncompleteVisionFragment(thinkingText) &&
+      !safeIsThinkingOnlyArtifact(thinkingText)
     ) {
-      return normalized;
+      return thinkingText;
     }
-  }
 
-  const thinkingText = extractThinkingFallback(message.reasoning, message.thinking);
-  if (
-    thinkingText &&
-    !isIncompleteVisionFragment(thinkingText) &&
-    !isThinkingOnlyArtifact(thinkingText)
-  ) {
-    return thinkingText;
-  }
-
-  if (contentText) {
-    const repaired = repairVisionDraft(stripPromptArtifacts(contentText));
-    if (repaired.length >= 20 && !isIncompleteVisionFragment(repaired)) {
-      return repaired;
+    if (contentText) {
+      const repaired = safeRepairVisionDraft(
+        safeStripPromptArtifacts(clipVisionModelText(contentText)),
+      );
+      if (repaired.length >= 12 && !isIncompleteVisionFragment(repaired)) {
+        return repaired;
+      }
     }
-  }
 
-  return "";
+    return "";
+  } catch (error) {
+    if (error instanceof RangeError) {
+      const fallback = extractContentText(message.content)?.trim()
+        || String(message.reasoning ?? message.thinking ?? "").trim();
+      return clipVisionModelText(fallback.replace(/\s+/g, " "), 4_000);
+    }
+    throw error;
+  }
 }
 
 function chatMessageToOllamaContent(content: string | ChatContentPart[]): string {
@@ -380,10 +438,22 @@ async function ollamaNativeVisionCompletion(options: {
     body.think = options.think;
   }
 
+  let requestBody: string;
+  try {
+    requestBody = JSON.stringify(body);
+  } catch (error) {
+    if (error instanceof RangeError) {
+      throw new Error(
+        "Vision request payload is too large or too nested to serialize.",
+      );
+    }
+    throw error;
+  }
+
   const response = await fetch(`${ollamaNativeBaseUrl(options.baseUrl)}/api/chat`, {
     method: "POST",
     headers: buildAuthHeaders(options.apiKey),
-    body: JSON.stringify(body),
+    body: requestBody,
   });
 
   if (!response.ok) {
@@ -393,7 +463,7 @@ async function ollamaNativeVisionCompletion(options: {
     );
   }
 
-  const data = (await response.json()) as {
+  const data = (await parseJsonResponseBody(response)) as {
     message?: AssistantMessage;
   };
 
@@ -424,6 +494,10 @@ async function ollamaNativeVisionCompletionWithFallback(options: {
     try {
       return await ollamaNativeVisionCompletion({ ...options, think });
     } catch (error) {
+      // Stack overflows / deep-parse failures will not succeed on retry.
+      if (error instanceof RangeError) {
+        throw error;
+      }
       lastError = error instanceof Error ? error : new Error(String(error));
     }
   }
@@ -432,6 +506,92 @@ async function ollamaNativeVisionCompletionWithFallback(options: {
     lastError ??
     new Error("Vision model returned an empty response after all Ollama attempts.")
   );
+}
+
+function unescapeJsonString(value: string): string {
+  return value
+    .replace(/\\n/g, "\n")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+}
+
+function extractContentFieldFromRawJson(raw: string): string | null {
+  // Index-scan instead of a capturing `(.+)` regex — huge replies can make
+  // V8's RegExp engine throw RangeError: Maximum call stack size exceeded.
+  const key = '"content"';
+  const keyIndex = raw.indexOf(key);
+  if (keyIndex < 0) {
+    return null;
+  }
+
+  let index = keyIndex + key.length;
+  while (index < raw.length && /\s/.test(raw[index]!)) {
+    index += 1;
+  }
+  if (raw[index] !== ":") {
+    return null;
+  }
+  index += 1;
+  while (index < raw.length && /\s/.test(raw[index]!)) {
+    index += 1;
+  }
+  if (raw[index] !== '"') {
+    return null;
+  }
+  index += 1;
+
+  let out = "";
+  while (index < raw.length) {
+    const char = raw[index]!;
+    if (char === '"') {
+      return unescapeJsonString(out);
+    }
+    if (char === "\\") {
+      const next = raw[index + 1];
+      if (next == null) {
+        break;
+      }
+      out += `\\${next}`;
+      index += 2;
+      continue;
+    }
+    out += char;
+    index += 1;
+    if (out.length > 48_000) {
+      return unescapeJsonString(out);
+    }
+  }
+
+  return out ? unescapeJsonString(out) : null;
+}
+
+async function parseJsonResponseBody(response: Response): Promise<unknown> {
+  // Read as text first so a deep-parse RangeError can still fall back.
+  const raw = await response.text();
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch (error) {
+    if (!(error instanceof RangeError) && !(error instanceof SyntaxError)) {
+      throw error;
+    }
+    try {
+      const content = extractContentFieldFromRawJson(raw);
+      if (content) {
+        return {
+          message: { content },
+          choices: [{ message: { content } }],
+        };
+      }
+    } catch {
+      // fall through
+    }
+    if (error instanceof RangeError) {
+      throw new Error(
+        "Vision model returned a response too deeply nested to parse.",
+      );
+    }
+    throw error;
+  }
 }
 
 async function openAiCompatibleChatCompletion(options: {
@@ -443,10 +603,9 @@ async function openAiCompatibleChatCompletion(options: {
   temperature?: number;
   extraBody?: Record<string, unknown>;
 }): Promise<string> {
-  const response = await fetch(`${options.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: buildAuthHeaders(options.apiKey),
-    body: JSON.stringify({
+  let requestBody: string;
+  try {
+    requestBody = JSON.stringify({
       model: options.model,
       messages: options.messages,
       temperature: getLlmTemperature(options.temperature),
@@ -455,7 +614,20 @@ async function openAiCompatibleChatCompletion(options: {
       top_p: 0.9,
       think: false,
       ...options.extraBody,
-    }),
+    });
+  } catch (error) {
+    if (error instanceof RangeError) {
+      throw new Error(
+        "Vision request payload is too large or too nested to serialize.",
+      );
+    }
+    throw error;
+  }
+
+  const response = await fetch(`${options.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: buildAuthHeaders(options.apiKey),
+    body: requestBody,
   });
 
   if (!response.ok) {
@@ -465,7 +637,7 @@ async function openAiCompatibleChatCompletion(options: {
     );
   }
 
-  const data = (await response.json()) as {
+  const data = (await parseJsonResponseBody(response)) as {
     choices?: Array<{
       message?: AssistantMessage;
     }>;
@@ -813,9 +985,65 @@ export async function visionCompletion(options: {
   /** Request-scoped vision model override (falls back to LLM_VISION_MODEL). */
   model?: string;
 }): Promise<string> {
+  try {
+    return await visionCompletionUnsafe(options);
+  } catch (error) {
+    if (!(error instanceof RangeError)) {
+      throw error;
+    }
+    const site =
+      error.stack
+        ?.split("\n")
+        .map((line) => line.trim())
+        .find((line) =>
+          /vision-image-prepare|prompt-cleanup|llm-client|JSON|parse|stringify/i.test(
+            line,
+          ),
+        ) ??
+      error.stack?.split("\n")[1]?.trim() ??
+      "unknown";
+    throw new Error(
+      `Vision model reply could not be processed (call stack limit @ ${site}). Try a smaller reference image or a different vision model.`,
+      { cause: error },
+    );
+  }
+}
+
+async function visionCompletionUnsafe(options: {
+  systemPrompt: string;
+  textPrompt: string;
+  imageDataUrl: string;
+  maxTokens: number;
+  temperature?: number;
+  model?: string;
+}): Promise<string> {
   const { baseUrl, apiKey } = getLlmConfig();
   const visionModel = getVisionModel(options.model);
-  const { base64 } = extractBase64FromDataUrl(options.imageDataUrl);
+
+  // Always downscale/recompress before leaving this process — large camera
+  // originals are the main trigger for serialize/parse stack blow-ups.
+  let prepared;
+  try {
+    prepared = await prepareVisionImageDataUrl(options.imageDataUrl);
+  } catch (error) {
+    if (error instanceof RangeError) {
+      throw new Error(
+        "Reference image is too large to prepare for vision. Upload a smaller image.",
+        { cause: error },
+      );
+    }
+    // Fall back to the raw payload if sharp rejects an exotic format.
+    const split = extractBase64FromDataUrl(options.imageDataUrl);
+    prepared = {
+      imageDataUrl: options.imageDataUrl,
+      mimeType: split.mimeType,
+      base64: split.base64,
+      width: 0,
+      height: 0,
+      bytes: Buffer.byteLength(split.base64, "base64"),
+      resized: false,
+    };
+  }
 
   if (isOllamaBaseUrl(baseUrl)) {
     try {
@@ -825,11 +1053,14 @@ export async function visionCompletion(options: {
         model: visionModel,
         systemPrompt: options.systemPrompt,
         textPrompt: options.textPrompt,
-        imageBase64: base64,
+        imageBase64: prepared.base64,
         maxTokens: options.maxTokens,
         temperature: options.temperature,
       });
     } catch (nativeError) {
+      if (nativeError instanceof RangeError) {
+        throw nativeError;
+      }
       console.warn(
         "[llm-client] Ollama native vision failed, trying OpenAI-compatible endpoint:",
         nativeError instanceof Error ? nativeError.message : nativeError,
@@ -847,7 +1078,7 @@ export async function visionCompletion(options: {
         role: "user",
         content: [
           { type: "text", text: options.textPrompt },
-          { type: "image_url", image_url: { url: options.imageDataUrl } },
+          { type: "image_url", image_url: { url: prepared.imageDataUrl } },
         ],
       },
     ],

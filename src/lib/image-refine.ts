@@ -56,16 +56,44 @@ Rules:
     .filter(Boolean)
     .join("\n\n");
 
-  const content = await visionCompletion({
-    systemPrompt,
-    textPrompt: userMessage,
-    imageDataUrl: options.imageDataUrl,
-    maxTokens: Math.max(limits.maxTokens + 256, 768),
-    temperature: 0.35,
-    model: visionModel,
-  });
+  let content: string;
+  try {
+    content = await visionCompletion({
+      systemPrompt,
+      textPrompt: userMessage,
+      imageDataUrl: options.imageDataUrl,
+      maxTokens: Math.max(limits.maxTokens + 256, 768),
+      temperature: 0.35,
+      model: visionModel,
+    });
+  } catch (error) {
+    if (error instanceof RangeError) {
+      const site =
+        error.stack
+          ?.split("\n")
+          .map((line) => line.trim())
+          .find((line) => /prompt-cleanup|llm-client|image-refine|JSON|parse/i.test(line))
+        ?? error.stack?.split("\n")[1]?.trim()
+        ?? "unknown";
+      throw new Error(
+        `Vision refine hit a call-stack limit while reading the model reply (${error.message} @ ${site}).`,
+      );
+    }
+    throw error;
+  }
 
-  const cleaned = stripPromptArtifacts(content);
+  let cleaned: string;
+  try {
+    cleaned = stripPromptArtifacts(content);
+  } catch (error) {
+    if (error instanceof RangeError) {
+      // Fall back to a light cleanup so refine can still return a prompt.
+      cleaned = content.replace(/\s+/g, " ").trim();
+    } else {
+      throw error;
+    }
+  }
+
   const prompt = formatPromptForModel(
     sanitizeQwenPrompt(cleaned, options.detail, intent, options.model),
     options.model,

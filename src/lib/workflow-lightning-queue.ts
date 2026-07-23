@@ -541,7 +541,9 @@ export function stripLightningOutputPostProcess(
     }
 
     let link = getLinkedNodeId(node.inputs.images);
-    while (link) {
+    const seenImageLinks = new Set<string>();
+    while (link && !seenImageLinks.has(link)) {
+      seenImageLinks.add(link);
       const upstream = next[link];
       if (!upstream) {
         break;

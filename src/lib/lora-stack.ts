@@ -424,6 +424,42 @@ function linkedModelNodeId(value: unknown): string | null {
   return null;
 }
 
+/**
+ * If a Lightning loader's model walk can reach itself (bad pack / prior rewire),
+ * retarget it at the first non-cyclic upstream so style chaining cannot close a loop.
+ */
+function breakLightningModelCycle(
+  workflow: Record<string, WorkflowNode>,
+  lightningId: string,
+): void {
+  const lightning = workflow[lightningId];
+  if (!lightning?.inputs) {
+    return;
+  }
+  const seen = new Set<string>();
+  let cursor = linkedModelNodeId(lightning.inputs.model);
+  while (cursor && !seen.has(cursor)) {
+    if (cursor === lightningId) {
+      // Point at UNET/checkpoint if present; otherwise clear the self-loop edge.
+      for (const [nodeId, node] of Object.entries(workflow)) {
+        const classType = node?.class_type ?? "";
+        if (
+          classType === "UNETLoader" ||
+          classType === "CheckpointLoaderSimple" ||
+          classType === "CheckpointLoader"
+        ) {
+          lightning.inputs.model = [nodeId, 0];
+          return;
+        }
+      }
+      delete lightning.inputs.model;
+      return;
+    }
+    seen.add(cursor);
+    cursor = linkedModelNodeId(workflow[cursor]?.inputs?.model);
+  }
+}
+
 /** Sampler-nearest active Lightning loader — used to chain style LoRAs when no other anchors exist. */
 function findActiveLightningLoaderId(
   workflow: Record<string, WorkflowNode>,
@@ -529,6 +565,7 @@ export function chainLoraStackInWorkflow(
     if (!lightningId) {
       return { workflow: next, patchedNodeIds: [], insertedNodeIds: [] };
     }
+    breakLightningModelCycle(next, lightningId);
     const insertedNodeIds: string[] = [];
     const protectedNodeIds = new Set<string>([lightningId]);
     let previousId = lightningId;
@@ -542,6 +579,8 @@ export function chainLoraStackInWorkflow(
           strength_model: entry.strengthModel,
         },
       };
+      // Only rewire sampler-chain consumers of the prior node — never the new
+      // node's own model input (protected) — so Style cannot close Lightning↔Aura loops.
       rewireDownstreamReferences(
         next,
         previousId,

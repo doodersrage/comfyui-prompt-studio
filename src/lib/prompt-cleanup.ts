@@ -13,26 +13,63 @@ export function extractShortTopic(input: string): string {
   return words.toLowerCase();
 }
 
+const MAX_JSON_ARTIFACT_CHARS = 200_000;
+
 export function stripPromptArtifacts(raw: string): string {
+  try {
+    return stripPromptArtifactsUnsafe(raw);
+  } catch (error) {
+    if (error instanceof RangeError) {
+      return String(raw ?? "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 8_000);
+    }
+    throw error;
+  }
+}
+
+function stripPromptArtifactsUnsafe(raw: string): string {
   let text = raw.trim();
   if (!text) {
     return text;
   }
 
-  const jsonPrompt = text.match(
-    /^\s*\{[\s\S]*?"prompt"\s*:\s*"((?:\\.|[^"\\])*)"/,
-  );
-  if (jsonPrompt?.[1]) {
-    text = jsonPrompt[1]
-      .replace(/\\"/g, '"')
-      .replace(/\\n/g, " ")
-      .replace(/\\t/g, " ")
-      .trim();
+  // Bound pathological LLM dumps before regex / JSON work — deep JSON.parse
+  // and some RegExp paths throw RangeError: Maximum call stack size exceeded.
+  if (text.length > MAX_JSON_ARTIFACT_CHARS) {
+    text = text.slice(0, MAX_JSON_ARTIFACT_CHARS);
   }
 
-  text = text.replace(/^```(?:[\w-]+)?\s*\n?([\s\S]*?)```$/m, "$1").trim();
+  try {
+    // Avoid [\s\S]*? over huge brace soups — scan for "prompt" instead.
+    if (text.startsWith("{") && text.includes('"prompt"')) {
+      const promptKey = text.indexOf('"prompt"');
+      const afterKey = text.slice(promptKey + '"prompt"'.length);
+      const valueMatch = afterKey.match(/^\s*:\s*"((?:\\.|[^"\\])*)"/);
+      if (valueMatch?.[1]) {
+        text = valueMatch[1]
+          .replace(/\\"/g, '"')
+          .replace(/\\n/g, " ")
+          .replace(/\\t/g, " ")
+          .trim();
+      }
+    }
+  } catch {
+    // ignore catastrophic regex failures on hostile dumps
+  }
 
-  if (text.startsWith("{") && text.endsWith("}")) {
+  try {
+    text = text.replace(/^```(?:[\w-]+)?\s*\n?([\s\S]*?)```$/m, "$1").trim();
+  } catch {
+    // keep text
+  }
+
+  if (
+    text.length <= 50_000 &&
+    text.startsWith("{") &&
+    text.endsWith("}")
+  ) {
     try {
       const parsed = JSON.parse(text) as { prompt?: unknown; text?: unknown };
       const candidate =
@@ -45,7 +82,7 @@ export function stripPromptArtifacts(raw: string): string {
         text = candidate.trim();
       }
     } catch {
-      // keep original text
+      // keep original text (incl. RangeError on deeply nested JSON)
     }
   }
 
@@ -152,11 +189,28 @@ function looksLikePromptProse(text: string): boolean {
     return false;
   }
 
-  if (looksLikeUnrepairedVisionReasoning(trimmed)) {
+  // Never call looksLikeUnrepairedVisionReasoning here — that helper used to
+  // call back into looksLikePromptProse (checklist path) and overflow the stack.
+  if (looksLikeVisionChecklist(trimmed)) {
+    return false;
+  }
+
+  if (/^(?:wait(?:,\s*)?|let me|check(?:ing)? if|i need to)\b/i.test(trimmed)) {
+    return false;
+  }
+
+  if (VISION_ORDINAL_LABEL.test(trimmed)) {
     return false;
   }
 
   if (isIncompleteVisionFragment(trimmed)) {
+    return false;
+  }
+
+  if (
+    /^(?:so|the first sentence|i(?:'ll| will)|let me)\b/i.test(trimmed) &&
+    /\b(?:should be|needs to be|must be|will be|start with|write)\b/i.test(trimmed)
+  ) {
     return false;
   }
 
@@ -532,7 +586,9 @@ function looksLikeUnrepairedVisionReasoning(text: string): boolean {
     return true;
   }
 
-  if (looksLikeVisionChecklist(trimmed) && !looksLikePromptProse(trimmed)) {
+  // Do not call looksLikePromptProse here — it calls this helper and used to
+  // mutual-recurse on checklist-shaped model output (Refine prompt crash).
+  if (looksLikeVisionChecklist(trimmed)) {
     return true;
   }
 
@@ -596,6 +652,20 @@ function normalizeAsciiQuotes(text: string): string {
 
 function composePromptFromVisionChecklist(items: VisionChecklistItem[]): string {
   const pose = findChecklistValue(items, [/^pose$/, /action/, /activity/, /movement/]);
+  const clothingGeneric = findChecklistValue(items, [
+    /^clothing$/,
+    /^outfit$/,
+    /^attire$/,
+    /^wardrobe$/,
+  ]);
+  const lighting = findChecklistValue(items, [/^lighting$/, /^light$/, /^illumination$/]);
+  const background = findChecklistValue(items, [
+    /^background$/,
+    /^setting$/,
+    /^environment$/,
+    /^location$/,
+    /^scene$/,
+  ]);
   const topColor = findChecklistValue(items, [
     /color of the top/,
     /top color/,
@@ -679,6 +749,8 @@ function composePromptFromVisionChecklist(items: VisionChecklistItem[]): string 
   }
   if (clothing.length > 0) {
     traits.push(`wearing ${clothing.join(", ")}`);
+  } else if (clothingGeneric) {
+    traits.push(`wearing ${clothingGeneric}`);
   }
 
   let sentence =
@@ -690,6 +762,11 @@ function composePromptFromVisionChecklist(items: VisionChecklistItem[]): string 
     sentence = `${lead} ${pose.replace(/^[,.\s]+/, "").replace(/[,.]$/, "")}, ${traits
       .slice(1)
       .join(", ")}`;
+  }
+
+  const settingBits = [background, lighting].filter(Boolean);
+  if (settingBits.length > 0) {
+    sentence = `${sentence.replace(/[.!?]+$/, "")}, ${settingBits.join(", ")}`;
   }
 
   if (!/[.!?]$/.test(sentence)) {

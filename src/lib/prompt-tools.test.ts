@@ -959,6 +959,35 @@ describe("comfyui workflow config", () => {
     assert.equal(checkpoint.inputs.ckpt_name, "flux1-dev.safetensors");
   });
 
+  it("injectWorkflowPlaceholders tolerates cyclic object graphs without stack overflow", () => {
+    const workflow: Record<string, unknown> = {
+      "1": {
+        class_type: "CLIPTextEncode",
+        inputs: { text: "{{POSITIVE}}", clip: ["2", 0] },
+      },
+    };
+    const node = workflow["1"] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
+    // Simulate a corrupted graph edge that points at the node object itself.
+    node.inputs.model = node;
+
+    const injected = injectWorkflowPlaceholders(
+      workflow,
+      { positive: "refined portrait" },
+      {
+        positive: "{{POSITIVE}}",
+        negative: "{{NEGATIVE}}",
+      },
+    );
+    const encoded = injected.workflow["1"] as {
+      inputs: { text: string };
+    };
+    assert.equal(encoded.inputs.text, "refined portrait");
+    assert.equal(injected.positiveReplacements, 1);
+  });
+
   it("strips empty runtime overrides", () => {
     assert.equal(
       stripEmptyComfyUiRuntime({ apiUrl: "  ", positiveToken: "" }),

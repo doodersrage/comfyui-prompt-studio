@@ -15,14 +15,28 @@ async function parseRefineRequest(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
 
   if (contentType.includes("multipart/form-data")) {
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (error) {
+      const detail =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to parse body as FormData.";
+      throw new Error(
+        `Could not read the uploaded image (${detail}). Re-upload the reference and try again.`,
+      );
+    }
     const file = formData.get("image");
 
     if (!(file instanceof File)) {
       throw new Error("Image file is required.");
     }
 
-    if (!file.type.startsWith("image/")) {
+    const mimeType = file.type?.startsWith("image/")
+      ? file.type
+      : "image/png";
+    if (file.type && !file.type.startsWith("image/") && file.type !== "application/octet-stream") {
       throw new Error("Upload must be an image file.");
     }
 
@@ -32,7 +46,7 @@ async function parseRefineRequest(request: Request) {
 
     return {
       imageDataUrl: await fileToDataUrl(file),
-      mimeType: file.type,
+      mimeType,
       model: String(formData.get("model") ?? ""),
       detail: String(formData.get("detail") ?? ""),
       currentPrompt: String(formData.get("currentPrompt") ?? "").trim() || undefined,
@@ -79,8 +93,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  let stage = "parse-request";
   try {
     const parsed = await parseRefineRequest(request);
+    stage = "refine";
     const result = await refineImagePrompt({
       model: normalizeComfyModel(parsed.model),
       detail: normalizeDetailLevel(parsed.detail),
@@ -95,8 +111,17 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Image refine failed.";
-    const status = /required|must be/i.test(message) ? 400 : 500;
-    return apiError(message, status);
+    const status =
+      /required|must be|could not read|upload must|too large|8mb/i.test(message)
+        ? 400
+        : 500;
+    const stack =
+      error instanceof Error && /call stack|Maximum call stack/i.test(message)
+        ? error.stack?.split("\n").slice(0, 8).join(" | ")
+        : undefined;
+    return apiError(stack ? `${message} · ${stack}` : message, status, {
+      stage,
+    });
   }
 }
 

@@ -274,32 +274,45 @@ export default function ImagePromptTool() {
     setError(null);
     actions.resetStatuses();
 
+    let stage = "read-image";
     try {
-      const formData = new FormData();
-      formData.append("image", primary.file);
-      formData.append("model", shared.model);
-      formData.append("detail", shared.detail);
-      formData.append("currentPrompt", output);
-      formData.append("intentHints", refineIntent.trim());
-
+      const image = await fileToDataUrl(primary.file);
+      stage = "request";
       const response = await fetch("/api/refine", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image,
+          mimeType: primary.file.type || "image/png",
+          model: shared.model,
+          detail: shared.detail,
+          currentPrompt: output || undefined,
+          intentHints: refineIntent.trim(),
+        }),
       });
 
+      stage = "parse-response";
       const data = (await response.json()) as EnrichedToolGenerateResult & {
         error?: string;
+        stage?: string;
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Refine failed.");
+        const serverStage = data.stage ? ` [${data.stage}]` : "";
+        throw new Error(`${data.error ?? "Refine failed."}${serverStage}`);
       }
 
+      stage = "finalize";
       const prompt = await actions.finalizePrompt(data.prompt, refineIntent);
       setOutput(prompt);
       setResult({ ...data, prompt, diagnostics: data.diagnostics ?? actions.diagnostics ?? undefined });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Refine failed.");
+      const message = err instanceof Error ? err.message : "Refine failed.";
+      setError(
+        message.includes("[") || message.startsWith("Refine failed")
+          ? message
+          : `Refine failed at ${stage}: ${message}`,
+      );
     } finally {
       setLoading(false);
     }
