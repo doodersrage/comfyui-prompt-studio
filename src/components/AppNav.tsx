@@ -34,6 +34,7 @@ import {
   toggleExpandedNavGroup,
 } from "@/lib/nav-expanded-groups";
 import BrandMark from "@/components/BrandMark";
+import ConnectionHealthChip from "@/components/ConnectionHealthChip";
 import { pushRecentDestination } from "@/lib/recent-destinations";
 import { saveLastToolRoute } from "@/lib/last-tool-route";
 
@@ -394,6 +395,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="space-y-3 border-t border-[var(--border-subtle)] px-2 pt-4">
+        <div className="px-1" onClick={onNavigate}>
+          <ConnectionHealthChip compact />
+        </div>
         <WorkspaceModeControl
           variant="chips"
           onChanged={(mode) => {

@@ -379,8 +379,12 @@ export default function SettingsLlmPanel({
 
       <ToolSection title="Vision LLM">
         <p className="text-sm text-zinc-400">
-          Uses <code className="text-zinc-300">LLM_VISION_MODEL</code> for Image →
-          Prompt, Refine critique, and optional gallery tagging.
+          Set <code className="text-zinc-300">LLM_VISION_MODEL</code> in{" "}
+          <code className="text-zinc-300">.env.local</code> (e.g.{" "}
+          <code className="text-zinc-300">qwen3-vl:latest</code>) for Image → Prompt,
+          Refine critique, and optional gallery tagging. Falls back to{" "}
+          <code className="text-zinc-300">LLM_MODEL</code> when unset — text-only
+          models will fail vision tools. Restart the server after changing env.
         </p>
         <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
           <input

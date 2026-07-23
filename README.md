@@ -314,6 +314,15 @@ npm run dev
 
 Open [http://localhost:47832](http://localhost:47832).
 
+### First-run setup (new installs)
+
+1. Copy `.env.example` → `.env.local` and set `COMFYUI_API_URL`, `LLM_MODEL`, and ideally `LLM_VISION_MODEL` (e.g. `qwen3-vl:latest` for Image → Prompt).
+2. Open the app — pick a workspace density, then **Heal & ready** (also under Settings → Overview).
+3. That enables **system workflows**, adapts loader maps from ComfyUI when reachable, and checks LLM + Comfy health.
+4. Open **Generate**, create a prompt, and **Send to ComfyUI**.
+
+The Dashboard checklist deep-links each remaining step. A connection chip in the sidebar shows LLM / Comfy status at a glance.
+
 ### Security notes
 
 This app is designed for a **trusted local / LAN** setup. By default the HTTP API is open (CORS `*`) so ComfyUI custom nodes and CLI tools can call it.

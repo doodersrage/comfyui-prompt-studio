@@ -11,6 +11,7 @@ import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
 import { requeueComfyJobFromEntry, requeueComfyJobs } from "@/lib/comfyui-requeue";
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
+import SetupReadinessBanner from "@/components/SetupReadinessBanner";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { freeComfyUiMemory, interruptComfyUiQueue } from "@/lib/comfyui-queue-control";
 import { cancelComfyGalleryJob } from "@/lib/comfyui-queue-cancel";
@@ -211,6 +212,7 @@ export default function QueueTool() {
       title="ComfyUI job queue"
       description="Pending and running jobs across gallery entries. Live ComfyUI queue stats refresh every few seconds."
     >
+      <SetupReadinessBanner toolLabel="Queue" />
       {queueHealth?.ok ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-zinc-400">
@@ -229,8 +231,8 @@ export default function QueueTool() {
         <ErrorState
           compact
           title="ComfyUI health unavailable"
-          description="The queue stats endpoint did not respond. Check your ComfyUI URL and connectivity in Settings."
-          action={{ label: "Open Settings", href: "/settings" }}
+          description="The queue stats endpoint did not respond. Use Settings → Heal & ready, or check your ComfyUI URL under Connection."
+          action={{ label: "Heal & ready", href: "/settings" }}
         />
       )}
 
@@ -241,7 +243,7 @@ export default function QueueTool() {
               compact
               icon="inbox"
               title="Queue is empty"
-              description="Send a prompt to ComfyUI from a prompt tool — jobs will show up here while they run."
+              description="Send a prompt to ComfyUI from Generate. If nothing queues, use Settings → Heal & ready (system workflows + Comfy connection)."
               action={generateCta}
             />
           ) : (

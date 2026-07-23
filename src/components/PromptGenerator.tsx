@@ -86,6 +86,7 @@ import {
 import { ChipButton, FieldDivider, FieldError, FieldLabel, TextArea, TextInput } from "@/components/ui/Field";
 import { markOnboardingFirstGenerate } from "@/lib/onboarding-hooks";
 import { Button, PrimaryButton } from "@/components/ui/Button";
+import SetupReadinessBanner from "@/components/SetupReadinessBanner";
 
 const ACCENT = "violet" as const;
 
@@ -547,6 +548,7 @@ export default function PromptGenerator() {
         />
       }
     >
+      <SetupReadinessBanner toolLabel="Generate" />
       <ToolSection
         title="Scene setup"
         description="Describe what you want to generate, or roll a random surprise scene."

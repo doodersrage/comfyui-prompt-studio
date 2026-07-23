@@ -16,6 +16,7 @@ import {
 import { startPromptEditorFromGalleryEntry } from "@/lib/improve-output";
 import { usePromptHistory } from "@/hooks/usePromptHistory";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
+import ConnectionHealthChip from "@/components/ConnectionHealthChip";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { ToolPageSkeleton } from "@/components/ui/ViewState";
 import {
@@ -93,6 +94,9 @@ export default function HomeDashboard() {
       title="Dashboard"
       description="Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way."
     >
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <ConnectionHealthChip />
+      </div>
       <OnboardingChecklist />
 
       {showContinue ? (

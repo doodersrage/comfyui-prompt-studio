@@ -8,8 +8,13 @@ export function markOnboardingComfyHealthOk(): void {
   markOnboardingStepDone("comfy-health");
 }
 
+export function markOnboardingSystemWorkflowsEnabled(): void {
+  markOnboardingStepDone("system-workflows");
+}
+
+/** @deprecated Prefer markOnboardingSystemWorkflowsEnabled for the MVP path. */
 export function markOnboardingWorkflowImported(): void {
-  markOnboardingStepDone("import-workflow");
+  markOnboardingSystemWorkflowsEnabled();
 }
 
 export function markOnboardingFirstGenerate(): void {

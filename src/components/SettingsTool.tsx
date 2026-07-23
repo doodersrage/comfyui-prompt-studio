@@ -139,9 +139,11 @@ import type { ServerEnvSummary } from "@/lib/server-env-summary";
 import {
   markOnboardingComfyHealthOk,
   markOnboardingLlmHealthOk,
+  markOnboardingSystemWorkflowsEnabled,
 } from "@/lib/onboarding-hooks";
 import { fetchWorkflowPreview } from "@/lib/comfyui-requeue";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
+import { runHealAndReady, readAdaptedLoaderMapTexts } from "@/lib/first-run-setup";
 
 const ToolQualityProfilesSettings = dynamic(
   () => import("@/components/settings/ToolQualityProfilesSettings"),
@@ -346,6 +348,7 @@ export default function SettingsTool() {
   const [ipAdapterUploading, setIpAdapterUploading] = useState(false);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [healBusy, setHealBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [workflowHealthRefresh, setWorkflowHealthRefresh] = useState(0);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
@@ -651,6 +654,46 @@ export default function SettingsTool() {
     }
   }, [settings.apiUrl, settings.useServerDefaults]);
 
+  const handleHealAndReady = useCallback(async () => {
+    setHealBusy(true);
+    try {
+      const result = await runHealAndReady({
+        comfyUrl:
+          !settings.useServerDefaults && settings.apiUrl?.trim()
+            ? settings.apiUrl.trim()
+            : undefined,
+      });
+      const adapted = loadSettingsCache().shared;
+      updateSharedSettings({
+        useSystemWorkflows: true,
+        queueQualityProfile: adapted.queueQualityProfile,
+        modelCheckpointMap: adapted.modelCheckpointMap,
+        modelVaeMap: adapted.modelVaeMap,
+        modelRefinerMap: adapted.modelRefinerMap,
+        modelUpscaleMap: adapted.modelUpscaleMap,
+        modelControlNetMap: adapted.modelControlNetMap,
+      });
+      const texts = readAdaptedLoaderMapTexts();
+      setModelCheckpointMapText(texts.checkpoint);
+      setModelVaeMapText(texts.vae);
+      setModelRefinerMapText(texts.refiner);
+      setModelUpscaleMapText(texts.upscale);
+      setModelControlNetMapText(texts.controlNet);
+      setStatus(result.message);
+      setWorkflowHealthRefresh((n) => n + 1);
+      await refreshHealth();
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Heal & ready failed.");
+    } finally {
+      setHealBusy(false);
+    }
+  }, [
+    refreshHealth,
+    settings.apiUrl,
+    settings.useServerDefaults,
+    updateSharedSettings,
+  ]);
+
   useEffect(() => {
     if (tab !== "overview" && tab !== "comfyui") {
       return;
@@ -830,6 +873,28 @@ export default function SettingsTool() {
       </ToolSection>
 
       <ToolSection title="Service health">
+        <div className="mb-4 rounded-[var(--radius-xl)] border border-[var(--accent-border)] bg-[var(--accent-muted)] p-4 shadow-[var(--shadow-surface)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-medium text-[var(--accent-text)]">
+                Heal & ready
+              </p>
+              <p className="type-caption text-[var(--text-secondary)]">
+                One click for new installs: enable system workflows, merge suggested
+                loader maps, adapt from ComfyUI inventory when reachable, and refresh
+                health.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              loading={healBusy}
+              loadingLabel="Healing…"
+              onClick={() => void handleHealAndReady()}
+            >
+              Heal & ready
+            </Button>
+          </div>
+        </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <Button
             variant="ghost"
@@ -1047,6 +1112,7 @@ export default function SettingsTool() {
                   : {}),
               });
               if (enabled) {
+                markOnboardingSystemWorkflowsEnabled();
                 void (async () => {
                   setStatus("Scanning ComfyUI inventory for system workflows…");
                   const { scanAndAdaptSystemWorkflowInventory } = await import(
