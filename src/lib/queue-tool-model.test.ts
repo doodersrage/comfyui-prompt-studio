@@ -185,10 +185,35 @@ describe("queue-tool-model", () => {
     );
   });
 
-  it("skips system-workflow snap for audio and mesh tools", () => {
+  it("skips system-workflow snap for audio, mesh, and video tools", () => {
     assert.equal(toolIgnoresSystemWorkflowSnap("audio"), true);
     assert.equal(toolIgnoresSystemWorkflowSnap("mesh"), true);
-    assert.equal(toolIgnoresSystemWorkflowSnap("video"), false);
+    assert.equal(toolIgnoresSystemWorkflowSnap("video"), true);
     assert.equal(toolIgnoresSystemWorkflowSnap("generate"), false);
+  });
+
+  it("prefers the Video tool's last model over a still-image shared model", async () => {
+    const { resolvePreferredVideoModel } = await import("./queue-tool-model.ts");
+    assert.equal(
+      resolvePreferredVideoModel({
+        toolModel: "wan-video-rapid-aio",
+        sharedModel: "qwen-image-2512",
+      }),
+      "wan-video-rapid-aio",
+    );
+    assert.equal(
+      resolvePreferredVideoModel({
+        toolModel: undefined,
+        sharedModel: "hunyuan-video",
+      }),
+      "hunyuan-video",
+    );
+    assert.equal(
+      resolvePreferredVideoModel({
+        toolModel: undefined,
+        sharedModel: "flux-dev",
+      }),
+      "wan-video",
+    );
   });
 });

@@ -20,7 +20,11 @@ import {
 import type { RenderRealismMode } from "./render-realism";
 import { DEFAULT_VARIATION_SETTINGS } from "./variation-settings";
 import type { DetailLevel } from "./detail-level";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import {
+  isBrowserStorageReady,
+  readBrowserValue,
+  writeBrowserValue,
+} from "./browser-storage";
 import type { ModelCheckpointMap, ModelRefinerMap, ModelVaeMap } from "./model-checkpoint-map";
 import type { ModelLoraMap, SessionActiveLoraIdsByModel } from "./model-lora-map";
 import type { ModelUpscaleMap } from "./model-upscale-map";
@@ -331,6 +335,8 @@ export type VideoToolCache = {
   camera?: string;
   style?: string;
   durationSec?: number;
+  /** Last video-category model chosen on `/video` (survives other tools changing shared.model). */
+  model?: import("./comfy-models/client").ComfyImageModel;
   /** Optional I2V reference frame — a ComfyUI-uploaded filename or a fetchable URL. */
   initImageUrl?: string;
   /** Frame count / length fed to {{VIDEO_FRAMES}} at queue time. */
@@ -958,6 +964,11 @@ export function loadSettingsCache(): SettingsCache {
 
 export function saveSettingsCache(cache: SettingsCache): void {
   if (typeof window === "undefined") {
+    return;
+  }
+  // Refuse pre-hydrate writes — loadSettingsCache() returns defaults when the
+  // KV cache is still empty, and persisting that would wipe real IDB settings.
+  if (!isBrowserStorageReady()) {
     return;
   }
 

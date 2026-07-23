@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { whenBrowserStorageReady } from "@/lib/browser-storage";
+import {
+  isBrowserStorageReady,
+  whenBrowserStorageReady,
+} from "@/lib/browser-storage";
 import {
   DEFAULT_SHARED_SETTINGS,
   loadSettingsCache,
@@ -14,13 +17,35 @@ import {
 import { loadToolContext, saveToolContext } from "@/lib/tool-context-memory";
 import { COMFY_MODEL_IDS } from "@/lib/comfy-models/client";
 
+function applyToolContext(
+  shared: SharedToolSettings,
+  toolKey: string,
+): SharedToolSettings {
+  const memory = loadToolContext(toolKey);
+  if (!memory?.model && !memory?.selectedWorkflowFileId) {
+    return shared;
+  }
+  return {
+    ...shared,
+    ...(memory.model && COMFY_MODEL_IDS.has(memory.model)
+      ? { model: memory.model }
+      : {}),
+    ...(memory.selectedWorkflowFileId
+      ? { selectedWorkflowFileId: memory.selectedWorkflowFileId }
+      : {}),
+  };
+}
+
 export function useCachedSettings<K extends keyof ToolSettingsCache>(
   toolKey: K,
   toolDefaults: NonNullable<ToolSettingsCache[K]>,
 ) {
   const defaultsRef = useRef(toolDefaults);
-  const toolDirtyRef = useRef(false);
-  const sharedDirtyRef = useRef(false);
+  const hydratedRef = useRef(false);
+  const pendingSharedRef = useRef<Partial<SharedToolSettings> | null>(null);
+  const pendingToolRef = useRef<Partial<
+    NonNullable<ToolSettingsCache[K]>
+  > | null>(null);
   const [mounted, setMounted] = useState(false);
   const [shared, setShared] = useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
   const [toolSettings, setToolSettings] = useState<
@@ -33,40 +58,54 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
 
   useEffect(() => {
     let cancelled = false;
+    hydratedRef.current = false;
     void whenBrowserStorageReady().then(() => {
       if (cancelled) {
         return;
       }
       const cache = loadSettingsCache();
-      const memory = loadToolContext(String(toolKey));
-      let nextShared = cache.shared;
-      if (memory?.model || memory?.selectedWorkflowFileId) {
-        nextShared = {
-          ...cache.shared,
-          ...(memory.model && COMFY_MODEL_IDS.has(memory.model)
-            ? { model: memory.model }
-            : {}),
-          ...(memory.selectedWorkflowFileId
-            ? { selectedWorkflowFileId: memory.selectedWorkflowFileId }
-            : {}),
-        };
+      let nextShared = applyToolContext(cache.shared, String(toolKey));
+      if (
+        nextShared.model !== cache.shared.model ||
+        nextShared.selectedWorkflowFileId !== cache.shared.selectedWorkflowFileId
+      ) {
+        saveSharedSettings(nextShared);
+      }
+
+      const pendingShared = pendingSharedRef.current;
+      pendingSharedRef.current = null;
+      if (pendingShared && Object.keys(pendingShared).length > 0) {
+        nextShared = { ...nextShared, ...pendingShared };
+        saveSharedSettings(nextShared);
         if (
-          nextShared.model !== cache.shared.model ||
-          nextShared.selectedWorkflowFileId !== cache.shared.selectedWorkflowFileId
+          "model" in pendingShared ||
+          "selectedWorkflowFileId" in pendingShared
         ) {
-          saveSharedSettings(nextShared);
+          saveToolContext(String(toolKey), {
+            model: nextShared.model,
+            selectedWorkflowFileId: nextShared.selectedWorkflowFileId,
+          });
         }
       }
-      // Don't clobber edits made before IndexedDB finished hydrating.
-      if (!sharedDirtyRef.current) {
-        setShared(nextShared);
+
+      const defaults =
+        defaultsRef.current ??
+        ({} as NonNullable<ToolSettingsCache[K]>);
+      let nextTool = loadToolSettings(toolKey, defaults);
+      const pendingTool = pendingToolRef.current;
+      pendingToolRef.current = null;
+      if (pendingTool && Object.keys(pendingTool).length > 0) {
+        nextTool = { ...nextTool, ...pendingTool } as NonNullable<
+          ToolSettingsCache[K]
+        >;
+        saveToolSettings(toolKey, nextTool);
       }
-      if (!toolDirtyRef.current) {
-        const defaults =
-          defaultsRef.current ??
-          ({} as NonNullable<ToolSettingsCache[K]>);
-        setToolSettings(loadToolSettings(toolKey, defaults));
-      }
+
+      // Always replace React defaults with hydrated settings. Pre-hydrate edits
+      // are held in pending* refs and merged above — never block hydrate.
+      setShared(nextShared);
+      setToolSettings(nextTool);
+      hydratedRef.current = true;
       setMounted(true);
     });
     // toolDefaults are module-level constants; toolKey selects the cache slice
@@ -77,9 +116,21 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
 
   const updateShared = useCallback(
     (partial: Partial<SharedToolSettings>) => {
-      sharedDirtyRef.current = true;
-      setShared((previous) => {
-        const next = { ...previous, ...partial };
+      // Before IndexedDB hydrate, only update React optimistically and queue the
+      // patch. Persisting here would stamp DEFAULT_SHARED_SETTINGS over real data.
+      if (!hydratedRef.current || !isBrowserStorageReady()) {
+        pendingSharedRef.current = {
+          ...(pendingSharedRef.current ?? {}),
+          ...partial,
+        };
+        setShared((previous) => ({ ...previous, ...partial }));
+        return;
+      }
+
+      setShared(() => {
+        // RMW from persisted cache — not React previous — so a stale defaults
+        // render cannot wipe sampler/quality/maps on the next edit.
+        const next = { ...loadSettingsCache().shared, ...partial };
         saveSharedSettings(next);
         if ("model" in partial || "selectedWorkflowFileId" in partial) {
           saveToolContext(String(toolKey), {
@@ -95,7 +146,23 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
 
   const updateToolSettings = useCallback(
     (partial: Partial<NonNullable<ToolSettingsCache[K]>>) => {
-      toolDirtyRef.current = true;
+      if (!hydratedRef.current || !isBrowserStorageReady()) {
+        pendingToolRef.current = {
+          ...(pendingToolRef.current ?? {}),
+          ...partial,
+        };
+        setToolSettings((previous) => {
+          const defaults =
+            defaultsRef.current ??
+            ({} as NonNullable<ToolSettingsCache[K]>);
+          return {
+            ...(previous ?? defaults),
+            ...partial,
+          } as NonNullable<ToolSettingsCache[K]>;
+        });
+        return;
+      }
+
       setToolSettings((previous) => {
         const defaults =
           defaultsRef.current ??

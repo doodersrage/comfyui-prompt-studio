@@ -241,8 +241,8 @@ export function ensureVideoWorkflowScaffold(
     }
     // Existing mapped workflow: never touch customTokens on page load.
     // Heal the shared checkpoint map only (from workflow token / inventory).
+    // Do not stamp `model` — the Video tool owns last-selected model persistence.
     const sharedPatch: Partial<SharedToolSettings> = {
-      model,
       modelCheckpointMap: nextCheckpointMap,
     };
     // Only force the picker when nothing is selected yet.
@@ -333,12 +333,15 @@ export function ensureVideoWorkflowScaffold(
     }
   }
 
+  // Keep the user's workflow picker selection across /video reloads; only
+  // assign when nothing is selected yet.
   const sharedPatch: Partial<SharedToolSettings> = {
-    model,
-    selectedWorkflowFileId: workflow.id,
     modelWorkflowMap: nextMap,
     modelCheckpointMap: nextCheckpointMap,
   };
+  if (!shared.selectedWorkflowFileId?.trim()) {
+    sharedPatch.selectedWorkflowFileId = workflow.id;
+  }
   saveSharedSettings({
     ...shared,
     ...sharedPatch,

@@ -1,6 +1,7 @@
 import {
   COMFY_MODEL_IDS,
   DEFAULT_COMFY_MODEL,
+  DEFAULT_VIDEO_MODEL,
   getComfyModelDefinition,
   type ComfyImageModel,
 } from "./comfy-models/client";
@@ -50,6 +51,27 @@ export function isVideoModel(model: ComfyImageModel | string): boolean {
   return getComfyModelDefinition(model).category === "video";
 }
 
+/**
+ * Prefer the Video tool's last model, then a video shared model, else the
+ * default WAN target. Avoids snapping back to wan-video on every /video load
+ * when another tool left a still-image model in shared settings.
+ */
+export function resolvePreferredVideoModel(input: {
+  toolModel?: string | null;
+  sharedModel?: string | null;
+  fallback?: ComfyImageModel;
+}): ComfyImageModel {
+  const tool = input.toolModel?.trim();
+  if (tool && isVideoModel(tool)) {
+    return tool as ComfyImageModel;
+  }
+  const shared = input.sharedModel?.trim();
+  if (shared && isVideoModel(shared)) {
+    return shared as ComfyImageModel;
+  }
+  return input.fallback ?? DEFAULT_VIDEO_MODEL;
+}
+
 export function isAudioModel(model: ComfyImageModel | string): boolean {
   return getComfyModelDefinition(model).category === "audio";
 }
@@ -60,7 +82,7 @@ export function isMeshModel(model: ComfyImageModel | string): boolean {
 
 /** System FLUX/Qwen scaffolds don't cover these tools — don't snap their models away. */
 export function toolIgnoresSystemWorkflowSnap(tool?: string): boolean {
-  return tool === "audio" || tool === "mesh";
+  return tool === "audio" || tool === "mesh" || tool === "video";
 }
 
 export function isSceneGenerationModel(model: ComfyImageModel | string): boolean {

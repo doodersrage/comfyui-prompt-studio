@@ -71,6 +71,10 @@ import { ChipButton, FieldDivider, FieldLabel } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import {
+  isBrowserStorageReady,
+  whenBrowserStorageReady,
+} from "@/lib/browser-storage";
 import { useWorkspaceMode } from "@/hooks/useWorkspaceMode";
 import {
   workspaceControlsDefaultOpen,
@@ -184,6 +188,21 @@ export default function SharedToolControls({
   const selectedModel = getComfyModelDefinition(shared.model);
   const activeLimits = getDetailLimits(shared.detail, shared.model);
   const workflowSelection = useComfyWorkflowSelection();
+  const [storageReady, setStorageReady] = useState(() => isBrowserStorageReady());
+  useEffect(() => {
+    if (storageReady) {
+      return;
+    }
+    let cancelled = false;
+    void whenBrowserStorageReady().then(() => {
+      if (!cancelled) {
+        setStorageReady(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [storageReady]);
   const checkboxClass = `mt-1 h-4 w-4 rounded-[var(--radius-sm)] border-[var(--border-default)] bg-[var(--bg-muted)] ${accentRingClass()}`;
   const [samplerPreset, setSamplerPreset] = useState<ModelSamplerPresetTier>(() =>
     normalizeModelSamplerPresetTier(shared.modelSamplerPreset),
@@ -449,9 +468,12 @@ export default function SharedToolControls({
 
   // When the picker is limited to system families, snap unsupported picks off.
   // Hybrid mode (limit off) and Show all keep SDXL/etc. for mapped/manual workflows.
-  // Audio/mesh tools keep their own categories; snapping them to FLUX fights tool model locks
-  // and can infinite-loop (Maximum update depth).
+  // Audio/mesh/video tools keep their own categories; snapping them to FLUX fights
+  // tool model locks and can infinite-loop (Maximum update depth).
   useEffect(() => {
+    if (!storageReady) {
+      return;
+    }
     if (
       !shouldLimitSystemWorkflowPicker(shared) ||
       showAllModelsOverride ||
@@ -475,12 +497,16 @@ export default function SharedToolControls({
     shared.systemWorkflowsLimitPicker,
     shared.useSystemWorkflows,
     showAllModelsOverride,
+    storageReady,
     toolId,
   ]);
 
   const [inventoryTick, setInventoryTick] = useState(0);
 
   useEffect(() => {
+    if (!storageReady) {
+      return;
+    }
     if (shared.useSystemWorkflows !== true) {
       return;
     }
@@ -506,7 +532,7 @@ export default function SharedToolControls({
       cancelled = true;
       cancelIdle?.();
     };
-  }, [shared.useSystemWorkflows, shared.model]);
+  }, [shared.useSystemWorkflows, shared.model, storageReady]);
 
   const videoInitKey =
     toolId === "video"
@@ -585,6 +611,11 @@ export default function SharedToolControls({
 
   useEffect(() => {
     // Respect a persisted library/picker selection — do not replace it with auto-ranked defaults.
+    // Wait for IndexedDB hydrate so we don't auto-select against DEFAULT_SHARED_SETTINGS
+    // and persist a wipe of real generation settings.
+    if (!storageReady) {
+      return;
+    }
     if (selectedWorkflowId?.trim()) {
       return;
     }
@@ -601,6 +632,9 @@ export default function SharedToolControls({
       return;
     }
     scheduleAfterCommit(() => {
+      if (!isBrowserStorageReady()) {
+        return;
+      }
       setWorkflowSelectedIdRef.current(mappedWorkflowForModel);
       onWorkflowPresetChangeRef.current?.(mappedWorkflowForModel);
     });
@@ -608,6 +642,7 @@ export default function SharedToolControls({
     mappedWorkflowForModel,
     selectedWorkflowId,
     shared.autoSelectWorkflowForModel,
+    storageReady,
     workflowSelection.mounted,
   ]);
 
@@ -736,6 +771,9 @@ export default function SharedToolControls({
 
   // Snap Follow sidebar → Final when enabling system workflows (chips need an active profile).
   useEffect(() => {
+    if (!storageReady) {
+      return;
+    }
     if (shared.useSystemWorkflows !== true) {
       return;
     }
@@ -743,9 +781,12 @@ export default function SharedToolControls({
       return;
     }
     scheduleAfterCommit(() => {
+      if (!isBrowserStorageReady()) {
+        return;
+      }
       handleQueueQualityProfileChange("final");
     });
-  }, [shared.queueQualityProfile, shared.useSystemWorkflows]);
+  }, [shared.queueQualityProfile, shared.useSystemWorkflows, storageReady]);
 
   const handleExpandWildcardsChange = (value: boolean) => {
     setExpandWildcards(value);

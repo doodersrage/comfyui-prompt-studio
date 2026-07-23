@@ -458,7 +458,7 @@ export default function EnhancedPromptResult({
           </ToolBlockGroup>
         </ToolSection>
       ) : (
-        <PromptResultPanel {...panelProps} />
+        <PromptResultPanel {...panelProps} onOutputChange={onOutputChange} />
       )}
 
       <PromptDiagnosticsPanel diagnostics={diagnostics ?? null} />

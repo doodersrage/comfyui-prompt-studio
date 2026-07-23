@@ -12,12 +12,12 @@ import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
 import { getReformatTargetLabel } from "@/lib/reformat-target";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import { DEFAULT_VIDEO_TOOL_CACHE } from "@/lib/settings-cache";
-import { isVideoModel } from "@/lib/queue-tool-model";
+import { DEFAULT_VIDEO_TOOL_CACHE, loadSettingsCache } from "@/lib/settings-cache";
 import {
-  DEFAULT_VIDEO_MODEL,
-  type ComfyImageModel,
-} from "@/lib/comfy-models/client";
+  isVideoModel,
+  resolvePreferredVideoModel,
+} from "@/lib/queue-tool-model";
+import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import {
   sharedPatchFromGalleryHandoff,
   galleryPickPath,
@@ -177,10 +177,14 @@ export default function VideoPromptTool() {
 
       const sharedPatch = sharedPatchFromGalleryHandoff(handoff.payload);
       if (handoff.model?.trim()) {
+        const handoffModel = handoff.model.trim() as ComfyImageModel;
         updateShared({
-          model: handoff.model.trim() as ComfyImageModel,
+          model: handoffModel,
           ...sharedPatch,
         });
+        if (isVideoModel(handoffModel)) {
+          updateToolSettings({ model: handoffModel });
+        }
       } else if (Object.keys(sharedPatch).length > 0) {
         updateShared(sharedPatch);
       }
@@ -212,16 +216,53 @@ export default function VideoPromptTool() {
     fields: [subject, motion, camera, style],
   });
 
+  const preferredVideoModel = resolvePreferredVideoModel({
+    toolModel: toolSettings.model,
+    sharedModel: shared.model,
+  });
+
+  const setVideoModel = useCallback(
+    (model: ComfyImageModel) => {
+      updateShared({ model });
+      if (isVideoModel(model)) {
+        updateToolSettings({ model });
+      }
+    },
+    [updateShared, updateToolSettings],
+  );
+
   // Video prompts/workflows only make sense against WAN/Hunyuan video
-  // checkpoints — steer the shared model picker to a video model the moment
-  // this tool is open, rather than silently queueing against whatever
-  // still-image model another tool last left selected.
+  // checkpoints. Restore the last Video-tool model (tool cache) instead of
+  // always snapping to wan-video when another tool left a still-image model.
   useEffect(() => {
-    if (!mounted || isVideoModel(shared.model)) {
+    if (!mounted) {
       return;
     }
-    updateShared({ model: DEFAULT_VIDEO_MODEL });
-  }, [mounted, shared.model, updateShared]);
+    if (isVideoModel(shared.model)) {
+      if (!toolSettings.model || !isVideoModel(toolSettings.model)) {
+        updateToolSettings({ model: shared.model });
+      } else if (toolSettings.model !== shared.model) {
+        updateShared({ model: toolSettings.model });
+      }
+      return;
+    }
+    if (preferredVideoModel !== shared.model) {
+      updateShared({ model: preferredVideoModel });
+    }
+    if (
+      (!toolSettings.model || !isVideoModel(toolSettings.model)) &&
+      preferredVideoModel
+    ) {
+      updateToolSettings({ model: preferredVideoModel });
+    }
+  }, [
+    mounted,
+    preferredVideoModel,
+    shared.model,
+    toolSettings.model,
+    updateShared,
+    updateToolSettings,
+  ]);
 
   const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
   const [output, setOutput] = useState("");
@@ -229,10 +270,9 @@ export default function VideoPromptTool() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Create + assign a WAN video scaffold when none is mapped yet.
-  // Apply the full sharedPatch (including modelWorkflowMap + checkpoint map)
-  // so React state does not clobber settings with a stale partial update.
-  // Existing scaffolds keep their {{CHECKPOINT}} token — ensure must not rewrite it.
+  // Create + assign a video scaffold when none is mapped yet.
+  // Apply the sharedPatch (workflow/checkpoint maps) without clobbering the
+  // user's last-selected video model or workflow picker.
   useEffect(() => {
     if (!mounted) {
       return;
@@ -240,12 +280,22 @@ export default function VideoPromptTool() {
     let cancelled = false;
     void (async () => {
       try {
-        const model = isVideoModel(shared.model) ? shared.model : DEFAULT_VIDEO_MODEL;
+        const model = resolvePreferredVideoModel({
+          toolModel: toolSettings.model,
+          sharedModel: shared.model,
+        });
         const objectInfo = await fetchComfyObjectInfoCached();
         if (cancelled) {
           return;
         }
-        const result = ensureVideoWorkflowScaffold(model, {
+        // Re-read after the network wait — user may have changed model.
+        const latestShared = loadSettingsCache().shared.model;
+        const ensureModel = resolvePreferredVideoModel({
+          toolModel: toolSettings.model,
+          sharedModel: latestShared,
+          fallback: model,
+        });
+        const result = ensureVideoWorkflowScaffold(ensureModel, {
           inventory: objectInfo?.models ?? null,
         });
         if (cancelled) {
@@ -397,7 +447,7 @@ export default function VideoPromptTool() {
   // from another tool — effects sync storage, but controls need a video model now.
   const controlsShared = isVideoModel(shared.model)
     ? shared
-    : { ...shared, model: DEFAULT_VIDEO_MODEL as ComfyImageModel };
+    : { ...shared, model: preferredVideoModel };
 
   const pastedInitValue =
     initImageUrl === LOCAL_INIT_IMAGE_MARKER ? "" : initImageUrl;
@@ -413,7 +463,7 @@ export default function VideoPromptTool() {
         <SharedToolControls
           shared={controlsShared}
           toolId="video"
-          onModelChange={(model) => updateShared({ model })}
+          onModelChange={setVideoModel}
           onDetailChange={(detail) => updateShared({ detail })}
           onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
           autoFixRules={shared.autoFixRules !== false}

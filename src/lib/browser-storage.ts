@@ -275,7 +275,9 @@ export async function initBrowserStorage(): Promise<void> {
         HOT_KV_KEYS.map(async (key) => {
           try {
             const record = await db.kv.get(key);
-            if (record) {
+            // Keep in-flight writes — never let a slow IDB read clobber a
+            // newer value already queued in dirtyKeys.
+            if (record && !dirtyKeys.has(record.key)) {
               cache.set(record.key, record.value);
             }
           } catch {
@@ -286,7 +288,9 @@ export async function initBrowserStorage(): Promise<void> {
 
       const records = await db.kv.toArray();
       for (const record of records) {
-        cache.set(record.key, record.value);
+        if (!dirtyKeys.has(record.key)) {
+          cache.set(record.key, record.value);
+        }
       }
       await migrateLocalStorageToBrowserDb();
     } catch {
