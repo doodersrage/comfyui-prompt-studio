@@ -3,7 +3,7 @@ import { modelUsesNegativePrompt } from "./prompt-pair";
 
 export type RenderRealismMode = "off" | "realistic" | "hyper-realistic" | "anime";
 
-export const DEFAULT_RENDER_REALISM_MODE: RenderRealismMode = "off";
+export const DEFAULT_RENDER_REALISM_MODE: RenderRealismMode = "realistic";
 
 export const RENDER_REALISM_OPTIONS: {
   id: RenderRealismMode;

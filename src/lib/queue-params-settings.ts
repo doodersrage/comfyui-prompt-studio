@@ -155,6 +155,7 @@ export function resolveQueueParams(
   const presetTier = resolveEffectiveSamplerPreset(
     samplerPreset ?? loadModelSamplerPresetTier(),
     profile,
+    { model },
   );
   const orientation = resolutionOrientation ?? loadModelResolutionOrientation();
   const sizeTier = resolveEffectiveResolutionSizeTier(

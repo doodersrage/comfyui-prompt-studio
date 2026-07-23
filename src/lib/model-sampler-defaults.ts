@@ -230,7 +230,8 @@ function kleinBaseSamplerPresets(): Record<
     base: { steps: 24, cfg: 3.5, samplerName: "euler", scheduler: "simple" },
     optimized: { steps: 24, cfg: 4, samplerName: "euler", scheduler: "simple" },
     maxCompatible: { steps: 24, cfg: 4, samplerName: "res_2s", scheduler: "simple" },
-    max: { steps: 28, cfg: 4.5, samplerName: "euler", scheduler: "simple" },
+    // Match maxCompatible's anatomy-friendly sampler — euler@CFG4.5 warps hands/people.
+    max: { steps: 28, cfg: 4, samplerName: "res_2s", scheduler: "simple" },
   };
 }
 
@@ -559,9 +560,6 @@ export function formatKleinSamplerPeopleHint(
   if (isKleinBaseModel(model)) {
     if (tier === "base") {
       return "Use a Base workflow/checkpoint — distilled step counts (4 steps, CFG ~1) will warp Base output.";
-    }
-    if (tier === "max") {
-      return "Max quality raises CFG — if forms warp or colors clip, use Optimized or Max compat. instead.";
     }
     return null;
   }

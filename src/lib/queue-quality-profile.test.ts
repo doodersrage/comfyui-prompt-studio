@@ -22,6 +22,27 @@ describe("queue-quality-profile", () => {
     assert.equal(resolveEffectiveResolutionSizeTier("max", "draft"), "medium");
   });
 
+  it("floors full WAN / Rapid AIO Base to Optimized", () => {
+    assert.equal(
+      resolveEffectiveSamplerPreset("base", "followSettings", {
+        model: "wan-video",
+      }),
+      "optimized",
+    );
+    assert.equal(
+      resolveEffectiveSamplerPreset("base", "draft", {
+        model: "wan-video-rapid-aio",
+      }),
+      "optimized",
+    );
+    assert.equal(
+      resolveEffectiveSamplerPreset("base", "followSettings", {
+        model: "wan-video-lightning-4",
+      }),
+      "base",
+    );
+  });
+
   it("bumps final renders to at least optimized sampler and medium resolution", () => {
     assert.equal(resolveEffectiveSamplerPreset("base", "final"), "optimized");
     assert.equal(resolveEffectiveResolutionSizeTier("small", "final"), "medium");
@@ -89,6 +110,39 @@ describe("queue-quality-profile", () => {
     );
   });
 
+  it("promotes any model Draft to Final so keepers get enrich polish", async () => {
+    const { resolveQueueQualityProfile } = await import("./queue-quality-profile.ts");
+    assert.equal(
+      resolveQueueQualityProfile({
+        global: "draft",
+        model: "qwen-rapid-aio-nsfw",
+      }),
+      "final",
+    );
+    assert.equal(
+      resolveQueueQualityProfile({
+        global: "draft",
+        model: "flux-2-klein-9b-distilled",
+      }),
+      "final",
+    );
+    assert.equal(
+      resolveQueueQualityProfile({
+        global: "draft",
+        model: "wan-video",
+        tool: "video",
+      }),
+      "final",
+    );
+    assert.equal(
+      resolveQueueQualityProfile({
+        override: "draft",
+        model: "qwen-rapid-aio-nsfw",
+      }),
+      "draft",
+    );
+  });
+
   it("promotes Rapid AIO Draft to Final so moiré polish runs", async () => {
     const {
       resolveQueueQualityProfile,
@@ -101,13 +155,6 @@ describe("queue-quality-profile", () => {
       }),
       "final",
     );
-    assert.equal(
-      resolveQueueQualityProfile({
-        override: "draft",
-        model: "qwen-rapid-aio-nsfw",
-      }),
-      "draft",
-    );
     const notes = formatQueuePipelineStatusNotes({
       model: "qwen-rapid-aio-nsfw",
       qualityProfile: "final",
@@ -116,7 +163,7 @@ describe("queue-quality-profile", () => {
     assert.ok(notes.some((note) => /upscale skipped/i.test(note)));
   });
 
-  it("promotes vanilla 2512 Draft to Final for fuller Base sampling", async () => {
+  it("promotes vanilla 2512 and Lightning Draft to Final for keeper enrich", async () => {
     const { resolveQueueQualityProfile } = await import("./queue-quality-profile.ts");
     assert.equal(
       resolveQueueQualityProfile({
@@ -130,7 +177,7 @@ describe("queue-quality-profile", () => {
         global: "draft",
         model: "qwen-image-2512-lightning-8",
       }),
-      "draft",
+      "final",
     );
   });
 

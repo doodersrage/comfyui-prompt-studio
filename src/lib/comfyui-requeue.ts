@@ -718,6 +718,7 @@ export async function requeueFaceDetailFromGalleryEntry(
     const objectInfo = await fetchComfyObjectInfoNodeTypesCached().catch(() => null);
     const auto = buildAutoFaceDetailerWorkflow({
       availableNodeTypes: objectInfo ?? undefined,
+      model,
     });
     if (!auto.inserted) {
       return {

@@ -22,6 +22,7 @@ describe("sprint5 video recipes", () => {
   it("includes video in tool quality options and suggested profile final", () => {
     assert.ok(TOOL_QUEUE_QUALITY_OPTIONS.some((entry) => entry.id === "video"));
     assert.equal(SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES.video, "final");
+    assert.equal(SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES.generate, "final");
   });
 
   it("seeds video-draft and video-keeper recipes for the video tool", () => {

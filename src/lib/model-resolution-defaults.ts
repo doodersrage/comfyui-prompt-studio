@@ -269,7 +269,7 @@ const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolution
     square: {
       small: { width: 768, height: 768 },
       medium: { width: 1024, height: 1024 },
-      max: { width: 1152, height: 1152 },
+      max: { width: 1280, height: 1280 },
     },
     portrait: {
       small: { width: 768, height: 1024 },
@@ -410,7 +410,7 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
   "flux-2-klein": {
     square: {
       medium: { width: 1024, height: 1024 },
-      max: { width: 1024, height: 1024 },
+      max: { width: 1152, height: 1152 },
     },
     portrait: {
       medium: { width: 896, height: 1152 },
@@ -424,7 +424,7 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
   "flux-2-klein-4b-distilled": {
     square: {
       medium: { width: 1024, height: 1024 },
-      max: { width: 1024, height: 1024 },
+      max: { width: 1152, height: 1152 },
     },
     portrait: {
       medium: { width: 896, height: 1152 },
@@ -438,7 +438,7 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
   "flux-2-klein-9b": {
     square: {
       medium: { width: 1024, height: 1024 },
-      max: { width: 1152, height: 1152 },
+      max: { width: 1280, height: 1280 },
     },
     portrait: {
       medium: { width: 896, height: 1152 },
@@ -452,7 +452,7 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
   "flux-2-klein-9b-distilled": {
     square: {
       medium: { width: 1024, height: 1024 },
-      max: { width: 1152, height: 1152 },
+      max: { width: 1280, height: 1280 },
     },
     portrait: {
       medium: { width: 896, height: 1152 },

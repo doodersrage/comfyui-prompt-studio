@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DEFAULT_SHIFT_TOKEN } from "./comfyui-config.ts";
-import { enrichWorkflowGraph } from "./workflow-graph-enrich.ts";
+import { enrichVideoSavePolish, enrichWorkflowGraph } from "./workflow-graph-enrich.ts";
 
 const TOKENS = {
   positive: "{{POSITIVE}}",
@@ -101,7 +101,12 @@ describe("workflow-graph-enrich", () => {
       enrichSampling: false,
     });
 
-    assert.equal(result.changes.length, 1);
+    assert.ok(result.changes.length >= 1);
+    assert.ok(
+      result.changes.some((change) =>
+        /ImageScale|Lanczos|upscale/i.test(change.message),
+      ),
+    );
     const saveNode = result.workflow["8"] as { inputs: { images: [string, number] } };
     const scaleId = saveNode.inputs.images[0];
     const scaleNode = result.workflow[scaleId] as {
@@ -1123,5 +1128,45 @@ describe("workflow-graph-enrich", () => {
     };
     assert.equal(refinerSampler.class_type, "KSampler");
     assert.equal(refinerSampler.inputs.denoise, 0.22);
+  });
+
+  it("raises SaveAnimatedWEBP quality on Final/Max video queues", () => {
+    const base = {
+      "7": {
+        class_type: "SaveAnimatedWEBP",
+        inputs: {
+          images: ["6", 0],
+          filename_prefix: "PromptStudio",
+          fps: 16,
+          lossless: false,
+          quality: 90,
+          method: "default",
+        },
+      },
+    };
+
+    const finalWorkflow = structuredClone(base);
+    const finalChanges = enrichVideoSavePolish({
+      workflow: finalWorkflow,
+      qualityProfile: "final",
+    });
+    assert.ok(finalChanges.some((change) => /quality to 95/i.test(change.message)));
+    assert.equal(finalWorkflow["7"].inputs.quality, 95);
+
+    const maxWorkflow = structuredClone(base);
+    const maxChanges = enrichVideoSavePolish({
+      workflow: maxWorkflow,
+      qualityProfile: "max",
+    });
+    assert.ok(maxChanges.some((change) => /quality to 98/i.test(change.message)));
+    assert.equal(maxWorkflow["7"].inputs.quality, 98);
+
+    assert.equal(
+      enrichVideoSavePolish({
+        workflow: structuredClone(base),
+        qualityProfile: "draft",
+      }).length,
+      0,
+    );
   });
 });

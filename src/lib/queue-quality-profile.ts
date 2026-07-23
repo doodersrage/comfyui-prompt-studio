@@ -81,25 +81,55 @@ export function normalizeQueueQualityProfile(
 export function resolveEffectiveSamplerPreset(
   userPreset: ModelSamplerPresetTier | undefined,
   profile: QueueQualityProfile | undefined,
+  options?: { model?: string },
 ): ModelSamplerPresetTier {
   const user = normalizeModelSamplerPresetTier(userPreset);
   const mode = normalizeQueueQualityProfile(profile);
 
+  let tier: ModelSamplerPresetTier;
   if (mode === "followSettings") {
-    return user;
-  }
-  if (mode === "draft") {
-    return "base";
-  }
-  if (mode === "final") {
-    return SAMPLER_TIER_ORDER[
+    tier = user;
+  } else if (mode === "draft") {
+    tier = "base";
+  } else if (mode === "final") {
+    tier = SAMPLER_TIER_ORDER[
       Math.max(samplerTierRank(user), samplerTierRank("optimized"))
     ]!;
+  } else {
+    // Max uses the full max sampler tier (steps/CFG ceiling), not maxCompatible.
+    tier = SAMPLER_TIER_ORDER[
+      Math.max(samplerTierRank(user), samplerTierRank("max"))
+    ]!;
   }
-  // Max uses the full max sampler tier (steps/CFG ceiling), not maxCompatible.
-  return SAMPLER_TIER_ORDER[
-    Math.max(samplerTierRank(user), samplerTierRank("max"))
-  ]!;
+
+  return applyVideoSamplerQualityFloor(tier, options?.model);
+}
+
+/**
+ * Full WAN / Hunyuan / LTX (and WAN Rapid AIO) keepers should not stay on Base —
+ * Base undercooks motion continuity. Lightning is fixed 4-step so floor is a no-op.
+ */
+export function applyVideoSamplerQualityFloor(
+  tier: ModelSamplerPresetTier,
+  model?: string,
+): ModelSamplerPresetTier {
+  const id = String(model ?? "").trim();
+  if (!id || tier !== "base") {
+    return tier;
+  }
+  if (/wan.*lightning-(4|8)\b/i.test(id)) {
+    return tier;
+  }
+  if (
+    /^wan-video$/i.test(id) ||
+    /wan.*rapid[\s_-]*aio/i.test(id) ||
+    id === "wan-video-rapid-aio" ||
+    /^hunyuan-video$/i.test(id) ||
+    /^ltx-video$/i.test(id)
+  ) {
+    return "optimized";
+  }
+  return tier;
 }
 
 export function resolveEffectiveResolutionSizeTier(
@@ -146,7 +176,9 @@ export function formatQueueQualityProfileHint(
     return null;
   }
 
-  const effectivePreset = resolveEffectiveSamplerPreset(userPreset, profile);
+  const effectivePreset = resolveEffectiveSamplerPreset(userPreset, profile, {
+    model: options?.model,
+  });
   const model = options?.model?.trim() ?? "";
   const isRapid = /^qwen-rapid-aio-/i.test(model);
   const isWanRapid = /wan.*rapid[\s_-]*aio/i.test(model) || model === "wan-video-rapid-aio";
@@ -237,22 +269,13 @@ export function resolveQueueQualityProfile(input: {
       ? normalizeQueueQualityProfile(input.toolProfiles[tool])
       : normalizeQueueQualityProfile(input.global);
 
-  // Rapid AIO moiré polish only runs on Final/Max — bump Draft so Generate stays clean.
-  // Vanilla 2512 Base undercooks similarly — promote Draft → Final for fuller steps/CFG.
-  // Compose/Transfer on Edit Lightning needs Final for mild Lanczos polish.
-  if (profile === "draft" && input.model) {
-    const modelId = String(input.model).trim();
-    if (
-      /^qwen-rapid-aio-/i.test(modelId) ||
-      /^qwen-image-2512$/i.test(modelId)
-    ) {
-      return "final";
-    }
+  // Draft skips Final/Max enrich (upscale, moiré, latent detail). Promote to Final
+  // whenever a model is selected so system-workflow keepers get polish by default.
+  // Explicit per-queue override: "draft" still wins (checked above).
+  if (profile === "draft" && input.model?.trim()) {
+    return "final";
   }
-  if (
-    profile === "draft" &&
-    input.tool?.trim() === "compose"
-  ) {
+  if (profile === "draft" && input.tool?.trim() === "compose") {
     return "final";
   }
 
@@ -298,11 +321,13 @@ export function formatQueuePipelineStatusNotes(input: {
     const label = input.systemWorkflowLabel?.trim();
     if (label && /·/.test(label)) {
       notes.push(label.replace(/^Built-in scaffold/i, "system scaffold"));
-    } else if (/^(wan|hunyuan|ltx)-video$/i.test(model) || /ltx/i.test(model)) {
+    } else if (/^(wan|hunyuan|ltx)-video/i.test(model) || /ltx/i.test(model) || /wan-video/i.test(model)) {
       notes.push(
         /ltx/i.test(model)
           ? "system scaffold · LTX I2V needs pack"
-          : "system scaffold · prefer video pack for I2V",
+          : input.hasInputImage
+            ? "system scaffold · I2V init set — prefer I2V pack for best motion"
+            : "system scaffold · prefer video pack for I2V",
       );
     } else {
       notes.push("system scaffold");

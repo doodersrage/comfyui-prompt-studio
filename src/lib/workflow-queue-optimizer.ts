@@ -613,7 +613,9 @@ export function optimizeWorkflowForQueue(input: {
   if (input.model) {
     const samplingParams = resolveModelSamplingParams(
       input.model,
-      resolveEffectiveSamplerPreset("base", input.qualityProfile),
+      resolveEffectiveSamplerPreset("base", input.qualityProfile, {
+        model: input.model,
+      }),
     );
     const samplingPatch = patchModelSamplingInWorkflow(
       workflow,

@@ -40,9 +40,9 @@ export type ToolQueueQualityProfiles = Partial<Record<string, QueueQualityProfil
 
 /** Suggested per-tool queue profiles (merged into Settings; explicit tool overrides win). */
 export const SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES: ToolQueueQualityProfiles = {
-  generate: "draft",
-  variations: "draft",
-  topics: "draft",
+  generate: "final",
+  variations: "final",
+  topics: "final",
   character: "final",
   refine: "final",
   inpaint: "final",
@@ -52,6 +52,9 @@ export const SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES: ToolQueueQualityProfiles = {
   audio: "final",
   mesh: "final",
   duo: "final",
+  pet: "final",
+  fantasy: "final",
+  background: "final",
   format: "followSettings",
 };
 

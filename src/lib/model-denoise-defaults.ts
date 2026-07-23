@@ -144,6 +144,12 @@ export function resolveDenoiseForModel(
     return 1;
   }
 
+  // Generate is T2I-first — leftover init-image session state must not soft-denoise
+  // the whole latent (0.65 mush). Soft denoise only for true edit tools / masks.
+  if (options?.tool === "generate" && !options?.hasMaskImage && !isInpaintModel(model)) {
+    return 1;
+  }
+
   if (options?.override != null && options.override.toString().trim() !== "") {
     return clampDenoise(Number(options.override));
   }

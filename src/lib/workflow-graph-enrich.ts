@@ -1046,13 +1046,21 @@ function enrichUpscaleNodes(input: {
       {
         kind: "audit",
         severity: "warn",
-        message: `Neural upscaler “${mapped}” not installed in ComfyUI — using Lanczos Final/Max upscale instead.`,
+        message: `Neural upscaler “${mapped}” not installed in ComfyUI — using Lanczos Final/Max upscale instead. Map an installed 4× model in Settings → Upscale, or install 4x-UltraSharp.`,
       },
       ...lanczosChanges,
     ];
   }
 
-  return lanczosChanges;
+  return [
+    {
+      kind: "audit",
+      severity: "warn",
+      message:
+        "No neural upscaler mapped or installed — using Lanczos Final/Max upscale. Install 4x-UltraSharp (or similar) and map it in Settings → Upscale for sharper keepers.",
+    },
+    ...lanczosChanges,
+  ];
 }
 
 /** Soft blur (+ optional mild resample on Max) before SaveImage — Rapid AIO moiré cleanup. */
@@ -1164,6 +1172,50 @@ function enrichRapidAioMoirePolish(input: {
   return changes;
 }
 
+/**
+ * Final/Max video scaffold polish — Raise SaveAnimatedWEBP quality (Draft keeps
+ * scaffold defaults). Does not touch temporal sampling; VRAM-safe.
+ */
+export function enrichVideoSavePolish(input: {
+  workflow: Record<string, WorkflowNode>;
+  qualityProfile?: QueueQualityProfile;
+}): WorkflowQueueOptimizeChange[] {
+  if (!profileUsesUpscaleEnrich(input.qualityProfile)) {
+    return [];
+  }
+  const mode = input.qualityProfile === "max" ? "max" : "final";
+  const targetQuality = mode === "max" ? 98 : 95;
+  const changes: WorkflowQueueOptimizeChange[] = [];
+
+  for (const [, node] of Object.entries(input.workflow)) {
+    if (node.class_type !== "SaveAnimatedWEBP" || !node.inputs) {
+      continue;
+    }
+    const prevQuality = Number(node.inputs.quality);
+    let touched = false;
+    if (!Number.isFinite(prevQuality) || prevQuality < targetQuality) {
+      node.inputs.quality = targetQuality;
+      touched = true;
+    }
+    if (touched) {
+      const title = node._meta?.title ?? "";
+      if (!title.includes(PROMPT_STUDIO_META_PREFIX)) {
+        node._meta = {
+          ...(node._meta ?? {}),
+          title: `${PROMPT_STUDIO_META_PREFIX} video WEBP ${mode}`,
+        };
+      }
+      changes.push({
+        kind: "audit",
+        severity: "info",
+        message: `Raised SaveAnimatedWEBP quality to ${targetQuality} for ${mode} video queue.`,
+      });
+    }
+  }
+
+  return changes;
+}
+
 export function enrichWorkflowGraph(input: {
   workflow: Record<string, unknown>;
   tokens: WorkflowPlaceholderTokens;
@@ -1241,6 +1293,13 @@ export function enrichWorkflowGraph(input: {
       workflow,
       qualityProfile: input.qualityProfile,
       model: input.model,
+    }),
+  );
+
+  changes.push(
+    ...enrichVideoSavePolish({
+      workflow,
+      qualityProfile: input.qualityProfile,
     }),
   );
 

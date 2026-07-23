@@ -13,7 +13,7 @@ describe("render realism", () => {
     assert.equal(normalizeRenderRealismMode("hyper-realistic"), "hyper-realistic");
     assert.equal(normalizeRenderRealismMode("anime"), "anime");
     assert.equal(normalizeRenderRealismMode("animation"), "anime");
-    assert.equal(normalizeRenderRealismMode(undefined), "off");
+    assert.equal(normalizeRenderRealismMode(undefined), "realistic");
   });
 
   it("appends realistic cues to positive prompts", () => {

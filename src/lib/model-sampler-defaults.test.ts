@@ -257,6 +257,12 @@ describe("model sampler defaults", () => {
       samplerName: "res_2s",
       scheduler: "simple",
     });
+    assert.deepEqual(getModelSamplerDefaults("flux-2-klein-9b", "max"), {
+      steps: 28,
+      cfg: 4,
+      samplerName: "res_2s",
+      scheduler: "simple",
+    });
     assert.deepEqual(getModelSamplerDefaults("flux-2-klein-9b", "optimized"), {
       steps: 24,
       cfg: 4,

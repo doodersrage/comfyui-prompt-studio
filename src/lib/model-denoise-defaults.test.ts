@@ -29,6 +29,23 @@ describe("model denoise defaults", () => {
     );
   });
 
+  it("keeps denoise 1 on Generate even with a leftover init image", () => {
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-2512", {
+        tool: "generate",
+        hasInputImage: true,
+      }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("flux-2-klein-9b", {
+        tool: "generate",
+        hasInputImage: true,
+      }),
+      1,
+    );
+  });
+
   it("returns inpaint denoise for flux inpaint in edit context", () => {
     assert.equal(resolveDenoiseForModel("flux-inpaint", { tool: "refine" }), 0.75);
   });

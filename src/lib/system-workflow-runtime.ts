@@ -789,6 +789,7 @@ export function buildSystemWorkflowQueueParams(
       shared.modelSamplerPreset ?? DEFAULT_MODEL_SAMPLER_PRESET_TIER,
     ),
     profile,
+    { model },
   );
   const orientation = normalizeResolutionOrientation(
     shared.modelResolutionOrientation ?? DEFAULT_RESOLUTION_ORIENTATION,
@@ -1114,7 +1115,8 @@ export function describeSystemWorkflowChoice(
       honesty =
         "no video checkpoint mapped — prefer a UNET-based video pack";
     } else if (preferI2v) {
-      honesty = "Checkpoint T2V only — prefer an I2V pack";
+      honesty =
+        "Checkpoint T2V scaffold with init image — auto-wires Wan/Hunyuan I2V when possible; import an I2V pack for best motion quality";
     }
     return {
       source: "scaffold",

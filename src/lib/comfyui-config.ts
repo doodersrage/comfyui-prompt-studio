@@ -326,6 +326,7 @@ export function resolveQueueParams(
   const presetTier = resolveEffectiveSamplerPreset(
     "base",
     runtime?.queueQualityProfile,
+    { model },
   );
   const modelSampler = model ? resolveModelSamplerParams(model, presetTier) : undefined;
   const modelResolution = model
@@ -1561,6 +1562,7 @@ export function injectPromptsWithFallbacks(
       options?.qualityProfile != null
         ? normalizeQueueQualityProfile(options.qualityProfile)
         : undefined,
+      { model: distilledModelId },
     );
     const distilledSampler = ensureDistilledSamplerParams(
       input.params ?? {},
