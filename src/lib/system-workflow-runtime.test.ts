@@ -12,10 +12,13 @@ import {
   resolveSystemLoaderMaps,
   resolveSystemWorkflowFallbackModel,
   resolveSystemWorkflowForModel,
+  shouldLimitSystemWorkflowPicker,
   softBindScaffoldFromInventory,
   softRepairPackLoadersFromInventory,
+  usesSystemWorkflowPath,
 } from "./system-workflow-runtime.ts";
 import { buildWorkflowScaffoldForModel } from "./workflow-scaffold.ts";
+import { scoreWorkflowGraphStructure } from "./workflow-category-defaults.ts";
 
 function fakeWorkflow(
   partial: Partial<ComfyWorkflowFile> & Pick<ComfyWorkflowFile, "id" | "name">,
@@ -967,6 +970,17 @@ describe("system-workflow-runtime", () => {
         ?.file.id,
       "style-pack",
     );
+    const repairedCn = softRepairPackLoadersFromInventory(
+      withControlNet.workflowJson!,
+      "qwen-image-2512",
+      inventory,
+    );
+    assert.ok(
+      repairedCn.droppedSecondaries.some((entry) =>
+        entry.includes("missing_canny.pth"),
+      ),
+    );
+    assert.doesNotMatch(repairedCn.workflowJson, /ControlNetLoader/);
     const repaired = softRepairPackLoadersFromInventory(
       withStyleLora.workflowJson!,
       "qwen-image-2512",
@@ -1093,5 +1107,176 @@ describe("system-workflow-runtime", () => {
     );
     assert.ok(repaired.droppedLoras.includes("missing_style.safetensors"));
     assert.match(repaired.workflowJson, /"on":\s*false/);
+  });
+
+  it("strips missing ControlNet Apply chains on plain T2I soft-repair", () => {
+    const json = JSON.stringify({
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+      },
+      "2": {
+        class_type: "CLIPLoader",
+        inputs: {
+          clip_name: "qwen_2.5_vl_7b.safetensors",
+          type: "qwen_image",
+        },
+      },
+      "3": {
+        class_type: "VAELoader",
+        inputs: { vae_name: "qwen_image_vae.safetensors" },
+      },
+      "4": {
+        class_type: "ControlNetLoader",
+        inputs: { control_net_name: "missing_canny.pth" },
+      },
+      "5": {
+        class_type: "ControlNetApply",
+        inputs: {
+          positive: ["2", 0],
+          control_net: ["4", 0],
+          image: ["99", 0],
+          strength: 0.8,
+        },
+      },
+      "6": {
+        class_type: "KSampler",
+        inputs: { model: ["1", 0], positive: ["5", 0] },
+      },
+    });
+    const inventory = {
+      ...emptyInventory,
+      unets: ["qwen_image_2512_bf16.safetensors"],
+      clips: ["qwen_2.5_vl_7b.safetensors"],
+      vaes: ["qwen_image_vae.safetensors"],
+      controlNets: [] as string[],
+    };
+    const repaired = softRepairPackLoadersFromInventory(
+      json,
+      "qwen-image-2512",
+      inventory,
+    );
+    assert.ok(
+      repaired.droppedSecondaries.some((entry) =>
+        entry.includes("missing_canny.pth"),
+      ),
+    );
+    assert.doesNotMatch(repaired.workflowJson, /ControlNetLoader/);
+    assert.doesNotMatch(repaired.workflowJson, /ControlNetApply/);
+    assert.match(repaired.workflowJson, /"positive":\s*\[\s*"2",\s*0\s*\]/);
+  });
+
+  it("accepts poorly named packs when graph structure matches", () => {
+    const pack = fakeWorkflow({
+      id: "opaque-qwen",
+      name: "community graph v3",
+      filename: "graph_v3.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "UNETLoader",
+          inputs: { unet_name: "qwen_image_2512_bf16.safetensors" },
+        },
+        "2": {
+          class_type: "CLIPLoader",
+          inputs: {
+            clip_name: "qwen_2.5_vl_7b.safetensors",
+            type: "qwen_image",
+          },
+        },
+        "3": {
+          class_type: "VAELoader",
+          inputs: { vae_name: "qwen_image_vae.safetensors" },
+        },
+        "4": {
+          class_type: "TextEncodeQwenImage",
+          inputs: { clip: ["2", 0], prompt: "{{POSITIVE}}" },
+        },
+        "5": {
+          class_type: "EmptyLatentImage",
+          inputs: { width: 1328, height: 1328 },
+        },
+        "6": {
+          class_type: "KSampler",
+          inputs: {
+            model: ["1", 0],
+            positive: ["4", 0],
+            latent_image: ["5", 0],
+          },
+        },
+      }),
+    });
+    const inventory = {
+      ...emptyInventory,
+      unets: ["qwen_image_2512_bf16.safetensors"],
+      clips: ["qwen_2.5_vl_7b.safetensors"],
+      vaes: ["qwen_image_vae.safetensors"],
+    };
+    assert.ok(scoreWorkflowGraphStructure(pack.workflowJson, "qwen-image-2512") >= 4);
+    assert.equal(
+      pickPackWorkflowForModel("qwen-image-2512", [pack], inventory)?.file.id,
+      "opaque-qwen",
+    );
+  });
+
+  it("prefers the fittest I2V pack when preferI2v is set", () => {
+    const weak = fakeWorkflow({
+      id: "wan-i2v-weak",
+      name: "wan video i2v weak",
+      filename: "wan_i2v_weak.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "CheckpointLoaderSimple",
+          inputs: { ckpt_name: "wan2.1_i2v_near.safetensors" },
+        },
+        "2": { class_type: "WanImageToVideo", inputs: { model: ["1", 0] } },
+      }),
+    });
+    const strong = fakeWorkflow({
+      id: "wan-i2v-strong",
+      name: "wan video i2v strong",
+      filename: "wan_i2v_strong.json",
+      workflowJson: JSON.stringify({
+        "1": {
+          class_type: "CheckpointLoaderSimple",
+          inputs: { ckpt_name: "wan2.1_i2v_14B_fp8_scaled.safetensors" },
+        },
+        "2": { class_type: "WanImageToVideo", inputs: { model: ["1", 0] } },
+      }),
+    });
+    const inventory = {
+      ...emptyInventory,
+      checkpoints: [
+        "wan2.1_i2v_14B_fp8_scaled.safetensors",
+        "wan2.1_i2v_near_fp8.safetensors",
+      ],
+    };
+    assert.equal(
+      pickPackWorkflowForModel("wan-video", [weak, strong], inventory, {
+        preferI2v: true,
+      })?.file.id,
+      "wan-i2v-strong",
+    );
+  });
+
+  it("hybrid helpers: system path only for supported families", () => {
+    assert.equal(
+      usesSystemWorkflowPath({ useSystemWorkflows: true }, "qwen-image-2512"),
+      true,
+    );
+    assert.equal(
+      usesSystemWorkflowPath({ useSystemWorkflows: true }, "sdxl"),
+      false,
+    );
+    assert.equal(
+      shouldLimitSystemWorkflowPicker({
+        useSystemWorkflows: true,
+        systemWorkflowsLimitPicker: false,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldLimitSystemWorkflowPicker({ useSystemWorkflows: true }),
+      true,
+    );
   });
 });

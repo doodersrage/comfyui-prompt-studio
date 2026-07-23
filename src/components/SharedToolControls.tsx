@@ -58,6 +58,8 @@ import {
   isSystemWorkflowSupportedModel,
   listSystemWorkflowSupportedModels,
   resolveSystemWorkflowFallbackModel,
+  shouldLimitSystemWorkflowPicker,
+  usesSystemWorkflowPath,
 } from "@/lib/system-workflow-runtime";
 import { readCachedComfyObjectInfoModels } from "@/lib/comfyui-object-info-cache";
 import { scanAndAdaptSystemWorkflowInventory } from "@/lib/comfyui-runtime-for-model";
@@ -293,7 +295,8 @@ export default function SharedToolControls({
           : supportedModels.models;
 
     if (
-      shared.useSystemWorkflows !== true ||
+      !shouldLimitSystemWorkflowPicker(shared) ||
+      showAllModelsOverride ||
       toolIgnoresSystemWorkflowSnap(toolId)
     ) {
       return base.length > 0 ? base : supportedModels.models;
@@ -310,6 +313,7 @@ export default function SharedToolControls({
     );
   }, [
     showAllModelsOverride,
+    shared.systemWorkflowsLimitPicker,
     shared.useSystemWorkflows,
     supportedModels.models,
     toolId,
@@ -443,11 +447,16 @@ export default function SharedToolControls({
     });
   }, []);
 
-  // System workflows only support FLUX / Qwen / video scaffolds — snap off unsupported picks.
+  // When the picker is limited to system families, snap unsupported picks off.
+  // Hybrid mode (limit off) and Show all keep SDXL/etc. for mapped/manual workflows.
   // Audio/mesh tools keep their own categories; snapping them to FLUX fights tool model locks
   // and can infinite-loop (Maximum update depth).
   useEffect(() => {
-    if (shared.useSystemWorkflows !== true || toolIgnoresSystemWorkflowSnap(toolId)) {
+    if (
+      !shouldLimitSystemWorkflowPicker(shared) ||
+      showAllModelsOverride ||
+      toolIgnoresSystemWorkflowSnap(toolId)
+    ) {
       return;
     }
     if (isSystemWorkflowSupportedModel(shared.model)) {
@@ -463,7 +472,9 @@ export default function SharedToolControls({
     onModelChange,
     pickerModels,
     shared.model,
+    shared.systemWorkflowsLimitPicker,
     shared.useSystemWorkflows,
+    showAllModelsOverride,
     toolId,
   ]);
 
@@ -504,7 +515,7 @@ export default function SharedToolControls({
       : "";
 
   const systemWorkflowChoice = useMemo(() => {
-    if (shared.useSystemWorkflows !== true) {
+    if (!usesSystemWorkflowPath(shared, shared.model)) {
       return null;
     }
     try {
@@ -528,6 +539,7 @@ export default function SharedToolControls({
   }, [
     inventoryTick,
     shared.model,
+    shared.systemWorkflowsLimitPicker,
     shared.useSystemWorkflows,
     videoInitKey,
     workflowCatalog,
@@ -535,7 +547,7 @@ export default function SharedToolControls({
   ]);
 
   const systemQualityHint = useMemo(() => {
-    if (shared.useSystemWorkflows !== true) {
+    if (!usesSystemWorkflowPath(shared, shared.model)) {
       return null;
     }
     if (
@@ -559,9 +571,13 @@ export default function SharedToolControls({
     shared.useSystemWorkflows,
   ]);
 
-  const modelFilterHint =
-    shared.useSystemWorkflows === true
-      ? `System scaffolds cover FLUX, Qwen, and video (${pickerModels.length} models).`
+  const systemPathActive = usesSystemWorkflowPath(shared, shared.model);
+  const modelFilterHint = systemPathActive
+    ? shouldLimitSystemWorkflowPicker(shared) && !showAllModelsOverride
+      ? `System path · FLUX / Qwen / video (${pickerModels.length} models).`
+      : `System path for this model (${pickerModels.length} in picker).`
+    : shared.useSystemWorkflows === true
+      ? `Hybrid · mapped/manual workflow for this model (${pickerModels.length} in picker).`
       : supportedModelsFilterHint(
           supportedModels.source,
           supportedModels.models.length,
@@ -854,14 +870,14 @@ export default function SharedToolControls({
       <div className="space-y-4">
         <FieldLabel
           hint={
-            shared.useSystemWorkflows === true
+            systemPathActive
               ? undefined
               : shared.autoSelectWorkflowForModel !== false
                 ? "Choosing a model auto-selects its mapped ComfyUI workflow below (when configured)."
                 : "Shared across tools and remembered between page reloads."
           }
         >
-          {shared.useSystemWorkflows === true ? "Model" : "Target model"}
+          {systemPathActive ? "Model" : "Target model"}
         </FieldLabel>
         <ModelSelector
           value={shared.model}
@@ -872,15 +888,13 @@ export default function SharedToolControls({
           }
           filterHint={modelFilterHint}
           onShowAllModels={
-            shared.useSystemWorkflows === true ||
-            showAllModelsOverride ||
-            supportedModels.source === "disabled"
+            showAllModelsOverride || supportedModels.source === "disabled"
               ? undefined
               : handleShowAllModels
           }
           onChange={handleModelChange}
         />
-        {shared.useSystemWorkflows === true ? (
+        {systemPathActive ? (
           <div className="space-y-2">
             <FieldLabel hint="Steps, resolution, and polish scale with this choice.">
               Queue quality
@@ -986,16 +1000,18 @@ export default function SharedToolControls({
 
       {onWorkflowPresetChange &&
         workflowSelection.mounted &&
-        shared.useSystemWorkflows !== true && (
+        !usesSystemWorkflowPath(shared, shared.model) && (
         <ComfyWorkflowSelector
           selectedId={selectedWorkflowId}
           defaultLabel={workflowSelection.defaultLabel}
           localFiles={workflowSelection.localFiles}
           serverFiles={workflowSelection.serverFiles}
           helpText={
-            shared.autoSelectWorkflowForModel !== false
-              ? "Your picker choice is used at queue time unless Settings → model→workflow map assigns a file for this model."
-              : undefined
+            shared.useSystemWorkflows === true
+              ? "This model is outside the system-workflow families — pick a library graph (or map one in Settings)."
+              : shared.autoSelectWorkflowForModel !== false
+                ? "Your picker choice is used at queue time unless Settings → model→workflow map assigns a file for this model."
+                : undefined
           }
           onChange={(fileId) => {
             workflowManualOverrideRef.current = true;
@@ -1033,7 +1049,7 @@ export default function SharedToolControls({
       <CollapsibleSection
         title="Quality & sampling"
         summary={
-          shared.useSystemWorkflows === true
+          systemPathActive
             ? "Sampler, resolution, realism, and anatomy overrides."
             : "Sampler, resolution, queue quality, realism, anatomy, and model recommendations."
         }
@@ -1054,7 +1070,7 @@ export default function SharedToolControls({
           onSizeTierChange={handleResolutionSizeTierChange}
         />
 
-        {shared.useSystemWorkflows !== true ? (
+        {!systemPathActive ? (
           <>
             <QueueQualityProfileHints
               profile={queueQualityProfile}

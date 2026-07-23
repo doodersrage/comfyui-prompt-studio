@@ -74,7 +74,10 @@ import {
   pickLightningLoraFromInventory,
   softRepairPackLoadersFromInventory,
 } from "./system-workflow-pack-loaders";
-import { rankWorkflowFilesForModel } from "./workflow-category-defaults";
+import {
+  rankWorkflowFilesForModel,
+  scoreWorkflowGraphStructure,
+} from "./workflow-category-defaults";
 import { workflowHasLoraLoader } from "./workflow-lightning-queue";
 import { lightningLoraMatchesModel } from "./workflow-lora-patch";
 import {
@@ -103,6 +106,39 @@ export type {
 
 /** Minimum rank score before a library graph can beat the built-in scaffold. */
 export const SYSTEM_WORKFLOW_MIN_PACK_SCORE = 6;
+
+/**
+ * Absolute floor when graph structure strongly matches the model family
+ * (lets poorly named official packs still beat scaffolds).
+ */
+export const SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE = 4;
+
+/** True when system workflows should resolve packs/scaffolds for this model. */
+export function usesSystemWorkflowPath(
+  shared: Pick<SharedToolSettings, "useSystemWorkflows">,
+  model: ComfyImageModel | string,
+): boolean {
+  return (
+    shared.useSystemWorkflows === true && isSystemWorkflowSupportedModel(model)
+  );
+}
+
+/**
+ * When system workflows are on, limit the picker to FLUX/Qwen/video (default).
+ * Hybrid mode (`systemWorkflowsLimitPicker: false`) keeps all models and falls
+ * back to mapped/manual workflows for unsupported families.
+ */
+export function shouldLimitSystemWorkflowPicker(
+  shared: Pick<
+    SharedToolSettings,
+    "useSystemWorkflows" | "systemWorkflowsLimitPicker"
+  >,
+): boolean {
+  return (
+    shared.useSystemWorkflows === true &&
+    shared.systemWorkflowsLimitPicker !== false
+  );
+}
 
 /**
  * Models with a dedicated system scaffold (not the generic checkpoint fallback).
@@ -367,14 +403,26 @@ export function pickPackWorkflowForModel(
   const candidates: { file: ComfyWorkflowFile; score: number }[] = [];
   const ranked = rankWorkflowFilesForModel(model, workflowFiles);
   for (const entry of ranked) {
-    if (entry.score < SYSTEM_WORKFLOW_MIN_PACK_SCORE) {
+    // Sorted descending — once below the absolute structure floor, stop.
+    if (entry.score < SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE) {
       break;
     }
+
+    const json = entry.file.workflowJson ?? "";
+    const structureBonus = scoreWorkflowGraphStructure(json, model);
+    const minScore =
+      structureBonus >= 4 ||
+      (isVideoModel(model) && looksLikeI2vPackGraph(json))
+        ? SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE
+        : SYSTEM_WORKFLOW_MIN_PACK_SCORE;
+    if (entry.score < minScore) {
+      continue;
+    }
+
     if (looksLikeAppScaffoldLabel(entry.file)) {
       continue;
     }
 
-    const json = entry.file.workflowJson ?? "";
     if (!json.trim()) {
       continue;
     }
@@ -385,7 +433,7 @@ export function pickPackWorkflowForModel(
     }
 
     // Near-miss loaders (fp8↔bf16, renamed CLIP) count as available after soft-repair.
-    // Style LoRAs may soft-drop; ControlNet/Upscale/CLIPVision are hard-gated.
+    // Style LoRAs and plain-T2I ControlNet/Upscale/CLIPVision may soft-drop (stripped at repair).
     if (!packLoadersAvailableInInventory(json, inventory, model)) {
       continue;
     }
@@ -409,17 +457,37 @@ export function pickPackWorkflowForModel(
       }
     }
 
+    const i2vGraph = looksLikeI2vPackGraph(json);
     const videoPack = isVideoModel(model) && looksLikeVideoPackGraph(json);
     const videoBoundPack =
       isVideoModel(model) &&
       packHasBoundLoaders(json) &&
-      entry.score >= SYSTEM_WORKFLOW_MIN_PACK_SCORE;
+      entry.score >= SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE;
+    const videoI2vPack =
+      isVideoModel(model) &&
+      i2vGraph &&
+      entry.score >= SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE;
     const boundPack = packHasBoundLoaders(json) && entry.score >= 8;
+    const strongStructure =
+      structureBonus >= 4 &&
+      packHasBoundLoaders(json) &&
+      entry.score >= SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE;
     const strongName = entry.score >= 12;
     const ltxI2vPack =
       isLtxVideoModel(model) && /LTXVImgToVideo/.test(json);
-    if (videoPack || videoBoundPack || ltxI2vPack || boundPack || strongName) {
-      candidates.push(entry);
+    if (
+      videoPack ||
+      videoBoundPack ||
+      videoI2vPack ||
+      ltxI2vPack ||
+      boundPack ||
+      strongStructure ||
+      strongName
+    ) {
+      candidates.push({
+        file: entry.file,
+        score: entry.score + Math.min(structureBonus, 8),
+      });
     }
   }
 
@@ -429,11 +497,30 @@ export function pickPackWorkflowForModel(
 
   // Prefer I2V / multi-ref edit / edit graphs before inventory fitness re-rank.
   if (pickOptions.preferI2v) {
-    const i2v = candidates.find((entry) =>
+    const i2vCandidates = candidates.filter((entry) =>
       looksLikeI2vPackGraph(entry.file.workflowJson ?? ""),
     );
-    if (i2v) {
-      return i2v;
+    if (i2vCandidates.length > 0) {
+      if (inventory) {
+        const byFitness = [...i2vCandidates].sort((a, b) => {
+          const fitA = packInventoryFitness(
+            a.file.workflowJson ?? "",
+            inventory,
+            model,
+          );
+          const fitB = packInventoryFitness(
+            b.file.workflowJson ?? "",
+            inventory,
+            model,
+          );
+          if (fitB !== fitA) {
+            return fitB - fitA;
+          }
+          return b.score - a.score;
+        });
+        return byFitness[0] ?? null;
+      }
+      return i2vCandidates[0] ?? null;
     }
   }
   if (pickOptions.preferMultiRef) {
@@ -1032,11 +1119,19 @@ export function describeSystemWorkflowChoice(
         display: `Pack · ${label} (edit)`,
       };
     }
-    if (repaired.repaired > 0 || repaired.droppedLoras.length > 0) {
-      const dropNote =
-        repaired.droppedLoras.length > 0
-          ? ` · dropped ${repaired.droppedLoras.length} LoRA`
-          : "";
+    if (
+      repaired.repaired > 0 ||
+      repaired.droppedLoras.length > 0 ||
+      repaired.droppedSecondaries.length > 0
+    ) {
+      const notes: string[] = [];
+      if (repaired.droppedLoras.length > 0) {
+        notes.push(`dropped ${repaired.droppedLoras.length} LoRA`);
+      }
+      if (repaired.droppedSecondaries.length > 0) {
+        notes.push(`stripped ${repaired.droppedSecondaries.length} secondary`);
+      }
+      const dropNote = notes.length > 0 ? ` · ${notes.join(" · ")}` : "";
       return {
         source: "pack",
         label,

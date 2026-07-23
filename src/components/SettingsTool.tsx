@@ -1160,12 +1160,37 @@ export default function SettingsTool() {
               Queue from the best matching library pack when one scores well,
               otherwise a built-in scaffold. Draft / Final / Max still drive
               sampler, resolution, and polish. Checkpoint/VAE maps still apply.
-              Hides the workflow picker and model→workflow map while enabled.
-              Model list is limited to FLUX, Qwen, and video (dedicated scaffolds).
+              For FLUX / Qwen / video, hides the workflow picker while enabled.
               Enabling scans ComfyUI inventory and adapts checkpoint/VAE/upscale maps.
             </span>
           </span>
         </label>
+
+        {sharedSettings.useSystemWorkflows === true ? (
+          <label className="mb-3 flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={sharedSettings.systemWorkflowsLimitPicker !== false}
+              onChange={(event) =>
+                updateSharedSettings({
+                  systemWorkflowsLimitPicker: event.target.checked,
+                })
+              }
+              disabled={!sharedMounted}
+              className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+            />
+            <span className="space-y-1">
+              <span className="block text-sm font-medium text-zinc-200">
+                Limit picker to FLUX / Qwen / video
+              </span>
+              <span className="block text-xs text-zinc-500">
+                On (default): snap the model list to system-supported families.
+                Off (hybrid): keep SDXL and other models — they use mapped/manual
+                workflows while FLUX/Qwen/video still use the system path.
+              </span>
+            </span>
+          </label>
+        ) : null}
 
         {sharedSettings.useSystemWorkflows === true ? (
           <p className="mb-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-3 text-xs leading-relaxed text-zinc-500">
@@ -1243,8 +1268,12 @@ export default function SettingsTool() {
         {sharedSettings.useSystemWorkflows === true ? (
           <CollapsibleSection
             title="Library map (advanced)"
-            summary="FaceDetailer pin and unused model→workflow lines."
-            defaultOpen={false}
+            summary={
+              sharedSettings.systemWorkflowsLimitPicker === false
+                ? "SDXL/other hybrid maps, FaceDetailer pin, and explicit overrides."
+                : "FaceDetailer pin and explicit model→workflow overrides."
+            }
+            defaultOpen={sharedSettings.systemWorkflowsLimitPicker === false}
             persistKey="settings-system-workflow-map-advanced"
           >
             <textarea

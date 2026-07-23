@@ -38,7 +38,10 @@ import {
 } from "./workflow-stack-fingerprint";
 import { isQwenLightningModel } from "./model-sampling-patch";
 import { workflowHasLoraLoader } from "./workflow-lightning-queue";
-import { applySystemWorkflowToRuntime } from "./system-workflow-runtime";
+import {
+  applySystemWorkflowToRuntime,
+  usesSystemWorkflowPath,
+} from "./system-workflow-runtime";
 
 export type ResolveRuntimeOptions = {
   ignoreManualWorkflow?: boolean;
@@ -54,10 +57,15 @@ export async function scanAndAdaptSystemWorkflowInventory(input?: {
   comfyUrl?: string;
   persist?: boolean;
 }): Promise<ComfyUiModelLists | null> {
-  const payload = await fetchComfyObjectInfoCached({
-    comfyUrl: input?.comfyUrl,
-  });
-  const models = payload?.models ?? null;
+  let models: ComfyUiModelLists | null = null;
+  try {
+    const payload = await fetchComfyObjectInfoCached({
+      comfyUrl: input?.comfyUrl,
+    });
+    models = payload?.models ?? null;
+  } catch {
+    return null;
+  }
   if (!models) {
     return null;
   }
@@ -243,9 +251,9 @@ export function resolveRuntimeForModel(
       ? options.inventory
       : readCachedComfyObjectInfoModels();
 
-  // Best-effort system workflows: prefer a scored pack graph from the library,
-  // else built-in scaffold. Inventory fills/heals loader maps; family presets seed params.
-  if (shared.useSystemWorkflows === true) {
+  // System workflows for FLUX/Qwen/video: scored pack → scaffold. Unsupported
+  // families (hybrid mode) fall through to mapped/manual resolution below.
+  if (usesSystemWorkflowPath(shared, model)) {
     const workflowFiles = loadComfyWorkflowFiles();
     // System packs replace workflow JSON / loader maps but must keep the session
     // LoRA stack from Settings — otherwise Lightning neutralize leaves style LoRAs

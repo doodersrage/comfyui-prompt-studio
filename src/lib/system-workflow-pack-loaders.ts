@@ -46,12 +46,42 @@ const I2V_PACK_GRAPH_PATTERN =
 
 const POWER_LORA_CLASS = "Power Lora Loader (rgthree)";
 
+const CONTROLNET_LOADER_TYPES = new Set([
+  "ControlNetLoader",
+  "DiffControlNetLoader",
+]);
+
+const CONTROLNET_APPLY_TYPES = new Set([
+  "ControlNetApply",
+  "ControlNetApplyAdvanced",
+  "DiffControlNetApply",
+  "ControlNetApplySD3",
+  "ACN_AdvancedControlNetApply",
+]);
+
+const UPSCALE_LOADER_TYPES = new Set(["UpscaleModelLoader", "UpscaleModel"]);
+
+const UPSCALE_APPLY_TYPES = new Set([
+  "ImageUpscaleWithModel",
+  "UltimateSDUpscale",
+]);
+
+const CLIP_VISION_LOADER_TYPES = new Set(["CLIPVisionLoader"]);
+
+const CLIP_VISION_CONSUMER_TYPES = new Set([
+  "CLIPVisionEncode",
+  "IPAdapterModelLoader",
+  "IPAdapterApply",
+  "IPAdapterAdvanced",
+  "IPAdapter",
+]);
+
 function isPlaceholderFilename(value: string): boolean {
   return PLACEHOLDER_PATTERN.test(value.trim());
 }
 
 /** Plain T2I packs may carry unused ControlNet/Upscale/CLIPVision — soft-miss those. */
-function packAllowsSoftSecondaryLoaders(workflowJson: string): boolean {
+export function packAllowsSoftSecondaryLoaders(workflowJson: string): boolean {
   return (
     !EDIT_PACK_GRAPH_PATTERN.test(workflowJson) &&
     !I2V_PACK_GRAPH_PATTERN.test(workflowJson)
@@ -432,25 +462,170 @@ function rewireAndDeleteLoraNode(
   delete graph[nodeId];
 }
 
+/** Replace every link to `nodeId` with `replacement` (link tuple or scalar). */
+function rewireConsumersTo(
+  graph: Record<string, unknown>,
+  nodeId: string,
+  replacement: unknown,
+): void {
+  for (const [consumerId, node] of Object.entries(graph)) {
+    if (consumerId === nodeId || !node || typeof node !== "object") {
+      continue;
+    }
+    const consumer = node as WorkflowNodeRecord;
+    if (!consumer.inputs) {
+      continue;
+    }
+    for (const [key, value] of Object.entries(consumer.inputs)) {
+      if (getLinkedNodeId(value) === nodeId) {
+        consumer.inputs[key] = replacement;
+      }
+    }
+  }
+}
+
+function findConsumersOf(
+  graph: Record<string, unknown>,
+  nodeId: string,
+): string[] {
+  const ids: string[] = [];
+  for (const [consumerId, node] of Object.entries(graph)) {
+    if (consumerId === nodeId || !node || typeof node !== "object") {
+      continue;
+    }
+    const consumer = node as WorkflowNodeRecord;
+    if (!consumer.inputs) {
+      continue;
+    }
+    for (const value of Object.values(consumer.inputs)) {
+      if (getLinkedNodeId(value) === nodeId) {
+        ids.push(consumerId);
+        break;
+      }
+    }
+  }
+  return ids;
+}
+
+/**
+ * Drop a missing optional secondary loader and bypass its Apply/encode consumers
+ * so the graph still queues (plain T2I soft-secondary path).
+ */
+function dropSecondaryLoaderChain(
+  graph: Record<string, unknown>,
+  loaderId: string,
+  kind: "ControlNet" | "Upscale" | "CLIPVision",
+): number {
+  const loader = graph[loaderId];
+  if (!loader || typeof loader !== "object") {
+    return 0;
+  }
+  let touched = 0;
+  const consumers = findConsumersOf(graph, loaderId);
+
+  for (const consumerId of consumers) {
+    const consumer = graph[consumerId] as WorkflowNodeRecord | undefined;
+    if (!consumer?.inputs) {
+      continue;
+    }
+    const classType = consumer.class_type ?? "";
+
+    if (kind === "ControlNet" && CONTROLNET_APPLY_TYPES.has(classType)) {
+      const conditioning =
+        consumer.inputs.positive ??
+        consumer.inputs.conditioning ??
+        consumer.inputs.c;
+      if (conditioning !== undefined) {
+        rewireConsumersTo(graph, consumerId, conditioning);
+      }
+      delete graph[consumerId];
+      touched += 1;
+      continue;
+    }
+
+    if (kind === "Upscale" && UPSCALE_APPLY_TYPES.has(classType)) {
+      const image = consumer.inputs.image;
+      if (image !== undefined) {
+        rewireConsumersTo(graph, consumerId, image);
+      }
+      delete graph[consumerId];
+      touched += 1;
+      continue;
+    }
+
+    if (kind === "CLIPVision" && CLIP_VISION_CONSUMER_TYPES.has(classType)) {
+      // IP-Adapter sits on the model path — bypass model/clip when present.
+      const modelUpstream = consumer.inputs.model;
+      const clipUpstream = consumer.inputs.clip;
+      for (const [nextId, node] of Object.entries(graph)) {
+        if (nextId === consumerId || !node || typeof node !== "object") {
+          continue;
+        }
+        const next = node as WorkflowNodeRecord;
+        if (!next.inputs) {
+          continue;
+        }
+        for (const [key, value] of Object.entries(next.inputs)) {
+          if (getLinkedNodeId(value) !== consumerId) {
+            continue;
+          }
+          const slot = getLinkedSlot(value);
+          if (slot === 1 && clipUpstream !== undefined) {
+            next.inputs[key] = clipUpstream;
+          } else if (modelUpstream !== undefined) {
+            next.inputs[key] = modelUpstream;
+          } else if (consumer.inputs.image !== undefined && key === "image") {
+            next.inputs[key] = consumer.inputs.image;
+          }
+        }
+      }
+      delete graph[consumerId];
+      touched += 1;
+    }
+  }
+
+  delete graph[loaderId];
+  touched += 1;
+  return touched;
+}
+
 /**
  * Rewrite near-miss pack loaders, Lightning soft-fill, soft-drop missing style LoRAs,
- * DualCLIP→CLIPLoader for Qwen, Power Lora slot disable, and GGUF class switch.
+ * strip unused ControlNet/Upscale/CLIPVision on plain T2I, DualCLIP→CLIPLoader for Qwen,
+ * Power Lora slot disable, and GGUF class switch.
  */
 export function softRepairPackLoadersFromInventory(
   workflowJson: string,
   model: ComfyImageModel,
   inventory?: ComfyUiModelLists | null,
-): { workflowJson: string; repaired: number; droppedLoras: string[] } {
+): {
+  workflowJson: string;
+  repaired: number;
+  droppedLoras: string[];
+  droppedSecondaries: string[];
+} {
   if (!inventory) {
-    return { workflowJson, repaired: 0, droppedLoras: [] };
+    return {
+      workflowJson,
+      repaired: 0,
+      droppedLoras: [],
+      droppedSecondaries: [],
+    };
   }
 
   let graph: Record<string, unknown>;
   try {
     graph = JSON.parse(workflowJson) as Record<string, unknown>;
   } catch {
-    return { workflowJson, repaired: 0, droppedLoras: [] };
+    return {
+      workflowJson,
+      repaired: 0,
+      droppedLoras: [],
+      droppedSecondaries: [],
+    };
   }
+
+  const softSecondary = packAllowsSoftSecondaryLoaders(workflowJson);
 
   const clipRepair = repairQwenImageClipLoaderNodes(graph);
   graph = clipRepair.workflow;
@@ -542,7 +717,13 @@ export function softRepairPackLoadersFromInventory(
     : undefined;
 
   const droppedLoras: string[] = [];
+  const droppedSecondaries: string[] = [];
   const loraNodesToDrop: string[] = [];
+  const secondaryLoadersToDrop: {
+    nodeId: string;
+    kind: "ControlNet" | "Upscale" | "CLIPVision";
+    filename: string;
+  }[] = [];
 
   for (const [nodeId, node] of Object.entries(graph)) {
     if (!node || typeof node !== "object") {
@@ -592,28 +773,64 @@ export function softRepairPackLoadersFromInventory(
         }
       }
     }
-    if (
-      classType === "ControlNetLoader" ||
-      classType === "DiffControlNetLoader"
-    ) {
-      const next = rewriteFilename(record.inputs.control_net_name, controlNetPool);
+    if (CONTROLNET_LOADER_TYPES.has(classType)) {
+      const current = record.inputs.control_net_name;
+      const next = rewriteFilename(current, controlNetPool);
       if (next) {
         record.inputs.control_net_name = next;
         repaired += 1;
+      } else if (
+        softSecondary &&
+        typeof current === "string" &&
+        current.trim() &&
+        !isPlaceholderFilename(current) &&
+        classifyFilename(current, controlNetPool) === "miss"
+      ) {
+        secondaryLoadersToDrop.push({
+          nodeId,
+          kind: "ControlNet",
+          filename: current.trim(),
+        });
       }
     }
-    if (classType === "UpscaleModelLoader" || classType === "UpscaleModel") {
-      const next = rewriteFilename(record.inputs.model_name, upscalePool);
+    if (UPSCALE_LOADER_TYPES.has(classType)) {
+      const current = record.inputs.model_name;
+      const next = rewriteFilename(current, upscalePool);
       if (next) {
         record.inputs.model_name = next;
         repaired += 1;
+      } else if (
+        softSecondary &&
+        typeof current === "string" &&
+        current.trim() &&
+        !isPlaceholderFilename(current) &&
+        classifyFilename(current, upscalePool) === "miss"
+      ) {
+        secondaryLoadersToDrop.push({
+          nodeId,
+          kind: "Upscale",
+          filename: current.trim(),
+        });
       }
     }
-    if (classType === "CLIPVisionLoader") {
-      const next = rewriteFilename(record.inputs.clip_name, clipVisionPool);
+    if (CLIP_VISION_LOADER_TYPES.has(classType)) {
+      const current = record.inputs.clip_name;
+      const next = rewriteFilename(current, clipVisionPool);
       if (next) {
         record.inputs.clip_name = next;
         repaired += 1;
+      } else if (
+        softSecondary &&
+        typeof current === "string" &&
+        current.trim() &&
+        !isPlaceholderFilename(current) &&
+        classifyFilename(current, clipVisionPool) === "miss"
+      ) {
+        secondaryLoadersToDrop.push({
+          nodeId,
+          kind: "CLIPVision",
+          filename: current.trim(),
+        });
       }
     }
     if (isLoraLoaderClassType(classType) && classType !== POWER_LORA_CLASS) {
@@ -709,10 +926,20 @@ export function softRepairPackLoadersFromInventory(
     repaired += 1;
   }
 
-  const changed = repaired > 0 || droppedLoras.length > 0;
+  for (const entry of secondaryLoadersToDrop) {
+    if (!graph[entry.nodeId]) {
+      continue;
+    }
+    repaired += dropSecondaryLoaderChain(graph, entry.nodeId, entry.kind);
+    droppedSecondaries.push(`${entry.kind}: ${entry.filename}`);
+  }
+
+  const changed =
+    repaired > 0 || droppedLoras.length > 0 || droppedSecondaries.length > 0;
   return {
     workflowJson: changed ? JSON.stringify(graph, null, 2) : workflowJson,
     repaired,
     droppedLoras,
+    droppedSecondaries,
   };
 }

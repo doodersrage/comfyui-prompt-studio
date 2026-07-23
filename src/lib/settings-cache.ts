@@ -90,6 +90,12 @@ export type SharedToolSettings = {
    * queue optimize still apply.
    */
   useSystemWorkflows?: boolean;
+  /**
+   * When system workflows are on, limit the model picker to FLUX/Qwen/video
+   * (default true). Set false for hybrid mode: unsupported families keep
+   * mapped/manual workflows instead of snapping away.
+   */
+  systemWorkflowsLimitPicker?: boolean;
   /** Temporary override to show every model in the picker. */
   showAllModelsOverride?: boolean;
   /** Session LLM temperature override (0–2) sent with generation requests. */
@@ -588,6 +594,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   autoSelectLorasForModel: true,
   limitModelsToAvailableWorkflows: true,
   useSystemWorkflows: false,
+  systemWorkflowsLimitPicker: true,
   showAllModelsOverride: false,
   ipAdapterStrength: 0.6,
   expandWildcards: true,

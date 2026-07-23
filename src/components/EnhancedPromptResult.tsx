@@ -36,6 +36,7 @@ import {
 } from "@/lib/readiness-gate";
 import type { PromptReadinessResult } from "@/lib/prompt-readiness";
 import { loadSettingsCache } from "@/lib/settings-cache";
+import { usesSystemWorkflowPath } from "@/lib/system-workflow-runtime";
 
 const WorkflowPreviewPanel = dynamic(() => import("@/components/WorkflowPreviewPanel"), {
   ssr: false,
@@ -205,11 +206,11 @@ export default function EnhancedPromptResult({
   ...panelProps
 }: EnhancedPromptResultProps) {
   const workflowSelection = useComfyWorkflowSelection();
-  const useSystemWorkflows =
-    loadSettingsCache().shared.useSystemWorkflows === true;
+  const sharedSettings = loadSettingsCache().shared;
   const showComfyActions = Boolean(onSendComfyUi || onQueueBatchComfyUi || onPreviewWorkflow);
   const showWorkflowSelector =
-    workflowSelection.mounted && useSystemWorkflows !== true;
+    workflowSelection.mounted &&
+    !usesSystemWorkflowPath(sharedSettings, sharedSettings.model);
   const [readinessResult, setReadinessResult] = useState<PromptReadinessResult | null>(null);
   const [copiedBatchIndex, setCopiedBatchIndex] = useState<number | null>(null);
   const [savedBatchIndices, setSavedBatchIndices] = useState<Set<number>>(

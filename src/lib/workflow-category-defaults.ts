@@ -249,6 +249,7 @@ function scoreWorkflowForModel(
   }
 
   score += scoreWorkflowStackForModel(file.workflowJson, modelId);
+  score += scoreWorkflowGraphStructure(file.workflowJson, modelId);
 
   if (modelId.includes("lightning") && file.workflowJson?.trim()) {
     try {
@@ -259,6 +260,75 @@ function scoreWorkflowForModel(
     } catch {
       // ignore invalid workflow JSON during ranking
     }
+  }
+
+  return score;
+}
+
+/**
+ * Bonus from node-class / graph shape (not filenames). Lets poorly labeled
+ * official packs still rank above scaffolds when the graph is clearly for the model.
+ */
+export function scoreWorkflowGraphStructure(
+  workflowJson: string | undefined,
+  modelId: ComfyImageModel,
+): number {
+  if (!workflowJson?.trim()) {
+    return 0;
+  }
+  const def = COMFY_IMAGE_MODELS.find((entry) => entry.id === modelId);
+  const category = def?.category;
+  let score = 0;
+
+  if (category === "qwen") {
+    if (/TextEncodeQwenImageEdit(?:Plus)?/.test(workflowJson)) {
+      score += isEditCapableModel(modelId) ? 6 : -4;
+    } else if (/TextEncodeQwenImage/.test(workflowJson)) {
+      score += isEditCapableModel(modelId) ? 2 : 5;
+    }
+    if (/ModelSamplingAuraFlow|ModelSamplingSD3/.test(workflowJson)) {
+      score += 1;
+    }
+  }
+
+  if (category === "flux") {
+    if (/FluxGuidance|ModelSamplingFlux|FluxKontext/.test(workflowJson)) {
+      score += 4;
+    }
+    if (/flux-2-klein/i.test(modelId)) {
+      if (/CLIPLoader[\s\S]{0,120}"type"\s*:\s*"flux2"|flux2-klein/i.test(workflowJson)) {
+        score += 3;
+      }
+    } else if (/DualCLIPLoader|clip_l|t5xxl/i.test(workflowJson)) {
+      score += 2;
+    }
+  }
+
+  if (category === "video") {
+    if (
+      /WanImageToVideo|WanCameraImageToVideo|HunyuanImageToVideo|LTXVImgToVideo/.test(
+        workflowJson,
+      )
+    ) {
+      score += 6;
+    }
+    if (
+      /EmptyHunyuanLatentVideo|EmptyLTXVLatentVideo|WanVideo|HunyuanVideoTextEncode|LTXVConditioning|LTXVScheduler/.test(
+        workflowJson,
+      )
+    ) {
+      score += 3;
+    }
+  }
+
+  // Generic: concrete sampler + latent/empty image is a runnable graph signal.
+  if (
+    /KSampler(?:Advanced)?/.test(workflowJson) &&
+    /EmptyLatentImage|EmptySD3LatentImage|EmptyHunyuanLatentVideo|EmptyLTXVLatentVideo/.test(
+      workflowJson,
+    )
+  ) {
+    score += 1;
   }
 
   return score;
