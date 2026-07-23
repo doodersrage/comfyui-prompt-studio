@@ -13,6 +13,7 @@ import {
   galleryEntryAlreadyEnrichedForUpscale,
   galleryEntrySupportsMoireClean,
   galleryEntrySupportsRefine,
+  galleryEntrySupportsSoftSecondPass,
   galleryEntrySupportsUpscale,
 } from "@/lib/gallery-entry-actions";
 
@@ -32,6 +33,7 @@ export type GalleryCardActions = {
     options?: { force?: boolean },
   ) => void;
   refine: (id: string) => void;
+  softSecondPass: (id: string) => void;
   faceDetail: (id: string) => void;
   moireClean: (
     id: string,
@@ -102,6 +104,10 @@ function GalleryCardItem({
   );
   const onRefine = useCallback(
     () => actionsRef.current.refine(entry.id),
+    [actionsRef, entry.id],
+  );
+  const onSoftSecondPass = useCallback(
+    () => actionsRef.current.softSecondPass(entry.id),
     [actionsRef, entry.id],
   );
   const onFaceDetail = useCallback(
@@ -177,6 +183,7 @@ function GalleryCardItem({
       onCancel={onCancel}
       onUpscale={onUpscale}
       onRefine={onRefine}
+      onSoftSecondPass={onSoftSecondPass}
       onFaceDetail={onFaceDetail}
       onMoireClean={onMoireClean}
       showUpscaleActions={galleryEntrySupportsUpscale(entry.model)}
@@ -188,6 +195,7 @@ function GalleryCardItem({
         galleryEntryAlreadyEnrichedForUpscale(entry, "max")
       }
       showRefineAction={galleryEntrySupportsRefine(entry.model)}
+      showSoftSecondPassAction={galleryEntrySupportsSoftSecondPass(entry.model)}
       showFaceDetailAction={canFaceDetailGalleryEntry(entry)}
       showMoireCleanActions={galleryEntrySupportsMoireClean(entry.model)}
       showMoireCleanFinal={

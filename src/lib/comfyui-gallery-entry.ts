@@ -14,7 +14,7 @@ export type ComfyGalleryEntry = {
   /** Gallery entry this job was derived from (upscale, refine, variation). */
   parentGalleryEntryId?: string;
   /** How this entry was derived from parentGalleryEntryId. */
-  derivedKind?: "upscale" | "refine" | "variation" | "moire-clean" | "face-detail";
+  derivedKind?: "upscale" | "refine" | "soft-pass" | "variation" | "moire-clean" | "face-detail";
   /** Resolved queue params (seed, width, cfg, etc.). */
   queueParams?: WorkflowParamValues;
   /** Original source image URL at queue time (Comfy view or app proxy). */

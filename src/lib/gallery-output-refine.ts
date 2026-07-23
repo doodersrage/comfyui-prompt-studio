@@ -39,6 +39,19 @@ export const GALLERY_REFINE_PORTRAIT_DENOISE: Record<"final" | "max", number> = 
   max: 0.22,
 };
 
+/** Gentler img2img — prefer this for “add detail / clean soft issues” without rewriting the shot. */
+export const GALLERY_SOFT_PASS_DENOISE: Record<"final" | "max", number> = {
+  final: 0.12,
+  max: 0.15,
+};
+
+export const GALLERY_SOFT_PASS_PORTRAIT_DENOISE: Record<"final" | "max", number> = {
+  final: 0.1,
+  max: 0.12,
+};
+
+export type GalleryRefineMode = "refine" | "soft";
+
 const PORTRAIT_REFINE_PATTERN =
   /\b(portrait|face|skin|headshot|close-?up|selfie|beauty|model\s+face)\b/i;
 
@@ -46,17 +59,42 @@ export function isPortraitRefinePrompt(prompt: string | undefined): boolean {
   return PORTRAIT_REFINE_PATTERN.test(prompt?.trim() ?? "");
 }
 
-type WorkflowNode = {
-  class_type: string;
-  inputs: Record<string, unknown>;
-  _meta?: { title: string };
-};
+/**
+ * Cap soft-pass denoise by model family so CFG-1 / anatomy-sensitive stacks
+ * stay conservative.
+ */
+export function softSecondPassDenoiseCap(model?: string): number {
+  const id = String(model ?? "").toLowerCase();
+  if (/lightning|schnell|turbo|distill|rapid-aio-(sfw|nsfw)/.test(id)) {
+    return 0.08;
+  }
+  if (/qwen/.test(id)) {
+    return 0.12;
+  }
+  if (/klein.*distill|distilled/.test(id)) {
+    return 0.11;
+  }
+  if (/^flux|klein/.test(id)) {
+    return 0.15;
+  }
+  if (/sdxl|sd3|stable-diffusion/.test(id)) {
+    return 0.14;
+  }
+  return 0.13;
+}
 
 export function galleryRefineDenoiseForProfile(
   profile: Extract<QueueQualityProfile, "final" | "max"> | undefined,
   prompt?: string,
+  mode: GalleryRefineMode = "refine",
 ): number {
   const key = profile === "max" ? "max" : "final";
+  if (mode === "soft") {
+    const table = isPortraitRefinePrompt(prompt)
+      ? GALLERY_SOFT_PASS_PORTRAIT_DENOISE
+      : GALLERY_SOFT_PASS_DENOISE;
+    return table[key];
+  }
   const table = isPortraitRefinePrompt(prompt)
     ? GALLERY_REFINE_PORTRAIT_DENOISE
     : GALLERY_REFINE_DENOISE;
@@ -64,11 +102,22 @@ export function galleryRefineDenoiseForProfile(
 }
 
 export function galleryRefineDenoiseForEntry(
-  entry: Pick<ComfyGalleryEntry, "prompt">,
+  entry: Pick<ComfyGalleryEntry, "prompt" | "model">,
   profile: Extract<QueueQualityProfile, "final" | "max"> | undefined,
+  mode: GalleryRefineMode = "refine",
 ): number {
-  return galleryRefineDenoiseForProfile(profile, entry.prompt);
+  const base = galleryRefineDenoiseForProfile(profile, entry.prompt, mode);
+  if (mode !== "soft") {
+    return base;
+  }
+  return Math.min(base, softSecondPassDenoiseCap(entry.model));
 }
+
+type WorkflowNode = {
+  class_type: string;
+  inputs: Record<string, unknown>;
+  _meta?: { title: string };
+};
 
 const PORTRAIT_REFINE_NEGATIVE_EXTRA =
   "plastic skin, waxy skin, airbrushed, doll-like, oversharpened, blurry eyes";
@@ -376,14 +425,25 @@ export function galleryRefineQueueParams(input: {
   inputImageFilename: string;
   profile?: Extract<QueueQualityProfile, "final" | "max">;
   prompt?: string;
+  model?: string;
+  mode?: GalleryRefineMode;
   queueParams?: Pick<
     WorkflowParamValues,
     "seed" | "width" | "height" | "cfg" | "steps" | "samplerName" | "scheduler"
   >;
 }): Record<string, string> {
+  const mode = input.mode ?? "refine";
+  const denoise =
+    mode === "soft"
+      ? galleryRefineDenoiseForEntry(
+          { prompt: input.prompt, model: input.model },
+          input.profile,
+          "soft",
+        )
+      : galleryRefineDenoiseForProfile(input.profile, input.prompt, mode);
   const params: Record<string, string> = {
     inputImageFilename: input.inputImageFilename,
-    denoise: String(galleryRefineDenoiseForProfile(input.profile, input.prompt)),
+    denoise: String(denoise),
   };
 
   const source = input.queueParams;

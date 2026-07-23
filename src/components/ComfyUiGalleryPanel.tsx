@@ -232,6 +232,7 @@ export default function ComfyUiGalleryPanel({
     cancel: () => undefined,
     upscale: () => undefined,
     refine: () => undefined,
+    softSecondPass: () => undefined,
     faceDetail: () => undefined,
     moireClean: () => undefined,
     showParent: () => undefined,
@@ -822,6 +823,47 @@ export default function ComfyUiGalleryPanel({
               result.vramDowngraded
                 ? "Max → Final (VRAM)"
                 : "low denoise · same seed",
+              result.promptId ? `prompt_id ${result.promptId}` : null,
+              result.comfyUrl,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+          setRequeueStatus(message);
+          toastQueueOutcome({ ok: true, text: message });
+        });
+      },
+      softSecondPass: (id: string) => {
+        const entry = entriesRef.current.find((item) => item.id === id);
+        if (!entry) {
+          return;
+        }
+        setRequeueStatus("Queueing soft second pass…");
+        void loadGalleryRequeue()
+          .then(({ requeueSoftSecondPassFromGalleryEntry }) =>
+            requeueSoftSecondPassFromGalleryEntry(entry, {
+              onStatus: setRequeueStatus,
+            }),
+          )
+          .then((result) => {
+          if (!result.ok) {
+            setRequeueStatus(result.error ?? "Soft second pass failed.");
+            toastQueueOutcome({
+              ok: false,
+              text: result.error ?? "Soft second pass failed.",
+            });
+            return;
+          }
+          if (result.held) {
+            const message = "Soft second pass held until ComfyUI queue is idle";
+            setRequeueStatus(message);
+            toastHeldMax({ text: message });
+            return;
+          }
+          const message = [
+              "soft second pass queued",
+              result.vramDowngraded
+                ? "Max → Final (VRAM)"
+                : "gentle denoise · same seed",
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
@@ -1779,6 +1821,26 @@ export default function ComfyUiGalleryPanel({
               }
               if (result.held) {
                 const message = "Max refine held until ComfyUI queue is idle";
+                setCompareStatus(message);
+                toastHeldMax({ text: message });
+              }
+            });
+          }}
+          onSoftSecondPass={(entry) => {
+            setCompareStatus("Queueing soft second pass…");
+            void loadGalleryRequeue()
+              .then(({ requeueSoftSecondPassFromGalleryEntry }) =>
+                requeueSoftSecondPassFromGalleryEntry(entry, {
+                  onStatus: setCompareStatus,
+                }),
+              )
+              .then((result) => {
+              if (!result.ok) {
+                setCompareStatus(result.error ?? "Soft second pass failed.");
+                return;
+              }
+              if (result.held) {
+                const message = "Soft second pass held until ComfyUI queue is idle";
                 setCompareStatus(message);
                 toastHeldMax({ text: message });
               }

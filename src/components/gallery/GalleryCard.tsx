@@ -59,6 +59,7 @@ type GalleryCardProps = {
     options?: { force?: boolean },
   ) => void;
   onRefine: () => void;
+  onSoftSecondPass?: () => void;
   onFaceDetail?: () => void;
   onMoireClean?: (
     qualityProfile: "final" | "max",
@@ -70,6 +71,7 @@ type GalleryCardProps = {
   showUpscaleMax?: boolean;
   showForceUpscaleMax?: boolean;
   showRefineAction?: boolean;
+  showSoftSecondPassAction?: boolean;
   showFaceDetailAction?: boolean;
   showMoireCleanActions?: boolean;
   showMoireCleanFinal?: boolean;
@@ -132,6 +134,7 @@ export default function GalleryCard({
   onCancel,
   onUpscale,
   onRefine,
+  onSoftSecondPass,
   onFaceDetail,
   onMoireClean,
   showUpscaleActions = true,
@@ -139,6 +142,7 @@ export default function GalleryCard({
   showUpscaleMax,
   showForceUpscaleMax = false,
   showRefineAction = true,
+  showSoftSecondPassAction = true,
   showFaceDetailAction = false,
   showMoireCleanActions = true,
   showMoireCleanFinal,
@@ -352,13 +356,15 @@ export default function GalleryCard({
       ? "upscaled from prior"
       : entry.derivedKind === "refine"
         ? "refined from prior"
-        : entry.derivedKind === "variation"
-          ? "variation of prior"
-          : entry.derivedKind === "moire-clean"
-            ? "moiré-cleaned from prior"
-            : entry.derivedKind === "face-detail"
-              ? "face-detailed from prior"
-              : undefined;
+        : entry.derivedKind === "soft-pass"
+          ? "soft second pass from prior"
+          : entry.derivedKind === "variation"
+            ? "variation of prior"
+            : entry.derivedKind === "moire-clean"
+              ? "moiré-cleaned from prior"
+              : entry.derivedKind === "face-detail"
+                ? "face-detailed from prior"
+                : undefined;
 
   const comfyHostLabel = formatComfyHostLabel(entry.comfyUrl);
   const renderDurationLabel = formatRenderDuration(
@@ -1046,6 +1052,7 @@ export default function GalleryCard({
                     canUpscaleMax ||
                     showForceUpscaleMax ||
                     showRefineAction ||
+                    (onSoftSecondPass && showSoftSecondPassAction) ||
                     (onFaceDetail && showFaceDetailAction) ||
                     (onMoireClean &&
                       (canMoireFinal || canMoireMax || showForceMoireCleanMax));
@@ -1080,6 +1087,15 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
+                    ) : null}
+                    {onSoftSecondPass && showSoftSecondPassAction ? (
+                      <GalleryMenuButton
+                        label="Soft second pass"
+                        onClick={() => {
+                          onSoftSecondPass();
+                          setMenuOpen(false);
+                        }}
+                      />
                     ) : null}
                     {showRefineAction ? (
                       <GalleryMenuButton

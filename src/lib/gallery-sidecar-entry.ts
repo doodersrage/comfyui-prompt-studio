@@ -50,6 +50,7 @@ export function galleryEntryFromSidecar(
     derivedKind:
       sidecar.metadata?.derivedKind === "upscale" ||
       sidecar.metadata?.derivedKind === "refine" ||
+      sidecar.metadata?.derivedKind === "soft-pass" ||
       sidecar.metadata?.derivedKind === "variation"
         ? sidecar.metadata.derivedKind
         : undefined,

@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildGalleryRefineWorkflow,
+  galleryRefineDenoiseForEntry,
   galleryRefineDenoiseForProfile,
+  softSecondPassDenoiseCap,
 } from "./gallery-output-refine.ts";
 
 describe("gallery-output-refine", () => {
@@ -16,6 +18,24 @@ describe("gallery-output-refine", () => {
       galleryRefineDenoiseForProfile("final", "portrait close-up, natural skin") <
         galleryRefineDenoiseForProfile("final", "landscape mountains"),
     );
+  });
+
+  it("uses softer denoise for soft second pass than refine", () => {
+    assert.ok(
+      galleryRefineDenoiseForProfile("final", undefined, "soft") <
+        galleryRefineDenoiseForProfile("final", undefined, "refine"),
+    );
+    assert.ok(
+      galleryRefineDenoiseForEntry(
+        { prompt: "portrait", model: "qwen-image-2512" },
+        "final",
+        "soft",
+      ) <= softSecondPassDenoiseCap("qwen-image-2512"),
+    );
+  });
+
+  it("caps soft pass denoise for Qwen below Flux", () => {
+    assert.ok(softSecondPassDenoiseCap("qwen-image-2512") < softSecondPassDenoiseCap("flux-dev"));
   });
 
   it("builds qwen img2img refine workflow with VAEEncode", () => {

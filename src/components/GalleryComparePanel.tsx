@@ -15,6 +15,7 @@ import {
   galleryEntryAlreadyEnrichedForUpscale,
   galleryEntrySupportsMoireClean,
   galleryEntrySupportsRefine,
+  galleryEntrySupportsSoftSecondPass,
   galleryEntrySupportsUpscale,
 } from "@/lib/gallery-entry-actions";
 
@@ -36,6 +37,7 @@ type GalleryComparePanelProps = {
     qualityProfile: "final" | "max",
   ) => void;
   onRefine?: (entry: ComfyGalleryEntry) => void;
+  onSoftSecondPass?: (entry: ComfyGalleryEntry) => void;
   status?: string | null;
 };
 
@@ -58,6 +60,8 @@ function entryEnhanceCapabilities(entry: ComfyGalleryEntry) {
     canMoireFinal,
     canMoireMax,
     canRefine: galleryEntrySupportsRefine(entry.model) && entry.status === "completed",
+    canSoftSecondPass:
+      galleryEntrySupportsSoftSecondPass(entry.model) && entry.status === "completed",
     supportsUpscaleModel: galleryEntrySupportsUpscale(entry.model),
   };
 }
@@ -76,6 +80,7 @@ export default function GalleryComparePanel({
   onUpscale,
   onMoireClean,
   onRefine,
+  onSoftSecondPass,
   status,
 }: GalleryComparePanelProps) {
   const [tournament, setTournament] = useState(false);
@@ -329,6 +334,15 @@ export default function GalleryComparePanel({
                       </button>
                     ) : null}
                   </>
+                ) : null}
+                {onSoftSecondPass && caps.canSoftSecondPass ? (
+                  <button
+                    type="button"
+                    onClick={() => onSoftSecondPass(entry)}
+                    className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-sky-200 hover:bg-zinc-700"
+                  >
+                    Soft pass
+                  </button>
                 ) : null}
                 {onRefine && caps.canRefine ? (
                   <button

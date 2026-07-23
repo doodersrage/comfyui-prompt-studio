@@ -107,6 +107,26 @@ export function canUpscaleGalleryEntry(
   return Boolean(resolveGalleryOutputImageUrl(entry));
 }
 
+/** Soft second pass uses the same model gates as refine (no Lightning / Rapid T2I). */
+export function galleryEntrySupportsSoftSecondPass(model?: string): boolean {
+  return galleryEntrySupportsRefine(model);
+}
+
+export function canSoftSecondPassGalleryEntry(
+  entry: Pick<
+    ComfyGalleryEntry,
+    "status" | "images" | "sourceImageUrl" | "comfyUrl" | "model"
+  >,
+): boolean {
+  if (!galleryEntrySupportsSoftSecondPass(entry.model)) {
+    return false;
+  }
+  if (entry.status !== "completed") {
+    return false;
+  }
+  return Boolean(resolveGalleryOutputImageUrl(entry));
+}
+
 export function canRefineGalleryEntry(
   entry: Pick<
     ComfyGalleryEntry,

@@ -40,6 +40,7 @@ import {
   appendPortraitRefineNegative,
   buildGalleryRefineWorkflow,
   galleryRefineQueueParams,
+  type GalleryRefineMode,
 } from "./gallery-output-refine";
 import { findLibraryUpscaleWorkflowForModel } from "./workflow-library-upscale";
 import { findLibraryFaceDetailerWorkflow } from "./workflow-library-face-detailer";
@@ -78,12 +79,14 @@ export {
   canFaceDetailGalleryEntry,
   canMoireCleanGalleryEntry,
   canRefineGalleryEntry,
+  canSoftSecondPassGalleryEntry,
   canUpscaleGalleryEntry,
   galleryEntryAlreadyEnrichedForUpscale,
   galleryEntryIsFinalToMaxBump,
   galleryEntrySupportsFaceDetail,
   galleryEntrySupportsMoireClean,
   galleryEntrySupportsRefine,
+  galleryEntrySupportsSoftSecondPass,
   galleryEntrySupportsUpscale,
 } from "./gallery-entry-actions";
 
@@ -548,6 +551,7 @@ export async function requeueRefineFromGalleryEntry(
   entry: ComfyGalleryEntry,
   options?: {
     qualityProfile?: Extract<QueueQualityProfile, "final" | "max">;
+    mode?: GalleryRefineMode;
     onStatus?: (message: string) => void;
     force?: boolean;
   },
@@ -557,14 +561,20 @@ export async function requeueRefineFromGalleryEntry(
     return { ok: false, error: "No gallery output image available to refine." };
   }
 
-  options?.onStatus?.("Uploading gallery output…");
+  const mode: GalleryRefineMode = options?.mode === "soft" ? "soft" : "refine";
+  const softLabel = mode === "soft" ? "soft second pass" : "low-denoise refine";
+  options?.onStatus?.(
+    mode === "soft" ? "Uploading gallery output for soft second pass…" : "Uploading gallery output…",
+  );
 
   const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
   if (isQwenLightningModel(model)) {
     return {
       ok: false,
       error:
-        "Img2img refine is disabled for Lightning models — use Final/Max Lanczos polish (or requeue a new seed) instead.",
+        mode === "soft"
+          ? "Soft second pass is disabled for Lightning — requeue a new seed or use Final/Max Lanczos polish instead."
+          : "Img2img refine is disabled for Lightning models — use Final/Max Lanczos polish (or requeue a new seed) instead.",
     };
   }
 
@@ -605,6 +615,8 @@ export async function requeueRefineFromGalleryEntry(
     inputImageFilename,
     profile,
     prompt: entry.prompt,
+    model,
+    mode,
     queueParams: entry.queueParams,
   });
   const params = {
@@ -629,14 +641,14 @@ export async function requeueRefineFromGalleryEntry(
 
   options?.onStatus?.(
     resolved.vramDowngraded
-      ? "Max → Final (VRAM) · queueing low-denoise refine…"
-      : "Queueing low-denoise refine…",
+      ? `Max → Final (VRAM) · queueing ${softLabel}…`
+      : `Queueing ${softLabel}…`,
   );
 
   const refineNegative = appendPortraitRefineNegative(entry.negativePrompt, entry.prompt);
 
   const queued = await postComfyUiPrompt({
-    prompt: entry.prompt.trim() || "refine",
+    prompt: entry.prompt.trim() || (mode === "soft" ? "soft-pass" : "refine"),
     negativePrompt: refineNegative,
     model,
     params,
@@ -654,7 +666,7 @@ export async function requeueRefineFromGalleryEntry(
 
   registerComfyGalleryJob({
     promptId: queued.promptId,
-    prompt: entry.prompt.trim() || "refine",
+    prompt: entry.prompt.trim() || (mode === "soft" ? "soft-pass" : "refine"),
     negativePrompt: entry.negativePrompt,
     tool: "refine",
     model: entry.model,
@@ -664,7 +676,7 @@ export async function requeueRefineFromGalleryEntry(
     sourceImageUrl: outputUrl,
     queueQualityProfile: profile,
     parentGalleryEntryId: entry.id,
-    derivedKind: "refine",
+    derivedKind: mode === "soft" ? "soft-pass" : "refine",
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
     comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
@@ -679,6 +691,21 @@ export async function requeueRefineFromGalleryEntry(
     comfyUrl: queued.comfyUrl ?? entry.comfyUrl,
     vramDowngraded: resolved.vramDowngraded,
   };
+}
+
+/** Soft second pass — same path as refine with model-capped gentler denoise. */
+export function requeueSoftSecondPassFromGalleryEntry(
+  entry: ComfyGalleryEntry,
+  options?: {
+    qualityProfile?: Extract<QueueQualityProfile, "final" | "max">;
+    onStatus?: (message: string) => void;
+    force?: boolean;
+  },
+): Promise<RequeueComfyJobResult> {
+  return requeueRefineFromGalleryEntry(entry, {
+    ...options,
+    mode: "soft",
+  });
 }
 
 /**
