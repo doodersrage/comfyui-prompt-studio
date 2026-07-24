@@ -40,7 +40,7 @@ function envAutostartEnabled(): boolean {
 function resolveEngineDir(): string {
   const fromEnv = process.env.DIFFUSERS_ENGINE_DIR?.trim();
   if (fromEnv) {
-    return path.resolve(fromEnv);
+    return path.resolve(/* turbopackIgnore: true */ fromEnv);
   }
   return DEFAULT_ENGINE_DIR;
 }

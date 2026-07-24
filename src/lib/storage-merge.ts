@@ -60,7 +60,12 @@ export function detectStorageConflicts(input: {
       continue;
     }
 
-    if (Math.abs(localTime - serverTime) > CONFLICT_SKEW_MS) {
+    // Both sides have data (counts > 0); still guard nulls for the typechecker.
+    if (
+      local &&
+      server &&
+      Math.abs(localTime - serverTime) > CONFLICT_SKEW_MS
+    ) {
       conflicts.push({
         namespace: entry.namespace,
         localUpdatedAt: localTime,

@@ -19,9 +19,15 @@ const memory = new Map<string, MemoryEntry>();
 function cacheRoot(): string {
   const dataDir = process.env.PROMPT_DATA_DIR?.trim();
   if (dataDir) {
-    return path.join(path.resolve(dataDir), "comfy-view-cache");
+    return path.join(
+      path.resolve(/* turbopackIgnore: true */ dataDir),
+      "comfy-view-cache",
+    );
   }
-  return path.join(os.tmpdir(), "comfyui-prompt-studio-view-cache");
+  return path.join(
+    /* turbopackIgnore: true */ os.tmpdir(),
+    "comfyui-prompt-studio-view-cache",
+  );
 }
 
 export function buildViewCacheKey(input: {

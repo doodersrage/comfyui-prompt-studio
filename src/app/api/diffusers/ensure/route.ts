@@ -1,4 +1,3 @@
-import { ensureDiffusersRunning } from "@/lib/diffusers-autostart";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 
@@ -19,6 +18,7 @@ export async function POST(request: Request) {
     body = {};
   }
 
+  const { ensureDiffusersRunning } = await import("@/lib/diffusers-autostart");
   const result = await ensureDiffusersRunning({
     engineUrl: body.engineUrl?.trim() || undefined,
     autoStart: body.autoStart !== false,
@@ -43,6 +43,7 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+  const { ensureDiffusersRunning } = await import("@/lib/diffusers-autostart");
   const result = await ensureDiffusersRunning({
     engineUrl: searchParams.get("engineUrl")?.trim() || undefined,
     autoStart: searchParams.get("autoStart") !== "0",

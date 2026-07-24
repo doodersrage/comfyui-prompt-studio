@@ -1,4 +1,3 @@
-import { ensureDiffusersRunning } from "@/lib/diffusers-autostart";
 import {
   getDiffusersBaseUrl,
   queueDiffusersTxt2Img,
@@ -109,6 +108,7 @@ export async function POST(request: Request) {
       hasInputImage: body.hasInputImage === true,
     });
 
+    const { ensureDiffusersRunning } = await import("@/lib/diffusers-autostart");
     const ensured = await ensureDiffusersRunning({
       engineUrl: engineUrlHint,
       autoStart: body.autoStart !== false,
