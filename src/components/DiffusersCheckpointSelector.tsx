@@ -251,20 +251,25 @@ export default function DiffusersCheckpointSelector({
       item.weightId === value,
   );
 
-  // When the parent resolves a Flux weight filename, keep the Flux tab visible.
-  useEffect(() => {
-    if (!selected) {
-      return;
+  // Keep the family tab aligned when the parent resolves a weight (e.g. Flux filename).
+  // Adjust during render (React-approved) instead of syncing via useEffect/setState.
+  const selectedFamilyTab =
+    selected?.family === "qwen" ||
+    selected?.family === "flux" ||
+    selected?.family === "sdxl" ||
+    selected?.family === "sd15"
+      ? selected.family
+      : null;
+  const selectedSyncKey = selected
+    ? `${selected.id}:${selected.family}`
+    : "";
+  const [syncedSelectionKey, setSyncedSelectionKey] = useState(selectedSyncKey);
+  if (selectedSyncKey !== syncedSelectionKey) {
+    setSyncedSelectionKey(selectedSyncKey);
+    if (selectedFamilyTab) {
+      setFamily(selectedFamilyTab);
     }
-    if (
-      selected.family === "qwen" ||
-      selected.family === "flux" ||
-      selected.family === "sdxl" ||
-      selected.family === "sd15"
-    ) {
-      setFamily(selected.family);
-    }
-  }, [selected]);
+  }
 
   const isActive = (item: DiffusersCheckpointOption) =>
     item.id === value ||

@@ -12,7 +12,7 @@ const CHECKPOINT_FILE = /\.(safetensors|ckpt|pt|bin)$/i;
  */
 export function resolveDiffusersModelHint(
   model?: string | null,
-  checkpointMap?: Record<string, string> | null,
+  checkpointMap?: Partial<Record<string, string>> | null,
 ): string {
   const trimmed = model?.trim();
   if (!trimmed) {

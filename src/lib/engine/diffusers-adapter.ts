@@ -316,7 +316,6 @@ export const diffusersEngineAdapter: EngineAdapter = {
     const clientId = input.clientId?.trim() || createComfyUiClientId();
     let promptId = input.promptId?.trim() || "";
     let closed = false;
-    let timer: ReturnType<typeof setInterval> | undefined;
 
     const poll = async () => {
       if (closed || !promptId) {
@@ -347,9 +346,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
             message: status.statusMessage ?? "Completed",
           });
           closed = true;
-          if (timer) {
-            clearInterval(timer);
-          }
+          clearInterval(timer);
           return;
         }
         if (status.status === "error") {
@@ -360,9 +357,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
           });
           input.onError?.(status.statusMessage ?? "Diffusers job failed.");
           closed = true;
-          if (timer) {
-            clearInterval(timer);
-          }
+          clearInterval(timer);
         }
       } catch (error) {
         input.onError?.(
@@ -371,7 +366,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
       }
     };
 
-    timer = setInterval(() => {
+    const timer = setInterval(() => {
       void poll();
     }, 750);
     void poll();
@@ -379,9 +374,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
     return {
       close: () => {
         closed = true;
-        if (timer) {
-          clearInterval(timer);
-        }
+        clearInterval(timer);
       },
       ready: Promise.resolve(),
       setPromptId: (next) => {

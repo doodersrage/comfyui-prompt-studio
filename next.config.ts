@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   output: "standalone",
   allowedDevOrigins: ["127.0.0.1"],
   serverExternalPackages: ["nodemailer", "sharp"],
+  // Keep local Python engine envs out of NFT / Turbopack traces.
+  outputFileTracingExcludes: {
+    "*": ["./services/**/.venv/**", "./services/diffusers-engine/.venv/**"],
+  },
   compiler: {
     removeConsole:
       process.env.NODE_ENV === "production"

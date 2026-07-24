@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       return apiError("Prompt is required.", 400);
     }
 
-    let engineUrlHint = body.engineUrl?.trim();
+    const engineUrlHint = body.engineUrl?.trim();
     try {
       // Validate early so client gets a clear 400.
       getDiffusersBaseUrl(engineUrlHint);

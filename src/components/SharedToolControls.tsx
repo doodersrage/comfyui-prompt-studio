@@ -1514,7 +1514,7 @@ function DiffusersSamplingReadout({
   workshopCrop,
 }: {
   model: ComfyImageModel;
-  checkpointMap?: Record<string, string>;
+  checkpointMap?: Partial<Record<string, string>>;
   toolId?: string;
   workshopCrop: "auto" | "always" | "never";
 }) {

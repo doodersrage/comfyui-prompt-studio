@@ -21,7 +21,7 @@ export type DiffusersEnsureResult = {
 };
 
 const DEFAULT_ENGINE_DIR = path.join(
-  process.cwd(),
+  /* turbopackIgnore: true */ process.cwd(),
   "services",
   "diffusers-engine",
 );

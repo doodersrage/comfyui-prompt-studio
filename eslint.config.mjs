@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local Python engine envs / vendored JS must not be linted.
+    "services/**/.venv/**",
+    "**/node_modules/**",
   ]),
 ]);
 
