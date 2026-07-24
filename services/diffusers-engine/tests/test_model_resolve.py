@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from app.model_resolve import resolve_model, resolve_sdxl_refiner
+from app.model_resolve import list_local_models, resolve_model, resolve_sdxl_refiner
 
 
 class ModelResolveTests(unittest.TestCase):
@@ -126,6 +126,33 @@ class ModelResolveTests(unittest.TestCase):
                 )
 
             self.assertEqual(Path(resolved.source), realvis)
+
+    def test_lists_sdxl_checkpoints_skips_qwen_and_refiner(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ckpt_dir = root / "models" / "checkpoints"
+            ckpt_dir.mkdir(parents=True)
+            (ckpt_dir / "RealVisXL_V5.0_fp16.safetensors").write_bytes(b"fake")
+            (ckpt_dir / "sd_xl_base_1.0.safetensors").write_bytes(b"fake")
+            (ckpt_dir / "sd_xl_refiner_1.0.safetensors").write_bytes(b"fake")
+            (ckpt_dir / "Qwen-Rapid-AIO-SFW-v23.safetensors").write_bytes(b"fake")
+            (ckpt_dir / "DreamShaper_8_pruned.safetensors").write_bytes(b"fake")
+
+            with mock.patch.dict(
+                os.environ,
+                {"COMFYUI_ROOT": str(root), "DIFFUSERS_MODEL_DIR": ""},
+                clear=False,
+            ):
+                listed = list_local_models()
+
+            ids = {item.id for item in listed}
+            self.assertIn("RealVisXL_V5.0_fp16.safetensors", ids)
+            self.assertIn("sd_xl_base_1.0.safetensors", ids)
+            self.assertIn("DreamShaper_8_pruned.safetensors", ids)
+            self.assertNotIn("sd_xl_refiner_1.0.safetensors", ids)
+            self.assertNotIn("Qwen-Rapid-AIO-SFW-v23.safetensors", ids)
+            default = next(item for item in listed if item.default)
+            self.assertEqual(default.id, "RealVisXL_V5.0_fp16.safetensors")
 
 
 if __name__ == "__main__":

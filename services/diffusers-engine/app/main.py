@@ -6,12 +6,14 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
-from app.model_resolve import describe_search_paths
+from app.model_resolve import describe_search_paths, list_local_models
 from app.pipeline import DEFAULT_MODEL, MOCK_MODE, pipeline_holder
 from app.queue import JobQueue, resolve_output_path
 from app.schemas import (
     HealthResponse,
     JobStatusResponse,
+    ListedModelResponse,
+    ModelsResponse,
     Txt2ImgRequest,
     Txt2ImgResponse,
     UploadResponse,
@@ -42,6 +44,26 @@ async def health() -> HealthResponse:
         device=device,
         model=model or DEFAULT_MODEL,
         mock=mock or MOCK_MODE,
+        search_paths=describe_search_paths(),
+    )
+
+
+@app.get("/v1/models", response_model=ModelsResponse)
+async def models() -> ModelsResponse:
+    listed = list_local_models()
+    default_model = next((item.id for item in listed if item.default), None)
+    return ModelsResponse(
+        models=[
+            ListedModelResponse(
+                id=item.id,
+                label=item.label,
+                kind=item.kind,  # type: ignore[arg-type]
+                family=item.family,  # type: ignore[arg-type]
+                default=item.default,
+            )
+            for item in listed
+        ],
+        default_model=default_model,
         search_paths=describe_search_paths(),
     )
 

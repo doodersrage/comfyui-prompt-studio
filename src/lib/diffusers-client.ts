@@ -137,6 +137,71 @@ export type DiffusersJobStatus = {
   progressMax?: number;
 };
 
+export type DiffusersListedModel = {
+  id: string;
+  label: string;
+  kind: "single_file" | "diffusers_dir";
+  family: "sdxl" | "sd15" | "other";
+  default: boolean;
+};
+
+export type DiffusersModelsResult = {
+  models: DiffusersListedModel[];
+  defaultModel: string | null;
+  searchPaths: string[];
+  engineUrl: string;
+};
+
+export async function fetchDiffusersModels(
+  engineUrlHint?: string,
+): Promise<DiffusersModelsResult | null> {
+  let engineUrl: string;
+  try {
+    engineUrl = getDiffusersBaseUrl(engineUrlHint);
+  } catch {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${engineUrl}/v1/models`, {
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const raw = (await response.json()) as Record<string, unknown>;
+    const models = Array.isArray(raw.models)
+      ? (raw.models as Array<Record<string, unknown>>)
+          .filter((item) => typeof item.id === "string" && item.id.trim())
+          .map((item) => ({
+            id: String(item.id).trim(),
+            label:
+              typeof item.label === "string" && item.label.trim()
+                ? item.label.trim()
+                : String(item.id).trim(),
+            kind:
+              item.kind === "diffusers_dir" ? ("diffusers_dir" as const) : ("single_file" as const),
+            family:
+              item.family === "sdxl" || item.family === "sd15"
+                ? (item.family as "sdxl" | "sd15")
+                : ("other" as const),
+            default: Boolean(item.default),
+          }))
+      : [];
+    return {
+      models,
+      defaultModel:
+        typeof raw.default_model === "string" ? raw.default_model.trim() : null,
+      searchPaths: Array.isArray(raw.search_paths)
+        ? raw.search_paths.filter((path): path is string => typeof path === "string")
+        : [],
+      engineUrl,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchDiffusersJobStatus(
   promptId: string,
   engineUrlHint?: string,

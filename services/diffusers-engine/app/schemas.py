@@ -56,3 +56,17 @@ class HealthResponse(BaseModel):
     model: str
     mock: bool = False
     search_paths: list[str] = []
+
+
+class ListedModelResponse(BaseModel):
+    id: str
+    label: str
+    kind: Literal["single_file", "diffusers_dir"]
+    family: Literal["sdxl", "sd15", "other"] = "other"
+    default: bool = False
+
+
+class ModelsResponse(BaseModel):
+    models: list[ListedModelResponse]
+    default_model: Optional[str] = None
+    search_paths: list[str] = []

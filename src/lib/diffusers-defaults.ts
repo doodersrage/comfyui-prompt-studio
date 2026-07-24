@@ -4,13 +4,25 @@ export const DIFFUSERS_DEFAULT_MODEL = "RealVisXL_V5.0_fp16.safetensors";
 const NON_SDXL_HINT =
   /flux|qwen|wan|hunyuan|svd|ltx|cogvideo|mochi|hailuo|kling|runway/i;
 
+const CHECKPOINT_FILE = /\.(safetensors|ckpt|pt|bin)$/i;
+
 /**
  * Map a Studio model id onto a Diffusers-friendly SDXL checkpoint.
- * Flux/Qwen aliases fall back to RealVis so the picker stays usable.
+ * Explicit checkpoint filenames pass through; Flux/Qwen aliases → RealVis.
  */
 export function resolveDiffusersModelHint(model?: string | null): string {
   const trimmed = model?.trim();
-  if (!trimmed || NON_SDXL_HINT.test(trimmed)) {
+  if (!trimmed) {
+    return DIFFUSERS_DEFAULT_MODEL;
+  }
+  // Diffusers checkpoint picker already chose a local file/folder name.
+  if (CHECKPOINT_FILE.test(trimmed) || trimmed.includes("/")) {
+    if (NON_SDXL_HINT.test(trimmed)) {
+      return DIFFUSERS_DEFAULT_MODEL;
+    }
+    return trimmed;
+  }
+  if (NON_SDXL_HINT.test(trimmed)) {
     return DIFFUSERS_DEFAULT_MODEL;
   }
   return trimmed;

@@ -7,6 +7,7 @@ Narrow **txt2img** FastAPI service used when Prompt Studio’s inference engine 
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/v1/health` | `{ ok, device, model, mock }` |
+| GET | `/v1/models` | Local SDXL/SD1.5 checkpoints (skips Qwen/Flux/refiner) |
 | POST | `/v1/txt2img` | Queue one job |
 | GET | `/v1/jobs/{prompt_id}` | Status + images |
 | GET | `/v1/view?filename=&subfolder=&type=` | Image bytes |

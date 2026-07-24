@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import ModelSelector from "@/components/ModelSelector";
+import DiffusersCheckpointSelector from "@/components/DiffusersCheckpointSelector";
 import { useComfyWorkflowSelection } from "@/hooks/useComfyWorkflowSelection";
 import type { DetailLevel } from "@/lib/detail-level";
 import { getDetailLimits } from "@/lib/detail-level";
@@ -916,30 +917,43 @@ export default function SharedToolControls({
       <div className="space-y-4">
         <FieldLabel
           hint={
-            systemPathActive
-              ? undefined
-              : shared.autoSelectWorkflowForModel !== false
-                ? "Choosing a model auto-selects its mapped ComfyUI workflow below (when configured)."
-                : "Shared across tools and remembered between page reloads."
+            shared.inferenceEngine === "diffusers"
+              ? "Local Diffusers checkpoints from the engine (SDXL / SD1.5)."
+              : systemPathActive
+                ? undefined
+                : shared.autoSelectWorkflowForModel !== false
+                  ? "Choosing a model auto-selects its mapped ComfyUI workflow below (when configured)."
+                  : "Shared across tools and remembered between page reloads."
           }
         >
-          {systemPathActive ? "Model" : "Target model"}
+          {shared.inferenceEngine === "diffusers"
+            ? "Diffusers checkpoint"
+            : systemPathActive
+              ? "Model"
+              : "Target model"}
         </FieldLabel>
-        <ModelSelector
-          value={shared.model}
-          allowedModels={
-            pickerModels.length < COMFY_IMAGE_MODELS.length
-              ? pickerModels
-              : undefined
-          }
-          filterHint={modelFilterHint}
-          onShowAllModels={
-            showAllModelsOverride || supportedModels.source === "disabled"
-              ? undefined
-              : handleShowAllModels
-          }
-          onChange={handleModelChange}
-        />
+        {shared.inferenceEngine === "diffusers" ? (
+          <DiffusersCheckpointSelector
+            value={shared.model}
+            onChange={handleModelChange}
+          />
+        ) : (
+          <ModelSelector
+            value={shared.model}
+            allowedModels={
+              pickerModels.length < COMFY_IMAGE_MODELS.length
+                ? pickerModels
+                : undefined
+            }
+            filterHint={modelFilterHint}
+            onShowAllModels={
+              showAllModelsOverride || supportedModels.source === "disabled"
+                ? undefined
+                : handleShowAllModels
+            }
+            onChange={handleModelChange}
+          />
+        )}
         {systemPathActive ? (
           <div className="space-y-2">
             <FieldLabel hint="Steps, resolution, and polish scale with this choice.">

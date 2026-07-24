@@ -22,6 +22,17 @@ describe("diffusers-defaults", () => {
       resolveDiffusersModelHint("sd_xl_base_1.0.safetensors"),
       "sd_xl_base_1.0.safetensors",
     );
+    assert.equal(
+      resolveDiffusersModelHint("DreamShaper_8_pruned.safetensors"),
+      "DreamShaper_8_pruned.safetensors",
+    );
+  });
+
+  it("rewrites Qwen checkpoint filenames to RealVis", () => {
+    assert.equal(
+      resolveDiffusersModelHint("Qwen-Rapid-AIO-SFW-v23.safetensors"),
+      DIFFUSERS_DEFAULT_MODEL,
+    );
   });
 
   it("maps workshop crop settings to API values", () => {

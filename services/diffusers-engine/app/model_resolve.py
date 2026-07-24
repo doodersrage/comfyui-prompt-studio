@@ -367,6 +367,115 @@ def describe_search_paths() -> list[str]:
     return [str(path) for path in local_model_roots()]
 
 
+@dataclass(frozen=True)
+class ListedModel:
+    """A local checkpoint/folder the Diffusers engine can load for txt2img."""
+
+    id: str
+    label: str
+    kind: str  # "single_file" | "diffusers_dir"
+    family: str  # "sdxl" | "sd15" | "other"
+    default: bool = False
+    path: str = ""
+
+
+def _infer_family(name: str) -> str:
+    token = _normalize_token(name)
+    if "xl" in token or "realvis" in token or "juggernaut" in token:
+        return "sdxl"
+    if any(n in token for n in ("sd15", "sd1.5", "dreamshaper", "realisticvision")):
+        return "sd15"
+    return "other"
+
+
+def _is_listable_checkpoint(name: str) -> bool:
+    token = _normalize_token(name)
+    if "refiner" in token:
+        return False
+    if _is_comfy_graph_family(token):
+        return False
+    # Skip tiny / non-base weights that confuse AutoPipeline.
+    if any(n in token for n in ("vae", "lora", "controlnet", "ipadapter")):
+        return False
+    return True
+
+
+def list_local_models() -> list[ListedModel]:
+    """
+    Enumerate Diffusers-friendly local checkpoints (Comfy checkpoints + dirs).
+
+    Prefer unique filenames; mark RealVis as default when present.
+    """
+    roots = local_model_roots()
+    found: dict[str, ListedModel] = {}
+
+    for root in roots:
+        try:
+            children = list(root.iterdir())
+        except OSError:
+            continue
+        for child in children:
+            if _is_diffusers_dir(child):
+                if not _is_listable_checkpoint(child.name):
+                    continue
+                entry = ListedModel(
+                    id=child.name,
+                    label=child.name,
+                    kind="diffusers_dir",
+                    family=_infer_family(child.name),
+                    path=str(child.resolve()),
+                )
+                found.setdefault(entry.id, entry)
+                continue
+            if not _looks_like_weight_file(child):
+                continue
+            if not _is_listable_checkpoint(child.name):
+                continue
+            # Prefer checkpoints/ over diffusion_models/ duplicates.
+            existing = found.get(child.name)
+            if existing is not None and "checkpoints" not in root.parts:
+                continue
+            entry = ListedModel(
+                id=child.name,
+                label=child.stem.replace("_", " "),
+                kind="single_file",
+                family=_infer_family(child.name),
+                path=str(child.resolve()),
+            )
+            found[entry.id] = entry
+
+    preferred = {name.lower(): index for index, name in enumerate(_PREFERRED_SDXL_CHECKPOINTS)}
+
+    def sort_key(item: ListedModel) -> tuple[int, str]:
+        rank = preferred.get(item.id.lower(), 1000)
+        family_rank = 0 if item.family == "sdxl" else 1 if item.family == "sd15" else 2
+        return (family_rank, rank, item.id.lower())
+
+    ordered = sorted(found.values(), key=sort_key)
+    if not ordered:
+        return []
+
+    default_id = None
+    for name in _PREFERRED_SDXL_CHECKPOINTS:
+        if name in found:
+            default_id = name
+            break
+    if default_id is None:
+        default_id = ordered[0].id
+
+    return [
+        ListedModel(
+            id=item.id,
+            label=item.label,
+            kind=item.kind,
+            family=item.family,
+            default=item.id == default_id,
+            path=item.path,
+        )
+        for item in ordered
+    ]
+
+
 _REFINER_NAMES = (
     "sd_xl_refiner_1.0.safetensors",
     "sd_xl_refiner_1.0",
