@@ -42,6 +42,8 @@ export type DiffusersTxt2ImgBody = {
   guidance_scale?: number;
   seed?: number | null;
   client_id?: string;
+  /** null = auto-detect workshop roles; true/false force crop on/off. */
+  workshop_crop?: boolean | null;
 };
 
 export type DiffusersQueueResult = {

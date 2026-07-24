@@ -1,6 +1,7 @@
 import { getComfyUiBaseUrl } from "./comfyui-client";
 import type { ComfyUiRuntimeConfig } from "./comfyui-config";
 import { parseComfyUiPool, setComfyUiPoolStatsCache } from "./comfyui-pool";
+import { getDiffusersBaseUrl } from "./diffusers-client";
 import {
   getLlmConfig,
   getLlmInflightCount,
@@ -37,6 +38,15 @@ export type ComfyUiPoolEndpointHealth = ComfyUiHealth & {
 export type ComfyUiPoolHealth = {
   enabled: boolean;
   endpoints: ComfyUiPoolEndpointHealth[];
+};
+
+export type DiffusersHealth = {
+  ok: boolean;
+  url: string;
+  device?: string;
+  model?: string;
+  mock?: boolean;
+  error?: string;
 };
 
 type ComfyQueuePayload = {
@@ -181,6 +191,50 @@ export async function checkComfyUiHealth(
       ok: false,
       url,
       error: error instanceof Error ? error.message : "ComfyUI unreachable",
+    };
+  }
+}
+
+export async function checkDiffusersHealth(
+  engineUrlHint?: string,
+): Promise<DiffusersHealth> {
+  let url: string;
+  try {
+    url = getDiffusersBaseUrl(engineUrlHint);
+  } catch (error) {
+    return {
+      ok: false,
+      url: engineUrlHint?.trim() || "",
+      error: error instanceof Error ? error.message : "Invalid Diffusers URL",
+    };
+  }
+
+  try {
+    const response = await fetch(`${url}/v1/health`, {
+      signal: AbortSignal.timeout(8000),
+      redirect: "manual",
+    });
+    if (!response.ok) {
+      return { ok: false, url, error: `HTTP ${response.status}` };
+    }
+    const raw = (await response.json()) as {
+      ok?: boolean;
+      device?: string;
+      model?: string;
+      mock?: boolean;
+    };
+    return {
+      ok: raw.ok !== false,
+      url,
+      device: typeof raw.device === "string" ? raw.device : undefined,
+      model: typeof raw.model === "string" ? raw.model : undefined,
+      mock: Boolean(raw.mock),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      url,
+      error: error instanceof Error ? error.message : "Diffusers unreachable",
     };
   }
 }

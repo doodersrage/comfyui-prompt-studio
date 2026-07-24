@@ -156,12 +156,6 @@ def prompt_is_workshop_role(text: str) -> bool:
 prompt_wants_workshop_mitts = prompt_is_workshop_role
 
 
-def _anatomy_suffix_for_role(role: str | None) -> str:
-    if role and role in _WORKSHOP_ROLES:
-        return _WORKSHOP_ANATOMY_SUFFIX
-    return _PERSON_ANATOMY_SUFFIX
-
-
 def _strip_workshop_hand_actions(text: str) -> str:
     """Remove hand/tool stage directions that pull digits into frame."""
     cleaned = _WORKSHOP_ACTION_RE.sub(" ", text)
@@ -307,6 +301,17 @@ def _already_fitted(text: str) -> bool:
     )
 
 
+def _resolve_workshop_crop(
+    role: str | None,
+    workshop_crop: bool | None,
+) -> bool:
+    if workshop_crop is True:
+        return True
+    if workshop_crop is False:
+        return False
+    return bool(role and role in _WORKSHOP_ROLES)
+
+
 def fit_prompt_to_clip(
     tokenizer: Any | None,
     text: str,
@@ -314,6 +319,7 @@ def fit_prompt_to_clip(
     max_tokens: int = 77,
     max_chars: int = _DEFAULT_CHAR_BUDGET,
     add_quality: bool = True,
+    workshop_crop: bool | None = None,
 ) -> str:
     """
     Fit a long Studio prompt into CLIP's window without tokenizing the full
@@ -332,11 +338,14 @@ def fit_prompt_to_clip(
         return _clamp_with_tokenizer(tokenizer, cleaned, max_tokens=max_tokens)
 
     role = _person_role(cleaned)
+    use_workshop = _resolve_workshop_crop(role, workshop_crop)
     anatomy = ""
     style = ""
     if add_quality:
         if role:
-            anatomy = _anatomy_suffix_for_role(role)
+            anatomy = (
+                _WORKSHOP_ANATOMY_SUFFIX if use_workshop else _PERSON_ANATOMY_SUFFIX
+            )
             style = _PERSON_STYLE_SUFFIX
         else:
             style = _QUALITY_SUFFIX
@@ -386,7 +395,7 @@ def fit_prompt_to_clip(
         )
     remainder = re.sub(r"\s{2,}", " ", remainder).strip(" ,;")
     remainder = _trim_clause(remainder)
-    if role and role in _WORKSHOP_ROLES:
+    if use_workshop:
         remainder = _strip_workshop_hand_actions(remainder)
 
     return _fit_parts_to_tokens(
@@ -435,16 +444,23 @@ def encode_sdxl_prompts(
     prompt: str,
     negative_prompt: str,
     device: str,
+    workshop_crop: bool | None = None,
 ) -> dict[str, Any]:
     """Return CLIP-safe prompt kwargs and a debug preview string."""
     del device  # reserved for Compel / device-side encodes later
     positive = clean_studio_prompt(prompt)
     negative = clean_studio_prompt(negative_prompt)
-    wants_person = _person_role(positive) is not None
-    workshop_role = prompt_is_workshop_role(positive)
+    role = _person_role(positive)
+    wants_person = role is not None
+    workshop_role = _resolve_workshop_crop(role, workshop_crop)
 
     already = _already_fitted(positive)
-    fitted = fit_prompt_to_clip(pipe.tokenizer, positive, max_tokens=77)
+    fitted = fit_prompt_to_clip(
+        pipe.tokenizer,
+        positive,
+        max_tokens=77,
+        workshop_crop=workshop_crop,
+    )
     fitted_neg = fit_negative_to_clip(
         pipe.tokenizer,
         negative,

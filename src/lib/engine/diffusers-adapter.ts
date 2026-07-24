@@ -68,6 +68,10 @@ async function fetchDiffusersStatusViaProxy(
       typeof raw.queuePosition === "number" || raw.queuePosition === null
         ? (raw.queuePosition as number | null)
         : undefined,
+    progressValue:
+      typeof raw.progressValue === "number" ? raw.progressValue : undefined,
+    progressMax:
+      typeof raw.progressMax === "number" ? raw.progressMax : undefined,
   };
 }
 
@@ -90,6 +94,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
       negativePrompt: body.negativePrompt,
       model: body.model,
       params: body.params,
+      workshopCrop: body.workshopCrop,
       clientId,
       engineUrl: engineUrlHint,
     };
@@ -217,8 +222,8 @@ export const diffusersEngineAdapter: EngineAdapter = {
             promptId,
             status: "progress",
             message: status.statusMessage,
-            value: undefined,
-            max: undefined,
+            value: status.progressValue,
+            max: status.progressMax,
           });
           return;
         }

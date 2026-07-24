@@ -48,6 +48,7 @@ import {
 import { loadSettingsCache } from "@/lib/settings-cache";
 import { getEngineAdapter } from "@/lib/engine";
 import { loadEngineSettings } from "@/lib/engine-settings";
+import { workshopCropToApi } from "@/lib/diffusers-defaults";
 import {
   computePromptContentHash,
   nextPromptVersionFields,
@@ -129,9 +130,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         /** Actual model queued (may differ from picker when Generate remaps Edit Lightning). */
         model?: ComfyImageModel;
         sessionActiveLoraIds?: string[];
+        engineId?: import("@/lib/engine/types").EngineId;
       },
       showPreview = true,
     ) => {
+      const engineId = input.engineId ?? getEngineAdapter().id;
       const galleryEntry = registerComfyGalleryJob({
         promptId: input.promptId,
         prompt: input.prompt,
@@ -145,6 +148,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         queueQualityProfile: input.queueQualityProfile,
         sessionActiveLoraIds: input.sessionActiveLoraIds,
         projectId: loadActiveProjectId(),
+        engineId,
       });
 
       if (input.historyId) {
@@ -159,8 +163,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       const initialJob: ComfyUiJobTrackerState = {
         promptId: input.promptId,
         status: "pending",
-        statusMessage: "Submitted to ComfyUI",
+        statusMessage:
+          engineId === "diffusers"
+            ? "Submitted to Diffusers"
+            : "Submitted to ComfyUI",
         comfyUrl: input.comfyUrl,
+        engineId,
       };
       setComfyUiJob(initialJob);
       setComfyUiStatus(formatComfyUiJobStatusLine(initialJob));
@@ -168,8 +176,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       void scheduleComfyGalleryPoll(input.promptId, {
         comfyUrl: input.comfyUrl,
         onJobUpdate: (job) => {
-          setComfyUiJob(job);
-          setComfyUiStatus(formatComfyUiJobStatusLine(job));
+          const next = { ...job, engineId: job.engineId ?? engineId };
+          setComfyUiJob(next);
+          setComfyUiStatus(formatComfyUiJobStatusLine(next));
         },
       }).then((entry) => {
         if (!entry) {
@@ -181,6 +190,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           status: entry.status,
           statusMessage: entry.statusMessage,
           comfyUrl: entry.comfyUrl,
+          engineId,
           imageCount: entry.images.length,
           progressValue: undefined,
           progressMax: undefined,
@@ -748,7 +758,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           model: queueModel,
           params: queueParams,
           ...(engineAdapter.id === "diffusers"
-            ? { engineUrl: engineSettings.diffusersApiUrl }
+            ? {
+                engineUrl: engineSettings.diffusersApiUrl,
+                workshopCrop: workshopCropToApi(
+                  loadSettingsCache().shared.diffusersWorkshopCrop,
+                ),
+              }
             : runtime
               ? { comfy: runtime }
               : {}),
@@ -811,6 +826,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 ? "Submitted to Diffusers"
                 : "Submitted to ComfyUI",
             comfyUrl: queued.engineUrl,
+            engineId: engineAdapter.id,
           });
           trackComfyUiJob({
             promptId: queued.promptId,
@@ -829,6 +845,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             model: queueModel,
             sessionActiveLoraIds:
               resolveSharedEffectiveSessionLoraIds(queueModel),
+            engineId: engineAdapter.id,
           });
           queued.releaseLiveSocket();
           markOnboardingFirstQueue();

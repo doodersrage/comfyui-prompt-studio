@@ -41,6 +41,8 @@ export type EngineStatusResult = {
   engineUrl: string;
   images?: EngineOutputImage[];
   queuePosition?: number | null;
+  progressValue?: number;
+  progressMax?: number;
   renderDurationMs?: number;
   executionStartedAt?: number;
 };

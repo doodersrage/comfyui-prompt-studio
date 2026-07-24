@@ -107,6 +107,7 @@ class JobQueue:
                 guidance_scale=req.guidance_scale,
                 seed=seed,
                 on_step=on_step,
+                workshop_crop=req.workshop_crop,
             )
             filename = f"{prompt_id}.png"
             path = self.output_dir / filename

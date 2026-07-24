@@ -89,7 +89,9 @@ def _silence_model_warnings() -> Iterator[None]:
             logging.getLogger(name).setLevel(level)
 
 
-DEFAULT_MODEL = os.environ.get("DIFFUSERS_MODEL", "stabilityai/sdxl-turbo").strip()
+DEFAULT_MODEL = os.environ.get(
+    "DIFFUSERS_MODEL", "RealVisXL_V5.0_fp16.safetensors"
+).strip()
 MOCK_MODE = env_flag("DIFFUSERS_MOCK")
 SDXL_CONFIG_ID = os.environ.get(
     "DIFFUSERS_SDXL_CONFIG",
@@ -671,6 +673,7 @@ class PipelineHolder:
         guidance_scale: float,
         seed: int,
         on_step: Callable[[int, int], None] | None = None,
+        workshop_crop: bool | None = None,
     ) -> Image.Image:
         model_id = (model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
@@ -691,7 +694,12 @@ class PipelineHolder:
         self._empty_cuda()
         pipe = self._ensure_loaded(model_id)
         wants_person = prompt_wants_person(prompt)
-        workshop_role = prompt_is_workshop_role(prompt)
+        if workshop_crop is True:
+            workshop_role = True
+        elif workshop_crop is False:
+            workshop_role = False
+        else:
+            workshop_role = prompt_is_workshop_role(prompt)
         pipe = self._apply_loras(
             pipe,
             wants_person=wants_person,
@@ -737,6 +745,7 @@ class PipelineHolder:
                     prompt=prompt,
                     negative_prompt=plan.negative_prompt,
                     device=device_for_gen,
+                    workshop_crop=workshop_crop,
                 )
             )
             # SDXL clarity helper — reduces washed midtones / overcooked CFG look.

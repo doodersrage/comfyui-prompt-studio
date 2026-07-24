@@ -5,6 +5,8 @@ export type ComfyUiJobTrackerState = {
   status: ComfyGalleryJobStatus;
   statusMessage?: string;
   comfyUrl?: string;
+  /** Which backend queued this job (drives status copy). */
+  engineId?: import("./engine/types").EngineId;
   /** 1-based position in ComfyUI pending queue; 0 means running now. */
   queuePosition?: number | null;
   imageCount?: number;
@@ -17,6 +19,18 @@ export type ComfyUiJobTrackerState = {
   /** Object URL for the latest live latent preview frame. */
   previewUrl?: string | null;
 };
+
+export function comfyUiJobEngineLabel(
+  job: Pick<ComfyUiJobTrackerState, "engineId" | "statusMessage">,
+): string {
+  if (job.engineId === "diffusers") {
+    return "Diffusers";
+  }
+  if (job.statusMessage?.toLowerCase().includes("diffusers")) {
+    return "Diffusers";
+  }
+  return "ComfyUI";
+}
 
 export function isComfyUiJobProcessing(
   job: ComfyUiJobTrackerState | null | undefined,
@@ -57,7 +71,8 @@ export function formatComfyUiJobStatusLine(job: ComfyUiJobTrackerState): string 
 
   if (job.status === "running") {
     const progress = formatComfyUiJobProgressLabel(job);
-    parts.push(progress ? `Running · ${progress}` : "Running in ComfyUI");
+    const engine = comfyUiJobEngineLabel(job);
+    parts.push(progress ? `Running · ${progress}` : `Running in ${engine}`);
   } else if (job.status === "pending") {
     if (job.queuePosition != null && job.queuePosition > 0) {
       parts.push(`Queued · position ${job.queuePosition}`);

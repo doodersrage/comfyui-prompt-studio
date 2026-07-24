@@ -93,6 +93,11 @@ import {
   setSessionLoraIdsForModel,
   type SessionActiveLoraIdsByModel,
 } from "@/lib/model-lora-map";
+import { resolveQueueParams } from "@/lib/queue-params-settings";
+import {
+  DIFFUSERS_DEFAULT_MODEL,
+  resolveDiffusersModelHint,
+} from "@/lib/diffusers-defaults";
 
 const ComfyWorkflowSelector = dynamic(
   () => import("@/components/ComfyWorkflowSelector"),
@@ -979,6 +984,13 @@ export default function SharedToolControls({
               systemWorkflowSource={systemWorkflowChoice?.source}
               onApplied={handleRecipesApplied}
             />
+            {shared.inferenceEngine === "diffusers" ? (
+              <DiffusersSamplingReadout
+                model={shared.model}
+                toolId={toolId}
+                workshopCrop={shared.diffusersWorkshopCrop ?? "auto"}
+              />
+            ) : null}
           </div>
         ) : null}
         {toolId === "generate" &&
@@ -1411,5 +1423,60 @@ export default function SharedToolControls({
         return advancedSections;
       })()}
     </div>
+  );
+}
+
+function DiffusersSamplingReadout({
+  model,
+  toolId,
+  workshopCrop,
+}: {
+  model: ComfyImageModel;
+  toolId: string;
+  workshopCrop: "auto" | "always" | "never";
+}) {
+  const params = resolveQueueParams({ model, tool: toolId });
+  const checkpoint = resolveDiffusersModelHint(model);
+  const steps =
+    typeof params.steps === "number"
+      ? params.steps
+      : Number(params.steps) || 40;
+  const cfg =
+    typeof params.cfg === "number" ? params.cfg : Number(params.cfg) || 5.5;
+  const width =
+    typeof params.width === "number"
+      ? params.width
+      : Number(params.width) || 1024;
+  const height =
+    typeof params.height === "number"
+      ? params.height
+      : Number(params.height) || 1024;
+  const seed =
+    params.seed === undefined || params.seed === "" || params.seed === -1
+      ? "random"
+      : String(params.seed);
+  const cropLabel =
+    workshopCrop === "always"
+      ? "crop hands"
+      : workshopCrop === "never"
+        ? "allow hands"
+        : "auto crop";
+  const lifted = steps < 20 && cfg <= 2;
+  return (
+    <p className="rounded-lg border border-zinc-700/60 bg-zinc-950/50 px-3 py-2 text-xs leading-relaxed text-zinc-400">
+      Diffusers ·{" "}
+      <span className="text-zinc-200">
+        {checkpoint === DIFFUSERS_DEFAULT_MODEL
+          ? "RealVisXL"
+          : checkpoint}
+      </span>
+      {" · "}
+      {width}×{height} · {lifted ? "40 steps · CFG 5.5" : `${steps} steps · CFG ${cfg}`}
+      {" · "}
+      seed {seed} · {cropLabel}
+      {lifted ? (
+        <span className="text-zinc-500"> (draft Turbo lifted)</span>
+      ) : null}
+    </p>
   );
 }

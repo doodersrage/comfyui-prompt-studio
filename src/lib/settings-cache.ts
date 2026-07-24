@@ -106,6 +106,11 @@ export type SharedToolSettings = {
   inferenceEngine?: import("./engine/types").EngineId;
   /** Browser Diffusers engine URL (proxied via `/api/diffusers`). */
   diffusersApiUrl?: string;
+  /**
+   * Diffusers workshop crop: auto-detect craft roles, always hide hands,
+   * or never force the head-and-shoulders crop.
+   */
+  diffusersWorkshopCrop?: "auto" | "always" | "never";
   /** Session LLM temperature override (0–2) sent with generation requests. */
   sessionLlmTemperature?: number;
   /** Session override for template fallback when LLM fails. */

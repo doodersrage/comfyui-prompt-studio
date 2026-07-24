@@ -2,6 +2,7 @@ import {
   getDiffusersBaseUrl,
   queueDiffusersTxt2Img,
 } from "@/lib/diffusers-client";
+import { resolveDiffusersModelHint } from "@/lib/diffusers-defaults";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 
@@ -13,6 +14,8 @@ type DiffusersRequestBody = {
   model?: string;
   clientId?: string;
   engineUrl?: string;
+  /** null = auto; true/false force workshop hand crop. */
+  workshopCrop?: boolean | null;
   params?: {
     seed?: string | number;
     width?: string | number;
@@ -83,17 +86,24 @@ export async function POST(request: Request) {
       guidance = 5.5;
     }
 
+    const model = resolveDiffusersModelHint(body.model);
+    const workshopCrop =
+      body.workshopCrop === true || body.workshopCrop === false
+        ? body.workshopCrop
+        : null;
+
     const result = await queueDiffusersTxt2Img(
       {
         prompt,
         negative_prompt: body.negativePrompt?.trim() || "",
-        model: body.model?.trim() || undefined,
+        model,
         width,
         height,
         steps,
         guidance_scale: guidance,
         seed,
         client_id: body.clientId?.trim() || undefined,
+        workshop_crop: workshopCrop,
       },
       engineUrlHint,
     );
@@ -110,6 +120,13 @@ export async function POST(request: Request) {
       comfyUrl: result.engineUrl,
       clientId: body.clientId?.trim() || undefined,
       workflowSource: "diffusers",
+      model,
+      steps,
+      guidanceScale: guidance,
+      width,
+      height,
+      seed,
+      workshopCrop,
     });
   } catch (error) {
     return apiError(

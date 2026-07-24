@@ -292,6 +292,14 @@ type HealthResponse = {
     queueRunning?: number;
     vram?: { free?: number; total?: number };
   };
+  diffusers?: {
+    ok: boolean;
+    url: string;
+    device?: string;
+    model?: string;
+    mock?: boolean;
+    error?: string;
+  };
   apiUsage?: {
     total: number;
     lastHour: number;
@@ -941,6 +949,21 @@ export default function SettingsTool() {
                 .filter(Boolean)
                 .join(" · ")}
             />
+            {health.diffusers ? (
+              <HealthCard
+                title="Diffusers"
+                ok={health.diffusers.ok}
+                detail={[
+                  health.diffusers.url,
+                  health.diffusers.device,
+                  health.diffusers.model,
+                  health.diffusers.mock ? "mock" : null,
+                  health.diffusers.error,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              />
+            ) : null}
           </div>
         )}
 
@@ -1129,13 +1152,36 @@ export default function SettingsTool() {
               className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 shadow-inner transition focus-visible:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
+          <div className="space-y-1 sm:col-span-2">
+            <label htmlFor="diffusers-workshop-crop" className="text-xs text-zinc-400">
+              Workshop crop (hide hands)
+            </label>
+            <select
+              id="diffusers-workshop-crop"
+              value={sharedSettings.diffusersWorkshopCrop ?? "auto"}
+              onChange={(event) => {
+                const value = event.target.value;
+                updateSharedSettings({
+                  diffusersWorkshopCrop:
+                    value === "always" || value === "never" ? value : "auto",
+                });
+              }}
+              disabled={sharedSettings.inferenceEngine !== "diffusers"}
+              className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 shadow-inner transition focus-visible:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="auto">Auto (glassblower / blacksmith / …)</option>
+              <option value="always">Always crop hands</option>
+              <option value="never">Allow hands in frame</option>
+            </select>
+          </div>
         </div>
         <p className="text-xs text-zinc-500">
           Run{" "}
           <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
             services/diffusers-engine
           </code>{" "}
-          locally (see its README). Server proxy uses{" "}
+          locally (see its README). Defaults to RealVisXL when the Studio model is a
+          Flux/Qwen alias. Server proxy uses{" "}
           <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
             DIFFUSERS_API_URL
           </code>

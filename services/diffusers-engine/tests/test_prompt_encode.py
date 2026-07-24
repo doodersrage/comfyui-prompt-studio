@@ -132,6 +132,28 @@ class PromptEncodeTests(unittest.TestCase):
         self.assertIn("five fingers", lower)
         self.assertNotIn("head and shoulders", lower)
 
+    def test_workshop_crop_force_off_keeps_hands(self) -> None:
+        fitted = fit_prompt_to_clip(
+            None,
+            "a glassblower in a misty distillery workshop",
+            max_chars=280,
+            workshop_crop=False,
+        )
+        lower = fitted.lower()
+        self.assertIn("five fingers", lower)
+        self.assertNotIn("no hands visible", lower)
+
+    def test_workshop_crop_force_on_for_any_person(self) -> None:
+        fitted = fit_prompt_to_clip(
+            None,
+            "a nurse in green scrubs checking a patient chart",
+            max_chars=280,
+            workshop_crop=True,
+        )
+        lower = fitted.lower()
+        self.assertIn("no hands visible", lower)
+        self.assertNotIn("five fingers", lower)
+
 
 if __name__ == "__main__":
     unittest.main()

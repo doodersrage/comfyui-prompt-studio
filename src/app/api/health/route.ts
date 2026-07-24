@@ -1,4 +1,9 @@
-import { checkComfyUiPoolHealth, checkLlmHealth, getExpandedComfyUiHealth } from "@/lib/service-health";
+import {
+  checkComfyUiPoolHealth,
+  checkDiffusersHealth,
+  checkLlmHealth,
+  getExpandedComfyUiHealth,
+} from "@/lib/service-health";
 import { getLlmConfig, isLlmEnabled, allowTemplateFallback } from "@/lib/llm-client";
 import { getComfyUiBaseUrl } from "@/lib/comfyui-client";
 import { getComfyUiWorkflowSummary } from "@/lib/comfyui-status";
@@ -34,7 +39,9 @@ export async function GET(request: Request) {
     comfyUiUrl = "";
   }
 
-  const [llm, comfyui, workflow, comfyuiPool] = await Promise.all([
+  const diffusersUrlHint = searchParams.get("diffusersUrl")?.trim() || undefined;
+
+  const [llm, comfyui, workflow, comfyuiPool, diffusers] = await Promise.all([
     checkLlmHealth(),
     getExpandedComfyUiHealth(runtime),
     (async () => {
@@ -49,12 +56,14 @@ export async function GET(request: Request) {
       }
     })(),
     checkComfyUiPoolHealth(),
+    checkDiffusersHealth(diffusersUrlHint),
   ]);
 
   return apiJson({
     llm,
     comfyui,
     comfyuiPool,
+    diffusers,
     workflow,
     apiUsage: summarizeApiUsage(),
     storage: { enabled: isServerStorageEnabled() },

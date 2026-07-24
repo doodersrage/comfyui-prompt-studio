@@ -60,7 +60,7 @@ DIFFUSERS_LONG_PROMPT=1
 # DIFFUSERS_LORA="HandFineTuning_XL:0.7,Detail-Tweaker-XL:0.35"
 ```
 
-For person prompts, Diffusers auto-attaches an SDXL hand LoRA (downloads once if missing) plus `Detail-Tweaker-XL` / `add-detail-xl` when those files exist under Comfy `models/loras`. Workshop roles (glassblower, blacksmith, etc.) force a head-and-shoulders crop and strip hand/tool stage directions from the Studio novel — SDXL still botches workshop grips when hands stay in frame.
+For person prompts, Diffusers auto-attaches an SDXL hand LoRA (downloads once if missing) plus `Detail-Tweaker-XL` / `add-detail-xl` when those files exist under Comfy `models/loras`. Workshop roles (glassblower, blacksmith, etc.) force a head-and-shoulders crop and strip hand/tool stage directions from the Studio novel — SDXL still botches workshop grips when hands stay in frame. Studio Settings → Inference engine can force crop on/off via `workshop_crop` (`null` = auto). Default checkpoint is RealVisXL when Studio sends Flux/Qwen aliases.
 
 ## Env
 

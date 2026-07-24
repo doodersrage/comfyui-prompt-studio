@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  comfyUiJobEngineLabel,
   comfyUiJobProgressPercent,
   comfyUiJobStatusLabel,
   formatComfyUiJobProgressLabel,
@@ -70,6 +71,7 @@ export default function ComfyUiJobStatusPanel({
   const label = comfyUiJobStatusLabel(job);
   const percent = comfyUiJobProgressPercent(job);
   const progressLabel = formatComfyUiJobProgressLabel(job);
+  const engineLabel = comfyUiJobEngineLabel(job);
   const [previewUrl, setPreviewUrl] = useState<string | null>(
     () => job.previewUrl ?? getComfyLivePreviewUrl(job.promptId),
   );
@@ -116,12 +118,12 @@ export default function ComfyUiJobStatusPanel({
           <div className="flex flex-wrap items-center gap-2">
             <p className={`font-medium ${compact ? "type-caption" : "type-body-sm"}`}>
               {job.status === "running"
-                ? "ComfyUI is generating"
+                ? `${engineLabel} is generating`
                 : job.status === "pending"
-                  ? "ComfyUI job queued"
+                  ? `${engineLabel} job queued`
                   : job.status === "error"
-                    ? "ComfyUI job failed"
-                    : "ComfyUI job finished"}
+                    ? `${engineLabel} job failed`
+                    : `${engineLabel} job finished`}
             </p>
             <span className="rounded-full border border-current/20 px-2 py-0.5 type-overline opacity-90">
               {percent != null && job.status === "running"
