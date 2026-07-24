@@ -196,6 +196,7 @@ def _aliases_for(model: str) -> list[str]:
         (
             "flux2klein9b",
             [
+                "flux-2-klein-9b-distilled.safetensors",
                 "flux-2-klein-9b.safetensors",
                 "flux-2-klein-9b-fp8.safetensors",
                 "flux-2-klein-base-9b.safetensors",
@@ -205,6 +206,7 @@ def _aliases_for(model: str) -> list[str]:
         (
             "flux2klein",
             [
+                "flux-2-klein-9b-distilled.safetensors",
                 "flux-2-klein-9b.safetensors",
                 "flux-2-klein-base-9b.safetensors",
                 "flux-2-klein-4b-fp8.safetensors",
@@ -212,24 +214,38 @@ def _aliases_for(model: str) -> list[str]:
                 "flux-2-klein-4b",
             ],
         ),
-        ("fluxklein", ["flux-2-klein-9b.safetensors", "flux-2-klein-base-9b"]),
+        ("fluxklein", ["flux-2-klein-9b-distilled.safetensors", "flux-2-klein-9b.safetensors", "flux-2-klein-base-9b"]),
         ("fluxdev", ["flux1-dev.safetensors", "flux1-dev"]),
-        ("flux", ["flux1-dev.safetensors", "flux-2-klein-9b.safetensors", "flux-2-klein-base-9b"]),
+        ("flux", ["flux1-dev.safetensors", "flux-2-klein-9b-distilled.safetensors", "flux-2-klein-9b.safetensors", "flux-2-klein-base-9b"]),
+        (
+            "qwenimage2512",
+            [
+                "qwen_image_2512_bf16.safetensors",
+                "qwen_image_bf16.safetensors",
+                "qwen_image_fp8_e4m3fn.safetensors",
+            ],
+        ),
+        (
+            "qwenimage",
+            [
+                "qwen_image_2512_bf16.safetensors",
+                "qwen_image_bf16.safetensors",
+                "qwen_image_fp8_e4m3fn.safetensors",
+            ],
+        ),
+        (
+            "qwenrapid",
+            [
+                "Qwen-Rapid-AIO-SFW-v23.safetensors",
+                "Qwen-Rapid-AIO-v23.safetensors",
+                "Qwen-Rapid-AIO-NSFW-v23.safetensors",
+            ],
+        ),
+        ("qwen", ["qwen_image_2512_bf16.safetensors", "Qwen-Rapid-AIO-SFW-v23.safetensors"]),
     ]
     for needle, names in alias_map:
         if needle in token:
             aliases.extend(names)
-
-    # Flux/Qwen/etc. are not reliable via AutoPipeline single-file — prefer SDXL for
-    # the narrow Diffusers path after local-family aliases are tried.
-    if _is_comfy_graph_family(token):
-        aliases.extend(
-            [
-                *_PREFERRED_SDXL_CHECKPOINTS,
-                "DreamShaper_8_pruned.safetensors",
-                "stabilityai/sdxl-turbo",
-            ]
-        )
 
     # Dedupe preserving order.
     seen: set[str] = set()
@@ -284,28 +300,6 @@ def _match_in_root(root: Path, name: str) -> ResolvedModel | None:
     return None
 
 
-def _prefer_diffusers_friendly(resolved: ResolvedModel, roots: list[Path]) -> ResolvedModel:
-    """
-    Flux/Qwen single files usually fail AutoPipeline.from_single_file.
-    If we resolved one of those, prefer a local SDXL checkpoint when present.
-    """
-    token = _normalize_token(resolved.label)
-    if not _is_comfy_graph_family(token):
-        return resolved
-    for alias in (
-        *_PREFERRED_SDXL_CHECKPOINTS,
-        "DreamShaper_8_pruned.safetensors",
-    ):
-        for root in roots:
-            # Only swap when the candidate lives under checkpoints (Diffusers-friendly).
-            if "checkpoints" not in root.parts and "diffusers" not in root.parts:
-                continue
-            hit = _match_in_root(root, alias)
-            if hit is not None:
-                return hit
-    return resolved
-
-
 def _try_preferred_sdxl(roots: list[Path]) -> ResolvedModel | None:
     for alias in _PREFERRED_SDXL_CHECKPOINTS:
         for root in roots:
@@ -325,6 +319,8 @@ def resolve_model(model: str, *, default_hub: str) -> ResolvedModel:
     1. Absolute / relative path on disk
     2. Local DIFFUSERS_MODEL_DIR + COMFYUI_ROOT model folders (auto-detect /opt/comfyui)
     3. Hugging Face hub id (returned as-is for from_pretrained)
+
+    Flux/Qwen aliases resolve to local UNETs/checkpoints — never remapped to SDXL.
     """
     requested = (model or "").strip() or default_hub
 
@@ -339,13 +335,8 @@ def resolve_model(model: str, *, default_hub: str) -> ResolvedModel:
 
     roots = local_model_roots()
     token = _normalize_token(requested)
-    # Studio/Flux/SDXL aliases: try RealVis (then stock SDXL) before fuzzy "sdxl"
-    # substring matches pick the wrong checkpoint.
-    if (
-        token in ("sdxl", "sdxlturbo")
-        or "realvis" in token
-        or _is_comfy_graph_family(token)
-    ):
+    # Explicit SDXL aliases only — do not hijack Flux/Qwen.
+    if token in ("sdxl", "sdxlturbo") or "realvis" in token:
         preferred = _try_preferred_sdxl(roots)
         if preferred is not None:
             return preferred
@@ -357,7 +348,7 @@ def resolve_model(model: str, *, default_hub: str) -> ResolvedModel:
         for root in roots:
             hit = _match_in_root(root, alias)
             if hit is not None:
-                return _prefer_diffusers_friendly(hit, roots)
+                return hit
 
     # Hub id (org/name) or leftover default.
     return ResolvedModel("hub", requested, requested)

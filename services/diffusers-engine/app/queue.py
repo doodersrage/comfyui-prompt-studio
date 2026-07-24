@@ -6,19 +6,30 @@ import threading
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
+from app.comfy_graph import compile_workflow
 from app.pipeline import pipeline_holder
-from app.schemas import JobProgress, JobStatusResponse, OutputImage, Txt2ImgRequest
+from app.schemas import (
+    JobProgress,
+    JobStatusResponse,
+    OutputImage,
+    Txt2ImgRequest,
+    WorkflowRequest,
+)
+from app.workflow_exec import execute_compiled
 
 
 JobStatus = Literal["pending", "running", "completed", "error"]
+JobKind = Literal["txt2img", "workflow"]
 
 
 @dataclass
 class JobRecord:
     prompt_id: str
-    request: Txt2ImgRequest
+    kind: JobKind
+    request: Optional[Txt2ImgRequest] = None
+    workflow: Optional[dict[str, Any]] = None
     status: JobStatus = "pending"
     status_message: str = "Queued"
     progress_value: int = 0
@@ -46,9 +57,37 @@ class JobQueue:
         seed = request.seed if request.seed is not None else random.randint(0, 2**31 - 1)
         job = JobRecord(
             prompt_id=prompt_id,
+            kind="txt2img",
             request=request,
             seed=seed,
             progress_max=max(request.steps, 1),
+        )
+        with self._lock:
+            self._jobs[prompt_id] = job
+        await self._queue.put(prompt_id)
+        return job
+
+    async def enqueue_workflow(self, request: WorkflowRequest) -> JobRecord:
+        prompt_id = str(uuid.uuid4())
+        classified = compile_workflow(request.prompt)
+        steps = 28
+        seed = 0
+        if classified.compiled is not None:
+            steps = max(classified.compiled.steps, 1)
+            seed = classified.compiled.seed
+        if seed == 0:
+            seed = random.randint(0, 2**31 - 1)
+        job = JobRecord(
+            prompt_id=prompt_id,
+            kind="workflow",
+            workflow=request.prompt,
+            seed=seed,
+            progress_max=steps,
+            status_message=(
+                f"Queued ({classified.family})"
+                if classified.supported
+                else "Queued (unsupported)"
+            ),
         )
         with self._lock:
             self._jobs[prompt_id] = job
@@ -88,8 +127,6 @@ class JobQueue:
         job.status = "running"
         job.status_message = "Generating"
         job.progress_value = 0
-        req = job.request
-        seed = job.seed if job.seed is not None else 0
 
         def on_step(value: int, maximum: int) -> None:
             job.progress_value = value
@@ -97,18 +134,10 @@ class JobQueue:
             job.status_message = f"Step {value}/{maximum}"
 
         try:
-            image = pipeline_holder.generate(
-                prompt=req.prompt,
-                negative_prompt=req.negative_prompt,
-                model=req.model,
-                width=req.width,
-                height=req.height,
-                steps=req.steps,
-                guidance_scale=req.guidance_scale,
-                seed=seed,
-                on_step=on_step,
-                workshop_crop=req.workshop_crop,
-            )
+            if job.kind == "workflow":
+                image = self._run_workflow_job(job, on_step)
+            else:
+                image = self._run_txt2img_job(job, on_step)
             filename = f"{prompt_id}.png"
             path = self.output_dir / filename
             image.save(path, format="PNG")
@@ -120,6 +149,43 @@ class JobQueue:
             job.status = "error"
             job.error = str(exc)
             job.status_message = str(exc)
+
+    def _run_txt2img_job(self, job: JobRecord, on_step):  # type: ignore[no-untyped-def]
+        req = job.request
+        if req is None:
+            raise RuntimeError("txt2img job missing request.")
+        seed = job.seed if job.seed is not None else 0
+        return pipeline_holder.generate(
+            prompt=req.prompt,
+            negative_prompt=req.negative_prompt,
+            model=req.model,
+            width=req.width,
+            height=req.height,
+            steps=req.steps,
+            guidance_scale=req.guidance_scale,
+            seed=seed,
+            on_step=on_step,
+            workshop_crop=req.workshop_crop,
+        )
+
+    def _run_workflow_job(self, job: JobRecord, on_step):  # type: ignore[no-untyped-def]
+        graph = job.workflow
+        if not isinstance(graph, dict):
+            raise RuntimeError("workflow job missing prompt graph.")
+        classified = compile_workflow(graph)
+        if not classified.supported or classified.compiled is None:
+            raise RuntimeError(
+                classified.reason or "Workflow not supported for native Diffusers execution."
+            )
+        compiled = classified.compiled
+        # Prefer queue-assigned seed when graph seed was 0 / random.
+        if job.seed is not None and compiled.seed == 0:
+            from dataclasses import replace
+
+            compiled = replace(compiled, seed=int(job.seed))
+        job.progress_max = max(compiled.steps, 1)
+        job.status_message = f"Generating ({compiled.family})"
+        return execute_compiled(compiled, on_step=on_step)
 
 
 def resolve_output_path(output_dir: Path, filename: str, subfolder: str = "") -> Path:

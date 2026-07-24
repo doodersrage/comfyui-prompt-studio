@@ -525,7 +525,7 @@ export default function EnhancedPromptResult({
                 localFiles={workflowSelection.localFiles}
                 serverFiles={workflowSelection.serverFiles}
                 onChange={workflowSelection.setSelectedId}
-                helpText="Optional override for Send to ComfyUI. Prefer Shared settings when possible."
+                helpText="Optional override for Queue generate. Prefer Shared settings when possible."
               />
             ) : null}
             <QueueParamsPanel compact />
@@ -542,8 +542,8 @@ export default function EnhancedPromptResult({
                   className={!queueReadinessAllowed ? "border-amber-500/50" : undefined}
                 >
                   {queueReadinessAllowed
-                    ? "Send to ComfyUI"
-                    : "Send to ComfyUI (below readiness)"}
+                    ? "Queue generate"
+                    : "Queue generate (below readiness)"}
                 </Button>
               )}
               {onCopyPair && (

@@ -48,7 +48,10 @@ export type ComfyQueueResult = {
   error?: string;
   comfyUrl: string;
   clientId?: string;
-  workflowSource?: "client" | "env" | "minimal";
+  workflowSource?: "client" | "env" | "minimal" | "diffusers-workflow";
+  /** Which backend actually accepted the job (Diffusers-first may fall back). */
+  engineId?: "comfyui" | "diffusers";
+  family?: string;
   replacements?: { positive: number; negative: number };
 };
 
@@ -326,10 +329,17 @@ export async function queuePromptToComfyUi(
   options?: {
     preflight?: boolean;
     objectInfo?: Awaited<ReturnType<typeof fetchComfyObjectInfoForPreflight>>;
+    /** Try Diffusers /v1/workflow before Comfy /prompt. */
+    preferDiffusers?: boolean;
+    diffusersUrl?: string;
+    /** When Diffusers rejects the graph, fall back to Comfy (default true). */
+    allowComfyFallback?: boolean;
   },
 ): Promise<ComfyQueueResult> {
   const config = resolveComfyUiConfig(runtime);
   const runPreflight = options?.preflight !== false;
+  const preferDiffusers = options?.preferDiffusers === true;
+  const allowComfyFallback = options?.allowComfyFallback !== false;
 
   try {
     const objectInfo =
@@ -425,6 +435,75 @@ export async function queuePromptToComfyUi(
       request.clientId?.trim() ||
       `srv${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
 
+    if (
+      preferDiffusers &&
+      resolvedPromptBody.prompt &&
+      typeof resolvedPromptBody.prompt === "object"
+    ) {
+      const {
+        classifyDiffusersWorkflow,
+        queueDiffusersWorkflow,
+      } = await import("./diffusers-client");
+      const graph = resolvedPromptBody.prompt as Record<string, unknown>;
+      const classified = await classifyDiffusersWorkflow(
+        graph,
+        options?.diffusersUrl,
+      );
+      if (classified?.supported) {
+        const queued = await queueDiffusersWorkflow(
+          {
+            prompt: graph,
+            client_id: clientId,
+          },
+          options?.diffusersUrl,
+        );
+        if (queued.ok && queued.promptId) {
+          writeQueueArtifact({
+            prompt: request.prompt,
+            negativePrompt: request.negativePrompt,
+            promptId: queued.promptId,
+            comfyUrl: queued.engineUrl ?? options?.diffusersUrl ?? "",
+            workflow: graph,
+          });
+          return {
+            ok: true,
+            promptId: queued.promptId,
+            comfyUrl: queued.engineUrl ?? options?.diffusersUrl ?? config.apiUrl,
+            clientId,
+            workflowSource: "diffusers-workflow",
+            engineId: "diffusers",
+            family: classified.family,
+            replacements: resolvedPromptBody.replacements,
+          };
+        }
+        if (!allowComfyFallback) {
+          return {
+            ok: false,
+            error: queued.error ?? "Diffusers workflow queue failed.",
+            comfyUrl: queued.engineUrl ?? options?.diffusersUrl ?? config.apiUrl,
+            clientId,
+            workflowSource: "diffusers-workflow",
+            engineId: "diffusers",
+            family: classified.family,
+            replacements: resolvedPromptBody.replacements,
+          };
+        }
+      } else if (!allowComfyFallback) {
+        return {
+          ok: false,
+          error:
+            classified?.reason ||
+            "Workflow not supported by Diffusers; Comfy fallback disabled.",
+          comfyUrl: options?.diffusersUrl ?? config.apiUrl,
+          clientId,
+          workflowSource: "diffusers-workflow",
+          engineId: "diffusers",
+          family: classified?.family,
+          replacements: resolvedPromptBody.replacements,
+        };
+      }
+    }
+
     const workflowResponse = await fetch(`${config.apiUrl}/prompt`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -447,6 +526,7 @@ export async function queuePromptToComfyUi(
         comfyUrl: config.apiUrl,
         clientId,
         workflowSource: resolvedPromptBody.workflowSource,
+        engineId: "comfyui",
         replacements: resolvedPromptBody.replacements,
       };
     }
@@ -470,6 +550,7 @@ export async function queuePromptToComfyUi(
       comfyUrl: config.apiUrl,
       clientId,
       workflowSource: resolvedPromptBody.workflowSource,
+      engineId: "comfyui",
       replacements: resolvedPromptBody.replacements,
     };
   } catch (error) {
@@ -477,6 +558,7 @@ export async function queuePromptToComfyUi(
       ok: false,
       error: error instanceof Error ? error.message : "ComfyUI unreachable",
       comfyUrl: config.apiUrl,
+      engineId: preferDiffusers ? "diffusers" : "comfyui",
     };
   }
 }
@@ -492,7 +574,12 @@ export type ComfyBatchQueueResult = {
 export async function queueBatchToComfyUi(
   requests: ComfyQueueRequest[],
   runtime?: ComfyUiRuntimeConfig,
-  options?: { preflight?: boolean },
+  options?: {
+    preflight?: boolean;
+    preferDiffusers?: boolean;
+    allowComfyFallback?: boolean;
+    diffusersUrl?: string;
+  },
 ): Promise<ComfyBatchQueueResult> {
   const config = resolveComfyUiConfig(runtime);
   const results: ComfyQueueResult[] = [];
@@ -511,6 +598,9 @@ export async function queueBatchToComfyUi(
       await queuePromptToComfyUi(request, runtime, {
         preflight: runPreflight,
         objectInfo: objectInfo ?? undefined,
+        preferDiffusers: options?.preferDiffusers === true,
+        allowComfyFallback: options?.allowComfyFallback !== false,
+        diffusersUrl: options?.diffusersUrl,
       }),
     );
   }

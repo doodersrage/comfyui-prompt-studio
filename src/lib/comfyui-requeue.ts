@@ -1233,6 +1233,7 @@ export async function requeueComfyJob(
     model: input.model,
     comfyUrl: queued.engineUrl ?? "http://127.0.0.1:8188",
     clientId: queued.clientId,
+    engineId: queued.engineId,
     queueParams: params,
     sourceImageUrl: input.sourceImageUrl,
     maskImageUrl: input.maskImageUrl,

@@ -55,7 +55,7 @@ class ModelResolveTests(unittest.TestCase):
             self.assertEqual(resolved.kind, "hub")
             self.assertEqual(resolved.source, "stabilityai/sdxl-turbo")
 
-    def test_flux_studio_id_prefers_local_sdxl_checkpoint(self) -> None:
+    def test_flux_studio_id_resolves_local_unet(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             ckpt_dir = root / "models" / "checkpoints"
@@ -64,16 +64,17 @@ class ModelResolveTests(unittest.TestCase):
             diff_dir.mkdir(parents=True)
             sdxl = ckpt_dir / "sd_xl_base_1.0.safetensors"
             sdxl.write_bytes(b"fake")
-            (diff_dir / "flux-2-klein-9b.safetensors").write_bytes(b"fake")
+            flux = diff_dir / "flux-2-klein-9b-distilled.safetensors"
+            flux.write_bytes(b"fake")
 
             with mock.patch.dict(os.environ, {"COMFYUI_ROOT": str(root)}, clear=False):
                 resolved = resolve_model(
                     "flux-2-klein-9b-distilled",
-                    default_hub="stabilityai/sdxl-turbo",
+                    default_hub="black-forest-labs/FLUX.1-dev",
                 )
 
             self.assertEqual(resolved.kind, "single_file")
-            self.assertEqual(Path(resolved.source), sdxl)
+            self.assertEqual(Path(resolved.source), flux)
 
     def test_prefers_realvis_over_stock_sdxl(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -106,7 +107,7 @@ class ModelResolveTests(unittest.TestCase):
             assert resolved is not None
             self.assertEqual(Path(resolved.source), refiner)
 
-    def test_flux_prefers_realvis_when_present(self) -> None:
+    def test_flux_prefers_local_unet_over_sdxl(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             ckpt_dir = root / "models" / "checkpoints"
@@ -115,17 +116,34 @@ class ModelResolveTests(unittest.TestCase):
             diff_dir.mkdir(parents=True)
             stock = ckpt_dir / "sd_xl_base_1.0.safetensors"
             realvis = ckpt_dir / "RealVisXL_V5.0_fp16.safetensors"
+            flux = diff_dir / "flux-2-klein-9b-distilled.safetensors"
             stock.write_bytes(b"fake")
             realvis.write_bytes(b"fake")
-            (diff_dir / "flux-2-klein-9b.safetensors").write_bytes(b"fake")
+            flux.write_bytes(b"fake")
 
             with mock.patch.dict(os.environ, {"COMFYUI_ROOT": str(root)}, clear=False):
                 resolved = resolve_model(
                     "flux-2-klein-9b-distilled",
-                    default_hub="stabilityai/sdxl-turbo",
+                    default_hub="black-forest-labs/FLUX.1-dev",
                 )
 
-            self.assertEqual(Path(resolved.source), realvis)
+            self.assertEqual(Path(resolved.source), flux)
+
+    def test_qwen_studio_id_resolves_local_unet(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            diff_dir = root / "models" / "diffusion_models"
+            diff_dir.mkdir(parents=True)
+            qwen = diff_dir / "qwen_image_2512_bf16.safetensors"
+            qwen.write_bytes(b"fake")
+
+            with mock.patch.dict(os.environ, {"COMFYUI_ROOT": str(root)}, clear=False):
+                resolved = resolve_model(
+                    "qwen-image-2512",
+                    default_hub="Qwen/Qwen-Image",
+                )
+
+            self.assertEqual(Path(resolved.source), qwen)
 
     def test_lists_sdxl_checkpoints_skips_qwen_and_refiner(self) -> None:
         with TemporaryDirectory() as tmp:

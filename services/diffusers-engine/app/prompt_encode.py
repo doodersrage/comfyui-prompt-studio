@@ -18,6 +18,10 @@ _QUALITY_SUFFIX = "photorealistic, sharp focus, highly detailed, natural colors"
 _PERSON_ANATOMY_SUFFIX = (
     "detailed hands with five fingers each, natural arm length, solo"
 )
+_PERSON_ANATOMY_MULTI_SUFFIX = (
+    "detailed hands with five fingers each, natural arm length, "
+    "two distinct people, clear separation between bodies"
+)
 # Workshop crafts: SDXL can't fix hand geometry reliably — crop hands away.
 # Action verbs in Studio novels ("gathered… on his pipe") force hands back in.
 _WORKSHOP_ANATOMY_SUFFIX = (
@@ -61,7 +65,8 @@ _PERSON_RE = re.compile(
     r"glassblower|blacksmith|potter|chef|nurse|doctor|soldier|wizard|witch|"
     r"knight|pirate|samurai|monk|priest|farmer|hunter|artist|painter|"
     r"sculptor|scientist|alchemist|merchant|bard|warrior|assassin|"
-    r"man|woman|boy|girl|child|person|people|worker|craftsman|craftswoman|"
+    r"men|women|man|woman|boys|girls|boy|girl|children|child|"
+    r"persons|person|people|worker|craftsman|craftswoman|"
     r"elder|gentleman|lady|figure"
     r")\b",
     re.IGNORECASE,
@@ -87,6 +92,19 @@ _HAND_NEGATIVE = (
 _CROWD_NEGATIVE = (
     "crowd, multiple people, second person, extra person, two people, "
     "bystanders, face in background"
+)
+_MULTI_PERSON_NEGATIVE = (
+    "fused bodies, merged torsos, shared limbs, conjoined twins, "
+    "extra arms, floating hands, disembodied hand, bad hands, fused fingers"
+)
+_MULTI_PERSON_RE = re.compile(
+    r"\b("
+    r"two|three|four|couple|pair|duo|twins|sisters|brothers|"
+    r"both\s+women|both\s+men|two\s+women|two\s+men|two\s+people|"
+    r"three\s+women|three\s+men|"
+    r"back[\s-]?to[\s-]?back|side[\s-]?by[\s-]?side|standing\s+together"
+    r")\b",
+    re.IGNORECASE,
 )
 
 # Distinctive places that Studio novels mention once and CLIP then drops.
@@ -145,6 +163,11 @@ def _person_role(text: str) -> str | None:
 
 def prompt_wants_person(text: str) -> bool:
     return _person_role(clean_studio_prompt(text)) is not None
+
+
+def prompt_wants_multiple_people(text: str) -> bool:
+    """True when the prompt explicitly asks for 2+ people (skip solo/crowd fights)."""
+    return bool(_MULTI_PERSON_RE.search(clean_studio_prompt(text)))
 
 
 def prompt_is_workshop_role(text: str) -> bool:
@@ -338,23 +361,32 @@ def fit_prompt_to_clip(
         return _clamp_with_tokenizer(tokenizer, cleaned, max_tokens=max_tokens)
 
     role = _person_role(cleaned)
-    use_workshop = _resolve_workshop_crop(role, workshop_crop)
+    multi_person = prompt_wants_multiple_people(cleaned)
+    use_workshop = _resolve_workshop_crop(role, workshop_crop) and not multi_person
     anatomy = ""
     style = ""
     if add_quality:
-        if role:
-            anatomy = (
-                _WORKSHOP_ANATOMY_SUFFIX if use_workshop else _PERSON_ANATOMY_SUFFIX
-            )
+        if role or multi_person:
+            if use_workshop:
+                anatomy = _WORKSHOP_ANATOMY_SUFFIX
+            elif multi_person:
+                anatomy = _PERSON_ANATOMY_MULTI_SUFFIX
+            else:
+                anatomy = _PERSON_ANATOMY_SUFFIX
             style = _PERSON_STYLE_SUFFIX
         else:
             style = _QUALITY_SUFFIX
 
     subject = _subject_lock(cleaned) if role else ""
+    if multi_person and not subject:
+        subject = f"{_SUBJECT_PREFIX} two people"
     setting = _setting_lock(cleaned)
     lock_parts = [p for p in (subject,) if p]
-    if subject and role:
-        lock_parts.append(f"{role} prominently in frame")
+    if subject and (role or multi_person):
+        if multi_person:
+            lock_parts.append("two people prominently in frame")
+        else:
+            lock_parts.append(f"{role} prominently in frame")
     if subject and setting:
         lock_parts.append(setting)
     lock = ", ".join(lock_parts)
@@ -416,17 +448,32 @@ def fit_negative_to_clip(
     max_tokens: int = 77,
     reinforce_person: bool = False,
     workshop_role: bool = False,
+    multi_person: bool = False,
 ) -> str:
     """Truncate negatives only — never append positive quality tags."""
     cleaned = clean_studio_prompt(text)
+    if multi_person:
+        cleaned = re.sub(
+            r"\b("
+            r"multiple people|crowd|second person|extra person|two people|"
+            r"bystanders|solo"
+            r")\b,?\s*",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
+        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" ,;")
     if reinforce_person:
         # Hands/crowd first — CLIP negatives truncate from the end.
         parts = [_HAND_NEGATIVE]
-        if workshop_role:
+        if workshop_role and not multi_person:
             parts.insert(0, _WORKSHOP_HAND_NEGATIVE)
-        parts.extend(
-            [_CROWD_NEGATIVE, _PAINTING_NEGATIVE, _STILL_LIFE_NEGATIVE]
-        )
+        if multi_person:
+            parts.extend([_MULTI_PERSON_NEGATIVE, _PAINTING_NEGATIVE])
+        else:
+            parts.extend(
+                [_CROWD_NEGATIVE, _PAINTING_NEGATIVE, _STILL_LIFE_NEGATIVE]
+            )
         extra = ", ".join(parts)
         cleaned = f"{cleaned}, {extra}" if cleaned else extra
     if not cleaned:
@@ -452,14 +499,28 @@ def encode_sdxl_prompts(
     negative = clean_studio_prompt(negative_prompt)
     role = _person_role(positive)
     wants_person = role is not None
-    workshop_role = _resolve_workshop_crop(role, workshop_crop)
+    multi_person = prompt_wants_multiple_people(positive)
+    workshop_role = _resolve_workshop_crop(role, workshop_crop) and not multi_person
+
+    # Solo/crowd default negatives fight intentional duo/group scenes.
+    if multi_person:
+        negative = re.sub(
+            r"\b("
+            r"multiple people|crowd|second person|extra person|two people|"
+            r"bystanders|solo"
+            r")\b,?\s*",
+            "",
+            negative,
+            flags=re.IGNORECASE,
+        )
+        negative = re.sub(r"\s{2,}", " ", negative).strip(" ,;")
 
     already = _already_fitted(positive)
     fitted = fit_prompt_to_clip(
         pipe.tokenizer,
         positive,
         max_tokens=77,
-        workshop_crop=workshop_crop,
+        workshop_crop=False if multi_person else workshop_crop,
     )
     fitted_neg = fit_negative_to_clip(
         pipe.tokenizer,
@@ -468,6 +529,7 @@ def encode_sdxl_prompts(
         # Avoid stacking hand/still-life negatives again on the refiner pass.
         reinforce_person=wants_person and "fused fingers" not in negative.lower(),
         workshop_role=workshop_role,
+        multi_person=multi_person,
     )
 
     if not already:

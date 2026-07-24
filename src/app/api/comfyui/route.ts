@@ -26,6 +26,11 @@ type ComfyUiRequestBody = {
   /** Browser WebSocket client id for live latent previews. */
   clientId?: string;
   comfy?: ComfyUiRuntimeConfig;
+  /** Diffusers-first: classify + /v1/workflow, then optional Comfy fallback. */
+  preferDiffusers?: boolean;
+  allowComfyFallback?: boolean;
+  /** Diffusers engine URL hint when preferDiffusers is set. */
+  engineUrl?: string;
 };
 
 export async function GET() {
@@ -72,16 +77,27 @@ export async function POST(request: Request) {
           clientId: body.clientId?.trim() || undefined,
         },
         runtime,
+        {
+          preferDiffusers: body.preferDiffusers === true,
+          allowComfyFallback: body.allowComfyFallback !== false,
+          diffusersUrl: body.engineUrl?.trim() || undefined,
+        },
       );
 
       if (!result.ok) {
         return apiError(result.error ?? "ComfyUI queue failed.", 502, {
           comfyUrl: result.comfyUrl,
+          engineUrl: result.comfyUrl,
           workflowSource: result.workflowSource,
+          engineId: result.engineId,
+          family: result.family,
         });
       }
 
-      return apiJson(result);
+      return apiJson({
+        ...result,
+        engineUrl: result.comfyUrl,
+      });
     }
 
     const batchClientId = body.clientId?.trim() || undefined;
@@ -100,6 +116,11 @@ export async function POST(request: Request) {
         }).params,
       })),
       runtime,
+      {
+        preferDiffusers: body.preferDiffusers === true,
+        allowComfyFallback: body.allowComfyFallback !== false,
+        diffusersUrl: body.engineUrl?.trim() || undefined,
+      },
     );
 
     if (!batch.ok) {

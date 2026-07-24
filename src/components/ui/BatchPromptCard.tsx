@@ -84,7 +84,7 @@ export function BatchPromptCard({
                 className="!min-h-9 px-4 type-caption"
                 onClick={onQueueComfyUi}
               >
-                Send to ComfyUI
+                Queue generate
               </Button>
             ) : null}
             {onSaveHistory ? (

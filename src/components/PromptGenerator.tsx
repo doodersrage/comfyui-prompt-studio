@@ -285,7 +285,10 @@ export default function PromptGenerator() {
     });
   }, [updateShared, updateToolSettings]);
 
-  const historyCandidateCount = countHistorySeedCandidates("generate", historySeedScope);
+  // History lives in localStorage — keep SSR/first paint at 0 to avoid hydration mismatch.
+  const historyCandidateCount = mounted
+    ? countHistorySeedCandidates("generate", historySeedScope)
+    : 0;
   const generateDisabledReason =
     hintSource === "history" && historyCandidateCount === 0
       ? "Save a few prompts to Studio history first, or switch hint source."
@@ -979,7 +982,7 @@ export default function PromptGenerator() {
       </ToolSection>
       <MobileStickyQueueBar
         disabled={!output.trim()}
-        label="Queue to ComfyUI"
+        label="Queue generate"
         status={actions.comfyUiStatus}
         onQueue={() => void actions.sendComfyUi(output)}
       />

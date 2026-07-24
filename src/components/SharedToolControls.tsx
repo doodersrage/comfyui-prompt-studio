@@ -2,7 +2,9 @@
 
 import dynamic from "next/dynamic";
 import ModelSelector from "@/components/ModelSelector";
-import DiffusersCheckpointSelector from "@/components/DiffusersCheckpointSelector";
+import DiffusersCheckpointSelector, {
+  type DiffusersCheckpointOption,
+} from "@/components/DiffusersCheckpointSelector";
 import { useComfyWorkflowSelection } from "@/hooks/useComfyWorkflowSelection";
 import type { DetailLevel } from "@/lib/detail-level";
 import { getDetailLimits } from "@/lib/detail-level";
@@ -98,7 +100,9 @@ import { resolveQueueParams } from "@/lib/queue-params-settings";
 import {
   DIFFUSERS_DEFAULT_MODEL,
   resolveDiffusersModelHint,
+  resolveStudioModelForDiffusersAsset,
 } from "@/lib/diffusers-defaults";
+import { SUGGESTED_MODEL_CHECKPOINT_MAP } from "@/lib/model-checkpoint-map";
 
 const ComfyWorkflowSelector = dynamic(
   () => import("@/components/ComfyWorkflowSelector"),
@@ -463,6 +467,53 @@ export default function SharedToolControls({
       showAllModelsOverride,
     ],
   );
+
+  /** Diffusers inventory pick → Studio model id + checkpoint/UNET map entry. */
+  const handleDiffusersAssetChange = useCallback(
+    (asset: DiffusersCheckpointOption) => {
+      const studioModel = (asset.studioModelId?.trim() ||
+        resolveStudioModelForDiffusersAsset(
+          asset.weightId || asset.id,
+          asset.family,
+        )) as ComfyImageModel;
+      const weightId = (asset.weightId || asset.id).trim();
+      const sharedNow = loadSettingsCache().shared;
+      const nextMap = {
+        ...sharedNow.modelCheckpointMap,
+        [studioModel]: weightId,
+      };
+      saveSharedSettings({
+        ...sharedNow,
+        model: studioModel,
+        modelCheckpointMap: nextMap,
+      });
+      onSharedSettingsChange?.({
+        model: studioModel,
+        modelCheckpointMap: nextMap,
+      });
+      handleModelChange(studioModel);
+    },
+    [handleModelChange, onSharedSettingsChange],
+  );
+
+  const diffusersSelectedAssetId = useMemo(() => {
+    const model = String(shared.model ?? "").trim();
+    // Lightning / synthetic preset rows use the Studio model id as inventory id.
+    if (/lightning/i.test(model) && !/\.(safetensors|ckpt|pt|bin)$/i.test(model)) {
+      return model;
+    }
+    if (/\.(safetensors|ckpt|pt|bin)$/i.test(model)) {
+      return model;
+    }
+    // Flux/Qwen studio ids (flux-dev, qwen-image-2512, …) must resolve to the
+    // weight filename so the inventory chip matches and auto-select won't snap
+    // back to the Qwen default.
+    return (
+      shared.modelCheckpointMap?.[model]?.trim() ||
+      SUGGESTED_MODEL_CHECKPOINT_MAP[model]?.trim() ||
+      DIFFUSERS_DEFAULT_MODEL
+    );
+  }, [shared.model, shared.modelCheckpointMap]);
 
   const handleShowAllModels = useCallback(() => {
     setShowAllModelsOverride(true);
@@ -918,7 +969,7 @@ export default function SharedToolControls({
         <FieldLabel
           hint={
             shared.inferenceEngine === "diffusers"
-              ? "Local Diffusers checkpoints from the engine (SDXL / SD1.5)."
+              ? "Qwen/Flux UNETs from the Diffusers inventory. Mapped workflows run natively when supported."
               : systemPathActive
                 ? undefined
                 : shared.autoSelectWorkflowForModel !== false
@@ -927,15 +978,15 @@ export default function SharedToolControls({
           }
         >
           {shared.inferenceEngine === "diffusers"
-            ? "Diffusers checkpoint"
+            ? "Diffusers model (Qwen / Flux)"
             : systemPathActive
               ? "Model"
               : "Target model"}
         </FieldLabel>
         {shared.inferenceEngine === "diffusers" ? (
           <DiffusersCheckpointSelector
-            value={shared.model}
-            onChange={handleModelChange}
+            value={diffusersSelectedAssetId}
+            onChange={handleDiffusersAssetChange}
           />
         ) : (
           <ModelSelector
@@ -1001,7 +1052,8 @@ export default function SharedToolControls({
             {shared.inferenceEngine === "diffusers" ? (
               <DiffusersSamplingReadout
                 model={shared.model}
-                toolId={toolId}
+                checkpointMap={shared.modelCheckpointMap}
+                toolId={toolId ?? "generate"}
                 workshopCrop={shared.diffusersWorkshopCrop ?? "auto"}
               />
             ) : null}
@@ -1442,15 +1494,17 @@ export default function SharedToolControls({
 
 function DiffusersSamplingReadout({
   model,
+  checkpointMap,
   toolId,
   workshopCrop,
 }: {
   model: ComfyImageModel;
-  toolId: string;
+  checkpointMap?: Record<string, string>;
+  toolId?: string;
   workshopCrop: "auto" | "always" | "never";
 }) {
-  const params = resolveQueueParams({ model, tool: toolId });
-  const checkpoint = resolveDiffusersModelHint(model);
+  const params = resolveQueueParams({ model, tool: toolId ?? "generate" });
+  const checkpoint = resolveDiffusersModelHint(model, checkpointMap);
   const steps =
     typeof params.steps === "number"
       ? params.steps
@@ -1475,22 +1529,14 @@ function DiffusersSamplingReadout({
       : workshopCrop === "never"
         ? "allow hands"
         : "auto crop";
-  const lifted = steps < 20 && cfg <= 2;
   return (
     <p className="rounded-lg border border-zinc-700/60 bg-zinc-950/50 px-3 py-2 text-xs leading-relaxed text-zinc-400">
       Diffusers ·{" "}
-      <span className="text-zinc-200">
-        {checkpoint === DIFFUSERS_DEFAULT_MODEL
-          ? "RealVisXL"
-          : checkpoint}
-      </span>
+      <span className="text-zinc-200">{checkpoint}</span>
       {" · "}
-      {width}×{height} · {lifted ? "40 steps · CFG 5.5" : `${steps} steps · CFG ${cfg}`}
+      {width}×{height} · {steps} steps · CFG {cfg}
       {" · "}
       seed {seed} · {cropLabel}
-      {lifted ? (
-        <span className="text-zinc-500"> (draft Turbo lifted)</span>
-      ) : null}
     </p>
   );
 }

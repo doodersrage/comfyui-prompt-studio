@@ -20,6 +20,8 @@ export type ComfyUiQueueRequestResult = {
   comfyUrl?: string;
   error?: string;
   workflowSource?: string;
+  engineId?: "comfyui" | "diffusers";
+  family?: string;
   raw: Record<string, unknown>;
   /** Call after registerComfyGalleryJob + scheduleComfyGalleryPoll. */
   releaseLiveSocket: () => void;
@@ -117,10 +119,17 @@ export async function postComfyUiPrompt(
       status: response.status,
       promptId,
       clientId: resolvedClientId,
-      comfyUrl: typeof raw.comfyUrl === "string" ? raw.comfyUrl : undefined,
+      comfyUrl:
+        (typeof raw.engineUrl === "string" && raw.engineUrl.trim()) ||
+        (typeof raw.comfyUrl === "string" ? raw.comfyUrl : undefined),
       error: typeof raw.error === "string" ? raw.error : undefined,
       workflowSource:
         typeof raw.workflowSource === "string" ? raw.workflowSource : undefined,
+      engineId:
+        raw.engineId === "diffusers" || raw.engineId === "comfyui"
+          ? raw.engineId
+          : undefined,
+      family: typeof raw.family === "string" ? raw.family : undefined,
       raw,
       releaseLiveSocket,
     };

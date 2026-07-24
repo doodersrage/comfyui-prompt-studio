@@ -29,6 +29,9 @@ export type EngineQueueResult = {
   error?: string;
   status?: number;
   workflowSource?: string;
+  /** Backend that accepted the job (Diffusers-first may fall back to Comfy). */
+  engineId?: EngineId;
+  family?: string;
   raw?: Record<string, unknown>;
   /** Call after gallery register + poll schedule. */
   releaseLiveSocket: () => void;

@@ -55,7 +55,7 @@ export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
   "flux-2-klein": "flux-2-klein-base-4b.safetensors",
   "flux-2-klein-4b-distilled": "flux-2-klein-4b.safetensors",
   "flux-2-klein-9b": "flux-2-klein-base-9b.safetensors",
-  "flux-2-klein-9b-distilled": "flux-2-klein-9b.safetensors",
+  "flux-2-klein-9b-distilled": "flux-2-klein-9b-distilled.safetensors",
   "flux-dev": "flux1-dev.safetensors",
   sdxl: "sd_xl_base_1.0.safetensors",
   "wan-video": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
@@ -299,10 +299,10 @@ function inferKleinLoaderHints(modelId: string): ModelLoaderFilenames {
   const id = modelId.toLowerCase();
   if (id.includes("flux-2-klein-9b-distilled") || id.includes("flux-2-klein-9b-distill")) {
     return {
-      checkpoint: "flux-2-klein-9b.safetensors",
-      unet: "flux-2-klein-9b.safetensors",
-      // Official Comfy Klein 9B text encoder (CLIPLoader type flux2).
-      dualClip: "qwen_3_8b_fp8mixed.safetensors",
+      checkpoint: "flux-2-klein-9b-distilled.safetensors",
+      unet: "flux-2-klein-9b-distilled.safetensors",
+      // Prefer bf16 Klein TE; fp8mixed is a VRAM fallback for Comfy.
+      dualClip: "flux2-klein-9b-base.safetensors",
     };
   }
   if (id.includes("flux-2-klein-9b")) {

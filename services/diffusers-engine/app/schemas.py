@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class Txt2ImgRequest(BaseModel):
     prompt: str = Field(min_length=1)
     negative_prompt: str = ""
-    model: str = "RealVisXL_V5.0_fp16.safetensors"
+    model: str = "qwen_image_2512_bf16.safetensors"
     width: int = Field(default=1024, ge=64, le=2048)
     height: int = Field(default=1024, ge=64, le=2048)
     steps: int = Field(default=40, ge=1, le=150)
@@ -62,11 +62,39 @@ class ListedModelResponse(BaseModel):
     id: str
     label: str
     kind: Literal["single_file", "diffusers_dir"]
-    family: Literal["sdxl", "sd15", "other"] = "other"
+    family: str = "other"
     default: bool = False
+    bucket: Optional[str] = None
 
 
 class ModelsResponse(BaseModel):
-    models: list[ListedModelResponse]
+    models: list[ListedModelResponse] = []
+    checkpoints: list[ListedModelResponse] = []
+    diffusion_models: list[ListedModelResponse] = []
+    text_encoders: list[ListedModelResponse] = []
+    vaes: list[ListedModelResponse] = []
+    loras: list[ListedModelResponse] = []
     default_model: Optional[str] = None
     search_paths: list[str] = []
+
+
+class WorkflowRequest(BaseModel):
+    """Comfy API-format prompt graph (node id → {class_type, inputs})."""
+
+    prompt: dict
+    client_id: Optional[str] = None
+
+
+class WorkflowResponse(BaseModel):
+    prompt_id: str
+    engine_url: str
+    family: str = "unsupported"
+    supported: bool = True
+
+
+class WorkflowClassifyResponse(BaseModel):
+    supported: bool
+    family: str
+    reason: str
+    unsupported_nodes: list[str] = []
+    assets: dict = Field(default_factory=dict)

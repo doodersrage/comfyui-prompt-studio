@@ -149,12 +149,14 @@ export function PrimaryButton({
     accentClassName?: string;
     children: ReactNode;
   }) {
+  const isDisabled = Boolean(disabled) || Boolean(loading);
   return (
     <button
       type="button"
-      disabled={disabled || loading}
+      disabled={isDisabled}
       aria-busy={loading || undefined}
       className={`${accentClassName} ${className}`.trim()}
+      suppressHydrationWarning
       {...props}
     >
       <ButtonContent loading={loading} loadingLabel={loadingLabel}>

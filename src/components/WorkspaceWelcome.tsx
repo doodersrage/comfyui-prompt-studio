@@ -152,7 +152,7 @@ export default function WorkspaceWelcome() {
             </h2>
             <p className="type-body mt-2 text-[var(--text-secondary)]">
               {setupMessage ??
-                "Open Generate for your first prompt, then Send to ComfyUI when you're ready."}
+                "Open Generate for your first prompt, then Queue generate when you're ready."}
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
               <Button type="button" variant="ghost" size="sm" onClick={() => setPhase(null)}>

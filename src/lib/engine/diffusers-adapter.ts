@@ -75,7 +75,7 @@ async function fetchDiffusersStatusViaProxy(
   };
 }
 
-/** Diffusers txt2img implementation of EngineAdapter. */
+/** Diffusers-first adapter: workflows via classify+/v1/workflow, else txt2img. */
 export const diffusersEngineAdapter: EngineAdapter = {
   id: "diffusers",
 
@@ -89,12 +89,97 @@ export const diffusersEngineAdapter: EngineAdapter = {
       settings.diffusersApiUrl ||
       undefined;
 
+    const comfy =
+      body.comfy && typeof body.comfy === "object" && !Array.isArray(body.comfy)
+        ? (body.comfy as Record<string, unknown>)
+        : null;
+    const hasWorkflow =
+      typeof comfy?.workflowJson === "string" &&
+      Boolean(comfy.workflowJson.trim());
+
+    // Workflow path: inject + Diffusers /v1/workflow, Comfy fallback for unsupported.
+    if (hasWorkflow) {
+      try {
+        const response = await fetch("/api/comfyui", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...body,
+            clientId,
+            preferDiffusers: true,
+            allowComfyFallback: body.allowComfyFallback !== false,
+            engineUrl: engineUrlHint,
+          }),
+        });
+        const raw = (await response.json().catch(() => ({}))) as Record<
+          string,
+          unknown
+        >;
+        const promptId =
+          typeof raw.promptId === "string" ? raw.promptId.trim() : undefined;
+        const engineUrl =
+          (typeof raw.engineUrl === "string" && raw.engineUrl.trim()) ||
+          (typeof raw.comfyUrl === "string" && raw.comfyUrl.trim()) ||
+          engineUrlHint;
+        const engineId =
+          raw.engineId === "comfyui" || raw.engineId === "diffusers"
+            ? raw.engineId
+            : "diffusers";
+
+        if (!response.ok || !promptId) {
+          return {
+            ok: false,
+            status: response.status,
+            error:
+              typeof raw.error === "string"
+                ? raw.error
+                : "Diffusers workflow queue failed.",
+            engineUrl,
+            engineId,
+            raw,
+            releaseLiveSocket: () => undefined,
+          };
+        }
+
+        return {
+          ok: true,
+          status: response.status,
+          promptId,
+          clientId:
+            (typeof raw.clientId === "string" && raw.clientId.trim()) ||
+            clientId,
+          engineUrl,
+          engineId,
+          family: typeof raw.family === "string" ? raw.family : undefined,
+          workflowSource:
+            typeof raw.workflowSource === "string"
+              ? raw.workflowSource
+              : "diffusers-workflow",
+          raw,
+          releaseLiveSocket: () => undefined,
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          status: 0,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Diffusers workflow queue failed.",
+          engineId: "diffusers",
+          raw: {},
+          releaseLiveSocket: () => undefined,
+        };
+      }
+    }
+
     const payload = {
       prompt: body.prompt,
       negativePrompt: body.negativePrompt,
       model: body.model,
       params: body.params,
       workshopCrop: body.workshopCrop,
+      modelCheckpointMap: body.modelCheckpointMap,
       clientId,
       engineUrl: engineUrlHint,
     };
@@ -125,6 +210,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
               ? raw.error
               : "Diffusers queue failed.",
           engineUrl,
+          engineId: "diffusers",
           raw,
           releaseLiveSocket: () => undefined,
         };
@@ -137,6 +223,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
         clientId:
           (typeof raw.clientId === "string" && raw.clientId.trim()) || clientId,
         engineUrl,
+        engineId: "diffusers",
         workflowSource:
           typeof raw.workflowSource === "string" ? raw.workflowSource : "diffusers",
         raw,
@@ -148,6 +235,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
         status: 0,
         error:
           error instanceof Error ? error.message : "Diffusers queue failed.",
+        engineId: "diffusers",
         raw: {},
         releaseLiveSocket: () => undefined,
       };

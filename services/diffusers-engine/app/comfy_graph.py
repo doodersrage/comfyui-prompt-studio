@@ -1,0 +1,387 @@
+"""Classify and compile Comfy API-format workflows for native Diffusers execution."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Literal
+
+
+Family = Literal["sdxl", "flux", "qwen", "unsupported"]
+
+_LORA_OK = frozenset(
+    {
+        "LoraLoader",
+        "LoraLoaderModelOnly",
+        "Power Lora Loader (rgthree)",
+    }
+)
+
+_SDXL_OK = frozenset(
+    {
+        "CheckpointLoaderSimple",
+        "CheckpointLoader",
+        "VAELoader",
+        *_LORA_OK,
+        "CLIPTextEncode",
+        "EmptyLatentImage",
+        "KSampler",
+        "VAEDecode",
+        "SaveImage",
+    }
+)
+
+_FLUX_OK = frozenset(
+    {
+        "UNETLoader",
+        "DualCLIPLoader",
+        "CLIPLoader",
+        "VAELoader",
+        "ModelSamplingFlux",
+        *_LORA_OK,
+        "CLIPTextEncode",
+        "EmptyLatentImage",
+        "KSampler",
+        "VAEDecode",
+        "SaveImage",
+    }
+)
+
+_QWEN_OK = frozenset(
+    {
+        "UNETLoader",
+        "CLIPLoader",
+        "CheckpointLoaderSimple",
+        "CheckpointLoader",
+        "VAELoader",
+        "ModelSamplingAuraFlow",
+        *_LORA_OK,
+        "CLIPTextEncode",
+        "EmptyLatentImage",
+        "EmptySD3LatentImage",
+        "KSampler",
+        "VAEDecode",
+        "SaveImage",
+    }
+)
+
+_ALWAYS_UNSUPPORTED = frozenset(
+    {
+        "ControlNetLoader",
+        "DiffControlNetLoader",
+        "ControlNetApply",
+        "ControlNetApplyAdvanced",
+        "IPAdapterModelLoader",
+        "IPAdapterAdvanced",
+        "InstantIDModelLoader",
+        "ApplyInstantID",
+        "PulidModelLoader",
+        "ApplyPulid",
+        "ApplyPulidFlux",
+        "FaceDetailer",
+        "WanImageToVideo",
+        "HunyuanImageToVideo",
+        "TextEncodeQwenImageEdit",
+        "TextEncodeQwenImageEditPlus",
+        "CannyEdgePreprocessor",
+        "DWPreprocessor",
+        "DepthAnythingV2Preprocessor",
+    }
+)
+
+
+@dataclass(frozen=True)
+class CompiledLora:
+    name: str
+    strength: float
+
+
+@dataclass(frozen=True)
+class CompiledWorkflow:
+    family: Family
+    positive: str
+    negative: str
+    width: int
+    height: int
+    steps: int
+    cfg: float
+    seed: int
+    denoise: float
+    sampler_name: str
+    scheduler: str
+    checkpoint: str | None = None
+    unet: str | None = None
+    clip: str | None = None
+    clip2: str | None = None
+    vae: str | None = None
+    clip_type: str | None = None
+    loras: list[CompiledLora] = field(default_factory=list)
+    flux_max_shift: float | None = None
+    flux_base_shift: float | None = None
+    aura_shift: float | None = None
+
+
+@dataclass(frozen=True)
+class ClassifyResult:
+    supported: bool
+    family: Family
+    reason: str
+    unsupported_nodes: list[str] = field(default_factory=list)
+    compiled: CompiledWorkflow | None = None
+
+
+def _nodes(graph: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for node_id, raw in graph.items():
+        if not isinstance(raw, dict):
+            continue
+        class_type = raw.get("class_type")
+        if not isinstance(class_type, str):
+            continue
+        inputs = raw.get("inputs")
+        out[str(node_id)] = {
+            "class_type": class_type,
+            "inputs": inputs if isinstance(inputs, dict) else {},
+        }
+    return out
+
+
+def _as_int(value: Any, default: int) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_float(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_str(value: Any, default: str = "") -> str:
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return default
+    return str(value)
+
+
+def _link_id(value: Any) -> str | None:
+    if isinstance(value, (list, tuple)) and value:
+        return str(value[0])
+    return None
+
+
+def detect_family(nodes: dict[str, dict[str, Any]]) -> Family:
+    types = {node["class_type"] for node in nodes.values()}
+    if types & _ALWAYS_UNSUPPORTED:
+        return "unsupported"
+    if "ModelSamplingFlux" in types or (
+        "UNETLoader" in types and "DualCLIPLoader" in types
+    ):
+        return "flux"
+    if "ModelSamplingAuraFlow" in types:
+        return "qwen"
+    if "UNETLoader" in types and "CLIPLoader" in types:
+        # Qwen scaffold uses CLIPLoader type qwen_image; Flux Klein uses CLIPLoader type flux2.
+        for node in nodes.values():
+            if node["class_type"] != "CLIPLoader":
+                continue
+            clip_type = _as_str(node["inputs"].get("type")).lower()
+            if clip_type == "qwen_image":
+                return "qwen"
+            if clip_type in ("flux2", "flux"):
+                return "flux"
+        return "qwen"
+    if "CheckpointLoaderSimple" in types or "CheckpointLoader" in types:
+        # Rapid-AIO qwen checkpoints still use CheckpointLoaderSimple.
+        for node in nodes.values():
+            if node["class_type"] not in ("CheckpointLoaderSimple", "CheckpointLoader"):
+                continue
+            name = _as_str(node["inputs"].get("ckpt_name")).lower()
+            if "qwen" in name:
+                return "qwen"
+        return "sdxl"
+    return "unsupported"
+
+
+def _collect_loras(nodes: dict[str, dict[str, Any]]) -> list[CompiledLora]:
+    loras: list[CompiledLora] = []
+    for node in nodes.values():
+        ctype = node["class_type"]
+        inputs = node["inputs"]
+        if ctype in ("LoraLoader", "LoraLoaderModelOnly"):
+            name = _as_str(inputs.get("lora_name")).strip()
+            if not name or name.startswith("{{"):
+                continue
+            strength = _as_float(
+                inputs.get("strength_model", inputs.get("strength", 1.0)),
+                1.0,
+            )
+            if abs(strength) < 1e-6:
+                continue
+            loras.append(CompiledLora(name=name, strength=strength))
+            continue
+        if ctype != "Power Lora Loader (rgthree)":
+            continue
+        # rgthree slots: lora_1 → { on, lora, strength }
+        for key, value in inputs.items():
+            if not str(key).lower().startswith("lora_") or not isinstance(value, dict):
+                continue
+            if value.get("on") is False:
+                continue
+            name = _as_str(value.get("lora")).strip()
+            if not name or name.startswith("{{"):
+                continue
+            strength = _as_float(
+                value.get("strength", value.get("strength_model", 1.0)),
+                1.0,
+            )
+            if abs(strength) < 1e-6:
+                continue
+            loras.append(CompiledLora(name=name, strength=strength))
+    return loras
+
+
+def compile_workflow(graph: dict[str, Any]) -> ClassifyResult:
+    nodes = _nodes(graph)
+    if not nodes:
+        return ClassifyResult(
+            supported=False,
+            family="unsupported",
+            reason="Empty or invalid Comfy API workflow.",
+        )
+
+    types = {node["class_type"] for node in nodes.values()}
+    blocked = sorted(types & _ALWAYS_UNSUPPORTED)
+    if blocked:
+        return ClassifyResult(
+            supported=False,
+            family="unsupported",
+            reason=f"Unsupported nodes: {', '.join(blocked)}",
+            unsupported_nodes=blocked,
+        )
+
+    family = detect_family(nodes)
+    if family == "unsupported":
+        return ClassifyResult(
+            supported=False,
+            family="unsupported",
+            reason="Workflow family not recognized for native execution.",
+            unsupported_nodes=sorted(types),
+        )
+
+    allowed = {"sdxl": _SDXL_OK, "flux": _FLUX_OK, "qwen": _QWEN_OK}[family]
+    unknown = sorted(types - allowed)
+    if unknown:
+        return ClassifyResult(
+            supported=False,
+            family=family,
+            reason=f"Unsupported {family} nodes: {', '.join(unknown)}",
+            unsupported_nodes=unknown,
+        )
+
+    # Sampler + latent
+    sampler = next((n for n in nodes.values() if n["class_type"] == "KSampler"), None)
+    if sampler is None:
+        return ClassifyResult(
+            supported=False,
+            family=family,
+            reason="Missing KSampler.",
+            unsupported_nodes=["KSampler"],
+        )
+    latent_id = _link_id(sampler["inputs"].get("latent_image"))
+    latent = nodes.get(latent_id or "", {})
+    pos_id = _link_id(sampler["inputs"].get("positive"))
+    neg_id = _link_id(sampler["inputs"].get("negative"))
+    pos = nodes.get(pos_id or "", {})
+    neg = nodes.get(neg_id or "", {})
+
+    width = _as_int(latent.get("inputs", {}).get("width"), 1024)
+    height = _as_int(latent.get("inputs", {}).get("height"), 1024)
+    steps = _as_int(sampler["inputs"].get("steps"), 28)
+    cfg = _as_float(sampler["inputs"].get("cfg"), 3.5 if family != "sdxl" else 5.5)
+    seed = _as_int(sampler["inputs"].get("seed"), 0)
+    denoise = _as_float(sampler["inputs"].get("denoise"), 1.0)
+    if denoise < 0.999:
+        return ClassifyResult(
+            supported=False,
+            family=family,
+            reason="img2img/inpaint denoise < 1 not supported natively yet.",
+        )
+
+    checkpoint = None
+    unet = None
+    clip = None
+    clip2 = None
+    vae = None
+    clip_type = None
+    flux_max_shift = None
+    flux_base_shift = None
+    aura_shift = None
+
+    for node in nodes.values():
+        ctype = node["class_type"]
+        inputs = node["inputs"]
+        if ctype in ("CheckpointLoaderSimple", "CheckpointLoader"):
+            checkpoint = _as_str(inputs.get("ckpt_name")) or checkpoint
+        elif ctype == "UNETLoader":
+            unet = _as_str(inputs.get("unet_name")) or unet
+        elif ctype == "DualCLIPLoader":
+            clip = _as_str(inputs.get("clip_name1")) or clip
+            clip2 = _as_str(inputs.get("clip_name2")) or clip2
+            clip_type = _as_str(inputs.get("type")) or clip_type
+        elif ctype == "CLIPLoader":
+            clip = _as_str(inputs.get("clip_name")) or clip
+            clip_type = _as_str(inputs.get("type")) or clip_type
+        elif ctype == "VAELoader":
+            vae = _as_str(inputs.get("vae_name")) or vae
+        elif ctype == "ModelSamplingFlux":
+            flux_max_shift = _as_float(inputs.get("max_shift"), 1.15)
+            flux_base_shift = _as_float(inputs.get("base_shift"), 0.5)
+        elif ctype == "ModelSamplingAuraFlow":
+            aura_shift = _as_float(inputs.get("shift"), 3.1)
+
+    if family == "sdxl" and not checkpoint:
+        return ClassifyResult(
+            supported=False,
+            family=family,
+            reason="SDXL workflow missing CheckpointLoaderSimple.",
+        )
+    if family in ("flux", "qwen") and not unet and not checkpoint:
+        return ClassifyResult(
+            supported=False,
+            family=family,
+            reason=f"{family} workflow missing UNETLoader/checkpoint.",
+        )
+
+    compiled = CompiledWorkflow(
+        family=family,
+        positive=_as_str(pos.get("inputs", {}).get("text")),
+        negative=_as_str(neg.get("inputs", {}).get("text")),
+        width=max(64, width),
+        height=max(64, height),
+        steps=max(1, steps),
+        cfg=cfg,
+        seed=seed,
+        denoise=denoise,
+        sampler_name=_as_str(sampler["inputs"].get("sampler_name"), "euler"),
+        scheduler=_as_str(sampler["inputs"].get("scheduler"), "simple"),
+        checkpoint=checkpoint,
+        unet=unet,
+        clip=clip,
+        clip2=clip2,
+        vae=vae,
+        clip_type=clip_type,
+        loras=_collect_loras(nodes),
+        flux_max_shift=flux_max_shift,
+        flux_base_shift=flux_base_shift,
+        aura_shift=aura_shift,
+    )
+    return ClassifyResult(
+        supported=True,
+        family=family,
+        reason="ok",
+        compiled=compiled,
+    )

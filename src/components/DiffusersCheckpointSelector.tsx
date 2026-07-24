@@ -4,23 +4,100 @@ import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/ViewState";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { DIFFUSERS_DEFAULT_MODEL } from "@/lib/diffusers-defaults";
+import { buildDiffusersLightningPresets } from "@/lib/diffusers-presets";
 import { loadEngineSettings } from "@/lib/engine-settings";
 
 export type DiffusersCheckpointOption = {
   id: string;
   label: string;
   kind: "single_file" | "diffusers_dir";
-  family: "sdxl" | "sd15" | "other";
+  family: string;
   default: boolean;
+  bucket?: string;
+  /** Actual UNET/checkpoint filename when `id` is a Studio preset (Lightning). */
+  weightId?: string;
+  /** Studio model id for workflow auto-select (Lightning presets). */
+  studioModelId?: string;
+  variant?: "base" | "lightning-4" | "lightning-8";
 };
 
+export type DiffusersAssetFamilyFilter =
+  | "all"
+  | "sdxl"
+  | "sd15"
+  | "flux"
+  | "qwen"
+  | "other";
+
 type DiffusersCheckpointSelectorProps = {
+  /** Currently selected weight filename (checkpoint or UNET). */
   value: string;
-  onChange: (modelId: string) => void;
+  onChange: (asset: DiffusersCheckpointOption) => void;
   id?: string;
 };
 
-async function fetchCheckpoints(
+function mergeInventory(data: {
+  models?: DiffusersCheckpointOption[];
+  checkpoints?: DiffusersCheckpointOption[];
+  diffusionModels?: DiffusersCheckpointOption[];
+}): DiffusersCheckpointOption[] {
+  const byId = new Map<string, DiffusersCheckpointOption>();
+  const push = (item: DiffusersCheckpointOption | undefined) => {
+    if (!item?.id?.trim()) {
+      return;
+    }
+    const id = item.id.trim();
+    if (byId.has(id)) {
+      return;
+    }
+    byId.set(id, {
+      ...item,
+      id,
+      label: item.label?.trim() || id,
+      family: item.family?.trim() || "other",
+      kind: item.kind === "diffusers_dir" ? "diffusers_dir" : "single_file",
+      default: Boolean(item.default),
+    });
+  };
+
+  for (const item of data.checkpoints ?? []) {
+    push({ ...item, bucket: item.bucket ?? "checkpoints" });
+  }
+  for (const item of data.diffusionModels ?? []) {
+    push({ ...item, bucket: item.bucket ?? "diffusion_models" });
+  }
+  // Always merge `models` too (engine may put UNETs there as the combined list).
+  for (const item of data.models ?? []) {
+    push({
+      ...item,
+      bucket:
+        item.bucket ??
+        (item.family === "flux" || item.family === "qwen"
+          ? "diffusion_models"
+          : "checkpoints"),
+    });
+  }
+
+  return [...byId.values()].sort((a, b) => {
+    const familyRank = (family: string) =>
+      family === "qwen"
+        ? 0
+        : family === "flux"
+          ? 1
+          : family === "sdxl"
+            ? 2
+            : family === "sd15"
+              ? 3
+              : 4;
+    const rank = familyRank(a.family) - familyRank(b.family);
+    if (rank !== 0) {
+      return rank;
+    }
+    return a.id.localeCompare(b.id);
+  });
+}
+
+async function fetchInventory(
   engineUrl?: string,
 ): Promise<DiffusersCheckpointOption[]> {
   const params = new URLSearchParams();
@@ -36,8 +113,14 @@ async function fetchCheckpoints(
   }
   const data = (await response.json()) as {
     models?: DiffusersCheckpointOption[];
+    checkpoints?: DiffusersCheckpointOption[];
+    diffusionModels?: DiffusersCheckpointOption[];
+    loras?: DiffusersCheckpointOption[];
   };
-  return Array.isArray(data.models) ? data.models : [];
+  const weights = mergeInventory(data);
+  const presets = buildDiffusersLightningPresets(data);
+  // Presets first within Qwen so Lightning is visible above raw UNETs.
+  return [...presets, ...weights];
 }
 
 export default function DiffusersCheckpointSelector({
@@ -46,7 +129,7 @@ export default function DiffusersCheckpointSelector({
   id,
 }: DiffusersCheckpointSelectorProps) {
   const [query, setQuery] = useState("");
-  const [family, setFamily] = useState<"all" | "sdxl" | "sd15" | "other">("all");
+  const [family, setFamily] = useState<DiffusersAssetFamilyFilter>("qwen");
   const [models, setModels] = useState<DiffusersCheckpointOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,22 +139,57 @@ export default function DiffusersCheckpointSelector({
     const load = () => {
       setLoading(true);
       const engineUrl = loadEngineSettings().diffusersApiUrl;
-      void fetchCheckpoints(engineUrl)
+      void fetchInventory(engineUrl)
         .then((next) => {
           if (cancelled) {
             return;
           }
           setModels(next);
           setError(null);
-          if (
-            next.length > 0 &&
-            !next.some((item) => item.id === value)
-          ) {
+          const matched = next.find(
+            (item) =>
+              item.id === value ||
+              item.studioModelId === value ||
+              item.weightId === value,
+          );
+          // Keep the family tab on whatever is already selected (Flux stays on Flux).
+          if (matched) {
+            if (
+              matched.family === "qwen" ||
+              matched.family === "flux" ||
+              matched.family === "sdxl" ||
+              matched.family === "sd15"
+            ) {
+              setFamily(matched.family);
+            } else {
+              setFamily("all");
+            }
+          } else {
+            const qwenCount = next.filter((item) => item.family === "qwen").length;
+            const fluxCount = next.filter((item) => item.family === "flux").length;
+            if (qwenCount > 0) {
+              setFamily("qwen");
+            } else if (fluxCount > 0) {
+              setFamily("flux");
+            } else {
+              setFamily("all");
+            }
+          }
+          if (next.length > 0 && !matched) {
             const preferred =
               next.find((item) => item.default)?.id ||
+              next.find((item) => item.variant === "lightning-8")?.id ||
               next.find((item) => item.id === DIFFUSERS_DEFAULT_MODEL)?.id ||
+              next.find(
+                (item) =>
+                  item.family === "qwen" &&
+                  !/edit/i.test(item.id) &&
+                  item.bucket !== "preset",
+              )?.id ||
+              next.find((item) => item.family === "flux")?.id ||
               next[0]!.id;
-            onChange(preferred);
+            const asset = next.find((item) => item.id === preferred) ?? next[0]!;
+            onChange(asset);
           }
         })
         .catch((err: unknown) => {
@@ -80,7 +198,7 @@ export default function DiffusersCheckpointSelector({
             setError(
               err instanceof Error
                 ? err.message
-                : "Could not load Diffusers checkpoints.",
+                : "Could not load Diffusers inventory.",
             );
           }
         })
@@ -110,20 +228,51 @@ export default function DiffusersCheckpointSelector({
       return (
         item.label.toLowerCase().includes(needle) ||
         item.id.toLowerCase().includes(needle) ||
-        item.family.toLowerCase().includes(needle)
+        item.family.toLowerCase().includes(needle) ||
+        (item.bucket ?? "").toLowerCase().includes(needle)
       );
     });
   }, [family, models, query]);
 
-  const selected = models.find((item) => item.id === value);
+  const selected = models.find(
+    (item) =>
+      item.id === value ||
+      item.studioModelId === value ||
+      item.weightId === value,
+  );
+
+  // When the parent resolves a Flux weight filename, keep the Flux tab visible.
+  useEffect(() => {
+    if (!selected) {
+      return;
+    }
+    if (
+      selected.family === "qwen" ||
+      selected.family === "flux" ||
+      selected.family === "sdxl" ||
+      selected.family === "sd15"
+    ) {
+      setFamily(selected.family);
+    }
+  }, [selected]);
+
+  const isActive = (item: DiffusersCheckpointOption) =>
+    item.id === value ||
+    item.studioModelId === value ||
+    (Boolean(item.weightId) && item.weightId === value && !selected?.studioModelId);
+  const countFor = (fam: DiffusersAssetFamilyFilter) =>
+    fam === "all"
+      ? models.length
+      : models.filter((item) => item.family === fam).length;
 
   return (
     <div className="space-y-3" id={id}>
       <div className="rounded-[var(--radius-md)] border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)]/40 px-3 py-2.5">
         <p className="type-caption text-[var(--tint-info-text)]">
-          Diffusers txt2img · local SDXL/SD1.5 checkpoints from the engine
-          (Comfy `models/checkpoints` + service folder). Qwen/Flux packs stay on
-          ComfyUI.
+          Diffusers-first · native <strong>Qwen</strong> and <strong>Flux</strong>{" "}
+          from Comfy <code className="font-mono">models/diffusion_models</code>{" "}
+          (and Rapid-AIO checkpoints). Pick a weight + mapped workflow; unsupported
+          graphs fall back to ComfyUI.
         </p>
       </div>
 
@@ -132,40 +281,42 @@ export default function DiffusersCheckpointSelector({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search checkpoints…"
-          aria-label="Search Diffusers checkpoints"
+          placeholder="Search Qwen / Flux weights…"
+          aria-label="Search Diffusers model inventory"
           className="ui-input min-h-11 w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body-lg"
         />
         <select
           value={family}
           onChange={(event) =>
-            setFamily(event.target.value as "all" | "sdxl" | "sd15" | "other")
+            setFamily(event.target.value as DiffusersAssetFamilyFilter)
           }
-          aria-label="Filter by checkpoint family"
+          aria-label="Filter by model family"
           className="ui-input min-h-11 w-full px-3 py-[var(--input-padding-y)] type-body"
         >
-          <option value="all">All families ({models.length})</option>
-          <option value="sdxl">
-            SDXL ({models.filter((item) => item.family === "sdxl").length})
-          </option>
-          <option value="sd15">
-            SD1.5 ({models.filter((item) => item.family === "sd15").length})
-          </option>
-          <option value="other">
-            Other ({models.filter((item) => item.family === "other").length})
-          </option>
+          <option value="qwen">Qwen ({countFor("qwen")})</option>
+          <option value="flux">Flux ({countFor("flux")})</option>
+          <option value="all">All families ({countFor("all")})</option>
+          <option value="sdxl">SDXL ({countFor("sdxl")})</option>
+          <option value="sd15">SD1.5 ({countFor("sd15")})</option>
+          <option value="other">Other ({countFor("other")})</option>
         </select>
       </div>
 
       <p className="type-caption">
         {loading
-          ? "Loading checkpoints…"
-          : `${filtered.length} checkpoint${filtered.length === 1 ? "" : "s"}`}
+          ? "Loading inventory…"
+          : `${filtered.length} weight${filtered.length === 1 ? "" : "s"}`}
         {selected ? (
           <>
             {" · "}
             Selected:{" "}
             <span className="text-[var(--text-secondary)]">{selected.label}</span>
+            {selected.bucket ? (
+              <span className="text-[var(--text-tertiary)]">
+                {" "}
+                · {selected.bucket}
+              </span>
+            ) : null}
           </>
         ) : null}
       </p>
@@ -183,29 +334,34 @@ export default function DiffusersCheckpointSelector({
             <EmptyState
               compact
               icon="search"
-              title="No checkpoints found"
-              description="Drop SDXL .safetensors into Comfy models/checkpoints or the Diffusers service checkpoints folder."
+              title="No weights found"
+              description="Drop Qwen/Flux UNETs into models/diffusion_models (or Rapid-AIO into models/checkpoints)."
             />
           ) : (
             filtered.map((entry) => (
               <button
-                key={entry.id}
+                key={`${entry.bucket ?? "asset"}:${entry.id}`}
                 type="button"
-                onClick={() => onChange(entry.id)}
-                data-active={value === entry.id ? "true" : "false"}
+                onClick={() => onChange(entry)}
+                data-active={isActive(entry) ? "true" : "false"}
                 className={`ui-chip w-full px-4 py-3 text-left ${
-                  value === entry.id ? "" : "!items-start"
+                  isActive(entry) ? "" : "!items-start"
                 }`}
               >
                 <div className="flex w-full flex-wrap items-center justify-between gap-2">
                   <span
                     className={`type-heading ${
-                      value === entry.id
+                      isActive(entry)
                         ? "text-[var(--accent-text)]"
                         : "text-[var(--text-primary)]"
                     }`}
                   >
                     {entry.label}
+                    {entry.variant?.startsWith("lightning") ? (
+                      <span className="ml-2 type-overline !normal-case">
+                        lightning
+                      </span>
+                    ) : null}
                     {entry.default ? (
                       <span className="ml-2 type-overline !normal-case">
                         default
@@ -214,9 +370,16 @@ export default function DiffusersCheckpointSelector({
                   </span>
                   <span className="type-overline !normal-case !tracking-normal font-mono">
                     {entry.family.toUpperCase()}
+                    {entry.bucket === "preset"
+                      ? " · PRESET"
+                      : entry.bucket === "diffusion_models"
+                        ? " · UNET"
+                        : ""}
                   </span>
                 </div>
-                <p className="type-caption mt-1 w-full font-mono">{entry.id}</p>
+                <p className="type-caption mt-1 w-full font-mono">
+                  {entry.weightId ?? entry.id}
+                </p>
               </button>
             ))
           )}

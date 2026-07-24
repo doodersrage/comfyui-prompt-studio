@@ -1115,7 +1115,7 @@ export default function SettingsTool() {
       <ToolSection
         id="settings-comfyui-inference-engine"
         title="Inference engine"
-        description="Choose ComfyUI (full workflows) or Diffusers (narrow txt2img via the local FastAPI service)."
+        description="Choose ComfyUI (full workflows) or Diffusers-first (native Qwen/Flux graphs; ControlNet/edit/video fall back to Comfy)."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
@@ -1134,7 +1134,7 @@ export default function SettingsTool() {
               className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 shadow-inner transition focus-visible:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40"
             >
               <option value="comfyui">ComfyUI</option>
-              <option value="diffusers">Diffusers (txt2img)</option>
+              <option value="diffusers">Diffusers (native + Comfy fallback)</option>
             </select>
           </div>
           <div className="space-y-1">
@@ -1180,8 +1180,9 @@ export default function SettingsTool() {
           <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
             services/diffusers-engine
           </code>{" "}
-          locally (see its README). Defaults to RealVisXL when the Studio model is a
-          Flux/Qwen alias. Server proxy uses{" "}
+          locally (see its README). With a workflow selected, Diffusers classifies the
+          Comfy graph and runs Qwen/Flux natively; unsupported nodes fall back to
+          ComfyUI. Studio aliases map to local UNETs (not SDXL). Server proxy uses{" "}
           <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
             DIFFUSERS_API_URL
           </code>

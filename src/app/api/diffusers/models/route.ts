@@ -27,6 +27,11 @@ export async function GET(request: Request) {
 
   return apiJson({
     models: listed.models,
+    checkpoints: listed.checkpoints,
+    diffusionModels: listed.diffusionModels,
+    textEncoders: listed.textEncoders,
+    vaes: listed.vaes,
+    loras: listed.loras,
     defaultModel: listed.defaultModel,
     searchPaths: listed.searchPaths,
     engineUrl: listed.engineUrl,

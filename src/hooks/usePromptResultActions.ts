@@ -763,6 +763,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 workshopCrop: workshopCropToApi(
                   loadSettingsCache().shared.diffusersWorkshopCrop,
                 ),
+                modelCheckpointMap:
+                  loadSettingsCache().shared.modelCheckpointMap,
               }
             : runtime
               ? { comfy: runtime }

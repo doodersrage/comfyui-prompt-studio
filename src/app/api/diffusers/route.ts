@@ -16,6 +16,8 @@ type DiffusersRequestBody = {
   engineUrl?: string;
   /** null = auto; true/false force workshop hand crop. */
   workshopCrop?: boolean | null;
+  /** Studio model id → weight filename overrides from Settings. */
+  modelCheckpointMap?: Record<string, string>;
   params?: {
     seed?: string | number;
     width?: string | number;
@@ -68,25 +70,22 @@ export async function POST(request: Request) {
         ? null
         : Math.trunc(toNumber(seedRaw, 0));
 
-    // Diffusers defaults lean SDXL-friendly; the Python service further normalizes
-    // Turbo vs XL once the checkpoint is resolved.
+    // Diffusers-first defaults lean Qwen/Flux; keep caller steps/CFG when present.
     const width = Math.max(64, Math.min(2048, Math.trunc(toNumber(params.width, 1024))));
     const height = Math.max(
       64,
       Math.min(2048, Math.trunc(toNumber(params.height, 1024))),
     );
-    let steps = Math.max(1, Math.min(150, Math.trunc(toNumber(params.steps, 40))));
-    // RealVis / photoreal SDXL prefers mid CFG; stock base liked ~7.
-    let guidance = toNumber(params.cfg, 5.5);
-    // Studio draft/Turbo often sends steps<=8 and cfg≈0 — lift before proxying.
-    if (steps < 20 && guidance <= 2) {
-      steps = 40;
-      guidance = 5.5;
-    } else if (guidance <= 0) {
-      guidance = 5.5;
+    const steps = Math.max(1, Math.min(150, Math.trunc(toNumber(params.steps, 28))));
+    let guidance = toNumber(params.cfg, 2.5);
+    if (guidance < 0) {
+      guidance = 2.5;
     }
 
-    const model = resolveDiffusersModelHint(body.model);
+    const model = resolveDiffusersModelHint(
+      body.model,
+      body.modelCheckpointMap,
+    );
     const workshopCrop =
       body.workshopCrop === true || body.workshopCrop === false
         ? body.workshopCrop

@@ -45,6 +45,8 @@ export const comfyEngineAdapter: EngineAdapter = {
       error: result.error,
       status: result.status,
       workflowSource: result.workflowSource,
+      engineId: result.engineId ?? "comfyui",
+      family: result.family,
       raw: result.raw,
       releaseLiveSocket: result.releaseLiveSocket,
     };

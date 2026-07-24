@@ -110,6 +110,30 @@ class PromptEncodeTests(unittest.TestCase):
         self.assertNotIn("gloves", fitted.lower())
         self.assertNotIn("mitts", fitted.lower())
 
+    def test_multi_person_skips_solo_and_crowd_fight(self) -> None:
+        from app.prompt_encode import prompt_wants_multiple_people
+
+        prompt = (
+            "two women standing back to back on a city street at golden hour, "
+            "white blouses, long dark hair"
+        )
+        self.assertTrue(prompt_wants_multiple_people(prompt))
+        fitted = fit_prompt_to_clip(None, prompt, max_chars=320)
+        lower = fitted.lower()
+        self.assertNotIn("solo", lower)
+        self.assertIn("two distinct people", lower)
+        self.assertIn("two people prominently", lower)
+
+        neg = fit_negative_to_clip(
+            None,
+            "blurry, multiple people, crowd, second person",
+            reinforce_person=True,
+            multi_person=True,
+        )
+        neg_lower = neg.lower()
+        self.assertIn("fused bodies", neg_lower)
+        self.assertNotIn("second person", neg_lower)
+
     def test_workshop_negative_hides_hands(self) -> None:
         fitted = fit_negative_to_clip(
             None,
