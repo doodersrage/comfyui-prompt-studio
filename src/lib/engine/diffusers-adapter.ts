@@ -45,24 +45,45 @@ async function fetchDiffusersStatusViaProxy(
     params.set("engineUrl", engineUrl.trim());
   }
   const response = await fetch(`/api/diffusers/status?${params.toString()}`);
+  const raw = (await response.json().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+  const resolvedUrl =
+    (typeof raw.engineUrl === "string" && raw.engineUrl.trim()) ||
+    (typeof raw.comfyUrl === "string" && raw.comfyUrl.trim()) ||
+    engineUrl?.trim() ||
+    "";
+  // Legacy 404 responses + explicit error payloads both mean "stop polling".
+  if (response.status === 404) {
+    return {
+      promptId,
+      status: "error",
+      statusMessage:
+        typeof raw.error === "string" && raw.error.trim()
+          ? raw.error.trim()
+          : typeof raw.statusMessage === "string" && raw.statusMessage.trim()
+            ? raw.statusMessage.trim()
+            : "Diffusers job not found (engine restarted or id lost).",
+      engineUrl: resolvedUrl,
+    };
+  }
   if (!response.ok) {
     return null;
   }
-  const raw = (await response.json()) as Record<string, unknown>;
   const images = Array.isArray(raw.images)
     ? (raw.images as EngineOutputImage[])
     : undefined;
+  const normalized = normalizeJobStatus(
+    typeof raw.status === "string" ? raw.status : undefined,
+  );
+  const statusMessage =
+    typeof raw.statusMessage === "string" ? raw.statusMessage : undefined;
   return {
     promptId,
-    status: normalizeJobStatus(
-      typeof raw.status === "string" ? raw.status : undefined,
-    ),
-    statusMessage:
-      typeof raw.statusMessage === "string" ? raw.statusMessage : undefined,
-    engineUrl:
-      (typeof raw.engineUrl === "string" && raw.engineUrl.trim()) ||
-      engineUrl?.trim() ||
-      "",
+    status: normalized,
+    statusMessage,
+    engineUrl: resolvedUrl,
     images,
     queuePosition:
       typeof raw.queuePosition === "number" || raw.queuePosition === null
@@ -173,6 +194,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
       }
     }
 
+    const engineSettings = loadEngineSettings();
     const payload = {
       prompt: body.prompt,
       negativePrompt: body.negativePrompt,
@@ -180,8 +202,11 @@ export const diffusersEngineAdapter: EngineAdapter = {
       params: body.params,
       workshopCrop: body.workshopCrop,
       modelCheckpointMap: body.modelCheckpointMap,
+      qualityProfile: body.qualityProfile,
+      hasInputImage: body.hasInputImage === true,
       clientId,
       engineUrl: engineUrlHint,
+      autoStart: engineSettings.diffusersAutoStart,
     };
 
     try {

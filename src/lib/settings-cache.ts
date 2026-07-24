@@ -102,10 +102,15 @@ export type SharedToolSettings = {
   systemWorkflowsLimitPicker?: boolean;
   /** Temporary override to show every model in the picker. */
   showAllModelsOverride?: boolean;
-  /** Active inference engine for queue / status / view (`comfyui` | `diffusers`). */
+  /** Active inference engine (`comfyui` default | `diffusers` optional). */
   inferenceEngine?: import("./engine/types").EngineId;
   /** Browser Diffusers engine URL (proxied via `/api/diffusers`). */
   diffusersApiUrl?: string;
+  /**
+   * When Diffusers is unreachable on localhost, Studio spawns
+   * `services/diffusers-engine` (server kill-switch: DIFFUSERS_AUTOSTART=0).
+   */
+  diffusersAutoStart?: boolean;
   /**
    * Diffusers workshop crop: auto-detect craft roles, always hide hands,
    * or never force the head-and-shoulders crop.
@@ -571,6 +576,9 @@ export type SettingsCache = {
 };
 
 export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
+  // ComfyUI owns generate (Lightning bf16 + enrich); Diffusers is optional.
+  inferenceEngine: "comfyui",
+  diffusersAutoStart: true,
   model: DEFAULT_QWEN_MODEL,
   detail: "balanced",
   alwaysIncludeClothing: true,

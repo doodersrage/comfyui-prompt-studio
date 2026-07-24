@@ -8,6 +8,23 @@ export type StorageNamespaceConflict = {
 
 export type MergeChoice = "local" | "server" | "merge";
 
+/** Ignore routine skew from in-flight auto-push / clock jitter. */
+const CONFLICT_SKEW_MS = 60_000;
+
+export function suggestMergeChoice(
+  conflict: Pick<StorageNamespaceConflict, "localCount" | "serverCount">,
+): MergeChoice {
+  const localCount = conflict.localCount ?? 0;
+  const serverCount = conflict.serverCount ?? 0;
+  if (localCount <= 0 && serverCount > 0) {
+    return "server";
+  }
+  if (serverCount <= 0 && localCount > 0) {
+    return "local";
+  }
+  return "merge";
+}
+
 export function detectStorageConflicts(input: {
   namespaces: Array<{
     namespace: string;
@@ -17,28 +34,39 @@ export function detectStorageConflicts(input: {
 }): StorageNamespaceConflict[] {
   const conflicts: StorageNamespaceConflict[] = [];
   for (const entry of input.namespaces) {
-    if (!entry.local && !entry.server) {
+    const local = entry.local;
+    const server = entry.server;
+    const localCount = local?.count ?? 0;
+    const serverCount = server?.count ?? 0;
+    const localTime = local?.updatedAt ?? 0;
+    const serverTime = server?.updatedAt ?? 0;
+
+    // Nothing on either side.
+    if (localCount <= 0 && serverCount <= 0 && localTime <= 0 && serverTime <= 0) {
       continue;
     }
-    if (!entry.local || !entry.server) {
-      conflicts.push({
-        namespace: entry.namespace,
-        localUpdatedAt: entry.local?.updatedAt,
-        serverUpdatedAt: entry.server?.updatedAt,
-        localCount: entry.local?.count,
-        serverCount: entry.server?.count,
-      });
+
+    // One side empty / missing — real sync needed, but auto-reconcile can handle it.
+    if (localCount <= 0 || serverCount <= 0) {
+      if (localCount !== serverCount || Math.abs(localTime - serverTime) > CONFLICT_SKEW_MS) {
+        conflicts.push({
+          namespace: entry.namespace,
+          localUpdatedAt: local?.updatedAt,
+          serverUpdatedAt: server?.updatedAt,
+          localCount: local?.count,
+          serverCount: server?.count,
+        });
+      }
       continue;
     }
-    const localTime = entry.local.updatedAt ?? 0;
-    const serverTime = entry.server.updatedAt ?? 0;
-    if (Math.abs(localTime - serverTime) > 1000) {
+
+    if (Math.abs(localTime - serverTime) > CONFLICT_SKEW_MS) {
       conflicts.push({
         namespace: entry.namespace,
         localUpdatedAt: localTime,
         serverUpdatedAt: serverTime,
-        localCount: entry.local.count,
-        serverCount: entry.server.count,
+        localCount: local.count,
+        serverCount: server.count,
       });
     }
   }

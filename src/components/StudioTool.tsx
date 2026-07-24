@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { usePromptResultActions } from "@/hooks/usePromptResultActions";
@@ -163,7 +162,23 @@ import {
   StudioTabSkeleton,
   SuccessBanner,
 } from "@/components/ui/ViewState";
+import {
+  isStudioTabId,
+  studioTabGroupsForWorkspaceMode,
+  type StudioTabId,
+} from "@/lib/studio-nav";
+import { useWorkspaceMode } from "@/hooks/useWorkspaceMode";
+import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
 
+const SharedToolControls = dynamic(
+  () => import("@/components/SharedToolControls"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-40 animate-pulse rounded-2xl bg-[var(--surface-muted)]/50" aria-hidden />
+    ),
+  },
+);
 const ExperimentDashboardPanel = dynamic(
   () => import("@/components/ExperimentDashboardPanel"),
   { loading: () => <StudioTabSkeleton /> },
@@ -189,14 +204,6 @@ const EnhancedPromptResult = dynamic(() => import("@/components/LazyEnhancedProm
 const PromptDiagnosticsPanel = dynamic(() => import("@/components/PromptDiagnosticsPanel"), {
   loading: () => <StudioTabSkeleton />,
 });
-
-import {
-  isStudioTabId,
-  studioTabGroupsForWorkspaceMode,
-  type StudioTabId,
-} from "@/lib/studio-nav";
-import { useWorkspaceMode } from "@/hooks/useWorkspaceMode";
-import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
 
 const ACCENT = "violet" as const;
 

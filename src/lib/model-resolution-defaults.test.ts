@@ -88,10 +88,16 @@ describe("model resolution defaults", () => {
       "square",
       "portrait-34",
       "landscape-43",
+      "portrait-23",
+      "landscape-32",
     ]);
     assert.equal(
       resolutionOrientationsForModel("qwen-image-2512-lightning-8").includes("portrait"),
       false,
+    );
+    assert.deepEqual(
+      getModelResolutionPreset("qwen-image-2512-lightning-8", "portrait-23", "medium"),
+      { width: 1056, height: 1584 },
     );
     assert.ok(resolutionOrientationsForModel("qwen-image-2512").includes("portrait-34"));
     assert.ok(resolutionOrientationsForModel("qwen-image-2512").includes("portrait"));
@@ -100,6 +106,21 @@ describe("model resolution defaults", () => {
       "medium",
       "max",
     ]);
+  });
+
+  it("offers classic photo ARs for SDXL and Flux", () => {
+    for (const model of ["sdxl", "flux-dev"] as const) {
+      assert.ok(resolutionOrientationsForModel(model).includes("portrait-34"));
+      assert.ok(resolutionOrientationsForModel(model).includes("landscape-32"));
+    }
+    assert.deepEqual(getModelResolutionPreset("sdxl", "portrait-34", "medium"), {
+      width: 896,
+      height: 1152,
+    });
+    assert.deepEqual(getModelResolutionPreset("flux-dev", "landscape-32", "medium"), {
+      width: 1216,
+      height: 832,
+    });
   });
 
   it("bumps sub-native lightning queue params to native resolution", () => {

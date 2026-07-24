@@ -33,6 +33,19 @@ from app.prompt_encode import (
 from app.sampling import plan_sampling
 
 
+def _host_rss_gb() -> float:
+    """Current process RSS in GiB (best-effort; for load-path diagnostics)."""
+    try:
+        with open("/proc/self/status", encoding="utf-8") as handle:
+            for line in handle:
+                if line.startswith("VmRSS:"):
+                    # kB
+                    return float(line.split()[1]) / (1024.0 * 1024.0)
+    except Exception:
+        pass
+    return 0.0
+
+
 def _person_portrait_canvas(prompt: str, width: int, height: int) -> tuple[int, int]:
     """Full-body people on 1:1 latents stretch — nudge square → ~3:4, keep area."""
     if height <= 0 or width <= 0:
@@ -81,7 +94,21 @@ _ENGINE_ROOT = Path(__file__).resolve().parents[1]
 _FLUX2_KLEIN_9B_CONFIG = _ENGINE_ROOT / "configs" / "flux2-klein-9b"
 _FLUX2_KLEIN_4B_CONFIG = _ENGINE_ROOT / "configs" / "flux2-klein-4b"
 _FLUX2_VAE_CONFIG = _ENGINE_ROOT / "configs" / "flux2-vae" / "config.json"
+_FLUX2_KLEIN_SCHEDULER_CONFIG = (
+    _ENGINE_ROOT / "configs" / "flux2-klein-scheduler" / "scheduler_config.json"
+)
 _QWEN3_CHAT_TEMPLATE = _ENGINE_ROOT / "configs" / "qwen3_chat_template.jinja"
+# Comfy ships the working Qwen2.5 BPE used by Flux2-Klein TE (same vocab as Qwen3 chat).
+_QWEN25_TOKENIZER_LOCAL = _ENGINE_ROOT / "configs" / "qwen25_tokenizer"
+_MIN_QWEN_VOCAB = 10_000
+
+
+def _is_flux2_klein_distilled(unet_label: str) -> bool:
+    """Comfy/BFL: distilled UNETs omit 'base' (e.g. flux-2-klein-9b, *-distilled)."""
+    token = unet_label.lower().replace("_", "-")
+    if "base" in token:
+        return False
+    return "klein" in token or "distilled" in token
 
 
 def _flux2_klein_config_dir(unet_label: str) -> Path:
@@ -99,15 +126,22 @@ def _flux2_klein_config_dir(unet_label: str) -> Path:
 
 
 def _ensure_qwen3_chat_template(tokenizer: Any) -> Any:
-    """Flux2KleinPipeline requires apply_chat_template(enable_thinking=False)."""
-    if getattr(tokenizer, "chat_template", None):
-        return tokenizer
+    """Force Comfy Klein chat packing (user turn + empty think), not generic Qwen system chat.
+
+    Stock Qwen tokenizer_config templates inject a system prompt and omit the empty
+    ``<think></think>`` block Comfy's KleinTokenizer hardcodes — that mismatch
+    shifts TE conditioning vs the drop-in UNETs.
+    """
     if _QWEN3_CHAT_TEMPLATE.is_file():
         tokenizer.chat_template = _QWEN3_CHAT_TEMPLATE.read_text(encoding="utf-8")
     else:
+        # Mirrors Comfy KleinTokenizer.llama_template when enable_thinking is false.
         tokenizer.chat_template = (
             "{%- for message in messages %}"
-            "{{- '<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>' + '\\n' }}"
+            "{%- if message['role'] != 'system' %}"
+            "{{- '<|im_start|>' + message['role'] + '\\n' + message['content'] "
+            "+ '<|im_end|>' + '\\n' }}"
+            "{%- endif %}"
             "{%- endfor %}"
             "{%- if add_generation_prompt %}"
             "{{- '<|im_start|>assistant\\n' }}"
@@ -116,55 +150,90 @@ def _ensure_qwen3_chat_template(tokenizer: Any) -> Any:
             "{%- endif %}"
             "{%- endif %}"
         )
-    print("[diffusers] Qwen3 tokenizer chat_template installed (local)", flush=True)
+    print("[diffusers] Qwen3 tokenizer chat_template set (Comfy Klein)", flush=True)
     return tokenizer
 
 
+def _tokenizer_vocab_ok(tokenizer: Any) -> bool:
+    """Reject incomplete HF cache stubs (we've seen vocab_size==1 → empty encodes → static)."""
+    try:
+        size = int(getattr(tokenizer, "vocab_size", 0) or 0)
+        if size < _MIN_QWEN_VOCAB:
+            size = len(tokenizer)
+    except Exception:
+        return False
+    if size < _MIN_QWEN_VOCAB:
+        return False
+    # Smoke: real BPE must encode plain English.
+    try:
+        ids = tokenizer.encode("a red apple", add_special_tokens=False)
+    except Exception:
+        return False
+    return bool(ids)
+
+
 def _load_qwen3_tokenizer_for_flux(clip_name: str | None) -> Any:
-    """Load Qwen3 tokenizer matched to TE size; ensure chat_template is present."""
+    """Load Qwen2.5/3 tokenizer for Flux2-Klein; prefer vendored/Comfy over broken HF stubs."""
     from transformers import AutoTokenizer
 
-    name = (clip_name or "").lower()
-    if "4b" in name:
-        hub_id = "Qwen/Qwen3-4B"
-    elif "klein" in name or "8b" in name:
-        hub_id = "Qwen/Qwen3-8B"
-    else:
-        hub_id = "Qwen/Qwen3-8B"
-    # Prefer size match; fall back across sizes for incomplete local caches.
-    candidates = [hub_id, "Qwen/Qwen3-4B", "Qwen/Qwen3-8B"]
-    seen: set[str] = set()
+    del clip_name  # size-specific hub ids are unreliable offline; BPE is shared
+    local_dirs: list[Path] = []
+    if (_QWEN25_TOKENIZER_LOCAL / "vocab.json").is_file():
+        local_dirs.append(_QWEN25_TOKENIZER_LOCAL)
+    comfy_root = os.environ.get("COMFYUI_ROOT", "").strip()
+    if comfy_root:
+        comfy_tok = Path(comfy_root) / "comfy" / "text_encoders" / "qwen25_tokenizer"
+        if (comfy_tok / "vocab.json").is_file():
+            local_dirs.append(comfy_tok)
+
     last_error: Exception | None = None
-    for repo in candidates:
-        if repo in seen:
-            continue
-        seen.add(repo)
+    for path in local_dirs:
         try:
-            tokenizer = AutoTokenizer.from_pretrained(repo, local_files_only=True)
+            tokenizer = AutoTokenizer.from_pretrained(str(path), local_files_only=True)
+            if not _tokenizer_vocab_ok(tokenizer):
+                raise RuntimeError(f"tokenizer at {path} failed encode smoke")
+            print(f"[diffusers] Qwen tokenizer from {path}", flush=True)
             return _ensure_qwen3_chat_template(tokenizer)
         except Exception as exc:
             last_error = exc
-            continue
-    for repo in seen:
-        try:
-            tokenizer = AutoTokenizer.from_pretrained(repo)
-            return _ensure_qwen3_chat_template(tokenizer)
-        except Exception as exc:
-            last_error = exc
-            continue
+
+    # Hub fallback — but never accept a stub vocab (causes pure static / empty TE).
+    hub_candidates = ["Qwen/Qwen3-8B", "Qwen/Qwen3-4B", "Qwen/Qwen2.5-7B"]
+    for repo in hub_candidates:
+        for local_only in (True, False):
+            try:
+                tokenizer = AutoTokenizer.from_pretrained(
+                    repo, local_files_only=local_only
+                )
+                if not _tokenizer_vocab_ok(tokenizer):
+                    print(
+                        f"[diffusers] rejecting broken tokenizer stub {repo} "
+                        f"(local_only={local_only})",
+                        flush=True,
+                    )
+                    continue
+                print(f"[diffusers] Qwen tokenizer from hub {repo}", flush=True)
+                return _ensure_qwen3_chat_template(tokenizer)
+            except Exception as exc:
+                last_error = exc
+                continue
+
     raise RuntimeError(
-        f"Failed to load Qwen3 tokenizer for Flux2-Klein ({clip_name}). "
-        f"Last error: {last_error}"
+        "Failed to load a working Qwen tokenizer for Flux2-Klein. "
+        f"Vendored path={_QWEN25_TOKENIZER_LOCAL}. Last error: {last_error}"
     )
 
 
 def _load_flux2_vae_local(vae_path: str | Path, dtype: Any) -> Any:
     """Load drop-in flux2-vae without hitting gated FLUX.2-dev config download."""
+    import json
+
     from diffusers import AutoencoderKLFlux2
     from safetensors.torch import load_file
 
     if _FLUX2_VAE_CONFIG.is_file():
-        vae = AutoencoderKLFlux2.from_config(str(_FLUX2_VAE_CONFIG))
+        with _FLUX2_VAE_CONFIG.open("r", encoding="utf-8") as handle:
+            vae = AutoencoderKLFlux2.from_config(json.load(handle))
     else:
         vae = AutoencoderKLFlux2()
     state = load_file(str(vae_path))
@@ -178,11 +247,23 @@ def _load_flux2_vae_local(vae_path: str | Path, dtype: Any) -> Any:
             f"[diffusers] Flux2 VAE ignored {len(unexpected)} unexpected keys",
             flush=True,
         )
-    try:
+    # Must match transformer/latent dtype (bf16). Leaving VAE in float32 causes
+    # "Input type (BFloat16) and bias type (float) should be the same" on decode.
+    if dtype is not None:
         vae.to(dtype=dtype)
-    except Exception:
-        pass
     return vae
+
+
+def _load_flux2_klein_scheduler() -> Any:
+    """Flux2Klein always passes empirical `mu` — requires dynamic shifting."""
+    import json
+
+    from diffusers import FlowMatchEulerDiscreteScheduler
+
+    if _FLUX2_KLEIN_SCHEDULER_CONFIG.is_file():
+        with _FLUX2_KLEIN_SCHEDULER_CONFIG.open("r", encoding="utf-8") as handle:
+            return FlowMatchEulerDiscreteScheduler.from_config(json.load(handle))
+    return FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=True)
 
 
 def env_flag(name: str) -> bool:
@@ -249,7 +330,7 @@ def _silence_model_warnings() -> Iterator[None]:
 
 
 DEFAULT_MODEL = os.environ.get(
-    "DIFFUSERS_MODEL", "qwen_image_2512_bf16.safetensors"
+    "DIFFUSERS_MODEL", "qwen_image_2512_fp8_e4m3fn.safetensors"
 ).strip()
 MOCK_MODE = env_flag("DIFFUSERS_MOCK")
 SDXL_CONFIG_ID = os.environ.get(
@@ -266,10 +347,188 @@ SDXL_VAE_ID = os.environ.get(
 ).strip()
 SDXL_FORCE_FP32 = env_flag("DIFFUSERS_SDXL_FP32")
 CPU_OFFLOAD = env_flag("DIFFUSERS_CPU_OFFLOAD")
+# Sequential moves every layer over PCIe — starves the desktop. Opt-in only.
+SEQUENTIAL_OFFLOAD = env_flag("DIFFUSERS_SEQUENTIAL_OFFLOAD")
+# Keep DiT/UNET fully on CUDA when it fits (Comfy-like). Falls back to group
+# offload for oversized weights (e.g. Qwen-Image 2512 bf16 ≈ 39GB on 24GB).
+UNET_RESIDENT = env_flag_default_on("DIFFUSERS_UNET_RESIDENT")
+# Group/block offload is the 24GB sweet spot when residency won't fit.
+# Set DIFFUSERS_GROUP_OFFLOAD=0 to fall back to model offload.
+GROUP_OFFLOAD = env_flag_default_on("DIFFUSERS_GROUP_OFFLOAD")
+# Qwen-Image has 60 transformer blocks (~0.65GB bf16 each). Small groups (2–4)
+# thrash PCIe (~30 swaps/step) and stall the desktop. Prefer large groups so a
+# 24GB card keeps ~⅓–½ of the DiT resident (~3 swaps/step). Override with env.
+# Default 8: bf16 Qwen blocks ≈0.65GiB each; 18 left too little room for acts.
+GROUP_OFFLOAD_BLOCKS = max(
+    1, int(os.environ.get("DIFFUSERS_GROUP_OFFLOAD_BLOCKS", "8") or 8)
+)
+# Lightning default = fp8 storage + bf16 compute (layerwise) so DiT fits resident
+# on 24GB (~40s). Opt into Comfy-style full bf16 with DIFFUSERS_QWEN_LIGHTNING_BF16=1
+# (needs group-offload; much slower on 24GB — can hit multi-minute PCIe thrash).
+LIGHTNING_BF16 = env_flag("DIFFUSERS_QWEN_LIGHTNING_BF16")
 # Auto-on when a local refiner checkpoint exists; set DIFFUSERS_REFINER=0 to skip.
 REFINER_ENABLED = env_flag_default_on("DIFFUSERS_REFINER")
 # Keep refine gentle — high strength warps hands/arms on RealVis.
 REFINER_STRENGTH = float(os.environ.get("DIFFUSERS_REFINER_STRENGTH", "0.18") or 0.18)
+# Leave CPU headroom for compositor/UI (Comfy does not peg all cores).
+_CPU_THREADS = max(
+    2,
+    min(8, int(os.environ.get("DIFFUSERS_CPU_THREADS", "0") or 0) or ((os.cpu_count() or 8) // 2)),
+)
+_COMFY_FREE_URL = os.environ.get(
+    "DIFFUSERS_COMFY_FREE_URL", "http://127.0.0.1:8188/free"
+).strip()
+
+
+def _configure_host_scheduling() -> None:
+    """Keep the desktop responsive while large models load/run."""
+    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+    try:
+        # Mildly lower priority so kwin/chrome keep CPU time during weight loads.
+        os.nice(5)
+    except Exception:
+        pass
+    try:
+        import torch
+
+        torch.set_num_threads(_CPU_THREADS)
+        try:
+            torch.set_num_interop_threads(max(1, min(2, _CPU_THREADS // 2)))
+        except Exception:
+            pass
+        print(
+            f"[diffusers] host sched: nice+5 torch_threads={_CPU_THREADS}",
+            flush=True,
+        )
+    except Exception:
+        pass
+
+
+_configure_host_scheduling()
+# Public alias for app.main startup.
+configure_host_schedulers = _configure_host_scheduling
+
+
+def _free_peer_comfy_vram() -> None:
+    """Ask local Comfy to unload models so Diffusers isn't fighting for the 4090."""
+    if not _COMFY_FREE_URL:
+        return
+    try:
+        import json
+        import urllib.request
+
+        req = urllib.request.Request(
+            _COMFY_FREE_URL,
+            data=json.dumps({"unload_models": True, "free_memory": True}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            resp.read()
+        print("[diffusers] freed peer Comfy VRAM", flush=True)
+    except Exception:
+        pass
+
+
+def _qwen_transformer_load_dtype(path: Path, default_dtype: Any) -> Any:
+    """Keep Comfy fp8 e4m3fn UNETs in fp8 so they fit resident on 24GB."""
+    import torch
+
+    name = path.name.lower()
+    if "fp8" in name and hasattr(torch, "float8_e4m3fn"):
+        return torch.float8_e4m3fn
+    return default_dtype
+
+
+def _prefer_qwen_fp8_resident_path(model_path: str) -> str:
+    """Swap 2512 bf16 → sibling fp8 when present (UNET-resident on 24GB)."""
+    if not UNET_RESIDENT:
+        return model_path
+    path = Path(model_path)
+    name = path.name.lower()
+    if "fp8" in name or "bf16" not in name:
+        return model_path
+    if "2512" not in name and not name.startswith("qwen_image"):
+        return model_path
+
+    from app.asset_inventory import resolve_asset_file
+
+    candidates = [
+        "qwen_image_2512_fp8_e4m3fn.safetensors",
+        path.name.replace("bf16", "fp8_e4m3fn"),
+        path.name.replace("_bf16", "_fp8_e4m3fn"),
+    ]
+    for cand in candidates:
+        if not cand or cand == path.name:
+            continue
+        hit = resolve_asset_file(cand, "diffusion_models", "unet", "checkpoints")
+        if (
+            hit is not None
+            and hit.is_file()
+            and not hit.name.endswith(".partial")
+            and ".partial" not in hit.name
+        ):
+            print(
+                f"[diffusers] preferring fp8 UNET for residency: {hit.name} "
+                f"(was {path.name}; Lightning uses fp8 storage + bf16 compute "
+                f"via layerwise casting — Diffusers equivalent of Comfy's fast path)",
+                flush=True,
+            )
+            return str(hit)
+    return model_path
+
+
+def _prefer_qwen_lightning_bf16_path(model_path: str) -> str:
+    """Swap 2512 fp8 → sibling bf16 for Lightning (Comfy forbids fp8 UNET).
+
+    Studio's Comfy path rewrites Lightning loaders to bf16 specifically to avoid
+    grid/grain / screen-door. Keep that as the Diffusers default too.
+    """
+    path = Path(model_path)
+    name = path.name.lower()
+    if "bf16" in name or "fp8" not in name:
+        return model_path
+    if "2512" not in name and not name.startswith("qwen_image"):
+        return model_path
+
+    from app.asset_inventory import resolve_asset_file
+
+    candidates = [
+        "qwen_image_2512_bf16.safetensors",
+        path.name.replace("fp8_e4m3fn", "bf16"),
+        path.name.replace("_fp8_e4m3fn", "_bf16"),
+        path.name.replace("fp8", "bf16"),
+    ]
+    for cand in candidates:
+        if not cand or cand == path.name:
+            continue
+        hit = resolve_asset_file(cand, "diffusion_models", "unet", "checkpoints")
+        if (
+            hit is not None
+            and hit.is_file()
+            and not hit.name.endswith(".partial")
+            and ".partial" not in hit.name
+        ):
+            print(
+                f"[diffusers] Lightning preferring bf16 UNET: {hit.name} "
+                f"(was {path.name}; Comfy parity — avoids fp8 grid/grain)",
+                flush=True,
+            )
+            return str(hit)
+    print(
+        f"[diffusers] Lightning bf16 sibling missing for {path.name}; "
+        "keeping current weights (moire risk)",
+        flush=True,
+    )
+    return model_path
+
+
+def _resolve_qwen_unet_path(model_path: str, *, lightning: bool) -> str:
+    """Pick UNET precision: default fp8 resident; opt-in Lightning bf16 via env."""
+    if lightning and LIGHTNING_BF16:
+        return _prefer_qwen_lightning_bf16_path(model_path)
+    return _prefer_qwen_fp8_resident_path(model_path)
 
 
 class PipelineHolder:
@@ -283,12 +542,19 @@ class PipelineHolder:
         self._lora_key: str = "none"
         self.device = "cpu"
         self._offloaded = False
+        self._unet_resident = False
+        self._group_offload_blocks: int = GROUP_OFFLOAD_BLOCKS
 
     def describe(self) -> tuple[str, str, bool]:
         if MOCK_MODE:
             return "cpu", DEFAULT_MODEL, True
         if self._resolved is not None:
-            mode = "offload" if self._offloaded else self.device
+            if self._unet_resident:
+                mode = "unet-resident"
+            elif self._offloaded:
+                mode = "offload"
+            else:
+                mode = self.device
             return mode, f"{self._resolved.kind}:{self._resolved.label}", False
         return self.device, DEFAULT_MODEL, False
 
@@ -346,13 +612,36 @@ class PipelineHolder:
         print(f"[diffusers] VAE={SDXL_VAE_ID} force_upcast=False dtype={dtype}", flush=True)
 
     def _empty_cuda(self) -> None:
+        """Aggressively return fragmented CUDA memory to the driver."""
+        try:
+            import gc
+
+            import torch
+
+            gc.collect()
+            if torch.cuda.is_available():
+                try:
+                    torch.cuda.synchronize()
+                except Exception:
+                    pass
+                torch.cuda.empty_cache()
+                try:
+                    torch.cuda.ipc_collect()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _cuda_free_mb(self) -> float:
         try:
             import torch
 
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            if not torch.cuda.is_available():
+                return 0.0
+            free, _total = torch.cuda.mem_get_info()
+            return float(free) / (1024.0 * 1024.0)
         except Exception:
-            pass
+            return 0.0
 
     def _finalize_pipe(
         self,
@@ -646,17 +935,82 @@ class PipelineHolder:
         self._lora_key = key if fused else "none"
         return pipe
 
+    def _remove_group_offload_hooks(self, module: Any) -> None:
+        """Remove Diffusers group-offload hooks only (keep layerwise casting)."""
+        if module is None:
+            return
+        try:
+            from diffusers.hooks.group_offloading import (
+                HookRegistry,
+                _GROUP_OFFLOADING,
+                _LAYER_EXECUTION_TRACKER,
+                _LAZY_PREFETCH_GROUP_OFFLOADING,
+            )
+
+            registry = HookRegistry.check_if_exists_or_initialize(module)
+            registry.remove_hook(_GROUP_OFFLOADING, recurse=True)
+            registry.remove_hook(_LAYER_EXECUTION_TRACKER, recurse=True)
+            registry.remove_hook(_LAZY_PREFETCH_GROUP_OFFLOADING, recurse=True)
+        except Exception:
+            pass
+
+    def _force_module_cpu(self, module: Any) -> None:
+        """Best-effort: drop group-offload hooks and move every parameter to CPU."""
+        import torch
+
+        if module is None or not isinstance(module, torch.nn.Module):
+            return
+        self._remove_group_offload_hooks(module)
+        try:
+            module.to("cpu")
+        except Exception:
+            pass
+        # Group-offload can make .to("cpu") a silent no-op — scrub CUDA tensors.
+        for tensor in list(module.parameters()) + list(module.buffers()):
+            try:
+                if tensor.device.type == "cuda":
+                    tensor.data = tensor.data.to("cpu")
+            except Exception:
+                pass
+
+    def _cuda_param_mb(self, module: Any) -> float:
+        """MiB of parameters currently resident on CUDA (for park diagnostics)."""
+        import torch
+
+        if module is None or not isinstance(module, torch.nn.Module):
+            return 0.0
+        total = 0
+        try:
+            for tensor in module.parameters():
+                if tensor.device.type == "cuda":
+                    total += int(tensor.numel()) * int(tensor.element_size())
+            for tensor in module.buffers():
+                if tensor.device.type == "cuda":
+                    total += int(tensor.numel()) * int(tensor.element_size())
+        except Exception:
+            return 0.0
+        return float(total) / (1024.0 * 1024.0)
+
     def _park_pipe(self, pipe: Any) -> None:
-        """Park a pipeline on CPU safely (fp16 cannot live on CPU)."""
+        """Park a pipeline on CPU. Do not upcast — bf16 DiT→fp32 would explode RAM."""
         import torch
 
         if pipe is None:
             return
         with _silence_model_warnings():
-            try:
-                pipe.to(dtype=torch.float32)
-            except Exception:
-                pass
+            for name in (
+                "transformer",
+                "unet",
+                "text_encoder",
+                "text_encoder_2",
+                "vae",
+            ):
+                mod = getattr(pipe, name, None)
+                if mod is not None:
+                    try:
+                        self._force_module_cpu(mod)
+                    except Exception:
+                        pass
             try:
                 pipe.to("cpu")
             except Exception:
@@ -673,6 +1027,7 @@ class PipelineHolder:
         self._lora_key = "none"
         self._resolved = None
         self._offloaded = False
+        self._unet_resident = False
         if pipe is not None:
             try:
                 self._park_pipe(pipe)
@@ -682,40 +1037,333 @@ class PipelineHolder:
         gc.collect()
         self._empty_cuda()
 
+    def _module_footprint_mb(self, module: Any) -> float:
+        """Approximate parameter + buffer footprint in MiB."""
+        try:
+            import torch
+
+            if module is None or not isinstance(module, torch.nn.Module):
+                return 0.0
+            total = 0
+            for tensor in module.parameters():
+                total += int(tensor.numel()) * int(tensor.element_size())
+            for tensor in module.buffers():
+                total += int(tensor.numel()) * int(tensor.element_size())
+            return float(total) / (1024.0 * 1024.0)
+        except Exception:
+            return 0.0
+
+    def _safe_module_to(self, mod: Any, device: str) -> None:
+        """Move a module; refuse meta tensors (broken empty loads)."""
+        import torch
+
+        if mod is None or not isinstance(mod, torch.nn.Module):
+            return
+        try:
+            for tensor in mod.parameters():
+                if tensor.device.type == "meta":
+                    raise RuntimeError(
+                        "module still on meta device (weights never loaded)"
+                    )
+            mod.to(device)
+        except Exception as exc:
+            raise RuntimeError(str(exc)) from exc
+
+    def _park_te_vae_cpu(self, pipe: Any) -> None:
+        """Park text encoders + VAE on CPU so the DiT can own the card."""
+        import torch
+
+        for name in ("text_encoder", "text_encoder_2", "vae"):
+            mod = getattr(pipe, name, None)
+            if mod is None or not isinstance(mod, torch.nn.Module):
+                continue
+            try:
+                self._safe_module_to(mod, "cpu")
+            except Exception as exc:
+                print(f"[diffusers] {name} →cpu skipped: {exc}", flush=True)
+
+    def _try_unet_resident(self, pipe: Any, *, after_te: bool = False) -> bool:
+        """Keep DiT/UNET fully on CUDA (Comfy-style). TE/VAE stay on CPU.
+
+        Returns False when the transformer won't fit — caller should group-offload.
+        For Qwen layerwise fp8, pass after_te=True only once the TE is parked so
+        residency does not starve the encode step.
+        """
+        import torch
+
+        if not UNET_RESIDENT or not torch.cuda.is_available():
+            return False
+        transformer = getattr(pipe, "transformer", None)
+        if transformer is None or not isinstance(transformer, torch.nn.Module):
+            return False
+
+        for name in ("enable_vae_slicing", "enable_vae_tiling"):
+            fn = getattr(pipe, name, None)
+            if callable(fn):
+                try:
+                    fn()
+                except Exception:
+                    pass
+
+        self._park_te_vae_cpu(pipe)
+        self._empty_cuda()
+        free_mb = self._cuda_free_mb()
+        need_mb = self._module_footprint_mb(transformer)
+        # Already staged on CUDA during sequential load — just confirm residency.
+        try:
+            first = next(transformer.parameters())
+            if first.device.type == "cuda":
+                try:
+                    pipe._execution_device = torch.device("cuda")  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+                self._unet_resident = True
+                self._offloaded = False
+                print(
+                    f"[diffusers] placement=unet-resident (pre-staged) "
+                    f"(DiT≈{need_mb:.0f}MiB, free≈{free_mb:.0f}MiB)",
+                    flush=True,
+                )
+                return True
+        except StopIteration:
+            pass
+
+        # Layerwise fp8 ≈19.5GiB on 24GB. Before TE, demand enough free VRAM
+        # that a 7B encode could still run (~14GiB) — i.e. skip residency.
+        # After TE, tighten to denoise headroom only.
+        headroom_after = free_mb - need_mb if need_mb > 0 else free_mb
+        if need_mb <= 20000:
+            if after_te:
+                min_headroom = 400.0
+                slop_mb = 512.0
+            else:
+                min_headroom = 14000.0
+                slop_mb = 0.0
+        elif need_mb <= 22000:
+            min_headroom = 1500.0 if after_te else 14000.0
+            slop_mb = 256.0 if after_te else 0.0
+        else:
+            min_headroom = 3500.0
+            slop_mb = 0.0
+        if need_mb > 0 and (
+            need_mb > free_mb + slop_mb
+            or headroom_after + slop_mb < min_headroom
+        ):
+            print(
+                f"[diffusers] unet-resident skipped "
+                f"(need≈{need_mb:.0f}MiB free≈{free_mb:.0f}MiB "
+                f"headroom≈{headroom_after:.0f}MiB"
+                f"{' after_te' if after_te else ''}) — will group-offload",
+                flush=True,
+            )
+            return False
+
+        try:
+            self._safe_module_to(transformer, "cuda")
+            try:
+                pipe._execution_device = torch.device("cuda")  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            self._unet_resident = True
+            self._offloaded = False
+            print(
+                f"[diffusers] placement=unet-resident "
+                f"(DiT≈{need_mb:.0f}MiB, free≈{self._cuda_free_mb():.0f}MiB)",
+                flush=True,
+            )
+            return True
+        except torch.cuda.OutOfMemoryError:
+            print(
+                "[diffusers] unet-resident OOM — falling back to group offload",
+                flush=True,
+            )
+            try:
+                self._safe_module_to(transformer, "cpu")
+            except Exception:
+                pass
+            self._empty_cuda()
+            self._unet_resident = False
+            return False
+        except Exception as exc:
+            print(f"[diffusers] unet-resident failed: {exc}", flush=True)
+            try:
+                if not any(
+                    getattr(p, "device", None) is not None and p.device.type == "meta"
+                    for p in transformer.parameters()
+                ):
+                    self._safe_module_to(transformer, "cpu")
+            except Exception:
+                pass
+            self._empty_cuda()
+            self._unet_resident = False
+            return False
+
     def _place_compiled_pipe(
         self,
         pipe: Any,
         dtype: Any,
         *,
         prefer_offload: bool = False,
+        prefer_sequential: bool = False,
+        pixel_count: int = 0,
     ) -> Any:
         """Move a Flux/Qwen compiled pipeline onto CUDA (or leave on CPU)."""
         import torch
 
         del dtype  # placement only; dtypes already set at load time
+        del pixel_count  # reserved for future heuristics
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self._offloaded = False
+        self._unet_resident = False
         if device == "cuda":
-            # Qwen TE+transformer barely fits a 24GB card — prefer offload.
+            # Prefer DiT/UNET fully resident (TE/VAE parked). Group-offload only
+            # when the transformer won't fit — block thrash is much slower.
             if CPU_OFFLOAD or prefer_offload:
                 try:
-                    # Sequential is safer for Qwen TE + large transformer on 24GB.
-                    if prefer_offload and hasattr(pipe, "enable_sequential_cpu_offload"):
+                    free_mb = self._cuda_free_mb()
+                    critically_low = free_mb > 0 and free_mb < 1500
+                    use_sequential = (
+                        SEQUENTIAL_OFFLOAD or prefer_sequential or critically_low
+                    ) and hasattr(pipe, "enable_sequential_cpu_offload")
+                    for name in ("enable_vae_slicing", "enable_vae_tiling"):
+                        fn = getattr(pipe, name, None)
+                        if callable(fn):
+                            try:
+                                fn()
+                            except Exception:
+                                pass
+                    self._empty_cuda()
+                    if use_sequential:
                         pipe.enable_sequential_cpu_offload()
+                        reason = (
+                            "env"
+                            if SEQUENTIAL_OFFLOAD
+                            else ("requested" if prefer_sequential else "critical-vram")
+                        )
+                        print(
+                            f"[diffusers] offload=sequential ({reason}, "
+                            f"free≈{free_mb:.0f}MiB) — may slow the desktop",
+                            flush=True,
+                        )
+                        self._offloaded = True
+                    elif self._try_unet_resident(pipe):
+                        self.device = "cuda"
+                        return pipe
+                    elif GROUP_OFFLOAD and self._try_group_offload_transformer(pipe):
+                        print(
+                            f"[diffusers] offload=group(transformer) "
+                            f"(free≈{free_mb:.0f}MiB)",
+                            flush=True,
+                        )
+                        self._offloaded = True
                     else:
                         pipe.enable_model_cpu_offload()
-                    self._offloaded = True
+                        print(
+                            f"[diffusers] offload=model (free≈{free_mb:.0f}MiB)",
+                            flush=True,
+                        )
+                        self._offloaded = True
                     self.device = "cuda"
-                    print(
-                        f"[diffusers] offload={'sequential' if prefer_offload else 'model'}",
-                        flush=True,
-                    )
                     return pipe
                 except Exception as exc:
                     print(f"[diffusers] cpu_offload failed: {exc}", flush=True)
             pipe = pipe.to(device)
         self.device = device
         return pipe
+
+    def _adaptive_group_blocks(self, pipe: Any, free_mb: float) -> int:
+        """Pick block group size from free VRAM (fewer PCIe swaps when headroom)."""
+        env_override = os.environ.get("DIFFUSERS_GROUP_OFFLOAD_BLOCKS", "").strip()
+        if env_override:
+            return max(1, int(env_override))
+
+        blocks = 60
+        transformer = getattr(pipe, "transformer", None)
+        try:
+            tb = getattr(transformer, "transformer_blocks", None)
+            if tb is not None and len(tb) > 0:
+                blocks = len(tb)
+        except Exception:
+            pass
+
+        # Measure real footprint — bf16 DiT ≈0.65GiB/block; fp8 ≈0.32GiB/block.
+        per_block_mb = 680.0
+        try:
+            footprint = self._module_footprint_mb(transformer)
+            if footprint > 0 and blocks > 0:
+                per_block_mb = max(200.0, footprint / float(blocks))
+        except Exception:
+            pass
+
+        # Leave ≥50% of free VRAM for activations / attention (Qwen is heavy).
+        usable = max(2048.0, (free_mb if free_mb > 0 else 12000.0) * 0.45)
+        n = int(usable / per_block_mb)
+        half = blocks // 2 if blocks >= 16 else blocks
+        # Cap aggressively on 24GB cards — 18 bf16 blocks ≈12GiB + acts → OOM.
+        hard_cap = 8 if per_block_mb >= 500 else 18
+        n = max(2, min(n, hard_cap, half, 30))
+        floor = min(GROUP_OFFLOAD_BLOCKS, hard_cap, half)
+        if free_mb <= 0 or free_mb >= floor * per_block_mb * 2.0:
+            n = max(n, min(floor, hard_cap))
+        return max(1, n)
+
+    def _try_group_offload_transformer(
+        self,
+        pipe: Any,
+        *,
+        num_blocks: int | None = None,
+    ) -> bool:
+        """Group-offload DiT blocks; park TE/VAE on CPU (device-safe)."""
+        import torch
+
+        transformer = getattr(pipe, "transformer", None)
+        if transformer is None or not hasattr(transformer, "enable_group_offload"):
+            return False
+
+        free_mb = self._cuda_free_mb()
+        blocks = num_blocks or self._adaptive_group_blocks(pipe, free_mb)
+        try:
+            # use_stream=False: streams force num_blocks_per_group=1 (worse thrash)
+            # and previously caused CUDA/CPU bf16 mismatches.
+            # non_blocking=False: async onload left TE+DiT overlapping on 24GB.
+            transformer.enable_group_offload(
+                onload_device=torch.device("cuda"),
+                offload_device=torch.device("cpu"),
+                offload_type="block_level",
+                num_blocks_per_group=blocks,
+                use_stream=False,
+                non_blocking=False,
+                low_cpu_mem_usage=False,
+            )
+            self._group_offload_blocks = blocks
+        except Exception as exc:
+            print(f"[diffusers] transformer group_offload failed: {exc}", flush=True)
+            return False
+
+        # TE/VAE stay on CPU; Qwen encode path moves TE explicitly then parks it
+        # so large DiT groups get the full card during denoise.
+        self._park_te_vae_cpu(pipe)
+
+        # Diffusers reads this for device placement of intermediates.
+        try:
+            pipe._execution_device = torch.device("cuda")  # type: ignore[attr-defined]
+        except Exception:
+            pass
+        block_total = 60
+        try:
+            tb = getattr(transformer, "transformer_blocks", None)
+            if tb is not None and len(tb) > 0:
+                block_total = len(tb)
+        except Exception:
+            pass
+        swaps = max(1, (block_total + blocks - 1) // blocks)
+        print(
+            f"[diffusers] group_offload blocks={blocks}/{block_total} "
+            f"(~{swaps} swaps/step, free≈{free_mb:.0f}MiB)",
+            flush=True,
+        )
+        self._unet_resident = False
+        return True
 
     def _wake_pipe(self, pipe: Any, device: str, dtype: Any) -> None:
         """Restore a parked pipeline to the inference device/dtype."""
@@ -883,6 +1531,186 @@ class PipelineHolder:
         print(f"[diffusers] decode color_spread={color:.3f}", flush=True)
         return image
 
+    def _decode_qwen_latents(
+        self,
+        pipe: Any,
+        latents: Any,
+        *,
+        height: int,
+        width: int,
+        quality_decode: bool = False,
+    ) -> Image.Image:
+        """VAE-decode Qwen latents (full-frame; DiT fully parked first)."""
+        import gc
+
+        import torch
+
+        rearm_blocks = int(getattr(self, "_group_offload_blocks", GROUP_OFFLOAD_BLOCKS))
+        was_resident = bool(self._unet_resident)
+        transformer = getattr(pipe, "transformer", None)
+        vae = getattr(pipe, "vae", None)
+        if vae is None:
+            raise RuntimeError("Qwen pipeline missing VAE for decode.")
+
+        try:
+            latents = latents.detach().to("cpu")
+        except Exception:
+            pass
+        self._force_module_cpu(getattr(pipe, "text_encoder", None))
+
+        # Tiling/slicing leaves seam HF that reads as moiré — Comfy is full-frame.
+        for name in ("disable_vae_tiling", "disable_vae_slicing"):
+            for owner in (pipe, vae):
+                fn = getattr(owner, name, None)
+                if callable(fn):
+                    try:
+                        fn()
+                    except Exception:
+                        pass
+
+        # Always strip offload hooks + park DiT so VAE owns the card.
+        # Leaving group-offload hooks attached can keep ~19GiB pinned → decode OOM.
+        parked_dit = False
+        if transformer is not None:
+            self._force_module_cpu(transformer)
+            parked_dit = True
+            dit_cuda = self._cuda_param_mb(transformer)
+            if dit_cuda > 64:
+                print(
+                    f"[diffusers] DiT park incomplete ({dit_cuda:.0f}MiB still CUDA) "
+                    "— forcing second scrub",
+                    flush=True,
+                )
+                self._force_module_cpu(transformer)
+        self._empty_cuda()
+        gc.collect()
+        self._empty_cuda()
+        free_mb = self._cuda_free_mb()
+
+        original_vae_dtype = None
+        try:
+            original_vae_dtype = next(vae.parameters()).dtype
+        except StopIteration:
+            pass
+
+        # fp32 decode only when there is real headroom; otherwise bf16 (safe).
+        want_fp32 = bool(quality_decode) and free_mb >= 6000
+        decode_dtype = (
+            torch.float32
+            if want_fp32
+            else (original_vae_dtype or torch.bfloat16)
+        )
+        if quality_decode and not want_fp32:
+            print(
+                f"[diffusers] VAE decode bf16 (free≈{free_mb:.0f}MiB; "
+                "skip fp32 to avoid OOM)",
+                flush=True,
+            )
+
+        def _run_decode(dtype: Any) -> Image.Image:
+            vae.to(device=torch.device("cuda"), dtype=dtype)
+            packed = pipe._unpack_latents(
+                latents.to(torch.device("cuda")),
+                height,
+                width,
+                pipe.vae_scale_factor,
+            )
+            packed = packed.to(device=torch.device("cuda"), dtype=dtype)
+            latents_mean = (
+                torch.tensor(vae.config.latents_mean)
+                .view(1, vae.config.z_dim, 1, 1, 1)
+                .to(packed.device, packed.dtype)
+            )
+            latents_std = (
+                1.0
+                / torch.tensor(vae.config.latents_std)
+                .view(1, vae.config.z_dim, 1, 1, 1)
+                .to(packed.device, packed.dtype)
+            )
+            packed = packed / latents_std + latents_mean
+            with torch.inference_mode():
+                decoded = vae.decode(packed, return_dict=False)[0][:, :, 0]
+            images = pipe.image_processor.postprocess(decoded, output_type="pil")
+            return images[0] if isinstance(images, list) else images
+
+        try:
+            try:
+                image = _run_decode(decode_dtype)
+            except torch.cuda.OutOfMemoryError:
+                print(
+                    "[diffusers] VAE decode OOM — empty cache + bf16 retry",
+                    flush=True,
+                )
+                try:
+                    vae.to("cpu")
+                except Exception:
+                    pass
+                self._force_module_cpu(transformer)
+                self._empty_cuda()
+                gc.collect()
+                self._empty_cuda()
+                image = _run_decode(torch.bfloat16)
+                decode_dtype = torch.bfloat16
+        finally:
+            try:
+                if original_vae_dtype is not None:
+                    vae.to(dtype=original_vae_dtype)
+                vae.to("cpu")
+            except Exception:
+                pass
+            self._empty_cuda()
+            if parked_dit and transformer is not None:
+                try:
+                    if was_resident:
+                        self._safe_module_to(transformer, "cuda")
+                        self._unet_resident = True
+                    elif GROUP_OFFLOAD:
+                        self._try_group_offload_transformer(
+                            pipe, num_blocks=rearm_blocks
+                        )
+                except Exception as rearm_exc:
+                    print(
+                        f"[diffusers] DiT re-arm after VAE: {rearm_exc}",
+                        flush=True,
+                    )
+        print(
+            f"[diffusers] Qwen VAE decode ok "
+            f"dtype={decode_dtype} tiling=off "
+            f"resident={was_resident} free≈{self._cuda_free_mb():.0f}MiB",
+            flush=True,
+        )
+        return image
+
+    def _rearm_qwen_group_offload(
+        self,
+        pipe: Any,
+        *,
+        num_blocks: int,
+        pixel_count: int = 0,
+    ) -> bool:
+        """Cleanly strip + re-apply group offload (safe after OOM / size change)."""
+        transformer = getattr(pipe, "transformer", None)
+        if transformer is None:
+            return False
+        self._force_module_cpu(getattr(pipe, "text_encoder", None))
+        self._force_module_cpu(getattr(pipe, "vae", None))
+        self._force_module_cpu(transformer)
+        self._empty_cuda()
+        blocks = max(1, int(num_blocks))
+        dit_mb = self._module_footprint_mb(transformer)
+        fp8_sized = dit_mb > 0 and dit_mb <= 22000
+        if pixel_count >= 1152 * 1400:
+            blocks = min(blocks, 8 if fp8_sized else 2)
+        elif pixel_count >= 1024 * 1024:
+            blocks = min(blocks, 12 if fp8_sized else 4)
+        print(
+            f"[diffusers] re-arm group_offload blocks={blocks} "
+            f"free≈{self._cuda_free_mb():.0f}MiB pixels={pixel_count} "
+            f"dit≈{dit_mb:.0f}MiB",
+            flush=True,
+        )
+        return self._try_group_offload_transformer(pipe, num_blocks=blocks)
+
     def generate(
         self,
         *,
@@ -895,6 +1723,7 @@ class PipelineHolder:
         guidance_scale: float,
         seed: int,
         on_step: Callable[[int, int], None] | None = None,
+        on_status: Callable[[str], None] | None = None,
         workshop_crop: bool | None = None,
     ) -> Image.Image:
         model_id = (model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
@@ -944,6 +1773,7 @@ class PipelineHolder:
                 guidance_scale=guidance_scale,
                 seed=seed,
                 on_step=on_step,
+                on_status=on_status,
             )
 
         import torch
@@ -1290,8 +2120,6 @@ class PipelineHolder:
         klein = clip_type_l == "flux2" or is_flux_klein_unet(unet_label)
 
         if klein:
-            from diffusers import FlowMatchEulerDiscreteScheduler
-
             print(f"[diffusers] Flux2-Klein load {unet_label}", flush=True)
             # Diffusers maps all Flux2 single-files to gated FLUX.2-dev for config.
             # Point at vendored Klein configs so drop-in UNETs load offline.
@@ -1330,15 +2158,10 @@ class PipelineHolder:
                     "Flux2-Klein requires flux2-vae.safetensors in models/vae."
                 )
             vae = _load_flux2_vae_local(vae_path, dtype=dtype)
-            try:
-                scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
-                    "black-forest-labs/FLUX.1-dev",
-                    subfolder="scheduler",
-                    local_files_only=True,
-                )
-            except Exception:
-                scheduler = FlowMatchEulerDiscreteScheduler()
-            distilled = "base" not in unet_label.lower()
+            # Empirical-mu schedule (BFL/Diffusers). Empty default scheduler ignores mu
+            # and yields near-static noise on distilled 4-step Klein.
+            scheduler = _load_flux2_klein_scheduler()
+            distilled = _is_flux2_klein_distilled(unet_label)
             pipe = Flux2KleinPipeline(
                 scheduler=scheduler,
                 vae=vae,
@@ -1483,6 +2306,191 @@ class PipelineHolder:
         )
         return Path(snap_str)
 
+    def _enable_qwen_layerwise_casting(self, transformer: Any) -> bool:
+        """Store DiT in fp8, compute in bf16 — resident on 24GB, Diffusers-safe."""
+        import gc
+
+        import torch
+
+        if transformer is None or not hasattr(transformer, "enable_layerwise_casting"):
+            return False
+        if not hasattr(torch, "float8_e4m3fn"):
+            return False
+        try:
+            sample = next(transformer.parameters())
+        except StopIteration:
+            return False
+        try:
+            # Bake / fuse leave bf16; fp8 loads can cast storage in-place.
+            if sample.dtype not in (
+                torch.float8_e4m3fn,
+                getattr(torch, "float8_e5m2", type(None)),
+                torch.bfloat16,
+            ):
+                transformer.to(dtype=torch.bfloat16)
+            transformer.enable_layerwise_casting(
+                storage_dtype=torch.float8_e4m3fn,
+                compute_dtype=torch.bfloat16,
+            )
+            gc.collect()
+            print(
+                f"[diffusers] layerwise_casting storage=fp8 compute=bf16 "
+                f"rss≈{_host_rss_gb():.1f}GiB "
+                f"footprint≈{self._module_footprint_mb(transformer):.0f}MiB",
+                flush=True,
+            )
+            return True
+        except Exception as exc:
+            print(f"[diffusers] layerwise_casting failed: {exc}", flush=True)
+            return False
+
+    def _prepare_qwen_transformer_compute(
+        self,
+        transformer: Any,
+        *,
+        lightning: bool = False,
+    ) -> None:
+        """Diffusers-safe DiT compute dtype.
+
+        Default: fp8 storage + bf16 compute (layerwise) so Lightning fits resident.
+        Opt-in DIFFUSERS_QWEN_LIGHTNING_BF16=1 keeps full bf16 (Comfy weights;
+        group-offload on 24GB — slow).
+        """
+        import gc
+
+        import torch
+
+        if transformer is None:
+            return
+
+        if lightning and LIGHTNING_BF16:
+            try:
+                sample = next(transformer.parameters())
+            except StopIteration:
+                return
+            if sample.dtype != torch.bfloat16:
+                print(
+                    f"[diffusers] Lightning DiT → bf16 (LIGHTNING_BF16=1) "
+                    f"(rss≈{_host_rss_gb():.1f}GiB)…",
+                    flush=True,
+                )
+                transformer.to(dtype=torch.bfloat16)
+                gc.collect()
+            print(
+                f"[diffusers] Lightning DiT bf16 "
+                f"footprint≈{self._module_footprint_mb(transformer):.0f}MiB "
+                f"(opt-in; expect group-offload on 24GB)",
+                flush=True,
+            )
+            return
+
+        if self._enable_qwen_layerwise_casting(transformer):
+            return
+        try:
+            sample = next(transformer.parameters())
+        except StopIteration:
+            return
+        if sample.dtype in (
+            getattr(torch, "float8_e4m3fn", type(None)),
+            getattr(torch, "float8_e5m2", type(None)),
+        ):
+            print(
+                f"[diffusers] upcasting fp8 DiT → bf16 (layerwise unavailable) "
+                f"(rss≈{_host_rss_gb():.1f}GiB)…",
+                flush=True,
+            )
+            transformer.to(dtype=torch.bfloat16)
+            gc.collect()
+            print(
+                f"[diffusers] DiT now bf16 rss≈{_host_rss_gb():.1f}GiB "
+                f"(will group-offload)",
+                flush=True,
+            )
+
+    def _bake_loras_into_fp8_transformer(
+        self,
+        transformer: Any,
+        loras: list[tuple[str, float]],
+    ) -> int:
+        """Fuse Lightning LoRAs in bf16, then layerwise-cast storage back to fp8.
+
+        Call *before* TE load so host RAM only holds the DiT during the upcast.
+        """
+        if not loras:
+            return 0
+        import gc
+
+        import torch
+        from diffusers import QwenImagePipeline
+
+        print(
+            f"[diffusers] baking {len(loras)} LoRA(s) into DiT via bf16 "
+            f"(rss≈{_host_rss_gb():.1f}GiB)…",
+            flush=True,
+        )
+        try:
+            transformer.to(dtype=torch.bfloat16)
+        except Exception as cast_exc:
+            print(f"[diffusers] DiT→bf16 for LoRA bake failed: {cast_exc}", flush=True)
+            return 0
+
+        baked = 0
+        try:
+            for index, (lora_path, strength) in enumerate(loras):
+                path = Path(lora_path)
+                stem = re.sub(r"[^A-Za-z0-9_]+", "_", path.stem).strip("_")
+                adapter = f"bake{index}_{stem}"[:60]
+                state = QwenImagePipeline.lora_state_dict(
+                    str(path.parent),
+                    weight_name=path.name,
+                )
+                if isinstance(state, tuple):
+                    state = state[0]
+                QwenImagePipeline.load_lora_into_transformer(
+                    state,
+                    transformer,
+                    adapter_name=adapter,
+                )
+                if hasattr(transformer, "set_adapters"):
+                    transformer.set_adapters([adapter], [float(strength)])
+                if hasattr(transformer, "fuse_lora"):
+                    try:
+                        transformer.fuse_lora(
+                            adapter_names=[adapter],
+                            lora_scale=float(strength),
+                        )
+                    except TypeError:
+                        transformer.fuse_lora()
+                baked += 1
+                print(
+                    f"[diffusers] baked LoRA {path.name} @{strength}",
+                    flush=True,
+                )
+            # Drop PEFT modules so denoise cannot reintroduce adapter dtype mixes.
+            if hasattr(transformer, "delete_adapters"):
+                try:
+                    names = list(getattr(transformer, "peft_config", {}) or {})
+                    if names:
+                        transformer.delete_adapters(names)
+                except Exception as del_exc:
+                    print(f"[diffusers] delete_adapters: {del_exc}", flush=True)
+            if hasattr(transformer, "unload_lora"):
+                try:
+                    transformer.unload_lora()
+                except Exception:
+                    pass
+        except Exception as bake_exc:
+            print(f"[diffusers] LoRA bake failed: {bake_exc}", flush=True)
+            baked = 0
+
+        print(
+            f"[diffusers] LoRA bake done applied={baked} "
+            f"rss≈{_host_rss_gb():.1f}GiB",
+            flush=True,
+        )
+        gc.collect()
+        return baked
+
     def _load_qwen_pipeline(
         self,
         *,
@@ -1491,6 +2499,8 @@ class PipelineHolder:
         vae_name: str | None,
         dtype: Any,
         is_rapid_aio: bool = False,
+        loras: list[tuple[str, float]] | None = None,
+        lightning: bool = False,
     ) -> Any:
         """Load Qwen-Image from local UNET/Rapid-AIO + drop-in or hub TE/VAE."""
         from app.asset_inventory import resolve_asset_file
@@ -1498,6 +2508,7 @@ class PipelineHolder:
             extract_rapid_aio_components,
             is_rapid_aio_name,
             load_qwen25_vl_from_single_file,
+            load_qwen_transformer_from_single_file,
         )
         from transformers import Qwen2Tokenizer, Qwen2_5_VLForConditionalGeneration
         from diffusers import (
@@ -1550,13 +2561,57 @@ class PipelineHolder:
             )
             # Comfy VAE layout ≠ Diffusers AutoencoderKLQwenImage; keep hub VAE.
         else:
+            import gc
+
+            import torch
+
             print(f"[diffusers] Qwen assembling from {path.name}", flush=True)
-            transformer = QwenImageTransformer2DModel.from_single_file(
-                str(path),
-                torch_dtype=dtype,
-                config=str(snap / "transformer"),
-                local_files_only=True,
+            transformer_dtype = _qwen_transformer_load_dtype(path, dtype)
+            if transformer_dtype is not dtype:
+                print(
+                    f"[diffusers] Qwen transformer dtype={transformer_dtype} "
+                    f"(file={path.name})",
+                    flush=True,
+                )
+            # Comfy 2512 fp8 uses model.diffusion_model.* keys — remap loader
+            # (plain from_single_file leaves a meta shell → .to(cuda) crashes).
+            transformer = load_qwen_transformer_from_single_file(
+                path,
+                config_dir=snap / "transformer",
+                dtype=transformer_dtype,
             )
+            # Keep DiT on CPU here so Lightning LoRA can fuse before placement.
+            # Host thrash was from double-loading the TE (hub shell + drop-in),
+            # not from DiT residing on CPU briefly — meta+assign TE stays lean.
+            gc.collect()
+            print(
+                f"[diffusers] DiT on CPU pending LoRA/place "
+                f"(rss≈{_host_rss_gb():.1f}GiB, free≈{self._cuda_free_mb():.0f}MiB)",
+                flush=True,
+            )
+
+            # Bake Lightning LoRA *before* TE load (avoids bf16+TE peak).
+            # Non-Lightning then layerwise-casts to fp8 for 24GB residency;
+            # Lightning stays bf16 (Comfy parity — no fp8 grid/grain).
+            baked = 0
+            lightning_loras = _qwen_loras_are_lightning(loras or [])
+            use_lightning = bool(lightning or lightning_loras)
+            if loras and (
+                "fp8" in path.name.lower()
+                or lightning_loras
+                or (use_lightning and "bf16" in path.name.lower())
+            ):
+                baked = self._bake_loras_into_fp8_transformer(transformer, loras)
+                if baked > 0:
+                    # Caller should skip a second fuse pass.
+                    self._lora_key = f"qwen:{sorted(loras)}"
+            elif loras:
+                # Non-Lightning LoRAs: fuse after full pipe assemble.
+                pass
+            self._prepare_qwen_transformer_compute(
+                transformer, lightning=use_lightning
+            )
+
             if clip_name and not str(clip_name).startswith("{{"):
                 clip_path = resolve_asset_file(clip_name, "text_encoders", "clip")
                 if clip_path is None:
@@ -1564,6 +2619,11 @@ class PipelineHolder:
                         f"Qwen CLIP not found in drop-in folders: {clip_name}"
                     )
                 try:
+                    print(
+                        f"[diffusers] loading TE after DiT "
+                        f"(rss≈{_host_rss_gb():.1f}GiB)…",
+                        flush=True,
+                    )
                     text_encoder = load_qwen25_vl_from_single_file(
                         clip_path,
                         config_dir=snap / "text_encoder",
@@ -1575,12 +2635,21 @@ class PipelineHolder:
                         flush=True,
                     )
             if text_encoder is None:
+                # Config-only shell then weights from hub shard — still heavy;
+                # prefer the drop-in path above.
                 text_encoder = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                     str(snap / "text_encoder"),
                     torch_dtype=dtype,
                     local_files_only=True,
+                    low_cpu_mem_usage=True,
                 )
                 print("[diffusers] Qwen TE from hub cache", flush=True)
+            # Keep TE on CPU; encode path wakes it explicitly.
+            try:
+                text_encoder.to("cpu")
+            except Exception:
+                pass
+            gc.collect()
 
         if vae_name and not str(vae_name).startswith("{{"):
             # Comfy qwen_image_vae key layout differs; prefer hub Diffusers VAE.
@@ -1603,6 +2672,10 @@ class PipelineHolder:
             torch_dtype=dtype,
             local_files_only=True,
         )
+        try:
+            vae.to("cpu")
+        except Exception:
+            pass
         pipe = QwenImagePipeline(
             scheduler=scheduler,
             vae=vae,
@@ -1615,7 +2688,8 @@ class PipelineHolder:
         except Exception:
             pass
         print(
-            f"[diffusers] Qwen pipeline ready model={path.name} rapid={rapid}",
+            f"[diffusers] Qwen pipeline ready model={path.name} rapid={rapid} "
+            f"rss≈{_host_rss_gb():.1f}GiB",
             flush=True,
         )
         return pipe
@@ -1655,34 +2729,79 @@ class PipelineHolder:
         if not adapter_names:
             return 0
 
+        # fp8 DiT cannot fuse LoRA on CPU (no Float8 mul kernels). Keep adapters
+        # live for inference instead of failing the whole Lightning path.
+        transformer = getattr(pipe, "transformer", None)
+        is_fp8 = False
         try:
-            if hasattr(pipe, "set_adapters"):
-                pipe.set_adapters(adapter_names, adapter_weights)
-            if hasattr(pipe, "fuse_lora"):
-                try:
-                    pipe.fuse_lora(
-                        adapter_names=adapter_names,
-                        lora_scale=1.0,
-                    )
-                except TypeError:
-                    # Older Diffusers: scale per fuse only.
-                    pipe.fuse_lora(lora_scale=1.0)
+            import torch
+
+            if transformer is not None:
+                first = next(transformer.parameters())
+                is_fp8 = first.dtype in (
+                    getattr(torch, "float8_e4m3fn", type(None)),
+                    getattr(torch, "float8_e5m2", type(None)),
+                )
+        except Exception:
+            is_fp8 = False
+
+        if is_fp8:
+            try:
+                if hasattr(pipe, "set_adapters"):
+                    pipe.set_adapters(adapter_names, adapter_weights)
+                print(
+                    f"[diffusers] LoRA adapters active (fp8, no-fuse) "
+                    f"{list(zip(adapter_names, adapter_weights))}",
+                    flush=True,
+                )
+                return len(adapter_names)
+            except Exception as exc:
+                print(f"[diffusers] fp8 LoRA set_adapters failed: {exc}", flush=True)
+                return 0
+
+        try:
+            # Fuse one adapter at a time so per-LoRA strengths are respected.
+            # Batch set_adapters + fuse_lora(lora_scale=1) has dropped strengths
+            # on some Diffusers/PEFT combos (Lightning looked "unapplied").
+            fused = 0
+            for name, weight in zip(adapter_names, adapter_weights):
+                if hasattr(pipe, "set_adapters"):
+                    pipe.set_adapters([name], [1.0])
+                if hasattr(pipe, "fuse_lora"):
+                    try:
+                        pipe.fuse_lora(adapter_names=[name], lora_scale=float(weight))
+                    except TypeError:
+                        pipe.fuse_lora(lora_scale=float(weight))
+                fused += 1
+                print(
+                    f"[diffusers] fused LoRA {name} @{weight}",
+                    flush=True,
+                )
+            n_fused = getattr(pipe, "num_fused_loras", None)
             print(
-                f"[diffusers] fused {len(adapter_names)} LoRA(s): "
-                + ", ".join(
-                    f"{name}@{weight}"
-                    for name, weight in zip(adapter_names, adapter_weights)
-                ),
+                f"[diffusers] fused {fused}/{len(adapter_names)} LoRA(s)"
+                + (f" (pipe.num_fused_loras={n_fused})" if n_fused is not None else ""),
                 flush=True,
             )
-        except Exception as exc:
-            print(f"[diffusers] LoRA fuse failed: {exc}", flush=True)
-            return 0
-        finally:
             try:
                 pipe.unload_lora_weights()
             except Exception:
                 pass
+        except Exception as exc:
+            print(f"[diffusers] LoRA fuse failed: {exc}", flush=True)
+            # Last resort: leave adapters attached for the forward pass.
+            try:
+                if hasattr(pipe, "set_adapters"):
+                    pipe.set_adapters(adapter_names, adapter_weights)
+                    print(
+                        f"[diffusers] LoRA adapters active (fuse-fallback) "
+                        f"{list(zip(adapter_names, adapter_weights))}",
+                        flush=True,
+                    )
+                    return len(adapter_names)
+            except Exception:
+                pass
+            return 0
         return len(adapter_names)
 
     def _generate_txt2img_flux(
@@ -1751,6 +2870,7 @@ class PipelineHolder:
         guidance_scale: float,
         seed: int,
         on_step: Callable[[int, int], None] | None = None,
+        on_status: Callable[[str], None] | None = None,
     ) -> Image.Image:
         """Bridge /v1/txt2img Qwen requests onto the native compiled path."""
         from app.asset_inventory import resolve_asset_file
@@ -1799,10 +2919,18 @@ class PipelineHolder:
         if aura_shift is None and not stack.get("is_rapid_aio"):
             aura_shift = 3.1
 
+        # Match Studio/Comfy 2512 defaults: Lightning=simple, vanilla=beta.
+        scheduler_name = "simple" if loras else "beta"
+        model_path = _resolve_qwen_unet_path(
+            model_path, lightning=bool(loras) and lightning_guess
+        )
+        # Refresh TE/VAE hints after possible fp8→bf16 swap.
+        stack = default_qwen_txt2img_stack(Path(model_path).name)
+
         print(
             f"[diffusers] txt2img→native-qwen model={Path(model_path).name} "
             f"TE={stack.get('clip')} cfg={cfg} steps={step_count} "
-            f"shift={aura_shift} rapid={stack.get('is_rapid_aio')} "
+            f"shift={aura_shift} sched={scheduler_name} rapid={stack.get('is_rapid_aio')} "
             f"loras={len(loras)}",
             flush=True,
         )
@@ -1819,8 +2947,10 @@ class PipelineHolder:
             guidance_scale=cfg,
             seed=seed,
             aura_shift=aura_shift,
+            scheduler_name=scheduler_name,
             is_rapid_aio=bool(stack.get("is_rapid_aio")),
             on_step=on_step,
+            on_status=on_status,
         )
 
     def generate_compiled_flux(
@@ -1857,6 +2987,7 @@ class PipelineHolder:
         )
         with self._lock:
             if self._model_key != key or self._pipe is None:
+                _free_peer_comfy_vram()
                 self._release_pipe()
                 device = "cuda" if torch.cuda.is_available() else "cpu"
                 dtype = torch.bfloat16 if device == "cuda" else torch.float32
@@ -1873,7 +3004,12 @@ class PipelineHolder:
                     self._lora_key = f"flux:{sorted(loras)}" if applied else "none"
                 else:
                     self._lora_key = "none"
-                pipe = self._place_compiled_pipe(pipe, dtype, prefer_offload=True)
+                pipe = self._place_compiled_pipe(
+                    pipe,
+                    dtype,
+                    prefer_offload=True,
+                    pixel_count=max(1, int(width) * int(height)),
+                )
                 self._pipe = pipe
                 self._model_key = key
                 self._resolved = ResolvedModel(
@@ -1902,19 +3038,41 @@ class PipelineHolder:
                     )
                     applied = self._fuse_pipeline_loras(pipe, loras)
                     self._lora_key = flux_lora_key if applied else "none"
-                    pipe = self._place_compiled_pipe(pipe, dtype, prefer_offload=True)
+                    pipe = self._place_compiled_pipe(
+                        pipe,
+                        dtype,
+                        prefer_offload=True,
+                        pixel_count=max(1, int(width) * int(height)),
+                    )
                     self._pipe = pipe
                     self._model_key = key
                 pipe = self._pipe
 
-        # Flux typically wants low CFG; Klein distilled often ~1.
+        # Flux typically wants low CFG; Klein distilled is locked to 4 / 1.0 (BFL).
         cfg = float(guidance_scale)
         if cfg <= 0:
             cfg = 1.0
         step_count = max(1, int(steps))
+        klein_distilled = bool(getattr(getattr(pipe, "config", None), "is_distilled", False))
+        if not klein_distilled:
+            klein_distilled = _is_flux2_klein_distilled(Path(unet_path).name)
+        if klein_distilled:
+            if step_count != 4 or abs(cfg - 1.0) > 1e-6:
+                print(
+                    f"[diffusers] Klein distilled: forcing steps=4 cfg=1.0 "
+                    f"(was steps={step_count} cfg={cfg})",
+                    flush=True,
+                )
+            step_count = 4
+            cfg = 1.0
         # ModelSamplingFlux shifts — apply when scheduler exposes them.
+        # Do not override Klein's empirical-mu dynamic schedule with graph shifts.
         try:
-            if max_shift is not None and hasattr(pipe, "scheduler"):
+            if (
+                not klein_distilled
+                and max_shift is not None
+                and hasattr(pipe, "scheduler")
+            ):
                 if hasattr(pipe.scheduler.config, "max_shift"):
                     pipe.scheduler.config.max_shift = float(max_shift)
                 if hasattr(pipe.scheduler.config, "base_shift") and base_shift is not None:
@@ -1966,36 +3124,15 @@ class PipelineHolder:
         try:
             result = pipe(**kwargs)
             return result.images[0]
+        except Exception:
+            # OOM / hook corruption can poison the cached offloaded pipe.
+            try:
+                self._release_pipe()
+            except Exception:
+                pass
+            raise
         finally:
             self._empty_cuda()
-
-    def _qwen_anatomy_loras(
-        self,
-        *,
-        prompt: str,
-        existing: list[tuple[str, float]],
-    ) -> list[tuple[str, float]]:
-        """Auto-attach GenatomyFixer when generating people and graph omitted it."""
-        from app.asset_inventory import list_asset_inventory, resolve_asset_file
-
-        if not re.search(
-            r"\b(man|woman|men|women|person|people|boy|girl|figure)\b",
-            prompt,
-            flags=re.IGNORECASE,
-        ):
-            return existing
-        if any("genatomy" in Path(path).name.lower() for path, _ in existing):
-            return existing
-        fixer = resolve_asset_file("Qwen-Image-GenatomyFixer.safetensors", "loras")
-        if fixer is None:
-            for item in list_asset_inventory().get("loras", []):
-                if "genatomy" in item.id.lower():
-                    fixer = Path(item.path)
-                    break
-        if fixer is None:
-            return existing
-        print(f"[diffusers] Qwen anatomy LoRA {fixer.name}", flush=True)
-        return [(str(fixer), 1.0), *existing]
 
     def generate_compiled_qwen(
         self,
@@ -2012,22 +3149,63 @@ class PipelineHolder:
         guidance_scale: float,
         seed: int,
         aura_shift: float | None = None,
+        scheduler_name: str | None = None,
         is_rapid_aio: bool = False,
         on_step: Callable[[int, int], None] | None = None,
+        on_status: Callable[[str], None] | None = None,
     ) -> Image.Image:
         """Native Qwen-Image from drop-in weights (+ optional VAE/Lightning LoRA)."""
         import torch
 
         from app.qwen_prompt import shape_qwen_prompts
 
-        shaped_prompt, shaped_negative = shape_qwen_prompts(prompt, negative_prompt)
-        width, height = _person_portrait_canvas(shaped_prompt, int(width), int(height))
-        loras = self._qwen_anatomy_loras(prompt=shaped_prompt, existing=list(loras))
+        def _status(message: str) -> None:
+            if on_status:
+                try:
+                    on_status(message)
+                except Exception:
+                    pass
 
-        key = f"compiled-qwen:{model_path}:{clip_name}:{vae_name}:{is_rapid_aio}"
+        lightning = _qwen_loras_are_lightning(loras) or _qwen_path_is_lightning(
+            model_path
+        )
+        model_path = _resolve_qwen_unet_path(model_path, lightning=lightning)
+        # Path swap may change filename heuristics; re-evaluate after resolve.
+        lightning = (
+            lightning
+            or _qwen_loras_are_lightning(loras)
+            or _qwen_path_is_lightning(model_path)
+        )
+        shaped_prompt, shaped_negative = shape_qwen_prompts(
+            prompt,
+            negative_prompt,
+            lightning=lightning,
+        )
+        width, height = _person_portrait_canvas(shaped_prompt, int(width), int(height))
+
+        precision_tag = (
+            "lightning-bf16"
+            if (lightning and LIGHTNING_BF16)
+            else ("lightning-fp8" if lightning else "fp8-or-default")
+        )
+        key = (
+            f"compiled-qwen:{model_path}:{clip_name}:{vae_name}:"
+            f"{is_rapid_aio}:{precision_tag}"
+        )
+        pixels = max(1, int(width) * int(height))
+        # Model offload (component streaming) — close to Comfy speed without the
+        # sequential layer thrash that freezes the desktop. Opt into sequential
+        # with DIFFUSERS_SEQUENTIAL_OFFLOAD=1 only if you hit VRAM OOM.
+        prefer_seq = SEQUENTIAL_OFFLOAD
+        qwen_lora_key = f"qwen:{sorted(loras)}" if loras else "none"
         with self._lock:
-            if self._model_key != key or self._pipe is None:
+            if self._model_key != key or self._pipe is None or (
+                loras and self._lora_key != qwen_lora_key
+            ):
+                _status("Loading Qwen weights into RAM…")
+                _free_peer_comfy_vram()
                 self._release_pipe()
+                self._lora_key = "none"
                 device = "cuda" if torch.cuda.is_available() else "cpu"
                 dtype = torch.bfloat16 if device == "cuda" else torch.float32
                 pipe = self._load_qwen_pipeline(
@@ -2036,16 +3214,30 @@ class PipelineHolder:
                     vae_name=vae_name,
                     dtype=dtype,
                     is_rapid_aio=is_rapid_aio,
+                    loras=loras,
+                    lightning=lightning,
                 )
-                # Fuse LoRAs before offload so adapters attach on CPU-resident modules.
-                if loras:
+                _status("Placing Qwen on GPU…")
+                # Load path bakes Lightning LoRAs; other LoRAs still fuse here.
+                if loras and self._lora_key != qwen_lora_key:
                     applied = self._fuse_pipeline_loras(pipe, loras)
-                    self._lora_key = f"qwen:{sorted(loras)}" if applied else "none"
+                    self._lora_key = qwen_lora_key if applied else "none"
                     if not applied:
                         print("[diffusers] Qwen LoRAs failed to apply", flush=True)
-                else:
+                    else:
+                        self._prepare_qwen_transformer_compute(
+                            getattr(pipe, "transformer", None),
+                            lightning=lightning,
+                        )
+                elif not loras:
                     self._lora_key = "none"
-                pipe = self._place_compiled_pipe(pipe, dtype, prefer_offload=True)
+                pipe = self._place_compiled_pipe(
+                    pipe,
+                    dtype,
+                    prefer_offload=True,
+                    prefer_sequential=prefer_seq,
+                    pixel_count=pixels,
+                )
                 self._pipe = pipe
                 self._model_key = key
                 self._resolved = ResolvedModel(
@@ -2053,34 +3245,9 @@ class PipelineHolder:
                     model_path,
                     Path(model_path).name,
                 )
-            else:
-                pipe = self._pipe
-                qwen_lora_key = f"qwen:{sorted(loras)}"
-                if loras and self._lora_key != qwen_lora_key:
-                    # Reload clean base when LoRA set changes (fused weights stick).
-                    self._release_pipe()
-                    device = "cuda" if torch.cuda.is_available() else "cpu"
-                    dtype = torch.bfloat16 if device == "cuda" else torch.float32
-                    pipe = self._load_qwen_pipeline(
-                        model_path=model_path,
-                        clip_name=clip_name,
-                        vae_name=vae_name,
-                        dtype=dtype,
-                        is_rapid_aio=is_rapid_aio,
-                    )
-                    applied = self._fuse_pipeline_loras(pipe, loras)
-                    self._lora_key = qwen_lora_key if applied else "none"
-                    if not applied:
-                        print("[diffusers] Qwen LoRAs failed to apply", flush=True)
-                    pipe = self._place_compiled_pipe(pipe, dtype, prefer_offload=True)
-                    self._pipe = pipe
-                    self._model_key = key
-                pipe = self._pipe
+            pipe = self._pipe
 
         # ModelSamplingAuraFlow.shift → scheduler when exposed.
-        lightning = _qwen_loras_are_lightning(loras) or _qwen_path_is_lightning(
-            model_path
-        )
         if aura_shift is None:
             aura_shift = 3.0 if lightning else 3.1
         if aura_shift is not None:
@@ -2095,6 +3262,24 @@ class PipelineHolder:
                         )
             except Exception as exc:
                 print(f"[diffusers] AuraFlow shift skipped: {exc}", flush=True)
+
+        # Comfy 2512 vanilla templates use scheduler=beta; Lightning stays simple.
+        sched = (scheduler_name or "").strip().lower()
+        if not sched:
+            sched = "simple" if lightning else "beta"
+        try:
+            if hasattr(pipe, "scheduler") and hasattr(pipe.scheduler, "config"):
+                want_beta = sched == "beta" and not lightning
+                if hasattr(pipe.scheduler.config, "use_beta_sigmas"):
+                    if bool(pipe.scheduler.config.use_beta_sigmas) != want_beta:
+                        pipe.scheduler.config.use_beta_sigmas = want_beta
+                        print(
+                            f"[diffusers] Qwen scheduler beta_sigmas={want_beta} "
+                            f"(comfy={sched})",
+                            flush=True,
+                        )
+        except Exception as exc:
+            print(f"[diffusers] Qwen scheduler tweak skipped: {exc}", flush=True)
 
         cfg = float(guidance_scale) if float(guidance_scale) > 0 else (1.0 if lightning else 2.5)
         # true_cfg_scale <= 1 disables negatives. Comfy Lightning keeps cfg=1 —
@@ -2139,7 +3324,6 @@ class PipelineHolder:
             callback_on_step_end = _cb
 
         kwargs: dict[str, Any] = {
-            "prompt": shaped_prompt,
             "width": gen_width,
             "height": gen_height,
             "num_inference_steps": step_count,
@@ -2157,18 +3341,204 @@ class PipelineHolder:
                 kwargs["guidance_scale"] = cfg
         except Exception:
             kwargs["true_cfg_scale"] = cfg
-        if shaped_negative.strip():
-            kwargs["negative_prompt"] = shaped_negative
+
+        # Comfy order: TE encode → DiT denoise → VAE. Park a resident DiT
+        # before TE so the 7B encoder fits; promote DiT back after TE parks.
+        import time
+
+        t0 = time.perf_counter()
+        used_embeds = False
+        _status("Encoding prompt…")
+        try:
+            te = getattr(pipe, "text_encoder", None)
+            transformer = getattr(pipe, "transformer", None)
+            vae = getattr(pipe, "vae", None)
+            if vae is not None:
+                try:
+                    vae.to("cpu")
+                except Exception:
+                    pass
+            # Park DiT before TE (resident or group-offload leftovers) so the
+            # 7B encoder owns the card; promote DiT after TE for denoise.
+            if transformer is not None:
+                print(
+                    "[diffusers] parking DiT for TE encode…",
+                    flush=True,
+                )
+                self._force_module_cpu(transformer)
+                self._unet_resident = False
+            self._empty_cuda()
+            print(
+                f"[diffusers] pre-TE VRAM free≈{self._cuda_free_mb():.0f}MiB "
+                f"(DiT cuda≈{self._cuda_param_mb(transformer):.0f}MiB)",
+                flush=True,
+            )
+            if te is not None and hasattr(pipe, "encode_prompt"):
+                te.to(torch.device("cuda"))
+                prompt_embeds, prompt_mask = pipe.encode_prompt(
+                    prompt=shaped_prompt,
+                    device=torch.device("cuda"),
+                    num_images_per_prompt=1,
+                )
+                kwargs["prompt_embeds"] = prompt_embeds
+                if prompt_mask is not None:
+                    kwargs["prompt_embeds_mask"] = prompt_mask
+                # Lightning cfg=1 ignores negatives — skip the second encode.
+                if shaped_negative.strip() and cfg > 1.01:
+                    neg_embeds, neg_mask = pipe.encode_prompt(
+                        prompt=shaped_negative,
+                        device=torch.device("cuda"),
+                        num_images_per_prompt=1,
+                    )
+                    kwargs["negative_prompt_embeds"] = neg_embeds
+                    if neg_mask is not None:
+                        kwargs["negative_prompt_embeds_mask"] = neg_mask
+                # Always scrub TE off CUDA — .to("cpu") can leave ~14GiB allocated
+                # even when named_parameters() already report cpu.
+                self._force_module_cpu(te)
+                self._empty_cuda()
+                used_embeds = True
+                print(
+                    f"[diffusers] Qwen TE encode {time.perf_counter() - t0:.1f}s "
+                    f"(TE cuda≈{self._cuda_param_mb(te):.0f}MiB "
+                    f"free≈{self._cuda_free_mb():.0f}MiB)",
+                    flush=True,
+                )
+        except Exception as exc:
+            print(f"[diffusers] Qwen embed path failed ({exc}); using prompt=", flush=True)
+            kwargs.pop("prompt_embeds", None)
+            kwargs.pop("prompt_embeds_mask", None)
+            kwargs.pop("negative_prompt_embeds", None)
+            kwargs.pop("negative_prompt_embeds_mask", None)
+            used_embeds = False
+            try:
+                self._force_module_cpu(getattr(pipe, "text_encoder", None))
+                self._empty_cuda()
+            except Exception:
+                pass
+
+        if not used_embeds:
+            kwargs["prompt"] = shaped_prompt
+            if shaped_negative.strip():
+                kwargs["negative_prompt"] = shaped_negative
+
+        # Keep VAE on CPU during DiT denoise; decode latents afterward.
+        try:
+            self._force_module_cpu(getattr(pipe, "vae", None))
+        except Exception:
+            pass
+        kwargs["output_type"] = "latent"
+
+        pixels = int(gen_width) * int(gen_height)
+        # After TE park: prefer full DiT residency for Lightning-class speed.
+        if used_embeds and not self._unet_resident:
+            transformer = getattr(pipe, "transformer", None)
+            if transformer is not None:
+                # Group-offload may still hold block groups on CUDA — park fully
+                # so residency sees ~20GiB free (same card as Comfy's fast path).
+                self._force_module_cpu(transformer)
+                self._empty_cuda()
+                print(
+                    f"[diffusers] DiT parked after TE "
+                    f"free≈{self._cuda_free_mb():.0f}MiB",
+                    flush=True,
+                )
+                if self._try_unet_resident(pipe, after_te=True):
+                    print(
+                        "[diffusers] DiT unet-resident after TE (fast denoise)",
+                        flush=True,
+                    )
+                elif GROUP_OFFLOAD:
+                    want = int(
+                        getattr(self, "_group_offload_blocks", GROUP_OFFLOAD_BLOCKS)
+                    )
+                    dit_mb = self._module_footprint_mb(transformer)
+                    fp8_sized = dit_mb > 0 and dit_mb <= 22000
+                    if pixels >= 1152 * 1400:
+                        want = min(want, 8 if fp8_sized else 2)
+                    elif pixels >= 1024 * 1024:
+                        want = min(want, 12 if fp8_sized else 4)
+                    self._rearm_qwen_group_offload(
+                        pipe, num_blocks=want, pixel_count=pixels
+                    )
+        elif not self._unet_resident and GROUP_OFFLOAD:
+            want = int(getattr(self, "_group_offload_blocks", GROUP_OFFLOAD_BLOCKS))
+            dit_mb = self._module_footprint_mb(getattr(pipe, "transformer", None))
+            fp8_sized = dit_mb > 0 and dit_mb <= 22000
+            if pixels >= 1152 * 1400:
+                want = min(want, 8 if fp8_sized else 2)
+            elif pixels >= 1024 * 1024:
+                want = min(want, 12 if fp8_sized else 4)
+            if want < int(getattr(self, "_group_offload_blocks", want)):
+                self._rearm_qwen_group_offload(
+                    pipe, num_blocks=want, pixel_count=pixels
+                )
 
         print(
             f"[diffusers] compiled-qwen model={Path(model_path).name} "
-            f"{gen_width}x{gen_height} steps={step_count} cfg={cfg}",
+            f"{gen_width}x{gen_height} steps={step_count} cfg={cfg} "
+            f"loras={len(loras)} embeds={used_embeds} "
+            f"place={'unet-resident' if self._unet_resident else 'offload'} "
+            f"free≈{self._cuda_free_mb():.0f}MiB",
             flush=True,
         )
-        try:
+        _status(f"Denoising ({step_count} steps)…")
+        t_denoise = time.perf_counter()
+
+        def _denoise_latents() -> Any:
             result = pipe(**kwargs)
-            return result.images[0]
+            return result.images
+
+        latents = None
+        try:
+            try:
+                latents = _denoise_latents()
+            except torch.cuda.OutOfMemoryError:
+                # Denoise OOM only — never collapse to 1-block thrash on bf16.
+                dit_mb = self._module_footprint_mb(getattr(pipe, "transformer", None))
+                fp8_sized = dit_mb > 0 and dit_mb <= 22000
+                half = max(
+                    4 if fp8_sized else 2,
+                    int(getattr(self, "_group_offload_blocks", 8) // 2),
+                )
+                print(
+                    f"[diffusers] Qwen denoise OOM — park+retry group_offload "
+                    f"blocks={half} (free≈{self._cuda_free_mb():.0f}MiB)",
+                    flush=True,
+                )
+                if not self._rearm_qwen_group_offload(
+                    pipe, num_blocks=half, pixel_count=pixels
+                ):
+                    raise
+                latents = _denoise_latents()
+
+            print(
+                f"[diffusers] Qwen denoise {time.perf_counter() - t_denoise:.1f}s "
+                f"(latent; total {time.perf_counter() - t0:.1f}s)",
+                flush=True,
+            )
+            _status("Decoding latents…")
+            return self._decode_qwen_latents(
+                pipe,
+                latents,
+                height=gen_height,
+                width=gen_width,
+                quality_decode=False,
+            )
+        except Exception as exc:
+            # Device-mismatch / hook corruption — drop pipe; do not reload in-process.
+            print(f"[diffusers] Qwen job failed: {exc}", flush=True)
+            try:
+                self._release_pipe()
+            except Exception:
+                pass
+            raise
         finally:
+            try:
+                if self._pipe is not None:
+                    self._park_te_vae_cpu(self._pipe)
+            except Exception:
+                pass
             self._empty_cuda()
 
 

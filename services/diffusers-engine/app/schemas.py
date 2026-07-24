@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class Txt2ImgRequest(BaseModel):
     prompt: str = Field(min_length=1)
     negative_prompt: str = ""
-    model: str = "qwen_image_2512_bf16.safetensors"
+    model: str = "qwen_image_2512_fp8_e4m3fn.safetensors"
     width: int = Field(default=1024, ge=64, le=2048)
     height: int = Field(default=1024, ge=64, le=2048)
     steps: int = Field(default=40, ge=1, le=150)
@@ -17,6 +17,18 @@ class Txt2ImgRequest(BaseModel):
     client_id: Optional[str] = None
     # None = auto-detect workshop roles; True/False force head-and-shoulders crop.
     workshop_crop: Optional[bool] = None
+    # Studio model id (e.g. qwen-image-2512-lightning-8) for logging / future rules.
+    studio_model: Optional[str] = None
+    quality_profile: Optional[str] = None
+    # Comfy ImageScaleBy parity — applied after VAE decode (Final/Max polish).
+    output_upscale_scale: Optional[float] = Field(default=None, ge=1.0, le=4.0)
+    output_upscale_method: Optional[
+        Literal["lanczos", "area", "bilinear", "bicubic"]
+    ] = None
+    # Soft Gaussian before upscale (Diffusers Lightning anti-moiré).
+    output_moire_blur_sigma: Optional[float] = Field(default=None, ge=0.0, le=2.0)
+    # Max-only mild bicubic↓ (then Lanczos restore to same pixel size).
+    output_moire_downscale: Optional[float] = Field(default=None, ge=0.5, le=1.0)
 
 
 class Txt2ImgResponse(BaseModel):

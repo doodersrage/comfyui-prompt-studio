@@ -1,8 +1,8 @@
 # Prompt Studio
 
-A Next.js app that turns topics or keywords into model-specific prompts for ComfyUI image workflows, and reformats existing drafts for any supported architecture.
+A Next.js app that turns topics or keywords into model-specific prompts for image workflows (ComfyUI primary for generate / Lightning / specialty graphs; Diffusers optional for experimental txt2img), and reformats existing drafts for any supported architecture.
 
-Contributor map (storage, queue path, auth/ACL, plugins, Diffusers engine): [docs/architecture.md](docs/architecture.md). Optional Diffusers txt2img backend: [services/diffusers-engine/README.md](services/diffusers-engine/README.md).
+Contributor map (storage, queue path, auth/ACL, plugins, engines): [docs/architecture.md](docs/architecture.md). Optional Diffusers service: [services/diffusers-engine/README.md](services/diffusers-engine/README.md).
 
 ## Workspace modes
 

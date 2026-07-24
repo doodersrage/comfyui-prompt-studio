@@ -556,9 +556,8 @@ export function sceneStartersForCategory(
   );
 }
 
-export function isSportStarterPreset(id: string): boolean {
-  return SPORT_PRESETS.some((preset) => preset.id === id);
-}
+/** @deprecated Prefer `@/lib/sport-presets` — re-exported for callers/tests. */
+export { isSportStarterPreset } from "./sport-presets";
 
 export function getAllSceneStarterPresets(
   userPresets: readonly SceneStarterPreset[] = [],

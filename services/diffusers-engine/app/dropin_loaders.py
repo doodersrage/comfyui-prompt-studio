@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -84,36 +85,121 @@ def remap_qwen25_vl_comfy_keys(state: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _materialize_meta_buffers(model: Any) -> int:
+    """Fill rotary inv_freq buffers left on meta after assign= load."""
+    import torch
+
+    fixed = 0
+    for module in model.modules():
+        for name, buf in list(module._buffers.items()):
+            if buf is None or getattr(buf, "device", None) is None:
+                continue
+            if buf.device.type != "meta":
+                continue
+            if name in ("inv_freq", "original_inv_freq"):
+                dim = int(getattr(module, "dim", buf.shape[-1] * 2))
+                base = float(getattr(module, "base", 10000.0))
+                # Standard RoPE inverse frequencies.
+                inv = 1.0 / (
+                    base
+                    ** (
+                        torch.arange(0, dim, 2, dtype=torch.float32)[
+                            : int(buf.shape[0])
+                        ]
+                        / float(dim)
+                    )
+                )
+                module.register_buffer(name, inv, persistent=False)
+            else:
+                module.register_buffer(
+                    name,
+                    torch.zeros(buf.shape, dtype=torch.float32),
+                    persistent=False,
+                )
+            fixed += 1
+    return fixed
+
+
 def load_qwen25_vl_from_single_file(
     path: str | Path,
     *,
     config_dir: str | Path,
     dtype: Any,
 ) -> Any:
-    """Load Comfy qwen_2.5_vl_*.safetensors into Qwen2_5_VLForConditionalGeneration."""
-    from transformers import Qwen2_5_VLForConditionalGeneration
+    """Load Comfy qwen_2.5_vl_*.safetensors into Qwen2_5_VLForConditionalGeneration.
+
+    Uses meta+assign so we never hold a hub TE shell *and* the drop-in weights
+    at once (that previously peaked ~32GB host RAM and thrashed into swap).
+    """
+    import torch
+    from safetensors import safe_open
+    from transformers import Qwen2_5_VLConfig, Qwen2_5_VLForConditionalGeneration
 
     path = Path(path)
     config_dir = Path(config_dir)
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        str(config_dir),
-        torch_dtype=dtype,
-        local_files_only=True,
-    )
-    state = remap_qwen25_vl_comfy_keys(load_file(str(path)))
-    missing, unexpected = model.load_state_dict(state, strict=False)
+    if is_fp8_scaled_name(path.name):
+        raise RuntimeError(
+            f"{path.name} is Comfy fp8-scaled (scale_weight tensors); "
+            "Diffusers needs qwen_2.5_vl_7b.safetensors (bf16) instead."
+        )
+
+    config = Qwen2_5_VLConfig.from_pretrained(str(config_dir), local_files_only=True)
+    print(f"[diffusers] Qwen TE meta+assign from {path.name}…", flush=True)
+
+    # One weight copy via safe_open (mmap-backed reads), not load_file + hub shell.
+    state: dict[str, Any] = {}
+    with safe_open(str(path), framework="pt", device="cpu") as handle:
+        for key in handle.keys():
+            if key.endswith(".comfy_quant") or "weight_scale" in key:
+                continue
+            if key.endswith(".scale_weight") or key.endswith(".scale_input"):
+                continue
+            state[key] = handle.get_tensor(key)
+    state = remap_qwen25_vl_comfy_keys(state)
+
+    with torch.device("meta"):
+        model = Qwen2_5_VLForConditionalGeneration(config)
+
+    try:
+        missing, unexpected = model.load_state_dict(state, strict=False, assign=True)
+    except TypeError as assign_exc:
+        del state
+        gc.collect()
+        raise RuntimeError(
+            "Need PyTorch assign=True to load Qwen TE without doubling RAM"
+        ) from assign_exc
+
     loaded = len(state) - len(unexpected)
+    state.clear()
+    del state
+    gc.collect()
+
     if loaded < 100:
         raise RuntimeError(
             f"Qwen TE load failed for {path.name}: only {loaded} keys matched "
             f"(missing={len(missing)} unexpected={len(unexpected)})"
         )
+
+    buf_fixed = _materialize_meta_buffers(model)
+    if buf_fixed:
+        print(f"[diffusers] Qwen TE materialized {buf_fixed} meta buffers", flush=True)
+
+    # Cast parameters only (buffers stay float32 RoPE tables).
+    if dtype is not None:
+        try:
+            for param in model.parameters():
+                if param.dtype != dtype:
+                    param.data = param.data.to(dtype=dtype)
+        except Exception as cast_exc:
+            print(f"[diffusers] Qwen TE dtype cast skipped: {cast_exc}", flush=True)
+
     print(
         f"[diffusers] Qwen TE from drop-in {path.name} "
-        f"(matched≈{loaded}, missing={len(missing)})",
+        f"(matched≈{loaded}, missing={len(missing)}, host-meta+assign)",
         flush=True,
     )
-    return model.to(dtype=dtype)
+    gc.collect()
+    return model
 
 
 def load_qwen3_causal_from_single_file(
@@ -197,32 +283,31 @@ def _qwen3_from_weight_shapes(path: Path, *, dtype: Any) -> Any:
         key_w = handle.get_tensor("model.layers.0.self_attn.k_proj.weight")
         layer_ids: set[int] = set()
         for key in handle.keys():
-            parts = key.split(".")
-            for i, part in enumerate(parts[:-1]):
-                if part == "layers" and parts[i + 1].isdigit():
-                    layer_ids.add(int(parts[i + 1]))
-        vocab, hidden = int(embed.shape[0]), int(embed.shape[1])
-        intermediate = int(gate.shape[0])
-        head_dim = 128
-        num_kv = max(1, int(key_w.shape[0]) // head_dim)
-        num_heads = max(1, hidden // head_dim)
-        n_layers = (max(layer_ids) + 1) if layer_ids else 36
+            if key.startswith("model.layers."):
+                try:
+                    layer_ids.add(int(key.split(".")[2]))
+                except (IndexError, ValueError):
+                    pass
+
+    vocab, hidden = int(embed.shape[0]), int(embed.shape[1])
+    intermediate = int(gate.shape[0])
+    # GQA: k_proj out dim / head_dim
+    num_layers = max(layer_ids) + 1 if layer_ids else 36
+    # Heuristic head dims used by Qwen3 4B/8B.
+    head_dim = 128
+    num_kv_heads = max(1, int(key_w.shape[0]) // head_dim)
+    num_heads = max(num_kv_heads, hidden // head_dim)
 
     config = Qwen3Config(
         vocab_size=vocab,
         hidden_size=hidden,
         intermediate_size=intermediate,
-        num_hidden_layers=n_layers,
+        num_hidden_layers=num_layers,
         num_attention_heads=num_heads,
-        num_key_value_heads=num_kv,
+        num_key_value_heads=num_kv_heads,
         head_dim=head_dim,
     )
-    model = Qwen3ForCausalLM(config)
-    try:
-        model.to(dtype=dtype)
-    except Exception:
-        pass
-    return model
+    return Qwen3ForCausalLM(config).to(dtype=dtype)
 
 
 def extract_rapid_aio_components(path: str | Path) -> tuple[Path, dict[str, Any], dict[str, Any]]:
@@ -290,3 +375,153 @@ def is_fp8_scaled_name(name: str | None) -> bool:
         return False
     lower = name.lower()
     return "fp8" in lower and "scaled" in lower
+
+
+def remap_qwen_unet_comfy_keys(state: dict[str, Any]) -> dict[str, Any]:
+    """Strip Comfy `model.diffusion_model.` prefix used by some Qwen fp8 packs."""
+    return _strip_prefix(state, "model.diffusion_model.")
+
+
+def _qwen_unet_diffusers_cache_path(path: Path) -> Path:
+    """Sidecar with Diffusers-native keys (written once for Comfy-prefixed packs)."""
+    return path.with_name(f"{path.stem}.diffusers-keys.safetensors")
+
+
+def _ensure_qwen_unet_diffusers_keys(path: Path) -> tuple[Path, bool]:
+    """Return (path_to_load, stripped_comfy_prefix).
+
+    Comfy 2512 fp8 uses `model.diffusion_model.*`. We rewrite once to a sibling
+    cache so Diffusers can mmap/load without holding two full copies in RAM.
+    """
+    from safetensors import safe_open
+
+    cache = _qwen_unet_diffusers_cache_path(path)
+    if cache.is_file() and cache.stat().st_size > 1_000_000_000:
+        return cache, True
+
+    with safe_open(str(path), framework="pt") as handle:
+        keys = list(handle.keys())
+    if not keys:
+        raise RuntimeError(f"Empty safetensors: {path.name}")
+    had_comfy_prefix = keys[0].startswith("model.diffusion_model.") or any(
+        key.startswith("model.diffusion_model.") for key in keys[:32]
+    )
+    if not had_comfy_prefix:
+        return path, False
+
+    print(
+        f"[diffusers] rewriting Comfy-prefixed UNET keys → {cache.name} "
+        f"(one-time, ~{path.stat().st_size // (1024**3)}GiB peak RAM)",
+        flush=True,
+    )
+    # Stream remap→save without keeping a second full dict longer than needed.
+    # Still one in-memory copy during rewrite (unavoidable for save_file).
+    remapped: dict[str, Any] = {}
+    with safe_open(str(path), framework="pt", device="cpu") as handle:
+        for key in handle.keys():
+            new_key = (
+                key[len("model.diffusion_model.") :]
+                if key.startswith("model.diffusion_model.")
+                else key
+            )
+            remapped[new_key] = handle.get_tensor(key)
+    save_file(remapped, str(cache))
+    remapped.clear()
+    del remapped
+    gc.collect()
+    print(f"[diffusers] wrote {cache.name}", flush=True)
+    return cache, True
+
+
+def load_qwen_transformer_from_single_file(
+    path: str | Path,
+    *,
+    config_dir: str | Path,
+    dtype: Any,
+) -> Any:
+    """Load Qwen-Image UNET from Diffusers-native or Comfy-prefixed safetensors.
+
+    Comfy 2512 fp8 packs ship keys as `model.diffusion_model.*`. Diffusers
+    `from_single_file` ignores those, leaving a meta/empty shell — which then
+    blows up on `.to(cuda)` with "Cannot copy out of meta tensor".
+    """
+    import torch
+    from diffusers import QwenImageTransformer2DModel
+
+    path = Path(path)
+    config_dir = Path(config_dir)
+    load_path, comfy_stripped = _ensure_qwen_unet_diffusers_keys(path)
+
+    # Prefer Diffusers loader on a key-fixed file (avoids meta shells + double alloc).
+    load_kwargs: dict[str, Any] = {
+        "config": str(config_dir),
+        "local_files_only": True,
+        "low_cpu_mem_usage": True,
+    }
+    # Keep fp8 weights as float8 when the file is fp8; bf16 cast ≈ 39GB RAM/VRAM.
+    if "fp8" in path.name.lower() and hasattr(torch, "float8_e4m3fn"):
+        load_kwargs["torch_dtype"] = torch.float8_e4m3fn
+    elif dtype is not None:
+        load_kwargs["torch_dtype"] = dtype
+
+    try:
+        model = QwenImageTransformer2DModel.from_single_file(str(load_path), **load_kwargs)
+    except Exception as primary_exc:
+        # Fallback: meta shell + assign (one weight copy, no to_empty peak).
+        print(
+            f"[diffusers] from_single_file failed ({primary_exc}); "
+            "meta+assign fallback",
+            flush=True,
+        )
+        from safetensors import safe_open
+
+        config = QwenImageTransformer2DModel.load_config(str(config_dir))
+        with torch.device("meta"):
+            model = QwenImageTransformer2DModel.from_config(config)
+        state: dict[str, Any] = {}
+        with safe_open(str(load_path), framework="pt", device="cpu") as handle:
+            for key in handle.keys():
+                state[key] = handle.get_tensor(key)
+        try:
+            missing, unexpected = model.load_state_dict(state, strict=False, assign=True)
+        except TypeError as assign_exc:
+            del state
+            gc.collect()
+            raise RuntimeError(
+                "Need PyTorch assign=True support to load Qwen UNET without "
+                f"doubling RAM: {assign_exc}"
+            ) from assign_exc
+        loaded = len(state) - len(unexpected)
+        state.clear()
+        del state
+        gc.collect()
+        if loaded < 100:
+            raise RuntimeError(
+                f"Qwen UNET load failed for {path.name}: matched≈{loaded} "
+                f"(missing={len(missing)} unexpected={len(unexpected)})."
+            ) from primary_exc
+        print(
+            f"[diffusers] Qwen UNET meta+assign {path.name} matched≈{loaded} "
+            f"missing={len(missing)} unexpected={len(unexpected)}"
+            f"{' comfy_prefix_stripped' if comfy_stripped else ''}",
+            flush=True,
+        )
+        return model
+
+    # Sanity: refuse meta shells (weights never applied).
+    try:
+        first = next(model.parameters())
+        if first.device.type == "meta":
+            raise RuntimeError("transformer still on meta after from_single_file")
+    except StopIteration as exc:
+        raise RuntimeError("transformer has no parameters") from exc
+
+    print(
+        f"[diffusers] Qwen UNET from drop-in {path.name} "
+        f"via {load_path.name}"
+        f"{' comfy_prefix_stripped' if comfy_stripped else ''}"
+        f"{' dtype=float8_e4m3fn' if load_kwargs.get('torch_dtype') == getattr(torch, 'float8_e4m3fn', None) else ''}",
+        flush=True,
+    )
+    gc.collect()
+    return model

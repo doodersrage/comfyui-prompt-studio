@@ -16,6 +16,7 @@ import {
   detectStorageConflicts,
   mergeArraysById,
   mergeSettingsCache,
+  suggestMergeChoice,
   type MergeChoice,
   type StorageNamespaceConflict,
 } from "./storage-merge";
@@ -24,6 +25,8 @@ export type AutoSyncResult = {
   synced: StorageNamespace[];
   conflicts: StorageNamespaceConflict[];
   skipped: boolean;
+  /** True when browser had no history/gallery and we pulled server snapshots. */
+  pulledIntoEmpty?: boolean;
 };
 
 const SYNC_NAMESPACES: StorageNamespace[] = [
@@ -155,6 +158,10 @@ export async function applyStorageMerge(
   return { synced, conflicts, skipped: false };
 }
 
+/**
+ * Startup sync: pull when local is empty; otherwise silently merge/push.
+ * Avoids blocking the UI with the conflict modal on every visit.
+ */
 export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
   await initAppDb();
   const health = await fetch("/api/health").then((response) => response.json()).catch(() => null);
@@ -164,27 +171,42 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
 
   const history = loadPromptHistoryStore();
   const gallery = loadComfyGallery();
-  if (history.length > 0 || gallery.length > 0) {
-    const conflicts = await probeStorageConflicts();
-    return { synced: [], conflicts, skipped: true };
+  if (history.length === 0 && gallery.length === 0) {
+    const synced: StorageNamespace[] = [];
+    for (const namespace of SYNC_NAMESPACES) {
+      const server = await pullNamespaceFromServer<unknown>(namespace);
+      if (!server) {
+        continue;
+      }
+      if (namespace === "settings-cache") {
+        saveSettingsCache(server as SettingsCache);
+      } else if (namespace === "prompt-history") {
+        savePromptHistoryStore(server as PromptHistoryEntry[]);
+      } else {
+        await saveComfyGalleryAsync(server as ComfyGalleryEntry[]);
+      }
+      synced.push(namespace);
+    }
+    return { synced, conflicts: [], skipped: false, pulledIntoEmpty: synced.length > 0 };
   }
 
-  const synced: StorageNamespace[] = [];
-  for (const namespace of SYNC_NAMESPACES) {
-    const server = await pullNamespaceFromServer<unknown>(namespace);
-    if (!server) {
-      continue;
-    }
-    if (namespace === "settings-cache") {
-      saveSettingsCache(server as SettingsCache);
-    } else if (namespace === "prompt-history") {
-      savePromptHistoryStore(server as PromptHistoryEntry[]);
-    } else {
-      await saveComfyGalleryAsync(server as ComfyGalleryEntry[]);
-    }
-    synced.push(namespace);
+  const conflicts = await probeStorageConflicts();
+  if (conflicts.length === 0) {
+    return { synced: [], conflicts: [], skipped: true };
   }
-  return { synced, conflicts: [], skipped: false };
+
+  const choices: Partial<Record<StorageNamespace, MergeChoice>> = {};
+  for (const conflict of conflicts) {
+    choices[conflict.namespace as StorageNamespace] = suggestMergeChoice(conflict);
+  }
+  const result = await applyStorageMerge(choices);
+  return {
+    synced: result.synced,
+    // Resolved automatically — do not surface the modal.
+    conflicts: [],
+    skipped: false,
+    pulledIntoEmpty: false,
+  };
 }
 
 export async function autoPushStorageDebounced(): Promise<void> {

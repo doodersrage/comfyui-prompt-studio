@@ -228,15 +228,15 @@ describe("model sampler defaults", () => {
       scheduler: "simple",
     });
     assert.deepEqual(getModelSamplerDefaults("flux-2-klein-9b-distilled", "optimized"), {
-      steps: 6,
-      cfg: 1.2,
-      samplerName: "res_2s",
+      steps: 4,
+      cfg: 1,
+      samplerName: "euler",
       scheduler: "simple",
     });
     assert.deepEqual(getModelSamplerDefaults("flux-2-klein-9b-distilled", "maxCompatible"), {
-      steps: 8,
-      cfg: 1.2,
-      samplerName: "res_2s",
+      steps: 4,
+      cfg: 1,
+      samplerName: "euler",
       scheduler: "simple",
     });
     assert.deepEqual(getModelSamplerDefaults("flux-2-klein", "base"), {
@@ -317,17 +317,17 @@ describe("model sampler defaults", () => {
     assert.equal(compatible.scheduler, "simple");
   });
 
-  it("raises cfg slightly for klein distilled on max compatible", () => {
+  it("keeps klein distilled step-locked at 4 / cfg 1 across quality tiers", () => {
     assert.deepEqual(getModelSamplerDefaults("flux-2-klein-4b-distilled", "maxCompatible"), {
-      steps: 8,
-      cfg: 1.2,
-      samplerName: "res_2s",
+      steps: 4,
+      cfg: 1,
+      samplerName: "euler",
       scheduler: "simple",
     });
     assert.deepEqual(getModelSamplerDefaults("flux-2-klein-9b-distilled", "max"), {
-      steps: 8,
-      cfg: 1.3,
-      samplerName: "res_2s",
+      steps: 4,
+      cfg: 1,
+      samplerName: "euler",
       scheduler: "simple",
     });
   });

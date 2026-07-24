@@ -200,25 +200,11 @@ function rapidAioPresets(
   };
 }
 
-const FLUX_KLEIN_DISTILLED_BASE: ModelSamplerDefaults = {
+/** BFL locks distilled Klein to exactly 4 steps + guidance 1.0 (step-distilled). */
+const FLUX_KLEIN_DISTILLED: ModelSamplerDefaults = {
   steps: 4,
   cfg: 1,
   samplerName: "euler",
-  scheduler: "simple",
-};
-
-/** res_2s + slightly higher steps/CFG — community-tested for hands and complex poses. */
-const FLUX_KLEIN_DISTILLED_ANATOMY: ModelSamplerDefaults = {
-  steps: 6,
-  cfg: 1.2,
-  samplerName: "res_2s",
-  scheduler: "simple",
-};
-
-const FLUX_KLEIN_DISTILLED_ANATOMY_MAX: ModelSamplerDefaults = {
-  steps: 8,
-  cfg: 1.2,
-  samplerName: "res_2s",
   scheduler: "simple",
 };
 
@@ -239,11 +225,12 @@ function kleinDistilledSamplerPresets(): Record<
   ModelSamplerPresetTier,
   ModelSamplerDefaults
 > {
+  // Quality tiers must not change steps/CFG — distillation is step-locked.
   return {
-    base: { ...FLUX_KLEIN_DISTILLED_BASE },
-    optimized: { ...FLUX_KLEIN_DISTILLED_ANATOMY },
-    maxCompatible: { ...FLUX_KLEIN_DISTILLED_ANATOMY_MAX },
-    max: { ...FLUX_KLEIN_DISTILLED_ANATOMY_MAX, cfg: 1.3 },
+    base: { ...FLUX_KLEIN_DISTILLED },
+    optimized: { ...FLUX_KLEIN_DISTILLED },
+    maxCompatible: { ...FLUX_KLEIN_DISTILLED },
+    max: { ...FLUX_KLEIN_DISTILLED },
   };
 }
 

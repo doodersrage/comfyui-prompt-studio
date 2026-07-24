@@ -99,17 +99,27 @@ function mergeInventory(data: {
 
 async function fetchInventory(
   engineUrl?: string,
+  autoStart = true,
 ): Promise<DiffusersCheckpointOption[]> {
   const params = new URLSearchParams();
   if (engineUrl?.trim()) {
     params.set("engineUrl", engineUrl.trim());
+  }
+  if (!autoStart) {
+    params.set("autoStart", "0");
   }
   const query = params.toString();
   const response = await fetch(
     query ? `/api/diffusers/models?${query}` : "/api/diffusers/models",
   );
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    throw new Error(
+      body.error?.trim() ||
+        `Diffusers unavailable (HTTP ${response.status}).`,
+    );
   }
   const data = (await response.json()) as {
     models?: DiffusersCheckpointOption[];
@@ -138,8 +148,8 @@ export default function DiffusersCheckpointSelector({
     let cancelled = false;
     const load = () => {
       setLoading(true);
-      const engineUrl = loadEngineSettings().diffusersApiUrl;
-      void fetchInventory(engineUrl)
+      const engine = loadEngineSettings();
+      void fetchInventory(engine.diffusersApiUrl, engine.diffusersAutoStart)
         .then((next) => {
           if (cancelled) {
             return;

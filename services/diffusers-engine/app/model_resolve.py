@@ -220,6 +220,7 @@ def _aliases_for(model: str) -> list[str]:
         (
             "qwenimage2512",
             [
+                "qwen_image_2512_fp8_e4m3fn.safetensors",
                 "qwen_image_2512_bf16.safetensors",
                 "qwen_image_bf16.safetensors",
                 "qwen_image_fp8_e4m3fn.safetensors",
@@ -228,6 +229,7 @@ def _aliases_for(model: str) -> list[str]:
         (
             "qwenimage",
             [
+                "qwen_image_2512_fp8_e4m3fn.safetensors",
                 "qwen_image_2512_bf16.safetensors",
                 "qwen_image_bf16.safetensors",
                 "qwen_image_fp8_e4m3fn.safetensors",
@@ -241,7 +243,14 @@ def _aliases_for(model: str) -> list[str]:
                 "Qwen-Rapid-AIO-NSFW-v23.safetensors",
             ],
         ),
-        ("qwen", ["qwen_image_2512_bf16.safetensors", "Qwen-Rapid-AIO-SFW-v23.safetensors"]),
+        (
+            "qwen",
+            [
+                "qwen_image_2512_fp8_e4m3fn.safetensors",
+                "qwen_image_2512_bf16.safetensors",
+                "Qwen-Rapid-AIO-SFW-v23.safetensors",
+            ],
+        ),
     ]
     for needle, names in alias_map:
         if needle in token:

@@ -1,6 +1,12 @@
 # Diffusers engine (Prompt Studio)
 
-Narrow **txt2img** FastAPI service used when Prompt Studio’s inference engine is set to Diffusers.
+Optional **txt2img** FastAPI service for Prompt Studio. **ComfyUI is the primary generate path** (Lightning bf16, Dynamic VRAM, Final/Max enrich). Use this engine only when Settings → Inference engine is set to Diffusers, or `PROMPT_ENGINE=diffusers`.
+
+### Scope / non-goals (parked)
+
+- On 24GB cards, Qwen Image 2512 **Lightning quality + speed belong to Comfy** (bf16 + Dynamic VRAM / `comfy-aimdo`). Diffusers either uses fp8+layerwise (faster, more grain/moiré) or full bf16 group-offload (slow / OOM-prone).
+- Do **not** expect Comfy Dynamic VRAM parity here; that requires Comfy’s faulting ops, not mmap alone.
+- Opt-in full bf16: `DIFFUSERS_QWEN_LIGHTNING_BF16=1` (experimental; expect group-offload thrash on 24GB).
 
 ## API
 
@@ -32,8 +38,10 @@ cd services/diffusers-engine
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-# Reuse Comfy checkpoints (e.g. sd_xl_base_1.0.safetensors) when HF cache is empty:
-COMFYUI_ROOT=/opt/comfyui uvicorn app.main:app --host 127.0.0.1 --port 8190
+# Must use the project venv + this directory (system `uvicorn` → ModuleNotFoundError: app)
+./run.sh
+# equivalent:
+# COMFYUI_ROOT=/opt/comfyui .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8190
 ```
 
 With `COMFYUI_ROOT` set, a miss on Hugging Face will use local Comfy weights. Preferred order for studio/Flux aliases:
@@ -92,6 +100,18 @@ Studio model ids like `sdxl` / `flux` are aliased to likely Comfy filenames. Flu
 
 ## Studio wiring
 
-1. Set `DIFFUSERS_API_URL=http://127.0.0.1:8190` in `.env.local` (server proxy).
-2. In Settings → **Inference engine**, choose Diffusers (and optionally set the Diffusers URL).
-3. Queue from Generate — jobs go through `/api/diffusers/*` → this service.
+1. ComfyUI is the **default** inference engine. To use this service, set Settings → Inference engine → Diffusers, or `PROMPT_ENGINE=diffusers` in `.env.local`.
+2. Set `DIFFUSERS_API_URL=http://127.0.0.1:8190` (or rely on the default).
+3. Queue from Generate — jobs go through `/api/diffusers/*` → this service; Studio parks Comfy VRAM first.
+
+### VRAM / offload (24GB cards)
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `DIFFUSERS_UNET_RESIDENT` | on | Keep DiT/UNET fully on CUDA when it fits (TE/VAE parked). Fast path. |
+| `DIFFUSERS_GROUP_OFFLOAD` | on | Used when the UNET won't fit (e.g. Qwen-Image 2512 bf16 ≈ 39GB) |
+| `DIFFUSERS_GROUP_OFFLOAD_BLOCKS` | `18` | Larger = fewer PCIe swaps (faster, more VRAM). ~18 ≈ 3 swaps/step on Qwen-Image |
+| `DIFFUSERS_SEQUENTIAL_OFFLOAD` | off | Slowest / most VRAM-safe; set `1` if group offload OOMs |
+| `DIFFUSERS_CPU_OFFLOAD` | auto | Model CPU offload fallback when group offload unavailable |
+
+Qwen-Image **2512 bf16** (~39GB) cannot be fully GPU-resident on a 24GB card — Diffusers will log `unet-resident skipped` and use large-block group offload. Flux Klein fp8 / Qwen fp8 UNETs that fit will stay resident (Comfy-like speed). Drop a `qwen_image_2512*fp8*` weight under Comfy `models/diffusion_models` when you want 2512 + full residency.

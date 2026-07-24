@@ -1,7 +1,8 @@
 import { SUGGESTED_MODEL_CHECKPOINT_MAP } from "./model-checkpoint-map";
 
 /** Preferred Diffusers default when no inventory/map entry exists (Qwen-first). */
-export const DIFFUSERS_DEFAULT_MODEL = "qwen_image_2512_bf16.safetensors";
+export const DIFFUSERS_DEFAULT_MODEL = "qwen_image_2512_fp8_e4m3fn.safetensors";
+export const DIFFUSERS_DEFAULT_MODEL_BF16 = "qwen_image_2512_bf16.safetensors";
 
 const CHECKPOINT_FILE = /\.(safetensors|ckpt|pt|bin)$/i;
 

@@ -11,6 +11,8 @@ import { DEFAULT_DIFFUSERS_API_URL } from "./diffusers-client";
 export type EngineSettings = {
   engine: EngineId;
   diffusersApiUrl: string;
+  /** Spawn local Diffusers when health fails (default true). */
+  diffusersAutoStart: boolean;
 };
 
 function normalizeEngineId(value: unknown): EngineId {
@@ -22,8 +24,13 @@ function envDefaultEngine(): EngineId {
     const raw =
       process.env.NEXT_PUBLIC_PROMPT_ENGINE?.trim().toLowerCase() ||
       process.env.PROMPT_ENGINE?.trim().toLowerCase();
+    // ComfyUI is the primary generate path (Lightning bf16 + Dynamic VRAM).
+    // Opt into Diffusers explicitly for experimental txt2img / SDXL trials.
     if (raw === "diffusers") {
       return "diffusers";
+    }
+    if (raw === "comfyui" || raw === "comfy" || !raw) {
+      return "comfyui";
     }
   }
   return "comfyui";
@@ -46,6 +53,7 @@ export function loadEngineSettings(): EngineSettings {
     return {
       engine: envDefaultEngine(),
       diffusersApiUrl: envDefaultDiffusersUrl(),
+      diffusersAutoStart: true,
     };
   }
 
@@ -54,6 +62,7 @@ export function loadEngineSettings(): EngineSettings {
     engine: normalizeEngineId(shared.inferenceEngine ?? envDefaultEngine()),
     diffusersApiUrl:
       shared.diffusersApiUrl?.trim() || envDefaultDiffusersUrl(),
+    diffusersAutoStart: shared.diffusersAutoStart !== false,
   };
 }
 
@@ -65,12 +74,17 @@ export function saveEngineSettings(patch: Partial<EngineSettings>): EngineSettin
       patch.diffusersApiUrl !== undefined
         ? patch.diffusersApiUrl.trim() || envDefaultDiffusersUrl()
         : current.diffusersApiUrl,
+    diffusersAutoStart:
+      patch.diffusersAutoStart !== undefined
+        ? patch.diffusersAutoStart
+        : current.diffusersAutoStart,
   };
 
   const shared: SharedToolSettings = {
     ...loadSettingsCache().shared,
     inferenceEngine: next.engine,
     diffusersApiUrl: next.diffusersApiUrl,
+    diffusersAutoStart: next.diffusersAutoStart,
   };
   saveSharedSettings(shared);
   return next;

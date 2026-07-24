@@ -62,6 +62,26 @@ class QwenPromptTests(unittest.TestCase):
         self.assertIn("correctly proportioned fingers", pos.lower())
         self.assertNotIn("medium-wide shot", pos.lower())
 
+    def test_lightning_puts_crowd_diversity_in_positive(self) -> None:
+        pos, neg = shape_qwen_prompts(
+            "she walks down a busy city street in black gloves",
+            "blurry",
+            lightning=True,
+        )
+        self.assertIn("varied unique pedestrians", pos.lower())
+        self.assertIn("finger tubes", pos.lower())
+        self.assertIn("five fingers per hand", pos.lower())
+        # Negatives are inert at Lightning cfg=1 — don't bloat them.
+        self.assertNotIn("elongated fingers", neg.lower())
+        self.assertNotIn("cloned faces", neg.lower())
+
+    def test_detects_pronoun_only_person_prompts(self) -> None:
+        pos, _neg = shape_qwen_prompts(
+            "her elegant evening look on the avenue",
+            "",
+        )
+        self.assertIn("correctly proportioned fingers", pos.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
+import { resetBrowserStorageCache } from "./browser-storage.ts";
 
 function installWindowStorage() {
   const store = new Map<string, string>();
@@ -42,9 +43,11 @@ describe("sampler-memory", () => {
 
   beforeEach(() => {
     restore = installWindowStorage();
+    resetBrowserStorageCache();
   });
 
   afterEach(() => {
+    resetBrowserStorageCache();
     restore?.();
   });
 

@@ -26,10 +26,10 @@ export function getEngineAdapterById(id: EngineId | undefined): EngineAdapter {
   return id === "diffusers" ? diffusersEngineAdapter : comfyEngineAdapter;
 }
 
-/** Active inference engine (ComfyUI default; Diffusers when selected in settings). */
+/** Active inference engine (Comfy-primary; Diffusers optional / experimental). */
 export function getEngineAdapter(): EngineAdapter {
-  if (typeof window !== "undefined" && loadEngineSettings().engine === "diffusers") {
-    return diffusersEngineAdapter;
+  if (typeof window === "undefined") {
+    return getEngineAdapterById(loadEngineSettings().engine);
   }
-  return comfyEngineAdapter;
+  return getEngineAdapterById(loadEngineSettings().engine);
 }

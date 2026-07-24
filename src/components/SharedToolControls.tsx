@@ -1,10 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import ModelSelector from "@/components/ModelSelector";
-import DiffusersCheckpointSelector, {
-  type DiffusersCheckpointOption,
-} from "@/components/DiffusersCheckpointSelector";
+import type { DiffusersCheckpointOption } from "@/components/DiffusersCheckpointSelector";
 import { useComfyWorkflowSelection } from "@/hooks/useComfyWorkflowSelection";
 import type { DetailLevel } from "@/lib/detail-level";
 import { getDetailLimits } from "@/lib/detail-level";
@@ -89,7 +86,6 @@ import {
   expandWildcardText,
   textHasWildcardTokens,
 } from "@/lib/wildcard-expand";
-import LoraStackSessionPicker from "@/components/LoraStackSessionPicker";
 import {
   hasSessionLoraIdsForModel,
   resolveLoraIdsForModelSelection,
@@ -104,6 +100,25 @@ import {
 } from "@/lib/diffusers-defaults";
 import { SUGGESTED_MODEL_CHECKPOINT_MAP } from "@/lib/model-checkpoint-map";
 
+const ModelSelector = dynamic(() => import("@/components/ModelSelector"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-10 animate-pulse rounded-xl bg-[var(--surface-muted)]/60" />
+  ),
+});
+const DiffusersCheckpointSelector = dynamic(
+  () => import("@/components/DiffusersCheckpointSelector"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-10 animate-pulse rounded-xl bg-[var(--surface-muted)]/60" />
+    ),
+  },
+);
+const LoraStackSessionPicker = dynamic(
+  () => import("@/components/LoraStackSessionPicker"),
+  { ssr: false, loading: () => null },
+);
 const ComfyWorkflowSelector = dynamic(
   () => import("@/components/ComfyWorkflowSelector"),
   { ssr: false, loading: () => null },
@@ -969,7 +984,7 @@ export default function SharedToolControls({
         <FieldLabel
           hint={
             shared.inferenceEngine === "diffusers"
-              ? "Qwen/Flux UNETs from the Diffusers inventory. Mapped workflows run natively when supported."
+              ? "Optional Diffusers inventory (experimental). Prefer ComfyUI for Lightning quality/speed on 24GB."
               : systemPathActive
                 ? undefined
                 : shared.autoSelectWorkflowForModel !== false

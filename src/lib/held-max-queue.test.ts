@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
+import { resetBrowserStorageCache } from "./browser-storage.ts";
 
 function installWindowStorage() {
   const store = new Map<string, string>();
@@ -43,9 +44,11 @@ describe("held-max-queue", () => {
 
   beforeEach(() => {
     restore = installWindowStorage();
+    resetBrowserStorageCache();
   });
 
   afterEach(() => {
+    resetBrowserStorageCache();
     restore?.();
   });
 

@@ -42,7 +42,8 @@ export const DEFAULT_SDXL_REFINER_CHECKPOINT = "sd_xl_refiner_1.0.safetensors";
 
 /** Suggested checkpoint/UNET filenames for common models (merged into Settings; user entries win). */
 export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
-  "qwen-image-2512": "qwen_image_2512_bf16.safetensors",
+  "qwen-image-2512": "qwen_image_2512_fp8_e4m3fn.safetensors",
+  // Lightning needs bf16 UNET on Comfy (fp8 tends to moiré/grid); keep base on fp8.
   "qwen-image-2512-lightning-4": "qwen_image_2512_bf16.safetensors",
   "qwen-image-2512-lightning-8": "qwen_image_2512_bf16.safetensors",
   "qwen-image-edit-2511": "qwen_image_edit_2511_bf16.safetensors",

@@ -450,6 +450,8 @@ export async function queuePromptToComfyUi(
         options?.diffusersUrl,
       );
       if (classified?.supported) {
+        const { freeComfyUiMemoryServer } = await import("./comfyui-free-server");
+        await freeComfyUiMemoryServer();
         const queued = await queueDiffusersWorkflow(
           {
             prompt: graph,

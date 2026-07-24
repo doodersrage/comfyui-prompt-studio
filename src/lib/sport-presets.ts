@@ -151,3 +151,8 @@ export function sportPresetsForMode(mode: "solo" | "duo" | "all" = "all"): Sport
   }
   return SPORT_PRESETS.filter((preset) => !preset.duo);
 }
+
+/** True when `id` is one of the curated sport starter presets (not a scene/gen id). */
+export function isSportStarterPreset(id: string): boolean {
+  return SPORT_PRESETS.some((preset) => preset.id === id);
+}

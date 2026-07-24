@@ -39,4 +39,38 @@ describe("diffusers-presets", () => {
       "qwen_image_2512_bf16.safetensors",
     );
   });
+
+  it("prefers 2512 fp8 over bf16 for Lightning presets when both exist", () => {
+    const presets = buildDiffusersLightningPresets({
+      diffusionModels: [
+        {
+          id: "qwen_image_2512_bf16.safetensors",
+          label: "bf16",
+          kind: "single_file",
+          family: "qwen",
+          default: false,
+        },
+        {
+          id: "qwen_image_2512_fp8_e4m3fn.safetensors",
+          label: "fp8",
+          kind: "single_file",
+          family: "qwen",
+          default: false,
+        },
+      ],
+      loras: [
+        {
+          id: "Qwen-Image-2512-Lightning-8steps-V1.0-bf16.safetensors",
+          label: "l8",
+          kind: "single_file",
+          family: "qwen",
+          default: false,
+        },
+      ],
+    });
+    assert.equal(
+      presets.find((item) => item.id === "qwen-image-2512-lightning-8")?.weightId,
+      "qwen_image_2512_fp8_e4m3fn.safetensors",
+    );
+  });
 });

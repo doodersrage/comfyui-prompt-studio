@@ -9,7 +9,7 @@ import {
 import { buildDiffusersViewPath, buildEngineViewPath } from "./view-paths.ts";
 
 describe("engine adapter", () => {
-  it("defaults to Comfy outside the browser", () => {
+  it("defaults to ComfyUI outside the browser", () => {
     assert.equal(getEngineAdapter().id, "comfyui");
     assert.equal(getEngineAdapter(), comfyEngineAdapter);
   });

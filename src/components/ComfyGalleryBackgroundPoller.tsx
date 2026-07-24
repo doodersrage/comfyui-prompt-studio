@@ -4,26 +4,51 @@ import { useEffect } from "react";
 import { COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
 import { initBrowserStorage } from "@/lib/browser-storage";
 import { hasPendingGalleryPollMeta } from "@/lib/gallery-pending-polls";
-import { resumePendingGalleryPolls } from "@/lib/comfyui-gallery-poller";
+
+function scheduleIdle(callback: () => void, timeoutMs: number): () => void {
+  if (typeof window.requestIdleCallback === "function") {
+    const id = window.requestIdleCallback(callback, { timeout: timeoutMs });
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = window.setTimeout(callback, Math.min(timeoutMs, 1500));
+  return () => window.clearTimeout(id);
+}
 
 export default function ComfyGalleryBackgroundPoller() {
   useEffect(() => {
     void initBrowserStorage();
 
+    let cancelled = false;
+
     const resumeIfNeeded = () => {
-      if (!hasPendingGalleryPollMeta()) {
+      if (cancelled) {
         return;
       }
       void import("@/lib/gallery-db-store").then(({ warmGalleryStore }) =>
         warmGalleryStore().then(() => {
-          resumePendingGalleryPolls();
+          if (cancelled) {
+            return;
+          }
+          void import("@/lib/comfyui-gallery-poller").then(
+            ({ resumePendingGalleryPolls }) => {
+              if (!cancelled) {
+                resumePendingGalleryPolls();
+              }
+            },
+          );
         }),
       );
     };
 
-    resumeIfNeeded();
+    // Defer first resume so first paint / tool JS isn't competing with poller work.
+    const cancelIdle = scheduleIdle(resumeIfNeeded, 2500);
 
     const onGalleryUpdated = () => {
+      // Only resume when something is actually waiting — avoids re-entry loops
+      // when a poll marks a job error and saves the gallery.
+      if (!hasPendingGalleryPollMeta()) {
+        return;
+      }
       resumeIfNeeded();
     };
 
@@ -37,6 +62,8 @@ export default function ComfyGalleryBackgroundPoller() {
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
+      cancelled = true;
+      cancelIdle();
       window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGalleryUpdated);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };

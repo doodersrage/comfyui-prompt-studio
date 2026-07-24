@@ -86,6 +86,7 @@ def execute_compiled(
             clip_name=compiled.clip,
             vae_name=compiled.vae,
             aura_shift=compiled.aura_shift,
+            scheduler_name=compiled.scheduler,
             is_rapid_aio=bool(
                 compiled.checkpoint
                 and "rapid" in compiled.checkpoint.lower()

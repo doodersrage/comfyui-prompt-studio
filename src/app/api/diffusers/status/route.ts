@@ -30,6 +30,8 @@ export async function GET(request: Request) {
     return apiError("Diffusers status check failed.", 502);
   }
 
+  // Lost jobs (engine restart) return 200 + status=error so the gallery can
+  // fail the entry without spamming the Next.js console with HTTP 404s.
   return apiJson({
     promptId: status.promptId,
     status: status.status,

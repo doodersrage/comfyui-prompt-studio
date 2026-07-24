@@ -44,6 +44,14 @@ export type DiffusersTxt2ImgBody = {
   client_id?: string;
   /** null = auto-detect workshop roles; true/false force crop on/off. */
   workshop_crop?: boolean | null;
+  /** Studio model id for post scale rules (Lightning / chroma guard). */
+  studio_model?: string;
+  quality_profile?: string;
+  /** Final/Max Lanczos (or soft) scale; 1 / omit = none. */
+  output_upscale_scale?: number;
+  output_upscale_method?: "lanczos" | "area" | "bilinear" | "bicubic";
+  output_moire_blur_sigma?: number;
+  output_moire_downscale?: number;
 };
 
 export type DiffusersQueueResult = {
@@ -370,6 +378,16 @@ export async function fetchDiffusersJobStatus(
       `${engineUrl}/v1/jobs/${encodeURIComponent(promptId)}`,
       { signal: AbortSignal.timeout(30_000) },
     );
+    // Engine restarts wipe in-memory jobs — stop gallery polls instead of looping forever.
+    if (response.status === 404) {
+      return {
+        promptId,
+        status: "error",
+        statusMessage:
+          "Diffusers job not found (engine restarted or id lost).",
+        engineUrl,
+      };
+    }
     if (!response.ok) {
       return null;
     }

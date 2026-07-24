@@ -42,6 +42,12 @@ export function scheduleComfyGalleryPoll(
   }
 
   const entry = loadComfyGallery().find((item) => item.promptId === trimmed);
+  // Never revive polls for terminal gallery rows (common after engine restart).
+  if (entry?.status === "completed" || entry?.status === "error") {
+    forgetPendingGalleryPoll(trimmed);
+    return Promise.resolve(entry);
+  }
+
   const comfyUrl = options?.comfyUrl ?? entry?.comfyUrl;
   const clientId = options?.clientId?.trim() || entry?.clientId?.trim();
   if (clientId && !entry?.clientId?.trim()) {
@@ -74,15 +80,23 @@ export function resumePendingGalleryPolls(): void {
     return;
   }
 
+  const gallery = loadComfyGallery();
+  const byPromptId = new Map(gallery.map((entry) => [entry.promptId, entry]));
+
   const pendingMeta = listPendingGalleryPollMeta();
   if (pendingMeta.length > 0) {
     for (const item of pendingMeta) {
+      const entry = byPromptId.get(item.promptId);
+      if (entry?.status === "completed" || entry?.status === "error") {
+        forgetPendingGalleryPoll(item.promptId);
+        continue;
+      }
       void scheduleComfyGalleryPoll(item.promptId, { comfyUrl: item.comfyUrl });
     }
     return;
   }
 
-  for (const entry of loadComfyGallery()) {
+  for (const entry of gallery) {
     if (entry.status === "pending" || entry.status === "running") {
       void scheduleComfyGalleryPoll(entry.promptId, { comfyUrl: entry.comfyUrl });
     }

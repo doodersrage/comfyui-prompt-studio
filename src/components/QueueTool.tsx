@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { loadComfyGallery, type ComfyGalleryEntry } from "@/lib/comfyui-gallery";
 import { galleryEntryThumbUrls } from "@/lib/comfyui-gallery";
 import { Button } from "@/components/ui/Button";
@@ -11,7 +12,6 @@ import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
 import { requeueComfyJobFromEntry, requeueComfyJobs } from "@/lib/comfyui-requeue";
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
-import SetupReadinessBanner from "@/components/SetupReadinessBanner";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { freeComfyUiMemory, interruptComfyUiQueue } from "@/lib/comfyui-queue-control";
 import { cancelComfyGalleryJob } from "@/lib/comfyui-queue-cancel";
@@ -20,6 +20,11 @@ import {
   getComfyLivePreviewUrl,
 } from "@/lib/comfyui-live-preview-store";
 import { comfyUiJobProgressPercent } from "@/lib/comfyui-job-status";
+
+const SetupReadinessBanner = dynamic(
+  () => import("@/components/SetupReadinessBanner"),
+  { ssr: false, loading: () => null },
+);
 
 type ComfyQueueHealth = {
   queueRunning?: number;

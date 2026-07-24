@@ -7,12 +7,20 @@ import { Button } from "@/components/ui/Button";
 
 type Props = {
   conflicts: StorageNamespaceConflict[];
+  initialChoices?: Partial<Record<StorageNamespace, MergeChoice>>;
   onResolve: (choices: Partial<Record<StorageNamespace, MergeChoice>>) => void;
   onDismiss: () => void;
 };
 
-export default function StorageSyncConflictModal({ conflicts, onResolve, onDismiss }: Props) {
-  const [choices, setChoices] = useState<Partial<Record<StorageNamespace, MergeChoice>>>({});
+export default function StorageSyncConflictModal({
+  conflicts,
+  initialChoices,
+  onResolve,
+  onDismiss,
+}: Props) {
+  const [choices, setChoices] = useState<Partial<Record<StorageNamespace, MergeChoice>>>(
+    () => initialChoices ?? {},
+  );
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">

@@ -76,14 +76,14 @@ Thin browser seam for **queue / status / view / upload / progress** so backends 
 | Diffusers implementation | `src/lib/engine/diffusers-adapter.ts` |
 | Selection | `getEngineAdapter()` / `getEngineAdapterById()` in `src/lib/engine/index.ts` |
 | Settings | `inferenceEngine` + `diffusersApiUrl` (Settings → Inference engine) |
-| Python service | `services/diffusers-engine/` (FastAPI txt2img) |
+| Python service | `services/diffusers-engine/` (optional FastAPI txt2img) |
 
 Methods: `postPrompt`, `fetchJobStatus`, `buildViewPath`, `uploadInputImage`, `subscribeProgress`, `openProgressBeforeQueue`.
 
 Backends today:
 
-- **`comfyui`** (default) — full workflow queue via `/api/comfyui/*`
-- **`diffusers`** — narrow txt2img via `/api/diffusers/*` → local FastAPI (`DIFFUSERS_API_URL`, default `http://127.0.0.1:8190`)
+- **`comfyui`** (default) — primary generate path via `/api/comfyui/*` (Qwen Lightning bf16 + Dynamic VRAM, Final/Max enrich, ControlNet, FaceDetailer, edit, video, custom graphs).
+- **`diffusers`** (optional) — experimental txt2img via `/api/diffusers/*` → local FastAPI (`DIFFUSERS_API_URL`, default `http://127.0.0.1:8190`). Opt in from Settings or `PROMPT_ENGINE=diffusers`. On 24GB, Qwen Lightning quality/speed remains Comfy’s strength; Diffusers is not pursued for Dynamic VRAM / bf16 parity.
 
 Diffusers progress is **poll-backed** (no live latent WebSocket). Gallery entries store `comfyUrl` as the engine host and optional `engineId` so poll/view use the correct adapter after the user switches engines.
 

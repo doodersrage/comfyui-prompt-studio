@@ -77,12 +77,20 @@ export const RESOLUTION_ORIENTATION_QWEN_EXTRA: ResolutionOrientation[] = [
   "landscape-32",
 ];
 
-/** Safer Lightning ARs — extreme 9:16 / 16:9 latents soft/mosaic even with correct LoRA. */
+/**
+ * Safer Lightning ARs — skip extreme 9:16 / 16:9 (soft/mosaic even with correct LoRA).
+ * Includes classic photo ratios (3:4, 4:3, 2:3, 3:2) plus native square.
+ */
 export const RESOLUTION_ORIENTATION_LIGHTNING_SAFE: ResolutionOrientation[] = [
   "square",
   "portrait-34",
   "landscape-43",
+  "portrait-23",
+  "landscape-32",
 ];
+
+/** Classic photo ARs offered alongside 1:1 / 9:16 / 16:9 for still-image models. */
+export const RESOLUTION_ORIENTATION_CLASSIC_EXTRA = RESOLUTION_ORIENTATION_QWEN_EXTRA;
 
 export function resolutionOrientationsForModel(
   model: ComfyImageModel | string,
@@ -92,7 +100,7 @@ export function resolutionOrientationsForModel(
     return ["square"];
   }
 
-  // Distilled Lightning: only native square + classic 3:4 / 4:3.
+  // Distilled Lightning: square + classic photo ARs (no extreme 9:16 / 16:9).
   if (isQwenLightningModel(model)) {
     return [...RESOLUTION_ORIENTATION_LIGHTNING_SAFE];
   }
@@ -100,13 +108,15 @@ export function resolutionOrientationsForModel(
   const category = COMFY_MODEL_IDS.has(model)
     ? getComfyModelDefinition(model).category
     : "other-dit";
-  if (category === "qwen" || /qwen/i.test(model)) {
-    return [
-      ...RESOLUTION_ORIENTATION_CORE,
-      ...RESOLUTION_ORIENTATION_QWEN_EXTRA,
-    ];
+  // Video / audio / mesh keep the compact three-chip set.
+  if (category === "video" || category === "audio" || category === "mesh") {
+    return RESOLUTION_ORIENTATION_CORE;
   }
-  return RESOLUTION_ORIENTATION_CORE;
+  // Still-image families: core + classic photo ratios (Qwen also keeps 9:16 / 16:9).
+  return [
+    ...RESOLUTION_ORIENTATION_CORE,
+    ...RESOLUTION_ORIENTATION_CLASSIC_EXTRA,
+  ];
 }
 
 /** Size tiers offered in the sidebar for a model (matches what queue will use). */
@@ -200,18 +210,67 @@ const QWEN_OFFICIAL_ARS = {
 
 /**
  * Distilled Lightning is much less stable on extreme 9:16 / 16:9 latents
- * (928×1664). Prefer ~3:4 / 4:3 and native 1328² — soft/mosaic artifacts
- * otherwise show up even with the correct Edit Lightning LoRA.
+ * (928×1664). Prefer native 1328² + classic photo ARs (3:4 / 4:3 / 2:3 / 3:2).
+ * Soft/mosaic artifacts otherwise show up even with the correct Lightning LoRA.
  */
 const QWEN_LIGHTNING_ARS = {
   square: QWEN_OFFICIAL_ARS.square,
+  // Legacy portrait/landscape chips map to safe 3:4 / 4:3 (not extreme 9:16).
   portrait: QWEN_OFFICIAL_ARS["portrait-34"],
   landscape: QWEN_OFFICIAL_ARS["landscape-43"],
   "portrait-34": QWEN_OFFICIAL_ARS["portrait-34"],
   "landscape-43": QWEN_OFFICIAL_ARS["landscape-43"],
-  "portrait-23": QWEN_OFFICIAL_ARS["portrait-34"],
-  "landscape-32": QWEN_OFFICIAL_ARS["landscape-43"],
+  "portrait-23": QWEN_OFFICIAL_ARS["portrait-23"],
+  "landscape-32": QWEN_OFFICIAL_ARS["landscape-32"],
 } as const satisfies CategoryResolutionPresets;
+
+/** Classic photo ARs for SDXL-class native ~1024 canvases (8× friendly). */
+const SDXL_CLASSIC_EXTRA_ARS = {
+  "portrait-34": {
+    small: { width: 768, height: 1024 },
+    medium: { width: 896, height: 1152 },
+    max: { width: 896, height: 1152 },
+  },
+  "landscape-43": {
+    small: { width: 1024, height: 768 },
+    medium: { width: 1152, height: 896 },
+    max: { width: 1152, height: 896 },
+  },
+  "portrait-23": {
+    small: { width: 768, height: 1152 },
+    medium: { width: 832, height: 1216 },
+    max: { width: 896, height: 1344 },
+  },
+  "landscape-32": {
+    small: { width: 1152, height: 768 },
+    medium: { width: 1216, height: 832 },
+    max: { width: 1344, height: 896 },
+  },
+} as const;
+
+/** Classic photo ARs for SD1.5-class ~512 canvases. */
+const SD15_CLASSIC_EXTRA_ARS = {
+  "portrait-34": {
+    small: { width: 448, height: 576 },
+    medium: { width: 512, height: 704 },
+    max: { width: 576, height: 768 },
+  },
+  "landscape-43": {
+    small: { width: 576, height: 448 },
+    medium: { width: 704, height: 512 },
+    max: { width: 768, height: 576 },
+  },
+  "portrait-23": {
+    small: { width: 448, height: 640 },
+    medium: { width: 512, height: 768 },
+    max: { width: 576, height: 832 },
+  },
+  "landscape-32": {
+    small: { width: 640, height: 448 },
+    medium: { width: 768, height: 512 },
+    max: { width: 832, height: 576 },
+  },
+} as const;
 
 const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolutionPresets> = {
   "stable-diffusion": {
@@ -230,6 +289,7 @@ const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolution
       medium: { width: 704, height: 512 },
       max: { width: 768, height: 576 },
     },
+    ...SD15_CLASSIC_EXTRA_ARS,
   },
   sdxl: {
     square: {
@@ -247,6 +307,7 @@ const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolution
       medium: { width: 1216, height: 832 },
       max: { width: 1344, height: 896 },
     },
+    ...SDXL_CLASSIC_EXTRA_ARS,
   },
   sd3: {
     square: {
@@ -264,6 +325,7 @@ const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolution
       medium: { width: 1152, height: 896 },
       max: { width: 1280, height: 1024 },
     },
+    ...SDXL_CLASSIC_EXTRA_ARS,
   },
   flux: {
     square: {
@@ -281,6 +343,7 @@ const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolution
       medium: { width: 1152, height: 896 },
       max: { width: 1536, height: 1024 },
     },
+    ...SDXL_CLASSIC_EXTRA_ARS,
   },
   qwen: QWEN_OFFICIAL_ARS,
   hunyuan: {
@@ -299,6 +362,7 @@ const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolution
       medium: { width: 1152, height: 896 },
       max: { width: 1280, height: 1024 },
     },
+    ...SDXL_CLASSIC_EXTRA_ARS,
   },
   "other-dit": {
     square: {
@@ -316,6 +380,7 @@ const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolution
       medium: { width: 1152, height: 896 },
       max: { width: 1280, height: 1024 },
     },
+    ...SDXL_CLASSIC_EXTRA_ARS,
   },
   "instruct-edit": {
     square: {
@@ -333,6 +398,7 @@ const CATEGORY_RESOLUTION_PRESETS: Record<ComfyModelCategory, CategoryResolution
       medium: { width: 1024, height: 768 },
       max: { width: 1152, height: 832 },
     },
+    ...SDXL_CLASSIC_EXTRA_ARS,
   },
   video: {
     square: {

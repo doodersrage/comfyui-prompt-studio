@@ -5,8 +5,8 @@ import { filterSceneStarters, inferSceneStarterTags } from "./scene-starter-filt
 import {
   SCENE_STARTER_PRESETS,
   sceneStartersForCategory,
-  isSportStarterPreset,
 } from "./scene-starter-presets";
+import { isSportStarterPreset } from "./sport-presets";
 
 describe("scene starter presets", () => {
   it("includes sport presets, curated, and generated catalog", () => {

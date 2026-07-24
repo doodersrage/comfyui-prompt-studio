@@ -1,12 +1,17 @@
+import { ensureDiffusersRunning } from "@/lib/diffusers-autostart";
 import {
   getDiffusersBaseUrl,
   queueDiffusersTxt2Img,
 } from "@/lib/diffusers-client";
 import { resolveDiffusersModelHint } from "@/lib/diffusers-defaults";
+import { resolveDiffusersOutputPost } from "@/lib/diffusers-output-post";
+import { freeComfyUiMemoryServer } from "@/lib/comfyui-free-server";
+import { normalizeQueueQualityProfile } from "@/lib/queue-quality-profile";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 90;
 
 type DiffusersRequestBody = {
   prompt?: string;
@@ -14,10 +19,16 @@ type DiffusersRequestBody = {
   model?: string;
   clientId?: string;
   engineUrl?: string;
+  /** When false, do not spawn a local Diffusers process. */
+  autoStart?: boolean;
   /** null = auto; true/false force workshop hand crop. */
   workshopCrop?: boolean | null;
   /** Studio model id → weight filename overrides from Settings. */
   modelCheckpointMap?: Record<string, string>;
+  /** Queue quality profile — Final/Max enable Comfy-parity Lanczos post. */
+  qualityProfile?: string;
+  /** True when this job has a reference / input image (Edit Lightning gates). */
+  hasInputImage?: boolean;
   params?: {
     seed?: string | number;
     width?: string | number;
@@ -82,6 +93,7 @@ export async function POST(request: Request) {
       guidance = 2.5;
     }
 
+    const studioModel = body.model?.trim() || undefined;
     const model = resolveDiffusersModelHint(
       body.model,
       body.modelCheckpointMap,
@@ -90,6 +102,27 @@ export async function POST(request: Request) {
       body.workshopCrop === true || body.workshopCrop === false
         ? body.workshopCrop
         : null;
+    const qualityProfile = normalizeQueueQualityProfile(body.qualityProfile);
+    const outputPost = resolveDiffusersOutputPost({
+      qualityProfile,
+      studioModel,
+      hasInputImage: body.hasInputImage === true,
+    });
+
+    const ensured = await ensureDiffusersRunning({
+      engineUrl: engineUrlHint,
+      autoStart: body.autoStart !== false,
+    });
+    if (!ensured.ok) {
+      return apiError(
+        ensured.error ?? "Diffusers engine unavailable.",
+        503,
+        { engineUrl: ensured.url, started: ensured.started },
+      );
+    }
+
+    // Park Comfy before Diffusers claims the GPU (shared 24GB card).
+    await freeComfyUiMemoryServer();
 
     const result = await queueDiffusersTxt2Img(
       {
@@ -103,6 +136,16 @@ export async function POST(request: Request) {
         seed,
         client_id: body.clientId?.trim() || undefined,
         workshop_crop: workshopCrop,
+        studio_model: studioModel,
+        quality_profile: qualityProfile,
+        ...(outputPost
+          ? {
+              output_upscale_scale: outputPost.scale,
+              output_upscale_method: outputPost.method,
+              output_moire_blur_sigma: outputPost.moireBlurSigma,
+              output_moire_downscale: outputPost.moireDownscale,
+            }
+          : {}),
       },
       engineUrlHint,
     );
@@ -120,6 +163,12 @@ export async function POST(request: Request) {
       clientId: body.clientId?.trim() || undefined,
       workflowSource: "diffusers",
       model,
+      studioModel,
+      qualityProfile,
+      outputUpscaleScale: outputPost?.scale ?? 1,
+      outputUpscaleMethod: outputPost?.method ?? null,
+      outputMoireBlurSigma: outputPost?.moireBlurSigma ?? 0,
+      outputMoireDownscale: outputPost?.moireDownscale ?? 1,
       steps,
       guidanceScale: guidance,
       width,

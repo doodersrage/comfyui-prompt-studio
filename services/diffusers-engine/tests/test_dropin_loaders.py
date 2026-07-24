@@ -6,6 +6,7 @@ from app.dropin_loaders import (
     is_flux_klein_unet,
     is_fp8_scaled_name,
     is_rapid_aio_name,
+    remap_qwen_unet_comfy_keys,
 )
 
 
@@ -23,6 +24,19 @@ class DropinLoaderHelpers(unittest.TestCase):
     def test_fp8_scaled(self) -> None:
         self.assertTrue(is_fp8_scaled_name("t5xxl_fp8_e4m3fn_scaled.safetensors"))
         self.assertFalse(is_fp8_scaled_name("clip_l.safetensors"))
+
+    def test_remap_qwen_unet_comfy_keys(self) -> None:
+        remapped = remap_qwen_unet_comfy_keys(
+            {
+                "model.diffusion_model.img_in.weight": 1,
+                "model.diffusion_model.img_in.bias": 2,
+                "already_ok": 3,
+            }
+        )
+        self.assertEqual(
+            remapped,
+            {"img_in.weight": 1, "img_in.bias": 2, "already_ok": 3},
+        )
 
 
 if __name__ == "__main__":

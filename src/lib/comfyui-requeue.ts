@@ -1214,6 +1214,11 @@ export async function requeueComfyJob(
     model,
     ...(params ? { params } : {}),
     ...(comfyPayload ? { comfy: comfyPayload } : {}),
+    // Native Diffusers path (no workflow) applies Comfy-parity Lanczos post.
+    qualityProfile: effectiveQualityProfile,
+    hasInputImage: Boolean(
+      params.inputImageFilename || input.sourceImageUrl?.trim(),
+    ),
   });
 
   if (!queued.ok || !queued.promptId) {
@@ -1237,7 +1242,7 @@ export async function requeueComfyJob(
     queueParams: params,
     sourceImageUrl: input.sourceImageUrl,
     maskImageUrl: input.maskImageUrl,
-    queueQualityProfile: comfyRuntime?.queueQualityProfile,
+    queueQualityProfile: effectiveQualityProfile,
     sessionActiveLoraIds,
     parentGalleryEntryId: input.parentGalleryEntryId,
     derivedKind: input.derivedKind,

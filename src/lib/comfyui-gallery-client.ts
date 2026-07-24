@@ -30,6 +30,7 @@ import { normalizeQueueQualityProfile } from "./queue-quality-profile";
 import { loadSettingsCache } from "./settings-cache";
 import { attemptOomAutoRetry } from "./oom-retry";
 import { resolveGalleryRenderDurationMs } from "./comfyui-render-duration";
+import { forgetPendingGalleryPoll } from "./gallery-pending-polls";
 
 export type RegisterComfyGalleryJobInput = {
   promptId: string;
@@ -317,6 +318,8 @@ function applyComfyJobStatus(
   }
 
   if (tracker.status === "error") {
+    // Drop resume metadata before gallery save (save can re-trigger resume).
+    forgetPendingGalleryPoll(promptId);
     clearComfyLivePreviewUrl(promptId);
     const completedAt = Date.now();
     const prior = loadComfyGallery().find((item) => item.promptId === promptId);
@@ -396,12 +399,16 @@ function applyComfyJobStatus(
       status: "completed",
       prompt: entry.prompt,
     });
-    if (
-      loadSettingsCache().shared.freeVramAfterMax === true &&
-      normalizeQueueQualityProfile(entry.queueQualityProfile) === "max"
-    ) {
-      // Best-effort — never blocks the completion path or surfaces errors to the user.
-      void freeComfyUiMemory(entry.comfyUrl);
+    const shouldParkComfy =
+      entry.engineId === "diffusers" ||
+      (loadSettingsCache().shared.freeVramAfterMax === true &&
+        normalizeQueueQualityProfile(entry.queueQualityProfile) === "max");
+    if (shouldParkComfy) {
+      // Best-effort — never blocks the completion path. Diffusers jobs park
+      // Comfy on the default Comfy host (entry.comfyUrl is the Diffusers URL).
+      void freeComfyUiMemory(
+        entry.engineId === "diffusers" ? undefined : entry.comfyUrl,
+      );
     }
     void autoTagGalleryEntry(entry);
     noteScheduledBatchJobComplete(entry.tool);
@@ -554,9 +561,19 @@ export async function pollComfyGalleryJob(
         }
 
         if (progress.status === "error") {
-          if (progress.message) {
-            onStatus?.(progress.message);
-          }
+          clearTrailingProgress();
+          wsFinished = true;
+          applyComfyJobStatus(
+            promptId,
+            {
+              status: "error",
+              statusMessage:
+                progress.message ?? "Diffusers job failed.",
+              comfyUrl,
+            },
+            onStatus,
+            onJobUpdate,
+          );
           return;
         }
 
@@ -615,6 +632,25 @@ export async function pollComfyGalleryJob(
         );
         if (entry) {
           return entry;
+        }
+        // Lost Diffusers/Comfy jobs must not spin until maxAttempts.
+        if (
+          engineStatus.status === "error" &&
+          /not found|unknown prompt|engine restarted|id lost/i.test(
+            engineStatus.statusMessage ?? "",
+          )
+        ) {
+          forgetPendingGalleryPoll(promptId);
+          return (
+            updateComfyGalleryByPromptId(promptId, {
+              status: "error",
+              statusMessage:
+                engineStatus.statusMessage ??
+                "Job not found (engine restarted).",
+              queuePosition: null,
+              comfyUrl: engineStatus.engineUrl || comfyUrl,
+            }) ?? null
+          );
         }
       } catch {
         // keep polling

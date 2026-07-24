@@ -14,13 +14,8 @@ import {
 import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import type { DetailLevel } from "@/lib/detail-level";
 import type { AthleticSport } from "@/lib/athletic-sport-profiles";
-import { resolveRuntimeForQueueAsync } from "@/lib/comfyui-runtime-for-model";
 import { resolveModelForQueueTool } from "@/lib/queue-tool-model";
 import { guardQueueQualityForVram } from "@/lib/vram-queue-guard";
-import {
-  holdMaxGenerateJob,
-  shouldHoldMaxUntilIdle,
-} from "@/lib/held-max-queue";
 import { rememberedSamplerOverrides } from "@/lib/sampler-memory";
 import { startImproveFromResult, startPromptEditorFromResult, startRefineFromResult } from "@/lib/improve-output";
 import type { WorkflowParamValues } from "@/lib/comfyui-config";
@@ -60,7 +55,6 @@ import { toastHeldMax, toastQueueOutcome } from "@/lib/app-toast";
 import { applyQueuePromptSteering, prepareQueuePrompts } from "@/lib/queue-prompt-prep";
 import { resolveQueueNegativePromptRaw } from "@/lib/queue-negative";
 import { joinQueueStatusNotes } from "@/lib/queue-status-notes";
-import { runWorkflowPreflight } from "@/lib/workflow-preflight";
 import { runPluginQueuePreflight } from "@/lib/plugin-queue-hooks";
 import { dispatchWebhook } from "@/lib/webhook-settings";
 import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
@@ -68,7 +62,10 @@ import {
   formatComfyUiJobStatusLine,
   type ComfyUiJobTrackerState,
 } from "@/lib/comfyui-job-status";
-import { fetchWorkflowPreview } from "@/lib/comfyui-requeue";
+
+type WorkflowPreviewResult = Awaited<
+  ReturnType<typeof import("@/lib/comfyui-requeue").fetchWorkflowPreview>
+>;
 
 export type PromptResultActionsConfig = {
   tool: string;
@@ -97,9 +94,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
   const [compactStatus, setCompactStatus] = useState<string | null>(null);
   const [reformatStatus, setReformatStatus] = useState<string | null>(null);
   const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
-  const [workflowPreview, setWorkflowPreview] = useState<Awaited<
-    ReturnType<typeof fetchWorkflowPreview>
-  > | null>(null);
+  const [workflowPreview, setWorkflowPreview] = useState<WorkflowPreviewResult | null>(
+    null,
+  );
   const [previewStatus, setPreviewStatus] = useState<string | null>(null);
 
   const resetStatuses = useCallback(() => {
@@ -479,6 +476,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const pluginDenoise = pluginPreflight.payload.denoise;
         const pluginCfg = pluginPreflight.payload.cfg;
 
+        const { resolveRuntimeForQueueAsync } = await import(
+          "@/lib/comfyui-runtime-for-model"
+        );
         const baseRuntime = await resolveRuntimeForQueueAsync(
           config.model,
           config.tool,
@@ -525,6 +525,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const engineAdapter = getEngineAdapter();
         const engineSettings = loadEngineSettings();
         if (engineAdapter.id === "comfyui") {
+          const { runWorkflowPreflight } = await import("@/lib/workflow-preflight");
           const preflight = await runWorkflowPreflight({
             model: queueModel,
             prompts: [preparedPrompt],
@@ -713,25 +714,26 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           }
         }
 
-        if (
-          engineAdapter.id === "comfyui" &&
-          effectiveQualityProfile === "max" &&
-          (await shouldHoldMaxUntilIdle())
-        ) {
-          holdMaxGenerateJob({
-            prompt: preparedPrompt,
-            negativePrompt,
-            model: queueModel,
-            tool: config.tool,
-            params: queueParams,
-            comfy: runtime,
-            qualityProfile: "max",
-          });
-          setComfyUiStatus(
-            "Max held until ComfyUI queue is idle (Queue → Orchestration).",
+        if (engineAdapter.id === "comfyui" && effectiveQualityProfile === "max") {
+          const { holdMaxGenerateJob, shouldHoldMaxUntilIdle } = await import(
+            "@/lib/held-max-queue"
           );
-          toastHeldMax({ text: "Max job held until ComfyUI is idle" });
-          return;
+          if (await shouldHoldMaxUntilIdle()) {
+            holdMaxGenerateJob({
+              prompt: preparedPrompt,
+              negativePrompt,
+              model: queueModel,
+              tool: config.tool,
+              params: queueParams,
+              comfy: runtime,
+              qualityProfile: "max",
+            });
+            setComfyUiStatus(
+              "Max held until ComfyUI queue is idle (Queue → Orchestration).",
+            );
+            toastHeldMax({ text: "Max job held until ComfyUI is idle" });
+            return;
+          }
         }
 
         const autoSaveEnabled = loadComfyUiSettings().autoSaveHistoryOnQueue !== false;
@@ -765,6 +767,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 ),
                 modelCheckpointMap:
                   loadSettingsCache().shared.modelCheckpointMap,
+                qualityProfile: effectiveQualityProfile,
+                hasInputImage: Boolean(inputImageFilename),
               }
             : runtime
               ? { comfy: runtime }
@@ -893,6 +897,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             tool: config.tool,
           });
 
+        const [{ fetchWorkflowPreview }, { resolveRuntimeForQueueAsync }] =
+          await Promise.all([
+            import("@/lib/comfyui-requeue"),
+            import("@/lib/comfyui-runtime-for-model"),
+          ]);
         const preview = await fetchWorkflowPreview({
           prompt: preparedPrompt,
           negativePrompt,
@@ -921,6 +930,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       setComfyUiStatus(`Queueing ${filtered.length}…`);
       try {
+        const { resolveRuntimeForQueueAsync } = await import(
+          "@/lib/comfyui-runtime-for-model"
+        );
         const baseRuntime = await resolveRuntimeForQueueAsync(
           config.model,
           config.tool,
@@ -968,31 +980,34 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           );
         }
 
-        if (
-          vramGuard.profile === "max" &&
-          (await shouldHoldMaxUntilIdle())
-        ) {
-          for (const [index, prompt] of prepared.entries()) {
-            holdMaxGenerateJob({
-              prompt,
-              negativePrompt,
-              model: queueModel,
-              tool: config.tool,
-              params: paramsPerPrompt[index],
-              comfy: runtime,
-              qualityProfile: "max",
-            });
-          }
-          setComfyUiStatus(
-            `Held ${prepared.length} Max job(s) until ComfyUI queue is idle.`,
+        if (vramGuard.profile === "max") {
+          const { holdMaxGenerateJob, shouldHoldMaxUntilIdle } = await import(
+            "@/lib/held-max-queue"
           );
-          toastHeldMax({
-            text: "Max jobs held until ComfyUI is idle",
-            count: prepared.length,
-          });
-          return;
+          if (await shouldHoldMaxUntilIdle()) {
+            for (const [index, prompt] of prepared.entries()) {
+              holdMaxGenerateJob({
+                prompt,
+                negativePrompt,
+                model: queueModel,
+                tool: config.tool,
+                params: paramsPerPrompt[index],
+                comfy: runtime,
+                qualityProfile: "max",
+              });
+            }
+            setComfyUiStatus(
+              `Held ${prepared.length} Max job(s) until ComfyUI queue is idle.`,
+            );
+            toastHeldMax({
+              text: "Max jobs held until ComfyUI is idle",
+              count: prepared.length,
+            });
+            return;
+          }
         }
 
+        const { runWorkflowPreflight } = await import("@/lib/workflow-preflight");
         const preflight = await runWorkflowPreflight({
           model: queueModel,
           prompts: prepared,

@@ -28,15 +28,31 @@ export function buildDiffusersLightningPresets(
   ];
   const loras = inventory.loras ?? [];
 
-  const qwen2512 = hasId(
-    weights,
-    (id) =>
-      id.includes("qwen_image_2512") ||
-      (id.includes("qwen_image") &&
-        !id.includes("edit") &&
-        !id.includes("rapid") &&
-        id.endsWith(".safetensors")),
-  );
+  // Prefer 2512 fp8 when present — fits 24GB resident; bf16 forces PCIe thrash.
+  const qwen2512 =
+    hasId(
+      weights,
+      (id) =>
+        id.includes("qwen_image_2512") &&
+        id.includes("fp8") &&
+        id.endsWith(".safetensors"),
+    ) ||
+    hasId(
+      weights,
+      (id) =>
+        id.includes("qwen_image_2512") &&
+        id.includes("bf16") &&
+        id.endsWith(".safetensors"),
+    ) ||
+    hasId(
+      weights,
+      (id) =>
+        id.includes("qwen_image_2512") ||
+        (id.includes("qwen_image") &&
+          !id.includes("edit") &&
+          !id.includes("rapid") &&
+          id.endsWith(".safetensors")),
+    );
   const lightning4 = hasId(
     loras,
     (id) =>

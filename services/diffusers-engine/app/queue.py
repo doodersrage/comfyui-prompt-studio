@@ -10,6 +10,7 @@ from typing import Any, Literal, Optional
 
 from app.comfy_graph import compile_workflow
 from app.pipeline import pipeline_holder
+from app.postprocess import apply_output_post
 from app.schemas import (
     JobProgress,
     JobStatusResponse,
@@ -125,7 +126,8 @@ class JobQueue:
             return
 
         job.status = "running"
-        job.status_message = "Generating"
+        # First Qwen/Flux load parks ~TE+DiT in host RAM before steps start.
+        job.status_message = "Loading model weights…"
         job.progress_value = 0
 
         def on_step(value: int, maximum: int) -> None:
@@ -133,11 +135,17 @@ class JobQueue:
             job.progress_max = maximum
             job.status_message = f"Step {value}/{maximum}"
 
+        def on_status(message: str) -> None:
+            text = (message or "").strip()
+            if text:
+                job.status_message = text
+
         try:
             if job.kind == "workflow":
-                image = self._run_workflow_job(job, on_step)
+                image = self._run_workflow_job(job, on_step, on_status)
             else:
-                image = self._run_txt2img_job(job, on_step)
+                image = self._run_txt2img_job(job, on_step, on_status)
+                image = self._apply_txt2img_post(job, image, on_status)
             filename = f"{prompt_id}.png"
             path = self.output_dir / filename
             image.save(path, format="PNG")
@@ -150,7 +158,32 @@ class JobQueue:
             job.error = str(exc)
             job.status_message = str(exc)
 
-    def _run_txt2img_job(self, job: JobRecord, on_step):  # type: ignore[no-untyped-def]
+    def _apply_txt2img_post(self, job: JobRecord, image, on_status=None):  # type: ignore[no-untyped-def]
+        req = job.request
+        if req is None:
+            return image
+        scale = req.output_upscale_scale
+        blur = req.output_moire_blur_sigma
+        down = req.output_moire_downscale
+        needs_scale = scale is not None and float(scale) > 1.001
+        needs_blur = blur is not None and float(blur) > 0.05
+        needs_down = down is not None and 0.5 < float(down) < 0.999
+        if not (needs_scale or needs_blur or needs_down):
+            return image
+        if on_status:
+            if needs_scale:
+                on_status(f"Output polish {float(scale):.2f}×…")
+            else:
+                on_status("Output moiré polish…")
+        return apply_output_post(
+            image,
+            scale=float(scale) if needs_scale else None,
+            method=req.output_upscale_method or "lanczos",
+            moire_blur_sigma=float(blur) if needs_blur else None,
+            moire_downscale=float(down) if needs_down else None,
+        )
+
+    def _run_txt2img_job(self, job: JobRecord, on_step, on_status=None):  # type: ignore[no-untyped-def]
         req = job.request
         if req is None:
             raise RuntimeError("txt2img job missing request.")
@@ -165,10 +198,11 @@ class JobQueue:
             guidance_scale=req.guidance_scale,
             seed=seed,
             on_step=on_step,
+            on_status=on_status,
             workshop_crop=req.workshop_crop,
         )
 
-    def _run_workflow_job(self, job: JobRecord, on_step):  # type: ignore[no-untyped-def]
+    def _run_workflow_job(self, job: JobRecord, on_step, on_status=None):  # type: ignore[no-untyped-def]
         graph = job.workflow
         if not isinstance(graph, dict):
             raise RuntimeError("workflow job missing prompt graph.")
@@ -185,6 +219,8 @@ class JobQueue:
             compiled = replace(compiled, seed=int(job.seed))
         job.progress_max = max(compiled.steps, 1)
         job.status_message = f"Generating ({compiled.family})"
+        if on_status:
+            on_status(job.status_message)
         return execute_compiled(compiled, on_step=on_step)
 
 

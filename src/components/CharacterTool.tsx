@@ -6,7 +6,6 @@ import BackgroundPresetControls from "@/components/BackgroundPresetControls";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import RegionalPromptBuilderPanel from "@/components/RegionalPromptBuilderPanel";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import SharedToolControls from "@/components/SharedToolControls";
 import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
 import { applySceneStarterWorkflowHints } from "@/lib/scene-starter-workflow-hints";
 import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
@@ -65,8 +64,7 @@ import {
   applyShareableSceneParams,
   parseScenePresetFromSearch,
 } from "@/lib/scene-preset-url";
-import { getSportPreset } from "@/lib/sport-presets";
-import { isSportStarterPreset } from "@/lib/scene-starter-presets";
+import { getSportPreset, isSportStarterPreset } from "@/lib/sport-presets";
 import {
   accentFocusClass,
   accentRingClass,
@@ -80,6 +78,15 @@ import {
 import { ChipButton, FieldDivider, FieldLabel } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
+const SharedToolControls = dynamic(
+  () => import("@/components/SharedToolControls"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-40 animate-pulse rounded-2xl bg-[var(--surface-muted)]/50" aria-hidden />
+    ),
+  },
+);
 const SceneStarterPresetChips = dynamic(
   () => import("@/components/SceneStarterPresetChips"),
   {

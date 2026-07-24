@@ -8,7 +8,12 @@ from fastapi.responses import FileResponse
 
 from app.asset_inventory import describe_asset_search_paths, list_asset_inventory
 from app.comfy_graph import compile_workflow
-from app.pipeline import DEFAULT_MODEL, MOCK_MODE, pipeline_holder
+from app.pipeline import (
+    DEFAULT_MODEL,
+    MOCK_MODE,
+    configure_host_schedulers,
+    pipeline_holder,
+)
 from app.queue import JobQueue, resolve_output_path
 from app.schemas import (
     HealthResponse,
@@ -49,6 +54,7 @@ def _listed(item) -> ListedModelResponse:  # type: ignore[no-untyped-def]
 
 @app.on_event("startup")
 async def on_startup() -> None:
+    configure_host_schedulers()
     jobs.start()
 
 

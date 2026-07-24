@@ -15,7 +15,7 @@ describe("diffusers-defaults", () => {
     );
     assert.equal(
       resolveDiffusersModelHint("qwen-image-2512"),
-      "qwen_image_2512_bf16.safetensors",
+      "qwen_image_2512_fp8_e4m3fn.safetensors",
     );
     assert.equal(
       resolveDiffusersModelHint("flux-2-klein-9b"),

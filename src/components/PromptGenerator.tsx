@@ -5,16 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { applySceneStarterWorkflowHints } from "@/lib/scene-starter-workflow-hints";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-
-const SceneStarterPresetChips = dynamic(
-  () => import("@/components/SceneStarterPresetChips"),
-  { loading: () => <div className="h-24 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden /> },
-);
-const TagAssistToolbar = dynamic(() => import("@/components/TagAssistToolbar"), {
-  ssr: false,
-  loading: () => <div className="h-12 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
-});
-import SharedToolControls from "@/components/SharedToolControls";
 import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
 import {
   VariationSliderField,
@@ -63,8 +53,7 @@ import {
   applyShareableSceneParams,
   parseScenePresetFromSearch,
 } from "@/lib/scene-preset-url";
-import { getSportPreset } from "@/lib/sport-presets";
-import { isSportStarterPreset } from "@/lib/scene-starter-presets";
+import { getSportPreset, isSportStarterPreset } from "@/lib/sport-presets";
 import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
 import {
   RANDOMIZE_INGREDIENTS_LABEL,
@@ -86,7 +75,28 @@ import {
 import { ChipButton, FieldDivider, FieldError, FieldLabel, TextArea, TextInput } from "@/components/ui/Field";
 import { markOnboardingFirstGenerate } from "@/lib/onboarding-hooks";
 import { Button, PrimaryButton } from "@/components/ui/Button";
-import SetupReadinessBanner from "@/components/SetupReadinessBanner";
+
+const SceneStarterPresetChips = dynamic(
+  () => import("@/components/SceneStarterPresetChips"),
+  { loading: () => <div className="h-24 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden /> },
+);
+const TagAssistToolbar = dynamic(() => import("@/components/TagAssistToolbar"), {
+  ssr: false,
+  loading: () => <div className="h-12 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
+});
+const SharedToolControls = dynamic(
+  () => import("@/components/SharedToolControls"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-40 animate-pulse rounded-2xl bg-[var(--surface-muted)]/50" aria-hidden />
+    ),
+  },
+);
+const SetupReadinessBanner = dynamic(
+  () => import("@/components/SetupReadinessBanner"),
+  { ssr: false, loading: () => null },
+);
 
 const ACCENT = "violet" as const;
 

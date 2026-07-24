@@ -1,8 +1,10 @@
+import { ensureDiffusersRunning } from "@/lib/diffusers-autostart";
 import { fetchDiffusersModels, getDiffusersBaseUrl } from "@/lib/diffusers-client";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -10,6 +12,7 @@ export async function GET(request: Request) {
     searchParams.get("engineUrl")?.trim() ||
     searchParams.get("comfyUrl")?.trim() ||
     undefined;
+  const autoStart = searchParams.get("autoStart") !== "0";
 
   try {
     getDiffusersBaseUrl(engineUrlHint);
@@ -20,7 +23,18 @@ export async function GET(request: Request) {
     );
   }
 
-  const listed = await fetchDiffusersModels(engineUrlHint);
+  let listed = await fetchDiffusersModels(engineUrlHint);
+  if (!listed && autoStart) {
+    const ensured = await ensureDiffusersRunning({
+      engineUrl: engineUrlHint,
+      autoStart,
+    });
+    if (ensured.ok) {
+      listed = await fetchDiffusersModels(engineUrlHint);
+    } else if (ensured.error) {
+      return apiError(ensured.error, 502);
+    }
+  }
   if (!listed) {
     return apiError("Diffusers model list failed.", 502);
   }

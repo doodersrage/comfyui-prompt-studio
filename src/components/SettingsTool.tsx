@@ -1115,7 +1115,7 @@ export default function SettingsTool() {
       <ToolSection
         id="settings-comfyui-inference-engine"
         title="Inference engine"
-        description="Choose ComfyUI (full workflows) or Diffusers-first (native Qwen/Flux graphs; ControlNet/edit/video fall back to Comfy)."
+        description="ComfyUI is the default generate path (Qwen Lightning bf16, Final/Max enrich, specialty graphs). Diffusers is optional for experimental txt2img / SDXL trials."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
@@ -1124,7 +1124,11 @@ export default function SettingsTool() {
             </label>
             <select
               id="inference-engine"
-              value={sharedSettings.inferenceEngine === "diffusers" ? "diffusers" : "comfyui"}
+              value={
+                sharedSettings.inferenceEngine === "diffusers"
+                  ? "diffusers"
+                  : "comfyui"
+              }
               onChange={(event) =>
                 updateSharedSettings({
                   inferenceEngine:
@@ -1133,8 +1137,8 @@ export default function SettingsTool() {
               }
               className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 shadow-inner transition focus-visible:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40"
             >
-              <option value="comfyui">ComfyUI</option>
-              <option value="diffusers">Diffusers (native + Comfy fallback)</option>
+              <option value="comfyui">ComfyUI (primary generate)</option>
+              <option value="diffusers">Diffusers (optional / experimental)</option>
             </select>
           </div>
           <div className="space-y-1">
@@ -1152,6 +1156,42 @@ export default function SettingsTool() {
               className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 shadow-inner transition focus-visible:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
+          <label
+            className={`flex cursor-pointer items-start gap-3 sm:col-span-2 ${
+              sharedSettings.inferenceEngine !== "diffusers"
+                ? "cursor-not-allowed opacity-50"
+                : ""
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={sharedSettings.diffusersAutoStart !== false}
+              onChange={(event) =>
+                updateSharedSettings({
+                  diffusersAutoStart: event.target.checked,
+                })
+              }
+              disabled={sharedSettings.inferenceEngine !== "diffusers"}
+              className="mt-0.5 rounded border-zinc-600 bg-zinc-950 text-zinc-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40 disabled:cursor-not-allowed"
+            />
+            <span className="space-y-0.5">
+              <span className="block text-sm text-zinc-200">
+                Auto-start Diffusers when offline
+              </span>
+              <span className="block text-xs text-zinc-500">
+                Spawns{" "}
+                <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
+                  services/diffusers-engine
+                </code>{" "}
+                for localhost URLs when Diffusers is the active engine. Server
+                kill-switch:{" "}
+                <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
+                  DIFFUSERS_AUTOSTART=0
+                </code>
+                .
+              </span>
+            </span>
+          </label>
           <div className="space-y-1 sm:col-span-2">
             <label htmlFor="diffusers-workshop-crop" className="text-xs text-zinc-400">
               Workshop crop (hide hands)
@@ -1176,15 +1216,18 @@ export default function SettingsTool() {
           </div>
         </div>
         <p className="text-xs text-zinc-500">
-          Run{" "}
+          Default Generate uses ComfyUI (Dynamic VRAM / bf16 Lightning). Diffusers
+          remains available for experiments — run{" "}
           <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
-            services/diffusers-engine
+            cd services/diffusers-engine && ./run.sh
           </code>{" "}
-          locally (see its README). With a workflow selected, Diffusers classifies the
-          Comfy graph and runs Qwen/Flux natively; unsupported nodes fall back to
-          ComfyUI. Studio aliases map to local UNETs (not SDXL). Server proxy uses{" "}
+          or enable auto-start when that engine is selected. Server proxy uses{" "}
           <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
             DIFFUSERS_API_URL
+          </code>
+          ; default engine via{" "}
+          <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
+            PROMPT_ENGINE
           </code>
           .
         </p>

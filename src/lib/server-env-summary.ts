@@ -144,6 +144,14 @@ export function getServerEnvSummary(): ServerEnvSummary {
           uiOverride: "Settings → ComfyUI → Inference engine",
         },
         {
+          key: "DIFFUSERS_AUTOSTART",
+          label: "Diffusers autostart (server)",
+          value: process.env.DIFFUSERS_AUTOSTART?.trim() || "1 (default)",
+          configured: flag(process.env.DIFFUSERS_AUTOSTART),
+          hint: "Set to 0 to block spawning services/diffusers-engine. Browser Settings can also disable.",
+          uiOverride: "Settings → ComfyUI → Inference engine → Auto-start",
+        },
+        {
           key: "COMFYUI_ROOT",
           label: "ComfyUI install root",
           value: flag(process.env.COMFYUI_ROOT)
