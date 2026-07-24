@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import threading
-from collections.abc import Callable
+import warnings
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -10,13 +12,81 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from app.lora_resolve import lora_cache_key, resolve_loras
-from app.model_resolve import ResolvedModel, describe_search_paths, resolve_model
-from app.prompt_encode import encode_sdxl_prompts, prompt_wants_person
+from app.model_resolve import (
+    ResolvedModel,
+    describe_search_paths,
+    resolve_model,
+    resolve_sdxl_refiner,
+)
+from app.prompt_encode import (
+    encode_sdxl_prompts,
+    prompt_is_workshop_role,
+    prompt_wants_person,
+)
 from app.sampling import plan_sampling
 
 
 def env_flag(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def env_flag_default_on(name: str) -> bool:
+    """True unless explicitly disabled (0/false/no/off)."""
+    raw = os.environ.get(name)
+    if raw is None or not str(raw).strip():
+        return True
+    return str(raw).strip().lower() not in ("0", "false", "no", "off")
+
+
+@contextmanager
+def _silence_model_warnings() -> Iterator[None]:
+    """Hide known-noisy load/cast warnings that don't affect quality."""
+    import logging
+
+    # Diffusers often emits these via logging, not warnings.warn.
+    noisy_loggers = (
+        "diffusers",
+        "diffusers.pipelines.pipeline_utils",
+        "diffusers.models.modeling_utils",
+        "transformers",
+        "huggingface_hub",
+    )
+    previous_levels = {
+        name: logging.getLogger(name).level for name in noisy_loggers
+    }
+    for name in noisy_loggers:
+        logging.getLogger(name).setLevel(logging.ERROR)
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=r".*should be kept in float32.*")
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*local_dir_use_symlinks.*",
+            )
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*Siglip2ImageProcessorFast.*",
+            )
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*clean_up_tokenization_spaces.*",
+            )
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*unauthenticated requests to the HF Hub.*",
+            )
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*cannot run with `cpu` device.*",
+            )
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*float16` operations on this device.*",
+            )
+            yield
+    finally:
+        for name, level in previous_levels.items():
+            logging.getLogger(name).setLevel(level)
 
 
 DEFAULT_MODEL = os.environ.get("DIFFUSERS_MODEL", "stabilityai/sdxl-turbo").strip()
@@ -25,18 +95,28 @@ SDXL_CONFIG_ID = os.environ.get(
     "DIFFUSERS_SDXL_CONFIG",
     "stabilityai/stable-diffusion-xl-base-1.0",
 ).strip()
+SDXL_REFINER_CONFIG_ID = os.environ.get(
+    "DIFFUSERS_SDXL_REFINER_CONFIG",
+    "stabilityai/stable-diffusion-xl-refiner-1.0",
+).strip()
 SDXL_VAE_ID = os.environ.get(
     "DIFFUSERS_SDXL_VAE",
     "madebyollin/sdxl-vae-fp16-fix",
 ).strip()
 SDXL_FORCE_FP32 = env_flag("DIFFUSERS_SDXL_FP32")
 CPU_OFFLOAD = env_flag("DIFFUSERS_CPU_OFFLOAD")
+# Auto-on when a local refiner checkpoint exists; set DIFFUSERS_REFINER=0 to skip.
+REFINER_ENABLED = env_flag_default_on("DIFFUSERS_REFINER")
+# Keep refine gentle — high strength warps hands/arms on RealVis.
+REFINER_STRENGTH = float(os.environ.get("DIFFUSERS_REFINER_STRENGTH", "0.18") or 0.18)
 
 
 class PipelineHolder:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._pipe: Any = None
+        self._refiner: Any = None
+        self._refiner_key: str | None = None
         self._model_key: str | None = None
         self._resolved: ResolvedModel | None = None
         self._lora_key: str = "none"
@@ -68,27 +148,28 @@ class PipelineHolder:
             "use_safetensors": path.endswith(".safetensors"),
         }
 
-        if use_xl:
-            try:
-                return StableDiffusionXLPipeline.from_single_file(
-                    path,
-                    config=SDXL_CONFIG_ID,
-                    **common,
-                )
-            except Exception:
-                return StableDiffusionXLPipeline.from_single_file(path, **common)
+        with _silence_model_warnings():
+            if use_xl:
+                try:
+                    return StableDiffusionXLPipeline.from_single_file(
+                        path,
+                        config=SDXL_CONFIG_ID,
+                        **common,
+                    )
+                except Exception:
+                    return StableDiffusionXLPipeline.from_single_file(path, **common)
 
-        try:
-            return StableDiffusionPipeline.from_single_file(path, **common)
-        except Exception:
             try:
-                return StableDiffusionXLPipeline.from_single_file(
-                    path,
-                    config=SDXL_CONFIG_ID,
-                    **common,
-                )
+                return StableDiffusionPipeline.from_single_file(path, **common)
             except Exception:
-                return StableDiffusionXLPipeline.from_single_file(path, **common)
+                try:
+                    return StableDiffusionXLPipeline.from_single_file(
+                        path,
+                        config=SDXL_CONFIG_ID,
+                        **common,
+                    )
+                except Exception:
+                    return StableDiffusionXLPipeline.from_single_file(path, **common)
 
     def _attach_sdxl_vae(self, pipe: Any, dtype: Any) -> None:
         from diffusers import AutoencoderKL
@@ -174,7 +255,8 @@ class PipelineHolder:
                 pass
 
         # Single move — avoid re-casting VAE after the fact (causes washed outputs).
-        pipe = pipe.to(device)
+        with _silence_model_warnings():
+            pipe = pipe.to(device)
         self.device = device
         for tok_name in ("tokenizer", "tokenizer_2"):
             tok = getattr(pipe, tok_name, None)
@@ -214,34 +296,35 @@ class PipelineHolder:
             common["variant"] = "fp16"
 
         try:
-            if resolved.kind == "single_file":
-                pipe = self._load_single_file(resolved.source, dtype)
-                pipe = self._finalize_pipe(
-                    pipe, device, dtype, label=resolved.label
-                )
-            elif resolved.kind == "diffusers_dir":
-                pipe = AutoPipelineForText2Image.from_pretrained(
-                    resolved.source,
-                    local_files_only=True,
-                    torch_dtype=dtype,
-                )
-                pipe = self._finalize_pipe(
-                    pipe, device, dtype, label=resolved.label
-                )
-            else:
-                try:
-                    pipe = AutoPipelineForText2Image.from_pretrained(
-                        resolved.source,
-                        **common,
+            with _silence_model_warnings():
+                if resolved.kind == "single_file":
+                    pipe = self._load_single_file(resolved.source, dtype)
+                    pipe = self._finalize_pipe(
+                        pipe, device, dtype, label=resolved.label
                     )
-                except TypeError:
+                elif resolved.kind == "diffusers_dir":
                     pipe = AutoPipelineForText2Image.from_pretrained(
                         resolved.source,
+                        local_files_only=True,
                         torch_dtype=dtype,
                     )
-                pipe = self._finalize_pipe(
-                    pipe, device, dtype, label=resolved.label
-                )
+                    pipe = self._finalize_pipe(
+                        pipe, device, dtype, label=resolved.label
+                    )
+                else:
+                    try:
+                        pipe = AutoPipelineForText2Image.from_pretrained(
+                            resolved.source,
+                            **common,
+                        )
+                    except TypeError:
+                        pipe = AutoPipelineForText2Image.from_pretrained(
+                            resolved.source,
+                            torch_dtype=dtype,
+                        )
+                    pipe = self._finalize_pipe(
+                        pipe, device, dtype, label=resolved.label
+                    )
         except Exception as load_error:
             if resolved.label != "sd_xl_base_1.0.safetensors":
                 fallback = resolve_model("sdxl", default_hub=DEFAULT_MODEL)
@@ -348,12 +431,21 @@ class PipelineHolder:
         except Exception:
             pass
 
-    def _apply_loras(self, pipe: Any, *, wants_person: bool) -> Any:
+    def _apply_loras(
+        self,
+        pipe: Any,
+        *,
+        wants_person: bool,
+        workshop_role: bool = False,
+    ) -> Any:
         """Fuse SDXL LoRAs for this generate (hand fix + optional detail)."""
         is_xl = "xl" in type(pipe).__name__.lower()
         if not is_xl:
             return pipe
-        loras = resolve_loras(wants_person=wants_person)
+        loras = resolve_loras(
+            wants_person=wants_person,
+            workshop_role=workshop_role,
+        )
         key = lora_cache_key(loras)
         if key == self._lora_key:
             return pipe
@@ -379,13 +471,165 @@ class PipelineHolder:
                 )
             except Exception as error:
                 print(f"[diffusers] LoRA load failed {item.name}: {error}", flush=True)
+        if workshop_role:
+            print("[diffusers] workshop role: crop hands out of frame", flush=True)
         self._lora_key = key if fused else "none"
         return pipe
 
+    def _park_pipe(self, pipe: Any) -> None:
+        """Park a pipeline on CPU safely (fp16 cannot live on CPU)."""
+        import torch
+
+        if pipe is None:
+            return
+        with _silence_model_warnings():
+            try:
+                pipe.to(dtype=torch.float32)
+            except Exception:
+                pass
+            try:
+                pipe.to("cpu")
+            except Exception:
+                pass
+        self._empty_cuda()
+
+    def _wake_pipe(self, pipe: Any, device: str, dtype: Any) -> None:
+        """Restore a parked pipeline to the inference device/dtype."""
+        if pipe is None:
+            return
+        with _silence_model_warnings():
+            pipe.to(device=device, dtype=dtype)
+
+    def _ensure_refiner(self, dtype: Any, device: str) -> Any | None:
+        """Lazily load SDXL img2img refiner when enabled and present on disk."""
+        if not REFINER_ENABLED:
+            return None
+        resolved = resolve_sdxl_refiner()
+        if resolved is None:
+            return None
+        key = f"{resolved.kind}:{resolved.source}"
+        if self._refiner is not None and self._refiner_key == key:
+            return self._refiner
+
+        from diffusers import (
+            DPMSolverMultistepScheduler,
+            StableDiffusionXLImg2ImgPipeline,
+        )
+
+        import torch
+
+        print(f"[diffusers] loading refiner {resolved.label}", flush=True)
+        # Load in float32 so CPU parking between jobs is valid; cast on wake.
+        common: dict[str, Any] = {
+            "torch_dtype": torch.float32,
+            "use_safetensors": resolved.source.endswith(".safetensors"),
+        }
+        with _silence_model_warnings():
+            try:
+                refiner = StableDiffusionXLImg2ImgPipeline.from_single_file(
+                    resolved.source,
+                    config=SDXL_REFINER_CONFIG_ID,
+                    **common,
+                )
+            except Exception:
+                refiner = StableDiffusionXLImg2ImgPipeline.from_single_file(
+                    resolved.source,
+                    **common,
+                )
+            try:
+                self._attach_sdxl_vae(refiner, torch.float32)
+            except Exception:
+                pass
+            try:
+                refiner.scheduler = DPMSolverMultistepScheduler.from_config(
+                    refiner.scheduler.config,
+                    use_karras_sigmas=True,
+                    algorithm_type="dpmsolver++",
+                )
+            except Exception:
+                pass
+            try:
+                refiner.set_progress_bar_config(disable=True)
+            except Exception:
+                pass
+            self._park_pipe(refiner)
+
+        self._refiner = refiner
+        self._refiner_key = key
+        return refiner
+
+    def _refine_image(
+        self,
+        *,
+        image: Image.Image,
+        prompt: str,
+        negative_prompt: str,
+        steps: int,
+        guidance_scale: float,
+        seed: int,
+        device: str,
+        dtype: Any,
+    ) -> Image.Image:
+        import torch
+
+        refiner = self._ensure_refiner(dtype, device)
+        if refiner is None:
+            return image
+
+        strength = max(0.05, min(REFINER_STRENGTH, 0.6))
+        refine_steps = max(12, min(steps, 28))
+        print(
+            f"[diffusers] refine steps={refine_steps} strength={strength:.2f} "
+            f"cfg={guidance_scale}",
+            flush=True,
+        )
+
+        # Free base VRAM, run refiner on GPU, then restore base.
+        base = self._pipe
+        try:
+            if base is not None and device == "cuda":
+                self._park_pipe(base)
+            if device == "cuda":
+                self._wake_pipe(refiner, device, dtype)
+            generator = torch.Generator(device=device).manual_seed(seed + 1)
+            # Prompt is already CLIP-fitted by the base pass — clamp only, no re-lock.
+            encoded = encode_sdxl_prompts(
+                refiner,
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                device=device,
+            )
+            with _silence_model_warnings():
+                result = refiner(
+                    image=image,
+                    num_inference_steps=refine_steps,
+                    strength=strength,
+                    guidance_scale=guidance_scale,
+                    generator=generator,
+                    **encoded,
+                )
+            return result.images[0]
+        except torch.cuda.OutOfMemoryError:
+            print("[diffusers] refine OOM — returning base image", flush=True)
+            self._empty_cuda()
+            return image
+        except Exception as error:
+            print(f"[diffusers] refine failed: {error}", flush=True)
+            return image
+        finally:
+            self._park_pipe(refiner)
+            if base is not None and device == "cuda" and not self._offloaded:
+                try:
+                    self._wake_pipe(base, device, dtype)
+                    self._pipe = base
+                except Exception as restore_error:
+                    print(
+                        f"[diffusers] base restore failed: {restore_error}",
+                        flush=True,
+                    )
+
     def _decode_latents_fp32(self, pipe: Any, latents: Any) -> Image.Image:
         """Decode in float32 — stock/fp16 VAE paths often wash to grey soup."""
-        import warnings
-
         import torch
 
         vae = pipe.vae
@@ -393,11 +637,7 @@ class PipelineHolder:
         original_dtype = next(vae.parameters()).dtype
 
         # Diffusers warns on temporary fp32 cast even when intentional for color.
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message=r".*should be kept in float32.*",
-            )
+        with _silence_model_warnings():
             vae_fp32 = vae.to(dtype=torch.float32)
             latents_fp32 = latents.to(dtype=torch.float32) / scaling
             with torch.inference_mode():
@@ -451,7 +691,12 @@ class PipelineHolder:
         self._empty_cuda()
         pipe = self._ensure_loaded(model_id)
         wants_person = prompt_wants_person(prompt)
-        pipe = self._apply_loras(pipe, wants_person=wants_person)
+        workshop_role = prompt_is_workshop_role(prompt)
+        pipe = self._apply_loras(
+            pipe,
+            wants_person=wants_person,
+            workshop_role=workshop_role,
+        )
         self._pipe = pipe
         plan = plan_sampling(
             pipe=pipe,
@@ -509,7 +754,8 @@ class PipelineHolder:
         )
 
         try:
-            result = pipe(**run_kwargs)
+            with _silence_model_warnings():
+                result = pipe(**run_kwargs)
             latents = result.images
             image = self._decode_latents_fp32(pipe, latents)
         except torch.cuda.OutOfMemoryError:
@@ -519,10 +765,36 @@ class PipelineHolder:
             run_kwargs["generator"] = torch.Generator(device=device_for_gen).manual_seed(
                 seed
             )
-            result = pipe(**run_kwargs)
+            with _silence_model_warnings():
+                result = pipe(**run_kwargs)
             image = self._decode_latents_fp32(pipe, result.images)
         finally:
             self._empty_cuda()
+
+        # Refiner needs a full-GPU base swap; skip under CPU offload.
+        if is_xl and REFINER_ENABLED and not self._offloaded:
+            dtype = self._dtype_for_resolved(
+                self._resolved
+                or ResolvedModel("hub", model_id, model_id),
+                device_for_gen,
+            )
+            # Use the CLIP-fitted prompt text when available.
+            refine_prompt = run_kwargs.get("prompt") or prompt
+            refine_negative = (
+                run_kwargs.get("negative_prompt") or plan.negative_prompt or ""
+            )
+            if on_step:
+                on_step(max(plan.steps - 1, 1), plan.steps)
+            image = self._refine_image(
+                image=image,
+                prompt=str(refine_prompt),
+                negative_prompt=str(refine_negative or ""),
+                steps=plan.steps,
+                guidance_scale=plan.guidance_scale,
+                seed=seed,
+                device=device_for_gen,
+                dtype=dtype,
+            )
 
         if on_step:
             on_step(plan.steps, plan.steps)

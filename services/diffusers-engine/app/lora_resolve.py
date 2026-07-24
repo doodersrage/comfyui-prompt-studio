@@ -18,9 +18,10 @@ class ResolvedLora:
 
 # Auto-applied for SDXL person shots when present (or downloadable).
 _DEFAULT_HAND_LORA = "HandFineTuning_XL.safetensors"
-_DEFAULT_HAND_WEIGHT = 0.7
+_DEFAULT_HAND_WEIGHT = 1.0
 _DEFAULT_DETAIL_LORA = "Detail-Tweaker-XL.safetensors"
-_DEFAULT_DETAIL_WEIGHT = 0.35
+# Keep detail light — it fights the hand LoRA on fingers.
+_DEFAULT_DETAIL_WEIGHT = 0.15
 
 # Hugging Face fallback for the hand LoRA (no multi-GB checkpoint swap).
 _HAND_HF_REPO = "Old-Fisherman/SDXL_Models"
@@ -123,13 +124,20 @@ def _ensure_hand_lora() -> Path | None:
     return _find_lora_file(_DEFAULT_HAND_LORA)
 
 
-def resolve_loras(*, wants_person: bool = False) -> list[ResolvedLora]:
+def resolve_loras(
+    *,
+    wants_person: bool = False,
+    workshop_role: bool = False,
+    workshop_mitts: bool | None = None,
+) -> list[ResolvedLora]:
     """
     Resolve LoRAs to apply.
 
     `DIFFUSERS_LORA` overrides defaults (comma-separated `name[:weight]`).
     When unset and `wants_person`, auto-attach hand + optional detail XL LoRAs.
     """
+    if workshop_mitts is not None:
+        workshop_role = workshop_mitts
     explicit = os.environ.get("DIFFUSERS_LORA", "").strip()
     specs: list[tuple[str, float]] = []
     if explicit:
@@ -145,7 +153,9 @@ def resolve_loras(*, wants_person: bool = False) -> list[ResolvedLora]:
         if detail is None:
             detail = _find_lora_file("add-detail-xl.safetensors")
         if detail is not None:
-            specs.append((str(detail), _DEFAULT_DETAIL_WEIGHT))
+            # Workshop frames already de-emphasize hands; keep detail light.
+            weight = 0.12 if workshop_role else _DEFAULT_DETAIL_WEIGHT
+            specs.append((str(detail), weight))
 
     resolved: list[ResolvedLora] = []
     seen: set[str] = set()

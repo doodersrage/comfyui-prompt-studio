@@ -48,12 +48,35 @@ class PromptEncodeTests(unittest.TestCase):
         self.assertTrue(lower.startswith("photograph of"))
         self.assertIn("glassblower", lower)
         self.assertIn("perfume distillery", lower)
-        self.assertLess(lower.index("glassblower"), lower.index("photograph, dslr"))
+        self.assertIn("head and shoulders crop", lower)
+        self.assertIn("no hands visible", lower)
+        self.assertIn("solo", lower)
+        # Anatomy tags are protected ahead of style tags.
+        self.assertLess(
+            lower.index("head and shoulders crop"),
+            lower.index("photograph, dslr"),
+        )
         self.assertIn("prominently in frame", lower)
+        # Tool-hand stage direction must not survive — it pulls digits back in.
+        self.assertNotIn("gathered", lower)
+        self.assertNotIn("on his pipe", lower)
         # Quality stays short — do not drag the whole studio style novel forward.
         self.assertNotIn("natural skin micro-texture", lower)
         # "portrait of" biases SDXL toward painted portraiture.
         self.assertNotIn("portrait of", lower)
+        # Subject must appear once — refiner re-fit used to duplicate it.
+        self.assertEqual(lower.count("photograph of the stoic"), 1)
+
+    def test_fit_is_idempotent_for_refiner(self) -> None:
+        text = (
+            "the stoic and weather-beaten glassblower deftly gathered the molten "
+            "glass on his pipe as verdant mist swirled through the perfume "
+            "distillery room, hyperrealistic photography"
+        )
+        once = fit_prompt_to_clip(None, text, max_chars=280)
+        twice = fit_prompt_to_clip(None, once, max_chars=280)
+        self.assertEqual(once, twice)
+        self.assertEqual(twice.lower().count("photograph of the stoic"), 1)
 
     def test_negative_does_not_gain_quality_tags(self) -> None:
         fitted = fit_negative_to_clip(None, "blurry, low quality")
@@ -68,9 +91,46 @@ class PromptEncodeTests(unittest.TestCase):
         )
         self.assertIn("still life", fitted.lower())
         self.assertIn("painting", fitted.lower())
-        self.assertIn("fused fingers", fitted.lower())
-        self.assertIn("long arms", fitted.lower())
-        self.assertIn("blurry", fitted.lower())
+        lower = fitted.lower()
+        self.assertIn("fused fingers", lower)
+        self.assertIn("oversized gloves", lower)
+        self.assertIn("long arms", lower)
+        self.assertIn("second person", lower)
+        self.assertIn("blurry", lower)
+
+    def test_person_quality_asks_for_solo(self) -> None:
+        fitted = fit_prompt_to_clip(
+            None,
+            "a glassblower in a misty distillery workshop",
+            max_chars=280,
+        )
+        self.assertIn("solo", fitted.lower())
+        self.assertIn("head and shoulders crop", fitted.lower())
+        self.assertIn("no hands visible", fitted.lower())
+        self.assertNotIn("gloves", fitted.lower())
+        self.assertNotIn("mitts", fitted.lower())
+
+    def test_workshop_negative_hides_hands(self) -> None:
+        fitted = fit_negative_to_clip(
+            None,
+            "blurry",
+            reinforce_person=True,
+            workshop_role=True,
+        )
+        lower = fitted.lower()
+        self.assertIn("hands in foreground", lower)
+        self.assertIn("gripping", lower)
+        self.assertTrue(lower.index("hands") < lower.index("fused fingers"))
+
+    def test_non_workshop_person_keeps_bare_hands(self) -> None:
+        fitted = fit_prompt_to_clip(
+            None,
+            "a nurse in green scrubs checking a patient chart",
+            max_chars=280,
+        )
+        lower = fitted.lower()
+        self.assertIn("five fingers", lower)
+        self.assertNotIn("head and shoulders", lower)
 
 
 if __name__ == "__main__":

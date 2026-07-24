@@ -6,9 +6,10 @@ from typing import Any
 
 DEFAULT_SDXL_NEGATIVE = (
     "blurry, low quality, deformed, disfigured, bad anatomy, extra limbs, "
-    "bad hands, fused fingers, extra fingers, missing fingers, "
+    "bad hands, fused fingers, extra fingers, missing fingers, four fingers, "
     "extra arms, floating hands, disembodied hand, "
-    "long arms, elongated arms, disproportionate limbs, "
+    "long arms, elongated arms, long forearms, malformed elbows, "
+    "disproportionate limbs, multiple people, crowd, second person, "
     "watermark, text, logo, oversaturated"
 )
 

@@ -53,6 +53,31 @@ class LoraResolveTests(unittest.TestCase):
             self.assertIn("HandFineTuning_XL.safetensors", names)
             self.assertIn("Detail-Tweaker-XL.safetensors", names)
 
+    def test_workshop_role_keeps_hand_lora(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            hand = root / "HandFineTuning_XL.safetensors"
+            detail = root / "Detail-Tweaker-XL.safetensors"
+            hand.write_bytes(b"fake")
+            detail.write_bytes(b"fake")
+            env = {
+                key: value
+                for key, value in os.environ.items()
+                if key != "DIFFUSERS_LORA"
+            }
+            env.update(
+                {
+                    "DIFFUSERS_LORA_DIR": str(root),
+                    "DIFFUSERS_LORA_DOWNLOAD": "0",
+                }
+            )
+            with mock.patch.dict(os.environ, env, clear=True):
+                resolved = resolve_loras(wants_person=True, workshop_role=True)
+            by_name = {item.name: item.weight for item in resolved}
+            self.assertIn("HandFineTuning_XL.safetensors", by_name)
+            self.assertIn("Detail-Tweaker-XL.safetensors", by_name)
+            self.assertLess(by_name["Detail-Tweaker-XL.safetensors"], 0.15)
+
 
 if __name__ == "__main__":
     unittest.main()

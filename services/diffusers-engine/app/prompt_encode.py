@@ -14,10 +14,45 @@ _HEADER_RE = re.compile(
 _DEFAULT_CHAR_BUDGET = 280
 _QUALITY_SUFFIX = "photorealistic, sharp focus, highly detailed, natural colors"
 # Avoid "portrait" here — SDXL often reads that as painted portraiture.
-_PERSON_QUALITY_SUFFIX = (
-    "photograph, DSLR, sharp focus, natural skin, detailed hands, five fingers, "
-    "natural arm proportions"
+# Anatomy/solo stay next to the subject lock so CLIP truncation cannot drop them.
+_PERSON_ANATOMY_SUFFIX = (
+    "detailed hands with five fingers each, natural arm length, solo"
 )
+# Workshop crafts: SDXL can't fix hand geometry reliably — crop hands away.
+# Action verbs in Studio novels ("gathered… on his pipe") force hands back in.
+_WORKSHOP_ANATOMY_SUFFIX = (
+    "head and shoulders crop above the elbows, no hands visible, face sharp, solo"
+)
+_WORKSHOP_HAND_NEGATIVE = (
+    "hands, fingers, gloves, mitts, holding, gripping, hands in foreground, "
+    "object in hand, flask in hand, tool in hand, vial in hand"
+)
+# Strip tool-hand stage directions from the shrinkable middle for workshop roles.
+_WORKSHOP_ACTION_RE = re.compile(
+    r"\b(?:"
+    r"deftly\s+\w+(?:\s+\w+){0,8}|"
+    r"(?:holding|gripping|grasping|wielding|gathering|blowing)\b[^,]{0,48}|"
+    r"on (?:his|her|their) (?:pipe|blowpipe|tools?|hammer)|"
+    r"with (?:both )?hands?(?:\s+\w+){0,6}"
+    r")",
+    re.IGNORECASE,
+)
+_WORKSHOP_ROLES = frozenset(
+    {
+        "glassblower",
+        "blacksmith",
+        "potter",
+        "worker",
+        "craftsman",
+        "craftswoman",
+        "sculptor",
+        "alchemist",
+        "farmer",
+        "hunter",
+    }
+)
+_PERSON_STYLE_SUFFIX = "photograph, DSLR, sharp focus, natural skin"
+_PERSON_QUALITY_SUFFIX = f"{_PERSON_ANATOMY_SUFFIX}, {_PERSON_STYLE_SUFFIX}"
 _SUBJECT_PREFIX = "photograph of"
 
 # Roles / people words that should stay locked at the front of the CLIP window.
@@ -42,15 +77,16 @@ _QUALITY_MARKERS = (
     "professional photography",
 )
 
-_STILL_LIFE_NEGATIVE = (
-    "still life, product shot, empty room, no people, objects only"
-)
-_PAINTING_NEGATIVE = "painting, illustration, digital art, brush strokes, anime"
+_STILL_LIFE_NEGATIVE = "still life, product shot, objects only"
+_PAINTING_NEGATIVE = "painting, illustration, digital art, anime"
 _HAND_NEGATIVE = (
-    "bad hands, fused fingers, extra fingers, missing fingers, "
-    "mutated hands, poorly drawn hands, extra arms, floating hands, "
-    "disembodied hand, extra limbs, long arms, elongated arms, "
-    "disproportionate limbs, extra long arms"
+    "bad hands, fused fingers, missing fingers, blob hands, sausage fingers, "
+    "oversized gloves, bulky mitts, puffy gloves, close-up of hands, "
+    "hand focus, long arms, long forearms"
+)
+_CROWD_NEGATIVE = (
+    "crowd, multiple people, second person, extra person, two people, "
+    "bystanders, face in background"
 )
 
 # Distinctive places that Studio novels mention once and CLIP then drops.
@@ -111,6 +147,29 @@ def prompt_wants_person(text: str) -> bool:
     return _person_role(clean_studio_prompt(text)) is not None
 
 
+def prompt_is_workshop_role(text: str) -> bool:
+    role = _person_role(clean_studio_prompt(text))
+    return bool(role and role in _WORKSHOP_ROLES)
+
+
+# Back-compat alias used by older call sites / tests.
+prompt_wants_workshop_mitts = prompt_is_workshop_role
+
+
+def _anatomy_suffix_for_role(role: str | None) -> str:
+    if role and role in _WORKSHOP_ROLES:
+        return _WORKSHOP_ANATOMY_SUFFIX
+    return _PERSON_ANATOMY_SUFFIX
+
+
+def _strip_workshop_hand_actions(text: str) -> str:
+    """Remove hand/tool stage directions that pull digits into frame."""
+    cleaned = _WORKSHOP_ACTION_RE.sub(" ", text)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    cleaned = re.sub(r"\s+,", ",", cleaned)
+    return _trim_clause(cleaned)
+
+
 def _setting_lock(text: str) -> str:
     match = _SETTING_RE.search(text)
     if not match:
@@ -144,6 +203,30 @@ def _subject_lock(text: str) -> str:
     return f"{_SUBJECT_PREFIX} {phrase}"
 
 
+def _cleanup_decoded(text: str) -> str:
+    decoded = text.replace(" - ", "-")
+    decoded = re.sub(r"\s+,", ",", decoded)
+    decoded = re.sub(r"\s{2,}", " ", decoded)
+    return decoded.strip(" ,;")
+
+
+def _token_len(tokenizer: Any | None, text: str) -> int:
+    if tokenizer is None:
+        return max(1, (len(text) + 3) // 4)
+    try:
+        return len(
+            tokenizer(
+                text,
+                add_special_tokens=True,
+                truncation=False,
+                padding=False,
+                clean_up_tokenization_spaces=False,
+            )["input_ids"]
+        )
+    except Exception:
+        return max(1, (len(text) + 3) // 4)
+
+
 def _clamp_with_tokenizer(
     tokenizer: Any | None,
     text: str,
@@ -153,28 +236,82 @@ def _clamp_with_tokenizer(
     if tokenizer is None:
         return text
     try:
+        # Match CLIP runtime: special tokens count toward the 77 budget.
         ids = tokenizer(
             text,
             truncation=True,
             max_length=max_tokens,
-            add_special_tokens=False,
+            add_special_tokens=True,
             padding=False,
             clean_up_tokenization_spaces=False,
         )["input_ids"]
         decoded = tokenizer.decode(ids, skip_special_tokens=True).strip()
-        decoded = decoded.replace(" - ", "-")
-        decoded = re.sub(r"\s+,", ",", decoded)
-        decoded = re.sub(r"\s{2,}", " ", decoded)
-        return decoded
+        return _cleanup_decoded(decoded)
     except Exception:
         return text
+
+
+def _join_prompt_parts(*parts: str) -> str:
+    return ", ".join(part for part in parts if part)
+
+
+def _fit_parts_to_tokens(
+    tokenizer: Any | None,
+    *,
+    lock: str,
+    anatomy: str,
+    remainder: str,
+    style: str,
+    max_tokens: int,
+    max_chars: int,
+) -> str:
+    """
+    Keep lock + anatomy + style fixed; shrink only the scene middle until the
+    prompt fits the CLIP window. End-truncation must not eat hand/solo tags.
+    """
+    fixed = _join_prompt_parts(lock, anatomy, style)
+    if _token_len(tokenizer, fixed) > max_tokens:
+        return _clamp_with_tokenizer(tokenizer, fixed, max_tokens=max_tokens)
+
+    mid = _trim_clause(remainder)
+    if len(fixed) + (len(mid) + 2 if mid else 0) > max_chars and mid:
+        budget = max(0, max_chars - len(fixed) - 2)
+        mid = _trim_clause(mid[:budget].rsplit(" ", 1)[0] if budget else "")
+
+    assembled = _join_prompt_parts(lock, anatomy, mid, style)
+    if _token_len(tokenizer, assembled) <= max_tokens:
+        return _cleanup_decoded(assembled)
+
+    # Binary-search a shorter middle that still fits.
+    lo, hi = 0, len(mid)
+    best = fixed
+    while lo <= hi:
+        cut = (lo + hi) // 2
+        candidate_mid = _trim_clause(mid[:cut].rsplit(" ", 1)[0] if cut else "")
+        candidate = _join_prompt_parts(lock, anatomy, candidate_mid, style)
+        if _token_len(tokenizer, candidate) <= max_tokens:
+            best = candidate
+            lo = cut + 1
+        else:
+            hi = cut - 1
+    return _cleanup_decoded(best)
+
+
+def _already_fitted(text: str) -> bool:
+    """True when this looks like our own prior CLIP-fit output."""
+    lower = text.lower()
+    return "prominently in frame" in lower and (
+        lower.startswith("photograph of")
+        or lower.startswith("photo of")
+        or lower.startswith("portrait of")
+    )
 
 
 def fit_prompt_to_clip(
     tokenizer: Any | None,
     text: str,
     *,
-    max_tokens: int = 75,
+    max_tokens: int = 77,
     max_chars: int = _DEFAULT_CHAR_BUDGET,
     add_quality: bool = True,
 ) -> str:
@@ -183,16 +320,26 @@ def fit_prompt_to_clip(
     novel first (that triggers transformers' 241 > 77 warnings).
 
     Person subjects are locked at the front; quality tags stay short at the end
-    so props/style don't steal the composition.
+    so props/style don't steal the composition. Idempotent on already-fitted text
+    (refiner must not re-lock and duplicate the subject).
     """
     cleaned = clean_studio_prompt(text)
     if not cleaned:
         return _QUALITY_SUFFIX if add_quality else ""
 
+    # Refiner / second encode: clamp only — do not re-apply subject lock.
+    if _already_fitted(cleaned):
+        return _clamp_with_tokenizer(tokenizer, cleaned, max_tokens=max_tokens)
+
     role = _person_role(cleaned)
-    quality = ""
+    anatomy = ""
+    style = ""
     if add_quality:
-        quality = _PERSON_QUALITY_SUFFIX if role else _QUALITY_SUFFIX
+        if role:
+            anatomy = _anatomy_suffix_for_role(role)
+            style = _PERSON_STYLE_SUFFIX
+        else:
+            style = _QUALITY_SUFFIX
 
     subject = _subject_lock(cleaned) if role else ""
     setting = _setting_lock(cleaned)
@@ -206,6 +353,12 @@ def fit_prompt_to_clip(
 
     # Drop the duplicated subject lead from the shrinkable middle.
     remainder = body
+    remainder = re.sub(
+        r"^(photograph|photo|portrait)\s+of\s+",
+        "",
+        remainder,
+        flags=re.IGNORECASE,
+    ).strip(" ,;")
     if subject:
         raw_subject = re.sub(
             r"^(photograph|photo|portrait)\s+of\s+",
@@ -215,53 +368,62 @@ def fit_prompt_to_clip(
         )
         if remainder.lower().startswith(raw_subject.lower()):
             remainder = remainder[len(raw_subject) :].strip(" ,;")
+    if role:
+        remainder = re.sub(
+            rf",?\s*{re.escape(role)}\s+prominently in frame\b",
+            "",
+            remainder,
+            flags=re.IGNORECASE,
+        )
     if setting:
         place = setting.replace("in a ", "")
         remainder = re.sub(re.escape(place), "", remainder, count=1, flags=re.IGNORECASE)
-        remainder = re.sub(r"\s{2,}", " ", remainder).strip(" ,;")
+        remainder = re.sub(
+            rf",?\s*{re.escape(setting)}\b",
+            "",
+            remainder,
+            flags=re.IGNORECASE,
+        )
+    remainder = re.sub(r"\s{2,}", " ", remainder).strip(" ,;")
     remainder = _trim_clause(remainder)
+    if role and role in _WORKSHOP_ROLES:
+        remainder = _strip_workshop_hand_actions(remainder)
 
-    parts: list[str] = []
-    if lock:
-        parts.append(lock)
-    if remainder:
-        parts.append(remainder)
-    if quality:
-        parts.append(quality)
-    assembled = ", ".join(parts)
-
-    # Soft char budget before tokenizer clamp.
-    if len(assembled) > max_chars:
-        # Keep lock + quality; shrink the middle.
-        fixed = len(lock) + len(quality) + (4 if lock and quality else 0)
-        mid_budget = max(40, max_chars - fixed)
-        mid = remainder[:mid_budget]
-        if len(remainder) > mid_budget:
-            mid = mid.rsplit(" ", 1)[0]
-        mid = _trim_clause(mid)
-        pieces = [p for p in (lock, mid, quality) if p]
-        assembled = ", ".join(pieces)
-
-    return _clamp_with_tokenizer(tokenizer, assembled, max_tokens=max_tokens)
+    return _fit_parts_to_tokens(
+        tokenizer,
+        lock=lock,
+        anatomy=anatomy,
+        remainder=remainder,
+        style=style,
+        max_tokens=max_tokens,
+        max_chars=max_chars,
+    )
 
 
 def fit_negative_to_clip(
     tokenizer: Any | None,
     text: str,
     *,
-    max_tokens: int = 75,
+    max_tokens: int = 77,
     reinforce_person: bool = False,
+    workshop_role: bool = False,
 ) -> str:
     """Truncate negatives only — never append positive quality tags."""
     cleaned = clean_studio_prompt(text)
     if reinforce_person:
-        # Hands first — CLIP negatives truncate from the end.
-        extra = f"{_HAND_NEGATIVE}, {_STILL_LIFE_NEGATIVE}, {_PAINTING_NEGATIVE}"
+        # Hands/crowd first — CLIP negatives truncate from the end.
+        parts = [_HAND_NEGATIVE]
+        if workshop_role:
+            parts.insert(0, _WORKSHOP_HAND_NEGATIVE)
+        parts.extend(
+            [_CROWD_NEGATIVE, _PAINTING_NEGATIVE, _STILL_LIFE_NEGATIVE]
+        )
+        extra = ", ".join(parts)
         cleaned = f"{cleaned}, {extra}" if cleaned else extra
     if not cleaned:
         return ""
     # Negatives can be a bit longer than positives; still clamp for CLIP.
-    neg_budget = max(_DEFAULT_CHAR_BUDGET, 360)
+    neg_budget = max(_DEFAULT_CHAR_BUDGET, 420)
     if len(cleaned) > neg_budget:
         cleaned = cleaned[:neg_budget].rsplit(" ", 1)[0]
     return _clamp_with_tokenizer(tokenizer, cleaned, max_tokens=max_tokens)
@@ -279,22 +441,27 @@ def encode_sdxl_prompts(
     positive = clean_studio_prompt(prompt)
     negative = clean_studio_prompt(negative_prompt)
     wants_person = _person_role(positive) is not None
+    workshop_role = prompt_is_workshop_role(positive)
 
-    fitted = fit_prompt_to_clip(pipe.tokenizer, positive, max_tokens=75)
+    already = _already_fitted(positive)
+    fitted = fit_prompt_to_clip(pipe.tokenizer, positive, max_tokens=77)
     fitted_neg = fit_negative_to_clip(
         pipe.tokenizer,
         negative,
-        max_tokens=75,
-        reinforce_person=wants_person,
+        max_tokens=77,
+        # Avoid stacking hand/still-life negatives again on the refiner pass.
+        reinforce_person=wants_person and "fused fingers" not in negative.lower(),
+        workshop_role=workshop_role,
     )
 
-    print(
-        f"[diffusers] CLIP-fitted prompt ({len(fitted)} chars): {fitted[:180]}"
-        + ("…" if len(fitted) > 180 else ""),
-        flush=True,
-    )
-    if wants_person:
-        print("[diffusers] subject lock: person/role reinforced", flush=True)
+    if not already:
+        print(
+            f"[diffusers] CLIP-fitted prompt ({len(fitted)} chars): {fitted[:180]}"
+            + ("…" if len(fitted) > 180 else ""),
+            flush=True,
+        )
+        if wants_person:
+            print("[diffusers] subject lock: person/role reinforced", flush=True)
 
     return {
         "prompt": fitted,

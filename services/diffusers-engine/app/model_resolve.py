@@ -365,3 +365,32 @@ def resolve_model(model: str, *, default_hub: str) -> ResolvedModel:
 
 def describe_search_paths() -> list[str]:
     return [str(path) for path in local_model_roots()]
+
+
+_REFINER_NAMES = (
+    "sd_xl_refiner_1.0.safetensors",
+    "sd_xl_refiner_1.0",
+    "sdxl_refiner.safetensors",
+)
+
+
+def resolve_sdxl_refiner() -> ResolvedModel | None:
+    """Locate a local SDXL refiner checkpoint, if present."""
+    explicit = os.environ.get("DIFFUSERS_REFINER_PATH", "").strip()
+    if explicit:
+        path = Path(explicit).expanduser().resolve()
+        if _looks_like_weight_file(path):
+            return ResolvedModel("single_file", str(path), path.name)
+        if _is_diffusers_dir(path):
+            return ResolvedModel("diffusers_dir", str(path), path.name)
+        return None
+
+    roots = local_model_roots()
+    for name in _REFINER_NAMES:
+        for root in roots:
+            if "checkpoints" not in root.parts and "diffusers" not in root.parts:
+                continue
+            hit = _match_in_root(root, name)
+            if hit is not None:
+                return hit
+    return None

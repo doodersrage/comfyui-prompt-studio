@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from app.model_resolve import resolve_model
+from app.model_resolve import resolve_model, resolve_sdxl_refiner
 
 
 class ModelResolveTests(unittest.TestCase):
@@ -90,6 +90,21 @@ class ModelResolveTests(unittest.TestCase):
 
             self.assertEqual(resolved.kind, "single_file")
             self.assertEqual(Path(resolved.source), realvis)
+
+    def test_resolves_local_sdxl_refiner(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ckpt_dir = root / "models" / "checkpoints"
+            ckpt_dir.mkdir(parents=True)
+            refiner = ckpt_dir / "sd_xl_refiner_1.0.safetensors"
+            refiner.write_bytes(b"fake")
+
+            with mock.patch.dict(os.environ, {"COMFYUI_ROOT": str(root)}, clear=False):
+                resolved = resolve_sdxl_refiner()
+
+            self.assertIsNotNone(resolved)
+            assert resolved is not None
+            self.assertEqual(Path(resolved.source), refiner)
 
     def test_flux_prefers_realvis_when_present(self) -> None:
         with TemporaryDirectory() as tmp:

@@ -47,6 +47,7 @@ Local SDXL defaults (best when Comfy is unloaded / restarted):
 - **Full GPU residency** (no CPU offload)
 - Prompts **fit to 77 CLIP tokens** before encode (stops the `241 > 77` truncation)
 - Person jobs auto-attach hand + detail LoRAs when available
+- Optional **SDXL refiner** pass (`sd_xl_refiner_1.0.safetensors`) after the base decode
 
 ```bash
 # Share VRAM with a loaded ComfyUI:
@@ -59,7 +60,7 @@ DIFFUSERS_LONG_PROMPT=1
 # DIFFUSERS_LORA="HandFineTuning_XL:0.7,Detail-Tweaker-XL:0.35"
 ```
 
-For person prompts, Diffusers auto-attaches an SDXL hand LoRA (downloads once if missing) plus `Detail-Tweaker-XL` / `add-detail-xl` when those files exist under Comfy `models/loras`.
+For person prompts, Diffusers auto-attaches an SDXL hand LoRA (downloads once if missing) plus `Detail-Tweaker-XL` / `add-detail-xl` when those files exist under Comfy `models/loras`. Workshop roles (glassblower, blacksmith, etc.) force a head-and-shoulders crop and strip hand/tool stage directions from the Studio novel — SDXL still botches workshop grips when hands stay in frame.
 
 ## Env
 
@@ -72,6 +73,9 @@ For person prompts, Diffusers auto-attaches an SDXL hand LoRA (downloads once if
 | `DIFFUSERS_LORA` | auto | Comma-separated `name[:weight]`; empty = person auto hand+detail |
 | `DIFFUSERS_LORA_DIR` | unset | Extra LoRA search root (also `$COMFYUI_ROOT/models/loras`) |
 | `DIFFUSERS_LORA_DOWNLOAD` | on | Fetch hand LoRA from HF on first person job |
+| `DIFFUSERS_REFINER` | auto-on | SDXL img2img refine when `sd_xl_refiner_1.0` is present; set `0` to disable |
+| `DIFFUSERS_REFINER_STRENGTH` | `0.18` | Img2img strength for the refiner pass (keep low to avoid limb warp) |
+| `DIFFUSERS_REFINER_PATH` | auto | Override path to a refiner checkpoint |
 | `DIFFUSERS_OUTPUT_DIR` | `./outputs` | Generated PNGs |
 | `DIFFUSERS_INPUT_DIR` | `./inputs` | Uploads |
 | `DIFFUSERS_ENGINE_URL` | `http://127.0.0.1:8190` | Returned as `engine_url` |
