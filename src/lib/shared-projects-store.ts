@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { resolvePromptDataDir } from "@/lib/prompt-data-paths";
 
 export type SharedProject = {
   id: string;
@@ -18,9 +19,7 @@ type SharedProjectsDocument = {
 };
 
 function projectsPath(): string {
-  const base =
-    process.env.PROMPT_DATA_DIR?.trim() ||
-    path.join(process.cwd(), ".prompt-studio-data");
+  const base = resolvePromptDataDir();
   fs.mkdirSync(base, { recursive: true });
   return path.join(base, "shared-projects.json");
 }

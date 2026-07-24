@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
 
 export type AuditLogEntry = {
   id: string;
@@ -19,11 +20,7 @@ type AuditDocument = {
 const MAX_ENTRIES = 500;
 
 function auditPath(): string {
-  const base =
-    process.env.PROMPT_AUTH_DIR?.trim() ||
-    process.env.PROMPT_DATA_DIR?.trim() ||
-    path.join(process.cwd(), ".prompt-studio-data");
-  const dir = path.join(base, "auth");
+  const dir = resolvePromptAuthDir();
   fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, "audit-log.json");
 }

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
 import { ALL_FEATURE_IDS, type AppFeatureId } from "./features";
 import type { AuthGroup, AuthUser, AuthUserPublic, GroupsDocument, UsersDocument } from "./types";
 import { VIEWER_ALLOWED_FEATURES } from "./types";
@@ -12,11 +13,7 @@ import {
 import { hashPassword, verifyPassword } from "./password";
 
 function authDir(): string {
-  const base =
-    process.env.PROMPT_AUTH_DIR?.trim() ||
-    process.env.PROMPT_DATA_DIR?.trim() ||
-    path.join(process.cwd(), ".prompt-studio-data");
-  const dir = path.join(base, "auth");
+  const dir = resolvePromptAuthDir();
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }

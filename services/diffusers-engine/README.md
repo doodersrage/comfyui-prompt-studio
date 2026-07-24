@@ -23,25 +23,27 @@ Default listen URL: `http://127.0.0.1:8190`
 
 ## Quick start (mock, no GPU / no model download)
 
+Keep the Python venv **outside** this repo (Next.js/Turbopack panics if it walks
+`services/diffusers-engine/.venv` symlinks into `/usr/bin`).
+
 ```bash
 cd services/diffusers-engine
-python -m venv .venv
-source .venv/bin/activate
-pip install fastapi uvicorn python-multipart pydantic Pillow
-DIFFUSERS_MOCK=1 uvicorn app.main:app --host 127.0.0.1 --port 8190
+VENV="${XDG_CACHE_HOME:-$HOME/.cache}/comfyui-prompt-studio/diffusers-engine/.venv"
+python -m venv "$VENV"
+"$VENV/bin/pip" install fastapi uvicorn python-multipart pydantic Pillow
+DIFFUSERS_MOCK=1 ./run.sh
 ```
 
 ## Real Diffusers (GPU recommended)
 
 ```bash
 cd services/diffusers-engine
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-# Must use the project venv + this directory (system `uvicorn` → ModuleNotFoundError: app)
+VENV="${XDG_CACHE_HOME:-$HOME/.cache}/comfyui-prompt-studio/diffusers-engine/.venv"
+python -m venv "$VENV"
+"$VENV/bin/pip" install -r requirements.txt
+# Must use run.sh (or DIFFUSERS_VENV) from this directory — system uvicorn → ModuleNotFoundError: app
 ./run.sh
-# equivalent:
-# COMFYUI_ROOT=/opt/comfyui .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8190
+# or: DIFFUSERS_VENV="$VENV" ./run.sh
 ```
 
 With `COMFYUI_ROOT` set, a miss on Hugging Face will use local Comfy weights. Preferred order for studio/Flux aliases:

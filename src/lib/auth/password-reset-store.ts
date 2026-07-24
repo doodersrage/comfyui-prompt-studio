@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
+import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
 import { hashPassword } from "./password";
 import { findUserByUsername, saveUsers, ensureAuthStore } from "./store";
 
@@ -17,11 +18,7 @@ type PasswordResetDocument = {
 };
 
 function resetPath(): string {
-  const base =
-    process.env.PROMPT_AUTH_DIR?.trim() ||
-    (process.env.PROMPT_DATA_DIR?.trim()
-      ? path.join(process.env.PROMPT_DATA_DIR.trim(), "auth")
-      : path.join(process.cwd(), ".prompt-studio-data", "auth"));
+  const base = resolvePromptAuthDir();
   fs.mkdirSync(base, { recursive: true });
   return path.join(base, "password-reset-tokens.json");
 }

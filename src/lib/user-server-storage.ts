@@ -15,7 +15,7 @@ function dataDir(): string {
   if (!dir) {
     throw new Error("PROMPT_DATA_DIR is not configured.");
   }
-  const resolved = path.resolve(dir);
+  const resolved = path.resolve(/* turbopackIgnore: true */ dir);
   fs.mkdirSync(resolved, { recursive: true });
   return resolved;
 }

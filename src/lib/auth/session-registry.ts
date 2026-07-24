@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
 
 export type RegisteredSession = {
   id: string;
@@ -21,11 +22,7 @@ type SessionsDocument = {
 const MAX_SESSIONS = 500;
 
 function sessionsPath(): string {
-  const base =
-    process.env.PROMPT_AUTH_DIR?.trim() ||
-    process.env.PROMPT_DATA_DIR?.trim() ||
-    path.join(process.cwd(), ".prompt-studio-data");
-  const dir = path.join(base, "auth");
+  const dir = resolvePromptAuthDir();
   fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, "sessions.json");
 }

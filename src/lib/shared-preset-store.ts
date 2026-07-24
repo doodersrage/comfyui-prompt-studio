@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { resolvePromptDataDir } from "@/lib/prompt-data-paths";
 
 export type SharedPresetEntry = {
   id: string;
@@ -19,9 +20,7 @@ type SharedPresetDocument = {
 };
 
 function presetPath(): string {
-  const base =
-    process.env.PROMPT_DATA_DIR?.trim() ||
-    path.join(process.cwd(), ".prompt-studio-data");
+  const base = resolvePromptDataDir();
   fs.mkdirSync(base, { recursive: true });
   return path.join(base, "shared-presets.json");
 }

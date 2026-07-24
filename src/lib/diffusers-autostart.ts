@@ -76,13 +76,45 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function externalVenvUvicorn(): string | null {
+  const fromEnv = process.env.DIFFUSERS_VENV?.trim();
+  if (fromEnv) {
+    const candidate = path.join(
+      /* turbopackIgnore: true */ path.resolve(fromEnv),
+      "bin",
+      "uvicorn",
+    );
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  const home = process.env.HOME?.trim() || process.env.USERPROFILE?.trim();
+  const xdg = process.env.XDG_CACHE_HOME?.trim();
+  const cacheRoot = xdg
+    ? /* turbopackIgnore: true */ path.resolve(xdg)
+    : home
+      ? path.join(/* turbopackIgnore: true */ path.resolve(home), ".cache")
+      : null;
+  if (!cacheRoot) {
+    return null;
+  }
+  const candidate = path.join(
+    cacheRoot,
+    "comfyui-prompt-studio",
+    "diffusers-engine",
+    ".venv",
+    "bin",
+    "uvicorn",
+  );
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
 function resolveSpawnCommand(
   engineDir: string,
   port: number,
 ): { command: string; args: string[]; cwd: string } | null {
+  // Prefer run.sh — it resolves an external cache venv before any in-tree .venv.
   const runSh = path.join(engineDir, "run.sh");
-  const venvUvicorn = path.join(engineDir, ".venv", "bin", "uvicorn");
-
   if (fs.existsSync(runSh) && fs.statSync(runSh).isFile()) {
     return {
       command: runSh,
@@ -90,6 +122,22 @@ function resolveSpawnCommand(
       cwd: engineDir,
     };
   }
+  const external = externalVenvUvicorn();
+  if (external) {
+    return {
+      command: external,
+      args: [
+        "app.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        String(port),
+      ],
+      cwd: engineDir,
+    };
+  }
+  // Legacy in-tree venv (avoid when possible — Turbopack NFT panics on its symlinks).
+  const venvUvicorn = path.join(engineDir, ".venv", "bin", "uvicorn");
   if (fs.existsSync(venvUvicorn)) {
     return {
       command: venvUvicorn,
@@ -135,7 +183,7 @@ function spawnEngine(url: string): ChildProcess {
   const resolved = resolveSpawnCommand(engineDir, port);
   if (!resolved) {
     throw new Error(
-      `Diffusers engine not found under ${engineDir} (need run.sh or .venv/bin/uvicorn).`,
+      `Diffusers engine not found under ${engineDir} (need run.sh, DIFFUSERS_VENV, or cache venv).`,
     );
   }
 

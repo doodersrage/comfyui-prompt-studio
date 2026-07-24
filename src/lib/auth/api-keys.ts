@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
 
 export type UserApiKey = {
   id: string;
@@ -19,11 +20,7 @@ type ApiKeysDocument = {
 };
 
 function keysPath(): string {
-  const base =
-    process.env.PROMPT_AUTH_DIR?.trim() ||
-    process.env.PROMPT_DATA_DIR?.trim() ||
-    path.join(process.cwd(), ".prompt-studio-data");
-  const dir = path.join(base, "auth");
+  const dir = resolvePromptAuthDir();
   fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, "api-keys.json");
 }

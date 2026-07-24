@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
 import type { UserAnalyticsSnapshot } from "../user-analytics";
 
 type AnalyticsDocument = {
@@ -11,11 +12,7 @@ type AnalyticsDocument = {
 const MAX_HISTORY_PER_USER = 120;
 
 function analyticsPath(): string {
-  const base =
-    process.env.PROMPT_AUTH_DIR?.trim() ||
-    process.env.PROMPT_DATA_DIR?.trim() ||
-    path.join(process.cwd(), ".prompt-studio-data");
-  const dir = path.join(base, "auth");
+  const dir = resolvePromptAuthDir();
   fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, "analytics-snapshots.json");
 }
