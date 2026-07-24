@@ -1,0 +1,186 @@
+import {
+  getComfyUiAllowedHosts,
+  isComfyClientUrlAllowed,
+  normalizeSafeHttpUrl,
+} from "./url-safety";
+
+export const DEFAULT_DIFFUSERS_API_URL = "http://127.0.0.1:8190";
+
+function envDiffusersBaseUrl(): string {
+  return (
+    process.env.DIFFUSERS_API_URL?.trim() ||
+    process.env.NEXT_PUBLIC_DIFFUSERS_API_URL?.trim() ||
+    DEFAULT_DIFFUSERS_API_URL
+  );
+}
+
+/** Resolve Diffusers engine base URL (allowlisted, private hosts OK). */
+export function getDiffusersBaseUrl(clientUrl?: string): string {
+  const allowedHosts = getComfyUiAllowedHosts();
+  const trimmed = clientUrl?.trim();
+
+  if (trimmed && isComfyClientUrlAllowed()) {
+    return normalizeSafeHttpUrl(trimmed, {
+      allowPrivate: true,
+      allowedHosts,
+    });
+  }
+
+  return normalizeSafeHttpUrl(envDiffusersBaseUrl(), {
+    allowPrivate: true,
+    allowedHosts,
+  });
+}
+
+export type DiffusersTxt2ImgBody = {
+  prompt: string;
+  negative_prompt?: string;
+  model?: string;
+  width?: number;
+  height?: number;
+  steps?: number;
+  guidance_scale?: number;
+  seed?: number | null;
+  client_id?: string;
+};
+
+export type DiffusersQueueResult = {
+  ok: boolean;
+  promptId?: string;
+  engineUrl?: string;
+  error?: string;
+  status: number;
+  raw: Record<string, unknown>;
+};
+
+export async function queueDiffusersTxt2Img(
+  body: DiffusersTxt2ImgBody,
+  engineUrlHint?: string,
+): Promise<DiffusersQueueResult> {
+  let engineUrl: string;
+  try {
+    engineUrl = getDiffusersBaseUrl(engineUrlHint);
+  } catch (error) {
+    return {
+      ok: false,
+      status: 400,
+      error: error instanceof Error ? error.message : "Invalid Diffusers URL.",
+      raw: {},
+    };
+  }
+
+  try {
+    const response = await fetch(`${engineUrl}/v1/txt2img`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
+    });
+    const raw = (await response.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    if (!response.ok) {
+      const detail =
+        typeof raw.detail === "string"
+          ? raw.detail
+          : typeof raw.error === "string"
+            ? raw.error
+            : `Diffusers queue returned HTTP ${response.status}`;
+      return { ok: false, status: response.status, error: detail, raw, engineUrl };
+    }
+    const promptId =
+      typeof raw.prompt_id === "string" ? raw.prompt_id.trim() : undefined;
+    const returnedUrl =
+      typeof raw.engine_url === "string" ? raw.engine_url.trim() : engineUrl;
+    if (!promptId) {
+      return {
+        ok: false,
+        status: 502,
+        error: "Diffusers did not return prompt_id.",
+        raw,
+        engineUrl,
+      };
+    }
+    return {
+      ok: true,
+      status: response.status,
+      promptId,
+      engineUrl: returnedUrl || engineUrl,
+      raw,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 502,
+      error:
+        error instanceof Error ? error.message : "Diffusers queue request failed.",
+      raw: {},
+      engineUrl,
+    };
+  }
+}
+
+export type DiffusersJobStatus = {
+  promptId: string;
+  status: string;
+  statusMessage?: string;
+  engineUrl: string;
+  images?: Array<{
+    filename: string;
+    subfolder: string;
+    type: string;
+  }>;
+  progressValue?: number;
+  progressMax?: number;
+};
+
+export async function fetchDiffusersJobStatus(
+  promptId: string,
+  engineUrlHint?: string,
+): Promise<DiffusersJobStatus | null> {
+  let engineUrl: string;
+  try {
+    engineUrl = getDiffusersBaseUrl(engineUrlHint);
+  } catch {
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      `${engineUrl}/v1/jobs/${encodeURIComponent(promptId)}`,
+      { signal: AbortSignal.timeout(30_000) },
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const raw = (await response.json()) as Record<string, unknown>;
+    const progress =
+      raw.progress && typeof raw.progress === "object"
+        ? (raw.progress as { value?: unknown; max?: unknown })
+        : undefined;
+    const images = Array.isArray(raw.images)
+      ? (raw.images as Array<Record<string, unknown>>)
+          .filter((img) => typeof img.filename === "string")
+          .map((img) => ({
+            filename: String(img.filename),
+            subfolder: typeof img.subfolder === "string" ? img.subfolder : "",
+            type: typeof img.type === "string" ? img.type : "output",
+          }))
+      : undefined;
+
+    return {
+      promptId,
+      status: typeof raw.status === "string" ? raw.status : "unknown",
+      statusMessage:
+        typeof raw.status_message === "string" ? raw.status_message : undefined,
+      engineUrl,
+      images,
+      progressValue:
+        typeof progress?.value === "number" ? progress.value : undefined,
+      progressMax: typeof progress?.max === "number" ? progress.max : undefined,
+    };
+  } catch {
+    return null;
+  }
+}

@@ -128,6 +128,22 @@ export function getServerEnvSummary(): ServerEnvSummary {
           uiOverride: "Settings → ComfyUI → connection (browser override)",
         },
         {
+          key: "DIFFUSERS_API_URL",
+          label: "Default Diffusers URL",
+          value: process.env.DIFFUSERS_API_URL?.trim() || "http://127.0.0.1:8190",
+          configured: flag(process.env.DIFFUSERS_API_URL),
+          hint: "Proxied by /api/diffusers when Settings → Inference engine is Diffusers.",
+          uiOverride: "Settings → ComfyUI → Inference engine",
+        },
+        {
+          key: "PROMPT_ENGINE",
+          label: "Default inference engine",
+          value: process.env.PROMPT_ENGINE?.trim() || "comfyui",
+          configured: flag(process.env.PROMPT_ENGINE),
+          hint: "comfyui (default) or diffusers — browser Settings override wins.",
+          uiOverride: "Settings → ComfyUI → Inference engine",
+        },
+        {
           key: "COMFYUI_ROOT",
           label: "ComfyUI install root",
           value: flag(process.env.COMFYUI_ROOT)

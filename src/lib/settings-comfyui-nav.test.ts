@@ -51,4 +51,13 @@ describe("settings-comfyui-nav", () => {
       "/settings?tab=comfyui&section=auto-improve",
     );
   });
+
+  it("surfaces inference engine from diffusers keyword", () => {
+    const hits = filterComfyUiSettingsSections("diffusers");
+    assert.ok(hits.some((section) => section.id === "inference-engine"));
+    assert.equal(
+      settingsComfyUiSectionHref("inference-engine"),
+      "/settings?tab=comfyui&section=inference-engine",
+    );
+  });
 });

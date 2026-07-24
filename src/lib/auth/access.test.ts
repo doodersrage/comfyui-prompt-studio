@@ -12,6 +12,8 @@ describe("auth features", () => {
   it("maps gallery and comfyui api paths", () => {
     assert.equal(featureForPath("/gallery"), "gallery");
     assert.equal(featureForPath("/api/comfyui"), "comfyui-api");
+    assert.equal(featureForPath("/api/diffusers"), "comfyui-api");
+    assert.equal(featureForPath("/api/diffusers/status"), "comfyui-api");
   });
 });
 

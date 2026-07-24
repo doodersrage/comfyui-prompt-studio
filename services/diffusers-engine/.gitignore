@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+outputs/*
+!outputs/.gitkeep
+inputs/*
+!inputs/.gitkeep
+loras/*
+!loras/.gitkeep
+checkpoints/*
+!checkpoints/.gitkeep

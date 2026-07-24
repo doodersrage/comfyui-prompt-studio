@@ -61,8 +61,37 @@ flowchart LR
 | Draft / Final / Max (+ per-tool) | `src/lib/queue-quality-profile.ts`, `src/lib/tool-quality-profiles.ts` |
 | Plugin mutators | `src/lib/plugin-queue-hooks.ts` |
 | Gallery + progress | `src/lib/comfyui-gallery-client.ts`, `src/lib/comfyui-websocket.ts` |
+| Engine seam (queue / progress) | `src/lib/engine` → `getEngineAdapter()` |
 
-Related routes: `src/app/api/comfyui/{status,history,view,upload,interrupt,live,…}/`.
+Related routes: `src/app/api/comfyui/{status,history,view,upload,interrupt,live,…}/` and `src/app/api/diffusers/{,status,view,upload}/`.
+
+## Engine adapter
+
+Thin browser seam for **queue / status / view / upload / progress** so backends can plug in without rewriting gallery or prompt tools.
+
+| Piece | Path |
+|-------|------|
+| Interface | `src/lib/engine/types.ts` (`EngineAdapter`) |
+| Comfy implementation | `src/lib/engine/comfy-adapter.ts` |
+| Diffusers implementation | `src/lib/engine/diffusers-adapter.ts` |
+| Selection | `getEngineAdapter()` / `getEngineAdapterById()` in `src/lib/engine/index.ts` |
+| Settings | `inferenceEngine` + `diffusersApiUrl` (Settings → Inference engine) |
+| Python service | `services/diffusers-engine/` (FastAPI txt2img) |
+
+Methods: `postPrompt`, `fetchJobStatus`, `buildViewPath`, `uploadInputImage`, `subscribeProgress`, `openProgressBeforeQueue`.
+
+Backends today:
+
+- **`comfyui`** (default) — full workflow queue via `/api/comfyui/*`
+- **`diffusers`** — narrow txt2img via `/api/diffusers/*` → local FastAPI (`DIFFUSERS_API_URL`, default `http://127.0.0.1:8190`)
+
+Diffusers progress is **poll-backed** (no live latent WebSocket). Gallery entries store `comfyUrl` as the engine host and optional `engineId` so poll/view use the correct adapter after the user switches engines.
+
+**In scope of the seam:** engine I/O (queue a job, poll status, proxy pixels, upload inputs, live/poll progress).
+
+**Out of scope (stay studio-owned):** prompt drafting, quality profiles, LoRA stacking, workflow injection/optimize, gallery IndexedDB, interrupt / free / object-info.
+
+Consumers: gallery re-queue (`src/lib/comfyui-requeue.ts`), result-panel send/batch (`src/hooks/usePromptResultActions.ts`), gallery poll (`src/lib/comfyui-gallery-client.ts`).
 
 ## Auth and ACL
 
@@ -131,3 +160,4 @@ See `.env.example` for the full list. Groups that matter for architecture:
 | Why is a nav item missing? | `auth/features.ts` + user/group `blockedFeatures` |
 | Why did a plugin alter queue? | `plugin-queue-hooks.ts` + installed manifests |
 | Refine / vision blew up? | `vision-image-prepare.ts`, `llm-client.ts`, `/api/refine` |
+| Where does queue / progress hit the engine? | `src/lib/engine` (`getEngineAdapter`) — ComfyUI or Diffusers |

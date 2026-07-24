@@ -7,6 +7,7 @@ export type ComfyUiSettingsSectionId =
   | "lora-train"
   | "workflow-library"
   | "connection"
+  | "inference-engine"
   | "auto-improve"
   | "queue-params"
   | "prompt-quality"
@@ -21,6 +22,11 @@ export type ComfyUiSettingsSection = {
 };
 
 export const COMFYUI_SETTINGS_SECTIONS: ComfyUiSettingsSection[] = [
+  {
+    id: "inference-engine",
+    label: "Inference engine",
+    keywords: ["diffusers", "engine", "comfyui", "backend", "txt2img"],
+  },
   {
     id: "presets",
     label: "Browser presets",

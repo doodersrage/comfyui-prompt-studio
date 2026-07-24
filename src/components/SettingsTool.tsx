@@ -220,6 +220,7 @@ const COMFYUI_SECTION_ELEMENT_IDS: Record<ComfyUiSettingsSectionId, string> = {
   "lora-library": "settings-comfyui-lora-library",
   "lora-train": "settings-comfyui-lora-train",
   "workflow-library": "settings-comfyui-workflow-library",
+  "inference-engine": "settings-comfyui-inference-engine",
   connection: "settings-comfyui-connection",
   "auto-improve": "settings-comfyui-auto-improve",
   "queue-params": "settings-comfyui-queue-params",
@@ -1088,6 +1089,59 @@ export default function SettingsTool() {
         activeSection={comfyUiSection}
         onJump={handleComfyUiSectionJump}
       />
+      <ToolSection
+        id="settings-comfyui-inference-engine"
+        title="Inference engine"
+        description="Choose ComfyUI (full workflows) or Diffusers (narrow txt2img via the local FastAPI service)."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1">
+            <label htmlFor="inference-engine" className="text-xs text-zinc-400">
+              Active engine
+            </label>
+            <select
+              id="inference-engine"
+              value={sharedSettings.inferenceEngine === "diffusers" ? "diffusers" : "comfyui"}
+              onChange={(event) =>
+                updateSharedSettings({
+                  inferenceEngine:
+                    event.target.value === "diffusers" ? "diffusers" : "comfyui",
+                })
+              }
+              className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 shadow-inner transition focus-visible:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40"
+            >
+              <option value="comfyui">ComfyUI</option>
+              <option value="diffusers">Diffusers (txt2img)</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="diffusers-url" className="text-xs text-zinc-400">
+              Diffusers API URL
+            </label>
+            <input
+              id="diffusers-url"
+              value={sharedSettings.diffusersApiUrl ?? ""}
+              onChange={(event) =>
+                updateSharedSettings({ diffusersApiUrl: event.target.value })
+              }
+              placeholder="http://127.0.0.1:8190"
+              disabled={sharedSettings.inferenceEngine !== "diffusers"}
+              className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 shadow-inner transition focus-visible:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+        </div>
+        <p className="text-xs text-zinc-500">
+          Run{" "}
+          <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
+            services/diffusers-engine
+          </code>{" "}
+          locally (see its README). Server proxy uses{" "}
+          <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
+            DIFFUSERS_API_URL
+          </code>
+          .
+        </p>
+      </ToolSection>
       <SettingsBrowserPresetsPanel
         disabled={!sharedMounted || !mounted}
         onApply={(preset) => {

@@ -32,6 +32,8 @@ export type ComfyGalleryEntry = {
   /** Owner account when user auth is enabled. */
   userId?: string;
   comfyUrl: string;
+  /** Inference engine that produced this job (`comfyui` default). */
+  engineId?: import("./engine/types").EngineId;
   /** WebSocket client id used when queueing (for live latent previews). */
   clientId?: string;
   status: ComfyGalleryJobStatus;

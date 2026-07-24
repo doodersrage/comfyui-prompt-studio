@@ -102,6 +102,10 @@ export type SharedToolSettings = {
   systemWorkflowsLimitPicker?: boolean;
   /** Temporary override to show every model in the picker. */
   showAllModelsOverride?: boolean;
+  /** Active inference engine for queue / status / view (`comfyui` | `diffusers`). */
+  inferenceEngine?: import("./engine/types").EngineId;
+  /** Browser Diffusers engine URL (proxied via `/api/diffusers`). */
+  diffusersApiUrl?: string;
   /** Session LLM temperature override (0–2) sent with generation requests. */
   sessionLlmTemperature?: number;
   /** Session override for template fallback when LLM fails. */

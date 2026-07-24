@@ -1,13 +1,14 @@
 import type { ComfyOutputImage, ComfyOutputMediaKind } from "./comfyui-outputs";
 import {
-  buildComfyViewPath,
   buildComfyViewSrcSet,
   GALLERY_LIGHTBOX_WIDTH,
   GALLERY_LQIP_WIDTH,
   GALLERY_STRIP_THUMB_WIDTH,
+  GALLERY_THUMB_SRCSET_WIDTHS,
   GALLERY_THUMB_WIDTH,
   resolveComfyOutputMediaKind,
 } from "./comfyui-outputs";
+import { buildEngineViewPath } from "./engine/view-paths";
 import { filterBySemanticQuery } from "./semantic-search";
 import { orderGalleryBySimilarity } from "./gallery-similarity";
 import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
@@ -713,25 +714,35 @@ export function setComfyGalleryFavorites(ids: string[], favorite: boolean): void
   );
 }
 
+function galleryEntryBuildViewPath(
+  entry: ComfyGalleryEntry,
+  image: ComfyGalleryEntry["images"][number],
+  options?: { width?: number },
+): string {
+  return buildEngineViewPath(entry.engineId, entry.comfyUrl, image, options);
+}
+
 export function galleryEntryViewUrls(entry: ComfyGalleryEntry): string[] {
-  return entry.images.map((image) => buildComfyViewPath(entry.comfyUrl, image));
+  return entry.images.map((image) => galleryEntryBuildViewPath(entry, image));
 }
 
 export function galleryEntryThumbUrls(entry: ComfyGalleryEntry): string[] {
   return entry.images.map((image) =>
-    buildComfyViewPath(entry.comfyUrl, image, { width: GALLERY_THUMB_WIDTH }),
+    galleryEntryBuildViewPath(entry, image, { width: GALLERY_THUMB_WIDTH }),
   );
 }
 
 export function galleryEntryStripThumbUrls(entry: ComfyGalleryEntry): string[] {
   return entry.images.map((image) =>
-    buildComfyViewPath(entry.comfyUrl, image, { width: GALLERY_STRIP_THUMB_WIDTH }),
+    galleryEntryBuildViewPath(entry, image, {
+      width: GALLERY_STRIP_THUMB_WIDTH,
+    }),
   );
 }
 
 export function galleryEntryLightboxUrls(entry: ComfyGalleryEntry): string[] {
   return entry.images.map((image) =>
-    buildComfyViewPath(entry.comfyUrl, image, { width: GALLERY_LIGHTBOX_WIDTH }),
+    galleryEntryBuildViewPath(entry, image, { width: GALLERY_LIGHTBOX_WIDTH }),
   );
 }
 
@@ -747,6 +758,12 @@ export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string
   const image = entry.images[0];
   if (!image) {
     return null;
+  }
+  if (entry.engineId === "diffusers") {
+    return GALLERY_THUMB_SRCSET_WIDTHS.map(
+      (width) =>
+        `${galleryEntryBuildViewPath(entry, image, { width })} ${width}w`,
+    ).join(", ");
   }
   return buildComfyViewSrcSet(entry.comfyUrl, image);
 }
@@ -767,7 +784,7 @@ export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | n
   if (!image) {
     return null;
   }
-  return buildComfyViewPath(entry.comfyUrl, image, { width: GALLERY_LQIP_WIDTH });
+  return galleryEntryBuildViewPath(entry, image, { width: GALLERY_LQIP_WIDTH });
 }
 
 export type GalleryLightboxPlaylist = {

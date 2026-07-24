@@ -5,7 +5,7 @@ import {
   registerComfyGalleryJob,
 } from "./comfyui-gallery-client";
 import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import { postComfyUiPrompt } from "./comfyui-queue-request";
+import { getEngineAdapter } from "./engine";
 import { scheduleRefineAfterUpscaleComplete } from "./gallery-pending-actions";
 import {
   resolveWorkflowGraphEnrichOptions,
@@ -382,7 +382,7 @@ export async function requeueUpscaleFromGalleryEntry(
             : "Queueing Lanczos upscale…",
     );
 
-    const queued = await postComfyUiPrompt({
+    const queued = await getEngineAdapter().postPrompt({
       prompt: entry.prompt.trim() || "upscale",
       negativePrompt: entry.negativePrompt,
       model,
@@ -395,7 +395,7 @@ export async function requeueUpscaleFromGalleryEntry(
       return {
         ok: false,
         error: queued.error ?? "ComfyUI upscale queue failed.",
-        comfyUrl: queued.comfyUrl,
+        comfyUrl: queued.engineUrl,
       };
     }
 
@@ -405,7 +405,7 @@ export async function requeueUpscaleFromGalleryEntry(
       negativePrompt: entry.negativePrompt,
       tool: entry.tool,
       model: entry.model,
-      comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
       clientId: queued.clientId,
       queueParams: { inputImageFilename },
       sourceImageUrl: outputUrl,
@@ -418,7 +418,7 @@ export async function requeueUpscaleFromGalleryEntry(
       scheduleRefineAfterUpscaleComplete(queued.promptId, options.refineAfterComplete);
     }
     void scheduleComfyGalleryPoll(queued.promptId, {
-      comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
       clientId: queued.clientId,
       onStatus: options.onStatus,
     });
@@ -427,7 +427,7 @@ export async function requeueUpscaleFromGalleryEntry(
     return {
       ok: true,
       promptId: queued.promptId,
-      comfyUrl: queued.comfyUrl ?? entry.comfyUrl,
+      comfyUrl: queued.engineUrl ?? entry.comfyUrl,
       vramDowngraded,
     };
   };
@@ -519,7 +519,7 @@ export async function requeueMoireCleanFromGalleryEntry(
       : "Queueing moiré clean (Final: soft blur only)…",
   );
 
-  const queued = await postComfyUiPrompt({
+  const queued = await getEngineAdapter().postPrompt({
     prompt: entry.prompt.trim() || "moire clean",
     negativePrompt: entry.negativePrompt,
     model,
@@ -532,7 +532,7 @@ export async function requeueMoireCleanFromGalleryEntry(
     return {
       ok: false,
       error: queued.error ?? "ComfyUI moiré-clean queue failed.",
-      comfyUrl: queued.comfyUrl,
+      comfyUrl: queued.engineUrl,
     };
   }
 
@@ -542,7 +542,7 @@ export async function requeueMoireCleanFromGalleryEntry(
     negativePrompt: entry.negativePrompt,
     tool: entry.tool,
     model: entry.model,
-    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
     clientId: queued.clientId,
     queueParams: { inputImageFilename },
     sourceImageUrl: outputUrl,
@@ -552,7 +552,7 @@ export async function requeueMoireCleanFromGalleryEntry(
     historyId: entry.historyId,
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
-    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
     clientId: queued.clientId,
     onStatus: options?.onStatus,
   });
@@ -561,7 +561,7 @@ export async function requeueMoireCleanFromGalleryEntry(
   return {
     ok: true,
     promptId: queued.promptId,
-    comfyUrl: queued.comfyUrl ?? entry.comfyUrl,
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl,
     vramDowngraded: resolved.vramDowngraded,
   };
 }
@@ -666,7 +666,7 @@ export async function requeueRefineFromGalleryEntry(
 
   const refineNegative = appendPortraitRefineNegative(entry.negativePrompt, entry.prompt);
 
-  const queued = await postComfyUiPrompt({
+  const queued = await getEngineAdapter().postPrompt({
     prompt: entry.prompt.trim() || (mode === "soft" ? "soft-pass" : "refine"),
     negativePrompt: refineNegative,
     model,
@@ -679,7 +679,7 @@ export async function requeueRefineFromGalleryEntry(
     return {
       ok: false,
       error: queued.error ?? "ComfyUI refine queue failed.",
-      comfyUrl: queued.comfyUrl,
+      comfyUrl: queued.engineUrl,
     };
   }
 
@@ -689,7 +689,7 @@ export async function requeueRefineFromGalleryEntry(
     negativePrompt: entry.negativePrompt,
     tool: "refine",
     model: entry.model,
-    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
     clientId: queued.clientId,
     queueParams: params,
     sourceImageUrl: outputUrl,
@@ -698,7 +698,7 @@ export async function requeueRefineFromGalleryEntry(
     derivedKind: mode === "soft" ? "soft-pass" : "refine",
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
-    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
     clientId: queued.clientId,
     onStatus: options?.onStatus,
   });
@@ -707,7 +707,7 @@ export async function requeueRefineFromGalleryEntry(
   return {
     ok: true,
     promptId: queued.promptId,
-    comfyUrl: queued.comfyUrl ?? entry.comfyUrl,
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl,
     vramDowngraded: resolved.vramDowngraded,
   };
 }
@@ -826,7 +826,7 @@ export async function requeueFaceDetailFromGalleryEntry(
       : "Queueing auto FaceDetailer graph…",
   );
 
-  const queued = await postComfyUiPrompt({
+  const queued = await getEngineAdapter().postPrompt({
     prompt: entry.prompt.trim() || "face detail",
     negativePrompt: entry.negativePrompt,
     model,
@@ -839,7 +839,7 @@ export async function requeueFaceDetailFromGalleryEntry(
     return {
       ok: false,
       error: queued.error ?? "ComfyUI face-detail queue failed.",
-      comfyUrl: queued.comfyUrl,
+      comfyUrl: queued.engineUrl,
     };
   }
 
@@ -849,7 +849,7 @@ export async function requeueFaceDetailFromGalleryEntry(
     negativePrompt: entry.negativePrompt,
     tool: entry.tool,
     model: entry.model,
-    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
     clientId: queued.clientId,
     queueParams: faceDetailParams,
     sourceImageUrl: outputUrl,
@@ -859,7 +859,7 @@ export async function requeueFaceDetailFromGalleryEntry(
     historyId: entry.historyId,
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
-    comfyUrl: queued.comfyUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
     clientId: queued.clientId,
     onStatus: options?.onStatus,
   });
@@ -868,7 +868,7 @@ export async function requeueFaceDetailFromGalleryEntry(
   return {
     ok: true,
     promptId: queued.promptId,
-    comfyUrl: queued.comfyUrl ?? entry.comfyUrl,
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl,
   };
 }
 
@@ -1208,7 +1208,7 @@ export async function requeueComfyJob(
       }
     : comfyRuntime;
 
-  const queued = await postComfyUiPrompt({
+  const queued = await getEngineAdapter().postPrompt({
     prompt: input.prompt.trim(),
     negativePrompt,
     model,
@@ -1221,7 +1221,7 @@ export async function requeueComfyJob(
     return {
       ok: false,
       error: queued.error ?? "ComfyUI queue failed.",
-      comfyUrl: queued.comfyUrl,
+      comfyUrl: queued.engineUrl,
     };
   }
 
@@ -1231,7 +1231,7 @@ export async function requeueComfyJob(
     negativePrompt,
     tool: input.tool,
     model: input.model,
-    comfyUrl: queued.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? "http://127.0.0.1:8188",
     clientId: queued.clientId,
     queueParams: params,
     sourceImageUrl: input.sourceImageUrl,
@@ -1242,7 +1242,7 @@ export async function requeueComfyJob(
     derivedKind: input.derivedKind,
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
-    comfyUrl: queued.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? "http://127.0.0.1:8188",
     clientId: queued.clientId,
     onStatus: input.onStatus,
   });
@@ -1258,7 +1258,7 @@ export async function requeueComfyJob(
   return {
     ok: true,
     promptId: queued.promptId,
-    comfyUrl: queued.comfyUrl,
+    comfyUrl: queued.engineUrl,
     vramDowngraded: vramGuard.downgraded,
   };
 }

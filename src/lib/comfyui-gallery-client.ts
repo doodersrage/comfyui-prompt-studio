@@ -15,10 +15,8 @@ import { notifyComfyJobComplete } from "./comfyui-notifications";
 import { resolveComfyUiRuntime } from "./comfyui-runtime";
 import { loadComfyUiSettings } from "./comfyui-settings";
 import { clearComfyLivePreviewUrl } from "./comfyui-live-preview-store";
-import {
-  subscribeComfyUiWebSocket,
-  type ComfyUiWebSocketSubscription,
-} from "./comfyui-websocket";
+import { getEngineAdapter, getEngineAdapterById } from "./engine";
+import type { EngineProgressSubscription } from "./engine";
 import { dispatchWebhook } from "./webhook-settings";
 import { noteScheduledBatchJobComplete } from "./scheduled-batch-tracker";
 import { noteJobCompletionEmail } from "./job-completion-email";
@@ -50,6 +48,8 @@ export type RegisterComfyGalleryJobInput = {
   sessionActiveLoraIds?: string[];
   projectId?: string;
   comfyUrl: string;
+  /** Inference engine for this job (defaults to active adapter). */
+  engineId?: ComfyGalleryEntry["engineId"];
   clientId?: string;
 };
 
@@ -117,6 +117,7 @@ export function registerComfyGalleryJob(
     sessionActiveLoraIds: input.sessionActiveLoraIds,
     projectId: input.projectId,
     comfyUrl: input.comfyUrl,
+    engineId: input.engineId ?? getEngineAdapter().id,
     clientId: input.clientId,
     status: "pending",
     statusMessage: "Queued",
@@ -435,13 +436,19 @@ export async function pollComfyGalleryJob(
   onStatus?: (message: string) => void,
   options?: PollComfyGalleryJobOptions,
 ): Promise<ComfyGalleryEntry | null> {
+  const galleryEntry = loadComfyGallery().find(
+    (entry) => entry.promptId === promptId,
+  );
+  const engine = getEngineAdapterById(
+    galleryEntry?.engineId ?? getEngineAdapter().id,
+  );
   const comfyUrl = resolveComfyUrlForJob(promptId, options?.comfyUrl);
   const maxAttempts = options?.maxAttempts ?? DEFAULT_MAX_POLL_ATTEMPTS;
   const intervalMs = options?.intervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const onJobUpdate = options?.onJobUpdate;
   const settings = loadComfyUiSettings();
   let wsFinished = false;
-  let wsSubscription: ComfyUiWebSocketSubscription | undefined;
+  let wsSubscription: EngineProgressSubscription | undefined;
   let lastProgressWriteAt = 0;
   let trailingProgressTimer: number | null = null;
   let latestProgress: {
@@ -506,9 +513,9 @@ export async function pollComfyGalleryJob(
       loadComfyGallery()
         .find((entry) => entry.promptId === promptId)
         ?.clientId?.trim();
-    wsSubscription = subscribeComfyUiWebSocket({
+    wsSubscription = engine.subscribeProgress({
       // Live bridge resolves Comfy server-side; pass entry URL only as a hint.
-      comfyUrl,
+      engineUrl: comfyUrl,
       promptId,
       clientId,
       onProgress: (progress) => {
@@ -585,10 +592,20 @@ export async function pollComfyGalleryJob(
       }
 
       try {
-        const status = await fetchComfyJobStatus(promptId, comfyUrl);
-        if (!status) {
+        const engineStatus = await engine.fetchJobStatus(promptId, comfyUrl);
+        if (!engineStatus) {
           continue;
         }
+
+        const status = {
+          status: engineStatus.status,
+          statusMessage: engineStatus.statusMessage,
+          comfyUrl: engineStatus.engineUrl || comfyUrl,
+          queuePosition: engineStatus.queuePosition,
+          images: engineStatus.images,
+          renderDurationMs: engineStatus.renderDurationMs,
+          executionStartedAt: engineStatus.executionStartedAt,
+        };
 
         const entry = applyComfyJobStatus(
           promptId,
