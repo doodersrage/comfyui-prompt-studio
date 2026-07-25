@@ -52,6 +52,20 @@ export const WAN_LIGHTNING_ARTIFACT_NEGATIVE =
 export const WAN_LIGHTNING_ARTIFACT_POSITIVE =
   "stable identity, consistent limb count, coherent hands, temporal continuity";
 
+/**
+ * Short CFG-1 photo cues for Qwen Image Lightning — long realism suffixes soften
+ * distilled stacks, but a compact photograph / anti-illustration pack helps
+ * pull 8-step Max away from a drawn look.
+ */
+export const QWEN_LIGHTNING_PHOTO_POSITIVE =
+  "natural photograph, realistic skin texture, soft natural light, lifelike materials";
+
+export const QWEN_LIGHTNING_PHOTO_NEGATIVE =
+  "illustration, drawing, cartoon, anime, painting, CGI, plastic skin, airbrushed, painterly";
+
+export const QWEN_LIGHTNING_HYPER_PHOTO_POSITIVE =
+  "natural photograph, lifelike skin pores, camera realism, soft natural light";
+
 function appendUniqueCsv(base: string | undefined, extra: string): string {
   const existing = base?.trim() ?? "";
   if (!existing) {
@@ -79,14 +93,26 @@ export function applyQueuePromptSteering(input: {
   const anatomyMode = input.anatomyMode ?? loadAnatomyGuardMode();
 
   if (isQwenLightningModel(input.model)) {
-    // CFG-1: skip long realism/anatomy positive suffixes — they soften distilled stacks.
+    // CFG-1: skip long realism/anatomy suffixes — keep a short photo pack instead.
     const explicit = input.negative?.trim();
+    const shortExplicit =
+      explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS
+        ? explicit
+        : undefined;
+    if (realismMode === "realistic" || realismMode === "hyper-realistic") {
+      return {
+        positive: appendUniqueCsv(
+          input.positive,
+          realismMode === "hyper-realistic"
+            ? QWEN_LIGHTNING_HYPER_PHOTO_POSITIVE
+            : QWEN_LIGHTNING_PHOTO_POSITIVE,
+        ),
+        negative: appendUniqueCsv(shortExplicit, QWEN_LIGHTNING_PHOTO_NEGATIVE),
+      };
+    }
     return {
       positive: input.positive,
-      negative:
-        explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS
-          ? explicit
-          : undefined,
+      negative: shortExplicit,
     };
   }
 

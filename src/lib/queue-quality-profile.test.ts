@@ -194,11 +194,11 @@ describe("queue-quality-profile", () => {
     assert.equal(upscaleScaleForProfile("max"), 1.5);
     assert.equal(
       upscaleScaleForProfile("final", { model: "qwen-image-2512-lightning-8" }),
-      1.18,
+      1.08,
     );
     assert.equal(
       upscaleScaleForProfile("max", { model: "qwen-image-2512-lightning-8" }),
-      1.28,
+      1.12,
     );
     assert.equal(
       upscaleMethodForProfile("max", { model: "qwen-image-2512-lightning-8" }),

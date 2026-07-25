@@ -512,9 +512,10 @@ export function upscaleScaleForProfile(
   ) {
     return mode === "max" ? 1.08 : 1.05;
   }
-  // Other Lightning (T2I 2512, etc.): soft Lanczos on a clean native generate.
+  // Other Lightning (T2I 2512, etc.): gentle Lanczos only — keep finals near-native
+  // so Max does not balloon past ~1.5k on a 1328 canvas.
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
-    return mode === "max" ? 1.28 : 1.18;
+    return mode === "max" ? 1.12 : 1.08;
   }
   // Vanilla Qwen: keep Max at Final-scale Lanczos (~1.25×) for safer chroma.
   if (

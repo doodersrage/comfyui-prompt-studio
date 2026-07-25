@@ -33,13 +33,28 @@ describe("queue-prompt-prep Rapid AIO / Lightning", () => {
     assert.match(result.negative ?? "", /moire|moiré/i);
   });
 
-  it("skips realism/anatomy positives on Lightning CFG-1", () => {
+  it("applies a short photo pack on Lightning CFG-1 without long realism suffixes", () => {
     const result = applyQueuePromptSteering({
       positive: "a cyclist on a mountain trail",
       negative: "blurry",
       model: "qwen-image-2512-lightning-8",
       realismMode: "realistic",
       anatomyMode: "standard",
+    });
+    assert.match(result.positive ?? "", /a cyclist on a mountain trail/);
+    assert.match(result.positive ?? "", /natural photograph|realistic skin texture/i);
+    assert.equal(/anatomically|cinematic depth of field/i.test(result.positive ?? ""), false);
+    assert.match(result.negative ?? "", /blurry/);
+    assert.match(result.negative ?? "", /illustration|drawing|painterly/i);
+  });
+
+  it("skips the Lightning photo pack when realism mode is off", () => {
+    const result = applyQueuePromptSteering({
+      positive: "a cyclist on a mountain trail",
+      negative: "blurry",
+      model: "qwen-image-2512-lightning-8",
+      realismMode: "off",
+      anatomyMode: "off",
     });
     assert.equal(result.positive, "a cyclist on a mountain trail");
     assert.equal(result.negative, "blurry");
