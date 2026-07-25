@@ -23,6 +23,20 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /\{\{FLUX_MAX_SHIFT\}\}/);
     assert.match(result.json, /\{\{POSITIVE\}\}/);
     assert.match(result.json, /\{\{WIDTH\}\}/);
+    assert.doesNotMatch(result.json, /VAEEncode/);
+  });
+
+  it("builds Klein Compose scaffold as ReferenceLatent instruction edit", () => {
+    const result = buildWorkflowScaffoldForModel("flux-2-klein-9b-distilled", undefined, {
+      tool: "compose",
+    });
+    assert.equal(result.category, "flux");
+    assert.match(result.json, /LoadImage/);
+    assert.match(result.json, /VAEEncode/);
+    assert.match(result.json, /ReferenceLatent/);
+    assert.match(result.json, /EmptyFlux2LatentImage/);
+    assert.match(result.json, /ModelSamplingFlux/);
+    assert.match(result.notes.join(" "), /ReferenceLatent/i);
   });
 
   it("builds flux-dev scaffold with clip_l + t5xxl DualCLIP", () => {

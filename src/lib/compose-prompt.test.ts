@@ -248,4 +248,15 @@ describe("compose instruction builder", () => {
     assert.match(built, /Keep unchanged: face/);
     assert.match(built, /Replace with: rainy alley/);
   });
+
+  it("prefixes Klein Modify with preserve-composition guidance", () => {
+    const built = buildComposeInstruction({
+      mode: "modify",
+      instruction: "warmer golden-hour light",
+      figureCount: 1,
+      model: "flux-2-klein-9b-distilled",
+    });
+    assert.match(built, /Keep the subject/i);
+    assert.match(built, /warmer golden-hour light/);
+  });
 });

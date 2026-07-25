@@ -1,4 +1,5 @@
 import { getDiffusersBaseUrl } from "@/lib/diffusers-client";
+import { parseEngineUploadRequest } from "@/lib/engine-upload-parse";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 
 export const runtime = "nodejs";
@@ -9,16 +10,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const incoming = await request.formData();
-    const image = incoming.get("image");
-    if (!(image instanceof File) || image.size === 0) {
-      return apiError("Image file is required.", 400);
-    }
+    const incoming = await parseEngineUploadRequest(request);
+    const image = incoming.file;
 
-    const engineUrlHint =
-      incoming.get("engineUrl")?.toString() ||
-      incoming.get("comfyUrl")?.toString() ||
-      undefined;
+    const engineUrlHint = incoming.engineUrl || incoming.comfyUrl || undefined;
 
     let engineUrl: string;
     try {
@@ -62,9 +57,14 @@ export async function POST(request: Request) {
       comfyUrl: engineUrl,
     });
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Diffusers upload failed.",
-      502,
-    );
+    const message =
+      error instanceof Error ? error.message : "Diffusers upload failed.";
+    const status =
+      /required|must be|could not read|upload must|too large|25mb|invalid/i.test(
+        message,
+      )
+        ? 400
+        : 502;
+    return apiError(message, status);
   }
 }

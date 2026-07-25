@@ -44,6 +44,7 @@ import {
 import {
   isEditCapableModel,
   isEditQueueTool,
+  isFluxKleinModel,
   isQwenRapidAioModel,
 } from "./model-denoise-defaults";
 import { maybeRewriteRapidAioWorkflowLoaders } from "./workflow-rapid-aio-checkpoint";
@@ -73,6 +74,7 @@ import {
   formatPackLoaderMisses,
   inspectPackLoadersInInventory,
   looksLikeEditPackGraph,
+  looksLikeImg2imgPackGraph,
   looksLikeMultiRefEditPackGraph,
   packInventoryFitness,
   packLoadersAvailableInInventory,
@@ -98,6 +100,7 @@ export {
   formatPackLoaderMisses,
   inspectPackLoadersInInventory,
   looksLikeEditPackGraph,
+  looksLikeImg2imgPackGraph,
   looksLikeMultiRefEditPackGraph,
   packInventoryFitness,
   packLoadersAvailableInInventory,
@@ -201,10 +204,6 @@ function looksLikeVideoPackGraph(workflowJson: string): boolean {
   return /WanImageToVideo|HunyuanImageToVideo|EmptyLTXVLatentVideo|LTXVConditioning|WanVideo|HunyuanVideoTextEncode|LTXVImgToVideo|LTXVScheduler|LTXVAddGuide|EmptyHunyuanLatentVideo/.test(
     workflowJson,
   );
-}
-
-function isFluxKleinModel(model: ComfyImageModel | string): boolean {
-  return /flux-2-klein/i.test(String(model));
 }
 
 function isLtxVideoModel(model: ComfyImageModel | string): boolean {
@@ -567,6 +566,36 @@ export function pickPackWorkflowForModel(
     if (pickOptions.tool === "compose") {
       return null;
     }
+  }
+  // Klein Compose must use ReferenceLatent / VAEEncode edit graphs — never a
+  // plain T2I pack (no reference conditioning).
+  if (pickOptions.tool === "compose" && isFluxKleinModel(model)) {
+    const img2img = candidates.filter((entry) =>
+      looksLikeImg2imgPackGraph(entry.file.workflowJson ?? ""),
+    );
+    if (img2img.length === 0) {
+      return null;
+    }
+    if (inventory) {
+      const byFitness = [...img2img].sort((a, b) => {
+        const fitA = packInventoryFitness(
+          a.file.workflowJson ?? "",
+          inventory,
+          model,
+        );
+        const fitB = packInventoryFitness(
+          b.file.workflowJson ?? "",
+          inventory,
+          model,
+        );
+        if (fitB !== fitA) {
+          return fitB - fitA;
+        }
+        return b.score - a.score;
+      });
+      return byFitness[0] ?? null;
+    }
+    return img2img[0] ?? null;
   }
   if (pickOptions.preferEdit) {
     const edit = candidates.find((entry) =>
@@ -1065,21 +1094,29 @@ function resolvePreferEdit(
   return isEditCapableModel(model) && editSourceImageConfigured();
 }
 
-function resolvePreferMultiRef(options?: PickPackOptions): boolean {
+function resolvePreferMultiRef(
+  model: ComfyImageModel,
+  options?: PickPackOptions,
+): boolean {
   if (options?.preferMultiRef != null) {
     return options.preferMultiRef;
+  }
+  // Klein Compose uses img2img + IP-Adapter — not Qwen multi-ref encode packs.
+  if (isFluxKleinModel(model)) {
+    return false;
   }
   return options?.tool === "compose";
 }
 
-function resolvePickPackOptions(
+/** Resolved pack-pick flags for a model/tool (exported for tests). */
+export function resolvePickPackOptions(
   model: ComfyImageModel,
   options?: PickPackOptions,
 ): PickPackOptions {
   return {
     preferI2v: resolvePreferI2v(model, options),
     preferEdit: resolvePreferEdit(model, options),
-    preferMultiRef: resolvePreferMultiRef(options),
+    preferMultiRef: resolvePreferMultiRef(model, options),
     tool: options?.tool,
   };
 }
@@ -1346,7 +1383,9 @@ export function resolveSystemWorkflowForModel(
     }
   }
 
-  const scaffold = buildWorkflowScaffoldForModel(model);
+  const scaffold = buildWorkflowScaffoldForModel(model, undefined, {
+    tool: pickOptions.tool,
+  });
   const bound = softBindScaffoldFromInventory(scaffold.json, model, models);
   const customTokens: CustomWorkflowToken[] = [];
   if (bound.lightningLora) {

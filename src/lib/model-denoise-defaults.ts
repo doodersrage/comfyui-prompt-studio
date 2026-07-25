@@ -8,6 +8,12 @@ export const DEFAULT_EDIT_DENOISE = 0.65;
 
 export const DEFAULT_INPAINT_DENOISE = 0.75;
 
+/**
+ * FLUX.2 Klein instruction edit uses ReferenceLatent + EmptyFlux2Latent at
+ * denoise 1 (official Comfy path). Soft img2img denoise is the wrong mechanism.
+ */
+export const DEFAULT_KLEIN_EDIT_DENOISE = 1;
+
 const EDIT_TOOLS = new Set([
   "refine",
   "image-prompt",
@@ -85,16 +91,22 @@ export function isQwenEditModel(model: ComfyImageModel | string): boolean {
   return /qwen.*edit|qwen-rapid-aio-edit/i.test(String(model));
 }
 
+/** FLUX.2 Klein family (4B/9B base + distilled) — Compose uses img2img + IP-Adapter. */
+export function isFluxKleinModel(model: ComfyImageModel | string | null | undefined): boolean {
+  return /flux-2-klein/i.test(String(model ?? ""));
+}
+
 /**
- * Multi-ref Compose / Transfer — Qwen Edit only (image1–4 encode path).
- * Excludes FLUX inpaint and other single-mask edit models.
- * Rapid AIO Edit is included; Rapid AIO SFW/NSFW are T2I-first — use Edit for Compose.
+ * Multi-ref Compose / Transfer — Qwen Edit (image1–4 encode) or FLUX.2 Klein
+ * (Figure 1 img2img + Figures 2–4 via IP-Adapter). Excludes FLUX inpaint and
+ * other single-mask edit models. Rapid AIO Edit is included; Rapid AIO SFW/NSFW
+ * are T2I-first — use Edit for Compose.
  */
 export function isComposeCapableModel(model: ComfyImageModel | string | null | undefined): boolean {
   if (!model?.toString().trim()) {
     return false;
   }
-  return isQwenEditModel(model);
+  return isQwenEditModel(model) || isFluxKleinModel(model);
 }
 
 export function isInpaintModel(model: ComfyImageModel | string): boolean {
@@ -106,6 +118,53 @@ export function isInpaintModel(model: ComfyImageModel | string): boolean {
 
 export function isEditQueueTool(tool?: string): boolean {
   return Boolean(tool && EDIT_TOOLS.has(tool));
+}
+
+/** True when Klein Compose/Refine should use ReferenceLatent edit (denoise 1). */
+export function isKleinReferenceLatentEditContext(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+  },
+): boolean {
+  if (!isFluxKleinModel(model) || options?.hasMaskImage || isInpaintModel(model)) {
+    return false;
+  }
+  return (
+    options?.tool === "compose" ||
+    options?.tool === "refine" ||
+    options?.tool === "image-prompt" ||
+    (Boolean(options?.hasInputImage) &&
+      options?.tool != null &&
+      EDIT_TOOLS.has(options.tool))
+  );
+}
+
+/** @deprecated Soft img2img is not used for Klein — kept for call-site compat. */
+export function isKleinImg2imgEditContext(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+  },
+): boolean {
+  return isKleinReferenceLatentEditContext(model, options);
+}
+
+/** Distilled Klein stays CFG 1 on the ReferenceLatent edit path. */
+export function resolveKleinEditCfg(
+  _model: ComfyImageModel | string,
+  _options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+    currentCfg?: number;
+  },
+): number | undefined {
+  return undefined;
 }
 
 /**
@@ -148,6 +207,11 @@ export function resolveDenoiseForModel(
   // the whole latent (0.65 mush). Soft denoise only for true edit tools / masks.
   if (options?.tool === "generate" && !options?.hasMaskImage && !isInpaintModel(model)) {
     return 1;
+  }
+
+  // Klein Compose/Refine — ReferenceLatent + EmptyFlux2Latent (ignore soft edit denoise).
+  if (isKleinReferenceLatentEditContext(model, options)) {
+    return DEFAULT_KLEIN_EDIT_DENOISE;
   }
 
   if (options?.override != null && options.override.toString().trim() !== "") {

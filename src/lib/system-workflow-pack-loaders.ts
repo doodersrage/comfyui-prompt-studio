@@ -384,6 +384,11 @@ export function looksLikeEditPackGraph(workflowJson: string): boolean {
   return EDIT_PACK_GRAPH_PATTERN.test(workflowJson);
 }
 
+/** True img2img / Klein ReferenceLatent edit graphs (not plain T2I). */
+export function looksLikeImg2imgPackGraph(workflowJson: string): boolean {
+  return /VAEEncode|InpaintModelConditioning|ReferenceLatent/.test(workflowJson);
+}
+
 /** Multi-ref Compose: Qwen edit encode + at least two LoadImage nodes (or Figure/Image 2). */
 export function looksLikeMultiRefEditPackGraph(workflowJson: string): boolean {
   if (!QWEN_EDIT_ENCODE_PATTERN.test(workflowJson)) {

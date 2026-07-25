@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
   outputFileTracingExcludes: {
     "*": ["./services/**/.venv/**", "./services/diffusers-engine/.venv/**"],
   },
+  // Compose/Refine figure uploads (compressed) + occasional JSON data-URL fallback.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "32mb",
+    },
+  },
   compiler: {
     removeConsole:
       process.env.NODE_ENV === "production"

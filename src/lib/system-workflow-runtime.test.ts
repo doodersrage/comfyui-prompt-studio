@@ -9,6 +9,7 @@ import {
   isSystemWorkflowSupportedModel,
   listSystemWorkflowSupportedModels,
   pickPackWorkflowForModel,
+  resolvePickPackOptions,
   resolveSystemLoaderMaps,
   resolveSystemWorkflowFallbackModel,
   resolveSystemWorkflowForModel,
@@ -292,7 +293,7 @@ describe("system-workflow-runtime", () => {
 
   it("soft-binds Klein CLIPLoader type flux2 (not Dev clip_l/t5)", () => {
     const scaffold = buildWorkflowScaffoldForModel("flux-2-klein-9b-distilled");
-    assert.match(scaffold.json, /qwen_3_8b_fp8mixed/);
+    // Distilled scaffold may seed a Klein dualCLIP hint; soft-bind prefers Qwen3-8B from inventory.
     assert.match(scaffold.json, /"type": "flux2"/);
     assert.doesNotMatch(scaffold.json, /DualCLIPLoader/);
     assert.doesNotMatch(scaffold.json, /clip_l\.safetensors/);
@@ -534,6 +535,42 @@ describe("system-workflow-runtime", () => {
         preferEdit: true,
       })?.file.id,
       "qwen-edit",
+    );
+  });
+
+  it("disables preferMultiRef for Klein Compose (img2img + IP-Adapter)", () => {
+    const qwenCompose = resolvePickPackOptions("qwen-image-edit-2511", {
+      tool: "compose",
+    });
+    assert.equal(qwenCompose.preferMultiRef, true);
+    assert.equal(qwenCompose.preferEdit, true);
+
+    const kleinCompose = resolvePickPackOptions("flux-2-klein-9b-distilled", {
+      tool: "compose",
+    });
+    assert.equal(kleinCompose.preferMultiRef, false);
+    assert.equal(kleinCompose.preferEdit, true);
+  });
+
+  it("skips T2I packs for Klein Compose so scaffold/img2img wins", () => {
+    const t2i = fakeWorkflow({
+      id: "klein-t2i",
+      name: "flux-2-klein-9b distilled t2i",
+      filename: "klein_t2i.json",
+      workflowJson: buildWorkflowScaffoldForModel("flux-2-klein-9b-distilled").json,
+    });
+    const inventory = {
+      ...emptyInventory,
+      unets: ["flux-2-klein-9b-distilled.safetensors"],
+      clips: ["qwen_3_8b_fp8mixed.safetensors"],
+      vaes: ["flux2-vae.safetensors"],
+    };
+    assert.equal(
+      pickPackWorkflowForModel("flux-2-klein-9b-distilled", [t2i], inventory, {
+        tool: "compose",
+        preferEdit: true,
+      }),
+      null,
     );
   });
 

@@ -17,7 +17,10 @@ import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import type { ComfyImageModel } from "@/lib/comfy-models/client";
 import type { WorkflowParamValues } from "@/lib/comfyui-config";
 import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import { isComposeCapableModel } from "@/lib/model-denoise-defaults";
+import {
+  isComposeCapableModel,
+  isFluxKleinModel,
+} from "@/lib/model-denoise-defaults";
 import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
 import {
   buildComposeInstruction,
@@ -145,8 +148,9 @@ export default function ComposeTool() {
         mode,
         instruction,
         figureCount: Math.max(filledCount, mode === "transfer" ? 2 : 1),
+        model: shared.model,
       }),
-    [filledCount, instruction, mode],
+    [filledCount, instruction, mode, shared.model],
   );
 
   useEffect(() => {
@@ -466,6 +470,13 @@ export default function ComposeTool() {
             );
           })}
         </div>
+        {isFluxKleinModel(shared.model) ? (
+          <p className="text-xs leading-relaxed text-zinc-500">
+            Klein: instruction edit via ReferenceLatent (official path). Write
+            direct edit commands — e.g. “Replace the background with a rainy
+            neon alley. Keep the subject’s pose and framing.”
+          </p>
+        ) : null}
 
         <div className="space-y-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] px-3.5 py-3 shadow-[0_0_28px_-18px_rgba(34,211,238,0.4)]">
           <div className="flex flex-wrap items-start justify-between gap-3">

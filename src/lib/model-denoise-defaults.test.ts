@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  isComposeCapableModel,
   isEditCapableModel,
+  isFluxKleinModel,
   isQwenEditModel,
   resolveDenoiseForModel,
 } from "./model-denoise-defaults.ts";
@@ -22,10 +24,57 @@ describe("model denoise defaults", () => {
     assert.equal(isQwenEditModel("qwen-image-2512"), false);
   });
 
+  it("lists Qwen Edit and FLUX.2 Klein as Compose-capable", () => {
+    assert.equal(isComposeCapableModel("qwen-image-edit-2511"), true);
+    assert.equal(isComposeCapableModel("qwen-rapid-aio-edit"), true);
+    for (const id of [
+      "flux-2-klein",
+      "flux-2-klein-4b-distilled",
+      "flux-2-klein-9b",
+      "flux-2-klein-9b-distilled",
+    ] as const) {
+      assert.equal(isFluxKleinModel(id), true);
+      assert.equal(isComposeCapableModel(id), true);
+    }
+    assert.equal(isComposeCapableModel("flux-dev"), false);
+    assert.equal(isComposeCapableModel("flux-inpaint"), false);
+    assert.equal(isComposeCapableModel("qwen-image-2512"), false);
+  });
+
   it("returns edit denoise when an input image is present", () => {
     assert.equal(
       resolveDenoiseForModel("qwen-image-2512", { hasInputImage: true }),
       0.65,
+    );
+  });
+
+  it("uses denoise 1 for Klein Compose ReferenceLatent edits", () => {
+    assert.equal(
+      resolveDenoiseForModel("flux-2-klein-9b", {
+        tool: "compose",
+        hasInputImage: true,
+      }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("flux-2-klein-9b-distilled", {
+        tool: "compose",
+        hasInputImage: true,
+        override: 0.65,
+      }),
+      1,
+    );
+  });
+
+  it("does not bump distilled Klein CFG on ReferenceLatent edit path", async () => {
+    const { resolveKleinEditCfg } = await import("./model-denoise-defaults.ts");
+    assert.equal(
+      resolveKleinEditCfg("flux-2-klein-9b-distilled", {
+        tool: "compose",
+        hasInputImage: true,
+        currentCfg: 1,
+      }),
+      undefined,
     );
   });
 

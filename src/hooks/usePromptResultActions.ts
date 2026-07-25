@@ -699,7 +699,40 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           queueParams.cfg = pluginCfg;
         }
 
-        if (options?.identityLock) {
+        if (config.tool === "compose") {
+          const { isFluxKleinModel } = await import(
+            "@/lib/model-denoise-defaults"
+          );
+          if (isFluxKleinModel(queueModel)) {
+            const { buildComposeKleinQueuePatch } = await import(
+              "@/lib/compose-identity-lock"
+            );
+            const kleinPatch = buildComposeKleinQueuePatch({
+              model: queueModel,
+              inputImageFilename,
+              inputImageFilenames,
+              identityLock: options?.identityLock === true,
+              identityLockStrength: options?.identityLockStrength,
+              identityKind: options?.identityKind,
+            });
+            if (kleinPatch) {
+              Object.assign(queueParams, kleinPatch);
+            }
+          } else if (options?.identityLock) {
+            const { buildComposeIdentityLockQueuePatch } = await import(
+              "@/lib/compose-identity-lock"
+            );
+            const identityPatch = buildComposeIdentityLockQueuePatch({
+              enabled: true,
+              strength: options.identityLockStrength,
+              identityKind: options.identityKind,
+              inputImageFilename,
+            });
+            if (identityPatch) {
+              Object.assign(queueParams, identityPatch);
+            }
+          }
+        } else if (options?.identityLock) {
           const { buildComposeIdentityLockQueuePatch } = await import(
             "@/lib/compose-identity-lock"
           );

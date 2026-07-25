@@ -1,4 +1,6 @@
 import { getFaceDetailerHealth } from "./face-detailer-health";
+import { isFluxKleinModel } from "./model-denoise-defaults";
+import { normalizeInputImageFilenames } from "./workflow-load-image-bindings";
 
 /** Default IP-Adapter weight for Compose identity lock (Edit + IP can overfit if higher). */
 export const DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH = 0.5;
@@ -80,6 +82,56 @@ export function buildComposeIdentityLockQueuePatch(input: {
     ipAdapterStrength: strength,
     identityKind,
   };
+}
+
+export type ComposeKleinQueuePatch = {
+  inputImageFilename: string;
+  /** Full Figure 1–N list for ReferenceLatent multi-ref wiring. */
+  inputImageFilenames?: string[];
+  ipAdapterImageFilename?: string;
+  ipAdapterImageFilenames?: string[];
+  ipAdapterStrength?: number;
+  identityKind?: ComposeIdentityKind;
+};
+
+/**
+ * Klein Compose queue mapping: Figure 1–N → ReferenceLatent instruction edit
+ * (via inputImageFilenames). Optional identity lock still stacks IP-Adapter /
+ * InstantID on Figure 1 only — extras use ReferenceLatent, not IP-Adapter.
+ */
+export function buildComposeKleinQueuePatch(input: {
+  model?: string | null;
+  inputImageFilename?: string | null;
+  inputImageFilenames?: string[] | null;
+  identityLock?: boolean;
+  identityLockStrength?: number;
+  identityKind?: unknown;
+}): ComposeKleinQueuePatch | null {
+  if (!isFluxKleinModel(input.model)) {
+    return null;
+  }
+  const figures = normalizeInputImageFilenames(
+    input.inputImageFilename,
+    input.inputImageFilenames ?? undefined,
+  );
+  const fig1 = figures[0]?.trim();
+  if (!fig1) {
+    return null;
+  }
+
+  const patch: ComposeKleinQueuePatch = {
+    inputImageFilename: fig1,
+    inputImageFilenames: figures,
+  };
+  if (input.identityLock) {
+    patch.ipAdapterImageFilename = fig1;
+    patch.ipAdapterImageFilenames = [fig1];
+    patch.ipAdapterStrength = normalizeComposeIdentityLockStrength(
+      input.identityLockStrength,
+    );
+    patch.identityKind = normalizeComposeIdentityKind(input.identityKind);
+  }
+  return patch;
 }
 
 export function formatComposeIdentityLockHint(input: {

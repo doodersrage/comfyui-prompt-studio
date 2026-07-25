@@ -284,32 +284,87 @@ export const diffusersEngineAdapter: EngineAdapter = {
   },
 
   async uploadInputImage(input: EngineUploadInput) {
-    const formData = new FormData();
-    formData.append("image", input.file, input.file.name);
+    const { compressImageForEngineUpload } = await import(
+      "@/lib/browser-compress-image"
+    );
+    const { fileToDataUrl } = await import("@/lib/browser-file-data-url");
     const engineUrl =
       input.engineUrl?.trim() || loadEngineSettings().diffusersApiUrl;
-    if (engineUrl) {
-      formData.append("engineUrl", engineUrl);
-    }
 
-    const response = await fetch("/api/diffusers/upload", {
-      method: "POST",
-      body: formData,
+    const prepared = await compressImageForEngineUpload(input.file, {
+      maxEdge: 2048,
+      maxBytes: 3_500_000,
+      quality: 0.9,
     });
-    const data = (await response.json()) as {
-      name?: string;
-      subfolder?: string;
-      type?: string;
-      error?: string;
+
+    const tryMultipart = async () => {
+      const formData = new FormData();
+      formData.append("image", prepared, prepared.name);
+      if (engineUrl) {
+        formData.append("engineUrl", engineUrl);
+      }
+      const response = await fetch("/api/diffusers/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await response.json()) as {
+        name?: string;
+        subfolder?: string;
+        type?: string;
+        error?: string;
+      };
+      if (!response.ok || !data.name?.trim()) {
+        throw new Error(data.error ?? "Diffusers image upload failed.");
+      }
+      return {
+        name: data.name.trim(),
+        subfolder: data.subfolder?.trim() || undefined,
+        type: data.type?.trim() || undefined,
+      };
     };
-    if (!response.ok || !data.name?.trim()) {
-      throw new Error(data.error ?? "Diffusers image upload failed.");
+
+    const tryJson = async () => {
+      const image = await fileToDataUrl(prepared);
+      if (image.length > 9_000_000) {
+        throw new Error(
+          "Image is still too large after compression. Try a smaller figure (under ~6MB).",
+        );
+      }
+      const response = await fetch("/api/diffusers/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image,
+          mimeType: prepared.type || "image/png",
+          filename: prepared.name || "prompt-studio-upload.png",
+          ...(engineUrl ? { engineUrl } : {}),
+        }),
+      });
+      const data = (await response.json()) as {
+        name?: string;
+        subfolder?: string;
+        type?: string;
+        error?: string;
+      };
+      if (!response.ok || !data.name?.trim()) {
+        throw new Error(data.error ?? "Diffusers image upload failed.");
+      }
+      return {
+        name: data.name.trim(),
+        subfolder: data.subfolder?.trim() || undefined,
+        type: data.type?.trim() || undefined,
+      };
+    };
+
+    try {
+      return await tryMultipart();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/FormData|parse body|multipart/i.test(message)) {
+        throw error;
+      }
+      return tryJson();
     }
-    return {
-      name: data.name.trim(),
-      subfolder: data.subfolder?.trim() || undefined,
-      type: data.type?.trim() || undefined,
-    };
   },
 
   subscribeProgress(input: EngineSubscribeProgressInput): EngineProgressSubscription {

@@ -49,6 +49,7 @@ import {
   inferLoadImageBinding,
   normalizeInputImageFilenames,
 } from "./workflow-load-image-bindings";
+import { ensureKleinReferenceLatentWiringInWorkflow } from "./workflow-img2img-patch";
 
 export const IMAGE_SCALE_BY_NODE_TYPE = "ImageScaleBy";
 
@@ -83,6 +84,9 @@ export type WorkflowDirectPatchCounts = {
   regionalNodes?: number;
   /** WAN/Hunyuan Video I2V node spliced in to wire an uploaded init image into the sampler chain. */
   videoImageToVideoWired?: number;
+  /** Klein ReferenceLatent instruction-edit wiring when figures are queued. */
+  img2imgLatentWired?: number;
+  referenceLatentWired?: number;
 };
 
 const VIDEO_I2V_WIRE_ERROR =
@@ -687,6 +691,19 @@ export function patchIpAdapterInWorkflow(
     if (identity.inserted) {
       nextWorkflow = identity.workflow;
       patched.identityInserted = identity.insertedNodeIds.length;
+    }
+    // Remaining multi-refs (e.g. Klein Compose Figures 2–4) still use IP-Adapter.
+    if (stackEntries.length > 1) {
+      const rest = insertIpAdapterStack(
+        nextWorkflow,
+        stackEntries.slice(1),
+        { availableNodeTypes: input.availableNodeTypes },
+      );
+      nextWorkflow = rest.workflow;
+      if (rest.insertedCount > 0) {
+        patched.ipAdapterInserted =
+          (patched.ipAdapterInserted ?? 0) + rest.insertedNodeIds.length;
+      }
     }
   } else {
     const insertResult =
@@ -1578,9 +1595,17 @@ export function patchWorkflowDirectParams(
     inputImageFilename: input.params?.inputImageFilename,
     params: input.params,
   });
+  const kleinRefWire = ensureKleinReferenceLatentWiringInWorkflow(
+    videoWirePatch.workflow,
+    {
+      model: input.model,
+      inputImageFilename: input.params?.inputImageFilename,
+      inputImageFilenames: input.params?.inputImageFilenames,
+    },
+  );
 
   return {
-    workflow: videoWirePatch.workflow,
+    workflow: kleinRefWire.workflow,
     patched: {
       ...(latentType.converted > 0 ? { emptySd3Latent: latentType.converted } : {}),
       ...latentPatch.patched,
@@ -1600,6 +1625,12 @@ export function patchWorkflowDirectParams(
         ? { regionalNodes: regionalEdit.patchedNodes }
         : {}),
       ...videoWirePatch.patched,
+      ...(kleinRefWire.wired
+        ? {
+            referenceLatentWired: kleinRefWire.insertedNodeIds.length || 1,
+            img2imgLatentWired: 1,
+          }
+        : {}),
     },
     error: videoWirePatch.error,
   };

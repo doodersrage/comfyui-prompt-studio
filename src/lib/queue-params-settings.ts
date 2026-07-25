@@ -8,7 +8,10 @@ import {
   type ModelSamplerPresetTier,
 } from "./model-sampler-defaults";
 import { resolveModelSamplingParams } from "./model-sampling-patch";
-import { resolveDenoiseForModel } from "./model-denoise-defaults";
+import {
+  resolveDenoiseForModel,
+  resolveKleinEditCfg,
+} from "./model-denoise-defaults";
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
   DEFAULT_RESOLUTION_SIZE_TIER,
@@ -382,6 +385,16 @@ export function resolveQueueParams(
     });
     if (denoise != null) {
       merged.denoise = denoise;
+    }
+    // Distilled Klein Compose/Refine: CFG 1 + soft denoise ≈ photo passthrough.
+    const kleinEditCfg = resolveKleinEditCfg(model, {
+      tool,
+      hasInputImage,
+      hasMaskImage,
+      currentCfg: Number(merged.cfg),
+    });
+    if (kleinEditCfg != null) {
+      merged.cfg = kleinEditCfg;
     }
 
     // Rapid AIO T2I stays on native square — extreme ARs worsen screen-door.

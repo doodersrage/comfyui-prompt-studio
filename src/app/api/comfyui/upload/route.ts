@@ -1,5 +1,6 @@
 import { getComfyUiBaseUrl } from "@/lib/comfyui-client";
 import { stripEmptyComfyUiRuntime } from "@/lib/comfyui-config";
+import { parseEngineUploadRequest } from "@/lib/engine-upload-parse";
 import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
 
 export const runtime = "nodejs";
@@ -10,14 +11,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const incoming = await request.formData();
-    const image = incoming.get("image");
-    if (!(image instanceof File) || image.size === 0) {
-      return apiError("Image file is required.", 400);
-    }
+    const incoming = await parseEngineUploadRequest(request);
+    const image = incoming.file;
 
     const runtime = stripEmptyComfyUiRuntime({
-      apiUrl: incoming.get("comfyUrl")?.toString(),
+      apiUrl: incoming.comfyUrl,
     });
 
     let comfyUrl: string;
@@ -62,9 +60,14 @@ export async function POST(request: Request) {
       comfyUrl,
     });
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "ComfyUI upload failed.",
-      502,
-    );
+    const message =
+      error instanceof Error ? error.message : "ComfyUI upload failed.";
+    const status =
+      /required|must be|could not read|upload must|too large|25mb|invalid/i.test(
+        message,
+      )
+        ? 400
+        : 502;
+    return apiError(message, status);
   }
 }

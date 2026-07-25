@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildComposeIdentityLockQueuePatch,
+  buildComposeKleinQueuePatch,
   formatComposeIdentityLockHint,
   normalizeComposeIdentityLockStrength,
 } from "./compose-identity-lock.ts";
@@ -47,6 +48,50 @@ describe("compose identity lock", () => {
   it("clamps strength", () => {
     assert.equal(normalizeComposeIdentityLockStrength(2), 1);
     assert.equal(normalizeComposeIdentityLockStrength(0), 0.05);
+  });
+
+  it("maps Klein Compose figures for ReferenceLatent (+ optional identity lock)", () => {
+    assert.equal(
+      buildComposeKleinQueuePatch({
+        model: "qwen-image-edit-2511",
+        inputImageFilenames: ["a.png", "b.png"],
+      }),
+      null,
+    );
+
+    const canvasOnly = buildComposeKleinQueuePatch({
+      model: "flux-2-klein-9b",
+      inputImageFilenames: ["fig1.png"],
+    });
+    assert.deepEqual(canvasOnly, {
+      inputImageFilename: "fig1.png",
+      inputImageFilenames: ["fig1.png"],
+    });
+
+    const multi = buildComposeKleinQueuePatch({
+      model: "flux-2-klein-4b-distilled",
+      inputImageFilenames: ["fig1.png", "fig2.png", "fig3.png"],
+    });
+    assert.deepEqual(multi, {
+      inputImageFilename: "fig1.png",
+      inputImageFilenames: ["fig1.png", "fig2.png", "fig3.png"],
+    });
+
+    const locked = buildComposeKleinQueuePatch({
+      model: "flux-2-klein",
+      inputImageFilenames: ["fig1.png", "fig2.png"],
+      identityLock: true,
+      identityLockStrength: 0.4,
+      identityKind: "ipadapter",
+    });
+    assert.deepEqual(locked, {
+      inputImageFilename: "fig1.png",
+      inputImageFilenames: ["fig1.png", "fig2.png"],
+      ipAdapterImageFilename: "fig1.png",
+      ipAdapterImageFilenames: ["fig1.png"],
+      ipAdapterStrength: 0.4,
+      identityKind: "ipadapter",
+    });
   });
 
   it("formats hint", () => {

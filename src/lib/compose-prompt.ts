@@ -5,11 +5,15 @@ import {
   DEFAULT_INPUT_IMAGE_3_TOKEN,
   DEFAULT_INPUT_IMAGE_4_TOKEN,
 } from "./comfyui-config";
+import { isFluxKleinModel } from "./model-denoise-defaults";
 import { buildQwenEditPrompt, parseQwenEditSegments } from "./qwen-edit-builder";
 import {
   MAX_INPUT_IMAGE_FILENAMES,
   normalizeInputImageFilenames,
 } from "./workflow-load-image-bindings";
+
+const KLEIN_MODIFY_PRESERVE_PREFIX =
+  "Keep the subject’s pose and framing unchanged unless asked otherwise.";
 
 export const COMPOSE_DEFAULT_MODEL = "qwen-image-edit-2511-lightning-8" as const;
 
@@ -129,6 +133,8 @@ export function buildComposeInstruction(input: {
   mode: ComposeMode;
   instruction: string;
   figureCount: number;
+  /** When Klein, Modify prompts get a preserve-composition prefix for CLIP img2img. */
+  model?: string;
 }): string {
   const raw = input.instruction.trim();
   if (!raw) {
@@ -136,11 +142,18 @@ export function buildComposeInstruction(input: {
   }
 
   if (input.mode === "modify") {
+    let text = raw;
     if (/^(keep|replace|add|remove)\s*:/im.test(raw)) {
       const built = buildQwenEditPrompt(parseQwenEditSegments(raw));
-      return built || raw;
+      text = built || raw;
     }
-    return raw;
+    if (isFluxKleinModel(input.model)) {
+      if (text.toLowerCase().startsWith("edit the input image")) {
+        return text;
+      }
+      return `${KLEIN_MODIFY_PRESERVE_PREFIX} ${text}`;
+    }
+    return text;
   }
 
   if (FIGURE_LABEL_RE.test(raw) || input.figureCount < 2) {

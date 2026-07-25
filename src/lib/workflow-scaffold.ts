@@ -27,7 +27,11 @@ import {
   type ComfyImageModel,
   type ComfyModelCategory,
 } from "./comfy-models";
-import { isEditCapableModel, isQwenEditModel } from "./model-denoise-defaults";
+import {
+  isEditCapableModel,
+  isFluxKleinModel,
+  isQwenEditModel,
+} from "./model-denoise-defaults";
 import { isQwenLightningModel, isWanLightningModel } from "./model-sampling-patch";
 import {
   DEFAULT_CHECKPOINT_TOKEN,
@@ -57,9 +61,10 @@ export type WorkflowScaffoldResult = {
 const DEFAULT_FLUX_CLIP_L = "clip_l.safetensors";
 const DEFAULT_FLUX_CLIP_T5 = "t5xxl_fp16.safetensors";
 
-function isFluxKleinModel(model?: ComfyImageModel | string): boolean {
-  return typeof model === "string" && /flux-2-klein/i.test(model);
-}
+export type WorkflowScaffoldOptions = {
+  /** Active queue tool — Compose + Klein uses img2img scaffold. */
+  tool?: string;
+};
 
 /** Klein text encoder — official Comfy uses Qwen3 CLIPLoader type flux2 (not DualCLIP type flux). */
 export function fluxKleinDualClipFilename(model?: ComfyImageModel | string): string {
@@ -938,6 +943,104 @@ function fluxImg2imgScaffold(
   };
 }
 
+/**
+ * Official FLUX.2 Klein instruction edit: EmptyFlux2Latent + denoise 1, with
+ * Figure 1 attached via ReferenceLatent on positive conditioning.
+ */
+function fluxKleinEditScaffold(
+  tokens: WorkflowPlaceholderTokens,
+  model?: ComfyImageModel | string,
+): Record<string, unknown> {
+  const loaders = fluxDiffusionLoaders(model);
+  return {
+    "1": {
+      class_type: "UNETLoader",
+      inputs: { unet_name: loaders.unetToken, weight_dtype: "default" },
+      _meta: { title: "Load UNET" },
+    },
+    "2": fluxTextEncoderNode(model, loaders),
+    "3": {
+      class_type: "VAELoader",
+      inputs: { vae_name: loaders.vaeName },
+      _meta: { title: "Load VAE" },
+    },
+    "4": {
+      class_type: "ModelSamplingFlux",
+      inputs: {
+        model: ["1", 0],
+        max_shift: tokens.fluxMaxShift,
+        base_shift: tokens.fluxBaseShift,
+        width: tokens.width,
+        height: tokens.height,
+      },
+      _meta: { title: "ModelSamplingFlux" },
+    },
+    "900": {
+      class_type: "LoadImage",
+      inputs: { image: tokens.inputImage },
+      _meta: { title: "Input Image" },
+    },
+    "901": {
+      class_type: "VAEEncode",
+      inputs: { pixels: ["900", 0], vae: ["3", 0] },
+      _meta: { title: "VAE Encode Figure 1" },
+    },
+    "5": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.positive, clip: ["2", 0] },
+      _meta: { title: "Positive Prompt" },
+    },
+    "902": {
+      class_type: "ReferenceLatent",
+      inputs: {
+        conditioning: ["5", 0],
+        latent: ["901", 0],
+      },
+      _meta: { title: "Reference Latent 1" },
+    },
+    "6": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.negative, clip: ["2", 0] },
+      _meta: { title: "Negative Prompt" },
+    },
+    "7": {
+      class_type: "EmptyFlux2LatentImage",
+      inputs: {
+        width: tokens.width,
+        height: tokens.height,
+        batch_size: 1,
+      },
+      _meta: { title: "Empty Flux 2 Latent" },
+    },
+    "8": {
+      class_type: "KSampler",
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ["4", 0],
+        positive: ["902", 0],
+        negative: ["6", 0],
+        latent_image: ["7", 0],
+      },
+      _meta: { title: "KSampler" },
+    },
+    "9": {
+      class_type: "VAEDecode",
+      inputs: { samples: ["8", 0], vae: ["3", 0] },
+      _meta: { title: "VAE Decode" },
+    },
+    "10": {
+      class_type: "SaveImage",
+      inputs: { images: ["9", 0], filename_prefix: "PromptStudio" },
+      _meta: { title: "Save Image" },
+    },
+  };
+}
+
 function editScaffold(
   tokens: WorkflowPlaceholderTokens,
   category: ComfyModelCategory | "generic",
@@ -1505,14 +1608,19 @@ function resolveScaffoldCategory(
 export function buildWorkflowScaffoldForModel(
   model: ComfyImageModel | string,
   tokens?: Partial<WorkflowPlaceholderTokens>,
+  options?: WorkflowScaffoldOptions,
 ): WorkflowScaffoldResult {
   const resolvedTokens = resolveBindingTokens(tokens);
   const category = resolveScaffoldCategory(model);
+  const useKleinComposeScaffold =
+    options?.tool === "compose" && isFluxKleinModel(model);
   const useEditScaffold = isEditCapableModel(model);
   const useLightningScaffold = category === "qwen" && isQwenLightningModel(model);
   const useCheckpointScaffold =
     category === "qwen" && usesQwenCheckpointLoader(model) && !useLightningScaffold;
-  const graph = useEditScaffold
+  const graph = useKleinComposeScaffold
+    ? fluxKleinEditScaffold(resolvedTokens, model)
+    : useEditScaffold
     ? editScaffold(resolvedTokens, category, model)
     : category === "flux"
       ? fluxScaffold(resolvedTokens, model)
@@ -1533,7 +1641,9 @@ export function buildWorkflowScaffoldForModel(
     category === "video" ? resolveVideoLatentClass(model) : null;
   const notes = [
     "Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.",
-    useEditScaffold
+    useKleinComposeScaffold
+      ? "Klein Compose scaffold uses EmptyFlux2LatentImage + ReferenceLatent (instruction edit, denoise 1). Figure 1–4 attach via ReferenceLatent at queue time — not soft img2img."
+      : useEditScaffold
       ? isQwenEditModel(model)
         ? isQwenLightningModel(model)
           ? "Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Figure 1–4 LoadImages use {{INPUT_IMAGE}}…{{INPUT_IMAGE_4}} but encode slots stay empty for Generate; Compose/Refine queue wires refs when you upload sources."
