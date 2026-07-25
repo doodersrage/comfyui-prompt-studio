@@ -35,11 +35,16 @@ export async function generateBackgroundPrompt(
   const locationBlock = buildMandatoryLocationBlock(settingHint.location);
   const presetBlock = buildBackgroundPresetBlock(presetOptions);
   const presetDirective = buildBackgroundPresetUserDirective(presetOptions);
-  const sanitizeContext = buildBackgroundPresetSanitizeContext(seed, presetOptions, [
-    options.settingType?.trim(),
-    options.timeOfDay?.trim(),
-    options.mood?.trim(),
-  ].filter(Boolean) as string[]);
+  // User setting fields + presets only — not the rolled location seed (padding leak).
+  const sanitizeContext = buildBackgroundPresetSanitizeContext(
+    "",
+    presetOptions,
+    [
+      options.settingType?.trim(),
+      options.timeOfDay?.trim(),
+      options.mood?.trim(),
+    ].filter(Boolean) as string[],
+  );
 
   const toolInstructions = `You are an environment/background prompt generator for ComfyUI.
 - Describe ONLY the setting—architecture, landscape, objects, weather, materials, lighting, atmosphere, and depth.

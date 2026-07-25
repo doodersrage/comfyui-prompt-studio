@@ -21,6 +21,7 @@ type CharacterRequestBody = {
   recentLocations?: string[];
   recentClothing?: string[];
   alwaysIncludeClothing?: boolean;
+  seedLlmWithIngredients?: boolean;
   teamKit?: boolean;
   blockedLocations?: string[];
   lockedWardrobeId?: string;
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
         : "portrait";
 
     const alwaysIncludeClothing = body.alwaysIncludeClothing !== false;
+    const seedLlmWithIngredients = body.seedLlmWithIngredients !== false;
 
     const result = await generateCharacterPrompt({
       ...shared,
@@ -63,6 +65,7 @@ export async function POST(request: Request) {
       recentLocations: normalizeRecentLocations(body.recentLocations),
       recentClothing: normalizeRecentClothing(body.recentClothing),
       alwaysIncludeClothing,
+      seedLlmWithIngredients,
       teamKit: body.teamKit === true,
       blockedLocations: normalizeBlockedLocations(body.blockedLocations),
       lockedWardrobeId: normalizeLockedWardrobeId(body.lockedWardrobeId),

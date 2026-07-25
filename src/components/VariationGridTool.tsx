@@ -129,7 +129,12 @@ function buildVariationRequestBody(
   hints: string,
   shared: Pick<
     SharedToolSettings,
-    "model" | "detail" | "alwaysIncludeClothing" | "lockedWardrobeId" | "lockedLocation"
+    | "model"
+    | "detail"
+    | "alwaysIncludeClothing"
+    | "seedLlmWithIngredients"
+    | "lockedWardrobeId"
+    | "lockedLocation"
   >,
   toolSettings: VariationsToolCache,
   getRecentClothing: () => string[],
@@ -155,6 +160,7 @@ function buildVariationRequestBody(
         strength: variationStrength,
       },
       alwaysIncludeClothing: shared.alwaysIncludeClothing !== false,
+      seedLlmWithIngredients: shared.seedLlmWithIngredients !== false,
       recentClothing: getRecentClothing(),
       lockedWardrobeId: shared.lockedWardrobeId,
       lockedLocation,
@@ -204,6 +210,7 @@ function buildVariationRequestBody(
       lockedLocation,
       lockedWardrobeId: shared.lockedWardrobeId,
       alwaysIncludeClothing: shared.alwaysIncludeClothing !== false,
+      seedLlmWithIngredients: shared.seedLlmWithIngredients !== false,
       ...avoidance,
     };
   }
@@ -216,6 +223,7 @@ function buildVariationRequestBody(
       portraitStyle,
       variationStrength,
       alwaysIncludeClothing: shared.alwaysIncludeClothing !== false,
+      seedLlmWithIngredients: shared.seedLlmWithIngredients !== false,
       recentClothing: getRecentClothing(),
       lockedWardrobeId: shared.lockedWardrobeId,
       lockedLocation,
@@ -233,6 +241,7 @@ function buildVariationRequestBody(
     sportPresetId,
     teamKit: false,
     alwaysIncludeClothing: shared.alwaysIncludeClothing !== false,
+    seedLlmWithIngredients: shared.seedLlmWithIngredients !== false,
     recentClothing: getRecentClothing(),
     lockedWardrobeId: shared.lockedWardrobeId,
     lockedLocation,
@@ -726,6 +735,10 @@ export default function VariationGridTool() {
           onModelChange={(model) => updateShared({ model })}
           onDetailChange={(detail) => updateShared({ detail })}
           onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          seedLlmWithIngredients={shared.seedLlmWithIngredients !== false}
+          onSeedLlmWithIngredientsChange={(value) =>
+            updateShared({ seedLlmWithIngredients: value })
+          }
           lockedWardrobeId={shared.lockedWardrobeId}
           lockedLocation={shared.lockedLocation}
           lockedVariationSeed={shared.lockedVariationSeed}

@@ -434,6 +434,7 @@ export default function RefineTool() {
 
       <EnhancedPromptResult
         output={output}
+        onOutputChange={setOutput}
         provider={output ? "llm" : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={shared.model}

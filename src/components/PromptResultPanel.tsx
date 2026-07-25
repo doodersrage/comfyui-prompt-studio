@@ -1,8 +1,9 @@
 "use client";
 
-import { ToolSection } from "@/components/ui/ToolPageShell";
+import { CollapsibleSection, ToolSection } from "@/components/ui/ToolPageShell";
 import { Button } from "@/components/ui/Button";
 import { MonoTextArea } from "@/components/ui/Field";
+import { rawPromptDiffers } from "@/lib/raw-prompt";
 
 type PromptResultPanelProps = {
   output: string;
@@ -17,6 +18,11 @@ type PromptResultPanelProps = {
   extraMeta?: string;
   /** When set, the generated prompt is editable (queues/copy use the edited text). */
   onOutputChange?: (value: string) => void;
+  /**
+   * Pre-optimize LLM/template draft (before sanitize / format / wardrobe merge).
+   * Shown collapsed when it differs from the optimized prompt.
+   */
+  rawPrompt?: string;
 };
 
 export default function PromptResultPanel({
@@ -28,17 +34,21 @@ export default function PromptResultPanel({
   onCopy,
   extraMeta,
   onOutputChange,
+  rawPrompt,
 }: PromptResultPanelProps) {
   if (!output && !onOutputChange) {
     return null;
   }
+
+  const showRaw = rawPromptDiffers(rawPrompt, output);
+  const editable = typeof onOutputChange === "function";
 
   return (
     <ToolSection>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="type-heading">Generated prompt</h2>
-          {(provider || onOutputChange) && (
+          {(provider || editable) && (
             <p className="type-caption mt-1">
               {provider
                 ? `via ${provider === "llm" ? "LLM" : provider === "rules" ? "rules" : "template"}`
@@ -47,7 +57,7 @@ export default function PromptResultPanel({
                 ? ` · ${limits.minChars ? `${limits.minChars}–` : ""}${limits.maxChars} char limit`
                 : null}
               {` · ${output.length} chars`}
-              {onOutputChange ? " · editable" : ""}
+              {editable ? " · editable" : ""}
               {extraMeta ? ` · ${extraMeta}` : ""}
             </p>
           )}
@@ -57,7 +67,7 @@ export default function PromptResultPanel({
         </Button>
       </div>
 
-      {onOutputChange ? (
+      {editable ? (
         <MonoTextArea
           id="generated-prompt-editor"
           value={output}
@@ -78,6 +88,38 @@ export default function PromptResultPanel({
           Paste into <code className="type-code">{comfyNode}</code>
         </p>
       )}
+
+      {showRaw && rawPrompt ? (
+        <CollapsibleSection
+          title="Un-optimized prompt"
+          summary={`${rawPrompt.length} chars · LLM/template draft before sanitize, format, and wardrobe merge`}
+          defaultOpen={false}
+          persistKey="result-raw-prompt"
+          className="mt-4"
+        >
+          <pre className="type-code max-h-[28rem] overflow-auto whitespace-pre-wrap rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)]/80 p-4 text-[var(--text-secondary)]">
+            {rawPrompt}
+          </pre>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              className="!min-h-9 px-3 type-caption"
+              onClick={() => void navigator.clipboard.writeText(rawPrompt)}
+            >
+              Copy raw
+            </Button>
+            {editable ? (
+              <Button
+                variant="ghost"
+                className="!min-h-9 px-3 type-caption"
+                onClick={() => onOutputChange(rawPrompt)}
+              >
+                Use raw as generated
+              </Button>
+            ) : null}
+          </div>
+        </CollapsibleSection>
+      ) : null}
     </ToolSection>
   );
 }

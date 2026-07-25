@@ -22,6 +22,11 @@ export type GenerationSettings = {
   model: QwenImageModel;
   /** When true (default), roll catalog wardrobe for people in the input. */
   alwaysIncludeClothing?: boolean;
+  /**
+   * When true (default), inject rolled location / wardrobe / environment seeds
+   * into the LLM user message. When false, send keywords/hints only.
+   */
+  seedLlmWithIngredients?: boolean;
 };
 
 export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
@@ -30,7 +35,13 @@ export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
   detail: "balanced",
   model: DEFAULT_QWEN_MODEL,
   alwaysIncludeClothing: true,
+  seedLlmWithIngredients: true,
 };
+
+/** True unless the caller explicitly disables ingredient seeding. */
+export function shouldSeedLlmWithIngredients(value?: boolean): boolean {
+  return value !== false;
+}
 
 export function normalizeGenerationSettings(
   value?: Partial<Omit<GenerationSettings, "variation" | "detail" | "model">> & {
@@ -51,5 +62,9 @@ export function normalizeGenerationSettings(
       typeof value?.alwaysIncludeClothing === "boolean"
         ? value.alwaysIncludeClothing
         : DEFAULT_GENERATION_SETTINGS.alwaysIncludeClothing,
+    seedLlmWithIngredients:
+      typeof value?.seedLlmWithIngredients === "boolean"
+        ? value.seedLlmWithIngredients
+        : DEFAULT_GENERATION_SETTINGS.seedLlmWithIngredients,
   };
 }

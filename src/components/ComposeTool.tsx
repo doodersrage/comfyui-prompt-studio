@@ -636,6 +636,7 @@ export default function ComposeTool() {
 
       <EnhancedPromptResult
         output={output}
+        onOutputChange={setOutput}
         provider={output ? "llm" : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={shared.model}

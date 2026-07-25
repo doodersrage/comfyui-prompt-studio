@@ -115,6 +115,8 @@ export async function generatePetPrompt(
     allowTemplateFallback: options.llm?.allowTemplateFallback,
     llmModel: options.llm?.llmModel,
     llmEnabled: options.llm?.llmEnabled,
+    // Hints only — never the rolled pet scene seed (location leaks into padding).
+    sanitizeInput: effectiveHints?.trim() || undefined,
     templateFallback: () => buildPetTemplate(seed, portraitStyle, parsed.pair),
     enforceMinimum: !hasPresets,
     metadata: {

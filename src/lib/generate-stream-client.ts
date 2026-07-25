@@ -20,6 +20,7 @@ export type GenerateStreamResult = {
     maxTokens: number;
   };
   metadata?: {
+    rawPrompt?: string;
     wardrobeAssignments?: Array<{
       wardrobeId?: string | null;
       footwearId?: string | null;

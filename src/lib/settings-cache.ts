@@ -67,6 +67,12 @@ export type SharedToolSettings = {
   detail: DetailLevel;
   /** Shared across people-focused tools; rolls catalog wardrobe when enabled. */
   alwaysIncludeClothing?: boolean;
+  /**
+   * When true (default), LLM calls get rolled location / wardrobe / environment
+   * ingredient seeds. When false, only the user's keywords/hints are sent —
+   * better for completionist local models that overfit injected seeds.
+   */
+  seedLlmWithIngredients?: boolean;
   /** Pin catalog wardrobe across Character/Duo/Batch generations. */
   lockedWardrobeId?: string;
   /** Pin scene location across people-focused generators. */
@@ -582,6 +588,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   model: DEFAULT_QWEN_MODEL,
   detail: "balanced",
   alwaysIncludeClothing: true,
+  seedLlmWithIngredients: true,
   autoFixRules: true,
   modelSamplerPreset: "base",
   modelResolutionOrientation: DEFAULT_RESOLUTION_ORIENTATION,

@@ -47,6 +47,7 @@ type ComposeRequestBody = {
   lockedLocation?: string;
   variationSeed?: string;
   alwaysIncludeClothing?: boolean;
+  seedLlmWithIngredients?: boolean;
   teamKit?: boolean;
   avoidedTokens?: string[];
   avoidedTokensInstruction?: string;
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
         recentLocations: normalizeRecentLocations(body.recentLocations),
         recentClothing: normalizeRecentClothing(body.recentClothing),
         alwaysIncludeClothing: body.alwaysIncludeClothing !== false,
+        seedLlmWithIngredients: body.seedLlmWithIngredients !== false,
         teamKit: body.teamKit === true,
         blockedLocations: normalizeBlockedLocations(body.blockedLocations),
         lockedWardrobeId: normalizeLockedWardrobeId(body.lockedWardrobeId),

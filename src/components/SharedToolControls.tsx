@@ -161,6 +161,9 @@ type SharedToolControlsProps = {
   alwaysIncludeClothing?: boolean;
   onAlwaysIncludeClothingChange?: (value: boolean) => void;
   wardrobeHelp?: string;
+  /** When false, LLM gets keywords/hints only (no location/wardrobe seeds). */
+  seedLlmWithIngredients?: boolean;
+  onSeedLlmWithIngredientsChange?: (value: boolean) => void;
   lockedWardrobeId?: string;
   lockedWardrobeLabel?: string;
   onClearLockedWardrobe?: () => void;
@@ -190,6 +193,8 @@ export default function SharedToolControls({
   alwaysIncludeClothing = true,
   onAlwaysIncludeClothingChange,
   wardrobeHelp,
+  seedLlmWithIngredients = true,
+  onSeedLlmWithIngredientsChange,
   lockedWardrobeId,
   lockedWardrobeLabel,
   onClearLockedWardrobe,
@@ -1373,26 +1378,60 @@ export default function SharedToolControls({
         </label>
       </CollapsibleSection>
 
-      {showWardrobeOption && onAlwaysIncludeClothingChange && (
+      {(showWardrobeOption && onAlwaysIncludeClothingChange) ||
+      onSeedLlmWithIngredientsChange ? (
         <>
           <FieldDivider />
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={alwaysIncludeClothing}
-              onChange={(e) => onAlwaysIncludeClothingChange(e.target.checked)}
-              className={checkboxClass}
-            />
-            <span className="space-y-1">
-              <span className="type-heading block">Always include wardrobe</span>
-              <span className="type-caption block">
-                {wardrobeHelp ??
-                  "Rolls catalog outfits for people in the prompt and appends assigned clothing if the model omits it."}
+          {onSeedLlmWithIngredientsChange ? (
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={seedLlmWithIngredients}
+                onChange={(e) =>
+                  onSeedLlmWithIngredientsChange(e.target.checked)
+                }
+                className={checkboxClass}
+              />
+              <span className="space-y-1">
+                <span className="type-heading block">
+                  Seed LLM with location & wardrobe
+                </span>
+                <span className="type-caption block">
+                  When on, injects rolled location / outfit / environment
+                  ingredients and few-shot examples. Turn off for completionist
+                  local models — only your keywords or hints go to the LLM.
+                </span>
               </span>
-            </span>
-          </label>
+            </label>
+          ) : null}
+          {showWardrobeOption && onAlwaysIncludeClothingChange ? (
+            <label
+              className={`flex cursor-pointer items-start gap-3 ${
+                onSeedLlmWithIngredientsChange ? "mt-3" : ""
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={alwaysIncludeClothing}
+                disabled={
+                  onSeedLlmWithIngredientsChange
+                    ? !seedLlmWithIngredients
+                    : false
+                }
+                onChange={(e) => onAlwaysIncludeClothingChange(e.target.checked)}
+                className={checkboxClass}
+              />
+              <span className="space-y-1">
+                <span className="type-heading block">Always include wardrobe</span>
+                <span className="type-caption block">
+                  {wardrobeHelp ??
+                    "Rolls catalog outfits for people in the prompt and appends assigned clothing if the model omits it."}
+                </span>
+              </span>
+            </label>
+          ) : null}
         </>
-      )}
+      ) : null}
 
       {(lockedWardrobeId ||
         lockedLocation ||

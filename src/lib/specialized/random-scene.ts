@@ -26,7 +26,10 @@ import type { RandomSceneOptions, ToolGenerateResult } from "./types";
 export async function generateRandomScene(
   options: RandomSceneOptions,
 ): Promise<ToolGenerateResult> {
-  const effectiveGenre = applyLockedLocation(options.genre, options.lockedLocation);
+  const seedIngredients = options.seedLlmWithIngredients !== false;
+  const effectiveGenre = seedIngredients
+    ? applyLockedLocation(options.genre, options.lockedLocation)
+    : options.genre;
   const genreHint = parseSettingHint(effectiveGenre);
   const pinnedLocation =
     options.lockedLocation?.trim() || genreHint.location || null;
@@ -43,7 +46,9 @@ export async function generateRandomScene(
     avoidedTokens: options.avoidedTokens,
   });
   const seed = applyLockedVariationSeed(rolledSeed, options.variationSeed);
-  const locationBlock = buildMandatoryLocationBlock(pinnedLocation);
+  const locationBlock = seedIngredients
+    ? buildMandatoryLocationBlock(pinnedLocation)
+    : null;
 
   const wildness = Math.min(100, Math.max(0, options.wildness ?? 65));
   const distinctPeople = isMultiPersonInput(seed);
@@ -52,6 +57,7 @@ export async function generateRandomScene(
     model: promptModel,
     detail: options.detail,
     alwaysIncludeClothing,
+    seedLlmWithIngredients: seedIngredients,
     distinctPeople,
     variation: {
       enabled: true,
@@ -59,7 +65,7 @@ export async function generateRandomScene(
     },
   };
   const wardrobeAssignments =
-    includePeople && alwaysIncludeClothing
+    seedIngredients && includePeople && alwaysIncludeClothing
       ? buildGenerateWardrobeAssignments(seed, wardrobeSettings, {
           assumePeople: true,
           recentClothing: options.recentClothing,
@@ -67,13 +73,24 @@ export async function generateRandomScene(
           avoidedTokens: options.avoidedTokens,
         })
       : null;
-  const clothingDirective = wardrobeAssignments?.length
-    ? buildGenerateWardrobeUserDirective(wardrobeAssignments)
-    : hintsImplyNoClothing(seed)
-      ? buildNoClothingUserDirective()
-      : null;
+  const clothingDirective = !seedIngredients
+    ? null
+    : wardrobeAssignments?.length
+      ? buildGenerateWardrobeUserDirective(wardrobeAssignments)
+      : hintsImplyNoClothing(seed)
+        ? buildNoClothingUserDirective()
+        : null;
 
-  const toolInstructions = `You are a random scene prompt generator for ComfyUI.
+  const keywordsOnly = !seedIngredients;
+  const genreText = effectiveGenre?.trim() || "";
+  const toolInstructions = keywordsOnly
+    ? `You are a scene prompt generator for ComfyUI.
+- Write ONE cohesive scene from the provided keywords only.
+- Follow the target model's prompt style exactly.
+- ${includePeople === false ? "Do not include any people, figures, silhouettes, or crowds." : "If people appear, give them specific visual identity—not generic figures."}
+- Do not invent a wardrobe catalog or substitute a different location unless the keywords ask for it.
+- Wildness level: ${wildness}/100.`
+    : `You are a random scene prompt generator for ComfyUI.
 - Invent ONE cohesive scene from the provided random ingredients.
 - When a MANDATORY SETTING block is present, use that exact place. Do not substitute a different location.
 - Follow the target model's prompt style exactly.
@@ -82,50 +99,64 @@ export async function generateRandomScene(
 - Surprise the viewer with at least one unexpected but coherent detail.
 - Wildness level: ${wildness}/100 (higher = stranger combinations, still one unified image).`;
 
-  const userMessage = [
-    locationBlock,
-    `Random scene ingredients:\n${seed}`,
-    clothingDirective,
-    options.avoidedTokensInstruction,
-    "Write a single model-ready prompt using every major ingredient above.",
-  ]
+  const userMessage = (
+    keywordsOnly
+      ? [
+          genreText
+            ? `Scene keywords:\n${genreText}`
+            : "Scene keywords:\n(none provided — invent one cohesive scene without a wardrobe catalog or unrelated location swap)",
+          options.avoidedTokensInstruction,
+          "Write a single model-ready prompt from the keywords above.",
+        ]
+      : [
+          locationBlock,
+          `Random scene ingredients:\n${seed}`,
+          clothingDirective,
+          options.avoidedTokensInstruction,
+          "Write a single model-ready prompt using every major ingredient above.",
+        ]
+  )
     .filter(Boolean)
     .join("\n\n");
 
   const metadata = {
-    seed,
+    seed: keywordsOnly ? genreText || null : seed,
     includePeople,
     alwaysIncludeClothing,
+    seedLlmWithIngredients: seedIngredients,
     wildness,
     genre: options.genre?.trim() || null,
     location: genreHint.location,
-    sceneLocation,
-    randomOutfit: wardrobeAssignments,
+    sceneLocation: keywordsOnly ? null : sceneLocation,
+    randomOutfit: keywordsOnly ? null : wardrobeAssignments,
   };
 
-  const postProcessPrompt = wardrobeAssignments?.length
-    ? (prompt: string) => {
-        const { maxChars } = getDetailLimits(options.detail, promptModel);
-        return mergeGenerateWardrobeIntoPrompt(
-          prompt,
-          wardrobeAssignments,
-          maxChars,
-          seed,
-        );
-      }
-    : undefined;
+  const postProcessPrompt =
+    !keywordsOnly && wardrobeAssignments?.length
+      ? (prompt: string) => {
+          const { maxChars } = getDetailLimits(options.detail, promptModel);
+          return mergeGenerateWardrobeIntoPrompt(
+            prompt,
+            wardrobeAssignments,
+            maxChars,
+            seed,
+          );
+        }
+      : undefined;
 
   const templateFallback = async () => {
+    const fallbackInput = keywordsOnly ? genreText || "cinematic scene" : seed;
     const result = await generatePrompt(
-      seed,
+      fallbackInput,
       "positive",
       {
         ...wardrobeSettings,
         alwaysIncludeClothing: false,
+        seedLlmWithIngredients: seedIngredients,
       },
       { tool: "generate" },
     );
-    if (!wardrobeAssignments?.length) {
+    if (keywordsOnly || !wardrobeAssignments?.length) {
       return result.prompt;
     }
     const { maxChars } = getDetailLimits(options.detail, promptModel);
@@ -144,13 +175,17 @@ export async function generateRandomScene(
       toolInstructions,
       userMessage,
       templateFallback,
-      sanitizeInput: seed,
+      // Never sanitize against the rolled ingredient seed — padding would inject
+      // location phrases that were not in the LLM draft.
+      sanitizeInput: genreText || undefined,
       postProcessPrompt,
+      // Sparse expand invents garments/locations — off in keywords-only mode.
+      enforceMinimum: !keywordsOnly,
       temperature: options.llm?.temperature ?? 0.85 + wildness / 200,
       allowTemplateFallback: options.llm?.allowTemplateFallback,
       llmModel: options.llm?.llmModel,
       llmEnabled: options.llm?.llmEnabled,
-      seed,
+      seed: keywordsOnly ? genreText || undefined : seed,
       metadata,
       resultModel: options.model,
     });

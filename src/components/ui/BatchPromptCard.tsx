@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { ToolContentPanel } from "@/components/ui/ToolPageShell";
+import { CollapsibleSection, ToolContentPanel } from "@/components/ui/ToolPageShell";
 import { Button } from "@/components/ui/Button";
+import { MonoTextArea } from "@/components/ui/Field";
+import { rawPromptDiffers } from "@/lib/raw-prompt";
 
 export type BatchPromptCrossLinks = {
   hintsForDuo?: string;
@@ -10,11 +12,13 @@ export type BatchPromptCrossLinks = {
 export function BatchPromptCard({
   index,
   prompt,
+  rawPrompt,
   crossLinks,
   copied = false,
   historySaved = false,
   pairCopied = false,
   onCopy,
+  onPromptChange,
   onQueueComfyUi,
   onSaveHistory,
   onCopyPair,
@@ -22,11 +26,13 @@ export function BatchPromptCard({
 }: {
   index: number;
   prompt: string;
+  rawPrompt?: string;
   crossLinks?: BatchPromptCrossLinks;
   copied?: boolean;
   historySaved?: boolean;
   pairCopied?: boolean;
   onCopy: () => void;
+  onPromptChange?: (value: string) => void;
   onQueueComfyUi?: () => void;
   onSaveHistory?: () => void;
   onCopyPair?: () => void;
@@ -34,21 +40,48 @@ export function BatchPromptCard({
 }) {
   const duoHints = crossLinks?.hintsForDuo?.trim();
   const characterHints = crossLinks?.hintsForCharacter?.trim();
+  const showRaw = rawPromptDiffers(rawPrompt, prompt);
+  const editable = typeof onPromptChange === "function";
 
   return (
     <ToolContentPanel className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <p className="type-overline text-[var(--text-muted)]">
           Prompt {String(index + 1).padStart(2, "0")}
+          {editable ? " · editable" : ""}
         </p>
         <Button variant="ghost" className="!min-h-9 px-3 type-caption" onClick={onCopy}>
           {copied ? "Copied!" : "Copy prompt"}
         </Button>
       </div>
 
-      <pre className="type-code max-h-64 overflow-auto whitespace-pre-wrap rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-4 !text-[var(--tint-success-text)]">
-        {prompt}
-      </pre>
+      {editable ? (
+        <MonoTextArea
+          value={prompt}
+          onChange={(event) => onPromptChange(event.target.value)}
+          rows={Math.min(12, Math.max(4, prompt.split("\n").length + 1))}
+          spellCheck={false}
+          className="!text-[var(--tint-success-text)]"
+          aria-label={`Batch prompt ${index + 1}`}
+        />
+      ) : (
+        <pre className="type-code max-h-64 overflow-auto whitespace-pre-wrap rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-4 !text-[var(--tint-success-text)]">
+          {prompt}
+        </pre>
+      )}
+
+      {showRaw && rawPrompt ? (
+        <CollapsibleSection
+          title="Un-optimized prompt"
+          summary={`${rawPrompt.length} chars · draft before optimize`}
+          defaultOpen={false}
+          persistKey={`result-batch-raw-${index}`}
+        >
+          <pre className="type-code max-h-48 overflow-auto whitespace-pre-wrap rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)]/80 p-3 text-[var(--text-secondary)]">
+            {rawPrompt}
+          </pre>
+        </CollapsibleSection>
+      ) : null}
 
       <div className="flex flex-col gap-4 border-t border-[var(--border-subtle)] pt-4">
         <div className="flex flex-wrap gap-2">

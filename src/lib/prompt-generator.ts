@@ -14,6 +14,7 @@ import {
   trimPromptToMaxChars,
 } from "./qwen-clarity";
 import { stripPromptArtifacts, isThinkingOnlyArtifact } from "./prompt-cleanup";
+import { withRawPrompt } from "./raw-prompt";
 import { chatCompletion, chatCompletionStream } from "./llm-client";
 import {
   resolveRequestLlmEnabled,
@@ -100,14 +101,15 @@ export type GenerateResult = {
     maxSentences: number;
     maxTokens: number;
   };
-    metadata?: {
-      wardrobeAssignments?: Array<{
-        wardrobeId?: string | null;
-        bottomId?: string | null;
-        footwearId?: string | null;
-        accessoriesId?: string | null;
-      }>;
-    };
+  metadata?: {
+    rawPrompt?: string;
+    wardrobeAssignments?: Array<{
+      wardrobeId?: string | null;
+      bottomId?: string | null;
+      footwearId?: string | null;
+      accessoriesId?: string | null;
+    }>;
+  };
 };
 
 export type GeneratePromptOptions = {
@@ -128,12 +130,23 @@ type ChatMessage = {
   content: string;
 };
 
+const KEYWORDS_ONLY_SYSTEM_ADDENDUM = `Keywords-only mode:
+- Expand the user's keywords into one model-ready prompt.
+- Stay faithful to those keywords for setting, wardrobe, props, and subjects.
+- Do not invent a wardrobe catalog, outfit roll, or substitute a different location unless the keywords ask for it.
+- Do not copy clothing or places from example prompts—there are none in this request.`;
+
 function buildFewShotMessages(
   mode: PromptMode,
   settings: GenerationSettings,
   input: string,
 ): ChatMessage[] {
   if (mode === "negative") {
+    return [];
+  }
+
+  // Completionist local models overfit few-shot scenes (location/wardrobe).
+  if (settings.seedLlmWithIngredients === false) {
     return [];
   }
 
@@ -188,6 +201,31 @@ function buildUserMessage(
     return trimmed;
   }
 
+  const seedIngredients = settings.seedLlmWithIngredients !== false;
+
+  // Keywords-only: send the user's text plus hard fidelity rules—no flavor,
+  // wardrobe, environment, or sport seed lines that completionist models latch onto.
+  if (!seedIngredients) {
+    const extras: string[] = [
+      buildDetailUserDirective(settings.detail, settings.model),
+    ];
+    if (isMultiPersonInput(trimmed) && settings.distinctPeople) {
+      extras.push(buildDistinctPeopleUserDirective(trimmed));
+    } else if (!isMultiPersonInput(trimmed) && !settings.distinctPeople) {
+      const soloLock = buildSoloSubjectLockDirective(trimmed);
+      if (soloLock) {
+        extras.push(soloLock);
+      }
+    }
+    if (avoidedTokensInstruction?.trim()) {
+      extras.push(avoidedTokensInstruction.trim());
+    }
+    extras.push(
+      "Write one model-ready prompt from the keywords above only. Do not invent a wardrobe catalog or substitute a different location unless the keywords ask for it.",
+    );
+    return `Scene keywords:\n${trimmed}\n\n${extras.join("\n\n")}`;
+  }
+
   const extras: string[] = [
     buildDetailUserDirective(settings.detail, settings.model),
   ];
@@ -230,18 +268,18 @@ function buildUserMessage(
     extras.push(buildNoClothingUserDirective());
   }
 
+  if (variationSeed?.trim() && settings.variation.enabled) {
+    extras.push(
+      `Environment variation seed (honor closely): ${variationSeed.trim()}`,
+    );
+  }
+
   const sport = inferAthleticSport(trimmed);
   if (sport) {
     const sportLines = formatSportActionInstructions(sport, trimmed);
     if (sportLines) {
       extras.push(sportLines);
     }
-  }
-
-  if (variationSeed?.trim() && settings.variation.enabled) {
-    extras.push(
-      `Environment variation seed (honor closely): ${variationSeed.trim()}`,
-    );
   }
 
   if (avoidedTokensInstruction?.trim()) {
@@ -337,6 +375,9 @@ function finalizePromptFromSource(
     settings.model,
     {
       distinctPeople: mode === "positive" && settings.distinctPeople,
+      // Keywords-only: do not invent setting/location beats to hit min length.
+      enforceMinimum:
+        mode !== "positive" || settings.seedLlmWithIngredients !== false,
     },
   );
   const formatted = formatPromptForModel(sanitized, settings.model, input, mode);
@@ -421,7 +462,8 @@ async function finalizePromptWithSparseExpand(
   tool?: string,
 ): Promise<string> {
   let source = preparePromptSource(raw, input, mode, settings);
-  if (mode === "positive") {
+  // Sparse expand explicitly invents garments/locations — skip in keywords-only mode.
+  if (mode === "positive" && settings.seedLlmWithIngredients !== false) {
     const preview = sanitizeQwenPrompt(source, settings.detail, input, settings.model, {
       distinctPeople: settings.distinctPeople,
       enforceMinimum: false,
@@ -469,6 +511,10 @@ export function buildGenerateLlmRequest(
   if (mode === "positive") {
     systemPrompt = `${systemPrompt}\n\n${buildClaritySystemAddendum(settings.detail, settings.model)}`;
 
+    if (settings.seedLlmWithIngredients === false) {
+      systemPrompt = `${systemPrompt}\n\n${KEYWORDS_ONLY_SYSTEM_ADDENDUM}`;
+    }
+
     if (isMultiPersonInput(input.trim())) {
       if (settings.distinctPeople) {
         systemPrompt = `${systemPrompt}\n\n${buildDistinctPeopleSystemAddendum(input.trim())}`;
@@ -482,18 +528,30 @@ export function buildGenerateLlmRequest(
 
   systemPrompt = `${systemPrompt}\n\nOutput ONLY the raw prompt text. No numbered analysis, thinking steps, labels, markdown, or explanations.`;
 
+  const seedIngredients = settings.seedLlmWithIngredients !== false;
   const messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
     ...buildFewShotMessages(mode, settings, input),
-    { role: "user", content: buildUserMessage(input, mode, settings, wardrobeAssignments, variationSeed, avoidedTokensInstruction) },
+    {
+      role: "user",
+      content: buildUserMessage(
+        input,
+        mode,
+        settings,
+        seedIngredients ? wardrobeAssignments : null,
+        seedIngredients ? variationSeed : undefined,
+        avoidedTokensInstruction,
+      ),
+    },
   ];
 
   const extraBody: Record<string, unknown> = {
     ...getLlmSamplingParams(settings.variation),
   };
 
+  // Don't pin sampling to a locked variation seed when ingredients are off.
   if (settings.variation.enabled) {
-    extraBody.seed = getLlmSeed(variationSeed);
+    extraBody.seed = getLlmSeed(seedIngredients ? variationSeed : undefined);
   }
 
   return {
@@ -513,7 +571,7 @@ export async function generateWithLlm(
   avoidedTokensInstruction?: string,
   tool?: string,
   llm?: LlmRequestOptions,
-): Promise<string> {
+): Promise<{ prompt: string; rawPrompt: string }> {
   const request = buildGenerateLlmRequest(
     input,
     mode,
@@ -531,7 +589,8 @@ export async function generateWithLlm(
     extraBody: request.extraBody,
   });
 
-  return finalizePromptWithSparseExpand(
+  const rawPrompt = stripPromptArtifacts(content).trim() || content.trim();
+  const prompt = await finalizePromptWithSparseExpand(
     content,
     input.trim(),
     mode,
@@ -539,6 +598,7 @@ export async function generateWithLlm(
     wardrobeAssignments,
     tool,
   );
+  return { prompt, rawPrompt };
 }
 
 function sanitizePrompt(raw: string): string {
@@ -781,9 +841,19 @@ function buildGenerateResult(
   provider: GenerateResult["provider"],
   settings: GenerationSettings,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
+  rawPrompt?: string,
 ): GenerateResult {
   const limits = getDetailLimits(settings.detail, settings.model);
   const modelDef = getComfyModelDefinition(settings.model);
+  const wardrobeMeta = wardrobeAssignments?.length
+    ? {
+        wardrobeAssignments: wardrobeAssignments.map((assignment) => ({
+          wardrobeId: assignment.wardrobeId,
+          footwearId: assignment.footwearId,
+          accessoriesId: assignment.accessoriesId,
+        })),
+      }
+    : undefined;
 
   return {
     prompt,
@@ -797,15 +867,7 @@ function buildGenerateResult(
       maxSentences: limits.maxSentences,
       maxTokens: limits.maxTokens,
     },
-    metadata: wardrobeAssignments?.length
-      ? {
-          wardrobeAssignments: wardrobeAssignments.map((assignment) => ({
-            wardrobeId: assignment.wardrobeId,
-            footwearId: assignment.footwearId,
-            accessoriesId: assignment.accessoriesId,
-          })),
-        }
-      : undefined,
+    metadata: withRawPrompt(wardrobeMeta, rawPrompt),
   };
 }
 
@@ -834,8 +896,9 @@ export async function generatePrompt(
   };
 
   const llmEnabled = resolveRequestLlmEnabled(options?.llm);
+  const seedIngredients = writeSettings.seedLlmWithIngredients !== false;
   const wardrobeAssignments =
-    mode === "positive"
+    mode === "positive" && seedIngredients
       ? buildGenerateWardrobeAssignments(trimmed, writeSettings, {
           recentClothing: options?.recentClothing,
           lockedWardrobeId: options?.lockedWardrobeId,
@@ -845,7 +908,7 @@ export async function generatePrompt(
 
   if (llmEnabled) {
     try {
-      const prompt = await generateWithLlm(
+      const { prompt, rawPrompt } = await generateWithLlm(
         trimmed,
         mode,
         writeSettings,
@@ -861,6 +924,7 @@ export async function generatePrompt(
         "llm",
         resultSettings,
         wardrobeAssignments,
+        rawPrompt,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown LLM error";
@@ -874,18 +938,20 @@ export async function generatePrompt(
     }
   }
 
+  const templatePrompt = generateWithTemplate(
+    trimmed,
+    mode,
+    writeSettings,
+    wardrobeAssignments,
+    options?.tool,
+  );
   return buildGenerateResult(
-    generateWithTemplate(
-      trimmed,
-      mode,
-      writeSettings,
-      wardrobeAssignments,
-      options?.tool,
-    ),
+    templatePrompt,
     mode,
     "template",
     resultSettings,
     wardrobeAssignments,
+    templatePrompt,
   );
 }
 
@@ -924,8 +990,9 @@ export async function* generatePromptStream(
   };
 
   const llmEnabled = resolveRequestLlmEnabled(options?.llm);
+  const seedIngredients = writeSettings.seedLlmWithIngredients !== false;
   const wardrobeAssignments =
-    mode === "positive"
+    mode === "positive" && seedIngredients
       ? buildGenerateWardrobeAssignments(trimmed, writeSettings, {
           recentClothing: options?.recentClothing,
           lockedWardrobeId: options?.lockedWardrobeId,
@@ -957,6 +1024,7 @@ export async function* generatePromptStream(
         yield { type: "delta", text: delta };
       }
 
+      const rawPrompt = stripPromptArtifacts(raw).trim() || raw.trim();
       const prompt = await finalizePromptWithSparseExpand(
         raw,
         trimmed,
@@ -968,7 +1036,14 @@ export async function* generatePromptStream(
 
       yield {
         type: "done",
-        result: buildGenerateResult(prompt, mode, "llm", resultSettings, wardrobeAssignments),
+        result: buildGenerateResult(
+          prompt,
+          mode,
+          "llm",
+          resultSettings,
+          wardrobeAssignments,
+          rawPrompt,
+        ),
       };
       return;
     } catch (error) {
@@ -984,20 +1059,24 @@ export async function* generatePromptStream(
     }
   }
 
-  yield {
-    type: "done",
-    result: buildGenerateResult(
-      generateWithTemplate(
-        trimmed,
-        mode,
-        writeSettings,
-        wardrobeAssignments,
-        options?.tool,
-      ),
+  {
+    const templatePrompt = generateWithTemplate(
+      trimmed,
       mode,
-      "template",
-      resultSettings,
+      writeSettings,
       wardrobeAssignments,
-    ),
-  };
+      options?.tool,
+    );
+    yield {
+      type: "done",
+      result: buildGenerateResult(
+        templatePrompt,
+        mode,
+        "template",
+        resultSettings,
+        wardrobeAssignments,
+        templatePrompt,
+      ),
+    };
+  }
 }

@@ -24,7 +24,6 @@ import {
   buildOutfitFromLockedWardrobeId,
   type RandomCharacterOutfit,
 } from "./clothing-catalog";
-import { hintsMentionClothing } from "./clothing-tags";
 import {
   isMultiPersonInput,
   parsePeopleConstraint,
@@ -68,8 +67,9 @@ export function shouldPickGenerateWardrobe(
     return false;
   }
 
+  // Unchecked "Always include wardrobe" means do not auto-roll catalog outfits.
   if (alwaysIncludeClothing === false) {
-    return !hintsMentionClothing(input);
+    return false;
   }
 
   return true;

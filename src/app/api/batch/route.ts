@@ -20,6 +20,7 @@ type BatchRequestBody = {
   recentLocations?: string[];
   recentClothing?: string[];
   alwaysIncludeClothing?: boolean;
+  seedLlmWithIngredients?: boolean;
   teamKit?: boolean;
   count?: number;
   blockedLocations?: string[];
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
       recentLocations: normalizeRecentLocations(body.recentLocations),
       recentClothing: normalizeRecentClothing(body.recentClothing),
       alwaysIncludeClothing: body.alwaysIncludeClothing !== false,
+      seedLlmWithIngredients: body.seedLlmWithIngredients !== false,
       teamKit: body.teamKit === true,
       count: typeof body.count === "number" ? body.count : 3,
       blockedLocations: normalizeBlockedLocations(body.blockedLocations),

@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
+import { readRawPrompt } from "@/lib/raw-prompt";
 import SharedToolControls from "@/components/SharedToolControls";
 import { useCachedSettings } from "@/hooks/useCachedSettings";
 import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
@@ -568,6 +569,7 @@ export default function ImagePromptTool() {
           })
         }
         onOutputChange={setOutput}
+        rawPrompt={readRawPrompt(result?.metadata)}
         onSendComfyUi={() =>
           void actions.sendComfyUi(output, inferredSport, undefined, {
             inputImage: refImages[0]?.file ?? null,

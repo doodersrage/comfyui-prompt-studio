@@ -215,6 +215,23 @@ describe("hintsImplyNoClothing", () => {
     );
     assert.equal(assignments, null);
   });
+
+  it("does not auto-roll wardrobe when Always include wardrobe is unchecked", () => {
+    assert.equal(
+      shouldPickGenerateWardrobe("a woman on a rooftop at dusk", false),
+      false,
+    );
+    assert.equal(
+      shouldPickGenerateWardrobe("a woman in a red dress on a rooftop", false),
+      false,
+    );
+    const assignments = buildGenerateWardrobeAssignments(
+      "a woman on a rooftop at dusk",
+      { ...DEFAULT_GENERATION_SETTINGS, alwaysIncludeClothing: false },
+      { assumePeople: true },
+    );
+    assert.equal(assignments, null);
+  });
 });
 
 describe("multi-person wardrobe assignments", () => {

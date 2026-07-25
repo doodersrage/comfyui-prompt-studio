@@ -30,6 +30,7 @@ export type BatchFromTopicsOptions = {
   recentLocations?: string[];
   blockedLocations?: string[];
   alwaysIncludeClothing?: boolean;
+  seedLlmWithIngredients?: boolean;
   distinctPeople?: boolean;
   teamKit?: boolean;
   llm?: LlmRequestOptions;
@@ -58,8 +59,12 @@ export async function batchGenerateFromTopics(
 
   const results: BatchFromTopicsItem[] = [];
 
+  const seedLlmWithIngredients = options.seedLlmWithIngredients !== false;
+
   for (const topic of topics) {
-    const hints = applyLockedLocation(topic, options.lockedLocation) ?? topic;
+    const hints = seedLlmWithIngredients
+      ? applyLockedLocation(topic, options.lockedLocation) ?? topic
+      : topic;
     const avoidance = {
       avoidedTokens: options.avoidedTokens,
       avoidedTokensInstruction: options.avoidedTokensInstruction,
@@ -74,6 +79,7 @@ export async function batchGenerateFromTopics(
         variationStrength: 50,
         presetOptions: { headcount: "duo" },
         alwaysIncludeClothing: options.alwaysIncludeClothing !== false,
+        seedLlmWithIngredients,
         teamKit: options.teamKit === true,
         lockedWardrobeId: options.lockedWardrobeId,
         lockedLocation: options.lockedLocation,
@@ -100,6 +106,7 @@ export async function batchGenerateFromTopics(
         portraitStyle: "portrait",
         variationStrength: 50,
         alwaysIncludeClothing: options.alwaysIncludeClothing !== false,
+        seedLlmWithIngredients,
         lockedWardrobeId: options.lockedWardrobeId,
         lockedLocation: options.lockedLocation,
         variationSeed: options.variationSeed,
@@ -150,6 +157,7 @@ export async function batchGenerateFromTopics(
         recentLocations: options.recentLocations,
         blockedLocations: options.blockedLocations,
         alwaysIncludeClothing: options.alwaysIncludeClothing !== false,
+        seedLlmWithIngredients,
         llm: options.llm,
         ...avoidance,
       });
@@ -184,6 +192,7 @@ export async function batchGenerateFromTopics(
       detail: options.detail,
       distinctPeople: options.distinctPeople,
       alwaysIncludeClothing: options.alwaysIncludeClothing,
+      seedLlmWithIngredients,
     });
 
     const result = await generatePrompt(hints, "positive", settings, {

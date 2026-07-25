@@ -12,6 +12,7 @@ import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useRecentClothing } from "@/hooks/useRecentClothing";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
 import { fetchClothingLabels, getCachedClothingLabel } from "@/lib/clothing-catalog-client";
+import { readRawPrompt } from "@/lib/raw-prompt";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import {
   presetOptionsFromFantasyCache,
@@ -211,6 +212,7 @@ export default function FantasyTool() {
           lockedWardrobeId: shared.lockedWardrobeId,
           variationSeed: shared.lockedVariationSeed,
           alwaysIncludeClothing: shared.alwaysIncludeClothing !== false,
+          seedLlmWithIngredients: shared.seedLlmWithIngredients !== false,
           ...avoidedTokensRequestBody(),
         }),
       });
@@ -290,6 +292,10 @@ export default function FantasyTool() {
           alwaysIncludeClothing={shared.alwaysIncludeClothing !== false}
           onAlwaysIncludeClothingChange={(value) =>
             updateShared({ alwaysIncludeClothing: value })
+          }
+          seedLlmWithIngredients={shared.seedLlmWithIngredients !== false}
+          onSeedLlmWithIngredientsChange={(value) =>
+            updateShared({ seedLlmWithIngredients: value })
           }
           wardrobeHelp="When focus is character or ensemble, rolls catalog outfits for heroes and adventurers."
           lockedWardrobeId={shared.lockedWardrobeId}
@@ -443,6 +449,8 @@ export default function FantasyTool() {
 
       <EnhancedPromptResult
         output={output}
+        onOutputChange={setOutput}
+        rawPrompt={readRawPrompt(result?.metadata)}
         provider={result?.provider ?? null}
         comfyNode={result?.comfyNode}
         limits={result?.limits}

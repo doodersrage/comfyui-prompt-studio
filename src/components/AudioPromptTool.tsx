@@ -90,10 +90,15 @@ export default function AudioPromptTool() {
     };
   }, [mounted, shared.model, updateShared]);
 
-  const output = useMemo(
+  const builtOutput = useMemo(
     () => buildAudioPrompt({ subject, mood, instruments, durationSec }),
     [durationSec, instruments, mood, subject],
   );
+  const [outputOverride, setOutputOverride] = useState<string | null>(null);
+  useEffect(() => {
+    setOutputOverride(null);
+  }, [durationSec, instruments, mood, subject]);
+  const output = outputOverride ?? builtOutput;
 
   const [copied, setCopied] = useState(false);
   const copyOutput = useCallback(async () => {
@@ -214,6 +219,7 @@ export default function AudioPromptTool() {
 
       <EnhancedPromptResult
         output={output}
+        onOutputChange={setOutputOverride}
         provider={output ? "template" : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={controlsModel}

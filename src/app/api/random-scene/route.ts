@@ -15,6 +15,7 @@ type RandomSceneRequestBody = {
   recentLocations?: string[];
   recentClothing?: string[];
   alwaysIncludeClothing?: boolean;
+  seedLlmWithIngredients?: boolean;
   blockedLocations?: string[];
   lockedWardrobeId?: string;
   lockedLocation?: string;
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
     const avoidance = resolveAvoidanceOptions(body);
 
     const alwaysIncludeClothing = body.alwaysIncludeClothing !== false;
+    const seedLlmWithIngredients = body.seedLlmWithIngredients !== false;
 
     const result = await generateRandomScene({
       ...shared,
@@ -48,6 +50,7 @@ export async function POST(request: Request) {
       recentLocations: normalizeRecentLocations(body.recentLocations),
       recentClothing: normalizeRecentClothing(body.recentClothing),
       alwaysIncludeClothing,
+      seedLlmWithIngredients,
       blockedLocations: normalizeBlockedLocations(body.blockedLocations),
       lockedWardrobeId: normalizeLockedWardrobeId(body.lockedWardrobeId),
       lockedLocation: normalizeLockedLocation(body.lockedLocation),

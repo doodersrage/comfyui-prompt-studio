@@ -355,6 +355,7 @@ export default function InpaintTool() {
 
       <EnhancedPromptResult
         output={output}
+        onOutputChange={setDirectPrompt}
         provider={output ? "template" : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={shared.model}

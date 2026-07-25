@@ -91,10 +91,15 @@ export default function MeshPromptTool() {
     };
   }, [mounted, shared.model, updateShared]);
 
-  const output = useMemo(
+  const builtOutput = useMemo(
     () => buildMeshPrompt({ subject, materials, style }),
     [materials, style, subject],
   );
+  const [outputOverride, setOutputOverride] = useState<string | null>(null);
+  useEffect(() => {
+    setOutputOverride(null);
+  }, [materials, style, subject]);
+  const output = outputOverride ?? builtOutput;
 
   const [copied, setCopied] = useState(false);
   const copyOutput = useCallback(async () => {
@@ -240,6 +245,7 @@ export default function MeshPromptTool() {
 
       <EnhancedPromptResult
         output={output}
+        onOutputChange={setOutputOverride}
         provider={output ? "template" : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={controlsModel}

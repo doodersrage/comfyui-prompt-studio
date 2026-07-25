@@ -183,6 +183,7 @@ export default function LintTool() {
 
       <EnhancedPromptResult
         output={prompt}
+        onOutputChange={setPrompt}
         provider={actions.diagnostics ? "rules" : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={shared.model}

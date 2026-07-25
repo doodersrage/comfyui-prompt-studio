@@ -18,6 +18,7 @@ import {
   expandSparsePromptWithLlm,
   needsSparsePromptExpand,
 } from "../sparse-prompt-expand";
+import { withRawPrompt } from "../raw-prompt";
 import type { DetailLevel } from "../detail-level";
 import type { ToolGenerateResult, ToolLimits } from "./types";
 
@@ -52,6 +53,10 @@ export async function runSpecializedPrompt(options: {
   toolInstructions: string;
   userMessage: string;
   templateFallback: () => string | Promise<string>;
+  /**
+   * Context for sanitize/pad/sparse-expand. Must be user hints only — never
+   * rolled location/wardrobe ingredient seeds (those leak into the optimized prompt).
+   */
   sanitizeInput?: string;
   temperature?: number;
   allowTemplateFallback?: boolean;
@@ -91,11 +96,12 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
         model: options.llmModel,
       });
 
+      const rawPrompt = stripPromptArtifacts(content).trim() || content.trim();
       const prompt = await finalizeSpecializedPrompt(
         content,
         options.detail,
         options.model,
-        options.sanitizeInput ?? options.userMessage,
+        options.sanitizeInput ?? "",
         options.soloSubject,
         options.enforceMinimum,
         options.postProcessPrompt,
@@ -104,7 +110,7 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
 
       return buildToolResult(prompt, "llm", reportedModel, options.detail, {
         seed: options.seed,
-        metadata: options.metadata,
+        metadata: withRawPrompt(options.metadata, rawPrompt),
       });
     } catch (error) {
       if (!resolveRequestTemplateFallback({ allowTemplateFallback: options.allowTemplateFallback })) {
@@ -117,11 +123,14 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
     }
   }
 
+  const templateDraft = await Promise.resolve(options.templateFallback());
+  const rawPrompt =
+    stripPromptArtifacts(templateDraft).trim() || templateDraft.trim();
   const prompt = await finalizeSpecializedPrompt(
-    await Promise.resolve(options.templateFallback()),
+    templateDraft,
     options.detail,
     options.model,
-    options.sanitizeInput ?? options.userMessage,
+    options.sanitizeInput ?? "",
     options.soloSubject,
     options.enforceMinimum,
     options.postProcessPrompt,
@@ -130,7 +139,7 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
 
   return buildToolResult(prompt, "template", reportedModel, options.detail, {
     seed: options.seed,
-    metadata: options.metadata,
+    metadata: withRawPrompt(options.metadata, rawPrompt),
   });
 }
 

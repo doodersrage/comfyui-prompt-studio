@@ -218,6 +218,7 @@ export default function NegativeTool() {
 
       <EnhancedPromptResult
         output={output}
+        onOutputChange={setOutput}
         provider="template"
         comfyNode={selectedModel.comfyNode}
         readinessModel={shared.model}

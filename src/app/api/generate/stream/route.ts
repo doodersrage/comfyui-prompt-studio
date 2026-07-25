@@ -31,6 +31,7 @@ type GenerateStreamRequestBody = {
   detail?: string;
   distinctPeople?: boolean;
   alwaysIncludeClothing?: boolean;
+  seedLlmWithIngredients?: boolean;
   recentClothing?: string[];
   lockedWardrobeId?: string;
   lockedLocation?: string;
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
     variation: body.variation,
     distinctPeople: body.distinctPeople,
     alwaysIncludeClothing: body.alwaysIncludeClothing,
+    seedLlmWithIngredients: body.seedLlmWithIngredients,
     detail: body.detail,
     model: body.model,
   });
@@ -78,7 +80,7 @@ export async function POST(request: Request) {
 
   const lockedLocation = normalizeLockedLocation(body.lockedLocation);
   const effectiveInput =
-    mode === "positive"
+    mode === "positive" && settings.seedLlmWithIngredients !== false
       ? applyLockedLocation(rawInput, lockedLocation) ?? rawInput
       : rawInput;
 

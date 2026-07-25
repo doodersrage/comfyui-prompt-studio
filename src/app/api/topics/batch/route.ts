@@ -30,6 +30,7 @@ type TopicsBatchRequestBody = {
   recentClothing?: string[];
   recentLocations?: string[];
   alwaysIncludeClothing?: boolean;
+  seedLlmWithIngredients?: boolean;
   distinctPeople?: boolean;
   teamKit?: boolean;
   blockedLocations?: string[];
@@ -77,6 +78,7 @@ export async function POST(request: Request) {
       recentLocations: body.recentLocations,
       blockedLocations: body.blockedLocations,
       alwaysIncludeClothing: body.alwaysIncludeClothing,
+      seedLlmWithIngredients: body.seedLlmWithIngredients,
       distinctPeople: body.distinctPeople,
       teamKit: body.teamKit,
       llm: parseLlmRequestOptions(body),

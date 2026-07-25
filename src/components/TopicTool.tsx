@@ -219,6 +219,7 @@ export default function TopicTool() {
           recentClothing: getRecentClothing(),
           recentLocations: getRecentLocations(),
           alwaysIncludeClothing: shared.alwaysIncludeClothing !== false,
+          seedLlmWithIngredients: shared.seedLlmWithIngredients !== false,
           distinctPeople: true,
           teamKit: batchTarget === "duo",
           lockedWardrobeId: shared.lockedWardrobeId,
@@ -474,6 +475,10 @@ export default function TopicTool() {
           onModelChange={(model) => updateShared({ model })}
           onDetailChange={(detail) => updateShared({ detail })}
           onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          seedLlmWithIngredients={shared.seedLlmWithIngredients !== false}
+          onSeedLlmWithIngredientsChange={(value) =>
+            updateShared({ seedLlmWithIngredients: value })
+          }
           lockedWardrobeId={shared.lockedWardrobeId}
           lockedLocation={shared.lockedLocation}
           lockedVariationSeed={shared.lockedVariationSeed}

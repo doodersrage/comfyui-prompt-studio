@@ -11,6 +11,7 @@ import { usePromptResultActions } from "@/hooks/usePromptResultActions";
 import { useRecentLocations } from "@/hooks/useRecentLocations";
 import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
+import { readRawPrompt } from "@/lib/raw-prompt";
 import { presetOptionsFromPetCache } from "@/lib/pet-options";
 import { getComfyModelDefinition } from "@/lib/comfy-models/client";
 import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
@@ -350,6 +351,8 @@ export default function PetTool() {
 
       <EnhancedPromptResult
         output={output}
+        onOutputChange={setOutput}
+        rawPrompt={readRawPrompt(result?.metadata)}
         provider={result?.provider ?? null}
         comfyNode={result?.comfyNode}
         limits={result?.limits}

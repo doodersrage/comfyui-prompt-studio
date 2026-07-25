@@ -359,8 +359,34 @@ export default function SettingsLlmPanel({
         <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
           <input
             type="checkbox"
-            checked={sharedSettings.alwaysIncludeClothing !== false}
+            checked={sharedSettings.seedLlmWithIngredients !== false}
             disabled={!sharedMounted}
+            onChange={(event) =>
+              updateSharedSettings({
+                seedLlmWithIngredients: event.target.checked,
+              })
+            }
+            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass()}`}
+          />
+          <span className="space-y-1">
+            <span className="block font-medium text-zinc-200">
+              Seed LLM with location & wardrobe ingredients
+            </span>
+            <span className="block text-xs text-zinc-500">
+              When on, generators inject rolled location / outfit / environment
+              seeds and few-shot examples. Turn off for completionist local
+              models — only your keywords or hints are sent.
+            </span>
+          </span>
+        </label>
+
+        <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={sharedSettings.alwaysIncludeClothing !== false}
+            disabled={
+              !sharedMounted || sharedSettings.seedLlmWithIngredients === false
+            }
             onChange={(event) =>
               updateSharedSettings({ alwaysIncludeClothing: event.target.checked })
             }
@@ -372,6 +398,7 @@ export default function SettingsLlmPanel({
             </span>
             <span className="block text-xs text-zinc-500">
               Generators inject wardrobe beats even when hints omit outfit details.
+              Requires ingredient seeding above.
             </span>
           </span>
         </label>

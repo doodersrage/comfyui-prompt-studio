@@ -44,7 +44,10 @@ export async function generateFantasyPrompt(
   const presetOptions = normalizeFantasyPresetOptions(options.presetOptions);
   const hasPresets = hasFantasyPresetOptions(presetOptions);
   const wildness = Math.min(100, Math.max(0, options.wildness ?? 65));
-  const effectiveHints = applyLockedLocation(options.hints, options.lockedLocation);
+  const seedIngredients = options.seedLlmWithIngredients !== false;
+  const effectiveHints = seedIngredients
+    ? applyLockedLocation(options.hints, options.lockedLocation)
+    : options.hints;
   const focus = resolveFantasyFocus(presetOptions, effectiveHints);
   const shotFraming = resolveFantasyShotFraming(focus, options.portraitStyle);
   const includePeople = fantasyFocusIncludesPeople(focus);
@@ -63,7 +66,9 @@ export async function generateFantasyPrompt(
   const seed = applyLockedVariationSeed(rolledSeed, options.variationSeed);
   const presetBlock = buildFantasyPresetBlock(presetOptions);
   const presetDirective = buildFantasyPresetUserDirective(presetOptions);
-  const locationBlock = buildMandatoryLocationBlock(settingHint.location);
+  const locationBlock = seedIngredients
+    ? buildMandatoryLocationBlock(settingHint.location)
+    : null;
   const alwaysIncludeClothing = options.alwaysIncludeClothing !== false;
   const distinctPeople = isMultiPersonInput(
     [effectiveHints, seed, focus].filter(Boolean).join(", "),
@@ -80,7 +85,7 @@ export async function generateFantasyPrompt(
     },
   };
   const wardrobeAssignments =
-    includePeople && alwaysIncludeClothing
+    seedIngredients && includePeople && alwaysIncludeClothing
       ? buildGenerateWardrobeAssignments(seed, wardrobeSettings, {
           assumePeople: true,
           recentClothing: options.recentClothing,
@@ -89,11 +94,13 @@ export async function generateFantasyPrompt(
           avoidedTokens: options.avoidedTokens,
         })
       : null;
-  const clothingDirective = wardrobeAssignments?.length
-    ? buildGenerateWardrobeUserDirective(wardrobeAssignments)
-    : hintsImplyNoClothing(effectiveHints) || hintsImplyNoClothing(seed)
-      ? buildNoClothingUserDirective()
-      : null;
+  const clothingDirective = !seedIngredients
+    ? null
+    : wardrobeAssignments?.length
+      ? buildGenerateWardrobeUserDirective(wardrobeAssignments)
+      : hintsImplyNoClothing(effectiveHints) || hintsImplyNoClothing(seed)
+        ? buildNoClothingUserDirective()
+        : null;
 
   const focusInstructions =
     focus === "environment"
@@ -104,7 +111,16 @@ export async function generateFantasyPrompt(
           ? "Show a SMALL fantasy ensemble of two or three figures interacting. No crowds or background extras."
           : "Center the image on ONE fantasy character hero with specific identity, gear, and expression. No crowds.";
 
-  const toolInstructions = `You are a fantasy scene prompt generator for ComfyUI.
+  const keywordsOnly = !seedIngredients;
+  const hintText = effectiveHints?.trim() || "";
+  const toolInstructions = keywordsOnly
+    ? `You are a fantasy scene prompt generator for ComfyUI.
+- Expand the user's keywords into ONE cohesive fantasy image.
+- Stay faithful to those keywords for setting, wardrobe, creatures, and props.
+- Do not invent a wardrobe catalog or substitute a different location unless the keywords ask for it.
+- ${focusInstructions}
+- Wildness level: ${wildness}/100.`
+    : `You are a fantasy scene prompt generator for ComfyUI.
 - Invent ONE cohesive fantasy image from the provided ingredients.
 - When a FANTASY PRESET block is present, follow its phrases exactly.
 - When a MANDATORY SETTING block is present, use that exact place.
@@ -112,18 +128,30 @@ export async function generateFantasyPrompt(
 - Include readable magical effects, material detail, and atmospheric depth.
 - Wildness level: ${wildness}/100 (higher = stranger combinations, still one unified image).`;
 
-  const userMessage = [
-    presetBlock,
-    presetDirective,
-    locationBlock,
-    `Fantasy scene ingredients:\n${seed}`,
-    clothingDirective,
-    `Framing: ${getFantasyShotFramingLine(shotFraming)}`,
-    shotFraming === "action" ? FANTASY_ACTION_INSTRUCTIONS : null,
-    `Scene focus: ${focus}`,
-    options.avoidedTokensInstruction ?? null,
-    "Write one model-ready fantasy scene prompt.",
-  ]
+  const userMessage = (
+    keywordsOnly
+      ? [
+          hintText
+            ? `Scene keywords:\n${hintText}`
+            : "Scene keywords:\n(none provided — invent one cohesive fantasy scene from the focus only, without a wardrobe catalog)",
+          `Framing: ${getFantasyShotFramingLine(shotFraming)}`,
+          `Scene focus: ${focus}`,
+          options.avoidedTokensInstruction ?? null,
+          "Write one model-ready fantasy scene prompt from the keywords above. Do not invent a wardrobe catalog or substitute a different location unless the keywords ask for it.",
+        ]
+      : [
+          presetBlock,
+          presetDirective,
+          locationBlock,
+          `Fantasy scene ingredients:\n${seed}`,
+          clothingDirective,
+          `Framing: ${getFantasyShotFramingLine(shotFraming)}`,
+          shotFraming === "action" ? FANTASY_ACTION_INSTRUCTIONS : null,
+          `Scene focus: ${focus}`,
+          options.avoidedTokensInstruction ?? null,
+          "Write one model-ready fantasy scene prompt.",
+        ]
+  )
     .filter(Boolean)
     .join("\n\n");
 
@@ -141,30 +169,38 @@ export async function generateFantasyPrompt(
     allowTemplateFallback: options.llm?.allowTemplateFallback,
     llmModel: options.llm?.llmModel,
     llmEnabled: options.llm?.llmEnabled,
+    // Hints only — never the rolled fantasy ingredient seed.
+    sanitizeInput: hintText || undefined,
     templateFallback: () =>
       buildFantasyTemplate(
-        seed,
+        keywordsOnly ? hintText || focus : seed,
         focus,
         shotFraming,
-        wardrobeAssignments,
-        presetOptions,
+        keywordsOnly ? null : wardrobeAssignments,
+        keywordsOnly ? normalizeFantasyPresetOptions({}) : presetOptions,
       ),
-    enforceMinimum: !hasPresets,
+    enforceMinimum: keywordsOnly ? false : !hasPresets,
     postProcessPrompt:
-      includePeople && wardrobeAssignments?.length
+      !keywordsOnly && includePeople && wardrobeAssignments?.length
         ? (prompt) =>
             mergeGenerateWardrobeIntoPrompt(prompt, wardrobeAssignments)
         : undefined,
     metadata: {
-      seed,
-      hints: effectiveHints?.trim() || null,
+      seed: keywordsOnly ? hintText || null : seed,
+      hints: hintText || null,
       location: settingHint.location,
-      sceneLocation,
+      sceneLocation: keywordsOnly ? null : sceneLocation,
       focus,
       shotFraming,
       wildness,
-      presetOptions,
-      presetCount: hasPresets ? countFantasyPresetSelections(presetOptions) : 0,
+      seedLlmWithIngredients: seedIngredients,
+      presetOptions: keywordsOnly
+        ? normalizeFantasyPresetOptions({})
+        : presetOptions,
+      presetCount:
+        !keywordsOnly && hasPresets
+          ? countFantasyPresetSelections(presetOptions)
+          : 0,
       includePeople,
     },
   });

@@ -40,6 +40,8 @@ export type FormatResult = {
   };
   inputChars: number;
   outputChars: number;
+  /** Pre-optimize LLM/rules draft before sanitize/format. */
+  rawPrompt?: string;
 };
 
 const DEFAULT_FORMAT_SETTINGS: FormatSettings = {
@@ -175,6 +177,7 @@ function buildFormatResult(
   input: string,
   settings: FormatSettings,
   provider: FormatResult["provider"],
+  rawPrompt?: string,
 ): FormatResult {
   const limits = getDetailLimits(settings.detail, settings.model);
   const modelDef = getComfyModelDefinition(settings.model);
@@ -193,6 +196,7 @@ function buildFormatResult(
     },
     inputChars: input.length,
     outputChars: prompt.length,
+    rawPrompt: rawPrompt?.trim() || undefined,
   };
 }
 
@@ -212,8 +216,9 @@ export async function formatPrompt(
   if (useLlm) {
     try {
       const llmOutput = await formatWithLlm(trimmed, normalized);
+      const rawPrompt = cleanDraft(llmOutput).trim() || llmOutput.trim();
       const prompt = finalizeFormattedPrompt(llmOutput, trimmed, normalized);
-      return buildFormatResult(prompt, trimmed, normalized, "llm");
+      return buildFormatResult(prompt, trimmed, normalized, "llm", rawPrompt);
     } catch (error) {
       const fallbackAllowed = process.env.ALLOW_TEMPLATE_FALLBACK !== "false";
       if (!fallbackAllowed) {

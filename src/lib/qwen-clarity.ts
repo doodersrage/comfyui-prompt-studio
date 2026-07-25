@@ -239,7 +239,9 @@ function padPromptToMinimum(
     return expandPromptToMinChars(text, detail, model, soloSubject);
   }
 
-  const topic = extractShortTopic(input);
+  // Topic must come from the draft itself — never from seed-laden sanitize
+  // context, which used to inject rolled location phrases into optimized prompts.
+  const topic = extractShortTopic(text || input);
   const pads: string[] = [];
 
   if (detail === "balanced" && sentences.length < minSentences) {

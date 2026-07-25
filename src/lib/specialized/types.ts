@@ -39,6 +39,8 @@ export type RandomSceneOptions = SharedGenerationOptions & {
   /** When set, reuse this environment/variation seed instead of rolling random. */
   variationSeed?: string;
   alwaysIncludeClothing?: boolean;
+  /** When false, skip location/wardrobe/environment ingredient seeds for the LLM. */
+  seedLlmWithIngredients?: boolean;
   avoidedTokens?: string[];
   avoidedTokensInstruction?: string;
 };
@@ -61,6 +63,8 @@ export type CharacterOptions = SharedGenerationOptions & {
   variationSeed?: string;
   /** When true (default), roll catalog wardrobe unless presets specify clothing. */
   alwaysIncludeClothing?: boolean;
+  /** When false, skip location/wardrobe/environment ingredient seeds for the LLM. */
+  seedLlmWithIngredients?: boolean;
   /** Force identical kits for athletic duos (teammates vs rival accents). */
   teamKit?: boolean;
   /** Pinned appearance descriptor injected into every character prompt. */
@@ -110,6 +114,8 @@ export type FantasyOptions = SharedGenerationOptions & {
   lockedWardrobeId?: string;
   variationSeed?: string;
   alwaysIncludeClothing?: boolean;
+  /** When false, skip location/wardrobe/environment ingredient seeds for the LLM. */
+  seedLlmWithIngredients?: boolean;
 };
 
 export type ImagePromptFocus = "full" | "subject" | "background" | "style";

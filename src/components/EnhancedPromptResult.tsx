@@ -35,6 +35,7 @@ import {
   isReadinessQueueAllowed,
 } from "@/lib/readiness-gate";
 import type { PromptReadinessResult } from "@/lib/prompt-readiness";
+import { readRawPrompt } from "@/lib/raw-prompt";
 import { loadSettingsCache } from "@/lib/settings-cache";
 import { usesSystemWorkflowPath } from "@/lib/system-workflow-runtime";
 
@@ -157,6 +158,10 @@ type EnhancedPromptResultProps = {
   readinessGateEnabled?: boolean;
   showWeightInspector?: boolean;
   onOutputChange?: (value: string) => void;
+  /** Pre-optimize LLM/template draft shown in a collapsed block. */
+  rawPrompt?: string;
+  /** When set, batch prompt cards become editable. */
+  onBatchPromptChange?: (index: number, value: string) => void;
 };
 
 export default function EnhancedPromptResult({
@@ -203,6 +208,8 @@ export default function EnhancedPromptResult({
   readinessGateEnabled = true,
   showWeightInspector = true,
   onOutputChange,
+  rawPrompt,
+  onBatchPromptChange,
   ...panelProps
 }: EnhancedPromptResultProps) {
   const workflowSelection = useComfyWorkflowSelection();
@@ -412,11 +419,17 @@ export default function EnhancedPromptResult({
                 key={`batch-${index}-${item.prompt.slice(0, 24)}`}
                 index={index}
                 prompt={item.prompt}
+                rawPrompt={readRawPrompt(item.metadata)}
                 crossLinks={batchCrossLinks}
                 copied={copiedBatchIndex === index}
                 historySaved={savedBatchIndices.has(index)}
                 pairCopied={pairCopiedBatchIndex === index}
                 onCopy={() => void copyBatchPrompt(item.prompt, index)}
+                onPromptChange={
+                  onBatchPromptChange
+                    ? (value) => onBatchPromptChange(index, value)
+                    : undefined
+                }
                 onQueueComfyUi={
                   batchPromptActions?.onQueueComfyUi
                     ? () => void batchPromptActions.onQueueComfyUi?.(item.prompt, index)
@@ -458,7 +471,11 @@ export default function EnhancedPromptResult({
           </ToolBlockGroup>
         </ToolSection>
       ) : (
-        <PromptResultPanel {...panelProps} onOutputChange={onOutputChange} />
+        <PromptResultPanel
+          {...panelProps}
+          onOutputChange={onOutputChange}
+          rawPrompt={rawPrompt}
+        />
       )}
 
       <PromptDiagnosticsPanel diagnostics={diagnostics ?? null} />

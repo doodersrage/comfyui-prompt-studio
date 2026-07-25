@@ -30,6 +30,7 @@ type FantasyRequestBody = {
   lockedWardrobeId?: string;
   variationSeed?: string;
   alwaysIncludeClothing?: boolean;
+  seedLlmWithIngredients?: boolean;
   avoidedTokens?: string[];
   avoidedTokensInstruction?: string;
 };
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
       lockedWardrobeId: body.lockedWardrobeId?.trim(),
       variationSeed: body.variationSeed?.trim(),
       alwaysIncludeClothing: body.alwaysIncludeClothing,
+      seedLlmWithIngredients: body.seedLlmWithIngredients,
     });
 
     return apiJson(result);

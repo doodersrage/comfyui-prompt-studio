@@ -121,6 +121,7 @@ export default function ControlNetTool() {
     null,
   ]);
   const [output, setOutput] = useState("");
+  const [rawPrompt, setRawPrompt] = useState<string | undefined>();
   const [source, setSource] = useState<"text" | "vision" | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -221,11 +222,18 @@ export default function ControlNetTool() {
         throw new Error(data.error ?? "ControlNet prompt failed.");
       }
 
-      const prompt = await actions.finalizePrompt(data.prompt ?? "", hintText);
+      const serverPrompt = data.prompt ?? "";
+      const prompt = await actions.finalizePrompt(serverPrompt, hintText);
+      setRawPrompt(
+        serverPrompt.trim() && serverPrompt.trim() !== prompt.trim()
+          ? serverPrompt.trim()
+          : undefined,
+      );
       setOutput(prompt);
       setSource(data.source ?? (refFile ? "vision" : "text"));
     } catch (err) {
       setOutput("");
+      setRawPrompt(undefined);
       setError(err instanceof Error ? err.message : "ControlNet prompt failed.");
     } finally {
       setLoading(false);
@@ -396,6 +404,7 @@ export default function ControlNetTool() {
             copied={copied}
             onCopy={() => void copyOutput()}
             onOutputChange={setOutput}
+            rawPrompt={rawPrompt}
             onSaveHistory={() => actions.saveHistory({ prompt: output, hints: hintText })}
             onSendComfyUi={() =>
               void actions.sendComfyUi(output, null, undefined, {

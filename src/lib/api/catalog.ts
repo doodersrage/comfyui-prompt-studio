@@ -128,6 +128,13 @@ export function buildApiCatalog(baseUrl: string) {
             description:
               "Roll catalog wardrobe when people appear in the input and append it if the model omits clothing (positive mode).",
           },
+          seedLlmWithIngredients: {
+            type: "boolean",
+            required: false,
+            default: true,
+            description:
+              "When true, inject rolled location / wardrobe / environment seeds into the LLM. When false, send keywords/hints only (better for completionist local models).",
+          },
           variation: {
             type: "object",
             required: false,

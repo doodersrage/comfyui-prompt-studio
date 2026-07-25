@@ -26,7 +26,6 @@ import {
   clothingMatchesGenderForPick,
   entryHasRestrictedContext,
   hintsImplyNoClothing,
-  hintsMentionClothing,
   hintsSpecifyDress,
   hintsSpecifyFootwear,
   inferDressLabelFilter,
@@ -2298,11 +2297,8 @@ export function shouldPickRandomCharacterOutfit(input: {
     return false;
   }
 
-  if (input.alwaysIncludeClothing !== false) {
-    return true;
-  }
-
-  return !hintsMentionClothing(input.hints);
+  // Unchecked "Always include wardrobe" means do not auto-roll catalog outfits.
+  return input.alwaysIncludeClothing !== false;
 }
 
 export { hintsMentionClothing } from "./clothing-tags";

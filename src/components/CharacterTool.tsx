@@ -6,6 +6,7 @@ import BackgroundPresetControls from "@/components/BackgroundPresetControls";
 import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
 import RegionalPromptBuilderPanel from "@/components/RegionalPromptBuilderPanel";
 import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
+import { readRawPrompt } from "@/lib/raw-prompt";
 import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
 import { applySceneStarterWorkflowHints } from "@/lib/scene-starter-workflow-hints";
 import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
@@ -349,6 +350,7 @@ export default function CharacterTool() {
               lockedLocation: shared.lockedLocation,
               variationSeed: shared.lockedVariationSeed,
               alwaysIncludeClothing: shared.alwaysIncludeClothing !== false,
+              seedLlmWithIngredients: shared.seedLlmWithIngredients !== false,
               teamKit: toolSettings.teamKit === true,
               ...avoidedTokensRequestBody(),
             }),
@@ -393,6 +395,7 @@ export default function CharacterTool() {
             lockedLocation: shared.lockedLocation,
             variationSeed: shared.lockedVariationSeed,
             alwaysIncludeClothing: shared.alwaysIncludeClothing !== false,
+            seedLlmWithIngredients: shared.seedLlmWithIngredients !== false,
             activeCharacterDescriptor: shared.activeCharacterDescriptor,
             teamKit: sceneMode === "duo" ? toolSettings.teamKit === true : undefined,
             sportPresetId:
@@ -520,6 +523,10 @@ export default function CharacterTool() {
           alwaysIncludeClothing={shared.alwaysIncludeClothing !== false}
           onAlwaysIncludeClothingChange={(value) =>
             updateShared({ alwaysIncludeClothing: value })
+          }
+          seedLlmWithIngredients={shared.seedLlmWithIngredients !== false}
+          onSeedLlmWithIngredientsChange={(value) =>
+            updateShared({ seedLlmWithIngredients: value })
           }
           lockedWardrobeId={shared.lockedWardrobeId}
           lockedWardrobeLabel={
@@ -896,6 +903,8 @@ export default function CharacterTool() {
 
       <EnhancedPromptResult
         output={output}
+        onOutputChange={setOutput}
+        rawPrompt={readRawPrompt(result?.metadata)}
         provider={result?.provider ?? null}
         comfyNode={result?.comfyNode}
         limits={result?.limits}
@@ -962,6 +971,17 @@ export default function CharacterTool() {
                 prompt: entry.prompt,
                 metadata: entry.metadata,
               }))
+            : undefined
+        }
+        onBatchPromptChange={
+          batchResults.length > 1
+            ? (index, value) => {
+                setBatchResults((previous) =>
+                  previous.map((entry, entryIndex) =>
+                    entryIndex === index ? { ...entry, prompt: value } : entry,
+                  ),
+                );
+              }
             : undefined
         }
         batchCrossLinks={{

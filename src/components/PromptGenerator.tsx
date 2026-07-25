@@ -38,6 +38,7 @@ import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import { rememberDraftFields } from "@/lib/remember-draft-fields";
 import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
 import { readVariationSeedFromResult } from "@/lib/variation-seed-metadata";
+import { readRawPrompt } from "@/lib/raw-prompt";
 import { modelUsesTagAssist } from "@/lib/tag-assist";
 import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
 import {
@@ -115,6 +116,7 @@ type GenerateResponse = {
     maxTokens: number;
   };
   metadata?: {
+    rawPrompt?: string;
     wardrobeAssignments?: Array<{
       wardrobeId?: string | null;
       footwearId?: string | null;
@@ -150,7 +152,7 @@ export default function PromptGenerator() {
   const [copied, setCopied] = useState(false);
   const [resultMeta, setResultMeta] = useState<Pick<
     GenerateResponse,
-    "model" | "comfyNode" | "limits"
+    "model" | "comfyNode" | "limits" | "metadata"
   > | null>(null);
 
   const input = toolSettings.hints ?? "";
@@ -196,6 +198,7 @@ export default function PromptGenerator() {
   const variationStrength = toolSettings.variationStrength ?? 65;
   const distinctPeople = toolSettings.distinctPeople ?? true;
   const alwaysIncludeClothing = shared.alwaysIncludeClothing !== false;
+  const seedLlmWithIngredients = shared.seedLlmWithIngredients !== false;
   const autoFixRules = shared.autoFixRules !== false;
 
   const actions = usePromptResultActions({
@@ -345,6 +348,7 @@ export default function PromptGenerator() {
           lockedLocation: shared.lockedLocation,
           variationSeed: shared.lockedVariationSeed,
           alwaysIncludeClothing: alwaysIncludeClothing,
+          seedLlmWithIngredients,
           ...avoidedTokensRequestBody(),
           ...sharedLlmRequestBody(shared),
         }),
@@ -370,6 +374,7 @@ export default function PromptGenerator() {
         model: data.model ?? queueModel,
         comfyNode: data.comfyNode ?? selectedModel.comfyNode,
         limits: data.limits ?? activeLimits,
+        metadata: data.metadata,
       });
       markOnboardingFirstGenerate();
     } catch (err) {
@@ -417,7 +422,9 @@ export default function PromptGenerator() {
     actions.resetStatuses();
 
     const effectiveInput =
-      applyLockedLocation(input, shared.lockedLocation) ?? input.trim();
+      (mode === "positive" && seedLlmWithIngredients
+        ? applyLockedLocation(input, shared.lockedLocation)
+        : null) ?? input.trim();
 
     try {
       if (mode === "positive" && effectiveInput.trim()) {
@@ -433,6 +440,7 @@ export default function PromptGenerator() {
         },
         distinctPeople: mode === "positive" && distinctPeople,
         alwaysIncludeClothing: mode === "positive" && alwaysIncludeClothing,
+        seedLlmWithIngredients: mode === "positive" && seedLlmWithIngredients,
         recentClothing: getRecentClothing(),
         detail: mode === "positive" ? detail : "balanced",
         model: queueModel,
@@ -485,6 +493,7 @@ export default function PromptGenerator() {
         model: data.model,
         comfyNode: data.comfyNode,
         limits: data.limits,
+        metadata: data.metadata,
       });
       markOnboardingFirstGenerate();
     } catch (err) {
@@ -497,7 +506,7 @@ export default function PromptGenerator() {
     } finally {
       setLoading(false);
     }
-  }, [generateRandom, hintSource, input, mode, variationEnabled, variationStrength, distinctPeople, alwaysIncludeClothing, detail, queueModel, getRecentClothing, recordClothing, actions, shared.lockedLocation, shared.lockedWardrobeId, shared.lockedVariationSeed]);
+  }, [generateRandom, hintSource, input, mode, variationEnabled, variationStrength, distinctPeople, alwaysIncludeClothing, seedLlmWithIngredients, detail, queueModel, getRecentClothing, recordClothing, actions, shared.lockedLocation, shared.lockedWardrobeId, shared.lockedVariationSeed]);
 
   const copyOutput = useCallback(async () => {
     if (!output) return;
@@ -546,6 +555,10 @@ export default function PromptGenerator() {
           alwaysIncludeClothing={alwaysIncludeClothing}
           onAlwaysIncludeClothingChange={(value) =>
             updateShared({ alwaysIncludeClothing: value })
+          }
+          seedLlmWithIngredients={seedLlmWithIngredients}
+          onSeedLlmWithIngredientsChange={(value) =>
+            updateShared({ seedLlmWithIngredients: value })
           }
           lockedWardrobeId={shared.lockedWardrobeId}
           lockedLocation={shared.lockedLocation}
@@ -835,6 +848,10 @@ export default function PromptGenerator() {
           readinessDetail={shared.detail}
           copied={copied}
           onCopy={() => void copyOutput()}
+          onOutputChange={setOutput}
+          rawPrompt={readRawPrompt(
+            randomResult?.metadata ?? resultMeta?.metadata,
+          )}
           extraMeta={
             hintSource === "random" && randomSeed
               ? `seed: ${randomSeed}`

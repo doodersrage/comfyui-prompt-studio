@@ -46,6 +46,7 @@ type FormatResponse = {
   };
   inputChars: number;
   outputChars: number;
+  rawPrompt?: string;
 };
 
 const EXAMPLE_DRAFTS = [
@@ -183,6 +184,7 @@ export default function PromptFormatter() {
         limits: data.limits,
         inputChars: data.inputChars,
         outputChars: data.outputChars,
+        rawPrompt: data.rawPrompt,
       });
     } catch (err) {
       setOutput("");
@@ -404,6 +406,7 @@ export default function PromptFormatter() {
           }
           onSendComfyUi={() => void actions.sendComfyUi(output)}
           onOutputChange={setOutput}
+          rawPrompt={resultMeta?.rawPrompt}
           {...promptResultPreviewProps(actions, output)}
           onFixPrompt={() => void actions.fixPrompt(output, setOutput, input)}
           onCopyPair={() => void actions.copyPromptPair(output)}

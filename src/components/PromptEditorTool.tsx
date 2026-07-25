@@ -324,6 +324,7 @@ export default function PromptEditorTool() {
 
       <EnhancedPromptResult
         output={positive}
+        onOutputChange={setPositive}
         provider={actions.diagnostics ? "rules" : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={shared.model}
