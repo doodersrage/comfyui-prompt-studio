@@ -41,7 +41,12 @@ import {
   normalizeModelSamplerPresetTier,
   resolveModelSamplerParams,
 } from "./model-sampler-defaults";
-import { isEditCapableModel, isEditQueueTool } from "./model-denoise-defaults";
+import {
+  isEditCapableModel,
+  isEditQueueTool,
+  isQwenRapidAioModel,
+} from "./model-denoise-defaults";
+import { maybeRewriteRapidAioWorkflowLoaders } from "./workflow-rapid-aio-checkpoint";
 import {
   isLightningDistilledModel,
   resolveModelSamplingParams,
@@ -457,6 +462,15 @@ export function pickPackWorkflowForModel(
       }
     }
 
+    // Rapid AIO is checkpoint-only — skip UNET-shaped Lightning/Qwen packs.
+    if (isQwenRapidAioModel(model)) {
+      const hasUnet = /UNETLoader|UnetLoaderGGUF/.test(json);
+      const hasCheckpoint = /CheckpointLoader(?:Simple)?/.test(json);
+      if (hasUnet && !hasCheckpoint) {
+        continue;
+      }
+    }
+
     const i2vGraph = looksLikeI2vPackGraph(json);
     const videoPack = isVideoModel(model) && looksLikeVideoPackGraph(json);
     const videoBoundPack =
@@ -605,6 +619,15 @@ export function softBindScaffoldFromInventory(
     graph = JSON.parse(workflowJson) as Record<string, unknown>;
   } catch {
     return { workflowJson };
+  }
+
+  if (isQwenRapidAioModel(model)) {
+    const rewritten = maybeRewriteRapidAioWorkflowLoaders(
+      graph,
+      model,
+      SUGGESTED_MODEL_CHECKPOINT_MAP[model],
+    );
+    graph = rewritten.workflow;
   }
 
   const category = getComfyModelDefinition(model)?.category;

@@ -3,7 +3,7 @@ import {
   type ComfyImageModel,
   type ComfyModelCategory,
 } from "./comfy-models";
-import { isEditCapableModel } from "./model-denoise-defaults";
+import { isEditCapableModel, isQwenRapidAioModel } from "./model-denoise-defaults";
 import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
 import type { ModelWorkflowMap } from "./model-workflow-map";
 import { scoreWorkflowStackForModel } from "./workflow-stack-fingerprint";
@@ -288,6 +288,17 @@ export function scoreWorkflowGraphStructure(
     }
     if (/ModelSamplingAuraFlow|ModelSamplingSD3/.test(workflowJson)) {
       score += 1;
+    }
+    if (isQwenRapidAioModel(modelId)) {
+      if (/CheckpointLoader(?:Simple)?/.test(workflowJson)) {
+        score += 4;
+      }
+      if (
+        /UNETLoader|UnetLoaderGGUF/.test(workflowJson) &&
+        !/CheckpointLoader(?:Simple)?/.test(workflowJson)
+      ) {
+        score -= 6;
+      }
     }
   }
 

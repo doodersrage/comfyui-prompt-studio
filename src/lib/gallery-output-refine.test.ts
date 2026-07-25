@@ -53,6 +53,14 @@ describe("gallery-output-refine", () => {
     assert.equal(Object.values(workflow).some((node) => node.class_type === "VAEEncode"), true);
   });
 
+  it("builds checkpoint refine for Rapid AIO (no UNET)", () => {
+    const workflow = buildGalleryRefineWorkflow("qwen-rapid-aio-nsfw");
+    const classTypes = Object.values(workflow).map((node) => node.class_type);
+    assert.equal(classTypes.includes("CheckpointLoaderSimple"), true);
+    assert.equal(classTypes.includes("UNETLoader"), false);
+    assert.equal(classTypes.includes("VAEEncode"), true);
+  });
+
   it("builds Flux Klein refine with UNET + CLIPLoader + ModelSamplingFlux", () => {
     const workflow = buildGalleryRefineWorkflow("flux-2-klein-9b");
     const classTypes = Object.values(workflow).map((node) => node.class_type);

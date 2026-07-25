@@ -235,8 +235,17 @@ function inferQwenLoaderHints(
   }
 
   if (id.includes("qwen-rapid-aio") || id.includes("qwen_rapid_aio")) {
+    const suggested =
+      SUGGESTED_MODEL_CHECKPOINT_MAP[modelId] ??
+      SUGGESTED_MODEL_CHECKPOINT_MAP[id] ??
+      (id.includes("nsfw")
+        ? SUGGESTED_MODEL_CHECKPOINT_MAP["qwen-rapid-aio-nsfw"]
+        : id.includes("sfw")
+          ? SUGGESTED_MODEL_CHECKPOINT_MAP["qwen-rapid-aio-sfw"]
+          : SUGGESTED_MODEL_CHECKPOINT_MAP["qwen-rapid-aio-edit"]);
     return {
       // Checkpoint-only family — never invent a UNET name from the Rapid AIO merge.
+      checkpoint: suggested,
       vae: DEFAULT_QWEN_VAE,
     };
   }

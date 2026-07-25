@@ -173,6 +173,18 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /VAEEncode/);
   });
 
+  it("builds rapid aio SFW/NSFW T2I scaffolds from checkpoint loader (no UNET)", () => {
+    for (const model of ["qwen-rapid-aio-sfw", "qwen-rapid-aio-nsfw"] as const) {
+      const result = buildWorkflowScaffoldForModel(model);
+      assert.match(result.json, /CheckpointLoaderSimple/);
+      assert.match(result.json, /\{\{CHECKPOINT\}\}/);
+      assert.match(result.json, /EmptySD3LatentImage/);
+      assert.match(result.json, /ModelSamplingAuraFlow/);
+      assert.doesNotMatch(result.json, /UNETLoader|UnetLoaderGGUF|\{\{UNET\}\}/);
+      assert.doesNotMatch(result.json, /CLIPLoader|VAELoader/);
+    }
+  });
+
   it("clones an existing workflow and applies bindings", () => {
     const source = JSON.stringify({
       "1": {

@@ -21,6 +21,7 @@ import {
   normalizeComfyModel,
   type ComfyImageModel,
 } from "./comfy-models";
+import { isQwenRapidAioModel } from "./model-denoise-defaults";
 import {
   defaultLoaderPrecisionTier,
   qwenDualClipFilename,
@@ -410,6 +411,10 @@ export function buildGalleryRefineWorkflow(
   }
   const definition = getComfyModelDefinition(normalized);
   if (definition.category === "qwen") {
+    // Rapid AIO is a single-file checkpoint — do not use UNET+CLIP+VAE refine.
+    if (isQwenRapidAioModel(normalized)) {
+      return buildCheckpointGalleryRefineWorkflow({ useAuraFlow: true });
+    }
     return buildQwenGalleryRefineWorkflow();
   }
   if (definition.category === "flux") {

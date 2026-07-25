@@ -4,12 +4,14 @@ import {
   matchInventoryFilename,
   matchInventoryFilenameNearMiss,
 } from "./loader-map-inventory-sync";
+import { SUGGESTED_MODEL_CHECKPOINT_MAP } from "./model-checkpoint-map";
 import { isLightningDistilledModel } from "./model-sampling-patch";
 import {
   isLoraLoaderClassType,
   loraFilenameImpliesLightning,
   pickLightningLoraFromInventory,
 } from "./workflow-lora-patch";
+import { maybeRewriteRapidAioWorkflowLoaders } from "./workflow-rapid-aio-checkpoint";
 import { repairQwenImageClipLoaderNodes } from "./workflow-qwen-clip-repair";
 
 export { pickLightningLoraFromInventory } from "./workflow-lora-patch";
@@ -604,15 +606,6 @@ export function softRepairPackLoadersFromInventory(
   droppedLoras: string[];
   droppedSecondaries: string[];
 } {
-  if (!inventory) {
-    return {
-      workflowJson,
-      repaired: 0,
-      droppedLoras: [],
-      droppedSecondaries: [],
-    };
-  }
-
   let graph: Record<string, unknown>;
   try {
     graph = JSON.parse(workflowJson) as Record<string, unknown>;
@@ -625,11 +618,28 @@ export function softRepairPackLoadersFromInventory(
     };
   }
 
+  const rapidRewrite = maybeRewriteRapidAioWorkflowLoaders(
+    graph,
+    model,
+    SUGGESTED_MODEL_CHECKPOINT_MAP[model],
+  );
+  graph = rapidRewrite.workflow;
+
+  if (!inventory) {
+    return {
+      workflowJson:
+        rapidRewrite.rewritten > 0 ? JSON.stringify(graph, null, 2) : workflowJson,
+      repaired: rapidRewrite.rewritten,
+      droppedLoras: [],
+      droppedSecondaries: [],
+    };
+  }
+
   const softSecondary = packAllowsSoftSecondaryLoaders(workflowJson);
 
   const clipRepair = repairQwenImageClipLoaderNodes(graph);
   graph = clipRepair.workflow;
-  let repaired = clipRepair.repairedNodeIds.length;
+  let repaired = rapidRewrite.rewritten + clipRepair.repairedNodeIds.length;
 
   // FLUX.2 Klein: DualCLIP type "flux" → CLIPLoader type "flux2" (shape mismatch otherwise).
   if (/flux-2-klein/i.test(String(model))) {

@@ -30,6 +30,7 @@ import {
 import { isEditCapableModel, isQwenEditModel } from "./model-denoise-defaults";
 import { isQwenLightningModel, isWanLightningModel } from "./model-sampling-patch";
 import {
+  DEFAULT_CHECKPOINT_TOKEN,
   DEFAULT_UNET_TOKEN,
   resolveLoaderFilenamesForModel,
   SUGGESTED_MODEL_VAE_MAP,
@@ -313,6 +314,68 @@ function qwenScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown
     "9": {
       class_type: "VAEDecode",
       inputs: { samples: ["8", 0], vae: ["3", 0] },
+      _meta: { title: "VAE Decode" },
+    },
+    "10": {
+      class_type: "SaveImage",
+      inputs: { images: ["9", 0], filename_prefix: "PromptStudio" },
+      _meta: { title: "Save Image" },
+    },
+  };
+}
+
+/**
+ * Phr00t Rapid AIO (and other Load Checkpoint Qwen merges): single-file checkpoint
+ * — no separate UNET / CLIP / VAE loaders.
+ */
+function qwenCheckpointScaffold(
+  tokens: WorkflowPlaceholderTokens,
+): Record<string, unknown> {
+  return {
+    "1": {
+      class_type: "CheckpointLoaderSimple",
+      inputs: { ckpt_name: DEFAULT_CHECKPOINT_TOKEN },
+      _meta: { title: "Load Checkpoint" },
+    },
+    "4": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.positive, clip: ["1", 1] },
+      _meta: { title: "Positive Prompt" },
+    },
+    "5": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: tokens.negative, clip: ["1", 1] },
+      _meta: { title: "Negative Prompt" },
+    },
+    "6": {
+      class_type: "EmptySD3LatentImage",
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: "Empty Latent" },
+    },
+    "7": {
+      class_type: "ModelSamplingAuraFlow",
+      inputs: { model: ["1", 0], shift: tokens.shift },
+      _meta: { title: "ModelSamplingAuraFlow" },
+    },
+    "8": {
+      class_type: "KSampler",
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ["7", 0],
+        positive: ["4", 0],
+        negative: ["5", 0],
+        latent_image: ["6", 0],
+      },
+      _meta: { title: "KSampler" },
+    },
+    "9": {
+      class_type: "VAEDecode",
+      inputs: { samples: ["8", 0], vae: ["1", 2] },
       _meta: { title: "VAE Decode" },
     },
     "10": {
@@ -1447,12 +1510,16 @@ export function buildWorkflowScaffoldForModel(
   const category = resolveScaffoldCategory(model);
   const useEditScaffold = isEditCapableModel(model);
   const useLightningScaffold = category === "qwen" && isQwenLightningModel(model);
+  const useCheckpointScaffold =
+    category === "qwen" && usesQwenCheckpointLoader(model) && !useLightningScaffold;
   const graph = useEditScaffold
     ? editScaffold(resolvedTokens, category, model)
     : category === "flux"
       ? fluxScaffold(resolvedTokens, model)
       : useLightningScaffold
         ? qwenLightningScaffold(resolvedTokens)
+        : useCheckpointScaffold
+          ? qwenCheckpointScaffold(resolvedTokens)
         : category === "qwen"
           ? qwenScaffold(resolvedTokens)
           : category === "video"
@@ -1477,6 +1544,8 @@ export function buildWorkflowScaffoldForModel(
       : category === "qwen"
         ? useLightningScaffold
           ? "Lightning scaffold uses UNETLoader + Lightning LoRA ({{LORA_LIGHTNING}}) + ModelSamplingAuraFlow (shift ~3). Map your 4/8-step bf16 Lightning LoRA in Settings → LoRA library."
+          : useCheckpointScaffold
+            ? "Rapid AIO / checkpoint Qwen scaffold uses CheckpointLoaderSimple ({{CHECKPOINT}}) — no separate UNET. Map the merge under Settings → checkpoint map if your filename differs."
           : "Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs."
         : category === "flux"
           ? isFluxKleinModel(model)

@@ -94,6 +94,13 @@ describe("model checkpoint map", () => {
     assert.equal(loaders.unet, undefined);
   });
 
+  it("defaults Rapid AIO to the suggested checkpoint (still no UNET)", () => {
+    const loaders = resolveLoaderFilenamesForModel("qwen-rapid-aio-nsfw");
+    assert.equal(loaders.checkpoint, "Qwen-Rapid-AIO-NSFW-v23.safetensors");
+    assert.equal(loaders.unet, undefined);
+    assert.equal(loaders.vae, "qwen_image_vae.safetensors");
+  });
+
   it("infers Qwen 2512 lightning UNET/VAE defaults (bf16 when tier unknown)", () => {
     const lightning = resolveLoaderFilenamesForModel("qwen-image-2512-lightning-8");
     assert.equal(lightning.unet, "qwen_image_2512_bf16.safetensors");

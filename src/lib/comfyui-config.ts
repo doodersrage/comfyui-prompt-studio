@@ -68,6 +68,7 @@ import {
   type ModelUnetMap,
   type ModelVaeMap,
 } from "./model-checkpoint-map";
+import { maybeRewriteRapidAioWorkflowLoaders } from "./workflow-rapid-aio-checkpoint";
 import {
   resolveLoaderPrecisionTier,
   type LoaderPrecisionTier,
@@ -1463,6 +1464,17 @@ export function injectPromptsWithFallbacks(
   }
   if (!loaders.dualClip && options?.loaders?.dualClip) {
     loaders.dualClip = options.loaders.dualClip;
+  }
+
+  // Rapid AIO: convert sticky UNET scaffolds/packs to CheckpointLoader before
+  // placeholder resolution so {{UNET}} cannot leak to ComfyUI.
+  {
+    const rapid = maybeRewriteRapidAioWorkflowLoaders(
+      nextWorkflow,
+      options?.model,
+      loaders.checkpoint,
+    );
+    nextWorkflow = rapid.workflow;
   }
 
   const isLightning = isQwenLightningModel(options?.model);
