@@ -20,13 +20,6 @@ const CHECKPOINT_LOADER_TYPES = new Set([
 ]);
 const LOAD_IMAGE_TYPES = new Set(["LoadImage", "LoadImageOutput"]);
 
-function asNodeRecord(node: unknown): WorkflowNode | null {
-  if (!node || typeof node !== "object") {
-    return null;
-  }
-  return node as WorkflowNode;
-}
-
 function isNodeOutputRef(value: unknown): value is [string, number] {
   return (
     Array.isArray(value) &&
@@ -215,12 +208,12 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
     const visited = new Set<string>();
     while (cursor && !visited.has(cursor)) {
       visited.add(cursor);
-      const node = next[cursor];
+      const node: WorkflowNode | undefined = next[cursor];
       if (node?.class_type !== "ReferenceLatent") {
         conditioningRef = [cursor, 0];
         break;
       }
-      const prev = node.inputs?.conditioning;
+      const prev: unknown = node.inputs?.conditioning;
       cursor = isNodeOutputRef(prev) ? prev[0] : null;
     }
     // Drop old ReferenceLatent / orphan encode nodes that only fed the chain.

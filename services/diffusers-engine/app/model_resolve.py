@@ -238,9 +238,9 @@ def _aliases_for(model: str) -> list[str]:
         (
             "qwenrapid",
             [
-                "Qwen-Rapid-AIO-SFW-v23.safetensors",
-                "Qwen-Rapid-AIO-v23.safetensors",
-                "Qwen-Rapid-AIO-NSFW-v23.safetensors",
+                "Qwen-Rapid-AIO-SFW-v21.safetensors",
+                "Qwen-Rapid-AIO-v21.safetensors",
+                "Qwen-Rapid-AIO-NSFW-v21.safetensors",
             ],
         ),
         (
@@ -248,7 +248,7 @@ def _aliases_for(model: str) -> list[str]:
             [
                 "qwen_image_2512_fp8_e4m3fn.safetensors",
                 "qwen_image_2512_bf16.safetensors",
-                "Qwen-Rapid-AIO-SFW-v23.safetensors",
+                "Qwen-Rapid-AIO-SFW-v21.safetensors",
             ],
         ),
     ]
