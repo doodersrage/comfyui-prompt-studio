@@ -460,6 +460,36 @@ function breakLightningModelCycle(
   }
 }
 
+/**
+ * First LoRA anchor reached walking sampler/AuraFlow → model upstream.
+ * Pack graphs often number checkpoint-side loaders higher; node-id sort is wrong
+ * for choosing where to splice extra session LoRAs.
+ */
+function findSamplerNearestLoraAnchor(
+  workflow: Record<string, WorkflowNode>,
+  anchors: string[],
+): string | null {
+  if (anchors.length === 0) {
+    return null;
+  }
+  const anchorSet = new Set(anchors);
+  for (const node of Object.values(workflow)) {
+    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? "")) {
+      continue;
+    }
+    let cursor = linkedModelNodeId(node?.inputs?.model);
+    const seen = new Set<string>();
+    while (cursor && !seen.has(cursor)) {
+      seen.add(cursor);
+      if (anchorSet.has(cursor)) {
+        return cursor;
+      }
+      cursor = linkedModelNodeId(workflow[cursor]?.inputs?.model);
+    }
+  }
+  return anchors[anchors.length - 1] ?? null;
+}
+
 /** Sampler-nearest active Lightning loader — used to chain style LoRAs when no other anchors exist. */
 function findActiveLightningLoaderId(
   workflow: Record<string, WorkflowNode>,
@@ -506,18 +536,109 @@ function rewireDownstreamReferences(
   fromNodeId: string,
   toNodeId: string,
   skipNodeIds: Set<string>,
+  options?: { outputIndexes?: readonly number[] },
 ): void {
+  const allowed = options?.outputIndexes;
   for (const [nodeId, node] of Object.entries(workflow)) {
     if (skipNodeIds.has(nodeId) || !node?.inputs) {
       continue;
     }
     for (const [field, value] of Object.entries(node.inputs)) {
       const outputIndex = linkOutputIndex(value, fromNodeId);
-      if (outputIndex != null) {
-        node.inputs[field] = [toNodeId, outputIndex];
+      if (outputIndex == null) {
+        continue;
       }
+      if (allowed && !allowed.includes(outputIndex)) {
+        continue;
+      }
+      node.inputs[field] = [toNodeId, outputIndex];
     }
   }
+}
+
+function isCheckpointLoaderClass(classType: string | undefined): boolean {
+  return (
+    classType === "CheckpointLoaderSimple" || classType === "CheckpointLoader"
+  );
+}
+
+/**
+ * Root to chain session style LoRAs after when the graph has no style anchors:
+ * active Lightning loader, else Checkpoint/UNET on the sampler model walk
+ * (Rapid AIO / plain Qwen scaffolds).
+ */
+function findStyleLoraChainRoot(
+  workflow: Record<string, WorkflowNode>,
+): { rootId: string; mode: "lightning" | "checkpoint" | "unet" } | null {
+  const lightningId = findActiveLightningLoaderId(workflow);
+  if (lightningId) {
+    return { rootId: lightningId, mode: "lightning" };
+  }
+
+  for (const node of Object.values(workflow)) {
+    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? "")) {
+      continue;
+    }
+    let cursor = linkedModelNodeId(node?.inputs?.model);
+    const seen = new Set<string>();
+    while (cursor && !seen.has(cursor)) {
+      seen.add(cursor);
+      const classType = workflow[cursor]?.class_type ?? "";
+      if (isCheckpointLoaderClass(classType)) {
+        return { rootId: cursor, mode: "checkpoint" };
+      }
+      if (classType === "UNETLoader" || classType === "UnetLoaderGGUF") {
+        return { rootId: cursor, mode: "unet" };
+      }
+      cursor = linkedModelNodeId(workflow[cursor]?.inputs?.model);
+    }
+  }
+  return null;
+}
+
+/** Insert a style LoRA chain after `rootId`, rewiring MODEL (and CLIP for checkpoint). */
+function insertStyleLoraChainAfterRoot(
+  workflow: Record<string, WorkflowNode>,
+  rootId: string,
+  mode: "lightning" | "checkpoint" | "unet",
+  stack: ActiveLoraStackEntry[],
+): string[] {
+  const useClip = mode === "checkpoint";
+  const classType = useClip ? "LoraLoader" : "LoraLoaderModelOnly";
+  const rewireSlots = useClip ? ([0, 1] as const) : ([0] as const);
+  const insertedNodeIds: string[] = [];
+  const protectedNodeIds = new Set<string>([rootId]);
+  let previousId = rootId;
+
+  for (const entry of stack) {
+    const newNodeId = nextWorkflowNodeId(workflow);
+    const inputs: Record<string, unknown> = {
+      model: [previousId, 0],
+      lora_name: entry.filename,
+      strength_model: entry.strengthModel,
+    };
+    if (useClip) {
+      inputs.clip = [previousId, 1];
+      inputs.strength_clip = entry.strengthClip;
+    }
+    workflow[newNodeId] = {
+      class_type: classType,
+      inputs,
+    };
+    // Never rewire VAE (checkpoint slot 2) onto LoraLoader — only MODEL/CLIP.
+    rewireDownstreamReferences(
+      workflow,
+      previousId,
+      newNodeId,
+      new Set([...protectedNodeIds, newNodeId]),
+      { outputIndexes: rewireSlots },
+    );
+    protectedNodeIds.add(newNodeId);
+    insertedNodeIds.push(newNodeId);
+    previousId = newNodeId;
+  }
+
+  return insertedNodeIds;
 }
 
 export type ChainLoraStackResult = {
@@ -547,8 +668,8 @@ function neutralizeLoraNodeStrengths(node: WorkflowNode): void {
  * last anchor node — rewiring downstream MODEL/CLIP consumers through the new chain.
  * Empty stack (or leftover anchors beyond the stack) get strength 0 so baked-in /
  * previously resolved LoRAs cannot keep firing after the sidebar Clear / deselection.
- * On Lightning graphs with no style anchors, chains selected LoRAs after the active
- * Lightning loader (before AuraFlow / sampler).
+ * On graphs with no style anchors, chains selected LoRAs after the active Lightning
+ * loader, CheckpointLoader (Rapid AIO), or UNETLoader (before AuraFlow / sampler).
  */
 export function chainLoraStackInWorkflow(
   workflow: Record<string, unknown>,
@@ -561,36 +682,19 @@ export function chainLoraStackInWorkflow(
     if (stack.length === 0) {
       return { workflow: next, patchedNodeIds: [], insertedNodeIds: [] };
     }
-    const lightningId = findActiveLightningLoaderId(next);
-    if (!lightningId) {
+    const root = findStyleLoraChainRoot(next);
+    if (!root) {
       return { workflow: next, patchedNodeIds: [], insertedNodeIds: [] };
     }
-    breakLightningModelCycle(next, lightningId);
-    const insertedNodeIds: string[] = [];
-    const protectedNodeIds = new Set<string>([lightningId]);
-    let previousId = lightningId;
-    for (const entry of stack) {
-      const newNodeId = nextWorkflowNodeId(next);
-      next[newNodeId] = {
-        class_type: "LoraLoaderModelOnly",
-        inputs: {
-          model: [previousId, 0],
-          lora_name: entry.filename,
-          strength_model: entry.strengthModel,
-        },
-      };
-      // Only rewire sampler-chain consumers of the prior node — never the new
-      // node's own model input (protected) — so Style cannot close Lightning↔Aura loops.
-      rewireDownstreamReferences(
-        next,
-        previousId,
-        newNodeId,
-        new Set([...protectedNodeIds, newNodeId]),
-      );
-      protectedNodeIds.add(newNodeId);
-      insertedNodeIds.push(newNodeId);
-      previousId = newNodeId;
+    if (root.mode === "lightning") {
+      breakLightningModelCycle(next, root.rootId);
     }
+    const insertedNodeIds = insertStyleLoraChainAfterRoot(
+      next,
+      root.rootId,
+      root.mode,
+      stack,
+    );
     return { workflow: next, patchedNodeIds: [], insertedNodeIds };
   }
 
@@ -618,12 +722,15 @@ export function chainLoraStackInWorkflow(
   const insertedNodeIds: string[] = [];
   const remaining = stack.slice(anchors.length);
   if (remaining.length > 0) {
-    const lastAnchorId = anchors[anchors.length - 1]!;
-    const lastAnchorNode = next[lastAnchorId]!;
-    const chainSupportsClip = loraClassSupportsClip(lastAnchorNode.class_type);
-    const protectedNodeIds = new Set(anchors);
+    // Insert after the sampler-nearest anchor so extras sit on the live model
+    // path (pack graphs often chain several LoraLoader|pysssss nodes).
+    const insertAfterId =
+      findSamplerNearestLoraAnchor(next, anchors) ??
+      anchors[anchors.length - 1]!;
+    const insertAfterNode = next[insertAfterId]!;
+    const chainSupportsClip = loraClassSupportsClip(insertAfterNode.class_type);
 
-    let previousId = lastAnchorId;
+    let previousId = insertAfterId;
     for (const entry of remaining) {
       const newNodeId = nextWorkflowNodeId(next);
       const inputs: Record<string, unknown> = {
@@ -636,18 +743,21 @@ export function chainLoraStackInWorkflow(
         inputs.strength_clip = entry.strengthClip;
       }
       next[newNodeId] = {
-        class_type: lastAnchorNode.class_type,
+        class_type: insertAfterNode.class_type,
         inputs,
       };
 
+      // Only protect the new node — its model/clip inputs point at previousId.
+      // Do NOT protect sibling anchors: on Rapid AIO packs the sampler-nearest
+      // anchor is consumed by AuraFlow/KSampler (and earlier anchors consume
+      // later ones). Shielding all anchors left extras orphaned off-chain.
       rewireDownstreamReferences(
         next,
         previousId,
         newNodeId,
-        new Set([...protectedNodeIds, newNodeId]),
+        new Set([newNodeId]),
       );
 
-      protectedNodeIds.add(newNodeId);
       insertedNodeIds.push(newNodeId);
       previousId = newNodeId;
     }

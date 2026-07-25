@@ -415,6 +415,169 @@ describe("chainLoraStackInWorkflow / applyLoraStackToWorkflow", () => {
     assert.equal(second.inputs.strength_model, 0);
   });
 
+  it("wires extra session LoRAs onto Rapid AIO pack chains (not orphaned after last node-id)", () => {
+    // Mirrors Comfy history: Checkpoint → flymy → helper → base → AuraFlow → KSampler
+    // with node ids where the checkpoint-side loader sorts last.
+    const workflow = {
+      "725": {
+        class_type: "CheckpointLoaderSimple",
+        inputs: { ckpt_name: "Qwen-Rapid-AIO-NSFW-v21.safetensors" },
+      },
+      "930": {
+        class_type: "LoraLoader|pysssss",
+        inputs: {
+          model: ["725", 0],
+          clip: ["725", 1],
+          lora_name: "flymy_realism.safetensors",
+          strength_model: 0.8,
+          strength_clip: 0.8,
+        },
+      },
+      "926": {
+        class_type: "LoraLoader|pysssss",
+        inputs: {
+          model: ["930", 0],
+          clip: ["930", 1],
+          lora_name: "2511-AnyPose-helper-00006000.safetensors",
+          strength_model: 0.7,
+          strength_clip: 0.7,
+        },
+      },
+      "925": {
+        class_type: "LoraLoader|pysssss",
+        inputs: {
+          model: ["926", 0],
+          clip: ["926", 1],
+          lora_name: "2511-AnyPose-base-000006250.safetensors",
+          strength_model: 0.7,
+          strength_clip: 0.7,
+        },
+      },
+      "956": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["925", 0], shift: 3.1 },
+      },
+      "753": {
+        class_type: "KSampler",
+        inputs: { model: ["956", 0], seed: 1, steps: 4, cfg: 1 },
+      },
+    };
+    const result = chainLoraStackInWorkflow(workflow, [
+      {
+        id: "flymy",
+        label: "Flymy",
+        filename: "flymy_realism.safetensors",
+        strengthModel: 0.8,
+        strengthClip: 0.8,
+      },
+      {
+        id: "helper",
+        label: "Helper",
+        filename: "2511-AnyPose-helper-00006000.safetensors",
+        strengthModel: 0.7,
+        strengthClip: 0.7,
+      },
+      {
+        id: "base",
+        label: "Base",
+        filename: "2511-AnyPose-base-000006250.safetensors",
+        strengthModel: 0.7,
+        strengthClip: 0.7,
+      },
+      {
+        id: "skin",
+        label: "Skin",
+        filename: "qwen-edit-skin.safetensors",
+        strengthModel: 0.8,
+        strengthClip: 0.8,
+      },
+    ]);
+    assert.equal(result.insertedNodeIds.length, 1);
+    const skinId = result.insertedNodeIds[0]!;
+    const skin = result.workflow[skinId] as {
+      inputs: { model: [string, number]; lora_name: string };
+    };
+    assert.equal(skin.inputs.lora_name, "qwen-edit-skin.safetensors");
+    // Spliced after sampler-nearest anchor (925), not orphaned after 930.
+    assert.deepEqual(skin.inputs.model, ["925", 0]);
+    assert.deepEqual(
+      (result.workflow["956"] as { inputs: { model: [string, number] } }).inputs
+        .model,
+      [skinId, 0],
+    );
+    // Full live path: ckpt → … → 925 → skin → AuraFlow
+    assert.deepEqual(
+      (result.workflow["753"] as { inputs: { model: [string, number] } }).inputs
+        .model,
+      ["956", 0],
+    );
+  });
+
+  it("chains selected style LoRAs after Rapid AIO CheckpointLoader when no anchors exist", () => {
+    const workflow = {
+      "1": {
+        class_type: "CheckpointLoaderSimple",
+        inputs: { ckpt_name: "Qwen-Rapid-AIO-NSFW-v23.safetensors" },
+      },
+      "4": {
+        class_type: "CLIPTextEncode",
+        inputs: { text: "hi", clip: ["1", 1] },
+      },
+      "7": {
+        class_type: "ModelSamplingAuraFlow",
+        inputs: { model: ["1", 0], shift: 3.1 },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: { model: ["7", 0], positive: ["4", 0], seed: 1, steps: 4, cfg: 1 },
+      },
+      "9": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["8", 0], vae: ["1", 2] },
+      },
+    };
+    const result = chainLoraStackInWorkflow(workflow, [
+      {
+        id: "skin",
+        label: "Skin",
+        filename: "qwen-skin.safetensors",
+        strengthModel: 0.85,
+        strengthClip: 0.7,
+      },
+    ]);
+    assert.equal(result.insertedNodeIds.length, 1);
+    const insertedId = result.insertedNodeIds[0]!;
+    const inserted = result.workflow[insertedId] as {
+      class_type: string;
+      inputs: {
+        model: [string, number];
+        clip: [string, number];
+        lora_name: string;
+        strength_model: number;
+        strength_clip: number;
+      };
+    };
+    assert.equal(inserted.class_type, "LoraLoader");
+    assert.equal(inserted.inputs.lora_name, "qwen-skin.safetensors");
+    assert.equal(inserted.inputs.strength_model, 0.85);
+    assert.equal(inserted.inputs.strength_clip, 0.7);
+    assert.deepEqual(inserted.inputs.model, ["1", 0]);
+    assert.deepEqual(inserted.inputs.clip, ["1", 1]);
+    assert.deepEqual(
+      (result.workflow["7"] as { inputs: { model: [string, number] } }).inputs.model,
+      [insertedId, 0],
+    );
+    assert.deepEqual(
+      (result.workflow["4"] as { inputs: { clip: [string, number] } }).inputs.clip,
+      [insertedId, 1],
+    );
+    // VAE must stay on the checkpoint — LoraLoader has no VAE output.
+    assert.deepEqual(
+      (result.workflow["9"] as { inputs: { vae: [string, number] } }).inputs.vae,
+      ["1", 2],
+    );
+  });
+
   it("chains selected style LoRAs after Lightning when no style anchors exist", () => {
     const workflow = {
       "3": {
