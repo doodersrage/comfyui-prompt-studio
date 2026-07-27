@@ -20,6 +20,7 @@ import type { AthleticSport } from "./athletic-sport-profiles";
 import { resolveQueueNegativePromptRaw } from "./queue-negative";
 import { isQwenLightningModel, isWanLightningModel } from "./model-sampling-patch";
 import { isQwenRapidAioModel, isWanRapidAioModel } from "./model-denoise-defaults";
+import { isKleinBaseModel } from "./model-sampler-defaults";
 import { expandWildcardText } from "./wildcard-expand";
 import {
   loadCustomWildcardLists,
@@ -37,6 +38,13 @@ const LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS = 160;
  * Negatives are budgeted separately and can stay longer.
  */
 const MAX_QUEUE_POSITIVE_SUFFIX_CHARS = 200;
+const KLEIN_BASE_QUEUE_POSITIVE_SUFFIX_CHARS = 420;
+
+function maxQueuePositiveSuffixChars(model: ComfyImageModel | string): number {
+  return isKleinBaseModel(model)
+    ? KLEIN_BASE_QUEUE_POSITIVE_SUFFIX_CHARS
+    : MAX_QUEUE_POSITIVE_SUFFIX_CHARS;
+}
 
 /** Short CFG-1-friendly anti-moiré terms for Phr00t Rapid AIO. */
 const RAPID_AIO_MOIRE_NEGATIVE =
@@ -144,13 +152,14 @@ export function applyQueuePromptSteering(input: {
     };
   }
 
+  const suffixBudget = maxQueuePositiveSuffixChars(input.model);
   const baseLength = input.positive.trim().length;
   const withRealism = applyRenderRealismForModel({
     positive: input.positive,
     negative: input.negative,
     model: input.model,
     mode: realismMode,
-    maxPositiveAppendChars: MAX_QUEUE_POSITIVE_SUFFIX_CHARS,
+    maxPositiveAppendChars: suffixBudget,
   });
   const realismGrowth = Math.max(
     0,
@@ -164,7 +173,7 @@ export function applyQueuePromptSteering(input: {
     mode: anatomyMode,
     maxPositiveAppendChars: Math.max(
       0,
-      MAX_QUEUE_POSITIVE_SUFFIX_CHARS - realismGrowth,
+      suffixBudget - realismGrowth,
     ),
   });
 }

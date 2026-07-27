@@ -1,4 +1,5 @@
 import type { ComfyImageModel } from "./comfy-models/client";
+import { isKleinBaseModel } from "./model-sampler-defaults";
 import { modelUsesNegativePrompt } from "./prompt-pair";
 
 export type RenderRealismMode = "off" | "realistic" | "hyper-realistic" | "anime";
@@ -57,6 +58,26 @@ const FLUX_REALISM_AVOID: Record<Exclude<RenderRealismMode, "off">, string> = {
     "Avoid cartoon, illustration, CGI, plastic or waxy skin, and uncanny artifacts. Preserve lifelike micro-detail and clean optics.",
   anime:
     "Avoid photorealistic, photographic, and live-action looks. Keep stylized anime and animation aesthetics with clean cel shading.",
+};
+
+const KLEIN_BASE_FLUX_PHOTO_POSITIVE: Record<
+  Exclude<RenderRealismMode, "off" | "anime">,
+  string
+> = {
+  realistic:
+    "natural photograph, lifelike skin texture with subtle pores, motivated directional light with readable shadows, believable worn materials",
+  "hyper-realistic":
+    "hyperrealistic photograph, natural skin micro-texture and pores, professional DSLR capture, directional light with soft shadow falloff",
+};
+
+const KLEIN_BASE_FLUX_PHOTO_AVOID: Record<
+  Exclude<RenderRealismMode, "off" | "anime">,
+  string
+> = {
+  realistic:
+    "Avoid CGI, plastic or waxy skin, doll-like faces, identical clone rows, surreal monochrome washes, and flat even lighting.",
+  "hyper-realistic":
+    "Avoid illustration, CGI, plastic or waxy skin, clone duplicates, surreal oversaturated color fields, uncanny doll-like rendering, and flat shadowless light.",
 };
 
 export function normalizeRenderRealismMode(value: unknown): RenderRealismMode {
@@ -119,6 +140,50 @@ function clipSuffixToBudget(suffix: string, maxAppendChars: number): string {
   return clipped;
 }
 
+function applyKleinBaseRenderRealism(input: {
+  positive: string;
+  mode: Exclude<RenderRealismMode, "off" | "anime">;
+  maxPositiveAppendChars?: number;
+}): { positive: string; negative?: string } {
+  let positive = input.positive.trim();
+  const maxAppend = input.maxPositiveAppendChars;
+  let remaining =
+    typeof maxAppend === "number" ? Math.max(0, maxAppend) : undefined;
+
+  if (!promptAlreadyHasRealismCue(positive, input.mode)) {
+    if (typeof remaining !== "number" || remaining >= 48) {
+      let suffix = KLEIN_BASE_FLUX_PHOTO_POSITIVE[input.mode];
+      if (typeof remaining === "number") {
+        suffix = clipSuffixToBudget(suffix, remaining);
+      }
+      if (suffix) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        const before = positive.length;
+        positive = `${positive}${separator}${suffix}`;
+        if (typeof remaining === "number") {
+          remaining = Math.max(0, remaining - (positive.length - before));
+        }
+      }
+    }
+  }
+
+  const avoidAlreadyPresent = /\bavoid\b/i.test(positive);
+  if (!avoidAlreadyPresent) {
+    if (typeof remaining !== "number" || remaining >= 48) {
+      let avoid = KLEIN_BASE_FLUX_PHOTO_AVOID[input.mode];
+      if (typeof remaining === "number") {
+        avoid = clipSuffixToBudget(avoid, remaining);
+      }
+      if (avoid) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        positive = `${positive}${separator}${avoid}`;
+      }
+    }
+  }
+
+  return { positive, negative: undefined };
+}
+
 export function applyRenderRealismToPositive(
   prompt: string,
   mode: RenderRealismMode = DEFAULT_RENDER_REALISM_MODE,
@@ -171,6 +236,17 @@ export function applyRenderRealismForModel(input: {
       positive: input.positive.trim(),
       negative: input.negative?.trim() || undefined,
     };
+  }
+
+  if (
+    isKleinBaseModel(input.model) &&
+    (resolvedMode === "realistic" || resolvedMode === "hyper-realistic")
+  ) {
+    return applyKleinBaseRenderRealism({
+      positive: input.positive,
+      mode: resolvedMode,
+      maxPositiveAppendChars: input.maxPositiveAppendChars,
+    });
   }
 
   let positive = applyRenderRealismToPositive(input.positive, resolvedMode, {

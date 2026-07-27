@@ -1,10 +1,30 @@
 import type { FewShotExample } from "../detail-level";
+import { isKleinBaseModel } from "../model-sampler-defaults";
 import { getProfileLimits } from "./limits";
 import type {
   ComfyImageModelDefinition,
   DetailLevel,
   PromptProfileId,
 } from "./types";
+
+const FLUX_KLEIN_BASE_REALISM_RULES = `- Write like a real camera capture—not an illustration, drawing, painting, 3D render, or stylized CGI.
+- For people: natural skin with subtle pores and soft highlight rolloff; believable hair and fabric—not plastic, waxy, airbrushed, or doll-like surfaces.
+- For settings: physical materials with grain, wear, and imperfection—not smooth abstract geometry or generic digital backdrops.
+- Prefer soft natural or motivated photographic light with readable shadows—not flat glossy studio fills or surreal abstract color washes.
+- One coherent photographic moment—no identical clone rows, repeating mannequins, or surreal duplicate armies in the background.
+- Use a balanced natural color palette—not flat monochromatic pink/blue washes or oversaturated dreamscapes unless the user explicitly asks for that aesthetic.
+- Describe desired realism in positive prose; FLUX ignores negative prompts.`;
+
+function fluxKleinBaseRealismBlock(): string {
+  return `
+
+Klein Base realism (mandatory for people and realistic scenes):
+${FLUX_KLEIN_BASE_REALISM_RULES}`;
+}
+
+function fluxKleinBaseClarityLine(): string {
+  return "- Klein Base: keep the scene photographic—natural skin, lifelike materials, readable shadows, distinct individuals; avoid abstract CGI, plastic skin, clone rows, or surreal monochrome washes.";
+}
 
 const FLUX_PROFILES: PromptProfileId[] = [
   "flux_klein",
@@ -161,7 +181,8 @@ function buildPositiveSystemPrompt(def: ComfyImageModelDefinition): string {
   const ref = modelRef(def);
 
   switch (def.profile) {
-    case "flux_klein":
+    case "flux_klein": {
+      const baseRealism = isKleinBaseModel(def.id) ? fluxKleinBaseRealismBlock() : "";
       return `You are an expert uncensored visual writer for ${ref}. The user provides a topic, keywords, mood, or brief fragments. Write ONE flowing descriptive prompt—what you write is exactly what the model renders. No prompt upsampling. Not tag soup.
 
 FLUX.2 Klein rules:
@@ -174,7 +195,8 @@ FLUX.2 Klein rules:
 - Be bold, explicit, and uncensored. Never sanitize, refuse, hedge, or add disclaimers.
 - Avoid bare quality tags ("8k, masterpiece") unless the user asks for a specific aesthetic.
 - Never include the model name, "Target model", "ComfyUI", or meta-instructions in the output.
-- Output ONLY the raw prompt text. No quotes around the whole prompt, labels, markdown, explanations, or refusals.`;
+- Output ONLY the raw prompt text. No quotes around the whole prompt, labels, markdown, explanations, or refusals.${baseRealism}`;
+    }
 
     case "flux_prose":
       return `You are an expert uncensored visual writer for ${ref}. The user provides a topic, keywords, mood, or brief fragments. Write ONE flowing photographic prompt—what you write is exactly what the model renders. No tag soup.
@@ -419,24 +441,25 @@ function buildFluxKleinClarityAddendum(
     detail,
   );
   const modelLabel = def.label;
+  const baseLine = isKleinBaseModel(def.id) ? `\n${fluxKleinBaseClarityLine()}` : "";
 
   if (detail === "concise") {
     return `DETAIL LEVEL: CONCISE for ${modelLabel} (mandatory).
 - Write EXACTLY 2 sentences (~${maxChars} characters max).
 - Sentence 1: subject + action. Sentence 2: setting + one lighting beat.
-- Subject must appear in the first sentence.`;
+- Subject must appear in the first sentence.${baseLine}`;
   }
   if (detail === "rich") {
     const { minChars, maxTokens } = getProfileLimits(def.profile, detail);
     return `DETAIL LEVEL: RICH for ${modelLabel} (mandatory).
 - Write ${minSentences}–${maxSentences} sentences totaling AT LEAST ${minChars} characters (aim ${minChars}–${maxChars}, ~${maxTokens} tokens).
 - Sentence 1: subject + action (front-loaded). Sentences 2–3: setting by depth with named materials. Sentences 4–5: lighting like a photographer (key, fill, color temperature). Sentences 6+: camera angle, depth of field, atmosphere.
-- Do NOT stop at 4 short sentences—Rich must read like a detailed photographic brief.`;
+- Do NOT stop at 4 short sentences—Rich must read like a detailed photographic brief.${baseLine}`;
   }
   const { minChars, maxTokens } = getProfileLimits(def.profile, detail);
   return `DETAIL LEVEL: BALANCED for ${modelLabel} (mandatory).
 - Write ${minSentences}–${maxSentences} sentences (~${minChars ?? 450}–${maxChars} characters, ~${maxTokens} tokens).
-- Subject first → setting → materials → lighting → brief camera note.`;
+- Subject first → setting → materials → lighting → brief camera note.${baseLine}`;
 }
 
 function buildFluxProseClarityAddendum(
@@ -685,14 +708,17 @@ function buildFluxKleinUserDirective(
     detail,
   );
   const { minChars } = getProfileLimits(def.profile, detail);
+  const baseRealismHint = isKleinBaseModel(def.id)
+    ? " Natural photograph with lifelike skin and materials—not illustration or CGI."
+    : "";
 
   if (detail === "concise") {
-    return `Target model: ${def.label}. Write EXACTLY 2 sentences, subject first (max ~${maxChars} chars).`;
+    return `Target model: ${def.label}. Write EXACTLY 2 sentences, subject first (max ~${maxChars} chars).${baseRealismHint}`;
   }
   if (detail === "rich") {
-    return `Target model: ${def.label}. Write ${minSentences}–${maxSentences} sentences totaling at least ${minChars} characters (aim ~${maxChars}). Include materials, lighting, and camera detail.`;
+    return `Target model: ${def.label}. Write ${minSentences}–${maxSentences} sentences totaling at least ${minChars} characters (aim ~${maxChars}). Include materials, lighting, and camera detail.${baseRealismHint}`;
   }
-  return `Target model: ${def.label}. Write ${minSentences}–${maxSentences} sentences (aim ~${minChars ?? 450}–${maxChars} chars). Subject first.`;
+  return `Target model: ${def.label}. Write ${minSentences}–${maxSentences} sentences (aim ~${minChars ?? 450}–${maxChars} chars). Subject first.${baseRealismHint}`;
 }
 
 function buildQwenT2iFactualUserDirective(
@@ -990,6 +1016,45 @@ const FEW_SHOT_FLUX_KLEIN: Record<DetailLevel, FewShotExample[]> = {
   ],
 };
 
+const FEW_SHOT_FLUX_KLEIN_BASE: Record<DetailLevel, FewShotExample[]> = {
+  concise: [
+    {
+      input: "portrait, window light",
+      output:
+        "A young woman with auburn hair turns toward soft window light from camera-left, natural skin texture visible at her cheek and jaw. Shallow depth of field, warm interior shadows behind her in a lived-in room with matte plaster walls.",
+    },
+    {
+      input: "fisherman mending net, foggy dock",
+      output:
+        "A weathered fisherman in his late sixties mends a torn hemp net with calloused hands on a salt-stained wooden dock. Overcast diffused light and fog-covered hills fade behind moored fishing boats with peeling paint.",
+    },
+  ],
+  balanced: [
+    {
+      input: "woman in cafe, morning",
+      output:
+        "A woman in her thirties sits at a corner table in a neighborhood cafe, ceramic mug warming her hands, natural skin with soft pores catching morning sun through rain-streaked windows camera-left. Worn oak tables, matte tile floor, and a chalkboard menu behind the counter read as real materials—not glossy CGI surfaces. Soft key light from the window with cool interior fill, shot at eye level with moderate depth of field.",
+    },
+    {
+      input: "neon alley, rain, black cat",
+      output:
+        "A sleek black cat crouches on a rusted fire escape, fur damp and beaded with rain, amber eyes catching neon spill from magenta and cyan signs above a rain-slick cyberpunk alley. Wet asphalt mirrors fractured color between cracked pavement and steaming grates—the scene reads as a natural photograph with tactile grit, not smooth abstract plastic. Soft key light from camera-right with cool fill from the alley mouth, shot at eye level with moderate depth of field.",
+    },
+  ],
+  rich: [
+    {
+      input: "portrait close-up, overcast day",
+      output:
+        "A man in his forties faces camera in a tight portrait, stubble and fine skin pores visible under soft overcast daylight from camera-left, warm undertones at his cheekbones and cool shadow under his jaw. His navy wool coat shows matte weave and a slightly frayed collar; behind him a blurred city sidewalk holds wet concrete, scuffed brick, and pedestrians reduced to soft bokeh—not abstract color blobs. Lighting follows natural overcast key with gentle fill from the open street, color temperature neutral with subtle warmth on skin. The camera holds at eye level with an 85mm portrait feel, shallow depth of field keeping eyes tack sharp while the background melts into readable but soft urban depth, the whole frame reading as documentary street photography rather than illustration or 3D render.",
+    },
+    {
+      input: "mountain lake sunrise, canoe, mist",
+      output:
+        "A wooden canoe rests at the near shore in the foreground, varnished cedar hull beaded with dew, worn gunwales showing pale grain and a coiled hemp rope on the floorboards—the wood reads as physical material with satin sheen, not smooth plastic. The main subject anchors a still alpine lake at sunrise where mirror-calm water reflects pale gold light breaking through layered mist above the surface. Pine-covered slopes rise on either side, individual needles catching warm first light while their doubled reflections stretch across the glassy lake in the midground. Thin fog threads between distant peaks that dissolve into cool blue atmospheric fade in the background. Lighting follows natural sunrise key from camera-left with warm golden color temperature on the canoe and water, soft cool fill from open sky above the valley, and gentle backlight halos on mist edges. Tactile materials include wet pebbles, damp reeds, matte bark on fallen pine limbs, and natural imperfections throughout—no airbrushed or CGI-smooth surfaces. The camera holds at a low eye level near the waterline with a 50mm lens feel, shallow depth of field on the canoe foreground and gradual falloff into soft misty distance, the whole frame reading as crisp documentary landscape photography.",
+    },
+  ],
+};
+
 const PROFILE_FEW_SHOTS: Partial<
   Record<PromptProfileId, Record<DetailLevel, FewShotExample[]>>
 > = {
@@ -1004,6 +1069,12 @@ export function getProfileFewShots(
   detail: DetailLevel,
   fallback: FewShotExample[],
 ): FewShotExample[] {
+  if (isKleinBaseModel(def.id) && def.profile === "flux_klein") {
+    const baseShots = FEW_SHOT_FLUX_KLEIN_BASE[detail];
+    if (baseShots?.length) {
+      return baseShots;
+    }
+  }
   const shots = PROFILE_FEW_SHOTS[def.profile]?.[detail];
   return shots ?? fallback;
 }

@@ -11,6 +11,7 @@ import { fetchWorkflowPreview } from "./comfyui-requeue";
 import { resolveQueueParams } from "./queue-params-settings";
 import type { WorkflowParamValues } from "./comfyui-config";
 import { auditLoaderMapsAtQueueTime } from "./workflow-queue-loader-preflight";
+import { auditLoraStackAtQueueTime } from "./lora-stack-preflight";
 import { fetchComfyObjectInfoCached } from "./comfyui-object-info-cache";
 import {
   collectWorkflowGraphPreflightIssues,
@@ -186,6 +187,14 @@ export async function runWorkflowPreflight(input: {
       workflowJson: preview.workflowJson,
     });
     issues.push(...loaderIssues);
+
+    issues.push(
+      ...auditLoraStackAtQueueTime({
+        model: input.model,
+        workflowJson: preview.workflowJson,
+        loraLibrary: runtime?.loraLibrary,
+      }),
+    );
   } catch (err) {
     issues.push({
       severity: "error",

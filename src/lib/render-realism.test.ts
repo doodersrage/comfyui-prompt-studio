@@ -54,6 +54,18 @@ describe("render realism", () => {
     assert.equal(result.negative, undefined);
   });
 
+  it("uses stronger klein base photo steering with anti-clone avoid prose", () => {
+    const result = applyRenderRealismForModel({
+      positive: "Women lounge by a resort pool.",
+      model: "flux-2-klein-9b",
+      mode: "hyper-realistic",
+    });
+    assert.match(result.positive, /hyperrealistic photograph/i);
+    assert.match(result.positive, /clone duplicates|identical clone rows/i);
+    assert.match(result.positive, /flat shadowless light|flat even lighting/i);
+    assert.equal(result.negative, undefined);
+  });
+
   it("deduplicates merged negative terms", () => {
     const merged = applyRenderRealismToNegative("cartoon, blurry", "realistic");
     assert.equal(
