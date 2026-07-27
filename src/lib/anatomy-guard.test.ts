@@ -59,8 +59,19 @@ describe("anatomy guard", () => {
       model: "flux-2-klein-9b-distilled",
       mode: "strict",
     });
-    assert.match(result.positive, /Prefer simple standing poses/i);
-    assert.match(result.positive, /anatomically correct hands/i);
+    assert.match(result.positive, /five distinct fingers|anatomically correct hands/i);
+    assert.match(result.positive, /Prefer a single subject|simple standing pose/i);
+    assert.match(result.positive, /extra or fused fingers|extra limbs/i);
+  });
+
+  it("hardens klein distilled even when weak accurate-anatomy language is present", () => {
+    const result = applyAnatomyGuardForModel({
+      positive: "Portrait with accurate anatomy and soft light.",
+      model: "flux-2-klein-9b-distilled",
+      mode: "standard",
+    });
+    assert.match(result.positive, /five fingers|anatomically correct hands/i);
+    assert.match(result.positive, /extra or fused fingers|extra limbs/i);
   });
 
   it("adds pose guidance for klein base flux models in strict mode", () => {
@@ -71,6 +82,21 @@ describe("anatomy guard", () => {
       maxPositiveAppendChars: 500,
     });
     assert.match(result.positive, /Keep poses straightforward/i);
+    assert.match(result.positive, /five distinct fingers/i);
+  });
+
+  it("hardens klein base hands and counters fisheye on people prompts", () => {
+    const result = applyAnatomyGuardForModel({
+      positive:
+        "A woman reclines on a beach under a canopy, framed in sweeping fisheye lens.",
+      model: "flux-2-klein-9b",
+      mode: "standard",
+      maxPositiveAppendChars: 500,
+    });
+    assert.match(result.positive, /five distinct fingers/i);
+    assert.match(result.positive, /Keep poses straightforward/i);
+    assert.match(result.positive, /rectangular full-frame|avoid circular fisheye/i);
+    assert.match(result.negative ?? "", /extra limbs|extra fingers/i);
   });
 
   it("deduplicates merged negative terms", () => {

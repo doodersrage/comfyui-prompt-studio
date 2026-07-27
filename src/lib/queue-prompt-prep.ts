@@ -21,7 +21,7 @@ import { resolveQueueNegativePromptRaw } from "./queue-negative";
 import { isQwenLightningModel, isWanLightningModel } from "./model-sampling-patch";
 import { isQwenRapidAioModel, isWanRapidAioModel } from "./model-denoise-defaults";
 import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
-import { isKleinBaseModel } from "./model-sampler-defaults";
+import { isKleinBaseModel, isKleinDistilledModel } from "./model-sampler-defaults";
 import { ensureUltraRealAmplifierTriggerInPrompt } from "./ultrareal-amplifier-lora";
 import { ensureKleinRealisticDetailTriggerInPrompt } from "./klein-realistic-detail-lora";
 import { expandWildcardText } from "./wildcard-expand";
@@ -42,11 +42,15 @@ const LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS = 160;
  */
 const MAX_QUEUE_POSITIVE_SUFFIX_CHARS = 200;
 const KLEIN_BASE_QUEUE_POSITIVE_SUFFIX_CHARS = 580;
+const KLEIN_DISTILLED_QUEUE_POSITIVE_SUFFIX_CHARS = 420;
 const ULTRAREAL_QUEUE_POSITIVE_SUFFIX_CHARS = 320;
 
 function maxQueuePositiveSuffixChars(model: ComfyImageModel | string): number {
   if (isKleinBaseModel(model)) {
     return KLEIN_BASE_QUEUE_POSITIVE_SUFFIX_CHARS;
+  }
+  if (isKleinDistilledModel(model)) {
+    return KLEIN_DISTILLED_QUEUE_POSITIVE_SUFFIX_CHARS;
   }
   if (isFluxFineTuneCheckpointModel(model)) {
     return ULTRAREAL_QUEUE_POSITIVE_SUFFIX_CHARS;
@@ -162,6 +166,29 @@ export function applyQueuePromptSteering(input: {
 
   const suffixBudget = maxQueuePositiveSuffixChars(input.model);
   const baseLength = input.positive.trim().length;
+
+  // Klein Distilled (CFG-1): anatomy/hand cues first — realism often ate the budget.
+  if (isKleinDistilledModel(input.model)) {
+    const withAnatomy = applyAnatomyGuardForModel({
+      positive: input.positive,
+      negative: input.negative,
+      model: input.model,
+      mode: anatomyMode,
+      maxPositiveAppendChars: suffixBudget,
+    });
+    const anatomyGrowth = Math.max(
+      0,
+      withAnatomy.positive.trim().length - baseLength,
+    );
+    return applyRenderRealismForModel({
+      positive: withAnatomy.positive,
+      negative: withAnatomy.negative,
+      model: input.model,
+      mode: realismMode,
+      maxPositiveAppendChars: Math.max(0, suffixBudget - anatomyGrowth),
+    });
+  }
+
   const withRealism = applyRenderRealismForModel({
     positive: input.positive,
     negative: input.negative,

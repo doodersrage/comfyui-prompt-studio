@@ -112,4 +112,16 @@ describe("queue-prompt-prep Rapid AIO / Lightning", () => {
     assert.match(result.positive ?? "", /srx_detail/i);
     assert.match(result.negative ?? "", /plastic skin|blob clouds|repeating foam/i);
   });
+
+  it("prioritizes anatomy/hand cues for Klein Distilled before realism budget", () => {
+    const result = applyQueuePromptSteering({
+      positive: "A woman standing in sunlight.",
+      model: "flux-2-klein-9b-distilled",
+      realismMode: "realistic",
+      anatomyMode: "strict",
+    });
+    assert.match(result.positive ?? "", /five distinct fingers|anatomically correct hands/i);
+    assert.match(result.positive ?? "", /extra or fused fingers|extra limbs/i);
+    assert.match(result.positive ?? "", /Prefer a single subject|simple standing pose/i);
+  });
 });

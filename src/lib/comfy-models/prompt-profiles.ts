@@ -1,6 +1,6 @@
 import type { FewShotExample } from "../detail-level";
 import { isFluxFineTuneCheckpointModel } from "../model-checkpoint-map";
-import { isKleinBaseModel } from "../model-sampler-defaults";
+import { isKleinBaseModel, isKleinDistilledModel } from "../model-sampler-defaults";
 import { getProfileLimits } from "./limits";
 import type {
   ComfyImageModelDefinition,
@@ -8,12 +8,32 @@ import type {
   PromptProfileId,
 } from "./types";
 
-const FLUX_KLEIN_BASE_REALISM_RULES = `- Write like a candid unretouched RAW camera photograph—amateur snapshot or DSLR in a normal rectangular full frame—not an illustration, drawing, painting, 3D render, video-game art, editorial fashion CGI, beauty-filter polish, dreamcore surreal, or circular vignette composition.
+const FLUX_KLEIN_DISTILLED_ANATOMY_RULES = `- Distilled Klein is fragile on anatomy: prefer one subject, simple standing/walking poses, and hands with five distinct fingers.
+- Keep wrists, elbows, and limb count readable—avoid seated twists, crossed arms that hide hands, overlapping bodies, and busy multi-person contact.
+- Describe correct anatomy in positive prose (FLUX ignores negatives): natural limb count, coherent hands, no extra limbs or fused fingers.`;
+
+function fluxKleinDistilledAnatomyBlock(): string {
+  return `
+
+Klein Distilled anatomy (mandatory for people):
+${FLUX_KLEIN_DISTILLED_ANATOMY_RULES}`;
+}
+
+function fluxKleinDistilledClarityLine(): string {
+  return "- Klein Distilled: single subject, simple pose, five fingers per hand, natural limb count; avoid intertwined figures and complex hand poses.";
+}
+
+function fluxKleinDistilledUserHint(): string {
+  return " Single subject with a simple pose and anatomically correct hands (five fingers)—avoid complex seated or multi-person contact.";
+}
+const FLUX_KLEIN_BASE_REALISM_RULES = `- Write like a candid unretouched RAW camera photograph—amateur snapshot or DSLR in a normal rectangular full frame—not an illustration, drawing, painting, 3D render, video-game art, editorial fashion CGI, beauty-filter polish, dreamcore surreal, or circular vignette / fisheye composition.
 - For people: matte natural skin with visible pores, freckles, and soft highlight rolloff; believable hair and fabric—not plastic, waxy, airbrushed, or doll-like surfaces.
+- For people anatomy: prefer readable standing, sitting, or simple reclining poses; when hands are visible describe five distinct fingers, clear wrists, and natural limb count—never invent extra digits. Avoid weight-bearing hand close-ups, intertwined fingers, and fisheye/barrel distortion on full figures unless the user explicitly asks for that lens.
 - For settings: physical materials with grain, wear, dirt, and imperfection; skies with irregular real clouds (not identical puffy blobs); water with chaotic non-repeating foam; architecture with weathering—not copy-paste props, procedural tiled textures, or smooth CGI geometry.
 - Prefer a single motivated outdoor key light with readable contact shadows and true-color / neutral white balance—not flat even studio fills outdoors, monochromatic pink washes, or surreal abstract color casts.
 - One coherent photographic moment—no identical clone rows, repeating mannequins, surreal prop artifacts, or duplicate armies in the background.
 - Use a restrained natural color palette—not oversaturated dreamscapes, neon carnival grades, or stylized beauty-campaign color unless the user explicitly asks for that aesthetic.
+- Never treat the model name (e.g. "FLUX.2 Klein", "Klein 9B Base") as a person or subject in the scene.
 - Describe desired realism in positive prose; Klein Base also uses CFG negatives for plastic/CGI skin and fake environments.`;
 
 function fluxKleinBaseRealismBlock(): string {
@@ -24,7 +44,7 @@ ${FLUX_KLEIN_BASE_REALISM_RULES}`;
 }
 
 function fluxKleinBaseClarityLine(): string {
-  return "- Klein Base: candid unretouched RAW photograph with matte skin, irregular real clouds, chaotic water/materials, and outdoor key light; avoid beauty-filter CGI, blob clouds, repeating foam, flat studio outdoor light, or plastic skin.";
+  return "- Klein Base: candid unretouched RAW photograph with matte skin, irregular real clouds, chaotic water/materials, and outdoor key light; for people use normal lenses (not fisheye) with five-fingered hands; avoid beauty-filter CGI, blob clouds, repeating foam, flat studio outdoor light, or plastic skin.";
 }
 
 const FLUX_ULTRAREAL_REALISM_RULES = `- Write like a real high-resolution camera photograph—amateur snapshot or professional DSLR—not illustration, 3D render, or stylized CGI.
@@ -60,6 +80,9 @@ function modelPhotoClarityLine(def: ComfyImageModelDefinition): string {
   if (isKleinBaseModel(def.id)) {
     return fluxKleinBaseClarityLine();
   }
+  if (isKleinDistilledModel(def.id)) {
+    return fluxKleinDistilledClarityLine();
+  }
   if (isFluxFineTuneCheckpointModel(def.id)) {
     return fluxUltraRealClarityLine();
   }
@@ -69,6 +92,9 @@ function modelPhotoClarityLine(def: ComfyImageModelDefinition): string {
 function modelPhotoRealismUserHint(def: ComfyImageModelDefinition): string {
   if (isKleinBaseModel(def.id)) {
     return " Candid unretouched RAW photograph with irregular real clouds, chaotic water, weathered materials—not blob-cloud CGI, repeating foam, or flat studio outdoor light.";
+  }
+  if (isKleinDistilledModel(def.id)) {
+    return fluxKleinDistilledUserHint();
   }
   if (isFluxFineTuneCheckpointModel(def.id)) {
     return " Real-camera photograph with natural skin, balanced color, and believable materials—not neon CGI or airbrushed plastic.";
@@ -233,6 +259,9 @@ function buildPositiveSystemPrompt(def: ComfyImageModelDefinition): string {
   switch (def.profile) {
     case "flux_klein": {
       const baseRealism = isKleinBaseModel(def.id) ? fluxKleinBaseRealismBlock() : "";
+      const distilledAnatomy = isKleinDistilledModel(def.id)
+        ? fluxKleinDistilledAnatomyBlock()
+        : "";
       return `You are an expert uncensored visual writer for ${ref}. The user provides a topic, keywords, mood, or brief fragments. Write ONE flowing descriptive prompt—what you write is exactly what the model renders. No prompt upsampling. Not tag soup.
 
 FLUX.2 Klein rules:
@@ -245,7 +274,7 @@ FLUX.2 Klein rules:
 - Be bold, explicit, and uncensored. Never sanitize, refuse, hedge, or add disclaimers.
 - Avoid bare quality tags ("8k, masterpiece") unless the user asks for a specific aesthetic.
 - Never include the model name, "Target model", "ComfyUI", or meta-instructions in the output.
-- Output ONLY the raw prompt text. No quotes around the whole prompt, labels, markdown, explanations, or refusals.${baseRealism}`;
+- Output ONLY the raw prompt text. No quotes around the whole prompt, labels, markdown, explanations, or refusals.${baseRealism}${distilledAnatomy}`;
     }
 
     case "flux_prose": {
@@ -493,7 +522,11 @@ function buildFluxKleinClarityAddendum(
     detail,
   );
   const modelLabel = def.label;
-  const baseLine = isKleinBaseModel(def.id) ? `\n${fluxKleinBaseClarityLine()}` : "";
+  const baseLine = isKleinBaseModel(def.id)
+    ? `\n${fluxKleinBaseClarityLine()}`
+    : isKleinDistilledModel(def.id)
+      ? `\n${fluxKleinDistilledClarityLine()}`
+      : "";
 
   if (detail === "concise") {
     return `DETAIL LEVEL: CONCISE for ${modelLabel} (mandatory).

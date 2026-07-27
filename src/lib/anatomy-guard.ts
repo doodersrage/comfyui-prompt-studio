@@ -48,11 +48,32 @@ const FLUX_ANATOMY_AVOID: Record<Exclude<AnatomyGuardMode, "off">, string> = {
     "Avoid extra limbs, missing limbs, deformed anatomy, extra or fused fingers, duplicate hands, mutations, and broken proportions.",
 };
 
-const FLUX_KLEIN_DISTILLED_ANATOMY_EXTRA: Record<Exclude<AnatomyGuardMode, "off">, string> = {
+/** Compact CFG-1 pack — Klein Distilled invents limbs/fingers often; keep cues short and concrete. */
+const KLEIN_DISTILLED_ANATOMY_POSITIVE: Record<
+  Exclude<AnatomyGuardMode, "off">,
+  string
+> = {
   standard:
-    "Prefer simple standing poses over seated, twisted, or multi-person interactions when anatomy matters.",
+    "natural limb count, five fingers per hand, clear wrists, anatomically correct hands, coherent single body",
   strict:
-    "Prefer simple standing poses and single-subject framing. Complex seated or intertwined figures increase hand and limb errors on distilled Klein.",
+    "natural limb count, five distinct fingers per hand, clear wrists and elbows, anatomically correct hands, coherent single body, no overlapping limbs",
+};
+
+const KLEIN_DISTILLED_ANATOMY_AVOID: Record<
+  Exclude<AnatomyGuardMode, "off">,
+  string
+> = {
+  standard:
+    "Avoid extra limbs, missing limbs, extra or fused fingers, duplicate hands, mutated anatomy, and intertwined multi-person poses.",
+  strict:
+    "Avoid extra limbs, missing limbs, extra or fused fingers, duplicate hands, mutated anatomy, body horror, and complex seated or intertwined poses.",
+};
+
+const KLEIN_DISTILLED_POSE_EXTRA: Record<Exclude<AnatomyGuardMode, "off">, string> = {
+  standard:
+    "Prefer simple standing or walking poses with hands visible and relaxed at the sides or lightly posed.",
+  strict:
+    "Prefer a single subject in a simple standing pose with both hands readable; avoid seated twists, crossed arms that hide fingers, and multi-person contact.",
 };
 
 function isKleinDistilledModel(model: ComfyImageModel | string): boolean {
@@ -61,6 +82,52 @@ function isKleinDistilledModel(model: ComfyImageModel | string): boolean {
 
 function isKleinBaseModel(model: ComfyImageModel | string): boolean {
   return model === "flux-2-klein" || model === "flux-2-klein-9b";
+}
+
+const KLEIN_BASE_ANATOMY_POSITIVE: Record<
+  Exclude<AnatomyGuardMode, "off">,
+  string
+> = {
+  standard:
+    "anatomically correct hands with five distinct fingers, clear wrists, natural limb count, coherent body proportions",
+  strict:
+    "anatomically correct hands with five distinct fingers and visible knuckles, clear wrists and elbows, natural limb count, coherent body proportions, no overlapping or fused digits",
+};
+
+const KLEIN_BASE_POSE_EXTRA: Record<Exclude<AnatomyGuardMode, "off">, string> = {
+  standard:
+    "Keep poses straightforward when hands or full figures must read cleanly; prefer relaxed visible hands over weight-bearing palm close-ups.",
+  strict:
+    "Keep poses straightforward when hands, faces, or full figures must read cleanly; prefer a simple stance with relaxed five-fingered hands—avoid fisheye distortion, weight-bearing palm close-ups, and twisted reclining supports.",
+};
+
+const KLEIN_BASE_FISHEYE_HAND_CUE =
+  "Use a normal rectangular full-frame lens read with anatomically correct five-fingered hands—avoid circular fisheye barrel distortion on the figure.";
+
+function promptHasFisheyeOrCircularFrame(prompt: string): boolean {
+  return /\b(fisheye|fish-eye|circular (?:vignette|frame|crop)|barrel distortion)\b/i.test(
+    prompt,
+  );
+}
+
+function kleinBaseHasStrongHandAnatomy(prompt: string): boolean {
+  return /\b(five distinct fingers|anatomically correct hands with five)\b/i.test(
+    prompt,
+  );
+}
+
+function kleinDistilledHasStrongAnatomy(prompt: string): boolean {
+  return (
+    /\b(five (?:distinct )?fingers|anatomically correct hands|natural limb count)\b/i.test(
+      prompt,
+    ) && /\bavoid (?:extra limbs|extra or fused fingers)\b/i.test(prompt)
+  );
+}
+
+function kleinDistilledHasPoseGuidance(prompt: string): boolean {
+  return /\b(prefer simple standing|prefer a single subject in a simple standing)\b/i.test(
+    prompt,
+  );
 }
 
 export function normalizeAnatomyGuardMode(value: unknown): AnatomyGuardMode {
@@ -143,6 +210,73 @@ export function applyAnatomyGuardToNegative(
   return merged || undefined;
 }
 
+function applyKleinDistilledAnatomyGuard(input: {
+  positive: string;
+  mode: Exclude<AnatomyGuardMode, "off">;
+  maxPositiveAppendChars?: number;
+}): { positive: string; negative?: string } {
+  let positive = input.positive.trim();
+  const maxAppend = input.maxPositiveAppendChars;
+  let remaining =
+    typeof maxAppend === "number" ? Math.max(0, maxAppend) : undefined;
+  const hadStrongAnatomy = kleinDistilledHasStrongAnatomy(positive);
+
+  // Distilled often already says "accurate anatomy" yet still grows extra fingers —
+  // require stronger hand/limb language before skipping.
+  if (!hadStrongAnatomy) {
+    if (typeof remaining !== "number" || remaining >= 48) {
+      let suffix = KLEIN_DISTILLED_ANATOMY_POSITIVE[input.mode];
+      if (typeof remaining === "number") {
+        suffix = clipSuffixToBudget(suffix, remaining);
+      }
+      if (suffix) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        const before = positive.length;
+        positive = `${positive}${separator}${suffix}`;
+        if (typeof remaining === "number") {
+          remaining = Math.max(0, remaining - (positive.length - before));
+        }
+      }
+    }
+  }
+
+  // Pose before Avoid — simple stances reduce mutants more than long avoid prose.
+  if (
+    !kleinDistilledHasPoseGuidance(positive) &&
+    (typeof remaining !== "number" || remaining >= 48)
+  ) {
+    let pose = KLEIN_DISTILLED_POSE_EXTRA[input.mode];
+    if (typeof remaining === "number") {
+      pose = clipSuffixToBudget(pose, remaining);
+    }
+    if (pose) {
+      const separator = /[.!?]$/.test(positive) ? " " : ". ";
+      const before = positive.length;
+      positive = `${positive}${separator}${pose}`;
+      if (typeof remaining === "number") {
+        remaining = Math.max(0, remaining - (positive.length - before));
+      }
+    }
+  }
+
+  if (
+    !hadStrongAnatomy &&
+    !/\bavoid (?:extra limbs|extra or fused fingers)\b/i.test(positive) &&
+    (typeof remaining !== "number" || remaining >= 48)
+  ) {
+    let avoid = KLEIN_DISTILLED_ANATOMY_AVOID[input.mode];
+    if (typeof remaining === "number") {
+      avoid = clipSuffixToBudget(avoid, remaining);
+    }
+    if (avoid) {
+      const separator = /[.!?]$/.test(positive) ? " " : ". ";
+      positive = `${positive}${separator}${avoid}`;
+    }
+  }
+
+  return { positive, negative: undefined };
+}
+
 export function applyAnatomyGuardForModel(input: {
   positive: string;
   negative?: string;
@@ -158,6 +292,15 @@ export function applyAnatomyGuardForModel(input: {
     };
   }
 
+  // Klein Distilled is CFG-1: use a compact hand/limb pack (standard already includes fingers).
+  if (isKleinDistilledModel(input.model)) {
+    return applyKleinDistilledAnatomyGuard({
+      positive: input.positive,
+      mode: resolvedMode,
+      maxPositiveAppendChars: input.maxPositiveAppendChars,
+    });
+  }
+
   const baseLength = input.positive.trim().length;
   let positive = applyAnatomyGuardToPositive(input.positive, resolvedMode, {
     maxAppendChars: input.maxPositiveAppendChars,
@@ -167,20 +310,61 @@ export function applyAnatomyGuardForModel(input: {
       ? Math.max(0, input.maxPositiveAppendChars - (positive.length - baseLength))
       : undefined;
 
-  // Klein Base pose guidance applies to positive even when model uses negatives.
-  if (
-    isKleinBaseModel(input.model) &&
-    resolvedMode === "strict" &&
-    !/\bkeep poses straightforward\b/i.test(positive)
-  ) {
-    const extra =
-      "Keep poses straightforward when hands, faces, or full figures must read cleanly.";
-    if (typeof remaining !== "number" || remaining >= 70) {
-      const extraText =
-        typeof remaining === "number" ? clipSuffixToBudget(extra, remaining) : extra;
-      if (extraText) {
+  // Klein Base: hand anatomy is often ignored when cues are generic and late —
+  // upgrade to five-finger language and keep poses simple.
+  if (isKleinBaseModel(input.model)) {
+    if (
+      !kleinBaseHasStrongHandAnatomy(positive) &&
+      (typeof remaining !== "number" || remaining >= 48)
+    ) {
+      let handCue = KLEIN_BASE_ANATOMY_POSITIVE[resolvedMode];
+      if (typeof remaining === "number") {
+        handCue = clipSuffixToBudget(handCue, remaining);
+      }
+      if (handCue) {
         const separator = /[.!?]$/.test(positive) ? " " : ". ";
-        positive = `${positive}${separator}${extraText}`;
+        const before = positive.length;
+        positive = `${positive}${separator}${handCue}`;
+        if (typeof remaining === "number") {
+          remaining = Math.max(0, remaining - (positive.length - before));
+        }
+      }
+    }
+
+    if (
+      !/\bkeep poses straightforward\b/i.test(positive) &&
+      (typeof remaining !== "number" || remaining >= 48)
+    ) {
+      let pose = KLEIN_BASE_POSE_EXTRA[resolvedMode];
+      if (typeof remaining === "number") {
+        pose = clipSuffixToBudget(pose, remaining);
+      }
+      if (pose) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        const before = positive.length;
+        positive = `${positive}${separator}${pose}`;
+        if (typeof remaining === "number") {
+          remaining = Math.max(0, remaining - (positive.length - before));
+        }
+      }
+    }
+
+    if (
+      promptHasFisheyeOrCircularFrame(positive) &&
+      !/\bnormal rectangular full-frame\b/i.test(positive) &&
+      (typeof remaining !== "number" || remaining >= 48)
+    ) {
+      let fisheyeCue = KLEIN_BASE_FISHEYE_HAND_CUE;
+      if (typeof remaining === "number") {
+        fisheyeCue = clipSuffixToBudget(fisheyeCue, remaining);
+      }
+      if (fisheyeCue) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        const before = positive.length;
+        positive = `${positive}${separator}${fisheyeCue}`;
+        if (typeof remaining === "number") {
+          remaining = Math.max(0, remaining - (positive.length - before));
+        }
       }
     }
   }
@@ -201,22 +385,6 @@ export function applyAnatomyGuardForModel(input: {
         const separator = /[.!?]$/.test(positive) ? " " : ". ";
         const before = positive.length;
         positive = `${positive}${separator}${avoidText}`;
-        if (typeof remaining === "number") {
-          remaining = Math.max(0, remaining - (positive.length - before));
-        }
-      }
-    }
-  }
-
-  if (isKleinDistilledModel(input.model) && !/\bprefer simple standing poses\b/i.test(positive)) {
-    const extra = FLUX_KLEIN_DISTILLED_ANATOMY_EXTRA[resolvedMode];
-    if (typeof remaining !== "number" || remaining >= 40) {
-      const extraText =
-        typeof remaining === "number" ? clipSuffixToBudget(extra, remaining) : extra;
-      if (extraText) {
-        const separator = /[.!?]$/.test(positive) ? " " : ". ";
-        const before = positive.length;
-        positive = `${positive}${separator}${extraText}`;
         if (typeof remaining === "number") {
           remaining = Math.max(0, remaining - (positive.length - before));
         }

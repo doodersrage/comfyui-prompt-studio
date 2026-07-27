@@ -23,21 +23,26 @@ describe("klein base prompt profiles", () => {
     const distilledPrompt = buildProfileSystemPrompt(klein9bDistilled, "positive");
     assert.doesNotMatch(distilledPrompt, /Klein Base realism/i);
     assert.doesNotMatch(distilledPrompt, /plastic, waxy, airbrushed/i);
+    assert.match(distilledPrompt, /Klein Distilled anatomy/i);
+    assert.match(distilledPrompt, /five distinct fingers/i);
   });
 
   it("adds photographic clarity and user hints for Klein Base only", () => {
     const baseClarity = buildProfileClarityAddendum("balanced", klein9bBase);
     assert.match(baseClarity, /Klein Base: candid unretouched RAW photograph/i);
     assert.match(baseClarity, /blob clouds|repeating foam|flat studio outdoor/i);
+    assert.match(baseClarity, /five-fingered hands|not fisheye/i);
 
     const distilledClarity = buildProfileClarityAddendum("balanced", klein9bDistilled);
     assert.doesNotMatch(distilledClarity, /Klein Base:/i);
+    assert.match(distilledClarity, /Klein Distilled: single subject/i);
 
     const baseDirective = buildProfileUserDirective("rich", klein9bBase);
     assert.match(baseDirective, /unretouched RAW photograph|matte skin/i);
 
     const distilledDirective = buildProfileUserDirective("rich", klein9bDistilled);
     assert.doesNotMatch(distilledDirective, /beauty-filter CGI/i);
+    assert.match(distilledDirective, /simple pose|five fingers/i);
   });
 
   it("uses Klein Base few-shot examples for undistilled models", () => {

@@ -229,7 +229,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     comfyNode: "CLIP Text Encode (Flux)",
     comfyClass: "Flux2Klein9B",
     description:
-      "4-step distilled 9B Klein — fast T2I/edit. Use Optimized KSampler for people; Base is 4-step euler. Complex poses may need Klein 9B Base.",
+      "4-step distilled 9B Klein — fast T2I/edit. Prefer simple single-subject poses; auto hand/limb anatomy cues on queue. Complex anatomy → Klein 9B Base or UltraReal.",
     profile: "flux_klein",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.flux_klein,
