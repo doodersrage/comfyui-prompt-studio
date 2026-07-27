@@ -105,6 +105,7 @@ function stripPromptArtifactsUnsafe(raw: string): string {
     .trim();
 
   text = stripFormatToolPreambles(text);
+  text = stripModelDirectiveLeaks(text);
 
   for (let i = 0; i < 3; i += 1) {
     const next = text.replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, "").trim();
@@ -138,11 +139,11 @@ function stripFormatToolPreambles(text: string): string {
   }
 
   const preamblePatterns = [
-    /^(?:(?:here(?:'s| is)\s+(?:the\s+)?)?)(?:the\s+)?(?:prompt\s+)?(?:adapted|formatted|rewritten|converted|optimized)\s+(?:prompt\s+)?(?:for\s+)[^:.\n]+:\s*/i,
-    /^(?:adapted|formatted|rewritten|converted|optimized)\s+(?:prompt\s+)?(?:for\s+)[^:.\n]+:\s*/i,
+    FLUX_KLEIN_LABEL_LEAD,
+    /^(?:(?:here(?:'s| is)\s+(?:the\s+)?)?)(?:the\s+)?(?:prompt\s+)?(?:adapted|formatted|rewritten|converted|optimized)\s+(?:prompt\s+)?(?:for\s+).+?\.\s+(?=[A-Z])/i,
+    /^(?:adapted|formatted|rewritten|converted|optimized)\s+(?:prompt\s+)?(?:for\s+).+?\.\s+(?=[A-Z])/i,
     /^(?:here(?:'s| is)|adapted prompt|formatted prompt|positive prompt|negative prompt|output|prompt|result)\s*:?\s*/i,
-    /^target model:\s*[^:.\n]+:?\s*/i,
-    /^adapt this draft for[^:.\n]*:?\s*/i,
+    /^adapt this draft for.+?\.\s+(?=[A-Z])/i,
     /^draft to adapt:\s*-{2,}\s*/i,
   ];
 
@@ -161,6 +162,46 @@ function stripFormatToolPreambles(text: string): string {
   }
 
   return cleaned.replace(/\s*-{2,}\s*$/g, "").trim();
+}
+
+/** Known model-label echoes (labels contain dots — avoid naive [^.] patterns). */
+const FLUX_KLEIN_LABEL_LEAD =
+  /^(?:(?:target model|the prompt adapted for|adapted for|formatted for|written for):\s*)?FLUX\.2\s+Klein(?:\s+\d+B)?(?:\s+(?:Base|Distilled))?(?:\s+in ComfyUI(?:\s*\([^)]*\))?)?\.\s*/i;
+
+const FLUX_KLEIN_ORPHAN_LEAD =
+  /^(?:\d+\s+)?Klein(?:\s+\d+B)?(?:\s+(?:Base|Distilled))?\.\s*/i;
+
+export function stripModelDirectiveLeaks(text: string): string {
+  let cleaned = text.trim();
+  if (!cleaned) {
+    return cleaned;
+  }
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    const before = cleaned;
+    cleaned = cleaned
+      .replace(FLUX_KLEIN_LABEL_LEAD, "")
+      .replace(FLUX_KLEIN_ORPHAN_LEAD, "")
+      .replace(/^target model:\s*.+?\.\s+(?=[A-Z])/i, "")
+      .replace(
+        /^FLUX\.(?:1|2)(?:\.\d+)?(?:\s+Klein(?:\s+\d+B)?(?:\s+(?:Base|Distilled))?)?(?:\s+in ComfyUI(?:\s*\([^)]*\))?)?\s*[:.]\s*/i,
+        "",
+      )
+      .replace(
+        /^Qwen(?:-Image)?[^:.\n]{0,48}(?:\s+in ComfyUI(?:\s*\([^)]*\))?)?\s*[:.]\s*/i,
+        "",
+      )
+      .replace(/^write (?:exactly )?\d+[^.!?]*[.!?]\s+/i, "")
+      .replace(
+        /^(?:for|using|with|on|in)\s+FLUX\.2\s+Klein(?:\s+\d+B)?(?:\s+(?:Base|Distilled))?[,:]\s*/i,
+        "",
+      );
+    if (cleaned === before) {
+      break;
+    }
+  }
+
+  return cleaned.trim();
 }
 
 function looksLikePromptProse(text: string): boolean {

@@ -6,6 +6,7 @@ import {
   COMFYUI_GALLERY_UPDATED_EVENT,
   MAX_GALLERY_ENTRIES,
 } from "./comfyui-gallery-storage-meta";
+import { filterOutDeletedGalleryEntries } from "./gallery-deleted-ids";
 import { getActiveUserId, isUserScoped } from "./user-scope";
 
 /** First paint loads one page of recent entries; the rest hydrate in the background. */
@@ -149,6 +150,36 @@ export async function reloadGalleryForActiveUser(): Promise<void> {
   notifyGalleryUpdated();
 }
 
+/** Re-read IndexedDB into memory (other tabs / external writers). */
+export async function reloadGalleryFromDb(): Promise<void> {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (cacheDirty) {
+    await persistGalleryCache();
+  }
+  if (!appDb) {
+    allEntries = filterOutDeletedGalleryEntries(
+      readLegacyLocalStorageGallery().slice(0, MAX_GALLERY_ENTRIES),
+    );
+    assignLegacyGalleryEntriesToActiveUser();
+    refreshCacheFromAll();
+    notifyGalleryUpdated();
+    return;
+  }
+  try {
+    allEntries = await readAllGalleryEntriesFromDb();
+    assignLegacyGalleryEntriesToActiveUser();
+    refreshCacheFromAll();
+    persistedFingerprints = new Map(
+      allEntries.map((entry) => [entry.id, galleryEntryFingerprint(entry)]),
+    );
+    notifyGalleryUpdated();
+  } catch {
+    /* keep current cache */
+  }
+}
+
 function readLegacyLocalStorageGallery(): ComfyGalleryEntry[] {
   const parsed = readBrowserValue<unknown>(COMFYUI_GALLERY_KEY);
   return Array.isArray(parsed) ? (parsed as ComfyGalleryEntry[]) : [];
@@ -177,6 +208,20 @@ async function migrateGalleryFromLocalStorage(): Promise<void> {
   removeBrowserKey(COMFYUI_GALLERY_KEY);
 }
 
+async function readAllGalleryEntriesFromDb(): Promise<ComfyGalleryEntry[]> {
+  if (!appDb) {
+    return [];
+  }
+  const full = await appDb.galleryEntries.orderBy("queuedAt").reverse().toArray();
+  return filterOutDeletedGalleryEntries(full);
+}
+
+/**
+ * Background completion of the initial partial hydrate. Must not clobber
+ * in-memory deletes/edits: after a delete, `allEntries.length` shrinks, so a
+ * naive "replace if DB is longer" check would resurrect removed ids from a
+ * stale IndexedDB snapshot.
+ */
 async function loadRemainingGalleryEntries(): Promise<void> {
   if (!appDb || fullLoadPromise) {
     return fullLoadPromise ?? Promise.resolve();
@@ -184,10 +229,17 @@ async function loadRemainingGalleryEntries(): Promise<void> {
 
   fullLoadPromise = (async () => {
     try {
-      const full = await appDb.galleryEntries.orderBy("queuedAt").reverse().toArray();
-      if (full.length <= allEntries.length) {
-        return;
+      // Flush pending mutations first so deletes are in IDB before we re-read.
+      if (cacheDirty) {
+        await persistGalleryCache();
       }
+      let full = await readAllGalleryEntriesFromDb();
+      // User may have mutated again while the read was in flight.
+      if (cacheDirty) {
+        await persistGalleryCache();
+        full = await readAllGalleryEntriesFromDb();
+      }
+
       allEntries = full;
       assignLegacyGalleryEntriesToActiveUser();
       refreshCacheFromAll();
@@ -248,11 +300,12 @@ export async function hydrateGalleryStore(): Promise<void> {
       await migrateGalleryFromLocalStorage();
 
       if (!cacheDirty) {
-        allEntries = await appDb.galleryEntries
+        const initial = await appDb.galleryEntries
           .orderBy("queuedAt")
           .reverse()
           .limit(INITIAL_GALLERY_LOAD_LIMIT)
           .toArray();
+        allEntries = filterOutDeletedGalleryEntries(initial);
         assignLegacyGalleryEntriesToActiveUser();
         refreshCacheFromAll();
         persistedFingerprints = new Map(

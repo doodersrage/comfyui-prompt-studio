@@ -269,6 +269,9 @@ export default function VariationGridTool() {
   const [queueProgress, setQueueProgress] = useState<BatchQueueProgressState | null>(
     null,
   );
+  const [rollProgress, setRollProgress] = useState<BatchQueueProgressState | null>(
+    null,
+  );
   const importedAppliedRef = useRef(false);
 
   useSeedToolDraft(mounted, {
@@ -458,20 +461,55 @@ export default function VariationGridTool() {
     setError(null);
     setStatus(null);
     setComfyStatus(null);
+    setRollProgress({
+      phase: "generating",
+      current: 0,
+      total: count,
+      message: `Generating variation 1 of ${count}…`,
+    });
+    setResults([]);
 
     try {
       const next: VariationResult[] = [];
 
       for (let index = 0; index < count; index += 1) {
+        setRollProgress({
+          phase: "generating",
+          current: index,
+          total: count,
+          message: `Generating variation ${index + 1} of ${count}…`,
+        });
         next.push(await fetchVariation());
+        setResults([...next]);
+        setRollProgress({
+          phase: "generating",
+          current: index + 1,
+          total: count,
+          message:
+            index + 1 < count
+              ? `Generated ${index + 1}/${count}. Starting variation ${index + 2}…`
+              : `Generated ${index + 1}/${count}.`,
+        });
       }
 
-      setResults(next);
       const ok = next.filter((entry) => entry.prompt).length;
+      setRollProgress({
+        phase: "done",
+        current: ok,
+        total: count,
+        message: `Rolled ${ok}/${count} variation prompts via ${target}.`,
+      });
       setStatus(`Rolled ${ok}/${count} variation prompts via ${target}.`);
     } catch (err) {
       setResults([]);
-      setError(err instanceof Error ? err.message : "Variation grid failed.");
+      const message = err instanceof Error ? err.message : "Variation grid failed.";
+      setRollProgress({
+        phase: "error",
+        current: 0,
+        total: count,
+        message,
+      });
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -488,6 +526,7 @@ export default function VariationGridTool() {
     setStatus(null);
     setComfyStatus(null);
 
+    let total = 0;
     try {
       const cells = buildMatrixAxes({
         axisRow: matrixAxisRow,
@@ -497,10 +536,30 @@ export default function VariationGridTool() {
         baseVariation: toolSettings.variationStrength ?? 65,
         recentLocations: getRecentLocations(),
       });
+      total = cells.length;
+
+      setRollProgress({
+        phase: "generating",
+        current: 0,
+        total,
+        message: `Generating matrix cell 1 of ${total}…`,
+      });
+      setResults([]);
 
       const next: VariationResult[] = [];
 
-      for (const cell of cells) {
+      for (let index = 0; index < cells.length; index += 1) {
+        const cell = cells[index]!;
+        const cellLabel =
+          cell.rowLabel && cell.colLabel
+            ? `${cell.rowLabel} × ${cell.colLabel}`
+            : `Cell ${index + 1}`;
+        setRollProgress({
+          phase: "generating",
+          current: index,
+          total,
+          message: `Generating ${cellLabel} (${index + 1}/${total})…`,
+        });
         next.push(
           await fetchVariation(
             {
@@ -511,14 +570,36 @@ export default function VariationGridTool() {
             { rowLabel: cell.rowLabel, colLabel: cell.colLabel },
           ),
         );
+        setResults([...next]);
+        setRollProgress({
+          phase: "generating",
+          current: index + 1,
+          total,
+          message:
+            index + 1 < total
+              ? `Generated ${index + 1}/${total}. Starting ${cells[index + 1]?.rowLabel ?? "next cell"}…`
+              : `Generated ${index + 1}/${total}.`,
+        });
       }
 
-      setResults(next);
       const ok = next.filter((entry) => entry.prompt).length;
-      setStatus(`Rolled ${ok}/${cells.length} matrix prompts via ${target}.`);
+      setRollProgress({
+        phase: "done",
+        current: ok,
+        total,
+        message: `Rolled ${ok}/${total} matrix prompts via ${target}.`,
+      });
+      setStatus(`Rolled ${ok}/${total} matrix prompts via ${target}.`);
     } catch (err) {
       setResults([]);
-      setError(err instanceof Error ? err.message : "Variation matrix failed.");
+      const message = err instanceof Error ? err.message : "Variation matrix failed.";
+      setRollProgress({
+        phase: "error",
+        current: 0,
+        total: total || matrixRowCount * matrixColCount,
+        message,
+      });
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -1063,6 +1144,7 @@ export default function VariationGridTool() {
           detail={shared.detail}
           onFilterReadyOnlyChange={setReadyOnly}
         />
+        <BatchQueueProgress progress={rollProgress} />
         <BatchQueueProgress progress={queueProgress} />
         {comfyStatus && <p className="text-sm text-violet-300/90">{comfyStatus}</p>}
         <FieldError>{error}</FieldError>

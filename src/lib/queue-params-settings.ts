@@ -418,6 +418,10 @@ export function resolveQueueParams(
         isQwenRapidAioModel(model) && !hasInputImage && sizeTier === "max"
           ? "medium"
           : sizeTier,
+        {
+          // Gallery → Compose/Refine: keep figure aspect (don't force 1328²).
+          preserveInputAspect: hasInputImage,
+        },
       ),
       model,
       presetTier,

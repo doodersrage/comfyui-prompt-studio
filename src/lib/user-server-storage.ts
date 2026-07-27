@@ -2,12 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { isServerStorageEnabled } from "./server-storage";
 
-export type UserStorageNamespace = "settings-cache" | "prompt-history" | "comfy-gallery";
+export type UserStorageNamespace =
+  | "settings-cache"
+  | "prompt-history"
+  | "comfy-gallery"
+  | "gallery-deleted-ids";
 
 export const USER_STORAGE_NAMESPACES: UserStorageNamespace[] = [
   "settings-cache",
   "prompt-history",
   "comfy-gallery",
+  "gallery-deleted-ids",
 ];
 
 function dataDir(): string {

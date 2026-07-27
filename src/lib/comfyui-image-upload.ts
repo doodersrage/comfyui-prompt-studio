@@ -9,6 +9,8 @@ export type ComfyUploadedImage = {
   name: string;
   subfolder?: string;
   type?: string;
+  width?: number;
+  height?: number;
 };
 
 async function uploadJson(
@@ -87,18 +89,33 @@ export async function uploadComfyInputImage(input: {
   // Compress first so neither FormData nor JSON hits the ~10MB truncation wall.
   const prepared = await compressImageForEngineUpload(input.file, {
     maxEdge: 2048,
-    maxBytes: 3_500_000,
-    quality: 0.9,
+    maxBytes: 7_000_000,
+    quality: 0.92,
   });
 
+  let width: number | undefined;
+  let height: number | undefined;
   try {
-    return await uploadMultipart(prepared, comfyUrl);
+    const { probeImageFileDimensions } = await import("./browser-image-dimensions");
+    const size = await probeImageFileDimensions(prepared);
+    if (size) {
+      width = size.width;
+      height = size.height;
+    }
+  } catch {
+    /* optional */
+  }
+
+  try {
+    const uploaded = await uploadMultipart(prepared, comfyUrl);
+    return { ...uploaded, width, height };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // Next/undici multipart parse failures — JSON data URL is reliable once compressed.
     if (!/FormData|parse body|multipart/i.test(message)) {
       throw error;
     }
-    return uploadJson(prepared, comfyUrl);
+    const uploaded = await uploadJson(prepared, comfyUrl);
+    return { ...uploaded, width, height };
   }
 }

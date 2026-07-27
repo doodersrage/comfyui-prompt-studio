@@ -4,8 +4,15 @@ import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
 import { pullNamespaceFromServer, syncNamespaceToServer } from "./storage-sync";
 import { capGalleryEntriesForLocalStorage } from "./gallery-cap";
 import { MAX_GALLERY_ENTRIES } from "./comfyui-gallery-storage-meta";
+import {
+  filterOutDeletedGalleryEntries,
+  loadGalleryDeletedIds,
+  mergeGalleryDeletedIds,
+  saveGalleryDeletedIds,
+} from "./gallery-deleted-ids";
 
 const GALLERY_NAMESPACE = "comfy-gallery" as const;
+const DELETED_IDS_NAMESPACE = "gallery-deleted-ids" as const;
 
 type MergeableGalleryEntry = Pick<ComfyGalleryEntry, "id" | "queuedAt" | "completedAt">;
 
@@ -17,24 +24,36 @@ export type GalleryMergeResult<T extends MergeableGalleryEntry> = {
   merged: T[];
   addedFromServer: number;
   updatedFromServer: number;
+  skippedDeleted: number;
 };
 
 /**
  * Merges a server-pulled gallery snapshot into the local list, deduping by
  * id and preferring whichever side is newer by completedAt (falling back to
- * queuedAt) — same rule as the existing prompt-history/gallery conflict
- * merge in auto-storage-sync.ts, but usable outside the manual conflict-modal
- * flow (e.g. an opportunistic merge-on-load).
+ * queuedAt). Tombstoned ids are never re-added from the server.
  */
 export function mergeGalleryWithServer<T extends MergeableGalleryEntry>(
   local: T[],
   server: T[],
+  deletedIds: Iterable<string> = [],
 ): GalleryMergeResult<T> {
-  const byId = new Map<string, T>(local.map((entry) => [entry.id, entry]));
+  const blocked = new Set(
+    [...deletedIds].map((id) => id.trim()).filter(Boolean),
+  );
+  const byId = new Map<string, T>(
+    local
+      .filter((entry) => !blocked.has(entry.id))
+      .map((entry) => [entry.id, entry]),
+  );
   let addedFromServer = 0;
   let updatedFromServer = 0;
+  let skippedDeleted = 0;
 
   for (const serverEntry of server) {
+    if (blocked.has(serverEntry.id)) {
+      skippedDeleted += 1;
+      continue;
+    }
     const localEntry = byId.get(serverEntry.id);
     if (!localEntry) {
       byId.set(serverEntry.id, serverEntry);
@@ -47,8 +66,10 @@ export function mergeGalleryWithServer<T extends MergeableGalleryEntry>(
     }
   }
 
-  const merged = [...byId.values()].sort((a, b) => entryTimestamp(b) - entryTimestamp(a));
-  return { merged, addedFromServer, updatedFromServer };
+  const merged = [...byId.values()].sort(
+    (a, b) => entryTimestamp(b) - entryTimestamp(a),
+  );
+  return { merged, addedFromServer, updatedFromServer, skippedDeleted };
 }
 
 async function isServerStorageEnabledClient(): Promise<boolean> {
@@ -67,19 +88,23 @@ export type GalleryServerPullResult = {
   addedFromServer: number;
   updatedFromServer: number;
   evictedLocally: number;
+  skippedDeleted?: number;
   error?: string;
 };
 
 /**
  * Pulls the server `comfy-gallery` namespace and merges it into the local
- * gallery (non-destructive — never removes local-only entries). Applies the
- * favorites/rating-aware local cap after merging; if entries are evicted
- * locally as a result, re-pushes the full merged list to the server so
- * server storage keeps the complete history.
+ * gallery (keeps local-only entries; never resurrects tombstoned deletions).
  */
 export async function pullAndMergeGalleryFromServer(): Promise<GalleryServerPullResult> {
   if (typeof window === "undefined") {
-    return { ok: false, changed: false, addedFromServer: 0, updatedFromServer: 0, evictedLocally: 0 };
+    return {
+      ok: false,
+      changed: false,
+      addedFromServer: 0,
+      updatedFromServer: 0,
+      evictedLocally: 0,
+    };
   }
 
   if (!(await isServerStorageEnabledClient())) {
@@ -93,34 +118,94 @@ export async function pullAndMergeGalleryFromServer(): Promise<GalleryServerPull
     };
   }
 
-  const server = await pullNamespaceFromServer<ComfyGalleryEntry[]>(GALLERY_NAMESPACE);
+  const [server, serverDeleted] = await Promise.all([
+    pullNamespaceFromServer<ComfyGalleryEntry[]>(GALLERY_NAMESPACE),
+    pullNamespaceFromServer<string[] | { ids?: string[] }>(DELETED_IDS_NAMESPACE),
+  ]);
+
+  const serverDeletedIds = Array.isArray(serverDeleted)
+    ? serverDeleted
+    : Array.isArray(serverDeleted?.ids)
+      ? serverDeleted.ids
+      : [];
+  const deletedIds = mergeGalleryDeletedIds(
+    loadGalleryDeletedIds(),
+    serverDeletedIds,
+  );
+  saveGalleryDeletedIds(deletedIds);
+
   if (!server?.length) {
-    return { ok: true, changed: false, addedFromServer: 0, updatedFromServer: 0, evictedLocally: 0 };
+    return {
+      ok: true,
+      changed: false,
+      addedFromServer: 0,
+      updatedFromServer: 0,
+      evictedLocally: 0,
+    };
   }
 
-  const { loadComfyGallery, saveComfyGalleryAsync } = await import("./comfyui-gallery");
+  const { loadComfyGallery, saveComfyGalleryAsync } = await import(
+    "./comfyui-gallery"
+  );
   const local = loadComfyGallery();
-  const { merged, addedFromServer, updatedFromServer } = mergeGalleryWithServer(local, server);
+  const localClean = filterOutDeletedGalleryEntries(local, deletedIds);
+  const droppedLocalDeleted = local.length - localClean.length;
+  const { merged, addedFromServer, updatedFromServer, skippedDeleted } =
+    mergeGalleryWithServer(localClean, server, deletedIds);
 
-  if (addedFromServer === 0 && updatedFromServer === 0) {
-    return { ok: true, changed: false, addedFromServer: 0, updatedFromServer: 0, evictedLocally: 0 };
+  if (
+    addedFromServer === 0 &&
+    updatedFromServer === 0 &&
+    skippedDeleted === 0 &&
+    droppedLocalDeleted === 0
+  ) {
+    return {
+      ok: true,
+      changed: false,
+      addedFromServer: 0,
+      updatedFromServer: 0,
+      evictedLocally: 0,
+    };
   }
 
   const capped = capGalleryEntriesForLocalStorage(merged, MAX_GALLERY_ENTRIES);
   await saveComfyGalleryAsync(capped.kept);
 
-  if (capped.evicted.length > 0) {
-    // Local dropped low-value entries beyond the cap — keep the server copy complete.
-    void syncNamespaceToServer(GALLERY_NAMESPACE, merged);
+  if (
+    skippedDeleted > 0 ||
+    droppedLocalDeleted > 0 ||
+    capped.evicted.length > 0
+  ) {
+    const serverSafe = filterOutDeletedGalleryEntries(merged, deletedIds);
+    void syncNamespaceToServer(GALLERY_NAMESPACE, serverSafe);
+    void syncNamespaceToServer(DELETED_IDS_NAMESPACE, deletedIds);
   }
 
   return {
     ok: true,
-    changed: true,
+    changed:
+      addedFromServer > 0 ||
+      updatedFromServer > 0 ||
+      droppedLocalDeleted > 0,
     addedFromServer,
     updatedFromServer,
     evictedLocally: capped.evicted.length,
+    skippedDeleted,
   };
+}
+
+/** Push gallery + tombstones immediately (used after delete/clear). */
+export async function pushGalleryDeletionsToServer(
+  gallery: ComfyGalleryEntry[],
+  deletedIds: string[],
+): Promise<void> {
+  if (!(await isServerStorageEnabledClient())) {
+    return;
+  }
+  await Promise.all([
+    syncNamespaceToServer(GALLERY_NAMESPACE, gallery),
+    syncNamespaceToServer(DELETED_IDS_NAMESPACE, deletedIds),
+  ]);
 }
 
 export type GalleryServerPushResult = {
@@ -135,16 +220,26 @@ export async function pushGalleryToServer(): Promise<GalleryServerPushResult> {
     return { ok: false, count: 0 };
   }
   if (!(await isServerStorageEnabledClient())) {
-    return { ok: false, count: 0, error: "Server storage disabled. Set PROMPT_DATA_DIR on the server." };
+    return {
+      ok: false,
+      count: 0,
+      error: "Server storage disabled. Set PROMPT_DATA_DIR on the server.",
+    };
   }
   const { loadComfyGallery } = await import("./comfyui-gallery");
   const gallery = loadComfyGallery();
-  const ok = await syncNamespaceToServer(GALLERY_NAMESPACE, gallery);
-  return { ok, count: gallery.length };
+  const deletedIds = loadGalleryDeletedIds();
+  const [okGallery, okDeleted] = await Promise.all([
+    syncNamespaceToServer(GALLERY_NAMESPACE, gallery),
+    syncNamespaceToServer(DELETED_IDS_NAMESPACE, deletedIds),
+  ]);
+  return { ok: okGallery && okDeleted, count: gallery.length };
 }
 
 /** Server gallery entry count for display in Settings → Data — null when unavailable. */
 export async function fetchServerGalleryCount(): Promise<number | null> {
-  const server = await pullNamespaceFromServer<ComfyGalleryEntry[]>(GALLERY_NAMESPACE);
+  const server = await pullNamespaceFromServer<ComfyGalleryEntry[]>(
+    GALLERY_NAMESPACE,
+  );
   return Array.isArray(server) ? server.length : null;
 }

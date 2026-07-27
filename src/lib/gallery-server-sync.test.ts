@@ -1,10 +1,35 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import {
+  filterOutDeletedGalleryEntries,
+  mergeGalleryDeletedIds,
+} from "./gallery-deleted-ids.ts";
 import { mergeGalleryWithServer } from "./gallery-server-sync.ts";
 
 function entry(id: string, queuedAt: number, completedAt?: number) {
   return { id, queuedAt, completedAt };
 }
+
+describe("gallery deleted ids", () => {
+  it("merges tombstone lists without duplicates", () => {
+    assert.deepEqual(mergeGalleryDeletedIds(["a", "b"], ["b", "c"]), [
+      "a",
+      "b",
+      "c",
+    ]);
+  });
+
+  it("filters tombstoned entries from a list", () => {
+    const kept = filterOutDeletedGalleryEntries(
+      [entry("a", 1), entry("b", 2), entry("c", 3)],
+      ["b"],
+    );
+    assert.deepEqual(
+      kept.map((e) => e.id),
+      ["a", "c"],
+    );
+  });
+});
 
 describe("mergeGalleryWithServer", () => {
   it("adds server-only entries to the merged list", () => {
@@ -15,6 +40,15 @@ describe("mergeGalleryWithServer", () => {
     assert.equal(result.updatedFromServer, 0);
     assert.equal(result.merged.length, 2);
     assert.equal(result.merged.some((e) => e.id === "b"), true);
+  });
+
+  it("does not resurrect tombstoned server entries", () => {
+    const local = [entry("a", 1)];
+    const server = [entry("a", 1), entry("deleted", 9)];
+    const result = mergeGalleryWithServer(local, server, ["deleted"]);
+    assert.equal(result.addedFromServer, 0);
+    assert.equal(result.skippedDeleted, 1);
+    assert.equal(result.merged.some((e) => e.id === "deleted"), false);
   });
 
   it("keeps local-only entries untouched", () => {
@@ -54,6 +88,9 @@ describe("mergeGalleryWithServer", () => {
     const local = [entry("older", 1), entry("newer", 3)];
     const server = [entry("middle", 2)];
     const result = mergeGalleryWithServer(local, server);
-    assert.deepEqual(result.merged.map((e) => e.id), ["newer", "middle", "older"]);
+    assert.deepEqual(
+      result.merged.map((e) => e.id),
+      ["newer", "middle", "older"],
+    );
   });
 });

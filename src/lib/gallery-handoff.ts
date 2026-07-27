@@ -9,7 +9,7 @@ export const GALLERY_HANDOFF_KEY = "gallery-handoff-v1";
 export const IMPROVE_INTENT_DEFAULT =
   "Improve fidelity, composition, and prompt alignment while preserving subject identity and scene intent.";
 
-export type GalleryHandoffMode = "reedit" | "upscale-native" | "upscale-polish";
+export type GalleryHandoffMode = "open" | "reedit" | "upscale-native" | "upscale-polish";
 
 export type GalleryHandoffPayload = {
   source: "gallery" | "history";
@@ -83,7 +83,7 @@ export function buildGalleryHandoff(
       sourceTool: entry.tool,
     });
   }
-  const handoffMode = options?.handoffMode ?? "reedit";
+  const handoffMode = options?.handoffMode ?? "open";
   const includeLoras = options?.includeSessionLoras ?? handoffMode === "reedit";
   const identityKind = entry.queueParams?.identityKind;
   return {
@@ -97,10 +97,12 @@ export function buildGalleryHandoff(
     historyId: entry.historyId,
     imageUrl: image ? buildComfyViewPath(entry.comfyUrl, image) : undefined,
     imageFilename: image?.filename,
-    queueParams: entry.queueParams,
-    queueQualityProfile: entry.queueQualityProfile,
+    // Re-edit restores sampler/size/LoRA stack; plain open only carries the image.
+    queueParams: handoffMode === "reedit" ? entry.queueParams : undefined,
+    queueQualityProfile:
+      handoffMode === "reedit" ? entry.queueQualityProfile : undefined,
     sessionActiveLoraIds: resolveHandoffLoraIds(entry, includeLoras),
-    ...(identityKind ? { identityKind } : {}),
+    ...(handoffMode === "reedit" && identityKind ? { identityKind } : {}),
     handoffMode,
     target,
     savedAt: Date.now(),

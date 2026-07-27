@@ -8,46 +8,121 @@ import {
   resolveRequestLlmModel,
   resolveRequestTemplateFallback,
 } from "../llm-request-options";
-import { stripPromptArtifacts } from "../prompt-cleanup";
-import { buildTemplateTopicList, normalizeTopicPhrase } from "./scene-pools";
+import { buildTemplateTopicList } from "./scene-pools";
 import { mergeLocationExclusions } from "../location-exclusions";
+import { parseTopicLines } from "./topic-list-parse";
 import type { TopicGenerateResult, TopicOptions } from "./types";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function parseTopicLines(raw: string, count: number): string[] {
-  const cleaned = stripPromptArtifacts(raw);
-  const lines = cleaned
-    .split(/\r?\n/)
-    .map((line) =>
-      line
-        .replace(/^\s*[\d]+[.)]\s*/, "")
-        .replace(/^\s*[-*•]\s*/, "")
-        .trim(),
-    )
-    .filter(Boolean);
-
-  const unique: string[] = [];
-  const seen = new Set<string>();
-
-  for (const line of lines) {
-    const normalized = normalizeTopicPhrase(line);
-    const key = normalized.toLowerCase();
-    if (seen.has(key)) {
-      continue;
+function buildTopicsSystemPrompt(
+  count: number,
+  options: {
+    variety: number;
+    seedTopic: string | null;
+    settingHint: ReturnType<typeof parseSettingHint>;
+    avoidedTokensInstruction?: string;
+    strictNumbered?: boolean;
+  },
+): string {
+  if (options.strictNumbered) {
+    return `You list image prompt topics for AI art.
+- Reply with exactly ${count} numbered lines: 1. through ${count}.
+- One short, visually concrete topic phrase per line (about 4–18 words).
+- ${
+      options.settingHint.location
+        ? `Every topic must relate to "${options.settingHint.location}".`
+        : options.seedTopic
+          ? `Every topic must relate to "${options.seedTopic}".`
+          : "Cover varied genres, moods, and settings."
     }
-
-    seen.add(key);
-    unique.push(normalized);
-
-    if (unique.length >= count) {
-      break;
-    }
+- No intro, outro, markdown, or blank lines — only the numbered list.`;
   }
 
-  return unique;
+  return `You are a creative topic generator for AI image generation.
+- Produce exactly ${count} distinct topic ideas as brief phrases (roughly 4–18 words each).
+- Each topic must be visually concrete—settings, subjects, moods, or scenes someone could turn into an image prompt.
+- Topics must differ meaningfully; avoid near-duplicates or rephrasings of the same idea.
+- ${
+    options.settingHint.location
+      ? `When a mandatory setting is provided, every topic must take place in or clearly relate to "${options.settingHint.location}". Vary subject, mood, and activity—not the city or environment.`
+      : options.seedTopic
+        ? `Every topic should relate to, riff on, or expand the seed theme "${options.seedTopic}". Vary angle, setting, mood, era, and subject while staying connected.`
+        : "Cover diverse genres, moods, and settings with no single required theme."
+  }
+- Variety level: ${options.variety}/100 (higher = bolder, stranger, more unexpected combinations).
+${options.avoidedTokensInstruction ? `- ${options.avoidedTokensInstruction}` : ""}
+- Output ONLY the topic lines, one per line. No numbering, bullets, labels, markdown, or blank lines.`;
+}
+
+function buildTopicsUserMessage(
+  count: number,
+  seedTopic: string | null,
+  settingHint: ReturnType<typeof parseSettingHint>,
+  locationBlock: string,
+  strictNumbered?: boolean,
+): string {
+  if (strictNumbered) {
+    return [
+      locationBlock,
+      seedTopic
+        ? `Theme: ${settingHint.remainder || seedTopic}\n\nList ${count} numbered image topics (1.–${count}.) about this theme.`
+        : `List ${count} numbered varied image topics (1.–${count}.).`,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
+  return [
+    locationBlock,
+    seedTopic
+      ? `Seed theme: ${settingHint.remainder || seedTopic}\n\nWrite ${count} related image topics.`
+      : `Write ${count} varied image topics with no seed theme.`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+async function requestTopicsFromLlm(
+  options: TopicOptions,
+  count: number,
+  variety: number,
+  seedTopic: string | null,
+  settingHint: ReturnType<typeof parseSettingHint>,
+  locationBlock: string,
+  strictNumbered: boolean,
+): Promise<string[]> {
+  const systemPrompt = buildTopicsSystemPrompt(count, {
+    variety,
+    seedTopic,
+    settingHint,
+    avoidedTokensInstruction: options.avoidedTokensInstruction,
+    strictNumbered,
+  });
+  const userMessage = buildTopicsUserMessage(
+    count,
+    seedTopic,
+    settingHint,
+    locationBlock,
+    strictNumbered,
+  );
+
+  const content = await chatCompletion({
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ],
+    maxTokens: Math.min(1400, count * 56),
+    temperature: strictNumbered
+      ? 0.65 + variety / 200
+      : (options.llm?.temperature ?? 0.72 + variety / 140),
+    model: resolveRequestLlmModel(options.llm),
+    usageContext: { route: "topics" },
+  });
+
+  return parseTopicLines(content, count);
 }
 
 export async function generateTopics(
@@ -58,45 +133,31 @@ export async function generateTopics(
   const seedTopic = options.seedTopic?.trim() || null;
   const settingHint = parseSettingHint(seedTopic ?? undefined);
   const locationBlock = buildMandatoryLocationBlock(settingHint.location);
-
-  const systemPrompt = `You are a creative topic generator for AI image generation.
-- Produce exactly ${count} distinct topic ideas as brief phrases (roughly 4–18 words each).
-- Each topic must be visually concrete—settings, subjects, moods, or scenes someone could turn into an image prompt.
-- Topics must differ meaningfully; avoid near-duplicates or rephrasings of the same idea.
-- ${
-    settingHint.location
-      ? `When a mandatory setting is provided, every topic must take place in or clearly relate to "${settingHint.location}". Vary subject, mood, and activity—not the city or environment.`
-      : seedTopic
-        ? `Every topic should relate to, riff on, or expand the seed theme "${seedTopic}". Vary angle, setting, mood, era, and subject while staying connected.`
-        : "Cover diverse genres, moods, and settings with no single required theme."
-  }
-- Variety level: ${variety}/100 (higher = bolder, stranger, more unexpected combinations).
-${options.avoidedTokensInstruction ? `- ${options.avoidedTokensInstruction}` : ""}
-- Output ONLY the topic lines, one per line. No numbering, bullets, labels, markdown, or blank lines.`;
-
-  const userMessage = [
-    locationBlock,
-    seedTopic
-      ? `Seed theme: ${settingHint.remainder || seedTopic}\n\nWrite ${count} related image topics.`
-      : `Write ${count} varied image topics with no seed theme.`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const minimum = Math.min(3, count);
 
   if (resolveRequestLlmEnabled(options.llm)) {
     try {
-      const content = await chatCompletion({
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
-        maxTokens: Math.min(1400, count * 48),
-        temperature: options.llm?.temperature ?? 0.72 + variety / 140,
-        model: resolveRequestLlmModel(options.llm),
-      });
+      let topics = await requestTopicsFromLlm(
+        options,
+        count,
+        variety,
+        seedTopic,
+        settingHint,
+        locationBlock,
+        false,
+      );
 
-      const topics = parseTopicLines(content, count);
-      const minimum = Math.min(3, count);
+      if (topics.length < minimum) {
+        topics = await requestTopicsFromLlm(
+          options,
+          count,
+          variety,
+          seedTopic,
+          settingHint,
+          locationBlock,
+          true,
+        );
+      }
 
       if (topics.length >= minimum) {
         return {

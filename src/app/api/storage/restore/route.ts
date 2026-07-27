@@ -17,7 +17,12 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const namespace = url.searchParams.get("namespace") as UserStorageNamespace | null;
-  if (!namespace || !["settings-cache", "prompt-history", "comfy-gallery"].includes(namespace)) {
+  if (
+    !namespace ||
+    !["settings-cache", "prompt-history", "comfy-gallery", "gallery-deleted-ids"].includes(
+      namespace,
+    )
+  ) {
     return apiError("Valid namespace query param required.", 400);
   }
 

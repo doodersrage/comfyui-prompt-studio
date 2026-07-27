@@ -8,7 +8,12 @@ export default function TabSyncInit() {
   useEffect(() => {
     return subscribeTabSync((message) => {
       if (message.type === "gallery-updated") {
-        window.dispatchEvent(new Event(COMFYUI_GALLERY_UPDATED_EVENT));
+        // Other tabs mutate IndexedDB; reload before refreshing UI so deletes stick.
+        void import("@/lib/gallery-db-store").then(({ reloadGalleryFromDb }) =>
+          reloadGalleryFromDb().finally(() => {
+            window.dispatchEvent(new Event(COMFYUI_GALLERY_UPDATED_EVENT));
+          }),
+        );
       }
       if (message.type === "history-updated") {
         window.dispatchEvent(new Event("prompt-history-updated"));

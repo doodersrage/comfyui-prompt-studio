@@ -13,6 +13,12 @@ import {
   type ComfyGalleryEntry,
 } from "./comfyui-gallery";
 import {
+  filterOutDeletedGalleryEntries,
+  loadGalleryDeletedIds,
+  mergeGalleryDeletedIds,
+  saveGalleryDeletedIds,
+} from "./gallery-deleted-ids";
+import {
   detectStorageConflicts,
   mergeArraysById,
   mergeSettingsCache,
@@ -33,6 +39,7 @@ const SYNC_NAMESPACES: StorageNamespace[] = [
   "settings-cache",
   "prompt-history",
   "comfy-gallery",
+  "gallery-deleted-ids",
 ];
 
 function namespaceMeta(data: unknown): { updatedAt?: number; count?: number } {
@@ -59,9 +66,25 @@ export async function probeStorageConflicts(): Promise<StorageNamespaceConflict[
   const localSettings = loadSettingsCache();
   const localHistory = loadPromptHistoryStore();
   const localGallery = loadComfyGallery();
+  const localDeleted = loadGalleryDeletedIds();
 
   const probes = await Promise.all(
     SYNC_NAMESPACES.map(async (namespace) => {
+      if (namespace === "gallery-deleted-ids") {
+        const serverDeleted = await pullNamespaceFromServer<
+          string[] | { ids?: string[] }
+        >(namespace);
+        const serverIds = Array.isArray(serverDeleted)
+          ? serverDeleted
+          : Array.isArray(serverDeleted?.ids)
+            ? serverDeleted.ids
+            : [];
+        return {
+          namespace,
+          local: { count: localDeleted.length, updatedAt: Date.now() },
+          server: { count: serverIds.length },
+        };
+      }
       const server =
         namespace === "settings-cache"
           ? await pullNamespaceFromServer<SettingsCache>(namespace)
@@ -94,6 +117,33 @@ export async function applyStorageMerge(
 
   for (const namespace of SYNC_NAMESPACES) {
     const choice = choices[namespace];
+    if (namespace === "gallery-deleted-ids") {
+      const serverDeleted = await pullNamespaceFromServer<
+        string[] | { ids?: string[] }
+      >(namespace);
+      const serverIds = Array.isArray(serverDeleted)
+        ? serverDeleted
+        : Array.isArray(serverDeleted?.ids)
+          ? serverDeleted.ids
+          : [];
+      const localIds = loadGalleryDeletedIds();
+      if (choice === "server" && serverIds.length > 0) {
+        saveGalleryDeletedIds(serverIds);
+        synced.push(namespace);
+        continue;
+      }
+      if (choice === "local") {
+        await syncNamespaceToServer(namespace, localIds);
+        synced.push(namespace);
+        continue;
+      }
+      const mergedIds = mergeGalleryDeletedIds(localIds, serverIds);
+      saveGalleryDeletedIds(mergedIds);
+      await syncNamespaceToServer(namespace, mergedIds);
+      synced.push(namespace);
+      continue;
+    }
+
     const server =
       namespace === "settings-cache"
         ? await pullNamespaceFromServer<SettingsCache>(namespace)
@@ -114,7 +164,10 @@ export async function applyStorageMerge(
       } else if (namespace === "prompt-history") {
         savePromptHistoryStore(server as PromptHistoryEntry[]);
       } else if (server) {
-        await saveComfyGalleryAsync(server as ComfyGalleryEntry[]);
+        const cleaned = filterOutDeletedGalleryEntries(
+          server as ComfyGalleryEntry[],
+        );
+        await saveComfyGalleryAsync(cleaned);
       }
       synced.push(namespace);
       continue;
@@ -143,10 +196,15 @@ export async function applyStorageMerge(
         savePromptHistoryStore(merged);
         await syncNamespaceToServer(namespace, merged);
       } else {
-        const merged = mergeArraysById(
-          local as ComfyGalleryEntry[],
-          server as ComfyGalleryEntry[],
-          (a, b) => ((a.completedAt ?? a.queuedAt) >= (b.completedAt ?? b.queuedAt) ? a : b),
+        const merged = filterOutDeletedGalleryEntries(
+          mergeArraysById(
+            local as ComfyGalleryEntry[],
+            server as ComfyGalleryEntry[],
+            (a, b) =>
+              (a.completedAt ?? a.queuedAt) >= (b.completedAt ?? b.queuedAt)
+                ? a
+                : b,
+          ),
         );
         await saveComfyGalleryAsync(merged);
         await syncNamespaceToServer(namespace, merged);
@@ -173,7 +231,25 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
   const gallery = loadComfyGallery();
   if (history.length === 0 && gallery.length === 0) {
     const synced: StorageNamespace[] = [];
+    // Pull tombstones first so a full server gallery does not resurrect deletes.
+    const serverDeleted = await pullNamespaceFromServer<
+      string[] | { ids?: string[] }
+    >("gallery-deleted-ids");
+    const serverDeletedIds = Array.isArray(serverDeleted)
+      ? serverDeleted
+      : Array.isArray(serverDeleted?.ids)
+        ? serverDeleted.ids
+        : [];
+    if (serverDeletedIds.length > 0) {
+      saveGalleryDeletedIds(
+        mergeGalleryDeletedIds(loadGalleryDeletedIds(), serverDeletedIds),
+      );
+      synced.push("gallery-deleted-ids");
+    }
     for (const namespace of SYNC_NAMESPACES) {
+      if (namespace === "gallery-deleted-ids") {
+        continue;
+      }
       const server = await pullNamespaceFromServer<unknown>(namespace);
       if (!server) {
         continue;
@@ -183,7 +259,9 @@ export async function autoPullStorageIfEmpty(): Promise<AutoSyncResult> {
       } else if (namespace === "prompt-history") {
         savePromptHistoryStore(server as PromptHistoryEntry[]);
       } else {
-        await saveComfyGalleryAsync(server as ComfyGalleryEntry[]);
+        await saveComfyGalleryAsync(
+          filterOutDeletedGalleryEntries(server as ComfyGalleryEntry[]),
+        );
       }
       synced.push(namespace);
     }
@@ -218,9 +296,10 @@ export async function autoPushStorageDebounced(): Promise<void> {
   await syncNamespaceToServer("settings-cache", loadSettingsCache());
   await syncNamespaceToServer("prompt-history", loadPromptHistoryStore());
   const gallery = loadComfyGallery();
-  if (gallery.length > 0) {
-    await syncNamespaceToServer("comfy-gallery", gallery);
-  }
+  const deletedIds = loadGalleryDeletedIds();
+  // Always push gallery (including []) so deletes clear the server source of truth.
+  await syncNamespaceToServer("comfy-gallery", gallery);
+  await syncNamespaceToServer("gallery-deleted-ids", deletedIds);
 }
 
 let pushTimer: ReturnType<typeof setTimeout> | null = null;

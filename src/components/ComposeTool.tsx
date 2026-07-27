@@ -212,10 +212,17 @@ export default function ComposeTool() {
       previewUrl: string | null;
       payload?: import("@/lib/gallery-handoff").GalleryHandoffPayload;
     }) => {
-      if (handoff.prompt.trim()) {
+      if (
+        handoff.handoffMode === "reedit" &&
+        handoff.prompt.trim()
+      ) {
+        // Re-edit keeps the prior instruction; plain Compose should not dump a
+        // long T2I prompt into the edit box (that fights the figure and garbles).
         setInstruction(handoff.prompt.trim());
       }
-      setHandoffQueueParams(handoff.queueParams);
+      setHandoffQueueParams(
+        handoff.handoffMode === "reedit" ? handoff.queueParams : undefined,
+      );
       const sharedPatch = handoff.payload
         ? sharedPatchFromGalleryHandoff(handoff.payload)
         : {

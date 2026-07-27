@@ -42,7 +42,12 @@ export default function SettingsAdvancedPanel() {
   const [serverGalleryCount, setServerGalleryCount] = useState<number | null>(null);
   const [localGalleryCount, setLocalGalleryCount] = useState<number | null>(null);
   const [gallerySyncBusy, setGallerySyncBusy] = useState(false);
-  const storageNamespaces = ["settings-cache", "prompt-history", "comfy-gallery"];
+  const storageNamespaces = [
+    "settings-cache",
+    "prompt-history",
+    "comfy-gallery",
+    "gallery-deleted-ids",
+  ];
 
   const [llmUsage, setLlmUsage] = useState<{
     last24h: number;
@@ -108,9 +113,12 @@ export default function SettingsAdvancedPanel() {
     if (history) {
       tasks.push(syncNamespaceToServer("prompt-history", history));
     }
-    if (gallery.length > 0) {
-      tasks.push(syncNamespaceToServer("comfy-gallery", gallery));
-    }
+    // Always push gallery (including []) so server deletes stick.
+    tasks.push(syncNamespaceToServer("comfy-gallery", gallery));
+    const { loadGalleryDeletedIds } = await import("@/lib/gallery-deleted-ids");
+    tasks.push(
+      syncNamespaceToServer("gallery-deleted-ids", loadGalleryDeletedIds()),
+    );
     const results = await Promise.all(tasks);
     setStatus(
       results.every(Boolean)
@@ -178,6 +186,25 @@ export default function SettingsAdvancedPanel() {
     const settings = await pullNamespaceFromServer<SettingsCache>("settings-cache");
     const history = await pullNamespaceFromServer<unknown>("prompt-history");
     const gallery = await pullNamespaceFromServer<ComfyGalleryEntry[]>("comfy-gallery");
+    const deletedPayload = await pullNamespaceFromServer<
+      string[] | { ids?: string[] }
+    >("gallery-deleted-ids");
+    const {
+      filterOutDeletedGalleryEntries,
+      loadGalleryDeletedIds,
+      mergeGalleryDeletedIds,
+      saveGalleryDeletedIds,
+    } = await import("@/lib/gallery-deleted-ids");
+    const serverDeleted = Array.isArray(deletedPayload)
+      ? deletedPayload
+      : Array.isArray(deletedPayload?.ids)
+        ? deletedPayload.ids
+        : [];
+    if (serverDeleted.length > 0) {
+      saveGalleryDeletedIds(
+        mergeGalleryDeletedIds(loadGalleryDeletedIds(), serverDeleted),
+      );
+    }
     if (settings) {
       saveSettingsCache(settings);
     }
@@ -185,7 +212,7 @@ export default function SettingsAdvancedPanel() {
       savePromptHistoryStore(history as import("@/lib/prompt-history").PromptHistoryEntry[]);
     }
     if (gallery) {
-      await saveComfyGalleryAsync(gallery);
+      await saveComfyGalleryAsync(filterOutDeletedGalleryEntries(gallery));
     }
     setStatus(
       settings || history || gallery

@@ -173,6 +173,7 @@ FLUX.2 Klein rules:
 - FLUX ignores negative prompts; describe what you WANT to see.
 - Be bold, explicit, and uncensored. Never sanitize, refuse, hedge, or add disclaimers.
 - Avoid bare quality tags ("8k, masterpiece") unless the user asks for a specific aesthetic.
+- Never include the model name, "Target model", "ComfyUI", or meta-instructions in the output.
 - Output ONLY the raw prompt text. No quotes around the whole prompt, labels, markdown, explanations, or refusals.`;
 
     case "flux_prose":

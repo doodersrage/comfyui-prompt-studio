@@ -167,6 +167,19 @@ describe("model resolution defaults", () => {
     );
   });
 
+  it("preserves non-square dims when edit has an input image", () => {
+    assert.deepEqual(
+      ensureLightningNativeResolutionParams(
+        { width: 1664, height: 928 },
+        "qwen-image-edit-2511-lightning-8",
+        "square",
+        "max",
+        { preserveInputAspect: true },
+      ),
+      { width: 1664, height: 928 },
+    );
+  });
+
   it("rewrites extreme 928×1664 lightning portrait queues to ~3:4", () => {
     assert.deepEqual(
       ensureLightningNativeResolutionParams(

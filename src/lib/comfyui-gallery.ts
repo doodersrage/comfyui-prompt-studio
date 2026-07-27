@@ -29,6 +29,7 @@ import { initGalleryStore } from "./app-db-init";
 import { getActiveUserId } from "./user-scope";
 import { scheduleUserAnalyticsSync } from "./user-analytics-sync";
 import { capGalleryEntriesForLocalStorage } from "./gallery-cap";
+import { rememberGalleryDeletedIds } from "./gallery-deleted-ids";
 
 export type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
 export type { ComfyGalleryJobStatus } from "./comfyui-gallery-types";
@@ -283,8 +284,13 @@ export function saveComfyGallery(
       scheduleAutoPushStorage(),
     );
   }
-  void import("./tab-sync").then(({ broadcastTabSync }) => broadcastTabSync({ type: "gallery-updated" }));
-  void initGalleryStore().then(() => persistGalleryCache());
+  void initGalleryStore()
+    .then(() => persistGalleryCache())
+    .then(() =>
+      import("./tab-sync").then(({ broadcastTabSync }) =>
+        broadcastTabSync({ type: "gallery-updated" }),
+      ),
+    );
 }
 
 export async function saveComfyGalleryAsync(entries: ComfyGalleryEntry[]): Promise<void> {
@@ -305,8 +311,13 @@ export function clearComfyGallery(): void {
     return;
   }
 
+  const previous = loadComfyGallery();
+  const deletedIds = rememberGalleryDeletedIds(previous.map((entry) => entry.id));
+  saveComfyGallery([], { syncRemote: false });
   void clearGalleryDb();
-  notifyGalleryUpdated();
+  void import("./gallery-server-sync").then(({ pushGalleryDeletionsToServer }) =>
+    pushGalleryDeletionsToServer([], deletedIds),
+  );
 }
 
 export function filterComfyGalleryEntries(
@@ -679,7 +690,12 @@ export function setGalleryReviewRating(
 }
 
 export function removeComfyGalleryEntry(id: string): void {
-  saveComfyGallery(loadComfyGallery().filter((entry) => entry.id !== id));
+  const deletedIds = rememberGalleryDeletedIds([id]);
+  const next = loadComfyGallery().filter((entry) => entry.id !== id);
+  saveComfyGallery(next, { syncRemote: false });
+  void import("./gallery-server-sync").then(({ pushGalleryDeletionsToServer }) =>
+    pushGalleryDeletionsToServer(next, deletedIds),
+  );
 }
 
 export function removeComfyGalleryEntries(ids: string[]): void {
@@ -687,7 +703,12 @@ export function removeComfyGalleryEntries(ids: string[]): void {
     return;
   }
   const idSet = new Set(ids);
-  saveComfyGallery(loadComfyGallery().filter((entry) => !idSet.has(entry.id)));
+  const deletedIds = rememberGalleryDeletedIds(ids);
+  const next = loadComfyGallery().filter((entry) => !idSet.has(entry.id));
+  saveComfyGallery(next, { syncRemote: false });
+  void import("./gallery-server-sync").then(({ pushGalleryDeletionsToServer }) =>
+    pushGalleryDeletionsToServer(next, deletedIds),
+  );
 }
 
 export function setComfyGalleryProjectIds(

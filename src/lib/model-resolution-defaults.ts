@@ -747,6 +747,13 @@ export function ensureLightningNativeResolutionParams(
   model: string,
   orientation: ResolutionOrientation = DEFAULT_RESOLUTION_ORIENTATION,
   tier: ResolutionSizeTier = DEFAULT_RESOLUTION_SIZE_TIER,
+  options?: {
+    /**
+     * Compose/Refine/img2img — keep the reference image aspect. Forcing native
+     * square (or rewriting AR) against a non-square figure causes garbled edits.
+     */
+    preserveInputAspect?: boolean;
+  },
 ): WorkflowParamValues {
   if (!isQwenLightningModel(model)) {
     return params;
@@ -757,6 +764,11 @@ export function ensureLightningNativeResolutionParams(
   const height = Number(params.height);
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
     return { ...params, width: native.width, height: native.height };
+  }
+
+  // Edit with a reference image: never rewrite away from the figure's aspect.
+  if (options?.preserveInputAspect) {
+    return params;
   }
 
   if (tier === "small") {

@@ -49,7 +49,7 @@ import {
   nextPromptVersionFields,
 } from "@/lib/prompt-versioning";
 import { loadPromptHistoryStore } from "@/lib/prompt-history";
-import { resolveQueueInputImageFilename } from "@/lib/queue-input-image";
+import { resolveQueueInputImage, resolveQueueInputImageFilename } from "@/lib/queue-input-image";
 import { resolveQueueParams } from "@/lib/queue-params-settings";
 import { toastHeldMax, toastQueueOutcome } from "@/lib/app-toast";
 import { applyQueuePromptSteering, prepareQueuePrompts } from "@/lib/queue-prompt-prep";
@@ -566,6 +566,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
 
         let inputImageFilename = options?.inputImageFilename?.trim();
+        let uploadedFigureSize: { width: number; height: number } | undefined;
         const uploadedFilenames: string[] = [
           ...(options?.inputImageFilenames ?? []).map((name) => name?.trim() ?? ""),
         ];
@@ -575,12 +576,24 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
         if (options?.inputImage || options?.inputImageUrl?.trim()) {
           setComfyUiStatus("Uploading image to ComfyUI…");
-          inputImageFilename = await resolveQueueInputImageFilename({
+          const uploaded = await resolveQueueInputImage({
             file: options.inputImage,
             filename: options.inputImageFilename,
             imageUrl: options.inputImageUrl,
             model: queueModel,
           });
+          inputImageFilename = uploaded?.filename;
+          if (
+            uploaded?.width &&
+            uploaded?.height &&
+            uploaded.width > 0 &&
+            uploaded.height > 0
+          ) {
+            uploadedFigureSize = {
+              width: uploaded.width,
+              height: uploaded.height,
+            };
+          }
           if (inputImageFilename) {
             uploadedFilenames[0] = inputImageFilename;
           }
@@ -691,6 +704,24 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             controlImageFilenames.length > 0 ? controlImageFilenames : undefined,
           qualityProfile: effectiveQualityProfile,
         });
+
+        // Compose/Refine: match EmptyLatent to the uploaded figure so Lightning
+        // square presets / stale gallery dims cannot stretch ReferenceLatent edits.
+        if (
+          uploadedFigureSize &&
+          (config.tool === "compose" ||
+            config.tool === "refine" ||
+            config.tool === "inpaint" ||
+            config.tool === "outpaint")
+        ) {
+          const { snapLatentSize } = await import("@/lib/browser-image-dimensions");
+          const snapped = snapLatentSize(
+            uploadedFigureSize.width,
+            uploadedFigureSize.height,
+          );
+          queueParams.width = snapped.width;
+          queueParams.height = snapped.height;
+        }
 
         if (pluginDenoise != null && pluginDenoise.toString().trim() !== "") {
           queueParams.denoise = pluginDenoise;

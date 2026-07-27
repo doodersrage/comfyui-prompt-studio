@@ -10,15 +10,33 @@ export type ResolveQueueInputImageOptions = {
   model?: ComfyImageModel | string;
 };
 
+export type ResolvedQueueInputImage = {
+  filename: string;
+  width?: number;
+  height?: number;
+};
+
 export async function resolveQueueInputImageFilename(
   options: ResolveQueueInputImageOptions,
 ): Promise<string | undefined> {
+  const resolved = await resolveQueueInputImage(options);
+  return resolved?.filename;
+}
+
+/** Upload (or reuse filename) and return pixel size of what Comfy actually got. */
+export async function resolveQueueInputImage(
+  options: ResolveQueueInputImageOptions,
+): Promise<ResolvedQueueInputImage | undefined> {
   if (options.file) {
     const uploaded = await uploadComfyInputImage({
       file: options.file,
       model: options.model,
     });
-    return uploaded.name;
+    return {
+      filename: uploaded.name,
+      width: uploaded.width,
+      height: uploaded.height,
+    };
   }
 
   if (options.imageUrl?.trim()) {
@@ -31,8 +49,13 @@ export async function resolveQueueInputImageFilename(
       options.filename?.trim() || `prompt-studio-${Date.now()}.png`;
     const file = new File([blob], filename, { type: blob.type || "image/png" });
     const uploaded = await uploadComfyInputImage({ file, model: options.model });
-    return uploaded.name;
+    return {
+      filename: uploaded.name,
+      width: uploaded.width,
+      height: uploaded.height,
+    };
   }
 
-  return options.filename?.trim() || undefined;
+  const existing = options.filename?.trim();
+  return existing ? { filename: existing } : undefined;
 }

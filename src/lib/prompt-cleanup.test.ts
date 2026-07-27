@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   isThinkingOnlyArtifact,
   repairVisionDraft,
+  stripModelDirectiveLeaks,
   stripPromptArtifacts,
 } from "./prompt-cleanup";
 
@@ -22,6 +23,26 @@ describe("prompt-cleanup vision checklist recursion", () => {
     assert.match(repaired, /jersey|clothing|muddy|overcast/i);
     assert.ok(repaired.length >= 12);
     assert.equal(isThinkingOnlyArtifact(repaired), false);
+  });
+
+  it("strips Target model directive with dotted FLUX.2 Klein label", () => {
+    const raw =
+      "Target model: FLUX.2 Klein 9B Distilled. A woman in a neon alley under rain.";
+    const cleaned = stripPromptArtifacts(raw);
+    assert.match(cleaned, /^A woman in a neon alley/i);
+    assert.doesNotMatch(cleaned, /FLUX\.2 Klein|Target model/i);
+  });
+
+  it("strips leading FLUX.2 Klein label echo", () => {
+    const raw =
+      "FLUX.2 Klein 9B Distilled: A cyclist on a muddy forest trail at dusk.";
+    assert.match(stripModelDirectiveLeaks(raw), /^A cyclist on a muddy forest trail/i);
+  });
+
+  it("strips adapted-for preambles when model name contains dots", () => {
+    const raw =
+      "The prompt adapted for FLUX.2 Klein 9B Distilled. Two figures share a bench in golden hour light.";
+    assert.match(stripPromptArtifacts(raw), /^Two figures share a bench/i);
   });
 
   it("does not stack-overflow on deeply nested JSON artifacts", () => {

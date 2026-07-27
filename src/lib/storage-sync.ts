@@ -2,9 +2,14 @@ import type { StorageNamespace } from "./storage-namespaces";
 import { STORAGE_NAMESPACES } from "./storage-namespaces";
 
 const CLIENT_STORAGE_NAMESPACES = STORAGE_NAMESPACES.filter((namespace) =>
-  (["settings-cache", "prompt-history", "comfy-gallery"] as StorageNamespace[]).includes(
-    namespace,
-  ),
+  (
+    [
+      "settings-cache",
+      "prompt-history",
+      "comfy-gallery",
+      "gallery-deleted-ids",
+    ] as StorageNamespace[]
+  ).includes(namespace),
 );
 
 export async function syncNamespaceToServer<T>(

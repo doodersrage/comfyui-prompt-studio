@@ -255,6 +255,22 @@ function normalizeVisionModelOutput(text: string): string {
   return "";
 }
 
+/** Plain text chat — skip vision normalization (that collapses newlines / rejects lists). */
+function extractChatCompletionText(message?: AssistantMessage): string {
+  if (!message) {
+    return "";
+  }
+
+  const contentText = extractContentText(message.content);
+  if (contentText) {
+    return contentText;
+  }
+
+  return (
+    extractThinkingFallback(message.reasoning, message.thinking)?.trim() ?? ""
+  );
+}
+
 function extractModelOutputText(message?: AssistantMessage): string {
   if (!message) {
     return "";
@@ -384,7 +400,7 @@ async function ollamaNativeChatCompletion(options: {
     };
   };
 
-  const text = extractModelOutputText(data.message);
+  const text = extractChatCompletionText(data.message);
   if (!text) {
     throw new Error(
       "LLM returned an empty response. If using a thinking model, ensure Ollama supports think:false or returns content.",
@@ -643,7 +659,7 @@ async function openAiCompatibleChatCompletion(options: {
     }>;
   };
 
-  const text = extractModelOutputText(data.choices?.[0]?.message);
+  const text = extractChatCompletionText(data.choices?.[0]?.message);
   if (!text) {
     throw new Error("LLM returned an empty response.");
   }
