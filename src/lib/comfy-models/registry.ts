@@ -216,7 +216,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     comfyNode: "CLIP Text Encode (Flux)",
     comfyClass: "Flux2Klein9B",
     description:
-      "Undistilled 9B Klein — 24 steps, CFG 4, euler/simple. Needs Base workflow + flux-2-klein-base-9b. Auto Realistic Detail @ 0.7 (srx_detail) + Ultra Real v4 @ 0.8; CFG negatives fight plastic skin.",
+      "Undistilled 9B Klein — 24 steps, CFG 4, euler/simple, Base UNET. Tuned with Detail + Ultra Real LoRAs and plastic negatives, but scenic photoreal plateaus short of UltraReal Fine-Tune — use UltraReal for people/scene photos; keep Klein Base for faster Base drafts and edits.",
     profile: "flux_klein",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.flux_klein,

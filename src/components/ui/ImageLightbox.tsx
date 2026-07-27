@@ -12,6 +12,7 @@ import {
 } from "@/lib/comfyui-gallery";
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import type { ComfyOutputMediaKind } from "@/lib/comfyui-outputs";
+import { prefetchGalleryImageUrl } from "@/lib/gallery-image-prefetch";
 
 export type ImageLightboxState = {
   images: string[];
@@ -21,6 +22,8 @@ export type ImageLightboxState = {
   titles?: string[];
   /** Full-res URLs parallel to `images` — used by “Open original”. */
   originalImages?: string[];
+  /** Grid-thumb URLs parallel to `images` — blur-up while mid-res loads. */
+  thumbImages?: string[];
   /** Per-slide media kind (image vs. video/animated), parallel to `images`. */
   mediaKinds?: ComfyOutputMediaKind[];
 };
@@ -103,6 +106,7 @@ export default function ImageLightbox({
   const [previousIndex, setPreviousIndex] = useState<number | null>(null);
   const [slideDirection, setSlideDirection] = useState<1 | -1>(1);
   const [titleAnimating, setTitleAnimating] = useState(false);
+  const [currentImageLoaded, setCurrentImageLoaded] = useState(false);
   const playlistKeyRef = useRef("");
   const containerRef = useRef<HTMLDivElement>(null);
   const open = Boolean(state && state.images.length > 0);
@@ -111,6 +115,10 @@ export default function ImageLightbox({
   const transition = slideshow?.transition ?? "slide";
   const transitionMs = resolveGallerySlideshowTransitionMs(transition);
   const currentUrl = images[displayIndex] ?? images[0];
+  const currentThumbUrl =
+    state?.thumbImages?.[displayIndex] ??
+    state?.thumbImages?.[0] ??
+    undefined;
   const currentOriginalUrl =
     state?.originalImages?.[displayIndex] ??
     state?.originalImages?.[0] ??
@@ -355,27 +363,26 @@ export default function ImageLightbox({
       return;
     }
 
+    const current = images[index];
+    if (current && state?.mediaKinds?.[index] !== "video") {
+      prefetchGalleryImageUrl(current);
+    }
+
     const neighborIndexes = [index - 1, index + 1].filter(
       (neighbor) => neighbor >= 0 && neighbor < images.length,
     );
-    const prefetched: HTMLImageElement[] = [];
     for (const neighbor of neighborIndexes) {
       const url = images[neighbor];
       if (!url || state?.mediaKinds?.[neighbor] === "video") {
         continue;
       }
-      const img = new Image();
-      img.decoding = "async";
-      img.src = url;
-      prefetched.push(img);
+      prefetchGalleryImageUrl(url);
     }
-
-    return () => {
-      for (const img of prefetched) {
-        img.src = "";
-      }
-    };
   }, [open, index, images, state?.mediaKinds]);
+
+  useEffect(() => {
+    setCurrentImageLoaded(false);
+  }, [currentUrl]);
 
   if (!mounted || !open || !currentUrl) {
     return null;
@@ -386,8 +393,8 @@ export default function ImageLightbox({
     slideDirection,
   );
   const imageClassName = isFullscreen
-    ? "h-full w-full max-h-[100vh] max-w-[100vw] object-contain"
-    : "mx-auto max-h-[min(72vh,900px)] w-full object-contain bg-[var(--bg-subtle)]";
+    ? "relative flex h-full w-full max-h-[100vh] max-w-[100vw] items-center justify-center"
+    : "relative mx-auto flex max-h-[calc(96vh-6.5rem)] max-w-full items-center justify-center bg-[var(--bg-subtle)]";
   const currentMediaKind = state?.mediaKinds?.[displayIndex] ?? "image";
   const previousMediaKind =
     previousIndex !== null ? state?.mediaKinds?.[previousIndex] ?? "image" : "image";
@@ -397,53 +404,115 @@ export default function ImageLightbox({
     kind: ComfyOutputMediaKind,
     className: string,
     key: string,
-    ariaHidden = false,
-  ) =>
-    kind === "video" ? (
-      <video
-        key={key}
-        src={url}
-        className={className}
-        aria-hidden={ariaHidden || undefined}
-        autoPlay
-        loop
-        muted
-        playsInline
-        controls={!ariaHidden}
-      />
-    ) : (
-      /* eslint-disable-next-line @next/next/no-img-element */
-      <img
-        key={key}
-        src={url}
-        alt={ariaHidden ? "" : currentTitle ?? "Gallery image preview"}
-        aria-hidden={ariaHidden || undefined}
-        decoding="async"
-        className={className}
-      />
+    options?: {
+      ariaHidden?: boolean;
+      isCurrent?: boolean;
+      placeholderUrl?: string;
+    },
+  ) => {
+    const ariaHidden = options?.ariaHidden ?? false;
+    const isCurrent = options?.isCurrent ?? false;
+    if (kind === "video") {
+      return (
+        <video
+          key={key}
+          src={url}
+          className={`${className} max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] max-w-full object-contain`}
+          aria-hidden={ariaHidden || undefined}
+          autoPlay
+          loop
+          muted
+          playsInline
+          controls={!ariaHidden}
+        />
+      );
+    }
+
+    const showPlaceholder =
+      isCurrent &&
+      Boolean(options?.placeholderUrl) &&
+      options?.placeholderUrl !== url &&
+      !currentImageLoaded;
+
+    return (
+      <div key={key} className={className}>
+        {showPlaceholder ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={options!.placeholderUrl}
+            alt=""
+            aria-hidden
+            decoding="async"
+            className="absolute inset-0 m-auto max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] max-w-full object-contain opacity-90 blur-sm scale-[1.02]"
+          />
+        ) : null}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={ariaHidden ? "" : currentTitle ?? "Gallery image preview"}
+          aria-hidden={ariaHidden || undefined}
+          decoding={isCurrent ? "sync" : "async"}
+          fetchPriority={isCurrent ? "high" : "auto"}
+          ref={
+            isCurrent
+              ? (el) => {
+                  if (el?.complete && el.naturalWidth > 0) {
+                    setCurrentImageLoaded(true);
+                  }
+                }
+              : undefined
+          }
+          onLoad={
+            isCurrent
+              ? () => {
+                  setCurrentImageLoaded(true);
+                }
+              : undefined
+          }
+          className={`relative z-[1] max-h-[var(--lightbox-image-max-h,calc(96vh-6.5rem))] max-w-full object-contain transition-opacity duration-200 ${
+            isCurrent && !currentImageLoaded && options?.placeholderUrl
+              ? "opacity-0"
+              : "opacity-100"
+          }`}
+        />
+      </div>
     );
+  };
 
   const renderImageStage = (stageClassName: string) => (
-    <div className={`relative overflow-hidden ${stageClassName}`}>
-      <div className="relative flex h-full min-h-0 items-center justify-center">
+    <div className={`relative min-h-0 overflow-hidden ${stageClassName}`}>
+      <div className="relative flex h-full min-h-0 w-full items-center justify-center">
         {previousIndex !== null && images[previousIndex] ? (
           <>
             {renderSlide(
               images[previousIndex],
               previousMediaKind,
-              `absolute inset-0 m-auto max-h-full max-w-full object-contain ${exitClass}`,
+              `absolute inset-0 m-auto flex max-h-full max-w-full items-center justify-center ${exitClass}`,
               "previous-slide",
-              true,
+              { ariaHidden: true },
             )}
             {renderSlide(
               currentUrl,
               currentMediaKind,
               `relative z-[1] ${imageClassName} ${enterClass}`,
               `current-slide-${displayIndex}`,
+              {
+                isCurrent: true,
+                placeholderUrl: currentThumbUrl,
+              },
             )}
           </>
         ) : (
-          renderSlide(currentUrl, currentMediaKind, `relative ${imageClassName}`, `solo-slide-${displayIndex}`)
+          renderSlide(
+            currentUrl,
+            currentMediaKind,
+            `relative ${imageClassName}`,
+            `solo-slide-${displayIndex}`,
+            {
+              isCurrent: true,
+              placeholderUrl: currentThumbUrl,
+            },
+          )
         )}
       </div>
 
@@ -451,7 +520,7 @@ export default function ImageLightbox({
         <>
           <button
             type="button"
-            className="absolute inset-y-0 left-0 z-[2] w-[22%] cursor-w-resize bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/30"
+            className="absolute inset-y-0 left-0 z-20 w-[22%] cursor-w-resize bg-gradient-to-r from-black/35 via-black/10 to-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40"
             onClick={() => {
               const prevIndex = index > 0 ? index - 1 : slideshow?.playing ? images.length - 1 : 0;
               goToIndex(prevIndex, !slideshow?.playing);
@@ -460,7 +529,7 @@ export default function ImageLightbox({
           />
           <button
             type="button"
-            className="absolute inset-y-0 right-0 z-[2] w-[22%] cursor-e-resize bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/30"
+            className="absolute inset-y-0 right-0 z-20 w-[22%] cursor-e-resize bg-gradient-to-l from-black/35 via-black/10 to-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40"
             onClick={() => {
               const nextIndex =
                 index < images.length - 1 ? index + 1 : slideshow?.playing ? 0 : images.length - 1;
@@ -475,21 +544,21 @@ export default function ImageLightbox({
         <>
           <Button
             variant="secondary"
-            className="absolute left-3 top-1/2 z-[2] !min-h-9 -translate-y-1/2 px-3 type-caption"
+            className="absolute left-3 top-1/2 z-20 !min-h-10 -translate-y-1/2 border border-white/30 !bg-zinc-950/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-zinc-900/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-zinc-950/40 disabled:!text-white/35"
             disabled={!canGoPrevious || isTransitioning}
             onClick={() => goToIndex(index - 1, true)}
             aria-label="Previous image"
           >
-            Previous
+            ← Prev
           </Button>
           <Button
             variant="secondary"
-            className="absolute right-3 top-1/2 z-[2] !min-h-9 -translate-y-1/2 px-3 type-caption"
+            className="absolute right-3 top-1/2 z-20 !min-h-10 -translate-y-1/2 border border-white/30 !bg-zinc-950/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-zinc-900/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-zinc-950/40 disabled:!text-white/35"
             disabled={!canGoNext || isTransitioning}
             onClick={() => goToIndex(index + 1, true)}
             aria-label="Next image"
           >
-            Next
+            Next →
           </Button>
         </>
       ) : null}
@@ -583,6 +652,7 @@ export default function ImageLightbox({
         style={
           {
             "--lightbox-transition-duration": `${transitionMs}ms`,
+            "--lightbox-image-max-h": "100vh",
           } as CSSProperties
         }
       >
@@ -643,13 +713,14 @@ export default function ImageLightbox({
   return createPortal(
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-8"
+      className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label={state?.title ?? "Image preview"}
       style={
         {
           "--lightbox-transition-duration": `${transitionMs}ms`,
+          "--lightbox-image-max-h": "calc(96vh - 6.5rem)",
         } as CSSProperties
       }
     >
@@ -661,10 +732,10 @@ export default function ImageLightbox({
       />
 
       <div
-        className="relative z-10 flex max-h-[92vh] w-full max-w-6xl flex-col gap-4"
+        className="relative z-10 flex max-h-[96vh] w-full max-w-[min(98vw,1800px)] flex-col gap-2"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex shrink-0 items-start justify-between gap-4">
           <div className="min-w-0 space-y-1">
             <p className="type-overline text-[var(--text-muted)]">
               {slideshow?.playing ? "Slideshow" : "Image preview"}
@@ -692,10 +763,10 @@ export default function ImageLightbox({
         </div>
 
         {renderImageStage(
-          "relative min-h-[min(40vh,420px)] rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[var(--shadow-overlay,0_24px_80px_rgb(0_0_0/0.45))]",
+          "relative flex w-full items-center justify-center overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-[var(--shadow-overlay,0_24px_80px_rgb(0_0_0/0.45))]",
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
           {images.length > 1 ? (
             <div className="flex flex-wrap items-center gap-2">
               {renderSlideshowControls()}

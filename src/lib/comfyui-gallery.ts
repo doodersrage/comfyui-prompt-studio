@@ -811,6 +811,8 @@ export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | n
 export type GalleryLightboxPlaylist = {
   /** Mid-res proxy URLs for in-lightbox display. */
   images: string[];
+  /** Grid-thumb proxy URLs (usually already cached) for blur-up placeholders. */
+  thumbImages: string[];
   /** Full-res view URLs (no width resize) for “Open original”. */
   originalImages: string[];
   titles: string[];
@@ -823,12 +825,14 @@ export function buildGalleryLightboxPlaylist(
   titleLength = 120,
 ): GalleryLightboxPlaylist {
   const images: string[] = [];
+  const thumbImages: string[] = [];
   const originalImages: string[] = [];
   const titles: string[] = [];
   const mediaKinds: ComfyOutputMediaKind[] = [];
 
   for (const entry of entries) {
     const urls = galleryEntryLightboxUrls(entry);
+    const thumbs = galleryEntryThumbUrls(entry);
     const originals = galleryEntryViewUrls(entry);
     const kinds = galleryEntryMediaKinds(entry);
     if (urls.length === 0) {
@@ -838,13 +842,14 @@ export function buildGalleryLightboxPlaylist(
     const title = entry.prompt.slice(0, titleLength);
     for (let i = 0; i < urls.length; i += 1) {
       images.push(urls[i]!);
+      thumbImages.push(thumbs[i] ?? urls[i]!);
       originalImages.push(originals[i] ?? urls[i]!);
       titles.push(title);
       mediaKinds.push(kinds[i] ?? "image");
     }
   }
 
-  return { images, originalImages, titles, mediaKinds };
+  return { images, thumbImages, originalImages, titles, mediaKinds };
 }
 
 export function resolveGalleryLightboxOpenIndex(

@@ -43,6 +43,7 @@ export type GalleryCardActions = {
   showParent: (id: string) => void;
   showDerivatives: (id: string) => void;
   openImage: (id: string, index: number) => void;
+  prefetchImage: (id: string, index: number) => void;
   reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => void;
   downloadError: (message: string | null) => void;
   visionTagClick: (tag: string) => void;
@@ -140,6 +141,10 @@ function GalleryCardItem({
     (index: number) => actionsRef.current.openImage(entry.id, index),
     [actionsRef, entry.id],
   );
+  const onPrefetchImage = useCallback(
+    (index: number) => actionsRef.current.prefetchImage(entry.id, index),
+    [actionsRef, entry.id],
+  );
   const onReviewRating = useCallback(
     (rating: ComfyGalleryEntry["reviewRating"]) => {
       if (rating) {
@@ -217,6 +222,7 @@ function GalleryCardItem({
       onShowDerivatives={hasDerivatives ? onShowDerivatives : undefined}
       hasDerivatives={hasDerivatives}
       onOpenImage={onOpenImage}
+      onPrefetchImage={onPrefetchImage}
       reviewMode={reviewMode}
       reviewMutationHints={reviewMutationHints}
       onVisionTagClick={onVisionTagClick}

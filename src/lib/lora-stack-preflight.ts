@@ -133,7 +133,7 @@ export function auditLoraStackAtQueueTime(input: {
       issues.push({
         severity: "warn",
         message:
-          "Klein Base works best with Realistic Detail (~0.7, srx_detail) + Ultra Real v4 (~0.8) under models/loras/. Keep CFG ~4; plastic-skin negatives are applied automatically.",
+          "Klein Base realism is tuned (Detail ~0.7 + Ultra Real v4 ~0.8, CFG ~4, plastic negatives) but scenic photoreal plateaus — switch to UltraReal Fine-Tune v4 for people/scene photos.",
       });
     } else if (isFluxFineTuneCheckpointModel(model)) {
       issues.push({

@@ -71,6 +71,8 @@ import {
 import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
 import {
   buildGalleryLightboxPlaylist,
+  galleryEntryLightboxUrls,
+  galleryEntryMediaKinds,
   galleryEntryPrimaryMediaKind,
   galleryEntryStripThumbUrls,
   galleryEntryViewUrls,
@@ -91,6 +93,7 @@ import {
   type GallerySlideshowIntervalMs,
   type GallerySlideshowTransition,
 } from "@/lib/comfyui-gallery";
+import { prefetchGalleryImageUrl } from "@/lib/gallery-image-prefetch";
 import {
   buildGalleryHandoff,
   galleryHandoffHomePath,
@@ -238,6 +241,7 @@ export default function ComfyUiGalleryPanel({
     showParent: () => undefined,
     showDerivatives: () => undefined,
     openImage: () => undefined,
+    prefetchImage: () => undefined,
     reviewRating: () => undefined,
     downloadError: () => undefined,
     visionTagClick: () => undefined,
@@ -410,6 +414,7 @@ export default function ComfyUiGalleryPanel({
 
       setLightbox({
         images: lightboxPlaylist.images,
+        thumbImages: lightboxPlaylist.thumbImages,
         originalImages: lightboxPlaylist.originalImages,
         titles: lightboxPlaylist.titles,
         mediaKinds: lightboxPlaylist.mediaKinds,
@@ -432,6 +437,25 @@ export default function ComfyUiGalleryPanel({
     [openEntryLightbox],
   );
 
+  const prefetchLightboxForEntryId = useCallback(
+    (entryId: string, imageIndex: number) => {
+      const entry = visibleEntriesRef.current.find((item) => item.id === entryId);
+      if (!entry) {
+        return;
+      }
+      const urls = galleryEntryLightboxUrls(entry);
+      if (urls.length === 0) {
+        return;
+      }
+      const safeIndex = Math.min(Math.max(imageIndex, 0), urls.length - 1);
+      if (galleryEntryMediaKinds(entry)[safeIndex] === "video") {
+        return;
+      }
+      prefetchGalleryImageUrl(urls[safeIndex]);
+    },
+    [],
+  );
+
   const startSlideshow = () => {
     if (lightboxPlaylist.images.length === 0) {
       return;
@@ -439,6 +463,7 @@ export default function ComfyUiGalleryPanel({
 
     setLightbox({
       images: lightboxPlaylist.images,
+      thumbImages: lightboxPlaylist.thumbImages,
       originalImages: lightboxPlaylist.originalImages,
       titles: lightboxPlaylist.titles,
       mediaKinds: lightboxPlaylist.mediaKinds,
@@ -456,6 +481,7 @@ export default function ComfyUiGalleryPanel({
 
     setLightbox({
       images: lightboxPlaylist.images,
+      thumbImages: lightboxPlaylist.thumbImages,
       originalImages: lightboxPlaylist.originalImages,
       titles: lightboxPlaylist.titles,
       mediaKinds: lightboxPlaylist.mediaKinds,
@@ -988,6 +1014,7 @@ export default function ComfyUiGalleryPanel({
         setRequeueStatus("Showing derived outputs…");
       },
       openImage: openLightboxForEntryId,
+      prefetchImage: prefetchLightboxForEntryId,
       reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => {
         const entry = entriesRef.current.find((item) => item.id === id);
         if (entry && rating) {
@@ -1027,6 +1054,7 @@ export default function ComfyUiGalleryPanel({
     removeEntry,
     toggleFavorite,
     openLightboxForEntryId,
+    prefetchLightboxForEntryId,
     handleReviewRating,
     setFilter,
     pickFor,

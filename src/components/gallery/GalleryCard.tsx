@@ -81,6 +81,8 @@ type GalleryCardProps = {
   onShowDerivatives?: () => void;
   hasDerivatives?: boolean;
   onOpenImage: (index: number) => void;
+  /** Warm mid-res lightbox URL before open (hover/focus intent). */
+  onPrefetchImage?: (index: number) => void;
   reviewMode?: boolean;
   onReviewRating?: (rating: ComfyGalleryEntry["reviewRating"]) => void;
   reviewMutationHints?: string[];
@@ -152,6 +154,7 @@ export default function GalleryCard({
   onShowDerivatives,
   hasDerivatives,
   onOpenImage,
+  onPrefetchImage,
   reviewMode,
   onReviewRating,
   reviewMutationHints,
@@ -408,6 +411,9 @@ export default function GalleryCard({
               }
               onOpenImage(0);
             }}
+            onPointerEnter={() => onPrefetchImage?.(0)}
+            onFocus={() => onPrefetchImage?.(0)}
+            onPointerDown={() => onPrefetchImage?.(0)}
             className={`relative block h-full w-full overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
               pickMode && pickable ? "cursor-pointer" : "cursor-zoom-in"
             }`}
@@ -718,6 +724,9 @@ export default function GalleryCard({
                 key={url}
                 type="button"
                 onClick={() => onOpenImage(thumbIndex + 1)}
+                onPointerEnter={() => onPrefetchImage?.(thumbIndex + 1)}
+                onFocus={() => onPrefetchImage?.(thumbIndex + 1)}
+                onPointerDown={() => onPrefetchImage?.(thumbIndex + 1)}
                 className="shrink-0 overflow-hidden rounded-lg border border-zinc-800 transition hover:border-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
                 aria-label={`Open video ${thumbIndex + 2} preview`}
               >
@@ -735,6 +744,9 @@ export default function GalleryCard({
                 key={url}
                 type="button"
                 onClick={() => onOpenImage(thumbIndex + 1)}
+                onPointerEnter={() => onPrefetchImage?.(thumbIndex + 1)}
+                onFocus={() => onPrefetchImage?.(thumbIndex + 1)}
+                onPointerDown={() => onPrefetchImage?.(thumbIndex + 1)}
                 className="shrink-0 overflow-hidden rounded-lg border border-zinc-800 transition hover:border-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
                 aria-label={`Open image ${thumbIndex + 2} preview`}
               >
