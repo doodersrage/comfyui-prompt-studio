@@ -218,12 +218,29 @@ function kleinBaseSamplerPresets(): Record<
   ModelSamplerPresetTier,
   ModelSamplerDefaults
 > {
+  // Authentic Klein skin workflows land near CFG 4 with plastic negatives.
+  // Official Base range is 3.5–5; 4.0 helps skin LoRAs bite without frying.
+  const base: ModelSamplerDefaults = {
+    steps: 24,
+    cfg: 4,
+    samplerName: "euler",
+    scheduler: "simple",
+  };
   return {
-    base: { steps: 24, cfg: 3.5, samplerName: "euler", scheduler: "simple" },
-    optimized: { steps: 24, cfg: 4, samplerName: "euler", scheduler: "simple" },
-    maxCompatible: { steps: 24, cfg: 4, samplerName: "res_2s", scheduler: "simple" },
-    // Match maxCompatible's anatomy-friendly sampler — euler@CFG4.5 warps hands/people.
-    max: { steps: 28, cfg: 4, samplerName: "res_2s", scheduler: "simple" },
+    base,
+    optimized: { ...base },
+    maxCompatible: {
+      steps: 24,
+      cfg: 4,
+      samplerName: "res_2s",
+      scheduler: "simple",
+    },
+    max: {
+      steps: 28,
+      cfg: 4,
+      samplerName: "res_2s",
+      scheduler: "simple",
+    },
   };
 }
 
@@ -274,11 +291,11 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     max: { steps: 35, cfg: 3.5, ...FLUX_SAMPLER },
   },
   "flux-ultrareal-v4": {
-    // Author “CFG Scale: 3” is FluxGuidance; KSampler.cfg is forced to 1 at queue.
-    base: { steps: 30, cfg: 3, ...ULTRAREAL_FLUX_SAMPLER },
-    optimized: { steps: 40, cfg: 3, ...ULTRAREAL_FLUX_SAMPLER },
-    maxCompatible: { steps: 45, cfg: 3, ...ULTRAREAL_FLUX_SAMPLER },
-    max: { steps: 50, cfg: 3, ...ULTRAREAL_FLUX_SAMPLER },
+    // Sidebar CFG → FluxGuidance (KSampler.cfg forced to 1). 2.5 reduces glossy overbake vs 3.
+    base: { steps: 30, cfg: 2.5, ...ULTRAREAL_FLUX_SAMPLER },
+    optimized: { steps: 40, cfg: 2.5, ...ULTRAREAL_FLUX_SAMPLER },
+    maxCompatible: { steps: 45, cfg: 2.5, ...ULTRAREAL_FLUX_SAMPLER },
+    max: { steps: 50, cfg: 2.5, ...ULTRAREAL_FLUX_SAMPLER },
   },
   flux2: {
     base: { steps: 20, cfg: 3.5, ...FLUX_SAMPLER },

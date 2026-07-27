@@ -16,9 +16,9 @@ describe("klein base prompt profiles", () => {
     const basePrompt = buildProfileSystemPrompt(klein9bBase, "positive");
     assert.match(basePrompt, /Klein Base realism/i);
     assert.match(basePrompt, /plastic, waxy, airbrushed/i);
-    assert.match(basePrompt, /real camera capture/i);
+    assert.match(basePrompt, /unretouched RAW camera photograph/i);
+    assert.match(basePrompt, /irregular real clouds|chaotic non-repeating foam|puffy identical/i);
     assert.match(basePrompt, /identical clone rows/i);
-    assert.match(basePrompt, /monochromatic pink/i);
 
     const distilledPrompt = buildProfileSystemPrompt(klein9bDistilled, "positive");
     assert.doesNotMatch(distilledPrompt, /Klein Base realism/i);
@@ -27,17 +27,17 @@ describe("klein base prompt profiles", () => {
 
   it("adds photographic clarity and user hints for Klein Base only", () => {
     const baseClarity = buildProfileClarityAddendum("balanced", klein9bBase);
-    assert.match(baseClarity, /Klein Base: keep the scene photographic/i);
-    assert.match(baseClarity, /clone rows/i);
+    assert.match(baseClarity, /Klein Base: candid unretouched RAW photograph/i);
+    assert.match(baseClarity, /blob clouds|repeating foam|flat studio outdoor/i);
 
     const distilledClarity = buildProfileClarityAddendum("balanced", klein9bDistilled);
     assert.doesNotMatch(distilledClarity, /Klein Base:/i);
 
     const baseDirective = buildProfileUserDirective("rich", klein9bBase);
-    assert.match(baseDirective, /Natural photograph with lifelike skin/i);
+    assert.match(baseDirective, /unretouched RAW photograph|matte skin/i);
 
     const distilledDirective = buildProfileUserDirective("rich", klein9bDistilled);
-    assert.doesNotMatch(distilledDirective, /Natural photograph with lifelike skin/i);
+    assert.doesNotMatch(distilledDirective, /beauty-filter CGI/i);
   });
 
   it("uses Klein Base few-shot examples for undistilled models", () => {

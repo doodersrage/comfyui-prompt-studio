@@ -8,13 +8,13 @@ import type {
   PromptProfileId,
 } from "./types";
 
-const FLUX_KLEIN_BASE_REALISM_RULES = `- Write like a real camera capture—not an illustration, drawing, painting, 3D render, or stylized CGI.
-- For people: natural skin with subtle pores and soft highlight rolloff; believable hair and fabric—not plastic, waxy, airbrushed, or doll-like surfaces.
-- For settings: physical materials with grain, wear, and imperfection—not smooth abstract geometry or generic digital backdrops.
-- Prefer soft natural or motivated photographic light with readable shadows—not flat glossy studio fills or surreal abstract color washes.
-- One coherent photographic moment—no identical clone rows, repeating mannequins, or surreal duplicate armies in the background.
-- Use a balanced natural color palette—not flat monochromatic pink/blue washes or oversaturated dreamscapes unless the user explicitly asks for that aesthetic.
-- Describe desired realism in positive prose; FLUX ignores negative prompts.`;
+const FLUX_KLEIN_BASE_REALISM_RULES = `- Write like a candid unretouched RAW camera photograph—amateur snapshot or DSLR in a normal rectangular full frame—not an illustration, drawing, painting, 3D render, video-game art, editorial fashion CGI, beauty-filter polish, dreamcore surreal, or circular vignette composition.
+- For people: matte natural skin with visible pores, freckles, and soft highlight rolloff; believable hair and fabric—not plastic, waxy, airbrushed, or doll-like surfaces.
+- For settings: physical materials with grain, wear, dirt, and imperfection; skies with irregular real clouds (not identical puffy blobs); water with chaotic non-repeating foam; architecture with weathering—not copy-paste props, procedural tiled textures, or smooth CGI geometry.
+- Prefer a single motivated outdoor key light with readable contact shadows and true-color / neutral white balance—not flat even studio fills outdoors, monochromatic pink washes, or surreal abstract color casts.
+- One coherent photographic moment—no identical clone rows, repeating mannequins, surreal prop artifacts, or duplicate armies in the background.
+- Use a restrained natural color palette—not oversaturated dreamscapes, neon carnival grades, or stylized beauty-campaign color unless the user explicitly asks for that aesthetic.
+- Describe desired realism in positive prose; Klein Base also uses CFG negatives for plastic/CGI skin and fake environments.`;
 
 function fluxKleinBaseRealismBlock(): string {
   return `
@@ -24,7 +24,7 @@ ${FLUX_KLEIN_BASE_REALISM_RULES}`;
 }
 
 function fluxKleinBaseClarityLine(): string {
-  return "- Klein Base: keep the scene photographic—natural skin, lifelike materials, readable shadows, distinct individuals; avoid abstract CGI, plastic skin, clone rows, or surreal monochrome washes.";
+  return "- Klein Base: candid unretouched RAW photograph with matte skin, irregular real clouds, chaotic water/materials, and outdoor key light; avoid beauty-filter CGI, blob clouds, repeating foam, flat studio outdoor light, or plastic skin.";
 }
 
 const FLUX_ULTRAREAL_REALISM_RULES = `- Write like a real high-resolution camera photograph—amateur snapshot or professional DSLR—not illustration, 3D render, or stylized CGI.
@@ -68,7 +68,7 @@ function modelPhotoClarityLine(def: ComfyImageModelDefinition): string {
 
 function modelPhotoRealismUserHint(def: ComfyImageModelDefinition): string {
   if (isKleinBaseModel(def.id)) {
-    return " Natural photograph with lifelike skin and materials—not illustration or CGI.";
+    return " Candid unretouched RAW photograph with irregular real clouds, chaotic water, weathered materials—not blob-cloud CGI, repeating foam, or flat studio outdoor light.";
   }
   if (isFluxFineTuneCheckpointModel(def.id)) {
     return " Real-camera photograph with natural skin, balanced color, and believable materials—not neon CGI or airbrushed plastic.";
@@ -1089,9 +1089,9 @@ const FEW_SHOT_FLUX_KLEIN_BASE: Record<DetailLevel, FewShotExample[]> = {
         "A woman in her thirties sits at a corner table in a neighborhood cafe, ceramic mug warming her hands, natural skin with soft pores catching morning sun through rain-streaked windows camera-left. Worn oak tables, matte tile floor, and a chalkboard menu behind the counter read as real materials—not glossy CGI surfaces. Soft key light from the window with cool interior fill, shot at eye level with moderate depth of field.",
     },
     {
-      input: "neon alley, rain, black cat",
+      input: "woman on beach ledge, ocean, afternoon",
       output:
-        "A sleek black cat crouches on a rusted fire escape, fur damp and beaded with rain, amber eyes catching neon spill from magenta and cyan signs above a rain-slick cyberpunk alley. Wet asphalt mirrors fractured color between cracked pavement and steaming grates—the scene reads as a natural photograph with tactile grit, not smooth abstract plastic. Soft key light from camera-right with cool fill from the alley mouth, shot at eye level with moderate depth of field.",
+        "A woman in her twenties sits on a weathered concrete seawall, matte skin with soft pores in hard afternoon sun from camera-right and cool open-sky fill. Behind her the ocean breaks in irregular whitewater with non-repeating foam patterns, and the sky holds uneven layered clouds—not identical puffy blobs. Salt stains, cracked tile, and scuffed concrete read as worn materials under a single outdoor key light, the whole frame a candid RAW photograph with mild grain.",
     },
   ],
   rich: [

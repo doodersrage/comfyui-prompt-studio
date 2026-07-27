@@ -101,16 +101,15 @@ describe("queue-prompt-prep Rapid AIO / Lightning", () => {
     assert.match(result.negative ?? "", /flicker|extra limbs/i);
   });
 
-  it("applies klein base photo steering with anti-clone avoid prose at queue time", () => {
+  it("applies klein base photo steering with plastic-skin negatives at queue time", () => {
     const result = applyQueuePromptSteering({
       positive: "Women lounge by a resort pool in pink light.",
       model: "flux-2-klein-9b",
       realismMode: "hyper-realistic",
       anatomyMode: "standard",
     });
-    assert.match(result.positive ?? "", /natural photograph|hyperrealistic photograph/i);
-    assert.match(result.positive ?? "", /clone|identical clone rows/i);
-    assert.match(result.positive ?? "", /accurate anatomy/i);
-    assert.equal(result.negative, undefined);
+    assert.match(result.positive ?? "", /unretouched RAW photograph|DSLR capture/i);
+    assert.match(result.positive ?? "", /srx_detail/i);
+    assert.match(result.negative ?? "", /plastic skin|blob clouds|repeating foam/i);
   });
 });

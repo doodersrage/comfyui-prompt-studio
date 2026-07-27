@@ -8,8 +8,9 @@ import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
 /** Stable Settings / model-map id for Danrisi Realism Amplifier. */
 export const ULTRAREAL_AMPLIFIER_LORA_ID = "ultrareal-amplifier";
 
-/** Civitai tip: 0.5–0.7 amplifies realism; 0.9–1.0 goes Nokia/digicam. */
-export const ULTRAREAL_AMPLIFIER_STRENGTH = 0.7;
+/** Civitai tip: 0.5–0.7 amplifies realism; 0.9–1.0 goes Nokia/digicam.
+ * Prefer mid-low of the band — 0.7 + d1g1cam pushes glossy contrast/overbake. */
+export const ULTRAREAL_AMPLIFIER_STRENGTH = 0.55;
 
 /** Official Realistic Amplifier trigger — must appear in the positive prompt. */
 export const ULTRAREAL_AMPLIFIER_TRIGGER = "d1g1cam";

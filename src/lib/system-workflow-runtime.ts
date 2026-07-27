@@ -40,6 +40,8 @@ import {
 } from "./model-checkpoint-map";
 import {
   DEFAULT_MODEL_SAMPLER_PRESET_TIER,
+  isKleinBaseModel,
+  isKleinDistilledModel,
   normalizeModelSamplerPresetTier,
   resolveModelSamplerParams,
 } from "./model-sampler-defaults";
@@ -294,7 +296,7 @@ function resolveInventoryUnetForModel(
   model: ComfyImageModel,
   inventory: ComfyUiModelLists,
 ): string | undefined {
-  const pool = inventory.unets;
+  const pool = filterKleinUnetInventoryForModel(model, inventory.unets);
   const preferred =
     SUGGESTED_MODEL_CHECKPOINT_MAP[model] ??
     getComfyModelDefinition(model)?.unetHint;
@@ -320,6 +322,29 @@ function resolveInventoryUnetForModel(
       baseStem.includes(entryStem)
     );
   });
+}
+
+/** Klein Base must never soft-bind distilled / non-base weights (causes CGI fry). */
+function filterKleinUnetInventoryForModel(
+  model: ComfyImageModel | string,
+  pool: string[],
+): string[] {
+  const id = String(model ?? "");
+  if (isKleinBaseModel(id)) {
+    const baseOnly = pool.filter(
+      (name) => /klein/i.test(name) && /base/i.test(name) && !/distill/i.test(name),
+    );
+    return baseOnly.length > 0 ? baseOnly : pool;
+  }
+  if (isKleinDistilledModel(id)) {
+    const distilled = pool.filter(
+      (name) =>
+        /klein/i.test(name) &&
+        (/distill/i.test(name) || (!/base/i.test(name) && /(9b|4b)/i.test(name))),
+    );
+    return distilled.length > 0 ? distilled : pool;
+  }
+  return pool;
 }
 
 function looksLikeI2vPackGraph(workflowJson: string): boolean {

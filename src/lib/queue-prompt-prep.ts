@@ -23,6 +23,7 @@ import { isQwenRapidAioModel, isWanRapidAioModel } from "./model-denoise-default
 import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
 import { isKleinBaseModel } from "./model-sampler-defaults";
 import { ensureUltraRealAmplifierTriggerInPrompt } from "./ultrareal-amplifier-lora";
+import { ensureKleinRealisticDetailTriggerInPrompt } from "./klein-realistic-detail-lora";
 import { expandWildcardText } from "./wildcard-expand";
 import {
   loadCustomWildcardLists,
@@ -40,7 +41,7 @@ const LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS = 160;
  * Negatives are budgeted separately and can stay longer.
  */
 const MAX_QUEUE_POSITIVE_SUFFIX_CHARS = 200;
-const KLEIN_BASE_QUEUE_POSITIVE_SUFFIX_CHARS = 420;
+const KLEIN_BASE_QUEUE_POSITIVE_SUFFIX_CHARS = 580;
 const ULTRAREAL_QUEUE_POSITIVE_SUFFIX_CHARS = 320;
 
 function maxQueuePositiveSuffixChars(model: ComfyImageModel | string): number {
@@ -188,6 +189,13 @@ export function applyQueuePromptSteering(input: {
     return {
       ...withAnatomy,
       positive: ensureUltraRealAmplifierTriggerInPrompt(withAnatomy.positive),
+    };
+  }
+
+  if (isKleinBaseModel(input.model)) {
+    return {
+      ...withAnatomy,
+      positive: ensureKleinRealisticDetailTriggerInPrompt(withAnatomy.positive),
     };
   }
 

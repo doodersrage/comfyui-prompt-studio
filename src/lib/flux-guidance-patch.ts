@@ -6,8 +6,9 @@ export const FLUX_GUIDANCE_NODE_TYPE = "FluxGuidance";
 /** Official FLUX.1-dev example uses guidance 3.5 with KSampler cfg 1. */
 export const DEFAULT_FLUX1_GUIDANCE = 3.5;
 
-/** UltraReal / Civitai author “CFG Scale: 3” is FluxGuidance, not KSampler.cfg. */
-export const DEFAULT_FLUX_ULTRAREAL_GUIDANCE = 3;
+/** UltraReal / Civitai author “CFG Scale: 3” is FluxGuidance, not KSampler.cfg.
+ * 2.5 cuts glossy plastic overbake while staying near the author tip. */
+export const DEFAULT_FLUX_ULTRAREAL_GUIDANCE = 2.5;
 
 type WorkflowNode = {
   class_type?: string;

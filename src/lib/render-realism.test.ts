@@ -60,21 +60,50 @@ describe("render realism", () => {
       model: "flux-ultrareal-v4",
       mode: "realistic",
     });
-    assert.match(result.positive, /DSLR photograph/i);
-    assert.match(result.positive, /neon oversaturation|plastic or waxy skin/i);
+    assert.match(result.positive, /matte skin|natural photograph/i);
+    assert.match(result.positive, /neon oversaturation|plastic or waxy skin|oily glossy/i);
     assert.equal(result.negative, undefined);
   });
 
-  it("uses stronger klein base photo steering with anti-clone avoid prose", () => {
+  it("uses stronger klein base photo steering with plastic-skin negatives", () => {
     const result = applyRenderRealismForModel({
-      positive: "Women lounge by a resort pool.",
+      positive: "Women lounge by a resort pool with natural lighting.",
       model: "flux-2-klein-9b",
       mode: "hyper-realistic",
     });
-    assert.match(result.positive, /hyperrealistic photograph/i);
-    assert.match(result.positive, /clone duplicates|identical clone rows/i);
-    assert.match(result.positive, /flat shadowless light|flat even lighting/i);
-    assert.equal(result.negative, undefined);
+    // "natural lighting" alone must NOT skip RAW photograph cues.
+    assert.match(result.positive, /unretouched RAW photograph|DSLR capture/i);
+    assert.match(result.positive, /peach fuzz|skin unevenness|visible pores|matte skin/i);
+    assert.match(result.positive, /irregular real-world clouds|chaotic non-repeating/i);
+    assert.match(
+      result.negative ?? "",
+      /plastic skin|blob clouds|repeating foam|flat even outdoor/i,
+    );
+  });
+
+  it("still hardens when photograph language is already present but matte cues are missing", () => {
+    const result = applyRenderRealismForModel({
+      positive: "RAW photograph of a woman walking under a pergola.",
+      model: "flux-2-klein-9b",
+      mode: "realistic",
+    });
+    assert.match(result.positive, /matte skin|unretouched|visible pores|peach fuzz/i);
+    assert.match(result.positive, /weathered imperfect|irregular real-world clouds/i);
+    assert.match(result.negative ?? "", /plastic skin|blob clouds|repeating foam/i);
+  });
+
+  it("skips duplicate harden when skin and scene cues are already present", () => {
+    const result = applyRenderRealismForModel({
+      positive:
+        "RAW photograph of a woman, matte skin with visible pores, unretouched, soft peach fuzz, irregular real-world clouds, weathered imperfect materials, visible film grain.",
+      model: "flux-2-klein-9b",
+      mode: "realistic",
+    });
+    assert.equal(
+      result.positive.match(/matte skin/gi)?.length ?? 0,
+      1,
+    );
+    assert.match(result.negative ?? "", /plastic skin/i);
   });
 
   it("deduplicates merged negative terms", () => {

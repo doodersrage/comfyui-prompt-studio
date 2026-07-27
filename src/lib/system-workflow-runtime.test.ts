@@ -291,6 +291,27 @@ describe("system-workflow-runtime", () => {
     );
   });
 
+  it("soft-binds Klein Base to base-9b weights, never distilled", () => {
+    const scaffold = buildWorkflowScaffoldForModel("flux-2-klein-9b");
+    const bound = softBindScaffoldFromInventory(scaffold.json, "flux-2-klein-9b", {
+      ...emptyInventory,
+      unets: [
+        "flux-2-klein-9b-distilled.safetensors",
+        "flux-2-klein-9b-fp8.safetensors",
+        "flux-2-klein-base-9b-fp8.safetensors",
+        "flux-2-klein-base-9b.safetensors",
+      ],
+      clips: ["qwen_3_8b_fp8mixed.safetensors"],
+      vaes: ["flux2-vae.safetensors"],
+    });
+    assert.match(bound.workflowJson, /flux-2-klein-base-9b/);
+    assert.doesNotMatch(bound.workflowJson, /distilled/);
+    assert.doesNotMatch(
+      bound.workflowJson,
+      /"unet_name": "flux-2-klein-9b-fp8\.safetensors"/,
+    );
+  });
+
   it("soft-binds Klein CLIPLoader type flux2 (not Dev clip_l/t5)", () => {
     const scaffold = buildWorkflowScaffoldForModel("flux-2-klein-9b-distilled");
     // Distilled scaffold may seed a Klein dualCLIP hint; soft-bind prefers Qwen3-8B from inventory.

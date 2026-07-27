@@ -13,6 +13,7 @@ import { loadSettingsCache } from "./settings-cache";
 import type { WorkflowPreflightIssue } from "./workflow-preflight";
 import { loraNameIsLightningSlot } from "./workflow-lora-patch";
 import { loraFilenameLooksLikeUltraRealAmplifier } from "./ultrareal-amplifier-lora";
+import { loraFilenameLooksLikeKleinRealisticDetail } from "./klein-realistic-detail-lora";
 
 type WorkflowNode = {
   class_type?: string;
@@ -132,13 +133,13 @@ export function auditLoraStackAtQueueTime(input: {
       issues.push({
         severity: "warn",
         message:
-          "Klein Base queue has no realism LoRAs — add FLUX.2-compatible LoRAs in Settings → LoRA library, enable them in the sidebar stack, then preview workflow to confirm LoraLoader nodes appear.",
+          "Klein Base works best with Realistic Detail (~0.7, srx_detail) + Ultra Real v4 (~0.8) under models/loras/. Keep CFG ~4; plastic-skin negatives are applied automatically.",
       });
     } else if (isFluxFineTuneCheckpointModel(model)) {
       issues.push({
         severity: "warn",
         message:
-          "UltraReal Fine-Tune works best with Danrisi Realism Amplifier LoRA (~0.7, trigger d1g1cam) — install it under models/loras/, keep UltraRealPhoto off, then re-queue (Prompt Studio auto-maps Realistic Amplifier for UltraReal Fine-Tune.safetensors when present).",
+          "UltraReal Fine-Tune works best with Danrisi Realism Amplifier LoRA (~0.55, trigger d1g1cam) — install it under models/loras/, keep UltraRealPhoto off, then re-queue (Prompt Studio auto-maps Realistic Amplifier for UltraReal Fine-Tune.safetensors when present).",
       });
     }
     return issues;
@@ -154,6 +155,19 @@ export function auditLoraStackAtQueueTime(input: {
       severity: "warn",
       message:
         "UltraReal queue LoRA stack is missing Realism Amplifier — enable ultrareal-amplifier (or Realistic Amplifier for UltraReal Fine-Tune.safetensors) for less plastic skin.",
+    });
+  }
+
+  if (
+    isKleinBaseModel(model) &&
+    !expectedStack.some((entry) =>
+      loraFilenameLooksLikeKleinRealisticDetail(entry.filename),
+    )
+  ) {
+    issues.push({
+      severity: "warn",
+      message:
+        "Klein Base queue LoRA stack is missing Realistic Detail — enable klein-realistic-detail (or Flux2 Klein 9B Realistic Detail LoRA.safetensors) for less plastic skin.",
     });
   }
 

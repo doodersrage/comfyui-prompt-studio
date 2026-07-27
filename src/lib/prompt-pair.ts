@@ -5,6 +5,11 @@ import {
 } from "./comfy-models";
 
 export function modelUsesNegativePrompt(model: ComfyImageModel): boolean {
+  // Klein Base uses KSampler CFG (not FluxGuidance) — plastic-skin negatives work.
+  // Distilled Klein stays CFG-1 and still ignores long negatives.
+  if (model === "flux-2-klein" || model === "flux-2-klein-9b") {
+    return true;
+  }
   return !fluxIgnoresNegative(getComfyModelDefinition(model).profile);
 }
 

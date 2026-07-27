@@ -68,12 +68,12 @@ describe("lora stack preflight", () => {
     const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
     const patched = applyLoraStackToWorkflow(workflow, [
       {
-        id: "realism",
-        label: "Realism",
-        triggerPhrase: "",
-        tokenValue: "flux_realism.safetensors",
-        strengthModel: 0.8,
-        strengthClip: 0.8,
+        id: "klein-realistic-detail",
+        label: "Klein Realistic Detail",
+        triggerPhrase: "srx_detail",
+        tokenValue: "Flux2 Klein 9B Realistic Detail LoRA.safetensors",
+        strengthModel: 0.65,
+        strengthClip: 0.65,
         enabled: true,
       },
     ]);
@@ -82,12 +82,12 @@ describe("lora stack preflight", () => {
       workflowJson: JSON.stringify(patched.workflow),
       loraLibrary: [
         {
-          id: "realism",
-          label: "Realism",
-          triggerPhrase: "",
-          tokenValue: "flux_realism.safetensors",
-          strengthModel: 0.8,
-          strengthClip: 0.8,
+          id: "klein-realistic-detail",
+          label: "Klein Realistic Detail",
+          triggerPhrase: "srx_detail",
+          tokenValue: "Flux2 Klein 9B Realistic Detail LoRA.safetensors",
+          strengthModel: 0.65,
+          strengthClip: 0.65,
           enabled: true,
         },
       ],

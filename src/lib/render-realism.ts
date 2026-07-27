@@ -66,20 +66,32 @@ const KLEIN_BASE_FLUX_PHOTO_POSITIVE: Record<
   string
 > = {
   realistic:
-    "natural photograph, lifelike skin texture with subtle pores, motivated directional light with readable shadows, believable worn materials",
+    "candid unretouched RAW photograph, full rectangular camera frame, true-color neutral white balance, visible film grain and mild sensor noise, matte skin with visible pores freckles soft peach fuzz and subtle blotchy undertones, mild under-eye texture, broken specular highlights, single motivated outdoor key light with soft contact shadows, irregular real-world clouds, chaotic non-repeating water and foam, weathered imperfect materials with dirt and wear, photographic depth of field",
   "hyper-realistic":
-    "hyperrealistic photograph, natural skin micro-texture and pores, professional DSLR capture, directional light with soft shadow falloff",
+    "candid unretouched RAW photograph, full rectangular camera frame, true-color neutral white balance, visible film grain and mild sensor noise, matte skin micro-texture pores freckles soft peach fuzz and subtle blotchy undertones, mild under-eye texture, broken specular highlights, single motivated outdoor key light with soft shadow falloff, irregular real-world clouds, chaotic non-repeating water and foam, weathered imperfect materials with dirt and wear, documentary realism",
 };
 
-const KLEIN_BASE_FLUX_PHOTO_AVOID: Record<
+/** Klein Base uses KSampler CFG — plastic/CGI/scene-fake terms belong in the negative slot. */
+const KLEIN_BASE_PLASTIC_NEGATIVE: Record<
   Exclude<RenderRealismMode, "off" | "anime">,
   string
 > = {
   realistic:
-    "Avoid CGI, plastic or waxy skin, doll-like faces, identical clone rows, surreal monochrome washes, and flat even lighting.",
+    "plastic skin, waxy skin, shiny doll skin, porcelain skin, airbrushed beauty skin, oversmoothed skin, CGI, 3D render, luxury product render, illustration, video-game art, ornamental floral frame, decorative graphic border, circular vignette, monochromatic pink wash, dreamcore glow, beauty filter, studio softbox beauty lighting, flat even outdoor lighting, perfect texture-mapped sand, glossy helmet hair, identical clone flowers, puffy identical blob clouds, repeating foam lines, procedural tiled textures, perfect clean CGI architecture, surreal prop artifacts",
   "hyper-realistic":
-    "Avoid illustration, CGI, plastic or waxy skin, clone duplicates, surreal oversaturated color fields, uncanny doll-like rendering, and flat shadowless light.",
+    "plastic skin, waxy skin, shiny doll skin, porcelain skin, airbrushed beauty skin, oversmoothed skin, CGI, 3D render, luxury product render, illustration, painting, video-game art, ornamental floral frame, decorative graphic border, circular vignette, monochromatic pink wash, dreamcore glow, beauty filter, editorial fashion CGI, studio softbox beauty lighting, flat even outdoor lighting, perfect texture-mapped sand, glossy helmet hair, identical clone flowers, puffy identical blob clouds, repeating foam lines, procedural tiled textures, perfect clean CGI architecture, surreal prop artifacts",
 };
+
+/** Skin harden alone still leaves CGI skies/water — require scene material cues too. */
+function kleinPromptHasStrongPhotoHarden(prompt: string): boolean {
+  const hasSkin = /\b(matte skin|unretouched|visible pores|broken specular|peach fuzz|skin unevenness)\b/i.test(
+    prompt,
+  );
+  const hasScene = /\b(irregular (?:real-world )?clouds|chaotic non-repeating|weathered imperfect|film grain|sensor noise)\b/i.test(
+    prompt,
+  );
+  return hasSkin && hasScene;
+}
 
 export function normalizeRenderRealismMode(value: unknown): RenderRealismMode {
   if (value === "animation") {
@@ -117,7 +129,9 @@ function promptAlreadyHasRealismCue(prompt: string, mode: RenderRealismMode): bo
     );
   }
   if (mode === "realistic") {
-    return /\b(photorealistic|photo[- ]?realistic|lifelike|natural lighting)\b/i.test(
+    // "natural lighting" / "lifelike" alone are too weak — LLMs put them on CGI scenes
+    // and we skip the photograph suffix that actually pulls Klein/Flux toward photo.
+    return /\b(photorealistic|photo[- ]?realistic|raw\s+photo|photograph|dslr|matte skin)\b/i.test(
       lower,
     );
   }
@@ -146,9 +160,9 @@ const ULTRAREAL_FLUX_PHOTO_POSITIVE: Record<
   string
 > = {
   realistic:
-    "high-resolution candid DSLR photograph, natural skin with visible pores and fine peach fuzz, soft subsurface scatter, motivated daylight with contact shadows, believable fabric weight, not airbrushed",
+    "candid natural photograph, matte skin with visible pores and soft peach fuzz, broken specular highlights, soft subsurface scatter, motivated daylight with gentle contact shadows, believable fabric weight, not airbrushed",
   "hyper-realistic":
-    "high-resolution professional DSLR photograph, natural skin micro-texture and pores, soft subsurface scatter, directional light with soft shadow falloff, lifelike fabric weave, documentary realism",
+    "natural photograph, matte skin micro-texture and pores, soft subsurface scatter, broken specular highlights, directional light with soft shadow falloff, lifelike fabric weave, documentary realism",
 };
 
 const ULTRAREAL_FLUX_PHOTO_AVOID: Record<
@@ -156,9 +170,9 @@ const ULTRAREAL_FLUX_PHOTO_AVOID: Record<
   string
 > = {
   realistic:
-    "Avoid illustration, CGI, plastic or waxy skin, airbrushed doll-like faces, flat shadowless beauty lighting, neon oversaturation, candy-colored props, and synthetic beauty-filter glow.",
+    "Avoid illustration, CGI, plastic or waxy skin, oily glossy skin, airbrushed doll-like faces, flat shadowless beauty lighting, neon oversaturation, candy-colored props, and synthetic beauty-filter glow.",
   "hyper-realistic":
-    "Avoid 3D render, plastic or waxy skin, uncanny smoothness, flat shadowless beauty lighting, oversaturated carnival palettes, heavy makeup glow, and synthetic CGI lighting.",
+    "Avoid 3D render, plastic or waxy skin, oily glossy skin, uncanny smoothness, flat shadowless beauty lighting, oversaturated carnival palettes, heavy makeup glow, and synthetic CGI lighting.",
 };
 
 function applyUltraRealRenderRealism(input: {
@@ -206,6 +220,7 @@ function applyUltraRealRenderRealism(input: {
 
 function applyKleinBaseRenderRealism(input: {
   positive: string;
+  negative?: string;
   mode: Exclude<RenderRealismMode, "off" | "anime">;
   maxPositiveAppendChars?: number;
 }): { positive: string; negative?: string } {
@@ -214,7 +229,8 @@ function applyKleinBaseRenderRealism(input: {
   let remaining =
     typeof maxAppend === "number" ? Math.max(0, maxAppend) : undefined;
 
-  if (!promptAlreadyHasRealismCue(positive, input.mode)) {
+  // Always harden when the LLM only said "photograph" — that still yields artsy CGI.
+  if (!kleinPromptHasStrongPhotoHarden(positive)) {
     if (typeof remaining !== "number" || remaining >= 48) {
       let suffix = KLEIN_BASE_FLUX_PHOTO_POSITIVE[input.mode];
       if (typeof remaining === "number") {
@@ -222,30 +238,19 @@ function applyKleinBaseRenderRealism(input: {
       }
       if (suffix) {
         const separator = /[.!?]$/.test(positive) ? " " : ". ";
-        const before = positive.length;
         positive = `${positive}${separator}${suffix}`;
-        if (typeof remaining === "number") {
-          remaining = Math.max(0, remaining - (positive.length - before));
-        }
       }
     }
   }
 
-  const avoidAlreadyPresent = /\bavoid\b/i.test(positive);
-  if (!avoidAlreadyPresent) {
-    if (typeof remaining !== "number" || remaining >= 48) {
-      let avoid = KLEIN_BASE_FLUX_PHOTO_AVOID[input.mode];
-      if (typeof remaining === "number") {
-        avoid = clipSuffixToBudget(avoid, remaining);
-      }
-      if (avoid) {
-        const separator = /[.!?]$/.test(positive) ? " " : ". ";
-        positive = `${positive}${separator}${avoid}`;
-      }
-    }
-  }
-
-  return { positive, negative: undefined };
+  // Klein Base CFG uses the negative slot (authentic skin workflows rely on this).
+  return {
+    positive,
+    negative: mergeCommaList(
+      input.negative,
+      KLEIN_BASE_PLASTIC_NEGATIVE[input.mode],
+    ),
+  };
 }
 
 export function applyRenderRealismToPositive(
@@ -308,6 +313,7 @@ export function applyRenderRealismForModel(input: {
   ) {
     return applyKleinBaseRenderRealism({
       positive: input.positive,
+      negative: input.negative,
       mode: resolvedMode,
       maxPositiveAppendChars: input.maxPositiveAppendChars,
     });

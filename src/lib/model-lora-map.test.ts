@@ -158,6 +158,20 @@ describe("model lora map", () => {
       ["detail"],
     );
 
+    // Klein Base keeps Realistic Detail + Ultra Real even if the session stack was cleared
+    // or a stale map only lists Realistic Detail.
+    byModel = setSessionLoraIdsForModel(byModel, "flux-2-klein-9b", []);
+    assert.deepEqual(
+      resolveLoraIdsForModelSelection("flux-2-klein-9b", {
+        sessionActiveLoraIdsByModel: byModel,
+        modelLoraMap: {
+          ...map,
+          "flux-2-klein-9b": "klein-realistic-detail",
+        },
+      }),
+      ["klein-realistic-detail", "klein-ultra-real-v4"],
+    );
+
     // Sticky global session must not override another model's map when byModel has entries
     assert.deepEqual(
       resolveEffectiveSessionLoraIds(

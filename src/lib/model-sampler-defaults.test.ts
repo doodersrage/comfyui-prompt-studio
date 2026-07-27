@@ -241,13 +241,13 @@ describe("model sampler defaults", () => {
     });
     assert.deepEqual(getModelSamplerDefaults("flux-2-klein", "base"), {
       steps: 24,
-      cfg: 3.5,
+      cfg: 4,
       samplerName: "euler",
       scheduler: "simple",
     });
     assert.deepEqual(getModelSamplerDefaults("flux-2-klein-9b", "base"), {
       steps: 24,
-      cfg: 3.5,
+      cfg: 4,
       samplerName: "euler",
       scheduler: "simple",
     });
@@ -312,9 +312,15 @@ describe("model sampler defaults", () => {
     assert.equal(base.samplerName, "dpmpp_2m");
     assert.equal(base.scheduler, "beta");
     assert.equal(base.steps, 30);
-    assert.equal(base.cfg, 3);
+    assert.equal(base.cfg, 2.5);
     const max = getModelSamplerDefaults("flux-ultrareal-v4", "max");
     assert.equal(max.steps, 50);
+  });
+
+  it("keeps Klein Base CFG at 4 across quality tiers", () => {
+    assert.equal(getModelSamplerDefaults("flux-2-klein-9b", "base").cfg, 4);
+    assert.equal(getModelSamplerDefaults("flux-2-klein-9b", "optimized").cfg, 4);
+    assert.equal(getModelSamplerDefaults("flux-2-klein-9b", "max").cfg, 4);
   });
 
   it("returns max compatible defaults within model sampler limits", () => {

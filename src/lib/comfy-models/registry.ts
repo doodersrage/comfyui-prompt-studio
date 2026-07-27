@@ -155,7 +155,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     comfyNode: "CLIP Text Encode (Flux)",
     comfyClass: "Flux",
     description:
-      "Danrisi UltraReal Fine-Tune v4 on Flux.1 D — photographic realism; DPM++ 2M / beta / FluxGuidance 3 (KSampler CFG 1); EmptySD3Latent + ae.safetensors. Auto Realism Amplifier @ 0.7 with d1g1cam trigger — not UltraRealPhoto (see Civitai).",
+      "Danrisi UltraReal Fine-Tune v4 on Flux.1 D — photographic realism; DPM++ 2M / beta / FluxGuidance 2.5 (KSampler CFG 1); EmptySD3Latent + ae.safetensors. Auto Realism Amplifier @ 0.55 with d1g1cam trigger — not UltraRealPhoto (see Civitai).",
     profile: "flux_prose",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.flux_prose,
@@ -216,7 +216,7 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     comfyNode: "CLIP Text Encode (Flux)",
     comfyClass: "Flux2Klein9B",
     description:
-      "Undistilled 9B Klein — 24 steps, CFG 3.5–4.5, euler/simple. Needs a Base workflow/checkpoint; distilled settings will distort output.",
+      "Undistilled 9B Klein — 24 steps, CFG 4, euler/simple. Needs Base workflow + flux-2-klein-base-9b. Auto Realistic Detail @ 0.7 (srx_detail) + Ultra Real v4 @ 0.8; CFG negatives fight plastic skin.",
     profile: "flux_klein",
     referenceTokenLimit: 512,
     limitsByDetail: PROFILE_LIMITS.flux_klein,

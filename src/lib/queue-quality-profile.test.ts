@@ -233,6 +233,14 @@ describe("queue-quality-profile", () => {
       upscaleScaleForProfile("max", { model: "flux-ultrareal-v4" }),
       1,
     );
+    assert.equal(
+      profileSkipsOutputUpscaleForModel("final", { model: "flux-2-klein-9b" }),
+      true,
+    );
+    assert.equal(
+      profileUsesNeuralUpscaleEnrich("max", { model: "flux-2-klein-9b" }),
+      false,
+    );
     assert.equal(profileUsesNeuralUpscaleEnrich("max"), true);
     const { formatQueueQualityProfileHint } = await import(
       "./queue-quality-profile.ts"
@@ -318,6 +326,10 @@ describe("queue-quality-profile", () => {
     );
     assert.equal(
       profileUsesLatentDetailPass("final", { model: "flux-ultrareal-v4" }),
+      false,
+    );
+    assert.equal(
+      profileUsesLatentDetailPass("final", { model: "flux-2-klein-9b" }),
       false,
     );
     assert.equal(

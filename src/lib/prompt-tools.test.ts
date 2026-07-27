@@ -216,14 +216,24 @@ describe("prompt pair export", () => {
     assert.match(text, /watermark/);
   });
 
-  it("notes flux ignores negatives", () => {
-    assert.equal(modelUsesNegativePrompt("flux-2-klein"), false);
+  it("notes classic flux ignores negatives; Klein Base uses CFG negatives", () => {
+    assert.equal(modelUsesNegativePrompt("flux-2-klein"), true);
+    assert.equal(modelUsesNegativePrompt("flux-2-klein-9b"), true);
+    assert.equal(modelUsesNegativePrompt("flux-2-klein-9b-distilled"), false);
+    assert.equal(modelUsesNegativePrompt("flux-dev"), false);
     const text = formatPromptPair({
       positive: "Portrait in rain.",
       negative: "blurry",
-      model: "flux-2-klein",
+      model: "flux-dev",
     });
     assert.match(text, /ignores negatives/i);
+    const kleinText = formatPromptPair({
+      positive: "Portrait in rain.",
+      negative: "plastic skin",
+      model: "flux-2-klein-9b",
+    });
+    assert.match(kleinText, /# Negative/);
+    assert.match(kleinText, /plastic skin/);
   });
 });
 

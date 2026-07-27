@@ -1,3 +1,11 @@
+import {
+  isFluxFineTuneCheckpointModel,
+} from "./model-checkpoint-map";
+import { isKleinBaseModel } from "./model-sampler-defaults";
+import { KLEIN_REALISTIC_DETAIL_LORA_ID } from "./klein-realistic-detail-lora";
+import { KLEIN_ULTRA_REAL_LORA_ID } from "./klein-ultra-real-lora";
+import { ULTRAREAL_AMPLIFIER_LORA_ID } from "./ultrareal-amplifier-lora";
+
 /**
  * Per-model default LoRA library id lists.
  * Line format: modelId=loraId1,loraId2
@@ -9,11 +17,45 @@ export type ModelLoraMap = Partial<Record<string, string>>;
 /** Explicit session LoRA picks keyed by model id (including empty stacks). */
 export type SessionActiveLoraIdsByModel = Partial<Record<string, string[]>>;
 
+/** Companion realism LoRAs that stay on even when the session stack was cleared. */
+export function companionRealismLoraIdsForModel(
+  model: string | undefined,
+): string[] {
+  if (isFluxFineTuneCheckpointModel(model)) {
+    return [ULTRAREAL_AMPLIFIER_LORA_ID];
+  }
+  if (isKleinBaseModel(model ?? "")) {
+    return [KLEIN_REALISTIC_DETAIL_LORA_ID, KLEIN_ULTRA_REAL_LORA_ID];
+  }
+  return [];
+}
+
+/** Merge companion realism LoRAs into a session/map id list.
+ * Always force companions — a stale map that lists only one id must not
+ * drop the other (e.g. Klein Detail without Ultra Real v4).
+ */
+export function mergeCompanionRealismLoraIds(
+  model: string | undefined,
+  ids: string[] | undefined,
+  _modelLoraMap?: ModelLoraMap,
+): string[] {
+  const base = [...(ids ?? [])];
+  for (const id of companionRealismLoraIdsForModel(model)) {
+    if (!base.includes(id)) {
+      base.push(id);
+    }
+  }
+  return base;
+}
+
 /** No curated suggestions — users define ids from their LoRA library.
  * UltraReal Fine-Tune pairs with Danrisi Realism Amplifier (auto-seeded into the library).
+ * Klein Base pairs with Realistic Detail + Ultra Real v4 skin LoRA (auto-seeded when installed).
  */
 export const SUGGESTED_MODEL_LORA_MAP: ModelLoraMap = {
   "flux-ultrareal-v4": "ultrareal-amplifier",
+  "flux-2-klein-9b": "klein-realistic-detail,klein-ultra-real-v4",
+  "flux-2-klein": "klein-realistic-detail,klein-ultra-real-v4",
 };
 
 export function formatModelLoraMap(map: ModelLoraMap | undefined): string {
@@ -129,23 +171,31 @@ export function resolveEffectiveSessionLoraIds(
 ): string[] | undefined {
   const modelId = model?.trim();
   if (hasSessionLoraIdsForModel(sessionActiveLoraIdsByModel, modelId)) {
-    return sessionActiveLoraIdsByModel![modelId!] ?? [];
+    return mergeCompanionRealismLoraIds(
+      modelId,
+      sessionActiveLoraIdsByModel![modelId!] ?? [],
+      modelLoraMap,
+    );
   }
 
   const fromMap = resolveModelDefaultLoraIds(modelId, modelLoraMap);
   if (fromMap !== undefined) {
-    return fromMap;
+    return mergeCompanionRealismLoraIds(modelId, fromMap, modelLoraMap);
   }
 
   const byModelEmpty =
     !sessionActiveLoraIdsByModel ||
     Object.keys(sessionActiveLoraIdsByModel).length === 0;
   if (sessionActiveLoraIds !== undefined && byModelEmpty) {
-    return sessionActiveLoraIds;
+    return mergeCompanionRealismLoraIds(
+      modelId,
+      sessionActiveLoraIds,
+      modelLoraMap,
+    );
   }
 
-  // Untouched model: optimized system default is an empty session stack.
-  return [];
+  // Untouched model: still attach mapped companion realism LoRAs when present.
+  return mergeCompanionRealismLoraIds(modelId, [], modelLoraMap);
 }
 
 /** Resolve which LoRA ids to show/apply when switching to a model. */

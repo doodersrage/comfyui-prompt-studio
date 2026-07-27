@@ -8,6 +8,7 @@ import {
 } from "./comfyui-workflow-files";
 import { syncLightningLoraLibraryEntry, comfyUiSettingsToRuntime, loadComfyUiSettings } from "./comfyui-settings";
 import { enrichLoraLibraryForUltraRealModel } from "./ultrareal-amplifier-lora";
+import { enrichLoraLibraryForKleinBaseModel } from "./klein-realistic-detail-lora";
 import type { ComfyUiSettings } from "./comfyui-settings";
 import {
   loadSettingsCache,
@@ -223,9 +224,13 @@ function loadComfyUiSettingsForModel(
   const settings = loadComfyUiSettings();
   return {
     ...settings,
-    loraLibrary: enrichLoraLibraryForUltraRealModel(
+    loraLibrary: enrichLoraLibraryForKleinBaseModel(
       model,
-      settings.loraLibrary,
+      enrichLoraLibraryForUltraRealModel(
+        model,
+        settings.loraLibrary,
+        inventory?.loras,
+      ),
       inventory?.loras,
     ),
   };

@@ -9,10 +9,10 @@ import { patchSamplerParamsInWorkflow } from "./comfyui-config.ts";
 import { patchWorkflowDirectParams } from "./workflow-direct-patch.ts";
 
 describe("flux guidance patch", () => {
-  it("maps UltraReal sidebar CFG to FluxGuidance value 3", () => {
-    assert.equal(resolveFlux1GuidanceValue("flux-ultrareal-v4"), 3);
+  it("maps UltraReal sidebar CFG to FluxGuidance value 2.5", () => {
+    assert.equal(resolveFlux1GuidanceValue("flux-ultrareal-v4"), 2.5);
     assert.equal(resolveFlux1GuidanceValue("flux-dev"), 3.5);
-    assert.equal(resolveFlux1GuidanceValue("flux-ultrareal-v4", { cfg: 3 }), 3);
+    assert.equal(resolveFlux1GuidanceValue("flux-ultrareal-v4", { cfg: 2.5 }), 2.5);
   });
 
   it("inserts FluxGuidance and forces KSampler cfg 1 for UltraReal scaffolds without it", () => {
@@ -42,7 +42,7 @@ describe("flux guidance patch", () => {
       },
     };
     const result = ensureFluxGuidanceInWorkflow(bare, "flux-ultrareal-v4", {
-      cfg: 3,
+      cfg: 2.5,
     });
     assert.equal(result.inserted, 1);
     assert.equal(result.samplerCfgForced, 1);
@@ -56,7 +56,7 @@ describe("flux guidance patch", () => {
       inputs: { guidance: number; conditioning: [string, number] };
     };
     assert.equal(guidance.class_type, "FluxGuidance");
-    assert.equal(guidance.inputs.guidance, 3);
+    assert.equal(guidance.inputs.guidance, 2.5);
     assert.equal(guidance.inputs.conditioning[0], "5");
   });
 

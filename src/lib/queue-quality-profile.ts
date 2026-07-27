@@ -1,4 +1,5 @@
 import {
+  isKleinBaseModel,
   normalizeModelSamplerPresetTier,
   type ModelSamplerPresetTier,
 } from "./model-sampler-defaults";
@@ -489,9 +490,9 @@ export function profileSkipsOutputUpscaleForModel(
   if (/^qwen-rapid-aio-/i.test(model)) {
     return true;
   }
-  // UltraReal Fine-Tune: native decode is already soft — Lanczos 1.25–1.5×
-  // turns skin into plastic mush and kills strand/fabric detail.
-  if (isFluxFineTuneCheckpointModel(model)) {
+  // UltraReal Fine-Tune / Klein Base: native decode is already soft — Lanczos
+  // 1.25–1.5× turns skin into plastic mush and kills strand/fabric detail.
+  if (isFluxFineTuneCheckpointModel(model) || isKleinBaseModel(model)) {
     return true;
   }
   if (/qwen-image-edit-2511-lightning/i.test(model)) {
@@ -639,6 +640,9 @@ export function profileUsesNeuralUpscaleEnrich(
   if (isFluxFineTuneCheckpointModel(options?.model)) {
     return false;
   }
+  if (isKleinBaseModel(options?.model ?? "")) {
+    return false;
+  }
   return true;
 }
 
@@ -652,6 +656,9 @@ export function lanczosPolishScaleAfterNeural(
   if (isFluxFineTuneCheckpointModel(options?.model)) {
     return 1;
   }
+  if (isKleinBaseModel(options?.model ?? "")) {
+    return 1;
+  }
   return 1.05;
 }
 
@@ -663,6 +670,9 @@ export function profileUsesNeuralUpscalePolish(
     return false;
   }
   if (isFluxFineTuneCheckpointModel(options?.model)) {
+    return false;
+  }
+  if (isKleinBaseModel(options?.model ?? "")) {
     return false;
   }
   return normalizeQueueQualityProfile(profile) === "max";
@@ -725,6 +735,10 @@ export function profileUsesLatentDetailPass(
   // Civitai FLUX.1 fine-tunes: one KSampler pass at 30–50 steps — latent hires-fix
   // adds edge ghosting and warped limbs (author notes v4 hands are already fragile).
   if (isFluxFineTuneCheckpointModel(model)) {
+    return false;
+  }
+  // FLUX.2 Klein Base: latent detail softens skin into plastic and melts hands.
+  if (isKleinBaseModel(model)) {
     return false;
   }
   return /^flux/i.test(model);
