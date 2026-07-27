@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import ThemeInit from "@/components/ThemeInit";
@@ -35,11 +35,15 @@ export const metadata: Metadata = {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
     shortcut: ["/icon.svg"],
-  },
+  }
+};
+
+// Add themeColor directly to viewport to avoid flicker on initial load
+export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: dark)", color: "#0b0f14" },
     { media: "(prefers-color-scheme: light)", color: "#0b0f14" },
-  ],
+  ]
 };
 
 export default function RootLayout({
