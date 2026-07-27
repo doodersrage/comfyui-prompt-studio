@@ -167,6 +167,24 @@ export function applyAnatomyGuardForModel(input: {
       ? Math.max(0, input.maxPositiveAppendChars - (positive.length - baseLength))
       : undefined;
 
+  // Klein Base pose guidance applies to positive even when model uses negatives.
+  if (
+    isKleinBaseModel(input.model) &&
+    resolvedMode === "strict" &&
+    !/\bkeep poses straightforward\b/i.test(positive)
+  ) {
+    const extra =
+      "Keep poses straightforward when hands, faces, or full figures must read cleanly.";
+    if (typeof remaining !== "number" || remaining >= 70) {
+      const extraText =
+        typeof remaining === "number" ? clipSuffixToBudget(extra, remaining) : extra;
+      if (extraText) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        positive = `${positive}${separator}${extraText}`;
+      }
+    }
+  }
+
   if (modelUsesNegativePrompt(input.model)) {
     return {
       positive,
@@ -202,23 +220,6 @@ export function applyAnatomyGuardForModel(input: {
         if (typeof remaining === "number") {
           remaining = Math.max(0, remaining - (positive.length - before));
         }
-      }
-    }
-  }
-
-  if (
-    isKleinBaseModel(input.model) &&
-    resolvedMode === "strict" &&
-    !/\bkeep poses straightforward\b/i.test(positive)
-  ) {
-    const extra =
-      "Keep poses straightforward when hands, faces, or full figures must read cleanly.";
-    if (typeof remaining !== "number" || remaining >= 40) {
-      const extraText =
-        typeof remaining === "number" ? clipSuffixToBudget(extra, remaining) : extra;
-      if (extraText) {
-        const separator = /[.!?]$/.test(positive) ? " " : ". ";
-        positive = `${positive}${separator}${extraText}`;
       }
     }
   }

@@ -1,6 +1,7 @@
 import { getComfyUiBaseUrl } from "@/lib/comfyui-client";
 import { stripEmptyComfyUiRuntime } from "@/lib/comfyui-config";
 import { apiError, apiMethodNotAllowed } from "@/lib/api/response";
+// turbopackIgnore: true
 import {
   buildViewCacheKey,
   contentTypeForViewFormat,

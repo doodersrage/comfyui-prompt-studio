@@ -5,7 +5,7 @@ import {
   applyAnatomyGuardToNegative,
   applyAnatomyGuardToPositive,
   normalizeAnatomyGuardMode,
-} from "./anatomy-guard.ts";
+} from "./anatomy-guard";
 
 describe("anatomy guard", () => {
   it("normalizes anatomy guard mode values", () => {
@@ -66,8 +66,9 @@ describe("anatomy guard", () => {
   it("adds pose guidance for klein base flux models in strict mode", () => {
     const result = applyAnatomyGuardForModel({
       positive: "Portrait in window light.",
-      model: "flux-2-klein-9b",
+      model: "flux-2-klein",
       mode: "strict",
+      maxPositiveAppendChars: 500,
     });
     assert.match(result.positive, /Keep poses straightforward/i);
   });

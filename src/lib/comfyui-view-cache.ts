@@ -59,10 +59,10 @@ function diskPaths(key: string, format: ViewCacheFormat): {
 } {
   const root = cacheRoot();
   const shard = key.slice(0, 2);
-  const dir = path.join(root, shard);
+  const dir = /* turbopackIgnore: true */ path.join(root, shard);
   return {
-    filePath: path.join(dir, `${key}.${format}`),
-    metaPath: path.join(dir, `${key}.json`),
+    filePath: /* turbopackIgnore: true */ path.join(dir, `${key}.${format}`),
+    metaPath: /* turbopackIgnore: true */ path.join(dir, `${key}.json`),
   };
 }
 
@@ -81,7 +81,6 @@ function touchMemory(key: string, entry: MemoryEntry): void {
 export function readViewCache(
   key: string,
   format: ViewCacheFormat,
-  ttlMs = DEFAULT_TTL_MS,
 ): CachedViewImage | null {
   const now = Date.now();
   const mem = memory.get(key);
@@ -95,7 +94,7 @@ export function readViewCache(
 
   try {
     const { filePath, metaPath } = diskPaths(key, format);
-    const metaRaw = fs.readFileSync(metaPath, "utf8");
+    const metaRaw = /* turbopackIgnore: true */ fs.readFileSync(metaPath, "utf8");
     const meta = JSON.parse(metaRaw) as { expiresAt?: number; contentType?: string };
     if (
       typeof meta.expiresAt !== "number" ||
@@ -104,7 +103,7 @@ export function readViewCache(
     ) {
       return null;
     }
-    const buffer = fs.readFileSync(filePath);
+    const buffer = /* turbopackIgnore: true */ fs.readFileSync(filePath);
     const entry: MemoryEntry = {
       buffer,
       contentType: meta.contentType,
@@ -128,9 +127,9 @@ export function writeViewCache(
 
   try {
     const { filePath, metaPath } = diskPaths(key, format);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, image.buffer);
-    fs.writeFileSync(
+    /* turbopackIgnore: true */ fs.mkdirSync(/* turbopackIgnore: true */ path.dirname(filePath), { recursive: true });
+    /* turbopackIgnore: true */ fs.writeFileSync(filePath, image.buffer);
+    /* turbopackIgnore: true */ fs.writeFileSync(
       metaPath,
       JSON.stringify({ expiresAt, contentType: image.contentType }),
     );

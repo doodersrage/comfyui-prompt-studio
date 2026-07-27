@@ -381,7 +381,7 @@ export default function ImageLightbox({
   }, [open, index, images, state?.mediaKinds]);
 
   useEffect(() => {
-    setCurrentImageLoaded(false);
+    scheduleAfterCommit(() => setCurrentImageLoaded(false));
   }, [currentUrl]);
 
   if (!mounted || !open || !currentUrl) {

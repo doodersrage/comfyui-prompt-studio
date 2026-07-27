@@ -226,7 +226,7 @@ function applyKleinBaseRenderRealism(input: {
 }): { positive: string; negative?: string } {
   let positive = input.positive.trim();
   const maxAppend = input.maxPositiveAppendChars;
-  let remaining =
+  const remaining =
     typeof maxAppend === "number" ? Math.max(0, maxAppend) : undefined;
 
   // Always harden when the LLM only said "photograph" — that still yields artsy CGI.
