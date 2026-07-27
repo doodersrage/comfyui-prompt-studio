@@ -434,7 +434,7 @@ export function optimizeWorkflowForQueue(input: {
     changes.push({
       kind: "audit",
       severity: "info",
-      message: `Converted ${latentNormalize.converted} empty-latent node(s) to EmptySD3LatentImage for ${input.model ?? "Qwen/SD3"}.`,
+      message: `Converted ${latentNormalize.converted} empty-latent node(s) to the correct family for ${input.model ?? "model"}.`,
     });
   }
 

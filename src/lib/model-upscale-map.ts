@@ -12,6 +12,7 @@ export const SUGGESTED_MODEL_UPSCALE_MAP: ModelUpscaleMap = {
   "qwen-image-2512": "4x_NMKD-Siax_200k.pth",
   "qwen-image-2.0": "4x_NMKD-Siax_200k.pth",
   "flux-dev": "4x-UltraSharp.pth",
+  "flux-ultrareal-v4": "4x-UltraSharp.pth",
   flux2: "4x-UltraSharp.pth",
   "flux-2-klein": "4x-UltraSharp.pth",
   "flux-2-klein-9b": "4x-UltraSharp.pth",

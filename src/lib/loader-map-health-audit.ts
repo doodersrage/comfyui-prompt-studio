@@ -1,8 +1,25 @@
+import { getComfyModelDefinition } from "./comfy-models";
 import type { ComfyUiModelLists } from "./comfyui-object-info";
 import { buildLoraFilenameMapFromCustomTokens } from "./workflow-lora-patch";
-import { matchInventoryFilename } from "./loader-map-inventory-sync";
+import {
+  isFilenameInUnetLoaderList,
+  matchInventoryFilename,
+  unetLoaderPlacementMessage,
+} from "./loader-map-inventory-sync";
+import { isQwenRapidAioModel } from "./model-denoise-defaults";
 import { SUGGESTED_MODEL_CHECKPOINT_MAP } from "./model-checkpoint-map";
 import type { WorkflowHealthIssue } from "./workflow-health-audit";
+
+function modelUsesUnetLoaderGraph(model: string): boolean {
+  if (isQwenRapidAioModel(model)) {
+    return false;
+  }
+  const def = getComfyModelDefinition(model);
+  if (!def) {
+    return false;
+  }
+  return def.category === "flux" || def.category === "qwen" || def.category === "sd3";
+}
 
 function filenameInList(filename: string, list: string[]): boolean {
   const trimmed = filename.trim();
@@ -34,8 +51,23 @@ export function auditLoaderMapsAgainstComfyUi(input: {
       continue;
     }
     const inCheckpoint = filenameInList(filename, input.models.checkpoints);
-    const inUnet = filenameInList(filename, input.models.unets);
-    if (!inCheckpoint && !inUnet) {
+    const inUnet = isFilenameInUnetLoaderList(filename, input.models.unets);
+    if (inUnet) {
+      continue;
+    }
+    if (modelUsesUnetLoaderGraph(model)) {
+      const placement = unetLoaderPlacementMessage(filename, input.models);
+      if (placement) {
+        issues.push({
+          workflowId: "loader-map",
+          workflowName: "Checkpoint map",
+          severity: "error",
+          message: `${model} → ${placement}`,
+        });
+      }
+      continue;
+    }
+    if (!inCheckpoint) {
       // Curated defaults for unused families are advisory; user overrides stay errors.
       const severity = isSuggestedCheckpointDefault(model, filename)
         ? "warn"

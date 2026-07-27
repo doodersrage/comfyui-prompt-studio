@@ -307,6 +307,16 @@ describe("model sampler defaults", () => {
     assert.equal(normalizeModelSamplerPresetTier(undefined), "base");
   });
 
+  it("uses DPM++ 2M + beta for UltraReal Fine-Tune v4 (Civitai author settings)", () => {
+    const base = getModelSamplerDefaults("flux-ultrareal-v4", "base");
+    assert.equal(base.samplerName, "dpmpp_2m");
+    assert.equal(base.scheduler, "beta");
+    assert.equal(base.steps, 30);
+    assert.equal(base.cfg, 3);
+    const max = getModelSamplerDefaults("flux-ultrareal-v4", "max");
+    assert.equal(max.steps, 50);
+  });
+
   it("returns max compatible defaults within model sampler limits", () => {
     const optimized = getModelSamplerDefaults("flux-dev", "optimized");
     const compatible = getModelSamplerDefaults("flux-dev", "maxCompatible");

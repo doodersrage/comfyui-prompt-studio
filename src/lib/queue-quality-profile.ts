@@ -10,6 +10,7 @@ import {
   type ResolutionSizeTier,
 } from "./model-resolution-defaults";
 import { loadSettingsCache } from "./settings-cache";
+import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
 
 export type QueueQualityProfile =
   | "followSettings"
@@ -488,6 +489,11 @@ export function profileSkipsOutputUpscaleForModel(
   if (/^qwen-rapid-aio-/i.test(model)) {
     return true;
   }
+  // UltraReal Fine-Tune: native decode is already soft — Lanczos 1.25–1.5×
+  // turns skin into plastic mush and kills strand/fabric detail.
+  if (isFluxFineTuneCheckpointModel(model)) {
+    return true;
+  }
   if (/qwen-image-edit-2511-lightning/i.test(model)) {
     // Reference-image edits (Compose/Transfer/Refine) get light Final Lanczos;
     // plain T2I Generate still skips to avoid enlarging soft mush.
@@ -630,6 +636,9 @@ export function profileUsesNeuralUpscaleEnrich(
   ) {
     return false;
   }
+  if (isFluxFineTuneCheckpointModel(options?.model)) {
+    return false;
+  }
   return true;
 }
 
@@ -640,6 +649,9 @@ export function lanczosPolishScaleAfterNeural(
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
     return 1;
   }
+  if (isFluxFineTuneCheckpointModel(options?.model)) {
+    return 1;
+  }
   return 1.05;
 }
 
@@ -648,6 +660,9 @@ export function profileUsesNeuralUpscalePolish(
   options?: { model?: string },
 ): boolean {
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
+    return false;
+  }
+  if (isFluxFineTuneCheckpointModel(options?.model)) {
     return false;
   }
   return normalizeQueueQualityProfile(profile) === "max";
@@ -705,6 +720,11 @@ export function profileUsesLatentDetailPass(
   // Vanilla Qwen: image-space Final/Max upscale only — latent hires-fix
   // (1.12–1.2× + denoise 0.14–0.2) warps limbs/clothing on hard poses.
   if (/^qwen-image-2512$/i.test(model) || /^qwen-image-2\.0$/i.test(model)) {
+    return false;
+  }
+  // Civitai FLUX.1 fine-tunes: one KSampler pass at 30–50 steps — latent hires-fix
+  // adds edge ghosting and warped limbs (author notes v4 hands are already fragile).
+  if (isFluxFineTuneCheckpointModel(model)) {
     return false;
   }
   return /^flux/i.test(model);

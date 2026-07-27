@@ -37,7 +37,9 @@ import {
   DEFAULT_CHECKPOINT_TOKEN,
   DEFAULT_UNET_TOKEN,
   resolveLoaderFilenamesForModel,
+  suggestedVaeFilenameForModel,
   SUGGESTED_MODEL_VAE_MAP,
+  isVaeFilenameIncompatibleWithModel,
 } from "./model-checkpoint-map";
 import {
   defaultLoaderPrecisionTier,
@@ -82,11 +84,11 @@ export function fluxKleinDualClipFilename(model?: ComfyImageModel | string): str
 }
 
 function fluxVaeFilename(model?: ComfyImageModel | string): string {
-  if (model && SUGGESTED_MODEL_VAE_MAP[model as ComfyImageModel]) {
-    return SUGGESTED_MODEL_VAE_MAP[model as ComfyImageModel]!;
-  }
-  if (typeof model === "string" && /klein|flux.?2/i.test(model)) {
-    return "flux2-vae.safetensors";
+  if (model) {
+    const suggested = suggestedVaeFilenameForModel(model);
+    if (suggested) {
+      return suggested;
+    }
   }
   return "ae.safetensors";
 }
@@ -174,11 +176,16 @@ function bindScaffoldJson(
   return { json: bound.json, bindingChanges: bound.changes.length };
 }
 
+function fluxScaffoldUsesGuidance(model?: ComfyImageModel | string): boolean {
+  return !isFluxKleinModel(model) && model !== "flux2";
+}
+
 function fluxScaffold(
   tokens: WorkflowPlaceholderTokens,
   model?: ComfyImageModel | string,
 ): Record<string, unknown> {
   const loaders = fluxDiffusionLoaders(model);
+  const useGuidance = fluxScaffoldUsesGuidance(model);
   return {
     "1": {
       class_type: "UNETLoader",
@@ -212,8 +219,24 @@ function fluxScaffold(
       inputs: { text: tokens.negative, clip: ["2", 0] },
       _meta: { title: "Negative Prompt" },
     },
+    ...(useGuidance
+      ? {
+          "11": {
+            class_type: "FluxGuidance",
+            inputs: {
+              conditioning: ["5", 0],
+              // Sidebar CFG maps here for FLUX.1 — KSampler.cfg stays 1.
+              guidance: tokens.cfg,
+            },
+            _meta: { title: "FluxGuidance" },
+          },
+        }
+      : {}),
     "7": {
-      class_type: "EmptyLatentImage",
+      class_type:
+        isFluxKleinModel(model) || model === "flux2"
+          ? "EmptyFlux2LatentImage"
+          : "EmptySD3LatentImage",
       inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
       _meta: { title: "Empty Latent" },
     },
@@ -222,12 +245,12 @@ function fluxScaffold(
       inputs: {
         seed: tokens.seed,
         steps: tokens.steps,
-        cfg: tokens.cfg,
+        cfg: useGuidance ? 1 : tokens.cfg,
         sampler_name: tokens.sampler,
         scheduler: tokens.scheduler,
         denoise: tokens.denoise,
         model: ["4", 0],
-        positive: ["5", 0],
+        positive: useGuidance ? ["11", 0] : ["5", 0],
         negative: ["6", 0],
         latent_image: ["7", 0],
       },
@@ -826,10 +849,18 @@ function fluxInpaintScaffold(
       inputs: { text: tokens.negative, clip: ["2", 0] },
       _meta: { title: "Negative Prompt" },
     },
+    "11": {
+      class_type: "FluxGuidance",
+      inputs: {
+        conditioning: ["5", 0],
+        guidance: tokens.cfg,
+      },
+      _meta: { title: "FluxGuidance" },
+    },
     "903": {
       class_type: "InpaintModelConditioning",
       inputs: {
-        positive: ["5", 0],
+        positive: ["11", 0],
         negative: ["6", 0],
         vae: ["3", 0],
         pixels: ["900", 0],
@@ -842,7 +873,7 @@ function fluxInpaintScaffold(
       inputs: {
         seed: tokens.seed,
         steps: tokens.steps,
-        cfg: tokens.cfg,
+        cfg: 1,
         sampler_name: tokens.sampler,
         scheduler: tokens.scheduler,
         denoise: tokens.denoise,
@@ -871,6 +902,7 @@ function fluxImg2imgScaffold(
   model?: ComfyImageModel | string,
 ): Record<string, unknown> {
   const loaders = fluxDiffusionLoaders(model);
+  const useGuidance = fluxScaffoldUsesGuidance(model);
   return {
     "1": {
       class_type: "UNETLoader",
@@ -914,17 +946,29 @@ function fluxImg2imgScaffold(
       inputs: { text: tokens.negative, clip: ["2", 0] },
       _meta: { title: "Negative Prompt" },
     },
+    ...(useGuidance
+      ? {
+          "11": {
+            class_type: "FluxGuidance",
+            inputs: {
+              conditioning: ["5", 0],
+              guidance: tokens.cfg,
+            },
+            _meta: { title: "FluxGuidance" },
+          },
+        }
+      : {}),
     "8": {
       class_type: "KSampler",
       inputs: {
         seed: tokens.seed,
         steps: tokens.steps,
-        cfg: tokens.cfg,
+        cfg: useGuidance ? 1 : tokens.cfg,
         sampler_name: tokens.sampler,
         scheduler: tokens.scheduler,
         denoise: tokens.denoise,
         model: ["4", 0],
-        positive: ["5", 0],
+        positive: useGuidance ? ["11", 0] : ["5", 0],
         negative: ["6", 0],
         latent_image: ["901", 0],
       },

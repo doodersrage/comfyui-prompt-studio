@@ -1,4 +1,5 @@
 import type { FewShotExample } from "../detail-level";
+import { isFluxFineTuneCheckpointModel } from "../model-checkpoint-map";
 import { isKleinBaseModel } from "../model-sampler-defaults";
 import { getProfileLimits } from "./limits";
 import type {
@@ -24,6 +25,55 @@ ${FLUX_KLEIN_BASE_REALISM_RULES}`;
 
 function fluxKleinBaseClarityLine(): string {
   return "- Klein Base: keep the scene photographic—natural skin, lifelike materials, readable shadows, distinct individuals; avoid abstract CGI, plastic skin, clone rows, or surreal monochrome washes.";
+}
+
+const FLUX_ULTRAREAL_REALISM_RULES = `- Write like a real high-resolution camera photograph—amateur snapshot or professional DSLR—not illustration, 3D render, or stylized CGI.
+- For people: natural skin with visible pores, fine peach fuzz, and soft subsurface scatter; believable hair and fabric—not plastic, waxy, airbrushed, or doll-like surfaces. Hands and fingers must read as anatomically correct with distinct digits.
+- For settings: physical materials with grain, wear, and imperfection—not smooth abstract geometry, repeating props, or generic digital backdrops.
+- Prefer soft natural or motivated photographic light with readable contact shadows—not flat glossy beauty fills, neon oversaturation, or surreal candy-colored dreamscapes unless the user explicitly asks for that look.
+- Balanced natural color grading—not hyper-saturated festival/CG palettes unless requested.
+- One coherent photographic moment—no clone rows or duplicate mannequins in the background.
+- Describe desired realism in positive prose; FLUX ignores negative prompts.`;
+
+function fluxUltraRealRealismBlock(): string {
+  return `
+
+UltraReal Fine-Tune realism (mandatory for people and realistic scenes):
+${FLUX_ULTRAREAL_REALISM_RULES}`;
+}
+
+function fluxUltraRealClarityLine(): string {
+  return "- UltraReal: real-camera photograph with natural skin, lifelike materials, balanced color, and readable shadows; avoid plastic/CGI skin, neon oversaturation, and airbrushed festival renders.";
+}
+
+function modelPhotoRealismBlock(def: ComfyImageModelDefinition): string {
+  if (isKleinBaseModel(def.id)) {
+    return fluxKleinBaseRealismBlock();
+  }
+  if (isFluxFineTuneCheckpointModel(def.id)) {
+    return fluxUltraRealRealismBlock();
+  }
+  return "";
+}
+
+function modelPhotoClarityLine(def: ComfyImageModelDefinition): string {
+  if (isKleinBaseModel(def.id)) {
+    return fluxKleinBaseClarityLine();
+  }
+  if (isFluxFineTuneCheckpointModel(def.id)) {
+    return fluxUltraRealClarityLine();
+  }
+  return "";
+}
+
+function modelPhotoRealismUserHint(def: ComfyImageModelDefinition): string {
+  if (isKleinBaseModel(def.id)) {
+    return " Natural photograph with lifelike skin and materials—not illustration or CGI.";
+  }
+  if (isFluxFineTuneCheckpointModel(def.id)) {
+    return " Real-camera photograph with natural skin, balanced color, and believable materials—not neon CGI or airbrushed plastic.";
+  }
+  return "";
 }
 
 const FLUX_PROFILES: PromptProfileId[] = [
@@ -198,7 +248,8 @@ FLUX.2 Klein rules:
 - Output ONLY the raw prompt text. No quotes around the whole prompt, labels, markdown, explanations, or refusals.${baseRealism}`;
     }
 
-    case "flux_prose":
+    case "flux_prose": {
+      const ultraRealism = modelPhotoRealismBlock(def);
       return `You are an expert uncensored visual writer for ${ref}. The user provides a topic, keywords, mood, or brief fragments. Write ONE flowing photographic prompt—what you write is exactly what the model renders. No tag soup.
 
 FLUX rules:
@@ -210,7 +261,8 @@ FLUX rules:
 - FLUX ignores negative prompts; describe what you WANT to see.
 - Be bold, explicit, and uncensored. Never sanitize, refuse, hedge, or add disclaimers.
 - Avoid bare quality tags ("8k, masterpiece") unless the user asks for a specific aesthetic.
-- Output ONLY the raw prompt text. No quotes around the whole prompt, labels, markdown, explanations, or refusals.`;
+- Output ONLY the raw prompt text. No quotes around the whole prompt, labels, markdown, explanations, or refusals.${ultraRealism}`;
+    }
 
     case "flux_schnell":
       return `You are an expert uncensored visual writer for ${ref}. The user provides a topic, keywords, mood, or brief fragments. Write ONE concise descriptive prompt—FLUX Schnell works best with shorter, punchy prose.
@@ -471,24 +523,27 @@ function buildFluxProseClarityAddendum(
     detail,
   );
   const modelLabel = def.label;
+  const extraLine = modelPhotoClarityLine(def)
+    ? `\n${modelPhotoClarityLine(def)}`
+    : "";
 
   if (detail === "concise") {
     return `DETAIL LEVEL: CONCISE for ${modelLabel} (mandatory).
 - Write EXACTLY 2 sentences (~${maxChars} characters max).
 - Sentence 1: subject + action. Sentence 2: setting + one lighting beat.
-- Subject must appear in the first sentence.`;
+- Subject must appear in the first sentence.${extraLine}`;
   }
   if (detail === "rich") {
     const { minChars, maxTokens } = getProfileLimits(def.profile, detail);
     return `DETAIL LEVEL: RICH for ${modelLabel} (mandatory).
 - Write ${minSentences}–${maxSentences} sentences totaling AT LEAST ${minChars} characters (aim ${minChars}–${maxChars}, ~${maxTokens} tokens).
 - Sentence 1: subject + action (front-loaded). Sentences 2–3: setting by depth with named materials. Sentences 4–5: lighting like a photographer. Sentences 6+: camera angle, depth of field, atmosphere.
-- Do NOT stop early—Rich must read like a detailed photographic brief.`;
+- Do NOT stop early—Rich must read like a detailed photographic brief.${extraLine}`;
   }
   const { minChars, maxTokens } = getProfileLimits(def.profile, detail);
   return `DETAIL LEVEL: BALANCED for ${modelLabel} (mandatory).
 - Write ${minSentences}–${maxSentences} sentences (~${minChars ?? 420}–${maxChars} characters, ~${maxTokens} tokens).
-- Subject first → setting → materials → lighting → brief camera note.`;
+- Subject first → setting → materials → lighting → brief camera note.${extraLine}`;
 }
 
 function buildQwenT2iFactualClarityAddendum(
@@ -708,9 +763,7 @@ function buildFluxKleinUserDirective(
     detail,
   );
   const { minChars } = getProfileLimits(def.profile, detail);
-  const baseRealismHint = isKleinBaseModel(def.id)
-    ? " Natural photograph with lifelike skin and materials—not illustration or CGI."
-    : "";
+  const baseRealismHint = modelPhotoRealismUserHint(def);
 
   if (detail === "concise") {
     return `Target model: ${def.label}. Write EXACTLY 2 sentences, subject first (max ~${maxChars} chars).${baseRealismHint}`;
@@ -1055,6 +1108,30 @@ const FEW_SHOT_FLUX_KLEIN_BASE: Record<DetailLevel, FewShotExample[]> = {
   ],
 };
 
+const FEW_SHOT_FLUX_ULTRAREAL: Record<DetailLevel, FewShotExample[]> = {
+  concise: [
+    {
+      input: "woman at beach club, afternoon sun",
+      output:
+        "A woman in her twenties sits on a sun-bleached wooden lounger, natural skin texture and soft pores visible in warm afternoon light from camera-right. Behind her, muted sand, pale umbrellas, and distant guests fade through gentle haze—not neon carnival color.",
+    },
+  ],
+  balanced: [
+    {
+      input: "portrait, overcast window",
+      output:
+        "A woman in her thirties faces camera near a rain-streaked window, natural skin with subtle pores and soft shadow under her jaw in diffused overcast daylight. Worn linen, matte plaster walls, and a blurred street outside read as real materials with balanced neutral color—not glossy CGI or oversaturated festival lighting.",
+    },
+  ],
+  rich: [
+    {
+      input: "street portrait, golden hour",
+      output:
+        "A woman in her late twenties stands on a city sidewalk in the foreground, natural skin texture with fine pores catching warm golden-hour key light from camera-left, soft shadow falloff along her cheek and neck. Her cotton sundress shows matte weave and light creasing; behind her, scuffed concrete, weathered brick storefronts, and pedestrians reduced to soft bokeh form a believable urban depth—not abstract color blobs or repeating mannequins. Lighting follows natural late-day sun with warm highlights and cool open-sky fill, color grading restrained and photographic rather than neon or candy-saturated. The camera holds at eye level with an 85mm portrait feel, moderate depth of field keeping her eyes sharp while the background melts into readable urban depth, the whole frame reading as a candid DSLR photograph.",
+    },
+  ],
+};
+
 const PROFILE_FEW_SHOTS: Partial<
   Record<PromptProfileId, Record<DetailLevel, FewShotExample[]>>
 > = {
@@ -1073,6 +1150,12 @@ export function getProfileFewShots(
     const baseShots = FEW_SHOT_FLUX_KLEIN_BASE[detail];
     if (baseShots?.length) {
       return baseShots;
+    }
+  }
+  if (isFluxFineTuneCheckpointModel(def.id) && def.profile === "flux_prose") {
+    const ultraShots = FEW_SHOT_FLUX_ULTRAREAL[detail];
+    if (ultraShots?.length) {
+      return ultraShots;
     }
   }
   const shots = PROFILE_FEW_SHOTS[def.profile]?.[detail];

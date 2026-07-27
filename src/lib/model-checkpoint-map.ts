@@ -5,6 +5,10 @@ import {
 } from "./comfy-models";
 import type { CustomWorkflowToken, WorkflowParamValues } from "./comfyui-config";
 import {
+  isFlux1FamilyModel,
+  isFluxKleinModel,
+} from "./model-denoise-defaults";
+import {
   defaultLoaderPrecisionTier,
   detectLoaderPrecisionTier,
   filenameMatchesPrecisionTier,
@@ -58,6 +62,7 @@ export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
   "flux-2-klein-9b": "flux-2-klein-base-9b.safetensors",
   "flux-2-klein-9b-distilled": "flux-2-klein-9b-distilled.safetensors",
   "flux-dev": "flux1-dev.safetensors",
+  "flux-ultrareal-v4": "ultrarealFineTune_v4.safetensors",
   sdxl: "sd_xl_base_1.0.safetensors",
   "wan-video": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
   "wan-video-rapid-aio": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
@@ -73,6 +78,7 @@ export const SUGGESTED_MODEL_VAE_MAP: ModelVaeMap = {
   "flux-2-klein-9b": "flux2-vae.safetensors",
   "flux-2-klein-9b-distilled": "flux2-vae.safetensors",
   "flux-dev": "ae.safetensors",
+  "flux-ultrareal-v4": "ae.safetensors",
   "qwen-image-2512": "qwen_image_vae.safetensors",
   "qwen-image-2512-lightning-4": "qwen_image_vae.safetensors",
   "qwen-image-2512-lightning-8": "qwen_image_vae.safetensors",
@@ -192,6 +198,13 @@ export function filenameLooksLikeCheckpointOnly(filename: string | undefined): b
   return false;
 }
 
+/** FLUX.1 Civitai fine-tunes — latent detail + heavy Max polish causes ghosting / melted anatomy. */
+export function isFluxFineTuneCheckpointModel(
+  model: ComfyImageModel | string | undefined,
+): boolean {
+  return String(model ?? "").trim() === "flux-ultrareal-v4";
+}
+
 function preferUnetCompatibleFilename(
   candidate: string | undefined,
   fallback?: string,
@@ -215,12 +228,59 @@ function resolveCustomTokenValue(
 }
 
 const CATEGORY_VAE_HINTS: Partial<Record<ComfyModelCategory, string>> = {
-  flux: "flux2-vae.safetensors",
+  flux: "ae.safetensors",
   sd3: "sd3_vae.safetensors",
   sdxl: "sdxl_vae.safetensors",
   qwen: "qwen_image_vae.safetensors",
   "stable-diffusion": "vae-ft-mse-840000-ema-pruned.safetensors",
 };
+
+/** Preferred VAE filename for queue/scaffold binding (FLUX.1 → ae, Klein/FLUX.2 → flux2-vae). */
+export function suggestedVaeFilenameForModel(
+  model: ComfyImageModel | string,
+): string | undefined {
+  const mapped = trimFilename(SUGGESTED_MODEL_VAE_MAP[model as ComfyImageModel]);
+  if (mapped) {
+    return mapped;
+  }
+  const def = getComfyModelDefinition(model);
+  const fromHint = trimFilename(def?.vaeHint);
+  if (fromHint) {
+    return fromHint;
+  }
+  if (isFlux1FamilyModel(model)) {
+    return "ae.safetensors";
+  }
+  if (isFluxKleinModel(model) || model === "flux2") {
+    return "flux2-vae.safetensors";
+  }
+  if (def?.category) {
+    return CATEGORY_VAE_HINTS[def.category];
+  }
+  return undefined;
+}
+
+/** True when a wired VAE cannot decode latents from the selected model (e.g. flux2-vae + FLUX.1). */
+export function isVaeFilenameIncompatibleWithModel(
+  model: ComfyImageModel | string,
+  vaeFilename: string,
+): boolean {
+  const expected = suggestedVaeFilenameForModel(model);
+  const actual = vaeFilename.trim().toLowerCase();
+  if (!expected?.trim() || !actual) {
+    return false;
+  }
+  if (actual === expected.trim().toLowerCase()) {
+    return false;
+  }
+  if (isFlux1FamilyModel(model) && /flux2-vae/i.test(actual)) {
+    return true;
+  }
+  if ((isFluxKleinModel(model) || model === "flux2") && /^ae\.safetensors$/i.test(actual)) {
+    return true;
+  }
+  return false;
+}
 
 const DEFAULT_QWEN_VAE = "qwen_image_vae.safetensors";
 
@@ -523,7 +583,7 @@ export function resolveLoaderFilenamesForModel(
     workflowVae ??
     trimFilename(options?.vaeMap?.[model]) ??
     trimFilename(def?.vaeHint) ??
-    (def?.category ? CATEGORY_VAE_HINTS[def.category] : undefined);
+    suggestedVaeFilenameForModel(model);
 
   const effectiveTier =
     precisionHintFromFilename(unet ?? checkpoint ?? "") ??

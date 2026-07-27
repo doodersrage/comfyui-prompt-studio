@@ -149,6 +149,21 @@ export const COMFY_IMAGE_MODELS: ComfyImageModelDefinition[] = [
     checkpointHint: "flux1-dev.safetensors",
   },
   {
+    id: "flux-ultrareal-v4",
+    label: "UltraReal Fine-Tune v4",
+    category: "flux",
+    comfyNode: "CLIP Text Encode (Flux)",
+    comfyClass: "Flux",
+    description:
+      "Danrisi UltraReal Fine-Tune v4 on Flux.1 D — photographic realism; DPM++ 2M / beta / FluxGuidance 3 (KSampler CFG 1); EmptySD3Latent + ae.safetensors. Auto Realism Amplifier @ 0.7 with d1g1cam trigger — not UltraRealPhoto (see Civitai).",
+    profile: "flux_prose",
+    referenceTokenLimit: 512,
+    limitsByDetail: PROFILE_LIMITS.flux_prose,
+    checkpointHint: "ultrarealFineTune_v4.safetensors",
+    unetHint: "ultrarealFineTune_v4.safetensors",
+    vaeHint: "ae.safetensors",
+  },
+  {
     id: "flux-schnell",
     label: "FLUX.1 Schnell",
     category: "flux",

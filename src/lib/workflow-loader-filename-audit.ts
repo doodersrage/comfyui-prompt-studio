@@ -1,4 +1,8 @@
 import type { ComfyUiModelLists } from "./comfyui-object-info";
+import {
+  isFilenameInUnetLoaderList,
+  unetLoaderPlacementMessage,
+} from "./loader-map-inventory-sync";
 
 export type WorkflowLoaderFilenameIssue = {
   severity: "error" | "warn";
@@ -98,12 +102,18 @@ export function auditLoaderFilenamesInWorkflow(input: {
     }
 
     if (UNET_LOADER_TYPES.has(classType) && typeof inputs.unet_name === "string") {
-      auditFilenameField(issues, {
-        label: "UNET",
-        filename: inputs.unet_name,
-        list: input.models.unets,
-        fallbackList: input.models.checkpoints,
-      });
+      const unetName = inputs.unet_name.trim();
+      if (unetName && !isBindablePlaceholder(unetName)) {
+        if (!isFilenameInUnetLoaderList(unetName, input.models.unets)) {
+          const placement = unetLoaderPlacementMessage(unetName, input.models);
+          issues.push({
+            severity: "error",
+            message:
+              placement ??
+              `UNET “${unetName}” not found in ComfyUI — update the workflow or run Optimize all.`,
+          });
+        }
+      }
     }
 
     if (classType === "VAELoader" && typeof inputs.vae_name === "string") {

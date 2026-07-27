@@ -24,6 +24,8 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /\{\{POSITIVE\}\}/);
     assert.match(result.json, /\{\{WIDTH\}\}/);
     assert.doesNotMatch(result.json, /VAEEncode/);
+    assert.match(result.json, /EmptyFlux2LatentImage/);
+    assert.doesNotMatch(result.json, /EmptySD3LatentImage/);
   });
 
   it("builds Klein Compose scaffold as ReferenceLatent instruction edit", () => {
@@ -43,6 +45,20 @@ describe("workflow scaffold", () => {
     const result = buildWorkflowScaffoldForModel("flux-dev");
     assert.match(result.json, /clip_l\.safetensors/);
     assert.match(result.json, /t5xxl_fp16\.safetensors/);
+    assert.match(result.json, /EmptySD3LatentImage/);
+    assert.match(result.json, /FluxGuidance/);
+    assert.match(result.json, /"cfg": 1/);
+    assert.doesNotMatch(result.json, /"EmptyLatentImage"/);
+  });
+
+  it("builds ultrareal v4 scaffold like flux-dev with UNET placeholder", () => {
+    const result = buildWorkflowScaffoldForModel("flux-ultrareal-v4");
+    assert.equal(result.category, "flux");
+    assert.match(result.json, /\{\{UNET\}\}/);
+    assert.match(result.json, /ModelSamplingFlux/);
+    assert.match(result.json, /FluxGuidance/);
+    assert.match(result.json, /clip_l\.safetensors/);
+    assert.match(result.json, /EmptySD3LatentImage/);
   });
 
   it("builds flux inpaint scaffold with ModelSamplingFlux", () => {

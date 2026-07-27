@@ -144,6 +144,12 @@ const FLUX_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
   scheduler: "simple",
 };
 
+/** Civitai UltraReal Fine-Tune v4 — author rec: DPM++ 2M, beta, CFG 3, 30–50 steps. */
+const ULTRAREAL_FLUX_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler"> = {
+  samplerName: "dpmpp_2m",
+  scheduler: "beta",
+};
+
 const QWEN_LIGHTNING_SAMPLER: Pick<ModelSamplerDefaults, "samplerName" | "scheduler" | "cfg"> = {
   cfg: 1,
   samplerName: "euler",
@@ -266,6 +272,13 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     optimized: { steps: 28, cfg: 3.5, ...FLUX_SAMPLER },
     maxCompatible: { steps: 28, cfg: 3.5, ...FLUX_SAMPLER },
     max: { steps: 35, cfg: 3.5, ...FLUX_SAMPLER },
+  },
+  "flux-ultrareal-v4": {
+    // Author “CFG Scale: 3” is FluxGuidance; KSampler.cfg is forced to 1 at queue.
+    base: { steps: 30, cfg: 3, ...ULTRAREAL_FLUX_SAMPLER },
+    optimized: { steps: 40, cfg: 3, ...ULTRAREAL_FLUX_SAMPLER },
+    maxCompatible: { steps: 45, cfg: 3, ...ULTRAREAL_FLUX_SAMPLER },
+    max: { steps: 50, cfg: 3, ...ULTRAREAL_FLUX_SAMPLER },
   },
   flux2: {
     base: { steps: 20, cfg: 3.5, ...FLUX_SAMPLER },

@@ -38,6 +38,7 @@ export const MODEL_FAMILY_GROUPS: readonly (readonly ComfyImageModel[])[] = [
     "flux-2-klein-9b",
     "flux-2-klein-9b-distilled",
   ],
+  ["flux-dev", "flux-ultrareal-v4"],
   ["wan-video", "wan-video-rapid-aio", "wan-video-lightning-4"],
 ];
 

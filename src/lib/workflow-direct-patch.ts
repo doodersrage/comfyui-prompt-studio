@@ -6,10 +6,15 @@ import {
   type ComfyImageModel,
 } from "./comfy-models";
 import {
+  isFlux1FamilyModel,
+  isFluxKleinModel,
+} from "./model-denoise-defaults";
+import {
   DEFAULT_CHECKPOINT_TOKEN,
   DEFAULT_UNET_TOKEN,
   DEFAULT_VAE_TOKEN,
   filenameLooksLikeCheckpointOnly,
+  isVaeFilenameIncompatibleWithModel,
   type ModelLoaderFilenames,
 } from "./model-checkpoint-map";
 import { precisionHintFromFilename, qwenUnetFamiliesCompatible } from "./model-loader-precision";
@@ -50,6 +55,7 @@ import {
   normalizeInputImageFilenames,
 } from "./workflow-load-image-bindings";
 import { ensureKleinReferenceLatentWiringInWorkflow } from "./workflow-img2img-patch";
+import { ensureFluxGuidanceInWorkflow } from "./flux-guidance-patch";
 
 export const IMAGE_SCALE_BY_NODE_TYPE = "ImageScaleBy";
 
@@ -87,6 +93,7 @@ export type WorkflowDirectPatchCounts = {
   /** Klein ReferenceLatent instruction-edit wiring when figures are queued. */
   img2imgLatentWired?: number;
   referenceLatentWired?: number;
+  fluxGuidance?: number;
 };
 
 const VIDEO_I2V_WIRE_ERROR =
@@ -284,7 +291,12 @@ export function isLatentSizeNode(classType: string, inputs: Record<string, unkno
   );
 }
 
-/** Qwen / SD3 official templates use EmptySD3LatentImage — convert imported EmptyLatentImage. */
+/**
+ * Match empty-latent channel family to the model:
+ * - Qwen / SD3 / FLUX.1 → EmptySD3LatentImage (16-ch)
+ * - FLUX.2 Klein / flux2 → EmptyFlux2LatentImage
+ * EmptyLatentImage is 4-ch SDXL and melts Flux.1 decode into plastic/warped output.
+ */
 export function normalizeEmptyLatentForModel(
   workflow: Record<string, unknown>,
   model?: string,
@@ -299,8 +311,20 @@ export function normalizeEmptyLatentForModel(
       ? "qwen"
       : /sd3/i.test(model)
         ? "sd3"
-        : null;
-  if (category !== "qwen" && category !== "sd3") {
+        : /flux/i.test(model)
+          ? "flux"
+          : null;
+
+  const targetClass = isFluxKleinModel(model) || model === "flux2"
+    ? "EmptyFlux2LatentImage"
+    : category === "qwen" ||
+        category === "sd3" ||
+        isFlux1FamilyModel(model) ||
+        (category === "flux" && !isFluxKleinModel(model) && model !== "flux2")
+      ? "EmptySD3LatentImage"
+      : null;
+
+  if (!targetClass) {
     return { workflow, converted: 0 };
   }
 
@@ -312,15 +336,16 @@ export function normalizeEmptyLatentForModel(
     }
     const record = node as { class_type?: string };
     const classType = record.class_type ?? "";
-    // Packs sometimes ship EmptyFlux2LatentImage with Qwen UNET — wrong latent
-    // family yields undersized / soft decode. Always prefer EmptySD3 for Qwen/SD3.
     if (
       classType === "EmptyLatentImage" ||
       classType === "EmptyFluxLatentImage" ||
-      classType === "EmptyFlux2LatentImage"
+      classType === "EmptyFlux2LatentImage" ||
+      classType === "EmptySD3LatentImage"
     ) {
-      record.class_type = "EmptySD3LatentImage";
-      converted += 1;
+      if (classType !== targetClass) {
+        record.class_type = targetClass;
+        converted += 1;
+      }
     }
   }
 
@@ -369,20 +394,13 @@ export function patchLoaderNodesInWorkflow(
     alignClipPrecision?: boolean;
     availableCheckpoints?: string[] | null;
     availableUnets?: string[] | null;
+    model?: string;
   },
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const syncLoadersToModel = options?.syncLoadersToModel === true;
   const alignClipPrecision = options?.alignClipPrecision !== false;
   const checkpointInventory = options?.availableCheckpoints;
-  const unetInventory =
-    options?.availableUnets && options.availableUnets.length > 0
-      ? [
-          ...new Set([
-            ...options.availableUnets,
-            ...(options.availableCheckpoints ?? []),
-          ]),
-        ]
-      : options?.availableCheckpoints;
+  const unetInventory = options?.availableUnets;
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
 
@@ -462,13 +480,21 @@ export function patchLoaderNodesInWorkflow(
       loaders.vae &&
       VAE_LOADER_TYPES.has(classType) &&
       "vae_name" in inputs &&
-      shouldPatchLoaderFilenameField(inputs.vae_name, loaders.vae, syncLoadersToModel)
+      (shouldPatchLoaderFilenameField(inputs.vae_name, loaders.vae, syncLoadersToModel) ||
+        (options?.model &&
+          typeof inputs.vae_name === "string" &&
+          isVaeFilenameIncompatibleWithModel(options.model, inputs.vae_name)))
     ) {
       inputs.vae_name = loaders.vae;
       patched.vae = (patched.vae ?? 0) + 1;
     }
 
-    if (loaders.dualClip && DUAL_CLIP_LOADER_TYPES.has(classType)) {
+    if (
+      loaders.dualClip &&
+      DUAL_CLIP_LOADER_TYPES.has(classType) &&
+      // Flux.1 DualCLIP uses clip_l + t5xxl — never stamp both slots with one Qwen-style dualClip.
+      !isFlux1FamilyModel(options?.model)
+    ) {
       for (const field of ["clip_name1", "clip_name2"] as const) {
         if (
           field in inputs &&
@@ -1536,6 +1562,7 @@ export function patchWorkflowDirectParams(
     alignClipPrecision: !isQwenLightningModel(input.model),
     availableCheckpoints: input.availableCheckpoints,
     availableUnets: input.availableUnets,
+    model: input.model,
   });
   const loraPatch = patchLoraNodesInWorkflow(
     loaderPatch.workflow,
@@ -1603,9 +1630,14 @@ export function patchWorkflowDirectParams(
       inputImageFilenames: input.params?.inputImageFilenames,
     },
   );
+  const fluxGuidance = ensureFluxGuidanceInWorkflow(
+    kleinRefWire.workflow,
+    input.model,
+    input.params,
+  );
 
   return {
-    workflow: kleinRefWire.workflow,
+    workflow: fluxGuidance.workflow,
     patched: {
       ...(latentType.converted > 0 ? { emptySd3Latent: latentType.converted } : {}),
       ...latentPatch.patched,
@@ -1629,6 +1661,11 @@ export function patchWorkflowDirectParams(
         ? {
             referenceLatentWired: kleinRefWire.insertedNodeIds.length || 1,
             img2imgLatentWired: 1,
+          }
+        : {}),
+      ...(fluxGuidance.inserted > 0 || fluxGuidance.guidancePatched > 0
+        ? {
+            fluxGuidance: fluxGuidance.inserted + fluxGuidance.guidancePatched,
           }
         : {}),
     },

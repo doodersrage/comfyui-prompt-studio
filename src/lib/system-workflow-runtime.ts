@@ -30,7 +30,9 @@ import {
   type LoaderPrecisionTier,
 } from "./model-loader-precision";
 import {
+  isVaeFilenameIncompatibleWithModel,
   SUGGESTED_MODEL_CHECKPOINT_MAP,
+  suggestedVaeFilenameForModel,
   SUGGESTED_MODEL_VAE_MAP,
   resolveLoaderFilenamesForModel,
   type ModelCheckpointMap,
@@ -292,8 +294,10 @@ function resolveInventoryUnetForModel(
   model: ComfyImageModel,
   inventory: ComfyUiModelLists,
 ): string | undefined {
-  const pool = [...inventory.unets, ...inventory.checkpoints];
-  const preferred = SUGGESTED_MODEL_CHECKPOINT_MAP[model];
+  const pool = inventory.unets;
+  const preferred =
+    SUGGESTED_MODEL_CHECKPOINT_MAP[model] ??
+    getComfyModelDefinition(model)?.unetHint;
   const matched = matchInventoryFilename(preferred, pool);
   if (matched) {
     return matched;
@@ -719,16 +723,15 @@ export function softBindScaffoldFromInventory(
       if (typeof record.inputs.unet_name === "string") {
         if (
           isPlaceholderFilename(record.inputs.unet_name) ||
-          !matchInventoryFilename(record.inputs.unet_name, [
-            ...inventory.unets,
-            ...inventory.checkpoints,
-          ])
+          !matchInventoryFilename(record.inputs.unet_name, inventory.unets)
         ) {
-          record.inputs.unet_name = resolvedUnet;
+          if (resolvedUnet) {
+            record.inputs.unet_name = resolvedUnet;
+          }
         } else {
           const near = matchNearMissInventoryFilename(
             record.inputs.unet_name,
-            [...inventory.unets, ...inventory.checkpoints],
+            inventory.unets,
             unetTier,
           );
           if (near) {
@@ -766,6 +769,26 @@ export function softBindScaffoldFromInventory(
     }
 
     if (classType === "VAELoader" && typeof record.inputs.vae_name === "string") {
+      const suggested = suggestedVaeFilenameForModel(model);
+      if (
+        suggested &&
+        isVaeFilenameIncompatibleWithModel(model, record.inputs.vae_name)
+      ) {
+        const compatiblePool = vaePool.filter((name) =>
+          /flux2-vae/i.test(suggested)
+            ? /flux2-vae/i.test(name)
+            : /ae\.safetensors/i.test(name),
+        );
+        const fixed = matchNearMissInventoryFilename(
+          suggested,
+          compatiblePool.length > 0 ? compatiblePool : vaePool,
+          unetTier,
+        );
+        if (fixed) {
+          record.inputs.vae_name = fixed;
+          continue;
+        }
+      }
       const matched = matchInventoryFilenamePreferTier(
         record.inputs.vae_name,
         vaePool,
@@ -774,10 +797,8 @@ export function softBindScaffoldFromInventory(
       if (matched) {
         record.inputs.vae_name = matched;
       } else if (isPlaceholderFilename(record.inputs.vae_name)) {
-        const suggested =
-          SUGGESTED_MODEL_VAE_MAP[model] ?? SUGGESTED_MODEL_VAE_MAP.default;
         const fromInventory = matchNearMissInventoryFilename(
-          suggested,
+          suggested ?? SUGGESTED_MODEL_VAE_MAP.default,
           vaePool,
           unetTier,
         );
@@ -862,46 +883,69 @@ export function softBindScaffoldFromInventory(
             "CLIPLoader (FLUX.2 Klein)";
         }
       } else {
-        for (const field of ["clip_name1", "clip_name2"] as const) {
-          const current = record.inputs[field];
-          if (typeof current !== "string") {
-            continue;
-          }
-          const matched = matchInventoryFilenamePreferTier(
-            current,
+        // Flux.1 DualCLIP: clip_name1 must stay CLIP-L, clip_name2 must stay T5-XXL.
+        // Broad stem matching can otherwise cross-wire slots → soft/blurry decode.
+        const clipL =
+          matchInventoryFilenamePreferTier("clip_l.safetensors", clipPool, unetTier) ??
+          pickPoolFilenamePreferTier(clipPool, [/^clip_l[\._-]/i, /clip_l\.safetensors/i], unetTier);
+        const t5 =
+          matchInventoryFilenamePreferTier("t5xxl_fp16.safetensors", clipPool, unetTier) ??
+          pickPoolFilenamePreferTier(
             clipPool,
+            [/t5xxl_fp16/i, /t5xxl(?!.*fp8)/i, /t5xxl/i],
             unetTier,
-          );
-          if (matched) {
-            record.inputs[field] = matched;
+          ) ??
+          pickPoolFilenamePreferTier(clipPool, [/t5xxl/i], unetTier);
+
+        if (typeof record.inputs.clip_name1 === "string") {
+          const current1 = record.inputs.clip_name1;
+          if (
+            isPlaceholderFilename(current1) ||
+            /t5xxl|umt5/i.test(current1) ||
+            !matchInventoryFilename(current1, clipPool)
+          ) {
+            if (clipL) {
+              record.inputs.clip_name1 = clipL;
+            }
+          } else {
+            const matched = matchInventoryFilenamePreferTier(
+              current1,
+              clipPool.filter((name) => /clip_l/i.test(name) && !/t5/i.test(name)),
+              unetTier,
+            );
+            if (matched) {
+              record.inputs.clip_name1 = matched;
+            } else if (clipL) {
+              record.inputs.clip_name1 = clipL;
+            }
           }
         }
-        // Prefer any clip_l / t5xxl if still missing after stem match.
-        if (
-          typeof record.inputs.clip_name1 === "string" &&
-          !matchInventoryFilename(record.inputs.clip_name1, clipPool)
-        ) {
-          const clipL = pickPoolFilenamePreferTier(
-            clipPool,
-            [/clip_l/i],
-            unetTier,
-          );
-          if (clipL) {
-            record.inputs.clip_name1 = clipL;
+
+        if (typeof record.inputs.clip_name2 === "string") {
+          const current2 = record.inputs.clip_name2;
+          if (
+            isPlaceholderFilename(current2) ||
+            /clip_l/i.test(current2) ||
+            !matchInventoryFilename(current2, clipPool)
+          ) {
+            if (t5) {
+              record.inputs.clip_name2 = t5;
+            }
+          } else {
+            // Prefer fp16 T5 when available (author: fp16 >> fp8 for Flux fine-tunes).
+            const t5Pool = clipPool.filter((name) => /t5xxl/i.test(name));
+            const matched =
+              matchInventoryFilenamePreferTier("t5xxl_fp16.safetensors", t5Pool, unetTier) ??
+              matchInventoryFilenamePreferTier(current2, t5Pool, unetTier) ??
+              t5;
+            if (matched) {
+              record.inputs.clip_name2 = matched;
+            }
           }
         }
-        if (
-          typeof record.inputs.clip_name2 === "string" &&
-          !matchInventoryFilename(record.inputs.clip_name2, clipPool)
-        ) {
-          const t5 = pickPoolFilenamePreferTier(
-            clipPool,
-            [/t5xxl/i],
-            unetTier,
-          );
-          if (t5) {
-            record.inputs.clip_name2 = t5;
-          }
+
+        if (typeof record.inputs.type === "string" || record.inputs.type == null) {
+          record.inputs.type = "flux";
         }
       }
     }

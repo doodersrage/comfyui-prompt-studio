@@ -20,7 +20,9 @@ import type { AthleticSport } from "./athletic-sport-profiles";
 import { resolveQueueNegativePromptRaw } from "./queue-negative";
 import { isQwenLightningModel, isWanLightningModel } from "./model-sampling-patch";
 import { isQwenRapidAioModel, isWanRapidAioModel } from "./model-denoise-defaults";
+import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
 import { isKleinBaseModel } from "./model-sampler-defaults";
+import { ensureUltraRealAmplifierTriggerInPrompt } from "./ultrareal-amplifier-lora";
 import { expandWildcardText } from "./wildcard-expand";
 import {
   loadCustomWildcardLists,
@@ -39,11 +41,16 @@ const LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS = 160;
  */
 const MAX_QUEUE_POSITIVE_SUFFIX_CHARS = 200;
 const KLEIN_BASE_QUEUE_POSITIVE_SUFFIX_CHARS = 420;
+const ULTRAREAL_QUEUE_POSITIVE_SUFFIX_CHARS = 320;
 
 function maxQueuePositiveSuffixChars(model: ComfyImageModel | string): number {
-  return isKleinBaseModel(model)
-    ? KLEIN_BASE_QUEUE_POSITIVE_SUFFIX_CHARS
-    : MAX_QUEUE_POSITIVE_SUFFIX_CHARS;
+  if (isKleinBaseModel(model)) {
+    return KLEIN_BASE_QUEUE_POSITIVE_SUFFIX_CHARS;
+  }
+  if (isFluxFineTuneCheckpointModel(model)) {
+    return ULTRAREAL_QUEUE_POSITIVE_SUFFIX_CHARS;
+  }
+  return MAX_QUEUE_POSITIVE_SUFFIX_CHARS;
 }
 
 /** Short CFG-1-friendly anti-moiré terms for Phr00t Rapid AIO. */
@@ -166,7 +173,7 @@ export function applyQueuePromptSteering(input: {
     withRealism.positive.trim().length - baseLength,
   );
 
-  return applyAnatomyGuardForModel({
+  const withAnatomy = applyAnatomyGuardForModel({
     positive: withRealism.positive,
     negative: withRealism.negative,
     model: input.model,
@@ -176,6 +183,15 @@ export function applyQueuePromptSteering(input: {
       suffixBudget - realismGrowth,
     ),
   });
+
+  if (isFluxFineTuneCheckpointModel(input.model)) {
+    return {
+      ...withAnatomy,
+      positive: ensureUltraRealAmplifierTriggerInPrompt(withAnatomy.positive),
+    };
+  }
+
+  return withAnatomy;
 }
 
 /**

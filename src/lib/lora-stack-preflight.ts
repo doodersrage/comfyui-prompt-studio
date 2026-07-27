@@ -4,6 +4,7 @@ import {
   type LoraLibraryEntry,
 } from "./lora-stack";
 import { isKleinBaseModel } from "./model-sampler-defaults";
+import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
 import {
   hasSessionLoraIdsForModel,
   resolveModelDefaultLoraIds,
@@ -11,6 +12,7 @@ import {
 import { loadSettingsCache } from "./settings-cache";
 import type { WorkflowPreflightIssue } from "./workflow-preflight";
 import { loraNameIsLightningSlot } from "./workflow-lora-patch";
+import { loraFilenameLooksLikeUltraRealAmplifier } from "./ultrareal-amplifier-lora";
 
 type WorkflowNode = {
   class_type?: string;
@@ -132,8 +134,27 @@ export function auditLoraStackAtQueueTime(input: {
         message:
           "Klein Base queue has no realism LoRAs — add FLUX.2-compatible LoRAs in Settings → LoRA library, enable them in the sidebar stack, then preview workflow to confirm LoraLoader nodes appear.",
       });
+    } else if (isFluxFineTuneCheckpointModel(model)) {
+      issues.push({
+        severity: "warn",
+        message:
+          "UltraReal Fine-Tune works best with Danrisi Realism Amplifier LoRA (~0.7, trigger d1g1cam) — install it under models/loras/, keep UltraRealPhoto off, then re-queue (Prompt Studio auto-maps Realistic Amplifier for UltraReal Fine-Tune.safetensors when present).",
+      });
     }
     return issues;
+  }
+
+  if (
+    isFluxFineTuneCheckpointModel(model) &&
+    !expectedStack.some((entry) =>
+      loraFilenameLooksLikeUltraRealAmplifier(entry.filename),
+    )
+  ) {
+    issues.push({
+      severity: "warn",
+      message:
+        "UltraReal queue LoRA stack is missing Realism Amplifier — enable ultrareal-amplifier (or Realistic Amplifier for UltraReal Fine-Tune.safetensors) for less plastic skin.",
+    });
   }
 
   if (activeNodes.length === 0) {

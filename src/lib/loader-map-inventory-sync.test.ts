@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   formatInventorySyncMessage,
+  isFilenameInUnetLoaderList,
   matchInventoryFilename,
   matchInventoryFilenameNearMiss,
   syncLoaderMapsFromInventory,
+  unetLoaderPlacementMessage,
 } from "./loader-map-inventory-sync.ts";
 
 describe("matchInventoryFilename", () => {
@@ -45,6 +47,24 @@ describe("matchInventoryFilenameNearMiss", () => {
         "qwen_image_2512_fp8_e4m3fn.safetensors",
       ]),
       "qwen_image_2512_fp8_e4m3fn.safetensors",
+    );
+  });
+});
+
+describe("unetLoaderPlacementMessage", () => {
+  const models = {
+    checkpoints: ["ultrarealFineTune_v4.safetensors"],
+    unets: ["flux1-dev.safetensors"],
+  };
+
+  it("detects UNET weights in the wrong ComfyUI folder", () => {
+    assert.equal(
+      isFilenameInUnetLoaderList("ultrarealFineTune_v4.safetensors", models.unets),
+      false,
+    );
+    assert.match(
+      unetLoaderPlacementMessage("ultrarealFineTune_v4.safetensors", models)!,
+      /checkpoints\/ but UNETLoader/,
     );
   });
 });

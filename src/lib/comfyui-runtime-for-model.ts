@@ -7,6 +7,8 @@ import {
   collectLightningLoraTokenFromWorkflowLibrary,
 } from "./comfyui-workflow-files";
 import { syncLightningLoraLibraryEntry, comfyUiSettingsToRuntime, loadComfyUiSettings } from "./comfyui-settings";
+import { enrichLoraLibraryForUltraRealModel } from "./ultrareal-amplifier-lora";
+import type { ComfyUiSettings } from "./comfyui-settings";
 import {
   loadSettingsCache,
   saveSharedSettings,
@@ -214,6 +216,21 @@ function attachLightningTokens(
   };
 }
 
+function loadComfyUiSettingsForModel(
+  model: ComfyImageModel,
+  inventory?: ComfyUiModelLists | null,
+): ComfyUiSettings {
+  const settings = loadComfyUiSettings();
+  return {
+    ...settings,
+    loraLibrary: enrichLoraLibraryForUltraRealModel(
+      model,
+      settings.loraLibrary,
+      inventory?.loras,
+    ),
+  };
+}
+
 function sharedQueueFlags(
   shared: ReturnType<typeof loadSettingsCache>["shared"],
   model: ComfyImageModel,
@@ -263,10 +280,13 @@ export function resolveRuntimeForModel(
     // System packs replace workflow JSON / loader maps but must keep the session
     // LoRA stack from Settings — otherwise Lightning neutralize leaves style LoRAs
     // at 0 and sidebar picks never re-apply.
-    const settingsRuntime = comfyUiSettingsToRuntime(loadComfyUiSettings(), {
-      sessionActiveLoraIds: options?.sessionActiveLoraIds,
-      model,
-    });
+    const settingsRuntime = comfyUiSettingsToRuntime(
+      loadComfyUiSettingsForModel(model, inventory),
+      {
+        sessionActiveLoraIds: options?.sessionActiveLoraIds,
+        model,
+      },
+    );
     const base = applySystemWorkflowToRuntime(
       model,
       shared,
@@ -331,10 +351,13 @@ export function resolveRuntimeForModel(
   // Same as the system-workflow path: always forward the session-filtered LoRA
   // library. Mapped/manual graphs may omit it when no workflow file resolves,
   // and Lightning cannot fall back to {{LORA_*}} custom-token injection.
-  const settingsRuntime = comfyUiSettingsToRuntime(loadComfyUiSettings(), {
-    sessionActiveLoraIds: options?.sessionActiveLoraIds,
-    model,
-  });
+  const settingsRuntime = comfyUiSettingsToRuntime(
+    loadComfyUiSettingsForModel(model, inventory),
+    {
+      sessionActiveLoraIds: options?.sessionActiveLoraIds,
+      model,
+    },
+  );
 
   return {
     ...(stackCompatible ?? {}),

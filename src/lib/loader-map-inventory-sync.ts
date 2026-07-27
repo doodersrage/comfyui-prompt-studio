@@ -128,6 +128,32 @@ export function matchInventoryFilenameNearMiss(
   });
 }
 
+/** True when ComfyUI UNETLoader / UnetLoaderGGUF can load this filename. */
+export function isFilenameInUnetLoaderList(
+  filename: string,
+  unets: string[],
+): boolean {
+  return Boolean(matchInventoryFilename(filename.trim(), unets));
+}
+
+/**
+ * UNETLoader reads models/unet/ (or diffusion_models/) only — not checkpoints/.
+ * Returns a user-facing hint when the weight is missing or in the wrong folder.
+ */
+export function unetLoaderPlacementMessage(
+  filename: string,
+  models: Pick<ComfyUiModelLists, "unets" | "checkpoints">,
+): string | undefined {
+  const trimmed = filename.trim();
+  if (!trimmed || isFilenameInUnetLoaderList(trimmed, models.unets)) {
+    return undefined;
+  }
+  if (isFilenameInUnetLoaderList(trimmed, models.checkpoints)) {
+    return `“${trimmed}” is in ComfyUI checkpoints/ but UNETLoader only reads models/unet/ or models/diffusion_models/. Move or symlink the file there, then restart ComfyUI.`;
+  }
+  return `“${trimmed}” is not in ComfyUI’s UNET list. Flux fine-tunes must live under models/unet/ or models/diffusion_models/ (not checkpoints/).`;
+}
+
 function fillAndHealMapKeys(input: {
   current?: Record<string, string | undefined>;
   suggested: Record<string, string | undefined>;

@@ -9,8 +9,12 @@ export type ModelLoraMap = Partial<Record<string, string>>;
 /** Explicit session LoRA picks keyed by model id (including empty stacks). */
 export type SessionActiveLoraIdsByModel = Partial<Record<string, string[]>>;
 
-/** No curated suggestions — users define ids from their LoRA library. */
-export const SUGGESTED_MODEL_LORA_MAP: ModelLoraMap = {};
+/** No curated suggestions — users define ids from their LoRA library.
+ * UltraReal Fine-Tune pairs with Danrisi Realism Amplifier (auto-seeded into the library).
+ */
+export const SUGGESTED_MODEL_LORA_MAP: ModelLoraMap = {
+  "flux-ultrareal-v4": "ultrareal-amplifier",
+};
 
 export function formatModelLoraMap(map: ModelLoraMap | undefined): string {
   if (!map) {

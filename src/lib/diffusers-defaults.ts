@@ -63,6 +63,9 @@ export function resolveStudioModelForDiffusersAsset(
     if (/schnell/.test(lower)) {
       return "flux-schnell";
     }
+    if (/ultrareal|ultra[_-]?real|danrisi/.test(lower)) {
+      return "flux-ultrareal-v4";
+    }
     if (/flux.?2/.test(lower)) {
       return "flux2";
     }

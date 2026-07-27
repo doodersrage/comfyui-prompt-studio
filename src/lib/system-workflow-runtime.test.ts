@@ -318,6 +318,35 @@ describe("system-workflow-runtime", () => {
     assert.doesNotMatch(bound.workflowJson, /"clip_l\.safetensors"/);
   });
 
+  it("repairs swapped Flux.1 DualCLIP slots and prefers t5xxl_fp16", () => {
+    const swapped = JSON.stringify({
+      "2": {
+        class_type: "DualCLIPLoader",
+        inputs: {
+          clip_name1: "t5xxl_fp8_e4m3fn.safetensors",
+          clip_name2: "clip_l.safetensors",
+          type: "flux",
+        },
+      },
+    });
+    const bound = softBindScaffoldFromInventory(swapped, "flux-ultrareal-v4", {
+      ...emptyInventory,
+      unets: ["ultrarealFineTune_v4.safetensors"],
+      clips: [
+        "clip_l.safetensors",
+        "t5xxl_fp8_e4m3fn.safetensors",
+        "t5xxl_fp16.safetensors",
+      ],
+      vaes: ["ae.safetensors"],
+    });
+    const graph = JSON.parse(bound.workflowJson) as {
+      "2": { inputs: { clip_name1: string; clip_name2: string; type: string } };
+    };
+    assert.equal(graph["2"].inputs.clip_name1, "clip_l.safetensors");
+    assert.equal(graph["2"].inputs.clip_name2, "t5xxl_fp16.safetensors");
+    assert.equal(graph["2"].inputs.type, "flux");
+  });
+
   it("switches scaffold to UnetLoaderGGUF and sets fp8 weight_dtype from inventory", () => {
     const scaffold = buildWorkflowScaffoldForModel("flux-dev");
     const gguf = softBindScaffoldFromInventory(scaffold.json, "flux-dev", {

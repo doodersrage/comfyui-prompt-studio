@@ -15,6 +15,7 @@ const RULES: Array<{ pattern: RegExp; model: string; reason: string }> = [
   { pattern: /\b(wan\s*rapid|phr00t\s*wan|wan\s*aio|rapid\s*aio\s*wan|wan\s*all[\s-]?in[\s-]?one)\b/i, model: "wan-video-rapid-aio", reason: "WAN Video Phr00t Rapid AIO (CFG-1 optimized)" },
   { pattern: /\b(wan\s*video|video\s*motion|camera\s*move|i2v|t2v|image[\s-]?to[\s-]?video)\b/i, model: "wan-video", reason: "WAN Video — preferred for people and complex motion" },
   { pattern: /\b(duo|two people|couple|sport|team)\b/i, model: "sdxl", reason: "Multi-person or sport scene" },
+  { pattern: /\b(ultrareal|ultra[\s-]?real|danrisi)\b/i, model: "flux-ultrareal-v4", reason: "UltraReal Fine-Tune v4 realism checkpoint" },
   { pattern: /\b(flux|photographic|bokeh|lens|35mm)\b/i, model: "flux-2-klein-9b-distilled", reason: "Photographic prose fits FLUX Klein 9B distilled" },
   { pattern: /\b(fast flux|klein 4b|lightweight flux|klein distilled)\b/i, model: "flux-2-klein-4b-distilled", reason: "Fast 4B Klein distilled for quick photographic drafts" },
   { pattern: /\b(klein base|klein fine.?tun)\b/i, model: "flux-2-klein", reason: "Klein base model for flexible multi-step generation" },
@@ -45,6 +46,7 @@ export function recommendModels(input: string, limit = 3): ModelRecommendation[]
   if (scores.size === 0) {
     scores.set("sdxl", { reason: "General natural-language scene", confidence: 0.55 });
     scores.set("flux-2-klein-9b-distilled", { reason: "Alternative rich photographic prose", confidence: 0.45 });
+    scores.set("flux-ultrareal-v4", { reason: "UltraReal Fine-Tune v4 for photoreal people", confidence: 0.42 });
   }
 
   return [...scores.entries()]

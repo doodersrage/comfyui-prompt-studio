@@ -1,4 +1,5 @@
 import type { ComfyImageModel } from "./comfy-models/client";
+import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
 import { isKleinBaseModel } from "./model-sampler-defaults";
 import { modelUsesNegativePrompt } from "./prompt-pair";
 
@@ -140,6 +141,69 @@ function clipSuffixToBudget(suffix: string, maxAppendChars: number): string {
   return clipped;
 }
 
+const ULTRAREAL_FLUX_PHOTO_POSITIVE: Record<
+  Exclude<RenderRealismMode, "off" | "anime">,
+  string
+> = {
+  realistic:
+    "high-resolution candid DSLR photograph, natural skin with visible pores and fine peach fuzz, soft subsurface scatter, motivated daylight with contact shadows, believable fabric weight, not airbrushed",
+  "hyper-realistic":
+    "high-resolution professional DSLR photograph, natural skin micro-texture and pores, soft subsurface scatter, directional light with soft shadow falloff, lifelike fabric weave, documentary realism",
+};
+
+const ULTRAREAL_FLUX_PHOTO_AVOID: Record<
+  Exclude<RenderRealismMode, "off" | "anime">,
+  string
+> = {
+  realistic:
+    "Avoid illustration, CGI, plastic or waxy skin, airbrushed doll-like faces, flat shadowless beauty lighting, neon oversaturation, candy-colored props, and synthetic beauty-filter glow.",
+  "hyper-realistic":
+    "Avoid 3D render, plastic or waxy skin, uncanny smoothness, flat shadowless beauty lighting, oversaturated carnival palettes, heavy makeup glow, and synthetic CGI lighting.",
+};
+
+function applyUltraRealRenderRealism(input: {
+  positive: string;
+  mode: Exclude<RenderRealismMode, "off" | "anime">;
+  maxPositiveAppendChars?: number;
+}): { positive: string; negative?: string } {
+  let positive = input.positive.trim();
+  const maxAppend = input.maxPositiveAppendChars;
+  let remaining =
+    typeof maxAppend === "number" ? Math.max(0, maxAppend) : undefined;
+
+  if (!promptAlreadyHasRealismCue(positive, input.mode)) {
+    if (typeof remaining !== "number" || remaining >= 48) {
+      let suffix = ULTRAREAL_FLUX_PHOTO_POSITIVE[input.mode];
+      if (typeof remaining === "number") {
+        suffix = clipSuffixToBudget(suffix, remaining);
+      }
+      if (suffix) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        const before = positive.length;
+        positive = `${positive}${separator}${suffix}`;
+        if (typeof remaining === "number") {
+          remaining = Math.max(0, remaining - (positive.length - before));
+        }
+      }
+    }
+  }
+
+  if (!/\bavoid\b/i.test(positive)) {
+    if (typeof remaining !== "number" || remaining >= 48) {
+      let avoid = ULTRAREAL_FLUX_PHOTO_AVOID[input.mode];
+      if (typeof remaining === "number") {
+        avoid = clipSuffixToBudget(avoid, remaining);
+      }
+      if (avoid) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        positive = `${positive}${separator}${avoid}`;
+      }
+    }
+  }
+
+  return { positive, negative: undefined };
+}
+
 function applyKleinBaseRenderRealism(input: {
   positive: string;
   mode: Exclude<RenderRealismMode, "off" | "anime">;
@@ -243,6 +307,17 @@ export function applyRenderRealismForModel(input: {
     (resolvedMode === "realistic" || resolvedMode === "hyper-realistic")
   ) {
     return applyKleinBaseRenderRealism({
+      positive: input.positive,
+      mode: resolvedMode,
+      maxPositiveAppendChars: input.maxPositiveAppendChars,
+    });
+  }
+
+  if (
+    isFluxFineTuneCheckpointModel(input.model) &&
+    (resolvedMode === "realistic" || resolvedMode === "hyper-realistic")
+  ) {
+    return applyUltraRealRenderRealism({
       positive: input.positive,
       mode: resolvedMode,
       maxPositiveAppendChars: input.maxPositiveAppendChars,

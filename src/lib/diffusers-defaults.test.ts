@@ -21,6 +21,10 @@ describe("diffusers-defaults", () => {
       resolveDiffusersModelHint("flux-2-klein-9b"),
       "flux-2-klein-base-9b.safetensors",
     );
+    assert.equal(
+      resolveDiffusersModelHint("flux-ultrareal-v4"),
+      "ultrarealFineTune_v4.safetensors",
+    );
     assert.equal(resolveDiffusersModelHint(""), DIFFUSERS_DEFAULT_MODEL);
     assert.equal(resolveDiffusersModelHint(null), DIFFUSERS_DEFAULT_MODEL);
   });

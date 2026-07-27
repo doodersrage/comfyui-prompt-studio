@@ -207,6 +207,67 @@ describe("workflow direct patch", () => {
     assert.equal(result.patched.emptySd3Latent, 1);
   });
 
+  it("converts EmptyLatentImage to EmptySD3LatentImage for UltraReal / Flux.1", () => {
+    const workflow = {
+      "7": {
+        class_type: "EmptyLatentImage",
+        inputs: { width: 512, height: 512, batch_size: 1 },
+      },
+    };
+    const result = patchWorkflowDirectParams(workflow, {
+      model: "flux-ultrareal-v4",
+      params: { width: 1024, height: 1024 },
+      loaders: { vae: "ae.safetensors", unet: "ultrarealFineTune_v4.safetensors" },
+    });
+    const node = result.workflow["7"] as {
+      class_type: string;
+      inputs: { width: number; height: number };
+    };
+    assert.equal(node.class_type, "EmptySD3LatentImage");
+    assert.equal(node.inputs.width, 1024);
+    assert.equal(result.patched.emptySd3Latent, 1);
+  });
+
+  it("does not stamp both Flux.1 DualCLIP slots with dualClip filename", () => {
+    const workflow = {
+      "2": {
+        class_type: "DualCLIPLoader",
+        inputs: {
+          clip_name1: "clip_l.safetensors",
+          clip_name2: "t5xxl_fp16.safetensors",
+          type: "flux",
+        },
+      },
+    };
+    const result = patchLoaderNodesInWorkflow(
+      workflow,
+      { dualClip: "qwen_2.5_vl_7b.safetensors" },
+      { syncLoadersToModel: true, model: "flux-ultrareal-v4" },
+    );
+    const node = result.workflow["2"] as {
+      inputs: { clip_name1: string; clip_name2: string };
+    };
+    assert.equal(node.inputs.clip_name1, "clip_l.safetensors");
+    assert.equal(node.inputs.clip_name2, "t5xxl_fp16.safetensors");
+    assert.equal(result.patched.dualClip, undefined);
+  });
+
+  it("converts EmptyLatentImage to EmptyFlux2LatentImage for Klein", () => {
+    const workflow = {
+      "7": {
+        class_type: "EmptyLatentImage",
+        inputs: { width: 512, height: 512, batch_size: 1 },
+      },
+    };
+    const result = patchWorkflowDirectParams(workflow, {
+      model: "flux-2-klein-9b",
+      params: { width: 1024, height: 1024 },
+    });
+    const node = result.workflow["7"] as { class_type: string };
+    assert.equal(node.class_type, "EmptyFlux2LatentImage");
+    assert.equal(result.patched.emptySd3Latent, 1);
+  });
+
   it("patches checkpoint and unet loader placeholders without clobbering concrete filenames", () => {
     const workflow = {
       "1": {
@@ -402,6 +463,23 @@ describe("workflow direct patch", () => {
     const vae = result["230"] as { inputs?: { vae_name?: string } };
     assert.equal(unet.inputs?.unet_name, "flux-2-klein-9b.safetensors");
     assert.equal(vae.inputs?.vae_name, "flux2-vae.safetensors");
+  });
+
+  it("rewrites flux2-vae to ae.safetensors for FLUX.1 UltraReal queues", () => {
+    const workflow = {
+      "3": {
+        class_type: "VAELoader",
+        inputs: { vae_name: "flux2-vae.safetensors" },
+      },
+    };
+    const result = patchLoaderNodesInWorkflow(
+      workflow,
+      { vae: "ae.safetensors" },
+      { model: "flux-ultrareal-v4" },
+    );
+    const vae = result.workflow["3"] as { inputs?: { vae_name?: string } };
+    assert.equal(vae.inputs?.vae_name, "ae.safetensors");
+    assert.equal(result.patched.vae, 1);
   });
 
   it("aligns concrete fp8 clip loaders to resolved bf16 queue loaders", () => {

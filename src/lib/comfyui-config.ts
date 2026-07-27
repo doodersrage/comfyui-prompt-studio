@@ -1,7 +1,12 @@
 import { isQwenLightningModel, patchModelSamplingInWorkflow } from "./model-sampling-patch";
+import { ensureFluxGuidanceInWorkflow } from "./flux-guidance-patch";
 import { isPromptStudioProtectedSampler, shouldSkipGlobalSamplerPatch } from "./workflow-enrich-markers";
 import { prepareLightningWorkflowForQueue, prepareQwenEditReferenceImagesForQueue, resolveLightningBf16Loaders } from "./workflow-lightning-queue";
-import { isEditCapableModel, isQwenRapidAioModel } from "./model-denoise-defaults";
+import {
+  isEditCapableModel,
+  isFlux1FamilyModel,
+  isQwenRapidAioModel,
+} from "./model-denoise-defaults";
 import {
   buildLightningLoraFilenameMap,
   loraFilenameImpliesLightning,
@@ -1085,7 +1090,18 @@ export function patchSamplerParamsInWorkflow(
       patched.steps = (patched.steps ?? 0) + 1;
     }
     if (params.cfg != null && params.cfg.toString().trim() !== "" && "cfg" in inputs) {
-      inputs.cfg = Number(params.cfg);
+      // FLUX.1: sidebar CFG is FluxGuidance — keep KSampler at 1.
+      if (isFlux1FamilyModel(model)) {
+        if (inputs.cfg !== 1) {
+          inputs.cfg = 1;
+          patched.cfg = (patched.cfg ?? 0) + 1;
+        }
+      } else {
+        inputs.cfg = Number(params.cfg);
+        patched.cfg = (patched.cfg ?? 0) + 1;
+      }
+    } else if (isFlux1FamilyModel(model) && "cfg" in inputs && inputs.cfg !== 1) {
+      inputs.cfg = 1;
       patched.cfg = (patched.cfg ?? 0) + 1;
     }
     if (
@@ -1435,8 +1451,13 @@ export function injectPromptsWithFallbacks(
   );
 
   // Placeholder inject returns a private tree — mutate sampler/sampling in place.
-  const samplerPatch = patchSamplerParamsInWorkflow(
+  const fluxGuidance = ensureFluxGuidanceInWorkflow(
     injected.workflow,
+    options?.model,
+    input.params,
+  );
+  const samplerPatch = patchSamplerParamsInWorkflow(
+    fluxGuidance.workflow,
     input.params ?? {},
     options?.model,
     { mutateInPlace: true },

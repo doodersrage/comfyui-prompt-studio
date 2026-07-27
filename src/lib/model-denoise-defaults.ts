@@ -97,6 +97,19 @@ export function isFluxKleinModel(model: ComfyImageModel | string | null | undefi
 }
 
 /**
+ * FLUX.1 Dev / Schnell / fine-tunes (UltraReal, etc.) — DualCLIP type flux + ae.safetensors.
+ * Excludes FLUX.2 Klein and flux2.
+ */
+export function isFlux1FamilyModel(model: ComfyImageModel | string | null | undefined): boolean {
+  const id = String(model ?? "").trim();
+  if (!id || isFluxKleinModel(id) || id === "flux2") {
+    return false;
+  }
+  const def = getComfyModelDefinition(id);
+  return def?.category === "flux";
+}
+
+/**
  * Multi-ref Compose / Transfer — Qwen Edit (image1–4 encode) or FLUX.2 Klein
  * (Figure 1 img2img + Figures 2–4 via IP-Adapter). Excludes FLUX inpaint and
  * other single-mask edit models. Rapid AIO Edit is included; Rapid AIO SFW/NSFW

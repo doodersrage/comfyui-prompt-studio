@@ -54,6 +54,17 @@ describe("render realism", () => {
     assert.equal(result.negative, undefined);
   });
 
+  it("uses ultrareal photo steering with anti-neon avoid prose", () => {
+    const result = applyRenderRealismForModel({
+      positive: "A woman at a beach club.",
+      model: "flux-ultrareal-v4",
+      mode: "realistic",
+    });
+    assert.match(result.positive, /DSLR photograph/i);
+    assert.match(result.positive, /neon oversaturation|plastic or waxy skin/i);
+    assert.equal(result.negative, undefined);
+  });
+
   it("uses stronger klein base photo steering with anti-clone avoid prose", () => {
     const result = applyRenderRealismForModel({
       positive: "Women lounge by a resort pool.",

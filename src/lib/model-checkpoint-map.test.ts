@@ -11,6 +11,8 @@ import {
   SUGGESTED_MODEL_VAE_MAP,
   mergeSuggestedLoaderMaps,
   formatSuggestedLoaderMergeMessage,
+  isVaeFilenameIncompatibleWithModel,
+  suggestedVaeFilenameForModel,
 } from "./model-checkpoint-map.ts";
 
 describe("model checkpoint map", () => {
@@ -40,6 +42,25 @@ describe("model checkpoint map", () => {
     assert.equal(qwen.unet, "custom-qwen.safetensors");
     assert.equal(qwen.vae, "qwen_image_vae.safetensors");
     assert.equal(qwen.dualClip, "qwen_2.5_vl_7b.safetensors");
+  });
+
+  it("resolves UltraReal Fine-Tune v4 with Flux.1 loaders", () => {
+    const loaders = resolveLoaderFilenamesForModel("flux-ultrareal-v4");
+    assert.equal(loaders.unet, "ultrarealFineTune_v4.safetensors");
+    assert.equal(loaders.vae, "ae.safetensors");
+  });
+
+  it("uses ae.safetensors for FLUX.1 and flux2-vae for Klein", () => {
+    assert.equal(suggestedVaeFilenameForModel("flux-ultrareal-v4"), "ae.safetensors");
+    assert.equal(suggestedVaeFilenameForModel("flux-2-klein-9b"), "flux2-vae.safetensors");
+    assert.equal(
+      isVaeFilenameIncompatibleWithModel("flux-ultrareal-v4", "flux2-vae.safetensors"),
+      true,
+    );
+    assert.equal(
+      isVaeFilenameIncompatibleWithModel("flux-ultrareal-v4", "ae.safetensors"),
+      false,
+    );
   });
 
   it("infers FLUX Klein UNET/VAE defaults when registry hints are sparse", () => {

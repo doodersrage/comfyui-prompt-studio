@@ -45,7 +45,37 @@ describe("loader-map-health-audit", () => {
       },
     });
     assert.equal(issues.length, 2);
-    assert.ok(issues.every((issue) => issue.severity === "warn"));
+    assert.equal(
+      issues.find((issue) => issue.message.includes("flux-dev"))?.severity,
+      "error",
+    );
+    assert.equal(
+      issues.find((issue) => issue.message.includes("sdxl"))?.severity,
+      "warn",
+    );
+  });
+
+  it("flags Flux fine-tunes that only exist under checkpoints/", () => {
+    const issues = auditLoaderMapsAgainstComfyUi({
+      checkpointMap: {
+        "flux-ultrareal-v4": "ultrarealFineTune_v4.safetensors",
+      },
+      vaeMap: {},
+      upscaleMap: {},
+      models: {
+        checkpoints: ["ultrarealFineTune_v4.safetensors"],
+        unets: ["flux1-dev.safetensors"],
+        vaes: [],
+        upscaleModels: [],
+        clips: [],
+        dualClipTypes: [],
+        clipLoaderTypes: [],
+        loras: [],
+        controlNets: [],
+      },
+    });
+    assert.equal(issues.length, 1);
+    assert.match(issues[0]!.message, /checkpoints\/ but UNETLoader/);
   });
 
   it("warns when upscale model is not installed", () => {

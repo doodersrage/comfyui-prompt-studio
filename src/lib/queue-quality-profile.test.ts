@@ -185,6 +185,7 @@ describe("queue-quality-profile", () => {
     const {
       profileUsesUpscaleEnrich,
       profileUsesNeuralUpscaleEnrich,
+      profileSkipsOutputUpscaleForModel,
       upscaleScaleForProfile,
       upscaleMethodForProfile,
     } = await import("./queue-quality-profile.ts");
@@ -215,6 +216,22 @@ describe("queue-quality-profile", () => {
     assert.equal(
       profileUsesNeuralUpscaleEnrich("max", { model: "qwen-image-2512" }),
       false,
+    );
+    assert.equal(
+      profileUsesNeuralUpscaleEnrich("max", { model: "flux-ultrareal-v4" }),
+      false,
+    );
+    assert.equal(
+      profileSkipsOutputUpscaleForModel("final", { model: "flux-ultrareal-v4" }),
+      true,
+    );
+    assert.equal(
+      profileSkipsOutputUpscaleForModel("max", { model: "flux-ultrareal-v4" }),
+      true,
+    );
+    assert.equal(
+      upscaleScaleForProfile("max", { model: "flux-ultrareal-v4" }),
+      1,
     );
     assert.equal(profileUsesNeuralUpscaleEnrich("max"), true);
     const { formatQueueQualityProfileHint } = await import(
@@ -298,6 +315,10 @@ describe("queue-quality-profile", () => {
     assert.equal(
       profileUsesLatentDetailPass("final", { model: "flux-dev" }),
       true,
+    );
+    assert.equal(
+      profileUsesLatentDetailPass("final", { model: "flux-ultrareal-v4" }),
+      false,
     );
     assert.equal(
       profileUsesLatentDetailPass("final", {
