@@ -1,6 +1,10 @@
 import { getComfyUiBaseUrl } from "@/lib/comfyui-client";
 import { stripEmptyComfyUiRuntime } from "@/lib/comfyui-config";
 import { apiError, apiMethodNotAllowed } from "@/lib/api/response";
+import {
+  GALLERY_PROXY_ENCODE_QUALITY,
+  galleryProxyEncodeTier,
+} from "@/lib/comfyui-outputs";
 // turbopackIgnore: true
 import {
   buildViewCacheKey,
@@ -36,6 +40,8 @@ async function encodeThumb(
   format: ViewCacheFormat,
 ): Promise<Buffer> {
   const sharp = (await import("sharp")).default;
+  const tier = galleryProxyEncodeTier(thumbWidth);
+  const quality = GALLERY_PROXY_ENCODE_QUALITY[tier];
   const pipeline = sharp(buffer)
     .rotate()
     .resize({
@@ -46,12 +52,12 @@ async function encodeThumb(
     });
 
   if (format === "avif") {
-    return pipeline.avif({ quality: 52 }).toBuffer();
+    return pipeline.avif({ quality: quality.avif }).toBuffer();
   }
   if (format === "webp") {
-    return pipeline.webp({ quality: 72 }).toBuffer();
+    return pipeline.webp({ quality: quality.webp }).toBuffer();
   }
-  return pipeline.jpeg({ quality: 78, mozjpeg: true }).toBuffer();
+  return pipeline.jpeg({ quality: quality.jpeg, mozjpeg: true }).toBuffer();
 }
 
 export async function GET(request: Request) {
@@ -215,6 +221,7 @@ export async function GET(request: Request) {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+        "X-Image-Variant": "original",
         ...(isVideo ? { "Accept-Ranges": "bytes" } : {}),
       },
     });

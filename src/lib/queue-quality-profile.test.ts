@@ -219,6 +219,10 @@ describe("queue-quality-profile", () => {
     );
     assert.equal(
       profileUsesNeuralUpscaleEnrich("max", { model: "flux-ultrareal-v4" }),
+      true,
+    );
+    assert.equal(
+      profileUsesNeuralUpscaleEnrich("final", { model: "flux-ultrareal-v4" }),
       false,
     );
     assert.equal(
@@ -227,11 +231,11 @@ describe("queue-quality-profile", () => {
     );
     assert.equal(
       profileSkipsOutputUpscaleForModel("max", { model: "flux-ultrareal-v4" }),
-      true,
+      false,
     );
     assert.equal(
       upscaleScaleForProfile("max", { model: "flux-ultrareal-v4" }),
-      1,
+      1.35,
     );
     assert.equal(
       profileSkipsOutputUpscaleForModel("final", { model: "flux-2-klein-9b" }),

@@ -1,6 +1,7 @@
 import type { WorkflowPlaceholderTokens } from "./comfyui-config";
 import { getComfyModelDefinition, type ComfyImageModel } from "./comfy-models";
 import {
+  normalizeQueueQualityProfile,
   profileUsesNeuralUpscalePolish,
   profileUsesNeuralUpscaleEnrich,
   profileUsesSdxlRefinerEnrich,
@@ -30,6 +31,7 @@ import {
   upscaleScaleForProfile,
   type QueueQualityProfile,
 } from "./queue-quality-profile";
+import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
 import { isQwenRapidAioModel } from "./model-denoise-defaults";
 import {
   isModelSamplingFluxNode,
@@ -706,8 +708,17 @@ function maybeInsertSharpenAfterUpscale(input: {
   /** Only true when chained after neural UpscaleModel (not Lanczos-only). */
   afterNeural?: boolean;
 }): WorkflowQueueOptimizeChange | null {
+  const forceUltraRealMildSharpen =
+    isFluxFineTuneCheckpointModel(input.model) &&
+    normalizeQueueQualityProfile(input.qualityProfile) === "max" &&
+    input.afterNeural === true;
   if (
-    input.enrichSharpen !== true ||
+    input.enrichSharpen !== true &&
+    !forceUltraRealMildSharpen
+  ) {
+    return null;
+  }
+  if (
     !profileUsesSharpenAfterNeuralUpscale(input.qualityProfile, {
       model: input.model,
       afterNeural: input.afterNeural === true,
@@ -989,6 +1000,16 @@ function enrichUpscaleNodes(input: {
         },
       ];
     }
+    if (isFluxFineTuneCheckpointModel(input.model)) {
+      return [
+        {
+          kind: "audit",
+          severity: "info",
+          message:
+            "Skipped Final output upscale for UltraReal (Lanczos plastics skin) — use Max for mild neural recovery.",
+        },
+      ];
+    }
     return [];
   }
 
@@ -1031,6 +1052,18 @@ function enrichUpscaleNodes(input: {
         model: input.model,
         supportsNeuralUpscaleTileSize: input.supportsNeuralUpscaleTileSize,
       }),
+    ];
+  }
+
+  // UltraReal must never fall back to Lanczos — that path plastics skin.
+  if (isFluxFineTuneCheckpointModel(input.model)) {
+    return [
+      {
+        kind: "audit",
+        severity: "warn",
+        message:
+          "UltraReal Max neural upscaler missing — keeping native decode (Lanczos fallback skipped). Install/map 4x-UltraSharp in Settings → Upscale.",
+      },
     ];
   }
 

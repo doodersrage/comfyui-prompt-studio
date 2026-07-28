@@ -1,5 +1,6 @@
 import type { ComfyGalleryEntry } from "./comfyui-gallery";
 import { buildComfyViewPath } from "./comfyui-outputs";
+import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
 import { isQwenLightningModel } from "./model-sampling-patch";
 import {
   lanczosPolishScaleAfterNeural,
@@ -256,7 +257,7 @@ export function buildGalleryUpscaleWorkflow(
       };
       outputNodeId = polishId;
     }
-  } else {
+  } else if (!isFluxFineTuneCheckpointModel(input.model)) {
     const scaleId = id();
     workflow[scaleId] = {
       class_type: IMAGE_SCALE_BY_NODE_TYPE,
@@ -270,8 +271,12 @@ export function buildGalleryUpscaleWorkflow(
     outputNodeId = scaleId;
   }
 
+  const forceUltraRealMildSharpen =
+    isFluxFineTuneCheckpointModel(input.model) &&
+    input.qualityProfile === "max" &&
+    useNeural;
   if (
-    input.enrichSharpen === true &&
+    (input.enrichSharpen === true || forceUltraRealMildSharpen) &&
     profileUsesSharpenAfterNeuralUpscale(input.qualityProfile, {
       afterNeural: useNeural,
       model: input.model,

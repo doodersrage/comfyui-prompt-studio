@@ -1,4 +1,5 @@
 import type { ComfyImageModel } from "./comfy-models/client";
+import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
 import { modelUsesNegativePrompt } from "./prompt-pair";
 
 export type AnatomyGuardMode = "off" | "standard" | "strict";
@@ -104,6 +105,23 @@ const KLEIN_BASE_POSE_EXTRA: Record<Exclude<AnatomyGuardMode, "off">, string> = 
 const KLEIN_BASE_FISHEYE_HAND_CUE =
   "Use a normal rectangular full-frame lens read with anatomically correct five-fingered hands—avoid circular fisheye barrel distortion on the figure.";
 
+const ULTRAREAL_ANATOMY_POSITIVE: Record<
+  Exclude<AnatomyGuardMode, "off">,
+  string
+> = {
+  standard:
+    "anatomically correct hands with five distinct fingers, clear wrists, natural limb count, coherent body proportions",
+  strict:
+    "anatomically correct hands with five distinct fingers and visible knuckles, clear wrists and elbows, natural limb count, coherent body proportions, no fused or overlapping digits",
+};
+
+const ULTRAREAL_POSE_EXTRA: Record<Exclude<AnatomyGuardMode, "off">, string> = {
+  standard:
+    "Keep poses straightforward when hands or full figures must read cleanly; prefer relaxed visible hands over clasped or weight-bearing palm close-ups.",
+  strict:
+    "Keep poses straightforward when hands, faces, or full figures must read cleanly; prefer a simple stance with relaxed five-fingered hands—avoid clasped-hand knots, weight-bearing palm supports, and fisheye distortion.",
+};
+
 function promptHasFisheyeOrCircularFrame(prompt: string): boolean {
   return /\b(fisheye|fish-eye|circular (?:vignette|frame|crop)|barrel distortion)\b/i.test(
     prompt,
@@ -111,6 +129,12 @@ function promptHasFisheyeOrCircularFrame(prompt: string): boolean {
 }
 
 function kleinBaseHasStrongHandAnatomy(prompt: string): boolean {
+  return /\b(five distinct fingers|anatomically correct hands with five)\b/i.test(
+    prompt,
+  );
+}
+
+function ultraRealHasStrongHandAnatomy(prompt: string): boolean {
   return /\b(five distinct fingers|anatomically correct hands with five)\b/i.test(
     prompt,
   );
@@ -362,6 +386,45 @@ export function applyAnatomyGuardForModel(input: {
         const separator = /[.!?]$/.test(positive) ? " " : ". ";
         const before = positive.length;
         positive = `${positive}${separator}${fisheyeCue}`;
+        if (typeof remaining === "number") {
+          remaining = Math.max(0, remaining - (positive.length - before));
+        }
+      }
+    }
+  }
+
+  // UltraReal: author notes hands are fragile — front-load five-finger + simple pose cues.
+  if (isFluxFineTuneCheckpointModel(input.model)) {
+    if (
+      !ultraRealHasStrongHandAnatomy(positive) &&
+      (typeof remaining !== "number" || remaining >= 48)
+    ) {
+      let handCue = ULTRAREAL_ANATOMY_POSITIVE[resolvedMode];
+      if (typeof remaining === "number") {
+        handCue = clipSuffixToBudget(handCue, remaining);
+      }
+      if (handCue) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        const before = positive.length;
+        positive = `${positive}${separator}${handCue}`;
+        if (typeof remaining === "number") {
+          remaining = Math.max(0, remaining - (positive.length - before));
+        }
+      }
+    }
+
+    if (
+      !/\bkeep poses straightforward\b/i.test(positive) &&
+      (typeof remaining !== "number" || remaining >= 48)
+    ) {
+      let pose = ULTRAREAL_POSE_EXTRA[resolvedMode];
+      if (typeof remaining === "number") {
+        pose = clipSuffixToBudget(pose, remaining);
+      }
+      if (pose) {
+        const separator = /[.!?]$/.test(positive) ? " " : ". ";
+        const before = positive.length;
+        positive = `${positive}${separator}${pose}`;
         if (typeof remaining === "number") {
           remaining = Math.max(0, remaining - (positive.length - before));
         }

@@ -529,6 +529,44 @@ const MODEL_RESOLUTION_PRESETS: ModelResolutionPresetMap = {
       max: { width: 1280, height: 1024 },
     },
   },
+  // UltraReal: bump native canvas so people detail comes from sampling, not soft VAE mush.
+  "flux-ultrareal-v4": {
+    square: {
+      small: { width: 896, height: 896 },
+      medium: { width: 1152, height: 1152 },
+      max: { width: 1408, height: 1408 },
+    },
+    portrait: {
+      small: { width: 832, height: 1088 },
+      medium: { width: 1024, height: 1280 },
+      max: { width: 1152, height: 1536 },
+    },
+    landscape: {
+      small: { width: 1088, height: 832 },
+      medium: { width: 1280, height: 1024 },
+      max: { width: 1536, height: 1152 },
+    },
+    "portrait-34": {
+      small: { width: 832, height: 1088 },
+      medium: { width: 960, height: 1280 },
+      max: { width: 1088, height: 1472 },
+    },
+    "landscape-43": {
+      small: { width: 1088, height: 832 },
+      medium: { width: 1280, height: 960 },
+      max: { width: 1472, height: 1088 },
+    },
+    "portrait-23": {
+      small: { width: 768, height: 1152 },
+      medium: { width: 896, height: 1344 },
+      max: { width: 1024, height: 1536 },
+    },
+    "landscape-32": {
+      small: { width: 1152, height: 768 },
+      medium: { width: 1344, height: 896 },
+      max: { width: 1536, height: 1024 },
+    },
+  },
   "qwen-image-2512": QWEN_OFFICIAL_ARS,
   "qwen-image-2512-lightning-4": QWEN_LIGHTNING_ARS,
   "qwen-image-2512-lightning-8": QWEN_LIGHTNING_ARS,

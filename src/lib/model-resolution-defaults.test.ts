@@ -248,4 +248,19 @@ describe("model resolution defaults", () => {
     assert.equal(params.width, mediumSquare?.width);
     assert.equal(params.height, mediumSquare?.height);
   });
+
+  it("uses elevated native canvases for UltraReal Fine-Tune", () => {
+    assert.deepEqual(getModelResolutionPreset("flux-ultrareal-v4", "square", "medium"), {
+      width: 1152,
+      height: 1152,
+    });
+    assert.deepEqual(getModelResolutionPreset("flux-ultrareal-v4", "portrait", "medium"), {
+      width: 1024,
+      height: 1280,
+    });
+    assert.deepEqual(getModelResolutionPreset("flux-ultrareal-v4", "square", "max"), {
+      width: 1408,
+      height: 1408,
+    });
+  });
 });

@@ -124,4 +124,16 @@ describe("queue-prompt-prep Rapid AIO / Lightning", () => {
     assert.match(result.positive ?? "", /extra or fused fingers|extra limbs/i);
     assert.match(result.positive ?? "", /Prefer a single subject|simple standing pose/i);
   });
+
+  it("prioritizes anatomy/hand cues for UltraReal before realism budget", () => {
+    const result = applyQueuePromptSteering({
+      positive: "A woman in a leather dress stands on a city sidewalk.",
+      model: "flux-ultrareal-v4",
+      realismMode: "realistic",
+      anatomyMode: "strict",
+    });
+    assert.match(result.positive ?? "", /five distinct fingers/i);
+    assert.match(result.positive ?? "", /Keep poses straightforward|clasped-hand/i);
+    assert.match(result.positive ?? "", /d1g1cam/i);
+  });
 });

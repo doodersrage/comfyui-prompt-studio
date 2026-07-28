@@ -84,7 +84,40 @@ export const GALLERY_THUMB_SRCSET_WIDTHS = [256, 512, 768] as const;
 export const GALLERY_STRIP_THUMB_WIDTH = 128;
 
 /** Mid-res lightbox / slideshow display before full download. */
-export const GALLERY_LIGHTBOX_WIDTH = 1280;
+export const GALLERY_LIGHTBOX_WIDTH = 1600;
+
+/** Encode quality for gallery thumbs / lightbox proxies (higher = less false compression). */
+export const GALLERY_PROXY_ENCODE_QUALITY = {
+  /** Grid / strip thumbs — keep lean for many cards. */
+  thumb: { avif: 58, webp: 78, jpeg: 82 },
+  /** Lightbox mid-res — prioritize fidelity over bytes. */
+  lightbox: { avif: 72, webp: 88, jpeg: 90 },
+} as const;
+
+export function galleryProxyEncodeTier(width: number): "thumb" | "lightbox" {
+  return width >= GALLERY_LIGHTBOX_WIDTH ? "lightbox" : "thumb";
+}
+
+/** Strip gallery proxy `w=` so “Open original” / full-res links never hit a resized encode. */
+export function stripGalleryViewWidthParam(url: string): string {
+  try {
+    const parsed = new URL(url, "http://local.invalid");
+    if (!parsed.searchParams.has("w")) {
+      return url;
+    }
+    parsed.searchParams.delete("w");
+    if (/^https?:\/\//i.test(url)) {
+      return parsed.toString();
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return url
+      .replace(/([?&])w=\d+(&|$)/i, (_, sep: string, end: string) =>
+        end === "&" ? sep : "",
+      )
+      .replace(/\?$/, "");
+  }
+}
 
 /** Ultra-small LQIP under gallery heroes. */
 export const GALLERY_LQIP_WIDTH = 32;

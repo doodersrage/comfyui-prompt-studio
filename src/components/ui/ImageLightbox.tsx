@@ -13,6 +13,7 @@ import {
 import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
 import type { ComfyOutputMediaKind } from "@/lib/comfyui-outputs";
 import { prefetchGalleryImageUrl } from "@/lib/gallery-image-prefetch";
+import { stripGalleryViewWidthParam } from "@/lib/comfyui-outputs";
 
 export type ImageLightboxState = {
   images: string[];
@@ -119,10 +120,16 @@ export default function ImageLightbox({
     state?.thumbImages?.[displayIndex] ??
     state?.thumbImages?.[0] ??
     undefined;
-  const currentOriginalUrl =
-    state?.originalImages?.[displayIndex] ??
-    state?.originalImages?.[0] ??
-    currentUrl;
+  const currentOriginalUrl = (() => {
+    const candidate =
+      state?.originalImages?.[displayIndex] ??
+      state?.originalImages?.[0] ??
+      currentUrl;
+    if (!candidate) {
+      return undefined;
+    }
+    return stripGalleryViewWidthParam(candidate);
+  })();
   const currentTitle = state?.titles?.[displayIndex] ?? state?.title;
   const canGoPrevious = index > 0;
   const canGoNext = index < images.length - 1;

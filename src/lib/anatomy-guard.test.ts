@@ -99,6 +99,18 @@ describe("anatomy guard", () => {
     assert.match(result.negative ?? "", /extra limbs|extra fingers/i);
   });
 
+  it("hardens ultrareal hands and pose guidance", () => {
+    const result = applyAnatomyGuardForModel({
+      positive: "A woman in a leather dress stands on a city sidewalk.",
+      model: "flux-ultrareal-v4",
+      mode: "strict",
+      maxPositiveAppendChars: 700,
+    });
+    assert.match(result.positive, /five distinct fingers/i);
+    assert.match(result.positive, /Keep poses straightforward|clasped-hand/i);
+    assert.match(result.positive, /Avoid extra limbs/i);
+  });
+
   it("deduplicates merged negative terms", () => {
     const merged = applyAnatomyGuardToNegative("extra limbs, blurry", "standard");
     assert.equal(

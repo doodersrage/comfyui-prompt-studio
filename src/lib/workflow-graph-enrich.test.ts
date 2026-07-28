@@ -1169,4 +1169,60 @@ describe("workflow-graph-enrich", () => {
       0,
     );
   });
+
+  it("keeps UltraReal Final native and applies mild Max neural + skin-safe sharpen", () => {
+    const workflow = {
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["6", 0], vae: ["1", 2] },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["7", 0], filename_prefix: "PromptStudio" },
+      },
+    };
+
+    const finalResult = enrichWorkflowGraph({
+      workflow: structuredClone(workflow),
+      tokens: TOKENS,
+      model: "flux-ultrareal-v4",
+      qualityProfile: "final",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+      availableUpscaleModels: ["4x-UltraSharp.pth"],
+      enrichSampling: false,
+    });
+    assert.equal(
+      (finalResult.workflow["8"] as { inputs: { images: [string, number] } }).inputs
+        .images[0],
+      "7",
+    );
+    assert.ok(
+      finalResult.changes.some((change) =>
+        /Skipped Final output upscale for UltraReal/i.test(change.message),
+      ),
+    );
+
+    const maxResult = enrichWorkflowGraph({
+      workflow: structuredClone(workflow),
+      tokens: TOKENS,
+      model: "flux-ultrareal-v4",
+      qualityProfile: "max",
+      upscaleModelFilename: "4x-UltraSharp.pth",
+      availableUpscaleModels: ["4x-UltraSharp.pth"],
+      enrichSampling: false,
+    });
+    const saveNode = maxResult.workflow["8"] as {
+      inputs: { images: [string, number] };
+    };
+    const sharpenId = saveNode.inputs.images[0];
+    const sharpenNode = maxResult.workflow[sharpenId] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
+    assert.equal(sharpenNode.class_type, "ImageSharpen");
+    assert.equal(sharpenNode.inputs.alpha, 0.05);
+    assert.ok(
+      maxResult.changes.some((change) => /UpscaleModelLoader|neural/i.test(change.message)),
+    );
+  });
 });

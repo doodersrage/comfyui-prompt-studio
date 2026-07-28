@@ -215,6 +215,16 @@ export function formatQueueQualityProfileHint(
       profile === "final" || profile === "max"
         ? " · Lanczos polish · CFG-1 short negatives"
         : " · Draft (no Lanczos) · CFG-1 short negatives";
+  } else if (
+    isFluxFineTuneCheckpointModel(model) &&
+    profileUsesUpscaleEnrich(profile)
+  ) {
+    upscaleNote =
+      profile === "max"
+        ? ` · mild neural ~${upscaleScaleForProfile(profile, { model })}× (no Lanczos)`
+        : " · native decode (no Lanczos)";
+  } else if (isKleinBaseModel(model) && profileUsesUpscaleEnrich(profile)) {
+    upscaleNote = " · native decode (no Lanczos)";
   } else if (profileUsesUpscaleEnrich(profile)) {
     const targetScale = upscaleScaleForProfile(profile, { model });
     const usesNeural =
@@ -229,6 +239,8 @@ export function formatQueueQualityProfileHint(
       /^qwen-image-2\.0$/i.test(model)
     ) {
       upscaleNote = " · Lanczos upscale (chroma guard)";
+    } else if (profileSkipsOutputUpscaleForModel(profile, { model })) {
+      upscaleNote = " · native decode (no output upscale)";
     } else {
       upscaleNote = " · Lanczos upscale";
     }
@@ -490,9 +502,12 @@ export function profileSkipsOutputUpscaleForModel(
   if (/^qwen-rapid-aio-/i.test(model)) {
     return true;
   }
-  // UltraReal Fine-Tune / Klein Base: native decode is already soft — Lanczos
-  // 1.25–1.5× turns skin into plastic mush and kills strand/fabric detail.
-  if (isFluxFineTuneCheckpointModel(model) || isKleinBaseModel(model)) {
+  // UltraReal Fine-Tune: Final stays native (Lanczos plastics skin). Max uses mild neural.
+  // Klein Base: skip all Final/Max image-space enlarge (same plastic mush).
+  if (isFluxFineTuneCheckpointModel(model)) {
+    return normalizeQueueQualityProfile(profile) !== "max";
+  }
+  if (isKleinBaseModel(model)) {
     return true;
   }
   if (/qwen-image-edit-2511-lightning/i.test(model)) {
@@ -523,6 +538,11 @@ export function upscaleScaleForProfile(
   // so Max does not balloon past ~1.5k on a 1328 canvas.
   if (options?.model && /lightning-(4|8)\b/i.test(options.model)) {
     return mode === "max" ? 1.12 : 1.08;
+  }
+  // UltraReal Max: mild neural target — enough to recover soft VAE decode without
+  // the old 1.5× Lanczos mush.
+  if (options?.model && isFluxFineTuneCheckpointModel(options.model)) {
+    return mode === "max" ? 1.35 : 1;
   }
   // Vanilla Qwen: keep Max at Final-scale Lanczos (~1.25×) for safer chroma.
   if (
@@ -638,7 +658,8 @@ export function profileUsesNeuralUpscaleEnrich(
     return false;
   }
   if (isFluxFineTuneCheckpointModel(options?.model)) {
-    return false;
+    // Max only — mild UltraSharp recovery; Final stays native decode.
+    return normalizeQueueQualityProfile(profile) === "max";
   }
   if (isKleinBaseModel(options?.model ?? "")) {
     return false;
@@ -814,6 +835,10 @@ export function sharpenAlphaForProfile(
   // People / Qwen stacks wax easily — keep polish subtle.
   if (/qwen|flux-2-klein/i.test(model)) {
     return isMax ? 0.06 : 0.045;
+  }
+  // UltraReal skin plastics quickly — Max neural polish stays very light.
+  if (isFluxFineTuneCheckpointModel(model)) {
+    return 0.05;
   }
   return isMax ? 0.1 : 0.08;
 }

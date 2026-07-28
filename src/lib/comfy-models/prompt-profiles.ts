@@ -48,7 +48,8 @@ function fluxKleinBaseClarityLine(): string {
 }
 
 const FLUX_ULTRAREAL_REALISM_RULES = `- Write like a real high-resolution camera photograph—amateur snapshot or professional DSLR—not illustration, 3D render, or stylized CGI.
-- For people: natural skin with visible pores, fine peach fuzz, and soft subsurface scatter; believable hair and fabric—not plastic, waxy, airbrushed, or doll-like surfaces. Hands and fingers must read as anatomically correct with distinct digits.
+- For people: natural skin with visible pores, fine peach fuzz, and soft subsurface scatter; believable hair and fabric—not plastic, waxy, airbrushed, or doll-like surfaces.
+- For people anatomy: prefer readable standing or simple seated poses; when hands are visible describe five distinct fingers, clear wrists, and natural limb count. Avoid clasped-hand close-ups, intertwined fingers, weight-bearing palm supports, and fisheye/barrel distortion on full figures unless the user explicitly asks.
 - For settings: physical materials with grain, wear, and imperfection—not smooth abstract geometry, repeating props, or generic digital backdrops.
 - Prefer soft natural or motivated photographic light with readable contact shadows—not flat glossy beauty fills, neon oversaturation, or surreal candy-colored dreamscapes unless the user explicitly asks for that look.
 - Balanced natural color grading—not hyper-saturated festival/CG palettes unless requested.
@@ -63,7 +64,7 @@ ${FLUX_ULTRAREAL_REALISM_RULES}`;
 }
 
 function fluxUltraRealClarityLine(): string {
-  return "- UltraReal: real-camera photograph with natural skin, lifelike materials, balanced color, and readable shadows; avoid plastic/CGI skin, neon oversaturation, and airbrushed festival renders.";
+  return "- UltraReal: real-camera photograph with natural skin, lifelike materials, balanced color, and readable shadows; for people use normal lenses with five-fingered hands and simple poses; avoid plastic/CGI skin, neon oversaturation, and airbrushed festival renders.";
 }
 
 function modelPhotoRealismBlock(def: ComfyImageModelDefinition): string {
@@ -97,7 +98,7 @@ function modelPhotoRealismUserHint(def: ComfyImageModelDefinition): string {
     return fluxKleinDistilledUserHint();
   }
   if (isFluxFineTuneCheckpointModel(def.id)) {
-    return " Real-camera photograph with natural skin, balanced color, and believable materials—not neon CGI or airbrushed plastic.";
+    return " Real-camera photograph with natural skin, five-fingered hands, simple readable poses, and believable materials—not neon CGI, clasped-hand close-ups, or airbrushed plastic.";
   }
   return "";
 }

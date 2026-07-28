@@ -7,6 +7,7 @@ import {
   GALLERY_THUMB_SRCSET_WIDTHS,
   GALLERY_THUMB_WIDTH,
   resolveComfyOutputMediaKind,
+  stripGalleryViewWidthParam,
 } from "./comfyui-outputs";
 import { buildEngineViewPath } from "./engine/view-paths";
 import { filterBySemanticQuery } from "./semantic-search";
@@ -843,7 +844,9 @@ export function buildGalleryLightboxPlaylist(
     for (let i = 0; i < urls.length; i += 1) {
       images.push(urls[i]!);
       thumbImages.push(thumbs[i] ?? urls[i]!);
-      originalImages.push(originals[i] ?? urls[i]!);
+      originalImages.push(
+        stripGalleryViewWidthParam(originals[i] ?? urls[i]!),
+      );
       titles.push(title);
       mediaKinds.push(kinds[i] ?? "image");
     }

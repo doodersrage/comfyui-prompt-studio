@@ -43,7 +43,7 @@ const LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS = 160;
 const MAX_QUEUE_POSITIVE_SUFFIX_CHARS = 200;
 const KLEIN_BASE_QUEUE_POSITIVE_SUFFIX_CHARS = 580;
 const KLEIN_DISTILLED_QUEUE_POSITIVE_SUFFIX_CHARS = 420;
-const ULTRAREAL_QUEUE_POSITIVE_SUFFIX_CHARS = 320;
+const ULTRAREAL_QUEUE_POSITIVE_SUFFIX_CHARS = 420;
 
 function maxQueuePositiveSuffixChars(model: ComfyImageModel | string): number {
   if (isKleinBaseModel(model)) {
@@ -189,6 +189,32 @@ export function applyQueuePromptSteering(input: {
     });
   }
 
+  // UltraReal: anatomy/hand cues first — soft decode + fragile hands need the budget.
+  if (isFluxFineTuneCheckpointModel(input.model)) {
+    const withAnatomy = applyAnatomyGuardForModel({
+      positive: input.positive,
+      negative: input.negative,
+      model: input.model,
+      mode: anatomyMode,
+      maxPositiveAppendChars: suffixBudget,
+    });
+    const anatomyGrowth = Math.max(
+      0,
+      withAnatomy.positive.trim().length - baseLength,
+    );
+    const withRealism = applyRenderRealismForModel({
+      positive: withAnatomy.positive,
+      negative: withAnatomy.negative,
+      model: input.model,
+      mode: realismMode,
+      maxPositiveAppendChars: Math.max(0, suffixBudget - anatomyGrowth),
+    });
+    return {
+      ...withRealism,
+      positive: ensureUltraRealAmplifierTriggerInPrompt(withRealism.positive),
+    };
+  }
+
   const withRealism = applyRenderRealismForModel({
     positive: input.positive,
     negative: input.negative,
@@ -211,13 +237,6 @@ export function applyQueuePromptSteering(input: {
       suffixBudget - realismGrowth,
     ),
   });
-
-  if (isFluxFineTuneCheckpointModel(input.model)) {
-    return {
-      ...withAnatomy,
-      positive: ensureUltraRealAmplifierTriggerInPrompt(withAnatomy.positive),
-    };
-  }
 
   if (isKleinBaseModel(input.model)) {
     return {
