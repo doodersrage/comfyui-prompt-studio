@@ -206,7 +206,7 @@ export function formatQueueQualityProfileHint(
   } else if (/qwen-image-edit-2511-lightning/i.test(model)) {
     upscaleNote =
       profile === "final" || profile === "max"
-        ? " · light Lanczos on Compose I2I · CFG-1 short negatives"
+        ? " · Compose light Lanczos · T2I native · CFG-1 short negatives"
         : " · CFG-1 short negatives";
   } else if (isWanLightning || isWanRapid) {
     upscaleNote = " · CFG-1 short temporal negatives · simple motion prompts";
@@ -358,10 +358,10 @@ export function formatQueuePipelineStatusNotes(input: {
   } else if (/qwen-image-edit-2511-lightning/i.test(model)) {
     notes.push("Lightning CFG-1 · short negatives");
     if (profile === "final" || profile === "max") {
-      if (profileSkipsOutputUpscaleForModel(profile, { model, hasInputImage: input.hasInputImage })) {
-        notes.push("Lanczos skipped (Edit T2I)");
+      if (input.hasInputImage === true) {
+        notes.push("light Lanczos");
       } else {
-        notes.push("Final/Max adds Lanczos");
+        notes.push("native decode (no Lanczos)");
       }
     } else if (profile === "draft") {
       notes.push("Draft · no Lanczos");
@@ -489,8 +489,7 @@ export function profileUsesUpscaleEnrich(profile: QueueQualityProfile | undefine
   return mode === "final" || mode === "max";
 }
 
-/** Edit-2511 Lightning T2I: Final/Max Lanczos enlarges soft mush — skip output upscale.
- * Compose/Transfer I2I gets a *light* Lanczos polish only (heavy resize rings on 8-step decode). */
+/** Edit-2511 Lightning: Final/Max Lanczos enlarges soft mush / Max rings on CFG-1 — skip output upscale. */
 export function profileSkipsOutputUpscaleForModel(
   profile: QueueQualityProfile | undefined,
   options?: { model?: string; hasInputImage?: boolean },
@@ -510,10 +509,13 @@ export function profileSkipsOutputUpscaleForModel(
   if (isKleinBaseModel(model)) {
     return true;
   }
-  if (/qwen-image-edit-2511-lightning/i.test(model)) {
-    // Reference-image edits (Compose/Transfer/Refine) get light Final Lanczos;
-    // plain T2I Generate still skips to avoid enlarging soft mush.
-    return options?.hasInputImage !== true;
+  // Edit-2511 Lightning T2I: skip Final/Max Lanczos (enlarges soft mush).
+  // Compose I2I keeps a light polish pass (see upscaleScaleForProfile).
+  if (
+    /qwen-image-edit-2511-lightning/i.test(model) &&
+    options?.hasInputImage !== true
+  ) {
+    return true;
   }
   return false;
 }
@@ -526,7 +528,7 @@ export function upscaleScaleForProfile(
   if (profileSkipsOutputUpscaleForModel(profile, options)) {
     return 1;
   }
-  // Edit Lightning Compose I2I: keep near-native (1328→~1394/1461) — 1.18×+ rings.
+  // Edit Lightning Compose I2I: light Lanczos only (VAE mosaic was ae mismatch).
   if (
     options?.model &&
     /qwen-image-edit-2511-lightning/i.test(options.model) &&

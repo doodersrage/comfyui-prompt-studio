@@ -90,7 +90,8 @@ function fluxVaeFilename(model?: ComfyImageModel | string): string {
       return suggested;
     }
   }
-  return "ae.safetensors";
+  // Never default to ae — reserved for UltraReal Fine-Tune v4 only.
+  return "flux2-vae.safetensors";
 }
 
 function fluxDiffusionLoaders(model?: ComfyImageModel | string): {

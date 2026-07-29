@@ -93,7 +93,8 @@ describe("syncLoaderMapsFromInventory", () => {
     assert.ok(!result.filledCheckpointKeys.includes("flux-dev"));
     assert.equal(result.modelCheckpointMap.sdxl, "sd_xl_base_1.0.safetensors");
     assert.ok(result.filledCheckpointKeys.includes("sdxl"));
-    assert.equal(result.modelVaeMap["flux-dev"], "ae.safetensors");
+    assert.equal(result.modelVaeMap["flux-ultrareal-v4"], "ae.safetensors");
+    assert.equal(result.modelVaeMap["flux-dev"], undefined);
     assert.equal(result.modelUpscaleMap.default, "4x-UltraSharp.pth");
     assert.equal(
       result.modelControlNetMap.default,

@@ -190,7 +190,12 @@ export function discoverWebpSaveAdapters(
 
   const discovered: WebpSaveAdapter[] = [];
   for (const [classType, rawNode] of Object.entries(objectInfo)) {
-    if (classType === "SaveImage" || !rawNode || typeof rawNode !== "object") {
+    if (
+      classType === "SaveImage" ||
+      classType === "SaveImageAdvanced" ||
+      !rawNode ||
+      typeof rawNode !== "object"
+    ) {
       continue;
     }
     const node = rawNode as Record<string, unknown>;
@@ -317,6 +322,10 @@ function isSaveLikeNode(
   if (!node?.class_type || !node.inputs || node.inputs.images == null) {
     return false;
   }
+  // Handled separately — never rewrite away from SaveImageAdvanced.
+  if (node.class_type === "SaveImageAdvanced") {
+    return false;
+  }
   if (knownTypes.has(node.class_type)) {
     return true;
   }
@@ -328,6 +337,31 @@ function isSaveLikeNode(
     typeof node.inputs.filename_prefix === "string" &&
     looksLikeSaveNodeName(node.class_type)
   );
+}
+
+/**
+ * ComfyUI built-in SaveImageAdvanced requires `format` (png|exr). Packs often
+ * omit it (UI widget defaults), which crashes API queue with:
+ * SaveImageAdvanced.execute() missing 1 required positional argument: 'format'
+ * Keep the node type — only fill required format fields in place.
+ */
+function ensureSaveImageAdvancedInputs(
+  inputs: Record<string, unknown>,
+  filenamePrefix: string,
+): Record<string, unknown> {
+  const next = { ...inputs };
+  if (typeof next.format !== "string" || !next.format.trim()) {
+    next.format = "png";
+  }
+  const format = String(next.format).toLowerCase();
+  if (typeof next.bit_depth !== "string" || !next.bit_depth.trim()) {
+    next.bit_depth = format === "exr" ? "32-bit float" : "8-bit";
+  }
+  if (typeof next.input_color_space !== "string" || !next.input_color_space.trim()) {
+    next.input_color_space = "sRGB";
+  }
+  next.filename_prefix = filenamePrefix;
+  return next;
 }
 
 function applyWebpAdapterInputs(
@@ -347,6 +381,7 @@ function applyWebpAdapterInputs(
  * Profile-aware save node patch:
  * - Draft + compact: rewrite SaveImage → WebP-capable custom node when installed
  * - Final/Max: force stock SaveImage (PNG) and profile filename prefixes
+ * - SaveImageAdvanced: fill required format fields in place (do not demote)
  */
 export function patchWorkflowSaveFormat(input: {
   workflow: Record<string, unknown>;
@@ -365,12 +400,34 @@ export function patchWorkflowSaveFormat(input: {
     input.qualityProfile,
     input.compactDraftSaves !== false,
   );
-  const discovered = input.webpSaveAdapters ?? [];
+  const discovered = (input.webpSaveAdapters ?? []).filter(
+    (adapter) => adapter.classType !== "SaveImageAdvanced",
+  );
   const webpAdapter =
     format === "webp"
       ? pickWebpSaveAdapter(input.availableNodeTypes, discovered)
       : null;
   const knownTypes = knownSaveClassTypes(discovered);
+
+  let advancedRepaired = 0;
+  for (const node of Object.values(workflow)) {
+    if (node?.class_type !== "SaveImageAdvanced" || !node.inputs) {
+      continue;
+    }
+    const prefix = resolveSaveFilenamePrefix(
+      node.inputs.filename_prefix,
+      input.qualityProfile,
+    );
+    node.inputs = ensureSaveImageAdvancedInputs(node.inputs, prefix);
+    advancedRepaired += 1;
+  }
+  if (advancedRepaired > 0) {
+    changes.push({
+      kind: "audit",
+      severity: "info",
+      message: `Filled SaveImageAdvanced format fields (png / 8-bit / sRGB) on ${advancedRepaired} node(s) for API queue.`,
+    });
+  }
 
   let patched = 0;
   for (const node of Object.values(workflow)) {
@@ -405,7 +462,7 @@ export function patchWorkflowSaveFormat(input: {
     patched += 1;
   }
 
-  if (patched === 0) {
+  if (patched === 0 && advancedRepaired === 0) {
     return { workflow, changes };
   }
 
@@ -415,7 +472,7 @@ export function patchWorkflowSaveFormat(input: {
       severity: "info",
       message: `Draft compact save: using ${webpAdapter.classType} (WebP · ${String(webpAdapter.formatValues[0])}) on ${patched} save node(s).`,
     });
-  } else if (format === "webp" && !webpAdapter) {
+  } else if (format === "webp" && !webpAdapter && patched > 0) {
     changes.push({
       kind: "audit",
       severity: "warn",
@@ -427,7 +484,7 @@ export function patchWorkflowSaveFormat(input: {
       severity: "info",
       message: `Updated ${patched} SaveImage filename prefix(es) for draft profile.`,
     });
-  } else {
+  } else if (patched > 0) {
     changes.push({
       kind: "audit",
       severity: "info",

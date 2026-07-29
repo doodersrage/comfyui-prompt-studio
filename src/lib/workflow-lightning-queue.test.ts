@@ -926,6 +926,19 @@ describe("lightning queue precision and sampling", () => {
     assert.equal(latent.inputs.width, 1328);
     assert.equal(latent.inputs.height, 1328);
 
+    const oversized = forceLightningLatentSizeInWorkflow(
+      workflow,
+      { width: 2048, height: 2048 },
+      "qwen-image-edit-2511-lightning-8",
+    );
+    const oversizedLatent = oversized["120"] as {
+      class_type: string;
+      inputs: { width: number; height: number };
+    };
+    assert.equal(oversizedLatent.class_type, "EmptySD3LatentImage");
+    assert.equal(oversizedLatent.inputs.width, 1328);
+    assert.equal(oversizedLatent.inputs.height, 1328);
+
     const prepared = prepareLightningWorkflowForQueue(
       workflow,
       "qwen-image-edit-2511-lightning-8",
@@ -1035,5 +1048,314 @@ describe("qwen edit reference image prep", () => {
       inputImageFilename: "a.png",
     });
     assert.deepEqual(next, workflow);
+  });
+
+  it("forces Qwen VAE when Lightning graph still has Flux ae.safetensors", async () => {
+    const { prepareLightningWorkflowForQueue } = await import(
+      "./workflow-lightning-queue.ts"
+    );
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+      "3": {
+        class_type: "VAELoader",
+        inputs: { vae_name: "ae.safetensors" },
+      },
+      "7": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name:
+            "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "120": {
+        class_type: "EmptySD3LatentImage",
+        inputs: { width: 1328, height: 1328, batch_size: 1 },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["7", 0],
+          latent_image: ["120", 0],
+          steps: 8,
+          cfg: 1,
+          denoise: 1,
+        },
+      },
+    };
+    const result = prepareLightningWorkflowForQueue(
+      workflow,
+      "qwen-image-edit-2511-lightning-8",
+      {
+        "{{LORA_LIGHTNING}}":
+          "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+      },
+      { params: { width: 1328, height: 1328 } },
+    );
+    assert.equal(
+      (result["3"] as { inputs: { vae_name: string } }).inputs.vae_name,
+      "qwen_image_vae.safetensors",
+    );
+  });
+
+  it("scales Compose refs to EmptyLatent size on Edit Lightning prep", async () => {
+    const { prepareLightningWorkflowForQueue } = await import(
+      "./workflow-lightning-queue.ts"
+    );
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+      "7": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name:
+            "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "120": {
+        class_type: "EmptySD3LatentImage",
+        inputs: { width: 2048, height: 2048, batch_size: 1 },
+      },
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "compose",
+          clip: ["2", 0],
+          vae: ["3", 0],
+          image1: ["900", 0],
+        },
+      },
+      "900": {
+        class_type: "LoadImage",
+        inputs: { image: "upload-2048.png" },
+        _meta: { title: "Figure 1" },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["7", 0],
+          positive: ["4", 0],
+          latent_image: ["120", 0],
+          steps: 8,
+          cfg: 1,
+        },
+      },
+    };
+
+    const result = prepareLightningWorkflowForQueue(
+      workflow,
+      "qwen-image-edit-2511-lightning-8",
+      {
+        "{{LORA_LIGHTNING}}":
+          "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+      },
+      { params: { width: 1328, height: 1328, inputImageFilename: "upload-2048.png" } },
+    );
+
+    const latent = Object.values(result).find(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { class_type?: string }).class_type === "EmptySD3LatentImage",
+    ) as { inputs: { width: number; height: number } };
+    assert.equal(latent.inputs.width, 1328);
+    assert.equal(latent.inputs.height, 1328);
+
+    const encode = result["4"] as {
+      inputs: { image1: [string, number] };
+    };
+    const scaleNode = result[encode.inputs.image1[0]] as {
+      class_type: string;
+      inputs: {
+        image: [string, number];
+        width: number;
+        height: number;
+        upscale_method: string;
+        crop: string;
+      };
+    };
+    assert.equal(scaleNode.class_type, "ImageScale");
+    assert.equal(scaleNode.inputs.width, 1328);
+    assert.equal(scaleNode.inputs.height, 1328);
+    assert.equal(scaleNode.inputs.upscale_method, "lanczos");
+    assert.equal(scaleNode.inputs.crop, "center");
+    assert.equal(
+      (result[scaleNode.inputs.image[0]] as { inputs: { image: string } }).inputs
+        .image,
+      "upload-2048.png",
+    );
+  });
+
+  it("keeps portrait EmptyLatent + center-crop ref scale on Edit Lightning Compose", async () => {
+    const { prepareLightningWorkflowForQueue } = await import(
+      "./workflow-lightning-queue.ts"
+    );
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+      "7": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name:
+            "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "120": {
+        class_type: "EmptySD3LatentImage",
+        inputs: { width: 1328, height: 1328, batch_size: 1 },
+      },
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "compose",
+          clip: ["2", 0],
+          vae: ["3", 0],
+          image1: ["900", 0],
+        },
+      },
+      "900": {
+        class_type: "LoadImage",
+        inputs: { image: "portrait.png" },
+        _meta: { title: "Figure 1" },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["7", 0],
+          positive: ["4", 0],
+          latent_image: ["120", 0],
+          steps: 8,
+          cfg: 1,
+        },
+      },
+    };
+
+    const result = prepareLightningWorkflowForQueue(
+      workflow,
+      "qwen-image-edit-2511-lightning-8",
+      {
+        "{{LORA_LIGHTNING}}":
+          "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+      },
+      {
+        params: {
+          width: 1104,
+          height: 1472,
+          inputImageFilename: "portrait.png",
+        },
+      },
+    );
+
+    const latent = Object.values(result).find(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { class_type?: string }).class_type === "EmptySD3LatentImage",
+    ) as { inputs: { width: number; height: number } };
+    assert.equal(latent.inputs.width, 1104);
+    assert.equal(latent.inputs.height, 1472);
+
+    const encode = result["4"] as { inputs: { image1: [string, number] } };
+    const scaleNode = result[encode.inputs.image1[0]] as {
+      class_type: string;
+      inputs: { width: number; height: number; crop: string };
+    };
+    assert.equal(scaleNode.class_type, "ImageScale");
+    assert.equal(scaleNode.inputs.width, 1104);
+    assert.equal(scaleNode.inputs.height, 1472);
+    assert.equal(scaleNode.inputs.crop, "center");
+  });
+
+  it("replaces pack ImageScaleBy encode links with absolute latent ImageScale", async () => {
+    const { scaleQwenEditReferenceImagesToLatentSize } = await import(
+      "./workflow-lightning-queue.ts"
+    );
+    const workflow = {
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "compose",
+          image1: ["901", 0],
+        },
+      },
+      "900": {
+        class_type: "LoadImage",
+        inputs: { image: "fig.png" },
+        _meta: { title: "Figure 1" },
+      },
+      "901": {
+        class_type: "ImageScaleBy",
+        inputs: { image: ["900", 0], scale_by: 1.0 },
+      },
+    };
+    const { workflow: next, scaledSlotCount } =
+      scaleQwenEditReferenceImagesToLatentSize(workflow, {
+        width: 1104,
+        height: 1472,
+      });
+    assert.ok(scaledSlotCount >= 1);
+    const encode = next["4"] as { inputs: { image1: [string, number] } };
+    const scaleNode = next[encode.inputs.image1[0]] as {
+      class_type: string;
+      inputs: { width: number; height: number; crop: string; image: [string, number] };
+    };
+    assert.equal(scaleNode.class_type, "ImageScale");
+    assert.equal(scaleNode.inputs.width, 1104);
+    assert.equal(scaleNode.inputs.height, 1472);
+    assert.equal(scaleNode.inputs.crop, "center");
+    assert.equal(scaleNode.inputs.image[0], "900");
+  });
+
+  it("prunes unused {{INPUT_IMAGE}} LoadImages after Compose ensure", async () => {
+    const { prepareQwenEditReferenceImagesForQueue } = await import(
+      "./workflow-lightning-queue.ts"
+    );
+    const workflow = {
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "edit",
+          clip: ["2", 0],
+          vae: ["3", 0],
+          image1: ["900", 0],
+        },
+      },
+      "900": {
+        class_type: "LoadImage",
+        inputs: { image: "stale.png" },
+        _meta: { title: "Figure 1" },
+      },
+      "901": {
+        class_type: "LoadImage",
+        inputs: { image: "{{INPUT_IMAGE_2}}" },
+        _meta: { title: "Figure 2" },
+      },
+    };
+    const next = prepareQwenEditReferenceImagesForQueue(
+      workflow,
+      "qwen-image-edit-2511-lightning-8",
+      {
+        inputImageFilename: "only-fig1.png",
+        width: 1328,
+        height: 1328,
+      },
+    );
+    assert.equal(next["901"], undefined);
+    assert.equal(
+      (next["900"] as { inputs: { image: string } }).inputs.image,
+      "only-fig1.png",
+    );
   });
 });

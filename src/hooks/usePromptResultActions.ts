@@ -601,6 +601,26 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           uploadedFilenames[0] = inputImageFilename;
         }
 
+        // Last resort: probe the raw File when upload metadata omitted size
+        // (otherwise Lightning inject keeps Settings 1328² and squashes portraits).
+        if (
+          !uploadedFigureSize &&
+          options?.inputImage &&
+          typeof createImageBitmap === "function"
+        ) {
+          try {
+            const { probeImageFileDimensions } = await import(
+              "@/lib/browser-image-dimensions"
+            );
+            const probed = await probeImageFileDimensions(options.inputImage);
+            if (probed) {
+              uploadedFigureSize = probed;
+            }
+          } catch {
+            /* optional */
+          }
+        }
+
         for (let i = 1; i < 4; i += 1) {
           const file = options?.inputImages?.[i];
           const imageUrl = options?.inputImageUrls?.[i];
@@ -705,8 +725,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           qualityProfile: effectiveQualityProfile,
         });
 
-        // Compose/Refine: match EmptyLatent to the uploaded figure so Lightning
-        // square presets / stale gallery dims cannot stretch ReferenceLatent edits.
+        // Compose/Refine: match EmptyLatent aspect to the uploaded figure so
+        // square presets cannot stretch ReferenceLatent edits. Lightning must
+        // still snap to a native-safe preset — raw ≤2048 uploads mosaic CFG-1.
         if (
           uploadedFigureSize &&
           (config.tool === "compose" ||
@@ -714,13 +735,31 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             config.tool === "inpaint" ||
             config.tool === "outpaint")
         ) {
-          const { snapLatentSize } = await import("@/lib/browser-image-dimensions");
-          const snapped = snapLatentSize(
-            uploadedFigureSize.width,
-            uploadedFigureSize.height,
+          const { isQwenLightningModel } = await import(
+            "@/lib/model-sampling-patch"
           );
-          queueParams.width = snapped.width;
-          queueParams.height = snapped.height;
+          if (isQwenLightningModel(queueModel)) {
+            const { lightningSafeComposeLatentSize } = await import(
+              "@/lib/model-resolution-defaults"
+            );
+            const safe = lightningSafeComposeLatentSize(
+              uploadedFigureSize.width,
+              uploadedFigureSize.height,
+              queueModel,
+            );
+            queueParams.width = safe.width;
+            queueParams.height = safe.height;
+          } else {
+            const { snapLatentSize } = await import(
+              "@/lib/browser-image-dimensions"
+            );
+            const snapped = snapLatentSize(
+              uploadedFigureSize.width,
+              uploadedFigureSize.height,
+            );
+            queueParams.width = snapped.width;
+            queueParams.height = snapped.height;
+          }
         }
 
         if (pluginDenoise != null && pluginDenoise.toString().trim() !== "") {
@@ -728,6 +767,41 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
         if (pluginCfg != null && pluginCfg.toString().trim() !== "") {
           queueParams.cfg = pluginCfg;
+        }
+
+        // Distilled stacks (Lightning / Rapid AIO): Advanced/plugin CFG or soft
+        // edit denoise must not clobber CFG-1 / denoise-1 — that mosaics Compose.
+        {
+          const { ensureDistilledSamplerParams } = await import(
+            "@/lib/model-sampler-defaults"
+          );
+          const {
+            resolveDenoiseForModel,
+            isQwenRapidAioModel,
+            isWanRapidAioModel,
+          } = await import("@/lib/model-denoise-defaults");
+          const { isQwenLightningModel, isWanLightningModel } = await import(
+            "@/lib/model-sampling-patch"
+          );
+          const isDistilled =
+            isQwenLightningModel(queueModel) ||
+            isWanLightningModel(queueModel) ||
+            isQwenRapidAioModel(queueModel) ||
+            isWanRapidAioModel(queueModel);
+          if (isDistilled) {
+            Object.assign(
+              queueParams,
+              ensureDistilledSamplerParams(queueParams, queueModel),
+            );
+            const forcedDenoise = resolveDenoiseForModel(queueModel, {
+              tool: config.tool,
+              hasInputImage: Boolean(inputImageFilename),
+              hasMaskImage: Boolean(maskImageFilename),
+            });
+            if (forcedDenoise != null) {
+              queueParams.denoise = forcedDenoise;
+            }
+          }
         }
 
         if (config.tool === "compose") {

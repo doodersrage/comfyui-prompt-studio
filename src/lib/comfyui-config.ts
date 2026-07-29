@@ -6,6 +6,7 @@ import {
   isEditCapableModel,
   isFlux1FamilyModel,
   isQwenRapidAioModel,
+  resolveDenoiseForModel,
 } from "./model-denoise-defaults";
 import {
   buildLightningLoraFilenameMap,
@@ -19,6 +20,7 @@ import {
 } from "./workflow-prompt-encode";
 import {
   forceResolveLoaderPlaceholders,
+  patchImageResizeNodesInWorkflow,
   patchLoadImageMaskNodesInWorkflow,
   patchLoadImageNodesInWorkflow,
   patchLoaderNodesInWorkflow,
@@ -421,11 +423,20 @@ export function resolveQueueParams(
   }
 
   if (model) {
+    const hasInputImage = Boolean(
+      result.inputImageFilename?.toString().trim() ||
+        result.inputImageFilenames?.some((name) => Boolean(name?.toString().trim())),
+    );
     const aligned = ensureLightningNativeResolutionParams(
       result,
       model,
       orientation,
       sizeTier,
+      {
+        // Compose/Refine/img2img: never rewrite client figure AR back to native
+        // square — that horizontally squashes portrait selfies into 1328².
+        preserveInputAspect: hasInputImage,
+      },
     );
     if (aligned.width != null) {
       result.width = aligned.width.toString();
@@ -1562,6 +1573,21 @@ export function injectPromptsWithFallbacks(
     };
   }
 
+  // Lightning inject skips patchWorkflowDirectParams — still snap pack ImageScale /
+  // ResizeImage nodes to queue W×H so preprocess sizes don't fight EmptyLatent.
+  // Run before prepareLightning so encode-path "ref → latent size" scales added
+  // afterward are not clobbered.
+  if (isLightning && input.params?.width != null && input.params?.height != null) {
+    const resizePatch = patchImageResizeNodesInWorkflow(nextWorkflow, input.params);
+    nextWorkflow = resizePatch.workflow;
+    directPatchCounts = {
+      ...directPatchCounts,
+      ...Object.fromEntries(
+        Object.entries(resizePatch.patched).filter(([, count]) => (count ?? 0) > 0),
+      ),
+    };
+  }
+
   nextWorkflow = prepareLightningWorkflowForQueue(
     nextWorkflow,
     options?.model,
@@ -1579,7 +1605,8 @@ export function injectPromptsWithFallbacks(
 
   // Lightning prep zeros baked-in pack style LoRAs. Re-apply the session/Settings
   // stack afterward so sidebar picks still load (on neutralized anchors or after
-  // the Lightning node when the graph has no style loaders).
+  // the Lightning node when the graph has no style loaders). Includes Edit-2511
+  // Lightning — Lightning LoRA stays first; selected style LoRAs chain after it.
   if (isLightning) {
     const loraStackPatch = applyLoraStackToWorkflow(
       nextWorkflow,
@@ -1627,6 +1654,20 @@ export function injectPromptsWithFallbacks(
       distilledModelId,
       distilledTier,
     );
+    // Soft edit denoise (0.65) in packs / handoffs mosaics CFG-1 Lightning —
+    // always force denoise with the distilled CFG/steps patch.
+    const forcedDenoise = resolveDenoiseForModel(distilledModelId, {
+      hasInputImage: Boolean(
+        input.params?.inputImageFilename?.toString().trim() ||
+          input.params?.inputImageFilenames?.some((name) =>
+            Boolean(name?.toString().trim()),
+          ),
+      ),
+      hasMaskImage: Boolean(input.params?.maskImageFilename?.toString().trim()),
+    });
+    if (forcedDenoise != null) {
+      distilledSampler.denoise = forcedDenoise;
+    }
     nextWorkflow = patchSamplerParamsInWorkflow(
       nextWorkflow,
       distilledSampler,

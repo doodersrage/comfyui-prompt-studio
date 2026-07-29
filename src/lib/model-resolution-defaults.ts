@@ -779,6 +779,56 @@ export function qwenOfficialMediumSizeLadder(): Array<{ width: number; height: n
   ];
 }
 
+/** Lightning-safe medium sizes (no extreme 9:16 / 16:9 official portrait/landscape). */
+export function qwenLightningMediumSizeLadder(): Array<{ width: number; height: number }> {
+  return [
+    QWEN_LIGHTNING_ARS.square.medium,
+    QWEN_LIGHTNING_ARS.portrait.medium,
+    QWEN_LIGHTNING_ARS.landscape.medium,
+    QWEN_LIGHTNING_ARS["portrait-34"].medium,
+    QWEN_LIGHTNING_ARS["landscape-43"].medium,
+    QWEN_LIGHTNING_ARS["portrait-23"].medium,
+    QWEN_LIGHTNING_ARS["landscape-32"].medium,
+  ];
+}
+
+/**
+ * Map an uploaded figure to the nearest Lightning-safe EmptyLatent size.
+ * Raw upload pixels (often ≤2048 edge) melt CFG-1 Lightning into mosaic/noise and
+ * slow sampling — keep aspect via the closest native preset instead.
+ */
+export function lightningSafeComposeLatentSize(
+  width: number,
+  height: number,
+  model: string = "qwen-image-edit-2511-lightning-8",
+): { width: number; height: number } {
+  const fallback = getModelResolutionPreset(model, "square", "medium");
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    return { width: fallback.width, height: fallback.height };
+  }
+
+  const candidates = isQwenLightningModel(model)
+    ? qwenLightningMediumSizeLadder()
+    : qwenOfficialMediumSizeLadder();
+  const ratio = width / height;
+  let best = candidates[0] ?? fallback;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const candidate of candidates) {
+    const candidateRatio = candidate.width / candidate.height;
+    const score = Math.abs(Math.log(ratio / candidateRatio));
+    if (score < bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+  return { width: best.width, height: best.height };
+}
+
 /** Bump undersized / extreme-AR Lightning queues to a stable native preset. */
 export function ensureLightningNativeResolutionParams(
   params: WorkflowParamValues,
@@ -789,6 +839,7 @@ export function ensureLightningNativeResolutionParams(
     /**
      * Compose/Refine/img2img — keep the reference image aspect. Forcing native
      * square (or rewriting AR) against a non-square figure causes garbled edits.
+     * Always snaps to the nearest Lightning-safe ladder preset so CFG-1 does not mosaic.
      */
     preserveInputAspect?: boolean;
   },
@@ -804,9 +855,15 @@ export function ensureLightningNativeResolutionParams(
     return { ...params, width: native.width, height: native.height };
   }
 
-  // Edit with a reference image: never rewrite away from the figure's aspect.
+  // Edit with a reference image: always snap to the nearest Lightning-safe
+  // ladder size (same AR family). Soft-KEEP of near-native non-ladder sizes
+  // (1024×1536, 1280², …) mosaics CFG-1 Edit Lightning Compose.
   if (options?.preserveInputAspect) {
-    return params;
+    const safe = lightningSafeComposeLatentSize(width, height, model);
+    if (width === safe.width && height === safe.height) {
+      return params;
+    }
+    return { ...params, width: safe.width, height: safe.height };
   }
 
   if (tier === "small") {

@@ -366,7 +366,7 @@ export function optimizeWorkflowForQueue(input: {
   webpSaveAdapters?: import("./workflow-save-format").WebpSaveAdapter[] | null;
   /** When true (default), Draft queues prefer WebP save nodes when installed. */
   compactDraftSaves?: boolean;
-  /** When true, Edit-2511 Lightning Final/Max may add mild Lanczos (Compose I2I). */
+  /** When true, Edit-2511 Lightning still skips Final/Max Lanczos (native decode). */
   hasInputImage?: boolean;
 }): WorkflowQueueOptimizeResult {
   const enabled = input.enabled !== false;
@@ -644,9 +644,9 @@ export function optimizeWorkflowForQueue(input: {
     availableNodeTypes: input.availableNodeTypes,
     webpSaveAdapters: input.webpSaveAdapters,
   });
+  workflow = saveFormatPatch.workflow;
+  workflowJson = stringifyWorkflowCompact(workflow);
   if (saveFormatPatch.changes.length > 0) {
-    workflow = saveFormatPatch.workflow;
-    workflowJson = stringifyWorkflowCompact(workflow);
     changes.push(...saveFormatPatch.changes);
   }
 

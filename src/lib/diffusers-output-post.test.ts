@@ -27,7 +27,7 @@ describe("resolveDiffusersOutputPost", () => {
         studioModel: "qwen-image-2512-lightning-8",
       }),
       {
-        scale: 1.18,
+        scale: 1.08,
         method: "bicubic",
         moireBlurSigma: 0.4,
         moireDownscale: 1,
@@ -39,7 +39,7 @@ describe("resolveDiffusersOutputPost", () => {
         studioModel: "qwen-image-2512-lightning-8",
       }),
       {
-        scale: 1.28,
+        scale: 1.12,
         method: "bicubic",
         moireBlurSigma: 0.5,
         moireDownscale: 0.92,
@@ -74,7 +74,7 @@ describe("resolveDiffusersOutputPost", () => {
     );
   });
 
-  it("skips Edit-2511 Lightning T2I; allows light I2I polish", () => {
+  it("skips Edit-2511 Lightning T2I and Compose I2I output polish", () => {
     assert.equal(
       resolveDiffusersOutputPost({
         qualityProfile: "final",
@@ -83,18 +83,13 @@ describe("resolveDiffusersOutputPost", () => {
       }),
       null,
     );
-    assert.deepEqual(
+    assert.equal(
       resolveDiffusersOutputPost({
-        qualityProfile: "final",
+        qualityProfile: "max",
         studioModel: "qwen-image-edit-2511-lightning-8",
         hasInputImage: true,
       }),
-      {
-        scale: 1.05,
-        method: "bicubic",
-        moireBlurSigma: 0.4,
-        moireDownscale: 1,
-      },
+      null,
     );
   });
 

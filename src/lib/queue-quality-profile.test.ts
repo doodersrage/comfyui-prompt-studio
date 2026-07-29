@@ -73,7 +73,7 @@ describe("queue-quality-profile", () => {
     );
   });
 
-  it("promotes Compose Draft to Final for Lanczos polish", async () => {
+  it("promotes Compose Draft to Final and restores light Lanczos on Edit Lightning Compose", async () => {
     const {
       resolveQueueQualityProfile,
       profileSkipsOutputUpscaleForModel,
@@ -107,6 +107,13 @@ describe("queue-quality-profile", () => {
         hasInputImage: true,
       }),
       1.08,
+    );
+    assert.equal(
+      profileSkipsOutputUpscaleForModel("final", {
+        model: "qwen-image-edit-2511-lightning-8",
+        hasInputImage: false,
+      }),
+      true,
     );
   });
 

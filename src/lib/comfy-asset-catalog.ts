@@ -275,9 +275,9 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     label: "FLUX.1 AE VAE",
     kind: "vae",
     filename: "ae.safetensors",
-    modelIds: ["flux-dev"],
+    modelIds: ["flux-ultrareal-v4"],
     notes:
-      "Gated on black-forest-labs/FLUX.1-dev — place manually or download with HF_TOKEN after accepting the license.",
+      "UltraReal Fine-Tune v4 only in Prompt Studio. Gated on black-forest-labs/FLUX.1-dev — place manually or download with HF_TOKEN after accepting the license.",
     requiresHfToken: true,
   },
   {

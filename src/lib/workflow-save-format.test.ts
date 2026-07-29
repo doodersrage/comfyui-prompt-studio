@@ -148,4 +148,41 @@ describe("workflow save format", () => {
     assert.equal(save.inputs.filename_prefix, "ComfyUI-draft");
     assert.ok(changes.some((change) => change.severity === "warn"));
   });
+
+  it("fills SaveImageAdvanced format fields in place without demoting", () => {
+    const { workflow, changes } = patchWorkflowSaveFormat({
+      workflow: {
+        "10": {
+          class_type: "SaveImageAdvanced",
+          inputs: { images: ["9", 0], filename_prefix: "PromptStudio" },
+        },
+      },
+      qualityProfile: "final",
+    });
+    const save = workflow["10"] as {
+      class_type: string;
+      inputs: Record<string, unknown>;
+    };
+    assert.equal(save.class_type, "SaveImageAdvanced");
+    assert.equal(save.inputs.format, "png");
+    assert.equal(save.inputs.bit_depth, "8-bit");
+    assert.equal(save.inputs.input_color_space, "sRGB");
+    assert.equal(save.inputs.filename_prefix, "PromptStudio");
+    assert.ok(changes.some((change) => /SaveImageAdvanced format/i.test(change.message)));
+  });
+
+  it("does not discover SaveImageAdvanced as a WebP adapter", () => {
+    const adapters = discoverWebpSaveAdapters({
+      SaveImageAdvanced: {
+        input: {
+          required: {
+            images: ["IMAGE", {}],
+            filename_prefix: ["STRING", { default: "ComfyUI" }],
+            format: [["png", "exr"], {}],
+          },
+        },
+      },
+    });
+    assert.equal(adapters.length, 0);
+  });
 });

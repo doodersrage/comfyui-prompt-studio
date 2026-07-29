@@ -7,6 +7,7 @@ import type { CustomWorkflowToken, WorkflowParamValues } from "./comfyui-config"
 import {
   isFlux1FamilyModel,
   isFluxKleinModel,
+  isQwenRapidAioModel,
 } from "./model-denoise-defaults";
 import {
   defaultLoaderPrecisionTier,
@@ -77,7 +78,8 @@ export const SUGGESTED_MODEL_VAE_MAP: ModelVaeMap = {
   "flux-2-klein-4b-distilled": "flux2-vae.safetensors",
   "flux-2-klein-9b": "flux2-vae.safetensors",
   "flux-2-klein-9b-distilled": "flux2-vae.safetensors",
-  "flux-dev": "ae.safetensors",
+  // ae.safetensors is UltraReal-only — do not map flux-dev/Schnell here or it
+  // sticky-binds into Settings and leaks onto Qwen Edit (gray mosaic decode).
   "flux-ultrareal-v4": "ae.safetensors",
   "qwen-image-2512": "qwen_image_vae.safetensors",
   "qwen-image-2512-lightning-4": "qwen_image_vae.safetensors",
@@ -228,14 +230,15 @@ function resolveCustomTokenValue(
 }
 
 const CATEGORY_VAE_HINTS: Partial<Record<ComfyModelCategory, string>> = {
-  flux: "ae.safetensors",
+  // No blanket flux → ae: category covers Klein/FLUX.2 too; UltraReal has an
+  // explicit map entry + registry vaeHint.
   sd3: "sd3_vae.safetensors",
   sdxl: "sdxl_vae.safetensors",
   qwen: "qwen_image_vae.safetensors",
   "stable-diffusion": "vae-ft-mse-840000-ema-pruned.safetensors",
 };
 
-/** Preferred VAE filename for queue/scaffold binding (FLUX.1 → ae, Klein/FLUX.2 → flux2-vae). */
+/** Preferred VAE filename for queue/scaffold binding (UltraReal → ae, Klein/FLUX.2 → flux2-vae). */
 export function suggestedVaeFilenameForModel(
   model: ComfyImageModel | string,
 ): string | undefined {
@@ -248,7 +251,8 @@ export function suggestedVaeFilenameForModel(
   if (fromHint) {
     return fromHint;
   }
-  if (isFlux1FamilyModel(model)) {
+  // ae.safetensors is reserved for UltraReal Fine-Tune v4 only.
+  if (isFluxFineTuneCheckpointModel(model)) {
     return "ae.safetensors";
   }
   if (isFluxKleinModel(model) || model === "flux2") {
@@ -265,19 +269,45 @@ export function isVaeFilenameIncompatibleWithModel(
   model: ComfyImageModel | string,
   vaeFilename: string,
 ): boolean {
-  const expected = suggestedVaeFilenameForModel(model);
   const actual = vaeFilename.trim().toLowerCase();
-  if (!expected?.trim() || !actual) {
+  if (!actual) {
+    return false;
+  }
+  // ae is UltraReal-only in this studio — never leave it on Klein / FLUX.2 / Qwen / etc.
+  // Check before the expected-VAE short-circuit so flux-dev (no mapped VAE) still rejects ae.
+  if (
+    /^ae\.safetensors$/i.test(actual) &&
+    !isFluxFineTuneCheckpointModel(model)
+  ) {
+    return true;
+  }
+  const expected = suggestedVaeFilenameForModel(model);
+  if (!expected?.trim()) {
     return false;
   }
   if (actual === expected.trim().toLowerCase()) {
     return false;
   }
+  if (isFluxFineTuneCheckpointModel(model) && /flux2-vae/i.test(actual)) {
+    return true;
+  }
   if (isFlux1FamilyModel(model) && /flux2-vae/i.test(actual)) {
     return true;
   }
-  if ((isFluxKleinModel(model) || model === "flux2") && /^ae\.safetensors$/i.test(actual)) {
-    return true;
+  // Qwen Image / Edit latents decoded with Flux ae or flux2-vae → gray mosaic garbage.
+  const modelId = String(model);
+  if (/qwen/i.test(modelId) && !isQwenRapidAioModel(modelId)) {
+    if (/qwen.*vae/i.test(actual)) {
+      return false;
+    }
+    if (
+      /flux2-vae/i.test(actual) ||
+      /sdxl_vae/i.test(actual) ||
+      /sd3_vae/i.test(actual) ||
+      /wan.*vae/i.test(actual)
+    ) {
+      return true;
+    }
   }
   return false;
 }

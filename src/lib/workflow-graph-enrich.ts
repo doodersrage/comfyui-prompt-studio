@@ -82,6 +82,13 @@ const UPSCALE_NODE_TYPES = new Set([
 
 const VAE_DECODE_TYPES = new Set(["VAEDecode", "PreviewImage"]);
 
+function isWorkflowSaveImageNode(node: WorkflowNode | undefined): boolean {
+  return (
+    Boolean(node?.inputs) &&
+    (node?.class_type === "SaveImage" || node?.class_type === "SaveImageAdvanced")
+  );
+}
+
 function parseNodeId(id: string): number | null {
   const parsed = Number(id);
   return Number.isFinite(parsed) ? parsed : null;
@@ -785,7 +792,7 @@ function enrichLanczosUpscaleNodes(input: {
   const method = upscaleMethodForProfile(input.qualityProfile, { model: input.model });
 
   for (const [saveId, saveNode] of Object.entries(input.workflow)) {
-    if (saveNode.class_type !== "SaveImage" || !saveNode.inputs) {
+    if (!isWorkflowSaveImageNode(saveNode) || !saveNode.inputs) {
       continue;
     }
 
@@ -846,7 +853,7 @@ function enrichNeuralUpscaleNodes(input: {
   const modelName = input.upscaleModelFilename.trim();
 
   for (const [saveId, saveNode] of Object.entries(input.workflow)) {
-    if (saveNode.class_type !== "SaveImage" || !saveNode.inputs) {
+    if (!isWorkflowSaveImageNode(saveNode) || !saveNode.inputs) {
       continue;
     }
 
@@ -996,7 +1003,7 @@ function enrichUpscaleNodes(input: {
           kind: "audit",
           severity: "info",
           message:
-            "Skipped Final/Max Lanczos for Edit-2511 Lightning T2I (enlarges soft artifacts) — keep native decode.",
+            "Skipped Final/Max Lanczos for Edit-2511 Lightning (enlarges soft artifacts) — keep native decode.",
         },
       ];
     }
@@ -1116,7 +1123,7 @@ function enrichRapidAioMoirePolish(input: {
   const sharpenAlpha = rapidAioMoireRestoreSharpenAlpha(input.qualityProfile);
 
   for (const [saveId, saveNode] of Object.entries(input.workflow)) {
-    if (saveNode.class_type !== "SaveImage" || !saveNode.inputs) {
+    if (!isWorkflowSaveImageNode(saveNode) || !saveNode.inputs) {
       continue;
     }
     const imageLink = getLinkedNodeId(saveNode.inputs.images);

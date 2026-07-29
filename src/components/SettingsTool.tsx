@@ -1797,11 +1797,12 @@ export default function SettingsTool() {
           VAE map — override{" "}
           <code className="rounded bg-zinc-800 px-1 text-violet-300">{"{{VAE}}"}</code> /{" "}
           <code className="rounded bg-zinc-800 px-1 text-violet-300">VAELoader</code> filenames
-          per model. FLUX Klein workflows often need{" "}
-          <code className="rounded bg-zinc-800 px-1 text-violet-300">flux2-vae.safetensors</code>{" "}
-          or{" "}
-          <code className="rounded bg-zinc-800 px-1 text-violet-300">FLUX.2-klein-9B.safetensors</code>{" "}
-          depending on your ComfyUI install.
+          per model.{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">ae.safetensors</code> is
+          UltraReal Fine-Tune v4 only — do not set it as{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">default</code> or on Qwen.
+          FLUX Klein workflows need{" "}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">flux2-vae.safetensors</code>.
         </p>
         <textarea
           value={modelVaeMapText}

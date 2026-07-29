@@ -14,7 +14,7 @@ import {
 } from "./session-recipes.ts";
 
 describe("formatQueueSizeQualityExplain", () => {
-  it("describes Edit Lightning Compose Final with light Lanczos", () => {
+  it("describes Edit Lightning Compose Final as native decode", () => {
     const line = formatQueueSizeQualityExplain({
       model: "qwen-image-edit-2511-lightning-8",
       qualityProfile: "final",
@@ -28,8 +28,7 @@ describe("formatQueueSizeQualityExplain", () => {
     assert.match(line, /EmptyFlux2/);
     assert.match(line, /1328×1328/);
     assert.match(line, /final/i);
-    assert.match(line, /Lanczos 1\.05/);
-    assert.match(line, /~1394/);
+    assert.match(line, /native decode/);
     assert.match(line, /pack/);
   });
 

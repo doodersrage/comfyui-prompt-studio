@@ -5,6 +5,7 @@ import {
 import { isEditCapableModel } from "./model-denoise-defaults";
 import {
   filenameLooksLikeCheckpointOnly,
+  isVaeFilenameIncompatibleWithModel,
   type ModelLoaderFilenames,
 } from "./model-checkpoint-map";
 import type { WorkflowParamValues } from "./comfyui-config";
@@ -536,7 +537,11 @@ export function stripLightningOutputPostProcess(
   const strippedNodeIds = new Set<string>();
 
   for (const node of Object.values(next)) {
-    if (node?.class_type !== "SaveImage" || !node.inputs) {
+    if (
+      (node?.class_type !== "SaveImage" &&
+        node?.class_type !== "SaveImageAdvanced") ||
+      !node.inputs
+    ) {
       continue;
     }
 
@@ -857,9 +862,21 @@ export function forceLightningLatentSizeInWorkflow(
 
   const width = Number(params?.width);
   const height = Number(params?.height);
-  // Trust queue params (already orientation-aware). Only fall back when missing.
+  // Prefer queue params when present, but always snap oversized / extreme leftovers
+  // (raw Compose uploads, stale gallery dims) to Lightning-safe presets.
   let resolvedWidth = Number.isFinite(width) && width > 0 ? width : undefined;
   let resolvedHeight = Number.isFinite(height) && height > 0 ? height : undefined;
+  if (resolvedWidth != null && resolvedHeight != null) {
+    const clamped = ensureLightningNativeResolutionParams(
+      { width: resolvedWidth, height: resolvedHeight },
+      model ?? "qwen-image-2512-lightning-8",
+      DEFAULT_RESOLUTION_ORIENTATION,
+      DEFAULT_RESOLUTION_SIZE_TIER,
+      { preserveInputAspect: true },
+    );
+    resolvedWidth = Number(clamped.width);
+    resolvedHeight = Number(clamped.height);
+  }
   if (resolvedWidth == null || resolvedHeight == null) {
     const resolved = ensureLightningNativeResolutionParams(
       {},
@@ -1027,8 +1044,37 @@ export function resolveLightningBf16Loaders(
   if (!next.dualClip?.trim()) {
     next.dualClip = qwenDualClipFilename("bf16");
   }
-  if (!next.vae?.trim()) {
+  // Sticky Flux ae.safetensors / wrong Settings VAE maps mosaic Qwen Edit Lightning.
+  if (
+    !next.vae?.trim() ||
+    (model && isVaeFilenameIncompatibleWithModel(model, next.vae))
+  ) {
     next.vae = "qwen_image_vae.safetensors";
+  }
+  return next;
+}
+
+/** Rewrite Flux/SD VAEs on Lightning graphs to qwen_image_vae (decode mismatch → gray mosaic). */
+export function forceQwenVaeInLightningWorkflow(
+  workflow: Record<string, unknown>,
+  model?: string,
+): Record<string, unknown> {
+  if (!isQwenLightningModel(model)) {
+    return workflow;
+  }
+  const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
+  for (const node of Object.values(next)) {
+    if (node?.class_type !== "VAELoader" || !node.inputs) {
+      continue;
+    }
+    const current = node.inputs.vae_name;
+    if (typeof current !== "string" || !current.trim()) {
+      node.inputs.vae_name = "qwen_image_vae.safetensors";
+      continue;
+    }
+    if (isVaeFilenameIncompatibleWithModel(model ?? "", current)) {
+      node.inputs.vae_name = "qwen_image_vae.safetensors";
+    }
   }
   return next;
 }
@@ -1356,6 +1402,178 @@ export function ensureQwenEditReferenceImagesForImg2Img(
   return { workflow: next, wiredNodeIds };
 }
 
+function nextLightningWorkflowNodeId(
+  workflow: Record<string, WorkflowNodeRecord>,
+): string {
+  return String(
+    Math.max(0, ...Object.keys(workflow).map((id) => Number(id) || 0)) + 1,
+  );
+}
+
+/**
+ * Match reference pixels to EmptyLatent W×H before TextEncodeQwenImageEditPlus.
+ * Uploads stay ≤2048 while Lightning EmptyLatent snaps to ~1328 — wiring full-res
+ * refs straight into encode mosaics CFG-1 Edit Lightning.
+ */
+export function scaleQwenEditReferenceImagesToLatentSize(
+  workflow: Record<string, unknown>,
+  params?: Pick<WorkflowParamValues, "width" | "height">,
+): {
+  workflow: Record<string, unknown>;
+  scaledSlotCount: number;
+} {
+  const width = Number(params?.width);
+  const height = Number(params?.height);
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    return { workflow, scaledSlotCount: 0 };
+  }
+
+  const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
+  const encodeImageKeys = ["image", "image1", "image2", "image3", "image4"] as const;
+  const scaledLoaderIds = new Map<string, string>();
+  let scaledSlotCount = 0;
+
+  const ensureScaledLoader = (loaderId: string): string => {
+    const existing = scaledLoaderIds.get(loaderId);
+    if (existing) {
+      return existing;
+    }
+    const scaleId = nextLightningWorkflowNodeId(next);
+    next[scaleId] = {
+      class_type: "ImageScale",
+      inputs: {
+        image: [loaderId, 0],
+        upscale_method: "lanczos",
+        width,
+        height,
+        // Never stretch — cover + center crop keeps anatomy when figure AR
+        // and EmptyLatent differ slightly (ladder snap).
+        crop: "center",
+      },
+      _meta: { title: "Prompt Studio — ref → latent size" },
+    };
+    scaledLoaderIds.set(loaderId, scaleId);
+    return scaleId;
+  };
+
+  for (const node of Object.values(next)) {
+    if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? "")) {
+      continue;
+    }
+    for (const key of encodeImageKeys) {
+      if (!(key in node.inputs)) {
+        continue;
+      }
+      const linked = getLinkedNodeId(node.inputs[key]);
+      if (!linked) {
+        continue;
+      }
+      const linkedNode = next[linked];
+      if (!linkedNode) {
+        continue;
+      }
+      // Already scaled to this latent size — leave alone.
+      if (
+        linkedNode.class_type === "ImageScale" &&
+        Number(linkedNode.inputs?.width) === width &&
+        Number(linkedNode.inputs?.height) === height
+      ) {
+        continue;
+      }
+      // Walk through an existing absolute resize to the LoadImage when present.
+      let loaderId = linked;
+      if (
+        linkedNode.class_type === "ImageScale" ||
+        linkedNode.class_type === "ResizeImage"
+      ) {
+        const upstream = getLinkedNodeId(linkedNode.inputs?.image);
+        if (upstream) {
+          // Patch existing resize node to queue latent size.
+          if (linkedNode.inputs) {
+            linkedNode.inputs.width = width;
+            linkedNode.inputs.height = height;
+            if (linkedNode.class_type === "ImageScale") {
+              linkedNode.inputs.upscale_method =
+                linkedNode.inputs.upscale_method ?? "lanczos";
+              linkedNode.inputs.crop = "center";
+            }
+          }
+          scaledSlotCount += 1;
+          continue;
+        }
+      }
+      // Pack ImageScaleBy only has a factor — replace with absolute W×H scale.
+      if (linkedNode.class_type === "ImageScaleBy") {
+        const upstream = getLinkedNodeId(linkedNode.inputs?.image);
+        if (upstream) {
+          loaderId = upstream;
+          const upstreamNode = next[upstream];
+          if (
+            upstreamNode?.class_type === "LoadImage" ||
+            upstreamNode?.class_type === "LoadImageOutput"
+          ) {
+            const scaleId = ensureScaledLoader(loaderId);
+            node.inputs[key] = [scaleId, 0];
+            scaledSlotCount += 1;
+            continue;
+          }
+        }
+      }
+      if (
+        linkedNode.class_type !== "LoadImage" &&
+        linkedNode.class_type !== "LoadImageOutput"
+      ) {
+        continue;
+      }
+      const scaleId = ensureScaledLoader(loaderId);
+      node.inputs[key] = [scaleId, 0];
+      scaledSlotCount += 1;
+    }
+  }
+
+  return { workflow: next, scaledSlotCount };
+}
+
+/** Drop unused Figure LoadImages that still hold unresolved {{INPUT_IMAGE*}} tokens. */
+export function pruneUnresolvedQwenEditFigureLoaders(
+  workflow: Record<string, unknown>,
+): {
+  workflow: Record<string, unknown>;
+  removedNodeIds: string[];
+} {
+  const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
+  const removedNodeIds: string[] = [];
+
+  for (const [nodeId, node] of Object.entries(next)) {
+    if (node?.class_type !== "LoadImage" && node?.class_type !== "LoadImageOutput") {
+      continue;
+    }
+    const image = node.inputs?.image;
+    if (typeof image !== "string" || !/\{\{\s*INPUT_IMAGE/i.test(image)) {
+      continue;
+    }
+    const stillReferenced = Object.values(next).some((other) => {
+      if (!other?.inputs || other === node) {
+        return false;
+      }
+      return Object.values(other.inputs).some(
+        (value) => getLinkedNodeId(value) === nodeId,
+      );
+    });
+    if (!stillReferenced) {
+      delete next[nodeId];
+      removedNodeIds.push(nodeId);
+    }
+  }
+
+  return { workflow: next, removedNodeIds };
+}
+
 /**
  * Ensure / disconnect Qwen edit encode refs for any edit-capable model
  * (Lightning and non-Lightning packs/scaffolds).
@@ -1363,7 +1581,10 @@ export function ensureQwenEditReferenceImagesForImg2Img(
 export function prepareQwenEditReferenceImagesForQueue(
   workflow: Record<string, unknown>,
   model?: string,
-  params?: Pick<WorkflowParamValues, "inputImageFilename" | "inputImageFilenames">,
+  params?: Pick<
+    WorkflowParamValues,
+    "inputImageFilename" | "inputImageFilenames" | "width" | "height"
+  >,
   options?: { forceRewire?: boolean },
 ): Record<string, unknown> {
   const modelId = model?.trim() ?? "";
@@ -1380,12 +1601,15 @@ export function prepareQwenEditReferenceImagesForQueue(
   );
 
   if (hasInputImage) {
-    return ensureQwenEditReferenceImagesForImg2Img(workflow, {
+    let next = ensureQwenEditReferenceImagesForImg2Img(workflow, {
       hasInputImage: true,
       inputImageFilename: params?.inputImageFilename?.toString(),
       inputImageFilenames: params?.inputImageFilenames,
       forceRewire: options?.forceRewire,
     }).workflow;
+    next = scaleQwenEditReferenceImagesToLatentSize(next, params).workflow;
+    next = pruneUnresolvedQwenEditFigureLoaders(next).workflow;
+    return next;
   }
 
   return disconnectQwenEditReferenceImagesForTxt2Img(workflow, {
@@ -1421,6 +1645,19 @@ export function prepareLightningWorkflowForQueue(
     loraFilenames,
   );
 
+  const finishLightningGraph = (
+    workflowAfterLatent: Record<string, unknown>,
+  ): Record<string, unknown> => {
+    // Sticky Flux ae.safetensors on Qwen Edit Lightning → gray mosaic decode.
+    const vaeFixed = forceQwenVaeInLightningWorkflow(workflowAfterLatent, model);
+    // Re-scale encode refs to the forced EmptyLatent W×H (uploads stay ≤2048).
+    const sized = scaleQwenEditReferenceImagesToLatentSize(
+      vaeFixed,
+      readEmptyLatentSize(vaeFixed) ?? options?.params,
+    ).workflow;
+    return pruneUnresolvedQwenEditFigureLoaders(sized).workflow;
+  };
+
   // If a Lightning LoRA is already present, repair LoRA wiring/strengths and
   // still force queue latent size — extreme leftover sizes cause mosaic melt.
   if (workflowHasLightningLora(familyAligned.workflow, loraFilenames)) {
@@ -1449,7 +1686,12 @@ export function prepareLightningWorkflowForQueue(
     const weightDtype = normalizeLightningUnetWeightDtype(fp8Rewritten, model);
     const hiresStripped = stripLightningHiresPass(weightDtype, model);
     const stripped = stripLightningOutputPostProcess(hiresStripped.workflow, model);
-    return neutralizeNonLightningLoras(stripped.workflow, model, loraFilenames).workflow;
+    const neutralized = neutralizeNonLightningLoras(
+      stripped.workflow,
+      model,
+      loraFilenames,
+    ).workflow;
+    return finishLightningGraph(neutralized);
   }
 
   const chainEnsured = ensureLightningModelChainInWorkflow(
@@ -1478,7 +1720,41 @@ export function prepareLightningWorkflowForQueue(
   const samplingKept = bypassModelSamplingAuraFlowForLightning(weightDtype, model);
   const hiresStripped = stripLightningHiresPass(samplingKept.workflow, model);
   const stripped = stripLightningOutputPostProcess(hiresStripped.workflow, model);
-  return neutralizeNonLightningLoras(stripped.workflow, model, loraFilenames).workflow;
+  const neutralized = neutralizeNonLightningLoras(
+    stripped.workflow,
+    model,
+    loraFilenames,
+  ).workflow;
+  return finishLightningGraph(neutralized);
+}
+
+function readEmptyLatentSize(
+  workflow: Record<string, unknown>,
+): { width: number; height: number } | null {
+  for (const node of Object.values(workflow)) {
+    if (!node || typeof node !== "object") {
+      continue;
+    }
+    const record = node as {
+      class_type?: string;
+      inputs?: Record<string, unknown>;
+    };
+    const inputs = record.inputs;
+    if (!inputs || !isLatentSizeNode(record.class_type ?? "", inputs)) {
+      continue;
+    }
+    const width = Number(inputs.width);
+    const height = Number(inputs.height);
+    if (
+      Number.isFinite(width) &&
+      Number.isFinite(height) &&
+      width > 0 &&
+      height > 0
+    ) {
+      return { width, height };
+    }
+  }
+  return null;
 }
 
 export type LightningWorkflowAuditIssue = {
@@ -1638,6 +1914,75 @@ export function auditLightningWorkflowIssues(input: {
           "Lightning workflow latent is still 1024×1024 — queue should patch to 1328×1328 native. Restart the dev server and check Advanced queue params are not pinned to 1024.",
       });
       break;
+    }
+  }
+
+  for (const node of Object.values(prepared)) {
+    if (node?.class_type !== "VAELoader" || !node.inputs) {
+      continue;
+    }
+    const vaeName = node.inputs.vae_name;
+    if (
+      typeof vaeName === "string" &&
+      isVaeFilenameIncompatibleWithModel(String(input.model ?? ""), vaeName)
+    ) {
+      issues.push({
+        severity: "error",
+        message: `Lightning graph VAE is “${vaeName}” — Qwen Image/Edit needs qwen_image_vae.safetensors. Flux ae.safetensors here decodes to gray mosaic. Queue prep should rewrite it; restart the app if this persists.`,
+      });
+      break;
+    }
+  }
+
+  const latentSize = readEmptyLatentSize(prepared);
+  if (latentSize && /edit/i.test(String(input.model ?? ""))) {
+    let refSizeMismatch = false;
+    for (const node of Object.values(prepared)) {
+      if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? "")) {
+        continue;
+      }
+      for (const key of QWEN_EDIT_IMAGE_INPUT_KEYS) {
+        if (!(key in node.inputs)) {
+          continue;
+        }
+        const linkedId = getLinkedNodeId(node.inputs[key]);
+        if (!linkedId) {
+          continue;
+        }
+        const linked = prepared[linkedId];
+        if (!linked) {
+          continue;
+        }
+        if (
+          linked.class_type === "LoadImage" ||
+          linked.class_type === "LoadImageOutput"
+        ) {
+          issues.push({
+            severity: "warn",
+            message:
+              `Edit Lightning encode still takes a full-res LoadImage (no ImageScale to ${latentSize.width}×${latentSize.height}). Ref/latent size mismatch causes gray mosaic on Compose — restart the app so queue prep can insert the scale.`,
+          });
+          refSizeMismatch = true;
+          break;
+        }
+        if (
+          (linked.class_type === "ImageScale" ||
+            linked.class_type === "ResizeImage") &&
+          (Number(linked.inputs?.width) !== latentSize.width ||
+            Number(linked.inputs?.height) !== latentSize.height)
+        ) {
+          issues.push({
+            severity: "warn",
+            message:
+              `Edit Lightning ref resize is ${Number(linked.inputs?.width)}×${Number(linked.inputs?.height)} but EmptyLatent is ${latentSize.width}×${latentSize.height} — size mismatch mosaics CFG-1 Compose.`,
+          });
+          refSizeMismatch = true;
+          break;
+        }
+      }
+      if (refSizeMismatch) {
+        break;
+      }
     }
   }
 

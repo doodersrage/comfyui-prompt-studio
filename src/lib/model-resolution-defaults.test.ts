@@ -4,6 +4,7 @@ import {
   ensureLightningNativeResolutionParams,
   formatModelResolutionHint,
   getModelResolutionPreset,
+  lightningSafeComposeLatentSize,
   normalizeResolutionOrientation,
   normalizeResolutionSizeTier,
   resolutionOrientationsForModel,
@@ -168,6 +169,54 @@ describe("model resolution defaults", () => {
   });
 
   it("preserves non-square dims when edit has an input image", () => {
+    // Already on the Lightning landscape ladder — keep as-is.
+    assert.deepEqual(
+      ensureLightningNativeResolutionParams(
+        { width: 1472, height: 1104 },
+        "qwen-image-edit-2511-lightning-8",
+        "square",
+        "max",
+        { preserveInputAspect: true },
+      ),
+      { width: 1472, height: 1104 },
+    );
+  });
+
+  it("always ladder-snaps near-native non-ladder Compose sizes", () => {
+    // Soft-KEEP used to leave these and mosaic CFG-1 Edit Lightning.
+    assert.deepEqual(
+      ensureLightningNativeResolutionParams(
+        { width: 1024, height: 1536 },
+        "qwen-image-edit-2511-lightning-8",
+        "square",
+        "max",
+        { preserveInputAspect: true },
+      ),
+      { width: 1056, height: 1584 },
+    );
+    assert.deepEqual(
+      ensureLightningNativeResolutionParams(
+        { width: 1280, height: 1280 },
+        "qwen-image-edit-2511-lightning-8",
+        "square",
+        "max",
+        { preserveInputAspect: true },
+      ),
+      { width: 1328, height: 1328 },
+    );
+  });
+
+  it("snaps oversized Lightning edit latents to a safe preset while preserving aspect", () => {
+    assert.deepEqual(
+      ensureLightningNativeResolutionParams(
+        { width: 2048, height: 2048 },
+        "qwen-image-edit-2511-lightning-8",
+        "square",
+        "max",
+        { preserveInputAspect: true },
+      ),
+      { width: 1328, height: 1328 },
+    );
     assert.deepEqual(
       ensureLightningNativeResolutionParams(
         { width: 1664, height: 928 },
@@ -176,7 +225,22 @@ describe("model resolution defaults", () => {
         "max",
         { preserveInputAspect: true },
       ),
-      { width: 1664, height: 928 },
+      { width: 1584, height: 1056 },
+    );
+  });
+
+  it("maps uploaded figures to the nearest Lightning-safe Compose latent", () => {
+    assert.deepEqual(
+      lightningSafeComposeLatentSize(2000, 2000, "qwen-image-edit-2511-lightning-8"),
+      { width: 1328, height: 1328 },
+    );
+    assert.deepEqual(
+      lightningSafeComposeLatentSize(900, 1200, "qwen-image-edit-2511-lightning-8"),
+      { width: 1104, height: 1472 },
+    );
+    assert.deepEqual(
+      lightningSafeComposeLatentSize(1600, 900, "qwen-image-edit-2511-lightning-8"),
+      { width: 1584, height: 1056 },
     );
   });
 

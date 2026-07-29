@@ -50,8 +50,9 @@ describe("model checkpoint map", () => {
     assert.equal(loaders.vae, "ae.safetensors");
   });
 
-  it("uses ae.safetensors for FLUX.1 and flux2-vae for Klein", () => {
+  it("uses ae.safetensors only for UltraReal; Klein keeps flux2-vae", () => {
     assert.equal(suggestedVaeFilenameForModel("flux-ultrareal-v4"), "ae.safetensors");
+    assert.equal(suggestedVaeFilenameForModel("flux-dev"), undefined);
     assert.equal(suggestedVaeFilenameForModel("flux-2-klein-9b"), "flux2-vae.safetensors");
     assert.equal(
       isVaeFilenameIncompatibleWithModel("flux-ultrareal-v4", "flux2-vae.safetensors"),
@@ -59,6 +60,31 @@ describe("model checkpoint map", () => {
     );
     assert.equal(
       isVaeFilenameIncompatibleWithModel("flux-ultrareal-v4", "ae.safetensors"),
+      false,
+    );
+    assert.equal(
+      isVaeFilenameIncompatibleWithModel("flux-2-klein-9b", "ae.safetensors"),
+      true,
+    );
+    assert.equal(
+      isVaeFilenameIncompatibleWithModel("flux-dev", "ae.safetensors"),
+      true,
+    );
+  });
+
+  it("flags Flux ae.safetensors as incompatible with Qwen Edit Lightning", () => {
+    assert.equal(
+      isVaeFilenameIncompatibleWithModel(
+        "qwen-image-edit-2511-lightning-8",
+        "ae.safetensors",
+      ),
+      true,
+    );
+    assert.equal(
+      isVaeFilenameIncompatibleWithModel(
+        "qwen-image-edit-2511-lightning-8",
+        "qwen_image_vae.safetensors",
+      ),
       false,
     );
   });

@@ -799,11 +799,18 @@ export function softBindScaffoldFromInventory(
         suggested &&
         isVaeFilenameIncompatibleWithModel(model, record.inputs.vae_name)
       ) {
-        const compatiblePool = vaePool.filter((name) =>
-          /flux2-vae/i.test(suggested)
-            ? /flux2-vae/i.test(name)
-            : /ae\.safetensors/i.test(name),
-        );
+        const compatiblePool = vaePool.filter((name) => {
+          if (/flux2-vae/i.test(suggested)) {
+            return /flux2-vae/i.test(name);
+          }
+          if (/qwen.*vae/i.test(suggested)) {
+            return /qwen.*vae/i.test(name);
+          }
+          if (/ae\.safetensors/i.test(suggested)) {
+            return /ae\.safetensors/i.test(name);
+          }
+          return name.toLowerCase() === suggested.toLowerCase();
+        });
         const fixed = matchNearMissInventoryFilename(
           suggested,
           compatiblePool.length > 0 ? compatiblePool : vaePool,

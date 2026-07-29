@@ -2026,6 +2026,178 @@ describe("comfyui runtime queue params", () => {
     assert.equal(params.cfg, "1");
   });
 
+  it("preserves Compose portrait size on inject merge when a figure is present", async () => {
+    const { resolveQueueParams } = await import("./comfyui-config");
+    const params = resolveQueueParams(
+      undefined,
+      {
+        seed: "42",
+        width: "1104",
+        height: "1472",
+        inputImageFilename: "mirror-selfie.png",
+      },
+      { model: "qwen-image-edit-2511-lightning-8" },
+    );
+    assert.equal(params.width, "1104");
+    assert.equal(params.height, "1472");
+  });
+
+  it("forces Lightning Max Compose denoise to 1 even when params carry soft edit denoise", async () => {
+    const { injectPromptsWithFallbacks, resolvePlaceholderTokens } = await import(
+      "./comfyui-config"
+    );
+    const tokens = resolvePlaceholderTokens();
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+      "7": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name:
+            "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "120": {
+        class_type: "EmptySD3LatentImage",
+        inputs: { width: 1328, height: 1328, batch_size: 1 },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["7", 0],
+          latent_image: ["120", 0],
+          steps: 20,
+          cfg: 4,
+          denoise: 0.65,
+          sampler_name: "euler",
+          scheduler: "simple",
+          seed: 1,
+        },
+      },
+    };
+    const injected = injectPromptsWithFallbacks(
+      workflow,
+      {
+        positive: "compose",
+        negative: "",
+        params: {
+          width: 1104,
+          height: 1472,
+          cfg: 4,
+          steps: 20,
+          denoise: 0.65,
+          inputImageFilename: "fig.png",
+        },
+      },
+      tokens,
+      {
+        model: "qwen-image-edit-2511-lightning-8",
+        qualityProfile: "max",
+        directWorkflowPatching: true,
+      },
+    );
+    const sampler = Object.values(injected.workflow).find(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { class_type?: string }).class_type === "KSampler",
+    ) as { inputs: { denoise: number; cfg: number; steps: number } };
+    assert.equal(sampler.inputs.denoise, 1);
+    assert.equal(sampler.inputs.cfg, 1);
+    assert.equal(sampler.inputs.steps, 8);
+  });
+
+  it("applies selected style LoRAs on Edit-2511 Lightning after the Lightning LoRA", async () => {
+    const { injectPromptsWithFallbacks, resolvePlaceholderTokens } = await import(
+      "./comfyui-config"
+    );
+    const tokens = resolvePlaceholderTokens();
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+      "7": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name:
+            "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "120": {
+        class_type: "EmptySD3LatentImage",
+        inputs: { width: 1328, height: 1328, batch_size: 1 },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["7", 0],
+          latent_image: ["120", 0],
+          steps: 8,
+          cfg: 1,
+          denoise: 1,
+          sampler_name: "euler",
+          scheduler: "simple",
+          seed: 1,
+        },
+      },
+    };
+    const injected = injectPromptsWithFallbacks(
+      workflow,
+      {
+        positive: "compose",
+        negative: "",
+        params: { width: 1328, height: 1328, cfg: 1, steps: 8, denoise: 1 },
+      },
+      tokens,
+      {
+        model: "qwen-image-edit-2511-lightning-8",
+        directWorkflowPatching: true,
+        loraLibrary: [
+          {
+            id: "skin",
+            label: "Skin",
+            token: "{{LORA_SKIN}}",
+            tokenValue: "qwen-edit-skin.safetensors",
+            enabled: true,
+            strengthModel: 0.7,
+            strengthClip: 0.7,
+            order: 0,
+          },
+        ],
+      },
+    );
+    const lightning = injected.workflow["7"] as {
+      inputs: { lora_name: string; strength_model: number };
+    };
+    assert.match(lightning.inputs.lora_name, /Lightning-8steps/i);
+    assert.equal(lightning.inputs.strength_model, 1);
+    const style = Object.values(injected.workflow).find(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { inputs?: { lora_name?: string } }).inputs?.lora_name ===
+          "qwen-edit-skin.safetensors",
+    ) as {
+      class_type: string;
+      inputs: { model: [string, number]; strength_model: number };
+    };
+    assert.ok(style, "expected style LoRA chained after Lightning");
+    assert.equal(style.class_type, "LoraLoaderModelOnly");
+    assert.equal(style.inputs.model[0], "7");
+    assert.equal(style.inputs.strength_model, 0.7);
+    const sampler = injected.workflow["8"] as {
+      inputs: { model: [string, number] };
+    };
+    assert.notEqual(sampler.inputs.model[0], "7");
+  });
+
   it("bumps sub-native lightning overrides to 1328 on the server merge path", async () => {
     const { resolveQueueParams } = await import("./comfyui-config");
     const params = resolveQueueParams(
