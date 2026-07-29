@@ -43,10 +43,12 @@ export async function reviewGalleryImage(input: {
 }): Promise<VisionReviewResult> {
   const text = await visionCompletion({
     systemPrompt:
-      'Review the image against the prompt. Reply with JSON only: {"rating":1-5,"tags":["..."],"critique":"one sentence"}. Rating 5=excellent match, 1=poor.',
+      'Review the image against the prompt. Reply with JSON only: {"rating":1-5,"tags":["..."],"critique":"one sentence"}. Rating 5=excellent match, 1=poor. No chain-of-thought.',
     textPrompt: `Prompt:\n${input.prompt}`,
     imageDataUrl: input.imageDataUrl,
-    maxTokens: 400,
+    // Gemma/LM Studio often burns 100–300 tokens on reasoning_content first;
+    // keep headroom so the JSON answer still fits in content (or reasoning fallback).
+    maxTokens: 800,
     temperature: 0.2,
   });
 
@@ -63,6 +65,30 @@ export async function reviewGalleryImage(input: {
       critique: parsed.critique?.trim() || "No critique returned.",
     };
   } catch {
+    // Reasoning dumps may bury JSON — pull the first object if present.
+    const embedded = text.match(/\{[\s\S]*\}/);
+    if (embedded) {
+      try {
+        const parsed = JSON.parse(embedded[0]) as {
+          rating?: number;
+          tags?: string[];
+          critique?: string;
+        };
+        const rating = Math.min(
+          5,
+          Math.max(1, Math.round(parsed.rating ?? 3)),
+        ) as VisionReviewResult["suggestedRating"];
+        return {
+          suggestedRating: rating,
+          tags: Array.isArray(parsed.tags)
+            ? parsed.tags.slice(0, 8).map(String)
+            : [],
+          critique: parsed.critique?.trim() || "No critique returned.",
+        };
+      } catch {
+        // fall through
+      }
+    }
     return {
       suggestedRating: 3,
       tags: [],

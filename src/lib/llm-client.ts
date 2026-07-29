@@ -106,6 +106,8 @@ type AssistantMessage = {
   content?: string | ChatContentPart[] | null;
   reasoning?: string | null;
   thinking?: string | null;
+  /** LM Studio / OpenAI-compat thinking models (Gemma, etc.). */
+  reasoning_content?: string | null;
 };
 
 function extractContentText(content?: string | ChatContentPart[] | null): string {
@@ -266,9 +268,19 @@ function extractChatCompletionText(message?: AssistantMessage): string {
     return contentText;
   }
 
-  return (
-    extractThinkingFallback(message.reasoning, message.thinking)?.trim() ?? ""
-  );
+  // Thinking models (e.g. Gemma via LM Studio) often spend max_tokens on
+  // reasoning_content and leave content empty — fall back before failing.
+  for (const raw of [
+    message.reasoning,
+    message.reasoning_content,
+    message.thinking,
+  ]) {
+    if (typeof raw === "string" && raw.trim()) {
+      return raw.trim();
+    }
+  }
+
+  return "";
 }
 
 function extractModelOutputText(message?: AssistantMessage): string {
@@ -290,7 +302,7 @@ function extractModelOutputText(message?: AssistantMessage): string {
     }
 
     const thinkingText = extractThinkingFallback(
-      message.reasoning,
+      message.reasoning ?? message.reasoning_content,
       message.thinking,
     );
     if (
@@ -314,7 +326,12 @@ function extractModelOutputText(message?: AssistantMessage): string {
   } catch (error) {
     if (error instanceof RangeError) {
       const fallback = extractContentText(message.content)?.trim()
-        || String(message.reasoning ?? message.thinking ?? "").trim();
+        || String(
+            message.reasoning ??
+              message.reasoning_content ??
+              message.thinking ??
+              "",
+          ).trim();
       return clipVisionModelText(fallback.replace(/\s+/g, " "), 4_000);
     }
     throw error;
@@ -661,7 +678,9 @@ async function openAiCompatibleChatCompletion(options: {
 
   const text = extractChatCompletionText(data.choices?.[0]?.message);
   if (!text) {
-    throw new Error("LLM returned an empty response.");
+    throw new Error(
+      "LLM returned an empty response (content and reasoning_content were blank). Try raising max tokens or disabling thinking on the vision model.",
+    );
   }
 
   return text;
