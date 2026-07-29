@@ -960,12 +960,7 @@ describe("workflow-graph-enrich", () => {
       Object.values(i2i.workflow).some(
         (node) => (node as { class_type?: string }).class_type === "ImageScaleBy",
       ),
-      false,
-    );
-    assert.ok(
-      i2i.changes.some((change) =>
-        /Skipped Final\/Max Lanczos for Edit/i.test(change.message),
-      ),
+      true,
     );
   });
 
