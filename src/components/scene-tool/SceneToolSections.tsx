@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import type { ReactNode } from "react";
-import { FieldDivider, FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
-import { SCENE_HINTS_LABEL } from "@/lib/tool-ui-labels";
-import { accentButtonClass } from "@/lib/tool-theme";
-import type { ToolAccent } from "@/lib/tool-theme";
+import type { ReactNode } from 'react';
+import { FieldDivider, FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { PrimaryButton } from '@/components/ui/Button';
+import { SCENE_HINTS_LABEL } from '@/lib/tool-ui-labels';
+import { accentButtonClass } from '@/lib/tool-theme';
+import type { ToolAccent } from '@/lib/tool-theme';
 
 type SceneQuickTagsProps = {
   settingType: string;
@@ -24,7 +24,7 @@ export function SceneQuickTags({
   onSettingTypeChange,
   onTimeOfDayChange,
   onMoodChange,
-  inputClassName = "",
+  inputClassName = '',
 }: SceneQuickTagsProps) {
   return (
     <>
@@ -34,19 +34,19 @@ export function SceneQuickTags({
       <div className="grid gap-3 sm:grid-cols-3">
         <input
           value={settingType}
-          onChange={(event) => onSettingTypeChange(event.target.value)}
+          onChange={event => onSettingTypeChange(event.target.value)}
           placeholder="Place type"
           className={`ui-input px-3 py-2 text-sm ${inputClassName}`.trim()}
         />
         <input
           value={timeOfDay}
-          onChange={(event) => onTimeOfDayChange(event.target.value)}
+          onChange={event => onTimeOfDayChange(event.target.value)}
           placeholder="Time / light"
           className={`ui-input px-3 py-2 text-sm ${inputClassName}`.trim()}
         />
         <input
           value={mood}
-          onChange={(event) => onMoodChange(event.target.value)}
+          onChange={event => onMoodChange(event.target.value)}
           placeholder="Mood"
           className={`ui-input px-3 py-2 text-sm ${inputClassName}`.trim()}
         />
@@ -74,17 +74,15 @@ export function VariationSliderField({
   value,
   onChange,
   valueLabel,
-  minLabel = "Stable",
-  maxLabel = "Varied",
-  accentRingClassName = "",
+  minLabel = 'Stable',
+  maxLabel = 'Varied',
+  accentRingClassName = '',
   id,
   showLabel = true,
 }: VariationSliderFieldProps) {
   return (
     <>
-      {showLabel && label ? (
-        <FieldLabel hint={hint}>{label}</FieldLabel>
-      ) : null}
+      {showLabel && label ? <FieldLabel hint={hint}>{label}</FieldLabel> : null}
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 text-xs text-zinc-400">
         <span className="type-caption">{minLabel}</span>
         <input
@@ -94,7 +92,7 @@ export function VariationSliderField({
           max={100}
           step={5}
           value={value}
-          onChange={(event) => onChange(Number(event.target.value))}
+          onChange={event => onChange(Number(event.target.value))}
           className={`h-8 w-full min-w-0 cursor-pointer accent-violet-500 ${accentRingClassName}`.trim()}
         />
         <span className="type-caption text-right font-medium text-zinc-200">{valueLabel}</span>
@@ -118,7 +116,7 @@ export function SceneHintsField({
   onChange,
   placeholder,
   rows = 3,
-  className = "",
+  className = '',
   label = SCENE_HINTS_LABEL,
   hint,
 }: SceneHintsFieldProps) {
@@ -127,7 +125,7 @@ export function SceneHintsField({
       <FieldLabel hint={hint}>{label}</FieldLabel>
       <TextArea
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={event => onChange(event.target.value)}
         placeholder={placeholder}
         rows={rows}
         className={className}

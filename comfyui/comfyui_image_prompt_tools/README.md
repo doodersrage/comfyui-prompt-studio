@@ -41,15 +41,19 @@ You should see `OK: loaded 6 node(s)`.
 ## Nodes not showing?
 
 1. **Home directory permissions** — If ComfyUI runs as `comfy` from `/opt/comfyui`, symlinks into `~/Projects/...` fail silently. Check the log:
+
    ```bash
    rg 'qwen-image-prompt|comfyui_image_prompt|IMPORT FAILED' /opt/comfyui/user/comfyui_8188.log
    ```
+
    Fix with a copy install:
+
    ```bash
    sudo ./comfyui/install.sh --copy /opt/comfyui
    ```
 
 2. **Wrong ComfyUI folder** — Install into the instance that is actually running:
+
    ```bash
    pgrep -af 'main.py' | rg -i comfy
    ```
@@ -79,14 +83,14 @@ If the API runs in Docker and ComfyUI on the host, point to the published port. 
 
 ## Nodes
 
-| Node | API | Output |
-|------|-----|--------|
-| **Prompt Tools · Generate** | `POST /api/generate` | Keywords → model-ready prompt |
-| **Prompt Tools · Format** | `POST /api/format` | Draft → model-ready prompt |
-| **Prompt Tools · Random Scene** | `POST /api/random-scene` | Random cohesive scene (same as Generate → Random surprise) |
-| **Prompt Tools · Character** | `POST /api/character` | Single-person character prompt |
-| **Prompt Tools · Background** | `POST /api/background` | People-free environment |
-| **Prompt Tools · Image → Prompt** | `POST /api/image-prompt` | Reference image → prompt |
+| Node                              | API                      | Output                                                     |
+| --------------------------------- | ------------------------ | ---------------------------------------------------------- |
+| **Prompt Tools · Generate**       | `POST /api/generate`     | Keywords → model-ready prompt                              |
+| **Prompt Tools · Format**         | `POST /api/format`       | Draft → model-ready prompt                                 |
+| **Prompt Tools · Random Scene**   | `POST /api/random-scene` | Random cohesive scene (same as Generate → Random surprise) |
+| **Prompt Tools · Character**      | `POST /api/character`    | Single-person character prompt                             |
+| **Prompt Tools · Background**     | `POST /api/background`   | People-free environment                                    |
+| **Prompt Tools · Image → Prompt** | `POST /api/image-prompt` | Reference image → prompt                                   |
 
 All nodes output a single `prompt` string.
 

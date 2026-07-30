@@ -1,8 +1,8 @@
-import Link from "next/link";
-import { CollapsibleSection, ToolContentPanel } from "@/components/ui/ToolPageShell";
-import { Button } from "@/components/ui/Button";
-import { MonoTextArea } from "@/components/ui/Field";
-import { rawPromptDiffers } from "@/lib/raw-prompt";
+import Link from 'next/link';
+import { CollapsibleSection, ToolContentPanel } from '@/components/ui/ToolPageShell';
+import { Button } from '@/components/ui/Button';
+import { MonoTextArea } from '@/components/ui/Field';
+import { rawPromptDiffers } from '@/lib/raw-prompt';
 
 export type BatchPromptCrossLinks = {
   hintsForDuo?: string;
@@ -41,25 +41,25 @@ export function BatchPromptCard({
   const duoHints = crossLinks?.hintsForDuo?.trim();
   const characterHints = crossLinks?.hintsForCharacter?.trim();
   const showRaw = rawPromptDiffers(rawPrompt, prompt);
-  const editable = typeof onPromptChange === "function";
+  const editable = typeof onPromptChange === 'function';
 
   return (
     <ToolContentPanel className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <p className="type-overline text-[var(--text-muted)]">
-          Prompt {String(index + 1).padStart(2, "0")}
-          {editable ? " · editable" : ""}
+          Prompt {String(index + 1).padStart(2, '0')}
+          {editable ? ' · editable' : ''}
         </p>
         <Button variant="ghost" className="!min-h-9 px-3 type-caption" onClick={onCopy}>
-          {copied ? "Copied!" : "Copy prompt"}
+          {copied ? 'Copied!' : 'Copy prompt'}
         </Button>
       </div>
 
       {editable ? (
         <MonoTextArea
           value={prompt}
-          onChange={(event) => onPromptChange(event.target.value)}
-          rows={Math.min(12, Math.max(4, prompt.split("\n").length + 1))}
+          onChange={event => onPromptChange(event.target.value)}
+          rows={Math.min(12, Math.max(4, prompt.split('\n').length + 1))}
           spellCheck={false}
           className="!text-[var(--tint-success-text)]"
           aria-label={`Batch prompt ${index + 1}`}
@@ -126,7 +126,7 @@ export function BatchPromptCard({
                 className="!min-h-9 px-4 type-caption"
                 onClick={onSaveHistory}
               >
-                {historySaved ? "Saved!" : "Save to history"}
+                {historySaved ? 'Saved!' : 'Save to history'}
               </Button>
             ) : null}
             {onCopyPair ? (
@@ -135,7 +135,7 @@ export function BatchPromptCard({
                 className="!min-h-9 px-4 type-caption"
                 onClick={onCopyPair}
               >
-                {pairCopied ? "Pair copied!" : "Copy pair"}
+                {pairCopied ? 'Pair copied!' : 'Copy pair'}
               </Button>
             ) : null}
             {onExportSidecar ? (

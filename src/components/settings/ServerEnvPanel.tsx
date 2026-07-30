@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
-import type { ServerEnvGroup } from "@/lib/server-env-summary";
-import { buildEnvSnippet } from "@/lib/env-snippet";
-import { ToolSection } from "@/components/ui/ToolPageShell";
-import { Button } from "@/components/ui/Button";
+import { useCallback, useState } from 'react';
+import type { ServerEnvGroup } from '@/lib/server-env-summary';
+import { buildEnvSnippet } from '@/lib/env-snippet';
+import { ToolSection } from '@/components/ui/ToolPageShell';
+import { Button } from '@/components/ui/Button';
 
 type ServerEnvPanelProps = {
   groups: ServerEnvGroup[];
@@ -27,10 +27,10 @@ export default function ServerEnvPanel({
     const snippet = buildEnvSnippet(groups);
     try {
       await navigator.clipboard.writeText(snippet);
-      setCopyStatus("Copied .env snippet to clipboard.");
-      onStatus?.("Copied .env snippet to clipboard.");
+      setCopyStatus('Copied .env snippet to clipboard.');
+      onStatus?.('Copied .env snippet to clipboard.');
     } catch {
-      setCopyStatus("Could not copy — select and copy manually from the snippet below.");
+      setCopyStatus('Could not copy — select and copy manually from the snippet below.');
     }
   }, [groups, onStatus]);
 
@@ -50,7 +50,7 @@ export default function ServerEnvPanel({
             </Button>
             {llmOk != null || comfyOk != null ? (
               <span className="type-caption self-center">
-                LLM: {llmOk ? "ok" : "issue"} · ComfyUI: {comfyOk ? "ok" : "issue"}
+                LLM: {llmOk ? 'ok' : 'issue'} · ComfyUI: {comfyOk ? 'ok' : 'issue'}
               </span>
             ) : null}
           </>
@@ -59,18 +59,20 @@ export default function ServerEnvPanel({
       {copyStatus ? <p className="type-caption">{copyStatus}</p> : null}
 
       <p className="type-caption">
-        Browser settings can override some ComfyUI and LLM behavior per session — look
-        for the <strong className="font-medium text-zinc-300">UI override</strong> notes
-        below.
+        Browser settings can override some ComfyUI and LLM behavior per session — look for the{' '}
+        <strong className="font-medium text-zinc-300">UI override</strong> notes below.
       </p>
 
       <div className="space-y-4">
-        {groups.map((group) => (
+        {groups.map(group => (
           <div key={group.id} className="ui-surface-inset space-y-3">
             <h3 className="type-heading">{group.title}</h3>
             <ul className="ui-list">
-              {group.fields.map((field) => (
-                <li key={field.key} className="ui-list-row flex-col !items-start gap-2 !min-h-0 py-3 sm:flex-row sm:items-start sm:justify-between">
+              {group.fields.map(field => (
+                <li
+                  key={field.key}
+                  className="ui-list-row flex-col !items-start gap-2 !min-h-0 py-3 sm:flex-row sm:items-start sm:justify-between"
+                >
                   <div className="min-w-0 space-y-1">
                     <p className="type-heading">
                       <code className="text-violet-300">{field.key}</code>
@@ -85,7 +87,7 @@ export default function ServerEnvPanel({
                   </div>
                   <p
                     className={`type-body max-w-full break-all text-right sm:max-w-[45%] ${
-                      field.configured ? "text-zinc-200" : "text-zinc-500"
+                      field.configured ? 'text-zinc-200' : 'text-zinc-500'
                     }`}
                   >
                     {field.value}
@@ -98,10 +100,9 @@ export default function ServerEnvPanel({
       </div>
 
       <p className="type-caption">
-        Create <code className="text-violet-300">.env.local</code> at the project root.
-        Set <code className="text-violet-300">PROMPT_API_TOKEN</code> to protect API routes
-        for scripts and ComfyUI nodes. Secrets are never shown here — only whether they are
-        configured.
+        Create <code className="text-violet-300">.env.local</code> at the project root. Set{' '}
+        <code className="text-violet-300">PROMPT_API_TOKEN</code> to protect API routes for scripts
+        and ComfyUI nodes. Secrets are never shown here — only whether they are configured.
       </p>
     </ToolSection>
   );

@@ -1,21 +1,18 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { ToolSection } from "@/components/ui/ToolPageShell";
-import { EmptyState } from "@/components/ui/ViewState";
-import { addAvoidedToken } from "@/lib/avoided-tokens";
-import {
-  loadComfyUiSettings,
-  saveComfyUiSettings,
-} from "@/lib/comfyui-settings";
-import { DEFAULT_NEGATIVE_PROFILES } from "@/lib/negative-profiles";
+import { useCallback, useEffect, useState } from 'react';
+import { ToolSection } from '@/components/ui/ToolPageShell';
+import { EmptyState } from '@/components/ui/ViewState';
+import { addAvoidedToken } from '@/lib/avoided-tokens';
+import { loadComfyUiSettings, saveComfyUiSettings } from '@/lib/comfyui-settings';
+import { DEFAULT_NEGATIVE_PROFILES } from '@/lib/negative-profiles';
 import {
   activeNegativeSuggestions,
   dismissNegativeSuggestion,
   loadNegativeSuggestions,
   type NegativeSuggestion,
-} from "@/lib/negative-learner";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+} from '@/lib/negative-learner';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 export default function NegativeLearnerPanel() {
   const [items, setItems] = useState<NegativeSuggestion[]>([]);
@@ -38,12 +35,12 @@ export default function NegativeLearnerPanel() {
         ? [...settings.negativeProfiles!]
         : [...DEFAULT_NEGATIVE_PROFILES];
     const profileId = settings.selectedNegativeProfileId ?? profiles[0]?.id;
-    const index = profiles.findIndex((entry) => entry.id === profileId);
+    const index = profiles.findIndex(entry => entry.id === profileId);
     if (index < 0) {
       return;
     }
     const profile = profiles[index]!;
-    const extra = profile.extra?.trim() ?? "";
+    const extra = profile.extra?.trim() ?? '';
     const fragment = token.trim().toLowerCase();
     if (extra.toLowerCase().includes(fragment)) {
       setStatus(`“${token}” is already in the active negative profile.`);
@@ -63,7 +60,8 @@ export default function NegativeLearnerPanel() {
   return (
     <ToolSection title="Negative prompt learner">
       <p className="mb-3 text-sm text-zinc-400">
-        Tokens from gallery prompts rated 1–2 stars. Add frequent ones to avoided tokens or your negative profile.
+        Tokens from gallery prompts rated 1–2 stars. Add frequent ones to avoided tokens or your
+        negative profile.
       </p>
       {items.length === 0 ? (
         <EmptyState
@@ -71,11 +69,11 @@ export default function NegativeLearnerPanel() {
           icon="inbox"
           title="No suggestions yet"
           description="Rate a few low outputs in Gallery review — frequent tokens from 1–2 star prompts will show up here."
-          action={{ label: "Open gallery review", href: "/gallery?review=1" }}
+          action={{ label: 'Open gallery review', href: '/gallery?review=1' }}
         />
       ) : (
         <ul className="space-y-2">
-          {items.map((item) => (
+          {items.map(item => (
             <li
               key={item.token}
               className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/35 px-3 py-2"
@@ -119,7 +117,7 @@ export default function NegativeLearnerPanel() {
         type="button"
         className="mt-3 text-xs text-zinc-500 underline underline-offset-2"
         onClick={() => {
-          setItems(loadNegativeSuggestions().filter((entry) => !entry.dismissed));
+          setItems(loadNegativeSuggestions().filter(entry => !entry.dismissed));
         }}
       >
         Show all learned tokens

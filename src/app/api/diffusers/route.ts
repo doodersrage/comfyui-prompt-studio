@@ -1,15 +1,12 @@
-import {
-  getDiffusersBaseUrl,
-  queueDiffusersTxt2Img,
-} from "@/lib/diffusers-client";
-import { resolveDiffusersModelHint } from "@/lib/diffusers-defaults";
-import { resolveDiffusersOutputPost } from "@/lib/diffusers-output-post";
-import { freeComfyUiMemoryServer } from "@/lib/comfyui-free-server";
-import { normalizeQueueQualityProfile } from "@/lib/queue-quality-profile";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+import { getDiffusersBaseUrl, queueDiffusersTxt2Img } from '@/lib/diffusers-client';
+import { resolveDiffusersModelHint } from '@/lib/diffusers-defaults';
+import { resolveDiffusersOutputPost } from '@/lib/diffusers-output-post';
+import { freeComfyUiMemoryServer } from '@/lib/comfyui-free-server';
+import { normalizeQueueQualityProfile } from '@/lib/queue-quality-profile';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 export const maxDuration = 90;
 
 type DiffusersRequestBody = {
@@ -38,10 +35,10 @@ type DiffusersRequestBody = {
 };
 
 function toNumber(value: string | number | undefined, fallback: number): number {
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
-  if (typeof value === "string" && value.trim()) {
+  if (typeof value === 'string' && value.trim()) {
     const parsed = Number(value);
     if (Number.isFinite(parsed)) {
       return parsed;
@@ -51,7 +48,7 @@ function toNumber(value: string | number | undefined, fallback: number): number 
 }
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/diffusers");
+  return apiMethodNotAllowed(['POST'], '/api/diffusers');
 }
 
 export async function POST(request: Request) {
@@ -59,7 +56,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as DiffusersRequestBody;
     const prompt = body.prompt?.trim();
     if (!prompt) {
-      return apiError("Prompt is required.", 400);
+      return apiError('Prompt is required.', 400);
     }
 
     const engineUrlHint = body.engineUrl?.trim();
@@ -67,25 +64,19 @@ export async function POST(request: Request) {
       // Validate early so client gets a clear 400.
       getDiffusersBaseUrl(engineUrlHint);
     } catch (error) {
-      return apiError(
-        error instanceof Error ? error.message : "Invalid Diffusers URL.",
-        400,
-      );
+      return apiError(error instanceof Error ? error.message : 'Invalid Diffusers URL.', 400);
     }
 
     const params = body.params ?? {};
     const seedRaw = params.seed;
     const seed =
-      seedRaw === undefined || seedRaw === "" || seedRaw === -1 || seedRaw === "-1"
+      seedRaw === undefined || seedRaw === '' || seedRaw === -1 || seedRaw === '-1'
         ? null
         : Math.trunc(toNumber(seedRaw, 0));
 
     // Diffusers-first defaults lean Qwen/Flux; keep caller steps/CFG when present.
     const width = Math.max(64, Math.min(2048, Math.trunc(toNumber(params.width, 1024))));
-    const height = Math.max(
-      64,
-      Math.min(2048, Math.trunc(toNumber(params.height, 1024))),
-    );
+    const height = Math.max(64, Math.min(2048, Math.trunc(toNumber(params.height, 1024))));
     const steps = Math.max(1, Math.min(150, Math.trunc(toNumber(params.steps, 28))));
     let guidance = toNumber(params.cfg, 2.5);
     if (guidance < 0) {
@@ -93,14 +84,9 @@ export async function POST(request: Request) {
     }
 
     const studioModel = body.model?.trim() || undefined;
-    const model = resolveDiffusersModelHint(
-      body.model,
-      body.modelCheckpointMap,
-    );
+    const model = resolveDiffusersModelHint(body.model, body.modelCheckpointMap);
     const workshopCrop =
-      body.workshopCrop === true || body.workshopCrop === false
-        ? body.workshopCrop
-        : null;
+      body.workshopCrop === true || body.workshopCrop === false ? body.workshopCrop : null;
     const qualityProfile = normalizeQueueQualityProfile(body.qualityProfile);
     const outputPost = resolveDiffusersOutputPost({
       qualityProfile,
@@ -108,17 +94,16 @@ export async function POST(request: Request) {
       hasInputImage: body.hasInputImage === true,
     });
 
-    const { ensureDiffusersRunning } = await import("@/lib/diffusers-autostart");
+    const { ensureDiffusersRunning } = await import('@/lib/diffusers-autostart');
     const ensured = await ensureDiffusersRunning({
       engineUrl: engineUrlHint,
       autoStart: body.autoStart !== false,
     });
     if (!ensured.ok) {
-      return apiError(
-        ensured.error ?? "Diffusers engine unavailable.",
-        503,
-        { engineUrl: ensured.url, started: ensured.started },
-      );
+      return apiError(ensured.error ?? 'Diffusers engine unavailable.', 503, {
+        engineUrl: ensured.url,
+        started: ensured.started,
+      });
     }
 
     // Park Comfy before Diffusers claims the GPU (shared 24GB card).
@@ -127,7 +112,7 @@ export async function POST(request: Request) {
     const result = await queueDiffusersTxt2Img(
       {
         prompt,
-        negative_prompt: body.negativePrompt?.trim() || "",
+        negative_prompt: body.negativePrompt?.trim() || '',
         model,
         width,
         height,
@@ -147,11 +132,11 @@ export async function POST(request: Request) {
             }
           : {}),
       },
-      engineUrlHint,
+      engineUrlHint
     );
 
     if (!result.ok || !result.promptId) {
-      return apiError(result.error ?? "Diffusers queue failed.", result.status || 502, {
+      return apiError(result.error ?? 'Diffusers queue failed.', result.status || 502, {
         engineUrl: result.engineUrl,
       });
     }
@@ -161,7 +146,7 @@ export async function POST(request: Request) {
       engineUrl: result.engineUrl,
       comfyUrl: result.engineUrl,
       clientId: body.clientId?.trim() || undefined,
-      workflowSource: "diffusers",
+      workflowSource: 'diffusers',
       model,
       studioModel,
       qualityProfile,
@@ -177,10 +162,7 @@ export async function POST(request: Request) {
       workshopCrop,
     });
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Diffusers queue failed.",
-      502,
-    );
+    return apiError(error instanceof Error ? error.message : 'Diffusers queue failed.', 502);
   }
 }
 
@@ -188,9 +170,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

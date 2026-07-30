@@ -1,11 +1,8 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/Button";
-import { ToolSection } from "@/components/ui/ToolPageShell";
-import {
-  SETTINGS_BROWSER_PRESETS,
-  type SettingsBrowserPreset,
-} from "@/lib/settings-presets";
+import { Button } from '@/components/ui/Button';
+import { ToolSection } from '@/components/ui/ToolPageShell';
+import { SETTINGS_BROWSER_PRESETS, type SettingsBrowserPreset } from '@/lib/settings-presets';
 
 export default function SettingsBrowserPresetsPanel({
   onApply,
@@ -21,7 +18,7 @@ export default function SettingsBrowserPresetsPanel({
       description="One-click bundles for queue quality, Hold Max, VRAM guard, and gallery auto-improve."
     >
       <div className="grid gap-3 sm:grid-cols-3">
-        {SETTINGS_BROWSER_PRESETS.map((preset) => (
+        {SETTINGS_BROWSER_PRESETS.map(preset => (
           <div
             key={preset.id}
             className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 p-4"

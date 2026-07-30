@@ -1,10 +1,10 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from 'react';
 
 export function DataList({
   children,
-  className = "",
+  className = '',
   scrollable = true,
-  maxHeightClass = "max-h-[22rem]",
+  maxHeightClass = 'max-h-[22rem]',
 }: {
   children: ReactNode;
   className?: string;
@@ -13,7 +13,7 @@ export function DataList({
 }) {
   return (
     <div
-      className={`ui-list ${scrollable ? `ui-list-scroll sidebar-scroll ${maxHeightClass}` : ""} ${className}`.trim()}
+      className={`ui-list ${scrollable ? `ui-list-scroll sidebar-scroll ${maxHeightClass}` : ''} ${className}`.trim()}
       role="list"
     >
       {children}
@@ -23,7 +23,7 @@ export function DataList({
 
 export function DataListRow({
   children,
-  className = "",
+  className = '',
   ...props
 }: HTMLAttributes<HTMLDivElement> & { children: ReactNode }) {
   return (
@@ -37,7 +37,7 @@ export function DataListPrimary({
   title,
   subtitle,
   children,
-  className = "",
+  className = '',
 }: {
   title?: ReactNode;
   subtitle?: ReactNode;
@@ -55,19 +55,17 @@ export function DataListPrimary({
 
 export function DataListSecondary({
   children,
-  className = "",
+  className = '',
 }: {
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <p className={`ui-list-secondary ui-truncate ${className}`.trim()}>{children}</p>
-  );
+  return <p className={`ui-list-secondary ui-truncate ${className}`.trim()}>{children}</p>;
 }
 
 export function DataListActions({
   children,
-  className = "",
+  className = '',
 }: {
   children: ReactNode;
   className?: string;

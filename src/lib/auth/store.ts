@@ -1,16 +1,16 @@
-import fs from "node:fs";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
-import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
-import { ALL_FEATURE_IDS, type AppFeatureId } from "./features";
-import type { AuthGroup, AuthUser, AuthUserPublic, GroupsDocument, UsersDocument } from "./types";
-import { VIEWER_ALLOWED_FEATURES } from "./types";
+import fs from 'node:fs';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { resolvePromptAuthDir } from '@/lib/prompt-data-paths';
+import { ALL_FEATURE_IDS, type AppFeatureId } from './features';
+import type { AuthGroup, AuthUser, AuthUserPublic, GroupsDocument, UsersDocument } from './types';
+import { VIEWER_ALLOWED_FEATURES } from './types';
 import {
   getDefaultAdminPassword,
   getDefaultAdminUsername,
   isAuthExplicitlyEnabled,
-} from "./config";
-import { hashPassword, verifyPassword } from "./password";
+} from './config';
+import { hashPassword, verifyPassword } from './password';
 
 function authDir(): string {
   const dir = resolvePromptAuthDir();
@@ -19,40 +19,38 @@ function authDir(): string {
 }
 
 function usersPath(): string {
-  return path.join(authDir(), "users.json");
+  return path.join(authDir(), 'users.json');
 }
 
 function groupsPath(): string {
-  return path.join(authDir(), "groups.json");
+  return path.join(authDir(), 'groups.json');
 }
 
 function readJsonFile<T>(filePath: string, fallback: T): T {
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
+    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
   } catch {
     return fallback;
   }
 }
 
 function writeJsonFile<T>(filePath: string, data: T): void {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
 }
 
 const AUTH_STORE_CACHE_MS = 2000;
-let authStoreCache:
-  | {
-      users: UsersDocument;
-      groups: GroupsDocument;
-      loadedAt: number;
-      authDir: string;
-    }
-  | null = null;
+let authStoreCache: {
+  users: UsersDocument;
+  groups: GroupsDocument;
+  loadedAt: number;
+  authDir: string;
+} | null = null;
 
 export function invalidateAuthStoreCache(): void {
   authStoreCache = null;
 }
 
-const DEFAULT_ADMIN_USER_ID = "user-admin-default";
+const DEFAULT_ADMIN_USER_ID = 'user-admin-default';
 
 function defaultUsersDocument(): UsersDocument {
   const now = Date.now();
@@ -63,7 +61,7 @@ function defaultUsersDocument(): UsersDocument {
         id: DEFAULT_ADMIN_USER_ID,
         username: getDefaultAdminUsername(),
         passwordHash: hashPassword(getDefaultAdminPassword()),
-        role: "admin",
+        role: 'admin',
         groupIds: [],
         blockedFeatures: [],
         enabled: true,
@@ -87,12 +85,12 @@ function syncDefaultAdminFromEnv(users: UsersDocument): UsersDocument {
   const password = getDefaultAdminPassword();
   const now = Date.now();
 
-  let index = users.users.findIndex((user) => user.id === DEFAULT_ADMIN_USER_ID);
+  let index = users.users.findIndex(user => user.id === DEFAULT_ADMIN_USER_ID);
   if (index < 0) {
     index = users.users.findIndex(
-      (user) =>
-        user.role === "admin" &&
-        user.username.trim().toLowerCase() === username.trim().toLowerCase(),
+      user =>
+        user.role === 'admin' &&
+        user.username.trim().toLowerCase() === username.trim().toLowerCase()
     );
   }
 
@@ -102,7 +100,7 @@ function syncDefaultAdminFromEnv(users: UsersDocument): UsersDocument {
         id: DEFAULT_ADMIN_USER_ID,
         username,
         passwordHash: hashPassword(password),
-        role: "admin" as const,
+        role: 'admin' as const,
         groupIds: [],
         blockedFeatures: [],
         enabled: true,
@@ -168,7 +166,7 @@ export function ensureAuthStore(): { users: UsersDocument; groups: GroupsDocumen
   }
 
   const users = syncDefaultAdminFromEnv(
-    readJsonFile<UsersDocument>(usersFile, defaultUsersDocument()),
+    readJsonFile<UsersDocument>(usersFile, defaultUsersDocument())
   );
   const groups = readJsonFile<GroupsDocument>(groupsFile, defaultGroupsDocument());
 
@@ -202,15 +200,13 @@ export function listGroups(): AuthGroup[] {
 
 export function findUserById(userId: string): AuthUser | null {
   const { users } = ensureAuthStore();
-  return users.users.find((user) => user.id === userId) ?? null;
+  return users.users.find(user => user.id === userId) ?? null;
 }
 
 export function findUserByUsername(username: string): AuthUser | null {
   const normalized = username.trim().toLowerCase();
   const { users } = ensureAuthStore();
-  return (
-    users.users.find((user) => user.username.trim().toLowerCase() === normalized) ?? null
-  );
+  return users.users.find(user => user.username.trim().toLowerCase() === normalized) ?? null;
 }
 
 export function verifyUserCredentials(username: string, password: string): AuthUser | null {
@@ -240,13 +236,13 @@ export function upsertUser(input: {
   id?: string;
   username: string;
   password?: string;
-  role: AuthUser["role"];
+  role: AuthUser['role'];
   groupIds: string[];
   blockedFeatures: AppFeatureId[];
   enabled: boolean;
   comfyUiUrl?: string;
   quotaMaxPerMinute?: number;
-  scheduledCampaign?: AuthUser["scheduledCampaign"];
+  scheduledCampaign?: AuthUser['scheduledCampaign'];
   exportEnabled?: boolean;
   email?: string;
   emailNotifyBatch?: boolean;
@@ -255,17 +251,16 @@ export function upsertUser(input: {
   const { users } = ensureAuthStore();
   const now = Date.now();
   const existingIndex = input.id
-    ? users.users.findIndex((user) => user.id === input.id)
+    ? users.users.findIndex(user => user.id === input.id)
     : users.users.findIndex(
-        (user) => user.username.trim().toLowerCase() === input.username.trim().toLowerCase(),
+        user => user.username.trim().toLowerCase() === input.username.trim().toLowerCase()
       );
 
   const existing = existingIndex >= 0 ? users.users[existingIndex] : null;
   const next: AuthUser = {
     id: input.id ?? randomUUID(),
     username: input.username.trim(),
-    passwordHash:
-      existing?.passwordHash ?? hashPassword(input.password || randomUUID()),
+    passwordHash: existing?.passwordHash ?? hashPassword(input.password || randomUUID()),
     role: input.role,
     groupIds: input.groupIds,
     blockedFeatures: input.blockedFeatures,
@@ -288,21 +283,21 @@ export function upsertUser(input: {
     next.passwordHash = hashPassword(input.password.trim());
   }
 
-  const adminCount = users.users.filter((user) => user.role === "admin" && user.enabled).length;
+  const adminCount = users.users.filter(user => user.role === 'admin' && user.enabled).length;
   if (
     existingIndex >= 0 &&
-    users.users[existingIndex].role === "admin" &&
-    next.role !== "admin" &&
+    users.users[existingIndex].role === 'admin' &&
+    next.role !== 'admin' &&
     adminCount <= 1
   ) {
-    throw new Error("Cannot demote the last enabled admin.");
+    throw new Error('Cannot demote the last enabled admin.');
   }
 
   if (existingIndex >= 0) {
     users.users[existingIndex] = next;
   } else {
     if (!input.password?.trim()) {
-      throw new Error("Password is required for new users.");
+      throw new Error('Password is required for new users.');
     }
     users.users.unshift(next);
   }
@@ -313,17 +308,17 @@ export function upsertUser(input: {
 
 export function deleteUser(userId: string): void {
   const { users } = ensureAuthStore();
-  const target = users.users.find((user) => user.id === userId);
+  const target = users.users.find(user => user.id === userId);
   if (!target) {
-    throw new Error("User not found.");
+    throw new Error('User not found.');
   }
 
-  const enabledAdmins = users.users.filter((user) => user.role === "admin" && user.enabled);
-  if (target.role === "admin" && target.enabled && enabledAdmins.length <= 1) {
-    throw new Error("Cannot delete the last enabled admin.");
+  const enabledAdmins = users.users.filter(user => user.role === 'admin' && user.enabled);
+  if (target.role === 'admin' && target.enabled && enabledAdmins.length <= 1) {
+    throw new Error('Cannot delete the last enabled admin.');
   }
 
-  saveUsers(users.users.filter((user) => user.id !== userId));
+  saveUsers(users.users.filter(user => user.id !== userId));
 }
 
 export function upsertGroup(input: {
@@ -336,9 +331,9 @@ export function upsertGroup(input: {
   const { groups } = ensureAuthStore();
   const now = Date.now();
   const existingIndex = input.id
-    ? groups.groups.findIndex((group) => group.id === input.id)
+    ? groups.groups.findIndex(group => group.id === input.id)
     : groups.groups.findIndex(
-        (group) => group.name.trim().toLowerCase() === input.name.trim().toLowerCase(),
+        group => group.name.trim().toLowerCase() === input.name.trim().toLowerCase()
       );
 
   const next: AuthGroup = {
@@ -366,32 +361,32 @@ export function upsertGroup(input: {
 
 export function deleteGroup(groupId: string): void {
   const { users, groups } = ensureAuthStore();
-  saveGroups(groups.groups.filter((group) => group.id !== groupId));
+  saveGroups(groups.groups.filter(group => group.id !== groupId));
 
   saveUsers(
-    users.users.map((user) => ({
+    users.users.map(user => ({
       ...user,
-      groupIds: user.groupIds.filter((id) => id !== groupId),
+      groupIds: user.groupIds.filter(id => id !== groupId),
       updatedAt: Date.now(),
-    })),
+    }))
   );
 }
 
 export function resolveBlockedFeatures(user: AuthUser): Set<AppFeatureId> {
-  if (user.role === "admin") {
+  if (user.role === 'admin') {
     return new Set();
   }
 
-  if (user.role === "viewer") {
+  if (user.role === 'viewer') {
     const allowed = new Set<AppFeatureId>(VIEWER_ALLOWED_FEATURES);
-    return new Set(ALL_FEATURE_IDS.filter((feature) => !allowed.has(feature)));
+    return new Set(ALL_FEATURE_IDS.filter(feature => !allowed.has(feature)));
   }
 
   const { groups } = ensureAuthStore();
   const blocked = new Set<AppFeatureId>(user.blockedFeatures);
 
   for (const groupId of user.groupIds) {
-    const group = groups.groups.find((entry) => entry.id === groupId);
+    const group = groups.groups.find(entry => entry.id === groupId);
     if (!group) {
       continue;
     }
@@ -403,19 +398,19 @@ export function resolveBlockedFeatures(user: AuthUser): Set<AppFeatureId> {
   return blocked;
 }
 
-export function listAllowedFeatures(user: AuthUser | null): AppFeatureId[] | "all" {
+export function listAllowedFeatures(user: AuthUser | null): AppFeatureId[] | 'all' {
   if (!user) {
     return [];
   }
-  if (user.role === "admin") {
-    return "all";
+  if (user.role === 'admin') {
+    return 'all';
   }
-  if (user.role === "viewer") {
+  if (user.role === 'viewer') {
     return [...VIEWER_ALLOWED_FEATURES];
   }
 
   const blocked = resolveBlockedFeatures(user);
-  return ALL_FEATURE_IDS.filter((feature) => !blocked.has(feature));
+  return ALL_FEATURE_IDS.filter(feature => !blocked.has(feature));
 }
 
 export function updateUserProfile(
@@ -424,19 +419,19 @@ export function updateUserProfile(
     password?: string;
     currentPassword?: string;
     comfyUiUrl?: string;
-    scheduledCampaign?: AuthUser["scheduledCampaign"];
+    scheduledCampaign?: AuthUser['scheduledCampaign'];
     exportEnabled?: boolean;
     totpSecret?: string;
     totpEnabled?: boolean;
     email?: string;
     emailNotifyBatch?: boolean;
     emailNotifySecurity?: boolean;
-  },
+  }
 ): AuthUserPublic {
   const { users } = ensureAuthStore();
-  const index = users.users.findIndex((user) => user.id === userId);
+  const index = users.users.findIndex(user => user.id === userId);
   if (index < 0) {
-    throw new Error("User not found.");
+    throw new Error('User not found.');
   }
 
   const current = users.users[index];
@@ -444,7 +439,7 @@ export function updateUserProfile(
 
   if (input.password?.trim()) {
     if (input.currentPassword && !verifyPassword(input.currentPassword, current.passwordHash)) {
-      throw new Error("Current password is incorrect.");
+      throw new Error('Current password is incorrect.');
     }
     next.passwordHash = hashPassword(input.password.trim());
   }
@@ -481,7 +476,7 @@ export function updateUserProfile(
 
 export function listUsersWithCampaigns(): AuthUser[] {
   const { users } = ensureAuthStore();
-  return users.users.filter((user) => user.enabled && user.scheduledCampaign?.enabled);
+  return users.users.filter(user => user.enabled && user.scheduledCampaign?.enabled);
 }
 
 export function userCanAccessFeature(user: AuthUser | null, feature: AppFeatureId | null): boolean {
@@ -491,10 +486,10 @@ export function userCanAccessFeature(user: AuthUser | null, feature: AppFeatureI
   if (!user || !user.enabled) {
     return false;
   }
-  if (feature === "profile") {
+  if (feature === 'profile') {
     return true;
   }
-  if (user.role === "admin") {
+  if (user.role === 'admin') {
     return true;
   }
   return !resolveBlockedFeatures(user).has(feature);

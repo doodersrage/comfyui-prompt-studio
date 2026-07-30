@@ -1,25 +1,25 @@
-import { batchGenerateFromTopics, type BatchFromTopicsTarget } from "@/lib/batch-from-topics";
-import { resolveAvoidanceOptions } from "@/lib/avoidance-options";
-import { parseLlmRequestOptions } from "@/lib/llm-request-options";
+import { batchGenerateFromTopics, type BatchFromTopicsTarget } from '@/lib/batch-from-topics';
+import { resolveAvoidanceOptions } from '@/lib/avoidance-options';
+import { parseLlmRequestOptions } from '@/lib/llm-request-options';
 import {
   normalizeRecentClothing,
   normalizeLockedWardrobeId,
   normalizeLockedLocation,
   normalizeVariationSeed,
   normalizeSharedGenerationOptions,
-} from "@/lib/specialized/normalize";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+} from '@/lib/specialized/normalize';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 const BATCH_TARGETS: BatchFromTopicsTarget[] = [
-  "generate",
-  "duo",
-  "character",
-  "pet",
-  "fantasy",
-  "background",
+  'generate',
+  'duo',
+  'character',
+  'pet',
+  'fantasy',
+  'background',
 ];
 
 type TopicsBatchRequestBody = {
@@ -47,23 +47,23 @@ type TopicsBatchRequestBody = {
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/topics/batch");
+  return apiMethodNotAllowed(['POST'], '/api/topics/batch');
 }
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as TopicsBatchRequestBody;
-    const topics = body.topics?.map((entry) => entry.trim()).filter(Boolean) ?? [];
+    const topics = body.topics?.map(entry => entry.trim()).filter(Boolean) ?? [];
 
     if (topics.length === 0) {
-      return apiError("At least one topic is required.", 400);
+      return apiError('At least one topic is required.', 400);
     }
 
     const shared = normalizeSharedGenerationOptions(body);
     const avoidance = resolveAvoidanceOptions(body);
-    const target = BATCH_TARGETS.includes(body.target ?? "generate")
-      ? (body.target ?? "generate")
-      : "generate";
+    const target = BATCH_TARGETS.includes(body.target ?? 'generate')
+      ? (body.target ?? 'generate')
+      : 'generate';
 
     const result = await batchGenerateFromTopics({
       topics,
@@ -86,10 +86,7 @@ export async function POST(request: Request) {
 
     return apiJson(result);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Topics batch failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Topics batch failed.', 500);
   }
 }
 
@@ -97,9 +94,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

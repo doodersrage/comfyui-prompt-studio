@@ -9,18 +9,18 @@
  *   node scripts/generate-locations.mjs --add 1000 --seed 12345 --dry-run
  */
 
-import fs from "node:fs";
-import path from "node:path";
-import { adjectives, atmospheres, places, regions } from "./location-word-pools.mjs";
+import fs from 'node:fs';
+import path from 'node:path';
+import { adjectives, atmospheres, places, regions } from './location-word-pools.mjs';
 
 const ROOT = process.cwd();
-const LIB_DIR = path.join(ROOT, "src/lib");
-const SCENE_POOLS = path.join(ROOT, "src/lib/specialized/scene-pools.ts");
-const BATCH_INDEX = path.join(LIB_DIR, "location-catalog-batches.ts");
+const LIB_DIR = path.join(ROOT, 'src/lib');
+const SCENE_POOLS = path.join(ROOT, 'src/lib/specialized/scene-pools.ts');
+const BATCH_INDEX = path.join(LIB_DIR, 'location-catalog-batches.ts');
 const CATALOG_GLOB = /^location-catalog-extra(?:-(\d+))?\.ts$/;
 
 function normalizeLocationKey(value) {
-  return value.toLowerCase().replace(/\s+/g, " ").trim();
+  return value.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 function parseArgs(argv) {
@@ -35,13 +35,13 @@ function parseArgs(argv) {
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === "--count") args.count = true;
-    else if (arg === "--dry-run") args.dryRun = true;
-    else if (arg === "--add") args.add = Number(argv[++i]);
-    else if (arg === "--target") args.target = Number(argv[++i]);
-    else if (arg === "--seed") args.seed = Number(argv[++i]);
-    else if (arg === "--batch") args.batch = Number(argv[++i]);
-    else if (arg === "--help" || arg === "-h") args.help = true;
+    if (arg === '--count') args.count = true;
+    else if (arg === '--dry-run') args.dryRun = true;
+    else if (arg === '--add') args.add = Number(argv[++i]);
+    else if (arg === '--target') args.target = Number(argv[++i]);
+    else if (arg === '--seed') args.seed = Number(argv[++i]);
+    else if (arg === '--batch') args.batch = Number(argv[++i]);
+    else if (arg === '--help' || arg === '-h') args.help = true;
   }
 
   return args;
@@ -70,44 +70,40 @@ Examples:
 function listCatalogFiles() {
   return fs
     .readdirSync(LIB_DIR)
-    .filter((name) => CATALOG_GLOB.test(name))
+    .filter(name => CATALOG_GLOB.test(name))
     .sort((a, b) => {
-      const batchA = Number(a.match(CATALOG_GLOB)?.[1] ?? "1");
-      const batchB = Number(b.match(CATALOG_GLOB)?.[1] ?? "1");
+      const batchA = Number(a.match(CATALOG_GLOB)?.[1] ?? '1');
+      const batchB = Number(b.match(CATALOG_GLOB)?.[1] ?? '1');
       return batchA - batchB;
     });
 }
 
 function exportNameForBatch(batchNumber) {
-  return batchNumber === 1
-    ? "EXTRA_SCENE_LOCATIONS"
-    : `EXTRA_SCENE_LOCATIONS_${batchNumber}`;
+  return batchNumber === 1 ? 'EXTRA_SCENE_LOCATIONS' : `EXTRA_SCENE_LOCATIONS_${batchNumber}`;
 }
 
 function fileNameForBatch(batchNumber) {
   return batchNumber === 1
-    ? "location-catalog-extra.ts"
+    ? 'location-catalog-extra.ts'
     : `location-catalog-extra-${batchNumber}.ts`;
 }
 
 function parseLocationsFromFile(filePath) {
-  const content = fs.readFileSync(filePath, "utf8");
-  return [...content.matchAll(/^\s*"([^"]+)"/gm)].map((match) => match[1]);
+  const content = fs.readFileSync(filePath, 'utf8');
+  return [...content.matchAll(/^\s*"([^"]+)"/gm)].map(match => match[1]);
 }
 
 function loadExistingLocations() {
   const existing = new Set();
   const sources = [];
 
-  const sceneContent = fs.readFileSync(SCENE_POOLS, "utf8");
-  const baseBlock = sceneContent.match(/const LOCATIONS = \[([\s\S]*?)\];/)?.[1] ?? "";
-  const baseLocations = [...baseBlock.matchAll(/^\s*"([^"]+)"/gm)].map(
-    (match) => match[1],
-  );
+  const sceneContent = fs.readFileSync(SCENE_POOLS, 'utf8');
+  const baseBlock = sceneContent.match(/const LOCATIONS = \[([\s\S]*?)\];/)?.[1] ?? '';
+  const baseLocations = [...baseBlock.matchAll(/^\s*"([^"]+)"/gm)].map(match => match[1]);
   for (const location of baseLocations) {
     existing.add(normalizeLocationKey(location));
   }
-  sources.push({ label: "base LOCATIONS", count: baseLocations.length });
+  sources.push({ label: 'base LOCATIONS', count: baseLocations.length });
 
   for (const fileName of listCatalogFiles()) {
     const locations = parseLocationsFromFile(path.join(LIB_DIR, fileName));
@@ -125,8 +121,8 @@ function nextBatchNumber(explicitBatch) {
     return explicitBatch;
   }
 
-  const batches = listCatalogFiles().map((fileName) =>
-    Number(fileName.match(CATALOG_GLOB)?.[1] ?? "1"),
+  const batches = listCatalogFiles().map(fileName =>
+    Number(fileName.match(CATALOG_GLOB)?.[1] ?? '1')
   );
 
   return batches.length === 0 ? 1 : Math.max(...batches) + 1;
@@ -142,7 +138,7 @@ function createRng(seed) {
 
 function generateLocations(existing, countNeeded, seed) {
   const rand = createRng(seed);
-  const pick = (items) => items[Math.floor(rand() * items.length)];
+  const pick = items => items[Math.floor(rand() * items.length)];
   const newLocations = [];
 
   function tryAdd(raw) {
@@ -162,10 +158,8 @@ function generateLocations(existing, countNeeded, seed) {
       return `${place.charAt(0).toUpperCase()}${place.slice(1)} ${pick(regions)} ${pick(atmospheres)}`;
     },
     () => `${pick(adjectives)} ${pick(places)} ${pick(regions)}`,
-    () =>
-      `${pick(adjectives)} ${pick(places)} near ${pick(places)}, ${pick(atmospheres)}`,
-    () =>
-      `${pick(adjectives)} ${pick(places)} ${pick(regions)}, ${pick(atmospheres)}`,
+    () => `${pick(adjectives)} ${pick(places)} near ${pick(places)}, ${pick(atmospheres)}`,
+    () => `${pick(adjectives)} ${pick(places)} ${pick(regions)}, ${pick(atmospheres)}`,
   ];
 
   let attempts = 0;
@@ -179,14 +173,14 @@ function generateLocations(existing, countNeeded, seed) {
   let suffix = 1;
   while (newLocations.length < countNeeded && suffix < 250000) {
     tryAdd(
-      `${pick(adjectives)} ${pick(places)} ${pick(regions)}, outlook ${suffix}, ${pick(atmospheres)}`,
+      `${pick(adjectives)} ${pick(places)} ${pick(regions)}, outlook ${suffix}, ${pick(atmospheres)}`
     );
     suffix += 1;
   }
 
   if (newLocations.length < countNeeded) {
     throw new Error(
-      `Could only generate ${newLocations.length}/${countNeeded} unique locations. Try a different --seed.`,
+      `Could only generate ${newLocations.length}/${countNeeded} unique locations. Try a different --seed.`
     );
   }
 
@@ -202,32 +196,32 @@ function writeBatchFile(batchNumber, locations) {
     `/** Additional handcrafted scene locations (batch ${batchNumber}). */`,
     `/** Generated by scripts/generate-locations.mjs — safe to regenerate this file only. */`,
     `export const ${exportName} = [`,
-    ...locations.map((location) => `  ${JSON.stringify(location)},`),
-    "] as const;",
-    "",
+    ...locations.map(location => `  ${JSON.stringify(location)},`),
+    '] as const;',
+    '',
   ];
 
-  fs.writeFileSync(filePath, lines.join("\n"));
+  fs.writeFileSync(filePath, lines.join('\n'));
   return filePath;
 }
 
 function writeBatchIndex() {
   const catalogFiles = listCatalogFiles();
   const imports = catalogFiles
-    .map((fileName) => {
-      const batchNumber = Number(fileName.match(CATALOG_GLOB)?.[1] ?? "1");
+    .map(fileName => {
+      const batchNumber = Number(fileName.match(CATALOG_GLOB)?.[1] ?? '1');
       const exportName = exportNameForBatch(batchNumber);
-      const importPath = `./${fileName.replace(/\.ts$/, "")}`;
+      const importPath = `./${fileName.replace(/\.ts$/, '')}`;
       return `import { ${exportName} } from "${importPath}";`;
     })
-    .join("\n");
+    .join('\n');
 
   const spreads = catalogFiles
-    .map((fileName) => {
-      const batchNumber = Number(fileName.match(CATALOG_GLOB)?.[1] ?? "1");
+    .map(fileName => {
+      const batchNumber = Number(fileName.match(CATALOG_GLOB)?.[1] ?? '1');
       return `  ...${exportNameForBatch(batchNumber)},`;
     })
-    .join("\n");
+    .join('\n');
 
   const content = `/** Auto-generated by scripts/generate-locations.mjs — do not edit manually. */
 ${imports}
@@ -283,8 +277,8 @@ function main() {
   console.log(`Seed: ${args.seed}`);
 
   if (args.dryRun) {
-    console.log("Dry run — no files written.");
-    console.log("Sample:");
+    console.log('Dry run — no files written.');
+    console.log('Sample:');
     for (const sample of newLocations.slice(0, 5)) {
       console.log(`  - ${sample}`);
     }

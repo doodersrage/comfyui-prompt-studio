@@ -1,54 +1,42 @@
-import {
-  buildMandatoryLocationBlock,
-  parseSettingHint,
-} from "../hint-location";
+import { buildMandatoryLocationBlock, parseSettingHint } from '../hint-location';
 import {
   buildGenerateWardrobeAssignments,
   buildGenerateWardrobeUserDirective,
   mergeGenerateWardrobeIntoPrompt,
-} from "../generate-wardrobe";
-import {
-  buildNoClothingUserDirective,
-  hintsImplyNoClothing,
-} from "../clothing-tags";
-import { getDetailLimits } from "../detail-level";
-import { isMultiPersonInput } from "../distinct-people";
-import { DEFAULT_GENERATION_SETTINGS } from "../generation-settings";
-import { generatePrompt } from "../prompt-generator";
-import { mergeLocationExclusions } from "../location-exclusions";
-import { applyLockedLocation } from "../locked-location";
-import { applyLockedVariationSeed } from "../locked-variation-seed";
-import { resolveModelForPromptGeneration } from "../queue-tool-model";
-import { buildRandomSceneSeed } from "./scene-pools";
-import { buildToolResult, runSpecializedPrompt } from "./runner";
-import type { RandomSceneOptions, ToolGenerateResult } from "./types";
+} from '../generate-wardrobe';
+import { buildNoClothingUserDirective, hintsImplyNoClothing } from '../clothing-tags';
+import { getDetailLimits } from '../detail-level';
+import { isMultiPersonInput } from '../distinct-people';
+import { DEFAULT_GENERATION_SETTINGS } from '../generation-settings';
+import { generatePrompt } from '../prompt-generator';
+import { mergeLocationExclusions } from '../location-exclusions';
+import { applyLockedLocation } from '../locked-location';
+import { applyLockedVariationSeed } from '../locked-variation-seed';
+import { resolveModelForPromptGeneration } from '../queue-tool-model';
+import { buildRandomSceneSeed } from './scene-pools';
+import { buildToolResult, runSpecializedPrompt } from './runner';
+import type { RandomSceneOptions, ToolGenerateResult } from './types';
 
 export async function generateRandomScene(
-  options: RandomSceneOptions,
+  options: RandomSceneOptions
 ): Promise<ToolGenerateResult> {
   const seedIngredients = options.seedLlmWithIngredients !== false;
   const effectiveGenre = seedIngredients
     ? applyLockedLocation(options.genre, options.lockedLocation)
     : options.genre;
   const genreHint = parseSettingHint(effectiveGenre);
-  const pinnedLocation =
-    options.lockedLocation?.trim() || genreHint.location || null;
+  const pinnedLocation = options.lockedLocation?.trim() || genreHint.location || null;
   const includePeople = options.includePeople !== false;
   const alwaysIncludeClothing = options.alwaysIncludeClothing !== false;
-  const promptModel = resolveModelForPromptGeneration(options.model, "generate");
+  const promptModel = resolveModelForPromptGeneration(options.model, 'generate');
   const { seed: rolledSeed, location: sceneLocation } = buildRandomSceneSeed({
     genre: options.genre,
     includePeople,
-    recentLocations: mergeLocationExclusions(
-      options.recentLocations,
-      options.blockedLocations,
-    ),
+    recentLocations: mergeLocationExclusions(options.recentLocations, options.blockedLocations),
     avoidedTokens: options.avoidedTokens,
   });
   const seed = applyLockedVariationSeed(rolledSeed, options.variationSeed);
-  const locationBlock = seedIngredients
-    ? buildMandatoryLocationBlock(pinnedLocation)
-    : null;
+  const locationBlock = seedIngredients ? buildMandatoryLocationBlock(pinnedLocation) : null;
 
   const wildness = Math.min(100, Math.max(0, options.wildness ?? 65));
   const distinctPeople = isMultiPersonInput(seed);
@@ -82,19 +70,19 @@ export async function generateRandomScene(
         : null;
 
   const keywordsOnly = !seedIngredients;
-  const genreText = effectiveGenre?.trim() || "";
+  const genreText = effectiveGenre?.trim() || '';
   const toolInstructions = keywordsOnly
     ? `You are a scene prompt generator for ComfyUI.
 - Write ONE cohesive scene from the provided keywords only.
 - Follow the target model's prompt style exactly.
-- ${includePeople === false ? "Do not include any people, figures, silhouettes, or crowds." : "If people appear, give them specific visual identity—not generic figures."}
+- ${includePeople === false ? 'Do not include any people, figures, silhouettes, or crowds.' : 'If people appear, give them specific visual identity—not generic figures.'}
 - Do not invent a wardrobe catalog or substitute a different location unless the keywords ask for it.
 - Wildness level: ${wildness}/100.`
     : `You are a random scene prompt generator for ComfyUI.
 - Invent ONE cohesive scene from the provided random ingredients.
 - When a MANDATORY SETTING block is present, use that exact place. Do not substitute a different location.
 - Follow the target model's prompt style exactly.
-- ${includePeople === false ? "Do not include any people, figures, silhouettes, or crowds." : "If people appear, give them specific visual identity—not generic figures."}
+- ${includePeople === false ? 'Do not include any people, figures, silhouettes, or crowds.' : 'If people appear, give them specific visual identity—not generic figures.'}
 - When wardrobe ingredients are assigned, keep every garment in the final prompt with scene-appropriate styling.
 - Surprise the viewer with at least one unexpected but coherent detail.
 - Wildness level: ${wildness}/100 (higher = stranger combinations, still one unified image).`;
@@ -104,20 +92,20 @@ export async function generateRandomScene(
       ? [
           genreText
             ? `Scene keywords:\n${genreText}`
-            : "Scene keywords:\n(none provided — invent one cohesive scene without a wardrobe catalog or unrelated location swap)",
+            : 'Scene keywords:\n(none provided — invent one cohesive scene without a wardrobe catalog or unrelated location swap)',
           options.avoidedTokensInstruction,
-          "Write a single model-ready prompt from the keywords above.",
+          'Write a single model-ready prompt from the keywords above.',
         ]
       : [
           locationBlock,
           `Random scene ingredients:\n${seed}`,
           clothingDirective,
           options.avoidedTokensInstruction,
-          "Write a single model-ready prompt using every major ingredient above.",
+          'Write a single model-ready prompt using every major ingredient above.',
         ]
   )
     .filter(Boolean)
-    .join("\n\n");
+    .join('\n\n');
 
   const metadata = {
     seed: keywordsOnly ? genreText || null : seed,
@@ -135,37 +123,27 @@ export async function generateRandomScene(
     !keywordsOnly && wardrobeAssignments?.length
       ? (prompt: string) => {
           const { maxChars } = getDetailLimits(options.detail, promptModel);
-          return mergeGenerateWardrobeIntoPrompt(
-            prompt,
-            wardrobeAssignments,
-            maxChars,
-            seed,
-          );
+          return mergeGenerateWardrobeIntoPrompt(prompt, wardrobeAssignments, maxChars, seed);
         }
       : undefined;
 
   const templateFallback = async () => {
-    const fallbackInput = keywordsOnly ? genreText || "cinematic scene" : seed;
+    const fallbackInput = keywordsOnly ? genreText || 'cinematic scene' : seed;
     const result = await generatePrompt(
       fallbackInput,
-      "positive",
+      'positive',
       {
         ...wardrobeSettings,
         alwaysIncludeClothing: false,
         seedLlmWithIngredients: seedIngredients,
       },
-      { tool: "generate" },
+      { tool: 'generate' }
     );
     if (keywordsOnly || !wardrobeAssignments?.length) {
       return result.prompt;
     }
     const { maxChars } = getDetailLimits(options.detail, promptModel);
-    return mergeGenerateWardrobeIntoPrompt(
-      result.prompt,
-      wardrobeAssignments,
-      maxChars,
-      seed,
-    );
+    return mergeGenerateWardrobeIntoPrompt(result.prompt, wardrobeAssignments, maxChars, seed);
   };
 
   try {
@@ -191,15 +169,9 @@ export async function generateRandomScene(
     });
   } catch {
     const result = await templateFallback();
-    return buildToolResult(
-      result,
-      "template",
-      options.model,
-      options.detail,
-      {
-        seed,
-        metadata,
-      },
-    );
+    return buildToolResult(result, 'template', options.model, options.detail, {
+      seed,
+      metadata,
+    });
   }
 }

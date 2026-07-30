@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { ChipButton } from "@/components/ui/Field";
-import { loadComfyUiSettings } from "@/lib/comfyui-settings";
-import { loadSettingsCache } from "@/lib/settings-cache";
-import { fetchComfyObjectInfoCached } from "@/lib/comfyui-object-info-cache";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { ChipButton } from '@/components/ui/Field';
+import { loadComfyUiSettings } from '@/lib/comfyui-settings';
+import { loadSettingsCache } from '@/lib/settings-cache';
+import { fetchComfyObjectInfoCached } from '@/lib/comfyui-object-info-cache';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
   COMFY_ASSET_KIND_LABELS,
   COMFY_ASSET_KIND_ORDER,
   type ComfyAssetKind,
-} from "@/lib/comfy-asset-kinds";
+} from '@/lib/comfy-asset-kinds';
 
 type AssetRow = {
   id: string;
@@ -19,7 +19,7 @@ type AssetRow = {
   kind: ComfyAssetKind | string;
   filename: string;
   modelIds: string[];
-  status: "installed" | "missing" | "docs-only" | "root-missing";
+  status: 'installed' | 'missing' | 'docs-only' | 'root-missing';
   downloadable: boolean;
   onDisk: boolean;
   inInventory: boolean;
@@ -57,16 +57,16 @@ type ComfyModelAssetsPanelProps = {
   onInstalled?: () => void;
 };
 
-function statusLabel(status: AssetRow["status"]): string {
+function statusLabel(status: AssetRow['status']): string {
   switch (status) {
-    case "installed":
-      return "Installed";
-    case "missing":
-      return "Missing";
-    case "root-missing":
-      return "Needs COMFYUI_ROOT";
-    case "docs-only":
-      return "Manual only";
+    case 'installed':
+      return 'Installed';
+    case 'missing':
+      return 'Missing';
+    case 'root-missing':
+      return 'Needs COMFYUI_ROOT';
+    case 'docs-only':
+      return 'Manual only';
     default:
       return status;
   }
@@ -74,7 +74,7 @@ function statusLabel(status: AssetRow["status"]): string {
 
 function formatBytes(value: number | null | undefined): string {
   if (value == null || value <= 0) {
-    return "";
+    return '';
   }
   if (value < 1024) {
     return `${value} B`;
@@ -99,7 +99,7 @@ export default function ComfyModelAssetsPanel({
   const [rootPath, setRootPath] = useState<string | null>(null);
   const [rootHint, setRootHint] = useState<string | undefined>();
   const [filterCurrentModel, setFilterCurrentModel] = useState(false);
-  const [kindFilter, setKindFilter] = useState<"all" | ComfyAssetKind>("all");
+  const [kindFilter, setKindFilter] = useState<'all' | ComfyAssetKind>('all');
   const [missingOnly, setMissingOnly] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -109,44 +109,43 @@ export default function ComfyModelAssetsPanel({
   const onInstalledRef = useRef(onInstalled);
   const pollInFlightRef = useRef(false);
 
-  const load = useCallback(async (forceRefresh = false) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const settings = loadComfyUiSettings();
-      const modelId = filterCurrentModel
-        ? loadSettingsCache().shared.model
-        : undefined;
-      const params = new URLSearchParams();
-      const apiUrl = settings.apiUrl?.trim() ?? "";
-      if (apiUrl) {
-        params.set("comfyUrl", apiUrl);
+  const load = useCallback(
+    async (forceRefresh = false) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const settings = loadComfyUiSettings();
+        const modelId = filterCurrentModel ? loadSettingsCache().shared.model : undefined;
+        const params = new URLSearchParams();
+        const apiUrl = settings.apiUrl?.trim() ?? '';
+        if (apiUrl) {
+          params.set('comfyUrl', apiUrl);
+        }
+        if (modelId) {
+          params.set('modelId', modelId);
+        }
+        if (forceRefresh) {
+          params.set('forceRefresh', '1');
+        }
+        const response = await fetch(`/api/comfyui/assets${params.size ? `?${params}` : ''}`);
+        const data = (await response.json()) as AssetsResponse;
+        if (!response.ok) {
+          throw new Error(data.error || 'Could not load model assets.');
+        }
+        setRows(data.rows ?? []);
+        setJobs(data.jobs ?? []);
+        setRootConfigured(Boolean(data.rootConfigured));
+        setRootWritable(data.rootWritable !== false);
+        setRootPath(data.rootPath ?? null);
+        setRootHint(data.rootHint);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not load model assets.');
+      } finally {
+        setLoading(false);
       }
-      if (modelId) {
-        params.set("modelId", modelId);
-      }
-      if (forceRefresh) {
-        params.set("forceRefresh", "1");
-      }
-      const response = await fetch(
-        `/api/comfyui/assets${params.size ? `?${params}` : ""}`,
-      );
-      const data = (await response.json()) as AssetsResponse;
-      if (!response.ok) {
-        throw new Error(data.error || "Could not load model assets.");
-      }
-      setRows(data.rows ?? []);
-      setJobs(data.jobs ?? []);
-      setRootConfigured(Boolean(data.rootConfigured));
-      setRootWritable(data.rootWritable !== false);
-      setRootPath(data.rootPath ?? null);
-      setRootHint(data.rootHint);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load model assets.");
-    } finally {
-      setLoading(false);
-    }
-  }, [filterCurrentModel]);
+    },
+    [filterCurrentModel]
+  );
 
   useEffect(() => {
     jobsRef.current = jobs;
@@ -175,19 +174,16 @@ export default function ComfyModelAssetsPanel({
         return;
       }
       const active = jobsRef.current.filter(
-        (job) =>
-          job.status === "queued" ||
-          job.status === "downloading" ||
-          job.status === "verifying",
+        job => job.status === 'queued' || job.status === 'downloading' || job.status === 'verifying'
       );
       if (active.length === 0) {
         return;
       }
       pollInFlightRef.current = true;
-      const activeIds = active.map((job) => job.id);
+      const activeIds = active.map(job => job.id);
       try {
         const response = await fetch(
-          `/api/comfyui/assets?jobId=${encodeURIComponent(activeIds[0]!)}`,
+          `/api/comfyui/assets?jobId=${encodeURIComponent(activeIds[0]!)}`
         );
         const data = (await response.json()) as AssetsResponse & { job?: AssetJob };
         if (cancelled || !response.ok) {
@@ -196,19 +192,15 @@ export default function ComfyModelAssetsPanel({
         const nextJobs = data.jobs ?? (data.job ? [data.job] : []);
         setJobs(nextJobs);
         const justFinished = nextJobs.some(
-          (job) =>
-            activeIds.includes(job.id) &&
-            (job.status === "complete" || job.status === "error"),
+          job => activeIds.includes(job.id) && (job.status === 'complete' || job.status === 'error')
         );
         if (justFinished) {
-          const failed = nextJobs.find(
-            (job) => activeIds.includes(job.id) && job.status === "error",
-          );
+          const failed = nextJobs.find(job => activeIds.includes(job.id) && job.status === 'error');
           if (failed?.error) {
             setError(failed.error);
           }
           await loadRef.current(true);
-          if (nextJobs.some((job) => job.status === "complete")) {
+          if (nextJobs.some(job => job.status === 'complete')) {
             void fetchComfyObjectInfoCached({ forceRefresh: true }).catch(() => null);
             onInstalledRef.current?.();
           }
@@ -232,49 +224,47 @@ export default function ComfyModelAssetsPanel({
       setBusyId(assetId);
       setError(null);
       try {
-        const response = await fetch("/api/comfyui/assets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const response = await fetch('/api/comfyui/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ assetId }),
         });
         const data = (await response.json()) as AssetsResponse & {
           job?: AssetJob;
         };
         if (!response.ok || !data.job) {
-          throw new Error(data.error || "Install failed to start.");
+          throw new Error(data.error || 'Install failed to start.');
         }
-        setJobs((prev) => {
-          const without = prev.filter((job) => job.id !== data.job!.id);
+        setJobs(prev => {
+          const without = prev.filter(job => job.id !== data.job!.id);
           return [data.job!, ...without];
         });
         onStatus?.(
-          data.job.status === "complete"
+          data.job.status === 'complete'
             ? `Already present: ${data.job.filename}`
-            : `Downloading ${data.job.label}…`,
+            : `Downloading ${data.job.label}…`
         );
-        if (data.job.status === "complete") {
+        if (data.job.status === 'complete') {
           await load(true);
           void fetchComfyObjectInfoCached({ forceRefresh: true }).catch(() => null);
           onInstalled?.();
         }
         return data.job;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Install failed.");
+        setError(err instanceof Error ? err.message : 'Install failed.');
         return null;
       } finally {
         setBusyId(null);
       }
     },
-    [load, onInstalled, onStatus],
+    [load, onInstalled, onStatus]
   );
 
   const waitForJob = useCallback(async (jobId: string) => {
     for (let i = 0; i < 60 * 60; i += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       try {
-        const response = await fetch(
-          `/api/comfyui/assets?jobId=${encodeURIComponent(jobId)}`,
-        );
+        const response = await fetch(`/api/comfyui/assets?jobId=${encodeURIComponent(jobId)}`);
         const data = (await response.json()) as AssetsResponse & { job?: AssetJob };
         if (!response.ok) {
           return null;
@@ -284,7 +274,7 @@ export default function ComfyModelAssetsPanel({
           return null;
         }
         setJobs(data.jobs ?? [job]);
-        if (job.status === "complete" || job.status === "error") {
+        if (job.status === 'complete' || job.status === 'error') {
           return job;
         }
       } catch {
@@ -294,15 +284,14 @@ export default function ComfyModelAssetsPanel({
     return null;
   }, []);
 
-  const jobFor = (assetId: string) =>
-    jobs.find((job) => job.assetId === assetId);
+  const jobFor = (assetId: string) => jobs.find(job => job.assetId === assetId);
 
   const visibleRows = useMemo(() => {
-    return rows.filter((row) => {
-      if (kindFilter !== "all" && row.kind !== kindFilter) {
+    return rows.filter(row => {
+      if (kindFilter !== 'all' && row.kind !== kindFilter) {
         return false;
       }
-      if (missingOnly && row.status === "installed") {
+      if (missingOnly && row.status === 'installed') {
         return false;
       }
       return true;
@@ -331,30 +320,28 @@ export default function ComfyModelAssetsPanel({
   }, [visibleRows]);
 
   const downloadableMissing = visibleRows.filter(
-    (row) => row.status === "missing" && row.downloadable,
+    row => row.status === 'missing' && row.downloadable
   ).length;
 
   const installMissingForModel = useCallback(async () => {
-    const missing = visibleRows.filter(
-      (row) => row.status === "missing" && row.downloadable,
-    );
+    const missing = visibleRows.filter(row => row.status === 'missing' && row.downloadable);
     if (missing.length === 0) {
-      onStatus?.("No curated downloadable weights missing for this filter.");
+      onStatus?.('No curated downloadable weights missing for this filter.');
       return;
     }
     onStatus?.(
-      `Queuing ${missing.length} download${missing.length === 1 ? "" : "s"} one at a time…`,
+      `Queuing ${missing.length} download${missing.length === 1 ? '' : 's'} one at a time…`
     );
     for (const row of missing) {
       const started = await install(row.id);
       if (!started) {
         continue;
       }
-      if (started.status === "complete" || started.status === "error") {
+      if (started.status === 'complete' || started.status === 'error') {
         continue;
       }
       const finished = await waitForJob(started.id);
-      if (finished?.status === "error" && finished.error) {
+      if (finished?.status === 'error' && finished.error) {
         setError(finished.error);
       }
     }
@@ -366,13 +353,13 @@ export default function ComfyModelAssetsPanel({
   return (
     <div className="space-y-3">
       <p className="type-caption text-[var(--text-muted)]">
-        Curated same-machine installs for supported workflows — checkpoints, UNETs, VAEs,
-        text encoders / CLIP, LoRAs, upscalers, and ControlNets — into{" "}
+        Curated same-machine installs for supported workflows — checkpoints, UNETs, VAEs, text
+        encoders / CLIP, LoRAs, upscalers, and ControlNets — into{' '}
         <code className="rounded bg-zinc-800 px-1 text-violet-300">COMFYUI_ROOT/models/…</code>.
-        Only allowlisted Hugging Face URLs run; gated or third-party rows stay manual. Custom
-        nodes are not included. Optional{" "}
-        <code className="rounded bg-zinc-800 px-1 text-violet-300">HF_TOKEN</code> helps with
-        gated repos / 403s.
+        Only allowlisted Hugging Face URLs run; gated or third-party rows stay manual. Custom nodes
+        are not included. Optional{' '}
+        <code className="rounded bg-zinc-800 px-1 text-violet-300">HF_TOKEN</code> helps with gated
+        repos / 403s.
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -380,7 +367,7 @@ export default function ComfyModelAssetsPanel({
           <input
             type="checkbox"
             checked={filterCurrentModel}
-            onChange={(event) => setFilterCurrentModel(event.target.checked)}
+            onChange={event => setFilterCurrentModel(event.target.checked)}
           />
           Current model only
         </label>
@@ -388,7 +375,7 @@ export default function ComfyModelAssetsPanel({
           <input
             type="checkbox"
             checked={missingOnly}
-            onChange={(event) => setMissingOnly(event.target.checked)}
+            onChange={event => setMissingOnly(event.target.checked)}
           />
           Missing / manual only
         </label>
@@ -405,38 +392,26 @@ export default function ComfyModelAssetsPanel({
           type="button"
           variant="secondary"
           size="sm"
-          disabled={
-            loading ||
-            !rootConfigured ||
-            !rootWritable ||
-            downloadableMissing === 0
-          }
+          disabled={loading || !rootConfigured || !rootWritable || downloadableMissing === 0}
           onClick={() => void installMissingForModel()}
         >
           Install missing
-          {filterCurrentModel ? " for model" : ""}
-          {downloadableMissing > 0 ? ` (${downloadableMissing})` : ""}
+          {filterCurrentModel ? ' for model' : ''}
+          {downloadableMissing > 0 ? ` (${downloadableMissing})` : ''}
         </Button>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        <ChipButton
-          active={kindFilter === "all"}
-          onClick={() => setKindFilter("all")}
-        >
+        <ChipButton active={kindFilter === 'all'} onClick={() => setKindFilter('all')}>
           All kinds
         </ChipButton>
-        {COMFY_ASSET_KIND_ORDER.map((kind) => {
-          const count = rows.filter((row) => row.kind === kind).length;
+        {COMFY_ASSET_KIND_ORDER.map(kind => {
+          const count = rows.filter(row => row.kind === kind).length;
           if (count === 0) {
             return null;
           }
           return (
-            <ChipButton
-              key={kind}
-              active={kindFilter === kind}
-              onClick={() => setKindFilter(kind)}
-            >
+            <ChipButton key={kind} active={kindFilter === kind} onClick={() => setKindFilter(kind)}>
               {COMFY_ASSET_KIND_LABELS[kind]}
               <span className="opacity-60"> {count}</span>
             </ChipButton>
@@ -447,48 +422,40 @@ export default function ComfyModelAssetsPanel({
       <p className="type-caption text-[var(--text-muted)]">
         {rootConfigured ? (
           <>
-            Root:{" "}
-            <code className="rounded bg-zinc-800 px-1 text-emerald-200/90">
-              {rootPath}
-            </code>
+            Root: <code className="rounded bg-zinc-800 px-1 text-emerald-200/90">{rootPath}</code>
             {!rootWritable ? (
               <span className="mt-1 block text-amber-300/90">
                 {rootHint ??
-                  "Not writable by this app process — Install cannot save files until COMFYUI_ROOT/models allows write access."}
+                  'Not writable by this app process — Install cannot save files until COMFYUI_ROOT/models allows write access.'}
               </span>
             ) : null}
           </>
         ) : (
-          <>{rootHint ?? "Set COMFYUI_ROOT to enable Install."}</>
+          <>{rootHint ?? 'Set COMFYUI_ROOT to enable Install.'}</>
         )}
       </p>
 
-      {error ? (
-        <p className="type-caption text-rose-300/90">{error}</p>
-      ) : null}
+      {error ? <p className="type-caption text-rose-300/90">{error}</p> : null}
 
       {loading && rows.length === 0 ? (
         <p className="type-caption text-[var(--text-muted)]">Loading assets…</p>
       ) : visibleRows.length === 0 ? (
-        <p className="type-caption text-[var(--text-muted)]">
-          No assets match this filter.
-        </p>
+        <p className="type-caption text-[var(--text-muted)]">No assets match this filter.</p>
       ) : (
         <div className="space-y-4">
-          {groupedRows.map((group) => (
+          {groupedRows.map(group => (
             <section key={group.kind} className="space-y-2">
               <h3 className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                {COMFY_ASSET_KIND_LABELS[group.kind as ComfyAssetKind] ??
-                  group.kind}
+                {COMFY_ASSET_KIND_LABELS[group.kind as ComfyAssetKind] ?? group.kind}
               </h3>
               <ul className="space-y-2">
-                {group.rows.map((row) => {
+                {group.rows.map(row => {
                   const job = jobFor(row.id);
                   const installing =
                     job &&
-                    (job.status === "queued" ||
-                      job.status === "downloading" ||
-                      job.status === "verifying");
+                    (job.status === 'queued' ||
+                      job.status === 'downloading' ||
+                      job.status === 'verifying');
                   return (
                     <li
                       key={row.id}
@@ -504,39 +471,32 @@ export default function ComfyModelAssetsPanel({
                           </p>
                           <p className="type-caption text-[var(--text-muted)]">
                             {statusLabel(row.status)}
-                            {row.inInventory ? " · in Comfy inventory" : ""}
-                            {row.onDisk ? " · on disk" : ""}
-                            {row.urlHost ? ` · ${row.urlHost}` : ""}
-                            {row.requiresHfToken ? " · needs HF_TOKEN" : ""}
+                            {row.inInventory ? ' · in Comfy inventory' : ''}
+                            {row.onDisk ? ' · on disk' : ''}
+                            {row.urlHost ? ` · ${row.urlHost}` : ''}
+                            {row.requiresHfToken ? ' · needs HF_TOKEN' : ''}
                           </p>
                           {row.notes ? (
-                            <p className="type-caption text-[var(--text-muted)]">
-                              {row.notes}
-                            </p>
+                            <p className="type-caption text-[var(--text-muted)]">{row.notes}</p>
                           ) : null}
                           {job && installing ? (
                             <p className="type-caption text-sky-200/90">
                               {job.status}
-                              {job.attempt && job.attempt > 1
-                                ? ` · try ${job.attempt}`
-                                : ""}
-                              {" · "}
-                              {job.bytesTotal &&
-                              job.bytesReceived <= job.bytesTotal * 1.02
+                              {job.attempt && job.attempt > 1 ? ` · try ${job.attempt}` : ''}
+                              {' · '}
+                              {job.bytesTotal && job.bytesReceived <= job.bytesTotal * 1.02
                                 ? `${Math.round(job.progress * 100)}% · ${formatBytes(job.bytesReceived)} / ${formatBytes(job.bytesTotal)}`
                                 : job.bytesReceived
                                   ? `${formatBytes(job.bytesReceived)} received`
                                   : `${Math.round(job.progress * 100)}%`}
-                              {job.error ? ` · ${job.error}` : ""}
+                              {job.error ? ` · ${job.error}` : ''}
                             </p>
                           ) : null}
-                          {job?.status === "error" ? (
-                            <p className="type-caption text-rose-300/90">
-                              {job.error}
-                            </p>
+                          {job?.status === 'error' ? (
+                            <p className="type-caption text-rose-300/90">{job.error}</p>
                           ) : null}
                         </div>
-                        {row.downloadable && row.status !== "installed" ? (
+                        {row.downloadable && row.status !== 'installed' ? (
                           <Button
                             type="button"
                             variant="secondary"
@@ -546,15 +506,15 @@ export default function ComfyModelAssetsPanel({
                               !rootWritable ||
                               busyId === row.id ||
                               Boolean(installing) ||
-                              row.status === "root-missing"
+                              row.status === 'root-missing'
                             }
                             onClick={() => void install(row.id)}
                           >
                             {installing
-                              ? "Downloading…"
+                              ? 'Downloading…'
                               : busyId === row.id
-                                ? "Starting…"
-                                : "Install"}
+                                ? 'Starting…'
+                                : 'Install'}
                           </Button>
                         ) : null}
                       </div>

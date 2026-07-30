@@ -1,17 +1,9 @@
 /**
  * Client-safe Comfy model registry helpers (no prompt-profile / shape / compact deps).
  */
-import type { DetailLevel } from "../detail-level";
-import {
-  COMFY_IMAGE_MODELS,
-  COMFY_MODEL_IDS,
-  DEFAULT_COMFY_MODEL,
-} from "./registry";
-import type {
-  ComfyImageModel,
-  ComfyImageModelDefinition,
-  PromptLimits,
-} from "./types";
+import type { DetailLevel } from '../detail-level';
+import { COMFY_IMAGE_MODELS, COMFY_MODEL_IDS, DEFAULT_COMFY_MODEL } from './registry';
+import type { ComfyImageModel, ComfyImageModelDefinition, PromptLimits } from './types';
 
 export {
   COMFY_IMAGE_MODELS,
@@ -21,14 +13,14 @@ export {
   DEFAULT_VIDEO_MODEL,
   DEFAULT_AUDIO_MODEL,
   DEFAULT_MESH_MODEL,
-} from "./registry";
+} from './registry';
 export type {
   ComfyImageModel,
   ComfyImageModelDefinition,
   ComfyModelCategory,
   PromptLimits,
   PromptProfileId,
-} from "./types";
+} from './types';
 
 /** @deprecated Use DEFAULT_COMFY_MODEL */
 export const DEFAULT_QWEN_MODEL = DEFAULT_COMFY_MODEL;
@@ -47,11 +39,11 @@ export function normalizeComfyModel(value?: string | null): ComfyImageModel {
 export const normalizeQwenModel = normalizeComfyModel;
 
 export function getComfyModelDefinition(
-  model: ComfyImageModel = DEFAULT_COMFY_MODEL,
+  model: ComfyImageModel = DEFAULT_COMFY_MODEL
 ): ComfyImageModelDefinition {
   return (
-    COMFY_IMAGE_MODELS.find((entry) => entry.id === model) ??
-    COMFY_IMAGE_MODELS.find((entry) => entry.id === DEFAULT_COMFY_MODEL)!
+    COMFY_IMAGE_MODELS.find(entry => entry.id === model) ??
+    COMFY_IMAGE_MODELS.find(entry => entry.id === DEFAULT_COMFY_MODEL)!
   );
 }
 
@@ -60,7 +52,7 @@ export const getQwenModelDefinition = getComfyModelDefinition;
 
 export function getPromptLimits(
   detail: DetailLevel,
-  model: ComfyImageModel = DEFAULT_COMFY_MODEL,
+  model: ComfyImageModel = DEFAULT_COMFY_MODEL
 ): PromptLimits {
   return getComfyModelDefinition(model).limitsByDetail[detail];
 }

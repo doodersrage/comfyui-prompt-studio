@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
-import type { PromptProject } from "@/lib/prompt-projects";
-import type { ParamExperimentAxis } from "@/lib/param-experiment-queue";
-import { Button } from "@/components/ui/Button";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
+import type { PromptProject } from '@/lib/prompt-projects';
+import type { ParamExperimentAxis } from '@/lib/param-experiment-queue';
+import { Button } from '@/components/ui/Button';
 import {
   canUpscaleGalleryEntry,
   galleryEntryAlreadyEnrichedForUpscale,
   galleryEntrySupportsMoireClean,
   galleryEntrySupportsRefine,
-} from "@/lib/gallery-entry-actions";
-import { isQwenRapidAioModel } from "@/lib/model-denoise-defaults";
-import { isQwenLightningModel } from "@/lib/model-sampling-patch";
+} from '@/lib/gallery-entry-actions';
+import { isQwenRapidAioModel } from '@/lib/model-denoise-defaults';
+import { isQwenLightningModel } from '@/lib/model-sampling-patch';
 
 type GallerySelectionBarProps = {
   selectedCount: number;
@@ -53,11 +53,7 @@ type GallerySelectionBarProps = {
   onBulkMoireCleanMax: () => void;
 };
 
-function ActionMenu(props: {
-  label: string;
-  children: ReactNode;
-  disabled?: boolean;
-}) {
+function ActionMenu(props: { label: string; children: ReactNode; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -70,17 +66,13 @@ function ActionMenu(props: {
         setOpen(false);
       }
     };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [open]);
 
   if (props.disabled) {
     return (
-      <button
-        type="button"
-        disabled
-        className="ui-btn-ghost ui-btn-sm text-xs opacity-40"
-      >
+      <button type="button" disabled className="ui-btn-ghost ui-btn-sm text-xs opacity-40">
         {props.label}
       </button>
     );
@@ -93,7 +85,7 @@ function ActionMenu(props: {
         aria-expanded={open}
         aria-haspopup="menu"
         className="ui-btn-ghost ui-btn-sm text-xs"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => setOpen(value => !value)}
       >
         {props.label}
       </button>
@@ -118,33 +110,26 @@ function MenuItem(props: { label: string; onClick: () => void; disabled?: boolea
 export default function GallerySelectionBar(props: GallerySelectionBarProps) {
   const queueCapabilities = useMemo(() => {
     const entries = props.selectedEntries;
-    const canUpscaleFinal = entries.some((entry) =>
-      canUpscaleGalleryEntry(entry, "final"),
-    );
-    const canUpscaleMax = entries.some((entry) =>
-      canUpscaleGalleryEntry(entry, "max"),
-    );
+    const canUpscaleFinal = entries.some(entry => canUpscaleGalleryEntry(entry, 'final'));
+    const canUpscaleMax = entries.some(entry => canUpscaleGalleryEntry(entry, 'max'));
     const canUpscale = canUpscaleFinal || canUpscaleMax;
-    const canRefine = entries.some((entry) => galleryEntrySupportsRefine(entry.model));
+    const canRefine = entries.some(entry => galleryEntrySupportsRefine(entry.model));
     const canMoireFinal = entries.some(
-      (entry) =>
+      entry =>
         galleryEntrySupportsMoireClean(entry.model) &&
-        entry.status === "completed" &&
-        !galleryEntryAlreadyEnrichedForUpscale(entry, "final"),
+        entry.status === 'completed' &&
+        !galleryEntryAlreadyEnrichedForUpscale(entry, 'final')
     );
     const canMoireMax = entries.some(
-      (entry) =>
+      entry =>
         galleryEntrySupportsMoireClean(entry.model) &&
-        entry.status === "completed" &&
-        !galleryEntryAlreadyEnrichedForUpscale(entry, "max"),
+        entry.status === 'completed' &&
+        !galleryEntryAlreadyEnrichedForUpscale(entry, 'max')
     );
     const canMoire = canMoireFinal || canMoireMax;
-    const allRapid =
-      entries.length > 0 &&
-      entries.every((entry) => isQwenRapidAioModel(entry.model));
+    const allRapid = entries.length > 0 && entries.every(entry => isQwenRapidAioModel(entry.model));
     const allLightning =
-      entries.length > 0 &&
-      entries.every((entry) => isQwenLightningModel(entry.model));
+      entries.length > 0 && entries.every(entry => isQwenLightningModel(entry.model));
     return {
       canUpscale,
       canUpscaleFinal,
@@ -165,11 +150,11 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
   const singleSelected = props.selectedCount === 1;
   const compareReady = props.selectedCount >= 2 && props.selectedCount <= 4;
   const upscaleFinalLabel = queueCapabilities.allRapid
-    ? "Bulk moiré clean (Final) — Rapid AIO"
-    : "Bulk upscale (Final)";
+    ? 'Bulk moiré clean (Final) — Rapid AIO'
+    : 'Bulk upscale (Final)';
   const upscaleMaxLabel = queueCapabilities.allRapid
-    ? "Bulk moiré clean (Max) — Rapid AIO"
-    : "Bulk upscale (Max)";
+    ? 'Bulk moiré clean (Max) — Rapid AIO'
+    : 'Bulk upscale (Max)';
 
   return (
     <div className="sticky top-[var(--header-offset,0px)] z-20 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 shadow-[var(--shadow-surface)] backdrop-blur-md">
@@ -216,7 +201,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
         </ActionMenu>
 
         <ActionMenu label="Queue" disabled={props.selectedCount === 0}>
-          {(queueCapabilities.canUpscale || queueCapabilities.canMoire) ? (
+          {queueCapabilities.canUpscale || queueCapabilities.canMoire ? (
             <>
               <MenuItem
                 label={upscaleFinalLabel}
@@ -239,9 +224,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
                     : !queueCapabilities.canUpscaleMax
                 }
                 onClick={
-                  queueCapabilities.allRapid
-                    ? props.onBulkMoireCleanMax
-                    : props.onBulkUpscaleMax
+                  queueCapabilities.allRapid ? props.onBulkMoireCleanMax : props.onBulkUpscaleMax
                 }
               />
             </>
@@ -251,14 +234,8 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           ) : null}
           {queueCapabilities.canMoire && !queueCapabilities.allRapid ? (
             <>
-              <MenuItem
-                label="Bulk clean moiré (Final)"
-                onClick={props.onBulkMoireCleanFinal}
-              />
-              <MenuItem
-                label="Bulk clean moiré (Max)"
-                onClick={props.onBulkMoireCleanMax}
-              />
+              <MenuItem label="Bulk clean moiré (Final)" onClick={props.onBulkMoireCleanFinal} />
+              <MenuItem label="Bulk clean moiré (Max)" onClick={props.onBulkMoireCleanMax} />
             </>
           ) : null}
           {queueCapabilities.allLightning ? (
@@ -267,19 +244,28 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
               onClick={props.onBulkRequeue}
             />
           ) : (
-            <MenuItem
-              label="Bulk new variation (new seeds)"
-              onClick={props.onBulkRequeue}
-            />
+            <MenuItem label="Bulk new variation (new seeds)" onClick={props.onBulkRequeue} />
           )}
-          <MenuItem label="Seed experiment" onClick={props.onSeedExperiment} disabled={!singleSelected} />
+          <MenuItem
+            label="Seed experiment"
+            onClick={props.onSeedExperiment}
+            disabled={!singleSelected}
+          />
           <MenuItem
             label={`Param experiment (${props.paramAxis})`}
             onClick={props.onParamExperiment}
             disabled={!singleSelected}
           />
-          <MenuItem label="Param grid (CFG×steps)" onClick={props.onParamGrid} disabled={!singleSelected} />
-          <MenuItem label="Mutate winner" onClick={props.onMutateWinner} disabled={!singleSelected} />
+          <MenuItem
+            label="Param grid (CFG×steps)"
+            onClick={props.onParamGrid}
+            disabled={!singleSelected}
+          />
+          <MenuItem
+            label="Mutate winner"
+            onClick={props.onMutateWinner}
+            disabled={!singleSelected}
+          />
           <MenuItem label="Negative A/B" onClick={props.onNegativeAb} disabled={!singleSelected} />
         </ActionMenu>
 
@@ -294,7 +280,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
 
         <ActionMenu label="Organize">
           <MenuItem label="Assign active project" onClick={props.onAssignActiveProject} />
-          {props.projects.map((project) => (
+          {props.projects.map(project => (
             <MenuItem
               key={project.id}
               label={`Assign · ${project.name}`}
@@ -305,11 +291,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           <MenuItem label="Unfavorite" onClick={() => props.onFavorite(false)} />
         </ActionMenu>
 
-        <Button
-          variant="danger"
-          className="!min-h-9 px-3 text-xs"
-          onClick={props.onDelete}
-        >
+        <Button variant="danger" className="!min-h-9 px-3 text-xs" onClick={props.onDelete}>
           Remove selected
         </Button>
 
@@ -317,9 +299,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           Param axis
           <select
             value={props.paramAxis}
-            onChange={(event) =>
-              props.setParamAxis(event.target.value as ParamExperimentAxis)
-            }
+            onChange={event => props.setParamAxis(event.target.value as ParamExperimentAxis)}
             className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] px-2 py-1 text-[var(--text-secondary)]"
           >
             <option value="cfg">CFG</option>

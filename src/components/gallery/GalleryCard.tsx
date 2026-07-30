@@ -1,34 +1,32 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import ModalPortal from "@/components/ui/ModalPortal";
-import { ComfyUiGalleryJobPlaceholder } from "@/components/ui/ComfyUiJobStatusPanel";
-import { comfyUiJobProgressPercent } from "@/lib/comfyui-job-status";
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import ModalPortal from '@/components/ui/ModalPortal';
+import { ComfyUiGalleryJobPlaceholder } from '@/components/ui/ComfyUiJobStatusPanel';
+import { comfyUiJobProgressPercent } from '@/lib/comfyui-job-status';
 import {
   buildGalleryHandoff,
   buildReeditGalleryHandoff,
   galleryHandoffPath,
   saveGalleryHandoff,
-} from "@/lib/gallery-handoff";
-import { formatComfyHostLabel } from "@/lib/queue-status-notes";
+} from '@/lib/gallery-handoff';
+import { formatComfyHostLabel } from '@/lib/queue-status-notes';
 import {
   formatRenderDuration,
   resolveGalleryRenderDurationMs,
-} from "@/lib/comfyui-render-duration";
-import { startImproveFromGalleryEntry, startInpaintFromGalleryEntry, startOutpaintFromGalleryEntry } from "@/lib/improve-output";
+} from '@/lib/comfyui-render-duration';
 import {
-  scoreGalleryEntryHeuristic,
-  type AestheticScoreResult,
-} from "@/lib/aesthetic-score";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { updateComfyGalleryEntryById } from "@/lib/comfyui-gallery";
-import {
-  downloadGalleryImage,
-  downloadGallerySidecar,
-} from "@/lib/comfyui-gallery-export";
-import { studioHistoryUrl } from "@/lib/prompt-lineage";
+  startImproveFromGalleryEntry,
+  startInpaintFromGalleryEntry,
+  startOutpaintFromGalleryEntry,
+} from '@/lib/improve-output';
+import { scoreGalleryEntryHeuristic, type AestheticScoreResult } from '@/lib/aesthetic-score';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { updateComfyGalleryEntryById } from '@/lib/comfyui-gallery';
+import { downloadGalleryImage, downloadGallerySidecar } from '@/lib/comfyui-gallery-export';
+import { studioHistoryUrl } from '@/lib/prompt-lineage';
 import {
   galleryEntryPrimaryLqipUrl,
   galleryEntryPrimaryMediaKind,
@@ -36,7 +34,7 @@ import {
   galleryEntryMediaKinds,
   type ComfyGalleryEntry,
   type GalleryLayoutMode,
-} from "@/lib/comfyui-gallery";
+} from '@/lib/comfyui-gallery';
 
 type GalleryCardProps = {
   entry: ComfyGalleryEntry;
@@ -52,19 +50,16 @@ type GalleryCardProps = {
   onRemove: () => void;
   onToggleFavorite: () => void;
   onDownloadError: (message: string | null) => void;
-  onRequeue: (newSeed: boolean, qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile) => void;
-  onCancel: () => void;
-  onUpscale: (
-    qualityProfile: "final" | "max",
-    options?: { force?: boolean },
+  onRequeue: (
+    newSeed: boolean,
+    qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile
   ) => void;
+  onCancel: () => void;
+  onUpscale: (qualityProfile: 'final' | 'max', options?: { force?: boolean }) => void;
   onRefine: () => void;
   onSoftSecondPass?: () => void;
   onFaceDetail?: () => void;
-  onMoireClean?: (
-    qualityProfile: "final" | "max",
-    options?: { force?: boolean },
-  ) => void;
+  onMoireClean?: (qualityProfile: 'final' | 'max', options?: { force?: boolean }) => void;
   /** When false, hide both Final and Max upscale items (unless finer flags set). */
   showUpscaleActions?: boolean;
   showUpscaleFinal?: boolean;
@@ -84,7 +79,7 @@ type GalleryCardProps = {
   /** Warm mid-res lightbox URL before open (hover/focus intent). */
   onPrefetchImage?: (index: number) => void;
   reviewMode?: boolean;
-  onReviewRating?: (rating: ComfyGalleryEntry["reviewRating"]) => void;
+  onReviewRating?: (rating: ComfyGalleryEntry['reviewRating']) => void;
   reviewMutationHints?: string[];
   onVisionTagClick?: (tag: string) => void;
   onViewWorkflow?: () => void;
@@ -95,33 +90,33 @@ type GalleryCardProps = {
   onPick?: () => void;
 };
 
-function statusLabel(status: ComfyGalleryEntry["status"], entry?: ComfyGalleryEntry): string {
-  if (status === "completed") return "Done";
-  if (status === "running") {
+function statusLabel(status: ComfyGalleryEntry['status'], entry?: ComfyGalleryEntry): string {
+  if (status === 'completed') return 'Done';
+  if (status === 'running') {
     const percent = entry ? comfyUiJobProgressPercent(entry) : null;
-    return percent != null ? `Running · ${percent}%` : "Running";
+    return percent != null ? `Running · ${percent}%` : 'Running';
   }
-  if (status === "pending") return "Queued";
-  return "Error";
+  if (status === 'pending') return 'Queued';
+  return 'Error';
 }
 
-function statusTone(status: ComfyGalleryEntry["status"]): string {
-  if (status === "completed") {
-    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+function statusTone(status: ComfyGalleryEntry['status']): string {
+  if (status === 'completed') {
+    return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200';
   }
-  if (status === "error") {
-    return "border-rose-500/30 bg-rose-500/10 text-rose-200";
+  if (status === 'error') {
+    return 'border-rose-500/30 bg-rose-500/10 text-rose-200';
   }
-  if (status === "running") {
-    return "border-amber-500/30 bg-amber-500/10 text-amber-100";
+  if (status === 'running') {
+    return 'border-amber-500/30 bg-amber-500/10 text-amber-100';
   }
-  return "border-zinc-600/40 bg-zinc-800/60 text-zinc-300";
+  return 'border-zinc-600/40 bg-zinc-800/60 text-zinc-300';
 }
 
 export default function GalleryCard({
   entry,
   compact,
-  layout = "grid",
+  layout = 'grid',
   selectable,
   selected,
   reviewFocus = false,
@@ -162,7 +157,7 @@ export default function GalleryCard({
   onViewWorkflow,
   pickMode = false,
   pickable = false,
-  pickLabel = "Use this image",
+  pickLabel = 'Use this image',
   onPick,
 }: GalleryCardProps) {
   const router = useRouter();
@@ -180,9 +175,8 @@ export default function GalleryCard({
   const lqipUrl = useMemo(() => galleryEntryPrimaryLqipUrl(entry), [entry]);
   const primaryMediaKind = useMemo(() => galleryEntryPrimaryMediaKind(entry), [entry]);
   const stripMediaKinds = useMemo(() => galleryEntryMediaKinds(entry), [entry]);
-  const isVideoHero = primaryMediaKind === "video";
-  const isRendering =
-    entry.status === "pending" || entry.status === "running";
+  const isVideoHero = primaryMediaKind === 'video';
+  const isRendering = entry.status === 'pending' || entry.status === 'running';
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -192,29 +186,20 @@ export default function GalleryCard({
 
   const heuristicScore = useMemo(
     () => scoreGalleryEntryHeuristic(entry),
-    [
-      entry.id,
-      entry.status,
-      entry.favorite,
-      entry.reviewRating,
-      entry.prompt.length,
-    ],
+    [entry.id, entry.status, entry.favorite, entry.reviewRating, entry.prompt.length]
   );
   const cachedScore = useMemo((): AestheticScoreResult | null => {
-    if (
-      typeof entry.aestheticScore === "number" &&
-      entry.aestheticScoreMethod
-    ) {
+    if (typeof entry.aestheticScore === 'number' && entry.aestheticScoreMethod) {
       return {
         score: entry.aestheticScore,
         method: entry.aestheticScoreMethod,
-        notes: ["Cached score"],
+        notes: ['Cached score'],
       };
     }
     return null;
   }, [entry.aestheticScore, entry.aestheticScoreMethod]);
   const [aestheticScore, setAestheticScore] = useState<AestheticScoreResult>(
-    cachedScore ?? heuristicScore,
+    cachedScore ?? heuristicScore
   );
   const [aestheticBusy, setAestheticBusy] = useState(false);
 
@@ -225,27 +210,27 @@ export default function GalleryCard({
   }, [cachedScore, heuristicScore]);
 
   const scoreWithVision = async () => {
-    if (!previewUrl || aestheticBusy || entry.status !== "completed") {
+    if (!previewUrl || aestheticBusy || entry.status !== 'completed') {
       return;
     }
     setAestheticBusy(true);
     try {
       const imageResponse = await fetch(previewUrl);
       if (!imageResponse.ok) {
-        throw new Error("Could not load preview for vision scoring.");
+        throw new Error('Could not load preview for vision scoring.');
       }
       const blob = await imageResponse.blob();
       const imageDataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result ?? ""));
-        reader.onerror = () => reject(new Error("Could not encode preview."));
+        reader.onload = () => resolve(String(reader.result ?? ''));
+        reader.onerror = () => reject(new Error('Could not encode preview.'));
         reader.readAsDataURL(blob);
       });
-      const response = await fetch("/api/aesthetic/score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/aesthetic/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          method: "vision",
+          method: 'vision',
           imageDataUrl,
           prompt: entry.prompt,
           model: entry.model,
@@ -263,7 +248,7 @@ export default function GalleryCard({
         error?: string;
       };
       if (!response.ok) {
-        throw new Error(data.error ?? "Aesthetic score failed.");
+        throw new Error(data.error ?? 'Aesthetic score failed.');
       }
       const nextScore: AestheticScoreResult = {
         score: data.score,
@@ -302,11 +287,11 @@ export default function GalleryCard({
       const openUp = spaceBelow < 240 && spaceAbove > spaceBelow;
       const maxHeight = Math.max(
         160,
-        Math.min(estimatedHeight, openUp ? spaceAbove - 4 : spaceBelow - 4),
+        Math.min(estimatedHeight, openUp ? spaceAbove - 4 : spaceBelow - 4)
       );
       const left = Math.min(
         Math.max(padding, rect.right - menuWidth),
-        window.innerWidth - menuWidth - padding,
+        window.innerWidth - menuWidth - padding
       );
       const top = openUp
         ? Math.max(padding, rect.top - maxHeight - 6)
@@ -316,11 +301,11 @@ export default function GalleryCard({
     };
 
     updatePosition();
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
     return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
     };
   }, [menuOpen]);
 
@@ -331,48 +316,43 @@ export default function GalleryCard({
 
     function handlePointerDown(event: MouseEvent) {
       const target = event.target as Node;
-      if (
-        menuButtonRef.current?.contains(target) ||
-        menuPanelRef.current?.contains(target)
-      ) {
+      if (menuButtonRef.current?.contains(target) || menuPanelRef.current?.contains(target)) {
         return;
       }
       setMenuOpen(false);
     }
 
     function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (event.key === 'Escape') {
         setMenuOpen(false);
       }
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
     };
   }, [menuOpen]);
 
   const derivedLabel =
-    entry.derivedKind === "upscale"
-      ? "upscaled from prior"
-      : entry.derivedKind === "refine"
-        ? "refined from prior"
-        : entry.derivedKind === "soft-pass"
-          ? "soft second pass from prior"
-          : entry.derivedKind === "variation"
-            ? "variation of prior"
-            : entry.derivedKind === "moire-clean"
-              ? "moiré-cleaned from prior"
-              : entry.derivedKind === "face-detail"
-                ? "face-detailed from prior"
+    entry.derivedKind === 'upscale'
+      ? 'upscaled from prior'
+      : entry.derivedKind === 'refine'
+        ? 'refined from prior'
+        : entry.derivedKind === 'soft-pass'
+          ? 'soft second pass from prior'
+          : entry.derivedKind === 'variation'
+            ? 'variation of prior'
+            : entry.derivedKind === 'moire-clean'
+              ? 'moiré-cleaned from prior'
+              : entry.derivedKind === 'face-detail'
+                ? 'face-detailed from prior'
                 : undefined;
 
   const comfyHostLabel = formatComfyHostLabel(entry.comfyUrl);
-  const renderDurationLabel = formatRenderDuration(
-    resolveGalleryRenderDurationMs(entry),
-  );
+  const renderDurationLabel = formatRenderDuration(resolveGalleryRenderDurationMs(entry));
   const metaLine = [
     entry.tool,
     entry.model,
@@ -381,24 +361,24 @@ export default function GalleryCard({
     renderDurationLabel ? `render ${renderDurationLabel}` : undefined,
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(' · ');
   const progressPercent = comfyUiJobProgressPercent(entry);
 
   const cardTone = selected
-    ? "border-violet-500/50 ring-1 ring-violet-500/25"
+    ? 'border-violet-500/50 ring-1 ring-violet-500/25'
     : reviewFocus
-      ? "border-violet-400/60 ring-2 ring-violet-400/35 shadow-[0_0_24px_-8px_rgba(139,92,246,0.45)]"
-      : "border-zinc-800/80";
+      ? 'border-violet-400/60 ring-2 ring-violet-400/35 shadow-[0_0_24px_-8px_rgba(139,92,246,0.45)]'
+      : 'border-zinc-800/80';
 
   const imageBlock = (
     <div
       className={`relative overflow-hidden bg-zinc-900/90 ${
-        layout === "list"
-          ? "h-28 w-28 shrink-0 rounded-xl sm:h-32 sm:w-36"
-          : layout === "dense"
-            ? "aspect-[3/4] rounded-t-2xl"
-            : "aspect-[4/5] rounded-t-2xl sm:aspect-square"
-      } ${pickMode && !pickable ? "opacity-45" : ""}`}
+        layout === 'list'
+          ? 'h-28 w-28 shrink-0 rounded-xl sm:h-32 sm:w-36'
+          : layout === 'dense'
+            ? 'aspect-[3/4] rounded-t-2xl'
+            : 'aspect-[4/5] rounded-t-2xl sm:aspect-square'
+      } ${pickMode && !pickable ? 'opacity-45' : ''}`}
     >
       {previewUrl && !isRendering ? (
         <>
@@ -415,11 +395,9 @@ export default function GalleryCard({
             onFocus={() => onPrefetchImage?.(0)}
             onPointerDown={() => onPrefetchImage?.(0)}
             className={`relative block h-full w-full overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
-              pickMode && pickable ? "cursor-pointer" : "cursor-zoom-in"
+              pickMode && pickable ? 'cursor-pointer' : 'cursor-zoom-in'
             }`}
-            aria-label={
-              pickMode && pickable ? pickLabel : "Open image preview"
-            }
+            aria-label={pickMode && pickable ? pickLabel : 'Open image preview'}
             disabled={pickMode && !pickable}
           >
             {lqipUrl && !isVideoHero ? (
@@ -441,7 +419,7 @@ export default function GalleryCard({
                 preload="metadata"
                 onLoadedData={() => setHeroLoaded(true)}
                 className={`relative h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02] ${
-                  heroLoaded ? "opacity-100" : "opacity-0"
+                  heroLoaded ? 'opacity-100' : 'opacity-0'
                 }`}
               />
             ) : (
@@ -453,15 +431,15 @@ export default function GalleryCard({
                 loading="lazy"
                 decoding="async"
                 sizes={
-                  layout === "list"
-                    ? "9rem"
-                    : layout === "dense"
-                      ? "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                      : "(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                  layout === 'list'
+                    ? '9rem'
+                    : layout === 'dense'
+                      ? '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw'
+                      : '(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw'
                 }
                 onLoad={() => setHeroLoaded(true)}
                 className={`relative h-full w-full object-cover transition duration-300 group-hover/card:scale-[1.02] ${
-                  heroLoaded ? "opacity-100" : "opacity-0"
+                  heroLoaded ? 'opacity-100' : 'opacity-0'
                 }`}
               />
             )}
@@ -471,7 +449,7 @@ export default function GalleryCard({
               </span>
             ) : null}
           </button>
-          {layout !== "list" ? (
+          {layout !== 'list' ? (
             <div className="pointer-events-none absolute inset-0 flex items-end justify-center gap-2 bg-gradient-to-t from-zinc-950/95 via-zinc-950/35 to-transparent p-3 opacity-0 transition duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100 group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100">
               {pickMode && pickable && onPick ? (
                 <button
@@ -490,7 +468,7 @@ export default function GalleryCard({
                   >
                     Open
                   </button>
-                  {entry.status === "completed" && !isVideoHero ? (
+                  {entry.status === 'completed' && !isVideoHero ? (
                     <>
                       <button
                         type="button"
@@ -533,13 +511,13 @@ export default function GalleryCard({
         </div>
       ) : (
         <div className="flex h-full items-center justify-center px-4 text-center text-xs text-zinc-500">
-          {entry.status === "error"
-            ? entry.statusMessage ?? "Generation failed"
-            : "No image output"}
+          {entry.status === 'error'
+            ? (entry.statusMessage ?? 'Generation failed')
+            : 'No image output'}
         </div>
       )}
 
-      {layout !== "list" ? (
+      {layout !== 'list' ? (
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2.5">
           <div className="flex flex-wrap items-center gap-1.5">
             <span
@@ -552,27 +530,25 @@ export default function GalleryCard({
                 {entry.reviewRating}★
               </span>
             ) : null}
-            {primaryMediaKind === "video" ? (
+            {primaryMediaKind === 'video' ? (
               <span className="rounded-full border border-sky-500/30 bg-sky-500/15 px-2 py-0.5 text-[10px] text-sky-100 backdrop-blur-sm">
-                {entry.sourceImageUrl?.trim() ? "I2V" : "Video"}
+                {entry.sourceImageUrl?.trim() ? 'I2V' : 'Video'}
               </span>
             ) : null}
-            {entry.status === "completed" && !entry.reviewRating ? (
+            {entry.status === 'completed' && !entry.reviewRating ? (
               <button
                 type="button"
                 disabled={!previewUrl || aestheticBusy}
                 onClick={() => void scoreWithVision()}
                 className="pointer-events-auto rounded-full border border-zinc-700/60 bg-zinc-950/70 px-2 py-0.5 text-[10px] text-zinc-400 backdrop-blur-sm transition hover:border-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98] disabled:opacity-50"
                 title={
-                  aestheticScore.notes.join(" · ") ||
-                  "Click to score with vision LLM (falls back to heuristic)"
+                  aestheticScore.notes.join(' · ') ||
+                  'Click to score with vision LLM (falls back to heuristic)'
                 }
               >
                 {aestheticBusy
-                  ? "…"
-                  : `${aestheticScore.score}${
-                      aestheticScore.method === "vision" ? "★" : ""
-                    }`}
+                  ? '…'
+                  : `${aestheticScore.score}${aestheticScore.method === 'vision' ? '★' : ''}`}
               </button>
             ) : null}
           </div>
@@ -592,21 +568,21 @@ export default function GalleryCard({
             <button
               type="button"
               onClick={onToggleFavorite}
-              title={entry.favorite ? "Remove favorite" : "Add favorite"}
+              title={entry.favorite ? 'Remove favorite' : 'Add favorite'}
               className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 ${
                 entry.favorite
-                  ? "border-amber-500/50 bg-amber-500/20 text-amber-100 hover:bg-amber-500/30"
-                  : "border-zinc-700/70 bg-zinc-950/80 text-zinc-400 hover:border-amber-500/40 hover:text-amber-100"
+                  ? 'border-amber-500/50 bg-amber-500/20 text-amber-100 hover:bg-amber-500/30'
+                  : 'border-zinc-700/70 bg-zinc-950/80 text-zinc-400 hover:border-amber-500/40 hover:text-amber-100'
               }`}
             >
-              {entry.favorite ? "★" : "☆"}
+              {entry.favorite ? '★' : '☆'}
             </button>
           </div>
         </div>
       ) : null}
 
       {/* Percent is overlaid inside ComfyUiGalleryJobPlaceholder while rendering. */}
-      {(entry.status === "pending" || entry.status === "running") &&
+      {(entry.status === 'pending' || entry.status === 'running') &&
       entry.queuePosition != null &&
       entry.queuePosition > 0 &&
       progressPercent == null ? (
@@ -618,7 +594,7 @@ export default function GalleryCard({
   );
 
   const bodyBlock = (
-    <div className={`min-w-0 flex-1 space-y-2.5 ${layout === "list" ? "py-1" : "p-3.5"}`}>
+    <div className={`min-w-0 flex-1 space-y-2.5 ${layout === 'list' ? 'py-1' : 'p-3.5'}`}>
       {pickMode && pickable && onPick ? (
         <button
           type="button"
@@ -632,7 +608,7 @@ export default function GalleryCard({
           Only completed still images can be selected here.
         </p>
       ) : null}
-      {layout === "list" ? (
+      {layout === 'list' ? (
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusTone(entry.status)}`}
@@ -657,7 +633,7 @@ export default function GalleryCard({
           ) : (
             <p
               className={`leading-snug text-zinc-300 ${
-                layout === "list" ? "line-clamp-3 text-sm" : "line-clamp-2 text-sm"
+                layout === 'list' ? 'line-clamp-3 text-sm' : 'line-clamp-2 text-sm'
               }`}
             >
               {entry.prompt}
@@ -672,25 +648,21 @@ export default function GalleryCard({
                     onClick={onShowParent}
                     className="text-violet-300/90 underline decoration-violet-500/30 underline-offset-2 transition hover:text-violet-200"
                   >
-                    {derivedLabel ?? "View source"}
+                    {derivedLabel ?? 'View source'}
                   </button>
-                  {" · "}
+                  {' · '}
                 </>
               ) : null}
               {metaLine}
-              {entry.queueParams?.seed != null ? ` · seed ${entry.queueParams.seed}` : ""}
-              {entry.queueParams?.videoFrames != null
-                ? ` · ${entry.queueParams.videoFrames}f`
-                : ""}
-              {entry.queueParams?.videoFps != null
-                ? ` @ ${entry.queueParams.videoFps}fps`
-                : ""}
-              {entry.queuedAt ? ` · ${new Date(entry.queuedAt).toLocaleDateString()}` : ""}
+              {entry.queueParams?.seed != null ? ` · seed ${entry.queueParams.seed}` : ''}
+              {entry.queueParams?.videoFrames != null ? ` · ${entry.queueParams.videoFrames}f` : ''}
+              {entry.queueParams?.videoFps != null ? ` @ ${entry.queueParams.videoFps}fps` : ''}
+              {entry.queuedAt ? ` · ${new Date(entry.queuedAt).toLocaleDateString()}` : ''}
             </p>
           ) : null}
           {entry.visionTags && entry.visionTags.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {entry.visionTags.slice(0, 8).map((tag) => (
+              {entry.visionTags.slice(0, 8).map(tag => (
                 <button
                   key={tag}
                   type="button"
@@ -703,7 +675,7 @@ export default function GalleryCard({
             </div>
           ) : null}
         </div>
-        {layout === "list" && selectable ? (
+        {layout === 'list' && selectable ? (
           <label className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-700/70 bg-zinc-950/80">
             <input
               type="checkbox"
@@ -716,10 +688,10 @@ export default function GalleryCard({
         ) : null}
       </div>
 
-      {!compact && layout !== "list" && imageUrls.length > 1 ? (
+      {!compact && layout !== 'list' && imageUrls.length > 1 ? (
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           {imageUrls.slice(1, 5).map((url, thumbIndex) =>
-            stripMediaKinds[thumbIndex + 1] === "video" ? (
+            stripMediaKinds[thumbIndex + 1] === 'video' ? (
               <button
                 key={url}
                 type="button"
@@ -759,31 +731,31 @@ export default function GalleryCard({
                   className="h-9 w-9 object-cover"
                 />
               </button>
-            ),
+            )
           )}
         </div>
       ) : null}
 
       {reviewMode && reviewMutationHints && reviewMutationHints.length > 0 ? (
         <ul className="space-y-1 rounded-xl border border-amber-500/15 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-100/90">
-          {reviewMutationHints.map((hint) => (
+          {reviewMutationHints.map(hint => (
             <li key={hint}>· {hint}</li>
           ))}
         </ul>
       ) : null}
 
-      {reviewMode && entry.status === "completed" && onReviewRating ? (
+      {reviewMode && entry.status === 'completed' && onReviewRating ? (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[11px] text-zinc-500">Rate</span>
-          {[1, 2, 3, 4, 5].map((rating) => (
+          {[1, 2, 3, 4, 5].map(rating => (
             <button
               key={rating}
               type="button"
-              onClick={() => onReviewRating(rating as ComfyGalleryEntry["reviewRating"])}
+              onClick={() => onReviewRating(rating as ComfyGalleryEntry['reviewRating'])}
               className={`min-h-8 min-w-8 rounded-lg border text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 ${
                 entry.reviewRating === rating
-                  ? "border-violet-500/60 bg-violet-500/15 text-violet-100"
-                  : "border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+                  ? 'border-violet-500/60 bg-violet-500/15 text-violet-100'
+                  : 'border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
               }`}
             >
               {rating}
@@ -795,18 +767,18 @@ export default function GalleryCard({
       <div className="flex flex-wrap items-center gap-2 pt-0.5">
         <button
           type="button"
-          onClick={() => setPromptExpanded((previous) => !previous)}
+          onClick={() => setPromptExpanded(previous => !previous)}
           className="ui-btn-ghost ui-btn-sm text-xs"
         >
-          {promptExpanded ? "Less" : "Prompt"}
+          {promptExpanded ? 'Less' : 'Prompt'}
         </button>
-        {layout === "list" ? (
+        {layout === 'list' ? (
           <button
             type="button"
             onClick={onToggleFavorite}
             className="ui-btn-ghost ui-btn-sm text-xs"
           >
-            {entry.favorite ? "Unfavorite" : "Favorite"}
+            {entry.favorite ? 'Unfavorite' : 'Favorite'}
           </button>
         ) : null}
 
@@ -845,19 +817,19 @@ export default function GalleryCard({
                     label="Copy prompt"
                     onClick={() => {
                       void navigator.clipboard.writeText(entry.prompt).catch(() => {
-                        onDownloadError("Could not copy prompt.");
+                        onDownloadError('Could not copy prompt.');
                       });
                       setMenuOpen(false);
                     }}
                   />
-                  {entry.status === "completed" && previewUrl ? (
+                  {entry.status === 'completed' && previewUrl ? (
                     <GalleryMenuButton
                       label="Download image"
                       onClick={() => {
                         onDownloadError(null);
-                        void downloadGalleryImage(entry).catch((error) => {
+                        void downloadGalleryImage(entry).catch(error => {
                           onDownloadError(
-                            error instanceof Error ? error.message : "Download failed.",
+                            error instanceof Error ? error.message : 'Download failed.'
                           );
                         });
                         setMenuOpen(false);
@@ -892,19 +864,19 @@ export default function GalleryCard({
                   ) : null}
                 </GalleryMenuGroup>
 
-                {entry.status === "completed" && entry.prompt?.trim() ? (
+                {entry.status === 'completed' && entry.prompt?.trim() ? (
                   <GalleryMenuGroup label="Edit">
                     <GalleryMenuButton
                       label="Edit prompt"
                       onClick={() => {
-                        saveGalleryHandoff(buildGalleryHandoff(entry, "promptEditor"));
-                        router.push(galleryHandoffPath("promptEditor"));
+                        saveGalleryHandoff(buildGalleryHandoff(entry, 'promptEditor'));
+                        router.push(galleryHandoffPath('promptEditor'));
                         setMenuOpen(false);
                       }}
                     />
                     {previewUrl ? (
                       <>
-                        {layout === "list" ? (
+                        {layout === 'list' ? (
                           <>
                             <GalleryMenuButton
                               label="Improve"
@@ -932,36 +904,36 @@ export default function GalleryCard({
                         <GalleryMenuButton
                           label="Refine"
                           onClick={() => {
-                            saveGalleryHandoff(buildGalleryHandoff(entry, "refine"));
-                            router.push(galleryHandoffPath("refine"));
+                            saveGalleryHandoff(buildGalleryHandoff(entry, 'refine'));
+                            router.push(galleryHandoffPath('refine'));
                             setMenuOpen(false);
                           }}
                         />
                         <GalleryMenuButton
                           label="Re-edit · Refine (same stack)"
                           onClick={() => {
-                            saveGalleryHandoff(buildReeditGalleryHandoff(entry, "refine"));
-                            router.push(galleryHandoffPath("refine"));
+                            saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'refine'));
+                            router.push(galleryHandoffPath('refine'));
                             setMenuOpen(false);
                           }}
                         />
                         <GalleryMenuButton
                           label="Compose"
                           onClick={() => {
-                            saveGalleryHandoff(buildGalleryHandoff(entry, "compose"));
-                            router.push(galleryHandoffPath("compose"));
+                            saveGalleryHandoff(buildGalleryHandoff(entry, 'compose'));
+                            router.push(galleryHandoffPath('compose'));
                             setMenuOpen(false);
                           }}
                         />
                         <GalleryMenuButton
                           label="Re-edit · Compose (same stack)"
                           onClick={() => {
-                            saveGalleryHandoff(buildReeditGalleryHandoff(entry, "compose"));
-                            router.push(galleryHandoffPath("compose"));
+                            saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'compose'));
+                            router.push(galleryHandoffPath('compose'));
                             setMenuOpen(false);
                           }}
                         />
-                        {layout !== "list" ? (
+                        {layout !== 'list' ? (
                           <GalleryMenuButton
                             label="Outpaint"
                             onClick={() => {
@@ -973,35 +945,35 @@ export default function GalleryCard({
                         <GalleryMenuButton
                           label="Image → Prompt"
                           onClick={() => {
-                            saveGalleryHandoff(buildGalleryHandoff(entry, "imagePrompt"));
-                            router.push(galleryHandoffPath("imagePrompt"));
+                            saveGalleryHandoff(buildGalleryHandoff(entry, 'imagePrompt'));
+                            router.push(galleryHandoffPath('imagePrompt'));
                             setMenuOpen(false);
                           }}
                         />
                         <GalleryMenuButton
                           label="ControlNet"
                           onClick={() => {
-                            saveGalleryHandoff(buildGalleryHandoff(entry, "controlnet"));
-                            router.push(galleryHandoffPath("controlnet"));
+                            saveGalleryHandoff(buildGalleryHandoff(entry, 'controlnet'));
+                            router.push(galleryHandoffPath('controlnet'));
                             setMenuOpen(false);
                           }}
                         />
-                        {primaryMediaKind === "image" && entry.status === "completed" ? (
+                        {primaryMediaKind === 'image' && entry.status === 'completed' ? (
                           <GalleryMenuButton
                             label="Send to Video (I2V)"
                             onClick={() => {
-                              saveGalleryHandoff(buildGalleryHandoff(entry, "video"));
-                              router.push(galleryHandoffPath("video"));
+                              saveGalleryHandoff(buildGalleryHandoff(entry, 'video'));
+                              router.push(galleryHandoffPath('video'));
                               setMenuOpen(false);
                             }}
                           />
                         ) : null}
-                        {entry.status === "completed" ? (
+                        {entry.status === 'completed' ? (
                           <GalleryMenuButton
                             label="Re-edit · Video (same stack)"
                             onClick={() => {
-                              saveGalleryHandoff(buildReeditGalleryHandoff(entry, "video"));
-                              router.push(galleryHandoffPath("video"));
+                              saveGalleryHandoff(buildReeditGalleryHandoff(entry, 'video'));
+                              router.push(galleryHandoffPath('video'));
                               setMenuOpen(false);
                             }}
                           />
@@ -1012,7 +984,7 @@ export default function GalleryCard({
                 ) : null}
 
                 <GalleryMenuGroup label="Queue">
-                  {entry.status === "pending" || entry.status === "running" ? (
+                  {entry.status === 'pending' || entry.status === 'running' ? (
                     <GalleryMenuButton
                       label="Cancel job"
                       tone="danger"
@@ -1039,25 +1011,23 @@ export default function GalleryCard({
                   <GalleryMenuButton
                     label="Variation · Final"
                     onClick={() => {
-                      onRequeue(true, "final");
+                      onRequeue(true, 'final');
                       setMenuOpen(false);
                     }}
                   />
                   <GalleryMenuButton
                     label="Variation · Max"
                     onClick={() => {
-                      onRequeue(true, "max");
+                      onRequeue(true, 'max');
                       setMenuOpen(false);
                     }}
                   />
                 </GalleryMenuGroup>
 
                 {(() => {
-                  const canUpscaleFinal =
-                    showUpscaleFinal ?? showUpscaleActions;
+                  const canUpscaleFinal = showUpscaleFinal ?? showUpscaleActions;
                   const canUpscaleMax = showUpscaleMax ?? showUpscaleActions;
-                  const canMoireFinal =
-                    showMoireCleanFinal ?? showMoireCleanActions;
+                  const canMoireFinal = showMoireCleanFinal ?? showMoireCleanActions;
                   const canMoireMax = showMoireCleanMax ?? showMoireCleanActions;
                   const showEnhance =
                     canUpscaleFinal ||
@@ -1066,95 +1036,94 @@ export default function GalleryCard({
                     showRefineAction ||
                     (onSoftSecondPass && showSoftSecondPassAction) ||
                     (onFaceDetail && showFaceDetailAction) ||
-                    (onMoireClean &&
-                      (canMoireFinal || canMoireMax || showForceMoireCleanMax));
+                    (onMoireClean && (canMoireFinal || canMoireMax || showForceMoireCleanMax));
                   if (!showEnhance) {
                     return null;
                   }
                   return (
-                  <GalleryMenuGroup label="Enhance">
-                    {canUpscaleFinal ? (
+                    <GalleryMenuGroup label="Enhance">
+                      {canUpscaleFinal ? (
                         <GalleryMenuButton
                           label="Upscale · native (Final)"
                           onClick={() => {
-                            onUpscale("final");
+                            onUpscale('final');
                             setMenuOpen(false);
                           }}
                         />
-                    ) : null}
-                    {canUpscaleMax ? (
+                      ) : null}
+                      {canUpscaleMax ? (
                         <GalleryMenuButton
                           label="Upscale · polish (Max)"
                           onClick={() => {
-                            onUpscale("max");
+                            onUpscale('max');
                             setMenuOpen(false);
                           }}
                         />
-                    ) : null}
-                    {showForceUpscaleMax ? (
+                      ) : null}
+                      {showForceUpscaleMax ? (
                         <GalleryMenuButton
                           label="Force Upscale · Max"
                           onClick={() => {
-                            onUpscale("max", { force: true });
+                            onUpscale('max', { force: true });
                             setMenuOpen(false);
                           }}
                         />
-                    ) : null}
-                    {onSoftSecondPass && showSoftSecondPassAction ? (
-                      <GalleryMenuButton
-                        label="Soft second pass"
-                        onClick={() => {
-                          onSoftSecondPass();
-                          setMenuOpen(false);
-                        }}
-                      />
-                    ) : null}
-                    {showRefineAction ? (
-                      <GalleryMenuButton
-                        label="Refine · low denoise"
-                        onClick={() => {
-                          onRefine();
-                          setMenuOpen(false);
-                        }}
-                      />
-                    ) : null}
-                    {onFaceDetail && showFaceDetailAction ? (
-                      <GalleryMenuButton
-                        label="Face detail"
-                        onClick={() => {
-                          onFaceDetail();
-                          setMenuOpen(false);
-                        }}
-                      />
-                    ) : null}
-                    {onMoireClean && canMoireFinal ? (
+                      ) : null}
+                      {onSoftSecondPass && showSoftSecondPassAction ? (
+                        <GalleryMenuButton
+                          label="Soft second pass"
+                          onClick={() => {
+                            onSoftSecondPass();
+                            setMenuOpen(false);
+                          }}
+                        />
+                      ) : null}
+                      {showRefineAction ? (
+                        <GalleryMenuButton
+                          label="Refine · low denoise"
+                          onClick={() => {
+                            onRefine();
+                            setMenuOpen(false);
+                          }}
+                        />
+                      ) : null}
+                      {onFaceDetail && showFaceDetailAction ? (
+                        <GalleryMenuButton
+                          label="Face detail"
+                          onClick={() => {
+                            onFaceDetail();
+                            setMenuOpen(false);
+                          }}
+                        />
+                      ) : null}
+                      {onMoireClean && canMoireFinal ? (
                         <GalleryMenuButton
                           label="Moiré · Final"
                           onClick={() => {
-                            onMoireClean("final");
+                            onMoireClean('final');
                             setMenuOpen(false);
                           }}
                         />
-                    ) : null}
-                    {onMoireClean && canMoireMax ? (
+                      ) : null}
+                      {onMoireClean && canMoireMax ? (
                         <GalleryMenuButton
                           label="Moiré · Max"
                           onClick={() => {
-                            onMoireClean("max");
+                            onMoireClean('max');
                             setMenuOpen(false);
                           }}
                         />
-                    ) : null}
-                    {onMoireClean && showForceMoireCleanMax ? (
+                      ) : null}
+                      {onMoireClean && showForceMoireCleanMax ? (
                         <GalleryMenuButton
                           label="Force Moiré · Max"
                           onClick={() => {
-                            onMoireClean("max", { force: true });
+                            onMoireClean('max', { force: true });
                             setMenuOpen(false);
                           }}
                         />
-                    ) : null}
-                  </GalleryMenuGroup>
+                      ) : null}
+                    </GalleryMenuGroup>
                   );
                 })()}
 
@@ -1193,13 +1162,14 @@ export default function GalleryCard({
       ref={cardRef}
       data-gallery-entry={entry.id}
       className={`group/card relative min-w-0 rounded-2xl border bg-gradient-to-b from-zinc-950/80 to-zinc-950/40 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)] transition hover:border-zinc-700/80 ${
-        menuOpen
-          ? "z-30"
-          : "z-0 [content-visibility:auto] [contain-intrinsic-size:auto_320px]"
+        menuOpen ? 'z-30' : 'z-0 [content-visibility:auto] [contain-intrinsic-size:auto_320px]'
       } ${cardTone}`}
     >
-      {layout === "list" ? (
-        <div className="flex gap-4 p-3">{imageBlock}{bodyBlock}</div>
+      {layout === 'list' ? (
+        <div className="flex gap-4 p-3">
+          {imageBlock}
+          {bodyBlock}
+        </div>
       ) : (
         <>
           {imageBlock}
@@ -1210,13 +1180,7 @@ export default function GalleryCard({
   );
 }
 
-function GalleryMenuGroup({
-  label,
-  children,
-}: {
-  label?: string;
-  children: React.ReactNode;
-}) {
+function GalleryMenuGroup({ label, children }: { label?: string; children: React.ReactNode }) {
   return (
     <div className="border-t border-zinc-800/80 py-1 first:border-t-0 first:pt-0">
       {label ? (
@@ -1232,7 +1196,7 @@ function GalleryMenuGroup({
 function GalleryMenuButton(props: {
   label: string;
   onClick: () => void;
-  tone?: "default" | "danger";
+  tone?: 'default' | 'danger';
 }) {
   return (
     <button
@@ -1240,9 +1204,9 @@ function GalleryMenuButton(props: {
       role="menuitem"
       onClick={props.onClick}
       className={`block w-full rounded-lg px-3 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.99] ${
-        props.tone === "danger"
-          ? "text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
-          : "text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
+        props.tone === 'danger'
+          ? 'text-rose-300 hover:bg-rose-500/10 hover:text-rose-200'
+          : 'text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100'
       }`}
     >
       {props.label}

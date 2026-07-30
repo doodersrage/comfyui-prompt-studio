@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { EmptyState } from "@/components/ui/ViewState";
-import { fetchComfyObjectInfoModelsCached } from "@/lib/comfyui-object-info-cache";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { EmptyState } from '@/components/ui/ViewState';
+import { fetchComfyObjectInfoModelsCached } from '@/lib/comfyui-object-info-cache';
 import {
   createEmptyLoraLibraryEntry,
   createLoraLibraryEntryFromFilename,
   describeLoraStack,
   resolveActiveLoraStack,
   type LoraLibraryEntry,
-} from "@/lib/lora-stack";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+} from '@/lib/lora-stack';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 type LoraLibrarySettingsPanelProps = {
   library: LoraLibraryEntry[] | undefined;
@@ -27,7 +27,7 @@ export default function LoraLibrarySettingsPanel({
   const [inventoryLoras, setInventoryLoras] = useState<string[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [inventoryError, setInventoryError] = useState<string | null>(null);
-  const [inventoryFilter, setInventoryFilter] = useState("");
+  const [inventoryFilter, setInventoryFilter] = useState('');
 
   const refreshInventory = useCallback(async () => {
     setInventoryLoading(true);
@@ -38,20 +38,20 @@ export default function LoraLibrarySettingsPanel({
         forceRefresh: true,
       });
       const loras = [...(models?.loras ?? [])]
-        .map((name) => name.trim())
+        .map(name => name.trim())
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b));
       setInventoryLoras(loras);
       if (!models) {
-        setInventoryError("Could not load ComfyUI LoRA inventory.");
+        setInventoryError('Could not load ComfyUI LoRA inventory.');
       } else if (loras.length === 0) {
         setInventoryError(
-          "ComfyUI responded, but no LoRA filenames were listed on LoraLoader / LoraLoaderModelOnly.",
+          'ComfyUI responded, but no LoRA filenames were listed on LoraLoader / LoraLoaderModelOnly.'
         );
       }
     } catch {
       setInventoryLoras([]);
-      setInventoryError("Could not load ComfyUI LoRA inventory.");
+      setInventoryError('Could not load ComfyUI LoRA inventory.');
     } finally {
       setInventoryLoading(false);
     }
@@ -76,7 +76,7 @@ export default function LoraLibrarySettingsPanel({
 
   const availableToAdd = useMemo(() => {
     const filter = inventoryFilter.trim().toLowerCase();
-    return inventoryLoras.filter((name) => {
+    return inventoryLoras.filter(name => {
       if (libraryFilenames.has(name.toLowerCase())) {
         return false;
       }
@@ -89,18 +89,16 @@ export default function LoraLibrarySettingsPanel({
 
   const activeSummary = useMemo(
     () => describeLoraStack(resolveActiveLoraStack(entries)),
-    [entries],
+    [entries]
   );
 
   const updateEntry = useCallback(
     (index: number, patch: Partial<LoraLibraryEntry>) => {
       onChange(
-        entries.map((entry, entryIndex) =>
-          entryIndex === index ? { ...entry, ...patch } : entry,
-        ),
+        entries.map((entry, entryIndex) => (entryIndex === index ? { ...entry, ...patch } : entry))
       );
     },
-    [entries, onChange],
+    [entries, onChange]
   );
 
   const addBlank = useCallback(() => {
@@ -111,14 +109,14 @@ export default function LoraLibrarySettingsPanel({
     (filename: string) => {
       onChange([...entries, createLoraLibraryEntryFromFilename(filename, entries)]);
     },
-    [entries, onChange],
+    [entries, onChange]
   );
 
   const removeEntry = useCallback(
     (index: number) => {
       onChange(entries.filter((_, entryIndex) => entryIndex !== index));
     },
-    [entries, onChange],
+    [entries, onChange]
   );
 
   const moveEntry = useCallback(
@@ -134,19 +132,18 @@ export default function LoraLibrarySettingsPanel({
         next.map((entry, order) => ({
           ...entry,
           order,
-        })),
+        }))
       );
     },
-    [entries, onChange],
+    [entries, onChange]
   );
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-zinc-400">
-        Pick LoRAs from your ComfyUI inventory, then set ID and label. New entries
-        start unchecked — turn on <span className="text-zinc-300">Enabled</span>{" "}
-        for Settings defaults, or use the tool sidebar{" "}
-        <span className="text-zinc-300">LoRA stack</span> for the current session.
+        Pick LoRAs from your ComfyUI inventory, then set ID and label. New entries start unchecked —
+        turn on <span className="text-zinc-300">Enabled</span> for Settings defaults, or use the
+        tool sidebar <span className="text-zinc-300">LoRA stack</span> for the current session.
       </p>
 
       <div className="space-y-2">
@@ -163,38 +160,34 @@ export default function LoraLibrarySettingsPanel({
             disabled={inventoryLoading}
             className="text-xs text-violet-300 transition hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 disabled:opacity-50"
           >
-            {inventoryLoading ? "Refreshing…" : "Refresh inventory"}
+            {inventoryLoading ? 'Refreshing…' : 'Refresh inventory'}
           </button>
         </div>
         <input
           value={inventoryFilter}
-          onChange={(event) => setInventoryFilter(event.target.value)}
+          onChange={event => setInventoryFilter(event.target.value)}
           placeholder="Filter LoRA filenames…"
           className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
         />
-        {inventoryError ? (
-          <p className="text-xs text-rose-300">{inventoryError}</p>
-        ) : null}
+        {inventoryError ? <p className="text-xs text-rose-300">{inventoryError}</p> : null}
         {inventoryLoading && inventoryLoras.length === 0 ? (
           <p className="text-xs text-zinc-600">Loading LoRA inventory…</p>
         ) : availableToAdd.length === 0 ? (
           <p className="text-xs text-zinc-600">
             {inventoryLoras.length === 0
-              ? "No LoRAs reported by ComfyUI yet."
+              ? 'No LoRAs reported by ComfyUI yet.'
               : inventoryFilter.trim()
-                ? "No matching unused LoRAs."
-                : "All inventory LoRAs are already in the library."}
+                ? 'No matching unused LoRAs.'
+                : 'All inventory LoRAs are already in the library.'}
           </p>
         ) : (
           <ul className="ui-surface-inset max-h-56 space-y-1 overflow-y-auto p-2">
-            {availableToAdd.map((filename) => (
+            {availableToAdd.map(filename => (
               <li
                 key={filename}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-zinc-900/80"
               >
-                <code className="min-w-0 flex-1 truncate text-xs text-zinc-300">
-                  {filename}
-                </code>
+                <code className="min-w-0 flex-1 truncate text-xs text-zinc-300">{filename}</code>
                 <button
                   type="button"
                   onClick={() => addFromInventory(filename)}
@@ -220,14 +213,12 @@ export default function LoraLibrarySettingsPanel({
           </button>
         </div>
         <p className="text-xs text-zinc-600">
-          For Qwen Lightning, set ID to{" "}
-          <code className="rounded bg-zinc-800 px-1 text-violet-300">LIGHTNING</code>{" "}
-          (suggested automatically for Lightning filenames).
+          For Qwen Lightning, set ID to{' '}
+          <code className="rounded bg-zinc-800 px-1 text-violet-300">LIGHTNING</code> (suggested
+          automatically for Lightning filenames).
         </p>
         {entries.length > 0 ? (
-          <p className="ui-surface-inset text-xs text-zinc-300">
-            {activeSummary}
-          </p>
+          <p className="ui-surface-inset text-xs text-zinc-300">{activeSummary}</p>
         ) : null}
         {entries.length === 0 ? (
           <EmptyState
@@ -236,7 +227,7 @@ export default function LoraLibrarySettingsPanel({
             title="No LoRA entries yet"
             description="Add from the inventory list above, or create a blank entry and pick a file."
             action={{
-              label: "Add blank",
+              label: 'Add blank',
               onClick: addBlank,
             }}
           />
@@ -247,7 +238,7 @@ export default function LoraLibrarySettingsPanel({
               const strengthModel = entry.strengthModel ?? 1;
               const strengthClip = entry.strengthClip ?? 1;
               const tokenOptions = (() => {
-                const current = entry.tokenValue?.trim() ?? "";
+                const current = entry.tokenValue?.trim() ?? '';
                 const set = new Set(inventoryLoras);
                 if (current && !set.has(current)) {
                   return [current, ...inventoryLoras];
@@ -258,7 +249,7 @@ export default function LoraLibrarySettingsPanel({
                 <li
                   key={`${entry.id}-${index}`}
                   className={`ui-surface-inset space-y-2 transition-opacity ${
-                    enabled ? "" : "opacity-60"
+                    enabled ? '' : 'opacity-60'
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -267,9 +258,7 @@ export default function LoraLibrarySettingsPanel({
                         <input
                           type="checkbox"
                           checked={enabled}
-                          onChange={(event) =>
-                            updateEntry(index, { enabled: event.target.checked })
-                          }
+                          onChange={event => updateEntry(index, { enabled: event.target.checked })}
                           className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
                         />
                         Enabled
@@ -300,13 +289,11 @@ export default function LoraLibrarySettingsPanel({
                     LoRA file
                     <select
                       value={entry.tokenValue}
-                      onChange={(event) =>
-                        updateEntry(index, { tokenValue: event.target.value })
-                      }
+                      onChange={event => updateEntry(index, { tokenValue: event.target.value })}
                       className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
                     >
                       <option value="">Select a LoRA…</option>
-                      {tokenOptions.map((name) => (
+                      {tokenOptions.map(name => (
                         <option key={name} value={name}>
                           {name}
                         </option>
@@ -318,9 +305,7 @@ export default function LoraLibrarySettingsPanel({
                       ID
                       <input
                         value={entry.id}
-                        onChange={(event) =>
-                          updateEntry(index, { id: event.target.value })
-                        }
+                        onChange={event => updateEntry(index, { id: event.target.value })}
                         placeholder="portrait-style"
                         className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
                       />
@@ -329,9 +314,7 @@ export default function LoraLibrarySettingsPanel({
                       Label
                       <input
                         value={entry.label}
-                        onChange={(event) =>
-                          updateEntry(index, { label: event.target.value })
-                        }
+                        onChange={event => updateEntry(index, { label: event.target.value })}
                         placeholder="Portrait style LoRA"
                         className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                       />
@@ -341,9 +324,7 @@ export default function LoraLibrarySettingsPanel({
                     <label className="space-y-1 text-xs text-zinc-400">
                       <span className="flex items-center justify-between">
                         <span>Model strength</span>
-                        <span className="font-mono text-zinc-300">
-                          {strengthModel.toFixed(2)}
-                        </span>
+                        <span className="font-mono text-zinc-300">{strengthModel.toFixed(2)}</span>
                       </span>
                       <input
                         type="range"
@@ -351,7 +332,7 @@ export default function LoraLibrarySettingsPanel({
                         max={2}
                         step={0.05}
                         value={strengthModel}
-                        onChange={(event) =>
+                        onChange={event =>
                           updateEntry(index, {
                             strengthModel: Number(event.target.value),
                           })
@@ -362,9 +343,7 @@ export default function LoraLibrarySettingsPanel({
                     <label className="space-y-1 text-xs text-zinc-400">
                       <span className="flex items-center justify-between">
                         <span>Clip strength</span>
-                        <span className="font-mono text-zinc-300">
-                          {strengthClip.toFixed(2)}
-                        </span>
+                        <span className="font-mono text-zinc-300">{strengthClip.toFixed(2)}</span>
                       </span>
                       <input
                         type="range"
@@ -372,7 +351,7 @@ export default function LoraLibrarySettingsPanel({
                         max={2}
                         step={0.05}
                         value={strengthClip}
-                        onChange={(event) =>
+                        onChange={event =>
                           updateEntry(index, {
                             strengthClip: Number(event.target.value),
                           })
@@ -383,9 +362,7 @@ export default function LoraLibrarySettingsPanel({
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <code className="text-xs text-violet-300">
-                      {entry.id.trim()
-                        ? `{{LORA_${entry.id.trim()}}}`
-                        : "{{LORA_<id>}}"}
+                      {entry.id.trim() ? `{{LORA_${entry.id.trim()}}}` : '{{LORA_<id>}}'}
                     </code>
                     <button
                       type="button"

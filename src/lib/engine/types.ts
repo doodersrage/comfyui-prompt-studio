@@ -4,14 +4,9 @@
  * stay studio-owned above this interface.
  */
 
-export type EngineId = "comfyui" | "diffusers";
+export type EngineId = 'comfyui' | 'diffusers';
 
-export type EngineJobStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "error"
-  | "unknown";
+export type EngineJobStatus = 'pending' | 'running' | 'completed' | 'error' | 'unknown';
 
 export type EngineOutputImage = {
   filename: string;
@@ -70,7 +65,7 @@ export type EngineUploadInput = {
 export type EngineProgressEvent = {
   promptId: string;
   node?: string | null;
-  status: "executing" | "progress" | "finished" | "error" | "preview";
+  status: 'executing' | 'progress' | 'finished' | 'error' | 'preview';
   message?: string;
   value?: number;
   max?: number;
@@ -100,16 +95,13 @@ export interface EngineAdapter {
   postPrompt(body: Record<string, unknown>): Promise<EngineQueueResult>;
 
   /** Poll job status (today: GET /api/comfyui/status). */
-  fetchJobStatus(
-    promptId: string,
-    engineUrl?: string,
-  ): Promise<EngineStatusResult | null>;
+  fetchJobStatus(promptId: string, engineUrl?: string): Promise<EngineStatusResult | null>;
 
   /** Studio-proxied view URL for an output image. */
   buildViewPath(
     engineUrl: string,
     image: EngineOutputImage,
-    options?: EngineViewPathOptions,
+    options?: EngineViewPathOptions
   ): string;
 
   /** Upload an input image for img2img / refine / mask paths. */
@@ -119,9 +111,7 @@ export interface EngineAdapter {
    * Subscribe to live progress + latent previews (today: `/api/comfyui/live`).
    * Gallery poller attaches after queue; `postPrompt` may open a holder socket first.
    */
-  subscribeProgress(
-    input: EngineSubscribeProgressInput,
-  ): EngineProgressSubscription;
+  subscribeProgress(input: EngineSubscribeProgressInput): EngineProgressSubscription;
 
   /**
    * Open the live bridge before queue so previews bind to `clientId`.

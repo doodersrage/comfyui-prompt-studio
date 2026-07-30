@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useRef } from "react";
-import { Button } from "@/components/ui/Button";
-import { ToolSection } from "@/components/ui/ToolPageShell";
+import { useRef } from 'react';
+import { Button } from '@/components/ui/Button';
+import { ToolSection } from '@/components/ui/ToolPageShell';
 import {
   downloadSettingsBundle,
   importSettingsBundle,
   parseSettingsBundle,
-} from "@/lib/settings-export";
+} from '@/lib/settings-export';
 
 export default function SettingsBundlePanel({
   onImported,
@@ -29,16 +29,12 @@ export default function SettingsBundlePanel({
           size="sm"
           onClick={() => {
             downloadSettingsBundle();
-            onStatus("Settings bundle downloaded.");
+            onStatus('Settings bundle downloaded.');
           }}
         >
           Export settings
         </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => inputRef.current?.click()}
-        >
+        <Button variant="secondary" size="sm" onClick={() => inputRef.current?.click()}>
           Import settings
         </Button>
         <input
@@ -46,24 +42,22 @@ export default function SettingsBundlePanel({
           type="file"
           accept="application/json,.json"
           className="hidden"
-          onChange={(event) => {
+          onChange={event => {
             const file = event.target.files?.[0];
-            event.target.value = "";
+            event.target.value = '';
             if (!file) {
               return;
             }
             void file
               .text()
-              .then((text) => {
+              .then(text => {
                 importSettingsBundle(parseSettingsBundle(text));
                 onImported();
-                onStatus("Settings bundle imported. Reload if panels look stale.");
+                onStatus('Settings bundle imported. Reload if panels look stale.');
               })
               .catch((error: unknown) => {
                 onStatus(
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to import settings bundle.",
+                  error instanceof Error ? error.message : 'Failed to import settings bundle.'
                 );
               });
           }}

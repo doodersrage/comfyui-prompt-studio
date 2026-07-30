@@ -1,39 +1,39 @@
-import type { DetailLevel, FewShotExample } from "../detail-level";
+import type { DetailLevel, FewShotExample } from '../detail-level';
 
 export type ComfyModelCategory =
-  | "stable-diffusion"
-  | "sdxl"
-  | "sd3"
-  | "flux"
-  | "qwen"
-  | "hunyuan"
-  | "other-dit"
-  | "instruct-edit"
-  | "video"
-  | "audio"
-  | "mesh";
+  | 'stable-diffusion'
+  | 'sdxl'
+  | 'sd3'
+  | 'flux'
+  | 'qwen'
+  | 'hunyuan'
+  | 'other-dit'
+  | 'instruct-edit'
+  | 'video'
+  | 'audio'
+  | 'mesh';
 
 export type PromptProfileId =
-  | "sd15_weighted"
-  | "sdxl_nlp"
-  | "sd3_nlp"
-  | "flux_prose"
-  | "flux_klein"
-  | "flux_schnell"
-  | "qwen_edit"
-  | "qwen_edit_instruction"
-  | "qwen_t2i_factual"
-  | "qwen_t2i_rich"
-  | "hunyuan_nlp"
-  | "pixart_nlp"
-  | "lumina_nlp"
-  | "cascade_nlp"
-  | "instruct_pix2pix"
-  | "omnigen_instruction"
-  | "generic_nlp"
-  | "video_motion"
-  | "audio_sound"
-  | "mesh_3d";
+  | 'sd15_weighted'
+  | 'sdxl_nlp'
+  | 'sd3_nlp'
+  | 'flux_prose'
+  | 'flux_klein'
+  | 'flux_schnell'
+  | 'qwen_edit'
+  | 'qwen_edit_instruction'
+  | 'qwen_t2i_factual'
+  | 'qwen_t2i_rich'
+  | 'hunyuan_nlp'
+  | 'pixart_nlp'
+  | 'lumina_nlp'
+  | 'cascade_nlp'
+  | 'instruct_pix2pix'
+  | 'omnigen_instruction'
+  | 'generic_nlp'
+  | 'video_motion'
+  | 'audio_sound'
+  | 'mesh_3d';
 
 export type PromptLimits = {
   minSentences: number;

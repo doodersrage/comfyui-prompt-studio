@@ -1,21 +1,29 @@
-import { generateCharacterPrompt } from "@/lib/specialized/character-generator";
-import { resolveAvoidanceOptions } from "@/lib/avoidance-options";
-import { enrichGenerateResult } from "@/lib/generation-diagnostics";
-import { normalizeSharedGenerationOptions, normalizeRecentLocations, normalizeRecentClothing, normalizeBlockedLocations, normalizeLockedWardrobeId, normalizeLockedLocation, normalizeVariationSeed } from "@/lib/specialized/normalize";
+import { generateCharacterPrompt } from '@/lib/specialized/character-generator';
+import { resolveAvoidanceOptions } from '@/lib/avoidance-options';
+import { enrichGenerateResult } from '@/lib/generation-diagnostics';
+import {
+  normalizeSharedGenerationOptions,
+  normalizeRecentLocations,
+  normalizeRecentClothing,
+  normalizeBlockedLocations,
+  normalizeLockedWardrobeId,
+  normalizeLockedLocation,
+  normalizeVariationSeed,
+} from '@/lib/specialized/normalize';
 import {
   normalizeCharacterPresetOptions,
   type CharacterPresetOptions,
-} from "@/lib/character-options";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+} from '@/lib/character-options';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type CharacterRequestBody = {
   model?: string;
   detail?: string;
   hints?: string;
-  portraitStyle?: "portrait" | "full-body" | "action";
+  portraitStyle?: 'portrait' | 'full-body' | 'action';
   variationStrength?: number;
   presetOptions?: Partial<Record<keyof CharacterPresetOptions, string>>;
   recentLocations?: string[];
@@ -33,7 +41,7 @@ type CharacterRequestBody = {
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/character");
+  return apiMethodNotAllowed(['POST'], '/api/character');
 }
 
 export async function POST(request: Request) {
@@ -43,11 +51,11 @@ export async function POST(request: Request) {
     const avoidance = resolveAvoidanceOptions(body);
 
     const portraitStyle =
-      body.portraitStyle === "full-body" ||
-      body.portraitStyle === "action" ||
-      body.portraitStyle === "portrait"
+      body.portraitStyle === 'full-body' ||
+      body.portraitStyle === 'action' ||
+      body.portraitStyle === 'portrait'
         ? body.portraitStyle
-        : "portrait";
+        : 'portrait';
 
     const alwaysIncludeClothing = body.alwaysIncludeClothing !== false;
     const seedLlmWithIngredients = body.seedLlmWithIngredients !== false;
@@ -58,7 +66,7 @@ export async function POST(request: Request) {
       hints: body.hints?.trim(),
       portraitStyle,
       variationStrength:
-        typeof body.variationStrength === "number"
+        typeof body.variationStrength === 'number'
           ? Math.min(100, Math.max(0, body.variationStrength))
           : 50,
       presetOptions: normalizeCharacterPresetOptions(body.presetOptions),
@@ -77,13 +85,10 @@ export async function POST(request: Request) {
     return apiJson(
       enrichGenerateResult(result, body.hints?.trim(), {
         teamKit: body.teamKit === true,
-      }),
+      })
     );
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Character generation failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Character generation failed.', 500);
   }
 }
 
@@ -91,9 +96,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

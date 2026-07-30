@@ -1,9 +1,9 @@
-import { scorePromptReadiness } from "@/lib/prompt-readiness";
-import { normalizeDetailLevel } from "@/lib/detail-level";
-import { normalizeComfyModel } from "@/lib/comfy-models";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
+import { scorePromptReadiness } from '@/lib/prompt-readiness';
+import { normalizeDetailLevel } from '@/lib/detail-level';
+import { normalizeComfyModel } from '@/lib/comfy-models';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       negativePrompt?: string;
     };
     if (!body.prompt?.trim()) {
-      return apiError("prompt is required.", 400);
+      return apiError('prompt is required.', 400);
     }
     return apiJson(
       scorePromptReadiness({
@@ -24,13 +24,13 @@ export async function POST(request: Request) {
         model: normalizeComfyModel(body.model),
         detail: normalizeDetailLevel(body.detail),
         negativePrompt: body.negativePrompt,
-      }),
+      })
     );
   } catch (error) {
-    return apiError(error instanceof Error ? error.message : "Readiness check failed.", 500);
+    return apiError(error instanceof Error ? error.message : 'Readiness check failed.', 500);
   }
 }
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/readiness");
+  return apiMethodNotAllowed(['POST'], '/api/readiness');
 }

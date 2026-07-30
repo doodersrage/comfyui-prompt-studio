@@ -2,24 +2,24 @@ import {
   buildControlNetPrompt,
   normalizeControlNetMode,
   type ControlNetMode,
-} from "@/lib/controlnet-prompt";
-import { generateImagePrompt } from "@/lib/specialized/image-prompt-generator";
-import { normalizeDetailLevel } from "@/lib/detail-level";
-import { normalizeComfyModel } from "@/lib/comfy-models";
-import type { ImagePromptFocus } from "@/lib/specialized/types";
-import { parseLlmRequestOptions } from "@/lib/llm-request-options";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
+} from '@/lib/controlnet-prompt';
+import { generateImagePrompt } from '@/lib/specialized/image-prompt-generator';
+import { normalizeDetailLevel } from '@/lib/detail-level';
+import { normalizeComfyModel } from '@/lib/comfy-models';
+import type { ImagePromptFocus } from '@/lib/specialized/types';
+import { parseLlmRequestOptions } from '@/lib/llm-request-options';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 function modeToFocus(mode: ControlNetMode): ImagePromptFocus {
-  if (mode === "pose") {
-    return "subject";
+  if (mode === 'pose') {
+    return 'subject';
   }
-  if (mode === "lineart" || mode === "canny") {
-    return "style";
+  if (mode === 'lineart' || mode === 'canny') {
+    return 'style';
   }
-  return "full";
+  return 'full';
 }
 
 export async function POST(request: Request) {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     };
 
     const mode = normalizeControlNetMode(body.mode);
-    let subject = body.subject?.trim() ?? "";
+    let subject = body.subject?.trim() ?? '';
 
     if (body.image?.trim()) {
       const vision = await generateImagePrompt({
@@ -50,14 +50,14 @@ export async function POST(request: Request) {
         imageDataUrl: body.image.trim(),
         mimeType: body.mimeType,
         focus: modeToFocus(mode),
-        extraHints: `ControlNet ${mode} structure analysis. ${body.detail?.trim() || ""}`.trim(),
+        extraHints: `ControlNet ${mode} structure analysis. ${body.detail?.trim() || ''}`.trim(),
         llm: parseLlmRequestOptions(body),
       });
       subject = vision.prompt;
     }
 
     if (!subject) {
-      return apiError("subject or image is required.", 400);
+      return apiError('subject or image is required.', 400);
     }
 
     const prompt = buildControlNetPrompt({
@@ -69,13 +69,13 @@ export async function POST(request: Request) {
     return apiJson({
       prompt,
       mode,
-      source: body.image?.trim() ? "vision" : "text",
+      source: body.image?.trim() ? 'vision' : 'text',
     });
   } catch (error) {
-    return apiError(error instanceof Error ? error.message : "ControlNet prompt failed.", 500);
+    return apiError(error instanceof Error ? error.message : 'ControlNet prompt failed.', 500);
   }
 }
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/controlnet");
+  return apiMethodNotAllowed(['POST'], '/api/controlnet');
 }

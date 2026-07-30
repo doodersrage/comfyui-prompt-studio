@@ -1,8 +1,8 @@
-import dynamic from "next/dynamic";
-import PageCanvas from "@/components/ui/PageCanvas";
-import { ToolPageSkeleton } from "@/components/ui/ViewState";
+import dynamic from 'next/dynamic';
+import PageCanvas from '@/components/ui/PageCanvas';
+import { ToolPageSkeleton } from '@/components/ui/ViewState';
 
-const PetTool = dynamic(() => import("@/components/PetTool"), {
+const PetTool = dynamic(() => import('@/components/PetTool'), {
   loading: () => <ToolPageSkeleton label="Loading pet" />,
 });
 

@@ -6,18 +6,15 @@ import {
   hasBackgroundPresetOptions,
   mergeBackgroundPresetsIntoPrompt,
   normalizeBackgroundPresetOptions,
-} from "../background-options";
-import {
-  buildMandatoryLocationBlock,
-  parseSettingHint,
-} from "../hint-location";
-import { buildRandomBackgroundSeed } from "./scene-pools";
-import { mergeLocationExclusions } from "../location-exclusions";
-import { runSpecializedPrompt } from "./runner";
-import type { BackgroundOptions, ToolGenerateResult } from "./types";
+} from '../background-options';
+import { buildMandatoryLocationBlock, parseSettingHint } from '../hint-location';
+import { buildRandomBackgroundSeed } from './scene-pools';
+import { mergeLocationExclusions } from '../location-exclusions';
+import { runSpecializedPrompt } from './runner';
+import type { BackgroundOptions, ToolGenerateResult } from './types';
 
 export async function generateBackgroundPrompt(
-  options: BackgroundOptions,
+  options: BackgroundOptions
 ): Promise<ToolGenerateResult> {
   const presetOptions = normalizeBackgroundPresetOptions(options.presetOptions);
   const hasPresets = hasBackgroundPresetOptions(presetOptions);
@@ -26,10 +23,7 @@ export async function generateBackgroundPrompt(
     settingType: options.settingType,
     timeOfDay: options.timeOfDay,
     mood: options.mood,
-    recentLocations: mergeLocationExclusions(
-      options.recentLocations,
-      options.blockedLocations,
-    ),
+    recentLocations: mergeLocationExclusions(options.recentLocations, options.blockedLocations),
     avoidedTokens: options.avoidedTokens,
   });
   const locationBlock = buildMandatoryLocationBlock(settingHint.location);
@@ -37,13 +31,11 @@ export async function generateBackgroundPrompt(
   const presetDirective = buildBackgroundPresetUserDirective(presetOptions);
   // User setting fields + presets only — not the rolled location seed (padding leak).
   const sanitizeContext = buildBackgroundPresetSanitizeContext(
-    "",
+    '',
     presetOptions,
-    [
-      options.settingType?.trim(),
-      options.timeOfDay?.trim(),
-      options.mood?.trim(),
-    ].filter(Boolean) as string[],
+    [options.settingType?.trim(), options.timeOfDay?.trim(), options.mood?.trim()].filter(
+      Boolean
+    ) as string[]
   );
 
   const toolInstructions = `You are an environment/background prompt generator for ComfyUI.
@@ -61,14 +53,14 @@ export async function generateBackgroundPrompt(
     locationBlock,
     `Background ingredients:\n${seed}`,
     options.avoidedTokensInstruction ?? null,
-    "Write one highly detailed background-only prompt.",
+    'Write one highly detailed background-only prompt.',
   ]
     .filter(Boolean)
-    .join("\n\n");
+    .join('\n\n');
 
   return runSpecializedPrompt({
     model: options.model,
-    detail: options.detail === "concise" ? "balanced" : options.detail,
+    detail: options.detail === 'concise' ? 'balanced' : options.detail,
     toolInstructions,
     userMessage,
     allowTemplateFallback: options.llm?.allowTemplateFallback,
@@ -79,7 +71,7 @@ export async function generateBackgroundPrompt(
     sanitizeInput: sanitizeContext,
     enforceMinimum: !hasPresets,
     postProcessPrompt: hasPresets
-      ? (prompt) => mergeBackgroundPresetsIntoPrompt(prompt, presetOptions)
+      ? prompt => mergeBackgroundPresetsIntoPrompt(prompt, presetOptions)
       : undefined,
     metadata: {
       seed,
@@ -89,21 +81,16 @@ export async function generateBackgroundPrompt(
       timeOfDay: options.timeOfDay?.trim() || null,
       mood: options.mood?.trim() || null,
       presetOptions,
-      presetCount: hasPresets
-        ? countBackgroundPresetSelections(presetOptions)
-        : 0,
+      presetCount: hasPresets ? countBackgroundPresetSelections(presetOptions) : 0,
     },
   });
 }
 
 function buildBackgroundTemplate(
   seed: string,
-  presetOptions: ReturnType<typeof normalizeBackgroundPresetOptions>,
+  presetOptions: ReturnType<typeof normalizeBackgroundPresetOptions>
 ): string {
-  const normalized = seed.replace(
-    /,\s*empty of people, figures, silhouettes, and crowds\.?$/i,
-    "",
-  );
+  const normalized = seed.replace(/,\s*empty of people, figures, silhouettes, and crowds\.?$/i, '');
 
   const base = `${capitalize(normalized)}. The space is completely empty of people and figures, with layered depth from foreground texture through midground forms to a soft atmospheric background. Materials, weather, and directional light read clearly across the entire environment.`;
 

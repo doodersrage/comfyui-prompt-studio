@@ -12,6 +12,7 @@ This document outlines best practices and optimizations for making Prettier run 
 ## Recommended Usage Patterns
 
 ### For Development Work
+
 ```bash
 # Format only source code (fastest)
 npm run format:src
@@ -24,6 +25,7 @@ npm run format:changed
 ```
 
 ### For Full Project Formatting
+
 ```bash
 # Full formatting with cache
 npm run format
@@ -33,18 +35,21 @@ npm run format:check
 ```
 
 ### Performance Options
+
 ```bash
 # Fastest formatting (no color output)
 npm run format:fast
 
-# Fastest checking (no color output)  
+# Fastest checking (no color output)
 npm run format:check:fast
 ```
 
 ## Advanced Performance Techniques
 
 ### 1. Cache Strategy Optimization
+
 Prettier's caching is now optimized for large projects:
+
 ```bash
 # Enable cache with verbose logging
 prettier --write --cache --log-level verbose .
@@ -54,12 +59,16 @@ prettier --clear-cache
 ```
 
 ### 2. File Size Management
+
 Large generated files are already excluded from formatting:
+
 - `src/lib/clothing-catalog-7.ts`
 - Large test files in `**/*.test.*` and `**/*.spec.*`
 
 ### 3. Parallel Processing
+
 Use directory-specific formatting for parallel processing:
+
 ```bash
 # Format components and lib directories in parallel
 prettier --write src/components/ src/lib/
@@ -68,6 +77,7 @@ prettier --write src/components/ src/lib/
 ## Monitoring Performance
 
 Use the stats script to see how many files are being formatted:
+
 ```bash
 npm run format:stats
 ```
@@ -79,7 +89,7 @@ This should help identify if there are any unexpected files being processed.
 If formatting seems slow:
 
 1. Check cache directory: `~/.prettiercache` or `.prettiercache`
-2. Verify ignore patterns in `.prettierignore` 
+2. Verify ignore patterns in `.prettierignore`
 3. Run with verbose output to see what's being processed
 4. Consider adding more specific ignore patterns for project-specific large files
 5. Monitor system resources during formatting operations
@@ -93,11 +103,13 @@ If formatting seems slow:
 ## Performance Benchmarks
 
 ### Typical Formatting Times (on standard hardware):
+
 - Full project formatting: < 2 seconds
 - Source-only formatting: < 1 second
 - Changed files only: < 500 milliseconds
 
 ### Optimization Results:
+
 - Enabled caching: ~40% faster subsequent runs
 - Targeted directory formatting: ~60% faster than full project
 - Excluding large files: ~30% faster formatting
@@ -113,12 +125,14 @@ If formatting seems slow:
 ## Integration with CI/CD
 
 ### For Automated Builds:
+
 ```bash
 # In your CI scripts, use:
 npm run format:check
 ```
 
 ### For Development Workflows:
+
 ```bash
 # Pre-commit hook example:
 npm run format:changed && npm run format:check
@@ -127,6 +141,7 @@ npm run format:changed && npm run format:check
 ## Performance Testing
 
 Run performance tests to verify improvements:
+
 ```bash
 npm run perf:test
 ```

@@ -1,9 +1,9 @@
-import { subscribeComfyLiveBridge } from "@/lib/comfyui-live-bridge";
-import { apiError, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+import { subscribeComfyLiveBridge } from '@/lib/comfyui-live-bridge';
+import { apiError, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 /** Long-running generations keep this stream open. */
 export const maxDuration = 600;
 
@@ -14,12 +14,12 @@ export const maxDuration = 600;
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const clientId = searchParams.get("clientId")?.trim();
+  const clientId = searchParams.get('clientId')?.trim();
   if (!clientId) {
-    return apiError("clientId query parameter is required.", 400);
+    return apiError('clientId query parameter is required.', 400);
   }
 
-  const comfyUrlHint = searchParams.get("comfyUrl")?.trim() || undefined;
+  const comfyUrlHint = searchParams.get('comfyUrl')?.trim() || undefined;
   const encoder = new TextEncoder();
 
   let closeBridge: (() => void) | undefined;
@@ -42,18 +42,15 @@ export async function GET(request: Request) {
         const subscription = subscribeComfyLiveBridge({
           clientId,
           comfyUrl: comfyUrlHint,
-          onEvent: (event) => {
+          onEvent: event => {
             write(event);
           },
         });
         closeBridge = subscription.close;
       } catch (error) {
         write({
-          type: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to open ComfyUI live bridge.",
+          type: 'error',
+          message: error instanceof Error ? error.message : 'Failed to open ComfyUI live bridge.',
         });
         closed = true;
         try {
@@ -76,7 +73,7 @@ export async function GET(request: Request) {
         }
       };
 
-      request.signal.addEventListener("abort", onAbort);
+      request.signal.addEventListener('abort', onAbort);
     },
     cancel() {
       closed = true;
@@ -86,25 +83,25 @@ export async function GET(request: Request) {
 
   return new Response(stream, {
     headers: {
-      "Content-Type": "application/x-ndjson; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
     },
   });
 }
 
 export async function POST() {
-  return apiMethodNotAllowed(["GET"], "/api/comfyui/live");
+  return apiMethodNotAllowed(['GET'], '/api/comfyui/live');
 }
 
 export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

@@ -1,23 +1,23 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { ChipButton } from "@/components/ui/Field";
-import { Button } from "@/components/ui/Button";
-import { ToolSection, accentFocusClass } from "@/components/ui/ToolPageShell";
-import type { SharedToolSettings } from "@/lib/settings-cache";
-import type { DetailLevel } from "@/lib/detail-level";
-import { settingsTabHref } from "@/lib/settings-nav";
+import Link from 'next/link';
+import { ChipButton } from '@/components/ui/Field';
+import { Button } from '@/components/ui/Button';
+import { ToolSection, accentFocusClass } from '@/components/ui/ToolPageShell';
+import type { SharedToolSettings } from '@/lib/settings-cache';
+import type { DetailLevel } from '@/lib/detail-level';
+import { settingsTabHref } from '@/lib/settings-nav';
 
 const DETAIL_OPTIONS: Array<{ id: DetailLevel; label: string; hint: string }> = [
-  { id: "concise", label: "Concise", hint: "Short, dense prompts" },
-  { id: "balanced", label: "Balanced", hint: "Default length" },
-  { id: "rich", label: "Rich", hint: "Longer layered prose" },
+  { id: 'concise', label: 'Concise', hint: 'Short, dense prompts' },
+  { id: 'balanced', label: 'Balanced', hint: 'Default length' },
+  { id: 'rich', label: 'Rich', hint: 'Longer layered prose' },
 ];
 
 const TEMP_PRESETS: Array<{ label: string; value: number; hint: string }> = [
-  { label: "Focused", value: 0.4, hint: "Tighter, more repeatable" },
-  { label: "Default", value: 0.95, hint: "Matches typical server default" },
-  { label: "Creative", value: 1.35, hint: "More variation / surprise" },
+  { label: 'Focused', value: 0.4, hint: 'Tighter, more repeatable' },
+  { label: 'Default', value: 0.95, hint: 'Matches typical server default' },
+  { label: 'Creative', value: 1.35, hint: 'More variation / surprise' },
 ];
 
 type ServerLlmSnapshot = {
@@ -56,27 +56,27 @@ export default function SettingsLlmPanel({
   onTestConnection,
   testingConnection = false,
 }: SettingsLlmPanelProps) {
-  const detail = sharedSettings.detail ?? "balanced";
+  const detail = sharedSettings.detail ?? 'balanced';
   const tempOverride = sharedSettings.sessionLlmTemperature;
   const fallbackOverride = sharedSettings.sessionAllowTemplateFallback;
   const statusLabel =
     server?.enabled === false
-      ? "Disabled"
+      ? 'Disabled'
       : server?.ok
-        ? "Connected"
+        ? 'Connected'
         : server?.error
           ? `Error · ${server.error}`
-          : "Unknown";
+          : 'Unknown';
 
   return (
     <>
       <ToolSection title="Server LLM (read-only)">
         <p className="text-sm text-zinc-400">
-          Configured via server env (<code className="text-zinc-300">LLM_*</code>).
-          Edit <code className="text-zinc-300">.env.local</code> and restart to change
-          models. Full catalog lives on{" "}
+          Configured via server env (<code className="text-zinc-300">LLM_*</code>). Edit{' '}
+          <code className="text-zinc-300">.env.local</code> and restart to change models. Full
+          catalog lives on{' '}
           <Link
-            href={settingsTabHref("overview")}
+            href={settingsTabHref('overview')}
             className="text-[var(--accent-text)] underline-offset-2 hover:underline"
           >
             Overview → Server environment
@@ -90,42 +90,36 @@ export default function SettingsLlmPanel({
           </div>
           <div>
             <dt className="type-caption text-zinc-500">Text model</dt>
-            <dd className="truncate text-zinc-200">{server?.model ?? "—"}</dd>
+            <dd className="truncate text-zinc-200">{server?.model ?? '—'}</dd>
           </div>
           <div>
             <dt className="type-caption text-zinc-500">Vision model</dt>
-            <dd className="truncate text-zinc-200">{server?.visionModel ?? "—"}</dd>
+            <dd className="truncate text-zinc-200">{server?.visionModel ?? '—'}</dd>
           </div>
           <div>
             <dt className="type-caption text-zinc-500">API base URL</dt>
-            <dd className="truncate text-zinc-200">{server?.baseUrl ?? "—"}</dd>
+            <dd className="truncate text-zinc-200">{server?.baseUrl ?? '—'}</dd>
           </div>
           <div>
             <dt className="type-caption text-zinc-500">Server temperature</dt>
-            <dd className="text-zinc-200">{server?.serverTemperature ?? "—"}</dd>
+            <dd className="text-zinc-200">{server?.serverTemperature ?? '—'}</dd>
           </div>
           <div>
             <dt className="type-caption text-zinc-500">LLM concurrency</dt>
-            <dd
-              className={
-                server?.busy
-                  ? "font-medium text-amber-400"
-                  : "text-zinc-200"
-              }
-            >
-              {typeof server?.inFlight === "number"
-                ? `LLM busy: ${server.inFlight}/${server.maxInflight ?? "?"} in flight`
-                : "—"}
+            <dd className={server?.busy ? 'font-medium text-amber-400' : 'text-zinc-200'}>
+              {typeof server?.inFlight === 'number'
+                ? `LLM busy: ${server.inFlight}/${server.maxInflight ?? '?'} in flight`
+                : '—'}
             </dd>
           </div>
           <div>
             <dt className="type-caption text-zinc-500">Server template fallback</dt>
             <dd className="text-zinc-200">
               {server?.allowTemplateFallback === undefined
-                ? "—"
+                ? '—'
                 : server.allowTemplateFallback
-                  ? "Allowed"
-                  : "Disabled"}
+                  ? 'Allowed'
+                  : 'Disabled'}
             </dd>
           </div>
           {server?.embedModel ? (
@@ -152,8 +146,7 @@ export default function SettingsLlmPanel({
 
       <ToolSection title="Session LLM preferences">
         <p className="text-sm text-zinc-400">
-          Browser overrides sent with generation requests. Leave unset to use server
-          defaults.
+          Browser overrides sent with generation requests. Leave unset to use server defaults.
         </p>
 
         <fieldset className="space-y-2">
@@ -161,39 +154,35 @@ export default function SettingsLlmPanel({
           <div className="flex flex-wrap gap-1.5">
             {(
               [
-                { value: undefined, label: "Server default" },
-                { value: true, label: "Force LLM on" },
-                { value: false, label: "Template only" },
+                { value: undefined, label: 'Server default' },
+                { value: true, label: 'Force LLM on' },
+                { value: false, label: 'Template only' },
               ] as const
-            ).map((option) => (
+            ).map(option => (
               <ChipButton
                 key={String(option.value)}
                 active={sharedSettings.sessionLlmEnabled === option.value}
                 disabled={!sharedMounted}
-                onClick={() =>
-                  updateSharedSettings({ sessionLlmEnabled: option.value })
-                }
+                onClick={() => updateSharedSettings({ sessionLlmEnabled: option.value })}
               >
                 {option.label}
               </ChipButton>
             ))}
           </div>
           <p className="type-caption text-zinc-500">
-            Template only skips the LLM for this browser even when the server has it
-            enabled — useful offline or when Ollama is down.
+            Template only skips the LLM for this browser even when the server has it enabled —
+            useful offline or when Ollama is down.
           </p>
         </fieldset>
 
         <label className="block space-y-1.5 text-sm">
-          <span className="type-caption text-zinc-500">
-            Session text model override
-          </span>
+          <span className="type-caption text-zinc-500">Session text model override</span>
           <input
             type="text"
-            value={sharedSettings.sessionLlmModel ?? ""}
+            value={sharedSettings.sessionLlmModel ?? ''}
             disabled={!sharedMounted}
-            placeholder={server?.model ? `Server: ${server.model}` : "e.g. dolphin-llama3"}
-            onChange={(event) =>
+            placeholder={server?.model ? `Server: ${server.model}` : 'e.g. dolphin-llama3'}
+            onChange={event =>
               updateSharedSettings({
                 sessionLlmModel: event.target.value.trim() || undefined,
               })
@@ -203,19 +192,15 @@ export default function SettingsLlmPanel({
         </label>
 
         <label className="block space-y-1.5 text-sm">
-          <span className="type-caption text-zinc-500">
-            Session vision model override
-          </span>
+          <span className="type-caption text-zinc-500">Session vision model override</span>
           <input
             type="text"
-            value={sharedSettings.sessionLlmVisionModel ?? ""}
+            value={sharedSettings.sessionLlmVisionModel ?? ''}
             disabled={!sharedMounted}
             placeholder={
-              server?.visionModel
-                ? `Server: ${server.visionModel}`
-                : "e.g. qwen3-vl:latest"
+              server?.visionModel ? `Server: ${server.visionModel}` : 'e.g. qwen3-vl:latest'
             }
-            onChange={(event) =>
+            onChange={event =>
               updateSharedSettings({
                 sessionLlmVisionModel: event.target.value.trim() || undefined,
               })
@@ -228,24 +213,19 @@ export default function SettingsLlmPanel({
           <div className="flex items-center justify-between text-xs text-zinc-400">
             <span>LLM temperature</span>
             <span className="font-medium text-zinc-200">
-              {typeof tempOverride === "number"
-                ? tempOverride.toFixed(2)
-                : "server default"}
+              {typeof tempOverride === 'number' ? tempOverride.toFixed(2) : 'server default'}
             </span>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {TEMP_PRESETS.map((preset) => (
+            {TEMP_PRESETS.map(preset => (
               <ChipButton
                 key={preset.label}
                 active={
-                  typeof tempOverride === "number" &&
-                  Math.abs(tempOverride - preset.value) < 0.001
+                  typeof tempOverride === 'number' && Math.abs(tempOverride - preset.value) < 0.001
                 }
                 disabled={!sharedMounted}
                 title={preset.hint}
-                onClick={() =>
-                  updateSharedSettings({ sessionLlmTemperature: preset.value })
-                }
+                onClick={() => updateSharedSettings({ sessionLlmTemperature: preset.value })}
               >
                 {preset.label}
               </ChipButton>
@@ -257,7 +237,7 @@ export default function SettingsLlmPanel({
             max={2}
             step={0.05}
             value={tempOverride ?? 1}
-            onChange={(event) =>
+            onChange={event =>
               updateSharedSettings({
                 sessionLlmTemperature: Number(event.target.value),
               })
@@ -270,13 +250,11 @@ export default function SettingsLlmPanel({
             <span>1</span>
             <span>2 · wild</span>
           </div>
-          {typeof tempOverride === "number" ? (
+          {typeof tempOverride === 'number' ? (
             <button
               type="button"
               disabled={!sharedMounted}
-              onClick={() =>
-                updateSharedSettings({ sessionLlmTemperature: undefined })
-              }
+              onClick={() => updateSharedSettings({ sessionLlmTemperature: undefined })}
               className="text-xs text-[var(--accent-text)] hover:underline disabled:opacity-50"
             >
               Reset temperature to server default
@@ -285,17 +263,15 @@ export default function SettingsLlmPanel({
         </div>
 
         <fieldset className="space-y-2">
-          <legend className="type-caption text-zinc-500">
-            Template fallback when LLM fails
-          </legend>
+          <legend className="type-caption text-zinc-500">Template fallback when LLM fails</legend>
           <div className="flex flex-wrap gap-1.5">
             {(
               [
-                { value: undefined, label: "Server default" },
-                { value: true, label: "Force allow" },
-                { value: false, label: "Force disable" },
+                { value: undefined, label: 'Server default' },
+                { value: true, label: 'Force allow' },
+                { value: false, label: 'Force disable' },
               ] as const
-            ).map((option) => (
+            ).map(option => (
               <ChipButton
                 key={String(option.value)}
                 active={fallbackOverride === option.value}
@@ -318,7 +294,7 @@ export default function SettingsLlmPanel({
         <div className="space-y-2">
           <p className="type-caption text-zinc-500">Default prompt detail</p>
           <div className="flex flex-wrap gap-1.5">
-            {DETAIL_OPTIONS.map((option) => (
+            {DETAIL_OPTIONS.map(option => (
               <ChipButton
                 key={option.id}
                 active={detail === option.id}
@@ -330,8 +306,8 @@ export default function SettingsLlmPanel({
             ))}
           </div>
           <p className="type-caption text-zinc-500">
-            {DETAIL_OPTIONS.find((entry) => entry.id === detail)?.hint}. Also available
-            under ComfyUI → Prompt quality.
+            {DETAIL_OPTIONS.find(entry => entry.id === detail)?.hint}. Also available under ComfyUI
+            → Prompt quality.
           </p>
         </div>
 
@@ -340,9 +316,7 @@ export default function SettingsLlmPanel({
             type="checkbox"
             checked={sharedSettings.autoFixRules !== false}
             disabled={!sharedMounted}
-            onChange={(event) =>
-              updateSharedSettings({ autoFixRules: event.target.checked })
-            }
+            onChange={event => updateSharedSettings({ autoFixRules: event.target.checked })}
             className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass()}`}
           />
           <span className="space-y-1">
@@ -350,8 +324,8 @@ export default function SettingsLlmPanel({
               Auto-fix lint rule errors after generation
             </span>
             <span className="block text-xs text-zinc-500">
-              Applies safe prompt-lint fixes (e.g. sport gear / duo consistency) when
-              diagnostics report errors.
+              Applies safe prompt-lint fixes (e.g. sport gear / duo consistency) when diagnostics
+              report errors.
             </span>
           </span>
         </label>
@@ -361,7 +335,7 @@ export default function SettingsLlmPanel({
             type="checkbox"
             checked={sharedSettings.seedLlmWithIngredients !== false}
             disabled={!sharedMounted}
-            onChange={(event) =>
+            onChange={event =>
               updateSharedSettings({
                 seedLlmWithIngredients: event.target.checked,
               })
@@ -373,9 +347,9 @@ export default function SettingsLlmPanel({
               Seed LLM with location & wardrobe ingredients
             </span>
             <span className="block text-xs text-zinc-500">
-              When on, generators inject rolled location / outfit / environment
-              seeds and few-shot examples. Turn off for completionist local
-              models — only your keywords or hints are sent.
+              When on, generators inject rolled location / outfit / environment seeds and few-shot
+              examples. Turn off for completionist local models — only your keywords or hints are
+              sent.
             </span>
           </span>
         </label>
@@ -384,10 +358,8 @@ export default function SettingsLlmPanel({
           <input
             type="checkbox"
             checked={sharedSettings.alwaysIncludeClothing !== false}
-            disabled={
-              !sharedMounted || sharedSettings.seedLlmWithIngredients === false
-            }
-            onChange={(event) =>
+            disabled={!sharedMounted || sharedSettings.seedLlmWithIngredients === false}
+            onChange={event =>
               updateSharedSettings({ alwaysIncludeClothing: event.target.checked })
             }
             className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass()}`}
@@ -397,8 +369,8 @@ export default function SettingsLlmPanel({
               Always include clothing / wardrobe in people prompts
             </span>
             <span className="block text-xs text-zinc-500">
-              Generators inject wardrobe beats even when hints omit outfit details.
-              Requires ingredient seeding above.
+              Generators inject wardrobe beats even when hints omit outfit details. Requires
+              ingredient seeding above.
             </span>
           </span>
         </label>
@@ -406,19 +378,19 @@ export default function SettingsLlmPanel({
 
       <ToolSection title="Vision LLM">
         <p className="text-sm text-zinc-400">
-          Set <code className="text-zinc-300">LLM_VISION_MODEL</code> in{" "}
-          <code className="text-zinc-300">.env.local</code> (e.g.{" "}
-          <code className="text-zinc-300">qwen3-vl:latest</code>) for Image → Prompt,
-          Refine critique, and optional gallery tagging. Falls back to{" "}
-          <code className="text-zinc-300">LLM_MODEL</code> when unset — text-only
-          models will fail vision tools. Restart the server after changing env.
+          Set <code className="text-zinc-300">LLM_VISION_MODEL</code> in{' '}
+          <code className="text-zinc-300">.env.local</code> (e.g.{' '}
+          <code className="text-zinc-300">qwen3-vl:latest</code>) for Image → Prompt, Refine
+          critique, and optional gallery tagging. Falls back to{' '}
+          <code className="text-zinc-300">LLM_MODEL</code> when unset — text-only models will fail
+          vision tools. Restart the server after changing env.
         </p>
         <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
           <input
             type="checkbox"
             checked={autoVisionTags !== false}
             disabled={!onAutoVisionTagsChange}
-            onChange={(event) => onAutoVisionTagsChange?.(event.target.checked)}
+            onChange={event => onAutoVisionTagsChange?.(event.target.checked)}
             className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass()}`}
           />
           <span className="space-y-1">
@@ -426,8 +398,8 @@ export default function SettingsLlmPanel({
               Auto-tag completed gallery images
             </span>
             <span className="block text-xs text-zinc-500">
-              After ComfyUI jobs finish, run a light vision pass for searchable tags.
-              Requires a vision-capable model.
+              After ComfyUI jobs finish, run a light vision pass for searchable tags. Requires a
+              vision-capable model.
             </span>
           </span>
         </label>

@@ -1,7 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
-import type { UserAnalyticsSnapshot } from "../user-analytics";
+import fs from 'node:fs';
+import path from 'node:path';
+import { resolvePromptAuthDir } from '@/lib/prompt-data-paths';
+import type { UserAnalyticsSnapshot } from '../user-analytics';
 
 type AnalyticsDocument = {
   version: 1;
@@ -14,12 +14,12 @@ const MAX_HISTORY_PER_USER = 120;
 function analyticsPath(): string {
   const dir = resolvePromptAuthDir();
   fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, "analytics-snapshots.json");
+  return path.join(dir, 'analytics-snapshots.json');
 }
 
 function readDocument(): AnalyticsDocument {
   try {
-    const raw = JSON.parse(fs.readFileSync(analyticsPath(), "utf8")) as AnalyticsDocument;
+    const raw = JSON.parse(fs.readFileSync(analyticsPath(), 'utf8')) as AnalyticsDocument;
     return {
       version: 1,
       snapshots: raw.snapshots ?? {},
@@ -31,7 +31,7 @@ function readDocument(): AnalyticsDocument {
 }
 
 function writeDocument(document: AnalyticsDocument): void {
-  fs.writeFileSync(analyticsPath(), JSON.stringify(document, null, 2), "utf8");
+  fs.writeFileSync(analyticsPath(), JSON.stringify(document, null, 2), 'utf8');
 }
 
 export function saveUserAnalyticsSnapshot(snapshot: UserAnalyticsSnapshot): void {
@@ -48,9 +48,7 @@ export function saveUserAnalyticsSnapshot(snapshot: UserAnalyticsSnapshot): void
 
 export function listUserAnalyticsSnapshots(): UserAnalyticsSnapshot[] {
   const document = readDocument();
-  return Object.values(document.snapshots).sort((a, b) =>
-    a.username.localeCompare(b.username),
-  );
+  return Object.values(document.snapshots).sort((a, b) => a.username.localeCompare(b.username));
 }
 
 export function getUserAnalyticsSnapshot(userId: string): UserAnalyticsSnapshot | null {
@@ -58,15 +56,14 @@ export function getUserAnalyticsSnapshot(userId: string): UserAnalyticsSnapshot 
   return document.snapshots[userId] ?? null;
 }
 
-export function listUserAnalyticsHistory(
-  userId: string,
-  limit = 60,
-): UserAnalyticsSnapshot[] {
+export function listUserAnalyticsHistory(userId: string, limit = 60): UserAnalyticsSnapshot[] {
   const document = readDocument();
   return (document.history[userId] ?? []).slice(0, limit);
 }
 
-export function listAllAnalyticsHistory(limitPerUser = 30): Record<string, UserAnalyticsSnapshot[]> {
+export function listAllAnalyticsHistory(
+  limitPerUser = 30
+): Record<string, UserAnalyticsSnapshot[]> {
   const document = readDocument();
   const result: Record<string, UserAnalyticsSnapshot[]> = {};
   for (const [userId, entries] of Object.entries(document.history)) {

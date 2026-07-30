@@ -1,38 +1,38 @@
-import { after } from "next/server";
-import { NextResponse } from "next/server";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { stripEmptyComfyUiRuntime } from "@/lib/comfyui-config";
-import { fetchComfyObjectInfoPayload } from "@/lib/comfyui-object-info";
+import { after } from 'next/server';
+import { NextResponse } from 'next/server';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { stripEmptyComfyUiRuntime } from '@/lib/comfyui-config';
+import { fetchComfyObjectInfoPayload } from '@/lib/comfyui-object-info';
 import {
   getComfyAssetJob,
   listComfyAssetJobs,
   runComfyAssetDownloadJob,
   startComfyAssetDownload,
-} from "@/lib/comfy-asset-download";
-import { getComfyUiRoot, isComfyUiRootConfigured } from "@/lib/comfy-asset-paths";
-import { buildComfyAssetStatusRows } from "@/lib/comfy-asset-status";
+} from '@/lib/comfy-asset-download';
+import { getComfyUiRoot, isComfyUiRootConfigured } from '@/lib/comfy-asset-paths';
+import { buildComfyAssetStatusRows } from '@/lib/comfy-asset-status';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 /** Large HF weights; keep the route from being treated as a short serverless call. */
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const jobId = searchParams.get("jobId")?.trim();
+  const jobId = searchParams.get('jobId')?.trim();
 
   if (jobId) {
     const job = getComfyAssetJob(jobId);
     if (!job) {
-      return apiError("Download job not found.", 404);
+      return apiError('Download job not found.', 404);
     }
     return apiJson({ ok: true, job, jobs: listComfyAssetJobs() });
   }
 
   const runtime = stripEmptyComfyUiRuntime({
-    apiUrl: searchParams.get("comfyUrl") ?? undefined,
+    apiUrl: searchParams.get('comfyUrl') ?? undefined,
   });
-  const modelId = searchParams.get("modelId")?.trim() || undefined;
-  const forceRefresh = searchParams.get("forceRefresh") === "1";
+  const modelId = searchParams.get('modelId')?.trim() || undefined;
+  const forceRefresh = searchParams.get('forceRefresh') === '1';
 
   let inventory = null;
   try {
@@ -50,8 +50,7 @@ export async function GET(request: Request) {
   const rootConfigured = status.rootConfigured && isComfyUiRootConfigured();
   let rootHint: string | undefined;
   if (!rootConfigured) {
-    rootHint =
-      "Set COMFYUI_ROOT to your ComfyUI install path (same machine as this app).";
+    rootHint = 'Set COMFYUI_ROOT to your ComfyUI install path (same machine as this app).';
   } else if (!status.rootWritable) {
     rootHint =
       `COMFYUI_ROOT is set but not writable by this process (${status.rootPath}/models). ` +
@@ -74,17 +73,17 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as typeof body;
   } catch {
-    return apiError("Invalid JSON body.", 400);
+    return apiError('Invalid JSON body.', 400);
   }
 
   const assetId = body.assetId?.trim();
   if (!assetId) {
-    return apiError("assetId is required.", 400);
+    return apiError('assetId is required.', 400);
   }
 
   try {
     const job = startComfyAssetDownload({ assetId, deferStart: true });
-    if (job.status === "queued") {
+    if (job.status === 'queued') {
       // Keep work alive after the HTTP response — fire-and-forget alone is dropped.
       after(() => runComfyAssetDownloadJob(job.id));
     }
@@ -94,11 +93,10 @@ export async function POST(request: Request) {
       rootPath: getComfyUiRoot(),
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Could not start download.";
+    const message = error instanceof Error ? error.message : 'Could not start download.';
     const status =
       /not set|does not exist|Unknown asset|no allowlisted|not allowlisted|Permission denied|not writable/i.test(
-        message,
+        message
       )
         ? 400
         : 500;
@@ -110,13 +108,13 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }
 
 export function PUT() {
-  return apiMethodNotAllowed(["GET", "POST"], "/api/comfyui/assets");
+  return apiMethodNotAllowed(['GET', 'POST'], '/api/comfyui/assets');
 }

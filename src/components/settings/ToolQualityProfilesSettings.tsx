@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { ChipButton } from "@/components/ui/Field";
-import { QUEUE_QUALITY_PROFILE_OPTIONS } from "@/lib/queue-quality-profile";
+import { ChipButton } from '@/components/ui/Field';
+import { QUEUE_QUALITY_PROFILE_OPTIONS } from '@/lib/queue-quality-profile';
 import {
   TOOL_QUEUE_QUALITY_OPTIONS,
   toolQueueQualityLabel,
   type ToolQueueQualityProfiles,
-} from "@/lib/tool-quality-profiles";
+} from '@/lib/tool-quality-profiles';
 
 type ToolQualityProfilesSettingsProps = {
   profiles: ToolQueueQualityProfiles;
@@ -22,11 +22,11 @@ export default function ToolQualityProfilesSettings({
   return (
     <div className="ui-surface-inset space-y-3">
       <p className="type-caption text-zinc-400">
-        Override the global queue quality profile for specific tools. Leave unset to use the
-        sidebar default or per-page override chips.
+        Override the global queue quality profile for specific tools. Leave unset to use the sidebar
+        default or per-page override chips.
       </p>
       <ul className="space-y-2">
-        {TOOL_QUEUE_QUALITY_OPTIONS.map((tool) => {
+        {TOOL_QUEUE_QUALITY_OPTIONS.map(tool => {
           const active = profiles[tool.id];
           return (
             <li
@@ -46,23 +46,23 @@ export default function ToolQualityProfilesSettings({
                 >
                   Global
                 </ChipButton>
-                {QUEUE_QUALITY_PROFILE_OPTIONS.filter(
-                  (option) => option.id !== "followSettings",
-                ).map((option) => (
-                  <ChipButton
-                    key={`${tool.id}-${option.id}`}
-                    active={active === option.id}
-                    disabled={disabled}
-                    onClick={() =>
-                      onChange({
-                        ...profiles,
-                        [tool.id]: option.id,
-                      })
-                    }
-                  >
-                    {option.label}
-                  </ChipButton>
-                ))}
+                {QUEUE_QUALITY_PROFILE_OPTIONS.filter(option => option.id !== 'followSettings').map(
+                  option => (
+                    <ChipButton
+                      key={`${tool.id}-${option.id}`}
+                      active={active === option.id}
+                      disabled={disabled}
+                      onClick={() =>
+                        onChange({
+                          ...profiles,
+                          [tool.id]: option.id,
+                        })
+                      }
+                    >
+                      {option.label}
+                    </ChipButton>
+                  )
+                )}
               </div>
             </li>
           );
@@ -70,13 +70,10 @@ export default function ToolQualityProfilesSettings({
       </ul>
       {Object.keys(profiles).length > 0 ? (
         <p className="type-caption text-zinc-500">
-          Active overrides:{" "}
+          Active overrides:{' '}
           {Object.entries(profiles)
-            .map(
-              ([toolId, profile]) =>
-                `${toolQueueQualityLabel(toolId)} → ${profile}`,
-            )
-            .join(" · ")}
+            .map(([toolId, profile]) => `${toolQueueQualityLabel(toolId)} → ${profile}`)
+            .join(' · ')}
         </p>
       ) : null}
     </div>

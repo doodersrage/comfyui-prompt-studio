@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 import {
   pruneStalePeers,
   upsertPresencePeer,
   type CollabDraftPayload,
   type CollabPresencePeer,
-} from "@/lib/collab-presence";
+} from '@/lib/collab-presence';
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 type RoomState = {
   peers: CollabPresencePeer[];
@@ -17,7 +17,7 @@ type RoomState = {
 const rooms = new Map<string, RoomState>();
 
 function getRoom(projectId: string): RoomState {
-  const key = projectId.trim() || "default";
+  const key = projectId.trim() || 'default';
   let room = rooms.get(key);
   if (!room) {
     room = { peers: [] };
@@ -29,32 +29,30 @@ function getRoom(projectId: string): RoomState {
 /** GET SSE stream — presence snapshots every few seconds + draft pushes. */
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const projectId = url.searchParams.get("projectId")?.trim() || "default";
+  const projectId = url.searchParams.get('projectId')?.trim() || 'default';
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     start(controller) {
       const send = (event: string, data: unknown) => {
-        controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
-        );
+        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       };
 
       const room = getRoom(projectId);
       room.peers = pruneStalePeers(room.peers);
-      send("presence", { peers: room.peers });
+      send('presence', { peers: room.peers });
       if (room.draft) {
-        send("draft", room.draft);
+        send('draft', room.draft);
       }
 
       const timer = setInterval(() => {
         const current = getRoom(projectId);
         current.peers = pruneStalePeers(current.peers);
-        send("presence", { peers: current.peers });
-        send("ping", { at: Date.now() });
+        send('presence', { peers: current.peers });
+        send('ping', { at: Date.now() });
       }, 4000);
 
-      request.signal.addEventListener("abort", () => {
+      request.signal.addEventListener('abort', () => {
         clearInterval(timer);
         try {
           controller.close();
@@ -67,9 +65,9 @@ export async function GET(request: Request) {
 
   return new Response(stream, {
     headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
     },
   });
 }
@@ -80,19 +78,19 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
-  if (!body || typeof body !== "object") {
-    return NextResponse.json({ ok: false, error: "Invalid body" }, { status: 400 });
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ ok: false, error: 'Invalid body' }, { status: 400 });
   }
   const record = body as Record<string, unknown>;
   const projectId =
-    typeof record.projectId === "string" && record.projectId.trim()
+    typeof record.projectId === 'string' && record.projectId.trim()
       ? record.projectId.trim()
-      : "default";
+      : 'default';
   const room = getRoom(projectId);
 
-  if (record.type === "presence" && record.peer && typeof record.peer === "object") {
+  if (record.type === 'presence' && record.peer && typeof record.peer === 'object') {
     const peer = record.peer as CollabPresencePeer;
     if (peer.peerId && peer.displayName) {
       room.peers = upsertPresencePeer(room.peers, {
@@ -104,11 +102,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, peers: room.peers });
   }
 
-  if (record.type === "draft" && typeof record.draft === "string") {
+  if (record.type === 'draft' && typeof record.draft === 'string') {
     const payload: CollabDraftPayload = {
       projectId,
-      peerId: typeof record.peerId === "string" ? record.peerId : "unknown",
-      tool: typeof record.tool === "string" ? record.tool : undefined,
+      peerId: typeof record.peerId === 'string' ? record.peerId : 'unknown',
+      tool: typeof record.tool === 'string' ? record.tool : undefined,
       draft: record.draft.slice(0, 20_000),
       updatedAt: Date.now(),
     };
@@ -116,5 +114,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, draft: payload });
   }
 
-  return NextResponse.json({ ok: false, error: "Unknown event" }, { status: 400 });
+  return NextResponse.json({ ok: false, error: 'Unknown event' }, { status: 400 });
 }

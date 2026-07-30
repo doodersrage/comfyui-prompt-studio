@@ -1,20 +1,20 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/Button";
-import { TextInput } from "@/components/ui/Field";
-import { ToolSection } from "@/components/ui/ToolPageShell";
-import type { UserScheduledCampaign } from "@/lib/auth/types";
-import ProfileSecurityPanel from "@/components/profile/ProfileSecurityPanel";
-import ProfileAppearancePanel from "@/components/profile/ProfileAppearancePanel";
-import ProfileBackupPanel from "@/components/profile/ProfileBackupPanel";
-import type { SharedPresetEntry } from "@/lib/shared-preset-store";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/Button';
+import { TextInput } from '@/components/ui/Field';
+import { ToolSection } from '@/components/ui/ToolPageShell';
+import type { UserScheduledCampaign } from '@/lib/auth/types';
+import ProfileSecurityPanel from '@/components/profile/ProfileSecurityPanel';
+import ProfileAppearancePanel from '@/components/profile/ProfileAppearancePanel';
+import ProfileBackupPanel from '@/components/profile/ProfileBackupPanel';
+import type { SharedPresetEntry } from '@/lib/shared-preset-store';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 const DEFAULT_CAMPAIGN: UserScheduledCampaign = {
   enabled: false,
-  target: "random-scene",
+  target: 'random-scene',
   count: 3,
   intervalMin: 60,
   autoQueueComfyUi: false,
@@ -22,12 +22,12 @@ const DEFAULT_CAMPAIGN: UserScheduledCampaign = {
 
 export default function ProfilePanel() {
   const { user, refresh, authEnabled } = useAuth();
-  const [password, setPassword] = useState("");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [comfyUiUrl, setComfyUiUrl] = useState("");
+  const [password, setPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [comfyUiUrl, setComfyUiUrl] = useState('');
   const [campaign, setCampaign] = useState<UserScheduledCampaign>(DEFAULT_CAMPAIGN);
   const [exportEnabled, setExportEnabled] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState('');
   const [emailNotifyBatch, setEmailNotifyBatch] = useState(true);
   const [emailNotifySecurity, setEmailNotifySecurity] = useState(true);
   const [sharedPresets, setSharedPresets] = useState<SharedPresetEntry[]>([]);
@@ -35,7 +35,7 @@ export default function ProfilePanel() {
   const [loading, setLoading] = useState(false);
 
   const loadProfile = useCallback(async () => {
-    const response = await fetch("/api/auth/profile", { cache: "no-store" });
+    const response = await fetch('/api/auth/profile', { cache: 'no-store' });
     const data = (await response.json()) as {
       user?: {
         comfyUiUrl?: string;
@@ -48,10 +48,10 @@ export default function ProfilePanel() {
       error?: string;
     };
     if (response.ok && data.user) {
-      setComfyUiUrl(data.user.comfyUiUrl ?? "");
+      setComfyUiUrl(data.user.comfyUiUrl ?? '');
       setCampaign(data.user.scheduledCampaign ?? DEFAULT_CAMPAIGN);
       setExportEnabled(Boolean(data.user.exportEnabled));
-      setEmail(data.user.email ?? "");
+      setEmail(data.user.email ?? '');
       setEmailNotifyBatch(data.user.emailNotifyBatch !== false);
       setEmailNotifySecurity(data.user.emailNotifySecurity !== false);
     }
@@ -60,8 +60,8 @@ export default function ProfilePanel() {
   useEffect(() => {
     scheduleAfterCommit(() => {
       void loadProfile();
-      void fetch("/api/shared-presets")
-        .then((response) => response.json())
+      void fetch('/api/shared-presets')
+        .then(response => response.json())
         .then((data: { presets?: SharedPresetEntry[] }) => setSharedPresets(data.presets ?? []))
         .catch(() => setSharedPresets([]));
     });
@@ -71,9 +71,9 @@ export default function ProfilePanel() {
     setLoading(true);
     setStatus(null);
     try {
-      const response = await fetch("/api/auth/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           currentPassword: currentPassword || undefined,
           password: password || undefined,
@@ -87,15 +87,15 @@ export default function ProfilePanel() {
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
-        throw new Error(data.error ?? "Save failed.");
+        throw new Error(data.error ?? 'Save failed.');
       }
-      setPassword("");
-      setCurrentPassword("");
-      setStatus("Profile saved.");
+      setPassword('');
+      setCurrentPassword('');
+      setStatus('Profile saved.');
       await refresh();
       await loadProfile();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Save failed.");
+      setStatus(error instanceof Error ? error.message : 'Save failed.');
     } finally {
       setLoading(false);
     }
@@ -140,7 +140,7 @@ export default function ProfilePanel() {
             <TextInput
               type="password"
               value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
+              onChange={event => setCurrentPassword(event.target.value)}
               autoComplete="current-password"
             />
           </label>
@@ -149,7 +149,7 @@ export default function ProfilePanel() {
             <TextInput
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={event => setPassword(event.target.value)}
               autoComplete="new-password"
             />
           </label>
@@ -158,7 +158,8 @@ export default function ProfilePanel() {
 
       <ToolSection title="Email notifications">
         <p className="mb-3 text-sm text-zinc-400">
-          Optional address for batch completion and password-change alerts when SMTP is configured on the server.
+          Optional address for batch completion and password-change alerts when SMTP is configured
+          on the server.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-2 text-sm sm:col-span-2">
@@ -166,7 +167,7 @@ export default function ProfilePanel() {
             <TextInput
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={event => setEmail(event.target.value)}
               placeholder="you@example.com"
               autoComplete="email"
             />
@@ -175,7 +176,7 @@ export default function ProfilePanel() {
             <input
               type="checkbox"
               checked={emailNotifyBatch}
-              onChange={(event) => setEmailNotifyBatch(event.target.checked)}
+              onChange={event => setEmailNotifyBatch(event.target.checked)}
               className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
             />
             Batch & campaign completion
@@ -184,7 +185,7 @@ export default function ProfilePanel() {
             <input
               type="checkbox"
               checked={emailNotifySecurity}
-              onChange={(event) => setEmailNotifySecurity(event.target.checked)}
+              onChange={event => setEmailNotifySecurity(event.target.checked)}
               className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
             />
             Password & security updates
@@ -197,18 +198,18 @@ export default function ProfilePanel() {
           onClick={async () => {
             setStatus(null);
             try {
-              const response = await fetch("/api/email/test", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+              const response = await fetch('/api/email/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ to: email.trim() || undefined }),
               });
               const data = (await response.json()) as { error?: string; to?: string };
               if (!response.ok) {
-                throw new Error(data.error ?? "Test email failed.");
+                throw new Error(data.error ?? 'Test email failed.');
               }
               setStatus(`Test email sent to ${data.to ?? email}.`);
             } catch (error) {
-              setStatus(error instanceof Error ? error.message : "Test email failed.");
+              setStatus(error instanceof Error ? error.message : 'Test email failed.');
             }
           }}
         >
@@ -222,20 +223,21 @@ export default function ProfilePanel() {
         </p>
         <TextInput
           value={comfyUiUrl}
-          onChange={(event) => setComfyUiUrl(event.target.value)}
+          onChange={event => setComfyUiUrl(event.target.value)}
           placeholder="http://127.0.0.1:8188"
         />
       </ToolSection>
 
       <ToolSection title="Scheduled campaign">
         <p className="mb-3 text-sm text-zinc-400">
-          Server maintenance runs user campaigns when <code className="text-zinc-300">SERVER_USER_MAINTENANCE=true</code>.
+          Server maintenance runs user campaigns when{' '}
+          <code className="text-zinc-300">SERVER_USER_MAINTENANCE=true</code>.
         </p>
         <label className="mb-3 flex items-center gap-2 text-sm text-zinc-300">
           <input
             type="checkbox"
             checked={campaign.enabled}
-            onChange={(event) => setCampaign((prev) => ({ ...prev, enabled: event.target.checked }))}
+            onChange={event => setCampaign(prev => ({ ...prev, enabled: event.target.checked }))}
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
           Enable scheduled campaign
@@ -245,10 +247,10 @@ export default function ProfilePanel() {
             <span className="type-caption text-zinc-500">Target</span>
             <select
               value={campaign.target}
-              onChange={(event) =>
-                setCampaign((prev) => ({
+              onChange={event =>
+                setCampaign(prev => ({
                   ...prev,
-                  target: event.target.value as UserScheduledCampaign["target"],
+                  target: event.target.value as UserScheduledCampaign['target'],
                 }))
               }
               className="ui-input w-full"
@@ -262,8 +264,8 @@ export default function ProfilePanel() {
             <TextInput
               type="number"
               value={String(campaign.intervalMin)}
-              onChange={(event) =>
-                setCampaign((prev) => ({
+              onChange={event =>
+                setCampaign(prev => ({
                   ...prev,
                   intervalMin: Math.max(5, Number(event.target.value) || 60),
                 }))
@@ -275,8 +277,8 @@ export default function ProfilePanel() {
             <TextInput
               type="number"
               value={String(campaign.count)}
-              onChange={(event) =>
-                setCampaign((prev) => ({
+              onChange={event =>
+                setCampaign(prev => ({
                   ...prev,
                   count: Math.max(1, Math.min(12, Number(event.target.value) || 3)),
                 }))
@@ -287,8 +289,8 @@ export default function ProfilePanel() {
             <input
               type="checkbox"
               checked={campaign.autoQueueComfyUi}
-              onChange={(event) =>
-                setCampaign((prev) => ({ ...prev, autoQueueComfyUi: event.target.checked }))
+              onChange={event =>
+                setCampaign(prev => ({ ...prev, autoQueueComfyUi: event.target.checked }))
               }
               className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
             />
@@ -298,9 +300,9 @@ export default function ProfilePanel() {
             <span className="type-caption text-zinc-500">Best-of-N rank (optional)</span>
             <TextInput
               type="number"
-              value={campaign.bestOfN ? String(campaign.bestOfN) : ""}
-              onChange={(event) =>
-                setCampaign((prev) => ({
+              value={campaign.bestOfN ? String(campaign.bestOfN) : ''}
+              onChange={event =>
+                setCampaign(prev => ({
                   ...prev,
                   bestOfN: event.target.value ? Math.max(2, Number(event.target.value)) : undefined,
                 }))
@@ -316,7 +318,7 @@ export default function ProfilePanel() {
           <input
             type="checkbox"
             checked={exportEnabled}
-            onChange={(event) => setExportEnabled(event.target.checked)}
+            onChange={event => setExportEnabled(event.target.checked)}
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
           Include my synced history/gallery in nightly server exports
@@ -327,7 +329,7 @@ export default function ProfilePanel() {
         <ToolSection title="Shared preset library">
           <p className="mb-3 text-sm text-zinc-400">Read-only presets published by admins.</p>
           <ul className="space-y-2">
-            {sharedPresets.map((preset) => (
+            {sharedPresets.map(preset => (
               <li
                 key={preset.id}
                 className="rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-sm"
@@ -355,7 +357,7 @@ export default function ProfilePanel() {
       <ProfileSecurityPanel />
 
       <Button type="button" disabled={loading} onClick={() => void saveProfile()}>
-        {loading ? "Saving…" : "Save profile"}
+        {loading ? 'Saving…' : 'Save profile'}
       </Button>
     </div>
   );

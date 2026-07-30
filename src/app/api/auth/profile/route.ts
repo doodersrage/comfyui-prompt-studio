@@ -1,40 +1,38 @@
-import { apiError, apiJson } from "@/lib/api/response";
-import { readSessionFromRequest } from "@/lib/auth/session";
-import { appendAuditLog } from "@/lib/auth/audit-log";
+import { apiError, apiJson } from '@/lib/api/response';
+import { readSessionFromRequest } from '@/lib/auth/session';
+import { appendAuditLog } from '@/lib/auth/audit-log';
 import {
   findUserById,
   isAuthEnabled,
   listAllowedFeatures,
   toPublicUser,
   updateUserProfile,
-} from "@/lib/auth/store";
-import type { UserScheduledCampaign } from "@/lib/auth/types";
-import { notifyPasswordChanged } from "@/lib/email/notifications";
+} from '@/lib/auth/store';
+import type { UserScheduledCampaign } from '@/lib/auth/types';
+import { notifyPasswordChanged } from '@/lib/email/notifications';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 function resolveUser(request: Request) {
   if (!isAuthEnabled()) {
-    return { error: apiError("Authentication is disabled.", 400) };
+    return { error: apiError('Authentication is disabled.', 400) };
   }
   const session = readSessionFromRequest(request);
   const user = session ? findUserById(session.userId) : null;
   if (!user || !user.enabled) {
-    return { error: apiError("Sign in required.", 401) };
+    return { error: apiError('Sign in required.', 401) };
   }
   return { user, session };
 }
 
 export async function GET(request: Request) {
   const resolved = resolveUser(request);
-  if ("error" in resolved) {
+  if ('error' in resolved) {
     return resolved.error;
   }
 
   const { user, session } = resolved;
-  const impersonator = session?.impersonatorId
-    ? findUserById(session.impersonatorId)
-    : null;
+  const impersonator = session?.impersonatorId ? findUserById(session.impersonatorId) : null;
 
   return apiJson({
     user: toPublicUser(user),
@@ -46,7 +44,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   const resolved = resolveUser(request);
-  if ("error" in resolved) {
+  if ('error' in resolved) {
     return resolved.error;
   }
 
@@ -64,7 +62,7 @@ export async function PATCH(request: Request) {
   try {
     body = (await request.json()) as typeof body;
   } catch {
-    return apiError("Invalid JSON body.", 400);
+    return apiError('Invalid JSON body.', 400);
   }
 
   try {
@@ -73,17 +71,17 @@ export async function PATCH(request: Request) {
       appendAuditLog({
         actorUserId: resolved.user.id,
         actorUsername: resolved.user.username,
-        action: "password.changed",
+        action: 'password.changed',
         target: resolved.user.id,
       });
       void notifyPasswordChanged({
         userId: resolved.user.id,
         username: resolved.user.username,
-        changedBy: "self",
+        changedBy: 'self',
       });
     }
     return apiJson({ user });
   } catch (error) {
-    return apiError(error instanceof Error ? error.message : "Profile update failed.", 400);
+    return apiError(error instanceof Error ? error.message : 'Profile update failed.', 400);
   }
 }

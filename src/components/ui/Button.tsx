@@ -1,9 +1,9 @@
-import Link from "next/link";
-import type { LinkProps } from "next/link";
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
+import Link from 'next/link';
+import type { LinkProps } from 'next/link';
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "info" | "accent-outline";
-type ButtonSize = "default" | "sm";
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'info' | 'accent-outline';
+type ButtonSize = 'default' | 'sm';
 
 type LoadingProps = {
   loading?: boolean;
@@ -19,27 +19,27 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
   };
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "ui-btn-primary",
-  secondary: "ui-btn-secondary",
-  ghost: "ui-btn-ghost",
-  danger: "ui-btn-danger",
-  info: "ui-btn-info",
-  "accent-outline": "ui-btn-accent-outline",
+  primary: 'ui-btn-primary',
+  secondary: 'ui-btn-secondary',
+  ghost: 'ui-btn-ghost',
+  danger: 'ui-btn-danger',
+  info: 'ui-btn-info',
+  'accent-outline': 'ui-btn-accent-outline',
 };
 
 function buttonClassName({
-  variant = "secondary",
-  size = "default",
+  variant = 'secondary',
+  size = 'default',
   fullWidth = false,
-  className = "",
+  className = '',
 }: {
   variant?: ButtonVariant;
   size?: ButtonSize;
   fullWidth?: boolean;
   className?: string;
 }) {
-  const sizeClass = size === "sm" ? "ui-btn-sm" : "";
-  return `${variantClasses[variant]} ${sizeClass} ${fullWidth ? "ui-btn-full" : ""} ${className}`.trim();
+  const sizeClass = size === 'sm' ? 'ui-btn-sm' : '';
+  return `${variantClasses[variant]} ${sizeClass} ${fullWidth ? 'ui-btn-full' : ''} ${className}`.trim();
 }
 
 function ButtonContent({
@@ -53,26 +53,21 @@ function ButtonContent({
 }) {
   return (
     <>
-      {loading ? (
-        <span className="ui-spinner ui-spinner-sm" aria-hidden />
-      ) : null}
-      <span className={loading ? "opacity-90" : undefined}>{children}</span>
-      {loading && loadingLabel ? (
-        <span className="sr-only">{loadingLabel}</span>
-      ) : null}
+      {loading ? <span className="ui-spinner ui-spinner-sm" aria-hidden /> : null}
+      <span className={loading ? 'opacity-90' : undefined}>{children}</span>
+      {loading && loadingLabel ? <span className="sr-only">{loadingLabel}</span> : null}
     </>
   );
 }
 
 export function Spinner({
-  size = "md",
-  className = "",
+  size = 'md',
+  className = '',
 }: {
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 }) {
-  const sizeClass =
-    size === "sm" ? "ui-spinner-sm" : size === "lg" ? "ui-spinner-lg" : "";
+  const sizeClass = size === 'sm' ? 'ui-spinner-sm' : size === 'lg' ? 'ui-spinner-lg' : '';
   return (
     <span
       className={`ui-spinner ${sizeClass} ${className}`.trim()}
@@ -82,20 +77,17 @@ export function Spinner({
   );
 }
 
-export function Skeleton({
-  className = "",
-  ...props
-}: HTMLAttributes<HTMLDivElement>) {
+export function Skeleton({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={`ui-skeleton ${className}`.trim()} {...props} />;
 }
 
 export function Button({
-  variant = "secondary",
-  size = "default",
+  variant = 'secondary',
+  size = 'default',
   fullWidth = false,
   loading = false,
   loadingLabel,
-  className = "",
+  className = '',
   children,
   disabled,
   ...props
@@ -115,7 +107,7 @@ export function Button({
   );
 }
 
-type ButtonLinkProps = Omit<LinkProps, "className"> & {
+type ButtonLinkProps = Omit<LinkProps, 'className'> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
   className?: string;
@@ -123,9 +115,9 @@ type ButtonLinkProps = Omit<LinkProps, "className"> & {
 };
 
 export function ButtonLink({
-  variant = "secondary",
-  size = "default",
-  className = "",
+  variant = 'secondary',
+  size = 'default',
+  className = '',
   children,
   ...props
 }: ButtonLinkProps) {
@@ -137,8 +129,8 @@ export function ButtonLink({
 }
 
 export function PrimaryButton({
-  accentClassName = "ui-btn-primary",
-  className = "",
+  accentClassName = 'ui-btn-primary',
+  className = '',
   loading = false,
   loadingLabel,
   children,

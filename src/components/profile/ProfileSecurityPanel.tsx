@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { TextInput } from "@/components/ui/Field";
-import { ToolSection } from "@/components/ui/ToolPageShell";
+import { useCallback, useEffect, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { TextInput } from '@/components/ui/Field';
+import { ToolSection } from '@/components/ui/ToolPageShell';
 import {
   DEFAULT_KEYBOARD_SHORTCUTS,
   loadKeyboardShortcuts,
   saveKeyboardShortcuts,
-} from "@/lib/keyboard-shortcuts-store";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+} from '@/lib/keyboard-shortcuts-store';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 type ApiKeyRow = {
   id: string;
@@ -29,22 +29,22 @@ type SessionRow = {
 
 export default function ProfileSecurityPanel() {
   const [apiKeys, setApiKeys] = useState<ApiKeyRow[]>([]);
-  const [newKeyLabel, setNewKeyLabel] = useState("");
+  const [newKeyLabel, setNewKeyLabel] = useState('');
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [totpEnabled, setTotpEnabled] = useState(false);
   const [totpSetup, setTotpSetup] = useState<{ secret: string; uri: string } | null>(null);
-  const [totpCode, setTotpCode] = useState("");
-  const [shortcutsJson, setShortcutsJson] = useState("");
+  const [totpCode, setTotpCode] = useState('');
+  const [shortcutsJson, setShortcutsJson] = useState('');
   const [shortcutBindings, setShortcutBindings] = useState(DEFAULT_KEYBOARD_SHORTCUTS);
   const [status, setStatus] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [keysRes, sessionsRes, totpRes] = await Promise.all([
-      fetch("/api/auth/api-keys"),
-      fetch("/api/auth/sessions"),
-      fetch("/api/auth/totp"),
+      fetch('/api/auth/api-keys'),
+      fetch('/api/auth/sessions'),
+      fetch('/api/auth/totp'),
     ]);
     const keysData = (await keysRes.json()) as { keys?: ApiKeyRow[] };
     const sessionsData = (await sessionsRes.json()) as {
@@ -72,24 +72,24 @@ export default function ProfileSecurityPanel() {
 
       <ToolSection title="API keys">
         <p className="mb-3 text-sm text-zinc-400">
-          Personal tokens for CLI and inbound hooks. Use{" "}
+          Personal tokens for CLI and inbound hooks. Use{' '}
           <code className="text-zinc-300">Authorization: Bearer pt_…</code>
         </p>
         <div className="flex flex-wrap gap-2">
           <TextInput
             value={newKeyLabel}
-            onChange={(event) => setNewKeyLabel(event.target.value)}
+            onChange={event => setNewKeyLabel(event.target.value)}
             placeholder="Key label"
           />
           <Button
             variant="secondary"
             onClick={() =>
-              void fetch("/api/auth/api-keys", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ label: newKeyLabel || "API key" }),
+              void fetch('/api/auth/api-keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ label: newKeyLabel || 'API key' }),
               })
-                .then((response) => response.json())
+                .then(response => response.json())
                 .then((data: { token?: string }) => {
                   setCreatedToken(data.token ?? null);
                   void refresh();
@@ -105,16 +105,21 @@ export default function ProfileSecurityPanel() {
           </p>
         ) : null}
         <ul className="mt-3 space-y-2">
-          {apiKeys.map((key) => (
-            <li key={key.id} className="flex items-center justify-between rounded-xl border border-zinc-800 px-3 py-2 text-sm">
-              <span>{key.label} · {key.prefix}…</span>
+          {apiKeys.map(key => (
+            <li
+              key={key.id}
+              className="flex items-center justify-between rounded-xl border border-zinc-800 px-3 py-2 text-sm"
+            >
+              <span>
+                {key.label} · {key.prefix}…
+              </span>
               <button
                 type="button"
                 className="text-xs text-rose-300"
                 onClick={() =>
-                  void fetch("/api/auth/api-keys", {
-                    method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
+                  void fetch('/api/auth/api-keys', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ keyId: key.id }),
                   }).then(() => refresh())
                 }
@@ -128,21 +133,25 @@ export default function ProfileSecurityPanel() {
 
       <ToolSection title="Active sessions">
         <ul className="space-y-2">
-          {sessions.map((session) => (
-            <li key={session.id} className="rounded-xl border border-zinc-800 px-3 py-2 text-sm text-zinc-300">
-              <p>{session.userAgent ?? "Unknown device"}</p>
+          {sessions.map(session => (
+            <li
+              key={session.id}
+              className="rounded-xl border border-zinc-800 px-3 py-2 text-sm text-zinc-300"
+            >
+              <p>{session.userAgent ?? 'Unknown device'}</p>
               <p className="text-xs text-zinc-500">
-                {session.ip ?? "unknown IP"} · last seen {new Date(session.lastSeenAt).toLocaleString()}
-                {session.id === currentSessionId ? " · current" : ""}
+                {session.ip ?? 'unknown IP'} · last seen{' '}
+                {new Date(session.lastSeenAt).toLocaleString()}
+                {session.id === currentSessionId ? ' · current' : ''}
               </p>
               {session.id !== currentSessionId ? (
                 <button
                   type="button"
                   className="mt-1 text-xs text-rose-300"
                   onClick={() =>
-                    void fetch("/api/auth/sessions", {
-                      method: "DELETE",
-                      headers: { "Content-Type": "application/json" },
+                    void fetch('/api/auth/sessions', {
+                      method: 'DELETE',
+                      headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ sessionId: session.id }),
                     }).then(() => refresh())
                   }
@@ -157,23 +166,23 @@ export default function ProfileSecurityPanel() {
 
       <ToolSection title="Two-factor authentication">
         <p className="mb-3 text-sm text-zinc-400">
-          TOTP status: {totpEnabled ? "enabled" : "disabled"}
+          TOTP status: {totpEnabled ? 'enabled' : 'disabled'}
         </p>
         {!totpEnabled ? (
           <div className="space-y-2">
             <Button
               variant="secondary"
               onClick={() =>
-                void fetch("/api/auth/totp", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ action: "begin-setup" }),
+                void fetch('/api/auth/totp', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'begin-setup' }),
                 })
-                  .then((response) => response.json())
+                  .then(response => response.json())
                   .then((data: { secret?: string; uri?: string }) =>
                     setTotpSetup(
-                      data.secret && data.uri ? { secret: data.secret, uri: data.uri } : null,
-                    ),
+                      data.secret && data.uri ? { secret: data.secret, uri: data.uri } : null
+                    )
                   )
               }
             >
@@ -181,19 +190,25 @@ export default function ProfileSecurityPanel() {
             </Button>
             {totpSetup ? (
               <div className="space-y-2 text-sm text-zinc-400">
-                <p>Secret: <code>{totpSetup.secret}</code></p>
-                <TextInput value={totpCode} onChange={(event) => setTotpCode(event.target.value)} placeholder="6-digit code" />
+                <p>
+                  Secret: <code>{totpSetup.secret}</code>
+                </p>
+                <TextInput
+                  value={totpCode}
+                  onChange={event => setTotpCode(event.target.value)}
+                  placeholder="6-digit code"
+                />
                 <Button
                   onClick={() =>
-                    void fetch("/api/auth/totp", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ action: "confirm", code: totpCode }),
+                    void fetch('/api/auth/totp', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'confirm', code: totpCode }),
                     }).then(() => {
                       setTotpSetup(null);
-                      setTotpCode("");
+                      setTotpCode('');
                       void refresh();
-                      setStatus("TOTP enabled.");
+                      setStatus('TOTP enabled.');
                     })
                   }
                 >
@@ -206,10 +221,10 @@ export default function ProfileSecurityPanel() {
           <Button
             variant="ghost"
             onClick={() =>
-              void fetch("/api/auth/totp", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "disable" }),
+              void fetch('/api/auth/totp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'disable' }),
               }).then(() => refresh())
             }
           >
@@ -229,13 +244,11 @@ export default function ProfileSecurityPanel() {
                 Action
                 <TextInput
                   value={binding.action}
-                  onChange={(event) =>
-                    setShortcutBindings((previous) =>
+                  onChange={event =>
+                    setShortcutBindings(previous =>
                       previous.map((entry, entryIndex) =>
-                        entryIndex === index
-                          ? { ...entry, action: event.target.value }
-                          : entry,
-                      ),
+                        entryIndex === index ? { ...entry, action: event.target.value } : entry
+                      )
                     )
                   }
                 />
@@ -244,13 +257,11 @@ export default function ProfileSecurityPanel() {
                 Combo
                 <TextInput
                   value={binding.combo}
-                  onChange={(event) =>
-                    setShortcutBindings((previous) =>
+                  onChange={event =>
+                    setShortcutBindings(previous =>
                       previous.map((entry, entryIndex) =>
-                        entryIndex === index
-                          ? { ...entry, combo: event.target.value }
-                          : entry,
-                      ),
+                        entryIndex === index ? { ...entry, combo: event.target.value } : entry
+                      )
                     )
                   }
                 />
@@ -258,17 +269,17 @@ export default function ProfileSecurityPanel() {
               <label className="space-y-1 text-xs text-zinc-400">
                 Selector (optional)
                 <TextInput
-                  value={binding.selector ?? ""}
-                  onChange={(event) =>
-                    setShortcutBindings((previous) =>
+                  value={binding.selector ?? ''}
+                  onChange={event =>
+                    setShortcutBindings(previous =>
                       previous.map((entry, entryIndex) =>
                         entryIndex === index
                           ? {
                               ...entry,
                               selector: event.target.value.trim() || undefined,
                             }
-                          : entry,
-                      ),
+                          : entry
+                      )
                     )
                   }
                   placeholder="[data-action='…']"
@@ -283,7 +294,7 @@ export default function ProfileSecurityPanel() {
             onClick={() => {
               saveKeyboardShortcuts(shortcutBindings);
               setShortcutsJson(JSON.stringify(shortcutBindings, null, 2));
-              setStatus("Shortcuts saved.");
+              setStatus('Shortcuts saved.');
             }}
           >
             Save shortcuts

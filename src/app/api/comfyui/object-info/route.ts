@@ -1,21 +1,21 @@
-import { fetchComfyObjectInfoPayload } from "@/lib/comfyui-object-info";
-import { stripEmptyComfyUiRuntime } from "@/lib/comfyui-config";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+import { fetchComfyObjectInfoPayload } from '@/lib/comfyui-object-info';
+import { stripEmptyComfyUiRuntime } from '@/lib/comfyui-config';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const runtime = stripEmptyComfyUiRuntime({
-    apiUrl: searchParams.get("comfyUrl") ?? undefined,
+    apiUrl: searchParams.get('comfyUrl') ?? undefined,
   });
-  const forceRefresh = searchParams.get("forceRefresh") === "1";
+  const forceRefresh = searchParams.get('forceRefresh') === '1';
 
   try {
     const payload = await fetchComfyObjectInfoPayload(runtime, { forceRefresh });
     if (!payload) {
-      return apiError("Could not read ComfyUI object_info.", 502);
+      return apiError('Could not read ComfyUI object_info.', 502);
     }
     return apiJson({
       ok: true,
@@ -25,26 +25,23 @@ export async function GET(request: Request) {
       webpSaveAdapters: payload.webpSaveAdapters,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "ComfyUI object_info check failed.";
-    const status = /not allowed|Invalid URL|URL is required|allowlist/i.test(message)
-      ? 400
-      : 502;
+    const message = error instanceof Error ? error.message : 'ComfyUI object_info check failed.';
+    const status = /not allowed|Invalid URL|URL is required|allowlist/i.test(message) ? 400 : 502;
     return apiError(message, status);
   }
 }
 
 export async function POST() {
-  return apiMethodNotAllowed(["GET"], "/api/comfyui/object-info");
+  return apiMethodNotAllowed(['GET'], '/api/comfyui/object-info');
 }
 
 export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

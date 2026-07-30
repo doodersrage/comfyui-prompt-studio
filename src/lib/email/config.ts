@@ -14,17 +14,14 @@ export type EmailConfig = {
 };
 
 function flag(value: string | undefined): boolean {
-  return value?.trim().toLowerCase() === "true";
+  return value?.trim().toLowerCase() === 'true';
 }
 
 export function getEmailConfig(): EmailConfig {
-  const host = process.env.PROMPT_SMTP_HOST?.trim() ?? "";
+  const host = process.env.PROMPT_SMTP_HOST?.trim() ?? '';
   const from =
-    process.env.PROMPT_EMAIL_FROM?.trim() ||
-    (host ? "Prompt Studio <noreply@localhost>" : "");
-  const enabled =
-    flag(process.env.PROMPT_EMAIL_ENABLED) ||
-    (Boolean(host) && Boolean(from));
+    process.env.PROMPT_EMAIL_FROM?.trim() || (host ? 'Prompt Studio <noreply@localhost>' : '');
+  const enabled = flag(process.env.PROMPT_EMAIL_ENABLED) || (Boolean(host) && Boolean(from));
 
   return {
     enabled,
@@ -32,13 +29,13 @@ export function getEmailConfig(): EmailConfig {
     adminEmail: process.env.PROMPT_ADMIN_EMAIL?.trim() || undefined,
     smtp: {
       host,
-      port: Number(process.env.PROMPT_SMTP_PORT ?? "587"),
+      port: Number(process.env.PROMPT_SMTP_PORT ?? '587'),
       secure: flag(process.env.PROMPT_SMTP_SECURE),
       user: process.env.PROMPT_SMTP_USER?.trim() || undefined,
       pass: process.env.PROMPT_SMTP_PASS?.trim() || undefined,
     },
-    notifyBatch: process.env.PROMPT_EMAIL_NOTIFY_BATCH?.trim() !== "false",
-    notifyPassword: process.env.PROMPT_EMAIL_NOTIFY_PASSWORD?.trim() !== "false",
+    notifyBatch: process.env.PROMPT_EMAIL_NOTIFY_BATCH?.trim() !== 'false',
+    notifyPassword: process.env.PROMPT_EMAIL_NOTIFY_PASSWORD?.trim() !== 'false',
   };
 }
 

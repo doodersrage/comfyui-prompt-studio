@@ -3,10 +3,9 @@ import type {
   ReactNode,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
-} from "react";
+} from 'react';
 
-const inputClassName =
-  "ui-input px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body";
+const inputClassName = 'ui-input px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body';
 
 const selectClassName = `${inputClassName} ui-select`;
 
@@ -29,15 +28,12 @@ export function FieldLabel({
   );
 }
 
-export function TextInput({
-  className = "",
-  ...props
-}: InputHTMLAttributes<HTMLInputElement>) {
+export function TextInput({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={`${inputClassName} ${className}`.trim()} {...props} />;
 }
 
 export function SelectInput({
-  className = "",
+  className = '',
   children,
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement>) {
@@ -49,7 +45,7 @@ export function SelectInput({
 }
 
 export function TextArea({
-  className = "",
+  className = '',
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
@@ -61,7 +57,7 @@ export function TextArea({
 }
 
 export function MonoTextArea({
-  className = "",
+  className = '',
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
@@ -88,7 +84,7 @@ export function ChipButton({
   active,
   onClick,
   children,
-  className = "",
+  className = '',
   disabled = false,
   title,
 }: {
@@ -105,7 +101,7 @@ export function ChipButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      data-active={active ? "true" : "false"}
+      data-active={active ? 'true' : 'false'}
       className={`ui-chip ${className}`.trim()}
     >
       {children}

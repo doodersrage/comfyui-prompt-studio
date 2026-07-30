@@ -1,8 +1,8 @@
-import { generateVideoPrompt } from "@/lib/video-prompt";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { normalizeComfyModel } from "@/lib/comfy-models";
+import { generateVideoPrompt } from '@/lib/video-prompt';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { normalizeComfyModel } from '@/lib/comfy-models';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     };
 
     if (!body.subject?.trim()) {
-      return apiError("subject is required.", 400);
+      return apiError('subject is required.', 400);
     }
 
     const result = await generateVideoPrompt({
@@ -32,10 +32,10 @@ export async function POST(request: Request) {
 
     return apiJson({ prompt: result.prompt, method: result.method });
   } catch (error) {
-    return apiError(error instanceof Error ? error.message : "Video prompt failed.", 500);
+    return apiError(error instanceof Error ? error.message : 'Video prompt failed.', 500);
   }
 }
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/video-prompt");
+  return apiMethodNotAllowed(['POST'], '/api/video-prompt');
 }

@@ -4,8 +4,8 @@ export default function OfflinePage() {
       <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Offline</p>
       <h1 className="text-3xl font-semibold tracking-tight">Shell only</h1>
       <p className="text-sm leading-relaxed text-zinc-400">
-        You&apos;re offline. Settings and cached gallery views may still open;
-        queueing and LLM calls need a network connection.
+        You&apos;re offline. Settings and cached gallery views may still open; queueing and LLM
+        calls need a network connection.
       </p>
     </main>
   );

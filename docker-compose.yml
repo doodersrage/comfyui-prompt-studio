@@ -3,7 +3,7 @@ services:
     build: .
     ports:
       # Bind to loopback by default — do not expose the unauthenticated API on all interfaces.
-      - "127.0.0.1:47832:47832"
+      - '127.0.0.1:47832:47832'
     environment:
       PORT: 47832
       LLM_ENABLED: ${LLM_ENABLED:-true}
@@ -20,16 +20,16 @@ services:
   ollama:
     image: ollama/ollama:latest
     ports:
-      - "127.0.0.1:11434:11434"
+      - '127.0.0.1:11434:11434'
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped
 
   comfyui:
     image: ghcr.io/ai-dock/comfyui:latest
-    profiles: ["comfyui"]
+    profiles: ['comfyui']
     ports:
-      - "127.0.0.1:8188:8188"
+      - '127.0.0.1:8188:8188'
     environment:
       COMFY_PROMPT_API_URL: http://prompt-tools:47832
       PROMPT_API_TOKEN: ${PROMPT_API_TOKEN:-}

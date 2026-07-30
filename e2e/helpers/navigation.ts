@@ -1,13 +1,13 @@
-import type { Page } from "@playwright/test";
-import { dismissBlockingOverlays } from "./overlays";
+import type { Page } from '@playwright/test';
+import { dismissBlockingOverlays } from './overlays';
 
 /** Navigate with retries for transient next-dev / Fast Refresh aborts. */
 export async function gotoStable(
   page: Page,
   path: string,
-  options?: { waitUntil?: "load" | "domcontentloaded" | "commit" | "networkidle" },
+  options?: { waitUntil?: 'load' | 'domcontentloaded' | 'commit' | 'networkidle' }
 ): Promise<void> {
-  const waitUntil = options?.waitUntil ?? "domcontentloaded";
+  const waitUntil = options?.waitUntil ?? 'domcontentloaded';
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {

@@ -1,18 +1,18 @@
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { resolveUserIdFromApiKey } from "@/lib/auth/api-keys";
-import { findUserById } from "@/lib/auth/store";
-import { generatePrompt } from "@/lib/prompt-generator";
-import { normalizeGenerationSettings } from "@/lib/generation-settings";
-import { readSessionFromRequest } from "@/lib/auth/session";
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { resolveUserIdFromApiKey } from '@/lib/auth/api-keys';
+import { findUserById } from '@/lib/auth/store';
+import { generatePrompt } from '@/lib/prompt-generator';
+import { normalizeGenerationSettings } from '@/lib/generation-settings';
+import { readSessionFromRequest } from '@/lib/auth/session';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 function extractToken(request: Request): string | undefined {
-  const authorization = request.headers.get("authorization");
-  if (authorization?.toLowerCase().startsWith("bearer ")) {
+  const authorization = request.headers.get('authorization');
+  if (authorization?.toLowerCase().startsWith('bearer ')) {
     return authorization.slice(7).trim() || undefined;
   }
-  return request.headers.get("x-prompt-api-token")?.trim() || undefined;
+  return request.headers.get('x-prompt-api-token')?.trim() || undefined;
 }
 
 function resolveHookUser(request: Request) {
@@ -27,23 +27,23 @@ function resolveHookUser(request: Request) {
 
 export async function POST(request: Request) {
   const secret = process.env.INBOUND_WEBHOOK_SECRET?.trim();
-  const providedSecret = request.headers.get("x-prompt-hook-secret")?.trim();
+  const providedSecret = request.headers.get('x-prompt-hook-secret')?.trim();
   const user = resolveHookUser(request);
 
   const authorizedByUser = Boolean(user?.enabled);
   const authorizedBySecret = Boolean(secret && providedSecret && secret === providedSecret);
   if (!authorizedByUser && !authorizedBySecret) {
-    return apiError("Provide a user API key or X-Prompt-Hook-Secret.", 401);
+    return apiError('Provide a user API key or X-Prompt-Hook-Secret.', 401);
   }
 
   const body = (await request.json()) as {
     input?: string;
     model?: string;
     detail?: string;
-    mode?: "positive" | "negative";
+    mode?: 'positive' | 'negative';
   };
   if (!body.input?.trim()) {
-    return apiError("input is required.", 400);
+    return apiError('input is required.', 400);
   }
 
   const settings = normalizeGenerationSettings({
@@ -51,15 +51,11 @@ export async function POST(request: Request) {
     detail: body.detail,
   });
 
-  const result = await generatePrompt(
-    body.input,
-    body.mode ?? "positive",
-    settings,
-  );
+  const result = await generatePrompt(body.input, body.mode ?? 'positive', settings);
 
   return apiJson(result);
 }
 
 export async function OPTIONS() {
-  return apiMethodNotAllowed(["POST"], "/api/hooks/generate");
+  return apiMethodNotAllowed(['POST'], '/api/hooks/generate');
 }

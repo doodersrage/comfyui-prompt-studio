@@ -8,8 +8,8 @@
  *   node scripts/generate-clothing.mjs --target 3000
  */
 
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   accessories,
   bottoms,
@@ -31,12 +31,12 @@ import {
   socksPieces,
   headwearPieces,
   traditionalPieces,
-} from "./clothing-word-pools.mjs";
-import { tagClothingEntry } from "./clothing-tag-utils.mjs";
+} from './clothing-word-pools.mjs';
+import { tagClothingEntry } from './clothing-tag-utils.mjs';
 
 const ROOT = process.cwd();
-const LIB_DIR = path.join(ROOT, "src/lib");
-const BATCH_INDEX = path.join(LIB_DIR, "clothing-catalog-batches.ts");
+const LIB_DIR = path.join(ROOT, 'src/lib');
+const BATCH_INDEX = path.join(LIB_DIR, 'clothing-catalog-batches.ts');
 const CATALOG_GLOB = /^clothing-catalog-(\d+)\.ts$/;
 
 const CATEGORY_QUOTAS = {
@@ -50,7 +50,7 @@ const CATEGORY_QUOTAS = {
   intimate: 0.04,
   hosiery: 0.04,
   formalwear: 0.04,
-  "dressy-accessory": 0.04,
+  'dressy-accessory': 0.04,
   sleepwear: 0.04,
   underwear: 0.04,
   socks: 0.04,
@@ -61,13 +61,13 @@ const CATEGORY_QUOTAS = {
 function slugify(value) {
   return value
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
     .slice(0, 72);
 }
 
 function labelKey(category, label) {
-  return `${category}::${label.trim().toLowerCase().replace(/\s+/g, " ")}`;
+  return `${category}::${label.trim().toLowerCase().replace(/\s+/g, ' ')}`;
 }
 
 function parseArgs(argv) {
@@ -83,13 +83,13 @@ function parseArgs(argv) {
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === "--count") args.count = true;
-    else if (arg === "--dry-run") args.dryRun = true;
-    else if (arg === "--add") args.add = Number(argv[++i]);
-    else if (arg === "--target") args.target = Number(argv[++i]);
-    else if (arg === "--seed") args.seed = Number(argv[++i]);
-    else if (arg === "--batch") args.batch = Number(argv[++i]);
-    else if (arg === "--help" || arg === "-h") args.help = true;
+    if (arg === '--count') args.count = true;
+    else if (arg === '--dry-run') args.dryRun = true;
+    else if (arg === '--add') args.add = Number(argv[++i]);
+    else if (arg === '--target') args.target = Number(argv[++i]);
+    else if (arg === '--seed') args.seed = Number(argv[++i]);
+    else if (arg === '--batch') args.batch = Number(argv[++i]);
+    else if (arg === '--help' || arg === '-h') args.help = true;
   }
 
   return args;
@@ -117,16 +117,15 @@ Examples:
 function listCatalogFiles() {
   return fs
     .readdirSync(LIB_DIR)
-    .filter((name) => CATALOG_GLOB.test(name))
+    .filter(name => CATALOG_GLOB.test(name))
     .sort(
       (a, b) =>
-        Number(a.match(CATALOG_GLOB)?.[1] ?? "0") -
-        Number(b.match(CATALOG_GLOB)?.[1] ?? "0"),
+        Number(a.match(CATALOG_GLOB)?.[1] ?? '0') - Number(b.match(CATALOG_GLOB)?.[1] ?? '0')
     );
 }
 
 function parseEntriesFromFile(filePath) {
-  const content = fs.readFileSync(filePath, "utf8");
+  const content = fs.readFileSync(filePath, 'utf8');
   const entries = [];
   const re =
     /\{\s*id:\s*"([^"]+)",\s*label:\s*"([^"]+)",\s*category:\s*"([^"]+)",\s*script:\s*"([^"]*)"(?:,\s*gender:\s*"([^"]+)")?(?:,\s*contexts:\s*(\[[^\]]*\]))?\s*\}/g;
@@ -177,7 +176,7 @@ function loadExistingCatalog() {
 
 function nextBatchNumber(explicitBatch) {
   if (explicitBatch) return explicitBatch;
-  const batches = listCatalogFiles().map((f) => Number(f.match(CATALOG_GLOB)?.[1] ?? "0"));
+  const batches = listCatalogFiles().map(f => Number(f.match(CATALOG_GLOB)?.[1] ?? '0'));
   return batches.length === 0 ? 1 : Math.max(...batches) + 1;
 }
 
@@ -194,7 +193,7 @@ function buildPhrase(category, pick) {
   const detail = pick(details);
   const fit = pick(fits);
 
-  if (category === "outfit") {
+  if (category === 'outfit') {
     const outfit = pick(outfits);
     return {
       label: `${fit} ${color} ${outfit}`,
@@ -202,7 +201,7 @@ function buildPhrase(category, pick) {
     };
   }
 
-  if (category === "top") {
+  if (category === 'top') {
     const top = pick(tops);
     const material = pickCompatibleMaterial(top, pick);
     return {
@@ -211,7 +210,7 @@ function buildPhrase(category, pick) {
     };
   }
 
-  if (category === "bottom") {
+  if (category === 'bottom') {
     const bottom = pick(bottoms);
     return {
       label: `${color} ${bottom}`,
@@ -219,7 +218,7 @@ function buildPhrase(category, pick) {
     };
   }
 
-  if (category === "outerwear") {
+  if (category === 'outerwear') {
     const piece = pick(outerwear);
     const material = pickCompatibleMaterial(piece, pick);
     return {
@@ -228,7 +227,7 @@ function buildPhrase(category, pick) {
     };
   }
 
-  if (category === "footwear") {
+  if (category === 'footwear') {
     const shoe = pick(footwear);
     return {
       label: `${color} ${shoe}`,
@@ -236,34 +235,34 @@ function buildPhrase(category, pick) {
     };
   }
 
-  if (category === "swimwear") {
+  if (category === 'swimwear') {
     const piece = pick(swimwearPieces);
-    const material = pickFrom(["nylon", "polyester", "technical fabric", "neoprene", "mesh"], pick);
+    const material = pickFrom(['nylon', 'polyester', 'technical fabric', 'neoprene', 'mesh'], pick);
     return {
       label: `${color} ${material} ${piece}`,
       script: `a ${color} ${material} ${piece}, secure coverage and swim-ready fit`,
     };
   }
 
-  if (category === "intimate") {
+  if (category === 'intimate') {
     const piece = pick(intimatePieces);
-    const material = pickFrom(["silk", "satin", "lace", "mesh", "cotton", "modal"], pick);
+    const material = pickFrom(['silk', 'satin', 'lace', 'mesh', 'cotton', 'modal'], pick);
     return {
       label: `${color} ${material} ${piece}`,
       script: `a ${color} ${material} ${piece}, soft drape and private-setting fit`,
     };
   }
 
-  if (category === "hosiery") {
+  if (category === 'hosiery') {
     const piece = pick(hosieryPieces);
-    const material = pickFrom(["nylon", "silk", "microfiber", "wool", "mesh"], pick);
+    const material = pickFrom(['nylon', 'silk', 'microfiber', 'wool', 'mesh'], pick);
     return {
       label: `${color} ${material} ${piece}`,
       script: `${color} ${material} ${piece}, sheer or opaque coverage on the legs`,
     };
   }
 
-  if (category === "formalwear") {
+  if (category === 'formalwear') {
     const piece = pick(formalwearPieces);
     const material = pickCompatibleMaterial(piece, pick);
     return {
@@ -272,43 +271,46 @@ function buildPhrase(category, pick) {
     };
   }
 
-  if (category === "dressy-accessory") {
+  if (category === 'dressy-accessory') {
     const piece = pick(dressyAccessories);
-    const material = pickFrom(["satin", "silk", "velvet", "lace", "leather"], pick);
+    const material = pickFrom(['satin', 'silk', 'velvet', 'lace', 'leather'], pick);
     return {
       label: `${color} ${material} ${piece}`,
       script: `a ${color} ${material} ${piece}, formal scale and natural placement`,
     };
   }
 
-  if (category === "sleepwear") {
+  if (category === 'sleepwear') {
     const piece = pick(sleepwearPieces);
-    const material = pickFrom(["cotton", "flannel", "silk", "satin", "jersey", "modal", "linen"], pick);
+    const material = pickFrom(
+      ['cotton', 'flannel', 'silk', 'satin', 'jersey', 'modal', 'linen'],
+      pick
+    );
     return {
       label: `${color} ${material} ${piece}`,
       script: `a ${color} ${material} ${piece}, soft coverage and at-home fit`,
     };
   }
 
-  if (category === "underwear") {
+  if (category === 'underwear') {
     const piece = pick(underwearPieces);
-    const material = pickFrom(["cotton", "jersey", "modal", "mesh"], pick);
+    const material = pickFrom(['cotton', 'jersey', 'modal', 'mesh'], pick);
     return {
       label: `${color} ${material} ${piece}`,
       script: `a ${color} ${material} ${piece}, base-layer stretch and natural fit`,
     };
   }
 
-  if (category === "socks") {
+  if (category === 'socks') {
     const piece = pick(socksPieces);
-    const material = pickFrom(["cotton", "wool", "merino wool", "nylon", "mesh"], pick);
+    const material = pickFrom(['cotton', 'wool', 'merino wool', 'nylon', 'mesh'], pick);
     return {
       label: `${color} ${material} ${piece}`,
       script: `${color} ${material} ${piece}, knit texture and secure ankle fit`,
     };
   }
 
-  if (category === "headwear") {
+  if (category === 'headwear') {
     const piece = pick(headwearPieces);
     const material = pickCompatibleMaterial(piece, pick);
     return {
@@ -317,7 +319,7 @@ function buildPhrase(category, pick) {
     };
   }
 
-  if (category === "traditional") {
+  if (category === 'traditional') {
     const piece = pick(traditionalPieces);
     const material = pickCompatibleMaterial(piece, pick);
     return {
@@ -335,11 +337,26 @@ function buildPhrase(category, pick) {
 
 /** Ban nonsense material×garment combos models misread (silk work boots, latex hijab…). */
 const MATERIAL_BAN = [
-  { garment: /\b(?:boots?|sneakers?|cleats|oxford|loafer|heel|sandal|clog)\b/i, ban: /\b(?:silk|chiffon|lace|tulle|sequin)\b/i },
-  { garment: /\b(?:helmet|goggles|visor|toque|kippah)\b/i, ban: /\b(?:silk|chiffon|lace|latex|sequin)\b/i },
-  { garment: /\b(?:jeans|denim|coveralls|overalls|chore)\b/i, ban: /\b(?:silk|chiffon|lace|satin|sequin)\b/i },
-  { garment: /\b(?:raincoat|slicker|gore-tex|hardshell|softshell)\b/i, ban: /\b(?:silk|lace|chiffon|cashmere|velvet)\b/i },
-  { garment: /\b(?:scrubs|lab coat|surgical)\b/i, ban: /\b(?:leather|latex|sequin|velvet|brocade)\b/i },
+  {
+    garment: /\b(?:boots?|sneakers?|cleats|oxford|loafer|heel|sandal|clog)\b/i,
+    ban: /\b(?:silk|chiffon|lace|tulle|sequin)\b/i,
+  },
+  {
+    garment: /\b(?:helmet|goggles|visor|toque|kippah)\b/i,
+    ban: /\b(?:silk|chiffon|lace|latex|sequin)\b/i,
+  },
+  {
+    garment: /\b(?:jeans|denim|coveralls|overalls|chore)\b/i,
+    ban: /\b(?:silk|chiffon|lace|satin|sequin)\b/i,
+  },
+  {
+    garment: /\b(?:raincoat|slicker|gore-tex|hardshell|softshell)\b/i,
+    ban: /\b(?:silk|lace|chiffon|cashmere|velvet)\b/i,
+  },
+  {
+    garment: /\b(?:scrubs|lab coat|surgical)\b/i,
+    ban: /\b(?:leather|latex|sequin|velvet|brocade)\b/i,
+  },
   { garment: /\b(?:hijab|turban|abaya|kaftan)\b/i, ban: /\b(?:latex|neoprene|gore-tex|sequin)\b/i },
 ];
 
@@ -350,19 +367,17 @@ function pickFrom(pool, pick) {
 function pickCompatibleMaterial(garment, pickFn) {
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const material = materials[Math.floor(pickFn() * materials.length) % materials.length];
-    const banned = MATERIAL_BAN.some(
-      (rule) => rule.garment.test(garment) && rule.ban.test(material),
-    );
+    const banned = MATERIAL_BAN.some(rule => rule.garment.test(garment) && rule.ban.test(material));
     if (!banned) {
       return material;
     }
   }
-  return "cotton";
+  return 'cotton';
 }
 
 function generateEntries(byId, byLabel, countNeeded, seed) {
   const rand = createRng(seed);
-  const pick = (items) => items[Math.floor(rand() * items.length)];
+  const pick = items => items[Math.floor(rand() * items.length)];
   const categories = Object.keys(CATEGORY_QUOTAS);
   const newEntries = [];
   let attempts = 0;
@@ -400,7 +415,7 @@ function generateEntries(byId, byLabel, countNeeded, seed) {
 
   if (newEntries.length < countNeeded) {
     throw new Error(
-      `Only generated ${newEntries.length}/${countNeeded} entries. Try another --seed.`,
+      `Only generated ${newEntries.length}/${countNeeded} entries. Try another --seed.`
     );
   }
 
@@ -411,17 +426,17 @@ function writeBatchFile(batchNumber, entries) {
   const exportName = `CLOTHING_CATALOG_${batchNumber}`;
   const filePath = path.join(LIB_DIR, `clothing-catalog-${batchNumber}.ts`);
   const lines = entries.map(
-    (entry) =>
-      `  { id: ${JSON.stringify(entry.id)}, label: ${JSON.stringify(entry.label)}, category: ${JSON.stringify(entry.category)}, script: ${JSON.stringify(entry.script)}, gender: ${JSON.stringify(entry.gender)}, contexts: ${JSON.stringify(entry.contexts)} },`,
+    entry =>
+      `  { id: ${JSON.stringify(entry.id)}, label: ${JSON.stringify(entry.label)}, category: ${JSON.stringify(entry.category)}, script: ${JSON.stringify(entry.script)}, gender: ${JSON.stringify(entry.gender)}, contexts: ${JSON.stringify(entry.contexts)} },`
   );
 
   const content = [
     `/** Clothing catalog batch ${batchNumber}. Generated by scripts/generate-clothing.mjs */`,
     `export const ${exportName} = [`,
     ...lines,
-    "] as const;",
-    "",
-  ].join("\n");
+    '] as const;',
+    '',
+  ].join('\n');
 
   fs.writeFileSync(filePath, content);
   return filePath;
@@ -430,39 +445,39 @@ function writeBatchFile(batchNumber, entries) {
 function writeBatchIndex() {
   const files = listCatalogFiles();
   const imports = files
-    .map((fileName) => {
-      const batchNumber = Number(fileName.match(CATALOG_GLOB)?.[1] ?? "0");
+    .map(fileName => {
+      const batchNumber = Number(fileName.match(CATALOG_GLOB)?.[1] ?? '0');
       return `import { CLOTHING_CATALOG_${batchNumber} } from "./clothing-catalog-${batchNumber}";`;
     })
-    .join("\n");
+    .join('\n');
 
   const spreads = files
-    .map((fileName) => {
-      const batchNumber = Number(fileName.match(CATALOG_GLOB)?.[1] ?? "0");
+    .map(fileName => {
+      const batchNumber = Number(fileName.match(CATALOG_GLOB)?.[1] ?? '0');
       return `  ...(CLOTHING_CATALOG_${batchNumber} as readonly ClothingBatchEntry[]),`;
     })
-    .join("\n");
+    .join('\n');
 
   fs.writeFileSync(
     BATCH_INDEX,
     [
-      "/** Auto-generated by scripts/generate-clothing.mjs — do not edit manually. */",
+      '/** Auto-generated by scripts/generate-clothing.mjs — do not edit manually. */',
       imports,
-      "",
-      "type ClothingBatchEntry = {",
-      "  readonly id: string;",
-      "  readonly label: string;",
-      "  readonly category: string;",
-      "  readonly script: string;",
-      "  readonly gender?: string;",
-      "  readonly contexts?: readonly string[];",
-      "};",
-      "",
-      "export const ALL_CLOTHING_CATALOG_ENTRIES: readonly ClothingBatchEntry[] = [",
+      '',
+      'type ClothingBatchEntry = {',
+      '  readonly id: string;',
+      '  readonly label: string;',
+      '  readonly category: string;',
+      '  readonly script: string;',
+      '  readonly gender?: string;',
+      '  readonly contexts?: readonly string[];',
+      '};',
+      '',
+      'export const ALL_CLOTHING_CATALOG_ENTRIES: readonly ClothingBatchEntry[] = [',
       spreads,
-      "];",
-      "",
-    ].join("\n"),
+      '];',
+      '',
+    ].join('\n')
   );
 }
 
@@ -485,7 +500,7 @@ function main() {
     for (const entry of byId.values()) {
       byCategory[entry.category] = (byCategory[entry.category] ?? 0) + 1;
     }
-    console.log("By category:", byCategory);
+    console.log('By category:', byCategory);
     return;
   }
 
@@ -511,7 +526,7 @@ function main() {
   console.log(`Seed: ${args.seed}`);
 
   if (args.dryRun) {
-    console.log("Dry run — no files written.");
+    console.log('Dry run — no files written.');
     for (const sample of newEntries.slice(0, 5)) {
       console.log(`  [${sample.category}] ${sample.label}`);
     }

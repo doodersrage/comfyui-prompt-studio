@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { ChipButton } from "@/components/ui/Field";
-import { accentFocusClass } from "@/components/ui/ToolPageShell";
+import { useMemo, useState } from 'react';
+import { ChipButton } from '@/components/ui/Field';
+import { accentFocusClass } from '@/components/ui/ToolPageShell';
 import {
   COMFYUI_SETTINGS_SECTIONS,
   filterComfyUiSettingsSections,
   type ComfyUiSettingsSectionId,
-} from "@/lib/settings-comfyui-nav";
+} from '@/lib/settings-comfyui-nav';
 
 export default function ComfyUiSettingsJumpNav({
   activeSection,
@@ -16,11 +16,8 @@ export default function ComfyUiSettingsJumpNav({
   activeSection?: ComfyUiSettingsSectionId | null;
   onJump: (section: ComfyUiSettingsSectionId) => void;
 }) {
-  const [query, setQuery] = useState("");
-  const sections = useMemo(
-    () => filterComfyUiSettingsSections(query),
-    [query],
-  );
+  const [query, setQuery] = useState('');
+  const sections = useMemo(() => filterComfyUiSettingsSections(query), [query]);
 
   return (
     <div className="ui-surface-inset space-y-3">
@@ -36,14 +33,14 @@ export default function ComfyUiSettingsJumpNav({
           <input
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={event => setQuery(event.target.value)}
             placeholder="Search sections…"
             className={`ui-input w-full text-sm ${accentFocusClass()}`}
           />
         </label>
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {(sections.length ? sections : COMFYUI_SETTINGS_SECTIONS).map((section) => (
+        {(sections.length ? sections : COMFYUI_SETTINGS_SECTIONS).map(section => (
           <ChipButton
             key={section.id}
             active={activeSection === section.id}

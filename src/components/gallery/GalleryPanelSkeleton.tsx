@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Spinner } from "@/components/ui/Button";
+import { Spinner } from '@/components/ui/Button';
 
 type GalleryPanelSkeletonProps = {
   showFilters?: boolean;
@@ -23,10 +23,7 @@ export default function GalleryPanelSkeleton({
           <div className="h-10 animate-pulse rounded-xl bg-zinc-900/80" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={index}
-                className="h-10 animate-pulse rounded-xl bg-zinc-900/70"
-              />
+              <div key={index} className="h-10 animate-pulse rounded-xl bg-zinc-900/70" />
             ))}
           </div>
         </div>
@@ -35,8 +32,8 @@ export default function GalleryPanelSkeleton({
       <div
         className={
           compact
-            ? "grid grid-cols-2 gap-4 sm:grid-cols-3"
-            : "grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3"
+            ? 'grid grid-cols-2 gap-4 sm:grid-cols-3'
+            : 'grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3'
         }
       >
         {Array.from({ length: compact ? 6 : 9 }).map((_, index) => (

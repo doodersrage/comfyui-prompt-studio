@@ -1,10 +1,10 @@
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { compactPromptToLimit } from "@/lib/compact-prompt";
-import { normalizeDetailLevel } from "@/lib/detail-level";
-import { normalizeComfyModel } from "@/lib/comfy-models";
-import { NextResponse } from "next/server";
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { compactPromptToLimit } from '@/lib/compact-prompt';
+import { normalizeDetailLevel } from '@/lib/detail-level';
+import { normalizeComfyModel } from '@/lib/comfy-models';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type CompactRequestBody = {
   prompt?: string;
@@ -13,7 +13,7 @@ type CompactRequestBody = {
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/compact");
+  return apiMethodNotAllowed(['POST'], '/api/compact');
 }
 
 export async function POST(request: Request) {
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     const prompt = body.prompt?.trim();
 
     if (!prompt) {
-      return apiError("Prompt is required.", 400);
+      return apiError('Prompt is required.', 400);
     }
 
     const model = normalizeComfyModel(body.model);
@@ -31,10 +31,7 @@ export async function POST(request: Request) {
 
     return apiJson(result);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Compact failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Compact failed.', 500);
   }
 }
 
@@ -42,9 +39,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

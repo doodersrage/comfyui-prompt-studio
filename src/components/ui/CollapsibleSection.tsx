@@ -1,12 +1,9 @@
-"use client";
+'use client';
 
-import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import {
-  loadCollapsibleOpen,
-  saveCollapsibleOpen,
-} from "@/lib/collapsible-persist";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import { loadCollapsibleOpen, saveCollapsibleOpen } from '@/lib/collapsible-persist';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 export function CollapsibleSection({
   title,
@@ -14,7 +11,7 @@ export function CollapsibleSection({
   defaultOpen = true,
   persistKey,
   children,
-  className = "",
+  className = '',
 }: {
   title: string;
   summary?: string;
@@ -24,7 +21,7 @@ export function CollapsibleSection({
   children: ReactNode;
   className?: string;
 }) {
-  const storageId = persistKey?.trim() || "";
+  const storageId = persistKey?.trim() || '';
   const [open, setOpen] = useState(defaultOpen);
 
   useEffect(() => {
@@ -40,7 +37,7 @@ export function CollapsibleSection({
     <details
       open={open}
       className={`ui-collapsible group ${className}`.trim()}
-      onToggle={(event) => {
+      onToggle={event => {
         const nextOpen = event.currentTarget.open;
         setOpen(nextOpen);
         if (storageId) {

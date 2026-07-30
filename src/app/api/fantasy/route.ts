@@ -1,19 +1,19 @@
-import { generateFantasyPrompt } from "@/lib/specialized/fantasy-generator";
-import { resolveAvoidanceOptions } from "@/lib/avoidance-options";
+import { generateFantasyPrompt } from '@/lib/specialized/fantasy-generator';
+import { resolveAvoidanceOptions } from '@/lib/avoidance-options';
 import {
   normalizeFantasyPresetOptions,
   type FantasyPresetOptions,
   type FantasyShotFraming,
-} from "@/lib/fantasy-options";
+} from '@/lib/fantasy-options';
 import {
   normalizeBlockedLocations,
   normalizeRecentLocations,
   normalizeSharedGenerationOptions,
-} from "@/lib/specialized/normalize";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+} from '@/lib/specialized/normalize';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type FantasyRequestBody = {
   model?: string;
@@ -36,7 +36,7 @@ type FantasyRequestBody = {
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/fantasy");
+  return apiMethodNotAllowed(['POST'], '/api/fantasy');
 }
 
 export async function POST(request: Request) {
@@ -65,10 +65,7 @@ export async function POST(request: Request) {
 
     return apiJson(result);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Fantasy generation failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Fantasy generation failed.', 500);
   }
 }
 
@@ -76,9 +73,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

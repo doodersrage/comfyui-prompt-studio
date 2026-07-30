@@ -1,8 +1,8 @@
-import { fixPromptRules } from "@/lib/prompt-fix";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+import { fixPromptRules } from '@/lib/prompt-fix';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type FixRequestBody = {
   hints?: string;
@@ -10,7 +10,7 @@ type FixRequestBody = {
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/fix");
+  return apiMethodNotAllowed(['POST'], '/api/fix');
 }
 
 export async function POST(request: Request) {
@@ -19,15 +19,12 @@ export async function POST(request: Request) {
     const prompt = body.prompt?.trim();
 
     if (!prompt) {
-      return apiError("Prompt is required.", 400);
+      return apiError('Prompt is required.', 400);
     }
 
     return apiJson(fixPromptRules({ hints: body.hints, prompt }));
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Fix failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Fix failed.', 500);
   }
 }
 
@@ -35,9 +32,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

@@ -1,22 +1,22 @@
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { resolveRequestUser } from "@/lib/auth/access";
-import { findUserById } from "@/lib/auth/store";
-import { listLlmUsage, summarizeLlmUsage } from "@/lib/llm-usage-log";
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { resolveRequestUser } from '@/lib/auth/access';
+import { findUserById } from '@/lib/auth/store';
+import { listLlmUsage, summarizeLlmUsage } from '@/lib/llm-usage-log';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const user = resolveRequestUser(request);
-  const targetUserId = url.searchParams.get("userId") ?? undefined;
+  const targetUserId = url.searchParams.get('userId') ?? undefined;
 
-  if (targetUserId && user?.role !== "admin") {
-    return apiError("Admin required.", 403);
+  if (targetUserId && user?.role !== 'admin') {
+    return apiError('Admin required.', 403);
   }
 
   const userId = targetUserId ?? user?.id;
   if (!userId) {
-    return apiError("Sign in required.", 401);
+    return apiError('Sign in required.', 401);
   }
 
   const target = findUserById(userId);
@@ -28,5 +28,5 @@ export async function GET(request: Request) {
 }
 
 export async function OPTIONS() {
-  return apiMethodNotAllowed(["GET"], "/api/auth/llm-usage");
+  return apiMethodNotAllowed(['GET'], '/api/auth/llm-usage');
 }

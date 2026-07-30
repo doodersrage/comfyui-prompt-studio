@@ -1,22 +1,20 @@
-const IMAGE_CACHE = "gallery-images-v3";
+const IMAGE_CACHE = 'gallery-images-v3';
 const MAX_CACHED_IMAGES = 200;
 
-self.addEventListener("install", (event) => {
+self.addEventListener('install', event => {
   event.waitUntil(self.skipWaiting());
 });
 
-self.addEventListener("activate", (event) => {
+self.addEventListener('activate', event => {
   event.waitUntil(
     Promise.all([
       self.clients.claim(),
-      caches.keys().then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key !== IMAGE_CACHE)
-            .map((key) => caches.delete(key)),
+      caches
+        .keys()
+        .then(keys =>
+          Promise.all(keys.filter(key => key !== IMAGE_CACHE).map(key => caches.delete(key)))
         ),
-      ),
-    ]),
+    ])
   );
 });
 
@@ -26,23 +24,23 @@ async function trimImageCache(cache) {
     return;
   }
   const overflow = keys.length - MAX_CACHED_IMAGES;
-  await Promise.all(keys.slice(0, overflow).map((key) => cache.delete(key)));
+  await Promise.all(keys.slice(0, overflow).map(key => cache.delete(key)));
 }
 
-self.addEventListener("fetch", (event) => {
+self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  if (event.request.method !== "GET") {
+  if (event.request.method !== 'GET') {
     return;
   }
 
   // Cache ComfyUI image proxy responses only — never HTML/RSC navigations
   // (hijacking navigate/text/html breaks Next soft-refresh and looks like a load loop).
-  if (!url.pathname.startsWith("/api/comfyui/view")) {
+  if (!url.pathname.startsWith('/api/comfyui/view')) {
     return;
   }
 
   event.respondWith(
-    caches.open(IMAGE_CACHE).then(async (cache) => {
+    caches.open(IMAGE_CACHE).then(async cache => {
       const cached = await cache.match(event.request);
       if (cached) {
         return cached;
@@ -53,6 +51,6 @@ self.addEventListener("fetch", (event) => {
         void trimImageCache(cache);
       }
       return response;
-    }),
+    })
   );
 });

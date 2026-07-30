@@ -1,25 +1,21 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { FieldLabel, MonoTextArea, SelectInput, TextInput } from "@/components/ui/Field";
-import {
-  ToolBadge,
-  ToolLayout,
-  ToolSection,
-} from "@/components/ui/ToolPageShell";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { useEffect, useRef, useState } from 'react';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { FieldLabel, MonoTextArea, SelectInput, TextInput } from '@/components/ui/Field';
+import { ToolBadge, ToolLayout, ToolSection } from '@/components/ui/ToolPageShell';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
   BUILTIN_TOOL_PLUGINS,
   loadToolPlugins,
   saveCustomToolPlugins,
   type ToolPlugin,
-} from "@/lib/tool-plugin-registry";
+} from '@/lib/tool-plugin-registry';
 import {
   loadPluginQueueHooks,
   savePluginQueueHooks,
   type PluginQueueHook,
-} from "@/lib/plugin-queue-hooks";
+} from '@/lib/plugin-queue-hooks';
 import {
   loadInstalledPlugins,
   normalizePluginManifest,
@@ -27,26 +23,26 @@ import {
   setInstalledPluginEnabled,
   upsertInstalledPlugin,
   type PluginManifest,
-} from "@/lib/plugin-manifest";
-import queueRewriteExample from "../../../examples/queue-rewrite-plugin.json";
+} from '@/lib/plugin-manifest';
+import queueRewriteExample from '../../../examples/queue-rewrite-plugin.json';
 
 const EMPTY_FORM = {
-  id: "",
-  label: "",
-  description: "",
-  href: "",
-  category: "plugin" as ToolPlugin["category"],
+  id: '',
+  label: '',
+  description: '',
+  href: '',
+  category: 'plugin' as ToolPlugin['category'],
 };
 
 const EMPTY_HOOK = {
-  id: "",
-  label: "",
-  url: "",
+  id: '',
+  label: '',
+  url: '',
 };
 
 export default function PluginsPage() {
   const [plugins, setPlugins] = useState<ToolPlugin[]>(BUILTIN_TOOL_PLUGINS);
-  const [customJson, setCustomJson] = useState("[]");
+  const [customJson, setCustomJson] = useState('[]');
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [hooks, setHooks] = useState<PluginQueueHook[]>([]);
@@ -67,7 +63,7 @@ export default function PluginsPage() {
     const loaded = loadToolPlugins();
     setPlugins(loaded);
     const custom = loaded.filter(
-      (plugin) => !BUILTIN_TOOL_PLUGINS.some((builtIn) => builtIn.id === plugin.id),
+      plugin => !BUILTIN_TOOL_PLUGINS.some(builtIn => builtIn.id === plugin.id)
     );
     setCustomJson(JSON.stringify(custom, null, 2));
     setHooks(loadPluginQueueHooks());
@@ -81,27 +77,27 @@ export default function PluginsPage() {
       refreshFromStorage();
       setFormError(null);
     } catch {
-      setFormError("Invalid plugin JSON.");
+      setFormError('Invalid plugin JSON.');
     }
   }
 
   function addFromForm() {
-    const id = form.id.trim().toLowerCase().replace(/\s+/g, "-");
+    const id = form.id.trim().toLowerCase().replace(/\s+/g, '-');
     const label = form.label.trim();
     const href = form.href.trim();
     if (!id || !label || !href) {
-      setFormError("id, label, and href are required.");
+      setFormError('id, label, and href are required.');
       return;
     }
-    if (!href.startsWith("/")) {
-      setFormError("href should be an in-app path starting with /.");
+    if (!href.startsWith('/')) {
+      setFormError('href should be an in-app path starting with /.');
       return;
     }
     const existing = loadToolPlugins().filter(
-      (plugin) => !BUILTIN_TOOL_PLUGINS.some((builtIn) => builtIn.id === plugin.id),
+      plugin => !BUILTIN_TOOL_PLUGINS.some(builtIn => builtIn.id === plugin.id)
     );
-    if (existing.some((plugin) => plugin.id === id) || BUILTIN_TOOL_PLUGINS.some((p) => p.id === id)) {
-      setFormError("That id is already registered.");
+    if (existing.some(plugin => plugin.id === id) || BUILTIN_TOOL_PLUGINS.some(p => p.id === id)) {
+      setFormError('That id is already registered.');
       return;
     }
     const next: ToolPlugin[] = [
@@ -109,7 +105,7 @@ export default function PluginsPage() {
       {
         id,
         label,
-        description: form.description.trim() || "Custom plugin bookmark",
+        description: form.description.trim() || 'Custom plugin bookmark',
         href,
         category: form.category,
         enabled: true,
@@ -122,18 +118,18 @@ export default function PluginsPage() {
   }
 
   function addHook() {
-    const id = hookForm.id.trim().toLowerCase().replace(/\s+/g, "-");
+    const id = hookForm.id.trim().toLowerCase().replace(/\s+/g, '-');
     const url = hookForm.url.trim();
     if (!id || !url) {
-      setHookError("id and url are required.");
+      setHookError('id and url are required.');
       return;
     }
-    if (!url.startsWith("/") && !/^https?:\/\//i.test(url)) {
-      setHookError("url must be http(s) or a same-origin path.");
+    if (!url.startsWith('/') && !/^https?:\/\//i.test(url)) {
+      setHookError('url must be http(s) or a same-origin path.');
       return;
     }
-    if (hooks.some((hook) => hook.id === id)) {
-      setHookError("That hook id already exists.");
+    if (hooks.some(hook => hook.id === id)) {
+      setHookError('That hook id already exists.');
       return;
     }
     const next = [
@@ -165,19 +161,19 @@ export default function PluginsPage() {
         imported += 1;
       }
       if (!imported) {
-        setManifestError("No valid plugin manifests found in that JSON.");
+        setManifestError('No valid plugin manifests found in that JSON.');
         setManifestStatus(null);
         return;
       }
       setManifestError(null);
       setManifestStatus(
         imported === 1
-          ? `Installed ${loadInstalledPlugins().at(-1)?.label ?? "plugin"}.`
-          : `Installed ${imported} plugins.`,
+          ? `Installed ${loadInstalledPlugins().at(-1)?.label ?? 'plugin'}.`
+          : `Installed ${imported} plugins.`
       );
       refreshFromStorage();
     } catch {
-      setManifestError("Invalid JSON — expected a plugin manifest object or array.");
+      setManifestError('Invalid JSON — expected a plugin manifest object or array.');
       setManifestStatus(null);
     }
   }
@@ -208,10 +204,10 @@ export default function PluginsPage() {
             type="file"
             accept="application/json,.json"
             className="sr-only"
-            onChange={(event) => {
+            onChange={event => {
               const file = event.target.files?.[0];
               void onManifestFile(file);
-              event.target.value = "";
+              event.target.value = '';
             }}
           />
           <Button
@@ -233,9 +229,7 @@ export default function PluginsPage() {
             Load denoise example
           </Button>
         </div>
-        {manifestError ? (
-          <p className="type-caption mt-2 text-rose-300">{manifestError}</p>
-        ) : null}
+        {manifestError ? <p className="type-caption mt-2 text-rose-300">{manifestError}</p> : null}
         {manifestStatus ? (
           <p className="type-caption mt-2 text-[var(--text-secondary)]">{manifestStatus}</p>
         ) : null}
@@ -243,25 +237,21 @@ export default function PluginsPage() {
           <p className="type-caption mt-4 text-zinc-500">No runtime plugins installed yet.</p>
         ) : (
           <ul className="ui-list mt-4">
-            {installed.map((plugin) => (
+            {installed.map(plugin => (
               <li key={plugin.id} className="ui-list-row items-start">
                 <div className="ui-list-primary min-w-0 space-y-1">
                   <p className="type-heading">{plugin.label}</p>
                   <p className="type-caption">
                     v{plugin.version}
-                    {plugin.queueHooks?.url ? ` · hook ${plugin.queueHooks.url}` : ""}
-                    {plugin.tools?.length ? ` · ${plugin.tools.length} tool(s)` : ""}
+                    {plugin.queueHooks?.url ? ` · hook ${plugin.queueHooks.url}` : ''}
+                    {plugin.tools?.length ? ` · ${plugin.tools.length} tool(s)` : ''}
                   </p>
                   <p className="type-overline">
-                    {plugin.enabled === false ? "disabled" : "enabled"}
+                    {plugin.enabled === false ? 'disabled' : 'enabled'}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <ButtonLink
-                    href={`/plugins/${plugin.id}`}
-                    size="sm"
-                    variant="accent-outline"
-                  >
+                  <ButtonLink href={`/plugins/${plugin.id}`} size="sm" variant="accent-outline">
                     Open
                   </ButtonLink>
                   <Button
@@ -269,17 +259,15 @@ export default function PluginsPage() {
                     size="sm"
                     variant="secondary"
                     onClick={() => {
-                      setInstalled(
-                        setInstalledPluginEnabled(plugin.id, plugin.enabled === false),
-                      );
+                      setInstalled(setInstalledPluginEnabled(plugin.id, plugin.enabled === false));
                       setManifestStatus(
                         plugin.enabled === false
                           ? `Enabled ${plugin.label}.`
-                          : `Disabled ${plugin.label}.`,
+                          : `Disabled ${plugin.label}.`
                       );
                     }}
                   >
-                    {plugin.enabled === false ? "Enable" : "Disable"}
+                    {plugin.enabled === false ? 'Enable' : 'Disable'}
                   </Button>
                   <Button
                     type="button"
@@ -301,23 +289,22 @@ export default function PluginsPage() {
 
       <ToolSection title="Queue preflight hooks">
         <p className="type-caption">
-          Enabled hooks receive a POST with{" "}
+          Enabled hooks receive a POST with{' '}
           <code className="text-violet-300">
-            {"{ event, prompt, negativePrompt?, model?, tool?, denoise?, cfg? }"}
+            {'{ event, prompt, negativePrompt?, model?, tool?, denoise?, cfg? }'}
           </code>
-          . Respond with JSON to rewrite{" "}
-          <code className="text-violet-300">prompt</code> /{" "}
-          <code className="text-violet-300">negativePrompt</code> /{" "}
-          <code className="text-violet-300">denoise</code> /{" "}
-          <code className="text-violet-300">cfg</code>, or set{" "}
-          <code className="text-violet-300">blocked: true</code> with a{" "}
+          . Respond with JSON to rewrite <code className="text-violet-300">prompt</code> /{' '}
+          <code className="text-violet-300">negativePrompt</code> /{' '}
+          <code className="text-violet-300">denoise</code> /{' '}
+          <code className="text-violet-300">cfg</code>, or set{' '}
+          <code className="text-violet-300">blocked: true</code> with a{' '}
           <code className="text-violet-300">reason</code> to stop the queue.
         </p>
         {hooks.length === 0 ? (
           <p className="type-caption text-zinc-500">No hooks configured yet.</p>
         ) : (
           <ul className="ui-list">
-            {hooks.map((hook) => (
+            {hooks.map(hook => (
               <li key={hook.id} className="ui-list-row items-start">
                 <div className="ui-list-primary min-w-0 space-y-1">
                   <p className="type-heading">{hook.label}</p>
@@ -329,23 +316,23 @@ export default function PluginsPage() {
                     size="sm"
                     variant="secondary"
                     onClick={() => {
-                      const next = hooks.map((entry) =>
+                      const next = hooks.map(entry =>
                         entry.id === hook.id
                           ? { ...entry, enabled: entry.enabled === false }
-                          : entry,
+                          : entry
                       );
                       savePluginQueueHooks(next);
                       setHooks(next);
                     }}
                   >
-                    {hook.enabled === false ? "Enable" : "Disable"}
+                    {hook.enabled === false ? 'Enable' : 'Disable'}
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="danger"
                     onClick={() => {
-                      const next = hooks.filter((entry) => entry.id !== hook.id);
+                      const next = hooks.filter(entry => entry.id !== hook.id);
                       savePluginQueueHooks(next);
                       setHooks(next);
                     }}
@@ -362,9 +349,7 @@ export default function PluginsPage() {
             <FieldLabel>Id</FieldLabel>
             <TextInput
               value={hookForm.id}
-              onChange={(event) =>
-                setHookForm((prev) => ({ ...prev, id: event.target.value }))
-              }
+              onChange={event => setHookForm(prev => ({ ...prev, id: event.target.value }))}
               placeholder="rewrite-nsfw"
             />
           </label>
@@ -372,9 +357,7 @@ export default function PluginsPage() {
             <FieldLabel>Label</FieldLabel>
             <TextInput
               value={hookForm.label}
-              onChange={(event) =>
-                setHookForm((prev) => ({ ...prev, label: event.target.value }))
-              }
+              onChange={event => setHookForm(prev => ({ ...prev, label: event.target.value }))}
               placeholder="NSFW filter"
             />
           </label>
@@ -382,9 +365,7 @@ export default function PluginsPage() {
             <FieldLabel>URL</FieldLabel>
             <TextInput
               value={hookForm.url}
-              onChange={(event) =>
-                setHookForm((prev) => ({ ...prev, url: event.target.value }))
-              }
+              onChange={event => setHookForm(prev => ({ ...prev, url: event.target.value }))}
               placeholder="/api/my-hook or https://…"
             />
           </label>
@@ -397,7 +378,7 @@ export default function PluginsPage() {
 
       <ToolSection title="Registered tools">
         <ul className="ui-list">
-          {plugins.map((plugin) => (
+          {plugins.map(plugin => (
             <li key={plugin.id} className="ui-list-row items-start">
               <div className="ui-list-primary min-w-0 space-y-1">
                 <p className="type-heading">{plugin.label}</p>
@@ -418,7 +399,7 @@ export default function PluginsPage() {
             <FieldLabel>Id</FieldLabel>
             <TextInput
               value={form.id}
-              onChange={(event) => setForm((prev) => ({ ...prev, id: event.target.value }))}
+              onChange={event => setForm(prev => ({ ...prev, id: event.target.value }))}
               placeholder="my-tool"
             />
           </label>
@@ -426,7 +407,7 @@ export default function PluginsPage() {
             <FieldLabel>Label</FieldLabel>
             <TextInput
               value={form.label}
-              onChange={(event) => setForm((prev) => ({ ...prev, label: event.target.value }))}
+              onChange={event => setForm(prev => ({ ...prev, label: event.target.value }))}
               placeholder="My tool"
             />
           </label>
@@ -434,9 +415,7 @@ export default function PluginsPage() {
             <FieldLabel>Description</FieldLabel>
             <TextInput
               value={form.description}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, description: event.target.value }))
-              }
+              onChange={event => setForm(prev => ({ ...prev, description: event.target.value }))}
               placeholder="Short note shown in the list"
             />
           </label>
@@ -444,7 +423,7 @@ export default function PluginsPage() {
             <FieldLabel>Href</FieldLabel>
             <TextInput
               value={form.href}
-              onChange={(event) => setForm((prev) => ({ ...prev, href: event.target.value }))}
+              onChange={event => setForm(prev => ({ ...prev, href: event.target.value }))}
               placeholder="/lint"
             />
           </label>
@@ -452,10 +431,10 @@ export default function PluginsPage() {
             <FieldLabel>Category</FieldLabel>
             <SelectInput
               value={form.category}
-              onChange={(event) =>
-                setForm((prev) => ({
+              onChange={event =>
+                setForm(prev => ({
                   ...prev,
-                  category: event.target.value as ToolPlugin["category"],
+                  category: event.target.value as ToolPlugin['category'],
                 }))
               }
             >
@@ -476,7 +455,7 @@ export default function PluginsPage() {
       <ToolSection title="Custom plugins (JSON)">
         <p className="type-caption">
           Advanced: edit the full custom bookmark array. Each item needs id, label, description,
-          href, and category. See{" "}
+          href, and category. See{' '}
           <code className="text-violet-300">examples/custom-plugin.example.json</code>.
         </p>
         <Button
@@ -488,17 +467,17 @@ export default function PluginsPage() {
               JSON.stringify(
                 [
                   {
-                    id: "my-custom-tool",
-                    label: "My custom tool",
-                    description: "Example plugin entry — change href to your route.",
-                    href: "/lint",
-                    category: "plugin",
+                    id: 'my-custom-tool',
+                    label: 'My custom tool',
+                    description: 'Example plugin entry — change href to your route.',
+                    href: '/lint',
+                    category: 'plugin',
                     enabled: true,
                   },
                 ],
                 null,
-                2,
-              ),
+                2
+              )
             );
           }}
         >
@@ -506,7 +485,7 @@ export default function PluginsPage() {
         </Button>
         <MonoTextArea
           value={customJson}
-          onChange={(event) => setCustomJson(event.target.value)}
+          onChange={event => setCustomJson(event.target.value)}
           rows={10}
           spellCheck={false}
         />

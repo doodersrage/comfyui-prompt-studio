@@ -1,14 +1,14 @@
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { readSessionFromRequest } from "@/lib/auth/session";
-import { findUserById, isAuthEnabled } from "@/lib/auth/store";
-import { sendEmail, isEmailConfigured } from "@/lib/email/mailer";
-import { getEmailConfig } from "@/lib/email/config";
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { readSessionFromRequest } from '@/lib/auth/session';
+import { findUserById, isAuthEnabled } from '@/lib/auth/store';
+import { sendEmail, isEmailConfigured } from '@/lib/email/mailer';
+import { getEmailConfig } from '@/lib/email/config';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   if (!isAuthEnabled()) {
-    return apiError("Authentication is disabled.", 400);
+    return apiError('Authentication is disabled.', 400);
   }
   const config = getEmailConfig();
   if (!isEmailConfigured() || !config.notifyBatch) {
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as typeof body;
   } catch {
-    return apiError("Invalid JSON body.", 400);
+    return apiError('Invalid JSON body.', 400);
   }
 
   const completed = body.completed ?? 1;
@@ -39,20 +39,20 @@ export async function POST(request: Request) {
     subject: `Prompt Studio — ${completed} ComfyUI job(s) finished`,
     text: [
       `Hello ${user.username},`,
-      "",
+      '',
       `${completed} gallery job(s) finished.`,
-      body.lastPrompt ? `Latest: ${body.lastPrompt}` : "",
-      body.lastStatus ? `Status: ${body.lastStatus}` : "",
-      "",
-      `Open gallery: ${process.env.PROMPT_API_URL?.trim() || "http://127.0.0.1:47832"}/gallery`,
+      body.lastPrompt ? `Latest: ${body.lastPrompt}` : '',
+      body.lastStatus ? `Status: ${body.lastStatus}` : '',
+      '',
+      `Open gallery: ${process.env.PROMPT_API_URL?.trim() || 'http://127.0.0.1:47832'}/gallery`,
     ]
       .filter(Boolean)
-      .join("\n"),
+      .join('\n'),
   });
 
   return apiJson({ ok: true });
 }
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/email/jobs-completed");
+  return apiMethodNotAllowed(['POST'], '/api/email/jobs-completed');
 }

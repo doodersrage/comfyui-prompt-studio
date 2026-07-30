@@ -10,14 +10,14 @@ Optional **txt2img** FastAPI service for Prompt Studio. **ComfyUI is the primary
 
 ## API
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/v1/health` | `{ ok, device, model, mock }` |
-| GET | `/v1/models` | Local SDXL/SD1.5 checkpoints (skips Qwen/Flux/refiner) |
-| POST | `/v1/txt2img` | Queue one job |
-| GET | `/v1/jobs/{prompt_id}` | Status + images |
-| GET | `/v1/view?filename=&subfolder=&type=` | Image bytes |
-| POST | `/v1/upload` | Multipart input image |
+| Method | Path                                  | Purpose                                                |
+| ------ | ------------------------------------- | ------------------------------------------------------ |
+| GET    | `/v1/health`                          | `{ ok, device, model, mock }`                          |
+| GET    | `/v1/models`                          | Local SDXL/SD1.5 checkpoints (skips Qwen/Flux/refiner) |
+| POST   | `/v1/txt2img`                         | Queue one job                                          |
+| GET    | `/v1/jobs/{prompt_id}`                | Status + images                                        |
+| GET    | `/v1/view?filename=&subfolder=&type=` | Image bytes                                            |
+| POST   | `/v1/upload`                          | Multipart input image                                  |
 
 Default listen URL: `http://127.0.0.1:8190`
 
@@ -75,28 +75,28 @@ For person prompts, Diffusers auto-attaches an SDXL hand LoRA (downloads once if
 
 ## Env
 
-| Variable | Default | Notes |
-|----------|---------|-------|
-| `DIFFUSERS_MOCK` | off | Solid-color PNG jobs (smoke / CI) |
-| `DIFFUSERS_MODEL` | `stabilityai/sdxl-turbo` | HF model id (fallback) |
-| `COMFYUI_ROOT` | auto | Searches `models/diffusers`, `checkpoints`, `diffusion_models`. Auto-detects `/opt/comfyui` and reads repo `.env.local` when unset. |
-| `DIFFUSERS_MODEL_DIR` | unset | Extra local search root |
-| `DIFFUSERS_LORA` | auto | Comma-separated `name[:weight]`; empty = person auto hand+detail |
-| `DIFFUSERS_LORA_DIR` | unset | Extra LoRA search root (also `$COMFYUI_ROOT/models/loras`) |
-| `DIFFUSERS_LORA_DOWNLOAD` | on | Fetch hand LoRA from HF on first person job |
-| `DIFFUSERS_REFINER` | auto-on | SDXL img2img refine when `sd_xl_refiner_1.0` is present; set `0` to disable |
-| `DIFFUSERS_REFINER_STRENGTH` | `0.18` | Img2img strength for the refiner pass (keep low to avoid limb warp) |
-| `DIFFUSERS_REFINER_PATH` | auto | Override path to a refiner checkpoint |
-| `DIFFUSERS_OUTPUT_DIR` | `./outputs` | Generated PNGs |
-| `DIFFUSERS_INPUT_DIR` | `./inputs` | Uploads |
-| `DIFFUSERS_ENGINE_URL` | `http://127.0.0.1:8190` | Returned as `engine_url` |
+| Variable                     | Default                  | Notes                                                                                                                               |
+| ---------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `DIFFUSERS_MOCK`             | off                      | Solid-color PNG jobs (smoke / CI)                                                                                                   |
+| `DIFFUSERS_MODEL`            | `stabilityai/sdxl-turbo` | HF model id (fallback)                                                                                                              |
+| `COMFYUI_ROOT`               | auto                     | Searches `models/diffusers`, `checkpoints`, `diffusion_models`. Auto-detects `/opt/comfyui` and reads repo `.env.local` when unset. |
+| `DIFFUSERS_MODEL_DIR`        | unset                    | Extra local search root                                                                                                             |
+| `DIFFUSERS_LORA`             | auto                     | Comma-separated `name[:weight]`; empty = person auto hand+detail                                                                    |
+| `DIFFUSERS_LORA_DIR`         | unset                    | Extra LoRA search root (also `$COMFYUI_ROOT/models/loras`)                                                                          |
+| `DIFFUSERS_LORA_DOWNLOAD`    | on                       | Fetch hand LoRA from HF on first person job                                                                                         |
+| `DIFFUSERS_REFINER`          | auto-on                  | SDXL img2img refine when `sd_xl_refiner_1.0` is present; set `0` to disable                                                         |
+| `DIFFUSERS_REFINER_STRENGTH` | `0.18`                   | Img2img strength for the refiner pass (keep low to avoid limb warp)                                                                 |
+| `DIFFUSERS_REFINER_PATH`     | auto                     | Override path to a refiner checkpoint                                                                                               |
+| `DIFFUSERS_OUTPUT_DIR`       | `./outputs`              | Generated PNGs                                                                                                                      |
+| `DIFFUSERS_INPUT_DIR`        | `./inputs`               | Uploads                                                                                                                             |
+| `DIFFUSERS_ENGINE_URL`       | `http://127.0.0.1:8190`  | Returned as `engine_url`                                                                                                            |
 
 ### Model resolution order
 
-1. Explicit filesystem path  
-2. Local folders (`DIFFUSERS_MODEL_DIR`, then `$COMFYUI_ROOT/models/{diffusers,checkpoints,diffusion_models,unet}`)  
-3. Hugging Face hub id  
-4. If hub/single-file load fails → try local `sd_xl_base_1.0.safetensors` under Comfy checkpoints  
+1. Explicit filesystem path
+2. Local folders (`DIFFUSERS_MODEL_DIR`, then `$COMFYUI_ROOT/models/{diffusers,checkpoints,diffusion_models,unet}`)
+3. Hugging Face hub id
+4. If hub/single-file load fails → try local `sd_xl_base_1.0.safetensors` under Comfy checkpoints
 
 Studio model ids like `sdxl` / `flux` are aliased to likely Comfy filenames. Flux/Qwen single files often are not Diffusers-compatible; those fall back to SDXL when present.
 
@@ -108,12 +108,12 @@ Studio model ids like `sdxl` / `flux` are aliased to likely Comfy filenames. Flu
 
 ### VRAM / offload (24GB cards)
 
-| Variable | Default | Notes |
-|----------|---------|-------|
-| `DIFFUSERS_UNET_RESIDENT` | on | Keep DiT/UNET fully on CUDA when it fits (TE/VAE parked). Fast path. |
-| `DIFFUSERS_GROUP_OFFLOAD` | on | Used when the UNET won't fit (e.g. Qwen-Image 2512 bf16 ≈ 39GB) |
-| `DIFFUSERS_GROUP_OFFLOAD_BLOCKS` | `18` | Larger = fewer PCIe swaps (faster, more VRAM). ~18 ≈ 3 swaps/step on Qwen-Image |
-| `DIFFUSERS_SEQUENTIAL_OFFLOAD` | off | Slowest / most VRAM-safe; set `1` if group offload OOMs |
-| `DIFFUSERS_CPU_OFFLOAD` | auto | Model CPU offload fallback when group offload unavailable |
+| Variable                         | Default | Notes                                                                           |
+| -------------------------------- | ------- | ------------------------------------------------------------------------------- |
+| `DIFFUSERS_UNET_RESIDENT`        | on      | Keep DiT/UNET fully on CUDA when it fits (TE/VAE parked). Fast path.            |
+| `DIFFUSERS_GROUP_OFFLOAD`        | on      | Used when the UNET won't fit (e.g. Qwen-Image 2512 bf16 ≈ 39GB)                 |
+| `DIFFUSERS_GROUP_OFFLOAD_BLOCKS` | `18`    | Larger = fewer PCIe swaps (faster, more VRAM). ~18 ≈ 3 swaps/step on Qwen-Image |
+| `DIFFUSERS_SEQUENTIAL_OFFLOAD`   | off     | Slowest / most VRAM-safe; set `1` if group offload OOMs                         |
+| `DIFFUSERS_CPU_OFFLOAD`          | auto    | Model CPU offload fallback when group offload unavailable                       |
 
 Qwen-Image **2512 bf16** (~39GB) cannot be fully GPU-resident on a 24GB card — Diffusers will log `unet-resident skipped` and use large-block group offload. Flux Klein fp8 / Qwen fp8 UNETs that fit will stay resident (Comfy-like speed). Drop a `qwen_image_2512*fp8*` weight under Comfy `models/diffusion_models` when you want 2512 + full residency.

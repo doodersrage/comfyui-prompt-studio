@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useAuth } from "@/hooks/useAuth";
-import { ToolSection } from "@/components/ui/ToolPageShell";
-import { ButtonLink } from "@/components/ui/Button";
-import UsersAdminPanel from "@/components/settings/UsersAdminPanel";
+import Link from 'next/link';
+import { useAuth } from '@/hooks/useAuth';
+import { ToolSection } from '@/components/ui/ToolPageShell';
+import { ButtonLink } from '@/components/ui/Button';
+import UsersAdminPanel from '@/components/settings/UsersAdminPanel';
 
 export default function UsersSettingsPanel() {
   const { loading, authEnabled, user, isAdmin } = useAuth();
@@ -25,23 +25,23 @@ export default function UsersSettingsPanel() {
           restart the dev server to unlock login, per-user history, and this admin panel.
         </p>
         <pre className="mt-4 overflow-x-auto rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-4 text-xs text-zinc-300">
-{`PROMPT_AUTH_ENABLED=true
+          {`PROMPT_AUTH_ENABLED=true
 PROMPT_ADMIN_USERNAME=admin
 PROMPT_ADMIN_PASSWORD="change-me"
 PROMPT_SESSION_SECRET=use-a-long-random-string
 PROMPT_DATA_DIR=/path/to/persist/auth-and-analytics`}
         </pre>
         <p className="mt-4 text-sm text-zinc-500">
-          Quote passwords that contain <code className="text-zinc-400">$</code> or{" "}
-          <code className="text-zinc-400">#</code>. After changing admin credentials in{" "}
+          Quote passwords that contain <code className="text-zinc-400">$</code> or{' '}
+          <code className="text-zinc-400">#</code>. After changing admin credentials in{' '}
           <code className="text-zinc-400">.env.local</code>, restart the server — the bootstrap
           admin account syncs from env on startup.
         </p>
         <p className="mt-2 text-sm text-zinc-500">
-          After restart, sign in at{" "}
+          After restart, sign in at{' '}
           <Link href="/login" className="text-violet-300 hover:text-violet-200">
             /login
-          </Link>{" "}
+          </Link>{' '}
           with the admin credentials above, then return here.
         </p>
       </ToolSection>

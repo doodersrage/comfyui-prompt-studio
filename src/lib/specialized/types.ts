@@ -1,6 +1,6 @@
-import type { ComfyImageModel } from "../comfy-models/client";
-import type { DetailLevel } from "../detail-level";
-import type { LlmRequestOptions } from "../llm-request-options";
+import type { ComfyImageModel } from '../comfy-models/client';
+import type { DetailLevel } from '../detail-level';
+import type { LlmRequestOptions } from '../llm-request-options';
 
 export type ToolLimits = {
   minChars?: number;
@@ -11,7 +11,7 @@ export type ToolLimits = {
 
 export type ToolGenerateResult = {
   prompt: string;
-  provider: "llm" | "template";
+  provider: 'llm' | 'template';
   model: ComfyImageModel;
   comfyNode: string;
   limits: ToolLimits;
@@ -45,11 +45,11 @@ export type RandomSceneOptions = SharedGenerationOptions & {
   avoidedTokensInstruction?: string;
 };
 
-import type { CharacterPresetOptions } from "../character-options";
+import type { CharacterPresetOptions } from '../character-options';
 
 export type CharacterOptions = SharedGenerationOptions & {
   hints?: string;
-  portraitStyle?: "portrait" | "full-body" | "action";
+  portraitStyle?: 'portrait' | 'full-body' | 'action';
   variationStrength?: number;
   presetOptions?: CharacterPresetOptions;
   recentLocations?: string[];
@@ -71,15 +71,15 @@ export type CharacterOptions = SharedGenerationOptions & {
   activeCharacterDescriptor?: string;
 };
 
-import type { GenerationDiagnostics } from "../generation-diagnostics";
+import type { GenerationDiagnostics } from '../generation-diagnostics';
 
 export type EnrichedToolGenerateResult = ToolGenerateResult & {
   diagnostics?: GenerationDiagnostics;
 };
 
-import type { BackgroundPresetOptions } from "../background-options";
-import type { FantasyPresetOptions, FantasyShotFraming } from "../fantasy-options";
-import type { PetPresetOptions } from "../pet-options";
+import type { BackgroundPresetOptions } from '../background-options';
+import type { FantasyPresetOptions, FantasyShotFraming } from '../fantasy-options';
+import type { PetPresetOptions } from '../pet-options';
 
 export type BackgroundOptions = SharedGenerationOptions & {
   settingType?: string;
@@ -92,7 +92,7 @@ export type BackgroundOptions = SharedGenerationOptions & {
 
 export type PetOptions = SharedGenerationOptions & {
   hints?: string;
-  portraitStyle?: "portrait" | "full-body" | "action";
+  portraitStyle?: 'portrait' | 'full-body' | 'action';
   variationStrength?: number;
   presetOptions?: PetPresetOptions;
   recentLocations?: string[];
@@ -118,13 +118,13 @@ export type FantasyOptions = SharedGenerationOptions & {
   seedLlmWithIngredients?: boolean;
 };
 
-export type ImagePromptFocus = "full" | "subject" | "background" | "style";
+export type ImagePromptFocus = 'full' | 'subject' | 'background' | 'style';
 
 export type ImagePromptOptions = SharedGenerationOptions & {
   imageDataUrl: string;
   mimeType?: string;
   focus?: ImagePromptFocus;
-  descriptionPreset?: import("../image-prompt-presets").ImagePromptDescriptionPreset;
+  descriptionPreset?: import('../image-prompt-presets').ImagePromptDescriptionPreset;
   extraHints?: string;
 };
 
@@ -141,7 +141,7 @@ export type TopicOptions = {
 
 export type TopicGenerateResult = {
   topics: string[];
-  provider: "llm" | "template";
+  provider: 'llm' | 'template';
   seedTopic: string | null;
   count: number;
 };

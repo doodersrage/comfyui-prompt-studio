@@ -3,28 +3,25 @@ import {
   checkDiffusersHealth,
   checkLlmHealth,
   getExpandedComfyUiHealth,
-} from "@/lib/service-health";
-import { getLlmConfig, isLlmEnabled, allowTemplateFallback } from "@/lib/llm-client";
-import { getComfyUiBaseUrl } from "@/lib/comfyui-client";
-import { getComfyUiWorkflowSummary } from "@/lib/comfyui-status";
-import { summarizeApiUsage } from "@/lib/api-usage-log";
-import { isServerStorageEnabled } from "@/lib/server-storage";
-import { isEmailConfigured } from "@/lib/email/config";
-import {
-  stripEmptyComfyUiRuntime,
-  type ComfyUiRuntimeConfig,
-} from "@/lib/comfyui-config";
-import { apiJson } from "@/lib/api/response";
-import { getAuthBootstrapInfo } from "@/lib/auth/store";
-import { getServerEnvSummary } from "@/lib/server-env-summary";
+} from '@/lib/service-health';
+import { getLlmConfig, isLlmEnabled, allowTemplateFallback } from '@/lib/llm-client';
+import { getComfyUiBaseUrl } from '@/lib/comfyui-client';
+import { getComfyUiWorkflowSummary } from '@/lib/comfyui-status';
+import { summarizeApiUsage } from '@/lib/api-usage-log';
+import { isServerStorageEnabled } from '@/lib/server-storage';
+import { isEmailConfigured } from '@/lib/email/config';
+import { stripEmptyComfyUiRuntime, type ComfyUiRuntimeConfig } from '@/lib/comfyui-config';
+import { apiJson } from '@/lib/api/response';
+import { getAuthBootstrapInfo } from '@/lib/auth/store';
+import { getServerEnvSummary } from '@/lib/server-env-summary';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 function parseRuntimeFromSearch(searchParams: URLSearchParams): ComfyUiRuntimeConfig | undefined {
   return stripEmptyComfyUiRuntime({
-    apiUrl: searchParams.get("comfyUrl") ?? undefined,
-    positiveToken: searchParams.get("positiveToken") ?? undefined,
-    negativeToken: searchParams.get("negativeToken") ?? undefined,
+    apiUrl: searchParams.get('comfyUrl') ?? undefined,
+    positiveToken: searchParams.get('positiveToken') ?? undefined,
+    negativeToken: searchParams.get('negativeToken') ?? undefined,
   });
 }
 
@@ -32,14 +29,14 @@ export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
   const runtime = parseRuntimeFromSearch(searchParams);
 
-  let comfyUiUrl = "";
+  let comfyUiUrl = '';
   try {
     comfyUiUrl = getComfyUiBaseUrl(runtime);
   } catch {
-    comfyUiUrl = "";
+    comfyUiUrl = '';
   }
 
-  const diffusersUrlHint = searchParams.get("diffusersUrl")?.trim() || undefined;
+  const diffusersUrlHint = searchParams.get('diffusersUrl')?.trim() || undefined;
 
   const [llm, comfyui, workflow, comfyuiPool, diffusers] = await Promise.all([
     checkLlmHealth(),
@@ -50,8 +47,8 @@ export async function GET(request: Request) {
       } catch (error) {
         return {
           apiUrl: comfyUiUrl,
-          workflowSource: "none" as const,
-          error: error instanceof Error ? error.message : "Invalid ComfyUI config",
+          workflowSource: 'none' as const,
+          error: error instanceof Error ? error.message : 'Invalid ComfyUI config',
         };
       }
     })(),

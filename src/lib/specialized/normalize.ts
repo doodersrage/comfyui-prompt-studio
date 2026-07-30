@@ -1,7 +1,7 @@
-import { normalizeComfyModel } from "../comfy-models";
-import { normalizeDetailLevel, type DetailLevel } from "../detail-level";
-import { parseLlmRequestOptions } from "../llm-request-options";
-import type { SharedGenerationOptions } from "./types";
+import { normalizeComfyModel } from '../comfy-models';
+import { normalizeDetailLevel, type DetailLevel } from '../detail-level';
+import { parseLlmRequestOptions } from '../llm-request-options';
+import type { SharedGenerationOptions } from './types';
 
 export function normalizeSharedGenerationOptions(
   body?: Partial<{
@@ -12,7 +12,7 @@ export function normalizeSharedGenerationOptions(
     llmModel?: string;
     llmVisionModel?: string;
     llmEnabled?: boolean;
-  }> | null,
+  }> | null
 ): SharedGenerationOptions {
   return {
     model: normalizeComfyModel(body?.model),
@@ -27,8 +27,8 @@ export function normalizeRecentLocations(raw: unknown): string[] | undefined {
   }
 
   const locations = raw
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim())
     .filter(Boolean)
     .slice(0, 24);
 
@@ -45,8 +45,8 @@ export function normalizeBlockedLocations(raw: unknown): string[] | undefined {
   }
 
   const locations = raw
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim())
     .filter(Boolean)
     .slice(0, 200);
 
@@ -54,7 +54,7 @@ export function normalizeBlockedLocations(raw: unknown): string[] | undefined {
 }
 
 export function normalizeLockedWardrobeId(raw: unknown): string | undefined {
-  if (typeof raw !== "string") {
+  if (typeof raw !== 'string') {
     return undefined;
   }
 

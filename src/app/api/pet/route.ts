@@ -1,24 +1,21 @@
-import {
-  normalizePetPresetOptions,
-  type PetPresetOptions,
-} from "@/lib/pet-options";
-import { generatePetPrompt } from "@/lib/specialized/pet-generator";
-import { resolveAvoidanceOptions } from "@/lib/avoidance-options";
+import { normalizePetPresetOptions, type PetPresetOptions } from '@/lib/pet-options';
+import { generatePetPrompt } from '@/lib/specialized/pet-generator';
+import { resolveAvoidanceOptions } from '@/lib/avoidance-options';
 import {
   normalizeBlockedLocations,
   normalizeRecentLocations,
   normalizeSharedGenerationOptions,
-} from "@/lib/specialized/normalize";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+} from '@/lib/specialized/normalize';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type PetRequestBody = {
   model?: string;
   detail?: string;
   hints?: string;
-  portraitStyle?: "portrait" | "full-body" | "action";
+  portraitStyle?: 'portrait' | 'full-body' | 'action';
   variationStrength?: number;
   presetOptions?: Partial<Record<keyof PetPresetOptions, string>>;
   recentLocations?: string[];
@@ -30,7 +27,7 @@ type PetRequestBody = {
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/pet");
+  return apiMethodNotAllowed(['POST'], '/api/pet');
 }
 
 export async function POST(request: Request) {
@@ -54,10 +51,7 @@ export async function POST(request: Request) {
 
     return apiJson(result);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Pet generation failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Pet generation failed.', 500);
   }
 }
 
@@ -65,9 +59,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

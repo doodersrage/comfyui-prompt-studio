@@ -1,13 +1,13 @@
-import { getDiffusersBaseUrl } from "@/lib/diffusers-client";
-import { apiError, apiMethodNotAllowed } from "@/lib/api/response";
+import { getDiffusersBaseUrl } from '@/lib/diffusers-client';
+import { apiError, apiMethodNotAllowed } from '@/lib/api/response';
 import {
   sanitizeComfyViewFilename,
   sanitizeComfyViewSubfolder,
   normalizeComfyViewType,
-} from "@/lib/url-safety";
-import { NextResponse } from "next/server";
+} from '@/lib/url-safety';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 function parseThumbWidth(raw: string | null): number | null {
   if (!raw?.trim()) {
@@ -27,35 +27,27 @@ export async function GET(request: Request) {
   let subfolder: string;
   let type: string;
   try {
-    filename = sanitizeComfyViewFilename(searchParams.get("filename") ?? "");
-    subfolder = sanitizeComfyViewSubfolder(searchParams.get("subfolder") ?? "");
-    type = normalizeComfyViewType(searchParams.get("type") ?? "output");
+    filename = sanitizeComfyViewFilename(searchParams.get('filename') ?? '');
+    subfolder = sanitizeComfyViewSubfolder(searchParams.get('subfolder') ?? '');
+    type = normalizeComfyViewType(searchParams.get('type') ?? 'output');
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Invalid view parameters.",
-      400,
-    );
+    return apiError(error instanceof Error ? error.message : 'Invalid view parameters.', 400);
   }
 
   const engineUrlHint =
-    searchParams.get("engineUrl")?.trim() ||
-    searchParams.get("comfyUrl")?.trim() ||
-    undefined;
+    searchParams.get('engineUrl')?.trim() || searchParams.get('comfyUrl')?.trim() || undefined;
 
   let engineUrl: string;
   try {
     engineUrl = getDiffusersBaseUrl(engineUrlHint);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Invalid Diffusers URL.",
-      400,
-    );
+    return apiError(error instanceof Error ? error.message : 'Invalid Diffusers URL.', 400);
   }
 
   const upstream = new URL(`${engineUrl}/v1/view`);
-  upstream.searchParams.set("filename", filename);
-  upstream.searchParams.set("subfolder", subfolder);
-  upstream.searchParams.set("type", type);
+  upstream.searchParams.set('filename', filename);
+  upstream.searchParams.set('subfolder', subfolder);
+  upstream.searchParams.set('type', type);
 
   try {
     const response = await fetch(upstream.toString(), {
@@ -67,16 +59,16 @@ export async function GET(request: Request) {
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
-    const thumbWidth = parseThumbWidth(searchParams.get("w"));
+    const thumbWidth = parseThumbWidth(searchParams.get('w'));
 
     if (thumbWidth) {
-      const sharp = (await import("sharp")).default;
+      const sharp = (await import('sharp')).default;
       const resized = await sharp(buffer)
         .rotate()
         .resize({
           width: thumbWidth,
           height: thumbWidth,
-          fit: "inside",
+          fit: 'inside',
           withoutEnlargement: true,
         })
         .png()
@@ -84,8 +76,8 @@ export async function GET(request: Request) {
       return new NextResponse(new Uint8Array(resized), {
         status: 200,
         headers: {
-          "Content-Type": "image/png",
-          "Cache-Control": "private, max-age=3600",
+          'Content-Type': 'image/png',
+          'Cache-Control': 'private, max-age=3600',
         },
       });
     }
@@ -93,18 +85,15 @@ export async function GET(request: Request) {
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
-        "Content-Type": response.headers.get("Content-Type") || "image/png",
-        "Cache-Control": "private, max-age=3600",
+        'Content-Type': response.headers.get('Content-Type') || 'image/png',
+        'Cache-Control': 'private, max-age=3600',
       },
     });
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Diffusers view failed.",
-      502,
-    );
+    return apiError(error instanceof Error ? error.message : 'Diffusers view failed.', 502);
   }
 }
 
 export async function POST() {
-  return apiMethodNotAllowed(["GET"], "/api/diffusers/view");
+  return apiMethodNotAllowed(['GET'], '/api/diffusers/view');
 }

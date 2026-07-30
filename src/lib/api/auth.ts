@@ -1,4 +1,4 @@
-import { apiError } from "@/lib/api/response";
+import { apiError } from '@/lib/api/response';
 
 function getConfiguredApiToken(): string | undefined {
   return process.env.PROMPT_API_TOKEN?.trim() || undefined;
@@ -16,15 +16,15 @@ function timingSafeEqualString(left: string, right: string): boolean {
 }
 
 function extractBearerOrHeaderToken(request: Request): string | undefined {
-  const authorization = request.headers.get("authorization");
-  if (authorization?.toLowerCase().startsWith("bearer ")) {
+  const authorization = request.headers.get('authorization');
+  if (authorization?.toLowerCase().startsWith('bearer ')) {
     const token = authorization.slice(7).trim();
     if (token) {
       return token;
     }
   }
 
-  const headerToken = request.headers.get("x-prompt-api-token")?.trim();
+  const headerToken = request.headers.get('x-prompt-api-token')?.trim();
   return headerToken || undefined;
 }
 
@@ -34,7 +34,7 @@ function extractBearerOrHeaderToken(request: Request): string | undefined {
  */
 export function isTrustedSameOriginRequest(request: Request): boolean {
   const requestUrl = new URL(request.url);
-  const origin = request.headers.get("origin");
+  const origin = request.headers.get('origin');
   if (origin) {
     try {
       return new URL(origin).origin === requestUrl.origin;
@@ -43,8 +43,8 @@ export function isTrustedSameOriginRequest(request: Request): boolean {
     }
   }
 
-  const site = request.headers.get("sec-fetch-site");
-  if (site === "same-origin" || site === "none") {
+  const site = request.headers.get('sec-fetch-site');
+  if (site === 'same-origin' || site === 'none') {
     return true;
   }
 
@@ -58,7 +58,7 @@ export function isTrustedSameOriginRequest(request: Request): boolean {
  * Returns null when the request may proceed.
  */
 export function authorizeApiRequest(request: Request) {
-  if (request.method === "OPTIONS") {
+  if (request.method === 'OPTIONS') {
     return null;
   }
 
@@ -77,8 +77,8 @@ export function authorizeApiRequest(request: Request) {
   }
 
   return apiError(
-    "Unauthorized. Set Authorization: Bearer <PROMPT_API_TOKEN> (or X-Prompt-Api-Token).",
-    401,
+    'Unauthorized. Set Authorization: Bearer <PROMPT_API_TOKEN> (or X-Prompt-Api-Token).',
+    401
   );
 }
 

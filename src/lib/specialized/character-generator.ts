@@ -10,70 +10,61 @@ import {
   isDuoHeadcount,
   mergeCharacterPresetsIntoPrompt,
   normalizeCharacterPresetOptions,
-} from "../character-options";
+} from '../character-options';
 import {
   buildCharacterMandatoryBlock,
   buildDuoIdentityUserDirective,
   parseCharacterHints,
   pickCharacterIdentitySeed,
   pickDuoCharacterIdentitySeeds,
-} from "../character-hints";
-import {
-  buildMandatoryLocationBlock,
-  parseSettingHint,
-} from "../hint-location";
+} from '../character-hints';
+import { buildMandatoryLocationBlock, parseSettingHint } from '../hint-location';
 import {
   buildSinglePersonSystemAddendum,
   buildSinglePersonUserDirective,
   buildSoloSubjectLockDirective,
-} from "../single-person";
+} from '../single-person';
 import {
   buildDistinctPeopleUserDirective,
   ensureDistinctPeoplePrompt,
   parsePeopleConstraint,
   stripStreetClothingFromAthleticPeoplePrompt,
-} from "../distinct-people";
+} from '../distinct-people';
 import {
   buildClothingCoherenceUserDirective,
   buildClothingPickFilters,
   buildNoClothingUserDirective,
   hintsImplyNoClothing,
   subjectGenderToClothingGender,
-} from "../clothing-tags";
+} from '../clothing-tags';
 import {
   buildGenerateWardrobeAssignments,
   buildGenerateWardrobeUserDirective,
   mergeGenerateWardrobeIntoPrompt,
-} from "../generate-wardrobe";
-import { inferAthleticSport } from "../athletic-sport-profiles";
+} from '../generate-wardrobe';
+import { inferAthleticSport } from '../athletic-sport-profiles';
 import {
   formatSportActionInstructions,
   getSportActionInstructions,
   stripIncompatibleSportActionsFromPrompt,
   ensureCyclingHelmetInPrompt,
   ensureAthleticBottomInPrompt,
-} from "../athletic-sport-actions";
-import { DEFAULT_GENERATION_SETTINGS } from "../generation-settings";
-import {
-  hasWardrobeCatalogSelection,
-  shouldPickRandomCharacterOutfit,
-} from "../clothing-catalog";
-import { getDetailLimits } from "../detail-level";
-import { mergeLocationExclusions } from "../location-exclusions";
-import { applyLockedLocation } from "../locked-location";
-import { applyLockedVariationSeed } from "../locked-variation-seed";
-import { buildRandomCharacterSeed } from "./scene-pools";
-import { runSpecializedPrompt } from "./runner";
-import type { CharacterOptions, ToolGenerateResult } from "./types";
+} from '../athletic-sport-actions';
+import { DEFAULT_GENERATION_SETTINGS } from '../generation-settings';
+import { hasWardrobeCatalogSelection, shouldPickRandomCharacterOutfit } from '../clothing-catalog';
+import { getDetailLimits } from '../detail-level';
+import { mergeLocationExclusions } from '../location-exclusions';
+import { applyLockedLocation } from '../locked-location';
+import { applyLockedVariationSeed } from '../locked-variation-seed';
+import { buildRandomCharacterSeed } from './scene-pools';
+import { runSpecializedPrompt } from './runner';
+import type { CharacterOptions, ToolGenerateResult } from './types';
 
-const PORTRAIT_FRAMING: Record<
-  NonNullable<CharacterOptions["portraitStyle"]>,
-  string
-> = {
-  portrait: "tight portrait framing on face, hair, expression, and shoulders",
-  "full-body": "full-body framing from head to shoes with readable posture",
+const PORTRAIT_FRAMING: Record<NonNullable<CharacterOptions['portraitStyle']>, string> = {
+  portrait: 'tight portrait framing on face, hair, expression, and shoulders',
+  'full-body': 'full-body framing from head to shoes with readable posture',
   action:
-    "dynamic action framing: mid-motion body with visible momentum, engaged muscles, and environment interaction—never a static standing pose",
+    'dynamic action framing: mid-motion body with visible momentum, engaged muscles, and environment interaction—never a static standing pose',
 };
 
 const ACTION_INSTRUCTIONS = `- Name a specific verb/action (sprint, leap, dodge, climb, strike, vault, slide, reach, etc.) and show the body mid-movement.
@@ -82,10 +73,10 @@ const ACTION_INSTRUCTIONS = `- Name a specific verb/action (sprint, leap, dodge,
 - Prefer energetic camera language: low angle, slight motion blur on extremities, or freeze-frame peak action.`;
 
 export async function generateCharacterPrompt(
-  options: CharacterOptions,
+  options: CharacterOptions
 ): Promise<ToolGenerateResult> {
-  const detail = options.detail === "concise" ? "balanced" : options.detail;
-  const portraitStyle = options.portraitStyle ?? "portrait";
+  const detail = options.detail === 'concise' ? 'balanced' : options.detail;
+  const portraitStyle = options.portraitStyle ?? 'portrait';
   const seedIngredients = options.seedLlmWithIngredients !== false;
   const effectiveHints = seedIngredients
     ? applyLockedLocation(options.hints, options.lockedLocation)
@@ -94,19 +85,19 @@ export async function generateCharacterPrompt(
   const presetOptions = normalizeCharacterPresetOptions(options.presetOptions, {
     clothingGender: subjectGenderToClothingGender(parsed.gender),
   });
-  const peopleConstraint = parsePeopleConstraint(effectiveHints ?? "");
+  const peopleConstraint = parsePeopleConstraint(effectiveHints ?? '');
   const duoFromHints = (peopleConstraint.count ?? 0) >= 2;
   const duoMode = isDuoHeadcount(presetOptions) || duoFromHints;
   const settingHint = parseSettingHint(effectiveHints);
   const locationExclude = mergeLocationExclusions(
     options.recentLocations,
-    options.blockedLocations,
+    options.blockedLocations
   );
   const { seed: rolledSeed, location: sceneLocation } = buildRandomCharacterSeed(
     effectiveHints,
     portraitStyle,
     locationExclude,
-    options.avoidedTokens,
+    options.avoidedTokens
   );
   const seed = applyLockedVariationSeed(rolledSeed, options.variationSeed);
   const alwaysIncludeClothing = options.alwaysIncludeClothing !== false;
@@ -119,7 +110,7 @@ export async function generateCharacterPrompt(
     excludeIds: options.recentClothing,
     avoidedTokens: options.avoidedTokens,
   });
-  const wardrobeCorpus = [options.hints, seed].filter(Boolean).join(", ");
+  const wardrobeCorpus = [options.hints, seed].filter(Boolean).join(', ');
   const wardrobeAssignments =
     seedIngredients &&
     shouldPickRandomCharacterOutfit({
@@ -139,60 +130,55 @@ export async function generateCharacterPrompt(
             forcedCount: duoMode ? 2 : 1,
             forcedDistinctPeople: duoMode,
             forcedGender: duoMode
-              ? peopleConstraint.gender === "women" || peopleConstraint.gender === "men"
+              ? peopleConstraint.gender === 'women' || peopleConstraint.gender === 'men'
                 ? peopleConstraint.gender
-                : "mixed"
+                : 'mixed'
               : undefined,
             recentClothing: options.recentClothing,
             teamKit: options.teamKit,
             lockedWardrobeId: options.lockedWardrobeId,
             avoidedTokens: options.avoidedTokens,
-          },
+          }
         )
       : null;
   const presetWardrobeSummary = hasWardrobeCatalogSelection(presetOptions)
     ? buildPresetWardrobeSummary(presetOptions)
     : null;
-  const environmentSeed =
-    wardrobeAssignments?.length
-      ? `${seed}, ${wardrobeAssignments
-          .map(
-            (assignment) =>
-              `${assignment.label ?? "the subject"} wearing ${assignment.summary}`,
-          )
-          .join("; ")}`
-      : presetWardrobeSummary
-        ? `${seed}, wearing ${presetWardrobeSummary}`
-        : seed;
+  const environmentSeed = wardrobeAssignments?.length
+    ? `${seed}, ${wardrobeAssignments
+        .map(assignment => `${assignment.label ?? 'the subject'} wearing ${assignment.summary}`)
+        .join('; ')}`
+    : presetWardrobeSummary
+      ? `${seed}, wearing ${presetWardrobeSummary}`
+      : seed;
   const keywordsOnly = !seedIngredients;
   // Infer sport/action only from user text when ingredients are off—rolled
   // environment seeds otherwise pull athletic kit into "keywords-only" runs.
   const intentCorpus = keywordsOnly
-    ? (options.hints ?? "").trim()
-    : [options.hints, seed, environmentSeed].filter(Boolean).join(", ");
+    ? (options.hints ?? '').trim()
+    : [options.hints, seed, environmentSeed].filter(Boolean).join(', ');
   const intentSport = inferAthleticSport(intentCorpus);
   const athleticDuoContext =
     duoMode &&
     (intentSport !== null ||
       Boolean(
         wardrobeAssignments?.some(
-          (assignment) =>
-            assignment.filters.athleticActivity || assignment.filters.athleticSport,
-        ),
+          assignment => assignment.filters.athleticActivity || assignment.filters.athleticSport
+        )
       ));
   const cyclingHelmetRequired =
-    intentSport === "cycling" ||
-    Boolean(wardrobeAssignments?.some((a) => a.filters.athleticSport === "cycling"));
+    intentSport === 'cycling' ||
+    Boolean(wardrobeAssignments?.some(a => a.filters.athleticSport === 'cycling'));
   const identitySeed = duoMode ? null : pickCharacterIdentitySeed(parsed);
   const duoIdentitySeeds = duoMode
     ? pickDuoCharacterIdentitySeeds(
-        peopleConstraint.gender === "women" ||
-          peopleConstraint.gender === "men" ||
-          peopleConstraint.gender === "mixed"
+        peopleConstraint.gender === 'women' ||
+          peopleConstraint.gender === 'men' ||
+          peopleConstraint.gender === 'mixed'
           ? peopleConstraint.gender
           : parsed.gender,
         parsed.wantsMinimalHair,
-        athleticDuoContext,
+        athleticDuoContext
       )
     : null;
   const duoIdentityDirective = duoIdentitySeeds
@@ -200,13 +186,11 @@ export async function generateCharacterPrompt(
         duoIdentitySeeds[0],
         duoIdentitySeeds[1],
         athleticDuoContext,
-        cyclingHelmetRequired,
+        cyclingHelmetRequired
       )
     : null;
   const mandatoryBlock = buildCharacterMandatoryBlock(parsed);
-  const locationBlock = seedIngredients
-    ? buildMandatoryLocationBlock(settingHint.location)
-    : null;
+  const locationBlock = seedIngredients ? buildMandatoryLocationBlock(settingHint.location) : null;
   const presetBlock = buildCharacterPresetBlock(presetOptions);
   const presetDirective = buildCharacterPresetUserDirective(presetOptions);
   const hasPresets = hasCharacterPresetOptions(presetOptions);
@@ -214,21 +198,19 @@ export async function generateCharacterPrompt(
   // into min-char padding as invented setting phrases that were never in the LLM draft.
   const sanitizeContext = buildCharacterPresetSanitizeContext(
     options.hints,
-    "",
-    keywordsOnly ? normalizeCharacterPresetOptions({}) : presetOptions,
+    '',
+    keywordsOnly ? normalizeCharacterPresetOptions({}) : presetOptions
   );
 
   const actionBlock =
-    !keywordsOnly &&
-    portraitStyle === "action" &&
-    !hasPoseAnchor(presetOptions)
+    !keywordsOnly && portraitStyle === 'action' && !hasPoseAnchor(presetOptions)
       ? intentSport
         ? `\n${formatSportActionInstructions(intentSport, intentCorpus)}`
         : `\n${ACTION_INSTRUCTIONS}`
-      : "";
+      : '';
 
   const framingInstruction = hasPoseAnchor(presetOptions)
-    ? "Frame enough of the body and anchored object that the pose anchor reads clearly—avoid tight face-only portrait cropping that hides limb placement."
+    ? 'Frame enough of the body and anchored object that the pose anchor reads clearly—avoid tight face-only portrait cropping that hides limb placement.'
     : PORTRAIT_FRAMING[portraitStyle];
 
   const soloRules = duoMode
@@ -268,16 +250,13 @@ ${soloRules}
       ? wardrobeAssignments.length === 1 && !wardrobeAssignments[0]?.label
         ? buildClothingCoherenceUserDirective(
             wardrobeAssignments[0]!.filters,
-            wardrobeAssignments[0]!.summary,
+            wardrobeAssignments[0]!.summary
           )
         : buildGenerateWardrobeUserDirective(wardrobeAssignments, {
             teamKit: options.teamKit,
           })
       : presetWardrobeSummary
-        ? buildClothingCoherenceUserDirective(
-            clothingFilters,
-            presetWardrobeSummary,
-          )
+        ? buildClothingCoherenceUserDirective(clothingFilters, presetWardrobeSummary)
         : hintsImplyNoClothing(options.hints) || hintsImplyNoClothing(seed)
           ? buildNoClothingUserDirective()
           : null;
@@ -293,7 +272,7 @@ ${soloRules}
     const { maxChars } = getDetailLimits(detail, options.model);
     let result = prompt;
     if (duoMode) {
-      result = ensureDistinctPeoplePrompt(result, options.hints ?? "", {
+      result = ensureDistinctPeoplePrompt(result, options.hints ?? '', {
         ...DEFAULT_GENERATION_SETTINGS,
         distinctPeople: true,
         seedLlmWithIngredients: seedIngredients,
@@ -307,7 +286,7 @@ ${soloRules}
         result,
         wardrobeAssignments,
         maxChars,
-        options.hints,
+        options.hints
       );
     } else if (presetWardrobeSummary) {
       result = mergeGenerateWardrobeIntoPrompt(
@@ -322,23 +301,19 @@ ${soloRules}
           },
         ],
         maxChars,
-        options.hints,
+        options.hints
       );
     }
     if (hasPresets || hasPoseAnchor(presetOptions)) {
       result = mergeCharacterPresetsIntoPrompt(result, presetOptions);
     }
     if (intentSport) {
-      result = stripIncompatibleSportActionsFromPrompt(
-        result,
-        intentSport,
-        intentCorpus,
-      );
+      result = stripIncompatibleSportActionsFromPrompt(result, intentSport, intentCorpus);
     }
     if (cyclingHelmetRequired) {
       result = ensureCyclingHelmetInPrompt(result, intentCorpus);
     }
-    if (intentSport && intentSport !== "cycling") {
+    if (intentSport && intentSport !== 'cycling') {
       result = ensureAthleticBottomInPrompt(result, intentSport, {
         hints: intentCorpus,
         wardrobeSummary: wardrobeAssignments?.[0]?.summary ?? presetWardrobeSummary ?? undefined,
@@ -348,11 +323,9 @@ ${soloRules}
   };
 
   const postProcessPrompt =
-    needsWardrobePostProcess || duoMode || intentSport
-      ? finalizeCharacterPrompt
-      : undefined;
+    needsWardrobePostProcess || duoMode || intentSport ? finalizeCharacterPrompt : undefined;
 
-  const hintText = options.hints?.trim() || "";
+  const hintText = options.hints?.trim() || '';
   const userParts = keywordsOnly
     ? [
         options.activeCharacterDescriptor?.trim()
@@ -361,14 +334,13 @@ ${soloRules}
         mandatoryBlock,
         hintText
           ? `Scene keywords:\n${hintText}`
-          : "Scene keywords:\n(none provided — invent a single coherent character from the framing only, without a wardrobe catalog)",
+          : 'Scene keywords:\n(none provided — invent a single coherent character from the framing only, without a wardrobe catalog)',
         `Framing: ${portraitStyle}`,
         duoMode
-          ? "DUO MODE (mandatory): exactly two interacting people in frame. No third person, crowd, or background faces."
-          : buildSoloSubjectLockDirective(effectiveHints) ??
-            buildSinglePersonUserDirective(),
+          ? 'DUO MODE (mandatory): exactly two interacting people in frame. No third person, crowd, or background faces.'
+          : (buildSoloSubjectLockDirective(effectiveHints) ?? buildSinglePersonUserDirective()),
         options.avoidedTokensInstruction ?? null,
-        "Write one model-ready character prompt from the keywords above. Do not invent a wardrobe catalog or substitute a different location unless the keywords ask for it.",
+        'Write one model-ready character prompt from the keywords above. Do not invent a wardrobe catalog or substitute a different location unless the keywords ask for it.',
       ]
     : [
         presetBlock,
@@ -388,26 +360,23 @@ ${soloRules}
         `Environment and mood: ${environmentSeed}`,
         clothingDirective,
         hasPoseAnchor(presetOptions)
-          ? "Pose anchor preset is active—prioritize it over default portrait/action framing."
+          ? 'Pose anchor preset is active—prioritize it over default portrait/action framing.'
           : `Framing: ${portraitStyle}`,
-        portraitStyle === "action" && !hasPoseAnchor(presetOptions)
+        portraitStyle === 'action' && !hasPoseAnchor(presetOptions)
           ? intentSport
             ? getSportActionInstructions(intentSport, intentCorpus)
-            : "The character must be actively doing something—not posing for a portrait."
+            : 'The character must be actively doing something—not posing for a portrait.'
           : null,
         duoMode
-          ? "DUO MODE (mandatory): exactly two interacting people in frame. No third person, crowd, or background faces."
-          : buildSoloSubjectLockDirective(effectiveHints) ??
-            buildSinglePersonUserDirective(),
-        duoFromHints
-          ? buildDistinctPeopleUserDirective(options.hints ?? "")
-          : null,
+          ? 'DUO MODE (mandatory): exactly two interacting people in frame. No third person, crowd, or background faces.'
+          : (buildSoloSubjectLockDirective(effectiveHints) ?? buildSinglePersonUserDirective()),
+        duoFromHints ? buildDistinctPeopleUserDirective(options.hints ?? '') : null,
         options.avoidedTokensInstruction ?? null,
-        "Write one model-ready character prompt.",
+        'Write one model-ready character prompt.',
       ];
   const filteredUserParts = userParts.filter(Boolean);
 
-  const userMessage = filteredUserParts.join("\n\n");
+  const userMessage = filteredUserParts.join('\n\n');
   const variationStrength = options.variationStrength ?? 50;
   const temperature = parsed.hasIdentityConstraints
     ? 0.55 + variationStrength / 400
@@ -425,7 +394,7 @@ ${soloRules}
           portraitStyle,
           null,
           normalizeCharacterPresetOptions({}),
-          duoMode,
+          duoMode
         );
       }
       let prompt = buildCharacterTemplate(
@@ -433,7 +402,7 @@ ${soloRules}
         portraitStyle,
         identitySeed,
         presetOptions,
-        duoMode,
+        duoMode
       );
       const { maxChars } = getDetailLimits(detail, options.model);
       if (wardrobeAssignments?.length) {
@@ -441,37 +410,27 @@ ${soloRules}
           prompt,
           wardrobeAssignments,
           maxChars,
-          options.hints,
+          options.hints
         );
       } else if (presetWardrobeSummary) {
         prompt = mergeGenerateWardrobeIntoPrompt(
           prompt,
           [{ summary: presetWardrobeSummary, filters: clothingFilters }],
           maxChars,
-          options.hints,
+          options.hints
         );
       }
       if (intentSport) {
-        prompt = stripIncompatibleSportActionsFromPrompt(
-          prompt,
-          intentSport,
-          intentCorpus,
-        );
+        prompt = stripIncompatibleSportActionsFromPrompt(prompt, intentSport, intentCorpus);
       }
       return prompt;
     },
     sanitizeInput: sanitizeContext,
-    enforceMinimum: keywordsOnly
-      ? false
-      : !(hasPresets || hasPoseAnchor(presetOptions)),
+    enforceMinimum: keywordsOnly ? false : !(hasPresets || hasPoseAnchor(presetOptions)),
     postProcessPrompt: keywordsOnly
       ? intentSport
         ? (prompt: string) =>
-            stripIncompatibleSportActionsFromPrompt(
-              prompt,
-              intentSport,
-              intentCorpus,
-            )
+            stripIncompatibleSportActionsFromPrompt(prompt, intentSport, intentCorpus)
         : undefined
       : postProcessPrompt,
     temperature: options.llm?.temperature ?? temperature,
@@ -492,47 +451,42 @@ ${soloRules}
       seedLlmWithIngredients: seedIngredients,
       identitySeed: keywordsOnly ? null : identitySeed,
       parsedHints: parsed,
-      presetOptions: keywordsOnly
-        ? normalizeCharacterPresetOptions({})
-        : presetOptions,
+      presetOptions: keywordsOnly ? normalizeCharacterPresetOptions({}) : presetOptions,
       duoMode,
       teamKit: options.teamKit ?? false,
-      presetCount:
-        !keywordsOnly && hasPresets
-          ? countCharacterPresetSelections(presetOptions)
-          : 0,
+      presetCount: !keywordsOnly && hasPresets ? countCharacterPresetSelections(presetOptions) : 0,
     },
   });
 }
 
 function buildCharacterTemplate(
   hints: string,
-  portraitStyle: NonNullable<CharacterOptions["portraitStyle"]>,
+  portraitStyle: NonNullable<CharacterOptions['portraitStyle']>,
   identitySeed: string | null,
   presetOptions: ReturnType<typeof normalizeCharacterPresetOptions>,
-  duoMode = false,
+  duoMode = false
 ): string {
   const base = (() => {
-    const subject = hints.trim() || identitySeed || "a distinctive original person";
+    const subject = hints.trim() || identitySeed || 'a distinctive original person';
     const parsed = parseCharacterHints(hints);
     const location = parseSettingHint(hints).location;
-    const locationNote = location ? ` The scene is set in ${location}.` : "";
+    const locationNote = location ? ` The scene is set in ${location}.` : '';
     const hairNote = parsed.wantsMinimalHair
-      ? "Head and scalp read exactly as described."
-      : "Hair is visible and specific—color, length, and texture read clearly—not bald or shaved unless requested.";
+      ? 'Head and scalp read exactly as described.'
+      : 'Hair is visible and specific—color, length, and texture read clearly—not bald or shaved unless requested.';
     const soloNote = duoMode
-      ? "Both subjects read as distinct individuals with balanced visual weight."
-      : "No other people appear anywhere in the frame.";
+      ? 'Both subjects read as distinct individuals with balanced visual weight.'
+      : 'No other people appear anywhere in the frame.';
 
     if (hasPoseAnchor(presetOptions)) {
       return `${capitalize(subject)}${locationNote} ${hairNote}. ${soloNote}`;
     }
 
-    if (portraitStyle === "full-body") {
+    if (portraitStyle === 'full-body') {
       return `${capitalize(subject)} stands in clear directional light, full body visible from head to worn shoes.${locationNote} ${hairNote} Clothing shows material texture and fit; posture and expression read distinctly in the same moment. ${soloNote}`;
     }
 
-    if (portraitStyle === "action") {
+    if (portraitStyle === 'action') {
       return `${capitalize(subject)} is caught mid-action—body driving through the scene with clear momentum under sharp directional light.${locationNote} Weight shifts forward, limbs extend, and clothing or hair reacts to the movement; muscles read engaged, not at rest. ${hairNote} One concrete environment beat ties to the motion (dust, spray, wind, or debris). ${soloNote}`;
     }
 

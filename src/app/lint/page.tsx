@@ -1,8 +1,8 @@
-import dynamic from "next/dynamic";
-import PageCanvas from "@/components/ui/PageCanvas";
-import { ToolPageSkeleton } from "@/components/ui/ViewState";
+import dynamic from 'next/dynamic';
+import PageCanvas from '@/components/ui/PageCanvas';
+import { ToolPageSkeleton } from '@/components/ui/ViewState';
 
-const LintTool = dynamic(() => import("@/components/LintTool"), {
+const LintTool = dynamic(() => import('@/components/LintTool'), {
   loading: () => <ToolPageSkeleton label="Loading lint" />,
 });
 

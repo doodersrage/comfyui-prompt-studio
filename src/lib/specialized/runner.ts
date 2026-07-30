@@ -3,31 +3,33 @@ import {
   buildModelSystemPrompt,
   getComfyModelDefinition,
   type ComfyImageModel,
-} from "../comfy-models";
-import { getDetailLimits } from "../detail-level";
+} from '../comfy-models';
+import { getDetailLimits } from '../detail-level';
 import {
   resolveRequestLlmEnabled,
   resolveRequestTemplateFallback,
   resolveRequestTemperature,
-} from "../llm-request-options";
-import { chatCompletion } from "../llm-client";
-import { isThinkingOnlyArtifact, stripPromptArtifacts } from "../prompt-cleanup";
-import { ensureSinglePersonPrompt } from "../single-person";
-import { sanitizeQwenPrompt, formatPromptForModel, trimPromptToMaxChars, compactPromptForProfile } from "../qwen-clarity";
+} from '../llm-request-options';
+import { chatCompletion } from '../llm-client';
+import { isThinkingOnlyArtifact, stripPromptArtifacts } from '../prompt-cleanup';
+import { ensureSinglePersonPrompt } from '../single-person';
 import {
-  expandSparsePromptWithLlm,
-  needsSparsePromptExpand,
-} from "../sparse-prompt-expand";
-import { withRawPrompt } from "../raw-prompt";
-import type { DetailLevel } from "../detail-level";
-import type { ToolGenerateResult, ToolLimits } from "./types";
+  sanitizeQwenPrompt,
+  formatPromptForModel,
+  trimPromptToMaxChars,
+  compactPromptForProfile,
+} from '../qwen-clarity';
+import { expandSparsePromptWithLlm, needsSparsePromptExpand } from '../sparse-prompt-expand';
+import { withRawPrompt } from '../raw-prompt';
+import type { DetailLevel } from '../detail-level';
+import type { ToolGenerateResult, ToolLimits } from './types';
 
 export function buildToolResult(
   prompt: string,
-  provider: ToolGenerateResult["provider"],
+  provider: ToolGenerateResult['provider'],
   model: ComfyImageModel,
   detail: DetailLevel,
-  extras?: Partial<ToolGenerateResult>,
+  extras?: Partial<ToolGenerateResult>
 ): ToolGenerateResult {
   const limits = getDetailLimits(detail, model);
   const modelDef = getComfyModelDefinition(model);
@@ -76,7 +78,7 @@ export async function runSpecializedPrompt(options: {
   const limits = getDetailLimits(options.detail, options.model);
   const maxTokens = options.maxTokens ?? limits.maxTokens;
   const reportedModel = options.resultModel ?? options.model;
-  const systemPrompt = `${buildModelSystemPrompt(options.model, "positive")}
+  const systemPrompt = `${buildModelSystemPrompt(options.model, 'positive')}
 
 ${options.toolInstructions}
 
@@ -88,8 +90,8 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
     try {
       const content = await chatCompletion({
         messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: options.userMessage },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: options.userMessage },
         ],
         maxTokens,
         temperature: resolveRequestTemperature({ temperature: options.temperature }),
@@ -101,43 +103,44 @@ Output ONLY the raw prompt text. No quotes around the whole prompt, labels, mark
         content,
         options.detail,
         options.model,
-        options.sanitizeInput ?? "",
+        options.sanitizeInput ?? '',
         options.soloSubject,
         options.enforceMinimum,
         options.postProcessPrompt,
-        true,
+        true
       );
 
-      return buildToolResult(prompt, "llm", reportedModel, options.detail, {
+      return buildToolResult(prompt, 'llm', reportedModel, options.detail, {
         seed: options.seed,
         metadata: withRawPrompt(options.metadata, rawPrompt),
       });
     } catch (error) {
-      if (!resolveRequestTemplateFallback({ allowTemplateFallback: options.allowTemplateFallback })) {
-        throw error instanceof Error ? error : new Error("Generation failed.");
+      if (
+        !resolveRequestTemplateFallback({ allowTemplateFallback: options.allowTemplateFallback })
+      ) {
+        throw error instanceof Error ? error : new Error('Generation failed.');
       }
       console.warn(
-        "[specialized-generator] LLM failed, using template fallback:",
-        error instanceof Error ? error.message : error,
+        '[specialized-generator] LLM failed, using template fallback:',
+        error instanceof Error ? error.message : error
       );
     }
   }
 
   const templateDraft = await Promise.resolve(options.templateFallback());
-  const rawPrompt =
-    stripPromptArtifacts(templateDraft).trim() || templateDraft.trim();
+  const rawPrompt = stripPromptArtifacts(templateDraft).trim() || templateDraft.trim();
   const prompt = await finalizeSpecializedPrompt(
     templateDraft,
     options.detail,
     options.model,
-    options.sanitizeInput ?? "",
+    options.sanitizeInput ?? '',
     options.soloSubject,
     options.enforceMinimum,
     options.postProcessPrompt,
-    false,
+    false
   );
 
-  return buildToolResult(prompt, "template", reportedModel, options.detail, {
+  return buildToolResult(prompt, 'template', reportedModel, options.detail, {
     seed: options.seed,
     metadata: withRawPrompt(options.metadata, rawPrompt),
   });
@@ -151,11 +154,11 @@ async function finalizeSpecializedPrompt(
   soloSubject = false,
   enforceMinimum = true,
   postProcessPrompt?: (prompt: string) => string,
-  allowSparseLlmExpand = false,
+  allowSparseLlmExpand = false
 ): Promise<string> {
   const cleaned = stripPromptArtifacts(raw);
   if (!cleaned.trim() || isThinkingOnlyArtifact(cleaned)) {
-    throw new Error("LLM returned reasoning text instead of a prompt.");
+    throw new Error('LLM returned reasoning text instead of a prompt.');
   }
 
   let source = cleaned;
@@ -195,15 +198,12 @@ async function finalizeSpecializedPrompt(
   }
 
   if (soloSubject) {
-    prompt = ensureSinglePersonPrompt(
-      prompt,
-      getComfyModelDefinition(model).profile,
-    );
+    prompt = ensureSinglePersonPrompt(prompt, getComfyModelDefinition(model).profile);
   }
 
-  return formatPromptForModel(prompt, model, input, "positive");
+  return formatPromptForModel(prompt, model, input, 'positive');
 }
 
 export function richDetailLimits(model: ComfyImageModel): ToolLimits {
-  return getDetailLimits("rich", model);
+  return getDetailLimits('rich', model);
 }

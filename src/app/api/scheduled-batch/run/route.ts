@@ -3,11 +3,11 @@ import {
   notifyServerScheduledBatchComplete,
   resolveServerScheduledBatchConfig,
   shouldRunServerScheduledBatch,
-} from "@/lib/server-scheduled-batch";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import type { ScheduledBatchConfig } from "@/lib/scheduled-batch";
+} from '@/lib/server-scheduled-batch';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import type { ScheduledBatchConfig } from '@/lib/scheduled-batch';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type RunBody = Partial<ScheduledBatchConfig> & {
   /** When true (instrumentation cron), skip the run if the interval has not elapsed. */
@@ -30,13 +30,10 @@ export async function POST(request: Request) {
     void notifyServerScheduledBatchComplete(result);
     return apiJson({ ok: true, skipped: false, ...result });
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Server scheduled batch failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Server scheduled batch failed.', 500);
   }
 }
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/scheduled-batch/run");
+  return apiMethodNotAllowed(['POST'], '/api/scheduled-batch/run');
 }

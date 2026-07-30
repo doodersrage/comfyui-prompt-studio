@@ -1,32 +1,25 @@
-import {
-  buildMandatoryLocationBlock,
-  parseSettingHint,
-} from "../hint-location";
+import { buildMandatoryLocationBlock, parseSettingHint } from '../hint-location';
 import {
   buildPetPresetBlock,
   buildPetPresetUserDirective,
   hasPetPresetOptions,
   normalizePetPresetOptions,
   countPetPresetSelections,
-} from "../pet-options";
-import { applyLockedLocation } from "../locked-location";
-import { applyLockedVariationSeed } from "../locked-variation-seed";
-import { mergeLocationExclusions } from "../location-exclusions";
-import { buildPetMandatoryBlock, parsePetHints } from "../pet-hints";
-import { buildRandomPetSeed } from "../pet-scene-pools";
-import { runSpecializedPrompt } from "./runner";
-import type { PetOptions, ToolGenerateResult } from "./types";
+} from '../pet-options';
+import { applyLockedLocation } from '../locked-location';
+import { applyLockedVariationSeed } from '../locked-variation-seed';
+import { mergeLocationExclusions } from '../location-exclusions';
+import { buildPetMandatoryBlock, parsePetHints } from '../pet-hints';
+import { buildRandomPetSeed } from '../pet-scene-pools';
+import { runSpecializedPrompt } from './runner';
+import type { PetOptions, ToolGenerateResult } from './types';
 
-const PORTRAIT_FRAMING: Record<
-  NonNullable<PetOptions["portraitStyle"]>,
-  string
-> = {
+const PORTRAIT_FRAMING: Record<NonNullable<PetOptions['portraitStyle']>, string> = {
   portrait:
-    "tight portrait framing on face, eyes, whiskers, fur or feather texture, and expression",
-  "full-body":
-    "full-body framing from head to paws or tail with readable posture and proportions",
+    'tight portrait framing on face, eyes, whiskers, fur or feather texture, and expression',
+  'full-body': 'full-body framing from head to paws or tail with readable posture and proportions',
   action:
-    "dynamic action framing: mid-motion body with visible momentum, engaged muscles, and environment interaction—never a static posed snapshot",
+    'dynamic action framing: mid-motion body with visible momentum, engaged muscles, and environment interaction—never a static posed snapshot',
 };
 
 const ACTION_INSTRUCTIONS = `- Name a specific animal action (run, leap, pounce, fetch, shake, stretch, groom, sniff, play, perch, hop, etc.) and show the body mid-movement.
@@ -34,11 +27,9 @@ const ACTION_INSTRUCTIONS = `- Name a specific animal action (run, leap, pounce,
 - Include one concrete environment beat tied to the action (kicked leaves, splashing water, scattered kibble, fluttering feathers).
 - Prefer energetic camera language: low angle, shallow depth of field, or freeze-frame peak action.`;
 
-export async function generatePetPrompt(
-  options: PetOptions,
-): Promise<ToolGenerateResult> {
-  const detail = options.detail === "concise" ? "balanced" : options.detail;
-  const portraitStyle = options.portraitStyle ?? "portrait";
+export async function generatePetPrompt(options: PetOptions): Promise<ToolGenerateResult> {
+  const detail = options.detail === 'concise' ? 'balanced' : options.detail;
+  const portraitStyle = options.portraitStyle ?? 'portrait';
   const presetOptions = normalizePetPresetOptions(options.presetOptions);
   const hasPresets = hasPetPresetOptions(presetOptions);
   const effectiveHints = applyLockedLocation(options.hints, options.lockedLocation);
@@ -46,29 +37,28 @@ export async function generatePetPrompt(
     ...(presetOptions.species
       ? {
           species:
-            presetOptions.species === "small-pet" ||
-            presetOptions.species === "reptile"
-              ? "other"
+            presetOptions.species === 'small-pet' || presetOptions.species === 'reptile'
+              ? 'other'
               : presetOptions.species,
         }
       : {}),
-    ...(presetOptions.pairMode === "pair"
+    ...(presetOptions.pairMode === 'pair'
       ? { pair: true }
-      : presetOptions.pairMode === "solo"
+      : presetOptions.pairMode === 'solo'
         ? { pair: false }
         : {}),
   });
   const settingHint = parseSettingHint(effectiveHints);
   const locationExclude = mergeLocationExclusions(
     options.recentLocations,
-    options.blockedLocations,
+    options.blockedLocations
   );
   const { seed: rolledSeed, location: sceneLocation } = buildRandomPetSeed(
     effectiveHints,
     portraitStyle,
     locationExclude,
     presetOptions,
-    options.avoidedTokens,
+    options.avoidedTokens
   );
   const seed = applyLockedVariationSeed(rolledSeed, options.variationSeed);
   const mandatoryBlock = buildPetMandatoryBlock(parsed, effectiveHints);
@@ -91,15 +81,15 @@ export async function generatePetPrompt(
     locationBlock,
     `Pet scene ingredients:\n${seed}`,
     `Framing: ${PORTRAIT_FRAMING[portraitStyle]}`,
-    portraitStyle === "action" ? ACTION_INSTRUCTIONS : null,
+    portraitStyle === 'action' ? ACTION_INSTRUCTIONS : null,
     parsed.pair
-      ? "PAIR MODE (mandatory): exactly two animals interacting in frame. No third animal, crowd, or background critters."
-      : "SOLO MODE (mandatory): exactly one animal in frame. No extra pets, animal crowds, or background animals.",
+      ? 'PAIR MODE (mandatory): exactly two animals interacting in frame. No third animal, crowd, or background critters.'
+      : 'SOLO MODE (mandatory): exactly one animal in frame. No extra pets, animal crowds, or background animals.',
     options.avoidedTokensInstruction ?? null,
-    "Write one model-ready pet scene prompt.",
+    'Write one model-ready pet scene prompt.',
   ]
     .filter(Boolean)
-    .join("\n\n");
+    .join('\n\n');
 
   const variationStrength = options.variationStrength ?? 50;
   const temperature = parsed.hasSpeciesConstraints
@@ -135,19 +125,19 @@ export async function generatePetPrompt(
 
 function buildPetTemplate(
   seed: string,
-  portraitStyle: NonNullable<PetOptions["portraitStyle"]>,
-  pair: boolean,
+  portraitStyle: NonNullable<PetOptions['portraitStyle']>,
+  pair: boolean
 ): string {
-  const normalized = capitalize(seed.replace(/\.$/, ""));
+  const normalized = capitalize(seed.replace(/\.$/, ''));
   const countLine = pair
-    ? "Exactly two animals interact in frame with no other pets or people visible."
-    : "Exactly one animal is the clear hero subject with no other pets or people visible.";
+    ? 'Exactly two animals interact in frame with no other pets or people visible.'
+    : 'Exactly one animal is the clear hero subject with no other pets or people visible.';
   const framingLine =
-    portraitStyle === "action"
-      ? "The body reads mid-motion with believable anatomy, engaged muscles, and fur or feathers reacting to movement."
-      : portraitStyle === "full-body"
-        ? "Full-body proportions read clearly from head to paws or tail with natural posture."
-        : "Facial detail, eyes, whiskers or beak, and coat texture are crisp in portrait framing.";
+    portraitStyle === 'action'
+      ? 'The body reads mid-motion with believable anatomy, engaged muscles, and fur or feathers reacting to movement.'
+      : portraitStyle === 'full-body'
+        ? 'Full-body proportions read clearly from head to paws or tail with natural posture.'
+        : 'Facial detail, eyes, whiskers or beak, and coat texture are crisp in portrait framing.';
 
   return `${normalized}. ${countLine} ${framingLine} The environment supports the subject with coherent depth, material detail, and directional light. No human hands, faces, or figures appear anywhere in the scene.`;
 }

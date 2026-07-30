@@ -1,12 +1,7 @@
-import {
-  getLlmInflightCount,
-  getLlmMaxInflight,
-  isLlmBusy,
-  isLlmEnabled,
-} from "@/lib/llm-client";
-import { apiJson, apiMethodNotAllowed } from "@/lib/api/response";
+import { getLlmInflightCount, getLlmMaxInflight, isLlmBusy, isLlmEnabled } from '@/lib/llm-client';
+import { apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 export async function GET() {
   return apiJson({
@@ -18,5 +13,5 @@ export async function GET() {
 }
 
 export function POST() {
-  return apiMethodNotAllowed(["GET"], "/api/llm/status");
+  return apiMethodNotAllowed(['GET'], '/api/llm/status');
 }

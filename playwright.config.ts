@@ -1,18 +1,18 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { defineConfig } from "@playwright/test";
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { defineConfig } from '@playwright/test';
 
 function loadEnvLocal(): void {
-  const path = resolve(__dirname, ".env.local");
+  const path = resolve(__dirname, '.env.local');
   if (!existsSync(path)) {
     return;
   }
-  for (const line of readFileSync(path, "utf8").split("\n")) {
+  for (const line of readFileSync(path, 'utf8').split('\n')) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
+    if (!trimmed || trimmed.startsWith('#')) {
       continue;
     }
-    const separator = trimmed.indexOf("=");
+    const separator = trimmed.indexOf('=');
     if (separator <= 0) {
       continue;
     }
@@ -32,30 +32,30 @@ function loadEnvLocal(): void {
 
 loadEnvLocal();
 
-const baseURL = process.env.PROMPT_API_URL ?? "http://127.0.0.1:47832";
-const authStorage = resolve(__dirname, "e2e/.auth/user.json");
+const baseURL = process.env.PROMPT_API_URL ?? 'http://127.0.0.1:47832';
+const authStorage = resolve(__dirname, 'e2e/.auth/user.json');
 
 export default defineConfig({
-  testDir: "e2e",
+  testDir: 'e2e',
   timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
   // Parallel workers + next dev race on navigation (ERR_ABORTED).
   workers: process.env.CI ? 1 : undefined,
-  globalSetup: "./e2e/global-setup.ts",
+  globalSetup: './e2e/global-setup.ts',
   use: {
     baseURL,
-    trace: "off",
+    trace: 'off',
     storageState: existsSync(authStorage) ? authStorage : undefined,
   },
   webServer: {
     // Production server avoids Fast Refresh aborting in-flight navigations under CI.
-    command: process.env.CI ? "npm run build && npm run start" : "npm run dev",
+    command: process.env.CI ? 'npm run build && npm run start' : 'npm run dev',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: process.env.CI ? 300_000 : 120_000,
     env: {
       ...process.env,
-      NEXT_PUBLIC_PLAYWRIGHT: "1",
+      NEXT_PUBLIC_PLAYWRIGHT: '1',
     },
   },
 });

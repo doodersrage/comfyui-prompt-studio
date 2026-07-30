@@ -1,7 +1,7 @@
-import dynamic from "next/dynamic";
-import { ToolPageSkeleton } from "@/components/ui/ViewState";
+import dynamic from 'next/dynamic';
+import { ToolPageSkeleton } from '@/components/ui/ViewState';
 
-const QueueTool = dynamic(() => import("@/components/QueueTool"), {
+const QueueTool = dynamic(() => import('@/components/QueueTool'), {
   loading: () => <ToolPageSkeleton label="Loading queue" />,
 });
 

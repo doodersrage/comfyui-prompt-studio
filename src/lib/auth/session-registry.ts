@@ -1,7 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
-import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
+import fs from 'node:fs';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { resolvePromptAuthDir } from '@/lib/prompt-data-paths';
 
 export type RegisteredSession = {
   id: string;
@@ -24,19 +24,19 @@ const MAX_SESSIONS = 500;
 function sessionsPath(): string {
   const dir = resolvePromptAuthDir();
   fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, "sessions.json");
+  return path.join(dir, 'sessions.json');
 }
 
 function readDoc(): SessionsDocument {
   try {
-    return JSON.parse(fs.readFileSync(sessionsPath(), "utf8")) as SessionsDocument;
+    return JSON.parse(fs.readFileSync(sessionsPath(), 'utf8')) as SessionsDocument;
   } catch {
     return { version: 1, sessions: [] };
   }
 }
 
 function writeDoc(doc: SessionsDocument): void {
-  fs.writeFileSync(sessionsPath(), JSON.stringify(doc, null, 2), "utf8");
+  fs.writeFileSync(sessionsPath(), JSON.stringify(doc, null, 2), 'utf8');
 }
 
 export function registerSession(input: {
@@ -67,7 +67,7 @@ export function registerSession(input: {
 
 export function touchSession(sessionId: string): void {
   const doc = readDoc();
-  const session = doc.sessions.find((entry) => entry.id === sessionId && !entry.revoked);
+  const session = doc.sessions.find(entry => entry.id === sessionId && !entry.revoked);
   if (!session) {
     return;
   }
@@ -76,14 +76,12 @@ export function touchSession(sessionId: string): void {
 }
 
 export function listUserSessions(userId: string): RegisteredSession[] {
-  return readDoc().sessions.filter((session) => session.userId === userId && !session.revoked);
+  return readDoc().sessions.filter(session => session.userId === userId && !session.revoked);
 }
 
 export function revokeSession(userId: string, sessionId: string): boolean {
   const doc = readDoc();
-  const session = doc.sessions.find(
-    (entry) => entry.id === sessionId && entry.userId === userId,
-  );
+  const session = doc.sessions.find(entry => entry.id === sessionId && entry.userId === userId);
   if (!session) {
     return false;
   }
@@ -112,6 +110,6 @@ export function isSessionRevoked(sessionId: string | undefined): boolean {
   if (!sessionId) {
     return false;
   }
-  const session = readDoc().sessions.find((entry) => entry.id === sessionId);
+  const session = readDoc().sessions.find(entry => entry.id === sessionId);
   return Boolean(session?.revoked);
 }

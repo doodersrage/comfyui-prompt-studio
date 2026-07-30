@@ -1,10 +1,10 @@
-import type { AppFeatureId } from "./features";
+import type { AppFeatureId } from './features';
 
-export type AuthRole = "admin" | "user" | "viewer";
+export type AuthRole = 'admin' | 'user' | 'viewer';
 
 export type UserScheduledCampaign = {
   enabled: boolean;
-  target: "random-scene" | "topics";
+  target: 'random-scene' | 'topics';
   count: number;
   intervalMin: number;
   autoQueueComfyUi: boolean;
@@ -45,7 +45,7 @@ export type AuthGroup = {
   updatedAt: number;
 };
 
-export type AuthUserPublic = Omit<AuthUser, "passwordHash">;
+export type AuthUserPublic = Omit<AuthUser, 'passwordHash'>;
 
 export type AuthSession = {
   userId: string;
@@ -59,7 +59,7 @@ export type AuthSession = {
 export type AuthSessionResponse = {
   authEnabled: boolean;
   user: AuthUserPublic | null;
-  allowedFeatures: AppFeatureId[] | "all";
+  allowedFeatures: AppFeatureId[] | 'all';
   impersonating?: boolean;
   impersonatorUsername?: string;
 };
@@ -75,7 +75,7 @@ export type GroupsDocument = {
 };
 
 export const VIEWER_ALLOWED_FEATURES = [
-  "dashboard",
-  "gallery",
-  "studio",
+  'dashboard',
+  'gallery',
+  'studio',
 ] as const satisfies readonly AppFeatureId[];

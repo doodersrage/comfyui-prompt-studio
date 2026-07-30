@@ -4,18 +4,18 @@ import {
   readServerStorage,
   writeServerStorage,
   type StorageNamespace,
-} from "@/lib/server-storage";
+} from '@/lib/server-storage';
 import {
   readUserServerStorage,
   writeUserServerStorage,
   USER_STORAGE_NAMESPACES,
   type UserStorageNamespace,
-} from "@/lib/user-server-storage";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { readSessionFromRequest } from "@/lib/auth/session";
-import { findUserById, isAuthEnabled } from "@/lib/auth/store";
+} from '@/lib/user-server-storage';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { readSessionFromRequest } from '@/lib/auth/session';
+import { findUserById, isAuthEnabled } from '@/lib/auth/store';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 function resolveStorageUser(request: Request): string | null {
   if (!isAuthEnabled()) {
@@ -54,7 +54,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (!isServerStorageEnabled()) {
-    return apiError("Server storage disabled. Set PROMPT_DATA_DIR.", 503);
+    return apiError('Server storage disabled. Set PROMPT_DATA_DIR.', 503);
   }
 
   try {
@@ -63,34 +63,38 @@ export async function POST(request: Request) {
       data?: unknown;
     };
     if (!body.namespace || body.data === undefined) {
-      return apiError("namespace and data are required.", 400);
+      return apiError('namespace and data are required.', 400);
     }
 
     const userId = resolveStorageUser(request);
     if (isUserNamespace(body.namespace)) {
       if (!userId) {
-        return apiError("Sign in required for user storage sync.", 401);
+        return apiError('Sign in required for user storage sync.', 401);
       }
       writeUserServerStorage(userId, body.namespace, body.data);
     } else {
       writeServerStorage(body.namespace, body.data);
     }
 
-    return apiJson({ ok: true, namespace: body.namespace, userScoped: isUserNamespace(body.namespace) });
+    return apiJson({
+      ok: true,
+      namespace: body.namespace,
+      userScoped: isUserNamespace(body.namespace),
+    });
   } catch (error) {
-    return apiError(error instanceof Error ? error.message : "Storage write failed.", 500);
+    return apiError(error instanceof Error ? error.message : 'Storage write failed.', 500);
   }
 }
 
 export async function PUT(request: Request) {
   if (!isServerStorageEnabled()) {
-    return apiError("Server storage disabled. Set PROMPT_DATA_DIR.", 503);
+    return apiError('Server storage disabled. Set PROMPT_DATA_DIR.', 503);
   }
 
   const { searchParams } = new URL(request.url);
-  const namespace = searchParams.get("namespace") as StorageNamespace | null;
+  const namespace = searchParams.get('namespace') as StorageNamespace | null;
   if (!namespace) {
-    return apiError("namespace query parameter is required.", 400);
+    return apiError('namespace query parameter is required.', 400);
   }
 
   const userId = resolveStorageUser(request);
@@ -98,7 +102,7 @@ export async function PUT(request: Request) {
 
   if (isUserNamespace(namespace)) {
     if (!userId) {
-      return apiError("Sign in required for user storage sync.", 401);
+      return apiError('Sign in required for user storage sync.', 401);
     }
     data = readUserServerStorage(userId, namespace);
   } else {
@@ -106,11 +110,11 @@ export async function PUT(request: Request) {
   }
 
   if (data == null) {
-    return apiError("Namespace not found.", 404);
+    return apiError('Namespace not found.', 404);
   }
   return apiJson({ namespace, data, userScoped: isUserNamespace(namespace) });
 }
 
 export async function DELETE() {
-  return apiMethodNotAllowed(["GET", "POST", "PUT"], "/api/storage");
+  return apiMethodNotAllowed(['GET', 'POST', 'PUT'], '/api/storage');
 }

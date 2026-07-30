@@ -1,23 +1,20 @@
-import { NextResponse } from "next/server";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import {
-  assertSafeHttpUrl,
-  isWebhookPrivateAllowed,
-} from "@/lib/url-safety";
-import { formatWebhookPayload } from "@/lib/webhook-payload";
-import type { WebhookJobPayload } from "@/lib/webhook-settings";
+import { NextResponse } from 'next/server';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { assertSafeHttpUrl, isWebhookPrivateAllowed } from '@/lib/url-safety';
+import { formatWebhookPayload } from '@/lib/webhook-payload';
+import type { WebhookJobPayload } from '@/lib/webhook-settings';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type DispatchBody = {
   url?: string;
   secret?: string;
   payload?: Record<string, unknown>;
-  template?: import("@/lib/webhook-payload").WebhookTemplate;
+  template?: import('@/lib/webhook-payload').WebhookTemplate;
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/webhooks/dispatch");
+  return apiMethodNotAllowed(['POST'], '/api/webhooks/dispatch');
 }
 
 export async function POST(request: Request) {
@@ -25,7 +22,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as DispatchBody;
     const url = body.url?.trim();
     if (!url) {
-      return apiError("Webhook URL is required.", 400);
+      return apiError('Webhook URL is required.', 400);
     }
 
     let safeUrl: URL;
@@ -34,30 +31,24 @@ export async function POST(request: Request) {
         allowPrivate: isWebhookPrivateAllowed(),
       });
     } catch (error) {
-      return apiError(
-        error instanceof Error ? error.message : "Invalid webhook URL.",
-        400,
-      );
+      return apiError(error instanceof Error ? error.message : 'Invalid webhook URL.', 400);
     }
 
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     };
     if (body.secret?.trim()) {
-      headers["X-Prompt-Tools-Secret"] = body.secret.trim();
+      headers['X-Prompt-Tools-Secret'] = body.secret.trim();
     }
 
-    const template = body.template ?? "generic";
-    const payload = formatWebhookPayload(
-      (body.payload ?? {}) as WebhookJobPayload,
-      template,
-    );
+    const template = body.template ?? 'generic';
+    const payload = formatWebhookPayload((body.payload ?? {}) as WebhookJobPayload, template);
 
     const response = await fetch(safeUrl.toString(), {
-      method: "POST",
+      method: 'POST',
       headers,
       body: JSON.stringify(payload),
-      redirect: "manual",
+      redirect: 'manual',
       signal: AbortSignal.timeout(15_000),
     });
 
@@ -66,10 +57,7 @@ export async function POST(request: Request) {
       status: response.status,
     });
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Webhook dispatch failed.",
-      502,
-    );
+    return apiError(error instanceof Error ? error.message : 'Webhook dispatch failed.', 502);
   }
 }
 
@@ -77,9 +65,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

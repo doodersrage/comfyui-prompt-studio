@@ -1,12 +1,8 @@
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { resolveRequestUser } from "@/lib/auth/access";
-import {
-  createUserApiKey,
-  listUserApiKeys,
-  revokeUserApiKey,
-} from "@/lib/auth/api-keys";
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { resolveRequestUser } from '@/lib/auth/access';
+import { createUserApiKey, listUserApiKeys, revokeUserApiKey } from '@/lib/auth/api-keys';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 function requireUser(request: Request) {
   const user = resolveRequestUser(request);
@@ -19,9 +15,9 @@ function requireUser(request: Request) {
 export async function GET(request: Request) {
   const user = requireUser(request);
   if (!user) {
-    return apiError("Sign in required.", 401);
+    return apiError('Sign in required.', 401);
   }
-  const keys = listUserApiKeys(user.id).map((key) => ({
+  const keys = listUserApiKeys(user.id).map(key => ({
     id: key.id,
     label: key.label,
     prefix: key.prefix,
@@ -35,10 +31,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const user = requireUser(request);
   if (!user) {
-    return apiError("Sign in required.", 401);
+    return apiError('Sign in required.', 401);
   }
   const body = (await request.json()) as { label?: string };
-  const created = createUserApiKey({ userId: user.id, label: body.label ?? "API key" });
+  const created = createUserApiKey({ userId: user.id, label: body.label ?? 'API key' });
   return apiJson({
     key: {
       id: created.key.id,
@@ -53,18 +49,18 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const user = requireUser(request);
   if (!user) {
-    return apiError("Sign in required.", 401);
+    return apiError('Sign in required.', 401);
   }
   const body = (await request.json()) as { keyId?: string };
   if (!body.keyId) {
-    return apiError("keyId is required.", 400);
+    return apiError('keyId is required.', 400);
   }
   if (!revokeUserApiKey(user.id, body.keyId)) {
-    return apiError("API key not found.", 404);
+    return apiError('API key not found.', 404);
   }
   return apiJson({ ok: true });
 }
 
 export async function OPTIONS() {
-  return apiMethodNotAllowed(["GET", "POST", "DELETE"], "/api/auth/api-keys");
+  return apiMethodNotAllowed(['GET', 'POST', 'DELETE'], '/api/auth/api-keys');
 }

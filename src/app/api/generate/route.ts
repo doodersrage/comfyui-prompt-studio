@@ -1,29 +1,19 @@
-import {
-  generatePrompt,
-  type PromptMode,
-} from "@/lib/prompt-generator";
-import { resolveAvoidanceOptions } from "@/lib/avoidance-options";
-import { applyLockedLocation } from "@/lib/locked-location";
-import { normalizeGenerationSettings } from "@/lib/generation-settings";
+import { generatePrompt, type PromptMode } from '@/lib/prompt-generator';
+import { resolveAvoidanceOptions } from '@/lib/avoidance-options';
+import { applyLockedLocation } from '@/lib/locked-location';
+import { normalizeGenerationSettings } from '@/lib/generation-settings';
 import {
   normalizeRecentClothing,
   normalizeLockedWardrobeId,
   normalizeLockedLocation,
   normalizeVariationSeed,
-} from "@/lib/specialized/normalize";
-import {
-  apiError,
-  apiJson,
-  apiMethodNotAllowed,
-} from "@/lib/api/response";
-import {
-  parseLlmRequestOptions,
-  resolveRequestLlmEnabled,
-} from "@/lib/llm-request-options";
-import { isLlmBusy, LlmBusyError } from "@/lib/llm-client";
-import { NextResponse } from "next/server";
+} from '@/lib/specialized/normalize';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { parseLlmRequestOptions, resolveRequestLlmEnabled } from '@/lib/llm-request-options';
+import { isLlmBusy, LlmBusyError } from '@/lib/llm-client';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type GenerateRequestBody = {
   input?: string;
@@ -51,7 +41,7 @@ type GenerateRequestBody = {
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/generate");
+  return apiMethodNotAllowed(['POST'], '/api/generate');
 }
 
 export async function POST(request: Request) {
@@ -59,7 +49,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as GenerateRequestBody;
     const avoidance = resolveAvoidanceOptions(body);
     const rawInput = body.input?.trim();
-    const mode: PromptMode = body.mode === "negative" ? "negative" : "positive";
+    const mode: PromptMode = body.mode === 'negative' ? 'negative' : 'positive';
     const settings = normalizeGenerationSettings({
       variation: body.variation,
       distinctPeople: body.distinctPeople,
@@ -70,25 +60,30 @@ export async function POST(request: Request) {
     });
 
     if (!rawInput) {
-      return apiError("Input is required.", 400);
+      return apiError('Input is required.', 400);
     }
 
     const lockedLocation = normalizeLockedLocation(body.lockedLocation);
     const effectiveInput =
-      mode === "positive" && settings.seedLlmWithIngredients !== false
-        ? applyLockedLocation(rawInput, lockedLocation) ?? rawInput
+      mode === 'positive' && settings.seedLlmWithIngredients !== false
+        ? (applyLockedLocation(rawInput, lockedLocation) ?? rawInput)
         : rawInput;
 
     if (effectiveInput.length > 4000) {
-      return apiError("Input must be 4000 characters or fewer.", 400);
+      return apiError('Input must be 4000 characters or fewer.', 400);
     }
 
     const llm = parseLlmRequestOptions(body);
     if (resolveRequestLlmEnabled(llm) && isLlmBusy()) {
-      return apiError("LLM is busy handling other requests.", 429, {
-        busy: true,
-        retryAfter: 2,
-      }, { "Retry-After": "2" });
+      return apiError(
+        'LLM is busy handling other requests.',
+        429,
+        {
+          busy: true,
+          retryAfter: 2,
+        },
+        { 'Retry-After': '2' }
+      );
     }
 
     const result = await generatePrompt(effectiveInput, mode, settings, {
@@ -97,21 +92,25 @@ export async function POST(request: Request) {
       variationSeed: normalizeVariationSeed(body.variationSeed),
       avoidedTokens: avoidance.avoidedTokens,
       avoidedTokensInstruction: avoidance.avoidedTokensInstruction,
-      tool: "generate",
+      tool: 'generate',
       llm,
     });
 
     return apiJson(result);
   } catch (error) {
     if (error instanceof LlmBusyError) {
-      return apiError(error.message, 429, {
-        busy: true,
-        retryAfter: error.retryAfterSeconds,
-      }, { "Retry-After": String(error.retryAfterSeconds) });
+      return apiError(
+        error.message,
+        429,
+        {
+          busy: true,
+          retryAfter: error.retryAfterSeconds,
+        },
+        { 'Retry-After': String(error.retryAfterSeconds) }
+      );
     }
 
-    const message =
-      error instanceof Error ? error.message : "Failed to generate prompt.";
+    const message = error instanceof Error ? error.message : 'Failed to generate prompt.';
 
     return apiError(message, 500);
   }
@@ -121,9 +120,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

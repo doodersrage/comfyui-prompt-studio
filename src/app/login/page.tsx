@@ -1,6 +1,6 @@
-import { Suspense } from "react";
-import PageCanvas from "@/components/ui/PageCanvas";
-import LoginForm from "@/components/auth/LoginForm";
+import { Suspense } from 'react';
+import PageCanvas from '@/components/ui/PageCanvas';
+import LoginForm from '@/components/auth/LoginForm';
 
 export default function LoginPage() {
   return (

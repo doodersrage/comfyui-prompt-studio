@@ -1,20 +1,28 @@
-import { batchGenerateCharacter } from "@/lib/batch-generate";
-import { resolveAvoidanceOptions } from "@/lib/avoidance-options";
+import { batchGenerateCharacter } from '@/lib/batch-generate';
+import { resolveAvoidanceOptions } from '@/lib/avoidance-options';
 import {
   normalizeCharacterPresetOptions,
   type CharacterPresetOptions,
-} from "@/lib/character-options";
-import { normalizeSharedGenerationOptions, normalizeRecentLocations, normalizeRecentClothing, normalizeBlockedLocations, normalizeLockedWardrobeId, normalizeLockedLocation, normalizeVariationSeed } from "@/lib/specialized/normalize";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+} from '@/lib/character-options';
+import {
+  normalizeSharedGenerationOptions,
+  normalizeRecentLocations,
+  normalizeRecentClothing,
+  normalizeBlockedLocations,
+  normalizeLockedWardrobeId,
+  normalizeLockedLocation,
+  normalizeVariationSeed,
+} from '@/lib/specialized/normalize';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type BatchRequestBody = {
   model?: string;
   detail?: string;
   hints?: string;
-  portraitStyle?: "portrait" | "full-body" | "action";
+  portraitStyle?: 'portrait' | 'full-body' | 'action';
   variationStrength?: number;
   presetOptions?: Partial<Record<keyof CharacterPresetOptions, string>>;
   recentLocations?: string[];
@@ -32,7 +40,7 @@ type BatchRequestBody = {
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/batch");
+  return apiMethodNotAllowed(['POST'], '/api/batch');
 }
 
 export async function POST(request: Request) {
@@ -42,11 +50,11 @@ export async function POST(request: Request) {
     const avoidance = resolveAvoidanceOptions(body);
 
     const portraitStyle =
-      body.portraitStyle === "full-body" ||
-      body.portraitStyle === "action" ||
-      body.portraitStyle === "portrait"
+      body.portraitStyle === 'full-body' ||
+      body.portraitStyle === 'action' ||
+      body.portraitStyle === 'portrait'
         ? body.portraitStyle
-        : "action";
+        : 'action';
 
     const result = await batchGenerateCharacter({
       ...shared,
@@ -54,7 +62,7 @@ export async function POST(request: Request) {
       hints: body.hints?.trim(),
       portraitStyle,
       variationStrength:
-        typeof body.variationStrength === "number"
+        typeof body.variationStrength === 'number'
           ? Math.min(100, Math.max(0, body.variationStrength))
           : 50,
       presetOptions: normalizeCharacterPresetOptions(body.presetOptions),
@@ -63,7 +71,7 @@ export async function POST(request: Request) {
       alwaysIncludeClothing: body.alwaysIncludeClothing !== false,
       seedLlmWithIngredients: body.seedLlmWithIngredients !== false,
       teamKit: body.teamKit === true,
-      count: typeof body.count === "number" ? body.count : 3,
+      count: typeof body.count === 'number' ? body.count : 3,
       blockedLocations: normalizeBlockedLocations(body.blockedLocations),
       lockedWardrobeId: normalizeLockedWardrobeId(body.lockedWardrobeId),
       lockedLocation: normalizeLockedLocation(body.lockedLocation),
@@ -72,10 +80,7 @@ export async function POST(request: Request) {
 
     return apiJson(result);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Batch generation failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Batch generation failed.', 500);
   }
 }
 
@@ -83,9 +88,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

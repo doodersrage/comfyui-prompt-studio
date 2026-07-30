@@ -1,25 +1,22 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import type { AmbientIntensity } from "@/lib/ambient-settings";
-import { loadAmbientIntensity, saveAmbientIntensity } from "@/lib/ambient-settings";
-import type { UiDensity } from "@/lib/density-settings";
-import { loadUiDensity, saveUiDensity } from "@/lib/density-settings";
-import {
-  loadToastPreferenceEnabled,
-  rememberToastPreference,
-} from "@/lib/app-toast";
-import { resetUiChrome } from "@/lib/reset-ui-chrome";
-import { pushAppToast } from "@/lib/app-toast";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { Button } from "@/components/ui/Button";
-import { ToolSection } from "@/components/ui/ToolPageShell";
-import ThemePreferenceControl from "@/components/ThemePreferenceControl";
-import WorkspaceModeControl from "@/components/WorkspaceModeControl";
+import { useEffect, useState } from 'react';
+import type { AmbientIntensity } from '@/lib/ambient-settings';
+import { loadAmbientIntensity, saveAmbientIntensity } from '@/lib/ambient-settings';
+import type { UiDensity } from '@/lib/density-settings';
+import { loadUiDensity, saveUiDensity } from '@/lib/density-settings';
+import { loadToastPreferenceEnabled, rememberToastPreference } from '@/lib/app-toast';
+import { resetUiChrome } from '@/lib/reset-ui-chrome';
+import { pushAppToast } from '@/lib/app-toast';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { Button } from '@/components/ui/Button';
+import { ToolSection } from '@/components/ui/ToolPageShell';
+import ThemePreferenceControl from '@/components/ThemePreferenceControl';
+import WorkspaceModeControl from '@/components/WorkspaceModeControl';
 
 export default function ProfileAppearancePanel() {
-  const [ambient, setAmbient] = useState<AmbientIntensity>("subtle");
-  const [density, setDensity] = useState<UiDensity>("comfortable");
+  const [ambient, setAmbient] = useState<AmbientIntensity>('subtle');
+  const [density, setDensity] = useState<UiDensity>('comfortable');
   const [toastsEnabled, setToastsEnabled] = useState(true);
   const [resetNote, setResetNote] = useState<string | null>(null);
 
@@ -44,7 +41,7 @@ export default function ProfileAppearancePanel() {
           <span className="type-caption text-[var(--text-muted)]">Ambient background</span>
           <select
             value={ambient}
-            onChange={(event) => {
+            onChange={event => {
               const next = event.target.value as AmbientIntensity;
               setAmbient(next);
               saveAmbientIntensity(next);
@@ -61,7 +58,7 @@ export default function ProfileAppearancePanel() {
           <span className="type-caption text-[var(--text-muted)]">Density</span>
           <select
             value={density}
-            onChange={(event) => {
+            onChange={event => {
               const next = event.target.value as UiDensity;
               setDensity(next);
               saveUiDensity(next);
@@ -79,12 +76,12 @@ export default function ProfileAppearancePanel() {
           type="checkbox"
           className="mt-1"
           checked={toastsEnabled}
-          onChange={(event) => {
+          onChange={event => {
             const next = event.target.checked;
             setToastsEnabled(next);
             rememberToastPreference(next);
             if (next) {
-              pushAppToast({ text: "Toasts enabled", tone: "info", ttlMs: 2500 });
+              pushAppToast({ text: 'Toasts enabled', tone: 'info', ttlMs: 2500 });
             }
           }}
         />
@@ -99,10 +96,10 @@ export default function ProfileAppearancePanel() {
       <div className="mt-6 space-y-2 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4">
         <p className="type-heading">Reset chrome</p>
         <p className="type-caption text-[var(--text-muted)]">
-          Clears pinned tools, recent destinations, expanded nav groups, remembered
-          collapsibles, per-tool model/workflow memory, last draft, and last tool route.
-          Density returns to Comfortable. Workspace returns to Studio. Theme, ambient, and
-          toast preference stay unchanged.
+          Clears pinned tools, recent destinations, expanded nav groups, remembered collapsibles,
+          per-tool model/workflow memory, last draft, and last tool route. Density returns to
+          Comfortable. Workspace returns to Studio. Theme, ambient, and toast preference stay
+          unchanged.
         </p>
         <Button
           variant="secondary"
@@ -110,18 +107,18 @@ export default function ProfileAppearancePanel() {
           onClick={() => {
             if (
               !window.confirm(
-                "Reset pins, recent destinations, nav expand state, collapsibles, per-tool model memory, last draft, and last tool route?",
+                'Reset pins, recent destinations, nav expand state, collapsibles, per-tool model memory, last draft, and last tool route?'
               )
             ) {
               return;
             }
             resetUiChrome();
-            setDensity("comfortable");
-            setResetNote("Chrome reset. Reload if the sidebar still looks stale.");
+            setDensity('comfortable');
+            setResetNote('Chrome reset. Reload if the sidebar still looks stale.');
             if (toastsEnabled) {
               pushAppToast({
-                text: "UI chrome reset",
-                tone: "info",
+                text: 'UI chrome reset',
+                tone: 'info',
               });
             }
           }}

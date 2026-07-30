@@ -1,26 +1,26 @@
-import { apiError, apiJson } from "@/lib/api/response";
-import { appendAuditLog } from "@/lib/auth/audit-log";
-import { readSessionFromRequest } from "@/lib/auth/session";
-import type { AppFeatureId } from "@/lib/auth/features";
+import { apiError, apiJson } from '@/lib/api/response';
+import { appendAuditLog } from '@/lib/auth/audit-log';
+import { readSessionFromRequest } from '@/lib/auth/session';
+import type { AppFeatureId } from '@/lib/auth/features';
 import {
   deleteGroup,
   findUserById,
   isAuthEnabled,
   listGroups,
   upsertGroup,
-} from "@/lib/auth/store";
+} from '@/lib/auth/store';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 function requireAdmin(request: Request) {
   if (!isAuthEnabled()) {
-    return apiError("Authentication is disabled.", 400);
+    return apiError('Authentication is disabled.', 400);
   }
 
   const session = readSessionFromRequest(request);
   const user = session ? findUserById(session.userId) : null;
-  if (!user || user.role !== "admin" || !user.enabled) {
-    return apiError("Admin access required.", 403);
+  if (!user || user.role !== 'admin' || !user.enabled) {
+    return apiError('Admin access required.', 403);
   }
 
   return { user };
@@ -52,11 +52,11 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as typeof body;
   } catch {
-    return apiError("Invalid JSON body.", 400);
+    return apiError('Invalid JSON body.', 400);
   }
 
   if (!body.name?.trim()) {
-    return apiError("Group name is required.", 400);
+    return apiError('Group name is required.', 400);
   }
 
   try {
@@ -70,13 +70,13 @@ export async function POST(request: Request) {
     appendAuditLog({
       actorUserId: admin.user.id,
       actorUsername: admin.user.username,
-      action: body.id ? "group.updated" : "group.created",
+      action: body.id ? 'group.updated' : 'group.created',
       target: group.id,
       details: group.name,
     });
     return apiJson({ group });
   } catch (error) {
-    return apiError(error instanceof Error ? error.message : "Failed to save group.", 400);
+    return apiError(error instanceof Error ? error.message : 'Failed to save group.', 400);
   }
 }
 
@@ -86,9 +86,9 @@ export async function DELETE(request: Request) {
     return admin;
   }
 
-  const groupId = new URL(request.url).searchParams.get("id")?.trim();
+  const groupId = new URL(request.url).searchParams.get('id')?.trim();
   if (!groupId) {
-    return apiError("Group id is required.", 400);
+    return apiError('Group id is required.', 400);
   }
 
   try {
@@ -96,11 +96,11 @@ export async function DELETE(request: Request) {
     appendAuditLog({
       actorUserId: admin.user.id,
       actorUsername: admin.user.username,
-      action: "group.deleted",
+      action: 'group.deleted',
       target: groupId,
     });
     return apiJson({ ok: true });
   } catch (error) {
-    return apiError(error instanceof Error ? error.message : "Failed to delete group.", 400);
+    return apiError(error instanceof Error ? error.message : 'Failed to delete group.', 400);
   }
 }

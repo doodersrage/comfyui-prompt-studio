@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { memo, useCallback } from "react";
-import GalleryCard from "@/components/gallery/GalleryCard";
+import { memo, useCallback } from 'react';
+import GalleryCard from '@/components/gallery/GalleryCard';
 import {
   galleryEntryRenderKey,
   type ComfyGalleryEntry,
   type GalleryLayoutMode,
-} from "@/lib/comfyui-gallery";
+} from '@/lib/comfyui-gallery';
 import {
   canFaceDetailGalleryEntry,
   canUpscaleGalleryEntry,
@@ -15,7 +15,7 @@ import {
   galleryEntrySupportsRefine,
   galleryEntrySupportsSoftSecondPass,
   galleryEntrySupportsUpscale,
-} from "@/lib/gallery-entry-actions";
+} from '@/lib/gallery-entry-actions';
 
 export type GalleryCardActions = {
   toggleSelected: (id: string) => void;
@@ -24,27 +24,19 @@ export type GalleryCardActions = {
   requeue: (
     id: string,
     newSeed: boolean,
-    qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile,
+    qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile
   ) => void;
   cancel: (id: string) => void;
-  upscale: (
-    id: string,
-    qualityProfile: "final" | "max",
-    options?: { force?: boolean },
-  ) => void;
+  upscale: (id: string, qualityProfile: 'final' | 'max', options?: { force?: boolean }) => void;
   refine: (id: string) => void;
   softSecondPass: (id: string) => void;
   faceDetail: (id: string) => void;
-  moireClean: (
-    id: string,
-    qualityProfile: "final" | "max",
-    options?: { force?: boolean },
-  ) => void;
+  moireClean: (id: string, qualityProfile: 'final' | 'max', options?: { force?: boolean }) => void;
   showParent: (id: string) => void;
   showDerivatives: (id: string) => void;
   openImage: (id: string, index: number) => void;
   prefetchImage: (id: string, index: number) => void;
-  reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => void;
+  reviewRating: (id: string, rating: ComfyGalleryEntry['reviewRating']) => void;
   downloadError: (message: string | null) => void;
   visionTagClick: (tag: string) => void;
   viewWorkflow: (id: string) => void;
@@ -88,37 +80,31 @@ function GalleryCardItem({
 }: GalleryCardItemProps) {
   const onToggleSelected = useCallback(
     () => actionsRef.current.toggleSelected(entry.id),
-    [actionsRef, entry.id],
+    [actionsRef, entry.id]
   );
-  const onRemove = useCallback(
-    () => actionsRef.current.remove(entry.id),
-    [actionsRef, entry.id],
-  );
+  const onRemove = useCallback(() => actionsRef.current.remove(entry.id), [actionsRef, entry.id]);
   const onToggleFavorite = useCallback(
     () => actionsRef.current.toggleFavorite(entry.id),
-    [actionsRef, entry.id],
+    [actionsRef, entry.id]
   );
   const onUpscale = useCallback(
-    (qualityProfile: "final" | "max", options?: { force?: boolean }) =>
+    (qualityProfile: 'final' | 'max', options?: { force?: boolean }) =>
       actionsRef.current.upscale(entry.id, qualityProfile, options),
-    [actionsRef, entry.id],
+    [actionsRef, entry.id]
   );
-  const onRefine = useCallback(
-    () => actionsRef.current.refine(entry.id),
-    [actionsRef, entry.id],
-  );
+  const onRefine = useCallback(() => actionsRef.current.refine(entry.id), [actionsRef, entry.id]);
   const onSoftSecondPass = useCallback(
     () => actionsRef.current.softSecondPass(entry.id),
-    [actionsRef, entry.id],
+    [actionsRef, entry.id]
   );
   const onFaceDetail = useCallback(
     () => actionsRef.current.faceDetail(entry.id),
-    [actionsRef, entry.id],
+    [actionsRef, entry.id]
   );
   const onMoireClean = useCallback(
-    (qualityProfile: "final" | "max", options?: { force?: boolean }) =>
+    (qualityProfile: 'final' | 'max', options?: { force?: boolean }) =>
       actionsRef.current.moireClean(entry.id, qualityProfile, options),
-    [actionsRef, entry.id],
+    [actionsRef, entry.id]
   );
   const onShowParent = useCallback(() => {
     actionsRef.current.showParent(entry.id);
@@ -129,46 +115,40 @@ function GalleryCardItem({
   const onRequeue = useCallback(
     (
       newSeed: boolean,
-      qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile,
+      qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile
     ) => actionsRef.current.requeue(entry.id, newSeed, qualityProfile),
-    [actionsRef, entry.id],
+    [actionsRef, entry.id]
   );
-  const onCancel = useCallback(
-    () => actionsRef.current.cancel(entry.id),
-    [actionsRef, entry.id],
-  );
+  const onCancel = useCallback(() => actionsRef.current.cancel(entry.id), [actionsRef, entry.id]);
   const onOpenImage = useCallback(
     (index: number) => actionsRef.current.openImage(entry.id, index),
-    [actionsRef, entry.id],
+    [actionsRef, entry.id]
   );
   const onPrefetchImage = useCallback(
     (index: number) => actionsRef.current.prefetchImage(entry.id, index),
-    [actionsRef, entry.id],
+    [actionsRef, entry.id]
   );
   const onReviewRating = useCallback(
-    (rating: ComfyGalleryEntry["reviewRating"]) => {
+    (rating: ComfyGalleryEntry['reviewRating']) => {
       if (rating) {
         actionsRef.current.reviewRating(entry.id, rating);
       }
     },
-    [actionsRef, entry.id],
+    [actionsRef, entry.id]
   );
   const onDownloadError = useCallback(
     (message: string | null) => actionsRef.current.downloadError(message),
-    [actionsRef],
+    [actionsRef]
   );
   const onVisionTagClick = useCallback(
     (tag: string) => actionsRef.current.visionTagClick(tag),
-    [actionsRef],
+    [actionsRef]
   );
   const onViewWorkflow = useCallback(
     () => actionsRef.current.viewWorkflow(entry.id),
-    [actionsRef, entry.id],
+    [actionsRef, entry.id]
   );
-  const onPick = useCallback(
-    () => actionsRef.current.pick?.(entry.id),
-    [actionsRef, entry.id],
-  );
+  const onPick = useCallback(() => actionsRef.current.pick?.(entry.id), [actionsRef, entry.id]);
 
   return (
     <GalleryCard
@@ -192,12 +172,12 @@ function GalleryCardItem({
       onFaceDetail={onFaceDetail}
       onMoireClean={onMoireClean}
       showUpscaleActions={galleryEntrySupportsUpscale(entry.model)}
-      showUpscaleFinal={canUpscaleGalleryEntry(entry, "final")}
-      showUpscaleMax={canUpscaleGalleryEntry(entry, "max")}
+      showUpscaleFinal={canUpscaleGalleryEntry(entry, 'final')}
+      showUpscaleMax={canUpscaleGalleryEntry(entry, 'max')}
       showForceUpscaleMax={
         galleryEntrySupportsUpscale(entry.model) &&
-        entry.status === "completed" &&
-        galleryEntryAlreadyEnrichedForUpscale(entry, "max")
+        entry.status === 'completed' &&
+        galleryEntryAlreadyEnrichedForUpscale(entry, 'max')
       }
       showRefineAction={galleryEntrySupportsRefine(entry.model)}
       showSoftSecondPassAction={galleryEntrySupportsSoftSecondPass(entry.model)}
@@ -205,18 +185,18 @@ function GalleryCardItem({
       showMoireCleanActions={galleryEntrySupportsMoireClean(entry.model)}
       showMoireCleanFinal={
         galleryEntrySupportsMoireClean(entry.model) &&
-        entry.status === "completed" &&
-        !galleryEntryAlreadyEnrichedForUpscale(entry, "final")
+        entry.status === 'completed' &&
+        !galleryEntryAlreadyEnrichedForUpscale(entry, 'final')
       }
       showMoireCleanMax={
         galleryEntrySupportsMoireClean(entry.model) &&
-        entry.status === "completed" &&
-        !galleryEntryAlreadyEnrichedForUpscale(entry, "max")
+        entry.status === 'completed' &&
+        !galleryEntryAlreadyEnrichedForUpscale(entry, 'max')
       }
       showForceMoireCleanMax={
         galleryEntrySupportsMoireClean(entry.model) &&
-        entry.status === "completed" &&
-        galleryEntryAlreadyEnrichedForUpscale(entry, "max")
+        entry.status === 'completed' &&
+        galleryEntryAlreadyEnrichedForUpscale(entry, 'max')
       }
       onShowParent={entry.parentGalleryEntryId ? onShowParent : undefined}
       onShowDerivatives={hasDerivatives ? onShowDerivatives : undefined}
@@ -236,10 +216,7 @@ function GalleryCardItem({
   );
 }
 
-function propsEqual(
-  previous: GalleryCardItemProps,
-  next: GalleryCardItemProps,
-): boolean {
+function propsEqual(previous: GalleryCardItemProps, next: GalleryCardItemProps): boolean {
   return (
     galleryEntryRenderKey(previous.entry) === galleryEntryRenderKey(next.entry) &&
     previous.selected === next.selected &&

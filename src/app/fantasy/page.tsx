@@ -1,8 +1,8 @@
-import dynamic from "next/dynamic";
-import PageCanvas from "@/components/ui/PageCanvas";
-import { ToolPageSkeleton } from "@/components/ui/ViewState";
+import dynamic from 'next/dynamic';
+import PageCanvas from '@/components/ui/PageCanvas';
+import { ToolPageSkeleton } from '@/components/ui/ViewState';
 
-const FantasyTool = dynamic(() => import("@/components/FantasyTool"), {
+const FantasyTool = dynamic(() => import('@/components/FantasyTool'), {
   loading: () => <ToolPageSkeleton label="Loading fantasy" />,
 });
 

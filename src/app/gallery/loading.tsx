@@ -1,6 +1,6 @@
-import PageCanvas from "@/components/ui/PageCanvas";
-import GalleryPanelSkeleton from "@/components/gallery/GalleryPanelSkeleton";
-import { ToolBadge, ToolLayout } from "@/components/ui/ToolPageShell";
+import PageCanvas from '@/components/ui/PageCanvas';
+import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
+import { ToolBadge, ToolLayout } from '@/components/ui/ToolPageShell';
 
 export default function GalleryLoading() {
   return (

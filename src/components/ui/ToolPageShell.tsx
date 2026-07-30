@@ -1,25 +1,22 @@
-import type { ReactNode } from "react";
-import {
-  ROUTE_TINT_CLASSES,
-  type ToolAccent,
-} from "@/lib/tool-theme";
+import type { ReactNode } from 'react';
+import { ROUTE_TINT_CLASSES, type ToolAccent } from '@/lib/tool-theme';
 
-export type ToolPageWidth = "default" | "wide" | "full";
-export type ToolSectionVariant = "primary" | "secondary";
+export type ToolPageWidth = 'default' | 'wide' | 'full';
+export type ToolSectionVariant = 'primary' | 'secondary';
 
 const widthClasses: Record<ToolPageWidth, string> = {
-  default: "max-w-5xl",
-  wide: "max-w-6xl",
-  full: "max-w-7xl",
+  default: 'max-w-5xl',
+  wide: 'max-w-6xl',
+  full: 'max-w-7xl',
 };
 
 const sectionSurfaceClasses: Record<ToolSectionVariant, string> = {
-  primary: "ui-card",
-  secondary: "ui-meta-panel shadow-none",
+  primary: 'ui-card',
+  secondary: 'ui-meta-panel shadow-none',
 };
 
 export function ToolBadge({
-  accent = "violet",
+  accent = 'violet',
   children,
 }: {
   accent?: ToolAccent;
@@ -50,7 +47,7 @@ export function ToolPageHeader({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
         <h1 className="type-display min-w-0">{title}</h1>
         {description ? (
-          typeof description === "string" ? (
+          typeof description === 'string' ? (
             <p
               className="type-caption max-w-xl shrink-0 text-[var(--text-secondary)] sm:max-w-sm sm:text-right"
               title={description}
@@ -70,7 +67,7 @@ export function ToolPageHeader({
 
 export function ToolMetaPanel({
   children,
-  className = "",
+  className = '',
   title,
 }: {
   children: ReactNode;
@@ -87,7 +84,7 @@ export function ToolMetaPanel({
 
 export function ToolContentPanel({
   children,
-  className = "",
+  className = '',
 }: {
   children: ReactNode;
   className?: string;
@@ -98,7 +95,7 @@ export function ToolContentPanel({
 export function ToolBlockGroup({
   children,
   title,
-  className = "",
+  className = '',
 }: {
   children: ReactNode;
   title?: string;
@@ -114,11 +111,11 @@ export function ToolBlockGroup({
 
 export function ToolSection({
   children,
-  className = "",
+  className = '',
   padded = true,
   title,
   description,
-  variant = "primary",
+  variant = 'primary',
   id,
 }: {
   children: ReactNode;
@@ -132,13 +129,11 @@ export function ToolSection({
   return (
     <section
       id={id}
-      className={`${id ? "scroll-mt-28 " : ""}${sectionSurfaceClasses[variant]} ${padded ? "p-[var(--card-padding)] sm:p-[var(--card-padding-lg)]" : ""} ${className}`.trim()}
+      className={`${id ? 'scroll-mt-28 ' : ''}${sectionSurfaceClasses[variant]} ${padded ? 'p-[var(--card-padding)] sm:p-[var(--card-padding-lg)]' : ''} ${className}`.trim()}
     >
       {title ? (
         <div className="mb-6 space-y-2">
-          <h2 className={variant === "primary" ? "type-title" : "type-heading"}>
-            {title}
-          </h2>
+          <h2 className={variant === 'primary' ? 'type-title' : 'type-heading'}>{title}</h2>
           {description ? <p className="type-caption">{description}</p> : null}
         </div>
       ) : null}
@@ -147,41 +142,35 @@ export function ToolSection({
   );
 }
 
-export { CollapsibleSection } from "@/components/ui/CollapsibleSection";
+export { CollapsibleSection } from '@/components/ui/CollapsibleSection';
 
 export function ActionButtonBar({
   children,
-  className = "",
+  className = '',
 }: {
   children: ReactNode;
   className?: string;
 }) {
   return (
-    <div
-      className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${className}`.trim()}
-    >
-      {children}
-    </div>
+    <div className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${className}`.trim()}>{children}</div>
   );
 }
 
 export function ToolActionRow({
   children,
-  className = "",
+  className = '',
 }: {
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <div className={`flex flex-wrap gap-2 ${className}`.trim()}>{children}</div>
-  );
+  return <div className={`flex flex-wrap gap-2 ${className}`.trim()}>{children}</div>;
 }
 
 export function StatCard({
   label,
   value,
   detail,
-  valueClassName = "",
+  valueClassName = '',
 }: {
   label: string;
   value: string;
@@ -197,66 +186,52 @@ export function StatCard({
   );
 }
 
-export function HealthCard({
-  title,
-  ok,
-  detail,
-}: {
-  title: string;
-  ok: boolean;
-  detail: string;
-}) {
+export function HealthCard({ title, ok, detail }: { title: string; ok: boolean; detail: string }) {
   return (
     <div className="ui-health-card">
       <div className="ui-health-card-title">
-        <span
-          className="ui-health-dot"
-          data-status={ok ? "ok" : "error"}
-          aria-hidden
-        />
+        <span className="ui-health-dot" data-status={ok ? 'ok' : 'error'} aria-hidden />
         {title}
       </div>
-      <p className="type-caption mt-2 break-all">{detail || "—"}</p>
+      <p className="type-caption mt-2 break-all">{detail || '—'}</p>
     </div>
   );
 }
 
 export function CodeBlock({
   children,
-  className = "",
+  className = '',
 }: {
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <pre className={`ui-code-block ${className}`.trim()}>{children}</pre>
-  );
+  return <pre className={`ui-code-block ${className}`.trim()}>{children}</pre>;
 }
 
 export function SegmentedControl<T extends string>({
   value,
   onChange,
   options,
-  "aria-label": ariaLabel,
+  'aria-label': ariaLabel,
 }: {
   value: T;
   onChange: (value: T) => void;
   options: ReadonlyArray<{
     value: T;
     label: string;
-    tone?: "default" | "danger";
+    tone?: 'default' | 'danger';
   }>;
-  "aria-label"?: string;
+  'aria-label'?: string;
 }) {
   return (
     <div className="ui-segmented" role="tablist" aria-label={ariaLabel}>
-      {options.map((option) => (
+      {options.map(option => (
         <button
           key={option.value}
           type="button"
           role="tab"
           aria-selected={value === option.value}
-          data-active={value === option.value ? "true" : "false"}
+          data-active={value === option.value ? 'true' : 'false'}
           data-tone={option.tone}
           className="ui-segmented-item"
           onClick={() => onChange(option.value)}
@@ -268,12 +243,12 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-export const actionButtonClassName = "ui-btn-secondary ui-btn-full";
+export const actionButtonClassName = 'ui-btn-secondary ui-btn-full';
 
 export function ToolPageShell({
   children,
-  width = "default",
-  className = "",
+  width = 'default',
+  className = '',
 }: {
   children: ReactNode;
   width?: ToolPageWidth;
@@ -289,14 +264,14 @@ export function ToolPageShell({
 }
 
 export function ToolLayout({
-  accent = "violet",
-  width = "default",
+  accent = 'violet',
+  width = 'default',
   badge,
   title,
   description,
   sidebar,
-  sidebarTitle = "Shared settings",
-  sidebarDescription = "Model, detail, wardrobe, and workflow selection persist across tools.",
+  sidebarTitle = 'Shared settings',
+  sidebarDescription = 'Model, detail, wardrobe, and workflow selection persist across tools.',
   children,
 }: {
   accent?: ToolAccent;
@@ -316,8 +291,8 @@ export function ToolLayout({
       <div
         className={
           sidebar
-            ? "grid items-start gap-[var(--block-gap)] xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-12"
-            : "ui-section-stack"
+            ? 'grid items-start gap-[var(--block-gap)] xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-12'
+            : 'ui-section-stack'
         }
       >
         <div className="ui-section-stack min-w-0">{children}</div>
@@ -327,9 +302,7 @@ export function ToolLayout({
             <ToolSection
               variant="secondary"
               title={sidebarTitle === false ? undefined : sidebarTitle}
-              description={
-                sidebarTitle === false ? undefined : sidebarDescription
-              }
+              description={sidebarTitle === false ? undefined : sidebarDescription}
               className="sidebar-scroll xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto"
             >
               {sidebar}
@@ -341,11 +314,7 @@ export function ToolLayout({
   );
 }
 
-export {
-  accentButtonClass,
-  accentFocusClass,
-  accentRingClass,
-} from "@/lib/tool-theme";
+export { accentButtonClass, accentFocusClass, accentRingClass } from '@/lib/tool-theme';
 
 /** @deprecated Use ROUTE_TINT_CLASSES */
-export { ROUTE_TINT_CLASSES as TOOL_ACCENT_CLASSES } from "@/lib/tool-theme";
+export { ROUTE_TINT_CLASSES as TOOL_ACCENT_CLASSES } from '@/lib/tool-theme';

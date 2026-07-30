@@ -1,7 +1,7 @@
-import "server-only";
+import 'server-only';
 
-import nodemailer from "nodemailer";
-import { getEmailConfig, isEmailConfigured } from "./config";
+import nodemailer from 'nodemailer';
+import { getEmailConfig, isEmailConfigured } from './config';
 
 export type SendEmailInput = {
   to: string;
@@ -32,13 +32,13 @@ function getTransporter(): nodemailer.Transporter {
 
 export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean; error?: string }> {
   if (!isEmailConfigured()) {
-    return { ok: false, error: "Email is not configured." };
+    return { ok: false, error: 'Email is not configured.' };
   }
 
   const config = getEmailConfig();
   const to = input.to.trim();
   if (!to) {
-    return { ok: false, error: "Recipient address is required." };
+    return { ok: false, error: 'Recipient address is required.' };
   }
 
   try {
@@ -47,12 +47,12 @@ export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean; e
       to,
       subject: input.subject,
       text: input.text,
-      html: input.html ?? input.text.replace(/\n/g, "<br>"),
+      html: input.html ?? input.text.replace(/\n/g, '<br>'),
     });
     return { ok: true };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Email send failed.";
-    console.error("[email]", message);
+    const message = error instanceof Error ? error.message : 'Email send failed.';
+    console.error('[email]', message);
     return { ok: false, error: message };
   }
 }

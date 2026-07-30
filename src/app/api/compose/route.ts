@@ -1,14 +1,14 @@
-import { generateBackgroundPrompt } from "@/lib/specialized/background-generator";
-import { generateCharacterPrompt } from "@/lib/specialized/character-generator";
-import { enrichGenerateResult } from "@/lib/generation-diagnostics";
+import { generateBackgroundPrompt } from '@/lib/specialized/background-generator';
+import { generateCharacterPrompt } from '@/lib/specialized/character-generator';
+import { enrichGenerateResult } from '@/lib/generation-diagnostics';
 import {
   normalizeCharacterPresetOptions,
   type CharacterPresetOptions,
-} from "@/lib/character-options";
+} from '@/lib/character-options';
 import {
   normalizeBackgroundPresetOptions,
   type BackgroundPresetOptions,
-} from "@/lib/background-options";
+} from '@/lib/background-options';
 import {
   normalizeSharedGenerationOptions,
   normalizeRecentLocations,
@@ -17,20 +17,20 @@ import {
   normalizeLockedWardrobeId,
   normalizeLockedLocation,
   normalizeVariationSeed,
-} from "@/lib/specialized/normalize";
-import { resolveAvoidanceOptions } from "@/lib/avoidance-options";
-import { composeScenePrompt, type ComposeSceneStyle } from "@/lib/scene-composer";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+} from '@/lib/specialized/normalize';
+import { resolveAvoidanceOptions } from '@/lib/avoidance-options';
+import { composeScenePrompt, type ComposeSceneStyle } from '@/lib/scene-composer';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type ComposeRequestBody = {
   model?: string;
   detail?: string;
-  subjectMode?: "character" | "duo";
+  subjectMode?: 'character' | 'duo';
   hints?: string;
-  portraitStyle?: "portrait" | "full-body" | "action";
+  portraitStyle?: 'portrait' | 'full-body' | 'action';
   variationStrength?: number;
   presetOptions?: Partial<Record<keyof CharacterPresetOptions, string>>;
   background?: {
@@ -54,7 +54,7 @@ type ComposeRequestBody = {
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/compose");
+  return apiMethodNotAllowed(['POST'], '/api/compose');
 }
 
 export async function POST(request: Request) {
@@ -62,22 +62,22 @@ export async function POST(request: Request) {
     const body = (await request.json()) as ComposeRequestBody;
     const shared = normalizeSharedGenerationOptions(body);
     const avoidance = resolveAvoidanceOptions(body);
-    const subjectMode = body.subjectMode === "duo" ? "duo" : "character";
-    const hints = body.hints?.trim() ?? "";
-    const composeStyle = body.composeStyle === "inline" ? "inline" : "layered";
+    const subjectMode = body.subjectMode === 'duo' ? 'duo' : 'character';
+    const hints = body.hints?.trim() ?? '';
+    const composeStyle = body.composeStyle === 'inline' ? 'inline' : 'layered';
 
     const portraitStyle =
-      body.portraitStyle === "full-body" ||
-      body.portraitStyle === "action" ||
-      body.portraitStyle === "portrait"
+      body.portraitStyle === 'full-body' ||
+      body.portraitStyle === 'action' ||
+      body.portraitStyle === 'portrait'
         ? body.portraitStyle
-        : subjectMode === "duo"
-          ? "action"
-          : "portrait";
+        : subjectMode === 'duo'
+          ? 'action'
+          : 'portrait';
 
     const presetOptions = normalizeCharacterPresetOptions({
       ...body.presetOptions,
-      headcount: subjectMode === "duo" ? "duo" : undefined,
+      headcount: subjectMode === 'duo' ? 'duo' : undefined,
     });
 
     const [backgroundResult, subjectResult] = await Promise.all([
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
         hints,
         portraitStyle,
         variationStrength:
-          typeof body.variationStrength === "number"
+          typeof body.variationStrength === 'number'
             ? Math.min(100, Math.max(0, body.variationStrength))
             : 50,
         presetOptions,
@@ -131,15 +131,12 @@ export async function POST(request: Request) {
         },
       },
       hints,
-      { teamKit: body.teamKit === true },
+      { teamKit: body.teamKit === true }
     );
 
     return apiJson(enriched);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Scene composition failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Scene composition failed.', 500);
   }
 }
 
@@ -147,9 +144,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

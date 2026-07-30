@@ -1,8 +1,8 @@
-import { groupGalleryExperiments } from "@/lib/experiment-groups";
-import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
+import { groupGalleryExperiments } from '@/lib/experiment-groups';
+import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
@@ -13,10 +13,10 @@ export async function POST(request: Request) {
       count: entries.length,
     });
   } catch (error) {
-    return apiError(error instanceof Error ? error.message : "Experiment grouping failed.", 500);
+    return apiError(error instanceof Error ? error.message : 'Experiment grouping failed.', 500);
   }
 }
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/experiments");
+  return apiMethodNotAllowed(['POST'], '/api/experiments');
 }

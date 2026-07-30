@@ -1,19 +1,15 @@
-"use client";
+'use client';
 
-import { use, useEffect, useState } from "react";
-import Link from "next/link";
-import { ButtonLink } from "@/components/ui/Button";
-import {
-  ToolBadge,
-  ToolLayout,
-  ToolSection,
-} from "@/components/ui/ToolPageShell";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { use, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ButtonLink } from '@/components/ui/Button';
+import { ToolBadge, ToolLayout, ToolSection } from '@/components/ui/ToolPageShell';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
   getInstalledPlugin,
   primaryToolForPlugin,
   type PluginManifest,
-} from "@/lib/plugin-manifest";
+} from '@/lib/plugin-manifest';
 
 type PluginDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -52,13 +48,13 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
       >
         <ToolSection title="Missing manifest">
           <p className="type-caption">
-            Import a JSON manifest from the{" "}
+            Import a JSON manifest from the{' '}
             <Link
               href="/plugins"
               className="text-[var(--accent-text)] underline-offset-2 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             >
               Plugins
-            </Link>{" "}
+            </Link>{' '}
             page to install a runtime plugin.
           </p>
           <ButtonLink href="/plugins" size="sm" variant="secondary" className="mt-4">
@@ -72,8 +68,7 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
   const tool = primaryToolForPlugin(plugin);
   const rawIframe = tool?.iframeUrl?.trim() || null;
   // Only embed absolute http(s) tools — same-origin paths are shown as info / route.
-  const iframeUrl =
-    rawIframe && /^https?:\/\//i.test(rawIframe) ? rawIframe : null;
+  const iframeUrl = rawIframe && /^https?:\/\//i.test(rawIframe) ? rawIframe : null;
 
   if (iframeUrl) {
     return (
@@ -116,7 +111,7 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
           <div className="space-y-1">
             <dt className="type-overline">Status</dt>
             <dd className="type-caption text-[var(--text-secondary)]">
-              {plugin.enabled === false ? "Disabled" : "Enabled"}
+              {plugin.enabled === false ? 'Disabled' : 'Enabled'}
             </dd>
           </div>
           {plugin.queueHooks?.url ? (
@@ -125,8 +120,8 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
               <dd className="type-caption break-all text-[var(--text-secondary)]">
                 {plugin.queueHooks.url}
                 {plugin.queueHooks.events?.length
-                  ? ` · ${plugin.queueHooks.events.join(", ")}`
-                  : ""}
+                  ? ` · ${plugin.queueHooks.events.join(', ')}`
+                  : ''}
               </dd>
             </div>
           ) : null}
@@ -136,7 +131,7 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
       {plugin.tools?.length ? (
         <ToolSection title="Tools" variant="secondary">
           <ul className="ui-list">
-            {plugin.tools.map((entry) => (
+            {plugin.tools.map(entry => (
               <li key={entry.id} className="ui-list-row items-start">
                 <div className="ui-list-primary min-w-0 space-y-1">
                   <p className="type-heading">{entry.title}</p>
@@ -145,7 +140,7 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
                       ? `Route ${entry.route}`
                       : entry.iframeUrl
                         ? `Iframe ${entry.iframeUrl}`
-                        : "No surface configured"}
+                        : 'No surface configured'}
                   </p>
                 </div>
                 {entry.route ? (
@@ -162,7 +157,7 @@ export default function PluginDetailPage({ params }: PluginDetailPageProps) {
       {plugin.nav?.length ? (
         <ToolSection title="Nav entries" variant="secondary">
           <ul className="ui-list">
-            {plugin.nav.map((entry) => (
+            {plugin.nav.map(entry => (
               <li key={entry.href} className="ui-list-row items-start">
                 <div className="ui-list-primary min-w-0 space-y-1">
                   <p className="type-heading">{entry.label}</p>

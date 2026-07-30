@@ -2,13 +2,13 @@ import {
   stripEmptyComfyUiRuntime,
   type ComfyUiRuntimeConfig,
   type WorkflowParamValues,
-} from "@/lib/comfyui-config";
-import { previewWorkflowInjection } from "@/lib/comfyui-workflow-preview";
-import { fetchComfyObjectInfoPayload } from "@/lib/comfyui-object-info";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+} from '@/lib/comfyui-config';
+import { previewWorkflowInjection } from '@/lib/comfyui-workflow-preview';
+import { fetchComfyObjectInfoPayload } from '@/lib/comfyui-object-info';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type PreviewRequestBody = {
   prompt?: string;
@@ -21,7 +21,7 @@ type PreviewRequestBody = {
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/comfyui/preview");
+  return apiMethodNotAllowed(['POST'], '/api/comfyui/preview');
 }
 
 export async function POST(request: Request) {
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     const runtimeConfig = stripEmptyComfyUiRuntime(body.comfy);
     const objectInfo = await fetchComfyObjectInfoPayload(runtimeConfig);
     const result = previewWorkflowInjection({
-      prompt: body.prompt?.trim() ?? "",
+      prompt: body.prompt?.trim() ?? '',
       negativePrompt: body.negativePrompt,
       params: body.params,
       comfy: runtimeConfig,
@@ -47,15 +47,12 @@ export async function POST(request: Request) {
     });
 
     if (!result.ok) {
-      return apiError(result.error ?? "Preview failed.", 400);
+      return apiError(result.error ?? 'Preview failed.', 400);
     }
 
     return apiJson(result);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Workflow preview failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Workflow preview failed.', 500);
   }
 }
 
@@ -63,9 +60,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

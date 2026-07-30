@@ -1,7 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
+import fs from 'node:fs';
+import path from 'node:path';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { resolvePromptAuthDir } from '@/lib/prompt-data-paths';
 
 export type UserApiKey = {
   id: string;
@@ -22,37 +22,37 @@ type ApiKeysDocument = {
 function keysPath(): string {
   const dir = resolvePromptAuthDir();
   fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, "api-keys.json");
+  return path.join(dir, 'api-keys.json');
 }
 
 function readDoc(): ApiKeysDocument {
   try {
-    return JSON.parse(fs.readFileSync(keysPath(), "utf8")) as ApiKeysDocument;
+    return JSON.parse(fs.readFileSync(keysPath(), 'utf8')) as ApiKeysDocument;
   } catch {
     return { version: 1, keys: [] };
   }
 }
 
 function writeDoc(doc: ApiKeysDocument): void {
-  fs.writeFileSync(keysPath(), JSON.stringify(doc, null, 2), "utf8");
+  fs.writeFileSync(keysPath(), JSON.stringify(doc, null, 2), 'utf8');
 }
 
 function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
+  return createHash('sha256').update(token).digest('hex');
 }
 
-export function createUserApiKey(input: {
-  userId: string;
-  label: string;
-}): { key: UserApiKey; token: string } {
+export function createUserApiKey(input: { userId: string; label: string }): {
+  key: UserApiKey;
+  token: string;
+} {
   const doc = readDoc();
-  const raw = randomBytes(24).toString("base64url");
+  const raw = randomBytes(24).toString('base64url');
   const token = `pt_${raw}`;
   const prefix = token.slice(0, 10);
   const entry: UserApiKey = {
-    id: `key-${randomBytes(8).toString("hex")}`,
+    id: `key-${randomBytes(8).toString('hex')}`,
     userId: input.userId,
-    label: input.label.trim() || "API key",
+    label: input.label.trim() || 'API key',
     prefix,
     hash: hashToken(token),
     createdAt: Date.now(),
@@ -64,12 +64,12 @@ export function createUserApiKey(input: {
 }
 
 export function listUserApiKeys(userId: string): UserApiKey[] {
-  return readDoc().keys.filter((key) => key.userId === userId);
+  return readDoc().keys.filter(key => key.userId === userId);
 }
 
 export function revokeUserApiKey(userId: string, keyId: string): boolean {
   const doc = readDoc();
-  const index = doc.keys.findIndex((key) => key.id === keyId && key.userId === userId);
+  const index = doc.keys.findIndex(key => key.id === keyId && key.userId === userId);
   if (index < 0) {
     return false;
   }
@@ -79,12 +79,12 @@ export function revokeUserApiKey(userId: string, keyId: string): boolean {
 }
 
 export function resolveUserIdFromApiKey(token: string | undefined | null): string | null {
-  if (!token?.startsWith("pt_")) {
+  if (!token?.startsWith('pt_')) {
     return null;
   }
   const hash = hashToken(token);
   const doc = readDoc();
-  const match = doc.keys.find((key) => {
+  const match = doc.keys.find(key => {
     if (!key.enabled) {
       return false;
     }

@@ -1,35 +1,28 @@
-import Link from "next/link";
-import type { ReactNode } from "react";
-import { Button, PrimaryButton, Skeleton } from "@/components/ui/Button";
+import Link from 'next/link';
+import type { ReactNode } from 'react';
+import { Button, PrimaryButton, Skeleton } from '@/components/ui/Button';
 
 export type ViewStateIconName =
-  | "inbox"
-  | "search"
-  | "catalog"
-  | "compare"
-  | "diff"
-  | "preset"
-  | "template"
-  | "alert";
+  'inbox' | 'search' | 'catalog' | 'compare' | 'diff' | 'preset' | 'template' | 'alert';
 
 function ViewStateIconGlyph({ name }: { name: ViewStateIconName }) {
   const common = {
-    fill: "none",
-    stroke: "currentColor",
+    fill: 'none',
+    stroke: 'currentColor',
     strokeWidth: 1.5,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
   };
 
   switch (name) {
-    case "search":
+    case 'search':
       return (
         <svg viewBox="0 0 24 24" aria-hidden {...common}>
           <circle cx="11" cy="11" r="6" />
           <path d="M20 20l-3.5-3.5" />
         </svg>
       );
-    case "catalog":
+    case 'catalog':
       return (
         <svg viewBox="0 0 24 24" aria-hidden {...common}>
           <rect x="4" y="4" width="7" height="7" rx="1.5" />
@@ -38,35 +31,35 @@ function ViewStateIconGlyph({ name }: { name: ViewStateIconName }) {
           <rect x="13" y="13" width="7" height="7" rx="1.5" />
         </svg>
       );
-    case "compare":
+    case 'compare':
       return (
         <svg viewBox="0 0 24 24" aria-hidden {...common}>
           <rect x="4" y="5" width="6" height="14" rx="1.5" />
           <rect x="14" y="5" width="6" height="14" rx="1.5" />
         </svg>
       );
-    case "diff":
+    case 'diff':
       return (
         <svg viewBox="0 0 24 24" aria-hidden {...common}>
           <path d="M8 6h8M8 12h5M8 18h8" />
           <path d="M16 12h4M18 10v4" />
         </svg>
       );
-    case "preset":
+    case 'preset':
       return (
         <svg viewBox="0 0 24 24" aria-hidden {...common}>
           <path d="M6 4h12v16H6z" />
           <path d="M9 8h6M9 12h6M9 16h4" />
         </svg>
       );
-    case "template":
+    case 'template':
       return (
         <svg viewBox="0 0 24 24" aria-hidden {...common}>
           <path d="M7 4h10v4H7zM5 8h14v12H5z" />
           <path d="M9 12h6M9 16h4" />
         </svg>
       );
-    case "alert":
+    case 'alert':
       return (
         <svg viewBox="0 0 24 24" aria-hidden {...common}>
           <path d="M12 8v5" />
@@ -74,7 +67,7 @@ function ViewStateIconGlyph({ name }: { name: ViewStateIconName }) {
           <path d="M10.3 4.6 3.8 17.2A1.5 1.5 0 0 0 5.1 19.5h13.8a1.5 1.5 0 0 0 1.3-2.3L13.7 4.6a1.5 1.5 0 0 0-2.6 0z" />
         </svg>
       );
-    case "inbox":
+    case 'inbox':
     default:
       return (
         <svg viewBox="0 0 24 24" aria-hidden {...common}>
@@ -109,12 +102,12 @@ function ViewStateActionButton({ action }: { action: ViewStateAction }) {
 }
 
 export function EmptyState({
-  icon = "inbox",
+  icon = 'inbox',
   title,
   description,
   action,
   compact = false,
-  className = "",
+  className = '',
 }: {
   icon?: ViewStateIconName;
   title: string;
@@ -125,7 +118,7 @@ export function EmptyState({
 }) {
   return (
     <div
-      className={`ui-view-state ${compact ? "ui-view-state-compact" : ""} ${className}`.trim()}
+      className={`ui-view-state ${compact ? 'ui-view-state-compact' : ''} ${className}`.trim()}
       role="status"
     >
       <div className="ui-view-state-icon">
@@ -145,7 +138,7 @@ export function ErrorState({
   description,
   action,
   compact = false,
-  className = "",
+  className = '',
 }: {
   title: string;
   description: ReactNode;
@@ -155,7 +148,7 @@ export function ErrorState({
 }) {
   return (
     <div
-      className={`ui-view-state ui-view-state-error ${compact ? "ui-view-state-compact" : ""} ${className}`.trim()}
+      className={`ui-view-state ui-view-state-error ${compact ? 'ui-view-state-compact' : ''} ${className}`.trim()}
       role="alert"
     >
       <div className="ui-view-state-icon">
@@ -180,7 +173,7 @@ export function ErrorState({
 
 export function SuccessBanner({
   message,
-  className = "",
+  className = '',
 }: {
   message: string;
   className?: string;
@@ -236,7 +229,7 @@ export function DataListSkeleton({ rows = 5 }: { rows?: number }) {
 export function CompareCardsSkeleton() {
   return (
     <div className="grid gap-[var(--block-gap)] lg:grid-cols-2" aria-hidden>
-      {[0, 1].map((index) => (
+      {[0, 1].map(index => (
         <div key={index} className="ui-skeleton-card space-y-4">
           <Skeleton className="ui-skeleton-title w-2/5" />
           <Skeleton className="ui-skeleton-block h-48 w-full" />
@@ -276,7 +269,7 @@ export function StudioTabSkeleton() {
   );
 }
 
-export function ToolPageSkeleton({ label = "Loading" }: { label?: string }) {
+export function ToolPageSkeleton({ label = 'Loading' }: { label?: string }) {
   return (
     <div className="ui-section-stack" aria-busy="true" aria-label={label}>
       <div className="ui-card space-y-6 p-[var(--card-padding)]">

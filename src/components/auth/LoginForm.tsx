@@ -1,56 +1,56 @@
-"use client";
+'use client';
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import BrandMark from "@/components/BrandMark";
-import { Button } from "@/components/ui/Button";
-import { TextInput } from "@/components/ui/Field";
-import { useAuth } from "@/hooks/useAuth";
-import type { AppFeatureId } from "@/lib/auth/features";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { loadLastToolRoute, resolveLandingRoute } from "@/lib/last-tool-route";
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import BrandMark from '@/components/BrandMark';
+import { Button } from '@/components/ui/Button';
+import { TextInput } from '@/components/ui/Field';
+import { useAuth } from '@/hooks/useAuth';
+import type { AppFeatureId } from '@/lib/auth/features';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { loadLastToolRoute, resolveLandingRoute } from '@/lib/last-tool-route';
 
-type LoginMode = "sign-in" | "totp" | "forgot" | "reset";
+type LoginMode = 'sign-in' | 'totp' | 'forgot' | 'reset';
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refresh } = useAuth();
-  const [mode, setMode] = useState<LoginMode>("sign-in");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [resetPassword, setResetPassword] = useState("");
-  const [resetPasswordConfirm, setResetPasswordConfirm] = useState("");
-  const [resetToken, setResetToken] = useState("");
-  const [forgotIdentifier, setForgotIdentifier] = useState("");
-  const [totpCode, setTotpCode] = useState("");
+  const [mode, setMode] = useState<LoginMode>('sign-in');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetPasswordConfirm, setResetPasswordConfirm] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [forgotIdentifier, setForgotIdentifier] = useState('');
+  const [totpCode, setTotpCode] = useState('');
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const token = searchParams.get("reset")?.trim();
+    const token = searchParams.get('reset')?.trim();
     if (token) {
       scheduleAfterCommit(() => {
         setResetToken(token);
-        setMode("reset");
+        setMode('reset');
       });
     }
   }, [searchParams]);
 
   async function completeLogin(data: { user?: unknown; allowedFeatures?: unknown }) {
     if (!data.user) {
-      throw new Error("Sign in failed.");
+      throw new Error('Sign in failed.');
     }
-    const allowedFeatures: AppFeatureId[] | "all" =
-      data.allowedFeatures === "all"
-        ? "all"
+    const allowedFeatures: AppFeatureId[] | 'all' =
+      data.allowedFeatures === 'all'
+        ? 'all'
         : Array.isArray(data.allowedFeatures)
           ? (data.allowedFeatures as AppFeatureId[])
           : [];
     const next = resolveLandingRoute({
-      explicitNext: searchParams.get("next"),
+      explicitNext: searchParams.get('next'),
       remembered: loadLastToolRoute(),
       allowedFeatures,
     });
@@ -66,56 +66,54 @@ export default function LoginForm() {
     setInfo(null);
 
     try {
-      if (mode === "forgot") {
-        const response = await fetch("/api/email/forgot-password", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+      if (mode === 'forgot') {
+        const response = await fetch('/api/email/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            username: forgotIdentifier.includes("@") ? undefined : forgotIdentifier,
-            email: forgotIdentifier.includes("@") ? forgotIdentifier : undefined,
+            username: forgotIdentifier.includes('@') ? undefined : forgotIdentifier,
+            email: forgotIdentifier.includes('@') ? forgotIdentifier : undefined,
           }),
         });
         const data = (await response.json()) as { error?: string; message?: string };
         if (!response.ok) {
-          throw new Error(data.error ?? "Could not send reset email.");
+          throw new Error(data.error ?? 'Could not send reset email.');
         }
-        setInfo(data.message ?? "If an account exists, a reset link was sent.");
+        setInfo(data.message ?? 'If an account exists, a reset link was sent.');
         return;
       }
 
-      if (mode === "reset") {
+      if (mode === 'reset') {
         if (resetPassword.trim().length < 6) {
-          throw new Error("Password must be at least 6 characters.");
+          throw new Error('Password must be at least 6 characters.');
         }
         if (resetPassword !== resetPasswordConfirm) {
-          throw new Error("Passwords do not match.");
+          throw new Error('Passwords do not match.');
         }
-        const response = await fetch("/api/auth/reset-password", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const response = await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: resetToken, password: resetPassword }),
         });
         const data = (await response.json()) as { error?: string; username?: string };
         if (!response.ok) {
-          throw new Error(data.error ?? "Reset failed.");
+          throw new Error(data.error ?? 'Reset failed.');
         }
-        setInfo(`Password updated for ${data.username ?? "your account"}. Sign in below.`);
-        setMode("sign-in");
-        setPassword("");
-        setResetPassword("");
-        setResetPasswordConfirm("");
-        router.replace("/login");
+        setInfo(`Password updated for ${data.username ?? 'your account'}. Sign in below.`);
+        setMode('sign-in');
+        setPassword('');
+        setResetPassword('');
+        setResetPasswordConfirm('');
+        router.replace('/login');
         return;
       }
 
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify(
-          mode === "totp" && pendingToken
-            ? { pendingToken, totpCode }
-            : { username, password },
+          mode === 'totp' && pendingToken ? { pendingToken, totpCode } : { username, password }
         ),
       });
       const data = (await response.json()) as {
@@ -125,40 +123,40 @@ export default function LoginForm() {
         user?: unknown;
       };
       if (!response.ok) {
-        throw new Error(data.error ?? "Sign in failed.");
+        throw new Error(data.error ?? 'Sign in failed.');
       }
 
       if (data.requiresTotp && data.pendingToken) {
         setPendingToken(data.pendingToken);
-        setMode("totp");
+        setMode('totp');
         return;
       }
 
       await completeLogin(data);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Sign in failed.");
+      setError(submitError instanceof Error ? submitError.message : 'Sign in failed.');
     } finally {
       setLoading(false);
     }
   }
 
   const title =
-    mode === "totp"
-      ? "Authenticator code"
-      : mode === "forgot"
-        ? "Forgot password"
-        : mode === "reset"
-          ? "Reset password"
-          : "Sign in";
+    mode === 'totp'
+      ? 'Authenticator code'
+      : mode === 'forgot'
+        ? 'Forgot password'
+        : mode === 'reset'
+          ? 'Reset password'
+          : 'Sign in';
 
   const description =
-    mode === "totp"
-      ? "Enter the 6-digit code from your authenticator app."
-      : mode === "forgot"
-        ? "Enter your username or email. If SMTP is configured, a reset link is sent when a match exists."
-        : mode === "reset"
-          ? "Choose a new password for your account."
-          : "Use your Prompt Studio account. Default admin is created on first enable.";
+    mode === 'totp'
+      ? 'Enter the 6-digit code from your authenticator app.'
+      : mode === 'forgot'
+        ? 'Enter your username or email. If SMTP is configured, a reset link is sent when a match exists.'
+        : mode === 'reset'
+          ? 'Choose a new password for your account.'
+          : 'Use your Prompt Studio account. Default admin is created on first enable.';
 
   return (
     <form
@@ -166,18 +164,26 @@ export default function LoginForm() {
       className="mx-auto w-full max-w-md space-y-5 rounded-3xl border border-zinc-800/80 bg-zinc-950/70 p-8 shadow-[0_24px_80px_-40px_rgba(56,189,248,0.28)] backdrop-blur-md"
     >
       <div className="space-y-3">
-        <BrandMark size={40} withWordmark wordmarkClassName="type-title tracking-tight text-zinc-50" />
+        <BrandMark
+          size={40}
+          withWordmark
+          wordmarkClassName="type-title tracking-tight text-zinc-50"
+        />
         <div className="space-y-1">
           <h1 className="type-heading text-zinc-100">{title}</h1>
           <p className="text-sm text-zinc-400">{description}</p>
         </div>
       </div>
 
-      {mode === "sign-in" ? (
+      {mode === 'sign-in' ? (
         <>
           <label className="block space-y-2">
             <span className="type-caption text-zinc-400">Username</span>
-            <TextInput value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" />
+            <TextInput
+              value={username}
+              onChange={event => setUsername(event.target.value)}
+              autoComplete="username"
+            />
           </label>
 
           <label className="block space-y-2">
@@ -185,7 +191,7 @@ export default function LoginForm() {
             <TextInput
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={event => setPassword(event.target.value)}
               autoComplete="current-password"
             />
           </label>
@@ -193,7 +199,7 @@ export default function LoginForm() {
           <button
             type="button"
             onClick={() => {
-              setMode("forgot");
+              setMode('forgot');
               setError(null);
               setInfo(null);
               setForgotIdentifier(username);
@@ -205,37 +211,37 @@ export default function LoginForm() {
         </>
       ) : null}
 
-      {mode === "totp" ? (
+      {mode === 'totp' ? (
         <label className="block space-y-2">
           <span className="type-caption text-zinc-400">Authenticator code</span>
           <TextInput
             value={totpCode}
-            onChange={(event) => setTotpCode(event.target.value)}
+            onChange={event => setTotpCode(event.target.value)}
             inputMode="numeric"
             autoComplete="one-time-code"
           />
         </label>
       ) : null}
 
-      {mode === "forgot" ? (
+      {mode === 'forgot' ? (
         <label className="block space-y-2">
           <span className="type-caption text-zinc-400">Username or email</span>
           <TextInput
             value={forgotIdentifier}
-            onChange={(event) => setForgotIdentifier(event.target.value)}
+            onChange={event => setForgotIdentifier(event.target.value)}
             autoComplete="username"
           />
         </label>
       ) : null}
 
-      {mode === "reset" ? (
+      {mode === 'reset' ? (
         <>
           <label className="block space-y-2">
             <span className="type-caption text-zinc-400">New password</span>
             <TextInput
               type="password"
               value={resetPassword}
-              onChange={(event) => setResetPassword(event.target.value)}
+              onChange={event => setResetPassword(event.target.value)}
               autoComplete="new-password"
             />
           </label>
@@ -244,7 +250,7 @@ export default function LoginForm() {
             <TextInput
               type="password"
               value={resetPasswordConfirm}
-              onChange={(event) => setResetPasswordConfirm(event.target.value)}
+              onChange={event => setResetPasswordConfirm(event.target.value)}
               autoComplete="new-password"
             />
           </label>
@@ -265,21 +271,21 @@ export default function LoginForm() {
 
       <Button type="submit" disabled={loading} className="w-full">
         {loading
-          ? "Working…"
-          : mode === "totp"
-            ? "Verify code"
-            : mode === "forgot"
-              ? "Send reset link"
-              : mode === "reset"
-                ? "Update password"
-                : "Sign in"}
+          ? 'Working…'
+          : mode === 'totp'
+            ? 'Verify code'
+            : mode === 'forgot'
+              ? 'Send reset link'
+              : mode === 'reset'
+                ? 'Update password'
+                : 'Sign in'}
       </Button>
 
-      {mode === "forgot" || mode === "reset" ? (
+      {mode === 'forgot' || mode === 'reset' ? (
         <button
           type="button"
           onClick={() => {
-            setMode("sign-in");
+            setMode('sign-in');
             setError(null);
             setInfo(null);
           }}

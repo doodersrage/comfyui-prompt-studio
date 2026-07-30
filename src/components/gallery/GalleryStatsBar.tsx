@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import type { ComfyGalleryFilter } from "@/lib/comfyui-gallery";
-import type { GalleryStats } from "@/lib/gallery-stats";
-import { GALLERY_ENTRY_LIMIT } from "@/lib/gallery-stats";
+import Link from 'next/link';
+import type { ComfyGalleryFilter } from '@/lib/comfyui-gallery';
+import type { GalleryStats } from '@/lib/gallery-stats';
+import { GALLERY_ENTRY_LIMIT } from '@/lib/gallery-stats';
 
 type GalleryStatsBarProps = {
   stats: GalleryStats;
@@ -18,24 +18,24 @@ function StatChip(props: {
   label: string;
   value: number | string;
   active?: boolean;
-  emphasis?: "default" | "muted" | "warning";
+  emphasis?: 'default' | 'muted' | 'warning';
   onClick?: () => void;
 }) {
   const emphasisClass =
-    props.emphasis === "warning"
-      ? "border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]"
-      : props.emphasis === "muted"
-        ? "border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--text-secondary)]"
-        : "border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)]";
+    props.emphasis === 'warning'
+      ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
+      : props.emphasis === 'muted'
+        ? 'border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
+        : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)]';
 
   const activeClass = props.active
-    ? "ring-1 ring-[var(--accent-ring)] border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]"
-    : "";
+    ? 'ring-1 ring-[var(--accent-ring)] border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
+    : '';
 
   const className = `inline-flex min-w-0 items-baseline gap-2 rounded-[var(--radius-md)] border px-2.5 py-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${emphasisClass} ${activeClass} ${
     props.onClick
-      ? "cursor-pointer hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)]"
-      : ""
+      ? 'cursor-pointer hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)]'
+      : ''
   }`;
 
   const content = (
@@ -82,27 +82,25 @@ export default function GalleryStatsBar({
         <StatChip
           label="Done"
           value={stats.completed}
-          active={filter.status === "completed"}
+          active={filter.status === 'completed'}
           onClick={() =>
             onQuickFilter({
-              status: filter.status === "completed" ? "all" : "completed",
+              status: filter.status === 'completed' ? 'all' : 'completed',
             })
           }
         />
         <StatChip
           label="Queue"
           value={stats.pending + stats.running}
-          emphasis={activeJobs > 0 ? "warning" : "default"}
-          active={filter.status === "pending" || filter.status === "running"}
+          emphasis={activeJobs > 0 ? 'warning' : 'default'}
+          active={filter.status === 'pending' || filter.status === 'running'}
           onClick={() => {
             if (activeJobs > 0 && onRefreshPending) {
               onRefreshPending();
             }
             onQuickFilter({
               status:
-                filter.status === "pending" || filter.status === "running"
-                  ? "all"
-                  : "pending",
+                filter.status === 'pending' || filter.status === 'running' ? 'all' : 'pending',
             });
           }}
         />
@@ -129,7 +127,7 @@ export default function GalleryStatsBar({
         />
         <StatChip
           label="Avg"
-          value={stats.avgRating != null ? `${stats.avgRating}★` : "—"}
+          value={stats.avgRating != null ? `${stats.avgRating}★` : '—'}
           emphasis="muted"
         />
         {stats.error > 0 ? (
@@ -137,10 +135,10 @@ export default function GalleryStatsBar({
             label="Failed"
             value={stats.error}
             emphasis="warning"
-            active={filter.status === "error"}
+            active={filter.status === 'error'}
             onClick={() =>
               onQuickFilter({
-                status: filter.status === "error" ? "all" : "error",
+                status: filter.status === 'error' ? 'all' : 'error',
               })
             }
           />
@@ -149,9 +147,9 @@ export default function GalleryStatsBar({
 
       {nearCapacity ? (
         <p className="rounded-[var(--radius-md)] border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2 type-caption text-[var(--tint-warning-text)]">
-          Gallery stores up to {GALLERY_ENTRY_LIMIT} entries in IndexedDB — oldest outputs
-          drop silently when full ({stats.total}/{GALLERY_ENTRY_LIMIT}). Export favorites or
-          clear completed jobs to keep room.
+          Gallery stores up to {GALLERY_ENTRY_LIMIT} entries in IndexedDB — oldest outputs drop
+          silently when full ({stats.total}/{GALLERY_ENTRY_LIMIT}). Export favorites or clear
+          completed jobs to keep room.
         </p>
       ) : null}
     </div>

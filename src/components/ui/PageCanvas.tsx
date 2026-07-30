@@ -1,18 +1,15 @@
-"use client";
+'use client';
 
-import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
-import { accentForPath, type ToolAccent } from "@/lib/tool-theme";
+import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
+import { accentForPath, type ToolAccent } from '@/lib/tool-theme';
 
 type PageCanvasProps = {
   children: ReactNode;
   accent?: ToolAccent;
 };
 
-export default function PageCanvas({
-  children,
-  accent: accentProp,
-}: PageCanvasProps) {
+export default function PageCanvas({ children, accent: accentProp }: PageCanvasProps) {
   const pathname = usePathname();
   const accent = accentProp ?? accentForPath(pathname);
 

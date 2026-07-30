@@ -1,7 +1,7 @@
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 type EnsureBody = {
@@ -18,14 +18,14 @@ export async function POST(request: Request) {
     body = {};
   }
 
-  const { ensureDiffusersRunning } = await import("@/lib/diffusers-autostart");
+  const { ensureDiffusersRunning } = await import('@/lib/diffusers-autostart');
   const result = await ensureDiffusersRunning({
     engineUrl: body.engineUrl?.trim() || undefined,
     autoStart: body.autoStart !== false,
   });
 
   if (!result.ok) {
-    return apiError(result.error || "Diffusers engine unavailable.", 503, {
+    return apiError(result.error || 'Diffusers engine unavailable.', 503, {
       url: result.url,
       started: result.started,
     });
@@ -43,14 +43,14 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const { ensureDiffusersRunning } = await import("@/lib/diffusers-autostart");
+  const { ensureDiffusersRunning } = await import('@/lib/diffusers-autostart');
   const result = await ensureDiffusersRunning({
-    engineUrl: searchParams.get("engineUrl")?.trim() || undefined,
-    autoStart: searchParams.get("autoStart") !== "0",
+    engineUrl: searchParams.get('engineUrl')?.trim() || undefined,
+    autoStart: searchParams.get('autoStart') !== '0',
   });
 
   if (!result.ok) {
-    return apiError(result.error || "Diffusers engine unavailable.", 503, {
+    return apiError(result.error || 'Diffusers engine unavailable.', 503, {
       url: result.url,
       started: result.started,
     });
@@ -70,13 +70,13 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }
 
 export async function PUT() {
-  return apiMethodNotAllowed(["GET", "POST"], "/api/diffusers/ensure");
+  return apiMethodNotAllowed(['GET', 'POST'], '/api/diffusers/ensure');
 }

@@ -1,14 +1,18 @@
-import { generateBackgroundPrompt } from "@/lib/specialized/background-generator";
-import { resolveAvoidanceOptions } from "@/lib/avoidance-options";
-import { normalizeSharedGenerationOptions, normalizeRecentLocations, normalizeBlockedLocations } from "@/lib/specialized/normalize";
+import { generateBackgroundPrompt } from '@/lib/specialized/background-generator';
+import { resolveAvoidanceOptions } from '@/lib/avoidance-options';
+import {
+  normalizeSharedGenerationOptions,
+  normalizeRecentLocations,
+  normalizeBlockedLocations,
+} from '@/lib/specialized/normalize';
 import {
   normalizeBackgroundPresetOptions,
   type BackgroundPresetOptions,
-} from "@/lib/background-options";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import { NextResponse } from "next/server";
+} from '@/lib/background-options';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import { NextResponse } from 'next/server';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type BackgroundRequestBody = {
   model?: string;
@@ -16,9 +20,7 @@ type BackgroundRequestBody = {
   settingType?: string;
   timeOfDay?: string;
   mood?: string;
-  presetOptions?: Partial<
-    Record<keyof BackgroundPresetOptions, string | string[]>
-  >;
+  presetOptions?: Partial<Record<keyof BackgroundPresetOptions, string | string[]>>;
   recentLocations?: string[];
   blockedLocations?: string[];
   avoidedTokens?: string[];
@@ -26,7 +28,7 @@ type BackgroundRequestBody = {
 };
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/background");
+  return apiMethodNotAllowed(['POST'], '/api/background');
 }
 
 export async function POST(request: Request) {
@@ -48,10 +50,7 @@ export async function POST(request: Request) {
 
     return apiJson(result);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Background generation failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Background generation failed.', 500);
   }
 }
 
@@ -59,9 +58,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }

@@ -1,21 +1,21 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-import type { AuthSession } from "./types";
-import { isSessionRevoked } from "./session-registry";
-import { getSessionSecret, SESSION_COOKIE_NAME, SESSION_MAX_AGE_SEC } from "./config";
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import type { AuthSession } from './types';
+import { isSessionRevoked } from './session-registry';
+import { getSessionSecret, SESSION_COOKIE_NAME, SESSION_MAX_AGE_SEC } from './config';
 
 function encodePayload(session: AuthSession): string {
-  return Buffer.from(JSON.stringify(session), "utf8").toString("base64url");
+  return Buffer.from(JSON.stringify(session), 'utf8').toString('base64url');
 }
 
 function decodePayload(raw: string): AuthSession | null {
   try {
-    const parsed = JSON.parse(Buffer.from(raw, "base64url").toString("utf8")) as AuthSession;
+    const parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')) as AuthSession;
     if (
       !parsed ||
-      typeof parsed.userId !== "string" ||
-      typeof parsed.username !== "string" ||
-      (parsed.role !== "admin" && parsed.role !== "user" && parsed.role !== "viewer") ||
-      typeof parsed.exp !== "number"
+      typeof parsed.userId !== 'string' ||
+      typeof parsed.username !== 'string' ||
+      (parsed.role !== 'admin' && parsed.role !== 'user' && parsed.role !== 'viewer') ||
+      typeof parsed.exp !== 'number'
     ) {
       return null;
     }
@@ -26,10 +26,10 @@ function decodePayload(raw: string): AuthSession | null {
 }
 
 function sign(payload: string): string {
-  return createHmac("sha256", getSessionSecret()).update(payload).digest("base64url");
+  return createHmac('sha256', getSessionSecret()).update(payload).digest('base64url');
 }
 
-export function createSessionToken(input: Omit<AuthSession, "exp">): string {
+export function createSessionToken(input: Omit<AuthSession, 'exp'>): string {
   const session: AuthSession = {
     ...input,
     exp: Date.now() + SESSION_MAX_AGE_SEC * 1000,
@@ -43,7 +43,7 @@ export function parseSessionToken(token: string | undefined | null): AuthSession
     return null;
   }
 
-  const [payload, signature] = token.split(".");
+  const [payload, signature] = token.split('.');
   if (!payload || !signature) {
     return null;
   }
@@ -68,22 +68,22 @@ export function parseSessionToken(token: string | undefined | null): AuthSession
 }
 
 export function sessionCookieValue(token: string): string {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   return `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE_SEC}${secure}`;
 }
 
 export function clearSessionCookieValue(): string {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   return `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
 }
 
 export function readSessionFromRequest(request: Request): AuthSession | null {
-  const cookieHeader = request.headers.get("cookie");
+  const cookieHeader = request.headers.get('cookie');
   if (!cookieHeader) {
     return null;
   }
 
-  for (const part of cookieHeader.split(";")) {
+  for (const part of cookieHeader.split(';')) {
     const trimmed = part.trim();
     if (!trimmed.startsWith(`${SESSION_COOKIE_NAME}=`)) {
       continue;

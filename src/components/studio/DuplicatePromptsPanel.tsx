@@ -1,18 +1,22 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { usePromptHistory } from "@/hooks/usePromptHistory";
-import { findDuplicatePrompts } from "@/lib/prompt-duplicate-detection";
-import { ToolSection } from "@/components/ui/ToolPageShell";
-import { EmptyState } from "@/components/ui/ViewState";
-import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
+import { useMemo, useState } from 'react';
+import { usePromptHistory } from '@/hooks/usePromptHistory';
+import { findDuplicatePrompts } from '@/lib/prompt-duplicate-detection';
+import { ToolSection } from '@/components/ui/ToolPageShell';
+import { EmptyState } from '@/components/ui/ViewState';
+import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
 
 export default function DuplicatePromptsPanel() {
   const { entries } = usePromptHistory();
   const [threshold, setThreshold] = useState(0.85);
   const groups = useMemo(
-    () => findDuplicatePrompts(entries.map((entry) => ({ id: entry.id, prompt: entry.prompt })), threshold),
-    [entries, threshold],
+    () =>
+      findDuplicatePrompts(
+        entries.map(entry => ({ id: entry.id, prompt: entry.prompt })),
+        threshold
+      ),
+    [entries, threshold]
   );
 
   return (
@@ -28,7 +32,7 @@ export default function DuplicatePromptsPanel() {
           max={0.95}
           step={0.05}
           value={threshold}
-          onChange={(event) => setThreshold(Number(event.target.value))}
+          onChange={event => setThreshold(Number(event.target.value))}
         />
         <span>{Math.round(threshold * 100)}%</span>
       </label>
@@ -40,15 +44,20 @@ export default function DuplicatePromptsPanel() {
           description="Near-identical history prompts will group here. Save more variations or lower the similarity threshold."
           action={
             entries.length === 0
-              ? resolveGenerateEmptyCta({ label: "Open Generate", href: "/" })
+              ? resolveGenerateEmptyCta({ label: 'Open Generate', href: '/' })
               : undefined
           }
         />
       ) : (
         <ul className="space-y-3">
-          {groups.slice(0, 12).map((group) => (
-            <li key={group.ids.join("-")} className="rounded-xl border border-zinc-800 px-3 py-2 text-sm">
-              <p className="text-zinc-500">{group.ids.length} entries · {Math.round(group.similarity * 100)}% similar</p>
+          {groups.slice(0, 12).map(group => (
+            <li
+              key={group.ids.join('-')}
+              className="rounded-xl border border-zinc-800 px-3 py-2 text-sm"
+            >
+              <p className="text-zinc-500">
+                {group.ids.length} entries · {Math.round(group.similarity * 100)}% similar
+              </p>
               <p className="mt-1 line-clamp-2 text-zinc-300">{group.prompt}</p>
             </li>
           ))}

@@ -1,12 +1,8 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import {
-  DEFAULT_WILDCARDS,
-  parseWildcardListFile,
-  type WildcardMap,
-} from "@/lib/wildcard-expand";
-import { FieldLabel } from "@/components/ui/Field";
+import { useMemo, useState } from 'react';
+import { DEFAULT_WILDCARDS, parseWildcardListFile, type WildcardMap } from '@/lib/wildcard-expand';
+import { FieldLabel } from '@/components/ui/Field';
 
 type WildcardListsEditorProps = {
   lists: WildcardMap | undefined;
@@ -16,24 +12,25 @@ type WildcardListsEditorProps = {
 };
 
 function normalizeName(raw: string): string {
-  return raw.trim().toLowerCase().replace(/^__+|__+$/g, "").replace(/\s+/g, "_");
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/^__+|__+$/g, '')
+    .replace(/\s+/g, '_');
 }
 
 export default function WildcardListsEditor({
   lists,
   disabled,
   onChange,
-  focusClassName = "",
+  focusClassName = '',
 }: WildcardListsEditorProps) {
   const custom = lists ?? {};
-  const names = useMemo(
-    () => Object.keys(custom).sort((a, b) => a.localeCompare(b)),
-    [custom],
-  );
-  const [selected, setSelected] = useState(names[0] ?? "");
-  const [draftName, setDraftName] = useState("");
-  const active = selected && custom[selected] ? selected : names[0] ?? "";
-  const body = active ? (custom[active] ?? []).join("\n") : "";
+  const names = useMemo(() => Object.keys(custom).sort((a, b) => a.localeCompare(b)), [custom]);
+  const [selected, setSelected] = useState(names[0] ?? '');
+  const [draftName, setDraftName] = useState('');
+  const active = selected && custom[selected] ? selected : (names[0] ?? '');
+  const body = active ? (custom[active] ?? []).join('\n') : '';
 
   const saveBody = (text: string) => {
     if (!active) {
@@ -54,9 +51,9 @@ export default function WildcardListsEditor({
     if (!name || custom[name]) {
       return;
     }
-    onChange({ ...custom, [name]: ["option one", "option two"] });
+    onChange({ ...custom, [name]: ['option one', 'option two'] });
     setSelected(name);
-    setDraftName("");
+    setDraftName('');
   };
 
   const removeList = () => {
@@ -66,14 +63,14 @@ export default function WildcardListsEditor({
     const next = { ...custom };
     delete next[active];
     onChange(next);
-    setSelected(Object.keys(next).sort()[0] ?? "");
+    setSelected(Object.keys(next).sort()[0] ?? '');
   };
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-zinc-400">
-        Custom <code className="rounded bg-zinc-800 px-1 text-violet-300">__name__</code>{" "}
-        lists layered on built-ins ({Object.keys(DEFAULT_WILDCARDS).join(", ")}
+        Custom <code className="rounded bg-zinc-800 px-1 text-violet-300">__name__</code> lists
+        layered on built-ins ({Object.keys(DEFAULT_WILDCARDS).join(', ')}
         ). One option per line; lines starting with # are ignored.
       </p>
 
@@ -84,13 +81,13 @@ export default function WildcardListsEditor({
             id="wildcard-list-select"
             value={active}
             disabled={disabled || names.length === 0}
-            onChange={(event) => setSelected(event.target.value)}
+            onChange={event => setSelected(event.target.value)}
             className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${focusClassName}`}
           >
             {names.length === 0 ? (
               <option value="">No custom lists yet</option>
             ) : (
-              names.map((name) => (
+              names.map(name => (
                 <option key={name} value={name}>
                   __{name}__
                 </option>
@@ -117,7 +114,7 @@ export default function WildcardListsEditor({
             value={body}
             disabled={disabled}
             spellCheck={false}
-            onChange={(event) => saveBody(event.target.value)}
+            onChange={event => saveBody(event.target.value)}
             className={`ui-input w-full font-mono text-xs leading-relaxed ${focusClassName}`}
           />
         </div>
@@ -131,7 +128,7 @@ export default function WildcardListsEditor({
             value={draftName}
             disabled={disabled}
             placeholder="e.g. outfit"
-            onChange={(event) => setDraftName(event.target.value)}
+            onChange={event => setDraftName(event.target.value)}
             className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${focusClassName}`}
           />
         </div>

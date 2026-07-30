@@ -1,7 +1,7 @@
-import { apiJson, apiMethodNotAllowed } from "@/lib/api/response";
-import type { PluginQueueHookPayload } from "@/lib/plugin-queue-hooks";
+import { apiJson, apiMethodNotAllowed } from '@/lib/api/response';
+import type { PluginQueueHookPayload } from '@/lib/plugin-queue-hooks';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 /**
  * Example queue-preflight hook used by `examples/queue-rewrite-plugin.json`.
@@ -16,17 +16,15 @@ export async function POST(request: Request) {
   }
 
   const existing =
-    body.denoise != null && String(body.denoise).trim() !== ""
-      ? Number(body.denoise)
-      : null;
+    body.denoise != null && String(body.denoise).trim() !== '' ? Number(body.denoise) : null;
 
   return apiJson({
     ok: true,
     denoise: existing != null && Number.isFinite(existing) ? existing : 0.45,
-    message: "queue-rewrite-plugin: denoise set to soft img2img",
+    message: 'queue-rewrite-plugin: denoise set to soft img2img',
   });
 }
 
 export function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/plugin-hooks/denoise-rewrite");
+  return apiMethodNotAllowed(['POST'], '/api/plugin-hooks/denoise-rewrite');
 }

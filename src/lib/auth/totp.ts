@@ -1,11 +1,11 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from 'node:crypto';
 
-const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 function base32Encode(buffer: Buffer): string {
   let bits = 0;
   let value = 0;
-  let output = "";
+  let output = '';
   for (const byte of buffer) {
     value = (value << 8) | byte;
     bits += 8;
@@ -21,7 +21,7 @@ function base32Encode(buffer: Buffer): string {
 }
 
 function base32Decode(input: string): Buffer {
-  const cleaned = input.replace(/=+$/, "").toUpperCase();
+  const cleaned = input.replace(/=+$/, '').toUpperCase();
   let bits = 0;
   let value = 0;
   const bytes: number[] = [];
@@ -44,7 +44,7 @@ export function generateTotpSecret(): string {
   return base32Encode(randomBytes(20));
 }
 
-export function totpUri(username: string, secret: string, issuer = "PromptStudio"): string {
+export function totpUri(username: string, secret: string, issuer = 'PromptStudio'): string {
   const label = encodeURIComponent(`${issuer}:${username}`);
   return `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 }
@@ -53,18 +53,18 @@ function hotp(secret: string, counter: number): string {
   const key = base32Decode(secret);
   const buffer = Buffer.alloc(8);
   buffer.writeBigUInt64BE(BigInt(counter));
-  const digest = createHmac("sha1", key).update(buffer).digest();
+  const digest = createHmac('sha1', key).update(buffer).digest();
   const offset = digest[digest.length - 1] & 0x0f;
   const code =
     ((digest[offset] & 0x7f) << 24) |
     ((digest[offset + 1] & 0xff) << 16) |
     ((digest[offset + 2] & 0xff) << 8) |
     (digest[offset + 3] & 0xff);
-  return String(code % 1_000_000).padStart(6, "0");
+  return String(code % 1_000_000).padStart(6, '0');
 }
 
 export function verifyTotp(secret: string, token: string, window = 1): boolean {
-  const normalized = token.replace(/\s/g, "");
+  const normalized = token.replace(/\s/g, '');
   if (!/^\d{6}$/.test(normalized)) {
     return false;
   }

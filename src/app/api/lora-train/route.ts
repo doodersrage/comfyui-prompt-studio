@@ -1,19 +1,19 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { NextResponse } from "next/server";
-import { apiError, apiJson } from "@/lib/api/response";
+import { spawn, type ChildProcess } from 'node:child_process';
+import { NextResponse } from 'next/server';
+import { apiError, apiJson } from '@/lib/api/response';
 import {
   createTrainJob,
   normalizeTrainJob,
   registerTrainJobLora,
   type TrainJob,
-} from "@/lib/lora-train-job";
-import type { LoraLibraryEntry } from "@/lib/lora-stack";
-import { assertSafeHttpUrl } from "@/lib/url-safety";
+} from '@/lib/lora-train-job';
+import type { LoraLibraryEntry } from '@/lib/lora-stack';
+import { assertSafeHttpUrl } from '@/lib/url-safety';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 type StartBody = {
-  action?: "start";
+  action?: 'start';
   trigger?: string;
   outputPath?: string;
   datasetPath?: string;
@@ -25,7 +25,7 @@ type StartBody = {
 };
 
 type CompleteBody = {
-  action: "complete";
+  action: 'complete';
   jobId?: string;
   outputPath?: string;
   trigger?: string;
@@ -39,10 +39,10 @@ type CompleteBody = {
 };
 
 type ProgressBody = {
-  action: "progress";
+  action: 'progress';
   jobId?: string;
   progress?: number;
-  status?: TrainJob["status"];
+  status?: TrainJob['status'];
   error?: string;
   outputPath?: string;
 };
@@ -54,9 +54,7 @@ const serverJobs = new Map<string, TrainJob>();
 const childByJobId = new Map<string, ChildProcess>();
 
 function listServerJobs(): TrainJob[] {
-  return [...serverJobs.values()].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
-  );
+  return [...serverJobs.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 function saveJob(job: TrainJob): TrainJob {
@@ -69,18 +67,18 @@ function resolveTrainerTargets(body: StartBody): {
   url: string;
   command: string;
 } {
-  const envUrl = process.env.TRAINER_URL?.trim() ?? "";
-  const envCommand = process.env.TRAINER_COMMAND?.trim() ?? "";
+  const envUrl = process.env.TRAINER_URL?.trim() ?? '';
+  const envCommand = process.env.TRAINER_COMMAND?.trim() ?? '';
   return {
-    url: envUrl || body.trainerUrl?.trim() || "",
-    command: envCommand || body.trainerCommand?.trim() || "",
+    url: envUrl || body.trainerUrl?.trim() || '',
+    command: envCommand || body.trainerCommand?.trim() || '',
   };
 }
 
 /** Split a command string into argv without invoking a shell. */
 function splitCommandArgv(command: string): string[] {
   const matches = command.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? [];
-  return matches.map((part) => {
+  return matches.map(part => {
     if (
       (part.startsWith('"') && part.endsWith('"')) ||
       (part.startsWith("'") && part.endsWith("'"))
@@ -91,19 +89,16 @@ function splitCommandArgv(command: string): string[] {
   });
 }
 
-async function postTrainerWebhook(
-  url: string,
-  payload: Record<string, unknown>,
-): Promise<void> {
+async function postTrainerWebhook(url: string, payload: Record<string, unknown>): Promise<void> {
   const safeUrl = assertSafeHttpUrl(url, {
     // Local kohya / sd-scripts runners are almost always on LAN or loopback.
     allowPrivate: true,
   });
   const response = await fetch(safeUrl.toString(), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    redirect: "manual",
+    redirect: 'manual',
     signal: AbortSignal.timeout(20_000),
   });
   if (!response.ok) {
@@ -114,59 +109,57 @@ async function postTrainerWebhook(
 function spawnTrainerCommand(
   command: string,
   job: TrainJob,
-  extras: { datasetPath?: string; baseModel?: string },
+  extras: { datasetPath?: string; baseModel?: string }
 ): void {
   const argv = splitCommandArgv(command);
   const bin = argv[0];
   if (!bin) {
-    throw new Error("Trainer command is empty.");
+    throw new Error('Trainer command is empty.');
   }
   const args = [
     ...argv.slice(1),
-    ...(extras.datasetPath ? ["--dataset", extras.datasetPath] : []),
-    ...(job.outputPath ? ["--output", job.outputPath] : []),
-    ...(job.trigger ? ["--trigger", job.trigger] : []),
-    ...(extras.baseModel ? ["--base-model", extras.baseModel] : []),
-    "--job-id",
+    ...(extras.datasetPath ? ['--dataset', extras.datasetPath] : []),
+    ...(job.outputPath ? ['--output', job.outputPath] : []),
+    ...(job.trigger ? ['--trigger', job.trigger] : []),
+    ...(extras.baseModel ? ['--base-model', extras.baseModel] : []),
+    '--job-id',
     job.id,
   ];
 
   const child = spawn(bin, args, {
     shell: false,
     detached: false,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env },
   });
   childByJobId.set(job.id, child);
 
-  child.on("error", (error) => {
+  child.on('error', error => {
     saveJob({
       ...job,
-      status: "error",
-      error: error.message || "Failed to spawn trainer process.",
+      status: 'error',
+      error: error.message || 'Failed to spawn trainer process.',
     });
     childByJobId.delete(job.id);
   });
 
-  child.on("exit", (code, signal) => {
+  child.on('exit', (code, signal) => {
     childByJobId.delete(job.id);
     const current = serverJobs.get(job.id);
-    if (!current || current.status === "completed" || current.status === "error") {
+    if (!current || current.status === 'completed' || current.status === 'error') {
       return;
     }
     if (code === 0) {
       saveJob({
         ...current,
-        status: "completed",
+        status: 'completed',
         progress: 1,
       });
     } else {
       saveJob({
         ...current,
-        status: "error",
-        error: `Trainer exited with code ${code ?? "null"}${
-          signal ? ` (signal ${signal})` : ""
-        }.`,
+        status: 'error',
+        error: `Trainer exited with code ${code ?? 'null'}${signal ? ` (signal ${signal})` : ''}.`,
       });
     }
   });
@@ -174,20 +167,20 @@ function spawnTrainerCommand(
 
 async function handleStart(body: StartBody) {
   const { url, command } = resolveTrainerTargets(body);
-  const trigger = body.trigger?.trim() ?? "";
-  const outputPath = body.outputPath?.trim() ?? "";
-  const commandOrUrl = url || command || "manual";
+  const trigger = body.trigger?.trim() ?? '';
+  const outputPath = body.outputPath?.trim() ?? '';
+  const commandOrUrl = url || command || 'manual';
 
   let job = createTrainJob({
     trigger,
     outputPath,
     commandOrUrl,
-    status: "pending",
+    status: 'pending',
     progress: 0,
   });
 
   if (url) {
-    job = saveJob({ ...job, status: "running", progress: 0.05 });
+    job = saveJob({ ...job, status: 'running', progress: 0.05 });
     try {
       await postTrainerWebhook(url, {
         jobId: job.id,
@@ -195,22 +188,21 @@ async function handleStart(body: StartBody) {
         outputPath: job.outputPath,
         datasetPath: body.datasetPath?.trim() || undefined,
         baseModel: body.baseModel?.trim() || undefined,
-        callbackHint: "POST /api/lora-train with action=complete when finished",
+        callbackHint: 'POST /api/lora-train with action=complete when finished',
       });
-      job = saveJob({ ...job, status: "running", progress: 0.1 });
+      job = saveJob({ ...job, status: 'running', progress: 0.1 });
     } catch (error) {
       job = saveJob({
         ...job,
-        status: "error",
-        error:
-          error instanceof Error ? error.message : "Trainer webhook failed.",
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Trainer webhook failed.',
       });
     }
     return job;
   }
 
   if (command) {
-    job = saveJob({ ...job, status: "running", progress: 0.05 });
+    job = saveJob({ ...job, status: 'running', progress: 0.05 });
     try {
       spawnTrainerCommand(command, job, {
         datasetPath: body.datasetPath?.trim(),
@@ -219,11 +211,8 @@ async function handleStart(body: StartBody) {
     } catch (error) {
       job = saveJob({
         ...job,
-        status: "error",
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to spawn trainer command.",
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Failed to spawn trainer command.',
       });
     }
     return job;
@@ -232,16 +221,16 @@ async function handleStart(body: StartBody) {
   // Neither TRAINER_URL nor TRAINER_COMMAND — record a manual job awaiting POST complete.
   return saveJob({
     ...job,
-    status: "manual",
+    status: 'manual',
     progress: 0,
-    commandOrUrl: "manual",
+    commandOrUrl: 'manual',
   });
 }
 
 function handleProgress(body: ProgressBody) {
   const jobId = body.jobId?.trim();
   if (!jobId) {
-    throw new Error("jobId is required.");
+    throw new Error('jobId is required.');
   }
   const existing = serverJobs.get(jobId);
   if (!existing) {
@@ -249,8 +238,7 @@ function handleProgress(body: ProgressBody) {
   }
   return saveJob({
     ...existing,
-    progress:
-      typeof body.progress === "number" ? body.progress : existing.progress,
+    progress: typeof body.progress === 'number' ? body.progress : existing.progress,
     status: body.status ?? existing.status,
     outputPath: body.outputPath?.trim() || existing.outputPath,
     error: body.error?.trim() || existing.error,
@@ -260,13 +248,13 @@ function handleProgress(body: ProgressBody) {
 function handleComplete(body: CompleteBody) {
   const jobId = body.jobId?.trim();
   if (!jobId) {
-    throw new Error("jobId is required.");
+    throw new Error('jobId is required.');
   }
   const existing = serverJobs.get(jobId) ?? createTrainJob({ id: jobId });
   if (body.error?.trim()) {
     const failed = saveJob({
       ...existing,
-      status: "error",
+      status: 'error',
       error: body.error.trim(),
       outputPath: body.outputPath?.trim() || existing.outputPath,
       trigger: body.trigger?.trim() || existing.trigger,
@@ -276,7 +264,7 @@ function handleComplete(body: CompleteBody) {
 
   const ready = saveJob({
     ...existing,
-    status: "completed",
+    status: 'completed',
     progress: 1,
     outputPath: body.outputPath?.trim() || existing.outputPath,
     trigger: body.trigger?.trim() || existing.trigger,
@@ -304,7 +292,7 @@ function handleComplete(body: CompleteBody) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const jobId = url.searchParams.get("id")?.trim();
+  const jobId = url.searchParams.get('id')?.trim();
   const envUrl = Boolean(process.env.TRAINER_URL?.trim());
   const envCommand = Boolean(process.env.TRAINER_COMMAND?.trim());
 
@@ -328,29 +316,26 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as LoraTrainBody;
-    const action = body.action ?? "start";
+    const action = body.action ?? 'start';
 
-    if (action === "start") {
+    if (action === 'start') {
       const job = await handleStart(body as StartBody);
       return apiJson({ ok: true, job, jobs: listServerJobs() });
     }
 
-    if (action === "progress") {
+    if (action === 'progress') {
       const job = handleProgress(body as ProgressBody);
       return apiJson({ ok: true, job, jobs: listServerJobs() });
     }
 
-    if (action === "complete") {
+    if (action === 'complete') {
       const result = handleComplete(body as CompleteBody);
       return apiJson({ ok: true, ...result, jobs: listServerJobs() });
     }
 
     return apiError(`Unknown action: ${String(action)}`, 400);
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "LoRA train request failed.",
-      400,
-    );
+    return apiError(error instanceof Error ? error.message : 'LoRA train request failed.', 400);
   }
 }
 
@@ -358,10 +343,9 @@ export function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
 }
-

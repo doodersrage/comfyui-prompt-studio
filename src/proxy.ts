@@ -1,15 +1,12 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import {
-  checkRateLimit,
-  rateLimitClientKey,
-} from "@/lib/api-rate-limit";
-import { resolveUserIdFromApiKey } from "@/lib/auth/api-keys";
-import { readSessionFromRequest } from "@/lib/auth/session";
-import { findUserById, listGroups } from "@/lib/auth/store";
-import { checkUserRateLimit } from "@/lib/user-quotas";
-import { logApiUsage } from "@/lib/api-usage-log";
-import { authorizeAppRequest } from "@/lib/auth/access";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { checkRateLimit, rateLimitClientKey } from '@/lib/api-rate-limit';
+import { resolveUserIdFromApiKey } from '@/lib/auth/api-keys';
+import { readSessionFromRequest } from '@/lib/auth/session';
+import { findUserById, listGroups } from '@/lib/auth/store';
+import { checkUserRateLimit } from '@/lib/user-quotas';
+import { logApiUsage } from '@/lib/api-usage-log';
+import { authorizeAppRequest } from '@/lib/auth/access';
 
 function timingSafeEqualString(left: string, right: string): boolean {
   if (left.length !== right.length) {
@@ -23,18 +20,18 @@ function timingSafeEqualString(left: string, right: string): boolean {
 }
 
 function extractToken(request: NextRequest): string | undefined {
-  const authorization = request.headers.get("authorization");
-  if (authorization?.toLowerCase().startsWith("bearer ")) {
+  const authorization = request.headers.get('authorization');
+  if (authorization?.toLowerCase().startsWith('bearer ')) {
     const token = authorization.slice(7).trim();
     if (token) {
       return token;
     }
   }
-  return request.headers.get("x-prompt-api-token")?.trim() || undefined;
+  return request.headers.get('x-prompt-api-token')?.trim() || undefined;
 }
 
 function isTrustedSameOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
+  const origin = request.headers.get('origin');
   if (origin) {
     try {
       return new URL(origin).origin === request.nextUrl.origin;
@@ -42,8 +39,8 @@ function isTrustedSameOrigin(request: NextRequest): boolean {
       return false;
     }
   }
-  const site = request.headers.get("sec-fetch-site");
-  return site === "same-origin" || site === "none";
+  const site = request.headers.get('sec-fetch-site');
+  return site === 'same-origin' || site === 'none';
 }
 
 function hasValidServiceToken(request: NextRequest): boolean {
@@ -55,7 +52,7 @@ function hasValidServiceToken(request: NextRequest): boolean {
   if (!provided) {
     return false;
   }
-  if (provided.startsWith("pt_") && resolveUserIdFromApiKey(provided)) {
+  if (provided.startsWith('pt_') && resolveUserIdFromApiKey(provided)) {
     return true;
   }
   return timingSafeEqualString(provided, expected);
@@ -65,7 +62,7 @@ export function proxy(request: NextRequest) {
   const started = Date.now();
   const path = request.nextUrl.pathname;
   const clientKey = rateLimitClientKey(request);
-  const isApiRoute = path.startsWith("/api/");
+  const isApiRoute = path.startsWith('/api/');
 
   if (isApiRoute) {
     const session = readSessionFromRequest(request);
@@ -96,21 +93,21 @@ export function proxy(request: NextRequest) {
         rateLimited: true,
       });
       return NextResponse.json(
-        { error: "Rate limit exceeded. Try again later." },
+        { error: 'Rate limit exceeded. Try again later.' },
         {
           status: 429,
           headers: {
-            "Retry-After": String(limit.retryAfterSec),
-            "Access-Control-Allow-Origin": "*",
+            'Retry-After': String(limit.retryAfterSec),
+            'Access-Control-Allow-Origin': '*',
           },
-        },
+        }
       );
     }
 
     const expected = process.env.PROMPT_API_TOKEN?.trim();
-    if (expected && request.method !== "OPTIONS") {
+    if (expected && request.method !== 'OPTIONS') {
       const provided = extractToken(request);
-      const userKeyOk = provided?.startsWith("pt_") && resolveUserIdFromApiKey(provided);
+      const userKeyOk = provided?.startsWith('pt_') && resolveUserIdFromApiKey(provided);
       if (!provided || (!timingSafeEqualString(provided, expected) && !userKeyOk)) {
         if (!isTrustedSameOrigin(request)) {
           logApiUsage({
@@ -124,17 +121,16 @@ export function proxy(request: NextRequest) {
           return NextResponse.json(
             {
               error:
-                "Unauthorized. Set Authorization: Bearer <PROMPT_API_TOKEN> (or X-Prompt-Api-Token).",
+                'Unauthorized. Set Authorization: Bearer <PROMPT_API_TOKEN> (or X-Prompt-Api-Token).',
             },
             {
               status: 401,
               headers: {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-                "Access-Control-Allow-Headers":
-                  "Content-Type, Authorization, X-Prompt-Api-Token",
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Prompt-Api-Token',
               },
-            },
+            }
           );
         }
       }
@@ -157,17 +153,17 @@ export function proxy(request: NextRequest) {
           { error: authResult.error },
           {
             status: authResult.status,
-            headers: { "Access-Control-Allow-Origin": "*" },
-          },
+            headers: { 'Access-Control-Allow-Origin': '*' },
+          }
         );
       }
 
       if (authResult.status === 403) {
-        return NextResponse.redirect(new URL("/forbidden", request.url));
+        return NextResponse.redirect(new URL('/forbidden', request.url));
       }
 
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("next", `${path}${request.nextUrl.search}`);
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('next', `${path}${request.nextUrl.search}`);
       return NextResponse.redirect(loginUrl);
     }
   }
@@ -188,7 +184,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/api/:path*",
-    "/((?!_next/static|_next/image|favicon.ico|manifest.json|icons|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    '/api/:path*',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|icons|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

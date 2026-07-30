@@ -1,11 +1,11 @@
-import { getDiffusersBaseUrl } from "@/lib/diffusers-client";
-import { parseEngineUploadRequest } from "@/lib/engine-upload-parse";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
+import { getDiffusersBaseUrl } from '@/lib/diffusers-client';
+import { parseEngineUploadRequest } from '@/lib/engine-upload-parse';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/diffusers/upload");
+  return apiMethodNotAllowed(['POST'], '/api/diffusers/upload');
 }
 
 export async function POST(request: Request) {
@@ -19,17 +19,14 @@ export async function POST(request: Request) {
     try {
       engineUrl = getDiffusersBaseUrl(engineUrlHint);
     } catch (error) {
-      return apiError(
-        error instanceof Error ? error.message : "Invalid Diffusers URL.",
-        400,
-      );
+      return apiError(error instanceof Error ? error.message : 'Invalid Diffusers URL.', 400);
     }
 
     const uploadForm = new FormData();
-    uploadForm.append("image", image, image.name);
+    uploadForm.append('image', image, image.name);
 
     const response = await fetch(`${engineUrl}/v1/upload`, {
-      method: "POST",
+      method: 'POST',
       body: uploadForm,
       signal: AbortSignal.timeout(60_000),
     });
@@ -46,25 +43,23 @@ export async function POST(request: Request) {
     };
 
     if (!data.name?.trim()) {
-      return apiError("Diffusers upload did not return a filename.", 502);
+      return apiError('Diffusers upload did not return a filename.', 502);
     }
 
     return apiJson({
       name: data.name.trim(),
-      subfolder: data.subfolder?.trim() || "",
-      type: data.type?.trim() || "input",
+      subfolder: data.subfolder?.trim() || '',
+      type: data.type?.trim() || 'input',
       engineUrl,
       comfyUrl: engineUrl,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Diffusers upload failed.";
-    const status =
-      /required|must be|could not read|upload must|too large|25mb|invalid/i.test(
-        message,
-      )
-        ? 400
-        : 502;
+    const message = error instanceof Error ? error.message : 'Diffusers upload failed.';
+    const status = /required|must be|could not read|upload must|too large|25mb|invalid/i.test(
+      message
+    )
+      ? 400
+      : 502;
     return apiError(message, status);
   }
 }

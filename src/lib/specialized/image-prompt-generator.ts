@@ -1,10 +1,7 @@
-import {
-  getComfyModelDefinition,
-  comfyModelLabel,
-} from "../comfy-models";
-import { getDetailLimits, type DetailLevel } from "../detail-level";
-import { allowTemplateFallback, visionCompletion } from "../llm-client";
-import { resolveRequestLlmEnabled, resolveRequestVisionModel } from "../llm-request-options";
+import { getComfyModelDefinition, comfyModelLabel } from '../comfy-models';
+import { getDetailLimits, type DetailLevel } from '../detail-level';
+import { allowTemplateFallback, visionCompletion } from '../llm-client';
+import { resolveRequestLlmEnabled, resolveRequestVisionModel } from '../llm-request-options';
 import {
   applyVisionFocusTrim,
   stripPromptArtifacts,
@@ -14,21 +11,17 @@ import {
   isVisionPromptInsufficient,
   visionPromptMinChars,
   visionPromptTargetChars,
-} from "../prompt-cleanup";
-import { sanitizeQwenPrompt, formatPromptForModel } from "../qwen-clarity";
-import { buildVisionFormatRules } from "../prompt-shape";
+} from '../prompt-cleanup';
+import { sanitizeQwenPrompt, formatPromptForModel } from '../qwen-clarity';
+import { buildVisionFormatRules } from '../prompt-shape';
 import {
   getImagePromptPreset,
   mergeImagePromptHints,
   normalizeImagePromptDescriptionPreset,
   type ImagePromptDescriptionPreset,
-} from "../image-prompt-presets";
-import { buildToolResult } from "./runner";
-import type {
-  ImagePromptFocus,
-  ImagePromptOptions,
-  ToolGenerateResult,
-} from "./types";
+} from '../image-prompt-presets';
+import { buildToolResult } from './runner';
+import type { ImagePromptFocus, ImagePromptOptions, ToolGenerateResult } from './types';
 
 const FOCUS_INSTRUCTIONS: Record<ImagePromptFocus, string> = {
   full: `FOCUS MODE: FULL IMAGE (mandatory).
@@ -53,20 +46,19 @@ const FOCUS_INSTRUCTIONS: Record<ImagePromptFocus, string> = {
 };
 
 const FOCUS_USER_DIRECTIVES: Record<ImagePromptFocus, string> = {
-  full: "Write a balanced prompt covering subject pose/placement, setting, and atmosphere together.",
+  full: 'Write a balanced prompt covering subject pose/placement, setting, and atmosphere together.',
   subject:
-    "Write a SUBJECT-ONLY prompt starting with the person/object. Include pose, facing, limb positions, clothing, and visible details. Do NOT describe trees, houses, sky, weather, or street scenery except one short location phrase.",
-  background:
-    "Write a BACKGROUND-ONLY prompt. Minimize or omit people; no faces or outfits.",
+    'Write a SUBJECT-ONLY prompt starting with the person/object. Include pose, facing, limb positions, clothing, and visible details. Do NOT describe trees, houses, sky, weather, or street scenery except one short location phrase.',
+  background: 'Write a BACKGROUND-ONLY prompt. Minimize or omit people; no faces or outfits.',
   style:
-    "Write a STYLE-ONLY prompt about lighting, palette, lens, and mood—not a full scene description.",
+    'Write a STYLE-ONLY prompt about lighting, palette, lens, and mood—not a full scene description.',
 };
 
 function buildVisionSystemPrompt(
-  model: ImagePromptOptions["model"],
+  model: ImagePromptOptions['model'],
   detail: DetailLevel,
   focus: ImagePromptFocus,
-  descriptionPreset: ImagePromptDescriptionPreset = "standard",
+  descriptionPreset: ImagePromptDescriptionPreset = 'standard'
 ): string {
   const modelDef = getComfyModelDefinition(model);
   const limits = getDetailLimits(detail, model);
@@ -91,67 +83,64 @@ Output ONLY the raw prompt text.`;
 }
 
 function buildVisionUserPrompt(
-  model: ImagePromptOptions["model"],
+  model: ImagePromptOptions['model'],
   focus: ImagePromptFocus,
-  extraHints?: string,
+  extraHints?: string
 ): string {
   const profile = getComfyModelDefinition(model).profile;
   const formatHint =
-    profile === "sd15_weighted"
-      ? "Comma-separated tags only."
-      : profile === "instruct_pix2pix" || profile === "qwen_edit_instruction"
-        ? "Short edit instruction only."
-        : "Plain prose only—no markdown, no section headers, no bullet points.";
+    profile === 'sd15_weighted'
+      ? 'Comma-separated tags only.'
+      : profile === 'instruct_pix2pix' || profile === 'qwen_edit_instruction'
+        ? 'Short edit instruction only.'
+        : 'Plain prose only—no markdown, no section headers, no bullet points.';
 
   return [
     FOCUS_USER_DIRECTIVES[focus],
     `Describe this image as a ${comfyModelLabel(model)} prompt.`,
-    "Output the finished prompt only—no analysis, checklist, or verification steps.",
+    'Output the finished prompt only—no analysis, checklist, or verification steps.',
     formatHint,
-    extraHints?.trim()
-      ? `Mandatory notes (must appear in the prompt): ${extraHints.trim()}`
-      : null,
+    extraHints?.trim() ? `Mandatory notes (must appear in the prompt): ${extraHints.trim()}` : null,
   ]
     .filter(Boolean)
-    .join(" ");
+    .join(' ');
 }
 
 const FOCUS_RETRY_HINTS: Record<ImagePromptFocus, string> = {
-  full: "Include subject pose/placement, setting, spatial relationships, and atmosphere in multiple sentences.",
+  full: 'Include subject pose/placement, setting, spatial relationships, and atmosphere in multiple sentences.',
   subject:
-    "Start with the person/object: facing direction, limb positions, pose, clothing, and frame placement. Remove all background scenery (trees, houses, sky, weather, street detail). At most one short location phrase.",
+    'Start with the person/object: facing direction, limb positions, pose, clothing, and frame placement. Remove all background scenery (trees, houses, sky, weather, street detail). At most one short location phrase.',
   background:
-    "Describe the environment, architecture, materials, depth, and atmosphere—not only a one-line place name.",
-  style:
-    "Describe lighting, palette, lens, composition, and mood—not only a place name.",
+    'Describe the environment, architecture, materials, depth, and atmosphere—not only a one-line place name.',
+  style: 'Describe lighting, palette, lens, composition, and mood—not only a place name.',
 };
 
 function buildVisionRetryUserPrompt(
-  model: ImagePromptOptions["model"],
+  model: ImagePromptOptions['model'],
   focus: ImagePromptFocus,
   detail: DetailLevel,
   limits: ReturnType<typeof getDetailLimits>,
-  extraHints?: string,
+  extraHints?: string
 ): string {
   const targetChars = visionPromptTargetChars(detail, limits.maxChars);
   return [
     buildVisionUserPrompt(model, focus, extraHints),
-    "",
+    '',
     `RETRY (required): your previous answer was too short or missed the ${focus} focus.`,
     FOCUS_RETRY_HINTS[focus],
     extraHints?.trim()
       ? `Use these notes: ${extraHints.trim()}`
-      : "Describe visible subject details explicitly—body pose, facing direction, limb positions, frame placement, clothing, colors, and any readable text.",
+      : 'Describe visible subject details explicitly—body pose, facing direction, limb positions, frame placement, clothing, colors, and any readable text.',
     `Write the complete finished prompt now (~${targetChars} characters, ${limits.minSentences}–${limits.maxSentences} sentences).`,
-    "Output ONLY the prompt—no planning, no quotes around the whole answer.",
-  ].join("\n");
+    'Output ONLY the prompt—no planning, no quotes around the whole answer.',
+  ].join('\n');
 }
 
 function finalizeImagePrompt(
   raw: string,
   detail: DetailLevel,
-  model: ImagePromptOptions["model"],
-  focus: ImagePromptFocus = "full",
+  model: ImagePromptOptions['model'],
+  focus: ImagePromptFocus = 'full'
 ): string {
   const profile = getComfyModelDefinition(model).profile;
   let text = stripPromptArtifacts(raw);
@@ -159,43 +148,37 @@ function finalizeImagePrompt(
   text = applyVisionFocusTrim(text, focus, profile);
 
   return formatPromptForModel(
-    sanitizeQwenPrompt(text, detail, "", model, {
+    sanitizeQwenPrompt(text, detail, '', model, {
       enforceMinimum: false,
     }),
     model,
-    "",
-    "positive",
+    '',
+    'positive'
   );
 }
 
 export async function generateImagePrompt(
-  options: ImagePromptOptions,
+  options: ImagePromptOptions
 ): Promise<ToolGenerateResult> {
-  if (!options.imageDataUrl.startsWith("data:image/")) {
-    throw new Error("Image must be a data URL (data:image/...;base64,...).");
+  if (!options.imageDataUrl.startsWith('data:image/')) {
+    throw new Error('Image must be a data URL (data:image/...;base64,...).');
   }
 
-  const focus = options.focus ?? "full";
-  const descriptionPreset = normalizeImagePromptDescriptionPreset(
-    options.descriptionPreset,
-  );
+  const focus = options.focus ?? 'full';
+  const descriptionPreset = normalizeImagePromptDescriptionPreset(options.descriptionPreset);
   const mergedHints = mergeImagePromptHints(options.extraHints, descriptionPreset);
   const systemPrompt = buildVisionSystemPrompt(
     options.model,
     options.detail,
     focus,
-    descriptionPreset,
+    descriptionPreset
   );
-  const userMessage = buildVisionUserPrompt(
-    options.model,
-    focus,
-    mergedHints,
-  );
+  const userMessage = buildVisionUserPrompt(options.model, focus, mergedHints);
   const limits = getDetailLimits(options.detail, options.model);
 
   if (!resolveRequestLlmEnabled(options.llm)) {
     throw new Error(
-      "Image prompt generation requires a vision-capable LLM. Set LLM_ENABLED=true and configure LLM_VISION_MODEL (e.g. qwen3-vl:latest).",
+      'Image prompt generation requires a vision-capable LLM. Set LLM_ENABLED=true and configure LLM_VISION_MODEL (e.g. qwen3-vl:latest).'
     );
   }
 
@@ -203,7 +186,7 @@ export async function generateImagePrompt(
     resolveRequestVisionModel(options.llm) ?? process.env.LLM_VISION_MODEL?.trim();
   if (!visionModel) {
     throw new Error(
-      "LLM_VISION_MODEL is not set. Add LLM_VISION_MODEL=qwen3-vl:latest to .env.local and restart the dev server.",
+      'LLM_VISION_MODEL is not set. Add LLM_VISION_MODEL=qwen3-vl:latest to .env.local and restart the dev server.'
     );
   }
 
@@ -218,12 +201,7 @@ export async function generateImagePrompt(
       model: visionModel,
     });
 
-    let prompt = finalizeImagePrompt(
-      content,
-      options.detail,
-      options.model,
-      focus,
-    );
+    let prompt = finalizeImagePrompt(content, options.detail, options.model, focus);
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       if (!isVisionPromptInsufficient(prompt, focus, options.detail, limits)) {
@@ -232,40 +210,30 @@ export async function generateImagePrompt(
 
       content = await visionCompletion({
         systemPrompt,
-        textPrompt:         buildVisionRetryUserPrompt(
+        textPrompt: buildVisionRetryUserPrompt(
           options.model,
           focus,
           options.detail,
           limits,
-          mergedHints,
+          mergedHints
         ),
         imageDataUrl: options.imageDataUrl,
         maxTokens: visionMaxTokens,
         temperature: attempt === 0 ? 0.25 : 0.15,
         model: visionModel,
       });
-      prompt = finalizeImagePrompt(
-        content,
-        options.detail,
-        options.model,
-        focus,
-      );
+      prompt = finalizeImagePrompt(content, options.detail, options.model, focus);
     }
 
-    const qualityIssue = describeVisionPromptIssue(
-      prompt,
-      focus,
-      options.detail,
-      limits.maxChars,
-    );
+    const qualityIssue = describeVisionPromptIssue(prompt, focus, options.detail, limits.maxChars);
 
     if (isVisionPromptHardFailure(prompt, focus)) {
       throw new Error(
-        `Vision model returned an unusable prompt (${prompt.length} chars${qualityIssue ? `: ${qualityIssue}` : ""}). Add subject notes under Extra hints (e.g. "woman running, blue shirt, black shorts") or try detail "rich".`,
+        `Vision model returned an unusable prompt (${prompt.length} chars${qualityIssue ? `: ${qualityIssue}` : ''}). Add subject notes under Extra hints (e.g. "woman running, blue shirt, black shorts") or try detail "rich".`
       );
     }
 
-    return buildToolResult(prompt, "llm", options.model, options.detail, {
+    return buildToolResult(prompt, 'llm', options.model, options.detail, {
       metadata: {
         focus,
         descriptionPreset,
@@ -276,12 +244,11 @@ export async function generateImagePrompt(
       },
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Image prompt generation failed.";
+    const message = error instanceof Error ? error.message : 'Image prompt generation failed.';
 
     if (/does not support multimodal/i.test(message)) {
       throw new Error(
-        `Vision request was sent to a text-only model. Set LLM_VISION_MODEL=qwen3-vl:latest in .env.local (separate from LLM_MODEL=${process.env.LLM_MODEL ?? "dolphin-llama3"}) and restart the dev server.`,
+        `Vision request was sent to a text-only model. Set LLM_VISION_MODEL=qwen3-vl:latest in .env.local (separate from LLM_MODEL=${process.env.LLM_MODEL ?? 'dolphin-llama3'}) and restart the dev server.`
       );
     }
 
@@ -295,16 +262,13 @@ export async function generateImagePrompt(
 
 export async function fileToDataUrl(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
-  return `data:${file.type};base64,${buffer.toString("base64")}`;
+  return `data:${file.type};base64,${buffer.toString('base64')}`;
 }
 
-export function normalizeImageDataUrl(
-  value: string,
-  mimeType = "image/jpeg",
-): string {
-  if (value.startsWith("data:image/")) {
+export function normalizeImageDataUrl(value: string, mimeType = 'image/jpeg'): string {
+  if (value.startsWith('data:image/')) {
     return value;
   }
 
-  return `data:${mimeType};base64,${value.replace(/^data:.*;base64,/, "")}`;
+  return `data:${mimeType};base64,${value.replace(/^data:.*;base64,/, '')}`;
 }

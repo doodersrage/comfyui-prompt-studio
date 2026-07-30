@@ -8,11 +8,11 @@ Contributor map (storage, queue path, auth/ACL, plugins, engines): [docs/archite
 
 Use **Simple / Studio / Full** from the sidebar footer or **Profile → Appearance**:
 
-| Mode | Sidebar | Shared controls | Studio tabs |
-|------|---------|-----------------|-------------|
-| **Simple** | Essentials + More tools | Advanced collapsed | History, Compare, Templates, Presets, Analytics |
-| **Studio** (default) | Edit / Media / Library groups | Collapsed advanced sections | All tabs |
-| **Full** | Same as Studio, groups expanded | Quality sections open by default | All tabs |
+| Mode                 | Sidebar                         | Shared controls                  | Studio tabs                                     |
+| -------------------- | ------------------------------- | -------------------------------- | ----------------------------------------------- |
+| **Simple**           | Essentials + More tools         | Advanced collapsed               | History, Compare, Templates, Presets, Analytics |
+| **Studio** (default) | Edit / Media / Library groups   | Collapsed advanced sections      | All tabs                                        |
+| **Full**             | Same as Studio, groups expanded | Quality sections open by default | All tabs                                        |
 
 New installs see a one-time welcome picker. Returning users keep Studio silently.
 
@@ -20,16 +20,16 @@ New installs see a one-time welcome picker. Returning users keep Studio silently
 
 The app includes **40+ ComfyUI image model targets**, grouped by architecture family:
 
-| Family | Examples | Prompt style |
-|--------|----------|--------------|
-| **Stable Diffusion** | SD 1.5, SD 2.0, SD 2.1 | Short weighted tags or brief phrases |
-| **SDXL** | SDXL Base, Refiner, SSD-1B, Segmind Vega | Natural-language scene descriptions |
-| **SD3 / AuraFlow** | SD3 Medium/Large, SD 3.5, AuraFlow | Longer NLP; quote visible text in `"quotes"` |
-| **Flux / Chroma** | FLUX Dev/Schnell/2/Klein, Chroma | Subject-first photographic prose |
-| **Qwen Image** | Edit, Edit-2511, Image-2512, Image-2.0 | Edit instructions or factual/rich T2I prose |
-| **Hunyuan / HiDream** | Hunyuan DiT, Hunyuan Image 2.1, HiDream | Descriptive unified scene prose |
-| **Other DiT** | PixArt, Lumina 2, Z-Image, OmniGen2, Kandinsky 5, Stable Cascade | Architecture-tuned NLP or instructions |
-| **Instruct / Edit** | SD1.5/SDXL InstructPix2Pix, Lotus-D | Short imperative edit instructions |
+| Family                | Examples                                                         | Prompt style                                 |
+| --------------------- | ---------------------------------------------------------------- | -------------------------------------------- |
+| **Stable Diffusion**  | SD 1.5, SD 2.0, SD 2.1                                           | Short weighted tags or brief phrases         |
+| **SDXL**              | SDXL Base, Refiner, SSD-1B, Segmind Vega                         | Natural-language scene descriptions          |
+| **SD3 / AuraFlow**    | SD3 Medium/Large, SD 3.5, AuraFlow                               | Longer NLP; quote visible text in `"quotes"` |
+| **Flux / Chroma**     | FLUX Dev/Schnell/2/Klein, Chroma                                 | Subject-first photographic prose             |
+| **Qwen Image**        | Edit, Edit-2511, Image-2512, Image-2.0                           | Edit instructions or factual/rich T2I prose  |
+| **Hunyuan / HiDream** | Hunyuan DiT, Hunyuan Image 2.1, HiDream                          | Descriptive unified scene prose              |
+| **Other DiT**         | PixArt, Lumina 2, Z-Image, OmniGen2, Kandinsky 5, Stable Cascade | Architecture-tuned NLP or instructions       |
+| **Instruct / Edit**   | SD1.5/SDXL InstructPix2Pix, Lotus-D                              | Short imperative edit instructions           |
 
 Use the **search + category filter** in the UI to pick a model. Each entry shows its ComfyUI node name (e.g. `CLIP Text Encode (Flux)`, `TextEncodeQwenImageEditPlus`).
 
@@ -50,33 +50,33 @@ Set `COMFYUI_ROOT` to your ComfyUI install directory, then use **Settings → Co
 
 ## Tools
 
-| Page | Route | Purpose |
-|------|-------|---------|
-| **Dashboard** | `/dashboard` | Pending jobs, queue status, recent outputs, active project |
-| **Generate** | `/` | Keywords or random surprise → model-ready prompt |
-| **Format** | `/format` | Adapt an existing prompt draft for a selected model |
-| **Character** | `/character` | Solo person, duo/sport, or subject + background compose |
-| **Pet** | `/pet` | Pet-focused prompts with scene pools |
-| **Fantasy** | `/fantasy` | Fantasy character/scene prompts |
-| **Topics** | `/topics` | Topic lists for batch prompt builds |
-| **Background** | `/background` | Environment-only prompt with no people |
-| **Image → Prompt** | `/image-prompt` | Upload an image; vision LLM writes the prompt |
-| **Inpaint** | `/inpaint` | Mask a region and queue FLUX/Qwen inpaint with `{{INPUT_IMAGE}}` / `{{MASK_IMAGE}}` |
-| **Outpaint** | `/outpaint` | Expand canvas borders (pad + mask) and queue through the inpaint path with Final quality recipes |
-| **Compose** | `/compose` | Multi-image transfer / edit with optional identity lock, regional edit, and gallery re-edit handoffs |
-| **Workflow editor** | `/workflow-editor` | Edit Comfy API graphs (React Flow), save to library, queue |
-| **Audio** | `/audio` | Stable Audio prompts + `{{AUDIO_SECONDS}}`; auto-creates a starter scaffold (replace with your pack graph when ready) |
-| **3D Mesh** | `/mesh` | Hunyuan3D-style mesh prompts + optional reference image + `{{MESH_RESOLUTION}}`; auto-creates a starter scaffold |
-| **Video** | `/video` | Motion/camera prompts for WAN / Hunyuan Video; optional init image + `{{VIDEO_FRAMES}}` / `{{VIDEO_FPS}}` / `{{INIT_IMAGE}}` for I2V workflows; auto-scaffold like Audio/Mesh |
-| **Negative** | `/negative` | Sport-aware negative/preserve prompts for SD models |
-| **Studio** | `/studio` | History, iteration tree, projects, compare, portfolio, campaign, analytics, catalog, templates |
-| **Lint** | `/lint` | Paste prompts for diagnostics, fix, compact, reformat |
-| **Refine** | `/refine` | Refine an existing prompt with image + intent hints |
-| **Settings** | `/settings` | Sub-nav (Overview, LLM, ComfyUI, Automation, Data), health checks, `.env.local` catalog, webhooks, backup |
-| **Gallery** | `/gallery` | Stats dashboard, grid/dense/list layouts, review focus, compare modal, semantic search |
-| **Variations** | `/variations` | Roll N prompt variations and batch-queue to ComfyUI |
-| **ControlNet** | `/controlnet` | Structure prompts (text or image-assisted) |
-| **Plugins** | `/plugins` | Installable plugin manifests (nav + queue mutators + custom tool pages) |
+| Page                | Route              | Purpose                                                                                                                                                                       |
+| ------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dashboard**       | `/dashboard`       | Pending jobs, queue status, recent outputs, active project                                                                                                                    |
+| **Generate**        | `/`                | Keywords or random surprise → model-ready prompt                                                                                                                              |
+| **Format**          | `/format`          | Adapt an existing prompt draft for a selected model                                                                                                                           |
+| **Character**       | `/character`       | Solo person, duo/sport, or subject + background compose                                                                                                                       |
+| **Pet**             | `/pet`             | Pet-focused prompts with scene pools                                                                                                                                          |
+| **Fantasy**         | `/fantasy`         | Fantasy character/scene prompts                                                                                                                                               |
+| **Topics**          | `/topics`          | Topic lists for batch prompt builds                                                                                                                                           |
+| **Background**      | `/background`      | Environment-only prompt with no people                                                                                                                                        |
+| **Image → Prompt**  | `/image-prompt`    | Upload an image; vision LLM writes the prompt                                                                                                                                 |
+| **Inpaint**         | `/inpaint`         | Mask a region and queue FLUX/Qwen inpaint with `{{INPUT_IMAGE}}` / `{{MASK_IMAGE}}`                                                                                           |
+| **Outpaint**        | `/outpaint`        | Expand canvas borders (pad + mask) and queue through the inpaint path with Final quality recipes                                                                              |
+| **Compose**         | `/compose`         | Multi-image transfer / edit with optional identity lock, regional edit, and gallery re-edit handoffs                                                                          |
+| **Workflow editor** | `/workflow-editor` | Edit Comfy API graphs (React Flow), save to library, queue                                                                                                                    |
+| **Audio**           | `/audio`           | Stable Audio prompts + `{{AUDIO_SECONDS}}`; auto-creates a starter scaffold (replace with your pack graph when ready)                                                         |
+| **3D Mesh**         | `/mesh`            | Hunyuan3D-style mesh prompts + optional reference image + `{{MESH_RESOLUTION}}`; auto-creates a starter scaffold                                                              |
+| **Video**           | `/video`           | Motion/camera prompts for WAN / Hunyuan Video; optional init image + `{{VIDEO_FRAMES}}` / `{{VIDEO_FPS}}` / `{{INIT_IMAGE}}` for I2V workflows; auto-scaffold like Audio/Mesh |
+| **Negative**        | `/negative`        | Sport-aware negative/preserve prompts for SD models                                                                                                                           |
+| **Studio**          | `/studio`          | History, iteration tree, projects, compare, portfolio, campaign, analytics, catalog, templates                                                                                |
+| **Lint**            | `/lint`            | Paste prompts for diagnostics, fix, compact, reformat                                                                                                                         |
+| **Refine**          | `/refine`          | Refine an existing prompt with image + intent hints                                                                                                                           |
+| **Settings**        | `/settings`        | Sub-nav (Overview, LLM, ComfyUI, Automation, Data), health checks, `.env.local` catalog, webhooks, backup                                                                     |
+| **Gallery**         | `/gallery`         | Stats dashboard, grid/dense/list layouts, review focus, compare modal, semantic search                                                                                        |
+| **Variations**      | `/variations`      | Roll N prompt variations and batch-queue to ComfyUI                                                                                                                           |
+| **ControlNet**      | `/controlnet`      | Structure prompts (text or image-assisted)                                                                                                                                    |
+| **Plugins**         | `/plugins`         | Installable plugin manifests (nav + queue mutators + custom tool pages)                                                                                                       |
 
 Legacy URLs `/duo` and `/random-scene` redirect to Character and Generate. Character’s scene-compose mode lives at `/character?mode=compose`. `/compose` is the multi-image Compose / Transfer tool.
 
@@ -296,11 +296,11 @@ Legacy URLs `/duo` and `/random-scene` redirect to Character and Generate. Chara
 
 Limits are enforced per **model × detail** combination. All models have Concise / Balanced / Rich presets; long-form models also enforce `minChars`:
 
-| Detail | Qwen-Image-Edit | Edit-2511 | Image-2512 | Image-2.0 | FLUX.2 Klein | SDXL | SD1.5 |
-|--------|-----------------|-----------|------------|-----------|--------------|------|-------|
-| Concise | ~280 chars | ~220 chars | ~320 chars | ~400 chars | ~250 chars | ~280 chars | ~220 chars |
-| Balanced | ~520 chars | ~420 chars | ~380–650 chars | ~550–800 chars | ~450–700 chars | ~520 chars | ~380 chars |
-| Rich | ~920 chars | ~680 chars | **700–1000 chars** | **1100–1400 chars** | **900–1200 chars** | ~780 chars | ~520 chars |
+| Detail   | Qwen-Image-Edit | Edit-2511  | Image-2512         | Image-2.0           | FLUX.2 Klein       | SDXL       | SD1.5      |
+| -------- | --------------- | ---------- | ------------------ | ------------------- | ------------------ | ---------- | ---------- |
+| Concise  | ~280 chars      | ~220 chars | ~320 chars         | ~400 chars          | ~250 chars         | ~280 chars | ~220 chars |
+| Balanced | ~520 chars      | ~420 chars | ~380–650 chars     | ~550–800 chars      | ~450–700 chars     | ~520 chars | ~380 chars |
+| Rich     | ~920 chars      | ~680 chars | **700–1000 chars** | **1100–1400 chars** | **900–1200 chars** | ~780 chars | ~520 chars |
 
 Other families use limits tuned to their encoder (see `src/lib/comfy-models/limits.ts`).
 
@@ -419,21 +419,21 @@ Standard tokens: `{{POSITIVE}}`, `{{NEGATIVE}}`, `{{SEED}}`, `{{WIDTH}}`, `{{HEI
 
 Video tokens (WAN Video / Hunyuan Video, patched from the **Video** tool's optional init image + frames/FPS fields):
 
-| Token | Typical target |
-|-------|-----------------|
-| `{{INIT_IMAGE}}` | `LoadImage` feeding an I2V node's start-frame input — resolves to the same uploaded/fetched filename as `{{INPUT_IMAGE}}` |
-| `{{VIDEO_FRAMES}}` | Frame count / length, e.g. `EmptyHunyuanLatentVideo.length` |
-| `{{VIDEO_FPS}}` | Output frame rate, e.g. `SaveAnimatedWEBP.fps` |
+| Token              | Typical target                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `{{INIT_IMAGE}}`   | `LoadImage` feeding an I2V node's start-frame input — resolves to the same uploaded/fetched filename as `{{INPUT_IMAGE}}` |
+| `{{VIDEO_FRAMES}}` | Frame count / length, e.g. `EmptyHunyuanLatentVideo.length`                                                               |
+| `{{VIDEO_FPS}}`    | Output frame rate, e.g. `SaveAnimatedWEBP.fps`                                                                            |
 
 These are only injected when the Video tool has a value for that field — add them to your library workflow's nodes and they'll be patched at queue time like any other placeholder. **Scaffold for model** in the workflow library builds a starter WAN/Hunyuan Video graph with all three wired in when `wan-video` / `hunyuan-video` is the selected model.
 
 Loader / upscale tokens (patched directly even when placeholders are missing, when **Direct workflow patching** is enabled):
 
-| Token | Settings source |
-|-------|-----------------|
-| `{{CHECKPOINT}}` | **Settings → Checkpoint map** (also sets UNET when no separate UNET map) |
-| `{{UNET}}` | Checkpoint map, registry hints (FLUX Klein), or custom tokens |
-| `{{VAE}}` | **VAE map**, category defaults (`flux2-vae.safetensors` for FLUX), or custom tokens |
+| Token               | Settings source                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| `{{CHECKPOINT}}`    | **Settings → Checkpoint map** (also sets UNET when no separate UNET map)                                |
+| `{{UNET}}`          | Checkpoint map, registry hints (FLUX Klein), or custom tokens                                           |
+| `{{VAE}}`           | **VAE map**, category defaults (`flux2-vae.safetensors` for FLUX), or custom tokens                     |
 | `{{UPSCALE_MODEL}}` | **Upscale model map** (optional) — neural UpscaleModel on Final/Max when set; otherwise Lanczos upscale |
 
 Loader placeholders are replaced at queue time via token injection and direct patching. Use **Settings → Merge suggested loader maps** to fill checkpoint/VAE/refiner defaults for common models (your entries win). If ComfyUI reports `value_not_in_list` for `{{UNET}}` or `{{VAE}}`, add the exact filename from the error’s allowed list to the checkpoint or VAE map.
@@ -442,12 +442,12 @@ Use **Optimize & save copy** in the workflow library to persist auto-bound place
 
 ### Queue quality profiles
 
-| Profile | Effect |
-|---------|--------|
-| **Follow sidebar** | Uses your sampler preset + resolution tier from Settings |
-| **Draft** | Faster sampler tier, smaller resolution |
-| **Final** | Optimized sampler, medium+ resolution, SDXL refiner pass (latent upscale), optional neural UpscaleModel or 1.25× Lanczos before SaveImage |
-| **Max** | Max-quality sampler/resolution, SDXL refiner at higher denoise, neural upscale + 1.05× Lanczos polish (sharpen off by default) |
+| Profile            | Effect                                                                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Follow sidebar** | Uses your sampler preset + resolution tier from Settings                                                                                  |
+| **Draft**          | Faster sampler tier, smaller resolution                                                                                                   |
+| **Final**          | Optimized sampler, medium+ resolution, SDXL refiner pass (latent upscale), optional neural UpscaleModel or 1.25× Lanczos before SaveImage |
+| **Max**            | Max-quality sampler/resolution, SDXL refiner at higher denoise, neural upscale + 1.05× Lanczos polish (sharpen off by default)            |
 
 Loader precision: queue injection detects **fp8 vs bf16** from existing workflow loaders and resolves `{{UNET}}`/`{{CHECKPOINT}}` to the matching tier (defaults to bf16 when unknown).
 
@@ -457,16 +457,16 @@ Loader precision: queue injection detects **fp8 vs bf16** from existing workflow
 
 ### Settings toggles (Workflow patching & checkpoints)
 
-| Toggle | Purpose |
-|--------|---------|
-| Direct workflow patching | Patch `EmptyLatentImage`, loaders, LoadImage/Mask, UpscaleModel without placeholders |
-| Optimize workflows on queue | Auto-bind missing placeholders before injection |
-| Insert model-sampling nodes | Add `ModelSamplingFlux` / shift nodes when loader → KSampler is direct |
-| Auto improve on 4–5★ | Final-quality improve: upscale (same pixels); Rapid AIO → moiré clean; Lightning → re-queue new seed (on by default). When enabled, mutate/seed-experiment toggles only run if this path fails or is off |
-| Auto improve on 5★ | Max-quality improve (same model-aware paths as above; neural upscale falls back to Lanczos when the mapped file is missing) |
-| Auto img2img refine on 5★ | Optional low-denoise refine after 5★ upscale (experimental, off by default; skipped for Lightning and Rapid AIO) |
-| Subtle sharpen after upscale (Max) | Optional ImageSharpen — off by default to avoid waxy skin |
-| WebSocket progress | On by default — faster gallery job status via ComfyUI WebSocket |
+| Toggle                             | Purpose                                                                                                                                                                                                  |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Direct workflow patching           | Patch `EmptyLatentImage`, loaders, LoadImage/Mask, UpscaleModel without placeholders                                                                                                                     |
+| Optimize workflows on queue        | Auto-bind missing placeholders before injection                                                                                                                                                          |
+| Insert model-sampling nodes        | Add `ModelSamplingFlux` / shift nodes when loader → KSampler is direct                                                                                                                                   |
+| Auto improve on 4–5★               | Final-quality improve: upscale (same pixels); Rapid AIO → moiré clean; Lightning → re-queue new seed (on by default). When enabled, mutate/seed-experiment toggles only run if this path fails or is off |
+| Auto improve on 5★                 | Max-quality improve (same model-aware paths as above; neural upscale falls back to Lanczos when the mapped file is missing)                                                                              |
+| Auto img2img refine on 5★          | Optional low-denoise refine after 5★ upscale (experimental, off by default; skipped for Lightning and Rapid AIO)                                                                                         |
+| Subtle sharpen after upscale (Max) | Optional ImageSharpen — off by default to avoid waxy skin                                                                                                                                                |
+| WebSocket progress                 | On by default — faster gallery job status via ComfyUI WebSocket                                                                                                                                          |
 
 Gallery **5★** auto-improve is model-aware: standard models upscale, Rapid AIO runs moiré clean, Lightning re-queues a Final/Max seed. Set an upscale model map entry only when that file exists in ComfyUI; missing entries fall back to Lanczos automatically.
 
@@ -480,41 +480,41 @@ Preflight and **Workflow configuration** on gallery entries show unresolved toke
 
 The generator calls any **OpenAI-compatible** chat completions API. Configure via `.env.local`:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LLM_API_BASE_URL` | `http://localhost:11434/v1` | API base URL |
-| `LLM_API_KEY` | _(empty)_ | Bearer token if required |
-| `LLM_MODEL` | `dolphin-llama3` | Model name |
-| `LLM_TEMPERATURE` | `0.95` | Sampling temperature (higher = more variation) |
-| `LLM_ENABLED` | `true` | Set `false` for template-only mode |
-| `ALLOW_TEMPLATE_FALLBACK` | `true` | Fall back if LLM is unreachable |
-| `PROMPT_API_TOKEN` | _(empty)_ | Optional API bearer token for non-browser clients |
-| `PROMPT_AUTH_ENABLED` | `false` | Enable login and feature access control |
-| `PROMPT_ADMIN_USERNAME` | `admin` | Default admin username (seeded on first enable) |
-| `PROMPT_ADMIN_PASSWORD` | `admin` | Default admin password (change in production) |
-| `PROMPT_SESSION_SECRET` | _(falls back to API token)_ | HMAC secret for session cookies |
-| `PROMPT_AUTH_DIR` | _(uses `PROMPT_DATA_DIR/auth`)_ | Directory for `users.json`, `groups.json`, and `analytics-snapshots.json` |
-| `PROMPT_DATA_DIR` | _(empty)_ | Server file storage root for `/api/storage` and auth data |
-| `SERVER_USER_MAINTENANCE` | `false` | Enable `/api/maintenance/run` for per-user scheduled campaigns and export snapshots |
-| `SERVER_USER_MAINTENANCE_INTERVAL_MIN` | `15` | When `SERVER_USER_MAINTENANCE=true`, run maintenance on this interval (minutes) |
-| `API_RATE_LIMIT_WINDOW_MS` | `60000` | Rate limit window (ms) for API proxy |
-| `API_RATE_LIMIT_MAX` | `120` | Default max requests per window; overridable per user/group in Settings → Users |
-| `COMFYUI_API_URL` | `http://127.0.0.1:8188` | Default ComfyUI base URL |
-| `COMFYUI_ROOT` | _(empty)_ | Absolute path to the ComfyUI install (same machine). Enables **Settings → ComfyUI → Model assets** curated weight downloads into `models/checkpoints`, `diffusion_models`, `vae`, etc. |
-| `HF_TOKEN` | _(empty)_ | Optional Hugging Face token for curated downloads (also accepts `HUGGING_FACE_HUB_TOKEN`) |
-| `COMFYUI_ALLOW_CLIENT_URL` | `true` | Allow clients to override ComfyUI URL |
-| `COMFYUI_ALLOWED_HOSTS` | _(empty)_ | Optional comma-separated ComfyUI host allowlist |
-| `WEBHOOK_ALLOW_PRIVATE` | `false` | Allow webhook POSTs to private/LAN URLs |
-| `PROMPT_EMAIL_ENABLED` | auto | Set `true` to force email on when SMTP is configured |
-| `PROMPT_SMTP_HOST` | _(empty)_ | SMTP server hostname |
-| `PROMPT_SMTP_PORT` | `587` | SMTP port |
-| `PROMPT_SMTP_SECURE` | `false` | Use TLS directly (typical for port 465) |
-| `PROMPT_SMTP_USER` | _(empty)_ | SMTP auth username |
-| `PROMPT_SMTP_PASS` | _(empty)_ | SMTP auth password |
-| `PROMPT_EMAIL_FROM` | _(empty)_ | From header, e.g. `Prompt Studio <noreply@example.com>` |
-| `PROMPT_ADMIN_EMAIL` | _(empty)_ | Fallback recipient for server batches when users have no email |
-| `PROMPT_EMAIL_NOTIFY_BATCH` | `true` | Send email when scheduled batches/campaigns finish |
-| `PROMPT_EMAIL_NOTIFY_PASSWORD` | `true` | Send email when a password is changed |
+| Variable                               | Default                         | Description                                                                                                                                                                            |
+| -------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LLM_API_BASE_URL`                     | `http://localhost:11434/v1`     | API base URL                                                                                                                                                                           |
+| `LLM_API_KEY`                          | _(empty)_                       | Bearer token if required                                                                                                                                                               |
+| `LLM_MODEL`                            | `dolphin-llama3`                | Model name                                                                                                                                                                             |
+| `LLM_TEMPERATURE`                      | `0.95`                          | Sampling temperature (higher = more variation)                                                                                                                                         |
+| `LLM_ENABLED`                          | `true`                          | Set `false` for template-only mode                                                                                                                                                     |
+| `ALLOW_TEMPLATE_FALLBACK`              | `true`                          | Fall back if LLM is unreachable                                                                                                                                                        |
+| `PROMPT_API_TOKEN`                     | _(empty)_                       | Optional API bearer token for non-browser clients                                                                                                                                      |
+| `PROMPT_AUTH_ENABLED`                  | `false`                         | Enable login and feature access control                                                                                                                                                |
+| `PROMPT_ADMIN_USERNAME`                | `admin`                         | Default admin username (seeded on first enable)                                                                                                                                        |
+| `PROMPT_ADMIN_PASSWORD`                | `admin`                         | Default admin password (change in production)                                                                                                                                          |
+| `PROMPT_SESSION_SECRET`                | _(falls back to API token)_     | HMAC secret for session cookies                                                                                                                                                        |
+| `PROMPT_AUTH_DIR`                      | _(uses `PROMPT_DATA_DIR/auth`)_ | Directory for `users.json`, `groups.json`, and `analytics-snapshots.json`                                                                                                              |
+| `PROMPT_DATA_DIR`                      | _(empty)_                       | Server file storage root for `/api/storage` and auth data                                                                                                                              |
+| `SERVER_USER_MAINTENANCE`              | `false`                         | Enable `/api/maintenance/run` for per-user scheduled campaigns and export snapshots                                                                                                    |
+| `SERVER_USER_MAINTENANCE_INTERVAL_MIN` | `15`                            | When `SERVER_USER_MAINTENANCE=true`, run maintenance on this interval (minutes)                                                                                                        |
+| `API_RATE_LIMIT_WINDOW_MS`             | `60000`                         | Rate limit window (ms) for API proxy                                                                                                                                                   |
+| `API_RATE_LIMIT_MAX`                   | `120`                           | Default max requests per window; overridable per user/group in Settings → Users                                                                                                        |
+| `COMFYUI_API_URL`                      | `http://127.0.0.1:8188`         | Default ComfyUI base URL                                                                                                                                                               |
+| `COMFYUI_ROOT`                         | _(empty)_                       | Absolute path to the ComfyUI install (same machine). Enables **Settings → ComfyUI → Model assets** curated weight downloads into `models/checkpoints`, `diffusion_models`, `vae`, etc. |
+| `HF_TOKEN`                             | _(empty)_                       | Optional Hugging Face token for curated downloads (also accepts `HUGGING_FACE_HUB_TOKEN`)                                                                                              |
+| `COMFYUI_ALLOW_CLIENT_URL`             | `true`                          | Allow clients to override ComfyUI URL                                                                                                                                                  |
+| `COMFYUI_ALLOWED_HOSTS`                | _(empty)_                       | Optional comma-separated ComfyUI host allowlist                                                                                                                                        |
+| `WEBHOOK_ALLOW_PRIVATE`                | `false`                         | Allow webhook POSTs to private/LAN URLs                                                                                                                                                |
+| `PROMPT_EMAIL_ENABLED`                 | auto                            | Set `true` to force email on when SMTP is configured                                                                                                                                   |
+| `PROMPT_SMTP_HOST`                     | _(empty)_                       | SMTP server hostname                                                                                                                                                                   |
+| `PROMPT_SMTP_PORT`                     | `587`                           | SMTP port                                                                                                                                                                              |
+| `PROMPT_SMTP_SECURE`                   | `false`                         | Use TLS directly (typical for port 465)                                                                                                                                                |
+| `PROMPT_SMTP_USER`                     | _(empty)_                       | SMTP auth username                                                                                                                                                                     |
+| `PROMPT_SMTP_PASS`                     | _(empty)_                       | SMTP auth password                                                                                                                                                                     |
+| `PROMPT_EMAIL_FROM`                    | _(empty)_                       | From header, e.g. `Prompt Studio <noreply@example.com>`                                                                                                                                |
+| `PROMPT_ADMIN_EMAIL`                   | _(empty)_                       | Fallback recipient for server batches when users have no email                                                                                                                         |
+| `PROMPT_EMAIL_NOTIFY_BATCH`            | `true`                          | Send email when scheduled batches/campaigns finish                                                                                                                                     |
+| `PROMPT_EMAIL_NOTIFY_PASSWORD`         | `true`                          | Send email when a password is changed                                                                                                                                                  |
 
 **Password reset:** With auth and SMTP enabled, `POST /api/email/forgot-password` sends a link to `/login?reset=…`. Users complete reset via `POST /api/auth/reset-password`.
 
@@ -571,17 +571,17 @@ curl -sS "http://localhost:47832/api/models?category=flux" | jq .
 curl -sS "http://localhost:47832/api/models?id=sdxl" | jq .
 ```
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api` | GET | API catalog and schema documentation |
-| `/api/models` | GET | List models (`?category=`, `?id=`) |
-| `/api/generate` | POST | Keywords → model-ready prompt |
-| `/api/format` | POST | Existing draft → model-ready prompt |
-| `/api/topics` | POST | Seed theme (optional) → list of topic ideas |
-| `/api/random-scene` | POST | Random cohesive scene prompt (also available via Generate → Random surprise) |
-| `/api/character` | POST | Detailed single-person prompt |
-| `/api/background` | POST | People-free environment prompt |
-| `/api/image-prompt` | POST | Image upload/base64 → prompt (vision LLM) |
+| Endpoint            | Method | Purpose                                                                      |
+| ------------------- | ------ | ---------------------------------------------------------------------------- |
+| `/api`              | GET    | API catalog and schema documentation                                         |
+| `/api/models`       | GET    | List models (`?category=`, `?id=`)                                           |
+| `/api/generate`     | POST   | Keywords → model-ready prompt                                                |
+| `/api/format`       | POST   | Existing draft → model-ready prompt                                          |
+| `/api/topics`       | POST   | Seed theme (optional) → list of topic ideas                                  |
+| `/api/random-scene` | POST   | Random cohesive scene prompt (also available via Generate → Random surprise) |
+| `/api/character`    | POST   | Detailed single-person prompt                                                |
+| `/api/background`   | POST   | People-free environment prompt                                               |
+| `/api/image-prompt` | POST   | Image upload/base64 → prompt (vision LLM)                                    |
 
 Errors use a consistent shape: `{ "error": "message" }` with an appropriate HTTP status (400, 404, 405, 500).
 
@@ -626,11 +626,11 @@ Model IDs match the registry in `src/lib/comfy-models/registry.ts`.
 
 Named scene locations power random scene rolls, Background, Character, and Topics seeds. The pool is split across batch files under `src/lib/` and merged at build time.
 
-| Command | Purpose |
-|---------|---------|
-| `npm run locations:count` | Show current unique location count |
-| `npm run locations:generate` | Add **500** new locations (writes next batch file) |
-| `npm run locations:generate:dry` | Preview generation without writing files |
+| Command                          | Purpose                                            |
+| -------------------------------- | -------------------------------------------------- |
+| `npm run locations:count`        | Show current unique location count                 |
+| `npm run locations:generate`     | Add **500** new locations (writes next batch file) |
+| `npm run locations:generate:dry` | Preview generation without writing files           |
 
 Advanced CLI (`node scripts/generate-locations.mjs`):
 
@@ -651,12 +651,12 @@ New batches land in `src/lib/location-catalog-extra-N.ts`. The script updates `s
 
 The character tool includes a **2,000+ entry clothing catalog** (outfits, tops, bottoms, outerwear, footwear, accessories) used for wardrobe presets and random outfit rolls.
 
-| Command | Purpose |
-|---------|---------|
-| `npm run clothing:count` | Show catalog size by category |
-| `npm run clothing:dedupe` | Remove duplicate category+label entries across batches |
-| `npm run clothing:generate` | Add **500** new clothing entries |
-| `npm run clothing:generate:dry` | Preview without writing files |
+| Command                         | Purpose                                                |
+| ------------------------------- | ------------------------------------------------------ |
+| `npm run clothing:count`        | Show catalog size by category                          |
+| `npm run clothing:dedupe`       | Remove duplicate category+label entries across batches |
+| `npm run clothing:generate`     | Add **500** new clothing entries                       |
+| `npm run clothing:generate:dry` | Preview without writing files                          |
 
 ```bash
 npm run clothing:generate -- --target 5000

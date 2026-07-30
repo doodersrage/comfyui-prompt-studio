@@ -1,7 +1,7 @@
-import { captionGalleryImage } from "@/lib/gallery-vision-review";
-import { apiError, apiJson, apiMethodNotAllowed } from "@/lib/api/response";
+import { captionGalleryImage } from '@/lib/gallery-vision-review';
+import { apiError, apiJson, apiMethodNotAllowed } from '@/lib/api/response';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       model?: string;
     };
     if (!body.imageDataUrl?.trim()) {
-      return apiError("imageDataUrl is required.", 400);
+      return apiError('imageDataUrl is required.', 400);
     }
     const caption = await captionGalleryImage({
       imageDataUrl: body.imageDataUrl.trim(),
@@ -20,13 +20,10 @@ export async function POST(request: Request) {
     });
     return apiJson({ caption });
   } catch (error) {
-    return apiError(
-      error instanceof Error ? error.message : "Caption failed.",
-      500,
-    );
+    return apiError(error instanceof Error ? error.message : 'Caption failed.', 500);
   }
 }
 
 export async function GET() {
-  return apiMethodNotAllowed(["POST"], "/api/gallery/caption");
+  return apiMethodNotAllowed(['POST'], '/api/gallery/caption');
 }

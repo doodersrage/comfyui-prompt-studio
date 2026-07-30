@@ -1,17 +1,14 @@
-import {
-  buildMandatoryLocationBlock,
-  parseSettingHint,
-} from "../hint-location";
-import { chatCompletion } from "../llm-client";
+import { buildMandatoryLocationBlock, parseSettingHint } from '../hint-location';
+import { chatCompletion } from '../llm-client';
 import {
   resolveRequestLlmEnabled,
   resolveRequestLlmModel,
   resolveRequestTemplateFallback,
-} from "../llm-request-options";
-import { buildTemplateTopicList } from "./scene-pools";
-import { mergeLocationExclusions } from "../location-exclusions";
-import { parseTopicLines } from "./topic-list-parse";
-import type { TopicGenerateResult, TopicOptions } from "./types";
+} from '../llm-request-options';
+import { buildTemplateTopicList } from './scene-pools';
+import { mergeLocationExclusions } from '../location-exclusions';
+import { parseTopicLines } from './topic-list-parse';
+import type { TopicGenerateResult, TopicOptions } from './types';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -25,7 +22,7 @@ function buildTopicsSystemPrompt(
     settingHint: ReturnType<typeof parseSettingHint>;
     avoidedTokensInstruction?: string;
     strictNumbered?: boolean;
-  },
+  }
 ): string {
   if (options.strictNumbered) {
     return `You list image prompt topics for AI art.
@@ -36,7 +33,7 @@ function buildTopicsSystemPrompt(
         ? `Every topic must relate to "${options.settingHint.location}".`
         : options.seedTopic
           ? `Every topic must relate to "${options.seedTopic}".`
-          : "Cover varied genres, moods, and settings."
+          : 'Cover varied genres, moods, and settings.'
     }
 - No intro, outro, markdown, or blank lines — only the numbered list.`;
   }
@@ -50,10 +47,10 @@ function buildTopicsSystemPrompt(
       ? `When a mandatory setting is provided, every topic must take place in or clearly relate to "${options.settingHint.location}". Vary subject, mood, and activity—not the city or environment.`
       : options.seedTopic
         ? `Every topic should relate to, riff on, or expand the seed theme "${options.seedTopic}". Vary angle, setting, mood, era, and subject while staying connected.`
-        : "Cover diverse genres, moods, and settings with no single required theme."
+        : 'Cover diverse genres, moods, and settings with no single required theme.'
   }
 - Variety level: ${options.variety}/100 (higher = bolder, stranger, more unexpected combinations).
-${options.avoidedTokensInstruction ? `- ${options.avoidedTokensInstruction}` : ""}
+${options.avoidedTokensInstruction ? `- ${options.avoidedTokensInstruction}` : ''}
 - Output ONLY the topic lines, one per line. No numbering, bullets, labels, markdown, or blank lines.`;
 }
 
@@ -62,7 +59,7 @@ function buildTopicsUserMessage(
   seedTopic: string | null,
   settingHint: ReturnType<typeof parseSettingHint>,
   locationBlock: string,
-  strictNumbered?: boolean,
+  strictNumbered?: boolean
 ): string {
   if (strictNumbered) {
     return [
@@ -72,7 +69,7 @@ function buildTopicsUserMessage(
         : `List ${count} numbered varied image topics (1.–${count}.).`,
     ]
       .filter(Boolean)
-      .join("\n\n");
+      .join('\n\n');
   }
 
   return [
@@ -82,7 +79,7 @@ function buildTopicsUserMessage(
       : `Write ${count} varied image topics with no seed theme.`,
   ]
     .filter(Boolean)
-    .join("\n\n");
+    .join('\n\n');
 }
 
 async function requestTopicsFromLlm(
@@ -92,7 +89,7 @@ async function requestTopicsFromLlm(
   seedTopic: string | null,
   settingHint: ReturnType<typeof parseSettingHint>,
   locationBlock: string,
-  strictNumbered: boolean,
+  strictNumbered: boolean
 ): Promise<string[]> {
   const systemPrompt = buildTopicsSystemPrompt(count, {
     variety,
@@ -106,28 +103,26 @@ async function requestTopicsFromLlm(
     seedTopic,
     settingHint,
     locationBlock,
-    strictNumbered,
+    strictNumbered
   );
 
   const content = await chatCompletion({
     messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage },
     ],
     maxTokens: Math.min(1400, count * 56),
     temperature: strictNumbered
       ? 0.65 + variety / 200
       : (options.llm?.temperature ?? 0.72 + variety / 140),
     model: resolveRequestLlmModel(options.llm),
-    usageContext: { route: "topics" },
+    usageContext: { route: 'topics' },
   });
 
   return parseTopicLines(content, count);
 }
 
-export async function generateTopics(
-  options: TopicOptions,
-): Promise<TopicGenerateResult> {
+export async function generateTopics(options: TopicOptions): Promise<TopicGenerateResult> {
   const count = clamp(options.count ?? 10, 3, 24);
   const variety = clamp(options.variety ?? 50, 0, 100);
   const seedTopic = options.seedTopic?.trim() || null;
@@ -144,7 +139,7 @@ export async function generateTopics(
         seedTopic,
         settingHint,
         locationBlock,
-        false,
+        false
       );
 
       if (topics.length < minimum) {
@@ -155,28 +150,28 @@ export async function generateTopics(
           seedTopic,
           settingHint,
           locationBlock,
-          true,
+          true
         );
       }
 
       if (topics.length >= minimum) {
         return {
           topics,
-          provider: "llm",
+          provider: 'llm',
           seedTopic,
           count: topics.length,
         };
       }
 
-      throw new Error("LLM returned too few topics.");
+      throw new Error('LLM returned too few topics.');
     } catch (error) {
       if (!resolveRequestTemplateFallback(options.llm)) {
-        throw error instanceof Error ? error : new Error("Topic generation failed.");
+        throw error instanceof Error ? error : new Error('Topic generation failed.');
       }
 
       console.warn(
-        "[topic-generator] LLM failed, using template fallback:",
-        error instanceof Error ? error.message : error,
+        '[topic-generator] LLM failed, using template fallback:',
+        error instanceof Error ? error.message : error
       );
     }
   }
@@ -184,16 +179,13 @@ export async function generateTopics(
   const topics = buildTemplateTopicList({
     seedTopic: seedTopic ?? undefined,
     count,
-    recentLocations: mergeLocationExclusions(
-      options.recentLocations,
-      options.blockedLocations,
-    ),
+    recentLocations: mergeLocationExclusions(options.recentLocations, options.blockedLocations),
     avoidedTokens: options.avoidedTokens,
   });
 
   return {
     topics,
-    provider: "template",
+    provider: 'template',
     seedTopic,
     count: topics.length,
   };

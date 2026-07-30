@@ -1,27 +1,27 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { ToolSection } from "@/components/ui/ToolPageShell";
+import { useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { ToolSection } from '@/components/ui/ToolPageShell';
 import {
   loadPromptRecipes,
   runPromptRecipeSteps,
   upsertPromptRecipe,
   type PromptRecipeStep,
-} from "@/lib/prompt-recipes";
+} from '@/lib/prompt-recipes';
 
-const STEP_OPTIONS: PromptRecipeStep[] = ["lint", "fix", "compact", "queue"];
+const STEP_OPTIONS: PromptRecipeStep[] = ['lint', 'fix', 'compact', 'queue'];
 
 export default function PromptRecipesPanel() {
   const [recipes, setRecipes] = useState(() => loadPromptRecipes());
-  const [name, setName] = useState("");
-  const [steps, setSteps] = useState<PromptRecipeStep[]>(["lint", "fix", "queue"]);
-  const [samplePrompt, setSamplePrompt] = useState("");
+  const [name, setName] = useState('');
+  const [steps, setSteps] = useState<PromptRecipeStep[]>(['lint', 'fix', 'queue']);
+  const [samplePrompt, setSamplePrompt] = useState('');
   const [status, setStatus] = useState<string | null>(null);
 
   function toggleStep(step: PromptRecipeStep) {
-    setSteps((previous) =>
-      previous.includes(step) ? previous.filter((entry) => entry !== step) : [...previous, step],
+    setSteps(previous =>
+      previous.includes(step) ? previous.filter(entry => entry !== step) : [...previous, step]
     );
   }
 
@@ -33,17 +33,17 @@ export default function PromptRecipesPanel() {
       <div className="space-y-3">
         <input
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={event => setName(event.target.value)}
           placeholder="Recipe name"
           className="ui-input w-full"
         />
         <div className="flex flex-wrap gap-2">
-          {STEP_OPTIONS.map((step) => (
+          {STEP_OPTIONS.map(step => (
             <button
               key={step}
               type="button"
               onClick={() => toggleStep(step)}
-              data-active={steps.includes(step) ? "true" : "false"}
+              data-active={steps.includes(step) ? 'true' : 'false'}
               className="ui-chip capitalize"
             >
               {step}
@@ -60,7 +60,7 @@ export default function PromptRecipesPanel() {
               steps,
             });
             setRecipes(loadPromptRecipes());
-            setName("");
+            setName('');
             setStatus(`Saved recipe “${name.trim()}”.`);
           }}
         >
@@ -70,25 +70,25 @@ export default function PromptRecipesPanel() {
 
       {recipes.length > 0 ? (
         <ul className="mt-4 space-y-2">
-          {recipes.map((recipe) => (
+          {recipes.map(recipe => (
             <li
               key={recipe.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-sm"
             >
               <div>
                 <p className="font-medium text-zinc-100">{recipe.name}</p>
-                <p className="text-xs text-zinc-500">{recipe.steps.join(" → ")}</p>
+                <p className="text-xs text-zinc-500">{recipe.steps.join(' → ')}</p>
               </div>
               <Button
                 variant="ghost"
                 className="!min-h-8"
                 onClick={() => {
                   if (!samplePrompt.trim()) {
-                    setStatus("Enter a sample prompt below to run a recipe.");
+                    setStatus('Enter a sample prompt below to run a recipe.');
                     return;
                   }
-                  void runPromptRecipeSteps(samplePrompt, recipe.steps, "sdxl").then((result) => {
-                    setStatus(result.log.join(" · "));
+                  void runPromptRecipeSteps(samplePrompt, recipe.steps, 'sdxl').then(result => {
+                    setStatus(result.log.join(' · '));
                   });
                 }}
               >
@@ -101,7 +101,7 @@ export default function PromptRecipesPanel() {
 
       <textarea
         value={samplePrompt}
-        onChange={(event) => setSamplePrompt(event.target.value)}
+        onChange={event => setSamplePrompt(event.target.value)}
         rows={3}
         placeholder="Sample prompt to test a recipe…"
         className="ui-input mt-4 w-full"

@@ -1,13 +1,13 @@
-import { normalizeTopicPhrase } from "./scene-pools";
+import { normalizeTopicPhrase } from './scene-pools';
 
 const MAX_TOPIC_CHARS = 220;
 const MIN_TOPIC_CHARS = 4;
 
 function cleanTopicLine(line: string): string {
   return line
-    .replace(/^\s*[\d]+[.)]\s*/, "")
-    .replace(/^\s*[-*•]\s*/, "")
-    .replace(/^["'`]+|["'`]+$/g, "")
+    .replace(/^\s*[\d]+[.)]\s*/, '')
+    .replace(/^\s*[-*•]\s*/, '')
+    .replace(/^["'`]+|["'`]+$/g, '')
     .trim();
 }
 
@@ -31,25 +31,20 @@ export function splitTopicCandidates(raw: string): string[] {
   }
 
   // Strip markdown fences only — keep internal newlines.
-  text = text.replace(/^```(?:[\w-]+)?\s*\n?([\s\S]*?)```$/m, "$1").trim();
+  text = text.replace(/^```(?:[\w-]+)?\s*\n?([\s\S]*?)```$/m, '$1').trim();
 
-  if (text.startsWith("[") && text.endsWith("]")) {
+  if (text.startsWith('[') && text.endsWith(']')) {
     try {
       const parsed = JSON.parse(text) as unknown;
       if (Array.isArray(parsed)) {
-        return parsed
-          .map((entry) => cleanTopicLine(String(entry ?? "")))
-          .filter(Boolean);
+        return parsed.map(entry => cleanTopicLine(String(entry ?? ''))).filter(Boolean);
       }
     } catch {
       // ignore
     }
   }
 
-  const byNewline = text
-    .split(/\r?\n/)
-    .map(cleanTopicLine)
-    .filter(Boolean);
+  const byNewline = text.split(/\r?\n/).map(cleanTopicLine).filter(Boolean);
   if (byNewline.length >= 2) {
     return byNewline;
   }
@@ -63,7 +58,10 @@ export function splitTopicCandidates(raw: string): string[] {
     return byNumber;
   }
 
-  const bySemi = text.split(/\s*;\s*/).map(cleanTopicLine).filter(Boolean);
+  const bySemi = text
+    .split(/\s*;\s*/)
+    .map(cleanTopicLine)
+    .filter(Boolean);
   if (bySemi.length >= 2) {
     return bySemi;
   }
@@ -73,10 +71,7 @@ export function splitTopicCandidates(raw: string): string[] {
     const bySentence = text
       .split(/(?<=[.!?])\s+/)
       .map(cleanTopicLine)
-      .filter(
-        (part) =>
-          part.length >= MIN_TOPIC_CHARS && part.length <= MAX_TOPIC_CHARS,
-      );
+      .filter(part => part.length >= MIN_TOPIC_CHARS && part.length <= MAX_TOPIC_CHARS);
     if (bySentence.length >= 2) {
       return bySentence;
     }

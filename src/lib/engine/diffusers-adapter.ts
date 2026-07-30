@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { loadEngineSettings } from "@/lib/engine-settings";
-import { createComfyUiClientId } from "@/lib/comfyui-websocket";
-import { buildDiffusersViewPath } from "./view-paths";
+import { loadEngineSettings } from '@/lib/engine-settings';
+import { createComfyUiClientId } from '@/lib/comfyui-websocket';
+import { buildDiffusersViewPath } from './view-paths';
 import type {
   EngineAdapter,
   EngineJobStatus,
@@ -13,18 +13,18 @@ import type {
   EngineSubscribeProgressInput,
   EngineUploadInput,
   EngineViewPathOptions,
-} from "./types";
+} from './types';
 
 function normalizeJobStatus(status: string | undefined): EngineJobStatus {
   if (
-    status === "pending" ||
-    status === "running" ||
-    status === "completed" ||
-    status === "error"
+    status === 'pending' ||
+    status === 'running' ||
+    status === 'completed' ||
+    status === 'error'
   ) {
     return status;
   }
-  return "unknown";
+  return 'unknown';
 }
 
 function createNoopSubscription(clientId: string): EngineProgressSubscription {
@@ -38,47 +38,39 @@ function createNoopSubscription(clientId: string): EngineProgressSubscription {
 
 async function fetchDiffusersStatusViaProxy(
   promptId: string,
-  engineUrl?: string,
+  engineUrl?: string
 ): Promise<EngineStatusResult | null> {
   const params = new URLSearchParams({ promptId });
   if (engineUrl?.trim()) {
-    params.set("engineUrl", engineUrl.trim());
+    params.set('engineUrl', engineUrl.trim());
   }
   const response = await fetch(`/api/diffusers/status?${params.toString()}`);
-  const raw = (await response.json().catch(() => ({}))) as Record<
-    string,
-    unknown
-  >;
+  const raw = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   const resolvedUrl =
-    (typeof raw.engineUrl === "string" && raw.engineUrl.trim()) ||
-    (typeof raw.comfyUrl === "string" && raw.comfyUrl.trim()) ||
+    (typeof raw.engineUrl === 'string' && raw.engineUrl.trim()) ||
+    (typeof raw.comfyUrl === 'string' && raw.comfyUrl.trim()) ||
     engineUrl?.trim() ||
-    "";
+    '';
   // Legacy 404 responses + explicit error payloads both mean "stop polling".
   if (response.status === 404) {
     return {
       promptId,
-      status: "error",
+      status: 'error',
       statusMessage:
-        typeof raw.error === "string" && raw.error.trim()
+        typeof raw.error === 'string' && raw.error.trim()
           ? raw.error.trim()
-          : typeof raw.statusMessage === "string" && raw.statusMessage.trim()
+          : typeof raw.statusMessage === 'string' && raw.statusMessage.trim()
             ? raw.statusMessage.trim()
-            : "Diffusers job not found (engine restarted or id lost).",
+            : 'Diffusers job not found (engine restarted or id lost).',
       engineUrl: resolvedUrl,
     };
   }
   if (!response.ok) {
     return null;
   }
-  const images = Array.isArray(raw.images)
-    ? (raw.images as EngineOutputImage[])
-    : undefined;
-  const normalized = normalizeJobStatus(
-    typeof raw.status === "string" ? raw.status : undefined,
-  );
-  const statusMessage =
-    typeof raw.statusMessage === "string" ? raw.statusMessage : undefined;
+  const images = Array.isArray(raw.images) ? (raw.images as EngineOutputImage[]) : undefined;
+  const normalized = normalizeJobStatus(typeof raw.status === 'string' ? raw.status : undefined);
+  const statusMessage = typeof raw.statusMessage === 'string' ? raw.statusMessage : undefined;
   return {
     promptId,
     status: normalized,
@@ -86,44 +78,40 @@ async function fetchDiffusersStatusViaProxy(
     engineUrl: resolvedUrl,
     images,
     queuePosition:
-      typeof raw.queuePosition === "number" || raw.queuePosition === null
+      typeof raw.queuePosition === 'number' || raw.queuePosition === null
         ? (raw.queuePosition as number | null)
         : undefined,
-    progressValue:
-      typeof raw.progressValue === "number" ? raw.progressValue : undefined,
-    progressMax:
-      typeof raw.progressMax === "number" ? raw.progressMax : undefined,
+    progressValue: typeof raw.progressValue === 'number' ? raw.progressValue : undefined,
+    progressMax: typeof raw.progressMax === 'number' ? raw.progressMax : undefined,
   };
 }
 
 /** Diffusers-first adapter: workflows via classify+/v1/workflow, else txt2img. */
 export const diffusersEngineAdapter: EngineAdapter = {
-  id: "diffusers",
+  id: 'diffusers',
 
   async postPrompt(body: Record<string, unknown>): Promise<EngineQueueResult> {
     const settings = loadEngineSettings();
     const clientId =
-      (typeof body.clientId === "string" && body.clientId.trim()) ||
-      createComfyUiClientId();
+      (typeof body.clientId === 'string' && body.clientId.trim()) || createComfyUiClientId();
     const engineUrlHint =
-      (typeof body.engineUrl === "string" && body.engineUrl.trim()) ||
+      (typeof body.engineUrl === 'string' && body.engineUrl.trim()) ||
       settings.diffusersApiUrl ||
       undefined;
 
     const comfy =
-      body.comfy && typeof body.comfy === "object" && !Array.isArray(body.comfy)
+      body.comfy && typeof body.comfy === 'object' && !Array.isArray(body.comfy)
         ? (body.comfy as Record<string, unknown>)
         : null;
     const hasWorkflow =
-      typeof comfy?.workflowJson === "string" &&
-      Boolean(comfy.workflowJson.trim());
+      typeof comfy?.workflowJson === 'string' && Boolean(comfy.workflowJson.trim());
 
     // Workflow path: inject + Diffusers /v1/workflow, Comfy fallback for unsupported.
     if (hasWorkflow) {
       try {
-        const response = await fetch("/api/comfyui", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const response = await fetch('/api/comfyui', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...body,
             clientId,
@@ -132,29 +120,20 @@ export const diffusersEngineAdapter: EngineAdapter = {
             engineUrl: engineUrlHint,
           }),
         });
-        const raw = (await response.json().catch(() => ({}))) as Record<
-          string,
-          unknown
-        >;
-        const promptId =
-          typeof raw.promptId === "string" ? raw.promptId.trim() : undefined;
+        const raw = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+        const promptId = typeof raw.promptId === 'string' ? raw.promptId.trim() : undefined;
         const engineUrl =
-          (typeof raw.engineUrl === "string" && raw.engineUrl.trim()) ||
-          (typeof raw.comfyUrl === "string" && raw.comfyUrl.trim()) ||
+          (typeof raw.engineUrl === 'string' && raw.engineUrl.trim()) ||
+          (typeof raw.comfyUrl === 'string' && raw.comfyUrl.trim()) ||
           engineUrlHint;
         const engineId =
-          raw.engineId === "comfyui" || raw.engineId === "diffusers"
-            ? raw.engineId
-            : "diffusers";
+          raw.engineId === 'comfyui' || raw.engineId === 'diffusers' ? raw.engineId : 'diffusers';
 
         if (!response.ok || !promptId) {
           return {
             ok: false,
             status: response.status,
-            error:
-              typeof raw.error === "string"
-                ? raw.error
-                : "Diffusers workflow queue failed.",
+            error: typeof raw.error === 'string' ? raw.error : 'Diffusers workflow queue failed.',
             engineUrl,
             engineId,
             raw,
@@ -166,16 +145,12 @@ export const diffusersEngineAdapter: EngineAdapter = {
           ok: true,
           status: response.status,
           promptId,
-          clientId:
-            (typeof raw.clientId === "string" && raw.clientId.trim()) ||
-            clientId,
+          clientId: (typeof raw.clientId === 'string' && raw.clientId.trim()) || clientId,
           engineUrl,
           engineId,
-          family: typeof raw.family === "string" ? raw.family : undefined,
+          family: typeof raw.family === 'string' ? raw.family : undefined,
           workflowSource:
-            typeof raw.workflowSource === "string"
-              ? raw.workflowSource
-              : "diffusers-workflow",
+            typeof raw.workflowSource === 'string' ? raw.workflowSource : 'diffusers-workflow',
           raw,
           releaseLiveSocket: () => undefined,
         };
@@ -183,11 +158,8 @@ export const diffusersEngineAdapter: EngineAdapter = {
         return {
           ok: false,
           status: 0,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Diffusers workflow queue failed.",
-          engineId: "diffusers",
+          error: error instanceof Error ? error.message : 'Diffusers workflow queue failed.',
+          engineId: 'diffusers',
           raw: {},
           releaseLiveSocket: () => undefined,
         };
@@ -210,32 +182,25 @@ export const diffusersEngineAdapter: EngineAdapter = {
     };
 
     try {
-      const response = await fetch("/api/diffusers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/diffusers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const raw = (await response.json().catch(() => ({}))) as Record<
-        string,
-        unknown
-      >;
-      const promptId =
-        typeof raw.promptId === "string" ? raw.promptId.trim() : undefined;
+      const raw = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      const promptId = typeof raw.promptId === 'string' ? raw.promptId.trim() : undefined;
       const engineUrl =
-        (typeof raw.engineUrl === "string" && raw.engineUrl.trim()) ||
-        (typeof raw.comfyUrl === "string" && raw.comfyUrl.trim()) ||
+        (typeof raw.engineUrl === 'string' && raw.engineUrl.trim()) ||
+        (typeof raw.comfyUrl === 'string' && raw.comfyUrl.trim()) ||
         engineUrlHint;
 
       if (!response.ok || !promptId) {
         return {
           ok: false,
           status: response.status,
-          error:
-            typeof raw.error === "string"
-              ? raw.error
-              : "Diffusers queue failed.",
+          error: typeof raw.error === 'string' ? raw.error : 'Diffusers queue failed.',
           engineUrl,
-          engineId: "diffusers",
+          engineId: 'diffusers',
           raw,
           releaseLiveSocket: () => undefined,
         };
@@ -245,12 +210,10 @@ export const diffusersEngineAdapter: EngineAdapter = {
         ok: true,
         status: response.status,
         promptId,
-        clientId:
-          (typeof raw.clientId === "string" && raw.clientId.trim()) || clientId,
+        clientId: (typeof raw.clientId === 'string' && raw.clientId.trim()) || clientId,
         engineUrl,
-        engineId: "diffusers",
-        workflowSource:
-          typeof raw.workflowSource === "string" ? raw.workflowSource : "diffusers",
+        engineId: 'diffusers',
+        workflowSource: typeof raw.workflowSource === 'string' ? raw.workflowSource : 'diffusers',
         raw,
         releaseLiveSocket: () => undefined,
       };
@@ -258,19 +221,15 @@ export const diffusersEngineAdapter: EngineAdapter = {
       return {
         ok: false,
         status: 0,
-        error:
-          error instanceof Error ? error.message : "Diffusers queue failed.",
-        engineId: "diffusers",
+        error: error instanceof Error ? error.message : 'Diffusers queue failed.',
+        engineId: 'diffusers',
         raw: {},
         releaseLiveSocket: () => undefined,
       };
     }
   },
 
-  async fetchJobStatus(
-    promptId: string,
-    engineUrl?: string,
-  ): Promise<EngineStatusResult | null> {
+  async fetchJobStatus(promptId: string, engineUrl?: string): Promise<EngineStatusResult | null> {
     const hint = engineUrl?.trim() || loadEngineSettings().diffusersApiUrl;
     return fetchDiffusersStatusViaProxy(promptId, hint);
   },
@@ -278,18 +237,15 @@ export const diffusersEngineAdapter: EngineAdapter = {
   buildViewPath(
     engineUrl: string,
     image: EngineOutputImage,
-    options?: EngineViewPathOptions,
+    options?: EngineViewPathOptions
   ): string {
     return buildDiffusersViewPath(engineUrl, image, options);
   },
 
   async uploadInputImage(input: EngineUploadInput) {
-    const { compressImageForEngineUpload } = await import(
-      "@/lib/browser-compress-image"
-    );
-    const { fileToDataUrl } = await import("@/lib/browser-file-data-url");
-    const engineUrl =
-      input.engineUrl?.trim() || loadEngineSettings().diffusersApiUrl;
+    const { compressImageForEngineUpload } = await import('@/lib/browser-compress-image');
+    const { fileToDataUrl } = await import('@/lib/browser-file-data-url');
+    const engineUrl = input.engineUrl?.trim() || loadEngineSettings().diffusersApiUrl;
 
     const prepared = await compressImageForEngineUpload(input.file, {
       maxEdge: 2048,
@@ -299,12 +255,12 @@ export const diffusersEngineAdapter: EngineAdapter = {
 
     const tryMultipart = async () => {
       const formData = new FormData();
-      formData.append("image", prepared, prepared.name);
+      formData.append('image', prepared, prepared.name);
       if (engineUrl) {
-        formData.append("engineUrl", engineUrl);
+        formData.append('engineUrl', engineUrl);
       }
-      const response = await fetch("/api/diffusers/upload", {
-        method: "POST",
+      const response = await fetch('/api/diffusers/upload', {
+        method: 'POST',
         body: formData,
       });
       const data = (await response.json()) as {
@@ -314,7 +270,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
         error?: string;
       };
       if (!response.ok || !data.name?.trim()) {
-        throw new Error(data.error ?? "Diffusers image upload failed.");
+        throw new Error(data.error ?? 'Diffusers image upload failed.');
       }
       return {
         name: data.name.trim(),
@@ -327,16 +283,16 @@ export const diffusersEngineAdapter: EngineAdapter = {
       const image = await fileToDataUrl(prepared);
       if (image.length > 9_000_000) {
         throw new Error(
-          "Image is still too large after compression. Try a smaller figure (under ~6MB).",
+          'Image is still too large after compression. Try a smaller figure (under ~6MB).'
         );
       }
-      const response = await fetch("/api/diffusers/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/diffusers/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image,
-          mimeType: prepared.type || "image/png",
-          filename: prepared.name || "prompt-studio-upload.png",
+          mimeType: prepared.type || 'image/png',
+          filename: prepared.name || 'prompt-studio-upload.png',
           ...(engineUrl ? { engineUrl } : {}),
         }),
       });
@@ -347,7 +303,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
         error?: string;
       };
       if (!response.ok || !data.name?.trim()) {
-        throw new Error(data.error ?? "Diffusers image upload failed.");
+        throw new Error(data.error ?? 'Diffusers image upload failed.');
       }
       return {
         name: data.name.trim(),
@@ -369,7 +325,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
 
   subscribeProgress(input: EngineSubscribeProgressInput): EngineProgressSubscription {
     const clientId = input.clientId?.trim() || createComfyUiClientId();
-    let promptId = input.promptId?.trim() || "";
+    let promptId = input.promptId?.trim() || '';
     let closed = false;
 
     const poll = async () => {
@@ -377,47 +333,42 @@ export const diffusersEngineAdapter: EngineAdapter = {
         return;
       }
       try {
-        const status = await fetchDiffusersStatusViaProxy(
-          promptId,
-          input.engineUrl,
-        );
+        const status = await fetchDiffusersStatusViaProxy(promptId, input.engineUrl);
         if (!status || closed) {
           return;
         }
-        if (status.status === "running" || status.status === "pending") {
+        if (status.status === 'running' || status.status === 'pending') {
           input.onProgress({
             promptId,
-            status: "progress",
+            status: 'progress',
             message: status.statusMessage,
             value: status.progressValue,
             max: status.progressMax,
           });
           return;
         }
-        if (status.status === "completed") {
+        if (status.status === 'completed') {
           input.onProgress({
             promptId,
-            status: "finished",
-            message: status.statusMessage ?? "Completed",
+            status: 'finished',
+            message: status.statusMessage ?? 'Completed',
           });
           closed = true;
           clearInterval(timer);
           return;
         }
-        if (status.status === "error") {
+        if (status.status === 'error') {
           input.onProgress({
             promptId,
-            status: "error",
-            message: status.statusMessage ?? "Diffusers job failed.",
+            status: 'error',
+            message: status.statusMessage ?? 'Diffusers job failed.',
           });
-          input.onError?.(status.statusMessage ?? "Diffusers job failed.");
+          input.onError?.(status.statusMessage ?? 'Diffusers job failed.');
           closed = true;
           clearInterval(timer);
         }
       } catch (error) {
-        input.onError?.(
-          error instanceof Error ? error.message : "Diffusers progress poll failed.",
-        );
+        input.onError?.(error instanceof Error ? error.message : 'Diffusers progress poll failed.');
       }
     };
 
@@ -432,7 +383,7 @@ export const diffusersEngineAdapter: EngineAdapter = {
         clearInterval(timer);
       },
       ready: Promise.resolve(),
-      setPromptId: (next) => {
+      setPromptId: next => {
         promptId = next.trim();
       },
       clientId,

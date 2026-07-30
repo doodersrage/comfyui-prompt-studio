@@ -1,5 +1,5 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { getSessionSecret } from "./config";
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { getSessionSecret } from './config';
 
 type PendingLoginPayload = {
   userId: string;
@@ -7,7 +7,7 @@ type PendingLoginPayload = {
 };
 
 function sign(payload: string): string {
-  return createHmac("sha256", getSessionSecret()).update(payload).digest("base64url");
+  return createHmac('sha256', getSessionSecret()).update(payload).digest('base64url');
 }
 
 export function createPendingLoginToken(userId: string): string {
@@ -15,12 +15,12 @@ export function createPendingLoginToken(userId: string): string {
     userId,
     exp: Date.now() + 5 * 60 * 1000,
   };
-  const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
   return `${encoded}.${sign(encoded)}`;
 }
 
 export function parsePendingLoginToken(token: string): PendingLoginPayload | null {
-  const [encoded, signature] = token.split(".");
+  const [encoded, signature] = token.split('.');
   if (!encoded || !signature) {
     return null;
   }
@@ -32,7 +32,7 @@ export function parsePendingLoginToken(token: string): PendingLoginPayload | nul
   }
   try {
     const parsed = JSON.parse(
-      Buffer.from(encoded, "base64url").toString("utf8"),
+      Buffer.from(encoded, 'base64url').toString('utf8')
     ) as PendingLoginPayload;
     if (!parsed?.userId || parsed.exp <= Date.now()) {
       return null;

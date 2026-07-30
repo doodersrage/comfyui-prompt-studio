@@ -1,9 +1,9 @@
-import fs from "node:fs";
-import path from "node:path";
-import { randomBytes } from "node:crypto";
-import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
-import { hashPassword } from "./password";
-import { findUserByUsername, saveUsers, ensureAuthStore } from "./store";
+import fs from 'node:fs';
+import path from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { resolvePromptAuthDir } from '@/lib/prompt-data-paths';
+import { hashPassword } from './password';
+import { findUserByUsername, saveUsers, ensureAuthStore } from './store';
 
 type PasswordResetToken = {
   userId: string;
@@ -20,19 +20,19 @@ type PasswordResetDocument = {
 function resetPath(): string {
   const base = resolvePromptAuthDir();
   fs.mkdirSync(base, { recursive: true });
-  return path.join(base, "password-reset-tokens.json");
+  return path.join(base, 'password-reset-tokens.json');
 }
 
 function readDoc(): PasswordResetDocument {
   try {
-    return JSON.parse(fs.readFileSync(resetPath(), "utf8")) as PasswordResetDocument;
+    return JSON.parse(fs.readFileSync(resetPath(), 'utf8')) as PasswordResetDocument;
   } catch {
     return { version: 1, tokens: [] };
   }
 }
 
 function writeDoc(doc: PasswordResetDocument): void {
-  fs.writeFileSync(resetPath(), JSON.stringify(doc, null, 2), "utf8");
+  fs.writeFileSync(resetPath(), JSON.stringify(doc, null, 2), 'utf8');
 }
 
 function hashToken(token: string): string {
@@ -40,10 +40,10 @@ function hashToken(token: string): string {
 }
 
 export function createPasswordResetToken(userId: string): string {
-  const token = randomBytes(32).toString("hex");
+  const token = randomBytes(32).toString('hex');
   const doc = readDoc();
   const now = Date.now();
-  doc.tokens = doc.tokens.filter((entry) => entry.expiresAt > now && entry.userId !== userId);
+  doc.tokens = doc.tokens.filter(entry => entry.expiresAt > now && entry.userId !== userId);
   doc.tokens.push({
     userId,
     tokenHash: hashToken(token),
@@ -56,28 +56,28 @@ export function createPasswordResetToken(userId: string): string {
 
 export function consumePasswordResetToken(
   token: string,
-  newPassword: string,
+  newPassword: string
 ): { ok: true; username: string } | { ok: false; error: string } {
   const trimmed = token.trim();
   if (!trimmed || newPassword.trim().length < 6) {
-    return { ok: false, error: "Invalid token or password too short." };
+    return { ok: false, error: 'Invalid token or password too short.' };
   }
 
   const doc = readDoc();
   const now = Date.now();
   const tokenHash = hashToken(trimmed);
   const index = doc.tokens.findIndex(
-    (entry) => entry.tokenHash === tokenHash && entry.expiresAt > now,
+    entry => entry.tokenHash === tokenHash && entry.expiresAt > now
   );
   if (index < 0) {
-    return { ok: false, error: "Reset link expired or invalid." };
+    return { ok: false, error: 'Reset link expired or invalid.' };
   }
 
   const { userId } = doc.tokens[index]!;
   const { users } = ensureAuthStore();
-  const userIndex = users.users.findIndex((user) => user.id === userId);
+  const userIndex = users.users.findIndex(user => user.id === userId);
   if (userIndex < 0) {
-    return { ok: false, error: "User not found." };
+    return { ok: false, error: 'User not found.' };
   }
 
   users.users[userIndex] = {
@@ -86,16 +86,13 @@ export function consumePasswordResetToken(
     updatedAt: now,
   };
   saveUsers(users.users);
-  doc.tokens = doc.tokens.filter((entry) => entry.userId !== userId);
+  doc.tokens = doc.tokens.filter(entry => entry.userId !== userId);
   writeDoc(doc);
 
   return { ok: true, username: users.users[userIndex]!.username };
 }
 
-export function resolveUserForPasswordReset(input: {
-  username?: string;
-  email?: string;
-}) {
+export function resolveUserForPasswordReset(input: { username?: string; email?: string }) {
   const username = input.username?.trim();
   if (username) {
     return findUserByUsername(username);
@@ -105,5 +102,5 @@ export function resolveUserForPasswordReset(input: {
     return null;
   }
   const { users } = ensureAuthStore();
-  return users.users.find((user) => user.email?.trim().toLowerCase() === email) ?? null;
+  return users.users.find(user => user.email?.trim().toLowerCase() === email) ?? null;
 }

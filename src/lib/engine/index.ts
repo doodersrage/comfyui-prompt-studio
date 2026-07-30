@@ -1,7 +1,7 @@
-import { loadEngineSettings } from "@/lib/engine-settings";
-import { comfyEngineAdapter } from "./comfy-adapter";
-import { diffusersEngineAdapter } from "./diffusers-adapter";
-import type { EngineAdapter, EngineId } from "./types";
+import { loadEngineSettings } from '@/lib/engine-settings';
+import { comfyEngineAdapter } from './comfy-adapter';
+import { diffusersEngineAdapter } from './diffusers-adapter';
+import type { EngineAdapter, EngineId } from './types';
 
 export type {
   EngineAdapter,
@@ -16,19 +16,19 @@ export type {
   EngineUploadInput,
   EngineUploadedImage,
   EngineViewPathOptions,
-} from "./types";
+} from './types';
 
-export { comfyEngineAdapter } from "./comfy-adapter";
-export { diffusersEngineAdapter } from "./diffusers-adapter";
-export { buildDiffusersViewPath, buildEngineViewPath } from "./view-paths";
+export { comfyEngineAdapter } from './comfy-adapter';
+export { diffusersEngineAdapter } from './diffusers-adapter';
+export { buildDiffusersViewPath, buildEngineViewPath } from './view-paths';
 
 export function getEngineAdapterById(id: EngineId | undefined): EngineAdapter {
-  return id === "diffusers" ? diffusersEngineAdapter : comfyEngineAdapter;
+  return id === 'diffusers' ? diffusersEngineAdapter : comfyEngineAdapter;
 }
 
 /** Active inference engine (Comfy-primary; Diffusers optional / experimental). */
 export function getEngineAdapter(): EngineAdapter {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return getEngineAdapterById(loadEngineSettings().engine);
   }
   return getEngineAdapterById(loadEngineSettings().engine);

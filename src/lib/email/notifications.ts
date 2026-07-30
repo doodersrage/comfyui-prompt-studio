@@ -1,14 +1,11 @@
-import "server-only";
+import 'server-only';
 
-import { findUserById } from "@/lib/auth/store";
-import type { AuthUser } from "@/lib/auth/types";
-import { getEmailConfig } from "./config";
-import { sendEmail } from "./mailer";
+import { findUserById } from '@/lib/auth/store';
+import type { AuthUser } from '@/lib/auth/types';
+import { getEmailConfig } from './config';
+import { sendEmail } from './mailer';
 
-export type BatchCompletionKind =
-  | "server-scheduled"
-  | "user-campaign"
-  | "client-scheduled";
+export type BatchCompletionKind = 'server-scheduled' | 'user-campaign' | 'client-scheduled';
 
 function resolveRecipient(user: AuthUser | null | undefined): string | null {
   const config = getEmailConfig();
@@ -20,13 +17,13 @@ function resolveRecipient(user: AuthUser | null | undefined): string | null {
 }
 
 function appOrigin(): string {
-  return process.env.PROMPT_API_URL?.trim() || "http://127.0.0.1:47832";
+  return process.env.PROMPT_API_URL?.trim() || 'http://127.0.0.1:47832';
 }
 
 export async function notifyPasswordChanged(input: {
   userId: string;
   username: string;
-  changedBy: "self" | "admin";
+  changedBy: 'self' | 'admin';
   adminUsername?: string;
 }): Promise<void> {
   const config = getEmailConfig();
@@ -46,24 +43,24 @@ export async function notifyPasswordChanged(input: {
 
   const when = new Date().toLocaleString();
   const actorLine =
-    input.changedBy === "admin"
-      ? `An administrator${input.adminUsername ? ` (${input.adminUsername})` : ""} reset your password.`
-      : "Your password was changed from your profile.";
+    input.changedBy === 'admin'
+      ? `An administrator${input.adminUsername ? ` (${input.adminUsername})` : ''} reset your password.`
+      : 'Your password was changed from your profile.';
 
   await sendEmail({
     to,
-    subject: "Prompt Studio — password updated",
+    subject: 'Prompt Studio — password updated',
     text: [
       `Hello ${input.username},`,
-      "",
+      '',
       actorLine,
-      "",
+      '',
       `Time: ${when}`,
-      "",
-      "If you did not make this change, contact your administrator immediately.",
-      "",
+      '',
+      'If you did not make this change, contact your administrator immediately.',
+      '',
       appOrigin(),
-    ].join("\n"),
+    ].join('\n'),
   });
 }
 
@@ -92,35 +89,40 @@ export async function notifyBatchCompleted(input: {
   }
 
   const label =
-    input.kind === "user-campaign"
-      ? "Scheduled campaign"
-      : input.kind === "client-scheduled"
-        ? "Scheduled batch"
-        : "Server batch";
+    input.kind === 'user-campaign'
+      ? 'Scheduled campaign'
+      : input.kind === 'client-scheduled'
+        ? 'Scheduled batch'
+        : 'Server batch';
 
   const lines = [
-    `Hello ${user?.username ?? input.username ?? "there"},`,
-    "",
+    `Hello ${user?.username ?? input.username ?? 'there'},`,
+    '',
     `Your ${label.toLowerCase()} finished.`,
-    "",
+    '',
     `Prompts generated: ${input.promptCount}`,
   ];
 
-  if (typeof input.queued === "number") {
+  if (typeof input.queued === 'number') {
     lines.push(`Queued to ComfyUI: ${input.queued}`);
   }
   if (input.ranked) {
-    lines.push("Best-of-N ranking was applied.");
+    lines.push('Best-of-N ranking was applied.');
   }
   if (input.message?.trim()) {
-    lines.push("", input.message.trim());
+    lines.push('', input.message.trim());
   }
 
-  lines.push("", `Completed: ${new Date().toLocaleString()}`, "", `Open studio: ${appOrigin()}/studio`);
+  lines.push(
+    '',
+    `Completed: ${new Date().toLocaleString()}`,
+    '',
+    `Open studio: ${appOrigin()}/studio`
+  );
 
   await sendEmail({
     to,
     subject: `Prompt Studio — ${label} complete`,
-    text: lines.join("\n"),
+    text: lines.join('\n'),
   });
 }

@@ -1,16 +1,16 @@
 function resolveInstrumentationBaseUrl(): string {
   const configured = process.env.PROMPT_API_URL?.trim();
   if (configured) {
-    return configured.replace(/\/$/, "");
+    return configured.replace(/\/$/, '');
   }
-  const port = process.env.PORT?.trim() || "47832";
+  const port = process.env.PORT?.trim() || '47832';
   return `http://127.0.0.1:${port}`;
 }
 
 async function postInstrumentationRoute(path: string, body?: unknown): Promise<void> {
   const headers: Record<string, string> = {};
   if (body !== undefined) {
-    headers["Content-Type"] = "application/json";
+    headers['Content-Type'] = 'application/json';
   }
   const token = process.env.PROMPT_API_TOKEN?.trim();
   if (token) {
@@ -18,7 +18,7 @@ async function postInstrumentationRoute(path: string, body?: unknown): Promise<v
   }
 
   const response = await fetch(`${resolveInstrumentationBaseUrl()}${path}`, {
-    method: "POST",
+    method: 'POST',
     headers: Object.keys(headers).length > 0 ? headers : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
@@ -46,9 +46,9 @@ function startServerScheduledBatchLoop(): void {
       return;
     }
     running = true;
-    void postInstrumentationRoute("/api/scheduled-batch/run", { gated: true })
-      .catch((error) => {
-        console.error("[server-scheduled-batch]", error);
+    void postInstrumentationRoute('/api/scheduled-batch/run', { gated: true })
+      .catch(error => {
+        console.error('[server-scheduled-batch]', error);
       })
       .finally(() => {
         running = false;
@@ -57,23 +57,21 @@ function startServerScheduledBatchLoop(): void {
 }
 
 export async function register() {
-  if (process.env.NEXT_RUNTIME === "edge") {
+  if (process.env.NEXT_RUNTIME === 'edge') {
     return;
   }
 
-  if (process.env.SERVER_SCHEDULED_BATCH === "true") {
+  if (process.env.SERVER_SCHEDULED_BATCH === 'true') {
     startServerScheduledBatchLoop();
   }
 
-  if (process.env.SERVER_USER_MAINTENANCE === "true") {
-    const maintenanceIntervalMin = Number(
-      process.env.SERVER_USER_MAINTENANCE_INTERVAL_MIN ?? "15",
-    );
+  if (process.env.SERVER_USER_MAINTENANCE === 'true') {
+    const maintenanceIntervalMin = Number(process.env.SERVER_USER_MAINTENANCE_INTERVAL_MIN ?? '15');
     const maintenanceMs = Math.max(5, maintenanceIntervalMin) * 60_000;
 
     setInterval(() => {
-      void postInstrumentationRoute("/api/maintenance/run").catch((error) => {
-        console.error("[server-user-maintenance]", error);
+      void postInstrumentationRoute('/api/maintenance/run').catch(error => {
+        console.error('[server-user-maintenance]', error);
       });
     }, maintenanceMs);
   }
