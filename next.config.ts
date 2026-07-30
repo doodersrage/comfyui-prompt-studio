@@ -17,17 +17,37 @@ const nextConfig: NextConfig = {
       "./src/lib/comfyui-view-cache.ts",
     ],
   },
-  // Compose/Refine figure uploads (compressed) + occasional JSON data-URL fallback.
-  experimental: {
-    serverActions: {
-      bodySizeLimit: "32mb",
-    },
-  },
+
   compiler: {
     removeConsole:
       process.env.NODE_ENV === "production"
         ? { exclude: ["error", "warn"] }
         : false,
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "47832",
+        pathname: "/**",
+      },
+      {
+        protocol: "http",
+        hostname: "127.0.0.1",
+        port: "47832",
+        pathname: "/**",
+      },
+    ],
+  },
+  experimental: {
+    optimizePackageImports: [
+      "@tanstack/react-virtual",
+      "@xyflow/react",
+    ],
+    serverActions: {
+      bodySizeLimit: "32mb",
+    },
   },
   async redirects() {
     return [

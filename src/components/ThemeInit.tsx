@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
-import { subscribeSystemTheme } from "@/lib/theme-store";
+import {
+  applyAppTheme,
+  subscribeSystemTheme,
+} from "@/lib/theme-store";
 import { applyAmbientIntensity } from "@/lib/ambient-settings";
 import { applyUiDensity } from "@/lib/density-settings";
-import { applyWorkspaceMode } from "@/lib/workspace-mode";
 
 export default function ThemeInit() {
   useEffect(() => {
+    // Apply initial theme, ambient, and density values immediately
+    applyAppTheme();
     applyAmbientIntensity();
     applyUiDensity();
-    applyWorkspaceMode();
+
+    // Subscribe to system theme changes when in auto mode
     return subscribeSystemTheme();
   }, []);
 
