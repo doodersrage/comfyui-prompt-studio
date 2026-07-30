@@ -45,3 +45,6 @@ next-env.d.ts
 # local Python engine envs (must never enter NFT / git)
 **/.venv/
 services/**/.venv/
+
+# prettier cache
+.prettiercache

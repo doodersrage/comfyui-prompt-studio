@@ -7,6 +7,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  reactStrictMode: true,
   allowedDevOrigins: ["127.0.0.1"],
   serverExternalPackages: ["nodemailer", "sharp"],
   // Keep local Python engine envs and dynamic filesystem ops out of NFT / Turbopack traces.
@@ -48,7 +49,12 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "32mb",
     },
+    // Performance improvements for large applications
+    optimizeCss: true,
   },
+  // Add performance-related settings
+  productionBrowserSourceMaps: false,
+
   async redirects() {
     return [
       {

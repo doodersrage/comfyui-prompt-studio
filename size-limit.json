@@ -1,0 +1,13 @@
+{
+  "path": [
+    "build/static/**/*.js",
+    "build/static/**/*.css"
+  ],
+  "limit": "150 KB",
+  "ignore": [
+    "node_modules",
+    ".next",
+    "build",
+    "coverage"
+  ]
+}

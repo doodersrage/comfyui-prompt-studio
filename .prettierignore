@@ -1,0 +1,83 @@
+# Dependencies
+node_modules
+.next
+out
+build
+
+# Distribution
+dist
+*.min.js
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Database
+.db
+*.db
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Coverage
+coverage
+
+# Next.js
+.next
+
+# TypeScript
+*.d.ts
+
+# Prettier
+.prettierignore
+
+# Test files (optional, can be formatted too)
+tests/
+**/*.test.*
+**/*.spec.*
+
+# Large directories that might not need formatting
+.git
+coverage
+.nyc_output
+.cache
+__pycache__
+*.log.*
+
+# Build artifacts
+*.build
+*.output
+*.dist
+
+# Temp files
+*~
+*.tmp
+*.temp
+
+# Python related
+**/__pycache__/**
+**/.pytest_cache/**
+**/venv/**
+**/.venv/**
+
+# Large generated files
+src/lib/clothing-catalog-7.ts
+
+# Ignore large directories that might contain many files
+**/node_modules/**
+**/.next/**
+**/build/**
+**/out/**
+**/dist/**
+**/coverage/**
