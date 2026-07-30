@@ -5,7 +5,7 @@ import {
   deleteComfyQueuePrompt,
   freeComfyUiMemory,
   interruptComfyUiQueue,
-} from "./comfyui-queue-control.ts";
+} from "./comfyui-queue-control";
 
 type FetchCall = { url: string; init?: RequestInit };
 

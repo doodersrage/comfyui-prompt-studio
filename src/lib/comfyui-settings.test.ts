@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   mergeLoraLibraryIntoCustomTokens,
   migrateOrphanLoraTokensToLibrary,
-} from "./comfyui-settings.ts";
+} from "./comfyui-settings";
 
 describe("comfyui settings lora migration", () => {
   it("migrates legacy {{LORA_*}} custom tokens into loraLibrary", () => {
@@ -46,7 +46,7 @@ describe("comfyui settings lora migration", () => {
   });
 
   it("ships LoRA library tokens in runtime even when useServerDefaults is on", async () => {
-    const { comfyUiSettingsToRuntime } = await import("./comfyui-settings.ts");
+    const { comfyUiSettingsToRuntime } = await import("./comfyui-settings");
     const runtime = comfyUiSettingsToRuntime({
       useServerDefaults: true,
       loraLibrary: [

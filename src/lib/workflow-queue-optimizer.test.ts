@@ -4,14 +4,14 @@ import {
   DEFAULT_POSITIVE_TOKEN,
   DEFAULT_SEED_TOKEN,
   DEFAULT_WIDTH_TOKEN,
-} from "./comfyui-config.ts";
+} from "./comfyui-config";
 import {
   auditWorkflowStructure,
   optimizeWorkflowForQueue,
   suggestedOptimizedWorkflowName,
-} from "./workflow-queue-optimizer.ts";
-import { buildWorkflowScaffoldForModel } from "./workflow-scaffold.ts";
-import { workflowContentHash } from "./workflow-content-hash.ts";
+} from "./workflow-queue-optimizer";
+import { buildWorkflowScaffoldForModel } from "./workflow-scaffold";
+import { workflowContentHash } from "./workflow-content-hash";
 
 const FULL_TOKENS = {
   positive: DEFAULT_POSITIVE_TOKEN,
@@ -29,6 +29,9 @@ const FULL_TOKENS = {
   denoise: "{{DENOISE}}",
   inputImage: "{{INPUT_IMAGE}}",
   maskImage: "{{MASK_IMAGE}}",
+  initImage: "{{INIT_IMAGE}}",
+  videoFrames: "{{VIDEO_FRAMES}}",
+  videoFps: "{{VIDEO_FPS}}",
 };
 
 describe("workflow-queue-optimizer", () => {
@@ -227,7 +230,7 @@ describe("workflow-queue-optimizer", () => {
   });
 
   it("does not insert Lightning upscale enrich on draft quality", async () => {
-    const { enrichWorkflowGraph } = await import("./workflow-graph-enrich.ts");
+    const { enrichWorkflowGraph } = await import("./workflow-graph-enrich");
     const workflow = {
       "7": {
         class_type: "KSampler",

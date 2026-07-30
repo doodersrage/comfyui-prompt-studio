@@ -4,7 +4,7 @@ import {
   buildWorkflowScaffoldForModel,
   cloneWorkflowWithBindings,
   scaffoldWorkflowForModel,
-} from "./workflow-scaffold.ts";
+} from "./workflow-scaffold";
 
 describe("workflow scaffold", () => {
   it("builds a flux Klein scaffold with CLIPLoader type flux2", () => {
@@ -178,9 +178,7 @@ describe("workflow scaffold", () => {
   });
 
   it("strips unused Figure LoadImages on Lightning edit txt2img disconnect", async () => {
-    const { disconnectQwenEditReferenceImagesForTxt2Img } = await import(
-      "./workflow-lightning-queue.ts"
-    );
+    const { disconnectQwenEditReferenceImagesForTxt2Img } = await import("./workflow-lightning-queue");
     const scaffold = buildWorkflowScaffoldForModel("qwen-image-edit-2511-lightning-8");
     const parsed = JSON.parse(scaffold.json) as Record<string, unknown>;
     const { workflow } = disconnectQwenEditReferenceImagesForTxt2Img(parsed, {

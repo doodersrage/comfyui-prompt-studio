@@ -4,7 +4,7 @@ import {
   pruneStalePeers,
   shouldWarnRemoteDraft,
   upsertPresencePeer,
-} from "./collab-presence.ts";
+} from "./collab-presence";
 
 describe("collab presence", () => {
   it("upserts and prunes peers", () => {

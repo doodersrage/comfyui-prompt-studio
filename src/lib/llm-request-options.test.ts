@@ -9,7 +9,7 @@ import {
   resolveRequestTemperature,
   resolveRequestVisionModel,
   sharedLlmRequestBody,
-} from "./llm-request-options.ts";
+} from "./llm-request-options";
 
 describe("llm-request-options", () => {
   const originalLlmEnabled = process.env.LLM_ENABLED;

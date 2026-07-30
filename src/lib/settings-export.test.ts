@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { resetBrowserStorageCache } from "./browser-storage.ts";
+import { resetBrowserStorageCache } from "./browser-storage";
 
 function installWindowStorage() {
   const store = new Map<string, string>();
@@ -48,11 +48,11 @@ describe("settings-export", () => {
   });
 
   it("exports a versioned bundle with shared, comfyUi, webhook, scheduled batch, and avoided tokens", async () => {
-    const { saveSharedSettings, loadSettingsCache } = await import("./settings-cache.ts");
-    const { saveComfyUiSettings, loadComfyUiSettings } = await import("./comfyui-settings.ts");
-    const { saveWebhookSettings } = await import("./webhook-settings.ts");
-    const { saveScheduledBatchConfig } = await import("./scheduled-batch.ts");
-    const { saveAvoidedTokens } = await import("./avoided-tokens.ts");
+    const { saveSharedSettings, loadSettingsCache } = await import("./settings-cache");
+    const { saveComfyUiSettings, loadComfyUiSettings } = await import("./comfyui-settings");
+    const { saveWebhookSettings } = await import("./webhook-settings");
+    const { saveScheduledBatchConfig } = await import("./scheduled-batch");
+    const { saveAvoidedTokens } = await import("./avoided-tokens");
 
     saveSharedSettings({ ...loadSettingsCache().shared, detail: "rich" });
     saveComfyUiSettings({ ...loadComfyUiSettings(), notifyOnComplete: true });
@@ -66,9 +66,7 @@ describe("settings-export", () => {
     });
     saveAvoidedTokens(["blurry", "low quality"]);
 
-    const { exportSettingsBundle, SETTINGS_BUNDLE_VERSION } = await import(
-      "./settings-export.ts"
-    );
+    const { exportSettingsBundle, SETTINGS_BUNDLE_VERSION } = await import("./settings-export");
     const bundle = exportSettingsBundle();
 
     assert.equal(bundle.version, SETTINGS_BUNDLE_VERSION);
@@ -81,9 +79,7 @@ describe("settings-export", () => {
   });
 
   it("round-trips through JSON via parseSettingsBundle", async () => {
-    const { exportSettingsBundle, parseSettingsBundle } = await import(
-      "./settings-export.ts"
-    );
+    const { exportSettingsBundle, parseSettingsBundle } = await import("./settings-export");
     const bundle = exportSettingsBundle();
     const json = JSON.stringify(bundle);
     const parsed = parseSettingsBundle(json);
@@ -92,17 +88,15 @@ describe("settings-export", () => {
   });
 
   it("rejects invalid or wrong-version bundle files", async () => {
-    const { parseSettingsBundle } = await import("./settings-export.ts");
+    const { parseSettingsBundle } = await import("./settings-export");
     assert.throws(() => parseSettingsBundle("not json"));
     assert.throws(() => parseSettingsBundle(JSON.stringify({ version: 2, shared: {} })));
     assert.throws(() => parseSettingsBundle(JSON.stringify({ version: 1 })));
   });
 
   it("imports shared settings by merging over current defaults", async () => {
-    const { importSettingsBundle, SETTINGS_BUNDLE_VERSION } = await import(
-      "./settings-export.ts"
-    );
-    const { loadSettingsCache, saveSharedSettings } = await import("./settings-cache.ts");
+    const { importSettingsBundle, SETTINGS_BUNDLE_VERSION } = await import("./settings-export");
+    const { loadSettingsCache, saveSharedSettings } = await import("./settings-cache");
 
     saveSharedSettings({ ...loadSettingsCache().shared, detail: "concise" });
 
@@ -118,13 +112,11 @@ describe("settings-export", () => {
   });
 
   it("imports optional sections only when present", async () => {
-    const { importSettingsBundle, SETTINGS_BUNDLE_VERSION } = await import(
-      "./settings-export.ts"
-    );
-    const { loadSettingsCache } = await import("./settings-cache.ts");
-    const { loadWebhookSettings } = await import("./webhook-settings.ts");
-    const { loadScheduledBatchConfig } = await import("./scheduled-batch.ts");
-    const { loadAvoidedTokens } = await import("./avoided-tokens.ts");
+    const { importSettingsBundle, SETTINGS_BUNDLE_VERSION } = await import("./settings-export");
+    const { loadSettingsCache } = await import("./settings-cache");
+    const { loadWebhookSettings } = await import("./webhook-settings");
+    const { loadScheduledBatchConfig } = await import("./scheduled-batch");
+    const { loadAvoidedTokens } = await import("./avoided-tokens");
 
     importSettingsBundle({
       version: SETTINGS_BUNDLE_VERSION,
@@ -147,8 +139,8 @@ describe("settings-export", () => {
   });
 
   it("throws importing an unsupported bundle version", async () => {
-    const { importSettingsBundle } = await import("./settings-export.ts");
-    const { loadSettingsCache } = await import("./settings-cache.ts");
+    const { importSettingsBundle } = await import("./settings-export");
+    const { loadSettingsCache } = await import("./settings-cache");
 
     assert.throws(() =>
       importSettingsBundle({

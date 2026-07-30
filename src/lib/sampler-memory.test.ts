@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { resetBrowserStorageCache } from "./browser-storage.ts";
+import { resetBrowserStorageCache } from "./browser-storage";
 
 function installWindowStorage() {
   const store = new Map<string, string>();
@@ -53,7 +53,7 @@ describe("sampler-memory", () => {
 
   it("skips Lightning and Rapid AIO when remembering ratings", async () => {
     const { rememberSamplerFromGalleryEntry, loadModelSamplerMemory } =
-      await import("./sampler-memory.ts");
+      await import("./sampler-memory");
     assert.equal(
       rememberSamplerFromGalleryEntry({
         model: "qwen-image-2512-lightning-8",
@@ -79,7 +79,7 @@ describe("sampler-memory", () => {
       loadModelSamplerMemory,
       clearModelSamplerMemory,
       rememberedSamplerOverrides,
-    } = await import("./sampler-memory.ts");
+    } = await import("./sampler-memory");
 
     assert.equal(
       rememberSamplerFromGalleryEntry({

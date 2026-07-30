@@ -3,10 +3,10 @@ import { describe, it } from "node:test";
 import {
   ensureFluxGuidanceInWorkflow,
   resolveFlux1GuidanceValue,
-} from "./flux-guidance-patch.ts";
-import { buildWorkflowScaffoldForModel } from "./workflow-scaffold.ts";
-import { patchSamplerParamsInWorkflow } from "./comfyui-config.ts";
-import { patchWorkflowDirectParams } from "./workflow-direct-patch.ts";
+} from "./flux-guidance-patch";
+import { buildWorkflowScaffoldForModel } from "./workflow-scaffold";
+import { patchSamplerParamsInWorkflow } from "./comfyui-config";
+import { patchWorkflowDirectParams } from "./workflow-direct-patch";
 
 describe("flux guidance patch", () => {
   it("maps UltraReal sidebar CFG to FluxGuidance value 2.5", () => {

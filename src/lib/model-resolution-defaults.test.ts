@@ -10,8 +10,8 @@ import {
   resolutionOrientationsForModel,
   resolutionSizeTiersForModel,
   resolveModelResolutionParams,
-} from "./model-resolution-defaults.ts";
-import { resolveQueueParams } from "./queue-params-settings.ts";
+} from "./model-resolution-defaults";
+import { resolveQueueParams } from "./queue-params-settings";
 
 describe("model resolution defaults", () => {
   it("returns SDXL native square at medium tier", () => {

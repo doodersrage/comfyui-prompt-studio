@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseComfyObjectInfoModelLists } from "./comfyui-object-info.ts";
+import { parseComfyObjectInfoModelLists } from "./comfyui-object-info";
 
 describe("comfyui-object-info", () => {
   it("parses checkpoint and upscale lists from object_info shape", () => {

@@ -8,7 +8,7 @@ import {
   faceDetailCustomTokens,
   faceDetailQueueParams,
   normalizeFaceDetailDenoise,
-} from "./gallery-output-face-detail.ts";
+} from "./gallery-output-face-detail";
 
 describe("gallery-output-face-detail", () => {
   it("clamps denoise into a sane range and falls back to the default", () => {

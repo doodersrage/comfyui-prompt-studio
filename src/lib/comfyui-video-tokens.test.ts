@@ -6,8 +6,8 @@ import {
   DEFAULT_VIDEO_FRAMES_TOKEN,
   injectWorkflowPlaceholders,
   resolvePlaceholderTokens,
-} from "./comfyui-config.ts";
-import { buildWorkflowScaffoldForModel } from "./workflow-scaffold.ts";
+} from "./comfyui-config";
+import { buildWorkflowScaffoldForModel } from "./workflow-scaffold";
 
 describe("video queue tokens (Phase B4)", () => {
   it("resolves {{INIT_IMAGE}}, {{VIDEO_FRAMES}}, {{VIDEO_FPS}} to their defaults", () => {

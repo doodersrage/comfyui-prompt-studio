@@ -4,8 +4,8 @@ import {
   rankWorkflowFilesForModel,
   suggestWorkflowDefaultsByCategory,
   workflowRequiresInputImage,
-} from "./workflow-category-defaults.ts";
-import { resolveWorkflowForModelSelection } from "./model-workflow-map.ts";
+} from "./workflow-category-defaults";
+import { resolveWorkflowForModelSelection } from "./model-workflow-map";
 
 describe("workflow-category-defaults", () => {
   it("detects edit/inpaint workflows from json markers", () => {
@@ -27,6 +27,7 @@ describe("workflow-category-defaults", () => {
         filename: "qwen-edit.json",
         workflowJson:
           '{"900":{"class_type":"LoadImage","inputs":{"image":"{{INPUT_IMAGE}}"}},"2":{"class_type":"DualCLIPLoader"}}',
+        createdAt: 1753843200000,
       },
       {
         id: "wf-t2i",
@@ -34,6 +35,7 @@ describe("workflow-category-defaults", () => {
         filename: "qwen-t2i.json",
         workflowJson:
           '{"6":{"class_type":"EmptyLatentImage","inputs":{"width":1024,"height":1024}}}',
+        createdAt: 1753843200000,
       },
     ];
 
@@ -98,12 +100,14 @@ describe("workflow-category-defaults", () => {
         name: "Qwen edit",
         filename: "edit.json",
         workflowJson: '{"image":"{{INPUT_IMAGE}}"}',
+        createdAt: 1753843200000,
       },
       {
         id: "wf-t2i",
         name: "Qwen 2512",
         filename: "t2i.json",
         workflowJson: '{"class_type":"EmptyLatentImage"}',
+        createdAt: 1753843200000,
       },
     ];
     const ranked = rankWorkflowFilesForModel("qwen-image-2512", files);

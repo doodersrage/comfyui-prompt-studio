@@ -4,7 +4,7 @@ import {
   ONBOARDING_STEPS,
   isOnboardingChromeStep,
   isOnboardingCoreStep,
-} from "./onboarding-store.ts";
+} from "./onboarding-store";
 
 describe("onboarding-store", () => {
   it("exposes MVP core steps with deep links", () => {

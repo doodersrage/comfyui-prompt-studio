@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { compactPromptProse } from "./prompt-compact.ts";
-import { sanitizeQwenPrompt } from "./qwen-clarity.ts";
+import { compactPromptProse } from "./prompt-compact";
+import { sanitizeQwenPrompt } from "./qwen-clarity";
 import {
   promptHasSceneDensity,
   trimCompleteSentencesToMaxChars,
   trimSentencesByPriority,
-} from "./prompt-shape.ts";
-import { applyQueuePromptSteering } from "./queue-prompt-prep.ts";
-import { buildModelClarityAddendum, getPromptLimits } from "./comfy-models/index.ts";
-import { needsSparsePromptExpand } from "./sparse-prompt-expand.ts";
-import { applyVisionFocusTrim } from "./prompt-cleanup.ts";
+} from "./prompt-shape";
+import { applyQueuePromptSteering } from "./queue-prompt-prep";
+import { buildModelClarityAddendum, getPromptLimits } from "./comfy-models/index";
+import { needsSparsePromptExpand } from "./sparse-prompt-expand";
+import { applyVisionFocusTrim } from "./prompt-cleanup";
 
 describe("prompt clarity optimize", () => {
   it("detects dense scene-specific prompts", () => {

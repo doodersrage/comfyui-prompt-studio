@@ -7,7 +7,7 @@ import {
   parseModelUpscaleMap,
   resolveUpscaleModelFilename,
   SUGGESTED_MODEL_UPSCALE_MAP,
-} from "./model-upscale-map.ts";
+} from "./model-upscale-map";
 
 describe("model upscale map", () => {
   it("suggests UltraSharp as the default and Siax for vanilla Qwen", () => {

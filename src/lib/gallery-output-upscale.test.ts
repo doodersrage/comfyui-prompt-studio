@@ -4,7 +4,7 @@ import {
   buildGalleryMoireCleanWorkflow,
   buildGalleryUpscaleWorkflow,
   resolveGalleryOutputImageUrl,
-} from "./gallery-output-upscale.ts";
+} from "./gallery-output-upscale";
 
 describe("gallery-output-upscale", () => {
   it("builds a Lanczos-only Final upscale workflow when no neural model is set", () => {

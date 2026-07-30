@@ -4,7 +4,7 @@ import {
   fitMaskEditorDimensions,
   pointerToCanvasPoint,
   screenBrushRadiusToCanvas,
-} from "./inpaint-mask-canvas.ts";
+} from "./inpaint-mask-canvas";
 
 describe("inpaint mask canvas", () => {
   it("maps pointer coordinates to canvas space", () => {

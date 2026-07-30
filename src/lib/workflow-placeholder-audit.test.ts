@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   auditWorkflowPreviewIssues,
   findUnresolvedPlaceholderTokens,
-} from "./workflow-placeholder-audit.ts";
+} from "./workflow-placeholder-audit";
 
 describe("workflow-placeholder-audit", () => {
   it("finds unique unresolved tokens", () => {

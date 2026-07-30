@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { getEmailConfig } from "./config.ts";
+import { getEmailConfig } from "./config";
 
 describe("email config", () => {
   it("is disabled without SMTP host", () => {

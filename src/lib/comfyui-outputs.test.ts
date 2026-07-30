@@ -8,7 +8,7 @@ import {
   GALLERY_THUMB_SRCSET_WIDTHS,
   GALLERY_THUMB_WIDTH,
   resolveComfyOutputMediaKind,
-} from "./comfyui-outputs.ts";
+} from "./comfyui-outputs";
 
 describe("comfyui outputs view paths", () => {
   const image = {

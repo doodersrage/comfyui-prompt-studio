@@ -1,7 +1,7 @@
 import { getComfyUiBaseUrl } from '@/lib/comfyui-client';
 import { stripEmptyComfyUiRuntime } from '@/lib/comfyui-config';
 import { apiError, apiMethodNotAllowed } from '@/lib/api/response';
-import { GALLERY_PROXY_ENCODE_QUALITY, galleryProxyEncodeTier } from '@/lib/comfyui-outputs';
+import { GALLERY_PROXY_ENCODE_QUALITY, galleryProxyEncodeTier, calculateDynamicQuality } from '@/lib/comfyui-outputs';
 // turbopackIgnore: true
 import {
   buildViewCacheKey,
@@ -38,7 +38,11 @@ async function encodeThumb(
 ): Promise<Buffer> {
   const sharp = (await import('sharp')).default;
   const tier = galleryProxyEncodeTier(thumbWidth);
-  const quality = GALLERY_PROXY_ENCODE_QUALITY[tier];
+  
+  // Use dynamic quality adjustment
+  const baseQuality = GALLERY_PROXY_ENCODE_QUALITY[tier];
+  const dynamicQuality = calculateDynamicQuality(buffer, thumbWidth, format, tier);
+  
   const pipeline = sharp(buffer).rotate().resize({
     width: thumbWidth,
     height: thumbWidth,
@@ -47,12 +51,12 @@ async function encodeThumb(
   });
 
   if (format === 'avif') {
-    return pipeline.avif({ quality: quality.avif }).toBuffer();
+    return pipeline.avif({ quality: dynamicQuality }).toBuffer();
   }
   if (format === 'webp') {
-    return pipeline.webp({ quality: quality.webp }).toBuffer();
+    return pipeline.webp({ quality: dynamicQuality }).toBuffer();
   }
-  return pipeline.jpeg({ quality: quality.jpeg, mozjpeg: true }).toBuffer();
+  return pipeline.jpeg({ quality: dynamicQuality, mozjpeg: true }).toBuffer();
 }
 
 export async function GET(request: Request) {

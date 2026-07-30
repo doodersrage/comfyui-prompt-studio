@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolveWorkflowGraphInput } from "./workflow-graph-input.ts";
+import { resolveWorkflowGraphInput } from "./workflow-graph-input";
 
 describe("workflow-graph-input", () => {
   it("prefers a live workflow object over re-parsing JSON", () => {

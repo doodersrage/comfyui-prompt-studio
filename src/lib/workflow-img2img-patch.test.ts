@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildWorkflowScaffoldForModel } from "./workflow-scaffold.ts";
-import { ensureKleinReferenceLatentWiringInWorkflow } from "./workflow-img2img-patch.ts";
+import { buildWorkflowScaffoldForModel } from "./workflow-scaffold";
+import { ensureKleinReferenceLatentWiringInWorkflow } from "./workflow-img2img-patch";
 
 describe("ensureKleinReferenceLatentWiringInWorkflow", () => {
   it("builds Klein Compose scaffold with ReferenceLatent + EmptyFlux2Latent", () => {

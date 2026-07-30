@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { resetBrowserStorageCache } from "./browser-storage.ts";
+import { resetBrowserStorageCache } from "./browser-storage";
 
 function installWindowStorage() {
   const store = new Map<string, string>();
@@ -53,7 +53,7 @@ describe("held-max-queue", () => {
   });
 
   it("tracks idle when pending and running are zero", async () => {
-    const { isComfyQueueIdle } = await import("./held-max-queue.ts");
+    const { isComfyQueueIdle } = await import("./held-max-queue");
     assert.equal(isComfyQueueIdle({ queuePending: 0, queueRunning: 0 }), true);
     assert.equal(isComfyQueueIdle({ queuePending: 1, queueRunning: 0 }), false);
     assert.equal(isComfyQueueIdle({ queuePending: 0, queueRunning: 2 }), false);
@@ -66,7 +66,7 @@ describe("held-max-queue", () => {
       listHeldMaxJobs,
       removeHeldMaxJob,
       clearHeldMaxJobs,
-    } = await import("./held-max-queue.ts");
+    } = await import("./held-max-queue");
 
     const upscale = holdMaxGalleryEnhance({
       entry: { id: "entry-1", model: "qwen-image-2512", tool: "generate" },
@@ -105,10 +105,8 @@ describe("held-max-queue", () => {
 
   it("maybeHoldMaxGenerateJobs only parks Max when hold setting is on and busy", async () => {
     const { maybeHoldMaxGenerateJobs, listHeldMaxJobs, clearHeldMaxJobs } =
-      await import("./held-max-queue.ts");
-    const { saveSharedSettings, loadSettingsCache } = await import(
-      "./settings-cache.ts"
-    );
+      await import("./held-max-queue");
+    const { saveSharedSettings, loadSettingsCache } = await import("./settings-cache");
 
     saveSharedSettings({
       ...loadSettingsCache().shared,

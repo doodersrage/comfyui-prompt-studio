@@ -39,6 +39,7 @@
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.7",
     "@xyflow/react": "^12.11.2",
+    "critters": "^0.0.23",
     "dexie": "^4.4.4",
     "next": "^16.2.10",
     "nodemailer": "^9.0.3",

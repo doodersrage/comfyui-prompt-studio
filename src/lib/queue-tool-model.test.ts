@@ -193,7 +193,7 @@ describe("queue-tool-model", () => {
   });
 
   it("prefers the Video tool's last model over a still-image shared model", async () => {
-    const { resolvePreferredVideoModel } = await import("./queue-tool-model.ts");
+    const { resolvePreferredVideoModel } = await import("./queue-tool-model");
     assert.equal(
       resolvePreferredVideoModel({
         toolModel: "wan-video-rapid-aio",

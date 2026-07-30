@@ -9,7 +9,7 @@ import {
   ULTRAREAL_AMPLIFIER_LORA_ID,
   ULTRAREAL_AMPLIFIER_STRENGTH,
   ULTRAREAL_AMPLIFIER_TRIGGER,
-} from "./ultrareal-amplifier-lora.ts";
+} from "./ultrareal-amplifier-lora";
 
 describe("ultrareal amplifier lora", () => {
   it("matches Realistic Amplifier and rejects UltraRealPhoto / UltraRealism packs", () => {

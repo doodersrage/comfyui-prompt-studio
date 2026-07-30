@@ -5,9 +5,9 @@ import {
   precisionHintFromFilename,
   qwenDualClipFilename,
   resolveLoaderPrecisionTier,
-} from "./model-loader-precision.ts";
-import { resolveLoaderFilenamesForModel } from "./model-checkpoint-map.ts";
-import { resolveQueueInjectionContext } from "./comfyui-config.ts";
+} from "./model-loader-precision";
+import { resolveLoaderFilenamesForModel } from "./model-checkpoint-map";
+import { resolveQueueInjectionContext } from "./comfyui-config";
 
 describe("model loader precision", () => {
   it("detects bf16 tier from DualCLIPLoader filenames", () => {

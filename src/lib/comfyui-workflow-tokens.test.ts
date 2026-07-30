@@ -5,8 +5,8 @@ import {
   mergeCustomWorkflowTokens,
   normalizeWorkflowCustomTokens,
   setWorkflowTokenValue,
-} from "./comfyui-workflow-files.ts";
-import { resolveLoaderFilenamesForModel } from "./model-checkpoint-map.ts";
+} from "./comfyui-workflow-files";
+import { resolveLoaderFilenamesForModel } from "./model-checkpoint-map";
 
 describe("per-workflow custom tokens", () => {
   it("merges token lists with later lists winning", () => {

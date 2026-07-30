@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { assignWorkflowToInferredModels } from "./model-workflow-map.ts";
+import { assignWorkflowToInferredModels } from "./model-workflow-map";
 import {
   buildGalleryImageUrlsFromQueueParams,
   resolveRequeueImageUrlsFromEntry,
-} from "./queue-requeue-images.ts";
+} from "./queue-requeue-images";
 
 describe("assignWorkflowToInferredModels", () => {
   it("assigns workflow id to models without overwriting by default", () => {
@@ -74,7 +74,7 @@ describe("buildGalleryImageUrlsFromQueueParams", () => {
 
 describe("auditRequeueImageReadiness", () => {
   it("warns when inpaint job lacks refreshable mask url", async () => {
-    const { auditRequeueImageReadiness } = await import("./queue-requeue-images.ts");
+    const { auditRequeueImageReadiness } = await import("./queue-requeue-images");
     const issues = auditRequeueImageReadiness({
       model: "flux-inpaint",
       tool: "inpaint",

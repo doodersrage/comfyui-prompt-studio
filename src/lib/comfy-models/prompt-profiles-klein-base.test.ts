@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { getComfyModelDefinition } from "./client.ts";
+import { getComfyModelDefinition } from "./client";
 import {
   buildProfileClarityAddendum,
   buildProfileSystemPrompt,
   buildProfileUserDirective,
   getProfileFewShots,
-} from "./prompt-profiles.ts";
+} from "./prompt-profiles";
 
 describe("klein base prompt profiles", () => {
   const klein9bBase = getComfyModelDefinition("flux-2-klein-9b");

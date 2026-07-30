@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildVideoPrompt, generateVideoPrompt } from "./video-prompt.ts";
+import { buildVideoPrompt, generateVideoPrompt } from "./video-prompt";
 
 describe("video prompt", () => {
   it("composes a template prompt", () => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { resetBrowserStorageCache } from "./browser-storage.ts";
-import { APP_NAV_GROUPS, flattenAppNavLinks } from "./app-nav-catalog.ts";
+import { resetBrowserStorageCache } from "./browser-storage";
+import { APP_NAV_GROUPS, flattenAppNavLinks } from "./app-nav-catalog";
 import {
   SIMPLE_NAV_HREFS,
   defaultExpandedNavGroups,
@@ -11,7 +11,7 @@ import {
   normalizeWorkspaceMode,
   saveWorkspaceMode,
   workspaceShowsAdvancedControls,
-} from "./workspace-mode.ts";
+} from "./workspace-mode";
 
 function withMockLocalStorage(run: () => void): void {
   const storage = new Map<string, string>();

@@ -5,7 +5,7 @@ import {
   downgradeQueueQualityProfile,
   isOomOrExecutionErrorMessage,
   pickAlternateComfyUrl,
-} from "./oom-retry.ts";
+} from "./oom-retry";
 
 describe("isOomOrExecutionErrorMessage", () => {
   it("detects common CUDA/OOM phrasing", () => {

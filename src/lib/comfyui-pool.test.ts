@@ -8,7 +8,7 @@ import {
   scoreComfyUiPoolEndpointStat,
   setComfyUiPoolStatsCache,
   type ComfyUiPoolEndpointStat,
-} from "./comfyui-pool.ts";
+} from "./comfyui-pool";
 
 describe("scoreComfyUiPoolEndpointStat", () => {
   it("returns null when the endpoint is marked unhealthy", () => {

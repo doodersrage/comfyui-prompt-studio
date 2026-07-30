@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   snapDimensionToMultiple,
   snapLatentSize,
-} from "./browser-image-dimensions.ts";
+} from "./browser-image-dimensions";
 
 describe("snapLatentSize", () => {
   it("rounds to multiples of 16", () => {

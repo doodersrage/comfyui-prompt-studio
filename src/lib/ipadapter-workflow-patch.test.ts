@@ -10,7 +10,7 @@ import {
   patchIpAdapterNodesInWorkflow,
   patchIpAdapterTokensInWorkflow,
   replaceIpAdapterTokensInWorkflowJson,
-} from "./ipadapter-workflow-patch.ts";
+} from "./ipadapter-workflow-patch";
 
 describe("clampIpAdapterStrength", () => {
   it("clamps into the 0-1 range", () => {

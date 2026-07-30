@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mergeHistoryImportItems } from "./comfyui-gallery-client.ts";
-import type { ComfyHistoryImportItem } from "./comfyui-status.ts";
-import type { ComfyGalleryEntry } from "./comfyui-gallery.ts";
+import { mergeHistoryImportItems } from "./comfyui-gallery-client";
+import type { ComfyHistoryImportItem } from "./comfyui-status";
+import type { ComfyGalleryEntry } from "./comfyui-gallery";
 
 describe("mergeHistoryImportItems", () => {
   it("imports new jobs and upgrades thin duplicates with queueParams", () => {

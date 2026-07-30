@@ -1,27 +1,27 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { isComposeCapableModel, isEditQueueTool } from "./model-denoise-defaults.ts";
+import { isComposeCapableModel, isEditQueueTool } from "./model-denoise-defaults";
 import {
   buildComposeInstruction,
   COMPOSE_DEFAULT_MODEL,
   multiInputImageCustomTokens,
   normalizeInputImageFilenames,
-} from "./compose-prompt.ts";
+} from "./compose-prompt";
 import {
   DEFAULT_INPUT_IMAGE_TOKEN,
   DEFAULT_INPUT_IMAGE_2_TOKEN,
   DEFAULT_INPUT_IMAGE_3_TOKEN,
   DEFAULT_INPUT_IMAGE_4_TOKEN,
-} from "./comfyui-config.ts";
-import { filterModelsForQueueTool } from "./queue-tool-model.ts";
+} from "./comfyui-config";
+import { filterModelsForQueueTool } from "./queue-tool-model";
 import {
   inferLoadImageBinding,
   inputImageBindingForFigureIndex,
-} from "./workflow-load-image-bindings.ts";
-import { applyWorkflowNodeBindings } from "./workflow-apply-bindings.ts";
-import { patchLoadImageNodesInWorkflow } from "./workflow-direct-patch.ts";
-import { ensureQwenEditReferenceImagesForImg2Img } from "./workflow-lightning-queue.ts";
-import { suggestWorkflowNodeMappings } from "./workflow-node-mapper.ts";
+} from "./workflow-load-image-bindings";
+import { applyWorkflowNodeBindings } from "./workflow-apply-bindings";
+import { patchLoadImageNodesInWorkflow } from "./workflow-direct-patch";
+import { ensureQwenEditReferenceImagesForImg2Img } from "./workflow-lightning-queue";
+import { suggestWorkflowNodeMappings } from "./workflow-node-mapper";
 
 describe("compose tool defaults", () => {
   it("registers compose as an edit queue tool", () => {

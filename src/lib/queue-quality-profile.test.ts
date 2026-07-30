@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   resolveEffectiveResolutionSizeTier,
   resolveEffectiveSamplerPreset,
-} from "./queue-quality-profile.ts";
+} from "./queue-quality-profile";
 
 describe("queue-quality-profile", () => {
   it("keeps sidebar preset when profile follows settings", () => {
@@ -54,7 +54,7 @@ describe("queue-quality-profile", () => {
   });
 
   it("resolves per-tool overrides before global profile", async () => {
-    const { resolveQueueQualityProfile } = await import("./queue-quality-profile.ts");
+    const { resolveQueueQualityProfile } = await import("./queue-quality-profile");
     assert.equal(
       resolveQueueQualityProfile({
         tool: "variations",
@@ -78,7 +78,7 @@ describe("queue-quality-profile", () => {
       resolveQueueQualityProfile,
       profileSkipsOutputUpscaleForModel,
       upscaleScaleForProfile,
-    } = await import("./queue-quality-profile.ts");
+    } = await import("./queue-quality-profile");
     assert.equal(
       resolveQueueQualityProfile({
         tool: "compose",
@@ -118,7 +118,7 @@ describe("queue-quality-profile", () => {
   });
 
   it("promotes any model Draft to Final so keepers get enrich polish", async () => {
-    const { resolveQueueQualityProfile } = await import("./queue-quality-profile.ts");
+    const { resolveQueueQualityProfile } = await import("./queue-quality-profile");
     assert.equal(
       resolveQueueQualityProfile({
         global: "draft",
@@ -154,7 +154,7 @@ describe("queue-quality-profile", () => {
     const {
       resolveQueueQualityProfile,
       formatQueuePipelineStatusNotes,
-    } = await import("./queue-quality-profile.ts");
+    } = await import("./queue-quality-profile");
     assert.equal(
       resolveQueueQualityProfile({
         global: "draft",
@@ -171,7 +171,7 @@ describe("queue-quality-profile", () => {
   });
 
   it("promotes vanilla 2512 and Lightning Draft to Final for keeper enrich", async () => {
-    const { resolveQueueQualityProfile } = await import("./queue-quality-profile.ts");
+    const { resolveQueueQualityProfile } = await import("./queue-quality-profile");
     assert.equal(
       resolveQueueQualityProfile({
         global: "draft",
@@ -195,7 +195,7 @@ describe("queue-quality-profile", () => {
       profileSkipsOutputUpscaleForModel,
       upscaleScaleForProfile,
       upscaleMethodForProfile,
-    } = await import("./queue-quality-profile.ts");
+    } = await import("./queue-quality-profile");
     assert.equal(profileUsesUpscaleEnrich("final"), true);
     assert.equal(profileUsesUpscaleEnrich("draft"), false);
     assert.equal(upscaleScaleForProfile("final"), 1.25);
@@ -253,9 +253,7 @@ describe("queue-quality-profile", () => {
       false,
     );
     assert.equal(profileUsesNeuralUpscaleEnrich("max"), true);
-    const { formatQueueQualityProfileHint } = await import(
-      "./queue-quality-profile.ts"
-    );
+    const { formatQueueQualityProfileHint } = await import("./queue-quality-profile");
     const finalHint = formatQueueQualityProfileHint("final", "base", "medium", {
       neuralUpscaleAvailable: true,
       model: "qwen-image-2512",
@@ -269,7 +267,7 @@ describe("queue-quality-profile", () => {
     assert.match(String(maxHint), /chroma guard|Lanczos/i);
     assert.doesNotMatch(String(maxHint), /UpscaleModel/);
     const { neuralTargetScaleAfterUpscale, parseNeuralUpscaleFactor } =
-      await import("./queue-quality-profile.ts");
+      await import("./queue-quality-profile");
     assert.equal(neuralTargetScaleAfterUpscale("final"), 0.3125);
     assert.equal(neuralTargetScaleAfterUpscale("max"), 0.375);
     assert.equal(
@@ -289,9 +287,7 @@ describe("queue-quality-profile", () => {
       }),
       0.2976,
     );
-    const { outputUpscaleScaleAfterLatent } = await import(
-      "./queue-quality-profile.ts"
-    );
+    const { outputUpscaleScaleAfterLatent } = await import("./queue-quality-profile");
     assert.equal(
       outputUpscaleScaleAfterLatent("max", { priorLatentScale: 1.5 }),
       1,
@@ -310,7 +306,7 @@ describe("queue-quality-profile", () => {
       profileUsesNeuralUpscalePolish,
       lanczosPolishScaleAfterNeural,
       sdxlRefinerDenoiseForProfile,
-    } = await import("./queue-quality-profile.ts");
+    } = await import("./queue-quality-profile");
     assert.equal(profileUsesSdxlRefinerEnrich("final"), true);
     assert.equal(profileUsesSdxlRefinerEnrich("draft"), false);
     assert.equal(profileUsesNeuralUpscalePolish("max"), true);
@@ -326,7 +322,7 @@ describe("queue-quality-profile", () => {
       profileUsesSharpenAfterNeuralUpscale,
       sharpenAlphaForProfile,
       latentDetailDenoiseForProfile,
-    } = await import("./queue-quality-profile.ts");
+    } = await import("./queue-quality-profile");
     assert.equal(
       profileUsesLatentDetailPass("final", { model: "qwen-image-2512" }),
       false,

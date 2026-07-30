@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { galleryHandoffPath } from "./gallery-handoff.ts";
-import { resolveDenoiseForModel } from "./model-denoise-defaults.ts";
+import { galleryHandoffPath } from "./gallery-handoff";
+import { resolveDenoiseForModel } from "./model-denoise-defaults";
 import {
   appendUserToolQualityRecipe,
   buildToolQualityRecipeFromGalleryEntry,
   mergeToolQualityRecipes,
   recipesForTool,
   SUGGESTED_TOOL_QUALITY_RECIPES,
-} from "./tool-quality-recipes.ts";
+} from "./tool-quality-recipes";
 
 describe("outpaint productization", () => {
   it("routes gallery handoff to /outpaint", () => {

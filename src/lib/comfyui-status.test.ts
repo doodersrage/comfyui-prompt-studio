@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { extractComfyExecutionErrorMessage } from "./comfyui-status.ts";
+import { extractComfyExecutionErrorMessage } from "./comfyui-status";
 
 describe("comfyui status execution errors", () => {
   it("extracts exception_message from execution_error history payload", () => {

@@ -4,17 +4,17 @@ import {
   APP_NAV_GROUPS,
   flattenAppNavLinks,
   mergePluginLinksIntoNav,
-} from "./app-nav-catalog.ts";
+} from "./app-nav-catalog";
 import {
   navLinksFromInstalledPlugins,
   normalizeInstalledPlugins,
   normalizePluginManifest,
-} from "./plugin-manifest.ts";
+} from "./plugin-manifest";
 import {
   applyPluginQueueHookMutation,
   normalizeHookCfg,
   normalizeHookDenoise,
-} from "./plugin-queue-hooks.ts";
+} from "./plugin-queue-hooks";
 
 describe("sprint8 plugin runtime", () => {
   it("normalizes a valid manifest", () => {

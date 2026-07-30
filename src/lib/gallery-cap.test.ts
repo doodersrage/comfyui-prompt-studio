@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { capGalleryEntriesForLocalStorage } from "./gallery-cap.ts";
+import { capGalleryEntriesForLocalStorage } from "./gallery-cap";
 
 function entry(
   id: string,

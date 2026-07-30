@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { auditDualClipNodesInWorkflow } from "./workflow-queue-loader-preflight.ts";
+import { auditDualClipNodesInWorkflow } from "./workflow-queue-loader-preflight";
 
 describe("workflow dual clip preflight", () => {
   it("flags qwen_image on DualCLIPLoader as wrong loader node", () => {

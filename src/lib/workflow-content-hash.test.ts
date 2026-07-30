@@ -5,7 +5,7 @@ import {
   workflowContentHash,
   workflowJsonContentHash,
   workflowObjectContentHash,
-} from "./workflow-content-hash.ts";
+} from "./workflow-content-hash";
 
 describe("workflow-content-hash", () => {
   it("returns stable hashes for identical json", () => {

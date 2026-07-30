@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { normalizeComposeIdentityKind } from "./compose-identity-lock.ts";
+import { normalizeComposeIdentityKind } from "./compose-identity-lock";
 import {
   computePromptContentHash,
   formatPromptVersionLabel,
   nextPromptVersionFields,
-} from "./prompt-versioning.ts";
-import { getIdentityPackHealth } from "./identity-pack-health.ts";
+} from "./prompt-versioning";
+import { getIdentityPackHealth } from "./identity-pack-health";
 
 describe("sprint6 identity kinds", () => {
   it("normalizes identity kind", () => {

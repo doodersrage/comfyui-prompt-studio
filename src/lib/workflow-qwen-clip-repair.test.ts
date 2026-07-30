@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { repairQwenImageClipLoaderNodes } from "./workflow-qwen-clip-repair.ts";
+import { repairQwenImageClipLoaderNodes } from "./workflow-qwen-clip-repair";
 
 describe("repairQwenImageClipLoaderNodes", () => {
   it("converts DualCLIPLoader qwen_image nodes to CLIPLoader in place", () => {

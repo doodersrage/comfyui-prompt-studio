@@ -3,27 +3,27 @@ import { describe, it } from "node:test";
 import {
   buildCatalogAwareWardrobeMutationClause,
   resolveCatalogWardrobeMutation,
-} from "./clothing-mutations.ts";
+} from "./clothing-mutations";
 import {
   buildClothingNegativePack,
   compactClothingScript,
   enrichWardrobeHighSignal,
   prioritizeWardrobeSummaryItems,
-} from "./clothing-quality.ts";
+} from "./clothing-quality";
 import {
   buildMutatedPrompt,
   formatMutatedJobsStatus,
-} from "./gallery-mutations.ts";
+} from "./gallery-mutations";
 import {
   pickRandomCharacterOutfit,
   trimWardrobeSummaryToMaxChars,
   wardrobeBudgetForPrompt,
-} from "./clothing-catalog.ts";
+} from "./clothing-catalog";
 import {
   buildClothingPickFilters,
   scoreClothingLabelAgainstHints,
-} from "./clothing-tags.ts";
-import { resolveContextNegativeProfile } from "./context-negative-profile.ts";
+} from "./clothing-tags";
+import { resolveContextNegativeProfile } from "./context-negative-profile";
 
 describe("clothing quality", () => {
   it("strips fabric-crease filler from scripts", () => {

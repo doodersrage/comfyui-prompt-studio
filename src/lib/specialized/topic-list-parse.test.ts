@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseTopicLines, splitTopicCandidates } from "./topic-list-parse.ts";
+import { parseTopicLines, splitTopicCandidates } from "./topic-list-parse";
 
 describe("splitTopicCandidates", () => {
   it("preserves newline-separated topics", () => {

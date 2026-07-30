@@ -289,7 +289,7 @@ describe("legacy tool settings migration", () => {
         sportPresetId: "gravel-duo",
         teamKit: true,
       },
-    });
+    } as any);
 
     assert.equal(changed, true);
     assert.equal(tools.character?.sceneMode, "duo");
@@ -307,7 +307,7 @@ describe("legacy tool settings migration", () => {
         composeStyle: "inline",
         mood: "tense",
       },
-    });
+    } as any);
 
     assert.equal(changed, true);
     assert.equal(tools.character?.sceneMode, "compose");
@@ -325,7 +325,7 @@ describe("legacy tool settings migration", () => {
         includePeople: false,
         wildness: 80,
       },
-    });
+    } as any);
 
     assert.equal(changed, true);
     assert.equal(tools.generate?.generateSource, "random");
@@ -868,6 +868,17 @@ describe("comfyui workflow config", () => {
         height: "{{HEIGHT}}",
         cfg: "{{CFG}}",
         steps: "{{STEPS}}",
+        sampler: "{{SAMPLER}}",
+        scheduler: "{{SCHEDULER}}",
+        shift: "{{SHIFT}}",
+        fluxMaxShift: "{{FLUX_MAX_SHIFT}}",
+        fluxBaseShift: "{{FLUX_BASE_SHIFT}}",
+        denoise: "{{DENOISE}}",
+        inputImage: "{{INPUT_IMAGE}}",
+        maskImage: "{{MASK_IMAGE}}",
+        initImage: "{{INIT_IMAGE}}",
+        videoFrames: "{{VIDEO_FRAMES}}",
+        videoFps: "{{VIDEO_FPS}}",
       },
     );
     assert.equal(injected.positiveReplacements, 1);
@@ -916,6 +927,17 @@ describe("comfyui workflow config", () => {
         height: "{{HEIGHT}}",
         cfg: "{{CFG}}",
         steps: "{{STEPS}}",
+        sampler: "{{SAMPLER}}",
+        scheduler: "{{SCHEDULER}}",
+        shift: "{{SHIFT}}",
+        fluxMaxShift: "{{FLUX_MAX_SHIFT}}",
+        fluxBaseShift: "{{FLUX_BASE_SHIFT}}",
+        denoise: "{{DENOISE}}",
+        inputImage: "{{INPUT_IMAGE}}",
+        maskImage: "{{MASK_IMAGE}}",
+        initImage: "{{INIT_IMAGE}}",
+        videoFrames: "{{VIDEO_FRAMES}}",
+        videoFps: "{{VIDEO_FPS}}",
       },
     );
 
@@ -959,6 +981,17 @@ describe("comfyui workflow config", () => {
         height: "{{HEIGHT}}",
         cfg: "{{CFG}}",
         steps: "{{STEPS}}",
+        sampler: "{{SAMPLER}}",
+        scheduler: "{{SCHEDULER}}",
+        shift: "{{SHIFT}}",
+        fluxMaxShift: "{{FLUX_MAX_SHIFT}}",
+        fluxBaseShift: "{{FLUX_BASE_SHIFT}}",
+        denoise: "{{DENOISE}}",
+        inputImage: "{{INPUT_IMAGE}}",
+        maskImage: "{{MASK_IMAGE}}",
+        initImage: "{{INIT_IMAGE}}",
+        videoFrames: "{{VIDEO_FRAMES}}",
+        videoFps: "{{VIDEO_FPS}}",
       },
     );
 
@@ -989,6 +1022,22 @@ describe("comfyui workflow config", () => {
       {
         positive: "{{POSITIVE}}",
         negative: "{{NEGATIVE}}",
+        seed: "{{SEED}}",
+        width: "{{WIDTH}}",
+        height: "{{HEIGHT}}",
+        cfg: "{{CFG}}",
+        steps: "{{STEPS}}",
+        sampler: "{{SAMPLER}}",
+        scheduler: "{{SCHEDULER}}",
+        shift: "{{SHIFT}}",
+        fluxMaxShift: "{{FLUX_MAX_SHIFT}}",
+        fluxBaseShift: "{{FLUX_BASE_SHIFT}}",
+        denoise: "{{DENOISE}}",
+        inputImage: "{{INPUT_IMAGE}}",
+        maskImage: "{{MASK_IMAGE}}",
+        initImage: "{{INIT_IMAGE}}",
+        videoFrames: "{{VIDEO_FRAMES}}",
+        videoFps: "{{VIDEO_FPS}}",
       },
     );
     const encoded = injected.workflow["1"] as {
@@ -1465,8 +1514,8 @@ describe("workflow category defaults", () => {
   it("scores workflow filenames by model category", async () => {
     const { suggestWorkflowDefaultsByCategory } = await import("./workflow-category-defaults");
     const map = suggestWorkflowDefaultsByCategory([
-      { id: "flux-default", name: "Flux Klein default", filename: "flux-klein.json", workflowJson: "{}" },
-      { id: "qwen-default", name: "Qwen image", filename: "qwen-image.json", workflowJson: "{}" },
+      { id: "flux-default", name: "Flux Klein default", filename: "flux-klein.json", workflowJson: "{}", createdAt: 1753843200000 },
+      { id: "qwen-default", name: "Qwen image", filename: "qwen-image.json", workflowJson: "{}", createdAt: 1753843200000 },
     ]);
     assert.equal(map["flux-2-klein"], "flux-default");
     assert.ok(map["qwen-image-2512"]);
@@ -1480,12 +1529,14 @@ describe("workflow category defaults", () => {
         name: "Qwen 2512 standard",
         filename: "qwen-image-2512.json",
         workflowJson: "{}",
+        createdAt: 1753843200000,
       },
       {
         id: "qwen-lightning-4",
         name: "Qwen 2512 Lightning 4-step",
         filename: "qwen-2512-lightning-4steps.json",
         workflowJson: "{}",
+        createdAt: 1753843200000,
       },
     ]);
     assert.equal(map["qwen-image-2512-lightning-4"], "qwen-lightning-4");
@@ -1500,12 +1551,14 @@ describe("workflow category defaults", () => {
         name: "Flux Klein 4B base",
         filename: "flux-2-klein-base-4b.json",
         workflowJson: "{}",
+        createdAt: 1753843200000,
       },
       {
         id: "klein-distilled",
         name: "Flux Klein 4B distilled",
         filename: "flux-2-klein-4b.json",
         workflowJson: "{}",
+        createdAt: 1753843200000,
       },
     ]);
     assert.equal(map["flux-2-klein-4b-distilled"], "klein-distilled");
@@ -1520,12 +1573,14 @@ describe("workflow category defaults", () => {
         name: "Flux Klein 9B base",
         filename: "flux-2-klein-base-9b.json",
         workflowJson: "{}",
+        createdAt: 1753843200000,
       },
       {
         id: "klein-distilled-9b",
         name: "FLUX-KLEIN-9B-distilled",
         filename: "FLUX-KLEIN-9B-distilled.json",
         workflowJson: "{}",
+        createdAt: 1753843200000,
       },
     ]);
     assert.equal(map["flux-2-klein-9b-distilled"], "klein-distilled-9b");
@@ -1540,12 +1595,14 @@ describe("workflow category defaults", () => {
         name: "Qwen 2511 edit",
         filename: "qwen-image-edit-2511.json",
         workflowJson: "{}",
+        createdAt: 1753843200000,
       },
       {
         id: "rapid-aio",
         name: "Qwen Rapid AIO NSFW v23",
         filename: "qwen-rapid-aio-nsfw-v23.json",
         workflowJson: "{}",
+        createdAt: 1753843200000,
       },
     ]);
     assert.equal(map["qwen-rapid-aio-nsfw"], "rapid-aio");
@@ -1561,6 +1618,7 @@ describe("workflow category defaults", () => {
         name: "Qwen 2511 Lightning 8-step",
         filename: "qwen-2511-lightning-8step.json",
         workflowJson: "{}",
+        createdAt: 1753843200000,
       },
     ]);
     assert.equal(map["qwen-image-edit-2511-lightning-8"], "qwen-2511-l8");
@@ -1746,8 +1804,7 @@ describe("character identity bundle", () => {
 
   it("upserts and removes saved identity bundles by name (case-insensitive)", async () => {
     const { buildCharacterIdentityBundle } = await import("./character-identity-bundle");
-    const { upsertSavedIdentityBundle, removeSavedIdentityBundle } = await import(
-      "./settings-cache"
+    const { upsertSavedIdentityBundle, removeSavedIdentityBundle } = await import("./settings-cache"
     );
     const first = buildCharacterIdentityBundle({
       name: "Courier",
@@ -2043,8 +2100,7 @@ describe("comfyui runtime queue params", () => {
   });
 
   it("forces Lightning Max Compose denoise to 1 even when params carry soft edit denoise", async () => {
-    const { injectPromptsWithFallbacks, resolvePlaceholderTokens } = await import(
-      "./comfyui-config"
+    const { injectPromptsWithFallbacks, resolvePlaceholderTokens } = await import("./comfyui-config"
     );
     const tokens = resolvePlaceholderTokens();
     const workflow = {
@@ -2112,8 +2168,7 @@ describe("comfyui runtime queue params", () => {
   });
 
   it("applies selected style LoRAs on Edit-2511 Lightning after the Lightning LoRA", async () => {
-    const { injectPromptsWithFallbacks, resolvePlaceholderTokens } = await import(
-      "./comfyui-config"
+    const { injectPromptsWithFallbacks, resolvePlaceholderTokens } = await import("./comfyui-config"
     );
     const tokens = resolvePlaceholderTokens();
     const workflow = {
@@ -2163,7 +2218,7 @@ describe("comfyui runtime queue params", () => {
           {
             id: "skin",
             label: "Skin",
-            token: "{{LORA_SKIN}}",
+            triggerPhrase: "{{LORA_SKIN}}",
             tokenValue: "qwen-edit-skin.safetensors",
             enabled: true,
             strengthModel: 0.7,
@@ -2289,6 +2344,9 @@ describe("comfyui runtime queue params", () => {
         denoise: "{{DENOISE}}",
         inputImage: "{{INPUT_IMAGE}}",
         maskImage: "{{MASK_IMAGE}}",
+        initImage: "{{INIT_IMAGE}}",
+        videoFrames: "{{VIDEO_FRAMES}}",
+        videoFps: "{{VIDEO_FPS}}",
       },
     );
     const unet = result.workflow["228"] as { inputs?: { unet_name?: string } };
@@ -2354,6 +2412,9 @@ describe("comfyui runtime queue params", () => {
         denoise: "{{DENOISE}}",
         inputImage: "{{INPUT_IMAGE}}",
         maskImage: "{{MASK_IMAGE}}",
+        initImage: "{{INIT_IMAGE}}",
+        videoFrames: "{{VIDEO_FRAMES}}",
+        videoFps: "{{VIDEO_FPS}}",
       },
       { loaders },
     );
@@ -2596,8 +2657,7 @@ describe("iteration tree export", () => {
 
 describe("gallery similarity", () => {
   it("ranks entries by prompt and param overlap", async () => {
-    const { rankGallerySimilarity, orderGalleryBySimilarity } = await import(
-      "./gallery-similarity"
+    const { rankGallerySimilarity, orderGalleryBySimilarity } = await import("./gallery-similarity"
     );
     const reference = {
       id: "ref",
@@ -2635,8 +2695,7 @@ describe("gallery similarity", () => {
 
 describe("iteration branch diff", () => {
   it("diffs linked history entries", async () => {
-    const { diffHistoryEntries, listIterationEntries } = await import(
-      "./iteration-branch-diff"
+    const { diffHistoryEntries, listIterationEntries } = await import("./iteration-branch-diff"
     );
     const entries = [
       {

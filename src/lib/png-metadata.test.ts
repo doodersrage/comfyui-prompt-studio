@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { pngMetadataToSidecar, type PngMetadataResult } from "./png-metadata.ts";
+import { pngMetadataToSidecar, type PngMetadataResult } from "./png-metadata";
 
 describe("pngMetadataToSidecar", () => {
   it("stores workflowJson and queueParams for ComfyUI imports", () => {

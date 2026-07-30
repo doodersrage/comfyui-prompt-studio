@@ -70,7 +70,9 @@ export const GALLERY_PAGE_SIZE_ALL = 'all' as const;
 export const GALLERY_ALL_RENDER_CHUNK = 48;
 
 export function galleryEntryRenderKey(entry: ComfyGalleryEntry): string {
-  return [
+  // Use a more efficient key generation approach
+  // Only include fields that actually affect rendering and don't change frequently
+  const parts = [
     entry.id,
     entry.status,
     entry.favorite ? 1 : 0,
@@ -81,12 +83,19 @@ export function galleryEntryRenderKey(entry: ComfyGalleryEntry): string {
     entry.promptId ?? '',
     entry.visionTags?.join(',') ?? '',
     entry.projectId ?? '',
-    // Keep in-flight cards live while sampler progress / queue position ticks.
-    entry.queuePosition ?? '',
-    entry.progressValue ?? '',
-    entry.progressMax ?? '',
-    entry.progressNode ?? '',
-  ].join('|');
+  ];
+  
+  // For in-flight entries, include progress info to prevent unnecessary re-renders
+  if ((entry.status as string) === 'queued' || entry.status === 'running') {
+    parts.push(
+      entry.queuePosition ?? '',
+      entry.progressValue ?? '',
+      entry.progressMax ?? '',
+      entry.progressNode ?? ''
+    );
+  }
+  
+  return parts.join('|');
 }
 export type GalleryPageSize =
   (typeof GALLERY_PAGE_SIZE_OPTIONS)[number] | typeof GALLERY_PAGE_SIZE_ALL;

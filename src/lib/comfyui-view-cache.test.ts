@@ -9,7 +9,7 @@ import {
   negotiateViewFormat,
   readViewCache,
   writeViewCache,
-} from "./comfyui-view-cache.ts";
+} from "./comfyui-view-cache";
 
 describe("comfyui view cache", () => {
   const previousDataDir = process.env.PROMPT_DATA_DIR;

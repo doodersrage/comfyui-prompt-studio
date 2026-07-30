@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DEFAULT_SHIFT_TOKEN } from "./comfyui-config.ts";
-import { enrichVideoSavePolish, enrichWorkflowGraph } from "./workflow-graph-enrich.ts";
+import { DEFAULT_SHIFT_TOKEN } from "./comfyui-config";
+import { enrichVideoSavePolish, enrichWorkflowGraph } from "./workflow-graph-enrich";
 
 const TOKENS = {
   positive: "{{POSITIVE}}",
@@ -19,6 +19,9 @@ const TOKENS = {
   denoise: "{{DENOISE}}",
   inputImage: "{{INPUT_IMAGE}}",
   maskImage: "{{MASK_IMAGE}}",
+  initImage: "{{INIT_IMAGE}}",
+  videoFrames: "{{VIDEO_FRAMES}}",
+  videoFps: "{{VIDEO_FPS}}",
 };
 
 describe("workflow-graph-enrich", () => {

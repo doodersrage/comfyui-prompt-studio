@@ -4,7 +4,7 @@ import {
   isVramTightForMax,
   maybeDowngradeMaxForVram,
   MAX_VRAM_FREE_BYTES_THRESHOLD,
-} from "./vram-queue-guard.ts";
+} from "./vram-queue-guard";
 
 describe("vram-queue-guard", () => {
   it("treats free VRAM under threshold as tight", () => {
@@ -47,7 +47,7 @@ describe("vram-queue-guard", () => {
   });
 
   it("applies guard to runtime queueQualityProfile", async () => {
-    const { guardQueueQualityForVram } = await import("./vram-queue-guard.ts");
+    const { guardQueueQualityForVram } = await import("./vram-queue-guard");
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async () =>
       new Response(

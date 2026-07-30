@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { injectPromptsWithFallbacks, resolvePlaceholderTokens, resolveQueueParams } from "./comfyui-config.ts";
+import { injectPromptsWithFallbacks, resolvePlaceholderTokens, resolveQueueParams } from "./comfyui-config";
 import {
   formatModelSamplingHint,
   getModelSamplingPatchDefaults,
@@ -11,8 +11,8 @@ import {
   modelUsesShiftSamplingPatch,
   patchModelSamplingInWorkflow,
   resolveModelSamplingParams,
-} from "./model-sampling-patch.ts";
-import { suggestWorkflowNodeMappings } from "./workflow-node-mapper.ts";
+} from "./model-sampling-patch";
+import { suggestWorkflowNodeMappings } from "./workflow-node-mapper";
 
 describe("model sampling patch", () => {
   it("detects model sampling node class types", () => {

@@ -5,13 +5,13 @@ import {
   buildComposeKleinQueuePatch,
   formatComposeIdentityLockHint,
   normalizeComposeIdentityLockStrength,
-} from "./compose-identity-lock.ts";
+} from "./compose-identity-lock";
 import {
   buildGalleryHandoff,
   buildReeditGalleryHandoff,
   sharedPatchFromGalleryHandoff,
-} from "./gallery-handoff.ts";
-import type { ComfyGalleryEntry } from "./comfyui-gallery-entry.ts";
+} from "./gallery-handoff";
+import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
 
 describe("compose identity lock", () => {
   it("builds IP-Adapter queue patch from Figure 1 filename", () => {

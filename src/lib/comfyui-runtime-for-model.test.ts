@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { resetBrowserStorageCache } from "./browser-storage.ts";
+import { resetBrowserStorageCache } from "./browser-storage";
 import {
   resolveRuntimeForModel,
   resolveRuntimeForQueue,
   scanAndAdaptSystemWorkflowInventory,
-} from "./comfyui-runtime-for-model.ts";
+} from "./comfyui-runtime-for-model";
 import {
   DEFAULT_SHARED_SETTINGS,
   loadSettingsCache,
   saveSharedSettings,
-} from "./settings-cache.ts";
+} from "./settings-cache";
 
 function withMockLocalStorage(run: () => void | Promise<void>): Promise<void> {
   const storage = new Map<string, string>();
@@ -98,7 +98,7 @@ describe("comfyui-runtime-for-model system path", () => {
 
   it("forwards session LoRA library on system and non-system paths", async () => {
     await withMockLocalStorage(async () => {
-      const { saveComfyUiSettings } = await import("./comfyui-settings.ts");
+      const { saveComfyUiSettings } = await import("./comfyui-settings");
       saveComfyUiSettings({
         useServerDefaults: true,
         loraLibrary: [
@@ -151,7 +151,7 @@ describe("comfyui-runtime-for-model system path", () => {
 
   it("honors sessionActiveLoraIds override for gallery re-queue (ignores current empty stack)", async () => {
     await withMockLocalStorage(async () => {
-      const { saveComfyUiSettings } = await import("./comfyui-settings.ts");
+      const { saveComfyUiSettings } = await import("./comfyui-settings");
       saveComfyUiSettings({
         useServerDefaults: true,
         loraLibrary: [

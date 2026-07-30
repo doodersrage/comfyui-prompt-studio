@@ -4,7 +4,7 @@ import {
   clearAllComfyLivePreviewUrls,
   getComfyLivePreviewUrl,
   setComfyLivePreviewUrl,
-} from "./comfyui-live-preview-store.ts";
+} from "./comfyui-live-preview-store";
 
 describe("comfyui-live-preview-store", () => {
   it("resolves previews by prompt id or aliased client id", () => {

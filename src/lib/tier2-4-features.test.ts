@@ -129,7 +129,7 @@ describe("aesthetic score", () => {
   });
 
   it("maps vision ratings onto the 0–100 scale", async () => {
-    const { aestheticScoreFromVisionRating } = await import("./aesthetic-score.ts");
+    const { aestheticScoreFromVisionRating } = await import("./aesthetic-score");
     assert.equal(aestheticScoreFromVisionRating(5), 100);
     assert.equal(aestheticScoreFromVisionRating(1), 20);
     assert.equal(aestheticScoreFromVisionRating(3.4), 60);

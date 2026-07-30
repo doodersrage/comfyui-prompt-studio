@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { resetBrowserStorageCache } from "./browser-storage.ts";
+import { resetBrowserStorageCache } from "./browser-storage";
 
 function installWindowStorage() {
   const store = new Map<string, string>();
@@ -48,7 +48,7 @@ describe("settings-presets", () => {
   });
 
   it("lists iterate, keeper, and lab presets with labels/descriptions", async () => {
-    const { SETTINGS_BROWSER_PRESETS } = await import("./settings-presets.ts");
+    const { SETTINGS_BROWSER_PRESETS } = await import("./settings-presets");
     const ids = SETTINGS_BROWSER_PRESETS.map((preset) => preset.id);
     assert.deepEqual(ids, ["iterate", "keeper", "lab"]);
     for (const preset of SETTINGS_BROWSER_PRESETS) {
@@ -58,15 +58,15 @@ describe("settings-presets", () => {
   });
 
   it("returns undefined for an unknown preset id", async () => {
-    const { getSettingsBrowserPreset } = await import("./settings-presets.ts");
+    const { getSettingsBrowserPreset } = await import("./settings-presets");
     assert.equal(getSettingsBrowserPreset("bogus"), undefined);
     assert.equal(getSettingsBrowserPreset(undefined), undefined);
   });
 
   it("applies the iterate preset: draft queueing, no Max hold, calm auto-improve", async () => {
-    const { applySettingsBrowserPreset } = await import("./settings-presets.ts");
-    const { loadSettingsCache } = await import("./settings-cache.ts");
-    const { loadComfyUiSettings } = await import("./comfyui-settings.ts");
+    const { applySettingsBrowserPreset } = await import("./settings-presets");
+    const { loadSettingsCache } = await import("./settings-cache");
+    const { loadComfyUiSettings } = await import("./comfyui-settings");
 
     const applied = applySettingsBrowserPreset("iterate");
     assert.equal(applied, true);
@@ -84,9 +84,9 @@ describe("settings-presets", () => {
   });
 
   it("applies the keeper preset: final queueing, balanced auto-improve", async () => {
-    const { applySettingsBrowserPreset } = await import("./settings-presets.ts");
-    const { loadSettingsCache } = await import("./settings-cache.ts");
-    const { loadComfyUiSettings } = await import("./comfyui-settings.ts");
+    const { applySettingsBrowserPreset } = await import("./settings-presets");
+    const { loadSettingsCache } = await import("./settings-cache");
+    const { loadComfyUiSettings } = await import("./comfyui-settings");
 
     applySettingsBrowserPreset("keeper");
 
@@ -102,9 +102,9 @@ describe("settings-presets", () => {
   });
 
   it("applies the lab preset: max queueing, hold until idle, aggressive auto-improve", async () => {
-    const { applySettingsBrowserPreset } = await import("./settings-presets.ts");
-    const { loadSettingsCache } = await import("./settings-cache.ts");
-    const { loadComfyUiSettings } = await import("./comfyui-settings.ts");
+    const { applySettingsBrowserPreset } = await import("./settings-presets");
+    const { loadSettingsCache } = await import("./settings-cache");
+    const { loadComfyUiSettings } = await import("./comfyui-settings");
 
     applySettingsBrowserPreset("lab");
 
@@ -120,8 +120,8 @@ describe("settings-presets", () => {
   });
 
   it("does not clobber unrelated settings when applying a preset", async () => {
-    const { applySettingsBrowserPreset } = await import("./settings-presets.ts");
-    const { loadSettingsCache, saveSharedSettings } = await import("./settings-cache.ts");
+    const { applySettingsBrowserPreset } = await import("./settings-presets");
+    const { loadSettingsCache, saveSharedSettings } = await import("./settings-cache");
 
     saveSharedSettings({
       ...loadSettingsCache().shared,
@@ -134,8 +134,8 @@ describe("settings-presets", () => {
   });
 
   it("returns false for an unknown preset id and leaves settings untouched", async () => {
-    const { applySettingsBrowserPreset } = await import("./settings-presets.ts");
-    const { loadSettingsCache } = await import("./settings-cache.ts");
+    const { applySettingsBrowserPreset } = await import("./settings-presets");
+    const { loadSettingsCache } = await import("./settings-cache");
 
     const before = loadSettingsCache().shared.queueQualityProfile;
     const applied = applySettingsBrowserPreset("not-a-real-preset");

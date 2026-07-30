@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { patchSamplerParamsInWorkflow } from "./comfyui-config.ts";
+import { patchSamplerParamsInWorkflow } from "./comfyui-config";
 import {
   ensureDistilledSamplerParams,
   ensureLightningSamplerParams,
@@ -9,7 +9,7 @@ import {
   getModelSamplerDefaults,
   normalizeModelSamplerPresetTier,
   resolveModelSamplerParams,
-} from "./model-sampler-defaults.ts";
+} from "./model-sampler-defaults";
 
 describe("model sampler defaults", () => {
   it("returns base category defaults for SDXL models", () => {
@@ -144,7 +144,7 @@ describe("model sampler defaults", () => {
   });
 
   it("hints CFG-1 WAN presets (Lightning / Rapid AIO) and full WAN Optimized", async () => {
-    const { formatWanVideoSamplerHint } = await import("./model-sampler-defaults.ts");
+    const { formatWanVideoSamplerHint } = await import("./model-sampler-defaults");
     assert.match(
       formatWanVideoSamplerHint("wan-video-lightning-4", "base") ?? "",
       /4-step|cfg 1|simple/i,

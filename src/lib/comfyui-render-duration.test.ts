@@ -6,7 +6,7 @@ import {
   formatRenderDuration,
   resolveGalleryRenderDurationMs,
   wallClockRenderDurationMs,
-} from "./comfyui-render-duration.ts";
+} from "./comfyui-render-duration";
 
 describe("comfyui render duration", () => {
   it("coerces second and millisecond epoch timestamps", () => {

@@ -5,7 +5,7 @@ import {
   formatModelControlNetMap,
   parseModelControlNetMap,
   resolveControlNetModelFilename,
-} from "./model-controlnet-map.ts";
+} from "./model-controlnet-map";
 
 describe("model-controlnet-map", () => {
   it("parses and formats controlnet map lines", () => {

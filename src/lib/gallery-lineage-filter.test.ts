@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { ComfyGalleryEntry } from "./comfyui-gallery-entry.ts";
-import { filterComfyGalleryEntries } from "./comfyui-gallery.ts";
+import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
+import { filterComfyGalleryEntries } from "./comfyui-gallery";
 
 const baseEntry = (patch: Partial<ComfyGalleryEntry>): ComfyGalleryEntry => ({
   id: patch.id ?? "a",

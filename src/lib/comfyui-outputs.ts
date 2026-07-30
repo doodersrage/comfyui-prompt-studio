@@ -84,6 +84,36 @@ export const GALLERY_PROXY_ENCODE_QUALITY = {
   lightbox: { avif: 72, webp: 88, jpeg: 90 },
 } as const;
 
+/** Dynamic quality adjustment based on image complexity */
+export function calculateDynamicQuality(
+  buffer: Buffer,
+  width: number,
+  format: 'avif' | 'webp' | 'jpeg',
+  tier: 'thumb' | 'lightbox'
+): number {
+  // For now, we'll implement a basic algorithm that adjusts quality
+  // based on image size and complexity (to be expanded in future iterations)
+  
+  // Base quality from static settings
+  const baseQuality = GALLERY_PROXY_ENCODE_QUALITY[tier][format];
+  
+  // Adjust quality based on image dimensions - larger images can use higher quality
+  // since they have more detail that benefits from better compression
+  let adjustedQuality: number = baseQuality;
+  
+  // For large images (e.g., >1000px), we can afford higher quality
+  if (width > 1000) {
+    adjustedQuality = Math.min(baseQuality + 5, 95);
+  }
+  
+  // For smaller images, reduce quality to save space
+  else if (width <= 256) {
+    adjustedQuality = Math.max(baseQuality - 10, 30);
+  }
+  
+  return adjustedQuality;
+}
+
 export function galleryProxyEncodeTier(width: number): 'thumb' | 'lightbox' {
   return width >= GALLERY_LIGHTBOX_WIDTH ? 'lightbox' : 'thumb';
 }

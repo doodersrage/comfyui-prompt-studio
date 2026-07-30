@@ -6,7 +6,7 @@ import {
   extractWorkflowStackFingerprint,
   resolveModelStackFamily,
   scoreWorkflowStackForModel,
-} from "./workflow-stack-fingerprint.ts";
+} from "./workflow-stack-fingerprint";
 
 describe("workflow stack fingerprint", () => {
   it("classifies common loader filenames", () => {

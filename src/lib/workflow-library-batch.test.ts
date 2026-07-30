@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { optimizeAllWorkflowsInLibrary } from "./workflow-library-batch.ts";
+import { optimizeAllWorkflowsInLibrary } from "./workflow-library-batch";
 
 const TOKENS = {
   positive: "{{POSITIVE}}",
@@ -18,6 +18,9 @@ const TOKENS = {
   denoise: "{{DENOISE}}",
   inputImage: "{{INPUT_IMAGE}}",
   maskImage: "{{MASK_IMAGE}}",
+  initImage: "{{INIT_IMAGE}}",
+  videoFrames: "{{VIDEO_FRAMES}}",
+  videoFps: "{{VIDEO_FPS}}",
 };
 
 describe("workflow-library-batch", () => {

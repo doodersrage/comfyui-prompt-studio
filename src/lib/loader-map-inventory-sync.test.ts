@@ -7,7 +7,7 @@ import {
   matchInventoryFilenameNearMiss,
   syncLoaderMapsFromInventory,
   unetLoaderPlacementMessage,
-} from "./loader-map-inventory-sync.ts";
+} from "./loader-map-inventory-sync";
 
 describe("matchInventoryFilename", () => {
   it("prefers exact then stem matches", () => {

@@ -3,9 +3,9 @@ import { describe, it } from "node:test";
 import {
   auditLoraStackAtQueueTime,
   collectActiveLoraNodesInWorkflow,
-} from "./lora-stack-preflight.ts";
-import { buildWorkflowScaffoldForModel } from "./workflow-scaffold.ts";
-import { applyLoraStackToWorkflow } from "./lora-stack.ts";
+} from "./lora-stack-preflight";
+import { buildWorkflowScaffoldForModel } from "./workflow-scaffold";
+import { applyLoraStackToWorkflow } from "./lora-stack";
 
 describe("lora stack preflight", () => {
   it("collects active non-lightning lora loaders from workflow json", () => {

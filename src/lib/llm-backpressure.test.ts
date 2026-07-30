@@ -8,7 +8,7 @@ import {
   isLlmBusy,
   resetLlmInflightForTests,
   withLlmSlot,
-} from "./llm-backpressure.ts";
+} from "./llm-backpressure";
 
 describe("getLlmMaxInflight", () => {
   const original = process.env.LLM_MAX_INFLIGHT;

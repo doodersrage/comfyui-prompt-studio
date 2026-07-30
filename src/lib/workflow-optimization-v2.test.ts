@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyWorkflowNodeBindings } from "./workflow-apply-bindings.ts";
-import { patchSamplerParamsInWorkflow } from "./comfyui-config.ts";
-import { shouldSkipGlobalSamplerPatch } from "./workflow-enrich-markers.ts";
-import { inferLoadImageBinding } from "./workflow-load-image-bindings.ts";
-import { auditWorkflowNodeTypes } from "./workflow-node-type-audit.ts";
-import { runWorkflowPreflightSync } from "./workflow-preflight-sync.ts";
-import { diffWorkflowNodes } from "./workflow-diff.ts";
-import { enrichWorkflowGraph } from "./workflow-graph-enrich.ts";
-import { DEFAULT_POSITIVE_TOKEN, DEFAULT_NEGATIVE_TOKEN } from "./comfyui-config.ts";
+import { applyWorkflowNodeBindings } from "./workflow-apply-bindings";
+import { patchSamplerParamsInWorkflow } from "./comfyui-config";
+import { shouldSkipGlobalSamplerPatch } from "./workflow-enrich-markers";
+import { inferLoadImageBinding } from "./workflow-load-image-bindings";
+import { auditWorkflowNodeTypes } from "./workflow-node-type-audit";
+import { runWorkflowPreflightSync } from "./workflow-preflight-sync";
+import { diffWorkflowNodes } from "./workflow-diff";
+import { enrichWorkflowGraph } from "./workflow-graph-enrich";
+import { DEFAULT_POSITIVE_TOKEN, DEFAULT_NEGATIVE_TOKEN } from "./comfyui-config";
 
 describe("workflow optimization v2", () => {
   it("binds Qwen prompt-field encoders", () => {
@@ -97,6 +97,9 @@ describe("workflow optimization v2", () => {
         denoise: "{{DENOISE}}",
         inputImage: "{{INPUT_IMAGE}}",
         maskImage: "{{MASK_IMAGE}}",
+        initImage: "{{INIT_IMAGE}}",
+        videoFrames: "{{VIDEO_FRAMES}}",
+        videoFps: "{{VIDEO_FPS}}",
       },
       model: "flux-2-klein-9b",
     });
@@ -104,7 +107,8 @@ describe("workflow optimization v2", () => {
     const sampler = enriched.workflow["3"] as { inputs?: { model?: unknown[] } };
     const patchId = sampler.inputs?.model?.[0];
     assert.ok(typeof patchId === "string");
-    assert.ok(enriched.workflow[patchId]?.class_type?.includes("ModelSampling"));
+    const node = enriched.workflow[patchId] as { class_type?: unknown };
+    assert.ok(node.class_type && (node.class_type as string).includes("ModelSampling"));
   });
 
   it("maps third load image nodes for multi-ref edits", () => {

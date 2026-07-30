@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   applySessionLoraSelection,
   type LoraLibraryEntry,
-} from "./lora-stack.ts";
+} from "./lora-stack";
 import {
   formatModelLoraMap,
   parseModelLoraMap,
@@ -11,7 +11,7 @@ import {
   resolveLoraIdsForModelSelection,
   resolveModelDefaultLoraIds,
   setSessionLoraIdsForModel,
-} from "./model-lora-map.ts";
+} from "./model-lora-map";
 
 describe("model lora map", () => {
   it("parses and formats modelId=id1,id2 lines including empty values", () => {

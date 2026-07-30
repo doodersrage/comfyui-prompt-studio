@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolveDiffusersOutputPost } from "./diffusers-output-post.ts";
+import { resolveDiffusersOutputPost } from "./diffusers-output-post";
 
 describe("resolveDiffusersOutputPost", () => {
   it("skips Draft and followSettings", () => {

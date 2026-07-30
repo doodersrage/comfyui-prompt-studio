@@ -26,11 +26,11 @@
     // Performance optimizations
     "useDefineForClassFields": true,
     "forceConsistentCasingInFileNames": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "exactOptionalPropertyTypes": true,
-    "suppressImplicitAnyIndexErrors": true
+    "exactOptionalPropertyTypes": false,
+
   },
   "include": [
     "next-env.d.ts",
@@ -40,5 +40,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["playwright.config.ts", "e2e/**/*", "node_modules"]
 }

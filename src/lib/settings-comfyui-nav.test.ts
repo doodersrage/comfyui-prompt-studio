@@ -4,7 +4,7 @@ import {
   filterComfyUiSettingsSections,
   normalizeComfyUiSettingsSection,
   settingsComfyUiSectionHref,
-} from "./settings-comfyui-nav.ts";
+} from "./settings-comfyui-nav";
 
 describe("settings-comfyui-nav", () => {
   it("normalizes known section ids", () => {

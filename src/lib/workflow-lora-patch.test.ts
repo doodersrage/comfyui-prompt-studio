@@ -6,7 +6,7 @@ import {
   lightningLoraMatchesModel,
   loraNameImpliesLightning,
   patchLoraNodesInWorkflow,
-} from "./workflow-lora-patch.ts";
+} from "./workflow-lora-patch";
 
 describe("workflow-lora-patch", () => {
   it("patches unresolved lora placeholders", () => {

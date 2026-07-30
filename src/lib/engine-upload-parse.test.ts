@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseEngineUploadRequest } from "./engine-upload-parse.ts";
+import { parseEngineUploadRequest } from "./engine-upload-parse";
 
 describe("parseEngineUploadRequest", () => {
   it("accepts JSON data-URL uploads", async () => {

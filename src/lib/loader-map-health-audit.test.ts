@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { auditLoaderMapsAgainstComfyUi } from "./loader-map-health-audit.ts";
+import { auditLoaderMapsAgainstComfyUi } from "./loader-map-health-audit";
 
 describe("loader-map-health-audit", () => {
   it("flags checkpoint filenames missing from ComfyUI lists", () => {

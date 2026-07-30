@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyQueuePromptSteering } from "./queue-prompt-prep.ts";
+import { applyQueuePromptSteering } from "./queue-prompt-prep";
 
 describe("queue-prompt-prep Rapid AIO / Lightning", () => {
   it("keeps short negatives and anti-moiré cues for Rapid AIO without long positives", () => {

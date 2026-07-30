@@ -9,11 +9,11 @@ import {
   stripLightningHiresPass,
   stripLightningOutputPostProcess,
   workflowHasLoraLoader,
-} from "./workflow-lightning-queue.ts";
-import { applyWorkflowNodeBindings } from "./workflow-apply-bindings.ts";
-import { resolveLoaderPrecisionTier } from "./model-loader-precision.ts";
-import { patchModelSamplingInWorkflow } from "./model-sampling-patch.ts";
-import { patchSamplerParamsInWorkflow } from "./comfyui-config.ts";
+} from "./workflow-lightning-queue";
+import { applyWorkflowNodeBindings } from "./workflow-apply-bindings";
+import { resolveLoaderPrecisionTier } from "./model-loader-precision";
+import { patchModelSamplingInWorkflow } from "./model-sampling-patch";
+import { patchSamplerParamsInWorkflow } from "./comfyui-config";
 
 describe("workflow-lightning-queue", () => {
   it("keeps ModelSamplingAuraFlow for lightning models", () => {
@@ -900,7 +900,7 @@ describe("lightning queue precision and sampling", () => {
   });
   it("converts EmptyFlux2LatentImage to EmptySD3 and forces 1328 on Lightning prep", async () => {
     const { forceLightningLatentSizeInWorkflow, prepareLightningWorkflowForQueue } =
-      await import("./workflow-lightning-queue.ts");
+      await import("./workflow-lightning-queue");
     const workflow = {
       "1": {
         class_type: "UNETLoader",
@@ -959,9 +959,7 @@ describe("lightning queue precision and sampling", () => {
 
 describe("qwen edit reference image prep", () => {
   it("force-rewires stale encode links to Figure loaders", async () => {
-    const { ensureQwenEditReferenceImagesForImg2Img } = await import(
-      "./workflow-lightning-queue.ts"
-    );
+    const { ensureQwenEditReferenceImagesForImg2Img } = await import("./workflow-lightning-queue");
     const workflow = {
       "4": {
         class_type: "TextEncodeQwenImageEditPlus",
@@ -1009,9 +1007,7 @@ describe("qwen edit reference image prep", () => {
   });
 
   it("prepares refs for non-Lightning edit models", async () => {
-    const { prepareQwenEditReferenceImagesForQueue } = await import(
-      "./workflow-lightning-queue.ts"
-    );
+    const { prepareQwenEditReferenceImagesForQueue } = await import("./workflow-lightning-queue");
     const workflow = {
       "4": {
         class_type: "TextEncodeQwenImageEditPlus",
@@ -1038,9 +1034,7 @@ describe("qwen edit reference image prep", () => {
   });
 
   it("leaves non-edit models untouched", async () => {
-    const { prepareQwenEditReferenceImagesForQueue } = await import(
-      "./workflow-lightning-queue.ts"
-    );
+    const { prepareQwenEditReferenceImagesForQueue } = await import("./workflow-lightning-queue");
     const workflow = {
       "1": { class_type: "UNETLoader", inputs: { unet_name: "x.safetensors" } },
     };
@@ -1051,9 +1045,7 @@ describe("qwen edit reference image prep", () => {
   });
 
   it("forces Qwen VAE when Lightning graph still has Flux ae.safetensors", async () => {
-    const { prepareLightningWorkflowForQueue } = await import(
-      "./workflow-lightning-queue.ts"
-    );
+    const { prepareLightningWorkflowForQueue } = await import("./workflow-lightning-queue");
     const workflow = {
       "1": {
         class_type: "UNETLoader",
@@ -1103,9 +1095,7 @@ describe("qwen edit reference image prep", () => {
   });
 
   it("scales Compose refs to EmptyLatent size on Edit Lightning prep", async () => {
-    const { prepareLightningWorkflowForQueue } = await import(
-      "./workflow-lightning-queue.ts"
-    );
+    const { prepareLightningWorkflowForQueue } = await import("./workflow-lightning-queue");
     const workflow = {
       "1": {
         class_type: "UNETLoader",
@@ -1195,9 +1185,7 @@ describe("qwen edit reference image prep", () => {
   });
 
   it("keeps portrait EmptyLatent + center-crop ref scale on Edit Lightning Compose", async () => {
-    const { prepareLightningWorkflowForQueue } = await import(
-      "./workflow-lightning-queue.ts"
-    );
+    const { prepareLightningWorkflowForQueue } = await import("./workflow-lightning-queue");
     const workflow = {
       "1": {
         class_type: "UNETLoader",
@@ -1279,9 +1267,7 @@ describe("qwen edit reference image prep", () => {
   });
 
   it("replaces pack ImageScaleBy encode links with absolute latent ImageScale", async () => {
-    const { scaleQwenEditReferenceImagesToLatentSize } = await import(
-      "./workflow-lightning-queue.ts"
-    );
+    const { scaleQwenEditReferenceImagesToLatentSize } = await import("./workflow-lightning-queue");
     const workflow = {
       "4": {
         class_type: "TextEncodeQwenImageEditPlus",
@@ -1319,9 +1305,7 @@ describe("qwen edit reference image prep", () => {
   });
 
   it("prunes unused {{INPUT_IMAGE}} LoadImages after Compose ensure", async () => {
-    const { prepareQwenEditReferenceImagesForQueue } = await import(
-      "./workflow-lightning-queue.ts"
-    );
+    const { prepareQwenEditReferenceImagesForQueue } = await import("./workflow-lightning-queue");
     const workflow = {
       "4": {
         class_type: "TextEncodeQwenImageEditPlus",

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { inferLoadImageBinding } from "./workflow-load-image-bindings.ts";
-import { auditLoaderFilenamesInWorkflow } from "./workflow-loader-filename-audit.ts";
-import { applyWorkflowNodeBindings } from "./workflow-apply-bindings.ts";
-import { suggestWorkflowNodeMappings } from "./workflow-node-mapper.ts";
-import { buildControlNetWorkflowScaffold } from "./workflow-scaffold.ts";
-import { parseComfyObjectInfoModelLists } from "./comfyui-object-info.ts";
+import { inferLoadImageBinding } from "./workflow-load-image-bindings";
+import { auditLoaderFilenamesInWorkflow } from "./workflow-loader-filename-audit";
+import { applyWorkflowNodeBindings } from "./workflow-apply-bindings";
+import { suggestWorkflowNodeMappings } from "./workflow-node-mapper";
+import { buildControlNetWorkflowScaffold } from "./workflow-scaffold";
+import { parseComfyObjectInfoModelLists } from "./comfyui-object-info";
 
 describe("workflow-load-image-bindings", () => {
   it("maps control-titled LoadImage to controlImage", () => {

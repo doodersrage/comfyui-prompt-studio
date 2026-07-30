@@ -5,7 +5,7 @@ import {
   applyRenderRealismToNegative,
   applyRenderRealismToPositive,
   normalizeRenderRealismMode,
-} from "./render-realism.ts";
+} from "./render-realism";
 
 describe("render realism", () => {
   it("normalizes realism mode values", () => {

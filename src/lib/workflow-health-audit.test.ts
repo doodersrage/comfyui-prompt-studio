@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   auditWorkflowLibraryHealth,
   summarizeWorkflowLibraryHealth,
-} from "./workflow-health-audit.ts";
+} from "./workflow-health-audit";
 
 describe("workflow-health-audit", () => {
   it("flags unresolved loader placeholders as errors", () => {
@@ -13,6 +13,7 @@ describe("workflow-health-audit", () => {
           id: "wf-1",
           name: "Test workflow",
           workflowJson: '{"1":{"class_type":"CheckpointLoaderSimple","inputs":{"ckpt_name":"{{CHECKPOINT}}"}}}',
+          createdAt: 1753843200000,
         },
       ],
     });
@@ -40,6 +41,7 @@ describe("workflow-health-audit", () => {
           name: "Fresh import",
           workflowJson:
             '{"1":{"class_type":"CheckpointLoaderSimple","inputs":{"ckpt_name":"model.safetensors"}}}',
+          createdAt: 1753843200000,
         },
       ],
     });

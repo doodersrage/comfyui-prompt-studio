@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { modelsInSameFamily } from "./model-workflow-map.ts";
+import { modelsInSameFamily } from "./model-workflow-map";
 
 describe("modelsInSameFamily", () => {
   it("returns Lightning siblings for vanilla 2512", () => {

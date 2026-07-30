@@ -1025,24 +1025,42 @@ export default function GalleryCard({
                 </GalleryMenuGroup>
 
                 {(() => {
+                  // Simplified conditions for better readability
                   const canUpscaleFinal = showUpscaleFinal ?? showUpscaleActions;
                   const canUpscaleMax = showUpscaleMax ?? showUpscaleActions;
                   const canMoireFinal = showMoireCleanFinal ?? showMoireCleanActions;
                   const canMoireMax = showMoireCleanMax ?? showMoireCleanActions;
-                  const showEnhance =
-                    canUpscaleFinal ||
-                    canUpscaleMax ||
-                    showForceUpscaleMax ||
-                    showRefineAction ||
-                    (onSoftSecondPass && showSoftSecondPassAction) ||
-                    (onFaceDetail && showFaceDetailAction) ||
-                    (onMoireClean && (canMoireFinal || canMoireMax || showForceMoireCleanMax));
-                  if (!showEnhance) {
+                  
+                  // Direct checks for each action to reduce redundant conditions
+                  const shouldShowUpscaleFinal = canUpscaleFinal;
+                  const shouldShowUpscaleMax = canUpscaleMax;
+                  const shouldShowForceUpscaleMax = showForceUpscaleMax;
+                  const shouldShowSoftSecondPass = onSoftSecondPass && showSoftSecondPassAction;
+                  const shouldShowRefine = showRefineAction;
+                  const shouldShowFaceDetail = onFaceDetail && showFaceDetailAction;
+                  const shouldShowMoireFinal = onMoireClean && canMoireFinal;
+                  const shouldShowMoireMax = onMoireClean && canMoireMax;
+                  const shouldShowForceMoireCleanMax = onMoireClean && showForceMoireCleanMax;
+                  
+                  // Check if any enhance actions are available
+                  const hasEnhanceActions =
+                    shouldShowUpscaleFinal ||
+                    shouldShowUpscaleMax ||
+                    shouldShowForceUpscaleMax ||
+                    shouldShowSoftSecondPass ||
+                    shouldShowRefine ||
+                    shouldShowFaceDetail ||
+                    shouldShowMoireFinal ||
+                    shouldShowMoireMax ||
+                    shouldShowForceMoireCleanMax;
+                  
+                  if (!hasEnhanceActions) {
                     return null;
                   }
+                  
                   return (
                     <GalleryMenuGroup label="Enhance">
-                      {canUpscaleFinal ? (
+                      {shouldShowUpscaleFinal && (
                         <GalleryMenuButton
                           label="Upscale · native (Final)"
                           onClick={() => {
@@ -1050,8 +1068,8 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
-                      ) : null}
-                      {canUpscaleMax ? (
+                      )}
+                      {shouldShowUpscaleMax && (
                         <GalleryMenuButton
                           label="Upscale · polish (Max)"
                           onClick={() => {
@@ -1059,8 +1077,8 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
-                      ) : null}
-                      {showForceUpscaleMax ? (
+                      )}
+                      {shouldShowForceUpscaleMax && (
                         <GalleryMenuButton
                           label="Force Upscale · Max"
                           onClick={() => {
@@ -1068,8 +1086,8 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
-                      ) : null}
-                      {onSoftSecondPass && showSoftSecondPassAction ? (
+                      )}
+                      {shouldShowSoftSecondPass && (
                         <GalleryMenuButton
                           label="Soft second pass"
                           onClick={() => {
@@ -1077,8 +1095,8 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
-                      ) : null}
-                      {showRefineAction ? (
+                      )}
+                      {shouldShowRefine && (
                         <GalleryMenuButton
                           label="Refine · low denoise"
                           onClick={() => {
@@ -1086,8 +1104,8 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
-                      ) : null}
-                      {onFaceDetail && showFaceDetailAction ? (
+                      )}
+                      {shouldShowFaceDetail && (
                         <GalleryMenuButton
                           label="Face detail"
                           onClick={() => {
@@ -1095,8 +1113,8 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
-                      ) : null}
-                      {onMoireClean && canMoireFinal ? (
+                      )}
+                      {shouldShowMoireFinal && (
                         <GalleryMenuButton
                           label="Moiré · Final"
                           onClick={() => {
@@ -1104,8 +1122,8 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
-                      ) : null}
-                      {onMoireClean && canMoireMax ? (
+                      )}
+                      {shouldShowMoireMax && (
                         <GalleryMenuButton
                           label="Moiré · Max"
                           onClick={() => {
@@ -1113,8 +1131,8 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
-                      ) : null}
-                      {onMoireClean && showForceMoireCleanMax ? (
+                      )}
+                      {shouldShowForceMoireCleanMax && (
                         <GalleryMenuButton
                           label="Force Moiré · Max"
                           onClick={() => {
@@ -1122,7 +1140,7 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
-                      ) : null}
+                      )}
                     </GalleryMenuGroup>
                   );
                 })()}

@@ -5,7 +5,7 @@ import {
   expandWildcardText,
   mergeWildcardMaps,
   parseWildcardListFile,
-} from "./wildcard-expand.ts";
+} from "./wildcard-expand";
 
 describe("wildcard list settings round-trip", () => {
   it("parses pasted list files and merges over defaults", () => {

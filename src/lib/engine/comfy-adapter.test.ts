@@ -5,8 +5,8 @@ import {
   diffusersEngineAdapter,
   getEngineAdapter,
   getEngineAdapterById,
-} from "./index.ts";
-import { buildDiffusersViewPath, buildEngineViewPath } from "./view-paths.ts";
+} from "./index";
+import { buildDiffusersViewPath, buildEngineViewPath } from "./view-paths";
 
 describe("engine adapter", () => {
   it("defaults to ComfyUI outside the browser", () => {

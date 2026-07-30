@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { flattenAppNavLinks } from "./app-nav-catalog.ts";
-import { resetBrowserStorageCache } from "./browser-storage.ts";
+import { flattenAppNavLinks } from "./app-nav-catalog";
+import { resetBrowserStorageCache } from "./browser-storage";
 import {
   loadCollapsibleOpen,
   saveCollapsibleOpen,
-} from "./collapsible-persist.ts";
+} from "./collapsible-persist";
 import {
   isNavFavorite,
   loadNavFavorites,
   saveNavFavorites,
   toggleNavFavorite,
-} from "./nav-favorites.ts";
+} from "./nav-favorites";
 
 function withMockLocalStorage(run: () => void): void {
   const storage = new Map<string, string>();

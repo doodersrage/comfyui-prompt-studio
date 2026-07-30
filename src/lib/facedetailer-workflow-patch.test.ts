@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildAutoFaceDetailerWorkflow,
   resolveFaceDetailerSamplerDefaults,
-} from "./facedetailer-workflow-patch.ts";
+} from "./facedetailer-workflow-patch";
 
 describe("facedetailer-workflow-patch", () => {
   it("uses model-aware FaceDetailer sampler defaults", () => {

@@ -8,7 +8,7 @@ import {
   normalizeTrainJobs,
   registerTrainJobLora,
   upsertTrainJob,
-} from "./lora-train-job.ts";
+} from "./lora-train-job";
 
 describe("normalizeTrainJob", () => {
   it("returns null without id", () => {

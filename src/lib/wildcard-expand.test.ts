@@ -7,7 +7,7 @@ import {
   mergeWildcardMaps,
   parseWildcardListFile,
   textHasWildcardTokens,
-} from "./wildcard-expand.ts";
+} from "./wildcard-expand";
 
 describe("createDeterministicRandom", () => {
   it("produces the same sequence for the same seed", () => {

@@ -37,10 +37,9 @@ describe("suggestMergeChoice", () => {
   it("prefers server when local is empty", () => {
     assert.equal(
       suggestMergeChoice({
-        namespace: "comfy-gallery",
         localCount: 0,
         serverCount: 4,
-      }),
+      } as const),
       "server",
     );
   });
@@ -48,10 +47,9 @@ describe("suggestMergeChoice", () => {
   it("prefers local when server is empty", () => {
     assert.equal(
       suggestMergeChoice({
-        namespace: "prompt-history",
         localCount: 2,
         serverCount: 0,
-      }),
+      } as const),
       "local",
     );
   });
@@ -59,10 +57,9 @@ describe("suggestMergeChoice", () => {
   it("merges when both sides have data", () => {
     assert.equal(
       suggestMergeChoice({
-        namespace: "comfy-gallery",
         localCount: 3,
         serverCount: 5,
-      }),
+      } as const),
       "merge",
     );
   });

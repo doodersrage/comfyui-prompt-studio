@@ -5,7 +5,7 @@ import {
   galleryRefineDenoiseForEntry,
   galleryRefineDenoiseForProfile,
   softSecondPassDenoiseCap,
-} from "./gallery-output-refine.ts";
+} from "./gallery-output-refine";
 
 describe("gallery-output-refine", () => {
   it("uses lower denoise for final than max", () => {

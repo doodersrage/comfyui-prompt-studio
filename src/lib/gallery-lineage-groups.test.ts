@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { ComfyGalleryEntry } from "./comfyui-gallery.ts";
+import type { ComfyGalleryEntry } from "./comfyui-gallery";
 import {
   buildGalleryLineageGroups,
   galleryLineageGroupingEnabled,
-} from "./gallery-lineage-groups.ts";
+} from "./gallery-lineage-groups";
 
 function entry(
   id: string,

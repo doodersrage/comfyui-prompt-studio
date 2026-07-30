@@ -13,7 +13,7 @@ import {
   formatSuggestedLoaderMergeMessage,
   isVaeFilenameIncompatibleWithModel,
   suggestedVaeFilenameForModel,
-} from "./model-checkpoint-map.ts";
+} from "./model-checkpoint-map";
 
 describe("model checkpoint map", () => {
   it("parses and formats checkpoint map lines", () => {
@@ -180,9 +180,7 @@ describe("model checkpoint map", () => {
   });
 
   it("realigns queue params when client sent fp8 but workflow is bf16", async () => {
-    const { realignLoaderFilenamesToWorkflowPrecision } = await import(
-      "./model-checkpoint-map.ts"
-    );
+    const { realignLoaderFilenamesToWorkflowPrecision } = await import("./model-checkpoint-map");
     const workflow = {
       "1": {
         class_type: "UNETLoader",

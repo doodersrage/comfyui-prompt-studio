@@ -6,7 +6,7 @@ import {
   isFluxKleinModel,
   isQwenEditModel,
   resolveDenoiseForModel,
-} from "./model-denoise-defaults.ts";
+} from "./model-denoise-defaults";
 
 describe("model denoise defaults", () => {
   it("detects edit-capable models", () => {
@@ -67,7 +67,7 @@ describe("model denoise defaults", () => {
   });
 
   it("does not bump distilled Klein CFG on ReferenceLatent edit path", async () => {
-    const { resolveKleinEditCfg } = await import("./model-denoise-defaults.ts");
+    const { resolveKleinEditCfg } = await import("./model-denoise-defaults");
     assert.equal(
       resolveKleinEditCfg("flux-2-klein-9b-distilled", {
         tool: "compose",

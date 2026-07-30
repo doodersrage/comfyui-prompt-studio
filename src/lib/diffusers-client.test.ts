@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   DEFAULT_DIFFUSERS_API_URL,
   getDiffusersBaseUrl,
-} from "./diffusers-client.ts";
+} from "./diffusers-client";
 
 describe("diffusers-client", () => {
   it("defaults to local Diffusers port", () => {

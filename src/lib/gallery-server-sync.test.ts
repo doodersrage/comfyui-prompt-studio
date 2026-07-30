@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 import {
   filterOutDeletedGalleryEntries,
   mergeGalleryDeletedIds,
-} from "./gallery-deleted-ids.ts";
-import { mergeGalleryWithServer } from "./gallery-server-sync.ts";
+} from "./gallery-deleted-ids";
+import { mergeGalleryWithServer } from "./gallery-server-sync";
 
 function entry(id: string, queuedAt: number, completedAt?: number) {
   return { id, queuedAt, completedAt };

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { shouldRunServerScheduledBatch } from "./server-scheduled-batch.ts";
-import type { ScheduledBatchConfig } from "./scheduled-batch.ts";
+import { shouldRunServerScheduledBatch } from "./server-scheduled-batch";
+import type { ScheduledBatchConfig } from "./scheduled-batch";
 
 function baseConfig(overrides: Partial<ScheduledBatchConfig> = {}): ScheduledBatchConfig {
   return {

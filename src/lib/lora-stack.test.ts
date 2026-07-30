@@ -9,7 +9,7 @@ import {
   normalizeLoraLibraryEntry,
   resolveActiveLoraStack,
   type LoraLibraryEntry,
-} from "./lora-stack.ts";
+} from "./lora-stack";
 
 function makeEntry(overrides: Partial<LoraLibraryEntry> = {}): LoraLibraryEntry {
   return {
@@ -72,7 +72,7 @@ describe("lora filename suggestions", () => {
       suggestLoraLabelFromFilename,
       createLoraLibraryEntryFromFilename,
       uniqueLoraLibraryId,
-    } = await import("./lora-stack.ts");
+    } = await import("./lora-stack");
     assert.equal(
       suggestLoraIdFromFilename("styles/Portrait_Soft_v2.safetensors"),
       "portrait-soft-v2",
@@ -187,7 +187,7 @@ describe("resolveActiveLoraStack", () => {
 
 describe("applySessionLoraSelection", () => {
   it("leaves library unchanged when session ids are undefined", async () => {
-    const { applySessionLoraSelection } = await import("./lora-stack.ts");
+    const { applySessionLoraSelection } = await import("./lora-stack");
     const library = [
       makeEntry({ id: "a", enabled: true }),
       makeEntry({ id: "b", enabled: false, tokenValue: "b.safetensors" }),
@@ -199,9 +199,7 @@ describe("applySessionLoraSelection", () => {
   });
 
   it("enables only selected ids and disables auto-from-prompt", async () => {
-    const { applySessionLoraSelection, resolveActiveLoraStack } = await import(
-      "./lora-stack.ts"
-    );
+    const { applySessionLoraSelection, resolveActiveLoraStack } = await import("./lora-stack");
     const library = [
       makeEntry({
         id: "a",

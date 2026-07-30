@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { ComfyWorkflowFile } from "./comfyui-workflow-files.ts";
-import { DEFAULT_SHARED_SETTINGS } from "./settings-cache.ts";
+import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
+import { DEFAULT_SHARED_SETTINGS } from "./settings-cache";
 import {
   applySystemWorkflowToRuntime,
   buildSystemWorkflowQueueParams,
@@ -17,9 +17,9 @@ import {
   softBindScaffoldFromInventory,
   softRepairPackLoadersFromInventory,
   usesSystemWorkflowPath,
-} from "./system-workflow-runtime.ts";
-import { buildWorkflowScaffoldForModel } from "./workflow-scaffold.ts";
-import { scoreWorkflowGraphStructure } from "./workflow-category-defaults.ts";
+} from "./system-workflow-runtime";
+import { buildWorkflowScaffoldForModel } from "./workflow-scaffold";
+import { scoreWorkflowGraphStructure } from "./workflow-category-defaults";
 
 function fakeWorkflow(
   partial: Partial<ComfyWorkflowFile> & Pick<ComfyWorkflowFile, "id" | "name">,

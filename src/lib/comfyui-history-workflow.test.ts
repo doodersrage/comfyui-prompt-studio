@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   extractParamsFromWorkflow,
   listWorkflowNodeInputs,
-} from "./comfyui-history-workflow.ts";
+} from "./comfyui-history-workflow";
 
 describe("comfyui-history-workflow", () => {
   it("extracts seed, steps, cfg, width, and height from workflow nodes", () => {

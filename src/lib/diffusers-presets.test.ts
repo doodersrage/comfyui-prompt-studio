@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildDiffusersLightningPresets } from "./diffusers-presets.ts";
+import { buildDiffusersLightningPresets } from "./diffusers-presets";
 
 describe("diffusers-presets", () => {
   it("synthesizes Lightning-4/8 when base UNET and Lightning LoRAs exist", () => {

@@ -4,12 +4,12 @@ import {
   createDefaultRegionalSlots,
   normalizeRegionalPromptSlots,
   regionalSlotsToSegments,
-} from "./regional-prompt-slots.ts";
+} from "./regional-prompt-slots";
 import {
   applyRegionalEditToWorkflow,
   patchRegionalNodesInWorkflow,
   resolveRegionalEditHealth,
-} from "./workflow-regional-patch.ts";
+} from "./workflow-regional-patch";
 
 describe("regional prompt slots", () => {
   it("creates four default slots", () => {

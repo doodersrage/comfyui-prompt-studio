@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { isComfyQueueResponseOk } from "./comfyui-queue-request.ts";
+import { isComfyQueueResponseOk } from "./comfyui-queue-request";
 
 describe("isComfyQueueResponseOk", () => {
   it("accepts a single promptId", () => {

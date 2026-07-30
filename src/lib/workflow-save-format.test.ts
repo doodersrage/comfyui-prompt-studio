@@ -6,7 +6,7 @@ import {
   pickWebpSaveAdapter,
   resolveSaveFilenamePrefix,
   resolveWorkflowSaveFormat,
-} from "./workflow-save-format.ts";
+} from "./workflow-save-format";
 
 describe("workflow save format", () => {
   it("maps draft to webp when compact saves enabled", () => {

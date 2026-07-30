@@ -6,17 +6,17 @@ import "./queue-quality-profile.ts";
 import {
   SUGGESTED_TOOL_QUEUE_QUALITY_PROFILES,
   TOOL_QUEUE_QUALITY_OPTIONS,
-} from "./tool-quality-profiles.ts";
+} from "./tool-quality-profiles";
 import {
   mergeToolQualityRecipes,
   recipesForTool,
   SUGGESTED_TOOL_QUALITY_RECIPES,
-} from "./tool-quality-recipes.ts";
+} from "./tool-quality-recipes";
 import {
   resetComfyUiPoolStatsCacheForTests,
   resolveComfyUiUrlWithPool,
   setComfyUiPoolStatsCache,
-} from "./comfyui-pool.ts";
+} from "./comfyui-pool";
 
 describe("sprint5 video recipes", () => {
   it("includes video in tool quality options and suggested profile final", () => {

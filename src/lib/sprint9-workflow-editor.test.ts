@@ -5,7 +5,7 @@ import {
   listEditableWidgets,
   reactFlowToComfyApiWorkflow,
   updateWorkflowNodeWidget,
-} from "./workflow-react-flow.ts";
+} from "./workflow-react-flow";
 
 describe("workflow react flow round-trip", () => {
   it("converts API workflow to RF nodes/edges and back", () => {

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { resetBrowserStorageCache } from "./browser-storage.ts";
+import { resetBrowserStorageCache } from "./browser-storage";
 import {
   ensureAudioWorkflowScaffold,
   ensureMeshWorkflowScaffold,
-} from "./ensure-media-workflow.ts";
-import { buildWorkflowScaffoldForModel } from "./workflow-scaffold.ts";
-import { AUDIO_SECONDS_TOKEN, MESH_RESOLUTION_TOKEN } from "./audio-mesh-prompt.ts";
+} from "./ensure-media-workflow";
+import { buildWorkflowScaffoldForModel } from "./workflow-scaffold";
+import { AUDIO_SECONDS_TOKEN, MESH_RESOLUTION_TOKEN } from "./audio-mesh-prompt";
 
 function withMockLocalStorage(run: () => void): void {
   const storage = new Map<string, string>();

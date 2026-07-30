@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { formatQueueSizeQualityExplain } from "./queue-quality-profile.ts";
+import { formatQueueSizeQualityExplain } from "./queue-quality-profile";
 import {
   applyToolQualityRecipe,
   mergeToolQualityRecipes,
   recipesForTool,
   SUGGESTED_TOOL_QUALITY_RECIPES,
-} from "./tool-quality-recipes.ts";
+} from "./tool-quality-recipes";
 import {
   applySessionRecipeShared,
   buildSessionRecipeFromShared,
   normalizeSessionRecipe,
-} from "./session-recipes.ts";
+} from "./session-recipes";
 
 describe("formatQueueSizeQualityExplain", () => {
   it("describes Edit Lightning Compose Final with light Lanczos", () => {
@@ -59,7 +59,7 @@ describe("tool quality recipes", () => {
   });
 
   it("applies compose keeper onto shared settings", () => {
-    const next = applyToolQualityRecipe(
+    const next = applyToolQualityRecipe<import('./tool-quality-recipes').ToolQualityRecipeSharedSlice>(
       {
         model: "qwen-image-2512",
         queueQualityProfile: "draft",
@@ -95,7 +95,7 @@ describe("session recipes", () => {
     assert.equal(normalized?.toolId, "compose");
     assert.deepEqual(normalized?.shared.sessionActiveLoraIds, ["skin", "anypose"]);
 
-    const applied = applySessionRecipeShared(
+    const applied = applySessionRecipeShared<import('./session-recipes').SessionRecipeShared>(
       {
         model: "qwen-image-2512",
         queueQualityProfile: "draft",

@@ -6,7 +6,7 @@ import {
   COMFY_PREVIEW_IMAGE_JPEG,
   COMFY_PREVIEW_IMAGE_PNG,
   parseComfyPreviewBinary,
-} from "./comfyui-preview-binary.ts";
+} from "./comfyui-preview-binary";
 
 function buildPreviewFrame(
   imageType: number,

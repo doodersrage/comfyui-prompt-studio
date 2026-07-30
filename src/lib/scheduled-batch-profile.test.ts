@@ -5,7 +5,7 @@ import {
   mergeScheduledBatchProfile,
   normalizeScheduledBatchProfile,
   resolveScheduledBatchProfileFromEnv,
-} from "./scheduled-batch-profile.ts";
+} from "./scheduled-batch-profile";
 
 describe("normalizeScheduledBatchProfile", () => {
   it("fills in defaults for an empty profile", () => {

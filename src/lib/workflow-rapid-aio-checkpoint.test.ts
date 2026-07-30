@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import {
   maybeRewriteRapidAioWorkflowLoaders,
   rewriteQwenRapidAioUnetGraphToCheckpoint,
-} from "./workflow-rapid-aio-checkpoint.ts";
+} from "./workflow-rapid-aio-checkpoint";
 
 describe("Rapid AIO UNET → checkpoint rewrite", () => {
   it("rewrites UNET+CLIP+VAE graphs to CheckpointLoaderSimple", () => {

@@ -3,12 +3,12 @@ import { describe, it } from "node:test";
 import {
   DEFAULT_CONTROLNET_MODEL_TOKEN,
   DEFAULT_CONTROL_IMAGE_TOKEN,
-} from "./model-controlnet-map.ts";
+} from "./model-controlnet-map";
 import {
   findUnresolvedControlNetTokens,
   insertControlNetChainIfMissing,
-} from "./controlnet-workflow-patch.ts";
-import { patchControlNetInWorkflow } from "./workflow-direct-patch.ts";
+} from "./controlnet-workflow-patch";
+import { patchControlNetInWorkflow } from "./workflow-direct-patch";
 
 describe("insertControlNetChainIfMissing", () => {
   it("inserts LoadImage → loader → apply and rewires sampler conditioning", () => {

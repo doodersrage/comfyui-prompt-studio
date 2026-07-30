@@ -6,8 +6,8 @@ import {
   pickKleinUltraRealFromInventory,
   KLEIN_ULTRA_REAL_LORA_ID,
   KLEIN_ULTRA_REAL_STRENGTH,
-} from "./klein-ultra-real-lora.ts";
-import { enrichLoraLibraryForKleinBaseModel } from "./klein-realistic-detail-lora.ts";
+} from "./klein-ultra-real-lora";
+import { enrichLoraLibraryForKleinBaseModel } from "./klein-realistic-detail-lora";
 
 describe("klein ultra real lora", () => {
   it("matches Klein-trained ultra_real_v4 filenames only", () => {

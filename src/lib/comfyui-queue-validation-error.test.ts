@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { formatComfyUiQueueValidationError } from "./comfyui-queue-validation-error.ts";
+import { formatComfyUiQueueValidationError } from "./comfyui-queue-validation-error";
 
 describe("formatComfyUiQueueValidationError", () => {
   it("summarizes unsupported qwen_image DualCLIP validation errors", () => {

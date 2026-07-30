@@ -8,8 +8,8 @@ import {
   loraDatasetImageExtension,
   sanitizeLoraDatasetSlug,
   selectLoraDatasetEntries,
-} from "./gallery-lora-dataset-export.ts";
-import type { ComfyGalleryEntry } from "./comfyui-gallery-entry.ts";
+} from "./gallery-lora-dataset-export";
+import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
 
 function makeEntry(overrides: Partial<ComfyGalleryEntry> = {}): ComfyGalleryEntry {
   return {

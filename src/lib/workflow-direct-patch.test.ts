@@ -10,10 +10,10 @@ import {
   patchUpscaleModelNodesInWorkflow,
   patchVideoImageToVideoWiringInWorkflow,
   patchWorkflowDirectParams,
-} from "./workflow-direct-patch.ts";
-import { DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN } from "./model-checkpoint-map.ts";
-import { DEFAULT_IPADAPTER_IMAGE_TOKEN, DEFAULT_IPADAPTER_STRENGTH_TOKEN } from "./ipadapter-workflow-patch.ts";
-import { buildWorkflowScaffoldForModel } from "./workflow-scaffold.ts";
+} from "./workflow-direct-patch";
+import { DEFAULT_UNET_TOKEN, DEFAULT_VAE_TOKEN } from "./model-checkpoint-map";
+import { DEFAULT_IPADAPTER_IMAGE_TOKEN, DEFAULT_IPADAPTER_STRENGTH_TOKEN } from "./ipadapter-workflow-patch";
+import { buildWorkflowScaffoldForModel } from "./workflow-scaffold";
 
 describe("workflow direct patch", () => {
   it("does not swap Qwen T2I UNET to Edit under fp8→bf16 precision align", () => {
@@ -408,7 +408,7 @@ describe("workflow direct patch", () => {
 
   it("skips direct patching when disabled via inject options", async () => {
     const { injectPromptsWithFallbacks, DEFAULT_WIDTH_TOKEN, DEFAULT_HEIGHT_TOKEN } =
-      await import("./comfyui-config.ts");
+      await import("./comfyui-config");
     const workflow = {
       "5": {
         class_type: "EmptyLatentImage",
@@ -434,6 +434,9 @@ describe("workflow direct patch", () => {
         denoise: "{{DENOISE}}",
         inputImage: "{{INPUT_IMAGE}}",
         maskImage: "{{MASK_IMAGE}}",
+        initImage: "{{INIT_IMAGE}}",
+        videoFrames: "{{VIDEO_FRAMES}}",
+        videoFps: "{{VIDEO_FPS}}",
       },
       { directWorkflowPatching: false },
     );

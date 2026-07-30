@@ -8,7 +8,7 @@ import {
   KLEIN_REALISTIC_DETAIL_LORA_ID,
   KLEIN_REALISTIC_DETAIL_STRENGTH,
   KLEIN_REALISTIC_DETAIL_TRIGGER,
-} from "./klein-realistic-detail-lora.ts";
+} from "./klein-realistic-detail-lora";
 
 describe("klein realistic detail lora", () => {
   it("matches Flux2 Klein Realistic Detail filenames", () => {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseAppTheme, resolveAppTheme } from "./theme-store.ts";
+import { parseAppTheme, resolveAppTheme } from "./theme-store";
 
 describe("theme-store", () => {
   it("parses auto / light / dark and defaults unknown to auto", () => {

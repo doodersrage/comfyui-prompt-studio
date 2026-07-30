@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { galleryEntryFromSidecar } from "./gallery-sidecar-entry.ts";
-import type { PromptSidecar } from "./prompt-sidecar.ts";
+import { galleryEntryFromSidecar } from "./gallery-sidecar-entry";
+import type { PromptSidecar } from "./prompt-sidecar";
 
 describe("gallery-sidecar-entry", () => {
   it("builds a pseudo gallery entry from sidecar output metadata", () => {
     const sidecar: PromptSidecar = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
       positive: "portrait in soft light",
       negative: "plastic skin",
       tool: "qwen-image",
@@ -28,6 +30,8 @@ describe("gallery-sidecar-entry", () => {
 
   it("returns null when sidecar has no output image or source URL", () => {
     const sidecar: PromptSidecar = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
       positive: "test",
       negative: "",
       tool: "qwen-image",

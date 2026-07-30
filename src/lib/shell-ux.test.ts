@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { resetBrowserStorageCache } from "./browser-storage.ts";
-import { loadRecentDestinations, pushRecentDestination } from "./recent-destinations.ts";
-import { isStudioTabId, studioTabHref, STUDIO_TABS, studioTabsForWorkspaceMode } from "./studio-nav.ts";
-import { loadUiDensity, saveUiDensity } from "./density-settings.ts";
-import { loadWorkspaceMode, saveWorkspaceMode } from "./workspace-mode.ts";
+import { resetBrowserStorageCache } from "./browser-storage";
+import { loadRecentDestinations, pushRecentDestination } from "./recent-destinations";
+import { isStudioTabId, studioTabHref, STUDIO_TABS, studioTabsForWorkspaceMode } from "./studio-nav";
+import { loadUiDensity, saveUiDensity } from "./density-settings";
+import { loadWorkspaceMode, saveWorkspaceMode } from "./workspace-mode";
 import {
   dismissAppToast,
   getAppToasts,
@@ -12,23 +12,23 @@ import {
   rememberToastPreference,
   toastBulkQueueSummary,
   toastQueueOutcome,
-} from "./app-toast.ts";
-import { loadToolContext, saveToolContext } from "./tool-context-memory.ts";
-import { resetUiChrome } from "./reset-ui-chrome.ts";
-import { loadNavFavorites } from "./nav-favorites.ts";
+} from "./app-toast";
+import { loadToolContext, saveToolContext } from "./tool-context-memory";
+import { resetUiChrome } from "./reset-ui-chrome";
+import { loadNavFavorites } from "./nav-favorites";
 import {
   loadLastToolRoute,
   resolveLandingRoute,
   saveLastToolRoute,
-} from "./last-tool-route.ts";
+} from "./last-tool-route";
 import {
   loadLastToolDraft,
   rememberToolDraft,
-} from "./tool-draft-memory.ts";
-import { rememberDraftFields } from "./remember-draft-fields.ts";
-import { resolveGenerateEmptyCta } from "./empty-cta.ts";
-import { isTransientProgressStatus, toneForStatusText } from "./status-progress.ts";
-import { saveNavFavorites } from "./nav-favorites.ts";
+} from "./tool-draft-memory";
+import { rememberDraftFields } from "./remember-draft-fields";
+import { resolveGenerateEmptyCta } from "./empty-cta";
+import { isTransientProgressStatus, toneForStatusText } from "./status-progress";
+import { saveNavFavorites } from "./nav-favorites";
 
 function withMockLocalStorage(run: () => void): void {
   const storage = new Map<string, string>();
