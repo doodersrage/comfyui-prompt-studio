@@ -1,20 +1,20 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { ChipButton } from "@/components/ui/Field";
-import { Button } from "@/components/ui/Button";
+import { useMemo, useState } from 'react';
+import { ChipButton } from '@/components/ui/Field';
+import { Button } from '@/components/ui/Button';
 import {
   formatQueueSizeQualityExplain,
   resolveQueueQualityProfile,
   type QueueQualityProfile,
-} from "@/lib/queue-quality-profile";
-import type { ResolutionOrientation, ResolutionSizeTier } from "@/lib/model-resolution-defaults";
+} from '@/lib/queue-quality-profile';
+import type { ResolutionOrientation, ResolutionSizeTier } from '@/lib/model-resolution-defaults';
 import {
   applyToolQualityRecipe,
   formatToolQualityRecipeHint,
   recipesForTool,
   type ToolQualityRecipe,
-} from "@/lib/tool-quality-recipes";
+} from '@/lib/tool-quality-recipes';
 import {
   applySessionRecipeShared,
   buildSessionRecipeFromShared,
@@ -23,17 +23,17 @@ import {
   loadSessionRecipes,
   pushSessionRecipe,
   type SessionRecipe,
-} from "@/lib/session-recipes";
+} from '@/lib/session-recipes';
 import {
   loadSettingsCache,
   saveSharedSettings,
   type SharedToolSettings,
-} from "@/lib/settings-cache";
+} from '@/lib/settings-cache';
 
 export function toolLikelyHasInputImage(toolId?: string): boolean {
   // Video I2V (init image) counts as an edit-with-image context for size explain.
   return /^(compose|refine|inpaint|outpaint|controlnet|imagePrompt|image-prompt|video)$/i.test(
-    toolId ?? "",
+    toolId ?? ''
   );
 }
 
@@ -43,7 +43,7 @@ type QueueRecipesPanelProps = {
   qualityProfile: QueueQualityProfile;
   orientation: ResolutionOrientation;
   sizeTier: ResolutionSizeTier;
-  systemWorkflowSource?: "pack" | "scaffold";
+  systemWorkflowSource?: 'pack' | 'scaffold';
   hasInputImage?: boolean;
   onApplied: (next: SharedToolSettings) => void;
 };
@@ -59,7 +59,7 @@ export default function QueueRecipesPanel({
   onApplied,
 }: QueueRecipesPanelProps) {
   const [sessionRecipes, setSessionRecipes] = useState<SessionRecipe[]>(() =>
-    typeof window === "undefined" ? [] : loadSessionRecipes(),
+    typeof window === 'undefined' ? [] : loadSessionRecipes()
   );
   const [status, setStatus] = useState<string | null>(null);
 
@@ -80,9 +80,7 @@ export default function QueueRecipesPanel({
         hasInputImage: hasInputImage ?? toolLikelyHasInputImage(toolId),
         systemWorkflowSource,
         // Edit packs historically shipped EmptyFlux2 — queue prep converts to EmptySD3.
-        latentConvertedFrom: /qwen-image-edit/i.test(shared.model)
-          ? "EmptyFlux2"
-          : undefined,
+        latentConvertedFrom: /qwen-image-edit/i.test(shared.model) ? 'EmptyFlux2' : undefined,
       }),
     [
       effectiveProfile,
@@ -92,12 +90,12 @@ export default function QueueRecipesPanel({
       sizeTier,
       systemWorkflowSource,
       toolId,
-    ],
+    ]
   );
 
   const recipes = useMemo(
     () => recipesForTool(shared.toolQualityRecipes ?? [], toolId),
-    [shared.toolQualityRecipes, toolId],
+    [shared.toolQualityRecipes, toolId]
   );
 
   function currentShared(): SharedToolSettings {
@@ -137,7 +135,7 @@ export default function QueueRecipesPanel({
 
   function handleDeleteSession(id: string) {
     setSessionRecipes(deleteSessionRecipe(id));
-    setStatus("Session snapshot removed");
+    setStatus('Session snapshot removed');
   }
 
   return (
@@ -156,7 +154,7 @@ export default function QueueRecipesPanel({
         <div className="space-y-1.5">
           <p className="type-caption text-cyan-200/70">Quality recipes</p>
           <div className="flex flex-wrap gap-1.5">
-            {recipes.map((recipe) => (
+            {recipes.map(recipe => (
               <ChipButton
                 key={recipe.id}
                 active={false}
@@ -189,7 +187,7 @@ export default function QueueRecipesPanel({
           </p>
         ) : (
           <ul className="space-y-1.5">
-            {sessionRecipes.slice(0, 5).map((recipe) => (
+            {sessionRecipes.slice(0, 5).map(recipe => (
               <li
                 key={recipe.id}
                 className="flex min-w-0 items-center gap-2 rounded-lg border border-zinc-800/70 bg-zinc-950/40 px-2 py-1.5"

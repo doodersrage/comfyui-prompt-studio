@@ -5,12 +5,12 @@ import {
   upscaleMethodForProfile,
   upscaleScaleForProfile,
   type QueueQualityProfile,
-} from "./queue-quality-profile";
+} from './queue-quality-profile';
 
 /** Output polish applied after Diffusers decode (mirrors Comfy ImageScaleBy enrich). */
 export type DiffusersOutputPost = {
   scale: number;
-  method: "lanczos" | "area" | "bilinear" | "bicubic";
+  method: 'lanczos' | 'area' | 'bilinear' | 'bicubic';
   /** Soft Gaussian before upscale — Diffusers Lightning rings harder than Comfy. */
   moireBlurSigma: number;
   /** Max-only mild bicubic↓ factor; 1 = skip resample restore. */
@@ -22,10 +22,7 @@ function isLightningStudioModel(model?: string): boolean {
 }
 
 function isVanillaQwenStudioModel(model?: string): boolean {
-  return Boolean(
-    model &&
-      (/^qwen-image-2512$/i.test(model) || /^qwen-image-2\.0$/i.test(model)),
-  );
+  return Boolean(model && (/^qwen-image-2512$/i.test(model) || /^qwen-image-2\.0$/i.test(model)));
 }
 
 /**
@@ -60,17 +57,17 @@ export function resolveDiffusersOutputPost(options: {
 
   // Diffusers Lightning: bicubic rings less than Lanczos on VAE screen-door;
   // keep Comfy's scale targets. Soft blur σ matches Rapid AIO Final/Max.
-  let method: DiffusersOutputPost["method"] = upscaleMethodForProfile(profile, {
+  let method: DiffusersOutputPost['method'] = upscaleMethodForProfile(profile, {
     model,
   });
   let moireBlurSigma = 0;
   let moireDownscale = 1;
   if (lightning) {
-    method = "bicubic";
-    moireBlurSigma = profile === "max" ? 0.5 : 0.4;
-    moireDownscale = profile === "max" ? 0.92 : 1;
+    method = 'bicubic';
+    moireBlurSigma = profile === 'max' ? 0.5 : 0.4;
+    moireDownscale = profile === 'max' ? 0.92 : 1;
   } else if (vanillaQwen) {
-    moireBlurSigma = profile === "max" ? 0.4 : 0.3;
+    moireBlurSigma = profile === 'max' ? 0.4 : 0.3;
   }
 
   return {

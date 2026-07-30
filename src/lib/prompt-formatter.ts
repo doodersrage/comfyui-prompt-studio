@@ -1,8 +1,8 @@
-import type { DetailLevel } from "./detail-level";
-import { getDetailLimits, normalizeDetailLevel } from "./detail-level";
-import { sanitizeQwenPrompt } from "./qwen-clarity";
-import { chatCompletion } from "./llm-client";
-import { isThinkingOnlyArtifact, stripPromptArtifacts } from "./prompt-cleanup";
+import type { DetailLevel } from './detail-level';
+import { getDetailLimits, normalizeDetailLevel } from './detail-level';
+import { sanitizeQwenPrompt } from './qwen-clarity';
+import { chatCompletion } from './llm-client';
+import { isThinkingOnlyArtifact, stripPromptArtifacts } from './prompt-cleanup';
 import {
   buildModelClarityAddendum,
   buildModelSystemPrompt,
@@ -11,13 +11,11 @@ import {
   getComfyModelDefinition,
   normalizeQwenModel,
   type ComfyImageModel,
-} from "./comfy-models";
-import {
-  enforcePromptShapeForProfile,
-} from "./prompt-shape";
-import { hasDistinctPeopleStructure } from "./distinct-people";
+} from './comfy-models';
+import { enforcePromptShapeForProfile } from './prompt-shape';
+import { hasDistinctPeopleStructure } from './distinct-people';
 
-export type FormatMode = "positive" | "negative";
+export type FormatMode = 'positive' | 'negative';
 
 export type FormatSettings = {
   model: ComfyImageModel;
@@ -31,7 +29,7 @@ export type FormatResult = {
   mode: FormatMode;
   model: ComfyImageModel;
   comfyNode: string;
-  provider: "llm" | "rules";
+  provider: 'llm' | 'rules';
   limits: {
     minChars?: number;
     maxChars: number;
@@ -45,24 +43,26 @@ export type FormatResult = {
 };
 
 const DEFAULT_FORMAT_SETTINGS: FormatSettings = {
-  model: "qwen-image-2512",
-  detail: "balanced",
-  mode: "positive",
+  model: 'qwen-image-2512',
+  detail: 'balanced',
+  mode: 'positive',
   smartFormat: true,
 };
 
 export function normalizeFormatSettings(
-  value?: Partial<Omit<FormatSettings, "model" | "detail">> & {
-    model?: string | ComfyImageModel;
-    detail?: string | DetailLevel;
-  } | null,
+  value?:
+    | (Partial<Omit<FormatSettings, 'model' | 'detail'>> & {
+        model?: string | ComfyImageModel;
+        detail?: string | DetailLevel;
+      })
+    | null
 ): FormatSettings {
   return {
     model: normalizeQwenModel(value?.model),
     detail: normalizeDetailLevel(value?.detail),
-    mode: value?.mode === "negative" ? "negative" : "positive",
+    mode: value?.mode === 'negative' ? 'negative' : 'positive',
     smartFormat:
-      typeof value?.smartFormat === "boolean"
+      typeof value?.smartFormat === 'boolean'
         ? value.smartFormat
         : DEFAULT_FORMAT_SETTINGS.smartFormat,
   };
@@ -72,65 +72,36 @@ function cleanDraft(raw: string): string {
   return stripPromptArtifacts(raw);
 }
 
-function applyModelStructure(
-  text: string,
-  settings: FormatSettings,
-  input: string,
-): string {
+function applyModelStructure(text: string, settings: FormatSettings, input: string): string {
   const profile = getComfyModelDefinition(settings.model).profile;
   return enforcePromptShapeForProfile(text, profile, settings.mode, input);
 }
 
-function shouldBalanceDistinctPeople(
-  input: string,
-  draft: string,
-  mode: FormatMode,
-): boolean {
-  if (mode !== "positive") {
+function shouldBalanceDistinctPeople(input: string, draft: string, mode: FormatMode): boolean {
+  if (mode !== 'positive') {
     return false;
   }
 
-  return (
-    hasDistinctPeopleStructure(input) || hasDistinctPeopleStructure(draft)
-  );
+  return hasDistinctPeopleStructure(input) || hasDistinctPeopleStructure(draft);
 }
 
-function finalizeFormattedPrompt(
-  raw: string,
-  input: string,
-  settings: FormatSettings,
-): string {
+function finalizeFormattedPrompt(raw: string, input: string, settings: FormatSettings): string {
   const cleaned = applyModelStructure(cleanDraft(raw), settings, input);
-  const distinctPeople = shouldBalanceDistinctPeople(
-    input,
-    cleaned,
-    settings.mode,
-  );
-  const sanitized = sanitizeQwenPrompt(
-    cleaned,
-    settings.detail,
-    input,
-    settings.model,
-    { enforceMinimum: false, distinctPeople },
-  );
-  return formatPromptForModel(
-    sanitized,
-    settings.model,
-    input,
-    settings.mode,
-  );
+  const distinctPeople = shouldBalanceDistinctPeople(input, cleaned, settings.mode);
+  const sanitized = sanitizeQwenPrompt(cleaned, settings.detail, input, settings.model, {
+    enforceMinimum: false,
+    distinctPeople,
+  });
+  return formatPromptForModel(sanitized, settings.model, input, settings.mode);
 }
 
-async function formatWithLlm(
-  input: string,
-  settings: FormatSettings,
-): Promise<string> {
+async function formatWithLlm(input: string, settings: FormatSettings): Promise<string> {
   const modelDef = getComfyModelDefinition(settings.model);
 
   const fluxNegativeNote =
-    settings.mode === "negative" && fluxIgnoresNegative(modelDef.profile)
-      ? "FLUX ignores negatives—phrase positively what must stay unchanged."
-      : "";
+    settings.mode === 'negative' && fluxIgnoresNegative(modelDef.profile)
+      ? 'FLUX ignores negatives—phrase positively what must stay unchanged.'
+      : '';
 
   const systemPrompt = `${buildModelSystemPrompt(settings.model, settings.mode)}
 
@@ -152,8 +123,8 @@ ${input}
 
   const content = await chatCompletion({
     messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage },
     ],
     temperature: 0.4,
     maxTokens: getDetailLimits(settings.detail, settings.model).maxTokens,
@@ -162,7 +133,7 @@ ${input}
 
   const cleaned = stripPromptArtifacts(content);
   if (!cleaned.trim() || isThinkingOnlyArtifact(cleaned)) {
-    throw new Error("LLM returned reasoning text instead of a prompt.");
+    throw new Error('LLM returned reasoning text instead of a prompt.');
   }
 
   return cleaned;
@@ -176,8 +147,8 @@ function buildFormatResult(
   prompt: string,
   input: string,
   settings: FormatSettings,
-  provider: FormatResult["provider"],
-  rawPrompt?: string,
+  provider: FormatResult['provider'],
+  rawPrompt?: string
 ): FormatResult {
   const limits = getDetailLimits(settings.detail, settings.model);
   const modelDef = getComfyModelDefinition(settings.model);
@@ -202,15 +173,15 @@ function buildFormatResult(
 
 export async function formatPrompt(
   input: string,
-  settings: FormatSettings = DEFAULT_FORMAT_SETTINGS,
+  settings: FormatSettings = DEFAULT_FORMAT_SETTINGS
 ): Promise<FormatResult> {
   const trimmed = input.trim();
   if (!trimmed) {
-    throw new Error("Input cannot be empty.");
+    throw new Error('Input cannot be empty.');
   }
 
   const normalized = normalizeFormatSettings(settings);
-  const llmEnabled = process.env.LLM_ENABLED !== "false";
+  const llmEnabled = process.env.LLM_ENABLED !== 'false';
   const useLlm = normalized.smartFormat && llmEnabled;
 
   if (useLlm) {
@@ -218,19 +189,19 @@ export async function formatPrompt(
       const llmOutput = await formatWithLlm(trimmed, normalized);
       const rawPrompt = cleanDraft(llmOutput).trim() || llmOutput.trim();
       const prompt = finalizeFormattedPrompt(llmOutput, trimmed, normalized);
-      return buildFormatResult(prompt, trimmed, normalized, "llm", rawPrompt);
+      return buildFormatResult(prompt, trimmed, normalized, 'llm', rawPrompt);
     } catch (error) {
-      const fallbackAllowed = process.env.ALLOW_TEMPLATE_FALLBACK !== "false";
+      const fallbackAllowed = process.env.ALLOW_TEMPLATE_FALLBACK !== 'false';
       if (!fallbackAllowed) {
-        throw error instanceof Error ? error : new Error("Formatting failed.");
+        throw error instanceof Error ? error : new Error('Formatting failed.');
       }
       console.warn(
-        "[prompt-formatter] LLM failed, using rules fallback:",
-        error instanceof Error ? error.message : error,
+        '[prompt-formatter] LLM failed, using rules fallback:',
+        error instanceof Error ? error.message : error
       );
     }
   }
 
   const prompt = formatWithRules(trimmed, normalized);
-  return buildFormatResult(prompt, trimmed, normalized, "rules");
+  return buildFormatResult(prompt, trimmed, normalized, 'rules');
 }

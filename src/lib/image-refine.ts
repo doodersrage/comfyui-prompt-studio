@@ -1,41 +1,40 @@
-import {
-  getComfyModelDefinition,
-  comfyModelLabel,
-} from "./comfy-models";
-import { getDetailLimits } from "./detail-level";
-import { visionCompletion } from "./llm-client";
-import { resolveRequestLlmEnabled, resolveRequestVisionModel } from "./llm-request-options";
-import { stripPromptArtifacts } from "./prompt-cleanup";
-import { formatPromptForModel, sanitizeQwenPrompt } from "./qwen-clarity";
-import { buildToolResult } from "./specialized/runner";
-import type { ImagePromptOptions, ToolGenerateResult } from "./specialized/types";
-import { enrichGenerateResult } from "./generation-diagnostics";
+import { getComfyModelDefinition, comfyModelLabel } from './comfy-models';
+import { getDetailLimits } from './detail-level';
+import { visionCompletion } from './llm-client';
+import { resolveRequestLlmEnabled, resolveRequestVisionModel } from './llm-request-options';
+import { stripPromptArtifacts } from './prompt-cleanup';
+import { formatPromptForModel, sanitizeQwenPrompt } from './qwen-clarity';
+import { buildToolResult } from './specialized/runner';
+import type { ImagePromptOptions, ToolGenerateResult } from './specialized/types';
+import { enrichGenerateResult } from './generation-diagnostics';
 
 export type RefinePromptOptions = Pick<
   ImagePromptOptions,
-  "model" | "detail" | "imageDataUrl" | "mimeType" | "llm"
+  'model' | 'detail' | 'imageDataUrl' | 'mimeType' | 'llm'
 > & {
   currentPrompt?: string;
   intentHints?: string;
 };
 
 export async function refineImagePrompt(
-  options: RefinePromptOptions,
-): Promise<ToolGenerateResult & { diagnostics: ReturnType<typeof enrichGenerateResult>["diagnostics"] }> {
+  options: RefinePromptOptions
+): Promise<
+  ToolGenerateResult & { diagnostics: ReturnType<typeof enrichGenerateResult>['diagnostics'] }
+> {
   if (!resolveRequestLlmEnabled(options.llm)) {
-    throw new Error("Image refine requires LLM_ENABLED=true.");
+    throw new Error('Image refine requires LLM_ENABLED=true.');
   }
 
   const visionModel =
     resolveRequestVisionModel(options.llm) ?? process.env.LLM_VISION_MODEL?.trim();
   if (!visionModel) {
-    throw new Error("LLM_VISION_MODEL is not set.");
+    throw new Error('LLM_VISION_MODEL is not set.');
   }
 
   const modelDef = getComfyModelDefinition(options.model);
   const limits = getDetailLimits(options.detail, options.model);
-  const intent = options.intentHints?.trim() ?? "";
-  const current = options.currentPrompt?.trim() ?? "";
+  const intent = options.intentHints?.trim() ?? '';
+  const current = options.currentPrompt?.trim() ?? '';
 
   const systemPrompt = `You refine ${comfyModelLabel(options.model)} image prompts for ComfyUI (${modelDef.comfyNode}).
 
@@ -49,12 +48,12 @@ Rules:
 - Output ONLY the finished prompt—no analysis or markdown.`;
 
   const userMessage = [
-    intent ? `User intent: ${intent}` : "Infer intent from the image.",
+    intent ? `User intent: ${intent}` : 'Infer intent from the image.',
     current ? `Current draft to improve:\n${current}` : null,
-    "Rewrite the prompt to better match intent while describing visible content.",
+    'Rewrite the prompt to better match intent while describing visible content.',
   ]
     .filter(Boolean)
-    .join("\n\n");
+    .join('\n\n');
 
   let content: string;
   try {
@@ -70,13 +69,13 @@ Rules:
     if (error instanceof RangeError) {
       const site =
         error.stack
-          ?.split("\n")
-          .map((line) => line.trim())
-          .find((line) => /prompt-cleanup|llm-client|image-refine|JSON|parse/i.test(line))
-        ?? error.stack?.split("\n")[1]?.trim()
-        ?? "unknown";
+          ?.split('\n')
+          .map(line => line.trim())
+          .find(line => /prompt-cleanup|llm-client|image-refine|JSON|parse/i.test(line)) ??
+        error.stack?.split('\n')[1]?.trim() ??
+        'unknown';
       throw new Error(
-        `Vision refine hit a call-stack limit while reading the model reply (${error.message} @ ${site}).`,
+        `Vision refine hit a call-stack limit while reading the model reply (${error.message} @ ${site}).`
       );
     }
     throw error;
@@ -88,7 +87,7 @@ Rules:
   } catch (error) {
     if (error instanceof RangeError) {
       // Fall back to a light cleanup so refine can still return a prompt.
-      cleaned = content.replace(/\s+/g, " ").trim();
+      cleaned = content.replace(/\s+/g, ' ').trim();
     } else {
       throw error;
     }
@@ -98,10 +97,10 @@ Rules:
     sanitizeQwenPrompt(cleaned, options.detail, intent, options.model),
     options.model,
     intent,
-    "positive",
+    'positive'
   );
 
-  const result = buildToolResult(prompt, "llm", options.model, options.detail, {
+  const result = buildToolResult(prompt, 'llm', options.model, options.detail, {
     metadata: {
       refined: true,
       intentHints: intent || null,

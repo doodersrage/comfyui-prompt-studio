@@ -5,12 +5,12 @@
  * enabled, and returns that same clientId for gallery registration/polling.
  */
 
-import { loadComfyUiSettings } from "./comfyui-settings";
+import { loadComfyUiSettings } from './comfyui-settings';
 import {
   createComfyUiClientId,
   openComfyPreviewSocketBeforeQueue,
   type ComfyUiWebSocketSubscription,
-} from "./comfyui-websocket";
+} from './comfyui-websocket';
 
 export type ComfyUiQueueRequestResult = {
   ok: boolean;
@@ -20,7 +20,7 @@ export type ComfyUiQueueRequestResult = {
   comfyUrl?: string;
   error?: string;
   workflowSource?: string;
-  engineId?: "comfyui" | "diffusers";
+  engineId?: 'comfyui' | 'diffusers';
   family?: string;
   raw: Record<string, unknown>;
   /** Call after registerComfyGalleryJob + scheduleComfyGalleryPoll. */
@@ -29,9 +29,9 @@ export type ComfyUiQueueRequestResult = {
 
 function resolveComfyUrlHint(body: Record<string, unknown>): string | undefined {
   const comfy = body.comfy;
-  if (comfy && typeof comfy === "object" && !Array.isArray(comfy)) {
+  if (comfy && typeof comfy === 'object' && !Array.isArray(comfy)) {
     const apiUrl = (comfy as { apiUrl?: unknown }).apiUrl;
-    if (typeof apiUrl === "string" && apiUrl.trim()) {
+    if (typeof apiUrl === 'string' && apiUrl.trim()) {
       return apiUrl.trim();
     }
   }
@@ -39,27 +39,20 @@ function resolveComfyUrlHint(body: Record<string, unknown>): string | undefined 
 }
 
 /** Pure success check for single-prompt and batch /api/comfyui responses. */
-export function isComfyQueueResponseOk(
-  responseOk: boolean,
-  raw: Record<string, unknown>,
-): boolean {
+export function isComfyQueueResponseOk(responseOk: boolean, raw: Record<string, unknown>): boolean {
   if (!responseOk) {
     return false;
   }
-  if (typeof raw.promptId === "string" && raw.promptId.trim()) {
+  if (typeof raw.promptId === 'string' && raw.promptId.trim()) {
     return true;
   }
   const batchResults = Array.isArray(raw.results)
     ? (raw.results as Array<{ promptId?: unknown }>)
     : undefined;
-  if (
-    batchResults?.some(
-      (entry) => typeof entry?.promptId === "string" && entry.promptId.trim(),
-    )
-  ) {
+  if (batchResults?.some(entry => typeof entry?.promptId === 'string' && entry.promptId.trim())) {
     return true;
   }
-  return typeof raw.queued === "number" && Number.isFinite(raw.queued) && raw.queued > 0;
+  return typeof raw.queued === 'number' && Number.isFinite(raw.queued) && raw.queued > 0;
 }
 
 /**
@@ -67,12 +60,11 @@ export function isComfyQueueResponseOk(
  * whenever the job will appear in the gallery.
  */
 export async function postComfyUiPrompt(
-  body: Record<string, unknown>,
+  body: Record<string, unknown>
 ): Promise<ComfyUiQueueRequestResult> {
   const settings = loadComfyUiSettings();
   const clientId =
-    (typeof body.clientId === "string" && body.clientId.trim()) ||
-    createComfyUiClientId();
+    (typeof body.clientId === 'string' && body.clientId.trim()) || createComfyUiClientId();
 
   let early: ComfyUiWebSocketSubscription | undefined;
   if (settings.useWebSocketProgress !== false) {
@@ -92,23 +84,21 @@ export async function postComfyUiPrompt(
   };
 
   try {
-    const response = await fetch("/api/comfyui", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const response = await fetch('/api/comfyui', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...body, clientId }),
     });
     const raw = (await response.json()) as Record<string, unknown>;
-    const promptId =
-      typeof raw.promptId === "string" ? raw.promptId : undefined;
+    const promptId = typeof raw.promptId === 'string' ? raw.promptId : undefined;
     const batchResults = Array.isArray(raw.results)
       ? (raw.results as Array<{ promptId?: unknown }>)
       : undefined;
     const firstBatchPromptId = batchResults?.find(
-      (entry) => typeof entry?.promptId === "string" && entry.promptId.trim(),
+      entry => typeof entry?.promptId === 'string' && entry.promptId.trim()
     )?.promptId as string | undefined;
     const previewPromptId = promptId ?? firstBatchPromptId;
-    const resolvedClientId =
-      (typeof raw.clientId === "string" && raw.clientId.trim()) || clientId;
+    const resolvedClientId = (typeof raw.clientId === 'string' && raw.clientId.trim()) || clientId;
 
     if (previewPromptId) {
       early?.setPromptId(previewPromptId);
@@ -120,16 +110,13 @@ export async function postComfyUiPrompt(
       promptId,
       clientId: resolvedClientId,
       comfyUrl:
-        (typeof raw.engineUrl === "string" && raw.engineUrl.trim()) ||
-        (typeof raw.comfyUrl === "string" ? raw.comfyUrl : undefined),
-      error: typeof raw.error === "string" ? raw.error : undefined,
-      workflowSource:
-        typeof raw.workflowSource === "string" ? raw.workflowSource : undefined,
+        (typeof raw.engineUrl === 'string' && raw.engineUrl.trim()) ||
+        (typeof raw.comfyUrl === 'string' ? raw.comfyUrl : undefined),
+      error: typeof raw.error === 'string' ? raw.error : undefined,
+      workflowSource: typeof raw.workflowSource === 'string' ? raw.workflowSource : undefined,
       engineId:
-        raw.engineId === "diffusers" || raw.engineId === "comfyui"
-          ? raw.engineId
-          : undefined,
-      family: typeof raw.family === "string" ? raw.family : undefined,
+        raw.engineId === 'diffusers' || raw.engineId === 'comfyui' ? raw.engineId : undefined,
+      family: typeof raw.family === 'string' ? raw.family : undefined,
       raw,
       releaseLiveSocket,
     };

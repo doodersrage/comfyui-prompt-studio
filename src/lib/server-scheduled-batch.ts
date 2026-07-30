@@ -1,10 +1,10 @@
-import { clampScheduledBatchConfig, type ScheduledBatchConfig } from "./scheduled-batch";
+import { clampScheduledBatchConfig, type ScheduledBatchConfig } from './scheduled-batch';
 import {
   mergeScheduledBatchProfile,
   normalizeScheduledBatchProfile,
   resolveScheduledBatchProfileFromEnv,
   type ScheduledBatchProfile,
-} from "./scheduled-batch-profile";
+} from './scheduled-batch-profile';
 
 type StoredScheduledBatch = {
   config?: ScheduledBatchConfig;
@@ -14,17 +14,17 @@ type StoredScheduledBatch = {
 };
 
 async function loadStored(): Promise<StoredScheduledBatch> {
-  const { isServerStorageEnabled, readServerStorage } = await import("./server-storage");
+  const { isServerStorageEnabled, readServerStorage } = await import('./server-storage');
   if (!isServerStorageEnabled()) {
     return {};
   }
-  return readServerStorage<StoredScheduledBatch>("scheduled-batch") ?? {};
+  return readServerStorage<StoredScheduledBatch>('scheduled-batch') ?? {};
 }
 
 async function saveStored(data: StoredScheduledBatch): Promise<void> {
-  const { isServerStorageEnabled, writeServerStorage } = await import("./server-storage");
+  const { isServerStorageEnabled, writeServerStorage } = await import('./server-storage');
   if (isServerStorageEnabled()) {
-    writeServerStorage("scheduled-batch", data);
+    writeServerStorage('scheduled-batch', data);
   }
 }
 
@@ -36,10 +36,10 @@ export async function loadServerScheduledBatchProfile(): Promise<ScheduledBatchP
 
 /** Persists a batch profile update from Settings Automation. No-ops (but still returns the normalized profile) when server storage is disabled. */
 export async function saveServerScheduledBatchProfile(
-  profile: Partial<ScheduledBatchProfile>,
+  profile: Partial<ScheduledBatchProfile>
 ): Promise<{ profile: ScheduledBatchProfile; persisted: boolean }> {
   const normalized = normalizeScheduledBatchProfile(profile);
-  const { isServerStorageEnabled } = await import("./server-storage");
+  const { isServerStorageEnabled } = await import('./server-storage');
   if (!isServerStorageEnabled()) {
     return { profile: normalized, persisted: false };
   }
@@ -55,24 +55,24 @@ export async function loadServerScheduledBatchStatus(): Promise<{
   persisted: boolean;
   enabled: boolean;
 }> {
-  const { isServerStorageEnabled } = await import("./server-storage");
+  const { isServerStorageEnabled } = await import('./server-storage');
   const stored = await loadStored();
   return {
     profile: mergeScheduledBatchProfile(resolveScheduledBatchProfileFromEnv(), stored.profile),
     lastRunAt: stored.lastRunAt,
     persisted: isServerStorageEnabled(),
-    enabled: process.env.SERVER_SCHEDULED_BATCH === "true",
+    enabled: process.env.SERVER_SCHEDULED_BATCH === 'true',
   };
 }
 
 /** Resolves the effective server scheduler config (enabled/interval from env, rest from the batch profile). */
 export async function resolveServerScheduledBatchConfig(
-  profile?: ScheduledBatchProfile,
+  profile?: ScheduledBatchProfile
 ): Promise<ScheduledBatchConfig> {
   const resolvedProfile = profile ?? (await loadServerScheduledBatchProfile());
-  const intervalMinutes = Number(process.env.SERVER_SCHEDULED_BATCH_INTERVAL_MIN ?? "60");
+  const intervalMinutes = Number(process.env.SERVER_SCHEDULED_BATCH_INTERVAL_MIN ?? '60');
   return clampScheduledBatchConfig({
-    enabled: process.env.SERVER_SCHEDULED_BATCH === "true",
+    enabled: process.env.SERVER_SCHEDULED_BATCH === 'true',
     intervalMinutes,
     target: resolvedProfile.target,
     count: resolvedProfile.count,
@@ -82,14 +82,14 @@ export async function resolveServerScheduledBatchConfig(
 }
 
 async function fetchJson<T>(path: string, body: unknown): Promise<T> {
-  const origin = process.env.PROMPT_API_URL?.trim() || "http://127.0.0.1:47832";
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const origin = process.env.PROMPT_API_URL?.trim() || 'http://127.0.0.1:47832';
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const token = process.env.PROMPT_API_TOKEN?.trim();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
   const response = await fetch(`${origin}${path}`, {
-    method: "POST",
+    method: 'POST',
     headers,
     body: JSON.stringify(body),
   });
@@ -100,7 +100,7 @@ async function fetchJson<T>(path: string, body: unknown): Promise<T> {
 }
 
 export async function runServerScheduledBatch(
-  configInput?: Partial<ScheduledBatchConfig>,
+  configInput?: Partial<ScheduledBatchConfig>
 ): Promise<{ prompts: string[]; queued: number }> {
   const profile = await loadServerScheduledBatchProfile();
   const baseConfig = await resolveServerScheduledBatchConfig(profile);
@@ -114,20 +114,17 @@ export async function runServerScheduledBatch(
   const model = profile.model;
   const detail = profile.detail;
 
-  if (config.target === "topics") {
-    const data = await fetchJson<{ results?: Array<{ prompt?: string }> }>(
-      "/api/topics/batch",
-      {
-        topics: Array.from({ length: config.count }, (_, index) =>
-          config.genre?.trim()
-            ? `${config.genre.trim()} scene ${index + 1}`
-            : `Scheduled scene ${index + 1}`,
-        ),
-        target: "generate",
-        model,
-        detail,
-      },
-    );
+  if (config.target === 'topics') {
+    const data = await fetchJson<{ results?: Array<{ prompt?: string }> }>('/api/topics/batch', {
+      topics: Array.from({ length: config.count }, (_, index) =>
+        config.genre?.trim()
+          ? `${config.genre.trim()} scene ${index + 1}`
+          : `Scheduled scene ${index + 1}`
+      ),
+      target: 'generate',
+      model,
+      detail,
+    });
     for (const entry of data.results ?? []) {
       if (entry.prompt?.trim()) {
         prompts.push(entry.prompt.trim());
@@ -135,7 +132,7 @@ export async function runServerScheduledBatch(
     }
   } else {
     for (let index = 0; index < config.count; index += 1) {
-      const data = await fetchJson<{ prompt?: string }>("/api/random-scene", {
+      const data = await fetchJson<{ prompt?: string }>('/api/random-scene', {
         model,
         detail,
         genre: config.genre?.trim() || undefined,
@@ -150,26 +147,26 @@ export async function runServerScheduledBatch(
 
   let queued = 0;
   if (config.autoQueueComfyUi && prompts.length > 0) {
-    const { queueBatchToComfyUi } = await import("./comfyui-client");
-    const { resolveQueueParams } = await import("./queue-params-settings");
+    const { queueBatchToComfyUi } = await import('./comfyui-client');
+    const { resolveQueueParams } = await import('./queue-params-settings');
     const paramsPerPrompt = prompts.map((_, index) =>
       resolveQueueParams({
         model,
-        tool: "scheduled-batch",
+        tool: 'scheduled-batch',
         base: { seed: String(Math.floor(Math.random() * 2 ** 32) + index) },
         qualityProfile: profile.qualityProfile,
-      }),
+      })
     );
     const batch = await queueBatchToComfyUi(
       prompts.map((prompt, index) => ({
         prompt,
         model,
         params: paramsPerPrompt[index],
-      })),
+      }))
     );
     queued = batch.queued;
 
-    const { appendServerGalleryEntries } = await import("./server-gallery-storage");
+    const { appendServerGalleryEntries } = await import('./server-gallery-storage');
     const queuedAt = Date.now();
     const entries = batch.results.flatMap((result, index) => {
       if (!result.ok || !result.promptId) {
@@ -179,14 +176,14 @@ export async function runServerScheduledBatch(
         {
           id: crypto.randomUUID(),
           promptId: result.promptId,
-          prompt: prompts[index] ?? "",
-          tool: "scheduled-batch",
+          prompt: prompts[index] ?? '',
+          tool: 'scheduled-batch',
           model,
           comfyUrl: result.comfyUrl,
           queueParams: paramsPerPrompt[index],
           queueQualityProfile: profile.qualityProfile,
-          status: "pending" as const,
-          statusMessage: "Queued via server scheduled batch",
+          status: 'pending' as const,
+          statusMessage: 'Queued via server scheduled batch',
           queuedAt,
           images: [],
         },
@@ -205,9 +202,9 @@ export async function notifyServerScheduledBatchComplete(result: {
   queued: number;
   ranked?: boolean;
 }): Promise<void> {
-  const { notifyBatchCompleted } = await import("./email/notifications");
+  const { notifyBatchCompleted } = await import('./email/notifications');
   await notifyBatchCompleted({
-    kind: "server-scheduled",
+    kind: 'server-scheduled',
     promptCount: result.prompts.length,
     queued: result.queued,
     ranked: result.ranked,
@@ -216,7 +213,7 @@ export async function notifyServerScheduledBatchComplete(result: {
 
 export async function shouldRunServerScheduledBatch(
   config: ScheduledBatchConfig,
-  now = Date.now(),
+  now = Date.now()
 ): Promise<boolean> {
   const configClamped = clampScheduledBatchConfig(config);
   if (!configClamped.enabled) {

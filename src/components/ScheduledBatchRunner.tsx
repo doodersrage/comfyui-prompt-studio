@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 import {
   loadScheduledBatchConfig,
   saveScheduledBatchConfig,
   shouldRunScheduledBatch,
-} from "@/lib/scheduled-batch";
+} from '@/lib/scheduled-batch';
 
 export default function ScheduledBatchRunner() {
   const runningRef = useRef(false);
@@ -24,31 +24,31 @@ export default function ScheduledBatchRunner() {
 
         runningRef.current = true;
         try {
-          const { loadSettingsCache } = await import("@/lib/settings-cache");
-          const { avoidedTokensRequestBody } = await import("@/lib/avoided-tokens");
-          const { resolveQueueNegativePrompt } = await import("@/lib/queue-negative");
-          const { resolveRuntimeForQueue } = await import("@/lib/comfyui-runtime-for-model");
-          const { resolveQueueParams } = await import("@/lib/queue-params-settings");
-          const { registerComfyGalleryJob } = await import("@/lib/comfyui-gallery-client");
-          const { scheduleComfyGalleryPoll } = await import("@/lib/comfyui-gallery-poller");
-          const { postComfyUiPrompt } = await import("@/lib/comfyui-queue-request");
-          const { registerScheduledBatchQueue } = await import("@/lib/scheduled-batch-tracker");
-          const { dispatchWebhook } = await import("@/lib/webhook-settings");
+          const { loadSettingsCache } = await import('@/lib/settings-cache');
+          const { avoidedTokensRequestBody } = await import('@/lib/avoided-tokens');
+          const { resolveQueueNegativePrompt } = await import('@/lib/queue-negative');
+          const { resolveRuntimeForQueue } = await import('@/lib/comfyui-runtime-for-model');
+          const { resolveQueueParams } = await import('@/lib/queue-params-settings');
+          const { registerComfyGalleryJob } = await import('@/lib/comfyui-gallery-client');
+          const { scheduleComfyGalleryPoll } = await import('@/lib/comfyui-gallery-poller');
+          const { postComfyUiPrompt } = await import('@/lib/comfyui-queue-request');
+          const { registerScheduledBatchQueue } = await import('@/lib/scheduled-batch-tracker');
+          const { dispatchWebhook } = await import('@/lib/webhook-settings');
 
           const { shared } = loadSettingsCache();
           const prompts: string[] = [];
 
-          if (config.target === "topics") {
-            const response = await fetch("/api/topics/batch", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+          if (config.target === 'topics') {
+            const response = await fetch('/api/topics/batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 topics: Array.from({ length: config.count }, (_, index) =>
                   config.genre?.trim()
                     ? `${config.genre.trim()} scene ${index + 1}`
-                    : `Scheduled scene ${index + 1}`,
+                    : `Scheduled scene ${index + 1}`
                 ),
-                target: "generate",
+                target: 'generate',
                 model: shared.model,
                 detail: shared.detail,
                 ...avoidedTokensRequestBody(),
@@ -66,9 +66,9 @@ export default function ScheduledBatchRunner() {
             }
           } else {
             for (let index = 0; index < config.count; index += 1) {
-              const response = await fetch("/api/random-scene", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+              const response = await fetch('/api/random-scene', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   model: shared.model,
                   detail: shared.detail,
@@ -89,22 +89,22 @@ export default function ScheduledBatchRunner() {
             const negativePrompt = await resolveQueueNegativePrompt({
               model: shared.model,
               hints: config.genre,
-              tool: "scheduled-batch",
+              tool: 'scheduled-batch',
             });
-            const { guardQueueQualityForVram } = await import("@/lib/vram-queue-guard");
-            const { maybeHoldMaxGenerateJobs } = await import("@/lib/held-max-queue");
-            const baseRuntime = resolveRuntimeForQueue(shared.model, "scheduled-batch");
+            const { guardQueueQualityForVram } = await import('@/lib/vram-queue-guard');
+            const { maybeHoldMaxGenerateJobs } = await import('@/lib/held-max-queue');
+            const baseRuntime = resolveRuntimeForQueue(shared.model, 'scheduled-batch');
             const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
             const runtime = vramGuard.runtime ?? baseRuntime;
             const paramsPerPrompt = prompts.map((_, index) =>
               resolveQueueParams({
                 model: shared.model,
-                tool: "scheduled-batch",
+                tool: 'scheduled-batch',
                 base: {
                   seed: String(Math.floor(Math.random() * 2 ** 32) + index),
                 },
                 qualityProfile: vramGuard.profile,
-              }),
+              })
             );
             const held = await maybeHoldMaxGenerateJobs({
               profile: vramGuard.profile,
@@ -112,7 +112,7 @@ export default function ScheduledBatchRunner() {
                 prompt,
                 negativePrompt,
                 model: shared.model,
-                tool: "scheduled-batch",
+                tool: 'scheduled-batch',
                 params: paramsPerPrompt[index],
                 comfy: runtime,
               })),
@@ -136,12 +136,12 @@ export default function ScheduledBatchRunner() {
                   }
                   queuedJobs += 1;
                   const comfyUrl =
-                    result.comfyUrl ?? data.comfyUrl ?? queued.comfyUrl ?? "http://127.0.0.1:8188";
+                    result.comfyUrl ?? data.comfyUrl ?? queued.comfyUrl ?? 'http://127.0.0.1:8188';
                   registerComfyGalleryJob({
                     promptId: result.promptId,
-                    prompt: prompts[index] ?? "",
+                    prompt: prompts[index] ?? '',
                     negativePrompt,
-                    tool: "scheduled-batch",
+                    tool: 'scheduled-batch',
                     model: shared.model,
                     comfyUrl,
                     clientId: queued.clientId,
@@ -161,8 +161,8 @@ export default function ScheduledBatchRunner() {
 
           saveScheduledBatchConfig({ ...config, lastRunAt: Date.now() });
           void dispatchWebhook({
-            event: "scheduled.batch.run",
-            tool: "scheduled-batch",
+            event: 'scheduled.batch.run',
+            tool: 'scheduled-batch',
             model: shared.model,
             queued: prompts.length,
             completedAt: Date.now(),

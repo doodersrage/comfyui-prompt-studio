@@ -1,12 +1,12 @@
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-export const SCHEDULED_BATCH_KEY = "comfy-scheduled-batch-v1";
+export const SCHEDULED_BATCH_KEY = 'comfy-scheduled-batch-v1';
 
 export type ScheduledBatchConfig = {
   enabled: boolean;
   intervalMinutes: number;
   lastRunAt?: number;
-  target: "random-scene" | "topics";
+  target: 'random-scene' | 'topics';
   count: number;
   autoQueueComfyUi: boolean;
   genre?: string;
@@ -15,7 +15,7 @@ export type ScheduledBatchConfig = {
 export const DEFAULT_SCHEDULED_BATCH: ScheduledBatchConfig = {
   enabled: false,
   intervalMinutes: 60,
-  target: "random-scene",
+  target: 'random-scene',
   count: 3,
   autoQueueComfyUi: false,
 };
@@ -24,16 +24,14 @@ const MAX_SCHEDULED_COUNT = 12;
 const MIN_INTERVAL_MINUTES = 5;
 const MAX_INTERVAL_MINUTES = 24 * 60;
 
-export function clampScheduledBatchConfig(
-  config: ScheduledBatchConfig,
-): ScheduledBatchConfig {
+export function clampScheduledBatchConfig(config: ScheduledBatchConfig): ScheduledBatchConfig {
   const count = Number.isFinite(config.count)
     ? Math.min(MAX_SCHEDULED_COUNT, Math.max(1, Math.floor(config.count)))
     : DEFAULT_SCHEDULED_BATCH.count;
   const intervalMinutes = Number.isFinite(config.intervalMinutes)
     ? Math.min(
         MAX_INTERVAL_MINUTES,
-        Math.max(MIN_INTERVAL_MINUTES, Math.floor(config.intervalMinutes)),
+        Math.max(MIN_INTERVAL_MINUTES, Math.floor(config.intervalMinutes))
       )
     : DEFAULT_SCHEDULED_BATCH.intervalMinutes;
 
@@ -42,14 +40,14 @@ export function clampScheduledBatchConfig(
     ...config,
     count,
     intervalMinutes,
-    target: config.target === "topics" ? "topics" : "random-scene",
+    target: config.target === 'topics' ? 'topics' : 'random-scene',
     autoQueueComfyUi: Boolean(config.autoQueueComfyUi),
     enabled: Boolean(config.enabled),
   };
 }
 
 export function loadScheduledBatchConfig(): ScheduledBatchConfig {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return DEFAULT_SCHEDULED_BATCH;
   }
   try {
@@ -67,7 +65,7 @@ export function loadScheduledBatchConfig(): ScheduledBatchConfig {
 }
 
 export function saveScheduledBatchConfig(config: ScheduledBatchConfig): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(SCHEDULED_BATCH_KEY, clampScheduledBatchConfig(config));

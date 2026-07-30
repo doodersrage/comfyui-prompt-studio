@@ -13,8 +13,8 @@ export class LlmBusyError extends Error {
   readonly retryAfterSeconds: number;
 
   constructor(retryAfterSeconds = 2) {
-    super("The LLM is busy handling other requests. Please retry shortly.");
-    this.name = "LlmBusyError";
+    super('The LLM is busy handling other requests. Please retry shortly.');
+    this.name = 'LlmBusyError';
     this.retryAfterSeconds = retryAfterSeconds;
   }
 }

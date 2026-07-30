@@ -6,23 +6,23 @@ export type StorageNamespaceConflict = {
   serverCount?: number;
 };
 
-export type MergeChoice = "local" | "server" | "merge";
+export type MergeChoice = 'local' | 'server' | 'merge';
 
 /** Ignore routine skew from in-flight auto-push / clock jitter. */
 const CONFLICT_SKEW_MS = 60_000;
 
 export function suggestMergeChoice(
-  conflict: Pick<StorageNamespaceConflict, "localCount" | "serverCount">,
+  conflict: Pick<StorageNamespaceConflict, 'localCount' | 'serverCount'>
 ): MergeChoice {
   const localCount = conflict.localCount ?? 0;
   const serverCount = conflict.serverCount ?? 0;
   if (localCount <= 0 && serverCount > 0) {
-    return "server";
+    return 'server';
   }
   if (serverCount <= 0 && localCount > 0) {
-    return "local";
+    return 'local';
   }
-  return "merge";
+  return 'merge';
 }
 
 export function detectStorageConflicts(input: {
@@ -61,11 +61,7 @@ export function detectStorageConflicts(input: {
     }
 
     // Both sides have data (counts > 0); still guard nulls for the typechecker.
-    if (
-      local &&
-      server &&
-      Math.abs(localTime - serverTime) > CONFLICT_SKEW_MS
-    ) {
+    if (local && server && Math.abs(localTime - serverTime) > CONFLICT_SKEW_MS) {
       conflicts.push({
         namespace: entry.namespace,
         localUpdatedAt: localTime,
@@ -81,7 +77,7 @@ export function detectStorageConflicts(input: {
 export function mergeArraysById<T extends { id: string }>(
   local: T[],
   server: T[],
-  pick: (localItem: T, serverItem: T) => T,
+  pick: (localItem: T, serverItem: T) => T
 ): T[] {
   const map = new Map<string, T>();
   for (const item of server) {
@@ -98,10 +94,7 @@ export function mergeArraysById<T extends { id: string }>(
   });
 }
 
-export function mergeSettingsCache<T extends Record<string, unknown>>(
-  local: T,
-  server: T,
-): T {
+export function mergeSettingsCache<T extends Record<string, unknown>>(local: T, server: T): T {
   return {
     ...server,
     ...local,

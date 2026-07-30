@@ -1,11 +1,11 @@
 export type WorkflowNodeTypeIssue = {
-  severity: "error" | "warn";
+  severity: 'error' | 'warn';
   message: string;
 };
 
 export function listWorkflowClassTypes(
   workflowJson?: string,
-  workflow?: Record<string, unknown> | null,
+  workflow?: Record<string, unknown> | null
 ): string[] {
   let graph = workflow ?? null;
   if (!graph) {
@@ -21,7 +21,7 @@ export function listWorkflowClassTypes(
 
   const types = new Set<string>();
   for (const node of Object.values(graph)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
     const classType = (node as { class_type?: string }).class_type?.trim();
@@ -50,7 +50,7 @@ export function auditWorkflowNodeTypes(input: {
   for (const classType of listWorkflowClassTypes(input.workflowJson, input.workflow)) {
     if (!known.has(classType)) {
       issues.push({
-        severity: "error",
+        severity: 'error',
         message: `Workflow node type “${classType}” is not installed in ComfyUI — install the custom node pack or pick a different workflow.`,
       });
     }

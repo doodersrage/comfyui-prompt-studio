@@ -3,21 +3,21 @@ import {
   filterAvoidedCandidatesFromList,
   promptContainsAvoidedTokensFromList,
   tokenizeForAvoidance,
-} from "./avoidance-options";
-import { readBrowserValue, removeBrowserKey, writeBrowserValue } from "./browser-storage";
+} from './avoidance-options';
+import { readBrowserValue, removeBrowserKey, writeBrowserValue } from './browser-storage';
 
-export const AVOIDED_TOKENS_KEY = "comfy-prompt-avoided-tokens-v1";
-export const AVOIDED_TOKENS_UPDATED_EVENT = "avoided-tokens-updated";
+export const AVOIDED_TOKENS_KEY = 'comfy-prompt-avoided-tokens-v1';
+export const AVOIDED_TOKENS_UPDATED_EVENT = 'avoided-tokens-updated';
 
 const MAX_AVOIDED_TOKENS = 80;
 
 function persistAvoidedTokens(tokens: Iterable<string>): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
-  const list = [...new Set([...tokens].map((token) => token.trim().toLowerCase()).filter(Boolean))].slice(
-    -MAX_AVOIDED_TOKENS,
-  );
+  const list = [
+    ...new Set([...tokens].map(token => token.trim().toLowerCase()).filter(Boolean)),
+  ].slice(-MAX_AVOIDED_TOKENS);
   writeBrowserValue(AVOIDED_TOKENS_KEY, list);
   window.dispatchEvent(new CustomEvent(AVOIDED_TOKENS_UPDATED_EVENT));
 }
@@ -58,7 +58,7 @@ export function removeAvoidedToken(token: string): void {
 }
 
 export function clearAvoidedTokens(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   removeBrowserKey(AVOIDED_TOKENS_KEY);
@@ -66,7 +66,7 @@ export function clearAvoidedTokens(): void {
 }
 
 export function loadAvoidedTokens(): Set<string> {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return new Set();
   }
   try {
@@ -80,11 +80,11 @@ export function loadAvoidedTokens(): Set<string> {
   }
 }
 
-export function downloadAvoidedTokensExport(filename = "avoided-tokens.json"): void {
+export function downloadAvoidedTokensExport(filename = 'avoided-tokens.json'): void {
   const payload = exportAvoidedTokensJson();
-  const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+  const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
@@ -99,20 +99,20 @@ export function exportAvoidedTokensJson(): string {
       tokens: exportAvoidedTokenList(),
     },
     null,
-    2,
+    2
   );
 }
 
-export function importAvoidedTokensJson(raw: string, mode: "merge" | "replace" = "merge"): number {
+export function importAvoidedTokensJson(raw: string, mode: 'merge' | 'replace' = 'merge'): number {
   const parsed = JSON.parse(raw) as { tokens?: unknown };
   if (!Array.isArray(parsed.tokens)) {
-    throw new Error("Invalid avoided tokens file.");
+    throw new Error('Invalid avoided tokens file.');
   }
   const tokens = parsed.tokens
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim().toLowerCase())
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim().toLowerCase())
     .filter(Boolean);
-  if (mode === "replace") {
+  if (mode === 'replace') {
     saveAvoidedTokens(tokens);
     return tokens.length;
   }
@@ -120,7 +120,7 @@ export function importAvoidedTokensJson(raw: string, mode: "merge" | "replace" =
 }
 
 export function recordAvoidedTokensFromPrompt(prompt: string): void {
-  if (typeof window === "undefined" || !prompt.trim()) {
+  if (typeof window === 'undefined' || !prompt.trim()) {
     return;
   }
   const tokens = tokenizeForAvoidance(prompt).slice(0, 12);
@@ -135,7 +135,7 @@ export function recordAvoidedTokensFromGalleryEntry(input: {
   prompt: string;
   visionTags?: string[];
 }): number {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return 0;
   }
   const existing = loadAvoidedTokens();

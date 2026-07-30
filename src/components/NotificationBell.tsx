@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   loadNotifications,
   markAllNotificationsRead,
@@ -9,8 +9,8 @@ import {
   NOTIFICATIONS_UPDATED,
   unreadNotificationCount,
   type AppNotification,
-} from "@/lib/notification-center";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+} from '@/lib/notification-center';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -34,7 +34,7 @@ export default function NotificationBell() {
     <div className="relative">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => setOpen(value => !value)}
         className="relative rounded-full border border-zinc-700/80 bg-zinc-950/50 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-violet-500/30 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.98]"
       >
         Alerts
@@ -68,7 +68,7 @@ export default function NotificationBell() {
                 </p>
               </li>
             ) : (
-              items.slice(0, 20).map((item) => (
+              items.slice(0, 20).map(item => (
                 <li key={item.id} className="border-b border-zinc-900/80 last:border-0">
                   {item.href ? (
                     <Link
@@ -78,13 +78,15 @@ export default function NotificationBell() {
                         setOpen(false);
                         refresh();
                       }}
-                      className={`block px-3 py-2 text-xs transition hover:bg-zinc-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400/35 active:bg-zinc-900/80 ${item.read ? "text-zinc-500" : "text-zinc-200"}`}
+                      className={`block px-3 py-2 text-xs transition hover:bg-zinc-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400/35 active:bg-zinc-900/80 ${item.read ? 'text-zinc-500' : 'text-zinc-200'}`}
                     >
                       <p className="font-medium">{item.title}</p>
                       {item.body ? <p className="mt-0.5 text-zinc-500">{item.body}</p> : null}
                     </Link>
                   ) : (
-                    <div className={`px-3 py-2 text-xs ${item.read ? "text-zinc-500" : "text-zinc-200"}`}>
+                    <div
+                      className={`px-3 py-2 text-xs ${item.read ? 'text-zinc-500' : 'text-zinc-200'}`}
+                    >
                       <p className="font-medium">{item.title}</p>
                       {item.body ? <p className="mt-0.5 text-zinc-500">{item.body}</p> : null}
                     </div>

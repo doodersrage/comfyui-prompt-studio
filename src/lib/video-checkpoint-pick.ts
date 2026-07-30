@@ -1,34 +1,29 @@
-import { getComfyModelDefinition } from "./comfy-models/client";
-import {
-  SUGGESTED_MODEL_CHECKPOINT_MAP,
-} from "./model-checkpoint-map";
+import { getComfyModelDefinition } from './comfy-models/client';
+import { SUGGESTED_MODEL_CHECKPOINT_MAP } from './model-checkpoint-map';
 
 function exactInventoryMatch(
   preferred: string | undefined,
-  inventory: string[],
+  inventory: string[]
 ): string | undefined {
   const trimmed = preferred?.trim();
   if (!trimmed || inventory.length === 0) {
     return undefined;
   }
-  const exact = inventory.find((entry) => entry === trimmed);
+  const exact = inventory.find(entry => entry === trimmed);
   if (exact) {
     return exact;
   }
   const lower = trimmed.toLowerCase();
-  return inventory.find((entry) => entry.toLowerCase() === lower);
+  return inventory.find(entry => entry.toLowerCase() === lower);
 }
 
 /** Score WAN/Hunyuan/LTX candidates so 2.2 / Rapid AIO beat older 2.1 defaults. */
-export function scoreVideoWeightFilename(
-  model: string,
-  filename: string,
-): number {
+export function scoreVideoWeightFilename(model: string, filename: string): number {
   const lower = filename.toLowerCase();
   let score = 0;
-  if (model === "hunyuan-video") {
+  if (model === 'hunyuan-video') {
     if (/hunyuan|hy[-_]?video/.test(lower)) score += 100;
-  } else if (model === "ltx-video") {
+  } else if (model === 'ltx-video') {
     if (/ltx/.test(lower)) score += 100;
   } else if (/wan/.test(lower)) {
     score += 100;
@@ -54,43 +49,37 @@ export function scoreVideoWeightFilename(
 /** Prefer installed WAN/Hunyuan/LTX weights for the video scaffold loader. */
 export function pickVideoCheckpointFromInventory(
   model: string,
-  inventory: string[],
+  inventory: string[]
 ): string | undefined {
   if (inventory.length === 0) {
     return undefined;
   }
   const preferredPatterns =
-    model === "hunyuan-video"
+    model === 'hunyuan-video'
       ? [/hunyuan/i, /hy[-_]?video/i, /wan/i, /ltx/i]
-      : model === "ltx-video"
+      : model === 'ltx-video'
         ? [/ltx/i, /wan/i, /hunyuan/i]
         : [/wan/i, /hunyuan/i, /hy[-_]?video/i, /ltx/i];
 
-  const matched = inventory.filter((name) =>
-    preferredPatterns.some((pattern) => pattern.test(name)),
-  );
+  const matched = inventory.filter(name => preferredPatterns.some(pattern => pattern.test(name)));
   if (matched.length > 0) {
     return matched
       .slice()
-      .sort(
-        (a, b) =>
-          scoreVideoWeightFilename(model, b) - scoreVideoWeightFilename(model, a),
-      )[0];
+      .sort((a, b) => scoreVideoWeightFilename(model, b) - scoreVideoWeightFilename(model, a))[0];
   }
 
   const hinted =
-    getComfyModelDefinition(model)?.checkpointHint ??
-    SUGGESTED_MODEL_CHECKPOINT_MAP[model];
+    getComfyModelDefinition(model)?.checkpointHint ?? SUGGESTED_MODEL_CHECKPOINT_MAP[model];
   // Only return a suggested name when that exact weight is installed.
   return exactInventoryMatch(hinted, inventory);
 }
 
 export function isVideoCheckpointMapKey(model: string): boolean {
   return (
-    model === "wan-video" ||
-    model === "wan-video-rapid-aio" ||
-    model === "wan-video-lightning-4" ||
-    model === "hunyuan-video" ||
-    model === "ltx-video"
+    model === 'wan-video' ||
+    model === 'wan-video-rapid-aio' ||
+    model === 'wan-video-lightning-4' ||
+    model === 'hunyuan-video' ||
+    model === 'ltx-video'
   );
 }

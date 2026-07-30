@@ -1,101 +1,99 @@
-"use client";
+'use client';
 
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import InpaintMaskEditor from "@/components/InpaintMaskEditor";
-import RegionalEditPanel, {
-  regionalSlotsQueueExtras,
-} from "@/components/RegionalEditPanel";
-import SharedToolControls from "@/components/SharedToolControls";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import type { ComfyImageModel } from "@/lib/comfy-models/client";
-import type { WorkflowParamValues } from "@/lib/comfyui-config";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { buildInpaintInstruction } from "@/lib/regional-prompt-builder";
-import { isInpaintModel } from "@/lib/model-denoise-defaults";
-import { DEFAULT_INPAINT_TOOL_CACHE } from "@/lib/settings-cache";
-import { createDefaultRegionalSlots } from "@/lib/regional-prompt-slots";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import InpaintMaskEditor from '@/components/InpaintMaskEditor';
+import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
+import SharedToolControls from '@/components/SharedToolControls';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
+import type { WorkflowParamValues } from '@/lib/comfyui-config';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { buildInpaintInstruction } from '@/lib/regional-prompt-builder';
+import { isInpaintModel } from '@/lib/model-denoise-defaults';
+import { DEFAULT_INPAINT_TOOL_CACHE } from '@/lib/settings-cache';
+import { createDefaultRegionalSlots } from '@/lib/regional-prompt-slots';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+} from '@/components/ui/ToolPageShell';
+import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { PrimaryButton } from '@/components/ui/Button';
 
-const ACCENT = "amber" as const;
-const DEFAULT_INPAINT_MODEL: ComfyImageModel = "flux-inpaint";
+const ACCENT = 'amber' as const;
+const DEFAULT_INPAINT_MODEL: ComfyImageModel = 'flux-inpaint';
 
 export default function InpaintTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("inpaint", DEFAULT_INPAINT_TOOL_CACHE);
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'inpaint',
+    DEFAULT_INPAINT_TOOL_CACHE
+  );
   const modelInitializedRef = useRef(false);
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [maskFile, setMaskFile] = useState<File | null>(null);
   const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
-  const [handoffQueueParams, setHandoffQueueParams] = useState<
-    WorkflowParamValues | undefined
-  >();
-  const maskDescription = toolSettings.maskDescription ?? "";
-  const changeDescription = toolSettings.changeDescription ?? "";
-  const directPrompt = toolSettings.directPrompt ?? "";
+  const [handoffQueueParams, setHandoffQueueParams] = useState<WorkflowParamValues | undefined>();
+  const maskDescription = toolSettings.maskDescription ?? '';
+  const changeDescription = toolSettings.changeDescription ?? '';
+  const directPrompt = toolSettings.directPrompt ?? '';
   const setMaskDescription = useCallback(
     (value: string) => {
       updateToolSettings({ maskDescription: value });
       rememberDraftFields({
-        toolKey: "inpaint",
-        label: "Inpaint",
-        href: "/inpaint",
+        toolKey: 'inpaint',
+        label: 'Inpaint',
+        href: '/inpaint',
         fields: [value, changeDescription, directPrompt],
       });
     },
-    [changeDescription, directPrompt, updateToolSettings],
+    [changeDescription, directPrompt, updateToolSettings]
   );
   const setChangeDescription = useCallback(
     (value: string) => {
       updateToolSettings({ changeDescription: value });
       rememberDraftFields({
-        toolKey: "inpaint",
-        label: "Inpaint",
-        href: "/inpaint",
+        toolKey: 'inpaint',
+        label: 'Inpaint',
+        href: '/inpaint',
         fields: [maskDescription, value, directPrompt],
       });
     },
-    [directPrompt, maskDescription, updateToolSettings],
+    [directPrompt, maskDescription, updateToolSettings]
   );
   const setDirectPrompt = useCallback(
     (value: string) => {
       updateToolSettings({ directPrompt: value });
       rememberDraftFields({
-        toolKey: "inpaint",
-        label: "Inpaint",
-        href: "/inpaint",
+        toolKey: 'inpaint',
+        label: 'Inpaint',
+        href: '/inpaint',
         fields: [maskDescription, changeDescription, value],
       });
     },
-    [changeDescription, maskDescription, updateToolSettings],
+    [changeDescription, maskDescription, updateToolSettings]
   );
   useSeedToolDraft(mounted, {
-    toolKey: "inpaint",
-    label: "Inpaint",
-    href: "/inpaint",
+    toolKey: 'inpaint',
+    label: 'Inpaint',
+    href: '/inpaint',
     fields: [maskDescription, changeDescription, directPrompt],
   });
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const actions = usePromptResultActions({
-    tool: "inpaint",
+    tool: 'inpaint',
     model: shared.model,
     detail: shared.detail,
     hints: maskDescription || changeDescription,
@@ -116,19 +114,14 @@ export default function InpaintTool() {
     return changeDescription.trim();
   }, [changeDescription, directPrompt, maskDescription]);
 
-  const regionalSlots =
-    toolSettings.regionalSlots ?? createDefaultRegionalSlots();
-  const regionalQueue = useMemo(
-    () => regionalSlotsQueueExtras(regionalSlots),
-    [regionalSlots],
-  );
+  const regionalSlots = toolSettings.regionalSlots ?? createDefaultRegionalSlots();
+  const regionalQueue = useMemo(() => regionalSlotsQueueExtras(regionalSlots), [regionalSlots]);
 
   const queueImageOptions = {
     inputImage: file,
-    inputImageUrl: !file ? previewUrl ?? undefined : undefined,
+    inputImageUrl: !file ? (previewUrl ?? undefined) : undefined,
     maskImage: needsInpaintMask ? maskFile : undefined,
-    maskImageUrl:
-      needsInpaintMask && !maskFile ? maskPreviewUrl ?? undefined : undefined,
+    maskImageUrl: needsInpaintMask && !maskFile ? (maskPreviewUrl ?? undefined) : undefined,
     queueParamsBase: handoffQueueParams,
     customTokens: regionalQueue.customTokens,
     regionalSlots: regionalQueue.regionalSlots,
@@ -146,7 +139,7 @@ export default function InpaintTool() {
 
   const onMaskChange = useCallback((nextFile: File | null, nextPreviewUrl: string | null) => {
     setMaskFile(nextFile);
-    setMaskPreviewUrl((current) => {
+    setMaskPreviewUrl(current => {
       if (current && current !== nextPreviewUrl) {
         URL.revokeObjectURL(current);
       }
@@ -156,7 +149,7 @@ export default function InpaintTool() {
 
   const clearMaskState = useCallback(() => {
     setMaskFile(null);
-    setMaskPreviewUrl((current) => {
+    setMaskPreviewUrl(current => {
       if (current) {
         URL.revokeObjectURL(current);
       }
@@ -181,10 +174,10 @@ export default function InpaintTool() {
       }
       clearMaskState();
     },
-    [clearMaskState],
+    [clearMaskState]
   );
 
-  useGalleryHandoff("inpaint", (handoff) => {
+  useGalleryHandoff('inpaint', handoff => {
     applyGalleryHandoff(handoff);
     if (handoff.model && isInpaintModel(handoff.model)) {
       updateShared({ model: handoff.model as ComfyImageModel });
@@ -200,20 +193,20 @@ export default function InpaintTool() {
       setPreviewUrl(nextFile ? URL.createObjectURL(nextFile) : null);
       clearMaskState();
     },
-    [clearMaskState, previewUrl],
+    [clearMaskState, previewUrl]
   );
 
   const assertReadyToQueue = useCallback(() => {
     if (!previewUrl && !file) {
-      setError("Upload a source image first.");
+      setError('Upload a source image first.');
       return false;
     }
     if (!output.trim()) {
-      setError("Describe what belongs in the masked region.");
+      setError('Describe what belongs in the masked region.');
       return false;
     }
     if (needsInpaintMask && !maskFile && !maskPreviewUrl) {
-      setError("Draw or upload an inpaint mask before queueing.");
+      setError('Draw or upload an inpaint mask before queueing.');
       return false;
     }
     setError(null);
@@ -238,7 +231,7 @@ export default function InpaintTool() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
@@ -249,26 +242,22 @@ export default function InpaintTool() {
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={
-        <ToolBadge accent={ACCENT}>
-          Inpaint · {selectedModel.comfyNode}
-        </ToolBadge>
-      }
+      badge={<ToolBadge accent={ACCENT}>Inpaint · {selectedModel.comfyNode}</ToolBadge>}
       title="FLUX Inpaint"
       description={
         <>
-          Upload a source image, paint the edit region, and describe what belongs inside the
-          mask only. Queue uses <code>{`{{INPUT_IMAGE}}`}</code> and{" "}
-          <code>{`{{MASK_IMAGE}}`}</code> when your workflow is bound.
+          Upload a source image, paint the edit region, and describe what belongs inside the mask
+          only. Queue uses <code>{`{{INPUT_IMAGE}}`}</code> and <code>{`{{MASK_IMAGE}}`}</code> when
+          your workflow is bound.
         </>
       }
       sidebar={
         <SharedToolControls
           toolId="inpaint"
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           recommendFromText={output || changeDescription || maskDescription}
         />
       }
@@ -278,11 +267,15 @@ export default function InpaintTool() {
         <input
           type="file"
           accept="image/*"
-          onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
+          onChange={event => onFileChange(event.target.files?.[0] ?? null)}
           className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
         />
         {previewUrl ? (
-          <InpaintMaskEditor key={previewUrl} sourceImageUrl={previewUrl} onMaskChange={onMaskChange} />
+          <InpaintMaskEditor
+            key={previewUrl}
+            sourceImageUrl={previewUrl}
+            onMaskChange={onMaskChange}
+          />
         ) : (
           <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs text-amber-100/85">
             Upload a source image to draw or upload the inpaint mask.
@@ -297,7 +290,7 @@ export default function InpaintTool() {
             <TextArea
               rows={2}
               value={maskDescription}
-              onChange={(event) => setMaskDescription(event.target.value)}
+              onChange={event => setMaskDescription(event.target.value)}
               placeholder="e.g. sky above the horizon, subject's jacket"
               className={accentFocusClass(ACCENT)}
             />
@@ -307,7 +300,7 @@ export default function InpaintTool() {
             <TextArea
               rows={2}
               value={changeDescription}
-              onChange={(event) => setChangeDescription(event.target.value)}
+              onChange={event => setChangeDescription(event.target.value)}
               placeholder="e.g. dramatic storm clouds with warm edge light"
               className={accentFocusClass(ACCENT)}
             />
@@ -320,7 +313,7 @@ export default function InpaintTool() {
         <TextArea
           rows={3}
           value={directPrompt}
-          onChange={(event) => setDirectPrompt(event.target.value)}
+          onChange={event => setDirectPrompt(event.target.value)}
           placeholder="Leave empty to use the composed inpaint instruction…"
           className={`font-mono ${accentFocusClass(ACCENT)}`}
         />
@@ -347,7 +340,7 @@ export default function InpaintTool() {
       <ToolSection title="Regional edit">
         <RegionalEditPanel
           slots={regionalSlots}
-          onSlotsChange={(next) => updateToolSettings({ regionalSlots: next })}
+          onSlotsChange={next => updateToolSettings({ regionalSlots: next })}
           sourceImageUrl={previewUrl}
           accentClassName={accentFocusClass(ACCENT)}
         />
@@ -356,7 +349,7 @@ export default function InpaintTool() {
       <EnhancedPromptResult
         output={output}
         onOutputChange={setDirectPrompt}
-        provider={output ? "template" : null}
+        provider={output ? 'template' : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={shared.model}
         readinessDetail={shared.detail}

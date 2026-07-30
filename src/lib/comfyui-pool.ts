@@ -1,4 +1,4 @@
-import { normalizeSafeHttpUrl, getComfyUiAllowedHosts } from "./url-safety";
+import { normalizeSafeHttpUrl, getComfyUiAllowedHosts } from './url-safety';
 
 let poolIndex = 0;
 
@@ -19,7 +19,7 @@ export type ComfyUiPoolEndpointStat = {
 const QUEUE_LOAD_PENALTY_GB = 2;
 
 function normalizeUrlForCompare(url: string): string {
-  return url.trim().replace(/\/+$/, "").toLowerCase();
+  return url.trim().replace(/\/+$/, '').toLowerCase();
 }
 
 /**
@@ -27,14 +27,12 @@ function normalizeUrlForCompare(url: string): string {
  * penalty. Returns null when the endpoint is unhealthy or has no usable VRAM
  * reading, so callers can skip it and fall back to round-robin.
  */
-export function scoreComfyUiPoolEndpointStat(
-  stat: ComfyUiPoolEndpointStat,
-): number | null {
+export function scoreComfyUiPoolEndpointStat(stat: ComfyUiPoolEndpointStat): number | null {
   if (stat.ok === false) {
     return null;
   }
   const free = stat.vram?.free;
-  if (typeof free !== "number" || !Number.isFinite(free)) {
+  if (typeof free !== 'number' || !Number.isFinite(free)) {
     return null;
   }
   const freeGb = free / 1e9;
@@ -48,11 +46,9 @@ export function scoreComfyUiPoolEndpointStat(
  */
 export function pickHighestScoringComfyUiEndpoint(
   poolUrls: string[],
-  stats: ComfyUiPoolEndpointStat[],
+  stats: ComfyUiPoolEndpointStat[]
 ): string | null {
-  const byUrl = new Map(
-    stats.map((stat) => [normalizeUrlForCompare(stat.url), stat] as const),
-  );
+  const byUrl = new Map(stats.map(stat => [normalizeUrlForCompare(stat.url), stat] as const));
 
   let best: { url: string; score: number } | null = null;
   for (const url of poolUrls) {
@@ -85,7 +81,7 @@ export function setComfyUiPoolStatsCache(stats: ComfyUiPoolEndpointStat[]): void
 
 /** Returns the cached pool stats when still fresh, or null otherwise. */
 export function getComfyUiPoolStatsCache(
-  maxAgeMs = POOL_STATS_CACHE_TTL_MS,
+  maxAgeMs = POOL_STATS_CACHE_TTL_MS
 ): ComfyUiPoolEndpointStat[] | null {
   if (!poolStatsCache) {
     return null;
@@ -117,7 +113,7 @@ function refreshComfyUiPoolStatsInBackground(pool: string[]): void {
       try {
         const response = await fetch(`${url}/system_stats`, {
           signal: AbortSignal.timeout(3000),
-          redirect: "manual",
+          redirect: 'manual',
         });
         if (!response.ok) {
           return { url, ok: false };
@@ -129,9 +125,9 @@ function refreshComfyUiPoolStatsInBackground(pool: string[]): void {
       } catch {
         return { url, ok: false };
       }
-    }),
+    })
   )
-    .then((stats) => setComfyUiPoolStatsCache(stats))
+    .then(stats => setComfyUiPoolStatsCache(stats))
     .catch(() => {})
     .finally(() => {
       poolStatsRefreshInFlight = false;
@@ -145,12 +141,10 @@ export function parseComfyUiPool(): string[] {
   }
   const allowedHosts = getComfyUiAllowedHosts();
   return raw
-    .split(",")
-    .map((entry) => entry.trim())
+    .split(',')
+    .map(entry => entry.trim())
     .filter(Boolean)
-    .map((entry) =>
-      normalizeSafeHttpUrl(entry, { allowPrivate: true, allowedHosts }),
-    );
+    .map(entry => normalizeSafeHttpUrl(entry, { allowPrivate: true, allowedHosts }));
 }
 
 export function pickComfyUiFromPool(seed?: string): string | null {
@@ -220,7 +214,7 @@ export function resolvePreferredComfyUiHost(input: {
     return null;
   }
   const preferredNorm = normalizeUrlForCompare(preferred);
-  const match = pool.find((url) => normalizeUrlForCompare(url) === preferredNorm);
+  const match = pool.find(url => normalizeUrlForCompare(url) === preferredNorm);
   if (!match) {
     return null;
   }
@@ -228,9 +222,7 @@ export function resolvePreferredComfyUiHost(input: {
   if (!stats || stats.length === 0) {
     return match;
   }
-  const stat = stats.find(
-    (entry) => normalizeUrlForCompare(entry.url) === preferredNorm,
-  );
+  const stat = stats.find(entry => normalizeUrlForCompare(entry.url) === preferredNorm);
   if (stat && stat.ok === false) {
     return null;
   }

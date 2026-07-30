@@ -1,79 +1,72 @@
-"use client";
+'use client';
 
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { readRawPrompt } from "@/lib/raw-prompt";
-import { useCallback, useEffect, useState } from "react";
-import BackgroundPresetControls from "@/components/BackgroundPresetControls";
-import {
-  SceneGenerateFooter,
-  SceneQuickTags,
-} from "@/components/scene-tool/SceneToolSections";
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { readRawPrompt } from '@/lib/raw-prompt';
+import { useCallback, useEffect, useState } from 'react';
+import BackgroundPresetControls from '@/components/BackgroundPresetControls';
+import { SceneGenerateFooter, SceneQuickTags } from '@/components/scene-tool/SceneToolSections';
 import {
   HistoryHintSeedPanel,
   resolveBackgroundTagsForGeneration,
-} from "@/components/scene-tool/HistoryHintSeedPanel";
-import {
-  normalizeHistorySeedScope,
-  normalizeSceneHintSource,
-} from "@/lib/scene-hint-source";
-import {
-  countHistorySeedCandidates,
-  splitBackgroundHintSeed,
-} from "@/lib/history-hint-seed";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import SharedToolControls from "@/components/SharedToolControls";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { useRecentLocations } from "@/hooks/useRecentLocations";
-import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
-import { presetOptionsFromBackgroundCache } from "@/lib/background-options";
-import { readSceneLocationFromMetadata } from "@/lib/recent-locations";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
+} from '@/components/scene-tool/HistoryHintSeedPanel';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
+import { countHistorySeedCandidates, splitBackgroundHintSeed } from '@/lib/history-hint-seed';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import SharedToolControls from '@/components/SharedToolControls';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { useRecentLocations } from '@/hooks/useRecentLocations';
+import { useLocationBlocklist } from '@/hooks/useLocationBlocklist';
+import { presetOptionsFromBackgroundCache } from '@/lib/background-options';
+import { readSceneLocationFromMetadata } from '@/lib/recent-locations';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import {
   applyBackgroundHintsFromSearchParams,
   applyHintSourceFromSearchParams,
-} from "@/lib/tool-url-params";
-import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
-import { DEFAULT_BACKGROUND_TOOL_CACHE } from "@/lib/settings-cache";
-import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
+} from '@/lib/tool-url-params';
+import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
+import { DEFAULT_BACKGROUND_TOOL_CACHE } from '@/lib/settings-cache';
+import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentFocusClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldDivider } from "@/components/ui/Field";
+} from '@/components/ui/ToolPageShell';
+import { FieldDivider } from '@/components/ui/Field';
 
-const ACCENT = "teal" as const;
+const ACCENT = 'teal' as const;
 
 export default function BackgroundTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("background", DEFAULT_BACKGROUND_TOOL_CACHE);
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'background',
+    DEFAULT_BACKGROUND_TOOL_CACHE
+  );
   const { getRecent, record } = useRecentLocations();
   const { getBlocklist } = useLocationBlocklist();
-  const [output, setOutput] = useState("");
+  const [output, setOutput] = useState('');
   const [result, setResult] = useState<EnrichedToolGenerateResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useSeedToolDraft(mounted, {
-    toolKey: "background",
-    label: "Background",
-    href: "/background",
+    toolKey: 'background',
+    label: 'Background',
+    href: '/background',
     fields: [toolSettings.settingType, toolSettings.timeOfDay, toolSettings.mood],
   });
 
   const actions = usePromptResultActions({
-    tool: "background",
+    tool: 'background',
     model: shared.model,
     detail: shared.detail,
     hints: [toolSettings.settingType, toolSettings.timeOfDay, toolSettings.mood]
       .filter(Boolean)
-      .join(", "),
+      .join(', '),
     autoFixRules: shared.autoFixRules !== false,
     reformatTarget: getReformatTargetModel(shared.model),
   });
@@ -81,23 +74,23 @@ export default function BackgroundTool() {
   const selectedModel = getComfyModelDefinition(shared.model);
   const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
   const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
-  const historyCandidateCount = countHistorySeedCandidates("background", historySeedScope);
+  const historyCandidateCount = countHistorySeedCandidates('background', historySeedScope);
   const generateDisabledReason =
-    hintSource === "history" && historyCandidateCount === 0
-      ? "Save a few background prompts to Studio history first, or switch hint source."
+    hintSource === 'history' && historyCandidateCount === 0
+      ? 'Save a few background prompts to Studio history first, or switch hint source.'
       : null;
   const quickTagHints = [toolSettings.settingType, toolSettings.timeOfDay, toolSettings.mood]
     .filter(Boolean)
-    .join(", ");
+    .join(', ');
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === 'undefined') {
       return;
     }
     const params = new URLSearchParams(window.location.search);
     applyHintSourceFromSearchParams(params, updateToolSettings);
     applyBackgroundHintsFromSearchParams(params, updateToolSettings);
-    const seed = params.get("seed");
+    const seed = params.get('seed');
     if (seed?.trim()) {
       updateShared({ lockedVariationSeed: seed.trim() });
     }
@@ -117,9 +110,9 @@ export default function BackgroundTool() {
         mood: toolSettings.mood,
         randomTheme: toolSettings.randomTheme,
       });
-      const response = await fetch("/api/background", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/background', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: shared.model,
           detail: shared.detail,
@@ -138,7 +131,7 @@ export default function BackgroundTool() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Generation failed.");
+        throw new Error(data.error ?? 'Generation failed.');
       }
 
       record(readSceneLocationFromMetadata(data.metadata));
@@ -147,9 +140,9 @@ export default function BackgroundTool() {
       setOutput(prompt);
       setResult({ ...data, prompt });
     } catch (err) {
-      setOutput("");
+      setOutput('');
       setResult(null);
-      setError(err instanceof Error ? err.message : "Generation failed.");
+      setError(err instanceof Error ? err.message : 'Generation failed.');
     } finally {
       setLoading(false);
     }
@@ -162,37 +155,32 @@ export default function BackgroundTool() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={
-        <ToolBadge accent={ACCENT}>
-          Background · {selectedModel.comfyNode}
-        </ToolBadge>
-      }
+      badge={<ToolBadge accent={ACCENT}>Background · {selectedModel.comfyNode}</ToolBadge>}
       title="Background Generator"
       description={
         <>
-          Generates a detailed environment-only prompt—architecture, landscape,
-          weather, materials, and light—with no people or figures. Expand
-          optional presets for perspective, depth, lighting, and surface
-          textures.
+          Generates a detailed environment-only prompt—architecture, landscape, weather, materials,
+          and light—with no people or figures. Expand optional presets for perspective, depth,
+          lighting, and surface textures.
         </>
       }
       sidebar={
         <SharedToolControls
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           lockedLocation={shared.lockedLocation}
           onClearLockedLocation={() => updateShared({ lockedLocation: undefined })}
           autoFixRules={shared.autoFixRules !== false}
-          onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
           recommendFromText={output}
         />
       }
@@ -206,13 +194,11 @@ export default function BackgroundTool() {
           hintSource={hintSource}
           historySeedScope={historySeedScope}
           hints={quickTagHints}
-          randomTheme={toolSettings.randomTheme ?? ""}
+          randomTheme={toolSettings.randomTheme ?? ''}
           lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
-          onHintSourceChange={(source) => updateToolSettings({ hintSource: source })}
-          onHistorySeedScopeChange={(scope) =>
-            updateToolSettings({ historySeedScope: scope })
-          }
-          onHintsChange={(value) => {
+          onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+          onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+          onHintsChange={value => {
             const tags = splitBackgroundHintSeed(value);
             updateToolSettings({
               settingType: tags.settingType,
@@ -220,14 +206,14 @@ export default function BackgroundTool() {
               mood: tags.mood,
             });
             rememberDraftFields({
-              toolKey: "background",
-              label: "Background",
-              href: "/background",
+              toolKey: 'background',
+              label: 'Background',
+              href: '/background',
               fields: [value],
             });
           }}
-          onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
-          onHistorySeedApplied={(result) => {
+          onRandomThemeChange={value => updateToolSettings({ randomTheme: value })}
+          onHistorySeedApplied={result => {
             const tags = splitBackgroundHintSeed(result.hints);
             updateToolSettings({
               settingType: tags.settingType,
@@ -239,17 +225,17 @@ export default function BackgroundTool() {
           accentFocusClassName={accentFocusClass(ACCENT)}
         />
 
-        {hintSource !== "random" ? (
+        {hintSource !== 'random' ? (
           <>
             <FieldDivider />
 
             <SceneQuickTags
-              settingType={toolSettings.settingType ?? ""}
-              timeOfDay={toolSettings.timeOfDay ?? ""}
-              mood={toolSettings.mood ?? ""}
-              onSettingTypeChange={(value) => updateToolSettings({ settingType: value })}
-              onTimeOfDayChange={(value) => updateToolSettings({ timeOfDay: value })}
-              onMoodChange={(value) => updateToolSettings({ mood: value })}
+              settingType={toolSettings.settingType ?? ''}
+              timeOfDay={toolSettings.timeOfDay ?? ''}
+              mood={toolSettings.mood ?? ''}
+              onSettingTypeChange={value => updateToolSettings({ settingType: value })}
+              onTimeOfDayChange={value => updateToolSettings({ timeOfDay: value })}
+              onMoodChange={value => updateToolSettings({ mood: value })}
               inputClassName={accentFocusClass(ACCENT)}
             />
           </>
@@ -289,9 +275,7 @@ export default function BackgroundTool() {
         onSaveHistory={() =>
           actions.saveHistory({
             prompt: output,
-            hints: [toolSettings.settingType, toolSettings.mood]
-              .filter(Boolean)
-              .join(", "),
+            hints: [toolSettings.settingType, toolSettings.mood].filter(Boolean).join(', '),
             metadata: result?.metadata,
           })
         }

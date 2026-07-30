@@ -1,4 +1,4 @@
-const STORAGE_KEY = "qwen-prompt-recent-clothing";
+const STORAGE_KEY = 'qwen-prompt-recent-clothing';
 const MAX_RECENT = 32;
 
 type OutfitIdSource = {
@@ -9,7 +9,7 @@ type OutfitIdSource = {
 };
 
 export function loadRecentClothingIds(): string[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
 
@@ -25,8 +25,8 @@ export function loadRecentClothingIds(): string[] {
     }
 
     return parsed
-      .filter((item): item is string => typeof item === "string")
-      .map((item) => item.trim())
+      .filter((item): item is string => typeof item === 'string')
+      .map(item => item.trim())
       .filter(Boolean)
       .slice(0, MAX_RECENT);
   } catch {
@@ -35,22 +35,22 @@ export function loadRecentClothingIds(): string[] {
 }
 
 export function pushRecentClothingIds(ids: Array<string | null | undefined>): string[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return loadRecentClothingIds();
   }
 
   const incoming = ids
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim())
     .filter(Boolean);
 
   if (incoming.length === 0) {
     return loadRecentClothingIds();
   }
 
-  const next = [...incoming, ...loadRecentClothingIds().filter((id) => !incoming.includes(id))].slice(
+  const next = [...incoming, ...loadRecentClothingIds().filter(id => !incoming.includes(id))].slice(
     0,
-    MAX_RECENT,
+    MAX_RECENT
   );
 
   try {
@@ -63,17 +63,12 @@ export function pushRecentClothingIds(ids: Array<string | null | undefined>): st
 }
 
 function outfitIdsFromSource(source: OutfitIdSource): string[] {
-  return [
-    source.wardrobeId,
-    source.bottomId,
-    source.footwearId,
-    source.accessoriesId,
-  ].filter((id): id is string => typeof id === "string" && Boolean(id.trim()));
+  return [source.wardrobeId, source.bottomId, source.footwearId, source.accessoriesId].filter(
+    (id): id is string => typeof id === 'string' && Boolean(id.trim())
+  );
 }
 
-export function readClothingIdsFromMetadata(
-  metadata?: Record<string, unknown>,
-): string[] {
+export function readClothingIdsFromMetadata(metadata?: Record<string, unknown>): string[] {
   if (!metadata) {
     return [];
   }
@@ -81,10 +76,10 @@ export function readClothingIdsFromMetadata(
   const ids: string[] = [];
 
   const randomOutfit = metadata.randomOutfit;
-  if (randomOutfit && typeof randomOutfit === "object") {
+  if (randomOutfit && typeof randomOutfit === 'object') {
     if (Array.isArray(randomOutfit)) {
       for (const item of randomOutfit) {
-        if (item && typeof item === "object") {
+        if (item && typeof item === 'object') {
           ids.push(...outfitIdsFromSource(item as OutfitIdSource));
         }
       }
@@ -96,7 +91,7 @@ export function readClothingIdsFromMetadata(
   const wardrobeAssignments = metadata.wardrobeAssignments;
   if (Array.isArray(wardrobeAssignments)) {
     for (const item of wardrobeAssignments) {
-      if (item && typeof item === "object") {
+      if (item && typeof item === 'object') {
         ids.push(...outfitIdsFromSource(item as OutfitIdSource));
       }
     }

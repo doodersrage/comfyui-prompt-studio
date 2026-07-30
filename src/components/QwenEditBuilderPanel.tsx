@@ -1,36 +1,33 @@
-"use client";
+'use client';
 
-import type { ComfyImageModel } from "@/lib/comfy-models/client";
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import {
   buildQwenEditPrompt,
   qwenEditTemplate,
   type QwenEditSegment,
-} from "@/lib/qwen-edit-builder";
-import { useMemo, useState } from "react";
-import { FieldLabel, TextArea } from "@/components/ui/Field";
+} from '@/lib/qwen-edit-builder';
+import { useMemo, useState } from 'react';
+import { FieldLabel, TextArea } from '@/components/ui/Field';
 
 type QwenEditBuilderPanelProps = {
   model: ComfyImageModel | string;
   onApply: (prompt: string) => void;
 };
 
-export default function QwenEditBuilderPanel({
-  model,
-  onApply,
-}: QwenEditBuilderPanelProps) {
+export default function QwenEditBuilderPanel({ model, onApply }: QwenEditBuilderPanelProps) {
   const [raw, setRaw] = useState(qwenEditTemplate());
   const segments = useMemo(() => {
     return raw
-      .split("\n")
-      .map((line) => line.trim())
+      .split('\n')
+      .map(line => line.trim())
       .filter(Boolean)
-      .map((line) => {
+      .map(line => {
         const match = line.match(/^(keep|replace|add|remove)\s*:\s*(.+)$/i);
         if (!match) {
-          return { kind: "add" as const, text: line };
+          return { kind: 'add' as const, text: line };
         }
         return {
-          kind: match[1].toLowerCase() as QwenEditSegment["kind"],
+          kind: match[1].toLowerCase() as QwenEditSegment['kind'],
           text: match[2].trim(),
         };
       });
@@ -38,7 +35,7 @@ export default function QwenEditBuilderPanel({
 
   const preview = useMemo(() => buildQwenEditPrompt(segments), [segments]);
 
-  if (!String(model).includes("qwen") || !String(model).includes("edit")) {
+  if (!String(model).includes('qwen') || !String(model).includes('edit')) {
     return null;
   }
 
@@ -54,7 +51,7 @@ export default function QwenEditBuilderPanel({
         id="qwen-edit-builder"
         rows={5}
         value={raw}
-        onChange={(event) => setRaw(event.target.value)}
+        onChange={event => setRaw(event.target.value)}
         className="font-mono text-xs"
       />
       {preview ? (

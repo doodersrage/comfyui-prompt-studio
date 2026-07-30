@@ -1,4 +1,4 @@
-export type PetSpecies = "dog" | "cat" | "rabbit" | "bird" | "other";
+export type PetSpecies = 'dog' | 'cat' | 'rabbit' | 'bird' | 'other';
 
 export type ParsedPetHints = {
   species: PetSpecies | null;
@@ -22,19 +22,19 @@ const PAIR_PATTERN =
 
 function detectSpecies(text: string): PetSpecies | null {
   if (DOG_PATTERN.test(text)) {
-    return "dog";
+    return 'dog';
   }
   if (CAT_PATTERN.test(text)) {
-    return "cat";
+    return 'cat';
   }
   if (RABBIT_PATTERN.test(text)) {
-    return "rabbit";
+    return 'rabbit';
   }
   if (BIRD_PATTERN.test(text)) {
-    return "bird";
+    return 'bird';
   }
   if (REPTILE_PATTERN.test(text)) {
-    return "other";
+    return 'other';
   }
   return null;
 }
@@ -45,16 +45,16 @@ function extractBreedHint(text: string, species: PetSpecies | null): string | nu
     return null;
   }
 
-  if (species === "dog" && DOG_PATTERN.test(trimmed)) {
+  if (species === 'dog' && DOG_PATTERN.test(trimmed)) {
     return trimmed;
   }
-  if (species === "cat" && CAT_PATTERN.test(trimmed)) {
+  if (species === 'cat' && CAT_PATTERN.test(trimmed)) {
     return trimmed;
   }
-  if (species === "rabbit" && RABBIT_PATTERN.test(trimmed)) {
+  if (species === 'rabbit' && RABBIT_PATTERN.test(trimmed)) {
     return trimmed;
   }
-  if (species === "bird" && BIRD_PATTERN.test(trimmed)) {
+  if (species === 'bird' && BIRD_PATTERN.test(trimmed)) {
     return trimmed;
   }
 
@@ -67,9 +67,9 @@ export function parsePetHints(
   overrides?: {
     species?: PetSpecies | null;
     pair?: boolean;
-  },
+  }
 ): ParsedPetHints {
-  const raw = hints?.trim() ?? "";
+  const raw = hints?.trim() ?? '';
   const species = overrides?.species ?? detectSpecies(raw);
   const pair = overrides?.pair ?? PAIR_PATTERN.test(raw);
   const breedHint = extractBreedHint(raw, species);
@@ -83,37 +83,30 @@ export function parsePetHints(
   };
 }
 
-export function buildPetMandatoryBlock(
-  parsed: ParsedPetHints,
-  hints?: string,
-): string | null {
+export function buildPetMandatoryBlock(parsed: ParsedPetHints, hints?: string): string | null {
   const lines: string[] = [];
 
   if (parsed.pair) {
-    lines.push(
-      "MANDATORY PET COUNT: exactly two animals in frame—no third pet, crowd, or extras.",
-    );
+    lines.push('MANDATORY PET COUNT: exactly two animals in frame—no third pet, crowd, or extras.');
   } else {
     lines.push(
-      "MANDATORY PET COUNT: exactly one animal as the primary subject—no extra pets or animal crowds.",
+      'MANDATORY PET COUNT: exactly one animal as the primary subject—no extra pets or animal crowds.'
     );
   }
 
   lines.push(
-    "MANDATORY EXCLUSIONS: no people, human hands, faces, silhouettes, or human body parts anywhere in frame.",
+    'MANDATORY EXCLUSIONS: no people, human hands, faces, silhouettes, or human body parts anywhere in frame.'
   );
 
   if (parsed.species) {
     lines.push(
-      `MANDATORY SPECIES: keep the subject clearly a ${parsed.species}; do not substitute a different animal type.`,
+      `MANDATORY SPECIES: keep the subject clearly a ${parsed.species}; do not substitute a different animal type.`
     );
   }
 
   if (parsed.breedHint && hints?.trim()) {
-    lines.push(
-      `MANDATORY PET IDENTITY: honor the user's pet description—${parsed.breedHint}.`,
-    );
+    lines.push(`MANDATORY PET IDENTITY: honor the user's pet description—${parsed.breedHint}.`);
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }

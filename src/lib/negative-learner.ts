@@ -1,5 +1,5 @@
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
-import { tokenizePrompt } from "./prompt-duplicate-detection";
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
+import { tokenizePrompt } from './prompt-duplicate-detection';
 
 export type NegativeSuggestion = {
   token: string;
@@ -7,10 +7,10 @@ export type NegativeSuggestion = {
   dismissed?: boolean;
 };
 
-const KEY = "comfy-negative-suggestions-v1";
+const KEY = 'comfy-negative-suggestions-v1';
 
 export function loadNegativeSuggestions(): NegativeSuggestion[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   return readBrowserValue<NegativeSuggestion[]>(KEY) ?? [];
@@ -24,8 +24,8 @@ export function learnFromLowRatedPrompt(prompt: string, rating: number): number 
   if (rating > 2) {
     return 0;
   }
-  const tokens = [...tokenizePrompt(prompt)].filter((token) => token.length >= 4);
-  const map = new Map(loadNegativeSuggestions().map((entry) => [entry.token, entry]));
+  const tokens = [...tokenizePrompt(prompt)].filter(token => token.length >= 4);
+  const map = new Map(loadNegativeSuggestions().map(entry => [entry.token, entry]));
   let learned = 0;
 
   for (const token of tokens) {
@@ -41,22 +41,20 @@ export function learnFromLowRatedPrompt(prompt: string, rating: number): number 
     });
   }
 
-  saveNegativeSuggestions(
-    [...map.values()].sort((a, b) => b.count - a.count).slice(0, 100),
-  );
+  saveNegativeSuggestions([...map.values()].sort((a, b) => b.count - a.count).slice(0, 100));
   return learned;
 }
 
 export function dismissNegativeSuggestion(token: string): void {
   saveNegativeSuggestions(
-    loadNegativeSuggestions().map((entry) =>
-      entry.token === token ? { ...entry, dismissed: true } : entry,
-    ),
+    loadNegativeSuggestions().map(entry =>
+      entry.token === token ? { ...entry, dismissed: true } : entry
+    )
   );
 }
 
 export function activeNegativeSuggestions(limit = 12): NegativeSuggestion[] {
   return loadNegativeSuggestions()
-    .filter((entry) => !entry.dismissed && entry.count >= 2)
+    .filter(entry => !entry.dismissed && entry.count >= 2)
     .slice(0, limit);
 }

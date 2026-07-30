@@ -1,7 +1,4 @@
-import {
-  getSamplingBoost,
-  pickFewShotExamples,
-} from "./variation-seed";
+import { getSamplingBoost, pickFewShotExamples } from './variation-seed';
 import {
   buildClaritySystemAddendum,
   buildDetailUserDirective,
@@ -12,33 +9,30 @@ import {
   sanitizeQwenPrompt,
   compactPromptForProfile,
   trimPromptToMaxChars,
-} from "./qwen-clarity";
-import { stripPromptArtifacts, isThinkingOnlyArtifact } from "./prompt-cleanup";
-import { withRawPrompt } from "./raw-prompt";
-import { chatCompletion, chatCompletionStream } from "./llm-client";
+} from './qwen-clarity';
+import { stripPromptArtifacts, isThinkingOnlyArtifact } from './prompt-cleanup';
+import { withRawPrompt } from './raw-prompt';
+import { chatCompletion, chatCompletionStream } from './llm-client';
 import {
   resolveRequestLlmEnabled,
   resolveRequestLlmModel,
   resolveRequestTemplateFallback,
   type LlmRequestOptions,
-} from "./llm-request-options";
-import {
-  expandSparsePromptWithLlm,
-  needsSparsePromptExpand,
-} from "./sparse-prompt-expand";
+} from './llm-request-options';
+import { expandSparsePromptWithLlm, needsSparsePromptExpand } from './sparse-prompt-expand';
 import {
   DISTINCT_PEOPLE_FEW_SHOT_BY_DETAIL,
   DISTINCT_PEOPLE_FEW_SHOT_INPUT,
   getDetailLimits,
   GROUPED_COUPLE_FEW_SHOT_BY_DETAIL,
   GROUPED_COUPLE_FEW_SHOT_INPUT,
-} from "./detail-level";
+} from './detail-level';
 import {
   buildModelSystemPrompt,
   fluxIgnoresNegative,
   getComfyModelDefinition,
   type PromptProfileId,
-} from "./comfy-models";
+} from './comfy-models';
 import {
   buildDistinctPeopleSystemAddendum,
   buildDistinctPeopleUserDirective,
@@ -49,51 +43,43 @@ import {
   paintGroupedPeopleScene,
   parsePeopleConstraint,
   stripStreetClothingFromAthleticPeoplePrompt,
-} from "./distinct-people";
-import { inferAthleticSport } from "./athletic-sport-profiles";
+} from './distinct-people';
+import { inferAthleticSport } from './athletic-sport-profiles';
 import {
   formatSportActionInstructions,
   stripForeignSportActionsFromPrompt,
   ensureAthleticBottomInPrompt,
-} from "./athletic-sport-actions";
+} from './athletic-sport-actions';
 import {
   buildSinglePersonSystemAddendum,
   buildSoloSubjectLockDirective,
   ensureSinglePersonPrompt,
-} from "./single-person";
-import {
-  DEFAULT_GENERATION_SETTINGS,
-  type GenerationSettings,
-} from "./generation-settings";
+} from './single-person';
+import { DEFAULT_GENERATION_SETTINGS, type GenerationSettings } from './generation-settings';
 import {
   resolveModelForPromptGeneration,
   resolveModelForQueueTool,
   stripEditInstructionLead,
-} from "./queue-tool-model";
-import {
-  type VariationSettings,
-} from "./variation-settings";
+} from './queue-tool-model';
+import { type VariationSettings } from './variation-settings';
 import {
   buildGenerateWardrobeAssignments,
   buildGenerateWardrobeUserDirective,
   mergeGenerateWardrobeIntoPrompt,
   type GenerateWardrobeAssignment,
-} from "./generate-wardrobe";
-import {
-  buildNoClothingUserDirective,
-  hintsImplyNoClothing,
-} from "./clothing-tags";
+} from './generate-wardrobe';
+import { buildNoClothingUserDirective, hintsImplyNoClothing } from './clothing-tags';
 
-export type PromptMode = "positive" | "negative";
-export type { GenerationSettings, VariationSettings } from "./generation-settings";
-export type { DetailLevel } from "./detail-level";
-export type { QwenImageModel } from "./qwen-model";
+export type PromptMode = 'positive' | 'negative';
+export type { GenerationSettings, VariationSettings } from './generation-settings';
+export type { DetailLevel } from './detail-level';
+export type { QwenImageModel } from './qwen-model';
 
 export type GenerateResult = {
   prompt: string;
   mode: PromptMode;
-  provider: "llm" | "template";
-  model: GenerationSettings["model"];
+  provider: 'llm' | 'template';
+  model: GenerationSettings['model'];
   comfyNode: string;
   limits: {
     minChars?: number;
@@ -126,7 +112,7 @@ export type GeneratePromptOptions = {
 };
 
 type ChatMessage = {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string;
 };
 
@@ -139,9 +125,9 @@ const KEYWORDS_ONLY_SYSTEM_ADDENDUM = `Keywords-only mode:
 function buildFewShotMessages(
   mode: PromptMode,
   settings: GenerationSettings,
-  input: string,
+  input: string
 ): ChatMessage[] {
-  if (mode === "negative") {
+  if (mode === 'negative') {
     return [];
   }
 
@@ -152,11 +138,7 @@ function buildFewShotMessages(
 
   const multiPerson = isMultiPersonInput(input);
   const baseExamples = QWEN_FEW_SHOT_BY_DETAIL[settings.detail];
-  const detailExamples = getModelFewShots(
-    settings.model,
-    settings.detail,
-    baseExamples,
-  );
+  const detailExamples = getModelFewShots(settings.model, settings.detail, baseExamples);
 
   const pinnedExample = multiPerson
     ? settings.distinctPeople
@@ -165,22 +147,22 @@ function buildFewShotMessages(
     : undefined;
 
   const pool = detailExamples.filter(
-    (example) =>
+    example =>
       example.input !== DISTINCT_PEOPLE_FEW_SHOT_INPUT &&
-      example.input !== GROUPED_COUPLE_FEW_SHOT_INPUT,
+      example.input !== GROUPED_COUPLE_FEW_SHOT_INPUT
   );
 
   const selected = pickFewShotExamples(
     pool,
     settings.variation.strength,
-    settings.variation.enabled,
+    settings.variation.enabled
   );
 
   const messages = pinnedExample ? [pinnedExample, ...selected] : selected;
 
-  return messages.flatMap((example) => [
-    { role: "user" as const, content: example.input },
-    { role: "assistant" as const, content: example.output },
+  return messages.flatMap(example => [
+    { role: 'user' as const, content: example.input },
+    { role: 'assistant' as const, content: example.output },
   ]);
 }
 
@@ -194,10 +176,10 @@ function buildUserMessage(
   settings: GenerationSettings,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
   variationSeed?: string,
-  avoidedTokensInstruction?: string,
+  avoidedTokensInstruction?: string
 ): string {
   const trimmed = input.trim();
-  if (mode === "negative" || shouldPreserveSubject(trimmed)) {
+  if (mode === 'negative' || shouldPreserveSubject(trimmed)) {
     return trimmed;
   }
 
@@ -206,9 +188,7 @@ function buildUserMessage(
   // Keywords-only: send the user's text plus hard fidelity rules—no flavor,
   // wardrobe, environment, or sport seed lines that completionist models latch onto.
   if (!seedIngredients) {
-    const extras: string[] = [
-      buildDetailUserDirective(settings.detail, settings.model),
-    ];
+    const extras: string[] = [buildDetailUserDirective(settings.detail, settings.model)];
     if (isMultiPersonInput(trimmed) && settings.distinctPeople) {
       extras.push(buildDistinctPeopleUserDirective(trimmed));
     } else if (!isMultiPersonInput(trimmed) && !settings.distinctPeople) {
@@ -221,14 +201,12 @@ function buildUserMessage(
       extras.push(avoidedTokensInstruction.trim());
     }
     extras.push(
-      "Write one model-ready prompt from the keywords above only. Do not invent a wardrobe catalog or substitute a different location unless the keywords ask for it.",
+      'Write one model-ready prompt from the keywords above only. Do not invent a wardrobe catalog or substitute a different location unless the keywords ask for it.'
     );
-    return `Scene keywords:\n${trimmed}\n\n${extras.join("\n\n")}`;
+    return `Scene keywords:\n${trimmed}\n\n${extras.join('\n\n')}`;
   }
 
-  const extras: string[] = [
-    buildDetailUserDirective(settings.detail, settings.model),
-  ];
+  const extras: string[] = [buildDetailUserDirective(settings.detail, settings.model)];
   const peopleConstraint = parsePeopleConstraint(trimmed);
 
   if (isMultiPersonInput(trimmed)) {
@@ -238,15 +216,11 @@ function buildUserMessage(
   }
 
   if (settings.variation.enabled) {
-    const hint = compactVariationHint(
-      settings.variation.strength,
-      settings.detail,
-      {
-        distinctPeople: settings.distinctPeople,
-        peopleCount: peopleConstraint.count,
-        gender: peopleConstraint.gender,
-      },
-    );
+    const hint = compactVariationHint(settings.variation.strength, settings.detail, {
+      distinctPeople: settings.distinctPeople,
+      peopleCount: peopleConstraint.count,
+      gender: peopleConstraint.gender,
+    });
     if (hint) {
       extras.push(hint);
     }
@@ -269,9 +243,7 @@ function buildUserMessage(
   }
 
   if (variationSeed?.trim() && settings.variation.enabled) {
-    extras.push(
-      `Environment variation seed (honor closely): ${variationSeed.trim()}`,
-    );
+    extras.push(`Environment variation seed (honor closely): ${variationSeed.trim()}`);
   }
 
   const sport = inferAthleticSport(trimmed);
@@ -286,15 +258,13 @@ function buildUserMessage(
     extras.push(avoidedTokensInstruction.trim());
   }
 
-  return `${trimmed}\n\n${extras.join("\n\n")}`;
+  return `${trimmed}\n\n${extras.join('\n\n')}`;
 }
 
 function getLlmTemperature(variation: VariationSettings): number {
   const configured = Number(process.env.LLM_TEMPERATURE);
   const base =
-    Number.isFinite(configured) && configured >= 0 && configured <= 2
-      ? configured
-      : 0.95;
+    Number.isFinite(configured) && configured >= 0 && configured <= 2 ? configured : 0.95;
 
   if (!variation.enabled) {
     return Math.max(0, base - 0.1);
@@ -304,16 +274,12 @@ function getLlmTemperature(variation: VariationSettings): number {
   return Math.min(2, base + temperatureBoost);
 }
 
-function getLlmSamplingParams(
-  variation: VariationSettings,
-): Record<string, number> {
+function getLlmSamplingParams(variation: VariationSettings): Record<string, number> {
   if (!variation.enabled) {
     return { top_p: 0.9 };
   }
 
-  const { topP, frequencyPenalty, presencePenalty } = getSamplingBoost(
-    variation.strength,
-  );
+  const { topP, frequencyPenalty, presencePenalty } = getSamplingBoost(variation.strength);
 
   return {
     top_p: topP,
@@ -343,18 +309,12 @@ function preparePromptSource(
   raw: string,
   input: string,
   mode: PromptMode,
-  settings: GenerationSettings,
+  settings: GenerationSettings
 ): string {
   const cleaned = sanitizePrompt(raw);
   let withDistinctPeople =
-    mode === "positive"
-      ? ensureDistinctPeoplePrompt(cleaned, input, settings)
-      : cleaned;
-  if (
-    mode === "positive" &&
-    settings.distinctPeople &&
-    inferAthleticSport(input) !== null
-  ) {
+    mode === 'positive' ? ensureDistinctPeoplePrompt(cleaned, input, settings) : cleaned;
+  if (mode === 'positive' && settings.distinctPeople && inferAthleticSport(input) !== null) {
     withDistinctPeople = stripStreetClothingFromAthleticPeoplePrompt(withDistinctPeople);
   }
   return withDistinctPeople;
@@ -366,33 +326,23 @@ function finalizePromptFromSource(
   mode: PromptMode,
   settings: GenerationSettings,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
-  tool?: string,
+  tool?: string
 ): string {
-  const sanitized = sanitizeQwenPrompt(
-    source,
-    settings.detail,
-    input,
-    settings.model,
-    {
-      distinctPeople: mode === "positive" && settings.distinctPeople,
-      // Keywords-only: do not invent setting/location beats to hit min length.
-      enforceMinimum:
-        mode !== "positive" || settings.seedLlmWithIngredients !== false,
-    },
-  );
+  const sanitized = sanitizeQwenPrompt(source, settings.detail, input, settings.model, {
+    distinctPeople: mode === 'positive' && settings.distinctPeople,
+    // Keywords-only: do not invent setting/location beats to hit min length.
+    enforceMinimum: mode !== 'positive' || settings.seedLlmWithIngredients !== false,
+  });
   const formatted = formatPromptForModel(sanitized, settings.model, input, mode);
-  const scenePrompt =
-    mode === "positive"
-      ? stripEditInstructionLead(formatted, tool)
-      : formatted;
+  const scenePrompt = mode === 'positive' ? stripEditInstructionLead(formatted, tool) : formatted;
   const sportAware =
-    mode === "positive"
+    mode === 'positive'
       ? (() => {
           const sport = inferAthleticSport(input);
           let result = scenePrompt;
           if (sport) {
             result = stripForeignSportActionsFromPrompt(result, sport, input);
-            if (sport !== "cycling") {
+            if (sport !== 'cycling') {
               result = ensureAthleticBottomInPrompt(result, sport, {
                 hints: input,
                 wardrobeSummary: wardrobeAssignments?.[0]?.summary,
@@ -403,11 +353,7 @@ function finalizePromptFromSource(
         })()
       : formatted;
   if (!wardrobeAssignments?.length) {
-    if (
-      mode === "positive" &&
-      !settings.distinctPeople &&
-      !isMultiPersonInput(input)
-    ) {
+    if (mode === 'positive' && !settings.distinctPeople && !isMultiPersonInput(input)) {
       const profile = getComfyModelDefinition(settings.model).profile;
       return ensureSinglePersonPrompt(sportAware, profile);
     }
@@ -415,21 +361,9 @@ function finalizePromptFromSource(
   }
 
   const { maxChars } = getDetailLimits(settings.detail, settings.model);
-  let merged = mergeGenerateWardrobeIntoPrompt(
-    sportAware,
-    wardrobeAssignments,
-    maxChars,
-    input,
-  );
-  if (
-    mode === "positive" &&
-    !settings.distinctPeople &&
-    !isMultiPersonInput(input)
-  ) {
-    merged = ensureSinglePersonPrompt(
-      merged,
-      getComfyModelDefinition(settings.model).profile,
-    );
+  let merged = mergeGenerateWardrobeIntoPrompt(sportAware, wardrobeAssignments, maxChars, input);
+  if (mode === 'positive' && !settings.distinctPeople && !isMultiPersonInput(input)) {
+    merged = ensureSinglePersonPrompt(merged, getComfyModelDefinition(settings.model).profile);
   }
   const profile = getComfyModelDefinition(settings.model).profile;
   return trimPromptToMaxChars(compactPromptForProfile(merged, profile), maxChars);
@@ -441,7 +375,7 @@ function finalizePrompt(
   mode: PromptMode,
   settings: GenerationSettings,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
-  tool?: string,
+  tool?: string
 ): string {
   return finalizePromptFromSource(
     preparePromptSource(raw, input, mode, settings),
@@ -449,7 +383,7 @@ function finalizePrompt(
     mode,
     settings,
     wardrobeAssignments,
-    tool,
+    tool
   );
 }
 
@@ -459,11 +393,11 @@ async function finalizePromptWithSparseExpand(
   mode: PromptMode,
   settings: GenerationSettings,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
-  tool?: string,
+  tool?: string
 ): Promise<string> {
   let source = preparePromptSource(raw, input, mode, settings);
   // Sparse expand explicitly invents garments/locations — skip in keywords-only mode.
-  if (mode === "positive" && settings.seedLlmWithIngredients !== false) {
+  if (mode === 'positive' && settings.seedLlmWithIngredients !== false) {
     const preview = sanitizeQwenPrompt(source, settings.detail, input, settings.model, {
       distinctPeople: settings.distinctPeople,
       enforceMinimum: false,
@@ -480,14 +414,7 @@ async function finalizePromptWithSparseExpand(
       }
     }
   }
-  return finalizePromptFromSource(
-    source,
-    input,
-    mode,
-    settings,
-    wardrobeAssignments,
-    tool,
-  );
+  return finalizePromptFromSource(source, input, mode, settings, wardrobeAssignments, tool);
 }
 
 export type GenerateLlmRequest = {
@@ -504,11 +431,11 @@ export function buildGenerateLlmRequest(
   settings: GenerationSettings,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
   variationSeed?: string,
-  avoidedTokensInstruction?: string,
+  avoidedTokensInstruction?: string
 ): GenerateLlmRequest {
   let systemPrompt = buildModelSystemPrompt(settings.model, mode);
 
-  if (mode === "positive") {
+  if (mode === 'positive') {
     systemPrompt = `${systemPrompt}\n\n${buildClaritySystemAddendum(settings.detail, settings.model)}`;
 
     if (settings.seedLlmWithIngredients === false) {
@@ -530,17 +457,17 @@ export function buildGenerateLlmRequest(
 
   const seedIngredients = settings.seedLlmWithIngredients !== false;
   const messages: ChatMessage[] = [
-    { role: "system", content: systemPrompt },
+    { role: 'system', content: systemPrompt },
     ...buildFewShotMessages(mode, settings, input),
     {
-      role: "user",
+      role: 'user',
       content: buildUserMessage(
         input,
         mode,
         settings,
         seedIngredients ? wardrobeAssignments : null,
         seedIngredients ? variationSeed : undefined,
-        avoidedTokensInstruction,
+        avoidedTokensInstruction
       ),
     },
   ];
@@ -570,7 +497,7 @@ export async function generateWithLlm(
   variationSeed?: string,
   avoidedTokensInstruction?: string,
   tool?: string,
-  llm?: LlmRequestOptions,
+  llm?: LlmRequestOptions
 ): Promise<{ prompt: string; rawPrompt: string }> {
   const request = buildGenerateLlmRequest(
     input,
@@ -578,7 +505,7 @@ export async function generateWithLlm(
     settings,
     wardrobeAssignments,
     variationSeed,
-    avoidedTokensInstruction,
+    avoidedTokensInstruction
   );
 
   const content = await chatCompletion({
@@ -596,7 +523,7 @@ export async function generateWithLlm(
     mode,
     settings,
     wardrobeAssignments,
-    tool,
+    tool
   );
   return { prompt, rawPrompt };
 }
@@ -604,7 +531,7 @@ export async function generateWithLlm(
 function sanitizePrompt(raw: string): string {
   const cleaned = stripPromptArtifacts(raw);
   if (!cleaned.trim() || isThinkingOnlyArtifact(cleaned)) {
-    throw new Error("LLM returned reasoning text instead of a prompt.");
+    throw new Error('LLM returned reasoning text instead of a prompt.');
   }
 
   return cleaned;
@@ -618,24 +545,21 @@ function capitalize(s: string): string {
 function parseKeywords(input: string): string[] {
   return input
     .split(/[,;|]+/)
-    .map((part) => part.trim())
+    .map(part => part.trim())
     .filter(Boolean);
 }
 
 function paintSceneFromKeywords(
   input: string,
-  settings: GenerationSettings = DEFAULT_GENERATION_SETTINGS,
+  settings: GenerationSettings = DEFAULT_GENERATION_SETTINGS
 ): string {
   const profile = getComfyModelDefinition(settings.model).profile;
   const keywords = parseKeywords(input);
   const primary = keywords[0] ?? input.trim();
-  const supporting = keywords.slice(0, settings.detail === "rich" ? 3 : 2);
-  const topic =
-    supporting.length > 0
-      ? `${primary}, ${supporting.join(", ")}`
-      : primary;
+  const supporting = keywords.slice(0, settings.detail === 'rich' ? 3 : 2);
+  const topic = supporting.length > 0 ? `${primary}, ${supporting.join(', ')}` : primary;
   const normalized =
-    topic.toLowerCase().startsWith("a ") || topic.toLowerCase().startsWith("an ")
+    topic.toLowerCase().startsWith('a ') || topic.toLowerCase().startsWith('an ')
       ? topic
       : topic.charAt(0).toLowerCase() + topic.slice(1);
 
@@ -644,77 +568,77 @@ function paintSceneFromKeywords(
 
 function paintSceneForProfile(
   normalized: string,
-  detail: GenerationSettings["detail"],
-  profile: PromptProfileId,
+  detail: GenerationSettings['detail'],
+  profile: PromptProfileId
 ): string {
-  if (profile === "qwen_edit_instruction") {
-    if (detail === "concise") {
+  if (profile === 'qwen_edit_instruction') {
+    if (detail === 'concise') {
       return `Replace the scene with ${normalized} under clear directional light.`;
     }
-    if (detail === "rich") {
+    if (detail === 'rich') {
       return `Replace the scene with ${capitalize(normalized)} under clear directional light, surfaces showing tangible texture. The main subject anchors the frame while atmosphere builds from foreground to background. One distant environmental beat completes the unified composition.`;
     }
     return `Replace the scene with ${capitalize(normalized)} under clear directional light, with visible texture. The main subject anchors the frame while one background detail adds depth.`;
   }
 
-  if (profile === "instruct_pix2pix") {
-    if (detail === "concise") {
+  if (profile === 'instruct_pix2pix') {
+    if (detail === 'concise') {
       return `Transform the image to show ${normalized}.`;
     }
     return `Transform the image to show ${capitalize(normalized)} with clear lighting and cohesive detail throughout the frame.`;
   }
 
-  if (profile === "qwen_t2i_factual") {
-    if (detail === "concise") {
+  if (profile === 'qwen_t2i_factual') {
+    if (detail === 'concise') {
       return `${capitalize(normalized)} under clear light with readable color and spatial depth. The main subject holds the frame in one cohesive moment.`;
     }
-    if (detail === "rich") {
+    if (detail === 'rich') {
       return `${capitalize(normalized)} anchors the midground with clear shape, texture, and color under soft directional light. Foreground and background elements sit in readable spatial layers—near surfaces show material detail while distant forms fade with atmospheric depth. Warm key light from camera-left mixes with cooler ambient fill, keeping subjects and any visible text sharp and legible.`;
     }
     return `${capitalize(normalized)} under clear directional light, with visible texture and cohesive color. The main subject sits in the midground while the background adds spatial depth in the same moment.`;
   }
 
-  if (profile === "flux_klein" || profile === "flux_prose") {
-    if (detail === "concise") {
+  if (profile === 'flux_klein' || profile === 'flux_prose') {
+    if (detail === 'concise') {
       return `${capitalize(normalized)} holds the frame under clear directional light. The subject reads sharply in the foreground with a simple background.`;
     }
-    if (detail === "rich") {
+    if (detail === 'rich') {
       return `${capitalize(normalized)} anchors the foreground, posture and materials rendered with tactile detail—worn surfaces, visible texture, and weight in the light. The setting unfolds in layered depth from near detail through midground forms to a hazy background, warm key light from camera-left mixing with cool ambient fill. Lighting follows a photographic logic: soft key, gentle fill, subtle rim separation on the subject. Materials read distinctly throughout—matte versus glossy, fine grain, natural imperfections. Shot at eye level with moderate depth of field, the main subject tack sharp while the environment recedes into atmospheric perspective.`;
     }
     return `${capitalize(normalized)} anchors the frame in the foreground with clear material detail. The setting builds behind in layered depth under soft directional light with warm key and cool fill. Moderate depth of field, eye-level composition.`;
   }
 
-  if (profile === "flux_schnell") {
-    if (detail === "concise") {
+  if (profile === 'flux_schnell') {
+    if (detail === 'concise') {
       return `${capitalize(normalized)} under clear light with a readable subject and simple background.`;
     }
     return `${capitalize(normalized)} in a cohesive scene with directional light, material detail, and a clear foreground subject.`;
   }
 
-  if (profile === "sd15_weighted") {
+  if (profile === 'sd15_weighted') {
     const tags = normalized
       .split(/,\s*/)
-      .map((part) => part.trim())
+      .map(part => part.trim())
       .filter(Boolean)
-      .slice(0, detail === "rich" ? 8 : detail === "balanced" ? 6 : 4);
-    return tags.join(", ");
+      .slice(0, detail === 'rich' ? 8 : detail === 'balanced' ? 6 : 4);
+    return tags.join(', ');
   }
 
-  if (profile === "qwen_t2i_rich") {
-    if (detail === "concise") {
+  if (profile === 'qwen_t2i_rich') {
+    if (detail === 'concise') {
       return `${capitalize(normalized)} under clear directional light. The main subject holds the frame in one cohesive moment.`;
     }
-    if (detail === "rich") {
+    if (detail === 'rich') {
       return `${capitalize(normalized)} anchors the foreground with posture, clothing, and surface texture reading clearly in the light. The setting builds through midground detail into a soft atmospheric background, wet or worn materials catching specular highlights beside matte surfaces. Warm key light from camera-left mixes with cooler ambient fill across the frame, color temperature shifting from golden highlights to blue-gray shadows. Fine environmental beats—distant glow, weathered architecture, or natural depth—settle into the background while the air holds tangible atmosphere. The composition holds at eye level with moderate depth of field, the subject sharp while the scene recedes into unified perspective.`;
     }
     return `${capitalize(normalized)} under clear directional light, with visible texture and a cohesive palette. The main subject anchors the frame while one background detail adds depth to the same moment.`;
   }
 
-  if (detail === "concise") {
+  if (detail === 'concise') {
     return `${capitalize(normalized)} under clear directional light. The main subject holds the frame in one cohesive moment.`;
   }
 
-  if (detail === "rich") {
+  if (detail === 'rich') {
     return `${capitalize(normalized)} under clear directional light, surfaces showing tangible texture and material weight. The main subject anchors the frame in a single frozen moment, posture and clothing reading clearly in the light. Atmosphere builds depth from foreground to background while supporting details settle naturally into the midground. One distant environmental beat completes the same unified scene.`;
   }
 
@@ -726,28 +650,28 @@ export function generateWithTemplate(
   mode: PromptMode,
   settings: GenerationSettings = DEFAULT_GENERATION_SETTINGS,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
-  tool?: string,
+  tool?: string
 ): string {
   const trimmed = input.trim();
   if (!trimmed) {
-    throw new Error("Input cannot be empty.");
+    throw new Error('Input cannot be empty.');
   }
 
-  if (mode === "negative") {
+  if (mode === 'negative') {
     const profile = getComfyModelDefinition(settings.model).profile;
     if (fluxIgnoresNegative(profile)) {
       return `Stable composition with unchanged facial features, pose, and proportions. Clean unmarked surfaces. ${trimmed}.`;
     }
-    if (profile === "qwen_t2i_factual" || profile === "qwen_t2i_rich") {
+    if (profile === 'qwen_t2i_factual' || profile === 'qwen_t2i_rich') {
       return `Avoid changing facial features, pose, proportions, and composition unless requested. ${trimmed}.`;
     }
-    if (profile === "qwen_edit_instruction") {
+    if (profile === 'qwen_edit_instruction') {
       return `Do not change pose, face, or lighting unless specified. Only edit what is requested. Avoid: ${trimmed}.`;
     }
-    if (profile === "instruct_pix2pix") {
+    if (profile === 'instruct_pix2pix') {
       return `Keep the rest of the image unchanged. ${trimmed}.`;
     }
-    if (profile === "sd15_weighted") {
+    if (profile === 'sd15_weighted') {
       return `blurry, low quality, watermark, deformed, bad anatomy, extra limbs, ${trimmed}`;
     }
     return `Do not alter unrelated elements. Keep facial features, pose, proportions, and background composition unchanged unless explicitly requested. Avoid changing: ${trimmed}.`;
@@ -763,7 +687,7 @@ export function generateWithTemplate(
       mode,
       settings,
       wardrobeAssignments,
-      tool,
+      tool
     );
   }
 
@@ -774,7 +698,7 @@ export function generateWithTemplate(
       mode,
       settings,
       wardrobeAssignments,
-      tool,
+      tool
     );
   }
 
@@ -785,29 +709,29 @@ export function generateWithTemplate(
       mode,
       settings,
       wardrobeAssignments,
-      tool,
+      tool
     );
   }
 
   if (preserveRequested) {
     const sceneWords = trimmed
-      .replace(/\b(keep|preserve|same)\b[^,.;|]*/gi, "")
-      .replace(/^[,;\s|]+|[,;\s|]+$/g, "")
+      .replace(/\b(keep|preserve|same)\b[^,.;|]*/gi, '')
+      .replace(/^[,;\s|]+|[,;\s|]+$/g, '')
       .trim();
 
     const painted = paintSceneFromKeywords(sceneWords || trimmed, {
       ...settings,
       variation: { enabled: false, strength: 0 },
       distinctPeople: false,
-      detail: "balanced",
+      detail: 'balanced',
     });
     return finalizePrompt(
-      `Keep the subject's facial features, body proportions, and pose exactly unchanged. ${painted.replace(/^The image shows /, "The surrounding scene becomes ")}`,
+      `Keep the subject's facial features, body proportions, and pose exactly unchanged. ${painted.replace(/^The image shows /, 'The surrounding scene becomes ')}`,
       trimmed,
       mode,
       settings,
       wardrobeAssignments,
-      tool,
+      tool
     );
   }
 
@@ -831,23 +755,23 @@ export function generateWithTemplate(
     mode,
     settings,
     wardrobeAssignments,
-    tool,
+    tool
   );
 }
 
 function buildGenerateResult(
   prompt: string,
   mode: PromptMode,
-  provider: GenerateResult["provider"],
+  provider: GenerateResult['provider'],
   settings: GenerationSettings,
   wardrobeAssignments?: GenerateWardrobeAssignment[] | null,
-  rawPrompt?: string,
+  rawPrompt?: string
 ): GenerateResult {
   const limits = getDetailLimits(settings.detail, settings.model);
   const modelDef = getComfyModelDefinition(settings.model);
   const wardrobeMeta = wardrobeAssignments?.length
     ? {
-        wardrobeAssignments: wardrobeAssignments.map((assignment) => ({
+        wardrobeAssignments: wardrobeAssignments.map(assignment => ({
           wardrobeId: assignment.wardrobeId,
           footwearId: assignment.footwearId,
           accessoriesId: assignment.accessoriesId,
@@ -875,11 +799,11 @@ export async function generatePrompt(
   input: string,
   mode: PromptMode,
   settings: GenerationSettings = DEFAULT_GENERATION_SETTINGS,
-  options?: GeneratePromptOptions,
+  options?: GeneratePromptOptions
 ): Promise<GenerateResult> {
   const trimmed = input.trim();
   if (!trimmed) {
-    throw new Error("Input cannot be empty.");
+    throw new Error('Input cannot be empty.');
   }
 
   // Write prompts with a scene/T2I profile when on Generate, even if an edit
@@ -898,7 +822,7 @@ export async function generatePrompt(
   const llmEnabled = resolveRequestLlmEnabled(options?.llm);
   const seedIngredients = writeSettings.seedLlmWithIngredients !== false;
   const wardrobeAssignments =
-    mode === "positive" && seedIngredients
+    mode === 'positive' && seedIngredients
       ? buildGenerateWardrobeAssignments(trimmed, writeSettings, {
           recentClothing: options?.recentClothing,
           lockedWardrobeId: options?.lockedWardrobeId,
@@ -916,25 +840,25 @@ export async function generatePrompt(
         options?.variationSeed,
         options?.avoidedTokensInstruction,
         options?.tool,
-        options?.llm,
+        options?.llm
       );
       return buildGenerateResult(
         prompt,
         mode,
-        "llm",
+        'llm',
         resultSettings,
         wardrobeAssignments,
-        rawPrompt,
+        rawPrompt
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown LLM error";
+      const message = error instanceof Error ? error.message : 'Unknown LLM error';
       const fallbackAllowed = resolveRequestTemplateFallback(options?.llm);
 
       if (!fallbackAllowed) {
         throw new Error(message);
       }
 
-      console.warn("[prompt-generator] LLM failed, using template fallback:", message);
+      console.warn('[prompt-generator] LLM failed, using template fallback:', message);
     }
   }
 
@@ -943,22 +867,22 @@ export async function generatePrompt(
     mode,
     writeSettings,
     wardrobeAssignments,
-    options?.tool,
+    options?.tool
   );
   return buildGenerateResult(
     templatePrompt,
     mode,
-    "template",
+    'template',
     resultSettings,
     wardrobeAssignments,
-    templatePrompt,
+    templatePrompt
   );
 }
 
 export type GenerateStreamEvent =
-  | { type: "delta"; text: string }
-  | { type: "done"; result: GenerateResult }
-  | { type: "error"; message: string };
+  | { type: 'delta'; text: string }
+  | { type: 'done'; result: GenerateResult }
+  | { type: 'error'; message: string };
 
 /**
  * Streaming counterpart to `generatePrompt`. Mirrors the same LLM → template
@@ -970,11 +894,11 @@ export async function* generatePromptStream(
   input: string,
   mode: PromptMode,
   settings: GenerationSettings = DEFAULT_GENERATION_SETTINGS,
-  options?: GeneratePromptOptions,
+  options?: GeneratePromptOptions
 ): AsyncGenerator<GenerateStreamEvent, void, unknown> {
   const trimmed = input.trim();
   if (!trimmed) {
-    yield { type: "error", message: "Input cannot be empty." };
+    yield { type: 'error', message: 'Input cannot be empty.' };
     return;
   }
 
@@ -992,7 +916,7 @@ export async function* generatePromptStream(
   const llmEnabled = resolveRequestLlmEnabled(options?.llm);
   const seedIngredients = writeSettings.seedLlmWithIngredients !== false;
   const wardrobeAssignments =
-    mode === "positive" && seedIngredients
+    mode === 'positive' && seedIngredients
       ? buildGenerateWardrobeAssignments(trimmed, writeSettings, {
           recentClothing: options?.recentClothing,
           lockedWardrobeId: options?.lockedWardrobeId,
@@ -1008,20 +932,20 @@ export async function* generatePromptStream(
         writeSettings,
         wardrobeAssignments,
         options?.variationSeed,
-        options?.avoidedTokensInstruction,
+        options?.avoidedTokensInstruction
       );
 
-      let raw = "";
+      let raw = '';
       for await (const delta of chatCompletionStream({
         messages: request.messages,
         maxTokens: request.maxTokens,
         temperature: request.temperature,
         model: resolveRequestLlmModel(options?.llm),
         extraBody: request.extraBody,
-        usageContext: { route: "generate-stream" },
+        usageContext: { route: 'generate-stream' },
       })) {
         raw += delta;
-        yield { type: "delta", text: delta };
+        yield { type: 'delta', text: delta };
       }
 
       const rawPrompt = stripPromptArtifacts(raw).trim() || raw.trim();
@@ -1031,31 +955,31 @@ export async function* generatePromptStream(
         mode,
         writeSettings,
         wardrobeAssignments,
-        options?.tool,
+        options?.tool
       );
 
       yield {
-        type: "done",
+        type: 'done',
         result: buildGenerateResult(
           prompt,
           mode,
-          "llm",
+          'llm',
           resultSettings,
           wardrobeAssignments,
-          rawPrompt,
+          rawPrompt
         ),
       };
       return;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown LLM error";
+      const message = error instanceof Error ? error.message : 'Unknown LLM error';
       const fallbackAllowed = resolveRequestTemplateFallback(options?.llm);
 
       if (!fallbackAllowed) {
-        yield { type: "error", message };
+        yield { type: 'error', message };
         return;
       }
 
-      console.warn("[prompt-generator] LLM stream failed, using template fallback:", message);
+      console.warn('[prompt-generator] LLM stream failed, using template fallback:', message);
     }
   }
 
@@ -1065,17 +989,17 @@ export async function* generatePromptStream(
       mode,
       writeSettings,
       wardrobeAssignments,
-      options?.tool,
+      options?.tool
     );
     yield {
-      type: "done",
+      type: 'done',
       result: buildGenerateResult(
         templatePrompt,
         mode,
-        "template",
+        'template',
         resultSettings,
         wardrobeAssignments,
-        templatePrompt,
+        templatePrompt
       ),
     };
   }

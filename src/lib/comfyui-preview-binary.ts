@@ -17,14 +17,14 @@ export const COMFY_PREVIEW_IMAGE_JPEG = 1;
 export const COMFY_PREVIEW_IMAGE_PNG = 2;
 
 export type ComfyPreviewBinaryParsed = {
-  mimeType: "image/jpeg" | "image/png";
+  mimeType: 'image/jpeg' | 'image/png';
   bytes: Uint8Array;
   promptId?: string;
 };
 
-function sniffImageMime(bytes: Uint8Array): "image/jpeg" | "image/png" | null {
+function sniffImageMime(bytes: Uint8Array): 'image/jpeg' | 'image/png' | null {
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-    return "image/jpeg";
+    return 'image/jpeg';
   }
   if (
     bytes.length >= 8 &&
@@ -33,17 +33,17 @@ function sniffImageMime(bytes: Uint8Array): "image/jpeg" | "image/png" | null {
     bytes[2] === 0x4e &&
     bytes[3] === 0x47
   ) {
-    return "image/png";
+    return 'image/png';
   }
   return null;
 }
 
-function mimeFromImageType(imageType: number): "image/jpeg" | "image/png" {
-  return imageType === COMFY_PREVIEW_IMAGE_PNG ? "image/png" : "image/jpeg";
+function mimeFromImageType(imageType: number): 'image/jpeg' | 'image/png' {
+  return imageType === COMFY_PREVIEW_IMAGE_PNG ? 'image/png' : 'image/jpeg';
 }
 
 export function parseComfyPreviewBinary(
-  data: ArrayBuffer | ArrayBufferView,
+  data: ArrayBuffer | ArrayBufferView
 ): ComfyPreviewBinaryParsed | null {
   const view =
     data instanceof ArrayBuffer
@@ -58,11 +58,7 @@ export function parseComfyPreviewBinary(
 
   if (eventType === COMFY_PREVIEW_EVENT_IMAGE) {
     const imageType = view.getUint32(4, false);
-    const bytes = new Uint8Array(
-      view.buffer,
-      view.byteOffset + 8,
-      view.byteLength - 8,
-    );
+    const bytes = new Uint8Array(view.buffer, view.byteOffset + 8, view.byteLength - 8);
     if (bytes.byteLength === 0) {
       return null;
     }
@@ -78,29 +74,25 @@ export function parseComfyPreviewBinary(
     ) {
       return null;
     }
-    const metadataBytes = new Uint8Array(
-      view.buffer,
-      view.byteOffset + 8,
-      metadataLength,
-    );
+    const metadataBytes = new Uint8Array(view.buffer, view.byteOffset + 8, metadataLength);
     let promptId: string | undefined;
-    let mimeType: "image/jpeg" | "image/png" | null = null;
+    let mimeType: 'image/jpeg' | 'image/png' | null = null;
     try {
       const metadata = JSON.parse(new TextDecoder().decode(metadataBytes)) as {
         prompt_id?: string;
         image_type?: string;
       };
-      if (typeof metadata.prompt_id === "string" && metadata.prompt_id.trim()) {
+      if (typeof metadata.prompt_id === 'string' && metadata.prompt_id.trim()) {
         promptId = metadata.prompt_id.trim();
       }
-      if (metadata.image_type === "image/png" || metadata.image_type === "png") {
-        mimeType = "image/png";
+      if (metadata.image_type === 'image/png' || metadata.image_type === 'png') {
+        mimeType = 'image/png';
       } else if (
-        metadata.image_type === "image/jpeg" ||
-        metadata.image_type === "jpeg" ||
-        metadata.image_type === "jpg"
+        metadata.image_type === 'image/jpeg' ||
+        metadata.image_type === 'jpeg' ||
+        metadata.image_type === 'jpg'
       ) {
-        mimeType = "image/jpeg";
+        mimeType = 'image/jpeg';
       }
     } catch {
       // ignore bad metadata; still try to decode image bytes
@@ -109,12 +101,12 @@ export function parseComfyPreviewBinary(
     const bytes = new Uint8Array(
       view.buffer,
       view.byteOffset + 8 + metadataLength,
-      view.byteLength - 8 - metadataLength,
+      view.byteLength - 8 - metadataLength
     );
     if (bytes.byteLength === 0) {
       return null;
     }
-    mimeType = mimeType ?? sniffImageMime(bytes) ?? "image/jpeg";
+    mimeType = mimeType ?? sniffImageMime(bytes) ?? 'image/jpeg';
     return { mimeType, bytes, promptId };
   }
 
@@ -122,7 +114,7 @@ export function parseComfyPreviewBinary(
 }
 
 export function comfyPreviewBinaryToObjectUrl(
-  data: ArrayBuffer | ArrayBufferView,
+  data: ArrayBuffer | ArrayBufferView
 ): { url: string; promptId?: string } | null {
   const parsed = parseComfyPreviewBinary(data);
   if (!parsed) {

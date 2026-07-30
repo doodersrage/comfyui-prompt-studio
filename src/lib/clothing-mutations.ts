@@ -2,16 +2,13 @@
  * Catalog-aware wardrobe mutations for gallery / auto-improve.
  */
 
-import {
-  buildClothingPickFilters,
-  hintsFantasyWardrobe,
-} from "./clothing-tags";
-import { pickRandomCharacterOutfit } from "./clothing-catalog";
-import { compactClothingScript } from "./clothing-quality";
-import { parseSettingHint } from "./hint-location";
-import { inferSubjectGenderFromHints } from "./distinct-people";
-import type { SubjectGender } from "./variation-seed";
-import type { ClothingPickFilters } from "./clothing-tags";
+import { buildClothingPickFilters, hintsFantasyWardrobe } from './clothing-tags';
+import { pickRandomCharacterOutfit } from './clothing-catalog';
+import { compactClothingScript } from './clothing-quality';
+import { parseSettingHint } from './hint-location';
+import { inferSubjectGenderFromHints } from './distinct-people';
+import type { SubjectGender } from './variation-seed';
+import type { ClothingPickFilters } from './clothing-tags';
 
 export type WardrobeMutationPick = {
   summary: string;
@@ -29,19 +26,16 @@ export function resolveCatalogWardrobeMutation(input: {
   recentClothing?: readonly string[];
   avoidedTokens?: readonly string[];
 }): WardrobeMutationPick | null {
-  const corpus = [input.hints, input.prompt].filter(Boolean).join(" ").trim();
+  const corpus = [input.hints, input.prompt].filter(Boolean).join(' ').trim();
   if (!corpus) {
     return null;
   }
 
   const location = parseSettingHint(corpus).location;
-  const gender =
-    input.gender ??
-    inferSubjectGenderFromHints(corpus) ??
-    undefined;
+  const gender = input.gender ?? inferSubjectGenderFromHints(corpus) ?? undefined;
 
   const filters = buildClothingPickFilters({
-    gender: gender === "women" || gender === "men" ? gender : undefined,
+    gender: gender === 'women' || gender === 'men' ? gender : undefined,
     sceneLocation: location,
     environmentSeed: corpus,
     hints: corpus,
@@ -71,7 +65,7 @@ export function buildCatalogAwareWardrobeMutationClause(
   options?: {
     hints?: string;
     recentClothing?: readonly string[];
-  },
+  }
 ): { clause: string; summary?: string; wardrobeId?: string | null } {
   const explicit = explicitValue?.trim();
   if (explicit) {
@@ -97,6 +91,6 @@ export function buildCatalogAwareWardrobeMutationClause(
 
   return {
     clause:
-      "Refresh wardrobe with a contrasting but scene-appropriate outfit while keeping pose and identity. Replace prior garments completely.",
+      'Refresh wardrobe with a contrasting but scene-appropriate outfit while keeping pose and identity. Replace prior garments completely.',
   };
 }

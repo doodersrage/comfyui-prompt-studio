@@ -1,4 +1,4 @@
-import { workflowContentHash } from "./workflow-content-hash";
+import { workflowContentHash } from './workflow-content-hash';
 
 export type PromptVersionParent = {
   id: string;
@@ -19,7 +19,7 @@ export function computePromptContentHash(input: {
   loraIds?: string[] | null;
 }): string {
   const loras = [...(input.loraIds ?? [])]
-    .map((id) => id.trim())
+    .map(id => id.trim())
     .filter(Boolean)
     .sort();
   const payload = JSON.stringify({
@@ -54,9 +54,7 @@ export function nextPromptVersionFields(input: {
   };
 }
 
-export function formatPromptVersionLabel(
-  promptVersion: number | undefined,
-): string | null {
+export function formatPromptVersionLabel(promptVersion: number | undefined): string | null {
   if (promptVersion == null || !Number.isFinite(promptVersion) || promptVersion < 1) {
     return null;
   }

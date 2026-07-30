@@ -1,41 +1,46 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useCallback, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import PromptDiagnosticsPanel from "@/components/PromptDiagnosticsPanel";
-import SharedToolControls from "@/components/SharedToolControls";
-import SidecarImportButton from "@/components/SidecarImportButton";
-import PromptWeightInspector from "@/components/PromptWeightInspector";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { usePromptEditorHandoff, type PromptEditorHandoffMeta } from "@/hooks/usePromptEditorHandoff";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import { getDetailLimits } from "@/lib/detail-level";
-import { modelUsesNegativePrompt } from "@/lib/prompt-pair";
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { DEFAULT_PROMPT_EDITOR_TOOL_CACHE } from "@/lib/settings-cache";
+import Link from 'next/link';
+import { useCallback, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import PromptDiagnosticsPanel from '@/components/PromptDiagnosticsPanel';
+import SharedToolControls from '@/components/SharedToolControls';
+import SidecarImportButton from '@/components/SidecarImportButton';
+import PromptWeightInspector from '@/components/PromptWeightInspector';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import {
+  usePromptEditorHandoff,
+  type PromptEditorHandoffMeta,
+} from '@/hooks/usePromptEditorHandoff';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { getDetailLimits } from '@/lib/detail-level';
+import { modelUsesNegativePrompt } from '@/lib/prompt-pair';
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { DEFAULT_PROMPT_EDITOR_TOOL_CACHE } from '@/lib/settings-cache';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldLabel, TextArea } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+} from '@/components/ui/ToolPageShell';
+import { FieldLabel, TextArea } from '@/components/ui/Field';
+import { PrimaryButton } from '@/components/ui/Button';
 
-const ACCENT = "sky" as const;
+const ACCENT = 'sky' as const;
 
 export default function PromptEditorTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("promptEditor", DEFAULT_PROMPT_EDITOR_TOOL_CACHE);
-  const hints = toolSettings.hints ?? "";
-  const positive = toolSettings.positive ?? "";
-  const negative = toolSettings.negative ?? "";
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'promptEditor',
+    DEFAULT_PROMPT_EDITOR_TOOL_CACHE
+  );
+  const hints = toolSettings.hints ?? '';
+  const positive = toolSettings.positive ?? '';
+  const negative = toolSettings.negative ?? '';
   const [copied, setCopied] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [negativeStatus, setNegativeStatus] = useState<string | null>(null);
@@ -44,17 +49,13 @@ export default function PromptEditorTool() {
   const rememberEditorDraft = useCallback(
     (next: { hints?: string; positive?: string; negative?: string }) => {
       rememberDraftFields({
-        toolKey: "prompt-editor",
-        label: "Prompt Editor",
-        href: "/prompt",
-        fields: [
-          next.positive ?? positive,
-          next.hints ?? hints,
-          next.negative ?? negative,
-        ],
+        toolKey: 'prompt-editor',
+        label: 'Prompt Editor',
+        href: '/prompt',
+        fields: [next.positive ?? positive, next.hints ?? hints, next.negative ?? negative],
       });
     },
-    [hints, negative, positive],
+    [hints, negative, positive]
   );
 
   const setHints = useCallback(
@@ -62,33 +63,33 @@ export default function PromptEditorTool() {
       updateToolSettings({ hints: value });
       rememberEditorDraft({ hints: value });
     },
-    [rememberEditorDraft, updateToolSettings],
+    [rememberEditorDraft, updateToolSettings]
   );
   const setPositive = useCallback(
     (value: string) => {
       updateToolSettings({ positive: value });
       rememberEditorDraft({ positive: value });
     },
-    [rememberEditorDraft, updateToolSettings],
+    [rememberEditorDraft, updateToolSettings]
   );
   const setNegative = useCallback(
     (value: string) => {
       updateToolSettings({ negative: value });
       rememberEditorDraft({ negative: value });
     },
-    [rememberEditorDraft, updateToolSettings],
+    [rememberEditorDraft, updateToolSettings]
   );
 
   useSeedToolDraft(mounted, {
-    toolKey: "prompt-editor",
-    label: "Prompt Editor",
-    href: "/prompt",
+    toolKey: 'prompt-editor',
+    label: 'Prompt Editor',
+    href: '/prompt',
     fields: [positive, hints, negative],
   });
 
   const reformatTarget = getReformatTargetModel(shared.model);
   const actions = usePromptResultActions({
-    tool: "prompt-editor",
+    tool: 'prompt-editor',
     model: shared.model,
     detail: shared.detail,
     hints,
@@ -103,7 +104,7 @@ export default function PromptEditorTool() {
 
   usePromptEditorHandoff(
     useCallback(
-      (payload) => {
+      payload => {
         setPositive(payload.positive);
         setNegative(payload.negative);
         if (payload.hints) {
@@ -115,8 +116,8 @@ export default function PromptEditorTool() {
         setSourceMeta(payload.meta);
         actions.resetStatuses();
       },
-      [actions, setHints, setNegative, setPositive, updateShared],
-    ),
+      [actions, setHints, setNegative, setPositive, updateShared]
+    )
   );
 
   const runLint = useCallback(async () => {
@@ -137,11 +138,11 @@ export default function PromptEditorTool() {
   }, [positive]);
 
   const generateNegative = useCallback(async () => {
-    setNegativeStatus("Building negative…");
+    setNegativeStatus('Building negative…');
     try {
-      const response = await fetch("/api/negative", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/negative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           hints: hints || positive.slice(0, 240),
           sport: sport ?? undefined,
@@ -149,12 +150,12 @@ export default function PromptEditorTool() {
       });
       const data = (await response.json()) as { prompt?: string; error?: string };
       if (!response.ok) {
-        throw new Error(data.error ?? "Negative generation failed.");
+        throw new Error(data.error ?? 'Negative generation failed.');
       }
-      setNegative(data.prompt ?? "");
-      setNegativeStatus("Negative prompt generated.");
+      setNegative(data.prompt ?? '');
+      setNegativeStatus('Negative prompt generated.');
     } catch (err) {
-      setNegativeStatus(err instanceof Error ? err.message : "Negative generation failed.");
+      setNegativeStatus(err instanceof Error ? err.message : 'Negative generation failed.');
     }
   }, [hints, positive, setNegative, sport]);
 
@@ -163,25 +164,20 @@ export default function PromptEditorTool() {
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={
-        <ToolBadge accent={ACCENT}>
-          Manual edit · {selectedModel.comfyNode}
-        </ToolBadge>
-      }
+      badge={<ToolBadge accent={ACCENT}>Manual edit · {selectedModel.comfyNode}</ToolBadge>}
       title="Prompt Editor"
       description={
         <>
-          Edit positive and negative prompts by hand, run lint and optimization,
-          then copy a pair or send to ComfyUI. Open from gallery or history to
-          tweak an existing generation.
+          Edit positive and negative prompts by hand, run lint and optimization, then copy a pair or
+          send to ComfyUI. Open from gallery or history to tweak an existing generation.
         </>
       }
       sidebar={
         <SharedToolControls
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           recommendFromText={positive || hints}
         />
       }
@@ -199,14 +195,14 @@ export default function PromptEditorTool() {
             ) : null}
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-sm font-medium text-sky-100">
-                Loaded from {sourceMeta.source === "gallery" ? "gallery" : "history"}
-                {sourceMeta.tool ? ` · ${sourceMeta.tool}` : ""}
+                Loaded from {sourceMeta.source === 'gallery' ? 'gallery' : 'history'}
+                {sourceMeta.tool ? ` · ${sourceMeta.tool}` : ''}
               </p>
               <p className="text-xs text-zinc-500">
                 Edits here do not change the saved gallery entry until you queue a new job.
               </p>
               <div className="flex flex-wrap gap-3 pt-1">
-                {sourceMeta.source === "gallery" ? (
+                {sourceMeta.source === 'gallery' ? (
                   <Link
                     href="/gallery"
                     className="text-xs text-sky-300 transition hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
@@ -232,7 +228,7 @@ export default function PromptEditorTool() {
         <FieldLabel>Hints</FieldLabel>
         <TextArea
           value={hints}
-          onChange={(event) => setHints(event.target.value)}
+          onChange={event => setHints(event.target.value)}
           placeholder="Optional scene hints for lint, negative generation, and queue steering"
           rows={2}
           className={accentFocusClass(ACCENT)}
@@ -241,7 +237,7 @@ export default function PromptEditorTool() {
         <FieldLabel>Positive prompt</FieldLabel>
         <TextArea
           value={positive}
-          onChange={(event) => setPositive(event.target.value)}
+          onChange={event => setPositive(event.target.value)}
           placeholder="Paste or type your positive prompt…"
           rows={10}
           className={`font-mono text-emerald-300 ${accentFocusClass(ACCENT)}`}
@@ -262,18 +258,17 @@ export default function PromptEditorTool() {
             </div>
             <TextArea
               value={negative}
-              onChange={(event) => setNegative(event.target.value)}
+              onChange={event => setNegative(event.target.value)}
               placeholder="Optional — leave blank to auto-resolve on queue"
               rows={4}
               className={`font-mono text-rose-200/90 ${accentFocusClass(ACCENT)}`}
             />
-            {negativeStatus ? (
-              <p className="text-xs text-zinc-500">{negativeStatus}</p>
-            ) : null}
+            {negativeStatus ? <p className="text-xs text-zinc-500">{negativeStatus}</p> : null}
           </>
         ) : (
           <p className="text-xs text-zinc-500">
-            {selectedModel.comfyNode} ignores separate negatives — fold exclusions into the positive prompt.
+            {selectedModel.comfyNode} ignores separate negatives — fold exclusions into the positive
+            prompt.
           </p>
         )}
 
@@ -294,7 +289,7 @@ export default function PromptEditorTool() {
             Fix prompt (rules)
           </button>
           <SidecarImportButton
-            onImport={(sidecar) => {
+            onImport={sidecar => {
               setPositive(sidecar.positive);
               if (sidecar.negative) {
                 setNegative(sidecar.negative);
@@ -303,7 +298,7 @@ export default function PromptEditorTool() {
                 setHints(sidecar.hints);
               }
               setImportStatus(
-                `Imported sidecar · ${sidecar.tool ?? "unknown tool"} · ${sidecar.model}`,
+                `Imported sidecar · ${sidecar.tool ?? 'unknown tool'} · ${sidecar.model}`
               );
             }}
             onError={setImportStatus}
@@ -312,11 +307,7 @@ export default function PromptEditorTool() {
         {importStatus ? <p className="text-xs text-zinc-500">{importStatus}</p> : null}
 
         {positive.trim() ? (
-          <PromptWeightInspector
-            prompt={positive}
-            model={shared.model}
-            onChange={setPositive}
-          />
+          <PromptWeightInspector prompt={positive} model={shared.model} onChange={setPositive} />
         ) : null}
       </ToolSection>
 
@@ -325,7 +316,7 @@ export default function PromptEditorTool() {
       <EnhancedPromptResult
         output={positive}
         onOutputChange={setPositive}
-        provider={actions.diagnostics ? "rules" : null}
+        provider={actions.diagnostics ? 'rules' : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={shared.model}
         readinessDetail={shared.detail}
@@ -345,9 +336,7 @@ export default function PromptEditorTool() {
         onExportSidecar={() =>
           void actions.exportSidecar(positive, { comfyNode: selectedModel.comfyNode })
         }
-        onSendComfyUi={() =>
-          void actions.sendComfyUi(positive, sport, undefined, queueOptions)
-        }
+        onSendComfyUi={() => void actions.sendComfyUi(positive, sport, undefined, queueOptions)}
         {...promptResultPreviewProps(actions, positive, sport)}
         fixStatus={actions.fixStatus}
         compactStatus={actions.compactStatus}

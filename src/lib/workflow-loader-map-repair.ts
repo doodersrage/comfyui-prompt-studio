@@ -1,7 +1,7 @@
-import type { ComfyUiModelLists } from "./comfyui-object-info";
+import type { ComfyUiModelLists } from './comfyui-object-info';
 
 export type LoaderMapRepairSuggestion = {
-  mapKey: "checkpoint" | "vae" | "upscale" | "controlNet";
+  mapKey: 'checkpoint' | 'vae' | 'upscale' | 'controlNet';
   modelId: string;
   currentFilename: string;
   suggestedFilename: string;
@@ -18,15 +18,18 @@ function suggestClosestFilename(filename: string, list: string[]): string | unde
     return undefined;
   }
 
-  const exact = list.find((entry) => entry.toLowerCase() === trimmed);
+  const exact = list.find(entry => entry.toLowerCase() === trimmed);
   if (exact) {
     return exact;
   }
 
-  const stem = trimmed.replace(/\.(safetensors|ckpt|pt)$/i, "");
-  const partial = list.find((entry) => {
+  const stem = trimmed.replace(/\.(safetensors|ckpt|pt)$/i, '');
+  const partial = list.find(entry => {
     const entryLower = entry.toLowerCase();
-    return entryLower.includes(stem) || stem.includes(entryLower.replace(/\.(safetensors|ckpt|pt)$/i, ""));
+    return (
+      entryLower.includes(stem) ||
+      stem.includes(entryLower.replace(/\.(safetensors|ckpt|pt)$/i, ''))
+    );
   });
   return partial;
 }
@@ -55,11 +58,11 @@ export function suggestLoaderMapRepairs(input: {
       suggestClosestFilename(filename, input.models.checkpoints);
     if (suggested) {
       suggestions.push({
-        mapKey: "checkpoint",
+        mapKey: 'checkpoint',
         modelId,
         currentFilename: filename,
         suggestedFilename: suggested,
-        reason: "Closest checkpoint/UNET match in ComfyUI",
+        reason: 'Closest checkpoint/UNET match in ComfyUI',
       });
     }
   }
@@ -71,11 +74,11 @@ export function suggestLoaderMapRepairs(input: {
     const suggested = suggestClosestFilename(filename, input.models.vaes);
     if (suggested) {
       suggestions.push({
-        mapKey: "vae",
+        mapKey: 'vae',
         modelId,
         currentFilename: filename,
         suggestedFilename: suggested,
-        reason: "Closest VAE match in ComfyUI",
+        reason: 'Closest VAE match in ComfyUI',
       });
     }
   }
@@ -87,11 +90,11 @@ export function suggestLoaderMapRepairs(input: {
     const suggested = suggestClosestFilename(filename, input.models.upscaleModels);
     if (suggested) {
       suggestions.push({
-        mapKey: "upscale",
+        mapKey: 'upscale',
         modelId,
         currentFilename: filename,
         suggestedFilename: suggested,
-        reason: "Closest upscale model match in ComfyUI",
+        reason: 'Closest upscale model match in ComfyUI',
       });
     }
   }
@@ -104,11 +107,11 @@ export function suggestLoaderMapRepairs(input: {
       const suggested = suggestClosestFilename(filename, input.models.controlNets);
       if (suggested) {
         suggestions.push({
-          mapKey: "controlNet",
+          mapKey: 'controlNet',
           modelId,
           currentFilename: filename,
           suggestedFilename: suggested,
-          reason: "Closest ControlNet match in ComfyUI",
+          reason: 'Closest ControlNet match in ComfyUI',
         });
       }
     }
@@ -124,7 +127,7 @@ export function applyLoaderMapRepairs(
     upscaleMap: Record<string, string>;
     controlNetMap?: Record<string, string>;
   },
-  repairs: LoaderMapRepairSuggestion[],
+  repairs: LoaderMapRepairSuggestion[]
 ): {
   checkpointMap: Record<string, string>;
   vaeMap: Record<string, string>;
@@ -140,19 +143,19 @@ export function applyLoaderMapRepairs(
 
   for (const repair of repairs) {
     switch (repair.mapKey) {
-      case "checkpoint":
+      case 'checkpoint':
         checkpointMap[repair.modelId] = repair.suggestedFilename;
         applied += 1;
         break;
-      case "vae":
+      case 'vae':
         vaeMap[repair.modelId] = repair.suggestedFilename;
         applied += 1;
         break;
-      case "upscale":
+      case 'upscale':
         upscaleMap[repair.modelId] = repair.suggestedFilename;
         applied += 1;
         break;
-      case "controlNet":
+      case 'controlNet':
         controlNetMap[repair.modelId] = repair.suggestedFilename;
         applied += 1;
         break;

@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-const STORAGE_KEY = "prompt-studio.gallery-deleted-ids";
+const STORAGE_KEY = 'prompt-studio.gallery-deleted-ids';
 const MAX_TOMBSTONES = 5000;
 
 export type GalleryDeletedIdsPayload = {
@@ -25,7 +25,7 @@ function normalizeIds(ids: Iterable<string>): string[] {
 }
 
 export function loadGalleryDeletedIds(): string[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   const stored = readBrowserValue<GalleryDeletedIdsPayload | string[]>(STORAGE_KEY);
@@ -39,7 +39,7 @@ export function loadGalleryDeletedIds(): string[] {
 }
 
 export function saveGalleryDeletedIds(ids: string[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   const normalized = normalizeIds(ids).slice(-MAX_TOMBSTONES);
@@ -65,21 +65,16 @@ export function clearGalleryDeletedIds(): void {
 /** Drop tombstoned ids from a gallery list. */
 export function filterOutDeletedGalleryEntries<T extends { id: string }>(
   entries: T[],
-  deletedIds: Iterable<string> = loadGalleryDeletedIds(),
+  deletedIds: Iterable<string> = loadGalleryDeletedIds()
 ): T[] {
-  const blocked = new Set(
-    [...deletedIds].map((id) => id.trim()).filter(Boolean),
-  );
+  const blocked = new Set([...deletedIds].map(id => id.trim()).filter(Boolean));
   if (blocked.size === 0) {
     return entries;
   }
-  return entries.filter((entry) => !blocked.has(entry.id));
+  return entries.filter(entry => !blocked.has(entry.id));
 }
 
 /** Union local + server tombstone lists (order preserved, capped). */
-export function mergeGalleryDeletedIds(
-  local: string[],
-  server: string[],
-): string[] {
+export function mergeGalleryDeletedIds(local: string[], server: string[]): string[] {
   return normalizeIds([...local, ...server]).slice(-MAX_TOMBSTONES);
 }

@@ -1,19 +1,16 @@
-"use client";
+'use client';
 
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import ModelSelector from "@/components/ModelSelector";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import type { DetailLevel } from "@/lib/detail-level";
-import { getDetailLimits } from "@/lib/detail-level";
-import {
-  getComfyModelDefinition,
-  type ComfyImageModel,
-} from "@/lib/comfy-models/client";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import ModelSelector from '@/components/ModelSelector';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import type { DetailLevel } from '@/lib/detail-level';
+import { getDetailLimits } from '@/lib/detail-level';
+import { getComfyModelDefinition, type ComfyImageModel } from '@/lib/comfy-models/client';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import {
   ToolBadge,
   ToolLayout,
@@ -21,23 +18,23 @@ import {
   accentButtonClass,
   accentFocusClass,
   accentRingClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldDivider, FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
-import { Button, PrimaryButton } from "@/components/ui/Button";
-import { DEFAULT_FORMAT_TOOL_CACHE } from "@/lib/settings-cache";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+} from '@/components/ui/ToolPageShell';
+import { FieldDivider, FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { Button, PrimaryButton } from '@/components/ui/Button';
+import { DEFAULT_FORMAT_TOOL_CACHE } from '@/lib/settings-cache';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
-const ACCENT = "emerald" as const;
+const ACCENT = 'emerald' as const;
 
-type FormatMode = "positive" | "negative";
+type FormatMode = 'positive' | 'negative';
 
 type FormatResponse = {
   prompt: string;
   mode: FormatMode;
   model: ComfyImageModel;
   comfyNode: string;
-  provider: "llm" | "rules";
+  provider: 'llm' | 'rules';
   limits: {
     minChars?: number;
     maxChars: number;
@@ -50,45 +47,44 @@ type FormatResponse = {
 };
 
 const EXAMPLE_DRAFTS = [
-  "1girl, neon alley, rain, masterpiece, best quality, 8k",
-  "keep her face, change background to gothic cathedral with candles and fog",
-  "A woman in a red dress standing in a field at sunset",
+  '1girl, neon alley, rain, masterpiece, best quality, 8k',
+  'keep her face, change background to gothic cathedral with candles and fog',
+  'A woman in a red dress standing in a field at sunset',
 ];
 
 export default function PromptFormatter() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("format", DEFAULT_FORMAT_TOOL_CACHE);
-  const [mode, setMode] = useState<FormatMode>(
-    DEFAULT_FORMAT_TOOL_CACHE.mode ?? "positive",
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'format',
+    DEFAULT_FORMAT_TOOL_CACHE
   );
-  const [output, setOutput] = useState("");
-  const [provider, setProvider] = useState<"llm" | "rules" | null>(null);
-  const [resultMeta, setResultMeta] = useState<Omit<
-    FormatResponse,
-    "prompt" | "provider"
-  > | null>(null);
+  const [mode, setMode] = useState<FormatMode>(DEFAULT_FORMAT_TOOL_CACHE.mode ?? 'positive');
+  const [output, setOutput] = useState('');
+  const [provider, setProvider] = useState<'llm' | 'rules' | null>(null);
+  const [resultMeta, setResultMeta] = useState<Omit<FormatResponse, 'prompt' | 'provider'> | null>(
+    null
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const input = toolSettings.draft ?? "";
+  const input = toolSettings.draft ?? '';
   const setInput = useCallback(
     (value: string) => {
       updateToolSettings({ draft: value });
       rememberDraftFields({
-        toolKey: "format",
-        label: "Format",
-        href: "/format",
+        toolKey: 'format',
+        label: 'Format',
+        href: '/format',
         fields: [value],
       });
     },
-    [updateToolSettings],
+    [updateToolSettings]
   );
 
   useSeedToolDraft(mounted, {
-    toolKey: "format",
-    label: "Format",
-    href: "/format",
+    toolKey: 'format',
+    label: 'Format',
+    href: '/format',
     fields: [input],
   });
 
@@ -98,7 +94,7 @@ export default function PromptFormatter() {
   const autoFixRules = shared.autoFixRules !== false;
 
   const actions = usePromptResultActions({
-    tool: "format",
+    tool: 'format',
     model: targetModel,
     detail,
     hints: input,
@@ -108,22 +104,15 @@ export default function PromptFormatter() {
 
   const setTargetModel = (model: ComfyImageModel) => updateShared({ model });
   const setDetail = (value: DetailLevel) => updateShared({ detail: value });
-  const setSmartFormat = (value: boolean) =>
-    updateToolSettings({ smartFormat: value });
+  const setSmartFormat = (value: boolean) => updateToolSettings({ smartFormat: value });
   const setModeAndCache = (value: FormatMode) => {
     setMode(value);
     updateToolSettings({ mode: value });
   };
 
-  const selectedModel = useMemo(
-    () => getComfyModelDefinition(targetModel),
-    [targetModel],
-  );
+  const selectedModel = useMemo(() => getComfyModelDefinition(targetModel), [targetModel]);
 
-  const activeLimits = useMemo(
-    () => getDetailLimits(detail, targetModel),
-    [detail, targetModel],
-  );
+  const activeLimits = useMemo(() => getDetailLimits(detail, targetModel), [detail, targetModel]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -137,7 +126,7 @@ export default function PromptFormatter() {
 
   const runFormat = useCallback(async () => {
     if (!input.trim()) {
-      setError("Paste a prompt draft first.");
+      setError('Paste a prompt draft first.');
       return;
     }
 
@@ -147,13 +136,13 @@ export default function PromptFormatter() {
     actions.resetStatuses();
 
     try {
-      if (mode === "positive") {
+      if (mode === 'positive') {
         await actions.runPreLint(input);
       }
 
-      const response = await fetch("/api/format", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/format', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           input,
           mode,
@@ -168,13 +157,11 @@ export default function PromptFormatter() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Formatting failed.");
+        throw new Error(data.error ?? 'Formatting failed.');
       }
 
       const prompt =
-        mode === "positive"
-          ? await actions.finalizePrompt(data.prompt, input)
-          : data.prompt;
+        mode === 'positive' ? await actions.finalizePrompt(data.prompt, input) : data.prompt;
       setOutput(prompt);
       setProvider(data.provider);
       setResultMeta({
@@ -187,10 +174,10 @@ export default function PromptFormatter() {
         rawPrompt: data.rawPrompt,
       });
     } catch (err) {
-      setOutput("");
+      setOutput('');
       setProvider(null);
       setResultMeta(null);
-      setError(err instanceof Error ? err.message : "Formatting failed.");
+      setError(err instanceof Error ? err.message : 'Formatting failed.');
     } finally {
       setLoading(false);
     }
@@ -204,7 +191,7 @@ export default function PromptFormatter() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
@@ -215,8 +202,8 @@ export default function PromptFormatter() {
       title="Format for your model"
       description={
         <>
-          Paste an existing prompt—tag soup, a rough sentence, or a draft from
-          another model. This tool restructures and trims it for{" "}
+          Paste an existing prompt—tag soup, a rough sentence, or a draft from another model. This
+          tool restructures and trims it for{' '}
           <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-sm text-emerald-300">
             {selectedModel.comfyNode}
           </code>
@@ -243,19 +230,19 @@ export default function PromptFormatter() {
             <div className="flex flex-wrap gap-2">
               {(
                 [
-                  { label: "Concise", value: "concise" },
-                  { label: "Balanced", value: "balanced" },
-                  { label: "Rich", value: "rich" },
+                  { label: 'Concise', value: 'concise' },
+                  { label: 'Balanced', value: 'balanced' },
+                  { label: 'Rich', value: 'rich' },
                 ] as const
-              ).map((preset) => (
+              ).map(preset => (
                 <button
                   key={preset.value}
                   type="button"
                   onClick={() => setDetail(preset.value)}
                   className={`rounded-xl border px-3.5 py-2 text-xs font-medium transition ${
                     detail === preset.value
-                      ? "border-emerald-500/70 bg-emerald-500/15 text-emerald-100"
-                      : "border-zinc-700/80 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                      ? 'border-emerald-500/70 bg-emerald-500/15 text-emerald-100'
+                      : 'border-zinc-700/80 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
                   }`}
                 >
                   {preset.label}
@@ -275,34 +262,28 @@ export default function PromptFormatter() {
             <input
               type="checkbox"
               checked={smartFormat}
-              onChange={(e) => setSmartFormat(e.target.checked)}
+              onChange={e => setSmartFormat(e.target.checked)}
               className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentRingClass(ACCENT)}`}
             />
             <span className="space-y-1">
-              <span className="text-sm font-medium text-zinc-100">
-                Smart format (LLM)
-              </span>
+              <span className="text-sm font-medium text-zinc-100">Smart format (LLM)</span>
               <span className="block text-xs leading-relaxed text-zinc-500">
-                Rewrites your draft for the target model while preserving content.
-                Off uses instant rules-only cleanup.
+                Rewrites your draft for the target model while preserving content. Off uses instant
+                rules-only cleanup.
               </span>
             </span>
           </label>
 
-          {mode === "positive" && (
+          {mode === 'positive' && (
             <label className="flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
                 checked={autoFixRules}
-                onChange={(e) =>
-                  updateShared({ autoFixRules: e.target.checked })
-                }
+                onChange={e => updateShared({ autoFixRules: e.target.checked })}
                 className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentRingClass(ACCENT)}`}
               />
               <span className="space-y-1">
-                <span className="text-sm font-medium text-zinc-100">
-                  Auto-fix lint errors
-                </span>
+                <span className="text-sm font-medium text-zinc-100">Auto-fix lint errors</span>
                 <span className="block text-xs leading-relaxed text-zinc-500">
                   Apply rule-based fixes when lint reports errors after formatting.
                 </span>
@@ -314,28 +295,29 @@ export default function PromptFormatter() {
     >
       <ToolSection>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <FieldLabel htmlFor="format-input" hint="Tags, rough prose, or a draft from another tool.">
+          <FieldLabel
+            htmlFor="format-input"
+            hint="Tags, rough prose, or a draft from another tool."
+          >
             Prompt draft
           </FieldLabel>
           <div className="flex rounded-xl border border-zinc-700/80 p-0.5">
             <button
               type="button"
-              onClick={() => setModeAndCache("positive")}
+              onClick={() => setModeAndCache('positive')}
               className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition ${
-                mode === "positive"
-                  ? "bg-emerald-600 text-white"
-                  : "text-zinc-400 hover:text-zinc-200"
+                mode === 'positive'
+                  ? 'bg-emerald-600 text-white'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               Positive
             </button>
             <button
               type="button"
-              onClick={() => setModeAndCache("negative")}
+              onClick={() => setModeAndCache('negative')}
               className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition ${
-                mode === "negative"
-                  ? "bg-rose-600 text-white"
-                  : "text-zinc-400 hover:text-zinc-200"
+                mode === 'negative' ? 'bg-rose-600 text-white' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               Negative / Preserve
@@ -346,9 +328,9 @@ export default function PromptFormatter() {
         <TextArea
           id="format-input"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
               e.preventDefault();
               void runFormat();
             }
@@ -359,7 +341,7 @@ export default function PromptFormatter() {
         />
 
         <div className="flex flex-wrap gap-2">
-          {EXAMPLE_DRAFTS.map((example) => (
+          {EXAMPLE_DRAFTS.map(example => (
             <button
               key={example}
               type="button"
@@ -384,7 +366,7 @@ export default function PromptFormatter() {
         <FieldError>{error}</FieldError>
       </ToolSection>
 
-      {output && mode === "positive" && (
+      {output && mode === 'positive' && (
         <EnhancedPromptResult
           output={output}
           provider={provider}
@@ -395,15 +377,11 @@ export default function PromptFormatter() {
           copied={copied}
           onCopy={() => void copyOutput()}
           extraMeta={
-            resultMeta
-              ? `${resultMeta.inputChars} → ${resultMeta.outputChars} chars`
-              : undefined
+            resultMeta ? `${resultMeta.inputChars} → ${resultMeta.outputChars} chars` : undefined
           }
           diagnostics={actions.diagnostics}
           preDiagnostics={actions.preDiagnostics}
-          onSaveHistory={() =>
-            actions.saveHistory({ prompt: output, hints: input })
-          }
+          onSaveHistory={() => actions.saveHistory({ prompt: output, hints: input })}
           onSendComfyUi={() => void actions.sendComfyUi(output)}
           onOutputChange={setOutput}
           rawPrompt={resultMeta?.rawPrompt}
@@ -436,11 +414,11 @@ export default function PromptFormatter() {
         />
       )}
 
-      {output && mode === "negative" && (
+      {output && mode === 'negative' && (
         <ToolSection title="Formatted preserve prompt">
           <div className="flex flex-wrap items-center justify-end gap-3">
             <Button onClick={() => void copyOutput()}>
-              {copied ? "Copied!" : "Copy for ComfyUI"}
+              {copied ? 'Copied!' : 'Copy for ComfyUI'}
             </Button>
           </div>
           <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-5 font-mono text-sm leading-relaxed text-emerald-300">

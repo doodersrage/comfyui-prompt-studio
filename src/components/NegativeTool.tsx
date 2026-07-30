@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import SharedToolControls from "@/components/SharedToolControls";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import type { AthleticSport } from "@/lib/athletic-sport-profiles";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { DEFAULT_NEGATIVE_TOOL_CACHE } from "@/lib/settings-cache";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import { SPORT_PRESETS } from "@/lib/sport-presets";
+import { useCallback, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import SharedToolControls from '@/components/SharedToolControls';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import type { AthleticSport } from '@/lib/athletic-sport-profiles';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { DEFAULT_NEGATIVE_TOOL_CACHE } from '@/lib/settings-cache';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { SPORT_PRESETS } from '@/lib/sport-presets';
 import {
   ToolBadge,
   ToolLayout,
@@ -20,11 +20,11 @@ import {
   accentButtonClass,
   accentFocusClass,
   accentRingClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+} from '@/components/ui/ToolPageShell';
+import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { PrimaryButton } from '@/components/ui/Button';
 
-const ACCENT = "rose" as const;
+const ACCENT = 'rose' as const;
 
 type NegativeGenerateResult = {
   prompt: string;
@@ -33,26 +33,28 @@ type NegativeGenerateResult = {
 };
 
 export default function NegativeTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("negative", DEFAULT_NEGATIVE_TOOL_CACHE);
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'negative',
+    DEFAULT_NEGATIVE_TOOL_CACHE
+  );
   const actions = usePromptResultActions({
-    tool: "negative",
+    tool: 'negative',
     model: shared.model,
     detail: shared.detail,
     hints: toolSettings.sport,
     autoFixRules: shared.autoFixRules !== false,
     reformatTarget: getReformatTargetModel(shared.model),
   });
-  const [output, setOutput] = useState("");
+  const [output, setOutput] = useState('');
   const [result, setResult] = useState<NegativeGenerateResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useSeedToolDraft(mounted, {
-    toolKey: "negative",
-    label: "Negative",
-    href: "/negative",
+    toolKey: 'negative',
+    label: 'Negative',
+    href: '/negative',
     fields: [toolSettings.extra, toolSettings.sport, output],
   });
 
@@ -65,9 +67,9 @@ export default function NegativeTool() {
     actions.resetStatuses();
 
     try {
-      const response = await fetch("/api/negative", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/negative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sport: toolSettings.sport,
           preserveSubject: toolSettings.preserveSubject,
@@ -80,10 +82,10 @@ export default function NegativeTool() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Generation failed.");
+        throw new Error(data.error ?? 'Generation failed.');
       }
 
-      const prompt = data.prompt ?? "";
+      const prompt = data.prompt ?? '';
       setOutput(prompt);
       setResult({
         prompt,
@@ -91,15 +93,15 @@ export default function NegativeTool() {
         mode: data.mode,
       });
       rememberDraftFields({
-        toolKey: "negative",
-        label: "Negative",
-        href: "/negative",
+        toolKey: 'negative',
+        label: 'Negative',
+        href: '/negative',
         fields: [prompt, toolSettings.extra, toolSettings.sport],
       });
     } catch (err) {
-      setOutput("");
+      setOutput('');
       setResult(null);
-      setError(err instanceof Error ? err.message : "Generation failed.");
+      setError(err instanceof Error ? err.message : 'Generation failed.');
     } finally {
       setLoading(false);
     }
@@ -112,7 +114,7 @@ export default function NegativeTool() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
@@ -127,40 +129,40 @@ export default function NegativeTool() {
       title="Negative Prompt Builder"
       description={
         <>
-          Sport-aware negative prompts for SD-family models. Use preserve mode
-          when refining an existing subject in Qwen edit workflows.
+          Sport-aware negative prompts for SD-family models. Use preserve mode when refining an
+          existing subject in Qwen edit workflows.
         </>
       }
       sidebar={
         <SharedToolControls
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           detailHelp="Detail level affects compact-to-limit when trimming long negatives."
           autoFixRules={shared.autoFixRules !== false}
-          onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
-          recommendFromText={output || toolSettings.extra || ""}
+          onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
+          recommendFromText={output || toolSettings.extra || ''}
         />
       }
     >
       <ToolSection>
         <FieldLabel>Sport context</FieldLabel>
         <select
-          value={toolSettings.sport ?? ""}
-          onChange={(event) => {
+          value={toolSettings.sport ?? ''}
+          onChange={event => {
             updateToolSettings({ sport: event.target.value });
             rememberDraftFields({
-              toolKey: "negative",
-              label: "Negative",
-              href: "/negative",
+              toolKey: 'negative',
+              label: 'Negative',
+              href: '/negative',
               fields: [toolSettings.extra, event.target.value],
             });
           }}
           className="ui-input w-full px-4 py-2 text-sm"
         >
           <option value="">Auto / general</option>
-          {SPORT_PRESETS.map((preset) => (
+          {SPORT_PRESETS.map(preset => (
             <option key={preset.id} value={preset.category}>
               {preset.label} ({preset.category})
             </option>
@@ -171,15 +173,11 @@ export default function NegativeTool() {
           <input
             type="checkbox"
             checked={toolSettings.preserveSubject === true}
-            onChange={(event) =>
-              updateToolSettings({ preserveSubject: event.target.checked })
-            }
+            onChange={event => updateToolSettings({ preserveSubject: event.target.checked })}
             className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentRingClass(ACCENT)}`}
           />
           <span className="space-y-1">
-            <span className="text-sm font-medium text-zinc-200">
-              Preserve subject mode
-            </span>
+            <span className="text-sm font-medium text-zinc-200">Preserve subject mode</span>
             <span className="block text-xs text-zinc-500">
               Adds identity-preservation negatives for edit/refine workflows.
             </span>
@@ -189,14 +187,14 @@ export default function NegativeTool() {
         <FieldLabel>Extra negatives</FieldLabel>
         <TextArea
           rows={3}
-          value={toolSettings.extra ?? ""}
-          onChange={(event) => {
+          value={toolSettings.extra ?? ''}
+          onChange={event => {
             const value = event.target.value;
             updateToolSettings({ extra: value });
             rememberDraftFields({
-              toolKey: "negative",
-              label: "Negative",
-              href: "/negative",
+              toolKey: 'negative',
+              label: 'Negative',
+              href: '/negative',
               fields: [value, toolSettings.sport],
             });
           }}
@@ -228,7 +226,7 @@ export default function NegativeTool() {
         onCopy={() => void copyOutput()}
         extraMeta={
           result?.sport
-            ? `sport: ${result.sport}${result.mode ? ` · ${result.mode}` : ""}`
+            ? `sport: ${result.sport}${result.mode ? ` · ${result.mode}` : ''}`
             : result?.mode
               ? `mode: ${result.mode}`
               : undefined

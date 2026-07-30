@@ -1,5 +1,5 @@
-import { allowTemplateFallback, getLlmTemperature, isLlmEnabled } from "./llm-env";
-import type { SharedToolSettings } from "./settings-cache";
+import { allowTemplateFallback, getLlmTemperature, isLlmEnabled } from './llm-env';
+import type { SharedToolSettings } from './settings-cache';
 
 export type LlmRequestOptions = {
   temperature?: number;
@@ -12,37 +12,32 @@ export type LlmRequestOptions = {
   llmEnabled?: boolean;
 };
 
-export function parseLlmRequestOptions(body?: {
-  llmTemperature?: number;
-  allowTemplateFallback?: boolean;
-  llmModel?: string;
-  llmVisionModel?: string;
-  llmEnabled?: boolean;
-} | null): LlmRequestOptions {
+export function parseLlmRequestOptions(
+  body?: {
+    llmTemperature?: number;
+    allowTemplateFallback?: boolean;
+    llmModel?: string;
+    llmVisionModel?: string;
+    llmEnabled?: boolean;
+  } | null
+): LlmRequestOptions {
   const temperature =
-    typeof body?.llmTemperature === "number" &&
-    body.llmTemperature >= 0 &&
-    body.llmTemperature <= 2
+    typeof body?.llmTemperature === 'number' && body.llmTemperature >= 0 && body.llmTemperature <= 2
       ? body.llmTemperature
       : undefined;
 
   const allowFallback =
-    typeof body?.allowTemplateFallback === "boolean"
-      ? body.allowTemplateFallback
-      : undefined;
+    typeof body?.allowTemplateFallback === 'boolean' ? body.allowTemplateFallback : undefined;
 
   const llmModel =
-    typeof body?.llmModel === "string" && body.llmModel.trim()
-      ? body.llmModel.trim()
-      : undefined;
+    typeof body?.llmModel === 'string' && body.llmModel.trim() ? body.llmModel.trim() : undefined;
 
   const llmVisionModel =
-    typeof body?.llmVisionModel === "string" && body.llmVisionModel.trim()
+    typeof body?.llmVisionModel === 'string' && body.llmVisionModel.trim()
       ? body.llmVisionModel.trim()
       : undefined;
 
-  const llmEnabled =
-    typeof body?.llmEnabled === "boolean" ? body.llmEnabled : undefined;
+  const llmEnabled = typeof body?.llmEnabled === 'boolean' ? body.llmEnabled : undefined;
 
   return {
     temperature,
@@ -57,10 +52,8 @@ export function resolveRequestTemperature(options?: LlmRequestOptions): number {
   return getLlmTemperature(options?.temperature);
 }
 
-export function resolveRequestTemplateFallback(
-  options?: LlmRequestOptions,
-): boolean {
-  if (typeof options?.allowTemplateFallback === "boolean") {
+export function resolveRequestTemplateFallback(options?: LlmRequestOptions): boolean {
+  if (typeof options?.allowTemplateFallback === 'boolean') {
     return options.allowTemplateFallback;
   }
   return allowTemplateFallback();
@@ -82,9 +75,7 @@ export function resolveRequestLlmModel(options?: LlmRequestOptions): string | un
   return options?.llmModel?.trim() || undefined;
 }
 
-export function resolveRequestVisionModel(
-  options?: LlmRequestOptions,
-): string | undefined {
+export function resolveRequestVisionModel(options?: LlmRequestOptions): string | undefined {
   return options?.llmVisionModel?.trim() || undefined;
 }
 
@@ -110,12 +101,12 @@ export function llmRunnerOptions(llm?: LlmRequestOptions): {
 export function sharedLlmRequestBody(
   shared: Pick<
     SharedToolSettings,
-    | "sessionLlmTemperature"
-    | "sessionAllowTemplateFallback"
-    | "sessionLlmModel"
-    | "sessionLlmVisionModel"
-    | "sessionLlmEnabled"
-  >,
+    | 'sessionLlmTemperature'
+    | 'sessionAllowTemplateFallback'
+    | 'sessionLlmModel'
+    | 'sessionLlmVisionModel'
+    | 'sessionLlmEnabled'
+  >
 ): {
   llmTemperature?: number;
   allowTemplateFallback?: boolean;
@@ -124,19 +115,17 @@ export function sharedLlmRequestBody(
   llmEnabled?: boolean;
 } {
   return {
-    ...(typeof shared.sessionLlmTemperature === "number"
+    ...(typeof shared.sessionLlmTemperature === 'number'
       ? { llmTemperature: shared.sessionLlmTemperature }
       : {}),
-    ...(typeof shared.sessionAllowTemplateFallback === "boolean"
+    ...(typeof shared.sessionAllowTemplateFallback === 'boolean'
       ? { allowTemplateFallback: shared.sessionAllowTemplateFallback }
       : {}),
-    ...(shared.sessionLlmModel?.trim()
-      ? { llmModel: shared.sessionLlmModel.trim() }
-      : {}),
+    ...(shared.sessionLlmModel?.trim() ? { llmModel: shared.sessionLlmModel.trim() } : {}),
     ...(shared.sessionLlmVisionModel?.trim()
       ? { llmVisionModel: shared.sessionLlmVisionModel.trim() }
       : {}),
-    ...(typeof shared.sessionLlmEnabled === "boolean"
+    ...(typeof shared.sessionLlmEnabled === 'boolean'
       ? { llmEnabled: shared.sessionLlmEnabled }
       : {}),
   };

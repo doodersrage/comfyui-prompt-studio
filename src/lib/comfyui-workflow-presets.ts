@@ -1,11 +1,8 @@
-import type { WorkflowParamValues, CustomWorkflowToken } from "./comfyui-config";
-import {
-  DEFAULT_NEGATIVE_TOKEN,
-  DEFAULT_POSITIVE_TOKEN,
-} from "./comfyui-config";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import type { WorkflowParamValues, CustomWorkflowToken } from './comfyui-config';
+import { DEFAULT_NEGATIVE_TOKEN, DEFAULT_POSITIVE_TOKEN } from './comfyui-config';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-export const COMFY_WORKFLOW_PRESETS_KEY = "comfyui-workflow-presets-v1";
+export const COMFY_WORKFLOW_PRESETS_KEY = 'comfyui-workflow-presets-v1';
 
 export type ComfyWorkflowPreset = {
   id: string;
@@ -20,7 +17,7 @@ export type ComfyWorkflowPreset = {
 };
 
 export function loadComfyWorkflowPresets(): ComfyWorkflowPreset[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
 
@@ -32,7 +29,7 @@ export function loadComfyWorkflowPresets(): ComfyWorkflowPreset[] {
 }
 
 export function saveComfyWorkflowPresets(presets: ComfyWorkflowPreset[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -40,10 +37,10 @@ export function saveComfyWorkflowPresets(presets: ComfyWorkflowPreset[]): void {
 }
 
 export function upsertComfyWorkflowPreset(
-  preset: Omit<ComfyWorkflowPreset, "id" | "createdAt"> & {
+  preset: Omit<ComfyWorkflowPreset, 'id' | 'createdAt'> & {
     id?: string;
     createdAt?: number;
-  },
+  }
 ): ComfyWorkflowPreset {
   const next: ComfyWorkflowPreset = {
     id: preset.id ?? crypto.randomUUID(),
@@ -58,7 +55,7 @@ export function upsertComfyWorkflowPreset(
   };
 
   const presets = loadComfyWorkflowPresets();
-  const index = presets.findIndex((entry) => entry.id === next.id);
+  const index = presets.findIndex(entry => entry.id === next.id);
   if (index >= 0) {
     presets[index] = next;
   } else {
@@ -70,9 +67,9 @@ export function upsertComfyWorkflowPreset(
 }
 
 export function findComfyWorkflowPreset(id: string): ComfyWorkflowPreset | undefined {
-  return loadComfyWorkflowPresets().find((entry) => entry.id === id);
+  return loadComfyWorkflowPresets().find(entry => entry.id === id);
 }
 
 export function deleteComfyWorkflowPreset(id: string): void {
-  saveComfyWorkflowPresets(loadComfyWorkflowPresets().filter((entry) => entry.id !== id));
+  saveComfyWorkflowPresets(loadComfyWorkflowPresets().filter(entry => entry.id !== id));
 }

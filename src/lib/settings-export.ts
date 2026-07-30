@@ -1,24 +1,12 @@
-import {
-  loadSettingsCache,
-  saveSharedSettings,
-  type SharedToolSettings,
-} from "./settings-cache";
-import {
-  loadComfyUiSettings,
-  saveComfyUiSettings,
-  type ComfyUiSettings,
-} from "./comfyui-settings";
-import {
-  loadWebhookSettings,
-  saveWebhookSettings,
-  type WebhookSettings,
-} from "./webhook-settings";
+import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from './settings-cache';
+import { loadComfyUiSettings, saveComfyUiSettings, type ComfyUiSettings } from './comfyui-settings';
+import { loadWebhookSettings, saveWebhookSettings, type WebhookSettings } from './webhook-settings';
 import {
   loadScheduledBatchConfig,
   saveScheduledBatchConfig,
   type ScheduledBatchConfig,
-} from "./scheduled-batch";
-import { exportAvoidedTokenList, saveAvoidedTokens } from "./avoided-tokens";
+} from './scheduled-batch';
+import { exportAvoidedTokenList, saveAvoidedTokens } from './avoided-tokens';
 
 export const SETTINGS_BUNDLE_VERSION = 1;
 
@@ -56,16 +44,16 @@ export function parseSettingsBundle(json: string): SettingsBundle {
     !parsed ||
     parsed.version !== SETTINGS_BUNDLE_VERSION ||
     !parsed.shared ||
-    typeof parsed.shared !== "object"
+    typeof parsed.shared !== 'object'
   ) {
-    throw new Error("Invalid settings bundle file.");
+    throw new Error('Invalid settings bundle file.');
   }
   return parsed as SettingsBundle;
 }
 
 export function importSettingsBundle(data: SettingsBundle): void {
   if (data.version !== SETTINGS_BUNDLE_VERSION) {
-    throw new Error("Unsupported settings bundle version.");
+    throw new Error('Unsupported settings bundle version.');
   }
 
   const cache = loadSettingsCache();
@@ -90,9 +78,9 @@ export function importSettingsBundle(data: SettingsBundle): void {
 
 export function downloadSettingsBundle(): void {
   const payload = JSON.stringify(exportSettingsBundle(), null, 2);
-  const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+  const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = `prompt-studio-settings-${Date.now()}.json`;
   anchor.click();

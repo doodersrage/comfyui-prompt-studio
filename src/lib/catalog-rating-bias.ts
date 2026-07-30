@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { loadComfyGallery } from "./comfyui-gallery";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { loadComfyGallery } from './comfyui-gallery';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-export const CATALOG_RATING_BIAS_KEY = "comfy-catalog-rating-bias-v1";
+export const CATALOG_RATING_BIAS_KEY = 'comfy-catalog-rating-bias-v1';
 
 type CatalogBiasEntry = {
   token: string;
@@ -13,25 +13,25 @@ type CatalogBiasEntry = {
 function tokenize(text: string): string[] {
   return text
     .toLowerCase()
-    .replace(/[^\w\s-]/g, " ")
+    .replace(/[^\w\s-]/g, ' ')
     .split(/\s+/)
-    .filter((token) => token.length > 3);
+    .filter(token => token.length > 3);
 }
 
 function loadBiasMap(): Map<string, number> {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return new Map();
   }
   try {
     const entries = readBrowserValue<CatalogBiasEntry[]>(CATALOG_RATING_BIAS_KEY) ?? [];
-    return new Map(entries.map((entry) => [entry.token, entry.score]));
+    return new Map(entries.map(entry => [entry.token, entry.score]));
   } catch {
     return new Map();
   }
 }
 
 function saveBiasMap(map: Map<string, number>): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   const entries: CatalogBiasEntry[] = [...map.entries()]
@@ -41,11 +41,8 @@ function saveBiasMap(map: Map<string, number>): void {
   writeBrowserValue(CATALOG_RATING_BIAS_KEY, entries);
 }
 
-export function recordCatalogBiasFromPrompt(
-  prompt: string,
-  rating: number | undefined,
-): void {
-  if (typeof window === "undefined" || !prompt.trim() || !rating) {
+export function recordCatalogBiasFromPrompt(prompt: string, rating: number | undefined): void {
+  if (typeof window === 'undefined' || !prompt.trim() || !rating) {
     return;
   }
   const delta = rating >= 4 ? 1 : rating <= 2 ? -1 : 0;
@@ -68,19 +65,16 @@ export function scoreCatalogCandidate(label: string): number {
   return tokenize(label).reduce((sum, token) => sum + (map.get(token) ?? 0), 0);
 }
 
-export function sortCatalogByRatingBias<T>(
-  items: T[],
-  toLabel: (item: T) => string,
-): T[] {
+export function sortCatalogByRatingBias<T>(items: T[], toLabel: (item: T) => string): T[] {
   return [...items].sort(
-    (a, b) => scoreCatalogCandidate(toLabel(b)) - scoreCatalogCandidate(toLabel(a)),
+    (a, b) => scoreCatalogCandidate(toLabel(b)) - scoreCatalogCandidate(toLabel(a))
   );
 }
 
 export function rebuildCatalogBiasFromGallery(): void {
   const map = new Map<string, number>();
   for (const entry of loadComfyGallery()) {
-    if (!entry.reviewRating || entry.status !== "completed") {
+    if (!entry.reviewRating || entry.status !== 'completed') {
       continue;
     }
     const delta = entry.reviewRating >= 4 ? 1 : entry.reviewRating <= 2 ? -1 : 0;

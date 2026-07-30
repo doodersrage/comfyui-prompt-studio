@@ -1,4 +1,4 @@
-export const LINEAGE_PARENT_KEY = "prompt-lineage-parent-v1";
+export const LINEAGE_PARENT_KEY = 'prompt-lineage-parent-v1';
 
 export type LineageParentContext = {
   parentHistoryId?: string;
@@ -7,18 +7,18 @@ export type LineageParentContext = {
   savedAt: number;
 };
 
-export function setLineageParent(context: Omit<LineageParentContext, "savedAt">): void {
-  if (typeof window === "undefined") {
+export function setLineageParent(context: Omit<LineageParentContext, 'savedAt'>): void {
+  if (typeof window === 'undefined') {
     return;
   }
   window.sessionStorage.setItem(
     LINEAGE_PARENT_KEY,
-    JSON.stringify({ ...context, savedAt: Date.now() } satisfies LineageParentContext),
+    JSON.stringify({ ...context, savedAt: Date.now() } satisfies LineageParentContext)
   );
 }
 
 export function loadLineageParent(): LineageParentContext | null {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return null;
   }
   try {
@@ -38,7 +38,7 @@ export function loadLineageParent(): LineageParentContext | null {
 }
 
 export function clearLineageParent(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   window.sessionStorage.removeItem(LINEAGE_PARENT_KEY);

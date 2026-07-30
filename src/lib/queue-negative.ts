@@ -1,19 +1,13 @@
-"use client";
+'use client';
 
-import { modelUsesNegativePrompt } from "./prompt-pair";
-import type { ComfyImageModel } from "./comfy-models/client";
-import {
-  DEFAULT_NEGATIVE_PROFILES,
-  fetchNegativeWithProfile,
-} from "./negative-profiles";
-import { resolveContextNegativeProfile } from "./context-negative-profile";
-import { loadComfyUiSettings } from "./comfyui-settings";
-import {
-  applyRenderRealismToNegative,
-  type RenderRealismMode,
-} from "./render-realism";
-import { loadRenderRealismMode } from "./render-realism-settings";
-import type { AthleticSport } from "./athletic-sport-profiles";
+import { modelUsesNegativePrompt } from './prompt-pair';
+import type { ComfyImageModel } from './comfy-models/client';
+import { DEFAULT_NEGATIVE_PROFILES, fetchNegativeWithProfile } from './negative-profiles';
+import { resolveContextNegativeProfile } from './context-negative-profile';
+import { loadComfyUiSettings } from './comfyui-settings';
+import { applyRenderRealismToNegative, type RenderRealismMode } from './render-realism';
+import { loadRenderRealismMode } from './render-realism-settings';
+import type { AthleticSport } from './athletic-sport-profiles';
 
 export type ResolveQueueNegativeInput = {
   model: ComfyImageModel | string;
@@ -27,7 +21,7 @@ export type ResolveQueueNegativeInput = {
 };
 
 export async function resolveQueueNegativePromptRaw(
-  input: ResolveQueueNegativeInput,
+  input: ResolveQueueNegativeInput
 ): Promise<string | undefined> {
   const explicit = input.explicitNegative?.trim();
   if (explicit) {
@@ -43,20 +37,15 @@ export async function resolveQueueNegativePromptRaw(
     return undefined;
   }
 
-  const profiles =
-    settings.negativeProfiles?.length
-      ? settings.negativeProfiles
-      : DEFAULT_NEGATIVE_PROFILES;
-  const profile = resolveContextNegativeProfile(
-    profiles,
-    settings.selectedNegativeProfileId,
-    {
-      tool: input.tool,
-      model: input.model,
-      hints: input.hints,
-      sport: input.sport,
-    },
-  );
+  const profiles = settings.negativeProfiles?.length
+    ? settings.negativeProfiles
+    : DEFAULT_NEGATIVE_PROFILES;
+  const profile = resolveContextNegativeProfile(profiles, settings.selectedNegativeProfileId, {
+    tool: input.tool,
+    model: input.model,
+    hints: input.hints,
+    sport: input.sport,
+  });
 
   return (
     (await fetchNegativeWithProfile({
@@ -68,15 +57,12 @@ export async function resolveQueueNegativePromptRaw(
 }
 
 export async function resolveQueueNegativePrompt(
-  input: ResolveQueueNegativeInput,
+  input: ResolveQueueNegativeInput
 ): Promise<string | undefined> {
   const raw = await resolveQueueNegativePromptRaw(input);
   if (!raw || input.applyRealism === false) {
     return raw;
   }
 
-  return applyRenderRealismToNegative(
-    raw,
-    input.realismMode ?? loadRenderRealismMode(),
-  );
+  return applyRenderRealismToNegative(raw, input.realismMode ?? loadRenderRealismMode());
 }

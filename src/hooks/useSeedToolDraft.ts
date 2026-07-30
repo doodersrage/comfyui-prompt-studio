@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
+import { useEffect, useRef } from 'react';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
 
 /**
  * After settings hydrate, push any non-trivial cached draft into the
@@ -14,7 +14,7 @@ export function useSeedToolDraft(
     label: string;
     href: string;
     fields: Array<string | null | undefined>;
-  },
+  }
 ): void {
   const seededRef = useRef(false);
   const draftRef = useRef(draft);
@@ -28,7 +28,7 @@ export function useSeedToolDraft(
       return;
     }
     const current = draftRef.current;
-    const ready = current.fields.some((field) => (field?.trim().length ?? 0) >= 3);
+    const ready = current.fields.some(field => (field?.trim().length ?? 0) >= 3);
     if (!ready) {
       return;
     }

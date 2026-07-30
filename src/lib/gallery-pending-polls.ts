@@ -1,6 +1,6 @@
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-const PENDING_POLLS_KEY = "comfy-gallery-pending-polls-v1";
+const PENDING_POLLS_KEY = 'comfy-gallery-pending-polls-v1';
 
 export type PendingGalleryPoll = {
   promptId: string;
@@ -15,19 +15,19 @@ function normalizePending(raw: unknown): PendingGalleryPoll[] {
   const seen = new Set<string>();
   const next: PendingGalleryPoll[] = [];
   for (const item of raw) {
-    if (!item || typeof item !== "object") {
+    if (!item || typeof item !== 'object') {
       continue;
     }
     const promptId =
-      typeof (item as PendingGalleryPoll).promptId === "string"
+      typeof (item as PendingGalleryPoll).promptId === 'string'
         ? (item as PendingGalleryPoll).promptId.trim()
-        : "";
+        : '';
     if (!promptId || seen.has(promptId)) {
       continue;
     }
     seen.add(promptId);
     const comfyUrl =
-      typeof (item as PendingGalleryPoll).comfyUrl === "string"
+      typeof (item as PendingGalleryPoll).comfyUrl === 'string'
         ? (item as PendingGalleryPoll).comfyUrl
         : undefined;
     next.push({ promptId, comfyUrl });
@@ -36,26 +36,21 @@ function normalizePending(raw: unknown): PendingGalleryPoll[] {
 }
 
 export function listPendingGalleryPollMeta(): PendingGalleryPoll[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   return normalizePending(readBrowserValue(PENDING_POLLS_KEY));
 }
 
-export function rememberPendingGalleryPoll(
-  promptId: string,
-  comfyUrl?: string,
-): void {
-  if (typeof window === "undefined") {
+export function rememberPendingGalleryPoll(promptId: string, comfyUrl?: string): void {
+  if (typeof window === 'undefined') {
     return;
   }
   const trimmed = promptId.trim();
   if (!trimmed) {
     return;
   }
-  const existing = listPendingGalleryPollMeta().filter(
-    (item) => item.promptId !== trimmed,
-  );
+  const existing = listPendingGalleryPollMeta().filter(item => item.promptId !== trimmed);
   existing.push({
     promptId: trimmed,
     comfyUrl: comfyUrl?.trim() || undefined,
@@ -64,16 +59,14 @@ export function rememberPendingGalleryPoll(
 }
 
 export function forgetPendingGalleryPoll(promptId: string): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   const trimmed = promptId.trim();
   if (!trimmed) {
     return;
   }
-  const next = listPendingGalleryPollMeta().filter(
-    (item) => item.promptId !== trimmed,
-  );
+  const next = listPendingGalleryPollMeta().filter(item => item.promptId !== trimmed);
   writeBrowserValue(PENDING_POLLS_KEY, next);
 }
 

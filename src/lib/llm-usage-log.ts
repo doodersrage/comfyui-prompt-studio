@@ -1,7 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
-import { resolvePromptAuthDir } from "@/lib/prompt-data-paths";
+import fs from 'node:fs';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { resolvePromptAuthDir } from '@/lib/prompt-data-paths';
 
 export type LlmUsageEntry = {
   id: string;
@@ -27,22 +27,22 @@ const MAX_ENTRIES = 2000;
 function usagePath(): string {
   const dir = resolvePromptAuthDir();
   fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, "llm-usage.json");
+  return path.join(dir, 'llm-usage.json');
 }
 
 function readDoc(): LlmUsageDocument {
   try {
-    return JSON.parse(fs.readFileSync(usagePath(), "utf8")) as LlmUsageDocument;
+    return JSON.parse(fs.readFileSync(usagePath(), 'utf8')) as LlmUsageDocument;
   } catch {
     return { version: 1, entries: [] };
   }
 }
 
 function writeDoc(doc: LlmUsageDocument): void {
-  fs.writeFileSync(usagePath(), JSON.stringify(doc, null, 2), "utf8");
+  fs.writeFileSync(usagePath(), JSON.stringify(doc, null, 2), 'utf8');
 }
 
-export function logLlmUsage(entry: Omit<LlmUsageEntry, "id">): void {
+export function logLlmUsage(entry: Omit<LlmUsageEntry, 'id'>): void {
   const doc = readDoc();
   doc.entries.unshift({ ...entry, id: randomUUID() });
   if (doc.entries.length > MAX_ENTRIES) {
@@ -59,10 +59,10 @@ export function listLlmUsage(options?: {
   const limit = options?.limit ?? 100;
   let entries = readDoc().entries;
   if (options?.userId) {
-    entries = entries.filter((entry) => entry.userId === options.userId);
+    entries = entries.filter(entry => entry.userId === options.userId);
   }
   if (options?.since) {
-    entries = entries.filter((entry) => entry.at >= options.since!);
+    entries = entries.filter(entry => entry.at >= options.since!);
   }
   return entries.slice(0, limit);
 }
@@ -77,9 +77,9 @@ export function summarizeLlmUsage(userId?: string): {
   const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
   let entries = readDoc().entries;
   if (userId) {
-    entries = entries.filter((entry) => entry.userId === userId);
+    entries = entries.filter(entry => entry.userId === userId);
   }
-  const recent = entries.filter((entry) => entry.at >= dayAgo);
+  const recent = entries.filter(entry => entry.at >= dayAgo);
   const byModel: Record<string, number> = {};
   let tokenSum = 0;
   for (const entry of recent) {

@@ -1,21 +1,18 @@
-import type { DetailLevel } from "./detail-level";
-import { getDetailLimits } from "./detail-level";
+import type { DetailLevel } from './detail-level';
+import { getDetailLimits } from './detail-level';
 import {
   expansionBeatsForProfile,
   fluxIgnoresNegative,
   isEditInstructionProfile,
-} from "./comfy-models/prompt-profiles";
-import {
-  COMFY_IMAGE_MODELS,
-  DEFAULT_COMFY_MODEL,
-} from "./comfy-models/registry";
-import type { ComfyImageModel, PromptProfileId } from "./comfy-models/types";
+} from './comfy-models/prompt-profiles';
+import { COMFY_IMAGE_MODELS, DEFAULT_COMFY_MODEL } from './comfy-models/registry';
+import type { ComfyImageModel, PromptProfileId } from './comfy-models/types';
 
 export function splitSentences(text: string): string[] {
   return text
-    .replace(/\s+/g, " ")
+    .replace(/\s+/g, ' ')
     .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
+    .map(sentence => sentence.trim())
     .filter(Boolean);
 }
 
@@ -26,14 +23,13 @@ export function looksLikeTagSoup(text: string): boolean {
 
   const parts = text
     .split(/[,;|]+/)
-    .map((part) => part.trim())
+    .map(part => part.trim())
     .filter(Boolean);
   if (parts.length < 3) {
     return false;
   }
 
-  const avgPartLen =
-    parts.reduce((sum, part) => sum + part.length, 0) / parts.length;
+  const avgPartLen = parts.reduce((sum, part) => sum + part.length, 0) / parts.length;
   return avgPartLen < 35;
 }
 
@@ -42,13 +38,11 @@ export function isSceneDescription(text: string): boolean {
 }
 
 export function profileUsesTagFormat(profile: PromptProfileId): boolean {
-  return profile === "sd15_weighted";
+  return profile === 'sd15_weighted';
 }
 
 export function profileSkipsProsePadding(profile: PromptProfileId): boolean {
-  return (
-    profileUsesTagFormat(profile) || isEditInstructionProfile(profile)
-  );
+  return profileUsesTagFormat(profile) || isEditInstructionProfile(profile);
 }
 
 const EXPANSION_BEAT_PATTERNS = [
@@ -71,13 +65,13 @@ const EXPANSION_BEAT_PATTERNS = [
 ];
 
 export function isExpansionBeatSentence(sentence: string): boolean {
-  return EXPANSION_BEAT_PATTERNS.some((pattern) => pattern.test(sentence));
+  return EXPANSION_BEAT_PATTERNS.some(pattern => pattern.test(sentence));
 }
 
 export function tagSoupToProse(text: string): string {
   const parts = text
     .split(/[,;|]+/)
-    .map((part) => part.trim())
+    .map(part => part.trim())
     .filter(Boolean);
   if (parts.length === 0) {
     return text;
@@ -96,7 +90,7 @@ export function tagSoupToProse(text: string): string {
     return `${lead}, with ${supporting[0]!.toLowerCase()}, under clear directional light.`;
   }
 
-  return `${lead}, featuring ${supporting.slice(0, -1).join(", ").toLowerCase()}, and ${supporting.at(-1)!.toLowerCase()}, in one cohesive scene with readable lighting.`;
+  return `${lead}, featuring ${supporting.slice(0, -1).join(', ').toLowerCase()}, and ${supporting.at(-1)!.toLowerCase()}, in one cohesive scene with readable lighting.`;
 }
 
 function dedupeTags(tags: string[]): string[] {
@@ -104,7 +98,7 @@ function dedupeTags(tags: string[]): string[] {
   const result: string[] = [];
 
   for (const tag of tags) {
-    const normalized = tag.replace(/\s+/g, " ").trim();
+    const normalized = tag.replace(/\s+/g, ' ').trim();
     if (!normalized) {
       continue;
     }
@@ -123,13 +117,13 @@ export function splitTags(text: string): string[] {
   return dedupeTags(
     text
       .split(/[,;|]+/)
-      .map((part) => part.trim())
-      .filter(Boolean),
+      .map(part => part.trim())
+      .filter(Boolean)
   );
 }
 
 export function joinTags(tags: string[]): string {
-  return dedupeTags(tags).join(", ");
+  return dedupeTags(tags).join(', ');
 }
 
 const LOW_PRIORITY_TAG_PATTERNS = [
@@ -156,7 +150,7 @@ function tagTrimScore(tag: string, index: number): number {
   if (index === 1) {
     score += 50;
   }
-  if (LOW_PRIORITY_TAG_PATTERNS.some((pattern) => pattern.test(tag))) {
+  if (LOW_PRIORITY_TAG_PATTERNS.some(pattern => pattern.test(tag))) {
     score -= 35;
   }
   if (tag.length > 45) {
@@ -167,7 +161,7 @@ function tagTrimScore(tag: string, index: number): number {
 
 export function trimTagsToMaxChars(tags: string[], maxChars: number): string {
   if (tags.length === 0) {
-    return "";
+    return '';
   }
 
   const joined = joinTags(tags);
@@ -182,10 +176,10 @@ export function trimTagsToMaxChars(tags: string[], maxChars: number): string {
   }));
 
   const protectedIndexes = new Set(
-    indexed.filter((entry) => entry.index <= 1).map((entry) => entry.index),
+    indexed.filter(entry => entry.index <= 1).map(entry => entry.index)
   );
   const removable = indexed
-    .filter((entry) => !protectedIndexes.has(entry.index))
+    .filter(entry => !protectedIndexes.has(entry.index))
     .sort((a, b) => a.score - b.score);
 
   let kept = [...tags];
@@ -205,33 +199,31 @@ export function trimTagsToMaxChars(tags: string[], maxChars: number): string {
   }
 
   if (result.length > maxChars) {
-    result = result.slice(0, maxChars).replace(/,\s*[^,]*$/, "").trim();
+    result = result
+      .slice(0, maxChars)
+      .replace(/,\s*[^,]*$/, '')
+      .trim();
   }
 
   return result;
 }
 
 export const SD15_EXPANSION_TAG_BEATS = [
-  "sharp focus",
-  "detailed textures",
-  "cinematic lighting",
-  "depth of field",
-  "atmospheric perspective",
-  "highly detailed",
+  'sharp focus',
+  'detailed textures',
+  'cinematic lighting',
+  'depth of field',
+  'atmospheric perspective',
+  'highly detailed',
 ];
 
-export const SOLO_SUBJECT_TAG_BEATS = [
-  "solo",
-  "empty background",
-  "no crowd",
-  "single subject",
-];
+export const SOLO_SUBJECT_TAG_BEATS = ['solo', 'empty background', 'no crowd', 'single subject'];
 
 export function expandTagsToMinChars(
   text: string,
   detail: DetailLevel,
   model: ComfyImageModel,
-  soloSubject = false,
+  soloSubject = false
 ): string {
   const { minChars, maxChars } = getDetailLimits(detail, model);
   if (!minChars || text.length >= minChars) {
@@ -239,9 +231,7 @@ export function expandTagsToMinChars(
   }
 
   let tags = splitTags(text);
-  const beats = soloSubject
-    ? SOLO_SUBJECT_TAG_BEATS
-    : SD15_EXPANSION_TAG_BEATS;
+  const beats = soloSubject ? SOLO_SUBJECT_TAG_BEATS : SD15_EXPANSION_TAG_BEATS;
   let beatIndex = 0;
 
   while (joinTags(tags).length < minChars && beatIndex < beats.length) {
@@ -257,9 +247,9 @@ export function proseToTagSoup(text: string, maxTags = 10): string {
   const cleaned = text
     .replace(
       /\b(?:no other people|solo subject|single person|only one person|alone in the frame|unoccupied by other)[^.!?]*[.!?]?/gi,
-      "",
+      ''
     )
-    .replace(/\s+/g, " ")
+    .replace(/\s+/g, ' ')
     .trim();
 
   const tags: string[] = [];
@@ -267,14 +257,14 @@ export function proseToTagSoup(text: string, maxTags = 10): string {
   for (const sentence of splitSentences(cleaned)) {
     const clauses = sentence
       .split(/[,;]|\s+(?:and|with|while|as)\s+/i)
-      .map((clause) =>
+      .map(clause =>
         clause
           .trim()
-          .replace(/^[Aa]\s+/, "")
-          .replace(/[.!?]+$/, "")
-          .replace(/\s+/g, " "),
+          .replace(/^[Aa]\s+/, '')
+          .replace(/[.!?]+$/, '')
+          .replace(/\s+/g, ' ')
       )
-      .filter((clause) => clause.length >= 3 && clause.length <= 80);
+      .filter(clause => clause.length >= 3 && clause.length <= 80);
 
     for (const clause of clauses) {
       if (!isExpansionBeatSentence(clause)) {
@@ -311,7 +301,7 @@ function sentenceTrimScore(sentence: string, index: number): number {
   }
   if (
     /\b(?:no other people|solo subject|single person|only one person|unoccupied by other)\b/i.test(
-      sentence,
+      sentence
     )
   ) {
     score -= 25;
@@ -319,11 +309,7 @@ function sentenceTrimScore(sentence: string, index: number): number {
   if (ATMOSPHERE_FILLER.test(sentence)) {
     score -= 28;
   }
-  if (
-    /\b(?:subject|woman|man|person|people|character|figure|girl|boy|athlete)\b/i.test(
-      sentence,
-    )
-  ) {
+  if (/\b(?:subject|woman|man|person|people|character|figure|girl|boy|athlete)\b/i.test(sentence)) {
     score += 35;
   }
   if (POSE_OR_ACTION.test(sentence)) {
@@ -342,9 +328,7 @@ function sentenceTrimScore(sentence: string, index: number): number {
     score += 12;
   }
   if (
-    /\b(?:texture|material|fabric|metal|stone|wood|glass|concrete|leather|skin)\b/i.test(
-      sentence,
-    )
+    /\b(?:texture|material|fabric|metal|stone|wood|glass|concrete|leather|skin)\b/i.test(sentence)
   ) {
     score += 18;
   }
@@ -361,17 +345,15 @@ export function promptHasSceneDensity(text: string): boolean {
     return false;
   }
 
-  const sentences = splitSentences(trimmed).filter(
-    (sentence) => !isExpansionBeatSentence(sentence),
-  );
-  const core = sentences.join(" ").trim();
+  const sentences = splitSentences(trimmed).filter(sentence => !isExpansionBeatSentence(sentence));
+  const core = sentences.join(' ').trim();
   if (!core) {
     return false;
   }
 
   const hasSubject =
     /\b(?:woman|man|person|people|figure|character|subject|girl|boy|athlete|cyclist|runner)\b/i.test(
-      core,
+      core
     ) || POSE_OR_ACTION.test(core);
   const hasSpecifics =
     NAMED_COLOR.test(core) ||
@@ -396,12 +378,13 @@ const LEFT_PLACEMENT =
 const RIGHT_PLACEMENT =
   /\b(on the right|to the right|right side of the frame|right side of|right side)\b/i;
 
-export function findDistinctPeopleSentenceIndexes(
-  sentences: string[],
-): { leftIdx: number; rightIdx: number } {
+export function findDistinctPeopleSentenceIndexes(sentences: string[]): {
+  leftIdx: number;
+  rightIdx: number;
+} {
   return {
-    leftIdx: sentences.findIndex((sentence) => LEFT_PLACEMENT.test(sentence)),
-    rightIdx: sentences.findIndex((sentence) => RIGHT_PLACEMENT.test(sentence)),
+    leftIdx: sentences.findIndex(sentence => LEFT_PLACEMENT.test(sentence)),
+    rightIdx: sentences.findIndex(sentence => RIGHT_PLACEMENT.test(sentence)),
   };
 }
 
@@ -409,10 +392,8 @@ const INCOMPLETE_DISTINCT_PEOPLE_BRIDGE =
   /^(?:in stark yet complementing contrast|in complementing contrast|in contrast|by contrast)(?:,|\.)?\s*$/i;
 
 /** Drop trailing contrast lead-ins that never introduce the second person. */
-export function stripIncompleteDistinctPeopleBridges(
-  sentences: string[],
-): string[] {
-  return sentences.filter((sentence) => {
+export function stripIncompleteDistinctPeopleBridges(sentences: string[]): string[] {
+  return sentences.filter(sentence => {
     const trimmed = sentence.trim();
     if (!trimmed) {
       return false;
@@ -434,13 +415,13 @@ function trimDistinctPeoplePairToMaxChars(
   scene: string,
   left: string,
   right: string,
-  maxChars: number,
+  maxChars: number
 ): string {
   const scenePart = scene.trim();
   const leftPart = left.trim();
   const rightPart = right.trim();
   const parts = [scenePart, leftPart, rightPart].filter(Boolean);
-  const joined = parts.join(" ").trim();
+  const joined = parts.join(' ').trim();
 
   if (joined.length <= maxChars) {
     return joined;
@@ -452,68 +433,45 @@ function trimDistinctPeoplePairToMaxChars(
     (leftPart && rightPart ? 1 : 0) +
     (scenePart && !leftPart && rightPart ? 1 : 0);
   const peopleBudget = Math.max(160, maxChars - overhead);
-  const rightReserve = Math.min(
-    rightPart.length,
-    Math.max(120, Math.floor(peopleBudget * 0.34)),
-  );
-  const leftBudget = Math.max(
-    140,
-    peopleBudget - rightReserve - (leftPart && rightPart ? 1 : 0),
-  );
+  const rightReserve = Math.min(rightPart.length, Math.max(120, Math.floor(peopleBudget * 0.34)));
+  const leftBudget = Math.max(140, peopleBudget - rightReserve - (leftPart && rightPart ? 1 : 0));
   const leftTrimmed = trimProseClauseToMaxChars(leftPart, leftBudget);
-  const rightBudget =
-    peopleBudget -
-    leftTrimmed.length -
-    (leftTrimmed && rightPart ? 1 : 0);
-  const rightTrimmed = trimProseClauseToMaxChars(
-    rightPart,
-    Math.max(100, rightBudget),
-  );
+  const rightBudget = peopleBudget - leftTrimmed.length - (leftTrimmed && rightPart ? 1 : 0);
+  const rightTrimmed = trimProseClauseToMaxChars(rightPart, Math.max(100, rightBudget));
 
-  return [scenePart, leftTrimmed, rightTrimmed].filter(Boolean).join(" ").trim();
+  return [scenePart, leftTrimmed, rightTrimmed].filter(Boolean).join(' ').trim();
 }
 
-export function trimDistinctPeopleProseToMaxChars(
-  sentences: string[],
-  maxChars: number,
-): string {
+export function trimDistinctPeopleProseToMaxChars(sentences: string[], maxChars: number): string {
   if (sentences.length === 0) {
-    return "";
+    return '';
   }
 
   const cleaned = stripIncompleteDistinctPeopleBridges(sentences);
   const working = cleaned.length > 0 ? cleaned : sentences;
 
-  const joined = working.join(" ").trim();
+  const joined = working.join(' ').trim();
   if (joined.length <= maxChars) {
     return joined;
   }
 
   const { leftIdx, rightIdx } = findDistinctPeopleSentenceIndexes(working);
-  const scene = working[0] ?? "";
+  const scene = working[0] ?? '';
 
   if (leftIdx >= 0 && rightIdx >= 0) {
     if (leftIdx === rightIdx) {
       const pairBudget = Math.max(120, maxChars - scene.length - 1);
       const combined = trimProseClauseToMaxChars(working[leftIdx]!, pairBudget);
-      return [scene, combined].filter(Boolean).join(" ").trim();
+      return [scene, combined].filter(Boolean).join(' ').trim();
     }
 
-    return trimDistinctPeoplePairToMaxChars(
-      scene,
-      working[leftIdx]!,
-      working[rightIdx]!,
-      maxChars,
-    );
+    return trimDistinctPeoplePairToMaxChars(scene, working[leftIdx]!, working[rightIdx]!, maxChars);
   }
 
   if (leftIdx >= 0) {
-    const leftBudget = Math.max(
-      160,
-      maxChars - scene.length - Math.floor(maxChars * 0.34) - 2,
-    );
+    const leftBudget = Math.max(160, maxChars - scene.length - Math.floor(maxChars * 0.34) - 2);
     const leftTrimmed = trimProseClauseToMaxChars(working[leftIdx]!, leftBudget);
-    const result = [scene, leftTrimmed].filter(Boolean).join(" ").trim();
+    const result = [scene, leftTrimmed].filter(Boolean).join(' ').trim();
     if (result.length <= maxChars) {
       return result;
     }
@@ -530,16 +488,14 @@ export function trimDistinctPeopleProseToMaxChars(
 
   let result = [...keep]
     .sort((a, b) => a - b)
-    .map((index) => working[index]!)
-    .join(" ")
+    .map(index => working[index]!)
+    .join(' ')
     .trim();
 
   if (result.length > maxChars) {
     return trimCompleteSentencesToMaxChars(
-      [...keep]
-        .sort((a, b) => a - b)
-        .map((index) => working[index]!),
-      maxChars,
+      [...keep].sort((a, b) => a - b).map(index => working[index]!),
+      maxChars
     );
   }
 
@@ -560,16 +516,13 @@ export function trimDistinctPeopleProseToMaxChars(
   return result.trim();
 }
 
-export function trimCompleteSentencesToMaxChars(
-  sentences: string[],
-  maxChars: number,
-): string {
+export function trimCompleteSentencesToMaxChars(sentences: string[], maxChars: number): string {
   if (sentences.length === 0) {
-    return "";
+    return '';
   }
 
   let kept = [...sentences];
-  while (kept.length > 1 && kept.join(" ").length > maxChars) {
+  while (kept.length > 1 && kept.join(' ').length > maxChars) {
     // Drop lowest-priority sentences first (never the lead until last resort).
     let dropAt = -1;
     let lowestScore = Number.POSITIVE_INFINITY;
@@ -587,7 +540,7 @@ export function trimCompleteSentencesToMaxChars(
     }
   }
 
-  const result = kept.join(" ").trim();
+  const result = kept.join(' ').trim();
   if (result.length <= maxChars) {
     return result;
   }
@@ -607,28 +560,28 @@ export function trimProseClauseToMaxChars(text: string, maxChars: number): strin
 
   const slice = trimmed.slice(0, maxChars);
   const lastSentenceBreak = Math.max(
-    slice.lastIndexOf(". "),
-    slice.lastIndexOf("! "),
-    slice.lastIndexOf("? "),
+    slice.lastIndexOf('. '),
+    slice.lastIndexOf('! '),
+    slice.lastIndexOf('? ')
   );
 
   if (lastSentenceBreak >= Math.floor(maxChars * 0.55)) {
     return slice.slice(0, lastSentenceBreak + 1).trim();
   }
 
-  const lastSpace = slice.lastIndexOf(" ");
+  const lastSpace = slice.lastIndexOf(' ');
   if (lastSpace >= Math.floor(maxChars * 0.72)) {
     const wordTrimmed = slice.slice(0, lastSpace).trim();
-    return wordTrimmed.endsWith(".") ? wordTrimmed : `${wordTrimmed}.`;
+    return wordTrimmed.endsWith('.') ? wordTrimmed : `${wordTrimmed}.`;
   }
 
-  const hardTrim = slice.trimEnd().replace(/[,;:]\s*$/, "");
-  return hardTrim.endsWith(".") ? hardTrim : `${hardTrim}.`;
+  const hardTrim = slice.trimEnd().replace(/[,;:]\s*$/, '');
+  return hardTrim.endsWith('.') ? hardTrim : `${hardTrim}.`;
 }
 
 export function trimSentencesForDistinctPeople(
   sentences: string[],
-  maxSentences: number,
+  maxSentences: number
 ): string[] {
   if (sentences.length <= maxSentences) {
     return sentences;
@@ -637,8 +590,7 @@ export function trimSentencesForDistinctPeople(
   const { leftIdx, rightIdx } = findDistinctPeopleSentenceIndexes(sentences);
 
   if (leftIdx >= 0 && rightIdx >= 0) {
-    const priority =
-      leftIdx === rightIdx ? [leftIdx] : [leftIdx, rightIdx].sort((a, b) => a - b);
+    const priority = leftIdx === rightIdx ? [leftIdx] : [leftIdx, rightIdx].sort((a, b) => a - b);
 
     if (maxSentences >= 3 && !priority.includes(0)) {
       priority.unshift(0);
@@ -647,11 +599,7 @@ export function trimSentencesForDistinctPeople(
     const keepSet = new Set(priority);
     const result = [...priority];
 
-    for (
-      let index = 0;
-      index < sentences.length && result.length < maxSentences;
-      index += 1
-    ) {
+    for (let index = 0; index < sentences.length && result.length < maxSentences; index += 1) {
       if (!keepSet.has(index)) {
         result.push(index);
         keepSet.add(index);
@@ -661,16 +609,13 @@ export function trimSentencesForDistinctPeople(
     return result
       .sort((a, b) => a - b)
       .slice(0, maxSentences)
-      .map((index) => sentences[index]!);
+      .map(index => sentences[index]!);
   }
 
   return trimSentencesByPriority(sentences, maxSentences);
 }
 
-export function trimSentencesByPriority(
-  sentences: string[],
-  maxSentences: number,
-): string[] {
+export function trimSentencesByPriority(sentences: string[], maxSentences: number): string[] {
   if (sentences.length <= maxSentences) {
     return sentences;
   }
@@ -681,7 +626,7 @@ export function trimSentencesByPriority(
       index,
       score: sentenceTrimScore(sentence, index),
     }))
-    .filter((entry) => entry.index !== 0)
+    .filter(entry => entry.index !== 0)
     .sort((a, b) => b.score - a.score);
 
   for (const entry of ranked) {
@@ -691,9 +636,7 @@ export function trimSentencesByPriority(
     keep.add(entry.index);
   }
 
-  return [...keep]
-    .sort((a, b) => a - b)
-    .map((index) => sentences[index]!);
+  return [...keep].sort((a, b) => a - b).map(index => sentences[index]!);
 }
 
 function capitalize(value: string): string {
@@ -704,47 +647,44 @@ function capitalize(value: string): string {
 }
 
 function impliesMultiImageReferences(input: string): boolean {
-  return /\b(figure\s*[12]|picture\s*[12]|image\s*[12]|photo\s*[12])\b/i.test(
-    input,
-  );
+  return /\b(figure\s*[12]|picture\s*[12]|image\s*[12]|photo\s*[12])\b/i.test(input);
 }
 
 export function enforcePromptShapeForProfile(
   prompt: string,
   profile: PromptProfileId,
-  mode: "positive" | "negative",
-  input = "",
+  mode: 'positive' | 'negative',
+  input = ''
 ): string {
   const text = prompt.trim();
   if (!text) {
     return text;
   }
 
-  if (mode === "negative") {
+  if (mode === 'negative') {
     if (fluxIgnoresNegative(profile)) {
       const stripped = text
-        .replace(/\b(do not|don't|avoid|no|never)\b/gi, "")
-        .replace(/\s+/g, " ")
+        .replace(/\b(do not|don't|avoid|no|never)\b/gi, '')
+        .replace(/\s+/g, ' ')
         .trim();
       return `Stable composition with unchanged identity and proportions. ${capitalize(stripped)}.`;
     }
     return text;
   }
 
-  if (profile === "sd15_weighted") {
+  if (profile === 'sd15_weighted') {
     if (looksLikeTagSoup(text)) {
       return joinTags(splitTags(text));
     }
     return proseToTagSoup(text);
   }
 
-  if (profile === "qwen_edit_instruction") {
+  if (profile === 'qwen_edit_instruction') {
     if (/\bFigure\s*[12]\b/i.test(text)) {
       return text;
     }
 
-    const hasEditPattern =
-      /\b(keep|preserve|replace|change|figure\s*[12])\b/i.test(text);
+    const hasEditPattern = /\b(keep|preserve|replace|change|figure\s*[12])\b/i.test(text);
 
     if (hasEditPattern || /^replace the scene with/i.test(text)) {
       return text;
@@ -763,17 +703,14 @@ export function enforcePromptShapeForProfile(
       return `Replace the scene with ${text.charAt(0).toLowerCase() + text.slice(1)}`;
     }
 
-    if (
-      impliesMultiImageReferences(input) &&
-      !/\bFigure\s*[12]\b/i.test(text)
-    ) {
+    if (impliesMultiImageReferences(input) && !/\bFigure\s*[12]\b/i.test(text)) {
       return text;
     }
 
     return text;
   }
 
-  if (profile === "instruct_pix2pix") {
+  if (profile === 'instruct_pix2pix') {
     if (/^(make|turn|change|add|remove|transform)\b/i.test(text)) {
       return text;
     }
@@ -787,10 +724,7 @@ export function enforcePromptShapeForProfile(
     return text;
   }
 
-  if (
-    profile === "omnigen_instruction" &&
-    !/\b(keep|replace|change|figure\s*[12])\b/i.test(text)
-  ) {
+  if (profile === 'omnigen_instruction' && !/\b(keep|replace|change|figure\s*[12])\b/i.test(text)) {
     if (looksLikeTagSoup(text)) {
       const prose = tagSoupToProse(text);
       return `Generate an image showing ${prose.charAt(0).toLowerCase() + prose.slice(1)}`;
@@ -799,9 +733,7 @@ export function enforcePromptShapeForProfile(
   }
 
   if (
-    (profile === "flux_klein" ||
-      profile === "flux_prose" ||
-      profile === "flux_schnell") &&
+    (profile === 'flux_klein' || profile === 'flux_prose' || profile === 'flux_schnell') &&
     looksLikeTagSoup(text)
   ) {
     return tagSoupToProse(text);
@@ -821,41 +753,37 @@ export function buildVisionFormatRules(
     maxSentences: number;
     maxChars: number;
   },
-  detail: DetailLevel,
+  detail: DetailLevel
 ): string {
   if (profileUsesTagFormat(profile)) {
     return `- Output comma-separated tags or brief weighted phrases—not full sentences.
 - Front-load subject and style tokens. Optional weight syntax: (keyword:1.2).
-- Keep the prompt compact (~${limits.maxChars} characters max, ${detail === "rich" ? "6–8" : detail === "balanced" ? "4–6" : "3–4"} tags).
+- Keep the prompt compact (~${limits.maxChars} characters max, ${detail === 'rich' ? '6–8' : detail === 'balanced' ? '4–6' : '3–4'} tags).
 - Do NOT write paragraph prose or multi-sentence descriptions.`;
   }
 
-  if (profile === "qwen_edit_instruction") {
+  if (profile === 'qwen_edit_instruction') {
     return `- Write a short edit instruction, not a scene essay.
 - Prefer "Replace the scene with …" or "Keep … unchanged. Replace …".
 - ${limits.minSentences}–${limits.maxSentences} short sentences (~${limits.maxChars} characters max).`;
   }
 
-  if (profile === "instruct_pix2pix") {
+  if (profile === 'instruct_pix2pix') {
     return `- Write a direct edit command: "Transform the image to show …" or "Make …".
 - ${limits.minSentences}–${limits.maxSentences} short sentences (~${limits.maxChars} characters max).`;
   }
 
-  if (profile === "omnigen_instruction") {
+  if (profile === 'omnigen_instruction') {
     return `- Write a concise generation instruction with explicit keep/replace language when needed.
 - ${limits.minSentences}–${limits.maxSentences} sentences (~${limits.maxChars} characters max).`;
   }
 
-  if (profile === "qwen_t2i_factual") {
+  if (profile === 'qwen_t2i_factual') {
     return `- Write ${limits.minSentences}–${limits.maxSentences} factual sentences (~${limits.maxChars} characters max).
 - Describe spatial layers, readable color, and visible text if any. Avoid poetic filler.`;
   }
 
-  if (
-    profile === "flux_klein" ||
-    profile === "flux_prose" ||
-    profile === "flux_schnell"
-  ) {
+  if (profile === 'flux_klein' || profile === 'flux_prose' || profile === 'flux_schnell') {
     return `- Write ${limits.minSentences}–${limits.maxSentences} sentences of photographic prose (~${limits.maxChars} characters max).
 - Front-load the subject. Name materials, light direction, and camera feel—not bare quality tags.`;
   }
@@ -866,16 +794,16 @@ export function buildVisionFormatRules(
 
 export function expansionBeatsForSanitize(
   profile: PromptProfileId,
-  soloSubject: boolean,
+  soloSubject: boolean
 ): string[] {
   if (soloSubject) {
     return profileUsesTagFormat(profile)
       ? SOLO_SUBJECT_TAG_BEATS
       : [
-          "The surrounding space stays empty of other figures, with layered depth and no distant people or silhouettes.",
-          "Directional light sculpts one face, posture, and clothing texture while the background remains unoccupied.",
-          "Surface textures read clearly on the sole subject, with no second face, reflection, or background figure anywhere.",
-          "The environment recedes through soft atmospheric depth without introducing additional people or crowd energy.",
+          'The surrounding space stays empty of other figures, with layered depth and no distant people or silhouettes.',
+          'Directional light sculpts one face, posture, and clothing texture while the background remains unoccupied.',
+          'Surface textures read clearly on the sole subject, with no second face, reflection, or background figure anywhere.',
+          'The environment recedes through soft atmospheric depth without introducing additional people or crowd energy.',
         ];
   }
 
@@ -888,7 +816,7 @@ export function expansionBeatsForSanitize(
 
 export function resolveProfile(model: ComfyImageModel): PromptProfileId {
   return (
-    COMFY_IMAGE_MODELS.find((entry) => entry.id === model) ??
-    COMFY_IMAGE_MODELS.find((entry) => entry.id === DEFAULT_COMFY_MODEL)!
+    COMFY_IMAGE_MODELS.find(entry => entry.id === model) ??
+    COMFY_IMAGE_MODELS.find(entry => entry.id === DEFAULT_COMFY_MODEL)!
   ).profile;
 }

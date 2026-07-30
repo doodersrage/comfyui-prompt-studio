@@ -1,4 +1,4 @@
-import { resolveComfyUiConfig } from "./comfyui-client";
+import { resolveComfyUiConfig } from './comfyui-client';
 import {
   injectPromptsWithFallbacks,
   resolveQueueInjectionContext,
@@ -6,24 +6,22 @@ import {
   resolveWorkflowGraphEnrichOptions,
   type ComfyUiRuntimeConfig,
   type WorkflowParamValues,
-} from "./comfyui-config";
-import {
-  type WorkflowPlaceholderAuditIssue,
-} from "./workflow-placeholder-audit";
-import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
-import type { ComfyUiModelLists } from "./comfyui-object-info";
-import { collectWorkflowGraphPreflightIssues } from "./workflow-preflight-core";
-import { resolveUpscaleModelFilename } from "./model-upscale-map";
-import { resolveRefinerFilenameForModel } from "./model-checkpoint-map";
-import { loadSettingsCache } from "./settings-cache";
-import { mergeLoraLibraryIntoCustomTokens, loadComfyUiSettings } from "./comfyui-settings";
+} from './comfyui-config';
+import { type WorkflowPlaceholderAuditIssue } from './workflow-placeholder-audit';
+import { optimizeWorkflowForQueue } from './workflow-queue-optimizer';
+import type { ComfyUiModelLists } from './comfyui-object-info';
+import { collectWorkflowGraphPreflightIssues } from './workflow-preflight-core';
+import { resolveUpscaleModelFilename } from './model-upscale-map';
+import { resolveRefinerFilenameForModel } from './model-checkpoint-map';
+import { loadSettingsCache } from './settings-cache';
+import { mergeLoraLibraryIntoCustomTokens, loadComfyUiSettings } from './comfyui-settings';
 
 export type WorkflowPreviewInventory = {
   models?: ComfyUiModelLists | null;
   supportsNeuralUpscaleTileSize?: boolean;
   objectInfoUnavailable?: boolean;
   nodeTypes?: Iterable<string> | null;
-  webpSaveAdapters?: import("./workflow-save-format").WebpSaveAdapter[] | null;
+  webpSaveAdapters?: import('./workflow-save-format').WebpSaveAdapter[] | null;
 };
 
 export type WorkflowPreviewInput = {
@@ -45,7 +43,7 @@ export type WorkflowPreviewSnippet = {
 export type WorkflowPreviewResult = {
   ok: boolean;
   error?: string;
-  workflowSource?: "client" | "env" | "minimal" | "none";
+  workflowSource?: 'client' | 'env' | 'minimal' | 'none';
   replacements?: {
     positive: number;
     negative: number;
@@ -63,8 +61,8 @@ export type WorkflowPreviewResult = {
 function findValuePaths(
   value: unknown,
   needle: string,
-  path = "",
-  limit = 6,
+  path = '',
+  limit = 6
 ): WorkflowPreviewSnippet[] {
   if (!needle || limit <= 0) {
     return [];
@@ -72,10 +70,10 @@ function findValuePaths(
 
   const snippets: WorkflowPreviewSnippet[] = [];
 
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     if (value.includes(needle)) {
       snippets.push({
-        path: path || "root",
+        path: path || 'root',
         value: value.length > 160 ? `${value.slice(0, 160)}…` : value,
       });
     }
@@ -85,7 +83,7 @@ function findValuePaths(
   if (Array.isArray(value)) {
     for (let index = 0; index < value.length; index += 1) {
       snippets.push(
-        ...findValuePaths(value[index], needle, `${path}[${index}]`, limit - snippets.length),
+        ...findValuePaths(value[index], needle, `${path}[${index}]`, limit - snippets.length)
       );
       if (snippets.length >= limit) {
         break;
@@ -94,12 +92,10 @@ function findValuePaths(
     return snippets;
   }
 
-  if (value && typeof value === "object") {
+  if (value && typeof value === 'object') {
     for (const [key, entry] of Object.entries(value)) {
       const nextPath = path ? `${path}.${key}` : key;
-      snippets.push(
-        ...findValuePaths(entry, needle, nextPath, limit - snippets.length),
-      );
+      snippets.push(...findValuePaths(entry, needle, nextPath, limit - snippets.length));
       if (snippets.length >= limit) {
         break;
       }
@@ -111,12 +107,10 @@ function findValuePaths(
 
 const MAX_PREVIEW_CHARS = 6000;
 
-export function previewWorkflowInjection(
-  input: WorkflowPreviewInput,
-): WorkflowPreviewResult {
+export function previewWorkflowInjection(input: WorkflowPreviewInput): WorkflowPreviewResult {
   const prompt = input.prompt.trim();
   if (!prompt) {
-    return { ok: false, error: "Prompt is required." };
+    return { ok: false, error: 'Prompt is required.' };
   }
 
   const runtime = stripEmptyComfyUiRuntime(input.comfy);
@@ -130,27 +124,30 @@ export function previewWorkflowInjection(
     });
     return {
       ok: true,
-      workflowSource: "minimal",
+      workflowSource: 'minimal',
       replacements: { positive: 1, negative: 0, params: {} },
       resolvedParams,
-      snippets: [{ path: "minimal.prompt", value: prompt.slice(0, 160) }],
+      snippets: [{ path: 'minimal.prompt', value: prompt.slice(0, 160) }],
       workflowJson: JSON.stringify(
-        { note: "Minimal fallback workflow (no custom workflow configured)" },
+        { note: 'Minimal fallback workflow (no custom workflow configured)' },
         null,
-        2,
+        2
       ),
     };
   }
 
-  const { params: resolvedParams, loaders, customTokens: runtimeTokens } =
-    resolveQueueInjectionContext({
-      runtime,
-      override: input.params,
-      model: input.model ?? runtime?.queueTargetModel,
-      workflow: config.workflow,
-    });
+  const {
+    params: resolvedParams,
+    loaders,
+    customTokens: runtimeTokens,
+  } = resolveQueueInjectionContext({
+    runtime,
+    override: input.params,
+    model: input.model ?? runtime?.queueTargetModel,
+    workflow: config.workflow,
+  });
 
-  const modelId = input.model ?? runtime?.queueTargetModel ?? "qwen-image-2512";
+  const modelId = input.model ?? runtime?.queueTargetModel ?? 'qwen-image-2512';
   const shared = loadSettingsCache().shared;
   const settings = mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings(), {
     activeOnly: true,
@@ -216,7 +213,7 @@ export function previewWorkflowInjection(
         })
       : {
           workflow: config.workflow,
-          changes: [] as import("./workflow-queue-optimizer").WorkflowQueueOptimizeChange[],
+          changes: [] as import('./workflow-queue-optimizer').WorkflowQueueOptimizeChange[],
         };
 
   const injected = injectPromptsWithFallbacks(
@@ -238,21 +235,17 @@ export function previewWorkflowInjection(
       availableLoras: inventoryModels?.loras,
       qualityProfile: runtime?.queueQualityProfile,
       loraLibrary: settings.loraLibrary,
-    },
+    }
   );
 
-  const snippets: WorkflowPreviewSnippet[] = [
-    ...findValuePaths(injected.workflow, prompt, "", 3),
-  ];
+  const snippets: WorkflowPreviewSnippet[] = [...findValuePaths(injected.workflow, prompt, '', 3)];
 
   if (input.negativePrompt?.trim()) {
-    snippets.push(
-      ...findValuePaths(injected.workflow, input.negativePrompt.trim(), "", 2),
-    );
+    snippets.push(...findValuePaths(injected.workflow, input.negativePrompt.trim(), '', 2));
   }
 
   for (const value of Object.values(resolvedParams)) {
-    snippets.push(...findValuePaths(injected.workflow, String(value), "", 1));
+    snippets.push(...findValuePaths(injected.workflow, String(value), '', 1));
     if (snippets.length >= 8) {
       break;
     }
@@ -262,20 +255,18 @@ export function previewWorkflowInjection(
   const truncated = workflowJson.length > MAX_PREVIEW_CHARS;
   const model = modelId;
   const optimizerWarnings: WorkflowPlaceholderAuditIssue[] = (optimized.changes ?? [])
-    .filter((change) => change.severity === "warn")
-    .map((change) => ({ severity: "warn" as const, message: change.message }));
+    .filter(change => change.severity === 'warn')
+    .map(change => ({ severity: 'warn' as const, message: change.message }));
   const preflightIssues =
-    config.workflowSource === "none"
+    config.workflowSource === 'none'
       ? []
       : [
           ...optimizerWarnings,
           ...collectWorkflowGraphPreflightIssues({
             workflowJson,
             model,
-            hasInputImage:
-              input.hasInputImage ?? Boolean(resolvedParams.inputImageFilename),
-            hasMaskImage:
-              input.hasMaskImage ?? Boolean(resolvedParams.maskImageFilename),
+            hasInputImage: input.hasInputImage ?? Boolean(resolvedParams.inputImageFilename),
+            hasMaskImage: input.hasMaskImage ?? Boolean(resolvedParams.maskImageFilename),
             syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
             models: inventoryModels,
             objectInfoUnavailable: input.inventory?.objectInfoUnavailable === true,
@@ -284,8 +275,8 @@ export function previewWorkflowInjection(
         ];
 
   const queueOptimizeChanges = optimized.changes
-    ?.filter((change) => change.severity === "info")
-    .map((change) => change.message);
+    ?.filter(change => change.severity === 'info')
+    .map(change => change.message);
 
   return {
     ok: true,
@@ -298,9 +289,7 @@ export function previewWorkflowInjection(
     },
     resolvedParams,
     snippets: snippets.slice(0, 8),
-    workflowJson: truncated
-      ? `${workflowJson.slice(0, MAX_PREVIEW_CHARS)}\n…`
-      : workflowJson,
+    workflowJson: truncated ? `${workflowJson.slice(0, MAX_PREVIEW_CHARS)}\n…` : workflowJson,
     truncated,
     preflightIssues,
     queueOptimizeChanges,

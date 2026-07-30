@@ -2,26 +2,19 @@ import {
   LOCATION_BLOCKLIST_KEY,
   PROMPT_HISTORY_KEY,
   saveLocationBlocklist,
-} from "@/lib/prompt-history";
-import { SCENE_PRESETS_KEY } from "./scene-presets";
-import {
-  DEFAULT_SHARED_SETTINGS,
-  SETTINGS_CACHE_KEY,
-  saveSettingsCache,
-} from "./settings-cache";
-import { COMFYUI_SETTINGS_KEY, resetComfyUiSettings } from "./comfyui-settings";
-import { clearComfyGallery, COMFYUI_GALLERY_KEY } from "./comfyui-gallery";
-import {
-  COMFY_WORKFLOW_FILES_KEY,
-  saveComfyWorkflowFiles,
-} from "./comfyui-workflow-files";
-import { AVOIDED_TOKENS_KEY } from "./avoided-tokens";
-import { WEBHOOK_LOG_KEY } from "./webhook-log";
-import { COMFY_WORKFLOW_PRESETS_KEY } from "./comfyui-workflow-presets";
-import { USER_TEMPLATES_KEY } from "./user-templates";
+} from '@/lib/prompt-history';
+import { SCENE_PRESETS_KEY } from './scene-presets';
+import { DEFAULT_SHARED_SETTINGS, SETTINGS_CACHE_KEY, saveSettingsCache } from './settings-cache';
+import { COMFYUI_SETTINGS_KEY, resetComfyUiSettings } from './comfyui-settings';
+import { clearComfyGallery, COMFYUI_GALLERY_KEY } from './comfyui-gallery';
+import { COMFY_WORKFLOW_FILES_KEY, saveComfyWorkflowFiles } from './comfyui-workflow-files';
+import { AVOIDED_TOKENS_KEY } from './avoided-tokens';
+import { WEBHOOK_LOG_KEY } from './webhook-log';
+import { COMFY_WORKFLOW_PRESETS_KEY } from './comfyui-workflow-presets';
+import { USER_TEMPLATES_KEY } from './user-templates';
 
 export function clearAllLocalPromptData(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 

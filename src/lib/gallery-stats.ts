@@ -1,6 +1,6 @@
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
 
-export { MAX_GALLERY_ENTRIES as GALLERY_ENTRY_LIMIT } from "./comfyui-gallery";
+export { MAX_GALLERY_ENTRIES as GALLERY_ENTRY_LIMIT } from './comfyui-gallery';
 
 export type GalleryStats = {
   total: number;
@@ -24,13 +24,13 @@ export function computeGalleryStats(entries: ComfyGalleryEntry[]): GalleryStats 
   let ratingCount = 0;
 
   for (const entry of entries) {
-    if (entry.status === "completed") {
+    if (entry.status === 'completed') {
       completed += 1;
-    } else if (entry.status === "pending") {
+    } else if (entry.status === 'pending') {
       pending += 1;
-    } else if (entry.status === "running") {
+    } else if (entry.status === 'running') {
       running += 1;
-    } else if (entry.status === "error") {
+    } else if (entry.status === 'error') {
       error += 1;
     }
 
@@ -38,7 +38,7 @@ export function computeGalleryStats(entries: ComfyGalleryEntry[]): GalleryStats 
       favorites += 1;
     }
 
-    if (entry.status === "completed" && !entry.reviewRating) {
+    if (entry.status === 'completed' && !entry.reviewRating) {
       unreviewed += 1;
     }
 

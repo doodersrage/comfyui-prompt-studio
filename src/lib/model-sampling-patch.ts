@@ -1,23 +1,23 @@
-import type { WorkflowParamValues } from "./comfyui-config";
+import type { WorkflowParamValues } from './comfyui-config';
 import {
   COMFY_MODEL_IDS,
   DEFAULT_COMFY_MODEL,
   getComfyModelDefinition,
   type ComfyImageModel,
   type ComfyModelCategory,
-} from "./comfy-models";
+} from './comfy-models';
 import {
   normalizeModelSamplerPresetTier,
   type ModelSamplerPresetTier,
-} from "./model-sampler-defaults";
+} from './model-sampler-defaults';
 
 export const MODEL_SAMPLING_SHIFT_NODE_TYPES = [
-  "ModelSamplingAuraFlow",
-  "ModelSamplingSD3",
-  "ModelSamplingStableCascade",
+  'ModelSamplingAuraFlow',
+  'ModelSamplingSD3',
+  'ModelSamplingStableCascade',
 ] as const;
 
-export const MODEL_SAMPLING_FLUX_NODE_TYPE = "ModelSamplingFlux";
+export const MODEL_SAMPLING_FLUX_NODE_TYPE = 'ModelSamplingFlux';
 
 export type ModelSamplingShiftNodeType = (typeof MODEL_SAMPLING_SHIFT_NODE_TYPES)[number];
 
@@ -47,7 +47,7 @@ export function isQwenLightningModel(model: ComfyImageModel | string | undefined
   const id = model.trim();
   if (COMFY_MODEL_IDS.has(id)) {
     const category = getComfyModelDefinition(id)?.category;
-    return category === "qwen" && id.includes("lightning-");
+    return category === 'qwen' && id.includes('lightning-');
   }
   return /qwen.*lightning-(4|8)\b/i.test(id);
 }
@@ -60,30 +60,27 @@ export function isWanLightningModel(model: ComfyImageModel | string | undefined)
   const id = model.trim();
   if (COMFY_MODEL_IDS.has(id)) {
     const category = getComfyModelDefinition(id)?.category;
-    return category === "video" && /wan/i.test(id) && id.includes("lightning-");
+    return category === 'video' && /wan/i.test(id) && id.includes('lightning-');
   }
   return /wan.*lightning-(4|8)\b/i.test(id);
 }
 
 /** Any registered Lightning distilled model (Qwen or WAN). */
-export function isLightningDistilledModel(
-  model: ComfyImageModel | string | undefined,
-): boolean {
+export function isLightningDistilledModel(model: ComfyImageModel | string | undefined): boolean {
   return isQwenLightningModel(model) || isWanLightningModel(model);
 }
 
 const MODEL_SHIFT_OVERRIDES: Partial<Record<ComfyImageModel, number>> = {
   auraflow: 1.73,
-  "stable-cascade-b": 2,
-  "qwen-image-2512": QWEN_IMAGE_AURA_SHIFT,
-  "qwen-image-2.0": QWEN_IMAGE_AURA_SHIFT,
+  'stable-cascade-b': 2,
+  'qwen-image-2512': QWEN_IMAGE_AURA_SHIFT,
+  'qwen-image-2.0': QWEN_IMAGE_AURA_SHIFT,
 };
 
-const FLUX_SAMPLING_DEFAULTS: Pick<ModelSamplingPatchValues, "fluxMaxShift" | "fluxBaseShift"> =
-  {
-    fluxMaxShift: 1.15,
-    fluxBaseShift: 0.5,
-  };
+const FLUX_SAMPLING_DEFAULTS: Pick<ModelSamplingPatchValues, 'fluxMaxShift' | 'fluxBaseShift'> = {
+  fluxMaxShift: 1.15,
+  fluxBaseShift: 0.5,
+};
 
 const NODE_SHIFT_DEFAULTS: Partial<Record<ModelSamplingShiftNodeType, number>> = {
   ModelSamplingAuraFlow: 1.73,
@@ -92,7 +89,7 @@ const NODE_SHIFT_DEFAULTS: Partial<Record<ModelSamplingShiftNodeType, number>> =
 };
 
 function isUnresolvedWorkflowPlaceholder(value: unknown): boolean {
-  return typeof value === "string" && /^\{\{[A-Z0-9_]+\}\}$/.test(value.trim());
+  return typeof value === 'string' && /^\{\{[A-Z0-9_]+\}\}$/.test(value.trim());
 }
 
 function isQwenAuraFlowModel(model?: string): boolean {
@@ -101,7 +98,7 @@ function isQwenAuraFlowModel(model?: string): boolean {
   }
   const id = model.trim();
   if (COMFY_MODEL_IDS.has(id)) {
-    return getComfyModelDefinition(id).category === "qwen";
+    return getComfyModelDefinition(id).category === 'qwen';
   }
   return /qwen/i.test(id);
 }
@@ -114,37 +111,45 @@ function shouldRepairQwenAuraShift(current: number): boolean {
 function resolveShiftForNode(
   classType: ModelSamplingShiftNodeType,
   params: WorkflowParamValues,
-  model?: string,
+  model?: string
 ): number | undefined {
   if (isQwenLightningModel(model)) {
     return QWEN_LIGHTNING_SHIFT_DEFAULT;
   }
-  if (params.samplingShift != null && params.samplingShift.toString().trim() !== "") {
+  if (params.samplingShift != null && params.samplingShift.toString().trim() !== '') {
     const parsed = Number(params.samplingShift);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
-  if (isQwenAuraFlowModel(model) && classType === "ModelSamplingAuraFlow") {
+  if (isQwenAuraFlowModel(model) && classType === 'ModelSamplingAuraFlow') {
     return QWEN_IMAGE_AURA_SHIFT;
   }
   return NODE_SHIFT_DEFAULTS[classType];
 }
 
 function resolveFluxShiftForNode(
-  field: "max_shift" | "base_shift",
-  params: WorkflowParamValues,
+  field: 'max_shift' | 'base_shift',
+  params: WorkflowParamValues
 ): number | undefined {
-  const paramValue = field === "max_shift" ? params.fluxMaxShift : params.fluxBaseShift;
-  if (paramValue != null && paramValue.toString().trim() !== "") {
+  const paramValue = field === 'max_shift' ? params.fluxMaxShift : params.fluxBaseShift;
+  if (paramValue != null && paramValue.toString().trim() !== '') {
     const parsed = Number(paramValue);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
-  return field === "max_shift"
+  return field === 'max_shift'
     ? FLUX_SAMPLING_DEFAULTS.fluxMaxShift
     : FLUX_SAMPLING_DEFAULTS.fluxBaseShift;
 }
 
-function shouldPatchNumericInput(current: unknown, params: WorkflowParamValues, paramKey: keyof WorkflowParamValues): boolean {
-  if (paramKey in params && params[paramKey] != null && params[paramKey]?.toString().trim() !== "") {
+function shouldPatchNumericInput(
+  current: unknown,
+  params: WorkflowParamValues,
+  paramKey: keyof WorkflowParamValues
+): boolean {
+  if (
+    paramKey in params &&
+    params[paramKey] != null &&
+    params[paramKey]?.toString().trim() !== ''
+  ) {
     return true;
   }
   return isUnresolvedWorkflowPlaceholder(current);
@@ -153,7 +158,7 @@ function shouldPatchNumericInput(current: unknown, params: WorkflowParamValues, 
 function patchNumericInput(
   inputs: Record<string, unknown>,
   field: string,
-  value: number | undefined,
+  value: number | undefined
 ): boolean {
   if (value == null || !Number.isFinite(value) || !(field in inputs)) {
     return false;
@@ -178,7 +183,7 @@ export function modelUsesFluxSamplingPatch(model: ComfyImageModel | string): boo
   if (!COMFY_MODEL_IDS.has(model)) {
     return false;
   }
-  return getComfyModelDefinition(model).category === "flux";
+  return getComfyModelDefinition(model).category === 'flux';
 }
 
 export function modelUsesShiftSamplingPatch(model: ComfyImageModel | string): boolean {
@@ -193,12 +198,12 @@ export function modelUsesShiftSamplingPatch(model: ComfyImageModel | string): bo
     return true;
   }
   const category = getComfyModelDefinition(normalized).category;
-  return category === "sd3" || category === "qwen";
+  return category === 'sd3' || category === 'qwen';
 }
 
 export function getModelSamplingPatchDefaults(
   model: ComfyImageModel | string = DEFAULT_COMFY_MODEL,
-  tier: ModelSamplerPresetTier = "base",
+  tier: ModelSamplerPresetTier = 'base'
 ): ModelSamplingPatchValues {
   normalizeModelSamplerPresetTier(tier);
   const normalized = COMFY_MODEL_IDS.has(model) ? model : DEFAULT_COMFY_MODEL;
@@ -222,7 +227,7 @@ export function getModelSamplingPatchDefaults(
     return patch;
   }
 
-  if (definition.category === "flux") {
+  if (definition.category === 'flux') {
     return {
       ...FLUX_SAMPLING_DEFAULTS,
       samplingShift: NODE_SHIFT_DEFAULTS.ModelSamplingAuraFlow,
@@ -232,9 +237,7 @@ export function getModelSamplingPatchDefaults(
   return patch;
 }
 
-export function modelSamplingPatchToParams(
-  patch: ModelSamplingPatchValues,
-): WorkflowParamValues {
+export function modelSamplingPatchToParams(patch: ModelSamplingPatchValues): WorkflowParamValues {
   const params: WorkflowParamValues = {};
   if (patch.samplingShift != null) {
     params.samplingShift = patch.samplingShift;
@@ -250,7 +253,7 @@ export function modelSamplingPatchToParams(
 
 export function resolveModelSamplingParams(
   model?: ComfyImageModel | string,
-  tier: ModelSamplerPresetTier = "base",
+  tier: ModelSamplerPresetTier = 'base'
 ): WorkflowParamValues {
   if (!model) {
     return {};
@@ -260,17 +263,13 @@ export function resolveModelSamplingParams(
 
 export function formatModelSamplingHint(
   model: ComfyImageModel | string,
-  tier: ModelSamplerPresetTier = "base",
+  tier: ModelSamplerPresetTier = 'base'
 ): string | null {
   const patch = getModelSamplingPatchDefaults(model, tier);
   const definition = COMFY_MODEL_IDS.has(model)
     ? getComfyModelDefinition(model)
     : getComfyModelDefinition(DEFAULT_COMFY_MODEL);
-  if (
-    definition.category === "flux" &&
-    patch.fluxMaxShift != null &&
-    patch.fluxBaseShift != null
-  ) {
+  if (definition.category === 'flux' && patch.fluxMaxShift != null && patch.fluxBaseShift != null) {
     return `Model sampling · Flux max ${patch.fluxMaxShift} · base ${patch.fluxBaseShift} · syncs width/height on queue`;
   }
   if (patch.samplingShift != null) {
@@ -286,22 +285,20 @@ export function patchModelSamplingInWorkflow(
   workflow: Record<string, unknown>,
   params: WorkflowParamValues,
   model?: string,
-  options?: { mutateInPlace?: boolean },
+  options?: { mutateInPlace?: boolean }
 ): {
   workflow: Record<string, unknown>;
   patched: Partial<
-    Record<"samplingShift" | "fluxMaxShift" | "fluxBaseShift" | "width" | "height", number>
+    Record<'samplingShift' | 'fluxMaxShift' | 'fluxBaseShift' | 'width' | 'height', number>
   >;
 } {
-  const next = options?.mutateInPlace
-    ? workflow
-    : structuredClone(workflow);
+  const next = options?.mutateInPlace ? workflow : structuredClone(workflow);
   const patched: Partial<
-    Record<"samplingShift" | "fluxMaxShift" | "fluxBaseShift" | "width" | "height", number>
+    Record<'samplingShift' | 'fluxMaxShift' | 'fluxBaseShift' | 'width' | 'height', number>
   > = {};
 
   for (const node of Object.values(next)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
 
@@ -309,49 +306,55 @@ export function patchModelSamplingInWorkflow(
       class_type?: string;
       inputs?: Record<string, unknown>;
     };
-    const classType = record.class_type ?? "";
+    const classType = record.class_type ?? '';
     const inputs = record.inputs;
     if (!inputs) {
       continue;
     }
 
     if (isModelSamplingShiftNode(classType)) {
-      if (isQwenLightningModel(model) && "shift" in inputs) {
+      if (isQwenLightningModel(model) && 'shift' in inputs) {
         if (isUnresolvedWorkflowPlaceholder(inputs.shift)) {
-          if (patchNumericInput(inputs, "shift", QWEN_LIGHTNING_SHIFT_DEFAULT)) {
+          if (patchNumericInput(inputs, 'shift', QWEN_LIGHTNING_SHIFT_DEFAULT)) {
             patched.samplingShift = (patched.samplingShift ?? 0) + 1;
           }
         } else {
           const current = Number(inputs.shift);
           // Recover bad defaults (1 / 1.73). Official LightX2V uses ~3.
           if (!Number.isFinite(current) || current < 2.5 || current > 4) {
-            if (patchNumericInput(inputs, "shift", QWEN_LIGHTNING_SHIFT_DEFAULT)) {
+            if (patchNumericInput(inputs, 'shift', QWEN_LIGHTNING_SHIFT_DEFAULT)) {
               patched.samplingShift = (patched.samplingShift ?? 0) + 1;
             }
           }
         }
-      } else if (isQwenAuraFlowModel(model) && "shift" in inputs) {
+      } else if (isQwenAuraFlowModel(model) && 'shift' in inputs) {
         const target =
-          params.samplingShift != null && params.samplingShift.toString().trim() !== ""
+          params.samplingShift != null && params.samplingShift.toString().trim() !== ''
             ? Number(params.samplingShift)
             : QWEN_IMAGE_AURA_SHIFT;
         if (isUnresolvedWorkflowPlaceholder(inputs.shift)) {
-          if (patchNumericInput(inputs, "shift", target)) {
+          if (patchNumericInput(inputs, 'shift', target)) {
             patched.samplingShift = (patched.samplingShift ?? 0) + 1;
           }
         } else if (shouldRepairQwenAuraShift(Number(inputs.shift))) {
           // Repair concrete Comfy defaults (~1.73) on imported graphs toward official 3.1.
-          if (patchNumericInput(inputs, "shift", Number.isFinite(target) ? target : QWEN_IMAGE_AURA_SHIFT)) {
+          if (
+            patchNumericInput(
+              inputs,
+              'shift',
+              Number.isFinite(target) ? target : QWEN_IMAGE_AURA_SHIFT
+            )
+          ) {
             patched.samplingShift = (patched.samplingShift ?? 0) + 1;
           }
         }
-      } else if ("shift" in inputs && isUnresolvedWorkflowPlaceholder(inputs.shift)) {
+      } else if ('shift' in inputs && isUnresolvedWorkflowPlaceholder(inputs.shift)) {
         const resolved = isQwenLightningModel(model)
           ? QWEN_LIGHTNING_SHIFT_DEFAULT
-          : params.samplingShift != null && params.samplingShift.toString().trim() !== ""
+          : params.samplingShift != null && params.samplingShift.toString().trim() !== ''
             ? Number(params.samplingShift)
             : resolveShiftForNode(classType as ModelSamplingShiftNodeType, params, model);
-        if (patchNumericInput(inputs, "shift", resolved)) {
+        if (patchNumericInput(inputs, 'shift', resolved)) {
           patched.samplingShift = (patched.samplingShift ?? 0) + 1;
         }
       }
@@ -362,27 +365,25 @@ export function patchModelSamplingInWorkflow(
       continue;
     }
 
-    if (shouldPatchNumericInput(inputs.width, params, "width")) {
+    if (shouldPatchNumericInput(inputs.width, params, 'width')) {
       const width = Number(params.width);
-      if (patchNumericInput(inputs, "width", Number.isFinite(width) ? width : undefined)) {
+      if (patchNumericInput(inputs, 'width', Number.isFinite(width) ? width : undefined)) {
         patched.width = (patched.width ?? 0) + 1;
       }
     }
-    if (shouldPatchNumericInput(inputs.height, params, "height")) {
+    if (shouldPatchNumericInput(inputs.height, params, 'height')) {
       const height = Number(params.height);
-      if (patchNumericInput(inputs, "height", Number.isFinite(height) ? height : undefined)) {
+      if (patchNumericInput(inputs, 'height', Number.isFinite(height) ? height : undefined)) {
         patched.height = (patched.height ?? 0) + 1;
       }
     }
-    if (shouldPatchNumericInput(inputs.max_shift, params, "fluxMaxShift")) {
-      if (patchNumericInput(inputs, "max_shift", resolveFluxShiftForNode("max_shift", params))) {
+    if (shouldPatchNumericInput(inputs.max_shift, params, 'fluxMaxShift')) {
+      if (patchNumericInput(inputs, 'max_shift', resolveFluxShiftForNode('max_shift', params))) {
         patched.fluxMaxShift = (patched.fluxMaxShift ?? 0) + 1;
       }
     }
-    if (shouldPatchNumericInput(inputs.base_shift, params, "fluxBaseShift")) {
-      if (
-        patchNumericInput(inputs, "base_shift", resolveFluxShiftForNode("base_shift", params))
-      ) {
+    if (shouldPatchNumericInput(inputs.base_shift, params, 'fluxBaseShift')) {
+      if (patchNumericInput(inputs, 'base_shift', resolveFluxShiftForNode('base_shift', params))) {
         patched.fluxBaseShift = (patched.fluxBaseShift ?? 0) + 1;
       }
     }

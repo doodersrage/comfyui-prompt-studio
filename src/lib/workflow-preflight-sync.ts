@@ -1,10 +1,10 @@
-import type { ComfyImageModel } from "./comfy-models/client";
+import type { ComfyImageModel } from './comfy-models/client';
 import {
   collectWorkflowGraphPreflightIssues,
   summarizeWorkflowGraphPreflight,
   type WorkflowPreflightIssue,
-} from "./workflow-preflight-core";
-import type { ComfyUiModelLists } from "./comfyui-object-info";
+} from './workflow-preflight-core';
+import type { ComfyUiModelLists } from './comfyui-object-info';
 
 export type { WorkflowPreflightIssue };
 

@@ -1,23 +1,23 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { whenBrowserStorageReady } from "@/lib/browser-storage";
+import { useCallback, useEffect, useState } from 'react';
+import { whenBrowserStorageReady } from '@/lib/browser-storage';
 import {
   loadPromptHistoryStore,
   savePromptHistoryStore,
   type PromptHistoryEntry,
-} from "@/lib/prompt-history";
-import { USER_SCOPE_CHANGED_EVENT } from "@/lib/user-scope";
-import { scheduleUserAnalyticsSync } from "@/lib/user-analytics-sync";
+} from '@/lib/prompt-history';
+import { USER_SCOPE_CHANGED_EVENT } from '@/lib/user-scope';
+import { scheduleUserAnalyticsSync } from '@/lib/user-analytics-sync';
 
-export type { PromptHistoryEntry } from "@/lib/prompt-history";
-export { PROMPT_HISTORY_KEY, LOCATION_BLOCKLIST_KEY } from "@/lib/prompt-history";
+export type { PromptHistoryEntry } from '@/lib/prompt-history';
+export { PROMPT_HISTORY_KEY, LOCATION_BLOCKLIST_KEY } from '@/lib/prompt-history';
 export {
   loadPromptHistoryStore,
   savePromptHistoryStore,
   loadLocationBlocklist,
   saveLocationBlocklist,
-} from "@/lib/prompt-history";
+} from '@/lib/prompt-history';
 
 function loadHistory(): PromptHistoryEntry[] {
   return loadPromptHistoryStore();
@@ -61,9 +61,9 @@ export function usePromptHistory() {
 
   const addEntry = useCallback(
     (
-      entry: Omit<PromptHistoryEntry, "id" | "timestamp" | "userId"> & {
+      entry: Omit<PromptHistoryEntry, 'id' | 'timestamp' | 'userId'> & {
         id?: string;
-      },
+      }
     ) => {
       const next: PromptHistoryEntry = {
         ...entry,
@@ -73,36 +73,32 @@ export function usePromptHistory() {
       persist([next, ...loadHistory()].slice(0, 100));
       return next.id;
     },
-    [persist],
+    [persist]
   );
 
   const toggleFavorite = useCallback(
     (id: string) => {
       persist(
-        loadHistory().map((entry) =>
-          entry.id === id ? { ...entry, favorite: !entry.favorite } : entry,
-        ),
+        loadHistory().map(entry =>
+          entry.id === id ? { ...entry, favorite: !entry.favorite } : entry
+        )
       );
     },
-    [persist],
+    [persist]
   );
 
   const setRating = useCallback(
-    (id: string, rating: PromptHistoryEntry["rating"]) => {
-      persist(
-        loadHistory().map((entry) =>
-          entry.id === id ? { ...entry, rating } : entry,
-        ),
-      );
+    (id: string, rating: PromptHistoryEntry['rating']) => {
+      persist(loadHistory().map(entry => (entry.id === id ? { ...entry, rating } : entry)));
     },
-    [persist],
+    [persist]
   );
 
   const removeEntry = useCallback(
     (id: string) => {
-      persist(loadHistory().filter((entry) => entry.id !== id));
+      persist(loadHistory().filter(entry => entry.id !== id));
     },
-    [persist],
+    [persist]
   );
 
   const clearHistory = useCallback(() => {
@@ -111,17 +107,12 @@ export function usePromptHistory() {
 
   const setTags = useCallback(
     (id: string, tags: string[]) => {
-      const normalized = [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))].slice(
-        0,
-        12,
-      );
+      const normalized = [...new Set(tags.map(tag => tag.trim()).filter(Boolean))].slice(0, 12);
       persist(
-        loadHistory().map((entry) =>
-          entry.id === id ? { ...entry, tags: normalized } : entry,
-        ),
+        loadHistory().map(entry => (entry.id === id ? { ...entry, tags: normalized } : entry))
       );
     },
-    [persist],
+    [persist]
   );
 
   const addTag = useCallback(
@@ -131,16 +122,16 @@ export function usePromptHistory() {
         return;
       }
       persist(
-        loadHistory().map((entry) => {
+        loadHistory().map(entry => {
           if (entry.id !== id) {
             return entry;
           }
           const tags = [...new Set([...(entry.tags ?? []), trimmed])].slice(0, 12);
           return { ...entry, tags };
-        }),
+        })
       );
     },
-    [persist],
+    [persist]
   );
 
   return {

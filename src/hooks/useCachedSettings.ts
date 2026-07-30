@@ -1,10 +1,7 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  isBrowserStorageReady,
-  whenBrowserStorageReady,
-} from "@/lib/browser-storage";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { isBrowserStorageReady, whenBrowserStorageReady } from '@/lib/browser-storage';
 import {
   DEFAULT_SHARED_SETTINGS,
   loadSettingsCache,
@@ -13,23 +10,18 @@ import {
   saveToolSettings,
   type SharedToolSettings,
   type ToolSettingsCache,
-} from "@/lib/settings-cache";
-import { loadToolContext, saveToolContext } from "@/lib/tool-context-memory";
-import { COMFY_MODEL_IDS } from "@/lib/comfy-models/client";
+} from '@/lib/settings-cache';
+import { loadToolContext, saveToolContext } from '@/lib/tool-context-memory';
+import { COMFY_MODEL_IDS } from '@/lib/comfy-models/client';
 
-function applyToolContext(
-  shared: SharedToolSettings,
-  toolKey: string,
-): SharedToolSettings {
+function applyToolContext(shared: SharedToolSettings, toolKey: string): SharedToolSettings {
   const memory = loadToolContext(toolKey);
   if (!memory?.model && !memory?.selectedWorkflowFileId) {
     return shared;
   }
   return {
     ...shared,
-    ...(memory.model && COMFY_MODEL_IDS.has(memory.model)
-      ? { model: memory.model }
-      : {}),
+    ...(memory.model && COMFY_MODEL_IDS.has(memory.model) ? { model: memory.model } : {}),
     ...(memory.selectedWorkflowFileId
       ? { selectedWorkflowFileId: memory.selectedWorkflowFileId }
       : {}),
@@ -38,19 +30,17 @@ function applyToolContext(
 
 export function useCachedSettings<K extends keyof ToolSettingsCache>(
   toolKey: K,
-  toolDefaults: NonNullable<ToolSettingsCache[K]>,
+  toolDefaults: NonNullable<ToolSettingsCache[K]>
 ) {
   const defaultsRef = useRef(toolDefaults);
   const hydratedRef = useRef(false);
   const pendingSharedRef = useRef<Partial<SharedToolSettings> | null>(null);
-  const pendingToolRef = useRef<Partial<
-    NonNullable<ToolSettingsCache[K]>
-  > | null>(null);
+  const pendingToolRef = useRef<Partial<NonNullable<ToolSettingsCache[K]>> | null>(null);
   const [mounted, setMounted] = useState(false);
   const [shared, setShared] = useState<SharedToolSettings>(DEFAULT_SHARED_SETTINGS);
-  const [toolSettings, setToolSettings] = useState<
-    NonNullable<ToolSettingsCache[K]>
-  >(() => (toolDefaults ?? {}) as NonNullable<ToolSettingsCache[K]>);
+  const [toolSettings, setToolSettings] = useState<NonNullable<ToolSettingsCache[K]>>(
+    () => (toolDefaults ?? {}) as NonNullable<ToolSettingsCache[K]>
+  );
 
   useEffect(() => {
     defaultsRef.current = toolDefaults ?? defaultsRef.current;
@@ -77,10 +67,7 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
       if (pendingShared && Object.keys(pendingShared).length > 0) {
         nextShared = { ...nextShared, ...pendingShared };
         saveSharedSettings(nextShared);
-        if (
-          "model" in pendingShared ||
-          "selectedWorkflowFileId" in pendingShared
-        ) {
+        if ('model' in pendingShared || 'selectedWorkflowFileId' in pendingShared) {
           saveToolContext(String(toolKey), {
             model: nextShared.model,
             selectedWorkflowFileId: nextShared.selectedWorkflowFileId,
@@ -88,16 +75,12 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
         }
       }
 
-      const defaults =
-        defaultsRef.current ??
-        ({} as NonNullable<ToolSettingsCache[K]>);
+      const defaults = defaultsRef.current ?? ({} as NonNullable<ToolSettingsCache[K]>);
       let nextTool = loadToolSettings(toolKey, defaults);
       const pendingTool = pendingToolRef.current;
       pendingToolRef.current = null;
       if (pendingTool && Object.keys(pendingTool).length > 0) {
-        nextTool = { ...nextTool, ...pendingTool } as NonNullable<
-          ToolSettingsCache[K]
-        >;
+        nextTool = { ...nextTool, ...pendingTool } as NonNullable<ToolSettingsCache[K]>;
         saveToolSettings(toolKey, nextTool);
       }
 
@@ -123,7 +106,7 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
           ...(pendingSharedRef.current ?? {}),
           ...partial,
         };
-        setShared((previous) => ({ ...previous, ...partial }));
+        setShared(previous => ({ ...previous, ...partial }));
         return;
       }
 
@@ -132,7 +115,7 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
         // render cannot wipe sampler/quality/maps on the next edit.
         const next = { ...loadSettingsCache().shared, ...partial };
         saveSharedSettings(next);
-        if ("model" in partial || "selectedWorkflowFileId" in partial) {
+        if ('model' in partial || 'selectedWorkflowFileId' in partial) {
           saveToolContext(String(toolKey), {
             model: next.model,
             selectedWorkflowFileId: next.selectedWorkflowFileId,
@@ -141,7 +124,7 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
         return next;
       });
     },
-    [toolKey],
+    [toolKey]
   );
 
   const updateToolSettings = useCallback(
@@ -151,10 +134,8 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
           ...(pendingToolRef.current ?? {}),
           ...partial,
         };
-        setToolSettings((previous) => {
-          const defaults =
-            defaultsRef.current ??
-            ({} as NonNullable<ToolSettingsCache[K]>);
+        setToolSettings(previous => {
+          const defaults = defaultsRef.current ?? ({} as NonNullable<ToolSettingsCache[K]>);
           return {
             ...(previous ?? defaults),
             ...partial,
@@ -163,10 +144,8 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
         return;
       }
 
-      setToolSettings((previous) => {
-        const defaults =
-          defaultsRef.current ??
-          ({} as NonNullable<ToolSettingsCache[K]>);
+      setToolSettings(previous => {
+        const defaults = defaultsRef.current ?? ({} as NonNullable<ToolSettingsCache[K]>);
         const next = {
           ...(previous ?? defaults),
           ...partial,
@@ -175,19 +154,16 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
         return next;
       });
     },
-    [toolKey],
+    [toolKey]
   );
 
   return {
     mounted,
     shared,
-    toolSettings:
-      toolSettings ??
-      toolDefaults ??
-      ({} as NonNullable<ToolSettingsCache[K]>),
+    toolSettings: toolSettings ?? toolDefaults ?? ({} as NonNullable<ToolSettingsCache[K]>),
     updateShared,
     updateToolSettings,
-    setModel: (model: SharedToolSettings["model"]) => updateShared({ model }),
-    setDetail: (detail: SharedToolSettings["detail"]) => updateShared({ detail }),
+    setModel: (model: SharedToolSettings['model']) => updateShared({ model }),
+    setDetail: (detail: SharedToolSettings['detail']) => updateShared({ detail }),
   };
 }

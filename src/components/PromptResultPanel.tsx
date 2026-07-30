@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { CollapsibleSection, ToolSection } from "@/components/ui/ToolPageShell";
-import { Button } from "@/components/ui/Button";
-import { MonoTextArea } from "@/components/ui/Field";
-import { rawPromptDiffers } from "@/lib/raw-prompt";
+import { CollapsibleSection, ToolSection } from '@/components/ui/ToolPageShell';
+import { Button } from '@/components/ui/Button';
+import { MonoTextArea } from '@/components/ui/Field';
+import { rawPromptDiffers } from '@/lib/raw-prompt';
 
 type PromptResultPanelProps = {
   output: string;
-  provider: "llm" | "template" | "rules" | null;
+  provider: 'llm' | 'template' | 'rules' | null;
   comfyNode?: string;
   limits?: {
     minChars?: number;
@@ -41,7 +41,7 @@ export default function PromptResultPanel({
   }
 
   const showRaw = rawPromptDiffers(rawPrompt, output);
-  const editable = typeof onOutputChange === "function";
+  const editable = typeof onOutputChange === 'function';
 
   return (
     <ToolSection>
@@ -51,19 +51,19 @@ export default function PromptResultPanel({
           {(provider || editable) && (
             <p className="type-caption mt-1">
               {provider
-                ? `via ${provider === "llm" ? "LLM" : provider === "rules" ? "rules" : "template"}`
+                ? `via ${provider === 'llm' ? 'LLM' : provider === 'rules' ? 'rules' : 'template'}`
                 : null}
               {provider && limits
-                ? ` · ${limits.minChars ? `${limits.minChars}–` : ""}${limits.maxChars} char limit`
+                ? ` · ${limits.minChars ? `${limits.minChars}–` : ''}${limits.maxChars} char limit`
                 : null}
               {` · ${output.length} chars`}
-              {editable ? " · editable" : ""}
-              {extraMeta ? ` · ${extraMeta}` : ""}
+              {editable ? ' · editable' : ''}
+              {extraMeta ? ` · ${extraMeta}` : ''}
             </p>
           )}
         </div>
         <Button variant="secondary" onClick={onCopy} disabled={!output.trim()}>
-          {copied ? "Copied!" : "Copy for ComfyUI"}
+          {copied ? 'Copied!' : 'Copy for ComfyUI'}
         </Button>
       </div>
 
@@ -71,8 +71,8 @@ export default function PromptResultPanel({
         <MonoTextArea
           id="generated-prompt-editor"
           value={output}
-          onChange={(event) => onOutputChange(event.target.value)}
-          rows={Math.min(18, Math.max(6, output.split("\n").length + 2))}
+          onChange={event => onOutputChange(event.target.value)}
+          rows={Math.min(18, Math.max(6, output.split('\n').length + 2))}
           spellCheck={false}
           className="mt-1 !text-[var(--tint-success-text)]"
           aria-label="Generated prompt"

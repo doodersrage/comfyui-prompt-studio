@@ -1,7 +1,4 @@
-import {
-  formatQueuePipelineStatusNotes,
-  type QueueQualityProfile,
-} from "./queue-quality-profile";
+import { formatQueuePipelineStatusNotes, type QueueQualityProfile } from './queue-quality-profile';
 
 /** Short host:port label for status / gallery meta (falls back to trimmed URL). */
 export function formatComfyHostLabel(comfyUrl?: string | null): string | null {
@@ -10,15 +7,15 @@ export function formatComfyHostLabel(comfyUrl?: string | null): string | null {
     return null;
   }
   try {
-    const url = new URL(raw.includes("://") ? raw : `http://${raw}`);
+    const url = new URL(raw.includes('://') ? raw : `http://${raw}`);
     const host = url.hostname;
     const port = url.port;
     if (port) {
       return `${host}:${port}`;
     }
-    return host || raw.replace(/\/+$/, "");
+    return host || raw.replace(/\/+$/, '');
   } catch {
-    return raw.replace(/\/+$/, "");
+    return raw.replace(/\/+$/, '');
   }
 }
 
@@ -31,18 +28,16 @@ export function joinQueueStatusNotes(
     tool?: string;
     vramDowngraded?: boolean;
     samplerMemory?: boolean;
-    systemWorkflowSource?: "pack" | "scaffold";
+    systemWorkflowSource?: 'pack' | 'scaffold';
     systemWorkflowLabel?: string;
     hasInputImage?: boolean;
     /** ComfyUI host used for this queue — surfaced as a short host:port label. */
     comfyUrl?: string;
-  },
+  }
 ): string {
-  const fromPipeline = pipeline
-    ? formatQueuePipelineStatusNotes(pipeline)
-    : [];
+  const fromPipeline = pipeline ? formatQueuePipelineStatusNotes(pipeline) : [];
   const hostLabel = formatComfyHostLabel(pipeline?.comfyUrl);
   return [...parts, hostLabel ? `host ${hostLabel}` : null, ...fromPipeline]
     .filter(Boolean)
-    .join(" · ");
+    .join(' · ');
 }

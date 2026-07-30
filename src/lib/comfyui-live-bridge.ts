@@ -1,8 +1,8 @@
-import "server-only";
+import 'server-only';
 
-import { getComfyUiBaseUrl } from "./comfyui-client";
-import { stripEmptyComfyUiRuntime } from "./comfyui-config";
-import { parseComfyPreviewBinary } from "./comfyui-preview-binary";
+import { getComfyUiBaseUrl } from './comfyui-client';
+import { stripEmptyComfyUiRuntime } from './comfyui-config';
+import { parseComfyPreviewBinary } from './comfyui-preview-binary';
 
 const CLIENT_FEATURE_FLAGS = {
   supports_preview_metadata: true,
@@ -10,23 +10,23 @@ const CLIENT_FEATURE_FLAGS = {
 } as const;
 
 export type ComfyLiveBridgeEvent =
-  | { type: "ready"; comfyUrl: string; clientId: string }
+  | { type: 'ready'; comfyUrl: string; clientId: string }
   | {
-      type: "preview";
-      mimeType: "image/jpeg" | "image/png";
+      type: 'preview';
+      mimeType: 'image/jpeg' | 'image/png';
       base64: string;
       promptId?: string;
     }
   | {
-      type: "progress";
+      type: 'progress';
       promptId?: string;
       node?: string | null;
       value?: number;
       max?: number;
       message?: string;
-      status: "executing" | "progress" | "finished" | "error";
+      status: 'executing' | 'progress' | 'finished' | 'error';
     }
-  | { type: "error"; message: string };
+  | { type: 'error'; message: string };
 
 type Subscriber = (event: ComfyLiveBridgeEvent) => void;
 
@@ -46,27 +46,23 @@ function sessionKey(clientId: string): string {
 }
 
 function toComfyWsUrl(comfyUrl: string, clientId: string): string {
-  const trimmed = comfyUrl.replace(/\/+$/, "");
-  const wsBase = trimmed.startsWith("https://")
-    ? trimmed.replace(/^https:/, "wss:")
-    : trimmed.startsWith("http://")
-      ? trimmed.replace(/^http:/, "ws:")
+  const trimmed = comfyUrl.replace(/\/+$/, '');
+  const wsBase = trimmed.startsWith('https://')
+    ? trimmed.replace(/^https:/, 'wss:')
+    : trimmed.startsWith('http://')
+      ? trimmed.replace(/^http:/, 'ws:')
       : `ws://${trimmed}`;
   return `${wsBase}/ws?clientId=${encodeURIComponent(clientId)}`;
 }
 
 function asFiniteNumber(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     return undefined;
   }
   return value;
 }
 
-function formatStepMessage(
-  value: number,
-  max: number,
-  node?: string | null,
-): string {
+function formatStepMessage(value: number, max: number, node?: string | null): string {
   const safeMax = Math.max(1, Math.floor(max));
   const safeValue = Math.max(0, Math.min(Math.floor(value), safeMax));
   const percent = Math.round((safeValue / safeMax) * 100);
@@ -85,31 +81,26 @@ function publish(session: BridgeSession, event: ComfyLiveBridgeEvent): void {
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString("base64");
+  return Buffer.from(bytes).toString('base64');
 }
 
 function toArrayBuffer(data: ArrayBuffer | ArrayBufferView | Buffer): ArrayBuffer {
   if (data instanceof ArrayBuffer) {
     return data;
   }
-  const view = ArrayBuffer.isView(data)
-    ? data
-    : new Uint8Array(data);
+  const view = ArrayBuffer.isView(data) ? data : new Uint8Array(data);
   const copy = new Uint8Array(view.byteLength);
   copy.set(new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
   return copy.buffer;
 }
 
-function handleBinary(
-  session: BridgeSession,
-  data: ArrayBuffer | ArrayBufferView | Buffer,
-): void {
+function handleBinary(session: BridgeSession, data: ArrayBuffer | ArrayBufferView | Buffer): void {
   const parsed = parseComfyPreviewBinary(toArrayBuffer(data));
   if (!parsed) {
     return;
   }
   publish(session, {
-    type: "preview",
+    type: 'preview',
     mimeType: parsed.mimeType,
     base64: bytesToBase64(parsed.bytes),
     promptId: parsed.promptId,
@@ -146,7 +137,7 @@ function handleText(session: BridgeSession, raw: string): void {
       };
     };
 
-    if (payload.type === "progress") {
+    if (payload.type === 'progress') {
       const value = asFiniteNumber(payload.data?.value);
       const max = asFiniteNumber(payload.data?.max);
       if (value == null || max == null || max <= 0) {
@@ -154,8 +145,8 @@ function handleText(session: BridgeSession, raw: string): void {
       }
       const node = payload.data?.node ?? null;
       publish(session, {
-        type: "progress",
-        status: "progress",
+        type: 'progress',
+        status: 'progress',
         promptId: payload.data?.prompt_id,
         node,
         value,
@@ -165,13 +156,13 @@ function handleText(session: BridgeSession, raw: string): void {
       return;
     }
 
-    if (payload.type === "progress_state") {
+    if (payload.type === 'progress_state') {
       const nodes = payload.data?.nodes;
-      if (!nodes || typeof nodes !== "object") {
+      if (!nodes || typeof nodes !== 'object') {
         return;
       }
       const running = Object.values(nodes).find(
-        (node) => node?.state === "running" && asFiniteNumber(node.max),
+        node => node?.state === 'running' && asFiniteNumber(node.max)
       );
       if (!running) {
         return;
@@ -180,8 +171,8 @@ function handleText(session: BridgeSession, raw: string): void {
       const max = asFiniteNumber(running.max) ?? 1;
       const node = running.real_node_id ?? running.node_id ?? null;
       publish(session, {
-        type: "progress",
-        status: "progress",
+        type: 'progress',
+        status: 'progress',
         promptId: payload.data?.prompt_id,
         node,
         value,
@@ -191,33 +182,31 @@ function handleText(session: BridgeSession, raw: string): void {
       return;
     }
 
-    if (payload.type === "executing") {
+    if (payload.type === 'executing') {
       const node = payload.data?.node ?? null;
       publish(session, {
-        type: "progress",
-        status: node ? "executing" : "finished",
+        type: 'progress',
+        status: node ? 'executing' : 'finished',
         promptId: payload.data?.prompt_id,
         node,
-        message: node ? `Running node ${node}` : "Execution finished",
+        message: node ? `Running node ${node}` : 'Execution finished',
       });
       return;
     }
 
-    if (payload.type === "execution_error") {
+    if (payload.type === 'execution_error') {
       const detail = payload.data?.exception_message?.trim();
       publish(session, {
-        type: "progress",
-        status: "error",
+        type: 'progress',
+        status: 'error',
         promptId: payload.data?.prompt_id,
-        message: detail
-          ? `ComfyUI error: ${detail}`
-          : "ComfyUI execution error",
+        message: detail ? `ComfyUI error: ${detail}` : 'ComfyUI execution error',
       });
       return;
     }
 
     // PreviewImage / intermediate SaveImage outputs (works even if latent preview is off).
-    if (payload.type === "executed") {
+    if (payload.type === 'executed') {
       const images = payload.data?.output?.images;
       if (!Array.isArray(images) || images.length === 0) {
         return;
@@ -228,11 +217,11 @@ function handleText(session: BridgeSession, raw: string): void {
       }
       void (async () => {
         try {
-          const direct = new URL("/view", session.comfyUrl);
-          direct.searchParams.set("filename", last.filename!);
-          direct.searchParams.set("subfolder", last.subfolder?.trim() || "");
-          direct.searchParams.set("type", last.type?.trim() || "temp");
-          const response = await fetch(direct.toString(), { cache: "no-store" });
+          const direct = new URL('/view', session.comfyUrl);
+          direct.searchParams.set('filename', last.filename!);
+          direct.searchParams.set('subfolder', last.subfolder?.trim() || '');
+          direct.searchParams.set('type', last.type?.trim() || 'temp');
+          const response = await fetch(direct.toString(), { cache: 'no-store' });
           if (!response.ok) {
             return;
           }
@@ -240,16 +229,15 @@ function handleText(session: BridgeSession, raw: string): void {
           if (buffer.byteLength < 32) {
             return;
           }
-          const contentType = response.headers.get("content-type") || "";
+          const contentType = response.headers.get('content-type') || '';
           const mimeType =
-            contentType.includes("png") ||
-            last.filename!.toLowerCase().endsWith(".png")
-              ? ("image/png" as const)
-              : ("image/jpeg" as const);
+            contentType.includes('png') || last.filename!.toLowerCase().endsWith('.png')
+              ? ('image/png' as const)
+              : ('image/jpeg' as const);
           publish(session, {
-            type: "preview",
+            type: 'preview',
             mimeType,
-            base64: buffer.toString("base64"),
+            base64: buffer.toString('base64'),
             promptId: payload.data?.prompt_id,
           });
         } catch {
@@ -275,7 +263,7 @@ function ensureSession(clientId: string, comfyUrl: string): BridgeSession {
 
   const socket = new WebSocket(toComfyWsUrl(comfyUrl, clientId));
   try {
-    socket.binaryType = "arraybuffer";
+    socket.binaryType = 'arraybuffer';
   } catch {
     // older runtimes
   }
@@ -289,59 +277,59 @@ function ensureSession(clientId: string, comfyUrl: string): BridgeSession {
     ready: false,
   };
 
-  socket.addEventListener("open", () => {
+  socket.addEventListener('open', () => {
     try {
       socket.send(
         JSON.stringify({
-          type: "feature_flags",
+          type: 'feature_flags',
           data: CLIENT_FEATURE_FLAGS,
-        }),
+        })
       );
     } catch {
       // ignore
     }
     session.ready = true;
     publish(session, {
-      type: "ready",
+      type: 'ready',
       comfyUrl,
       clientId,
     });
   });
 
-  socket.addEventListener("message", (event) => {
+  socket.addEventListener('message', event => {
     const data = event.data;
-    if (typeof data === "string") {
+    if (typeof data === 'string') {
       handleText(session, data);
       return;
     }
     if (
       data instanceof ArrayBuffer ||
       ArrayBuffer.isView(data) ||
-      (typeof Buffer !== "undefined" && Buffer.isBuffer(data))
+      (typeof Buffer !== 'undefined' && Buffer.isBuffer(data))
     ) {
       handleBinary(session, data as ArrayBuffer | ArrayBufferView | Buffer);
       return;
     }
-    if (typeof Blob !== "undefined" && data instanceof Blob) {
-      void data.arrayBuffer().then((buffer) => handleBinary(session, buffer));
+    if (typeof Blob !== 'undefined' && data instanceof Blob) {
+      void data.arrayBuffer().then(buffer => handleBinary(session, buffer));
     }
   });
 
-  socket.addEventListener("error", () => {
+  socket.addEventListener('error', () => {
     publish(session, {
-      type: "error",
+      type: 'error',
       message: `ComfyUI WebSocket error (${comfyUrl})`,
     });
   });
 
-  socket.addEventListener("close", () => {
+  socket.addEventListener('close', () => {
     if (sessions.get(key) === session) {
       sessions.delete(key);
     }
     if (session.subscribers.size > 0) {
       publish(session, {
-        type: "error",
-        message: "ComfyUI WebSocket closed",
+        type: 'error',
+        message: 'ComfyUI WebSocket closed',
       });
     }
   });
@@ -362,7 +350,7 @@ export function subscribeComfyLiveBridge(input: {
 }): { close: () => void; comfyUrl: string } {
   const clientId = input.clientId.trim();
   if (!clientId) {
-    throw new Error("clientId is required.");
+    throw new Error('clientId is required.');
   }
 
   const runtime = stripEmptyComfyUiRuntime({
@@ -374,7 +362,7 @@ export function subscribeComfyLiveBridge(input: {
 
   if (session.ready) {
     input.onEvent({
-      type: "ready",
+      type: 'ready',
       comfyUrl: session.comfyUrl,
       clientId,
     });

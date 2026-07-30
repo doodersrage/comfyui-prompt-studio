@@ -14,10 +14,10 @@ export function expectedScore(ratingA: number, ratingB: number): number {
 export function updateEloRatings(
   entries: EloEntry[],
   winnerId: string,
-  loserId: string,
+  loserId: string
 ): EloEntry[] {
-  const winner = entries.find((entry) => entry.id === winnerId);
-  const loser = entries.find((entry) => entry.id === loserId);
+  const winner = entries.find(entry => entry.id === winnerId);
+  const loser = entries.find(entry => entry.id === loserId);
   if (!winner || !loser) {
     return entries;
   }
@@ -25,7 +25,7 @@ export function updateEloRatings(
   const expectedWinner = expectedScore(winner.rating, loser.rating);
   const expectedLoser = expectedScore(loser.rating, winner.rating);
 
-  return entries.map((entry) => {
+  return entries.map(entry => {
     if (entry.id === winnerId) {
       return {
         ...entry,
@@ -54,7 +54,7 @@ export function createEloBracket(entryIds: string[]): Array<[string, string]> {
 }
 
 export function initEloEntries(ids: string[], labels: Record<string, string>): EloEntry[] {
-  return ids.map((id) => ({
+  return ids.map(id => ({
     id,
     label: labels[id] ?? id,
     rating: 1500,

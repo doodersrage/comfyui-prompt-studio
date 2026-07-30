@@ -1,6 +1,6 @@
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-export const EXPERIMENT_WINNERS_KEY = "comfy-experiment-winners-v1";
+export const EXPERIMENT_WINNERS_KEY = 'comfy-experiment-winners-v1';
 
 export type ExperimentWinnerRecord = {
   groupId: string;
@@ -9,7 +9,7 @@ export type ExperimentWinnerRecord = {
 };
 
 export function loadExperimentWinners(): Record<string, ExperimentWinnerRecord> {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return {};
   }
   try {
@@ -20,7 +20,7 @@ export function loadExperimentWinners(): Record<string, ExperimentWinnerRecord> 
 }
 
 export function markExperimentWinner(groupId: string, entryId: string): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   const winners = loadExperimentWinners();
@@ -29,7 +29,7 @@ export function markExperimentWinner(groupId: string, entryId: string): void {
 }
 
 export function clearExperimentWinner(groupId: string): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   const winners = loadExperimentWinners();

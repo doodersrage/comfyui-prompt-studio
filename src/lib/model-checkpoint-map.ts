@@ -2,13 +2,13 @@ import {
   getComfyModelDefinition,
   type ComfyImageModel,
   type ComfyModelCategory,
-} from "./comfy-models";
-import type { CustomWorkflowToken, WorkflowParamValues } from "./comfyui-config";
+} from './comfy-models';
+import type { CustomWorkflowToken, WorkflowParamValues } from './comfyui-config';
 import {
   isFlux1FamilyModel,
   isFluxKleinModel,
   isQwenRapidAioModel,
-} from "./model-denoise-defaults";
+} from './model-denoise-defaults';
 import {
   defaultLoaderPrecisionTier,
   detectLoaderPrecisionTier,
@@ -20,8 +20,8 @@ import {
   qwenEdit2511UnetFilename,
   qwenGenericUnetFilename,
   type LoaderPrecisionTier,
-} from "./model-loader-precision";
-import { isQwenLightningModel } from "./model-sampling-patch";
+} from './model-loader-precision';
+import { isQwenLightningModel } from './model-sampling-patch';
 
 export type ModelLoaderFilenames = {
   checkpoint?: string;
@@ -38,56 +38,56 @@ export type ModelVaeMap = Partial<Record<ComfyImageModel | string, string>>;
 
 export type ModelRefinerMap = Partial<Record<ComfyImageModel | string, string>>;
 
-export const DEFAULT_CHECKPOINT_TOKEN = "{{CHECKPOINT}}";
-export const DEFAULT_UNET_TOKEN = "{{UNET}}";
-export const DEFAULT_VAE_TOKEN = "{{VAE}}";
-export const DEFAULT_REFINER_TOKEN = "{{REFINER}}";
+export const DEFAULT_CHECKPOINT_TOKEN = '{{CHECKPOINT}}';
+export const DEFAULT_UNET_TOKEN = '{{UNET}}';
+export const DEFAULT_VAE_TOKEN = '{{VAE}}';
+export const DEFAULT_REFINER_TOKEN = '{{REFINER}}';
 
-export const DEFAULT_SDXL_REFINER_CHECKPOINT = "sd_xl_refiner_1.0.safetensors";
+export const DEFAULT_SDXL_REFINER_CHECKPOINT = 'sd_xl_refiner_1.0.safetensors';
 
 /** Suggested checkpoint/UNET filenames for common models (merged into Settings; user entries win). */
 export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
-  "qwen-image-2512": "qwen_image_2512_fp8_e4m3fn.safetensors",
+  'qwen-image-2512': 'qwen_image_2512_fp8_e4m3fn.safetensors',
   // Lightning needs bf16 UNET on Comfy (fp8 tends to moiré/grid); keep base on fp8.
-  "qwen-image-2512-lightning-4": "qwen_image_2512_bf16.safetensors",
-  "qwen-image-2512-lightning-8": "qwen_image_2512_bf16.safetensors",
-  "qwen-image-edit-2511": "qwen_image_edit_2511_bf16.safetensors",
-  "qwen-image-edit-2511-lightning-4": "qwen_image_edit_2511_bf16.safetensors",
-  "qwen-image-edit-2511-lightning-8": "qwen_image_edit_2511_bf16.safetensors",
-  "qwen-image-edit-2509": "qwen_image_edit_2509_bf16.safetensors",
-  "qwen-rapid-aio-edit": "Qwen-Rapid-AIO-v21.safetensors",
-  "qwen-rapid-aio-sfw": "Qwen-Rapid-AIO-SFW-v23.safetensors",
-  "qwen-rapid-aio-nsfw": "Qwen-Rapid-AIO-NSFW-v23.safetensors",
-  "flux-2-klein": "flux-2-klein-base-4b.safetensors",
-  "flux-2-klein-4b-distilled": "flux-2-klein-4b.safetensors",
-  "flux-2-klein-9b": "flux-2-klein-base-9b.safetensors",
-  "flux-2-klein-9b-distilled": "flux-2-klein-9b-distilled.safetensors",
-  "flux-dev": "flux1-dev.safetensors",
-  "flux-ultrareal-v4": "ultrarealFineTune_v4.safetensors",
-  sdxl: "sd_xl_base_1.0.safetensors",
-  "wan-video": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
-  "wan-video-rapid-aio": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
-  "wan-video-lightning-4": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
-  "hunyuan-video": "hunyuan_video_t2v_720p_bf16.safetensors",
-  "ltx-video": "ltx-video-2b-v0.9.safetensors",
+  'qwen-image-2512-lightning-4': 'qwen_image_2512_bf16.safetensors',
+  'qwen-image-2512-lightning-8': 'qwen_image_2512_bf16.safetensors',
+  'qwen-image-edit-2511': 'qwen_image_edit_2511_bf16.safetensors',
+  'qwen-image-edit-2511-lightning-4': 'qwen_image_edit_2511_bf16.safetensors',
+  'qwen-image-edit-2511-lightning-8': 'qwen_image_edit_2511_bf16.safetensors',
+  'qwen-image-edit-2509': 'qwen_image_edit_2509_bf16.safetensors',
+  'qwen-rapid-aio-edit': 'Qwen-Rapid-AIO-v21.safetensors',
+  'qwen-rapid-aio-sfw': 'Qwen-Rapid-AIO-SFW-v23.safetensors',
+  'qwen-rapid-aio-nsfw': 'Qwen-Rapid-AIO-NSFW-v23.safetensors',
+  'flux-2-klein': 'flux-2-klein-base-4b.safetensors',
+  'flux-2-klein-4b-distilled': 'flux-2-klein-4b.safetensors',
+  'flux-2-klein-9b': 'flux-2-klein-base-9b.safetensors',
+  'flux-2-klein-9b-distilled': 'flux-2-klein-9b-distilled.safetensors',
+  'flux-dev': 'flux1-dev.safetensors',
+  'flux-ultrareal-v4': 'ultrarealFineTune_v4.safetensors',
+  sdxl: 'sd_xl_base_1.0.safetensors',
+  'wan-video': 'wan2.2-i2v-rapid-aio-v10-nsfw.safetensors',
+  'wan-video-rapid-aio': 'wan2.2-i2v-rapid-aio-v10-nsfw.safetensors',
+  'wan-video-lightning-4': 'wan2.2-i2v-rapid-aio-v10-nsfw.safetensors',
+  'hunyuan-video': 'hunyuan_video_t2v_720p_bf16.safetensors',
+  'ltx-video': 'ltx-video-2b-v0.9.safetensors',
 };
 
 export const SUGGESTED_MODEL_VAE_MAP: ModelVaeMap = {
-  default: "flux2-vae.safetensors",
-  "flux-2-klein": "flux2-vae.safetensors",
-  "flux-2-klein-4b-distilled": "flux2-vae.safetensors",
-  "flux-2-klein-9b": "flux2-vae.safetensors",
-  "flux-2-klein-9b-distilled": "flux2-vae.safetensors",
+  default: 'flux2-vae.safetensors',
+  'flux-2-klein': 'flux2-vae.safetensors',
+  'flux-2-klein-4b-distilled': 'flux2-vae.safetensors',
+  'flux-2-klein-9b': 'flux2-vae.safetensors',
+  'flux-2-klein-9b-distilled': 'flux2-vae.safetensors',
   // ae.safetensors is UltraReal-only — do not map flux-dev/Schnell here or it
   // sticky-binds into Settings and leaks onto Qwen Edit (gray mosaic decode).
-  "flux-ultrareal-v4": "ae.safetensors",
-  "qwen-image-2512": "qwen_image_vae.safetensors",
-  "qwen-image-2512-lightning-4": "qwen_image_vae.safetensors",
-  "qwen-image-2512-lightning-8": "qwen_image_vae.safetensors",
-  "qwen-image-edit-2511": "qwen_image_vae.safetensors",
-  "qwen-image-edit-2511-lightning-4": "qwen_image_vae.safetensors",
-  "qwen-image-edit-2511-lightning-8": "qwen_image_vae.safetensors",
-  "qwen-image-edit-2509": "qwen_image_vae.safetensors",
+  'flux-ultrareal-v4': 'ae.safetensors',
+  'qwen-image-2512': 'qwen_image_vae.safetensors',
+  'qwen-image-2512-lightning-4': 'qwen_image_vae.safetensors',
+  'qwen-image-2512-lightning-8': 'qwen_image_vae.safetensors',
+  'qwen-image-edit-2511': 'qwen_image_vae.safetensors',
+  'qwen-image-edit-2511-lightning-4': 'qwen_image_vae.safetensors',
+  'qwen-image-edit-2511-lightning-8': 'qwen_image_vae.safetensors',
+  'qwen-image-edit-2509': 'qwen_image_vae.safetensors',
 };
 
 export const SUGGESTED_MODEL_REFINER_MAP: ModelRefinerMap = {
@@ -121,13 +121,13 @@ export function mergeSuggestedLoaderMaps(input?: {
   };
 
   const addedCheckpointKeys = Object.keys(SUGGESTED_MODEL_CHECKPOINT_MAP).filter(
-    (key) => !trimFilename(input?.checkpointMap?.[key]),
+    key => !trimFilename(input?.checkpointMap?.[key])
   );
   const addedVaeKeys = Object.keys(SUGGESTED_MODEL_VAE_MAP).filter(
-    (key) => !trimFilename(input?.vaeMap?.[key]),
+    key => !trimFilename(input?.vaeMap?.[key])
   );
   const addedRefinerKeys = Object.keys(SUGGESTED_MODEL_REFINER_MAP).filter(
-    (key) => !trimFilename(input?.refinerMap?.[key]),
+    key => !trimFilename(input?.refinerMap?.[key])
   );
 
   return {
@@ -152,9 +152,7 @@ export function formatSuggestedLoaderMergeMessage(result: {
   const vaeCount = Object.keys(result.modelVaeMap).length;
   const refinerCount = Object.keys(result.modelRefinerMap).length;
   const addedTotal =
-    result.addedCheckpointKeys.length +
-    result.addedVaeKeys.length +
-    result.addedRefinerKeys.length;
+    result.addedCheckpointKeys.length + result.addedVaeKeys.length + result.addedRefinerKeys.length;
 
   if (addedTotal === 0) {
     return `Loader maps already include all suggested entries (${checkpointCount} checkpoint, ${vaeCount} VAE, ${refinerCount} refiner). Edit the text areas below if your ComfyUI folder uses different filenames.`;
@@ -171,11 +169,11 @@ export function formatSuggestedLoaderMergeMessage(result: {
     parts.push(`${result.addedRefinerKeys.length} refiner`);
   }
 
-  return `Merged suggested loader maps — added ${parts.join(", ")} ${parts.length === 1 ? "entry" : "entries"} (${checkpointCount} checkpoint, ${vaeCount} VAE, ${refinerCount} refiner total). Review the text areas below.`;
+  return `Merged suggested loader maps — added ${parts.join(', ')} ${parts.length === 1 ? 'entry' : 'entries'} (${checkpointCount} checkpoint, ${vaeCount} VAE, ${refinerCount} refiner total). Review the text areas below.`;
 }
 
 function trimFilename(value: unknown): string | undefined {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return undefined;
   }
   const trimmed = value.trim();
@@ -202,14 +200,14 @@ export function filenameLooksLikeCheckpointOnly(filename: string | undefined): b
 
 /** FLUX.1 Civitai fine-tunes — latent detail + heavy Max polish causes ghosting / melted anatomy. */
 export function isFluxFineTuneCheckpointModel(
-  model: ComfyImageModel | string | undefined,
+  model: ComfyImageModel | string | undefined
 ): boolean {
-  return String(model ?? "").trim() === "flux-ultrareal-v4";
+  return String(model ?? '').trim() === 'flux-ultrareal-v4';
 }
 
 function preferUnetCompatibleFilename(
   candidate: string | undefined,
-  fallback?: string,
+  fallback?: string
 ): string | undefined {
   const trimmed = trimFilename(candidate);
   if (!trimmed || filenameLooksLikeCheckpointOnly(trimmed)) {
@@ -220,28 +218,26 @@ function preferUnetCompatibleFilename(
 
 function resolveCustomTokenValue(
   token: string,
-  customTokens?: CustomWorkflowToken[],
+  customTokens?: CustomWorkflowToken[]
 ): string | undefined {
   if (!customTokens?.length) {
     return undefined;
   }
-  const match = customTokens.find((entry) => entry.token.trim() === token);
+  const match = customTokens.find(entry => entry.token.trim() === token);
   return trimFilename(match?.value);
 }
 
 const CATEGORY_VAE_HINTS: Partial<Record<ComfyModelCategory, string>> = {
   // No blanket flux → ae: category covers Klein/FLUX.2 too; UltraReal has an
   // explicit map entry + registry vaeHint.
-  sd3: "sd3_vae.safetensors",
-  sdxl: "sdxl_vae.safetensors",
-  qwen: "qwen_image_vae.safetensors",
-  "stable-diffusion": "vae-ft-mse-840000-ema-pruned.safetensors",
+  sd3: 'sd3_vae.safetensors',
+  sdxl: 'sdxl_vae.safetensors',
+  qwen: 'qwen_image_vae.safetensors',
+  'stable-diffusion': 'vae-ft-mse-840000-ema-pruned.safetensors',
 };
 
 /** Preferred VAE filename for queue/scaffold binding (UltraReal → ae, Klein/FLUX.2 → flux2-vae). */
-export function suggestedVaeFilenameForModel(
-  model: ComfyImageModel | string,
-): string | undefined {
+export function suggestedVaeFilenameForModel(model: ComfyImageModel | string): string | undefined {
   const mapped = trimFilename(SUGGESTED_MODEL_VAE_MAP[model as ComfyImageModel]);
   if (mapped) {
     return mapped;
@@ -253,10 +249,10 @@ export function suggestedVaeFilenameForModel(
   }
   // ae.safetensors is reserved for UltraReal Fine-Tune v4 only.
   if (isFluxFineTuneCheckpointModel(model)) {
-    return "ae.safetensors";
+    return 'ae.safetensors';
   }
-  if (isFluxKleinModel(model) || model === "flux2") {
-    return "flux2-vae.safetensors";
+  if (isFluxKleinModel(model) || model === 'flux2') {
+    return 'flux2-vae.safetensors';
   }
   if (def?.category) {
     return CATEGORY_VAE_HINTS[def.category];
@@ -267,7 +263,7 @@ export function suggestedVaeFilenameForModel(
 /** True when a wired VAE cannot decode latents from the selected model (e.g. flux2-vae + FLUX.1). */
 export function isVaeFilenameIncompatibleWithModel(
   model: ComfyImageModel | string,
-  vaeFilename: string,
+  vaeFilename: string
 ): boolean {
   const actual = vaeFilename.trim().toLowerCase();
   if (!actual) {
@@ -275,10 +271,7 @@ export function isVaeFilenameIncompatibleWithModel(
   }
   // ae is UltraReal-only in this studio — never leave it on Klein / FLUX.2 / Qwen / etc.
   // Check before the expected-VAE short-circuit so flux-dev (no mapped VAE) still rejects ae.
-  if (
-    /^ae\.safetensors$/i.test(actual) &&
-    !isFluxFineTuneCheckpointModel(model)
-  ) {
+  if (/^ae\.safetensors$/i.test(actual) && !isFluxFineTuneCheckpointModel(model)) {
     return true;
   }
   const expected = suggestedVaeFilenameForModel(model);
@@ -312,27 +305,27 @@ export function isVaeFilenameIncompatibleWithModel(
   return false;
 }
 
-const DEFAULT_QWEN_VAE = "qwen_image_vae.safetensors";
+const DEFAULT_QWEN_VAE = 'qwen_image_vae.safetensors';
 
 /** Default UNET/checkpoint filenames when registry hints are missing (matches common ComfyUI installs). */
 function inferQwenLoaderHints(
   modelId: string,
-  tier: LoaderPrecisionTier = defaultLoaderPrecisionTier(),
+  tier: LoaderPrecisionTier = defaultLoaderPrecisionTier()
 ): ModelLoaderFilenames {
   const id = modelId.toLowerCase();
-  if (!id.includes("qwen")) {
+  if (!id.includes('qwen')) {
     return {};
   }
 
-  if (id.includes("qwen-rapid-aio") || id.includes("qwen_rapid_aio")) {
+  if (id.includes('qwen-rapid-aio') || id.includes('qwen_rapid_aio')) {
     const suggested =
       SUGGESTED_MODEL_CHECKPOINT_MAP[modelId] ??
       SUGGESTED_MODEL_CHECKPOINT_MAP[id] ??
-      (id.includes("nsfw")
-        ? SUGGESTED_MODEL_CHECKPOINT_MAP["qwen-rapid-aio-nsfw"]
-        : id.includes("sfw")
-          ? SUGGESTED_MODEL_CHECKPOINT_MAP["qwen-rapid-aio-sfw"]
-          : SUGGESTED_MODEL_CHECKPOINT_MAP["qwen-rapid-aio-edit"]);
+      (id.includes('nsfw')
+        ? SUGGESTED_MODEL_CHECKPOINT_MAP['qwen-rapid-aio-nsfw']
+        : id.includes('sfw')
+          ? SUGGESTED_MODEL_CHECKPOINT_MAP['qwen-rapid-aio-sfw']
+          : SUGGESTED_MODEL_CHECKPOINT_MAP['qwen-rapid-aio-edit']);
     return {
       // Checkpoint-only family — never invent a UNET name from the Rapid AIO merge.
       checkpoint: suggested,
@@ -340,7 +333,7 @@ function inferQwenLoaderHints(
     };
   }
 
-  if (id.includes("qwen-image-2512") || id.includes("qwen_image_2512")) {
+  if (id.includes('qwen-image-2512') || id.includes('qwen_image_2512')) {
     const unet = qwen2512UnetFilename(tier);
     return {
       checkpoint: unet,
@@ -350,7 +343,7 @@ function inferQwenLoaderHints(
     };
   }
 
-  if (id.includes("qwen-image-edit-2511") || id.includes("qwen_image_edit_2511")) {
+  if (id.includes('qwen-image-edit-2511') || id.includes('qwen_image_edit_2511')) {
     const unet = qwenEdit2511UnetFilename(tier);
     return {
       checkpoint: unet,
@@ -360,7 +353,7 @@ function inferQwenLoaderHints(
     };
   }
 
-  if (id.includes("qwen-image-edit-2509") || id.includes("qwen_image_edit_2509")) {
+  if (id.includes('qwen-image-edit-2509') || id.includes('qwen_image_edit_2509')) {
     const unet = qwenEdit2509UnetFilename(tier);
     return {
       checkpoint: unet,
@@ -370,7 +363,7 @@ function inferQwenLoaderHints(
     };
   }
 
-  if (id.includes("qwen-image-edit") || id.includes("qwen_image_edit")) {
+  if (id.includes('qwen-image-edit') || id.includes('qwen_image_edit')) {
     const unet = qwenEdit2509UnetFilename(tier);
     return {
       unet,
@@ -379,7 +372,7 @@ function inferQwenLoaderHints(
     };
   }
 
-  if (id.includes("qwen-image") || id.includes("qwen_image")) {
+  if (id.includes('qwen-image') || id.includes('qwen_image')) {
     const unet = qwenGenericUnetFilename(tier);
     return {
       unet,
@@ -397,33 +390,33 @@ function inferQwenLoaderHints(
  */
 function inferKleinLoaderHints(modelId: string): ModelLoaderFilenames {
   const id = modelId.toLowerCase();
-  if (id.includes("flux-2-klein-9b-distilled") || id.includes("flux-2-klein-9b-distill")) {
+  if (id.includes('flux-2-klein-9b-distilled') || id.includes('flux-2-klein-9b-distill')) {
     return {
-      checkpoint: "flux-2-klein-9b-distilled.safetensors",
-      unet: "flux-2-klein-9b-distilled.safetensors",
+      checkpoint: 'flux-2-klein-9b-distilled.safetensors',
+      unet: 'flux-2-klein-9b-distilled.safetensors',
       // Prefer bf16 Klein TE; fp8mixed is a VRAM fallback for Comfy.
-      dualClip: "flux2-klein-9b-base.safetensors",
+      dualClip: 'flux2-klein-9b-base.safetensors',
     };
   }
-  if (id.includes("flux-2-klein-9b")) {
+  if (id.includes('flux-2-klein-9b')) {
     return {
-      checkpoint: "flux-2-klein-base-9b.safetensors",
-      unet: "flux-2-klein-base-9b.safetensors",
-      dualClip: "qwen_3_8b_fp8mixed.safetensors",
+      checkpoint: 'flux-2-klein-base-9b.safetensors',
+      unet: 'flux-2-klein-base-9b.safetensors',
+      dualClip: 'qwen_3_8b_fp8mixed.safetensors',
     };
   }
-  if (id.includes("flux-2-klein-4b-distilled") || id.includes("flux-2-klein-4b-distill")) {
+  if (id.includes('flux-2-klein-4b-distilled') || id.includes('flux-2-klein-4b-distill')) {
     return {
-      checkpoint: "flux-2-klein-4b.safetensors",
-      unet: "flux-2-klein-4b.safetensors",
-      dualClip: "qwen_3_4b.safetensors",
+      checkpoint: 'flux-2-klein-4b.safetensors',
+      unet: 'flux-2-klein-4b.safetensors',
+      dualClip: 'qwen_3_4b.safetensors',
     };
   }
-  if (id.includes("flux-2-klein")) {
+  if (id.includes('flux-2-klein')) {
     return {
-      checkpoint: "flux-2-klein-base-4b.safetensors",
-      unet: "flux-2-klein-base-4b.safetensors",
-      dualClip: "qwen_3_4b.safetensors",
+      checkpoint: 'flux-2-klein-base-4b.safetensors',
+      unet: 'flux-2-klein-base-4b.safetensors',
+      dualClip: 'qwen_3_4b.safetensors',
     };
   }
   return {};
@@ -432,7 +425,7 @@ function inferKleinLoaderHints(modelId: string): ModelLoaderFilenames {
 /** Prefer installed bf16 Klein filename when inventory lists both bf16 and fp8. */
 export function preferKleinBf16FromInventory(
   preferred: string | undefined,
-  inventory?: string[] | null,
+  inventory?: string[] | null
 ): string | undefined {
   const preferredName = preferred?.trim();
   if (!preferredName) {
@@ -441,15 +434,15 @@ export function preferKleinBf16FromInventory(
   if (!inventory?.length) {
     return preferredName;
   }
-  const trimmed = inventory.map((name) => name.trim()).filter(Boolean);
+  const trimmed = inventory.map(name => name.trim()).filter(Boolean);
   if (trimmed.includes(preferredName)) {
     return preferredName;
   }
-  const fp8Variant = preferredName.replace(/\.safetensors$/i, "-fp8.safetensors");
+  const fp8Variant = preferredName.replace(/\.safetensors$/i, '-fp8.safetensors');
   if (trimmed.includes(fp8Variant)) {
     return fp8Variant;
   }
-  const withoutFp8 = preferredName.replace(/-fp8(?=\.safetensors$)/i, "");
+  const withoutFp8 = preferredName.replace(/-fp8(?=\.safetensors$)/i, '');
   if (withoutFp8 !== preferredName && trimmed.includes(withoutFp8)) {
     return withoutFp8;
   }
@@ -460,7 +453,7 @@ function preferTierAlignedLoaderFilename(
   candidate: string | undefined,
   tier: LoaderPrecisionTier,
   fallback: string | undefined,
-  workflowTier?: LoaderPrecisionTier,
+  workflowTier?: LoaderPrecisionTier
 ): string | undefined {
   const trimmed = trimFilename(candidate);
   if (!trimmed) {
@@ -484,11 +477,10 @@ export function realignLoaderFilenamesToWorkflowPrecision(
     vaeMap?: ModelVaeMap;
     customTokens?: CustomWorkflowToken[];
     workflowCustomTokens?: CustomWorkflowToken[];
-  },
+  }
 ): WorkflowParamValues {
   const workflowTier = workflow ? detectLoaderPrecisionTier(workflow) : undefined;
-  const tier =
-    isQwenLightningModel(model) ? "bf16" : workflowTier;
+  const tier = isQwenLightningModel(model) ? 'bf16' : workflowTier;
   if (!tier || !model.trim()) {
     return params;
   }
@@ -534,11 +526,9 @@ export function resolveLoaderFilenamesForModel(
     /** When set, Klein prefers installed bf16 weights and falls back to fp8 if needed. */
     availableCheckpoints?: string[] | null;
     availableUnets?: string[] | null;
-  },
+  }
 ): ModelLoaderFilenames {
-  const workflowTier = options?.workflow
-    ? detectLoaderPrecisionTier(options.workflow)
-    : undefined;
+  const workflowTier = options?.workflow ? detectLoaderPrecisionTier(options.workflow) : undefined;
   const tier = options?.precisionTier ?? workflowTier ?? defaultLoaderPrecisionTier();
   const def = getComfyModelDefinition(model);
   const inferred = {
@@ -549,20 +539,11 @@ export function resolveLoaderFilenamesForModel(
   const mappedUnet = trimFilename(options?.unetMap?.[model]);
   const workflowCheckpoint = resolveCustomTokenValue(
     DEFAULT_CHECKPOINT_TOKEN,
-    options?.workflowCustomTokens,
+    options?.workflowCustomTokens
   );
-  const workflowUnet = resolveCustomTokenValue(
-    DEFAULT_UNET_TOKEN,
-    options?.workflowCustomTokens,
-  );
-  const workflowVae = resolveCustomTokenValue(
-    DEFAULT_VAE_TOKEN,
-    options?.workflowCustomTokens,
-  );
-  const customCheckpoint = resolveCustomTokenValue(
-    DEFAULT_CHECKPOINT_TOKEN,
-    options?.customTokens,
-  );
+  const workflowUnet = resolveCustomTokenValue(DEFAULT_UNET_TOKEN, options?.workflowCustomTokens);
+  const workflowVae = resolveCustomTokenValue(DEFAULT_VAE_TOKEN, options?.workflowCustomTokens);
+  const customCheckpoint = resolveCustomTokenValue(DEFAULT_CHECKPOINT_TOKEN, options?.customTokens);
   const customUnet = resolveCustomTokenValue(DEFAULT_UNET_TOKEN, options?.customTokens);
 
   let checkpoint: string | undefined;
@@ -577,19 +558,19 @@ export function resolveLoaderFilenamesForModel(
       inferred.checkpoint;
     unet =
       preferUnetCompatibleFilename(
-        preferTierAlignedLoaderFilename(workflowUnet, tier, undefined, workflowTier),
+        preferTierAlignedLoaderFilename(workflowUnet, tier, undefined, workflowTier)
       ) ??
       preferUnetCompatibleFilename(
-        preferTierAlignedLoaderFilename(mappedUnet, tier, undefined, workflowTier),
+        preferTierAlignedLoaderFilename(mappedUnet, tier, undefined, workflowTier)
       ) ??
       preferUnetCompatibleFilename(
-        preferTierAlignedLoaderFilename(mappedCheckpoint, tier, undefined, workflowTier),
+        preferTierAlignedLoaderFilename(mappedCheckpoint, tier, undefined, workflowTier)
       ) ??
       preferUnetCompatibleFilename(
-        preferTierAlignedLoaderFilename(customUnet, tier, undefined, workflowTier),
+        preferTierAlignedLoaderFilename(customUnet, tier, undefined, workflowTier)
       ) ??
       preferUnetCompatibleFilename(
-        preferTierAlignedLoaderFilename(checkpoint, tier, undefined, workflowTier),
+        preferTierAlignedLoaderFilename(checkpoint, tier, undefined, workflowTier)
       ) ??
       inferred.unet ??
       trimFilename(def?.unetHint);
@@ -615,10 +596,7 @@ export function resolveLoaderFilenamesForModel(
     trimFilename(def?.vaeHint) ??
     suggestedVaeFilenameForModel(model);
 
-  const effectiveTier =
-    precisionHintFromFilename(unet ?? checkpoint ?? "") ??
-    workflowTier ??
-    tier;
+  const effectiveTier = precisionHintFromFilename(unet ?? checkpoint ?? '') ?? workflowTier ?? tier;
 
   const kleinInventory = [
     ...(options?.availableUnets ?? []),
@@ -627,24 +605,22 @@ export function resolveLoaderFilenamesForModel(
   const result: ModelLoaderFilenames = {};
   if (checkpoint) {
     result.checkpoint = /flux-2-klein/i.test(String(model))
-      ? preferKleinBf16FromInventory(
+      ? (preferKleinBf16FromInventory(
           checkpoint,
-          kleinInventory.length > 0 ? kleinInventory : null,
-        ) ?? checkpoint
+          kleinInventory.length > 0 ? kleinInventory : null
+        ) ?? checkpoint)
       : checkpoint;
   }
   if (unet) {
     result.unet = /flux-2-klein/i.test(String(model))
-      ? preferKleinBf16FromInventory(
-          unet,
-          kleinInventory.length > 0 ? kleinInventory : null,
-        ) ?? unet
+      ? (preferKleinBf16FromInventory(unet, kleinInventory.length > 0 ? kleinInventory : null) ??
+        unet)
       : unet;
   }
   if (vae) {
     result.vae = vae;
   }
-  if (model.toLowerCase().includes("qwen")) {
+  if (model.toLowerCase().includes('qwen')) {
     result.dualClip = qwenDualClipFilename(effectiveTier);
   } else if (inferred.dualClip) {
     result.dualClip = inferred.dualClip;
@@ -652,9 +628,7 @@ export function resolveLoaderFilenamesForModel(
   return result;
 }
 
-export function loaderFilenameCustomTokens(
-  loaders: ModelLoaderFilenames,
-): CustomWorkflowToken[] {
+export function loaderFilenameCustomTokens(loaders: ModelLoaderFilenames): CustomWorkflowToken[] {
   const tokens: CustomWorkflowToken[] = [];
   if (loaders.checkpoint?.trim()) {
     tokens.push({ token: DEFAULT_CHECKPOINT_TOKEN, value: loaders.checkpoint.trim() });
@@ -669,18 +643,16 @@ export function loaderFilenameCustomTokens(
 }
 
 /** Prefer official SDXL refiner, else any checkpoint whose name looks like a refiner. */
-export function pickSdxlRefinerFromInventory(
-  checkpoints?: string[] | null,
-): string | undefined {
+export function pickSdxlRefinerFromInventory(checkpoints?: string[] | null): string | undefined {
   if (!checkpoints?.length) {
     return undefined;
   }
-  const trimmed = checkpoints.map((name) => name.trim()).filter(Boolean);
-  const preferred = trimmed.find((name) => /sd_xl_refiner/i.test(name));
+  const trimmed = checkpoints.map(name => name.trim()).filter(Boolean);
+  const preferred = trimmed.find(name => /sd_xl_refiner/i.test(name));
   if (preferred) {
     return preferred;
   }
-  return trimmed.find((name) => /refiner/i.test(name));
+  return trimmed.find(name => /refiner/i.test(name));
 }
 
 export function resolveRefinerFilenameForModel(
@@ -689,10 +661,10 @@ export function resolveRefinerFilenameForModel(
     refinerMap?: ModelRefinerMap;
     customTokens?: CustomWorkflowToken[];
     availableCheckpoints?: string[] | null;
-  },
+  }
 ): string | undefined {
   const def = getComfyModelDefinition(model);
-  if (def.category !== "sdxl" || model.toLowerCase().includes("refiner")) {
+  if (def.category !== 'sdxl' || model.toLowerCase().includes('refiner')) {
     return undefined;
   }
 
@@ -715,22 +687,22 @@ export function resolveRefinerFilenameForModel(
 
 export function formatModelCheckpointMap(map: ModelCheckpointMap | undefined): string {
   if (!map) {
-    return "";
+    return '';
   }
   return Object.entries(map)
     .filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()))
     .map(([modelId, filename]) => `${modelId}=${filename.trim()}`)
-    .join("\n");
+    .join('\n');
 }
 
 export function parseModelCheckpointMap(text: string): ModelCheckpointMap {
   const map: ModelCheckpointMap = {};
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
+    if (!trimmed || trimmed.startsWith('#')) {
       continue;
     }
-    const separator = trimmed.includes("=") ? "=" : ":";
+    const separator = trimmed.includes('=') ? '=' : ':';
     const [modelId, ...rest] = trimmed.split(separator);
     const filename = rest.join(separator).trim();
     if (modelId?.trim() && filename) {

@@ -1,51 +1,32 @@
-import type { ComfyImageModel } from "./comfy-models/client";
-import { COMFY_IMAGE_MODELS } from "./comfy-models/client";
-import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
+import type { ComfyImageModel } from './comfy-models/client';
+import { COMFY_IMAGE_MODELS } from './comfy-models/client';
+import type { ComfyWorkflowFile } from './comfyui-workflow-files';
 import {
   suggestWorkflowDefaultsByCategory,
   workflowRequiresInputImage,
   rankWorkflowFilesForModel,
   workflowLabelImpliesLightning,
-} from "./workflow-category-defaults";
-import type { SharedToolSettings } from "./settings-cache";
-import { isEditQueueTool } from "./model-denoise-defaults";
-import { isQwenLightningModel } from "./model-sampling-patch";
+} from './workflow-category-defaults';
+import type { SharedToolSettings } from './settings-cache';
+import { isEditQueueTool } from './model-denoise-defaults';
+import { isQwenLightningModel } from './model-sampling-patch';
 
 export type ModelWorkflowMap = Record<string, string>;
 
-const ALL_MODELS = COMFY_IMAGE_MODELS.map((entry) => entry.id);
+const ALL_MODELS = COMFY_IMAGE_MODELS.map(entry => entry.id);
 
 /** When any member is available, keep sibling presets selectable (e.g. vanilla + Lightning). */
 export const MODEL_FAMILY_GROUPS: readonly (readonly ComfyImageModel[])[] = [
-  [
-    "qwen-image-2512",
-    "qwen-image-2512-lightning-4",
-    "qwen-image-2512-lightning-8",
-  ],
-  [
-    "qwen-image-edit-2511",
-    "qwen-image-edit-2511-lightning-4",
-    "qwen-image-edit-2511-lightning-8",
-  ],
-  [
-    "qwen-rapid-aio-edit",
-    "qwen-rapid-aio-sfw",
-    "qwen-rapid-aio-nsfw",
-  ],
-  [
-    "flux-2-klein",
-    "flux-2-klein-4b-distilled",
-    "flux-2-klein-9b",
-    "flux-2-klein-9b-distilled",
-  ],
-  ["flux-dev", "flux-ultrareal-v4"],
-  ["wan-video", "wan-video-rapid-aio", "wan-video-lightning-4"],
+  ['qwen-image-2512', 'qwen-image-2512-lightning-4', 'qwen-image-2512-lightning-8'],
+  ['qwen-image-edit-2511', 'qwen-image-edit-2511-lightning-4', 'qwen-image-edit-2511-lightning-8'],
+  ['qwen-rapid-aio-edit', 'qwen-rapid-aio-sfw', 'qwen-rapid-aio-nsfw'],
+  ['flux-2-klein', 'flux-2-klein-4b-distilled', 'flux-2-klein-9b', 'flux-2-klein-9b-distilled'],
+  ['flux-dev', 'flux-ultrareal-v4'],
+  ['wan-video', 'wan-video-rapid-aio', 'wan-video-lightning-4'],
 ];
 
 /** Sibling presets in the same family (vanilla + Lightning, Rapid AIO, Klein, …). */
-export function modelsInSameFamily(
-  model: ComfyImageModel | string,
-): ComfyImageModel[] {
+export function modelsInSameFamily(model: ComfyImageModel | string): ComfyImageModel[] {
   const id = String(model).trim() as ComfyImageModel;
   for (const family of MODEL_FAMILY_GROUPS) {
     if (family.includes(id)) {
@@ -57,7 +38,7 @@ export function modelsInSameFamily(
 
 function expandSupportedModelFamilies(supported: Set<ComfyImageModel>): void {
   for (const family of MODEL_FAMILY_GROUPS) {
-    if (!family.some((id) => supported.has(id))) {
+    if (!family.some(id => supported.has(id))) {
       continue;
     }
     for (const id of family) {
@@ -69,14 +50,11 @@ function expandSupportedModelFamilies(supported: Set<ComfyImageModel>): void {
 }
 
 export type SupportedModelsSource =
-  | "disabled"
-  | "override"
-  | "available_workflows"
-  | "empty_fallback";
+  'disabled' | 'override' | 'available_workflows' | 'empty_fallback';
 
 export function resolveWorkflowForModel(
   model: ComfyImageModel,
-  map?: ModelWorkflowMap,
+  map?: ModelWorkflowMap
 ): string | undefined {
   if (!map) {
     return undefined;
@@ -91,18 +69,18 @@ export function resolveWorkflowForModelSelection(
   options?: {
     map?: ModelWorkflowMap;
     workflowFiles?: Array<
-      Pick<ComfyWorkflowFile, "id" | "name" | "filename"> &
-        Partial<Pick<ComfyWorkflowFile, "workflowJson">>
+      Pick<ComfyWorkflowFile, 'id' | 'name' | 'filename'> &
+        Partial<Pick<ComfyWorkflowFile, 'workflowJson'>>
     >;
     /** Precomputed from suggestWorkflowDefaultsByCategory to avoid repeat work. */
     suggestedMap?: ModelWorkflowMap;
     /** When set to a generate-style tool, skips edit/inpaint workflows that need {{INPUT_IMAGE}}. */
     tool?: string;
-  },
+  }
 ): string | undefined {
   const editTool = isEditQueueTool(options?.tool);
   const files = (options?.workflowFiles ?? []) as ComfyWorkflowFile[];
-  const fileById = new Map(files.map((file) => [file.id, file]));
+  const fileById = new Map(files.map(file => [file.id, file]));
 
   const acceptWorkflow = (workflowId?: string): string | undefined => {
     const id = workflowId?.trim();
@@ -118,7 +96,7 @@ export function resolveWorkflowForModelSelection(
 
   const ranked = files.length
     ? rankWorkflowFilesForModel(model, files).filter(
-        (entry) => editTool || !workflowRequiresInputImage(entry.file.workflowJson),
+        entry => editTool || !workflowRequiresInputImage(entry.file.workflowJson)
       )
     : [];
   const bestRankedId = ranked[0]?.file.id;
@@ -168,7 +146,7 @@ export function resolveWorkflowForModelSelection(
 }
 
 export function suggestWorkflowMapForFiles(
-  workflowFiles?: Array<Pick<ComfyWorkflowFile, "id" | "name" | "filename">>,
+  workflowFiles?: Array<Pick<ComfyWorkflowFile, 'id' | 'name' | 'filename'>>
 ): ModelWorkflowMap {
   if (!workflowFiles?.length) {
     return {};
@@ -181,7 +159,7 @@ export function assignWorkflowToInferredModels(
   workflowFileId: string,
   models: Array<ComfyImageModel | string>,
   currentMap?: ModelWorkflowMap,
-  overwrite = false,
+  overwrite = false
 ): ModelWorkflowMap {
   const workflowId = workflowFileId.trim();
   if (!workflowId || models.length === 0) {
@@ -204,7 +182,7 @@ export function assignWorkflowToInferredModels(
 export function patchSharedForModelChange(
   model: ComfyImageModel,
   shared: SharedToolSettings,
-  workflowFiles?: Array<Pick<ComfyWorkflowFile, "id" | "name" | "filename">>,
+  workflowFiles?: Array<Pick<ComfyWorkflowFile, 'id' | 'name' | 'filename'>>
 ): Partial<SharedToolSettings> {
   const patch: Partial<SharedToolSettings> = { model };
   const workflowId = resolveWorkflowForModelSelection(model, {
@@ -220,31 +198,27 @@ export function patchSharedForModelChange(
 /** Models that have a resolvable workflow from the map and/or imported workflow files. */
 export function modelsSupportedByAvailableWorkflows(input: {
   map?: ModelWorkflowMap;
-  workflowFiles?: Array<Pick<ComfyWorkflowFile, "id" | "name" | "filename">>;
+  workflowFiles?: Array<Pick<ComfyWorkflowFile, 'id' | 'name' | 'filename'>>;
   suggestedMap?: ModelWorkflowMap;
   currentModel: ComfyImageModel;
   limitEnabled?: boolean;
   showAllOverride?: boolean;
 }): { models: ComfyImageModel[]; source: SupportedModelsSource } {
   if (input.showAllOverride) {
-    return { models: ALL_MODELS, source: "override" };
+    return { models: ALL_MODELS, source: 'override' };
   }
 
   if (input.limitEnabled === false) {
-    return { models: ALL_MODELS, source: "disabled" };
+    return { models: ALL_MODELS, source: 'disabled' };
   }
 
   const files = input.workflowFiles ?? [];
-  const availableWorkflowIds = new Set(
-    files.map((file) => file.id.trim()).filter(Boolean),
-  );
+  const availableWorkflowIds = new Set(files.map(file => file.id.trim()).filter(Boolean));
   const supported = new Set<ComfyImageModel>();
 
   const suggested =
     input.suggestedMap ??
-    (files.length > 0
-      ? suggestWorkflowDefaultsByCategory(files as ComfyWorkflowFile[])
-      : {});
+    (files.length > 0 ? suggestWorkflowDefaultsByCategory(files as ComfyWorkflowFile[]) : {});
 
   if (files.length > 0) {
     for (const modelId of Object.keys(suggested)) {
@@ -257,16 +231,10 @@ export function modelsSupportedByAvailableWorkflows(input: {
   if (input.map) {
     for (const [modelId, workflowId] of Object.entries(input.map)) {
       const normalizedWorkflowId = workflowId?.trim();
-      if (
-        !normalizedWorkflowId ||
-        !ALL_MODELS.includes(modelId as ComfyImageModel)
-      ) {
+      if (!normalizedWorkflowId || !ALL_MODELS.includes(modelId as ComfyImageModel)) {
         continue;
       }
-      if (
-        availableWorkflowIds.size === 0 ||
-        availableWorkflowIds.has(normalizedWorkflowId)
-      ) {
+      if (availableWorkflowIds.size === 0 || availableWorkflowIds.has(normalizedWorkflowId)) {
         supported.add(modelId as ComfyImageModel);
       }
     }
@@ -274,7 +242,7 @@ export function modelsSupportedByAvailableWorkflows(input: {
 
   if (supported.size === 0) {
     const noCatalog = files.length === 0 && !input.map;
-    return { models: ALL_MODELS, source: noCatalog ? "disabled" : "empty_fallback" };
+    return { models: ALL_MODELS, source: noCatalog ? 'disabled' : 'empty_fallback' };
   }
 
   expandSupportedModelFamilies(supported);
@@ -284,20 +252,20 @@ export function modelsSupportedByAvailableWorkflows(input: {
     models.unshift(input.currentModel);
   }
 
-  return { models, source: "available_workflows" };
+  return { models, source: 'available_workflows' };
 }
 
 export function supportedModelsFilterHint(
   source: SupportedModelsSource,
-  visibleCount: number,
+  visibleCount: number
 ): string | null {
   switch (source) {
-    case "available_workflows":
-      return `Showing ${visibleCount} model${visibleCount === 1 ? "" : "s"} with a workflow in your library or assignment map.`;
-    case "empty_fallback":
-      return "No workflow-to-model matches found — showing all models.";
-    case "override":
-      return "Showing all models (manual override).";
+    case 'available_workflows':
+      return `Showing ${visibleCount} model${visibleCount === 1 ? '' : 's'} with a workflow in your library or assignment map.`;
+    case 'empty_fallback':
+      return 'No workflow-to-model matches found — showing all models.';
+    case 'override':
+      return 'Showing all models (manual override).';
     default:
       return null;
   }

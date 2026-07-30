@@ -1,15 +1,8 @@
-import { inferAthleticSport } from "./athletic-sport-profiles";
-import {
-  inferCyclingDiscipline,
-  type CyclingDiscipline,
-} from "./athletic-sport-actions";
-import { hintsDescribeAthleticDuoCompetition } from "./athletic-duo-hints";
-import {
-  analyzePromptDiagnostics,
-  lintPrompt,
-  type PromptDiagnostics,
-} from "./prompt-diagnostics";
-import type { ToolGenerateResult } from "./specialized/types";
+import { inferAthleticSport } from './athletic-sport-profiles';
+import { inferCyclingDiscipline, type CyclingDiscipline } from './athletic-sport-actions';
+import { hintsDescribeAthleticDuoCompetition } from './athletic-duo-hints';
+import { analyzePromptDiagnostics, lintPrompt, type PromptDiagnostics } from './prompt-diagnostics';
+import type { ToolGenerateResult } from './specialized/types';
 
 export type GenerationDiagnostics = PromptDiagnostics & {
   wardrobeSummary?: string | null;
@@ -27,8 +20,7 @@ export function buildGenerationDiagnostics(input: {
   const base = lintPrompt({ hints: input.hints, prompt: input.prompt });
   const metadata = input.metadata ?? {};
   const wardrobeAssignments = metadata.wardrobeAssignments as
-    | Array<{ summary?: string }>
-    | undefined;
+    Array<{ summary?: string }> | undefined;
 
   const wardrobeSummary =
     wardrobeAssignments?.[0]?.summary ??
@@ -47,7 +39,7 @@ export function buildGenerationDiagnostics(input: {
 export function enrichGenerateResult(
   result: ToolGenerateResult,
   hints?: string,
-  extras?: { teamKit?: boolean },
+  extras?: { teamKit?: boolean }
 ): ToolGenerateResult & { diagnostics: GenerationDiagnostics } {
   return {
     ...result,
@@ -71,20 +63,20 @@ export function summarizeDiagnostics(diagnostics: PromptDiagnostics): string {
     }
   }
   if (inferred.duoMode) {
-    parts.push("duo");
+    parts.push('duo');
   }
   if (inferred.athleticCompetition) {
-    parts.push("competition");
+    parts.push('competition');
   }
-  if (inferred.gender && inferred.gender !== "any") {
+  if (inferred.gender && inferred.gender !== 'any') {
     parts.push(inferred.gender);
   }
 
-  return parts.length > 0 ? parts.join(" · ") : "general";
+  return parts.length > 0 ? parts.join(' · ') : 'general';
 }
 
 export { analyzePromptDiagnostics, lintPrompt };
 export type { PromptDiagnostics, CyclingDiscipline };
-export { inferAthleticSport } from "./athletic-sport-profiles";
-export { inferCyclingDiscipline } from "./athletic-sport-actions";
-export { hintsDescribeAthleticDuoCompetition } from "./athletic-duo-hints";
+export { inferAthleticSport } from './athletic-sport-profiles';
+export { inferCyclingDiscipline } from './athletic-sport-actions';
+export { hintsDescribeAthleticDuoCompetition } from './athletic-duo-hints';

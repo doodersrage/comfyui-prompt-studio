@@ -1,19 +1,16 @@
-"use client";
+'use client';
 
-import dynamic from "next/dynamic";
-import GalleryImportSection from "@/components/GalleryImportSection";
-import GalleryPanelSkeleton from "@/components/gallery/GalleryPanelSkeleton";
-import {
-  ToolBadge,
-  ToolLayout,
-} from "@/components/ui/ToolPageShell";
+import dynamic from 'next/dynamic';
+import GalleryImportSection from '@/components/GalleryImportSection';
+import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
+import { ToolBadge, ToolLayout } from '@/components/ui/ToolPageShell';
 
-const ComfyUiGalleryPanel = dynamic(() => import("@/components/ComfyUiGalleryPanel"), {
+const ComfyUiGalleryPanel = dynamic(() => import('@/components/ComfyUiGalleryPanel'), {
   ssr: false,
   loading: () => <GalleryPanelSkeleton showFilters />,
 });
 
-const ACCENT = "neutral" as const;
+const ACCENT = 'neutral' as const;
 
 export default function GalleryTool() {
   return (

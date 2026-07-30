@@ -1,7 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
-import { resolvePromptDataDir } from "@/lib/prompt-data-paths";
+import fs from 'node:fs';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { resolvePromptDataDir } from '@/lib/prompt-data-paths';
 
 export type SharedProject = {
   id: string;
@@ -21,19 +21,19 @@ type SharedProjectsDocument = {
 function projectsPath(): string {
   const base = resolvePromptDataDir();
   fs.mkdirSync(base, { recursive: true });
-  return path.join(base, "shared-projects.json");
+  return path.join(base, 'shared-projects.json');
 }
 
 function readDoc(): SharedProjectsDocument {
   try {
-    return JSON.parse(fs.readFileSync(projectsPath(), "utf8")) as SharedProjectsDocument;
+    return JSON.parse(fs.readFileSync(projectsPath(), 'utf8')) as SharedProjectsDocument;
   } catch {
     return { version: 1, projects: [] };
   }
 }
 
 function writeDoc(doc: SharedProjectsDocument): void {
-  fs.writeFileSync(projectsPath(), JSON.stringify(doc, null, 2), "utf8");
+  fs.writeFileSync(projectsPath(), JSON.stringify(doc, null, 2), 'utf8');
 }
 
 export function listSharedProjects(): SharedProject[] {
@@ -42,9 +42,7 @@ export function listSharedProjects(): SharedProject[] {
 
 export function listSharedProjectsForGroups(groupIds: string[]): SharedProject[] {
   const set = new Set(groupIds);
-  return readDoc().projects.filter((project) =>
-    project.groupIds.some((groupId) => set.has(groupId)),
-  );
+  return readDoc().projects.filter(project => project.groupIds.some(groupId => set.has(groupId)));
 }
 
 export function upsertSharedProject(input: {
@@ -56,9 +54,7 @@ export function upsertSharedProject(input: {
 }): SharedProject {
   const doc = readDoc();
   const now = Date.now();
-  const existingIndex = input.id
-    ? doc.projects.findIndex((project) => project.id === input.id)
-    : -1;
+  const existingIndex = input.id ? doc.projects.findIndex(project => project.id === input.id) : -1;
   const next: SharedProject = {
     id: input.id ?? randomUUID(),
     name: input.name.trim(),
@@ -79,7 +75,7 @@ export function upsertSharedProject(input: {
 
 export function deleteSharedProject(id: string): boolean {
   const doc = readDoc();
-  const next = doc.projects.filter((project) => project.id !== id);
+  const next = doc.projects.filter(project => project.id !== id);
   if (next.length === doc.projects.length) {
     return false;
   }

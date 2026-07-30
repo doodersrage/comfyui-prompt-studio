@@ -2,31 +2,18 @@ import {
   upsertComfyWorkflowFile,
   loadComfyWorkflowFiles,
   type ComfyWorkflowFile,
-} from "./comfyui-workflow-files";
-import {
-  assignWorkflowToInferredModels,
-  resolveWorkflowForModel,
-} from "./model-workflow-map";
-import {
-  buildWorkflowScaffoldForModel,
-  suggestedScaffoldName,
-} from "./workflow-scaffold";
-import {
-  loadSettingsCache,
-  saveSharedSettings,
-  type SharedToolSettings,
-} from "./settings-cache";
+} from './comfyui-workflow-files';
+import { assignWorkflowToInferredModels, resolveWorkflowForModel } from './model-workflow-map';
+import { buildWorkflowScaffoldForModel, suggestedScaffoldName } from './workflow-scaffold';
+import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from './settings-cache';
 import {
   DEFAULT_AUDIO_MODEL,
   DEFAULT_MESH_MODEL,
   getComfyModelDefinition,
   type ComfyImageModel,
-} from "./comfy-models/client";
-import {
-  AUDIO_SECONDS_TOKEN,
-  MESH_RESOLUTION_TOKEN,
-} from "./audio-mesh-prompt";
-import { DEFAULT_CHECKPOINT_TOKEN } from "./model-checkpoint-map";
+} from './comfy-models/client';
+import { AUDIO_SECONDS_TOKEN, MESH_RESOLUTION_TOKEN } from './audio-mesh-prompt';
+import { DEFAULT_CHECKPOINT_TOKEN } from './model-checkpoint-map';
 
 export type EnsureMediaWorkflowResult = {
   created: boolean;
@@ -38,37 +25,27 @@ export type EnsureMediaWorkflowResult = {
 };
 
 function looksLikeAudioScaffold(file: ComfyWorkflowFile): boolean {
-  const hay = `${file.name} ${file.filename ?? ""} ${file.workflowJson ?? ""}`;
+  const hay = `${file.name} ${file.filename ?? ''} ${file.workflowJson ?? ''}`;
   return /audio|stable.?audio|SaveAudio|AUDIO_SECONDS/i.test(hay);
 }
 
 function looksLikeMeshScaffold(file: ComfyWorkflowFile): boolean {
-  const hay = `${file.name} ${file.filename ?? ""} ${file.workflowJson ?? ""}`;
+  const hay = `${file.name} ${file.filename ?? ''} ${file.workflowJson ?? ''}`;
   return /mesh|hunyuan.?3d|MESH_RESOLUTION/i.test(hay);
 }
 
-function withMediaTokens(
-  workflow: ComfyWorkflowFile,
-  kind: "audio" | "mesh",
-): ComfyWorkflowFile {
-  const token =
-    kind === "audio" ? AUDIO_SECONDS_TOKEN : MESH_RESOLUTION_TOKEN;
-  const defaultValue = kind === "audio" ? "10" : "512";
+function withMediaTokens(workflow: ComfyWorkflowFile, kind: 'audio' | 'mesh'): ComfyWorkflowFile {
+  const token = kind === 'audio' ? AUDIO_SECONDS_TOKEN : MESH_RESOLUTION_TOKEN;
+  const defaultValue = kind === 'audio' ? '10' : '512';
   const others = (workflow.customTokens ?? []).filter(
-    (entry) =>
-      entry.token.trim() !== token &&
-      entry.token.trim() !== DEFAULT_CHECKPOINT_TOKEN,
+    entry => entry.token.trim() !== token && entry.token.trim() !== DEFAULT_CHECKPOINT_TOKEN
   );
   const checkpoint = (workflow.customTokens ?? []).find(
-    (entry) => entry.token.trim() === DEFAULT_CHECKPOINT_TOKEN,
+    entry => entry.token.trim() === DEFAULT_CHECKPOINT_TOKEN
   );
   return upsertComfyWorkflowFile({
     ...workflow,
-    customTokens: [
-      ...others,
-      ...(checkpoint ? [checkpoint] : []),
-      { token, value: defaultValue },
-    ],
+    customTokens: [...others, ...(checkpoint ? [checkpoint] : []), { token, value: defaultValue }],
   });
 }
 
@@ -77,16 +54,15 @@ function withMediaTokens(
  * Idempotent when a map entry already resolves.
  */
 export function ensureMediaWorkflowScaffold(
-  kind: "audio" | "mesh",
+  kind: 'audio' | 'mesh',
   model?: ComfyImageModel,
-  options?: { overwriteMap?: boolean },
+  options?: { overwriteMap?: boolean }
 ): EnsureMediaWorkflowResult {
-  const resolvedModel =
-    model ?? (kind === "audio" ? DEFAULT_AUDIO_MODEL : DEFAULT_MESH_MODEL);
+  const resolvedModel = model ?? (kind === 'audio' ? DEFAULT_AUDIO_MODEL : DEFAULT_MESH_MODEL);
   const category = getComfyModelDefinition(resolvedModel).category;
   if (category !== kind) {
     throw new Error(
-      `ensureMediaWorkflowScaffold(${kind}) requires a ${kind} model (got ${resolvedModel}).`,
+      `ensureMediaWorkflowScaffold(${kind}) requires a ${kind} model (got ${resolvedModel}).`
     );
   }
 
@@ -98,7 +74,7 @@ export function ensureMediaWorkflowScaffold(
   let created = false;
 
   if (existingId?.trim() && !options?.overwriteMap) {
-    workflow = files.find((file) => file.id === existingId);
+    workflow = files.find(file => file.id === existingId);
   }
 
   if (workflow && existingId?.trim() && !options?.overwriteMap) {
@@ -121,15 +97,15 @@ export function ensureMediaWorkflowScaffold(
   }
 
   if (!workflow) {
-    workflow = files.find((file) =>
-      kind === "audio" ? looksLikeAudioScaffold(file) : looksLikeMeshScaffold(file),
+    workflow = files.find(file =>
+      kind === 'audio' ? looksLikeAudioScaffold(file) : looksLikeMeshScaffold(file)
     );
   }
 
   if (!workflow) {
     const scaffold = buildWorkflowScaffoldForModel(resolvedModel);
     workflow = upsertComfyWorkflowFile({
-      name: suggestedScaffoldName(resolvedModel, "template"),
+      name: suggestedScaffoldName(resolvedModel, 'template'),
       workflowJson: scaffold.json,
     });
     created = true;
@@ -141,7 +117,7 @@ export function ensureMediaWorkflowScaffold(
     workflow.id,
     [resolvedModel],
     shared.modelWorkflowMap,
-    options?.overwriteMap === true,
+    options?.overwriteMap === true
   );
 
   const sharedPatch: Partial<SharedToolSettings> = {
@@ -165,14 +141,14 @@ export function ensureMediaWorkflowScaffold(
 
 export function ensureAudioWorkflowScaffold(
   model?: ComfyImageModel,
-  options?: { overwriteMap?: boolean },
+  options?: { overwriteMap?: boolean }
 ): EnsureMediaWorkflowResult {
-  return ensureMediaWorkflowScaffold("audio", model, options);
+  return ensureMediaWorkflowScaffold('audio', model, options);
 }
 
 export function ensureMeshWorkflowScaffold(
   model?: ComfyImageModel,
-  options?: { overwriteMap?: boolean },
+  options?: { overwriteMap?: boolean }
 ): EnsureMediaWorkflowResult {
-  return ensureMediaWorkflowScaffold("mesh", model, options);
+  return ensureMediaWorkflowScaffold('mesh', model, options);
 }

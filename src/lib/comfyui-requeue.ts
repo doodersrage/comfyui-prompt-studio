@@ -1,83 +1,78 @@
-"use client";
+'use client';
 
-import type { ComfyImageModel } from "./comfy-models/client";
-import {
-  registerComfyGalleryJob,
-} from "./comfyui-gallery-client";
-import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import { getEngineAdapter } from "./engine";
-import { scheduleRefineAfterUpscaleComplete } from "./gallery-pending-actions";
+import type { ComfyImageModel } from './comfy-models/client';
+import { registerComfyGalleryJob } from './comfyui-gallery-client';
+import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
+import { getEngineAdapter } from './engine';
+import { scheduleRefineAfterUpscaleComplete } from './gallery-pending-actions';
 import {
   resolveWorkflowGraphEnrichOptions,
   type ComfyUiRuntimeConfig,
   type WorkflowParamValues,
-} from "./comfyui-config";
-import { resolveQueueInputImageFilename } from "./queue-input-image";
-import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
-import {
-  normalizeQueueQualityProfile,
-  type QueueQualityProfile,
-} from "./queue-quality-profile";
-import { resolveComfyUiRuntime } from "./comfyui-runtime";
-import { resolveQueueNegativePrompt } from "./queue-negative";
-import { resolveQueueParams } from "./queue-params-settings";
+} from './comfyui-config';
+import { resolveQueueInputImageFilename } from './queue-input-image';
+import { resolveRuntimeForQueue } from './comfyui-runtime-for-model';
+import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
+import { resolveComfyUiRuntime } from './comfyui-runtime';
+import { resolveQueueNegativePrompt } from './queue-negative';
+import { resolveQueueParams } from './queue-params-settings';
 import {
   refreshQueueImageParamsForRequeue,
   resolveRequeueImageUrlsFromEntry,
   auditRequeueImageReadiness,
-} from "./queue-requeue-images";
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import { findGalleryEntryForHistory } from "./prompt-lineage";
-import { runWorkflowPreflight } from "./workflow-preflight";
+} from './queue-requeue-images';
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { findGalleryEntryForHistory } from './prompt-lineage';
+import { runWorkflowPreflight } from './workflow-preflight';
 import {
   buildGalleryMoireCleanWorkflow,
   buildGalleryUpscaleWorkflow,
   resolveGalleryOutputImageUrl,
-} from "./gallery-output-upscale";
-import { isQwenLightningModel } from "./model-sampling-patch";
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
+} from './gallery-output-upscale';
+import { isQwenLightningModel } from './model-sampling-patch';
+import { isQwenRapidAioModel } from './model-denoise-defaults';
 import {
   appendPortraitRefineNegative,
   buildGalleryRefineWorkflow,
   galleryRefineQueueParams,
   type GalleryRefineMode,
-} from "./gallery-output-refine";
-import { findLibraryUpscaleWorkflowForModel } from "./workflow-library-upscale";
-import { findLibraryFaceDetailerWorkflow } from "./workflow-library-face-detailer";
-import { buildAutoFaceDetailerWorkflow } from "./facedetailer-workflow-patch";
+} from './gallery-output-refine';
+import { findLibraryUpscaleWorkflowForModel } from './workflow-library-upscale';
+import { findLibraryFaceDetailerWorkflow } from './workflow-library-face-detailer';
+import { buildAutoFaceDetailerWorkflow } from './facedetailer-workflow-patch';
 import {
   faceDetailCustomTokens,
   faceDetailQueueParams,
   normalizeFaceDetailDenoise,
-} from "./gallery-output-face-detail";
-import { isUpscaleModelInstalled, resolveUpscaleModelFilename } from "./model-upscale-map";
+} from './gallery-output-face-detail';
+import { isUpscaleModelInstalled, resolveUpscaleModelFilename } from './model-upscale-map';
 import {
   fetchComfyObjectInfoCached,
   fetchComfyObjectInfoNodeTypesCached,
-} from "./comfyui-object-info-cache";
-import { loadSettingsCache } from "./settings-cache";
+} from './comfyui-object-info-cache';
+import { loadSettingsCache } from './settings-cache';
 import {
   loadComfyUiSettings,
   mergeLoraLibraryIntoCustomTokens,
   resolveSharedEffectiveSessionLoraIds,
-} from "./comfyui-settings";
+} from './comfyui-settings';
 import {
   fetchComfyQueueIdle,
   holdMaxGalleryEnhance,
   holdMaxGenerateJob,
   shouldHoldMaxUntilIdle,
-} from "./held-max-queue";
+} from './held-max-queue';
 import {
   fetchComfyVramSnapshot,
   guardQueueQualityForVram,
   maybeDowngradeMaxForVram,
-} from "./vram-queue-guard";
+} from './vram-queue-guard';
 import {
   canMoireCleanGalleryEntry,
   canRefineGalleryEntry,
   canUpscaleGalleryEntry,
   galleryEntryAlreadyEnrichedForUpscale,
-} from "./gallery-entry-actions";
+} from './gallery-entry-actions';
 
 export {
   canFaceDetailGalleryEntry,
@@ -92,7 +87,7 @@ export {
   galleryEntrySupportsRefine,
   galleryEntrySupportsSoftSecondPass,
   galleryEntrySupportsUpscale,
-} from "./gallery-entry-actions";
+} from './gallery-entry-actions';
 
 type WorkflowPreviewResponse = {
   ok: boolean;
@@ -112,7 +107,7 @@ type WorkflowPreviewResponse = {
   snippets?: Array<{ path: string; value: string }>;
   workflowJson?: string;
   truncated?: boolean;
-  preflightIssues?: Array<{ severity: "error" | "warn"; message: string }>;
+  preflightIssues?: Array<{ severity: 'error' | 'warn'; message: string }>;
 };
 
 export type RequeueComfyJobInput = {
@@ -135,7 +130,7 @@ export type RequeueComfyJobInput = {
   storedQualityProfile?: QueueQualityProfile;
   /** Gallery entry this re-queue derives from. */
   parentGalleryEntryId?: string;
-  derivedKind?: ComfyGalleryEntry["derivedKind"];
+  derivedKind?: ComfyGalleryEntry['derivedKind'];
   /** Upload sourceImageUrl even when the model/tool is normally text-to-image. */
   forceInputImage?: boolean;
   /** Force a specific ComfyUI endpoint for this re-queue (e.g. pool failover on OOM). */
@@ -155,7 +150,7 @@ export type RequeueComfyJobInput = {
 
 /** Prefer LoRAs recorded on the gallery entry; else the current stack for that model. */
 export function resolveRequeueSessionLoraIds(
-  entry: Pick<ComfyGalleryEntry, "sessionActiveLoraIds" | "model">,
+  entry: Pick<ComfyGalleryEntry, 'sessionActiveLoraIds' | 'model'>
 ): string[] | undefined {
   if (entry.sessionActiveLoraIds !== undefined) {
     return entry.sessionActiveLoraIds;
@@ -174,21 +169,21 @@ export type RequeueComfyJobResult = {
 };
 
 async function resolveEnhanceQualityProfile(input: {
-  entry: Pick<ComfyGalleryEntry, "id" | "model" | "tool">;
-  qualityProfile: Extract<QueueQualityProfile, "final" | "max">;
-  kind: "upscale" | "moire" | "refine";
+  entry: Pick<ComfyGalleryEntry, 'id' | 'model' | 'tool'>;
+  qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'>;
+  kind: 'upscale' | 'moire' | 'refine';
   force?: boolean;
   onStatus?: (message: string) => void;
 }): Promise<
-  | { action: "hold" }
+  | { action: 'hold' }
   | {
-      action: "queue";
-      qualityProfile: Extract<QueueQualityProfile, "final" | "max">;
+      action: 'queue';
+      qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'>;
       vramDowngraded: boolean;
     }
 > {
   let qualityProfile = input.qualityProfile;
-  if (qualityProfile === "max" && !input.force) {
+  if (qualityProfile === 'max' && !input.force) {
     const shared = loadSettingsCache().shared;
     if (shared.holdMaxUntilIdle) {
       const idle = await fetchComfyQueueIdle();
@@ -196,34 +191,35 @@ async function resolveEnhanceQualityProfile(input: {
         holdMaxGalleryEnhance({
           entry: input.entry,
           kind: input.kind,
-          qualityProfile: "max",
+          qualityProfile: 'max',
         });
-        input.onStatus?.(
-          "Max held until ComfyUI queue is idle (Queue → Orchestration).",
-        );
-        return { action: "hold" };
+        input.onStatus?.('Max held until ComfyUI queue is idle (Queue → Orchestration).');
+        return { action: 'hold' };
       }
     }
   }
   // Always re-check VRAM for Max (including force flush) — hold bypass stays force-only.
-  if (qualityProfile === "max") {
+  if (qualityProfile === 'max') {
     const vram = await fetchComfyVramSnapshot();
     const guard = maybeDowngradeMaxForVram(qualityProfile, vram);
     if (guard.downgraded) {
-      qualityProfile = "final";
-      input.onStatus?.("Max → Final (VRAM) — free VRAM under 6 GB.");
+      qualityProfile = 'final';
+      input.onStatus?.('Max → Final (VRAM) — free VRAM under 6 GB.');
     }
     return {
-      action: "queue",
+      action: 'queue',
       qualityProfile,
       vramDowngraded: guard.downgraded,
     };
   }
-  return { action: "queue", qualityProfile, vramDowngraded: false };
+  return { action: 'queue', qualityProfile, vramDowngraded: false };
 }
 
 export function requeueSourceImageUrlFromEntry(
-  entry: Pick<ComfyGalleryEntry, "comfyUrl" | "images" | "tool" | "model" | "queueParams" | "sourceImageUrl" | "maskImageUrl">,
+  entry: Pick<
+    ComfyGalleryEntry,
+    'comfyUrl' | 'images' | 'tool' | 'model' | 'queueParams' | 'sourceImageUrl' | 'maskImageUrl'
+  >
 ): string | undefined {
   return resolveRequeueImageUrlsFromEntry(entry).sourceImageUrl;
 }
@@ -231,45 +227,39 @@ export function requeueSourceImageUrlFromEntry(
 export async function requeueUpscaleFromGalleryEntry(
   entry: ComfyGalleryEntry,
   options: {
-    qualityProfile: Extract<QueueQualityProfile, "final" | "max">;
+    qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'>;
     onStatus?: (message: string) => void;
     /** Queue low-denoise refine after upscale completes (uses upscaled output). */
-    refineAfterComplete?: Extract<QueueQualityProfile, "final" | "max">;
+    refineAfterComplete?: Extract<QueueQualityProfile, 'final' | 'max'>;
     /** Bypass keeper skip (manual force re-upscale). */
     force?: boolean;
-  },
+  }
 ): Promise<RequeueComfyJobResult> {
-  const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
+  const model = (entry.model ?? 'qwen-image-2512') as ComfyImageModel;
 
   const resolved = await resolveEnhanceQualityProfile({
     entry,
     qualityProfile: options.qualityProfile,
-    kind: "upscale",
+    kind: 'upscale',
     force: options.force,
     onStatus: options.onStatus,
   });
-  if (resolved.action === "hold") {
+  if (resolved.action === 'hold') {
     return { ok: true, held: true };
   }
   const qualityProfile = resolved.qualityProfile;
   const vramDowngraded = resolved.vramDowngraded;
 
-  if (
-    !options.force &&
-    galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)
-  ) {
+  if (!options.force && galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)) {
     return {
       ok: false,
-      error:
-        "Already Final/Max enriched — skip re-upscale (use Draft source or a new seed).",
+      error: 'Already Final/Max enriched — skip re-upscale (use Draft source or a new seed).',
     };
   }
 
   // Rapid AIO: Lanczos/neural re-amplifies moiré — use the polish chain instead.
   if (isQwenRapidAioModel(model)) {
-    options.onStatus?.(
-      `Rapid AIO skips upscale — queueing moiré clean (${qualityProfile})…`,
-    );
+    options.onStatus?.(`Rapid AIO skips upscale — queueing moiré clean (${qualityProfile})…`);
     return requeueMoireCleanFromGalleryEntry(entry, {
       qualityProfile,
       onStatus: options.onStatus,
@@ -281,16 +271,16 @@ export async function requeueUpscaleFromGalleryEntry(
     return {
       ok: false,
       error:
-        "Upscale is disabled for Lightning (pass-through only). Use Re-queue (new seed) with Final/Max quality instead.",
+        'Upscale is disabled for Lightning (pass-through only). Use Re-queue (new seed) with Final/Max quality instead.',
     };
   }
 
   const outputUrl = resolveGalleryOutputImageUrl(entry);
   if (!outputUrl) {
-    return { ok: false, error: "No gallery output image available to upscale." };
+    return { ok: false, error: 'No gallery output image available to upscale.' };
   }
 
-  options.onStatus?.("Uploading gallery output…");
+  options.onStatus?.('Uploading gallery output…');
 
   let inputImageFilename: string | undefined;
   try {
@@ -301,13 +291,12 @@ export async function requeueUpscaleFromGalleryEntry(
   } catch (error) {
     return {
       ok: false,
-      error:
-        error instanceof Error ? error.message : "Could not upload gallery output.",
+      error: error instanceof Error ? error.message : 'Could not upload gallery output.',
     };
   }
 
   if (!inputImageFilename?.trim()) {
-    return { ok: false, error: "Could not upload gallery output to ComfyUI." };
+    return { ok: false, error: 'Could not upload gallery output to ComfyUI.' };
   }
 
   const shared = loadSettingsCache().shared;
@@ -316,8 +305,7 @@ export async function requeueUpscaleFromGalleryEntry(
   });
   const isLightning = isQwenLightningModel(model);
   const mappedUpscale =
-    !isLightning &&
-    (qualityProfile === "final" || qualityProfile === "max")
+    !isLightning && (qualityProfile === 'final' || qualityProfile === 'max')
       ? resolveUpscaleModelFilename(model, {
           upscaleMap: shared.modelUpscaleMap,
           customTokens: settings.customTokens,
@@ -328,22 +316,17 @@ export async function requeueUpscaleFromGalleryEntry(
     comfyUrl: entry.comfyUrl ?? resolveComfyUiRuntime()?.apiUrl,
   });
   const upscaleModelFilename =
-    mappedUpscale &&
-    isUpscaleModelInstalled(mappedUpscale, objectInfo?.models.upscaleModels)
+    mappedUpscale && isUpscaleModelInstalled(mappedUpscale, objectInfo?.models.upscaleModels)
       ? mappedUpscale
       : undefined;
   if (mappedUpscale && !upscaleModelFilename) {
-    options.onStatus?.(
-      `Neural upscaler “${mappedUpscale}” not installed — using Lanczos…`,
-    );
+    options.onStatus?.(`Neural upscaler “${mappedUpscale}” not installed — using Lanczos…`);
   }
 
   const baseRuntime = resolveRuntimeForQueue(model, entry.tool);
   const enrichOptions = resolveWorkflowGraphEnrichOptions(baseRuntime);
 
-  const queueUpscale = async (
-    neuralModel?: string,
-  ): Promise<RequeueComfyJobResult> => {
+  const queueUpscale = async (neuralModel?: string): Promise<RequeueComfyJobResult> => {
     const libraryWorkflow =
       shared.useLibraryUpscaleWorkflow === true
         ? findLibraryUpscaleWorkflowForModel(model)
@@ -376,14 +359,14 @@ export async function requeueUpscaleFromGalleryEntry(
       libraryWorkflow
         ? `Queueing library upscale workflow “${libraryWorkflow.name}”…`
         : isLightning
-          ? "Queueing Lightning pass-through (no reprocess)…"
+          ? 'Queueing Lightning pass-through (no reprocess)…'
           : neuralModel
-            ? "Queueing neural upscale…"
-            : "Queueing Lanczos upscale…",
+            ? 'Queueing neural upscale…'
+            : 'Queueing Lanczos upscale…'
     );
 
     const queued = await getEngineAdapter().postPrompt({
-      prompt: entry.prompt.trim() || "upscale",
+      prompt: entry.prompt.trim() || 'upscale',
       negativePrompt: entry.negativePrompt,
       model,
       params,
@@ -394,31 +377,31 @@ export async function requeueUpscaleFromGalleryEntry(
       queued.releaseLiveSocket();
       return {
         ok: false,
-        error: queued.error ?? "ComfyUI upscale queue failed.",
+        error: queued.error ?? 'ComfyUI upscale queue failed.',
         comfyUrl: queued.engineUrl,
       };
     }
 
     registerComfyGalleryJob({
       promptId: queued.promptId,
-      prompt: entry.prompt.trim() || "upscale",
+      prompt: entry.prompt.trim() || 'upscale',
       negativePrompt: entry.negativePrompt,
       tool: entry.tool,
       model: entry.model,
-      comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
       clientId: queued.clientId,
       queueParams: { inputImageFilename },
       sourceImageUrl: outputUrl,
       queueQualityProfile: qualityProfile,
       parentGalleryEntryId: entry.id,
-      derivedKind: "upscale",
+      derivedKind: 'upscale',
       historyId: entry.historyId,
     });
     if (options.refineAfterComplete && !isLightning) {
       scheduleRefineAfterUpscaleComplete(queued.promptId, options.refineAfterComplete);
     }
     void scheduleComfyGalleryPoll(queued.promptId, {
-      comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+      comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
       clientId: queued.clientId,
       onStatus: options.onStatus,
     });
@@ -435,7 +418,7 @@ export async function requeueUpscaleFromGalleryEntry(
   let result = await queueUpscale(upscaleModelFilename);
   if (!result.ok && upscaleModelFilename) {
     options.onStatus?.(
-      `Neural upscale failed (${result.error ?? "queue error"}) — retrying with Lanczos…`,
+      `Neural upscale failed (${result.error ?? 'queue error'}) — retrying with Lanczos…`
     );
     result = await queueUpscale(undefined);
   }
@@ -446,42 +429,38 @@ export async function requeueUpscaleFromGalleryEntry(
 export async function requeueMoireCleanFromGalleryEntry(
   entry: ComfyGalleryEntry,
   options?: {
-    qualityProfile?: Extract<QueueQualityProfile, "final" | "max">;
+    qualityProfile?: Extract<QueueQualityProfile, 'final' | 'max'>;
     onStatus?: (message: string) => void;
     force?: boolean;
-  },
+  }
 ): Promise<RequeueComfyJobResult> {
-  const requested = options?.qualityProfile ?? "final";
+  const requested = options?.qualityProfile ?? 'final';
   const resolved = await resolveEnhanceQualityProfile({
     entry,
     qualityProfile: requested,
-    kind: "moire",
+    kind: 'moire',
     force: options?.force,
     onStatus: options?.onStatus,
   });
-  if (resolved.action === "hold") {
+  if (resolved.action === 'hold') {
     return { ok: true, held: true };
   }
   const profile = resolved.qualityProfile;
-  if (
-    !options?.force &&
-    galleryEntryAlreadyEnrichedForUpscale(entry, profile)
-  ) {
+  if (!options?.force && galleryEntryAlreadyEnrichedForUpscale(entry, profile)) {
     return {
       ok: false,
-      error:
-        "Already Final/Max polished — skip moiré re-clean (use Draft source or a new seed).",
+      error: 'Already Final/Max polished — skip moiré re-clean (use Draft source or a new seed).',
     };
   }
 
   const outputUrl = resolveGalleryOutputImageUrl(entry);
   if (!outputUrl) {
-    return { ok: false, error: "No gallery output image available to clean." };
+    return { ok: false, error: 'No gallery output image available to clean.' };
   }
 
-  options?.onStatus?.("Uploading gallery output…");
+  options?.onStatus?.('Uploading gallery output…');
 
-  const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
+  const model = (entry.model ?? 'qwen-image-2512') as ComfyImageModel;
   let inputImageFilename: string | undefined;
   try {
     inputImageFilename = await resolveQueueInputImageFilename({
@@ -491,13 +470,12 @@ export async function requeueMoireCleanFromGalleryEntry(
   } catch (error) {
     return {
       ok: false,
-      error:
-        error instanceof Error ? error.message : "Could not upload gallery output.",
+      error: error instanceof Error ? error.message : 'Could not upload gallery output.',
     };
   }
 
   if (!inputImageFilename?.trim()) {
-    return { ok: false, error: "Could not upload gallery output to ComfyUI." };
+    return { ok: false, error: 'Could not upload gallery output to ComfyUI.' };
   }
 
   const qualityProfile = profile;
@@ -514,13 +492,13 @@ export async function requeueMoireCleanFromGalleryEntry(
   };
 
   options?.onStatus?.(
-    qualityProfile === "max"
-      ? "Queueing moiré clean (Max: blur → bicubic → Lanczos)…"
-      : "Queueing moiré clean (Final: soft blur only)…",
+    qualityProfile === 'max'
+      ? 'Queueing moiré clean (Max: blur → bicubic → Lanczos)…'
+      : 'Queueing moiré clean (Final: soft blur only)…'
   );
 
   const queued = await getEngineAdapter().postPrompt({
-    prompt: entry.prompt.trim() || "moire clean",
+    prompt: entry.prompt.trim() || 'moire clean',
     negativePrompt: entry.negativePrompt,
     model,
     params: { inputImageFilename },
@@ -531,28 +509,28 @@ export async function requeueMoireCleanFromGalleryEntry(
     queued.releaseLiveSocket();
     return {
       ok: false,
-      error: queued.error ?? "ComfyUI moiré-clean queue failed.",
+      error: queued.error ?? 'ComfyUI moiré-clean queue failed.',
       comfyUrl: queued.engineUrl,
     };
   }
 
   registerComfyGalleryJob({
     promptId: queued.promptId,
-    prompt: entry.prompt.trim() || "moire clean",
+    prompt: entry.prompt.trim() || 'moire clean',
     negativePrompt: entry.negativePrompt,
     tool: entry.tool,
     model: entry.model,
-    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
     clientId: queued.clientId,
     queueParams: { inputImageFilename },
     sourceImageUrl: outputUrl,
     queueQualityProfile: qualityProfile,
     parentGalleryEntryId: entry.id,
-    derivedKind: "moire-clean",
+    derivedKind: 'moire-clean',
     historyId: entry.historyId,
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
-    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
     clientId: queued.clientId,
     onStatus: options?.onStatus,
   });
@@ -569,43 +547,43 @@ export async function requeueMoireCleanFromGalleryEntry(
 export async function requeueRefineFromGalleryEntry(
   entry: ComfyGalleryEntry,
   options?: {
-    qualityProfile?: Extract<QueueQualityProfile, "final" | "max">;
+    qualityProfile?: Extract<QueueQualityProfile, 'final' | 'max'>;
     mode?: GalleryRefineMode;
     onStatus?: (message: string) => void;
     force?: boolean;
-  },
+  }
 ): Promise<RequeueComfyJobResult> {
   const outputUrl = resolveGalleryOutputImageUrl(entry);
   if (!outputUrl) {
-    return { ok: false, error: "No gallery output image available to refine." };
+    return { ok: false, error: 'No gallery output image available to refine.' };
   }
 
-  const mode: GalleryRefineMode = options?.mode === "soft" ? "soft" : "refine";
-  const softLabel = mode === "soft" ? "soft second pass" : "low-denoise refine";
+  const mode: GalleryRefineMode = options?.mode === 'soft' ? 'soft' : 'refine';
+  const softLabel = mode === 'soft' ? 'soft second pass' : 'low-denoise refine';
   options?.onStatus?.(
-    mode === "soft" ? "Uploading gallery output for soft second pass…" : "Uploading gallery output…",
+    mode === 'soft' ? 'Uploading gallery output for soft second pass…' : 'Uploading gallery output…'
   );
 
-  const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
+  const model = (entry.model ?? 'qwen-image-2512') as ComfyImageModel;
   if (isQwenLightningModel(model)) {
     return {
       ok: false,
       error:
-        mode === "soft"
-          ? "Soft second pass is disabled for Lightning — requeue a new seed or use Final/Max Lanczos polish instead."
-          : "Img2img refine is disabled for Lightning models — use Final/Max Lanczos polish (or requeue a new seed) instead.",
+        mode === 'soft'
+          ? 'Soft second pass is disabled for Lightning — requeue a new seed or use Final/Max Lanczos polish instead.'
+          : 'Img2img refine is disabled for Lightning models — use Final/Max Lanczos polish (or requeue a new seed) instead.',
     };
   }
 
-  const requested = options?.qualityProfile ?? "final";
+  const requested = options?.qualityProfile ?? 'final';
   const resolved = await resolveEnhanceQualityProfile({
     entry,
     qualityProfile: requested,
-    kind: "refine",
+    kind: 'refine',
     force: options?.force,
     onStatus: options?.onStatus,
   });
-  if (resolved.action === "hold") {
+  if (resolved.action === 'hold') {
     return { ok: true, held: true };
   }
   const profile = resolved.qualityProfile;
@@ -619,17 +597,16 @@ export async function requeueRefineFromGalleryEntry(
   } catch (error) {
     return {
       ok: false,
-      error:
-        error instanceof Error ? error.message : "Could not upload gallery output.",
+      error: error instanceof Error ? error.message : 'Could not upload gallery output.',
     };
   }
 
   if (!inputImageFilename?.trim()) {
-    return { ok: false, error: "Could not upload gallery output to ComfyUI." };
+    return { ok: false, error: 'Could not upload gallery output to ComfyUI.' };
   }
 
   const workflow = buildGalleryRefineWorkflow(model);
-  const baseRuntime = resolveRuntimeForQueue(model, "refine");
+  const baseRuntime = resolveRuntimeForQueue(model, 'refine');
   const refineParams = galleryRefineQueueParams({
     inputImageFilename,
     profile,
@@ -641,7 +618,7 @@ export async function requeueRefineFromGalleryEntry(
   const params = {
     ...resolveQueueParams({
       model,
-      tool: "refine",
+      tool: 'refine',
       qualityProfile: profile,
       inputImageFilename,
       base: refineParams,
@@ -661,13 +638,13 @@ export async function requeueRefineFromGalleryEntry(
   options?.onStatus?.(
     resolved.vramDowngraded
       ? `Max → Final (VRAM) · queueing ${softLabel}…`
-      : `Queueing ${softLabel}…`,
+      : `Queueing ${softLabel}…`
   );
 
   const refineNegative = appendPortraitRefineNegative(entry.negativePrompt, entry.prompt);
 
   const queued = await getEngineAdapter().postPrompt({
-    prompt: entry.prompt.trim() || (mode === "soft" ? "soft-pass" : "refine"),
+    prompt: entry.prompt.trim() || (mode === 'soft' ? 'soft-pass' : 'refine'),
     negativePrompt: refineNegative,
     model,
     params,
@@ -678,27 +655,27 @@ export async function requeueRefineFromGalleryEntry(
     queued.releaseLiveSocket();
     return {
       ok: false,
-      error: queued.error ?? "ComfyUI refine queue failed.",
+      error: queued.error ?? 'ComfyUI refine queue failed.',
       comfyUrl: queued.engineUrl,
     };
   }
 
   registerComfyGalleryJob({
     promptId: queued.promptId,
-    prompt: entry.prompt.trim() || (mode === "soft" ? "soft-pass" : "refine"),
+    prompt: entry.prompt.trim() || (mode === 'soft' ? 'soft-pass' : 'refine'),
     negativePrompt: entry.negativePrompt,
-    tool: "refine",
+    tool: 'refine',
     model: entry.model,
-    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
     clientId: queued.clientId,
     queueParams: params,
     sourceImageUrl: outputUrl,
     queueQualityProfile: profile,
     parentGalleryEntryId: entry.id,
-    derivedKind: mode === "soft" ? "soft-pass" : "refine",
+    derivedKind: mode === 'soft' ? 'soft-pass' : 'refine',
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
-    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
     clientId: queued.clientId,
     onStatus: options?.onStatus,
   });
@@ -716,14 +693,14 @@ export async function requeueRefineFromGalleryEntry(
 export function requeueSoftSecondPassFromGalleryEntry(
   entry: ComfyGalleryEntry,
   options?: {
-    qualityProfile?: Extract<QueueQualityProfile, "final" | "max">;
+    qualityProfile?: Extract<QueueQualityProfile, 'final' | 'max'>;
     onStatus?: (message: string) => void;
     force?: boolean;
-  },
+  }
 ): Promise<RequeueComfyJobResult> {
   return requeueRefineFromGalleryEntry(entry, {
     ...options,
-    mode: "soft",
+    mode: 'soft',
   });
 }
 
@@ -740,19 +717,19 @@ export async function requeueFaceDetailFromGalleryEntry(
   options?: {
     denoise?: number;
     onStatus?: (message: string) => void;
-  },
+  }
 ): Promise<RequeueComfyJobResult> {
   const outputUrl = resolveGalleryOutputImageUrl(entry);
   if (!outputUrl) {
-    return { ok: false, error: "No gallery output image available to face-detail." };
+    return { ok: false, error: 'No gallery output image available to face-detail.' };
   }
 
-  const model = (entry.model ?? "qwen-image-2512") as ComfyImageModel;
+  const model = (entry.model ?? 'qwen-image-2512') as ComfyImageModel;
   if (isQwenLightningModel(model)) {
     return {
       ok: false,
       error:
-        "Face detail is disabled for Lightning (img2img pass-through only) — use Refine or Upscale instead.",
+        'Face detail is disabled for Lightning (img2img pass-through only) — use Refine or Upscale instead.',
     };
   }
 
@@ -771,13 +748,13 @@ export async function requeueFaceDetailFromGalleryEntry(
         ok: false,
         error:
           auto.reason ??
-          "No FaceDetailer/ReActor workflow found. Import one with {{FACE_DETAIL_IMAGE}}, pin faceDetailer=<workflowId> in Settings, or install Impact Pack FaceDetailer for auto-insert.",
+          'No FaceDetailer/ReActor workflow found. Import one with {{FACE_DETAIL_IMAGE}}, pin faceDetailer=<workflowId> in Settings, or install Impact Pack FaceDetailer for auto-insert.',
       };
     }
     workflowJson = JSON.stringify(auto.workflow);
   }
 
-  options?.onStatus?.("Uploading gallery output…");
+  options?.onStatus?.('Uploading gallery output…');
 
   let inputImageFilename: string | undefined;
   try {
@@ -788,19 +765,16 @@ export async function requeueFaceDetailFromGalleryEntry(
   } catch (error) {
     return {
       ok: false,
-      error:
-        error instanceof Error ? error.message : "Could not upload gallery output.",
+      error: error instanceof Error ? error.message : 'Could not upload gallery output.',
     };
   }
 
   if (!inputImageFilename?.trim()) {
-    return { ok: false, error: "Could not upload gallery output to ComfyUI." };
+    return { ok: false, error: 'Could not upload gallery output to ComfyUI.' };
   }
 
   const shared = loadSettingsCache().shared;
-  const denoise = normalizeFaceDetailDenoise(
-    options?.denoise ?? shared.faceDetailerDenoise,
-  );
+  const denoise = normalizeFaceDetailDenoise(options?.denoise ?? shared.faceDetailerDenoise);
 
   const workflow = JSON.parse(workflowJson) as Record<string, unknown>;
 
@@ -809,7 +783,7 @@ export async function requeueFaceDetailFromGalleryEntry(
     denoise,
     queueParams: entry.queueParams,
   });
-  const baseRuntime = resolveRuntimeForQueue(model, "face-detail");
+  const baseRuntime = resolveRuntimeForQueue(model, 'face-detail');
   const runtime: ComfyUiRuntimeConfig = {
     ...baseRuntime,
     workflowJson: JSON.stringify(workflow),
@@ -821,13 +795,11 @@ export async function requeueFaceDetailFromGalleryEntry(
   };
 
   options?.onStatus?.(
-    workflowFileId
-      ? `Queueing library face-detail workflow…`
-      : "Queueing auto FaceDetailer graph…",
+    workflowFileId ? `Queueing library face-detail workflow…` : 'Queueing auto FaceDetailer graph…'
   );
 
   const queued = await getEngineAdapter().postPrompt({
-    prompt: entry.prompt.trim() || "face detail",
+    prompt: entry.prompt.trim() || 'face detail',
     negativePrompt: entry.negativePrompt,
     model,
     params: faceDetailParams,
@@ -838,28 +810,28 @@ export async function requeueFaceDetailFromGalleryEntry(
     queued.releaseLiveSocket();
     return {
       ok: false,
-      error: queued.error ?? "ComfyUI face-detail queue failed.",
+      error: queued.error ?? 'ComfyUI face-detail queue failed.',
       comfyUrl: queued.engineUrl,
     };
   }
 
   registerComfyGalleryJob({
     promptId: queued.promptId,
-    prompt: entry.prompt.trim() || "face detail",
+    prompt: entry.prompt.trim() || 'face detail',
     negativePrompt: entry.negativePrompt,
     tool: entry.tool,
     model: entry.model,
-    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
     clientId: queued.clientId,
     queueParams: faceDetailParams,
     sourceImageUrl: outputUrl,
     queueQualityProfile: entry.queueQualityProfile,
     parentGalleryEntryId: entry.id,
-    derivedKind: "face-detail",
+    derivedKind: 'face-detail',
     historyId: entry.historyId,
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
-    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? entry.comfyUrl ?? 'http://127.0.0.1:8188',
     clientId: queued.clientId,
     onStatus: options?.onStatus,
   });
@@ -885,8 +857,8 @@ function summarizeBulkUpscaleLabel(entry: ComfyGalleryEntry): string {
 
 export async function bulkUpscaleGalleryEntries(
   entries: ComfyGalleryEntry[],
-  qualityProfile: Extract<QueueQualityProfile, "final" | "max">,
-  onStatus?: (message: string) => void,
+  qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'>,
+  onStatus?: (message: string) => void
 ): Promise<BulkUpscaleGalleryResult> {
   let queued = 0;
   let failed = 0;
@@ -897,8 +869,8 @@ export async function bulkUpscaleGalleryEntries(
     if (!canUpscaleGalleryEntry(entry, qualityProfile)) {
       skipped += 1;
       const reason = galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)
-        ? "already Final/Max enriched"
-        : "not completed or no output image";
+        ? 'already Final/Max enriched'
+        : 'not completed or no output image';
       errors.push(`${summarizeBulkUpscaleLabel(entry)}: skipped (${reason})`);
       continue;
     }
@@ -912,14 +884,13 @@ export async function bulkUpscaleGalleryEntries(
       queued += 1;
     } else {
       failed += 1;
-      errors.push(`${summarizeBulkUpscaleLabel(entry)}: ${result.error ?? "queue failed"}`);
+      errors.push(`${summarizeBulkUpscaleLabel(entry)}: ${result.error ?? 'queue failed'}`);
     }
   }
 
-  const detail =
-    errors.length > 0 ? ` · ${errors.slice(0, 3).join(" · ")}` : "";
+  const detail = errors.length > 0 ? ` · ${errors.slice(0, 3).join(' · ')}` : '';
   onStatus?.(
-    `Bulk upscale finished · ${queued} queued · ${skipped} skipped · ${failed} failed${detail}`,
+    `Bulk upscale finished · ${queued} queued · ${skipped} skipped · ${failed} failed${detail}`
   );
 
   return { queued, failed, skipped, errors };
@@ -927,8 +898,8 @@ export async function bulkUpscaleGalleryEntries(
 
 export async function bulkMoireCleanGalleryEntries(
   entries: ComfyGalleryEntry[],
-  qualityProfile: Extract<QueueQualityProfile, "final" | "max"> = "final",
-  onStatus?: (message: string) => void,
+  qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'> = 'final',
+  onStatus?: (message: string) => void
 ): Promise<BulkUpscaleGalleryResult> {
   let queued = 0;
   let failed = 0;
@@ -939,8 +910,8 @@ export async function bulkMoireCleanGalleryEntries(
     if (!canMoireCleanGalleryEntry(entry, qualityProfile)) {
       skipped += 1;
       const reason = galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)
-        ? "already Final/Max polished"
-        : "not completed or no output image";
+        ? 'already Final/Max polished'
+        : 'not completed or no output image';
       errors.push(`${summarizeBulkUpscaleLabel(entry)}: skipped (${reason})`);
       continue;
     }
@@ -954,16 +925,13 @@ export async function bulkMoireCleanGalleryEntries(
       queued += 1;
     } else {
       failed += 1;
-      errors.push(
-        `${summarizeBulkUpscaleLabel(entry)}: ${result.error ?? "queue failed"}`,
-      );
+      errors.push(`${summarizeBulkUpscaleLabel(entry)}: ${result.error ?? 'queue failed'}`);
     }
   }
 
-  const detail =
-    errors.length > 0 ? ` · ${errors.slice(0, 3).join(" · ")}` : "";
+  const detail = errors.length > 0 ? ` · ${errors.slice(0, 3).join(' · ')}` : '';
   onStatus?.(
-    `Bulk moiré clean finished · ${queued} queued · ${skipped} skipped · ${failed} failed${detail}`,
+    `Bulk moiré clean finished · ${queued} queued · ${skipped} skipped · ${failed} failed${detail}`
   );
 
   return { queued, failed, skipped, errors };
@@ -971,8 +939,8 @@ export async function bulkMoireCleanGalleryEntries(
 
 export async function bulkRefineGalleryEntries(
   entries: ComfyGalleryEntry[],
-  qualityProfile: Extract<QueueQualityProfile, "final" | "max"> = "final",
-  onStatus?: (message: string) => void,
+  qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'> = 'final',
+  onStatus?: (message: string) => void
 ): Promise<BulkUpscaleGalleryResult> {
   let queued = 0;
   let failed = 0;
@@ -982,7 +950,9 @@ export async function bulkRefineGalleryEntries(
   for (const [index, entry] of entries.entries()) {
     if (!canRefineGalleryEntry(entry)) {
       skipped += 1;
-      errors.push(`${summarizeBulkUpscaleLabel(entry)}: skipped (not completed or no output image)`);
+      errors.push(
+        `${summarizeBulkUpscaleLabel(entry)}: skipped (not completed or no output image)`
+      );
       continue;
     }
 
@@ -995,14 +965,13 @@ export async function bulkRefineGalleryEntries(
       queued += 1;
     } else {
       failed += 1;
-      errors.push(`${summarizeBulkUpscaleLabel(entry)}: ${result.error ?? "queue failed"}`);
+      errors.push(`${summarizeBulkUpscaleLabel(entry)}: ${result.error ?? 'queue failed'}`);
     }
   }
 
-  const detail =
-    errors.length > 0 ? ` · ${errors.slice(0, 3).join(" · ")}` : "";
+  const detail = errors.length > 0 ? ` · ${errors.slice(0, 3).join(' · ')}` : '';
   onStatus?.(
-    `Bulk refine finished · ${queued} queued · ${skipped} skipped · ${failed} failed${detail}`,
+    `Bulk refine finished · ${queued} queued · ${skipped} skipped · ${failed} failed${detail}`
   );
 
   return { queued, failed, skipped, errors };
@@ -1012,8 +981,8 @@ export function requeueComfyJobFromEntry(
   entry: ComfyGalleryEntry,
   options?: Pick<
     RequeueComfyJobInput,
-    "newSeed" | "onStatus" | "hints" | "qualityProfile" | "comfyUrlOverride"
-  >,
+    'newSeed' | 'onStatus' | 'hints' | 'qualityProfile' | 'comfyUrlOverride'
+  >
 ): Promise<RequeueComfyJobResult> {
   const urls = resolveRequeueImageUrlsFromEntry(entry);
   const isVariation = Boolean(options?.newSeed || options?.qualityProfile);
@@ -1032,7 +1001,7 @@ export function requeueComfyJobFromEntry(
     qualityProfile: options?.qualityProfile,
     comfyUrlOverride: options?.comfyUrlOverride,
     parentGalleryEntryId: isVariation ? entry.id : undefined,
-    derivedKind: isVariation ? "variation" : undefined,
+    derivedKind: isVariation ? 'variation' : undefined,
     onStatus: options?.onStatus,
   });
 }
@@ -1047,7 +1016,7 @@ export function requeueComfyJobFromHistory(
     negativePrompt?: string;
     metadata?: Record<string, unknown>;
   },
-  options?: Pick<RequeueComfyJobInput, "newSeed" | "onStatus" | "hints">,
+  options?: Pick<RequeueComfyJobInput, 'newSeed' | 'onStatus' | 'hints'>
 ): Promise<RequeueComfyJobResult> {
   const galleryEntry = findGalleryEntryForHistory(entry);
   if (galleryEntry) {
@@ -1069,17 +1038,15 @@ export function requeueComfyJobFromHistory(
   });
 }
 
-export async function requeueComfyJob(
-  input: RequeueComfyJobInput,
-): Promise<RequeueComfyJobResult> {
+export async function requeueComfyJob(input: RequeueComfyJobInput): Promise<RequeueComfyJobResult> {
   if (!input.prompt.trim()) {
-    return { ok: false, error: "Prompt is required." };
+    return { ok: false, error: 'Prompt is required.' };
   }
 
-  input.onStatus?.("Queueing…");
+  input.onStatus?.('Queueing…');
 
   let negativePrompt = input.negativePrompt?.trim() || undefined;
-  const model = (input.model ?? "qwen-image-2512") as ComfyImageModel;
+  const model = (input.model ?? 'qwen-image-2512') as ComfyImageModel;
 
   if (!negativePrompt) {
     negativePrompt = await resolveQueueNegativePrompt({
@@ -1096,7 +1063,7 @@ export async function requeueComfyJob(
     : input.queueParams;
 
   if (input.sourceImageUrl?.trim() || input.maskImageUrl?.trim()) {
-    input.onStatus?.("Refreshing queue images for ComfyUI…");
+    input.onStatus?.('Refreshing queue images for ComfyUI…');
   }
 
   const refreshedParams = await refreshQueueImageParamsForRequeue({
@@ -1108,8 +1075,7 @@ export async function requeueComfyJob(
     forceInputImage: input.forceInputImage,
   });
 
-  const requestedProfile =
-    input.qualityProfile ?? input.storedQualityProfile ?? undefined;
+  const requestedProfile = input.qualityProfile ?? input.storedQualityProfile ?? undefined;
   const sessionActiveLoraIds =
     input.sessionActiveLoraIds !== undefined
       ? input.sessionActiveLoraIds
@@ -1120,8 +1086,7 @@ export async function requeueComfyJob(
   const withRequested = baseRuntime
     ? {
         ...baseRuntime,
-        queueQualityProfile:
-          requestedProfile ?? baseRuntime.queueQualityProfile,
+        queueQualityProfile: requestedProfile ?? baseRuntime.queueQualityProfile,
       }
     : undefined;
   const vramGuard = await guardQueueQualityForVram({
@@ -1133,7 +1098,7 @@ export async function requeueComfyJob(
     ? { ...vramGuard.runtime, apiUrl: input.comfyUrlOverride.trim() }
     : vramGuard.runtime;
   if (vramGuard.downgraded) {
-    input.onStatus?.("Max → Final (VRAM) — free VRAM under 6 GB.");
+    input.onStatus?.('Max → Final (VRAM) — free VRAM under 6 GB.');
   }
 
   const params = resolveQueueParams({
@@ -1143,7 +1108,7 @@ export async function requeueComfyJob(
     qualityProfile: effectiveQualityProfile,
   });
 
-  input.onStatus?.("Validating workflow…");
+  input.onStatus?.('Validating workflow…');
   const preflight = await runWorkflowPreflight({
     model,
     prompts: [input.prompt.trim()],
@@ -1160,9 +1125,9 @@ export async function requeueComfyJob(
       ok: false,
       error:
         preflight.issues
-          .filter((issue) => issue.severity === "error")
-          .map((issue) => issue.message)
-          .join(" · ") || "Workflow pre-flight failed.",
+          .filter(issue => issue.severity === 'error')
+          .map(issue => issue.message)
+          .join(' · ') || 'Workflow pre-flight failed.',
     };
   }
 
@@ -1174,15 +1139,12 @@ export async function requeueComfyJob(
     maskImageUrl: input.maskImageUrl,
     forceInputImage: input.forceInputImage,
   });
-  const requeueImageError = requeueImageIssues.find((issue) => issue.severity === "error");
+  const requeueImageError = requeueImageIssues.find(issue => issue.severity === 'error');
   if (requeueImageError) {
     return { ok: false, error: requeueImageError.message };
   }
 
-  if (
-    effectiveQualityProfile === "max" &&
-    (await shouldHoldMaxUntilIdle())
-  ) {
+  if (effectiveQualityProfile === 'max' && (await shouldHoldMaxUntilIdle())) {
     holdMaxGenerateJob({
       prompt: input.prompt.trim(),
       negativePrompt,
@@ -1190,11 +1152,9 @@ export async function requeueComfyJob(
       tool: input.tool,
       params,
       comfy: comfyRuntime,
-      qualityProfile: "max",
+      qualityProfile: 'max',
     });
-    input.onStatus?.(
-      "Max held until ComfyUI queue is idle (Queue → Orchestration).",
-    );
+    input.onStatus?.('Max held until ComfyUI queue is idle (Queue → Orchestration).');
     return { ok: true, held: true, vramDowngraded: vramGuard.downgraded };
   }
 
@@ -1216,16 +1176,14 @@ export async function requeueComfyJob(
     ...(comfyPayload ? { comfy: comfyPayload } : {}),
     // Native Diffusers path (no workflow) applies Comfy-parity Lanczos post.
     qualityProfile: effectiveQualityProfile,
-    hasInputImage: Boolean(
-      params.inputImageFilename || input.sourceImageUrl?.trim(),
-    ),
+    hasInputImage: Boolean(params.inputImageFilename || input.sourceImageUrl?.trim()),
   });
 
   if (!queued.ok || !queued.promptId) {
     queued.releaseLiveSocket();
     return {
       ok: false,
-      error: queued.error ?? "ComfyUI queue failed.",
+      error: queued.error ?? 'ComfyUI queue failed.',
       comfyUrl: queued.engineUrl,
     };
   }
@@ -1236,7 +1194,7 @@ export async function requeueComfyJob(
     negativePrompt,
     tool: input.tool,
     model: input.model,
-    comfyUrl: queued.engineUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? 'http://127.0.0.1:8188',
     clientId: queued.clientId,
     engineId: queued.engineId,
     queueParams: params,
@@ -1248,17 +1206,17 @@ export async function requeueComfyJob(
     derivedKind: input.derivedKind,
   });
   void scheduleComfyGalleryPoll(queued.promptId, {
-    comfyUrl: queued.engineUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: queued.engineUrl ?? 'http://127.0.0.1:8188',
     clientId: queued.clientId,
     onStatus: input.onStatus,
   });
   queued.releaseLiveSocket();
 
   const warnMessages = requeueImageIssues
-    .filter((issue) => issue.severity === "warn")
-    .map((issue) => issue.message);
+    .filter(issue => issue.severity === 'warn')
+    .map(issue => issue.message);
   if (warnMessages.length > 0) {
-    input.onStatus?.(`Queued · ${warnMessages.join(" · ")}`);
+    input.onStatus?.(`Queued · ${warnMessages.join(' · ')}`);
   }
 
   return {
@@ -1282,18 +1240,16 @@ export async function fetchWorkflowPreview(input: {
   ok?: boolean;
   error?: string;
   workflowSource?: string;
-  replacements?: WorkflowPreviewResponse["replacements"];
-  resolvedParams?: WorkflowPreviewResponse["resolvedParams"];
-  snippets?: WorkflowPreviewResponse["snippets"];
+  replacements?: WorkflowPreviewResponse['replacements'];
+  resolvedParams?: WorkflowPreviewResponse['resolvedParams'];
+  snippets?: WorkflowPreviewResponse['snippets'];
   workflowJson?: string;
   truncated?: boolean;
-  preflightIssues?: WorkflowPreviewResponse["preflightIssues"];
+  preflightIssues?: WorkflowPreviewResponse['preflightIssues'];
 }> {
   const runtime =
     input.comfy ??
-    (input.model
-      ? resolveRuntimeForQueue(input.model as ComfyImageModel)
-      : undefined) ??
+    (input.model ? resolveRuntimeForQueue(input.model as ComfyImageModel) : undefined) ??
     resolveComfyUiRuntime();
   const params: WorkflowParamValues | undefined = input.newSeed
     ? {
@@ -1301,9 +1257,9 @@ export async function fetchWorkflowPreview(input: {
         seed: String(Math.floor(Math.random() * 2 ** 32)),
       }
     : input.params;
-  const response = await fetch("/api/comfyui/preview", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const response = await fetch('/api/comfyui/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       prompt: input.prompt,
       negativePrompt: input.negativePrompt,
@@ -1320,7 +1276,7 @@ export async function fetchWorkflowPreview(input: {
   };
 
   if (!response.ok) {
-    throw new Error(data.error ?? "Workflow preview failed.");
+    throw new Error(data.error ?? 'Workflow preview failed.');
   }
 
   return data;
@@ -1328,7 +1284,7 @@ export async function fetchWorkflowPreview(input: {
 
 export async function requeueComfyJobs(
   inputs: RequeueComfyJobInput[],
-  onStatus?: (message: string) => void,
+  onStatus?: (message: string) => void
 ): Promise<{ queued: number; failed: number }> {
   let queued = 0;
   let failed = 0;

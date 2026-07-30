@@ -22,35 +22,33 @@ import {
   type CustomWorkflowToken,
   type WorkflowParamValues,
   type WorkflowPlaceholderTokens,
-} from "./comfyui-config";
-import { readBrowserValue, removeBrowserKey, writeBrowserValue } from "./browser-storage";
+} from './comfyui-config';
+import { readBrowserValue, removeBrowserKey, writeBrowserValue } from './browser-storage';
 import {
   applySessionLoraSelection,
   isLightningLibraryEntry,
   normalizeLoraLibrary,
   type LoraLibraryEntry,
-} from "./lora-stack";
-import { resolveEffectiveSessionLoraIds } from "./model-lora-map";
-import { loadSettingsCache } from "./settings-cache";
+} from './lora-stack';
+import { resolveEffectiveSessionLoraIds } from './model-lora-map';
+import { loadSettingsCache } from './settings-cache';
 
 /**
  * Per-model session → model LoRA map → library enabled flags.
  * Pass `model` to resolve the stack for a gallery/history entry rather than
  * whatever model is currently selected in Shared settings.
  */
-export function resolveSharedEffectiveSessionLoraIds(
-  model?: string,
-): string[] | undefined {
+export function resolveSharedEffectiveSessionLoraIds(model?: string): string[] | undefined {
   const shared = loadSettingsCache().shared;
   return resolveEffectiveSessionLoraIds(
     shared.sessionActiveLoraIds,
     model?.trim() || shared.model,
     shared.modelLoraMap,
-    shared.sessionActiveLoraIdsByModel,
+    shared.sessionActiveLoraIdsByModel
   );
 }
 
-export const COMFYUI_SETTINGS_KEY = "comfyui-settings-v4";
+export const COMFYUI_SETTINGS_KEY = 'comfyui-settings-v4';
 
 export type { LoraLibraryEntry };
 
@@ -87,21 +85,21 @@ export type ComfyUiSettings = {
   /** Prefer ComfyUI WebSocket progress updates over polling-only status. */
   useWebSocketProgress?: boolean;
   /** Saved negative presets for queue / copy pair. */
-  negativeProfiles?: import("./negative-profiles").NegativeProfile[];
+  negativeProfiles?: import('./negative-profiles').NegativeProfile[];
   selectedNegativeProfileId?: string;
 };
 
 export const DEFAULT_COMFYUI_SETTINGS: ComfyUiSettings = {
   useServerDefaults: true,
-  apiUrl: "",
+  apiUrl: '',
   positiveToken: DEFAULT_POSITIVE_TOKEN,
   negativeToken: DEFAULT_NEGATIVE_TOKEN,
-  workflowJson: "",
+  workflowJson: '',
   queueParams: {
-    width: "1328",
-    height: "1328",
-    cfg: "",
-    steps: "",
+    width: '1328',
+    height: '1328',
+    cfg: '',
+    steps: '',
   },
   customTokens: [],
   loraLibrary: [],
@@ -118,14 +116,14 @@ export const DEFAULT_COMFYUI_SETTINGS: ComfyUiSettings = {
   autoImg2imgRefineOnFiveStar: false,
   useWebSocketProgress: true,
   negativeProfiles: [],
-  selectedNegativeProfileId: "general-sd",
+  selectedNegativeProfileId: 'general-sd',
 };
 
-const LORA_TOKEN_PREFIX = "{{LORA_";
+const LORA_TOKEN_PREFIX = '{{LORA_';
 
 function parseLoraTokenId(token: string): string | null {
   const trimmed = token.trim();
-  if (!trimmed.startsWith(LORA_TOKEN_PREFIX) || !trimmed.endsWith("}}")) {
+  if (!trimmed.startsWith(LORA_TOKEN_PREFIX) || !trimmed.endsWith('}}')) {
     return null;
   }
   const id = trimmed.slice(LORA_TOKEN_PREFIX.length, -2).trim();
@@ -133,22 +131,20 @@ function parseLoraTokenId(token: string): string | null {
 }
 
 /** Move legacy {{LORA_*}} custom tokens into loraLibrary so Save does not drop them. */
-export function migrateOrphanLoraTokensToLibrary(
-  settings: ComfyUiSettings,
-): ComfyUiSettings {
+export function migrateOrphanLoraTokensToLibrary(settings: ComfyUiSettings): ComfyUiSettings {
   const library = [...(settings.loraLibrary ?? [])];
-  const knownIds = new Set(library.map((entry) => entry.id.trim()).filter(Boolean));
+  const knownIds = new Set(library.map(entry => entry.id.trim()).filter(Boolean));
   const manualTokens: CustomWorkflowToken[] = [];
   let changed = false;
 
   for (const entry of settings.customTokens ?? []) {
     const loraId = parseLoraTokenId(entry.token);
-    const filename = entry.value?.trim() ?? "";
+    const filename = entry.value?.trim() ?? '';
     if (loraId && filename && !knownIds.has(loraId)) {
       library.push({
         id: loraId,
         label: loraId,
-        triggerPhrase: "",
+        triggerPhrase: '',
         tokenValue: filename,
         strengthModel: 1,
         strengthClip: 1,
@@ -190,7 +186,7 @@ export function mergeLoraLibraryIntoCustomTokens(
     sessionActiveLoraIds?: string[];
     /** Model used when resolving the shared stack (defaults to Shared settings model). */
     model?: string;
-  },
+  }
 ): ComfyUiSettings {
   const normalized = migrateOrphanLoraTokensToLibrary(settings);
   let library = normalizeLoraLibrary(normalized.loraLibrary);
@@ -200,16 +196,15 @@ export function mergeLoraLibraryIntoCustomTokens(
         ? options.sessionActiveLoraIds
         : resolveSharedEffectiveSessionLoraIds(options.model);
     library = applySessionLoraSelection(library, sessionIds).filter(
-      (entry) =>
-        entry.enabled !== false || isLightningLibraryEntry(entry),
+      entry => entry.enabled !== false || isLightningLibraryEntry(entry)
     );
   }
   const manualTokens = (normalized.customTokens ?? []).filter(
-    (entry) => !parseLoraTokenId(entry.token),
+    entry => !parseLoraTokenId(entry.token)
   );
   const loraTokens: CustomWorkflowToken[] = library
-    .filter((entry) => entry.id.trim())
-    .map((entry) => ({
+    .filter(entry => entry.id.trim())
+    .map(entry => ({
       token: `{{LORA_${entry.id.trim()}}}`,
       value: entry.tokenValue,
     }));
@@ -224,15 +219,13 @@ export function mergeLoraLibraryIntoCustomTokens(
 /** Keep Settings → LoRA library in sync when a workflow sets {{LORA_LIGHTNING}}. */
 export function syncLightningLoraLibraryEntry(filename: string): void {
   const trimmed = filename.trim();
-  if (!trimmed || typeof window === "undefined") {
+  if (!trimmed || typeof window === 'undefined') {
     return;
   }
 
   const settings = loadComfyUiSettings();
   const library = [...(settings.loraLibrary ?? [])];
-  const existingIndex = library.findIndex(
-    (entry) => entry.id.trim().toUpperCase() === "LIGHTNING",
-  );
+  const existingIndex = library.findIndex(entry => entry.id.trim().toUpperCase() === 'LIGHTNING');
   if (existingIndex >= 0) {
     if (library[existingIndex]!.tokenValue.trim() === trimmed) {
       return;
@@ -240,13 +233,13 @@ export function syncLightningLoraLibraryEntry(filename: string): void {
     library[existingIndex] = {
       ...library[existingIndex]!,
       tokenValue: trimmed,
-      label: library[existingIndex]!.label.trim() || "Lightning",
+      label: library[existingIndex]!.label.trim() || 'Lightning',
     };
   } else {
     library.push({
-      id: "LIGHTNING",
-      label: "Lightning",
-      triggerPhrase: "",
+      id: 'LIGHTNING',
+      label: 'Lightning',
+      triggerPhrase: '',
       tokenValue: trimmed,
       strengthModel: 1,
       strengthClip: 1,
@@ -259,23 +252,19 @@ export function syncLightningLoraLibraryEntry(filename: string): void {
   });
 }
 
-const LEGACY_SETTINGS_KEYS = [
-  "comfyui-settings-v3",
-  "comfyui-settings-v2",
-  "comfyui-settings-v1",
-];
+const LEGACY_SETTINGS_KEYS = ['comfyui-settings-v3', 'comfyui-settings-v2', 'comfyui-settings-v1'];
 
 function migrateLegacySettings(
-  parsed: Partial<ComfyUiSettings & { positiveNodeId?: string; negativeNodeId?: string }>,
+  parsed: Partial<ComfyUiSettings & { positiveNodeId?: string; negativeNodeId?: string }>
 ): ComfyUiSettings {
   try {
     return {
       ...DEFAULT_COMFYUI_SETTINGS,
       useServerDefaults: parsed.useServerDefaults ?? true,
-      apiUrl: parsed.apiUrl ?? "",
+      apiUrl: parsed.apiUrl ?? '',
       positiveToken: parsed.positiveToken ?? DEFAULT_POSITIVE_TOKEN,
       negativeToken: parsed.negativeToken ?? DEFAULT_NEGATIVE_TOKEN,
-      workflowJson: parsed.workflowJson ?? "",
+      workflowJson: parsed.workflowJson ?? '',
       queueParams: parsed.queueParams ?? DEFAULT_COMFYUI_SETTINGS.queueParams,
       customTokens: parsed.customTokens ?? [],
       loraLibrary: normalizeLoraLibrary(parsed.loraLibrary),
@@ -288,7 +277,7 @@ function migrateLegacySettings(
 }
 
 export function loadComfyUiSettings(): ComfyUiSettings {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return DEFAULT_COMFYUI_SETTINGS;
   }
 
@@ -306,9 +295,10 @@ export function loadComfyUiSettings(): ComfyUiSettings {
     }
 
     for (const legacyKey of LEGACY_SETTINGS_KEYS) {
-      const legacy = readBrowserValue<
-        Partial<ComfyUiSettings & { positiveNodeId?: string; negativeNodeId?: string }>
-      >(legacyKey);
+      const legacy =
+        readBrowserValue<
+          Partial<ComfyUiSettings & { positiveNodeId?: string; negativeNodeId?: string }>
+        >(legacyKey);
       if (legacy) {
         const migrated = migrateLegacySettings(legacy);
         saveComfyUiSettings(migrated);
@@ -323,7 +313,7 @@ export function loadComfyUiSettings(): ComfyUiSettings {
 }
 
 export function saveComfyUiSettings(settings: ComfyUiSettings): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -338,7 +328,7 @@ export function saveComfyUiSettings(settings: ComfyUiSettings): void {
 }
 
 export function resetComfyUiSettings(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -353,7 +343,7 @@ export function comfyUiSettingsToRuntime(
   options?: {
     sessionActiveLoraIds?: string[];
     model?: string;
-  },
+  }
 ): ComfyUiRuntimeConfig | undefined {
   // LoRA library lives in browser settings — always merge into custom tokens so
   // server preview/queue can resolve {{LORA_LIGHTNING}} even with useServerDefaults.
@@ -373,10 +363,7 @@ export function comfyUiSettingsToRuntime(
   // normalized library itself so queue-time LoRA stacking survives the client→server hop.
   // Session sidebar picks override Settings enabled flags when set;
   // otherwise the per-model LoRA map applies when present.
-  const loraLibrary = applySessionLoraSelection(
-    settings.loraLibrary,
-    sessionActiveLoraIds,
-  );
+  const loraLibrary = applySessionLoraSelection(settings.loraLibrary, sessionActiveLoraIds);
 
   if (settings.useServerDefaults) {
     return stripEmptyComfyUiRuntime({
@@ -391,20 +378,16 @@ export function comfyUiSettingsToRuntime(
     workflowJson: settings.workflowJson,
     loraLibrary,
     positiveToken:
-      settings.positiveToken === DEFAULT_POSITIVE_TOKEN
-        ? undefined
-        : settings.positiveToken,
+      settings.positiveToken === DEFAULT_POSITIVE_TOKEN ? undefined : settings.positiveToken,
     negativeToken:
-      settings.negativeToken === DEFAULT_NEGATIVE_TOKEN
-        ? undefined
-        : settings.negativeToken,
+      settings.negativeToken === DEFAULT_NEGATIVE_TOKEN ? undefined : settings.negativeToken,
     queueParams: settings.queueParams,
     customTokens,
   });
 }
 
 export function placeholderTokensFromSettings(
-  settings: ComfyUiSettings,
+  settings: ComfyUiSettings
 ): WorkflowPlaceholderTokens {
   return {
     positive: settings.positiveToken?.trim() || DEFAULT_POSITIVE_TOKEN,

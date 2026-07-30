@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { COMFYUI_GALLERY_UPDATED_EVENT } from "@/lib/comfyui-gallery";
-import { initBrowserStorage } from "@/lib/browser-storage";
-import { hasPendingGalleryPollMeta } from "@/lib/gallery-pending-polls";
+import { useEffect } from 'react';
+import { COMFYUI_GALLERY_UPDATED_EVENT } from '@/lib/comfyui-gallery';
+import { initBrowserStorage } from '@/lib/browser-storage';
+import { hasPendingGalleryPollMeta } from '@/lib/gallery-pending-polls';
 
 function scheduleIdle(callback: () => void, timeoutMs: number): () => void {
-  if (typeof window.requestIdleCallback === "function") {
+  if (typeof window.requestIdleCallback === 'function') {
     const id = window.requestIdleCallback(callback, { timeout: timeoutMs });
     return () => window.cancelIdleCallback(id);
   }
@@ -24,19 +24,17 @@ export default function ComfyGalleryBackgroundPoller() {
       if (cancelled) {
         return;
       }
-      void import("@/lib/gallery-db-store").then(({ warmGalleryStore }) =>
+      void import('@/lib/gallery-db-store').then(({ warmGalleryStore }) =>
         warmGalleryStore().then(() => {
           if (cancelled) {
             return;
           }
-          void import("@/lib/comfyui-gallery-poller").then(
-            ({ resumePendingGalleryPolls }) => {
-              if (!cancelled) {
-                resumePendingGalleryPolls();
-              }
-            },
-          );
-        }),
+          void import('@/lib/comfyui-gallery-poller').then(({ resumePendingGalleryPolls }) => {
+            if (!cancelled) {
+              resumePendingGalleryPolls();
+            }
+          });
+        })
       );
     };
 
@@ -53,19 +51,19 @@ export default function ComfyGalleryBackgroundPoller() {
     };
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
+      if (document.visibilityState === 'visible') {
         resumeIfNeeded();
       }
     };
 
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGalleryUpdated);
-    document.addEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       cancelled = true;
       cancelIdle();
       window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGalleryUpdated);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
 

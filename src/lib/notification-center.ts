@@ -1,4 +1,4 @@
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
 export type AppNotification = {
   id: string;
@@ -7,15 +7,15 @@ export type AppNotification = {
   body?: string;
   href?: string;
   read: boolean;
-  kind: "job" | "webhook" | "system";
+  kind: 'job' | 'webhook' | 'system';
 };
 
-const KEY = "comfy-notification-center-v1";
+const KEY = 'comfy-notification-center-v1';
 const MAX = 50;
-export const NOTIFICATIONS_UPDATED = "notifications-updated";
+export const NOTIFICATIONS_UPDATED = 'notifications-updated';
 
 export function loadNotifications(): AppNotification[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   return readBrowserValue<AppNotification[]>(KEY) ?? [];
@@ -26,7 +26,7 @@ function saveNotifications(entries: AppNotification[]): void {
   window.dispatchEvent(new Event(NOTIFICATIONS_UPDATED));
 }
 
-export function pushNotification(input: Omit<AppNotification, "id" | "at" | "read">): void {
+export function pushNotification(input: Omit<AppNotification, 'id' | 'at' | 'read'>): void {
   const entry: AppNotification = {
     ...input,
     id: crypto.randomUUID(),
@@ -34,10 +34,10 @@ export function pushNotification(input: Omit<AppNotification, "id" | "at" | "rea
     read: false,
   };
   saveNotifications([entry, ...loadNotifications()]);
-  void import("./app-toast").then(({ pushAppToast }) => {
+  void import('./app-toast').then(({ pushAppToast }) => {
     pushAppToast({
       text: input.body ? `${input.title} — ${input.body}` : input.title,
-      tone: input.kind === "job" ? "info" : input.kind === "webhook" ? "success" : "neutral",
+      tone: input.kind === 'job' ? 'info' : input.kind === 'webhook' ? 'success' : 'neutral',
       href: input.href,
     });
   });
@@ -45,16 +45,14 @@ export function pushNotification(input: Omit<AppNotification, "id" | "at" | "rea
 
 export function markNotificationRead(id: string): void {
   saveNotifications(
-    loadNotifications().map((entry) =>
-      entry.id === id ? { ...entry, read: true } : entry,
-    ),
+    loadNotifications().map(entry => (entry.id === id ? { ...entry, read: true } : entry))
   );
 }
 
 export function markAllNotificationsRead(): void {
-  saveNotifications(loadNotifications().map((entry) => ({ ...entry, read: true })));
+  saveNotifications(loadNotifications().map(entry => ({ ...entry, read: true })));
 }
 
 export function unreadNotificationCount(): number {
-  return loadNotifications().filter((entry) => !entry.read).length;
+  return loadNotifications().filter(entry => !entry.read).length;
 }

@@ -1,16 +1,13 @@
-import { chatCompletion, isLlmEnabled } from "./llm-client";
-import {
-  buildModelClarityAddendum,
-  type ComfyImageModel,
-} from "./comfy-models";
-import { getDetailLimits, type DetailLevel } from "./detail-level";
-import { promptHasSceneDensity } from "./prompt-shape";
-import { stripPromptArtifacts } from "./prompt-cleanup";
+import { chatCompletion, isLlmEnabled } from './llm-client';
+import { buildModelClarityAddendum, type ComfyImageModel } from './comfy-models';
+import { getDetailLimits, type DetailLevel } from './detail-level';
+import { promptHasSceneDensity } from './prompt-shape';
+import { stripPromptArtifacts } from './prompt-cleanup';
 
 export function needsSparsePromptExpand(
   text: string,
   detail: DetailLevel,
-  model: ComfyImageModel,
+  model: ComfyImageModel
 ): boolean {
   const { minChars } = getDetailLimits(detail, model);
   if (!minChars) {
@@ -42,7 +39,7 @@ export async function expandSparsePromptWithLlm(input: {
 
   const { minChars, maxChars, maxSentences, maxTokens } = getDetailLimits(
     input.detail,
-    input.model,
+    input.model
   );
   if (!minChars) {
     return null;
@@ -56,7 +53,7 @@ Rules:
 - Target at least ${minChars} characters and at most ${maxChars}. Prefer ${maxSentences} sentences or fewer.
 - Output ONLY the rewritten prompt text.`;
 
-  const user = `Hints: ${input.hints.trim() || "(none)"}
+  const user = `Hints: ${input.hints.trim() || '(none)'}
 
 Sparse draft:
 ${input.draft.trim()}
@@ -66,8 +63,8 @@ Rewrite a denser, scene-specific prompt.`;
   try {
     const content = await chatCompletion({
       messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
+        { role: 'system', content: system },
+        { role: 'user', content: user },
       ],
       maxTokens: Math.min(maxTokens, 512),
       temperature: 0.55,

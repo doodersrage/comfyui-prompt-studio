@@ -1,39 +1,36 @@
-import type { CustomWorkflowToken } from "./comfyui-config";
+import type { CustomWorkflowToken } from './comfyui-config';
 import {
   DEFAULT_CHECKPOINT_TOKEN,
   DEFAULT_UNET_TOKEN,
   DEFAULT_VAE_TOKEN,
-} from "./model-checkpoint-map";
-import { LIGHTNING_LORA_TOKEN } from "./workflow-lora-patch";
-import {
-  loadComfyWorkflowPresets,
-  type ComfyWorkflowPreset,
-} from "./comfyui-workflow-presets";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+} from './model-checkpoint-map';
+import { LIGHTNING_LORA_TOKEN } from './workflow-lora-patch';
+import { loadComfyWorkflowPresets, type ComfyWorkflowPreset } from './comfyui-workflow-presets';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-export const COMFY_WORKFLOW_FILES_KEY = "comfyui-workflow-files-v1";
+export const COMFY_WORKFLOW_FILES_KEY = 'comfyui-workflow-files-v1';
 
 /** Common per-workflow token slots shown in the library editor. */
 export const WORKFLOW_TOKEN_FIELDS = [
   {
     token: DEFAULT_CHECKPOINT_TOKEN,
-    label: "Checkpoint",
-    hint: "Full checkpoint for CheckpointLoader (e.g. Rapid AIO).",
+    label: 'Checkpoint',
+    hint: 'Full checkpoint for CheckpointLoader (e.g. Rapid AIO).',
   },
   {
     token: DEFAULT_UNET_TOKEN,
-    label: "UNET",
-    hint: "diffusion_models UNET for UNETLoader (e.g. qwen_image_2512_bf16.safetensors).",
+    label: 'UNET',
+    hint: 'diffusion_models UNET for UNETLoader (e.g. qwen_image_2512_bf16.safetensors).',
   },
   {
     token: DEFAULT_VAE_TOKEN,
-    label: "VAE",
-    hint: "Optional VAE filename override for this workflow.",
+    label: 'VAE',
+    hint: 'Optional VAE filename override for this workflow.',
   },
   {
     token: LIGHTNING_LORA_TOKEN,
-    label: "Lightning LoRA",
-    hint: "LightX2V / Lightning LoRA .safetensors for {{LORA_LIGHTNING}}.",
+    label: 'Lightning LoRA',
+    hint: 'LightX2V / Lightning LoRA .safetensors for {{LORA_LIGHTNING}}.',
   },
 ] as const;
 
@@ -50,7 +47,7 @@ export type ComfyWorkflowFile = {
   /** Model id used for the last optimize enrich pass. */
   lastOptimizedModel?: string;
   /** Quality profile used for the last optimize enrich pass. */
-  lastOptimizedProfile?: import("./queue-quality-profile").QueueQualityProfile;
+  lastOptimizedProfile?: import('./queue-quality-profile').QueueQualityProfile;
   /**
    * Per-workflow token overrides ({{CHECKPOINT}}, {{LORA_LIGHTNING}}, …).
    * Beat Settings custom tokens for the same key; loader tokens also beat the
@@ -60,15 +57,15 @@ export type ComfyWorkflowFile = {
 };
 
 export function normalizeWorkflowCustomTokens(
-  tokens?: CustomWorkflowToken[] | null,
+  tokens?: CustomWorkflowToken[] | null
 ): CustomWorkflowToken[] {
   if (!tokens?.length) {
     return [];
   }
   const byToken = new Map<string, CustomWorkflowToken>();
   for (const entry of tokens) {
-    const token = entry.token?.trim() ?? "";
-    const value = entry.value?.trim() ?? "";
+    const token = entry.token?.trim() ?? '';
+    const value = entry.value?.trim() ?? '';
     if (!token || !value) {
       continue;
     }
@@ -92,12 +89,10 @@ export function mergeCustomWorkflowTokens(
 
 export function getWorkflowTokenValue(
   tokens: CustomWorkflowToken[] | undefined,
-  token: string,
+  token: string
 ): string {
-  const match = normalizeWorkflowCustomTokens(tokens).find(
-    (entry) => entry.token === token.trim(),
-  );
-  return match?.value ?? "";
+  const match = normalizeWorkflowCustomTokens(tokens).find(entry => entry.token === token.trim());
+  return match?.value ?? '';
 }
 
 /**
@@ -105,7 +100,7 @@ export function getWorkflowTokenValue(
  * used when the queued file is missing the override but another mapped file has it.
  */
 export function collectLightningLoraTokenFromWorkflowLibrary(
-  model?: string,
+  model?: string
 ): CustomWorkflowToken | undefined {
   const files = loadComfyWorkflowFiles();
   const preferred: string[] = [];
@@ -116,7 +111,7 @@ export function collectLightningLoraTokenFromWorkflowLibrary(
     if (!value) {
       continue;
     }
-    const modelId = model?.trim().toLowerCase() ?? "";
+    const modelId = model?.trim().toLowerCase() ?? '';
     const modelWantsEdit = /edit/.test(modelId);
     const loraIsEdit = /edit/.test(value.toLowerCase());
     if (!modelId || modelWantsEdit === loraIsEdit) {
@@ -136,15 +131,13 @@ export function collectLightningLoraTokenFromWorkflowLibrary(
 export function setWorkflowTokenValue(
   tokens: CustomWorkflowToken[] | undefined,
   token: string,
-  value: string,
+  value: string
 ): CustomWorkflowToken[] {
   const key = token.trim();
   if (!key) {
     return normalizeWorkflowCustomTokens(tokens);
   }
-  const next = normalizeWorkflowCustomTokens(tokens).filter(
-    (entry) => entry.token !== key,
-  );
+  const next = normalizeWorkflowCustomTokens(tokens).filter(entry => entry.token !== key);
   const trimmed = value.trim();
   if (trimmed) {
     next.push({ token: key, value: trimmed });
@@ -163,13 +156,11 @@ function migratePresetsToFilesIfEmpty(): void {
     return;
   }
 
-  saveComfyWorkflowFilesRaw(
-    presets.map((preset) => presetToWorkflowFile(preset)),
-  );
+  saveComfyWorkflowFilesRaw(presets.map(preset => presetToWorkflowFile(preset)));
 }
 
 function loadComfyWorkflowFilesRaw(): ComfyWorkflowFile[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
 
@@ -181,7 +172,7 @@ function loadComfyWorkflowFilesRaw(): ComfyWorkflowFile[] {
 }
 
 function saveComfyWorkflowFilesRaw(files: ComfyWorkflowFile[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -200,7 +191,7 @@ function presetToWorkflowFile(preset: ComfyWorkflowPreset): ComfyWorkflowFile {
 
 export function loadComfyWorkflowFiles(): ComfyWorkflowFile[] {
   migratePresetsToFilesIfEmpty();
-  return loadComfyWorkflowFilesRaw().map((file) => ({
+  return loadComfyWorkflowFilesRaw().map(file => ({
     ...file,
     customTokens: normalizeWorkflowCustomTokens(file.customTokens),
   }));
@@ -208,22 +199,22 @@ export function loadComfyWorkflowFiles(): ComfyWorkflowFile[] {
 
 export function saveComfyWorkflowFiles(files: ComfyWorkflowFile[]): void {
   saveComfyWorkflowFilesRaw(
-    files.map((file) => ({
+    files.map(file => ({
       ...file,
       customTokens: normalizeWorkflowCustomTokens(file.customTokens),
-    })),
+    }))
   );
 }
 
 export function findComfyWorkflowFile(id: string): ComfyWorkflowFile | undefined {
-  return loadComfyWorkflowFiles().find((entry) => entry.id === id);
+  return loadComfyWorkflowFiles().find(entry => entry.id === id);
 }
 
 export function upsertComfyWorkflowFile(
-  file: Omit<ComfyWorkflowFile, "id" | "createdAt"> & {
+  file: Omit<ComfyWorkflowFile, 'id' | 'createdAt'> & {
     id?: string;
     createdAt?: number;
-  },
+  }
 ): ComfyWorkflowFile {
   const next: ComfyWorkflowFile = {
     id: file.id ?? crypto.randomUUID(),
@@ -239,7 +230,7 @@ export function upsertComfyWorkflowFile(
   };
 
   const files = loadComfyWorkflowFiles();
-  const index = files.findIndex((entry) => entry.id === next.id);
+  const index = files.findIndex(entry => entry.id === next.id);
   if (index >= 0) {
     files[index] = next;
   } else {
@@ -251,29 +242,27 @@ export function upsertComfyWorkflowFile(
 }
 
 export function deleteComfyWorkflowFile(id: string): void {
-  saveComfyWorkflowFiles(
-    loadComfyWorkflowFiles().filter((entry) => entry.id !== id),
-  );
+  saveComfyWorkflowFiles(loadComfyWorkflowFiles().filter(entry => entry.id !== id));
 }
 
 export function workflowFileNameFromPath(filename: string): string {
-  return filename.replace(/\.api\.json$/i, "").replace(/\.json$/i, "") || filename;
+  return filename.replace(/\.api\.json$/i, '').replace(/\.json$/i, '') || filename;
 }
 
 /** User-facing label — prefers the saved display name over the import filename. */
 export function workflowFileDisplayName(
-  file: Pick<ComfyWorkflowFile, "name" | "filename">,
+  file: Pick<ComfyWorkflowFile, 'name' | 'filename'>
 ): string {
   const name = file.name.trim();
   if (name) {
     return name;
   }
-  return file.filename?.trim() || "Workflow";
+  return file.filename?.trim() || 'Workflow';
 }
 
 /** Original import filename when it differs from the display name. */
 export function workflowFileSourceFilename(
-  file: Pick<ComfyWorkflowFile, "name" | "filename">,
+  file: Pick<ComfyWorkflowFile, 'name' | 'filename'>
 ): string | undefined {
   const filename = file.filename?.trim();
   const name = file.name.trim();

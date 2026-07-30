@@ -1,19 +1,17 @@
-import type { PromptHistoryEntry } from "@/hooks/usePromptHistory";
+import type { PromptHistoryEntry } from '@/hooks/usePromptHistory';
 
 export type IterationTreeNode = {
   entry: PromptHistoryEntry;
   children: IterationTreeNode[];
 };
 
-export function buildPromptIterationForest(
-  entries: PromptHistoryEntry[],
-): IterationTreeNode[] {
-  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+export function buildPromptIterationForest(entries: PromptHistoryEntry[]): IterationTreeNode[] {
+  const byId = new Map(entries.map(entry => [entry.id, entry]));
   const childrenByParent = new Map<string, PromptHistoryEntry[]>();
 
   for (const entry of entries) {
     const parentId =
-      typeof entry.metadata?.parentHistoryId === "string"
+      typeof entry.metadata?.parentHistoryId === 'string'
         ? entry.metadata.parentHistoryId
         : undefined;
     if (!parentId || !byId.has(parentId)) {
@@ -32,9 +30,9 @@ export function buildPromptIterationForest(
   }
 
   const roots = entries
-    .filter((entry) => {
+    .filter(entry => {
       const parentId =
-        typeof entry.metadata?.parentHistoryId === "string"
+        typeof entry.metadata?.parentHistoryId === 'string'
           ? entry.metadata.parentHistoryId
           : undefined;
       return !parentId || !byId.has(parentId);

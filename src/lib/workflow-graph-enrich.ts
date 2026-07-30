@@ -1,5 +1,5 @@
-import type { WorkflowPlaceholderTokens } from "./comfyui-config";
-import { getComfyModelDefinition, type ComfyImageModel } from "./comfy-models";
+import type { WorkflowPlaceholderTokens } from './comfyui-config';
+import { getComfyModelDefinition, type ComfyImageModel } from './comfy-models';
 import {
   normalizeQueueQualityProfile,
   profileUsesNeuralUpscalePolish,
@@ -30,9 +30,9 @@ import {
   upscaleMethodForProfile,
   upscaleScaleForProfile,
   type QueueQualityProfile,
-} from "./queue-quality-profile";
-import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
+} from './queue-quality-profile';
+import { isFluxFineTuneCheckpointModel } from './model-checkpoint-map';
+import { isQwenRapidAioModel } from './model-denoise-defaults';
 import {
   isModelSamplingFluxNode,
   isModelSamplingPatchNode,
@@ -40,15 +40,15 @@ import {
   modelUsesFluxSamplingPatch,
   modelUsesShiftSamplingPatch,
   MODEL_SAMPLING_FLUX_NODE_TYPE,
-} from "./model-sampling-patch";
-import { IMAGE_SCALE_BY_NODE_TYPE } from "./workflow-direct-patch";
-import { isUpscaleModelInstalled, pickUpscaleModelFromInventory } from "./model-upscale-map";
-import { pickSdxlRefinerFromInventory } from "./model-checkpoint-map";
-import type { WorkflowQueueOptimizeChange } from "./workflow-queue-optimizer";
+} from './model-sampling-patch';
+import { IMAGE_SCALE_BY_NODE_TYPE } from './workflow-direct-patch';
+import { isUpscaleModelInstalled, pickUpscaleModelFromInventory } from './model-upscale-map';
+import { pickSdxlRefinerFromInventory } from './model-checkpoint-map';
+import type { WorkflowQueueOptimizeChange } from './workflow-queue-optimizer';
 import {
   isPromptStudioOutputUpscaleNode,
   PROMPT_STUDIO_META_PREFIX,
-} from "./workflow-enrich-markers";
+} from './workflow-enrich-markers';
 
 type WorkflowNode = {
   class_type?: string;
@@ -57,35 +57,35 @@ type WorkflowNode = {
 };
 
 const LOADER_TYPES = new Set([
-  "CheckpointLoaderSimple",
-  "CheckpointLoader",
-  "UNETLoader",
-  "UnetLoaderGGUF",
+  'CheckpointLoaderSimple',
+  'CheckpointLoader',
+  'UNETLoader',
+  'UnetLoaderGGUF',
 ]);
 
 const MODEL_CHAIN_TYPES = new Set([
-  "LoraLoader",
-  "LoraLoaderModelOnly",
-  "Power Lora Loader (rgthree)",
-  "ControlNetApply",
-  "ControlNetApplyAdvanced",
-  "DiffControlNetApply",
+  'LoraLoader',
+  'LoraLoaderModelOnly',
+  'Power Lora Loader (rgthree)',
+  'ControlNetApply',
+  'ControlNetApplyAdvanced',
+  'DiffControlNetApply',
 ]);
 
 const UPSCALE_NODE_TYPES = new Set([
-  "ImageScale",
+  'ImageScale',
   IMAGE_SCALE_BY_NODE_TYPE,
-  "UpscaleModel",
-  "ImageUpscaleWithModel",
-  "Upscale",
+  'UpscaleModel',
+  'ImageUpscaleWithModel',
+  'Upscale',
 ]);
 
-const VAE_DECODE_TYPES = new Set(["VAEDecode", "PreviewImage"]);
+const VAE_DECODE_TYPES = new Set(['VAEDecode', 'PreviewImage']);
 
 function isWorkflowSaveImageNode(node: WorkflowNode | undefined): boolean {
   return (
     Boolean(node?.inputs) &&
-    (node?.class_type === "SaveImage" || node?.class_type === "SaveImageAdvanced")
+    (node?.class_type === 'SaveImage' || node?.class_type === 'SaveImageAdvanced')
   );
 }
 
@@ -106,32 +106,32 @@ function nextWorkflowNodeId(workflow: Record<string, WorkflowNode>): string {
 }
 
 function getLinkedNodeId(value: unknown): string | null {
-  if (Array.isArray(value) && typeof value[0] === "string") {
+  if (Array.isArray(value) && typeof value[0] === 'string') {
     return value[0];
   }
   return null;
 }
 
 function isLoaderNode(classType: string | undefined): boolean {
-  return LOADER_TYPES.has(classType ?? "");
+  return LOADER_TYPES.has(classType ?? '');
 }
 
 function isSamplerNode(classType: string | undefined, inputs: Record<string, unknown>): boolean {
-  const classLower = (classType ?? "").toLowerCase();
+  const classLower = (classType ?? '').toLowerCase();
   if (
-    classLower.includes("ksampler") ||
-    classLower.includes("samplercustom") ||
-    classLower.includes("guider") ||
-    classLower.includes("basicscheduler")
+    classLower.includes('ksampler') ||
+    classLower.includes('samplercustom') ||
+    classLower.includes('guider') ||
+    classLower.includes('basicscheduler')
   ) {
     return true;
   }
-  return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
+  return 'seed' in inputs && ('steps' in inputs || 'cfg' in inputs);
 }
 
 function resolveModelChainLoaderId(
   workflow: Record<string, WorkflowNode>,
-  startNodeId: string,
+  startNodeId: string
 ): string | null {
   let current: string | null = startNodeId;
   const visited = new Set<string>();
@@ -143,20 +143,16 @@ function resolveModelChainLoaderId(
       return null;
     }
 
-    const classType = node.class_type ?? "";
+    const classType = node.class_type ?? '';
     if (isLoaderNode(classType)) {
       return current;
     }
-    if (
-      isModelSamplingPatchNode(classType) ||
-      isModelSamplingFluxNode(classType)
-    ) {
+    if (isModelSamplingPatchNode(classType) || isModelSamplingFluxNode(classType)) {
       return null;
     }
 
     const classLower = classType.toLowerCase();
-    const followsModelChain =
-      MODEL_CHAIN_TYPES.has(classType) || classLower.includes("lora");
+    const followsModelChain = MODEL_CHAIN_TYPES.has(classType) || classLower.includes('lora');
     if (!followsModelChain) {
       return null;
     }
@@ -171,7 +167,7 @@ function shouldSkipUpscaleEnrich(
   workflow: Record<string, WorkflowNode>,
   qualityProfile?: QueueQualityProfile,
   model?: string,
-  hasInputImage?: boolean,
+  hasInputImage?: boolean
 ): boolean {
   if (!profileUsesUpscaleEnrich(qualityProfile)) {
     return true;
@@ -182,7 +178,7 @@ function shouldSkipUpscaleEnrich(
     hasInputImage,
   });
   for (const node of Object.values(workflow)) {
-    const classType = node.class_type ?? "";
+    const classType = node.class_type ?? '';
     if (!UPSCALE_NODE_TYPES.has(classType)) {
       continue;
     }
@@ -190,10 +186,7 @@ function shouldSkipUpscaleEnrich(
       return true;
     }
     // Community neural upscalers have no scale_by — still skip stacking another pass.
-    if (
-      classType === "ImageUpscaleWithModel" ||
-      classType === "UpscaleModel"
-    ) {
+    if (classType === 'ImageUpscaleWithModel' || classType === 'UpscaleModel') {
       return true;
     }
     const scaleBy = Number(node.inputs?.scale_by);
@@ -213,10 +206,10 @@ function resolveSamplingPatchClassType(model: string | undefined): string | null
   }
   if (modelUsesShiftSamplingPatch(model)) {
     const category = getComfyModelDefinition(model as ComfyImageModel).category;
-    if (category === "sd3") {
-      return "ModelSamplingSD3";
+    if (category === 'sd3') {
+      return 'ModelSamplingSD3';
     }
-    return "ModelSamplingAuraFlow";
+    return 'ModelSamplingAuraFlow';
   }
   return null;
 }
@@ -251,8 +244,8 @@ function enrichSamplingPatchNodes(input: {
     const upstream = input.workflow[modelLink];
     if (
       upstream &&
-      (isModelSamplingPatchNode(upstream.class_type ?? "") ||
-        isModelSamplingFluxNode(upstream.class_type ?? ""))
+      (isModelSamplingPatchNode(upstream.class_type ?? '') ||
+        isModelSamplingFluxNode(upstream.class_type ?? ''))
     ) {
       continue;
     }
@@ -277,40 +270,32 @@ function enrichSamplingPatchNodes(input: {
     samplerNode.inputs.model = [patchNodeId, 0];
 
     changes.push({
-      kind: "binding",
-      severity: "info",
-      message: `Inserted ${patchClassType} before KSampler node ${samplerId} for ${input.model ?? "model"} quality tuning.`,
+      kind: 'binding',
+      severity: 'info',
+      message: `Inserted ${patchClassType} before KSampler node ${samplerId} for ${input.model ?? 'model'} quality tuning.`,
     });
   }
 
   return changes;
 }
 
-const CHECKPOINT_LOADER_TYPES = new Set([
-  "CheckpointLoaderSimple",
-  "CheckpointLoader",
-]);
+const CHECKPOINT_LOADER_TYPES = new Set(['CheckpointLoaderSimple', 'CheckpointLoader']);
 
 function countSamplerNodes(workflow: Record<string, WorkflowNode>): number {
   return Object.values(workflow).filter(
-    (node) => node?.inputs && isSamplerNode(node.class_type ?? "", node.inputs),
+    node => node?.inputs && isSamplerNode(node.class_type ?? '', node.inputs)
   ).length;
 }
 
 /** Largest Prompt Studio LatentUpscale(By) factor already inserted (refiner / detail). */
-function promptStudioPriorLatentScale(
-  workflow: Record<string, WorkflowNode>,
-): number {
+function promptStudioPriorLatentScale(workflow: Record<string, WorkflowNode>): number {
   let maxScale = 1;
   for (const node of Object.values(workflow)) {
-    if (
-      node.class_type !== "LatentUpscale" &&
-      node.class_type !== "LatentUpscaleBy"
-    ) {
+    if (node.class_type !== 'LatentUpscale' && node.class_type !== 'LatentUpscaleBy') {
       continue;
     }
-    const title = node._meta?.title?.toLowerCase() ?? "";
-    if (!title.includes("prompt studio")) {
+    const title = node._meta?.title?.toLowerCase() ?? '';
+    if (!title.includes('prompt studio')) {
       continue;
     }
     if (!/latent detail|sdxl latent|refiner/i.test(title)) {
@@ -326,13 +311,13 @@ function promptStudioPriorLatentScale(
 
 function workflowHasRefinerPass(workflow: Record<string, WorkflowNode>): boolean {
   for (const node of Object.values(workflow)) {
-    const classType = node.class_type ?? "";
-    const title = node._meta?.title?.toLowerCase() ?? "";
+    const classType = node.class_type ?? '';
+    const title = node._meta?.title?.toLowerCase() ?? '';
     if (/refiner/i.test(title) || /latent detail/i.test(title)) {
       return true;
     }
     if (CHECKPOINT_LOADER_TYPES.has(classType)) {
-      const ckpt = String(node.inputs?.ckpt_name ?? "");
+      const ckpt = String(node.inputs?.ckpt_name ?? '');
       if (/refiner/i.test(ckpt)) {
         return true;
       }
@@ -341,7 +326,7 @@ function workflowHasRefinerPass(workflow: Record<string, WorkflowNode>): boolean
 
   let checkpointLoaders = 0;
   for (const node of Object.values(workflow)) {
-    if (CHECKPOINT_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (CHECKPOINT_LOADER_TYPES.has(node.class_type ?? '')) {
       checkpointLoaders += 1;
     }
   }
@@ -354,12 +339,12 @@ type SamplerDecodeChain = {
 };
 
 function findPrimarySamplerDecodeChains(
-  workflow: Record<string, WorkflowNode>,
+  workflow: Record<string, WorkflowNode>
 ): SamplerDecodeChain[] {
   const chains: SamplerDecodeChain[] = [];
 
   for (const [vaeDecodeId, decodeNode] of Object.entries(workflow)) {
-    if (decodeNode.class_type !== "VAEDecode" || !decodeNode.inputs) {
+    if (decodeNode.class_type !== 'VAEDecode' || !decodeNode.inputs) {
       continue;
     }
 
@@ -369,7 +354,7 @@ function findPrimarySamplerDecodeChains(
     }
 
     const sampler = workflow[samplerId];
-    if (!sampler?.inputs || !isSamplerNode(sampler.class_type ?? "", sampler.inputs)) {
+    if (!sampler?.inputs || !isSamplerNode(sampler.class_type ?? '', sampler.inputs)) {
       continue;
     }
 
@@ -379,7 +364,7 @@ function findPrimarySamplerDecodeChains(
     }
 
     // Prefer KSampler-style nodes with denoise (skip SamplerCustom graphs).
-    if (!("denoise" in sampler.inputs)) {
+    if (!('denoise' in sampler.inputs)) {
       continue;
     }
 
@@ -417,18 +402,18 @@ function enrichLatentDetailPassNodes(input: {
 
     const latentUpscaleId = nextWorkflowNodeId(input.workflow);
     input.workflow[latentUpscaleId] = {
-      class_type: "LatentUpscaleBy",
+      class_type: 'LatentUpscaleBy',
       inputs: {
         samples: [chain.samplerId, 0],
-        upscale_method: "bislerp",
+        upscale_method: 'bislerp',
         scale_by: scaleBy,
       },
-      _meta: { title: "Prompt Studio — latent detail upscale" },
+      _meta: { title: 'Prompt Studio — latent detail upscale' },
     };
 
     const detailSamplerId = nextWorkflowNodeId(input.workflow);
     input.workflow[detailSamplerId] = {
-      class_type: baseSampler.class_type ?? "KSampler",
+      class_type: baseSampler.class_type ?? 'KSampler',
       inputs: {
         ...baseSampler.inputs,
         seed: baseSampler.inputs.seed ?? input.tokens.seed,
@@ -439,7 +424,7 @@ function enrichLatentDetailPassNodes(input: {
         denoise,
         latent_image: [latentUpscaleId, 0],
       },
-      _meta: { title: "Prompt Studio — latent detail pass" },
+      _meta: { title: 'Prompt Studio — latent detail pass' },
     };
 
     const decodeNode = input.workflow[chain.vaeDecodeId];
@@ -448,8 +433,8 @@ function enrichLatentDetailPassNodes(input: {
     }
 
     changes.push({
-      kind: "binding",
-      severity: "info",
+      kind: 'binding',
+      severity: 'info',
       message: `Inserted latent detail pass (${scaleBy}× bislerp → denoise ${denoise}) before VAEDecode node ${chain.vaeDecodeId} for ${input.qualityProfile} quality.`,
     });
   }
@@ -465,7 +450,7 @@ type SdxlVaeDecodeChain = {
 
 function resolveCheckpointLoaderIdThroughModelChain(
   workflow: Record<string, WorkflowNode>,
-  startNodeId: string,
+  startNodeId: string
 ): string | null {
   let current: string | null = startNodeId;
   const visited = new Set<string>();
@@ -477,7 +462,7 @@ function resolveCheckpointLoaderIdThroughModelChain(
       return null;
     }
 
-    const classType = node.class_type ?? "";
+    const classType = node.class_type ?? '';
     if (CHECKPOINT_LOADER_TYPES.has(classType)) {
       return current;
     }
@@ -485,7 +470,7 @@ function resolveCheckpointLoaderIdThroughModelChain(
     const classLower = classType.toLowerCase();
     const followsModelChain =
       MODEL_CHAIN_TYPES.has(classType) ||
-      classLower.includes("lora") ||
+      classLower.includes('lora') ||
       isModelSamplingPatchNode(classType) ||
       isModelSamplingFluxNode(classType);
     if (!followsModelChain) {
@@ -498,13 +483,11 @@ function resolveCheckpointLoaderIdThroughModelChain(
   return null;
 }
 
-function findSdxlVaeDecodeChains(
-  workflow: Record<string, WorkflowNode>,
-): SdxlVaeDecodeChain[] {
+function findSdxlVaeDecodeChains(workflow: Record<string, WorkflowNode>): SdxlVaeDecodeChain[] {
   const chains: SdxlVaeDecodeChain[] = [];
 
   for (const [vaeDecodeId, decodeNode] of Object.entries(workflow)) {
-    if (decodeNode.class_type !== "VAEDecode" || !decodeNode.inputs) {
+    if (decodeNode.class_type !== 'VAEDecode' || !decodeNode.inputs) {
       continue;
     }
 
@@ -514,7 +497,7 @@ function findSdxlVaeDecodeChains(
     }
 
     const sampler = workflow[samplerId];
-    if (!sampler?.inputs || !isSamplerNode(sampler.class_type ?? "", sampler.inputs)) {
+    if (!sampler?.inputs || !isSamplerNode(sampler.class_type ?? '', sampler.inputs)) {
       continue;
     }
 
@@ -556,7 +539,7 @@ function enrichSdxlRefinerNodes(input: {
   }
 
   const def = getComfyModelDefinition(input.model as ComfyImageModel);
-  if (def.category !== "sdxl" || input.model.toLowerCase().includes("refiner")) {
+  if (def.category !== 'sdxl' || input.model.toLowerCase().includes('refiner')) {
     return [];
   }
 
@@ -577,10 +560,10 @@ function enrichSdxlRefinerNodes(input: {
   if (!refinerCkpt) {
     return [
       {
-        kind: "audit",
-        severity: "warn",
+        kind: 'audit',
+        severity: 'warn',
         message:
-          "SDXL Final/Max refiner skipped — map a refiner checkpoint in Settings (e.g. sd_xl_refiner_1.0.safetensors).",
+          'SDXL Final/Max refiner skipped — map a refiner checkpoint in Settings (e.g. sd_xl_refiner_1.0.safetensors).',
       },
     ];
   }
@@ -592,8 +575,8 @@ function enrichSdxlRefinerNodes(input: {
   ) {
     return [
       {
-        kind: "audit",
-        severity: "warn",
+        kind: 'audit',
+        severity: 'warn',
         message: `SDXL Final/Max refiner skipped — “${refinerCkpt}” not found in ComfyUI checkpoints.`,
       },
     ];
@@ -613,49 +596,49 @@ function enrichSdxlRefinerNodes(input: {
 
     const refinerLoaderId = nextWorkflowNodeId(input.workflow);
     input.workflow[refinerLoaderId] = {
-      class_type: "CheckpointLoaderSimple",
+      class_type: 'CheckpointLoaderSimple',
       inputs: { ckpt_name: refinerCkpt },
-      _meta: { title: "Prompt Studio — SDXL refiner" },
+      _meta: { title: 'Prompt Studio — SDXL refiner' },
     };
 
     const refinerPositiveId = nextWorkflowNodeId(input.workflow);
     input.workflow[refinerPositiveId] = {
-      class_type: "CLIPTextEncode",
+      class_type: 'CLIPTextEncode',
       inputs: {
         text: input.tokens.positive,
         clip: [refinerLoaderId, 1],
       },
-      _meta: { title: "Prompt Studio — refiner positive" },
+      _meta: { title: 'Prompt Studio — refiner positive' },
     };
 
     const refinerNegativeId = nextWorkflowNodeId(input.workflow);
     input.workflow[refinerNegativeId] = {
-      class_type: "CLIPTextEncode",
+      class_type: 'CLIPTextEncode',
       inputs: {
         text: input.tokens.negative,
         clip: [refinerLoaderId, 1],
       },
-      _meta: { title: "Prompt Studio — refiner negative" },
+      _meta: { title: 'Prompt Studio — refiner negative' },
     };
 
     const latentUpscaleId = nextWorkflowNodeId(input.workflow);
     input.workflow[latentUpscaleId] = {
-      class_type: "LatentUpscaleBy",
+      class_type: 'LatentUpscaleBy',
       inputs: {
         samples: [chain.samplerId, 0],
-        upscale_method: "bislerp",
+        upscale_method: 'bislerp',
         scale_by: sdxlRefinerLatentScaleForProfile(input.qualityProfile),
       },
-      _meta: { title: "Prompt Studio — SDXL latent upscale" },
+      _meta: { title: 'Prompt Studio — SDXL latent upscale' },
     };
 
     const refinerSamplerId = nextWorkflowNodeId(input.workflow);
     input.workflow[refinerSamplerId] = {
-      class_type: "KSampler",
+      class_type: 'KSampler',
       inputs: {
         seed: baseSampler.inputs.seed ?? input.tokens.seed,
         steps: input.tokens.steps,
-        cfg: "5.5",
+        cfg: '5.5',
         sampler_name: input.tokens.sampler,
         scheduler: input.tokens.scheduler,
         denoise: sdxlRefinerDenoiseForProfile(input.qualityProfile),
@@ -664,7 +647,7 @@ function enrichSdxlRefinerNodes(input: {
         negative: [refinerNegativeId, 0],
         latent_image: [latentUpscaleId, 0],
       },
-      _meta: { title: "Prompt Studio — SDXL refiner pass" },
+      _meta: { title: 'Prompt Studio — SDXL refiner pass' },
     };
 
     const decodeNode = input.workflow[chain.vaeDecodeId];
@@ -673,8 +656,8 @@ function enrichSdxlRefinerNodes(input: {
     }
 
     changes.push({
-      kind: "binding",
-      severity: "info",
+      kind: 'binding',
+      severity: 'info',
       message: `Inserted SDXL latent upscale (${sdxlRefinerLatentScaleForProfile(input.qualityProfile)}×) + refiner KSampler (${refinerCkpt}) before VAEDecode node ${chain.vaeDecodeId}.`,
     });
   }
@@ -688,14 +671,14 @@ function insertLanczosPolishAfterNode(input: {
   sourceNodeId: string;
   scaleBy: number;
   title: string;
-  method?: "lanczos" | "area" | "bilinear" | "bicubic" | "nearest-exact";
+  method?: 'lanczos' | 'area' | 'bilinear' | 'bicubic' | 'nearest-exact';
 }): string {
   const polishNodeId = nextWorkflowNodeId(input.workflow);
   input.workflow[polishNodeId] = {
     class_type: IMAGE_SCALE_BY_NODE_TYPE,
     inputs: {
       image: [input.sourceNodeId, 0],
-      upscale_method: input.method ?? "lanczos",
+      upscale_method: input.method ?? 'lanczos',
       scale_by: input.scaleBy,
     },
     _meta: { title: input.title },
@@ -717,12 +700,9 @@ function maybeInsertSharpenAfterUpscale(input: {
 }): WorkflowQueueOptimizeChange | null {
   const forceUltraRealMildSharpen =
     isFluxFineTuneCheckpointModel(input.model) &&
-    normalizeQueueQualityProfile(input.qualityProfile) === "max" &&
+    normalizeQueueQualityProfile(input.qualityProfile) === 'max' &&
     input.afterNeural === true;
-  if (
-    input.enrichSharpen !== true &&
-    !forceUltraRealMildSharpen
-  ) {
+  if (input.enrichSharpen !== true && !forceUltraRealMildSharpen) {
     return null;
   }
   if (
@@ -739,20 +719,20 @@ function maybeInsertSharpenAfterUpscale(input: {
   });
   const sharpenNodeId = nextWorkflowNodeId(input.workflow);
   input.workflow[sharpenNodeId] = {
-    class_type: "ImageSharpen",
+    class_type: 'ImageSharpen',
     inputs: {
       image: [input.sourceNodeId, 0],
       sharpen_radius: 1,
       sigma: 0.45,
       alpha,
     },
-    _meta: { title: "Prompt Studio — output sharpen" },
+    _meta: { title: 'Prompt Studio — output sharpen' },
   };
   input.saveNode.inputs!.images = [sharpenNodeId, 0];
 
   return {
-    kind: "binding",
-    severity: "info",
+    kind: 'binding',
+    severity: 'info',
     message: `Inserted subtle ImageSharpen (α${alpha}) after neural upscale before SaveImage node ${input.saveId} for ${input.qualityProfile} quality.`,
   };
 }
@@ -769,12 +749,7 @@ function enrichLanczosUpscaleNodes(input: {
     return [];
   }
   if (
-    shouldSkipUpscaleEnrich(
-      input.workflow,
-      input.qualityProfile,
-      input.model,
-      input.hasInputImage,
-    )
+    shouldSkipUpscaleEnrich(input.workflow, input.qualityProfile, input.model, input.hasInputImage)
   ) {
     return [];
   }
@@ -802,7 +777,7 @@ function enrichLanczosUpscaleNodes(input: {
     }
 
     const upstream = input.workflow[imageLink];
-    if (!upstream || !VAE_DECODE_TYPES.has(upstream.class_type ?? "")) {
+    if (!upstream || !VAE_DECODE_TYPES.has(upstream.class_type ?? '')) {
       continue;
     }
 
@@ -814,13 +789,13 @@ function enrichLanczosUpscaleNodes(input: {
         upscale_method: method,
         scale_by: scaleBy,
       },
-      _meta: { title: "Prompt Studio — output upscale" },
+      _meta: { title: 'Prompt Studio — output upscale' },
     };
     saveNode.inputs.images = [scaleNodeId, 0];
 
     changes.push({
-      kind: "binding",
-      severity: "info",
+      kind: 'binding',
+      severity: 'info',
       message: `Inserted ImageScaleBy (${scaleBy}× ${method}) before SaveImage node ${saveId} for ${input.qualityProfile} quality.`,
     });
 
@@ -863,17 +838,17 @@ function enrichNeuralUpscaleNodes(input: {
     }
 
     const upstream = input.workflow[imageLink];
-    if (!upstream || !VAE_DECODE_TYPES.has(upstream.class_type ?? "")) {
+    if (!upstream || !VAE_DECODE_TYPES.has(upstream.class_type ?? '')) {
       continue;
     }
 
     const loaderNodeId = nextWorkflowNodeId(input.workflow);
     input.workflow[loaderNodeId] = {
-      class_type: "UpscaleModelLoader",
+      class_type: 'UpscaleModelLoader',
       inputs: {
         model_name: modelName,
       },
-      _meta: { title: "Prompt Studio — upscale model" },
+      _meta: { title: 'Prompt Studio — upscale model' },
     };
 
     const upscaleNodeId = nextWorkflowNodeId(input.workflow);
@@ -889,9 +864,9 @@ function enrichNeuralUpscaleNodes(input: {
       upscaleInputs.tile_size = tileSize;
     }
     input.workflow[upscaleNodeId] = {
-      class_type: "ImageUpscaleWithModel",
+      class_type: 'ImageUpscaleWithModel',
       inputs: upscaleInputs,
-      _meta: { title: "Prompt Studio — neural upscale" },
+      _meta: { title: 'Prompt Studio — neural upscale' },
     };
 
     let outputNodeId = upscaleNodeId;
@@ -900,9 +875,7 @@ function enrichNeuralUpscaleNodes(input: {
     const usePolish =
       input.enrichNeuralPolish !== false &&
       profileUsesNeuralUpscalePolish(input.qualityProfile, { model: input.model });
-    const polishScale = usePolish
-      ? lanczosPolishScaleAfterNeural({ model: input.model })
-      : 1;
+    const polishScale = usePolish ? lanczosPolishScaleAfterNeural({ model: input.model }) : 1;
     const priorLatentScale = promptStudioPriorLatentScale(input.workflow);
 
     // Cap neural output to Final/Max net target; account for latent refiner/detail + polish.
@@ -918,12 +891,12 @@ function enrichNeuralUpscaleNodes(input: {
         saveNode,
         sourceNodeId: outputNodeId,
         scaleBy: targetScale,
-        method: "area",
-        title: "Prompt Studio — neural target upscale",
+        method: 'area',
+        title: 'Prompt Studio — neural target upscale',
       });
       changes.push({
-        kind: "binding",
-        severity: "info",
+        kind: 'binding',
+        severity: 'info',
         message: `Scaled neural upscale to ${targetScale}× (target Final/Max size) before SaveImage node ${saveId}.`,
       });
     }
@@ -934,20 +907,19 @@ function enrichNeuralUpscaleNodes(input: {
         saveNode,
         sourceNodeId: outputNodeId,
         scaleBy: polishScale,
-        title: "Prompt Studio — Lanczos polish",
+        title: 'Prompt Studio — Lanczos polish',
       });
       changes.push({
-        kind: "binding",
-        severity: "info",
+        kind: 'binding',
+        severity: 'info',
         message: `Chained ${polishScale}× Lanczos polish after neural upscale before SaveImage node ${saveId}.`,
       });
     }
 
-    const tileNote =
-      tileSize > 0 ? ` (tile_size ${tileSize})` : "";
+    const tileNote = tileSize > 0 ? ` (tile_size ${tileSize})` : '';
     changes.push({
-      kind: "binding",
-      severity: "info",
+      kind: 'binding',
+      severity: 'info',
       message: `Inserted UpscaleModelLoader + ImageUpscaleWithModel (${modelName})${tileNote} before SaveImage node ${saveId} for ${input.qualityProfile} quality.`,
     });
 
@@ -990,30 +962,30 @@ function enrichUpscaleNodes(input: {
     if (isQwenRapidAioModel(input.model)) {
       return [
         {
-          kind: "audit",
-          severity: "info",
+          kind: 'audit',
+          severity: 'info',
           message:
-            "Skipped Final/Max output upscale for Rapid AIO (re-amplifies moiré) — moiré polish runs instead.",
+            'Skipped Final/Max output upscale for Rapid AIO (re-amplifies moiré) — moiré polish runs instead.',
         },
       ];
     }
-    if (/qwen-image-edit-2511-lightning/i.test(String(input.model ?? ""))) {
+    if (/qwen-image-edit-2511-lightning/i.test(String(input.model ?? ''))) {
       return [
         {
-          kind: "audit",
-          severity: "info",
+          kind: 'audit',
+          severity: 'info',
           message:
-            "Skipped Final/Max Lanczos for Edit-2511 Lightning (enlarges soft artifacts) — keep native decode.",
+            'Skipped Final/Max Lanczos for Edit-2511 Lightning (enlarges soft artifacts) — keep native decode.',
         },
       ];
     }
     if (isFluxFineTuneCheckpointModel(input.model)) {
       return [
         {
-          kind: "audit",
-          severity: "info",
+          kind: 'audit',
+          severity: 'info',
           message:
-            "Skipped Final output upscale for UltraReal (Lanczos plastics skin) — use Max for mild neural recovery.",
+            'Skipped Final output upscale for UltraReal (Lanczos plastics skin) — use Max for mild neural recovery.',
         },
       ];
     }
@@ -1031,11 +1003,7 @@ function enrichUpscaleNodes(input: {
   }
 
   const mapped = input.upscaleModelFilename?.trim();
-  const picked = pickUpscaleModelFromInventory(
-    input.availableUpscaleModels,
-    mapped,
-    input.model,
-  );
+  const picked = pickUpscaleModelFromInventory(input.availableUpscaleModels, mapped, input.model);
   const neuralAvailable =
     Boolean(picked) && isUpscaleModelInstalled(picked, input.availableUpscaleModels);
 
@@ -1043,8 +1011,8 @@ function enrichUpscaleNodes(input: {
     const changes: WorkflowQueueOptimizeChange[] = [];
     if (mapped && picked !== mapped) {
       changes.push({
-        kind: "audit",
-        severity: "info",
+        kind: 'audit',
+        severity: 'info',
         message: `Neural upscaler “${mapped}” missing — using installed “${picked}” from ComfyUI inventory.`,
       });
     }
@@ -1066,10 +1034,10 @@ function enrichUpscaleNodes(input: {
   if (isFluxFineTuneCheckpointModel(input.model)) {
     return [
       {
-        kind: "audit",
-        severity: "warn",
+        kind: 'audit',
+        severity: 'warn',
         message:
-          "UltraReal Max neural upscaler missing — keeping native decode (Lanczos fallback skipped). Install/map 4x-UltraSharp in Settings → Upscale.",
+          'UltraReal Max neural upscaler missing — keeping native decode (Lanczos fallback skipped). Install/map 4x-UltraSharp in Settings → Upscale.',
       },
     ];
   }
@@ -1084,8 +1052,8 @@ function enrichUpscaleNodes(input: {
   if (mapped) {
     return [
       {
-        kind: "audit",
-        severity: "warn",
+        kind: 'audit',
+        severity: 'warn',
         message: `Neural upscaler “${mapped}” not installed in ComfyUI — using Lanczos Final/Max upscale instead. Map an installed 4× model in Settings → Upscale, or install 4x-UltraSharp.`,
       },
       ...lanczosChanges,
@@ -1094,10 +1062,10 @@ function enrichUpscaleNodes(input: {
 
   return [
     {
-      kind: "audit",
-      severity: "warn",
+      kind: 'audit',
+      severity: 'warn',
       message:
-        "No neural upscaler mapped or installed — using Lanczos Final/Max upscale. Install 4x-UltraSharp (or similar) and map it in Settings → Upscale for sharper keepers.",
+        'No neural upscaler mapped or installed — using Lanczos Final/Max upscale. Install 4x-UltraSharp (or similar) and map it in Settings → Upscale for sharper keepers.',
     },
     ...lanczosChanges,
   ];
@@ -1131,14 +1099,14 @@ function enrichRapidAioMoirePolish(input: {
       continue;
     }
     const upstream = input.workflow[imageLink];
-    const upstreamTitle = upstream?._meta?.title ?? "";
+    const upstreamTitle = upstream?._meta?.title ?? '';
     if (
-      (upstream?.class_type === "ImageScaleBy" ||
-        upstream?.class_type === "ImageBlur" ||
-        upstream?.class_type === "ImageSharpen") &&
-      (upstreamTitle.includes("Rapid AIO") ||
-        upstreamTitle.includes("moiré") ||
-        upstreamTitle.includes("moire"))
+      (upstream?.class_type === 'ImageScaleBy' ||
+        upstream?.class_type === 'ImageBlur' ||
+        upstream?.class_type === 'ImageSharpen') &&
+      (upstreamTitle.includes('Rapid AIO') ||
+        upstreamTitle.includes('moiré') ||
+        upstreamTitle.includes('moire'))
     ) {
       continue;
     }
@@ -1148,13 +1116,13 @@ function enrichRapidAioMoirePolish(input: {
     // Final skips resample — area↓/lanczos↑ looked pixelated when gallery-scaled.
     const blurNodeId = nextWorkflowNodeId(input.workflow);
     input.workflow[blurNodeId] = {
-      class_type: "ImageBlur",
+      class_type: 'ImageBlur',
       inputs: {
         image: [imageLink, 0],
         blur_radius: blurRadius,
         sigma: blurSigma,
       },
-      _meta: { title: "Prompt Studio — Rapid AIO moiré polish" },
+      _meta: { title: 'Prompt Studio — Rapid AIO moiré polish' },
     };
     let outputNodeId = blurNodeId;
 
@@ -1167,7 +1135,7 @@ function enrichRapidAioMoirePolish(input: {
           upscale_method: downMethod,
           scale_by: downscale,
         },
-        _meta: { title: "Prompt Studio — Rapid AIO moiré downscale" },
+        _meta: { title: 'Prompt Studio — Rapid AIO moiré downscale' },
       };
 
       const restoreNodeId = nextWorkflowNodeId(input.workflow);
@@ -1175,24 +1143,24 @@ function enrichRapidAioMoirePolish(input: {
         class_type: IMAGE_SCALE_BY_NODE_TYPE,
         inputs: {
           image: [downNodeId, 0],
-          upscale_method: "lanczos",
+          upscale_method: 'lanczos',
           scale_by: restore,
         },
-        _meta: { title: "Prompt Studio — Rapid AIO size restore" },
+        _meta: { title: 'Prompt Studio — Rapid AIO size restore' },
       };
       outputNodeId = restoreNodeId;
 
       if (sharpenAlpha > 0) {
         const sharpenNodeId = nextWorkflowNodeId(input.workflow);
         input.workflow[sharpenNodeId] = {
-          class_type: "ImageSharpen",
+          class_type: 'ImageSharpen',
           inputs: {
             image: [outputNodeId, 0],
             sharpen_radius: 1,
             sigma: 0.6,
             alpha: sharpenAlpha,
           },
-          _meta: { title: "Prompt Studio — Rapid AIO edge recovery" },
+          _meta: { title: 'Prompt Studio — Rapid AIO edge recovery' },
         };
         outputNodeId = sharpenNodeId;
       }
@@ -1201,8 +1169,8 @@ function enrichRapidAioMoirePolish(input: {
     saveNode.inputs.images = [outputNodeId, 0];
 
     changes.push({
-      kind: "binding",
-      severity: "info",
+      kind: 'binding',
+      severity: 'info',
       message: resample
         ? `Inserted Rapid AIO moiré polish (blur → ${downMethod} ${downscale}× → lanczos ${restore}×) before SaveImage node ${saveId}.`
         : `Inserted Rapid AIO moiré polish (soft blur only, no resample) before SaveImage node ${saveId}.`,
@@ -1223,12 +1191,12 @@ export function enrichVideoSavePolish(input: {
   if (!profileUsesUpscaleEnrich(input.qualityProfile)) {
     return [];
   }
-  const mode = input.qualityProfile === "max" ? "max" : "final";
-  const targetQuality = mode === "max" ? 98 : 95;
+  const mode = input.qualityProfile === 'max' ? 'max' : 'final';
+  const targetQuality = mode === 'max' ? 98 : 95;
   const changes: WorkflowQueueOptimizeChange[] = [];
 
   for (const [, node] of Object.entries(input.workflow)) {
-    if (node.class_type !== "SaveAnimatedWEBP" || !node.inputs) {
+    if (node.class_type !== 'SaveAnimatedWEBP' || !node.inputs) {
       continue;
     }
     const prevQuality = Number(node.inputs.quality);
@@ -1238,7 +1206,7 @@ export function enrichVideoSavePolish(input: {
       touched = true;
     }
     if (touched) {
-      const title = node._meta?.title ?? "";
+      const title = node._meta?.title ?? '';
       if (!title.includes(PROMPT_STUDIO_META_PREFIX)) {
         node._meta = {
           ...(node._meta ?? {}),
@@ -1246,8 +1214,8 @@ export function enrichVideoSavePolish(input: {
         };
       }
       changes.push({
-        kind: "audit",
-        severity: "info",
+        kind: 'audit',
+        severity: 'info',
         message: `Raised SaveAnimatedWEBP quality to ${targetQuality} for ${mode} video queue.`,
       });
     }
@@ -1285,7 +1253,7 @@ export function enrichWorkflowGraph(input: {
         workflow,
         tokens: input.tokens,
         model: input.model,
-      }),
+      })
     );
   }
 
@@ -1298,7 +1266,7 @@ export function enrichWorkflowGraph(input: {
         qualityProfile: input.qualityProfile,
         refinerCheckpointFilename: input.refinerCheckpointFilename,
         availableCheckpoints: input.availableCheckpoints,
-      }),
+      })
     );
   }
 
@@ -1309,7 +1277,7 @@ export function enrichWorkflowGraph(input: {
       tokens: input.tokens,
       model: input.model,
       qualityProfile: input.qualityProfile,
-    }),
+    })
   );
 
   if (input.enrichUpscale !== false) {
@@ -1324,7 +1292,7 @@ export function enrichWorkflowGraph(input: {
         availableUpscaleModels: input.availableUpscaleModels,
         supportsNeuralUpscaleTileSize: input.supportsNeuralUpscaleTileSize,
         hasInputImage: input.hasInputImage,
-      }),
+      })
     );
   }
 
@@ -1333,14 +1301,14 @@ export function enrichWorkflowGraph(input: {
       workflow,
       qualityProfile: input.qualityProfile,
       model: input.model,
-    }),
+    })
   );
 
   changes.push(
     ...enrichVideoSavePolish({
       workflow,
       qualityProfile: input.qualityProfile,
-    }),
+    })
   );
 
   return { workflow, changes };

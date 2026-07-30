@@ -1,82 +1,75 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import PetPresetControls from "@/components/PetPresetControls";
-import PetPresetChips from "@/components/PetPresetChips";
-import SharedToolControls from "@/components/SharedToolControls";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { useRecentLocations } from "@/hooks/useRecentLocations";
-import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { readRawPrompt } from "@/lib/raw-prompt";
-import { presetOptionsFromPetCache } from "@/lib/pet-options";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
-import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import {
-  applyShareableSceneParams,
-  parseScenePresetFromSearch,
-} from "@/lib/scene-preset-url";
-import { getPetPreset } from "@/lib/pet-presets";
-import { readSceneLocationFromMetadata } from "@/lib/recent-locations";
-import { DEFAULT_PET_TOOL_CACHE } from "@/lib/settings-cache";
-import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
-import { readVariationSeedFromResult } from "@/lib/variation-seed-metadata";
-import { SubjectShotScaleControl } from "@/components/ShotScaleControl";
+import { useCallback, useEffect, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import PetPresetControls from '@/components/PetPresetControls';
+import PetPresetChips from '@/components/PetPresetChips';
+import SharedToolControls from '@/components/SharedToolControls';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { useRecentLocations } from '@/hooks/useRecentLocations';
+import { useLocationBlocklist } from '@/hooks/useLocationBlocklist';
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { readRawPrompt } from '@/lib/raw-prompt';
+import { presetOptionsFromPetCache } from '@/lib/pet-options';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { applyHintSourceFromSearchParams } from '@/lib/tool-url-params';
+import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { applyShareableSceneParams, parseScenePresetFromSearch } from '@/lib/scene-preset-url';
+import { getPetPreset } from '@/lib/pet-presets';
+import { readSceneLocationFromMetadata } from '@/lib/recent-locations';
+import { DEFAULT_PET_TOOL_CACHE } from '@/lib/settings-cache';
+import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
+import { readVariationSeedFromResult } from '@/lib/variation-seed-metadata';
+import { SubjectShotScaleControl } from '@/components/ShotScaleControl';
 import {
   SceneGenerateFooter,
   SceneHintsField,
   VariationSliderField,
-} from "@/components/scene-tool/SceneToolSections";
+} from '@/components/scene-tool/SceneToolSections';
 import {
   HistoryHintSeedPanel,
   resolveSceneHintsForGeneration,
-} from "@/components/scene-tool/HistoryHintSeedPanel";
-import {
-  normalizeHistorySeedScope,
-  normalizeSceneHintSource,
-} from "@/lib/scene-hint-source";
-import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
-import {
-  ROLL_VARIATION_LABEL,
-  rollVariationLabel,
-} from "@/lib/tool-ui-labels";
+} from '@/components/scene-tool/HistoryHintSeedPanel';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
+import { countHistorySeedCandidates } from '@/lib/history-hint-seed';
+import { ROLL_VARIATION_LABEL, rollVariationLabel } from '@/lib/tool-ui-labels';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentFocusClass,
   accentRingClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldDivider } from "@/components/ui/Field";
+} from '@/components/ui/ToolPageShell';
+import { FieldDivider } from '@/components/ui/Field';
 
-const ACCENT = "rose" as const;
+const ACCENT = 'rose' as const;
 
 export default function PetTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("pet", DEFAULT_PET_TOOL_CACHE);
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'pet',
+    DEFAULT_PET_TOOL_CACHE
+  );
   const { getRecent, record } = useRecentLocations();
   const { getBlocklist } = useLocationBlocklist();
-  const [output, setOutput] = useState("");
+  const [output, setOutput] = useState('');
   const [result, setResult] = useState<EnrichedToolGenerateResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useSeedToolDraft(mounted, {
-    toolKey: "pet",
-    label: "Pet",
-    href: "/pet",
+    toolKey: 'pet',
+    label: 'Pet',
+    href: '/pet',
     fields: [toolSettings.hints],
   });
 
   const actions = usePromptResultActions({
-    tool: "pet",
+    tool: 'pet',
     model: shared.model,
     detail: shared.detail,
     hints: toolSettings.hints,
@@ -88,24 +81,24 @@ export default function PetTool() {
   const variationSeed = readVariationSeedFromResult(result ?? {});
   const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
   const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
-  const historyCandidateCount = countHistorySeedCandidates("pet", historySeedScope);
+  const historyCandidateCount = countHistorySeedCandidates('pet', historySeedScope);
   const generateDisabledReason =
-    hintSource === "history" && historyCandidateCount === 0
-      ? "Save a few pet or related prompts to Studio history first, or switch hint source."
+    hintSource === 'history' && historyCandidateCount === 0
+      ? 'Save a few pet or related prompts to Studio history first, or switch hint source.'
       : null;
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === 'undefined') {
       return;
     }
     const params = new URLSearchParams(window.location.search);
     applyHintSourceFromSearchParams(params, updateToolSettings);
-    const hints = params.get("hints");
-    const seed = params.get("seed");
+    const hints = params.get('hints');
+    const seed = params.get('seed');
     if (hints?.trim()) {
       updateToolSettings({
         hints: hints.trim(),
-        ...(params.get("hintSource") === "manual" ? { hintSource: "manual" } : {}),
+        ...(params.get('hintSource') === 'manual' ? { hintSource: 'manual' } : {}),
       });
     }
     if (seed?.trim()) {
@@ -147,9 +140,9 @@ export default function PetTool() {
         hints: toolSettings.hints,
         randomTheme: toolSettings.randomTheme,
       });
-      const response = await fetch("/api/pet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/pet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: shared.model,
           detail: shared.detail,
@@ -170,7 +163,7 @@ export default function PetTool() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Generation failed.");
+        throw new Error(data.error ?? 'Generation failed.');
       }
 
       record(readSceneLocationFromMetadata(data.metadata));
@@ -179,9 +172,9 @@ export default function PetTool() {
       setOutput(prompt);
       setResult({ ...data, prompt });
     } catch (err) {
-      setOutput("");
+      setOutput('');
       setResult(null);
-      setError(err instanceof Error ? err.message : "Generation failed.");
+      setError(err instanceof Error ? err.message : 'Generation failed.');
     } finally {
       setLoading(false);
     }
@@ -196,43 +189,36 @@ export default function PetTool() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={
-        <ToolBadge accent={ACCENT}>
-          Pet scene · {selectedModel.comfyNode}
-        </ToolBadge>
-      }
+      badge={<ToolBadge accent={ACCENT}>Pet scene · {selectedModel.comfyNode}</ToolBadge>}
       title="Pet Scene Generator"
       description={
         <>
-          Builds a detailed animal-focused prompt for dogs, cats, birds, rabbits,
-          and more. The pet is the hero subject—no people or human hands. Add breed
-          or species in hints, pin a place with{" "}
-          <code className="text-rose-300">location: …</code>, or start from a
-          preset chip below.
+          Builds a detailed animal-focused prompt for dogs, cats, birds, rabbits, and more. The pet
+          is the hero subject—no people or human hands. Add breed or species in hints, pin a place
+          with <code className="text-rose-300">location: …</code>, or start from a preset chip
+          below.
         </>
       }
       sidebar={
         <SharedToolControls
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           showWardrobeOption={false}
           lockedLocation={shared.lockedLocation}
           onClearLockedLocation={() => updateShared({ lockedLocation: undefined })}
           lockedVariationSeed={shared.lockedVariationSeed}
-          onClearLockedVariationSeed={() =>
-            updateShared({ lockedVariationSeed: undefined })
-          }
+          onClearLockedVariationSeed={() => updateShared({ lockedVariationSeed: undefined })}
           autoFixRules={shared.autoFixRules !== false}
-          onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
           recommendFromText={output}
         />
       }
@@ -243,14 +229,12 @@ export default function PetTool() {
       >
         <PetPresetChips
           selectedId={toolSettings.petPresetId}
-          category={toolSettings.presetCategory ?? "all"}
-          onCategoryChange={(category) =>
-            updateToolSettings({ presetCategory: category })
-          }
-          onSelect={(preset) => {
+          category={toolSettings.presetCategory ?? 'all'}
+          onCategoryChange={category => updateToolSettings({ presetCategory: category })}
+          onSelect={preset => {
             updateToolSettings({
               hints: preset.hints,
-              portraitStyle: preset.portraitStyle ?? "portrait",
+              portraitStyle: preset.portraitStyle ?? 'portrait',
               petPresetId: preset.id,
               presetCategory: preset.category,
               ...(preset.presetOptions ?? {}),
@@ -263,9 +247,7 @@ export default function PetTool() {
         <PetPresetControls
           mounted={mounted}
           settings={toolSettings}
-          onChange={(patch) =>
-            updateToolSettings({ ...patch, petPresetId: undefined })
-          }
+          onChange={patch => updateToolSettings({ ...patch, petPresetId: undefined })}
         />
 
         <FieldDivider />
@@ -274,24 +256,22 @@ export default function PetTool() {
           tool="pet"
           hintSource={hintSource}
           historySeedScope={historySeedScope}
-          hints={toolSettings.hints ?? ""}
-          randomTheme={toolSettings.randomTheme ?? ""}
+          hints={toolSettings.hints ?? ''}
+          randomTheme={toolSettings.randomTheme ?? ''}
           lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
-          onHintSourceChange={(source) => updateToolSettings({ hintSource: source })}
-          onHistorySeedScopeChange={(scope) =>
-            updateToolSettings({ historySeedScope: scope })
-          }
-          onHintsChange={(value) => {
+          onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+          onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+          onHintsChange={value => {
             updateToolSettings({ hints: value, petPresetId: undefined });
             rememberDraftFields({
-              toolKey: "pet",
-              label: "Pet",
-              href: "/pet",
+              toolKey: 'pet',
+              label: 'Pet',
+              href: '/pet',
               fields: [value],
             });
           }}
-          onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
-          onHistorySeedApplied={(result) =>
+          onRandomThemeChange={value => updateToolSettings({ randomTheme: value })}
+          onHistorySeedApplied={result =>
             updateToolSettings({
               hints: result.hints,
               lastHistorySeedEntryId: result.entryId,
@@ -301,17 +281,17 @@ export default function PetTool() {
           accentFocusClassName={accentFocusClass(ACCENT)}
         />
 
-        {hintSource !== "random" ? (
+        {hintSource !== 'random' ? (
           <>
             <FieldDivider />
             <SceneHintsField
-              value={toolSettings.hints ?? ""}
-              onChange={(value) => {
+              value={toolSettings.hints ?? ''}
+              onChange={value => {
                 updateToolSettings({ hints: value, petPresetId: undefined });
                 rememberDraftFields({
-                  toolKey: "pet",
-                  label: "Pet",
-                  href: "/pet",
+                  toolKey: 'pet',
+                  label: 'Pet',
+                  href: '/pet',
                   fields: [value],
                 });
               }}
@@ -324,8 +304,8 @@ export default function PetTool() {
         <FieldDivider />
 
         <SubjectShotScaleControl
-          value={toolSettings.portraitStyle ?? "portrait"}
-          onChange={(value) => updateToolSettings({ portraitStyle: value })}
+          value={toolSettings.portraitStyle ?? 'portrait'}
+          onChange={value => updateToolSettings({ portraitStyle: value })}
         />
 
         <FieldDivider />
@@ -333,7 +313,7 @@ export default function PetTool() {
         <VariationSliderField
           label={ROLL_VARIATION_LABEL}
           value={toolSettings.variationStrength ?? 50}
-          onChange={(value) => updateToolSettings({ variationStrength: value })}
+          onChange={value => updateToolSettings({ variationStrength: value })}
           valueLabel={`${rollVariationLabel(toolSettings.variationStrength ?? 50)} (${toolSettings.variationStrength ?? 50})`}
           accentRingClassName={accentRingClass(ACCENT)}
         />
@@ -372,12 +352,7 @@ export default function PetTool() {
         onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
         onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
         onEditPrompt={() =>
-          actions.editPromptOutput(
-            output,
-            actions.comfyUiPreviewUrl,
-            undefined,
-            toolSettings.hints,
-          )
+          actions.editPromptOutput(output, actions.comfyUiPreviewUrl, undefined, toolSettings.hints)
         }
         {...promptResultPreviewProps(actions, output)}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.hints)}

@@ -1,36 +1,33 @@
-import { featureForPath, type AppFeatureId } from "./auth/features";
-import { readBrowserString, writeBrowserString } from "./browser-storage";
+import { featureForPath, type AppFeatureId } from './auth/features';
+import { readBrowserString, writeBrowserString } from './browser-storage';
 
-const KEY = "comfy-last-tool-route-v1";
+const KEY = 'comfy-last-tool-route-v1';
 
-const BLOCKED_PREFIXES = ["/login", "/forbidden", "/api"];
+const BLOCKED_PREFIXES = ['/login', '/forbidden', '/api'];
 
 const FALLBACK_LANDING_CANDIDATES = [
-  "/",
-  "/dashboard",
-  "/gallery",
-  "/queue",
-  "/profile",
-  "/settings",
+  '/',
+  '/dashboard',
+  '/gallery',
+  '/queue',
+  '/profile',
+  '/settings',
 ] as const;
 
 function isAllowedRoute(href: string): boolean {
-  const path = (href.split("?")[0] || "/").trim() || "/";
-  if (BLOCKED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+  const path = (href.split('?')[0] || '/').trim() || '/';
+  if (BLOCKED_PREFIXES.some(prefix => path === prefix || path.startsWith(`${prefix}/`))) {
     return false;
   }
-  return path.startsWith("/");
+  return path.startsWith('/');
 }
 
-function routeAllowedForFeatures(
-  href: string,
-  allowed: AppFeatureId[] | "all",
-): boolean {
-  const feature = featureForPath(href.split("?")[0] || "/");
+function routeAllowedForFeatures(href: string, allowed: AppFeatureId[] | 'all'): boolean {
+  const feature = featureForPath(href.split('?')[0] || '/');
   if (!feature) {
     return true;
   }
-  if (allowed === "all") {
+  if (allowed === 'all') {
     return true;
   }
   return allowed.includes(feature);
@@ -43,14 +40,10 @@ function routeAllowedForFeatures(
 export function resolveLandingRoute(input: {
   explicitNext?: string | null;
   remembered?: string | null;
-  allowedFeatures?: AppFeatureId[] | "all" | null;
+  allowedFeatures?: AppFeatureId[] | 'all' | null;
 }): string {
-  const allowed = input.allowedFeatures ?? "all";
-  const candidates = [
-    input.explicitNext,
-    input.remembered,
-    ...FALLBACK_LANDING_CANDIDATES,
-  ];
+  const allowed = input.allowedFeatures ?? 'all';
+  const candidates = [input.explicitNext, input.remembered, ...FALLBACK_LANDING_CANDIDATES];
 
   for (const candidate of candidates) {
     const href = candidate?.trim();
@@ -62,11 +55,11 @@ export function resolveLandingRoute(input: {
     }
   }
 
-  return "/";
+  return '/';
 }
 
 export function saveLastToolRoute(href: string): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   const trimmed = href.trim();
@@ -77,7 +70,7 @@ export function saveLastToolRoute(href: string): void {
 }
 
 export function loadLastToolRoute(): string | null {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return null;
   }
   const value = readBrowserString(KEY)?.trim();
@@ -88,8 +81,8 @@ export function loadLastToolRoute(): string | null {
 }
 
 export function clearLastToolRoute(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
-  writeBrowserString(KEY, "");
+  writeBrowserString(KEY, '');
 }

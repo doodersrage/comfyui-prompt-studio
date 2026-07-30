@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import type { WorkflowParamValues } from "./comfyui-config";
-import { isQwenLightningModel } from "./model-sampling-patch";
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
-import { loadSettingsCache, saveSharedSettings } from "./settings-cache";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import type { WorkflowParamValues } from './comfyui-config';
+import { isQwenLightningModel } from './model-sampling-patch';
+import { isQwenRapidAioModel } from './model-denoise-defaults';
+import { loadSettingsCache, saveSharedSettings } from './settings-cache';
 
 export type ModelSamplerMemoryEntry = {
   cfg?: string;
@@ -18,7 +18,7 @@ export type ModelSamplerMemoryMap = Record<string, ModelSamplerMemoryEntry>;
 
 export function loadModelSamplerMemory(): ModelSamplerMemoryMap {
   const map = loadSettingsCache().shared.modelSamplerMemory;
-  return map && typeof map === "object" ? { ...map } : {};
+  return map && typeof map === 'object' ? { ...map } : {};
 }
 
 export function clearModelSamplerMemory(model?: string): void {
@@ -33,7 +33,7 @@ export function clearModelSamplerMemory(model?: string): void {
 }
 
 export function rememberSamplerFromGalleryEntry(
-  entry: Pick<ComfyGalleryEntry, "model" | "queueParams" | "reviewRating">,
+  entry: Pick<ComfyGalleryEntry, 'model' | 'queueParams' | 'reviewRating'>
 ): boolean {
   const model = entry.model?.trim();
   if (!model) {
@@ -47,12 +47,10 @@ export function rememberSamplerFromGalleryEntry(
   if (!params) {
     return false;
   }
-  const cfg = params.cfg != null ? String(params.cfg).trim() : "";
-  const steps = params.steps != null ? String(params.steps).trim() : "";
-  const samplerName =
-    params.samplerName != null ? String(params.samplerName).trim() : "";
-  const scheduler =
-    params.scheduler != null ? String(params.scheduler).trim() : "";
+  const cfg = params.cfg != null ? String(params.cfg).trim() : '';
+  const steps = params.steps != null ? String(params.steps).trim() : '';
+  const samplerName = params.samplerName != null ? String(params.samplerName).trim() : '';
+  const scheduler = params.scheduler != null ? String(params.scheduler).trim() : '';
   if (!cfg && !steps && !samplerName && !scheduler) {
     return false;
   }
@@ -73,9 +71,7 @@ export function rememberSamplerFromGalleryEntry(
 }
 
 /** Remembered sampler overrides for catalog defaults (empty when none / distilled). */
-export function rememberedSamplerOverrides(
-  model: string | undefined,
-): WorkflowParamValues {
+export function rememberedSamplerOverrides(model: string | undefined): WorkflowParamValues {
   const id = model?.trim();
   if (!id || isQwenLightningModel(id) || isQwenRapidAioModel(id)) {
     return {};

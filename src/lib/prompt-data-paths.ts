@@ -1,4 +1,4 @@
-import path from "node:path";
+import path from 'node:path';
 
 /**
  * Default on-disk studio data root (auth, presets, etc.).
@@ -7,16 +7,11 @@ import path from "node:path";
  * point outside the repo (e.g. `python -> /usr/bin/python3.xx`).
  */
 export function defaultPromptStudioDataDir(): string {
-  return path.join(
-    /* turbopackIgnore: true */ process.cwd(),
-    ".prompt-studio-data",
-  );
+  return path.join(/* turbopackIgnore: true */ process.cwd(), '.prompt-studio-data');
 }
 
 /** Resolve PROMPT_DATA_DIR / PROMPT_AUTH_DIR / default data root. */
-export function resolvePromptDataDir(options?: {
-  preferAuthDir?: boolean;
-}): string {
+export function resolvePromptDataDir(options?: { preferAuthDir?: boolean }): string {
   if (options?.preferAuthDir) {
     const auth = process.env.PROMPT_AUTH_DIR?.trim();
     if (auth) {
@@ -32,5 +27,5 @@ export function resolvePromptDataDir(options?: {
 
 /** Auth JSON directory under the resolved data root. */
 export function resolvePromptAuthDir(): string {
-  return path.join(resolvePromptDataDir({ preferAuthDir: true }), "auth");
+  return path.join(resolvePromptDataDir({ preferAuthDir: true }), 'auth');
 }

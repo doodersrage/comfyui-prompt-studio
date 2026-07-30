@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { recommendModels, type ModelRecommendation } from "@/lib/model-recommender";
-import type { ComfyImageModel } from "@/lib/comfy-models/client";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
+import { useEffect, useMemo, useState } from 'react';
+import { recommendModels, type ModelRecommendation } from '@/lib/model-recommender';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 
 type ModelRecommenderHintsProps = {
   text: string;
@@ -41,7 +41,7 @@ export default function ModelRecommenderHints({
     <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2">
       <p className="type-caption text-violet-200/80">Suggested models</p>
       <ul className="mt-2 space-y-1.5">
-        {suggestions.map((item) => {
+        {suggestions.map(item => {
           const def = getComfyModelDefinition(item.model as ComfyImageModel);
           const active = item.model === currentModel;
           return (
@@ -53,7 +53,7 @@ export default function ModelRecommenderHints({
                 className="rounded-full border border-violet-500/30 bg-zinc-950/40 px-2.5 py-0.5 text-violet-100 transition hover:border-violet-400/50 disabled:cursor-default disabled:opacity-60"
               >
                 {def.label}
-                {active ? " · current" : ""}
+                {active ? ' · current' : ''}
               </button>
               <span className="text-zinc-500">{item.reason}</span>
             </li>

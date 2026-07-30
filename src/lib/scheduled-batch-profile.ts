@@ -1,10 +1,7 @@
-import { DEFAULT_QWEN_MODEL } from "./comfy-models/client";
-import { normalizeDetailLevel, type DetailLevel } from "./detail-level";
-import {
-  normalizeQueueQualityProfile,
-  type QueueQualityProfile,
-} from "./queue-quality-profile";
-import { clampScheduledBatchConfig, type ScheduledBatchConfig } from "./scheduled-batch";
+import { DEFAULT_QWEN_MODEL } from './comfy-models/client';
+import { normalizeDetailLevel, type DetailLevel } from './detail-level';
+import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
+import { clampScheduledBatchConfig, type ScheduledBatchConfig } from './scheduled-batch';
 
 /**
  * Server-readable mirror of the Studio Automation → Scheduled batch settings.
@@ -15,7 +12,7 @@ export type ScheduledBatchProfile = {
   model: string;
   detail: DetailLevel;
   qualityProfile: QueueQualityProfile;
-  target: ScheduledBatchConfig["target"];
+  target: ScheduledBatchConfig['target'];
   count: number;
   genre?: string;
   autoQueueComfyUi: boolean;
@@ -23,23 +20,22 @@ export type ScheduledBatchProfile = {
 
 export const DEFAULT_SCHEDULED_BATCH_PROFILE: ScheduledBatchProfile = {
   model: DEFAULT_QWEN_MODEL,
-  detail: "balanced",
-  qualityProfile: "followSettings",
-  target: "random-scene",
+  detail: 'balanced',
+  qualityProfile: 'followSettings',
+  target: 'random-scene',
   count: 3,
   autoQueueComfyUi: false,
 };
 
 export function normalizeScheduledBatchProfile(
-  input?: Partial<ScheduledBatchProfile>,
+  input?: Partial<ScheduledBatchProfile>
 ): ScheduledBatchProfile {
   const clampedBatch = clampScheduledBatchConfig({
     enabled: true,
     intervalMinutes: 60,
     target: input?.target ?? DEFAULT_SCHEDULED_BATCH_PROFILE.target,
     count: input?.count ?? DEFAULT_SCHEDULED_BATCH_PROFILE.count,
-    autoQueueComfyUi:
-      input?.autoQueueComfyUi ?? DEFAULT_SCHEDULED_BATCH_PROFILE.autoQueueComfyUi,
+    autoQueueComfyUi: input?.autoQueueComfyUi ?? DEFAULT_SCHEDULED_BATCH_PROFILE.autoQueueComfyUi,
     genre: input?.genre,
   });
 
@@ -58,7 +54,7 @@ export function normalizeScheduledBatchProfile(
 /** Merges a partial override onto a base profile, re-normalizing the result. */
 export function mergeScheduledBatchProfile(
   base: ScheduledBatchProfile,
-  override?: Partial<ScheduledBatchProfile>,
+  override?: Partial<ScheduledBatchProfile>
 ): ScheduledBatchProfile {
   if (!override) {
     return base;
@@ -85,12 +81,11 @@ export function resolveScheduledBatchProfileFromEnv(): ScheduledBatchProfile {
       DEFAULT_SCHEDULED_BATCH_PROFILE.model,
     detail: envDetailLevel(),
     qualityProfile: envQualityProfile(),
-    target:
-      process.env.SERVER_SCHEDULED_BATCH_TARGET === "topics" ? "topics" : "random-scene",
+    target: process.env.SERVER_SCHEDULED_BATCH_TARGET === 'topics' ? 'topics' : 'random-scene',
     count: Number(
-      process.env.SERVER_SCHEDULED_BATCH_COUNT ?? DEFAULT_SCHEDULED_BATCH_PROFILE.count,
+      process.env.SERVER_SCHEDULED_BATCH_COUNT ?? DEFAULT_SCHEDULED_BATCH_PROFILE.count
     ),
     genre: process.env.SERVER_SCHEDULED_BATCH_GENRE,
-    autoQueueComfyUi: process.env.SERVER_SCHEDULED_BATCH_QUEUE === "true",
+    autoQueueComfyUi: process.env.SERVER_SCHEDULED_BATCH_QUEUE === 'true',
   });
 }

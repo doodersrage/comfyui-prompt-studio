@@ -1,34 +1,32 @@
-import type { ComfyImageModel } from "./comfy-models/client";
+import type { ComfyImageModel } from './comfy-models/client';
 import {
   COMFY_IMAGE_MODELS,
   DEFAULT_COMFY_MODEL,
   getComfyModelDefinition,
-} from "./comfy-models/client";
+} from './comfy-models/client';
 import type {
   ComfyUiRuntimeConfig,
   CustomWorkflowToken,
   WorkflowParamValues,
-} from "./comfyui-config";
-import type { ComfyUiModelLists } from "./comfyui-object-info";
-import { readCachedComfyObjectInfoModels } from "./comfyui-object-info-cache";
-import {
-  resolveSelectedWorkflowRuntime,
-} from "./comfyui-runtime";
-import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
-import { pickVideoCheckpointFromInventory } from "./ensure-video-workflow";
-import { resolveWorkflowForModel } from "./model-workflow-map";
+} from './comfyui-config';
+import type { ComfyUiModelLists } from './comfyui-object-info';
+import { readCachedComfyObjectInfoModels } from './comfyui-object-info-cache';
+import { resolveSelectedWorkflowRuntime } from './comfyui-runtime';
+import type { ComfyWorkflowFile } from './comfyui-workflow-files';
+import { pickVideoCheckpointFromInventory } from './ensure-video-workflow';
+import { resolveWorkflowForModel } from './model-workflow-map';
 import {
   syncLoaderMapsFromInventory,
   matchInventoryFilename,
   matchInventoryFilenameNearMiss,
-} from "./loader-map-inventory-sync";
+} from './loader-map-inventory-sync';
 import {
   filenameMatchesPrecisionTier,
   precisionHintFromFilename,
   qwenDualClipFilename,
   qwenUnetFamiliesCompatible,
   type LoaderPrecisionTier,
-} from "./model-loader-precision";
+} from './model-loader-precision';
 import {
   isVaeFilenameIncompatibleWithModel,
   SUGGESTED_MODEL_CHECKPOINT_MAP,
@@ -37,43 +35,36 @@ import {
   resolveLoaderFilenamesForModel,
   type ModelCheckpointMap,
   type ModelVaeMap,
-} from "./model-checkpoint-map";
+} from './model-checkpoint-map';
 import {
   DEFAULT_MODEL_SAMPLER_PRESET_TIER,
   isKleinBaseModel,
   isKleinDistilledModel,
   normalizeModelSamplerPresetTier,
   resolveModelSamplerParams,
-} from "./model-sampler-defaults";
+} from './model-sampler-defaults';
 import {
   isEditCapableModel,
   isEditQueueTool,
   isFluxKleinModel,
   isQwenRapidAioModel,
-} from "./model-denoise-defaults";
-import { maybeRewriteRapidAioWorkflowLoaders } from "./workflow-rapid-aio-checkpoint";
-import {
-  isLightningDistilledModel,
-  resolveModelSamplingParams,
-} from "./model-sampling-patch";
+} from './model-denoise-defaults';
+import { maybeRewriteRapidAioWorkflowLoaders } from './workflow-rapid-aio-checkpoint';
+import { isLightningDistilledModel, resolveModelSamplingParams } from './model-sampling-patch';
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
   DEFAULT_RESOLUTION_SIZE_TIER,
   normalizeResolutionOrientation,
   normalizeResolutionSizeTier,
   resolveModelResolutionParams,
-} from "./model-resolution-defaults";
+} from './model-resolution-defaults';
 import {
   normalizeQueueQualityProfile,
   resolveEffectiveResolutionSizeTier,
   resolveEffectiveSamplerPreset,
-} from "./queue-quality-profile";
-import type { SharedToolSettings } from "./settings-cache";
-import {
-  DEFAULT_VIDEO_TOOL_CACHE,
-  loadSettingsCache,
-  loadToolSettings,
-} from "./settings-cache";
+} from './queue-quality-profile';
+import type { SharedToolSettings } from './settings-cache';
+import { DEFAULT_VIDEO_TOOL_CACHE, loadSettingsCache, loadToolSettings } from './settings-cache';
 import {
   formatPackLoaderMisses,
   inspectPackLoadersInInventory,
@@ -84,21 +75,18 @@ import {
   packLoadersAvailableInInventory,
   pickLightningLoraFromInventory,
   softRepairPackLoadersFromInventory,
-} from "./system-workflow-pack-loaders";
+} from './system-workflow-pack-loaders';
 import {
   rankWorkflowFilesForModel,
   scoreWorkflowGraphStructure,
-} from "./workflow-category-defaults";
-import { workflowHasLoraLoader } from "./workflow-lightning-queue";
-import { lightningLoraMatchesModel } from "./workflow-lora-patch";
-import {
-  buildWorkflowScaffoldForModel,
-  fluxKleinDualClipFilename,
-} from "./workflow-scaffold";
+} from './workflow-category-defaults';
+import { workflowHasLoraLoader } from './workflow-lightning-queue';
+import { lightningLoraMatchesModel } from './workflow-lora-patch';
+import { buildWorkflowScaffoldForModel, fluxKleinDualClipFilename } from './workflow-scaffold';
 import {
   extractWorkflowStackFingerprint,
   workflowStackMatchesModel,
-} from "./workflow-stack-fingerprint";
+} from './workflow-stack-fingerprint';
 
 export {
   formatPackLoaderMisses,
@@ -110,11 +98,8 @@ export {
   packLoadersAvailableInInventory,
   pickLightningLoraFromInventory,
   softRepairPackLoadersFromInventory,
-} from "./system-workflow-pack-loaders";
-export type {
-  PackLoaderInspection,
-  PackLoaderMiss,
-} from "./system-workflow-pack-loaders";
+} from './system-workflow-pack-loaders';
+export type { PackLoaderInspection, PackLoaderMiss } from './system-workflow-pack-loaders';
 
 /** Minimum rank score before a library graph can beat the built-in scaffold. */
 export const SYSTEM_WORKFLOW_MIN_PACK_SCORE = 6;
@@ -127,12 +112,10 @@ export const SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE = 4;
 
 /** True when system workflows should resolve packs/scaffolds for this model. */
 export function usesSystemWorkflowPath(
-  shared: Pick<SharedToolSettings, "useSystemWorkflows">,
-  model: ComfyImageModel | string,
+  shared: Pick<SharedToolSettings, 'useSystemWorkflows'>,
+  model: ComfyImageModel | string
 ): boolean {
-  return (
-    shared.useSystemWorkflows === true && isSystemWorkflowSupportedModel(model)
-  );
+  return shared.useSystemWorkflows === true && isSystemWorkflowSupportedModel(model);
 }
 
 /**
@@ -141,36 +124,28 @@ export function usesSystemWorkflowPath(
  * back to mapped/manual workflows for unsupported families.
  */
 export function shouldLimitSystemWorkflowPicker(
-  shared: Pick<
-    SharedToolSettings,
-    "useSystemWorkflows" | "systemWorkflowsLimitPicker"
-  >,
+  shared: Pick<SharedToolSettings, 'useSystemWorkflows' | 'systemWorkflowsLimitPicker'>
 ): boolean {
-  return (
-    shared.useSystemWorkflows === true &&
-    shared.systemWorkflowsLimitPicker !== false
-  );
+  return shared.useSystemWorkflows === true && shared.systemWorkflowsLimitPicker !== false;
 }
 
 /**
  * Models with a dedicated system scaffold (not the generic checkpoint fallback).
  * FLUX, Qwen (incl. Lightning / Edit / Rapid), and video (WAN / Hunyuan / LTX).
  */
-export function isSystemWorkflowSupportedModel(
-  model: ComfyImageModel | string,
-): boolean {
+export function isSystemWorkflowSupportedModel(model: ComfyImageModel | string): boolean {
   const category = getComfyModelDefinition(model)?.category;
-  return category === "flux" || category === "qwen" || category === "video";
+  return category === 'flux' || category === 'qwen' || category === 'video';
 }
 
 export function listSystemWorkflowSupportedModels(): ComfyImageModel[] {
-  return COMFY_IMAGE_MODELS.filter((entry) =>
-    isSystemWorkflowSupportedModel(entry.id),
-  ).map((entry) => entry.id);
+  return COMFY_IMAGE_MODELS.filter(entry => isSystemWorkflowSupportedModel(entry.id)).map(
+    entry => entry.id
+  );
 }
 
 export function resolveSystemWorkflowFallbackModel(
-  current?: ComfyImageModel | string,
+  current?: ComfyImageModel | string
 ): ComfyImageModel {
   if (current && isSystemWorkflowSupportedModel(current)) {
     return current as ComfyImageModel;
@@ -181,7 +156,7 @@ export function resolveSystemWorkflowFallbackModel(
   return listSystemWorkflowSupportedModels()[0] ?? DEFAULT_COMFY_MODEL;
 }
 
-export type SystemWorkflowSource = "pack" | "scaffold";
+export type SystemWorkflowSource = 'pack' | 'scaffold';
 
 export type SystemWorkflowResolveResult = {
   workflowJson: string;
@@ -191,22 +166,22 @@ export type SystemWorkflowResolveResult = {
   queueParams: WorkflowParamValues;
   modelCheckpointMap: ModelCheckpointMap;
   modelVaeMap: ModelVaeMap;
-  modelUpscaleMap?: SharedToolSettings["modelUpscaleMap"];
+  modelUpscaleMap?: SharedToolSettings['modelUpscaleMap'];
   customTokens?: CustomWorkflowToken[];
 };
 
-function looksLikeAppScaffoldLabel(file: Pick<ComfyWorkflowFile, "name" | "filename">): boolean {
-  const haystack = `${file.name} ${file.filename ?? ""}`.toLowerCase();
+function looksLikeAppScaffoldLabel(file: Pick<ComfyWorkflowFile, 'name' | 'filename'>): boolean {
+  const haystack = `${file.name} ${file.filename ?? ''}`.toLowerCase();
   return /scaffold|starter graph|prompt.?studio.?template/.test(haystack);
 }
 
 function isVideoModel(model: ComfyImageModel | string): boolean {
-  return getComfyModelDefinition(model)?.category === "video";
+  return getComfyModelDefinition(model)?.category === 'video';
 }
 
 function looksLikeVideoPackGraph(workflowJson: string): boolean {
   return /WanImageToVideo|HunyuanImageToVideo|EmptyLTXVLatentVideo|LTXVConditioning|WanVideo|HunyuanVideoTextEncode|LTXVImgToVideo|LTXVScheduler|LTXVAddGuide|EmptyHunyuanLatentVideo/.test(
-    workflowJson,
+    workflowJson
   );
 }
 
@@ -218,7 +193,7 @@ function isLtxVideoModel(model: ComfyImageModel | string): boolean {
 export function matchInventoryFilenamePreferTier(
   preferred: string | undefined,
   pool: string[],
-  tier?: LoaderPrecisionTier,
+  tier?: LoaderPrecisionTier
 ): string | undefined {
   if (!preferred?.trim() || pool.length === 0) {
     return undefined;
@@ -228,78 +203,62 @@ export function matchInventoryFilenamePreferTier(
   }
 
   const lower = preferred.trim().toLowerCase();
-  const stem = lower.replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, "");
-  const related = pool.filter((entry) => {
+  const stem = lower.replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, '');
+  const related = pool.filter(entry => {
     if (!qwenUnetFamiliesCompatible(preferred.trim(), entry)) {
       return false;
     }
     const entryLower = entry.toLowerCase();
-    const entryStem = entryLower.replace(
-      /\.(safetensors|ckpt|pt|pth|bin|gguf)$/i,
-      "",
-    );
-    return (
-      entryLower === lower ||
-      entryLower.includes(stem) ||
-      stem.includes(entryStem)
-    );
+    const entryStem = entryLower.replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, '');
+    return entryLower === lower || entryLower.includes(stem) || stem.includes(entryStem);
   });
   if (related.length === 0) {
     return matchInventoryFilename(preferred, pool);
   }
 
-  const tierMatched = related.find((name) =>
-    filenameMatchesPrecisionTier(name, tier),
-  );
+  const tierMatched = related.find(name => filenameMatchesPrecisionTier(name, tier));
   if (tierMatched) {
     return tierMatched;
   }
-  return (
-    related.find((name) => name.toLowerCase() === lower) ??
-    related[0]
-  );
+  return related.find(name => name.toLowerCase() === lower) ?? related[0];
 }
 
 function pickPoolFilenamePreferTier(
   pool: string[],
   patterns: RegExp[],
-  tier?: LoaderPrecisionTier,
+  tier?: LoaderPrecisionTier
 ): string | undefined {
-  const matched = pool.filter((name) => patterns.some((re) => re.test(name)));
+  const matched = pool.filter(name => patterns.some(re => re.test(name)));
   if (matched.length === 0) {
     return undefined;
   }
   if (!tier) {
     return matched[0];
   }
-  return (
-    matched.find((name) => filenameMatchesPrecisionTier(name, tier)) ??
-    matched[0]
-  );
+  return matched.find(name => filenameMatchesPrecisionTier(name, tier)) ?? matched[0];
 }
 
 function weightDtypeForUnetFilename(filename: string): string {
-  if (precisionHintFromFilename(filename) === "fp8") {
-    return "fp8_e4m3fn";
+  if (precisionHintFromFilename(filename) === 'fp8') {
+    return 'fp8_e4m3fn';
   }
-  return "default";
+  return 'default';
 }
 
 function loaderStemWithoutPrecision(filename: string): string {
   return filename
     .toLowerCase()
-    .replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, "")
-    .replace(/[-_]?(bf16|fp16|fp8_scaled|fp8|e4m3fn|q[2-8]_k[_-][a-z]|q[2-8]_0)/gi, "");
+    .replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, '')
+    .replace(/[-_]?(bf16|fp16|fp8_scaled|fp8|e4m3fn|q[2-8]_k[_-][a-z]|q[2-8]_0)/gi, '');
 }
 
 function resolveInventoryUnetForModel(
   model: ComfyImageModel,
-  inventory: ComfyUiModelLists,
+  inventory: ComfyUiModelLists
 ): string | undefined {
   const pool = filterKleinUnetInventoryForModel(model, inventory.unets);
   const preferred =
-    SUGGESTED_MODEL_CHECKPOINT_MAP[model] ??
-    getComfyModelDefinition(model)?.unetHint;
+    SUGGESTED_MODEL_CHECKPOINT_MAP[model] ?? getComfyModelDefinition(model)?.unetHint;
   const matched = matchInventoryFilename(preferred, pool);
   if (matched) {
     return matched;
@@ -311,36 +270,32 @@ function resolveInventoryUnetForModel(
   if (!baseStem) {
     return undefined;
   }
-  return pool.find((entry) => {
+  return pool.find(entry => {
     if (!qwenUnetFamiliesCompatible(preferred, entry)) {
       return false;
     }
     const entryStem = loaderStemWithoutPrecision(entry);
-    return (
-      entryStem === baseStem ||
-      entryStem.includes(baseStem) ||
-      baseStem.includes(entryStem)
-    );
+    return entryStem === baseStem || entryStem.includes(baseStem) || baseStem.includes(entryStem);
   });
 }
 
 /** Klein Base must never soft-bind distilled / non-base weights (causes CGI fry). */
 function filterKleinUnetInventoryForModel(
   model: ComfyImageModel | string,
-  pool: string[],
+  pool: string[]
 ): string[] {
-  const id = String(model ?? "");
+  const id = String(model ?? '');
   if (isKleinBaseModel(id)) {
     const baseOnly = pool.filter(
-      (name) => /klein/i.test(name) && /base/i.test(name) && !/distill/i.test(name),
+      name => /klein/i.test(name) && /base/i.test(name) && !/distill/i.test(name)
     );
     return baseOnly.length > 0 ? baseOnly : pool;
   }
   if (isKleinDistilledModel(id)) {
     const distilled = pool.filter(
-      (name) =>
+      name =>
         /klein/i.test(name) &&
-        (/distill/i.test(name) || (!/base/i.test(name) && /(9b|4b)/i.test(name))),
+        (/distill/i.test(name) || (!/base/i.test(name) && /(9b|4b)/i.test(name)))
     );
     return distilled.length > 0 ? distilled : pool;
   }
@@ -349,17 +304,13 @@ function filterKleinUnetInventoryForModel(
 
 function looksLikeI2vPackGraph(workflowJson: string): boolean {
   return /WanImageToVideo|WanCameraImageToVideo|HunyuanImageToVideo|LTXVImgToVideo/.test(
-    workflowJson,
+    workflowJson
   );
 }
 
 function packHasBoundLoaders(workflowJson: string): boolean {
   const fingerprint = extractWorkflowStackFingerprint(workflowJson);
-  return (
-    fingerprint.family !== "unknown" &&
-    fingerprint.family !== "other" &&
-    !fingerprint.isMixed
-  );
+  return fingerprint.family !== 'unknown' && fingerprint.family !== 'other' && !fingerprint.isMixed;
 }
 
 function isPlaceholderFilename(value: string): boolean {
@@ -370,7 +321,7 @@ function isPlaceholderFilename(value: string): boolean {
 export function matchNearMissInventoryFilename(
   preferred: string | undefined,
   pool: string[],
-  tier?: LoaderPrecisionTier,
+  tier?: LoaderPrecisionTier
 ): string | undefined {
   if (!preferred?.trim() || pool.length === 0) {
     return undefined;
@@ -383,25 +334,18 @@ export function matchNearMissInventoryFilename(
   if (!baseStem) {
     return undefined;
   }
-  const related = pool.filter((entry) => {
+  const related = pool.filter(entry => {
     if (!qwenUnetFamiliesCompatible(preferred.trim(), entry)) {
       return false;
     }
     const entryStem = loaderStemWithoutPrecision(entry);
-    return (
-      entryStem === baseStem ||
-      entryStem.includes(baseStem) ||
-      baseStem.includes(entryStem)
-    );
+    return entryStem === baseStem || entryStem.includes(baseStem) || baseStem.includes(entryStem);
   });
   if (related.length === 0) {
     return undefined;
   }
   if (tier) {
-    return (
-      related.find((name) => filenameMatchesPrecisionTier(name, tier)) ??
-      related[0]
-    );
+    return related.find(name => filenameMatchesPrecisionTier(name, tier)) ?? related[0];
   }
   return related[0];
 }
@@ -425,7 +369,7 @@ export function pickPackWorkflowForModel(
   model: ComfyImageModel,
   workflowFiles: ComfyWorkflowFile[],
   inventory?: ComfyUiModelLists | null,
-  options?: PickPackOptions,
+  options?: PickPackOptions
 ): { file: ComfyWorkflowFile; score: number } | null {
   if (workflowFiles.length === 0) {
     return null;
@@ -441,11 +385,10 @@ export function pickPackWorkflowForModel(
       break;
     }
 
-    const json = entry.file.workflowJson ?? "";
+    const json = entry.file.workflowJson ?? '';
     const structureBonus = scoreWorkflowGraphStructure(json, model);
     const minScore =
-      structureBonus >= 4 ||
-      (isVideoModel(model) && looksLikeI2vPackGraph(json))
+      structureBonus >= 4 || (isVideoModel(model) && looksLikeI2vPackGraph(json))
         ? SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE
         : SYSTEM_WORKFLOW_MIN_PACK_SCORE;
     if (entry.score < minScore) {
@@ -481,7 +424,7 @@ export function pickPackWorkflowForModel(
     if (isLightningDistilledModel(model)) {
       try {
         const parsed = JSON.parse(json) as Record<string, unknown>;
-        const hasLightningToken = json.includes("{{LORA_LIGHTNING}}");
+        const hasLightningToken = json.includes('{{LORA_LIGHTNING}}');
         if (!workflowHasLoraLoader(parsed) && !hasLightningToken) {
           continue;
         }
@@ -506,17 +449,14 @@ export function pickPackWorkflowForModel(
       packHasBoundLoaders(json) &&
       entry.score >= SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE;
     const videoI2vPack =
-      isVideoModel(model) &&
-      i2vGraph &&
-      entry.score >= SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE;
+      isVideoModel(model) && i2vGraph && entry.score >= SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE;
     const boundPack = packHasBoundLoaders(json) && entry.score >= 8;
     const strongStructure =
       structureBonus >= 4 &&
       packHasBoundLoaders(json) &&
       entry.score >= SYSTEM_WORKFLOW_STRUCTURE_MIN_PACK_SCORE;
     const strongName = entry.score >= 12;
-    const ltxI2vPack =
-      isLtxVideoModel(model) && /LTXVImgToVideo/.test(json);
+    const ltxI2vPack = isLtxVideoModel(model) && /LTXVImgToVideo/.test(json);
     if (
       videoPack ||
       videoBoundPack ||
@@ -539,22 +479,14 @@ export function pickPackWorkflowForModel(
 
   // Prefer I2V / multi-ref edit / edit graphs before inventory fitness re-rank.
   if (pickOptions.preferI2v) {
-    const i2vCandidates = candidates.filter((entry) =>
-      looksLikeI2vPackGraph(entry.file.workflowJson ?? ""),
+    const i2vCandidates = candidates.filter(entry =>
+      looksLikeI2vPackGraph(entry.file.workflowJson ?? '')
     );
     if (i2vCandidates.length > 0) {
       if (inventory) {
         const byFitness = [...i2vCandidates].sort((a, b) => {
-          const fitA = packInventoryFitness(
-            a.file.workflowJson ?? "",
-            inventory,
-            model,
-          );
-          const fitB = packInventoryFitness(
-            b.file.workflowJson ?? "",
-            inventory,
-            model,
-          );
+          const fitA = packInventoryFitness(a.file.workflowJson ?? '', inventory, model);
+          const fitB = packInventoryFitness(b.file.workflowJson ?? '', inventory, model);
           if (fitB !== fitA) {
             return fitB - fitA;
           }
@@ -566,22 +498,14 @@ export function pickPackWorkflowForModel(
     }
   }
   if (pickOptions.preferMultiRef) {
-    const multiRefs = candidates.filter((entry) =>
-      looksLikeMultiRefEditPackGraph(entry.file.workflowJson ?? ""),
+    const multiRefs = candidates.filter(entry =>
+      looksLikeMultiRefEditPackGraph(entry.file.workflowJson ?? '')
     );
     if (multiRefs.length > 0) {
       if (inventory) {
         const byFitness = [...multiRefs].sort((a, b) => {
-          const fitA = packInventoryFitness(
-            a.file.workflowJson ?? "",
-            inventory,
-            model,
-          );
-          const fitB = packInventoryFitness(
-            b.file.workflowJson ?? "",
-            inventory,
-            model,
-          );
+          const fitA = packInventoryFitness(a.file.workflowJson ?? '', inventory, model);
+          const fitB = packInventoryFitness(b.file.workflowJson ?? '', inventory, model);
           if (fitB !== fitA) {
             return fitB - fitA;
           }
@@ -592,31 +516,23 @@ export function pickPackWorkflowForModel(
       return multiRefs[0] ?? null;
     }
     // Compose needs multi-ref; skip single-ref edit packs → scaffold.
-    if (pickOptions.tool === "compose") {
+    if (pickOptions.tool === 'compose') {
       return null;
     }
   }
   // Klein Compose must use ReferenceLatent / VAEEncode edit graphs — never a
   // plain T2I pack (no reference conditioning).
-  if (pickOptions.tool === "compose" && isFluxKleinModel(model)) {
-    const img2img = candidates.filter((entry) =>
-      looksLikeImg2imgPackGraph(entry.file.workflowJson ?? ""),
+  if (pickOptions.tool === 'compose' && isFluxKleinModel(model)) {
+    const img2img = candidates.filter(entry =>
+      looksLikeImg2imgPackGraph(entry.file.workflowJson ?? '')
     );
     if (img2img.length === 0) {
       return null;
     }
     if (inventory) {
       const byFitness = [...img2img].sort((a, b) => {
-        const fitA = packInventoryFitness(
-          a.file.workflowJson ?? "",
-          inventory,
-          model,
-        );
-        const fitB = packInventoryFitness(
-          b.file.workflowJson ?? "",
-          inventory,
-          model,
-        );
+        const fitA = packInventoryFitness(a.file.workflowJson ?? '', inventory, model);
+        const fitB = packInventoryFitness(b.file.workflowJson ?? '', inventory, model);
         if (fitB !== fitA) {
           return fitB - fitA;
         }
@@ -627,9 +543,7 @@ export function pickPackWorkflowForModel(
     return img2img[0] ?? null;
   }
   if (pickOptions.preferEdit) {
-    const edit = candidates.find((entry) =>
-      looksLikeEditPackGraph(entry.file.workflowJson ?? ""),
-    );
+    const edit = candidates.find(entry => looksLikeEditPackGraph(entry.file.workflowJson ?? ''));
     if (edit) {
       return edit;
     }
@@ -638,16 +552,8 @@ export function pickPackWorkflowForModel(
   // Re-rank survivors by how cleanly they match installed loaders.
   if (inventory) {
     const byFitness = [...candidates].sort((a, b) => {
-      const fitA = packInventoryFitness(
-        a.file.workflowJson ?? "",
-        inventory,
-        model,
-      );
-      const fitB = packInventoryFitness(
-        b.file.workflowJson ?? "",
-        inventory,
-        model,
-      );
+      const fitA = packInventoryFitness(a.file.workflowJson ?? '', inventory, model);
+      const fitB = packInventoryFitness(b.file.workflowJson ?? '', inventory, model);
       if (fitB !== fitA) {
         return fitB - fitA;
       }
@@ -663,7 +569,7 @@ export function pickPackWorkflowForModel(
 export function softBindScaffoldFromInventory(
   workflowJson: string,
   model: ComfyImageModel,
-  inventory?: ComfyUiModelLists | null,
+  inventory?: ComfyUiModelLists | null
 ): {
   workflowJson: string;
   lightningLora?: string;
@@ -683,7 +589,7 @@ export function softBindScaffoldFromInventory(
     const rewritten = maybeRewriteRapidAioWorkflowLoaders(
       graph,
       model,
-      SUGGESTED_MODEL_CHECKPOINT_MAP[model],
+      SUGGESTED_MODEL_CHECKPOINT_MAP[model]
     );
     graph = rewritten.workflow;
   }
@@ -698,25 +604,18 @@ export function softBindScaffoldFromInventory(
   const resolvedUnet = resolveInventoryUnetForModel(model, inventory);
   const videoPool = [...inventory.checkpoints, ...inventory.unets];
   const resolvedCheckpoint =
-    (isVideoModel(model)
-      ? pickVideoCheckpointFromInventory(model, videoPool)
-      : undefined) ??
-    matchNearMissInventoryFilename(
-      SUGGESTED_MODEL_CHECKPOINT_MAP[model],
-      checkpointPool,
-    ) ??
+    (isVideoModel(model) ? pickVideoCheckpointFromInventory(model, videoPool) : undefined) ??
+    matchNearMissInventoryFilename(SUGGESTED_MODEL_CHECKPOINT_MAP[model], checkpointPool) ??
     resolvedUnet;
   const unetTier = resolvedUnet
     ? precisionHintFromFilename(resolvedUnet)
     : resolvedCheckpoint
       ? precisionHintFromFilename(resolvedCheckpoint)
       : undefined;
-  const kleinDual = isFluxKleinModel(model)
-    ? fluxKleinDualClipFilename(model)
-    : undefined;
+  const kleinDual = isFluxKleinModel(model) ? fluxKleinDualClipFilename(model) : undefined;
 
   for (const node of Object.values(graph)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
     const record = node as {
@@ -727,25 +626,22 @@ export function softBindScaffoldFromInventory(
     if (!record.inputs) {
       continue;
     }
-    const classType = record.class_type ?? "";
+    const classType = record.class_type ?? '';
 
-    if (
-      (classType === "UNETLoader" || classType === "UnetLoaderGGUF") &&
-      resolvedUnet
-    ) {
+    if ((classType === 'UNETLoader' || classType === 'UnetLoaderGGUF') && resolvedUnet) {
       const isGguf = /\.gguf$/i.test(resolvedUnet);
       if (isGguf) {
-        record.class_type = "UnetLoaderGGUF";
+        record.class_type = 'UnetLoaderGGUF';
         // GGUF loader has no weight_dtype input.
         delete record.inputs.weight_dtype;
-      } else if (classType === "UNETLoader" || classType === "UnetLoaderGGUF") {
-        record.class_type = "UNETLoader";
-        if ("weight_dtype" in record.inputs || classType === "UNETLoader") {
+      } else if (classType === 'UNETLoader' || classType === 'UnetLoaderGGUF') {
+        record.class_type = 'UNETLoader';
+        if ('weight_dtype' in record.inputs || classType === 'UNETLoader') {
           record.inputs.weight_dtype = weightDtypeForUnetFilename(resolvedUnet);
         }
       }
       // Bind concrete names and {{UNET}} placeholders when inventory has the file.
-      if (typeof record.inputs.unet_name === "string") {
+      if (typeof record.inputs.unet_name === 'string') {
         if (
           isPlaceholderFilename(record.inputs.unet_name) ||
           !matchInventoryFilename(record.inputs.unet_name, inventory.unets)
@@ -757,7 +653,7 @@ export function softBindScaffoldFromInventory(
           const near = matchNearMissInventoryFilename(
             record.inputs.unet_name,
             inventory.unets,
-            unetTier,
+            unetTier
           );
           if (near) {
             record.inputs.unet_name = near;
@@ -767,24 +663,20 @@ export function softBindScaffoldFromInventory(
     }
 
     if (
-      (classType === "CheckpointLoaderSimple" ||
-        classType === "CheckpointLoader") &&
+      (classType === 'CheckpointLoaderSimple' || classType === 'CheckpointLoader') &&
       resolvedCheckpoint
     ) {
-      if (typeof record.inputs.ckpt_name === "string") {
+      if (typeof record.inputs.ckpt_name === 'string') {
         if (
           isPlaceholderFilename(record.inputs.ckpt_name) ||
-          !matchNearMissInventoryFilename(
-            record.inputs.ckpt_name,
-            checkpointPool,
-          )
+          !matchNearMissInventoryFilename(record.inputs.ckpt_name, checkpointPool)
         ) {
           record.inputs.ckpt_name = resolvedCheckpoint;
         } else {
           const near = matchNearMissInventoryFilename(
             record.inputs.ckpt_name,
             checkpointPool,
-            unetTier,
+            unetTier
           );
           if (near) {
             record.inputs.ckpt_name = near;
@@ -793,13 +685,10 @@ export function softBindScaffoldFromInventory(
       }
     }
 
-    if (classType === "VAELoader" && typeof record.inputs.vae_name === "string") {
+    if (classType === 'VAELoader' && typeof record.inputs.vae_name === 'string') {
       const suggested = suggestedVaeFilenameForModel(model);
-      if (
-        suggested &&
-        isVaeFilenameIncompatibleWithModel(model, record.inputs.vae_name)
-      ) {
-        const compatiblePool = vaePool.filter((name) => {
+      if (suggested && isVaeFilenameIncompatibleWithModel(model, record.inputs.vae_name)) {
+        const compatiblePool = vaePool.filter(name => {
           if (/flux2-vae/i.test(suggested)) {
             return /flux2-vae/i.test(name);
           }
@@ -814,25 +703,21 @@ export function softBindScaffoldFromInventory(
         const fixed = matchNearMissInventoryFilename(
           suggested,
           compatiblePool.length > 0 ? compatiblePool : vaePool,
-          unetTier,
+          unetTier
         );
         if (fixed) {
           record.inputs.vae_name = fixed;
           continue;
         }
       }
-      const matched = matchInventoryFilenamePreferTier(
-        record.inputs.vae_name,
-        vaePool,
-        unetTier,
-      );
+      const matched = matchInventoryFilenamePreferTier(record.inputs.vae_name, vaePool, unetTier);
       if (matched) {
         record.inputs.vae_name = matched;
       } else if (isPlaceholderFilename(record.inputs.vae_name)) {
         const fromInventory = matchNearMissInventoryFilename(
           suggested ?? SUGGESTED_MODEL_VAE_MAP.default,
           vaePool,
-          unetTier,
+          unetTier
         );
         if (fromInventory) {
           record.inputs.vae_name = fromInventory;
@@ -840,23 +725,19 @@ export function softBindScaffoldFromInventory(
       }
     }
 
-    if (classType === "CLIPLoader" && typeof record.inputs.clip_name === "string") {
+    if (classType === 'CLIPLoader' && typeof record.inputs.clip_name === 'string') {
       if (kleinDual) {
         // Klein must use CLIPLoader type flux2 + size-matched Qwen3 encoder.
-        record.inputs.type = "flux2";
+        record.inputs.type = 'flux2';
         const matched =
-          matchInventoryFilenamePreferTier(
-            record.inputs.clip_name,
-            clipPool,
-            unetTier,
-          ) ??
+          matchInventoryFilenamePreferTier(record.inputs.clip_name, clipPool, unetTier) ??
           matchInventoryFilenamePreferTier(kleinDual, clipPool, unetTier) ??
           pickPoolFilenamePreferTier(
             clipPool,
             /9b/i.test(String(model))
               ? [/qwen_3_8b/i, /flux2-klein-9b/i]
               : [/qwen_3_4b/i, /flux2-klein-4b/i],
-            unetTier,
+            unetTier
           );
         if (matched) {
           record.inputs.clip_name = matched;
@@ -865,27 +746,19 @@ export function softBindScaffoldFromInventory(
         const matched = matchInventoryFilenamePreferTier(
           record.inputs.clip_name,
           clipPool,
-          unetTier,
+          unetTier
         );
         if (matched) {
           record.inputs.clip_name = matched;
-        } else if (category === "qwen") {
+        } else if (category === 'qwen') {
           const suggestedClip =
             resolveLoaderFilenamesForModel(model, {
               precisionTier: unetTier,
-            }).dualClip ?? qwenDualClipFilename(unetTier ?? "bf16");
-          const fromSuggested = matchInventoryFilenamePreferTier(
-            suggestedClip,
-            clipPool,
-            unetTier,
-          );
+            }).dualClip ?? qwenDualClipFilename(unetTier ?? 'bf16');
+          const fromSuggested = matchInventoryFilenamePreferTier(suggestedClip, clipPool, unetTier);
           const fallback =
             fromSuggested ??
-            pickPoolFilenamePreferTier(
-              clipPool,
-              [/qwen_2\.5_vl|qwen.*vl_7b/i],
-              unetTier,
-            );
+            pickPoolFilenamePreferTier(clipPool, [/qwen_2\.5_vl|qwen.*vl_7b/i], unetTier);
           if (fallback) {
             record.inputs.clip_name = fallback;
           }
@@ -893,7 +766,7 @@ export function softBindScaffoldFromInventory(
       }
     }
 
-    if (classType === "DualCLIPLoader") {
+    if (classType === 'DualCLIPLoader') {
       if (kleinDual) {
         // Legacy DualCLIP Klein scaffolds → CLIPLoader type flux2 (official Comfy layout).
         const matched =
@@ -903,33 +776,36 @@ export function softBindScaffoldFromInventory(
             /9b/i.test(String(model))
               ? [/qwen_3_8b/i, /flux2-klein-9b/i]
               : [/qwen_3_4b/i, /flux2-klein-4b/i],
-            unetTier,
+            unetTier
           );
-        record.class_type = "CLIPLoader";
+        record.class_type = 'CLIPLoader';
         record.inputs = {
           clip_name: matched ?? kleinDual,
-          type: "flux2",
+          type: 'flux2',
         };
-        if (record._meta && typeof record._meta === "object") {
-          (record._meta as { title?: string }).title =
-            "CLIPLoader (FLUX.2 Klein)";
+        if (record._meta && typeof record._meta === 'object') {
+          (record._meta as { title?: string }).title = 'CLIPLoader (FLUX.2 Klein)';
         }
       } else {
         // Flux.1 DualCLIP: clip_name1 must stay CLIP-L, clip_name2 must stay T5-XXL.
         // Broad stem matching can otherwise cross-wire slots → soft/blurry decode.
         const clipL =
-          matchInventoryFilenamePreferTier("clip_l.safetensors", clipPool, unetTier) ??
-          pickPoolFilenamePreferTier(clipPool, [/^clip_l[\._-]/i, /clip_l\.safetensors/i], unetTier);
+          matchInventoryFilenamePreferTier('clip_l.safetensors', clipPool, unetTier) ??
+          pickPoolFilenamePreferTier(
+            clipPool,
+            [/^clip_l[\._-]/i, /clip_l\.safetensors/i],
+            unetTier
+          );
         const t5 =
-          matchInventoryFilenamePreferTier("t5xxl_fp16.safetensors", clipPool, unetTier) ??
+          matchInventoryFilenamePreferTier('t5xxl_fp16.safetensors', clipPool, unetTier) ??
           pickPoolFilenamePreferTier(
             clipPool,
             [/t5xxl_fp16/i, /t5xxl(?!.*fp8)/i, /t5xxl/i],
-            unetTier,
+            unetTier
           ) ??
           pickPoolFilenamePreferTier(clipPool, [/t5xxl/i], unetTier);
 
-        if (typeof record.inputs.clip_name1 === "string") {
+        if (typeof record.inputs.clip_name1 === 'string') {
           const current1 = record.inputs.clip_name1;
           if (
             isPlaceholderFilename(current1) ||
@@ -942,8 +818,8 @@ export function softBindScaffoldFromInventory(
           } else {
             const matched = matchInventoryFilenamePreferTier(
               current1,
-              clipPool.filter((name) => /clip_l/i.test(name) && !/t5/i.test(name)),
-              unetTier,
+              clipPool.filter(name => /clip_l/i.test(name) && !/t5/i.test(name)),
+              unetTier
             );
             if (matched) {
               record.inputs.clip_name1 = matched;
@@ -953,7 +829,7 @@ export function softBindScaffoldFromInventory(
           }
         }
 
-        if (typeof record.inputs.clip_name2 === "string") {
+        if (typeof record.inputs.clip_name2 === 'string') {
           const current2 = record.inputs.clip_name2;
           if (
             isPlaceholderFilename(current2) ||
@@ -965,9 +841,9 @@ export function softBindScaffoldFromInventory(
             }
           } else {
             // Prefer fp16 T5 when available (author: fp16 >> fp8 for Flux fine-tunes).
-            const t5Pool = clipPool.filter((name) => /t5xxl/i.test(name));
+            const t5Pool = clipPool.filter(name => /t5xxl/i.test(name));
             const matched =
-              matchInventoryFilenamePreferTier("t5xxl_fp16.safetensors", t5Pool, unetTier) ??
+              matchInventoryFilenamePreferTier('t5xxl_fp16.safetensors', t5Pool, unetTier) ??
               matchInventoryFilenamePreferTier(current2, t5Pool, unetTier) ??
               t5;
             if (matched) {
@@ -976,8 +852,8 @@ export function softBindScaffoldFromInventory(
           }
         }
 
-        if (typeof record.inputs.type === "string" || record.inputs.type == null) {
-          record.inputs.type = "flux";
+        if (typeof record.inputs.type === 'string' || record.inputs.type == null) {
+          record.inputs.type = 'flux';
         }
       }
     }
@@ -996,24 +872,20 @@ export function softBindScaffoldFromInventory(
 /** Seed queue params from family sampler + resolution presets for the active profile. */
 export function buildSystemWorkflowQueueParams(
   model: ComfyImageModel,
-  shared: SharedToolSettings,
+  shared: SharedToolSettings
 ): WorkflowParamValues {
   const profile = normalizeQueueQualityProfile(shared.queueQualityProfile);
   const presetTier = resolveEffectiveSamplerPreset(
-    normalizeModelSamplerPresetTier(
-      shared.modelSamplerPreset ?? DEFAULT_MODEL_SAMPLER_PRESET_TIER,
-    ),
+    normalizeModelSamplerPresetTier(shared.modelSamplerPreset ?? DEFAULT_MODEL_SAMPLER_PRESET_TIER),
     profile,
-    { model },
+    { model }
   );
   const orientation = normalizeResolutionOrientation(
-    shared.modelResolutionOrientation ?? DEFAULT_RESOLUTION_ORIENTATION,
+    shared.modelResolutionOrientation ?? DEFAULT_RESOLUTION_ORIENTATION
   );
   const sizeTier = resolveEffectiveResolutionSizeTier(
-    normalizeResolutionSizeTier(
-      shared.modelResolutionSizeTier ?? DEFAULT_RESOLUTION_SIZE_TIER,
-    ),
-    profile,
+    normalizeResolutionSizeTier(shared.modelResolutionSizeTier ?? DEFAULT_RESOLUTION_SIZE_TIER),
+    profile
   );
 
   return {
@@ -1030,11 +902,11 @@ export function buildSystemWorkflowQueueParams(
 export function resolveSystemLoaderMaps(
   model: ComfyImageModel,
   shared: SharedToolSettings,
-  inventory?: ComfyUiModelLists | null,
+  inventory?: ComfyUiModelLists | null
 ): {
   modelCheckpointMap: ModelCheckpointMap;
   modelVaeMap: ModelVaeMap;
-  modelUpscaleMap?: SharedToolSettings["modelUpscaleMap"];
+  modelUpscaleMap?: SharedToolSettings['modelUpscaleMap'];
 } {
   const models = inventory ?? readCachedComfyObjectInfoModels();
   let modelCheckpointMap: ModelCheckpointMap = {
@@ -1071,10 +943,10 @@ export function resolveSystemLoaderMaps(
 
     // Soft-fill this model from suggestions matched to live inventory.
     if (!modelCheckpointMap[model]?.trim()) {
-      const matched = matchInventoryFilename(
-        SUGGESTED_MODEL_CHECKPOINT_MAP[model],
-        [...models.unets, ...models.checkpoints],
-      );
+      const matched = matchInventoryFilename(SUGGESTED_MODEL_CHECKPOINT_MAP[model], [
+        ...models.unets,
+        ...models.checkpoints,
+      ]);
       if (matched) {
         modelCheckpointMap = { ...modelCheckpointMap, [model]: matched };
       }
@@ -1082,7 +954,7 @@ export function resolveSystemLoaderMaps(
     if (!modelVaeMap[model]?.trim()) {
       const matched = matchInventoryFilename(
         SUGGESTED_MODEL_VAE_MAP[model] ?? SUGGESTED_MODEL_VAE_MAP.default,
-        models.vaes,
+        models.vaes
       );
       if (matched) {
         modelVaeMap = { ...modelVaeMap, [model]: matched };
@@ -1097,8 +969,7 @@ export function resolveSystemLoaderMaps(
       };
     }
     if (!modelVaeMap[model]?.trim()) {
-      const suggested =
-        SUGGESTED_MODEL_VAE_MAP[model] ?? SUGGESTED_MODEL_VAE_MAP.default;
+      const suggested = SUGGESTED_MODEL_VAE_MAP[model] ?? SUGGESTED_MODEL_VAE_MAP.default;
       if (suggested) {
         modelVaeMap = { ...modelVaeMap, [model]: suggested };
       }
@@ -1109,13 +980,13 @@ export function resolveSystemLoaderMaps(
 }
 
 export type SystemWorkflowChoiceReason =
-  | "pack"
-  | "pack-repaired"
-  | "i2v-pack"
-  | "edit-pack"
-  | "cold-start"
-  | "missing-loaders"
-  | "no-worthy-pack";
+  | 'pack'
+  | 'pack-repaired'
+  | 'i2v-pack'
+  | 'edit-pack'
+  | 'cold-start'
+  | 'missing-loaders'
+  | 'no-worthy-pack';
 
 export type SystemWorkflowChoiceDescription = {
   source: SystemWorkflowSource;
@@ -1128,7 +999,7 @@ export type SystemWorkflowChoiceDescription = {
 /** True when Video tool has an I2V init image configured. */
 export function videoInitImageConfigured(): boolean {
   try {
-    const video = loadToolSettings("video", DEFAULT_VIDEO_TOOL_CACHE);
+    const video = loadToolSettings('video', DEFAULT_VIDEO_TOOL_CACHE);
     return Boolean(video.initImageUrl?.trim());
   } catch {
     return false;
@@ -1139,28 +1010,20 @@ export function videoInitImageConfigured(): boolean {
 export function editSourceImageConfigured(): boolean {
   try {
     const shared = loadSettingsCache().shared;
-    return Boolean(
-      shared.ipAdapterImageUrl?.trim() || shared.ipAdapterImageFilename?.trim(),
-    );
+    return Boolean(shared.ipAdapterImageUrl?.trim() || shared.ipAdapterImageFilename?.trim());
   } catch {
     return false;
   }
 }
 
-function resolvePreferI2v(
-  model: ComfyImageModel,
-  options?: PickPackOptions,
-): boolean {
+function resolvePreferI2v(model: ComfyImageModel, options?: PickPackOptions): boolean {
   if (options?.preferI2v != null) {
     return options.preferI2v;
   }
   return isVideoModel(model) && videoInitImageConfigured();
 }
 
-function resolvePreferEdit(
-  model: ComfyImageModel,
-  options?: PickPackOptions,
-): boolean {
+function resolvePreferEdit(model: ComfyImageModel, options?: PickPackOptions): boolean {
   if (options?.preferEdit != null) {
     return options.preferEdit;
   }
@@ -1170,10 +1033,7 @@ function resolvePreferEdit(
   return isEditCapableModel(model) && editSourceImageConfigured();
 }
 
-function resolvePreferMultiRef(
-  model: ComfyImageModel,
-  options?: PickPackOptions,
-): boolean {
+function resolvePreferMultiRef(model: ComfyImageModel, options?: PickPackOptions): boolean {
   if (options?.preferMultiRef != null) {
     return options.preferMultiRef;
   }
@@ -1181,13 +1041,13 @@ function resolvePreferMultiRef(
   if (isFluxKleinModel(model)) {
     return false;
   }
-  return options?.tool === "compose";
+  return options?.tool === 'compose';
 }
 
 /** Resolved pack-pick flags for a model/tool (exported for tests). */
 export function resolvePickPackOptions(
   model: ComfyImageModel,
-  options?: PickPackOptions,
+  options?: PickPackOptions
 ): PickPackOptions {
   return {
     preferI2v: resolvePreferI2v(model, options),
@@ -1201,14 +1061,14 @@ export function describeSystemWorkflowChoice(
   model: ComfyImageModel,
   workflowFiles: ComfyWorkflowFile[],
   inventory?: ComfyUiModelLists | null,
-  options?: PickPackOptions,
+  options?: PickPackOptions
 ): SystemWorkflowChoiceDescription {
   if (!inventory) {
     return {
-      source: "scaffold",
-      label: "Built-in scaffold",
-      reason: "cold-start",
-      display: "Built-in scaffold · waiting for Comfy inventory",
+      source: 'scaffold',
+      label: 'Built-in scaffold',
+      reason: 'cold-start',
+      display: 'Built-in scaffold · waiting for Comfy inventory',
     };
   }
 
@@ -1216,42 +1076,35 @@ export function describeSystemWorkflowChoice(
   const preferI2v = Boolean(pickOptions.preferI2v);
   const preferEdit = Boolean(pickOptions.preferEdit);
   const preferMultiRef = Boolean(pickOptions.preferMultiRef);
-  const pack = pickPackWorkflowForModel(
-    model,
-    workflowFiles,
-    inventory,
-    pickOptions,
-  );
+  const pack = pickPackWorkflowForModel(model, workflowFiles, inventory, pickOptions);
   if (pack) {
-    const json = pack.file.workflowJson ?? "";
+    const json = pack.file.workflowJson ?? '';
     const repaired = softRepairPackLoadersFromInventory(json, model, inventory);
-    const label =
-      pack.file.name.trim() || pack.file.filename?.trim() || pack.file.id;
+    const label = pack.file.name.trim() || pack.file.filename?.trim() || pack.file.id;
     const isI2v = preferI2v && looksLikeI2vPackGraph(json);
     if (isI2v) {
       return {
-        source: "pack",
+        source: 'pack',
         label,
-        reason: "i2v-pack",
+        reason: 'i2v-pack',
         display: `Pack · ${label} (I2V)`,
       };
     }
-    const isMultiRef =
-      preferMultiRef && looksLikeMultiRefEditPackGraph(json);
+    const isMultiRef = preferMultiRef && looksLikeMultiRefEditPackGraph(json);
     if (isMultiRef) {
       return {
-        source: "pack",
+        source: 'pack',
         label,
-        reason: "edit-pack",
+        reason: 'edit-pack',
         display: `Pack · ${label} (Compose multi-ref)`,
       };
     }
     const isEdit = preferEdit && looksLikeEditPackGraph(json);
     if (isEdit) {
       return {
-        source: "pack",
+        source: 'pack',
         label,
-        reason: "edit-pack",
+        reason: 'edit-pack',
         display: `Pack · ${label} (edit)`,
       };
     }
@@ -1267,32 +1120,32 @@ export function describeSystemWorkflowChoice(
       if (repaired.droppedSecondaries.length > 0) {
         notes.push(`stripped ${repaired.droppedSecondaries.length} secondary`);
       }
-      const dropNote = notes.length > 0 ? ` · ${notes.join(" · ")}` : "";
+      const dropNote = notes.length > 0 ? ` · ${notes.join(' · ')}` : '';
       return {
-        source: "pack",
+        source: 'pack',
         label,
-        reason: "pack-repaired",
+        reason: 'pack-repaired',
         display: `Pack · ${label} (inventory soft-bound${dropNote})`,
       };
     }
     return {
-      source: "pack",
+      source: 'pack',
       label,
-      reason: "pack",
+      reason: 'pack',
       display: `Pack · ${label}`,
     };
   }
 
   const ranked = rankWorkflowFilesForModel(model, workflowFiles);
-  let firstMissingDetail = "";
-  const hasLoaderBlockedPack = ranked.some((entry) => {
+  let firstMissingDetail = '';
+  const hasLoaderBlockedPack = ranked.some(entry => {
     if (entry.score < SYSTEM_WORKFLOW_MIN_PACK_SCORE) {
       return false;
     }
     if (looksLikeAppScaffoldLabel(entry.file)) {
       return false;
     }
-    const json = entry.file.workflowJson ?? "";
+    const json = entry.file.workflowJson ?? '';
     if (!json.trim()) {
       return false;
     }
@@ -1315,69 +1168,62 @@ export function describeSystemWorkflowChoice(
   });
 
   if (hasLoaderBlockedPack) {
-    const detail = firstMissingDetail ? ` · missing ${firstMissingDetail}` : "";
+    const detail = firstMissingDetail ? ` · missing ${firstMissingDetail}` : '';
     return {
-      source: "scaffold",
-      label: "Built-in scaffold",
-      reason: "missing-loaders",
+      source: 'scaffold',
+      label: 'Built-in scaffold',
+      reason: 'missing-loaders',
       display: `Built-in scaffold · pack loaders not installed${detail}`,
     };
   }
 
   if (isLtxVideoModel(model)) {
     return {
-      source: "scaffold",
-      label: "Built-in scaffold",
-      reason: "no-worthy-pack",
-      display: "Built-in scaffold · Checkpoint T2V only — LTX I2V needs a library pack",
+      source: 'scaffold',
+      label: 'Built-in scaffold',
+      reason: 'no-worthy-pack',
+      display: 'Built-in scaffold · Checkpoint T2V only — LTX I2V needs a library pack',
     };
   }
   if (isVideoModel(model)) {
-    const hasVideoCkpt = Boolean(
-      inventory.checkpoints.some((name) =>
-        /wan|hunyuan|ltx/i.test(name),
-      ),
-    );
-    const hasVideoUnet = Boolean(
-      inventory.unets.some((name) => /wan|hunyuan|ltx/i.test(name)),
-    );
-    let honesty = "Checkpoint T2V only — prefer a WAN/Hunyuan/LTX pack";
+    const hasVideoCkpt = Boolean(inventory.checkpoints.some(name => /wan|hunyuan|ltx/i.test(name)));
+    const hasVideoUnet = Boolean(inventory.unets.some(name => /wan|hunyuan|ltx/i.test(name)));
+    let honesty = 'Checkpoint T2V only — prefer a WAN/Hunyuan/LTX pack';
     if (!hasVideoCkpt && hasVideoUnet) {
-      honesty =
-        "no video checkpoint mapped — prefer a UNET-based video pack";
+      honesty = 'no video checkpoint mapped — prefer a UNET-based video pack';
     } else if (preferI2v) {
       honesty =
-        "Checkpoint T2V scaffold with init image — auto-wires Wan/Hunyuan I2V when possible; import an I2V pack for best motion quality";
+        'Checkpoint T2V scaffold with init image — auto-wires Wan/Hunyuan I2V when possible; import an I2V pack for best motion quality';
     }
     return {
-      source: "scaffold",
-      label: "Built-in scaffold",
-      reason: "no-worthy-pack",
+      source: 'scaffold',
+      label: 'Built-in scaffold',
+      reason: 'no-worthy-pack',
       display: `Built-in scaffold · ${honesty}`,
     };
   }
   if (preferMultiRef) {
     return {
-      source: "scaffold",
-      label: "Built-in scaffold",
-      reason: "no-worthy-pack",
-      display: "Built-in scaffold · Compose figures (no multi-ref pack)",
+      source: 'scaffold',
+      label: 'Built-in scaffold',
+      reason: 'no-worthy-pack',
+      display: 'Built-in scaffold · Compose figures (no multi-ref pack)',
     };
   }
   if (preferEdit) {
     return {
-      source: "scaffold",
-      label: "Built-in scaffold",
-      reason: "no-worthy-pack",
-      display: "Built-in scaffold · edit path (no edit pack)",
+      source: 'scaffold',
+      label: 'Built-in scaffold',
+      reason: 'no-worthy-pack',
+      display: 'Built-in scaffold · edit path (no edit pack)',
     };
   }
 
   return {
-    source: "scaffold",
-    label: "Built-in scaffold",
-    reason: "no-worthy-pack",
-    display: "Built-in scaffold",
+    source: 'scaffold',
+    label: 'Built-in scaffold',
+    reason: 'no-worthy-pack',
+    display: 'Built-in scaffold',
   };
 }
 
@@ -1386,7 +1232,7 @@ export function resolveSystemWorkflowForModel(
   shared: SharedToolSettings,
   workflowFiles: ComfyWorkflowFile[],
   inventory?: ComfyUiModelLists | null,
-  options?: PickPackOptions,
+  options?: PickPackOptions
 ): SystemWorkflowResolveResult {
   const models = inventory ?? readCachedComfyObjectInfoModels();
   const loaders = resolveSystemLoaderMaps(model, shared, models);
@@ -1396,28 +1242,21 @@ export function resolveSystemWorkflowForModel(
   // Explicit Settings / library "Assign to model" wins over auto pack scoring.
   const mappedId = resolveWorkflowForModel(model, shared.modelWorkflowMap)?.trim();
   if (mappedId) {
-    const mappedFile = workflowFiles.find((file) => file.id === mappedId);
+    const mappedFile = workflowFiles.find(file => file.id === mappedId);
     const runtime = resolveSelectedWorkflowRuntime(mappedId);
     if (runtime?.workflowJson?.trim()) {
-      const repaired = softRepairPackLoadersFromInventory(
-        runtime.workflowJson,
-        model,
-        models,
-      );
+      const repaired = softRepairPackLoadersFromInventory(runtime.workflowJson, model, models);
       const customTokens = softFillLightningTokenForGraph(
         model,
         repaired.workflowJson,
         [...(runtime.customTokens ?? [])],
-        models,
+        models
       );
       return {
         workflowJson: repaired.workflowJson,
-        source: "pack",
+        source: 'pack',
         workflowFileId: mappedId,
-        workflowLabel:
-          mappedFile?.name.trim() ||
-          mappedFile?.filename?.trim() ||
-          mappedId,
+        workflowLabel: mappedFile?.name.trim() || mappedFile?.filename?.trim() || mappedId,
         queueParams,
         ...loaders,
         ...(customTokens.length ? { customTokens } : {}),
@@ -1425,33 +1264,23 @@ export function resolveSystemWorkflowForModel(
     }
   }
 
-  const pack = pickPackWorkflowForModel(
-    model,
-    workflowFiles,
-    models,
-    pickOptions,
-  );
+  const pack = pickPackWorkflowForModel(model, workflowFiles, models, pickOptions);
 
   if (pack) {
     const runtime = resolveSelectedWorkflowRuntime(pack.file.id);
     if (runtime?.workflowJson?.trim()) {
-      const repaired = softRepairPackLoadersFromInventory(
-        runtime.workflowJson,
-        model,
-        models,
-      );
+      const repaired = softRepairPackLoadersFromInventory(runtime.workflowJson, model, models);
       const customTokens = softFillLightningTokenForGraph(
         model,
         repaired.workflowJson,
         [...(runtime.customTokens ?? [])],
-        models,
+        models
       );
       return {
         workflowJson: repaired.workflowJson,
-        source: "pack",
+        source: 'pack',
         workflowFileId: pack.file.id,
-        workflowLabel:
-          pack.file.name.trim() || pack.file.filename?.trim() || pack.file.id,
+        workflowLabel: pack.file.name.trim() || pack.file.filename?.trim() || pack.file.id,
         queueParams,
         ...loaders,
         ...(customTokens.length ? { customTokens } : {}),
@@ -1466,21 +1295,16 @@ export function resolveSystemWorkflowForModel(
   const customTokens: CustomWorkflowToken[] = [];
   if (bound.lightningLora) {
     customTokens.push({
-      token: "{{LORA_LIGHTNING}}",
+      token: '{{LORA_LIGHTNING}}',
       value: bound.lightningLora,
     });
   }
 
-  const choice = describeSystemWorkflowChoice(
-    model,
-    workflowFiles,
-    models,
-    pickOptions,
-  );
+  const choice = describeSystemWorkflowChoice(model, workflowFiles, models, pickOptions);
 
   return {
     workflowJson: bound.workflowJson,
-    source: "scaffold",
+    source: 'scaffold',
     workflowLabel: choice.display,
     queueParams,
     ...loaders,
@@ -1490,13 +1314,13 @@ export function resolveSystemWorkflowForModel(
 
 function hasMatchingBoundLightningToken(
   tokens: CustomWorkflowToken[],
-  model: ComfyImageModel,
+  model: ComfyImageModel
 ): boolean {
   return tokens.some(
-    (entry) =>
-      entry.token.trim() === "{{LORA_LIGHTNING}}" &&
+    entry =>
+      entry.token.trim() === '{{LORA_LIGHTNING}}' &&
       entry.value.trim() &&
-      lightningLoraMatchesModel(entry.value, model),
+      lightningLoraMatchesModel(entry.value, model)
   );
 }
 
@@ -1505,7 +1329,7 @@ function softFillLightningTokenForGraph(
   model: ComfyImageModel,
   workflowJson: string,
   tokens: CustomWorkflowToken[],
-  inventory?: ComfyUiModelLists | null,
+  inventory?: ComfyUiModelLists | null
 ): CustomWorkflowToken[] {
   if (!isLightningDistilledModel(model)) {
     return tokens;
@@ -1513,7 +1337,7 @@ function softFillLightningTokenForGraph(
   if (hasMatchingBoundLightningToken(tokens, model)) {
     return tokens;
   }
-  if (!workflowJson.includes("{{LORA_LIGHTNING}}")) {
+  if (!workflowJson.includes('{{LORA_LIGHTNING}}')) {
     return tokens;
   }
   const picked = inventory?.loras?.length
@@ -1523,8 +1347,8 @@ function softFillLightningTokenForGraph(
     return tokens;
   }
   return [
-    ...tokens.filter((entry) => entry.token.trim() !== "{{LORA_LIGHTNING}}"),
-    { token: "{{LORA_LIGHTNING}}", value: picked },
+    ...tokens.filter(entry => entry.token.trim() !== '{{LORA_LIGHTNING}}'),
+    { token: '{{LORA_LIGHTNING}}', value: picked },
   ];
 }
 
@@ -1535,19 +1359,13 @@ export function applySystemWorkflowToRuntime(
   workflowFiles: ComfyWorkflowFile[],
   baseFlags: ComfyUiRuntimeConfig,
   inventory?: ComfyUiModelLists | null,
-  options?: PickPackOptions,
+  options?: PickPackOptions
 ): ComfyUiRuntimeConfig {
-  const resolved = resolveSystemWorkflowForModel(
-    model,
-    shared,
-    workflowFiles,
-    inventory,
-    options,
-  );
+  const resolved = resolveSystemWorkflowForModel(model, shared, workflowFiles, inventory, options);
   const profile = normalizeQueueQualityProfile(shared.queueQualityProfile);
-  const isDraft = profile === "draft";
-  const isMax = profile === "max";
-  const isFinalOrMax = profile === "final" || isMax;
+  const isDraft = profile === 'draft';
+  const isMax = profile === 'max';
+  const isFinalOrMax = profile === 'final' || isMax;
 
   return {
     ...baseFlags,
@@ -1556,15 +1374,10 @@ export function applySystemWorkflowToRuntime(
     queueParams: resolved.queueParams,
     modelCheckpointMap: resolved.modelCheckpointMap,
     modelVaeMap: resolved.modelVaeMap,
-    ...(resolved.modelUpscaleMap
-      ? { modelUpscaleMap: resolved.modelUpscaleMap }
-      : {}),
+    ...(resolved.modelUpscaleMap ? { modelUpscaleMap: resolved.modelUpscaleMap } : {}),
     ...(resolved.customTokens?.length
       ? {
-          customTokens: [
-            ...(baseFlags.customTokens ?? []),
-            ...resolved.customTokens,
-          ],
+          customTokens: [...(baseFlags.customTokens ?? []), ...resolved.customTokens],
         }
       : {}),
     queueQualityProfile: profile,
@@ -1574,10 +1387,8 @@ export function applySystemWorkflowToRuntime(
     workflowQueueOptimize: true,
     // Draft stays lean (no enrich); Final/Max turn polish on.
     workflowGraphEnrich: !isDraft && shared.workflowGraphEnrich !== false,
-    workflowSdxlRefinerEnrich:
-      isFinalOrMax || shared.workflowSdxlRefinerEnrich !== false,
-    workflowNeuralUpscalePolish:
-      isMax || shared.workflowNeuralUpscalePolish !== false,
+    workflowSdxlRefinerEnrich: isFinalOrMax || shared.workflowSdxlRefinerEnrich !== false,
+    workflowNeuralUpscalePolish: isMax || shared.workflowNeuralUpscalePolish !== false,
     workflowSharpenAfterUpscale: isMax
       ? shared.workflowSharpenAfterUpscale !== false
       : shared.workflowSharpenAfterUpscale === true,

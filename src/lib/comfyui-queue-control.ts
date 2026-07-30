@@ -10,7 +10,7 @@ export type ComfyQueueDeletePayload = {
 
 /** Builds the ComfyUI `POST /queue` body used to cancel or clear queue entries. */
 export function buildComfyQueueDeletePayload(
-  input: ComfyQueueDeleteInput,
+  input: ComfyQueueDeleteInput
 ): ComfyQueueDeletePayload {
   const payload: ComfyQueueDeletePayload = {};
   const promptId = input.promptId?.trim();
@@ -30,12 +30,12 @@ export type ComfyQueueActionResult = {
 
 async function postComfyQueueAction(
   path: string,
-  body: Record<string, unknown>,
+  body: Record<string, unknown>
 ): Promise<ComfyQueueActionResult> {
   try {
     const response = await fetch(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     const data = (await response.json().catch(() => ({}))) as { error?: string };
@@ -46,7 +46,7 @@ async function postComfyQueueAction(
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : "Request failed.",
+      error: error instanceof Error ? error.message : 'Request failed.',
     };
   }
 }
@@ -57,7 +57,7 @@ export function deleteComfyQueuePrompt(input: {
   comfyUrl?: string;
   clear?: boolean;
 }): Promise<ComfyQueueActionResult> {
-  return postComfyQueueAction("/api/comfyui/queue/delete", {
+  return postComfyQueueAction('/api/comfyui/queue/delete', {
     promptId: input.promptId,
     comfyUrl: input.comfyUrl,
     clear: input.clear,
@@ -66,7 +66,7 @@ export function deleteComfyQueuePrompt(input: {
 
 /** Sends ComfyUI's `/interrupt`, optionally scoped to a specific pooled host. */
 export function interruptComfyUiQueue(comfyUrl?: string): Promise<ComfyQueueActionResult> {
-  return postComfyQueueAction("/api/comfyui/interrupt", comfyUrl ? { comfyUrl } : {});
+  return postComfyQueueAction('/api/comfyui/interrupt', comfyUrl ? { comfyUrl } : {});
 }
 
 /**
@@ -74,5 +74,5 @@ export function interruptComfyUiQueue(comfyUrl?: string): Promise<ComfyQueueActi
  * specific pooled host. Best-effort — safe to call after any job completes.
  */
 export function freeComfyUiMemory(comfyUrl?: string): Promise<ComfyQueueActionResult> {
-  return postComfyQueueAction("/api/comfyui/free", comfyUrl ? { comfyUrl } : {});
+  return postComfyQueueAction('/api/comfyui/free', comfyUrl ? { comfyUrl } : {});
 }

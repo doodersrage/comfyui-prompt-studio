@@ -14,7 +14,7 @@ const MAX_MASK_EDITOR_DIMENSION = 2048;
 export function fitMaskEditorDimensions(
   naturalWidth: number,
   naturalHeight: number,
-  maxDimension = MAX_MASK_EDITOR_DIMENSION,
+  maxDimension = MAX_MASK_EDITOR_DIMENSION
 ): MaskEditorDimensions {
   const safeWidth = Math.max(1, naturalWidth);
   const safeHeight = Math.max(1, naturalHeight);
@@ -31,7 +31,7 @@ export function fitMaskEditorDimensions(
 }
 
 export function createOffscreenCanvas(width: number, height: number): HTMLCanvasElement {
-  const canvas = document.createElement("canvas");
+  const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   return canvas;
@@ -40,16 +40,16 @@ export function createOffscreenCanvas(width: number, height: number): HTMLCanvas
 export function clearExportMaskCanvas(
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number,
+  height: number
 ): void {
-  ctx.fillStyle = "#000000";
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, width, height);
 }
 
 export function clearPreviewMaskCanvas(
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number,
+  height: number
 ): void {
   ctx.clearRect(0, 0, width, height);
 }
@@ -58,7 +58,7 @@ export function clearPreviewMaskCanvas(
 export function clearMaskCanvas(
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number,
+  height: number
 ): void {
   clearExportMaskCanvas(ctx, width, height);
 }
@@ -67,13 +67,13 @@ export function paintMaskStroke(
   ctx: CanvasRenderingContext2D,
   from: MaskPoint | null,
   to: MaskPoint,
-  radius: number,
+  radius: number
 ): void {
-  ctx.strokeStyle = "#ffffff";
-  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = '#ffffff';
+  ctx.fillStyle = '#ffffff';
   ctx.lineWidth = Math.max(2, radius * 2);
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 
   if (from) {
     ctx.beginPath();
@@ -92,7 +92,7 @@ export function paintMaskStrokeOnLayers(
   previewCtx: CanvasRenderingContext2D,
   from: MaskPoint | null,
   to: MaskPoint,
-  radius: number,
+  radius: number
 ): void {
   paintMaskStroke(exportCtx, from, to, radius);
   paintMaskStroke(previewCtx, from, to, radius);
@@ -101,7 +101,7 @@ export function paintMaskStrokeOnLayers(
 export function maskCanvasHasContent(
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number,
+  height: number
 ): boolean {
   const { data } = ctx.getImageData(0, 0, width, height);
   for (let index = 0; index < data.length; index += 4) {
@@ -115,7 +115,7 @@ export function maskCanvasHasContent(
 export function pointerToCanvasPoint(
   canvas: HTMLCanvasElement,
   clientX: number,
-  clientY: number,
+  clientY: number
 ): MaskPoint {
   const rect = canvas.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {
@@ -130,10 +130,7 @@ export function pointerToCanvasPoint(
 }
 
 /** Map on-screen brush size (CSS px) to canvas pixel radius. */
-export function screenBrushRadiusToCanvas(
-  brushSize: number,
-  canvas: HTMLCanvasElement,
-): number {
+export function screenBrushRadiusToCanvas(brushSize: number, canvas: HTMLCanvasElement): number {
   const rect = canvas.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0 || brushSize <= 0) {
     return brushSize;
@@ -149,13 +146,12 @@ export function renderMaskEditorFrame(input: {
   overlayCanvas: HTMLCanvasElement;
   image: CanvasImageSource;
 }): void {
-  const { displayCanvas, exportMaskCanvas, previewMaskCanvas, overlayCanvas, image } =
-    input;
+  const { displayCanvas, exportMaskCanvas, previewMaskCanvas, overlayCanvas, image } = input;
   const width = displayCanvas.width;
   const height = displayCanvas.height;
-  const displayCtx = displayCanvas.getContext("2d");
-  const previewCtx = previewMaskCanvas.getContext("2d");
-  const overlayCtx = overlayCanvas.getContext("2d");
+  const displayCtx = displayCanvas.getContext('2d');
+  const previewCtx = previewMaskCanvas.getContext('2d');
+  const overlayCtx = overlayCanvas.getContext('2d');
   if (!displayCtx || !previewCtx || !overlayCtx || width <= 0 || height <= 0) {
     return;
   }
@@ -170,37 +166,34 @@ export function renderMaskEditorFrame(input: {
 
   overlayCtx.clearRect(0, 0, width, height);
   overlayCtx.drawImage(previewMaskCanvas, 0, 0);
-  overlayCtx.globalCompositeOperation = "source-in";
-  overlayCtx.fillStyle = "rgba(251, 191, 36, 0.72)";
+  overlayCtx.globalCompositeOperation = 'source-in';
+  overlayCtx.fillStyle = 'rgba(251, 191, 36, 0.72)';
   overlayCtx.fillRect(0, 0, width, height);
-  overlayCtx.globalCompositeOperation = "source-over";
+  overlayCtx.globalCompositeOperation = 'source-over';
 
   displayCtx.drawImage(overlayCanvas, 0, 0);
 }
 
-export function exportCanvasToPngFile(
-  canvas: HTMLCanvasElement,
-  filename: string,
-): Promise<File> {
+export function exportCanvasToPngFile(canvas: HTMLCanvasElement, filename: string): Promise<File> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
+    canvas.toBlob(blob => {
       if (!blob) {
-        reject(new Error("Could not export inpaint mask."));
+        reject(new Error('Could not export inpaint mask.'));
         return;
       }
-      resolve(new File([blob], filename, { type: "image/png" }));
-    }, "image/png");
+      resolve(new File([blob], filename, { type: 'image/png' }));
+    }, 'image/png');
   });
 }
 
 export async function loadImageElement(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
-    if (!url.startsWith("blob:") && !url.startsWith("data:")) {
-      image.crossOrigin = "anonymous";
+    if (!url.startsWith('blob:') && !url.startsWith('data:')) {
+      image.crossOrigin = 'anonymous';
     }
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Could not load image for mask editor."));
+    image.onerror = () => reject(new Error('Could not load image for mask editor.'));
     image.src = url;
   });
 }

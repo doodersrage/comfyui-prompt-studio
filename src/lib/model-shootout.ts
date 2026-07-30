@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import type { ComfyImageModel } from "./comfy-models/client";
-import { registerComfyGalleryJob } from "./comfyui-gallery-client";
-import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import { postComfyUiPrompt } from "./comfyui-queue-request";
-import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
-import { modelsInSameFamily } from "./model-workflow-map";
-import { resolveQueueParams } from "./queue-params-settings";
-import { guardQueueQualityForVram } from "./vram-queue-guard";
-import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
+import type { ComfyImageModel } from './comfy-models/client';
+import { registerComfyGalleryJob } from './comfyui-gallery-client';
+import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
+import { postComfyUiPrompt } from './comfyui-queue-request';
+import { resolveRuntimeForQueue } from './comfyui-runtime-for-model';
+import { modelsInSameFamily } from './model-workflow-map';
+import { resolveQueueParams } from './queue-params-settings';
+import { guardQueueQualityForVram } from './vram-queue-guard';
+import { maybeHoldMaxGenerateJobs } from './held-max-queue';
 
 export type ShootoutModel = {
   model: string;
@@ -16,10 +16,10 @@ export type ShootoutModel = {
 };
 
 export const DEFAULT_SHOOTOUT_MODELS: ShootoutModel[] = [
-  { model: "sdxl", label: "SDXL" },
-  { model: "flux-2-klein-4b-distilled", label: "FLUX Klein 4B Distilled" },
-  { model: "flux-2-klein-9b-distilled", label: "FLUX Klein 9B Distilled" },
-  { model: "sd1.5", label: "SD 1.5" },
+  { model: 'sdxl', label: 'SDXL' },
+  { model: 'flux-2-klein-4b-distilled', label: 'FLUX Klein 4B Distilled' },
+  { model: 'flux-2-klein-9b-distilled', label: 'FLUX Klein 9B Distilled' },
+  { model: 'sd1.5', label: 'SD 1.5' },
 ];
 
 export async function queueSameSeedShootout(input: {
@@ -36,12 +36,12 @@ export async function queueSameSeedShootout(input: {
   for (const modelId of input.models) {
     try {
       const model = modelId as ComfyImageModel;
-      const baseRuntime = resolveRuntimeForQueue(model, "shootout");
+      const baseRuntime = resolveRuntimeForQueue(model, 'shootout');
       const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
       const runtime = vramGuard.runtime ?? baseRuntime;
       const params = resolveQueueParams({
         model,
-        tool: "shootout",
+        tool: 'shootout',
         base: { seed },
         qualityProfile: vramGuard.profile,
       });
@@ -52,7 +52,7 @@ export async function queueSameSeedShootout(input: {
             prompt: input.prompt,
             negativePrompt: input.negativePrompt,
             model: modelId,
-            tool: "shootout",
+            tool: 'shootout',
             params,
             comfy: runtime,
           },
@@ -77,9 +77,9 @@ export async function queueSameSeedShootout(input: {
         promptId: queuedJob.promptId,
         prompt: input.prompt,
         negativePrompt: input.negativePrompt,
-        tool: "shootout",
+        tool: 'shootout',
         model: modelId,
-        comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+        comfyUrl: queuedJob.comfyUrl ?? 'http://127.0.0.1:8188',
         clientId: queuedJob.clientId,
         queueParams: params,
         queueQualityProfile: runtime.queueQualityProfile,

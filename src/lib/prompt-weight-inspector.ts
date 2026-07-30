@@ -1,5 +1,5 @@
-import { getComfyModelDefinition, type ComfyImageModel } from "./comfy-models/client";
-import { modelUsesTagAssist } from "./tag-assist";
+import { getComfyModelDefinition, type ComfyImageModel } from './comfy-models/client';
+import { modelUsesTagAssist } from './tag-assist';
 
 export type WeightToken = {
   text: string;
@@ -28,7 +28,7 @@ function estimateClipTokens(text: string): number {
 
 export function inspectPromptWeights(
   prompt: string,
-  model: ComfyImageModel | string,
+  model: ComfyImageModel | string
 ): PromptWeightInspection {
   const definition = getComfyModelDefinition(model);
   const supportsWeights = modelUsesTagAssist(model as ComfyImageModel);
@@ -50,14 +50,20 @@ export function inspectPromptWeights(
 
   const suggestions: string[] = [];
   if (estimatedTokens > tokenLimit) {
-    suggestions.push(`Estimated ${estimatedTokens} tokens exceeds ${tokenLimit} for ${definition.label}. Compact or de-emphasize tags.`);
+    suggestions.push(
+      `Estimated ${estimatedTokens} tokens exceeds ${tokenLimit} for ${definition.label}. Compact or de-emphasize tags.`
+    );
   }
-  if (supportsWeights && weightedTokens.length === 0 && prompt.includes(",")) {
-    suggestions.push("Select important tags and wrap with (tag:1.2) emphasis for SD-weighted models.");
+  if (supportsWeights && weightedTokens.length === 0 && prompt.includes(',')) {
+    suggestions.push(
+      'Select important tags and wrap with (tag:1.2) emphasis for SD-weighted models.'
+    );
   }
   for (const token of weightedTokens) {
     if (token.weight > 1.6) {
-      suggestions.push(`High weight on “${token.text}” (${token.weight}) may overpower the prompt.`);
+      suggestions.push(
+        `High weight on “${token.text}” (${token.weight}) may overpower the prompt.`
+      );
     }
   }
 

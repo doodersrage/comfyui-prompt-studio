@@ -1,7 +1,7 @@
-import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
-import { parseWorkflowJson } from "./comfyui-config";
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { parseWorkflowJson } from './comfyui-config';
 
 export type ServerWorkflowFile = {
   id: string;
@@ -21,8 +21,8 @@ function readWorkflowPathsFromDirectory(dirPath: string): string[] {
     const resolvedDir = resolveWorkflowPath(dirPath);
     return fs
       .readdirSync(resolvedDir)
-      .filter((entry) => entry.toLowerCase().endsWith(".json"))
-      .map((entry) => path.join(dirPath, entry).replace(/\\/g, "/"));
+      .filter(entry => entry.toLowerCase().endsWith('.json'))
+      .map(entry => path.join(dirPath, entry).replace(/\\/g, '/'));
   } catch {
     return [];
   }
@@ -40,7 +40,7 @@ export function listServerWorkflowPaths(): string[] {
 
   const workflowPaths = process.env.COMFYUI_WORKFLOW_PATHS?.trim();
   if (workflowPaths) {
-    for (const entry of workflowPaths.split(",")) {
+    for (const entry of workflowPaths.split(',')) {
       const trimmed = entry.trim();
       if (trimmed) {
         paths.add(trimmed);
@@ -58,35 +58,35 @@ export function listServerWorkflowPaths(): string[] {
 
 export function serverWorkflowIdForPath(filePath: string): string {
   const resolved = path.resolve(resolveWorkflowPath(filePath));
-  return crypto.createHash("sha256").update(resolved).digest("hex").slice(0, 16);
+  return crypto.createHash('sha256').update(resolved).digest('hex').slice(0, 16);
 }
 
 export function listServerWorkflowFiles(): ServerWorkflowFile[] {
-  return listServerWorkflowPaths().map((filePath) => ({
+  return listServerWorkflowPaths().map(filePath => ({
     id: serverWorkflowIdForPath(filePath),
     name: path
       .basename(filePath)
-      .replace(/\.api\.json$/i, "")
-      .replace(/\.json$/i, ""),
+      .replace(/\.api\.json$/i, '')
+      .replace(/\.json$/i, ''),
     path: filePath,
   }));
 }
 
 export function isAllowedServerWorkflowPath(filePath: string): boolean {
   const trimmed = filePath.trim();
-  if (!trimmed || trimmed.includes("\0")) {
+  if (!trimmed || trimmed.includes('\0')) {
     return false;
   }
 
   const requested = path.resolve(resolveWorkflowPath(trimmed));
-  return listServerWorkflowPaths().some((allowed) => {
+  return listServerWorkflowPaths().some(allowed => {
     return path.resolve(resolveWorkflowPath(allowed)) === requested;
   });
 }
 
 export function resolveServerWorkflowPath(fileIdOrPath: string): string | null {
   const trimmed = fileIdOrPath.trim();
-  if (!trimmed || trimmed.includes("\0")) {
+  if (!trimmed || trimmed.includes('\0')) {
     return null;
   }
 
@@ -104,16 +104,14 @@ export function resolveServerWorkflowPath(fileIdOrPath: string): string | null {
   return null;
 }
 
-export function loadServerWorkflowJson(
-  fileIdOrPath: string,
-): Record<string, unknown> | null {
+export function loadServerWorkflowJson(fileIdOrPath: string): Record<string, unknown> | null {
   try {
     const filePath = resolveServerWorkflowPath(fileIdOrPath);
     if (!filePath) {
       return null;
     }
     const resolved = resolveWorkflowPath(filePath);
-    return parseWorkflowJson(fs.readFileSync(resolved, "utf8"));
+    return parseWorkflowJson(fs.readFileSync(resolved, 'utf8'));
   } catch {
     return null;
   }

@@ -1,5 +1,5 @@
-import type { PromptHistoryEntry } from "@/hooks/usePromptHistory";
-import { filterBySemanticQuery } from "./semantic-search";
+import type { PromptHistoryEntry } from '@/hooks/usePromptHistory';
+import { filterBySemanticQuery } from './semantic-search';
 
 export type HistoryFilter = {
   tool?: string;
@@ -13,16 +13,16 @@ export type HistoryFilter = {
 
 export function filterHistoryEntries(
   entries: PromptHistoryEntry[],
-  filter: HistoryFilter,
+  filter: HistoryFilter
 ): PromptHistoryEntry[] {
-  let filtered = entries.filter((entry) => {
+  let filtered = entries.filter(entry => {
     if (filter.favoritesOnly && !entry.favorite) {
       return false;
     }
-    if (filter.tool && filter.tool !== "all" && entry.tool !== filter.tool) {
+    if (filter.tool && filter.tool !== 'all' && entry.tool !== filter.tool) {
       return false;
     }
-    if (filter.model && filter.model !== "all" && entry.model !== filter.model) {
+    if (filter.model && filter.model !== 'all' && entry.model !== filter.model) {
       return false;
     }
     if (filter.minRating && (entry.rating ?? 0) < filter.minRating) {
@@ -30,15 +30,9 @@ export function filterHistoryEntries(
     }
     if (filter.query?.trim() && !filter.semanticSearch) {
       const needle = filter.query.trim().toLowerCase();
-      const haystack = [
-        entry.prompt,
-        entry.hints,
-        entry.tool,
-        entry.model,
-        entry.tags?.join(" "),
-      ]
+      const haystack = [entry.prompt, entry.hints, entry.tool, entry.model, entry.tags?.join(' ')]
         .filter(Boolean)
-        .join("\n")
+        .join('\n')
         .toLowerCase();
       if (!haystack.includes(needle)) {
         return false;
@@ -46,7 +40,7 @@ export function filterHistoryEntries(
     }
     if (filter.tag?.trim()) {
       const needle = filter.tag.trim().toLowerCase();
-      if (!(entry.tags ?? []).some((tag) => tag.toLowerCase() === needle)) {
+      if (!(entry.tags ?? []).some(tag => tag.toLowerCase() === needle)) {
         return false;
       }
     }
@@ -54,13 +48,10 @@ export function filterHistoryEntries(
   });
 
   if (filter.query?.trim() && filter.semanticSearch) {
-    filtered = filterBySemanticQuery(
-      filtered,
-      filter.query,
-      (entry) =>
-        [entry.prompt, entry.hints, entry.tool, entry.model, entry.tags?.join(" ")]
-          .filter(Boolean)
-          .join("\n"),
+    filtered = filterBySemanticQuery(filtered, filter.query, entry =>
+      [entry.prompt, entry.hints, entry.tool, entry.model, entry.tags?.join(' ')]
+        .filter(Boolean)
+        .join('\n')
     );
   }
 
@@ -68,13 +59,13 @@ export function filterHistoryEntries(
 }
 
 export function uniqueHistoryTools(entries: PromptHistoryEntry[]): string[] {
-  return [...new Set(entries.map((entry) => entry.tool))].sort();
+  return [...new Set(entries.map(entry => entry.tool))].sort();
 }
 
 export function uniqueHistoryTags(entries: PromptHistoryEntry[]): string[] {
-  return [...new Set(entries.flatMap((entry) => entry.tags ?? []))].sort();
+  return [...new Set(entries.flatMap(entry => entry.tags ?? []))].sort();
 }
 
 export function uniqueHistoryModels(entries: PromptHistoryEntry[]): string[] {
-  return [...new Set(entries.map((entry) => entry.model))].sort();
+  return [...new Set(entries.map(entry => entry.model))].sort();
 }

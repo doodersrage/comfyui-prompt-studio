@@ -7,7 +7,7 @@ const prefetchedUrls = new Set<string>();
 
 export function prefetchGalleryImageUrl(url: string | null | undefined): void {
   const trimmed = url?.trim();
-  if (!trimmed || typeof window === "undefined") {
+  if (!trimmed || typeof window === 'undefined') {
     return;
   }
   if (prefetchedUrls.has(trimmed)) {
@@ -15,7 +15,7 @@ export function prefetchGalleryImageUrl(url: string | null | undefined): void {
   }
   prefetchedUrls.add(trimmed);
   const img = new Image();
-  img.decoding = "async";
+  img.decoding = 'async';
   img.src = trimmed;
 }
 

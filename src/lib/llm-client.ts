@@ -3,16 +3,18 @@ import {
   isThinkingOnlyArtifact,
   repairVisionDraft,
   stripPromptArtifacts,
-} from "./prompt-cleanup";
-import { getLlmTemperature } from "./llm-env";
-import { acquireLlmSlot, withLlmSlot } from "./llm-backpressure";
-import {
-  prepareVisionImageDataUrl,
-  splitImageDataUrl,
-} from "./vision-image-prepare";
+} from './prompt-cleanup';
+import { getLlmTemperature } from './llm-env';
+import { acquireLlmSlot, withLlmSlot } from './llm-backpressure';
+import { prepareVisionImageDataUrl, splitImageDataUrl } from './vision-image-prepare';
 
-export { allowTemplateFallback, getLlmTemperature, isLlmEnabled } from "./llm-env";
-export { LlmBusyError, getLlmInflightCount, getLlmMaxInflight, isLlmBusy } from "./llm-backpressure";
+export { allowTemplateFallback, getLlmTemperature, isLlmEnabled } from './llm-env';
+export {
+  LlmBusyError,
+  getLlmInflightCount,
+  getLlmMaxInflight,
+  isLlmBusy,
+} from './llm-backpressure';
 
 export type LlmUsageContext = {
   userId?: string;
@@ -34,22 +36,21 @@ type LlmUsageLogInput = {
 };
 
 function logLlmUsageSafe(entry: LlmUsageLogInput): void {
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     return;
   }
-  void import("./llm-usage-log").then(({ logLlmUsage }) => logLlmUsage(entry));
+  void import('./llm-usage-log').then(({ logLlmUsage }) => logLlmUsage(entry));
 }
 
 export type ChatMessage = {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string | ChatContentPart[];
   /** Ollama native multimodal field (raw base64, no data URL prefix) */
   images?: string[];
 };
 
 export type ChatContentPart =
-  | { type: "text"; text: string }
-  | { type: "image_url"; image_url: { url: string } };
+  { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
 
 export type LlmConfig = {
   baseUrl: string;
@@ -59,15 +60,11 @@ export type LlmConfig = {
 };
 
 export function getLlmConfig(): LlmConfig {
-  const baseUrl =
-    process.env.LLM_API_BASE_URL?.replace(/\/$/, "") ??
-    "http://localhost:11434/v1";
-  const apiKey = process.env.LLM_API_KEY ?? "";
-  const model = process.env.LLM_MODEL ?? "dolphin-llama3";
+  const baseUrl = process.env.LLM_API_BASE_URL?.replace(/\/$/, '') ?? 'http://localhost:11434/v1';
+  const apiKey = process.env.LLM_API_KEY ?? '';
+  const model = process.env.LLM_MODEL ?? 'dolphin-llama3';
   const visionModel =
-    process.env.LLM_VISION_MODEL?.trim() ||
-    process.env.LLM_MODEL?.trim() ||
-    model;
+    process.env.LLM_VISION_MODEL?.trim() || process.env.LLM_MODEL?.trim() || model;
 
   return { baseUrl, apiKey, model, visionModel };
 }
@@ -81,7 +78,7 @@ export function getVisionModel(override?: string): string {
   const visionModel = process.env.LLM_VISION_MODEL?.trim();
   if (!visionModel) {
     throw new Error(
-      "LLM_VISION_MODEL is not set. Image → Prompt requires a vision model (e.g. qwen3-vl:latest). Add it to .env.local and restart the dev server.",
+      'LLM_VISION_MODEL is not set. Image → Prompt requires a vision model (e.g. qwen3-vl:latest). Add it to .env.local and restart the dev server.'
     );
   }
   return visionModel;
@@ -92,7 +89,7 @@ function isOllamaBaseUrl(baseUrl: string): boolean {
 }
 
 function ollamaNativeBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/v1\/?$/, "");
+  return baseUrl.replace(/\/v1\/?$/, '');
 }
 
 export function extractBase64FromDataUrl(dataUrl: string): {
@@ -111,19 +108,19 @@ type AssistantMessage = {
 };
 
 function extractContentText(content?: string | ChatContentPart[] | null): string {
-  if (typeof content === "string" && content.trim()) {
+  if (typeof content === 'string' && content.trim()) {
     return content.trim();
   }
 
   if (Array.isArray(content)) {
     return content
-      .filter((part): part is { type: "text"; text: string } => part.type === "text")
-      .map((part) => part.text)
-      .join("\n")
+      .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+      .map(part => part.text)
+      .join('\n')
       .trim();
   }
 
-  return "";
+  return '';
 }
 
 function safeIsThinkingOnlyArtifact(text: string): boolean {
@@ -144,7 +141,7 @@ function safeStripPromptArtifacts(text: string): string {
     return stripPromptArtifacts(text);
   } catch (error) {
     if (error instanceof RangeError) {
-      return text.replace(/\s+/g, " ").trim().slice(0, 8_000);
+      return text.replace(/\s+/g, ' ').trim().slice(0, 8_000);
     }
     throw error;
   }
@@ -155,7 +152,7 @@ function safeRepairVisionDraft(text: string): string {
     return repairVisionDraft(text);
   } catch (error) {
     if (error instanceof RangeError) {
-      return "";
+      return '';
     }
     throw error;
   }
@@ -171,10 +168,7 @@ function clipVisionModelText(text: string, maxChars = 24_000): string {
   return trimmed.slice(trimmed.length - maxChars).trim();
 }
 
-function extractThinkingFallback(
-  reasoning?: string | null,
-  thinking?: string | null,
-): string {
+function extractThinkingFallback(reasoning?: string | null, thinking?: string | null): string {
   for (const raw of [reasoning, thinking]) {
     if (!raw?.trim()) {
       continue;
@@ -183,14 +177,14 @@ function extractThinkingFallback(
     let candidate = raw.trim();
 
     const handoff = candidate.match(
-      /(?:final prompt|output prompt|the prompt(?: text)?|prompt output|scene description)\s*[:\n]+\s*([\s\S]+)$/i,
+      /(?:final prompt|output prompt|the prompt(?: text)?|prompt output|scene description)\s*[:\n]+\s*([\s\S]+)$/i
     );
     if (handoff?.[1]?.trim()) {
       candidate = handoff[1].trim();
     } else {
       const paragraphs = candidate
         .split(/\n{2,}/)
-        .map((part) => part.trim())
+        .map(part => part.trim())
         .filter(Boolean);
       if (paragraphs.length > 1) {
         const last = paragraphs.at(-1)!;
@@ -203,9 +197,7 @@ function extractThinkingFallback(
       }
     }
 
-    candidate = safeRepairVisionDraft(
-      safeStripPromptArtifacts(clipVisionModelText(candidate)),
-    );
+    candidate = safeRepairVisionDraft(safeStripPromptArtifacts(clipVisionModelText(candidate)));
     if (
       candidate.length >= 12 &&
       !safeIsThinkingOnlyArtifact(candidate) &&
@@ -215,13 +207,13 @@ function extractThinkingFallback(
     }
   }
 
-  return "";
+  return '';
 }
 
 function normalizeVisionModelOutput(text: string): string {
   const trimmed = clipVisionModelText(text);
   if (!trimmed) {
-    return "";
+    return '';
   }
 
   const repaired = safeRepairVisionDraft(safeStripPromptArtifacts(trimmed));
@@ -254,13 +246,13 @@ function normalizeVisionModelOutput(text: string): string {
     return repaired;
   }
 
-  return "";
+  return '';
 }
 
 /** Plain text chat — skip vision normalization (that collapses newlines / rejects lists). */
 function extractChatCompletionText(message?: AssistantMessage): string {
   if (!message) {
-    return "";
+    return '';
   }
 
   const contentText = extractContentText(message.content);
@@ -270,22 +262,18 @@ function extractChatCompletionText(message?: AssistantMessage): string {
 
   // Thinking models (e.g. Gemma via LM Studio) often spend max_tokens on
   // reasoning_content and leave content empty — fall back before failing.
-  for (const raw of [
-    message.reasoning,
-    message.reasoning_content,
-    message.thinking,
-  ]) {
-    if (typeof raw === "string" && raw.trim()) {
+  for (const raw of [message.reasoning, message.reasoning_content, message.thinking]) {
+    if (typeof raw === 'string' && raw.trim()) {
       return raw.trim();
     }
   }
 
-  return "";
+  return '';
 }
 
 function extractModelOutputText(message?: AssistantMessage): string {
   if (!message) {
-    return "";
+    return '';
   }
 
   try {
@@ -303,7 +291,7 @@ function extractModelOutputText(message?: AssistantMessage): string {
 
     const thinkingText = extractThinkingFallback(
       message.reasoning ?? message.reasoning_content,
-      message.thinking,
+      message.thinking
     );
     if (
       thinkingText &&
@@ -315,59 +303,53 @@ function extractModelOutputText(message?: AssistantMessage): string {
 
     if (contentText) {
       const repaired = safeRepairVisionDraft(
-        safeStripPromptArtifacts(clipVisionModelText(contentText)),
+        safeStripPromptArtifacts(clipVisionModelText(contentText))
       );
       if (repaired.length >= 12 && !isIncompleteVisionFragment(repaired)) {
         return repaired;
       }
     }
 
-    return "";
+    return '';
   } catch (error) {
     if (error instanceof RangeError) {
-      const fallback = extractContentText(message.content)?.trim()
-        || String(
-            message.reasoning ??
-              message.reasoning_content ??
-              message.thinking ??
-              "",
-          ).trim();
-      return clipVisionModelText(fallback.replace(/\s+/g, " "), 4_000);
+      const fallback =
+        extractContentText(message.content)?.trim() ||
+        String(message.reasoning ?? message.reasoning_content ?? message.thinking ?? '').trim();
+      return clipVisionModelText(fallback.replace(/\s+/g, ' '), 4_000);
     }
     throw error;
   }
 }
 
 function chatMessageToOllamaContent(content: string | ChatContentPart[]): string {
-  if (typeof content === "string") {
+  if (typeof content === 'string') {
     return content;
   }
 
   return content
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
-    .map((part) => part.text)
-    .join("\n");
+    .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+    .map(part => part.text)
+    .join('\n');
 }
 
-function mapExtraBodyToOllamaOptions(
-  extraBody?: Record<string, unknown>,
-): Record<string, unknown> {
+function mapExtraBodyToOllamaOptions(extraBody?: Record<string, unknown>): Record<string, unknown> {
   if (!extraBody) {
     return {};
   }
 
   const options: Record<string, unknown> = {};
 
-  if (typeof extraBody.top_p === "number") {
+  if (typeof extraBody.top_p === 'number') {
     options.top_p = extraBody.top_p;
   }
-  if (typeof extraBody.seed === "number") {
+  if (typeof extraBody.seed === 'number') {
     options.seed = extraBody.seed;
   }
-  if (typeof extraBody.frequency_penalty === "number") {
+  if (typeof extraBody.frequency_penalty === 'number') {
     options.frequency_penalty = extraBody.frequency_penalty;
   }
-  if (typeof extraBody.presence_penalty === "number") {
+  if (typeof extraBody.presence_penalty === 'number') {
     options.presence_penalty = extraBody.presence_penalty;
   }
 
@@ -384,11 +366,11 @@ async function ollamaNativeChatCompletion(options: {
   extraBody?: Record<string, unknown>;
 }): Promise<string> {
   const response = await fetch(`${ollamaNativeBaseUrl(options.baseUrl)}/api/chat`, {
-    method: "POST",
+    method: 'POST',
     headers: buildAuthHeaders(options.apiKey),
     body: JSON.stringify({
       model: options.model,
-      messages: options.messages.map((message) => ({
+      messages: options.messages.map(message => ({
         role: message.role,
         content: chatMessageToOllamaContent(message.content),
       })),
@@ -404,9 +386,7 @@ async function ollamaNativeChatCompletion(options: {
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(
-      `Ollama chat request failed (${response.status}): ${detail.slice(0, 300)}`,
-    );
+    throw new Error(`Ollama chat request failed (${response.status}): ${detail.slice(0, 300)}`);
   }
 
   const data = (await response.json()) as {
@@ -420,7 +400,7 @@ async function ollamaNativeChatCompletion(options: {
   const text = extractChatCompletionText(data.message);
   if (!text) {
     throw new Error(
-      "LLM returned an empty response. If using a thinking model, ensure Ollama supports think:false or returns content.",
+      'LLM returned an empty response. If using a thinking model, ensure Ollama supports think:false or returns content.'
     );
   }
 
@@ -429,7 +409,7 @@ async function ollamaNativeChatCompletion(options: {
 
 function buildAuthHeaders(apiKey: string): Record<string, string> {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   };
 
   if (apiKey) {
@@ -453,9 +433,9 @@ async function ollamaNativeVisionCompletion(options: {
   const body: Record<string, unknown> = {
     model: options.model,
     messages: [
-      { role: "system", content: options.systemPrompt },
+      { role: 'system', content: options.systemPrompt },
       {
-        role: "user",
+        role: 'user',
         content: options.textPrompt,
         images: [options.imageBase64],
       },
@@ -467,7 +447,7 @@ async function ollamaNativeVisionCompletion(options: {
     },
   };
 
-  if (typeof options.think === "boolean") {
+  if (typeof options.think === 'boolean') {
     body.think = options.think;
   }
 
@@ -476,24 +456,20 @@ async function ollamaNativeVisionCompletion(options: {
     requestBody = JSON.stringify(body);
   } catch (error) {
     if (error instanceof RangeError) {
-      throw new Error(
-        "Vision request payload is too large or too nested to serialize.",
-      );
+      throw new Error('Vision request payload is too large or too nested to serialize.');
     }
     throw error;
   }
 
   const response = await fetch(`${ollamaNativeBaseUrl(options.baseUrl)}/api/chat`, {
-    method: "POST",
+    method: 'POST',
     headers: buildAuthHeaders(options.apiKey),
     body: requestBody,
   });
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(
-      `Ollama vision request failed (${response.status}): ${detail.slice(0, 300)}`,
-    );
+    throw new Error(`Ollama vision request failed (${response.status}): ${detail.slice(0, 300)}`);
   }
 
   const data = (await parseJsonResponseBody(response)) as {
@@ -503,7 +479,7 @@ async function ollamaNativeVisionCompletion(options: {
   const text = extractModelOutputText(data.message);
   if (!text) {
     throw new Error(
-      "Vision model returned an empty response. If using a thinking model, ensure Ollama supports think:false or returns content.",
+      'Vision model returned an empty response. If using a thinking model, ensure Ollama supports think:false or returns content.'
     );
   }
 
@@ -536,16 +512,12 @@ async function ollamaNativeVisionCompletionWithFallback(options: {
   }
 
   throw (
-    lastError ??
-    new Error("Vision model returned an empty response after all Ollama attempts.")
+    lastError ?? new Error('Vision model returned an empty response after all Ollama attempts.')
   );
 }
 
 function unescapeJsonString(value: string): string {
-  return value
-    .replace(/\\n/g, "\n")
-    .replace(/\\"/g, '"')
-    .replace(/\\\\/g, "\\");
+  return value.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
 }
 
 function extractContentFieldFromRawJson(raw: string): string | null {
@@ -561,7 +533,7 @@ function extractContentFieldFromRawJson(raw: string): string | null {
   while (index < raw.length && /\s/.test(raw[index]!)) {
     index += 1;
   }
-  if (raw[index] !== ":") {
+  if (raw[index] !== ':') {
     return null;
   }
   index += 1;
@@ -573,13 +545,13 @@ function extractContentFieldFromRawJson(raw: string): string | null {
   }
   index += 1;
 
-  let out = "";
+  let out = '';
   while (index < raw.length) {
     const char = raw[index]!;
     if (char === '"') {
       return unescapeJsonString(out);
     }
-    if (char === "\\") {
+    if (char === '\\') {
       const next = raw[index + 1];
       if (next == null) {
         break;
@@ -619,9 +591,7 @@ async function parseJsonResponseBody(response: Response): Promise<unknown> {
       // fall through
     }
     if (error instanceof RangeError) {
-      throw new Error(
-        "Vision model returned a response too deeply nested to parse.",
-      );
+      throw new Error('Vision model returned a response too deeply nested to parse.');
     }
     throw error;
   }
@@ -650,24 +620,20 @@ async function openAiCompatibleChatCompletion(options: {
     });
   } catch (error) {
     if (error instanceof RangeError) {
-      throw new Error(
-        "Vision request payload is too large or too nested to serialize.",
-      );
+      throw new Error('Vision request payload is too large or too nested to serialize.');
     }
     throw error;
   }
 
   const response = await fetch(`${options.baseUrl}/chat/completions`, {
-    method: "POST",
+    method: 'POST',
     headers: buildAuthHeaders(options.apiKey),
     body: requestBody,
   });
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(
-      `LLM request failed (${response.status}): ${detail.slice(0, 300)}`,
-    );
+    throw new Error(`LLM request failed (${response.status}): ${detail.slice(0, 300)}`);
   }
 
   const data = (await parseJsonResponseBody(response)) as {
@@ -679,7 +645,7 @@ async function openAiCompatibleChatCompletion(options: {
   const text = extractChatCompletionText(data.choices?.[0]?.message);
   if (!text) {
     throw new Error(
-      "LLM returned an empty response (content and reasoning_content were blank). Try raising max tokens or disabling thinking on the vision model.",
+      'LLM returned an empty response (content and reasoning_content were blank). Try raising max tokens or disabling thinking on the vision model.'
     );
   }
 
@@ -695,7 +661,7 @@ async function* readResponseLines(response: Response): AsyncGenerator<string> {
 
   const reader = body.getReader();
   const decoder = new TextDecoder();
-  let buffer = "";
+  let buffer = '';
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -703,14 +669,14 @@ async function* readResponseLines(response: Response): AsyncGenerator<string> {
         break;
       }
       buffer += decoder.decode(value, { stream: true });
-      let newlineIndex = buffer.indexOf("\n");
+      let newlineIndex = buffer.indexOf('\n');
       while (newlineIndex !== -1) {
         const line = buffer.slice(0, newlineIndex);
         buffer = buffer.slice(newlineIndex + 1);
         if (line.trim()) {
           yield line;
         }
-        newlineIndex = buffer.indexOf("\n");
+        newlineIndex = buffer.indexOf('\n');
       }
     }
     if (buffer.trim()) {
@@ -732,12 +698,12 @@ async function* ollamaNativeChatCompletionStream(options: {
   signal?: AbortSignal;
 }): AsyncGenerator<string> {
   const response = await fetch(`${ollamaNativeBaseUrl(options.baseUrl)}/api/chat`, {
-    method: "POST",
+    method: 'POST',
     headers: buildAuthHeaders(options.apiKey),
     signal: options.signal,
     body: JSON.stringify({
       model: options.model,
-      messages: options.messages.map((message) => ({
+      messages: options.messages.map(message => ({
         role: message.role,
         content: chatMessageToOllamaContent(message.content),
       })),
@@ -754,7 +720,7 @@ async function* ollamaNativeChatCompletionStream(options: {
   if (!response.ok) {
     const detail = await response.text();
     throw new Error(
-      `Ollama chat stream request failed (${response.status}): ${detail.slice(0, 300)}`,
+      `Ollama chat stream request failed (${response.status}): ${detail.slice(0, 300)}`
     );
   }
 
@@ -792,7 +758,7 @@ async function* openAiCompatibleChatCompletionStream(options: {
   signal?: AbortSignal;
 }): AsyncGenerator<string> {
   const response = await fetch(`${options.baseUrl}/chat/completions`, {
-    method: "POST",
+    method: 'POST',
     headers: buildAuthHeaders(options.apiKey),
     signal: options.signal,
     body: JSON.stringify({
@@ -809,19 +775,17 @@ async function* openAiCompatibleChatCompletionStream(options: {
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(
-      `LLM stream request failed (${response.status}): ${detail.slice(0, 300)}`,
-    );
+    throw new Error(`LLM stream request failed (${response.status}): ${detail.slice(0, 300)}`);
   }
 
   for await (const line of readResponseLines(response)) {
     const trimmed = line.trim();
-    if (!trimmed.startsWith("data:")) {
+    if (!trimmed.startsWith('data:')) {
       continue;
     }
 
-    const payload = trimmed.slice("data:".length).trim();
-    if (payload === "[DONE]") {
+    const payload = trimmed.slice('data:'.length).trim();
+    if (payload === '[DONE]') {
       break;
     }
 
@@ -890,8 +854,8 @@ export async function* chatCompletionStream(options: {
           throw nativeError;
         }
         console.warn(
-          "[llm-client] Ollama native chat stream failed, trying OpenAI-compatible stream:",
-          nativeError instanceof Error ? nativeError.message : nativeError,
+          '[llm-client] Ollama native chat stream failed, trying OpenAI-compatible stream:',
+          nativeError instanceof Error ? nativeError.message : nativeError
         );
       }
     }
@@ -916,7 +880,7 @@ export async function* chatCompletionStream(options: {
       at: started,
       userId: options.usageContext?.userId,
       username: options.usageContext?.username,
-      route: options.usageContext?.route ?? "chat-stream",
+      route: options.usageContext?.route ?? 'chat-stream',
       model: resolvedModel,
       durationMs: Date.now() - started,
       ok,
@@ -964,7 +928,7 @@ async function chatCompletionUnthrottled(options: {
           at: started,
           userId: options.usageContext?.userId,
           username: options.usageContext?.username,
-          route: options.usageContext?.route ?? "chat",
+          route: options.usageContext?.route ?? 'chat',
           model: resolvedModel,
           durationMs: Date.now() - started,
           ok: true,
@@ -972,8 +936,8 @@ async function chatCompletionUnthrottled(options: {
         return text;
       } catch (nativeError) {
         console.warn(
-          "[llm-client] Ollama native chat failed, trying OpenAI-compatible endpoint:",
-          nativeError instanceof Error ? nativeError.message : nativeError,
+          '[llm-client] Ollama native chat failed, trying OpenAI-compatible endpoint:',
+          nativeError instanceof Error ? nativeError.message : nativeError
         );
       }
     }
@@ -991,7 +955,7 @@ async function chatCompletionUnthrottled(options: {
       at: started,
       userId: options.usageContext?.userId,
       username: options.usageContext?.username,
-      route: options.usageContext?.route ?? "chat",
+      route: options.usageContext?.route ?? 'chat',
       model: resolvedModel,
       durationMs: Date.now() - started,
       ok: true,
@@ -1002,7 +966,7 @@ async function chatCompletionUnthrottled(options: {
       at: started,
       userId: options.usageContext?.userId,
       username: options.usageContext?.username,
-      route: options.usageContext?.route ?? "chat",
+      route: options.usageContext?.route ?? 'chat',
       model: resolvedModel,
       durationMs: Date.now() - started,
       ok: false,
@@ -1028,18 +992,16 @@ export async function visionCompletion(options: {
     }
     const site =
       error.stack
-        ?.split("\n")
-        .map((line) => line.trim())
-        .find((line) =>
-          /vision-image-prepare|prompt-cleanup|llm-client|JSON|parse|stringify/i.test(
-            line,
-          ),
+        ?.split('\n')
+        .map(line => line.trim())
+        .find(line =>
+          /vision-image-prepare|prompt-cleanup|llm-client|JSON|parse|stringify/i.test(line)
         ) ??
-      error.stack?.split("\n")[1]?.trim() ??
-      "unknown";
+      error.stack?.split('\n')[1]?.trim() ??
+      'unknown';
     throw new Error(
       `Vision model reply could not be processed (call stack limit @ ${site}). Try a smaller reference image or a different vision model.`,
-      { cause: error },
+      { cause: error }
     );
   }
 }
@@ -1063,8 +1025,8 @@ async function visionCompletionUnsafe(options: {
   } catch (error) {
     if (error instanceof RangeError) {
       throw new Error(
-        "Reference image is too large to prepare for vision. Upload a smaller image.",
-        { cause: error },
+        'Reference image is too large to prepare for vision. Upload a smaller image.',
+        { cause: error }
       );
     }
     // Fall back to the raw payload if sharp rejects an exotic format.
@@ -1075,7 +1037,7 @@ async function visionCompletionUnsafe(options: {
       base64: split.base64,
       width: 0,
       height: 0,
-      bytes: Buffer.byteLength(split.base64, "base64"),
+      bytes: Buffer.byteLength(split.base64, 'base64'),
       resized: false,
     };
   }
@@ -1097,8 +1059,8 @@ async function visionCompletionUnsafe(options: {
         throw nativeError;
       }
       console.warn(
-        "[llm-client] Ollama native vision failed, trying OpenAI-compatible endpoint:",
-        nativeError instanceof Error ? nativeError.message : nativeError,
+        '[llm-client] Ollama native vision failed, trying OpenAI-compatible endpoint:',
+        nativeError instanceof Error ? nativeError.message : nativeError
       );
     }
   }
@@ -1108,12 +1070,12 @@ async function visionCompletionUnsafe(options: {
     apiKey,
     model: visionModel,
     messages: [
-      { role: "system", content: options.systemPrompt },
+      { role: 'system', content: options.systemPrompt },
       {
-        role: "user",
+        role: 'user',
         content: [
-          { type: "text", text: options.textPrompt },
-          { type: "image_url", image_url: { url: prepared.imageDataUrl } },
+          { type: 'text', text: options.textPrompt },
+          { type: 'image_url', image_url: { url: prepared.imageDataUrl } },
         ],
       },
     ],

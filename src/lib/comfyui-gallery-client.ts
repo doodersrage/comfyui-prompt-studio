@@ -1,4 +1,4 @@
-import type { ComfyHistoryImportItem } from "./comfyui-status";
+import type { ComfyHistoryImportItem } from './comfyui-status';
 import {
   addComfyGalleryEntry,
   loadComfyGallery,
@@ -6,31 +6,28 @@ import {
   updateComfyGalleryByPromptId,
   type ComfyGalleryEntry,
   type ComfyGalleryJobStatus,
-} from "./comfyui-gallery";
-import {
-  formatComfyUiJobStatusLine,
-  type ComfyUiJobTrackerState,
-} from "./comfyui-job-status";
-import { notifyComfyJobComplete } from "./comfyui-notifications";
-import { resolveComfyUiRuntime } from "./comfyui-runtime";
-import { loadComfyUiSettings } from "./comfyui-settings";
-import { clearComfyLivePreviewUrl } from "./comfyui-live-preview-store";
-import { getEngineAdapter, getEngineAdapterById } from "./engine";
-import type { EngineProgressSubscription } from "./engine";
-import { dispatchWebhook } from "./webhook-settings";
-import { noteScheduledBatchJobComplete } from "./scheduled-batch-tracker";
-import { noteJobCompletionEmail } from "./job-completion-email";
-import { autoTagGalleryEntry } from "./gallery-auto-vision-tags";
-import { backfillHistoryGalleryLink } from "./prompt-lineage";
-import { consumePendingRefineAfterUpscale } from "./gallery-pending-actions";
-import type { WorkflowParamValues } from "./comfyui-config";
-import { buildGalleryImageUrlsFromQueueParams } from "./queue-requeue-images";
-import { freeComfyUiMemory } from "./comfyui-queue-control";
-import { normalizeQueueQualityProfile } from "./queue-quality-profile";
-import { loadSettingsCache } from "./settings-cache";
-import { attemptOomAutoRetry } from "./oom-retry";
-import { resolveGalleryRenderDurationMs } from "./comfyui-render-duration";
-import { forgetPendingGalleryPoll } from "./gallery-pending-polls";
+} from './comfyui-gallery';
+import { formatComfyUiJobStatusLine, type ComfyUiJobTrackerState } from './comfyui-job-status';
+import { notifyComfyJobComplete } from './comfyui-notifications';
+import { resolveComfyUiRuntime } from './comfyui-runtime';
+import { loadComfyUiSettings } from './comfyui-settings';
+import { clearComfyLivePreviewUrl } from './comfyui-live-preview-store';
+import { getEngineAdapter, getEngineAdapterById } from './engine';
+import type { EngineProgressSubscription } from './engine';
+import { dispatchWebhook } from './webhook-settings';
+import { noteScheduledBatchJobComplete } from './scheduled-batch-tracker';
+import { noteJobCompletionEmail } from './job-completion-email';
+import { autoTagGalleryEntry } from './gallery-auto-vision-tags';
+import { backfillHistoryGalleryLink } from './prompt-lineage';
+import { consumePendingRefineAfterUpscale } from './gallery-pending-actions';
+import type { WorkflowParamValues } from './comfyui-config';
+import { buildGalleryImageUrlsFromQueueParams } from './queue-requeue-images';
+import { freeComfyUiMemory } from './comfyui-queue-control';
+import { normalizeQueueQualityProfile } from './queue-quality-profile';
+import { loadSettingsCache } from './settings-cache';
+import { attemptOomAutoRetry } from './oom-retry';
+import { resolveGalleryRenderDurationMs } from './comfyui-render-duration';
+import { forgetPendingGalleryPoll } from './gallery-pending-polls';
 
 export type RegisterComfyGalleryJobInput = {
   promptId: string;
@@ -40,17 +37,17 @@ export type RegisterComfyGalleryJobInput = {
   model?: string;
   historyId?: string;
   parentGalleryEntryId?: string;
-  derivedKind?: ComfyGalleryEntry["derivedKind"];
+  derivedKind?: ComfyGalleryEntry['derivedKind'];
   queueParams?: WorkflowParamValues;
   sourceImageUrl?: string;
   maskImageUrl?: string;
-  queueQualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
+  queueQualityProfile?: import('./queue-quality-profile').QueueQualityProfile;
   /** Session LoRA ids active at queue time (for re-edit same stack). */
   sessionActiveLoraIds?: string[];
   projectId?: string;
   comfyUrl: string;
   /** Inference engine for this job (defaults to active adapter). */
-  engineId?: ComfyGalleryEntry["engineId"];
+  engineId?: ComfyGalleryEntry['engineId'];
   clientId?: string;
 };
 
@@ -78,23 +75,21 @@ export function cancelComfyGalleryJobPoll(promptId: string): void {
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
+  return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 function resolveComfyUrlForJob(promptId: string, comfyUrl?: string): string | undefined {
   return (
-    comfyUrl?.trim().replace(/\/+$/, "") ||
+    comfyUrl?.trim().replace(/\/+$/, '') ||
     loadComfyGallery()
-      .find((entry) => entry.promptId === promptId)
+      .find(entry => entry.promptId === promptId)
       ?.comfyUrl?.trim()
-      .replace(/\/+$/, "") ||
-    resolveComfyUiRuntime()?.apiUrl?.trim().replace(/\/+$/, "")
+      .replace(/\/+$/, '') ||
+    resolveComfyUiRuntime()?.apiUrl?.trim().replace(/\/+$/, '')
   );
 }
 
-export function registerComfyGalleryJob(
-  input: RegisterComfyGalleryJobInput,
-): ComfyGalleryEntry {
+export function registerComfyGalleryJob(input: RegisterComfyGalleryJobInput): ComfyGalleryEntry {
   const imageUrls = buildGalleryImageUrlsFromQueueParams({
     comfyUrl: input.comfyUrl,
     queueParams: input.queueParams,
@@ -120,8 +115,8 @@ export function registerComfyGalleryJob(
     comfyUrl: input.comfyUrl,
     engineId: input.engineId ?? getEngineAdapter().id,
     clientId: input.clientId,
-    status: "pending",
-    statusMessage: "Queued",
+    status: 'pending',
+    statusMessage: 'Queued',
   });
   backfillHistoryGalleryLink(entry);
   return entry;
@@ -132,15 +127,15 @@ export function mergeHistoryImportItems(
   existing: ComfyGalleryEntry[],
   items: ComfyHistoryImportItem[],
   createId: () => string = () => crypto.randomUUID(),
-  now: () => number = () => Date.now(),
+  now: () => number = () => Date.now()
 ): {
   entries: ComfyGalleryEntry[];
   imported: number;
   upgraded: number;
   skipped: number;
 } {
-  const nextExisting = existing.map((entry) => ({ ...entry }));
-  const byPromptId = new Map(nextExisting.map((entry) => [entry.promptId, entry]));
+  const nextExisting = existing.map(entry => ({ ...entry }));
+  const byPromptId = new Map(nextExisting.map(entry => [entry.promptId, entry]));
   const imported: ComfyGalleryEntry[] = [];
   let upgraded = 0;
   let skipped = 0;
@@ -171,21 +166,17 @@ export function mergeHistoryImportItems(
       prompt: item.prompt,
       negativePrompt: item.negativePrompt,
       model: item.model,
-      tool: "comfyui-import",
+      tool: 'comfyui-import',
       comfyUrl: item.comfyUrl,
-      status: "completed",
-      statusMessage: item.statusMessage ?? "Imported from ComfyUI history",
+      status: 'completed',
+      statusMessage: item.statusMessage ?? 'Imported from ComfyUI history',
       queuedAt: item.executionStartedAt ?? now(),
       completedAt:
         item.executionStartedAt != null && item.renderDurationMs != null
           ? item.executionStartedAt + item.renderDurationMs
           : now(),
-      ...(item.renderDurationMs != null
-        ? { renderDurationMs: item.renderDurationMs }
-        : {}),
-      ...(item.executionStartedAt != null
-        ? { executionStartedAt: item.executionStartedAt }
-        : {}),
+      ...(item.renderDurationMs != null ? { renderDurationMs: item.renderDurationMs } : {}),
+      ...(item.executionStartedAt != null ? { executionStartedAt: item.executionStartedAt } : {}),
       images: item.images,
       queueParams: item.queueParams,
     };
@@ -201,9 +192,11 @@ export function mergeHistoryImportItems(
   };
 }
 
-export function importComfyGalleryFromHistory(
-  items: ComfyHistoryImportItem[],
-): { imported: number; upgraded: number; skipped: number } {
+export function importComfyGalleryFromHistory(items: ComfyHistoryImportItem[]): {
+  imported: number;
+  upgraded: number;
+  skipped: number;
+} {
   const existing = loadComfyGallery();
   const merged = mergeHistoryImportItems(existing, items);
   if (merged.imported > 0 || merged.upgraded > 0) {
@@ -220,11 +213,11 @@ export async function fetchComfyHistoryImports(limit = 40, comfyUrl?: string) {
   const params = new URLSearchParams({ limit: String(limit) });
   const sticky = comfyUrl?.trim();
   if (sticky) {
-    params.set("comfyUrl", sticky);
+    params.set('comfyUrl', sticky);
   }
   const response = await fetch(`/api/comfyui/history?${params.toString()}`);
   if (!response.ok) {
-    throw new Error("Could not load ComfyUI history.");
+    throw new Error('Could not load ComfyUI history.');
   }
   return (await response.json()) as {
     items: ComfyHistoryImportItem[];
@@ -233,14 +226,11 @@ export async function fetchComfyHistoryImports(limit = 40, comfyUrl?: string) {
   };
 }
 
-export async function fetchComfyJobStatus(
-  promptId: string,
-  comfyUrl?: string,
-) {
+export async function fetchComfyJobStatus(promptId: string, comfyUrl?: string) {
   const params = new URLSearchParams({ promptId });
   const resolvedUrl = resolveComfyUrlForJob(promptId, comfyUrl);
   if (resolvedUrl) {
-    params.set("comfyUrl", resolvedUrl);
+    params.set('comfyUrl', resolvedUrl);
   }
 
   const response = await fetch(`/api/comfyui/status?${params.toString()}`);
@@ -253,20 +243,18 @@ export async function fetchComfyJobStatus(
     statusMessage?: string;
     comfyUrl?: string;
     queuePosition?: number | null;
-    images?: ComfyGalleryEntry["images"];
+    images?: ComfyGalleryEntry['images'];
     renderDurationMs?: number;
     executionStartedAt?: number;
   };
 }
 
-function normalizeTrackerStatus(
-  status: string | undefined,
-): ComfyGalleryJobStatus | null {
+function normalizeTrackerStatus(status: string | undefined): ComfyGalleryJobStatus | null {
   if (
-    status === "pending" ||
-    status === "running" ||
-    status === "completed" ||
-    status === "error"
+    status === 'pending' ||
+    status === 'running' ||
+    status === 'completed' ||
+    status === 'error'
   ) {
     return status;
   }
@@ -276,7 +264,7 @@ function normalizeTrackerStatus(
 
 function buildTrackerState(
   promptId: string,
-  status: NonNullable<Awaited<ReturnType<typeof fetchComfyJobStatus>>>,
+  status: NonNullable<Awaited<ReturnType<typeof fetchComfyJobStatus>>>
 ): ComfyUiJobTrackerState | null {
   const normalized = normalizeTrackerStatus(status.status);
   if (!normalized) {
@@ -297,7 +285,7 @@ function applyComfyJobStatus(
   promptId: string,
   status: NonNullable<Awaited<ReturnType<typeof fetchComfyJobStatus>>>,
   onStatus?: (message: string) => void,
-  onJobUpdate?: (job: ComfyUiJobTrackerState) => void,
+  onJobUpdate?: (job: ComfyUiJobTrackerState) => void
 ): ComfyGalleryEntry | null {
   const tracker = buildTrackerState(promptId, status);
   if (!tracker) {
@@ -307,7 +295,7 @@ function applyComfyJobStatus(
   onJobUpdate?.(tracker);
   onStatus?.(formatComfyUiJobStatusLine(tracker));
 
-  if (tracker.status === "running" || tracker.status === "pending") {
+  if (tracker.status === 'running' || tracker.status === 'pending') {
     updateComfyGalleryByPromptId(promptId, {
       status: tracker.status,
       statusMessage: tracker.statusMessage,
@@ -317,19 +305,19 @@ function applyComfyJobStatus(
     return null;
   }
 
-  if (tracker.status === "error") {
+  if (tracker.status === 'error') {
     // Drop resume metadata before gallery save (save can re-trigger resume).
     forgetPendingGalleryPoll(promptId);
     clearComfyLivePreviewUrl(promptId);
     const completedAt = Date.now();
-    const prior = loadComfyGallery().find((item) => item.promptId === promptId);
+    const prior = loadComfyGallery().find(item => item.promptId === promptId);
     const renderDurationMs = resolveGalleryRenderDurationMs({
       renderDurationMs: status.renderDurationMs,
       queuedAt: prior?.queuedAt,
       completedAt,
     });
     const entry = updateComfyGalleryByPromptId(promptId, {
-      status: "error",
+      status: 'error',
       statusMessage: tracker.statusMessage,
       queuePosition: null,
       progressValue: undefined,
@@ -345,11 +333,11 @@ function applyComfyJobStatus(
     if (entry) {
       noteJobCompletionEmail({
         promptId,
-        status: "error",
+        status: 'error',
         prompt: entry.prompt,
       });
       void dispatchWebhook({
-        event: "comfyui.job.error",
+        event: 'comfyui.job.error',
         promptId,
         prompt: entry.prompt,
         negativePrompt: entry.negativePrompt,
@@ -366,25 +354,21 @@ function applyComfyJobStatus(
 
   clearComfyLivePreviewUrl(promptId);
   const completedAt = Date.now();
-  const priorCompleted = loadComfyGallery().find(
-    (item) => item.promptId === promptId,
-  );
+  const priorCompleted = loadComfyGallery().find(item => item.promptId === promptId);
   const renderDurationMs = resolveGalleryRenderDurationMs({
     renderDurationMs: status.renderDurationMs,
     queuedAt: priorCompleted?.queuedAt,
     completedAt,
   });
   const entry = updateComfyGalleryByPromptId(promptId, {
-    status: "completed",
+    status: 'completed',
     statusMessage: tracker.statusMessage,
     queuePosition: null,
     progressValue: undefined,
     progressMax: undefined,
     progressNode: undefined,
     completedAt,
-    ...(status.executionStartedAt != null
-      ? { executionStartedAt: status.executionStartedAt }
-      : {}),
+    ...(status.executionStartedAt != null ? { executionStartedAt: status.executionStartedAt } : {}),
     ...(renderDurationMs != null ? { renderDurationMs } : {}),
     comfyUrl: tracker.comfyUrl,
     images: status.images ?? [],
@@ -392,28 +376,26 @@ function applyComfyJobStatus(
   if (entry && loadComfyUiSettings().notifyOnComplete) {
     notifyComfyJobComplete(entry);
   }
-  if (entry?.status === "completed") {
+  if (entry?.status === 'completed') {
     backfillHistoryGalleryLink(entry);
     noteJobCompletionEmail({
       promptId,
-      status: "completed",
+      status: 'completed',
       prompt: entry.prompt,
     });
     const shouldParkComfy =
-      entry.engineId === "diffusers" ||
+      entry.engineId === 'diffusers' ||
       (loadSettingsCache().shared.freeVramAfterMax === true &&
-        normalizeQueueQualityProfile(entry.queueQualityProfile) === "max");
+        normalizeQueueQualityProfile(entry.queueQualityProfile) === 'max');
     if (shouldParkComfy) {
       // Best-effort — never blocks the completion path. Diffusers jobs park
       // Comfy on the default Comfy host (entry.comfyUrl is the Diffusers URL).
-      void freeComfyUiMemory(
-        entry.engineId === "diffusers" ? undefined : entry.comfyUrl,
-      );
+      void freeComfyUiMemory(entry.engineId === 'diffusers' ? undefined : entry.comfyUrl);
     }
     void autoTagGalleryEntry(entry);
     noteScheduledBatchJobComplete(entry.tool);
     void dispatchWebhook({
-      event: "comfyui.job.completed",
+      event: 'comfyui.job.completed',
       promptId,
       prompt: entry.prompt,
       negativePrompt: entry.negativePrompt,
@@ -426,12 +408,12 @@ function applyComfyJobStatus(
     });
 
     const pendingRefine = consumePendingRefineAfterUpscale(promptId);
-    if (pendingRefine && entry.derivedKind === "upscale") {
-      void import("./comfyui-requeue").then(({ requeueRefineFromGalleryEntry }) =>
+    if (pendingRefine && entry.derivedKind === 'upscale') {
+      void import('./comfyui-requeue').then(({ requeueRefineFromGalleryEntry }) =>
         requeueRefineFromGalleryEntry(entry, {
           qualityProfile: pendingRefine.qualityProfile,
           onStatus,
-        }),
+        })
       );
     }
   }
@@ -441,14 +423,10 @@ function applyComfyJobStatus(
 export async function pollComfyGalleryJob(
   promptId: string,
   onStatus?: (message: string) => void,
-  options?: PollComfyGalleryJobOptions,
+  options?: PollComfyGalleryJobOptions
 ): Promise<ComfyGalleryEntry | null> {
-  const galleryEntry = loadComfyGallery().find(
-    (entry) => entry.promptId === promptId,
-  );
-  const engine = getEngineAdapterById(
-    galleryEntry?.engineId ?? getEngineAdapter().id,
-  );
+  const galleryEntry = loadComfyGallery().find(entry => entry.promptId === promptId);
+  const engine = getEngineAdapterById(galleryEntry?.engineId ?? getEngineAdapter().id);
   const comfyUrl = resolveComfyUrlForJob(promptId, options?.comfyUrl);
   const maxAttempts = options?.maxAttempts ?? DEFAULT_MAX_POLL_ATTEMPTS;
   const intervalMs = options?.intervalMs ?? DEFAULT_POLL_INTERVAL_MS;
@@ -492,8 +470,8 @@ export async function pollComfyGalleryJob(
 
     const tracker: ComfyUiJobTrackerState = {
       promptId,
-      status: "running",
-      statusMessage: latestProgress.message ?? "Running in ComfyUI",
+      status: 'running',
+      statusMessage: latestProgress.message ?? 'Running in ComfyUI',
       comfyUrl,
       queuePosition: 0,
       progressValue: latestProgress.value,
@@ -503,7 +481,7 @@ export async function pollComfyGalleryJob(
     onJobUpdate?.(tracker);
     onStatus?.(formatComfyUiJobStatusLine(tracker));
     updateComfyGalleryByPromptId(promptId, {
-      status: "running",
+      status: 'running',
       statusMessage: tracker.statusMessage,
       queuePosition: 0,
       progressValue: tracker.progressValue,
@@ -518,15 +496,15 @@ export async function pollComfyGalleryJob(
     const clientId =
       options?.clientId?.trim() ||
       loadComfyGallery()
-        .find((entry) => entry.promptId === promptId)
+        .find(entry => entry.promptId === promptId)
         ?.clientId?.trim();
     wsSubscription = engine.subscribeProgress({
       // Live bridge resolves Comfy server-side; pass entry URL only as a hint.
       engineUrl: comfyUrl,
       promptId,
       clientId,
-      onProgress: (progress) => {
-        if (progress.status === "preview" && progress.previewUrl) {
+      onProgress: progress => {
+        if (progress.status === 'preview' && progress.previewUrl) {
           // Type-4 frames carry prompt_id; ignore frames for other jobs on a shared socket.
           if (
             progress.promptId &&
@@ -538,8 +516,8 @@ export async function pollComfyGalleryJob(
           // Preview bytes are already in the live-preview store from the bridge client.
           const tracker: ComfyUiJobTrackerState = {
             promptId,
-            status: "running",
-            statusMessage: latestProgress?.message ?? "Live preview",
+            status: 'running',
+            statusMessage: latestProgress?.message ?? 'Live preview',
             comfyUrl,
             queuePosition: 0,
             progressValue: latestProgress?.value,
@@ -551,7 +529,7 @@ export async function pollComfyGalleryJob(
           return;
         }
 
-        if (progress.status === "finished") {
+        if (progress.status === 'finished') {
           wsFinished = true;
           clearTrailingProgress();
           if (progress.message) {
@@ -560,19 +538,18 @@ export async function pollComfyGalleryJob(
           return;
         }
 
-        if (progress.status === "error") {
+        if (progress.status === 'error') {
           clearTrailingProgress();
           wsFinished = true;
           applyComfyJobStatus(
             promptId,
             {
-              status: "error",
-              statusMessage:
-                progress.message ?? "Diffusers job failed.",
+              status: 'error',
+              statusMessage: progress.message ?? 'Diffusers job failed.',
               comfyUrl,
             },
             onStatus,
-            onJobUpdate,
+            onJobUpdate
           );
           return;
         }
@@ -580,10 +557,7 @@ export async function pollComfyGalleryJob(
         latestProgress = {
           value: progress.value ?? latestProgress?.value,
           max: progress.max ?? latestProgress?.max,
-          node:
-            progress.node !== undefined
-              ? progress.node
-              : latestProgress?.node,
+          node: progress.node !== undefined ? progress.node : latestProgress?.node,
           message: progress.message ?? latestProgress?.message,
         };
         publishProgress();
@@ -624,29 +598,22 @@ export async function pollComfyGalleryJob(
           executionStartedAt: engineStatus.executionStartedAt,
         };
 
-        const entry = applyComfyJobStatus(
-          promptId,
-          status,
-          onStatus,
-          onJobUpdate,
-        );
+        const entry = applyComfyJobStatus(promptId, status, onStatus, onJobUpdate);
         if (entry) {
           return entry;
         }
         // Lost Diffusers/Comfy jobs must not spin until maxAttempts.
         if (
-          engineStatus.status === "error" &&
+          engineStatus.status === 'error' &&
           /not found|unknown prompt|engine restarted|id lost/i.test(
-            engineStatus.statusMessage ?? "",
+            engineStatus.statusMessage ?? ''
           )
         ) {
           forgetPendingGalleryPoll(promptId);
           return (
             updateComfyGalleryByPromptId(promptId, {
-              status: "error",
-              statusMessage:
-                engineStatus.statusMessage ??
-                "Job not found (engine restarted).",
+              status: 'error',
+              statusMessage: engineStatus.statusMessage ?? 'Job not found (engine restarted).',
               queuePosition: null,
               comfyUrl: engineStatus.engineUrl || comfyUrl,
             }) ?? null
@@ -667,8 +634,8 @@ export async function pollComfyGalleryJob(
   }
 
   return updateComfyGalleryByPromptId(promptId, {
-    status: "running",
-    statusMessage: "Still processing in ComfyUI — checking continues in background",
+    status: 'running',
+    statusMessage: 'Still processing in ComfyUI — checking continues in background',
     queuePosition: null,
     comfyUrl,
   });

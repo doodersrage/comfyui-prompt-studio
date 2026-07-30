@@ -1,34 +1,34 @@
-"use client";
+'use client';
 
-import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 
-const CommandPalette = dynamic(() => import("@/components/CommandPalette"), {
+const CommandPalette = dynamic(() => import('@/components/CommandPalette'), {
   ssr: false,
 });
 
-const ScheduledBatchRunner = dynamic(() => import("@/components/ScheduledBatchRunner"), {
+const ScheduledBatchRunner = dynamic(() => import('@/components/ScheduledBatchRunner'), {
   ssr: false,
 });
 
-const KeyboardShortcuts = dynamic(() => import("@/components/KeyboardShortcuts"), {
+const KeyboardShortcuts = dynamic(() => import('@/components/KeyboardShortcuts'), {
   ssr: false,
 });
 
-const GalleryPwaRegister = dynamic(() => import("@/components/GalleryPwaRegister"), {
+const GalleryPwaRegister = dynamic(() => import('@/components/GalleryPwaRegister'), {
   ssr: false,
 });
 
-const GlobalToastHost = dynamic(() => import("@/components/GlobalToastHost"), {
+const GlobalToastHost = dynamic(() => import('@/components/GlobalToastHost'), {
   ssr: false,
 });
 
-const WorkspaceWelcome = dynamic(() => import("@/components/WorkspaceWelcome"), {
+const WorkspaceWelcome = dynamic(() => import('@/components/WorkspaceWelcome'), {
   ssr: false,
 });
 
 function scheduleIdle(callback: () => void, timeoutMs: number): () => void {
-  if (typeof window.requestIdleCallback === "function") {
+  if (typeof window.requestIdleCallback === 'function') {
     const id = window.requestIdleCallback(callback, { timeout: timeoutMs });
     return () => window.cancelIdleCallback(id);
   }
@@ -54,7 +54,7 @@ export default function DeferredShellClient() {
       }
     };
 
-    void import("@/lib/scheduled-batch").then(({ loadScheduledBatchConfig }) => {
+    void import('@/lib/scheduled-batch').then(({ loadScheduledBatchConfig }) => {
       if (cancelled) {
         return;
       }
@@ -64,11 +64,11 @@ export default function DeferredShellClient() {
     });
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         enableShell();
       }
     };
-    window.addEventListener("keydown", onKeyDown, { passive: true });
+    window.addEventListener('keydown', onKeyDown, { passive: true });
 
     // Toast feedback should appear quickly after first paint.
     const cancelToastIdle = scheduleIdle(enableToast, 400);
@@ -77,7 +77,7 @@ export default function DeferredShellClient() {
 
     return () => {
       cancelled = true;
-      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener('keydown', onKeyDown);
       cancelToastIdle();
       cancelShellIdle();
     };

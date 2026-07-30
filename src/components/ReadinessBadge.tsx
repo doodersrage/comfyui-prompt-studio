@@ -1,30 +1,30 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   scorePromptReadiness,
   type PromptReadinessResult,
   type ReadinessCheck,
-} from "@/lib/prompt-readiness";
+} from '@/lib/prompt-readiness';
 import {
   DEFAULT_READINESS_MIN_SCORE,
   isReadinessQueueAllowed,
   readinessGateMessage,
-} from "@/lib/readiness-gate";
-import { planReadinessAutoFix } from "@/lib/readiness-auto-fix";
-import type { ComfyImageModel } from "@/lib/comfy-models/client";
-import type { DetailLevel } from "@/lib/detail-level";
-import { Button } from "@/components/ui/Button";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+} from '@/lib/readiness-gate';
+import { planReadinessAutoFix } from '@/lib/readiness-auto-fix';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
+import type { DetailLevel } from '@/lib/detail-level';
+import { Button } from '@/components/ui/Button';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 function isPromptReadinessResult(value: unknown): value is PromptReadinessResult {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== 'object') {
     return false;
   }
   const candidate = value as Partial<PromptReadinessResult>;
   return (
-    typeof candidate.score === "number" &&
-    typeof candidate.grade === "string" &&
+    typeof candidate.score === 'number' &&
+    typeof candidate.grade === 'string' &&
     Array.isArray(candidate.checks) &&
     Array.isArray(candidate.suggestions)
   );
@@ -69,9 +69,9 @@ export default function ReadinessBadge(props: {
         props.onResult?.(null);
         return;
       }
-      void fetch("/api/readiness", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      void fetch('/api/readiness', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: props.prompt,
           hints: props.hints,
@@ -80,14 +80,14 @@ export default function ReadinessBadge(props: {
           negativePrompt: props.negativePrompt,
         }),
       })
-        .then(async (response) => {
+        .then(async response => {
           const data: unknown = await response.json().catch(() => null);
           if (!response.ok || !isPromptReadinessResult(data)) {
-            throw new Error("Invalid readiness response");
+            throw new Error('Invalid readiness response');
           }
           return data;
         })
-        .then((data) => {
+        .then(data => {
           setResult(data);
           props.onResult?.(data);
         })
@@ -106,11 +106,11 @@ export default function ReadinessBadge(props: {
     setFixing(true);
     try {
       for (const action of planReadinessAutoFix(result)) {
-        if (action === "compact") {
+        if (action === 'compact') {
           await props.onCompact?.();
-        } else if (action === "fix-rules") {
+        } else if (action === 'fix-rules') {
           await props.onFixRules?.();
-        } else if (action === "reformat") {
+        } else if (action === 'reformat') {
           await props.onReformat?.();
         }
       }
@@ -126,7 +126,7 @@ export default function ReadinessBadge(props: {
   const checks: ReadinessCheck[] = Array.isArray(result.checks) ? result.checks : [];
   const suggestions = Array.isArray(result.suggestions) ? result.suggestions : [];
   const queueAllowed = isReadinessQueueAllowed(result.score, minScore);
-  const failedChecks = checks.filter((check) => !check.passed);
+  const failedChecks = checks.filter(check => !check.passed);
   const canAutoFix =
     planReadinessAutoFix({ ...result, checks, suggestions }).length > 0 &&
     (props.onCompact || props.onFixRules || props.onReformat);
@@ -149,28 +149,35 @@ export default function ReadinessBadge(props: {
       </div>
 
       {!queueAllowed ? (
-        <p className="mt-2 text-xs text-amber-200/90">{readinessGateMessage(result.score, minScore)}</p>
+        <p className="mt-2 text-xs text-amber-200/90">
+          {readinessGateMessage(result.score, minScore)}
+        </p>
       ) : null}
 
       <ul className="mt-2 space-y-1 text-zinc-400">
-        {checks.map((check) => (
+        {checks.map(check => (
           <li key={check.id}>
-            {check.passed ? "✓" : "✗"} {check.label}
-            {check.detail ? ` — ${check.detail}` : ""}
+            {check.passed ? '✓' : '✗'} {check.label}
+            {check.detail ? ` — ${check.detail}` : ''}
           </li>
         ))}
       </ul>
 
       {suggestions.length > 0 ? (
         <ul className="mt-3 space-y-1 text-xs text-zinc-500">
-          {suggestions.map((suggestion) => (
+          {suggestions.map(suggestion => (
             <li key={suggestion}>• {suggestion}</li>
           ))}
         </ul>
       ) : null}
 
       {canAutoFix ? (
-        <Button variant="secondary" className="mt-3" loading={fixing} onClick={() => void runAutoFix()}>
+        <Button
+          variant="secondary"
+          className="mt-3"
+          loading={fixing}
+          onClick={() => void runAutoFix()}
+        >
           Fix readiness issues
         </Button>
       ) : null}
@@ -178,7 +185,7 @@ export default function ReadinessBadge(props: {
       {failedChecks.length === 0 ? null : (
         <p className="mt-2 text-[11px] text-zinc-600">
           {failedChecks.length} check(s) failed
-          {canAutoFix ? " — use Fix readiness issues or queue anyway." : "."}
+          {canAutoFix ? ' — use Fix readiness issues or queue anyway.' : '.'}
         </p>
       )}
     </div>

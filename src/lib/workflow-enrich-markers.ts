@@ -1,4 +1,4 @@
-export const PROMPT_STUDIO_META_PREFIX = "Prompt Studio —";
+export const PROMPT_STUDIO_META_PREFIX = 'Prompt Studio —';
 
 type WorkflowNodeMeta = {
   class_type?: string;
@@ -7,7 +7,7 @@ type WorkflowNodeMeta = {
 };
 
 export function isPromptStudioEnrichedNode(meta?: { title?: string }): boolean {
-  const title = meta?.title?.trim() ?? "";
+  const title = meta?.title?.trim() ?? '';
   return title.startsWith(PROMPT_STUDIO_META_PREFIX);
 }
 
@@ -15,12 +15,14 @@ export function isPromptStudioProtectedSampler(node: WorkflowNodeMeta): boolean 
   if (!isPromptStudioEnrichedNode(node._meta)) {
     return false;
   }
-  const title = node._meta?.title?.toLowerCase() ?? "";
-  return title.includes("refiner pass") ||
-    title.includes("refiner ksampler") ||
-    title.includes("hires pass") ||
-    title.includes("lightning hires") ||
-    title.includes("latent detail");
+  const title = node._meta?.title?.toLowerCase() ?? '';
+  return (
+    title.includes('refiner pass') ||
+    title.includes('refiner ksampler') ||
+    title.includes('hires pass') ||
+    title.includes('lightning hires') ||
+    title.includes('latent detail')
+  );
 }
 
 /** Skip global queue sampler patch on enriched refiner passes and low-denoise stages. */
@@ -30,7 +32,7 @@ export function shouldSkipGlobalSamplerPatch(node: WorkflowNodeMeta): boolean {
   }
 
   const inputs = node.inputs;
-  if (!inputs || !("denoise" in inputs)) {
+  if (!inputs || !('denoise' in inputs)) {
     return false;
   }
 
@@ -42,28 +44,22 @@ export function isPromptStudioOutputUpscaleNode(node: WorkflowNodeMeta): boolean
   if (!isPromptStudioEnrichedNode(node._meta)) {
     return false;
   }
-  const title = node._meta?.title?.toLowerCase() ?? "";
-  return (
-    title.includes("upscale") ||
-    title.includes("sharpen") ||
-    title.includes("polish")
-  );
+  const title = node._meta?.title?.toLowerCase() ?? '';
+  return title.includes('upscale') || title.includes('sharpen') || title.includes('polish');
 }
 
 /** True when Final/Max enrich markers are already present (safe to skip re-enrich in batch). */
-export function workflowHasPromptStudioQueueEnrich(
-  workflow: Record<string, unknown>,
-): boolean {
+export function workflowHasPromptStudioQueueEnrich(workflow: Record<string, unknown>): boolean {
   for (const node of Object.values(workflow)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
     const record = node as WorkflowNodeMeta;
     if (isPromptStudioOutputUpscaleNode(record) || isPromptStudioProtectedSampler(record)) {
       return true;
     }
-    const title = record._meta?.title?.toLowerCase() ?? "";
-    if (title.includes("sdxl refiner") || title.includes("latent upscale")) {
+    const title = record._meta?.title?.toLowerCase() ?? '';
+    if (title.includes('sdxl refiner') || title.includes('latent upscale')) {
       return true;
     }
   }

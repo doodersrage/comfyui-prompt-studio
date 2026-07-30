@@ -1,10 +1,8 @@
-import {
-  isFluxFineTuneCheckpointModel,
-} from "./model-checkpoint-map";
-import { isKleinBaseModel } from "./model-sampler-defaults";
-import { KLEIN_REALISTIC_DETAIL_LORA_ID } from "./klein-realistic-detail-lora";
-import { KLEIN_ULTRA_REAL_LORA_ID } from "./klein-ultra-real-lora";
-import { ULTRAREAL_AMPLIFIER_LORA_ID } from "./ultrareal-amplifier-lora";
+import { isFluxFineTuneCheckpointModel } from './model-checkpoint-map';
+import { isKleinBaseModel } from './model-sampler-defaults';
+import { KLEIN_REALISTIC_DETAIL_LORA_ID } from './klein-realistic-detail-lora';
+import { KLEIN_ULTRA_REAL_LORA_ID } from './klein-ultra-real-lora';
+import { ULTRAREAL_AMPLIFIER_LORA_ID } from './ultrareal-amplifier-lora';
 
 /**
  * Per-model default LoRA library id lists.
@@ -18,13 +16,11 @@ export type ModelLoraMap = Partial<Record<string, string>>;
 export type SessionActiveLoraIdsByModel = Partial<Record<string, string[]>>;
 
 /** Companion realism LoRAs that stay on even when the session stack was cleared. */
-export function companionRealismLoraIdsForModel(
-  model: string | undefined,
-): string[] {
+export function companionRealismLoraIdsForModel(model: string | undefined): string[] {
   if (isFluxFineTuneCheckpointModel(model)) {
     return [ULTRAREAL_AMPLIFIER_LORA_ID];
   }
-  if (isKleinBaseModel(model ?? "")) {
+  if (isKleinBaseModel(model ?? '')) {
     return [KLEIN_REALISTIC_DETAIL_LORA_ID, KLEIN_ULTRA_REAL_LORA_ID];
   }
   return [];
@@ -37,7 +33,7 @@ export function companionRealismLoraIdsForModel(
 export function mergeCompanionRealismLoraIds(
   model: string | undefined,
   ids: string[] | undefined,
-  _modelLoraMap?: ModelLoraMap,
+  _modelLoraMap?: ModelLoraMap
 ): string[] {
   const base = [...(ids ?? [])];
   for (const id of companionRealismLoraIdsForModel(model)) {
@@ -53,29 +49,29 @@ export function mergeCompanionRealismLoraIds(
  * Klein Base pairs with Realistic Detail + Ultra Real v4 skin LoRA (auto-seeded when installed).
  */
 export const SUGGESTED_MODEL_LORA_MAP: ModelLoraMap = {
-  "flux-ultrareal-v4": "ultrareal-amplifier",
-  "flux-2-klein-9b": "klein-realistic-detail,klein-ultra-real-v4",
-  "flux-2-klein": "klein-realistic-detail,klein-ultra-real-v4",
+  'flux-ultrareal-v4': 'ultrareal-amplifier',
+  'flux-2-klein-9b': 'klein-realistic-detail,klein-ultra-real-v4',
+  'flux-2-klein': 'klein-realistic-detail,klein-ultra-real-v4',
 };
 
 export function formatModelLoraMap(map: ModelLoraMap | undefined): string {
   if (!map) {
-    return "";
+    return '';
   }
   return Object.entries(map)
     .filter(([modelId]) => Boolean(modelId?.trim()))
-    .map(([modelId, value]) => `${modelId.trim()}=${(value ?? "").trim()}`)
-    .join("\n");
+    .map(([modelId, value]) => `${modelId.trim()}=${(value ?? '').trim()}`)
+    .join('\n');
 }
 
 export function parseModelLoraMap(text: string): ModelLoraMap {
   const map: ModelLoraMap = {};
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
+    if (!trimmed || trimmed.startsWith('#')) {
       continue;
     }
-    const separator = trimmed.includes("=") ? "=" : ":";
+    const separator = trimmed.includes('=') ? '=' : ':';
     const index = trimmed.indexOf(separator);
     if (index <= 0) {
       continue;
@@ -98,39 +94,35 @@ export function parseModelLoraMap(text: string): ModelLoraMap {
  */
 export function resolveModelDefaultLoraIds(
   model: string | undefined,
-  map: ModelLoraMap | undefined,
+  map: ModelLoraMap | undefined
 ): string[] | undefined {
   const modelId = model?.trim();
   if (!modelId || !map || !Object.prototype.hasOwnProperty.call(map, modelId)) {
     return undefined;
   }
-  const raw = (map[modelId] ?? "").trim();
+  const raw = (map[modelId] ?? '').trim();
   if (!raw) {
     return [];
   }
   return raw
-    .split(",")
-    .map((id) => id.trim())
+    .split(',')
+    .map(id => id.trim())
     .filter(Boolean);
 }
 
 export function hasSessionLoraIdsForModel(
   byModel: SessionActiveLoraIdsByModel | undefined,
-  model: string | undefined,
+  model: string | undefined
 ): boolean {
   const modelId = model?.trim();
-  return Boolean(
-    modelId &&
-      byModel &&
-      Object.prototype.hasOwnProperty.call(byModel, modelId),
-  );
+  return Boolean(modelId && byModel && Object.prototype.hasOwnProperty.call(byModel, modelId));
 }
 
 /** Write or clear a per-model session LoRA pick. */
 export function setSessionLoraIdsForModel(
   byModel: SessionActiveLoraIdsByModel | undefined,
   model: string,
-  ids: string[] | undefined,
+  ids: string[] | undefined
 ): SessionActiveLoraIdsByModel {
   const modelId = model.trim();
   const next: SessionActiveLoraIdsByModel = { ...byModel };
@@ -167,14 +159,14 @@ export function resolveEffectiveSessionLoraIds(
   sessionActiveLoraIds: string[] | undefined,
   model: string | undefined,
   modelLoraMap: ModelLoraMap | undefined,
-  sessionActiveLoraIdsByModel?: SessionActiveLoraIdsByModel,
+  sessionActiveLoraIdsByModel?: SessionActiveLoraIdsByModel
 ): string[] | undefined {
   const modelId = model?.trim();
   if (hasSessionLoraIdsForModel(sessionActiveLoraIdsByModel, modelId)) {
     return mergeCompanionRealismLoraIds(
       modelId,
       sessionActiveLoraIdsByModel![modelId!] ?? [],
-      modelLoraMap,
+      modelLoraMap
     );
   }
 
@@ -184,14 +176,9 @@ export function resolveEffectiveSessionLoraIds(
   }
 
   const byModelEmpty =
-    !sessionActiveLoraIdsByModel ||
-    Object.keys(sessionActiveLoraIdsByModel).length === 0;
+    !sessionActiveLoraIdsByModel || Object.keys(sessionActiveLoraIdsByModel).length === 0;
   if (sessionActiveLoraIds !== undefined && byModelEmpty) {
-    return mergeCompanionRealismLoraIds(
-      modelId,
-      sessionActiveLoraIds,
-      modelLoraMap,
-    );
+    return mergeCompanionRealismLoraIds(modelId, sessionActiveLoraIds, modelLoraMap);
   }
 
   // Untouched model: still attach mapped companion realism LoRAs when present.
@@ -205,12 +192,12 @@ export function resolveLoraIdsForModelSelection(
     sessionActiveLoraIdsByModel?: SessionActiveLoraIdsByModel;
     modelLoraMap?: ModelLoraMap;
     sessionActiveLoraIds?: string[];
-  },
+  }
 ): string[] | undefined {
   return resolveEffectiveSessionLoraIds(
     options.sessionActiveLoraIds,
     model,
     options.modelLoraMap,
-    options.sessionActiveLoraIdsByModel,
+    options.sessionActiveLoraIdsByModel
   );
 }

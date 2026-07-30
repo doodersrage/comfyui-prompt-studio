@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { ChipButton, FieldLabel } from "@/components/ui/Field";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { ChipButton, FieldLabel } from '@/components/ui/Field';
 import {
   clearExportMaskCanvas,
   clearPreviewMaskCanvas,
@@ -15,9 +15,9 @@ import {
   pointerToCanvasPoint,
   renderMaskEditorFrame,
   screenBrushRadiusToCanvas,
-} from "@/lib/inpaint-mask-canvas";
+} from '@/lib/inpaint-mask-canvas';
 
-type InpaintMaskMode = "draw" | "upload";
+type InpaintMaskMode = 'draw' | 'upload';
 
 type InpaintMaskEditorProps = {
   sourceImageUrl: string;
@@ -40,7 +40,7 @@ export default function InpaintMaskEditor({
   const previewUrlRef = useRef<string | null>(null);
   const onMaskChangeRef = useRef(onMaskChange);
 
-  const [mode, setMode] = useState<InpaintMaskMode>("draw");
+  const [mode, setMode] = useState<InpaintMaskMode>('draw');
   const [brushSize, setBrushSize] = useState<number>(24);
   const [ready, setReady] = useState(false);
   const [hasMask, setHasMask] = useState(false);
@@ -67,10 +67,7 @@ export default function InpaintMaskEditor({
     }
 
     if (!overlayCanvasRef.current) {
-      overlayCanvasRef.current = createOffscreenCanvas(
-        displayCanvas.width,
-        displayCanvas.height,
-      );
+      overlayCanvasRef.current = createOffscreenCanvas(displayCanvas.width, displayCanvas.height);
     }
 
     renderMaskEditorFrame({
@@ -84,7 +81,7 @@ export default function InpaintMaskEditor({
 
   const publishMask = useCallback(
     async (exportMaskCanvas: HTMLCanvasElement) => {
-      const ctx = exportMaskCanvas.getContext("2d");
+      const ctx = exportMaskCanvas.getContext('2d');
       if (!ctx || !maskCanvasHasContent(ctx, exportMaskCanvas.width, exportMaskCanvas.height)) {
         revokePreviewUrl();
         onMaskChangeRef.current(null, null);
@@ -95,7 +92,7 @@ export default function InpaintMaskEditor({
       try {
         const file = await exportCanvasToPngFile(
           exportMaskCanvas,
-          `prompt-studio-inpaint-mask-${Date.now()}.png`,
+          `prompt-studio-inpaint-mask-${Date.now()}.png`
         );
         revokePreviewUrl();
         const previewUrl = URL.createObjectURL(file);
@@ -103,10 +100,10 @@ export default function InpaintMaskEditor({
         onMaskChangeRef.current(file, previewUrl);
         setHasMask(true);
       } catch (err) {
-        setLoadError(err instanceof Error ? err.message : "Could not export mask.");
+        setLoadError(err instanceof Error ? err.message : 'Could not export mask.');
       }
     },
-    [revokePreviewUrl],
+    [revokePreviewUrl]
   );
 
   useLayoutEffect(() => {
@@ -129,12 +126,12 @@ export default function InpaintMaskEditor({
 
         const fitted = fitMaskEditorDimensions(
           image.naturalWidth || image.width,
-          image.naturalHeight || image.height,
+          image.naturalHeight || image.height
         );
 
         const displayCanvas = displayCanvasRef.current;
         if (!displayCanvas) {
-          throw new Error("Could not initialize mask editor canvas.");
+          throw new Error('Could not initialize mask editor canvas.');
         }
 
         displayCanvas.width = fitted.width;
@@ -145,10 +142,10 @@ export default function InpaintMaskEditor({
         overlayCanvasRef.current = createOffscreenCanvas(fitted.width, fitted.height);
         imageRef.current = image;
 
-        const exportCtx = exportMaskCanvasRef.current.getContext("2d");
-        const previewCtx = previewMaskCanvasRef.current.getContext("2d");
+        const exportCtx = exportMaskCanvasRef.current.getContext('2d');
+        const previewCtx = previewMaskCanvasRef.current.getContext('2d');
         if (!exportCtx || !previewCtx) {
-          throw new Error("Could not initialize mask layers.");
+          throw new Error('Could not initialize mask layers.');
         }
 
         clearExportMaskCanvas(exportCtx, fitted.width, fitted.height);
@@ -159,7 +156,7 @@ export default function InpaintMaskEditor({
         }
       } catch (err) {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : "Could not load image.");
+          setLoadError(err instanceof Error ? err.message : 'Could not load image.');
           setReady(false);
         }
       }
@@ -181,8 +178,8 @@ export default function InpaintMaskEditor({
         return;
       }
 
-      const exportCtx = exportMaskCanvas.getContext("2d");
-      const previewCtx = previewMaskCanvas.getContext("2d");
+      const exportCtx = exportMaskCanvas.getContext('2d');
+      const previewCtx = previewMaskCanvas.getContext('2d');
       if (!exportCtx || !previewCtx) {
         return;
       }
@@ -194,12 +191,12 @@ export default function InpaintMaskEditor({
       lastPointRef.current = point;
       redrawDisplay();
     },
-    [brushSize, redrawDisplay],
+    [brushSize, redrawDisplay]
   );
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      if (mode !== "draw" || !ready) {
+      if (mode !== 'draw' || !ready) {
         return;
       }
       const canvas = displayCanvasRef.current;
@@ -212,12 +209,12 @@ export default function InpaintMaskEditor({
       event.preventDefault();
       paintAtPointer(canvas, event.clientX, event.clientY, true);
     },
-    [mode, paintAtPointer, ready],
+    [mode, paintAtPointer, ready]
   );
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
-      if (!drawingRef.current || mode !== "draw") {
+      if (!drawingRef.current || mode !== 'draw') {
         return;
       }
       const canvas = displayCanvasRef.current;
@@ -227,7 +224,7 @@ export default function InpaintMaskEditor({
       event.preventDefault();
       paintAtPointer(canvas, event.clientX, event.clientY, false);
     },
-    [mode, paintAtPointer],
+    [mode, paintAtPointer]
   );
 
   const finishStroke = useCallback(() => {
@@ -248,8 +245,8 @@ export default function InpaintMaskEditor({
     if (!exportMaskCanvas || !previewMaskCanvas) {
       return;
     }
-    const exportCtx = exportMaskCanvas.getContext("2d");
-    const previewCtx = previewMaskCanvas.getContext("2d");
+    const exportCtx = exportMaskCanvas.getContext('2d');
+    const previewCtx = previewMaskCanvas.getContext('2d');
     if (!exportCtx || !previewCtx) {
       return;
     }
@@ -274,7 +271,7 @@ export default function InpaintMaskEditor({
       onMaskChangeRef.current(file, previewUrl);
       setHasMask(true);
     },
-    [revokePreviewUrl],
+    [revokePreviewUrl]
   );
 
   return (
@@ -284,34 +281,24 @@ export default function InpaintMaskEditor({
       </FieldLabel>
 
       <div className="flex flex-wrap gap-1.5">
-        <ChipButton active={mode === "draw"} onClick={() => setMode("draw")}>
+        <ChipButton active={mode === 'draw'} onClick={() => setMode('draw')}>
           Draw mask
         </ChipButton>
-        <ChipButton active={mode === "upload"} onClick={() => setMode("upload")}>
+        <ChipButton active={mode === 'upload'} onClick={() => setMode('upload')}>
           Upload mask
         </ChipButton>
       </div>
 
-      {mode === "draw" ? (
+      {mode === 'draw' ? (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="type-caption text-zinc-500">Brush (on screen)</span>
-            {BRUSH_SIZES.map((size) => (
-              <ChipButton
-                key={size}
-                active={brushSize === size}
-                onClick={() => setBrushSize(size)}
-              >
+            {BRUSH_SIZES.map(size => (
+              <ChipButton key={size} active={brushSize === size} onClick={() => setBrushSize(size)}>
                 {size}px
               </ChipButton>
             ))}
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={clearMask}
-              disabled={!hasMask}
-            >
+            <Button type="button" size="sm" variant="ghost" onClick={clearMask} disabled={!hasMask}>
               Clear
             </Button>
           </div>
@@ -320,7 +307,7 @@ export default function InpaintMaskEditor({
             <canvas
               ref={displayCanvasRef}
               className="block h-auto max-h-80 w-full touch-none cursor-crosshair focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
-              style={{ width: "100%", height: "auto", maxHeight: "20rem" }}
+              style={{ width: '100%', height: 'auto', maxHeight: '20rem' }}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={finishStroke}
@@ -344,7 +331,7 @@ export default function InpaintMaskEditor({
           <input
             type="file"
             accept="image/*"
-            onChange={(event) => onUploadChange(event.target.files?.[0] ?? null)}
+            onChange={event => onUploadChange(event.target.files?.[0] ?? null)}
             className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60"
           />
         </div>
@@ -352,7 +339,7 @@ export default function InpaintMaskEditor({
 
       {hasMask ? (
         <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-100/90">
-          Mask ready — white regions will be sent as{" "}
+          Mask ready — white regions will be sent as{' '}
           <code className="text-emerald-200/90">{`{{MASK_IMAGE}}`}</code> on queue.
         </p>
       ) : (

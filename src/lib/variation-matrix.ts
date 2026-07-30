@@ -1,6 +1,6 @@
-import { sportPresetsForMode } from "./sport-presets";
+import { sportPresetsForMode } from './sport-presets';
 
-export type MatrixAxisKind = "variation" | "sportPreset" | "location";
+export type MatrixAxisKind = 'variation' | 'sportPreset' | 'location';
 
 export type MatrixCell = {
   row: number;
@@ -34,8 +34,7 @@ export function buildMatrixAxes(input: {
         col,
         rowLabel: rowValues[row].label,
         colLabel: colValues[col].label,
-        variationStrength:
-          rowValues[row].variationStrength ?? colValues[col].variationStrength,
+        variationStrength: rowValues[row].variationStrength ?? colValues[col].variationStrength,
         sportPresetId: rowValues[row].sportPresetId ?? colValues[col].sportPresetId,
         lockedLocation: rowValues[row].lockedLocation ?? colValues[col].lockedLocation,
       });
@@ -51,41 +50,48 @@ function axisValues(
   input: {
     baseVariation?: number;
     recentLocations?: string[];
-  },
+  }
 ): Array<{
   label: string;
   variationStrength?: number;
   sportPresetId?: string;
   lockedLocation?: string;
 }> {
-  if (axis === "variation") {
+  if (axis === 'variation') {
     const base = input.baseVariation ?? 65;
     return Array.from({ length: count }, (_, index) => {
       const strength = Math.min(
         100,
-        Math.max(0, Math.round(base - 20 + (40 / Math.max(1, count - 1)) * index)),
+        Math.max(0, Math.round(base - 20 + (40 / Math.max(1, count - 1)) * index))
       );
       return { label: `Var ${strength}`, variationStrength: strength };
     });
   }
 
-  if (axis === "sportPreset") {
-    const presets = sportPresetsForMode("duo").slice(0, count);
+  if (axis === 'sportPreset') {
+    const presets = sportPresetsForMode('duo').slice(0, count);
     while (presets.length < count) {
-      presets.push(sportPresetsForMode("duo")[presets.length % sportPresetsForMode("duo").length]);
+      presets.push(sportPresetsForMode('duo')[presets.length % sportPresetsForMode('duo').length]);
     }
-    return presets.map((preset) => ({
+    return presets.map(preset => ({
       label: preset.label,
       sportPresetId: preset.id,
     }));
   }
 
   const locations = (input.recentLocations ?? []).filter(Boolean).slice(0, count);
-  const fallback = ["forest trail", "city rooftop", "coastal cliff", "studio backdrop", "rainy alley", "open meadow"];
+  const fallback = [
+    'forest trail',
+    'city rooftop',
+    'coastal cliff',
+    'studio backdrop',
+    'rainy alley',
+    'open meadow',
+  ];
   while (locations.length < count) {
     locations.push(fallback[locations.length % fallback.length]);
   }
-  return locations.slice(0, count).map((location) => ({
+  return locations.slice(0, count).map(location => ({
     label: location,
     lockedLocation: location,
   }));

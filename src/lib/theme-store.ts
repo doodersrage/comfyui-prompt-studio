@@ -1,57 +1,55 @@
-import { readBrowserString, writeBrowserString } from "./browser-storage";
+import { readBrowserString, writeBrowserString } from './browser-storage';
 
 /** Stored preference: Auto follows the OS; Light/Dark override it. */
-export type AppTheme = "auto" | "light" | "dark";
-export type ResolvedAppTheme = "light" | "dark";
+export type AppTheme = 'auto' | 'light' | 'dark';
+export type ResolvedAppTheme = 'light' | 'dark';
 
-const KEY = "comfy-app-theme-v1";
-export const APP_THEME_CHANGED_EVENT = "comfy-app-theme-changed";
+const KEY = 'comfy-app-theme-v1';
+export const APP_THEME_CHANGED_EVENT = 'comfy-app-theme-changed';
 
 let systemListenerCleanup: (() => void) | null = null;
 
 function emitThemeChanged(theme: AppTheme): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
-  window.dispatchEvent(
-    new CustomEvent(APP_THEME_CHANGED_EVENT, { detail: { theme } }),
-  );
+  window.dispatchEvent(new CustomEvent(APP_THEME_CHANGED_EVENT, { detail: { theme } }));
 }
 
 export function parseAppTheme(raw: string | null | undefined): AppTheme {
   if (!raw) {
-    return "auto";
+    return 'auto';
   }
-  const value = raw.replace(/^"|"$/g, "");
-  if (value === "light" || value === "dark" || value === "auto") {
+  const value = raw.replace(/^"|"$/g, '');
+  if (value === 'light' || value === 'dark' || value === 'auto') {
     return value;
   }
-  return "auto";
+  return 'auto';
 }
 
 export function systemPrefersDark(): boolean {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return true;
   }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
 export function resolveAppTheme(
   preference: AppTheme,
-  prefersDark: boolean = systemPrefersDark(),
+  prefersDark: boolean = systemPrefersDark()
 ): ResolvedAppTheme {
-  if (preference === "light") {
-    return "light";
+  if (preference === 'light') {
+    return 'light';
   }
-  if (preference === "dark") {
-    return "dark";
+  if (preference === 'dark') {
+    return 'dark';
   }
-  return prefersDark ? "dark" : "light";
+  return prefersDark ? 'dark' : 'light';
 }
 
 export function loadAppTheme(): AppTheme {
-  if (typeof window === "undefined") {
-    return "auto";
+  if (typeof window === 'undefined') {
+    return 'auto';
   }
   return parseAppTheme(readBrowserString(KEY));
 }
@@ -66,19 +64,19 @@ function syncSystemThemeListener(preference: AppTheme): void {
     systemListenerCleanup();
     systemListenerCleanup = null;
   }
-  if (typeof window === "undefined" || preference !== "auto") {
+  if (typeof window === 'undefined' || preference !== 'auto') {
     return;
   }
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  const media = window.matchMedia('(prefers-color-scheme: dark)');
   const onChange = () => {
-    paintResolvedTheme(resolveAppTheme("auto", media.matches));
+    paintResolvedTheme(resolveAppTheme('auto', media.matches));
   };
-  media.addEventListener("change", onChange);
-  systemListenerCleanup = () => media.removeEventListener("change", onChange);
+  media.addEventListener('change', onChange);
+  systemListenerCleanup = () => media.removeEventListener('change', onChange);
 }
 
 export function applyAppTheme(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   const preference = loadAppTheme();
@@ -87,7 +85,7 @@ export function applyAppTheme(): void {
 }
 
 export function saveAppTheme(theme: AppTheme): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserString(KEY, theme);
@@ -97,7 +95,7 @@ export function saveAppTheme(theme: AppTheme): void {
 
 /** Keep Auto mode in sync with OS changes; call from a client mount effect. */
 export function subscribeSystemTheme(): () => void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return () => undefined;
   }
   applyAppTheme();

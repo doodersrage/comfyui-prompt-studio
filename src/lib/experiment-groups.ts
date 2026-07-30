@@ -1,4 +1,4 @@
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
 
 export type ExperimentGroup = {
   id: string;
@@ -56,6 +56,6 @@ export function groupGalleryExperiments(entries: ComfyGalleryEntry[]): Experimen
   }
 
   return [...map.values()]
-    .filter((group) => group.entries.length >= 2 || group.variants.seeds.length >= 2)
+    .filter(group => group.entries.length >= 2 || group.variants.seeds.length >= 2)
     .sort((a, b) => b.entries.length - a.entries.length);
 }

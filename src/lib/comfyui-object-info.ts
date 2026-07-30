@@ -1,9 +1,6 @@
-import { getComfyUiBaseUrl } from "./comfyui-client";
-import type { ComfyUiRuntimeConfig } from "./comfyui-config";
-import {
-  discoverWebpSaveAdapters,
-  type WebpSaveAdapter,
-} from "./workflow-save-format";
+import { getComfyUiBaseUrl } from './comfyui-client';
+import type { ComfyUiRuntimeConfig } from './comfyui-config';
+import { discoverWebpSaveAdapters, type WebpSaveAdapter } from './workflow-save-format';
 
 export type ComfyUiModelLists = {
   checkpoints: string[];
@@ -23,27 +20,27 @@ function readStringList(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
-  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
 }
 
 function readNodeInputOptions(
   objectInfo: Record<string, unknown>,
   classType: string,
-  inputName: string,
+  inputName: string
 ): string[] {
   const node = objectInfo[classType];
-  if (!node || typeof node !== "object") {
+  if (!node || typeof node !== 'object') {
     return [];
   }
   const input = (node as { input?: Record<string, unknown> }).input;
-  if (!input || typeof input !== "object") {
+  if (!input || typeof input !== 'object') {
     return [];
   }
 
   const candidates: unknown[] = [input[inputName]];
-  for (const group of ["required", "optional"] as const) {
+  for (const group of ['required', 'optional'] as const) {
     const section = input[group];
-    if (section && typeof section === "object") {
+    if (section && typeof section === 'object') {
       candidates.push((section as Record<string, unknown>)[inputName]);
     }
   }
@@ -57,7 +54,7 @@ function readNodeInputOptions(
       }
     }
     // Newer combo object: { options: [...], default: "…" }
-    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+    if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
       const options = (candidate as { options?: unknown }).options;
       const list = readStringList(options);
       if (list.length > 0) {
@@ -73,22 +70,22 @@ function readNodeInputOptions(
 export function nodeDefinesInput(
   objectInfo: Record<string, unknown>,
   classType: string,
-  inputName: string,
+  inputName: string
 ): boolean {
   const node = objectInfo[classType];
-  if (!node || typeof node !== "object") {
+  if (!node || typeof node !== 'object') {
     return false;
   }
   const input = (node as { input?: Record<string, unknown> }).input;
-  if (!input || typeof input !== "object") {
+  if (!input || typeof input !== 'object') {
     return false;
   }
   if (inputName in input) {
     return true;
   }
-  for (const group of ["required", "optional"] as const) {
+  for (const group of ['required', 'optional'] as const) {
     const section = input[group];
-    if (section && typeof section === "object" && inputName in section) {
+    if (section && typeof section === 'object' && inputName in section) {
       return true;
     }
   }
@@ -96,41 +93,41 @@ export function nodeDefinesInput(
 }
 
 export function parseComfyObjectInfoModelLists(
-  objectInfo: Record<string, unknown>,
+  objectInfo: Record<string, unknown>
 ): ComfyUiModelLists {
   return {
-    checkpoints: readNodeInputOptions(objectInfo, "CheckpointLoaderSimple", "ckpt_name"),
+    checkpoints: readNodeInputOptions(objectInfo, 'CheckpointLoaderSimple', 'ckpt_name'),
     unets: [
       ...new Set([
-        ...readNodeInputOptions(objectInfo, "UNETLoader", "unet_name"),
+        ...readNodeInputOptions(objectInfo, 'UNETLoader', 'unet_name'),
         // GGUF custom node uses a separate loader with its own filename list.
-        ...readNodeInputOptions(objectInfo, "UnetLoaderGGUF", "unet_name"),
+        ...readNodeInputOptions(objectInfo, 'UnetLoaderGGUF', 'unet_name'),
       ]),
     ],
-    vaes: readNodeInputOptions(objectInfo, "VAELoader", "vae_name"),
-    upscaleModels: readNodeInputOptions(objectInfo, "UpscaleModelLoader", "model_name"),
+    vaes: readNodeInputOptions(objectInfo, 'VAELoader', 'vae_name'),
+    upscaleModels: readNodeInputOptions(objectInfo, 'UpscaleModelLoader', 'model_name'),
     clips: [
       ...new Set([
-        ...readNodeInputOptions(objectInfo, "DualCLIPLoader", "clip_name1"),
-        ...readNodeInputOptions(objectInfo, "DualCLIPLoader", "clip_name2"),
-        ...readNodeInputOptions(objectInfo, "CLIPLoader", "clip_name"),
+        ...readNodeInputOptions(objectInfo, 'DualCLIPLoader', 'clip_name1'),
+        ...readNodeInputOptions(objectInfo, 'DualCLIPLoader', 'clip_name2'),
+        ...readNodeInputOptions(objectInfo, 'CLIPLoader', 'clip_name'),
       ]),
     ],
-    dualClipTypes: readNodeInputOptions(objectInfo, "DualCLIPLoader", "type"),
-    clipLoaderTypes: readNodeInputOptions(objectInfo, "CLIPLoader", "type"),
+    dualClipTypes: readNodeInputOptions(objectInfo, 'DualCLIPLoader', 'type'),
+    clipLoaderTypes: readNodeInputOptions(objectInfo, 'CLIPLoader', 'type'),
     loras: [
       ...new Set([
-        ...readNodeInputOptions(objectInfo, "LoraLoader", "lora_name"),
-        ...readNodeInputOptions(objectInfo, "LoraLoaderModelOnly", "lora_name"),
+        ...readNodeInputOptions(objectInfo, 'LoraLoader', 'lora_name'),
+        ...readNodeInputOptions(objectInfo, 'LoraLoaderModelOnly', 'lora_name'),
       ]),
     ],
-    controlNets: readNodeInputOptions(objectInfo, "ControlNetLoader", "control_net_name"),
-    clipVisions: readNodeInputOptions(objectInfo, "CLIPVisionLoader", "clip_name"),
+    controlNets: readNodeInputOptions(objectInfo, 'ControlNetLoader', 'control_net_name'),
+    clipVisions: readNodeInputOptions(objectInfo, 'CLIPVisionLoader', 'clip_name'),
   };
 }
 
 export async function fetchComfyObjectInfoModelLists(
-  runtime?: ComfyUiRuntimeConfig,
+  runtime?: ComfyUiRuntimeConfig
 ): Promise<ComfyUiModelLists | null> {
   const payload = await fetchComfyObjectInfoPayload(runtime);
   return payload?.models ?? null;
@@ -174,15 +171,15 @@ function cloneObjectInfoPayload(payload: ComfyObjectInfoPayload): ComfyObjectInf
     },
     nodeTypes: new Set(payload.nodeTypes),
     supportsNeuralUpscaleTileSize: payload.supportsNeuralUpscaleTileSize,
-    webpSaveAdapters: payload.webpSaveAdapters.map((adapter) => ({ ...adapter })),
+    webpSaveAdapters: payload.webpSaveAdapters.map(adapter => ({ ...adapter })),
   };
 }
 
 export async function fetchComfyObjectInfoPayload(
   runtime?: ComfyUiRuntimeConfig,
-  options?: { forceRefresh?: boolean },
+  options?: { forceRefresh?: boolean }
 ): Promise<ComfyObjectInfoPayload | null> {
-  const baseUrl = getComfyUiBaseUrl(runtime).replace(/\/+$/, "");
+  const baseUrl = getComfyUiBaseUrl(runtime).replace(/\/+$/, '');
   if (!options?.forceRefresh) {
     const cached = serverObjectInfoCache.get(baseUrl);
     if (cached && Date.now() - cached.fetchedAt <= SERVER_OBJECT_INFO_TTL_MS) {
@@ -191,7 +188,7 @@ export async function fetchComfyObjectInfoPayload(
   }
 
   const response = await fetch(`${baseUrl}/object_info`, {
-    cache: "no-store",
+    cache: 'no-store',
   });
   if (!response.ok) {
     return null;
@@ -202,8 +199,8 @@ export async function fetchComfyObjectInfoPayload(
     nodeTypes: new Set(Object.keys(objectInfo)),
     supportsNeuralUpscaleTileSize: nodeDefinesInput(
       objectInfo,
-      "ImageUpscaleWithModel",
-      "tile_size",
+      'ImageUpscaleWithModel',
+      'tile_size'
     ),
     webpSaveAdapters: discoverWebpSaveAdapters(objectInfo),
   };
@@ -216,7 +213,7 @@ export async function fetchComfyObjectInfoPayload(
 }
 
 export async function fetchComfyObjectInfoNodeTypes(
-  runtime?: ComfyUiRuntimeConfig,
+  runtime?: ComfyUiRuntimeConfig
 ): Promise<Set<string> | null> {
   const payload = await fetchComfyObjectInfoPayload(runtime);
   return payload?.nodeTypes ?? null;

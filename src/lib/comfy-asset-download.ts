@@ -1,26 +1,17 @@
-import { createHash } from "node:crypto";
-import fs from "node:fs";
-import fsp from "node:fs/promises";
-import path from "node:path";
-import { finished } from "node:stream/promises";
-import {
-  assetIsDownloadable,
-  getCatalogAsset,
-  isAllowlistedAssetUrl,
-} from "./comfy-asset-catalog";
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import path from 'node:path';
+import { finished } from 'node:stream/promises';
+import { assetIsDownloadable, getCatalogAsset, isAllowlistedAssetUrl } from './comfy-asset-catalog';
 import {
   canWriteComfyModelsRoot,
   comfyModelsWriteErrorMessage,
   getComfyUiRoot,
   resolveAssetDestinationPath,
-} from "./comfy-asset-paths";
+} from './comfy-asset-paths';
 
-export type ComfyAssetJobStatus =
-  | "queued"
-  | "downloading"
-  | "verifying"
-  | "complete"
-  | "error";
+export type ComfyAssetJobStatus = 'queued' | 'downloading' | 'verifying' | 'complete' | 'error';
 
 export type ComfyAssetJob = {
   id: string;
@@ -52,9 +43,7 @@ const CONNECT_TIMEOUT_MS = 60_000;
 const TOTAL_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
 export function listComfyAssetJobs(): ComfyAssetJob[] {
-  return [...jobs.values()].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
-  );
+  return [...jobs.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export function getComfyAssetJob(id: string): ComfyAssetJob | undefined {
@@ -76,12 +65,12 @@ function saveJob(job: ComfyAssetJob): ComfyAssetJob {
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function sha256File(filePath: string): Promise<string> {
-  const hash = createHash("sha256");
-  const handle = await fsp.open(filePath, "r");
+  const hash = createHash('sha256');
+  const handle = await fsp.open(filePath, 'r');
   try {
     const stream = handle.createReadStream();
     for await (const chunk of stream) {
@@ -90,14 +79,14 @@ async function sha256File(filePath: string): Promise<string> {
   } finally {
     await handle.close();
   }
-  return hash.digest("hex");
+  return hash.digest('hex');
 }
 
 function withDownloadQuery(urlString: string): string {
   try {
     const url = new URL(urlString);
-    if (!url.searchParams.has("download")) {
-      url.searchParams.set("download", "true");
+    if (!url.searchParams.has('download')) {
+      url.searchParams.set('download', 'true');
     }
     return url.toString();
   } catch {
@@ -107,11 +96,10 @@ function withDownloadQuery(urlString: string): string {
 
 function buildDownloadHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
-    Accept: "application/octet-stream,*/*",
-    "User-Agent": "ComfyPromptStudio/1.0 (+local; curated model install)",
+    Accept: 'application/octet-stream,*/*',
+    'User-Agent': 'ComfyPromptStudio/1.0 (+local; curated model install)',
   };
-  const hfToken =
-    process.env.HF_TOKEN?.trim() || process.env.HUGGING_FACE_HUB_TOKEN?.trim();
+  const hfToken = process.env.HF_TOKEN?.trim() || process.env.HUGGING_FACE_HUB_TOKEN?.trim();
   if (hfToken) {
     headers.Authorization = `Bearer ${hfToken}`;
   }
@@ -119,7 +107,7 @@ function buildDownloadHeaders(): Record<string, string> {
 }
 
 function retryAfterMs(response: Response, attempt: number): number {
-  const raw = response.headers.get("retry-after");
+  const raw = response.headers.get('retry-after');
   if (raw) {
     const asSeconds = Number(raw);
     if (Number.isFinite(asSeconds) && asSeconds >= 0) {
@@ -164,27 +152,23 @@ export type StartComfyAssetDownloadOptions = {
  * Start a curated weight download into COMFYUI_ROOT/models/….
  * Returns the job immediately; work continues in the background unless deferred.
  */
-export function startComfyAssetDownload(
-  options: StartComfyAssetDownloadOptions,
-): ComfyAssetJob {
+export function startComfyAssetDownload(options: StartComfyAssetDownloadOptions): ComfyAssetJob {
   const asset = getCatalogAsset(options.assetId);
   if (!asset) {
     throw new Error(`Unknown asset id: ${options.assetId}`);
   }
   if (!assetIsDownloadable(asset) || !asset.url) {
     throw new Error(
-      `Asset “${asset.id}” has no allowlisted download URL — install the file manually.`,
+      `Asset “${asset.id}” has no allowlisted download URL — install the file manually.`
     );
   }
   if (!isAllowlistedAssetUrl(asset.url)) {
-    throw new Error("Download URL host is not allowlisted.");
+    throw new Error('Download URL host is not allowlisted.');
   }
 
   const root = options.root !== undefined ? options.root : getComfyUiRoot();
   if (!root) {
-    throw new Error(
-      "COMFYUI_ROOT is not set. Point it at your ComfyUI install directory.",
-    );
+    throw new Error('COMFYUI_ROOT is not set. Point it at your ComfyUI install directory.');
   }
   if (!fs.existsSync(root)) {
     throw new Error(`COMFYUI_ROOT does not exist: ${root}`);
@@ -205,7 +189,7 @@ export function startComfyAssetDownload(
       assetId: asset.id,
       label: asset.label,
       filename: asset.filename,
-      status: "complete",
+      status: 'complete',
       progress: 1,
       bytesReceived: 0,
       bytesTotal: null,
@@ -220,9 +204,9 @@ export function startComfyAssetDownload(
   for (const existing of jobs.values()) {
     if (
       existing.assetId === asset.id &&
-      (existing.status === "queued" ||
-        existing.status === "downloading" ||
-        existing.status === "verifying")
+      (existing.status === 'queued' ||
+        existing.status === 'downloading' ||
+        existing.status === 'verifying')
     ) {
       return existing;
     }
@@ -233,7 +217,7 @@ export function startComfyAssetDownload(
     assetId: asset.id,
     label: asset.label,
     filename: asset.filename,
-    status: "queued",
+    status: 'queued',
     progress: 0,
     bytesReceived: 0,
     bytesTotal: asset.bytes ?? null,
@@ -281,11 +265,11 @@ export function runComfyAssetDownloadJob(jobId: string): Promise<void> {
   pendingDownloadParams.delete(jobId);
   if (!params) {
     const job = jobs.get(jobId);
-    if (job && job.status === "queued") {
+    if (job && job.status === 'queued') {
       saveJob({
         ...job,
-        status: "error",
-        error: "Download was deferred but parameters were lost.",
+        status: 'error',
+        error: 'Download was deferred but parameters were lost.',
       });
     }
     return Promise.resolve();
@@ -293,16 +277,11 @@ export function runComfyAssetDownloadJob(jobId: string): Promise<void> {
   return scheduleComfyAssetDownloadJob(jobId, params);
 }
 
-function scheduleComfyAssetDownloadJob(
-  jobId: string,
-  params: DownloadParams,
-): Promise<void> {
+function scheduleComfyAssetDownloadJob(jobId: string, params: DownloadParams): Promise<void> {
   const run = () => runDownload({ jobId, ...params });
-  const handle = downloadQueue
-    .then(run, run)
-    .finally(() => {
-      downloadHandles.delete(handle);
-    });
+  const handle = downloadQueue.then(run, run).finally(() => {
+    downloadHandles.delete(handle);
+  });
   downloadQueue = handle.catch(() => undefined);
   downloadHandles.add(handle);
   return handle;
@@ -320,28 +299,19 @@ async function fetchWithRetries(input: {
     if (job) {
       saveJob({
         ...job,
-        status: "downloading",
+        status: 'downloading',
         attempt,
-        error:
-          attempt > 1
-            ? `Retrying (attempt ${attempt}/${MAX_ATTEMPTS})…`
-            : undefined,
+        error: attempt > 1 ? `Retrying (attempt ${attempt}/${MAX_ATTEMPTS})…` : undefined,
       });
     }
 
     const connectController = new AbortController();
-    const connectTimer = setTimeout(
-      () => connectController.abort(),
-      CONNECT_TIMEOUT_MS,
-    );
-    const overallTimer = setTimeout(
-      () => connectController.abort(),
-      TOTAL_TIMEOUT_MS,
-    );
+    const connectTimer = setTimeout(() => connectController.abort(), CONNECT_TIMEOUT_MS);
+    const overallTimer = setTimeout(() => connectController.abort(), TOTAL_TIMEOUT_MS);
 
     try {
       const response = await input.fetchImpl(withDownloadQuery(input.url), {
-        redirect: "follow",
+        redirect: 'follow',
         headers: buildDownloadHeaders(),
         signal: connectController.signal,
       });
@@ -361,16 +331,13 @@ async function fetchWithRetries(input: {
         // ignore
       }
 
-      if (
-        (response.status === 429 || response.status === 503) &&
-        attempt < MAX_ATTEMPTS
-      ) {
+      if ((response.status === 429 || response.status === 503) && attempt < MAX_ATTEMPTS) {
         const waitMs = retryAfterMs(response, attempt);
         const waiting = jobs.get(input.jobId);
         if (waiting) {
           saveJob({
             ...waiting,
-            status: "downloading",
+            status: 'downloading',
             attempt,
             progress: 0,
             error: `HTTP ${response.status} — waiting ${Math.ceil(waitMs / 1000)}s before retry ${attempt + 1}/${MAX_ATTEMPTS}…`,
@@ -388,24 +355,24 @@ async function fetchWithRetries(input: {
       clearTimeout(overallTimer);
       const aborted =
         error instanceof Error &&
-        (error.name === "AbortError" ||
-          error.name === "TimeoutError" ||
+        (error.name === 'AbortError' ||
+          error.name === 'TimeoutError' ||
           /aborted|timeout/i.test(error.message));
       lastError =
         error instanceof Error
           ? aborted
             ? new Error(
-                `Connection stalled or timed out talking to Hugging Face (attempt ${attempt}/${MAX_ATTEMPTS}).`,
+                `Connection stalled or timed out talking to Hugging Face (attempt ${attempt}/${MAX_ATTEMPTS}).`
               )
             : error
-          : new Error("Download failed.");
+          : new Error('Download failed.');
 
       if (aborted && attempt < MAX_ATTEMPTS) {
         const waiting = jobs.get(input.jobId);
         if (waiting) {
           saveJob({
             ...waiting,
-            status: "downloading",
+            status: 'downloading',
             attempt,
             error: `${lastError.message} Retrying…`,
           });
@@ -417,7 +384,7 @@ async function fetchWithRetries(input: {
     }
   }
 
-  throw lastError ?? new Error("Download failed after retries.");
+  throw lastError ?? new Error('Download failed after retries.');
 }
 
 async function runDownload(input: {
@@ -446,7 +413,7 @@ async function runDownload(input: {
 
     saveJob({
       ...current,
-      status: "downloading",
+      status: 'downloading',
       progress: 0,
       error: undefined,
       attempt: 1,
@@ -466,15 +433,15 @@ async function runDownload(input: {
     });
 
     if (!response.body) {
-      throw new Error("Download response had no body.");
+      throw new Error('Download response had no body.');
     }
 
-    contentLength = Number(response.headers.get("content-length") || 0);
-    const linkedSize = Number(response.headers.get("x-linked-size") || 0);
+    contentLength = Number(response.headers.get('content-length') || 0);
+    const linkedSize = Number(response.headers.get('x-linked-size') || 0);
     // Prefer the largest credible size — HF often sends a short content-length
     // for the first hop while x-linked-size / catalog bytes are the real total.
     const sizeCandidates = [contentLength, linkedSize, input.expectedBytes ?? 0].filter(
-      (value) => Number.isFinite(value) && value > 0,
+      value => Number.isFinite(value) && value > 0
     );
     total = sizeCandidates.length > 0 ? Math.max(...sizeCandidates) : null;
 
@@ -482,7 +449,7 @@ async function runDownload(input: {
     if (started) {
       saveJob({
         ...started,
-        status: "downloading",
+        status: 'downloading',
         error: undefined,
         bytesTotal: total,
       });
@@ -500,19 +467,19 @@ async function runDownload(input: {
             reader.read(),
             new Promise<never>((_, reject) => {
               stallTimer = setTimeout(() => {
-                reject(new Error("stall"));
+                reject(new Error('stall'));
               }, STALL_MS);
             }),
           ]);
         } catch (error) {
-          if (error instanceof Error && error.message === "stall") {
+          if (error instanceof Error && error.message === 'stall') {
             try {
-              await reader.cancel("stall");
+              await reader.cancel('stall');
             } catch {
               // ignore
             }
             throw new Error(
-              `Download stalled — no data for ${Math.round(STALL_MS / 1000)}s. Retry the install.`,
+              `Download stalled — no data for ${Math.round(STALL_MS / 1000)}s. Retry the install.`
             );
           }
           throw error;
@@ -546,7 +513,7 @@ async function runDownload(input: {
                 : Math.min(0.95, 0.05 + received / (2 * 1024 * 1024 * 1024));
             saveJob({
               ...job,
-              status: "downloading",
+              status: 'downloading',
               bytesReceived: received,
               bytesTotal: total,
               progress,
@@ -556,7 +523,7 @@ async function runDownload(input: {
         }
         const ok = file.write(Buffer.from(value));
         if (!ok) {
-          await new Promise<void>((resolve) => file.once("drain", () => resolve()));
+          await new Promise<void>(resolve => file.once('drain', () => resolve()));
           // Push a progress tick after backpressure so the UI does not freeze
           // while the disk catches up.
           lastProgressWrite = 0;
@@ -573,26 +540,20 @@ async function runDownload(input: {
     }
     saveJob({
       ...verifying,
-      status: "verifying",
+      status: 'verifying',
       progress: 0.99,
       bytesReceived: received,
       bytesTotal: total,
       error: undefined,
     });
 
-    if (
-      input.expectedBytes != null &&
-      contentLength <= 0 &&
-      received !== input.expectedBytes
-    ) {
-      throw new Error(
-        `Size mismatch: expected ${input.expectedBytes} bytes, got ${received}.`,
-      );
+    if (input.expectedBytes != null && contentLength <= 0 && received !== input.expectedBytes) {
+      throw new Error(`Size mismatch: expected ${input.expectedBytes} bytes, got ${received}.`);
     }
     if (input.expectedSha256) {
       const digest = await sha256File(input.partialPath);
       if (digest.toLowerCase() !== input.expectedSha256.toLowerCase()) {
-        throw new Error("SHA-256 mismatch after download.");
+        throw new Error('SHA-256 mismatch after download.');
       }
     }
 
@@ -601,7 +562,7 @@ async function runDownload(input: {
     if (done) {
       saveJob({
         ...done,
-        status: "complete",
+        status: 'complete',
         progress: 1,
         bytesReceived: received,
         bytesTotal: total ?? received,
@@ -617,22 +578,21 @@ async function runDownload(input: {
     }
     const failed = jobs.get(input.jobId);
     if (failed) {
-      let message =
-        error instanceof Error ? error.message : "Download failed.";
+      let message = error instanceof Error ? error.message : 'Download failed.';
       const err = error as NodeJS.ErrnoException;
       if (
-        err?.code === "EACCES" ||
-        err?.code === "EPERM" ||
+        err?.code === 'EACCES' ||
+        err?.code === 'EPERM' ||
         /eacces|permission denied/i.test(message)
       ) {
         const root = getComfyUiRoot();
         message = root
           ? comfyModelsWriteErrorMessage(root)
-          : "Permission denied writing model files.";
+          : 'Permission denied writing model files.';
       }
       saveJob({
         ...failed,
-        status: "error",
+        status: 'error',
         bytesReceived: received,
         bytesTotal: total,
         error: message,

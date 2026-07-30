@@ -1,6 +1,6 @@
 export type GalleryCapEntry = Pick<
-  import("./comfyui-gallery-entry").ComfyGalleryEntry,
-  "id" | "favorite" | "reviewRating" | "queuedAt" | "completedAt"
+  import('./comfyui-gallery-entry').ComfyGalleryEntry,
+  'id' | 'favorite' | 'reviewRating' | 'queuedAt' | 'completedAt'
 >;
 
 /** Ratings at or above this are treated as keepers, same as favorite. */
@@ -28,7 +28,7 @@ export type GalleryCapResult<T extends GalleryCapEntry> = {
  */
 export function capGalleryEntriesForLocalStorage<T extends GalleryCapEntry>(
   entries: T[],
-  max: number,
+  max: number
 ): GalleryCapResult<T> {
   if (entries.length <= max || max < 0) {
     return { kept: entries, evicted: [] };

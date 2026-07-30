@@ -1,9 +1,9 @@
-import type { GenerationDiagnostics } from "@/lib/generation-diagnostics";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
-import { getActiveUserId, isUserScoped, scopedStorageKey } from "./user-scope";
+import type { GenerationDiagnostics } from '@/lib/generation-diagnostics';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
+import { getActiveUserId, isUserScoped, scopedStorageKey } from './user-scope';
 
-export const PROMPT_HISTORY_KEY = "comfy-prompt-tool-history-v1";
-export const LOCATION_BLOCKLIST_KEY = "comfy-prompt-location-blocklist-v1";
+export const PROMPT_HISTORY_KEY = 'comfy-prompt-tool-history-v1';
+export const LOCATION_BLOCKLIST_KEY = 'comfy-prompt-location-blocklist-v1';
 
 export type PromptHistoryEntry = {
   id: string;
@@ -44,7 +44,7 @@ function migrateLegacyHistoryToScope(): PromptHistoryEntry[] {
   }
 
   const userId = getActiveUserId();
-  const migrated = legacy.map((entry) => ({
+  const migrated = legacy.map(entry => ({
     ...entry,
     userId: entry.userId ?? userId ?? undefined,
   }));
@@ -54,7 +54,7 @@ function migrateLegacyHistoryToScope(): PromptHistoryEntry[] {
 }
 
 export function loadPromptHistoryStore(): PromptHistoryEntry[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
 
@@ -70,23 +70,27 @@ export function loadPromptHistoryStore(): PromptHistoryEntry[] {
 }
 
 export function savePromptHistoryStore(entries: PromptHistoryEntry[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
   const userId = getActiveUserId();
-  const stamped = entries.slice(0, HISTORY_LIMIT).map((entry) => ({
+  const stamped = entries.slice(0, HISTORY_LIMIT).map(entry => ({
     ...entry,
     userId: entry.userId ?? userId ?? undefined,
   }));
 
   writeBrowserValue(historyKey(), stamped);
-  void import("./auto-storage-sync").then(({ scheduleAutoPushStorage }) => scheduleAutoPushStorage());
-  void import("./tab-sync").then(({ broadcastTabSync }) => broadcastTabSync({ type: "history-updated" }));
+  void import('./auto-storage-sync').then(({ scheduleAutoPushStorage }) =>
+    scheduleAutoPushStorage()
+  );
+  void import('./tab-sync').then(({ broadcastTabSync }) =>
+    broadcastTabSync({ type: 'history-updated' })
+  );
 }
 
 export function appendPromptHistoryEntry(
-  entry: Omit<PromptHistoryEntry, "id" | "timestamp" | "userId">,
+  entry: Omit<PromptHistoryEntry, 'id' | 'timestamp' | 'userId'>
 ): PromptHistoryEntry {
   const userId = getActiveUserId();
   const next: PromptHistoryEntry = {
@@ -100,7 +104,7 @@ export function appendPromptHistoryEntry(
 }
 
 export function updatePromptHistoryStore(
-  updater: (entries: PromptHistoryEntry[]) => PromptHistoryEntry[],
+  updater: (entries: PromptHistoryEntry[]) => PromptHistoryEntry[]
 ): PromptHistoryEntry[] {
   const next = updater(loadPromptHistoryStore());
   savePromptHistoryStore(next);
@@ -108,7 +112,7 @@ export function updatePromptHistoryStore(
 }
 
 export function loadLocationBlocklist(): string[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
 
@@ -120,7 +124,7 @@ export function loadLocationBlocklist(): string[] {
 }
 
 export function saveLocationBlocklist(entries: string[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(LOCATION_BLOCKLIST_KEY, entries.slice(0, 200));

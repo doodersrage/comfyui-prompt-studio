@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { loadComfyGallery, type ComfyGalleryEntry } from "./comfyui-gallery";
-import { autoTagGalleryEntry } from "./gallery-auto-vision-tags";
+import { loadComfyGallery, type ComfyGalleryEntry } from './comfyui-gallery';
+import { autoTagGalleryEntry } from './gallery-auto-vision-tags';
 
 export type VisionBackfillProgress = {
   total: number;
@@ -14,10 +14,10 @@ export type VisionBackfillProgress = {
 export function listUntaggedCompletedEntries(limit = 200): ComfyGalleryEntry[] {
   return loadComfyGallery()
     .filter(
-      (entry) =>
-        entry.status === "completed" &&
+      entry =>
+        entry.status === 'completed' &&
         !(entry.visionTags?.length ?? 0) &&
-        (entry.images?.length ?? 0) > 0,
+        (entry.images?.length ?? 0) > 0
     )
     .slice(0, limit);
 }
@@ -27,7 +27,7 @@ export async function backfillVisionTags(
   options?: {
     concurrency?: number;
     onProgress?: (progress: VisionBackfillProgress) => void;
-  },
+  }
 ): Promise<VisionBackfillProgress> {
   const concurrency = Math.max(1, options?.concurrency ?? 2);
   const progress: VisionBackfillProgress = {
@@ -50,8 +50,7 @@ export async function backfillVisionTags(
         const before = entry.visionTags?.length ?? 0;
         await autoTagGalleryEntry(entry);
         const after =
-          loadComfyGallery().find((item) => item.id === entry.id)?.visionTags
-            ?.length ?? 0;
+          loadComfyGallery().find(item => item.id === entry.id)?.visionTags?.length ?? 0;
         if (after > before) {
           progress.tagged += 1;
         } else {

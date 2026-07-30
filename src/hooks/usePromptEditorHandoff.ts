@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import {
   clearGalleryHandoff,
   loadGalleryHandoff,
   type GalleryHandoffPayload,
-} from "@/lib/gallery-handoff";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+} from '@/lib/gallery-handoff';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 export type PromptEditorHandoffMeta = {
-  source: GalleryHandoffPayload["source"];
+  source: GalleryHandoffPayload['source'];
   galleryEntryId?: string;
   historyId?: string;
   imageUrl?: string;
@@ -23,7 +23,7 @@ export function usePromptEditorHandoff(
     hints: string;
     model?: string;
     meta: PromptEditorHandoffMeta;
-  }) => void,
+  }) => void
 ): void {
   const appliedRef = useRef(false);
   const onReadyRef = useRef(onReady);
@@ -32,24 +32,24 @@ export function usePromptEditorHandoff(
   });
 
   useEffect(() => {
-    if (appliedRef.current || typeof window === "undefined") {
+    if (appliedRef.current || typeof window === 'undefined') {
       return;
     }
 
     const params = new URLSearchParams(window.location.search);
-    const from = params.get("from");
-    if (from !== "gallery" && from !== "history") {
+    const from = params.get('from');
+    if (from !== 'gallery' && from !== 'history') {
       return;
     }
 
-    const payload = loadGalleryHandoff("promptEditor");
+    const payload = loadGalleryHandoff('promptEditor');
     if (!payload) {
       return;
     }
-    if (from === "history" && payload.source !== "history") {
+    if (from === 'history' && payload.source !== 'history') {
       return;
     }
-    if (from === "gallery" && payload.source !== "gallery") {
+    if (from === 'gallery' && payload.source !== 'gallery') {
       return;
     }
 
@@ -57,8 +57,8 @@ export function usePromptEditorHandoff(
     scheduleAfterCommit(() => {
       onReadyRef.current({
         positive: payload.prompt,
-        negative: payload.negativePrompt ?? "",
-        hints: payload.hints ?? "",
+        negative: payload.negativePrompt ?? '',
+        hints: payload.hints ?? '',
         model: payload.model,
         meta: {
           source: payload.source,

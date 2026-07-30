@@ -1,5 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   type ComfyUiRuntimeConfig,
   type ResolvedComfyUiConfig,
@@ -11,21 +11,21 @@ import {
   findUnresolvedLoaderPlaceholders,
   normalizeComfyApiWorkflow,
   type WorkflowParamValues,
-} from "./comfyui-config";
-import { writeQueueArtifact } from "./queue-artifacts";
-import { loadServerWorkflowJson } from "./comfyui-server-workflows";
-import { applyUserComfyUiOverride } from "./user-comfy-url";
-import { getComfyUiPoolStatsCache, resolveComfyUiUrlWithPool } from "./comfyui-pool";
+} from './comfyui-config';
+import { writeQueueArtifact } from './queue-artifacts';
+import { loadServerWorkflowJson } from './comfyui-server-workflows';
+import { applyUserComfyUiOverride } from './user-comfy-url';
+import { getComfyUiPoolStatsCache, resolveComfyUiUrlWithPool } from './comfyui-pool';
 import {
   getComfyUiAllowedHosts,
   isComfyClientUrlAllowed,
   normalizeSafeHttpUrl,
-} from "./url-safety";
-import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
-import { runWorkflowPreflightSync } from "./workflow-preflight-sync";
-import { fetchComfyObjectInfoPayload } from "./comfyui-object-info";
-import { formatComfyUiQueueValidationError } from "./comfyui-queue-validation-error";
-import { workflowContentHash } from "./workflow-content-hash";
+} from './url-safety';
+import { optimizeWorkflowForQueue } from './workflow-queue-optimizer';
+import { runWorkflowPreflightSync } from './workflow-preflight-sync';
+import { fetchComfyObjectInfoPayload } from './comfyui-object-info';
+import { formatComfyUiQueueValidationError } from './comfyui-queue-validation-error';
+import { workflowContentHash } from './workflow-content-hash';
 
 export type ComfyQueueRequest = {
   prompt: string;
@@ -48,9 +48,9 @@ export type ComfyQueueResult = {
   error?: string;
   comfyUrl: string;
   clientId?: string;
-  workflowSource?: "client" | "env" | "minimal" | "diffusers-workflow";
+  workflowSource?: 'client' | 'env' | 'minimal' | 'diffusers-workflow';
   /** Which backend actually accepted the job (Diffusers-first may fall back). */
-  engineId?: "comfyui" | "diffusers";
+  engineId?: 'comfyui' | 'diffusers';
   family?: string;
   replacements?: { positive: number; negative: number };
 };
@@ -61,8 +61,8 @@ export const COMFYUI_MAX_BATCH_PROMPTS = 12;
 function envComfyUiBaseUrl(): string {
   return (
     process.env.COMFYUI_API_URL?.trim() ||
-    process.env.COMFY_PROMPT_API_URL?.trim()?.replace(/:\d+$/, ":8188") ||
-    "http://127.0.0.1:8188"
+    process.env.COMFY_PROMPT_API_URL?.trim()?.replace(/:\d+$/, ':8188') ||
+    'http://127.0.0.1:8188'
   );
 }
 
@@ -92,7 +92,7 @@ export function getComfyUiBaseUrl(runtime?: ComfyUiRuntimeConfig, routingSeed?: 
     {
       allowPrivate: true,
       allowedHosts,
-    },
+    }
   );
 }
 
@@ -111,15 +111,13 @@ function loadWorkflowFromEnv(): Record<string, unknown> | null {
     const resolved = path.isAbsolute(filePath)
       ? filePath
       : path.join(/* turbopackIgnore: true */ process.cwd(), filePath);
-    return parseWorkflowJson(fs.readFileSync(resolved, "utf8"));
+    return parseWorkflowJson(fs.readFileSync(resolved, 'utf8'));
   } catch {
     return null;
   }
 }
 
-export function resolveComfyUiConfig(
-  runtime?: ComfyUiRuntimeConfig,
-): ResolvedComfyUiConfig {
+export function resolveComfyUiConfig(runtime?: ComfyUiRuntimeConfig): ResolvedComfyUiConfig {
   const clientWorkflow = parseWorkflowJson(runtime?.workflowJson);
   const selectedServerWorkflow = runtime?.workflowFileId
     ? loadServerWorkflowJson(runtime.workflowFileId)
@@ -137,11 +135,7 @@ export function resolveComfyUiConfig(
       process.env.COMFYUI_PROMPT_NODE_ID?.trim() ||
       undefined,
     legacyNegativeNodeId: process.env.COMFYUI_NEGATIVE_NODE_ID?.trim() || undefined,
-    workflowSource: clientWorkflow
-      ? "client"
-      : envWorkflow
-        ? "env"
-        : "none",
+    workflowSource: clientWorkflow ? 'client' : envWorkflow ? 'env' : 'none',
   };
 }
 
@@ -165,7 +159,7 @@ function rememberOptimizedWorkflowByHash(
   sourceHash: string,
   optimizeKey: string,
   /** Already-cloned snapshot — shared with WeakMap; do not mutate. */
-  workflow: Record<string, unknown>,
+  workflow: Record<string, unknown>
 ) {
   const cacheKey = `${sourceHash}|${optimizeKey}`;
   if (optimizedWorkflowByHash.has(cacheKey)) {
@@ -195,8 +189,8 @@ function injectPromptsIntoWorkflow(
     availableLoras?: string[] | null;
     supportsNeuralUpscaleTileSize?: boolean;
     availableNodeTypes?: Iterable<string> | null;
-    webpSaveAdapters?: import("./workflow-save-format").WebpSaveAdapter[] | null;
-  },
+    webpSaveAdapters?: import('./workflow-save-format').WebpSaveAdapter[] | null;
+  }
 ) {
   const { params, loaders, customTokens } = resolveQueueInjectionContext({
     runtime,
@@ -208,29 +202,32 @@ function injectPromptsIntoWorkflow(
   });
   const model = runtime?.queueTargetModel ?? request.model;
   const inventoryFingerprint = [
-    enrichInventory?.availableUpscaleModels?.slice().sort().join(",") ?? "",
+    enrichInventory?.availableUpscaleModels?.slice().sort().join(',') ?? '',
     String(enrichInventory?.availableCheckpoints?.length ?? 0),
     String(enrichInventory?.availableLoras?.length ?? 0),
-    enrichInventory?.supportsNeuralUpscaleTileSize ? "1" : "0",
+    enrichInventory?.supportsNeuralUpscaleTileSize ? '1' : '0',
     enrichInventory?.availableNodeTypes
-      ? [...enrichInventory.availableNodeTypes].filter((name) => /saveimage|image save/i.test(name)).sort().join(",")
-      : "",
-  ].join(";");
+      ? [...enrichInventory.availableNodeTypes]
+          .filter(name => /saveimage|image save/i.test(name))
+          .sort()
+          .join(',')
+      : '',
+  ].join(';');
   const hasInputImage = Boolean(
     params.inputImageFilename?.toString().trim() ||
-      (Array.isArray(params.inputImageFilenames) &&
-        params.inputImageFilenames.some((name) => String(name ?? "").trim())),
+    (Array.isArray(params.inputImageFilenames) &&
+      params.inputImageFilenames.some(name => String(name ?? '').trim()))
   );
   const optimizeKey = [
-    runtime?.queueQualityProfile ?? "draft",
-    model ?? "",
-    params.upscaleModelFilename ?? "",
-    params.refinerCheckpointFilename ?? "",
-    runtime?.workflowGraphEnrich === false ? "0" : "1",
-    runtime?.compactDraftSaves === false ? "0" : "1",
-    hasInputImage ? "i1" : "i0",
+    runtime?.queueQualityProfile ?? 'draft',
+    model ?? '',
+    params.upscaleModelFilename ?? '',
+    params.refinerCheckpointFilename ?? '',
+    runtime?.workflowGraphEnrich === false ? '0' : '1',
+    runtime?.compactDraftSaves === false ? '0' : '1',
+    hasInputImage ? 'i1' : 'i0',
     inventoryFingerprint,
-  ].join("|");
+  ].join('|');
 
   let optimizedWorkflow = workflow;
   if (runtime?.workflowQueueOptimize !== false) {
@@ -301,7 +298,7 @@ function injectPromptsIntoWorkflow(
       loraLibrary: runtime?.loraLibrary,
       availableNodeTypes: enrichInventory?.availableNodeTypes,
       regionalSlots: runtime?.regionalSlots,
-    },
+    }
   );
 }
 
@@ -311,14 +308,14 @@ async function fetchComfyObjectInfoForPreflight(runtime?: ComfyUiRuntimeConfig) 
 
 function buildPreflightFailure(
   preflight: ReturnType<typeof runWorkflowPreflightSync>,
-  comfyUrl: string,
+  comfyUrl: string
 ): ComfyQueueResult {
   return {
     ok: false,
     error: preflight.issues
-      .filter((issue) => issue.severity === "error")
-      .map((issue) => issue.message)
-      .join(" · "),
+      .filter(issue => issue.severity === 'error')
+      .map(issue => issue.message)
+      .join(' · '),
     comfyUrl,
   };
 }
@@ -334,7 +331,7 @@ export async function queuePromptToComfyUi(
     diffusersUrl?: string;
     /** When Diffusers rejects the graph, fall back to Comfy (default true). */
     allowComfyFallback?: boolean;
-  },
+  }
 ): Promise<ComfyQueueResult> {
   const config = resolveComfyUiConfig(runtime);
   const runPreflight = options?.preflight !== false;
@@ -349,43 +346,32 @@ export async function queuePromptToComfyUi(
 
     const promptBody = config.workflow
       ? (() => {
-          const injected = injectPromptsIntoWorkflow(
-            config.workflow,
-            request,
-            config,
-            runtime,
-            {
-              availableUpscaleModels: objectInfo?.models.upscaleModels,
-              availableCheckpoints: objectInfo?.models.checkpoints,
-              availableLoras: objectInfo?.models.loras,
-              supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
-              availableNodeTypes: objectInfo?.nodeTypes,
-              webpSaveAdapters: objectInfo?.webpSaveAdapters,
-            },
-          );
+          const injected = injectPromptsIntoWorkflow(config.workflow, request, config, runtime, {
+            availableUpscaleModels: objectInfo?.models.upscaleModels,
+            availableCheckpoints: objectInfo?.models.checkpoints,
+            availableLoras: objectInfo?.models.loras,
+            supportsNeuralUpscaleTileSize: objectInfo?.supportsNeuralUpscaleTileSize,
+            availableNodeTypes: objectInfo?.nodeTypes,
+            webpSaveAdapters: objectInfo?.webpSaveAdapters,
+          });
           const unresolved = findUnresolvedLoaderPlaceholders(injected.workflow);
           if (unresolved.length > 0) {
-            const modelHint =
-              request.model ?? runtime?.queueTargetModel ?? "unknown";
+            const modelHint = request.model ?? runtime?.queueTargetModel ?? 'unknown';
             const loaderHint = [
-              request.params?.unetFilename
-                ? `unet=${request.params.unetFilename}`
-                : null,
-              request.params?.vaeFilename
-                ? `vae=${request.params.vaeFilename}`
-                : null,
+              request.params?.unetFilename ? `unet=${request.params.unetFilename}` : null,
+              request.params?.vaeFilename ? `vae=${request.params.vaeFilename}` : null,
             ]
               .filter(Boolean)
-              .join(", ");
+              .join(', ');
             throw new Error(
-              `Workflow still has unresolved loader placeholders (${unresolved.join(", ")}) for model "${modelHint}"${loaderHint ? ` (${loaderHint})` : ""}. Set Settings → checkpoint/VAE maps for your model, then retry.`,
+              `Workflow still has unresolved loader placeholders (${unresolved.join(', ')}) for model "${modelHint}"${loaderHint ? ` (${loaderHint})` : ''}. Set Settings → checkpoint/VAE maps for your model, then retry.`
             );
           }
 
           if (runPreflight) {
             const preflight = runWorkflowPreflightSync({
               workflow: injected.workflow,
-              model: request.model ?? runtime?.queueTargetModel ?? "qwen-image-2512",
+              model: request.model ?? runtime?.queueTargetModel ?? 'qwen-image-2512',
               syncWorkflowLoadersToModel: runtime?.syncWorkflowLoadersToModel,
               knownNodeTypes: objectInfo?.nodeTypes,
               models: objectInfo?.models,
@@ -395,31 +381,31 @@ export async function queuePromptToComfyUi(
             });
             if (!preflight.ok) {
               return {
-                kind: "preflight_failed" as const,
+                kind: 'preflight_failed' as const,
                 preflight,
               };
             }
           }
 
           return {
-            kind: "ready" as const,
+            kind: 'ready' as const,
             injected,
           };
         })()
       : {
-          kind: "minimal" as const,
+          kind: 'minimal' as const,
         };
 
-    if (promptBody.kind === "preflight_failed") {
+    if (promptBody.kind === 'preflight_failed') {
       return buildPreflightFailure(promptBody.preflight, config.apiUrl);
     }
 
     const resolvedPromptBody =
-      promptBody.kind === "ready"
+      promptBody.kind === 'ready'
         ? {
             prompt: promptBody.injected.workflow,
             workflowSource:
-              config.workflowSource === "env" ? ("env" as const) : ("client" as const),
+              config.workflowSource === 'env' ? ('env' as const) : ('client' as const),
             replacements: {
               positive: promptBody.injected.positiveReplacements,
               negative: promptBody.injected.negativeReplacements,
@@ -427,7 +413,7 @@ export async function queuePromptToComfyUi(
           }
         : {
             prompt: buildMinimalWorkflow(request.prompt, request.nodeTitle),
-            workflowSource: "minimal" as const,
+            workflowSource: 'minimal' as const,
             replacements: { positive: 1, negative: 0 },
           };
 
@@ -438,33 +424,28 @@ export async function queuePromptToComfyUi(
     if (
       preferDiffusers &&
       resolvedPromptBody.prompt &&
-      typeof resolvedPromptBody.prompt === "object"
+      typeof resolvedPromptBody.prompt === 'object'
     ) {
-      const {
-        classifyDiffusersWorkflow,
-        queueDiffusersWorkflow,
-      } = await import("./diffusers-client");
+      const { classifyDiffusersWorkflow, queueDiffusersWorkflow } =
+        await import('./diffusers-client');
       const graph = resolvedPromptBody.prompt as Record<string, unknown>;
-      const classified = await classifyDiffusersWorkflow(
-        graph,
-        options?.diffusersUrl,
-      );
+      const classified = await classifyDiffusersWorkflow(graph, options?.diffusersUrl);
       if (classified?.supported) {
-        const { freeComfyUiMemoryServer } = await import("./comfyui-free-server");
+        const { freeComfyUiMemoryServer } = await import('./comfyui-free-server');
         await freeComfyUiMemoryServer();
         const queued = await queueDiffusersWorkflow(
           {
             prompt: graph,
             client_id: clientId,
           },
-          options?.diffusersUrl,
+          options?.diffusersUrl
         );
         if (queued.ok && queued.promptId) {
           writeQueueArtifact({
             prompt: request.prompt,
             negativePrompt: request.negativePrompt,
             promptId: queued.promptId,
-            comfyUrl: queued.engineUrl ?? options?.diffusersUrl ?? "",
+            comfyUrl: queued.engineUrl ?? options?.diffusersUrl ?? '',
             workflow: graph,
           });
           return {
@@ -472,8 +453,8 @@ export async function queuePromptToComfyUi(
             promptId: queued.promptId,
             comfyUrl: queued.engineUrl ?? options?.diffusersUrl ?? config.apiUrl,
             clientId,
-            workflowSource: "diffusers-workflow",
-            engineId: "diffusers",
+            workflowSource: 'diffusers-workflow',
+            engineId: 'diffusers',
             family: classified.family,
             replacements: resolvedPromptBody.replacements,
           };
@@ -481,11 +462,11 @@ export async function queuePromptToComfyUi(
         if (!allowComfyFallback) {
           return {
             ok: false,
-            error: queued.error ?? "Diffusers workflow queue failed.",
+            error: queued.error ?? 'Diffusers workflow queue failed.',
             comfyUrl: queued.engineUrl ?? options?.diffusersUrl ?? config.apiUrl,
             clientId,
-            workflowSource: "diffusers-workflow",
-            engineId: "diffusers",
+            workflowSource: 'diffusers-workflow',
+            engineId: 'diffusers',
             family: classified.family,
             replacements: resolvedPromptBody.replacements,
           };
@@ -494,12 +475,11 @@ export async function queuePromptToComfyUi(
         return {
           ok: false,
           error:
-            classified?.reason ||
-            "Workflow not supported by Diffusers; Comfy fallback disabled.",
+            classified?.reason || 'Workflow not supported by Diffusers; Comfy fallback disabled.',
           comfyUrl: options?.diffusersUrl ?? config.apiUrl,
           clientId,
-          workflowSource: "diffusers-workflow",
-          engineId: "diffusers",
+          workflowSource: 'diffusers-workflow',
+          engineId: 'diffusers',
           family: classified?.family,
           replacements: resolvedPromptBody.replacements,
         };
@@ -507,15 +487,15 @@ export async function queuePromptToComfyUi(
     }
 
     const workflowResponse = await fetch(`${config.apiUrl}/prompt`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt: resolvedPromptBody.prompt,
         client_id: clientId,
         // Comfy defaults to --preview-method none; without this override, no
         // latent preview frames are emitted on the WebSocket during sampling.
         extra_data: {
-          preview_method: "auto",
+          preview_method: 'auto',
         },
       }),
     });
@@ -524,11 +504,13 @@ export async function queuePromptToComfyUi(
       const text = await workflowResponse.text();
       return {
         ok: false,
-        error: formatComfyUiQueueValidationError(text || `ComfyUI returned ${workflowResponse.status}`),
+        error: formatComfyUiQueueValidationError(
+          text || `ComfyUI returned ${workflowResponse.status}`
+        ),
         comfyUrl: config.apiUrl,
         clientId,
         workflowSource: resolvedPromptBody.workflowSource,
-        engineId: "comfyui",
+        engineId: 'comfyui',
         replacements: resolvedPromptBody.replacements,
       };
     }
@@ -541,7 +523,7 @@ export async function queuePromptToComfyUi(
       promptId: data.prompt_id,
       comfyUrl: config.apiUrl,
       workflow:
-        typeof resolvedPromptBody.prompt === "object"
+        typeof resolvedPromptBody.prompt === 'object'
           ? (resolvedPromptBody.prompt as Record<string, unknown>)
           : undefined,
     });
@@ -552,15 +534,15 @@ export async function queuePromptToComfyUi(
       comfyUrl: config.apiUrl,
       clientId,
       workflowSource: resolvedPromptBody.workflowSource,
-      engineId: "comfyui",
+      engineId: 'comfyui',
       replacements: resolvedPromptBody.replacements,
     };
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : "ComfyUI unreachable",
+      error: error instanceof Error ? error.message : 'ComfyUI unreachable',
       comfyUrl: config.apiUrl,
-      engineId: preferDiffusers ? "diffusers" : "comfyui",
+      engineId: preferDiffusers ? 'diffusers' : 'comfyui',
     };
   }
 }
@@ -581,15 +563,13 @@ export async function queueBatchToComfyUi(
     preferDiffusers?: boolean;
     allowComfyFallback?: boolean;
     diffusersUrl?: string;
-  },
+  }
 ): Promise<ComfyBatchQueueResult> {
   const config = resolveComfyUiConfig(runtime);
   const results: ComfyQueueResult[] = [];
   const runPreflight = options?.preflight !== false;
   const objectInfo =
-    runPreflight && config.workflow
-      ? await fetchComfyObjectInfoForPreflight(runtime)
-      : null;
+    runPreflight && config.workflow ? await fetchComfyObjectInfoForPreflight(runtime) : null;
 
   for (const request of requests) {
     if (!request.prompt.trim()) {
@@ -603,11 +583,11 @@ export async function queueBatchToComfyUi(
         preferDiffusers: options?.preferDiffusers === true,
         allowComfyFallback: options?.allowComfyFallback !== false,
         diffusersUrl: options?.diffusersUrl,
-      }),
+      })
     );
   }
 
-  const queued = results.filter((entry) => entry.ok).length;
+  const queued = results.filter(entry => entry.ok).length;
   return {
     ok: queued > 0,
     queued,
@@ -617,16 +597,16 @@ export async function queueBatchToComfyUi(
   };
 }
 
-function buildMinimalWorkflow(prompt: string, nodeTitle = "CLIP Text Encode") {
+function buildMinimalWorkflow(prompt: string, nodeTitle = 'CLIP Text Encode') {
   return {
-    "1": {
-      class_type: "CLIPTextEncode",
-      inputs: { text: prompt, clip: ["2", 0] },
+    '1': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: prompt, clip: ['2', 0] },
       _meta: { title: nodeTitle },
     },
-    "2": {
-      class_type: "CheckpointLoaderSimple",
-      inputs: { ckpt_name: "model.safetensors" },
+    '2': {
+      class_type: 'CheckpointLoaderSimple',
+      inputs: { ckpt_name: 'model.safetensors' },
     },
   };
 }

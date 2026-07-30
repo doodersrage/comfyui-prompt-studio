@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { ChipButton } from "@/components/ui/Field";
+import { ChipButton } from '@/components/ui/Field';
 import {
   formatModelResolutionHint,
   getModelResolutionPreset,
@@ -10,9 +10,9 @@ import {
   resolutionSizeTiersForModel,
   type ResolutionOrientation,
   type ResolutionSizeTier,
-} from "@/lib/model-resolution-defaults";
-import type { ComfyImageModel } from "@/lib/comfy-models/client";
-import { useEffect } from "react";
+} from '@/lib/model-resolution-defaults';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
+import { useEffect } from 'react';
 
 type ModelResolutionHintsProps = {
   model: ComfyImageModel;
@@ -31,19 +31,19 @@ export default function ModelResolutionHints({
 }: ModelResolutionHintsProps) {
   const allowedOrientations = resolutionOrientationsForModel(model);
   const allowedSizeTiers = resolutionSizeTiersForModel(model);
-  const orientationOptions = RESOLUTION_ORIENTATION_OPTIONS.filter((option) =>
-    allowedOrientations.includes(option.id),
+  const orientationOptions = RESOLUTION_ORIENTATION_OPTIONS.filter(option =>
+    allowedOrientations.includes(option.id)
   );
-  const sizeTierOptions = RESOLUTION_SIZE_TIER_OPTIONS.filter((option) =>
-    allowedSizeTiers.includes(option.id),
+  const sizeTierOptions = RESOLUTION_SIZE_TIER_OPTIONS.filter(option =>
+    allowedSizeTiers.includes(option.id)
   );
 
   const effectiveOrientation = allowedOrientations.includes(orientation)
     ? orientation
-    : (allowedOrientations[0] ?? "square");
+    : (allowedOrientations[0] ?? 'square');
   const effectiveSizeTier = allowedSizeTiers.includes(sizeTier)
     ? sizeTier
-    : (allowedSizeTiers[allowedSizeTiers.length - 1] ?? "medium");
+    : (allowedSizeTiers[allowedSizeTiers.length - 1] ?? 'medium');
 
   useEffect(() => {
     if (effectiveOrientation !== orientation) {
@@ -57,13 +57,9 @@ export default function ModelResolutionHints({
     }
   }, [effectiveSizeTier, sizeTier, onSizeTierChange]);
 
-  const preset = getModelResolutionPreset(
-    model,
-    effectiveOrientation,
-    effectiveSizeTier,
-  );
+  const preset = getModelResolutionPreset(model, effectiveOrientation, effectiveSizeTier);
   const activeTier =
-    sizeTierOptions.find((option) => option.id === effectiveSizeTier) ??
+    sizeTierOptions.find(option => option.id === effectiveSizeTier) ??
     sizeTierOptions[0] ??
     RESOLUTION_SIZE_TIER_OPTIONS[1];
 
@@ -74,23 +70,19 @@ export default function ModelResolutionHints({
           <div className="min-w-0 space-y-1">
             <p className="type-caption text-violet-200/85">Resolution preset on queue</p>
             <p className="break-words text-xs text-zinc-300">
-              {formatModelResolutionHint(
-                model,
-                effectiveOrientation,
-                effectiveSizeTier,
-              )}
+              {formatModelResolutionHint(model, effectiveOrientation, effectiveSizeTier)}
             </p>
           </div>
           <div
             className={`grid min-w-0 gap-1.5 ${
               orientationOptions.length > 3
-                ? "grid-cols-3 sm:grid-cols-4"
+                ? 'grid-cols-3 sm:grid-cols-4'
                 : orientationOptions.length === 1
-                  ? "grid-cols-1"
-                  : "grid-cols-3"
+                  ? 'grid-cols-1'
+                  : 'grid-cols-3'
             }`}
           >
-            {orientationOptions.map((option) => (
+            {orientationOptions.map(option => (
               <ChipButton
                 key={option.id}
                 active={effectiveOrientation === option.id}
@@ -110,10 +102,10 @@ export default function ModelResolutionHints({
           </p>
           <div
             className={`grid min-w-0 gap-1.5 ${
-              sizeTierOptions.length === 2 ? "grid-cols-2" : "grid-cols-3"
+              sizeTierOptions.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
             }`}
           >
-            {sizeTierOptions.map((option) => (
+            {sizeTierOptions.map(option => (
               <ChipButton
                 key={option.id}
                 active={effectiveSizeTier === option.id}
@@ -128,10 +120,9 @@ export default function ModelResolutionHints({
         </div>
       </div>
       <p className="mt-2 type-caption break-words text-zinc-500">
-        Applied to{" "}
-        <code className="rounded bg-zinc-900/80 px-1 text-violet-200/90">{`{{WIDTH}}`}</code>{" "}
-        and{" "}
-        <code className="rounded bg-zinc-900/80 px-1 text-violet-200/90">{`{{HEIGHT}}`}</code>{" "}
+        Applied to{' '}
+        <code className="rounded bg-zinc-900/80 px-1 text-violet-200/90">{`{{WIDTH}}`}</code> and{' '}
+        <code className="rounded bg-zinc-900/80 px-1 text-violet-200/90">{`{{HEIGHT}}`}</code>{' '}
         workflow placeholders unless advanced queue params override them.
       </p>
     </div>

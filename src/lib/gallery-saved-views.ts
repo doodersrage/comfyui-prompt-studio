@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import type { ComfyGalleryFilter, ComfyGallerySort } from "./comfyui-gallery";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import type { ComfyGalleryFilter, ComfyGallerySort } from './comfyui-gallery';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
 export type GallerySavedView = {
   id: string;
@@ -12,10 +12,10 @@ export type GallerySavedView = {
   createdAt: number;
 };
 
-const KEY = "comfy-gallery-saved-views-v1";
+const KEY = 'comfy-gallery-saved-views-v1';
 
 export function loadGallerySavedViews(): GallerySavedView[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   return readBrowserValue<GallerySavedView[]>(KEY) ?? [];
@@ -26,16 +26,16 @@ export function saveGallerySavedViews(views: GallerySavedView[]): void {
 }
 
 export function upsertGallerySavedView(
-  view: Omit<GallerySavedView, "createdAt"> & { createdAt?: number },
+  view: Omit<GallerySavedView, 'createdAt'> & { createdAt?: number }
 ): GallerySavedView {
   const next: GallerySavedView = {
     ...view,
     createdAt: view.createdAt ?? Date.now(),
   };
-  saveGallerySavedViews([next, ...loadGallerySavedViews().filter((entry) => entry.id !== view.id)]);
+  saveGallerySavedViews([next, ...loadGallerySavedViews().filter(entry => entry.id !== view.id)]);
   return next;
 }
 
 export function deleteGallerySavedView(id: string): void {
-  saveGallerySavedViews(loadGallerySavedViews().filter((entry) => entry.id !== id));
+  saveGallerySavedViews(loadGallerySavedViews().filter(entry => entry.id !== id));
 }

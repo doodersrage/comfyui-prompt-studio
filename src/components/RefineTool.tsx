@@ -1,102 +1,100 @@
-"use client";
+'use client';
 
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { useCallback, useMemo, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import InpaintMaskEditor from "@/components/InpaintMaskEditor";
-import RegionalEditPanel, {
-  regionalSlotsQueueExtras,
-} from "@/components/RegionalEditPanel";
-import SharedToolControls from "@/components/SharedToolControls";
-import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import type { ComfyImageModel } from "@/lib/comfy-models/client";
-import type { WorkflowParamValues } from "@/lib/comfyui-config";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import { isInpaintModel } from "@/lib/model-denoise-defaults";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { diffPromptWords } from "@/lib/prompt-diff";
-import { resolveParentHistoryId } from "@/lib/prompt-lineage-session";
-import { DEFAULT_REFINE_TOOL_CACHE } from "@/lib/settings-cache";
-import { createDefaultRegionalSlots } from "@/lib/regional-prompt-slots";
-import { sharedPatchFromGalleryHandoff } from "@/lib/gallery-handoff";
-import type { GalleryHandoffPayload } from "@/lib/gallery-handoff";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { useCallback, useMemo, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import InpaintMaskEditor from '@/components/InpaintMaskEditor';
+import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
+import SharedToolControls from '@/components/SharedToolControls';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
+import type { WorkflowParamValues } from '@/lib/comfyui-config';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { isInpaintModel } from '@/lib/model-denoise-defaults';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { diffPromptWords } from '@/lib/prompt-diff';
+import { resolveParentHistoryId } from '@/lib/prompt-lineage-session';
+import { DEFAULT_REFINE_TOOL_CACHE } from '@/lib/settings-cache';
+import { createDefaultRegionalSlots } from '@/lib/regional-prompt-slots';
+import { sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
+import type { GalleryHandoffPayload } from '@/lib/gallery-handoff';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+} from '@/components/ui/ToolPageShell';
+import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { PrimaryButton } from '@/components/ui/Button';
 
-const ACCENT = "fuchsia" as const;
+const ACCENT = 'fuchsia' as const;
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Could not read image file."));
+    reader.onerror = () => reject(new Error('Could not read image file.'));
     reader.readAsDataURL(file);
   });
 }
 
 export default function RefineTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("refine", DEFAULT_REFINE_TOOL_CACHE);
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'refine',
+    DEFAULT_REFINE_TOOL_CACHE
+  );
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [maskFile, setMaskFile] = useState<File | null>(null);
   const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
-  const currentPrompt = toolSettings.currentPrompt ?? "";
-  const intentHints = toolSettings.intentHints ?? "";
+  const currentPrompt = toolSettings.currentPrompt ?? '';
+  const intentHints = toolSettings.intentHints ?? '';
   const setCurrentPrompt = useCallback(
     (value: string) => {
       updateToolSettings({ currentPrompt: value });
       rememberDraftFields({
-        toolKey: "refine",
-        label: "Refine",
-        href: "/refine",
+        toolKey: 'refine',
+        label: 'Refine',
+        href: '/refine',
         fields: [intentHints, value],
       });
     },
-    [intentHints, updateToolSettings],
+    [intentHints, updateToolSettings]
   );
   const setIntentHints = useCallback(
     (value: string) => {
       updateToolSettings({ intentHints: value });
       rememberDraftFields({
-        toolKey: "refine",
-        label: "Refine",
-        href: "/refine",
+        toolKey: 'refine',
+        label: 'Refine',
+        href: '/refine',
         fields: [value, currentPrompt],
       });
     },
-    [currentPrompt, updateToolSettings],
+    [currentPrompt, updateToolSettings]
   );
   useSeedToolDraft(mounted, {
-    toolKey: "refine",
-    label: "Refine",
-    href: "/refine",
+    toolKey: 'refine',
+    label: 'Refine',
+    href: '/refine',
     fields: [intentHints, currentPrompt],
   });
-  const [output, setOutput] = useState("");
+  const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [sourceHistoryId, setSourceHistoryId] = useState<string | undefined>();
-  const [beforePrompt, setBeforePrompt] = useState("");
-  const [handoffQueueParams, setHandoffQueueParams] = useState<
-    WorkflowParamValues | undefined
-  >();
+  const [beforePrompt, setBeforePrompt] = useState('');
+  const [handoffQueueParams, setHandoffQueueParams] = useState<WorkflowParamValues | undefined>();
 
   const actions = usePromptResultActions({
-    tool: "refine",
+    tool: 'refine',
     model: shared.model,
     detail: shared.detail,
     hints: intentHints,
@@ -107,19 +105,14 @@ export default function RefineTool() {
   const selectedModel = getComfyModelDefinition(shared.model);
   const needsInpaintMask = isInpaintModel(shared.model);
 
-  const regionalSlots =
-    toolSettings.regionalSlots ?? createDefaultRegionalSlots();
-  const regionalQueue = useMemo(
-    () => regionalSlotsQueueExtras(regionalSlots),
-    [regionalSlots],
-  );
+  const regionalSlots = toolSettings.regionalSlots ?? createDefaultRegionalSlots();
+  const regionalQueue = useMemo(() => regionalSlotsQueueExtras(regionalSlots), [regionalSlots]);
 
   const queueImageOptions = {
     inputImage: file,
-    inputImageUrl: !file ? previewUrl ?? undefined : undefined,
+    inputImageUrl: !file ? (previewUrl ?? undefined) : undefined,
     maskImage: needsInpaintMask ? maskFile : undefined,
-    maskImageUrl:
-      needsInpaintMask && !maskFile ? maskPreviewUrl ?? undefined : undefined,
+    maskImageUrl: needsInpaintMask && !maskFile ? (maskPreviewUrl ?? undefined) : undefined,
     queueParamsBase: handoffQueueParams,
     customTokens: regionalQueue.customTokens,
     regionalSlots: regionalQueue.regionalSlots,
@@ -132,26 +125,23 @@ export default function RefineTool() {
     if (maskFile || maskPreviewUrl) {
       return true;
     }
-    setError("Upload an inpaint mask (white = edit region) before queueing.");
+    setError('Upload an inpaint mask (white = edit region) before queueing.');
     return false;
   }, [maskFile, maskPreviewUrl, needsInpaintMask]);
 
-  const onMaskChange = useCallback(
-    (nextFile: File | null, nextPreviewUrl: string | null) => {
-      setMaskFile(nextFile);
-      setMaskPreviewUrl((current) => {
-        if (current && current !== nextPreviewUrl) {
-          URL.revokeObjectURL(current);
-        }
-        return nextPreviewUrl;
-      });
-    },
-    [],
-  );
+  const onMaskChange = useCallback((nextFile: File | null, nextPreviewUrl: string | null) => {
+    setMaskFile(nextFile);
+    setMaskPreviewUrl(current => {
+      if (current && current !== nextPreviewUrl) {
+        URL.revokeObjectURL(current);
+      }
+      return nextPreviewUrl;
+    });
+  }, []);
 
   const clearMaskState = useCallback(() => {
     setMaskFile(null);
-    setMaskPreviewUrl((current) => {
+    setMaskPreviewUrl(current => {
       if (current) {
         URL.revokeObjectURL(current);
       }
@@ -193,10 +183,10 @@ export default function RefineTool() {
       }
       clearMaskState();
     },
-    [clearMaskState, updateShared],
+    [clearMaskState, updateShared]
   );
 
-  useGalleryHandoff("refine", applyGalleryHandoff);
+  useGalleryHandoff('refine', applyGalleryHandoff);
 
   const onFileChange = useCallback(
     (nextFile: File | null) => {
@@ -207,7 +197,7 @@ export default function RefineTool() {
       setPreviewUrl(nextFile ? URL.createObjectURL(nextFile) : null);
       clearMaskState();
     },
-    [clearMaskState, previewUrl],
+    [clearMaskState, previewUrl]
   );
 
   const resolveRefineImageFile = useCallback(async (): Promise<File> => {
@@ -215,7 +205,7 @@ export default function RefineTool() {
       return file;
     }
     if (!previewUrl) {
-      throw new Error("Upload a reference image first.");
+      throw new Error('Upload a reference image first.');
     }
     const response = await fetch(previewUrl);
     if (!response.ok) {
@@ -223,17 +213,17 @@ export default function RefineTool() {
     }
     const blob = await response.blob();
     return new File([blob], `refine-source-${Date.now()}.png`, {
-      type: blob.type || "image/png",
+      type: blob.type || 'image/png',
     });
   }, [file, previewUrl]);
 
   const refine = useCallback(async () => {
     if (!file && !previewUrl) {
-      setError("Upload a reference image first.");
+      setError('Upload a reference image first.');
       return;
     }
     if (!intentHints.trim() && !currentPrompt.trim()) {
-      setError("Enter intent hints or a current prompt to refine against.");
+      setError('Enter intent hints or a current prompt to refine against.');
       return;
     }
 
@@ -242,20 +232,20 @@ export default function RefineTool() {
     setCopied(false);
     actions.resetStatuses();
 
-    let stage = "load-image";
+    let stage = 'load-image';
     try {
       const refineFile = await resolveRefineImageFile();
-      stage = "read-image";
+      stage = 'read-image';
       // JSON + data URL avoids Next/undici "Failed to parse body as FormData"
       // failures that hit multipart uploads (missing boundary / truncated body).
       const image = await fileToDataUrl(refineFile);
-      stage = "request";
-      const response = await fetch("/api/refine", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      stage = 'request';
+      const response = await fetch('/api/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image,
-          mimeType: refineFile.type || "image/png",
+          mimeType: refineFile.type || 'image/png',
           model: shared.model,
           detail: shared.detail,
           currentPrompt: currentPrompt.trim() || undefined,
@@ -263,7 +253,7 @@ export default function RefineTool() {
         }),
       });
 
-      stage = "parse-response";
+      stage = 'parse-response';
       const data = (await response.json()) as {
         prompt?: string;
         error?: string;
@@ -271,29 +261,37 @@ export default function RefineTool() {
       };
 
       if (!response.ok) {
-        const serverStage = data.stage ? ` [${data.stage}]` : "";
-        throw new Error(`${data.error ?? "Refine failed."}${serverStage}`);
+        const serverStage = data.stage ? ` [${data.stage}]` : '';
+        throw new Error(`${data.error ?? 'Refine failed.'}${serverStage}`);
       }
 
-      stage = "finalize";
+      stage = 'finalize';
       const prompt = await actions.finalizePrompt(
-        data.prompt ?? "",
-        intentHints.trim() || currentPrompt.trim(),
+        data.prompt ?? '',
+        intentHints.trim() || currentPrompt.trim()
       );
       setBeforePrompt(currentPrompt.trim() || beforePrompt);
       setOutput(prompt);
     } catch (err) {
-      setOutput("");
-      const message = err instanceof Error ? err.message : "Refine failed.";
+      setOutput('');
+      const message = err instanceof Error ? err.message : 'Refine failed.';
       setError(
-        message.includes("[") || message.startsWith("Refine failed")
+        message.includes('[') || message.startsWith('Refine failed')
           ? message
-          : `Refine failed at ${stage}: ${message}`,
+          : `Refine failed at ${stage}: ${message}`
       );
     } finally {
       setLoading(false);
     }
-  }, [actions, beforePrompt, currentPrompt, intentHints, previewUrl, resolveRefineImageFile, shared]);
+  }, [
+    actions,
+    beforePrompt,
+    currentPrompt,
+    intentHints,
+    previewUrl,
+    resolveRefineImageFile,
+    shared,
+  ]);
 
   const copyOutput = useCallback(async () => {
     if (!output) return;
@@ -302,7 +300,7 @@ export default function RefineTool() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
@@ -313,26 +311,21 @@ export default function RefineTool() {
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={
-        <ToolBadge accent={ACCENT}>
-          Refine · {selectedModel.comfyNode}
-        </ToolBadge>
-      }
+      badge={<ToolBadge accent={ACCENT}>Refine · {selectedModel.comfyNode}</ToolBadge>}
       title="Prompt Refine"
       description={
         <>
-          Upload a reference image and refine an existing prompt (or write one from
-          scratch) against your intent — ideal for edit workflows and fixing vision
-          captions.
+          Upload a reference image and refine an existing prompt (or write one from scratch) against
+          your intent — ideal for edit workflows and fixing vision captions.
         </>
       }
       sidebar={
         <SharedToolControls
           toolId="refine"
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           recommendFromText={output || currentPrompt || intentHints}
           onSharedSettingsChange={updateShared}
         />
@@ -343,7 +336,7 @@ export default function RefineTool() {
         <input
           type="file"
           accept="image/*"
-          onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
+          onChange={event => onFileChange(event.target.files?.[0] ?? null)}
           className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500"
         />
         {previewUrl && !needsInpaintMask ? (
@@ -369,7 +362,7 @@ export default function RefineTool() {
 
         <RegionalEditPanel
           slots={regionalSlots}
-          onSlotsChange={(next) => updateToolSettings({ regionalSlots: next })}
+          onSlotsChange={next => updateToolSettings({ regionalSlots: next })}
           sourceImageUrl={previewUrl}
           accentClassName={accentFocusClass(ACCENT)}
         />
@@ -378,7 +371,7 @@ export default function RefineTool() {
         <TextArea
           rows={4}
           value={currentPrompt}
-          onChange={(event) => setCurrentPrompt(event.target.value)}
+          onChange={event => setCurrentPrompt(event.target.value)}
           placeholder="Paste the prompt you want corrected…"
           className={`font-mono ${accentFocusClass(ACCENT)}`}
         />
@@ -387,7 +380,7 @@ export default function RefineTool() {
         <TextArea
           rows={3}
           value={intentHints}
-          onChange={(event) => setIntentHints(event.target.value)}
+          onChange={event => setIntentHints(event.target.value)}
           placeholder="What you wanted: gravel cyclists with helmets, muddy doubletrack, no street clothes…"
           className={accentFocusClass(ACCENT)}
         />
@@ -415,18 +408,18 @@ export default function RefineTool() {
               {output}
             </pre>
           </div>
-          {diffPromptWords(beforePrompt, output).segments
-            .filter((segment) => segment.type === "add")
+          {diffPromptWords(beforePrompt, output)
+            .segments.filter(segment => segment.type === 'add')
             .slice(0, 12)
-            .map((segment) => segment.text)
-            .join(", ") ? (
+            .map(segment => segment.text)
+            .join(', ') ? (
             <p className="text-xs text-zinc-500">
-              Added/changed:{" "}
-              {diffPromptWords(beforePrompt, output).segments
-                .filter((segment) => segment.type === "add")
+              Added/changed:{' '}
+              {diffPromptWords(beforePrompt, output)
+                .segments.filter(segment => segment.type === 'add')
                 .slice(0, 12)
-                .map((segment) => segment.text)
-                .join(", ")}
+                .map(segment => segment.text)
+                .join(', ')}
             </p>
           ) : null}
         </ToolSection>
@@ -435,7 +428,7 @@ export default function RefineTool() {
       <EnhancedPromptResult
         output={output}
         onOutputChange={setOutput}
-        provider={output ? "llm" : null}
+        provider={output ? 'llm' : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={shared.model}
         readinessDetail={shared.detail}

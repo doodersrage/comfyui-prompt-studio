@@ -1,32 +1,21 @@
-import {
-  prepareWorkflowJsonImport,
-  type WorkflowImportResult,
-} from "./workflow-import";
+import { prepareWorkflowJsonImport, type WorkflowImportResult } from './workflow-import';
 import {
   upsertComfyWorkflowFile,
   workflowFileNameFromPath,
   type ComfyWorkflowFile,
-} from "./comfyui-workflow-files";
-import { inferModelsFromWorkflowLabel } from "./workflow-category-defaults";
-import { assignWorkflowToInferredModels } from "./model-workflow-map";
-import {
-  loadSettingsCache,
-  saveSharedSettings,
-  type SharedToolSettings,
-} from "./settings-cache";
+} from './comfyui-workflow-files';
+import { inferModelsFromWorkflowLabel } from './workflow-category-defaults';
+import { assignWorkflowToInferredModels } from './model-workflow-map';
+import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from './settings-cache';
 import {
   inferWorkflowGraphKind,
   mergeInferredModels,
   suggestMediaCustomTokens,
   type WorkflowGraphKind,
-} from "./workflow-graph-kind";
-import {
-  isWorkflowJsonFileName,
-  isZipFileName,
-  readZipTextEntries,
-} from "./zip-read";
-import type { ComfyImageModel } from "./comfy-models/client";
-import type { WorkflowPlaceholderTokens } from "./comfyui-config";
+} from './workflow-graph-kind';
+import { isWorkflowJsonFileName, isZipFileName, readZipTextEntries } from './zip-read';
+import type { ComfyImageModel } from './comfy-models/client';
+import type { WorkflowPlaceholderTokens } from './comfyui-config';
 
 export type PackImportSource = {
   name: string;
@@ -65,7 +54,7 @@ export type ImportComfyWorkflowPackOptions = {
 };
 
 async function expandImportSources(
-  files: Array<{ name: string; text?: string; buffer?: ArrayBuffer }>,
+  files: Array<{ name: string; text?: string; buffer?: ArrayBuffer }>
 ): Promise<PackImportSource[]> {
   const sources: PackImportSource[] = [];
 
@@ -96,7 +85,7 @@ async function expandImportSources(
  */
 export async function importComfyWorkflowPack(
   files: Array<{ name: string; text?: string; buffer?: ArrayBuffer }>,
-  options?: ImportComfyWorkflowPackOptions,
+  options?: ImportComfyWorkflowPackOptions
 ): Promise<PackImportResult> {
   const sources = await expandImportSources(files);
   const imported: PackImportFileResult[] = [];
@@ -110,20 +99,19 @@ export async function importComfyWorkflowPack(
   let firstId: string | undefined;
 
   for (const source of sources) {
-    const prepared: WorkflowImportResult = prepareWorkflowJsonImport(
-      source.raw,
-      options?.tokens,
-      { name: source.name, filename: source.name },
-    );
+    const prepared: WorkflowImportResult = prepareWorkflowJsonImport(source.raw, options?.tokens, {
+      name: source.name,
+      filename: source.name,
+    });
 
     if (!prepared.ok || !prepared.workflowJson) {
       failed += 1;
       imported.push({
         filename: source.name,
         ok: false,
-        error: prepared.error ?? "Import failed",
+        error: prepared.error ?? 'Import failed',
         errorDetail: prepared.errorDetail,
-        kind: "unknown",
+        kind: 'unknown',
         inferredModels: [],
         mappedModels: [],
       });
@@ -140,7 +128,7 @@ export async function importComfyWorkflowPack(
 
     const saved = upsertComfyWorkflowFile({
       name: workflowFileNameFromPath(source.name) || `Pack workflow ${Date.now()}`,
-      filename: source.name.split("/").pop() ?? source.name,
+      filename: source.name.split('/').pop() ?? source.name,
       workflowJson: prepared.workflowJson,
       customTokens,
       lastOptimizedAt: Date.now(),
@@ -152,19 +140,16 @@ export async function importComfyWorkflowPack(
     firstId ??= saved.id;
 
     let mappedModels: ComfyImageModel[] = [];
-    const selectThis =
-      options?.selectFirst !== false && firstId === saved.id;
+    const selectThis = options?.selectFirst !== false && firstId === saved.id;
 
     if (autoMap && inferredModels.length > 0) {
       const nextMap = assignWorkflowToInferredModels(
         saved.id,
         inferredModels,
         shared.modelWorkflowMap,
-        options?.overwriteMap === true,
+        options?.overwriteMap === true
       );
-      const newlyMapped = inferredModels.filter(
-        (model) => nextMap[model] === saved.id,
-      );
+      const newlyMapped = inferredModels.filter(model => nextMap[model] === saved.id);
       mappedModels = newlyMapped;
       mappedModelCount += newlyMapped.length;
       shared = {
@@ -203,14 +188,14 @@ export async function importComfyWorkflowPack(
   }
 
   const summary = [
-    created > 0 ? `Imported ${created} workflow${created === 1 ? "" : "s"}` : null,
+    created > 0 ? `Imported ${created} workflow${created === 1 ? '' : 's'}` : null,
     failed > 0 ? `${failed} failed` : null,
     mappedModelCount > 0
-      ? `mapped to ${mappedModelCount} model slot${mappedModelCount === 1 ? "" : "s"}`
+      ? `mapped to ${mappedModelCount} model slot${mappedModelCount === 1 ? '' : 's'}`
       : null,
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(' · ');
 
   return {
     imported,
@@ -218,13 +203,13 @@ export async function importComfyWorkflowPack(
     failed,
     mappedModelCount,
     sharedPatch,
-    summary: summary || "No workflow JSON found in selection.",
+    summary: summary || 'No workflow JSON found in selection.',
   };
 }
 
 /** Browser helper: turn a FileList / File[] into pack import inputs. */
 export async function filesToPackImportInputs(
-  fileList: ArrayLike<File>,
+  fileList: ArrayLike<File>
 ): Promise<Array<{ name: string; text?: string; buffer?: ArrayBuffer }>> {
   const files = Array.from(fileList);
   const inputs: Array<{ name: string; text?: string; buffer?: ArrayBuffer }> = [];

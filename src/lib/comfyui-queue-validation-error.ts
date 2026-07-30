@@ -18,14 +18,14 @@ function summarizeNodeError(nodeId: string, nodeError: ComfyUiNodeError): string
     return null;
   }
 
-  const classType = nodeError.class_type ? `${nodeError.class_type} ` : "";
+  const classType = nodeError.class_type ? `${nodeError.class_type} ` : '';
   const detail = first.details?.trim() || first.message?.trim();
   if (!detail) {
     return null;
   }
 
   if (
-    nodeError.class_type === "DualCLIPLoader" &&
+    nodeError.class_type === 'DualCLIPLoader' &&
     /qwen_image/.test(detail) &&
     /not in/i.test(detail)
   ) {
@@ -37,14 +37,14 @@ function summarizeNodeError(nodeId: string, nodeError: ComfyUiNodeError): string
 
 export function formatComfyUiQueueValidationError(raw: string): string {
   const trimmed = raw.trim();
-  if (!trimmed.startsWith("{")) {
+  if (!trimmed.startsWith('{')) {
     return trimmed;
   }
 
   try {
     const parsed = JSON.parse(trimmed) as ComfyUiValidationPayload;
     const nodeErrors = parsed.node_errors;
-    if (!nodeErrors || typeof nodeErrors !== "object") {
+    if (!nodeErrors || typeof nodeErrors !== 'object') {
       return trimmed;
     }
 
@@ -56,7 +56,7 @@ export function formatComfyUiQueueValidationError(raw: string): string {
       return parsed.error?.message?.trim() || trimmed;
     }
 
-    return summaries.join(" · ");
+    return summaries.join(' · ');
   } catch {
     return trimmed;
   }

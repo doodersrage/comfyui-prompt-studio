@@ -1,32 +1,30 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import PngMetadataImportButton from "@/components/PngMetadataImportButton";
-import SidecarImportButton from "@/components/SidecarImportButton";
+import { useState } from 'react';
+import PngMetadataImportButton from '@/components/PngMetadataImportButton';
+import SidecarImportButton from '@/components/SidecarImportButton';
 import {
   fetchComfyHistoryImports,
   importComfyGalleryFromHistory,
-} from "@/lib/comfyui-gallery-client";
+} from '@/lib/comfyui-gallery-client';
 import {
   requeueComfyJob,
   requeueRefineFromGalleryEntry,
   requeueUpscaleFromGalleryEntry,
-} from "@/lib/comfyui-requeue";
-import { galleryEntryFromSidecar } from "@/lib/gallery-sidecar-entry";
+} from '@/lib/comfyui-requeue';
+import { galleryEntryFromSidecar } from '@/lib/gallery-sidecar-entry';
 import {
   sidecarNegativePrompt,
   sidecarRequeueContext,
   type PromptSidecar,
-} from "@/lib/prompt-sidecar";
-import { resolveComfyUiRuntime } from "@/lib/comfyui-runtime";
-import { toastHeldMax } from "@/lib/app-toast";
-import { Button } from "@/components/ui/Button";
-import QueueOrchestrationPanel from "@/components/QueueOrchestrationPanel";
+} from '@/lib/prompt-sidecar';
+import { resolveComfyUiRuntime } from '@/lib/comfyui-runtime';
+import { toastHeldMax } from '@/lib/app-toast';
+import { Button } from '@/components/ui/Button';
+import QueueOrchestrationPanel from '@/components/QueueOrchestrationPanel';
 
 export default function GalleryImportTools() {
-  const [importedSidecar, setImportedSidecar] = useState<PromptSidecar | null>(
-    null,
-  );
+  const [importedSidecar, setImportedSidecar] = useState<PromptSidecar | null>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const pseudoEntry = importedSidecar ? galleryEntryFromSidecar(importedSidecar) : null;
@@ -39,16 +37,16 @@ export default function GalleryImportTools() {
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <SidecarImportButton
-          onImport={(sidecar) => {
+          onImport={sidecar => {
             setImportedSidecar(sidecar);
-            setImportStatus(`Loaded sidecar from ${sidecar.tool ?? "unknown tool"}.`);
+            setImportStatus(`Loaded sidecar from ${sidecar.tool ?? 'unknown tool'}.`);
           }}
           onError={setImportStatus}
         />
         <PngMetadataImportButton
-          onImport={(sidecar) => {
+          onImport={sidecar => {
             setImportedSidecar(sidecar);
-            setImportStatus(`Loaded PNG metadata (${sidecar.tool ?? "png-import"}).`);
+            setImportStatus(`Loaded PNG metadata (${sidecar.tool ?? 'png-import'}).`);
           }}
           onError={setImportStatus}
         />
@@ -60,17 +58,15 @@ export default function GalleryImportTools() {
             setHistoryLoading(true);
             const stickyUrl = resolveComfyUiRuntime()?.apiUrl?.trim();
             void fetchComfyHistoryImports(40, stickyUrl)
-              .then((payload) => {
+              .then(payload => {
                 const result = importComfyGalleryFromHistory(payload.items ?? []);
                 setImportStatus(
-                  `Imported ${result.imported}, upgraded ${result.upgraded}, skipped ${result.skipped} from ComfyUI history.`,
+                  `Imported ${result.imported}, upgraded ${result.upgraded}, skipped ${result.skipped} from ComfyUI history.`
                 );
               })
-              .catch((error) => {
+              .catch(error => {
                 setImportStatus(
-                  error instanceof Error
-                    ? error.message
-                    : "ComfyUI history import failed.",
+                  error instanceof Error ? error.message : 'ComfyUI history import failed.'
                 );
               })
               .finally(() => setHistoryLoading(false));
@@ -93,7 +89,7 @@ export default function GalleryImportTools() {
               variant="secondary"
               size="sm"
               onClick={() => {
-                setImportStatus("Re-queueing imported sidecar…");
+                setImportStatus('Re-queueing imported sidecar…');
                 const requeue = sidecarRequeueContext(importedSidecar);
                 void requeueComfyJob({
                   prompt: importedSidecar.positive,
@@ -108,9 +104,9 @@ export default function GalleryImportTools() {
                   workflowJson: requeue.workflowJson,
                   newSeed: false,
                   onStatus: setImportStatus,
-                }).then((result) => {
+                }).then(result => {
                   if (result.ok && result.held) {
-                    const message = "Max re-queue held until ComfyUI queue is idle";
+                    const message = 'Max re-queue held until ComfyUI queue is idle';
                     setImportStatus(message);
                     toastHeldMax({ text: message });
                   }
@@ -123,7 +119,7 @@ export default function GalleryImportTools() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                setImportStatus("Queueing new variation…");
+                setImportStatus('Queueing new variation…');
                 const requeue = sidecarRequeueContext(importedSidecar);
                 void requeueComfyJob({
                   prompt: importedSidecar.positive,
@@ -138,9 +134,9 @@ export default function GalleryImportTools() {
                   workflowJson: requeue.workflowJson,
                   newSeed: true,
                   onStatus: setImportStatus,
-                }).then((result) => {
+                }).then(result => {
                   if (result.ok && result.held) {
-                    const message = "Max re-queue held until ComfyUI queue is idle";
+                    const message = 'Max re-queue held until ComfyUI queue is idle';
                     setImportStatus(message);
                     toastHeldMax({ text: message });
                   }
@@ -155,13 +151,13 @@ export default function GalleryImportTools() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setImportStatus("Upscaling imported output (Final)…");
+                    setImportStatus('Upscaling imported output (Final)…');
                     void requeueUpscaleFromGalleryEntry(pseudoEntry, {
-                      qualityProfile: "final",
+                      qualityProfile: 'final',
                       onStatus: setImportStatus,
-                    }).then((result) => {
+                    }).then(result => {
                       if (result.ok && result.held) {
-                        const message = "Max upscale held until ComfyUI queue is idle";
+                        const message = 'Max upscale held until ComfyUI queue is idle';
                         setImportStatus(message);
                         toastHeldMax({ text: message });
                       }
@@ -174,13 +170,13 @@ export default function GalleryImportTools() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setImportStatus("Upscaling imported output (Max)…");
+                    setImportStatus('Upscaling imported output (Max)…');
                     void requeueUpscaleFromGalleryEntry(pseudoEntry, {
-                      qualityProfile: "max",
+                      qualityProfile: 'max',
                       onStatus: setImportStatus,
-                    }).then((result) => {
+                    }).then(result => {
                       if (result.ok && result.held) {
-                        const message = "Max upscale held until ComfyUI queue is idle";
+                        const message = 'Max upscale held until ComfyUI queue is idle';
                         setImportStatus(message);
                         toastHeldMax({ text: message });
                       }
@@ -193,12 +189,12 @@ export default function GalleryImportTools() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setImportStatus("Queueing low-denoise refine…");
+                    setImportStatus('Queueing low-denoise refine…');
                     void requeueRefineFromGalleryEntry(pseudoEntry, {
                       onStatus: setImportStatus,
-                    }).then((result) => {
+                    }).then(result => {
                       if (result.ok && result.held) {
-                        const message = "Max refine held until ComfyUI queue is idle";
+                        const message = 'Max refine held until ComfyUI queue is idle';
                         setImportStatus(message);
                         toastHeldMax({ text: message });
                       }

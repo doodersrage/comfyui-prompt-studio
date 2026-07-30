@@ -1,27 +1,22 @@
-"use client";
+'use client';
 
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import CollabPresenceBar from "@/components/CollabPresenceBar";
-import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
-import InpaintMaskEditor from "@/components/InpaintMaskEditor";
-import RegionalEditPanel, {
-  regionalSlotsQueueExtras,
-} from "@/components/RegionalEditPanel";
-import SharedToolControls from "@/components/SharedToolControls";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import type { ComfyImageModel } from "@/lib/comfy-models/client";
-import type { WorkflowParamValues } from "@/lib/comfyui-config";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import {
-  isComposeCapableModel,
-  isFluxKleinModel,
-} from "@/lib/model-denoise-defaults";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import CollabPresenceBar from '@/components/CollabPresenceBar';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
+import InpaintMaskEditor from '@/components/InpaintMaskEditor';
+import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
+import SharedToolControls from '@/components/SharedToolControls';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
+import type { WorkflowParamValues } from '@/lib/comfyui-config';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { isComposeCapableModel, isFluxKleinModel } from '@/lib/model-denoise-defaults';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import {
   buildComposeInstruction,
   COMPOSE_DEFAULT_MODEL,
@@ -29,30 +24,30 @@ import {
   COMPOSE_TRANSFER_TEMPLATES,
   MAX_COMPOSE_FIGURES,
   type ComposeMode,
-} from "@/lib/compose-prompt";
+} from '@/lib/compose-prompt';
 import {
   DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH,
   formatComposeIdentityLockHint,
   normalizeComposeIdentityKind,
   normalizeComposeIdentityLockStrength,
   type ComposeIdentityKind,
-} from "@/lib/compose-identity-lock";
-import { createDefaultRegionalSlots } from "@/lib/regional-prompt-slots";
-import { sharedPatchFromGalleryHandoff } from "@/lib/gallery-handoff";
-import { DEFAULT_IMAGE_COMPOSE_TOOL_CACHE } from "@/lib/settings-cache";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+} from '@/lib/compose-identity-lock';
+import { createDefaultRegionalSlots } from '@/lib/regional-prompt-slots';
+import { sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
+import { DEFAULT_IMAGE_COMPOSE_TOOL_CACHE } from '@/lib/settings-cache';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+} from '@/components/ui/ToolPageShell';
+import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { PrimaryButton } from '@/components/ui/Button';
 
-const ACCENT = "cyan" as const;
+const ACCENT = 'cyan' as const;
 
 type FigureSlot = {
   file: File | null;
@@ -67,52 +62,52 @@ function emptySlots(): FigureSlot[] {
 }
 
 export default function ComposeTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("imageCompose", DEFAULT_IMAGE_COMPOSE_TOOL_CACHE);
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'imageCompose',
+    DEFAULT_IMAGE_COMPOSE_TOOL_CACHE
+  );
 
   const [slots, setSlots] = useState<FigureSlot[]>(emptySlots);
   const [maskFile, setMaskFile] = useState<File | null>(null);
   const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
   const [showMaskEditor, setShowMaskEditor] = useState(false);
-  const [handoffQueueParams, setHandoffQueueParams] = useState<
-    WorkflowParamValues | undefined
-  >();
-  const [output, setOutput] = useState("");
+  const [handoffQueueParams, setHandoffQueueParams] = useState<WorkflowParamValues | undefined>();
+  const [output, setOutput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const instruction = toolSettings.instruction ?? "";
-  const mode = (toolSettings.mode ?? "transfer") as ComposeMode;
+  const instruction = toolSettings.instruction ?? '';
+  const mode = (toolSettings.mode ?? 'transfer') as ComposeMode;
 
   const setInstruction = useCallback(
     (value: string) => {
       updateToolSettings({ instruction: value });
       rememberDraftFields({
-        toolKey: "compose",
-        label: "Compose",
-        href: "/compose",
+        toolKey: 'compose',
+        label: 'Compose',
+        href: '/compose',
         fields: [value],
       });
     },
-    [updateToolSettings],
+    [updateToolSettings]
   );
 
   const setMode = useCallback(
     (next: ComposeMode) => {
       updateToolSettings({ mode: next });
     },
-    [updateToolSettings],
+    [updateToolSettings]
   );
 
   useSeedToolDraft(mounted, {
-    toolKey: "compose",
-    label: "Compose",
-    href: "/compose",
+    toolKey: 'compose',
+    label: 'Compose',
+    href: '/compose',
     fields: [instruction],
   });
 
   const actions = usePromptResultActions({
-    tool: "compose",
+    tool: 'compose',
     model: shared.model,
     detail: shared.detail,
     hints: instruction,
@@ -132,8 +127,8 @@ export default function ComposeTool() {
   }, [mounted, shared.model, updateShared]);
 
   const filledCount = useMemo(
-    () => slots.filter((slot) => slot.file || slot.previewUrl).length,
-    [slots],
+    () => slots.filter(slot => slot.file || slot.previewUrl).length,
+    [slots]
   );
 
   useEffect(() => {
@@ -147,10 +142,10 @@ export default function ComposeTool() {
       buildComposeInstruction({
         mode,
         instruction,
-        figureCount: Math.max(filledCount, mode === "transfer" ? 2 : 1),
+        figureCount: Math.max(filledCount, mode === 'transfer' ? 2 : 1),
         model: shared.model,
       }),
-    [filledCount, instruction, mode, shared.model],
+    [filledCount, instruction, mode, shared.model]
   );
 
   useEffect(() => {
@@ -161,7 +156,7 @@ export default function ComposeTool() {
 
   const clearMaskState = useCallback(() => {
     setMaskFile(null);
-    setMaskPreviewUrl((current) => {
+    setMaskPreviewUrl(current => {
       if (current) {
         URL.revokeObjectURL(current);
       }
@@ -171,7 +166,7 @@ export default function ComposeTool() {
 
   const onMaskChange = useCallback((nextFile: File | null, nextPreviewUrl: string | null) => {
     setMaskFile(nextFile);
-    setMaskPreviewUrl((current) => {
+    setMaskPreviewUrl(current => {
       if (current && current !== nextPreviewUrl) {
         URL.revokeObjectURL(current);
       }
@@ -181,8 +176,8 @@ export default function ComposeTool() {
 
   const setFigure = useCallback(
     (index: number, nextFile: File | null) => {
-      setSlots((current) => {
-        const next = current.map((slot) => ({ ...slot }));
+      setSlots(current => {
+        const next = current.map(slot => ({ ...slot }));
         const prev = next[index];
         if (prev?.previewUrl && prev.file) {
           URL.revokeObjectURL(prev.previewUrl);
@@ -197,7 +192,7 @@ export default function ComposeTool() {
         clearMaskState();
       }
     },
-    [clearMaskState],
+    [clearMaskState]
   );
 
   const applyGalleryHandoff = useCallback(
@@ -206,23 +201,18 @@ export default function ComposeTool() {
       model?: string;
       queueParams?: WorkflowParamValues;
       sessionActiveLoraIds?: string[];
-      queueQualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
-      handoffMode?: import("@/lib/gallery-handoff").GalleryHandoffMode;
+      queueQualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile;
+      handoffMode?: import('@/lib/gallery-handoff').GalleryHandoffMode;
       file: File | null;
       previewUrl: string | null;
-      payload?: import("@/lib/gallery-handoff").GalleryHandoffPayload;
+      payload?: import('@/lib/gallery-handoff').GalleryHandoffPayload;
     }) => {
-      if (
-        handoff.handoffMode === "reedit" &&
-        handoff.prompt.trim()
-      ) {
+      if (handoff.handoffMode === 'reedit' && handoff.prompt.trim()) {
         // Re-edit keeps the prior instruction; plain Compose should not dump a
         // long T2I prompt into the edit box (that fights the figure and garbles).
         setInstruction(handoff.prompt.trim());
       }
-      setHandoffQueueParams(
-        handoff.handoffMode === "reedit" ? handoff.queueParams : undefined,
-      );
+      setHandoffQueueParams(handoff.handoffMode === 'reedit' ? handoff.queueParams : undefined);
       const sharedPatch = handoff.payload
         ? sharedPatchFromGalleryHandoff(handoff.payload)
         : {
@@ -240,17 +230,15 @@ export default function ComposeTool() {
           ...sharedPatch,
         });
       }
-      const restoredKind =
-        handoff.payload?.identityKind ??
-        handoff.queueParams?.identityKind;
+      const restoredKind = handoff.payload?.identityKind ?? handoff.queueParams?.identityKind;
       if (restoredKind) {
         updateToolSettings({
           identityKind: normalizeComposeIdentityKind(restoredKind),
           identityLock: true,
         });
       }
-      setSlots((current) => {
-        const next = current.map((slot) => ({ ...slot }));
+      setSlots(current => {
+        const next = current.map(slot => ({ ...slot }));
         if (next[0]?.previewUrl && next[0].file) {
           URL.revokeObjectURL(next[0].previewUrl);
         }
@@ -262,35 +250,28 @@ export default function ComposeTool() {
       });
       clearMaskState();
     },
-    [clearMaskState, setInstruction, updateShared, updateToolSettings],
+    [clearMaskState, setInstruction, updateShared, updateToolSettings]
   );
 
-  useGalleryHandoff("compose", applyGalleryHandoff);
+  useGalleryHandoff('compose', applyGalleryHandoff);
 
   const identityLock = toolSettings.identityLock === true;
   const identityLockStrength = normalizeComposeIdentityLockStrength(
-    toolSettings.identityLockStrength ?? DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH,
+    toolSettings.identityLockStrength ?? DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH
   );
   const identityKind = normalizeComposeIdentityKind(toolSettings.identityKind);
-  const regionalSlots =
-    toolSettings.regionalSlots ?? createDefaultRegionalSlots();
-  const regionalQueue = useMemo(
-    () => regionalSlotsQueueExtras(regionalSlots),
-    [regionalSlots],
-  );
+  const regionalSlots = toolSettings.regionalSlots ?? createDefaultRegionalSlots();
+  const regionalQueue = useMemo(() => regionalSlotsQueueExtras(regionalSlots), [regionalSlots]);
 
   const queueImageOptions = useMemo(() => {
     const fig1 = slots[0];
     return {
       inputImage: fig1?.file ?? null,
-      inputImageUrl: !fig1?.file ? fig1?.previewUrl ?? undefined : undefined,
-      inputImages: slots.map((slot) => slot.file),
-      inputImageUrls: slots.map((slot) =>
-        !slot.file ? slot.previewUrl ?? undefined : undefined,
-      ),
+      inputImageUrl: !fig1?.file ? (fig1?.previewUrl ?? undefined) : undefined,
+      inputImages: slots.map(slot => slot.file),
+      inputImageUrls: slots.map(slot => (!slot.file ? (slot.previewUrl ?? undefined) : undefined)),
       maskImage: showMaskEditor ? maskFile : undefined,
-      maskImageUrl:
-        showMaskEditor && !maskFile ? maskPreviewUrl ?? undefined : undefined,
+      maskImageUrl: showMaskEditor && !maskFile ? (maskPreviewUrl ?? undefined) : undefined,
       queueParamsBase: handoffQueueParams,
       identityLock,
       identityLockStrength,
@@ -313,15 +294,15 @@ export default function ComposeTool() {
   const assertReadyToQueue = useCallback(() => {
     const fig1 = slots[0];
     if (!fig1?.file && !fig1?.previewUrl) {
-      setError("Upload Figure 1 (base image) before queueing.");
+      setError('Upload Figure 1 (base image) before queueing.');
       return false;
     }
-    if (mode === "transfer" && filledCount < 2) {
-      setError("Transfer mode needs at least Figure 1 and Figure 2.");
+    if (mode === 'transfer' && filledCount < 2) {
+      setError('Transfer mode needs at least Figure 1 and Figure 2.');
       return false;
     }
     if (!output.trim()) {
-      setError("Add an edit instruction before queueing.");
+      setError('Add an edit instruction before queueing.');
       return false;
     }
     setError(null);
@@ -332,7 +313,7 @@ export default function ComposeTool() {
     (text: string) => {
       setInstruction(text);
     },
-    [setInstruction],
+    [setInstruction]
   );
 
   const copyOutput = useCallback(async () => {
@@ -344,11 +325,11 @@ export default function ComposeTool() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
-  const templates = mode === "transfer" ? COMPOSE_TRANSFER_TEMPLATES : COMPOSE_MODIFY_TEMPLATES;
+  const templates = mode === 'transfer' ? COMPOSE_TRANSFER_TEMPLATES : COMPOSE_MODIFY_TEMPLATES;
   const fig1Preview = slots[0]?.previewUrl ?? null;
 
   if (!mounted) {
@@ -358,25 +339,21 @@ export default function ComposeTool() {
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={
-        <ToolBadge accent={ACCENT}>
-          Compose · {selectedModel.comfyNode}
-        </ToolBadge>
-      }
+      badge={<ToolBadge accent={ACCENT}>Compose · {selectedModel.comfyNode}</ToolBadge>}
       title="Compose / Transfer"
       description={
         <>
-          Upload up to four reference figures and describe a transfer or single-image edit.
-          Defaults to Qwen Edit 2511 Lightning 8 with optional mask on Figure 1.
+          Upload up to four reference figures and describe a transfer or single-image edit. Defaults
+          to Qwen Edit 2511 Lightning 8 with optional mask on Figure 1.
         </>
       }
       sidebar={
         <SharedToolControls
           toolId="compose"
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           recommendFromText={output || instruction}
           onSharedSettingsChange={updateShared}
         />
@@ -388,10 +365,10 @@ export default function ComposeTool() {
         <div className="flex flex-wrap gap-2">
           {(
             [
-              { id: "transfer" as const, label: "Transfer", hint: "≥2 figures" },
-              { id: "modify" as const, label: "Modify", hint: "Figure 1 only" },
+              { id: 'transfer' as const, label: 'Transfer', hint: '≥2 figures' },
+              { id: 'modify' as const, label: 'Modify', hint: 'Figure 1 only' },
             ] as const
-          ).map((entry) => {
+          ).map(entry => {
             const active = mode === entry.id;
             return (
               <button
@@ -399,12 +376,12 @@ export default function ComposeTool() {
                 type="button"
                 onClick={() => setMode(entry.id)}
                 className={[
-                  "rounded-xl border px-3.5 py-2 text-sm transition",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50",
+                  'rounded-xl border px-3.5 py-2 text-sm transition',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50',
                   active
-                    ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-50 shadow-[0_0_24px_-12px_rgba(34,211,238,0.55)]"
-                    : "border-zinc-800/80 bg-zinc-950/40 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/60 hover:text-zinc-200",
-                ].join(" ")}
+                    ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-50 shadow-[0_0_24px_-12px_rgba(34,211,238,0.55)]'
+                    : 'border-zinc-800/80 bg-zinc-950/40 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/60 hover:text-zinc-200',
+                ].join(' ')}
               >
                 <span className="font-medium">{entry.label}</span>
                 <span className="ml-2 text-xs opacity-70">{entry.hint}</span>
@@ -418,25 +395,23 @@ export default function ComposeTool() {
         </FieldLabel>
         <div className="grid gap-3 sm:grid-cols-2">
           {slots.map((slot, index) => {
-            const required = index === 0 || (mode === "transfer" && index === 1);
-            const disabled = mode === "modify" && index > 0;
+            const required = index === 0 || (mode === 'transfer' && index === 1);
+            const disabled = mode === 'modify' && index > 0;
             return (
               <div
                 key={`figure-${index + 1}`}
                 className={[
-                  "rounded-2xl border p-3 transition",
+                  'rounded-2xl border p-3 transition',
                   disabled
-                    ? "border-zinc-900/80 bg-zinc-950/20 opacity-45"
-                    : "border-zinc-800/80 bg-gradient-to-b from-zinc-900/50 to-zinc-950/40",
-                ].join(" ")}
+                    ? 'border-zinc-900/80 bg-zinc-950/20 opacity-45'
+                    : 'border-zinc-800/80 bg-gradient-to-b from-zinc-900/50 to-zinc-950/40',
+                ].join(' ')}
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="text-sm font-medium text-zinc-200">
                     Figure {index + 1}
                     {required ? (
-                      <span className="ml-1.5 text-xs font-normal text-cyan-300/80">
-                        required
-                      </span>
+                      <span className="ml-1.5 text-xs font-normal text-cyan-300/80">required</span>
                     ) : null}
                   </p>
                   {slot.previewUrl ? (
@@ -454,9 +429,7 @@ export default function ComposeTool() {
                   type="file"
                   accept="image/*"
                   disabled={disabled}
-                  onChange={(event) =>
-                    setFigure(index, event.target.files?.[0] ?? null)
-                  }
+                  onChange={event => setFigure(index, event.target.files?.[0] ?? null)}
                   className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-700/80 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:opacity-50"
                 />
                 {slot.previewUrl ? (
@@ -468,9 +441,7 @@ export default function ComposeTool() {
                   />
                 ) : (
                   <p className="mt-3 text-xs text-zinc-500">
-                    {index === 0
-                      ? "Base / canvas image"
-                      : `Optional donor for transfer`}
+                    {index === 0 ? 'Base / canvas image' : `Optional donor for transfer`}
                   </p>
                 )}
               </div>
@@ -479,9 +450,9 @@ export default function ComposeTool() {
         </div>
         {isFluxKleinModel(shared.model) ? (
           <p className="text-xs leading-relaxed text-zinc-500">
-            Klein: instruction edit via ReferenceLatent (official path). Write
-            direct edit commands — e.g. “Replace the background with a rainy
-            neon alley. Keep the subject’s pose and framing.”
+            Klein: instruction edit via ReferenceLatent (official path). Write direct edit commands
+            — e.g. “Replace the background with a rainy neon alley. Keep the subject’s pose and
+            framing.”
           </p>
         ) : null}
 
@@ -491,9 +462,7 @@ export default function ComposeTool() {
               <input
                 type="checkbox"
                 checked={identityLock}
-                onChange={(event) =>
-                  updateToolSettings({ identityLock: event.target.checked })
-                }
+                onChange={event => updateToolSettings({ identityLock: event.target.checked })}
                 className="mt-1 rounded border-zinc-700 bg-zinc-950 text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
               />
               <span className="min-w-0 space-y-1">
@@ -514,23 +483,21 @@ export default function ComposeTool() {
               <select
                 value={identityKind}
                 disabled={!identityLock}
-                onChange={(event) =>
+                onChange={event =>
                   updateToolSettings({
-                    identityKind: normalizeComposeIdentityKind(
-                      event.target.value,
-                    ),
+                    identityKind: normalizeComposeIdentityKind(event.target.value),
                   })
                 }
                 className="block rounded-xl border border-zinc-800/90 bg-zinc-950/70 px-2.5 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {(
                   [
-                    { id: "ipadapter" as const, label: "IP-Adapter" },
-                    { id: "instantid" as const, label: "InstantID" },
-                    { id: "pulid" as const, label: "PuLID" },
-                    { id: "auto" as const, label: "Auto" },
+                    { id: 'ipadapter' as const, label: 'IP-Adapter' },
+                    { id: 'instantid' as const, label: 'InstantID' },
+                    { id: 'pulid' as const, label: 'PuLID' },
+                    { id: 'auto' as const, label: 'Auto' },
                   ] satisfies Array<{ id: ComposeIdentityKind; label: string }>
-                ).map((entry) => (
+                ).map(entry => (
                   <option key={entry.id} value={entry.id}>
                     {entry.label}
                   </option>
@@ -541,13 +508,13 @@ export default function ComposeTool() {
           {identityLock ? (
             <label className="block space-y-1.5 pl-7">
               <span className="type-caption text-cyan-200/70">
-                {identityKind === "ipadapter"
-                  ? "IP-Adapter"
-                  : identityKind === "instantid"
-                    ? "InstantID"
-                    : identityKind === "pulid"
-                      ? "PuLID"
-                      : "Identity"}{" "}
+                {identityKind === 'ipadapter'
+                  ? 'IP-Adapter'
+                  : identityKind === 'instantid'
+                    ? 'InstantID'
+                    : identityKind === 'pulid'
+                      ? 'PuLID'
+                      : 'Identity'}{' '}
                 strength — {identityLockStrength.toFixed(2)}
               </span>
               <input
@@ -556,11 +523,9 @@ export default function ComposeTool() {
                 max={0.85}
                 step={0.05}
                 value={identityLockStrength}
-                onChange={(event) =>
+                onChange={event =>
                   updateToolSettings({
-                    identityLockStrength: normalizeComposeIdentityLockStrength(
-                      event.target.value,
-                    ),
+                    identityLockStrength: normalizeComposeIdentityLockStrength(event.target.value),
                   })
                 }
                 className="w-full accent-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
@@ -572,22 +537,20 @@ export default function ComposeTool() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={() => setShowMaskEditor((value) => !value)}
+            onClick={() => setShowMaskEditor(value => !value)}
             disabled={!fig1Preview}
             className={[
-              "rounded-xl border px-3 py-2 text-sm transition",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50",
-              "disabled:cursor-not-allowed disabled:opacity-40",
+              'rounded-xl border px-3 py-2 text-sm transition',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50',
+              'disabled:cursor-not-allowed disabled:opacity-40',
               showMaskEditor
-                ? "border-cyan-400/35 bg-cyan-500/10 text-cyan-100"
-                : "border-zinc-800 bg-zinc-950/50 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200",
-            ].join(" ")}
+                ? 'border-cyan-400/35 bg-cyan-500/10 text-cyan-100'
+                : 'border-zinc-800 bg-zinc-950/50 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200',
+            ].join(' ')}
           >
-            {showMaskEditor ? "Hide optional mask" : "Optional mask on Figure 1"}
+            {showMaskEditor ? 'Hide optional mask' : 'Optional mask on Figure 1'}
           </button>
-          {maskPreviewUrl ? (
-            <span className="text-xs text-zinc-500">Mask ready</span>
-          ) : null}
+          {maskPreviewUrl ? <span className="text-xs text-zinc-500">Mask ready</span> : null}
         </div>
 
         {showMaskEditor && fig1Preview ? (
@@ -600,14 +563,14 @@ export default function ComposeTool() {
 
         <RegionalEditPanel
           slots={regionalSlots}
-          onSlotsChange={(next) => updateToolSettings({ regionalSlots: next })}
+          onSlotsChange={next => updateToolSettings({ regionalSlots: next })}
           sourceImageUrl={fig1Preview}
           accentClassName={accentFocusClass(ACCENT)}
         />
 
         <FieldLabel>Starter templates</FieldLabel>
         <div className="flex flex-wrap gap-2">
-          {templates.map((template) => (
+          {templates.map(template => (
             <button
               key={template.id}
               type="button"
@@ -620,16 +583,16 @@ export default function ComposeTool() {
         </div>
 
         <FieldLabel>
-          {mode === "transfer" ? "Transfer instruction" : "Modify instruction"}
+          {mode === 'transfer' ? 'Transfer instruction' : 'Modify instruction'}
         </FieldLabel>
         <TextArea
           rows={5}
           value={instruction}
-          onChange={(event) => setInstruction(event.target.value)}
+          onChange={event => setInstruction(event.target.value)}
           placeholder={
-            mode === "transfer"
-              ? "Keep pose from Figure 1. Apply the jacket from Figure 2…"
-              : "keep: subject face and pose\nreplace: background with misty forest…"
+            mode === 'transfer'
+              ? 'Keep pose from Figure 1. Apply the jacket from Figure 2…'
+              : 'keep: subject face and pose\nreplace: background with misty forest…'
           }
           className={`font-mono ${accentFocusClass(ACCENT)}`}
         />
@@ -640,7 +603,7 @@ export default function ComposeTool() {
             if (!assertReadyToQueue()) {
               return;
             }
-            void actions.finalizePrompt(output, instruction).then((finalized) => {
+            void actions.finalizePrompt(output, instruction).then(finalized => {
               setOutput(finalized);
             });
           }}
@@ -655,7 +618,7 @@ export default function ComposeTool() {
       <EnhancedPromptResult
         output={output}
         onOutputChange={setOutput}
-        provider={output ? "llm" : null}
+        provider={output ? 'llm' : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={shared.model}
         readinessDetail={shared.detail}

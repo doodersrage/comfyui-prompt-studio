@@ -1,10 +1,10 @@
-import type { PromptHistoryEntry } from "@/hooks/usePromptHistory";
+import type { PromptHistoryEntry } from '@/hooks/usePromptHistory';
 import {
   buildPromptIterationForest,
   flattenIterationTree,
   type IterationTreeNode,
-} from "./prompt-iteration-tree";
-import { downloadTextFile } from "./history-export-formats";
+} from './prompt-iteration-tree';
+import { downloadTextFile } from './history-export-formats';
 
 export type IterationTreeExportNode = {
   id: string;
@@ -19,7 +19,7 @@ export type IterationTreeExportNode = {
 
 function serializeNode(node: IterationTreeNode): IterationTreeExportNode {
   const parentId =
-    typeof node.entry.metadata?.parentHistoryId === "string"
+    typeof node.entry.metadata?.parentHistoryId === 'string'
       ? node.entry.metadata.parentHistoryId
       : undefined;
   return {
@@ -34,9 +34,7 @@ function serializeNode(node: IterationTreeNode): IterationTreeExportNode {
   };
 }
 
-export function exportIterationForest(
-  entries: PromptHistoryEntry[],
-): IterationTreeExportNode[] {
+export function exportIterationForest(entries: PromptHistoryEntry[]): IterationTreeExportNode[] {
   return buildPromptIterationForest(entries).map(serializeNode);
 }
 
@@ -45,23 +43,17 @@ export function exportIterationForestJson(entries: PromptHistoryEntry[]): string
   return JSON.stringify(
     {
       exportedAt: new Date().toISOString(),
-      nodeCount: flattenIterationTree(
-        buildPromptIterationForest(entries),
-      ).length,
+      nodeCount: flattenIterationTree(buildPromptIterationForest(entries)).length,
       forest,
     },
     null,
-    2,
+    2
   );
 }
 
 export function downloadIterationForestJson(
   entries: PromptHistoryEntry[],
-  filename = "iteration-tree.json",
+  filename = 'iteration-tree.json'
 ): void {
-  downloadTextFile(
-    exportIterationForestJson(entries),
-    filename,
-    "application/json;charset=utf-8",
-  );
+  downloadTextFile(exportIterationForestJson(entries), filename, 'application/json;charset=utf-8');
 }

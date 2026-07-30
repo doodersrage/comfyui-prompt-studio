@@ -4,45 +4,43 @@ import {
   detectWorkflowPlaceholders,
   listWorkflowNodeIds,
   type WorkflowPlaceholderTokens,
-} from "./comfyui-config";
-import {
-  applyWorkflowNodeBindings,
-  type WorkflowBindingChange,
-} from "./workflow-apply-bindings";
-import { suggestWorkflowNodeMappings } from "./workflow-node-mapper";
-import { enrichWorkflowGraph } from "./workflow-graph-enrich";
-import { patchWorkflowSaveFormat } from "./workflow-save-format";
-import { listLoraBindTokens } from "./workflow-lora-patch";
-import { mergeLoraLibraryIntoCustomTokens, loadComfyUiSettings } from "./comfyui-settings";
-import { resolvePromptEncodeTextField } from "./workflow-prompt-encode";
+} from './comfyui-config';
+import { applyWorkflowNodeBindings, type WorkflowBindingChange } from './workflow-apply-bindings';
+import { suggestWorkflowNodeMappings } from './workflow-node-mapper';
+import { enrichWorkflowGraph } from './workflow-graph-enrich';
+import { patchWorkflowSaveFormat } from './workflow-save-format';
+import { listLoraBindTokens } from './workflow-lora-patch';
+import { mergeLoraLibraryIntoCustomTokens, loadComfyUiSettings } from './comfyui-settings';
+import { resolvePromptEncodeTextField } from './workflow-prompt-encode';
 import {
   stringifyWorkflowCompact,
   stringifyWorkflowPretty,
   workflowContentHash,
   workflowObjectContentHash,
-} from "./workflow-content-hash";
+} from './workflow-content-hash';
 
 /** Match object hash (current) or legacy pretty-JSON hash from older Optimize all runs. */
-function workflowHashMatches(
-  workflow: Record<string, unknown>,
-  contentHash: string,
-): boolean {
+function workflowHashMatches(workflow: Record<string, unknown>, contentHash: string): boolean {
   if (workflowObjectContentHash(workflow) === contentHash) {
     return true;
   }
   return workflowContentHash(stringifyWorkflowPretty(workflow)) === contentHash;
 }
-import { repairQwenImageClipLoaderNodes } from "./workflow-qwen-clip-repair";
-import { isQwenLightningModel, patchModelSamplingInWorkflow, resolveModelSamplingParams } from "./model-sampling-patch";
+import { repairQwenImageClipLoaderNodes } from './workflow-qwen-clip-repair';
+import {
+  isQwenLightningModel,
+  patchModelSamplingInWorkflow,
+  resolveModelSamplingParams,
+} from './model-sampling-patch';
 import {
   normalizeQueueQualityProfile,
   profileSkipsOutputUpscaleForModel,
   profileUsesUpscaleEnrich,
   resolveEffectiveSamplerPreset,
   type QueueQualityProfile,
-} from "./queue-quality-profile";
-import { normalizeEmptyLatentForModel } from "./workflow-direct-patch";
-import { workflowHasPromptStudioQueueEnrich } from "./workflow-enrich-markers";
+} from './queue-quality-profile';
+import { normalizeEmptyLatentForModel } from './workflow-direct-patch';
+import { workflowHasPromptStudioQueueEnrich } from './workflow-enrich-markers';
 
 function canSkipFullOptimize(input: {
   skipIfUnchanged?: boolean;
@@ -85,8 +83,8 @@ export type WorkflowQueueAudit = {
 };
 
 export type WorkflowQueueOptimizeChange = {
-  kind: "binding" | "audit";
-  severity: "info" | "warn";
+  kind: 'binding' | 'audit';
+  severity: 'info' | 'warn';
   message: string;
 };
 
@@ -99,12 +97,9 @@ export type WorkflowQueueOptimizeResult = {
   contentHash?: string;
 };
 
-const CHECKPOINT_LOADER_TYPES = new Set([
-  "CheckpointLoaderSimple",
-  "CheckpointLoader",
-]);
+const CHECKPOINT_LOADER_TYPES = new Set(['CheckpointLoaderSimple', 'CheckpointLoader']);
 
-const UNET_LOADER_TYPES = new Set(["UNETLoader", "UnetLoaderGGUF"]);
+const UNET_LOADER_TYPES = new Set(['UNETLoader', 'UnetLoaderGGUF']);
 
 function countToken(raw: string, token: string): number {
   if (!token) {
@@ -121,16 +116,14 @@ function countToken(raw: string, token: string): number {
 
 function workflowHasLoaderType(
   parsed: Record<string, { class_type?: string }>,
-  loaderTypes: Set<string>,
+  loaderTypes: Set<string>
 ): boolean {
-  return Object.values(parsed).some((node) =>
-    loaderTypes.has(node.class_type ?? ""),
-  );
+  return Object.values(parsed).some(node => loaderTypes.has(node.class_type ?? ''));
 }
 
 export function auditWorkflowStructure(
   workflowJson: string,
-  tokens: WorkflowPlaceholderTokens,
+  tokens: WorkflowPlaceholderTokens
 ): WorkflowQueueAudit {
   const placeholders = detectWorkflowPlaceholders(workflowJson, tokens);
   let parsed: Record<string, { class_type?: string }> = {};
@@ -142,19 +135,17 @@ export function auditWorkflowStructure(
       placeholders,
       hasPositivePlaceholder: placeholders.positive > 0,
       hasLatentSizeBinding: placeholders.width > 0 && placeholders.height > 0,
-      hasSamplerBinding:
-        placeholders.seed > 0 && placeholders.steps > 0 && placeholders.cfg > 0,
+      hasSamplerBinding: placeholders.seed > 0 && placeholders.steps > 0 && placeholders.cfg > 0,
       hasCheckpointBinding: false,
       hasInputImageBinding: placeholders.inputImage > 0,
-      warnings: ["Workflow JSON is invalid."],
+      warnings: ['Workflow JSON is invalid.'],
     };
   }
 
   const nodeCount = listWorkflowNodeIds(parsed).length;
   const hasPositivePlaceholder = placeholders.positive > 0;
   const hasLatentSizeBinding = placeholders.width > 0 && placeholders.height > 0;
-  const hasSamplerBinding =
-    placeholders.seed > 0 && placeholders.steps > 0 && placeholders.cfg > 0;
+  const hasSamplerBinding = placeholders.seed > 0 && placeholders.steps > 0 && placeholders.cfg > 0;
   const hasCheckpointToken =
     countToken(workflowJson, DEFAULT_CHECKPOINT_TOKEN) > 0 ||
     countToken(workflowJson, DEFAULT_UNET_TOKEN) > 0;
@@ -167,22 +158,22 @@ export function auditWorkflowStructure(
   const warnings: string[] = [];
   if (!hasPositivePlaceholder) {
     warnings.push(
-      `No ${tokens.positive} placeholder — prompt injection may rely on CLIP heuristics only.`,
+      `No ${tokens.positive} placeholder — prompt injection may rely on CLIP heuristics only.`
     );
   }
   if (!hasLatentSizeBinding) {
     warnings.push(
-      "Latent width/height placeholders missing — direct patch will still set EmptyLatentImage when enabled.",
+      'Latent width/height placeholders missing — direct patch will still set EmptyLatentImage when enabled.'
     );
   }
   if (!hasSamplerBinding) {
     warnings.push(
-      "Sampler placeholders missing — KSampler nodes are patched directly from queue params.",
+      'Sampler placeholders missing — KSampler nodes are patched directly from queue params.'
     );
   }
   if (!hasCheckpointBinding) {
     warnings.push(
-      "Checkpoint/UNET loader present without {{CHECKPOINT}}/{{UNET}} — set model checkpoint map or save an optimized copy with bindings.",
+      'Checkpoint/UNET loader present without {{CHECKPOINT}}/{{UNET}} — set model checkpoint map or save an optimized copy with bindings.'
     );
   }
 
@@ -199,7 +190,7 @@ export function auditWorkflowStructure(
 }
 
 export function suggestedOptimizedWorkflowName(baseName: string): string {
-  const trimmed = baseName.trim() || "workflow";
+  const trimmed = baseName.trim() || 'workflow';
   if (/\(optimized\)$/i.test(trimmed)) {
     return trimmed;
   }
@@ -209,7 +200,7 @@ export function suggestedOptimizedWorkflowName(baseName: string): string {
 function filterMappingsForOptimize(
   workflowJson: string,
   mappings: ReturnType<typeof suggestWorkflowNodeMappings>,
-  tokens: WorkflowPlaceholderTokens,
+  tokens: WorkflowPlaceholderTokens
 ): ReturnType<typeof suggestWorkflowNodeMappings> {
   let parsed: Record<string, { inputs?: Record<string, unknown> }> = {};
   try {
@@ -218,8 +209,8 @@ function filterMappingsForOptimize(
     return [];
   }
 
-  return mappings.filter((mapping) => {
-    if (!mapping.suggestedBinding || mapping.suggestedBinding === "custom") {
+  return mappings.filter(mapping => {
+    if (!mapping.suggestedBinding || mapping.suggestedBinding === 'custom') {
       return false;
     }
 
@@ -228,10 +219,10 @@ function filterMappingsForOptimize(
       return false;
     }
 
-    if (mapping.suggestedBinding === "positive") {
+    if (mapping.suggestedBinding === 'positive') {
       const promptField = resolvePromptEncodeTextField(inputs);
-      const field = promptField ?? (typeof inputs.text === "string" ? "text" : null);
-      if (field && typeof inputs[field] === "string") {
+      const field = promptField ?? (typeof inputs.text === 'string' ? 'text' : null);
+      if (field && typeof inputs[field] === 'string') {
         const text = inputs[field] as string;
         if (text.includes(tokens.positive) || text.includes(tokens.negative)) {
           return false;
@@ -239,10 +230,10 @@ function filterMappingsForOptimize(
       }
     }
 
-    if (mapping.suggestedBinding === "negative") {
+    if (mapping.suggestedBinding === 'negative') {
       const promptField = resolvePromptEncodeTextField(inputs);
-      const field = promptField ?? (typeof inputs.text === "string" ? "text" : null);
-      if (field && typeof inputs[field] === "string") {
+      const field = promptField ?? (typeof inputs.text === 'string' ? 'text' : null);
+      if (field && typeof inputs[field] === 'string') {
         const text = inputs[field] as string;
         if (text.includes(tokens.negative) || text.includes(tokens.positive)) {
           return false;
@@ -250,59 +241,55 @@ function filterMappingsForOptimize(
       }
     }
 
-    if (mapping.suggestedBinding === "sampler") {
+    if (mapping.suggestedBinding === 'sampler') {
       const seed = inputs.seed;
       const steps = inputs.steps;
       const cfg = inputs.cfg;
       if (
-        typeof seed === "string" &&
+        typeof seed === 'string' &&
         seed.includes(tokens.seed) &&
-        typeof steps === "string" &&
+        typeof steps === 'string' &&
         steps.includes(tokens.steps) &&
-        typeof cfg === "string" &&
+        typeof cfg === 'string' &&
         cfg.includes(tokens.cfg)
       ) {
         return false;
       }
     }
 
-    if (mapping.suggestedBinding === "latent") {
+    if (mapping.suggestedBinding === 'latent') {
       const width = inputs.width;
       const height = inputs.height;
       if (
-        typeof width === "string" &&
+        typeof width === 'string' &&
         width.includes(tokens.width) &&
-        typeof height === "string" &&
+        typeof height === 'string' &&
         height.includes(tokens.height)
       ) {
         return false;
       }
     }
 
-    if (mapping.suggestedBinding === "controlNetLoader") {
+    if (mapping.suggestedBinding === 'controlNetLoader') {
       const value = inputs.control_net_name;
-      if (typeof value === "string" && value.includes("{{CONTROLNET")) {
+      if (typeof value === 'string' && value.includes('{{CONTROLNET')) {
         return false;
       }
     }
 
-    if (mapping.suggestedBinding === "loraLoader") {
+    if (mapping.suggestedBinding === 'loraLoader') {
       const value = inputs.lora_name;
-      if (typeof value === "string" && /^\{\{LORA_/.test(value.trim())) {
+      if (typeof value === 'string' && /^\{\{LORA_/.test(value.trim())) {
         return false;
       }
-      if (
-        typeof value === "string" &&
-        value.trim() &&
-        /\.safetensors$/i.test(value.trim())
-      ) {
+      if (typeof value === 'string' && value.trim() && /\.safetensors$/i.test(value.trim())) {
         return false;
       }
     }
 
-    if (mapping.suggestedBinding === "controlImage") {
+    if (mapping.suggestedBinding === 'controlImage') {
       const value = inputs.image;
-      if (typeof value === "string" && value.includes("{{CONTROL_IMAGE}}")) {
+      if (typeof value === 'string' && value.includes('{{CONTROL_IMAGE}}')) {
         return false;
       }
     }
@@ -313,7 +300,7 @@ function filterMappingsForOptimize(
 
 function workflowUsesPromptStudioPlaceholders(
   workflowJson: string,
-  tokens: WorkflowPlaceholderTokens,
+  tokens: WorkflowPlaceholderTokens
 ): boolean {
   const placeholders = detectWorkflowPlaceholders(workflowJson, tokens);
   return (
@@ -363,7 +350,7 @@ export function optimizeWorkflowForQueue(input: {
   /** ComfyUI object_info node class names — used to pick WebP save nodes for Draft. */
   availableNodeTypes?: Iterable<string> | null;
   /** Live object_info WebP save adapters (from format combo discovery). */
-  webpSaveAdapters?: import("./workflow-save-format").WebpSaveAdapter[] | null;
+  webpSaveAdapters?: import('./workflow-save-format').WebpSaveAdapter[] | null;
   /** When true (default), Draft queues prefer WebP save nodes when installed. */
   compactDraftSaves?: boolean;
   /** When true, Edit-2511 Lightning still skips Final/Max Lanczos (native decode). */
@@ -373,8 +360,10 @@ export function optimizeWorkflowForQueue(input: {
   const enrichGraph = input.enrichGraph !== false;
   const loraBindTokens =
     input.loraBindTokens ??
-    (typeof window !== "undefined"
-      ? listLoraBindTokens(mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings()).customTokens ?? [])
+    (typeof window !== 'undefined'
+      ? listLoraBindTokens(
+          mergeLoraLibraryIntoCustomTokens(loadComfyUiSettings()).customTokens ?? []
+        )
       : []);
   const changes: WorkflowQueueOptimizeChange[] = [];
 
@@ -391,20 +380,17 @@ export function optimizeWorkflowForQueue(input: {
     const workflow = saveFormatPatch.workflow;
     changes.push(...saveFormatPatch.changes);
     changes.push({
-      kind: "audit",
-      severity: "info",
+      kind: 'audit',
+      severity: 'info',
       message:
-        "Skipped full optimize — workflow hash, model, and quality profile unchanged since last Optimize all.",
+        'Skipped full optimize — workflow hash, model, and quality profile unchanged since last Optimize all.',
     });
     const workflowJson = stringifyWorkflowPretty(workflow);
-    const audit = auditWorkflowStructure(
-      stringifyWorkflowCompact(workflow),
-      input.tokens,
-    );
+    const audit = auditWorkflowStructure(stringifyWorkflowCompact(workflow), input.tokens);
     for (const warning of audit.warnings) {
       changes.push({
-        kind: "audit",
-        severity: "warn",
+        kind: 'audit',
+        severity: 'warn',
         message: warning,
       });
     }
@@ -425,16 +411,16 @@ export function optimizeWorkflowForQueue(input: {
   let workflowJson = stringifyWorkflowCompact(workflow);
   if (qwenClipRepair.repairedNodeIds.length > 0) {
     changes.push({
-      kind: "audit",
-      severity: "info",
-      message: `Repaired Qwen CLIP loader on node(s) ${qwenClipRepair.repairedNodeIds.join(", ")} — Qwen Image uses CLIPLoader (type qwen_image), not DualCLIPLoader.`,
+      kind: 'audit',
+      severity: 'info',
+      message: `Repaired Qwen CLIP loader on node(s) ${qwenClipRepair.repairedNodeIds.join(', ')} — Qwen Image uses CLIPLoader (type qwen_image), not DualCLIPLoader.`,
     });
   }
   if (latentNormalize.converted > 0) {
     changes.push({
-      kind: "audit",
-      severity: "info",
-      message: `Converted ${latentNormalize.converted} empty-latent node(s) to the correct family for ${input.model ?? "model"}.`,
+      kind: 'audit',
+      severity: 'info',
+      message: `Converted ${latentNormalize.converted} empty-latent node(s) to the correct family for ${input.model ?? 'model'}.`,
     });
   }
 
@@ -478,10 +464,10 @@ export function optimizeWorkflowForQueue(input: {
       changes.push(...enriched.changes);
     } else if (skipLightningLanczos) {
       changes.push({
-        kind: "audit",
-        severity: "info",
+        kind: 'audit',
+        severity: 'info',
         message:
-          "Skipped Lightning Lanczos re-enrich — workflow hash unchanged and Prompt Studio upscale markers present.",
+          'Skipped Lightning Lanczos re-enrich — workflow hash unchanged and Prompt Studio upscale markers present.',
       });
     }
 
@@ -495,23 +481,20 @@ export function optimizeWorkflowForQueue(input: {
     workflow = saveFormatPatch.workflow;
     changes.push(...saveFormatPatch.changes);
     const workflowJsonLightning = stringifyWorkflowPretty(workflow);
-    const auditLightning = auditWorkflowStructure(
-      stringifyWorkflowCompact(workflow),
-      input.tokens,
-    );
+    const auditLightning = auditWorkflowStructure(stringifyWorkflowCompact(workflow), input.tokens);
     for (const warning of auditLightning.warnings) {
       changes.push({
-        kind: "audit",
-        severity: "warn",
+        kind: 'audit',
+        severity: 'warn',
         message: warning,
       });
     }
     changes.push({
-      kind: "audit",
-      severity: "info",
+      kind: 'audit',
+      severity: 'info',
       message: wantsLightningLanczos
-        ? "Lightning queue: skipped auto-bind — native Comfy graph; Final/Max Lanczos after decode when needed."
-        : "Lightning queue: skipped auto-bind/enrich — using workflow as exported from ComfyUI.",
+        ? 'Lightning queue: skipped auto-bind — native Comfy graph; Final/Max Lanczos after decode when needed.'
+        : 'Lightning queue: skipped auto-bind/enrich — using workflow as exported from ComfyUI.',
     });
     return {
       workflow,
@@ -535,7 +518,7 @@ export function optimizeWorkflowForQueue(input: {
   let bindingChanges: WorkflowBindingChange[] = [];
   const usesPromptStudioPlaceholders = workflowUsesPromptStudioPlaceholders(
     workflowJson,
-    input.tokens,
+    input.tokens
   );
 
   if (enabled && !skipBinding) {
@@ -544,24 +527,19 @@ export function optimizeWorkflowForQueue(input: {
       const mappings = filterMappingsForOptimize(
         workflowJson,
         suggestWorkflowNodeMappings(workflowJson),
-        input.tokens,
+        input.tokens
       );
 
       if (mappings.length > 0) {
-        const applied = applyWorkflowNodeBindings(
-          workflowJson,
-          mappings,
-          input.tokens,
-          {
-            loraBindTokens: usesPromptStudioPlaceholders ? loraBindTokens : [],
-          },
-        );
+        const applied = applyWorkflowNodeBindings(workflowJson, mappings, input.tokens, {
+          loraBindTokens: usesPromptStudioPlaceholders ? loraBindTokens : [],
+        });
         if (applied.changes.length > 0) {
           workflowJson = applied.json;
           bindingChanges = applied.changes;
           changes.push({
-            kind: "binding",
-            severity: "info",
+            kind: 'binding',
+            severity: 'info',
             message: `Auto-bound ${applied.changes.length} workflow field(s) for queue takeover.`,
           });
         }
@@ -604,35 +582,32 @@ export function optimizeWorkflowForQueue(input: {
     changes.push(...enriched.changes);
   } else if (skipEnrich && shouldEnrichGraph) {
     changes.push({
-      kind: "audit",
-      severity: "info",
-      message: "Skipped re-enrich — workflow hash unchanged and Prompt Studio enrich markers present.",
+      kind: 'audit',
+      severity: 'info',
+      message:
+        'Skipped re-enrich — workflow hash unchanged and Prompt Studio enrich markers present.',
     });
   }
 
   if (input.model) {
     const samplingParams = resolveModelSamplingParams(
       input.model,
-      resolveEffectiveSamplerPreset("base", input.qualityProfile, {
+      resolveEffectiveSamplerPreset('base', input.qualityProfile, {
         model: input.model,
-      }),
+      })
     );
-    const samplingPatch = patchModelSamplingInWorkflow(
-      workflow,
-      samplingParams,
-      input.model,
-    );
+    const samplingPatch = patchModelSamplingInWorkflow(workflow, samplingParams, input.model);
     const patchedFields = Object.values(samplingPatch.patched).reduce(
       (sum, count) => sum + (count ?? 0),
-      0,
+      0
     );
     if (patchedFields > 0) {
       workflow = samplingPatch.workflow;
       workflowJson = stringifyWorkflowCompact(workflow);
       changes.push({
-        kind: "binding",
-        severity: "info",
-        message: "Resolved model-sampling placeholders (shift / Flux max-base).",
+        kind: 'binding',
+        severity: 'info',
+        message: 'Resolved model-sampling placeholders (shift / Flux max-base).',
       });
     }
   }
@@ -653,8 +628,8 @@ export function optimizeWorkflowForQueue(input: {
   const audit = auditWorkflowStructure(workflowJson, input.tokens);
   for (const warning of audit.warnings) {
     changes.push({
-      kind: "audit",
-      severity: "warn",
+      kind: 'audit',
+      severity: 'warn',
       message: warning,
     });
   }

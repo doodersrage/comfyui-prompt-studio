@@ -10,22 +10,17 @@ export type RateLimitResult =
   | { allowed: false; remaining: 0; resetAt: number; retryAfterSec: number };
 
 function getLimits(): { windowMs: number; max: number } {
-  const max = Number(process.env.API_RATE_LIMIT_MAX ?? "120");
-  const windowSec = Number(process.env.API_RATE_LIMIT_WINDOW_SEC ?? "60");
+  const max = Number(process.env.API_RATE_LIMIT_MAX ?? '120');
+  const windowSec = Number(process.env.API_RATE_LIMIT_WINDOW_SEC ?? '60');
   return {
     max: Number.isFinite(max) && max > 0 ? Math.floor(max) : 120,
     windowMs: Number.isFinite(windowSec) && windowSec > 0 ? windowSec * 1000 : 60_000,
   };
 }
 
-export function checkRateLimit(
-  key: string,
-  route = "api",
-  maxOverride?: number,
-): RateLimitResult {
+export function checkRateLimit(key: string, route = 'api', maxOverride?: number): RateLimitResult {
   const { max: envMax, windowMs } = getLimits();
-  const max =
-    maxOverride && maxOverride > 0 ? Math.floor(maxOverride) : envMax;
+  const max = maxOverride && maxOverride > 0 ? Math.floor(maxOverride) : envMax;
   const bucketKey = `${route}:${key}`;
   const now = Date.now();
   const existing = buckets.get(bucketKey);
@@ -51,7 +46,7 @@ export function checkRateLimit(
 }
 
 export function rateLimitClientKey(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const realIp = request.headers.get("x-real-ip")?.trim();
-  return forwarded || realIp || "local";
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const realIp = request.headers.get('x-real-ip')?.trim();
+  return forwarded || realIp || 'local';
 }

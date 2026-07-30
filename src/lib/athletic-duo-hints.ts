@@ -1,5 +1,5 @@
-import { inferAthleticSport } from "./athletic-sport-profiles";
-import { isMultiPersonInput } from "./distinct-people";
+import { inferAthleticSport } from './athletic-sport-profiles';
+import { isMultiPersonInput } from './distinct-people';
 
 const ATHLETIC_DUO_COMPETITION_HINT =
   /\b(?:competition|competing|race|racing|fierce|rival(?:ry|s)?|versus|vs\.?|sprint finish|wheel-to-wheel|head-to-head)\b/i;

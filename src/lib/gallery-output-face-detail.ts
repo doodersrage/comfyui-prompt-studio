@@ -1,5 +1,5 @@
-import type { CustomWorkflowToken, WorkflowParamValues } from "./comfyui-config";
-import { DEFAULT_INPUT_IMAGE_TOKEN } from "./comfyui-config";
+import type { CustomWorkflowToken, WorkflowParamValues } from './comfyui-config';
+import { DEFAULT_INPUT_IMAGE_TOKEN } from './comfyui-config';
 
 /**
  * Portable face-detailer tokens — mirrors {{INPUT_IMAGE}}/{{DENOISE}} but scoped
@@ -7,8 +7,8 @@ import { DEFAULT_INPUT_IMAGE_TOKEN } from "./comfyui-config";
  * pass when both tokens are present in the same graph (e.g. a combined
  * FaceDetailer + ReActor pipeline).
  */
-export const FACE_DETAIL_IMAGE_TOKEN = "{{FACE_DETAIL_IMAGE}}";
-export const FACE_DETAIL_DENOISE_TOKEN = "{{FACE_DETAIL_DENOISE}}";
+export const FACE_DETAIL_IMAGE_TOKEN = '{{FACE_DETAIL_IMAGE}}';
+export const FACE_DETAIL_DENOISE_TOKEN = '{{FACE_DETAIL_DENOISE}}';
 
 /** Low-moderate denoise keeps identity/likeness while still fixing warped faces. */
 export const DEFAULT_FACE_DETAIL_DENOISE = 0.35;
@@ -20,7 +20,7 @@ type WorkflowNode = {
 };
 
 export function normalizeFaceDetailDenoise(value: unknown): number {
-  const parsed = typeof value === "number" ? value : Number(value);
+  const parsed = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(parsed)) {
     return DEFAULT_FACE_DETAIL_DENOISE;
   }
@@ -47,7 +47,7 @@ export function faceDetailCustomTokens(input: {
 export function faceDetailQueueParams(input: {
   inputImageFilename: string;
   denoise: number;
-  queueParams?: Pick<WorkflowParamValues, "seed" | "width" | "height">;
+  queueParams?: Pick<WorkflowParamValues, 'seed' | 'width' | 'height'>;
 }): Record<string, string> {
   const params: Record<string, string> = {
     inputImageFilename: input.inputImageFilename,
@@ -76,18 +76,18 @@ export function faceDetailQueueParams(input: {
  */
 export function buildGalleryFaceDetailFallbackWorkflow(): Record<string, WorkflowNode> {
   return {
-    "1": {
-      class_type: "LoadImage",
+    '1': {
+      class_type: 'LoadImage',
       inputs: { image: DEFAULT_INPUT_IMAGE_TOKEN },
-      _meta: { title: "Prompt Studio — gallery output" },
+      _meta: { title: 'Prompt Studio — gallery output' },
     },
-    "2": {
-      class_type: "SaveImage",
+    '2': {
+      class_type: 'SaveImage',
       inputs: {
-        filename_prefix: "PromptStudio-face-detail",
-        images: ["1", 0],
+        filename_prefix: 'PromptStudio-face-detail',
+        images: ['1', 0],
       },
-      _meta: { title: "Prompt Studio — save (pass-through, no library face-detailer found)" },
+      _meta: { title: 'Prompt Studio — save (pass-through, no library face-detailer found)' },
     },
   };
 }

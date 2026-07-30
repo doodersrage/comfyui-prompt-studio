@@ -14,7 +14,7 @@ export default function BrandMark({
   wordmarkClassName,
 }: BrandMarkProps) {
   return (
-    <span className={`inline-flex items-center gap-2.5 ${className ?? ""}`.trim()}>
+    <span className={`inline-flex items-center gap-2.5 ${className ?? ''}`.trim()}>
       {/* eslint-disable-next-line @next/next/no-img-element -- local SVG brand asset */}
       <img
         src="/brand-mark.svg"
@@ -25,9 +25,7 @@ export default function BrandMark({
         decoding="async"
       />
       {withWordmark ? (
-        <span className={wordmarkClassName ?? "type-title tracking-tight"}>
-          Prompt Studio
-        </span>
+        <span className={wordmarkClassName ?? 'type-title tracking-tight'}>Prompt Studio</span>
       ) : (
         <span className="sr-only">Prompt Studio</span>
       )}

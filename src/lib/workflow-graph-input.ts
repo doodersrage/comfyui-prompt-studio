@@ -9,19 +9,19 @@ export function resolveWorkflowGraphInput(input: {
   workflow: Record<string, unknown> | null;
   workflowJson: string;
 } {
-  if (input.workflow && typeof input.workflow === "object") {
+  if (input.workflow && typeof input.workflow === 'object') {
     return {
       workflow: input.workflow,
       workflowJson:
-        typeof input.workflowJson === "string" && input.workflowJson.trim()
+        typeof input.workflowJson === 'string' && input.workflowJson.trim()
           ? input.workflowJson
           : JSON.stringify(input.workflow),
     };
   }
 
-  const raw = input.workflowJson?.trim() ?? "";
+  const raw = input.workflowJson?.trim() ?? '';
   if (!raw) {
-    return { workflow: null, workflowJson: "" };
+    return { workflow: null, workflowJson: '' };
   }
 
   try {

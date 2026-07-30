@@ -1,8 +1,8 @@
 export function readVariationSeedFromMetadata(
-  metadata?: Record<string, unknown>,
+  metadata?: Record<string, unknown>
 ): string | undefined {
   const seed = metadata?.seed;
-  if (typeof seed !== "string") {
+  if (typeof seed !== 'string') {
     return undefined;
   }
 

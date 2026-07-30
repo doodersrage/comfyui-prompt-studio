@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import type { ScheduledBatchProfile } from "./scheduled-batch-profile";
+import type { ScheduledBatchProfile } from './scheduled-batch-profile';
 
 export type ScheduledBatchServerStatus = {
   profile: ScheduledBatchProfile;
@@ -17,7 +17,7 @@ export type ScheduledBatchProfilePushResult = {
 /** Reads the server's active scheduled-batch profile + last run status (for Settings display). */
 export async function fetchScheduledBatchServerStatus(): Promise<ScheduledBatchServerStatus | null> {
   try {
-    const response = await fetch("/api/scheduled-batch/profile");
+    const response = await fetch('/api/scheduled-batch/profile');
     if (!response.ok) {
       return null;
     }
@@ -29,12 +29,12 @@ export async function fetchScheduledBatchServerStatus(): Promise<ScheduledBatchS
 
 /** Pushes the current Studio Automation config to server storage so the headless runner matches Settings. */
 export async function pushScheduledBatchProfile(
-  profile: Partial<ScheduledBatchProfile>,
+  profile: Partial<ScheduledBatchProfile>
 ): Promise<ScheduledBatchProfilePushResult | null> {
   try {
-    const response = await fetch("/api/scheduled-batch/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const response = await fetch('/api/scheduled-batch/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(profile),
     });
     if (!response.ok) {

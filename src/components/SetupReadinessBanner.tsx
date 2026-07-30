@@ -1,31 +1,27 @@
-"use client";
+'use client';
 
 /**
  * First-run / empty-state banner when Comfy is down or system workflows are off.
  */
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { loadSettingsCache } from "@/lib/settings-cache";
-import { enableSystemWorkflowsAndHeal } from "@/lib/first-run-setup";
-import { settingsTabHref } from "@/lib/settings-nav";
-import { settingsComfyUiSectionHref } from "@/lib/settings-comfyui-nav";
-import { Button } from "@/components/ui/Button";
-import { readBrowserValue, writeBrowserValue } from "@/lib/browser-storage";
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { loadSettingsCache } from '@/lib/settings-cache';
+import { enableSystemWorkflowsAndHeal } from '@/lib/first-run-setup';
+import { settingsTabHref } from '@/lib/settings-nav';
+import { settingsComfyUiSectionHref } from '@/lib/settings-comfyui-nav';
+import { Button } from '@/components/ui/Button';
+import { readBrowserValue, writeBrowserValue } from '@/lib/browser-storage';
 
-const DISMISS_KEY = "comfy-setup-readiness-dismiss-v1";
+const DISMISS_KEY = 'comfy-setup-readiness-dismiss-v1';
 
 type Readiness = {
   comfyOk: boolean | null;
   systemWorkflows: boolean;
 };
 
-export default function SetupReadinessBanner({
-  toolLabel = "Generate",
-}: {
-  toolLabel?: string;
-}) {
+export default function SetupReadinessBanner({ toolLabel = 'Generate' }: { toolLabel?: string }) {
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -41,8 +37,8 @@ export default function SetupReadinessBanner({
       });
     });
     let cancelled = false;
-    void fetch("/api/health")
-      .then((response) => response.json())
+    void fetch('/api/health')
+      .then(response => response.json())
       .then((data: { comfyui?: { ok?: boolean } }) => {
         if (cancelled) {
           return;
@@ -88,9 +84,9 @@ export default function SetupReadinessBanner({
           <ul className="type-caption space-y-1 text-[var(--text-secondary)]">
             {comfyDown ? (
               <li>
-                ComfyUI is unreachable — check the URL in{" "}
+                ComfyUI is unreachable — check the URL in{' '}
                 <Link
-                  href={settingsComfyUiSectionHref("connection")}
+                  href={settingsComfyUiSectionHref('connection')}
                   className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
                 >
                   Settings → Connection
@@ -100,14 +96,11 @@ export default function SetupReadinessBanner({
             ) : null}
             {needsSystemWf ? (
               <li>
-                System workflows are off — enable them for scaffolds without importing a
-                pack first.
+                System workflows are off — enable them for scaffolds without importing a pack first.
               </li>
             ) : null}
           </ul>
-          {message ? (
-            <p className="type-caption text-[var(--text-muted)]">{message}</p>
-          ) : null}
+          {message ? <p className="type-caption text-[var(--text-muted)]">{message}</p> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {needsSystemWf ? (
@@ -118,17 +111,17 @@ export default function SetupReadinessBanner({
               loadingLabel="Enabling…"
               onClick={() => {
                 setBusy(true);
-                void enableSystemWorkflowsAndHeal().then((result) => {
+                void enableSystemWorkflowsAndHeal().then(result => {
                   setBusy(false);
                   setMessage(result.message);
-                  setReadiness((prev) =>
+                  setReadiness(prev =>
                     prev
                       ? {
                           ...prev,
                           systemWorkflows: true,
                           comfyOk: result.comfyOk ? true : prev.comfyOk,
                         }
-                      : prev,
+                      : prev
                   );
                 });
               }}
@@ -147,7 +140,7 @@ export default function SetupReadinessBanner({
             Dismiss
           </Button>
           <Link
-            href={settingsTabHref("overview")}
+            href={settingsTabHref('overview')}
             className="type-caption text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
           >
             Heal & ready

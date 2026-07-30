@@ -1,11 +1,9 @@
-import type { AthleticSport } from "@/lib/athletic-sport-profiles";
+import type { AthleticSport } from '@/lib/athletic-sport-profiles';
 
 type PromptResultActionsLike = {
   previewWorkflow: (prompt: string, sport?: AthleticSport | null) => Promise<void>;
   workflowPreview: Awaited<
-    ReturnType<
-      typeof import("@/lib/comfyui-requeue").fetchWorkflowPreview
-    >
+    ReturnType<typeof import('@/lib/comfyui-requeue').fetchWorkflowPreview>
   > | null;
   previewStatus: string | null;
 };
@@ -13,7 +11,7 @@ type PromptResultActionsLike = {
 export function promptResultPreviewProps(
   actions: PromptResultActionsLike,
   prompt: string,
-  sport?: AthleticSport | null,
+  sport?: AthleticSport | null
 ) {
   return {
     onPreviewWorkflow: () => void actions.previewWorkflow(prompt, sport ?? null),

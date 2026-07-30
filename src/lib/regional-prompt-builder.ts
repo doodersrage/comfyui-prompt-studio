@@ -10,76 +10,76 @@ export type RegionalPromptSegment = {
 };
 
 export const DEFAULT_REGIONAL_REGIONS: RegionalPromptRegion[] = [
-  { id: "subject", label: "Subject", description: "Main figure or focal object" },
-  { id: "background", label: "Background", description: "Environment behind the subject" },
-  { id: "foreground", label: "Foreground", description: "Objects closest to camera" },
-  { id: "lighting", label: "Lighting", description: "Light direction, color, mood" },
+  { id: 'subject', label: 'Subject', description: 'Main figure or focal object' },
+  { id: 'background', label: 'Background', description: 'Environment behind the subject' },
+  { id: 'foreground', label: 'Foreground', description: 'Objects closest to camera' },
+  { id: 'lighting', label: 'Lighting', description: 'Light direction, color, mood' },
 ];
 
 export function buildRegionalPrompt(
   segments: RegionalPromptSegment[],
-  regions: RegionalPromptRegion[] = DEFAULT_REGIONAL_REGIONS,
+  regions: RegionalPromptRegion[] = DEFAULT_REGIONAL_REGIONS
 ): string {
-  const labelById = Object.fromEntries(regions.map((region) => [region.id, region.label]));
+  const labelById = Object.fromEntries(regions.map(region => [region.id, region.label]));
   return segments
-    .filter((segment) => segment.prompt.trim())
-    .map((segment) => `${labelById[segment.regionId] ?? segment.regionId}: ${segment.prompt.trim()}`)
-    .join(". ");
+    .filter(segment => segment.prompt.trim())
+    .map(segment => `${labelById[segment.regionId] ?? segment.regionId}: ${segment.prompt.trim()}`)
+    .join('. ');
 }
 
 /** Compact `(region: text)` form useful for attention/weighted prompt packs. */
 export function buildRegionalPromptParenForm(
   segments: RegionalPromptSegment[],
-  regions: RegionalPromptRegion[] = DEFAULT_REGIONAL_REGIONS,
+  regions: RegionalPromptRegion[] = DEFAULT_REGIONAL_REGIONS
 ): string {
-  const labelById = Object.fromEntries(regions.map((region) => [region.id, region.label]));
+  const labelById = Object.fromEntries(regions.map(region => [region.id, region.label]));
   return segments
-    .filter((segment) => segment.prompt.trim())
+    .filter(segment => segment.prompt.trim())
     .map(
-      (segment) =>
-        `(${(labelById[segment.regionId] ?? segment.regionId).toLowerCase()}: ${segment.prompt.trim()})`,
+      segment =>
+        `(${(labelById[segment.regionId] ?? segment.regionId).toLowerCase()}: ${segment.prompt.trim()})`
     )
-    .join(" ");
+    .join(' ');
 }
 
 export function buildInpaintInstruction(
   maskDescription: string,
-  changeDescription: string,
+  changeDescription: string
 ): string {
   return `In the masked region (${maskDescription.trim()}), ${changeDescription.trim()}. Keep all unmasked areas unchanged.`;
 }
 
 export function parseRegionalSegments(raw: string): RegionalPromptSegment[] {
   return raw
-    .split("\n")
-    .map((line) => line.trim())
+    .split('\n')
+    .map(line => line.trim())
     .filter(Boolean)
-    .map((line) => {
+    .map(line => {
       const match = line.match(/^([^:]+):\s*(.+)$/);
       if (!match) {
-        return { regionId: "subject", prompt: line };
+        return { regionId: 'subject', prompt: line };
       }
       const label = match[1].trim().toLowerCase();
       const region =
-        DEFAULT_REGIONAL_REGIONS.find((entry) => entry.label.toLowerCase() === label)?.id ??
-        label.replace(/\s+/g, "-");
+        DEFAULT_REGIONAL_REGIONS.find(entry => entry.label.toLowerCase() === label)?.id ??
+        label.replace(/\s+/g, '-');
       return { regionId: region, prompt: match[2].trim() };
     });
 }
 
 /** Portable tokens for imported regional / attention-mask packs. */
 export const REGIONAL_PROMPT_TOKENS = {
-  subject: "{{REGION_SUBJECT}}",
-  background: "{{REGION_BACKGROUND}}",
-  foreground: "{{REGION_FOREGROUND}}",
-  lighting: "{{REGION_LIGHTING}}",
+  subject: '{{REGION_SUBJECT}}',
+  background: '{{REGION_BACKGROUND}}',
+  foreground: '{{REGION_FOREGROUND}}',
+  lighting: '{{REGION_LIGHTING}}',
 } as const;
 
 export type RegionalCustomToken = { token: string; value: string };
 
 /** Build {{REGION_*}} custom tokens from panel segments for queue injection. */
 export function regionalPromptCustomTokens(
-  segments: RegionalPromptSegment[],
+  segments: RegionalPromptSegment[]
 ): RegionalCustomToken[] {
   const byId = new Map<string, string>();
   for (const segment of segments) {
@@ -105,7 +105,7 @@ export function regionalPromptCustomTokens(
  */
 export function patchRegionalTokensInWorkflow(
   workflow: Record<string, unknown>,
-  segments: RegionalPromptSegment[],
+  segments: RegionalPromptSegment[]
 ): { workflow: Record<string, unknown>; patched: number } {
   const tokens = regionalPromptCustomTokens(segments);
   if (tokens.length === 0) {

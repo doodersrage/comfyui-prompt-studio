@@ -1,28 +1,28 @@
-import { isEditInstructionProfile } from "./comfy-models/prompt-profiles";
-import type { PromptProfileId } from "./comfy-models/types";
-import { stripExpansionPadding } from "./prompt-cleanup";
+import { isEditInstructionProfile } from './comfy-models/prompt-profiles';
+import type { PromptProfileId } from './comfy-models/types';
+import { stripExpansionPadding } from './prompt-cleanup';
 import {
   isExpansionBeatSentence,
   joinTags,
   profileUsesTagFormat,
   splitSentences,
   splitTags,
-} from "./prompt-shape";
+} from './prompt-shape';
 
 /** Tag soup tokens image parsers rarely use; safe to drop on SD1.x-style lists. */
 const TAG_NOISE = new Set([
-  "fine detail",
-  "high detail",
-  "best quality",
-  "masterpiece",
-  "8k",
-  "8k uhd",
-  "ultra detailed",
-  "professional photo",
-  "stock photo",
-  "trending on artstation",
-  "absurdres",
-  "highres",
+  'fine detail',
+  'high detail',
+  'best quality',
+  'masterpiece',
+  '8k',
+  '8k uhd',
+  'ultra detailed',
+  'professional photo',
+  'stock photo',
+  'trending on artstation',
+  'absurdres',
+  'highres',
 ]);
 
 /**
@@ -64,15 +64,15 @@ const WEAK_FILLER_WORDS =
 
 /** Same meaning, fewer characters — grammar-safe replacements only. */
 const PHRASE_SHORTENINGS: Array<[RegExp, string]> = [
-  [/\bon the left side of the frame\b/gi, "on the left"],
-  [/\bon the right side of the frame\b/gi, "on the right"],
-  [/\bto the left side of the frame\b/gi, "to the left"],
-  [/\bto the right side of the frame\b/gi, "to the right"],
-  [/\bleft side of the frame\b/gi, "left side"],
-  [/\bright side of the frame\b/gi, "right side"],
-  [/\billuminated by\b/gi, "lit by"],
-  [/\bstanding in front of\b/gi, "standing before"],
-  [/\bsitting in front of\b/gi, "sitting before"],
+  [/\bon the left side of the frame\b/gi, 'on the left'],
+  [/\bon the right side of the frame\b/gi, 'on the right'],
+  [/\bto the left side of the frame\b/gi, 'to the left'],
+  [/\bto the right side of the frame\b/gi, 'to the right'],
+  [/\bleft side of the frame\b/gi, 'left side'],
+  [/\bright side of the frame\b/gi, 'right side'],
+  [/\billuminated by\b/gi, 'lit by'],
+  [/\bstanding in front of\b/gi, 'standing before'],
+  [/\bsitting in front of\b/gi, 'sitting before'],
 ];
 
 const DISTINCT_CLAUSE =
@@ -85,13 +85,13 @@ function clauseOverlapRatio(clause: string, priorText: string): number {
   }
 
   const priorLower = priorText.toLowerCase();
-  return words.filter((word) => priorLower.includes(word)).length / words.length;
+  return words.filter(word => priorLower.includes(word)).length / words.length;
 }
 
-function dedupeClausesInSentence(sentence: string, priorText = ""): string {
+function dedupeClausesInSentence(sentence: string, priorText = ''): string {
   const parts = sentence
     .split(/,\s+(?=[A-Za-z("'"])/)
-    .map((part) => part.trim())
+    .map(part => part.trim())
     .filter(Boolean);
 
   if (parts.length <= 1) {
@@ -102,7 +102,7 @@ function dedupeClausesInSentence(sentence: string, priorText = ""): string {
   const kept: string[] = [];
 
   for (const part of parts) {
-    const clause = part.replace(/[.!?]+$/, "").trim();
+    const clause = part.replace(/[.!?]+$/, '').trim();
     if (!clause) {
       continue;
     }
@@ -120,7 +120,7 @@ function dedupeClausesInSentence(sentence: string, priorText = ""): string {
     return sentence;
   }
 
-  return kept.join(", ");
+  return kept.join(', ');
 }
 
 function dedupeRedundantClauses(text: string): string {
@@ -129,7 +129,7 @@ function dedupeRedundantClauses(text: string): string {
     return text;
   }
 
-  let prior = "";
+  let prior = '';
   const kept: string[] = [];
 
   for (const sentence of sentences) {
@@ -142,7 +142,7 @@ function dedupeRedundantClauses(text: string): string {
     prior = `${prior} ${cleaned}`.trim();
   }
 
-  return kept.join(" ");
+  return kept.join(' ');
 }
 
 function shortenEquivalentPhrases(text: string): string {
@@ -154,32 +154,24 @@ function shortenEquivalentPhrases(text: string): string {
 }
 
 function dedupeNearDuplicateTags(tags: string[]): string[] {
-  const normalized = tags
-    .map((tag) => tag.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
+  const normalized = tags.map(tag => tag.replace(/\s+/g, ' ').trim()).filter(Boolean);
 
   const kept: string[] = [];
 
   for (const tag of normalized) {
     const lower = tag.toLowerCase();
-    const subsumed = kept.some((existing) => {
+    const subsumed = kept.some(existing => {
       const existingLower = existing.toLowerCase();
-      return (
-        existingLower.includes(lower) &&
-        existingLower.length >= lower.length + 4
-      );
+      return existingLower.includes(lower) && existingLower.length >= lower.length + 4;
     });
 
     if (subsumed) {
       continue;
     }
 
-    const withoutShorter = kept.filter((existing) => {
+    const withoutShorter = kept.filter(existing => {
       const existingLower = existing.toLowerCase();
-      return !(
-        lower.includes(existingLower) &&
-        lower.length >= existingLower.length + 4
-      );
+      return !(lower.includes(existingLower) && lower.length >= existingLower.length + 4);
     });
 
     withoutShorter.push(tag);
@@ -192,14 +184,14 @@ function dedupeNearDuplicateTags(tags: string[]): string[] {
 
 function polishCompactProse(text: string): string {
   return text
-    .replace(/\s+,/g, ",")
-    .replace(/,\s*,+/g, ", ")
-    .replace(/,\s+(?=[.!?]|$)/g, "")
-    .replace(/\(\s*\)/g, "")
-    .replace(/\bwith\s+,/gi, ",")
-    .replace(/\b,\s*and\s*,/gi, ", ")
-    .replace(/,\s*\./g, ".")
-    .replace(/\s+/g, " ")
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,+/g, ', ')
+    .replace(/,\s+(?=[.!?]|$)/g, '')
+    .replace(/\(\s*\)/g, '')
+    .replace(/\bwith\s+,/gi, ',')
+    .replace(/\b,\s*and\s*,/gi, ', ')
+    .replace(/,\s*\./g, '.')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -210,14 +202,14 @@ export function compactPromptProse(text: string): string {
   }
 
   cleaned = splitSentences(cleaned)
-    .filter((sentence) => !isExpansionBeatSentence(sentence))
-    .join(" ");
+    .filter(sentence => !isExpansionBeatSentence(sentence))
+    .join(' ');
 
   for (const pattern of PROSE_NOISE_PHRASES) {
-    cleaned = cleaned.replace(pattern, "");
+    cleaned = cleaned.replace(pattern, '');
   }
 
-  cleaned = cleaned.replace(WEAK_FILLER_WORDS, "");
+  cleaned = cleaned.replace(WEAK_FILLER_WORDS, '');
   cleaned = shortenEquivalentPhrases(cleaned);
   cleaned = dedupeRedundantClauses(cleaned);
   return polishCompactProse(cleaned);
@@ -225,7 +217,7 @@ export function compactPromptProse(text: string): string {
 
 export function compactPromptTags(text: string): string {
   const tags = dedupeNearDuplicateTags(
-    splitTags(text).filter((tag) => !TAG_NOISE.has(tag.toLowerCase().trim())),
+    splitTags(text).filter(tag => !TAG_NOISE.has(tag.toLowerCase().trim()))
   );
   if (tags.length === 0) {
     return text.trim();
@@ -233,16 +225,13 @@ export function compactPromptTags(text: string): string {
   return joinTags(tags);
 }
 
-export function compactPromptForProfile(
-  text: string,
-  profile: PromptProfileId,
-): string {
+export function compactPromptForProfile(text: string, profile: PromptProfileId): string {
   const trimmed = text.trim();
   if (!trimmed) {
     return trimmed;
   }
 
-  if (isEditInstructionProfile(profile) || profile === "instruct_pix2pix") {
+  if (isEditInstructionProfile(profile) || profile === 'instruct_pix2pix') {
     return trimmed;
   }
 

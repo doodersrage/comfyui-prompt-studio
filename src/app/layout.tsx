@@ -1,49 +1,49 @@
-import type { Metadata, Viewport } from "next";
-import { Suspense } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
-import ThemeInit from "@/components/ThemeInit";
-import TabSyncInit from "@/components/TabSyncInit";
-import AmbientBackground from "@/components/AmbientBackground";
-import AppNav from "@/components/AppNav";
-import { AuthProvider } from "@/hooks/useAuth";
-import ComfyGalleryBackgroundPoller from "@/components/ComfyGalleryBackgroundPoller";
-import UserScopeInit from "@/components/UserScopeInit";
-import AutoStorageSyncInit from "@/components/AutoStorageSyncInit";
-import DeferredShellClient from "@/components/DeferredShellClient";
-import "./globals.css";
+import type { Metadata, Viewport } from 'next';
+import { Suspense } from 'react';
+import { Geist, Geist_Mono } from 'next/font/google';
+import ThemeInit from '@/components/ThemeInit';
+import TabSyncInit from '@/components/TabSyncInit';
+import AmbientBackground from '@/components/AmbientBackground';
+import AppNav from '@/components/AppNav';
+import { AuthProvider } from '@/hooks/useAuth';
+import ComfyGalleryBackgroundPoller from '@/components/ComfyGalleryBackgroundPoller';
+import UserScopeInit from '@/components/UserScopeInit';
+import AutoStorageSyncInit from '@/components/AutoStorageSyncInit';
+import DeferredShellClient from '@/components/DeferredShellClient';
+import './globals.css';
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "Prompt Studio",
-    template: "%s · Prompt Studio",
+    default: 'Prompt Studio',
+    template: '%s · Prompt Studio',
   },
   description:
-    "Prompt, queue, and gallery studio for ComfyUI — image, video, audio, and 3D workflows.",
-  applicationName: "Prompt Studio",
-  manifest: "/manifest.json",
+    'Prompt, queue, and gallery studio for ComfyUI — image, video, audio, and 3D workflows.',
+  applicationName: 'Prompt Studio',
+  manifest: '/manifest.json',
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    shortcut: ["/icon.svg"],
-  }
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    shortcut: ['/icon.svg'],
+  },
 };
 
 // Add themeColor directly to viewport to avoid flicker on initial load
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0b0f14" },
-    { media: "(prefers-color-scheme: light)", color: "#0b0f14" },
-  ]
+    { media: '(prefers-color-scheme: dark)', color: '#0b0f14' },
+    { media: '(prefers-color-scheme: light)', color: '#0b0f14' },
+  ],
 };
 
 // Inline script for initial hydration to prevent FOUC

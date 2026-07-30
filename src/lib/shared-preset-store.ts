@@ -1,6 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
-import { resolvePromptDataDir } from "@/lib/prompt-data-paths";
+import fs from 'node:fs';
+import path from 'node:path';
+import { resolvePromptDataDir } from '@/lib/prompt-data-paths';
 
 export type SharedPresetEntry = {
   id: string;
@@ -22,19 +22,19 @@ type SharedPresetDocument = {
 function presetPath(): string {
   const base = resolvePromptDataDir();
   fs.mkdirSync(base, { recursive: true });
-  return path.join(base, "shared-presets.json");
+  return path.join(base, 'shared-presets.json');
 }
 
 function readDocument(): SharedPresetDocument {
   try {
-    return JSON.parse(fs.readFileSync(presetPath(), "utf8")) as SharedPresetDocument;
+    return JSON.parse(fs.readFileSync(presetPath(), 'utf8')) as SharedPresetDocument;
   } catch {
     return { version: 1, presets: [] };
   }
 }
 
 function writeDocument(document: SharedPresetDocument): void {
-  fs.writeFileSync(presetPath(), JSON.stringify(document, null, 2), "utf8");
+  fs.writeFileSync(presetPath(), JSON.stringify(document, null, 2), 'utf8');
 }
 
 export function listSharedPresets(): SharedPresetEntry[] {
@@ -42,14 +42,14 @@ export function listSharedPresets(): SharedPresetEntry[] {
 }
 
 export function upsertSharedPreset(
-  input: Omit<SharedPresetEntry, "id" | "createdAt" | "updatedAt"> & { id?: string },
+  input: Omit<SharedPresetEntry, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
 ): SharedPresetEntry {
   const document = readDocument();
   const now = Date.now();
   const index = input.id
-    ? document.presets.findIndex((entry) => entry.id === input.id)
+    ? document.presets.findIndex(entry => entry.id === input.id)
     : document.presets.findIndex(
-        (entry) => entry.label.trim().toLowerCase() === input.label.trim().toLowerCase(),
+        entry => entry.label.trim().toLowerCase() === input.label.trim().toLowerCase()
       );
 
   const next: SharedPresetEntry = {
@@ -76,6 +76,6 @@ export function upsertSharedPreset(
 
 export function deleteSharedPreset(id: string): void {
   const document = readDocument();
-  document.presets = document.presets.filter((entry) => entry.id !== id);
+  document.presets = document.presets.filter(entry => entry.id !== id);
   writeDocument(document);
 }

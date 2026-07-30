@@ -1,17 +1,16 @@
-import type { SceneStarterPreset } from "./scene-starter-types";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import type { SceneStarterPreset } from './scene-starter-types';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-export const USER_SCENE_STARTER_PRESETS_KEY =
-  "comfy-prompt-user-scene-starter-presets-v1";
+export const USER_SCENE_STARTER_PRESETS_KEY = 'comfy-prompt-user-scene-starter-presets-v1';
 
 export type UserSceneStarterPreset = SceneStarterPreset & {
   createdAt: number;
   favorite?: boolean;
-  source?: "user" | "promoted";
+  source?: 'user' | 'promoted';
 };
 
 export function loadUserSceneStarterPresets(): UserSceneStarterPreset[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   try {
@@ -21,17 +20,15 @@ export function loadUserSceneStarterPresets(): UserSceneStarterPreset[] {
   }
 }
 
-export function saveUserSceneStarterPresets(
-  presets: UserSceneStarterPreset[],
-): void {
-  if (typeof window === "undefined") {
+export function saveUserSceneStarterPresets(presets: UserSceneStarterPreset[]): void {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(USER_SCENE_STARTER_PRESETS_KEY, presets.slice(0, 80));
 }
 
 export function createUserSceneStarterPreset(
-  input: Omit<UserSceneStarterPreset, "id" | "createdAt"> & { id?: string },
+  input: Omit<UserSceneStarterPreset, 'id' | 'createdAt'> & { id?: string }
 ): UserSceneStarterPreset {
   return {
     ...input,
@@ -41,11 +38,9 @@ export function createUserSceneStarterPreset(
   };
 }
 
-export function upsertUserSceneStarterPreset(
-  preset: UserSceneStarterPreset,
-): void {
+export function upsertUserSceneStarterPreset(preset: UserSceneStarterPreset): void {
   const presets = loadUserSceneStarterPresets();
-  const index = presets.findIndex((entry) => entry.id === preset.id);
+  const index = presets.findIndex(entry => entry.id === preset.id);
   if (index >= 0) {
     presets[index] = preset;
   } else {
@@ -55,14 +50,12 @@ export function upsertUserSceneStarterPreset(
 }
 
 export function deleteUserSceneStarterPreset(id: string): void {
-  saveUserSceneStarterPresets(
-    loadUserSceneStarterPresets().filter((entry) => entry.id !== id),
-  );
+  saveUserSceneStarterPresets(loadUserSceneStarterPresets().filter(entry => entry.id !== id));
 }
 
 export function toggleUserSceneStarterFavorite(id: string): void {
   const presets = loadUserSceneStarterPresets();
-  const index = presets.findIndex((entry) => entry.id === id);
+  const index = presets.findIndex(entry => entry.id === id);
   if (index < 0) {
     return;
   }
@@ -76,17 +69,17 @@ export function toggleUserSceneStarterFavorite(id: string): void {
 export function buildUserSceneStarterFromHints(input: {
   label: string;
   hints: string;
-  category?: UserSceneStarterPreset["category"];
-  portraitStyle?: UserSceneStarterPreset["portraitStyle"];
+  category?: UserSceneStarterPreset['category'];
+  portraitStyle?: UserSceneStarterPreset['portraitStyle'];
   duo?: boolean;
-  source?: UserSceneStarterPreset["source"];
+  source?: UserSceneStarterPreset['source'];
 }): UserSceneStarterPreset {
   return createUserSceneStarterPreset({
     label: input.label.trim(),
     hints: input.hints.trim(),
-    category: input.category ?? "lifestyle",
+    category: input.category ?? 'lifestyle',
     portraitStyle: input.portraitStyle,
     duo: input.duo,
-    source: input.source ?? "user",
+    source: input.source ?? 'user',
   });
 }

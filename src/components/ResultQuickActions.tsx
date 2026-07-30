@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { CollapsibleSection } from "@/components/ui/ToolPageShell";
-import { loadPromptRecipes, runPromptRecipeSteps, type PromptRecipe } from "@/lib/prompt-recipes";
+import { useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { CollapsibleSection } from '@/components/ui/ToolPageShell';
+import { loadPromptRecipes, runPromptRecipeSteps, type PromptRecipe } from '@/lib/prompt-recipes';
 import {
   queueSameSeedShootout,
   queueFamilySameSeedShootout,
   DEFAULT_SHOOTOUT_MODELS,
-} from "@/lib/model-shootout";
-import { modelsInSameFamily } from "@/lib/model-workflow-map";
-import { toastHeldMax } from "@/lib/app-toast";
+} from '@/lib/model-shootout';
+import { modelsInSameFamily } from '@/lib/model-workflow-map';
+import { toastHeldMax } from '@/lib/app-toast';
 
 type ResultQuickActionsProps = {
   prompt: string;
@@ -22,7 +22,7 @@ type ResultQuickActionsProps = {
 export default function ResultQuickActions({
   prompt,
   negativePrompt,
-  model = "sdxl",
+  model = 'sdxl',
   seed,
 }: ResultQuickActionsProps) {
   const [status, setStatus] = useState<string | null>(null);
@@ -35,21 +35,21 @@ export default function ResultQuickActions({
   async function runRecipe(recipe: PromptRecipe) {
     setStatus(`Running ${recipe.name}…`);
     const result = await runPromptRecipeSteps(prompt, recipe.steps, model);
-    setStatus(result.log.join(" · "));
+    setStatus(result.log.join(' · '));
   }
 
   async function runShootout() {
-    setStatus("Queueing model shootout…");
+    setStatus('Queueing model shootout…');
     const resolvedSeed = seed ?? Math.floor(Math.random() * 1_000_000);
     const result = await queueSameSeedShootout({
       prompt: prompt.trim(),
       negativePrompt,
-      models: DEFAULT_SHOOTOUT_MODELS.map((entry) => entry.model),
+      models: DEFAULT_SHOOTOUT_MODELS.map(entry => entry.model),
       seed: resolvedSeed,
     });
     if (result.held > 0) {
       toastHeldMax({
-        text: "Max shootout jobs held until ComfyUI is idle",
+        text: 'Max shootout jobs held until ComfyUI is idle',
         count: result.held,
       });
     }
@@ -60,12 +60,12 @@ export default function ResultQuickActions({
         result.errors.length > 0 ? result.errors[0] : `seed ${resolvedSeed}`,
       ]
         .filter(Boolean)
-        .join(" · "),
+        .join(' · ')
     );
   }
 
   async function runFamilyShootout() {
-    setStatus("Queueing family shootout…");
+    setStatus('Queueing family shootout…');
     const resolvedSeed = seed ?? Math.floor(Math.random() * 1_000_000);
     const result = await queueFamilySameSeedShootout({
       prompt: prompt.trim(),
@@ -75,7 +75,7 @@ export default function ResultQuickActions({
     });
     if (result.held > 0) {
       toastHeldMax({
-        text: "Max family shootout held until ComfyUI is idle",
+        text: 'Max family shootout held until ComfyUI is idle',
         count: result.held,
       });
     }
@@ -86,7 +86,7 @@ export default function ResultQuickActions({
         result.errors.length > 0 ? result.errors[0] : `seed ${resolvedSeed}`,
       ]
         .filter(Boolean)
-        .join(" · "),
+        .join(' · ')
     );
   }
 
@@ -109,15 +109,13 @@ export default function ResultQuickActions({
             Family shootout
           </Button>
         ) : null}
-        {recipes.map((recipe) => (
+        {recipes.map(recipe => (
           <Button key={recipe.id} variant="ghost" size="sm" onClick={() => void runRecipe(recipe)}>
             {recipe.name}
           </Button>
         ))}
       </div>
-      {status ? (
-        <p className="type-caption text-[var(--tint-success-text)]">{status}</p>
-      ) : null}
+      {status ? <p className="type-caption text-[var(--tint-success-text)]">{status}</p> : null}
     </CollapsibleSection>
   );
 }

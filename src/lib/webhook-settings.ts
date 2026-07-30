@@ -1,26 +1,26 @@
-import type { WorkflowParamValues } from "./comfyui-config";
-import { appendWebhookLogEntry } from "./webhook-log";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
-import { formatWebhookPayload } from "./webhook-payload";
+import type { WorkflowParamValues } from './comfyui-config';
+import { appendWebhookLogEntry } from './webhook-log';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
+import { formatWebhookPayload } from './webhook-payload';
 
-export const WEBHOOK_SETTINGS_KEY = "comfy-prompt-webhook-v1";
+export const WEBHOOK_SETTINGS_KEY = 'comfy-prompt-webhook-v1';
 
 export type WebhookSettings = {
   enabled: boolean;
   url?: string;
   secret?: string;
-  template?: import("./webhook-payload").WebhookTemplate;
+  template?: import('./webhook-payload').WebhookTemplate;
 };
 
 export const DEFAULT_WEBHOOK_SETTINGS: WebhookSettings = {
   enabled: false,
-  url: "",
-  secret: "",
-  template: "generic",
+  url: '',
+  secret: '',
+  template: 'generic',
 };
 
 export function loadWebhookSettings(): WebhookSettings {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return DEFAULT_WEBHOOK_SETTINGS;
   }
   try {
@@ -35,19 +35,19 @@ export function loadWebhookSettings(): WebhookSettings {
 }
 
 export function saveWebhookSettings(settings: WebhookSettings): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(WEBHOOK_SETTINGS_KEY, settings);
 }
 
 export type WebhookEvent =
-  | "comfyui.job.completed"
-  | "comfyui.job.error"
-  | "comfyui.job.queued"
-  | "comfyui.batch.completed"
-  | "scheduled.batch.run"
-  | "scheduled.batch.completed";
+  | 'comfyui.job.completed'
+  | 'comfyui.job.error'
+  | 'comfyui.job.queued'
+  | 'comfyui.batch.completed'
+  | 'scheduled.batch.run'
+  | 'scheduled.batch.completed';
 
 export type WebhookJobPayload = {
   event: WebhookEvent;
@@ -72,13 +72,13 @@ export async function dispatchWebhook(payload: WebhookJobPayload): Promise<boole
   }
 
   try {
-    const response = await fetch("/api/webhooks/dispatch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const response = await fetch('/api/webhooks/dispatch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url: settings.url.trim(),
         secret: settings.secret?.trim() || undefined,
-        template: settings.template ?? "generic",
+        template: settings.template ?? 'generic',
         payload,
       }),
     });
@@ -86,7 +86,7 @@ export async function dispatchWebhook(payload: WebhookJobPayload): Promise<boole
     appendWebhookLogEntry({
       ok,
       url: settings.url.trim(),
-      message: ok ? "Delivered" : "Dispatch failed",
+      message: ok ? 'Delivered' : 'Dispatch failed',
       payload,
     });
     return ok;
@@ -94,7 +94,7 @@ export async function dispatchWebhook(payload: WebhookJobPayload): Promise<boole
     appendWebhookLogEntry({
       ok: false,
       url: settings.url.trim(),
-      message: error instanceof Error ? error.message : "Dispatch error",
+      message: error instanceof Error ? error.message : 'Dispatch error',
       payload,
     });
     return false;

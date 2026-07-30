@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
-import { loadSettingsCache } from "./settings-cache";
-import { auditLoaderMapsAgainstComfyUi } from "./loader-map-health-audit";
-import { fetchComfyObjectInfoModelsCached } from "./comfyui-object-info-cache";
-import { resolveComfyUiRuntime } from "./comfyui-runtime";
-import type { ComfyUiModelLists } from "./comfyui-object-info";
-import { auditLoaderFilenamesInWorkflow } from "./workflow-loader-filename-audit";
-import type { WorkflowPreflightIssue } from "./workflow-preflight";
-import { auditDualClipNodesInWorkflow } from "./workflow-dual-clip-audit";
+import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from './comfyui-settings';
+import { loadSettingsCache } from './settings-cache';
+import { auditLoaderMapsAgainstComfyUi } from './loader-map-health-audit';
+import { fetchComfyObjectInfoModelsCached } from './comfyui-object-info-cache';
+import { resolveComfyUiRuntime } from './comfyui-runtime';
+import type { ComfyUiModelLists } from './comfyui-object-info';
+import { auditLoaderFilenamesInWorkflow } from './workflow-loader-filename-audit';
+import type { WorkflowPreflightIssue } from './workflow-preflight';
+import { auditDualClipNodesInWorkflow } from './workflow-dual-clip-audit';
 
 export { auditDualClipNodesInWorkflow };
 
@@ -23,9 +23,9 @@ export async function auditLoaderMapsAtQueueTime(input?: {
   if (!models) {
     return [
       {
-        severity: "warn",
+        severity: 'warn',
         message:
-          "ComfyUI object_info unavailable — skipped loader map and filename inventory checks.",
+          'ComfyUI object_info unavailable — skipped loader map and filename inventory checks.',
       },
     ];
   }
@@ -48,11 +48,7 @@ export async function auditLoaderMapsAtQueueTime(input?: {
       ? { [model]: checkpointMap[model]! }
       : {}
     : checkpointMap;
-  const scopedVae = model
-    ? vaeMap[model]?.trim()
-      ? { [model]: vaeMap[model]! }
-      : {}
-    : vaeMap;
+  const scopedVae = model ? (vaeMap[model]?.trim() ? { [model]: vaeMap[model]! } : {}) : vaeMap;
   const scopedUpscale = model
     ? {
         ...(upscaleMap[model]?.trim() ? { [model]: upscaleMap[model]! } : {}),
@@ -61,12 +57,8 @@ export async function auditLoaderMapsAtQueueTime(input?: {
     : upscaleMap;
   const scopedControlNet = model
     ? {
-        ...(controlNetMap[model]?.trim()
-          ? { [model]: controlNetMap[model]! }
-          : {}),
-        ...(controlNetMap.default?.trim()
-          ? { default: controlNetMap.default }
-          : {}),
+        ...(controlNetMap[model]?.trim() ? { [model]: controlNetMap[model]! } : {}),
+        ...(controlNetMap.default?.trim() ? { default: controlNetMap.default } : {}),
       }
     : controlNetMap;
 
@@ -78,7 +70,7 @@ export async function auditLoaderMapsAtQueueTime(input?: {
       controlNetMap: scopedControlNet,
       customTokens: settings.customTokens,
       models,
-    }).map((issue) => ({
+    }).map(issue => ({
       severity: issue.severity,
       message: issue.message,
     })),
@@ -89,7 +81,7 @@ export async function auditLoaderMapsAtQueueTime(input?: {
     ...auditLoaderFilenamesInWorkflow({
       workflowJson: input?.workflowJson,
       models,
-    }).map((issue) => ({
+    }).map(issue => ({
       severity: issue.severity,
       message: issue.message,
     })),

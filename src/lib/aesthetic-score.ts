@@ -1,6 +1,6 @@
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
 
-export type AestheticScoreMethod = "heuristic" | "vision" | "embedding";
+export type AestheticScoreMethod = 'heuristic' | 'vision' | 'embedding';
 
 export type AestheticScoreResult = {
   score: number;
@@ -18,22 +18,22 @@ export function scoreGalleryEntryHeuristic(entry: ComfyGalleryEntry): AestheticS
   }
   if (entry.favorite) {
     score += 10;
-    notes.push("Favorited");
+    notes.push('Favorited');
   }
-  if (entry.status === "completed") {
+  if (entry.status === 'completed') {
     score += 5;
-  } else if (entry.status === "error") {
+  } else if (entry.status === 'error') {
     score -= 20;
-    notes.push("Job failed");
+    notes.push('Job failed');
   }
   if (entry.prompt.length >= 80 && entry.prompt.length <= 420) {
     score += 5;
-    notes.push("Prompt length in healthy range");
+    notes.push('Prompt length in healthy range');
   }
 
   return {
     score: Math.max(0, Math.min(100, Math.round(score))),
-    method: "heuristic",
+    method: 'heuristic',
     notes,
   };
 }

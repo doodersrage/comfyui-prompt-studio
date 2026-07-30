@@ -1,14 +1,12 @@
-const CHANNEL = "comfy-prompt-studio-sync-v1";
+const CHANNEL = 'comfy-prompt-studio-sync-v1';
 
 export type TabSyncMessage =
-  | { type: "gallery-updated" }
-  | { type: "history-updated" }
-  | { type: "settings-updated" };
+  { type: 'gallery-updated' } | { type: 'history-updated' } | { type: 'settings-updated' };
 
 let channel: BroadcastChannel | null = null;
 
 function getChannel(): BroadcastChannel | null {
-  if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") {
+  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') {
     return null;
   }
   if (!channel) {
@@ -31,6 +29,6 @@ export function subscribeTabSync(handler: (message: TabSyncMessage) => void): ()
       handler(event.data);
     }
   };
-  ch.addEventListener("message", listener);
-  return () => ch.removeEventListener("message", listener);
+  ch.addEventListener('message', listener);
+  return () => ch.removeEventListener('message', listener);
 }

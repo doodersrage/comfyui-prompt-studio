@@ -9,26 +9,26 @@
 import {
   patchRegionalTokensInWorkflow,
   type RegionalPromptSegment,
-} from "./regional-prompt-builder";
+} from './regional-prompt-builder';
 import {
   regionalSlotsHaveContent,
   regionalSlotsHaveMasks,
   regionalSlotsToSegments,
   type RegionalPromptSlot,
-} from "./regional-prompt-slots";
+} from './regional-prompt-slots';
 
 export const REGIONAL_NODE_CLASSES = [
-  "AttentionCouple",
-  "AttentionCoupleRegion",
-  "RegionalPromptSimple",
-  "RegionalPrompt",
-  "ConditioningSetMask",
-  "ConditioningSetMaskAndCombine",
+  'AttentionCouple',
+  'AttentionCoupleRegion',
+  'RegionalPromptSimple',
+  'RegionalPrompt',
+  'ConditioningSetMask',
+  'ConditioningSetMaskAndCombine',
 ] as const;
 
-export type RegionalEditMode = "nodes" | "fallback-text" | "none";
+export type RegionalEditMode = 'nodes' | 'fallback-text' | 'none';
 
-export type RegionalEditHealthStatus = "ready" | "fallback-text" | "missing";
+export type RegionalEditHealthStatus = 'ready' | 'fallback-text' | 'missing';
 
 export type RegionalEditHealth = {
   status: RegionalEditHealthStatus;
@@ -50,13 +50,11 @@ function toTypeSet(available?: Iterable<string> | null): Set<string> | undefined
   return available instanceof Set ? available : new Set(available);
 }
 
-function workflowHasRegionalNodes(
-  workflow: Record<string, WorkflowNode>,
-): boolean {
-  return Object.values(workflow).some((node) =>
-    REGIONAL_NODE_CLASSES.some((cls) =>
-      (node?.class_type ?? "").toLowerCase().includes(cls.toLowerCase()),
-    ),
+function workflowHasRegionalNodes(workflow: Record<string, WorkflowNode>): boolean {
+  return Object.values(workflow).some(node =>
+    REGIONAL_NODE_CLASSES.some(cls =>
+      (node?.class_type ?? '').toLowerCase().includes(cls.toLowerCase())
+    )
   );
 }
 
@@ -64,7 +62,7 @@ function inventoryHasRegionalNodes(available?: Set<string>): boolean | null {
   if (!available) {
     return null;
   }
-  return REGIONAL_NODE_CLASSES.some((cls) => available.has(cls));
+  return REGIONAL_NODE_CLASSES.some(cls => available.has(cls));
 }
 
 export function resolveRegionalEditHealth(input: {
@@ -80,30 +78,29 @@ export function resolveRegionalEditHealth(input: {
 
   if (inGraph || inventory === true) {
     return {
-      status: "ready",
-      label: "Ready",
+      status: 'ready',
+      label: 'Ready',
       detail: inGraph
-        ? "Regional/attention nodes in workflow — slot prompts and masks will bind."
-        : "Regional nodes installed — BYO packs or auto-bind when present in graph.",
-      mode: "nodes",
+        ? 'Regional/attention nodes in workflow — slot prompts and masks will bind.'
+        : 'Regional nodes installed — BYO packs or auto-bind when present in graph.',
+      mode: 'nodes',
     };
   }
 
   if (hasContent) {
     return {
-      status: "fallback-text",
-      label: "Text fallback",
-      detail:
-        "No regional nodes detected — prompts inject as {{REGION_*}} labels only.",
-      mode: "fallback-text",
+      status: 'fallback-text',
+      label: 'Text fallback',
+      detail: 'No regional nodes detected — prompts inject as {{REGION_*}} labels only.',
+      mode: 'fallback-text',
     };
   }
 
   return {
-    status: "missing",
-    label: "Idle",
-    detail: "Add region prompts (and optional masks) to enable regional edit.",
-    mode: "none",
+    status: 'missing',
+    label: 'Idle',
+    detail: 'Add region prompts (and optional masks) to enable regional edit.',
+    mode: 'none',
   };
 }
 
@@ -124,9 +121,9 @@ function isMaskLikeField(key: string): boolean {
  */
 export function patchRegionalNodesInWorkflow(
   workflow: Record<string, unknown>,
-  slots: RegionalPromptSlot[],
+  slots: RegionalPromptSlot[]
 ): { workflow: Record<string, unknown>; patched: number } {
-  const filled = slots.filter((slot) => slot.prompt.trim());
+  const filled = slots.filter(slot => slot.prompt.trim());
   if (filled.length === 0) {
     return { workflow, patched: 0 };
   }
@@ -138,9 +135,9 @@ export function patchRegionalNodesInWorkflow(
   let slotIndex = 0;
 
   const regionalEntries = Object.entries(next).filter(([, node]) =>
-    REGIONAL_NODE_CLASSES.some((cls) =>
-      (node?.class_type ?? "").toLowerCase().includes(cls.toLowerCase()),
-    ),
+    REGIONAL_NODE_CLASSES.some(cls =>
+      (node?.class_type ?? '').toLowerCase().includes(cls.toLowerCase())
+    )
   );
 
   for (const [, node] of regionalEntries) {
@@ -150,25 +147,25 @@ export function patchRegionalNodesInWorkflow(
     const slot = filled[slotIndex];
     let touched = false;
     for (const [key, value] of Object.entries(node.inputs)) {
-      if (isPromptLikeField(key) && typeof value === "string") {
+      if (isPromptLikeField(key) && typeof value === 'string') {
         node.inputs[key] = slot.prompt.trim();
         touched = true;
       }
       if (
         isMaskLikeField(key) &&
-        typeof value === "string" &&
+        typeof value === 'string' &&
         slot.maskFilename?.trim() &&
         !Array.isArray(value)
       ) {
         // Only overwrite filename-like string fields (not links).
-        if (!value.includes("{{") && !value.startsWith("[")) {
+        if (!value.includes('{{') && !value.startsWith('[')) {
           node.inputs[key] = slot.maskFilename.trim();
           touched = true;
         }
       }
       if (
         /strength|weight/i.test(key) &&
-        (typeof value === "number" || typeof value === "string")
+        (typeof value === 'number' || typeof value === 'string')
       ) {
         node.inputs[key] = slot.strength;
         touched = true;
@@ -182,10 +179,10 @@ export function patchRegionalNodesInWorkflow(
 
   // Also bind LoadImage nodes titled Region N / mask N to slot masks.
   for (const [id, node] of Object.entries(next)) {
-    if (node?.class_type !== "LoadImage" && node?.class_type !== "LoadImageMask") {
+    if (node?.class_type !== 'LoadImage' && node?.class_type !== 'LoadImageMask') {
       continue;
     }
-    const title = (node._meta?.title ?? "").toLowerCase();
+    const title = (node._meta?.title ?? '').toLowerCase();
     const match = title.match(/region\s*(\d+)|mask\s*(\d+)/i);
     if (!match) {
       continue;
@@ -195,7 +192,7 @@ export function patchRegionalNodesInWorkflow(
     if (!slot?.maskFilename?.trim() || !node.inputs) {
       continue;
     }
-    if (typeof node.inputs.image === "string") {
+    if (typeof node.inputs.image === 'string') {
       node.inputs.image = slot.maskFilename.trim();
       patched += 1;
       next[id] = node;
@@ -220,7 +217,7 @@ export type ApplyRegionalEditResult = {
 export function applyRegionalEditToWorkflow(
   workflow: Record<string, unknown>,
   slots: RegionalPromptSlot[],
-  options?: { availableNodeTypes?: Iterable<string> | null },
+  options?: { availableNodeTypes?: Iterable<string> | null }
 ): ApplyRegionalEditResult {
   const graph = workflow as Record<string, WorkflowNode>;
   const hasNodes = workflowHasRegionalNodes(graph);
@@ -236,19 +233,18 @@ export function applyRegionalEditToWorkflow(
     workflowHasRegional: hasNodes || nodePatch.patched > 0,
   });
 
-  let mode: RegionalEditMode = "none";
+  let mode: RegionalEditMode = 'none';
   let statusNote: string | null = null;
   if (!regionalSlotsHaveContent(slots)) {
-    mode = "none";
+    mode = 'none';
   } else if (nodePatch.patched > 0 || hasNodes) {
-    mode = "nodes";
+    mode = 'nodes';
     statusNote = `Regional nodes · ${nodePatch.patched} bound${
-      regionalSlotsHaveMasks(slots) ? " · masks" : ""
+      regionalSlotsHaveMasks(slots) ? ' · masks' : ''
     }`;
   } else if (tokenPatch.patched > 0 || segments.length > 0) {
-    mode = "fallback-text";
-    statusNote =
-      "Regional text fallback · {{REGION_*}} (no AttentionCouple/RegionalPrompt nodes)";
+    mode = 'fallback-text';
+    statusNote = 'Regional text fallback · {{REGION_*}} (no AttentionCouple/RegionalPrompt nodes)';
   }
 
   return {

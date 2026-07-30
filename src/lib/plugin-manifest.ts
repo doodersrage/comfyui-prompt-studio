@@ -3,12 +3,9 @@
  * Bookmarks stay in tool-plugin-registry; this is the installable runtime schema.
  */
 
-import type { AppNavGroup, AppNavLink } from "./app-nav-catalog";
-import { APP_NAV_GROUPS, mergePluginLinksIntoNav } from "./app-nav-catalog";
-import {
-  loadSettingsCache,
-  saveSettingsCache,
-} from "./settings-cache";
+import type { AppNavGroup, AppNavLink } from './app-nav-catalog';
+import { APP_NAV_GROUPS, mergePluginLinksIntoNav } from './app-nav-catalog';
+import { loadSettingsCache, saveSettingsCache } from './settings-cache';
 
 export type PluginManifestNavLink = {
   href: string;
@@ -42,7 +39,7 @@ export type PluginManifest = {
 const MAX_INSTALLED_PLUGINS = 24;
 
 function asTrimmedString(value: unknown): string | null {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null;
   }
   const trimmed = value.trim();
@@ -50,7 +47,7 @@ function asTrimmedString(value: unknown): string | null {
 }
 
 function normalizeNavLink(value: unknown): PluginManifestNavLink | null {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== 'object') {
     return null;
   }
   const raw = value as Record<string, unknown>;
@@ -59,7 +56,7 @@ function normalizeNavLink(value: unknown): PluginManifestNavLink | null {
   if (!href || !label) {
     return null;
   }
-  if (!href.startsWith("/")) {
+  if (!href.startsWith('/')) {
     return null;
   }
   return {
@@ -70,7 +67,7 @@ function normalizeNavLink(value: unknown): PluginManifestNavLink | null {
 }
 
 function normalizeQueueHooks(value: unknown): PluginManifestQueueHooks | undefined {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== 'object') {
     return undefined;
   }
   const raw = value as Record<string, unknown>;
@@ -78,40 +75,40 @@ function normalizeQueueHooks(value: unknown): PluginManifestQueueHooks | undefin
   if (!url) {
     return undefined;
   }
-  if (!url.startsWith("/") && !/^https?:\/\//i.test(url)) {
+  if (!url.startsWith('/') && !/^https?:\/\//i.test(url)) {
     return undefined;
   }
   const eventsRaw = raw.events;
   let events: string[] = [];
   if (Array.isArray(eventsRaw)) {
     events = eventsRaw
-      .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+      .map(entry => (typeof entry === 'string' ? entry.trim() : ''))
       .filter(Boolean);
-  } else if (typeof eventsRaw === "string" && eventsRaw.trim()) {
+  } else if (typeof eventsRaw === 'string' && eventsRaw.trim()) {
     events = [eventsRaw.trim()];
   }
   if (events.length === 0) {
-    events = ["queue-preflight"];
+    events = ['queue-preflight'];
   }
   return { url, events };
 }
 
 function normalizeTool(value: unknown): PluginManifestTool | null {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== 'object') {
     return null;
   }
   const raw = value as Record<string, unknown>;
-  const id = asTrimmedString(raw.id)?.toLowerCase().replace(/\s+/g, "-");
+  const id = asTrimmedString(raw.id)?.toLowerCase().replace(/\s+/g, '-');
   const title = asTrimmedString(raw.title);
   if (!id || !title) {
     return null;
   }
   const iframeUrl = asTrimmedString(raw.iframeUrl) ?? undefined;
   const route = asTrimmedString(raw.route) ?? undefined;
-  if (iframeUrl && !/^https?:\/\//i.test(iframeUrl) && !iframeUrl.startsWith("/")) {
+  if (iframeUrl && !/^https?:\/\//i.test(iframeUrl) && !iframeUrl.startsWith('/')) {
     return null;
   }
-  if (route && !route.startsWith("/")) {
+  if (route && !route.startsWith('/')) {
     return null;
   }
   return {
@@ -127,11 +124,11 @@ function normalizeTool(value: unknown): PluginManifestTool | null {
  * are missing or invalid.
  */
 export function normalizePluginManifest(input: unknown): PluginManifest | null {
-  if (!input || typeof input !== "object") {
+  if (!input || typeof input !== 'object') {
     return null;
   }
   const raw = input as Record<string, unknown>;
-  const id = asTrimmedString(raw.id)?.toLowerCase().replace(/\s+/g, "-");
+  const id = asTrimmedString(raw.id)?.toLowerCase().replace(/\s+/g, '-');
   const label = asTrimmedString(raw.label);
   const version = asTrimmedString(raw.version);
   if (!id || !label || !version) {
@@ -139,7 +136,9 @@ export function normalizePluginManifest(input: unknown): PluginManifest | null {
   }
 
   const nav = Array.isArray(raw.nav)
-    ? raw.nav.map(normalizeNavLink).filter((entry): entry is PluginManifestNavLink => Boolean(entry))
+    ? raw.nav
+        .map(normalizeNavLink)
+        .filter((entry): entry is PluginManifestNavLink => Boolean(entry))
     : undefined;
   const tools = Array.isArray(raw.tools)
     ? raw.tools.map(normalizeTool).filter((entry): entry is PluginManifestTool => Boolean(entry))
@@ -178,7 +177,7 @@ export function normalizeInstalledPlugins(input: unknown): PluginManifest[] {
 }
 
 export function loadInstalledPlugins(): PluginManifest[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   try {
@@ -189,7 +188,7 @@ export function loadInstalledPlugins(): PluginManifest[] {
 }
 
 export function saveInstalledPlugins(plugins: PluginManifest[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   const cache = loadSettingsCache();
@@ -202,9 +201,9 @@ export function saveInstalledPlugins(plugins: PluginManifest[]): void {
 export function upsertInstalledPlugin(manifest: PluginManifest): PluginManifest[] {
   const normalized = normalizePluginManifest(manifest);
   if (!normalized) {
-    throw new Error("Invalid plugin manifest.");
+    throw new Error('Invalid plugin manifest.');
   }
-  const existing = loadInstalledPlugins().filter((entry) => entry.id !== normalized.id);
+  const existing = loadInstalledPlugins().filter(entry => entry.id !== normalized.id);
   const next = [...existing, normalized].slice(0, MAX_INSTALLED_PLUGINS);
   saveInstalledPlugins(next);
   return next;
@@ -212,8 +211,8 @@ export function upsertInstalledPlugin(manifest: PluginManifest): PluginManifest[
 
 export function setInstalledPluginEnabled(id: string, enabled: boolean): PluginManifest[] {
   const key = id.trim().toLowerCase();
-  const next = loadInstalledPlugins().map((entry) =>
-    entry.id === key ? { ...entry, enabled } : entry,
+  const next = loadInstalledPlugins().map(entry =>
+    entry.id === key ? { ...entry, enabled } : entry
   );
   saveInstalledPlugins(next);
   return next;
@@ -221,25 +220,25 @@ export function setInstalledPluginEnabled(id: string, enabled: boolean): PluginM
 
 export function removeInstalledPlugin(id: string): PluginManifest[] {
   const key = id.trim().toLowerCase();
-  const next = loadInstalledPlugins().filter((entry) => entry.id !== key);
+  const next = loadInstalledPlugins().filter(entry => entry.id !== key);
   saveInstalledPlugins(next);
   return next;
 }
 
 export function getInstalledPlugin(id: string): PluginManifest | null {
   const key = id.trim().toLowerCase();
-  return loadInstalledPlugins().find((entry) => entry.id === key) ?? null;
+  return loadInstalledPlugins().find(entry => entry.id === key) ?? null;
 }
 
 /** Nav links contributed by enabled installed plugins. */
 export function navLinksFromInstalledPlugins(
-  plugins: PluginManifest[] = loadInstalledPlugins(),
+  plugins: PluginManifest[] = loadInstalledPlugins()
 ): AppNavLink[] {
   const links: AppNavLink[] = [];
   const seen = new Set<string>();
 
   const push = (link: AppNavLink) => {
-    const path = link.href.split("?")[0] ?? link.href;
+    const path = link.href.split('?')[0] ?? link.href;
     if (seen.has(path)) {
       return;
     }
@@ -273,7 +272,7 @@ export function navLinksFromInstalledPlugins(
         }
       }
     }
-    if (!plugin.nav?.length && !plugin.tools?.some((tool) => tool.route || tool.iframeUrl)) {
+    if (!plugin.nav?.length && !plugin.tools?.some(tool => tool.route || tool.iframeUrl)) {
       push({
         href: `/plugins/${plugin.id}`,
         label: plugin.label,
@@ -288,7 +287,7 @@ export function navLinksFromInstalledPlugins(
 /** Merge installed plugin nav into the Tools group (or a Plugins group fallback). */
 export function appNavGroupsWithInstalledPlugins(
   plugins: PluginManifest[] = loadInstalledPlugins(),
-  groups: AppNavGroup[] = APP_NAV_GROUPS,
+  groups: AppNavGroup[] = APP_NAV_GROUPS
 ): AppNavGroup[] {
   return mergePluginLinksIntoNav(groups, navLinksFromInstalledPlugins(plugins));
 }
@@ -298,8 +297,8 @@ export function primaryToolForPlugin(plugin: PluginManifest): PluginManifestTool
     return null;
   }
   return (
-    plugin.tools.find((tool) => tool.iframeUrl) ??
-    plugin.tools.find((tool) => tool.route) ??
+    plugin.tools.find(tool => tool.iframeUrl) ??
+    plugin.tools.find(tool => tool.route) ??
     plugin.tools[0] ??
     null
   );

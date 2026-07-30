@@ -1,7 +1,7 @@
-import { getComfyUiBaseUrl } from "./comfyui-client";
-import type { ComfyUiRuntimeConfig, WorkflowParamValues } from "./comfyui-config";
-export { extractParamsFromWorkflow } from "./workflow-param-extract";
-import { extractParamsFromWorkflow } from "./workflow-param-extract";
+import { getComfyUiBaseUrl } from './comfyui-client';
+import type { ComfyUiRuntimeConfig, WorkflowParamValues } from './comfyui-config';
+export { extractParamsFromWorkflow } from './workflow-param-extract';
+import { extractParamsFromWorkflow } from './workflow-param-extract';
 
 type ComfyHistoryEntry = {
   prompt?: unknown[];
@@ -27,16 +27,14 @@ export type ComfyHistoryWorkflowResult = {
 
 const MAX_WORKFLOW_CHARS = 12000;
 
-function extractWorkflowFromHistoryEntry(
-  entry: ComfyHistoryEntry,
-): Record<string, unknown> | null {
+function extractWorkflowFromHistoryEntry(entry: ComfyHistoryEntry): Record<string, unknown> | null {
   const promptField = entry.prompt;
   if (!Array.isArray(promptField) || promptField.length < 3) {
     return null;
   }
 
   const workflow = promptField[2];
-  if (!workflow || typeof workflow !== "object" || Array.isArray(workflow)) {
+  if (!workflow || typeof workflow !== 'object' || Array.isArray(workflow)) {
     return null;
   }
 
@@ -45,12 +43,12 @@ function extractWorkflowFromHistoryEntry(
 
 export function listWorkflowNodeInputs(
   workflow: Record<string, unknown>,
-  limit = 80,
-): ComfyHistoryWorkflowResult["nodeInputs"] {
-  const rows: NonNullable<ComfyHistoryWorkflowResult["nodeInputs"]> = [];
+  limit = 80
+): ComfyHistoryWorkflowResult['nodeInputs'] {
+  const rows: NonNullable<ComfyHistoryWorkflowResult['nodeInputs']> = [];
 
   for (const [nodeId, node] of Object.entries(workflow)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
 
@@ -64,11 +62,7 @@ export function listWorkflowNodeInputs(
     }
 
     for (const [input, value] of Object.entries(inputs)) {
-      if (
-        typeof value === "string" ||
-        typeof value === "number" ||
-        typeof value === "boolean"
-      ) {
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
         rows.push({
           nodeId,
           classType: record.class_type,
@@ -87,11 +81,11 @@ export function listWorkflowNodeInputs(
 
 export async function fetchComfyUiHistoryWorkflow(
   promptId: string,
-  runtime?: ComfyUiRuntimeConfig,
+  runtime?: ComfyUiRuntimeConfig
 ): Promise<ComfyHistoryWorkflowResult> {
   const trimmedId = promptId.trim();
   if (!trimmedId) {
-    return { ok: false, error: "promptId is required.", promptId: "", comfyUrl: "" };
+    return { ok: false, error: 'promptId is required.', promptId: '', comfyUrl: '' };
   }
 
   let comfyUrl: string;
@@ -100,9 +94,9 @@ export async function fetchComfyUiHistoryWorkflow(
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : "Invalid ComfyUI URL.",
+      error: error instanceof Error ? error.message : 'Invalid ComfyUI URL.',
       promptId: trimmedId,
-      comfyUrl: "",
+      comfyUrl: '',
     };
   }
 
@@ -125,7 +119,7 @@ export async function fetchComfyUiHistoryWorkflow(
     if (!entry) {
       return {
         ok: false,
-        error: "Job not found in ComfyUI history.",
+        error: 'Job not found in ComfyUI history.',
         promptId: trimmedId,
         comfyUrl,
       };
@@ -135,7 +129,7 @@ export async function fetchComfyUiHistoryWorkflow(
     if (!workflow) {
       return {
         ok: false,
-        error: "No workflow payload in ComfyUI history entry.",
+        error: 'No workflow payload in ComfyUI history entry.',
         promptId: trimmedId,
         comfyUrl,
       };
@@ -149,9 +143,7 @@ export async function fetchComfyUiHistoryWorkflow(
       promptId: trimmedId,
       comfyUrl,
       workflow,
-      workflowJson: truncated
-        ? `${workflowJson.slice(0, MAX_WORKFLOW_CHARS)}\n…`
-        : workflowJson,
+      workflowJson: truncated ? `${workflowJson.slice(0, MAX_WORKFLOW_CHARS)}\n…` : workflowJson,
       extractedParams: extractParamsFromWorkflow(workflow),
       nodeInputs: listWorkflowNodeInputs(workflow),
       truncated,
@@ -159,7 +151,7 @@ export async function fetchComfyUiHistoryWorkflow(
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : "Failed to fetch ComfyUI history.",
+      error: error instanceof Error ? error.message : 'Failed to fetch ComfyUI history.',
       promptId: trimmedId,
       comfyUrl,
     };

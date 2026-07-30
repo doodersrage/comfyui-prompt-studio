@@ -2,26 +2,24 @@ import {
   createLoraLibraryEntryFromFilename,
   normalizeLoraLibrary,
   type LoraLibraryEntry,
-} from "./lora-stack";
-import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
+} from './lora-stack';
+import { isFluxFineTuneCheckpointModel } from './model-checkpoint-map';
 
 /** Stable Settings / model-map id for Danrisi Realism Amplifier. */
-export const ULTRAREAL_AMPLIFIER_LORA_ID = "ultrareal-amplifier";
+export const ULTRAREAL_AMPLIFIER_LORA_ID = 'ultrareal-amplifier';
 
 /** Civitai tip: 0.5–0.7 amplifies realism; 0.9–1.0 goes Nokia/digicam.
  * Prefer mid-low of the band — 0.7 + d1g1cam pushes glossy contrast/overbake. */
 export const ULTRAREAL_AMPLIFIER_STRENGTH = 0.55;
 
 /** Official Realistic Amplifier trigger — must appear in the positive prompt. */
-export const ULTRAREAL_AMPLIFIER_TRIGGER = "d1g1cam";
+export const ULTRAREAL_AMPLIFIER_TRIGGER = 'd1g1cam';
 
 const AMPLIFIER_NAME_RE =
   /realistic?\s*amplifier|realism\s*amplifier|amplifier.*ultrareal|ultrareal.*amplifier/i;
 
-export function loraFilenameLooksLikeUltraRealAmplifier(
-  filename: string | undefined,
-): boolean {
-  const name = filename?.trim() ?? "";
+export function loraFilenameLooksLikeUltraRealAmplifier(filename: string | undefined): boolean {
+  const name = filename?.trim() ?? '';
   if (!name) {
     return false;
   }
@@ -34,36 +32,29 @@ export function loraFilenameLooksLikeUltraRealAmplifier(
 
 /** Prefer Danrisi Realistic Amplifier from ComfyUI loras/. */
 export function pickUltraRealAmplifierFromInventory(
-  loras: string[] | undefined | null,
+  loras: string[] | undefined | null
 ): string | undefined {
-  const pool = (loras ?? []).map((name) => name.trim()).filter(Boolean);
-  const exact = pool.find((name) =>
-    /realistic\s+amplifier\s+for\s+ultrareal/i.test(name),
-  );
+  const pool = (loras ?? []).map(name => name.trim()).filter(Boolean);
+  const exact = pool.find(name => /realistic\s+amplifier\s+for\s+ultrareal/i.test(name));
   if (exact) {
     return exact;
   }
-  return pool.find((name) => loraFilenameLooksLikeUltraRealAmplifier(name));
+  return pool.find(name => loraFilenameLooksLikeUltraRealAmplifier(name));
 }
 
 /** Prefix `d1g1cam` when missing so the amplifier LoRA actually fires. */
-export function ensureUltraRealAmplifierTriggerInPrompt(
-  positive: string | undefined,
-): string {
-  const text = positive?.trim() ?? "";
+export function ensureUltraRealAmplifierTriggerInPrompt(positive: string | undefined): string {
+  const text = positive?.trim() ?? '';
   if (!text) {
     return ULTRAREAL_AMPLIFIER_TRIGGER;
   }
-  if (new RegExp(`\\b${ULTRAREAL_AMPLIFIER_TRIGGER}\\b`, "i").test(text)) {
+  if (new RegExp(`\\b${ULTRAREAL_AMPLIFIER_TRIGGER}\\b`, 'i').test(text)) {
     return text;
   }
   return `${ULTRAREAL_AMPLIFIER_TRIGGER}, ${text}`;
 }
 
-function withAmplifierDefaults(
-  entry: LoraLibraryEntry,
-  filename: string,
-): LoraLibraryEntry {
+function withAmplifierDefaults(entry: LoraLibraryEntry, filename: string): LoraLibraryEntry {
   return {
     ...entry,
     tokenValue: entry.tokenValue?.trim() || filename,
@@ -71,7 +62,7 @@ function withAmplifierDefaults(
     strengthClip: ULTRAREAL_AMPLIFIER_STRENGTH,
     enabled: true,
     triggerPhrase: entry.triggerPhrase?.trim() || ULTRAREAL_AMPLIFIER_TRIGGER,
-    label: entry.label.trim() || "Realism Amplifier (UltraReal)",
+    label: entry.label.trim() || 'Realism Amplifier (UltraReal)',
   };
 }
 
@@ -81,7 +72,7 @@ function withAmplifierDefaults(
  */
 export function ensureUltraRealAmplifierInLibrary(
   library: LoraLibraryEntry[] | undefined,
-  amplifierFilename: string | undefined,
+  amplifierFilename: string | undefined
 ): LoraLibraryEntry[] {
   const normalized = normalizeLoraLibrary(library);
   const filename = amplifierFilename?.trim();
@@ -89,11 +80,9 @@ export function ensureUltraRealAmplifierInLibrary(
     return normalized;
   }
 
-  const byId = normalized.find(
-    (entry) => entry.id.trim() === ULTRAREAL_AMPLIFIER_LORA_ID,
-  );
+  const byId = normalized.find(entry => entry.id.trim() === ULTRAREAL_AMPLIFIER_LORA_ID);
   if (byId) {
-    return normalized.map((entry) => {
+    return normalized.map(entry => {
       if (entry.id.trim() !== ULTRAREAL_AMPLIFIER_LORA_ID) {
         return entry;
       }
@@ -105,12 +94,12 @@ export function ensureUltraRealAmplifierInLibrary(
   }
 
   const byFilename = normalized.find(
-    (entry) =>
+    entry =>
       entry.tokenValue.trim().toLowerCase() === filename.toLowerCase() ||
-      loraFilenameLooksLikeUltraRealAmplifier(entry.tokenValue),
+      loraFilenameLooksLikeUltraRealAmplifier(entry.tokenValue)
   );
   if (byFilename) {
-    return normalized.map((entry) => {
+    return normalized.map(entry => {
       if (entry.id !== byFilename.id) {
         return entry;
       }
@@ -128,7 +117,7 @@ export function ensureUltraRealAmplifierInLibrary(
     {
       ...withAmplifierDefaults(created, filename),
       id: ULTRAREAL_AMPLIFIER_LORA_ID,
-      label: "Realism Amplifier (UltraReal)",
+      label: 'Realism Amplifier (UltraReal)',
       tokenValue: filename,
     },
   ];
@@ -138,15 +127,15 @@ export function ensureUltraRealAmplifierInLibrary(
 export function enrichLoraLibraryForUltraRealModel(
   model: string | undefined,
   library: LoraLibraryEntry[] | undefined,
-  availableLoras?: string[] | null,
+  availableLoras?: string[] | null
 ): LoraLibraryEntry[] {
   if (!isFluxFineTuneCheckpointModel(model)) {
     return normalizeLoraLibrary(library);
   }
   const amplifier =
     pickUltraRealAmplifierFromInventory(availableLoras) ??
-    normalizeLoraLibrary(library).find((entry) =>
-      loraFilenameLooksLikeUltraRealAmplifier(entry.tokenValue),
+    normalizeLoraLibrary(library).find(entry =>
+      loraFilenameLooksLikeUltraRealAmplifier(entry.tokenValue)
     )?.tokenValue;
   return ensureUltraRealAmplifierInLibrary(library, amplifier);
 }

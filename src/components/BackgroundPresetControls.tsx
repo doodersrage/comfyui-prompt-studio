@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { useEffect, useMemo, useState } from 'react';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
   BACKGROUND_PRESET_UI_SECTIONS,
   BACKGROUND_SURFACE_MATERIAL_OPTIONS,
@@ -14,9 +14,9 @@ import {
   type BackgroundPresetOptions,
   type BackgroundPresetUiField,
   type BackgroundPresetUiSection,
-} from "@/lib/background-options";
-import type { BackgroundToolCache } from "@/lib/settings-cache";
-import { SelectInput, TextInput } from "@/components/ui/Field";
+} from '@/lib/background-options';
+import type { BackgroundToolCache } from '@/lib/settings-cache';
+import { SelectInput, TextInput } from '@/components/ui/Field';
 
 function BackgroundSelect({
   label,
@@ -32,12 +32,9 @@ function BackgroundSelect({
   return (
     <label className="space-y-2">
       <span className="type-heading">{label}</span>
-      <SelectInput
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {options.map((option) => (
-          <option key={option.value || "default"} value={option.value}>
+      <SelectInput value={value} onChange={event => onChange(event.target.value)}>
+        {options.map(option => (
+          <option key={option.value || 'default'} value={option.value}>
             {option.label}
           </option>
         ))}
@@ -55,13 +52,13 @@ function PresetField({
   settings: BackgroundToolCache;
   onChange: (patch: Partial<BackgroundToolCache>) => void;
 }) {
-  if (field.kind === "select") {
+  if (field.kind === 'select') {
     return (
       <BackgroundSelect
         label={field.label}
-        value={(settings[field.key] as string | undefined) ?? ""}
+        value={(settings[field.key] as string | undefined) ?? ''}
         options={getSelectOptionsForBackgroundPresetKey(field.key)}
-        onChange={(value) => onChange({ [field.key]: value })}
+        onChange={value => onChange({ [field.key]: value })}
       />
     );
   }
@@ -70,10 +67,8 @@ function PresetField({
     <label className="space-y-2 sm:col-span-2">
       <span className="type-heading">{field.label}</span>
       <TextInput
-        value={settings.environmentDetail ?? ""}
-        onChange={(event) =>
-          onChange({ environmentDetail: event.target.value })
-        }
+        value={settings.environmentDetail ?? ''}
+        onChange={event => onChange({ environmentDetail: event.target.value })}
         placeholder={field.placeholder}
       />
     </label>
@@ -111,26 +106,26 @@ function MaterialSection({
       </summary>
       <div className="border-t border-zinc-800/80 px-4 pb-4 pt-3">
         <div className="flex flex-wrap gap-2">
-          {BACKGROUND_SURFACE_MATERIAL_OPTIONS.map((option) => {
+          {BACKGROUND_SURFACE_MATERIAL_OPTIONS.map(option => {
             const active = selected.has(option.value);
             return (
               <label
                 key={option.value}
                 className={`cursor-pointer rounded-lg border px-3 py-2 text-xs font-medium ${
                   active
-                    ? "border-teal-500 bg-teal-500/15 text-teal-200"
-                    : "border-zinc-700 text-zinc-400"
+                    ? 'border-teal-500 bg-teal-500/15 text-teal-200'
+                    : 'border-zinc-700 text-zinc-400'
                 }`}
               >
                 <input
                   type="checkbox"
                   checked={active}
-                  onChange={(event) =>
+                  onChange={event =>
                     onChange({
                       surfaceMaterials: toggleBackgroundSurfaceMaterial(
                         settings.surfaceMaterials,
                         option.value,
-                        event.target.checked,
+                        event.target.checked
                       ),
                     })
                   }
@@ -156,10 +151,7 @@ function PresetSection({
   onChange: (patch: Partial<BackgroundToolCache>) => void;
 }) {
   const presetOptions = presetOptionsFromBackgroundCache(settings);
-  const sectionCount = countBackgroundPresetSectionSelections(
-    section.id,
-    presetOptions,
-  );
+  const sectionCount = countBackgroundPresetSectionSelections(section.id, presetOptions);
 
   return (
     <details
@@ -182,7 +174,7 @@ function PresetSection({
         </div>
       </summary>
       <div className="grid gap-3 border-t border-zinc-800/80 px-4 pb-4 pt-3 sm:grid-cols-2">
-        {section.fields.map((field) => (
+        {section.fields.map(field => (
           <PresetField
             key={`${section.id}-${field.key}`}
             field={field}
@@ -206,10 +198,7 @@ export default function BackgroundPresetControls({
   settings,
   onChange,
 }: BackgroundPresetControlsProps) {
-  const presetOptions = useMemo(
-    () => presetOptionsFromBackgroundCache(settings),
-    [settings],
-  );
+  const presetOptions = useMemo(() => presetOptionsFromBackgroundCache(settings), [settings]);
 
   const activeCount = countBackgroundPresetSelections(presetOptions);
   const [open, setOpen] = useState(false);
@@ -225,7 +214,7 @@ export default function BackgroundPresetControls({
   return (
     <details
       open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onToggle={event => setOpen(event.currentTarget.open)}
       className="group border-t border-zinc-800 pt-4"
     >
       <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
@@ -233,9 +222,8 @@ export default function BackgroundPresetControls({
           <div className="space-y-1">
             <p className="type-heading">Background presets (optional)</p>
             <p className="text-xs leading-relaxed text-zinc-500">
-              Archetype, scale, perspective, depth, atmosphere, palette,
-              lighting, clutter, materials, and custom environment anchors—collapsed
-              by default.
+              Archetype, scale, perspective, depth, atmosphere, palette, lighting, clutter,
+              materials, and custom environment anchors—collapsed by default.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-0.5">
@@ -250,7 +238,7 @@ export default function BackgroundPresetControls({
       </summary>
 
       <div className="mt-4 space-y-3">
-        {BACKGROUND_PRESET_UI_SECTIONS.map((section) => (
+        {BACKGROUND_PRESET_UI_SECTIONS.map(section => (
           <PresetSection
             key={section.id}
             section={section}
@@ -259,11 +247,7 @@ export default function BackgroundPresetControls({
           />
         ))}
 
-        <MaterialSection
-          settings={settings}
-          presetOptions={presetOptions}
-          onChange={onChange}
-        />
+        <MaterialSection settings={settings} presetOptions={presetOptions} onChange={onChange} />
 
         {activeCount > 0 && (
           <button

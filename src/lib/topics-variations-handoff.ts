@@ -1,43 +1,36 @@
-import type { BatchFromTopicsItem } from "./batch-from-topics";
-import {
-  loadSettingsCache,
-  saveSettingsCache,
-  type VariationsToolCache,
-} from "./settings-cache";
+import type { BatchFromTopicsItem } from './batch-from-topics';
+import { loadSettingsCache, saveSettingsCache, type VariationsToolCache } from './settings-cache';
 
-export const TOPICS_VARIATIONS_HANDOFF_KEY = "topics-variations-handoff-v1";
+export const TOPICS_VARIATIONS_HANDOFF_KEY = 'topics-variations-handoff-v1';
 
 export type TopicsVariationsHandoff = {
   hints: string;
   prompts: string[];
   topics: string[];
-  target: VariationsToolCache["target"];
+  target: VariationsToolCache['target'];
   model?: string;
   savedAt: number;
 };
 
 export function buildTopicsVariationsHandoff(
   results: BatchFromTopicsItem[],
-  target: NonNullable<VariationsToolCache["target"]>,
-  seedTopic?: string,
+  target: NonNullable<VariationsToolCache['target']>,
+  seedTopic?: string
 ): TopicsVariationsHandoff {
   return {
-    hints: seedTopic?.trim() || results[0]?.topic || "",
-    prompts: results.map((entry) => entry.prompt),
-    topics: results.map((entry) => entry.topic),
+    hints: seedTopic?.trim() || results[0]?.topic || '',
+    prompts: results.map(entry => entry.prompt),
+    topics: results.map(entry => entry.topic),
     target,
     savedAt: Date.now(),
   };
 }
 
 export function saveTopicsVariationsHandoff(payload: TopicsVariationsHandoff): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
-  window.sessionStorage.setItem(
-    TOPICS_VARIATIONS_HANDOFF_KEY,
-    JSON.stringify(payload),
-  );
+  window.sessionStorage.setItem(TOPICS_VARIATIONS_HANDOFF_KEY, JSON.stringify(payload));
 
   const cache = loadSettingsCache();
   saveSettingsCache({
@@ -57,7 +50,7 @@ export function saveTopicsVariationsHandoff(payload: TopicsVariationsHandoff): v
 }
 
 export function loadTopicsVariationsHandoff(): TopicsVariationsHandoff | null {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return null;
   }
 
@@ -77,5 +70,5 @@ export function loadTopicsVariationsHandoff(): TopicsVariationsHandoff | null {
 }
 
 export function variationsPathFromTopics(): string {
-  return "/variations?from=topics";
+  return '/variations?from=topics';
 }

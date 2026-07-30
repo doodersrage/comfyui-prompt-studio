@@ -2,11 +2,11 @@ import {
   pickDistinctIdentitySeeds,
   pickDistinctSubjects,
   type SubjectGender,
-} from "./variation-seed";
-import { inferAthleticSport } from "./athletic-sport-profiles";
-import type { DetailLevel } from "./detail-level";
-import type { GenerationSettings } from "./generation-settings";
-import { findDistinctPeopleSentenceIndexes } from "./prompt-shape";
+} from './variation-seed';
+import { inferAthleticSport } from './athletic-sport-profiles';
+import type { DetailLevel } from './detail-level';
+import type { GenerationSettings } from './generation-settings';
+import { findDistinctPeopleSentenceIndexes } from './prompt-shape';
 
 export type PeopleConstraint = {
   count: number | null;
@@ -27,16 +27,13 @@ function parseCount(raw: string): number {
 }
 
 const PERSON_NOUNS =
-  "men|man|women|woman|people|persons|person|guys|guy|girls|girl|boys|boy|figures|characters|models|friends|strangers|lovers|dancers|soldiers|students|teachers|artists|models";
+  'men|man|women|woman|people|persons|person|guys|guy|girls|girl|boys|boy|figures|characters|models|friends|strangers|lovers|dancers|soldiers|students|teachers|artists|models';
 
-const COUNT_WORDS = "two|three|four|five|six|seven|eight|\\d+";
+const COUNT_WORDS = 'two|three|four|five|six|seven|eight|\\d+';
 
 function matchCountAndGender(lower: string): PeopleConstraint | null {
   const numericMatch = lower.match(
-    new RegExp(
-      `\\b(${COUNT_WORDS})\\s+(?:\\w+\\s+){0,4}(${PERSON_NOUNS})\\b`,
-      "i",
-    ),
+    new RegExp(`\\b(${COUNT_WORDS})\\s+(?:\\w+\\s+){0,4}(${PERSON_NOUNS})\\b`, 'i')
   );
 
   if (numericMatch) {
@@ -56,24 +53,16 @@ function matchAndPair(lower: string): PeopleConstraint | null {
     /\b(woman|women|girl|girls|female)\b.*\band\b.*\b(man|men|boy|boys|guy|guys|male)\b/,
   ];
 
-  if (mixedPatterns.some((pattern) => pattern.test(lower))) {
-    return { count: 2, gender: "mixed" };
+  if (mixedPatterns.some(pattern => pattern.test(lower))) {
+    return { count: 2, gender: 'mixed' };
   }
 
-  if (
-    /\b(man|men|boy|boys|guy|guys)\b.*\band\b.*\b(man|men|boy|boys|guy|guys)\b/.test(
-      lower,
-    )
-  ) {
-    return { count: 2, gender: "men" };
+  if (/\b(man|men|boy|boys|guy|guys)\b.*\band\b.*\b(man|men|boy|boys|guy|guys)\b/.test(lower)) {
+    return { count: 2, gender: 'men' };
   }
 
-  if (
-    /\b(woman|women|girl|girls)\b.*\band\b.*\b(woman|women|girl|girls)\b/.test(
-      lower,
-    )
-  ) {
-    return { count: 2, gender: "women" };
+  if (/\b(woman|women|girl|girls)\b.*\band\b.*\b(woman|women|girl|girls)\b/.test(lower)) {
+    return { count: 2, gender: 'women' };
   }
 
   return null;
@@ -81,37 +70,37 @@ function matchAndPair(lower: string): PeopleConstraint | null {
 
 function matchExplicitTwo(lower: string): PeopleConstraint | null {
   if (/\b(two|2)\s+(women|woman|girls|girl|female)\b/.test(lower)) {
-    return { count: 2, gender: "women" };
+    return { count: 2, gender: 'women' };
   }
 
   if (/\b(two|2)\s+(men|man|guys|guy|boys|boy|male)\b/.test(lower)) {
-    return { count: 2, gender: "men" };
+    return { count: 2, gender: 'men' };
   }
 
   if (/\bboth\s+(women|woman|girls|girl)\b/.test(lower)) {
-    return { count: 2, gender: "women" };
+    return { count: 2, gender: 'women' };
   }
 
   if (/\bboth\s+(men|man|guys|guy|boys|boy)\b/.test(lower)) {
-    return { count: 2, gender: "men" };
+    return { count: 2, gender: 'men' };
   }
 
   if (/\b(twins|twin sisters|twin brothers)\b/.test(lower)) {
     if (/\bbrother|male|men\b/.test(lower)) {
-      return { count: 2, gender: "men" };
+      return { count: 2, gender: 'men' };
     }
     if (/\bsister|female|women\b/.test(lower)) {
-      return { count: 2, gender: "women" };
+      return { count: 2, gender: 'women' };
     }
-    return { count: 2, gender: "any" };
+    return { count: 2, gender: 'any' };
   }
 
   if (/\bsisters\b/.test(lower)) {
-    return { count: 2, gender: "women" };
+    return { count: 2, gender: 'women' };
   }
 
   if (/\bbrothers\b/.test(lower)) {
-    return { count: 2, gender: "men" };
+    return { count: 2, gender: 'men' };
   }
 
   return null;
@@ -119,12 +108,12 @@ function matchExplicitTwo(lower: string): PeopleConstraint | null {
 
 function nounToGender(noun: string): SubjectGender {
   if (/^(men|man|guys|guy|boys|boy)$/.test(noun)) {
-    return "men";
+    return 'men';
   }
   if (/^(women|woman|girls|girl)$/.test(noun)) {
-    return "women";
+    return 'women';
   }
-  return "any";
+  return 'any';
 }
 
 export function parsePeopleConstraint(input: string): PeopleConstraint {
@@ -134,21 +123,21 @@ export function parsePeopleConstraint(input: string): PeopleConstraint {
     matchCountAndGender(lower) ??
     matchExplicitTwo(lower) ??
     matchAndPair(lower) ??
-    matchCouplePhrase(lower, input) ??
-    { count: null, gender: "any" }
+    matchCouplePhrase(lower, input) ?? { count: null, gender: 'any' }
   );
 }
 
-function matchCouplePhrase(
-  lower: string,
-  input: string,
-): PeopleConstraint | null {
+function matchCouplePhrase(lower: string, input: string): PeopleConstraint | null {
   if (/\bduo\b/.test(lower) || /\btwosome\b/.test(lower) || /\bboth of them\b/.test(lower)) {
     return resolveCoupleGender(input);
   }
 
   if (/\bcouple\b/.test(lower)) {
-    if (/\bcouple of (?:minutes|hours|days|weeks|months|years|times|soft|hard|quick|brief|seconds)\b/.test(lower)) {
+    if (
+      /\bcouple of (?:minutes|hours|days|weeks|months|years|times|soft|hard|quick|brief|seconds)\b/.test(
+        lower
+      )
+    ) {
       return null;
     }
     return resolveCoupleGender(input);
@@ -157,7 +146,7 @@ function matchCouplePhrase(
   if (/\bpair\b/.test(lower)) {
     if (
       /\bpair of (?:\w+\s+){0,4}(?:men|women|people|persons|friends|lovers|strangers|students|dancers|models|cyclists|runners|athletes|figures|characters)\b/.test(
-        lower,
+        lower
       )
     ) {
       return resolveCoupleGender(input);
@@ -170,12 +159,12 @@ function matchCouplePhrase(
 
 function resolveCoupleGender(input: string): PeopleConstraint {
   if (/\b(two men|2 men|gay men|men only)\b/i.test(input)) {
-    return { count: 2, gender: "men" };
+    return { count: 2, gender: 'men' };
   }
   if (/\b(two women|2 women|lesbian|women only)\b/i.test(input)) {
-    return { count: 2, gender: "women" };
+    return { count: 2, gender: 'women' };
   }
-  return { count: 2, gender: "mixed" };
+  return { count: 2, gender: 'mixed' };
 }
 
 export function countImpliedPeople(input: string): number | null {
@@ -209,16 +198,16 @@ export function inferSubjectGenderFromHints(text: string): SubjectGender | undef
   }
 
   const constraint = parsePeopleConstraint(trimmed);
-  if (constraint.gender === "women" || constraint.gender === "men") {
+  if (constraint.gender === 'women' || constraint.gender === 'men') {
     return constraint.gender;
   }
 
   if (EXPLICIT_WOMAN_SUBJECT.test(trimmed)) {
-    return "women";
+    return 'women';
   }
 
   if (EXPLICIT_MAN_SUBJECT.test(trimmed)) {
-    return "men";
+    return 'men';
   }
 
   return undefined;
@@ -240,15 +229,15 @@ export function hasDistinctPeopleStructure(text: string): boolean {
   }
 
   const sentences = text
-    .replace(/\s+/g, " ")
+    .replace(/\s+/g, ' ')
     .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
+    .map(sentence => sentence.trim())
     .filter(Boolean);
 
-  const placementSentences = sentences.filter((sentence) =>
+  const placementSentences = sentences.filter(sentence =>
     /\b(on the left|on the right|to the left|to the right|left side|right side|in the foreground|in the midground)\b/i.test(
-      sentence,
-    ),
+      sentence
+    )
   );
 
   if (placementSentences.length >= 2) {
@@ -266,14 +255,14 @@ export function buildDistinctPeopleUserDirective(input: string): string {
 
   if (count === 2) {
     return [
-      "PEOPLE (mandatory): Two separate individuals—one sentence for the person on the left, then one for the person on the right.",
-      "Keep each person sentence compact: distinct face, hair, skin tone, age read, pose, and brief clothing—do not spend the whole prompt on one woman.",
-      "The two people must look like clearly different individuals, not two generic models with only different shirt colors.",
+      'PEOPLE (mandatory): Two separate individuals—one sentence for the person on the left, then one for the person on the right.',
+      'Keep each person sentence compact: distinct face, hair, skin tone, age read, pose, and brief clothing—do not spend the whole prompt on one woman.',
+      'The two people must look like clearly different individuals, not two generic models with only different shirt colors.',
       genderRule,
-      "Do not merge them into one couple blob or a single shared description.",
+      'Do not merge them into one couple blob or a single shared description.',
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(' ');
   }
 
   if (count > 2) {
@@ -282,21 +271,21 @@ export function buildDistinctPeopleUserDirective(input: string): string {
       genderRule,
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(' ');
   }
 
   return [
-    "PEOPLE (mandatory): If multiple people appear, one short sentence each—fully separate individuals.",
+    'PEOPLE (mandatory): If multiple people appear, one short sentence each—fully separate individuals.',
     genderRule,
   ]
     .filter(Boolean)
-    .join(" ");
+    .join(' ');
 }
 
 export function ensureDistinctPeoplePrompt(
   prompt: string,
   input: string,
-  settings: GenerationSettings,
+  settings: GenerationSettings
 ): string {
   if (!settings.distinctPeople || !isMultiPersonInput(input)) {
     return prompt;
@@ -318,21 +307,15 @@ export function ensureDistinctPeoplePrompt(
 
 function extractSceneSetting(input: string): string {
   const stripped = input
-    .replace(
-      new RegExp(
-        `\\b(${COUNT_WORDS})\\s+(?:\\w+\\s+){0,4}(${PERSON_NOUNS})\\b`,
-        "gi",
-      ),
-      "",
-    )
+    .replace(new RegExp(`\\b(${COUNT_WORDS})\\s+(?:\\w+\\s+){0,4}(${PERSON_NOUNS})\\b`, 'gi'), '')
     .replace(
       /\b(man|men|boy|boys|guy|guys|woman|women|girl|girls)\b\s+\band\b\s+\b(man|men|boy|boys|guy|guys|woman|women|girl|girls)\b/gi,
-      "",
+      ''
     )
-    .replace(/\b(two|2)\s+(female|male|women|men|woman|man)\b/gi, "")
-    .replace(/\b(twins|sisters|brothers|both\s+\w+)\b/gi, "")
-    .replace(/\b(couple|pair|duo|twosome)\b/gi, "")
-    .replace(/^[,;\s|]+|[,;\s|]+$/g, "")
+    .replace(/\b(two|2)\s+(female|male|women|men|woman|man)\b/gi, '')
+    .replace(/\b(twins|sisters|brothers|both\s+\w+)\b/gi, '')
+    .replace(/\b(couple|pair|duo|twosome)\b/gi, '')
+    .replace(/^[,;\s|]+|[,;\s|]+$/g, '')
     .trim();
 
   return stripped || input.trim();
@@ -344,26 +327,26 @@ function capitalize(s: string): string {
 }
 
 function genderMandate(gender: SubjectGender): string {
-  if (gender === "women") {
-    return "Both people MUST be women. Do not introduce men or masculine figures.";
+  if (gender === 'women') {
+    return 'Both people MUST be women. Do not introduce men or masculine figures.';
   }
-  if (gender === "men") {
-    return "Both people MUST be men. Do not introduce women or feminine figures.";
+  if (gender === 'men') {
+    return 'Both people MUST be men. Do not introduce women or feminine figures.';
   }
-  if (gender === "mixed") {
-    return "The pair must be one man and one woman unless the topic states otherwise.";
+  if (gender === 'mixed') {
+    return 'The pair must be one man and one woman unless the topic states otherwise.';
   }
-  return "";
+  return '';
 }
 
 function groupedLabel(constraint: PeopleConstraint): string {
-  if (constraint.gender === "women") {
-    return "Two women";
+  if (constraint.gender === 'women') {
+    return 'Two women';
   }
-  if (constraint.gender === "men") {
-    return "Two men";
+  if (constraint.gender === 'men') {
+    return 'Two men';
   }
-  return "A couple";
+  return 'A couple';
 }
 
 export function buildDistinctPeopleSystemAddendum(input: string): string {
@@ -372,32 +355,29 @@ export function buildDistinctPeopleSystemAddendum(input: string): string {
 
   if (constraint.count === 2 || /\b(couple|pair|duo)\b/i.test(input)) {
     return [
-      "Two separate people only: one compact sentence each, left then right.",
-      "Each person gets a distinct face, hair, skin tone, age read, pose, and brief clothing in a single sentence—finish both people within the character limit.",
-      "Make the two people visually contrasting—not interchangeable generic figures.",
+      'Two separate people only: one compact sentence each, left then right.',
+      'Each person gets a distinct face, hair, skin tone, age read, pose, and brief clothing in a single sentence—finish both people within the character limit.',
+      'Make the two people visually contrasting—not interchangeable generic figures.',
       genderRule,
-      "Do not merge them into one couple blob or shared description.",
+      'Do not merge them into one couple blob or shared description.',
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(' ');
   }
 
   if (constraint.count !== null && constraint.count > 2) {
     return [
       `${constraint.count} separate people, one short sentence each.`,
       genderRule,
-      "No faceless group blob.",
+      'No faceless group blob.',
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(' ');
   }
 
-  return [
-    "If multiple people appear, one short sentence each.",
-    genderRule,
-  ]
+  return ['If multiple people appear, one short sentence each.', genderRule]
     .filter(Boolean)
-    .join(" ");
+    .join(' ');
 }
 
 export function buildGroupedPeopleSystemAddendum(input: string): string {
@@ -408,15 +388,15 @@ export function buildGroupedPeopleSystemAddendum(input: string): string {
   return [
     `${label} as one unified subject in a single sentence.`,
     genderRule,
-    "No Person A/Person B split and no left/right catalog entries.",
+    'No Person A/Person B split and no left/right catalog entries.',
   ]
     .filter(Boolean)
-    .join(" ");
+    .join(' ');
 }
 
 export function paintDistinctPeopleScene(
   input: string,
-  settings: GenerationSettings,
+  settings: GenerationSettings
 ): string | null {
   if (settings.seedLlmWithIngredients === false) {
     return null;
@@ -426,24 +406,22 @@ export function paintDistinctPeopleScene(
   const detail: DetailLevel = settings.detail;
   const setting = extractSceneSetting(input);
   const settingPhrase =
-    setting.toLowerCase().startsWith("a ") ||
-    setting.toLowerCase().startsWith("an ")
+    setting.toLowerCase().startsWith('a ') || setting.toLowerCase().startsWith('an ')
       ? setting
       : setting.charAt(0).toLowerCase() + setting.slice(1);
 
   if (constraint.count === 2 || /\b(couple|pair|duo)\b/i.test(input)) {
-    const gender =
-      constraint.gender === "mixed" ? "mixed" : constraint.gender;
+    const gender = constraint.gender === 'mixed' ? 'mixed' : constraint.gender;
     const athletic = inferAthleticSport(input) !== null;
     const [personOne, personTwo] = athletic
       ? pickDistinctIdentitySeeds(2, gender, { athletic: true })
       : pickDistinctSubjects(2, gender);
 
-    if (detail === "concise") {
+    if (detail === 'concise') {
       return `${capitalize(settingPhrase)}. On the left, ${personOne}; on the right, ${personTwo}.`;
     }
 
-    if (detail === "rich") {
+    if (detail === 'rich') {
       return `${capitalize(settingPhrase)}, warm light falling across the frame. On the left, ${personOne}, posture distinct in the light; on the right, ${personTwo}, clearly separate from the first. The background holds one environmental beat that ties both figures to the same moment.`;
     }
 
@@ -453,20 +431,15 @@ export function paintDistinctPeopleScene(
   if (constraint.count !== null && constraint.count > 2) {
     const subjects = pickDistinctSubjects(
       Math.min(constraint.count, 4),
-      constraint.gender === "any" ? "any" : constraint.gender,
+      constraint.gender === 'any' ? 'any' : constraint.gender
     );
-    const placements = [
-      "in the foreground",
-      "to the left",
-      "to the right",
-      "in the midground",
-    ];
+    const placements = ['in the foreground', 'to the left', 'to the right', 'in the midground'];
     const people = subjects
       .map(
         (subject, index) =>
-          `${capitalize(placements[index] ?? "nearby")}, ${subject}, with distinct face, clothing, and posture`,
+          `${capitalize(placements[index] ?? 'nearby')}, ${subject}, with distinct face, clothing, and posture`
       )
-      .join(". ");
+      .join('. ');
 
     return `${capitalize(settingPhrase)}. ${people}.`;
   }
@@ -476,7 +449,7 @@ export function paintDistinctPeopleScene(
 
 export function paintGroupedPeopleScene(
   input: string,
-  settings: GenerationSettings,
+  settings: GenerationSettings
 ): string | null {
   const constraint = parsePeopleConstraint(input);
   if (constraint.count !== 2 && !/\b(couple|pair|duo)\b/i.test(input)) {
@@ -486,17 +459,16 @@ export function paintGroupedPeopleScene(
   const detail: DetailLevel = settings.detail;
   const setting = extractSceneSetting(input);
   const settingPhrase =
-    setting.toLowerCase().startsWith("a ") ||
-    setting.toLowerCase().startsWith("an ")
+    setting.toLowerCase().startsWith('a ') || setting.toLowerCase().startsWith('an ')
       ? setting
       : setting.charAt(0).toLowerCase() + setting.slice(1);
   const label = groupedLabel(constraint);
 
-  if (detail === "concise") {
+  if (detail === 'concise') {
     return `${capitalize(settingPhrase)}. ${label} share the frame as one unified subject.`;
   }
 
-  if (detail === "rich") {
+  if (detail === 'rich') {
     return `${capitalize(settingPhrase)}, warm light wrapping the pair. ${label} share the frame as one unified subject, clothes and posture reading together in the same moment. One background detail completes the scene without splitting them apart.`;
   }
 
@@ -508,11 +480,11 @@ const STREET_CLOTHING_IN_ATHLETIC_PROMPT =
 
 export function stripStreetClothingFromAthleticPeoplePrompt(prompt: string): string {
   return prompt
-    .replace(STREET_CLOTHING_IN_ATHLETIC_PROMPT, "")
-    .replace(/\bpregnant woman\b/gi, "woman")
-    .replace(/\bpregnant\b/gi, "")
-    .replace(/,\s*,/g, ",")
-    .replace(/\s{2,}/g, " ")
-    .replace(/\s+,/g, ",")
+    .replace(STREET_CLOTHING_IN_ATHLETIC_PROMPT, '')
+    .replace(/\bpregnant woman\b/gi, 'woman')
+    .replace(/\bpregnant\b/gi, '')
+    .replace(/,\s*,/g, ',')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+,/g, ',')
     .trim();
 }

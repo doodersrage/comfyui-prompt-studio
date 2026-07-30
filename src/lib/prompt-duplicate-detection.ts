@@ -3,7 +3,7 @@ export function tokenizePrompt(text: string): Set<string> {
     text
       .toLowerCase()
       .split(/[^a-z0-9]+/)
-      .filter((token) => token.length >= 3),
+      .filter(token => token.length >= 3)
   );
 }
 
@@ -24,7 +24,7 @@ export function promptSimilarity(a: string, b: string): number {
 
 export function findDuplicatePrompts<T extends { id: string; prompt: string }>(
   entries: T[],
-  threshold = 0.85,
+  threshold = 0.85
 ): Array<{ ids: string[]; similarity: number; prompt: string }> {
   const groups: Array<{ ids: string[]; similarity: number; prompt: string }> = [];
   const used = new Set<string>();

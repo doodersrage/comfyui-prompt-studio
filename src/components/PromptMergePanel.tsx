@@ -1,25 +1,22 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { FieldLabel } from "@/components/ui/Field";
+import { useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { FieldLabel } from '@/components/ui/Field';
 
-export default function PromptMergePanel(props: {
-  leftDefault?: string;
-  rightDefault?: string;
-}) {
-  const [left, setLeft] = useState(props.leftDefault ?? "");
-  const [right, setRight] = useState(props.rightDefault ?? "");
-  const [merged, setMerged] = useState("");
+export default function PromptMergePanel(props: { leftDefault?: string; rightDefault?: string }) {
+  const [left, setLeft] = useState(props.leftDefault ?? '');
+  const [right, setRight] = useState(props.rightDefault ?? '');
+  const [merged, setMerged] = useState('');
   const [lintErrors, setLintErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   async function merge() {
     setLoading(true);
     try {
-      const response = await fetch("/api/prompt/merge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/prompt/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ left, right }),
       });
       const data = (await response.json()) as {
@@ -28,12 +25,12 @@ export default function PromptMergePanel(props: {
         error?: string;
       };
       if (!response.ok) {
-        throw new Error(data.error ?? "Merge failed.");
+        throw new Error(data.error ?? 'Merge failed.');
       }
-      setMerged(data.merged ?? "");
+      setMerged(data.merged ?? '');
       setLintErrors(data.lintErrors ?? []);
     } catch (error) {
-      setMerged(error instanceof Error ? error.message : "Merge failed.");
+      setMerged(error instanceof Error ? error.message : 'Merge failed.');
       setLintErrors([]);
     } finally {
       setLoading(false);
@@ -49,7 +46,7 @@ export default function PromptMergePanel(props: {
           <textarea
             id="merge-left"
             value={left}
-            onChange={(event) => setLeft(event.target.value)}
+            onChange={event => setLeft(event.target.value)}
             rows={4}
             className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
           />
@@ -59,7 +56,7 @@ export default function PromptMergePanel(props: {
           <textarea
             id="merge-right"
             value={right}
-            onChange={(event) => setRight(event.target.value)}
+            onChange={event => setRight(event.target.value)}
             rows={4}
             className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
           />
@@ -75,7 +72,7 @@ export default function PromptMergePanel(props: {
       ) : null}
       {lintErrors.length > 0 ? (
         <ul className="text-xs text-amber-400">
-          {lintErrors.map((entry) => (
+          {lintErrors.map(entry => (
             <li key={entry}>{entry}</li>
           ))}
         </ul>

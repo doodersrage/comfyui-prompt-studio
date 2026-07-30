@@ -1,38 +1,38 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 import {
   clearGalleryHandoff,
   fetchHandoffImageFile,
   loadGalleryHandoff,
   type GalleryHandoffPayload,
-} from "@/lib/gallery-handoff";
+} from '@/lib/gallery-handoff';
 
 export function useGalleryHandoff(
-  target: GalleryHandoffPayload["target"],
+  target: GalleryHandoffPayload['target'],
   onReady: (payload: {
     prompt: string;
     negativePrompt?: string;
     model?: string;
     improveIntent?: string;
-    queueParams?: GalleryHandoffPayload["queueParams"];
+    queueParams?: GalleryHandoffPayload['queueParams'];
     sessionActiveLoraIds?: string[];
-    queueQualityProfile?: GalleryHandoffPayload["queueQualityProfile"];
-    handoffMode?: GalleryHandoffPayload["handoffMode"];
+    queueQualityProfile?: GalleryHandoffPayload['queueQualityProfile'];
+    handoffMode?: GalleryHandoffPayload['handoffMode'];
     file: File | null;
     previewUrl: string | null;
     payload: GalleryHandoffPayload;
-  }) => void,
+  }) => void
 ): void {
   const appliedRef = useRef(false);
 
   useEffect(() => {
-    if (appliedRef.current || typeof window === "undefined") {
+    if (appliedRef.current || typeof window === 'undefined') {
       return;
     }
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get("from") !== "gallery") {
+    if (params.get('from') !== 'gallery') {
       return;
     }
 
@@ -48,7 +48,7 @@ export function useGalleryHandoff(
       let previewUrl: string | null = null;
       try {
         file = await fetchHandoffImageFile(payload);
-        previewUrl = file ? URL.createObjectURL(file) : payload.imageUrl ?? null;
+        previewUrl = file ? URL.createObjectURL(file) : (payload.imageUrl ?? null);
       } catch {
         previewUrl = payload.imageUrl ?? null;
       }

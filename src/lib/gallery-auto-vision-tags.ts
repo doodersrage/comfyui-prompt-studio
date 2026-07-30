@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
 import {
   galleryEntryThumbUrls,
   updateComfyGalleryEntryById,
   type ComfyGalleryEntry,
-} from "./comfyui-gallery";
-import { loadComfyUiSettings } from "./comfyui-settings";
+} from './comfyui-gallery';
+import { loadComfyUiSettings } from './comfyui-settings';
 
 type VisionReviewResult = {
   suggestedRating: 1 | 2 | 3 | 4 | 5;
@@ -17,13 +17,13 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Failed to read image."));
+    reader.onerror = () => reject(new Error('Failed to read image.'));
     reader.readAsDataURL(blob);
   });
 }
 
 export async function autoTagGalleryEntry(entry: ComfyGalleryEntry): Promise<void> {
-  if (entry.visionTags?.length || entry.status !== "completed") {
+  if (entry.visionTags?.length || entry.status !== 'completed') {
     return;
   }
   if (loadComfyUiSettings().autoVisionTags === false) {
@@ -44,9 +44,9 @@ export async function autoTagGalleryEntry(entry: ComfyGalleryEntry): Promise<voi
     const blob = await response.blob();
     const dataUrl = await blobToDataUrl(blob);
 
-    const reviewResponse = await fetch("/api/gallery/vision-review", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const reviewResponse = await fetch('/api/gallery/vision-review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         imageDataUrl: dataUrl,
         prompt: entry.prompt,

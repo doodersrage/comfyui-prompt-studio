@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import type { ComfyHistoryWorkflowResult } from "./comfyui-history-workflow";
-import { fetchWorkflowPreview } from "./comfyui-requeue";
-import { resolveQueueParams } from "./queue-params-settings";
-import type { WorkflowParamValues } from "./comfyui-config";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import type { ComfyHistoryWorkflowResult } from './comfyui-history-workflow';
+import { fetchWorkflowPreview } from './comfyui-requeue';
+import { resolveQueueParams } from './queue-params-settings';
+import type { WorkflowParamValues } from './comfyui-config';
 
 export type GalleryWorkflowView = {
   entry: ComfyGalleryEntry;
@@ -16,7 +16,7 @@ export type GalleryWorkflowView = {
 };
 
 export async function loadGalleryWorkflowView(
-  entry: ComfyGalleryEntry,
+  entry: ComfyGalleryEntry
 ): Promise<GalleryWorkflowView> {
   const storedParams = entry.queueParams;
   const view: GalleryWorkflowView = { entry, storedParams };
@@ -26,9 +26,9 @@ export async function loadGalleryWorkflowView(
         `/api/comfyui/history/workflow?${new URLSearchParams({
           promptId: entry.promptId,
           ...(entry.comfyUrl ? { comfyUrl: entry.comfyUrl } : {}),
-        }).toString()}`,
+        }).toString()}`
       )
-        .then(async (response) => {
+        .then(async response => {
           const data = (await response.json()) as ComfyHistoryWorkflowResult & {
             error?: string;
           };
@@ -39,8 +39,7 @@ export async function loadGalleryWorkflowView(
           view.history = data;
         })
         .catch((error: unknown) => {
-          view.historyError =
-            error instanceof Error ? error.message : "History lookup failed.";
+          view.historyError = error instanceof Error ? error.message : 'History lookup failed.';
         })
     : Promise.resolve();
 
@@ -57,18 +56,15 @@ export async function loadGalleryWorkflowView(
     model: entry.model,
     params: previewParams,
     hasInputImage: Boolean(
-      storedParams?.inputImageFilename?.trim() || entry.sourceImageUrl?.trim(),
+      storedParams?.inputImageFilename?.trim() || entry.sourceImageUrl?.trim()
     ),
-    hasMaskImage: Boolean(
-      storedParams?.maskImageFilename?.trim() || entry.maskImageUrl?.trim(),
-    ),
+    hasMaskImage: Boolean(storedParams?.maskImageFilename?.trim() || entry.maskImageUrl?.trim()),
   })
-    .then((preview) => {
+    .then(preview => {
       view.preview = preview;
     })
     .catch((error: unknown) => {
-      view.previewError =
-        error instanceof Error ? error.message : "Workflow preview failed.";
+      view.previewError = error instanceof Error ? error.message : 'Workflow preview failed.';
     });
 
   await Promise.all([historyPromise, previewPromise]);
@@ -77,36 +73,36 @@ export async function loadGalleryWorkflowView(
 }
 
 export const GALLERY_WORKFLOW_PARAM_KEYS = [
-  "seed",
-  "width",
-  "height",
-  "cfg",
-  "steps",
-  "denoise",
-  "checkpointFilename",
-  "upscaleModelFilename",
-  "inputImageFilename",
-  "maskImageFilename",
-  "samplerName",
-  "scheduler",
+  'seed',
+  'width',
+  'height',
+  'cfg',
+  'steps',
+  'denoise',
+  'checkpointFilename',
+  'upscaleModelFilename',
+  'inputImageFilename',
+  'maskImageFilename',
+  'samplerName',
+  'scheduler',
 ] as const satisfies ReadonlyArray<keyof WorkflowParamValues>;
 
 export function workflowParamDisplayRows(
-  params: WorkflowParamValues | Record<string, string | number | undefined> | undefined,
+  params: WorkflowParamValues | Record<string, string | number | undefined> | undefined
 ): Array<{ key: string; value: string | number | undefined }> {
   if (!params) {
     return [];
   }
-  return GALLERY_WORKFLOW_PARAM_KEYS.map((key) => {
+  return GALLERY_WORKFLOW_PARAM_KEYS.map(key => {
     const raw = params[key];
-    const value = Array.isArray(raw) ? raw.join(", ") : raw;
+    const value = Array.isArray(raw) ? raw.join(', ') : raw;
     return { key, value };
   });
 }
 
 export function formatWorkflowParamValue(value: string | number | undefined): string {
-  if (value === undefined || value === "") {
-    return "—";
+  if (value === undefined || value === '') {
+    return '—';
   }
   return String(value);
 }

@@ -1,5 +1,5 @@
-import { isFluxKleinModel } from "./model-denoise-defaults";
-import { normalizeInputImageFilenames } from "./workflow-load-image-bindings";
+import { isFluxKleinModel } from './model-denoise-defaults';
+import { normalizeInputImageFilenames } from './workflow-load-image-bindings';
 
 type WorkflowNode = {
   class_type?: string;
@@ -8,24 +8,17 @@ type WorkflowNode = {
 };
 
 const EMPTY_LATENT_TYPES = new Set([
-  "EmptyLatentImage",
-  "EmptySD3LatentImage",
-  "EmptyFlux2LatentImage",
+  'EmptyLatentImage',
+  'EmptySD3LatentImage',
+  'EmptyFlux2LatentImage',
 ]);
-const VAE_ENCODE_TYPES = new Set(["VAEEncode"]);
-const VAE_LOADER_TYPES = new Set(["VAELoader"]);
-const CHECKPOINT_LOADER_TYPES = new Set([
-  "CheckpointLoaderSimple",
-  "CheckpointLoader",
-]);
-const LOAD_IMAGE_TYPES = new Set(["LoadImage", "LoadImageOutput"]);
+const VAE_ENCODE_TYPES = new Set(['VAEEncode']);
+const VAE_LOADER_TYPES = new Set(['VAELoader']);
+const CHECKPOINT_LOADER_TYPES = new Set(['CheckpointLoaderSimple', 'CheckpointLoader']);
+const LOAD_IMAGE_TYPES = new Set(['LoadImage', 'LoadImageOutput']);
 
 function isNodeOutputRef(value: unknown): value is [string, number] {
-  return (
-    Array.isArray(value) &&
-    typeof value[0] === "string" &&
-    typeof value[1] === "number"
-  );
+  return Array.isArray(value) && typeof value[0] === 'string' && typeof value[1] === 'number';
 }
 
 function nextWorkflowNodeId(workflow: Record<string, unknown>): string {
@@ -39,9 +32,7 @@ function nextWorkflowNodeId(workflow: Record<string, unknown>): string {
   return String(maxId + 1);
 }
 
-function findVaeSourceRef(
-  workflow: Record<string, WorkflowNode>,
-): [string, number] | null {
+function findVaeSourceRef(workflow: Record<string, WorkflowNode>): [string, number] | null {
   for (const [nodeId, node] of Object.entries(workflow)) {
     if (node?.class_type && VAE_LOADER_TYPES.has(node.class_type)) {
       return [nodeId, 0];
@@ -56,13 +47,13 @@ function findVaeSourceRef(
 }
 
 function findPrimarySampler(
-  workflow: Record<string, WorkflowNode>,
+  workflow: Record<string, WorkflowNode>
 ): { samplerId: string; inputs: Record<string, unknown> } | null {
   for (const [samplerId, node] of Object.entries(workflow)) {
-    if (!node?.inputs || !("latent_image" in node.inputs)) {
+    if (!node?.inputs || !('latent_image' in node.inputs)) {
       continue;
     }
-    if (!("positive" in node.inputs)) {
+    if (!('positive' in node.inputs)) {
       continue;
     }
     return { samplerId, inputs: node.inputs };
@@ -72,28 +63,25 @@ function findPrimarySampler(
 
 function findOrCreateEmptyFlux2Latent(
   workflow: Record<string, WorkflowNode>,
-  insertedNodeIds: string[],
+  insertedNodeIds: string[]
 ): string {
   for (const [nodeId, node] of Object.entries(workflow)) {
-    if (
-      node?.class_type &&
-      EMPTY_LATENT_TYPES.has(node.class_type)
-    ) {
-      if (node.class_type !== "EmptyFlux2LatentImage") {
-        node.class_type = "EmptyFlux2LatentImage";
+    if (node?.class_type && EMPTY_LATENT_TYPES.has(node.class_type)) {
+      if (node.class_type !== 'EmptyFlux2LatentImage') {
+        node.class_type = 'EmptyFlux2LatentImage';
       }
       return nodeId;
     }
   }
   const id = nextWorkflowNodeId(workflow);
   workflow[id] = {
-    class_type: "EmptyFlux2LatentImage",
+    class_type: 'EmptyFlux2LatentImage',
     inputs: {
-      width: "{{WIDTH}}",
-      height: "{{HEIGHT}}",
+      width: '{{WIDTH}}',
+      height: '{{HEIGHT}}',
       batch_size: 1,
     },
-    _meta: { title: "Empty Flux 2 Latent" },
+    _meta: { title: 'Empty Flux 2 Latent' },
   };
   insertedNodeIds.push(id);
   return id;
@@ -101,11 +89,11 @@ function findOrCreateEmptyFlux2Latent(
 
 function findLoadImageForFigure(
   workflow: Record<string, WorkflowNode>,
-  figureIndex: number,
+  figureIndex: number
 ): string | null {
   const patterns = [
-    new RegExp(`\\bfigure\\s*${figureIndex}\\b`, "i"),
-    new RegExp(`\\b(?:image|ref|reference|photo|picture)\\s*${figureIndex}\\b`, "i"),
+    new RegExp(`\\bfigure\\s*${figureIndex}\\b`, 'i'),
+    new RegExp(`\\b(?:image|ref|reference|photo|picture)\\s*${figureIndex}\\b`, 'i'),
   ];
   if (figureIndex === 1) {
     patterns.push(/\b(?:input image|init|canvas)\b/i);
@@ -114,20 +102,16 @@ function findLoadImageForFigure(
     if (!node?.class_type || !LOAD_IMAGE_TYPES.has(node.class_type)) {
       continue;
     }
-    const title = node._meta?.title ?? "";
-    if (patterns.some((re) => re.test(title))) {
+    const title = node._meta?.title ?? '';
+    if (patterns.some(re => re.test(title))) {
       return nodeId;
     }
   }
   return null;
 }
 
-function workflowHasReferenceLatent(
-  workflow: Record<string, WorkflowNode>,
-): boolean {
-  return Object.values(workflow).some(
-    (node) => node?.class_type === "ReferenceLatent",
-  );
+function workflowHasReferenceLatent(workflow: Record<string, WorkflowNode>): boolean {
+  return Object.values(workflow).some(node => node?.class_type === 'ReferenceLatent');
 }
 
 /**
@@ -141,7 +125,7 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
     model?: string;
     inputImageFilename?: string | null;
     inputImageFilenames?: Array<string | undefined | null> | null;
-  },
+  }
 ): {
   workflow: Record<string, unknown>;
   wired: boolean;
@@ -150,10 +134,7 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
   if (!isFluxKleinModel(input.model)) {
     return { workflow, wired: false, insertedNodeIds: [] };
   }
-  const figures = normalizeInputImageFilenames(
-    input.inputImageFilename,
-    input.inputImageFilenames,
-  );
+  const figures = normalizeInputImageFilenames(input.inputImageFilename, input.inputImageFilenames);
   if (figures.length === 0) {
     return { workflow, wired: false, insertedNodeIds: [] };
   }
@@ -187,14 +168,12 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
   ) {
     const emptyId = findOrCreateEmptyFlux2Latent(next, insertedNodeIds);
     samplerNode.inputs.latent_image = [emptyId, 0];
-  } else if (latentNode.class_type !== "EmptyFlux2LatentImage") {
-    latentNode.class_type = "EmptyFlux2LatentImage";
+  } else if (latentNode.class_type !== 'EmptyFlux2LatentImage') {
+    latentNode.class_type = 'EmptyFlux2LatentImage';
   }
 
   // Walk existing ReferenceLatent chain or start from sampler positive source.
-  let conditioningRef: [string, number] | null = isNodeOutputRef(
-    samplerNode.inputs.positive,
-  )
+  let conditioningRef: [string, number] | null = isNodeOutputRef(samplerNode.inputs.positive)
     ? samplerNode.inputs.positive
     : null;
   if (!conditioningRef) {
@@ -209,7 +188,7 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
     while (cursor && !visited.has(cursor)) {
       visited.add(cursor);
       const node: WorkflowNode | undefined = next[cursor];
-      if (node?.class_type !== "ReferenceLatent") {
+      if (node?.class_type !== 'ReferenceLatent') {
         conditioningRef = [cursor, 0];
         break;
       }
@@ -218,7 +197,7 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
     }
     // Drop old ReferenceLatent / orphan encode nodes that only fed the chain.
     for (const nodeId of visited) {
-      if (next[nodeId]?.class_type === "ReferenceLatent") {
+      if (next[nodeId]?.class_type === 'ReferenceLatent') {
         delete next[nodeId];
       }
     }
@@ -232,9 +211,9 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
     if (!loadId) {
       loadId = nextWorkflowNodeId(next);
       next[loadId] = {
-        class_type: "LoadImage",
+        class_type: 'LoadImage',
         inputs: { image: filename },
-        _meta: { title: figureIndex === 1 ? "Input Image" : `Figure ${figureIndex}` },
+        _meta: { title: figureIndex === 1 ? 'Input Image' : `Figure ${figureIndex}` },
       };
       insertedNodeIds.push(loadId);
     } else if (next[loadId]?.inputs) {
@@ -243,7 +222,7 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
 
     const encodeId = nextWorkflowNodeId(next);
     next[encodeId] = {
-      class_type: "VAEEncode",
+      class_type: 'VAEEncode',
       inputs: {
         pixels: [loadId, 0],
         vae: vaeRef,
@@ -254,7 +233,7 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
 
     const refId = nextWorkflowNodeId(next);
     next[refId] = {
-      class_type: "ReferenceLatent",
+      class_type: 'ReferenceLatent',
       inputs: {
         conditioning: currentCond,
         latent: [encodeId, 0],
@@ -277,7 +256,7 @@ export function ensureKleinImg2imgLatentWiringInWorkflow(
     model?: string;
     inputImageFilename?: string | null;
     inputImageFilenames?: Array<string | undefined | null> | null;
-  },
+  }
 ): {
   workflow: Record<string, unknown>;
   wired: boolean;

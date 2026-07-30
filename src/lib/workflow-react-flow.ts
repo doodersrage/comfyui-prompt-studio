@@ -34,17 +34,18 @@ function isLink(value: unknown): value is [string, number] {
   return (
     Array.isArray(value) &&
     value.length >= 2 &&
-    typeof value[0] === "string" &&
-    typeof value[1] === "number"
+    typeof value[0] === 'string' &&
+    typeof value[1] === 'number'
   );
 }
 
 /** Layout nodes in a simple grid from API workflow. */
-export function comfyApiWorkflowToReactFlow(
-  workflow: Record<string, unknown>,
-): { nodes: WorkflowRfNode[]; edges: WorkflowRfEdge[] } {
+export function comfyApiWorkflowToReactFlow(workflow: Record<string, unknown>): {
+  nodes: WorkflowRfNode[];
+  edges: WorkflowRfEdge[];
+} {
   const entries = Object.entries(workflow).filter(
-    ([, node]) => node && typeof node === "object" && "class_type" in (node as object),
+    ([, node]) => node && typeof node === 'object' && 'class_type' in (node as object)
   );
   const nodes: WorkflowRfNode[] = [];
   const edges: WorkflowRfEdge[] = [];
@@ -56,10 +57,10 @@ export function comfyApiWorkflowToReactFlow(
     const row = Math.floor(index / cols);
     nodes.push({
       id,
-      type: "comfy",
+      type: 'comfy',
       position: { x: col * 280, y: row * 160 },
       data: {
-        classType: node.class_type ?? "Unknown",
+        classType: node.class_type ?? 'Unknown',
         title: node._meta?.title ?? node.class_type ?? id,
         inputs: { ...(node.inputs ?? {}) },
         comfyId: id,
@@ -87,7 +88,7 @@ export function comfyApiWorkflowToReactFlow(
 /** Rebuild API workflow from RF nodes/edges (widget values + rewired links). */
 export function reactFlowToComfyApiWorkflow(
   nodes: WorkflowRfNode[],
-  edges: WorkflowRfEdge[],
+  edges: WorkflowRfEdge[]
 ): Record<string, unknown> {
   const workflow: Record<string, ComfyApiNode> = {};
 
@@ -111,8 +112,8 @@ export function reactFlowToComfyApiWorkflow(
     if (!target?.inputs) {
       continue;
     }
-    const handle = edge.targetHandle?.replace(/^in-/, "") ?? "";
-    const sourceSlot = Number(edge.sourceHandle?.replace(/^out-/, "") ?? 0);
+    const handle = edge.targetHandle?.replace(/^in-/, '') ?? '';
+    const sourceSlot = Number(edge.sourceHandle?.replace(/^out-/, '') ?? 0);
     if (!handle) {
       continue;
     }
@@ -126,9 +127,9 @@ export function updateWorkflowNodeWidget(
   nodes: WorkflowRfNode[],
   nodeId: string,
   key: string,
-  value: string | number | boolean,
+  value: string | number | boolean
 ): WorkflowRfNode[] {
-  return nodes.map((node) => {
+  return nodes.map(node => {
     if (node.id !== nodeId) {
       return node;
     }
@@ -146,18 +147,14 @@ export function updateWorkflowNodeWidget(
 }
 
 export function listEditableWidgets(
-  inputs: Record<string, unknown>,
+  inputs: Record<string, unknown>
 ): Array<{ key: string; value: string | number | boolean }> {
   const widgets: Array<{ key: string; value: string | number | boolean }> = [];
   for (const [key, value] of Object.entries(inputs)) {
     if (isLink(value)) {
       continue;
     }
-    if (
-      typeof value === "string" ||
-      typeof value === "number" ||
-      typeof value === "boolean"
-    ) {
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
       widgets.push({ key, value });
     }
   }

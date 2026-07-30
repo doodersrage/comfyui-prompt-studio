@@ -17,30 +17,26 @@ function readU32(view: DataView, offset: number): number {
 }
 
 async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
-  if (typeof DecompressionStream !== "function") {
-    throw new Error("Deflate ZIP entries need DecompressionStream (Node 22+ / modern browsers).");
+  if (typeof DecompressionStream !== 'function') {
+    throw new Error('Deflate ZIP entries need DecompressionStream (Node 22+ / modern browsers).');
   }
   // Copy into a plain ArrayBuffer-backed view — some runtimes reject SharedArrayBuffer slices.
   const copy = new Uint8Array(data.byteLength);
   copy.set(data);
-  const stream = new Blob([copy])
-    .stream()
-    .pipeThrough(new DecompressionStream("deflate-raw"));
+  const stream = new Blob([copy]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
   const buffer = await new Response(stream).arrayBuffer();
   return new Uint8Array(buffer);
 }
 
 function decodeText(data: Uint8Array): string {
-  return new TextDecoder("utf-8").decode(data);
+  return new TextDecoder('utf-8').decode(data);
 }
 
 /**
  * Extract text files from a ZIP ArrayBuffer. Skips directories and non-utf8 failures.
  * Only local-file headers are walked (no zip64).
  */
-export async function readZipTextEntries(
-  buffer: ArrayBuffer,
-): Promise<ZipReadEntry[]> {
+export async function readZipTextEntries(buffer: ArrayBuffer): Promise<ZipReadEntry[]> {
   const bytes = new Uint8Array(buffer);
   const view = new DataView(buffer);
   const entries: ZipReadEntry[] = [];
@@ -68,7 +64,7 @@ export async function readZipTextEntries(
     const filename = decodeText(bytes.subarray(nameStart, nameEnd));
     offset = dataEnd;
 
-    if (filename.endsWith("/")) {
+    if (filename.endsWith('/')) {
       continue;
     }
 
@@ -101,7 +97,7 @@ export function isZipFileName(name: string): boolean {
 }
 
 export function isWorkflowJsonFileName(name: string): boolean {
-  const base = name.split("/").pop() ?? name;
+  const base = name.split('/').pop() ?? name;
   if (!/\.json$/i.test(base)) {
     return false;
   }

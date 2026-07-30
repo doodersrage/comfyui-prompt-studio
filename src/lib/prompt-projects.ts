@@ -4,10 +4,10 @@ import {
   removeBrowserKey,
   writeBrowserString,
   writeBrowserValue,
-} from "./browser-storage";
+} from './browser-storage';
 
-export const PROMPT_PROJECTS_KEY = "comfy-prompt-projects-v1";
-export const ACTIVE_PROJECT_KEY = "comfy-prompt-active-project-v1";
+export const PROMPT_PROJECTS_KEY = 'comfy-prompt-projects-v1';
+export const ACTIVE_PROJECT_KEY = 'comfy-prompt-active-project-v1';
 
 export type PromptProject = {
   id: string;
@@ -21,7 +21,7 @@ export type PromptProject = {
 };
 
 export function loadPromptProjects(): PromptProject[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   try {
@@ -32,13 +32,16 @@ export function loadPromptProjects(): PromptProject[] {
 }
 
 export function savePromptProjects(projects: PromptProject[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(PROMPT_PROJECTS_KEY, projects.slice(0, 50));
 }
 
-export function upsertPromptProject(project: Omit<PromptProject, "createdAt" | "updatedAt"> & Partial<Pick<PromptProject, "createdAt">>): PromptProject {
+export function upsertPromptProject(
+  project: Omit<PromptProject, 'createdAt' | 'updatedAt'> &
+    Partial<Pick<PromptProject, 'createdAt'>>
+): PromptProject {
   const existing = loadPromptProjects();
   const now = Date.now();
   const next: PromptProject = {
@@ -48,29 +51,26 @@ export function upsertPromptProject(project: Omit<PromptProject, "createdAt" | "
     createdAt: project.createdAt ?? now,
     updatedAt: now,
   };
-  savePromptProjects([
-    next,
-    ...existing.filter((entry) => entry.id !== project.id),
-  ]);
+  savePromptProjects([next, ...existing.filter(entry => entry.id !== project.id)]);
   return next;
 }
 
 export function deletePromptProject(id: string): void {
-  savePromptProjects(loadPromptProjects().filter((entry) => entry.id !== id));
+  savePromptProjects(loadPromptProjects().filter(entry => entry.id !== id));
   if (loadActiveProjectId() === id) {
     setActiveProjectId(undefined);
   }
 }
 
 export function loadActiveProjectId(): string | undefined {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return undefined;
   }
   return readBrowserString(ACTIVE_PROJECT_KEY)?.trim() || undefined;
 }
 
 export function setActiveProjectId(id: string | undefined): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   if (!id) {
@@ -82,7 +82,7 @@ export function setActiveProjectId(id: string | undefined): void {
 
 export function itemMatchesProject(
   projectId: string | undefined,
-  metadata?: Record<string, unknown>,
+  metadata?: Record<string, unknown>
 ): boolean {
   if (!projectId) {
     return true;

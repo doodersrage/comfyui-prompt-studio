@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from 'react';
 import {
   buildInpaintInstruction,
   buildRegionalPrompt,
@@ -9,10 +9,10 @@ import {
   parseRegionalSegments,
   REGIONAL_PROMPT_TOKENS,
   type RegionalPromptSegment,
-} from "@/lib/regional-prompt-builder";
-import { FieldLabel, TextArea } from "@/components/ui/Field";
-import { Button } from "@/components/ui/Button";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+} from '@/lib/regional-prompt-builder';
+import { FieldLabel, TextArea } from '@/components/ui/Field';
+import { Button } from '@/components/ui/Button';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 type RegionalPromptBuilderPanelProps = {
   onApply: (prompt: string) => void;
@@ -22,9 +22,9 @@ type RegionalPromptBuilderPanelProps = {
 };
 
 function defaultSegments(): RegionalPromptSegment[] {
-  return DEFAULT_REGIONAL_REGIONS.map((region) => ({
+  return DEFAULT_REGIONAL_REGIONS.map(region => ({
     regionId: region.id,
-    prompt: "",
+    prompt: '',
   }));
 }
 
@@ -35,20 +35,18 @@ export default function RegionalPromptBuilderPanel({
   onSegmentsChange,
 }: RegionalPromptBuilderPanelProps) {
   const [segments, setSegments] = useState<RegionalPromptSegment[]>(
-    controlledSegments?.length ? controlledSegments : defaultSegments(),
+    controlledSegments?.length ? controlledSegments : defaultSegments()
   );
-  const [maskDescription, setMaskDescription] = useState("");
-  const [changeDescription, setChangeDescription] = useState("");
-  const [rawImport, setRawImport] = useState("");
+  const [maskDescription, setMaskDescription] = useState('');
+  const [changeDescription, setChangeDescription] = useState('');
+  const [rawImport, setRawImport] = useState('');
 
   useEffect(() => {
     if (!controlledSegments) {
       return;
     }
     scheduleAfterCommit(() => {
-      setSegments(
-        controlledSegments.length > 0 ? controlledSegments : defaultSegments(),
-      );
+      setSegments(controlledSegments.length > 0 ? controlledSegments : defaultSegments());
     });
   }, [controlledSegments]);
 
@@ -58,43 +56,37 @@ export default function RegionalPromptBuilderPanel({
   };
 
   const composed = useMemo(() => buildRegionalPrompt(segments), [segments]);
-  const parenForm = useMemo(
-    () => buildRegionalPromptParenForm(segments),
-    [segments],
-  );
+  const parenForm = useMemo(() => buildRegionalPromptParenForm(segments), [segments]);
   const inpaint = useMemo(
     () =>
       maskDescription.trim() && changeDescription.trim()
         ? buildInpaintInstruction(maskDescription, changeDescription)
-        : "",
-    [maskDescription, changeDescription],
+        : '',
+    [maskDescription, changeDescription]
   );
 
   return (
     <div className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
       <p className="text-sm text-zinc-300">Regional prompt builder</p>
       <p className="text-xs text-zinc-500">
-        Labeled subject/background/lighting segments feed hints and, at queue
-        time, fill{" "}
-        <code className="text-zinc-400">{REGIONAL_PROMPT_TOKENS.subject}</code>{" "}
-        (and related) tokens on imported regional/attention-mask packs.
+        Labeled subject/background/lighting segments feed hints and, at queue time, fill{' '}
+        <code className="text-zinc-400">{REGIONAL_PROMPT_TOKENS.subject}</code> (and related) tokens
+        on imported regional/attention-mask packs.
       </p>
 
-      {DEFAULT_REGIONAL_REGIONS.map((region) => {
-        const segment = segments.find((entry) => entry.regionId === region.id);
+      {DEFAULT_REGIONAL_REGIONS.map(region => {
+        const segment = segments.find(entry => entry.regionId === region.id);
         return (
           <div key={region.id} className="space-y-1">
             <FieldLabel hint={region.description}>{region.label}</FieldLabel>
             <TextArea
               rows={2}
-              value={segment?.prompt ?? ""}
-              onChange={(event) =>
+              value={segment?.prompt ?? ''}
+              onChange={event =>
                 updateSegments(
-                  segments.map((entry) =>
-                    entry.regionId === region.id
-                      ? { ...entry, prompt: event.target.value }
-                      : entry,
-                  ),
+                  segments.map(entry =>
+                    entry.regionId === region.id ? { ...entry, prompt: event.target.value } : entry
+                  )
                 )
               }
               placeholder={`${region.label} details…`}
@@ -110,7 +102,7 @@ export default function RegionalPromptBuilderPanel({
           <TextArea
             rows={2}
             value={maskDescription}
-            onChange={(event) => setMaskDescription(event.target.value)}
+            onChange={event => setMaskDescription(event.target.value)}
             placeholder="e.g. sky above horizon"
             className={accentClassName}
           />
@@ -120,7 +112,7 @@ export default function RegionalPromptBuilderPanel({
           <TextArea
             rows={2}
             value={changeDescription}
-            onChange={(event) => setChangeDescription(event.target.value)}
+            onChange={event => setChangeDescription(event.target.value)}
             placeholder="e.g. replace with storm clouds"
             className={accentClassName}
           />
@@ -132,8 +124,8 @@ export default function RegionalPromptBuilderPanel({
         <TextArea
           rows={3}
           value={rawImport}
-          onChange={(event) => setRawImport(event.target.value)}
-          placeholder={"Subject: cyclist in red kit\nBackground: misty forest"}
+          onChange={event => setRawImport(event.target.value)}
+          placeholder={'Subject: cyclist in red kit\nBackground: misty forest'}
           className={accentClassName}
         />
         <Button
@@ -152,7 +144,7 @@ export default function RegionalPromptBuilderPanel({
 
       {(composed || inpaint) && (
         <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-300">
-          {[composed, inpaint].filter(Boolean).join("\n\n")}
+          {[composed, inpaint].filter(Boolean).join('\n\n')}
         </pre>
       )}
 
@@ -164,18 +156,10 @@ export default function RegionalPromptBuilderPanel({
         >
           Apply regional prompt
         </Button>
-        <Button
-          variant="secondary"
-          disabled={!parenForm.trim()}
-          onClick={() => onApply(parenForm)}
-        >
+        <Button variant="secondary" disabled={!parenForm.trim()} onClick={() => onApply(parenForm)}>
           Apply (region: …) form
         </Button>
-        <Button
-          variant="secondary"
-          disabled={!inpaint.trim()}
-          onClick={() => onApply(inpaint)}
-        >
+        <Button variant="secondary" disabled={!inpaint.trim()} onClick={() => onApply(inpaint)}>
           Apply inpaint instruction
         </Button>
       </div>

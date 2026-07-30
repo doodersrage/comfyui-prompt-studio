@@ -1,70 +1,51 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
-import { usePromptHistory } from "@/hooks/usePromptHistory";
-import type { GenerationDiagnostics } from "@/lib/generation-diagnostics";
+import { useCallback, useState } from 'react';
+import { usePromptHistory } from '@/hooks/usePromptHistory';
+import type { GenerationDiagnostics } from '@/lib/generation-diagnostics';
+import { formatPromptPair, modelUsesNegativePrompt } from '@/lib/prompt-pair';
+import { buildPromptSidecar, downloadPromptSidecar } from '@/lib/prompt-sidecar';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
+import type { DetailLevel } from '@/lib/detail-level';
+import type { AthleticSport } from '@/lib/athletic-sport-profiles';
+import { resolveModelForQueueTool } from '@/lib/queue-tool-model';
+import { guardQueueQualityForVram } from '@/lib/vram-queue-guard';
+import { rememberedSamplerOverrides } from '@/lib/sampler-memory';
 import {
-  formatPromptPair,
-  modelUsesNegativePrompt,
-} from "@/lib/prompt-pair";
-import {
-  buildPromptSidecar,
-  downloadPromptSidecar,
-} from "@/lib/prompt-sidecar";
-import type { ComfyImageModel } from "@/lib/comfy-models/client";
-import type { DetailLevel } from "@/lib/detail-level";
-import type { AthleticSport } from "@/lib/athletic-sport-profiles";
-import { resolveModelForQueueTool } from "@/lib/queue-tool-model";
-import { guardQueueQualityForVram } from "@/lib/vram-queue-guard";
-import { rememberedSamplerOverrides } from "@/lib/sampler-memory";
-import { startImproveFromResult, startPromptEditorFromResult, startRefineFromResult } from "@/lib/improve-output";
-import type { WorkflowParamValues } from "@/lib/comfyui-config";
-import { parseWorkflowJson } from "@/lib/comfyui-config";
-import {
-  galleryEntryPrimaryViewUrl,
-} from "@/lib/comfyui-gallery";
-import { scheduleComfyGalleryPoll } from "@/lib/comfyui-gallery-poller";
-import { registerComfyGalleryJob } from "@/lib/comfyui-gallery-client";
-import {
-  attachGalleryPromptIdToHistory,
-  linkGalleryToHistory,
-} from "@/lib/prompt-lineage";
-import { resolveQueueNegativePrompt } from "@/lib/queue-negative";
-import { loadActiveProjectId } from "@/lib/prompt-projects";
-import {
-  clearLineageParent,
-  resolveParentHistoryId,
-} from "@/lib/prompt-lineage-session";
-import { injectLoraTriggers } from "@/lib/lora-prompt-injection";
-import {
-  loadComfyUiSettings,
-  resolveSharedEffectiveSessionLoraIds,
-} from "@/lib/comfyui-settings";
-import { loadSettingsCache } from "@/lib/settings-cache";
-import { getEngineAdapter } from "@/lib/engine";
-import { loadEngineSettings } from "@/lib/engine-settings";
-import { workshopCropToApi } from "@/lib/diffusers-defaults";
-import {
-  computePromptContentHash,
-  nextPromptVersionFields,
-} from "@/lib/prompt-versioning";
-import { loadPromptHistoryStore } from "@/lib/prompt-history";
-import { resolveQueueInputImage, resolveQueueInputImageFilename } from "@/lib/queue-input-image";
-import { resolveQueueParams } from "@/lib/queue-params-settings";
-import { toastHeldMax, toastQueueOutcome } from "@/lib/app-toast";
-import { applyQueuePromptSteering, prepareQueuePrompts } from "@/lib/queue-prompt-prep";
-import { resolveQueueNegativePromptRaw } from "@/lib/queue-negative";
-import { joinQueueStatusNotes } from "@/lib/queue-status-notes";
-import { runPluginQueuePreflight } from "@/lib/plugin-queue-hooks";
-import { dispatchWebhook } from "@/lib/webhook-settings";
-import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
-import {
-  formatComfyUiJobStatusLine,
-  type ComfyUiJobTrackerState,
-} from "@/lib/comfyui-job-status";
+  startImproveFromResult,
+  startPromptEditorFromResult,
+  startRefineFromResult,
+} from '@/lib/improve-output';
+import type { WorkflowParamValues } from '@/lib/comfyui-config';
+import { parseWorkflowJson } from '@/lib/comfyui-config';
+import { galleryEntryPrimaryViewUrl } from '@/lib/comfyui-gallery';
+import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
+import { registerComfyGalleryJob } from '@/lib/comfyui-gallery-client';
+import { attachGalleryPromptIdToHistory, linkGalleryToHistory } from '@/lib/prompt-lineage';
+import { resolveQueueNegativePrompt } from '@/lib/queue-negative';
+import { loadActiveProjectId } from '@/lib/prompt-projects';
+import { clearLineageParent, resolveParentHistoryId } from '@/lib/prompt-lineage-session';
+import { injectLoraTriggers } from '@/lib/lora-prompt-injection';
+import { loadComfyUiSettings, resolveSharedEffectiveSessionLoraIds } from '@/lib/comfyui-settings';
+import { loadSettingsCache } from '@/lib/settings-cache';
+import { getEngineAdapter } from '@/lib/engine';
+import { loadEngineSettings } from '@/lib/engine-settings';
+import { workshopCropToApi } from '@/lib/diffusers-defaults';
+import { computePromptContentHash, nextPromptVersionFields } from '@/lib/prompt-versioning';
+import { loadPromptHistoryStore } from '@/lib/prompt-history';
+import { resolveQueueInputImage, resolveQueueInputImageFilename } from '@/lib/queue-input-image';
+import { resolveQueueParams } from '@/lib/queue-params-settings';
+import { toastHeldMax, toastQueueOutcome } from '@/lib/app-toast';
+import { applyQueuePromptSteering, prepareQueuePrompts } from '@/lib/queue-prompt-prep';
+import { resolveQueueNegativePromptRaw } from '@/lib/queue-negative';
+import { joinQueueStatusNotes } from '@/lib/queue-status-notes';
+import { runPluginQueuePreflight } from '@/lib/plugin-queue-hooks';
+import { dispatchWebhook } from '@/lib/webhook-settings';
+import { markOnboardingFirstQueue } from '@/lib/onboarding-hooks';
+import { formatComfyUiJobStatusLine, type ComfyUiJobTrackerState } from '@/lib/comfyui-job-status';
 
 type WorkflowPreviewResult = Awaited<
-  ReturnType<typeof import("@/lib/comfyui-requeue").fetchWorkflowPreview>
+  ReturnType<typeof import('@/lib/comfyui-requeue').fetchWorkflowPreview>
 >;
 
 export type PromptResultActionsConfig = {
@@ -79,12 +60,8 @@ export type PromptResultActionsConfig = {
 
 export function usePromptResultActions(config: PromptResultActionsConfig) {
   const { addEntry } = usePromptHistory();
-  const [preDiagnostics, setPreDiagnostics] = useState<GenerationDiagnostics | null>(
-    null,
-  );
-  const [diagnostics, setDiagnostics] = useState<GenerationDiagnostics | null>(
-    null,
-  );
+  const [preDiagnostics, setPreDiagnostics] = useState<GenerationDiagnostics | null>(null);
+  const [diagnostics, setDiagnostics] = useState<GenerationDiagnostics | null>(null);
   const [historySaved, setHistorySaved] = useState(false);
   const [fixStatus, setFixStatus] = useState<string | null>(null);
   const [comfyUiStatus, setComfyUiStatus] = useState<string | null>(null);
@@ -94,9 +71,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
   const [compactStatus, setCompactStatus] = useState<string | null>(null);
   const [reformatStatus, setReformatStatus] = useState<string | null>(null);
   const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
-  const [workflowPreview, setWorkflowPreview] = useState<WorkflowPreviewResult | null>(
-    null,
-  );
+  const [workflowPreview, setWorkflowPreview] = useState<WorkflowPreviewResult | null>(null);
   const [previewStatus, setPreviewStatus] = useState<string | null>(null);
 
   const resetStatuses = useCallback(() => {
@@ -123,13 +98,13 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         clientId?: string;
         historyId?: string;
         queueParams?: WorkflowParamValues;
-        queueQualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
+        queueQualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile;
         /** Actual model queued (may differ from picker when Generate remaps Edit Lightning). */
         model?: ComfyImageModel;
         sessionActiveLoraIds?: string[];
-        engineId?: import("@/lib/engine/types").EngineId;
+        engineId?: import('@/lib/engine/types').EngineId;
       },
-      showPreview = true,
+      showPreview = true
     ) => {
       const engineId = input.engineId ?? getEngineAdapter().id;
       const galleryEntry = registerComfyGalleryJob({
@@ -150,20 +125,13 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       if (input.historyId) {
         linkGalleryToHistory(input.promptId, input.historyId);
-        attachGalleryPromptIdToHistory(
-          input.historyId,
-          input.promptId,
-          galleryEntry.id,
-        );
+        attachGalleryPromptIdToHistory(input.historyId, input.promptId, galleryEntry.id);
       }
 
       const initialJob: ComfyUiJobTrackerState = {
         promptId: input.promptId,
-        status: "pending",
-        statusMessage:
-          engineId === "diffusers"
-            ? "Submitted to Diffusers"
-            : "Submitted to ComfyUI",
+        status: 'pending',
+        statusMessage: engineId === 'diffusers' ? 'Submitted to Diffusers' : 'Submitted to ComfyUI',
         comfyUrl: input.comfyUrl,
         engineId,
       };
@@ -172,12 +140,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       void scheduleComfyGalleryPoll(input.promptId, {
         comfyUrl: input.comfyUrl,
-        onJobUpdate: (job) => {
+        onJobUpdate: job => {
           const next = { ...job, engineId: job.engineId ?? engineId };
           setComfyUiJob(next);
           setComfyUiStatus(formatComfyUiJobStatusLine(next));
         },
-      }).then((entry) => {
+      }).then(entry => {
         if (!entry) {
           return;
         }
@@ -196,7 +164,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         setComfyUiJob(finishedJob);
         setComfyUiStatus(formatComfyUiJobStatusLine(finishedJob));
 
-        if (entry.status === "completed") {
+        if (entry.status === 'completed') {
           const preview = galleryEntryPrimaryViewUrl(entry);
           if (showPreview && preview) {
             setComfyUiPreviewUrl(preview);
@@ -205,7 +173,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
       });
     },
-    [config.model, config.tool],
+    [config.model, config.tool]
   );
 
   const runPreLint = useCallback(async (hints?: string) => {
@@ -215,9 +183,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       return null;
     }
 
-    const response = await fetch("/api/lint", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const response = await fetch('/api/lint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hints: corpus }),
     });
 
@@ -230,21 +198,24 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
     return data;
   }, []);
 
-  const lintPrompt = useCallback(async (prompt: string, hints?: string) => {
-    const response = await fetch("/api/lint", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hints: hints ?? config.hints, prompt }),
-    });
+  const lintPrompt = useCallback(
+    async (prompt: string, hints?: string) => {
+      const response = await fetch('/api/lint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hints: hints ?? config.hints, prompt }),
+      });
 
-    if (!response.ok) {
-      return null;
-    }
+      if (!response.ok) {
+        return null;
+      }
 
-    const data = (await response.json()) as GenerationDiagnostics;
-    setDiagnostics(data);
-    return data;
-  }, [config.hints]);
+      const data = (await response.json()) as GenerationDiagnostics;
+      setDiagnostics(data);
+      return data;
+    },
+    [config.hints]
+  );
 
   const fetchNegative = useCallback(
     async (sport?: AthleticSport | null) => {
@@ -255,14 +226,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         tool: config.tool,
       });
     },
-    [config.hints, config.model],
+    [config.hints, config.model]
   );
 
   const applyRuleFix = useCallback(
     async (prompt: string, hints?: string) => {
-      const response = await fetch("/api/fix", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/fix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hints: hints ?? config.hints, prompt }),
       });
 
@@ -273,12 +244,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Fix failed.");
+        throw new Error(data.error ?? 'Fix failed.');
       }
 
       return data;
     },
-    [config.hints],
+    [config.hints]
   );
 
   const maybeAutoFix = useCallback(
@@ -287,7 +258,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         return prompt;
       }
 
-      const hasErrors = lint?.issues.some((issue) => issue.severity === "error");
+      const hasErrors = lint?.issues.some(issue => issue.severity === 'error');
       if (!hasErrors) {
         return prompt;
       }
@@ -297,8 +268,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         if (data.prompt && data.prompt !== prompt) {
           setFixStatus(
             data.changes?.length
-              ? `Auto-fixed: ${data.changes.map((c) => c.description).join("; ")}`
-              : "Auto-fix applied.",
+              ? `Auto-fixed: ${data.changes.map(c => c.description).join('; ')}`
+              : 'Auto-fix applied.'
           );
           return data.prompt;
         }
@@ -308,7 +279,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       return prompt;
     },
-    [applyRuleFix, config.autoFixRules],
+    [applyRuleFix, config.autoFixRules]
   );
 
   const finalizePrompt = useCallback(
@@ -316,7 +287,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       const lint = await lintPrompt(prompt, hints);
       return maybeAutoFix(prompt, hints, lint);
     },
-    [lintPrompt, maybeAutoFix],
+    [lintPrompt, maybeAutoFix]
   );
 
   const fixPrompt = useCallback(
@@ -325,7 +296,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         return;
       }
 
-      setFixStatus("Applying rule fixes…");
+      setFixStatus('Applying rule fixes…');
       try {
         const data = await applyRuleFix(prompt, hints);
         if (data.prompt) {
@@ -334,14 +305,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
         setFixStatus(
           data.changes?.length
-            ? `Fixed: ${data.changes.map((change) => change.description).join("; ")}`
-            : "No rule-based fixes needed.",
+            ? `Fixed: ${data.changes.map(change => change.description).join('; ')}`
+            : 'No rule-based fixes needed.'
         );
       } catch (err) {
-        setFixStatus(err instanceof Error ? err.message : "Fix failed.");
+        setFixStatus(err instanceof Error ? err.message : 'Fix failed.');
       }
     },
-    [applyRuleFix, lintPrompt],
+    [applyRuleFix, lintPrompt]
   );
 
   const saveHistory = useCallback(
@@ -372,7 +343,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       if (versioningEnabled) {
         entryId = crypto.randomUUID();
         const parent = parentHistoryId
-          ? loadPromptHistoryStore().find((entry) => entry.id === parentHistoryId)
+          ? loadPromptHistoryStore().find(entry => entry.id === parentHistoryId)
           : undefined;
         versionFields = nextPromptVersionFields({
           contentHash: computePromptContentHash({
@@ -411,7 +382,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       }
       return historyId;
     },
-    [addEntry, config.tool, config.model, config.hints, diagnostics],
+    [addEntry, config.tool, config.model, config.hints, diagnostics]
   );
 
   const sendComfyUi = useCallback(
@@ -439,25 +410,25 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         controlImageUrls?: Array<string | undefined>;
         controlImageFilenames?: string[];
         queueParamsBase?: WorkflowParamValues;
-        qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile;
+        qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile;
         /** Merged into runtime customTokens before inject (e.g. {{REGION_*}}). */
         customTokens?: Array<{ token: string; value: string }>;
         /** Multi-slot regional edit for AttentionCouple / {{REGION_*}} binding. */
-        regionalSlots?: import("@/lib/regional-prompt-slots").RegionalPromptSlot[];
+        regionalSlots?: import('@/lib/regional-prompt-slots').RegionalPromptSlot[];
         /** Compose: lock identity from Figure 1 via IP-Adapter after upload. */
         identityLock?: boolean;
         identityLockStrength?: number;
-        identityKind?: import("@/lib/compose-identity-lock").ComposeIdentityKind;
-      },
+        identityKind?: import('@/lib/compose-identity-lock').ComposeIdentityKind;
+      }
     ) => {
       if (!prompt) {
         return;
       }
 
-      setComfyUiStatus("Queueing…");
+      setComfyUiStatus('Queueing…');
       try {
         const pluginPreflight = await runPluginQueuePreflight({
-          event: "queue-preflight",
+          event: 'queue-preflight',
           prompt,
           model: config.model,
           tool: config.tool,
@@ -467,8 +438,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         if (pluginPreflight.blocked) {
           throw new Error(
             pluginPreflight.reason ||
-              pluginPreflight.messages.join(" · ") ||
-              "Plugin hook blocked the queue.",
+              pluginPreflight.messages.join(' · ') ||
+              'Plugin hook blocked the queue.'
           );
         }
         const workingPrompt = pluginPreflight.payload.prompt || prompt;
@@ -476,13 +447,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const pluginDenoise = pluginPreflight.payload.denoise;
         const pluginCfg = pluginPreflight.payload.cfg;
 
-        const { resolveRuntimeForQueueAsync } = await import(
-          "@/lib/comfyui-runtime-for-model"
-        );
-        const baseRuntime = await resolveRuntimeForQueueAsync(
-          config.model,
-          config.tool,
-        );
+        const { resolveRuntimeForQueueAsync } = await import('@/lib/comfyui-runtime-for-model');
+        const baseRuntime = await resolveRuntimeForQueueAsync(config.model, config.tool);
         const queueModel = resolveModelForQueueTool(config.model, config.tool);
         const vramGuard = await guardQueueQualityForVram({
           profile: options?.qualityProfile ?? baseRuntime.queueQualityProfile,
@@ -494,9 +460,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const effectiveQualityProfile = vramGuard.profile;
 
         if (options?.customTokens?.length) {
-          const byToken = new Map(
-            (runtime.customTokens ?? []).map((entry) => [entry.token, entry]),
-          );
+          const byToken = new Map((runtime.customTokens ?? []).map(entry => [entry.token, entry]));
           for (const entry of options.customTokens) {
             if (entry.token?.trim() && entry.value?.trim()) {
               byToken.set(entry.token.trim(), {
@@ -512,20 +476,19 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           runtime.regionalSlots = options.regionalSlots;
         }
 
-        const { positive: preparedPrompt, negative: negativePrompt } =
-          await prepareQueuePrompts({
-            model: queueModel,
-            positive: injectLoraTriggers(workingPrompt),
-            hints: config.hints,
-            sport,
-            tool: config.tool,
-            explicitNegative: options?.explicitNegative ?? pluginNegative,
-          });
+        const { positive: preparedPrompt, negative: negativePrompt } = await prepareQueuePrompts({
+          model: queueModel,
+          positive: injectLoraTriggers(workingPrompt),
+          hints: config.hints,
+          sport,
+          tool: config.tool,
+          explicitNegative: options?.explicitNegative ?? pluginNegative,
+        });
 
         const engineAdapter = getEngineAdapter();
         const engineSettings = loadEngineSettings();
-        if (engineAdapter.id === "comfyui") {
-          const { runWorkflowPreflight } = await import("@/lib/workflow-preflight");
+        if (engineAdapter.id === 'comfyui') {
+          const { runWorkflowPreflight } = await import('@/lib/workflow-preflight');
           const preflight = await runWorkflowPreflight({
             model: queueModel,
             prompts: [preparedPrompt],
@@ -534,33 +497,33 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             queueParams: options?.queueParamsBase,
             hasInputImage: Boolean(
               options?.inputImage ||
-                options?.inputImageUrl?.trim() ||
-                options?.inputImageFilename?.trim() ||
-                options?.inputImages?.some(Boolean) ||
-                options?.inputImageUrls?.some((url) => url?.trim()) ||
-                options?.inputImageFilenames?.some((name) => name?.trim()),
+              options?.inputImageUrl?.trim() ||
+              options?.inputImageFilename?.trim() ||
+              options?.inputImages?.some(Boolean) ||
+              options?.inputImageUrls?.some(url => url?.trim()) ||
+              options?.inputImageFilenames?.some(name => name?.trim())
             ),
             hasMaskImage: Boolean(
               options?.maskImage ||
-                options?.maskImageUrl?.trim() ||
-                options?.maskImageFilename?.trim(),
+              options?.maskImageUrl?.trim() ||
+              options?.maskImageFilename?.trim()
             ),
             hasControlImage: Boolean(
               options?.controlImage ||
-                options?.controlImageUrl?.trim() ||
-                options?.controlImageFilename?.trim() ||
-                options?.controlImages?.some(Boolean) ||
-                options?.controlImageUrls?.some((url) => url?.trim()) ||
-                options?.controlImageFilenames?.some((name) => name?.trim()),
+              options?.controlImageUrl?.trim() ||
+              options?.controlImageFilename?.trim() ||
+              options?.controlImages?.some(Boolean) ||
+              options?.controlImageUrls?.some(url => url?.trim()) ||
+              options?.controlImageFilenames?.some(name => name?.trim())
             ),
             comfy: runtime,
           });
           if (!preflight.ok) {
             throw new Error(
               preflight.issues
-                .filter((issue) => issue.severity === "error")
-                .map((issue) => issue.message)
-                .join(" · ") || "Workflow pre-flight failed.",
+                .filter(issue => issue.severity === 'error')
+                .map(issue => issue.message)
+                .join(' · ') || 'Workflow pre-flight failed.'
             );
           }
         }
@@ -568,14 +531,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         let inputImageFilename = options?.inputImageFilename?.trim();
         let uploadedFigureSize: { width: number; height: number } | undefined;
         const uploadedFilenames: string[] = [
-          ...(options?.inputImageFilenames ?? []).map((name) => name?.trim() ?? ""),
+          ...(options?.inputImageFilenames ?? []).map(name => name?.trim() ?? ''),
         ];
         while (uploadedFilenames.length < 4) {
-          uploadedFilenames.push("");
+          uploadedFilenames.push('');
         }
 
         if (options?.inputImage || options?.inputImageUrl?.trim()) {
-          setComfyUiStatus("Uploading image to ComfyUI…");
+          setComfyUiStatus('Uploading image to ComfyUI…');
           const uploaded = await resolveQueueInputImage({
             file: options.inputImage,
             filename: options.inputImageFilename,
@@ -583,12 +546,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             model: queueModel,
           });
           inputImageFilename = uploaded?.filename;
-          if (
-            uploaded?.width &&
-            uploaded?.height &&
-            uploaded.width > 0 &&
-            uploaded.height > 0
-          ) {
+          if (uploaded?.width && uploaded?.height && uploaded.width > 0 && uploaded.height > 0) {
             uploadedFigureSize = {
               width: uploaded.width,
               height: uploaded.height,
@@ -603,15 +561,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
         // Last resort: probe the raw File when upload metadata omitted size
         // (otherwise Lightning inject keeps Settings 1328² and squashes portraits).
-        if (
-          !uploadedFigureSize &&
-          options?.inputImage &&
-          typeof createImageBitmap === "function"
-        ) {
+        if (!uploadedFigureSize && options?.inputImage && typeof createImageBitmap === 'function') {
           try {
-            const { probeImageFileDimensions } = await import(
-              "@/lib/browser-image-dimensions"
-            );
+            const { probeImageFileDimensions } = await import('@/lib/browser-image-dimensions');
             const probed = await probeImageFileDimensions(options.inputImage);
             if (probed) {
               uploadedFigureSize = probed;
@@ -640,16 +592,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           }
         }
 
-        const inputImageFilenames = uploadedFilenames
-          .map((name) => name.trim())
-          .filter(Boolean);
+        const inputImageFilenames = uploadedFilenames.map(name => name.trim()).filter(Boolean);
         if (!inputImageFilename && inputImageFilenames[0]) {
           inputImageFilename = inputImageFilenames[0];
         }
 
         let maskImageFilename = options?.maskImageFilename?.trim();
         if (options?.maskImage || options?.maskImageUrl?.trim()) {
-          setComfyUiStatus("Uploading mask to ComfyUI…");
+          setComfyUiStatus('Uploading mask to ComfyUI…');
           maskImageFilename = await resolveQueueInputImageFilename({
             file: options.maskImage,
             filename: options.maskImageFilename,
@@ -660,13 +610,13 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
         let controlImageFilename = options?.controlImageFilename?.trim();
         const controlUploaded: string[] = [
-          ...(options?.controlImageFilenames ?? []).map((name) => name?.trim() ?? ""),
+          ...(options?.controlImageFilenames ?? []).map(name => name?.trim() ?? ''),
         ];
         while (controlUploaded.length < 4) {
-          controlUploaded.push("");
+          controlUploaded.push('');
         }
         if (options?.controlImage || options?.controlImageUrl?.trim()) {
-          setComfyUiStatus("Uploading control image to ComfyUI…");
+          setComfyUiStatus('Uploading control image to ComfyUI…');
           controlImageFilename = await resolveQueueInputImageFilename({
             file: options.controlImage,
             filename: options.controlImageFilename,
@@ -700,9 +650,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             controlUploaded[i] = uploaded;
           }
         }
-        const controlImageFilenames = controlUploaded
-          .map((name) => name.trim())
-          .filter(Boolean);
+        const controlImageFilenames = controlUploaded.map(name => name.trim()).filter(Boolean);
         if (!controlImageFilename && controlImageFilenames[0]) {
           controlImageFilename = controlImageFilenames[0];
         }
@@ -716,8 +664,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           base: options?.queueParamsBase,
           workflow,
           inputImageFilename,
-          inputImageFilenames:
-            inputImageFilenames.length > 0 ? inputImageFilenames : undefined,
+          inputImageFilenames: inputImageFilenames.length > 0 ? inputImageFilenames : undefined,
           maskImageFilename,
           controlImageFilename,
           controlImageFilenames:
@@ -730,69 +677,52 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         // still snap to a native-safe preset — raw ≤2048 uploads mosaic CFG-1.
         if (
           uploadedFigureSize &&
-          (config.tool === "compose" ||
-            config.tool === "refine" ||
-            config.tool === "inpaint" ||
-            config.tool === "outpaint")
+          (config.tool === 'compose' ||
+            config.tool === 'refine' ||
+            config.tool === 'inpaint' ||
+            config.tool === 'outpaint')
         ) {
-          const { isQwenLightningModel } = await import(
-            "@/lib/model-sampling-patch"
-          );
+          const { isQwenLightningModel } = await import('@/lib/model-sampling-patch');
           if (isQwenLightningModel(queueModel)) {
-            const { lightningSafeComposeLatentSize } = await import(
-              "@/lib/model-resolution-defaults"
-            );
+            const { lightningSafeComposeLatentSize } =
+              await import('@/lib/model-resolution-defaults');
             const safe = lightningSafeComposeLatentSize(
               uploadedFigureSize.width,
               uploadedFigureSize.height,
-              queueModel,
+              queueModel
             );
             queueParams.width = safe.width;
             queueParams.height = safe.height;
           } else {
-            const { snapLatentSize } = await import(
-              "@/lib/browser-image-dimensions"
-            );
-            const snapped = snapLatentSize(
-              uploadedFigureSize.width,
-              uploadedFigureSize.height,
-            );
+            const { snapLatentSize } = await import('@/lib/browser-image-dimensions');
+            const snapped = snapLatentSize(uploadedFigureSize.width, uploadedFigureSize.height);
             queueParams.width = snapped.width;
             queueParams.height = snapped.height;
           }
         }
 
-        if (pluginDenoise != null && pluginDenoise.toString().trim() !== "") {
+        if (pluginDenoise != null && pluginDenoise.toString().trim() !== '') {
           queueParams.denoise = pluginDenoise;
         }
-        if (pluginCfg != null && pluginCfg.toString().trim() !== "") {
+        if (pluginCfg != null && pluginCfg.toString().trim() !== '') {
           queueParams.cfg = pluginCfg;
         }
 
         // Distilled stacks (Lightning / Rapid AIO): Advanced/plugin CFG or soft
         // edit denoise must not clobber CFG-1 / denoise-1 — that mosaics Compose.
         {
-          const { ensureDistilledSamplerParams } = await import(
-            "@/lib/model-sampler-defaults"
-          );
-          const {
-            resolveDenoiseForModel,
-            isQwenRapidAioModel,
-            isWanRapidAioModel,
-          } = await import("@/lib/model-denoise-defaults");
-          const { isQwenLightningModel, isWanLightningModel } = await import(
-            "@/lib/model-sampling-patch"
-          );
+          const { ensureDistilledSamplerParams } = await import('@/lib/model-sampler-defaults');
+          const { resolveDenoiseForModel, isQwenRapidAioModel, isWanRapidAioModel } =
+            await import('@/lib/model-denoise-defaults');
+          const { isQwenLightningModel, isWanLightningModel } =
+            await import('@/lib/model-sampling-patch');
           const isDistilled =
             isQwenLightningModel(queueModel) ||
             isWanLightningModel(queueModel) ||
             isQwenRapidAioModel(queueModel) ||
             isWanRapidAioModel(queueModel);
           if (isDistilled) {
-            Object.assign(
-              queueParams,
-              ensureDistilledSamplerParams(queueParams, queueModel),
-            );
+            Object.assign(queueParams, ensureDistilledSamplerParams(queueParams, queueModel));
             const forcedDenoise = resolveDenoiseForModel(queueModel, {
               tool: config.tool,
               hasInputImage: Boolean(inputImageFilename),
@@ -804,14 +734,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           }
         }
 
-        if (config.tool === "compose") {
-          const { isFluxKleinModel } = await import(
-            "@/lib/model-denoise-defaults"
-          );
+        if (config.tool === 'compose') {
+          const { isFluxKleinModel } = await import('@/lib/model-denoise-defaults');
           if (isFluxKleinModel(queueModel)) {
-            const { buildComposeKleinQueuePatch } = await import(
-              "@/lib/compose-identity-lock"
-            );
+            const { buildComposeKleinQueuePatch } = await import('@/lib/compose-identity-lock');
             const kleinPatch = buildComposeKleinQueuePatch({
               model: queueModel,
               inputImageFilename,
@@ -824,9 +750,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               Object.assign(queueParams, kleinPatch);
             }
           } else if (options?.identityLock) {
-            const { buildComposeIdentityLockQueuePatch } = await import(
-              "@/lib/compose-identity-lock"
-            );
+            const { buildComposeIdentityLockQueuePatch } =
+              await import('@/lib/compose-identity-lock');
             const identityPatch = buildComposeIdentityLockQueuePatch({
               enabled: true,
               strength: options.identityLockStrength,
@@ -838,9 +763,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             }
           }
         } else if (options?.identityLock) {
-          const { buildComposeIdentityLockQueuePatch } = await import(
-            "@/lib/compose-identity-lock"
-          );
+          const { buildComposeIdentityLockQueuePatch } =
+            await import('@/lib/compose-identity-lock');
           const identityPatch = buildComposeIdentityLockQueuePatch({
             enabled: true,
             strength: options.identityLockStrength,
@@ -852,10 +776,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           }
         }
 
-        if (engineAdapter.id === "comfyui" && effectiveQualityProfile === "max") {
-          const { holdMaxGenerateJob, shouldHoldMaxUntilIdle } = await import(
-            "@/lib/held-max-queue"
-          );
+        if (engineAdapter.id === 'comfyui' && effectiveQualityProfile === 'max') {
+          const { holdMaxGenerateJob, shouldHoldMaxUntilIdle } =
+            await import('@/lib/held-max-queue');
           if (await shouldHoldMaxUntilIdle()) {
             holdMaxGenerateJob({
               prompt: preparedPrompt,
@@ -864,12 +787,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               tool: config.tool,
               params: queueParams,
               comfy: runtime,
-              qualityProfile: "max",
+              qualityProfile: 'max',
             });
-            setComfyUiStatus(
-              "Max held until ComfyUI queue is idle (Queue → Orchestration).",
-            );
-            toastHeldMax({ text: "Max job held until ComfyUI is idle" });
+            setComfyUiStatus('Max held until ComfyUI queue is idle (Queue → Orchestration).');
+            toastHeldMax({ text: 'Max job held until ComfyUI is idle' });
             return;
           }
         }
@@ -886,25 +807,20 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             : undefined);
 
         const previewComfyUrlHint =
-          engineAdapter.id === "diffusers"
+          engineAdapter.id === 'diffusers'
             ? engineSettings.diffusersApiUrl
-            : runtime?.apiUrl?.trim() ||
-              loadComfyUiSettings().apiUrl?.trim() ||
-              undefined;
+            : runtime?.apiUrl?.trim() || loadComfyUiSettings().apiUrl?.trim() || undefined;
 
         const queued = await engineAdapter.postPrompt({
           prompt: preparedPrompt,
           negativePrompt,
           model: queueModel,
           params: queueParams,
-          ...(engineAdapter.id === "diffusers"
+          ...(engineAdapter.id === 'diffusers'
             ? {
                 engineUrl: engineSettings.diffusersApiUrl,
-                workshopCrop: workshopCropToApi(
-                  loadSettingsCache().shared.diffusersWorkshopCrop,
-                ),
-                modelCheckpointMap:
-                  loadSettingsCache().shared.modelCheckpointMap,
+                workshopCrop: workshopCropToApi(loadSettingsCache().shared.diffusersWorkshopCrop),
+                modelCheckpointMap: loadSettingsCache().shared.modelCheckpointMap,
                 qualityProfile: effectiveQualityProfile,
                 hasInputImage: Boolean(inputImageFilename),
               }
@@ -917,9 +833,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           if (!queued.ok || !queued.promptId) {
             throw new Error(
               queued.error ??
-                (engineAdapter.id === "diffusers"
-                  ? "Diffusers queue failed."
-                  : "ComfyUI queue failed."),
+                (engineAdapter.id === 'diffusers'
+                  ? 'Diffusers queue failed.'
+                  : 'ComfyUI queue failed.')
             );
           }
 
@@ -928,19 +844,17 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               [
                 `prompt_id ${queued.promptId}`,
                 queueModel !== config.model ? `as ${queueModel}` : null,
-                queued.workflowSource
-                  ? `workflow: ${queued.workflowSource}`
-                  : null,
-                negativePrompt ? "with negative" : null,
+                queued.workflowSource ? `workflow: ${queued.workflowSource}` : null,
+                negativePrompt ? 'with negative' : null,
                 options?.identityLock && queueParams.ipAdapterImageFilename
                   ? `identity lock · ${
-                      queueParams.identityKind === "instantid"
-                        ? "InstantID"
-                        : queueParams.identityKind === "pulid"
-                          ? "PuLID"
-                          : queueParams.identityKind === "auto"
-                            ? "InstantID/PuLID auto"
-                            : "IP-Adapter"
+                      queueParams.identityKind === 'instantid'
+                        ? 'InstantID'
+                        : queueParams.identityKind === 'pulid'
+                          ? 'PuLID'
+                          : queueParams.identityKind === 'auto'
+                            ? 'InstantID/PuLID auto'
+                            : 'IP-Adapter'
                     } ${Number(queueParams.ipAdapterStrength ?? 0.5).toFixed(2)}`
                   : null,
               ],
@@ -949,26 +863,23 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 qualityProfile: runtime?.queueQualityProfile,
                 tool: config.tool,
                 vramDowngraded: vramGuard.downgraded,
-                samplerMemory:
-                  Object.keys(rememberedSamplerOverrides(queueModel)).length > 0,
+                samplerMemory: Object.keys(rememberedSamplerOverrides(queueModel)).length > 0,
                 hasInputImage: Boolean(inputImageFilename),
                 comfyUrl: queued.engineUrl,
-              },
-            ),
+              }
+            )
           );
           toastQueueOutcome({
             ok: true,
-            text: `Queued to ${engineAdapter.id === "diffusers" ? "Diffusers" : "ComfyUI"} · ${queued.promptId}`,
-            href: "/gallery",
+            text: `Queued to ${engineAdapter.id === 'diffusers' ? 'Diffusers' : 'ComfyUI'} · ${queued.promptId}`,
+            href: '/gallery',
           });
 
           setComfyUiJob({
             promptId: queued.promptId,
-            status: "pending",
+            status: 'pending',
             statusMessage:
-              engineAdapter.id === "diffusers"
-                ? "Submitted to Diffusers"
-                : "Submitted to ComfyUI",
+              engineAdapter.id === 'diffusers' ? 'Submitted to Diffusers' : 'Submitted to ComfyUI',
             comfyUrl: queued.engineUrl,
             engineId: engineAdapter.id,
           });
@@ -979,28 +890,27 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             comfyUrl:
               queued.engineUrl ??
               previewComfyUrlHint ??
-              (engineAdapter.id === "diffusers"
-                ? "http://127.0.0.1:8190"
-                : "http://127.0.0.1:8188"),
+              (engineAdapter.id === 'diffusers'
+                ? 'http://127.0.0.1:8190'
+                : 'http://127.0.0.1:8188'),
             clientId: queued.clientId,
             historyId: resolvedHistoryId,
             queueParams,
             queueQualityProfile: runtime?.queueQualityProfile,
             model: queueModel,
-            sessionActiveLoraIds:
-              resolveSharedEffectiveSessionLoraIds(queueModel),
+            sessionActiveLoraIds: resolveSharedEffectiveSessionLoraIds(queueModel),
             engineId: engineAdapter.id,
           });
           queued.releaseLiveSocket();
           markOnboardingFirstQueue();
           void dispatchWebhook({
-            event: "comfyui.job.queued",
+            event: 'comfyui.job.queued',
             promptId: queued.promptId,
             prompt: preparedPrompt,
             negativePrompt,
             model: queueModel,
             tool: config.tool,
-            status: "queued",
+            status: 'queued',
             queueParams,
             completedAt: Date.now(),
           });
@@ -1009,12 +919,20 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           throw queueError;
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "ComfyUI failed.";
+        const message = err instanceof Error ? err.message : 'ComfyUI failed.';
         setComfyUiStatus(message);
-        toastQueueOutcome({ ok: false, text: message, href: "/queue" });
+        toastQueueOutcome({ ok: false, text: message, href: '/queue' });
       }
     },
-    [config.model, config.tool, config.hints, fetchNegative, saveHistory, trackComfyUiJob, historySaved],
+    [
+      config.model,
+      config.tool,
+      config.hints,
+      fetchNegative,
+      saveHistory,
+      trackComfyUiJob,
+      historySaved,
+    ]
   );
 
   const previewWorkflow = useCallback(
@@ -1023,23 +941,21 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         return;
       }
 
-      setPreviewStatus("Building preview…");
+      setPreviewStatus('Building preview…');
       setWorkflowPreview(null);
       try {
-        const { positive: preparedPrompt, negative: negativePrompt } =
-          await prepareQueuePrompts({
-            model: config.model,
-            positive: prompt,
-            hints: config.hints,
-            sport,
-            tool: config.tool,
-          });
+        const { positive: preparedPrompt, negative: negativePrompt } = await prepareQueuePrompts({
+          model: config.model,
+          positive: prompt,
+          hints: config.hints,
+          sport,
+          tool: config.tool,
+        });
 
-        const [{ fetchWorkflowPreview }, { resolveRuntimeForQueueAsync }] =
-          await Promise.all([
-            import("@/lib/comfyui-requeue"),
-            import("@/lib/comfyui-runtime-for-model"),
-          ]);
+        const [{ fetchWorkflowPreview }, { resolveRuntimeForQueueAsync }] = await Promise.all([
+          import('@/lib/comfyui-requeue'),
+          import('@/lib/comfyui-runtime-for-model'),
+        ]);
         const preview = await fetchWorkflowPreview({
           prompt: preparedPrompt,
           negativePrompt,
@@ -1051,30 +967,25 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           comfy: await resolveRuntimeForQueueAsync(config.model, config.tool),
         });
         setWorkflowPreview(preview);
-        setPreviewStatus("Workflow preview ready (not queued).");
+        setPreviewStatus('Workflow preview ready (not queued).');
       } catch (err) {
-        setPreviewStatus(err instanceof Error ? err.message : "Preview failed.");
+        setPreviewStatus(err instanceof Error ? err.message : 'Preview failed.');
       }
     },
-    [config.hints, config.model, config.tool],
+    [config.hints, config.model, config.tool]
   );
 
   const sendBatchComfyUi = useCallback(
     async (prompts: string[], sport?: AthleticSport | null) => {
-      const filtered = prompts.map((entry) => entry.trim()).filter(Boolean);
+      const filtered = prompts.map(entry => entry.trim()).filter(Boolean);
       if (filtered.length === 0) {
         return;
       }
 
       setComfyUiStatus(`Queueing ${filtered.length}…`);
       try {
-        const { resolveRuntimeForQueueAsync } = await import(
-          "@/lib/comfyui-runtime-for-model"
-        );
-        const baseRuntime = await resolveRuntimeForQueueAsync(
-          config.model,
-          config.tool,
-        );
+        const { resolveRuntimeForQueueAsync } = await import('@/lib/comfyui-runtime-for-model');
+        const baseRuntime = await resolveRuntimeForQueueAsync(config.model, config.tool);
         const queueModel = resolveModelForQueueTool(config.model, config.tool);
         const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
         const runtime = vramGuard.runtime ?? baseRuntime;
@@ -1087,17 +998,18 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             })
           : undefined;
         const steered = applyQueuePromptSteering({
-          positive: injectLoraTriggers(filtered[0] ?? ""),
+          positive: injectLoraTriggers(filtered[0] ?? ''),
           negative: rawNegative,
           model: queueModel,
         });
         const negativePrompt = steered.negative;
-        const prepared = filtered.map((entry) =>
-          applyQueuePromptSteering({
-            positive: injectLoraTriggers(entry),
-            negative: rawNegative,
-            model: queueModel,
-          }).positive,
+        const prepared = filtered.map(
+          entry =>
+            applyQueuePromptSteering({
+              positive: injectLoraTriggers(entry),
+              negative: rawNegative,
+              model: queueModel,
+            }).positive
         );
 
         const paramsPerPrompt = prepared.map((_, index) =>
@@ -1108,20 +1020,19 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               seed: String(Math.floor(Math.random() * 2 ** 32) + index),
             },
             qualityProfile: vramGuard.profile,
-          }),
+          })
         );
 
         const engineAdapter = getEngineAdapter();
-        if (engineAdapter.id === "diffusers") {
+        if (engineAdapter.id === 'diffusers') {
           throw new Error(
-            "Batch queue is ComfyUI-only. Switch Settings → Inference engine to ComfyUI, or send a single prompt.",
+            'Batch queue is ComfyUI-only. Switch Settings → Inference engine to ComfyUI, or send a single prompt.'
           );
         }
 
-        if (vramGuard.profile === "max") {
-          const { holdMaxGenerateJob, shouldHoldMaxUntilIdle } = await import(
-            "@/lib/held-max-queue"
-          );
+        if (vramGuard.profile === 'max') {
+          const { holdMaxGenerateJob, shouldHoldMaxUntilIdle } =
+            await import('@/lib/held-max-queue');
           if (await shouldHoldMaxUntilIdle()) {
             for (const [index, prompt] of prepared.entries()) {
               holdMaxGenerateJob({
@@ -1131,21 +1042,19 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
                 tool: config.tool,
                 params: paramsPerPrompt[index],
                 comfy: runtime,
-                qualityProfile: "max",
+                qualityProfile: 'max',
               });
             }
-            setComfyUiStatus(
-              `Held ${prepared.length} Max job(s) until ComfyUI queue is idle.`,
-            );
+            setComfyUiStatus(`Held ${prepared.length} Max job(s) until ComfyUI queue is idle.`);
             toastHeldMax({
-              text: "Max jobs held until ComfyUI is idle",
+              text: 'Max jobs held until ComfyUI is idle',
               count: prepared.length,
             });
             return;
           }
         }
 
-        const { runWorkflowPreflight } = await import("@/lib/workflow-preflight");
+        const { runWorkflowPreflight } = await import('@/lib/workflow-preflight');
         const preflight = await runWorkflowPreflight({
           model: queueModel,
           prompts: prepared,
@@ -1157,9 +1066,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         if (!preflight.ok) {
           throw new Error(
             preflight.issues
-              .filter((issue) => issue.severity === "error")
-              .map((issue) => issue.message)
-              .join(" · ") || "Workflow pre-flight failed.",
+              .filter(issue => issue.severity === 'error')
+              .map(issue => issue.message)
+              .join(' · ') || 'Workflow pre-flight failed.'
           );
         }
 
@@ -1167,7 +1076,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const batchHistoryId =
           autoSaveEnabled && !historySaved && prepared.length > 0
             ? saveHistory({
-                prompt: prepared.join("\n\n---\n\n"),
+                prompt: prepared.join('\n\n---\n\n'),
                 hints: config.hints,
                 metadata: {
                   batchSize: prepared.length,
@@ -1178,9 +1087,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             : undefined;
 
         const previewComfyUrlHint =
-          runtime?.apiUrl?.trim() ||
-          loadComfyUiSettings().apiUrl?.trim() ||
-          undefined;
+          runtime?.apiUrl?.trim() || loadComfyUiSettings().apiUrl?.trim() || undefined;
 
         const queued = await engineAdapter.postPrompt({
           prompts: prepared,
@@ -1205,9 +1112,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           };
 
           if (!queued.ok) {
-            throw new Error(
-              queued.error ?? data.error ?? "ComfyUI batch queue failed.",
-            );
+            throw new Error(queued.error ?? data.error ?? 'ComfyUI batch queue failed.');
           }
 
           for (const [index, result] of (data.results ?? []).entries()) {
@@ -1217,29 +1122,28 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             trackComfyUiJob(
               {
                 promptId: result.promptId,
-                prompt: prepared[index] ?? prepared[0] ?? "",
+                prompt: prepared[index] ?? prepared[0] ?? '',
                 negativePrompt,
                 comfyUrl:
                   result.comfyUrl ??
                   data.comfyUrl ??
                   queued.engineUrl ??
                   previewComfyUrlHint ??
-                  "http://127.0.0.1:8188",
+                  'http://127.0.0.1:8188',
                 clientId: queued.clientId,
                 queueParams: paramsPerPrompt[index] ?? paramsPerPrompt[0],
                 historyId: index === 0 ? batchHistoryId : undefined,
                 queueQualityProfile: runtime?.queueQualityProfile,
                 model: queueModel,
-                sessionActiveLoraIds:
-                  resolveSharedEffectiveSessionLoraIds(queueModel),
+                sessionActiveLoraIds: resolveSharedEffectiveSessionLoraIds(queueModel),
               },
-              false,
+              false
             );
           }
           queued.releaseLiveSocket();
 
           void dispatchWebhook({
-            event: "comfyui.batch.completed",
+            event: 'comfyui.batch.completed',
             tool: config.tool,
             model: queueModel,
             queued: data.queued ?? prepared.length,
@@ -1253,37 +1157,41 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
               `queued ${data.queued ?? prepared.length}/${prepared.length}`,
               data.failed ? `${data.failed} failed` : null,
               data.comfyUrl ?? queued.engineUrl,
-              negativePrompt ? "with negative" : null,
+              negativePrompt ? 'with negative' : null,
             ]
               .filter(Boolean)
-              .join(" · "),
+              .join(' · ')
           );
           toastQueueOutcome({
             ok: !data.failed,
             text: data.failed
               ? `Batch queued with ${data.failed} failure(s)`
               : `Batch queued ${data.queued ?? prepared.length}/${prepared.length}`,
-            href: data.failed ? "/queue" : "/gallery",
+            href: data.failed ? '/queue' : '/gallery',
           });
         } catch (queueError) {
           queued.releaseLiveSocket();
           throw queueError;
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "ComfyUI batch failed.";
+        const message = err instanceof Error ? err.message : 'ComfyUI batch failed.';
         setComfyUiStatus(message);
-        toastQueueOutcome({ ok: false, text: message, href: "/queue" });
+        toastQueueOutcome({ ok: false, text: message, href: '/queue' });
       }
     },
-    [config.hints, config.model, config.tool, fetchNegative, trackComfyUiJob, saveHistory, historySaved],
+    [
+      config.hints,
+      config.model,
+      config.tool,
+      fetchNegative,
+      trackComfyUiJob,
+      saveHistory,
+      historySaved,
+    ]
   );
 
   const copyPromptPair = useCallback(
-    async (
-      prompt: string,
-      sport?: AthleticSport | null,
-      explicitNegative?: string,
-    ) => {
+    async (prompt: string, sport?: AthleticSport | null, explicitNegative?: string) => {
       if (!prompt) {
         return;
       }
@@ -1306,10 +1214,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         setPairCopied(true);
         window.setTimeout(() => setPairCopied(false), 2000);
       } catch {
-        setFixStatus("Could not copy prompt pair.");
+        setFixStatus('Could not copy prompt pair.');
       }
     },
-    [config.hints, config.model, config.tool],
+    [config.hints, config.model, config.tool]
   );
 
   const compactPrompt = useCallback(
@@ -1318,15 +1226,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         return;
       }
 
-      setCompactStatus("Compacting…");
+      setCompactStatus('Compacting…');
       try {
-        const response = await fetch("/api/compact", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const response = await fetch('/api/compact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             prompt,
             model: config.model,
-            detail: config.detail ?? "balanced",
+            detail: config.detail ?? 'balanced',
           }),
         });
 
@@ -1339,7 +1247,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         };
 
         if (!response.ok) {
-          throw new Error(data.error ?? "Compact failed.");
+          throw new Error(data.error ?? 'Compact failed.');
         }
 
         if (data.prompt) {
@@ -1350,20 +1258,20 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         setCompactStatus(
           data.beforeChars != null && data.afterChars != null
             ? `Compacted ${data.beforeChars} → ${data.afterChars} chars (max ${data.maxChars})`
-            : "Compacted to model limit.",
+            : 'Compacted to model limit.'
         );
       } catch (err) {
-        setCompactStatus(err instanceof Error ? err.message : "Compact failed.");
+        setCompactStatus(err instanceof Error ? err.message : 'Compact failed.');
       }
     },
-    [config.model, config.detail, config.hints, lintPrompt],
+    [config.model, config.detail, config.hints, lintPrompt]
   );
 
   const reformatForModel = useCallback(
     async (
       prompt: string,
       onReformatted: (next: string) => void,
-      targetModel?: ComfyImageModel,
+      targetModel?: ComfyImageModel
     ) => {
       const model = targetModel ?? config.reformatTarget;
       if (!prompt.trim() || !model) {
@@ -1372,14 +1280,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
       setReformatStatus(`Reformatting for ${model}…`);
       try {
-        const response = await fetch("/api/format", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const response = await fetch('/api/format', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             input: prompt,
-            mode: "positive",
+            mode: 'positive',
             model,
-            detail: config.detail ?? "balanced",
+            detail: config.detail ?? 'balanced',
             smartFormat: true,
           }),
         });
@@ -1387,7 +1295,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         const data = (await response.json()) as { prompt?: string; error?: string };
 
         if (!response.ok) {
-          throw new Error(data.error ?? "Reformat failed.");
+          throw new Error(data.error ?? 'Reformat failed.');
         }
 
         if (data.prompt) {
@@ -1402,10 +1310,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
         setReformatStatus(`Reformatted for ${model}.`);
       } catch (err) {
-        setReformatStatus(err instanceof Error ? err.message : "Reformat failed.");
+        setReformatStatus(err instanceof Error ? err.message : 'Reformat failed.');
       }
     },
-    [config.detail, config.hints, config.model, config.reformatTarget, saveHistory],
+    [config.detail, config.hints, config.model, config.reformatTarget, saveHistory]
   );
 
   const exportSidecar = useCallback(
@@ -1415,7 +1323,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         comfyNode?: string;
         metadata?: Record<string, unknown>;
         variationSeed?: string | null;
-      },
+      }
     ) => {
       if (!prompt.trim()) {
         return;
@@ -1438,10 +1346,10 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           variationSeed: extras?.variationSeed ?? undefined,
           diagnostics,
           metadata: extras?.metadata,
-        }),
+        })
       );
     },
-    [config.model, config.detail, config.hints, config.tool, diagnostics, fetchNegative],
+    [config.model, config.detail, config.hints, config.tool, diagnostics, fetchNegative]
   );
 
   const runExportPipeline = useCallback(
@@ -1464,22 +1372,22 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         queueParamsBase?: WorkflowParamValues;
         identityLock?: boolean;
         identityLockStrength?: number;
-        identityKind?: import("@/lib/compose-identity-lock").ComposeIdentityKind;
-      },
+        identityKind?: import('@/lib/compose-identity-lock').ComposeIdentityKind;
+      }
     ) => {
       if (!prompt.trim()) {
         return;
       }
 
-      setPipelineStatus("Linting…");
+      setPipelineStatus('Linting…');
       let current = prompt;
 
       try {
         const lint = await lintPrompt(current, config.hints);
-        const hasErrors = lint?.issues.some((issue) => issue.severity === "error");
+        const hasErrors = lint?.issues.some(issue => issue.severity === 'error');
 
         if (hasErrors && config.autoFixRules !== false) {
-          setPipelineStatus("Applying rule fixes…");
+          setPipelineStatus('Applying rule fixes…');
           const data = await applyRuleFix(current, config.hints);
           if (data.prompt) {
             current = data.prompt;
@@ -1489,14 +1397,14 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
 
         if (options?.maxChars && current.length > options.maxChars) {
-          setPipelineStatus("Compacting to model limit…");
-          const response = await fetch("/api/compact", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+          setPipelineStatus('Compacting to model limit…');
+          const response = await fetch('/api/compact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               prompt: current,
               model: config.model,
-              detail: config.detail ?? "balanced",
+              detail: config.detail ?? 'balanced',
             }),
           });
           const data = (await response.json()) as { prompt?: string; error?: string };
@@ -1506,11 +1414,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           }
         }
 
-        setPipelineStatus("Copying prompt pair…");
+        setPipelineStatus('Copying prompt pair…');
         await copyPromptPair(current, options?.sport);
 
         if (options?.queueComfyUi) {
-          setPipelineStatus("Queueing ComfyUI…");
+          setPipelineStatus('Queueing ComfyUI…');
           await sendComfyUi(current, options?.sport, undefined, {
             inputImage: options?.inputImage,
             inputImageFilename: options?.inputImageFilename,
@@ -1526,12 +1434,12 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             identityLockStrength: options?.identityLockStrength,
             identityKind: options?.identityKind,
           });
-          setPipelineStatus("Pipeline complete · pair copied · queued");
+          setPipelineStatus('Pipeline complete · pair copied · queued');
         } else {
-          setPipelineStatus("Pipeline complete · pair copied");
+          setPipelineStatus('Pipeline complete · pair copied');
         }
       } catch (err) {
-        setPipelineStatus(err instanceof Error ? err.message : "Pipeline failed.");
+        setPipelineStatus(err instanceof Error ? err.message : 'Pipeline failed.');
       }
     },
     [
@@ -1543,7 +1451,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       copyPromptPair,
       lintPrompt,
       sendComfyUi,
-    ],
+    ]
   );
 
   const improveOutput = useCallback(
@@ -1558,7 +1466,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         tool: config.tool,
       });
     },
-    [config.model, config.tool],
+    [config.model, config.tool]
   );
 
   const refineOutput = useCallback(
@@ -1574,16 +1482,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         tool: config.tool,
       });
     },
-    [config.model, config.tool],
+    [config.model, config.tool]
   );
 
   const editPromptOutput = useCallback(
-    (
-      prompt: string,
-      previewUrl?: string | null,
-      negativePrompt?: string,
-      hints?: string,
-    ) => {
+    (prompt: string, previewUrl?: string | null, negativePrompt?: string, hints?: string) => {
       if (!prompt.trim()) {
         return;
       }
@@ -1596,7 +1499,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         tool: config.tool,
       });
     },
-    [config.hints, config.model, config.tool],
+    [config.hints, config.model, config.tool]
   );
 
   return {

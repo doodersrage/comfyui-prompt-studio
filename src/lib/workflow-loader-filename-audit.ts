@@ -1,24 +1,24 @@
-import type { ComfyUiModelLists } from "./comfyui-object-info";
+import type { ComfyUiModelLists } from './comfyui-object-info';
 import {
   isFilenameInUnetLoaderList,
   unetLoaderPlacementMessage,
-} from "./loader-map-inventory-sync";
+} from './loader-map-inventory-sync';
 
 export type WorkflowLoaderFilenameIssue = {
-  severity: "error" | "warn";
+  severity: 'error' | 'warn';
   message: string;
 };
 
 const PLACEHOLDER_PATTERN = /^\{\{[A-Z0-9_]+\}\}$/;
 
-const CHECKPOINT_LOADER_TYPES = new Set(["CheckpointLoaderSimple", "CheckpointLoader"]);
-const UNET_LOADER_TYPES = new Set(["UNETLoader", "UnetLoaderGGUF"]);
+const CHECKPOINT_LOADER_TYPES = new Set(['CheckpointLoaderSimple', 'CheckpointLoader']);
+const UNET_LOADER_TYPES = new Set(['UNETLoader', 'UnetLoaderGGUF']);
 const LORA_LOADER_TYPES = new Set([
-  "LoraLoader",
-  "LoraLoaderModelOnly",
-  "Power Lora Loader (rgthree)",
+  'LoraLoader',
+  'LoraLoaderModelOnly',
+  'Power Lora Loader (rgthree)',
 ]);
-const CONTROLNET_LOADER_TYPES = new Set(["ControlNetLoader", "DiffControlNetLoader"]);
+const CONTROLNET_LOADER_TYPES = new Set(['ControlNetLoader', 'DiffControlNetLoader']);
 
 function filenameInList(filename: string, list: string[]): boolean {
   const trimmed = filename.trim();
@@ -36,7 +36,7 @@ function auditFilenameField(
     filename: string;
     list: string[];
     fallbackList?: string[];
-  },
+  }
 ): void {
   const trimmed = input.filename.trim();
   if (!trimmed || isBindablePlaceholder(trimmed)) {
@@ -50,7 +50,7 @@ function auditFilenameField(
     (input.fallbackList ? filenameInList(trimmed, input.fallbackList) : false);
   if (!found) {
     issues.push({
-      severity: "error",
+      severity: 'error',
       message: `${input.label} “${trimmed}” not found in ComfyUI — update the workflow or run Optimize all.`,
     });
   }
@@ -76,38 +76,35 @@ export function auditLoaderFilenamesInWorkflow(input: {
   const issues: WorkflowLoaderFilenameIssue[] = [];
 
   for (const node of Object.values(workflow)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
     const record = node as {
       class_type?: string;
       inputs?: Record<string, unknown>;
     };
-    const classType = record.class_type ?? "";
+    const classType = record.class_type ?? '';
     const inputs = record.inputs;
     if (!inputs) {
       continue;
     }
 
-    if (
-      CHECKPOINT_LOADER_TYPES.has(classType) &&
-      typeof inputs.ckpt_name === "string"
-    ) {
+    if (CHECKPOINT_LOADER_TYPES.has(classType) && typeof inputs.ckpt_name === 'string') {
       auditFilenameField(issues, {
-        label: "Checkpoint",
+        label: 'Checkpoint',
         filename: inputs.ckpt_name,
         list: input.models.checkpoints,
         fallbackList: input.models.unets,
       });
     }
 
-    if (UNET_LOADER_TYPES.has(classType) && typeof inputs.unet_name === "string") {
+    if (UNET_LOADER_TYPES.has(classType) && typeof inputs.unet_name === 'string') {
       const unetName = inputs.unet_name.trim();
       if (unetName && !isBindablePlaceholder(unetName)) {
         if (!isFilenameInUnetLoaderList(unetName, input.models.unets)) {
           const placement = unetLoaderPlacementMessage(unetName, input.models);
           issues.push({
-            severity: "error",
+            severity: 'error',
             message:
               placement ??
               `UNET “${unetName}” not found in ComfyUI — update the workflow or run Optimize all.`,
@@ -116,47 +113,44 @@ export function auditLoaderFilenamesInWorkflow(input: {
       }
     }
 
-    if (classType === "VAELoader" && typeof inputs.vae_name === "string") {
+    if (classType === 'VAELoader' && typeof inputs.vae_name === 'string') {
       auditFilenameField(issues, {
-        label: "VAE",
+        label: 'VAE',
         filename: inputs.vae_name,
         list: input.models.vaes,
       });
     }
 
     if (
-      (classType === "UpscaleModelLoader" || classType === "UpscaleModel") &&
-      typeof inputs.model_name === "string"
+      (classType === 'UpscaleModelLoader' || classType === 'UpscaleModel') &&
+      typeof inputs.model_name === 'string'
     ) {
       auditFilenameField(issues, {
-        label: "Upscale model",
+        label: 'Upscale model',
         filename: inputs.model_name,
         list: input.models.upscaleModels,
       });
     }
 
-    if (LORA_LOADER_TYPES.has(classType) && typeof inputs.lora_name === "string") {
+    if (LORA_LOADER_TYPES.has(classType) && typeof inputs.lora_name === 'string') {
       auditFilenameField(issues, {
-        label: "LoRA",
+        label: 'LoRA',
         filename: inputs.lora_name,
         list: input.models.loras,
       });
     }
 
-    if (
-      CONTROLNET_LOADER_TYPES.has(classType) &&
-      typeof inputs.control_net_name === "string"
-    ) {
+    if (CONTROLNET_LOADER_TYPES.has(classType) && typeof inputs.control_net_name === 'string') {
       auditFilenameField(issues, {
-        label: "ControlNet",
+        label: 'ControlNet',
         filename: inputs.control_net_name,
         list: input.models.controlNets,
       });
     }
 
-    if (classType === "DualCLIPLoader") {
-      for (const field of ["clip_name1", "clip_name2"] as const) {
-        const filename = typeof inputs[field] === "string" ? inputs[field] : "";
+    if (classType === 'DualCLIPLoader') {
+      for (const field of ['clip_name1', 'clip_name2'] as const) {
+        const filename = typeof inputs[field] === 'string' ? inputs[field] : '';
         if (filename) {
           auditFilenameField(issues, {
             label: `DualCLIPLoader ${field}`,
@@ -167,9 +161,9 @@ export function auditLoaderFilenamesInWorkflow(input: {
       }
     }
 
-    if (classType === "CLIPLoader" && typeof inputs.clip_name === "string") {
+    if (classType === 'CLIPLoader' && typeof inputs.clip_name === 'string') {
       auditFilenameField(issues, {
-        label: "CLIPLoader clip_name",
+        label: 'CLIPLoader clip_name',
         filename: inputs.clip_name,
         list: input.models.clips,
       });

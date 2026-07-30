@@ -1,5 +1,5 @@
-import { appDb } from "./app-db";
-import { COMFYUI_GALLERY_KEY } from "./comfyui-gallery-storage-meta";
+import { appDb } from './app-db';
+import { COMFYUI_GALLERY_KEY } from './comfyui-gallery-storage-meta';
 
 const cache = new Map<string, unknown>();
 const dirtyKeys = new Set<string>();
@@ -10,13 +10,13 @@ let flushListenersAttached = false;
 const PERSIST_DEBOUNCE_MS = 350;
 /** Keys that FOUC / pre-paint scripts read from localStorage — keep sync. */
 const SYNC_LOCALSTORAGE_KEYS = new Set([
-  "comfy-app-theme-v1",
-  "comfy-ambient-intensity-v1",
-  "comfy-ui-density-v1",
+  'comfy-app-theme-v1',
+  'comfy-ambient-intensity-v1',
+  'comfy-ui-density-v1',
 ]);
 
 function readLegacyLocalStorageValue(key: string): unknown | undefined {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return undefined;
   }
 
@@ -33,22 +33,19 @@ function readLegacyLocalStorageValue(key: string): unknown | undefined {
 }
 
 function writeLegacyLocalStorageValue(key: string, value: unknown): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
   try {
-    window.localStorage.setItem(
-      key,
-      typeof value === "string" ? value : JSON.stringify(value),
-    );
+    window.localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
   } catch {
     // ignore quota / privacy mode
   }
 }
 
 function removeLegacyLocalStorageValue(key: string): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -61,7 +58,7 @@ export function isBrowserStorageReady(): boolean {
 
 /** Resolves once IndexedDB KV (or legacy fallback) has finished hydrating. */
 export function whenBrowserStorageReady(): Promise<void> {
-  if (typeof window === "undefined" || ready) {
+  if (typeof window === 'undefined' || ready) {
     return Promise.resolve();
   }
   return initBrowserStorage();
@@ -77,7 +74,7 @@ export function resetBrowserStorageCache(): void {
 }
 
 export function readBrowserValue<T>(key: string): T | null {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return null;
   }
 
@@ -96,7 +93,7 @@ export function readBrowserValue<T>(key: string): T | null {
 
 export function readBrowserString(key: string): string | null {
   const value = readBrowserValue<unknown>(key);
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     return value;
   }
   if (value == null) {
@@ -106,7 +103,7 @@ export function readBrowserString(key: string): string | null {
 }
 
 export function writeBrowserValue(key: string, value: unknown): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -124,7 +121,7 @@ export function writeBrowserString(key: string, value: string): void {
 }
 
 export function removeBrowserKey(key: string): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -146,7 +143,7 @@ function schedulePersistDirtyKeys(): void {
 }
 
 export function flushBrowserStorage(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   if (persistTimer) {
@@ -157,20 +154,20 @@ export function flushBrowserStorage(): void {
 }
 
 function attachBrowserStorageFlushListeners(): void {
-  if (typeof window === "undefined" || flushListenersAttached) {
+  if (typeof window === 'undefined' || flushListenersAttached) {
     return;
   }
-  if (typeof window.addEventListener !== "function") {
+  if (typeof window.addEventListener !== 'function') {
     return;
   }
   flushListenersAttached = true;
   const flush = () => {
     flushBrowserStorage();
   };
-  window.addEventListener("pagehide", flush);
-  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") {
+  window.addEventListener('pagehide', flush);
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
         flush();
       }
     });
@@ -213,11 +210,11 @@ async function persistBrowserKey(key: string): Promise<void> {
 async function persistDirtyBrowserKeys(): Promise<void> {
   const keys = [...dirtyKeys];
   dirtyKeys.clear();
-  await Promise.all(keys.map((key) => persistBrowserKey(key)));
+  await Promise.all(keys.map(key => persistBrowserKey(key)));
 }
 
 async function migrateLocalStorageToBrowserDb(): Promise<void> {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -245,13 +242,13 @@ async function migrateLocalStorageToBrowserDb(): Promise<void> {
 
 /** Keys loaded before the full KV table so settings/history hydrate sooner. */
 const HOT_KV_KEYS = [
-  "comfy-prompt-tool-settings-v1",
-  "comfyui-settings-v4",
-  "comfy-prompt-tool-history-v1",
+  'comfy-prompt-tool-settings-v1',
+  'comfyui-settings-v4',
+  'comfy-prompt-tool-history-v1',
 ] as const;
 
 export async function initBrowserStorage(): Promise<void> {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -274,7 +271,7 @@ export async function initBrowserStorage(): Promise<void> {
       // Prefer hot keys first so settings hooks can hydrate without waiting on
       // the full KV dump (gallery mirrors, drafts, experiments, …).
       await Promise.all(
-        HOT_KV_KEYS.map(async (key) => {
+        HOT_KV_KEYS.map(async key => {
           try {
             const record = await db.kv.get(key);
             // Keep in-flight writes — never let a slow IDB read clobber a
@@ -285,7 +282,7 @@ export async function initBrowserStorage(): Promise<void> {
           } catch {
             // ignore per-key failures; full hydrate follows
           }
-        }),
+        })
       );
 
       const records = await db.kv.toArray();
@@ -309,7 +306,7 @@ export async function clearBrowserKvStore(): Promise<void> {
   cache.clear();
   dirtyKeys.clear();
 
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 

@@ -1,14 +1,14 @@
-import type { WorkflowPlaceholderTokens } from "./comfyui-config";
+import type { WorkflowPlaceholderTokens } from './comfyui-config';
 import {
   loadComfyWorkflowFiles,
   upsertComfyWorkflowFile,
   type ComfyWorkflowFile,
-} from "./comfyui-workflow-files";
-import { loadSettingsCache } from "./settings-cache";
-import { resolveQueueParams } from "./queue-params-settings";
-import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
-import { resolveOptimizeModelForWorkflowFile } from "./workflow-optimize-model";
-import { normalizeQueueQualityProfile } from "./queue-quality-profile";
+} from './comfyui-workflow-files';
+import { loadSettingsCache } from './settings-cache';
+import { resolveQueueParams } from './queue-params-settings';
+import { optimizeWorkflowForQueue } from './workflow-queue-optimizer';
+import { resolveOptimizeModelForWorkflowFile } from './workflow-optimize-model';
+import { normalizeQueueQualityProfile } from './queue-quality-profile';
 
 export type OptimizeAllWorkflowsResult = {
   updated: number;
@@ -29,8 +29,8 @@ function optimizeWorkflowFileRecord(input: {
   tokens: WorkflowPlaceholderTokens;
   fallbackModel: string;
   perWorkflowModel: boolean;
-  modelWorkflowMap?: import("./model-workflow-map").ModelWorkflowMap;
-  queueQualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
+  modelWorkflowMap?: import('./model-workflow-map').ModelWorkflowMap;
+  queueQualityProfile?: import('./queue-quality-profile').QueueQualityProfile;
   workflowSdxlRefinerEnrich?: boolean;
   workflowNeuralUpscalePolish?: boolean;
   workflowSharpenAfterUpscale?: boolean;
@@ -71,7 +71,7 @@ function optimizeWorkflowFileRecord(input: {
       : resolveOptimizeModelForWorkflowFile(
           input.file,
           input.fallbackModel,
-          input.modelWorkflowMap,
+          input.modelWorkflowMap
         );
 
   const queueParams = resolveQueueParams({
@@ -135,9 +135,9 @@ export function optimizeWorkflowFileInLibrary(input: {
 }): OptimizeWorkflowFileResult {
   const shared = loadSettingsCache().shared;
   const fallbackModel = input.model ?? shared.model;
-  const file = loadComfyWorkflowFiles().find((entry) => entry.id === input.fileId);
+  const file = loadComfyWorkflowFiles().find(entry => entry.id === input.fileId);
   if (!file) {
-    return { ok: false, message: "Workflow not found in library." };
+    return { ok: false, message: 'Workflow not found in library.' };
   }
 
   const outcome = optimizeWorkflowFileRecord({
@@ -156,14 +156,16 @@ export function optimizeWorkflowFileInLibrary(input: {
     return {
       ok: true,
       file: outcome.file,
-      message: outcome.warning ?? `“${file.name}” unchanged — already optimized for ${outcome.optimizeModel}.`,
+      message:
+        outcome.warning ??
+        `“${file.name}” unchanged — already optimized for ${outcome.optimizeModel}.`,
     };
   }
 
   return {
     ok: true,
     file: outcome.file,
-    message: `Optimized “${file.name}” for ${outcome.optimizeModel}.${outcome.warning ? ` ${outcome.warning}` : ""}`,
+    message: `Optimized “${file.name}” for ${outcome.optimizeModel}.${outcome.warning ? ` ${outcome.warning}` : ''}`,
   };
 }
 

@@ -1,10 +1,10 @@
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
 export type CampaignTemplate = {
   id: string;
   name: string;
   description?: string;
-  target: "random-scene" | "topics";
+  target: 'random-scene' | 'topics';
   count: number;
   genre?: string;
   topics?: string[];
@@ -12,10 +12,10 @@ export type CampaignTemplate = {
   createdAt: number;
 };
 
-export const CAMPAIGN_TEMPLATES_KEY = "prompt-campaign-templates-v1";
+export const CAMPAIGN_TEMPLATES_KEY = 'prompt-campaign-templates-v1';
 
 export function loadCampaignTemplates(): CampaignTemplate[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   try {
@@ -26,14 +26,14 @@ export function loadCampaignTemplates(): CampaignTemplate[] {
 }
 
 export function saveCampaignTemplates(templates: CampaignTemplate[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(CAMPAIGN_TEMPLATES_KEY, templates.slice(0, 24));
 }
 
 export function upsertCampaignTemplate(
-  template: Omit<CampaignTemplate, "id" | "createdAt"> & { id?: string; createdAt?: number },
+  template: Omit<CampaignTemplate, 'id' | 'createdAt'> & { id?: string; createdAt?: number }
 ): CampaignTemplate {
   const next: CampaignTemplate = {
     id: template.id ?? crypto.randomUUID(),
@@ -47,7 +47,7 @@ export function upsertCampaignTemplate(
     queueToComfyUi: template.queueToComfyUi,
   };
   const templates = loadCampaignTemplates();
-  const index = templates.findIndex((entry) => entry.id === next.id);
+  const index = templates.findIndex(entry => entry.id === next.id);
   if (index >= 0) {
     templates[index] = next;
   } else {
@@ -58,5 +58,5 @@ export function upsertCampaignTemplate(
 }
 
 export function deleteCampaignTemplate(id: string): void {
-  saveCampaignTemplates(loadCampaignTemplates().filter((entry) => entry.id !== id));
+  saveCampaignTemplates(loadCampaignTemplates().filter(entry => entry.id !== id));
 }

@@ -1,19 +1,16 @@
-import {
-  isQwenLightningModel,
-  QWEN_LIGHTNING_SHIFT_DEFAULT,
-} from "./model-sampling-patch";
-import { isEditCapableModel } from "./model-denoise-defaults";
+import { isQwenLightningModel, QWEN_LIGHTNING_SHIFT_DEFAULT } from './model-sampling-patch';
+import { isEditCapableModel } from './model-denoise-defaults';
 import {
   filenameLooksLikeCheckpointOnly,
   isVaeFilenameIncompatibleWithModel,
   type ModelLoaderFilenames,
-} from "./model-checkpoint-map";
-import type { WorkflowParamValues } from "./comfyui-config";
+} from './model-checkpoint-map';
+import type { WorkflowParamValues } from './comfyui-config';
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
   DEFAULT_RESOLUTION_SIZE_TIER,
   ensureLightningNativeResolutionParams,
-} from "./model-resolution-defaults";
+} from './model-resolution-defaults';
 import {
   precisionHintFromFilename,
   qwen2512UnetFilename,
@@ -21,13 +18,13 @@ import {
   qwenEdit2509UnetFilename,
   qwenEdit2511UnetFilename,
   qwenUnetFamilyFromFilename,
-} from "./model-loader-precision";
+} from './model-loader-precision';
 import {
   isLatentSizeNode,
   normalizeEmptyLatentForModel,
   patchLoaderNodesInWorkflow,
-} from "./workflow-direct-patch";
-import { isPromptStudioOutputUpscaleNode } from "./workflow-enrich-markers";
+} from './workflow-direct-patch';
+import { isPromptStudioOutputUpscaleNode } from './workflow-enrich-markers';
 import {
   isLoraLoaderClassType,
   loraFilenameImpliesLightning,
@@ -37,43 +34,27 @@ import {
   alignLightningLoraFamilyInWorkflow,
   patchLoraNodesInWorkflow,
   resolveLoraLoaderFilename,
-} from "./workflow-lora-patch";
-import { normalizeInputImageFilenames } from "./workflow-load-image-bindings";
+} from './workflow-lora-patch';
+import { normalizeInputImageFilenames } from './workflow-load-image-bindings';
 
-const VAE_DECODE_TYPES = new Set(["VAEDecode"]);
+const VAE_DECODE_TYPES = new Set(['VAEDecode']);
 const OUTPUT_POST_PROCESS_TYPES = new Set([
-  "ImageScaleBy",
-  "ImageScale",
-  "ImageSharpen",
-  "ImageUpscaleWithModel",
-  "LatentUpscale",
-  "LatentUpscaleBy",
+  'ImageScaleBy',
+  'ImageScale',
+  'ImageSharpen',
+  'ImageUpscaleWithModel',
+  'LatentUpscale',
+  'LatentUpscaleBy',
 ]);
 
-const QWEN_EDIT_ENCODE_TYPES = new Set([
-  "TextEncodeQwenImageEdit",
-  "TextEncodeQwenImageEditPlus",
-]);
+const QWEN_EDIT_ENCODE_TYPES = new Set(['TextEncodeQwenImageEdit', 'TextEncodeQwenImageEditPlus']);
 
-const QWEN_EDIT_IMAGE_INPUT_KEYS = [
-  "image",
-  "image1",
-  "image2",
-  "image3",
-  "image4",
-] as const;
+const QWEN_EDIT_IMAGE_INPUT_KEYS = ['image', 'image1', 'image2', 'image3', 'image4'] as const;
 
-const UNET_LOADER_TYPES = new Set(["UNETLoader", "UnetLoaderGGUF"]);
-const CHECKPOINT_LOADER_TYPES = new Set([
-  "CheckpointLoaderSimple",
-  "CheckpointLoader",
-]);
-const CLIP_LOADER_TYPES = new Set([
-  "CLIPLoader",
-  "DualCLIPLoader",
-  "CLIPLoaderGGUF",
-]);
-const AURA_FLOW_TYPE = "ModelSamplingAuraFlow";
+const UNET_LOADER_TYPES = new Set(['UNETLoader', 'UnetLoaderGGUF']);
+const CHECKPOINT_LOADER_TYPES = new Set(['CheckpointLoaderSimple', 'CheckpointLoader']);
+const CLIP_LOADER_TYPES = new Set(['CLIPLoader', 'DualCLIPLoader', 'CLIPLoaderGGUF']);
+const AURA_FLOW_TYPE = 'ModelSamplingAuraFlow';
 
 type WorkflowNodeRecord = {
   class_type?: string;
@@ -86,7 +67,7 @@ function getLinkedNodeId(value: unknown): string | null {
     return null;
   }
   const id = value[0];
-  return typeof id === "string" || typeof id === "number" ? String(id) : null;
+  return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
 }
 
 function parseNodeId(id: string): number | null {
@@ -106,15 +87,15 @@ function nextWorkflowNodeId(workflow: Record<string, WorkflowNodeRecord>): strin
 }
 
 function isSamplerNode(classType: string | undefined, inputs: Record<string, unknown>): boolean {
-  const classLower = (classType ?? "").toLowerCase();
+  const classLower = (classType ?? '').toLowerCase();
   if (
-    classLower.includes("ksampler") ||
-    classLower.includes("samplercustom") ||
-    classLower.includes("guider")
+    classLower.includes('ksampler') ||
+    classLower.includes('samplercustom') ||
+    classLower.includes('guider')
   ) {
     return true;
   }
-  return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
+  return 'seed' in inputs && ('steps' in inputs || 'cfg' in inputs);
 }
 
 function isMainGenerateSampler(inputs: Record<string, unknown>): boolean {
@@ -128,7 +109,7 @@ function isMainGenerateSampler(inputs: Record<string, unknown>): boolean {
 
 function walkModelChainIds(
   workflow: Record<string, WorkflowNodeRecord>,
-  startId: string | null,
+  startId: string | null
 ): string[] {
   const chain: string[] = [];
   let current = startId;
@@ -147,20 +128,12 @@ function walkModelChainIds(
 
 function resolveLightningLoraName(loraFilenames: Record<string, string>): string | null {
   const mapped = loraFilenames[LIGHTNING_LORA_TOKEN]?.trim();
-  if (
-    mapped &&
-    !/^\{\{[A-Z0-9_]+\}\}$/.test(mapped) &&
-    mapped.length > 0
-  ) {
+  if (mapped && !/^\{\{[A-Z0-9_]+\}\}$/.test(mapped) && mapped.length > 0) {
     return mapped;
   }
   for (const value of Object.values(loraFilenames)) {
     const trimmed = value?.trim();
-    if (
-      trimmed &&
-      !/^\{\{[A-Z0-9_]+\}\}$/.test(trimmed) &&
-      loraFilenameImpliesLightning(trimmed)
-    ) {
+    if (trimmed && !/^\{\{[A-Z0-9_]+\}\}$/.test(trimmed) && loraFilenameImpliesLightning(trimmed)) {
       return trimmed;
     }
   }
@@ -170,17 +143,15 @@ function resolveLightningLoraName(loraFilenames: Record<string, string>): string
   return null;
 }
 
-function findClipSourceRef(
-  workflow: Record<string, WorkflowNodeRecord>,
-): [string, number] | null {
+function findClipSourceRef(workflow: Record<string, WorkflowNodeRecord>): [string, number] | null {
   for (const [nodeId, node] of Object.entries(workflow)) {
-    if (!node || !CHECKPOINT_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (!node || !CHECKPOINT_LOADER_TYPES.has(node.class_type ?? '')) {
       continue;
     }
     return [nodeId, 1];
   }
   for (const [nodeId, node] of Object.entries(workflow)) {
-    if (!node || !CLIP_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (!node || !CLIP_LOADER_TYPES.has(node.class_type ?? '')) {
       continue;
     }
     return [nodeId, 0];
@@ -191,9 +162,9 @@ function findClipSourceRef(
 function chainHasLightningLora(
   workflow: Record<string, WorkflowNodeRecord>,
   chainIds: string[],
-  loraFilenames: Record<string, string>,
+  loraFilenames: Record<string, string>
 ): boolean {
-  return chainIds.some((id) => {
+  return chainIds.some(id => {
     const node = workflow[id];
     if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
       return false;
@@ -204,7 +175,7 @@ function chainHasLightningLora(
 
 function chainHasAuraFlow(
   workflow: Record<string, WorkflowNodeRecord>,
-  chainIds: string[],
+  chainIds: string[]
 ): string | null {
   for (const id of chainIds) {
     if (workflow[id]?.class_type === AURA_FLOW_TYPE) {
@@ -216,7 +187,7 @@ function chainHasAuraFlow(
 
 function findLightningLoraNodeId(
   workflow: Record<string, WorkflowNodeRecord>,
-  loraFilenames: Record<string, string>,
+  loraFilenames: Record<string, string>
 ): string | null {
   for (const [nodeId, node] of Object.entries(workflow)) {
     if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
@@ -229,16 +200,14 @@ function findLightningLoraNodeId(
   return null;
 }
 
-function findPrimaryModelLoaderId(
-  workflow: Record<string, WorkflowNodeRecord>,
-): string | null {
+function findPrimaryModelLoaderId(workflow: Record<string, WorkflowNodeRecord>): string | null {
   for (const [nodeId, node] of Object.entries(workflow)) {
-    if (node && UNET_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (node && UNET_LOADER_TYPES.has(node.class_type ?? '')) {
       return nodeId;
     }
   }
   for (const [nodeId, node] of Object.entries(workflow)) {
-    if (node && CHECKPOINT_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (node && CHECKPOINT_LOADER_TYPES.has(node.class_type ?? '')) {
       return nodeId;
     }
   }
@@ -247,7 +216,7 @@ function findPrimaryModelLoaderId(
 
 function listModelConsumerEntries(
   workflow: Record<string, WorkflowNodeRecord>,
-  loaderId: string,
+  loaderId: string
 ): Array<{ nodeId: string; node: WorkflowNodeRecord }> {
   const consumers: Array<{ nodeId: string; node: WorkflowNodeRecord }> = [];
   for (const [nodeId, node] of Object.entries(workflow)) {
@@ -263,19 +232,19 @@ function insertLightningLoraNode(
   workflow: Record<string, WorkflowNodeRecord>,
   modelSourceId: string,
   lightningLoraName: string,
-  _clipRef: [string, number] | null,
+  _clipRef: [string, number] | null
 ): string {
   // LightX2V official templates use LoraLoaderModelOnly — applying Lightning
   // LoRA to CLIP (strength_clip=1) produces swirly/worm artifacts.
   const loraId = nextWorkflowNodeId(workflow);
   workflow[loraId] = {
-    class_type: "LoraLoaderModelOnly",
+    class_type: 'LoraLoaderModelOnly',
     inputs: {
       model: [modelSourceId, 0],
       lora_name: lightningLoraName,
       strength_model: 1,
     },
-    _meta: { title: "Prompt Studio — Lightning LoRA" },
+    _meta: { title: 'Prompt Studio — Lightning LoRA' },
   };
   return loraId;
 }
@@ -286,7 +255,7 @@ function ensureAuraAndLightningLoraOnModelLink(
   modelLink: string,
   lightningLoraName: string | null,
   loraFilenames: Record<string, string>,
-  clipRef: [string, number] | null,
+  clipRef: [string, number] | null
 ): void {
   if (!consumer.inputs) {
     return;
@@ -303,7 +272,7 @@ function ensureAuraAndLightningLoraOnModelLink(
         model: [modelLink, 0],
         shift: QWEN_LIGHTNING_SHIFT_DEFAULT,
       },
-      _meta: { title: "Prompt Studio — Lightning AuraFlow" },
+      _meta: { title: 'Prompt Studio — Lightning AuraFlow' },
     };
     consumer.inputs.model = [auraId, 0];
     chainIds = walkModelChainIds(workflow, auraId);
@@ -338,16 +307,16 @@ function ensureAuraAndLightningLoraOnModelLink(
     if (existing?.inputs) {
       existing.inputs.model = [modelSource, 0];
       if (
-        typeof existing.inputs.lora_name !== "string" ||
+        typeof existing.inputs.lora_name !== 'string' ||
         !existing.inputs.lora_name.trim() ||
         /^\{\{[A-Z0-9_]+\}\}$/.test(existing.inputs.lora_name.trim())
       ) {
         existing.inputs.lora_name = lightningLoraName;
       }
-      if ("strength_model" in existing.inputs) {
+      if ('strength_model' in existing.inputs) {
         existing.inputs.strength_model = 1;
       }
-      if ("strength" in existing.inputs) {
+      if ('strength' in existing.inputs) {
         existing.inputs.strength = 1;
       }
     }
@@ -355,12 +324,7 @@ function ensureAuraAndLightningLoraOnModelLink(
     return;
   }
 
-  const loraId = insertLightningLoraNode(
-    workflow,
-    modelSource,
-    lightningLoraName,
-    clipRef,
-  );
+  const loraId = insertLightningLoraNode(workflow, modelSource, lightningLoraName, clipRef);
   aura.inputs.model = [loraId, 0];
 }
 
@@ -371,7 +335,7 @@ function ensureAuraAndLightningLoraOnModelLink(
 export function ensureLightningModelChainInWorkflow(
   workflow: Record<string, unknown>,
   model?: string,
-  loraFilenames: Record<string, string> = {},
+  loraFilenames: Record<string, string> = {}
 ): Record<string, unknown> {
   if (!isQwenLightningModel(model)) {
     return workflow;
@@ -400,14 +364,14 @@ export function ensureLightningModelChainInWorkflow(
         modelLink,
         lightningLoraName,
         loraFilenames,
-        clipRef,
+        clipRef
       );
       continue;
     }
 
     // SamplerCustom-style graphs: model often sits on BasicGuider / CFGGuider only.
-    const classLower = (node.class_type ?? "").toLowerCase();
-    if (!classLower.includes("guider")) {
+    const classLower = (node.class_type ?? '').toLowerCase();
+    if (!classLower.includes('guider')) {
       continue;
     }
     const modelLink = getLinkedNodeId(node.inputs.model);
@@ -420,7 +384,7 @@ export function ensureLightningModelChainInWorkflow(
       modelLink,
       lightningLoraName,
       loraFilenames,
-      clipRef,
+      clipRef
     );
   }
 
@@ -431,12 +395,7 @@ export function ensureLightningModelChainInWorkflow(
     if (loaderId) {
       const consumers = listModelConsumerEntries(next, loaderId);
       if (consumers.length > 0) {
-        const loraId = insertLightningLoraNode(
-          next,
-          loaderId,
-          lightningLoraName,
-          clipRef,
-        );
+        const loraId = insertLightningLoraNode(next, loaderId, lightningLoraName, clipRef);
         const auraId = nextWorkflowNodeId(next);
         next[auraId] = {
           class_type: AURA_FLOW_TYPE,
@@ -444,7 +403,7 @@ export function ensureLightningModelChainInWorkflow(
             model: [loraId, 0],
             shift: QWEN_LIGHTNING_SHIFT_DEFAULT,
           },
-          _meta: { title: "Prompt Studio — Lightning AuraFlow" },
+          _meta: { title: 'Prompt Studio — Lightning AuraFlow' },
         };
         for (const { node } of consumers) {
           if (node.inputs) {
@@ -462,22 +421,20 @@ export function ensureLightningModelChainInWorkflow(
 }
 
 export function workflowHasLoraLoader(workflow: Record<string, unknown>): boolean {
-  return Object.values(workflow).some((node) => {
-    if (!node || typeof node !== "object") {
+  return Object.values(workflow).some(node => {
+    if (!node || typeof node !== 'object') {
       return false;
     }
-    return isLoraLoaderClassType(
-      (node as { class_type?: string }).class_type,
-    );
+    return isLoraLoaderClassType((node as { class_type?: string }).class_type);
   });
 }
 
 export function workflowHasLightningLora(
   workflow: Record<string, unknown>,
-  loraFilenames: Record<string, string> = {},
+  loraFilenames: Record<string, string> = {}
 ): boolean {
-  return Object.values(workflow).some((node) => {
-    if (!node || typeof node !== "object") {
+  return Object.values(workflow).some(node => {
+    if (!node || typeof node !== 'object') {
       return false;
     }
     const record = node as { class_type?: string; inputs?: Record<string, unknown> };
@@ -487,9 +444,9 @@ export function workflowHasLightningLora(
     if (loraNameImpliesLightning(record.inputs.lora_name, loraFilenames)) {
       return true;
     }
-    if (record.class_type === "Power Lora Loader (rgthree)") {
+    if (record.class_type === 'Power Lora Loader (rgthree)') {
       for (const [key, value] of Object.entries(record.inputs)) {
-        if (!/^lora_/i.test(key) || !value || typeof value !== "object") {
+        if (!/^lora_/i.test(key) || !value || typeof value !== 'object') {
           continue;
         }
         const slot = value as { on?: boolean; lora?: unknown };
@@ -512,7 +469,7 @@ export function workflowHasLightningLora(
  */
 export function bypassModelSamplingAuraFlowForLightning(
   workflow: Record<string, unknown>,
-  model?: string,
+  model?: string
 ): {
   workflow: Record<string, unknown>;
   bypassedNodeIds: string[];
@@ -524,7 +481,7 @@ export function bypassModelSamplingAuraFlowForLightning(
 /** Strip imported upscale/sharpen after decode. Keep Prompt Studio Final/Max quality enrich. */
 export function stripLightningOutputPostProcess(
   workflow: Record<string, unknown>,
-  model?: string,
+  model?: string
 ): {
   workflow: Record<string, unknown>;
   strippedNodeIds: string[];
@@ -538,8 +495,7 @@ export function stripLightningOutputPostProcess(
 
   for (const node of Object.values(next)) {
     if (
-      (node?.class_type !== "SaveImage" &&
-        node?.class_type !== "SaveImageAdvanced") ||
+      (node?.class_type !== 'SaveImage' && node?.class_type !== 'SaveImageAdvanced') ||
       !node.inputs
     ) {
       continue;
@@ -553,11 +509,11 @@ export function stripLightningOutputPostProcess(
       if (!upstream) {
         break;
       }
-      if (VAE_DECODE_TYPES.has(upstream.class_type ?? "")) {
+      if (VAE_DECODE_TYPES.has(upstream.class_type ?? '')) {
         node.inputs.images = [link, 0];
         break;
       }
-      if (!OUTPUT_POST_PROCESS_TYPES.has(upstream.class_type ?? "")) {
+      if (!OUTPUT_POST_PROCESS_TYPES.has(upstream.class_type ?? '')) {
         break;
       }
       // Preserve queue quality-profile upscale inserted by Prompt Studio.
@@ -578,7 +534,7 @@ export function stripLightningOutputPostProcess(
 /** Drop stale latent hires second pass (soft denoise) left from older Final/Max enrich. */
 export function stripLightningHiresPass(
   workflow: Record<string, unknown>,
-  model?: string,
+  model?: string
 ): {
   workflow: Record<string, unknown>;
   strippedNodeIds: string[];
@@ -591,7 +547,7 @@ export function stripLightningHiresPass(
   const strippedNodeIds = new Set<string>();
 
   for (const decodeNode of Object.values(next)) {
-    if (!decodeNode?.inputs || !VAE_DECODE_TYPES.has(decodeNode.class_type ?? "")) {
+    if (!decodeNode?.inputs || !VAE_DECODE_TYPES.has(decodeNode.class_type ?? '')) {
       continue;
     }
 
@@ -615,8 +571,8 @@ export function stripLightningHiresPass(
     }
 
     const latent = next[latentId];
-    const latentType = latent?.class_type ?? "";
-    if (latentType !== "LatentUpscale" && latentType !== "LatentUpscaleBy") {
+    const latentType = latent?.class_type ?? '';
+    if (latentType !== 'LatentUpscale' && latentType !== 'LatentUpscaleBy') {
       continue;
     }
 
@@ -645,7 +601,7 @@ function loraStrengthIsActive(value: unknown): boolean {
 export function neutralizeNonLightningLoras(
   workflow: Record<string, unknown>,
   model?: string,
-  loraFilenames: Record<string, string> = {},
+  loraFilenames: Record<string, string> = {}
 ): {
   workflow: Record<string, unknown>;
   neutralizedNodeIds: string[];
@@ -669,9 +625,9 @@ export function neutralizeNonLightningLoras(
       continue;
     }
 
-    if (node.class_type === "Power Lora Loader (rgthree)") {
+    if (node.class_type === 'Power Lora Loader (rgthree)') {
       for (const [key, value] of Object.entries(node.inputs)) {
-        if (!/^lora_/i.test(key) || !value || typeof value !== "object") {
+        if (!/^lora_/i.test(key) || !value || typeof value !== 'object') {
           continue;
         }
         const slot = value as {
@@ -686,16 +642,15 @@ export function neutralizeNonLightningLoras(
         if (loraNameImpliesLightning(slot.lora, loraFilenames)) {
           continue;
         }
-        const hasLora =
-          typeof slot.lora === "string" && slot.lora.trim().length > 0;
+        const hasLora = typeof slot.lora === 'string' && slot.lora.trim().length > 0;
         if (!hasLora && slot.on !== true) {
           continue;
         }
         slot.on = false;
-        if ("strength" in slot) {
+        if ('strength' in slot) {
           slot.strength = 0;
         }
-        if ("strengthTwo" in slot && slot.strengthTwo != null) {
+        if ('strengthTwo' in slot && slot.strengthTwo != null) {
           slot.strengthTwo = 0;
         }
         neutralizedNodeIds.push(`${nodeId}:${key}`);
@@ -715,13 +670,13 @@ export function neutralizeNonLightningLoras(
       continue;
     }
 
-    if ("strength_model" in node.inputs) {
+    if ('strength_model' in node.inputs) {
       node.inputs.strength_model = 0;
     }
-    if ("strength_clip" in node.inputs) {
+    if ('strength_clip' in node.inputs) {
       node.inputs.strength_clip = 0;
     }
-    if ("strength" in node.inputs) {
+    if ('strength' in node.inputs) {
       node.inputs.strength = 0;
     }
     neutralizedNodeIds.push(nodeId);
@@ -731,13 +686,13 @@ export function neutralizeNonLightningLoras(
   // LoraLoaderModelOnly — keep only the sampler-nearest Lightning loader at strength.
   const samplerModelLink = (() => {
     for (const node of Object.values(next)) {
-      const classType = node?.class_type ?? "";
+      const classType = node?.class_type ?? '';
       if (
-        classType !== "KSampler" &&
-        classType !== "KSamplerAdvanced" &&
-        classType !== "SamplerCustom" &&
-        classType !== "SamplerCustomAdvanced" &&
-        classType !== "ModelSamplingAuraFlow"
+        classType !== 'KSampler' &&
+        classType !== 'KSamplerAdvanced' &&
+        classType !== 'SamplerCustom' &&
+        classType !== 'SamplerCustomAdvanced' &&
+        classType !== 'ModelSamplingAuraFlow'
       ) {
         continue;
       }
@@ -760,7 +715,7 @@ export function neutralizeNonLightningLoras(
       }
       if (
         isLoraLoaderClassType(node.class_type) &&
-        node.class_type !== "Power Lora Loader (rgthree)" &&
+        node.class_type !== 'Power Lora Loader (rgthree)' &&
         loraNameImpliesLightning(node.inputs.lora_name, loraFilenames)
       ) {
         lightningOnChain.push(cursor);
@@ -772,13 +727,13 @@ export function neutralizeNonLightningLoras(
       if (!node?.inputs) {
         continue;
       }
-      if ("strength_model" in node.inputs) {
+      if ('strength_model' in node.inputs) {
         node.inputs.strength_model = 0;
       }
-      if ("strength_clip" in node.inputs) {
+      if ('strength_clip' in node.inputs) {
         node.inputs.strength_clip = 0;
       }
-      if ("strength" in node.inputs) {
+      if ('strength' in node.inputs) {
         node.inputs.strength = 0;
       }
       if (!neutralizedNodeIds.includes(nodeId)) {
@@ -794,7 +749,7 @@ export function neutralizeNonLightningLoras(
 export function normalizeLightningLoraStrengths(
   workflow: Record<string, unknown>,
   model?: string,
-  loraFilenames: Record<string, string> = {},
+  loraFilenames: Record<string, string> = {}
 ): Record<string, unknown> {
   if (!isQwenLightningModel(model)) {
     return workflow;
@@ -809,9 +764,9 @@ export function normalizeLightningLoraStrengths(
     if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
       continue;
     }
-    if (node.class_type === "Power Lora Loader (rgthree)") {
+    if (node.class_type === 'Power Lora Loader (rgthree)') {
       for (const [key, value] of Object.entries(node.inputs)) {
-        if (!/^lora_/i.test(key) || !value || typeof value !== "object") {
+        if (!/^lora_/i.test(key) || !value || typeof value !== 'object') {
           continue;
         }
         const slot = value as {
@@ -823,7 +778,7 @@ export function normalizeLightningLoraStrengths(
           continue;
         }
         slot.on = true;
-        if ("strength" in slot) {
+        if ('strength' in slot) {
           slot.strength = 1;
         }
       }
@@ -833,14 +788,14 @@ export function normalizeLightningLoraStrengths(
       continue;
     }
 
-    if ("strength_model" in node.inputs) {
+    if ('strength_model' in node.inputs) {
       node.inputs.strength_model = 1;
     }
     // Official LightX2V recipes keep CLIP at 0 (model-only adaptation).
-    if ("strength_clip" in node.inputs) {
+    if ('strength_clip' in node.inputs) {
       node.inputs.strength_clip = 0;
     }
-    if ("strength" in node.inputs) {
+    if ('strength' in node.inputs) {
       node.inputs.strength = 1;
     }
   }
@@ -853,8 +808,8 @@ export function normalizeLightningLoraStrengths(
  * Flux2 empty latents; with Qwen VAE those decode at ~½ spatial size (1328→664→996 with Lanczos). */
 export function forceLightningLatentSizeInWorkflow(
   workflow: Record<string, unknown>,
-  params: Pick<WorkflowParamValues, "width" | "height"> | undefined,
-  model?: string,
+  params: Pick<WorkflowParamValues, 'width' | 'height'> | undefined,
+  model?: string
 ): Record<string, unknown> {
   if (!isQwenLightningModel(model)) {
     return workflow;
@@ -869,10 +824,10 @@ export function forceLightningLatentSizeInWorkflow(
   if (resolvedWidth != null && resolvedHeight != null) {
     const clamped = ensureLightningNativeResolutionParams(
       { width: resolvedWidth, height: resolvedHeight },
-      model ?? "qwen-image-2512-lightning-8",
+      model ?? 'qwen-image-2512-lightning-8',
       DEFAULT_RESOLUTION_ORIENTATION,
       DEFAULT_RESOLUTION_SIZE_TIER,
-      { preserveInputAspect: true },
+      { preserveInputAspect: true }
     );
     resolvedWidth = Number(clamped.width);
     resolvedHeight = Number(clamped.height);
@@ -880,9 +835,9 @@ export function forceLightningLatentSizeInWorkflow(
   if (resolvedWidth == null || resolvedHeight == null) {
     const resolved = ensureLightningNativeResolutionParams(
       {},
-      model ?? "qwen-image-2512-lightning-8",
+      model ?? 'qwen-image-2512-lightning-8',
       DEFAULT_RESOLUTION_ORIENTATION,
-      DEFAULT_RESOLUTION_SIZE_TIER,
+      DEFAULT_RESOLUTION_SIZE_TIER
     );
     resolvedWidth = Number(resolved.width);
     resolvedHeight = Number(resolved.height);
@@ -904,7 +859,7 @@ export function forceLightningLatentSizeInWorkflow(
 
   for (const node of Object.values(next)) {
     const inputs = node?.inputs;
-    if (!inputs || !isLatentSizeNode(node.class_type ?? "", inputs)) {
+    if (!inputs || !isLatentSizeNode(node.class_type ?? '', inputs)) {
       continue;
     }
     inputs.width = resolvedWidth;
@@ -917,7 +872,7 @@ export function forceLightningLatentSizeInWorkflow(
 /** fp8 weight_dtype on bf16 UNET causes grid/grain artifacts on Lightning. */
 export function normalizeLightningUnetWeightDtype(
   workflow: Record<string, unknown>,
-  model?: string,
+  model?: string
 ): Record<string, unknown> {
   if (!isQwenLightningModel(model)) {
     return workflow;
@@ -929,15 +884,15 @@ export function normalizeLightningUnetWeightDtype(
   >;
 
   for (const node of Object.values(next)) {
-    if (!node?.inputs || !UNET_LOADER_TYPES.has(node.class_type ?? "")) {
+    if (!node?.inputs || !UNET_LOADER_TYPES.has(node.class_type ?? '')) {
       continue;
     }
     const dtype = node.inputs.weight_dtype;
-    if (typeof dtype !== "string") {
+    if (typeof dtype !== 'string') {
       continue;
     }
     if (/fp8|e4m3fn|fp16|float16/i.test(dtype)) {
-      node.inputs.weight_dtype = "default";
+      node.inputs.weight_dtype = 'default';
     }
   }
 
@@ -945,13 +900,13 @@ export function normalizeLightningUnetWeightDtype(
 }
 
 const LOADER_FILENAME_FIELDS = [
-  "unet_name",
-  "ckpt_name",
+  'unet_name',
+  'ckpt_name',
   // Do not rewrite CLIP here — official LightX2V keeps fp8_scaled CLIP with bf16 UNET.
 ] as const;
 
 function rewriteFp8FilenameToBf16(filename: string, model?: string): string | undefined {
-  if (precisionHintFromFilename(filename) !== "fp8") {
+  if (precisionHintFromFilename(filename) !== 'fp8') {
     return undefined;
   }
   const lower = filename.toLowerCase();
@@ -960,28 +915,28 @@ function rewriteFp8FilenameToBf16(filename: string, model?: string): string | un
   }
   // Prefer the concrete filename's family — never swap 2512↔edit from model id alone.
   const family = qwenUnetFamilyFromFilename(filename);
-  if (family === "edit-2511") {
-    return qwenEdit2511UnetFilename("bf16");
+  if (family === 'edit-2511') {
+    return qwenEdit2511UnetFilename('bf16');
   }
-  if (family === "edit-2509") {
-    return qwenEdit2509UnetFilename("bf16");
+  if (family === 'edit-2509') {
+    return qwenEdit2509UnetFilename('bf16');
   }
-  if (family === "t2i") {
-    return qwen2512UnetFilename("bf16");
+  if (family === 't2i') {
+    return qwen2512UnetFilename('bf16');
   }
-  if (model?.includes("edit-2511")) {
-    return qwenEdit2511UnetFilename("bf16");
+  if (model?.includes('edit-2511')) {
+    return qwenEdit2511UnetFilename('bf16');
   }
-  if (model?.includes("edit-2509")) {
-    return qwenEdit2509UnetFilename("bf16");
+  if (model?.includes('edit-2509')) {
+    return qwenEdit2509UnetFilename('bf16');
   }
-  return qwen2512UnetFilename("bf16");
+  return qwen2512UnetFilename('bf16');
 }
 
 /** Rewrite concrete fp8 UNET/CLIP filenames to bf16 — Lightning must not run mixed fp8. */
 export function forceLightningBf16FilenamesInWorkflow(
   workflow: Record<string, unknown>,
-  model?: string,
+  model?: string
 ): Record<string, unknown> {
   if (!isQwenLightningModel(model)) {
     return workflow;
@@ -999,7 +954,7 @@ export function forceLightningBf16FilenamesInWorkflow(
     }
     for (const field of LOADER_FILENAME_FIELDS) {
       const value = inputs[field];
-      if (typeof value !== "string" || !value.trim()) {
+      if (typeof value !== 'string' || !value.trim()) {
         continue;
       }
       const rewritten = rewriteFp8FilenameToBf16(value, model);
@@ -1014,16 +969,16 @@ export function forceLightningBf16FilenamesInWorkflow(
 
 export function resolveLightningBf16Loaders(
   model?: string,
-  loaders?: ModelLoaderFilenames,
+  loaders?: ModelLoaderFilenames
 ): ModelLoaderFilenames {
   const next: ModelLoaderFilenames = { ...(loaders ?? {}) };
-  const preferredUnet = model?.includes("edit-2511")
-    ? qwenEdit2511UnetFilename("bf16")
-    : model?.includes("edit-2509")
-      ? qwenEdit2509UnetFilename("bf16")
-      : qwen2512UnetFilename("bf16");
+  const preferredUnet = model?.includes('edit-2511')
+    ? qwenEdit2511UnetFilename('bf16')
+    : model?.includes('edit-2509')
+      ? qwenEdit2509UnetFilename('bf16')
+      : qwen2512UnetFilename('bf16');
   const existingUnet =
-    typeof next.unet === "string" && next.unet.trim() && !filenameLooksLikeCheckpointOnly(next.unet)
+    typeof next.unet === 'string' && next.unet.trim() && !filenameLooksLikeCheckpointOnly(next.unet)
       ? next.unet.trim()
       : undefined;
   if (existingUnet) {
@@ -1035,21 +990,18 @@ export function resolveLightningBf16Loaders(
   }
   if (
     !next.checkpoint ||
-    precisionHintFromFilename(next.checkpoint) === "fp8" ||
+    precisionHintFromFilename(next.checkpoint) === 'fp8' ||
     filenameLooksLikeCheckpointOnly(next.checkpoint)
   ) {
     next.checkpoint = next.unet;
   }
   // Keep caller CLIP when set — LightX2V official uses fp8_scaled CLIP with bf16 UNET.
   if (!next.dualClip?.trim()) {
-    next.dualClip = qwenDualClipFilename("bf16");
+    next.dualClip = qwenDualClipFilename('bf16');
   }
   // Sticky Flux ae.safetensors / wrong Settings VAE maps mosaic Qwen Edit Lightning.
-  if (
-    !next.vae?.trim() ||
-    (model && isVaeFilenameIncompatibleWithModel(model, next.vae))
-  ) {
-    next.vae = "qwen_image_vae.safetensors";
+  if (!next.vae?.trim() || (model && isVaeFilenameIncompatibleWithModel(model, next.vae))) {
+    next.vae = 'qwen_image_vae.safetensors';
   }
   return next;
 }
@@ -1057,23 +1009,23 @@ export function resolveLightningBf16Loaders(
 /** Rewrite Flux/SD VAEs on Lightning graphs to qwen_image_vae (decode mismatch → gray mosaic). */
 export function forceQwenVaeInLightningWorkflow(
   workflow: Record<string, unknown>,
-  model?: string,
+  model?: string
 ): Record<string, unknown> {
   if (!isQwenLightningModel(model)) {
     return workflow;
   }
   const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
   for (const node of Object.values(next)) {
-    if (node?.class_type !== "VAELoader" || !node.inputs) {
+    if (node?.class_type !== 'VAELoader' || !node.inputs) {
       continue;
     }
     const current = node.inputs.vae_name;
-    if (typeof current !== "string" || !current.trim()) {
-      node.inputs.vae_name = "qwen_image_vae.safetensors";
+    if (typeof current !== 'string' || !current.trim()) {
+      node.inputs.vae_name = 'qwen_image_vae.safetensors';
       continue;
     }
-    if (isVaeFilenameIncompatibleWithModel(model ?? "", current)) {
-      node.inputs.vae_name = "qwen_image_vae.safetensors";
+    if (isVaeFilenameIncompatibleWithModel(model ?? '', current)) {
+      node.inputs.vae_name = 'qwen_image_vae.safetensors';
     }
   }
   return next;
@@ -1083,7 +1035,7 @@ export function alignLightningBf16LoadersInWorkflow(
   workflow: Record<string, unknown>,
   loaders: ModelLoaderFilenames | undefined,
   model?: string,
-  options?: { syncLoadersToModel?: boolean },
+  options?: { syncLoadersToModel?: boolean }
 ): Record<string, unknown> {
   if (!isQwenLightningModel(model)) {
     return workflow;
@@ -1108,7 +1060,7 @@ export function alignLightningBf16LoadersInWorkflow(
 export function isNativeLightningWorkflowReady(
   workflow: Record<string, unknown>,
   model?: string,
-  loraFilenames: Record<string, string> = {},
+  loraFilenames: Record<string, string> = {}
 ): boolean {
   if (!isQwenLightningModel(model)) {
     return false;
@@ -1131,8 +1083,8 @@ export function isNativeLightningWorkflowReady(
     }
 
     // Also accept guider-held model links (SamplerCustom).
-    const classLower = (node.class_type ?? "").toLowerCase();
-    if (classLower.includes("samplercustom")) {
+    const classLower = (node.class_type ?? '').toLowerCase();
+    if (classLower.includes('samplercustom')) {
       // Walk guiders separately below.
     }
 
@@ -1157,8 +1109,8 @@ export function isNativeLightningWorkflowReady(
     if (!node?.inputs) {
       continue;
     }
-    const classLower = (node.class_type ?? "").toLowerCase();
-    if (!classLower.includes("guider")) {
+    const classLower = (node.class_type ?? '').toLowerCase();
+    if (!classLower.includes('guider')) {
       continue;
     }
     const modelLink = getLinkedNodeId(node.inputs.model);
@@ -1194,7 +1146,7 @@ export function isNativeLightningWorkflowReady(
  */
 export function disconnectQwenEditReferenceImagesForTxt2Img(
   workflow: Record<string, unknown>,
-  options?: { hasInputImage?: boolean; model?: string },
+  options?: { hasInputImage?: boolean; model?: string }
 ): {
   workflow: Record<string, unknown>;
   disconnectedNodeIds: string[];
@@ -1202,7 +1154,7 @@ export function disconnectQwenEditReferenceImagesForTxt2Img(
   if (options?.hasInputImage) {
     return { workflow, disconnectedNodeIds: [] };
   }
-  const modelId = options?.model?.trim() ?? "";
+  const modelId = options?.model?.trim() ?? '';
   if (modelId && !isEditCapableModel(modelId) && !/edit/i.test(modelId)) {
     return { workflow, disconnectedNodeIds: [] };
   }
@@ -1212,14 +1164,14 @@ export function disconnectQwenEditReferenceImagesForTxt2Img(
   const removedLoadImageIds = new Set<string>();
 
   for (const [nodeId, node] of Object.entries(next)) {
-    if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? "")) {
+    if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? '')) {
       continue;
     }
     let changed = false;
     for (const key of QWEN_EDIT_IMAGE_INPUT_KEYS) {
       if (key in node.inputs) {
         const linked = getLinkedNodeId(node.inputs[key]);
-        if (linked && next[linked]?.class_type === "LoadImage") {
+        if (linked && next[linked]?.class_type === 'LoadImage') {
           removedLoadImageIds.add(linked);
         }
         delete node.inputs[key];
@@ -1233,16 +1185,14 @@ export function disconnectQwenEditReferenceImagesForTxt2Img(
 
   // Drop LoadImage nodes that only existed for edit refs (still validated by ComfyUI).
   for (const [nodeId, node] of Object.entries(next)) {
-    if (node?.class_type !== "LoadImage") {
+    if (node?.class_type !== 'LoadImage') {
       continue;
     }
-    const stillReferenced = Object.values(next).some((other) => {
+    const stillReferenced = Object.values(next).some(other => {
       if (!other?.inputs || other === node) {
         return false;
       }
-      return Object.values(other.inputs).some(
-        (value) => getLinkedNodeId(value) === nodeId,
-      );
+      return Object.values(other.inputs).some(value => getLinkedNodeId(value) === nodeId);
     });
     if (!stillReferenced || removedLoadImageIds.has(nodeId)) {
       if (!stillReferenced) {
@@ -1275,7 +1225,7 @@ export function ensureQwenEditReferenceImagesForImg2Img(
      * pack refs adopt Figure 1–N from the queue.
      */
     forceRewire?: boolean;
-  },
+  }
 ): {
   workflow: Record<string, unknown>;
   wiredNodeIds: string[];
@@ -1286,7 +1236,7 @@ export function ensureQwenEditReferenceImagesForImg2Img(
 
   const filenames = normalizeInputImageFilenames(
     options.inputImageFilename,
-    options.inputImageFilenames,
+    options.inputImageFilenames
   );
 
   if (filenames.length === 0) {
@@ -1295,20 +1245,21 @@ export function ensureQwenEditReferenceImagesForImg2Img(
 
   const forceRewire = options.forceRewire !== false;
   const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
-  const encodeImageKeys = ["image1", "image2", "image3", "image4"] as const;
+  const encodeImageKeys = ['image1', 'image2', 'image3', 'image4'] as const;
 
   const findOrCreateFigureLoader = (figureIndex: number, filename: string): string => {
     const title = `Figure ${figureIndex}`;
     const existing = Object.entries(next).find(([, node]) => {
-      if (node?.class_type !== "LoadImage" && node?.class_type !== "LoadImageOutput") {
+      if (node?.class_type !== 'LoadImage' && node?.class_type !== 'LoadImageOutput') {
         return false;
       }
-      const nodeTitle = node._meta?.title?.trim() ?? "";
+      const nodeTitle = node._meta?.title?.trim() ?? '';
       return (
         nodeTitle === title ||
-        new RegExp(`\\b(?:figure|image|ref|reference|photo|picture)\\s*${figureIndex}\\b`, "i").test(
-          nodeTitle,
-        )
+        new RegExp(
+          `\\b(?:figure|image|ref|reference|photo|picture)\\s*${figureIndex}\\b`,
+          'i'
+        ).test(nodeTitle)
       );
     });
     if (existing) {
@@ -1325,7 +1276,7 @@ export function ensureQwenEditReferenceImagesForImg2Img(
     // Prefer reusing the first untitled LoadImage for Figure 1 only.
     if (figureIndex === 1) {
       const first = Object.entries(next).find(
-        ([, node]) => node?.class_type === "LoadImage" || node?.class_type === "LoadImageOutput",
+        ([, node]) => node?.class_type === 'LoadImage' || node?.class_type === 'LoadImageOutput'
       );
       if (first) {
         const [id, node] = first;
@@ -1339,11 +1290,9 @@ export function ensureQwenEditReferenceImagesForImg2Img(
       }
     }
 
-    const loadImageId = String(
-      Math.max(0, ...Object.keys(next).map((id) => Number(id) || 0)) + 1,
-    );
+    const loadImageId = String(Math.max(0, ...Object.keys(next).map(id => Number(id) || 0)) + 1);
     next[loadImageId] = {
-      class_type: "LoadImage",
+      class_type: 'LoadImage',
       inputs: { image: filename },
       _meta: { title },
     };
@@ -1351,22 +1300,22 @@ export function ensureQwenEditReferenceImagesForImg2Img(
   };
 
   const loaderIds = filenames.map((filename, index) =>
-    findOrCreateFigureLoader(index + 1, filename),
+    findOrCreateFigureLoader(index + 1, filename)
   );
 
   const shouldWireSlot = (current: unknown): boolean => {
     if (forceRewire) {
       return true;
     }
-    return current == null || typeof current === "string";
+    return current == null || typeof current === 'string';
   };
 
   const wiredNodeIds: string[] = [];
   for (const [nodeId, node] of Object.entries(next)) {
-    if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? "")) {
+    if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? '')) {
       continue;
     }
-    if (node.class_type === "TextEncodeQwenImageEdit") {
+    if (node.class_type === 'TextEncodeQwenImageEdit') {
       const current = node.inputs.image;
       if (shouldWireSlot(current)) {
         node.inputs.image = [loaderIds[0]!, 0];
@@ -1402,12 +1351,8 @@ export function ensureQwenEditReferenceImagesForImg2Img(
   return { workflow: next, wiredNodeIds };
 }
 
-function nextLightningWorkflowNodeId(
-  workflow: Record<string, WorkflowNodeRecord>,
-): string {
-  return String(
-    Math.max(0, ...Object.keys(workflow).map((id) => Number(id) || 0)) + 1,
-  );
+function nextLightningWorkflowNodeId(workflow: Record<string, WorkflowNodeRecord>): string {
+  return String(Math.max(0, ...Object.keys(workflow).map(id => Number(id) || 0)) + 1);
 }
 
 /**
@@ -1417,24 +1362,19 @@ function nextLightningWorkflowNodeId(
  */
 export function scaleQwenEditReferenceImagesToLatentSize(
   workflow: Record<string, unknown>,
-  params?: Pick<WorkflowParamValues, "width" | "height">,
+  params?: Pick<WorkflowParamValues, 'width' | 'height'>
 ): {
   workflow: Record<string, unknown>;
   scaledSlotCount: number;
 } {
   const width = Number(params?.width);
   const height = Number(params?.height);
-  if (
-    !Number.isFinite(width) ||
-    !Number.isFinite(height) ||
-    width <= 0 ||
-    height <= 0
-  ) {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
     return { workflow, scaledSlotCount: 0 };
   }
 
   const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
-  const encodeImageKeys = ["image", "image1", "image2", "image3", "image4"] as const;
+  const encodeImageKeys = ['image', 'image1', 'image2', 'image3', 'image4'] as const;
   const scaledLoaderIds = new Map<string, string>();
   let scaledSlotCount = 0;
 
@@ -1445,24 +1385,24 @@ export function scaleQwenEditReferenceImagesToLatentSize(
     }
     const scaleId = nextLightningWorkflowNodeId(next);
     next[scaleId] = {
-      class_type: "ImageScale",
+      class_type: 'ImageScale',
       inputs: {
         image: [loaderId, 0],
-        upscale_method: "lanczos",
+        upscale_method: 'lanczos',
         width,
         height,
         // Never stretch — cover + center crop keeps anatomy when figure AR
         // and EmptyLatent differ slightly (ladder snap).
-        crop: "center",
+        crop: 'center',
       },
-      _meta: { title: "Prompt Studio — ref → latent size" },
+      _meta: { title: 'Prompt Studio — ref → latent size' },
     };
     scaledLoaderIds.set(loaderId, scaleId);
     return scaleId;
   };
 
   for (const node of Object.values(next)) {
-    if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? "")) {
+    if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? '')) {
       continue;
     }
     for (const key of encodeImageKeys) {
@@ -1479,7 +1419,7 @@ export function scaleQwenEditReferenceImagesToLatentSize(
       }
       // Already scaled to this latent size — leave alone.
       if (
-        linkedNode.class_type === "ImageScale" &&
+        linkedNode.class_type === 'ImageScale' &&
         Number(linkedNode.inputs?.width) === width &&
         Number(linkedNode.inputs?.height) === height
       ) {
@@ -1487,20 +1427,16 @@ export function scaleQwenEditReferenceImagesToLatentSize(
       }
       // Walk through an existing absolute resize to the LoadImage when present.
       let loaderId = linked;
-      if (
-        linkedNode.class_type === "ImageScale" ||
-        linkedNode.class_type === "ResizeImage"
-      ) {
+      if (linkedNode.class_type === 'ImageScale' || linkedNode.class_type === 'ResizeImage') {
         const upstream = getLinkedNodeId(linkedNode.inputs?.image);
         if (upstream) {
           // Patch existing resize node to queue latent size.
           if (linkedNode.inputs) {
             linkedNode.inputs.width = width;
             linkedNode.inputs.height = height;
-            if (linkedNode.class_type === "ImageScale") {
-              linkedNode.inputs.upscale_method =
-                linkedNode.inputs.upscale_method ?? "lanczos";
-              linkedNode.inputs.crop = "center";
+            if (linkedNode.class_type === 'ImageScale') {
+              linkedNode.inputs.upscale_method = linkedNode.inputs.upscale_method ?? 'lanczos';
+              linkedNode.inputs.crop = 'center';
             }
           }
           scaledSlotCount += 1;
@@ -1508,14 +1444,14 @@ export function scaleQwenEditReferenceImagesToLatentSize(
         }
       }
       // Pack ImageScaleBy only has a factor — replace with absolute W×H scale.
-      if (linkedNode.class_type === "ImageScaleBy") {
+      if (linkedNode.class_type === 'ImageScaleBy') {
         const upstream = getLinkedNodeId(linkedNode.inputs?.image);
         if (upstream) {
           loaderId = upstream;
           const upstreamNode = next[upstream];
           if (
-            upstreamNode?.class_type === "LoadImage" ||
-            upstreamNode?.class_type === "LoadImageOutput"
+            upstreamNode?.class_type === 'LoadImage' ||
+            upstreamNode?.class_type === 'LoadImageOutput'
           ) {
             const scaleId = ensureScaledLoader(loaderId);
             node.inputs[key] = [scaleId, 0];
@@ -1524,10 +1460,7 @@ export function scaleQwenEditReferenceImagesToLatentSize(
           }
         }
       }
-      if (
-        linkedNode.class_type !== "LoadImage" &&
-        linkedNode.class_type !== "LoadImageOutput"
-      ) {
+      if (linkedNode.class_type !== 'LoadImage' && linkedNode.class_type !== 'LoadImageOutput') {
         continue;
       }
       const scaleId = ensureScaledLoader(loaderId);
@@ -1540,9 +1473,7 @@ export function scaleQwenEditReferenceImagesToLatentSize(
 }
 
 /** Drop unused Figure LoadImages that still hold unresolved {{INPUT_IMAGE*}} tokens. */
-export function pruneUnresolvedQwenEditFigureLoaders(
-  workflow: Record<string, unknown>,
-): {
+export function pruneUnresolvedQwenEditFigureLoaders(workflow: Record<string, unknown>): {
   workflow: Record<string, unknown>;
   removedNodeIds: string[];
 } {
@@ -1550,20 +1481,18 @@ export function pruneUnresolvedQwenEditFigureLoaders(
   const removedNodeIds: string[] = [];
 
   for (const [nodeId, node] of Object.entries(next)) {
-    if (node?.class_type !== "LoadImage" && node?.class_type !== "LoadImageOutput") {
+    if (node?.class_type !== 'LoadImage' && node?.class_type !== 'LoadImageOutput') {
       continue;
     }
     const image = node.inputs?.image;
-    if (typeof image !== "string" || !/\{\{\s*INPUT_IMAGE/i.test(image)) {
+    if (typeof image !== 'string' || !/\{\{\s*INPUT_IMAGE/i.test(image)) {
       continue;
     }
-    const stillReferenced = Object.values(next).some((other) => {
+    const stillReferenced = Object.values(next).some(other => {
       if (!other?.inputs || other === node) {
         return false;
       }
-      return Object.values(other.inputs).some(
-        (value) => getLinkedNodeId(value) === nodeId,
-      );
+      return Object.values(other.inputs).some(value => getLinkedNodeId(value) === nodeId);
     });
     if (!stillReferenced) {
       delete next[nodeId];
@@ -1583,11 +1512,11 @@ export function prepareQwenEditReferenceImagesForQueue(
   model?: string,
   params?: Pick<
     WorkflowParamValues,
-    "inputImageFilename" | "inputImageFilenames" | "width" | "height"
+    'inputImageFilename' | 'inputImageFilenames' | 'width' | 'height'
   >,
-  options?: { forceRewire?: boolean },
+  options?: { forceRewire?: boolean }
 ): Record<string, unknown> {
-  const modelId = model?.trim() ?? "";
+  const modelId = model?.trim() ?? '';
   if (!modelId) {
     return workflow;
   }
@@ -1597,7 +1526,7 @@ export function prepareQwenEditReferenceImagesForQueue(
 
   const hasInputImage = Boolean(
     params?.inputImageFilename?.toString().trim() ||
-      params?.inputImageFilenames?.some((name) => Boolean(name?.toString().trim())),
+    params?.inputImageFilenames?.some(name => Boolean(name?.toString().trim()))
   );
 
   if (hasInputImage) {
@@ -1626,34 +1555,30 @@ export function prepareLightningWorkflowForQueue(
     params?: WorkflowParamValues;
     loaders?: ModelLoaderFilenames;
     syncLoadersToModel?: boolean;
-  },
+  }
 ): Record<string, unknown> {
   if (!isQwenLightningModel(model)) {
     return workflow;
   }
 
-  const refsPrepared = prepareQwenEditReferenceImagesForQueue(
-    workflow,
-    model,
-    options?.params,
-  );
+  const refsPrepared = prepareQwenEditReferenceImagesForQueue(workflow, model, options?.params);
 
   const loraPatch = patchLoraNodesInWorkflow(refsPrepared, loraFilenames);
   const familyAligned = alignLightningLoraFamilyInWorkflow(
     loraPatch.workflow,
     model,
-    loraFilenames,
+    loraFilenames
   );
 
   const finishLightningGraph = (
-    workflowAfterLatent: Record<string, unknown>,
+    workflowAfterLatent: Record<string, unknown>
   ): Record<string, unknown> => {
     // Sticky Flux ae.safetensors on Qwen Edit Lightning → gray mosaic decode.
     const vaeFixed = forceQwenVaeInLightningWorkflow(workflowAfterLatent, model);
     // Re-scale encode refs to the forced EmptyLatent W×H (uploads stay ≤2048).
     const sized = scaleQwenEditReferenceImagesToLatentSize(
       vaeFixed,
-      readEmptyLatentSize(vaeFixed) ?? options?.params,
+      readEmptyLatentSize(vaeFixed) ?? options?.params
     ).workflow;
     return pruneUnresolvedQwenEditFigureLoaders(sized).workflow;
   };
@@ -1664,24 +1589,12 @@ export function prepareLightningWorkflowForQueue(
     const chainEnsured = isNativeLightningWorkflowReady(
       familyAligned.workflow,
       model,
-      loraFilenames,
+      loraFilenames
     )
       ? familyAligned.workflow
-      : ensureLightningModelChainInWorkflow(
-          familyAligned.workflow,
-          model,
-          loraFilenames,
-        );
-    const normalizedLoras = normalizeLightningLoraStrengths(
-      chainEnsured,
-      model,
-      loraFilenames,
-    );
-    const latentSized = forceLightningLatentSizeInWorkflow(
-      normalizedLoras,
-      options?.params,
-      model,
-    );
+      : ensureLightningModelChainInWorkflow(familyAligned.workflow, model, loraFilenames);
+    const normalizedLoras = normalizeLightningLoraStrengths(chainEnsured, model, loraFilenames);
+    const latentSized = forceLightningLatentSizeInWorkflow(normalizedLoras, options?.params, model);
     const fp8Rewritten = forceLightningBf16FilenamesInWorkflow(latentSized, model);
     const weightDtype = normalizeLightningUnetWeightDtype(fp8Rewritten, model);
     const hiresStripped = stripLightningHiresPass(weightDtype, model);
@@ -1689,7 +1602,7 @@ export function prepareLightningWorkflowForQueue(
     const neutralized = neutralizeNonLightningLoras(
       stripped.workflow,
       model,
-      loraFilenames,
+      loraFilenames
     ).workflow;
     return finishLightningGraph(neutralized);
   }
@@ -1697,42 +1610,30 @@ export function prepareLightningWorkflowForQueue(
   const chainEnsured = ensureLightningModelChainInWorkflow(
     familyAligned.workflow,
     model,
-    loraFilenames,
+    loraFilenames
   );
-  const normalizedLoras = normalizeLightningLoraStrengths(
-    chainEnsured,
-    model,
-    loraFilenames,
-  );
-  const latentSized = forceLightningLatentSizeInWorkflow(
-    normalizedLoras,
-    options?.params,
-    model,
-  );
+  const normalizedLoras = normalizeLightningLoraStrengths(chainEnsured, model, loraFilenames);
+  const latentSized = forceLightningLatentSizeInWorkflow(normalizedLoras, options?.params, model);
   const fp8Rewritten = forceLightningBf16FilenamesInWorkflow(latentSized, model);
   const loadersAligned = alignLightningBf16LoadersInWorkflow(
     fp8Rewritten,
     options?.loaders,
     model,
-    { syncLoadersToModel: options?.syncLoadersToModel },
+    { syncLoadersToModel: options?.syncLoadersToModel }
   );
   const weightDtype = normalizeLightningUnetWeightDtype(loadersAligned, model);
   const samplingKept = bypassModelSamplingAuraFlowForLightning(weightDtype, model);
   const hiresStripped = stripLightningHiresPass(samplingKept.workflow, model);
   const stripped = stripLightningOutputPostProcess(hiresStripped.workflow, model);
-  const neutralized = neutralizeNonLightningLoras(
-    stripped.workflow,
-    model,
-    loraFilenames,
-  ).workflow;
+  const neutralized = neutralizeNonLightningLoras(stripped.workflow, model, loraFilenames).workflow;
   return finishLightningGraph(neutralized);
 }
 
 function readEmptyLatentSize(
-  workflow: Record<string, unknown>,
+  workflow: Record<string, unknown>
 ): { width: number; height: number } | null {
   for (const node of Object.values(workflow)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
     const record = node as {
@@ -1740,17 +1641,12 @@ function readEmptyLatentSize(
       inputs?: Record<string, unknown>;
     };
     const inputs = record.inputs;
-    if (!inputs || !isLatentSizeNode(record.class_type ?? "", inputs)) {
+    if (!inputs || !isLatentSizeNode(record.class_type ?? '', inputs)) {
       continue;
     }
     const width = Number(inputs.width);
     const height = Number(inputs.height);
-    if (
-      Number.isFinite(width) &&
-      Number.isFinite(height) &&
-      width > 0 &&
-      height > 0
-    ) {
+    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
       return { width, height };
     }
   }
@@ -1758,7 +1654,7 @@ function readEmptyLatentSize(
 }
 
 export type LightningWorkflowAuditIssue = {
-  severity: "error" | "warn";
+  severity: 'error' | 'warn';
   message: string;
 };
 
@@ -1779,7 +1675,7 @@ export function auditLightningWorkflowIssues(input: {
     inputs?: Record<string, unknown>;
   };
   let parsed: Record<string, LightningNode> | null = null;
-  if (input.workflow && typeof input.workflow === "object") {
+  if (input.workflow && typeof input.workflow === 'object') {
     parsed = input.workflow as Record<string, LightningNode>;
   } else if (input.workflowJson?.trim()) {
     try {
@@ -1798,45 +1694,38 @@ export function auditLightningWorkflowIssues(input: {
   const prepared = (
     input.alreadyPrepared
       ? parsed
-      : prepareLightningWorkflowForQueue(
-          parsed,
-          input.model,
-          input.loraFilenames ?? {},
-        )
+      : prepareLightningWorkflowForQueue(parsed, input.model, input.loraFilenames ?? {})
   ) as typeof parsed;
 
   const issues: LightningWorkflowAuditIssue[] = [];
 
   if (!workflowHasLoraLoader(prepared)) {
     issues.push({
-      severity: "error",
+      severity: 'error',
       message:
-        "Lightning model queued without a LoraLoader — set {{LORA_LIGHTNING}} on this workflow’s token overrides (or in Settings → LoRA library as ID “LIGHTNING”). Missing LoRA causes soft, malformed hands/faces.",
+        'Lightning model queued without a LoraLoader — set {{LORA_LIGHTNING}} on this workflow’s token overrides (or in Settings → LoRA library as ID “LIGHTNING”). Missing LoRA causes soft, malformed hands/faces.',
     });
   } else if (!workflowHasLightningLora(prepared, input.loraFilenames ?? {})) {
     issues.push({
-      severity: "error",
+      severity: 'error',
       message:
-        "Lightning workflow has no Lightning LoRA mapped — set {{LORA_LIGHTNING}} on this workflow’s token overrides (or LoRA library) to your 8-step LightX2V .safetensors.",
+        'Lightning workflow has no Lightning LoRA mapped — set {{LORA_LIGHTNING}} on this workflow’s token overrides (or LoRA library) to your 8-step LightX2V .safetensors.',
     });
   } else {
-    const modelId = String(input.model ?? "");
+    const modelId = String(input.model ?? '');
     const wantsEdit = /edit/i.test(modelId);
     for (const node of Object.values(prepared)) {
       if (!node?.inputs || !isLoraLoaderClassType(node.class_type)) {
         continue;
       }
-      const filename = resolveLoraLoaderFilename(
-        node.inputs.lora_name,
-        input.loraFilenames ?? {},
-      );
+      const filename = resolveLoraLoaderFilename(node.inputs.lora_name, input.loraFilenames ?? {});
       if (!filename || !loraFilenameImpliesLightning(filename)) {
         continue;
       }
       const loraIsEdit = /edit/i.test(filename);
       if (wantsEdit !== loraIsEdit) {
         issues.push({
-          severity: "error",
+          severity: 'error',
           message: wantsEdit
             ? `Edit-2511 Lightning is paired with a T2I Lightning LoRA (${filename}). Set this workflow’s {{LORA_LIGHTNING}} to an Edit-2511 LightX2V file (name contains “Edit”) — T2I LoRA on Edit UNET causes worm/melt artifacts.`
             : `T2I Lightning is paired with an Edit Lightning LoRA (${filename}). Set this workflow’s {{LORA_LIGHTNING}} to a Qwen-Image Lightning file (not Edit) — Edit LoRA on 2512 UNET causes worm/melt artifacts.`,
@@ -1856,7 +1745,11 @@ export function auditLightningWorkflowIssues(input: {
     if (node.class_type === AURA_FLOW_TYPE) {
       hasAuraFlow = true;
     }
-    if (node.inputs && isSamplerNode(node.class_type, node.inputs) && isMainGenerateSampler(node.inputs)) {
+    if (
+      node.inputs &&
+      isSamplerNode(node.class_type, node.inputs) &&
+      isMainGenerateSampler(node.inputs)
+    ) {
       hasMainSampler = true;
       const chain = walkModelChainIds(prepared, getLinkedNodeId(node.inputs.model));
       if (chainHasAuraFlow(prepared, chain)) {
@@ -1866,9 +1759,9 @@ export function auditLightningWorkflowIssues(input: {
   }
   if (hasMainSampler && (!hasAuraFlow || !samplerUsesAuraFlow)) {
     issues.push({
-      severity: "error",
+      severity: 'error',
       message:
-        "Lightning KSampler is missing ModelSamplingAuraFlow (shift ~3) on the model chain — without it, output is soft and anatomy drifts. Queue prep normally inserts this; check the workflow graph.",
+        'Lightning KSampler is missing ModelSamplingAuraFlow (shift ~3) on the model chain — without it, output is soft and anatomy drifts. Queue prep normally inserts this; check the workflow graph.',
     });
   }
 
@@ -1879,10 +1772,7 @@ export function auditLightningWorkflowIssues(input: {
     if (loraNameImpliesLightning(node.inputs.lora_name, input.loraFilenames ?? {})) {
       continue;
     }
-    const filename = resolveLoraLoaderFilename(
-      node.inputs.lora_name,
-      input.loraFilenames ?? {},
-    );
+    const filename = resolveLoraLoaderFilename(node.inputs.lora_name, input.loraFilenames ?? {});
     if (
       filename &&
       !loraFilenameImpliesLightning(filename) &&
@@ -1891,9 +1781,9 @@ export function auditLightningWorkflowIssues(input: {
         loraStrengthIsActive(node.inputs.strength))
     ) {
       issues.push({
-        severity: "warn",
+        severity: 'warn',
         message:
-          "Workflow stacks non-Lightning LoRAs (style/NSFW) on a Lightning model — Prompt Studio disables them at queue time. Remove them in ComfyUI or use a Lightning-only workflow for clean output.",
+          'Workflow stacks non-Lightning LoRAs (style/NSFW) on a Lightning model — Prompt Studio disables them at queue time. Remove them in ComfyUI or use a Lightning-only workflow for clean output.',
       });
       break;
     }
@@ -1904,30 +1794,30 @@ export function auditLightningWorkflowIssues(input: {
       continue;
     }
     if (
-      isLatentSizeNode(node.class_type ?? "", node.inputs) &&
+      isLatentSizeNode(node.class_type ?? '', node.inputs) &&
       Number(node.inputs.width) === 1024 &&
       Number(node.inputs.height) === 1024
     ) {
       issues.push({
-        severity: "warn",
+        severity: 'warn',
         message:
-          "Lightning workflow latent is still 1024×1024 — queue should patch to 1328×1328 native. Restart the dev server and check Advanced queue params are not pinned to 1024.",
+          'Lightning workflow latent is still 1024×1024 — queue should patch to 1328×1328 native. Restart the dev server and check Advanced queue params are not pinned to 1024.',
       });
       break;
     }
   }
 
   for (const node of Object.values(prepared)) {
-    if (node?.class_type !== "VAELoader" || !node.inputs) {
+    if (node?.class_type !== 'VAELoader' || !node.inputs) {
       continue;
     }
     const vaeName = node.inputs.vae_name;
     if (
-      typeof vaeName === "string" &&
-      isVaeFilenameIncompatibleWithModel(String(input.model ?? ""), vaeName)
+      typeof vaeName === 'string' &&
+      isVaeFilenameIncompatibleWithModel(String(input.model ?? ''), vaeName)
     ) {
       issues.push({
-        severity: "error",
+        severity: 'error',
         message: `Lightning graph VAE is “${vaeName}” — Qwen Image/Edit needs qwen_image_vae.safetensors. Flux ae.safetensors here decodes to gray mosaic. Queue prep should rewrite it; restart the app if this persists.`,
       });
       break;
@@ -1935,10 +1825,10 @@ export function auditLightningWorkflowIssues(input: {
   }
 
   const latentSize = readEmptyLatentSize(prepared);
-  if (latentSize && /edit/i.test(String(input.model ?? ""))) {
+  if (latentSize && /edit/i.test(String(input.model ?? ''))) {
     let refSizeMismatch = false;
     for (const node of Object.values(prepared)) {
-      if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? "")) {
+      if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? '')) {
         continue;
       }
       for (const key of QWEN_EDIT_IMAGE_INPUT_KEYS) {
@@ -1953,28 +1843,22 @@ export function auditLightningWorkflowIssues(input: {
         if (!linked) {
           continue;
         }
-        if (
-          linked.class_type === "LoadImage" ||
-          linked.class_type === "LoadImageOutput"
-        ) {
+        if (linked.class_type === 'LoadImage' || linked.class_type === 'LoadImageOutput') {
           issues.push({
-            severity: "warn",
-            message:
-              `Edit Lightning encode still takes a full-res LoadImage (no ImageScale to ${latentSize.width}×${latentSize.height}). Ref/latent size mismatch causes gray mosaic on Compose — restart the app so queue prep can insert the scale.`,
+            severity: 'warn',
+            message: `Edit Lightning encode still takes a full-res LoadImage (no ImageScale to ${latentSize.width}×${latentSize.height}). Ref/latent size mismatch causes gray mosaic on Compose — restart the app so queue prep can insert the scale.`,
           });
           refSizeMismatch = true;
           break;
         }
         if (
-          (linked.class_type === "ImageScale" ||
-            linked.class_type === "ResizeImage") &&
+          (linked.class_type === 'ImageScale' || linked.class_type === 'ResizeImage') &&
           (Number(linked.inputs?.width) !== latentSize.width ||
             Number(linked.inputs?.height) !== latentSize.height)
         ) {
           issues.push({
-            severity: "warn",
-            message:
-              `Edit Lightning ref resize is ${Number(linked.inputs?.width)}×${Number(linked.inputs?.height)} but EmptyLatent is ${latentSize.width}×${latentSize.height} — size mismatch mosaics CFG-1 Compose.`,
+            severity: 'warn',
+            message: `Edit Lightning ref resize is ${Number(linked.inputs?.width)}×${Number(linked.inputs?.height)} but EmptyLatent is ${latentSize.width}×${latentSize.height} — size mismatch mosaics CFG-1 Compose.`,
           });
           refSizeMismatch = true;
           break;
@@ -1991,14 +1875,14 @@ export function auditLightningWorkflowIssues(input: {
       continue;
     }
     for (const value of Object.values(node.inputs)) {
-      if (typeof value !== "string") {
+      if (typeof value !== 'string') {
         continue;
       }
       if (/fp8|e4m3fn|fp8_scaled/i.test(value)) {
         issues.push({
-          severity: "warn",
+          severity: 'warn',
           message:
-            "Workflow still references fp8 weights — Prompt Studio will prefer bf16 for Lightning at queue time to reduce banding.",
+            'Workflow still references fp8 weights — Prompt Studio will prefer bf16 for Lightning at queue time to reduce banding.',
         });
         return issues;
       }

@@ -1,43 +1,43 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
-import { galleryEntryThumbUrls, initGalleryStore, loadComfyGallery } from "@/lib/comfyui-gallery";
-import { loadScheduledBatchConfig } from "@/lib/scheduled-batch";
-import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
-import { loadLastToolDraft, clearLastToolDraft, type ToolDraftSummary } from "@/lib/tool-draft-memory";
-import { loadLastToolRoute, clearLastToolRoute } from "@/lib/last-tool-route";
-import { flattenAppNavLinks } from "@/lib/app-nav-catalog";
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { useEffect, useMemo, useState } from 'react';
+import { galleryEntryThumbUrls, initGalleryStore, loadComfyGallery } from '@/lib/comfyui-gallery';
+import { loadScheduledBatchConfig } from '@/lib/scheduled-batch';
+import { loadActiveProjectId, loadPromptProjects } from '@/lib/prompt-projects';
 import {
-  buildGalleryFocusUrl,
-  buildUseAsHintsUrlFromGallery,
-} from "@/lib/use-as-hints-url";
-import { startPromptEditorFromGalleryEntry } from "@/lib/improve-output";
-import { usePromptHistory } from "@/hooks/usePromptHistory";
-import OnboardingChecklist from "@/components/OnboardingChecklist";
-import ConnectionHealthChip from "@/components/ConnectionHealthChip";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { ToolPageSkeleton } from "@/components/ui/ViewState";
+  loadLastToolDraft,
+  clearLastToolDraft,
+  type ToolDraftSummary,
+} from '@/lib/tool-draft-memory';
+import { loadLastToolRoute, clearLastToolRoute } from '@/lib/last-tool-route';
+import { flattenAppNavLinks } from '@/lib/app-nav-catalog';
+import { buildGalleryFocusUrl, buildUseAsHintsUrlFromGallery } from '@/lib/use-as-hints-url';
+import { startPromptEditorFromGalleryEntry } from '@/lib/improve-output';
+import { usePromptHistory } from '@/hooks/usePromptHistory';
+import OnboardingChecklist from '@/components/OnboardingChecklist';
+import ConnectionHealthChip from '@/components/ConnectionHealthChip';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { ToolPageSkeleton } from '@/components/ui/ViewState';
 import {
   StatCard,
   ToolActionRow,
   ToolBadge,
   ToolLayout,
   ToolSection,
-} from "@/components/ui/ToolPageShell";
+} from '@/components/ui/ToolPageShell';
 
-const QueueOrchestrationPanel = dynamic(
-  () => import("@/components/QueueOrchestrationPanel"),
-  { loading: () => <ToolPageSkeleton label="Loading queue" /> },
-);
+const QueueOrchestrationPanel = dynamic(() => import('@/components/QueueOrchestrationPanel'), {
+  loading: () => <ToolPageSkeleton label="Loading queue" />,
+});
 
-const ACCENT = "neutral" as const;
+const ACCENT = 'neutral' as const;
 
 function labelForRoute(href: string): string {
-  const path = href.split("?")[0] || href;
+  const path = href.split('?')[0] || href;
   const link = flattenAppNavLinks().find(
-    (entry) => entry.href === href || (entry.href.split("?")[0] || entry.href) === path,
+    entry => entry.href === href || (entry.href.split('?')[0] || entry.href) === path
   );
   return link?.label ?? path;
 }
@@ -61,30 +61,30 @@ export default function HomeDashboard() {
       setLastRoute(loadLastToolRoute());
     };
     void initGalleryStore().then(refresh);
-    window.addEventListener("comfyui-gallery-updated", refresh);
-    window.addEventListener("focus", refresh);
+    window.addEventListener('comfyui-gallery-updated', refresh);
+    window.addEventListener('focus', refresh);
     return () => {
-      window.removeEventListener("comfyui-gallery-updated", refresh);
-      window.removeEventListener("focus", refresh);
+      window.removeEventListener('comfyui-gallery-updated', refresh);
+      window.removeEventListener('focus', refresh);
     };
   }, []);
 
   const pending = useMemo(
-    () => gallery.filter((entry) => entry.status === "pending" || entry.status === "running"),
-    [gallery],
+    () => gallery.filter(entry => entry.status === 'pending' || entry.status === 'running'),
+    [gallery]
   );
   const recentCompleted = useMemo(
     () =>
       gallery
-        .filter((entry) => entry.status === "completed")
+        .filter(entry => entry.status === 'completed')
         .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
         .slice(0, 6),
-    [gallery],
+    [gallery]
   );
-  const activeProject = projects.find((project) => project.id === activeProjectId);
+  const activeProject = projects.find(project => project.id === activeProjectId);
   const showContinue =
     Boolean(draft) ||
-    (Boolean(lastRoute) && lastRoute !== "/dashboard" && lastRoute !== draft?.href);
+    (Boolean(lastRoute) && lastRoute !== '/dashboard' && lastRoute !== draft?.href);
 
   return (
     <ToolLayout
@@ -105,12 +105,8 @@ export default function HomeDashboard() {
             <div className="min-w-0 space-y-1">
               {draft ? (
                 <>
-                  <p className="type-caption text-[var(--text-muted)]">
-                    Draft · {draft.label}
-                  </p>
-                  <p className="truncate text-sm text-[var(--text-secondary)]">
-                    {draft.preview}
-                  </p>
+                  <p className="type-caption text-[var(--text-muted)]">Draft · {draft.label}</p>
+                  <p className="truncate text-sm text-[var(--text-secondary)]">{draft.preview}</p>
                 </>
               ) : lastRoute ? (
                 <>
@@ -200,9 +196,9 @@ export default function HomeDashboard() {
           <StatCard label="History entries" value={String(entries.length)} />
           <StatCard
             label="Scheduled batch"
-            value={scheduled.enabled ? `Every ${scheduled.intervalMinutes}m` : "Off"}
+            value={scheduled.enabled ? `Every ${scheduled.intervalMinutes}m` : 'Off'}
           />
-          <StatCard label="Active project" value={activeProject?.name ?? "None"} />
+          <StatCard label="Active project" value={activeProject?.name ?? 'None'} />
         </div>
       </ToolSection>
 
@@ -214,7 +210,7 @@ export default function HomeDashboard() {
           description="Open a result, continue editing, or seed a new scene from its prompt."
         >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {recentCompleted.map((entry) => {
+            {recentCompleted.map(entry => {
               const thumb = galleryEntryThumbUrls(entry)[0];
               const focusHref = buildGalleryFocusUrl(entry.id);
               const hintsHref = buildUseAsHintsUrlFromGallery(entry);

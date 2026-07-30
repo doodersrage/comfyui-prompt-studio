@@ -5,14 +5,14 @@
  * splice a minimal identity chain into the primary sampler model path.
  */
 
-export const DEFAULT_IDENTITY_IMAGE_TOKEN = "{{IPADAPTER_IMAGE}}";
-export const DEFAULT_IDENTITY_STRENGTH_TOKEN = "{{IPADAPTER_STRENGTH}}";
+export const DEFAULT_IDENTITY_IMAGE_TOKEN = '{{IPADAPTER_IMAGE}}';
+export const DEFAULT_IDENTITY_STRENGTH_TOKEN = '{{IPADAPTER_STRENGTH}}';
 
-export type IdentityKind = "instantid" | "pulid";
+export type IdentityKind = 'instantid' | 'pulid';
 
 export type IdentityChainInsertOptions = {
   imageFilename?: string;
-  kind?: IdentityKind | "auto";
+  kind?: IdentityKind | 'auto';
   availableNodeTypes?: Iterable<string> | null;
 };
 
@@ -29,13 +29,13 @@ type WorkflowNode = {
   _meta?: { title?: string };
 };
 
-const INSTANTID_APPLY = "ApplyInstantID";
-const INSTANTID_LOADER = "InstantIDModelLoader";
-const INSTANTID_FACE = "InstantIDFaceAnalysis";
-const PULID_APPLY = "ApplyPulid";
-const PULID_APPLY_FLUX = "ApplyPulidFlux";
-const PULID_LOADER = "PulidModelLoader";
-const PULID_EVA = "PulidEvaClipLoader";
+const INSTANTID_APPLY = 'ApplyInstantID';
+const INSTANTID_LOADER = 'InstantIDModelLoader';
+const INSTANTID_FACE = 'InstantIDFaceAnalysis';
+const PULID_APPLY = 'ApplyPulid';
+const PULID_APPLY_FLUX = 'ApplyPulidFlux';
+const PULID_LOADER = 'PulidModelLoader';
+const PULID_EVA = 'PulidEvaClipLoader';
 
 const IDENTITY_CLASS_PATTERN = /instantid|pulid/i;
 
@@ -59,25 +59,21 @@ function nextNodeId(workflow: Record<string, unknown>): string {
 
 function isSamplerLike(classType: string, inputs: Record<string, unknown>): boolean {
   const lower = classType.toLowerCase();
-  if (
-    lower.includes("ksampler") ||
-    lower.includes("samplercustom") ||
-    lower.includes("guider")
-  ) {
+  if (lower.includes('ksampler') || lower.includes('samplercustom') || lower.includes('guider')) {
     return true;
   }
-  return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
+  return 'seed' in inputs && ('steps' in inputs || 'cfg' in inputs);
 }
 
 function findPrimarySamplerModelLink(
-  workflow: Record<string, WorkflowNode>,
+  workflow: Record<string, WorkflowNode>
 ): { samplerId: string; modelLinkId: string } | null {
   for (const [samplerId, node] of Object.entries(workflow)) {
-    if (!node?.inputs || !isSamplerLike(node.class_type ?? "", node.inputs)) {
+    if (!node?.inputs || !isSamplerLike(node.class_type ?? '', node.inputs)) {
       continue;
     }
     const modelLink = node.inputs.model;
-    if (Array.isArray(modelLink) && typeof modelLink[0] === "string") {
+    if (Array.isArray(modelLink) && typeof modelLink[0] === 'string') {
       return { samplerId, modelLinkId: modelLink[0] };
     }
   }
@@ -85,37 +81,35 @@ function findPrimarySamplerModelLink(
 }
 
 function hasIdentityNodes(workflow: Record<string, WorkflowNode>): boolean {
-  return Object.values(workflow).some((node) =>
-    IDENTITY_CLASS_PATTERN.test(node?.class_type ?? ""),
-  );
+  return Object.values(workflow).some(node => IDENTITY_CLASS_PATTERN.test(node?.class_type ?? ''));
 }
 
 function resolveIdentityKind(
-  kind: IdentityKind | "auto" | undefined,
-  available: Set<string> | undefined,
+  kind: IdentityKind | 'auto' | undefined,
+  available: Set<string> | undefined
 ): IdentityKind | null {
-  const prefer = kind === "pulid" ? "pulid" : kind === "instantid" ? "instantid" : "auto";
+  const prefer = kind === 'pulid' ? 'pulid' : kind === 'instantid' ? 'instantid' : 'auto';
   const hasInstant =
     !available ||
     available.has(INSTANTID_APPLY) ||
-    [...available].some((name) => /applyinstantid/i.test(name));
+    [...available].some(name => /applyinstantid/i.test(name));
   const hasPulid =
     !available ||
     available.has(PULID_APPLY) ||
     available.has(PULID_APPLY_FLUX) ||
-    [...available].some((name) => /applypulid/i.test(name));
+    [...available].some(name => /applypulid/i.test(name));
 
-  if (prefer === "instantid") {
-    return hasInstant ? "instantid" : null;
+  if (prefer === 'instantid') {
+    return hasInstant ? 'instantid' : null;
   }
-  if (prefer === "pulid") {
-    return hasPulid ? "pulid" : null;
+  if (prefer === 'pulid') {
+    return hasPulid ? 'pulid' : null;
   }
   if (hasInstant) {
-    return "instantid";
+    return 'instantid';
   }
   if (hasPulid) {
-    return "pulid";
+    return 'pulid';
   }
   return null;
 }
@@ -126,7 +120,7 @@ function resolveIdentityKind(
  */
 export function insertIdentityChainIfMissing(
   workflow: Record<string, unknown>,
-  options: IdentityChainInsertOptions,
+  options: IdentityChainInsertOptions
 ): IdentityChainInsertResult {
   const imageFilename = options.imageFilename?.trim();
   if (!imageFilename) {
@@ -154,26 +148,26 @@ export function insertIdentityChainIfMissing(
 
   const loadImageId = nextNodeId(next);
   next[loadImageId] = {
-    class_type: "LoadImage",
+    class_type: 'LoadImage',
     inputs: { image: DEFAULT_IDENTITY_IMAGE_TOKEN },
-    _meta: { title: "Prompt Studio — identity reference" },
+    _meta: { title: 'Prompt Studio — identity reference' },
   };
   insertedNodeIds.push(loadImageId);
 
-  if (kind === "instantid") {
+  if (kind === 'instantid') {
     const faceId = nextNodeId(next);
     next[faceId] = {
       class_type: INSTANTID_FACE,
-      inputs: { provider: "CPU" },
-      _meta: { title: "Prompt Studio — InstantID face analysis" },
+      inputs: { provider: 'CPU' },
+      _meta: { title: 'Prompt Studio — InstantID face analysis' },
     };
     insertedNodeIds.push(faceId);
 
     const loaderId = nextNodeId(next);
     next[loaderId] = {
       class_type: INSTANTID_LOADER,
-      inputs: { instantid_file: "ip-adapter.bin" },
-      _meta: { title: "Prompt Studio — InstantID model" },
+      inputs: { instantid_file: 'ip-adapter.bin' },
+      _meta: { title: 'Prompt Studio — InstantID model' },
     };
     insertedNodeIds.push(loaderId);
 
@@ -189,7 +183,7 @@ export function insertIdentityChainIfMissing(
         start_at: 0,
         end_at: 1,
       },
-      _meta: { title: "Prompt Studio — InstantID apply" },
+      _meta: { title: 'Prompt Studio — InstantID apply' },
     };
     insertedNodeIds.push(applyId);
 
@@ -202,15 +196,15 @@ export function insertIdentityChainIfMissing(
     next[evaId] = {
       class_type: PULID_EVA,
       inputs: {},
-      _meta: { title: "Prompt Studio — PuLID EVA CLIP" },
+      _meta: { title: 'Prompt Studio — PuLID EVA CLIP' },
     };
     insertedNodeIds.push(evaId);
 
     const loaderId = nextNodeId(next);
     next[loaderId] = {
       class_type: PULID_LOADER,
-      inputs: { pulid_file: "pulid_v1.1.safetensors" },
-      _meta: { title: "Prompt Studio — PuLID model" },
+      inputs: { pulid_file: 'pulid_v1.1.safetensors' },
+      _meta: { title: 'Prompt Studio — PuLID model' },
     };
     insertedNodeIds.push(loaderId);
 
@@ -230,7 +224,7 @@ export function insertIdentityChainIfMissing(
         start_at: 0,
         end_at: 1,
       },
-      _meta: { title: "Prompt Studio — PuLID apply" },
+      _meta: { title: 'Prompt Studio — PuLID apply' },
     };
     insertedNodeIds.push(applyId);
 

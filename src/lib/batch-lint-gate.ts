@@ -1,4 +1,4 @@
-import type { GenerationDiagnostics } from "./generation-diagnostics";
+import type { GenerationDiagnostics } from './generation-diagnostics';
 
 export type BatchLintItem = {
   index: number;
@@ -18,7 +18,7 @@ export type BatchLintSummary = {
 
 export async function runBatchLintGate(
   prompts: Array<{ prompt: string; topic?: string }>,
-  hints?: string,
+  hints?: string
 ): Promise<BatchLintSummary> {
   const items: BatchLintItem[] = [];
   let totalErrors = 0;
@@ -32,9 +32,9 @@ export async function runBatchLintGate(
     let warningCount = 0;
 
     try {
-      const response = await fetch("/api/lint", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/lint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           hints: hints?.trim() || entry.topic || undefined,
           prompt: entry.prompt,
@@ -42,12 +42,8 @@ export async function runBatchLintGate(
       });
       if (response.ok) {
         diagnostics = (await response.json()) as GenerationDiagnostics;
-        errorCount = diagnostics.issues.filter(
-          (issue) => issue.severity === "error",
-        ).length;
-        warningCount = diagnostics.issues.filter(
-          (issue) => issue.severity === "warn",
-        ).length;
+        errorCount = diagnostics.issues.filter(issue => issue.severity === 'error').length;
+        warningCount = diagnostics.issues.filter(issue => issue.severity === 'warn').length;
       }
     } catch {
       // keep null diagnostics
@@ -72,17 +68,14 @@ export async function runBatchLintGate(
   return { items, totalErrors, totalWarnings, blockedIndexes };
 }
 
-export async function batchFixPrompts(
-  prompts: string[],
-  hints?: string,
-): Promise<string[]> {
+export async function batchFixPrompts(prompts: string[], hints?: string): Promise<string[]> {
   const fixed: string[] = [];
 
   for (const prompt of prompts) {
     try {
-      const response = await fetch("/api/fix", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/fix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hints, prompt }),
       });
       const data = (await response.json()) as { prompt?: string };
@@ -95,10 +88,7 @@ export async function batchFixPrompts(
   return fixed;
 }
 
-export function filterBatchByLintIndexes<T>(
-  items: T[],
-  blockedIndexes: number[],
-): T[] {
+export function filterBatchByLintIndexes<T>(items: T[], blockedIndexes: number[]): T[] {
   const blocked = new Set(blockedIndexes);
   return items.filter((_, index) => !blocked.has(index));
 }

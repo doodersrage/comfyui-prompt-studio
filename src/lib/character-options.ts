@@ -1,4 +1,4 @@
-export * from "./character-options-ui";
+export * from './character-options-ui';
 export {
   normalizeCharacterPresetOptions,
   buildCharacterPresetBlock,
@@ -7,4 +7,4 @@ export {
   mergeCharacterPresetsIntoPrompt,
   buildPresetWardrobeSummary,
   buildCharacterPresetUserDirective,
-} from "./character-options-catalog";
+} from './character-options-catalog';

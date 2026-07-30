@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useMemo } from "react";
+import { useMemo } from 'react';
 import {
   FANTASY_PRESET_UI_SECTIONS,
   clearFantasyPresetPatch,
@@ -11,9 +11,9 @@ import {
   type FantasyPresetOptions,
   type FantasyPresetUiField,
   type FantasyPresetUiSection,
-} from "@/lib/fantasy-options";
-import type { FantasyToolCache } from "@/lib/settings-cache";
-import { SelectInput, TextInput } from "@/components/ui/Field";
+} from '@/lib/fantasy-options';
+import type { FantasyToolCache } from '@/lib/settings-cache';
+import { SelectInput, TextInput } from '@/components/ui/Field';
 
 function FantasySelect({
   label,
@@ -29,12 +29,9 @@ function FantasySelect({
   return (
     <label className="space-y-2">
       <span className="type-heading">{label}</span>
-      <SelectInput
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {options.map((option) => (
-          <option key={option.value || "default"} value={option.value}>
+      <SelectInput value={value} onChange={event => onChange(event.target.value)}>
+        {options.map(option => (
+          <option key={option.value || 'default'} value={option.value}>
             {option.label}
           </option>
         ))}
@@ -52,13 +49,13 @@ function PresetField({
   settings: FantasyToolCache;
   onChange: (patch: Partial<FantasyToolCache>) => void;
 }) {
-  if (field.kind === "select") {
+  if (field.kind === 'select') {
     return (
       <FantasySelect
         label={field.label}
-        value={(settings[field.key] as string | undefined) ?? ""}
+        value={(settings[field.key] as string | undefined) ?? ''}
         options={getSelectOptionsForFantasyPresetKey(field.key)}
-        onChange={(value) => onChange({ [field.key]: value })}
+        onChange={value => onChange({ [field.key]: value })}
       />
     );
   }
@@ -67,8 +64,8 @@ function PresetField({
     <label className="space-y-2 sm:col-span-2">
       <span className="type-heading">{field.label}</span>
       <TextInput
-        value={settings.fantasyDetail ?? ""}
-        onChange={(event) => onChange({ fantasyDetail: event.target.value })}
+        value={settings.fantasyDetail ?? ''}
+        onChange={event => onChange({ fantasyDetail: event.target.value })}
         placeholder={field.placeholder}
       />
     </label>
@@ -86,10 +83,7 @@ function PresetSection({
   presetOptions: FantasyPresetOptions;
   onChange: (patch: Partial<FantasyToolCache>) => void;
 }) {
-  const sectionCount = countFantasyPresetSectionSelections(
-    presetOptions,
-    section.id,
-  );
+  const sectionCount = countFantasyPresetSectionSelections(presetOptions, section.id);
 
   return (
     <details
@@ -104,20 +98,13 @@ function PresetSection({
           ) : null}
         </div>
         <span className="text-xs text-zinc-500">
-          {sectionCount > 0 ? `${sectionCount} set` : "Optional"}
-          <span className="ml-2 text-zinc-600 transition group-open:rotate-180">
-            ▾
-          </span>
+          {sectionCount > 0 ? `${sectionCount} set` : 'Optional'}
+          <span className="ml-2 text-zinc-600 transition group-open:rotate-180">▾</span>
         </span>
       </summary>
       <div className="grid gap-3 border-t border-zinc-800 px-4 py-4 sm:grid-cols-2">
-        {section.fields.map((field) => (
-          <PresetField
-            key={field.key}
-            field={field}
-            settings={settings}
-            onChange={onChange}
-          />
+        {section.fields.map(field => (
+          <PresetField key={field.key} field={field} settings={settings} onChange={onChange} />
         ))}
       </div>
     </details>
@@ -135,10 +122,7 @@ export default function FantasyPresetControls({
   settings,
   onChange,
 }: FantasyPresetControlsProps) {
-  const presetOptions = useMemo(
-    () => presetOptionsFromFantasyCache(settings),
-    [settings],
-  );
+  const presetOptions = useMemo(() => presetOptionsFromFantasyCache(settings), [settings]);
   const selectionCount = countFantasyPresetSelections(presetOptions);
 
   if (!mounted) {
@@ -167,7 +151,7 @@ export default function FantasyPresetControls({
         </div>
       </div>
 
-      {FANTASY_PRESET_UI_SECTIONS.map((section) => (
+      {FANTASY_PRESET_UI_SECTIONS.map(section => (
         <PresetSection
           key={section.id}
           section={section}

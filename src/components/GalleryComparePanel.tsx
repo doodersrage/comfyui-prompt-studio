@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import type { ComfyGalleryEntry } from "@/lib/comfyui-gallery";
-import { galleryEntryThumbUrls } from "@/lib/comfyui-gallery";
-import { Button } from "@/components/ui/Button";
+import { useMemo, useState } from 'react';
+import type { ComfyGalleryEntry } from '@/lib/comfyui-gallery';
+import { galleryEntryThumbUrls } from '@/lib/comfyui-gallery';
+import { Button } from '@/components/ui/Button';
 import {
   createEloBracket,
   initEloEntries,
   updateEloRatings,
   type EloEntry,
-} from "@/lib/gallery-elo";
+} from '@/lib/gallery-elo';
 import {
   canUpscaleGalleryEntry,
   galleryEntryAlreadyEnrichedForUpscale,
@@ -17,7 +17,7 @@ import {
   galleryEntrySupportsRefine,
   galleryEntrySupportsSoftSecondPass,
   galleryEntrySupportsUpscale,
-} from "@/lib/gallery-entry-actions";
+} from '@/lib/gallery-entry-actions';
 
 type GalleryComparePanelProps = {
   entries: ComfyGalleryEntry[];
@@ -27,15 +27,12 @@ type GalleryComparePanelProps = {
   onSaveWinnerRecipe?: (entry: ComfyGalleryEntry) => void;
   compareWinnerId?: string | null;
   onUpscaleWinner?: (entry: ComfyGalleryEntry) => void;
-  onRate?: (entryId: string, rating: ComfyGalleryEntry["reviewRating"]) => void;
+  onRate?: (entryId: string, rating: ComfyGalleryEntry['reviewRating']) => void;
   onFavorite?: (entryId: string) => void;
   onMutate?: (entry: ComfyGalleryEntry) => void;
   onImprove?: (entry: ComfyGalleryEntry) => void;
-  onUpscale?: (entry: ComfyGalleryEntry, qualityProfile: "final" | "max") => void;
-  onMoireClean?: (
-    entry: ComfyGalleryEntry,
-    qualityProfile: "final" | "max",
-  ) => void;
+  onUpscale?: (entry: ComfyGalleryEntry, qualityProfile: 'final' | 'max') => void;
+  onMoireClean?: (entry: ComfyGalleryEntry, qualityProfile: 'final' | 'max') => void;
   onRefine?: (entry: ComfyGalleryEntry) => void;
   onSoftSecondPass?: (entry: ComfyGalleryEntry) => void;
   status?: string | null;
@@ -43,25 +40,23 @@ type GalleryComparePanelProps = {
 
 function entryEnhanceCapabilities(entry: ComfyGalleryEntry) {
   const isRapid = galleryEntrySupportsMoireClean(entry.model);
-  const canUpscaleFinal = canUpscaleGalleryEntry(entry, "final");
-  const canUpscaleMax = canUpscaleGalleryEntry(entry, "max");
+  const canUpscaleFinal = canUpscaleGalleryEntry(entry, 'final');
+  const canUpscaleMax = canUpscaleGalleryEntry(entry, 'max');
   const canMoireFinal =
     isRapid &&
-    entry.status === "completed" &&
-    !galleryEntryAlreadyEnrichedForUpscale(entry, "final");
+    entry.status === 'completed' &&
+    !galleryEntryAlreadyEnrichedForUpscale(entry, 'final');
   const canMoireMax =
-    isRapid &&
-    entry.status === "completed" &&
-    !galleryEntryAlreadyEnrichedForUpscale(entry, "max");
+    isRapid && entry.status === 'completed' && !galleryEntryAlreadyEnrichedForUpscale(entry, 'max');
   return {
     isRapid,
     canUpscaleFinal,
     canUpscaleMax,
     canMoireFinal,
     canMoireMax,
-    canRefine: galleryEntrySupportsRefine(entry.model) && entry.status === "completed",
+    canRefine: galleryEntrySupportsRefine(entry.model) && entry.status === 'completed',
     canSoftSecondPass:
-      galleryEntrySupportsSoftSecondPass(entry.model) && entry.status === "completed",
+      galleryEntrySupportsSoftSecondPass(entry.model) && entry.status === 'completed',
     supportsUpscaleModel: galleryEntrySupportsUpscale(entry.model),
   };
 }
@@ -87,15 +82,15 @@ export default function GalleryComparePanel({
   const [elo, setElo] = useState<EloEntry[]>([]);
   const [pairIndex, setPairIndex] = useState(0);
   const pairs = useMemo(
-    () => (tournament ? createEloBracket(entries.map((entry) => entry.id)) : []),
-    [tournament, entries],
+    () => (tournament ? createEloBracket(entries.map(entry => entry.id)) : []),
+    [tournament, entries]
   );
 
   const winnerCanUpscaleMax = useMemo(() => {
     if (!compareWinnerId) {
       return false;
     }
-    const winner = entries.find((entry) => entry.id === compareWinnerId);
+    const winner = entries.find(entry => entry.id === compareWinnerId);
     if (!winner) {
       return false;
     }
@@ -109,16 +104,18 @@ export default function GalleryComparePanel({
 
   function startTournament() {
     setTournament(true);
-    setElo(initEloEntries(
-      entries.map((entry) => entry.id),
-      Object.fromEntries(entries.map((entry) => [entry.id, entry.model ?? entry.id.slice(0, 8)])),
-    ));
+    setElo(
+      initEloEntries(
+        entries.map(entry => entry.id),
+        Object.fromEntries(entries.map(entry => [entry.id, entry.model ?? entry.id.slice(0, 8)]))
+      )
+    );
     setPairIndex(0);
   }
 
   function pickTournamentWinner(winnerId: string, loserId: string) {
-    setElo((prev) => updateEloRatings(prev, winnerId, loserId));
-    setPairIndex((prev) => prev + 1);
+    setElo(prev => updateEloRatings(prev, winnerId, loserId));
+    setPairIndex(prev => prev + 1);
   }
 
   return (
@@ -129,8 +126,8 @@ export default function GalleryComparePanel({
             Compare {entries.length} selected outputs
           </p>
           <p className="type-caption mt-0.5 text-[var(--text-muted)]">
-            Pick a winner to unlock recipe save and Max upscale. Or run an ELO
-            tournament for 3+ images.
+            Pick a winner to unlock recipe save and Max upscale. Or run an ELO tournament for 3+
+            images.
           </p>
         </div>
         <button
@@ -151,7 +148,7 @@ export default function GalleryComparePanel({
               size="sm"
               variant="secondary"
               onClick={() => {
-                const winner = entries.find((entry) => entry.id === compareWinnerId);
+                const winner = entries.find(entry => entry.id === compareWinnerId);
                 if (winner) {
                   onUpscaleWinner(winner);
                 }
@@ -165,7 +162,7 @@ export default function GalleryComparePanel({
               size="sm"
               variant="primary"
               onClick={() => {
-                const winner = entries.find((entry) => entry.id === compareWinnerId);
+                const winner = entries.find(entry => entry.id === compareWinnerId);
                 if (winner) {
                   onSaveWinnerRecipe(winner);
                 }
@@ -187,14 +184,18 @@ export default function GalleryComparePanel({
       ) : null}
       {tournament && elo.length > 0 && pairIndex >= pairs.length ? (
         <ul className="text-xs text-zinc-300">
-          {[...elo].sort((a, b) => b.rating - a.rating).map((entry) => (
-            <li key={entry.id}>{entry.label}: {entry.rating} ELO ({entry.matches} matches)</li>
-          ))}
+          {[...elo]
+            .sort((a, b) => b.rating - a.rating)
+            .map(entry => (
+              <li key={entry.id}>
+                {entry.label}: {entry.rating} ELO ({entry.matches} matches)
+              </li>
+            ))}
         </ul>
       ) : null}
       {status ? <p className="text-xs text-violet-300/90">{status}</p> : null}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {entries.map((entry) => {
+        {entries.map(entry => {
           const url = galleryEntryThumbUrls(entry)[0] ?? null;
           const caps = entryEnhanceCapabilities(entry);
           return (
@@ -202,8 +203,8 @@ export default function GalleryComparePanel({
               key={entry.id}
               className={`space-y-2 rounded-[var(--radius-lg)] border p-2 transition ${
                 compareWinnerId === entry.id
-                  ? "border-[var(--accent-border)] bg-[var(--accent-soft)] ring-2 ring-[var(--accent-ring)]"
-                  : "border-[var(--border-subtle)] bg-[var(--bg-elevated)]"
+                  ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] ring-2 ring-[var(--accent-ring)]'
+                  : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]'
               }`}
             >
               {url ? (
@@ -221,8 +222,8 @@ export default function GalleryComparePanel({
                 </div>
               )}
               <p className="text-[11px] text-zinc-500">
-                {entry.model} · seed {entry.queueParams?.seed ?? "?"}
-                {entry.reviewRating ? ` · ${entry.reviewRating}★` : ""}
+                {entry.model} · seed {entry.queueParams?.seed ?? '?'}
+                {entry.reviewRating ? ` · ${entry.reviewRating}★` : ''}
               </p>
               <pre className="max-h-24 overflow-auto whitespace-pre-wrap text-xs text-zinc-300">
                 {entry.prompt}
@@ -230,7 +231,7 @@ export default function GalleryComparePanel({
               <div className="flex flex-wrap gap-1">
                 {onPickWinner ? (
                   <Button
-                    variant={compareWinnerId === entry.id ? "primary" : "secondary"}
+                    variant={compareWinnerId === entry.id ? 'primary' : 'secondary'}
                     className="!min-h-7 px-2 text-[11px]"
                     onClick={() => {
                       if (tournament && pairs[pairIndex]) {
@@ -243,22 +244,22 @@ export default function GalleryComparePanel({
                     }}
                   >
                     {tournament
-                      ? "Win match"
+                      ? 'Win match'
                       : compareWinnerId === entry.id
-                        ? "Winner"
-                        : "Pick winner"}
+                        ? 'Winner'
+                        : 'Pick winner'}
                   </Button>
                 ) : null}
-                {[5, 4, 3, 2, 1].map((rating) => (
+                {[5, 4, 3, 2, 1].map(rating => (
                   <button
                     key={rating}
                     type="button"
                     disabled={!onRate}
-                    onClick={() => onRate?.(entry.id, rating as ComfyGalleryEntry["reviewRating"])}
+                    onClick={() => onRate?.(entry.id, rating as ComfyGalleryEntry['reviewRating'])}
                     className={`rounded px-1.5 py-0.5 text-[10px] ${
                       entry.reviewRating === rating
-                        ? "bg-violet-700 text-white"
-                        : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                        ? 'bg-violet-700 text-white'
+                        : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                     }`}
                   >
                     {rating}★
@@ -270,7 +271,7 @@ export default function GalleryComparePanel({
                     onClick={() => onFavorite(entry.id)}
                     className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-300 hover:bg-zinc-700"
                   >
-                    {entry.favorite ? "★ Fav" : "☆ Fav"}
+                    {entry.favorite ? '★ Fav' : '☆ Fav'}
                   </button>
                 ) : null}
                 {onMutate ? (
@@ -296,7 +297,7 @@ export default function GalleryComparePanel({
                     {caps.canMoireFinal ? (
                       <button
                         type="button"
-                        onClick={() => onMoireClean(entry, "final")}
+                        onClick={() => onMoireClean(entry, 'final')}
                         className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
                       >
                         Moiré Final
@@ -305,7 +306,7 @@ export default function GalleryComparePanel({
                     {caps.canMoireMax ? (
                       <button
                         type="button"
-                        onClick={() => onMoireClean(entry, "max")}
+                        onClick={() => onMoireClean(entry, 'max')}
                         className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
                       >
                         Moiré Max
@@ -318,7 +319,7 @@ export default function GalleryComparePanel({
                     {caps.canUpscaleFinal ? (
                       <button
                         type="button"
-                        onClick={() => onUpscale(entry, "final")}
+                        onClick={() => onUpscale(entry, 'final')}
                         className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
                       >
                         Upscale Final
@@ -327,7 +328,7 @@ export default function GalleryComparePanel({
                     {caps.canUpscaleMax ? (
                       <button
                         type="button"
-                        onClick={() => onUpscale(entry, "max")}
+                        onClick={() => onUpscale(entry, 'max')}
                         className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-zinc-700"
                       >
                         Upscale Max

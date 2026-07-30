@@ -1,6 +1,6 @@
-export const USER_SCOPE_CHANGED_EVENT = "prompt-studio-user-scope-changed";
+export const USER_SCOPE_CHANGED_EVENT = 'prompt-studio-user-scope-changed';
 
-const SHARED_SCOPE = "shared";
+const SHARED_SCOPE = 'shared';
 
 let activeUserId: string | null = null;
 let activeUsername: string | null = null;
@@ -15,7 +15,7 @@ export function setActiveUserScope(user: { id: string; username: string } | null
   activeUserId = nextUserId;
   activeUsername = nextUsername;
 
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(USER_SCOPE_CHANGED_EVENT));
   }
 }
@@ -43,7 +43,7 @@ export function scopeLabel(): string {
   if (activeUsername) {
     return activeUsername;
   }
-  return "shared session";
+  return 'shared session';
 }
 
 export function sharedScopeId(): string {

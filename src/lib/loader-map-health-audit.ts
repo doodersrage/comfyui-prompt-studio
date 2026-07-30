@@ -1,14 +1,14 @@
-import { getComfyModelDefinition } from "./comfy-models";
-import type { ComfyUiModelLists } from "./comfyui-object-info";
-import { buildLoraFilenameMapFromCustomTokens } from "./workflow-lora-patch";
+import { getComfyModelDefinition } from './comfy-models';
+import type { ComfyUiModelLists } from './comfyui-object-info';
+import { buildLoraFilenameMapFromCustomTokens } from './workflow-lora-patch';
 import {
   isFilenameInUnetLoaderList,
   matchInventoryFilename,
   unetLoaderPlacementMessage,
-} from "./loader-map-inventory-sync";
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
-import { SUGGESTED_MODEL_CHECKPOINT_MAP } from "./model-checkpoint-map";
-import type { WorkflowHealthIssue } from "./workflow-health-audit";
+} from './loader-map-inventory-sync';
+import { isQwenRapidAioModel } from './model-denoise-defaults';
+import { SUGGESTED_MODEL_CHECKPOINT_MAP } from './model-checkpoint-map';
+import type { WorkflowHealthIssue } from './workflow-health-audit';
 
 function modelUsesUnetLoaderGraph(model: string): boolean {
   if (isQwenRapidAioModel(model)) {
@@ -18,7 +18,7 @@ function modelUsesUnetLoaderGraph(model: string): boolean {
   if (!def) {
     return false;
   }
-  return def.category === "flux" || def.category === "qwen" || def.category === "sd3";
+  return def.category === 'flux' || def.category === 'qwen' || def.category === 'sd3';
 }
 
 function filenameInList(filename: string, list: string[]): boolean {
@@ -59,9 +59,9 @@ export function auditLoaderMapsAgainstComfyUi(input: {
       const placement = unetLoaderPlacementMessage(filename, input.models);
       if (placement) {
         issues.push({
-          workflowId: "loader-map",
-          workflowName: "Checkpoint map",
-          severity: "error",
+          workflowId: 'loader-map',
+          workflowName: 'Checkpoint map',
+          severity: 'error',
           message: `${model} → ${placement}`,
         });
       }
@@ -69,12 +69,10 @@ export function auditLoaderMapsAgainstComfyUi(input: {
     }
     if (!inCheckpoint) {
       // Curated defaults for unused families are advisory; user overrides stay errors.
-      const severity = isSuggestedCheckpointDefault(model, filename)
-        ? "warn"
-        : "error";
+      const severity = isSuggestedCheckpointDefault(model, filename) ? 'warn' : 'error';
       issues.push({
-        workflowId: "loader-map",
-        workflowName: "Checkpoint map",
+        workflowId: 'loader-map',
+        workflowName: 'Checkpoint map',
         severity,
         message: `${model} → “${filename}” not found in ComfyUI checkpoints or UNET list.`,
       });
@@ -87,9 +85,9 @@ export function auditLoaderMapsAgainstComfyUi(input: {
     }
     if (!filenameInList(filename, input.models.vaes)) {
       issues.push({
-        workflowId: "loader-map",
-        workflowName: "VAE map",
-        severity: "error",
+        workflowId: 'loader-map',
+        workflowName: 'VAE map',
+        severity: 'error',
         message: `${model} → “${filename}” not found in ComfyUI VAE list.`,
       });
     }
@@ -101,9 +99,9 @@ export function auditLoaderMapsAgainstComfyUi(input: {
     }
     if (!filenameInList(filename, input.models.upscaleModels)) {
       issues.push({
-        workflowId: "loader-map",
-        workflowName: "Upscale map",
-        severity: "warn",
+        workflowId: 'loader-map',
+        workflowName: 'Upscale map',
+        severity: 'warn',
         message: `${model} → “${filename}” not in ComfyUI upscale models — Max neural upscale falls back to Lanczos.`,
       });
     }
@@ -116,9 +114,9 @@ export function auditLoaderMapsAgainstComfyUi(input: {
       }
       if (!filenameInList(filename, input.models.controlNets)) {
         issues.push({
-          workflowId: "loader-map",
-          workflowName: "ControlNet map",
-          severity: "error",
+          workflowId: 'loader-map',
+          workflowName: 'ControlNet map',
+          severity: 'error',
           message: `${model} → “${filename}” not found in ComfyUI ControlNet list.`,
         });
       }
@@ -133,9 +131,9 @@ export function auditLoaderMapsAgainstComfyUi(input: {
       }
       if (!filenameInList(filename, input.models.loras)) {
         issues.push({
-          workflowId: "loader-map",
-          workflowName: "LoRA tokens",
-          severity: "warn",
+          workflowId: 'loader-map',
+          workflowName: 'LoRA tokens',
+          severity: 'warn',
           message: `${token} → “${filename}” not found in ComfyUI LoRA list.`,
         });
       }

@@ -8,18 +8,18 @@ import {
   formatModelRefinerMap,
   formatModelVaeMap,
   mergeSuggestedLoaderMaps,
-} from "./model-checkpoint-map";
-import { formatModelUpscaleMap } from "./model-upscale-map";
-import { formatModelControlNetMap } from "./model-controlnet-map";
-import { loadSettingsCache, saveSettingsCache } from "./settings-cache";
-import { loadComfyUiSettings } from "./comfyui-settings";
-import { fetchComfyObjectInfoCached } from "./comfyui-object-info-cache";
-import { syncLoaderMapsFromInventory } from "./loader-map-inventory-sync";
+} from './model-checkpoint-map';
+import { formatModelUpscaleMap } from './model-upscale-map';
+import { formatModelControlNetMap } from './model-controlnet-map';
+import { loadSettingsCache, saveSettingsCache } from './settings-cache';
+import { loadComfyUiSettings } from './comfyui-settings';
+import { fetchComfyObjectInfoCached } from './comfyui-object-info-cache';
+import { syncLoaderMapsFromInventory } from './loader-map-inventory-sync';
 import {
   markOnboardingComfyHealthOk,
   markOnboardingLlmHealthOk,
   markOnboardingSystemWorkflowsEnabled,
-} from "./onboarding-hooks";
+} from './onboarding-hooks';
 
 export type FirstRunSetupResult = {
   ok: boolean;
@@ -38,9 +38,9 @@ export async function enableSystemWorkflowsAndHeal(options?: {
   const shared = {
     ...cache.shared,
     useSystemWorkflows: true,
-    ...(cache.shared.queueQualityProfile === "followSettings" ||
+    ...(cache.shared.queueQualityProfile === 'followSettings' ||
     cache.shared.queueQualityProfile == null
-      ? { queueQualityProfile: "final" as const }
+      ? { queueQualityProfile: 'final' as const }
       : {}),
   };
 
@@ -57,13 +57,10 @@ export async function enableSystemWorkflowsAndHeal(options?: {
   markOnboardingSystemWorkflowsEnabled();
 
   const settings = loadComfyUiSettings();
-  const comfyUrl =
-    options?.comfyUrl?.trim() || settings.apiUrl?.trim() || undefined;
+  const comfyUrl = options?.comfyUrl?.trim() || settings.apiUrl?.trim() || undefined;
 
   try {
-    const { scanAndAdaptSystemWorkflowInventory } = await import(
-      "./comfyui-runtime-for-model"
-    );
+    const { scanAndAdaptSystemWorkflowInventory } = await import('./comfyui-runtime-for-model');
     const models = await scanAndAdaptSystemWorkflowInventory({
       comfyUrl,
       persist: true,
@@ -100,8 +97,7 @@ export async function enableSystemWorkflowsAndHeal(options?: {
         comfyOk: true,
         systemWorkflowsEnabled: true,
         mapsAdapted: true,
-        message:
-          "System workflows on — loader maps adapted from ComfyUI inventory.",
+        message: 'System workflows on — loader maps adapted from ComfyUI inventory.',
       };
     }
   } catch {
@@ -114,7 +110,7 @@ export async function enableSystemWorkflowsAndHeal(options?: {
     systemWorkflowsEnabled: true,
     mapsAdapted: false,
     message:
-      "System workflows on — could not reach ComfyUI yet; maps will adapt on the next successful connection.",
+      'System workflows on — could not reach ComfyUI yet; maps will adapt on the next successful connection.',
   };
 }
 
@@ -127,10 +123,10 @@ export async function runHealAndReady(options?: {
   try {
     const params = new URLSearchParams();
     if (options?.comfyUrl?.trim()) {
-      params.set("comfyUrl", options.comfyUrl.trim());
+      params.set('comfyUrl', options.comfyUrl.trim());
     }
     const query = params.toString();
-    const response = await fetch(query ? `/api/health?${query}` : "/api/health");
+    const response = await fetch(query ? `/api/health?${query}` : '/api/health');
     const health = (await response.json()) as {
       llm?: { ok?: boolean };
       comfyui?: { ok?: boolean };
@@ -153,10 +149,10 @@ export async function runHealAndReady(options?: {
     comfyOk: heal.comfyOk || comfyOk,
     llmOk,
     message: [
-      llmOk ? "LLM ok" : "LLM not ready",
-      heal.comfyOk || comfyOk ? "ComfyUI ok" : "ComfyUI unreachable",
+      llmOk ? 'LLM ok' : 'LLM not ready',
+      heal.comfyOk || comfyOk ? 'ComfyUI ok' : 'ComfyUI unreachable',
       heal.message,
-    ].join(" · "),
+    ].join(' · '),
   };
 }
 

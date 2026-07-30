@@ -7,26 +7,20 @@ export type ComfyOutputImage = {
 };
 
 /** Media kind for gallery rendering: still image, video/animated, audio, or mesh download. */
-export type ComfyOutputMediaKind = "image" | "video" | "audio" | "mesh";
+export type ComfyOutputMediaKind = 'image' | 'video' | 'audio' | 'mesh';
 
-const VIDEO_FILE_EXTENSIONS = new Set([
-  "mp4",
-  "webm",
-  "mov",
-  "mkv",
-  "avi",
-]);
+const VIDEO_FILE_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'mkv', 'avi']);
 
-const AUDIO_FILE_EXTENSIONS = new Set(["wav", "mp3", "flac", "ogg", "m4a"]);
+const AUDIO_FILE_EXTENSIONS = new Set(['wav', 'mp3', 'flac', 'ogg', 'm4a']);
 
-const MESH_FILE_EXTENSIONS = new Set(["obj", "glb", "gltf", "stl", "ply"]);
+const MESH_FILE_EXTENSIONS = new Set(['obj', 'glb', 'gltf', 'stl', 'ply']);
 
 /** Animated formats that should be rendered like video (looping, no controls needed). */
-const ANIMATED_IMAGE_EXTENSIONS = new Set(["webp", "gif"]);
+const ANIMATED_IMAGE_EXTENSIONS = new Set(['webp', 'gif']);
 
 function fileExtensionOf(filename: string): string {
   const match = /\.([a-z0-9]+)$/i.exec(filename.trim());
-  return match ? match[1].toLowerCase() : "";
+  return match ? match[1].toLowerCase() : '';
 }
 
 /**
@@ -38,40 +32,36 @@ function fileExtensionOf(filename: string): string {
  * plain photographic outputs remain classic images.
  */
 export function resolveComfyOutputMediaKind(
-  image: Pick<ComfyOutputImage, "filename" | "format">,
+  image: Pick<ComfyOutputImage, 'filename' | 'format'>
 ): ComfyOutputMediaKind {
-  const format = image.format?.toLowerCase() ?? "";
-  if (format.startsWith("video/")) {
-    return "video";
+  const format = image.format?.toLowerCase() ?? '';
+  if (format.startsWith('video/')) {
+    return 'video';
   }
-  if (format.startsWith("image/")) {
-    const formatExt = format.split("/")[1] ?? "";
+  if (format.startsWith('image/')) {
+    const formatExt = format.split('/')[1] ?? '';
     if (ANIMATED_IMAGE_EXTENSIONS.has(formatExt)) {
-      return "video";
+      return 'video';
     }
-    return "image";
+    return 'image';
   }
 
   const ext = fileExtensionOf(image.filename);
-  if (format.startsWith("audio/") || AUDIO_FILE_EXTENSIONS.has(ext)) {
-    return "audio";
+  if (format.startsWith('audio/') || AUDIO_FILE_EXTENSIONS.has(ext)) {
+    return 'audio';
   }
-  if (
-    format.includes("model") ||
-    format.includes("mesh") ||
-    MESH_FILE_EXTENSIONS.has(ext)
-  ) {
-    return "mesh";
+  if (format.includes('model') || format.includes('mesh') || MESH_FILE_EXTENSIONS.has(ext)) {
+    return 'mesh';
   }
   if (VIDEO_FILE_EXTENSIONS.has(ext)) {
-    return "video";
+    return 'video';
   }
   // Bare .webp/.gif without format are ambiguous (photo vs animated). Prefer
   // still image unless Comfy explicitly tagged video/* or image/webp|gif above.
-  if (ANIMATED_IMAGE_EXTENSIONS.has(ext) && format.includes("anim")) {
-    return "video";
+  if (ANIMATED_IMAGE_EXTENSIONS.has(ext) && format.includes('anim')) {
+    return 'video';
   }
-  return "image";
+  return 'image';
 }
 
 /** Default long-edge for gallery grid/list thumbs (proxy resize). */
@@ -94,28 +84,26 @@ export const GALLERY_PROXY_ENCODE_QUALITY = {
   lightbox: { avif: 72, webp: 88, jpeg: 90 },
 } as const;
 
-export function galleryProxyEncodeTier(width: number): "thumb" | "lightbox" {
-  return width >= GALLERY_LIGHTBOX_WIDTH ? "lightbox" : "thumb";
+export function galleryProxyEncodeTier(width: number): 'thumb' | 'lightbox' {
+  return width >= GALLERY_LIGHTBOX_WIDTH ? 'lightbox' : 'thumb';
 }
 
 /** Strip gallery proxy `w=` so “Open original” / full-res links never hit a resized encode. */
 export function stripGalleryViewWidthParam(url: string): string {
   try {
-    const parsed = new URL(url, "http://local.invalid");
-    if (!parsed.searchParams.has("w")) {
+    const parsed = new URL(url, 'http://local.invalid');
+    if (!parsed.searchParams.has('w')) {
       return url;
     }
-    parsed.searchParams.delete("w");
+    parsed.searchParams.delete('w');
     if (/^https?:\/\//i.test(url)) {
       return parsed.toString();
     }
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
     return url
-      .replace(/([?&])w=\d+(&|$)/i, (_, sep: string, end: string) =>
-        end === "&" ? sep : "",
-      )
-      .replace(/\?$/, "");
+      .replace(/([?&])w=\d+(&|$)/i, (_, sep: string, end: string) => (end === '&' ? sep : ''))
+      .replace(/\?$/, '');
   }
 }
 
@@ -123,7 +111,7 @@ export function stripGalleryViewWidthParam(url: string): string {
 export const GALLERY_LQIP_WIDTH = 32;
 
 export function extractImagesFromOutputs(
-  outputs: Record<string, unknown> | undefined,
+  outputs: Record<string, unknown> | undefined
 ): ComfyOutputImage[] {
   if (!outputs) {
     return [];
@@ -132,7 +120,7 @@ export function extractImagesFromOutputs(
   const images: ComfyOutputImage[] = [];
 
   for (const nodeOutput of Object.values(outputs)) {
-    if (!nodeOutput || typeof nodeOutput !== "object") {
+    if (!nodeOutput || typeof nodeOutput !== 'object') {
       continue;
     }
 
@@ -141,25 +129,25 @@ export function extractImagesFromOutputs(
     // emit under "gifs" instead, using the same {filename,subfolder,type} shape.
     const record = nodeOutput as { images?: unknown[]; gifs?: unknown[] };
     const refLists = [record.images, record.gifs].filter((list): list is unknown[] =>
-      Array.isArray(list),
+      Array.isArray(list)
     );
 
     for (const refList of refLists) {
       for (const image of refList) {
-        if (!image || typeof image !== "object") {
+        if (!image || typeof image !== 'object') {
           continue;
         }
 
         const ref = image as Record<string, unknown>;
-        if (typeof ref.filename !== "string" || !ref.filename.trim()) {
+        if (typeof ref.filename !== 'string' || !ref.filename.trim()) {
           continue;
         }
 
         images.push({
           filename: ref.filename,
-          subfolder: typeof ref.subfolder === "string" ? ref.subfolder : "",
-          type: typeof ref.type === "string" ? ref.type : "output",
-          format: typeof ref.format === "string" ? ref.format : undefined,
+          subfolder: typeof ref.subfolder === 'string' ? ref.subfolder : '',
+          type: typeof ref.type === 'string' ? ref.type : 'output',
+          format: typeof ref.format === 'string' ? ref.format : undefined,
         });
       }
     }
@@ -176,17 +164,17 @@ export type ComfyViewPathOptions = {
 export function buildComfyViewPath(
   comfyUrl: string,
   image: ComfyOutputImage,
-  options?: ComfyViewPathOptions,
+  options?: ComfyViewPathOptions
 ): string {
   const params = new URLSearchParams({
     filename: image.filename,
     subfolder: image.subfolder,
     type: image.type,
-    comfyUrl: comfyUrl.replace(/\/+$/, ""),
+    comfyUrl: comfyUrl.replace(/\/+$/, ''),
   });
   const width = options?.width;
-  if (typeof width === "number" && Number.isFinite(width) && width > 0) {
-    params.set("w", String(Math.min(Math.floor(width), 2048)));
+  if (typeof width === 'number' && Number.isFinite(width) && width > 0) {
+    params.set('w', String(Math.min(Math.floor(width), 2048)));
   }
   return `/api/comfyui/view?${params.toString()}`;
 }
@@ -195,9 +183,9 @@ export function buildComfyViewPath(
 export function buildComfyViewSrcSet(
   comfyUrl: string,
   image: ComfyOutputImage,
-  widths: readonly number[] = GALLERY_THUMB_SRCSET_WIDTHS,
+  widths: readonly number[] = GALLERY_THUMB_SRCSET_WIDTHS
 ): string {
   return widths
-    .map((width) => `${buildComfyViewPath(comfyUrl, image, { width })} ${width}w`)
-    .join(", ");
+    .map(width => `${buildComfyViewPath(comfyUrl, image, { width })} ${width}w`)
+    .join(', ');
 }

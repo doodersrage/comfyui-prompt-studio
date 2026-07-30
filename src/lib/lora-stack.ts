@@ -1,9 +1,9 @@
-import type { WorkflowDirectPatchCounts } from "./workflow-direct-patch";
+import type { WorkflowDirectPatchCounts } from './workflow-direct-patch';
 import {
   isLoraLoaderClassType,
   loraFilenameImpliesLightning,
   loraNameIsLightningSlot,
-} from "./workflow-lora-patch";
+} from './workflow-lora-patch';
 
 export type LoraLibraryEntry = {
   id: string;
@@ -39,10 +39,7 @@ const MIN_LORA_STRENGTH = 0;
 const MAX_LORA_STRENGTH = 2;
 
 /** LoRA loader node types with a well-known, stable input schema we can safely patch/chain. */
-export const STRENGTH_PATCHABLE_LORA_TYPES = new Set([
-  "LoraLoader",
-  "LoraLoaderModelOnly",
-]);
+export const STRENGTH_PATCHABLE_LORA_TYPES = new Set(['LoraLoader', 'LoraLoaderModelOnly']);
 
 function isStrengthPatchableLoraType(classType: string | undefined): boolean {
   if (!classType) {
@@ -52,11 +49,11 @@ function isStrengthPatchableLoraType(classType: string | undefined): boolean {
     return true;
   }
   // ComfyUI-Custom-Scripts: LoraLoader|pysssss
-  return isLoraLoaderClassType(classType) && classType !== "Power Lora Loader (rgthree)";
+  return isLoraLoaderClassType(classType) && classType !== 'Power Lora Loader (rgthree)';
 }
 
 export function clampLoraStrength(value: number | undefined): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     return DEFAULT_LORA_STRENGTH;
   }
   return Math.min(MAX_LORA_STRENGTH, Math.max(MIN_LORA_STRENGTH, value));
@@ -75,7 +72,7 @@ export function normalizeLoraLibraryEntry(entry: LoraLibraryEntry): LoraLibraryE
 /** Stem of a LoRA filename without extension / folder prefix. */
 export function loraFilenameStem(filename: string): string {
   const base = filename.trim().split(/[/\\]/).pop() ?? filename.trim();
-  return base.replace(/\.(safetensors|ckpt|pt|bin)$/i, "");
+  return base.replace(/\.(safetensors|ckpt|pt|bin)$/i, '');
 }
 
 /** Suggest a stable {{LORA_<id>}} id from a ComfyUI LoRA filename. */
@@ -85,12 +82,12 @@ export function suggestLoraIdFromFilename(filename: string): string {
     return `lora-${Date.now().toString(36)}`;
   }
   if (loraFilenameImpliesLightning(filename)) {
-    return "LIGHTNING";
+    return 'LIGHTNING';
   }
   const slug = stem
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
     .slice(0, 48);
   return slug || `lora-${Date.now().toString(36)}`;
 }
@@ -99,22 +96,14 @@ export function suggestLoraIdFromFilename(filename: string): string {
 export function suggestLoraLabelFromFilename(filename: string): string {
   const stem = loraFilenameStem(filename);
   if (!stem) {
-    return "";
+    return '';
   }
-  return stem
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return stem.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 /** Ensure the suggested id is unique within an existing library. */
-export function uniqueLoraLibraryId(
-  preferredId: string,
-  existingIds: Iterable<string>,
-): string {
-  const taken = new Set(
-    [...existingIds].map((id) => id.trim().toLowerCase()).filter(Boolean),
-  );
+export function uniqueLoraLibraryId(preferredId: string, existingIds: Iterable<string>): string {
+  const taken = new Set([...existingIds].map(id => id.trim().toLowerCase()).filter(Boolean));
   const base = preferredId.trim() || `lora-${Date.now().toString(36)}`;
   if (!taken.has(base.toLowerCase())) {
     return base;
@@ -128,18 +117,18 @@ export function uniqueLoraLibraryId(
 
 export function createLoraLibraryEntryFromFilename(
   filename: string,
-  existing?: LoraLibraryEntry[],
+  existing?: LoraLibraryEntry[]
 ): LoraLibraryEntry {
   const tokenValue = filename.trim();
   const preferredId = suggestLoraIdFromFilename(tokenValue);
   const id = uniqueLoraLibraryId(
     preferredId,
-    (existing ?? []).map((entry) => entry.id),
+    (existing ?? []).map(entry => entry.id)
   );
   return {
     id,
     label: suggestLoraLabelFromFilename(tokenValue),
-    triggerPhrase: "",
+    triggerPhrase: '',
     tokenValue,
     strengthModel: 1,
     strengthClip: 1,
@@ -151,9 +140,9 @@ export function createLoraLibraryEntryFromFilename(
 export function createEmptyLoraLibraryEntry(): LoraLibraryEntry {
   return {
     id: `lora-${Date.now().toString(36)}`,
-    label: "",
-    triggerPhrase: "",
-    tokenValue: "",
+    label: '',
+    triggerPhrase: '',
+    tokenValue: '',
     strengthModel: 1,
     strengthClip: 1,
     enabled: false,
@@ -164,13 +153,13 @@ export function createEmptyLoraLibraryEntry(): LoraLibraryEntry {
 /** Case-insensitive substring match (legacy helper; keyword activation removed). */
 export function promptContainsLoraTrigger(
   prompt: string | undefined,
-  triggerPhrase: string | undefined,
+  triggerPhrase: string | undefined
 ): boolean {
-  const trigger = triggerPhrase?.trim() ?? "";
+  const trigger = triggerPhrase?.trim() ?? '';
   if (!trigger) {
     return false;
   }
-  const haystack = prompt?.trim() ?? "";
+  const haystack = prompt?.trim() ?? '';
   if (!haystack) {
     return false;
   }
@@ -181,17 +170,15 @@ function loraEntryActiveForPrompt(entry: LoraLibraryEntry): boolean {
   return entry.enabled !== false;
 }
 
-export function normalizeLoraLibrary(
-  library: LoraLibraryEntry[] | undefined,
-): LoraLibraryEntry[] {
+export function normalizeLoraLibrary(library: LoraLibraryEntry[] | undefined): LoraLibraryEntry[] {
   return (library ?? []).map(normalizeLoraLibraryEntry);
 }
 
 export function isLightningLibraryEntry(entry: LoraLibraryEntry): boolean {
-  if (entry.id.trim().toUpperCase() === "LIGHTNING") {
+  if (entry.id.trim().toUpperCase() === 'LIGHTNING') {
     return true;
   }
-  return loraFilenameImpliesLightning(entry.tokenValue ?? "");
+  return loraFilenameImpliesLightning(entry.tokenValue ?? '');
 }
 
 /**
@@ -201,16 +188,14 @@ export function isLightningLibraryEntry(entry: LoraLibraryEntry): boolean {
  */
 export function applySessionLoraSelection(
   library: LoraLibraryEntry[] | undefined,
-  sessionActiveLoraIds: string[] | undefined,
+  sessionActiveLoraIds: string[] | undefined
 ): LoraLibraryEntry[] {
   const normalized = normalizeLoraLibrary(library);
   if (sessionActiveLoraIds === undefined) {
     return normalized;
   }
-  const active = new Set(
-    sessionActiveLoraIds.map((id) => id.trim()).filter(Boolean),
-  );
-  return normalized.map((entry) => {
+  const active = new Set(sessionActiveLoraIds.map(id => id.trim()).filter(Boolean));
+  return normalized.map(entry => {
     if (isLightningLibraryEntry(entry)) {
       return entry;
     }
@@ -224,28 +209,24 @@ export function applySessionLoraSelection(
 
 /** Non-Lightning catalog entries shown in the session picker. */
 export function listSelectableLoraLibraryEntries(
-  library: LoraLibraryEntry[] | undefined,
+  library: LoraLibraryEntry[] | undefined
 ): LoraLibraryEntry[] {
   return normalizeLoraLibrary(library).filter(
-    (entry) => entry.tokenValue?.trim() && !isLightningLibraryEntry(entry),
+    entry => entry.tokenValue?.trim() && !isLightningLibraryEntry(entry)
   );
 }
 
 /** Effective selected ids for UI (session override or Settings enabled flags). */
 export function resolveSessionActiveLoraIds(
   library: LoraLibraryEntry[] | undefined,
-  sessionActiveLoraIds: string[] | undefined,
+  sessionActiveLoraIds: string[] | undefined
 ): string[] {
   const selectable = listSelectableLoraLibraryEntries(library);
   if (sessionActiveLoraIds !== undefined) {
-    const allowed = new Set(selectable.map((entry) => entry.id));
-    return sessionActiveLoraIds
-      .map((id) => id.trim())
-      .filter((id) => allowed.has(id));
+    const allowed = new Set(selectable.map(entry => entry.id));
+    return sessionActiveLoraIds.map(id => id.trim()).filter(id => allowed.has(id));
   }
-  return selectable
-    .filter((entry) => entry.enabled !== false)
-    .map((entry) => entry.id);
+  return selectable.filter(entry => entry.enabled !== false).map(entry => entry.id);
 }
 
 export type ResolveActiveLoraStackOptions = {
@@ -256,7 +237,7 @@ export type ResolveActiveLoraStackOptions = {
 /** Ordered active non-Lightning LoRA entries with concrete filenames — the "active stack". */
 export function resolveActiveLoraStack(
   library: LoraLibraryEntry[] | undefined,
-  _options?: ResolveActiveLoraStackOptions,
+  _options?: ResolveActiveLoraStackOptions
 ): ActiveLoraStackEntry[] {
   const normalized = normalizeLoraLibrary(library);
   return normalized
@@ -277,7 +258,7 @@ export function resolveActiveLoraStack(
     })
     .map(({ entry }) => ({
       id: entry.id.trim(),
-      label: entry.label.trim() || entry.id.trim() || "LoRA",
+      label: entry.label.trim() || entry.id.trim() || 'LoRA',
       filename: entry.tokenValue.trim(),
       strengthModel: clampLoraStrength(entry.strengthModel),
       strengthClip: clampLoraStrength(entry.strengthClip),
@@ -291,16 +272,16 @@ function formatStrength(value: number): string {
 /** Minimal human-readable summary for the Settings UI / logs. */
 export function describeLoraStack(stack: ActiveLoraStackEntry[]): string {
   if (stack.length === 0) {
-    return "No LoRAs active.";
+    return 'No LoRAs active.';
   }
-  const parts = stack.map((entry) => {
+  const parts = stack.map(entry => {
     const strengths =
       entry.strengthModel === entry.strengthClip
         ? formatStrength(entry.strengthModel)
         : `${formatStrength(entry.strengthModel)}/${formatStrength(entry.strengthClip)}`;
     return `${entry.label} (${strengths})`;
   });
-  return `${stack.length} LoRA${stack.length === 1 ? "" : "s"} active: ${parts.join(", ")}`;
+  return `${stack.length} LoRA${stack.length === 1 ? '' : 's'} active: ${parts.join(', ')}`;
 }
 
 type WorkflowNode = {
@@ -334,27 +315,25 @@ function nextWorkflowNodeId(workflow: Record<string, WorkflowNode>): string {
 }
 
 function linkOutputIndex(value: unknown, nodeId: string): number | null {
-  if (Array.isArray(value) && value[0] === nodeId && typeof value[1] === "number") {
+  if (Array.isArray(value) && value[0] === nodeId && typeof value[1] === 'number') {
     return value[1];
   }
   return null;
 }
 
 const SAMPLER_MODEL_CHAIN_TYPES = new Set([
-  "KSampler",
-  "KSamplerAdvanced",
-  "SamplerCustom",
-  "SamplerCustomAdvanced",
-  "ModelSamplingAuraFlow",
+  'KSampler',
+  'KSamplerAdvanced',
+  'SamplerCustom',
+  'SamplerCustomAdvanced',
+  'ModelSamplingAuraFlow',
 ]);
 
 /** Node ids on any sampler/AuraFlow → model upstream walk. */
-function collectSamplerModelChainIds(
-  workflow: Record<string, WorkflowNode>,
-): Set<string> {
+function collectSamplerModelChainIds(workflow: Record<string, WorkflowNode>): Set<string> {
   const chain = new Set<string>();
   for (const node of Object.values(workflow)) {
-    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? "")) {
+    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? '')) {
       continue;
     }
     let cursor = linkedModelNodeId(node?.inputs?.model);
@@ -384,7 +363,7 @@ function findLoraAnchorNodeIds(workflow: Record<string, WorkflowNode>): string[]
     if (!node?.inputs || !isStrengthPatchableLoraType(node.class_type)) {
       continue;
     }
-    if (!("lora_name" in node.inputs)) {
+    if (!('lora_name' in node.inputs)) {
       continue;
     }
     if (loraNameIsLightningSlot(node.inputs.lora_name, {})) {
@@ -397,7 +376,7 @@ function findLoraAnchorNodeIds(workflow: Record<string, WorkflowNode>): string[]
   if (chain.size === 0) {
     return ids;
   }
-  return ids.filter((id) => chain.has(id));
+  return ids.filter(id => chain.has(id));
 }
 
 function applyEntryToNode(node: WorkflowNode, entry: ActiveLoraStackEntry): void {
@@ -406,19 +385,19 @@ function applyEntryToNode(node: WorkflowNode, entry: ActiveLoraStackEntry): void
   }
   node.inputs.lora_name = entry.filename;
   node.inputs.strength_model = entry.strengthModel;
-  const baseClass = (node.class_type ?? "").split("|")[0]?.trim() ?? "";
-  if (baseClass === "LoraLoader") {
+  const baseClass = (node.class_type ?? '').split('|')[0]?.trim() ?? '';
+  if (baseClass === 'LoraLoader') {
     node.inputs.strength_clip = entry.strengthClip;
   }
 }
 
 function loraClassSupportsClip(classType: string | undefined): boolean {
-  const baseClass = (classType ?? "").split("|")[0]?.trim() ?? "";
-  return baseClass === "LoraLoader";
+  const baseClass = (classType ?? '').split('|')[0]?.trim() ?? '';
+  return baseClass === 'LoraLoader';
 }
 
 function linkedModelNodeId(value: unknown): string | null {
-  if (Array.isArray(value) && (typeof value[0] === "string" || typeof value[0] === "number")) {
+  if (Array.isArray(value) && (typeof value[0] === 'string' || typeof value[0] === 'number')) {
     return String(value[0]);
   }
   return null;
@@ -430,7 +409,7 @@ function linkedModelNodeId(value: unknown): string | null {
  */
 function breakLightningModelCycle(
   workflow: Record<string, WorkflowNode>,
-  lightningId: string,
+  lightningId: string
 ): void {
   const lightning = workflow[lightningId];
   if (!lightning?.inputs) {
@@ -442,11 +421,11 @@ function breakLightningModelCycle(
     if (cursor === lightningId) {
       // Point at UNET/checkpoint if present; otherwise clear the self-loop edge.
       for (const [nodeId, node] of Object.entries(workflow)) {
-        const classType = node?.class_type ?? "";
+        const classType = node?.class_type ?? '';
         if (
-          classType === "UNETLoader" ||
-          classType === "CheckpointLoaderSimple" ||
-          classType === "CheckpointLoader"
+          classType === 'UNETLoader' ||
+          classType === 'CheckpointLoaderSimple' ||
+          classType === 'CheckpointLoader'
         ) {
           lightning.inputs.model = [nodeId, 0];
           return;
@@ -467,14 +446,14 @@ function breakLightningModelCycle(
  */
 function findSamplerNearestLoraAnchor(
   workflow: Record<string, WorkflowNode>,
-  anchors: string[],
+  anchors: string[]
 ): string | null {
   if (anchors.length === 0) {
     return null;
   }
   const anchorSet = new Set(anchors);
   for (const node of Object.values(workflow)) {
-    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? "")) {
+    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? '')) {
       continue;
     }
     let cursor = linkedModelNodeId(node?.inputs?.model);
@@ -491,12 +470,10 @@ function findSamplerNearestLoraAnchor(
 }
 
 /** Sampler-nearest active Lightning loader — used to chain style LoRAs when no other anchors exist. */
-function findActiveLightningLoaderId(
-  workflow: Record<string, WorkflowNode>,
-): string | null {
+function findActiveLightningLoaderId(workflow: Record<string, WorkflowNode>): string | null {
   let start: string | null = null;
   for (const node of Object.values(workflow)) {
-    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? "")) {
+    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? '')) {
       continue;
     }
     start = linkedModelNodeId(node?.inputs?.model);
@@ -516,8 +493,7 @@ function findActiveLightningLoaderId(
       break;
     }
     const strength = node.inputs.strength_model;
-    const active =
-      typeof strength !== "number" || !Number.isFinite(strength) || strength > 0;
+    const active = typeof strength !== 'number' || !Number.isFinite(strength) || strength > 0;
     if (
       active &&
       isStrengthPatchableLoraType(node.class_type) &&
@@ -536,7 +512,7 @@ function rewireDownstreamReferences(
   fromNodeId: string,
   toNodeId: string,
   skipNodeIds: Set<string>,
-  options?: { outputIndexes?: readonly number[] },
+  options?: { outputIndexes?: readonly number[] }
 ): void {
   const allowed = options?.outputIndexes;
   for (const [nodeId, node] of Object.entries(workflow)) {
@@ -557,9 +533,7 @@ function rewireDownstreamReferences(
 }
 
 function isCheckpointLoaderClass(classType: string | undefined): boolean {
-  return (
-    classType === "CheckpointLoaderSimple" || classType === "CheckpointLoader"
-  );
+  return classType === 'CheckpointLoaderSimple' || classType === 'CheckpointLoader';
 }
 
 /**
@@ -568,27 +542,27 @@ function isCheckpointLoaderClass(classType: string | undefined): boolean {
  * (Rapid AIO / plain Qwen scaffolds).
  */
 function findStyleLoraChainRoot(
-  workflow: Record<string, WorkflowNode>,
-): { rootId: string; mode: "lightning" | "checkpoint" | "unet" } | null {
+  workflow: Record<string, WorkflowNode>
+): { rootId: string; mode: 'lightning' | 'checkpoint' | 'unet' } | null {
   const lightningId = findActiveLightningLoaderId(workflow);
   if (lightningId) {
-    return { rootId: lightningId, mode: "lightning" };
+    return { rootId: lightningId, mode: 'lightning' };
   }
 
   for (const node of Object.values(workflow)) {
-    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? "")) {
+    if (!SAMPLER_MODEL_CHAIN_TYPES.has(node?.class_type ?? '')) {
       continue;
     }
     let cursor = linkedModelNodeId(node?.inputs?.model);
     const seen = new Set<string>();
     while (cursor && !seen.has(cursor)) {
       seen.add(cursor);
-      const classType = workflow[cursor]?.class_type ?? "";
+      const classType = workflow[cursor]?.class_type ?? '';
       if (isCheckpointLoaderClass(classType)) {
-        return { rootId: cursor, mode: "checkpoint" };
+        return { rootId: cursor, mode: 'checkpoint' };
       }
-      if (classType === "UNETLoader" || classType === "UnetLoaderGGUF") {
-        return { rootId: cursor, mode: "unet" };
+      if (classType === 'UNETLoader' || classType === 'UnetLoaderGGUF') {
+        return { rootId: cursor, mode: 'unet' };
       }
       cursor = linkedModelNodeId(workflow[cursor]?.inputs?.model);
     }
@@ -600,11 +574,11 @@ function findStyleLoraChainRoot(
 function insertStyleLoraChainAfterRoot(
   workflow: Record<string, WorkflowNode>,
   rootId: string,
-  mode: "lightning" | "checkpoint" | "unet",
-  stack: ActiveLoraStackEntry[],
+  mode: 'lightning' | 'checkpoint' | 'unet',
+  stack: ActiveLoraStackEntry[]
 ): string[] {
-  const useClip = mode === "checkpoint";
-  const classType = useClip ? "LoraLoader" : "LoraLoaderModelOnly";
+  const useClip = mode === 'checkpoint';
+  const classType = useClip ? 'LoraLoader' : 'LoraLoaderModelOnly';
   const rewireSlots = useClip ? ([0, 1] as const) : ([0] as const);
   const insertedNodeIds: string[] = [];
   const protectedNodeIds = new Set<string>([rootId]);
@@ -631,7 +605,7 @@ function insertStyleLoraChainAfterRoot(
       previousId,
       newNodeId,
       new Set([...protectedNodeIds, newNodeId]),
-      { outputIndexes: rewireSlots },
+      { outputIndexes: rewireSlots }
     );
     protectedNodeIds.add(newNodeId);
     insertedNodeIds.push(newNodeId);
@@ -651,13 +625,13 @@ function neutralizeLoraNodeStrengths(node: WorkflowNode): void {
   if (!node.inputs) {
     return;
   }
-  if ("strength_model" in node.inputs) {
+  if ('strength_model' in node.inputs) {
     node.inputs.strength_model = 0;
   }
-  if ("strength_clip" in node.inputs) {
+  if ('strength_clip' in node.inputs) {
     node.inputs.strength_clip = 0;
   }
-  if ("strength" in node.inputs) {
+  if ('strength' in node.inputs) {
     node.inputs.strength = 0;
   }
 }
@@ -673,7 +647,7 @@ function neutralizeLoraNodeStrengths(node: WorkflowNode): void {
  */
 export function chainLoraStackInWorkflow(
   workflow: Record<string, unknown>,
-  stack: ActiveLoraStackEntry[],
+  stack: ActiveLoraStackEntry[]
 ): ChainLoraStackResult {
   const next = structuredClone(workflow) as Record<string, WorkflowNode>;
   const anchors = findLoraAnchorNodeIds(next);
@@ -686,15 +660,10 @@ export function chainLoraStackInWorkflow(
     if (!root) {
       return { workflow: next, patchedNodeIds: [], insertedNodeIds: [] };
     }
-    if (root.mode === "lightning") {
+    if (root.mode === 'lightning') {
       breakLightningModelCycle(next, root.rootId);
     }
-    const insertedNodeIds = insertStyleLoraChainAfterRoot(
-      next,
-      root.rootId,
-      root.mode,
-      stack,
-    );
+    const insertedNodeIds = insertStyleLoraChainAfterRoot(next, root.rootId, root.mode, stack);
     return { workflow: next, patchedNodeIds: [], insertedNodeIds };
   }
 
@@ -725,8 +694,7 @@ export function chainLoraStackInWorkflow(
     // Insert after the sampler-nearest anchor so extras sit on the live model
     // path (pack graphs often chain several LoraLoader|pysssss nodes).
     const insertAfterId =
-      findSamplerNearestLoraAnchor(next, anchors) ??
-      anchors[anchors.length - 1]!;
+      findSamplerNearestLoraAnchor(next, anchors) ?? anchors[anchors.length - 1]!;
     const insertAfterNode = next[insertAfterId]!;
     const chainSupportsClip = loraClassSupportsClip(insertAfterNode.class_type);
 
@@ -751,12 +719,7 @@ export function chainLoraStackInWorkflow(
       // Do NOT protect sibling anchors: on Rapid AIO packs the sampler-nearest
       // anchor is consumed by AuraFlow/KSampler (and earlier anchors consume
       // later ones). Shielding all anchors left extras orphaned off-chain.
-      rewireDownstreamReferences(
-        next,
-        previousId,
-        newNodeId,
-        new Set([newNodeId]),
-      );
+      rewireDownstreamReferences(next, previousId, newNodeId, new Set([newNodeId]));
 
       insertedNodeIds.push(newNodeId);
       previousId = newNodeId;
@@ -770,7 +733,7 @@ export function chainLoraStackInWorkflow(
 export function applyLoraStackToWorkflow(
   workflow: Record<string, unknown>,
   library: LoraLibraryEntry[] | undefined,
-  options?: ResolveActiveLoraStackOptions,
+  options?: ResolveActiveLoraStackOptions
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const stack = resolveActiveLoraStack(library, options);
   const result = chainLoraStackInWorkflow(workflow, stack);
@@ -790,20 +753,20 @@ const NON_LIGHTNING_LORA_PLACEHOLDER = /\{\{LORA_(?!LIGHTNING\b)[A-Z0-9_]*\}\}/;
  */
 export function loraStackLintWarning(
   workflow: Record<string, unknown> | string,
-  stack: ActiveLoraStackEntry[],
+  stack: ActiveLoraStackEntry[]
 ): string | null {
   if (stack.length > 0) {
     return null;
   }
 
   const hasPlaceholder = NON_LIGHTNING_LORA_PLACEHOLDER.test(
-    typeof workflow === "string" ? workflow : JSON.stringify(workflow),
+    typeof workflow === 'string' ? workflow : JSON.stringify(workflow)
   );
 
   // Object form can distinguish Lightning-flavored loader nodes (excluded, handled by
   // the dedicated Lightning path); the string form falls back to placeholder text only.
   const hasLoraLoaderNode =
-    typeof workflow === "string"
+    typeof workflow === 'string'
       ? false
       : findLoraAnchorNodeIds(workflow as Record<string, WorkflowNode>).length > 0;
 
@@ -811,5 +774,5 @@ export function loraStackLintWarning(
     return null;
   }
 
-  return "Workflow expects a LoRA but the active LoRA stack is empty — enable at least one LoRA in Settings → LoRA library.";
+  return 'Workflow expects a LoRA but the active LoRA stack is empty — enable at least one LoRA in Settings → LoRA library.';
 }

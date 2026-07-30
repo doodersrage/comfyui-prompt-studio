@@ -2,18 +2,12 @@ import {
   comfyUiSettingsToRuntime,
   loadComfyUiSettings,
   type ComfyUiSettings,
-} from "./comfyui-settings";
-import {
-  stripEmptyComfyUiRuntime,
-  type ComfyUiRuntimeConfig,
-} from "./comfyui-config";
-import {
-  findComfyWorkflowFile,
-  mergeCustomWorkflowTokens,
-} from "./comfyui-workflow-files";
-import { loadSettingsCache, saveSharedSettings } from "./settings-cache";
+} from './comfyui-settings';
+import { stripEmptyComfyUiRuntime, type ComfyUiRuntimeConfig } from './comfyui-config';
+import { findComfyWorkflowFile, mergeCustomWorkflowTokens } from './comfyui-workflow-files';
+import { loadSettingsCache, saveSharedSettings } from './settings-cache';
 
-const SERVER_WORKFLOW_PREFIX = "server:";
+const SERVER_WORKFLOW_PREFIX = 'server:';
 
 export function getSelectedWorkflowFileId(): string | undefined {
   const shared = loadSettingsCache().shared;
@@ -21,7 +15,7 @@ export function getSelectedWorkflowFileId(): string | undefined {
 }
 
 export function resolveSelectedWorkflowRuntime(
-  fileId?: string | null,
+  fileId?: string | null
 ): ComfyUiRuntimeConfig | undefined {
   const settings = loadComfyUiSettings();
   const id = fileId === undefined ? getSelectedWorkflowFileId() : fileId;
@@ -44,10 +38,7 @@ export function resolveSelectedWorkflowRuntime(
   }
 
   const workflowCustomTokens = file.customTokens ?? [];
-  const customTokens = mergeCustomWorkflowTokens(
-    baseRuntime?.customTokens,
-    workflowCustomTokens,
-  );
+  const customTokens = mergeCustomWorkflowTokens(baseRuntime?.customTokens, workflowCustomTokens);
 
   return stripEmptyComfyUiRuntime({
     ...(baseRuntime ?? {}),
@@ -56,8 +47,7 @@ export function resolveSelectedWorkflowRuntime(
     workflowOptimizedModel: file.lastOptimizedModel,
     workflowOptimizedProfile: file.lastOptimizedProfile,
     customTokens: customTokens.length > 0 ? customTokens : undefined,
-    workflowCustomTokens:
-      workflowCustomTokens.length > 0 ? workflowCustomTokens : undefined,
+    workflowCustomTokens: workflowCustomTokens.length > 0 ? workflowCustomTokens : undefined,
   });
 }
 
@@ -68,8 +58,7 @@ export function resolveComfyUiRuntime(fileId?: string | null) {
 
 export function clearSelectedWorkflowFileIfDeleted(deletedId: string): void {
   const cache = loadSettingsCache();
-  const selected =
-    cache.shared.selectedWorkflowFileId ?? cache.shared.selectedWorkflowPresetId;
+  const selected = cache.shared.selectedWorkflowFileId ?? cache.shared.selectedWorkflowPresetId;
   if (selected === deletedId) {
     saveSharedSettings({
       ...cache.shared,
@@ -104,17 +93,12 @@ export function getSelectedWorkflowPresetId(): string | undefined {
 }
 
 /** @deprecated Presets are now workflow files; kept for backup import compatibility. */
-export function effectiveComfyUiSettings(
-  _presetId?: string | null,
-): ComfyUiSettings {
+export function effectiveComfyUiSettings(_presetId?: string | null): ComfyUiSettings {
   return loadComfyUiSettings();
 }
 
 /** @deprecated Presets are now workflow files. */
-export function mergeWorkflowPreset(
-  settings: ComfyUiSettings,
-  _preset: unknown,
-): ComfyUiSettings {
+export function mergeWorkflowPreset(settings: ComfyUiSettings, _preset: unknown): ComfyUiSettings {
   return settings;
 }
 

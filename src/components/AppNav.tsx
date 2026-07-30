@@ -1,53 +1,49 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { featureForPath } from "@/lib/auth/features";
-import { canAccessNavFeature, useAuth } from "@/hooks/useAuth";
-import NotificationBell from "@/components/NotificationBell";
-import ThemePreferenceControl from "@/components/ThemePreferenceControl";
-import { BUILTIN_TOOL_PLUGINS, type ToolPlugin } from "@/lib/tool-plugin-registry";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { prefetchGalleryPage } from "@/lib/gallery-warmup";
+import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { featureForPath } from '@/lib/auth/features';
+import { canAccessNavFeature, useAuth } from '@/hooks/useAuth';
+import NotificationBell from '@/components/NotificationBell';
+import ThemePreferenceControl from '@/components/ThemePreferenceControl';
+import { BUILTIN_TOOL_PLUGINS, type ToolPlugin } from '@/lib/tool-plugin-registry';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { prefetchGalleryPage } from '@/lib/gallery-warmup';
 import {
   APP_NAV_GROUPS,
   APP_NAV_SETTINGS_LINK,
   mergePluginLinksIntoNav,
   type AppNavLink,
-} from "@/lib/app-nav-catalog";
+} from '@/lib/app-nav-catalog';
 import {
   defaultExpandedNavGroups,
   loadWorkspaceMode,
   navGroupsForWorkspaceMode,
   type WorkspaceMode,
-} from "@/lib/workspace-mode";
-import WorkspaceModeControl from "@/components/WorkspaceModeControl";
-import {
-  isNavFavorite,
-  loadNavFavorites,
-  toggleNavFavorite,
-} from "@/lib/nav-favorites";
+} from '@/lib/workspace-mode';
+import WorkspaceModeControl from '@/components/WorkspaceModeControl';
+import { isNavFavorite, loadNavFavorites, toggleNavFavorite } from '@/lib/nav-favorites';
 import {
   loadExpandedNavGroups,
   saveExpandedNavGroups,
   toggleExpandedNavGroup,
-} from "@/lib/nav-expanded-groups";
-import BrandMark from "@/components/BrandMark";
-import ConnectionHealthChip from "@/components/ConnectionHealthChip";
-import { pushRecentDestination } from "@/lib/recent-destinations";
-import { saveLastToolRoute } from "@/lib/last-tool-route";
+} from '@/lib/nav-expanded-groups';
+import BrandMark from '@/components/BrandMark';
+import ConnectionHealthChip from '@/components/ConnectionHealthChip';
+import { pushRecentDestination } from '@/lib/recent-destinations';
+import { saveLastToolRoute } from '@/lib/last-tool-route';
 
 function linkIsActive(link: AppNavLink, pathname: string, search: string): boolean {
-  const [path, query = ""] = link.href.split("?");
-  const normalizedPath = path || "/";
+  const [path, query = ''] = link.href.split('?');
+  const normalizedPath = path || '/';
   if (pathname !== normalizedPath) {
     return false;
   }
   const current = new URLSearchParams(search);
   if (!query) {
-    if (normalizedPath === "/variations") {
-      return !current.has("matrix");
+    if (normalizedPath === '/variations') {
+      return !current.has('matrix');
     }
     return true;
   }
@@ -76,20 +72,20 @@ function SidebarLink({
       <Link
         href={link.href}
         title={link.description}
-        data-active={active ? "true" : "false"}
+        data-active={active ? 'true' : 'false'}
         className="ui-nav-link min-w-0 flex-1"
         onMouseEnter={() => {
-          if (link.href === "/gallery") {
+          if (link.href === '/gallery') {
             prefetchGalleryPage();
           }
         }}
         onFocus={() => {
-          if (link.href === "/gallery") {
+          if (link.href === '/gallery') {
             prefetchGalleryPage();
           }
         }}
         onClick={() => {
-          if (link.href === "/gallery") {
+          if (link.href === '/gallery') {
             prefetchGalleryPage();
           }
         }}
@@ -100,19 +96,19 @@ function SidebarLink({
         <button
           type="button"
           aria-label={favorited ? `Unpin ${link.label}` : `Pin ${link.label}`}
-          title={favorited ? "Unpin" : "Pin"}
+          title={favorited ? 'Unpin' : 'Pin'}
           className={`shrink-0 rounded-[var(--radius-md)] px-1.5 py-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${
             favorited
-              ? "text-[var(--accent-text)] opacity-100"
-              : "text-[var(--text-muted)] opacity-0 group-hover/nav:opacity-100 focus-visible:opacity-100"
+              ? 'text-[var(--accent-text)] opacity-100'
+              : 'text-[var(--text-muted)] opacity-0 group-hover/nav:opacity-100 focus-visible:opacity-100'
           }`}
-          onClick={(event) => {
+          onClick={event => {
             event.preventDefault();
             event.stopPropagation();
             onToggleFavorite();
           }}
         >
-          {favorited ? "★" : "☆"}
+          {favorited ? '★' : '☆'}
         </button>
       ) : null}
     </div>
@@ -123,13 +119,20 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
-  const { authEnabled, user, allowedFeatures, logout, impersonating, impersonatorUsername, refresh } =
-    useAuth();
+  const {
+    authEnabled,
+    user,
+    allowedFeatures,
+    logout,
+    impersonating,
+    impersonatorUsername,
+    refresh,
+  } = useAuth();
   const [customPlugins, setCustomPlugins] = useState<ToolPlugin[]>([]);
   const [manifestNavLinks, setManifestNavLinks] = useState<AppNavLink[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<string[] | null>(null);
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("studio");
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('studio');
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -140,39 +143,36 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       setFavorites(loadNavFavorites());
       setWorkspaceMode(loadWorkspaceMode());
     };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("focus", onStorage);
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', onStorage);
     return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("focus", onStorage);
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', onStorage);
     };
   }, []);
 
   useEffect(() => {
-    const builtinIds = new Set(BUILTIN_TOOL_PLUGINS.map((entry) => entry.id));
+    const builtinIds = new Set(BUILTIN_TOOL_PLUGINS.map(entry => entry.id));
     const knownHrefs = new Set(
-      APP_NAV_GROUPS.flatMap((group) =>
-        group.links.map((link) => link.href.split("?")[0] ?? link.href),
-      ),
+      APP_NAV_GROUPS.flatMap(group => group.links.map(link => link.href.split('?')[0] ?? link.href))
     );
 
     const loadPlugins = () => {
       void Promise.all([
-        import("@/lib/tool-plugin-registry"),
-        import("@/lib/plugin-manifest"),
+        import('@/lib/tool-plugin-registry'),
+        import('@/lib/plugin-manifest'),
       ]).then(([{ loadToolPlugins }, { navLinksFromInstalledPlugins }]) => {
         setCustomPlugins(
           loadToolPlugins().filter(
-            (entry) =>
-              !builtinIds.has(entry.id) &&
-              !knownHrefs.has(entry.href.split("?")[0] ?? entry.href),
-          ),
+            entry =>
+              !builtinIds.has(entry.id) && !knownHrefs.has(entry.href.split('?')[0] ?? entry.href)
+          )
         );
         setManifestNavLinks(navLinksFromInstalledPlugins());
       });
     };
 
-    if (typeof window.requestIdleCallback === "function") {
+    if (typeof window.requestIdleCallback === 'function') {
       const idleId = window.requestIdleCallback(loadPlugins, { timeout: 5000 });
       return () => window.cancelIdleCallback(idleId);
     }
@@ -182,7 +182,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   }, []);
 
   const visibleGroups = useMemo(() => {
-    const bookmarkLinks: AppNavLink[] = customPlugins.map((plugin) => ({
+    const bookmarkLinks: AppNavLink[] = customPlugins.map(plugin => ({
       href: plugin.href,
       label: plugin.label,
       description: plugin.description,
@@ -190,36 +190,31 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     const pluginLinks = [...bookmarkLinks, ...manifestNavLinks];
     const catalog = navGroupsForWorkspaceMode(
       workspaceMode,
-      mergePluginLinksIntoNav(APP_NAV_GROUPS, pluginLinks),
+      mergePluginLinksIntoNav(APP_NAV_GROUPS, pluginLinks)
     );
 
     return catalog
-      .map((group) => ({
+      .map(group => ({
         ...group,
-        links: group.links.filter((link) =>
-          canAccessNavFeature(
-            allowedFeatures,
-            featureForPath(link.href.split("?")[0] ?? link.href),
-          ),
+        links: group.links.filter(link =>
+          canAccessNavFeature(allowedFeatures, featureForPath(link.href.split('?')[0] ?? link.href))
         ),
       }))
-      .filter((group) => group.links.length > 0);
+      .filter(group => group.links.length > 0);
   }, [allowedFeatures, customPlugins, manifestNavLinks, workspaceMode]);
 
   const allLinks = useMemo(
     () => [
-      ...visibleGroups.flatMap((group) => group.links),
-      ...(canAccessNavFeature(allowedFeatures, "settings")
-        ? [APP_NAV_SETTINGS_LINK]
-        : []),
+      ...visibleGroups.flatMap(group => group.links),
+      ...(canAccessNavFeature(allowedFeatures, 'settings') ? [APP_NAV_SETTINGS_LINK] : []),
     ],
-    [allowedFeatures, visibleGroups],
+    [allowedFeatures, visibleGroups]
   );
 
   const pinnedLinks = useMemo(() => {
-    const byHref = new Map(allLinks.map((link) => [link.href, link]));
+    const byHref = new Map(allLinks.map(link => [link.href, link]));
     return favorites
-      .map((href) => byHref.get(href))
+      .map(href => byHref.get(href))
       .filter((link): link is AppNavLink => Boolean(link));
   }, [allLinks, favorites]);
 
@@ -235,15 +230,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       return;
     }
     if (favorites.length > 0) {
-      const activeGroup = visibleGroups.find((group) =>
-        group.links.some((link) => linkIsActive(link, pathname, search)),
+      const activeGroup = visibleGroups.find(group =>
+        group.links.some(link => linkIsActive(link, pathname, search))
       );
       scheduleAfterCommit(() => {
         setExpandedGroups(
           [
             ...defaultExpandedNavGroups(workspaceMode, visibleGroups).slice(0, 1),
             ...(activeGroup ? [activeGroup.label] : []),
-          ].filter((label, index, list) => list.indexOf(label) === index),
+          ].filter((label, index, list) => list.indexOf(label) === index)
         );
       });
       return;
@@ -266,8 +261,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   useEffect(() => {
     const match =
-      allLinks.find((link) => linkIsActive(link, pathname, search)) ??
-      allLinks.find((link) => (link.href.split("?")[0] || "/") === pathname);
+      allLinks.find(link => linkIsActive(link, pathname, search)) ??
+      allLinks.find(link => (link.href.split('?')[0] || '/') === pathname);
     if (!match) {
       return;
     }
@@ -280,8 +275,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     if (expandedGroups === null) {
       return;
     }
-    const activeGroup = visibleGroups.find((group) =>
-      group.links.some((link) => linkIsActive(link, pathname, search)),
+    const activeGroup = visibleGroups.find(group =>
+      group.links.some(link => linkIsActive(link, pathname, search))
     );
     if (!activeGroup || expandedGroups.includes(activeGroup.label)) {
       return;
@@ -293,9 +288,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     saveExpandedNavGroups(next);
   }, [expandedGroups, pathname, search, visibleGroups]);
 
-  const settingsVisible = canAccessNavFeature(allowedFeatures, "settings");
+  const settingsVisible = canAccessNavFeature(allowedFeatures, 'settings');
   const profileVisible = authEnabled && Boolean(user);
-  const openGroups = expandedGroups ?? visibleGroups.map((group) => group.label);
+  const openGroups = expandedGroups ?? visibleGroups.map(group => group.label);
 
   function handleToggleFavorite(href: string) {
     setFavorites(toggleNavFavorite(href));
@@ -307,9 +302,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   async function endImpersonation() {
-    await fetch("/api/auth/impersonate", { method: "DELETE" });
+    await fetch('/api/auth/impersonate', { method: 'DELETE' });
     await refresh();
-    window.location.href = "/settings?tab=users";
+    window.location.href = '/settings?tab=users';
   }
 
   return (
@@ -317,7 +312,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       {impersonating ? (
         <div className="mx-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-xs text-amber-100">
           Viewing as <span className="font-medium">{user?.username}</span>
-          {impersonatorUsername ? ` (admin: ${impersonatorUsername})` : ""}.
+          {impersonatorUsername ? ` (admin: ${impersonatorUsername})` : ''}.
           <button
             type="button"
             onClick={() => void endImpersonation()}
@@ -336,8 +331,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <BrandMark size={32} withWordmark wordmarkClassName="type-title tracking-tight" />
         </Link>
         <p className="type-caption mt-1 px-3">
-          for ComfyUI{" "}
-          <span className="text-[var(--text-muted)]">· ⌘K</span>
+          for ComfyUI <span className="text-[var(--text-muted)]">· ⌘K</span>
         </p>
       </div>
 
@@ -346,7 +340,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <div className="space-y-2">
             <p className="type-overline px-3">Pinned</p>
             <div className="space-y-1">
-              {pinnedLinks.map((link) => (
+              {pinnedLinks.map(link => (
                 <div key={`pinned-${link.href}`} onClick={onNavigate}>
                   <SidebarLink
                     link={link}
@@ -360,7 +354,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         ) : null}
 
-        {visibleGroups.map((group) => {
+        {visibleGroups.map(group => {
           const expanded = openGroups.includes(group.label);
           return (
             <div key={group.label} className="space-y-2">
@@ -372,12 +366,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               >
                 <span className="type-overline">{group.label}</span>
                 <span className="type-caption text-[var(--text-muted)]" aria-hidden>
-                  {expanded ? "▾" : "▸"}
+                  {expanded ? '▾' : '▸'}
                 </span>
               </button>
               {expanded ? (
                 <div className="space-y-1">
-                  {group.links.map((link) => (
+                  {group.links.map(link => (
                     <div key={link.href} onClick={onNavigate}>
                       <SidebarLink
                         link={link}
@@ -400,7 +394,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         <WorkspaceModeControl
           variant="chips"
-          onChanged={(mode) => {
+          onChanged={mode => {
             setWorkspaceMode(mode);
             setExpandedGroups(null);
             saveExpandedNavGroups([]);
@@ -460,9 +454,9 @@ export default function AppNav() {
   }, [pathname]);
 
   useEffect(() => {
-    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    document.body.style.overflow = mobileOpen ? 'hidden' : '';
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     };
   }, [mobileOpen]);
 
@@ -478,11 +472,11 @@ export default function AppNav() {
         <button
           type="button"
           aria-expanded={mobileOpen}
-          aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-          onClick={() => setMobileOpen((open) => !open)}
+          aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          onClick={() => setMobileOpen(open => !open)}
           className="ui-btn-secondary px-3 py-2"
         >
-          {mobileOpen ? "Close" : "Menu"}
+          {mobileOpen ? 'Close' : 'Menu'}
         </button>
       </header>
 
@@ -497,7 +491,7 @@ export default function AppNav() {
 
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-[var(--sidebar-width)] border-r border-[var(--border-subtle)] bg-[var(--bg-muted)] py-5 backdrop-blur-md transition-transform duration-200 lg:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <SidebarContent onNavigate={() => setMobileOpen(false)} />

@@ -1,5 +1,5 @@
 export type PromptDiffSegment = {
-  type: "same" | "remove" | "add";
+  type: 'same' | 'remove' | 'add';
   text: string;
 };
 
@@ -29,20 +29,18 @@ export function diffPromptWords(before: string, after: string): PromptDiffSummar
 
     if (wordLeft === wordRight && wordLeft != null) {
       const last = segments[segments.length - 1];
-      if (last?.type === "same") {
+      if (last?.type === 'same') {
         last.text = `${last.text} ${wordLeft}`;
       } else {
-        segments.push({ type: "same", text: wordLeft });
+        segments.push({ type: 'same', text: wordLeft });
       }
       indexLeft += 1;
       indexRight += 1;
       continue;
     }
 
-    const nextLeftInRight =
-      wordLeft != null ? right.indexOf(wordLeft, indexRight) : -1;
-    const nextRightInLeft =
-      wordRight != null ? left.indexOf(wordRight, indexLeft) : -1;
+    const nextLeftInRight = wordLeft != null ? right.indexOf(wordLeft, indexRight) : -1;
+    const nextRightInLeft = wordRight != null ? left.indexOf(wordRight, indexLeft) : -1;
 
     if (
       wordRight != null &&
@@ -50,20 +48,20 @@ export function diffPromptWords(before: string, after: string): PromptDiffSummar
         (nextRightInLeft !== -1 && nextRightInLeft - indexLeft <= nextLeftInRight - indexRight))
     ) {
       if (wordLeft != null) {
-        segments.push({ type: "remove", text: wordLeft });
+        segments.push({ type: 'remove', text: wordLeft });
         indexLeft += 1;
         continue;
       }
     }
 
     if (wordRight != null) {
-      segments.push({ type: "add", text: wordRight });
+      segments.push({ type: 'add', text: wordRight });
       indexRight += 1;
       continue;
     }
 
     if (wordLeft != null) {
-      segments.push({ type: "remove", text: wordLeft });
+      segments.push({ type: 'remove', text: wordLeft });
       indexLeft += 1;
     }
   }

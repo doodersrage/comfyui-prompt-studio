@@ -1,25 +1,25 @@
-"use client";
+'use client';
 
 import {
   cancelComfyGalleryJobPoll,
   pollComfyGalleryJob,
   type PollComfyGalleryJobOptions,
-} from "./comfyui-gallery-client";
+} from './comfyui-gallery-client';
 import {
   loadComfyGallery,
   updateComfyGalleryByPromptId,
   type ComfyGalleryEntry,
-} from "./comfyui-gallery";
+} from './comfyui-gallery';
 import {
   forgetPendingGalleryPoll,
   listPendingGalleryPollMeta,
   rememberPendingGalleryPoll,
-} from "./gallery-pending-polls";
+} from './gallery-pending-polls';
 
 export {
   scheduleRefineAfterUpscaleComplete,
   consumePendingRefineAfterUpscale,
-} from "./gallery-pending-actions";
+} from './gallery-pending-actions';
 
 const activePolls = new Map<string, Promise<ComfyGalleryEntry | null>>();
 
@@ -29,7 +29,7 @@ export type ScheduleComfyGalleryPollOptions = PollComfyGalleryJobOptions & {
 
 export function scheduleComfyGalleryPoll(
   promptId: string,
-  options?: ScheduleComfyGalleryPollOptions,
+  options?: ScheduleComfyGalleryPollOptions
 ): Promise<ComfyGalleryEntry | null> {
   const trimmed = promptId.trim();
   if (!trimmed) {
@@ -41,9 +41,9 @@ export function scheduleComfyGalleryPoll(
     return existing;
   }
 
-  const entry = loadComfyGallery().find((item) => item.promptId === trimmed);
+  const entry = loadComfyGallery().find(item => item.promptId === trimmed);
   // Never revive polls for terminal gallery rows (common after engine restart).
-  if (entry?.status === "completed" || entry?.status === "error") {
+  if (entry?.status === 'completed' || entry?.status === 'error') {
     forgetPendingGalleryPoll(trimmed);
     return Promise.resolve(entry);
   }
@@ -61,8 +61,8 @@ export function scheduleComfyGalleryPoll(
     clientId,
     onJobUpdate: options?.onJobUpdate,
   })
-    .then((result) => {
-      if (!result || result.status === "completed" || result.status === "error") {
+    .then(result => {
+      if (!result || result.status === 'completed' || result.status === 'error') {
         forgetPendingGalleryPoll(trimmed);
       }
       return result;
@@ -76,18 +76,18 @@ export function scheduleComfyGalleryPoll(
 }
 
 export function resumePendingGalleryPolls(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
   const gallery = loadComfyGallery();
-  const byPromptId = new Map(gallery.map((entry) => [entry.promptId, entry]));
+  const byPromptId = new Map(gallery.map(entry => [entry.promptId, entry]));
 
   const pendingMeta = listPendingGalleryPollMeta();
   if (pendingMeta.length > 0) {
     for (const item of pendingMeta) {
       const entry = byPromptId.get(item.promptId);
-      if (entry?.status === "completed" || entry?.status === "error") {
+      if (entry?.status === 'completed' || entry?.status === 'error') {
         forgetPendingGalleryPoll(item.promptId);
         continue;
       }
@@ -97,7 +97,7 @@ export function resumePendingGalleryPolls(): void {
   }
 
   for (const entry of gallery) {
-    if (entry.status === "pending" || entry.status === "running") {
+    if (entry.status === 'pending' || entry.status === 'running') {
       void scheduleComfyGalleryPoll(entry.promptId, { comfyUrl: entry.comfyUrl });
     }
   }

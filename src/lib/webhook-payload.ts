@@ -1,15 +1,15 @@
-import type { WebhookJobPayload } from "./webhook-settings";
+import type { WebhookJobPayload } from './webhook-settings';
 
-export type WebhookTemplate = "generic" | "discord" | "slack";
+export type WebhookTemplate = 'generic' | 'discord' | 'slack';
 
 export function formatWebhookPayload(
   payload: WebhookJobPayload,
-  template: WebhookTemplate,
+  template: WebhookTemplate
 ): Record<string, unknown> {
-  if (template === "discord") {
+  if (template === 'discord') {
     return formatDiscordPayload(payload);
   }
-  if (template === "slack") {
+  if (template === 'slack') {
     return formatSlackPayload(payload);
   }
   return payload;
@@ -17,18 +17,18 @@ export function formatWebhookPayload(
 
 function formatDiscordPayload(payload: WebhookJobPayload): Record<string, unknown> {
   const title =
-    payload.event === "comfyui.job.completed"
-      ? "ComfyUI job completed"
-      : payload.event === "comfyui.job.error"
-        ? "ComfyUI job failed"
-        : payload.event.replace(/\./g, " ");
+    payload.event === 'comfyui.job.completed'
+      ? 'ComfyUI job completed'
+      : payload.event === 'comfyui.job.error'
+        ? 'ComfyUI job failed'
+        : payload.event.replace(/\./g, ' ');
 
   const fields = [
-    payload.model ? { name: "Model", value: payload.model, inline: true } : null,
-    payload.tool ? { name: "Tool", value: payload.tool, inline: true } : null,
-    payload.status ? { name: "Status", value: payload.status, inline: true } : null,
+    payload.model ? { name: 'Model', value: payload.model, inline: true } : null,
+    payload.tool ? { name: 'Tool', value: payload.tool, inline: true } : null,
+    payload.status ? { name: 'Status', value: payload.status, inline: true } : null,
     payload.imageCount != null
-      ? { name: "Images", value: String(payload.imageCount), inline: true }
+      ? { name: 'Images', value: String(payload.imageCount), inline: true }
       : null,
   ].filter(Boolean);
 
@@ -36,10 +36,10 @@ function formatDiscordPayload(payload: WebhookJobPayload): Record<string, unknow
     embeds: [
       {
         title,
-        description: payload.prompt?.slice(0, 1800) || payload.message || "Prompt Studio event",
-        color: payload.event.includes("error") ? 0xef4444 : 0x8b5cf6,
+        description: payload.prompt?.slice(0, 1800) || payload.message || 'Prompt Studio event',
+        color: payload.event.includes('error') ? 0xef4444 : 0x8b5cf6,
         fields,
-        footer: { text: "ComfyUI Prompt Studio" },
+        footer: { text: 'ComfyUI Prompt Studio' },
         timestamp: new Date(payload.completedAt).toISOString(),
       },
     ],
@@ -47,12 +47,12 @@ function formatDiscordPayload(payload: WebhookJobPayload): Record<string, unknow
 }
 
 function formatSlackPayload(payload: WebhookJobPayload): Record<string, unknown> {
-  const text = `*${payload.event}*${payload.model ? ` · ${payload.model}` : ""}`;
+  const text = `*${payload.event}*${payload.model ? ` · ${payload.model}` : ''}`;
   const blocks: Record<string, unknown>[] = [
     {
-      type: "section",
+      type: 'section',
       text: {
-        type: "mrkdwn",
+        type: 'mrkdwn',
         text,
       },
     },
@@ -60,9 +60,9 @@ function formatSlackPayload(payload: WebhookJobPayload): Record<string, unknown>
 
   if (payload.prompt?.trim()) {
     blocks.push({
-      type: "section",
+      type: 'section',
       text: {
-        type: "mrkdwn",
+        type: 'mrkdwn',
         text: payload.prompt.slice(0, 2800),
       },
     });
@@ -70,8 +70,8 @@ function formatSlackPayload(payload: WebhookJobPayload): Record<string, unknown>
 
   if (payload.message) {
     blocks.push({
-      type: "context",
-      elements: [{ type: "mrkdwn", text: payload.message }],
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: payload.message }],
     });
   }
 

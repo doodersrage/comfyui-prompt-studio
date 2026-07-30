@@ -1,12 +1,12 @@
-import { getLlmConfig } from "./llm-client";
-import { semanticRelevanceScore } from "./semantic-search";
+import { getLlmConfig } from './llm-client';
+import { semanticRelevanceScore } from './semantic-search';
 
 export type EmbeddingVector = number[];
 
 const cache = new Map<string, EmbeddingVector>();
 
 function ollamaEmbedBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/v1\/?$/, "");
+  return baseUrl.replace(/\/v1\/?$/, '');
 }
 
 export async function embedText(text: string): Promise<EmbeddingVector | null> {
@@ -24,13 +24,13 @@ export async function embedText(text: string): Promise<EmbeddingVector | null> {
   const model =
     process.env.LLM_EMBED_MODEL?.trim() ||
     process.env.OLLAMA_EMBED_MODEL?.trim() ||
-    "nomic-embed-text";
+    'nomic-embed-text';
 
   try {
     const response = await fetch(`${ollamaEmbedBaseUrl(baseUrl)}/api/embeddings`, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       },
       body: JSON.stringify({ model, prompt: trimmed }),
@@ -72,32 +72,34 @@ function cosineSimilarity(a: EmbeddingVector, b: EmbeddingVector): number {
 export async function rankByEmbedding<T>(
   items: T[],
   query: string,
-  toCorpus: (item: T) => string,
-): Promise<Array<{ item: T; score: number; method: "embedding" | "token" }>> {
+  toCorpus: (item: T) => string
+): Promise<Array<{ item: T; score: number; method: 'embedding' | 'token' }>> {
   const trimmed = query.trim();
   if (!trimmed) {
-    return items.map((item) => ({ item, score: 0, method: "token" as const }));
+    return items.map(item => ({ item, score: 0, method: 'token' as const }));
   }
 
   const queryVector = await embedText(trimmed);
   if (!queryVector) {
     return items
-      .map((item) => ({
+      .map(item => ({
         item,
         score: semanticRelevanceScore(trimmed, toCorpus(item)),
-        method: "token" as const,
+        method: 'token' as const,
       }))
-      .filter((entry) => entry.score > 0)
+      .filter(entry => entry.score > 0)
       .sort((a, b) => b.score - a.score);
   }
 
-  const scored: Array<{ item: T; score: number; method: "embedding" | "token" }> = [];
+  const scored: Array<{ item: T; score: number; method: 'embedding' | 'token' }> = [];
   for (const item of items) {
     const corpus = toCorpus(item);
     const vector = await embedText(corpus);
-    const score = vector ? cosineSimilarity(queryVector, vector) : semanticRelevanceScore(trimmed, corpus);
+    const score = vector
+      ? cosineSimilarity(queryVector, vector)
+      : semanticRelevanceScore(trimmed, corpus);
     if (score > 0.05) {
-      scored.push({ item, score, method: vector ? "embedding" : "token" });
+      scored.push({ item, score, method: vector ? 'embedding' : 'token' });
     }
   }
 

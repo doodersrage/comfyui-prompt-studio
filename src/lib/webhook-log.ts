@@ -1,14 +1,14 @@
-import type { WebhookJobPayload } from "./webhook-settings";
-import { dispatchWebhook } from "./webhook-settings";
-import { readBrowserValue, removeBrowserKey, writeBrowserValue } from "./browser-storage";
+import type { WebhookJobPayload } from './webhook-settings';
+import { dispatchWebhook } from './webhook-settings';
+import { readBrowserValue, removeBrowserKey, writeBrowserValue } from './browser-storage';
 
-export const WEBHOOK_LOG_KEY = "comfy-prompt-webhook-log-v1";
-export const WEBHOOK_LOG_UPDATED_EVENT = "webhook-log-updated";
+export const WEBHOOK_LOG_KEY = 'comfy-prompt-webhook-log-v1';
+export const WEBHOOK_LOG_UPDATED_EVENT = 'webhook-log-updated';
 
 export type WebhookLogEntry = {
   id: string;
   timestamp: number;
-  event: WebhookJobPayload["event"];
+  event: WebhookJobPayload['event'];
   ok: boolean;
   url?: string;
   message?: string;
@@ -18,7 +18,7 @@ export type WebhookLogEntry = {
 const MAX_LOG_ENTRIES = 40;
 
 export function loadWebhookLog(): WebhookLogEntry[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   try {
@@ -29,7 +29,7 @@ export function loadWebhookLog(): WebhookLogEntry[] {
 }
 
 function saveWebhookLog(entries: WebhookLogEntry[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(WEBHOOK_LOG_KEY, entries.slice(0, MAX_LOG_ENTRIES));
@@ -56,7 +56,7 @@ export function appendWebhookLogEntry(input: {
 }
 
 export function clearWebhookLog(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   removeBrowserKey(WEBHOOK_LOG_KEY);
@@ -68,7 +68,7 @@ export async function retryWebhookLogEntry(entry: WebhookLogEntry): Promise<bool
   appendWebhookLogEntry({
     ok,
     url: entry.url,
-    message: ok ? "Retried successfully" : "Retry failed",
+    message: ok ? 'Retried successfully' : 'Retry failed',
     payload: entry.payload,
   });
   return ok;

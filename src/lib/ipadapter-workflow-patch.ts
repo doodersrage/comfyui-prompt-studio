@@ -11,9 +11,9 @@
  *   {{IPADAPTER_MODEL}}    — IPAdapter loader node's ipadapter_file field (optional)
  */
 
-export const DEFAULT_IPADAPTER_IMAGE_TOKEN = "{{IPADAPTER_IMAGE}}";
-export const DEFAULT_IPADAPTER_STRENGTH_TOKEN = "{{IPADAPTER_STRENGTH}}";
-export const DEFAULT_IPADAPTER_MODEL_TOKEN = "{{IPADAPTER_MODEL}}";
+export const DEFAULT_IPADAPTER_IMAGE_TOKEN = '{{IPADAPTER_IMAGE}}';
+export const DEFAULT_IPADAPTER_STRENGTH_TOKEN = '{{IPADAPTER_STRENGTH}}';
+export const DEFAULT_IPADAPTER_MODEL_TOKEN = '{{IPADAPTER_MODEL}}';
 
 export const IPADAPTER_WORKFLOW_TOKENS = [
   DEFAULT_IPADAPTER_IMAGE_TOKEN,
@@ -21,10 +21,10 @@ export const IPADAPTER_WORKFLOW_TOKENS = [
   DEFAULT_IPADAPTER_MODEL_TOKEN,
 ] as const;
 
-const IMAGE_LOADER_TYPES = new Set(["LoadImage", "LoadImageOutput"]);
+const IMAGE_LOADER_TYPES = new Set(['LoadImage', 'LoadImageOutput']);
 const IPADAPTER_CLASS_PATTERN = /ipadapter/i;
-const IPADAPTER_STRENGTH_FIELDS = ["weight", "strength", "ip_weight"] as const;
-const IPADAPTER_MODEL_FIELDS = ["ipadapter_file"] as const;
+const IPADAPTER_STRENGTH_FIELDS = ['weight', 'strength', 'ip_weight'] as const;
+const IPADAPTER_MODEL_FIELDS = ['ipadapter_file'] as const;
 
 const MIN_IPADAPTER_STRENGTH = 0;
 const MAX_IPADAPTER_STRENGTH = 1;
@@ -48,7 +48,7 @@ export type IpAdapterPatchResult = {
 };
 
 export function clampIpAdapterStrength(value: number | string | undefined): number | undefined {
-  if (value == null || value.toString().trim() === "") {
+  if (value == null || value.toString().trim() === '') {
     return undefined;
   }
   const numeric = Number(value);
@@ -59,7 +59,7 @@ export function clampIpAdapterStrength(value: number | string | undefined): numb
 }
 
 function isString(value: unknown): value is string {
-  return typeof value === "string";
+  return typeof value === 'string';
 }
 
 function containsToken(value: unknown, token: string): boolean {
@@ -78,7 +78,7 @@ type WorkflowNode = {
  */
 export function patchIpAdapterNodesInWorkflow(
   workflow: Record<string, unknown>,
-  input: IpAdapterPatchInput,
+  input: IpAdapterPatchInput
 ): IpAdapterPatchResult {
   const next = structuredClone(workflow) as Record<string, WorkflowNode>;
   const patched: IpAdapterPatchCounts = {};
@@ -88,10 +88,10 @@ export function patchIpAdapterNodesInWorkflow(
   const modelFilename = input.modelFilename?.trim();
 
   for (const node of Object.values(next)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
-    const classType = node.class_type ?? "";
+    const classType = node.class_type ?? '';
     const inputs = node.inputs;
     if (!inputs) {
       continue;
@@ -100,7 +100,7 @@ export function patchIpAdapterNodesInWorkflow(
     if (
       imageFilename &&
       IMAGE_LOADER_TYPES.has(classType) &&
-      "image" in inputs &&
+      'image' in inputs &&
       containsToken(inputs.image, DEFAULT_IPADAPTER_IMAGE_TOKEN)
     ) {
       inputs.image = imageFilename;
@@ -140,7 +140,7 @@ export function patchIpAdapterNodesInWorkflow(
  */
 export function replaceIpAdapterTokensInWorkflowJson(
   workflow: Record<string, unknown>,
-  input: IpAdapterPatchInput,
+  input: IpAdapterPatchInput
 ): Record<string, unknown> {
   const imageFilename = input.imageFilename?.trim();
   const strength = clampIpAdapterStrength(input.strength);
@@ -151,7 +151,7 @@ export function replaceIpAdapterTokensInWorkflowJson(
   }
 
   let json = JSON.stringify(workflow);
-  if (!json.includes("{{IPADAPTER_")) {
+  if (!json.includes('{{IPADAPTER_')) {
     return workflow;
   }
 
@@ -175,7 +175,7 @@ export function replaceIpAdapterTokensInWorkflowJson(
 /** Combined node-aware + fallback string-replace pass — the single entry point for queue injection. */
 export function patchIpAdapterTokensInWorkflow(
   workflow: Record<string, unknown>,
-  input: IpAdapterPatchInput,
+  input: IpAdapterPatchInput
 ): IpAdapterPatchResult {
   if (!input.imageFilename?.trim() && input.strength == null && !input.modelFilename?.trim()) {
     return { workflow, patched: {} };
@@ -187,9 +187,11 @@ export function patchIpAdapterTokensInWorkflow(
 }
 
 /** Detects unresolved `{{IPADAPTER_*}}` placeholders — useful for preflight / health checks. */
-export function findUnresolvedIpAdapterTokens(workflow: Record<string, unknown> | string): string[] {
-  const raw = typeof workflow === "string" ? workflow : JSON.stringify(workflow);
-  return IPADAPTER_WORKFLOW_TOKENS.filter((token) => raw.includes(token));
+export function findUnresolvedIpAdapterTokens(
+  workflow: Record<string, unknown> | string
+): string[] {
+  const raw = typeof workflow === 'string' ? workflow : JSON.stringify(workflow);
+  return IPADAPTER_WORKFLOW_TOKENS.filter(token => raw.includes(token));
 }
 
 /**
@@ -201,10 +203,10 @@ export function findUnresolvedIpAdapterTokens(workflow: Record<string, unknown> 
  * primary sampler's model chain, using the same token placeholders so the
  * existing patch/fallback passes above resolve the actual values.
  */
-const IPADAPTER_MODEL_LOADER_NODE_TYPE = "IPAdapterModelLoader";
-const IPADAPTER_ADVANCED_NODE_TYPE = "IPAdapterAdvanced";
-const CLIP_VISION_LOADER_NODE_TYPE = "CLIPVisionLoader";
-const DEFAULT_IPADAPTER_CLIP_VISION_FILENAME = "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors";
+const IPADAPTER_MODEL_LOADER_NODE_TYPE = 'IPAdapterModelLoader';
+const IPADAPTER_ADVANCED_NODE_TYPE = 'IPAdapterAdvanced';
+const CLIP_VISION_LOADER_NODE_TYPE = 'CLIPVisionLoader';
+const DEFAULT_IPADAPTER_CLIP_VISION_FILENAME = 'CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors';
 
 export type IpAdapterChainInsertOptions = {
   /** Session-level reference image filename; presence gates whether an insert happens. */
@@ -220,22 +222,20 @@ export type IpAdapterChainInsertResult = {
 };
 
 function hasIpAdapterNodes(workflow: Record<string, WorkflowNode>): boolean {
-  return Object.values(workflow).some((node) =>
-    IPADAPTER_CLASS_PATTERN.test(node?.class_type ?? ""),
-  );
+  return Object.values(workflow).some(node => IPADAPTER_CLASS_PATTERN.test(node?.class_type ?? ''));
 }
 
 function isSamplerLikeNode(classType: string, inputs: Record<string, unknown>): boolean {
   const lower = classType.toLowerCase();
   if (
-    lower.includes("ksampler") ||
-    lower.includes("samplercustom") ||
-    lower.includes("guider") ||
-    lower.includes("basicscheduler")
+    lower.includes('ksampler') ||
+    lower.includes('samplercustom') ||
+    lower.includes('guider') ||
+    lower.includes('basicscheduler')
   ) {
     return true;
   }
-  return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
+  return 'seed' in inputs && ('steps' in inputs || 'cfg' in inputs);
 }
 
 function nextIpAdapterWorkflowNodeId(workflow: Record<string, unknown>): string {
@@ -253,14 +253,14 @@ type PrimarySamplerModelLink = { samplerId: string; modelLinkId: string };
 
 /** First sampler-like node with a resolvable (node-linked) `model` input — kept to one insert for a minimal, conservative chain. */
 function findPrimarySamplerModelLink(
-  workflow: Record<string, WorkflowNode>,
+  workflow: Record<string, WorkflowNode>
 ): PrimarySamplerModelLink | null {
   for (const [samplerId, node] of Object.entries(workflow)) {
-    if (!node?.inputs || !isSamplerLikeNode(node.class_type ?? "", node.inputs)) {
+    if (!node?.inputs || !isSamplerLikeNode(node.class_type ?? '', node.inputs)) {
       continue;
     }
     const modelLink = node.inputs.model;
-    if (Array.isArray(modelLink) && typeof modelLink[0] === "string") {
+    if (Array.isArray(modelLink) && typeof modelLink[0] === 'string') {
       return { samplerId, modelLinkId: modelLink[0] };
     }
   }
@@ -275,7 +275,7 @@ function findPrimarySamplerModelLink(
  */
 export function insertIpAdapterChainIfMissing(
   workflow: Record<string, unknown>,
-  options: IpAdapterChainInsertOptions,
+  options: IpAdapterChainInsertOptions
 ): IpAdapterChainInsertResult {
   const imageFilename = options.imageFilename?.trim();
   if (!imageFilename) {
@@ -302,9 +302,9 @@ export function insertIpAdapterChainIfMissing(
 
   const loadImageId = nextIpAdapterWorkflowNodeId(next);
   next[loadImageId] = {
-    class_type: "LoadImage",
+    class_type: 'LoadImage',
     inputs: { image: DEFAULT_IPADAPTER_IMAGE_TOKEN },
-    _meta: { title: "Prompt Studio — IP-Adapter reference" },
+    _meta: { title: 'Prompt Studio — IP-Adapter reference' },
   };
   insertedNodeIds.push(loadImageId);
 
@@ -314,7 +314,7 @@ export function insertIpAdapterChainIfMissing(
     next[clipVisionId] = {
       class_type: CLIP_VISION_LOADER_NODE_TYPE,
       inputs: { clip_name: DEFAULT_IPADAPTER_CLIP_VISION_FILENAME },
-      _meta: { title: "Prompt Studio — IP-Adapter CLIP vision" },
+      _meta: { title: 'Prompt Studio — IP-Adapter CLIP vision' },
     };
     insertedNodeIds.push(clipVisionId);
   }
@@ -323,7 +323,7 @@ export function insertIpAdapterChainIfMissing(
   next[loaderId] = {
     class_type: IPADAPTER_MODEL_LOADER_NODE_TYPE,
     inputs: { ipadapter_file: DEFAULT_IPADAPTER_MODEL_TOKEN },
-    _meta: { title: "Prompt Studio — IP-Adapter model" },
+    _meta: { title: 'Prompt Studio — IP-Adapter model' },
   };
   insertedNodeIds.push(loaderId);
 
@@ -333,11 +333,11 @@ export function insertIpAdapterChainIfMissing(
     ipadapter: [loaderId, 0],
     image: [loadImageId, 0],
     weight: DEFAULT_IPADAPTER_STRENGTH_TOKEN,
-    weight_type: "linear",
-    combine_embeds: "concat",
+    weight_type: 'linear',
+    combine_embeds: 'concat',
     start_at: 0,
     end_at: 1,
-    embeds_scaling: "V only",
+    embeds_scaling: 'V only',
   };
   if (clipVisionId) {
     applyInputs.clip_vision = [clipVisionId, 0];
@@ -345,7 +345,7 @@ export function insertIpAdapterChainIfMissing(
   next[applyId] = {
     class_type: IPADAPTER_ADVANCED_NODE_TYPE,
     inputs: applyInputs,
-    _meta: { title: "Prompt Studio — IP-Adapter apply" },
+    _meta: { title: 'Prompt Studio — IP-Adapter apply' },
   };
   insertedNodeIds.push(applyId);
 
@@ -371,18 +371,18 @@ export type IpAdapterStackEntry = {
 export function insertIpAdapterStack(
   workflow: Record<string, unknown>,
   entries: IpAdapterStackEntry[],
-  options?: { availableNodeTypes?: Iterable<string> | null },
+  options?: { availableNodeTypes?: Iterable<string> | null }
 ): {
   workflow: Record<string, unknown>;
   insertedCount: number;
   insertedNodeIds: string[];
 } {
   const usable = entries
-    .map((entry) => ({
+    .map(entry => ({
       ...entry,
       imageFilename: entry.imageFilename?.trim(),
     }))
-    .filter((entry) => Boolean(entry.imageFilename));
+    .filter(entry => Boolean(entry.imageFilename));
   if (usable.length === 0) {
     return { workflow, insertedCount: 0, insertedNodeIds: [] };
   }
@@ -424,11 +424,11 @@ export function insertIpAdapterStack(
     const next = structuredClone(current) as Record<string, WorkflowNode>;
     const tokenSuffix = index + 1;
     const imageToken =
-      tokenSuffix === 2 ? "{{IPADAPTER_IMAGE_2}}" : `{{IPADAPTER_IMAGE_${tokenSuffix}}}`;
+      tokenSuffix === 2 ? '{{IPADAPTER_IMAGE_2}}' : `{{IPADAPTER_IMAGE_${tokenSuffix}}}`;
 
     const loadImageId = nextIpAdapterWorkflowNodeId(next);
     next[loadImageId] = {
-      class_type: "LoadImage",
+      class_type: 'LoadImage',
       inputs: {
         image: entry.imageFilename ?? imageToken,
       },
@@ -451,15 +451,14 @@ export function insertIpAdapterStack(
     next[loaderId] = {
       class_type: IPADAPTER_MODEL_LOADER_NODE_TYPE,
       inputs: {
-        ipadapter_file:
-          entry.modelFilename?.trim() || DEFAULT_IPADAPTER_MODEL_TOKEN,
+        ipadapter_file: entry.modelFilename?.trim() || DEFAULT_IPADAPTER_MODEL_TOKEN,
       },
       _meta: { title: `Prompt Studio — IP-Adapter model ${tokenSuffix}` },
     };
     insertedNodeIds.push(loaderId);
 
     const strength =
-      typeof entry.strength === "number" && Number.isFinite(entry.strength)
+      typeof entry.strength === 'number' && Number.isFinite(entry.strength)
         ? Math.min(1, Math.max(0, entry.strength))
         : undefined;
     const applyId = nextIpAdapterWorkflowNodeId(next);
@@ -468,11 +467,11 @@ export function insertIpAdapterStack(
       ipadapter: [loaderId, 0],
       image: [loadImageId, 0],
       weight: strength ?? DEFAULT_IPADAPTER_STRENGTH_TOKEN,
-      weight_type: "linear",
-      combine_embeds: "concat",
+      weight_type: 'linear',
+      combine_embeds: 'concat',
       start_at: 0,
       end_at: 1,
-      embeds_scaling: "V only",
+      embeds_scaling: 'V only',
     };
     if (clipVisionId) {
       applyInputs.clip_vision = [clipVisionId, 0];

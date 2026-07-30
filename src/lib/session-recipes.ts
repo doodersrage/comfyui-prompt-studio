@@ -1,27 +1,24 @@
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
-import { COMFY_MODEL_IDS, type ComfyImageModel } from "./comfy-models/client";
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
+import { COMFY_MODEL_IDS, type ComfyImageModel } from './comfy-models/client';
 import {
   normalizeModelSamplerPresetTier,
   type ModelSamplerPresetTier,
-} from "./model-sampler-defaults";
+} from './model-sampler-defaults';
 import {
   normalizeResolutionOrientation,
   normalizeResolutionSizeTier,
   type ResolutionOrientation,
   type ResolutionSizeTier,
-} from "./model-resolution-defaults";
-import {
-  normalizeQueueQualityProfile,
-  type QueueQualityProfile,
-} from "./queue-quality-profile";
+} from './model-resolution-defaults';
+import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
 
-export const SESSION_RECIPES_KEY = "comfy-prompt-session-recipes-v1";
+export const SESSION_RECIPES_KEY = 'comfy-prompt-session-recipes-v1';
 export const MAX_SESSION_RECIPES = 20;
 
 export type SessionRecipeShared = {
   model: ComfyImageModel;
   queueQualityProfile?: QueueQualityProfile;
-  sessionQueueMode?: "iterate" | "keeper" | "off";
+  sessionQueueMode?: 'iterate' | 'keeper' | 'off';
   sessionActiveLoraIds?: string[];
   modelSamplerPreset?: ModelSamplerPresetTier;
   modelResolutionOrientation?: ResolutionOrientation;
@@ -37,43 +34,41 @@ export type SessionRecipe = {
   shared: SessionRecipeShared;
 };
 
-function normalizeSessionMode(
-  value: unknown,
-): "iterate" | "keeper" | "off" | undefined {
-  if (value === "iterate" || value === "keeper" || value === "off") {
+function normalizeSessionMode(value: unknown): 'iterate' | 'keeper' | 'off' | undefined {
+  if (value === 'iterate' || value === 'keeper' || value === 'off') {
     return value;
   }
   return undefined;
 }
 
 export function normalizeSessionRecipe(value: unknown): SessionRecipe | null {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== 'object') {
     return null;
   }
   const record = value as Record<string, unknown>;
-  const id = typeof record.id === "string" ? record.id.trim().slice(0, 64) : "";
+  const id = typeof record.id === 'string' ? record.id.trim().slice(0, 64) : '';
   if (!id) {
     return null;
   }
   const sharedRaw =
-    record.shared && typeof record.shared === "object"
+    record.shared && typeof record.shared === 'object'
       ? (record.shared as Record<string, unknown>)
       : null;
   if (!sharedRaw) {
     return null;
   }
-  const modelRaw = typeof sharedRaw.model === "string" ? sharedRaw.model.trim() : "";
+  const modelRaw = typeof sharedRaw.model === 'string' ? sharedRaw.model.trim() : '';
   if (!modelRaw || !COMFY_MODEL_IDS.has(modelRaw)) {
     return null;
   }
   const label =
-    typeof record.label === "string" && record.label.trim()
+    typeof record.label === 'string' && record.label.trim()
       ? record.label.trim().slice(0, 48)
-      : "Session";
+      : 'Session';
   const savedAt = Number(record.savedAt);
   const loraIds = Array.isArray(sharedRaw.sessionActiveLoraIds)
     ? sharedRaw.sessionActiveLoraIds
-        .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+        .map(entry => (typeof entry === 'string' ? entry.trim() : ''))
         .filter(Boolean)
         .slice(0, 32)
     : undefined;
@@ -83,7 +78,7 @@ export function normalizeSessionRecipe(value: unknown): SessionRecipe | null {
     label,
     savedAt: Number.isFinite(savedAt) ? savedAt : Date.now(),
     toolId:
-      typeof record.toolId === "string" && record.toolId.trim()
+      typeof record.toolId === 'string' && record.toolId.trim()
         ? record.toolId.trim().slice(0, 32)
         : undefined,
     shared: {
@@ -116,7 +111,7 @@ export function loadSessionRecipes(): SessionRecipe[] {
     return [];
   }
   return raw
-    .map((entry) => normalizeSessionRecipe(entry))
+    .map(entry => normalizeSessionRecipe(entry))
     .filter((entry): entry is SessionRecipe => Boolean(entry))
     .sort((a, b) => b.savedAt - a.savedAt)
     .slice(0, MAX_SESSION_RECIPES);
@@ -126,10 +121,10 @@ export function saveSessionRecipes(recipes: SessionRecipe[]): void {
   writeBrowserValue(
     SESSION_RECIPES_KEY,
     recipes
-      .map((entry) => normalizeSessionRecipe(entry))
+      .map(entry => normalizeSessionRecipe(entry))
       .filter((entry): entry is SessionRecipe => Boolean(entry))
       .sort((a, b) => b.savedAt - a.savedAt)
-      .slice(0, MAX_SESSION_RECIPES),
+      .slice(0, MAX_SESSION_RECIPES)
   );
 }
 
@@ -140,9 +135,7 @@ export function buildSessionRecipeFromShared(input: {
 }): SessionRecipe {
   const stamp = Date.now();
   const tool = input.toolId?.trim();
-  const label =
-    input.label?.trim() ||
-    (tool ? `Session · ${tool}` : "Session snapshot");
+  const label = input.label?.trim() || (tool ? `Session · ${tool}` : 'Session snapshot');
   return {
     id: `session-${stamp.toString(36)}`,
     label: label.slice(0, 48),
@@ -156,7 +149,7 @@ export function buildSessionRecipeFromShared(input: {
       sessionQueueMode: normalizeSessionMode(input.shared.sessionQueueMode),
       sessionActiveLoraIds: Array.isArray(input.shared.sessionActiveLoraIds)
         ? input.shared.sessionActiveLoraIds
-            .map((id) => id.trim())
+            .map(id => id.trim())
             .filter(Boolean)
             .slice(0, 32)
         : undefined,
@@ -170,7 +163,7 @@ export function buildSessionRecipeFromShared(input: {
         ? normalizeResolutionSizeTier(input.shared.modelResolutionSizeTier)
         : undefined,
       editDenoiseStrength:
-        typeof input.shared.editDenoiseStrength === "number" &&
+        typeof input.shared.editDenoiseStrength === 'number' &&
         Number.isFinite(input.shared.editDenoiseStrength)
           ? input.shared.editDenoiseStrength
           : undefined,
@@ -180,16 +173,16 @@ export function buildSessionRecipeFromShared(input: {
 
 /** Prepend a snapshot; drops oldest past the cap. */
 export function pushSessionRecipe(recipe: SessionRecipe): SessionRecipe[] {
-  const next = [
-    recipe,
-    ...loadSessionRecipes().filter((entry) => entry.id !== recipe.id),
-  ].slice(0, MAX_SESSION_RECIPES);
+  const next = [recipe, ...loadSessionRecipes().filter(entry => entry.id !== recipe.id)].slice(
+    0,
+    MAX_SESSION_RECIPES
+  );
   saveSessionRecipes(next);
   return next;
 }
 
 export function deleteSessionRecipe(id: string): SessionRecipe[] {
-  const next = loadSessionRecipes().filter((entry) => entry.id !== id);
+  const next = loadSessionRecipes().filter(entry => entry.id !== id);
   saveSessionRecipes(next);
   return next;
 }
@@ -197,29 +190,23 @@ export function deleteSessionRecipe(id: string): SessionRecipe[] {
 /** Merge session snapshot fields onto shared settings. */
 export function applySessionRecipeShared<T extends SessionRecipeShared>(
   shared: T,
-  recipe: SessionRecipe,
+  recipe: SessionRecipe
 ): T {
   const snap = recipe.shared;
   return {
     ...shared,
     model: snap.model,
-    ...(snap.queueQualityProfile
-      ? { queueQualityProfile: snap.queueQualityProfile }
-      : {}),
+    ...(snap.queueQualityProfile ? { queueQualityProfile: snap.queueQualityProfile } : {}),
     ...(snap.sessionQueueMode ? { sessionQueueMode: snap.sessionQueueMode } : {}),
     sessionActiveLoraIds: snap.sessionActiveLoraIds,
-    ...(snap.modelSamplerPreset
-      ? { modelSamplerPreset: snap.modelSamplerPreset }
-      : {}),
+    ...(snap.modelSamplerPreset ? { modelSamplerPreset: snap.modelSamplerPreset } : {}),
     ...(snap.modelResolutionOrientation
       ? { modelResolutionOrientation: snap.modelResolutionOrientation }
       : {}),
     ...(snap.modelResolutionSizeTier
       ? { modelResolutionSizeTier: snap.modelResolutionSizeTier }
       : {}),
-    ...(snap.editDenoiseStrength != null
-      ? { editDenoiseStrength: snap.editDenoiseStrength }
-      : {}),
+    ...(snap.editDenoiseStrength != null ? { editDenoiseStrength: snap.editDenoiseStrength } : {}),
   };
 }
 
@@ -234,5 +221,5 @@ export function formatSessionRecipeSubtitle(recipe: SessionRecipe): string {
   if (recipe.toolId) {
     parts.push(recipe.toolId);
   }
-  return parts.join(" · ");
+  return parts.join(' · ');
 }

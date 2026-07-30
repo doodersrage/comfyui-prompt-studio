@@ -1,14 +1,14 @@
-import type { PromptTemplate } from "./prompt-templates";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import type { PromptTemplate } from './prompt-templates';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-export const USER_TEMPLATES_KEY = "comfy-prompt-user-templates-v1";
+export const USER_TEMPLATES_KEY = 'comfy-prompt-user-templates-v1';
 
 export type UserPromptTemplate = PromptTemplate & {
   createdAt: number;
 };
 
 export function loadUserTemplates(): UserPromptTemplate[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
 
@@ -20,7 +20,7 @@ export function loadUserTemplates(): UserPromptTemplate[] {
 }
 
 export function saveUserTemplates(templates: UserPromptTemplate[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(USER_TEMPLATES_KEY, templates.slice(0, 40));
@@ -29,16 +29,16 @@ export function saveUserTemplates(templates: UserPromptTemplate[]): void {
 export function createUserTemplate(input: {
   name: string;
   template: string;
-  defaultPortraitStyle?: PromptTemplate["defaultPortraitStyle"];
+  defaultPortraitStyle?: PromptTemplate['defaultPortraitStyle'];
 }): UserPromptTemplate {
   const slug = input.name
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 
   return {
-    id: `user-${slug || "template"}-${crypto.randomUUID().slice(0, 8)}`,
+    id: `user-${slug || 'template'}-${crypto.randomUUID().slice(0, 8)}`,
     label: input.name.trim(),
     template: input.template.trim(),
     defaultPortraitStyle: input.defaultPortraitStyle,
@@ -48,7 +48,7 @@ export function createUserTemplate(input: {
 
 export function upsertUserTemplate(template: UserPromptTemplate): void {
   const templates = loadUserTemplates();
-  const index = templates.findIndex((entry) => entry.id === template.id);
+  const index = templates.findIndex(entry => entry.id === template.id);
   if (index >= 0) {
     templates[index] = template;
   } else {
@@ -58,13 +58,13 @@ export function upsertUserTemplate(template: UserPromptTemplate): void {
 }
 
 export function deleteUserTemplate(id: string): void {
-  saveUserTemplates(loadUserTemplates().filter((entry) => entry.id !== id));
+  saveUserTemplates(loadUserTemplates().filter(entry => entry.id !== id));
 }
 
 export function templateFromPrompt(name: string, prompt: string): UserPromptTemplate {
   return createUserTemplate({
     name,
     template: prompt.trim(),
-    defaultPortraitStyle: "action",
+    defaultPortraitStyle: 'action',
   });
 }

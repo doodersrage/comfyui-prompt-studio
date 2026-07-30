@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import type { ComfyImageModel } from "./comfy-models/client";
-import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
-import { registerComfyGalleryJob } from "./comfyui-gallery-client";
-import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import { postComfyUiPrompt } from "./comfyui-queue-request";
-import { resolveQueueNegativePrompt } from "./queue-negative";
-import { resolveQueueParams } from "./queue-params-settings";
-import { injectLoraTriggers } from "./lora-prompt-injection";
-import { modelUsesNegativePrompt } from "./prompt-pair";
-import { guardQueueQualityForVram } from "./vram-queue-guard";
-import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
-import { prepareQueuePrompts } from "./queue-prompt-prep";
+import type { ComfyImageModel } from './comfy-models/client';
+import { resolveRuntimeForQueue } from './comfyui-runtime-for-model';
+import { registerComfyGalleryJob } from './comfyui-gallery-client';
+import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
+import { postComfyUiPrompt } from './comfyui-queue-request';
+import { resolveQueueNegativePrompt } from './queue-negative';
+import { resolveQueueParams } from './queue-params-settings';
+import { injectLoraTriggers } from './lora-prompt-injection';
+import { modelUsesNegativePrompt } from './prompt-pair';
+import { guardQueueQualityForVram } from './vram-queue-guard';
+import { maybeHoldMaxGenerateJobs } from './held-max-queue';
+import { prepareQueuePrompts } from './queue-prompt-prep';
 
 export async function queueNegativeAbTest(input: {
   prompt: string;
@@ -24,7 +24,7 @@ export async function queueNegativeAbTest(input: {
 }): Promise<{ queued: number; held: number; seed: string }> {
   const model = input.model as ComfyImageModel;
   const seed = input.sharedSeed ?? String(Math.floor(Math.random() * 2 ** 32));
-  const baseRuntime = resolveRuntimeForQueue(model, input.tool ?? "negative-ab");
+  const baseRuntime = resolveRuntimeForQueue(model, input.tool ?? 'negative-ab');
   const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
   const runtime = vramGuard.runtime ?? baseRuntime;
   const params = resolveQueueParams({
@@ -43,20 +43,20 @@ export async function queueNegativeAbTest(input: {
       (await resolveQueueNegativePrompt({
         model,
         hints: input.hints,
-        tool: input.tool ?? "negative-ab",
+        tool: input.tool ?? 'negative-ab',
       }));
-    negativeB = negativeB ?? "";
+    negativeB = negativeB ?? '';
   }
 
   let queued = 0;
   let held = 0;
   const variants: Array<{ label: string; negativePrompt?: string }> = [
-    { label: "with-negative", negativePrompt: negativeA },
-    { label: "without-negative", negativePrompt: undefined },
+    { label: 'with-negative', negativePrompt: negativeA },
+    { label: 'without-negative', negativePrompt: undefined },
   ];
 
   if (negativeB !== undefined && negativeB !== negativeA) {
-    variants.push({ label: "alt-negative", negativePrompt: negativeB });
+    variants.push({ label: 'alt-negative', negativePrompt: negativeB });
   }
 
   for (const variant of variants) {
@@ -64,7 +64,7 @@ export async function queueNegativeAbTest(input: {
       model,
       positive: basePrompt,
       hints: input.hints,
-      tool: input.tool ?? "negative-ab",
+      tool: input.tool ?? 'negative-ab',
       explicitNegative: variant.negativePrompt,
     });
     const prompt = `${prepared.positive} [${variant.label}]`;
@@ -76,7 +76,7 @@ export async function queueNegativeAbTest(input: {
           prompt,
           negativePrompt,
           model,
-          tool: "negative-ab",
+          tool: 'negative-ab',
           params,
           comfy: runtime,
         },
@@ -100,15 +100,15 @@ export async function queueNegativeAbTest(input: {
       promptId: queuedJob.promptId,
       prompt: prepared.positive,
       negativePrompt,
-      tool: "negative-ab",
+      tool: 'negative-ab',
       model,
-      comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+      comfyUrl: queuedJob.comfyUrl ?? 'http://127.0.0.1:8188',
       clientId: queuedJob.clientId,
       queueParams: params,
       queueQualityProfile: runtime.queueQualityProfile,
     });
     void scheduleComfyGalleryPoll(queuedJob.promptId, {
-      comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+      comfyUrl: queuedJob.comfyUrl ?? 'http://127.0.0.1:8188',
       clientId: queuedJob.clientId,
     });
     queuedJob.releaseLiveSocket();

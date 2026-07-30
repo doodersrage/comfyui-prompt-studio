@@ -1,11 +1,8 @@
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import { resolveGalleryOutputImageUrl } from "./gallery-output-upscale";
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
-import { isQwenLightningModel } from "./model-sampling-patch";
-import {
-  normalizeQueueQualityProfile,
-  type QueueQualityProfile,
-} from "./queue-quality-profile";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { resolveGalleryOutputImageUrl } from './gallery-output-upscale';
+import { isQwenRapidAioModel } from './model-denoise-defaults';
+import { isQwenLightningModel } from './model-sampling-patch';
+import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
 
 /** Gallery Upscale is for models that benefit from Lanczos/neural — not distilled ones. */
 export function galleryEntrySupportsUpscale(model?: string): boolean {
@@ -17,43 +14,38 @@ export function galleryEntrySupportsUpscale(model?: string): boolean {
  * Max may still bump a Final keeper or Final upscale/moire child.
  */
 export function galleryEntryAlreadyEnrichedForUpscale(
-  entry: Pick<ComfyGalleryEntry, "derivedKind" | "queueQualityProfile">,
-  qualityProfile: Extract<QueueQualityProfile, "final" | "max">,
+  entry: Pick<ComfyGalleryEntry, 'derivedKind' | 'queueQualityProfile'>,
+  qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'>
 ): boolean {
   const stored = normalizeQueueQualityProfile(entry.queueQualityProfile);
-  if (stored === "max") {
+  if (stored === 'max') {
     return true;
   }
-  if (stored === "final") {
-    return qualityProfile === "final";
+  if (stored === 'final') {
+    return qualityProfile === 'final';
   }
   // Upscale/moire children without a stored Final/Max profile still count as
   // Final-enriched — allow Max bump, block another Final pass.
-  if (
-    entry.derivedKind === "upscale" ||
-    entry.derivedKind === "moire-clean"
-  ) {
-    return qualityProfile === "final";
+  if (entry.derivedKind === 'upscale' || entry.derivedKind === 'moire-clean') {
+    return qualityProfile === 'final';
   }
   return false;
 }
 
 /** True when requesting Max on a Final (or Final-tier derivative) keeper. */
 export function galleryEntryIsFinalToMaxBump(
-  entry: Pick<ComfyGalleryEntry, "derivedKind" | "queueQualityProfile">,
-  qualityProfile: Extract<QueueQualityProfile, "final" | "max">,
+  entry: Pick<ComfyGalleryEntry, 'derivedKind' | 'queueQualityProfile'>,
+  qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'>
 ): boolean {
-  if (qualityProfile !== "max") {
+  if (qualityProfile !== 'max') {
     return false;
   }
-  if (galleryEntryAlreadyEnrichedForUpscale(entry, "max")) {
+  if (galleryEntryAlreadyEnrichedForUpscale(entry, 'max')) {
     return false;
   }
   const stored = normalizeQueueQualityProfile(entry.queueQualityProfile);
   return (
-    stored === "final" ||
-    entry.derivedKind === "upscale" ||
-    entry.derivedKind === "moire-clean"
+    stored === 'final' || entry.derivedKind === 'upscale' || entry.derivedKind === 'moire-clean'
   );
 }
 
@@ -63,7 +55,7 @@ export function galleryEntrySupportsRefine(model?: string): boolean {
     return false;
   }
   // Rapid AIO Edit keeps refine; SFW/NSFW polish path is moiré clean.
-  if (/^qwen-rapid-aio-(sfw|nsfw)$/i.test(String(model ?? ""))) {
+  if (/^qwen-rapid-aio-(sfw|nsfw)$/i.test(String(model ?? ''))) {
     return false;
   }
   return true;
@@ -82,26 +74,23 @@ export function galleryEntrySupportsFaceDetail(model?: string): boolean {
 export function canUpscaleGalleryEntry(
   entry: Pick<
     ComfyGalleryEntry,
-    | "status"
-    | "images"
-    | "sourceImageUrl"
-    | "comfyUrl"
-    | "model"
-    | "derivedKind"
-    | "queueQualityProfile"
+    | 'status'
+    | 'images'
+    | 'sourceImageUrl'
+    | 'comfyUrl'
+    | 'model'
+    | 'derivedKind'
+    | 'queueQualityProfile'
   >,
-  qualityProfile?: Extract<QueueQualityProfile, "final" | "max">,
+  qualityProfile?: Extract<QueueQualityProfile, 'final' | 'max'>
 ): boolean {
-  if (entry.status !== "completed") {
+  if (entry.status !== 'completed') {
     return false;
   }
   if (!galleryEntrySupportsUpscale(entry.model)) {
     return false;
   }
-  if (
-    qualityProfile &&
-    galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)
-  ) {
+  if (qualityProfile && galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)) {
     return false;
   }
   return Boolean(resolveGalleryOutputImageUrl(entry));
@@ -113,45 +102,36 @@ export function galleryEntrySupportsSoftSecondPass(model?: string): boolean {
 }
 
 export function canSoftSecondPassGalleryEntry(
-  entry: Pick<
-    ComfyGalleryEntry,
-    "status" | "images" | "sourceImageUrl" | "comfyUrl" | "model"
-  >,
+  entry: Pick<ComfyGalleryEntry, 'status' | 'images' | 'sourceImageUrl' | 'comfyUrl' | 'model'>
 ): boolean {
   if (!galleryEntrySupportsSoftSecondPass(entry.model)) {
     return false;
   }
-  if (entry.status !== "completed") {
+  if (entry.status !== 'completed') {
     return false;
   }
   return Boolean(resolveGalleryOutputImageUrl(entry));
 }
 
 export function canRefineGalleryEntry(
-  entry: Pick<
-    ComfyGalleryEntry,
-    "status" | "images" | "sourceImageUrl" | "comfyUrl" | "model"
-  >,
+  entry: Pick<ComfyGalleryEntry, 'status' | 'images' | 'sourceImageUrl' | 'comfyUrl' | 'model'>
 ): boolean {
   if (!galleryEntrySupportsRefine(entry.model)) {
     return false;
   }
-  if (entry.status !== "completed") {
+  if (entry.status !== 'completed') {
     return false;
   }
   return Boolean(resolveGalleryOutputImageUrl(entry));
 }
 
 export function canFaceDetailGalleryEntry(
-  entry: Pick<
-    ComfyGalleryEntry,
-    "status" | "images" | "sourceImageUrl" | "comfyUrl" | "model"
-  >,
+  entry: Pick<ComfyGalleryEntry, 'status' | 'images' | 'sourceImageUrl' | 'comfyUrl' | 'model'>
 ): boolean {
   if (!galleryEntrySupportsFaceDetail(entry.model)) {
     return false;
   }
-  if (entry.status !== "completed") {
+  if (entry.status !== 'completed') {
     return false;
   }
   if (!resolveGalleryOutputImageUrl(entry)) {
@@ -165,26 +145,23 @@ export function canFaceDetailGalleryEntry(
 export function canMoireCleanGalleryEntry(
   entry: Pick<
     ComfyGalleryEntry,
-    | "status"
-    | "images"
-    | "sourceImageUrl"
-    | "comfyUrl"
-    | "model"
-    | "derivedKind"
-    | "queueQualityProfile"
+    | 'status'
+    | 'images'
+    | 'sourceImageUrl'
+    | 'comfyUrl'
+    | 'model'
+    | 'derivedKind'
+    | 'queueQualityProfile'
   >,
-  qualityProfile?: Extract<QueueQualityProfile, "final" | "max">,
+  qualityProfile?: Extract<QueueQualityProfile, 'final' | 'max'>
 ): boolean {
-  if (entry.status !== "completed") {
+  if (entry.status !== 'completed') {
     return false;
   }
   if (!galleryEntrySupportsMoireClean(entry.model)) {
     return false;
   }
-  if (
-    qualityProfile &&
-    galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)
-  ) {
+  if (qualityProfile && galleryEntryAlreadyEnrichedForUpscale(entry, qualityProfile)) {
     return false;
   }
   return Boolean(resolveGalleryOutputImageUrl(entry));

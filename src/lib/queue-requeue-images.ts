@@ -1,24 +1,18 @@
-"use client";
+'use client';
 
-import type { WorkflowParamValues } from "./comfyui-config";
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import { buildComfyViewPath } from "./comfyui-outputs";
-import { isEditCapableModel, isInpaintModel } from "./model-denoise-defaults";
-import { resolveQueueInputImageFilename } from "./queue-input-image";
+import type { WorkflowParamValues } from './comfyui-config';
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { buildComfyViewPath } from './comfyui-outputs';
+import { isEditCapableModel, isInpaintModel } from './model-denoise-defaults';
+import { resolveQueueInputImageFilename } from './queue-input-image';
 
-const EDIT_TOOLS = new Set(["refine", "inpaint", "image-prompt", "controlnet", "compose"]);
+const EDIT_TOOLS = new Set(['refine', 'inpaint', 'image-prompt', 'controlnet', 'compose']);
 
 export function resolveRequeueImageUrlsFromEntry(
   entry: Pick<
     ComfyGalleryEntry,
-    | "comfyUrl"
-    | "images"
-    | "tool"
-    | "model"
-    | "queueParams"
-    | "sourceImageUrl"
-    | "maskImageUrl"
-  >,
+    'comfyUrl' | 'images' | 'tool' | 'model' | 'queueParams' | 'sourceImageUrl' | 'maskImageUrl'
+  >
 ): { sourceImageUrl?: string; maskImageUrl?: string } {
   if (entry.sourceImageUrl?.trim()) {
     return {
@@ -27,15 +21,15 @@ export function resolveRequeueImageUrlsFromEntry(
     };
   }
 
-  const comfyUrl = entry.comfyUrl?.replace(/\/+$/, "") ?? "";
+  const comfyUrl = entry.comfyUrl?.replace(/\/+$/, '') ?? '';
   const params = entry.queueParams;
 
   const inputFromParams =
     params?.inputImageFilename?.trim() && comfyUrl
       ? buildComfyViewPath(comfyUrl, {
           filename: params.inputImageFilename.trim(),
-          subfolder: "",
-          type: "input",
+          subfolder: '',
+          type: 'input',
         })
       : undefined;
 
@@ -43,19 +37,17 @@ export function resolveRequeueImageUrlsFromEntry(
     params?.maskImageFilename?.trim() && comfyUrl
       ? buildComfyViewPath(comfyUrl, {
           filename: params.maskImageFilename.trim(),
-          subfolder: "",
-          type: "input",
+          subfolder: '',
+          type: 'input',
         })
       : undefined;
 
   const outputUrl =
-    entry.images[0] && comfyUrl
-      ? buildComfyViewPath(comfyUrl, entry.images[0])
-      : undefined;
+    entry.images[0] && comfyUrl ? buildComfyViewPath(comfyUrl, entry.images[0]) : undefined;
 
   const needsInput =
     Boolean(params?.inputImageFilename) ||
-    isEditCapableModel(entry.model ?? "") ||
+    isEditCapableModel(entry.model ?? '') ||
     (entry.tool ? EDIT_TOOLS.has(entry.tool) : false);
 
   return {
@@ -73,7 +65,7 @@ export async function refreshQueueImageParamsForRequeue(input: {
   forceInputImage?: boolean;
 }): Promise<WorkflowParamValues | undefined> {
   const base = input.queueParams ? { ...input.queueParams } : {};
-  const model = input.model ?? "";
+  const model = input.model ?? '';
   const hadInputFilename = Boolean(base.inputImageFilename?.trim());
   const hadMaskFilename = Boolean(base.maskImageFilename?.trim());
   const needsFreshInput =
@@ -81,8 +73,7 @@ export async function refreshQueueImageParamsForRequeue(input: {
     hadInputFilename ||
     isEditCapableModel(model) ||
     (input.tool ? EDIT_TOOLS.has(input.tool) : false);
-  const needsFreshMask =
-    hadMaskFilename || isInpaintModel(model) || input.tool === "inpaint";
+  const needsFreshMask = hadMaskFilename || isInpaintModel(model) || input.tool === 'inpaint';
 
   if (needsFreshInput && input.sourceImageUrl?.trim()) {
     try {
@@ -115,14 +106,11 @@ export async function refreshQueueImageParamsForRequeue(input: {
   return base;
 }
 
-export function buildComfyUploadedImageViewUrl(
-  comfyUrl: string,
-  filename: string,
-): string {
-  return buildComfyViewPath(comfyUrl.replace(/\/+$/, ""), {
+export function buildComfyUploadedImageViewUrl(comfyUrl: string, filename: string): string {
+  return buildComfyViewPath(comfyUrl.replace(/\/+$/, ''), {
     filename: filename.trim(),
-    subfolder: "",
-    type: "input",
+    subfolder: '',
+    type: 'input',
   });
 }
 
@@ -132,22 +120,16 @@ export function buildGalleryImageUrlsFromQueueParams(input: {
   sourceImageUrl?: string;
   maskImageUrl?: string;
 }): { sourceImageUrl?: string; maskImageUrl?: string } {
-  const comfyUrl = input.comfyUrl.replace(/\/+$/, "");
+  const comfyUrl = input.comfyUrl.replace(/\/+$/, '');
   const sourceImageUrl =
     input.sourceImageUrl?.trim() ||
     (input.queueParams?.inputImageFilename?.trim()
-      ? buildComfyUploadedImageViewUrl(
-          comfyUrl,
-          input.queueParams.inputImageFilename.trim(),
-        )
+      ? buildComfyUploadedImageViewUrl(comfyUrl, input.queueParams.inputImageFilename.trim())
       : undefined);
   const maskImageUrl =
     input.maskImageUrl?.trim() ||
     (input.queueParams?.maskImageFilename?.trim()
-      ? buildComfyUploadedImageViewUrl(
-          comfyUrl,
-          input.queueParams.maskImageFilename.trim(),
-        )
+      ? buildComfyUploadedImageViewUrl(comfyUrl, input.queueParams.maskImageFilename.trim())
       : undefined);
 
   return {
@@ -163,9 +145,9 @@ export function auditRequeueImageReadiness(input: {
   sourceImageUrl?: string;
   maskImageUrl?: string;
   forceInputImage?: boolean;
-}): Array<{ severity: "error" | "warn"; message: string }> {
-  const issues: Array<{ severity: "error" | "warn"; message: string }> = [];
-  const model = input.model ?? "";
+}): Array<{ severity: 'error' | 'warn'; message: string }> {
+  const issues: Array<{ severity: 'error' | 'warn'; message: string }> = [];
+  const model = input.model ?? '';
   const needsInput =
     input.forceInputImage ||
     Boolean(input.queueParams?.inputImageFilename) ||
@@ -174,20 +156,20 @@ export function auditRequeueImageReadiness(input: {
   const needsMask =
     Boolean(input.queueParams?.maskImageFilename) ||
     isInpaintModel(model) ||
-    input.tool === "inpaint";
+    input.tool === 'inpaint';
 
   if (needsInput && !input.sourceImageUrl?.trim() && !input.queueParams?.inputImageFilename) {
     issues.push({
-      severity: "warn",
-      message: "Re-queue may fail — no source image URL available to refresh the ComfyUI upload.",
+      severity: 'warn',
+      message: 'Re-queue may fail — no source image URL available to refresh the ComfyUI upload.',
     });
   }
 
   if (needsMask && !input.maskImageUrl?.trim()) {
     issues.push({
-      severity: "warn",
+      severity: 'warn',
       message:
-        "Inpaint re-queue without a refreshable mask URL — re-draw the mask or re-run from Refine/Inpaint.",
+        'Inpaint re-queue without a refreshable mask URL — re-draw the mask or re-run from Refine/Inpaint.',
     });
   }
 

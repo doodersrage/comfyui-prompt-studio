@@ -1,5 +1,5 @@
-import { diffPromptWords } from "./prompt-diff";
-import { analyzePromptDiagnostics } from "./prompt-diagnostics";
+import { diffPromptWords } from './prompt-diff';
+import { analyzePromptDiagnostics } from './prompt-diagnostics';
 
 export type PromptMergeResult = {
   merged: string;
@@ -24,14 +24,20 @@ function uniquePhrases(parts: string[]): string[] {
 
 /** Cherry-pick unique phrases from two prompts, preferring longer descriptive segments. */
 export function mergePrompts(left: string, right: string): PromptMergeResult {
-  const leftParts = left.split(/[,;.]\s+/).map((part) => part.trim()).filter(Boolean);
-  const rightParts = right.split(/[,;.]\s+/).map((part) => part.trim()).filter(Boolean);
+  const leftParts = left
+    .split(/[,;.]\s+/)
+    .map(part => part.trim())
+    .filter(Boolean);
+  const rightParts = right
+    .split(/[,;.]\s+/)
+    .map(part => part.trim())
+    .filter(Boolean);
   const mergedParts = uniquePhrases([...leftParts, ...rightParts]);
-  const merged = mergedParts.join(", ");
-  const diagnostics = analyzePromptDiagnostics("", merged);
+  const merged = mergedParts.join(', ');
+  const diagnostics = analyzePromptDiagnostics('', merged);
   const lintErrors = diagnostics.issues
-    .filter((issue) => issue.severity === "error")
-    .map((issue) => issue.message);
+    .filter(issue => issue.severity === 'error')
+    .map(issue => issue.message);
   return {
     merged,
     sources: { left: left.trim(), right: right.trim() },

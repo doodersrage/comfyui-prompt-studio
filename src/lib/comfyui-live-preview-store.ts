@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-export const COMFY_LIVE_PREVIEW_UPDATED_EVENT = "comfyui-live-preview-updated";
+export const COMFY_LIVE_PREVIEW_UPDATED_EVENT = 'comfyui-live-preview-updated';
 
 /** promptId → object URL */
 const previews = new Map<string, string>();
@@ -9,7 +9,7 @@ const clientToPrompt = new Map<string, string>();
 
 function revokeLater(url: string): void {
   // Defer revoke so React can swap <img src> before the blob disappears.
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     try {
       URL.revokeObjectURL(url);
     } catch {
@@ -29,7 +29,7 @@ function revokeLater(url: string): void {
 export function setComfyLivePreviewUrl(
   promptId: string,
   url: string | null,
-  options?: { alsoKeys?: string[] },
+  options?: { alsoKeys?: string[] }
 ): void {
   const id = promptId.trim();
   if (!id) {
@@ -37,7 +37,7 @@ export function setComfyLivePreviewUrl(
   }
 
   const clientIds = (options?.alsoKeys ?? [])
-    .map((value) => value?.trim())
+    .map(value => value?.trim())
     .filter((value): value is string => Boolean(value));
 
   const previous = previews.get(id);
@@ -61,11 +61,11 @@ export function setComfyLivePreviewUrl(
     }
   }
 
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent(COMFY_LIVE_PREVIEW_UPDATED_EVENT, {
         detail: { promptId: id, keys: [id, ...clientIds] },
-      }),
+      })
     );
   }
 }
@@ -73,7 +73,7 @@ export function setComfyLivePreviewUrl(
 /** Resolve a live frame by prompt id and/or websocket client id. */
 export function getComfyLivePreviewUrl(
   promptId?: string | null,
-  alsoKeys?: Array<string | undefined | null>,
+  alsoKeys?: Array<string | undefined | null>
 ): string | null {
   const id = promptId?.trim();
   if (id) {
@@ -114,11 +114,11 @@ export function clearAllComfyLivePreviewUrls(): void {
   }
   previews.clear();
   clientToPrompt.clear();
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent(COMFY_LIVE_PREVIEW_UPDATED_EVENT, {
         detail: { promptId: undefined, keys: [] as string[] },
-      }),
+      })
     );
   }
 }

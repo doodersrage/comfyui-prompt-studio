@@ -1,12 +1,12 @@
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import type { BatchFromTopicsItem } from "./batch-from-topics";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import type { BatchFromTopicsItem } from './batch-from-topics';
 import {
   buildTopicsVariationsHandoff,
   saveTopicsVariationsHandoff,
   variationsPathFromTopics,
-} from "./topics-variations-handoff";
+} from './topics-variations-handoff';
 
-export const GALLERY_VARIATIONS_HANDOFF_KEY = "gallery-variations-handoff-v1";
+export const GALLERY_VARIATIONS_HANDOFF_KEY = 'gallery-variations-handoff-v1';
 
 export type GalleryVariationsHandoff = {
   hints: string;
@@ -25,14 +25,14 @@ export function buildGalleryVariationsHandoff(entry: ComfyGalleryEntry): Gallery
 }
 
 export function saveGalleryVariationsHandoff(payload: GalleryVariationsHandoff): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   window.sessionStorage.setItem(GALLERY_VARIATIONS_HANDOFF_KEY, JSON.stringify(payload));
 }
 
 export function loadGalleryVariationsHandoff(): GalleryVariationsHandoff | null {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return null;
   }
   try {
@@ -52,7 +52,7 @@ export function loadGalleryVariationsHandoff(): GalleryVariationsHandoff | null 
 }
 
 export function galleryVariationsPath(): string {
-  return "/variations?from=gallery";
+  return '/variations?from=gallery';
 }
 
 export function buildGalleryTopicsHandoff(entry: ComfyGalleryEntry): BatchFromTopicsItem[] {
@@ -60,7 +60,7 @@ export function buildGalleryTopicsHandoff(entry: ComfyGalleryEntry): BatchFromTo
     {
       topic: entry.prompt.slice(0, 120),
       prompt: entry.prompt,
-      provider: "template",
+      provider: 'template',
     },
   ];
 }
@@ -69,14 +69,14 @@ export function saveGalleryTopicsHandoff(entry: ComfyGalleryEntry): void {
   saveTopicsVariationsHandoff(
     buildTopicsVariationsHandoff(
       buildGalleryTopicsHandoff(entry),
-      "generate",
-      entry.prompt.slice(0, 80),
-    ),
+      'generate',
+      entry.prompt.slice(0, 80)
+    )
   );
 }
 
 export function galleryTopicsPath(): string {
-  return "/topics?from=gallery";
+  return '/topics?from=gallery';
 }
 
 export { variationsPathFromTopics };

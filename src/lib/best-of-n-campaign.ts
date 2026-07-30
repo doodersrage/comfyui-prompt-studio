@@ -1,4 +1,4 @@
-import { reviewGalleryImage } from "./gallery-vision-review";
+import { reviewGalleryImage } from './gallery-vision-review';
 
 export type BestOfNCandidate = {
   id: string;
@@ -7,9 +7,7 @@ export type BestOfNCandidate = {
   score?: number;
 };
 
-export async function rankBestOfN(
-  candidates: BestOfNCandidate[],
-): Promise<BestOfNCandidate[]> {
+export async function rankBestOfN(candidates: BestOfNCandidate[]): Promise<BestOfNCandidate[]> {
   const ranked: BestOfNCandidate[] = [];
   for (const candidate of candidates) {
     try {
@@ -25,9 +23,6 @@ export async function rankBestOfN(
   return ranked.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
 
-export function pickTopCandidates<T extends { score?: number }>(
-  ranked: T[],
-  keep = 3,
-): T[] {
+export function pickTopCandidates<T extends { score?: number }>(ranked: T[], keep = 3): T[] {
   return ranked.slice(0, keep);
 }

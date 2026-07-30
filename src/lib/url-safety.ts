@@ -4,10 +4,10 @@
  */
 
 const METADATA_HOSTS = new Set([
-  "metadata.google.internal",
-  "metadata.goog",
-  "kubernetes.default",
-  "kubernetes.default.svc",
+  'metadata.google.internal',
+  'metadata.goog',
+  'kubernetes.default',
+  'kubernetes.default.svc',
 ]);
 
 export type SafeUrlOptions = {
@@ -18,17 +18,17 @@ export type SafeUrlOptions = {
 };
 
 function parseIpv4(hostname: string): number[] | null {
-  const parts = hostname.split(".");
+  const parts = hostname.split('.');
   if (parts.length !== 4) {
     return null;
   }
-  const octets = parts.map((part) => {
+  const octets = parts.map(part => {
     if (!/^\d{1,3}$/.test(part)) {
       return NaN;
     }
     return Number(part);
   });
-  if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+  if (octets.some(octet => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
     return null;
   }
   return octets;
@@ -52,14 +52,14 @@ function isMetadataIpv4(octets: number[]): boolean {
 }
 
 function isPrivateOrLocalHostname(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/\.$/, "");
+  const host = hostname.toLowerCase().replace(/\.$/, '');
   if (
-    host === "localhost" ||
-    host.endsWith(".localhost") ||
-    host.endsWith(".local") ||
-    host === "host.docker.internal" ||
-    host === "docker.for.mac.localhost" ||
-    host === "docker.for.windows.localhost"
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host === 'host.docker.internal' ||
+    host === 'docker.for.mac.localhost' ||
+    host === 'docker.for.windows.localhost'
   ) {
     return true;
   }
@@ -70,12 +70,12 @@ function isPrivateOrLocalHostname(hostname: string): boolean {
   }
 
   // IPv6 literals (URL hostname may be bare or without brackets after URL parsing)
-  if (host.includes(":")) {
-    if (host === "::1" || host === "0:0:0:0:0:0:0:1") return true;
-    if (host.startsWith("fc") || host.startsWith("fd")) return true; // ULA
-    if (host.startsWith("fe80")) return true; // link-local
-    if (host.startsWith("::ffff:")) {
-      const mapped = host.slice("::ffff:".length);
+  if (host.includes(':')) {
+    if (host === '::1' || host === '0:0:0:0:0:0:0:1') return true;
+    if (host.startsWith('fc') || host.startsWith('fd')) return true; // ULA
+    if (host.startsWith('fe80')) return true; // link-local
+    if (host.startsWith('::ffff:')) {
+      const mapped = host.slice('::ffff:'.length);
       const mappedIpv4 = parseIpv4(mapped);
       if (mappedIpv4) return isPrivateOrLocalIpv4(mappedIpv4);
     }
@@ -85,7 +85,7 @@ function isPrivateOrLocalHostname(hostname: string): boolean {
 }
 
 function isBlockedMetadataHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/\.$/, "");
+  const host = hostname.toLowerCase().replace(/\.$/, '');
   if (METADATA_HOSTS.has(host)) {
     return true;
   }
@@ -93,9 +93,9 @@ function isBlockedMetadataHost(hostname: string): boolean {
   if (ipv4 && isMetadataIpv4(ipv4)) {
     return true;
   }
-  if (host.includes(":")) {
+  if (host.includes(':')) {
     // IPv6 link-local / unique-local often used in cloud metadata paths
-    if (host.startsWith("fe80") || host === "::1") {
+    if (host.startsWith('fe80') || host === '::1') {
       return false; // handled by private policy; ::1 is loopback not metadata
     }
   }
@@ -105,51 +105,51 @@ function isBlockedMetadataHost(hostname: string): boolean {
 export function assertSafeHttpUrl(raw: string, options: SafeUrlOptions = {}): URL {
   const trimmed = raw.trim();
   if (!trimmed) {
-    throw new Error("URL is required.");
+    throw new Error('URL is required.');
   }
 
   let url: URL;
   try {
     url = new URL(trimmed);
   } catch {
-    throw new Error("Invalid URL.");
+    throw new Error('Invalid URL.');
   }
 
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("Only http: and https: URLs are allowed.");
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('Only http: and https: URLs are allowed.');
   }
 
   if (url.username || url.password) {
-    throw new Error("URLs with embedded credentials are not allowed.");
+    throw new Error('URLs with embedded credentials are not allowed.');
   }
 
-  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  const hostname = url.hostname.replace(/^\[|\]$/g, '');
   if (!hostname) {
-    throw new Error("URL hostname is required.");
+    throw new Error('URL hostname is required.');
   }
 
   if (isBlockedMetadataHost(hostname)) {
-    throw new Error("URL targets a blocked metadata endpoint.");
+    throw new Error('URL targets a blocked metadata endpoint.');
   }
 
   const allowPrivate = options.allowPrivate === true;
   if (!allowPrivate && isPrivateOrLocalHostname(hostname)) {
-    throw new Error("Private or local network URLs are not allowed.");
+    throw new Error('Private or local network URLs are not allowed.');
   }
 
   // Always block cloud metadata IP even when private is allowed
   const ipv4 = parseIpv4(hostname);
   if (ipv4 && isMetadataIpv4(ipv4)) {
-    throw new Error("URL targets a blocked metadata endpoint.");
+    throw new Error('URL targets a blocked metadata endpoint.');
   }
 
   const allowedHosts = options.allowedHosts
-    ?.map((entry) => entry.trim().toLowerCase())
+    ?.map(entry => entry.trim().toLowerCase())
     .filter(Boolean);
   if (allowedHosts && allowedHosts.length > 0) {
     const host = hostname.toLowerCase();
     if (!allowedHosts.includes(host)) {
-      throw new Error("URL host is not in the allowlist.");
+      throw new Error('URL host is not in the allowlist.');
     }
   }
 
@@ -157,7 +157,7 @@ export function assertSafeHttpUrl(raw: string, options: SafeUrlOptions = {}): UR
 }
 
 export function normalizeSafeHttpUrl(raw: string, options: SafeUrlOptions = {}): string {
-  return assertSafeHttpUrl(raw, options).toString().replace(/\/+$/, "");
+  return assertSafeHttpUrl(raw, options).toString().replace(/\/+$/, '');
 }
 
 export function getComfyUiAllowedHosts(): string[] | undefined {
@@ -165,12 +165,15 @@ export function getComfyUiAllowedHosts(): string[] | undefined {
   if (!raw) {
     return undefined;
   }
-  return raw.split(",").map((entry) => entry.trim()).filter(Boolean);
+  return raw
+    .split(',')
+    .map(entry => entry.trim())
+    .filter(Boolean);
 }
 
 export function isComfyClientUrlAllowed(): boolean {
   const raw = process.env.COMFYUI_ALLOW_CLIENT_URL?.trim().toLowerCase();
-  if (raw === "0" || raw === "false" || raw === "no") {
+  if (raw === '0' || raw === 'false' || raw === 'no') {
     return false;
   }
   return true;
@@ -178,21 +181,21 @@ export function isComfyClientUrlAllowed(): boolean {
 
 export function isWebhookPrivateAllowed(): boolean {
   const raw = process.env.WEBHOOK_ALLOW_PRIVATE?.trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes";
+  return raw === '1' || raw === 'true' || raw === 'yes';
 }
 
 export function sanitizeComfyViewFilename(filename: string): string {
   const trimmed = filename.trim();
   if (!trimmed) {
-    throw new Error("filename is required.");
+    throw new Error('filename is required.');
   }
   if (
-    trimmed.includes("..") ||
-    trimmed.includes("/") ||
-    trimmed.includes("\\") ||
-    trimmed.includes("\0")
+    trimmed.includes('..') ||
+    trimmed.includes('/') ||
+    trimmed.includes('\\') ||
+    trimmed.includes('\0')
   ) {
-    throw new Error("Invalid filename.");
+    throw new Error('Invalid filename.');
   }
   return trimmed;
 }
@@ -200,22 +203,22 @@ export function sanitizeComfyViewFilename(filename: string): string {
 export function sanitizeComfyViewSubfolder(subfolder: string): string {
   const trimmed = subfolder.trim();
   if (!trimmed) {
-    return "";
+    return '';
   }
   if (
-    trimmed.includes("..") ||
-    trimmed.includes("\\") ||
-    trimmed.includes("\0") ||
-    trimmed.startsWith("/")
+    trimmed.includes('..') ||
+    trimmed.includes('\\') ||
+    trimmed.includes('\0') ||
+    trimmed.startsWith('/')
   ) {
-    throw new Error("Invalid subfolder.");
+    throw new Error('Invalid subfolder.');
   }
   return trimmed;
 }
 
-export function normalizeComfyViewType(type: string): "output" | "input" | "temp" {
-  if (type === "output" || type === "input" || type === "temp") {
+export function normalizeComfyViewType(type: string): 'output' | 'input' | 'temp' {
+  if (type === 'output' || type === 'input' || type === 'temp') {
     return type;
   }
-  throw new Error("type must be output, input, or temp.");
+  throw new Error('type must be output, input, or temp.');
 }

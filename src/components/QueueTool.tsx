@@ -1,30 +1,30 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
-import { loadComfyGallery, type ComfyGalleryEntry } from "@/lib/comfyui-gallery";
-import { galleryEntryThumbUrls } from "@/lib/comfyui-gallery";
-import { Button } from "@/components/ui/Button";
-import { EmptyState, ErrorState } from "@/components/ui/ViewState";
-import { ToolLayout, ToolSection, ToolBadge } from "@/components/ui/ToolPageShell";
-import { toastBulkQueueSummary, toastQueueOutcome } from "@/lib/app-toast";
-import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
-import { requeueComfyJobFromEntry, requeueComfyJobs } from "@/lib/comfyui-requeue";
-import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
-import { markOnboardingFirstQueue } from "@/lib/onboarding-hooks";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { freeComfyUiMemory, interruptComfyUiQueue } from "@/lib/comfyui-queue-control";
-import { cancelComfyGalleryJob } from "@/lib/comfyui-queue-cancel";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { loadComfyGallery, type ComfyGalleryEntry } from '@/lib/comfyui-gallery';
+import { galleryEntryThumbUrls } from '@/lib/comfyui-gallery';
+import { Button } from '@/components/ui/Button';
+import { EmptyState, ErrorState } from '@/components/ui/ViewState';
+import { ToolLayout, ToolSection, ToolBadge } from '@/components/ui/ToolPageShell';
+import { toastBulkQueueSummary, toastQueueOutcome } from '@/lib/app-toast';
+import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
+import { requeueComfyJobFromEntry, requeueComfyJobs } from '@/lib/comfyui-requeue';
+import { resolveRequeueImageUrlsFromEntry } from '@/lib/queue-requeue-images';
+import { markOnboardingFirstQueue } from '@/lib/onboarding-hooks';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { freeComfyUiMemory, interruptComfyUiQueue } from '@/lib/comfyui-queue-control';
+import { cancelComfyGalleryJob } from '@/lib/comfyui-queue-cancel';
 import {
   COMFY_LIVE_PREVIEW_UPDATED_EVENT,
   getComfyLivePreviewUrl,
-} from "@/lib/comfyui-live-preview-store";
-import { comfyUiJobProgressPercent } from "@/lib/comfyui-job-status";
+} from '@/lib/comfyui-live-preview-store';
+import { comfyUiJobProgressPercent } from '@/lib/comfyui-job-status';
 
-const SetupReadinessBanner = dynamic(
-  () => import("@/components/SetupReadinessBanner"),
-  { ssr: false, loading: () => null },
-);
+const SetupReadinessBanner = dynamic(() => import('@/components/SetupReadinessBanner'), {
+  ssr: false,
+  loading: () => null,
+});
 
 type ComfyQueueHealth = {
   queueRunning?: number;
@@ -43,7 +43,7 @@ function QueueActiveJobRow({
   onCancel: () => void;
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(() =>
-    getComfyLivePreviewUrl(entry.promptId, [entry.clientId]),
+    getComfyLivePreviewUrl(entry.promptId, [entry.clientId])
   );
   const percent = comfyUiJobProgressPercent(entry);
 
@@ -52,11 +52,10 @@ function QueueActiveJobRow({
       setPreviewUrl(getComfyLivePreviewUrl(entry.promptId, [entry.clientId]));
     });
     const onPreview = (event: Event) => {
-      const detail = (event as CustomEvent<{ promptId?: string; keys?: string[] }>)
-        .detail;
+      const detail = (event as CustomEvent<{ promptId?: string; keys?: string[] }>).detail;
       const keys = detail?.keys ?? (detail?.promptId ? [detail.promptId] : []);
       const ours = [entry.promptId, entry.clientId].filter(Boolean) as string[];
-      if (keys.length > 0 && ours.length > 0 && !keys.some((key) => ours.includes(key))) {
+      if (keys.length > 0 && ours.length > 0 && !keys.some(key => ours.includes(key))) {
         return;
       }
       setPreviewUrl(getComfyLivePreviewUrl(entry.promptId, [entry.clientId]));
@@ -81,9 +80,9 @@ function QueueActiveJobRow({
         <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
         <p className="type-caption">
           {entry.status}
-          {entry.queuePosition ? ` · #${entry.queuePosition}` : ""}
-          {percent != null ? ` · ${percent}%` : ""}
-          {entry.model ? ` · ${entry.model}` : ""}
+          {entry.queuePosition ? ` · #${entry.queuePosition}` : ''}
+          {percent != null ? ` · ${percent}%` : ''}
+          {entry.model ? ` · ${entry.model}` : ''}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -109,7 +108,7 @@ export default function QueueTool() {
 
   const refreshHealth = useCallback(async () => {
     try {
-      const response = await fetch("/api/health");
+      const response = await fetch('/api/health');
       const data = (await response.json()) as {
         comfyui?: ComfyQueueHealth;
       };
@@ -132,50 +131,44 @@ export default function QueueTool() {
   }, [refreshEntries, refreshHealth]);
 
   const pending = useMemo(
-    () =>
-      entries.filter(
-        (entry) => entry.status === "pending" || entry.status === "running",
-      ),
-    [entries],
+    () => entries.filter(entry => entry.status === 'pending' || entry.status === 'running'),
+    [entries]
   );
   const failed = useMemo(
-    () => entries.filter((entry) => entry.status === "error").slice(0, 30),
-    [entries],
+    () => entries.filter(entry => entry.status === 'error').slice(0, 30),
+    [entries]
   );
   const recent = useMemo(
-    () =>
-      entries
-        .filter((entry) => entry.status === "completed")
-        .slice(0, 20),
-    [entries],
+    () => entries.filter(entry => entry.status === 'completed').slice(0, 20),
+    [entries]
   );
 
   async function interruptComfyQueue() {
-    setStatus("Sending interrupt to ComfyUI…");
+    setStatus('Sending interrupt to ComfyUI…');
     const result = await interruptComfyUiQueue(queueHealth?.url);
     if (!result.ok) {
-      setStatus(result.error ?? "Interrupt failed.");
+      setStatus(result.error ?? 'Interrupt failed.');
       return;
     }
-    setStatus("ComfyUI interrupt sent.");
+    setStatus('ComfyUI interrupt sent.');
     void refreshHealth();
   }
 
   async function freeComfyVram() {
-    setStatus("Freeing ComfyUI VRAM…");
+    setStatus('Freeing ComfyUI VRAM…');
     const result = await freeComfyUiMemory(queueHealth?.url);
     if (!result.ok) {
-      setStatus(result.error ?? "Free VRAM failed.");
+      setStatus(result.error ?? 'Free VRAM failed.');
       return;
     }
-    setStatus("ComfyUI VRAM freed.");
+    setStatus('ComfyUI VRAM freed.');
     void refreshHealth();
   }
 
   async function cancelJob(entry: ComfyGalleryEntry) {
-    setStatus(`Cancelling ${entry.promptId || "job"}…`);
+    setStatus(`Cancelling ${entry.promptId || 'job'}…`);
     const result = await cancelComfyGalleryJob(entry);
-    setStatus(result.ok ? "Job cancelled." : result.error ?? "Cancel failed.");
+    setStatus(result.ok ? 'Job cancelled.' : (result.error ?? 'Cancel failed.'));
     refreshEntries();
   }
 
@@ -185,7 +178,7 @@ export default function QueueTool() {
     }
     setStatus(`Retrying ${failed.length} failed job(s)…`);
     const results = await requeueComfyJobs(
-      failed.map((entry) => {
+      failed.map(entry => {
         const urls = resolveRequeueImageUrlsFromEntry(entry);
         return {
           prompt: entry.prompt,
@@ -196,12 +189,12 @@ export default function QueueTool() {
           sourceImageUrl: urls.sourceImageUrl,
           maskImageUrl: urls.maskImageUrl,
         };
-      }),
+      })
     );
     markOnboardingFirstQueue();
     setStatus(`Retried ${results.queued}/${failed.length}.`);
     toastBulkQueueSummary({
-      label: "Retry failed finished",
+      label: 'Retry failed finished',
       queued: results.queued,
       failed: results.failed,
     });
@@ -221,7 +214,8 @@ export default function QueueTool() {
       {queueHealth?.ok ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-zinc-400">
-            ComfyUI queue: {queueHealth.queueRunning ?? 0} running · {queueHealth.queuePending ?? 0} pending
+            ComfyUI queue: {queueHealth.queueRunning ?? 0} running · {queueHealth.queuePending ?? 0}{' '}
+            pending
           </p>
           {(queueHealth.queueRunning ?? 0) + (queueHealth.queuePending ?? 0) > 0 ? (
             <Button size="sm" variant="secondary" onClick={() => void interruptComfyQueue()}>
@@ -237,7 +231,7 @@ export default function QueueTool() {
           compact
           title="ComfyUI health unavailable"
           description="The queue stats endpoint did not respond. Use Settings → Heal & ready, or check your ComfyUI URL under Connection."
-          action={{ label: "Heal & ready", href: "/settings" }}
+          action={{ label: 'Heal & ready', href: '/settings' }}
         />
       )}
 
@@ -262,24 +256,24 @@ export default function QueueTool() {
           )
         ) : (
           <ul className="ui-list">
-            {pending.map((entry) => (
+            {pending.map(entry => (
               <QueueActiveJobRow
                 key={entry.id}
                 entry={entry}
                 onRetry={() => {
-                  void requeueComfyJobFromEntry(entry).then((result) => {
+                  void requeueComfyJobFromEntry(entry).then(result => {
                     if (result.ok) {
                       markOnboardingFirstQueue();
                       toastQueueOutcome({
                         ok: true,
                         text: result.promptId
                           ? `Retry queued · ${result.promptId}`
-                          : "Retry queued",
+                          : 'Retry queued',
                       });
                     } else {
                       toastQueueOutcome({
                         ok: false,
-                        text: result.error ?? "Retry failed.",
+                        text: result.error ?? 'Retry failed.',
                       });
                     }
                     refreshEntries();
@@ -302,7 +296,7 @@ export default function QueueTool() {
             action={
               pending.length === 0 && recent.length === 0
                 ? generateCta
-                : { label: "Open Gallery", href: "/gallery" }
+                : { label: 'Open Gallery', href: '/gallery' }
             }
           />
         ) : (
@@ -311,7 +305,7 @@ export default function QueueTool() {
               Retry all failed
             </Button>
             <ul className="ui-list">
-              {failed.map((entry) => (
+              {failed.map(entry => (
                 <li key={entry.id} className="ui-list-row items-start">
                   <div className="ui-list-primary min-w-0 space-y-1">
                     <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
@@ -319,7 +313,11 @@ export default function QueueTool() {
                       {entry.statusMessage ?? entry.status} · {entry.model}
                     </p>
                   </div>
-                  <Button size="sm" variant="secondary" onClick={() => void requeueComfyJobFromEntry(entry)}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void requeueComfyJobFromEntry(entry)}
+                  >
                     Retry
                   </Button>
                 </li>
@@ -340,7 +338,7 @@ export default function QueueTool() {
           />
         ) : (
           <ul className="ui-list">
-            {recent.map((entry) => {
+            {recent.map(entry => {
               const url = galleryEntryThumbUrls(entry)[0];
               return (
                 <li key={entry.id} className="ui-list-row items-center gap-3">
@@ -356,7 +354,9 @@ export default function QueueTool() {
                   ) : null}
                   <div className="ui-list-primary min-w-0">
                     <p className="truncate text-sm text-zinc-300">{entry.prompt}</p>
-                    <p className="type-caption">{entry.status} · {entry.model}</p>
+                    <p className="type-caption">
+                      {entry.status} · {entry.model}
+                    </p>
                   </div>
                 </li>
               );

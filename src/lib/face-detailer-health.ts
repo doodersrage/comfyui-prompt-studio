@@ -1,8 +1,8 @@
-import { findLibraryFaceDetailerWorkflow } from "./workflow-library-face-detailer";
-import { loadSettingsCache } from "./settings-cache";
-import { loadComfyWorkflowFiles } from "./comfyui-workflow-files";
+import { findLibraryFaceDetailerWorkflow } from './workflow-library-face-detailer';
+import { loadSettingsCache } from './settings-cache';
+import { loadComfyWorkflowFiles } from './comfyui-workflow-files';
 
-export type FaceDetailerHealthStatus = "ready" | "detected" | "missing";
+export type FaceDetailerHealthStatus = 'ready' | 'detected' | 'missing';
 
 export type FaceDetailerHealth = {
   status: FaceDetailerHealthStatus;
@@ -19,32 +19,32 @@ export function getFaceDetailerHealth(): FaceDetailerHealth {
   const resolved = findLibraryFaceDetailerWorkflow();
 
   if (pinnedId) {
-    const pinned = files.find((file) => file.id === pinnedId);
+    const pinned = files.find(file => file.id === pinnedId);
     if (pinned) {
       return {
-        status: "ready",
-        label: "Ready",
+        status: 'ready',
+        label: 'Ready',
         workflowName: pinned.name,
         pinnedId,
       };
     }
     return {
-      status: "missing",
-      label: "Missing pin",
+      status: 'missing',
+      label: 'Missing pin',
       pinnedId,
     };
   }
 
   if (resolved) {
     return {
-      status: "detected",
-      label: "Detected",
+      status: 'detected',
+      label: 'Detected',
       workflowName: resolved.name,
     };
   }
 
   return {
-    status: "missing",
-    label: "Missing",
+    status: 'missing',
+    label: 'Missing',
   };
 }

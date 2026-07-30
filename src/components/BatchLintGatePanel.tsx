@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import type { BatchLintSummary } from "@/lib/batch-lint-gate";
-import { Button } from "@/components/ui/Button";
+import type { BatchLintSummary } from '@/lib/batch-lint-gate';
+import { Button } from '@/components/ui/Button';
 
 type BatchLintGatePanelProps = {
   summary: BatchLintSummary | null;
@@ -26,18 +26,18 @@ export default function BatchLintGatePanel({
     <div className="space-y-3 rounded-xl border border-amber-700/40 bg-amber-950/20 p-3">
       <p className="text-sm font-medium text-amber-100">
         {loading
-          ? "Linting batch…"
+          ? 'Linting batch…'
           : `Batch lint: ${summary?.totalErrors ?? 0} errors, ${summary?.totalWarnings ?? 0} warnings`}
       </p>
       {summary && summary.blockedIndexes.length > 0 ? (
         <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-amber-100/90">
           {summary.items
-            .filter((item) => item.errorCount > 0)
+            .filter(item => item.errorCount > 0)
             .slice(0, 8)
-            .map((item) => (
+            .map(item => (
               <li key={item.index}>
                 #{item.index + 1}
-                {item.topic ? ` · ${item.topic}` : ""}: {item.errorCount} error(s)
+                {item.topic ? ` · ${item.topic}` : ''}: {item.errorCount} error(s)
               </li>
             ))}
         </ul>

@@ -10,27 +10,29 @@
 import {
   DEFAULT_CONTROLNET_MODEL_TOKEN,
   DEFAULT_CONTROL_IMAGE_TOKEN,
-} from "./model-controlnet-map";
-import {
-  normalizeControlNetMode,
-  type ControlNetMode,
-} from "./controlnet-prompt";
+} from './model-controlnet-map';
+import { normalizeControlNetMode, type ControlNetMode } from './controlnet-prompt';
 
 export const CONTROLNET_WORKFLOW_TOKENS = [
   DEFAULT_CONTROLNET_MODEL_TOKEN,
   DEFAULT_CONTROL_IMAGE_TOKEN,
 ] as const;
 
-const CONTROLNET_LOADER_TYPES = new Set(["ControlNetLoader", "DiffControlNetLoader"]);
+const CONTROLNET_LOADER_TYPES = new Set(['ControlNetLoader', 'DiffControlNetLoader']);
 const CONTROLNET_APPLY_PATTERN = /controlnetapply/i;
 
 /** Preferred preprocessor class per ControlNet mode (first installed wins). */
 const PREPROCESSOR_CANDIDATES: Record<ControlNetMode, string[]> = {
-  canny: ["CannyEdgePreprocessor", "Canny", "AIO_Preprocessor"],
-  pose: ["DWPreprocessor", "OpenposePreprocessor", "AIO_Preprocessor"],
-  depth: ["DepthAnythingV2Preprocessor", "DepthAnythingPreprocessor", "MiDaS-DepthMapPreprocessor", "AIO_Preprocessor"],
-  normal: ["BAE-NormalMapPreprocessor", "NormalBaePreprocessor", "AIO_Preprocessor"],
-  lineart: ["LineArtPreprocessor", "AnimeLineArtPreprocessor", "AIO_Preprocessor"],
+  canny: ['CannyEdgePreprocessor', 'Canny', 'AIO_Preprocessor'],
+  pose: ['DWPreprocessor', 'OpenposePreprocessor', 'AIO_Preprocessor'],
+  depth: [
+    'DepthAnythingV2Preprocessor',
+    'DepthAnythingPreprocessor',
+    'MiDaS-DepthMapPreprocessor',
+    'AIO_Preprocessor',
+  ],
+  normal: ['BAE-NormalMapPreprocessor', 'NormalBaePreprocessor', 'AIO_Preprocessor'],
+  lineart: ['LineArtPreprocessor', 'AnimeLineArtPreprocessor', 'AIO_Preprocessor'],
 };
 
 type WorkflowNode = {
@@ -54,32 +56,30 @@ export type ControlNetChainInsertResult = {
 };
 
 export function findUnresolvedControlNetTokens(
-  workflow: Record<string, unknown> | string,
+  workflow: Record<string, unknown> | string
 ): string[] {
-  const raw = typeof workflow === "string" ? workflow : JSON.stringify(workflow);
-  return CONTROLNET_WORKFLOW_TOKENS.filter((token) => raw.includes(token));
+  const raw = typeof workflow === 'string' ? workflow : JSON.stringify(workflow);
+  return CONTROLNET_WORKFLOW_TOKENS.filter(token => raw.includes(token));
 }
 
 function hasControlNetNodes(workflow: Record<string, WorkflowNode>): boolean {
-  return Object.values(workflow).some((node) => {
-    const classType = node?.class_type ?? "";
-    return (
-      CONTROLNET_LOADER_TYPES.has(classType) || CONTROLNET_APPLY_PATTERN.test(classType)
-    );
+  return Object.values(workflow).some(node => {
+    const classType = node?.class_type ?? '';
+    return CONTROLNET_LOADER_TYPES.has(classType) || CONTROLNET_APPLY_PATTERN.test(classType);
   });
 }
 
 function isSamplerLikeNode(classType: string, inputs: Record<string, unknown>): boolean {
   const lower = classType.toLowerCase();
   if (
-    lower.includes("ksampler") ||
-    lower.includes("samplercustom") ||
-    lower.includes("guider") ||
-    lower.includes("basicscheduler")
+    lower.includes('ksampler') ||
+    lower.includes('samplercustom') ||
+    lower.includes('guider') ||
+    lower.includes('basicscheduler')
   ) {
     return true;
   }
-  return "seed" in inputs && ("steps" in inputs || "cfg" in inputs);
+  return 'seed' in inputs && ('steps' in inputs || 'cfg' in inputs);
 }
 
 function nextWorkflowNodeId(workflow: Record<string, unknown>): string {
@@ -100,19 +100,19 @@ type PrimarySamplerCondLinks = {
 };
 
 function findPrimarySamplerCondLinks(
-  workflow: Record<string, WorkflowNode>,
+  workflow: Record<string, WorkflowNode>
 ): PrimarySamplerCondLinks | null {
   for (const [samplerId, node] of Object.entries(workflow)) {
-    if (!node?.inputs || !isSamplerLikeNode(node.class_type ?? "", node.inputs)) {
+    if (!node?.inputs || !isSamplerLikeNode(node.class_type ?? '', node.inputs)) {
       continue;
     }
     const positive = node.inputs.positive;
     const negative = node.inputs.negative;
     if (
       Array.isArray(positive) &&
-      typeof positive[0] === "string" &&
+      typeof positive[0] === 'string' &&
       Array.isArray(negative) &&
-      typeof negative[0] === "string"
+      typeof negative[0] === 'string'
     ) {
       return {
         samplerId,
@@ -126,15 +126,13 @@ function findPrimarySamplerCondLinks(
 
 export function resolveControlNetPreprocessorClass(
   mode: ControlNetMode | string | undefined,
-  availableNodeTypes?: Iterable<string> | null,
+  availableNodeTypes?: Iterable<string> | null
 ): string | undefined {
   if (!availableNodeTypes) {
     return undefined;
   }
   const available =
-    availableNodeTypes instanceof Set
-      ? availableNodeTypes
-      : new Set(availableNodeTypes);
+    availableNodeTypes instanceof Set ? availableNodeTypes : new Set(availableNodeTypes);
   const normalized = normalizeControlNetMode(mode);
   for (const candidate of PREPROCESSOR_CANDIDATES[normalized]) {
     if (available.has(candidate)) {
@@ -151,7 +149,7 @@ export function resolveControlNetPreprocessorClass(
  */
 export function insertControlNetChainIfMissing(
   workflow: Record<string, unknown>,
-  options: ControlNetChainInsertOptions,
+  options: ControlNetChainInsertOptions
 ): ControlNetChainInsertResult {
   const controlImage = options.controlImageFilename?.trim();
   if (!controlImage) {
@@ -168,7 +166,7 @@ export function insertControlNetChainIfMissing(
       ? options.availableNodeTypes
       : new Set(options.availableNodeTypes)
     : undefined;
-  if (availableTypes && !availableTypes.has("ControlNetApply")) {
+  if (availableTypes && !availableTypes.has('ControlNetApply')) {
     return { workflow, inserted: false, insertedNodeIds: [] };
   }
 
@@ -182,15 +180,15 @@ export function insertControlNetChainIfMissing(
 
   const loadImageId = nextWorkflowNodeId(next);
   next[loadImageId] = {
-    class_type: "LoadImage",
+    class_type: 'LoadImage',
     inputs: { image: DEFAULT_CONTROL_IMAGE_TOKEN },
-    _meta: { title: "Prompt Studio — Control image" },
+    _meta: { title: 'Prompt Studio — Control image' },
   };
   insertedNodeIds.push(loadImageId);
 
   const preprocessorClass = resolveControlNetPreprocessorClass(
     options.controlNetMode,
-    availableTypes,
+    availableTypes
   );
   let imageSourceId = loadImageId;
   if (preprocessorClass) {
@@ -210,15 +208,15 @@ export function insertControlNetChainIfMissing(
 
   const loaderId = nextWorkflowNodeId(next);
   next[loaderId] = {
-    class_type: "ControlNetLoader",
+    class_type: 'ControlNetLoader',
     inputs: { control_net_name: DEFAULT_CONTROLNET_MODEL_TOKEN },
-    _meta: { title: "Prompt Studio — ControlNet loader" },
+    _meta: { title: 'Prompt Studio — ControlNet loader' },
   };
   insertedNodeIds.push(loaderId);
 
   const applyId = nextWorkflowNodeId(next);
   next[applyId] = {
-    class_type: "ControlNetApply",
+    class_type: 'ControlNetApply',
     inputs: {
       strength: 1,
       start_percent: 0,
@@ -228,7 +226,7 @@ export function insertControlNetChainIfMissing(
       control_net: [loaderId, 0],
       image: [imageSourceId, 0],
     },
-    _meta: { title: "Prompt Studio — ControlNet apply" },
+    _meta: { title: 'Prompt Studio — ControlNet apply' },
   };
   insertedNodeIds.push(applyId);
 
@@ -261,18 +259,18 @@ export type ControlNetStackEntry = {
 export function insertControlNetStack(
   workflow: Record<string, unknown>,
   entries: ControlNetStackEntry[],
-  options?: { availableNodeTypes?: Iterable<string> | null },
+  options?: { availableNodeTypes?: Iterable<string> | null }
 ): {
   workflow: Record<string, unknown>;
   insertedCount: number;
   insertedNodeIds: string[];
 } {
   const usable = entries
-    .map((entry) => ({
+    .map(entry => ({
       ...entry,
       controlImageFilename: entry.controlImageFilename?.trim(),
     }))
-    .filter((entry) => Boolean(entry.controlImageFilename));
+    .filter(entry => Boolean(entry.controlImageFilename));
   if (usable.length === 0) {
     return { workflow, insertedCount: 0, insertedNodeIds: [] };
   }
@@ -302,7 +300,7 @@ export function insertControlNetStack(
         ? options.availableNodeTypes
         : new Set(options.availableNodeTypes)
       : undefined;
-    if (availableTypes && !availableTypes.has("ControlNetApply")) {
+    if (availableTypes && !availableTypes.has('ControlNetApply')) {
       break;
     }
     const chain = findPrimarySamplerCondLinks(typed);
@@ -313,17 +311,15 @@ export function insertControlNetStack(
     const next = structuredClone(current) as Record<string, WorkflowNode>;
     const tokenSuffix = index + 1;
     const imageToken =
-      tokenSuffix === 2 ? "{{CONTROL_IMAGE_2}}" : `{{CONTROL_IMAGE_${tokenSuffix}}}`;
+      tokenSuffix === 2 ? '{{CONTROL_IMAGE_2}}' : `{{CONTROL_IMAGE_${tokenSuffix}}}`;
     const modelToken =
-      tokenSuffix === 2 ? "{{CONTROLNET_MODEL_2}}" : `{{CONTROLNET_MODEL_${tokenSuffix}}}`;
+      tokenSuffix === 2 ? '{{CONTROLNET_MODEL_2}}' : `{{CONTROLNET_MODEL_${tokenSuffix}}}`;
 
     const loadImageId = nextWorkflowNodeId(next);
     next[loadImageId] = {
-      class_type: "LoadImage",
+      class_type: 'LoadImage',
       inputs: {
-        image: entry.controlImageFilename
-          ? entry.controlImageFilename
-          : imageToken,
+        image: entry.controlImageFilename ? entry.controlImageFilename : imageToken,
       },
       _meta: { title: `Prompt Studio — Control image ${tokenSuffix}` },
     };
@@ -331,7 +327,7 @@ export function insertControlNetStack(
 
     const preprocessorClass = resolveControlNetPreprocessorClass(
       entry.controlNetMode,
-      availableTypes,
+      availableTypes
     );
     let imageSourceId = loadImageId;
     if (preprocessorClass) {
@@ -350,7 +346,7 @@ export function insertControlNetStack(
 
     const loaderId = nextWorkflowNodeId(next);
     next[loaderId] = {
-      class_type: "ControlNetLoader",
+      class_type: 'ControlNetLoader',
       inputs: {
         control_net_name: entry.controlNetModelFilename?.trim() || modelToken,
       },
@@ -359,12 +355,12 @@ export function insertControlNetStack(
     insertedNodeIds.push(loaderId);
 
     const strength =
-      typeof entry.strength === "number" && Number.isFinite(entry.strength)
+      typeof entry.strength === 'number' && Number.isFinite(entry.strength)
         ? Math.min(2, Math.max(0, entry.strength))
         : 1;
     const applyId = nextWorkflowNodeId(next);
     next[applyId] = {
-      class_type: "ControlNetApply",
+      class_type: 'ControlNetApply',
       inputs: {
         strength,
         start_percent: 0,

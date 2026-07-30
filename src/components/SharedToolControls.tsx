@@ -1,58 +1,52 @@
-"use client";
+'use client';
 
-import dynamic from "next/dynamic";
-import type { DiffusersCheckpointOption } from "@/components/DiffusersCheckpointSelector";
-import { useComfyWorkflowSelection } from "@/hooks/useComfyWorkflowSelection";
-import type { DetailLevel } from "@/lib/detail-level";
-import { getDetailLimits } from "@/lib/detail-level";
+import dynamic from 'next/dynamic';
+import type { DiffusersCheckpointOption } from '@/components/DiffusersCheckpointSelector';
+import { useComfyWorkflowSelection } from '@/hooks/useComfyWorkflowSelection';
+import type { DetailLevel } from '@/lib/detail-level';
+import { getDetailLimits } from '@/lib/detail-level';
 import {
   getComfyModelDefinition,
   COMFY_IMAGE_MODELS,
   type ComfyImageModel,
-} from "@/lib/comfy-models/client";
+} from '@/lib/comfy-models/client';
 import {
   modelsSupportedByAvailableWorkflows,
   resolveWorkflowForModelSelection,
   suggestWorkflowMapForFiles,
   supportedModelsFilterHint,
-} from "@/lib/model-workflow-map";
+} from '@/lib/model-workflow-map';
 import {
   filterModelsForQueueTool,
   isSceneGenerationModel,
   resolveTxt2iCounterpartForGenerate,
   shouldUseSceneGenerationModel,
   toolIgnoresSystemWorkflowSnap,
-} from "@/lib/queue-tool-model";
+} from '@/lib/queue-tool-model';
 import {
   normalizeModelSamplerPresetTier,
   type ModelSamplerPresetTier,
-} from "@/lib/model-sampler-defaults";
+} from '@/lib/model-sampler-defaults';
 import {
   normalizeResolutionOrientation,
   normalizeResolutionSizeTier,
   type ResolutionOrientation,
   type ResolutionSizeTier,
-} from "@/lib/model-resolution-defaults";
-import {
-  normalizeAnatomyGuardMode,
-  type AnatomyGuardMode,
-} from "@/lib/anatomy-guard";
+} from '@/lib/model-resolution-defaults';
+import { normalizeAnatomyGuardMode, type AnatomyGuardMode } from '@/lib/anatomy-guard';
 import {
   normalizeQueueQualityProfile,
   formatQueueQualityProfileHint,
   type QueueQualityProfile,
-} from "@/lib/queue-quality-profile";
-import {
-  normalizeRenderRealismMode,
-  type RenderRealismMode,
-} from "@/lib/render-realism";
-import type { SharedToolSettings } from "@/lib/settings-cache";
+} from '@/lib/queue-quality-profile';
+import { normalizeRenderRealismMode, type RenderRealismMode } from '@/lib/render-realism';
+import type { SharedToolSettings } from '@/lib/settings-cache';
 import {
   DEFAULT_VIDEO_TOOL_CACHE,
   loadSettingsCache,
   loadToolSettings,
   saveSharedSettings,
-} from "@/lib/settings-cache";
+} from '@/lib/settings-cache';
 import {
   describeSystemWorkflowChoice,
   isSystemWorkflowSupportedModel,
@@ -60,101 +54,88 @@ import {
   resolveSystemWorkflowFallbackModel,
   shouldLimitSystemWorkflowPicker,
   usesSystemWorkflowPath,
-} from "@/lib/system-workflow-runtime";
-import { readCachedComfyObjectInfoModels } from "@/lib/comfyui-object-info-cache";
-import { scanAndAdaptSystemWorkflowInventory } from "@/lib/comfyui-runtime-for-model";
-import { loadComfyWorkflowFiles } from "@/lib/comfyui-workflow-files";
-import { PINNED_VARIATION_SEED_LABEL } from "@/lib/tool-ui-labels";
-import { accentRingClass } from "@/lib/tool-theme";
-import { CollapsibleSection } from "@/components/ui/ToolPageShell";
-import { ChipButton, FieldDivider, FieldLabel } from "@/components/ui/Field";
-import { Button } from "@/components/ui/Button";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import {
-  isBrowserStorageReady,
-  whenBrowserStorageReady,
-} from "@/lib/browser-storage";
-import { useWorkspaceMode } from "@/hooks/useWorkspaceMode";
-import {
-  workspaceControlsDefaultOpen,
-  workspaceShowsAdvancedControls,
-} from "@/lib/workspace-mode";
-import { resolveModelStackFamily } from "@/lib/workflow-stack-fingerprint";
-import { isQwenLightningModel } from "@/lib/model-sampling-patch";
-import {
-  expandWildcardText,
-  textHasWildcardTokens,
-} from "@/lib/wildcard-expand";
+} from '@/lib/system-workflow-runtime';
+import { readCachedComfyObjectInfoModels } from '@/lib/comfyui-object-info-cache';
+import { scanAndAdaptSystemWorkflowInventory } from '@/lib/comfyui-runtime-for-model';
+import { loadComfyWorkflowFiles } from '@/lib/comfyui-workflow-files';
+import { PINNED_VARIATION_SEED_LABEL } from '@/lib/tool-ui-labels';
+import { accentRingClass } from '@/lib/tool-theme';
+import { CollapsibleSection } from '@/components/ui/ToolPageShell';
+import { ChipButton, FieldDivider, FieldLabel } from '@/components/ui/Field';
+import { Button } from '@/components/ui/Button';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { isBrowserStorageReady, whenBrowserStorageReady } from '@/lib/browser-storage';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
+import { workspaceControlsDefaultOpen, workspaceShowsAdvancedControls } from '@/lib/workspace-mode';
+import { resolveModelStackFamily } from '@/lib/workflow-stack-fingerprint';
+import { isQwenLightningModel } from '@/lib/model-sampling-patch';
+import { expandWildcardText, textHasWildcardTokens } from '@/lib/wildcard-expand';
 import {
   hasSessionLoraIdsForModel,
   resolveLoraIdsForModelSelection,
   setSessionLoraIdsForModel,
   type SessionActiveLoraIdsByModel,
-} from "@/lib/model-lora-map";
-import { resolveQueueParams } from "@/lib/queue-params-settings";
+} from '@/lib/model-lora-map';
+import { resolveQueueParams } from '@/lib/queue-params-settings';
 import {
   DIFFUSERS_DEFAULT_MODEL,
   resolveDiffusersModelHint,
   resolveStudioModelForDiffusersAsset,
-} from "@/lib/diffusers-defaults";
-import { SUGGESTED_MODEL_CHECKPOINT_MAP } from "@/lib/model-checkpoint-map";
+} from '@/lib/diffusers-defaults';
+import { SUGGESTED_MODEL_CHECKPOINT_MAP } from '@/lib/model-checkpoint-map';
 
-const ModelSelector = dynamic(() => import("@/components/ModelSelector"), {
+const ModelSelector = dynamic(() => import('@/components/ModelSelector'), {
   ssr: false,
-  loading: () => (
-    <div className="h-10 animate-pulse rounded-xl bg-[var(--surface-muted)]/60" />
-  ),
+  loading: () => <div className="h-10 animate-pulse rounded-xl bg-[var(--surface-muted)]/60" />,
 });
 const DiffusersCheckpointSelector = dynamic(
-  () => import("@/components/DiffusersCheckpointSelector"),
+  () => import('@/components/DiffusersCheckpointSelector'),
   {
     ssr: false,
-    loading: () => (
-      <div className="h-10 animate-pulse rounded-xl bg-[var(--surface-muted)]/60" />
-    ),
-  },
+    loading: () => <div className="h-10 animate-pulse rounded-xl bg-[var(--surface-muted)]/60" />,
+  }
 );
-const LoraStackSessionPicker = dynamic(
-  () => import("@/components/LoraStackSessionPicker"),
-  { ssr: false, loading: () => null },
-);
-const ComfyWorkflowSelector = dynamic(
-  () => import("@/components/ComfyWorkflowSelector"),
-  { ssr: false, loading: () => null },
-);
-const ModelRecommenderHints = dynamic(
-  () => import("@/components/ModelRecommenderHints"),
-  { ssr: false, loading: () => null },
-);
-const ModelSamplerHints = dynamic(
-  () => import("@/components/ModelSamplerHints"),
-  { ssr: false, loading: () => null },
-);
-const ModelResolutionHints = dynamic(
-  () => import("@/components/ModelResolutionHints"),
-  { ssr: false, loading: () => null },
-);
-const RenderRealismHints = dynamic(
-  () => import("@/components/RenderRealismHints"),
-  { ssr: false, loading: () => null },
-);
-const AnatomyGuardHints = dynamic(
-  () => import("@/components/AnatomyGuardHints"),
-  { ssr: false, loading: () => null },
-);
-const QueueQualityProfileHints = dynamic(
-  () => import("@/components/QueueQualityProfileHints"),
-  { ssr: false, loading: () => null },
-);
-const QueueRecipesPanel = dynamic(
-  () => import("@/components/QueueRecipesPanel"),
-  { ssr: false, loading: () => null },
-);
+const LoraStackSessionPicker = dynamic(() => import('@/components/LoraStackSessionPicker'), {
+  ssr: false,
+  loading: () => null,
+});
+const ComfyWorkflowSelector = dynamic(() => import('@/components/ComfyWorkflowSelector'), {
+  ssr: false,
+  loading: () => null,
+});
+const ModelRecommenderHints = dynamic(() => import('@/components/ModelRecommenderHints'), {
+  ssr: false,
+  loading: () => null,
+});
+const ModelSamplerHints = dynamic(() => import('@/components/ModelSamplerHints'), {
+  ssr: false,
+  loading: () => null,
+});
+const ModelResolutionHints = dynamic(() => import('@/components/ModelResolutionHints'), {
+  ssr: false,
+  loading: () => null,
+});
+const RenderRealismHints = dynamic(() => import('@/components/RenderRealismHints'), {
+  ssr: false,
+  loading: () => null,
+});
+const AnatomyGuardHints = dynamic(() => import('@/components/AnatomyGuardHints'), {
+  ssr: false,
+  loading: () => null,
+});
+const QueueQualityProfileHints = dynamic(() => import('@/components/QueueQualityProfileHints'), {
+  ssr: false,
+  loading: () => null,
+});
+const QueueRecipesPanel = dynamic(() => import('@/components/QueueRecipesPanel'), {
+  ssr: false,
+  loading: () => null,
+});
 
 type SharedToolControlsProps = {
   shared: SharedToolSettings;
-  onModelChange: (model: SharedToolSettings["model"]) => void;
+  onModelChange: (model: SharedToolSettings['model']) => void;
   onDetailChange: (detail: DetailLevel) => void;
   detailHelp?: string;
   showWardrobeOption?: boolean;
@@ -235,59 +216,53 @@ export default function SharedToolControls({
   }, [storageReady]);
   const checkboxClass = `mt-1 h-4 w-4 rounded-[var(--radius-sm)] border-[var(--border-default)] bg-[var(--bg-muted)] ${accentRingClass()}`;
   const [samplerPreset, setSamplerPreset] = useState<ModelSamplerPresetTier>(() =>
-    normalizeModelSamplerPresetTier(shared.modelSamplerPreset),
+    normalizeModelSamplerPresetTier(shared.modelSamplerPreset)
   );
   const [resolutionOrientation, setResolutionOrientation] = useState<ResolutionOrientation>(() =>
-    normalizeResolutionOrientation(shared.modelResolutionOrientation),
+    normalizeResolutionOrientation(shared.modelResolutionOrientation)
   );
   const [resolutionSizeTier, setResolutionSizeTier] = useState<ResolutionSizeTier>(() =>
-    normalizeResolutionSizeTier(shared.modelResolutionSizeTier),
+    normalizeResolutionSizeTier(shared.modelResolutionSizeTier)
   );
   const [renderRealismMode, setRenderRealismMode] = useState<RenderRealismMode>(() =>
-    normalizeRenderRealismMode(shared.renderRealismMode),
+    normalizeRenderRealismMode(shared.renderRealismMode)
   );
   const [anatomyGuardMode, setAnatomyGuardMode] = useState<AnatomyGuardMode>(() =>
-    normalizeAnatomyGuardMode(shared.anatomyGuardMode),
+    normalizeAnatomyGuardMode(shared.anatomyGuardMode)
   );
   const [queueQualityProfile, setQueueQualityProfile] = useState<QueueQualityProfile>(() =>
-    normalizeQueueQualityProfile(shared.queueQualityProfile),
+    normalizeQueueQualityProfile(shared.queueQualityProfile)
   );
   const [showAllModelsOverride, setShowAllModelsOverride] = useState(
-    () => shared.showAllModelsOverride === true,
+    () => shared.showAllModelsOverride === true
   );
-  const [expandWildcards, setExpandWildcards] = useState(
-    () => shared.expandWildcards !== false,
-  );
-  const [wildcardSeed, setWildcardSeed] = useState(() => shared.wildcardSeed ?? "");
+  const [expandWildcards, setExpandWildcards] = useState(() => shared.expandWildcards !== false);
+  const [wildcardSeed, setWildcardSeed] = useState(() => shared.wildcardSeed ?? '');
   const [wildcardPreview, setWildcardPreview] = useState<string | null>(null);
-  const [autoRetryOnOom, setAutoRetryOnOom] = useState(
-    () => shared.autoRetryOnOom !== false,
-  );
+  const [autoRetryOnOom, setAutoRetryOnOom] = useState(() => shared.autoRetryOnOom !== false);
   const [oomRetryDowngrade, setOomRetryDowngrade] = useState(
-    () => shared.oomRetryDowngrade !== false,
+    () => shared.oomRetryDowngrade !== false
   );
-  const [sessionActiveLoraIds, setSessionActiveLoraIds] = useState<
-    string[] | undefined
-  >(undefined);
+  const [sessionActiveLoraIds, setSessionActiveLoraIds] = useState<string[] | undefined>(undefined);
   const [sessionActiveLoraIdsByModel, setSessionActiveLoraIdsByModel] =
     useState<SessionActiveLoraIdsByModel>({});
 
   const workflowCatalog = useMemo(
     () => [
       ...workflowSelection.localFiles,
-      ...workflowSelection.serverFiles.map((entry) => ({
+      ...workflowSelection.serverFiles.map(entry => ({
         id: entry.id,
         name: entry.name,
         filename: `${entry.name}.json`,
-        workflowJson: "",
+        workflowJson: '',
       })),
     ],
-    [workflowSelection.localFiles, workflowSelection.serverFiles],
+    [workflowSelection.localFiles, workflowSelection.serverFiles]
   );
 
   const suggestedWorkflowMap = useMemo(
     () => suggestWorkflowMapForFiles(workflowCatalog),
-    [workflowCatalog],
+    [workflowCatalog]
   );
 
   const selectedWorkflowId =
@@ -303,7 +278,7 @@ export default function SharedToolControls({
         workflowFiles: workflowCatalog,
         tool: toolId,
       }),
-    [shared.model, shared.modelWorkflowMap, suggestedWorkflowMap, toolId, workflowCatalog],
+    [shared.model, shared.modelWorkflowMap, suggestedWorkflowMap, toolId, workflowCatalog]
   );
 
   const supportedModels = useMemo(
@@ -327,7 +302,7 @@ export default function SharedToolControls({
       showAllModelsOverride,
       suggestedWorkflowMap,
       workflowCatalog,
-    ],
+    ]
   );
 
   const pickerModels = useMemo(() => {
@@ -338,9 +313,9 @@ export default function SharedToolControls({
       filtered.length > 0
         ? filtered
         : toolId && shouldUseSceneGenerationModel(toolId)
-          ? COMFY_IMAGE_MODELS.filter((entry) =>
-              isSceneGenerationModel(entry.id),
-            ).map((entry) => entry.id)
+          ? COMFY_IMAGE_MODELS.filter(entry => isSceneGenerationModel(entry.id)).map(
+              entry => entry.id
+            )
           : supportedModels.models;
 
     if (
@@ -351,14 +326,14 @@ export default function SharedToolControls({
       return base.length > 0 ? base : supportedModels.models;
     }
 
-    const systemOnly = base.filter((model) => isSystemWorkflowSupportedModel(model));
+    const systemOnly = base.filter(model => isSystemWorkflowSupportedModel(model));
     if (systemOnly.length > 0) {
       return systemOnly;
     }
-    return listSystemWorkflowSupportedModels().filter((model) =>
+    return listSystemWorkflowSupportedModels().filter(model =>
       filterModelsForQueueTool([model], toolId, {
         includeEditModels: showAllModelsOverride,
-      }).includes(model),
+      }).includes(model)
     );
   }, [
     showAllModelsOverride,
@@ -380,9 +355,7 @@ export default function SharedToolControls({
   }, [workflowSelection.setSelectedId]);
 
   const workflowManualOverrideRef = useRef(false);
-  const lastModelStackFamilyRef = useRef(
-    resolveModelStackFamily(shared.model),
-  );
+  const lastModelStackFamilyRef = useRef(resolveModelStackFamily(shared.model));
 
   const applyWorkflowForModel = useCallback(
     (model: ComfyImageModel, force = false) => {
@@ -409,11 +382,7 @@ export default function SharedToolControls({
       // already returns a better Lightning workflow id). Never rewrite a normal
       // user assignment just because auto-rank prefers another file.
       const mappedId = shared.modelWorkflowMap?.[model]?.trim();
-      if (
-        mappedId &&
-        mappedId !== workflowId &&
-        isQwenLightningModel(model)
-      ) {
+      if (mappedId && mappedId !== workflowId && isQwenLightningModel(model)) {
         saveSharedSettings({
           ...loadSettingsCache().shared,
           modelWorkflowMap: {
@@ -440,15 +409,15 @@ export default function SharedToolControls({
       suggestedWorkflowMap,
       toolId,
       workflowCatalog,
-    ],
+    ]
   );
 
   const handleModelChange = useCallback(
     (model: ComfyImageModel) => {
       const nextStackFamily = resolveModelStackFamily(model);
       const stackFamilyChanged =
-        lastModelStackFamilyRef.current !== "unknown" &&
-        nextStackFamily !== "unknown" &&
+        lastModelStackFamilyRef.current !== 'unknown' &&
+        nextStackFamily !== 'unknown' &&
         lastModelStackFamilyRef.current !== nextStackFamily;
       if (stackFamilyChanged) {
         workflowManualOverrideRef.current = false;
@@ -480,12 +449,7 @@ export default function SharedToolControls({
         onSharedSettingsChange?.({ sessionActiveLoraIds: nextIds });
       }
     },
-    [
-      applyWorkflowForModel,
-      onModelChange,
-      onSharedSettingsChange,
-      showAllModelsOverride,
-    ],
+    [applyWorkflowForModel, onModelChange, onSharedSettingsChange, showAllModelsOverride]
   );
 
   /** Diffusers inventory pick → Studio model id + checkpoint/UNET map entry. */
@@ -494,7 +458,7 @@ export default function SharedToolControls({
       const studioModel = (asset.studioModelId?.trim() ||
         resolveStudioModelForDiffusersAsset(
           asset.weightId || asset.id,
-          asset.family,
+          asset.family
         )) as ComfyImageModel;
       const weightId = (asset.weightId || asset.id).trim();
       const sharedNow = loadSettingsCache().shared;
@@ -513,11 +477,11 @@ export default function SharedToolControls({
       });
       handleModelChange(studioModel);
     },
-    [handleModelChange, onSharedSettingsChange],
+    [handleModelChange, onSharedSettingsChange]
   );
 
   const diffusersSelectedAssetId = useMemo(() => {
-    const model = String(shared.model ?? "").trim();
+    const model = String(shared.model ?? '').trim();
     // Lightning / synthetic preset rows use the Studio model id as inventory id.
     if (/lightning/i.test(model) && !/\.(safetensors|ckpt|pt|bin)$/i.test(model)) {
       return model;
@@ -562,7 +526,7 @@ export default function SharedToolControls({
       return;
     }
     const fallback =
-      pickerModels.find((model) => isSystemWorkflowSupportedModel(model)) ??
+      pickerModels.find(model => isSystemWorkflowSupportedModel(model)) ??
       resolveSystemWorkflowFallbackModel(shared.model);
     if (fallback !== shared.model) {
       onModelChange(fallback);
@@ -589,16 +553,14 @@ export default function SharedToolControls({
     }
     let cancelled = false;
     const runScan = () => {
-      void scanAndAdaptSystemWorkflowInventory({ persist: true }).then(
-        (models) => {
-          if (!cancelled && models) {
-            setInventoryTick((value) => value + 1);
-          }
-        },
-      );
+      void scanAndAdaptSystemWorkflowInventory({ persist: true }).then(models => {
+        if (!cancelled && models) {
+          setInventoryTick(value => value + 1);
+        }
+      });
     };
     let cancelIdle: (() => void) | undefined;
-    if (typeof window.requestIdleCallback === "function") {
+    if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(runScan, { timeout: 4000 });
       cancelIdle = () => window.cancelIdleCallback(id);
     } else {
@@ -612,10 +574,9 @@ export default function SharedToolControls({
   }, [shared.useSystemWorkflows, shared.model, storageReady]);
 
   const videoInitKey =
-    toolId === "video"
-      ? loadToolSettings("video", DEFAULT_VIDEO_TOOL_CACHE).initImageUrl?.trim() ??
-        ""
-      : "";
+    toolId === 'video'
+      ? (loadToolSettings('video', DEFAULT_VIDEO_TOOL_CACHE).initImageUrl?.trim() ?? '')
+      : '';
 
   const systemWorkflowChoice = useMemo(() => {
     if (!usesSystemWorkflowPath(shared, shared.model)) {
@@ -623,20 +584,19 @@ export default function SharedToolControls({
     }
     try {
       const preferI2v =
-        getComfyModelDefinition(shared.model)?.category === "video" &&
-        Boolean(videoInitKey);
+        getComfyModelDefinition(shared.model)?.category === 'video' && Boolean(videoInitKey);
       return describeSystemWorkflowChoice(
         shared.model,
         loadComfyWorkflowFiles(),
         readCachedComfyObjectInfoModels(),
-        { preferI2v, tool: toolId },
+        { preferI2v, tool: toolId }
       );
     } catch {
       return {
-        source: "scaffold" as const,
-        label: "Built-in scaffold",
-        reason: "no-worthy-pack" as const,
-        display: "Built-in scaffold",
+        source: 'scaffold' as const,
+        label: 'Built-in scaffold',
+        reason: 'no-worthy-pack' as const,
+        display: 'Built-in scaffold',
       };
     }
   }, [
@@ -654,18 +614,15 @@ export default function SharedToolControls({
       return null;
     }
     if (
-      queueQualityProfile !== "draft" &&
-      queueQualityProfile !== "final" &&
-      queueQualityProfile !== "max"
+      queueQualityProfile !== 'draft' &&
+      queueQualityProfile !== 'final' &&
+      queueQualityProfile !== 'max'
     ) {
       return null;
     }
-    return formatQueueQualityProfileHint(
-      queueQualityProfile,
-      samplerPreset,
-      resolutionSizeTier,
-      { model: shared.model },
-    );
+    return formatQueueQualityProfileHint(queueQualityProfile, samplerPreset, resolutionSizeTier, {
+      model: shared.model,
+    });
   }, [
     queueQualityProfile,
     resolutionSizeTier,
@@ -681,10 +638,7 @@ export default function SharedToolControls({
       : `System path for this model (${pickerModels.length} in picker).`
     : shared.useSystemWorkflows === true
       ? `Hybrid · mapped/manual workflow for this model (${pickerModels.length} in picker).`
-      : supportedModelsFilterHint(
-          supportedModels.source,
-          supportedModels.models.length,
-        );
+      : supportedModelsFilterHint(supportedModels.source, supportedModels.models.length);
 
   useEffect(() => {
     // Respect a persisted library/picker selection — do not replace it with auto-ranked defaults.
@@ -728,20 +682,14 @@ export default function SharedToolControls({
   useEffect(() => {
     scheduleAfterCommit(() => {
       setSamplerPreset(normalizeModelSamplerPresetTier(shared.modelSamplerPreset));
-      setResolutionOrientation(
-        normalizeResolutionOrientation(shared.modelResolutionOrientation),
-      );
-      setResolutionSizeTier(
-        normalizeResolutionSizeTier(shared.modelResolutionSizeTier),
-      );
+      setResolutionOrientation(normalizeResolutionOrientation(shared.modelResolutionOrientation));
+      setResolutionSizeTier(normalizeResolutionSizeTier(shared.modelResolutionSizeTier));
       setRenderRealismMode(normalizeRenderRealismMode(shared.renderRealismMode));
       setAnatomyGuardMode(normalizeAnatomyGuardMode(shared.anatomyGuardMode));
-      setQueueQualityProfile(
-        normalizeQueueQualityProfile(shared.queueQualityProfile),
-      );
+      setQueueQualityProfile(normalizeQueueQualityProfile(shared.queueQualityProfile));
       setShowAllModelsOverride(shared.showAllModelsOverride === true);
       setExpandWildcards(shared.expandWildcards !== false);
-      setWildcardSeed(shared.wildcardSeed ?? "");
+      setWildcardSeed(shared.wildcardSeed ?? '');
       setAutoRetryOnOom(shared.autoRetryOnOom !== false);
       setOomRetryDowngrade(shared.oomRetryDowngrade !== false);
       setSessionActiveLoraIdsByModel(shared.sessionActiveLoraIdsByModel ?? {});
@@ -750,7 +698,7 @@ export default function SharedToolControls({
           sessionActiveLoraIdsByModel: shared.sessionActiveLoraIdsByModel,
           modelLoraMap: shared.modelLoraMap,
           sessionActiveLoraIds: shared.sessionActiveLoraIds,
-        }),
+        })
       );
     });
   }, [
@@ -776,7 +724,7 @@ export default function SharedToolControls({
     const nextByModel = setSessionLoraIdsForModel(
       loadSettingsCache().shared.sessionActiveLoraIdsByModel,
       modelId,
-      ids,
+      ids
     );
     // When clearing to defaults, mirror the resolved defaults for the current model.
     const mirrored =
@@ -854,14 +802,14 @@ export default function SharedToolControls({
     if (shared.useSystemWorkflows !== true) {
       return;
     }
-    if (normalizeQueueQualityProfile(shared.queueQualityProfile) !== "followSettings") {
+    if (normalizeQueueQualityProfile(shared.queueQualityProfile) !== 'followSettings') {
       return;
     }
     scheduleAfterCommit(() => {
       if (!isBrowserStorageReady()) {
         return;
       }
-      handleQueueQualityProfileChange("final");
+      handleQueueQualityProfileChange('final');
     });
   }, [shared.queueQualityProfile, shared.useSystemWorkflows, storageReady]);
 
@@ -897,9 +845,7 @@ export default function SharedToolControls({
     });
   };
 
-  const toolProfileOverride = toolId
-    ? shared.toolQueueQualityProfiles?.[toolId]
-    : undefined;
+  const toolProfileOverride = toolId ? shared.toolQueueQualityProfiles?.[toolId] : undefined;
 
   const handleToolQueueQualityChange = (profile: QueueQualityProfile | undefined) => {
     if (!toolId) {
@@ -921,18 +867,14 @@ export default function SharedToolControls({
 
   const handleRecipesApplied = (next: SharedToolSettings) => {
     setQueueQualityProfile(
-      normalizeQueueQualityProfile(next.queueQualityProfile ?? queueQualityProfile),
+      normalizeQueueQualityProfile(next.queueQualityProfile ?? queueQualityProfile)
     );
-    setSamplerPreset(
-      normalizeModelSamplerPresetTier(next.modelSamplerPreset ?? samplerPreset),
-    );
+    setSamplerPreset(normalizeModelSamplerPresetTier(next.modelSamplerPreset ?? samplerPreset));
     setResolutionOrientation(
-      normalizeResolutionOrientation(
-        next.modelResolutionOrientation ?? resolutionOrientation,
-      ),
+      normalizeResolutionOrientation(next.modelResolutionOrientation ?? resolutionOrientation)
     );
     setResolutionSizeTier(
-      normalizeResolutionSizeTier(next.modelResolutionSizeTier ?? resolutionSizeTier),
+      normalizeResolutionSizeTier(next.modelResolutionSizeTier ?? resolutionSizeTier)
     );
     const nextByModel =
       next.sessionActiveLoraIds !== undefined
@@ -940,7 +882,7 @@ export default function SharedToolControls({
             next.sessionActiveLoraIdsByModel ??
               loadSettingsCache().shared.sessionActiveLoraIdsByModel,
             next.model,
-            next.sessionActiveLoraIds,
+            next.sessionActiveLoraIds
           )
         : (next.sessionActiveLoraIdsByModel ??
           loadSettingsCache().shared.sessionActiveLoraIdsByModel);
@@ -980,7 +922,7 @@ export default function SharedToolControls({
       resolutionSizeTier,
       sessionActiveLoraIds,
       sessionActiveLoraIdsByModel,
-    ],
+    ]
   );
 
   return (
@@ -988,22 +930,22 @@ export default function SharedToolControls({
       <div className="space-y-4">
         <FieldLabel
           hint={
-            shared.inferenceEngine === "diffusers"
-              ? "Optional Diffusers inventory (experimental). Prefer ComfyUI for Lightning quality/speed on 24GB."
+            shared.inferenceEngine === 'diffusers'
+              ? 'Optional Diffusers inventory (experimental). Prefer ComfyUI for Lightning quality/speed on 24GB.'
               : systemPathActive
                 ? undefined
                 : shared.autoSelectWorkflowForModel !== false
-                  ? "Choosing a model auto-selects its mapped ComfyUI workflow below (when configured)."
-                  : "Shared across tools and remembered between page reloads."
+                  ? 'Choosing a model auto-selects its mapped ComfyUI workflow below (when configured).'
+                  : 'Shared across tools and remembered between page reloads.'
           }
         >
-          {shared.inferenceEngine === "diffusers"
-            ? "Diffusers model (Qwen / Flux)"
+          {shared.inferenceEngine === 'diffusers'
+            ? 'Diffusers model (Qwen / Flux)'
             : systemPathActive
-              ? "Model"
-              : "Target model"}
+              ? 'Model'
+              : 'Target model'}
         </FieldLabel>
-        {shared.inferenceEngine === "diffusers" ? (
+        {shared.inferenceEngine === 'diffusers' ? (
           <DiffusersCheckpointSelector
             value={diffusersSelectedAssetId}
             onChange={handleDiffusersAssetChange}
@@ -1012,13 +954,11 @@ export default function SharedToolControls({
           <ModelSelector
             value={shared.model}
             allowedModels={
-              pickerModels.length < COMFY_IMAGE_MODELS.length
-                ? pickerModels
-                : undefined
+              pickerModels.length < COMFY_IMAGE_MODELS.length ? pickerModels : undefined
             }
             filterHint={modelFilterHint}
             onShowAllModels={
-              showAllModelsOverride || supportedModels.source === "disabled"
+              showAllModelsOverride || supportedModels.source === 'disabled'
                 ? undefined
                 : handleShowAllModels
             }
@@ -1033,11 +973,11 @@ export default function SharedToolControls({
             <div className="flex flex-wrap gap-2">
               {(
                 [
-                  { id: "draft" as const, label: "Draft" },
-                  { id: "final" as const, label: "Final" },
-                  { id: "max" as const, label: "Max" },
+                  { id: 'draft' as const, label: 'Draft' },
+                  { id: 'final' as const, label: 'Final' },
+                  { id: 'max' as const, label: 'Max' },
                 ] as const
-              ).map((option) => (
+              ).map(option => (
                 <ChipButton
                   key={option.id}
                   active={queueQualityProfile === option.id}
@@ -1048,16 +988,11 @@ export default function SharedToolControls({
               ))}
             </div>
             {systemQualityHint ? (
-              <p className="text-xs leading-relaxed text-zinc-500">
-                {systemQualityHint}
-              </p>
+              <p className="text-xs leading-relaxed text-zinc-500">{systemQualityHint}</p>
             ) : null}
             {systemWorkflowChoice ? (
               <p className="text-xs leading-relaxed text-zinc-500">
-                Graph:{" "}
-                <span className="text-zinc-300">
-                  {systemWorkflowChoice.display}
-                </span>
+                Graph: <span className="text-zinc-300">{systemWorkflowChoice.display}</span>
               </p>
             ) : null}
             <QueueRecipesPanel
@@ -1069,41 +1004,32 @@ export default function SharedToolControls({
               systemWorkflowSource={systemWorkflowChoice?.source}
               onApplied={handleRecipesApplied}
             />
-            {shared.inferenceEngine === "diffusers" ? (
+            {shared.inferenceEngine === 'diffusers' ? (
               <DiffusersSamplingReadout
                 model={shared.model}
                 checkpointMap={shared.modelCheckpointMap}
-                toolId={toolId ?? "generate"}
-                workshopCrop={shared.diffusersWorkshopCrop ?? "auto"}
+                toolId={toolId ?? 'generate'}
+                workshopCrop={shared.diffusersWorkshopCrop ?? 'auto'}
               />
             ) : null}
           </div>
         ) : null}
-        {toolId === "generate" &&
-        /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
+        {toolId === 'generate' && /qwen-image-edit-2511-lightning/i.test(shared.model) ? (
           <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2.5">
             <p className="text-xs leading-relaxed text-amber-100/85">
-              Edit-2511 Lightning on Generate runs as T2I (reference images
-              disconnected). For clean scene generation prefer{" "}
-              <span className="font-medium text-amber-50">
-                Qwen-Image-2512 Lightning
-              </span>
-              ; keep Edit Lightning for Refine / img2img.
+              Edit-2511 Lightning on Generate runs as T2I (reference images disconnected). For clean
+              scene generation prefer{' '}
+              <span className="font-medium text-amber-50">Qwen-Image-2512 Lightning</span>; keep
+              Edit Lightning for Refine / img2img.
             </p>
             <Button
               type="button"
               variant="secondary"
               className="h-8 px-3 text-xs"
-              onClick={() =>
-                handleModelChange(resolveTxt2iCounterpartForGenerate(shared.model))
-              }
+              onClick={() => handleModelChange(resolveTxt2iCounterpartForGenerate(shared.model))}
             >
-              Switch to{" "}
-              {
-                getComfyModelDefinition(
-                  resolveTxt2iCounterpartForGenerate(shared.model),
-                ).label
-              }
+              Switch to{' '}
+              {getComfyModelDefinition(resolveTxt2iCounterpartForGenerate(shared.model)).label}
             </Button>
           </div>
         ) : null}
@@ -1121,11 +1047,11 @@ export default function SharedToolControls({
         <div className="flex flex-wrap gap-2">
           {(
             [
-              { label: "Concise", value: "concise" },
-              { label: "Balanced", value: "balanced" },
-              { label: "Rich", value: "rich" },
+              { label: 'Concise', value: 'concise' },
+              { label: 'Balanced', value: 'balanced' },
+              { label: 'Rich', value: 'rich' },
             ] as const
-          ).map((preset) => (
+          ).map(preset => (
             <ChipButton
               key={preset.value}
               active={shared.detail === preset.value}
@@ -1140,391 +1066,390 @@ export default function SharedToolControls({
       {onWorkflowPresetChange &&
         workflowSelection.mounted &&
         !usesSystemWorkflowPath(shared, shared.model) && (
-        <ComfyWorkflowSelector
-          selectedId={selectedWorkflowId}
-          defaultLabel={workflowSelection.defaultLabel}
-          localFiles={workflowSelection.localFiles}
-          serverFiles={workflowSelection.serverFiles}
-          helpText={
-            shared.useSystemWorkflows === true
-              ? "This model is outside the system-workflow families — pick a library graph (or map one in Settings)."
-              : shared.autoSelectWorkflowForModel !== false
-                ? "Your picker choice is used at queue time unless Settings → model→workflow map assigns a file for this model."
-                : undefined
-          }
-          onChange={(fileId) => {
-            workflowManualOverrideRef.current = true;
-            workflowSelection.setSelectedId(fileId);
-            onWorkflowPresetChange(fileId);
-          }}
-        />
-      )}
+          <ComfyWorkflowSelector
+            selectedId={selectedWorkflowId}
+            defaultLabel={workflowSelection.defaultLabel}
+            localFiles={workflowSelection.localFiles}
+            serverFiles={workflowSelection.serverFiles}
+            helpText={
+              shared.useSystemWorkflows === true
+                ? 'This model is outside the system-workflow families — pick a library graph (or map one in Settings).'
+                : shared.autoSelectWorkflowForModel !== false
+                  ? 'Your picker choice is used at queue time unless Settings → model→workflow map assigns a file for this model.'
+                  : undefined
+            }
+            onChange={fileId => {
+              workflowManualOverrideRef.current = true;
+              workflowSelection.setSelectedId(fileId);
+              onWorkflowPresetChange(fileId);
+            }}
+          />
+        )}
 
       {(() => {
         const advancedSections = (
           <>
-      <CollapsibleSection
-        title="LoRA stack"
-        summary={
-          sessionActiveLoraIds !== undefined
-            ? `${sessionActiveLoraIds.length} selected for this model`
-            : "Pick LoRAs for this model without trigger keywords"
-        }
-        defaultOpen={advancedOpenByDefault}
-        persistKey="shared-lora-stack"
-      >
-        <LoraStackSessionPicker
-          model={shared.model}
-          sessionActiveLoraIds={
-            hasSessionLoraIdsForModel(sessionActiveLoraIdsByModel, shared.model)
-              ? sessionActiveLoraIds
-              : undefined
-          }
-          checkboxClassName={checkboxClass}
-          onChange={handleSessionActiveLoraIdsChange}
-        />
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        title="Quality & sampling"
-        summary={
-          systemPathActive
-            ? "Sampler, resolution, realism, and anatomy overrides."
-            : "Sampler, resolution, queue quality, realism, anatomy, and model recommendations."
-        }
-        defaultOpen={advancedOpenByDefault}
-        persistKey="shared-quality-sampling"
-      >
-        <ModelSamplerHints
-          model={shared.model}
-          preset={samplerPreset}
-          onPresetChange={handleSamplerPresetChange}
-        />
-
-        <ModelResolutionHints
-          model={shared.model}
-          orientation={resolutionOrientation}
-          sizeTier={resolutionSizeTier}
-          onOrientationChange={handleResolutionOrientationChange}
-          onSizeTierChange={handleResolutionSizeTierChange}
-        />
-
-        {!systemPathActive ? (
-          <>
-            <QueueQualityProfileHints
-              profile={queueQualityProfile}
-              samplerPreset={samplerPreset}
-              resolutionSizeTier={resolutionSizeTier}
-              onProfileChange={handleQueueQualityProfileChange}
-              toolId={toolId}
-              toolProfile={toolProfileOverride}
-              onToolProfileChange={handleToolQueueQualityChange}
-            />
-            <QueueRecipesPanel
-              toolId={toolId}
-              shared={recipesShared}
-              qualityProfile={queueQualityProfile}
-              orientation={resolutionOrientation}
-              sizeTier={resolutionSizeTier}
-              onApplied={handleRecipesApplied}
-            />
-          </>
-        ) : null}
-
-        <RenderRealismHints
-          mode={renderRealismMode}
-          onModeChange={handleRenderRealismModeChange}
-        />
-
-        <AnatomyGuardHints
-          mode={anatomyGuardMode}
-          onModeChange={handleAnatomyGuardModeChange}
-        />
-
-        {recommendFromText ? (
-          <ModelRecommenderHints
-            text={recommendFromText}
-            currentModel={shared.model}
-            onApplyModel={(model) => handleModelChange(model)}
-          />
-        ) : null}
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        title="Wildcards & auto-retry"
-        summary="Dynamic prompt tokens and OOM/execution_error auto-retry."
-        defaultOpen={false}
-        persistKey="shared-wildcards-oom-retry"
-      >
-        <label className="flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={expandWildcards}
-            onChange={(e) => handleExpandWildcardsChange(e.target.checked)}
-            className={checkboxClass}
-          />
-          <span className="space-y-1">
-            <span className="type-heading block">Expand wildcards</span>
-            <span className="type-caption block">
-              Replace <code>__color__</code> / <code>{"{a|b|c}"}</code> style
-              tokens in the prompt before queueing.
-            </span>
-          </span>
-        </label>
-
-        {expandWildcards && (
-          <div className="space-y-2 pl-7">
-            <FieldLabel hint="Same seed always expands the same way — leave blank for a fresh random roll each queue.">
-              Wildcard seed (optional)
-            </FieldLabel>
-            <input
-              type="text"
-              value={wildcardSeed}
-              onChange={(e) => handleWildcardSeedChange(e.target.value)}
-              placeholder="e.g. my-batch-01"
-              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-            />
-            {textHasWildcardTokens(wildcardPreviewText ?? recommendFromText) ? (
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      const source = (wildcardPreviewText ?? recommendFromText ?? "").trim();
-                      if (!source) {
-                        setWildcardPreview(null);
-                        return;
-                      }
-                      const seed =
-                        wildcardSeed.trim() ||
-                        `preview-${Math.floor(Math.random() * 1e9)}`;
-                      setWildcardPreview(
-                        expandWildcardText(source, {
-                          seed,
-                          wildcards: shared.wildcardLists,
-                        }),
-                      );
-                    }}
-                  >
-                    {wildcardPreview ? "Roll again" : "Preview expand"}
-                  </Button>
-                  {wildcardPreview ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(wildcardPreview);
-                      }}
-                    >
-                      Copy preview
-                    </Button>
-                  ) : null}
-                </div>
-                {wildcardPreview ? (
-                  <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3 text-xs leading-relaxed text-zinc-300">
-                    {wildcardPreview}
-                  </pre>
-                ) : null}
-              </div>
-            ) : (
-              <p className="type-caption text-zinc-500">
-                Add <code>__list__</code> or <code>{"{a|b}"}</code> tokens to the
-                draft/hints to preview expansion here.
-              </p>
-            )}
-          </div>
-        )}
-
-        <FieldDivider />
-
-        <label className="flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={autoRetryOnOom}
-            onChange={(e) => handleAutoRetryOnOomChange(e.target.checked)}
-            className={checkboxClass}
-          />
-          <span className="space-y-1">
-            <span className="type-heading block">Auto-retry on OOM</span>
-            <span className="type-caption block">
-              When a Max/Final gallery job fails with an OOM/CUDA/execution_error,
-              automatically re-queue it once.
-            </span>
-          </span>
-        </label>
-
-        <label
-          className={`flex items-start gap-3 ${
-            autoRetryOnOom ? "cursor-pointer" : "cursor-not-allowed opacity-60"
-          }`}
-        >
-          <input
-            type="checkbox"
-            checked={oomRetryDowngrade}
-            disabled={!autoRetryOnOom}
-            onChange={(e) => handleOomRetryDowngradeChange(e.target.checked)}
-            className={checkboxClass}
-          />
-          <span className="space-y-1">
-            <span className="type-heading block">Downgrade quality on retry</span>
-            <span className="type-caption block">
-              Max → Final / Final → Draft on the same host; if a pool has
-              multiple endpoints, an alternate one is also tried.
-            </span>
-          </span>
-        </label>
-      </CollapsibleSection>
-
-      {(showWardrobeOption && onAlwaysIncludeClothingChange) ||
-      onSeedLlmWithIngredientsChange ? (
-        <>
-          <FieldDivider />
-          {onSeedLlmWithIngredientsChange ? (
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={seedLlmWithIngredients}
-                onChange={(e) =>
-                  onSeedLlmWithIngredientsChange(e.target.checked)
-                }
-                className={checkboxClass}
-              />
-              <span className="space-y-1">
-                <span className="type-heading block">
-                  Seed LLM with location & wardrobe
-                </span>
-                <span className="type-caption block">
-                  When on, injects rolled location / outfit / environment
-                  ingredients and few-shot examples. Turn off for completionist
-                  local models — only your keywords or hints go to the LLM.
-                </span>
-              </span>
-            </label>
-          ) : null}
-          {showWardrobeOption && onAlwaysIncludeClothingChange ? (
-            <label
-              className={`flex cursor-pointer items-start gap-3 ${
-                onSeedLlmWithIngredientsChange ? "mt-3" : ""
-              }`}
+            <CollapsibleSection
+              title="LoRA stack"
+              summary={
+                sessionActiveLoraIds !== undefined
+                  ? `${sessionActiveLoraIds.length} selected for this model`
+                  : 'Pick LoRAs for this model without trigger keywords'
+              }
+              defaultOpen={advancedOpenByDefault}
+              persistKey="shared-lora-stack"
             >
-              <input
-                type="checkbox"
-                checked={alwaysIncludeClothing}
-                disabled={
-                  onSeedLlmWithIngredientsChange
-                    ? !seedLlmWithIngredients
-                    : false
+              <LoraStackSessionPicker
+                model={shared.model}
+                sessionActiveLoraIds={
+                  hasSessionLoraIdsForModel(sessionActiveLoraIdsByModel, shared.model)
+                    ? sessionActiveLoraIds
+                    : undefined
                 }
-                onChange={(e) => onAlwaysIncludeClothingChange(e.target.checked)}
-                className={checkboxClass}
+                checkboxClassName={checkboxClass}
+                onChange={handleSessionActiveLoraIdsChange}
               />
-              <span className="space-y-1">
-                <span className="type-heading block">Always include wardrobe</span>
-                <span className="type-caption block">
-                  {wardrobeHelp ??
-                    "Rolls catalog outfits for people in the prompt and appends assigned clothing if the model omits it."}
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Quality & sampling"
+              summary={
+                systemPathActive
+                  ? 'Sampler, resolution, realism, and anatomy overrides.'
+                  : 'Sampler, resolution, queue quality, realism, anatomy, and model recommendations.'
+              }
+              defaultOpen={advancedOpenByDefault}
+              persistKey="shared-quality-sampling"
+            >
+              <ModelSamplerHints
+                model={shared.model}
+                preset={samplerPreset}
+                onPresetChange={handleSamplerPresetChange}
+              />
+
+              <ModelResolutionHints
+                model={shared.model}
+                orientation={resolutionOrientation}
+                sizeTier={resolutionSizeTier}
+                onOrientationChange={handleResolutionOrientationChange}
+                onSizeTierChange={handleResolutionSizeTierChange}
+              />
+
+              {!systemPathActive ? (
+                <>
+                  <QueueQualityProfileHints
+                    profile={queueQualityProfile}
+                    samplerPreset={samplerPreset}
+                    resolutionSizeTier={resolutionSizeTier}
+                    onProfileChange={handleQueueQualityProfileChange}
+                    toolId={toolId}
+                    toolProfile={toolProfileOverride}
+                    onToolProfileChange={handleToolQueueQualityChange}
+                  />
+                  <QueueRecipesPanel
+                    toolId={toolId}
+                    shared={recipesShared}
+                    qualityProfile={queueQualityProfile}
+                    orientation={resolutionOrientation}
+                    sizeTier={resolutionSizeTier}
+                    onApplied={handleRecipesApplied}
+                  />
+                </>
+              ) : null}
+
+              <RenderRealismHints
+                mode={renderRealismMode}
+                onModeChange={handleRenderRealismModeChange}
+              />
+
+              <AnatomyGuardHints
+                mode={anatomyGuardMode}
+                onModeChange={handleAnatomyGuardModeChange}
+              />
+
+              {recommendFromText ? (
+                <ModelRecommenderHints
+                  text={recommendFromText}
+                  currentModel={shared.model}
+                  onApplyModel={model => handleModelChange(model)}
+                />
+              ) : null}
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Wildcards & auto-retry"
+              summary="Dynamic prompt tokens and OOM/execution_error auto-retry."
+              defaultOpen={false}
+              persistKey="shared-wildcards-oom-retry"
+            >
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={expandWildcards}
+                  onChange={e => handleExpandWildcardsChange(e.target.checked)}
+                  className={checkboxClass}
+                />
+                <span className="space-y-1">
+                  <span className="type-heading block">Expand wildcards</span>
+                  <span className="type-caption block">
+                    Replace <code>__color__</code> / <code>{'{a|b|c}'}</code> style tokens in the
+                    prompt before queueing.
+                  </span>
                 </span>
-              </span>
-            </label>
-          ) : null}
-        </>
-      ) : null}
+              </label>
 
-      {(lockedWardrobeId ||
-        lockedLocation ||
-        lockedVariationSeed ||
-        onAutoFixRulesChange) && (
-        <CollapsibleSection
-          title="Pins & automation"
-          summary="Locked scene ingredients and post-generation fixes."
-          persistKey="shared-pins-automation"
-          defaultOpen={Boolean(
-            lockedWardrobeId || lockedLocation || lockedVariationSeed,
-          )}
-        >
-          {lockedWardrobeId && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="type-caption rounded-[var(--radius-full)] border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2.5 py-1 text-[var(--tint-info-text)]">
-                Locked kit: {lockedWardrobeLabel ?? lockedWardrobeId}
-              </span>
-              {onClearLockedWardrobe && (
-                <Button variant="ghost" onClick={onClearLockedWardrobe} className="!min-h-8 px-2 type-caption">
-                  Clear
-                </Button>
+              {expandWildcards && (
+                <div className="space-y-2 pl-7">
+                  <FieldLabel hint="Same seed always expands the same way — leave blank for a fresh random roll each queue.">
+                    Wildcard seed (optional)
+                  </FieldLabel>
+                  <input
+                    type="text"
+                    value={wildcardSeed}
+                    onChange={e => handleWildcardSeedChange(e.target.value)}
+                    placeholder="e.g. my-batch-01"
+                    className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                  />
+                  {textHasWildcardTokens(wildcardPreviewText ?? recommendFromText) ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            const source = (wildcardPreviewText ?? recommendFromText ?? '').trim();
+                            if (!source) {
+                              setWildcardPreview(null);
+                              return;
+                            }
+                            const seed =
+                              wildcardSeed.trim() || `preview-${Math.floor(Math.random() * 1e9)}`;
+                            setWildcardPreview(
+                              expandWildcardText(source, {
+                                seed,
+                                wildcards: shared.wildcardLists,
+                              })
+                            );
+                          }}
+                        >
+                          {wildcardPreview ? 'Roll again' : 'Preview expand'}
+                        </Button>
+                        {wildcardPreview ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(wildcardPreview);
+                            }}
+                          >
+                            Copy preview
+                          </Button>
+                        ) : null}
+                      </div>
+                      {wildcardPreview ? (
+                        <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3 text-xs leading-relaxed text-zinc-300">
+                          {wildcardPreview}
+                        </pre>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="type-caption text-zinc-500">
+                      Add <code>__list__</code> or <code>{'{a|b}'}</code> tokens to the draft/hints
+                      to preview expansion here.
+                    </p>
+                  )}
+                </div>
               )}
-            </div>
-          )}
 
-          {lockedLocation && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="type-caption rounded-[var(--radius-full)] border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2.5 py-1 text-[var(--tint-warning-text)]">
-                Locked location: {lockedLocation}
-              </span>
-              {onClearLockedLocation && (
-                <Button variant="ghost" onClick={onClearLockedLocation} className="!min-h-8 px-2 type-caption">
-                  Clear
-                </Button>
-              )}
-            </div>
-          )}
+              <FieldDivider />
 
-          {lockedVariationSeed && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className="type-caption max-w-full truncate rounded-[var(--radius-full)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-1 text-[var(--accent-text)]"
-                title={lockedVariationSeed}
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={autoRetryOnOom}
+                  onChange={e => handleAutoRetryOnOomChange(e.target.checked)}
+                  className={checkboxClass}
+                />
+                <span className="space-y-1">
+                  <span className="type-heading block">Auto-retry on OOM</span>
+                  <span className="type-caption block">
+                    When a Max/Final gallery job fails with an OOM/CUDA/execution_error,
+                    automatically re-queue it once.
+                  </span>
+                </span>
+              </label>
+
+              <label
+                className={`flex items-start gap-3 ${
+                  autoRetryOnOom ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                }`}
               >
-                {PINNED_VARIATION_SEED_LABEL}:{" "}
-                {lockedVariationSeed.length > 48
-                  ? `${lockedVariationSeed.slice(0, 48)}…`
-                  : lockedVariationSeed}
-              </span>
-              {onClearLockedVariationSeed && (
-                <Button variant="ghost" onClick={onClearLockedVariationSeed} className="!min-h-8 px-2 type-caption">
-                  Clear
-                </Button>
-              )}
-            </div>
-          )}
-
-          {onAutoFixRulesChange && (
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={autoFixRules}
-                onChange={(e) => onAutoFixRulesChange(e.target.checked)}
-                className={checkboxClass}
-              />
-              <span className="space-y-1">
-                <span className="type-heading block">Auto-fix lint errors</span>
-                <span className="type-caption block">
-                  After generation, apply rule-based fixes when lint reports errors.
+                <input
+                  type="checkbox"
+                  checked={oomRetryDowngrade}
+                  disabled={!autoRetryOnOom}
+                  onChange={e => handleOomRetryDowngradeChange(e.target.checked)}
+                  className={checkboxClass}
+                />
+                <span className="space-y-1">
+                  <span className="type-heading block">Downgrade quality on retry</span>
+                  <span className="type-caption block">
+                    Max → Final / Final → Draft on the same host; if a pool has multiple endpoints,
+                    an alternate one is also tried.
+                  </span>
                 </span>
-              </span>
-            </label>
-          )}
+              </label>
+            </CollapsibleSection>
 
-          {onActiveCharacterDescriptorChange && (
-            <div className="space-y-2">
-              <FieldLabel hint="Injected into Character generation as a mandatory descriptor.">
-                Active character descriptor
-              </FieldLabel>
-              <textarea
-                value={activeCharacterDescriptor ?? ""}
-                onChange={(event) =>
-                  onActiveCharacterDescriptorChange(event.target.value)
-                }
-                rows={3}
-                placeholder="e.g. athletic woman, mid-20s, short copper hair, green eyes"
-                className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-              />
-            </div>
-          )}
-        </CollapsibleSection>
-      )}
+            {(showWardrobeOption && onAlwaysIncludeClothingChange) ||
+            onSeedLlmWithIngredientsChange ? (
+              <>
+                <FieldDivider />
+                {onSeedLlmWithIngredientsChange ? (
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={seedLlmWithIngredients}
+                      onChange={e => onSeedLlmWithIngredientsChange(e.target.checked)}
+                      className={checkboxClass}
+                    />
+                    <span className="space-y-1">
+                      <span className="type-heading block">Seed LLM with location & wardrobe</span>
+                      <span className="type-caption block">
+                        When on, injects rolled location / outfit / environment ingredients and
+                        few-shot examples. Turn off for completionist local models — only your
+                        keywords or hints go to the LLM.
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
+                {showWardrobeOption && onAlwaysIncludeClothingChange ? (
+                  <label
+                    className={`flex cursor-pointer items-start gap-3 ${
+                      onSeedLlmWithIngredientsChange ? 'mt-3' : ''
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={alwaysIncludeClothing}
+                      disabled={onSeedLlmWithIngredientsChange ? !seedLlmWithIngredients : false}
+                      onChange={e => onAlwaysIncludeClothingChange(e.target.checked)}
+                      className={checkboxClass}
+                    />
+                    <span className="space-y-1">
+                      <span className="type-heading block">Always include wardrobe</span>
+                      <span className="type-caption block">
+                        {wardrobeHelp ??
+                          'Rolls catalog outfits for people in the prompt and appends assigned clothing if the model omits it.'}
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
+              </>
+            ) : null}
+
+            {(lockedWardrobeId ||
+              lockedLocation ||
+              lockedVariationSeed ||
+              onAutoFixRulesChange) && (
+              <CollapsibleSection
+                title="Pins & automation"
+                summary="Locked scene ingredients and post-generation fixes."
+                persistKey="shared-pins-automation"
+                defaultOpen={Boolean(lockedWardrobeId || lockedLocation || lockedVariationSeed)}
+              >
+                {lockedWardrobeId && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="type-caption rounded-[var(--radius-full)] border border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] px-2.5 py-1 text-[var(--tint-info-text)]">
+                      Locked kit: {lockedWardrobeLabel ?? lockedWardrobeId}
+                    </span>
+                    {onClearLockedWardrobe && (
+                      <Button
+                        variant="ghost"
+                        onClick={onClearLockedWardrobe}
+                        className="!min-h-8 px-2 type-caption"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {lockedLocation && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="type-caption rounded-[var(--radius-full)] border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2.5 py-1 text-[var(--tint-warning-text)]">
+                      Locked location: {lockedLocation}
+                    </span>
+                    {onClearLockedLocation && (
+                      <Button
+                        variant="ghost"
+                        onClick={onClearLockedLocation}
+                        className="!min-h-8 px-2 type-caption"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {lockedVariationSeed && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className="type-caption max-w-full truncate rounded-[var(--radius-full)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-1 text-[var(--accent-text)]"
+                      title={lockedVariationSeed}
+                    >
+                      {PINNED_VARIATION_SEED_LABEL}:{' '}
+                      {lockedVariationSeed.length > 48
+                        ? `${lockedVariationSeed.slice(0, 48)}…`
+                        : lockedVariationSeed}
+                    </span>
+                    {onClearLockedVariationSeed && (
+                      <Button
+                        variant="ghost"
+                        onClick={onClearLockedVariationSeed}
+                        className="!min-h-8 px-2 type-caption"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {onAutoFixRulesChange && (
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={autoFixRules}
+                      onChange={e => onAutoFixRulesChange(e.target.checked)}
+                      className={checkboxClass}
+                    />
+                    <span className="space-y-1">
+                      <span className="type-heading block">Auto-fix lint errors</span>
+                      <span className="type-caption block">
+                        After generation, apply rule-based fixes when lint reports errors.
+                      </span>
+                    </span>
+                  </label>
+                )}
+
+                {onActiveCharacterDescriptorChange && (
+                  <div className="space-y-2">
+                    <FieldLabel hint="Injected into Character generation as a mandatory descriptor.">
+                      Active character descriptor
+                    </FieldLabel>
+                    <textarea
+                      value={activeCharacterDescriptor ?? ''}
+                      onChange={event => onActiveCharacterDescriptorChange(event.target.value)}
+                      rows={3}
+                      placeholder="e.g. athletic woman, mid-20s, short copper hair, green eyes"
+                      className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                    />
+                  </div>
+                )}
+              </CollapsibleSection>
+            )}
           </>
         );
 
@@ -1555,41 +1480,30 @@ function DiffusersSamplingReadout({
   model: ComfyImageModel;
   checkpointMap?: Partial<Record<string, string>>;
   toolId?: string;
-  workshopCrop: "auto" | "always" | "never";
+  workshopCrop: 'auto' | 'always' | 'never';
 }) {
-  const params = resolveQueueParams({ model, tool: toolId ?? "generate" });
+  const params = resolveQueueParams({ model, tool: toolId ?? 'generate' });
   const checkpoint = resolveDiffusersModelHint(model, checkpointMap);
-  const steps =
-    typeof params.steps === "number"
-      ? params.steps
-      : Number(params.steps) || 40;
-  const cfg =
-    typeof params.cfg === "number" ? params.cfg : Number(params.cfg) || 5.5;
-  const width =
-    typeof params.width === "number"
-      ? params.width
-      : Number(params.width) || 1024;
-  const height =
-    typeof params.height === "number"
-      ? params.height
-      : Number(params.height) || 1024;
+  const steps = typeof params.steps === 'number' ? params.steps : Number(params.steps) || 40;
+  const cfg = typeof params.cfg === 'number' ? params.cfg : Number(params.cfg) || 5.5;
+  const width = typeof params.width === 'number' ? params.width : Number(params.width) || 1024;
+  const height = typeof params.height === 'number' ? params.height : Number(params.height) || 1024;
   const seed =
-    params.seed === undefined || params.seed === "" || params.seed === -1
-      ? "random"
+    params.seed === undefined || params.seed === '' || params.seed === -1
+      ? 'random'
       : String(params.seed);
   const cropLabel =
-    workshopCrop === "always"
-      ? "crop hands"
-      : workshopCrop === "never"
-        ? "allow hands"
-        : "auto crop";
+    workshopCrop === 'always'
+      ? 'crop hands'
+      : workshopCrop === 'never'
+        ? 'allow hands'
+        : 'auto crop';
   return (
     <p className="rounded-lg border border-zinc-700/60 bg-zinc-950/50 px-3 py-2 text-xs leading-relaxed text-zinc-400">
-      Diffusers ·{" "}
-      <span className="text-zinc-200">{checkpoint}</span>
-      {" · "}
+      Diffusers · <span className="text-zinc-200">{checkpoint}</span>
+      {' · '}
       {width}×{height} · {steps} steps · CFG {cfg}
-      {" · "}
+      {' · '}
       seed {seed} · {cropLabel}
     </p>
   );

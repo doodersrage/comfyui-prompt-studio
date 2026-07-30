@@ -13,19 +13,17 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function normalizeVariationSettings(
-  value?: Partial<VariationSettings> | null,
+  value?: Partial<VariationSettings> | null
 ): VariationSettings {
   const enabled =
-    typeof value?.enabled === "boolean"
-      ? value.enabled
-      : DEFAULT_VARIATION_SETTINGS.enabled;
+    typeof value?.enabled === 'boolean' ? value.enabled : DEFAULT_VARIATION_SETTINGS.enabled;
 
   const strength = clamp(
-    typeof value?.strength === "number" && Number.isFinite(value.strength)
+    typeof value?.strength === 'number' && Number.isFinite(value.strength)
       ? Math.round(value.strength)
       : DEFAULT_VARIATION_SETTINGS.strength,
     0,
-    100,
+    100
   );
 
   return {
@@ -35,8 +33,8 @@ export function normalizeVariationSettings(
 }
 
 export function variationStrengthLabel(strength: number): string {
-  if (strength <= 25) return "Subtle";
-  if (strength <= 50) return "Light";
-  if (strength <= 75) return "Balanced";
-  return "Wild";
+  if (strength <= 25) return 'Subtle';
+  if (strength <= 50) return 'Light';
+  if (strength <= 75) return 'Balanced';
+  return 'Wild';
 }

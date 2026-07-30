@@ -1,6 +1,6 @@
 /** Coerce ComfyUI message timestamps (seconds or ms since epoch) to ms. */
 export function coerceComfyTimestampMs(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
     return undefined;
   }
   // ms since epoch (~1e12+), seconds since epoch (~1e9+), otherwise ignore.
@@ -41,23 +41,21 @@ export function extractComfyExecutionTiming(input: {
     }
     const type = message[0];
     const payload = message[1];
-    if (!payload || typeof payload !== "object") {
+    if (!payload || typeof payload !== 'object') {
       continue;
     }
-    const ts = coerceComfyTimestampMs(
-      (payload as { timestamp?: unknown }).timestamp,
-    );
+    const ts = coerceComfyTimestampMs((payload as { timestamp?: unknown }).timestamp);
     if (ts == null) {
       continue;
     }
-    if (type === "execution_start") {
+    if (type === 'execution_start') {
       executionStartedAt = ts;
       continue;
     }
     if (
-      type === "execution_success" ||
-      type === "execution_error" ||
-      type === "execution_interrupted"
+      type === 'execution_success' ||
+      type === 'execution_error' ||
+      type === 'execution_interrupted'
     ) {
       executionEndedAt = ts;
     }
@@ -86,8 +84,8 @@ export function wallClockRenderDurationMs(input: {
   const queuedAt = input.queuedAt;
   const completedAt = input.completedAt;
   if (
-    typeof queuedAt !== "number" ||
-    typeof completedAt !== "number" ||
+    typeof queuedAt !== 'number' ||
+    typeof completedAt !== 'number' ||
     !Number.isFinite(queuedAt) ||
     !Number.isFinite(completedAt) ||
     completedAt < queuedAt
@@ -103,7 +101,7 @@ export function resolveGalleryRenderDurationMs(input: {
   completedAt?: number;
 }): number | undefined {
   if (
-    typeof input.renderDurationMs === "number" &&
+    typeof input.renderDurationMs === 'number' &&
     Number.isFinite(input.renderDurationMs) &&
     input.renderDurationMs >= 0
   ) {
@@ -114,7 +112,7 @@ export function resolveGalleryRenderDurationMs(input: {
 
 /** Compact human label for gallery / workflow chrome. */
 export function formatRenderDuration(ms: number | undefined): string | undefined {
-  if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) {
     return undefined;
   }
   if (ms < 1000) {

@@ -1,7 +1,7 @@
-import { COMFY_MODEL_IDS, type ComfyImageModel } from "./comfy-models/client";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { COMFY_MODEL_IDS, type ComfyImageModel } from './comfy-models/client';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-const KEY = "comfy-tool-context-memory-v1";
+const KEY = 'comfy-tool-context-memory-v1';
 
 export type ToolContextMemoryEntry = {
   model?: ComfyImageModel;
@@ -11,27 +11,24 @@ export type ToolContextMemoryEntry = {
 export type ToolContextMemoryMap = Partial<Record<string, ToolContextMemoryEntry>>;
 
 export function loadToolContextMemory(): ToolContextMemoryMap {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return {};
   }
   const raw = readBrowserValue<unknown>(KEY);
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return {};
   }
   const next: ToolContextMemoryMap = {};
   for (const [tool, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (!tool.trim() || !value || typeof value !== "object" || Array.isArray(value)) {
+    if (!tool.trim() || !value || typeof value !== 'object' || Array.isArray(value)) {
       continue;
     }
     const record = value as Record<string, unknown>;
     const entry: ToolContextMemoryEntry = {};
-    if (typeof record.model === "string" && COMFY_MODEL_IDS.has(record.model)) {
+    if (typeof record.model === 'string' && COMFY_MODEL_IDS.has(record.model)) {
       entry.model = record.model as ComfyImageModel;
     }
-    if (
-      typeof record.selectedWorkflowFileId === "string" &&
-      record.selectedWorkflowFileId.trim()
-    ) {
+    if (typeof record.selectedWorkflowFileId === 'string' && record.selectedWorkflowFileId.trim()) {
       entry.selectedWorkflowFileId = record.selectedWorkflowFileId.trim();
     }
     if (entry.model || entry.selectedWorkflowFileId) {
@@ -45,11 +42,8 @@ export function loadToolContext(toolKey: string): ToolContextMemoryEntry | undef
   return loadToolContextMemory()[toolKey.trim()];
 }
 
-export function saveToolContext(
-  toolKey: string,
-  entry: ToolContextMemoryEntry,
-): void {
-  if (typeof window === "undefined" || !toolKey.trim()) {
+export function saveToolContext(toolKey: string, entry: ToolContextMemoryEntry): void {
+  if (typeof window === 'undefined' || !toolKey.trim()) {
     return;
   }
   const map = loadToolContextMemory();

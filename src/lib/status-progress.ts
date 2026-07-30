@@ -14,19 +14,19 @@ export function isTransientProgressStatus(text: string): boolean {
 }
 
 export function toneForStatusText(
-  text: string,
-): "neutral" | "success" | "warning" | "danger" | "info" {
+  text: string
+): 'neutral' | 'success' | 'warning' | 'danger' | 'info' {
   if (/fail|error/i.test(text)) {
-    return "danger";
+    return 'danger';
   }
   if (isTransientProgressStatus(text)) {
-    return "neutral";
+    return 'neutral';
   }
   if (/skip|warn/i.test(text)) {
-    return "warning";
+    return 'warning';
   }
   if (/finished|queued|downloaded|exported|assigned|prepared/i.test(text)) {
-    return "success";
+    return 'success';
   }
-  return "info";
+  return 'info';
 }

@@ -1,7 +1,7 @@
-import type { SharedToolSettings } from "./settings-cache";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import type { SharedToolSettings } from './settings-cache';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-export const SCENE_PRESETS_KEY = "comfy-prompt-scene-presets-v1";
+export const SCENE_PRESETS_KEY = 'comfy-prompt-scene-presets-v1';
 
 export type ScenePreset = {
   id: string;
@@ -12,12 +12,12 @@ export type ScenePreset = {
   tool?: string;
   sharedLocks?: Pick<
     SharedToolSettings,
-    "lockedWardrobeId" | "lockedLocation" | "lockedVariationSeed"
+    'lockedWardrobeId' | 'lockedLocation' | 'lockedVariationSeed'
   >;
 };
 
 export function loadScenePresets(): ScenePreset[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
 
@@ -33,7 +33,7 @@ function dedupeScenePresets(presets: ScenePreset[]): ScenePreset[] {
   const seen = new Set<string>();
   const deduped: ScenePreset[] = [];
   for (const preset of presets) {
-    const key = `${preset.name.trim().toLowerCase()}|${(preset.hints ?? "").trim().toLowerCase()}`;
+    const key = `${preset.name.trim().toLowerCase()}|${(preset.hints ?? '').trim().toLowerCase()}`;
     if (seen.has(key)) {
       continue;
     }
@@ -44,13 +44,13 @@ function dedupeScenePresets(presets: ScenePreset[]): ScenePreset[] {
 }
 
 export function saveScenePresets(presets: ScenePreset[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(SCENE_PRESETS_KEY, dedupeScenePresets(presets).slice(0, 40));
 }
 
-export function createScenePreset(input: Omit<ScenePreset, "id" | "createdAt">): ScenePreset {
+export function createScenePreset(input: Omit<ScenePreset, 'id' | 'createdAt'>): ScenePreset {
   return {
     ...input,
     id: crypto.randomUUID(),
@@ -60,7 +60,7 @@ export function createScenePreset(input: Omit<ScenePreset, "id" | "createdAt">):
 
 export function upsertScenePreset(preset: ScenePreset): void {
   const presets = loadScenePresets();
-  const index = presets.findIndex((entry) => entry.id === preset.id);
+  const index = presets.findIndex(entry => entry.id === preset.id);
   if (index >= 0) {
     presets[index] = preset;
   } else {
@@ -70,12 +70,10 @@ export function upsertScenePreset(preset: ScenePreset): void {
 }
 
 export function deleteScenePreset(id: string): void {
-  saveScenePresets(loadScenePresets().filter((entry) => entry.id !== id));
+  saveScenePresets(loadScenePresets().filter(entry => entry.id !== id));
 }
 
-export function applyScenePresetLocks(
-  preset: ScenePreset,
-): Partial<SharedToolSettings> {
+export function applyScenePresetLocks(preset: ScenePreset): Partial<SharedToolSettings> {
   return {
     lockedWardrobeId: preset.sharedLocks?.lockedWardrobeId,
     lockedLocation: preset.sharedLocks?.lockedLocation,

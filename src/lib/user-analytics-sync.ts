@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { buildUserAnalyticsSnapshot } from "./user-analytics";
-import { loadComfyGallery } from "./comfyui-gallery";
-import { loadPromptHistoryStore } from "./prompt-history";
-import { getActiveUserId, getActiveUsername } from "./user-scope";
+import { buildUserAnalyticsSnapshot } from './user-analytics';
+import { loadComfyGallery } from './comfyui-gallery';
+import { loadPromptHistoryStore } from './prompt-history';
+import { getActiveUserId, getActiveUsername } from './user-scope';
 
 let syncTimer: number | null = null;
 
 export function scheduleUserAnalyticsSync(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -30,9 +30,9 @@ export function scheduleUserAnalyticsSync(): void {
       history: loadPromptHistoryStore(),
       gallery: loadComfyGallery(),
     });
-    void fetch("/api/auth/analytics", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    void fetch('/api/auth/analytics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(snapshot),
     });
   }, 1500);

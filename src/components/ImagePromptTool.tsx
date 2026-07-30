@@ -1,42 +1,46 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { readRawPrompt } from "@/lib/raw-prompt";
-import SharedToolControls from "@/components/SharedToolControls";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import type { ComfyImageModel } from "@/lib/comfy-models/client";
-import type { WorkflowParamValues } from "@/lib/comfyui-config";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from "@/lib/settings-cache";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import type { EnrichedToolGenerateResult, ImagePromptFocus, ToolGenerateResult } from "@/lib/specialized/types";
+import { useCallback, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { readRawPrompt } from '@/lib/raw-prompt';
+import SharedToolControls from '@/components/SharedToolControls';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
+import type { WorkflowParamValues } from '@/lib/comfyui-config';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { DEFAULT_IMAGE_PROMPT_TOOL_CACHE } from '@/lib/settings-cache';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import type {
+  EnrichedToolGenerateResult,
+  ImagePromptFocus,
+  ToolGenerateResult,
+} from '@/lib/specialized/types';
 import {
   IMAGE_PROMPT_DESCRIPTION_PRESETS,
   getImagePromptPreset,
   type ImagePromptDescriptionPreset,
-} from "@/lib/image-prompt-presets";
+} from '@/lib/image-prompt-presets';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldDivider, FieldError, FieldLabel, TextArea, ChipButton } from "@/components/ui/Field";
+} from '@/components/ui/ToolPageShell';
+import { FieldDivider, FieldError, FieldLabel, TextArea, ChipButton } from '@/components/ui/Field';
 import {
   DESCRIPTION_FOCUS_LABEL,
   DESCRIPTION_PRESET_LABEL,
   EXTRA_HINTS_LABEL,
-} from "@/lib/tool-ui-labels";
-import { Button, PrimaryButton } from "@/components/ui/Button";
+} from '@/lib/tool-ui-labels';
+import { Button, PrimaryButton } from '@/components/ui/Button';
 
-const ACCENT = "fuchsia" as const;
+const ACCENT = 'fuchsia' as const;
 
 type RefImageUpload = {
   id: string;
@@ -50,36 +54,36 @@ function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Could not read image file."));
+    reader.onerror = () => reject(new Error('Could not read image file.'));
     reader.readAsDataURL(file);
   });
 }
 
 export default function ImagePromptTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("imagePrompt", DEFAULT_IMAGE_PROMPT_TOOL_CACHE);
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'imagePrompt',
+    DEFAULT_IMAGE_PROMPT_TOOL_CACHE
+  );
   const [refImages, setRefImages] = useState<RefImageUpload[]>([]);
-  const [output, setOutput] = useState("");
+  const [output, setOutput] = useState('');
   const [result, setResult] = useState<
-    (ToolGenerateResult & { diagnostics?: EnrichedToolGenerateResult["diagnostics"] }) | null
+    (ToolGenerateResult & { diagnostics?: EnrichedToolGenerateResult['diagnostics'] }) | null
   >(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [refineIntent, setRefineIntent] = useState("");
-  const [handoffQueueParams, setHandoffQueueParams] = useState<
-    WorkflowParamValues | undefined
-  >();
+  const [refineIntent, setRefineIntent] = useState('');
+  const [handoffQueueParams, setHandoffQueueParams] = useState<WorkflowParamValues | undefined>();
 
   useSeedToolDraft(mounted, {
-    toolKey: "image-prompt",
-    label: "Image → Prompt",
-    href: "/image-prompt",
+    toolKey: 'image-prompt',
+    label: 'Image → Prompt',
+    href: '/image-prompt',
     fields: [toolSettings.extraHints, output],
   });
 
   const actions = usePromptResultActions({
-    tool: "imagePrompt",
+    tool: 'imagePrompt',
     model: shared.model,
     detail: shared.detail,
     hints: toolSettings.extraHints,
@@ -90,12 +94,10 @@ export default function ImagePromptTool() {
   const selectedModel = getComfyModelDefinition(shared.model);
   const inferredSport = result?.diagnostics?.inferred.sport ?? null;
 
-  const selectedPreset = getImagePromptPreset(
-    toolSettings.descriptionPreset ?? "standard",
-  );
+  const selectedPreset = getImagePromptPreset(toolSettings.descriptionPreset ?? 'standard');
 
-  const addRefImage = useCallback((nextFile: File, role = "", replace = false) => {
-    setRefImages((previous) => {
+  const addRefImage = useCallback((nextFile: File, role = '', replace = false) => {
+    setRefImages(previous => {
       if (!replace && previous.length >= 4) {
         return previous;
       }
@@ -103,7 +105,7 @@ export default function ImagePromptTool() {
         id: `${Date.now()}-${nextFile.name}`,
         file: nextFile,
         previewUrl: URL.createObjectURL(nextFile),
-        role: role || (replace ? "primary" : `reference ${previous.length + 1}`),
+        role: role || (replace ? 'primary' : `reference ${previous.length + 1}`),
         strength: replace || previous.length === 0 ? 1 : 0.75,
       };
       if (replace) {
@@ -128,9 +130,9 @@ export default function ImagePromptTool() {
         extraHints: `Reference prompt from gallery:\n${handoff.prompt.slice(0, 1200)}`,
       });
       rememberDraftFields({
-        toolKey: "image-prompt",
-        label: "Image → Prompt",
-        href: "/image-prompt",
+        toolKey: 'image-prompt',
+        label: 'Image → Prompt',
+        href: '/image-prompt',
         fields: [handoff.prompt.slice(0, 240)],
       });
       setHandoffQueueParams(handoff.queueParams);
@@ -138,28 +140,28 @@ export default function ImagePromptTool() {
         updateShared({ model: handoff.model as ComfyImageModel });
       }
       if (handoff.file) {
-        addRefImage(handoff.file, "gallery reference");
+        addRefImage(handoff.file, 'gallery reference');
       }
     },
-    [addRefImage, updateShared, updateToolSettings],
+    [addRefImage, updateShared, updateToolSettings]
   );
 
-  useGalleryHandoff("imagePrompt", applyGalleryHandoff);
+  useGalleryHandoff('imagePrompt', applyGalleryHandoff);
 
   const removeRefImage = useCallback((id: string) => {
-    setRefImages((previous) => {
-      const target = previous.find((entry) => entry.id === id);
+    setRefImages(previous => {
+      const target = previous.find(entry => entry.id === id);
       if (target) {
         URL.revokeObjectURL(target.previewUrl);
       }
-      return previous.filter((entry) => entry.id !== id);
+      return previous.filter(entry => entry.id !== id);
     });
   }, []);
 
   const onFileChange = useCallback(
     (nextFile: File | null) => {
       if (!nextFile) {
-        setRefImages((previous) => {
+        setRefImages(previous => {
           for (const entry of previous) {
             URL.revokeObjectURL(entry.previewUrl);
           }
@@ -167,14 +169,14 @@ export default function ImagePromptTool() {
         });
         return;
       }
-      addRefImage(nextFile, "primary", true);
+      addRefImage(nextFile, 'primary', true);
     },
-    [addRefImage],
+    [addRefImage]
   );
 
   const generate = useCallback(async () => {
     if (refImages.length === 0) {
-      setError("Upload at least one image.");
+      setError('Upload at least one image.');
       return;
     }
 
@@ -188,50 +190,47 @@ export default function ImagePromptTool() {
 
       if (refImages.length === 1) {
         const formData = new FormData();
-        formData.append("image", refImages[0].file);
-        formData.append("model", shared.model);
-        formData.append("detail", shared.detail);
-        formData.append("focus", toolSettings.focus ?? "full");
-        formData.append(
-          "descriptionPreset",
-          toolSettings.descriptionPreset ?? "standard",
-        );
+        formData.append('image', refImages[0].file);
+        formData.append('model', shared.model);
+        formData.append('detail', shared.detail);
+        formData.append('focus', toolSettings.focus ?? 'full');
+        formData.append('descriptionPreset', toolSettings.descriptionPreset ?? 'standard');
         if (toolSettings.extraHints?.trim()) {
-          formData.append("extraHints", toolSettings.extraHints.trim());
+          formData.append('extraHints', toolSettings.extraHints.trim());
         }
 
-        const response = await fetch("/api/image-prompt", {
-          method: "POST",
+        const response = await fetch('/api/image-prompt', {
+          method: 'POST',
           body: formData,
         });
         data = (await response.json()) as ToolGenerateResult & { error?: string };
         if (!response.ok) {
-          throw new Error(data.error ?? "Generation failed.");
+          throw new Error(data.error ?? 'Generation failed.');
         }
       } else {
         const images = await Promise.all(
-          refImages.map(async (entry) => ({
+          refImages.map(async entry => ({
             image: await fileToDataUrl(entry.file),
-            mimeType: entry.file.type || "image/jpeg",
+            mimeType: entry.file.type || 'image/jpeg',
             role: entry.role,
-            focus: toolSettings.focus ?? "full",
+            focus: toolSettings.focus ?? 'full',
             strength: entry.strength,
-          })),
+          }))
         );
-        const response = await fetch("/api/image-prompt/multi", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const response = await fetch('/api/image-prompt/multi', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             images,
             model: shared.model,
             detail: shared.detail,
-            descriptionPreset: toolSettings.descriptionPreset ?? "standard",
+            descriptionPreset: toolSettings.descriptionPreset ?? 'standard',
             extraHints: toolSettings.extraHints?.trim() || undefined,
           }),
         });
         data = (await response.json()) as ToolGenerateResult & { error?: string };
         if (!response.ok) {
-          throw new Error(data.error ?? "Generation failed.");
+          throw new Error(data.error ?? 'Generation failed.');
         }
       }
 
@@ -239,15 +238,15 @@ export default function ImagePromptTool() {
       setOutput(prompt);
       setResult({ ...data, prompt });
       rememberDraftFields({
-        toolKey: "image-prompt",
-        label: "Image → Prompt",
-        href: "/image-prompt",
+        toolKey: 'image-prompt',
+        label: 'Image → Prompt',
+        href: '/image-prompt',
         fields: [prompt, toolSettings.extraHints],
       });
     } catch (err) {
-      setOutput("");
+      setOutput('');
       setResult(null);
-      setError(err instanceof Error ? err.message : "Generation failed.");
+      setError(err instanceof Error ? err.message : 'Generation failed.');
     } finally {
       setLoading(false);
     }
@@ -260,14 +259,14 @@ export default function ImagePromptTool() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
   const refine = useCallback(async () => {
     const primary = refImages[0];
     if (!primary || !refineIntent.trim()) {
-      setError("Upload an image and describe what you wanted.");
+      setError('Upload an image and describe what you wanted.');
       return;
     }
 
@@ -275,16 +274,16 @@ export default function ImagePromptTool() {
     setError(null);
     actions.resetStatuses();
 
-    let stage = "read-image";
+    let stage = 'read-image';
     try {
       const image = await fileToDataUrl(primary.file);
-      stage = "request";
-      const response = await fetch("/api/refine", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      stage = 'request';
+      const response = await fetch('/api/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image,
-          mimeType: primary.file.type || "image/png",
+          mimeType: primary.file.type || 'image/png',
           model: shared.model,
           detail: shared.detail,
           currentPrompt: output || undefined,
@@ -292,27 +291,31 @@ export default function ImagePromptTool() {
         }),
       });
 
-      stage = "parse-response";
+      stage = 'parse-response';
       const data = (await response.json()) as EnrichedToolGenerateResult & {
         error?: string;
         stage?: string;
       };
 
       if (!response.ok) {
-        const serverStage = data.stage ? ` [${data.stage}]` : "";
-        throw new Error(`${data.error ?? "Refine failed."}${serverStage}`);
+        const serverStage = data.stage ? ` [${data.stage}]` : '';
+        throw new Error(`${data.error ?? 'Refine failed.'}${serverStage}`);
       }
 
-      stage = "finalize";
+      stage = 'finalize';
       const prompt = await actions.finalizePrompt(data.prompt, refineIntent);
       setOutput(prompt);
-      setResult({ ...data, prompt, diagnostics: data.diagnostics ?? actions.diagnostics ?? undefined });
+      setResult({
+        ...data,
+        prompt,
+        diagnostics: data.diagnostics ?? actions.diagnostics ?? undefined,
+      });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Refine failed.";
+      const message = err instanceof Error ? err.message : 'Refine failed.';
       setError(
-        message.includes("[") || message.startsWith("Refine failed")
+        message.includes('[') || message.startsWith('Refine failed')
           ? message
-          : `Refine failed at ${stage}: ${message}`,
+          : `Refine failed at ${stage}: ${message}`
       );
     } finally {
       setLoading(false);
@@ -322,28 +325,24 @@ export default function ImagePromptTool() {
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={
-        <ToolBadge accent={ACCENT}>
-          Vision · {selectedModel.comfyNode}
-        </ToolBadge>
-      }
+      badge={<ToolBadge accent={ACCENT}>Vision · {selectedModel.comfyNode}</ToolBadge>}
       title="Image → Prompt"
       description={
         <>
-          Upload a reference image and convert it into a model-ready prompt using
-          a vision-capable LLM (`LLM_VISION_MODEL`). Standard mode now asks for pose,
-          facing, limb positions, and frame placement by default.
+          Upload a reference image and convert it into a model-ready prompt using a vision-capable
+          LLM (`LLM_VISION_MODEL`). Standard mode now asks for pose, facing, limb positions, and
+          frame placement by default.
         </>
       }
       sidebar={
         <SharedToolControls
           toolId="imagePrompt"
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           autoFixRules={shared.autoFixRules !== false}
-          onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
           recommendFromText={output}
         />
       }
@@ -353,7 +352,7 @@ export default function ImagePromptTool() {
         <input
           type="file"
           accept="image/*"
-          onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
+          onChange={e => onFileChange(e.target.files?.[0] ?? null)}
           className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
         />
         {refImages.length > 0 && refImages.length < 4 ? (
@@ -363,30 +362,28 @@ export default function ImagePromptTool() {
               type="file"
               accept="image/*"
               className="mt-1 block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-zinc-800 file:px-3 file:py-1.5 file:text-xs file:text-zinc-200"
-              onChange={(event) => {
+              onChange={event => {
                 const next = event.target.files?.[0];
                 if (next) {
                   addRefImage(next);
                 }
-                event.target.value = "";
+                event.target.value = '';
               }}
             />
           </label>
         ) : null}
         {refImages.length > 0 ? (
           <ul className="mt-3 space-y-3">
-            {refImages.map((entry) => (
+            {refImages.map(entry => (
               <li key={entry.id} className="ui-surface-inset space-y-3">
                 <div className="flex items-center gap-3">
                   <input
                     value={entry.role}
-                    onChange={(event) =>
-                      setRefImages((previous) =>
-                        previous.map((item) =>
-                          item.id === entry.id
-                            ? { ...item, role: event.target.value }
-                            : item,
-                        ),
+                    onChange={event =>
+                      setRefImages(previous =>
+                        previous.map(item =>
+                          item.id === entry.id ? { ...item, role: event.target.value } : item
+                        )
                       )
                     }
                     className="ui-input min-w-0 flex-1 px-[var(--input-padding-x)] py-1 type-caption"
@@ -409,13 +406,13 @@ export default function ImagePromptTool() {
                     min={0}
                     max={100}
                     value={Math.round(entry.strength * 100)}
-                    onChange={(event) =>
-                      setRefImages((previous) =>
-                        previous.map((item) =>
+                    onChange={event =>
+                      setRefImages(previous =>
+                        previous.map(item =>
                           item.id === entry.id
                             ? { ...item, strength: Number(event.target.value) / 100 }
-                            : item,
-                        ),
+                            : item
+                        )
                       )
                     }
                     aria-label={`Strength for ${entry.role}`}
@@ -443,10 +440,10 @@ export default function ImagePromptTool() {
           {DESCRIPTION_PRESET_LABEL}
         </FieldLabel>
         <div className="flex flex-wrap gap-2">
-          {IMAGE_PROMPT_DESCRIPTION_PRESETS.map((preset) => (
+          {IMAGE_PROMPT_DESCRIPTION_PRESETS.map(preset => (
             <ChipButton
               key={preset.id}
-              active={(toolSettings.descriptionPreset ?? "standard") === preset.id}
+              active={(toolSettings.descriptionPreset ?? 'standard') === preset.id}
               onClick={() =>
                 updateToolSettings({
                   descriptionPreset: preset.id as ImagePromptDescriptionPreset,
@@ -458,11 +455,10 @@ export default function ImagePromptTool() {
           ))}
         </div>
         <p className="type-caption">{selectedPreset.summary}</p>
-        {selectedPreset.suggestedDetail &&
-        selectedPreset.suggestedDetail !== shared.detail ? (
+        {selectedPreset.suggestedDetail && selectedPreset.suggestedDetail !== shared.detail ? (
           <p className="type-caption text-fuchsia-300/90">
-            Works best with{" "}
-            <strong className="font-medium capitalize">{selectedPreset.suggestedDetail}</strong>{" "}
+            Works best with{' '}
+            <strong className="font-medium capitalize">{selectedPreset.suggestedDetail}</strong>{' '}
             detail in the sidebar.
           </p>
         ) : null}
@@ -473,18 +469,16 @@ export default function ImagePromptTool() {
         <div className="flex flex-wrap gap-2">
           {(
             [
-              { label: "Full image", value: "full" },
-              { label: "Subject", value: "subject" },
-              { label: "Background", value: "background" },
-              { label: "Style", value: "style" },
+              { label: 'Full image', value: 'full' },
+              { label: 'Subject', value: 'subject' },
+              { label: 'Background', value: 'background' },
+              { label: 'Style', value: 'style' },
             ] as const
-          ).map((option) => (
+          ).map(option => (
             <ChipButton
               key={option.value}
-              active={(toolSettings.focus ?? "full") === option.value}
-              onClick={() =>
-                updateToolSettings({ focus: option.value as ImagePromptFocus })
-              }
+              active={(toolSettings.focus ?? 'full') === option.value}
+              onClick={() => updateToolSettings({ focus: option.value as ImagePromptFocus })}
             >
               {option.label}
             </ChipButton>
@@ -495,14 +489,14 @@ export default function ImagePromptTool() {
 
         <FieldLabel>{EXTRA_HINTS_LABEL}</FieldLabel>
         <TextArea
-          value={toolSettings.extraHints ?? ""}
-          onChange={(e) => {
+          value={toolSettings.extraHints ?? ''}
+          onChange={e => {
             const value = e.target.value;
             updateToolSettings({ extraHints: value });
             rememberDraftFields({
-              toolKey: "image-prompt",
-              label: "Image → Prompt",
-              href: "/image-prompt",
+              toolKey: 'image-prompt',
+              label: 'Image → Prompt',
+              href: '/image-prompt',
               fields: [value],
             });
           }}
@@ -529,7 +523,7 @@ export default function ImagePromptTool() {
           <TextArea
             rows={2}
             value={refineIntent}
-            onChange={(event) => setRefineIntent(event.target.value)}
+            onChange={event => setRefineIntent(event.target.value)}
             placeholder="What you wanted: two gravel cyclists with helmets, not street clothes…"
             className={accentFocusClass(ACCENT)}
           />
@@ -556,7 +550,7 @@ export default function ImagePromptTool() {
         copied={copied}
         onCopy={() => void copyOutput()}
         extraMeta={
-          typeof result?.metadata?.qualityWarning === "string"
+          typeof result?.metadata?.qualityWarning === 'string'
             ? `shorter than ideal: ${result.metadata.qualityWarning}`
             : undefined
         }
@@ -578,9 +572,7 @@ export default function ImagePromptTool() {
         }
         showWeightInspector={Boolean(output)}
         {...promptResultPreviewProps(actions, output, inferredSport)}
-        onFixPrompt={() =>
-          void actions.fixPrompt(output, setOutput, toolSettings.extraHints)
-        }
+        onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.extraHints)}
         onCopyPair={() => void actions.copyPromptPair(output, inferredSport)}
         onCompact={() => void actions.compactPrompt(output, setOutput)}
         onReformat={() => void actions.reformatForModel(output, setOutput)}

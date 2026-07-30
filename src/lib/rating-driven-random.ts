@@ -1,5 +1,5 @@
-import { loadComfyGallery } from "./comfyui-gallery";
-import { loadPromptHistoryStore } from "./prompt-history";
+import { loadComfyGallery } from './comfyui-gallery';
+import { loadPromptHistoryStore } from './prompt-history';
 
 type HistoryEntry = {
   rating?: number;
@@ -8,7 +8,7 @@ type HistoryEntry = {
 };
 
 function loadHistoryEntries(): HistoryEntry[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   try {
@@ -23,21 +23,20 @@ export function computeRatingDrivenWildnessBias(): number {
   const history = loadHistoryEntries();
   const gallery = loadComfyGallery();
 
-  const rated = history.filter((entry) => typeof entry.rating === "number");
-  const lowRated = history.filter((entry) => (entry.rating ?? 5) <= 2).length;
-  const highRated = history.filter((entry) => (entry.rating ?? 0) >= 4).length;
-  const downvotedGallery = gallery.filter((entry) => (entry.reviewRating ?? 5) <= 2).length;
+  const rated = history.filter(entry => typeof entry.rating === 'number');
+  const lowRated = history.filter(entry => (entry.rating ?? 5) <= 2).length;
+  const highRated = history.filter(entry => (entry.rating ?? 0) >= 4).length;
+  const downvotedGallery = gallery.filter(entry => (entry.reviewRating ?? 5) <= 2).length;
 
   const avgRating =
     rated.length > 0
       ? rated.reduce((sum, entry) => sum + (entry.rating ?? 0), 0) / rated.length
       : 3;
 
-  const favoriteHistory = history.filter((entry) => entry.favorite).length;
-  const favoriteGallery = gallery.filter((entry) => entry.favorite).length;
+  const favoriteHistory = history.filter(entry => entry.favorite).length;
+  const favoriteGallery = gallery.filter(entry => entry.favorite).length;
   const favoriteRatio =
-    (favoriteHistory + favoriteGallery) /
-    Math.max(history.length + gallery.length, 1);
+    (favoriteHistory + favoriteGallery) / Math.max(history.length + gallery.length, 1);
 
   const ratingBias = Math.round((avgRating - 3) * 4);
   const favoriteBias = Math.round((favoriteRatio - 0.15) * 20);
@@ -57,8 +56,12 @@ export function ratingDrivenWildnessLabel(baseWildness: number): string {
   if (bias === 0) {
     return `Base wildness ${baseWildness}`;
   }
-  const sign = bias > 0 ? "+" : "";
+  const sign = bias > 0 ? '+' : '';
   return `Adjusted ${applyRatingDrivenWildness(baseWildness)} (${sign}${bias} from ratings)`;
 }
 
-export { recordAvoidedTokensFromPrompt, loadAvoidedTokens, buildAvoidedTokensInstruction } from "./avoided-tokens";
+export {
+  recordAvoidedTokensFromPrompt,
+  loadAvoidedTokens,
+  buildAvoidedTokensInstruction,
+} from './avoided-tokens';

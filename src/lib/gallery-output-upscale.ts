@@ -1,7 +1,7 @@
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import { buildComfyViewPath } from "./comfyui-outputs";
-import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
-import { isQwenLightningModel } from "./model-sampling-patch";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { buildComfyViewPath } from './comfyui-outputs';
+import { isFluxFineTuneCheckpointModel } from './model-checkpoint-map';
+import { isQwenLightningModel } from './model-sampling-patch';
 import {
   lanczosPolishScaleAfterNeural,
   neuralTargetScaleAfterUpscale,
@@ -19,10 +19,10 @@ import {
   sharpenAlphaForProfile,
   upscaleScaleForProfile,
   type QueueQualityProfile,
-} from "./queue-quality-profile";
-import { IMAGE_SCALE_BY_NODE_TYPE } from "./workflow-direct-patch";
-import { DEFAULT_INPUT_IMAGE_TOKEN } from "./comfyui-config";
-import { isUpscaleModelInstalled } from "./model-upscale-map";
+} from './queue-quality-profile';
+import { IMAGE_SCALE_BY_NODE_TYPE } from './workflow-direct-patch';
+import { DEFAULT_INPUT_IMAGE_TOKEN } from './comfyui-config';
+import { isUpscaleModelInstalled } from './model-upscale-map';
 
 type WorkflowNode = {
   class_type: string;
@@ -31,7 +31,7 @@ type WorkflowNode = {
 };
 
 export type BuildGalleryUpscaleWorkflowInput = {
-  qualityProfile: Extract<QueueQualityProfile, "final" | "max">;
+  qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'>;
   upscaleModelFilename?: string;
   enrichNeuralPolish?: boolean;
   enrichSharpen?: boolean;
@@ -42,9 +42,9 @@ export type BuildGalleryUpscaleWorkflowInput = {
 };
 
 export function resolveGalleryOutputImageUrl(
-  entry: Pick<ComfyGalleryEntry, "comfyUrl" | "images" | "sourceImageUrl">,
+  entry: Pick<ComfyGalleryEntry, 'comfyUrl' | 'images' | 'sourceImageUrl'>
 ): string | undefined {
-  const comfyUrl = entry.comfyUrl?.replace(/\/+$/, "") ?? "";
+  const comfyUrl = entry.comfyUrl?.replace(/\/+$/, '') ?? '';
   if (entry.images[0] && comfyUrl) {
     return buildComfyViewPath(comfyUrl, entry.images[0]);
   }
@@ -60,18 +60,18 @@ export function resolveGalleryOutputImageUrl(
  */
 export function buildLightningGalleryUpscaleWorkflow(): Record<string, WorkflowNode> {
   return {
-    "1": {
-      class_type: "LoadImage",
+    '1': {
+      class_type: 'LoadImage',
       inputs: { image: DEFAULT_INPUT_IMAGE_TOKEN },
-      _meta: { title: "Prompt Studio — gallery output" },
+      _meta: { title: 'Prompt Studio — gallery output' },
     },
-    "2": {
-      class_type: "SaveImage",
+    '2': {
+      class_type: 'SaveImage',
       inputs: {
-        filename_prefix: "PromptStudio-upscale",
-        images: ["1", 0],
+        filename_prefix: 'PromptStudio-upscale',
+        images: ['1', 0],
       },
-      _meta: { title: "Prompt Studio — save" },
+      _meta: { title: 'Prompt Studio — save' },
     },
   };
 }
@@ -81,30 +81,30 @@ export function buildLightningGalleryUpscaleWorkflow(): Record<string, WorkflowN
  * Final → soft blur only (keeps acuity); Max → blur + mild bicubic↓/Lanczos↑.
  */
 export function buildGalleryMoireCleanWorkflow(
-  qualityProfile: Extract<QueueQualityProfile, "final" | "max"> = "final",
+  qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'> = 'final'
 ): Record<string, WorkflowNode> {
   const blurRadius = rapidAioMoireBlurRadius(qualityProfile);
   const blurSigma = rapidAioMoireBlurSigma(qualityProfile);
   const resample = profileUsesRapidAioMoireResample(qualityProfile);
 
   const workflow: Record<string, WorkflowNode> = {
-    "1": {
-      class_type: "LoadImage",
+    '1': {
+      class_type: 'LoadImage',
       inputs: { image: DEFAULT_INPUT_IMAGE_TOKEN },
-      _meta: { title: "Prompt Studio — gallery output" },
+      _meta: { title: 'Prompt Studio — gallery output' },
     },
-    "2": {
-      class_type: "ImageBlur",
+    '2': {
+      class_type: 'ImageBlur',
       inputs: {
-        image: ["1", 0],
+        image: ['1', 0],
         blur_radius: blurRadius,
         sigma: blurSigma,
       },
-      _meta: { title: "Prompt Studio — moiré polish" },
+      _meta: { title: 'Prompt Studio — moiré polish' },
     },
   };
 
-  let outputId = "2";
+  let outputId = '2';
   let nextId = 3;
 
   if (resample) {
@@ -121,7 +121,7 @@ export function buildGalleryMoireCleanWorkflow(
         upscale_method: downMethod,
         scale_by: downscale,
       },
-      _meta: { title: "Prompt Studio — moiré downscale" },
+      _meta: { title: 'Prompt Studio — moiré downscale' },
     };
 
     const restoreId = String(nextId++);
@@ -129,24 +129,24 @@ export function buildGalleryMoireCleanWorkflow(
       class_type: IMAGE_SCALE_BY_NODE_TYPE,
       inputs: {
         image: [downId, 0],
-        upscale_method: "lanczos",
+        upscale_method: 'lanczos',
         scale_by: restore,
       },
-      _meta: { title: "Prompt Studio — moiré size restore" },
+      _meta: { title: 'Prompt Studio — moiré size restore' },
     };
     outputId = restoreId;
 
     if (sharpenAlpha > 0) {
       const sharpenId = String(nextId++);
       workflow[sharpenId] = {
-        class_type: "ImageSharpen",
+        class_type: 'ImageSharpen',
         inputs: {
           image: [outputId, 0],
           sharpen_radius: 1,
           sigma: 0.6,
           alpha: sharpenAlpha,
         },
-        _meta: { title: "Prompt Studio — moiré edge recovery" },
+        _meta: { title: 'Prompt Studio — moiré edge recovery' },
       };
       outputId = sharpenId;
     }
@@ -154,19 +154,19 @@ export function buildGalleryMoireCleanWorkflow(
 
   const saveId = String(nextId);
   workflow[saveId] = {
-    class_type: "SaveImage",
+    class_type: 'SaveImage',
     inputs: {
-      filename_prefix: "PromptStudio-moire-clean",
+      filename_prefix: 'PromptStudio-moire-clean',
       images: [outputId, 0],
     },
-    _meta: { title: "Prompt Studio — save" },
+    _meta: { title: 'Prompt Studio — save' },
   };
 
   return workflow;
 }
 
 export function buildGalleryUpscaleWorkflow(
-  input: BuildGalleryUpscaleWorkflowInput,
+  input: BuildGalleryUpscaleWorkflowInput
 ): Record<string, WorkflowNode> {
   if (isQwenLightningModel(input.model)) {
     return buildLightningGalleryUpscaleWorkflow();
@@ -178,25 +178,25 @@ export function buildGalleryUpscaleWorkflow(
   const loadId = id();
   const workflow: Record<string, WorkflowNode> = {
     [loadId]: {
-      class_type: "LoadImage",
+      class_type: 'LoadImage',
       inputs: { image: DEFAULT_INPUT_IMAGE_TOKEN },
-      _meta: { title: "Prompt Studio — gallery output" },
+      _meta: { title: 'Prompt Studio — gallery output' },
     },
   };
 
   let outputNodeId = loadId;
   const modelName = input.upscaleModelFilename?.trim();
   const useNeural =
-    (input.qualityProfile === "final" || input.qualityProfile === "max") &&
+    (input.qualityProfile === 'final' || input.qualityProfile === 'max') &&
     Boolean(modelName) &&
     isUpscaleModelInstalled(modelName, input.availableUpscaleModels);
 
   if (useNeural && modelName) {
     const loaderId = id();
     workflow[loaderId] = {
-      class_type: "UpscaleModelLoader",
+      class_type: 'UpscaleModelLoader',
       inputs: { model_name: modelName },
-      _meta: { title: "Prompt Studio — upscale model" },
+      _meta: { title: 'Prompt Studio — upscale model' },
     };
 
     const upscaleId = id();
@@ -212,18 +212,16 @@ export function buildGalleryUpscaleWorkflow(
       upscaleInputs.tile_size = tileSize;
     }
     workflow[upscaleId] = {
-      class_type: "ImageUpscaleWithModel",
+      class_type: 'ImageUpscaleWithModel',
       inputs: upscaleInputs,
-      _meta: { title: "Prompt Studio — neural upscale" },
+      _meta: { title: 'Prompt Studio — neural upscale' },
     };
     outputNodeId = upscaleId;
 
     const usePolish =
       input.enrichNeuralPolish !== false &&
       profileUsesNeuralUpscalePolish(input.qualityProfile, { model: input.model });
-    const polishScale = usePolish
-      ? lanczosPolishScaleAfterNeural({ model: input.model })
-      : 1;
+    const polishScale = usePolish ? lanczosPolishScaleAfterNeural({ model: input.model }) : 1;
 
     const targetScale = neuralTargetScaleAfterUpscale(input.qualityProfile, {
       model: input.model,
@@ -236,10 +234,10 @@ export function buildGalleryUpscaleWorkflow(
         class_type: IMAGE_SCALE_BY_NODE_TYPE,
         inputs: {
           image: [outputNodeId, 0],
-          upscale_method: "area",
+          upscale_method: 'area',
           scale_by: targetScale,
         },
-        _meta: { title: "Prompt Studio — neural target upscale" },
+        _meta: { title: 'Prompt Studio — neural target upscale' },
       };
       outputNodeId = targetId;
     }
@@ -250,10 +248,10 @@ export function buildGalleryUpscaleWorkflow(
         class_type: IMAGE_SCALE_BY_NODE_TYPE,
         inputs: {
           image: [outputNodeId, 0],
-          upscale_method: "lanczos",
+          upscale_method: 'lanczos',
           scale_by: polishScale,
         },
-        _meta: { title: "Prompt Studio — Lanczos polish" },
+        _meta: { title: 'Prompt Studio — Lanczos polish' },
       };
       outputNodeId = polishId;
     }
@@ -263,18 +261,16 @@ export function buildGalleryUpscaleWorkflow(
       class_type: IMAGE_SCALE_BY_NODE_TYPE,
       inputs: {
         image: [outputNodeId, 0],
-        upscale_method: "lanczos",
+        upscale_method: 'lanczos',
         scale_by: upscaleScaleForProfile(input.qualityProfile, { model: input.model }),
       },
-      _meta: { title: "Prompt Studio — output upscale" },
+      _meta: { title: 'Prompt Studio — output upscale' },
     };
     outputNodeId = scaleId;
   }
 
   const forceUltraRealMildSharpen =
-    isFluxFineTuneCheckpointModel(input.model) &&
-    input.qualityProfile === "max" &&
-    useNeural;
+    isFluxFineTuneCheckpointModel(input.model) && input.qualityProfile === 'max' && useNeural;
   if (
     (input.enrichSharpen === true || forceUltraRealMildSharpen) &&
     profileUsesSharpenAfterNeuralUpscale(input.qualityProfile, {
@@ -284,26 +280,26 @@ export function buildGalleryUpscaleWorkflow(
   ) {
     const sharpenId = id();
     workflow[sharpenId] = {
-      class_type: "ImageSharpen",
+      class_type: 'ImageSharpen',
       inputs: {
         image: [outputNodeId, 0],
         sharpen_radius: 1,
         sigma: 0.45,
         alpha: sharpenAlphaForProfile(input.qualityProfile, { model: input.model }),
       },
-      _meta: { title: "Prompt Studio — output sharpen" },
+      _meta: { title: 'Prompt Studio — output sharpen' },
     };
     outputNodeId = sharpenId;
   }
 
   const saveId = id();
   workflow[saveId] = {
-    class_type: "SaveImage",
+    class_type: 'SaveImage',
     inputs: {
-      filename_prefix: "PromptStudio-upscale",
+      filename_prefix: 'PromptStudio-upscale',
       images: [outputNodeId, 0],
     },
-    _meta: { title: "Prompt Studio — save" },
+    _meta: { title: 'Prompt Studio — save' },
   };
 
   return workflow;

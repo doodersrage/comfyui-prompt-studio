@@ -9,19 +9,14 @@
  * import, since comfyui-requeue.ts imports comfyui-gallery-client.ts).
  */
 
-import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
-import {
-  normalizeQueueQualityProfile,
-  type QueueQualityProfile,
-} from "./queue-quality-profile";
+import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
+import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
 
 const OOM_OR_EXECUTION_ERROR_PATTERN =
   /out[\s_-]*of[\s_-]*memory|\boom\b|cuda (error|out of memory)|cuda_error|allocat\w* .*(memory|failed)|insufficient (gpu )?memory|execution_?error|runtimeerror|vram/i;
 
 /** Detects OOM / CUDA / out-of-memory / execution_error signatures in a gallery job failure message. */
-export function isOomOrExecutionErrorMessage(
-  message: string | undefined | null,
-): boolean {
+export function isOomOrExecutionErrorMessage(message: string | undefined | null): boolean {
   const text = message?.trim();
   if (!text) {
     return false;
@@ -31,42 +26,40 @@ export function isOomOrExecutionErrorMessage(
 
 /** Max → Final → Draft on retry; Draft/followSettings have no lower tier to fall back to. */
 export function downgradeQueueQualityProfile(
-  profile: QueueQualityProfile | undefined,
+  profile: QueueQualityProfile | undefined
 ): QueueQualityProfile | null {
   const normalized = normalizeQueueQualityProfile(profile);
-  if (normalized === "max") {
-    return "final";
+  if (normalized === 'max') {
+    return 'final';
   }
-  if (normalized === "final") {
-    return "draft";
+  if (normalized === 'final') {
+    return 'draft';
   }
   return null;
 }
 
 function normalizeUrlForCompare(url: string): string {
-  return url.trim().replace(/\/+$/, "").toLowerCase();
+  return url.trim().replace(/\/+$/, '').toLowerCase();
 }
 
 /** First pool URL that isn't (a normalized match of) the current endpoint, or `undefined`. */
 export function pickAlternateComfyUrl(
   poolUrls: string[] | undefined,
-  currentUrl: string | undefined,
+  currentUrl: string | undefined
 ): string | undefined {
   if (!poolUrls || poolUrls.length < 2) {
     return undefined;
   }
-  const currentNormalized = currentUrl ? normalizeUrlForCompare(currentUrl) : "";
-  return poolUrls.find(
-    (url) => url.trim() && normalizeUrlForCompare(url) !== currentNormalized,
-  );
+  const currentNormalized = currentUrl ? normalizeUrlForCompare(currentUrl) : '';
+  return poolUrls.find(url => url.trim() && normalizeUrlForCompare(url) !== currentNormalized);
 }
 
 export type OomRetryDecision =
-  | { action: "none"; reason: string }
-  | { action: "downgrade"; nextProfile: QueueQualityProfile; reason: string }
-  | { action: "switch-endpoint"; nextComfyUrl: string; reason: string }
+  | { action: 'none'; reason: string }
+  | { action: 'downgrade'; nextProfile: QueueQualityProfile; reason: string }
+  | { action: 'switch-endpoint'; nextComfyUrl: string; reason: string }
   | {
-      action: "downgrade-and-switch";
+      action: 'downgrade-and-switch';
       nextProfile: QueueQualityProfile;
       nextComfyUrl: string;
       reason: string;
@@ -97,41 +90,39 @@ export type DecideOomRetryInput = {
  */
 export function decideOomRetry(input: DecideOomRetryInput): OomRetryDecision {
   if (input.autoRetryOnOom === false) {
-    return { action: "none", reason: "auto-retry on OOM is disabled" };
+    return { action: 'none', reason: 'auto-retry on OOM is disabled' };
   }
   if (input.alreadyRetried) {
-    return { action: "none", reason: "already auto-retried once" };
+    return { action: 'none', reason: 'already auto-retried once' };
   }
   if (!isOomOrExecutionErrorMessage(input.statusMessage)) {
-    return { action: "none", reason: "not an OOM/execution_error failure" };
+    return { action: 'none', reason: 'not an OOM/execution_error failure' };
   }
 
   const profile = normalizeQueueQualityProfile(input.queueQualityProfile);
-  const isMaxOrFinal = profile === "max" || profile === "final";
+  const isMaxOrFinal = profile === 'max' || profile === 'final';
   const altUrl = pickAlternateComfyUrl(input.poolUrls, input.currentComfyUrl);
 
   if (!isMaxOrFinal) {
     if (altUrl) {
       return {
-        action: "switch-endpoint",
+        action: 'switch-endpoint',
         nextComfyUrl: altUrl,
         reason: `${profile} job hit OOM — retrying on alternate pool endpoint`,
       };
     }
     return {
-      action: "none",
+      action: 'none',
       reason: `${profile} job has no lower quality tier and no alternate endpoint`,
     };
   }
 
   const downgraded =
-    input.downgradeEnabled !== false
-      ? downgradeQueueQualityProfile(profile)
-      : null;
+    input.downgradeEnabled !== false ? downgradeQueueQualityProfile(profile) : null;
 
   if (downgraded && altUrl) {
     return {
-      action: "downgrade-and-switch",
+      action: 'downgrade-and-switch',
       nextProfile: downgraded,
       nextComfyUrl: altUrl,
       reason: `${profile} job hit OOM — downgrading to ${downgraded} and switching pool endpoint`,
@@ -139,28 +130,28 @@ export function decideOomRetry(input: DecideOomRetryInput): OomRetryDecision {
   }
   if (downgraded) {
     return {
-      action: "downgrade",
+      action: 'downgrade',
       nextProfile: downgraded,
       reason: `${profile} job hit OOM — downgrading to ${downgraded} and retrying on the same host`,
     };
   }
   if (altUrl) {
     return {
-      action: "switch-endpoint",
+      action: 'switch-endpoint',
       nextComfyUrl: altUrl,
       reason: `${profile} job hit OOM — retrying on alternate pool endpoint`,
     };
   }
   return {
-    action: "none",
-    reason: "no downgrade tier or alternate endpoint available",
+    action: 'none',
+    reason: 'no downgrade tier or alternate endpoint available',
   };
 }
 
 /** Best-effort: fetches known ComfyUI pool endpoint URLs from `/api/health`. Returns `[]` on any failure. */
 export async function fetchComfyUiPoolUrlsForRetry(): Promise<string[]> {
   try {
-    const response = await fetch("/api/health");
+    const response = await fetch('/api/health');
     if (!response.ok) {
       return [];
     }
@@ -171,7 +162,7 @@ export async function fetchComfyUiPoolUrlsForRetry(): Promise<string[]> {
       return [];
     }
     return (data.comfyuiPool.endpoints ?? [])
-      .map((endpoint) => endpoint.url?.trim())
+      .map(endpoint => endpoint.url?.trim())
       .filter((url): url is string => Boolean(url));
   } catch {
     return [];
@@ -195,7 +186,7 @@ export type OomAutoRetryResult = {
 export async function attemptOomAutoRetry(
   entry: ComfyGalleryEntry,
   statusMessage: string | undefined,
-  onStatus?: (message: string) => void,
+  onStatus?: (message: string) => void
 ): Promise<OomAutoRetryResult | null> {
   if (entry.oomRetryAttempted) {
     return null;
@@ -205,8 +196,8 @@ export async function attemptOomAutoRetry(
   }
 
   const [{ loadSettingsCache }, { updateComfyGalleryByPromptId }] = await Promise.all([
-    import("./settings-cache"),
-    import("./comfyui-gallery"),
+    import('./settings-cache'),
+    import('./comfyui-gallery'),
   ]);
   const shared = loadSettingsCache().shared;
 
@@ -222,7 +213,7 @@ export async function attemptOomAutoRetry(
     currentComfyUrl: entry.comfyUrl,
   });
 
-  if (decision.action === "none") {
+  if (decision.action === 'none') {
     return { decision, requeued: false };
   }
 
@@ -232,16 +223,16 @@ export async function attemptOomAutoRetry(
   onStatus?.(`Auto-retry: ${decision.reason}…`);
 
   const nextProfile =
-    decision.action === "downgrade" || decision.action === "downgrade-and-switch"
+    decision.action === 'downgrade' || decision.action === 'downgrade-and-switch'
       ? decision.nextProfile
       : normalizeQueueQualityProfile(entry.queueQualityProfile);
   const comfyUrlOverride =
-    decision.action === "switch-endpoint" || decision.action === "downgrade-and-switch"
+    decision.action === 'switch-endpoint' || decision.action === 'downgrade-and-switch'
       ? decision.nextComfyUrl
       : undefined;
 
   try {
-    const { requeueComfyJobFromEntry } = await import("./comfyui-requeue");
+    const { requeueComfyJobFromEntry } = await import('./comfyui-requeue');
     const result = await requeueComfyJobFromEntry(entry, {
       qualityProfile: nextProfile,
       comfyUrlOverride,
@@ -255,7 +246,7 @@ export async function attemptOomAutoRetry(
     return {
       decision,
       requeued: false,
-      error: error instanceof Error ? error.message : "Auto-retry requeue failed.",
+      error: error instanceof Error ? error.message : 'Auto-retry requeue failed.',
     };
   }
 }

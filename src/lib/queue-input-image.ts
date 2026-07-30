@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import type { ComfyImageModel } from "./comfy-models/client";
-import { uploadComfyInputImage } from "./comfyui-image-upload";
+import type { ComfyImageModel } from './comfy-models/client';
+import { uploadComfyInputImage } from './comfyui-image-upload';
 
 export type ResolveQueueInputImageOptions = {
   file?: File | null;
@@ -17,7 +17,7 @@ export type ResolvedQueueInputImage = {
 };
 
 export async function resolveQueueInputImageFilename(
-  options: ResolveQueueInputImageOptions,
+  options: ResolveQueueInputImageOptions
 ): Promise<string | undefined> {
   const resolved = await resolveQueueInputImage(options);
   return resolved?.filename;
@@ -25,7 +25,7 @@ export async function resolveQueueInputImageFilename(
 
 /** Upload (or reuse filename) and return pixel size of what Comfy actually got. */
 export async function resolveQueueInputImage(
-  options: ResolveQueueInputImageOptions,
+  options: ResolveQueueInputImageOptions
 ): Promise<ResolvedQueueInputImage | undefined> {
   if (options.file) {
     const uploaded = await uploadComfyInputImage({
@@ -45,9 +45,8 @@ export async function resolveQueueInputImage(
       throw new Error(`Could not fetch image for ComfyUI upload (HTTP ${response.status}).`);
     }
     const blob = await response.blob();
-    const filename =
-      options.filename?.trim() || `prompt-studio-${Date.now()}.png`;
-    const file = new File([blob], filename, { type: blob.type || "image/png" });
+    const filename = options.filename?.trim() || `prompt-studio-${Date.now()}.png`;
+    const file = new File([blob], filename, { type: blob.type || 'image/png' });
     const uploaded = await uploadComfyInputImage({ file, model: options.model });
     return {
       filename: uploaded.name,

@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { compressImageForEngineUpload } from "./browser-compress-image";
-import { fileToDataUrl } from "./browser-file-data-url";
-import { resolveRuntimeForModel } from "./comfyui-runtime-for-model";
-import type { ComfyImageModel } from "./comfy-models/client";
+import { compressImageForEngineUpload } from './browser-compress-image';
+import { fileToDataUrl } from './browser-file-data-url';
+import { resolveRuntimeForModel } from './comfyui-runtime-for-model';
+import type { ComfyImageModel } from './comfy-models/client';
 
 export type ComfyUploadedImage = {
   name: string;
@@ -13,32 +13,29 @@ export type ComfyUploadedImage = {
   height?: number;
 };
 
-async function uploadJson(
-  file: File,
-  comfyUrl: string | undefined,
-): Promise<ComfyUploadedImage> {
+async function uploadJson(file: File, comfyUrl: string | undefined): Promise<ComfyUploadedImage> {
   const image = await fileToDataUrl(file);
   // ~10MB proxy/Next truncation — refuse before a cryptic JSON parse error.
   if (image.length > 9_000_000) {
     throw new Error(
-      "Image is still too large after compression. Try a smaller figure (under ~6MB).",
+      'Image is still too large after compression. Try a smaller figure (under ~6MB).'
     );
   }
 
-  const response = await fetch("/api/comfyui/upload", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const response = await fetch('/api/comfyui/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       image,
-      mimeType: file.type || "image/png",
-      filename: file.name || "prompt-studio-upload.png",
+      mimeType: file.type || 'image/png',
+      filename: file.name || 'prompt-studio-upload.png',
       ...(comfyUrl ? { comfyUrl } : {}),
     }),
   });
 
   const data = (await response.json()) as ComfyUploadedImage & { error?: string };
   if (!response.ok || !data.name?.trim()) {
-    throw new Error(data.error ?? "ComfyUI image upload failed.");
+    throw new Error(data.error ?? 'ComfyUI image upload failed.');
   }
 
   return {
@@ -50,22 +47,22 @@ async function uploadJson(
 
 async function uploadMultipart(
   file: File,
-  comfyUrl: string | undefined,
+  comfyUrl: string | undefined
 ): Promise<ComfyUploadedImage> {
   const formData = new FormData();
-  formData.append("image", file, file.name);
+  formData.append('image', file, file.name);
   if (comfyUrl) {
-    formData.append("comfyUrl", comfyUrl);
+    formData.append('comfyUrl', comfyUrl);
   }
 
-  const response = await fetch("/api/comfyui/upload", {
-    method: "POST",
+  const response = await fetch('/api/comfyui/upload', {
+    method: 'POST',
     body: formData,
   });
 
   const data = (await response.json()) as ComfyUploadedImage & { error?: string };
   if (!response.ok || !data.name?.trim()) {
-    throw new Error(data.error ?? "ComfyUI image upload failed.");
+    throw new Error(data.error ?? 'ComfyUI image upload failed.');
   }
 
   return {
@@ -80,11 +77,8 @@ export async function uploadComfyInputImage(input: {
   model?: ComfyImageModel | string;
   comfyUrl?: string;
 }): Promise<ComfyUploadedImage> {
-  const runtime = input.model
-    ? resolveRuntimeForModel(input.model as ComfyImageModel)
-    : undefined;
-  const comfyUrl =
-    input.comfyUrl?.trim() || runtime?.apiUrl?.trim() || undefined;
+  const runtime = input.model ? resolveRuntimeForModel(input.model as ComfyImageModel) : undefined;
+  const comfyUrl = input.comfyUrl?.trim() || runtime?.apiUrl?.trim() || undefined;
 
   // Compress first so neither FormData nor JSON hits the ~10MB truncation wall.
   const prepared = await compressImageForEngineUpload(input.file, {
@@ -96,7 +90,7 @@ export async function uploadComfyInputImage(input: {
   let width: number | undefined;
   let height: number | undefined;
   try {
-    const { probeImageFileDimensions } = await import("./browser-image-dimensions");
+    const { probeImageFileDimensions } = await import('./browser-image-dimensions');
     const size = await probeImageFileDimensions(prepared);
     if (size) {
       width = size.width;

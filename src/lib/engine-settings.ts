@@ -1,12 +1,8 @@
-"use client";
+'use client';
 
-import {
-  loadSettingsCache,
-  saveSharedSettings,
-  type SharedToolSettings,
-} from "./settings-cache";
-import type { EngineId } from "./engine/types";
-import { DEFAULT_DIFFUSERS_API_URL } from "./diffusers-client";
+import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from './settings-cache';
+import type { EngineId } from './engine/types';
+import { DEFAULT_DIFFUSERS_API_URL } from './diffusers-client';
 
 export type EngineSettings = {
   engine: EngineId;
@@ -16,31 +12,30 @@ export type EngineSettings = {
 };
 
 function normalizeEngineId(value: unknown): EngineId {
-  return value === "diffusers" ? "diffusers" : "comfyui";
+  return value === 'diffusers' ? 'diffusers' : 'comfyui';
 }
 
 function envDefaultEngine(): EngineId {
-  if (typeof process !== "undefined") {
+  if (typeof process !== 'undefined') {
     const raw =
       process.env.NEXT_PUBLIC_PROMPT_ENGINE?.trim().toLowerCase() ||
       process.env.PROMPT_ENGINE?.trim().toLowerCase();
     // ComfyUI is the primary generate path (Lightning bf16 + Dynamic VRAM).
     // Opt into Diffusers explicitly for experimental txt2img / SDXL trials.
-    if (raw === "diffusers") {
-      return "diffusers";
+    if (raw === 'diffusers') {
+      return 'diffusers';
     }
-    if (raw === "comfyui" || raw === "comfy" || !raw) {
-      return "comfyui";
+    if (raw === 'comfyui' || raw === 'comfy' || !raw) {
+      return 'comfyui';
     }
   }
-  return "comfyui";
+  return 'comfyui';
 }
 
 function envDefaultDiffusersUrl(): string {
-  if (typeof process !== "undefined") {
+  if (typeof process !== 'undefined') {
     const raw =
-      process.env.NEXT_PUBLIC_DIFFUSERS_API_URL?.trim() ||
-      process.env.DIFFUSERS_API_URL?.trim();
+      process.env.NEXT_PUBLIC_DIFFUSERS_API_URL?.trim() || process.env.DIFFUSERS_API_URL?.trim();
     if (raw) {
       return raw;
     }
@@ -49,7 +44,7 @@ function envDefaultDiffusersUrl(): string {
 }
 
 export function loadEngineSettings(): EngineSettings {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return {
       engine: envDefaultEngine(),
       diffusersApiUrl: envDefaultDiffusersUrl(),
@@ -60,8 +55,7 @@ export function loadEngineSettings(): EngineSettings {
   const shared = loadSettingsCache().shared;
   return {
     engine: normalizeEngineId(shared.inferenceEngine ?? envDefaultEngine()),
-    diffusersApiUrl:
-      shared.diffusersApiUrl?.trim() || envDefaultDiffusersUrl(),
+    diffusersApiUrl: shared.diffusersApiUrl?.trim() || envDefaultDiffusersUrl(),
     diffusersAutoStart: shared.diffusersAutoStart !== false,
   };
 }

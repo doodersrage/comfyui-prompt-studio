@@ -1,50 +1,39 @@
-"use client";
+'use client';
 
-import type { ComfyImageModel } from "./comfy-models/client";
+import type { ComfyImageModel } from './comfy-models/client';
 import {
   loadComfyWorkflowFiles,
   mergeCustomWorkflowTokens,
   collectLightningLoraTokenFromWorkflowLibrary,
-} from "./comfyui-workflow-files";
-import { syncLightningLoraLibraryEntry, comfyUiSettingsToRuntime, loadComfyUiSettings } from "./comfyui-settings";
-import { enrichLoraLibraryForUltraRealModel } from "./ultrareal-amplifier-lora";
-import { enrichLoraLibraryForKleinBaseModel } from "./klein-realistic-detail-lora";
-import type { ComfyUiSettings } from "./comfyui-settings";
+} from './comfyui-workflow-files';
 import {
-  loadSettingsCache,
-  saveSharedSettings,
-} from "./settings-cache";
-import type { ComfyUiModelLists } from "./comfyui-object-info";
+  syncLightningLoraLibraryEntry,
+  comfyUiSettingsToRuntime,
+  loadComfyUiSettings,
+} from './comfyui-settings';
+import { enrichLoraLibraryForUltraRealModel } from './ultrareal-amplifier-lora';
+import { enrichLoraLibraryForKleinBaseModel } from './klein-realistic-detail-lora';
+import type { ComfyUiSettings } from './comfyui-settings';
+import { loadSettingsCache, saveSharedSettings } from './settings-cache';
+import type { ComfyUiModelLists } from './comfyui-object-info';
 import {
   fetchComfyObjectInfoCached,
   readCachedComfyObjectInfoModels,
-} from "./comfyui-object-info-cache";
-import {
-  loaderMapsChanged,
-  syncLoaderMapsFromInventory,
-} from "./loader-map-inventory-sync";
-import {
-  resolveWorkflowForModel,
-  resolveWorkflowForModelSelection,
-} from "./model-workflow-map";
-import {
-  resolveSelectedWorkflowRuntime,
-  getSelectedWorkflowFileId,
-} from "./comfyui-runtime";
-import type { ComfyUiRuntimeConfig } from "./comfyui-config";
-import { resolveQueueQualityProfile, normalizeQueueQualityProfile } from "./queue-quality-profile";
-import { resolveModelForQueueTool } from "./queue-tool-model";
-import { rankWorkflowFilesForModel } from "./workflow-category-defaults";
+} from './comfyui-object-info-cache';
+import { loaderMapsChanged, syncLoaderMapsFromInventory } from './loader-map-inventory-sync';
+import { resolveWorkflowForModel, resolveWorkflowForModelSelection } from './model-workflow-map';
+import { resolveSelectedWorkflowRuntime, getSelectedWorkflowFileId } from './comfyui-runtime';
+import type { ComfyUiRuntimeConfig } from './comfyui-config';
+import { resolveQueueQualityProfile, normalizeQueueQualityProfile } from './queue-quality-profile';
+import { resolveModelForQueueTool } from './queue-tool-model';
+import { rankWorkflowFilesForModel } from './workflow-category-defaults';
 import {
   extractWorkflowStackFingerprint,
   workflowStackMatchesModel,
-} from "./workflow-stack-fingerprint";
-import { isQwenLightningModel } from "./model-sampling-patch";
-import { workflowHasLoraLoader } from "./workflow-lightning-queue";
-import {
-  applySystemWorkflowToRuntime,
-  usesSystemWorkflowPath,
-} from "./system-workflow-runtime";
+} from './workflow-stack-fingerprint';
+import { isQwenLightningModel } from './model-sampling-patch';
+import { workflowHasLoraLoader } from './workflow-lightning-queue';
+import { applySystemWorkflowToRuntime, usesSystemWorkflowPath } from './system-workflow-runtime';
 
 export type ResolveRuntimeOptions = {
   ignoreManualWorkflow?: boolean;
@@ -101,7 +90,7 @@ export async function scanAndAdaptSystemWorkflowInventory(input?: {
         upscaleMap: shared.modelUpscaleMap,
         controlNetMap: shared.modelControlNetMap,
       },
-      synced,
+      synced
     )
   ) {
     saveSharedSettings({
@@ -118,7 +107,7 @@ export async function scanAndAdaptSystemWorkflowInventory(input?: {
 function resolveStackCompatibleWorkflowRuntime(
   model: ComfyImageModel,
   base: ComfyUiRuntimeConfig | undefined,
-  workflowFiles: ReturnType<typeof loadComfyWorkflowFiles>,
+  workflowFiles: ReturnType<typeof loadComfyWorkflowFiles>
 ): ComfyUiRuntimeConfig | undefined {
   if (!base?.workflowJson?.trim() || base.syncWorkflowLoadersToModel) {
     return base;
@@ -136,10 +125,9 @@ function resolveStackCompatibleWorkflowRuntime(
         const hasLightningToken =
           Boolean(
             [...(base.customTokens ?? []), ...(base.workflowCustomTokens ?? [])].some(
-              (entry) =>
-                entry.token.trim() === "{{LORA_LIGHTNING}}" && entry.value.trim(),
-            ),
-          ) || base.workflowJson.includes("{{LORA_LIGHTNING}}");
+              entry => entry.token.trim() === '{{LORA_LIGHTNING}}' && entry.value.trim()
+            )
+          ) || base.workflowJson.includes('{{LORA_LIGHTNING}}');
         if (hasLightningToken) {
           return base;
         }
@@ -152,7 +140,7 @@ function resolveStackCompatibleWorkflowRuntime(
   }
 
   const ranked = rankWorkflowFilesForModel(model, workflowFiles);
-  const replacement = ranked.find((entry) => {
+  const replacement = ranked.find(entry => {
     try {
       const candidate = extractWorkflowStackFingerprint(entry.file.workflowJson);
       if (candidate.isMixed || !workflowStackMatchesModel(candidate, model)) {
@@ -188,18 +176,17 @@ function resolveStackCompatibleWorkflowRuntime(
 
 function attachLightningTokens(
   model: ComfyImageModel,
-  customTokens: ComfyUiRuntimeConfig["customTokens"],
-  workflowCustomTokens: ComfyUiRuntimeConfig["workflowCustomTokens"],
+  customTokens: ComfyUiRuntimeConfig['customTokens'],
+  workflowCustomTokens: ComfyUiRuntimeConfig['workflowCustomTokens']
 ): {
-  customTokens: ComfyUiRuntimeConfig["customTokens"];
-  workflowCustomTokens: ComfyUiRuntimeConfig["workflowCustomTokens"];
+  customTokens: ComfyUiRuntimeConfig['customTokens'];
+  workflowCustomTokens: ComfyUiRuntimeConfig['workflowCustomTokens'];
 } {
   if (!isQwenLightningModel(model)) {
     return { customTokens, workflowCustomTokens };
   }
   const hasLightning = [...(customTokens ?? []), ...(workflowCustomTokens ?? [])].some(
-    (entry) =>
-      entry.token.trim() === "{{LORA_LIGHTNING}}" && entry.value.trim(),
+    entry => entry.token.trim() === '{{LORA_LIGHTNING}}' && entry.value.trim()
   );
   if (hasLightning) {
     return { customTokens, workflowCustomTokens };
@@ -211,38 +198,32 @@ function attachLightningTokens(
   syncLightningLoraLibraryEntry(fallback.value);
   return {
     customTokens: mergeCustomWorkflowTokens(customTokens, [fallback]),
-    workflowCustomTokens: mergeCustomWorkflowTokens(workflowCustomTokens, [
-      fallback,
-    ]),
+    workflowCustomTokens: mergeCustomWorkflowTokens(workflowCustomTokens, [fallback]),
   };
 }
 
 function loadComfyUiSettingsForModel(
   model: ComfyImageModel,
-  inventory?: ComfyUiModelLists | null,
+  inventory?: ComfyUiModelLists | null
 ): ComfyUiSettings {
   const settings = loadComfyUiSettings();
   return {
     ...settings,
     loraLibrary: enrichLoraLibraryForKleinBaseModel(
       model,
-      enrichLoraLibraryForUltraRealModel(
-        model,
-        settings.loraLibrary,
-        inventory?.loras,
-      ),
-      inventory?.loras,
+      enrichLoraLibraryForUltraRealModel(model, settings.loraLibrary, inventory?.loras),
+      inventory?.loras
     ),
   };
 }
 
 function sharedQueueFlags(
-  shared: ReturnType<typeof loadSettingsCache>["shared"],
+  shared: ReturnType<typeof loadSettingsCache>['shared'],
   model: ComfyImageModel,
-  overrides?: Partial<ComfyUiRuntimeConfig>,
+  overrides?: Partial<ComfyUiRuntimeConfig>
 ): ComfyUiRuntimeConfig {
   const profile = normalizeQueueQualityProfile(shared.queueQualityProfile);
-  const isMax = profile === "max";
+  const isMax = profile === 'max';
   const preferredComfyHost = shared.preferredComfyHost?.trim() || undefined;
   return {
     directWorkflowPatching: shared.directWorkflowPatching !== false,
@@ -250,8 +231,7 @@ function sharedQueueFlags(
     workflowQueueOptimize: shared.workflowQueueOptimize !== false,
     workflowGraphEnrich: shared.workflowGraphEnrich !== false,
     workflowSdxlRefinerEnrich: shared.workflowSdxlRefinerEnrich !== false,
-    workflowNeuralUpscalePolish:
-      isMax || shared.workflowNeuralUpscalePolish !== false,
+    workflowNeuralUpscalePolish: isMax || shared.workflowNeuralUpscalePolish !== false,
     workflowSharpenAfterUpscale: isMax
       ? shared.workflowSharpenAfterUpscale !== false
       : shared.workflowSharpenAfterUpscale === true,
@@ -270,13 +250,11 @@ function sharedQueueFlags(
 export function resolveRuntimeForModel(
   model: ComfyImageModel,
   tool?: string,
-  options?: ResolveRuntimeOptions,
+  options?: ResolveRuntimeOptions
 ): ComfyUiRuntimeConfig {
   const shared = loadSettingsCache().shared;
   const inventory =
-    options?.inventory !== undefined
-      ? options.inventory
-      : readCachedComfyObjectInfoModels();
+    options?.inventory !== undefined ? options.inventory : readCachedComfyObjectInfoModels();
 
   // System workflows for FLUX/Qwen/video: scored pack → scaffold. Unsupported
   // families (hybrid mode) fall through to mapped/manual resolution below.
@@ -290,7 +268,7 @@ export function resolveRuntimeForModel(
       {
         sessionActiveLoraIds: options?.sessionActiveLoraIds,
         model,
-      },
+      }
     );
     const base = applySystemWorkflowToRuntime(
       model,
@@ -304,18 +282,12 @@ export function resolveRuntimeForModel(
           : {}),
       }),
       inventory,
-      { tool },
+      { tool }
     );
-    const lightning = attachLightningTokens(
-      model,
-      base.customTokens,
-      base.workflowCustomTokens,
-    );
+    const lightning = attachLightningTokens(model, base.customTokens, base.workflowCustomTokens);
     return {
       ...base,
-      ...(lightning.customTokens?.length
-        ? { customTokens: lightning.customTokens }
-        : {}),
+      ...(lightning.customTokens?.length ? { customTokens: lightning.customTokens } : {}),
       ...(lightning.workflowCustomTokens?.length
         ? { workflowCustomTokens: lightning.workflowCustomTokens }
         : {}),
@@ -323,9 +295,7 @@ export function resolveRuntimeForModel(
   }
 
   const workflowFiles = loadComfyWorkflowFiles();
-  const manualId = options?.ignoreManualWorkflow
-    ? undefined
-    : getSelectedWorkflowFileId();
+  const manualId = options?.ignoreManualWorkflow ? undefined : getSelectedWorkflowFileId();
   const mappedId = resolveWorkflowForModel(model, shared.modelWorkflowMap);
   const autoId =
     shared.autoSelectWorkflowForModel !== false
@@ -341,8 +311,7 @@ export function resolveRuntimeForModel(
   // Never stack-swap away from an explicit model→workflow map or the picker
   // selection — that dropped per-workflow {{LORA_LIGHTNING}} overrides.
   const trustExplicitWorkflow = Boolean(
-    (mappedId?.trim() && workflowId === mappedId) ||
-      (manualId?.trim() && workflowId === manualId),
+    (mappedId?.trim() && workflowId === mappedId) || (manualId?.trim() && workflowId === manualId)
   );
   const stackCompatible = trustExplicitWorkflow
     ? base
@@ -351,28 +320,22 @@ export function resolveRuntimeForModel(
   const lightning = attachLightningTokens(
     model,
     stackCompatible?.customTokens,
-    stackCompatible?.workflowCustomTokens,
+    stackCompatible?.workflowCustomTokens
   );
   // Same as the system-workflow path: always forward the session-filtered LoRA
   // library. Mapped/manual graphs may omit it when no workflow file resolves,
   // and Lightning cannot fall back to {{LORA_*}} custom-token injection.
-  const settingsRuntime = comfyUiSettingsToRuntime(
-    loadComfyUiSettingsForModel(model, inventory),
-    {
-      sessionActiveLoraIds: options?.sessionActiveLoraIds,
-      model,
-    },
-  );
+  const settingsRuntime = comfyUiSettingsToRuntime(loadComfyUiSettingsForModel(model, inventory), {
+    sessionActiveLoraIds: options?.sessionActiveLoraIds,
+    model,
+  });
 
   return {
     ...(stackCompatible ?? {}),
     ...sharedQueueFlags(shared, model, {
-      loraLibrary:
-        settingsRuntime?.loraLibrary ?? stackCompatible?.loraLibrary,
+      loraLibrary: settingsRuntime?.loraLibrary ?? stackCompatible?.loraLibrary,
       apiUrl: settingsRuntime?.apiUrl ?? stackCompatible?.apiUrl,
-      ...(lightning.customTokens?.length
-        ? { customTokens: lightning.customTokens }
-        : {}),
+      ...(lightning.customTokens?.length ? { customTokens: lightning.customTokens } : {}),
       ...(lightning.workflowCustomTokens?.length
         ? { workflowCustomTokens: lightning.workflowCustomTokens }
         : {}),
@@ -383,7 +346,7 @@ export function resolveRuntimeForModel(
 export function resolveRuntimeForQueue(
   model: ComfyImageModel,
   tool?: string,
-  options?: ResolveRuntimeOptions,
+  options?: ResolveRuntimeOptions
 ): ComfyUiRuntimeConfig {
   const queueModel = resolveModelForQueueTool(model, tool);
   const remapped = queueModel !== model;
@@ -405,10 +368,9 @@ export function resolveRuntimeForQueue(
     queueQualityProfile: resolvedProfile,
     // System packs may disable enrich when the *global* profile is Draft. Tool-level
     // Final/Max (e.g. Compose) must still get Lanczos / polish enrich.
-    ...(resolvedProfile === "final" || resolvedProfile === "max"
+    ...(resolvedProfile === 'final' || resolvedProfile === 'max'
       ? {
-          workflowGraphEnrich:
-            shared.workflowGraphEnrich !== false ? true : false,
+          workflowGraphEnrich: shared.workflowGraphEnrich !== false ? true : false,
         }
       : {}),
   };
@@ -421,20 +383,16 @@ export function resolveRuntimeForQueue(
   // already configured — the remapped 2512 file often has the placeholder but no
   // per-workflow token value, which false-fails preflight as "Unresolved".
   const source = resolveRuntimeForModel(model, tool, options);
-  const customTokens = mergeCustomWorkflowTokens(
-    source.customTokens,
-    withProfile.customTokens,
-  );
+  const customTokens = mergeCustomWorkflowTokens(source.customTokens, withProfile.customTokens);
   const workflowCustomTokens = mergeCustomWorkflowTokens(
     source.workflowCustomTokens,
-    withProfile.workflowCustomTokens,
+    withProfile.workflowCustomTokens
   );
 
   return {
     ...withProfile,
     customTokens: customTokens.length > 0 ? customTokens : undefined,
-    workflowCustomTokens:
-      workflowCustomTokens.length > 0 ? workflowCustomTokens : undefined,
+    workflowCustomTokens: workflowCustomTokens.length > 0 ? workflowCustomTokens : undefined,
   };
 }
 
@@ -445,7 +403,7 @@ export function resolveRuntimeForQueue(
 export async function resolveRuntimeForQueueAsync(
   model: ComfyImageModel,
   tool?: string,
-  options?: ResolveRuntimeOptions & { comfyUrl?: string },
+  options?: ResolveRuntimeOptions & { comfyUrl?: string }
 ): Promise<ComfyUiRuntimeConfig> {
   const shared = loadSettingsCache().shared;
   let inventory = options?.inventory;

@@ -1,6 +1,6 @@
-import type { CustomWorkflowToken } from "./comfyui-config";
+import type { CustomWorkflowToken } from './comfyui-config';
 
-export const DEFAULT_UPSCALE_MODEL_TOKEN = "{{UPSCALE_MODEL}}";
+export const DEFAULT_UPSCALE_MODEL_TOKEN = '{{UPSCALE_MODEL}}';
 
 /**
  * Suggested UpscaleModel filenames for Final/Max neural enrich when no
@@ -8,25 +8,23 @@ export const DEFAULT_UPSCALE_MODEL_TOKEN = "{{UPSCALE_MODEL}}";
  * UltraSharp remains the generic default.
  */
 export const SUGGESTED_MODEL_UPSCALE_MAP: ModelUpscaleMap = {
-  default: "4x-UltraSharp.pth",
-  "qwen-image-2512": "4x_NMKD-Siax_200k.pth",
-  "qwen-image-2.0": "4x_NMKD-Siax_200k.pth",
-  "flux-dev": "4x-UltraSharp.pth",
-  "flux-ultrareal-v4": "4x-UltraSharp.pth",
-  flux2: "4x-UltraSharp.pth",
-  "flux-2-klein": "4x-UltraSharp.pth",
-  "flux-2-klein-9b": "4x-UltraSharp.pth",
-  "flux-2-klein-4b-distilled": "4x-UltraSharp.pth",
-  "flux-2-klein-9b-distilled": "4x-UltraSharp.pth",
-  sdxl: "4x-UltraSharp.pth",
+  default: '4x-UltraSharp.pth',
+  'qwen-image-2512': '4x_NMKD-Siax_200k.pth',
+  'qwen-image-2.0': '4x_NMKD-Siax_200k.pth',
+  'flux-dev': '4x-UltraSharp.pth',
+  'flux-ultrareal-v4': '4x-UltraSharp.pth',
+  flux2: '4x-UltraSharp.pth',
+  'flux-2-klein': '4x-UltraSharp.pth',
+  'flux-2-klein-9b': '4x-UltraSharp.pth',
+  'flux-2-klein-4b-distilled': '4x-UltraSharp.pth',
+  'flux-2-klein-9b-distilled': '4x-UltraSharp.pth',
+  sdxl: '4x-UltraSharp.pth',
 };
 
 export type ModelUpscaleMap = Partial<Record<string, string>>;
 
 /** Suggested system defaults under user overrides (user wins on conflict). */
-export function mergeSuggestedUpscaleMap(
-  userMap?: ModelUpscaleMap | null,
-): ModelUpscaleMap {
+export function mergeSuggestedUpscaleMap(userMap?: ModelUpscaleMap | null): ModelUpscaleMap {
   return {
     ...SUGGESTED_MODEL_UPSCALE_MAP,
     ...(userMap ?? {}),
@@ -34,7 +32,7 @@ export function mergeSuggestedUpscaleMap(
 }
 
 function trimFilename(value: unknown): string | undefined {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return undefined;
   }
   const trimmed = value.trim();
@@ -43,12 +41,12 @@ function trimFilename(value: unknown): string | undefined {
 
 function resolveCustomTokenValue(
   token: string,
-  customTokens?: CustomWorkflowToken[],
+  customTokens?: CustomWorkflowToken[]
 ): string | undefined {
   if (!customTokens?.length) {
     return undefined;
   }
-  const match = customTokens.find((entry) => entry.token.trim() === token);
+  const match = customTokens.find(entry => entry.token.trim() === token);
   return trimFilename(match?.value);
 }
 
@@ -75,7 +73,7 @@ function upscalePreferencePatternsForModel(model?: string): RegExp[] {
 export function pickUpscaleModelFromInventory(
   availableUpscaleModels?: string[] | null,
   preferred?: string,
-  model?: string,
+  model?: string
 ): string | undefined {
   const preferredName = trimFilename(preferred);
   if (preferredName && isUpscaleModelInstalled(preferredName, availableUpscaleModels)) {
@@ -88,9 +86,9 @@ export function pickUpscaleModelFromInventory(
   if (!availableUpscaleModels?.length) {
     return preferredName;
   }
-  const trimmed = availableUpscaleModels.map((name) => name.trim()).filter(Boolean);
+  const trimmed = availableUpscaleModels.map(name => name.trim()).filter(Boolean);
   for (const pattern of upscalePreferencePatternsForModel(model)) {
-    const hit = trimmed.find((name) => pattern.test(name));
+    const hit = trimmed.find(name => pattern.test(name));
     if (hit) {
       return hit;
     }
@@ -105,12 +103,11 @@ export function resolveUpscaleModelFilename(
     upscaleMap?: ModelUpscaleMap;
     customTokens?: CustomWorkflowToken[];
     availableUpscaleModels?: string[] | null;
-  },
+  }
 ): string | undefined {
   // User map first; otherwise suggested system defaults (optimized).
   const mapped =
-    trimFilename(options?.upscaleMap?.[model]) ??
-    trimFilename(options?.upscaleMap?.default);
+    trimFilename(options?.upscaleMap?.[model]) ?? trimFilename(options?.upscaleMap?.default);
   const suggested =
     trimFilename(SUGGESTED_MODEL_UPSCALE_MAP[model]) ??
     trimFilename(SUGGESTED_MODEL_UPSCALE_MAP.default);
@@ -126,7 +123,7 @@ export function resolveUpscaleModelFilename(
     return pickUpscaleModelFromInventory(
       options.availableUpscaleModels,
       resolved ?? SUGGESTED_MODEL_UPSCALE_MAP.default,
-      model,
+      model
     );
   }
   return resolved;
@@ -139,7 +136,7 @@ export function resolveUpscaleModelFilename(
  */
 export function isUpscaleModelInstalled(
   filename: string | undefined,
-  availableUpscaleModels?: string[] | null,
+  availableUpscaleModels?: string[] | null
 ): boolean {
   const trimmed = trimFilename(filename);
   if (!trimmed) {
@@ -156,22 +153,22 @@ export function isUpscaleModelInstalled(
 
 export function formatModelUpscaleMap(map: ModelUpscaleMap | undefined): string {
   if (!map) {
-    return "";
+    return '';
   }
   return Object.entries(map)
     .filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()))
     .map(([key, filename]) => `${key}=${filename.trim()}`)
-    .join("\n");
+    .join('\n');
 }
 
 export function parseModelUpscaleMap(text: string): ModelUpscaleMap {
   const map: ModelUpscaleMap = {};
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
+    if (!trimmed || trimmed.startsWith('#')) {
       continue;
     }
-    const separator = trimmed.includes("=") ? "=" : ":";
+    const separator = trimmed.includes('=') ? '=' : ':';
     const [key, ...rest] = trimmed.split(separator);
     const filename = rest.join(separator).trim();
     if (key?.trim() && filename) {

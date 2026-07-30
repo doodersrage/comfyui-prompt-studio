@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import PageCanvas from "@/components/ui/PageCanvas";
-import { EmptyState } from "@/components/ui/ViewState";
+import { useEffect } from 'react';
+import PageCanvas from '@/components/ui/PageCanvas';
+import { EmptyState } from '@/components/ui/ViewState';
 
 export default function GlobalError({
   error,
@@ -24,9 +24,9 @@ export default function GlobalError({
           description={
             error.digest
               ? `An unexpected error occurred (ref ${error.digest}). Try again, or reload the page.`
-              : "An unexpected error occurred. Try again, or reload the page."
+              : 'An unexpected error occurred. Try again, or reload the page.'
           }
-          action={{ label: "Try again", onClick: () => reset() }}
+          action={{ label: 'Try again', onClick: () => reset() }}
         />
       </div>
     </PageCanvas>

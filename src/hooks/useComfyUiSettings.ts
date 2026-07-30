@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { whenBrowserStorageReady } from "@/lib/browser-storage";
-import type { ComfyUiRuntimeConfig } from "@/lib/comfyui-config";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { whenBrowserStorageReady } from '@/lib/browser-storage';
+import type { ComfyUiRuntimeConfig } from '@/lib/comfyui-config';
 import {
   comfyUiSettingsToRuntime,
   loadComfyUiSettings,
   saveComfyUiSettings,
   type ComfyUiSettings,
-} from "@/lib/comfyui-settings";
+} from '@/lib/comfyui-settings';
 
 export function useComfyUiSettings() {
   const [mounted, setMounted] = useState(false);
@@ -29,17 +29,14 @@ export function useComfyUiSettings() {
   }, []);
 
   const updateSettings = useCallback((patch: Partial<ComfyUiSettings>) => {
-    setSettings((previous) => {
+    setSettings(previous => {
       const next = { ...previous, ...patch };
       saveComfyUiSettings(next);
       return next;
     });
   }, []);
 
-  const runtimeConfig = useMemo(
-    () => comfyUiSettingsToRuntime(settings),
-    [settings],
-  );
+  const runtimeConfig = useMemo(() => comfyUiSettingsToRuntime(settings), [settings]);
 
   const getRuntimeConfig = useCallback((): ComfyUiRuntimeConfig | undefined => {
     return comfyUiSettingsToRuntime(loadComfyUiSettings());

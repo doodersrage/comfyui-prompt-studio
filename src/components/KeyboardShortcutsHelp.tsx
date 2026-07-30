@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { loadKeyboardShortcuts } from "@/lib/keyboard-shortcuts-store";
+import { loadKeyboardShortcuts } from '@/lib/keyboard-shortcuts-store';
 
 export default function KeyboardShortcutsHelp({
   open,
@@ -42,14 +42,11 @@ export default function KeyboardShortcutsHelp({
           </button>
         </div>
         <ul className="max-h-[50vh] space-y-2 overflow-y-auto px-4 py-3">
-          {bindings.map((binding) => (
-            <li
-              key={binding.id}
-              className="flex items-center justify-between gap-3 text-sm"
-            >
+          {bindings.map(binding => (
+            <li key={binding.id} className="flex items-center justify-between gap-3 text-sm">
               <span className="text-[var(--text-secondary)]">{binding.action}</span>
               <kbd className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-elevated)] px-2 py-1 type-caption text-[var(--text-primary)]">
-                {binding.combo.replace(/Ctrl/g, "⌘/Ctrl")}
+                {binding.combo.replace(/Ctrl/g, '⌘/Ctrl')}
               </kbd>
             </li>
           ))}
@@ -61,8 +58,8 @@ export default function KeyboardShortcutsHelp({
           </li>
         </ul>
         <div className="border-t border-[var(--border-subtle)] px-4 py-2 type-caption text-[var(--text-muted)]">
-          Tip: open the command palette (⌘/Ctrl+K) for Resume draft, Continue where
-          you left off, and Dismiss continue. Customize bindings under Settings when available.
+          Tip: open the command palette (⌘/Ctrl+K) for Resume draft, Continue where you left off,
+          and Dismiss continue. Customize bindings under Settings when available.
         </div>
       </div>
       <button

@@ -4,33 +4,30 @@ import {
   buildClothingPickFilters,
   hintsImplyNoClothing,
   type ClothingPickFilters,
-} from "./clothing-tags";
+} from './clothing-tags';
 import {
   inferAthleticSport,
   promptContainsSportWardrobeConflict,
   summaryMatchesSportWardrobe,
-} from "./athletic-sport-profiles";
+} from './athletic-sport-profiles';
 import {
   resolveAthleticSportForWardrobe,
   stripIncompatibleSportActionsFromPrompt,
   ensureCyclingHelmetInPrompt,
   ensureAthleticBottomInPrompt,
   appendCyclingHelmetToSummary,
-} from "./athletic-sport-actions";
+} from './athletic-sport-actions';
 import {
   mergeWardrobeAssignmentsIntoPrompt,
   mergeWardrobeRespectingLimits,
   pickRandomCharacterOutfit,
   buildOutfitFromLockedWardrobeId,
   type RandomCharacterOutfit,
-} from "./clothing-catalog";
-import {
-  isMultiPersonInput,
-  parsePeopleConstraint,
-} from "./distinct-people";
-import type { GenerationSettings } from "./generation-settings";
-import { parseSettingHint } from "./hint-location";
-import type { SubjectGender } from "./variation-seed";
+} from './clothing-catalog';
+import { isMultiPersonInput, parsePeopleConstraint } from './distinct-people';
+import type { GenerationSettings } from './generation-settings';
+import { parseSettingHint } from './hint-location';
+import type { SubjectGender } from './variation-seed';
 
 export type GenerateWardrobeAssignment = {
   label?: string;
@@ -57,7 +54,7 @@ export function inputImpliesPeople(input: string): boolean {
 export function shouldPickGenerateWardrobe(
   input: string,
   alwaysIncludeClothing?: boolean,
-  assumePeople = false,
+  assumePeople = false
 ): boolean {
   if (hintsImplyNoClothing(input)) {
     return false;
@@ -77,14 +74,14 @@ export function shouldPickGenerateWardrobe(
 
 function assignmentGenderForSlot(
   slotIndex: number,
-  constraintGender: SubjectGender,
+  constraintGender: SubjectGender
 ): SubjectGender | undefined {
-  if (constraintGender === "women" || constraintGender === "men") {
+  if (constraintGender === 'women' || constraintGender === 'men') {
     return constraintGender;
   }
 
-  if (constraintGender === "mixed") {
-    return slotIndex === 0 ? "women" : "men";
+  if (constraintGender === 'mixed') {
+    return slotIndex === 0 ? 'women' : 'men';
   }
 
   return undefined;
@@ -106,33 +103,30 @@ function assignmentCount(input: string, settings: GenerationSettings): number {
 function assignmentLabel(
   index: number,
   count: number,
-  distinctPeople: boolean,
+  distinctPeople: boolean
 ): string | undefined {
   if (count <= 1 || !distinctPeople) {
     return undefined;
   }
 
   if (index === 0) {
-    return "person on the left";
+    return 'person on the left';
   }
 
   if (index === 1) {
-    return "person on the right";
+    return 'person on the right';
   }
 
   return `person ${index + 1}`;
 }
 
 function collectOutfitIds(outfit: RandomCharacterOutfit): string[] {
-  return [
-    outfit.wardrobeId,
-    outfit.bottomId,
-    outfit.footwearId,
-    outfit.accessoriesId,
-  ].filter((id): id is string => Boolean(id));
+  return [outfit.wardrobeId, outfit.bottomId, outfit.footwearId, outfit.accessoriesId].filter(
+    (id): id is string => Boolean(id)
+  );
 }
 
-import { hintsDescribeAthleticDuoCompetition } from "./athletic-duo-hints";
+import { hintsDescribeAthleticDuoCompetition } from './athletic-duo-hints';
 
 export { hintsDescribeAthleticDuoCompetition };
 
@@ -149,15 +143,9 @@ export function buildGenerateWardrobeAssignments(
     lockedWardrobeId?: string;
     fantasyWardrobe?: boolean;
     avoidedTokens?: readonly string[];
-  },
+  }
 ): GenerateWardrobeAssignment[] | null {
-  if (
-    !shouldPickGenerateWardrobe(
-      input,
-      settings.alwaysIncludeClothing,
-      options?.assumePeople,
-    )
-  ) {
+  if (!shouldPickGenerateWardrobe(input, settings.alwaysIncludeClothing, options?.assumePeople)) {
     return null;
   }
 
@@ -166,9 +154,7 @@ export function buildGenerateWardrobeAssignments(
   const constraint = parsePeopleConstraint(trimmed);
   const resolvedGender = options?.forcedGender ?? constraint.gender;
   const distinctPeople = options?.forcedDistinctPeople ?? settings.distinctPeople;
-  const count =
-    options?.forcedCount ??
-    assignmentCount(trimmed, { ...settings, distinctPeople });
+  const count = options?.forcedCount ?? assignmentCount(trimmed, { ...settings, distinctPeople });
   const excludeIds: string[] = [...(options?.recentClothing ?? [])];
   const assignments: GenerateWardrobeAssignment[] = [];
   const sharedCompetitionKit =
@@ -194,8 +180,8 @@ export function buildGenerateWardrobeAssignments(
     });
     const outfit =
       options?.lockedWardrobeId && index === 0
-        ? buildOutfitFromLockedWardrobeId(options.lockedWardrobeId, filters) ??
-          pickRandomCharacterOutfit(filters)
+        ? (buildOutfitFromLockedWardrobeId(options.lockedWardrobeId, filters) ??
+          pickRandomCharacterOutfit(filters))
         : options?.lockedWardrobeId && sharedCompetitionKit && assignments[0]
           ? ({
               summary: assignments[0].summary,
@@ -215,7 +201,7 @@ export function buildGenerateWardrobeAssignments(
 
     excludeIds.push(...collectOutfitIds(outfit));
     const summary =
-      filters.athleticSport === "cycling"
+      filters.athleticSport === 'cycling'
         ? appendCyclingHelmetToSummary(outfit.summary, trimmed)
         : outfit.summary;
     assignments.push({
@@ -234,7 +220,7 @@ export function buildGenerateWardrobeAssignments(
 
 export function buildGenerateWardrobeUserDirective(
   assignments: GenerateWardrobeAssignment[],
-  options?: { teamKit?: boolean },
+  options?: { teamKit?: boolean }
 ): string | null {
   if (assignments.length === 0) {
     return null;
@@ -242,68 +228,61 @@ export function buildGenerateWardrobeUserDirective(
 
   if (assignments.length === 1 && !assignments[0]?.label) {
     const assignment = assignments[0]!;
-    return buildClothingCoherenceUserDirective(
-      assignment.filters,
-      assignment.summary,
-    );
+    return buildClothingCoherenceUserDirective(assignment.filters, assignment.summary);
   }
 
-  const lines = assignments.map((assignment) => {
-    const who = assignment.label ?? "the subject";
+  const lines = assignments.map(assignment => {
+    const who = assignment.label ?? 'the subject';
     return `${who}: ${assignment.summary}`;
   });
 
   const guardrailBlocks = assignments
-    .map((assignment) => {
-      const who = assignment.label ?? "the subject";
+    .map(assignment => {
+      const who = assignment.label ?? 'the subject';
       const guardrails = buildClothingGuardrailLines(assignment.filters);
       if (guardrails.length === 0) {
         return null;
       }
-      return `${who} — ${guardrails.join(" ")}`;
+      return `${who} — ${guardrails.join(' ')}`;
     })
     .filter(Boolean);
 
   const sharedCompetitionKit =
     assignments.length >= 2 &&
-    assignments.every(
-      (assignment) => assignment.summary === assignments[0]?.summary,
-    ) &&
-    assignments.some((assignment) => assignment.filters.athleticSport);
+    assignments.every(assignment => assignment.summary === assignments[0]?.summary) &&
+    assignments.some(assignment => assignment.filters.athleticSport);
 
   const teamKit = options?.teamKit === true;
 
   return [
-    "WARDROBE COHERENCE (mandatory):",
+    'WARDROBE COHERENCE (mandatory):',
     "Weave each assigned outfit into that person's sentence—do not add a separate wardrobe paragraph before the scene.",
     sharedCompetitionKit && teamKit
-      ? "Both wear identical race kits—same colors and garment types; only bib numbers may differ."
+      ? 'Both wear identical race kits—same colors and garment types; only bib numbers may differ.'
       : sharedCompetitionKit
-        ? "Both competitors wear the same race kit cut and garment types—rivals may differ only in accent color, bib number, or shoe color, not different outfit categories or silhouettes."
-        : "Each person gets their own scene-appropriate outfit.",
-    ...lines.map((line) => `- ${line}`),
+        ? 'Both competitors wear the same race kit cut and garment types—rivals may differ only in accent color, bib number, or shoe color, not different outfit categories or silhouettes.'
+        : 'Each person gets their own scene-appropriate outfit.',
+    ...lines.map(line => `- ${line}`),
     ...(guardrailBlocks.length > 0
-      ? ["Per-person scene rules:", ...guardrailBlocks.map((line) => `- ${line}`)]
+      ? ['Per-person scene rules:', ...guardrailBlocks.map(line => `- ${line}`)]
       : []),
-    "Keep every assigned garment type in the final prompt for each person.",
-    "Use short garment labels only—not long material paragraphs.",
-    "Mention each assigned garment once—do not repeat pieces or add duplicate garment types.",
-    "Do not swap to unrelated outfits or merge separate wardrobes into one blob.",
-  ].join(" ");
+    'Keep every assigned garment type in the final prompt for each person.',
+    'Use short garment labels only—not long material paragraphs.',
+    'Mention each assigned garment once—do not repeat pieces or add duplicate garment types.',
+    'Do not swap to unrelated outfits or merge separate wardrobes into one blob.',
+  ].join(' ');
 }
 
 export function refreshSportWardrobeAssignmentForPrompt(
   prompt: string,
   assignment: GenerateWardrobeAssignment,
-  intentHints?: string,
+  intentHints?: string
 ): GenerateWardrobeAssignment {
-  const intentCorpus = [intentHints, assignment.filters.athleticSport]
-    .filter(Boolean)
-    .join(" ");
+  const intentCorpus = [intentHints, assignment.filters.athleticSport].filter(Boolean).join(' ');
   const sport = resolveAthleticSportForWardrobe(
     intentCorpus,
     prompt,
-    assignment.filters.athleticSport ?? null,
+    assignment.filters.athleticSport ?? null
   );
   if (!sport) {
     return assignment;
@@ -320,13 +299,13 @@ export function refreshSportWardrobeAssignmentForPrompt(
 
   const filters = buildClothingPickFilters({
     gender:
-      assignment.filters.gender === "women"
-        ? "women"
-        : assignment.filters.gender === "men"
-          ? "men"
+      assignment.filters.gender === 'women'
+        ? 'women'
+        : assignment.filters.gender === 'men'
+          ? 'men'
           : undefined,
     hints: intentHints,
-    environmentSeed: [intentHints, prompt].filter(Boolean).join(" "),
+    environmentSeed: [intentHints, prompt].filter(Boolean).join(' '),
     excludeIds: assignment.filters.excludeIds,
     avoidedTokens: assignment.filters.avoidedTokens,
   });
@@ -345,7 +324,7 @@ export function refreshSportWardrobeAssignmentForPrompt(
   return {
     ...assignment,
     summary:
-      sport === "cycling"
+      sport === 'cycling'
         ? appendCyclingHelmetToSummary(outfit.summary, intentHints)
         : outfit.summary,
     filters: outfit.filters,
@@ -360,22 +339,22 @@ export function mergeGenerateWardrobeIntoPrompt(
   prompt: string,
   assignments: GenerateWardrobeAssignment[],
   maxChars?: number,
-  intentHints?: string,
+  intentHints?: string
 ): string {
   const sport = resolveAthleticSportForWardrobe(
-    intentHints ?? "",
+    intentHints ?? '',
     prompt,
-    assignments[0]?.filters.athleticSport ?? null,
+    assignments[0]?.filters.athleticSport ?? null
   );
   const working = sport
     ? stripIncompatibleSportActionsFromPrompt(prompt, sport, intentHints)
     : prompt;
-  const refreshed = assignments.map((assignment) =>
-    refreshSportWardrobeAssignmentForPrompt(working, assignment, intentHints),
+  const refreshed = assignments.map(assignment =>
+    refreshSportWardrobeAssignmentForPrompt(working, assignment, intentHints)
   );
   const merged = mergeWardrobeAssignmentsIntoPrompt(working, refreshed, maxChars);
-  if (sport === "cycling") {
-    return ensureCyclingHelmetInPrompt(merged, intentHints ?? "");
+  if (sport === 'cycling') {
+    return ensureCyclingHelmetInPrompt(merged, intentHints ?? '');
   }
   if (sport) {
     return ensureAthleticBottomInPrompt(merged, sport, {

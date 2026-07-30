@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   FANTASY_SHOT_SCALE_OPTIONS,
@@ -6,8 +6,8 @@ import {
   SUBJECT_SHOT_SCALE_OPTIONS,
   type FantasyShotScale,
   type SubjectShotScale,
-} from "@/lib/tool-ui-labels";
-import { ChipButton, FieldLabel } from "@/components/ui/Field";
+} from '@/lib/tool-ui-labels';
+import { ChipButton, FieldLabel } from '@/components/ui/Field';
 
 type ShotScaleControlProps<T extends string> = {
   value: T;
@@ -23,7 +23,7 @@ function ShotScaleButtons<T extends string>({
 }: ShotScaleControlProps<T>) {
   return (
     <div className="flex flex-wrap gap-2">
-      {options.map((option) => (
+      {options.map(option => (
         <ChipButton
           key={option.value}
           active={value === option.value}
@@ -47,11 +47,7 @@ export function SubjectShotScaleControl({
   return (
     <>
       <FieldLabel>{SHOT_SCALE_LABEL}</FieldLabel>
-      <ShotScaleButtons
-        value={value}
-        onChange={onChange}
-        options={SUBJECT_SHOT_SCALE_OPTIONS}
-      />
+      <ShotScaleButtons value={value} onChange={onChange} options={SUBJECT_SHOT_SCALE_OPTIONS} />
     </>
   );
 }
@@ -67,17 +63,13 @@ export function FantasyShotScaleControl({
   environmentOnly?: boolean;
 }) {
   const options = environmentOnly
-    ? FANTASY_SHOT_SCALE_OPTIONS.filter((option) => option.value === "wide")
+    ? FANTASY_SHOT_SCALE_OPTIONS.filter(option => option.value === 'wide')
     : FANTASY_SHOT_SCALE_OPTIONS;
 
   return (
     <>
       <FieldLabel>{SHOT_SCALE_LABEL}</FieldLabel>
-      <ShotScaleButtons
-        value={value}
-        onChange={onChange}
-        options={options}
-      />
+      <ShotScaleButtons value={value} onChange={onChange} options={options} />
     </>
   );
 }

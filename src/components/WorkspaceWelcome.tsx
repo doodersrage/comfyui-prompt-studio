@@ -1,31 +1,31 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
   WORKSPACE_MODE_OPTIONS,
   hasChosenWorkspaceMode,
   saveWorkspaceMode,
   type WorkspaceMode,
-} from "@/lib/workspace-mode";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { runHealAndReady } from "@/lib/first-run-setup";
-import { markOnboardingSetWorkspace } from "@/lib/onboarding-hooks";
-import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
+} from '@/lib/workspace-mode';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { runHealAndReady } from '@/lib/first-run-setup';
+import { markOnboardingSetWorkspace } from '@/lib/onboarding-hooks';
+import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
 
-type WelcomePhase = "workspace" | "setup" | "ready";
+type WelcomePhase = 'workspace' | 'setup' | 'ready';
 
 /** One-time welcome: workspace density → Heal & ready → Open Generate. */
 export default function WorkspaceWelcome() {
   const [phase, setPhase] = useState<WelcomePhase | null>(null);
   const [busy, setBusy] = useState(false);
   const [setupMessage, setSetupMessage] = useState<string | null>(null);
-  const [generateCta, setGenerateCta] = useState({ label: "Open Generate", href: "/" });
+  const [generateCta, setGenerateCta] = useState({ label: 'Open Generate', href: '/' });
 
   useEffect(() => {
     scheduleAfterCommit(() => {
       if (!hasChosenWorkspaceMode()) {
-        setPhase("workspace");
+        setPhase('workspace');
       }
     });
   }, []);
@@ -37,12 +37,12 @@ export default function WorkspaceWelcome() {
   function choose(mode: WorkspaceMode) {
     saveWorkspaceMode(mode);
     markOnboardingSetWorkspace();
-    setPhase("setup");
+    setPhase('setup');
   }
 
   function finishWelcome() {
     setGenerateCta(resolveGenerateEmptyCta());
-    setPhase("ready");
+    setPhase('ready');
   }
 
   async function heal() {
@@ -53,7 +53,7 @@ export default function WorkspaceWelcome() {
       setSetupMessage(result.message);
       finishWelcome();
     } catch (err) {
-      setSetupMessage(err instanceof Error ? err.message : "Heal failed.");
+      setSetupMessage(err instanceof Error ? err.message : 'Heal failed.');
     } finally {
       setBusy(false);
     }
@@ -67,21 +67,18 @@ export default function WorkspaceWelcome() {
       aria-labelledby="workspace-welcome-title"
     >
       <div className="w-full max-w-lg rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-6 shadow-[0_24px_80px_-40px_color-mix(in_oklab,var(--bg-base)_70%,transparent)]">
-        {phase === "workspace" ? (
+        {phase === 'workspace' ? (
           <>
             <p className="type-overline text-[var(--text-muted)]">Welcome</p>
-            <h2
-              id="workspace-welcome-title"
-              className="type-title mt-2 text-[var(--text-primary)]"
-            >
+            <h2 id="workspace-welcome-title" className="type-title mt-2 text-[var(--text-primary)]">
               How do you want to work?
             </h2>
             <p className="type-body mt-2 text-[var(--text-secondary)]">
-              Prompt Studio has many tools. Pick a workspace density — you can change
-              this anytime in Profile or the sidebar.
+              Prompt Studio has many tools. Pick a workspace density — you can change this anytime
+              in Profile or the sidebar.
             </p>
             <div className="mt-5 grid gap-2">
-              {WORKSPACE_MODE_OPTIONS.map((option) => (
+              {WORKSPACE_MODE_OPTIONS.map(option => (
                 <button
                   key={option.id}
                   type="button"
@@ -98,26 +95,22 @@ export default function WorkspaceWelcome() {
               ))}
             </div>
             <div className="mt-4 flex justify-end">
-              <Button type="button" variant="ghost" size="sm" onClick={() => choose("studio")}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => choose('studio')}>
                 Skip — use Studio
               </Button>
             </div>
           </>
         ) : null}
 
-        {phase === "setup" ? (
+        {phase === 'setup' ? (
           <>
             <p className="type-overline text-[var(--text-muted)]">Step 2 of 3</p>
-            <h2
-              id="workspace-welcome-title"
-              className="type-title mt-2 text-[var(--text-primary)]"
-            >
+            <h2 id="workspace-welcome-title" className="type-title mt-2 text-[var(--text-primary)]">
               Connect & ready
             </h2>
             <p className="type-body mt-2 text-[var(--text-secondary)]">
-              One click enables system workflows, adapts loader maps from ComfyUI when
-              reachable, and checks LLM + Comfy health. You can skip and finish later
-              from Settings → Overview.
+              One click enables system workflows, adapts loader maps from ComfyUI when reachable,
+              and checks LLM + Comfy health. You can skip and finish later from Settings → Overview.
             </p>
             {setupMessage ? (
               <p className="mt-3 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] px-3 py-2 type-caption text-[var(--text-muted)]">
@@ -141,13 +134,10 @@ export default function WorkspaceWelcome() {
           </>
         ) : null}
 
-        {phase === "ready" ? (
+        {phase === 'ready' ? (
           <>
             <p className="type-overline text-[var(--text-muted)]">Ready</p>
-            <h2
-              id="workspace-welcome-title"
-              className="type-title mt-2 text-[var(--text-primary)]"
-            >
+            <h2 id="workspace-welcome-title" className="type-title mt-2 text-[var(--text-primary)]">
               You&apos;re set to generate
             </h2>
             <p className="type-body mt-2 text-[var(--text-secondary)]">

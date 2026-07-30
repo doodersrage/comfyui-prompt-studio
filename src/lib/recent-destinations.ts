@@ -1,6 +1,6 @@
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-const KEY = "comfy-recent-destinations-v1";
+const KEY = 'comfy-recent-destinations-v1';
 const MAX = 5;
 
 export type RecentDestination = {
@@ -10,7 +10,7 @@ export type RecentDestination = {
 };
 
 export function loadRecentDestinations(): RecentDestination[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   const raw = readBrowserValue<unknown>(KEY);
@@ -21,24 +21,21 @@ export function loadRecentDestinations(): RecentDestination[] {
     .filter(
       (entry): entry is RecentDestination =>
         Boolean(entry) &&
-        typeof entry === "object" &&
-        typeof (entry as RecentDestination).href === "string" &&
-        typeof (entry as RecentDestination).label === "string",
+        typeof entry === 'object' &&
+        typeof (entry as RecentDestination).href === 'string' &&
+        typeof (entry as RecentDestination).label === 'string'
     )
-    .map((entry) => ({
+    .map(entry => ({
       href: entry.href.trim(),
       label: entry.label.trim(),
-      at: typeof entry.at === "number" ? entry.at : Date.now(),
+      at: typeof entry.at === 'number' ? entry.at : Date.now(),
     }))
-    .filter((entry) => entry.href && entry.label)
+    .filter(entry => entry.href && entry.label)
     .slice(0, MAX);
 }
 
-export function pushRecentDestination(input: {
-  href: string;
-  label: string;
-}): RecentDestination[] {
-  if (typeof window === "undefined") {
+export function pushRecentDestination(input: { href: string; label: string }): RecentDestination[] {
+  if (typeof window === 'undefined') {
     return [];
   }
   const href = input.href.trim();
@@ -49,7 +46,7 @@ export function pushRecentDestination(input: {
   // Skip query-noise for matrix vs variations — keep full href when meaningful.
   const next: RecentDestination[] = [
     { href, label, at: Date.now() },
-    ...loadRecentDestinations().filter((entry) => entry.href !== href),
+    ...loadRecentDestinations().filter(entry => entry.href !== href),
   ].slice(0, MAX);
   writeBrowserValue(KEY, next);
   return next;

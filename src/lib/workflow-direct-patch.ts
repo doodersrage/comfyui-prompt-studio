@@ -1,14 +1,7 @@
-import { isQwenLightningModel } from "./model-sampling-patch";
-import type { WorkflowParamValues } from "./comfyui-config";
-import {
-  COMFY_MODEL_IDS,
-  getComfyModelDefinition,
-  type ComfyImageModel,
-} from "./comfy-models";
-import {
-  isFlux1FamilyModel,
-  isFluxKleinModel,
-} from "./model-denoise-defaults";
+import { isQwenLightningModel } from './model-sampling-patch';
+import type { WorkflowParamValues } from './comfyui-config';
+import { COMFY_MODEL_IDS, getComfyModelDefinition, type ComfyImageModel } from './comfy-models';
+import { isFlux1FamilyModel, isFluxKleinModel } from './model-denoise-defaults';
 import {
   DEFAULT_CHECKPOINT_TOKEN,
   DEFAULT_UNET_TOKEN,
@@ -16,48 +9,39 @@ import {
   filenameLooksLikeCheckpointOnly,
   isVaeFilenameIncompatibleWithModel,
   type ModelLoaderFilenames,
-} from "./model-checkpoint-map";
-import { precisionHintFromFilename, qwenUnetFamiliesCompatible } from "./model-loader-precision";
+} from './model-checkpoint-map';
+import { precisionHintFromFilename, qwenUnetFamiliesCompatible } from './model-loader-precision';
 import {
   DEFAULT_CONTROLNET_MODEL_TOKEN,
   DEFAULT_CONTROL_IMAGE_TOKEN,
-} from "./model-controlnet-map";
-import {
-  DEFAULT_UPSCALE_MODEL_TOKEN,
-  SUGGESTED_MODEL_UPSCALE_MAP,
-} from "./model-upscale-map";
+} from './model-controlnet-map';
+import { DEFAULT_UPSCALE_MODEL_TOKEN, SUGGESTED_MODEL_UPSCALE_MAP } from './model-upscale-map';
 import {
   buildLoraFilenameMapFromCustomTokens,
   patchLoraNodesInWorkflow,
-} from "./workflow-lora-patch";
-import { applyLoraStackToWorkflow, type LoraLibraryEntry } from "./lora-stack";
+} from './workflow-lora-patch';
+import { applyLoraStackToWorkflow, type LoraLibraryEntry } from './lora-stack';
 import {
   insertIpAdapterChainIfMissing,
   insertIpAdapterStack,
   patchIpAdapterTokensInWorkflow,
-} from "./ipadapter-workflow-patch";
-import {
-  insertControlNetChainIfMissing,
-  insertControlNetStack,
-} from "./controlnet-workflow-patch";
-import { insertIdentityChainIfMissing } from "./identity-workflow-patch";
+} from './ipadapter-workflow-patch';
+import { insertControlNetChainIfMissing, insertControlNetStack } from './controlnet-workflow-patch';
+import { insertIdentityChainIfMissing } from './identity-workflow-patch';
 import {
   patchRegionalTokensInWorkflow,
   type RegionalPromptSegment,
-} from "./regional-prompt-builder";
-import { applyRegionalEditToWorkflow } from "./workflow-regional-patch";
-import {
-  normalizeRegionalPromptSlots,
-  type RegionalPromptSlot,
-} from "./regional-prompt-slots";
+} from './regional-prompt-builder';
+import { applyRegionalEditToWorkflow } from './workflow-regional-patch';
+import { normalizeRegionalPromptSlots, type RegionalPromptSlot } from './regional-prompt-slots';
 import {
   inferLoadImageBinding,
   normalizeInputImageFilenames,
-} from "./workflow-load-image-bindings";
-import { ensureKleinReferenceLatentWiringInWorkflow } from "./workflow-img2img-patch";
-import { ensureFluxGuidanceInWorkflow } from "./flux-guidance-patch";
+} from './workflow-load-image-bindings';
+import { ensureKleinReferenceLatentWiringInWorkflow } from './workflow-img2img-patch';
+import { ensureFluxGuidanceInWorkflow } from './flux-guidance-patch';
 
-export const IMAGE_SCALE_BY_NODE_TYPE = "ImageScaleBy";
+export const IMAGE_SCALE_BY_NODE_TYPE = 'ImageScaleBy';
 
 export type WorkflowDirectPatchCounts = {
   width?: number;
@@ -97,62 +81,56 @@ export type WorkflowDirectPatchCounts = {
 };
 
 const VIDEO_I2V_WIRE_ERROR =
-  "Init image was set for a video model, but I2V could not be wired. Import a WAN/Hunyuan workflow with WanImageToVideo or HunyuanImageToVideo (or a scaffold with LoadImage + Empty*LatentVideo + VAEDecode/Checkpoint VAE + KSampler), or clear the init image for text-to-video.";
+  'Init image was set for a video model, but I2V could not be wired. Import a WAN/Hunyuan workflow with WanImageToVideo or HunyuanImageToVideo (or a scaffold with LoadImage + Empty*LatentVideo + VAEDecode/Checkpoint VAE + KSampler), or clear the init image for text-to-video.';
 
 const LTX_I2V_WIRE_ERROR =
-  "LTX Video I2V needs an imported pack with LTXVImgToVideo — the system scaffold is T2V-only. Clear the init image for text-to-video, or import an LTX I2V workflow from your library.";
+  'LTX Video I2V needs an imported pack with LTXVImgToVideo — the system scaffold is T2V-only. Clear the init image for text-to-video, or import an LTX I2V workflow from your library.';
 
 function videoI2vWireError(detail: string): string {
   return `${VIDEO_I2V_WIRE_ERROR} (${detail})`;
 }
 
-const INPUT_IMAGE_TYPES = new Set(["LoadImage", "LoadImageOutput"]);
-const MASK_IMAGE_TYPES = new Set(["LoadImageMask"]);
+const INPUT_IMAGE_TYPES = new Set(['LoadImage', 'LoadImageOutput']);
+const MASK_IMAGE_TYPES = new Set(['LoadImageMask']);
 
-const CHECKPOINT_LOADER_TYPES = new Set([
-  "CheckpointLoaderSimple",
-  "CheckpointLoader",
-]);
+const CHECKPOINT_LOADER_TYPES = new Set(['CheckpointLoaderSimple', 'CheckpointLoader']);
 
-const UNET_LOADER_TYPES = new Set(["UNETLoader", "UnetLoaderGGUF"]);
+const UNET_LOADER_TYPES = new Set(['UNETLoader', 'UnetLoaderGGUF']);
 
-const VAE_LOADER_TYPES = new Set(["VAELoader"]);
+const VAE_LOADER_TYPES = new Set(['VAELoader']);
 
-const DUAL_CLIP_LOADER_TYPES = new Set(["DualCLIPLoader"]);
-const CLIP_LOADER_TYPES = new Set(["CLIPLoader"]);
+const DUAL_CLIP_LOADER_TYPES = new Set(['DualCLIPLoader']);
+const CLIP_LOADER_TYPES = new Set(['CLIPLoader']);
 
 const DEPRECATED_QWEN_CLIP_FILENAMES: Record<string, string> = {
-  "qwen_2.5_vl_7b_bf16.safetensors": "qwen_2.5_vl_7b.safetensors",
+  'qwen_2.5_vl_7b_bf16.safetensors': 'qwen_2.5_vl_7b.safetensors',
 };
 
-const CONTROLNET_LOADER_TYPES = new Set(["ControlNetLoader", "DiffControlNetLoader"]);
+const CONTROLNET_LOADER_TYPES = new Set(['ControlNetLoader', 'DiffControlNetLoader']);
 
-const UPSCALE_MODEL_LOADER_TYPES = new Set(["UpscaleModel", "UpscaleModelLoader"]);
+const UPSCALE_MODEL_LOADER_TYPES = new Set(['UpscaleModel', 'UpscaleModelLoader']);
 
 function isUnresolvedWorkflowPlaceholder(value: unknown): boolean {
-  return typeof value === "string" && /^\{\{[A-Z0-9_]+\}\}$/.test(value.trim());
+  return typeof value === 'string' && /^\{\{[A-Z0-9_]+\}\}$/.test(value.trim());
 }
 
 function shouldPatchStringField(
   current: unknown,
-  nextValue: string | undefined,
+  nextValue: string | undefined
 ): nextValue is string {
   if (!nextValue?.trim()) {
     return false;
   }
-  if (typeof current === "string") {
+  if (typeof current === 'string') {
     if (isUnresolvedWorkflowPlaceholder(current)) {
       return true;
     }
     return current.trim() !== nextValue.trim();
   }
-  return current == null || current === "";
+  return current == null || current === '';
 }
 
-function loaderFilenameMissingFromInventory(
-  current: string,
-  inventory?: string[] | null,
-): boolean {
+function loaderFilenameMissingFromInventory(current: string, inventory?: string[] | null): boolean {
   if (!inventory?.length) {
     return false;
   }
@@ -161,7 +139,7 @@ function loaderFilenameMissingFromInventory(
     return false;
   }
   const lower = trimmed.toLowerCase();
-  return !inventory.some((entry) => {
+  return !inventory.some(entry => {
     const e = entry.trim();
     return e === trimmed || e.toLowerCase() === lower;
   });
@@ -172,7 +150,7 @@ function shouldPatchLoaderFilenameField(
   current: unknown,
   nextValue: string | undefined,
   syncLoadersToModel?: boolean,
-  availableInventory?: string[] | null,
+  availableInventory?: string[] | null
 ): nextValue is string {
   if (!nextValue?.trim()) {
     return false;
@@ -180,7 +158,7 @@ function shouldPatchLoaderFilenameField(
   if (syncLoadersToModel) {
     return shouldPatchStringField(current, nextValue);
   }
-  if (typeof current === "string") {
+  if (typeof current === 'string') {
     if (isUnresolvedWorkflowPlaceholder(current)) {
       return true;
     }
@@ -191,12 +169,12 @@ function shouldPatchLoaderFilenameField(
     }
     return false;
   }
-  return current == null || current === "";
+  return current == null || current === '';
 }
 
 /** Overwrite concrete loader filenames when queue resolved a different precision tier. */
 function shouldAlignLoaderPrecision(current: unknown, nextValue: string | undefined): boolean {
-  if (!nextValue?.trim() || typeof current !== "string") {
+  if (!nextValue?.trim() || typeof current !== 'string') {
     return false;
   }
   if (isUnresolvedWorkflowPlaceholder(current)) {
@@ -208,7 +186,7 @@ function shouldAlignLoaderPrecision(current: unknown, nextValue: string | undefi
     return false;
   }
   // Never downgrade concrete bf16/fp16 weights to fp8 at queue time.
-  if (currentTier === "bf16" && nextTier === "fp8") {
+  if (currentTier === 'bf16' && nextTier === 'fp8') {
     return false;
   }
   // Never swap Qwen T2I ↔ Edit UNETs under the guise of fp8→bf16 alignment —
@@ -222,27 +200,27 @@ function shouldAlignLoaderPrecision(current: unknown, nextValue: string | undefi
 /** fp8 weight_dtype on bf16 UNET causes grain/grid — clear dtype when filename is bf16-tier. */
 function alignUnetWeightDtypeToFilename(
   inputs: Record<string, unknown>,
-  filename: string,
+  filename: string
 ): boolean {
-  if (!("weight_dtype" in inputs)) {
+  if (!('weight_dtype' in inputs)) {
     return false;
   }
   const tier = precisionHintFromFilename(filename);
-  if (tier !== "bf16") {
+  if (tier !== 'bf16') {
     return false;
   }
   const dtype = inputs.weight_dtype;
-  if (typeof dtype !== "string" || !/fp8|e4m3fn/i.test(dtype)) {
+  if (typeof dtype !== 'string' || !/fp8|e4m3fn/i.test(dtype)) {
     return false;
   }
-  inputs.weight_dtype = "default";
+  inputs.weight_dtype = 'default';
   return true;
 }
 
 function shouldPatchClipFilename(
   current: unknown,
   nextValue: string | undefined,
-  syncLoadersToModel?: boolean,
+  syncLoadersToModel?: boolean
 ): nextValue is string {
   const trimmedNext = nextValue?.trim();
   if (!trimmedNext) {
@@ -251,7 +229,7 @@ function shouldPatchClipFilename(
   if (shouldPatchLoaderFilenameField(current, nextValue, syncLoadersToModel)) {
     return true;
   }
-  if (typeof current === "string") {
+  if (typeof current === 'string') {
     const deprecated = DEPRECATED_QWEN_CLIP_FILENAMES[current.trim()];
     if (deprecated && deprecated === trimmedNext) {
       return true;
@@ -262,32 +240,32 @@ function shouldPatchClipFilename(
 
 function shouldPatchNumericField(
   current: unknown,
-  nextValue: string | number | undefined,
+  nextValue: string | number | undefined
 ): nextValue is string | number {
-  if (nextValue == null || nextValue.toString().trim() === "") {
+  if (nextValue == null || nextValue.toString().trim() === '') {
     return false;
   }
   if (isUnresolvedWorkflowPlaceholder(current)) {
     return true;
   }
-  if (typeof current === "number") {
+  if (typeof current === 'number') {
     return Number(current) !== Number(nextValue);
   }
-  if (typeof current === "string" && /^\d+$/.test(current.trim())) {
+  if (typeof current === 'string' && /^\d+$/.test(current.trim())) {
     return Number(current) !== Number(nextValue);
   }
-  return current == null || current === "";
+  return current == null || current === '';
 }
 
 export function isLatentSizeNode(classType: string, inputs: Record<string, unknown>): boolean {
   const classLower = classType.toLowerCase();
-  if (!("width" in inputs) || !("height" in inputs)) {
+  if (!('width' in inputs) || !('height' in inputs)) {
     return false;
   }
   return (
-    classLower.includes("emptylatent") ||
-    classLower.includes("latentimage") ||
-    (classLower.includes("empty") && classLower.includes("latent"))
+    classLower.includes('emptylatent') ||
+    classLower.includes('latentimage') ||
+    (classLower.includes('empty') && classLower.includes('latent'))
   );
 }
 
@@ -299,7 +277,7 @@ export function isLatentSizeNode(classType: string, inputs: Record<string, unkno
  */
 export function normalizeEmptyLatentForModel(
   workflow: Record<string, unknown>,
-  model?: string,
+  model?: string
 ): { workflow: Record<string, unknown>; converted: number } {
   if (!model?.trim()) {
     return { workflow, converted: 0 };
@@ -308,21 +286,22 @@ export function normalizeEmptyLatentForModel(
   const category = COMFY_MODEL_IDS.has(model)
     ? getComfyModelDefinition(model as ComfyImageModel).category
     : /qwen/i.test(model)
-      ? "qwen"
+      ? 'qwen'
       : /sd3/i.test(model)
-        ? "sd3"
+        ? 'sd3'
         : /flux/i.test(model)
-          ? "flux"
+          ? 'flux'
           : null;
 
-  const targetClass = isFluxKleinModel(model) || model === "flux2"
-    ? "EmptyFlux2LatentImage"
-    : category === "qwen" ||
-        category === "sd3" ||
-        isFlux1FamilyModel(model) ||
-        (category === "flux" && !isFluxKleinModel(model) && model !== "flux2")
-      ? "EmptySD3LatentImage"
-      : null;
+  const targetClass =
+    isFluxKleinModel(model) || model === 'flux2'
+      ? 'EmptyFlux2LatentImage'
+      : category === 'qwen' ||
+          category === 'sd3' ||
+          isFlux1FamilyModel(model) ||
+          (category === 'flux' && !isFluxKleinModel(model) && model !== 'flux2')
+        ? 'EmptySD3LatentImage'
+        : null;
 
   if (!targetClass) {
     return { workflow, converted: 0 };
@@ -331,16 +310,16 @@ export function normalizeEmptyLatentForModel(
   const next = structuredClone(workflow);
   let converted = 0;
   for (const node of Object.values(next)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
     const record = node as { class_type?: string };
-    const classType = record.class_type ?? "";
+    const classType = record.class_type ?? '';
     if (
-      classType === "EmptyLatentImage" ||
-      classType === "EmptyFluxLatentImage" ||
-      classType === "EmptyFlux2LatentImage" ||
-      classType === "EmptySD3LatentImage"
+      classType === 'EmptyLatentImage' ||
+      classType === 'EmptyFluxLatentImage' ||
+      classType === 'EmptyFlux2LatentImage' ||
+      classType === 'EmptySD3LatentImage'
     ) {
       if (classType !== targetClass) {
         record.class_type = targetClass;
@@ -354,13 +333,13 @@ export function normalizeEmptyLatentForModel(
 
 export function patchLatentSizeInWorkflow(
   workflow: Record<string, unknown>,
-  params: Pick<WorkflowParamValues, "width" | "height">,
+  params: Pick<WorkflowParamValues, 'width' | 'height'>
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
 
   for (const node of Object.values(next)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
 
@@ -369,7 +348,7 @@ export function patchLatentSizeInWorkflow(
       inputs?: Record<string, unknown>;
     };
     const inputs = record.inputs;
-    if (!inputs || !isLatentSizeNode(record.class_type ?? "", inputs)) {
+    if (!inputs || !isLatentSizeNode(record.class_type ?? '', inputs)) {
       continue;
     }
 
@@ -395,7 +374,7 @@ export function patchLoaderNodesInWorkflow(
     availableCheckpoints?: string[] | null;
     availableUnets?: string[] | null;
     model?: string;
-  },
+  }
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const syncLoadersToModel = options?.syncLoadersToModel === true;
   const alignClipPrecision = options?.alignClipPrecision !== false;
@@ -405,7 +384,7 @@ export function patchLoaderNodesInWorkflow(
   const patched: WorkflowDirectPatchCounts = {};
 
   for (const node of Object.values(next)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
 
@@ -413,7 +392,7 @@ export function patchLoaderNodesInWorkflow(
       class_type?: string;
       inputs?: Record<string, unknown>;
     };
-    const classType = record.class_type ?? "";
+    const classType = record.class_type ?? '';
     const inputs = record.inputs;
     if (!inputs) {
       continue;
@@ -422,12 +401,12 @@ export function patchLoaderNodesInWorkflow(
     if (
       loaders.checkpoint &&
       CHECKPOINT_LOADER_TYPES.has(classType) &&
-      "ckpt_name" in inputs &&
+      'ckpt_name' in inputs &&
       (shouldPatchLoaderFilenameField(
         inputs.ckpt_name,
         loaders.checkpoint,
         syncLoadersToModel,
-        checkpointInventory,
+        checkpointInventory
       ) ||
         shouldAlignLoaderPrecision(inputs.ckpt_name, loaders.checkpoint))
     ) {
@@ -439,18 +418,17 @@ export function patchLoaderNodesInWorkflow(
       loaders.unet &&
       !filenameLooksLikeCheckpointOnly(loaders.unet) &&
       UNET_LOADER_TYPES.has(classType) &&
-      "unet_name" in inputs
+      'unet_name' in inputs
     ) {
       const shouldPatch =
         shouldPatchLoaderFilenameField(
           inputs.unet_name,
           loaders.unet,
           syncLoadersToModel,
-          unetInventory,
+          unetInventory
         ) ||
         shouldAlignLoaderPrecision(inputs.unet_name, loaders.unet) ||
-        (typeof inputs.unet_name === "string" &&
-          filenameLooksLikeCheckpointOnly(inputs.unet_name));
+        (typeof inputs.unet_name === 'string' && filenameLooksLikeCheckpointOnly(inputs.unet_name));
       if (shouldPatch) {
         inputs.unet_name = loaders.unet;
         patched.unet = (patched.unet ?? 0) + 1;
@@ -458,7 +436,7 @@ export function patchLoaderNodesInWorkflow(
           patched.unetWeightDtype = (patched.unetWeightDtype ?? 0) + 1;
         }
       } else if (
-        typeof inputs.unet_name === "string" &&
+        typeof inputs.unet_name === 'string' &&
         !isUnresolvedWorkflowPlaceholder(inputs.unet_name) &&
         alignUnetWeightDtypeToFilename(inputs, inputs.unet_name)
       ) {
@@ -468,8 +446,8 @@ export function patchLoaderNodesInWorkflow(
     } else if (
       loaders.unet &&
       UNET_LOADER_TYPES.has(classType) &&
-      "unet_name" in inputs &&
-      typeof inputs.unet_name === "string" &&
+      'unet_name' in inputs &&
+      typeof inputs.unet_name === 'string' &&
       !isUnresolvedWorkflowPlaceholder(inputs.unet_name) &&
       alignUnetWeightDtypeToFilename(inputs, inputs.unet_name)
     ) {
@@ -479,10 +457,10 @@ export function patchLoaderNodesInWorkflow(
     if (
       loaders.vae &&
       VAE_LOADER_TYPES.has(classType) &&
-      "vae_name" in inputs &&
+      'vae_name' in inputs &&
       (shouldPatchLoaderFilenameField(inputs.vae_name, loaders.vae, syncLoadersToModel) ||
         (options?.model &&
-          typeof inputs.vae_name === "string" &&
+          typeof inputs.vae_name === 'string' &&
           isVaeFilenameIncompatibleWithModel(options.model, inputs.vae_name)))
     ) {
       inputs.vae_name = loaders.vae;
@@ -495,12 +473,11 @@ export function patchLoaderNodesInWorkflow(
       // Flux.1 DualCLIP uses clip_l + t5xxl — never stamp both slots with one Qwen-style dualClip.
       !isFlux1FamilyModel(options?.model)
     ) {
-      for (const field of ["clip_name1", "clip_name2"] as const) {
+      for (const field of ['clip_name1', 'clip_name2'] as const) {
         if (
           field in inputs &&
           (shouldPatchClipFilename(inputs[field], loaders.dualClip, syncLoadersToModel) ||
-            (alignClipPrecision &&
-              shouldAlignLoaderPrecision(inputs[field], loaders.dualClip)))
+            (alignClipPrecision && shouldAlignLoaderPrecision(inputs[field], loaders.dualClip)))
         ) {
           inputs[field] = loaders.dualClip;
           patched.dualClip = (patched.dualClip ?? 0) + 1;
@@ -511,10 +488,9 @@ export function patchLoaderNodesInWorkflow(
     if (
       loaders.dualClip &&
       CLIP_LOADER_TYPES.has(classType) &&
-      "clip_name" in inputs &&
+      'clip_name' in inputs &&
       (shouldPatchClipFilename(inputs.clip_name, loaders.dualClip, syncLoadersToModel) ||
-        (alignClipPrecision &&
-          shouldAlignLoaderPrecision(inputs.clip_name, loaders.dualClip)))
+        (alignClipPrecision && shouldAlignLoaderPrecision(inputs.clip_name, loaders.dualClip)))
     ) {
       inputs.clip_name = loaders.dualClip;
       patched.dualClip = (patched.dualClip ?? 0) + 1;
@@ -529,20 +505,20 @@ export function patchControlNetNodesInWorkflow(
   input: {
     controlNetModelFilename?: string;
     controlImageFilename?: string;
-  },
+  }
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
 
   for (const node of Object.values(next)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
     const record = node as {
       class_type?: string;
       inputs?: Record<string, unknown>;
     };
-    const classType = record.class_type ?? "";
+    const classType = record.class_type ?? '';
     const inputs = record.inputs;
     if (!inputs) {
       continue;
@@ -550,7 +526,7 @@ export function patchControlNetNodesInWorkflow(
 
     if (
       CONTROLNET_LOADER_TYPES.has(classType) &&
-      "control_net_name" in inputs &&
+      'control_net_name' in inputs &&
       shouldPatchLoaderFilenameField(inputs.control_net_name, input.controlNetModelFilename)
     ) {
       inputs.control_net_name = input.controlNetModelFilename;
@@ -559,10 +535,10 @@ export function patchControlNetNodesInWorkflow(
 
     if (
       INPUT_IMAGE_TYPES.has(classType) &&
-      "image" in inputs &&
+      'image' in inputs &&
       shouldPatchStringField(inputs.image, input.controlImageFilename)
     ) {
-      const current = typeof inputs.image === "string" ? inputs.image : "";
+      const current = typeof inputs.image === 'string' ? inputs.image : '';
       if (
         current.includes(DEFAULT_CONTROL_IMAGE_TOKEN) ||
         isUnresolvedWorkflowPlaceholder(current)
@@ -589,17 +565,16 @@ export function patchControlNetInWorkflow(
     controlImageFilenames?: string[];
     availableNodeTypes?: Iterable<string> | null;
     controlNetMode?: string;
-  },
+  }
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const stackEntries = (() => {
     const fromArray = (input.controlImageFilenames ?? [])
-      .map((name) => name?.trim())
+      .map(name => name?.trim())
       .filter(Boolean) as string[];
     if (fromArray.length > 0) {
       return fromArray.map((controlImageFilename, index) => ({
         controlImageFilename,
-        controlNetModelFilename:
-          index === 0 ? input.controlNetModelFilename : undefined,
+        controlNetModelFilename: index === 0 ? input.controlNetModelFilename : undefined,
         controlNetMode: input.controlNetMode,
       }));
     }
@@ -635,8 +610,7 @@ export function patchControlNetInWorkflow(
 
   const nodePatch = patchControlNetNodesInWorkflow(insertResult.workflow, {
     controlNetModelFilename: input.controlNetModelFilename,
-    controlImageFilename:
-      stackEntries[0]?.controlImageFilename ?? input.controlImageFilename,
+    controlImageFilename: stackEntries[0]?.controlImageFilename ?? input.controlImageFilename,
   });
   const patched: WorkflowDirectPatchCounts = { ...nodePatch.patched };
   if (insertResult.insertedCount > 0) {
@@ -664,12 +638,12 @@ export function patchIpAdapterInWorkflow(
      * When instantid|pulid|auto, prefer InstantID/PuLID insert over IP-Adapter.
      * ipadapter (default) keeps IP-Adapter-first with InstantID/PuLID fallback.
      */
-    identityKind?: "ipadapter" | "instantid" | "pulid" | "auto";
-  },
+    identityKind?: 'ipadapter' | 'instantid' | 'pulid' | 'auto';
+  }
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const stackEntries = (() => {
     const fromArray = (input.ipAdapterImageFilenames ?? [])
-      .map((name) => name?.trim())
+      .map(name => name?.trim())
       .filter(Boolean) as string[];
     if (fromArray.length > 0) {
       return fromArray.map((imageFilename, index) => ({
@@ -678,8 +652,7 @@ export function patchIpAdapterInWorkflow(
           index === 0 && input.ipAdapterStrength != null
             ? Number(input.ipAdapterStrength)
             : undefined,
-        modelFilename:
-          index === 0 ? input.ipAdapterModelFilename : undefined,
+        modelFilename: index === 0 ? input.ipAdapterModelFilename : undefined,
       }));
     }
     const primary = input.ipAdapterImageFilename?.trim();
@@ -687,10 +660,7 @@ export function patchIpAdapterInWorkflow(
       ? [
           {
             imageFilename: primary,
-            strength:
-              input.ipAdapterStrength != null
-                ? Number(input.ipAdapterStrength)
-                : undefined,
+            strength: input.ipAdapterStrength != null ? Number(input.ipAdapterStrength) : undefined,
             modelFilename: input.ipAdapterModelFilename,
           },
         ]
@@ -698,20 +668,20 @@ export function patchIpAdapterInWorkflow(
   })();
 
   const preferIdentityChain =
-    input.identityKind === "instantid" ||
-    input.identityKind === "pulid" ||
-    input.identityKind === "auto";
+    input.identityKind === 'instantid' ||
+    input.identityKind === 'pulid' ||
+    input.identityKind === 'auto';
 
   let nextWorkflow = workflow;
   const patched: WorkflowDirectPatchCounts = {};
 
   if (preferIdentityChain && stackEntries[0]?.imageFilename?.trim()) {
-      const identity = insertIdentityChainIfMissing(nextWorkflow, {
+    const identity = insertIdentityChainIfMissing(nextWorkflow, {
       imageFilename: stackEntries[0].imageFilename,
       kind:
-        input.identityKind === "instantid" || input.identityKind === "pulid"
+        input.identityKind === 'instantid' || input.identityKind === 'pulid'
           ? input.identityKind
-          : "auto",
+          : 'auto',
       availableNodeTypes: input.availableNodeTypes,
     });
     if (identity.inserted) {
@@ -720,15 +690,12 @@ export function patchIpAdapterInWorkflow(
     }
     // Remaining multi-refs (e.g. Klein Compose Figures 2–4) still use IP-Adapter.
     if (stackEntries.length > 1) {
-      const rest = insertIpAdapterStack(
-        nextWorkflow,
-        stackEntries.slice(1),
-        { availableNodeTypes: input.availableNodeTypes },
-      );
+      const rest = insertIpAdapterStack(nextWorkflow, stackEntries.slice(1), {
+        availableNodeTypes: input.availableNodeTypes,
+      });
       nextWorkflow = rest.workflow;
       if (rest.insertedCount > 0) {
-        patched.ipAdapterInserted =
-          (patched.ipAdapterInserted ?? 0) + rest.insertedNodeIds.length;
+        patched.ipAdapterInserted = (patched.ipAdapterInserted ?? 0) + rest.insertedNodeIds.length;
       }
     }
   } else {
@@ -755,10 +722,7 @@ export function patchIpAdapterInWorkflow(
     }
 
     // If IP-Adapter Plus isn't available, fall back to InstantID/PuLID when installed.
-    if (
-      insertResult.insertedCount === 0 &&
-      stackEntries[0]?.imageFilename?.trim()
-    ) {
+    if (insertResult.insertedCount === 0 && stackEntries[0]?.imageFilename?.trim()) {
       const identity = insertIdentityChainIfMissing(nextWorkflow, {
         imageFilename: stackEntries[0].imageFilename,
         availableNodeTypes: input.availableNodeTypes,
@@ -789,17 +753,15 @@ export function patchIpAdapterInWorkflow(
 
 export function patchUpscaleModelNodesInWorkflow(
   workflow: Record<string, unknown>,
-  upscaleModelFilename?: string,
+  upscaleModelFilename?: string
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const resolved =
-    upscaleModelFilename?.trim() ||
-    SUGGESTED_MODEL_UPSCALE_MAP.default ||
-    "4x-UltraSharp.pth";
+    upscaleModelFilename?.trim() || SUGGESTED_MODEL_UPSCALE_MAP.default || '4x-UltraSharp.pth';
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
 
   for (const node of Object.values(next)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
 
@@ -807,9 +769,9 @@ export function patchUpscaleModelNodesInWorkflow(
       class_type?: string;
       inputs?: Record<string, unknown>;
     };
-    const classType = record.class_type ?? "";
+    const classType = record.class_type ?? '';
     const inputs = record.inputs;
-    if (!inputs || !UPSCALE_MODEL_LOADER_TYPES.has(classType) || !("model_name" in inputs)) {
+    if (!inputs || !UPSCALE_MODEL_LOADER_TYPES.has(classType) || !('model_name' in inputs)) {
       continue;
     }
 
@@ -828,26 +790,25 @@ export function patchUpscaleModelNodesInWorkflow(
 /** Last-resort JSON replace so {{UPSCALE_MODEL}} cannot leak into ComfyUI. */
 export function replaceUpscaleModelTokenInJson(
   workflow: Record<string, unknown>,
-  upscaleModelFilename?: string,
+  upscaleModelFilename?: string
 ): Record<string, unknown> {
   const resolved =
-    upscaleModelFilename?.trim() ||
-    SUGGESTED_MODEL_UPSCALE_MAP.default ||
-    "4x-UltraSharp.pth";
+    upscaleModelFilename?.trim() || SUGGESTED_MODEL_UPSCALE_MAP.default || '4x-UltraSharp.pth';
   const json = JSON.stringify(workflow);
   if (!json.includes(DEFAULT_UPSCALE_MODEL_TOKEN)) {
     return workflow;
   }
-  return JSON.parse(
-    json.split(DEFAULT_UPSCALE_MODEL_TOKEN).join(resolved),
-  ) as Record<string, unknown>;
+  return JSON.parse(json.split(DEFAULT_UPSCALE_MODEL_TOKEN).join(resolved)) as Record<
+    string,
+    unknown
+  >;
 }
 
 function patchImageLoaderNodesInWorkflow(
   workflow: Record<string, unknown>,
   classTypes: Set<string>,
   filename: string | undefined,
-  countKey: "inputImage" | "maskImage",
+  countKey: 'inputImage' | 'maskImage'
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
@@ -857,7 +818,7 @@ function patchImageLoaderNodesInWorkflow(
   }
 
   for (const node of Object.values(next)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
 
@@ -865,9 +826,9 @@ function patchImageLoaderNodesInWorkflow(
       class_type?: string;
       inputs?: Record<string, unknown>;
     };
-    const classType = record.class_type ?? "";
+    const classType = record.class_type ?? '';
     const inputs = record.inputs;
-    if (!inputs || !classTypes.has(classType) || !("image" in inputs)) {
+    if (!inputs || !classTypes.has(classType) || !('image' in inputs)) {
       continue;
     }
 
@@ -883,12 +844,9 @@ function patchImageLoaderNodesInWorkflow(
 export function patchLoadImageNodesInWorkflow(
   workflow: Record<string, unknown>,
   inputImageFilename?: string,
-  inputImageFilenames?: string[],
+  inputImageFilenames?: string[]
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
-  const filenames = normalizeInputImageFilenames(
-    inputImageFilename,
-    inputImageFilenames,
-  );
+  const filenames = normalizeInputImageFilenames(inputImageFilename, inputImageFilenames);
 
   if (filenames.length === 0) {
     return { workflow: structuredClone(workflow), patched: {} };
@@ -896,12 +854,7 @@ export function patchLoadImageNodesInWorkflow(
 
   // Single-image path: keep legacy blanket patch (placeholder / overwrite).
   if (filenames.length === 1) {
-    return patchImageLoaderNodesInWorkflow(
-      workflow,
-      INPUT_IMAGE_TYPES,
-      filenames[0],
-      "inputImage",
-    );
+    return patchImageLoaderNodesInWorkflow(workflow, INPUT_IMAGE_TYPES, filenames[0], 'inputImage');
   }
 
   const next = structuredClone(workflow) as Record<
@@ -914,32 +867,32 @@ export function patchLoadImageNodesInWorkflow(
   >;
   const patched: WorkflowDirectPatchCounts = {};
   const loadImageEntries = Object.entries(next).filter(([, node]) =>
-    INPUT_IMAGE_TYPES.has(node?.class_type ?? ""),
+    INPUT_IMAGE_TYPES.has(node?.class_type ?? '')
   );
   const loadImageCount = loadImageEntries.length;
   let loadImageIndex = 0;
 
   for (const [, node] of loadImageEntries) {
-    const classType = node?.class_type ?? "";
-    const title = node?._meta?.title ?? "";
+    const classType = node?.class_type ?? '';
+    const title = node?._meta?.title ?? '';
     const inputs = node?.inputs;
     const kind = inferLoadImageBinding(classType, title, {
       loadImageIndex,
       loadImageCount,
     });
     loadImageIndex += 1;
-    if (!inputs || !("image" in inputs)) {
+    if (!inputs || !('image' in inputs)) {
       continue;
     }
 
     const figure =
-      kind === "inputImage"
+      kind === 'inputImage'
         ? 0
-        : kind === "inputImage2"
+        : kind === 'inputImage2'
           ? 1
-          : kind === "inputImage3"
+          : kind === 'inputImage3'
             ? 2
-            : kind === "inputImage4"
+            : kind === 'inputImage4'
               ? 3
               : -1;
     if (figure < 0) {
@@ -960,21 +913,21 @@ export function patchLoadImageNodesInWorkflow(
 
 export function patchLoadImageMaskNodesInWorkflow(
   workflow: Record<string, unknown>,
-  maskImageFilename?: string,
+  maskImageFilename?: string
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   return patchImageLoaderNodesInWorkflow(
     workflow,
     MASK_IMAGE_TYPES,
     maskImageFilename,
-    "maskImage",
+    'maskImage'
   );
 }
 
 function coerceLoaderFieldValue(value: unknown): string | null {
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     return value;
   }
-  if (Array.isArray(value) && typeof value[0] === "string") {
+  if (Array.isArray(value) && typeof value[0] === 'string') {
     return value[0];
   }
   return null;
@@ -984,16 +937,16 @@ function coerceLoaderFieldValue(value: unknown): string | null {
 export function forceResolveLoaderPlaceholders(
   workflow: Record<string, unknown>,
   loaders: ModelLoaderFilenames,
-  options?: { upscaleModelFilename?: string },
+  options?: { upscaleModelFilename?: string }
 ): Record<string, unknown> {
   const next = structuredClone(workflow) as Record<string, unknown>;
   const upscaleName =
     options?.upscaleModelFilename?.trim() ||
     SUGGESTED_MODEL_UPSCALE_MAP.default ||
-    "4x-UltraSharp.pth";
+    '4x-UltraSharp.pth';
 
   for (const node of Object.values(next)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
 
@@ -1001,21 +954,17 @@ export function forceResolveLoaderPlaceholders(
       class_type?: string;
       inputs?: Record<string, unknown>;
     };
-    const classType = record.class_type ?? "";
+    const classType = record.class_type ?? '';
     const inputs = record.inputs;
     if (!inputs) {
       continue;
     }
 
-    if (
-      loaders.checkpoint &&
-      CHECKPOINT_LOADER_TYPES.has(classType) &&
-      "ckpt_name" in inputs
-    ) {
+    if (loaders.checkpoint && CHECKPOINT_LOADER_TYPES.has(classType) && 'ckpt_name' in inputs) {
       const current = coerceLoaderFieldValue(inputs.ckpt_name);
       if (
         current == null ||
-        current.trim() === "" ||
+        current.trim() === '' ||
         isUnresolvedWorkflowPlaceholder(current) ||
         current === DEFAULT_CHECKPOINT_TOKEN
       ) {
@@ -1023,15 +972,11 @@ export function forceResolveLoaderPlaceholders(
       }
     }
 
-    if (
-      loaders.unet &&
-      UNET_LOADER_TYPES.has(classType) &&
-      "unet_name" in inputs
-    ) {
+    if (loaders.unet && UNET_LOADER_TYPES.has(classType) && 'unet_name' in inputs) {
       const current = coerceLoaderFieldValue(inputs.unet_name);
       if (
         current == null ||
-        current.trim() === "" ||
+        current.trim() === '' ||
         isUnresolvedWorkflowPlaceholder(current) ||
         current === DEFAULT_UNET_TOKEN
       ) {
@@ -1039,15 +984,11 @@ export function forceResolveLoaderPlaceholders(
       }
     }
 
-    if (
-      loaders.vae &&
-      VAE_LOADER_TYPES.has(classType) &&
-      "vae_name" in inputs
-    ) {
+    if (loaders.vae && VAE_LOADER_TYPES.has(classType) && 'vae_name' in inputs) {
       const current = coerceLoaderFieldValue(inputs.vae_name);
       if (
         current == null ||
-        current.trim() === "" ||
+        current.trim() === '' ||
         isUnresolvedWorkflowPlaceholder(current) ||
         current === DEFAULT_VAE_TOKEN
       ) {
@@ -1055,11 +996,11 @@ export function forceResolveLoaderPlaceholders(
       }
     }
 
-    if (UPSCALE_MODEL_LOADER_TYPES.has(classType) && "model_name" in inputs) {
+    if (UPSCALE_MODEL_LOADER_TYPES.has(classType) && 'model_name' in inputs) {
       const current = coerceLoaderFieldValue(inputs.model_name);
       if (
         current == null ||
-        current.trim() === "" ||
+        current.trim() === '' ||
         isUnresolvedWorkflowPlaceholder(current) ||
         current === DEFAULT_UPSCALE_MODEL_TOKEN
       ) {
@@ -1068,16 +1009,16 @@ export function forceResolveLoaderPlaceholders(
     }
 
     if (loaders.dualClip && DUAL_CLIP_LOADER_TYPES.has(classType)) {
-      for (const field of ["clip_name1", "clip_name2"] as const) {
+      for (const field of ['clip_name1', 'clip_name2'] as const) {
         if (!(field in inputs)) {
           continue;
         }
         const current = coerceLoaderFieldValue(inputs[field]);
         const shouldPatch =
           current == null ||
-          current.trim() === "" ||
+          current.trim() === '' ||
           isUnresolvedWorkflowPlaceholder(current) ||
-          (typeof current === "string" &&
+          (typeof current === 'string' &&
             DEPRECATED_QWEN_CLIP_FILENAMES[current.trim()] === loaders.dualClip);
         if (shouldPatch) {
           inputs[field] = loaders.dualClip;
@@ -1085,13 +1026,13 @@ export function forceResolveLoaderPlaceholders(
       }
     }
 
-    if (loaders.dualClip && CLIP_LOADER_TYPES.has(classType) && "clip_name" in inputs) {
+    if (loaders.dualClip && CLIP_LOADER_TYPES.has(classType) && 'clip_name' in inputs) {
       const current = coerceLoaderFieldValue(inputs.clip_name);
       const shouldPatch =
         current == null ||
-        current.trim() === "" ||
+        current.trim() === '' ||
         isUnresolvedWorkflowPlaceholder(current) ||
-        (typeof current === "string" &&
+        (typeof current === 'string' &&
           DEPRECATED_QWEN_CLIP_FILENAMES[current.trim()] === loaders.dualClip);
       if (shouldPatch) {
         inputs.clip_name = loaders.dualClip;
@@ -1099,7 +1040,7 @@ export function forceResolveLoaderPlaceholders(
     }
 
     for (const [field, value] of Object.entries(inputs)) {
-      if (typeof value !== "string" || !isUnresolvedWorkflowPlaceholder(value)) {
+      if (typeof value !== 'string' || !isUnresolvedWorkflowPlaceholder(value)) {
         continue;
       }
       if (value.includes(DEFAULT_UNET_TOKEN) && loaders.unet && UNET_LOADER_TYPES.has(classType)) {
@@ -1127,13 +1068,13 @@ export function forceResolveLoaderPlaceholders(
 
   return replaceUpscaleModelTokenInJson(
     replaceLoaderPlaceholderTokensInJson(next, loaders),
-    upscaleName,
+    upscaleName
   );
 }
 
 function replaceLoaderPlaceholderTokensInJson(
   workflow: Record<string, unknown>,
-  loaders: ModelLoaderFilenames,
+  loaders: ModelLoaderFilenames
 ): Record<string, unknown> {
   if (!loaders.checkpoint && !loaders.unet && !loaders.vae) {
     return workflow;
@@ -1155,14 +1096,14 @@ function replaceLoaderPlaceholderTokensInJson(
 
 export function patchImageResizeNodesInWorkflow(
   workflow: Record<string, unknown>,
-  params: Pick<WorkflowParamValues, "width" | "height">,
+  params: Pick<WorkflowParamValues, 'width' | 'height'>
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
-  const resizeTypes = new Set(["ImageScale", "ResizeImage"]);
+  const resizeTypes = new Set(['ImageScale', 'ResizeImage']);
 
   for (const node of Object.values(next)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
     const record = node as {
@@ -1170,7 +1111,7 @@ export function patchImageResizeNodesInWorkflow(
       inputs?: Record<string, unknown>;
     };
     const inputs = record.inputs;
-    if (!inputs || !resizeTypes.has(record.class_type ?? "")) {
+    if (!inputs || !resizeTypes.has(record.class_type ?? '')) {
       continue;
     }
 
@@ -1189,36 +1130,40 @@ export function patchImageResizeNodesInWorkflow(
 
 /** Empty-latent nodes used as the "no init image" latent source in WAN/Hunyuan T2V starter graphs. */
 const VIDEO_LATENT_NODE_TYPES = new Set([
-  "EmptyHunyuanLatentVideo",
-  "EmptyLTXVLatentVideo",
-  "EmptyMochiLatentVideo",
-  "EmptyCosmosLatentVideo",
+  'EmptyHunyuanLatentVideo',
+  'EmptyLTXVLatentVideo',
+  'EmptyMochiLatentVideo',
+  'EmptyCosmosLatentVideo',
 ]);
 
 /** Built-in ComfyUI I2V conditioning nodes — presence means the graph is already wired. */
 const VIDEO_IMAGE_TO_VIDEO_NODE_TYPES = new Set([
-  "WanImageToVideo",
-  "WanCameraImageToVideo",
-  "HunyuanImageToVideo",
-  "LTXVImgToVideo",
+  'WanImageToVideo',
+  'WanCameraImageToVideo',
+  'HunyuanImageToVideo',
+  'LTXVImgToVideo',
 ]);
 
 function asNodeRecord(
-  node: unknown,
+  node: unknown
 ): { class_type?: string; _meta?: { title?: string }; inputs?: Record<string, unknown> } | null {
-  if (!node || typeof node !== "object") {
+  if (!node || typeof node !== 'object') {
     return null;
   }
-  return node as { class_type?: string; _meta?: { title?: string }; inputs?: Record<string, unknown> };
+  return node as {
+    class_type?: string;
+    _meta?: { title?: string };
+    inputs?: Record<string, unknown>;
+  };
 }
 
 function isNodeOutputRef(value: unknown): value is [string, number] {
-  return Array.isArray(value) && typeof value[0] === "string" && typeof value[1] === "number";
+  return Array.isArray(value) && typeof value[0] === 'string' && typeof value[1] === 'number';
 }
 
 function findFirstNodeIdByClassTypes(
   workflow: Record<string, unknown>,
-  classTypes: Set<string>,
+  classTypes: Set<string>
 ): string | null {
   for (const [nodeId, node] of Object.entries(workflow)) {
     const record = asNodeRecord(node);
@@ -1252,11 +1197,11 @@ function findInitImageLoadNodeId(workflow: Record<string, unknown>): string | nu
 
   for (const [nodeId, node] of Object.entries(workflow)) {
     const record = asNodeRecord(node);
-    if (record?.class_type !== "LoadImage" || !record.inputs) {
+    if (record?.class_type !== 'LoadImage' || !record.inputs) {
       continue;
     }
-    const title = record._meta?.title?.toLowerCase() ?? "";
-    if (title.includes("init")) {
+    const title = record._meta?.title?.toLowerCase() ?? '';
+    if (title.includes('init')) {
       return nodeId;
     }
     if (!referenced.has(nodeId) && orphanCandidate === null) {
@@ -1268,10 +1213,10 @@ function findInitImageLoadNodeId(workflow: Record<string, unknown>): string | nu
 }
 
 function resolveNumericLikeField(value: unknown, fallback: number): number | string {
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
-  if (typeof value === "string" && value.trim() && !isUnresolvedWorkflowPlaceholder(value)) {
+  if (typeof value === 'string' && value.trim() && !isUnresolvedWorkflowPlaceholder(value)) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
   }
@@ -1289,8 +1234,8 @@ export function patchVideoImageToVideoWiringInWorkflow(
   input: {
     model?: string;
     inputImageFilename?: string;
-    params?: Pick<WorkflowParamValues, "width" | "height" | "videoFrames">;
-  },
+    params?: Pick<WorkflowParamValues, 'width' | 'height' | 'videoFrames'>;
+  }
 ): {
   workflow: Record<string, unknown>;
   patched: WorkflowDirectPatchCounts;
@@ -1307,7 +1252,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
   const def = COMFY_MODEL_IDS.has(input.model)
     ? getComfyModelDefinition(input.model as ComfyImageModel)
     : null;
-  if (def?.category !== "video") {
+  if (def?.category !== 'video') {
     return { workflow: next, patched };
   }
 
@@ -1331,21 +1276,21 @@ export function patchVideoImageToVideoWiringInWorkflow(
     return {
       workflow: next,
       patched,
-      error: videoI2vWireError("missing LoadImage init node and Empty*LatentVideo"),
+      error: videoI2vWireError('missing LoadImage init node and Empty*LatentVideo'),
     };
   }
   if (!loadImageId) {
     return {
       workflow: next,
       patched,
-      error: videoI2vWireError("missing LoadImage titled Init Image (or an unused LoadImage)"),
+      error: videoI2vWireError('missing LoadImage titled Init Image (or an unused LoadImage)'),
     };
   }
   if (!latentNodeId) {
     return {
       workflow: next,
       patched,
-      error: videoI2vWireError("missing EmptyHunyuanLatentVideo / EmptyLTXVLatentVideo"),
+      error: videoI2vWireError('missing EmptyHunyuanLatentVideo / EmptyLTXVLatentVideo'),
     };
   }
 
@@ -1373,11 +1318,11 @@ export function patchVideoImageToVideoWiringInWorkflow(
       if (!record?.inputs || !isNodeOutputRef(record.inputs.latent_image)) {
         continue;
       }
-      const classType = (record.class_type ?? "").toLowerCase();
+      const classType = (record.class_type ?? '').toLowerCase();
       const looksLikeSampler =
-        classType.includes("ksampler") ||
-        classType.includes("samplercustom") ||
-        ("seed" in record.inputs && ("steps" in record.inputs || "cfg" in record.inputs));
+        classType.includes('ksampler') ||
+        classType.includes('samplercustom') ||
+        ('seed' in record.inputs && ('steps' in record.inputs || 'cfg' in record.inputs));
       if (!looksLikeSampler || !isNodeOutputRef(record.inputs.positive)) {
         continue;
       }
@@ -1390,7 +1335,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
     return {
       workflow: next,
       patched,
-      error: videoI2vWireError("no KSampler (or sampler-like node) with latent_image + positive"),
+      error: videoI2vWireError('no KSampler (or sampler-like node) with latent_image + positive'),
     };
   }
 
@@ -1399,7 +1344,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
     return {
       workflow: next,
       patched,
-      error: videoI2vWireError("sampler positive conditioning is not a node link"),
+      error: videoI2vWireError('sampler positive conditioning is not a node link'),
     };
   }
   const negativeRef = isNodeOutputRef(samplerInputs.negative) ? samplerInputs.negative : null;
@@ -1407,7 +1352,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
   let vaeRef: [string, number] | null = null;
   for (const node of Object.values(next)) {
     const record = asNodeRecord(node);
-    if (record?.class_type === "VAEDecode" && isNodeOutputRef(record.inputs?.vae)) {
+    if (record?.class_type === 'VAEDecode' && isNodeOutputRef(record.inputs?.vae)) {
       vaeRef = record.inputs!.vae as [string, number];
       break;
     }
@@ -1417,8 +1362,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
       const record = asNodeRecord(node);
       if (
         record?.class_type &&
-        (CHECKPOINT_LOADER_TYPES.has(record.class_type) ||
-          VAE_LOADER_TYPES.has(record.class_type))
+        (CHECKPOINT_LOADER_TYPES.has(record.class_type) || VAE_LOADER_TYPES.has(record.class_type))
       ) {
         // CheckpointLoaderSimple: MODEL/CLIP/VAE → output index 2; VAELoader → 0.
         vaeRef = [nodeId, VAE_LOADER_TYPES.has(record.class_type) ? 0 : 2];
@@ -1430,7 +1374,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
     return {
       workflow: next,
       patched,
-      error: videoI2vWireError("no VAE link from VAEDecode / CheckpointLoader / VAELoader"),
+      error: videoI2vWireError('no VAE link from VAEDecode / CheckpointLoader / VAELoader'),
     };
   }
 
@@ -1439,7 +1383,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
   const height = resolveNumericLikeField(latentInputs.height, Number(input.params?.height) || 480);
   const length = resolveNumericLikeField(
     latentInputs.length,
-    Number(input.params?.videoFrames) || (isHunyuan ? 53 : 81),
+    Number(input.params?.videoFrames) || (isHunyuan ? 53 : 81)
   );
   const batchSize = resolveNumericLikeField(latentInputs.batch_size, 1);
 
@@ -1448,7 +1392,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
 
   if (isHunyuan) {
     next[newNodeId] = {
-      class_type: "HunyuanImageToVideo",
+      class_type: 'HunyuanImageToVideo',
       inputs: {
         positive: positiveRef,
         vae: vaeRef,
@@ -1456,16 +1400,16 @@ export function patchVideoImageToVideoWiringInWorkflow(
         height,
         length,
         batch_size: batchSize,
-        guidance_type: "v1 (concat)",
+        guidance_type: 'v1 (concat)',
         start_image: startImageRef,
       },
-      _meta: { title: "Hunyuan Image → Video (auto-wired I2V)" },
+      _meta: { title: 'Hunyuan Image → Video (auto-wired I2V)' },
     };
     samplerInputs.positive = [newNodeId, 0];
     samplerInputs.latent_image = [newNodeId, 1];
   } else {
     next[newNodeId] = {
-      class_type: "WanImageToVideo",
+      class_type: 'WanImageToVideo',
       inputs: {
         positive: positiveRef,
         negative: negativeRef ?? positiveRef,
@@ -1476,7 +1420,7 @@ export function patchVideoImageToVideoWiringInWorkflow(
         batch_size: batchSize,
         start_image: startImageRef,
       },
-      _meta: { title: "Wan Image → Video (auto-wired I2V)" },
+      _meta: { title: 'Wan Image → Video (auto-wired I2V)' },
     };
     samplerInputs.positive = [newNodeId, 0];
     if (negativeRef) {
@@ -1500,16 +1444,16 @@ function nextAvailableWorkflowNodeId(workflow: Record<string, unknown>): string 
 }
 
 function regionalSegmentsFromCustomTokens(
-  customTokens?: Array<{ token: string; value: string }>,
+  customTokens?: Array<{ token: string; value: string }>
 ): RegionalPromptSegment[] {
   if (!customTokens?.length) {
     return [];
   }
   const map: Record<string, string> = {
-    "{{REGION_SUBJECT}}": "subject",
-    "{{REGION_BACKGROUND}}": "background",
-    "{{REGION_FOREGROUND}}": "foreground",
-    "{{REGION_LIGHTING}}": "lighting",
+    '{{REGION_SUBJECT}}': 'subject',
+    '{{REGION_BACKGROUND}}': 'background',
+    '{{REGION_FOREGROUND}}': 'foreground',
+    '{{REGION_LIGHTING}}': 'lighting',
   };
   const segments: RegionalPromptSegment[] = [];
   for (const entry of customTokens) {
@@ -1536,7 +1480,7 @@ export function patchWorkflowDirectParams(
     ipAdapterModelFilename?: string;
     /** ComfyUI object_info node class names — gates the optional CLIPVisionLoader when inserting an IP-Adapter chain. */
     availableNodeTypes?: Iterable<string> | null;
-    identityKind?: "ipadapter" | "instantid" | "pulid" | "auto";
+    identityKind?: 'ipadapter' | 'instantid' | 'pulid' | 'auto';
     customTokens?: Array<{ token: string; value: string }>;
     syncWorkflowLoadersToModel?: boolean;
     model?: string;
@@ -1548,7 +1492,7 @@ export function patchWorkflowDirectParams(
     prompt?: string;
     /** Multi-slot regional edit (masks + prompts). */
     regionalSlots?: RegionalPromptSlot[];
-  },
+  }
 ): {
   workflow: Record<string, unknown>;
   patched: WorkflowDirectPatchCounts;
@@ -1566,7 +1510,7 @@ export function patchWorkflowDirectParams(
   });
   const loraPatch = patchLoraNodesInWorkflow(
     loaderPatch.workflow,
-    buildLoraFilenameMapFromCustomTokens(input.customTokens ?? []),
+    buildLoraFilenameMapFromCustomTokens(input.customTokens ?? [])
   );
   const loraStackPatch = applyLoraStackToWorkflow(loraPatch.workflow, input.loraLibrary, {
     prompt: input.prompt,
@@ -1574,15 +1518,13 @@ export function patchWorkflowDirectParams(
   const controlPatch = patchControlNetInWorkflow(loraStackPatch.workflow, {
     controlNetModelFilename: input.controlNetModelFilename,
     controlImageFilename: input.controlImageFilename,
-    controlImageFilenames:
-      input.controlImageFilenames ?? input.params?.controlImageFilenames,
+    controlImageFilenames: input.controlImageFilenames ?? input.params?.controlImageFilenames,
     availableNodeTypes: input.availableNodeTypes,
     controlNetMode: input.params?.controlNetMode,
   });
   const ipAdapterPatch = patchIpAdapterInWorkflow(controlPatch.workflow, {
     ipAdapterImageFilename: input.ipAdapterImageFilename,
-    ipAdapterImageFilenames:
-      input.ipAdapterImageFilenames ?? input.params?.ipAdapterImageFilenames,
+    ipAdapterImageFilenames: input.ipAdapterImageFilenames ?? input.params?.ipAdapterImageFilenames,
     ipAdapterStrength: input.ipAdapterStrength,
     ipAdapterModelFilename: input.ipAdapterModelFilename,
     availableNodeTypes: input.availableNodeTypes,
@@ -1590,50 +1532,45 @@ export function patchWorkflowDirectParams(
   });
   const upscalePatch = patchUpscaleModelNodesInWorkflow(
     ipAdapterPatch.workflow,
-    input.upscaleModelFilename,
+    input.upscaleModelFilename
   );
   const imagePatch = patchLoadImageNodesInWorkflow(
     upscalePatch.workflow,
     input.params?.inputImageFilename,
-    input.params?.inputImageFilenames,
+    input.params?.inputImageFilenames
   );
   const maskPatch = patchLoadImageMaskNodesInWorkflow(
     imagePatch.workflow,
-    input.params?.maskImageFilename,
+    input.params?.maskImageFilename
   );
   const resizePatch = patchImageResizeNodesInWorkflow(maskPatch.workflow, input.params ?? {});
   const regionalSegments = regionalSegmentsFromCustomTokens(input.customTokens);
   const regionalSlots: RegionalPromptSlot[] =
     input.regionalSlots && input.regionalSlots.length > 0
       ? normalizeRegionalPromptSlots(input.regionalSlots)
-      : regionalSegments.map((segment) => ({
+      : regionalSegments.map(segment => ({
           id: segment.regionId,
           label: segment.regionId,
           prompt: segment.prompt,
           strength: 1,
         }));
-  const regionalEdit = applyRegionalEditToWorkflow(
-    resizePatch.workflow,
-    regionalSlots,
-    { availableNodeTypes: input.availableNodeTypes },
-  );
+  const regionalEdit = applyRegionalEditToWorkflow(resizePatch.workflow, regionalSlots, {
+    availableNodeTypes: input.availableNodeTypes,
+  });
   const videoWirePatch = patchVideoImageToVideoWiringInWorkflow(regionalEdit.workflow, {
     model: input.model,
     inputImageFilename: input.params?.inputImageFilename,
     params: input.params,
   });
-  const kleinRefWire = ensureKleinReferenceLatentWiringInWorkflow(
-    videoWirePatch.workflow,
-    {
-      model: input.model,
-      inputImageFilename: input.params?.inputImageFilename,
-      inputImageFilenames: input.params?.inputImageFilenames,
-    },
-  );
+  const kleinRefWire = ensureKleinReferenceLatentWiringInWorkflow(videoWirePatch.workflow, {
+    model: input.model,
+    inputImageFilename: input.params?.inputImageFilename,
+    inputImageFilenames: input.params?.inputImageFilenames,
+  });
   const fluxGuidance = ensureFluxGuidanceInWorkflow(
     kleinRefWire.workflow,
     input.model,
-    input.params,
+    input.params
   );
 
   return {
@@ -1650,12 +1587,8 @@ export function patchWorkflowDirectParams(
       ...imagePatch.patched,
       ...maskPatch.patched,
       ...resizePatch.patched,
-      ...(regionalEdit.patchedTokens > 0
-        ? { regionalTokens: regionalEdit.patchedTokens }
-        : {}),
-      ...(regionalEdit.patchedNodes > 0
-        ? { regionalNodes: regionalEdit.patchedNodes }
-        : {}),
+      ...(regionalEdit.patchedTokens > 0 ? { regionalTokens: regionalEdit.patchedTokens } : {}),
+      ...(regionalEdit.patchedNodes > 0 ? { regionalNodes: regionalEdit.patchedNodes } : {}),
       ...videoWirePatch.patched,
       ...(kleinRefWire.wired
         ? {

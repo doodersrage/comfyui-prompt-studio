@@ -1,15 +1,7 @@
-import {
-  loadSettingsCache,
-  saveSharedSettings,
-  type SharedToolSettings,
-} from "./settings-cache";
-import {
-  loadComfyUiSettings,
-  saveComfyUiSettings,
-  type ComfyUiSettings,
-} from "./comfyui-settings";
+import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from './settings-cache';
+import { loadComfyUiSettings, saveComfyUiSettings, type ComfyUiSettings } from './comfyui-settings';
 
-export type SettingsBrowserPresetId = "iterate" | "keeper" | "lab";
+export type SettingsBrowserPresetId = 'iterate' | 'keeper' | 'lab';
 
 export type SettingsBrowserPreset = {
   id: SettingsBrowserPresetId;
@@ -23,13 +15,13 @@ export type SettingsBrowserPreset = {
 
 export const SETTINGS_BROWSER_PRESETS: SettingsBrowserPreset[] = [
   {
-    id: "iterate",
-    label: "Iterate",
+    id: 'iterate',
+    label: 'Iterate',
     description:
-      "Fast draft loop — Draft queueing, no Max hold, VRAM guard on. Calm auto-improve: upscale keepers on 4–5★, no auto mutate/seed spam.",
+      'Fast draft loop — Draft queueing, no Max hold, VRAM guard on. Calm auto-improve: upscale keepers on 4–5★, no auto mutate/seed spam.',
     shared: {
-      queueQualityProfile: "draft",
-      sessionQueueMode: "iterate",
+      queueQualityProfile: 'draft',
+      sessionQueueMode: 'iterate',
       holdMaxUntilIdle: false,
       vramGuardEnabled: true,
     },
@@ -44,13 +36,13 @@ export const SETTINGS_BROWSER_PRESETS: SettingsBrowserPreset[] = [
     },
   },
   {
-    id: "keeper",
-    label: "Keeper",
+    id: 'keeper',
+    label: 'Keeper',
     description:
-      "Production renders — Final queueing, VRAM guard on. Balanced auto-improve: Final/Max upscale plus seed experiments on high ratings.",
+      'Production renders — Final queueing, VRAM guard on. Balanced auto-improve: Final/Max upscale plus seed experiments on high ratings.',
     shared: {
-      queueQualityProfile: "final",
-      sessionQueueMode: "keeper",
+      queueQualityProfile: 'final',
+      sessionQueueMode: 'keeper',
       holdMaxUntilIdle: false,
       vramGuardEnabled: true,
     },
@@ -65,13 +57,13 @@ export const SETTINGS_BROWSER_PRESETS: SettingsBrowserPreset[] = [
     },
   },
   {
-    id: "lab",
-    label: "Lab",
+    id: 'lab',
+    label: 'Lab',
     description:
-      "Max-quality experiments — Max queueing, hold until idle, VRAM guard on. Aggressive auto-improve: mutate/seed/img2img refine on every high rating.",
+      'Max-quality experiments — Max queueing, hold until idle, VRAM guard on. Aggressive auto-improve: mutate/seed/img2img refine on every high rating.',
     shared: {
-      queueQualityProfile: "max",
-      sessionQueueMode: "off",
+      queueQualityProfile: 'max',
+      sessionQueueMode: 'off',
       holdMaxUntilIdle: true,
       vramGuardEnabled: true,
     },
@@ -88,9 +80,9 @@ export const SETTINGS_BROWSER_PRESETS: SettingsBrowserPreset[] = [
 ];
 
 export function getSettingsBrowserPreset(
-  id: string | undefined,
+  id: string | undefined
 ): SettingsBrowserPreset | undefined {
-  return SETTINGS_BROWSER_PRESETS.find((preset) => preset.id === id);
+  return SETTINGS_BROWSER_PRESETS.find(preset => preset.id === id);
 }
 
 /**
@@ -100,7 +92,7 @@ export function getSettingsBrowserPreset(
  */
 export function applySettingsBrowserPreset(id: string): boolean {
   const preset = getSettingsBrowserPreset(id);
-  if (!preset || typeof window === "undefined") {
+  if (!preset || typeof window === 'undefined') {
     return false;
   }
 

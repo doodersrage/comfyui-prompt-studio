@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import type { ComfyImageModel } from "./comfy-models/client";
-import type { WorkflowParamValues } from "./comfyui-config";
-import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
-import { registerComfyGalleryJob } from "./comfyui-gallery-client";
-import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import { postComfyUiPrompt } from "./comfyui-queue-request";
-import { injectLoraTriggers } from "./lora-prompt-injection";
-import { isQwenLightningModel } from "./model-sampling-patch";
-import { loadActiveProjectId } from "./prompt-projects";
-import { resolveQueueParams } from "./queue-params-settings";
-import { guardQueueQualityForVram } from "./vram-queue-guard";
-import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
-import { prepareQueuePrompts } from "./queue-prompt-prep";
+import type { ComfyImageModel } from './comfy-models/client';
+import type { WorkflowParamValues } from './comfyui-config';
+import { resolveRuntimeForQueue } from './comfyui-runtime-for-model';
+import { registerComfyGalleryJob } from './comfyui-gallery-client';
+import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
+import { postComfyUiPrompt } from './comfyui-queue-request';
+import { injectLoraTriggers } from './lora-prompt-injection';
+import { isQwenLightningModel } from './model-sampling-patch';
+import { loadActiveProjectId } from './prompt-projects';
+import { resolveQueueParams } from './queue-params-settings';
+import { guardQueueQualityForVram } from './vram-queue-guard';
+import { maybeHoldMaxGenerateJobs } from './held-max-queue';
+import { prepareQueuePrompts } from './queue-prompt-prep';
 
 export async function queueParamExperimentGrid(input: {
   prompt: string;
@@ -36,27 +36,25 @@ export async function queueParamExperimentGrid(input: {
       held: 0,
       cells: [],
       skippedReason:
-        "Lightning locks CFG and steps — CFG×steps grids are skipped. Use seed experiments instead.",
+        'Lightning locks CFG and steps — CFG×steps grids are skipped. Use seed experiments instead.',
     };
   }
 
-  const baseRuntime = resolveRuntimeForQueue(model, "param-grid");
+  const baseRuntime = resolveRuntimeForQueue(model, 'param-grid');
   const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
   const runtime = vramGuard.runtime ?? baseRuntime;
   const prepared = await prepareQueuePrompts({
     model,
     positive: injectLoraTriggers(input.prompt.trim()),
     hints: input.hints,
-    tool: "param-grid",
+    tool: 'param-grid',
     explicitNegative: input.negativePrompt,
   });
   const prompt = prepared.positive;
   const negativePrompt = prepared.negative;
-  const base =
-    input.baseParams ??
-    resolveQueueParams({ model, qualityProfile: vramGuard.profile });
-  const cfgValues = (input.cfgValues ?? ["6", "7", "8", "9"]).slice(0, 4);
-  const stepValues = (input.stepValues ?? ["18", "22", "26", "30"]).slice(0, 4);
+  const base = input.baseParams ?? resolveQueueParams({ model, qualityProfile: vramGuard.profile });
+  const cfgValues = (input.cfgValues ?? ['6', '7', '8', '9']).slice(0, 4);
+  const stepValues = (input.stepValues ?? ['18', '22', '26', '30']).slice(0, 4);
   const projectId = loadActiveProjectId();
 
   const cells: string[] = [];
@@ -80,7 +78,7 @@ export async function queueParamExperimentGrid(input: {
             prompt,
             negativePrompt,
             model,
-            tool: "param-grid",
+            tool: 'param-grid',
             params,
             comfy: runtime,
           },
@@ -107,16 +105,16 @@ export async function queueParamExperimentGrid(input: {
         promptId: queuedJob.promptId,
         prompt,
         negativePrompt,
-        tool: "param-grid",
+        tool: 'param-grid',
         model,
-        comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+        comfyUrl: queuedJob.comfyUrl ?? 'http://127.0.0.1:8188',
         clientId: queuedJob.clientId,
         queueParams: params,
         projectId,
         queueQualityProfile: runtime.queueQualityProfile,
       });
       void scheduleComfyGalleryPoll(queuedJob.promptId, {
-        comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+        comfyUrl: queuedJob.comfyUrl ?? 'http://127.0.0.1:8188',
         clientId: queuedJob.clientId,
       });
       queuedJob.releaseLiveSocket();

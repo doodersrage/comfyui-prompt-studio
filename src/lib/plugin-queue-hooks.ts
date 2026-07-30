@@ -4,8 +4,8 @@
  * Installed manifests (plugin-manifest) can also register queueHooks.
  */
 
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
-import { loadInstalledPlugins } from "./plugin-manifest";
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
+import { loadInstalledPlugins } from './plugin-manifest';
 
 export type PluginQueueHook = {
   id: string;
@@ -15,10 +15,10 @@ export type PluginQueueHook = {
   enabled?: boolean;
 };
 
-export const PLUGIN_QUEUE_HOOKS_KEY = "plugin-queue-hooks-v1";
+export const PLUGIN_QUEUE_HOOKS_KEY = 'plugin-queue-hooks-v1';
 
 export type PluginQueueHookPayload = {
-  event: "queue-preflight";
+  event: 'queue-preflight';
   prompt: string;
   negativePrompt?: string;
   model?: string;
@@ -52,10 +52,10 @@ function clampNumber(value: number, min: number, max: number): number {
 }
 
 function parseFiniteNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
-  if (typeof value === "string" && value.trim() !== "") {
+  if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
   }
@@ -81,12 +81,12 @@ export function normalizeHookCfg(value: unknown): number | null {
 }
 
 export function loadPluginQueueHooks(): PluginQueueHook[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   try {
-    return (readBrowserValue<PluginQueueHook[]>(PLUGIN_QUEUE_HOOKS_KEY) ?? []).filter(
-      (hook) => Boolean(hook.id?.trim() && hook.url?.trim()),
+    return (readBrowserValue<PluginQueueHook[]>(PLUGIN_QUEUE_HOOKS_KEY) ?? []).filter(hook =>
+      Boolean(hook.id?.trim() && hook.url?.trim())
     );
   } catch {
     return [];
@@ -94,36 +94,36 @@ export function loadPluginQueueHooks(): PluginQueueHook[] {
 }
 
 export function savePluginQueueHooks(hooks: PluginQueueHook[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(
     PLUGIN_QUEUE_HOOKS_KEY,
     hooks
-      .map((hook) => ({
+      .map(hook => ({
         id: hook.id.trim(),
         label: hook.label.trim() || hook.id.trim(),
         url: hook.url.trim(),
         enabled: hook.enabled !== false,
       }))
-      .filter((hook) => hook.id && hook.url)
-      .slice(0, 12),
+      .filter(hook => hook.id && hook.url)
+      .slice(0, 12)
   );
 }
 
 /** Queue hooks registered on enabled installed plugin manifests. */
 export function loadManifestPluginQueueHooks(): PluginQueueHook[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   try {
     return loadInstalledPlugins()
-      .filter((plugin) => plugin.enabled !== false && plugin.queueHooks?.url)
-      .filter((plugin) => {
-        const events = plugin.queueHooks?.events ?? ["queue-preflight"];
-        return events.includes("queue-preflight");
+      .filter(plugin => plugin.enabled !== false && plugin.queueHooks?.url)
+      .filter(plugin => {
+        const events = plugin.queueHooks?.events ?? ['queue-preflight'];
+        return events.includes('queue-preflight');
       })
-      .map((plugin) => ({
+      .map(plugin => ({
         id: `manifest:${plugin.id}`,
         label: plugin.label,
         url: plugin.queueHooks!.url,
@@ -137,7 +137,7 @@ export function loadManifestPluginQueueHooks(): PluginQueueHook[] {
 /** Manual hooks + enabled manifest queueHooks (manual ids win on collision). */
 export function resolveActivePluginQueueHooks(
   manual: PluginQueueHook[] = loadPluginQueueHooks(),
-  fromManifests: PluginQueueHook[] = loadManifestPluginQueueHooks(),
+  fromManifests: PluginQueueHook[] = loadManifestPluginQueueHooks()
 ): PluginQueueHook[] {
   const byId = new Map<string, PluginQueueHook>();
   for (const hook of fromManifests) {
@@ -150,12 +150,12 @@ export function resolveActivePluginQueueHooks(
 }
 
 function isAllowedHookUrl(url: string): boolean {
-  if (url.startsWith("/")) {
+  if (url.startsWith('/')) {
     return true;
   }
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
   } catch {
     return false;
   }
@@ -167,30 +167,30 @@ function isAllowedHookUrl(url: string): boolean {
  */
 export function applyPluginQueueHookMutation(
   payload: PluginQueueHookPayload,
-  result: PluginQueueHookResult,
+  result: PluginQueueHookResult
 ): {
   payload: PluginQueueHookPayload;
   blocked: boolean;
   reason?: string;
 } {
   const blockReason =
-    (typeof result.reason === "string" && result.reason.trim()) ||
-    (typeof result.message === "string" && result.message.trim()) ||
+    (typeof result.reason === 'string' && result.reason.trim()) ||
+    (typeof result.message === 'string' && result.message.trim()) ||
     undefined;
 
   if (result.blocked) {
     return {
       payload,
       blocked: true,
-      reason: blockReason || "Plugin hook blocked the queue.",
+      reason: blockReason || 'Plugin hook blocked the queue.',
     };
   }
 
   let next = { ...payload };
-  if (typeof result.prompt === "string" && result.prompt.trim()) {
+  if (typeof result.prompt === 'string' && result.prompt.trim()) {
     next = { ...next, prompt: result.prompt.trim() };
   }
-  if (typeof result.negativePrompt === "string") {
+  if (typeof result.negativePrompt === 'string') {
     next = { ...next, negativePrompt: result.negativePrompt };
   }
   const denoise = normalizeHookDenoise(result.denoise);
@@ -211,7 +211,7 @@ export function applyPluginQueueHookMutation(
  */
 export async function runPluginQueuePreflight(
   payload: PluginQueueHookPayload,
-  hooks: PluginQueueHook[] = resolveActivePluginQueueHooks(),
+  hooks: PluginQueueHook[] = resolveActivePluginQueueHooks()
 ): Promise<{
   payload: PluginQueueHookPayload;
   blocked: boolean;
@@ -227,8 +227,8 @@ export async function runPluginQueuePreflight(
     }
     try {
       const response = await fetch(hook.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(next),
       });
       if (!response.ok) {
@@ -253,9 +253,7 @@ export async function runPluginQueuePreflight(
       next = applied.payload;
     } catch (error) {
       messages.push(
-        `${hook.label || hook.id}: ${
-          error instanceof Error ? error.message : "hook failed"
-        }`,
+        `${hook.label || hook.id}: ${error instanceof Error ? error.message : 'hook failed'}`
       );
     }
   }

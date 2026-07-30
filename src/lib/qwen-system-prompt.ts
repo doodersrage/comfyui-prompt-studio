@@ -25,27 +25,27 @@ Rules:
 
 export const QWEN_FEW_SHOT_EXAMPLES = [
   {
-    input: "neon alley, rain, black cat",
+    input: 'neon alley, rain, black cat',
     output:
-      "A narrow cyberpunk alley at midnight, rain-slick asphalt mirroring magenta and cyan neon signs overhead. Steam curls from sidewalk grates between cracked pavement. In the midground, a sleek black cat crouches on a rusted fire escape, amber eyes catching a stray beam of light.",
+      'A narrow cyberpunk alley at midnight, rain-slick asphalt mirroring magenta and cyan neon signs overhead. Steam curls from sidewalk grates between cracked pavement. In the midground, a sleek black cat crouches on a rusted fire escape, amber eyes catching a stray beam of light.',
   },
   {
-    input: "two women, rooftop bar, city lights",
+    input: 'two women, rooftop bar, city lights',
     output:
-      "A rooftop bar at night, city lights spread below a glass railing. On the left, a young Black woman with box braids and a leather jacket laughs against the rail; on the right, an older white woman with a silver bob listens over a sweating glass.",
+      'A rooftop bar at night, city lights spread below a glass railing. On the left, a young Black woman with box braids and a leather jacket laughs against the rail; on the right, an older white woman with a silver bob listens over a sweating glass.',
   },
   {
-    input: "tropical beach sunset, couple walking",
+    input: 'tropical beach sunset, couple walking',
     output:
-      "A wide tropical beach at golden hour, orange light skimming turquoise water. A couple walks barefoot near the shoreline, wind lifting their clothes as soft pink clouds streak the sky.",
+      'A wide tropical beach at golden hour, orange light skimming turquoise water. A couple walks barefoot near the shoreline, wind lifting their clothes as soft pink clouds streak the sky.',
   },
   {
-    input: "gothic cathedral interior, candles, fog",
+    input: 'gothic cathedral interior, candles, fog',
     output:
-      "Inside a vast gothic cathedral, candle flames cut through low fog above worn flagstones. Vaulted stone arches fade into shadow while stained glass throws fractured color across the aisle.",
+      'Inside a vast gothic cathedral, candle flames cut through low fog above worn flagstones. Vaulted stone arches fade into shadow while stained glass throws fractured color across the aisle.',
   },
   {
-    input: "keep her pose, underwater ruins, bioluminescent coral",
+    input: 'keep her pose, underwater ruins, bioluminescent coral',
     output:
       "Keep the subject's facial features, body proportions, and pose exactly unchanged. She floats among sunken stone ruins lit by bioluminescent coral pulsing soft teal and violet light.",
   },

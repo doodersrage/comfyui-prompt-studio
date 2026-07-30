@@ -1,6 +1,6 @@
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 
-const KEY = "comfy-last-tool-draft-v1";
+const KEY = 'comfy-last-tool-draft-v1';
 const MIN_CHARS = 3;
 
 export type ToolDraftSummary = {
@@ -12,23 +12,23 @@ export type ToolDraftSummary = {
 };
 
 export function loadLastToolDraft(): ToolDraftSummary | null {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return null;
   }
   const raw = readBrowserValue<unknown>(KEY);
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return null;
   }
   const record = raw as Record<string, unknown>;
-  const toolKey = typeof record.toolKey === "string" ? record.toolKey.trim() : "";
-  const label = typeof record.label === "string" ? record.label.trim() : "";
-  const href = typeof record.href === "string" ? record.href.trim() : "";
-  const preview = typeof record.preview === "string" ? record.preview.trim() : "";
+  const toolKey = typeof record.toolKey === 'string' ? record.toolKey.trim() : '';
+  const label = typeof record.label === 'string' ? record.label.trim() : '';
+  const href = typeof record.href === 'string' ? record.href.trim() : '';
+  const preview = typeof record.preview === 'string' ? record.preview.trim() : '';
   const updatedAt =
-    typeof record.updatedAt === "number" && Number.isFinite(record.updatedAt)
+    typeof record.updatedAt === 'number' && Number.isFinite(record.updatedAt)
       ? record.updatedAt
       : 0;
-  if (!toolKey || !label || !href.startsWith("/") || !preview || updatedAt <= 0) {
+  if (!toolKey || !label || !href.startsWith('/') || !preview || updatedAt <= 0) {
     return null;
   }
   return { toolKey, label, href, preview, updatedAt };
@@ -41,7 +41,7 @@ export function rememberToolDraft(input: {
   href: string;
   text: string;
 }): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   const text = input.text.trim();
@@ -55,14 +55,14 @@ export function rememberToolDraft(input: {
     preview: text.length > 96 ? `${text.slice(0, 96)}…` : text,
     updatedAt: Date.now(),
   };
-  if (!entry.toolKey || !entry.label || !entry.href.startsWith("/")) {
+  if (!entry.toolKey || !entry.label || !entry.href.startsWith('/')) {
     return;
   }
   writeBrowserValue(KEY, entry);
 }
 
 export function clearLastToolDraft(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(KEY, null);

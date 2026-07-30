@@ -1,22 +1,19 @@
-"use client";
+'use client';
 
-import { modelUsesNegativePrompt } from "./prompt-pair";
-import {
-  getComfyModelDefinition,
-  type ComfyImageModel,
-} from "./comfy-models/client";
-import { isInpaintModel, isEditQueueTool } from "./model-denoise-defaults";
-import { resolveRuntimeForQueueAsync } from "./comfyui-runtime-for-model";
-import { fetchWorkflowPreview } from "./comfyui-requeue";
-import { resolveQueueParams } from "./queue-params-settings";
-import type { WorkflowParamValues } from "./comfyui-config";
-import { auditLoaderMapsAtQueueTime } from "./workflow-queue-loader-preflight";
-import { auditLoraStackAtQueueTime } from "./lora-stack-preflight";
-import { fetchComfyObjectInfoCached } from "./comfyui-object-info-cache";
+import { modelUsesNegativePrompt } from './prompt-pair';
+import { getComfyModelDefinition, type ComfyImageModel } from './comfy-models/client';
+import { isInpaintModel, isEditQueueTool } from './model-denoise-defaults';
+import { resolveRuntimeForQueueAsync } from './comfyui-runtime-for-model';
+import { fetchWorkflowPreview } from './comfyui-requeue';
+import { resolveQueueParams } from './queue-params-settings';
+import type { WorkflowParamValues } from './comfyui-config';
+import { auditLoaderMapsAtQueueTime } from './workflow-queue-loader-preflight';
+import { auditLoraStackAtQueueTime } from './lora-stack-preflight';
+import { fetchComfyObjectInfoCached } from './comfyui-object-info-cache';
 import {
   collectWorkflowGraphPreflightIssues,
   type WorkflowPreflightIssue,
-} from "./workflow-preflight-core";
+} from './workflow-preflight-core';
 
 export type { WorkflowPreflightIssue };
 
@@ -34,73 +31,64 @@ export async function runWorkflowPreflight(input: {
   hasControlImage?: boolean;
   tool?: string;
   queueParams?: WorkflowParamValues;
-  qualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
-  comfy?: import("./comfyui-config").ComfyUiRuntimeConfig;
+  qualityProfile?: import('./queue-quality-profile').QueueQualityProfile;
+  comfy?: import('./comfyui-config').ComfyUiRuntimeConfig;
 }): Promise<WorkflowPreflightResult> {
   const issues: WorkflowPreflightIssue[] = [];
   const runtime =
-    input.comfy ??
-    (await resolveRuntimeForQueueAsync(
-      input.model as ComfyImageModel,
-      input.tool,
-    ));
+    input.comfy ?? (await resolveRuntimeForQueueAsync(input.model as ComfyImageModel, input.tool));
 
   if (!runtime?.workflowJson && !runtime?.workflowFileId) {
     const category = getComfyModelDefinition(input.model).category;
-    if (category === "audio") {
+    if (category === 'audio') {
       issues.push({
-        severity: "error",
+        severity: 'error',
         message:
-          "No audio workflow mapped — open /audio to auto-create a scaffold, or import your Stable Audio pack in Settings → workflows and map it to stable-audio.",
+          'No audio workflow mapped — open /audio to auto-create a scaffold, or import your Stable Audio pack in Settings → workflows and map it to stable-audio.',
       });
-    } else if (category === "mesh") {
+    } else if (category === 'mesh') {
       issues.push({
-        severity: "error",
+        severity: 'error',
         message:
-          "No mesh workflow mapped — open /mesh to auto-create a scaffold, or import your Hunyuan3D pack in Settings → workflows and map it to hunyuan-3d.",
+          'No mesh workflow mapped — open /mesh to auto-create a scaffold, or import your Hunyuan3D pack in Settings → workflows and map it to hunyuan-3d.',
       });
-    } else if (category === "video") {
+    } else if (category === 'video') {
       issues.push({
-        severity: "error",
+        severity: 'error',
         message:
-          "No video workflow mapped — open /video to auto-create a WAN/Hunyuan scaffold, or import a pack workflow in Settings.",
+          'No video workflow mapped — open /video to auto-create a WAN/Hunyuan scaffold, or import a pack workflow in Settings.',
       });
     } else {
       issues.push({
-        severity: "warn",
-        message: "No workflow JSON configured — server/env fallback will be used.",
+        severity: 'warn',
+        message: 'No workflow JSON configured — server/env fallback will be used.',
       });
     }
   }
 
   if (modelUsesNegativePrompt(input.model) && !input.negativePrompt?.trim()) {
     issues.push({
-      severity: "warn",
-      message: "SD-family model queued without a negative prompt.",
+      severity: 'warn',
+      message: 'SD-family model queued without a negative prompt.',
     });
   }
 
-  if (
-    isInpaintModel(input.model) &&
-    !input.hasMaskImage &&
-    !input.hasInputImage
-  ) {
+  if (isInpaintModel(input.model) && !input.hasMaskImage && !input.hasInputImage) {
     issues.push({
-      severity: "warn",
+      severity: 'warn',
       message:
-        "Inpaint model queued without a source image or mask — upload both before Send to ComfyUI.",
+        'Inpaint model queued without a source image or mask — upload both before Send to ComfyUI.',
     });
   } else if (isInpaintModel(input.model) && !input.hasMaskImage) {
     issues.push({
-      severity: "warn",
-      message:
-        "Inpaint model queued without a mask — white pixels mark the edit region.",
+      severity: 'warn',
+      message: 'Inpaint model queued without a mask — white pixels mark the edit region.',
     });
   }
 
-  const samplePrompt = input.prompts.find((entry) => entry.trim())?.trim();
+  const samplePrompt = input.prompts.find(entry => entry.trim())?.trim();
   if (!samplePrompt) {
-    issues.push({ severity: "error", message: "No prompts to queue." });
+    issues.push({ severity: 'error', message: 'No prompts to queue.' });
     return { ok: false, issues };
   }
 
@@ -110,13 +98,13 @@ export async function runWorkflowPreflight(input: {
     base: input.queueParams,
     qualityProfile: input.qualityProfile,
     inputImageFilename: input.hasInputImage
-      ? input.queueParams?.inputImageFilename?.trim() || "preview-input.png"
+      ? input.queueParams?.inputImageFilename?.trim() || 'preview-input.png'
       : undefined,
     maskImageFilename: input.hasMaskImage
-      ? input.queueParams?.maskImageFilename?.trim() || "preview-mask.png"
+      ? input.queueParams?.maskImageFilename?.trim() || 'preview-mask.png'
       : undefined,
     controlImageFilename: input.hasControlImage
-      ? input.queueParams?.controlImageFilename?.trim() || "preview-control.png"
+      ? input.queueParams?.controlImageFilename?.trim() || 'preview-control.png'
       : undefined,
   });
 
@@ -132,28 +120,25 @@ export async function runWorkflowPreflight(input: {
     });
     if (!preview.ok) {
       issues.push({
-        severity: "error",
-        message: preview.error ?? "Workflow preview failed.",
+        severity: 'error',
+        message: preview.error ?? 'Workflow preview failed.',
       });
     } else if (
-      preview.workflowSource !== "minimal" &&
+      preview.workflowSource !== 'minimal' &&
       (preview.replacements?.positive ?? 0) === 0
     ) {
       issues.push({
-        severity: "error",
+        severity: 'error',
         message:
-          "Workflow has no positive prompt placeholder replacements. Add {{POSITIVE}} to a CLIPText Encode node in Settings → ComfyUI workflow library (Apply bindings), or pick a workflow that includes prompt placeholders.",
+          'Workflow has no positive prompt placeholder replacements. Add {{POSITIVE}} to a CLIPText Encode node in Settings → ComfyUI workflow library (Apply bindings), or pick a workflow that includes prompt placeholders.',
       });
     }
 
-    if (
-      !isEditQueueTool(input.tool) &&
-      preview.workflowJson?.includes("{{INPUT_IMAGE}}")
-    ) {
+    if (!isEditQueueTool(input.tool) && preview.workflowJson?.includes('{{INPUT_IMAGE}}')) {
       issues.push({
-        severity: "error",
+        severity: 'error',
         message:
-          "Selected workflow expects an input image (edit/inpaint) — pick a txt2img workflow in Settings → workflow library or run Optimize all with a generate scaffold.",
+          'Selected workflow expects an input image (edit/inpaint) — pick a txt2img workflow in Settings → workflow library or run Optimize all with a generate scaffold.',
       });
     }
 
@@ -177,7 +162,7 @@ export async function runWorkflowPreflight(input: {
           models: objectInfo?.models,
           objectInfoUnavailable: !objectInfo,
           customTokens: runtime?.customTokens,
-        }),
+        })
       );
     }
 
@@ -193,17 +178,17 @@ export async function runWorkflowPreflight(input: {
         model: input.model,
         workflowJson: preview.workflowJson,
         loraLibrary: runtime?.loraLibrary,
-      }),
+      })
     );
   } catch (err) {
     issues.push({
-      severity: "error",
-      message: err instanceof Error ? err.message : "Workflow preview failed.",
+      severity: 'error',
+      message: err instanceof Error ? err.message : 'Workflow preview failed.',
     });
   }
 
   return {
-    ok: !issues.some((issue) => issue.severity === "error"),
+    ok: !issues.some(issue => issue.severity === 'error'),
     issues,
   };
 }

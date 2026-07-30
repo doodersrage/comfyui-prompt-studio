@@ -1,12 +1,6 @@
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
-import {
-  DEFAULT_CHECKPOINT_TOKEN,
-  SUGGESTED_MODEL_CHECKPOINT_MAP,
-} from "./model-checkpoint-map";
-import {
-  isLoraLoaderClassType,
-  loraFilenameImpliesLightning,
-} from "./workflow-lora-patch";
+import { isQwenRapidAioModel } from './model-denoise-defaults';
+import { DEFAULT_CHECKPOINT_TOKEN, SUGGESTED_MODEL_CHECKPOINT_MAP } from './model-checkpoint-map';
+import { isLoraLoaderClassType, loraFilenameImpliesLightning } from './workflow-lora-patch';
 
 type WorkflowNodeRecord = {
   class_type?: string;
@@ -19,7 +13,7 @@ function getLinkedNodeId(value: unknown): string | null {
     return null;
   }
   const id = value[0];
-  return typeof id === "string" || typeof id === "number" ? String(id) : null;
+  return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
 }
 
 function getLinkedSlot(value: unknown): number {
@@ -33,10 +27,10 @@ function getLinkedSlot(value: unknown): number {
 function rewireConsumersTo(
   graph: Record<string, unknown>,
   nodeId: string,
-  replacement: unknown,
+  replacement: unknown
 ): void {
   for (const [consumerId, node] of Object.entries(graph)) {
-    if (consumerId === nodeId || !node || typeof node !== "object") {
+    if (consumerId === nodeId || !node || typeof node !== 'object') {
       continue;
     }
     const consumer = node as WorkflowNodeRecord;
@@ -54,13 +48,13 @@ function rewireConsumersTo(
 function bypassLoraNode(
   graph: Record<string, unknown>,
   nodeId: string,
-  record: WorkflowNodeRecord,
+  record: WorkflowNodeRecord
 ): void {
   const modelUpstream = record.inputs?.model;
   const clipUpstream = record.inputs?.clip;
 
   for (const [consumerId, node] of Object.entries(graph)) {
-    if (consumerId === nodeId || !node || typeof node !== "object") {
+    if (consumerId === nodeId || !node || typeof node !== 'object') {
       continue;
     }
     const consumer = node as WorkflowNodeRecord;
@@ -84,14 +78,12 @@ function bypassLoraNode(
 }
 
 function graphHasCheckpointLoader(graph: Record<string, unknown>): boolean {
-  return Object.values(graph).some((node) => {
-    if (!node || typeof node !== "object") {
+  return Object.values(graph).some(node => {
+    if (!node || typeof node !== 'object') {
       return false;
     }
-    const classType = (node as WorkflowNodeRecord).class_type ?? "";
-    return (
-      classType === "CheckpointLoaderSimple" || classType === "CheckpointLoader"
-    );
+    const classType = (node as WorkflowNodeRecord).class_type ?? '';
+    return classType === 'CheckpointLoaderSimple' || classType === 'CheckpointLoader';
   });
 }
 
@@ -101,24 +93,21 @@ function graphHasCheckpointLoader(graph: Record<string, unknown>): boolean {
  */
 export function rewriteQwenRapidAioUnetGraphToCheckpoint(
   workflow: Record<string, unknown>,
-  checkpointName?: string,
+  checkpointName?: string
 ): { workflow: Record<string, unknown>; rewritten: number } {
   const ckpt = checkpointName?.trim() || DEFAULT_CHECKPOINT_TOKEN;
   if (graphHasCheckpointLoader(workflow)) {
     // Already checkpoint-shaped — only strip Lightning LoRAs baked into Rapid AIO.
     let rewritten = 0;
     for (const [nodeId, node] of Object.entries(workflow)) {
-      if (!node || typeof node !== "object") {
+      if (!node || typeof node !== 'object') {
         continue;
       }
       const record = node as WorkflowNodeRecord;
       if (!record.inputs || !isLoraLoaderClassType(record.class_type)) {
         continue;
       }
-      const filename =
-        typeof record.inputs.lora_name === "string"
-          ? record.inputs.lora_name
-          : "";
+      const filename = typeof record.inputs.lora_name === 'string' ? record.inputs.lora_name : '';
       const isLightningToken = /\{\{LORA_LIGHTNING\}\}/i.test(filename);
       if (isLightningToken || loraFilenameImpliesLightning(filename)) {
         bypassLoraNode(workflow, nodeId, record);
@@ -133,15 +122,15 @@ export function rewriteQwenRapidAioUnetGraphToCheckpoint(
   const vaeIds: string[] = [];
 
   for (const [id, node] of Object.entries(workflow)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
-    const classType = (node as WorkflowNodeRecord).class_type ?? "";
-    if (classType === "UNETLoader" || classType === "UnetLoaderGGUF") {
+    const classType = (node as WorkflowNodeRecord).class_type ?? '';
+    if (classType === 'UNETLoader' || classType === 'UnetLoaderGGUF') {
       unetIds.push(id);
-    } else if (classType === "CLIPLoader" || classType === "DualCLIPLoader") {
+    } else if (classType === 'CLIPLoader' || classType === 'DualCLIPLoader') {
       clipIds.push(id);
-    } else if (classType === "VAELoader") {
+    } else if (classType === 'VAELoader') {
       vaeIds.push(id);
     }
   }
@@ -155,9 +144,9 @@ export function rewriteQwenRapidAioUnetGraphToCheckpoint(
 
   for (const unetId of unetIds) {
     const node = workflow[unetId] as WorkflowNodeRecord;
-    node.class_type = "CheckpointLoaderSimple";
+    node.class_type = 'CheckpointLoaderSimple';
     node.inputs = { ckpt_name: ckpt };
-    node._meta = { ...(node._meta ?? {}), title: "Load Checkpoint" };
+    node._meta = { ...(node._meta ?? {}), title: 'Load Checkpoint' };
     rewritten += 1;
   }
 
@@ -174,15 +163,14 @@ export function rewriteQwenRapidAioUnetGraphToCheckpoint(
   }
 
   for (const [nodeId, node] of Object.entries(workflow)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
     const record = node as WorkflowNodeRecord;
     if (!record.inputs || !isLoraLoaderClassType(record.class_type)) {
       continue;
     }
-    const filename =
-      typeof record.inputs.lora_name === "string" ? record.inputs.lora_name : "";
+    const filename = typeof record.inputs.lora_name === 'string' ? record.inputs.lora_name : '';
     const isLightningToken = /\{\{LORA_LIGHTNING\}\}/i.test(filename);
     if (isLightningToken || loraFilenameImpliesLightning(filename)) {
       bypassLoraNode(workflow, nodeId, record);
@@ -196,7 +184,7 @@ export function rewriteQwenRapidAioUnetGraphToCheckpoint(
 export function maybeRewriteRapidAioWorkflowLoaders(
   workflow: Record<string, unknown>,
   model: string | undefined,
-  checkpointName?: string,
+  checkpointName?: string
 ): { workflow: Record<string, unknown>; rewritten: number } {
   if (!isQwenRapidAioModel(model)) {
     return { workflow, rewritten: 0 };

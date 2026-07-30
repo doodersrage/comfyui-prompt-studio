@@ -1,11 +1,11 @@
-import type { PromptHistoryEntry } from "./prompt-history";
-import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
+import type { PromptHistoryEntry } from './prompt-history';
+import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 import {
   analyzeGalleryRatingTokens,
   negativeScoringTokens,
   positiveScoringTokens,
   type RatedTokenStat,
-} from "./rating-token-analytics";
+} from './rating-token-analytics';
 
 export type UserAnalyticsSnapshot = {
   userId: string;
@@ -42,7 +42,7 @@ export function analyzePromptHistoryEntries(entries: PromptHistoryEntry[]): User
     if (entry.favorite) {
       favorites += 1;
     }
-    if (typeof entry.rating === "number") {
+    if (typeof entry.rating === 'number') {
       rated += 1;
       ratingSum += entry.rating;
     }
@@ -66,8 +66,8 @@ export function buildUserAnalyticsSnapshot(input: {
   gallery: ComfyGalleryEntry[];
 }): UserAnalyticsSnapshot {
   const historyStats = analyzePromptHistoryEntries(input.history);
-  const galleryCompleted = input.gallery.filter((entry) => entry.status === "completed");
-  const galleryRated = galleryCompleted.filter((entry) => entry.reviewRating);
+  const galleryCompleted = input.gallery.filter(entry => entry.status === 'completed');
+  const galleryRated = galleryCompleted.filter(entry => entry.reviewRating);
   const ratingTokenStats = analyzeGalleryRatingTokens(input.gallery);
 
   return {
@@ -80,7 +80,7 @@ export function buildUserAnalyticsSnapshot(input: {
     galleryTotal: input.gallery.length,
     galleryCompleted: galleryCompleted.length,
     galleryRated: galleryRated.length,
-    galleryFavorites: input.gallery.filter((entry) => entry.favorite).length,
+    galleryFavorites: input.gallery.filter(entry => entry.favorite).length,
     ratingTokenStats,
     topPositiveTokens: positiveScoringTokens(ratingTokenStats),
     topNegativeTokens: negativeScoringTokens(ratingTokenStats),

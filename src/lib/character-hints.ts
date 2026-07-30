@@ -2,7 +2,7 @@ import {
   pickCharacterSubject,
   pickDistinctIdentitySeeds,
   type SubjectGender,
-} from "./variation-seed";
+} from './variation-seed';
 
 const WOMAN_WORDS =
   /\b(woman|women|girl|girls|female|lady|ladies|mother|daughter|sister|wife|girlfriend|feminine)\b/i;
@@ -26,11 +26,11 @@ export type ParsedCharacterHints = {
 };
 
 export function parseCharacterHints(hints?: string): ParsedCharacterHints {
-  const raw = hints?.trim() ?? "";
+  const raw = hints?.trim() ?? '';
   if (!raw) {
     return {
       raw,
-      gender: "any",
+      gender: 'any',
       explicitGender: false,
       wantsMinimalHair: false,
       mentionsHair: false,
@@ -41,19 +41,18 @@ export function parseCharacterHints(hints?: string): ParsedCharacterHints {
 
   const woman = WOMAN_WORDS.test(raw);
   const man = MAN_WORDS.test(raw);
-  let gender: SubjectGender = "any";
+  let gender: SubjectGender = 'any';
   if (woman && !man) {
-    gender = "women";
+    gender = 'women';
   } else if (man && !woman) {
-    gender = "men";
+    gender = 'men';
   }
 
   const wantsMinimalHair = MINIMAL_HAIR_WORDS.test(raw);
   const mentionsHair = HAIR_WORDS.test(raw) || wantsMinimalHair;
   const mentionsAge = AGE_WORDS.test(raw);
   const explicitGender = woman || man;
-  const hasIdentityConstraints =
-    explicitGender || mentionsAge || mentionsHair || raw.length >= 16;
+  const hasIdentityConstraints = explicitGender || mentionsAge || mentionsHair || raw.length >= 16;
 
   return {
     raw,
@@ -68,38 +67,36 @@ export function parseCharacterHints(hints?: string): ParsedCharacterHints {
 
 export function buildCharacterMandatoryBlock(parsed: ParsedCharacterHints): string {
   if (!parsed.raw) {
-    return "";
+    return '';
   }
 
   const lines = [
     `MANDATORY CHARACTER (must match exactly): ${parsed.raw}`,
-    "Treat the mandatory character block as authoritative. Do not replace it with a different person.",
+    'Treat the mandatory character block as authoritative. Do not replace it with a different person.',
   ];
 
   if (parsed.explicitGender) {
     lines.push(
-      "Keep the subject's sex/gender exactly as specified. Do not swap woman/man or change implied gender.",
+      "Keep the subject's sex/gender exactly as specified. Do not swap woman/man or change implied gender."
     );
   }
 
   if (parsed.mentionsAge) {
     lines.push(
-      "Keep the stated age or age read exactly. Do not default to a generic adult or change the life stage.",
+      'Keep the stated age or age read exactly. Do not default to a generic adult or change the life stage.'
     );
   }
 
   if (!parsed.wantsMinimalHair) {
     lines.push(
-      "Describe specific visible hair (color, length, texture, style). Do not make the subject bald, shaved, or buzz-cut unless the mandatory block explicitly requests it.",
+      'Describe specific visible hair (color, length, texture, style). Do not make the subject bald, shaved, or buzz-cut unless the mandatory block explicitly requests it.'
     );
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
-export function pickCharacterIdentitySeed(
-  parsed: ParsedCharacterHints,
-): string | null {
+export function pickCharacterIdentitySeed(parsed: ParsedCharacterHints): string | null {
   if (parsed.hasIdentityConstraints) {
     return null;
   }
@@ -108,12 +105,11 @@ export function pickCharacterIdentitySeed(
 }
 
 export function pickDuoCharacterIdentitySeeds(
-  gender: SubjectGender = "any",
+  gender: SubjectGender = 'any',
   allowMinimalHair = false,
-  athletic = false,
+  athletic = false
 ): [string, string] {
-  const resolvedGender =
-    gender === "any" || gender === "mixed" ? "women" : gender;
+  const resolvedGender = gender === 'any' || gender === 'mixed' ? 'women' : gender;
   const pool = pickDistinctIdentitySeeds(2, resolvedGender, {
     allowMinimalHair,
     athletic,
@@ -144,7 +140,7 @@ export function pickDuoCharacterIdentitySeeds(
 
 function pickFilteredIdentityFromPool(
   gender: SubjectGender,
-  options: { allowMinimalHair?: boolean; athletic?: boolean },
+  options: { allowMinimalHair?: boolean; athletic?: boolean }
 ): string {
   const [seed] = pickDistinctIdentitySeeds(1, gender, options);
   return seed ?? pickCharacterSubject(gender, options.allowMinimalHair);
@@ -154,24 +150,24 @@ export function buildDuoIdentityUserDirective(
   leftSeed: string,
   rightSeed: string,
   athletic = false,
-  cyclingHelmets = false,
+  cyclingHelmets = false
 ): string {
   return [
-    "MANDATORY DISTINCT IDENTITIES (each person must look like a different individual—not two interchangeable generic models):",
+    'MANDATORY DISTINCT IDENTITIES (each person must look like a different individual—not two interchangeable generic models):',
     `Person on the left: ${leftSeed}`,
     `Person on the right: ${rightSeed}`,
     "Weave face shape, hair, skin tone, and age read into each person's sentence.",
     "Do not describe both people with the same vague traits only (e.g. both simply 'determined' with no distinguishing features).",
     ...(athletic
       ? [
-          "Competition-age athletes only—generally twenties to forties, fit and race-ready. No elderly, retired, teen, or child descriptors.",
-          "Identity only—do NOT describe dresses, street clothes, uniforms from other professions, or non-sport garments; the assigned athletic kit is what both people wear.",
+          'Competition-age athletes only—generally twenties to forties, fit and race-ready. No elderly, retired, teen, or child descriptors.',
+          'Identity only—do NOT describe dresses, street clothes, uniforms from other professions, or non-sport garments; the assigned athletic kit is what both people wear.',
         ]
       : []),
     ...(cyclingHelmets
       ? [
-          "Every cyclist wears a fastened cycling helmet; hair may show at the temples or through rear vents, but never bare heads.",
+          'Every cyclist wears a fastened cycling helmet; hair may show at the temples or through rear vents, but never bare heads.',
         ]
       : []),
-  ].join("\n");
+  ].join('\n');
 }

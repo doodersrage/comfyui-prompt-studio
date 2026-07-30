@@ -3,18 +3,16 @@
  * Best-effort; never throws to the caller.
  */
 
-import { getComfyUiBaseUrl } from "./comfyui-client";
-import { stripEmptyComfyUiRuntime } from "./comfyui-config";
+import { getComfyUiBaseUrl } from './comfyui-client';
+import { stripEmptyComfyUiRuntime } from './comfyui-config';
 
-export async function freeComfyUiMemoryServer(
-  comfyUrl?: string,
-): Promise<boolean> {
+export async function freeComfyUiMemoryServer(comfyUrl?: string): Promise<boolean> {
   try {
     const runtime = stripEmptyComfyUiRuntime({ apiUrl: comfyUrl });
     const baseUrl = getComfyUiBaseUrl(runtime);
-    const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/free`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/free`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ unload_models: true, free_memory: true }),
       signal: AbortSignal.timeout(2500),
     });

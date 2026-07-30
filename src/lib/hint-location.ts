@@ -24,7 +24,7 @@ const SUBJECT_SCENE_CUE =
   /\b(?:woman|women|man|men|person|people|couple|duo|girl|boy|model|athlete|cyclist|runner|dressed|wearing|holding|competing|racing|portrait|subject|figure|character)\b/i;
 
 function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function looksLikeLocation(text: string): boolean {
@@ -78,7 +78,7 @@ function extractPrepositional(text: string): string | null {
 function extractTrailingSegment(text: string): string | null {
   const segments = text
     .split(/[,;]/)
-    .map((segment) => segment.trim())
+    .map(segment => segment.trim())
     .filter(Boolean);
 
   if (segments.length < 2) {
@@ -94,12 +94,12 @@ export function extractLocationHint(text?: string): string | null {
 }
 
 export function parseSettingHint(text?: string): ParsedSettingHint {
-  const raw = text?.trim() ?? "";
+  const raw = text?.trim() ?? '';
   if (!raw) {
     return {
       raw,
       location: null,
-      remainder: "",
+      remainder: '',
       hasExplicitLocation: false,
     };
   }
@@ -107,8 +107,8 @@ export function parseSettingHint(text?: string): ParsedSettingHint {
   const explicit = stripExplicitPrefix(raw);
   if (explicit) {
     const remainder = raw
-      .replace(EXPLICIT_LOCATION, "")
-      .replace(/[,;]\s*$/, "")
+      .replace(EXPLICIT_LOCATION, '')
+      .replace(/[,;]\s*$/, '')
       .trim();
 
     return {
@@ -125,12 +125,12 @@ export function parseSettingHint(text?: string): ParsedSettingHint {
       .replace(
         new RegExp(
           `(?:\\b(?:in|at|on|inside|within|near|beside|under|overlooking|outside|through|along|against|from|into|onto|amid|among|beneath|beyond|across)\\s+)${escapeRegExp(prepositional)}`,
-          "i",
+          'i'
         ),
-        "",
+        ''
       )
-      .replace(/[,;]\s*[,;]/, ",")
-      .replace(/^[,;\s]+|[,;\s]+$/g, "")
+      .replace(/[,;]\s*[,;]/, ',')
+      .replace(/^[,;\s]+|[,;\s]+$/g, '')
       .trim();
 
     return {
@@ -145,7 +145,7 @@ export function parseSettingHint(text?: string): ParsedSettingHint {
   if (trailing) {
     const remainder = raw
       .slice(0, raw.lastIndexOf(trailing))
-      .replace(/[,;\s]+$/, "")
+      .replace(/[,;\s]+$/, '')
       .trim();
 
     return {
@@ -160,7 +160,7 @@ export function parseSettingHint(text?: string): ParsedSettingHint {
     return {
       raw,
       location: raw,
-      remainder: "",
+      remainder: '',
       hasExplicitLocation: true,
     };
   }
@@ -175,11 +175,11 @@ export function parseSettingHint(text?: string): ParsedSettingHint {
 
 export function buildMandatoryLocationBlock(location: string | null): string {
   if (!location?.trim()) {
-    return "";
+    return '';
   }
 
   return [
     `MANDATORY SETTING (must match exactly): ${location.trim()}`,
-    "Place the scene in this setting. Do not substitute a different location, city, or environment.",
-  ].join("\n");
+    'Place the scene in this setting. Do not substitute a different location, city, or environment.',
+  ].join('\n');
 }

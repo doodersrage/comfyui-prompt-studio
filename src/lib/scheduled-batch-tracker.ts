@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { dispatchWebhook } from "./webhook-settings";
+import { dispatchWebhook } from './webhook-settings';
 
-const TRACKER_KEY = "scheduled-batch-tracker-v1";
+const TRACKER_KEY = 'scheduled-batch-tracker-v1';
 
 type ScheduledBatchTracker = {
   batchId: string;
@@ -12,7 +12,7 @@ type ScheduledBatchTracker = {
 };
 
 export function registerScheduledBatchQueue(expectedJobs: number): void {
-  if (typeof window === "undefined" || expectedJobs <= 0) {
+  if (typeof window === 'undefined' || expectedJobs <= 0) {
     return;
   }
   const tracker: ScheduledBatchTracker = {
@@ -25,7 +25,7 @@ export function registerScheduledBatchQueue(expectedJobs: number): void {
 }
 
 export function noteScheduledBatchJobComplete(tool?: string): void {
-  if (typeof window === "undefined" || tool !== "scheduled-batch") {
+  if (typeof window === 'undefined' || tool !== 'scheduled-batch') {
     return;
   }
 
@@ -37,26 +37,23 @@ export function noteScheduledBatchJobComplete(tool?: string): void {
     const tracker = JSON.parse(raw) as ScheduledBatchTracker;
     const pending = Math.max(0, tracker.pending - 1);
     if (pending > 0) {
-      window.sessionStorage.setItem(
-        TRACKER_KEY,
-        JSON.stringify({ ...tracker, pending }),
-      );
+      window.sessionStorage.setItem(TRACKER_KEY, JSON.stringify({ ...tracker, pending }));
       return;
     }
 
     window.sessionStorage.removeItem(TRACKER_KEY);
     void dispatchWebhook({
-      event: "scheduled.batch.completed",
-      tool: "scheduled-batch",
+      event: 'scheduled.batch.completed',
+      tool: 'scheduled-batch',
       queued: tracker.total,
       completedAt: Date.now(),
       message: `Scheduled batch ${tracker.batchId} finished (${tracker.total} jobs)`,
     });
-    void fetch("/api/email/batch-completed", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    void fetch('/api/email/batch-completed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        kind: "client-scheduled",
+        kind: 'client-scheduled',
         promptCount: tracker.total,
         queued: tracker.total,
         message: `Batch ${tracker.batchId} finished`,

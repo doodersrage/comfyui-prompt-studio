@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import type { ComfyImageModel } from "./comfy-models/client";
-import { avoidedTokensRequestBody } from "./avoided-tokens";
-import { registerComfyGalleryJob } from "./comfyui-gallery-client";
-import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import { postComfyUiPrompt } from "./comfyui-queue-request";
-import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
-import { injectLoraTriggers } from "./lora-prompt-injection";
-import { loadActiveProjectId } from "./prompt-projects";
-import { prepareQueuePrompts } from "./queue-prompt-prep";
-import { resolveQueueParams } from "./queue-params-settings";
-import { guardQueueQualityForVram } from "./vram-queue-guard";
-import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
+import type { ComfyImageModel } from './comfy-models/client';
+import { avoidedTokensRequestBody } from './avoided-tokens';
+import { registerComfyGalleryJob } from './comfyui-gallery-client';
+import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
+import { postComfyUiPrompt } from './comfyui-queue-request';
+import { resolveRuntimeForQueue } from './comfyui-runtime-for-model';
+import { injectLoraTriggers } from './lora-prompt-injection';
+import { loadActiveProjectId } from './prompt-projects';
+import { prepareQueuePrompts } from './queue-prompt-prep';
+import { resolveQueueParams } from './queue-params-settings';
+import { guardQueueQualityForVram } from './vram-queue-guard';
+import { maybeHoldMaxGenerateJobs } from './held-max-queue';
 
 export type CampaignStepResult = {
   index: number;
@@ -24,7 +24,7 @@ export type CampaignStepResult = {
 
 export async function runPromptCampaign(input: {
   model: ComfyImageModel | string;
-  target: "random-scene" | "topics";
+  target: 'random-scene' | 'topics';
   count: number;
   genre?: string;
   topics?: string[];
@@ -35,20 +35,20 @@ export async function runPromptCampaign(input: {
   const count = Math.min(12, Math.max(1, input.count));
   const results: CampaignStepResult[] = [];
   const projectId = loadActiveProjectId();
-  const baseRuntime = resolveRuntimeForQueue(model, "campaign");
+  const baseRuntime = resolveRuntimeForQueue(model, 'campaign');
   const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
   const runtime = vramGuard.runtime ?? baseRuntime;
 
   let prompts: string[] = [];
 
-  if (input.target === "topics" && input.topics?.length) {
-    const response = await fetch("/api/topics/batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+  if (input.target === 'topics' && input.topics?.length) {
+    const response = await fetch('/api/topics/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
         topics: input.topics.slice(0, count),
-        target: "generate",
+        target: 'generate',
         ...avoidedTokensRequestBody(),
       }),
     });
@@ -57,16 +57,14 @@ export async function runPromptCampaign(input: {
       error?: string;
     };
     if (!response.ok) {
-      throw new Error(data.error ?? "Topics batch failed.");
+      throw new Error(data.error ?? 'Topics batch failed.');
     }
-    prompts = (data.results ?? [])
-      .map((entry) => entry.prompt?.trim())
-      .filter(Boolean) as string[];
+    prompts = (data.results ?? []).map(entry => entry.prompt?.trim()).filter(Boolean) as string[];
   } else {
     for (let index = 0; index < count; index += 1) {
-      const response = await fetch("/api/random-scene", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/random-scene', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model,
           genre: input.genre,
@@ -79,9 +77,9 @@ export async function runPromptCampaign(input: {
       if (!response.ok || !data.prompt?.trim()) {
         results.push({
           index,
-          prompt: "",
+          prompt: '',
           queued: false,
-          error: data.error ?? "Random scene failed.",
+          error: data.error ?? 'Random scene failed.',
         });
         continue;
       }
@@ -95,7 +93,7 @@ export async function runPromptCampaign(input: {
           model,
           positive: injectLoraTriggers(rawPrompt),
           hints: input.hints,
-          tool: "campaign",
+          tool: 'campaign',
         })
       : {
           positive: injectLoraTriggers(rawPrompt),
@@ -109,7 +107,7 @@ export async function runPromptCampaign(input: {
 
     const params = resolveQueueParams({
       model: input.model,
-      tool: "campaign",
+      tool: 'campaign',
       qualityProfile: vramGuard.profile,
     });
     const held = await maybeHoldMaxGenerateJobs({
@@ -119,7 +117,7 @@ export async function runPromptCampaign(input: {
           prompt,
           negativePrompt: steered.negative,
           model,
-          tool: "campaign",
+          tool: 'campaign',
           params,
           comfy: runtime,
         },
@@ -146,7 +144,7 @@ export async function runPromptCampaign(input: {
         index,
         prompt,
         queued: false,
-        error: queuedJob.error ?? "ComfyUI queue failed.",
+        error: queuedJob.error ?? 'ComfyUI queue failed.',
       });
       continue;
     }
@@ -155,16 +153,16 @@ export async function runPromptCampaign(input: {
       promptId: queuedJob.promptId,
       prompt,
       negativePrompt: steered.negative,
-      tool: "campaign",
+      tool: 'campaign',
       model,
-      comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+      comfyUrl: queuedJob.comfyUrl ?? 'http://127.0.0.1:8188',
       clientId: queuedJob.clientId,
       queueParams: params,
       projectId,
       queueQualityProfile: runtime.queueQualityProfile,
     });
     void scheduleComfyGalleryPoll(queuedJob.promptId, {
-      comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+      comfyUrl: queuedJob.comfyUrl ?? 'http://127.0.0.1:8188',
       clientId: queuedJob.clientId,
     });
     queuedJob.releaseLiveSocket();

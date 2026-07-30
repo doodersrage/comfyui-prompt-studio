@@ -1,5 +1,5 @@
-import type { SharedToolSettings } from "./settings-cache";
-import type { NegativeProfile } from "./negative-profiles";
+import type { SharedToolSettings } from './settings-cache';
+import type { NegativeProfile } from './negative-profiles';
 
 export type CharacterIdentityBundle = {
   version: 1;
@@ -7,7 +7,7 @@ export type CharacterIdentityBundle = {
   name: string;
   hints?: string;
   model?: string;
-  detail?: SharedToolSettings["detail"];
+  detail?: SharedToolSettings['detail'];
   lockedWardrobeId?: string;
   lockedLocation?: string;
   lockedVariationSeed?: string;
@@ -59,14 +59,14 @@ export function buildCharacterIdentityBundle(input: {
 }
 
 export function applyCharacterIdentityBundle(
-  bundle: CharacterIdentityBundle,
+  bundle: CharacterIdentityBundle
 ): Partial<SharedToolSettings> & {
   hints?: string;
   negativeProfileId?: string;
   loraTriggerPhrases?: string[];
 } {
   return {
-    model: bundle.model as SharedToolSettings["model"] | undefined,
+    model: bundle.model as SharedToolSettings['model'] | undefined,
     detail: bundle.detail,
     lockedWardrobeId: bundle.lockedWardrobeId,
     lockedLocation: bundle.lockedLocation,
@@ -85,28 +85,28 @@ export function applyCharacterIdentityBundle(
 export function parseCharacterIdentityBundle(raw: string): CharacterIdentityBundle {
   const parsed = JSON.parse(raw) as CharacterIdentityBundle;
   if (!parsed || parsed.version !== 1 || !parsed.name?.trim()) {
-    throw new Error("Invalid character identity bundle.");
+    throw new Error('Invalid character identity bundle.');
   }
   return parsed;
 }
 
 export function downloadCharacterIdentityBundle(bundle: CharacterIdentityBundle): void {
   const payload = JSON.stringify(bundle, null, 2);
-  const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+  const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `character-${bundle.name.replace(/\s+/g, "-").slice(0, 40)}-${Date.now()}.json`;
+  anchor.download = `character-${bundle.name.replace(/\s+/g, '-').slice(0, 40)}-${Date.now()}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
 
 export function negativeProfileFromBundle(
   bundle: CharacterIdentityBundle,
-  profiles: NegativeProfile[],
+  profiles: NegativeProfile[]
 ): NegativeProfile | undefined {
   if (!bundle.negativeProfileId) {
     return undefined;
   }
-  return profiles.find((entry) => entry.id === bundle.negativeProfileId);
+  return profiles.find(entry => entry.id === bundle.negativeProfileId);
 }

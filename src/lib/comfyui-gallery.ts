@@ -1,4 +1,4 @@
-import type { ComfyOutputImage, ComfyOutputMediaKind } from "./comfyui-outputs";
+import type { ComfyOutputImage, ComfyOutputMediaKind } from './comfyui-outputs';
 import {
   buildComfyViewSrcSet,
   GALLERY_LIGHTBOX_WIDTH,
@@ -8,41 +8,38 @@ import {
   GALLERY_THUMB_WIDTH,
   resolveComfyOutputMediaKind,
   stripGalleryViewWidthParam,
-} from "./comfyui-outputs";
-import { buildEngineViewPath } from "./engine/view-paths";
-import { filterBySemanticQuery } from "./semantic-search";
-import { orderGalleryBySimilarity } from "./gallery-similarity";
-import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
-import type { ComfyGalleryJobStatus } from "./comfyui-gallery-types";
+} from './comfyui-outputs';
+import { buildEngineViewPath } from './engine/view-paths';
+import { filterBySemanticQuery } from './semantic-search';
+import { orderGalleryBySimilarity } from './gallery-similarity';
+import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
+import type { ComfyGalleryJobStatus } from './comfyui-gallery-types';
 import {
   getGalleryCache,
   notifyGalleryUpdated,
   persistGalleryCache,
   setGalleryCache,
   clearGalleryDb,
-} from "./gallery-db-store";
-import { COMFYUI_GALLERY_KEY, MAX_GALLERY_ENTRIES } from "./comfyui-gallery-storage-meta";
-import {
-  readBrowserValue,
-  writeBrowserValue,
-} from "./browser-storage";
-import { initGalleryStore } from "./app-db-init";
-import { getActiveUserId } from "./user-scope";
-import { scheduleUserAnalyticsSync } from "./user-analytics-sync";
-import { capGalleryEntriesForLocalStorage } from "./gallery-cap";
-import { rememberGalleryDeletedIds } from "./gallery-deleted-ids";
+} from './gallery-db-store';
+import { COMFYUI_GALLERY_KEY, MAX_GALLERY_ENTRIES } from './comfyui-gallery-storage-meta';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
+import { initGalleryStore } from './app-db-init';
+import { getActiveUserId } from './user-scope';
+import { scheduleUserAnalyticsSync } from './user-analytics-sync';
+import { capGalleryEntriesForLocalStorage } from './gallery-cap';
+import { rememberGalleryDeletedIds } from './gallery-deleted-ids';
 
-export type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
-export type { ComfyGalleryJobStatus } from "./comfyui-gallery-types";
+export type { ComfyGalleryEntry } from './comfyui-gallery-entry';
+export type { ComfyGalleryJobStatus } from './comfyui-gallery-types';
 export {
   COMFYUI_GALLERY_KEY,
   COMFYUI_GALLERY_UPDATED_EVENT,
   MAX_GALLERY_ENTRIES,
-} from "./comfyui-gallery-storage-meta";
-export { initAppDb, initGalleryStore, isAppDbReady, isGalleryStoreReady } from "./app-db-init";
+} from './comfyui-gallery-storage-meta';
+export { initAppDb, initGalleryStore, isAppDbReady, isGalleryStoreReady } from './app-db-init';
 
 export type ComfyGalleryFilter = {
-  status?: ComfyGalleryJobStatus | "all";
+  status?: ComfyGalleryJobStatus | 'all';
   favoritesOnly?: boolean;
   tool?: string;
   query?: string;
@@ -53,9 +50,9 @@ export type ComfyGalleryFilter = {
   /** Show only this gallery entry (lineage jump). */
   focusEntryId?: string;
   /** Filter by derivative kind (upscale, refine, variation). */
-  derivedKind?: ComfyGalleryEntry["derivedKind"];
+  derivedKind?: ComfyGalleryEntry['derivedKind'];
   /** Filter by primary media kind (image stills vs video). */
-  mediaKind?: "image" | "video" | "all";
+  mediaKind?: 'image' | 'video' | 'all';
   projectId?: string;
   reviewMode?: boolean;
   unreviewedOnly?: boolean;
@@ -65,14 +62,10 @@ export type ComfyGalleryFilter = {
 };
 
 export type ComfyGallerySort =
-  | "queued-desc"
-  | "queued-asc"
-  | "completed-desc"
-  | "tool-asc"
-  | "favorites-first";
+  'queued-desc' | 'queued-asc' | 'completed-desc' | 'tool-asc' | 'favorites-first';
 
 export const GALLERY_PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
-export const GALLERY_PAGE_SIZE_ALL = "all" as const;
+export const GALLERY_PAGE_SIZE_ALL = 'all' as const;
 /** Initial render cap when page size is "All" — use Load more for the rest. */
 export const GALLERY_ALL_RENDER_CHUNK = 48;
 
@@ -82,29 +75,26 @@ export function galleryEntryRenderKey(entry: ComfyGalleryEntry): string {
     entry.status,
     entry.favorite ? 1 : 0,
     entry.reviewRating ?? 0,
-    entry.derivedKind ?? "",
-    entry.parentGalleryEntryId ?? "",
-    entry.statusMessage ?? "",
-    entry.promptId ?? "",
-    entry.visionTags?.join(",") ?? "",
-    entry.projectId ?? "",
+    entry.derivedKind ?? '',
+    entry.parentGalleryEntryId ?? '',
+    entry.statusMessage ?? '',
+    entry.promptId ?? '',
+    entry.visionTags?.join(',') ?? '',
+    entry.projectId ?? '',
     // Keep in-flight cards live while sampler progress / queue position ticks.
-    entry.queuePosition ?? "",
-    entry.progressValue ?? "",
-    entry.progressMax ?? "",
-    entry.progressNode ?? "",
-  ].join("|");
+    entry.queuePosition ?? '',
+    entry.progressValue ?? '',
+    entry.progressMax ?? '',
+    entry.progressNode ?? '',
+  ].join('|');
 }
 export type GalleryPageSize =
-  | (typeof GALLERY_PAGE_SIZE_OPTIONS)[number]
-  | typeof GALLERY_PAGE_SIZE_ALL;
+  (typeof GALLERY_PAGE_SIZE_OPTIONS)[number] | typeof GALLERY_PAGE_SIZE_ALL;
 
 export const GALLERY_SLIDESHOW_INTERVAL_OPTIONS = [
-  2000, 3000, 4000, 5000, 7500, 10000, 15000, 20000, 30000, 45000, 60000, 90000,
-  120000,
+  2000, 3000, 4000, 5000, 7500, 10000, 15000, 20000, 30000, 45000, 60000, 90000, 120000,
 ] as const;
-export type GallerySlideshowIntervalMs =
-  (typeof GALLERY_SLIDESHOW_INTERVAL_OPTIONS)[number];
+export type GallerySlideshowIntervalMs = (typeof GALLERY_SLIDESHOW_INTERVAL_OPTIONS)[number];
 
 export function formatGallerySlideshowInterval(ms: number): string {
   if (ms < 60_000) {
@@ -120,69 +110,50 @@ export function formatGallerySlideshowInterval(ms: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
-export function normalizeGallerySlideshowIntervalMs(
-  value: unknown,
-): GallerySlideshowIntervalMs {
+export function normalizeGallerySlideshowIntervalMs(value: unknown): GallerySlideshowIntervalMs {
   if (isGallerySlideshowIntervalMs(value)) {
     return value;
   }
 
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
     return GALLERY_SLIDESHOW_INTERVAL_OPTIONS.reduce((best, option) =>
-      Math.abs(option - value) < Math.abs(best - value) ? option : best,
+      Math.abs(option - value) < Math.abs(best - value) ? option : best
     );
   }
 
   return DEFAULT_GALLERY_VIEW.slideshowIntervalMs;
 }
 
-export const GALLERY_SLIDESHOW_TRANSITION_OPTIONS = [
-  "slide",
-  "fade",
-  "zoom",
-  "none",
-] as const;
-export type GallerySlideshowTransition =
-  (typeof GALLERY_SLIDESHOW_TRANSITION_OPTIONS)[number];
+export const GALLERY_SLIDESHOW_TRANSITION_OPTIONS = ['slide', 'fade', 'zoom', 'none'] as const;
+export type GallerySlideshowTransition = (typeof GALLERY_SLIDESHOW_TRANSITION_OPTIONS)[number];
 
-export const GALLERY_SLIDESHOW_TRANSITION_LABELS: Record<
-  GallerySlideshowTransition,
-  string
-> = {
-  slide: "Slide",
-  fade: "Fade",
-  zoom: "Zoom",
-  none: "Instant",
+export const GALLERY_SLIDESHOW_TRANSITION_LABELS: Record<GallerySlideshowTransition, string> = {
+  slide: 'Slide',
+  fade: 'Fade',
+  zoom: 'Zoom',
+  none: 'Instant',
 };
 
-export function isGallerySlideshowTransition(
-  value: unknown,
-): value is GallerySlideshowTransition {
+export function isGallerySlideshowTransition(value: unknown): value is GallerySlideshowTransition {
   return (
-    typeof value === "string" &&
-    GALLERY_SLIDESHOW_TRANSITION_OPTIONS.includes(
-      value as GallerySlideshowTransition,
-    )
+    typeof value === 'string' &&
+    GALLERY_SLIDESHOW_TRANSITION_OPTIONS.includes(value as GallerySlideshowTransition)
   );
 }
 
-export function resolveGallerySlideshowTransition(
-  value: unknown,
-): GallerySlideshowTransition {
-  return isGallerySlideshowTransition(value)
-    ? value
-    : DEFAULT_GALLERY_VIEW.slideshowTransition;
+export function resolveGallerySlideshowTransition(value: unknown): GallerySlideshowTransition {
+  return isGallerySlideshowTransition(value) ? value : DEFAULT_GALLERY_VIEW.slideshowTransition;
 }
 
 export const GALLERY_SLIDESHOW_TRANSITION_MS = 520;
 
 export function resolveGallerySlideshowTransitionMs(
-  transition: GallerySlideshowTransition,
+  transition: GallerySlideshowTransition
 ): number {
-  return transition === "none" ? 0 : GALLERY_SLIDESHOW_TRANSITION_MS;
+  return transition === 'none' ? 0 : GALLERY_SLIDESHOW_TRANSITION_MS;
 }
 
-export type GalleryLayoutMode = "grid" | "dense" | "list";
+export type GalleryLayoutMode = 'grid' | 'dense' | 'list';
 
 export type ComfyGalleryViewPreferences = {
   sort: ComfyGallerySort;
@@ -193,36 +164,29 @@ export type ComfyGalleryViewPreferences = {
 };
 
 export const DEFAULT_GALLERY_VIEW: ComfyGalleryViewPreferences = {
-  sort: "queued-desc",
+  sort: 'queued-desc',
   pageSize: 12,
   slideshowIntervalMs: 5000,
-  slideshowTransition: "slide",
-  layout: "grid",
+  slideshowTransition: 'slide',
+  layout: 'grid',
 };
 
-export function isGallerySlideshowIntervalMs(
-  value: unknown,
-): value is GallerySlideshowIntervalMs {
+export function isGallerySlideshowIntervalMs(value: unknown): value is GallerySlideshowIntervalMs {
   return (
-    typeof value === "number" &&
-    GALLERY_SLIDESHOW_INTERVAL_OPTIONS.includes(
-      value as GallerySlideshowIntervalMs,
-    )
+    typeof value === 'number' &&
+    GALLERY_SLIDESHOW_INTERVAL_OPTIONS.includes(value as GallerySlideshowIntervalMs)
   );
 }
 
 export function isGalleryPageSize(value: unknown): value is GalleryPageSize {
   return (
     value === GALLERY_PAGE_SIZE_ALL ||
-    (typeof value === "number" &&
+    (typeof value === 'number' &&
       GALLERY_PAGE_SIZE_OPTIONS.includes(value as (typeof GALLERY_PAGE_SIZE_OPTIONS)[number]))
   );
 }
 
-export function resolveGalleryPageSize(
-  pageSize: GalleryPageSize,
-  totalItems: number,
-): number {
+export function resolveGalleryPageSize(pageSize: GalleryPageSize, totalItems: number): number {
   if (pageSize === GALLERY_PAGE_SIZE_ALL) {
     return Math.max(totalItems, 1);
   }
@@ -230,7 +194,7 @@ export function resolveGalleryPageSize(
   return pageSize;
 }
 
-export const COMFYUI_GALLERY_VIEW_KEY = "comfyui-gallery-view-v1";
+export const COMFYUI_GALLERY_VIEW_KEY = 'comfyui-gallery-view-v1';
 
 function readLegacyLocalStorageGallery(): ComfyGalleryEntry[] {
   const parsed = readBrowserValue<unknown>(COMFYUI_GALLERY_KEY);
@@ -238,7 +202,7 @@ function readLegacyLocalStorageGallery(): ComfyGalleryEntry[] {
 }
 
 export function loadComfyGallery(): ComfyGalleryEntry[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
 
@@ -257,9 +221,9 @@ export async function loadComfyGalleryAsync(): Promise<ComfyGalleryEntry[]> {
 
 export function saveComfyGallery(
   entries: ComfyGalleryEntry[],
-  options?: { syncRemote?: boolean },
+  options?: { syncRemote?: boolean }
 ): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -271,31 +235,31 @@ export function saveComfyGallery(
     if (evicted.length > 0) {
       // The local cap prefers keeping favorites/high ratings — push the full,
       // untrimmed list so server storage still has the complete history.
-      void import("./storage-sync").then(({ syncNamespaceToServer }) =>
-        syncNamespaceToServer("comfy-gallery", entries),
+      void import('./storage-sync').then(({ syncNamespaceToServer }) =>
+        syncNamespaceToServer('comfy-gallery', entries)
       );
       // Also download a local archive of evicted entries so nothing is only on the server.
-      void import("./gallery-zip-export").then(({ downloadGalleryZipBundle }) =>
+      void import('./gallery-zip-export').then(({ downloadGalleryZipBundle }) =>
         downloadGalleryZipBundle(evicted, {
           filename: `gallery-archive-evicted-${Date.now()}.zip`,
-        }),
+        })
       );
     }
-    void import("./auto-storage-sync").then(({ scheduleAutoPushStorage }) =>
-      scheduleAutoPushStorage(),
+    void import('./auto-storage-sync').then(({ scheduleAutoPushStorage }) =>
+      scheduleAutoPushStorage()
     );
   }
   void initGalleryStore()
     .then(() => persistGalleryCache())
     .then(() =>
-      import("./tab-sync").then(({ broadcastTabSync }) =>
-        broadcastTabSync({ type: "gallery-updated" }),
-      ),
+      import('./tab-sync').then(({ broadcastTabSync }) =>
+        broadcastTabSync({ type: 'gallery-updated' })
+      )
     );
 }
 
 export async function saveComfyGalleryAsync(entries: ComfyGalleryEntry[]): Promise<void> {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -308,30 +272,30 @@ export async function saveComfyGalleryAsync(entries: ComfyGalleryEntry[]): Promi
 }
 
 export function clearComfyGallery(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
   const previous = loadComfyGallery();
-  const deletedIds = rememberGalleryDeletedIds(previous.map((entry) => entry.id));
+  const deletedIds = rememberGalleryDeletedIds(previous.map(entry => entry.id));
   saveComfyGallery([], { syncRemote: false });
   void clearGalleryDb();
-  void import("./gallery-server-sync").then(({ pushGalleryDeletionsToServer }) =>
-    pushGalleryDeletionsToServer([], deletedIds),
+  void import('./gallery-server-sync').then(({ pushGalleryDeletionsToServer }) =>
+    pushGalleryDeletionsToServer([], deletedIds)
   );
 }
 
 export function filterComfyGalleryEntries(
   entries: ComfyGalleryEntry[],
-  filter: ComfyGalleryFilter,
+  filter: ComfyGalleryFilter
 ): ComfyGalleryEntry[] {
   const query = filter.query?.trim();
 
-  let filtered = entries.filter((entry) => {
+  let filtered = entries.filter(entry => {
     if (filter.favoritesOnly && !entry.favorite) {
       return false;
     }
-    if (filter.status && filter.status !== "all" && entry.status !== filter.status) {
+    if (filter.status && filter.status !== 'all' && entry.status !== filter.status) {
       return false;
     }
     if (filter.tool?.trim() && entry.tool !== filter.tool.trim()) {
@@ -358,7 +322,7 @@ export function filterComfyGalleryEntries(
     if (filter.derivedKind && entry.derivedKind !== filter.derivedKind) {
       return false;
     }
-    if (filter.mediaKind && filter.mediaKind !== "all") {
+    if (filter.mediaKind && filter.mediaKind !== 'all') {
       if (galleryEntryPrimaryMediaKind(entry) !== filter.mediaKind) {
         return false;
       }
@@ -372,10 +336,10 @@ export function filterComfyGalleryEntries(
         entry.model,
         entry.promptId,
         entry.statusMessage,
-        entry.visionTags?.join(" "),
+        entry.visionTags?.join(' '),
       ]
         .filter(Boolean)
-        .join(" ")
+        .join(' ')
         .toLowerCase();
 
       if (!haystack.includes(needle)) {
@@ -386,26 +350,23 @@ export function filterComfyGalleryEntries(
   });
 
   if (query && filter.semanticSearch) {
-    filtered = filterBySemanticQuery(
-      filtered,
-      query,
-      (entry) =>
-        [
-          entry.prompt,
-          entry.negativePrompt,
-          entry.tool,
-          entry.model,
-          entry.promptId,
-          entry.statusMessage,
-          entry.visionTags?.join(" "),
-        ]
-          .filter(Boolean)
-          .join(" "),
+    filtered = filterBySemanticQuery(filtered, query, entry =>
+      [
+        entry.prompt,
+        entry.negativePrompt,
+        entry.tool,
+        entry.model,
+        entry.promptId,
+        entry.statusMessage,
+        entry.visionTags?.join(' '),
+      ]
+        .filter(Boolean)
+        .join(' ')
     );
   }
 
   if (filter.similarToEntryId) {
-    const reference = entries.find((entry) => entry.id === filter.similarToEntryId);
+    const reference = entries.find(entry => entry.id === filter.similarToEntryId);
     if (reference) {
       filtered = orderGalleryBySimilarity(filtered, reference);
     }
@@ -417,7 +378,7 @@ export function filterComfyGalleryEntries(
 export function paginateGalleryEntries<T>(
   entries: T[],
   page: number,
-  pageSize: number,
+  pageSize: number
 ): { items: T[]; page: number; totalPages: number; totalItems: number } {
   const totalItems = entries.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -434,44 +395,37 @@ export function paginateGalleryEntries<T>(
 
 export function sortGalleryEntries(
   entries: ComfyGalleryEntry[],
-  sort: ComfyGallerySort = DEFAULT_GALLERY_VIEW.sort,
+  sort: ComfyGallerySort = DEFAULT_GALLERY_VIEW.sort
 ): ComfyGalleryEntry[] {
   const sorted = [...entries];
 
   switch (sort) {
-    case "queued-asc":
+    case 'queued-asc':
       return sorted.sort((a, b) => a.queuedAt - b.queuedAt);
-    case "completed-desc":
+    case 'completed-desc':
+      return sorted.sort((a, b) => (b.completedAt ?? b.queuedAt) - (a.completedAt ?? a.queuedAt));
+    case 'tool-asc':
+      return sorted.sort(
+        (a, b) => (a.tool ?? '').localeCompare(b.tool ?? '') || b.queuedAt - a.queuedAt
+      );
+    case 'favorites-first':
       return sorted.sort(
         (a, b) =>
-          (b.completedAt ?? b.queuedAt) - (a.completedAt ?? a.queuedAt),
+          Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)) || b.queuedAt - a.queuedAt
       );
-    case "tool-asc":
-      return sorted.sort(
-        (a, b) =>
-          (a.tool ?? "").localeCompare(b.tool ?? "") || b.queuedAt - a.queuedAt,
-      );
-    case "favorites-first":
-      return sorted.sort(
-        (a, b) =>
-          Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)) ||
-          b.queuedAt - a.queuedAt,
-      );
-    case "queued-desc":
+    case 'queued-desc':
     default:
       return sorted.sort((a, b) => b.queuedAt - a.queuedAt);
   }
 }
 
 export function loadGalleryViewPreferences(): ComfyGalleryViewPreferences {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return DEFAULT_GALLERY_VIEW;
   }
 
   try {
-    const parsed = readBrowserValue<Partial<ComfyGalleryViewPreferences>>(
-      COMFYUI_GALLERY_VIEW_KEY,
-    );
+    const parsed = readBrowserValue<Partial<ComfyGalleryViewPreferences>>(COMFYUI_GALLERY_VIEW_KEY);
     if (!parsed) {
       return DEFAULT_GALLERY_VIEW;
     }
@@ -480,22 +434,18 @@ export function loadGalleryViewPreferences(): ComfyGalleryViewPreferences {
       : DEFAULT_GALLERY_VIEW.pageSize;
 
     const sortValues: ComfyGallerySort[] = [
-      "queued-desc",
-      "queued-asc",
-      "completed-desc",
-      "tool-asc",
-      "favorites-first",
+      'queued-desc',
+      'queued-asc',
+      'completed-desc',
+      'tool-asc',
+      'favorites-first',
     ];
     const sort = sortValues.includes(parsed.sort as ComfyGallerySort)
       ? (parsed.sort as ComfyGallerySort)
       : DEFAULT_GALLERY_VIEW.sort;
-    const slideshowIntervalMs = normalizeGallerySlideshowIntervalMs(
-      parsed.slideshowIntervalMs,
-    );
-    const slideshowTransition = resolveGallerySlideshowTransition(
-      parsed.slideshowTransition,
-    );
-    const layoutValues: GalleryLayoutMode[] = ["grid", "dense", "list"];
+    const slideshowIntervalMs = normalizeGallerySlideshowIntervalMs(parsed.slideshowIntervalMs);
+    const slideshowTransition = resolveGallerySlideshowTransition(parsed.slideshowTransition);
+    const layoutValues: GalleryLayoutMode[] = ['grid', 'dense', 'list'];
     const layout = layoutValues.includes(parsed.layout as GalleryLayoutMode)
       ? (parsed.layout as GalleryLayoutMode)
       : DEFAULT_GALLERY_VIEW.layout;
@@ -506,10 +456,8 @@ export function loadGalleryViewPreferences(): ComfyGalleryViewPreferences {
   }
 }
 
-export function saveGalleryViewPreferences(
-  preferences: ComfyGalleryViewPreferences,
-): void {
-  if (typeof window === "undefined") {
+export function saveGalleryViewPreferences(preferences: ComfyGalleryViewPreferences): void {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -517,20 +465,20 @@ export function saveGalleryViewPreferences(
 }
 
 export function uniqueGalleryTools(entries: ComfyGalleryEntry[]): string[] {
-  return [...new Set(entries.map((entry) => entry.tool).filter(Boolean) as string[])].sort();
+  return [...new Set(entries.map(entry => entry.tool).filter(Boolean) as string[])].sort();
 }
 
 export function addComfyGalleryEntry(
-  input: Omit<ComfyGalleryEntry, "id" | "queuedAt" | "images" | "status"> & {
+  input: Omit<ComfyGalleryEntry, 'id' | 'queuedAt' | 'images' | 'status'> & {
     status?: ComfyGalleryJobStatus;
     images?: ComfyOutputImage[];
-  },
+  }
 ): ComfyGalleryEntry {
   const userId = getActiveUserId();
   const entry: ComfyGalleryEntry = {
     id: crypto.randomUUID(),
     queuedAt: Date.now(),
-    status: input.status ?? "pending",
+    status: input.status ?? 'pending',
     images: input.images ?? [],
     ...input,
     userId: input.userId ?? userId ?? undefined,
@@ -545,32 +493,32 @@ export function updateComfyGalleryEntryById(
   patch: Partial<
     Pick<
       ComfyGalleryEntry,
-      | "status"
-      | "statusMessage"
-      | "queuePosition"
-      | "progressValue"
-      | "progressMax"
-      | "progressNode"
-      | "completedAt"
-      | "renderDurationMs"
-      | "executionStartedAt"
-      | "images"
-      | "comfyUrl"
-      | "favorite"
-      | "historyId"
-      | "negativePrompt"
-      | "queueParams"
-      | "reviewRating"
-      | "projectId"
-      | "visionTags"
-      | "aestheticScore"
-      | "aestheticScoreMethod"
+      | 'status'
+      | 'statusMessage'
+      | 'queuePosition'
+      | 'progressValue'
+      | 'progressMax'
+      | 'progressNode'
+      | 'completedAt'
+      | 'renderDurationMs'
+      | 'executionStartedAt'
+      | 'images'
+      | 'comfyUrl'
+      | 'favorite'
+      | 'historyId'
+      | 'negativePrompt'
+      | 'queueParams'
+      | 'reviewRating'
+      | 'projectId'
+      | 'visionTags'
+      | 'aestheticScore'
+      | 'aestheticScoreMethod'
     >
-  >,
+  >
 ): ComfyGalleryEntry | null {
   const entries = loadComfyGallery();
   let updated: ComfyGalleryEntry | null = null;
-  const next = entries.map((entry) => {
+  const next = entries.map(entry => {
     if (entry.id !== id) {
       return entry;
     }
@@ -580,16 +528,16 @@ export function updateComfyGalleryEntryById(
   if (!updated) {
     return null;
   }
-  if (patch.status === "completed") {
-    const prior = entries.find((entry) => entry.id === id);
-    if (prior && prior.status !== "completed") {
-      void import("./notification-center").then(({ pushNotification }) =>
+  if (patch.status === 'completed') {
+    const prior = entries.find(entry => entry.id === id);
+    if (prior && prior.status !== 'completed') {
+      void import('./notification-center').then(({ pushNotification }) =>
         pushNotification({
-          title: "ComfyUI job completed",
+          title: 'ComfyUI job completed',
           body: updated!.prompt.slice(0, 80),
-          href: "/gallery",
-          kind: "job",
-        }),
+          href: '/gallery',
+          kind: 'job',
+        })
       );
     }
   }
@@ -597,10 +545,8 @@ export function updateComfyGalleryEntryById(
   return updated;
 }
 
-function galleryPatchIsEphemeralProgress(
-  patch: Partial<ComfyGalleryEntry>,
-): boolean {
-  if (patch.status === "completed" || patch.status === "error") {
+function galleryPatchIsEphemeralProgress(patch: Partial<ComfyGalleryEntry>): boolean {
+  if (patch.status === 'completed' || patch.status === 'error') {
     return false;
   }
   if (patch.images || patch.completedAt != null || patch.favorite != null) {
@@ -613,16 +559,16 @@ function galleryPatchIsEphemeralProgress(
   if (keys.length === 0) {
     return false;
   }
-  return keys.every((key) =>
+  return keys.every(key =>
     [
-      "status",
-      "statusMessage",
-      "queuePosition",
-      "progressValue",
-      "progressMax",
-      "progressNode",
-      "comfyUrl",
-    ].includes(key),
+      'status',
+      'statusMessage',
+      'queuePosition',
+      'progressValue',
+      'progressMax',
+      'progressNode',
+      'comfyUrl',
+    ].includes(key)
   );
 }
 
@@ -631,29 +577,29 @@ export function updateComfyGalleryByPromptId(
   patch: Partial<
     Pick<
       ComfyGalleryEntry,
-      | "status"
-      | "statusMessage"
-      | "queuePosition"
-      | "progressValue"
-      | "progressMax"
-      | "progressNode"
-      | "completedAt"
-      | "renderDurationMs"
-      | "executionStartedAt"
-      | "images"
-      | "comfyUrl"
-      | "clientId"
-      | "favorite"
-      | "historyId"
-      | "queueParams"
-      | "reviewRating"
-      | "projectId"
-      | "oomRetryAttempted"
+      | 'status'
+      | 'statusMessage'
+      | 'queuePosition'
+      | 'progressValue'
+      | 'progressMax'
+      | 'progressNode'
+      | 'completedAt'
+      | 'renderDurationMs'
+      | 'executionStartedAt'
+      | 'images'
+      | 'comfyUrl'
+      | 'clientId'
+      | 'favorite'
+      | 'historyId'
+      | 'queueParams'
+      | 'reviewRating'
+      | 'projectId'
+      | 'oomRetryAttempted'
     >
-  >,
+  >
 ): ComfyGalleryEntry | null {
   let updated: ComfyGalleryEntry | null = null;
-  const next = loadComfyGallery().map((entry) => {
+  const next = loadComfyGallery().map(entry => {
     if (entry.promptId !== promptId) {
       return entry;
     }
@@ -673,29 +619,31 @@ export function updateComfyGalleryByPromptId(
 
 export function toggleComfyGalleryFavorite(id: string): void {
   saveComfyGallery(
-    loadComfyGallery().map((entry) =>
-      entry.id === id ? { ...entry, favorite: !entry.favorite } : entry,
-    ),
+    loadComfyGallery().map(entry =>
+      entry.id === id ? { ...entry, favorite: !entry.favorite } : entry
+    )
   );
 }
 
 export function setGalleryReviewRating(
   id: string,
-  reviewRating: ComfyGalleryEntry["reviewRating"],
+  reviewRating: ComfyGalleryEntry['reviewRating']
 ): void {
   saveComfyGallery(
-    loadComfyGallery().map((entry) =>
-      entry.id === id ? { ...entry, reviewRating, favorite: reviewRating === 5 ? true : entry.favorite } : entry,
-    ),
+    loadComfyGallery().map(entry =>
+      entry.id === id
+        ? { ...entry, reviewRating, favorite: reviewRating === 5 ? true : entry.favorite }
+        : entry
+    )
   );
 }
 
 export function removeComfyGalleryEntry(id: string): void {
   const deletedIds = rememberGalleryDeletedIds([id]);
-  const next = loadComfyGallery().filter((entry) => entry.id !== id);
+  const next = loadComfyGallery().filter(entry => entry.id !== id);
   saveComfyGallery(next, { syncRemote: false });
-  void import("./gallery-server-sync").then(({ pushGalleryDeletionsToServer }) =>
-    pushGalleryDeletionsToServer(next, deletedIds),
+  void import('./gallery-server-sync').then(({ pushGalleryDeletionsToServer }) =>
+    pushGalleryDeletionsToServer(next, deletedIds)
   );
 }
 
@@ -705,22 +653,19 @@ export function removeComfyGalleryEntries(ids: string[]): void {
   }
   const idSet = new Set(ids);
   const deletedIds = rememberGalleryDeletedIds(ids);
-  const next = loadComfyGallery().filter((entry) => !idSet.has(entry.id));
+  const next = loadComfyGallery().filter(entry => !idSet.has(entry.id));
   saveComfyGallery(next, { syncRemote: false });
-  void import("./gallery-server-sync").then(({ pushGalleryDeletionsToServer }) =>
-    pushGalleryDeletionsToServer(next, deletedIds),
+  void import('./gallery-server-sync').then(({ pushGalleryDeletionsToServer }) =>
+    pushGalleryDeletionsToServer(next, deletedIds)
   );
 }
 
-export function setComfyGalleryProjectIds(
-  ids: string[],
-  projectId: string | undefined,
-): void {
+export function setComfyGalleryProjectIds(ids: string[], projectId: string | undefined): void {
   const idSet = new Set(ids);
   saveComfyGallery(
-    loadComfyGallery().map((entry) =>
-      idSet.has(entry.id) ? { ...entry, projectId: projectId || undefined } : entry,
-    ),
+    loadComfyGallery().map(entry =>
+      idSet.has(entry.id) ? { ...entry, projectId: projectId || undefined } : entry
+    )
   );
 }
 
@@ -730,41 +675,39 @@ export function setComfyGalleryFavorites(ids: string[], favorite: boolean): void
   }
   const idSet = new Set(ids);
   saveComfyGallery(
-    loadComfyGallery().map((entry) =>
-      idSet.has(entry.id) ? { ...entry, favorite } : entry,
-    ),
+    loadComfyGallery().map(entry => (idSet.has(entry.id) ? { ...entry, favorite } : entry))
   );
 }
 
 function galleryEntryBuildViewPath(
   entry: ComfyGalleryEntry,
-  image: ComfyGalleryEntry["images"][number],
-  options?: { width?: number },
+  image: ComfyGalleryEntry['images'][number],
+  options?: { width?: number }
 ): string {
   return buildEngineViewPath(entry.engineId, entry.comfyUrl, image, options);
 }
 
 export function galleryEntryViewUrls(entry: ComfyGalleryEntry): string[] {
-  return entry.images.map((image) => galleryEntryBuildViewPath(entry, image));
+  return entry.images.map(image => galleryEntryBuildViewPath(entry, image));
 }
 
 export function galleryEntryThumbUrls(entry: ComfyGalleryEntry): string[] {
-  return entry.images.map((image) =>
-    galleryEntryBuildViewPath(entry, image, { width: GALLERY_THUMB_WIDTH }),
+  return entry.images.map(image =>
+    galleryEntryBuildViewPath(entry, image, { width: GALLERY_THUMB_WIDTH })
   );
 }
 
 export function galleryEntryStripThumbUrls(entry: ComfyGalleryEntry): string[] {
-  return entry.images.map((image) =>
+  return entry.images.map(image =>
     galleryEntryBuildViewPath(entry, image, {
       width: GALLERY_STRIP_THUMB_WIDTH,
-    }),
+    })
   );
 }
 
 export function galleryEntryLightboxUrls(entry: ComfyGalleryEntry): string[] {
-  return entry.images.map((image) =>
-    galleryEntryBuildViewPath(entry, image, { width: GALLERY_LIGHTBOX_WIDTH }),
+  return entry.images.map(image =>
+    galleryEntryBuildViewPath(entry, image, { width: GALLERY_LIGHTBOX_WIDTH })
   );
 }
 
@@ -781,24 +724,23 @@ export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string
   if (!image) {
     return null;
   }
-  if (entry.engineId === "diffusers") {
+  if (entry.engineId === 'diffusers') {
     return GALLERY_THUMB_SRCSET_WIDTHS.map(
-      (width) =>
-        `${galleryEntryBuildViewPath(entry, image, { width })} ${width}w`,
-    ).join(", ");
+      width => `${galleryEntryBuildViewPath(entry, image, { width })} ${width}w`
+    ).join(', ');
   }
   return buildComfyViewSrcSet(entry.comfyUrl, image);
 }
 
 /** Per-image media kind (image vs. video/animated) for gallery rendering. */
 export function galleryEntryMediaKinds(entry: ComfyGalleryEntry): ComfyOutputMediaKind[] {
-  return entry.images.map((image) => resolveComfyOutputMediaKind(image));
+  return entry.images.map(image => resolveComfyOutputMediaKind(image));
 }
 
 /** Media kind of the entry's primary (first) output. */
 export function galleryEntryPrimaryMediaKind(entry: ComfyGalleryEntry): ComfyOutputMediaKind {
   const image = entry.images[0];
-  return image ? resolveComfyOutputMediaKind(image) : "image";
+  return image ? resolveComfyOutputMediaKind(image) : 'image';
 }
 
 export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | null {
@@ -823,7 +765,7 @@ export type GalleryLightboxPlaylist = {
 
 export function buildGalleryLightboxPlaylist(
   entries: readonly ComfyGalleryEntry[],
-  titleLength = 120,
+  titleLength = 120
 ): GalleryLightboxPlaylist {
   const images: string[] = [];
   const thumbImages: string[] = [];
@@ -844,11 +786,9 @@ export function buildGalleryLightboxPlaylist(
     for (let i = 0; i < urls.length; i += 1) {
       images.push(urls[i]!);
       thumbImages.push(thumbs[i] ?? urls[i]!);
-      originalImages.push(
-        stripGalleryViewWidthParam(originals[i] ?? urls[i]!),
-      );
+      originalImages.push(stripGalleryViewWidthParam(originals[i] ?? urls[i]!));
       titles.push(title);
-      mediaKinds.push(kinds[i] ?? "image");
+      mediaKinds.push(kinds[i] ?? 'image');
     }
   }
 
@@ -858,7 +798,7 @@ export function buildGalleryLightboxPlaylist(
 export function resolveGalleryLightboxOpenIndex(
   entries: readonly ComfyGalleryEntry[],
   entryId: string,
-  imageIndex = 0,
+  imageIndex = 0
 ): number {
   let flatIndex = 0;
 

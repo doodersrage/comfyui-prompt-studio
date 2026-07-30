@@ -1,17 +1,13 @@
-import { getFaceDetailerHealth } from "./face-detailer-health";
-import { isFluxKleinModel } from "./model-denoise-defaults";
-import { normalizeInputImageFilenames } from "./workflow-load-image-bindings";
+import { getFaceDetailerHealth } from './face-detailer-health';
+import { isFluxKleinModel } from './model-denoise-defaults';
+import { normalizeInputImageFilenames } from './workflow-load-image-bindings';
 
 /** Default IP-Adapter weight for Compose identity lock (Edit + IP can overfit if higher). */
 export const DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH = 0.5;
 
-export const DEFAULT_COMPOSE_IDENTITY_KIND = "ipadapter" as const;
+export const DEFAULT_COMPOSE_IDENTITY_KIND = 'ipadapter' as const;
 
-export type ComposeIdentityKind =
-  | "ipadapter"
-  | "instantid"
-  | "pulid"
-  | "auto";
+export type ComposeIdentityKind = 'ipadapter' | 'instantid' | 'pulid' | 'auto';
 
 export type ComposeIdentityLockState = {
   enabled: boolean;
@@ -19,15 +15,8 @@ export type ComposeIdentityLockState = {
   identityKind: ComposeIdentityKind;
 };
 
-export function normalizeComposeIdentityKind(
-  value: unknown,
-): ComposeIdentityKind {
-  if (
-    value === "ipadapter" ||
-    value === "instantid" ||
-    value === "pulid" ||
-    value === "auto"
-  ) {
+export function normalizeComposeIdentityKind(value: unknown): ComposeIdentityKind {
+  if (value === 'ipadapter' || value === 'instantid' || value === 'pulid' || value === 'auto') {
     return value;
   }
   return DEFAULT_COMPOSE_IDENTITY_KIND;
@@ -44,7 +33,7 @@ export function normalizeComposeIdentityLockStrength(value: unknown): number {
 export function normalizeComposeIdentityLock(
   enabled: unknown,
   strength: unknown,
-  identityKind?: unknown,
+  identityKind?: unknown
 ): ComposeIdentityLockState {
   return {
     enabled: enabled === true,
@@ -112,7 +101,7 @@ export function buildComposeKleinQueuePatch(input: {
   }
   const figures = normalizeInputImageFilenames(
     input.inputImageFilename,
-    input.inputImageFilenames ?? undefined,
+    input.inputImageFilenames ?? undefined
   );
   const fig1 = figures[0]?.trim();
   if (!fig1) {
@@ -126,9 +115,7 @@ export function buildComposeKleinQueuePatch(input: {
   if (input.identityLock) {
     patch.ipAdapterImageFilename = fig1;
     patch.ipAdapterImageFilenames = [fig1];
-    patch.ipAdapterStrength = normalizeComposeIdentityLockStrength(
-      input.identityLockStrength,
-    );
+    patch.ipAdapterStrength = normalizeComposeIdentityLockStrength(input.identityLockStrength);
     patch.identityKind = normalizeComposeIdentityKind(input.identityKind);
   }
   return patch;
@@ -140,32 +127,30 @@ export function formatComposeIdentityLockHint(input: {
   identityKind?: unknown;
 }): string {
   if (!input.enabled) {
-    return "Off — Edit refs only (no identity pull).";
+    return 'Off — Edit refs only (no identity pull).';
   }
   const strength = normalizeComposeIdentityLockStrength(input.strength);
   const identityKind = normalizeComposeIdentityKind(input.identityKind);
   const face = getFaceDetailerHealth();
   const faceNote =
-    face.status === "ready" || face.status === "detected"
+    face.status === 'ready' || face.status === 'detected'
       ? `FaceDetailer ${face.label.toLowerCase()} — optional gallery Face detail after queue.`
-      : "FaceDetailer not configured.";
+      : 'FaceDetailer not configured.';
 
-  if (identityKind === "instantid") {
+  if (identityKind === 'instantid') {
     return `Lock Figure 1 via InstantID @ ${strength.toFixed(2)}. ${faceNote}`;
   }
-  if (identityKind === "pulid") {
+  if (identityKind === 'pulid') {
     return `Lock Figure 1 via PuLID @ ${strength.toFixed(2)}. ${faceNote}`;
   }
-  if (identityKind === "auto") {
+  if (identityKind === 'auto') {
     return `Lock Figure 1 via InstantID/PuLID auto @ ${strength.toFixed(2)}. ${faceNote}`;
   }
   return `Lock Figure 1 via IP-Adapter @ ${strength.toFixed(2)}. ${faceNote}`;
 }
 
 /** True when queue should prefer InstantID/PuLID insert over IP-Adapter. */
-export function composeIdentityUsesIdentityChain(
-  identityKind: unknown,
-): boolean {
+export function composeIdentityUsesIdentityChain(identityKind: unknown): boolean {
   const kind = normalizeComposeIdentityKind(identityKind);
-  return kind === "instantid" || kind === "pulid" || kind === "auto";
+  return kind === 'instantid' || kind === 'pulid' || kind === 'auto';
 }

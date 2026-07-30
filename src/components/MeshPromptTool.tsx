@@ -1,46 +1,45 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import SharedToolControls from "@/components/SharedToolControls";
-import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
-import ComfyPackImportControl from "@/components/ComfyPackImportControl";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { DEFAULT_MESH_MODEL, getComfyModelDefinition } from "@/lib/comfy-models/client";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import {
-  MESH_RESOLUTION_TOKEN,
-  buildMeshPrompt,
-} from "@/lib/audio-mesh-prompt";
-import { ensureMeshWorkflowScaffold } from "@/lib/ensure-media-workflow";
-import { DEFAULT_MESH_TOOL_CACHE } from "@/lib/settings-cache";
-import { fetchComfyObjectInfoCached } from "@/lib/comfyui-object-info-cache";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import SharedToolControls from '@/components/SharedToolControls';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
+import ComfyPackImportControl from '@/components/ComfyPackImportControl';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { DEFAULT_MESH_MODEL, getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { MESH_RESOLUTION_TOKEN, buildMeshPrompt } from '@/lib/audio-mesh-prompt';
+import { ensureMeshWorkflowScaffold } from '@/lib/ensure-media-workflow';
+import { DEFAULT_MESH_TOOL_CACHE } from '@/lib/settings-cache';
+import { fetchComfyObjectInfoCached } from '@/lib/comfyui-object-info-cache';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldLabel, TextArea, TextInput } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+} from '@/components/ui/ToolPageShell';
+import { FieldLabel, TextArea, TextInput } from '@/components/ui/Field';
+import { PrimaryButton } from '@/components/ui/Button';
 
-const ACCENT = "emerald" as const;
+const ACCENT = 'emerald' as const;
 
 export default function MeshPromptTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("mesh", DEFAULT_MESH_TOOL_CACHE);
-  const subject = toolSettings?.subject ?? "";
-  const materials = toolSettings?.materials ?? "";
-  const style = toolSettings?.style ?? "";
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'mesh',
+    DEFAULT_MESH_TOOL_CACHE
+  );
+  const subject = toolSettings?.subject ?? '';
+  const materials = toolSettings?.materials ?? '';
+  const style = toolSettings?.style ?? '';
   const resolution = toolSettings?.resolution ?? 512;
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const actions = usePromptResultActions({
-    tool: "mesh",
+    tool: 'mesh',
     model: shared.model,
     detail: shared.detail,
     hints: subject,
@@ -50,7 +49,7 @@ export default function MeshPromptTool() {
     if (!mounted) {
       return;
     }
-    if (getComfyModelDefinition(shared.model).category !== "mesh") {
+    if (getComfyModelDefinition(shared.model).category !== 'mesh') {
       updateShared({ model: DEFAULT_MESH_MODEL });
     }
   }, [mounted, shared.model, updateShared]);
@@ -64,7 +63,7 @@ export default function MeshPromptTool() {
     let cancelled = false;
     try {
       const model =
-        getComfyModelDefinition(shared.model).category === "mesh"
+        getComfyModelDefinition(shared.model).category === 'mesh'
           ? shared.model
           : DEFAULT_MESH_MODEL;
       void fetchComfyObjectInfoCached().catch(() => null);
@@ -81,7 +80,7 @@ export default function MeshPromptTool() {
           setWorkflowStatus(
             error instanceof Error
               ? error.message
-              : "Could not create mesh workflow scaffold. Import a Hunyuan3D pack in Settings → workflows.",
+              : 'Could not create mesh workflow scaffold. Import a Hunyuan3D pack in Settings → workflows.'
           );
         });
       }
@@ -93,7 +92,7 @@ export default function MeshPromptTool() {
 
   const builtOutput = useMemo(
     () => buildMeshPrompt({ subject, materials, style }),
-    [materials, style, subject],
+    [materials, style, subject]
   );
   const [outputOverride, setOutputOverride] = useState<string | null>(null);
   useEffect(() => {
@@ -116,9 +115,7 @@ export default function MeshPromptTool() {
   }
 
   const controlsModel =
-    getComfyModelDefinition(shared.model).category === "mesh"
-      ? shared.model
-      : DEFAULT_MESH_MODEL;
+    getComfyModelDefinition(shared.model).category === 'mesh' ? shared.model : DEFAULT_MESH_MODEL;
   const controlsShared =
     controlsModel === shared.model ? shared : { ...shared, model: controlsModel };
   const selectedModel = getComfyModelDefinition(controlsModel);
@@ -133,9 +130,9 @@ export default function MeshPromptTool() {
         <SharedToolControls
           toolId="mesh"
           shared={controlsShared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           recommendFromText={output}
         />
       }
@@ -162,11 +159,11 @@ export default function MeshPromptTool() {
         <input
           type="file"
           accept="image/*"
-          onChange={(event) => {
+          onChange={event => {
             const next = event.target.files?.[0] ?? null;
             setFile(next);
-            setPreviewUrl((current) => {
-              if (current?.startsWith("blob:")) {
+            setPreviewUrl(current => {
+              if (current?.startsWith('blob:')) {
                 URL.revokeObjectURL(current);
               }
               return next ? URL.createObjectURL(next) : null;
@@ -186,7 +183,7 @@ export default function MeshPromptTool() {
         <TextArea
           rows={3}
           value={subject}
-          onChange={(event) => updateToolSettings({ subject: event.target.value })}
+          onChange={event => updateToolSettings({ subject: event.target.value })}
           placeholder="A ceramic teapot with a short spout…"
           className={accentFocusClass(ACCENT)}
         />
@@ -195,9 +192,7 @@ export default function MeshPromptTool() {
             <FieldLabel>Materials</FieldLabel>
             <TextInput
               value={materials}
-              onChange={(event) =>
-                updateToolSettings({ materials: event.target.value })
-              }
+              onChange={event => updateToolSettings({ materials: event.target.value })}
               className={accentFocusClass(ACCENT)}
             />
           </div>
@@ -205,7 +200,7 @@ export default function MeshPromptTool() {
             <FieldLabel>Style</FieldLabel>
             <TextInput
               value={style}
-              onChange={(event) => updateToolSettings({ style: event.target.value })}
+              onChange={event => updateToolSettings({ style: event.target.value })}
               className={accentFocusClass(ACCENT)}
             />
           </div>
@@ -217,7 +212,7 @@ export default function MeshPromptTool() {
             min={128}
             max={2048}
             value={String(resolution)}
-            onChange={(event) =>
+            onChange={event =>
               updateToolSettings({
                 resolution: Math.max(128, Number(event.target.value) || 512),
               })
@@ -232,10 +227,8 @@ export default function MeshPromptTool() {
           onClick={() =>
             void actions.sendComfyUi(output, undefined, undefined, {
               inputImage: file,
-              inputImageUrl: !file ? previewUrl ?? undefined : undefined,
-              customTokens: [
-                { token: MESH_RESOLUTION_TOKEN, value: String(resolution) },
-              ],
+              inputImageUrl: !file ? (previewUrl ?? undefined) : undefined,
+              customTokens: [{ token: MESH_RESOLUTION_TOKEN, value: String(resolution) }],
             })
           }
         >
@@ -246,7 +239,7 @@ export default function MeshPromptTool() {
       <EnhancedPromptResult
         output={output}
         onOutputChange={setOutputOverride}
-        provider={output ? "template" : null}
+        provider={output ? 'template' : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={controlsModel}
         readinessDetail={shared.detail}
@@ -256,10 +249,8 @@ export default function MeshPromptTool() {
         onSendComfyUi={() =>
           void actions.sendComfyUi(output, undefined, undefined, {
             inputImage: file,
-            inputImageUrl: !file ? previewUrl ?? undefined : undefined,
-            customTokens: [
-              { token: MESH_RESOLUTION_TOKEN, value: String(resolution) },
-            ],
+            inputImageUrl: !file ? (previewUrl ?? undefined) : undefined,
+            customTokens: [{ token: MESH_RESOLUTION_TOKEN, value: String(resolution) }],
           })
         }
         {...promptResultPreviewProps(actions, output)}
@@ -274,10 +265,8 @@ export default function MeshPromptTool() {
         onQueue={() =>
           void actions.sendComfyUi(output, undefined, undefined, {
             inputImage: file,
-            inputImageUrl: !file ? previewUrl ?? undefined : undefined,
-            customTokens: [
-              { token: MESH_RESOLUTION_TOKEN, value: String(resolution) },
-            ],
+            inputImageUrl: !file ? (previewUrl ?? undefined) : undefined,
+            customTokens: [{ token: MESH_RESOLUTION_TOKEN, value: String(resolution) }],
           })
         }
       />

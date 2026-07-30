@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   buildGalleryHandoff,
@@ -8,9 +8,9 @@ import {
   IMPROVE_INTENT_DEFAULT,
   saveGalleryHandoff,
   type GalleryHandoffPayload,
-} from "./gallery-handoff";
-import { setLineageParent } from "./prompt-lineage-session";
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
+} from './gallery-handoff';
+import { setLineageParent } from './prompt-lineage-session';
+import type { ComfyGalleryEntry } from './comfyui-gallery';
 
 export function startImproveFromResult(input: {
   prompt: string;
@@ -21,15 +21,15 @@ export function startImproveFromResult(input: {
   parentHistoryId?: string;
 }): void {
   const payload: GalleryHandoffPayload = {
-    source: "gallery",
-    galleryEntryId: "result-panel",
-    promptId: "result-panel",
+    source: 'gallery',
+    galleryEntryId: 'result-panel',
+    promptId: 'result-panel',
     prompt: input.prompt,
     negativePrompt: input.negativePrompt,
     model: input.model,
     tool: input.tool,
     imageUrl: input.previewUrl ?? undefined,
-    target: "refine",
+    target: 'refine',
     improveIntent: IMPROVE_INTENT_DEFAULT,
     savedAt: Date.now(),
   };
@@ -52,18 +52,18 @@ export function startRefineFromResult(input: {
   negativePrompt?: string;
 }): void {
   saveGalleryHandoff({
-    source: "gallery",
-    galleryEntryId: "result-panel",
-    promptId: "result-panel",
+    source: 'gallery',
+    galleryEntryId: 'result-panel',
+    promptId: 'result-panel',
     prompt: input.prompt,
     negativePrompt: input.negativePrompt,
     model: input.model,
     tool: input.tool,
     imageUrl: input.previewUrl ?? undefined,
-    target: "refine",
+    target: 'refine',
     savedAt: Date.now(),
   });
-  window.location.href = galleryHandoffPath("refine");
+  window.location.href = galleryHandoffPath('refine');
 }
 export function startRefineFromHistoryEntry(entry: {
   id: string;
@@ -73,14 +73,14 @@ export function startRefineFromHistoryEntry(entry: {
   hints?: string;
 }): void {
   saveGalleryHandoff({
-    source: "history",
+    source: 'history',
     galleryEntryId: entry.id,
     promptId: entry.id,
     prompt: entry.prompt,
     model: entry.model,
     tool: entry.tool,
     historyId: entry.id,
-    target: "refine",
+    target: 'refine',
     savedAt: Date.now(),
   });
   setLineageParent({
@@ -88,30 +88,30 @@ export function startRefineFromHistoryEntry(entry: {
     sourcePrompt: entry.prompt,
     sourceTool: entry.tool,
   });
-  window.location.href = galleryHandoffPath("refine");
+  window.location.href = galleryHandoffPath('refine');
 }
 export function startInpaintFromGalleryEntry(entry: ComfyGalleryEntry): void {
   saveGalleryHandoff({
-    ...buildGalleryHandoff(entry, "inpaint"),
-    model: entry.model === "flux-inpaint" ? entry.model : "flux-inpaint",
+    ...buildGalleryHandoff(entry, 'inpaint'),
+    model: entry.model === 'flux-inpaint' ? entry.model : 'flux-inpaint',
   });
-  window.location.href = galleryHandoffPath("inpaint");
+  window.location.href = galleryHandoffPath('inpaint');
 }
 
 export function startOutpaintFromGalleryEntry(entry: ComfyGalleryEntry): void {
   saveGalleryHandoff({
-    ...buildGalleryHandoff(entry, "outpaint"),
-    model: entry.model === "flux-inpaint" ? entry.model : "flux-inpaint",
+    ...buildGalleryHandoff(entry, 'outpaint'),
+    model: entry.model === 'flux-inpaint' ? entry.model : 'flux-inpaint',
   });
-  window.location.href = galleryHandoffPath("outpaint");
+  window.location.href = galleryHandoffPath('outpaint');
 }
 
 export function startImproveFromGalleryEntry(
   entry: ComfyGalleryEntry,
-  options?: { intent?: string },
+  options?: { intent?: string }
 ): void {
   saveGalleryHandoff({
-    ...buildGalleryHandoff(entry, "refine"),
+    ...buildGalleryHandoff(entry, 'refine'),
     improveIntent: options?.intent?.trim() || IMPROVE_INTENT_DEFAULT,
   });
   window.location.href = galleryImprovePath();
@@ -126,19 +126,19 @@ export function startPromptEditorFromResult(input: {
   previewUrl?: string | null;
 }): void {
   saveGalleryHandoff({
-    source: "gallery",
-    galleryEntryId: "result-panel",
-    promptId: "result-panel",
+    source: 'gallery',
+    galleryEntryId: 'result-panel',
+    promptId: 'result-panel',
     prompt: input.prompt,
     negativePrompt: input.negativePrompt,
     hints: input.hints,
     model: input.model,
     tool: input.tool,
     imageUrl: input.previewUrl ?? undefined,
-    target: "promptEditor",
+    target: 'promptEditor',
     savedAt: Date.now(),
   });
-  window.location.href = galleryHandoffPath("promptEditor");
+  window.location.href = galleryHandoffPath('promptEditor');
 }
 
 export function startPromptEditorFromHistoryEntry(entry: {
@@ -150,7 +150,7 @@ export function startPromptEditorFromHistoryEntry(entry: {
   hints?: string;
 }): void {
   saveGalleryHandoff({
-    source: "history",
+    source: 'history',
     galleryEntryId: entry.id,
     promptId: entry.id,
     prompt: entry.prompt,
@@ -159,13 +159,13 @@ export function startPromptEditorFromHistoryEntry(entry: {
     model: entry.model,
     tool: entry.tool,
     historyId: entry.id,
-    target: "promptEditor",
+    target: 'promptEditor',
     savedAt: Date.now(),
   });
   window.location.href = galleryPromptEditorPathFromHistory();
 }
 
 export function startPromptEditorFromGalleryEntry(entry: ComfyGalleryEntry): void {
-  saveGalleryHandoff(buildGalleryHandoff(entry, "promptEditor"));
-  window.location.href = galleryHandoffPath("promptEditor");
+  saveGalleryHandoff(buildGalleryHandoff(entry, 'promptEditor'));
+  window.location.href = galleryHandoffPath('promptEditor');
 }

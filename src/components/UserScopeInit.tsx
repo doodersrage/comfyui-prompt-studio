@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { reloadGalleryForActiveUser } from "@/lib/gallery-db-store";
-import { USER_SCOPE_CHANGED_EVENT } from "@/lib/user-scope";
-import { scheduleUserAnalyticsSync } from "@/lib/user-analytics-sync";
+import { useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { reloadGalleryForActiveUser } from '@/lib/gallery-db-store';
+import { USER_SCOPE_CHANGED_EVENT } from '@/lib/user-scope';
+import { scheduleUserAnalyticsSync } from '@/lib/user-analytics-sync';
 
 export default function UserScopeInit() {
   const { user, loading } = useAuth();

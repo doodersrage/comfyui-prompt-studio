@@ -1,13 +1,13 @@
-import { appDb } from "./app-db";
-import { readBrowserValue, removeBrowserKey, writeBrowserValue } from "./browser-storage";
-import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
+import { appDb } from './app-db';
+import { readBrowserValue, removeBrowserKey, writeBrowserValue } from './browser-storage';
+import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 import {
   COMFYUI_GALLERY_KEY,
   COMFYUI_GALLERY_UPDATED_EVENT,
   MAX_GALLERY_ENTRIES,
-} from "./comfyui-gallery-storage-meta";
-import { filterOutDeletedGalleryEntries } from "./gallery-deleted-ids";
-import { getActiveUserId, isUserScoped } from "./user-scope";
+} from './comfyui-gallery-storage-meta';
+import { filterOutDeletedGalleryEntries } from './gallery-deleted-ids';
+import { getActiveUserId, isUserScoped } from './user-scope';
 
 /** First paint loads one page of recent entries; the rest hydrate in the background. */
 export const INITIAL_GALLERY_LOAD_LIMIT = 48;
@@ -27,25 +27,25 @@ function galleryEntryFingerprint(entry: ComfyGalleryEntry): string {
     entry.completedAt ?? 0,
     entry.favorite ? 1 : 0,
     entry.reviewRating ?? 0,
-    entry.images.map((image) => `${image.filename}:${image.subfolder}:${image.type}`).join(","),
-    entry.statusMessage ?? "",
-    entry.queuePosition ?? "",
-    entry.progressValue ?? "",
-    entry.progressMax ?? "",
-    entry.progressNode ?? "",
-    entry.visionTags?.join(",") ?? "",
-    entry.projectId ?? "",
+    entry.images.map(image => `${image.filename}:${image.subfolder}:${image.type}`).join(','),
+    entry.statusMessage ?? '',
+    entry.queuePosition ?? '',
+    entry.progressValue ?? '',
+    entry.progressMax ?? '',
+    entry.progressNode ?? '',
+    entry.visionTags?.join(',') ?? '',
+    entry.projectId ?? '',
     entry.promptId,
     entry.prompt.length,
     entry.negativePrompt?.length ?? 0,
-    entry.derivedKind ?? "",
-    entry.parentGalleryEntryId ?? "",
-  ].join("|");
+    entry.derivedKind ?? '',
+    entry.parentGalleryEntryId ?? '',
+  ].join('|');
 }
 
 /** Sync legacy localStorage into memory for instant first paint. */
 export function primeGalleryCacheSync(): void {
-  if (typeof window === "undefined" || cache.length > 0) {
+  if (typeof window === 'undefined' || cache.length > 0) {
     return;
   }
 
@@ -77,7 +77,7 @@ function filterEntriesForActiveUser(entries: ComfyGalleryEntry[]): ComfyGalleryE
   if (!userId) {
     return entries;
   }
-  return entries.filter((entry) => !entry.userId || entry.userId === userId);
+  return entries.filter(entry => !entry.userId || entry.userId === userId);
 }
 
 function mergeUserEntriesIntoAll(userEntries: ComfyGalleryEntry[]): ComfyGalleryEntry[] {
@@ -88,7 +88,7 @@ function mergeUserEntriesIntoAll(userEntries: ComfyGalleryEntry[]): ComfyGallery
     return trimmedUser;
   }
 
-  const others = allEntries.filter((entry) => entry.userId && entry.userId !== userId);
+  const others = allEntries.filter(entry => entry.userId && entry.userId !== userId);
   return [...trimmedUser, ...others];
 }
 
@@ -106,19 +106,17 @@ function assignLegacyGalleryEntriesToActiveUser(): void {
     return;
   }
 
-  const hasUserEntries = allEntries.some((entry) => entry.userId === userId);
+  const hasUserEntries = allEntries.some(entry => entry.userId === userId);
   if (hasUserEntries) {
     return;
   }
 
-  const orphans = allEntries.filter((entry) => !entry.userId);
+  const orphans = allEntries.filter(entry => !entry.userId);
   if (orphans.length === 0) {
     return;
   }
 
-  allEntries = allEntries.map((entry) =>
-    entry.userId ? entry : { ...entry, userId },
-  );
+  allEntries = allEntries.map(entry => (entry.userId ? entry : { ...entry, userId }));
 }
 
 export function isGalleryStoreReady(): boolean {
@@ -152,7 +150,7 @@ export async function reloadGalleryForActiveUser(): Promise<void> {
 
 /** Re-read IndexedDB into memory (other tabs / external writers). */
 export async function reloadGalleryFromDb(): Promise<void> {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   if (cacheDirty) {
@@ -160,7 +158,7 @@ export async function reloadGalleryFromDb(): Promise<void> {
   }
   if (!appDb) {
     allEntries = filterOutDeletedGalleryEntries(
-      readLegacyLocalStorageGallery().slice(0, MAX_GALLERY_ENTRIES),
+      readLegacyLocalStorageGallery().slice(0, MAX_GALLERY_ENTRIES)
     );
     assignLegacyGalleryEntriesToActiveUser();
     refreshCacheFromAll();
@@ -172,7 +170,7 @@ export async function reloadGalleryFromDb(): Promise<void> {
     assignLegacyGalleryEntriesToActiveUser();
     refreshCacheFromAll();
     persistedFingerprints = new Map(
-      allEntries.map((entry) => [entry.id, galleryEntryFingerprint(entry)]),
+      allEntries.map(entry => [entry.id, galleryEntryFingerprint(entry)])
     );
     notifyGalleryUpdated();
   } catch {
@@ -194,7 +192,7 @@ async function migrateGalleryFromLocalStorage(): Promise<void> {
     return;
   }
 
-  const existing = await appDb.galleryEntries.orderBy("queuedAt").reverse().limit(1).first();
+  const existing = await appDb.galleryEntries.orderBy('queuedAt').reverse().limit(1).first();
   if (existing) {
     return;
   }
@@ -212,7 +210,7 @@ async function readAllGalleryEntriesFromDb(): Promise<ComfyGalleryEntry[]> {
   if (!appDb) {
     return [];
   }
-  const full = await appDb.galleryEntries.orderBy("queuedAt").reverse().toArray();
+  const full = await appDb.galleryEntries.orderBy('queuedAt').reverse().toArray();
   return filterOutDeletedGalleryEntries(full);
 }
 
@@ -244,7 +242,7 @@ async function loadRemainingGalleryEntries(): Promise<void> {
       assignLegacyGalleryEntriesToActiveUser();
       refreshCacheFromAll();
       persistedFingerprints = new Map(
-        allEntries.map((entry) => [entry.id, galleryEntryFingerprint(entry)]),
+        allEntries.map(entry => [entry.id, galleryEntryFingerprint(entry)])
       );
       notifyGalleryUpdated();
     } catch {
@@ -256,7 +254,7 @@ async function loadRemainingGalleryEntries(): Promise<void> {
 }
 
 function scheduleLoadRemainingGalleryEntries(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -264,7 +262,7 @@ function scheduleLoadRemainingGalleryEntries(): void {
     void loadRemainingGalleryEntries();
   };
 
-  if (typeof window.requestIdleCallback === "function") {
+  if (typeof window.requestIdleCallback === 'function') {
     window.requestIdleCallback(run, { timeout: 4000 });
     return;
   }
@@ -273,7 +271,7 @@ function scheduleLoadRemainingGalleryEntries(): void {
 }
 
 export async function hydrateGalleryStore(): Promise<void> {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -301,7 +299,7 @@ export async function hydrateGalleryStore(): Promise<void> {
 
       if (!cacheDirty) {
         const initial = await appDb.galleryEntries
-          .orderBy("queuedAt")
+          .orderBy('queuedAt')
           .reverse()
           .limit(INITIAL_GALLERY_LOAD_LIMIT)
           .toArray();
@@ -309,7 +307,7 @@ export async function hydrateGalleryStore(): Promise<void> {
         assignLegacyGalleryEntriesToActiveUser();
         refreshCacheFromAll();
         persistedFingerprints = new Map(
-          allEntries.map((entry) => [entry.id, galleryEntryFingerprint(entry)]),
+          allEntries.map(entry => [entry.id, galleryEntryFingerprint(entry)])
         );
         scheduleLoadRemainingGalleryEntries();
       } else {
@@ -339,7 +337,7 @@ export async function persistGalleryCache(): Promise<void> {
   if (!db) {
     writeLegacyLocalStorageGallery(allEntries);
     persistedFingerprints = new Map(
-      allEntries.map((entry) => [entry.id, galleryEntryFingerprint(entry)]),
+      allEntries.map(entry => [entry.id, galleryEntryFingerprint(entry)])
     );
     return;
   }
@@ -363,7 +361,7 @@ export async function persistGalleryCache(): Promise<void> {
     }
 
     if (toPut.length > 0 || toDelete.length > 0) {
-      await db.transaction("rw", db.galleryEntries, async () => {
+      await db.transaction('rw', db.galleryEntries, async () => {
         if (toDelete.length > 0) {
           await db.galleryEntries.bulkDelete(toDelete);
         }
@@ -382,7 +380,7 @@ export async function persistGalleryCache(): Promise<void> {
 
 export async function clearGalleryDb(): Promise<void> {
   if (isUserScoped()) {
-    allEntries = allEntries.filter((entry) => entry.userId !== getActiveUserId());
+    allEntries = allEntries.filter(entry => entry.userId !== getActiveUserId());
     refreshCacheFromAll();
     cacheDirty = true;
     await persistGalleryCache();

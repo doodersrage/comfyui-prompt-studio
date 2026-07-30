@@ -1,25 +1,25 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   type ComfyAssetKind,
   COMFY_ASSET_KIND_LABELS,
   COMFY_ASSET_KIND_ORDER,
-} from "./comfy-asset-kinds";
+} from './comfy-asset-kinds';
 
 export type { ComfyAssetKind };
 export { COMFY_ASSET_KIND_LABELS, COMFY_ASSET_KIND_ORDER };
 
 /** Preferred relative folders under COMFYUI_ROOT (first existing wins for multi-path kinds). */
 const KIND_RELATIVE_DIRS: Record<ComfyAssetKind, string[]> = {
-  checkpoint: ["models/checkpoints"],
-  refiner: ["models/checkpoints"],
-  unet: ["models/diffusion_models", "models/unet"],
-  vae: ["models/vae"],
-  lora: ["models/loras"],
-  upscale: ["models/upscale_models"],
+  checkpoint: ['models/checkpoints'],
+  refiner: ['models/checkpoints'],
+  unet: ['models/diffusion_models', 'models/unet'],
+  vae: ['models/vae'],
+  lora: ['models/loras'],
+  upscale: ['models/upscale_models'],
   // ComfyUI dual-CLIP / text encoders: newer trees use text_encoders; older use clip.
-  clip: ["models/text_encoders", "models/clip"],
-  controlnet: ["models/controlnet"],
+  clip: ['models/text_encoders', 'models/clip'],
+  controlnet: ['models/controlnet'],
 };
 
 export function getComfyUiRoot(env: NodeJS.ProcessEnv = process.env): string | null {
@@ -30,9 +30,7 @@ export function getComfyUiRoot(env: NodeJS.ProcessEnv = process.env): string | n
   return path.resolve(raw);
 }
 
-export function isComfyUiRootConfigured(
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
+export function isComfyUiRootConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
   const root = getComfyUiRoot(env);
   return Boolean(root && fs.existsSync(root));
 }
@@ -41,24 +39,19 @@ export function isComfyUiRootConfigured(
  * True when this process can create files under COMFYUI_ROOT/models
  * (Install buttons write here as the Prompt Studio OS user).
  */
-export function canWriteComfyModelsRoot(
-  root: string | null = getComfyUiRoot(),
-): boolean {
+export function canWriteComfyModelsRoot(root: string | null = getComfyUiRoot()): boolean {
   if (!root || !fs.existsSync(root)) {
     return false;
   }
-  const modelsRoot = path.resolve(root, "models");
+  const modelsRoot = path.resolve(root, 'models');
   try {
     fs.mkdirSync(modelsRoot, { recursive: true });
   } catch {
     return false;
   }
-  const probe = path.join(
-    modelsRoot,
-    `.prompt-studio-write-${process.pid}-${Date.now()}`,
-  );
+  const probe = path.join(modelsRoot, `.prompt-studio-write-${process.pid}-${Date.now()}`);
   try {
-    fs.writeFileSync(probe, "ok", { flag: "wx" });
+    fs.writeFileSync(probe, 'ok', { flag: 'wx' });
     fs.unlinkSync(probe);
     return true;
   } catch {
@@ -89,13 +82,8 @@ export function relativeDirsForKind(kind: ComfyAssetKind): string[] {
  * Pick the on-disk models subfolder for a kind.
  * Prefers the first candidate that already exists; otherwise the primary path.
  */
-export function resolveKindModelsDir(
-  root: string,
-  kind: ComfyAssetKind,
-): string {
-  const candidates = relativeDirsForKind(kind).map((rel) =>
-    path.resolve(root, rel),
-  );
+export function resolveKindModelsDir(root: string, kind: ComfyAssetKind): string {
+  const candidates = relativeDirsForKind(kind).map(rel => path.resolve(root, rel));
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
       return candidate;
@@ -107,20 +95,17 @@ export function resolveKindModelsDir(
 function assertSafeFilename(filename: string): string {
   const trimmed = filename.trim();
   if (!trimmed) {
-    throw new Error("Filename is required.");
+    throw new Error('Filename is required.');
   }
-  if (trimmed.includes("\0")) {
-    throw new Error("Invalid filename.");
+  if (trimmed.includes('\0')) {
+    throw new Error('Invalid filename.');
   }
   if (path.isAbsolute(trimmed)) {
-    throw new Error("Filename must be a relative path without parent segments.");
+    throw new Error('Filename must be a relative path without parent segments.');
   }
   const normalized = path.normalize(trimmed);
-  if (
-    normalized.startsWith("..") ||
-    normalized.split(/[/\\]/).some((segment) => segment === "..")
-  ) {
-    throw new Error("Filename must be a relative path without parent segments.");
+  if (normalized.startsWith('..') || normalized.split(/[/\\]/).some(segment => segment === '..')) {
+    throw new Error('Filename must be a relative path without parent segments.');
   }
   return normalized;
 }
@@ -135,16 +120,13 @@ export function resolveAssetDestinationPath(input: {
   filename: string;
 }): { modelsDir: string; destPath: string; partialPath: string } {
   const root = path.resolve(input.root);
-  const modelsRoot = path.resolve(root, "models");
+  const modelsRoot = path.resolve(root, 'models');
   const modelsDir = resolveKindModelsDir(root, input.kind);
   const safeName = assertSafeFilename(input.filename);
   const destPath = path.resolve(modelsDir, safeName);
   const relativeToModels = path.relative(modelsRoot, destPath);
-  if (
-    relativeToModels.startsWith("..") ||
-    path.isAbsolute(relativeToModels)
-  ) {
-    throw new Error("Resolved asset path escapes COMFYUI_ROOT/models.");
+  if (relativeToModels.startsWith('..') || path.isAbsolute(relativeToModels)) {
+    throw new Error('Resolved asset path escapes COMFYUI_ROOT/models.');
   }
   return {
     modelsDir,

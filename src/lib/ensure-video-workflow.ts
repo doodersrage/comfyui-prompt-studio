@@ -2,36 +2,21 @@ import {
   upsertComfyWorkflowFile,
   loadComfyWorkflowFiles,
   type ComfyWorkflowFile,
-} from "./comfyui-workflow-files";
-import {
-  assignWorkflowToInferredModels,
-  resolveWorkflowForModel,
-} from "./model-workflow-map";
-import {
-  buildWorkflowScaffoldForModel,
-  suggestedScaffoldName,
-} from "./workflow-scaffold";
-import {
-  loadSettingsCache,
-  saveSharedSettings,
-  type SharedToolSettings,
-} from "./settings-cache";
+} from './comfyui-workflow-files';
+import { assignWorkflowToInferredModels, resolveWorkflowForModel } from './model-workflow-map';
+import { buildWorkflowScaffoldForModel, suggestedScaffoldName } from './workflow-scaffold';
+import { loadSettingsCache, saveSharedSettings, type SharedToolSettings } from './settings-cache';
 import {
   DEFAULT_VIDEO_MODEL,
   getComfyModelDefinition,
   type ComfyImageModel,
-} from "./comfy-models/client";
-import {
-  DEFAULT_CHECKPOINT_TOKEN,
-  SUGGESTED_MODEL_CHECKPOINT_MAP,
-} from "./model-checkpoint-map";
-import { matchInventoryFilename } from "./loader-map-inventory-sync";
-import {
-  pickVideoCheckpointFromInventory,
-} from "./video-checkpoint-pick";
-import type { ComfyUiModelLists } from "./comfyui-object-info";
+} from './comfy-models/client';
+import { DEFAULT_CHECKPOINT_TOKEN, SUGGESTED_MODEL_CHECKPOINT_MAP } from './model-checkpoint-map';
+import { matchInventoryFilename } from './loader-map-inventory-sync';
+import { pickVideoCheckpointFromInventory } from './video-checkpoint-pick';
+import type { ComfyUiModelLists } from './comfyui-object-info';
 
-export { pickVideoCheckpointFromInventory } from "./video-checkpoint-pick";
+export { pickVideoCheckpointFromInventory } from './video-checkpoint-pick';
 
 export type EnsureVideoWorkflowResult = {
   created: boolean;
@@ -45,33 +30,33 @@ export type EnsureVideoWorkflowResult = {
 };
 
 function looksLikeVideoScaffold(file: ComfyWorkflowFile): boolean {
-  const json = file.workflowJson ?? "";
+  const json = file.workflowJson ?? '';
   if (
-    json.includes("EmptyHunyuanLatentVideo") ||
-    json.includes("EmptyLTXVLatentVideo") ||
-    json.includes("WanImageToVideo") ||
-    json.includes("HunyuanImageToVideo")
+    json.includes('EmptyHunyuanLatentVideo') ||
+    json.includes('EmptyLTXVLatentVideo') ||
+    json.includes('WanImageToVideo') ||
+    json.includes('HunyuanImageToVideo')
   ) {
     return true;
   }
-  return /video|wan|hunyuan/i.test(`${file.name} ${file.filename ?? ""}`);
+  return /video|wan|hunyuan/i.test(`${file.name} ${file.filename ?? ''}`);
 }
 
 function findReusableVideoWorkflow(
   files: ComfyWorkflowFile[],
-  model: ComfyImageModel,
+  model: ComfyImageModel
 ): ComfyWorkflowFile | undefined {
-  const preferredName = suggestedScaffoldName(model, "template").toLowerCase();
-  const byName = files.find((file) => file.name.trim().toLowerCase() === preferredName);
+  const preferredName = suggestedScaffoldName(model, 'template').toLowerCase();
+  const byName = files.find(file => file.name.trim().toLowerCase() === preferredName);
   if (byName) {
     return byName;
   }
-  return files.find((file) => looksLikeVideoScaffold(file));
+  return files.find(file => looksLikeVideoScaffold(file));
 }
 
 function inventoryHasVideoWeight(
   filename: string | undefined,
-  inventory?: ComfyUiModelLists | null,
+  inventory?: ComfyUiModelLists | null
 ): boolean {
   const trimmed = filename?.trim();
   if (!trimmed || !inventory) {
@@ -91,19 +76,17 @@ function videoWeightPool(inventory?: ComfyUiModelLists | null): string[] {
   return [...(inventory.checkpoints ?? []), ...(inventory.unets ?? [])];
 }
 
-function workflowCheckpointTokenValue(
-  workflow: ComfyWorkflowFile,
-): string | undefined {
-  const value = (workflow.customTokens ?? []).find(
-    (token) => token.token.trim() === DEFAULT_CHECKPOINT_TOKEN,
-  )?.value?.trim();
+function workflowCheckpointTokenValue(workflow: ComfyWorkflowFile): string | undefined {
+  const value = (workflow.customTokens ?? [])
+    .find(token => token.token.trim() === DEFAULT_CHECKPOINT_TOKEN)
+    ?.value?.trim();
   return value || undefined;
 }
 
 /** Exported for unit tests — video page ensure uses the same preference order. */
 export function resolveVideoCheckpointFilename(input: {
   model: ComfyImageModel;
-  sharedCheckpointMap?: SharedToolSettings["modelCheckpointMap"];
+  sharedCheckpointMap?: SharedToolSettings['modelCheckpointMap'];
   inventory?: ComfyUiModelLists | null;
   /** Per-workflow {{CHECKPOINT}} — beats a stale modelCheckpointMap entry. */
   workflowCheckpoint?: string;
@@ -119,7 +102,7 @@ export function resolveVideoCheckpointFilename(input: {
   if (workflowCkpt) {
     if (!hasInventory || inventoryHasVideoWeight(workflowCkpt, input.inventory)) {
       const resolved = hasInventory
-        ? matchInventoryFilename(workflowCkpt, pool) ?? workflowCkpt
+        ? (matchInventoryFilename(workflowCkpt, pool) ?? workflowCkpt)
         : workflowCkpt;
       return { filename: resolved };
     }
@@ -147,7 +130,7 @@ export function resolveVideoCheckpointFilename(input: {
       return { filename: workflowCkpt };
     }
     return {
-      note: "Connect ComfyUI to auto-map a video weight, or set Settings → checkpoint map for wan-video.",
+      note: 'Connect ComfyUI to auto-map a video weight, or set Settings → checkpoint map for wan-video.',
     };
   }
 
@@ -171,7 +154,7 @@ export function resolveVideoCheckpointFilename(input: {
     clearInvalid: true,
     note: hinted
       ? `No WAN/Hunyuan/LTX weight installed in ComfyUI (need something like “${hinted}” under models/checkpoints or models/diffusion_models). Your current loaders are image models only.`
-      : "No WAN/Hunyuan/LTX weight installed in ComfyUI models/checkpoints or models/diffusion_models.",
+      : 'No WAN/Hunyuan/LTX weight installed in ComfyUI models/checkpoints or models/diffusion_models.',
   };
 }
 
@@ -182,7 +165,7 @@ export function resolveVideoCheckpointFilename(input: {
  */
 function withCheckpointTokenFillEmptyOnly(
   workflow: ComfyWorkflowFile,
-  filename: string | undefined,
+  filename: string | undefined
 ): ComfyWorkflowFile {
   const existingValue = workflowCheckpointTokenValue(workflow);
   if (existingValue) {
@@ -193,7 +176,7 @@ function withCheckpointTokenFillEmptyOnly(
     return workflow;
   }
   const others = (workflow.customTokens ?? []).filter(
-    (token) => token.token.trim() !== DEFAULT_CHECKPOINT_TOKEN,
+    token => token.token.trim() !== DEFAULT_CHECKPOINT_TOKEN
   );
   return upsertComfyWorkflowFile({
     ...workflow,
@@ -212,7 +195,7 @@ export function ensureVideoWorkflowScaffold(
   options?: {
     overwriteMap?: boolean;
     inventory?: ComfyUiModelLists | null;
-  },
+  }
 ): EnsureVideoWorkflowResult {
   const shared = loadSettingsCache().shared;
   const files = loadComfyWorkflowFiles();
@@ -222,7 +205,7 @@ export function ensureVideoWorkflowScaffold(
   let created = false;
 
   if (existingId?.trim() && !options?.overwriteMap) {
-    workflow = files.find((file) => file.id === existingId);
+    workflow = files.find(file => file.id === existingId);
   }
 
   // User already mapped this model to a real library workflow — don't steal the
@@ -259,8 +242,7 @@ export function ensureVideoWorkflowScaffold(
       workflow,
       model,
       sharedPatch,
-      checkpointFilename:
-        nextCheckpointMap[model]?.trim() || checkpoint.filename,
+      checkpointFilename: nextCheckpointMap[model]?.trim() || checkpoint.filename,
       checkpointNote: checkpoint.note,
     };
   }
@@ -271,7 +253,7 @@ export function ensureVideoWorkflowScaffold(
   if (!workflow) {
     const scaffold = buildWorkflowScaffoldForModel(model);
     workflow = upsertComfyWorkflowFile({
-      name: suggestedScaffoldName(model, "template"),
+      name: suggestedScaffoldName(model, 'template'),
       workflowJson: scaffold.json,
     });
     created = true;
@@ -289,12 +271,10 @@ export function ensureVideoWorkflowScaffold(
   const hasInventory = pool.length > 0;
   // Auto-fill empty tokens only from live inventory — never plant a suggested
   // / stale map stem (e.g. official T2V) into the workflow library token.
-  const inventoryFill = hasInventory
-    ? pickVideoCheckpointFromInventory(model, pool)
-    : undefined;
+  const inventoryFill = hasInventory ? pickVideoCheckpointFromInventory(model, pool) : undefined;
   workflow = withCheckpointTokenFillEmptyOnly(
     workflow,
-    inventoryFill ?? (created ? checkpoint.filename : undefined),
+    inventoryFill ?? (created ? checkpoint.filename : undefined)
   );
 
   const nextMap = assignWorkflowToInferredModels(
@@ -303,7 +283,7 @@ export function ensureVideoWorkflowScaffold(
     // video model assignments the user already set in the library.
     [model],
     shared.modelWorkflowMap,
-    options?.overwriteMap === true,
+    options?.overwriteMap === true
   );
 
   const nextCheckpointMap = { ...(shared.modelCheckpointMap ?? {}) };
@@ -312,24 +292,21 @@ export function ensureVideoWorkflowScaffold(
   if (checkpoint.filename) {
     nextCheckpointMap[model] = checkpoint.filename;
     if (
-      (model === "wan-video" ||
-        model === "wan-video-rapid-aio" ||
-        model === "wan-video-lightning-4") &&
-      !nextCheckpointMap["hunyuan-video"]?.trim()
+      (model === 'wan-video' ||
+        model === 'wan-video-rapid-aio' ||
+        model === 'wan-video-lightning-4') &&
+      !nextCheckpointMap['hunyuan-video']?.trim()
     ) {
-      const hunyuan = pickVideoCheckpointFromInventory("hunyuan-video", pool);
+      const hunyuan = pickVideoCheckpointFromInventory('hunyuan-video', pool);
       if (hunyuan) {
-        nextCheckpointMap["hunyuan-video"] = hunyuan;
+        nextCheckpointMap['hunyuan-video'] = hunyuan;
       }
     }
   } else if (checkpoint.clearInvalid && hasInventory) {
     delete nextCheckpointMap[model];
-    const hunyuanMapped = nextCheckpointMap["hunyuan-video"]?.trim();
-    if (
-      hunyuanMapped &&
-      !inventoryHasVideoWeight(hunyuanMapped, options?.inventory)
-    ) {
-      delete nextCheckpointMap["hunyuan-video"];
+    const hunyuanMapped = nextCheckpointMap['hunyuan-video']?.trim();
+    if (hunyuanMapped && !inventoryHasVideoWeight(hunyuanMapped, options?.inventory)) {
+      delete nextCheckpointMap['hunyuan-video'];
     }
   }
 
@@ -353,8 +330,7 @@ export function ensureVideoWorkflowScaffold(
     workflow,
     model,
     sharedPatch,
-    checkpointFilename:
-      nextCheckpointMap[model]?.trim() || checkpoint.filename,
+    checkpointFilename: nextCheckpointMap[model]?.trim() || checkpoint.filename,
     checkpointNote: checkpoint.note,
   };
 }

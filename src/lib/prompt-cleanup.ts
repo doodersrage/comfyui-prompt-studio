@@ -1,7 +1,7 @@
 export function extractShortTopic(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) {
-    return "the scene";
+    return 'the scene';
   }
 
   const firstSegment = trimmed.split(/[,;|]+/)[0]?.trim() || trimmed;
@@ -9,7 +9,7 @@ export function extractShortTopic(input: string): string {
     return firstSegment.toLowerCase();
   }
 
-  const words = firstSegment.split(/\s+/).slice(0, 5).join(" ");
+  const words = firstSegment.split(/\s+/).slice(0, 5).join(' ');
   return words.toLowerCase();
 }
 
@@ -20,8 +20,8 @@ export function stripPromptArtifacts(raw: string): string {
     return stripPromptArtifactsUnsafe(raw);
   } catch (error) {
     if (error instanceof RangeError) {
-      return String(raw ?? "")
-        .replace(/\s+/g, " ")
+      return String(raw ?? '')
+        .replace(/\s+/g, ' ')
         .trim()
         .slice(0, 8_000);
     }
@@ -43,16 +43,12 @@ function stripPromptArtifactsUnsafe(raw: string): string {
 
   try {
     // Avoid [\s\S]*? over huge brace soups — scan for "prompt" instead.
-    if (text.startsWith("{") && text.includes('"prompt"')) {
+    if (text.startsWith('{') && text.includes('"prompt"')) {
       const promptKey = text.indexOf('"prompt"');
       const afterKey = text.slice(promptKey + '"prompt"'.length);
       const valueMatch = afterKey.match(/^\s*:\s*"((?:\\.|[^"\\])*)"/);
       if (valueMatch?.[1]) {
-        text = valueMatch[1]
-          .replace(/\\"/g, '"')
-          .replace(/\\n/g, " ")
-          .replace(/\\t/g, " ")
-          .trim();
+        text = valueMatch[1].replace(/\\"/g, '"').replace(/\\n/g, ' ').replace(/\\t/g, ' ').trim();
       }
     }
   } catch {
@@ -60,22 +56,18 @@ function stripPromptArtifactsUnsafe(raw: string): string {
   }
 
   try {
-    text = text.replace(/^```(?:[\w-]+)?\s*\n?([\s\S]*?)```$/m, "$1").trim();
+    text = text.replace(/^```(?:[\w-]+)?\s*\n?([\s\S]*?)```$/m, '$1').trim();
   } catch {
     // keep text
   }
 
-  if (
-    text.length <= 50_000 &&
-    text.startsWith("{") &&
-    text.endsWith("}")
-  ) {
+  if (text.length <= 50_000 && text.startsWith('{') && text.endsWith('}')) {
     try {
       const parsed = JSON.parse(text) as { prompt?: unknown; text?: unknown };
       const candidate =
-        typeof parsed.prompt === "string"
+        typeof parsed.prompt === 'string'
           ? parsed.prompt
-          : typeof parsed.text === "string"
+          : typeof parsed.text === 'string'
             ? parsed.text
             : null;
       if (candidate) {
@@ -87,28 +79,28 @@ function stripPromptArtifactsUnsafe(raw: string): string {
   }
 
   text = text
-    .replace(/<\|im_start\|>[\s\S]*?(<\|im_end\|>|<\|redacted_im_end\|>)\s*/gi, "")
-    .replace(/<\|im_start\|>[\s\S]*$/gi, "")
-    .replace(/<\|(?:im_end|redacted_im_end|vision_start|vision_end|image_pad|redacted_start_header_id|redacted_end_header_id)\|>/gi, "")
+    .replace(/<\|im_start\|>[\s\S]*?(<\|im_end\|>|<\|redacted_im_end\|>)\s*/gi, '')
+    .replace(/<\|im_start\|>[\s\S]*$/gi, '')
+    .replace(
+      /<\|(?:im_end|redacted_im_end|vision_start|vision_end|image_pad|redacted_start_header_id|redacted_end_header_id)\|>/gi,
+      ''
+    )
     .replace(
       /^Describe the image by detailing the color, shape, size, texture, quantity, text, spatial relationships of the objects and background:\s*/i,
-      "",
+      ''
     )
-    .replace(
-      /^Describe the key features of the input image[^:]*:\s*/i,
-      "",
-    )
-    .replace(/^(?:system|user|assistant)\s*/i, "")
-    .replace(/^"{3}\s*|"{3}\s*$/g, "")
-    .replace(/"{3}/g, "")
-    .replace(/^'{3}\s*|'{3}\s*$/g, "")
+    .replace(/^Describe the key features of the input image[^:]*:\s*/i, '')
+    .replace(/^(?:system|user|assistant)\s*/i, '')
+    .replace(/^"{3}\s*|"{3}\s*$/g, '')
+    .replace(/"{3}/g, '')
+    .replace(/^'{3}\s*|'{3}\s*$/g, '')
     .trim();
 
   text = stripFormatToolPreambles(text);
   text = stripModelDirectiveLeaks(text);
 
   for (let i = 0; i < 3; i += 1) {
-    const next = text.replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, "").trim();
+    const next = text.replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, '').trim();
     if (next === text) {
       break;
     }
@@ -116,14 +108,14 @@ function stripPromptArtifactsUnsafe(raw: string): string {
   }
 
   text = text
-    .replace(/\\n/g, " ")
-    .replace(/\\t/g, " ")
-    .replace(/\r\n/g, "\n")
-    .split("\n")
-    .map((line) => line.trim())
+    .replace(/\\n/g, ' ')
+    .replace(/\\t/g, ' ')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(line => line.trim())
     .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g, " ")
+    .join(' ')
+    .replace(/\s+/g, ' ')
     .trim();
 
   text = stripThinkingArtifacts(text);
@@ -150,7 +142,7 @@ function stripFormatToolPreambles(text: string): string {
   for (let pass = 0; pass < 3; pass += 1) {
     let changed = false;
     for (const pattern of preamblePatterns) {
-      const next = cleaned.replace(pattern, "").trim();
+      const next = cleaned.replace(pattern, '').trim();
       if (next !== cleaned) {
         cleaned = next;
         changed = true;
@@ -161,15 +153,14 @@ function stripFormatToolPreambles(text: string): string {
     }
   }
 
-  return cleaned.replace(/\s*-{2,}\s*$/g, "").trim();
+  return cleaned.replace(/\s*-{2,}\s*$/g, '').trim();
 }
 
 /** Known model-label echoes (labels contain dots — avoid naive [^.] patterns). */
 const FLUX_KLEIN_LABEL_LEAD =
   /^(?:(?:target model|the prompt adapted for|adapted for|formatted for|written for):\s*)?FLUX\.2\s+Klein(?:\s+\d+B)?(?:\s+(?:Base|Distilled))?(?:\s+in ComfyUI(?:\s*\([^)]*\))?)?\.\s*/i;
 
-const FLUX_KLEIN_ORPHAN_LEAD =
-  /^(?:\d+\s+)?Klein(?:\s+\d+B)?(?:\s+(?:Base|Distilled))?\.\s*/i;
+const FLUX_KLEIN_ORPHAN_LEAD = /^(?:\d+\s+)?Klein(?:\s+\d+B)?(?:\s+(?:Base|Distilled))?\.\s*/i;
 
 export function stripModelDirectiveLeaks(text: string): string {
   let cleaned = text.trim();
@@ -180,21 +171,18 @@ export function stripModelDirectiveLeaks(text: string): string {
   for (let pass = 0; pass < 3; pass += 1) {
     const before = cleaned;
     cleaned = cleaned
-      .replace(FLUX_KLEIN_LABEL_LEAD, "")
-      .replace(FLUX_KLEIN_ORPHAN_LEAD, "")
-      .replace(/^target model:\s*.+?\.\s+(?=[A-Z])/i, "")
+      .replace(FLUX_KLEIN_LABEL_LEAD, '')
+      .replace(FLUX_KLEIN_ORPHAN_LEAD, '')
+      .replace(/^target model:\s*.+?\.\s+(?=[A-Z])/i, '')
       .replace(
         /^FLUX\.(?:1|2)(?:\.\d+)?(?:\s+Klein(?:\s+\d+B)?(?:\s+(?:Base|Distilled))?)?(?:\s+in ComfyUI(?:\s*\([^)]*\))?)?\s*[:.]\s*/i,
-        "",
+        ''
       )
-      .replace(
-        /^Qwen(?:-Image)?[^:.\n]{0,48}(?:\s+in ComfyUI(?:\s*\([^)]*\))?)?\s*[:.]\s*/i,
-        "",
-      )
-      .replace(/^write (?:exactly )?\d+[^.!?]*[.!?]\s+/i, "")
+      .replace(/^Qwen(?:-Image)?[^:.\n]{0,48}(?:\s+in ComfyUI(?:\s*\([^)]*\))?)?\s*[:.]\s*/i, '')
+      .replace(/^write (?:exactly )?\d+[^.!?]*[.!?]\s+/i, '')
       .replace(
         /^(?:for|using|with|on|in)\s+FLUX\.2\s+Klein(?:\s+\d+B)?(?:\s+(?:Base|Distilled))?[,:]\s*/i,
-        "",
+        ''
       );
     if (cleaned === before) {
       break;
@@ -220,7 +208,7 @@ function looksLikePromptProse(text: string): boolean {
 
   if (
     /\b(?:Analyze User Input|Character direction|Style seed|Scene seed|Need to merge|matching .* rules)\b/i.test(
-      trimmed,
+      trimmed
     )
   ) {
     return false;
@@ -271,10 +259,10 @@ function stripLeadingNumberedAnalysisSteps(text: string): string {
 
     if (
       /\b(?:Analyze User Input|Character direction|Style seed|Scene seed|Need to merge|matching .* rules)\b/i.test(
-        cleaned,
+        cleaned
       )
     ) {
-      return "";
+      return '';
     }
 
     break;
@@ -286,13 +274,13 @@ function stripLeadingNumberedAnalysisSteps(text: string): string {
 function extractPromptProseAfterAnalysis(text: string): string {
   const parts = text.split(/(?<=[.!?])\s+/);
   for (let index = 0; index < parts.length; index += 1) {
-    const candidate = parts.slice(index).join(" ").trim();
+    const candidate = parts.slice(index).join(' ').trim();
     if (looksLikePromptProse(candidate)) {
       return candidate;
     }
   }
 
-  return "";
+  return '';
 }
 
 export function stripThinkingArtifacts(text: string): string {
@@ -301,7 +289,7 @@ export function stripThinkingArtifacts(text: string): string {
     return cleaned;
   }
 
-  cleaned = cleaned.replace(/^[\s\S]*?<\/think>\s*/i, "").trim();
+  cleaned = cleaned.replace(/^[\s\S]*?<\/think>\s*/i, '').trim();
 
   const finalMarkers = [
     /\*\*(?:Final(?:\s+Prompt)?|Output|Draft(?:\s+Prompt)?|Scene(?:\s+Description)?|Prompt)(?::\*\*|\*\*:?)\s*/gi,
@@ -325,17 +313,17 @@ export function stripThinkingArtifacts(text: string): string {
     /^\d+\.\s*\*\*(?:Analyze|Plan|Merge|Draft)/i.test(cleaned)
   ) {
     const prose = extractPromptProseAfterAnalysis(cleaned);
-    cleaned = prose || "";
+    cleaned = prose || '';
   }
 
-  cleaned = cleaned.replace(/^(?:a\s+)?thinking process:\s*/i, "");
+  cleaned = cleaned.replace(/^(?:a\s+)?thinking process:\s*/i, '');
   cleaned = stripLeadingNumberedAnalysisSteps(cleaned);
   cleaned = cleaned.replace(
     /^[-*•]\s*(?:Character direction|Style seed|Scene seed|Framing):[^.!?]*[.!?]?\s*/gi,
-    "",
+    ''
   );
 
-  return cleaned.replace(/\s+/g, " ").trim();
+  return cleaned.replace(/\s+/g, ' ').trim();
 }
 
 export function isThinkingOnlyArtifact(text: string): boolean {
@@ -386,7 +374,7 @@ export function isIncompleteVisionFragment(text: string): boolean {
   if (
     !/[.!?]$/.test(trimmed) &&
     /\b(includes?|should be|need to|check if|let me|the user wants|location context)\b/i.test(
-      trimmed,
+      trimmed
     )
   ) {
     return true;
@@ -400,15 +388,15 @@ export function isIncompleteVisionFragment(text: string): boolean {
 }
 
 function parseNumberedVisionItems(text: string): string[] {
-  const normalized = normalizeAsciiQuotes(text).replace(/\s+/g, " ");
+  const normalized = normalizeAsciiQuotes(text).replace(/\s+/g, ' ');
   const parts = normalized.split(
-    /\s*(?=(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|\d{1,2})(?:st|nd|rd|th)?\s*[:\.)]\s*)/i,
+    /\s*(?=(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|\d{1,2})(?:st|nd|rd|th)?\s*[:\.)]\s*)/i
   );
 
   const values: string[] = [];
   for (const part of parts) {
     const match = part.match(
-      /^(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|\d{1,2})(?:st|nd|rd|th)?\s*[:\.)]\s*(.+)$/i,
+      /^(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|\d{1,2})(?:st|nd|rd|th)?\s*[:\.)]\s*(.+)$/i
     );
     if (!match?.[1]) {
       continue;
@@ -416,8 +404,8 @@ function parseNumberedVisionItems(text: string): string[] {
 
     const value = match[1]
       .trim()
-      .replace(/^["']|["']$/g, "")
-      .replace(/[,.;]+$/, "")
+      .replace(/^["']|["']$/g, '')
+      .replace(/[,.;]+$/, '')
       .trim();
     if (value.length >= 8) {
       values.push(value);
@@ -433,12 +421,12 @@ function composeFromNumberedVisionItems(text: string): string | null {
     return null;
   }
 
-  const phrases = items.map((item) => item.replace(/[.!?]+$/, "").trim()).filter(Boolean);
+  const phrases = items.map(item => item.replace(/[.!?]+$/, '').trim()).filter(Boolean);
   if (phrases.length < 2) {
     return null;
   }
 
-  return capitalizeSentence(`${phrases.join(", ")}.`);
+  return capitalizeSentence(`${phrases.join(', ')}.`);
 }
 
 function stripVisionNumberedReasoning(text: string): string {
@@ -448,11 +436,11 @@ function stripVisionNumberedReasoning(text: string): string {
   }
 
   if (VISION_ORDINAL_LABEL.test(text.trim())) {
-    const remainder = text.trim().replace(VISION_ORDINAL_LABEL, "").trim();
+    const remainder = text.trim().replace(VISION_ORDINAL_LABEL, '').trim();
     if (remainder.length >= 40 && !isIncompleteVisionFragment(remainder)) {
       return finalizeVisionPromptFragment(remainder);
     }
-    return "";
+    return '';
   }
 
   return text;
@@ -478,7 +466,7 @@ function capitalizeSentence(value: string): string {
 function stripVisionReasoningLead(text: string): string {
   let cleaned = text.trim();
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    const next = cleaned.replace(VISION_REASONING_LEAD, "").trim();
+    const next = cleaned.replace(VISION_REASONING_LEAD, '').trim();
     if (next === cleaned) {
       break;
     }
@@ -489,9 +477,7 @@ function stripVisionReasoningLead(text: string): string {
 
 function extractQuotedPromptFragment(text: string): string | null {
   const normalized = normalizeAsciiQuotes(text.trim());
-  const closedQuotes = [...normalized.matchAll(/"([^"]{15,})"/g)].map((match) =>
-    match[1]!.trim(),
-  );
+  const closedQuotes = [...normalized.matchAll(/"([^"]{15,})"/g)].map(match => match[1]!.trim());
   if (closedQuotes.length > 0) {
     return closedQuotes.at(-1)!;
   }
@@ -511,8 +497,8 @@ function extractQuotedPromptFragment(text: string): string | null {
 
 function finalizeVisionPromptFragment(text: string): string {
   let cleaned = normalizeAsciiQuotes(text.trim())
-    .replace(/^["'`]+|["'`]+$/g, "")
-    .replace(/\s+/g, " ")
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 
   if (!cleaned) {
@@ -532,15 +518,11 @@ function extractPromptAfterMetaColon(rest: string): string {
     return text;
   }
 
-  if (
-    text.startsWith('"') &&
-    text.endsWith('"') &&
-    text.slice(1, -1).trim().length > 0
-  ) {
+  if (text.startsWith('"') && text.endsWith('"') && text.slice(1, -1).trim().length > 0) {
     return text.slice(1, -1).trim();
   }
 
-  return text.replace(/^"([^"]*)"\s*/, "$1 ").trim();
+  return text.replace(/^"([^"]*)"\s*/, '$1 ').trim();
 }
 
 function stripVisionMetaInstruction(text: string): string {
@@ -569,9 +551,9 @@ function stripVisionMetaInstruction(text: string): string {
   if (
     /^(?:so|the first sentence|i(?:'ll| will)|let me)\b/i.test(cleaned) &&
     /\b(?:should be|needs to be|must be|will be|start with|write)\b/i.test(cleaned) &&
-    cleaned.includes(":")
+    cleaned.includes(':')
   ) {
-    const rest = cleaned.slice(cleaned.indexOf(":") + 1).trim();
+    const rest = cleaned.slice(cleaned.indexOf(':') + 1).trim();
     const tail = extractPromptAfterMetaColon(rest);
     if (tail.length >= 40) {
       return finalizeVisionPromptFragment(tail);
@@ -582,9 +564,7 @@ function stripVisionMetaInstruction(text: string): string {
   if (
     embeddedQuote &&
     embeddedQuote.length >= 60 &&
-    /\b(?:should be|needs to be|must be|will be|start with|write|location context)\b/i.test(
-      cleaned,
-    )
+    /\b(?:should be|needs to be|must be|will be|start with|write|location context)\b/i.test(cleaned)
   ) {
     return finalizeVisionPromptFragment(embeddedQuote);
   }
@@ -593,8 +573,7 @@ function stripVisionMetaInstruction(text: string): string {
 }
 
 function looksLikeVisionChecklist(text: string): boolean {
-  const labels =
-    text.match(/(?:^|[.!?]\s+|,\s*)(?:The\s+)?[A-Za-z][^:,.!?]{0,55}:\s/g) ?? [];
+  const labels = text.match(/(?:^|[.!?]\s+|,\s*)(?:The\s+)?[A-Za-z][^:,.!?]{0,55}:\s/g) ?? [];
   return labels.length >= 2;
 }
 
@@ -640,33 +619,33 @@ type VisionChecklistItem = { label: string; value: string };
 
 function parseVisionChecklistItems(text: string): VisionChecklistItem[] {
   const normalized = text
-    .replace(/\bis visible\b/gi, "")
-    .replace(/\bare visible\b/gi, "")
-    .replace(/\s+/g, " ")
+    .replace(/\bis visible\b/gi, '')
+    .replace(/\bare visible\b/gi, '')
+    .replace(/\s+/g, ' ')
     .trim();
 
   const chunks = normalized
     .split(/(?<=[.!?])\s+|,\s+(?=(?:The\s+)?[A-Za-z][^:]{0,40}:)/)
-    .map((part) => part.trim())
+    .map(part => part.trim())
     .filter(Boolean);
 
   const items: VisionChecklistItem[] = [];
 
   for (const chunk of chunks) {
-    const colonIndex = chunk.indexOf(":");
+    const colonIndex = chunk.indexOf(':');
     if (colonIndex <= 0) {
       continue;
     }
 
     const label = chunk
       .slice(0, colonIndex)
-      .replace(/^the\s+/i, "")
+      .replace(/^the\s+/i, '')
       .trim()
       .toLowerCase();
     const value = chunk
       .slice(colonIndex + 1)
       .trim()
-      .replace(/[,.;]+$/, "")
+      .replace(/[,.;]+$/, '')
       .trim();
 
     if (label && value) {
@@ -677,18 +656,12 @@ function parseVisionChecklistItems(text: string): VisionChecklistItem[] {
   return items;
 }
 
-function findChecklistValue(
-  items: VisionChecklistItem[],
-  patterns: RegExp[],
-): string | undefined {
-  return items.find((item) => patterns.some((pattern) => pattern.test(item.label)))
-    ?.value;
+function findChecklistValue(items: VisionChecklistItem[], patterns: RegExp[]): string | undefined {
+  return items.find(item => patterns.some(pattern => pattern.test(item.label)))?.value;
 }
 
 function normalizeAsciiQuotes(text: string): string {
-  return text
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'");
+  return text.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
 }
 
 function composePromptFromVisionChecklist(items: VisionChecklistItem[]): string {
@@ -736,16 +709,19 @@ function composePromptFromVisionChecklist(items: VisionChecklistItem[]): string 
 
   const clothing: string[] = [];
   if (topColor || shirtText) {
-    let detail = "";
+    let detail = '';
     if (shirtText) {
       const normalizedShirt = normalizeAsciiQuotes(shirtText);
       const graphicMatch = normalizedShirt.match(/\bwith the graphic\s*\(([^)]+)\)/i);
       const graphic = graphicMatch?.[1]?.trim();
       const quoted =
-        normalizedShirt.match(/["']([^"']+)["']/)?.[1]?.trim().replace(/[,.]+$/, "") ??
         normalizedShirt
-          .replace(/\bwith the graphic\s*\([^)]+\)/i, "")
-          .replace(/^["'`]+|["'`]+$/g, "")
+          .match(/["']([^"']+)["']/)?.[1]
+          ?.trim()
+          .replace(/[,.]+$/, '') ??
+        normalizedShirt
+          .replace(/\bwith the graphic\s*\([^)]+\)/i, '')
+          .replace(/^["'`]+|["'`]+$/g, '')
           .trim();
 
       const detailParts: string[] = [];
@@ -755,7 +731,7 @@ function composePromptFromVisionChecklist(items: VisionChecklistItem[]): string 
       if (graphic) {
         detailParts.push(`a ${graphic} graphic`);
       }
-      detail = detailParts.join(" and ");
+      detail = detailParts.join(' and ');
     }
 
     if (topColor && detail) {
@@ -773,14 +749,14 @@ function composePromptFromVisionChecklist(items: VisionChecklistItem[]): string 
     clothing.push(/\b(shoes|sneakers|boots)\b/i.test(shoes) ? shoes : `${shoes} shoes`);
   }
 
-  let lead = subject ?? "A person";
+  let lead = subject ?? 'A person';
   if (!/^a(n)?\s/i.test(lead)) {
     lead = /^((?:woman|man|person|girl|boy)\b)/i.test(lead) ? `A ${lead}` : `A ${lead}`;
   }
 
   const traits: string[] = [];
   if (pose) {
-    traits.push(pose.replace(/^[,.\s]+/, "").replace(/[,.]$/, ""));
+    traits.push(pose.replace(/^[,.\s]+/, '').replace(/[,.]$/, ''));
   }
   if (hair) {
     traits.push(`${hair} hair`);
@@ -789,25 +765,22 @@ function composePromptFromVisionChecklist(items: VisionChecklistItem[]): string 
     traits.push(`${expression} expression`);
   }
   if (clothing.length > 0) {
-    traits.push(`wearing ${clothing.join(", ")}`);
+    traits.push(`wearing ${clothing.join(', ')}`);
   } else if (clothingGeneric) {
     traits.push(`wearing ${clothingGeneric}`);
   }
 
-  let sentence =
-    traits.length > 0
-      ? `${lead}${pose ? " " : ", "}${traits.join(", ")}`
-      : lead;
+  let sentence = traits.length > 0 ? `${lead}${pose ? ' ' : ', '}${traits.join(', ')}` : lead;
 
   if (pose && traits.length > 1) {
-    sentence = `${lead} ${pose.replace(/^[,.\s]+/, "").replace(/[,.]$/, "")}, ${traits
+    sentence = `${lead} ${pose.replace(/^[,.\s]+/, '').replace(/[,.]$/, '')}, ${traits
       .slice(1)
-      .join(", ")}`;
+      .join(', ')}`;
   }
 
   const settingBits = [background, lighting].filter(Boolean);
   if (settingBits.length > 0) {
-    sentence = `${sentence.replace(/[.!?]+$/, "")}, ${settingBits.join(", ")}`;
+    sentence = `${sentence.replace(/[.!?]+$/, '')}, ${settingBits.join(', ')}`;
   }
 
   if (!/[.!?]$/.test(sentence)) {
@@ -828,7 +801,7 @@ function trimIncompleteVisionTail(text: string): string {
   }
 
   if (/,\s*[^,.!?]{0,40}$/.test(trimmed) && !looksLikePromptProse(trimmed)) {
-    return trimmed.replace(/,\s*[^,.!?]{0,80}$/, "").trim();
+    return trimmed.replace(/,\s*[^,.!?]{0,80}$/, '').trim();
   }
 
   return trimmed;
@@ -836,16 +809,16 @@ function trimIncompleteVisionTail(text: string): string {
 
 export function repairVisionDraft(text: string): string {
   let cleaned = stripVisionNumberedReasoning(
-    stripVisionMetaInstruction(stripVisionReasoningLead(text)),
+    stripVisionMetaInstruction(stripVisionReasoningLead(text))
   );
   if (!cleaned) {
-    return "";
+    return '';
   }
 
   cleaned = cleaned
-    .replace(/\bis visible\b/gi, "")
-    .replace(/\bare visible\b/gi, "")
-    .replace(/\s+/g, " ")
+    .replace(/\bis visible\b/gi, '')
+    .replace(/\bare visible\b/gi, '')
+    .replace(/\s+/g, ' ')
     .trim();
 
   if (looksLikeVisionChecklist(cleaned)) {
@@ -858,11 +831,11 @@ export function repairVisionDraft(text: string): string {
   cleaned = trimIncompleteVisionTail(cleaned);
   cleaned = stripVisionMetaInstruction(cleaned);
   cleaned = stripVisionNumberedReasoning(cleaned);
-  cleaned = cleaned.replace(/^(?:wait(?:,\s*)?|let me|check(?:ing)? if)[^.!?]*[.!?]\s*/i, "");
-  cleaned = cleaned.replace(/\s+/g, " ").trim();
+  cleaned = cleaned.replace(/^(?:wait(?:,\s*)?|let me|check(?:ing)? if)[^.!?]*[.!?]\s*/i, '');
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
 
   if (isIncompleteVisionFragment(cleaned)) {
-    return "";
+    return '';
   }
 
   return cleaned;
@@ -873,9 +846,9 @@ const VISION_SUBJECT_TERMS =
 
 function splitVisionSentences(text: string): string[] {
   return text
-    .replace(/\s+/g, " ")
+    .replace(/\s+/g, ' ')
     .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
+    .map(sentence => sentence.trim())
     .filter(Boolean);
 }
 
@@ -886,10 +859,10 @@ function looksLikeVisionTags(text: string): boolean {
 
   const parts = text
     .split(/[,;|]+/)
-    .map((part) => part.trim())
+    .map(part => part.trim())
     .filter(Boolean);
 
-  return parts.length >= 3 && parts.every((part) => part.split(/\s+/).length <= 8);
+  return parts.length >= 3 && parts.every(part => part.split(/\s+/).length <= 8);
 }
 
 const VISION_ENVIRONMENT_TERMS =
@@ -928,7 +901,7 @@ function locationPhraseAlreadyPresent(text: string, phrase: string): boolean {
     return true;
   }
 
-  const stem = needle.replace(/^(?:on|in|along|at|through)\s+(?:a |an |the )?/i, "");
+  const stem = needle.replace(/^(?:on|in|along|at|through)\s+(?:a |an |the )?/i, '');
   return stem.length >= 6 && haystack.includes(stem);
 }
 
@@ -937,41 +910,40 @@ function stripEnvironmentClausesFromSentence(sentence: string): string {
 
   cleaned = cleaned.replace(
     /,\s*(?:with|while|as|where|and(?:\s+also)?)\s+(?:[^,.!?]*(?:background|sky|trees|houses|buildings|streetscape|horizon|neighborhood|landscape|scenery|foliage|architecture|residential|suburban|midground|foreground|surroundings|lamppost|sidewalk|pavement|facade|parked)[^,.!?]*)[.!?]?$/gi,
-    "",
+    ''
   );
   cleaned = cleaned.replace(
     /,\s*(?:[^,.!?]*\b(?:in the background|behind (?:her|him|them|the subject)|under (?:a |the )?(?:blue|clear|cloudy|overcast) sky|beneath (?:a |the )?(?:blue|clear) sky|against (?:a |the )?(?:blue|clear) sky)\b[^,.!?]*)[.!?]?$/gi,
-    "",
+    ''
   );
   cleaned = cleaned.replace(
     /\b(?:with|and)\s+(?:sunny|green|tall|leafy|residential|suburban)\s+(?:houses|homes|trees|foliage|buildings|neighborhood|neighbourhood)[^,.!?]*/gi,
-    "",
+    ''
   );
   cleaned = cleaned.replace(
     /\b(?:houses|homes|buildings|trees|foliage|sky|clouds|horizon|landscape|neighborhood|neighbourhood|streetscape|architecture|scenery|residential area)\s+(?:line|lining|stretch|visible|appear|show|feature|fill)[^,.!?]*/gi,
-    "",
+    ''
   );
   cleaned = cleaned.replace(
     /\b(?:in the background|in the distance|behind (?:her|him|them)|background (?:shows|features|includes)|surrounded by (?:trees|houses|buildings|foliage))[^,.!?]*/gi,
-    "",
+    ''
   );
 
   return cleaned
-    .replace(/\s+/g, " ")
-    .replace(/,\s*,/g, ", ")
-    .replace(/,\s*\./g, ".")
-    .replace(/,\s+(?=[.!?]|$)/g, "")
+    .replace(/\s+/g, ' ')
+    .replace(/,\s*,/g, ', ')
+    .replace(/,\s*\./g, '.')
+    .replace(/,\s+(?=[.!?]|$)/g, '')
     .trim();
 }
 
 function appendBriefLocationPhrase(text: string, location: string): string {
-  const base = text.replace(/[.!?]\s*$/, "").trim();
+  const base = text.replace(/[.!?]\s*$/, '').trim();
   if (!base) {
-    return location.endsWith(".") ? location : `${location}.`;
+    return location.endsWith('.') ? location : `${location}.`;
   }
 
-  const suffix =
-    /^(?:on|in|along|at|through)\b/i.test(location) ? location : `on ${location}`;
+  const suffix = /^(?:on|in|along|at|through)\b/i.test(location) ? location : `on ${location}`;
 
   return `${base}, ${suffix}.`;
 }
@@ -983,7 +955,7 @@ function trimProseForSubjectFocus(text: string): string {
     return polishImagePromptProse(stripEnvironmentClausesFromSentence(text));
   }
 
-  const hasSubject = sentences.some((sentence) => VISION_SUBJECT_TERMS.test(sentence));
+  const hasSubject = sentences.some(sentence => VISION_SUBJECT_TERMS.test(sentence));
   // Environment-first scenes (no person/prop lexicon) keep full wording.
   if (!hasSubject) {
     return polishImagePromptProse(text);
@@ -1015,16 +987,13 @@ function trimProseForSubjectFocus(text: string): string {
   }
 
   const location =
-    extractBriefLocationPhrase(environmentParts.join(" ")) ??
-    extractBriefLocationPhrase(text);
+    extractBriefLocationPhrase(environmentParts.join(' ')) ?? extractBriefLocationPhrase(text);
 
-  let result = subjectParts.filter(Boolean).join(" ").trim();
+  let result = subjectParts.filter(Boolean).join(' ').trim();
 
   if (!result) {
     const fallback =
-      sentences.find((sentence) => VISION_SUBJECT_TERMS.test(sentence)) ??
-      sentences[0] ??
-      text;
+      sentences.find(sentence => VISION_SUBJECT_TERMS.test(sentence)) ?? sentences[0] ?? text;
     result = stripEnvironmentClausesFromSentence(fallback);
   }
 
@@ -1053,29 +1022,28 @@ function isLocationTag(tag: string): boolean {
 function trimTagsForSubjectFocus(text: string): string {
   const tags = text
     .split(/[,;|]+/)
-    .map((tag) => tag.trim())
+    .map(tag => tag.trim())
     .filter(Boolean);
 
   if (tags.length === 0) {
     return text;
   }
 
-  const subjectTags = tags.filter((tag) => !isEnvironmentOnlyTag(tag));
-  const locationTags = tags.filter(
-    (tag) => isLocationTag(tag) && !subjectTags.includes(tag),
-  );
+  const subjectTags = tags.filter(tag => !isEnvironmentOnlyTag(tag));
+  const locationTags = tags.filter(tag => isLocationTag(tag) && !subjectTags.includes(tag));
 
-  const kept = subjectTags.length > 0 ? [...subjectTags] : tags.filter((tag) => VISION_SUBJECT_TERMS.test(tag));
+  const kept =
+    subjectTags.length > 0 ? [...subjectTags] : tags.filter(tag => VISION_SUBJECT_TERMS.test(tag));
 
   if (kept.length === 0) {
-    kept.push(...tags.filter((tag) => !isPureEnvironmentSentence(tag)));
+    kept.push(...tags.filter(tag => !isPureEnvironmentSentence(tag)));
   }
 
   if (locationTags.length > 0 && kept.length > 0) {
     kept.push(locationTags[0]!);
   }
 
-  return kept.join(", ");
+  return kept.join(', ');
 }
 
 export function isSubjectPromptBackgroundHeavy(prompt: string): boolean {
@@ -1087,66 +1055,61 @@ export function isSubjectPromptBackgroundHeavy(prompt: string): boolean {
   if (looksLikeVisionTags(trimmed)) {
     const envTags = trimmed
       .split(/[,;|]+/)
-      .map((tag) => tag.trim())
-      .filter((tag) => isEnvironmentOnlyTag(tag));
+      .map(tag => tag.trim())
+      .filter(tag => isEnvironmentOnlyTag(tag));
     return envTags.length > 1;
   }
 
-  const pureEnvironmentSentences = splitVisionSentences(trimmed).filter(
-    isPureEnvironmentSentence,
-  );
+  const pureEnvironmentSentences = splitVisionSentences(trimmed).filter(isPureEnvironmentSentence);
   if (pureEnvironmentSentences.length >= 1) {
     return true;
   }
 
   const envMatches = trimmed.match(
-    /\b(?:architecture|building|houses?|homes?|tree(?:s|-lined)?|foliage|sky|clouds|horizon|landscape|neighborhood|streetscape|lamppost|sidewalk|facade|scenery|background|midground|foreground|parked|residential|suburban|sunset|sunrise)\b/gi,
+    /\b(?:architecture|building|houses?|homes?|tree(?:s|-lined)?|foliage|sky|clouds|horizon|landscape|neighborhood|streetscape|lamppost|sidewalk|facade|scenery|background|midground|foreground|parked|residential|suburban|sunset|sunrise)\b/gi
   );
 
   return (envMatches?.length ?? 0) >= 4;
 }
 
-export type VisionPromptFocus = "full" | "subject" | "background" | "style";
+export type VisionPromptFocus = 'full' | 'subject' | 'background' | 'style';
 
 export function applyVisionFocusTrim(
   text: string,
   focus: VisionPromptFocus,
-  profile?: string,
+  profile?: string
 ): string {
   const trimmed = text.trim();
-  if (!trimmed || focus !== "subject") {
+  if (!trimmed || focus !== 'subject') {
     return trimmed;
   }
 
-  if (profile === "sd15_weighted" || looksLikeVisionTags(trimmed)) {
+  if (profile === 'sd15_weighted' || looksLikeVisionTags(trimmed)) {
     return trimTagsForSubjectFocus(trimmed);
   }
 
   return trimProseForSubjectFocus(trimmed);
 }
 
-export function visionPromptMinChars(detail: "concise" | "balanced" | "rich"): number {
-  if (detail === "rich") {
+export function visionPromptMinChars(detail: 'concise' | 'balanced' | 'rich'): number {
+  if (detail === 'rich') {
     return 100;
   }
-  if (detail === "concise") {
+  if (detail === 'concise') {
     return 45;
   }
   return 70;
 }
 
 export function visionPromptTargetChars(
-  detail: "concise" | "balanced" | "rich",
-  maxChars: number,
+  detail: 'concise' | 'balanced' | 'rich',
+  maxChars: number
 ): number {
   const floor = visionPromptMinChars(detail);
   return Math.min(Math.max(floor, Math.floor(maxChars * 0.22)), maxChars);
 }
 
-export function isVisionPromptHardFailure(
-  prompt: string,
-  focus: VisionPromptFocus,
-): boolean {
+export function isVisionPromptHardFailure(prompt: string, focus: VisionPromptFocus): boolean {
   const trimmed = prompt.trim();
   if (trimmed.length < 35) {
     return true;
@@ -1156,7 +1119,7 @@ export function isVisionPromptHardFailure(
     return true;
   }
 
-  if (focus === "subject" && !VISION_SUBJECT_TERMS.test(trimmed)) {
+  if (focus === 'subject' && !VISION_SUBJECT_TERMS.test(trimmed)) {
     return true;
   }
 
@@ -1166,20 +1129,20 @@ export function isVisionPromptHardFailure(
 export function describeVisionPromptIssue(
   prompt: string,
   focus: VisionPromptFocus,
-  detail: "concise" | "balanced" | "rich",
-  maxChars: number,
+  detail: 'concise' | 'balanced' | 'rich',
+  maxChars: number
 ): string | null {
   const trimmed = prompt.trim();
   if (!trimmed) {
-    return "empty response";
+    return 'empty response';
   }
 
-  if (focus === "subject" && !VISION_SUBJECT_TERMS.test(trimmed)) {
-    return "missing subject detail (pose, clothing, or identity)";
+  if (focus === 'subject' && !VISION_SUBJECT_TERMS.test(trimmed)) {
+    return 'missing subject detail (pose, clothing, or identity)';
   }
 
-  if (focus === "subject" && isSubjectPromptBackgroundHeavy(trimmed)) {
-    return "includes too much background or scenery for subject focus";
+  if (focus === 'subject' && isSubjectPromptBackgroundHeavy(trimmed)) {
+    return 'includes too much background or scenery for subject focus';
   }
 
   const target = visionPromptTargetChars(detail, maxChars);
@@ -1197,14 +1160,14 @@ export function describeVisionPromptIssue(
 export function isVisionPromptInsufficient(
   prompt: string,
   focus: VisionPromptFocus,
-  detail: "concise" | "balanced" | "rich",
-  limits: { minChars?: number; maxChars: number },
+  detail: 'concise' | 'balanced' | 'rich',
+  limits: { minChars?: number; maxChars: number }
 ): boolean {
   if (isVisionPromptHardFailure(prompt, focus)) {
     return true;
   }
 
-  if (focus === "subject" && isSubjectPromptBackgroundHeavy(prompt)) {
+  if (focus === 'subject' && isSubjectPromptBackgroundHeavy(prompt)) {
     return true;
   }
 
@@ -1212,62 +1175,59 @@ export function isVisionPromptInsufficient(
 }
 
 const EXPANSION_PADDING_FRAGMENTS = [
-  "Foreground and background elements read in clear spatial layers under the same light.",
-  "Surface color and texture stay consistent across the frame with readable depth.",
-  "The main subject remains centered in the midground with supporting details placed left and right.",
-  "Lighting stays even enough to preserve shape, material, and any visible text in the scene.",
-  "Fine surface textures read clearly in the directional light",
-  "The lighting mixes a warm key from camera-left with cooler ambient fill",
-  "In the midground, supporting elements settle into layered depth",
-  "Material weight grounds the image",
-  "The composition holds at a natural eye level with moderate depth of field",
-  "Small environmental details in the distance",
+  'Foreground and background elements read in clear spatial layers under the same light.',
+  'Surface color and texture stay consistent across the frame with readable depth.',
+  'The main subject remains centered in the midground with supporting details placed left and right.',
+  'Lighting stays even enough to preserve shape, material, and any visible text in the scene.',
+  'Fine surface textures read clearly in the directional light',
+  'The lighting mixes a warm key from camera-left with cooler ambient fill',
+  'In the midground, supporting elements settle into layered depth',
+  'Material weight grounds the image',
+  'The composition holds at a natural eye level with moderate depth of field',
+  'Small environmental details in the distance',
 ];
 
 export function stripExpansionPadding(text: string): string {
   let cleaned = text;
   for (const fragment of EXPANSION_PADDING_FRAGMENTS) {
-    cleaned = cleaned.replace(
-      new RegExp(`\\s*${escapeRegExp(fragment)}[^.!?]*[.!?,]?`, "gi"),
-      "",
-    );
+    cleaned = cleaned.replace(new RegExp(`\\s*${escapeRegExp(fragment)}[^.!?]*[.!?,]?`, 'gi'), '');
   }
 
   const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(Boolean);
-  const filtered = sentences.filter((sentence) => {
+  const filtered = sentences.filter(sentence => {
     const lower = sentence.toLowerCase();
-    return !EXPANSION_PADDING_FRAGMENTS.some((fragment) =>
-      lower.includes(fragment.toLowerCase().slice(0, 32)),
+    return !EXPANSION_PADDING_FRAGMENTS.some(fragment =>
+      lower.includes(fragment.toLowerCase().slice(0, 32))
     );
   });
 
-  return filtered.join(" ").replace(/\s+/g, " ").trim();
+  return filtered.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 function polishImagePromptProse(text: string): string {
   return text
-    .replace(/\.,\s*/g, ". ")
-    .replace(/\.\s*,/g, ". ")
-    .replace(/,\s*\./g, ".")
-    .replace(/,\s*,+/g, ", ")
-    .replace(/\s+,/g, ", ")
-    .replace(/^,\s*/, "")
-    .replace(/,\s+(?=[.!?]|$)/g, "")
+    .replace(/\.,\s*/g, '. ')
+    .replace(/\.\s*,/g, '. ')
+    .replace(/,\s*\./g, '.')
+    .replace(/,\s*,+/g, ', ')
+    .replace(/\s+,/g, ', ')
+    .replace(/^,\s*/, '')
+    .replace(/,\s+(?=[.!?]|$)/g, '')
     .replace(/(\.\s+)([a-z])/g, (_, prefix: string, letter: string) => {
       return `${prefix}${letter.toUpperCase()}`;
     })
-    .replace(/\s+/g, " ")
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function normalizeSectionEnding(text: string): string {
-  const trimmed = text.trim().replace(/[,.;\s]+$/, "");
+  const trimmed = text.trim().replace(/[,.;\s]+$/, '');
   if (!trimmed) {
-    return "";
+    return '';
   }
 
   if (/[.!?]$/.test(trimmed)) {
@@ -1283,30 +1243,30 @@ function clauseOverlapRatio(clause: string, subjectLower: string): number {
     return 0;
   }
 
-  return words.filter((word) => subjectLower.includes(word)).length / words.length;
+  return words.filter(word => subjectLower.includes(word)).length / words.length;
 }
 
 function stripRedundantDetailSentences(subject: string, details: string): string {
   const subjectLower = subject.toLowerCase();
   const clauses = details
     .split(/,\s+(?=[A-Za-z])|(?<=[.!?])\s+/)
-    .map((clause) => clause.trim().replace(/^[.!?]+|[.!?]+$/g, ""))
+    .map(clause => clause.trim().replace(/^[.!?]+|[.!?]+$/g, ''))
     .filter(Boolean);
 
-  const unique = clauses.filter((clause) => {
+  const unique = clauses.filter(clause => {
     const overlap = clauseOverlapRatio(clause, subjectLower);
     if (overlap < 0.55) {
       return true;
     }
 
     return /\b(necklace|pendant|earring|tattoo|bracelet|ring|looking|gazing|smiling|facing)\b/i.test(
-      clause,
+      clause
     );
   });
 
   return unique
-    .map((clause) => (/[.!?]$/.test(clause) ? clause : `${clause}.`))
-    .join(" ")
+    .map(clause => (/[.!?]$/.test(clause) ? clause : `${clause}.`))
+    .join(' ')
     .trim();
 }
 
@@ -1317,27 +1277,27 @@ function flattenMarkdownSections(text: string): string {
 
   if (matches.length === 0) {
     return text
-      .replace(MARKDOWN_SECTION_PATTERN, "")
-      .replace(/\*\*([^*]+)\*\*:?\s*/g, "$1, ")
-      .replace(/\*\*([^*]+)\*\*/g, "$1")
-      .replace(/^\s*[-*•]\s+/gm, "")
-      .replace(/\s*[-*•]\s+/g, ", ");
+      .replace(MARKDOWN_SECTION_PATTERN, '')
+      .replace(/\*\*([^*]+)\*\*:?\s*/g, '$1, ')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/^\s*[-*•]\s+/gm, '')
+      .replace(/\s*[-*•]\s+/g, ', ');
   }
 
   const sections: Array<{ label: string; body: string }> = [];
-  let subjectBody = "";
+  let subjectBody = '';
 
   for (let index = 0; index < matches.length; index += 1) {
     const match = matches[index];
-    const label = match[1] ?? "";
+    const label = match[1] ?? '';
     const start = match.index! + match[0].length;
     const end = matches[index + 1]?.index ?? text.length;
     let body = text.slice(start, end).trim();
 
     body = body
-      .replace(/^[-*•]\s*/gm, "")
-      .replace(/\*\*(Woman|Man|Person)(?::\*\*|\*\*:?)\s*/gi, "")
-      .replace(/\s+/g, " ")
+      .replace(/^[-*•]\s*/gm, '')
+      .replace(/\*\*(Woman|Man|Person)(?::\*\*|\*\*:?)\s*/gi, '')
+      .replace(/\s+/g, ' ')
       .trim();
 
     if (!body) {
@@ -1361,7 +1321,7 @@ function flattenMarkdownSections(text: string): string {
   return sections
     .map(({ body }) => normalizeSectionEnding(body))
     .filter(Boolean)
-    .join(" ");
+    .join(' ');
 }
 
 export function stripVisionAnalysisArtifacts(text: string): string {
@@ -1371,27 +1331,24 @@ export function stripVisionAnalysisArtifacts(text: string): string {
   }
 
   cleaned = cleaned
-    .replace(
-      /^The user wants[^.!?]*(?:[.!?]|(?=\*\*))/i,
-      "",
-    )
-    .replace(/^This (?:image|photo|picture)[^.!?]*[.!?]\s*/i, "")
-    .replace(/^Here(?:'s| is) (?:a |the )?(?:detailed )?(?:description|prompt)[^.!?]*[.!?]\s*/i, "")
-    .replace(/^For (?:Qwen|ComfyUI|the target model)[^.!?]*[.!?]\s*/i, "")
-    .replace(/^Convert(?:ing)? this image[^.!?]*[.!?]\s*/i, "")
+    .replace(/^The user wants[^.!?]*(?:[.!?]|(?=\*\*))/i, '')
+    .replace(/^This (?:image|photo|picture)[^.!?]*[.!?]\s*/i, '')
+    .replace(/^Here(?:'s| is) (?:a |the )?(?:detailed )?(?:description|prompt)[^.!?]*[.!?]\s*/i, '')
+    .replace(/^For (?:Qwen|ComfyUI|the target model)[^.!?]*[.!?]\s*/i, '')
+    .replace(/^Convert(?:ing)? this image[^.!?]*[.!?]\s*/i, '')
     .replace(
       /^(?:so|therefore|thus|okay|now|next|then|the first sentence)[^.!?]*(?:should be|needs to be|must be|will be|start with|write)[^.!?]*[.!?]\s*/i,
-      "",
+      ''
     )
     .trim();
 
   cleaned = flattenMarkdownSections(cleaned);
 
   cleaned = cleaned
-    .replace(/\b(Subject|Setting|Details|Background|Composition|Lighting):\s*/gi, "")
-    .replace(/\b(Woman|Man|Person):\s*/gi, "")
-    .replace(/\s[-*•]\s+\*\*[^*]+\*\*:?\s*/g, ", ")
-    .replace(/\s+/g, " ")
+    .replace(/\b(Subject|Setting|Details|Background|Composition|Lighting):\s*/gi, '')
+    .replace(/\b(Woman|Man|Person):\s*/gi, '')
+    .replace(/\s[-*•]\s+\*\*[^*]+\*\*:?\s*/g, ', ')
+    .replace(/\s+/g, ' ')
     .trim();
 
   cleaned = stripExpansionPadding(cleaned);
@@ -1405,14 +1362,14 @@ export function stripMetaInstructions(text: string): string {
   return text
     .replace(
       /\b(DISTINCT INDIVIDUALS MODE|GROUPED \/ COUPLE MODE|MANDATORY|DETAIL LEVEL|Target model|PEOPLE \(mandatory\)).*?\./gi,
-      "",
+      ''
     )
-    .replace(/\bWrite EXACTLY[^.!?]*[.!?]/gi, "")
-    .replace(/\bWrite \d+[^.!?]*characters[^.!?]*[.!?]/gi, "")
-    .replace(/\bOptional flavor only[^.!?]*[.!?]/gi, "")
-    .replace(/\bPerson [AB] must read as:[^.!?]*[.!?]/gi, "")
-    .replace(/\bprompt:\s*/gi, "")
-    .replace(/\boutput:\s*/gi, "")
-    .replace(/\s+/g, " ")
+    .replace(/\bWrite EXACTLY[^.!?]*[.!?]/gi, '')
+    .replace(/\bWrite \d+[^.!?]*characters[^.!?]*[.!?]/gi, '')
+    .replace(/\bOptional flavor only[^.!?]*[.!?]/gi, '')
+    .replace(/\bPerson [AB] must read as:[^.!?]*[.!?]/gi, '')
+    .replace(/\bprompt:\s*/gi, '')
+    .replace(/\boutput:\s*/gi, '')
+    .replace(/\s+/g, ' ')
     .trim();
 }

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * Previously appended LoRA library trigger phrases into the prompt.

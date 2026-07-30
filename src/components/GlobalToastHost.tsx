@@ -1,25 +1,19 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import {
-  APP_TOAST_EVENT,
-  dismissAppToast,
-  getAppToasts,
-  type AppToast,
-} from "@/lib/app-toast";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { APP_TOAST_EVENT, dismissAppToast, getAppToasts, type AppToast } from '@/lib/app-toast';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
-const TONE_CLASS: Record<AppToast["tone"], string> = {
-  neutral:
-    "border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-secondary)]",
+const TONE_CLASS: Record<AppToast['tone'], string> = {
+  neutral: 'border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-secondary)]',
   success:
-    "border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]",
+    'border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]',
   warning:
-    "border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]",
+    'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]',
   danger:
-    "border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)]",
-  info: "border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] text-[var(--tint-info-text)]",
+    'border-[var(--tint-danger-border)] bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)]',
+  info: 'border-[var(--tint-info-border)] bg-[var(--tint-info-bg)] text-[var(--tint-info-text)]',
 };
 
 export default function GlobalToastHost() {
@@ -46,7 +40,7 @@ export default function GlobalToastHost() {
       className="pointer-events-none fixed bottom-4 right-4 z-[90] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
       aria-live="polite"
     >
-      {toasts.map((toast) => (
+      {toasts.map(toast => (
         <div
           key={toast.id}
           role="status"

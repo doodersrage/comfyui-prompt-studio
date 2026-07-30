@@ -1,24 +1,20 @@
-"use client";
+'use client';
 
-import { ChipButton } from "@/components/ui/Field";
+import { ChipButton } from '@/components/ui/Field';
 import {
   formatRenderRealismHint,
   RENDER_REALISM_OPTIONS,
   type RenderRealismMode,
-} from "@/lib/render-realism";
+} from '@/lib/render-realism';
 
 type RenderRealismHintsProps = {
   mode: RenderRealismMode;
   onModeChange: (mode: RenderRealismMode) => void;
 };
 
-export default function RenderRealismHints({
-  mode,
-  onModeChange,
-}: RenderRealismHintsProps) {
+export default function RenderRealismHints({ mode, onModeChange }: RenderRealismHintsProps) {
   const activeOption =
-    RENDER_REALISM_OPTIONS.find((option) => option.id === mode) ??
-    RENDER_REALISM_OPTIONS[0];
+    RENDER_REALISM_OPTIONS.find(option => option.id === mode) ?? RENDER_REALISM_OPTIONS[0];
 
   return (
     <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
@@ -28,7 +24,7 @@ export default function RenderRealismHints({
           <p className="text-xs text-zinc-300">{formatRenderRealismHint(mode)}</p>
         </div>
         <div className="flex min-w-0 flex-wrap gap-1.5">
-          {RENDER_REALISM_OPTIONS.map((option) => (
+          {RENDER_REALISM_OPTIONS.map(option => (
             <ChipButton
               key={option.id}
               active={mode === option.id}
@@ -41,8 +37,8 @@ export default function RenderRealismHints({
       </div>
       <p className="mt-2 type-caption text-zinc-500">{activeOption.description}</p>
       <p className="mt-1.5 type-caption text-zinc-500">
-        Auto-adjusts positive and negative prompts when you Send to ComfyUI or copy a
-        prompt pair. Flux-family models receive style cues in the positive prompt.
+        Auto-adjusts positive and negative prompts when you Send to ComfyUI or copy a prompt pair.
+        Flux-family models receive style cues in the positive prompt.
       </p>
     </div>
   );

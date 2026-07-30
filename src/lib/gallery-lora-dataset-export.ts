@@ -1,6 +1,6 @@
-import type { ComfyGalleryEntry } from "./comfyui-gallery-entry";
-import { buildComfyViewPath, type ComfyOutputImage } from "./comfyui-outputs";
-import { buildZipBlob, type ZipFileEntry } from "./gallery-zip-export";
+import type { ComfyGalleryEntry } from './comfyui-gallery-entry';
+import { buildComfyViewPath, type ComfyOutputImage } from './comfyui-outputs';
+import { buildZipBlob, type ZipFileEntry } from './gallery-zip-export';
 
 /**
  * Gallery → LoRA training dataset export. Pulls selected/favorited/high-rated
@@ -26,21 +26,19 @@ export type LoraDatasetSelectionOptions = {
  */
 export function selectLoraDatasetEntries(
   entries: ComfyGalleryEntry[],
-  options?: LoraDatasetSelectionOptions,
+  options?: LoraDatasetSelectionOptions
 ): ComfyGalleryEntry[] {
   const selectedIdSet = options?.selectedIds ? new Set(options.selectedIds) : null;
   const minRating = options?.minRating ?? DEFAULT_LORA_DATASET_MIN_RATING;
 
   const candidates =
     selectedIdSet && selectedIdSet.size > 0
-      ? entries.filter((entry) => selectedIdSet.has(entry.id))
-      : entries.filter(
-          (entry) => entry.favorite === true || (entry.reviewRating ?? 0) >= minRating,
-        );
+      ? entries.filter(entry => selectedIdSet.has(entry.id))
+      : entries.filter(entry => entry.favorite === true || (entry.reviewRating ?? 0) >= minRating);
 
   return candidates.filter(
-    (entry) =>
-      entry.status === "completed" && entry.images.length > 0 && Boolean(entry.prompt?.trim()),
+    entry =>
+      entry.status === 'completed' && entry.images.length > 0 && Boolean(entry.prompt?.trim())
   );
 }
 
@@ -55,28 +53,28 @@ const TOKEN_PLACEHOLDER_RE = /\{\{[A-Z0-9_]+\}\}/g;
  */
 export function cleanLoraCaptionText(prompt: string | undefined): string {
   if (!prompt?.trim()) {
-    return "";
+    return '';
   }
 
   let text = prompt;
   let previous: string;
   do {
     previous = text;
-    text = text.replace(WEIGHT_SYNTAX_RE, "$1");
+    text = text.replace(WEIGHT_SYNTAX_RE, '$1');
   } while (text !== previous);
 
   return text
-    .replace(TOKEN_PLACEHOLDER_RE, "")
-    .replace(/\bBREAK\b/gi, ",")
-    .replace(/[\r\n]+/g, ", ")
-    .replace(/[ \t]+/g, " ")
-    .replace(/,\s*,+/g, ",")
-    .replace(/\s*,\s*/g, ", ")
-    .replace(/^[,\s]+|[,\s]+$/g, "")
+    .replace(TOKEN_PLACEHOLDER_RE, '')
+    .replace(/\bBREAK\b/gi, ',')
+    .replace(/[\r\n]+/g, ', ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/,\s*,+/g, ',')
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/^[,\s]+|[,\s]+$/g, '')
     .trim();
 }
 
-export type LoraCaptionMode = "prompt" | "tags" | "vision";
+export type LoraCaptionMode = 'prompt' | 'tags' | 'vision';
 
 export type LoraCaptionOptions = {
   triggerWord?: string;
@@ -98,22 +96,22 @@ function applyTriggerWord(caption: string, triggerWord?: string): string {
 
 /** Cleaned caption text, optionally prefixed with a LoRA trigger word (skipped if already present). */
 export function buildLoraCaptionText(
-  entry: Pick<ComfyGalleryEntry, "prompt" | "visionTags">,
-  options?: LoraCaptionOptions,
+  entry: Pick<ComfyGalleryEntry, 'prompt' | 'visionTags'>,
+  options?: LoraCaptionOptions
 ): string {
-  const mode = options?.captionMode ?? "prompt";
+  const mode = options?.captionMode ?? 'prompt';
   const cleaned = cleanLoraCaptionText(entry.prompt);
   let caption = cleaned;
 
-  if (mode === "tags") {
+  if (mode === 'tags') {
     const tags = (entry.visionTags ?? [])
-      .map((tag) => tag.trim())
+      .map(tag => tag.trim())
       .filter(Boolean)
       .slice(0, 12);
     if (tags.length > 0) {
-      caption = cleaned ? `${cleaned}, ${tags.join(", ")}` : tags.join(", ");
+      caption = cleaned ? `${cleaned}, ${tags.join(', ')}` : tags.join(', ');
     }
-  } else if (mode === "vision") {
+  } else if (mode === 'vision') {
     const vision = cleanLoraCaptionText(options?.visionCaption);
     if (vision) {
       caption = vision;
@@ -125,26 +123,26 @@ export function buildLoraCaptionText(
 
 /** Lowercase, hyphenated, filesystem-safe slug — falls back to "image" when nothing usable remains. */
 export function sanitizeLoraDatasetSlug(value: string | undefined): string {
-  const slug = (value ?? "")
+  const slug = (value ?? '')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
     .slice(0, 40);
-  return slug || "image";
+  return slug || 'image';
 }
 
 /** Image filename extension (without the dot), defaulting to "png" when it can't be determined. */
 export function loraDatasetImageExtension(filename: string | undefined): string {
-  const match = /\.([a-z0-9]{2,5})$/i.exec(filename ?? "");
-  return match ? match[1].toLowerCase() : "png";
+  const match = /\.([a-z0-9]{2,5})$/i.exec(filename ?? '');
+  return match ? match[1].toLowerCase() : 'png';
 }
 
 /** Zero-padded ordinal + model/tool slug — image and caption share this base name. */
 export function buildLoraDatasetBaseName(
-  entry: Pick<ComfyGalleryEntry, "model" | "tool" | "id">,
-  ordinal: number,
+  entry: Pick<ComfyGalleryEntry, 'model' | 'tool' | 'id'>,
+  ordinal: number
 ): string {
-  const index = String(Math.max(1, Math.floor(ordinal))).padStart(4, "0");
+  const index = String(Math.max(1, Math.floor(ordinal))).padStart(4, '0');
   const slug = sanitizeLoraDatasetSlug(entry.model || entry.tool || entry.id);
   return `${index}_${slug}`;
 }
@@ -166,7 +164,7 @@ export function buildLoraDatasetManifest(
   entries: ComfyGalleryEntry[],
   options?: LoraCaptionOptions & {
     visionCaptionsById?: Record<string, string>;
-  },
+  }
 ): LoraDatasetManifestEntry[] {
   const manifest: LoraDatasetManifestEntry[] = [];
   let ordinal = 0;
@@ -211,7 +209,7 @@ export type LoraDatasetExportResult = {
  * still exported.
  */
 async function fetchVisionCaptionsForEntries(
-  entries: ComfyGalleryEntry[],
+  entries: ComfyGalleryEntry[]
 ): Promise<Record<string, string>> {
   const captions: Record<string, string> = {};
   for (const entry of entries) {
@@ -228,13 +226,13 @@ async function fetchVisionCaptionsForEntries(
       const blob = await imageResponse.blob();
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result ?? ""));
+        reader.onload = () => resolve(String(reader.result ?? ''));
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(blob);
       });
-      const response = await fetch("/api/gallery/caption", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/gallery/caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageDataUrl: dataUrl,
           prompt: entry.prompt,
@@ -257,11 +255,11 @@ async function fetchVisionCaptionsForEntries(
 
 export async function downloadLoraDatasetZip(
   entries: ComfyGalleryEntry[],
-  options?: LoraCaptionOptions,
+  options?: LoraCaptionOptions
 ): Promise<LoraDatasetExportResult> {
-  const captionMode = options?.captionMode ?? "prompt";
+  const captionMode = options?.captionMode ?? 'prompt';
   const visionCaptionsById =
-    captionMode === "vision" ? await fetchVisionCaptionsForEntries(entries) : undefined;
+    captionMode === 'vision' ? await fetchVisionCaptionsForEntries(entries) : undefined;
   const manifest = buildLoraDatasetManifest(entries, {
     ...options,
     captionMode,
@@ -293,19 +291,19 @@ export async function downloadLoraDatasetZip(
   }
 
   files.push({
-    filename: "manifest.json",
+    filename: 'manifest.json',
     data: new TextEncoder().encode(
       JSON.stringify(
         { exportedAt: new Date().toISOString(), count: manifest.length, entries: manifest },
         null,
-        2,
-      ),
+        2
+      )
     ),
   });
 
   const blob = buildZipBlob(files);
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = `lora-dataset-${Date.now()}.zip`;
   anchor.click();

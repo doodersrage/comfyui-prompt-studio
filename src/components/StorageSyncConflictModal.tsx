@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import type { StorageNamespaceConflict, MergeChoice } from "@/lib/storage-merge";
-import type { StorageNamespace } from "@/lib/storage-namespaces";
-import { Button } from "@/components/ui/Button";
+import { useState } from 'react';
+import type { StorageNamespaceConflict, MergeChoice } from '@/lib/storage-merge';
+import type { StorageNamespace } from '@/lib/storage-namespaces';
+import { Button } from '@/components/ui/Button';
 
 type Props = {
   conflicts: StorageNamespaceConflict[];
@@ -19,7 +19,7 @@ export default function StorageSyncConflictModal({
   onDismiss,
 }: Props) {
   const [choices, setChoices] = useState<Partial<Record<StorageNamespace, MergeChoice>>>(
-    () => initialChoices ?? {},
+    () => initialChoices ?? {}
   );
 
   return (
@@ -32,27 +32,27 @@ export default function StorageSyncConflictModal({
           </p>
         </div>
         <ul className="space-y-3">
-          {conflicts.map((conflict) => (
+          {conflicts.map(conflict => (
             <li key={conflict.namespace} className="rounded-xl border border-zinc-800 p-3">
               <p className="text-sm font-medium text-zinc-200">{conflict.namespace}</p>
               <p className="mt-1 text-xs text-zinc-500">
                 Local: {conflict.localCount ?? 0} · Server: {conflict.serverCount ?? 0}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {(["local", "server", "merge"] as MergeChoice[]).map((choice) => (
+                {(['local', 'server', 'merge'] as MergeChoice[]).map(choice => (
                   <button
                     key={choice}
                     type="button"
                     onClick={() =>
-                      setChoices((prev) => ({
+                      setChoices(prev => ({
                         ...prev,
                         [conflict.namespace as StorageNamespace]: choice,
                       }))
                     }
                     className={`rounded-full px-3 py-1 text-xs transition ${
                       choices[conflict.namespace as StorageNamespace] === choice
-                        ? "bg-violet-600 text-white"
-                        : "border border-zinc-700 text-zinc-400 hover:border-violet-500/40"
+                        ? 'bg-violet-600 text-white'
+                        : 'border border-zinc-700 text-zinc-400 hover:border-violet-500/40'
                     }`}
                   >
                     {choice}
@@ -65,7 +65,7 @@ export default function StorageSyncConflictModal({
         <div className="flex flex-wrap gap-2">
           <Button
             onClick={() => onResolve(choices)}
-            disabled={conflicts.some((c) => !choices[c.namespace as StorageNamespace])}
+            disabled={conflicts.some(c => !choices[c.namespace as StorageNamespace])}
           >
             Apply merge
           </Button>

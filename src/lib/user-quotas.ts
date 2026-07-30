@@ -1,13 +1,9 @@
-import type { AuthGroup, AuthUser } from "./auth/types";
-import { checkRateLimit, type RateLimitResult } from "./api-rate-limit";
+import type { AuthGroup, AuthUser } from './auth/types';
+import { checkRateLimit, type RateLimitResult } from './api-rate-limit';
 
-export function resolveUserQuotaMax(
-  user: AuthUser | null,
-  groups: AuthGroup[],
-): number {
-  const envDefault = Number(process.env.API_RATE_LIMIT_MAX ?? "120");
-  const fallback =
-    Number.isFinite(envDefault) && envDefault > 0 ? Math.floor(envDefault) : 120;
+export function resolveUserQuotaMax(user: AuthUser | null, groups: AuthGroup[]): number {
+  const envDefault = Number(process.env.API_RATE_LIMIT_MAX ?? '120');
+  const fallback = Number.isFinite(envDefault) && envDefault > 0 ? Math.floor(envDefault) : 120;
 
   if (!user) {
     return fallback;
@@ -18,7 +14,7 @@ export function resolveUserQuotaMax(
   }
 
   for (const groupId of user.groupIds) {
-    const group = groups.find((entry) => entry.id === groupId);
+    const group = groups.find(entry => entry.id === groupId);
     if (group?.quotaMaxPerMinute && group.quotaMaxPerMinute > 0) {
       return group.quotaMaxPerMinute;
     }

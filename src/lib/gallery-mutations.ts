@@ -1,23 +1,23 @@
-"use client";
+'use client';
 
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
-import { registerComfyGalleryJob } from "./comfyui-gallery-client";
-import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import { postComfyUiPrompt } from "./comfyui-queue-request";
-import { resolveQueueParams } from "./queue-params-settings";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { resolveRuntimeForQueue } from './comfyui-runtime-for-model';
+import { registerComfyGalleryJob } from './comfyui-gallery-client';
+import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
+import { postComfyUiPrompt } from './comfyui-queue-request';
+import { resolveQueueParams } from './queue-params-settings';
 import {
   refreshQueueImageParamsForRequeue,
   resolveRequeueImageUrlsFromEntry,
-} from "./queue-requeue-images";
-import { injectLoraTriggers } from "./lora-prompt-injection";
-import { guardQueueQualityForVram } from "./vram-queue-guard";
-import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
-import { prepareQueuePrompts } from "./queue-prompt-prep";
-import { buildCatalogAwareWardrobeMutationClause } from "./clothing-mutations";
-import { readClothingIdsFromMetadata } from "./recent-clothing";
+} from './queue-requeue-images';
+import { injectLoraTriggers } from './lora-prompt-injection';
+import { guardQueueQualityForVram } from './vram-queue-guard';
+import { maybeHoldMaxGenerateJobs } from './held-max-queue';
+import { prepareQueuePrompts } from './queue-prompt-prep';
+import { buildCatalogAwareWardrobeMutationClause } from './clothing-mutations';
+import { readClothingIdsFromMetadata } from './recent-clothing';
 
-export type MutationKind = "variation" | "location" | "wardrobe" | "wildness";
+export type MutationKind = 'variation' | 'location' | 'wardrobe' | 'wildness';
 
 export type MutatedGalleryJobSummary = {
   kind: MutationKind;
@@ -32,7 +32,7 @@ export function buildMutatedPrompt(
   options?: {
     hints?: string;
     recentClothing?: readonly string[];
-  },
+  }
 ): string {
   return buildMutatedPromptDetails(basePrompt, kind, value, options).prompt;
 }
@@ -44,11 +44,11 @@ export function buildMutatedPromptDetails(
   options?: {
     hints?: string;
     recentClothing?: readonly string[];
-  },
+  }
 ): MutatedGalleryJobSummary & { prompt: string } {
   const prompt = basePrompt.trim();
   switch (kind) {
-    case "location":
+    case 'location':
       return {
         kind,
         prompt: value?.trim()
@@ -56,7 +56,7 @@ export function buildMutatedPromptDetails(
           : `${prompt}. Change to a contrasting outdoor location while preserving subject identity.`,
         summary: value?.trim() || undefined,
       };
-    case "wardrobe": {
+    case 'wardrobe': {
       const built = buildCatalogAwareWardrobeMutationClause(prompt, value, {
         hints: options?.hints,
         recentClothing: options?.recentClothing,
@@ -68,15 +68,15 @@ export function buildMutatedPromptDetails(
         wardrobeId: built.wardrobeId,
       };
     }
-    case "wildness":
+    case 'wildness':
       return {
         kind,
         prompt: `${prompt}. Push composition and lighting toward a bolder, more dynamic interpretation.`,
       };
-    case "variation":
+    case 'variation':
     default:
       return {
-        kind: "variation",
+        kind: 'variation',
         prompt: `${prompt}. Subtle variation: adjust camera angle, expression, or micro-composition while preserving core scene intent.`,
       };
   }
@@ -85,22 +85,20 @@ export function buildMutatedPromptDetails(
 export function formatMutatedJobsStatus(
   jobs: readonly MutatedGalleryJobSummary[],
   queued: number,
-  held: number,
+  held: number
 ): string {
   const wardrobeBits = jobs
-    .filter((job) => job.kind === "wardrobe" && job.summary?.trim())
-    .map((job) => {
-      const short = job.summary!.split(",")[0]?.trim() || job.summary!.trim();
+    .filter(job => job.kind === 'wardrobe' && job.summary?.trim())
+    .map(job => {
+      const short = job.summary!.split(',')[0]?.trim() || job.summary!.trim();
       return short.length > 42 ? `${short.slice(0, 40)}…` : short;
     });
   const wardrobeNote =
     wardrobeBits.length > 0
-      ? `Wardrobe → ${wardrobeBits.slice(0, 2).join("; ")}${wardrobeBits.length > 2 ? "…" : ""}`
+      ? `Wardrobe → ${wardrobeBits.slice(0, 2).join('; ')}${wardrobeBits.length > 2 ? '…' : ''}`
       : null;
   const base =
-    held > 0
-      ? `Queued ${queued} mutations · held ${held} Max`
-      : `Queued ${queued} mutations`;
+    held > 0 ? `Queued ${queued} mutations · held ${held} Max` : `Queued ${queued} mutations`;
   return wardrobeNote ? `${base} · ${wardrobeNote}` : `${base}.`;
 }
 
@@ -111,31 +109,26 @@ export async function queueMutatedGalleryJobs(input: {
   count?: number;
 }): Promise<{ queued: number; held: number; jobs: MutatedGalleryJobSummary[] }> {
   const count = Math.min(6, Math.max(1, input.count ?? input.kinds.length));
-  const model = (input.entry.model ?? "qwen-image-2512") as Parameters<
+  const model = (input.entry.model ?? 'qwen-image-2512') as Parameters<
     typeof resolveRuntimeForQueue
   >[0];
-  const tool = input.entry.tool ?? "gallery-mutate";
+  const tool = input.entry.tool ?? 'gallery-mutate';
   const baseRuntime = resolveRuntimeForQueue(model, tool);
   const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
   const runtime = vramGuard.runtime ?? baseRuntime;
   const recentClothing = readClothingIdsFromMetadata(
-    input.entry.queueParams as Record<string, unknown> | undefined,
+    input.entry.queueParams as Record<string, unknown> | undefined
   );
 
   let queued = 0;
   let heldCount = 0;
   const jobs: MutatedGalleryJobSummary[] = [];
   for (let index = 0; index < count; index += 1) {
-    const kind = input.kinds[index % input.kinds.length] ?? "variation";
-    const details = buildMutatedPromptDetails(
-      input.entry.prompt,
-      kind,
-      input.values?.[kind],
-      {
-        hints: input.entry.prompt.slice(0, 400),
-        recentClothing,
-      },
-    );
+    const kind = input.kinds[index % input.kinds.length] ?? 'variation';
+    const details = buildMutatedPromptDetails(input.entry.prompt, kind, input.values?.[kind], {
+      hints: input.entry.prompt.slice(0, 400),
+      recentClothing,
+    });
     jobs.push({
       kind: details.kind,
       summary: details.summary,
@@ -146,7 +139,7 @@ export async function queueMutatedGalleryJobs(input: {
       model,
       positive: mutated,
       hints: input.entry.prompt.slice(0, 200),
-      tool: input.entry.tool ?? "gallery-mutate",
+      tool: input.entry.tool ?? 'gallery-mutate',
       explicitNegative: input.entry.negativePrompt,
     });
     const prompt = prepared.positive;
@@ -155,7 +148,7 @@ export async function queueMutatedGalleryJobs(input: {
     const imageUrls = resolveRequeueImageUrlsFromEntry(input.entry);
     const refreshedParams = await refreshQueueImageParamsForRequeue({
       model: input.entry.model,
-      tool: input.entry.tool ?? "gallery-mutate",
+      tool: input.entry.tool ?? 'gallery-mutate',
       queueParams: {
         ...input.entry.queueParams,
         seed,
@@ -165,7 +158,7 @@ export async function queueMutatedGalleryJobs(input: {
     });
     const params = resolveQueueParams({
       model: input.entry.model,
-      tool: "gallery-mutate",
+      tool: 'gallery-mutate',
       base: {
         ...refreshedParams,
         ...(details.wardrobeId
@@ -186,7 +179,7 @@ export async function queueMutatedGalleryJobs(input: {
           prompt,
           negativePrompt,
           model: String(model),
-          tool: "gallery-mutate",
+          tool: 'gallery-mutate',
           params,
           comfy: runtime,
         },
@@ -213,7 +206,7 @@ export async function queueMutatedGalleryJobs(input: {
       promptId: queuedJob.promptId,
       prompt,
       negativePrompt,
-      tool: "gallery-mutate",
+      tool: 'gallery-mutate',
       model,
       comfyUrl: queuedJob.comfyUrl ?? input.entry.comfyUrl,
       clientId: queuedJob.clientId,

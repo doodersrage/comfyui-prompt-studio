@@ -1,137 +1,130 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import SharedToolControls from "@/components/SharedToolControls";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import type { WorkflowParamValues } from "@/lib/comfyui-config";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { DEFAULT_CONTROLNET_TOOL_CACHE } from "@/lib/settings-cache";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import {
-  normalizeControlNetMode,
-  type ControlNetMode,
-} from "@/lib/controlnet-prompt";
+import { useCallback, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import SharedToolControls from '@/components/SharedToolControls';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import type { WorkflowParamValues } from '@/lib/comfyui-config';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { DEFAULT_CONTROLNET_TOOL_CACHE } from '@/lib/settings-cache';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { normalizeControlNetMode, type ControlNetMode } from '@/lib/controlnet-prompt';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldLabel } from "@/components/ui/Field";
-import { Button, PrimaryButton } from "@/components/ui/Button";
+} from '@/components/ui/ToolPageShell';
+import { FieldLabel } from '@/components/ui/Field';
+import { Button, PrimaryButton } from '@/components/ui/Button';
 
-const ACCENT = "cyan" as const;
+const ACCENT = 'cyan' as const;
 
 const MODES: { id: ControlNetMode; label: string }[] = [
-  { id: "depth", label: "Depth" },
-  { id: "pose", label: "Pose" },
-  { id: "canny", label: "Canny / edges" },
-  { id: "normal", label: "Normal map" },
-  { id: "lineart", label: "Lineart" },
+  { id: 'depth', label: 'Depth' },
+  { id: 'pose', label: 'Pose' },
+  { id: 'canny', label: 'Canny / edges' },
+  { id: 'normal', label: 'Normal map' },
+  { id: 'lineart', label: 'Lineart' },
 ];
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Could not read image file."));
+    reader.onerror = () => reject(new Error('Could not read image file.'));
     reader.readAsDataURL(file);
   });
 }
 
 export default function ControlNetTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("controlnet", DEFAULT_CONTROLNET_TOOL_CACHE);
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'controlnet',
+    DEFAULT_CONTROLNET_TOOL_CACHE
+  );
   const actions = usePromptResultActions({
-    tool: "controlnet",
+    tool: 'controlnet',
     model: shared.model,
     detail: shared.detail,
-    hints: "",
+    hints: '',
     autoFixRules: shared.autoFixRules !== false,
     reformatTarget: getReformatTargetModel(shared.model),
   });
 
   const mode = normalizeControlNetMode(toolSettings.mode);
-  const subject = toolSettings.subject ?? "";
-  const scene = toolSettings.scene ?? "";
-  const detailNotes = toolSettings.detailNotes ?? "";
+  const subject = toolSettings.subject ?? '';
+  const scene = toolSettings.scene ?? '';
+  const detailNotes = toolSettings.detailNotes ?? '';
   const setMode = useCallback(
     (value: ControlNetMode) => updateToolSettings({ mode: value }),
-    [updateToolSettings],
+    [updateToolSettings]
   );
   const setSubject = useCallback(
     (value: string) => {
       updateToolSettings({ subject: value });
       rememberDraftFields({
-        toolKey: "controlnet",
-        label: "ControlNet",
-        href: "/controlnet",
+        toolKey: 'controlnet',
+        label: 'ControlNet',
+        href: '/controlnet',
         fields: [value, scene, detailNotes],
       });
     },
-    [detailNotes, scene, updateToolSettings],
+    [detailNotes, scene, updateToolSettings]
   );
   const setScene = useCallback(
     (value: string) => {
       updateToolSettings({ scene: value });
       rememberDraftFields({
-        toolKey: "controlnet",
-        label: "ControlNet",
-        href: "/controlnet",
+        toolKey: 'controlnet',
+        label: 'ControlNet',
+        href: '/controlnet',
         fields: [subject, value, detailNotes],
       });
     },
-    [detailNotes, subject, updateToolSettings],
+    [detailNotes, subject, updateToolSettings]
   );
   const setDetailNotes = useCallback(
     (value: string) => {
       updateToolSettings({ detailNotes: value });
       rememberDraftFields({
-        toolKey: "controlnet",
-        label: "ControlNet",
-        href: "/controlnet",
+        toolKey: 'controlnet',
+        label: 'ControlNet',
+        href: '/controlnet',
         fields: [subject, scene, value],
       });
     },
-    [scene, subject, updateToolSettings],
+    [scene, subject, updateToolSettings]
   );
   useSeedToolDraft(mounted, {
-    toolKey: "controlnet",
-    label: "ControlNet",
-    href: "/controlnet",
+    toolKey: 'controlnet',
+    label: 'ControlNet',
+    href: '/controlnet',
     fields: [subject, scene, detailNotes],
   });
   const [refFile, setRefFile] = useState<File | null>(null);
   const [refPreview, setRefPreview] = useState<string | null>(null);
-  const [extraRefFiles, setExtraRefFiles] = useState<Array<File | null>>([
-    null,
-    null,
-    null,
-  ]);
+  const [extraRefFiles, setExtraRefFiles] = useState<Array<File | null>>([null, null, null]);
   const [extraRefPreviews, setExtraRefPreviews] = useState<Array<string | null>>([
     null,
     null,
     null,
   ]);
-  const [output, setOutput] = useState("");
+  const [output, setOutput] = useState('');
   const [rawPrompt, setRawPrompt] = useState<string | undefined>();
-  const [source, setSource] = useState<"text" | "vision" | null>(null);
+  const [source, setSource] = useState<'text' | 'vision' | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [handoffQueueParams, setHandoffQueueParams] = useState<
-    WorkflowParamValues | undefined
-  >();
+  const [handoffQueueParams, setHandoffQueueParams] = useState<WorkflowParamValues | undefined>();
 
   const selectedModel = getComfyModelDefinition(shared.model);
-  const hintText = [subject, scene, detailNotes].filter(Boolean).join(" · ");
+  const hintText = [subject, scene, detailNotes].filter(Boolean).join(' · ');
 
   const onRefChange = useCallback(
     (file: File | null) => {
@@ -141,27 +134,24 @@ export default function ControlNetTool() {
       setRefFile(file);
       setRefPreview(file ? URL.createObjectURL(file) : null);
     },
-    [refPreview],
+    [refPreview]
   );
 
-  const onExtraRefChange = useCallback(
-    (index: number, file: File | null) => {
-      setExtraRefPreviews((previous) => {
-        const next = [...previous];
-        if (next[index]) {
-          URL.revokeObjectURL(next[index]!);
-        }
-        next[index] = file ? URL.createObjectURL(file) : null;
-        return next;
-      });
-      setExtraRefFiles((previous) => {
-        const next = [...previous];
-        next[index] = file;
-        return next;
-      });
-    },
-    [],
-  );
+  const onExtraRefChange = useCallback((index: number, file: File | null) => {
+    setExtraRefPreviews(previous => {
+      const next = [...previous];
+      if (next[index]) {
+        URL.revokeObjectURL(next[index]!);
+      }
+      next[index] = file ? URL.createObjectURL(file) : null;
+      return next;
+    });
+    setExtraRefFiles(previous => {
+      const next = [...previous];
+      next[index] = file;
+      return next;
+    });
+  }, []);
 
   const applyGalleryHandoff = useCallback(
     (handoff: {
@@ -183,10 +173,10 @@ export default function ControlNetTool() {
         setRefPreview(handoff.previewUrl);
       }
     },
-    [onRefChange, updateShared],
+    [onRefChange, updateShared]
   );
 
-  useGalleryHandoff("controlnet", applyGalleryHandoff);
+  useGalleryHandoff('controlnet', applyGalleryHandoff);
 
   const generate = useCallback(async () => {
     setLoading(true);
@@ -205,36 +195,36 @@ export default function ControlNetTool() {
       };
       if (refFile) {
         payload.image = await fileToDataUrl(refFile);
-        payload.mimeType = refFile.type || "image/jpeg";
+        payload.mimeType = refFile.type || 'image/jpeg';
       }
 
-      const response = await fetch("/api/controlnet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/controlnet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = (await response.json()) as {
         prompt?: string;
         error?: string;
-        source?: "text" | "vision";
+        source?: 'text' | 'vision';
       };
       if (!response.ok) {
-        throw new Error(data.error ?? "ControlNet prompt failed.");
+        throw new Error(data.error ?? 'ControlNet prompt failed.');
       }
 
-      const serverPrompt = data.prompt ?? "";
+      const serverPrompt = data.prompt ?? '';
       const prompt = await actions.finalizePrompt(serverPrompt, hintText);
       setRawPrompt(
         serverPrompt.trim() && serverPrompt.trim() !== prompt.trim()
           ? serverPrompt.trim()
-          : undefined,
+          : undefined
       );
       setOutput(prompt);
-      setSource(data.source ?? (refFile ? "vision" : "text"));
+      setSource(data.source ?? (refFile ? 'vision' : 'text'));
     } catch (err) {
-      setOutput("");
+      setOutput('');
       setRawPrompt(undefined);
-      setError(err instanceof Error ? err.message : "ControlNet prompt failed.");
+      setError(err instanceof Error ? err.message : 'ControlNet prompt failed.');
     } finally {
       setLoading(false);
     }
@@ -249,7 +239,7 @@ export default function ControlNetTool() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
@@ -263,23 +253,23 @@ export default function ControlNetTool() {
         <SharedToolControls
           toolId="controlnet"
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detailLevel) => updateShared({ detail: detailLevel })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detailLevel => updateShared({ detail: detailLevel })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           autoFixRules={shared.autoFixRules !== false}
-          onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
           recommendFromText={output || subject || scene}
         />
       }
     >
       <ToolSection title="Conditioning mode">
         <div className="flex flex-wrap gap-2">
-          {MODES.map((entry) => (
+          {MODES.map(entry => (
             <button
               key={entry.id}
               type="button"
               onClick={() => setMode(entry.id)}
-              className={`ui-chip ${mode === entry.id ? "ui-chip-active" : ""}`}
+              className={`ui-chip ${mode === entry.id ? 'ui-chip-active' : ''}`}
             >
               {entry.label}
             </button>
@@ -291,7 +281,7 @@ export default function ControlNetTool() {
         <input
           type="file"
           accept="image/*"
-          onChange={(event) => onRefChange(event.target.files?.[0] ?? null)}
+          onChange={event => onRefChange(event.target.files?.[0] ?? null)}
           className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-700 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
         />
         {refPreview ? (
@@ -308,7 +298,8 @@ export default function ControlNetTool() {
           </div>
         ) : (
           <p className="mt-2 text-xs text-zinc-500">
-            When uploaded, vision extracts structure and merges it with the selected ControlNet mode.
+            When uploaded, vision extracts structure and merges it with the selected ControlNet
+            mode.
           </p>
         )}
         <p className="mt-4 text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -318,15 +309,13 @@ export default function ControlNetTool() {
           Optional second–fourth images append additional ControlNetApply chains at queue time.
         </p>
         <div className="mt-2 grid gap-3 sm:grid-cols-3">
-          {[0, 1, 2].map((index) => (
+          {[0, 1, 2].map(index => (
             <div key={index} className="space-y-2">
               <FieldLabel>Control {index + 2}</FieldLabel>
               <input
                 type="file"
                 accept="image/*"
-                onChange={(event) =>
-                  onExtraRefChange(index, event.target.files?.[0] ?? null)
-                }
+                onChange={event => onExtraRefChange(index, event.target.files?.[0] ?? null)}
                 className="block w-full text-xs text-zinc-400 file:mr-2 file:rounded-md file:border-0 file:bg-zinc-800 file:px-2 file:py-1.5 file:text-xs file:text-zinc-200"
               />
               {extraRefPreviews[index] ? (
@@ -349,7 +338,7 @@ export default function ControlNetTool() {
             <textarea
               id="controlnet-subject"
               value={subject}
-              onChange={(event) => setSubject(event.target.value)}
+              onChange={event => setSubject(event.target.value)}
               rows={4}
               className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${accentFocusClass(ACCENT)}`}
               placeholder="e.g. woman standing, weight on left leg, arms crossed — or leave blank when using image"
@@ -360,7 +349,7 @@ export default function ControlNetTool() {
             <input
               id="controlnet-scene"
               value={scene}
-              onChange={(event) => setScene(event.target.value)}
+              onChange={event => setScene(event.target.value)}
               className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
               placeholder="e.g. narrow alley, low camera angle"
             />
@@ -370,7 +359,7 @@ export default function ControlNetTool() {
             <input
               id="controlnet-detail"
               value={detailNotes}
-              onChange={(event) => setDetailNotes(event.target.value)}
+              onChange={event => setDetailNotes(event.target.value)}
               className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
             />
           </div>
@@ -389,14 +378,12 @@ export default function ControlNetTool() {
 
       {output ? (
         <>
-          {source === "vision" ? (
-            <p className="text-xs text-cyan-300/80">
-              Generated from reference image + {mode} mode
-            </p>
+          {source === 'vision' ? (
+            <p className="text-xs text-cyan-300/80">Generated from reference image + {mode} mode</p>
           ) : null}
           <EnhancedPromptResult
             output={output}
-            provider={source === "vision" ? "llm" : "rules"}
+            provider={source === 'vision' ? 'llm' : 'rules'}
             comfyNode={selectedModel.comfyNode}
             readinessModel={shared.model}
             readinessDetail={shared.detail}
@@ -421,9 +408,7 @@ export default function ControlNetTool() {
             onCompact={() => void actions.compactPrompt(output, setOutput)}
             onReformat={() => void actions.reformatForModel(output, setOutput)}
             reformatTargetLabel={getReformatTargetLabel(shared.model)}
-            onExportSidecar={() =>
-              actions.exportSidecar(output, { metadata: { hints: hintText } })
-            }
+            onExportSidecar={() => actions.exportSidecar(output, { metadata: { hints: hintText } })}
             {...promptResultPreviewProps(actions, output, null)}
             comfyUiStatus={actions.comfyUiStatus}
             comfyUiJob={actions.comfyUiJob}

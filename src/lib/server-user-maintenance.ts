@@ -1,12 +1,9 @@
-import "server-only";
+import 'server-only';
 
-import { listUsersWithCampaigns, updateUserProfile } from "./auth/store";
-import { runUserCampaignWithBestOfN } from "./best-of-n-server";
-import {
-  readUserServerStorage,
-  writeUserExportSnapshot,
-} from "./user-server-storage";
-import type { UserScheduledCampaign } from "./auth/types";
+import { listUsersWithCampaigns, updateUserProfile } from './auth/store';
+import { runUserCampaignWithBestOfN } from './best-of-n-server';
+import { readUserServerStorage, writeUserExportSnapshot } from './user-server-storage';
+import type { UserScheduledCampaign } from './auth/types';
 
 function shouldRunCampaign(campaign: UserScheduledCampaign, now = Date.now()): boolean {
   if (!campaign.enabled) {
@@ -31,7 +28,7 @@ export async function runServerUserMaintenance(): Promise<{
 
     const result = await runUserCampaignWithBestOfN(campaign);
     writeUserExportSnapshot(user.id, user.username, {
-      type: "campaign-run",
+      type: 'campaign-run',
       exportedAt: Date.now(),
       prompts: result.prompts,
       queued: result.queued,
@@ -44,24 +41,24 @@ export async function runServerUserMaintenance(): Promise<{
     });
     campaignsRun += 1;
 
-    const { notifyBatchCompleted } = await import("./email/notifications");
+    const { notifyBatchCompleted } = await import('./email/notifications');
     await notifyBatchCompleted({
       userId: user.id,
       username: user.username,
-      kind: "user-campaign",
+      kind: 'user-campaign',
       promptCount: result.prompts.length,
       queued: result.queued,
       ranked: result.ranked,
     });
   }
 
-  const { listUsers } = await import("./auth/store");
+  const { listUsers } = await import('./auth/store');
   for (const user of listUsers()) {
     if (!user.exportEnabled) {
       continue;
     }
-    const history = readUserServerStorage<unknown>(user.id, "prompt-history");
-    const gallery = readUserServerStorage<unknown>(user.id, "comfy-gallery");
+    const history = readUserServerStorage<unknown>(user.id, 'prompt-history');
+    const gallery = readUserServerStorage<unknown>(user.id, 'comfy-gallery');
     if (!history && !gallery) {
       continue;
     }

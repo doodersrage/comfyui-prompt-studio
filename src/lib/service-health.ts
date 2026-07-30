@@ -1,14 +1,14 @@
-import { getComfyUiBaseUrl } from "./comfyui-client";
-import type { ComfyUiRuntimeConfig } from "./comfyui-config";
-import { parseComfyUiPool, setComfyUiPoolStatsCache } from "./comfyui-pool";
-import { getDiffusersBaseUrl } from "./diffusers-client";
+import { getComfyUiBaseUrl } from './comfyui-client';
+import type { ComfyUiRuntimeConfig } from './comfyui-config';
+import { parseComfyUiPool, setComfyUiPoolStatsCache } from './comfyui-pool';
+import { getDiffusersBaseUrl } from './diffusers-client';
 import {
   getLlmConfig,
   getLlmInflightCount,
   getLlmMaxInflight,
   isLlmBusy,
   isLlmEnabled,
-} from "./llm-client";
+} from './llm-client';
 
 export type LlmHealth = {
   ok: boolean;
@@ -61,7 +61,7 @@ type ComfySystemStats = {
 };
 
 export async function getExpandedComfyUiHealth(
-  runtime?: ComfyUiRuntimeConfig,
+  runtime?: ComfyUiRuntimeConfig
 ): Promise<ComfyUiHealth> {
   const base = await checkComfyUiHealth(runtime);
   if (!base.ok) {
@@ -70,12 +70,12 @@ export async function getExpandedComfyUiHealth(
 
   let queuePending: number | undefined;
   let queueRunning: number | undefined;
-  let vram: ComfyUiHealth["vram"];
+  let vram: ComfyUiHealth['vram'];
 
   try {
     const [queueResponse, statsResponse] = await Promise.all([
-      fetch(`${base.url}/queue`, { signal: AbortSignal.timeout(5000), redirect: "manual" }),
-      fetch(`${base.url}/system_stats`, { signal: AbortSignal.timeout(5000), redirect: "manual" }),
+      fetch(`${base.url}/queue`, { signal: AbortSignal.timeout(5000), redirect: 'manual' }),
+      fetch(`${base.url}/system_stats`, { signal: AbortSignal.timeout(5000), redirect: 'manual' }),
     ]);
 
     if (queueResponse.ok) {
@@ -109,7 +109,7 @@ export async function checkLlmHealth(): Promise<LlmHealth> {
       model: config.model,
       visionModel: config.visionModel,
       baseUrl: config.baseUrl,
-      error: "LLM_ENABLED=false",
+      error: 'LLM_ENABLED=false',
       inFlight,
       maxInflight,
       busy,
@@ -153,7 +153,7 @@ export async function checkLlmHealth(): Promise<LlmHealth> {
       model: config.model,
       visionModel: config.visionModel,
       baseUrl: config.baseUrl,
-      error: error instanceof Error ? error.message : "LLM unreachable",
+      error: error instanceof Error ? error.message : 'LLM unreachable',
       inFlight,
       maxInflight,
       busy,
@@ -161,24 +161,22 @@ export async function checkLlmHealth(): Promise<LlmHealth> {
   }
 }
 
-export async function checkComfyUiHealth(
-  runtime?: ComfyUiRuntimeConfig,
-): Promise<ComfyUiHealth> {
+export async function checkComfyUiHealth(runtime?: ComfyUiRuntimeConfig): Promise<ComfyUiHealth> {
   let url: string;
   try {
     url = getComfyUiBaseUrl(runtime);
   } catch (error) {
     return {
       ok: false,
-      url: runtime?.apiUrl?.trim() || "",
-      error: error instanceof Error ? error.message : "Invalid ComfyUI URL",
+      url: runtime?.apiUrl?.trim() || '',
+      error: error instanceof Error ? error.message : 'Invalid ComfyUI URL',
     };
   }
 
   try {
     const response = await fetch(`${url}/system_stats`, {
       signal: AbortSignal.timeout(8000),
-      redirect: "manual",
+      redirect: 'manual',
     });
 
     if (!response.ok) {
@@ -190,29 +188,27 @@ export async function checkComfyUiHealth(
     return {
       ok: false,
       url,
-      error: error instanceof Error ? error.message : "ComfyUI unreachable",
+      error: error instanceof Error ? error.message : 'ComfyUI unreachable',
     };
   }
 }
 
-export async function checkDiffusersHealth(
-  engineUrlHint?: string,
-): Promise<DiffusersHealth> {
+export async function checkDiffusersHealth(engineUrlHint?: string): Promise<DiffusersHealth> {
   let url: string;
   try {
     url = getDiffusersBaseUrl(engineUrlHint);
   } catch (error) {
     return {
       ok: false,
-      url: engineUrlHint?.trim() || "",
-      error: error instanceof Error ? error.message : "Invalid Diffusers URL",
+      url: engineUrlHint?.trim() || '',
+      error: error instanceof Error ? error.message : 'Invalid Diffusers URL',
     };
   }
 
   try {
     const response = await fetch(`${url}/v1/health`, {
       signal: AbortSignal.timeout(8000),
-      redirect: "manual",
+      redirect: 'manual',
     });
     if (!response.ok) {
       return { ok: false, url, error: `HTTP ${response.status}` };
@@ -226,15 +222,15 @@ export async function checkDiffusersHealth(
     return {
       ok: raw.ok !== false,
       url,
-      device: typeof raw.device === "string" ? raw.device : undefined,
-      model: typeof raw.model === "string" ? raw.model : undefined,
+      device: typeof raw.device === 'string' ? raw.device : undefined,
+      model: typeof raw.model === 'string' ? raw.model : undefined,
       mock: Boolean(raw.mock),
     };
   } catch (error) {
     return {
       ok: false,
       url,
-      error: error instanceof Error ? error.message : "Diffusers unreachable",
+      error: error instanceof Error ? error.message : 'Diffusers unreachable',
     };
   }
 }
@@ -250,19 +246,19 @@ export async function checkComfyUiPoolHealth(): Promise<ComfyUiPoolHealth> {
       const health = await checkComfyUiHealth({ apiUrl: url });
       const expanded = health.ok ? await getExpandedComfyUiHealth({ apiUrl: url }) : health;
       return { ...expanded, index };
-    }),
+    })
   );
 
   // Feed the VRAM-aware pool pick cache in comfyui-pool.ts so getComfyUiBaseUrl()
   // can prefer the healthiest/most-free-VRAM endpoint on the next request.
   setComfyUiPoolStatsCache(
-    endpoints.map((endpoint) => ({
+    endpoints.map(endpoint => ({
       url: endpoint.url,
       ok: endpoint.ok,
       vram: endpoint.vram,
       queuePending: endpoint.queuePending,
       queueRunning: endpoint.queueRunning,
-    })),
+    }))
   );
 
   return { enabled: true, endpoints };

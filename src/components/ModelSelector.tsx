@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
+import { useMemo, useState } from 'react';
 import {
   COMFY_IMAGE_MODELS,
   COMFY_MODEL_CATEGORIES,
   type ComfyImageModel,
   type ComfyModelCategory,
-} from "@/lib/comfy-models/client";
-import { EmptyState } from "@/components/ui/ViewState";
+} from '@/lib/comfy-models/client';
+import { EmptyState } from '@/components/ui/ViewState';
 
 type ModelSelectorProps = {
   value: ComfyImageModel;
@@ -26,20 +26,20 @@ export default function ModelSelector({
   filterHint,
   onShowAllModels,
 }: ModelSelectorProps) {
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<ComfyModelCategory | "all">("all");
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<ComfyModelCategory | 'all'>('all');
 
   const catalog = useMemo(() => {
     if (!allowedModels?.length) {
       return COMFY_IMAGE_MODELS;
     }
     const allowed = new Set(allowedModels);
-    return COMFY_IMAGE_MODELS.filter((entry) => allowed.has(entry.id));
+    return COMFY_IMAGE_MODELS.filter(entry => allowed.has(entry.id));
   }, [allowedModels]);
 
   const visibleCategories = useMemo(() => {
-    const categoryIds = new Set(catalog.map((entry) => entry.category));
-    return COMFY_MODEL_CATEGORIES.filter((entry) => categoryIds.has(entry.id));
+    const categoryIds = new Set(catalog.map(entry => entry.category));
+    return COMFY_MODEL_CATEGORIES.filter(entry => categoryIds.has(entry.id));
   }, [catalog]);
 
   const modelsByCategory = useMemo(() => {
@@ -51,15 +51,14 @@ export default function ModelSelector({
   }, [catalog]);
 
   const effectiveCategory =
-    category !== "all" &&
-    !visibleCategories.some((entry) => entry.id === category)
-      ? "all"
+    category !== 'all' && !visibleCategories.some(entry => entry.id === category)
+      ? 'all'
       : category;
 
   const filteredModels = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return catalog.filter((entry) => {
-      if (effectiveCategory !== "all" && entry.category !== effectiveCategory) {
+    return catalog.filter(entry => {
+      if (effectiveCategory !== 'all' && entry.category !== effectiveCategory) {
         return false;
       }
       if (!normalizedQuery) {
@@ -75,15 +74,12 @@ export default function ModelSelector({
   }, [catalog, effectiveCategory, query]);
 
   const selected = useMemo(
-    () =>
-      COMFY_IMAGE_MODELS.find((entry) => entry.id === value) ??
-      COMFY_IMAGE_MODELS[0]!,
-    [value],
+    () => COMFY_IMAGE_MODELS.find(entry => entry.id === value) ?? COMFY_IMAGE_MODELS[0]!,
+    [value]
   );
 
   const filteringActive =
-    Boolean(allowedModels?.length) &&
-    allowedModels!.length < COMFY_IMAGE_MODELS.length;
+    Boolean(allowedModels?.length) && allowedModels!.length < COMFY_IMAGE_MODELS.length;
 
   return (
     <div className="space-y-3" id={id}>
@@ -105,21 +101,19 @@ export default function ModelSelector({
         <input
           type="search"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={e => setQuery(e.target.value)}
           placeholder="Search models by name, id, or node…"
           aria-label="Search ComfyUI models"
           className="ui-input min-h-11 w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body-lg"
         />
         <select
           value={effectiveCategory}
-          onChange={(e) =>
-            setCategory(e.target.value as ComfyModelCategory | "all")
-          }
+          onChange={e => setCategory(e.target.value as ComfyModelCategory | 'all')}
           aria-label="Filter by model family"
           className="ui-input min-h-11 w-full px-3 py-[var(--input-padding-y)] type-body"
         >
           <option value="all">All families ({catalog.length})</option>
-          {visibleCategories.map((entry) => (
+          {visibleCategories.map(entry => (
             <option key={entry.id} value={entry.id}>
               {entry.label} ({modelsByCategory.get(entry.id) ?? 0})
             </option>
@@ -128,13 +122,12 @@ export default function ModelSelector({
       </div>
 
       <p className="type-caption">
-        {filteredModels.length} model{filteredModels.length === 1 ? "" : "s"}
-        {effectiveCategory !== "all" &&
-          ` in ${visibleCategories.find((entry) => entry.id === effectiveCategory)?.label ?? effectiveCategory}`}
-        {query.trim() ? ` matching “${query.trim()}”` : ""}
-        {" · "}
-        Selected:{" "}
-        <span className="text-[var(--text-secondary)]">{selected.label}</span>
+        {filteredModels.length} model{filteredModels.length === 1 ? '' : 's'}
+        {effectiveCategory !== 'all' &&
+          ` in ${visibleCategories.find(entry => entry.id === effectiveCategory)?.label ?? effectiveCategory}`}
+        {query.trim() ? ` matching “${query.trim()}”` : ''}
+        {' · '}
+        Selected: <span className="text-[var(--text-secondary)]">{selected.label}</span>
       </p>
 
       <div className="sidebar-scroll max-h-80 space-y-2 overflow-y-auto pr-1">
@@ -145,30 +138,28 @@ export default function ModelSelector({
             title="No models match"
             description="Try a shorter search term or switch back to All categories."
             action={{
-              label: "Clear search",
+              label: 'Clear search',
               onClick: () => {
-                setQuery("");
-                setCategory("all");
+                setQuery('');
+                setCategory('all');
               },
             }}
           />
         ) : (
-          filteredModels.map((entry) => (
+          filteredModels.map(entry => (
             <button
               key={entry.id}
               type="button"
               onClick={() => onChange(entry.id)}
-              data-active={value === entry.id ? "true" : "false"}
+              data-active={value === entry.id ? 'true' : 'false'}
               className={`ui-chip w-full px-4 py-3 text-left ${
-                value === entry.id ? "" : "!items-start"
+                value === entry.id ? '' : '!items-start'
               }`}
             >
               <div className="flex w-full flex-wrap items-center justify-between gap-2">
                 <span
                   className={`type-heading ${
-                    value === entry.id
-                      ? "text-[var(--accent-text)]"
-                      : "text-[var(--text-primary)]"
+                    value === entry.id ? 'text-[var(--accent-text)]' : 'text-[var(--text-primary)]'
                   }`}
                 >
                   {entry.label}

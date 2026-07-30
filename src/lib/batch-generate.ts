@@ -1,8 +1,8 @@
-import { generateCharacterPrompt } from "./specialized/character-generator";
-import { enrichGenerateResult } from "./generation-diagnostics";
-import { readClothingIdsFromMetadata } from "./recent-clothing";
-import { readSceneLocationFromMetadata } from "./recent-locations";
-import type { CharacterOptions, ToolGenerateResult } from "./specialized/types";
+import { generateCharacterPrompt } from './specialized/character-generator';
+import { enrichGenerateResult } from './generation-diagnostics';
+import { readClothingIdsFromMetadata } from './recent-clothing';
+import { readSceneLocationFromMetadata } from './recent-locations';
+import type { CharacterOptions, ToolGenerateResult } from './specialized/types';
 
 export type BatchGenerateOptions = CharacterOptions & {
   count?: number;
@@ -10,17 +10,19 @@ export type BatchGenerateOptions = CharacterOptions & {
 };
 
 export type BatchGenerateResult = {
-  results: Array<ToolGenerateResult & { diagnostics: ReturnType<typeof enrichGenerateResult>["diagnostics"] }>;
+  results: Array<
+    ToolGenerateResult & { diagnostics: ReturnType<typeof enrichGenerateResult>['diagnostics'] }
+  >;
   count: number;
 };
 
 export async function batchGenerateCharacter(
-  options: BatchGenerateOptions,
+  options: BatchGenerateOptions
 ): Promise<BatchGenerateResult> {
   const count = Math.min(Math.max(options.count ?? 3, 1), 12);
   const recentLocations = [...(options.recentLocations ?? [])];
   const recentClothing = [...(options.recentClothing ?? [])];
-  const results: BatchGenerateResult["results"] = [];
+  const results: BatchGenerateResult['results'] = [];
 
   for (let index = 0; index < count; index += 1) {
     const result = await generateCharacterPrompt({

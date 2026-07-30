@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import type { PromptDiagnostics } from "@/lib/prompt-diagnostics";
-import { summarizeDiagnostics } from "@/lib/generation-diagnostics";
+import type { PromptDiagnostics } from '@/lib/prompt-diagnostics';
+import { summarizeDiagnostics } from '@/lib/generation-diagnostics';
 
 type PromptDiagnosticsPanelProps = {
   diagnostics: PromptDiagnostics | null;
@@ -9,9 +9,9 @@ type PromptDiagnosticsPanelProps = {
 };
 
 const severityStyles = {
-  error: "border-rose-500/40 bg-rose-500/10 text-rose-200",
-  warn: "border-amber-500/40 bg-amber-500/10 text-amber-200",
-  info: "border-sky-500/40 bg-sky-500/10 text-sky-200",
+  error: 'border-rose-500/40 bg-rose-500/10 text-rose-200',
+  warn: 'border-amber-500/40 bg-amber-500/10 text-amber-200',
+  info: 'border-sky-500/40 bg-sky-500/10 text-sky-200',
 } as const;
 
 export default function PromptDiagnosticsPanel({
@@ -70,7 +70,7 @@ export default function PromptDiagnosticsPanel({
 
       {diagnostics.issues.length > 0 && (
         <ul className="space-y-2">
-          {diagnostics.issues.map((issue) => (
+          {diagnostics.issues.map(issue => (
             <li
               key={issue.code}
               className={`rounded-lg border px-3 py-2 text-xs ${severityStyles[issue.severity]}`}
@@ -83,7 +83,7 @@ export default function PromptDiagnosticsPanel({
 
       {diagnostics.suggestions.length > 0 && (
         <ul className="space-y-1 text-xs text-zinc-500">
-          {diagnostics.suggestions.map((suggestion) => (
+          {diagnostics.suggestions.map(suggestion => (
             <li key={suggestion}>• {suggestion}</li>
           ))}
         </ul>

@@ -1,4 +1,4 @@
-export type ComposeSceneStyle = "layered" | "inline";
+export type ComposeSceneStyle = 'layered' | 'inline';
 
 export function composeScenePrompt(input: {
   backgroundPrompt: string;
@@ -15,10 +15,10 @@ export function composeScenePrompt(input: {
     return background;
   }
 
-  if (input.style === "inline") {
+  if (input.style === 'inline') {
     return `${subject} ${background.charAt(0).toLowerCase()}${background.slice(1)}`.replace(
       /\s+/g,
-      " ",
+      ' '
     );
   }
 

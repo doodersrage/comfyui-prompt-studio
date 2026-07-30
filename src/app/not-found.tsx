@@ -18,9 +18,9 @@ export default function NotFound() {
           icon="alert"
           title="Page not found"
           description="The page you're looking for doesn't exist or has been moved."
-          action={{ 
-            label: "Go home", 
-            onClick: () => window.location.href = '/' 
+          action={{
+            label: 'Go home',
+            onClick: () => (window.location.href = '/'),
           }}
         />
       </div>

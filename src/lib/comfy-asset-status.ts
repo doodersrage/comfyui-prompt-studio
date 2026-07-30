@@ -3,13 +3,13 @@ import {
   assetIsDownloadable,
   catalogAssetsForModel,
   type ComfyCatalogAsset,
-} from "./comfy-asset-catalog";
+} from './comfy-asset-catalog';
 import {
   assetFileExistsOnDisk,
   canWriteComfyModelsRoot,
   getComfyUiRoot,
   type ComfyAssetKind,
-} from "./comfy-asset-paths";
+} from './comfy-asset-paths';
 
 export type ComfyAssetInventory = {
   checkpoints?: string[];
@@ -21,11 +21,7 @@ export type ComfyAssetInventory = {
   controlNets?: string[];
 };
 
-export type ComfyAssetStatus =
-  | "installed"
-  | "missing"
-  | "docs-only"
-  | "root-missing";
+export type ComfyAssetStatus = 'installed' | 'missing' | 'docs-only' | 'root-missing';
 
 export type ComfyAssetStatusRow = {
   id: string;
@@ -44,42 +40,39 @@ export type ComfyAssetStatusRow = {
 
 function inventoryListForKind(
   inventory: ComfyAssetInventory | null | undefined,
-  kind: ComfyAssetKind,
+  kind: ComfyAssetKind
 ): string[] {
   if (!inventory) {
     return [];
   }
   switch (kind) {
-    case "checkpoint":
-    case "refiner":
+    case 'checkpoint':
+    case 'refiner':
       return inventory.checkpoints ?? [];
-    case "unet":
+    case 'unet':
       return inventory.unets ?? [];
-    case "vae":
+    case 'vae':
       return inventory.vaes ?? [];
-    case "lora":
+    case 'lora':
       return inventory.loras ?? [];
-    case "upscale":
+    case 'upscale':
       return inventory.upscaleModels ?? [];
-    case "clip":
+    case 'clip':
       return inventory.clips ?? [];
-    case "controlnet":
+    case 'controlnet':
       return inventory.controlNets ?? [];
     default:
       return [];
   }
 }
 
-export function inventoryHasFilename(
-  list: string[],
-  filename: string,
-): boolean {
+export function inventoryHasFilename(list: string[], filename: string): boolean {
   const trimmed = filename.trim();
   if (!trimmed) {
     return false;
   }
   const base = trimmed.split(/[/\\]/).pop() ?? trimmed;
-  return list.some((entry) => {
+  return list.some(entry => {
     const item = entry.trim();
     if (!item) {
       return false;
@@ -105,12 +98,11 @@ export function buildComfyAssetStatusRows(input?: {
   const root = input?.root !== undefined ? input.root : getComfyUiRoot();
   const rootConfigured = Boolean(root);
   const rootWritable = canWriteComfyModelsRoot(root);
-  const catalog =
-    input?.modelId?.trim()
-      ? catalogAssetsForModel(input.modelId)
-      : (input?.catalog ?? COMFY_ASSET_CATALOG);
+  const catalog = input?.modelId?.trim()
+    ? catalogAssetsForModel(input.modelId)
+    : (input?.catalog ?? COMFY_ASSET_CATALOG);
 
-  const rows = catalog.map((asset) => {
+  const rows = catalog.map(asset => {
     const list = inventoryListForKind(input?.inventory, asset.kind);
     const inInventory = inventoryHasFilename(list, asset.filename);
     const onDisk =
@@ -124,13 +116,13 @@ export function buildComfyAssetStatusRows(input?: {
     const downloadable = assetIsDownloadable(asset);
     let status: ComfyAssetStatus;
     if (inInventory || onDisk) {
-      status = "installed";
+      status = 'installed';
     } else if (!rootConfigured) {
-      status = downloadable ? "root-missing" : "docs-only";
+      status = downloadable ? 'root-missing' : 'docs-only';
     } else if (!downloadable) {
-      status = "docs-only";
+      status = 'docs-only';
     } else {
-      status = "missing";
+      status = 'missing';
     }
 
     let urlHost: string | undefined;

@@ -1,22 +1,17 @@
-import { applyLockedLocation } from "./locked-location";
-import { enrichGenerateResult } from "./generation-diagnostics";
-import { normalizeGenerationSettings } from "./generation-settings";
-import { generatePrompt } from "./prompt-generator";
-import { generateBackgroundPrompt } from "./specialized/background-generator";
-import { generateCharacterPrompt } from "./specialized/character-generator";
-import { generateFantasyPrompt } from "./specialized/fantasy-generator";
-import { generatePetPrompt } from "./specialized/pet-generator";
-import type { ComfyImageModel } from "./comfy-models/client";
-import type { DetailLevel } from "./detail-level";
-import type { LlmRequestOptions } from "./llm-request-options";
+import { applyLockedLocation } from './locked-location';
+import { enrichGenerateResult } from './generation-diagnostics';
+import { normalizeGenerationSettings } from './generation-settings';
+import { generatePrompt } from './prompt-generator';
+import { generateBackgroundPrompt } from './specialized/background-generator';
+import { generateCharacterPrompt } from './specialized/character-generator';
+import { generateFantasyPrompt } from './specialized/fantasy-generator';
+import { generatePetPrompt } from './specialized/pet-generator';
+import type { ComfyImageModel } from './comfy-models/client';
+import type { DetailLevel } from './detail-level';
+import type { LlmRequestOptions } from './llm-request-options';
 
 export type BatchFromTopicsTarget =
-  | "generate"
-  | "duo"
-  | "character"
-  | "pet"
-  | "fantasy"
-  | "background";
+  'generate' | 'duo' | 'character' | 'pet' | 'fantasy' | 'background';
 
 export type BatchFromTopicsOptions = {
   topics: string[];
@@ -41,7 +36,7 @@ export type BatchFromTopicsOptions = {
 export type BatchFromTopicsItem = {
   topic: string;
   prompt: string;
-  provider: "llm" | "template";
+  provider: 'llm' | 'template';
 };
 
 export type BatchFromTopicsResult = {
@@ -50,10 +45,10 @@ export type BatchFromTopicsResult = {
 };
 
 export async function batchGenerateFromTopics(
-  options: BatchFromTopicsOptions,
+  options: BatchFromTopicsOptions
 ): Promise<BatchFromTopicsResult> {
   const topics = options.topics
-    .map((entry) => entry.trim())
+    .map(entry => entry.trim())
     .filter(Boolean)
     .slice(0, 12);
 
@@ -63,21 +58,21 @@ export async function batchGenerateFromTopics(
 
   for (const topic of topics) {
     const hints = seedLlmWithIngredients
-      ? applyLockedLocation(topic, options.lockedLocation) ?? topic
+      ? (applyLockedLocation(topic, options.lockedLocation) ?? topic)
       : topic;
     const avoidance = {
       avoidedTokens: options.avoidedTokens,
       avoidedTokensInstruction: options.avoidedTokensInstruction,
     };
 
-    if (options.target === "duo") {
+    if (options.target === 'duo') {
       const result = await generateCharacterPrompt({
         model: options.model,
         detail: options.detail,
         hints,
-        portraitStyle: "action",
+        portraitStyle: 'action',
         variationStrength: 50,
-        presetOptions: { headcount: "duo" },
+        presetOptions: { headcount: 'duo' },
         alwaysIncludeClothing: options.alwaysIncludeClothing !== false,
         seedLlmWithIngredients,
         teamKit: options.teamKit === true,
@@ -98,12 +93,12 @@ export async function batchGenerateFromTopics(
       continue;
     }
 
-    if (options.target === "character") {
+    if (options.target === 'character') {
       const result = await generateCharacterPrompt({
         model: options.model,
         detail: options.detail,
         hints,
-        portraitStyle: "portrait",
+        portraitStyle: 'portrait',
         variationStrength: 50,
         alwaysIncludeClothing: options.alwaysIncludeClothing !== false,
         seedLlmWithIngredients,
@@ -121,12 +116,12 @@ export async function batchGenerateFromTopics(
       continue;
     }
 
-    if (options.target === "pet") {
+    if (options.target === 'pet') {
       const result = await generatePetPrompt({
         model: options.model,
         detail: options.detail,
         hints,
-        portraitStyle: "action",
+        portraitStyle: 'action',
         variationStrength: 50,
         lockedLocation: options.lockedLocation,
         variationSeed: options.variationSeed,
@@ -143,12 +138,12 @@ export async function batchGenerateFromTopics(
       continue;
     }
 
-    if (options.target === "fantasy") {
+    if (options.target === 'fantasy') {
       const result = await generateFantasyPrompt({
         model: options.model,
         detail: options.detail,
         hints,
-        portraitStyle: "action",
+        portraitStyle: 'action',
         wildness: 65,
         variationStrength: 50,
         lockedWardrobeId: options.lockedWardrobeId,
@@ -169,7 +164,7 @@ export async function batchGenerateFromTopics(
       continue;
     }
 
-    if (options.target === "background") {
+    if (options.target === 'background') {
       const result = await generateBackgroundPrompt({
         model: options.model,
         detail: options.detail,
@@ -195,7 +190,7 @@ export async function batchGenerateFromTopics(
       seedLlmWithIngredients,
     });
 
-    const result = await generatePrompt(hints, "positive", settings, {
+    const result = await generatePrompt(hints, 'positive', settings, {
       recentClothing: options.recentClothing,
       lockedWardrobeId: options.lockedWardrobeId,
       avoidedTokensInstruction: options.avoidedTokensInstruction,

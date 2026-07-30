@@ -1,5 +1,5 @@
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import { tokenizeForAvoidance } from "./avoidance-options";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { tokenizeForAvoidance } from './avoidance-options';
 
 export type RatedTokenStat = {
   token: string;
@@ -8,22 +8,20 @@ export type RatedTokenStat = {
   score: number;
 };
 
-export function analyzeGalleryRatingTokens(
-  entries: ComfyGalleryEntry[],
-): RatedTokenStat[] {
+export function analyzeGalleryRatingTokens(entries: ComfyGalleryEntry[]): RatedTokenStat[] {
   const map = new Map<string, { high: number; low: number }>();
 
   for (const entry of entries) {
-    if (entry.status !== "completed" || !entry.reviewRating) {
+    if (entry.status !== 'completed' || !entry.reviewRating) {
       continue;
     }
-    const delta = entry.reviewRating >= 4 ? "high" : entry.reviewRating <= 2 ? "low" : null;
+    const delta = entry.reviewRating >= 4 ? 'high' : entry.reviewRating <= 2 ? 'low' : null;
     if (!delta) {
       continue;
     }
     for (const token of tokenizeForAvoidance(entry.prompt)) {
       const current = map.get(token) ?? { high: 0, low: 0 };
-      if (delta === "high") {
+      if (delta === 'high') {
         current.high += 1;
       } else {
         current.low += 1;
@@ -39,29 +37,26 @@ export function analyzeGalleryRatingTokens(
       lowCount: counts.low,
       score: counts.high - counts.low,
     }))
-    .filter((entry) => entry.highCount + entry.lowCount >= 2)
+    .filter(entry => entry.highCount + entry.lowCount >= 2)
     .sort((a, b) => b.score - a.score || b.highCount - a.highCount)
     .slice(0, 24);
 }
 
 export function negativeScoringTokens(stats: RatedTokenStat[]): string[] {
-  return stats.filter((entry) => entry.score < 0).map((entry) => entry.token);
+  return stats.filter(entry => entry.score < 0).map(entry => entry.token);
 }
 
-export function positiveScoringTokens(
-  stats: RatedTokenStat[],
-  limit = 6,
-): string[] {
+export function positiveScoringTokens(stats: RatedTokenStat[], limit = 6): string[] {
   return stats
-    .filter((entry) => entry.score > 0)
+    .filter(entry => entry.score > 0)
     .slice(0, limit)
-    .map((entry) => entry.token);
+    .map(entry => entry.token);
 }
 
 export function buildSceneHintsFromPositiveTokens(tokens: string[]): string {
-  return tokens.join(", ");
+  return tokens.join(', ');
 }
 
 export function formatNegativeScoringTokensForProfile(tokens: string[]): string {
-  return [...new Set(tokens.map((token) => token.trim()).filter(Boolean))].join(", ");
+  return [...new Set(tokens.map(token => token.trim()).filter(Boolean))].join(', ');
 }

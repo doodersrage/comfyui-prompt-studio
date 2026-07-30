@@ -1,74 +1,70 @@
-"use client";
+'use client';
 
-import dynamic from "next/dynamic";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from "react";
-import ModalPortal from "@/components/ui/ModalPortal";
-import ImageLightbox, { type ImageLightboxState } from "@/components/ui/ImageLightbox";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { useComfyUiGallery } from "@/hooks/useComfyUiGallery";
-import { startImproveFromGalleryEntry } from "@/lib/improve-output";
+import dynamic from 'next/dynamic';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
+import ModalPortal from '@/components/ui/ModalPortal';
+import ImageLightbox, { type ImageLightboxState } from '@/components/ui/ImageLightbox';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { useComfyUiGallery } from '@/hooks/useComfyUiGallery';
+import { startImproveFromGalleryEntry } from '@/lib/improve-output';
 import {
   appendUserToolQualityRecipe,
   buildToolQualityRecipeFromGalleryEntry,
-} from "@/lib/tool-quality-recipes";
-import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
-import { recordAvoidedTokensFromGalleryEntry } from "@/lib/avoided-tokens";
-import { recordCatalogBiasFromPrompt } from "@/lib/catalog-rating-bias";
-import GalleryVisionReviewButton from "@/components/gallery/GalleryVisionReviewButton";
-import GalleryCardItem, {
-  type GalleryCardActions,
-} from "@/components/gallery/GalleryCardItem";
+} from '@/lib/tool-quality-recipes';
+import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
+import { recordAvoidedTokensFromGalleryEntry } from '@/lib/avoided-tokens';
+import { recordCatalogBiasFromPrompt } from '@/lib/catalog-rating-bias';
+import GalleryVisionReviewButton from '@/components/gallery/GalleryVisionReviewButton';
+import GalleryCardItem, { type GalleryCardActions } from '@/components/gallery/GalleryCardItem';
 import VirtualizedGalleryGrid, {
   shouldVirtualizeGalleryGrid,
-} from "@/components/gallery/VirtualizedGalleryGrid";
-import GalleryFiltersBar from "@/components/gallery/GalleryFiltersBar";
-import GallerySelectionBar from "@/components/gallery/GallerySelectionBar";
-import GalleryStatsBar from "@/components/gallery/GalleryStatsBar";
-import GalleryReviewTouchBar from "@/components/gallery/GalleryReviewTouchBar";
-import GalleryPanelSkeleton from "@/components/gallery/GalleryPanelSkeleton";
-import { EmptyState } from "@/components/ui/ViewState";
-import StatusToastStrip from "@/components/ui/StatusToastStrip";
-import { resolveGenerateEmptyCta } from "@/lib/empty-cta";
-import { toneForStatusText } from "@/lib/status-progress";
-import { computeGalleryStats } from "@/lib/gallery-stats";
-import {
-  formatMutatedJobsStatus,
-  queueMutatedGalleryJobs,
-} from "@/lib/gallery-mutations";
-import { queueNegativeAbTest } from "@/lib/negative-ab-queue";
-import { queueSeedExperiment } from "@/lib/seed-experiment-queue";
-import {
-  queueParamExperiment,
-  type ParamExperimentAxis,
-} from "@/lib/param-experiment-queue";
-import { learnFromLowRatedPrompt } from "@/lib/negative-learner";
-import { pushNotification } from "@/lib/notification-center";
-import { toastBulkQueueSummary, toastHeldMax, toastQueueOutcome } from "@/lib/app-toast";
-import { useHeldMaxCount } from "@/hooks/useHeldMaxJobs";
-import { suggestRatingMutations } from "@/lib/rating-prompt-mutations";
-import { markOnboardingGalleryReview } from "@/lib/onboarding-hooks";
-import { setLineageParent } from "@/lib/prompt-lineage-session";
-import { loadActiveProjectId, loadPromptProjects } from "@/lib/prompt-projects";
+} from '@/components/gallery/VirtualizedGalleryGrid';
+import GalleryFiltersBar from '@/components/gallery/GalleryFiltersBar';
+import GallerySelectionBar from '@/components/gallery/GallerySelectionBar';
+import GalleryStatsBar from '@/components/gallery/GalleryStatsBar';
+import GalleryReviewTouchBar from '@/components/gallery/GalleryReviewTouchBar';
+import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
+import { EmptyState } from '@/components/ui/ViewState';
+import StatusToastStrip from '@/components/ui/StatusToastStrip';
+import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
+import { toneForStatusText } from '@/lib/status-progress';
+import { computeGalleryStats } from '@/lib/gallery-stats';
+import { formatMutatedJobsStatus, queueMutatedGalleryJobs } from '@/lib/gallery-mutations';
+import { queueNegativeAbTest } from '@/lib/negative-ab-queue';
+import { queueSeedExperiment } from '@/lib/seed-experiment-queue';
+import { queueParamExperiment, type ParamExperimentAxis } from '@/lib/param-experiment-queue';
+import { learnFromLowRatedPrompt } from '@/lib/negative-learner';
+import { pushNotification } from '@/lib/notification-center';
+import { toastBulkQueueSummary, toastHeldMax, toastQueueOutcome } from '@/lib/app-toast';
+import { useHeldMaxCount } from '@/hooks/useHeldMaxJobs';
+import { suggestRatingMutations } from '@/lib/rating-prompt-mutations';
+import { markOnboardingGalleryReview } from '@/lib/onboarding-hooks';
+import { setLineageParent } from '@/lib/prompt-lineage-session';
+import { loadActiveProjectId, loadPromptProjects } from '@/lib/prompt-projects';
 import {
   galleryTopicsPath,
   galleryVariationsPath,
   saveGalleryTopicsHandoff,
   saveGalleryVariationsHandoff,
   buildGalleryVariationsHandoff,
-} from "@/lib/gallery-variations-handoff";
-import { exportGalleryCsv, exportGalleryJsonl, downloadTextFile } from "@/lib/history-export-formats";
+} from '@/lib/gallery-variations-handoff';
+import {
+  exportGalleryCsv,
+  exportGalleryJsonl,
+  downloadTextFile,
+} from '@/lib/history-export-formats';
 import {
   downloadGalleryImagesSequential,
   downloadGallerySidecarBundle,
-} from "@/lib/comfyui-gallery-export";
-import { studioHistoryUrl } from "@/lib/prompt-lineage";
-import { cancelComfyGalleryJob } from "@/lib/comfyui-queue-cancel";
+} from '@/lib/comfyui-gallery-export';
+import { studioHistoryUrl } from '@/lib/prompt-lineage';
+import { cancelComfyGalleryJob } from '@/lib/comfyui-queue-cancel';
 import {
   buildGalleryLineageGroups,
   galleryLineageGroupingEnabled,
-} from "@/lib/gallery-lineage-groups";
-import { resolveRequeueImageUrlsFromEntry } from "@/lib/queue-requeue-images";
+} from '@/lib/gallery-lineage-groups';
+import { resolveRequeueImageUrlsFromEntry } from '@/lib/queue-requeue-images';
 import {
   buildGalleryLightboxPlaylist,
   galleryEntryLightboxUrls,
@@ -92,8 +88,8 @@ import {
   type GalleryPageSize,
   type GallerySlideshowIntervalMs,
   type GallerySlideshowTransition,
-} from "@/lib/comfyui-gallery";
-import { prefetchGalleryImageUrl } from "@/lib/gallery-image-prefetch";
+} from '@/lib/comfyui-gallery';
+import { prefetchGalleryImageUrl } from '@/lib/gallery-image-prefetch';
 import {
   buildGalleryHandoff,
   galleryHandoffHomePath,
@@ -102,20 +98,19 @@ import {
   galleryPickPurposeLabel,
   parseGalleryPickTarget,
   saveGalleryHandoff,
-} from "@/lib/gallery-handoff";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import LoraDatasetExportDialog from "@/components/LoraDatasetExportDialog";
+} from '@/lib/gallery-handoff';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import LoraDatasetExportDialog from '@/components/LoraDatasetExportDialog';
 
-const GalleryComparePanel = dynamic(() => import("@/components/GalleryComparePanel"), {
+const GalleryComparePanel = dynamic(() => import('@/components/GalleryComparePanel'), {
   loading: () => null,
 });
-const GalleryWorkflowModal = dynamic(
-  () => import("@/components/gallery/GalleryWorkflowModal"),
-  { loading: () => null },
-);
+const GalleryWorkflowModal = dynamic(() => import('@/components/gallery/GalleryWorkflowModal'), {
+  loading: () => null,
+});
 
 /** Lazy-load the requeue pipeline so gallery browse TTI stays light. */
-const loadGalleryRequeue = () => import("@/lib/comfyui-requeue");
+const loadGalleryRequeue = () => import('@/lib/comfyui-requeue');
 
 type ComfyUiGalleryPanelProps = {
   limit?: number;
@@ -154,25 +149,21 @@ export default function ComfyUiGalleryPanel({
   } = useComfyUiGallery();
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === 'undefined') {
       return;
     }
     const params = new URLSearchParams(window.location.search);
-    const query = params.get("q");
-    const focus = params.get("focus");
-    const review = params.get("review");
-    if (!query?.trim() && !focus?.trim() && review !== "1") {
+    const query = params.get('q');
+    const focus = params.get('focus');
+    const review = params.get('review');
+    if (!query?.trim() && !focus?.trim() && review !== '1') {
       return;
     }
-    setFilter((previous) => ({
+    setFilter(previous => ({
       ...previous,
-      ...(query?.trim()
-        ? { query: query.trim(), semanticSearch: true }
-        : {}),
+      ...(query?.trim() ? { query: query.trim(), semanticSearch: true } : {}),
       ...(focus?.trim() ? { focusEntryId: focus.trim() } : {}),
-      ...(review === "1"
-        ? { reviewMode: true, unreviewedOnly: true }
-        : {}),
+      ...(review === '1' ? { reviewMode: true, unreviewedOnly: true } : {}),
     }));
   }, [setFilter]);
 
@@ -180,8 +171,8 @@ export default function ComfyUiGalleryPanel({
   // this panel; a one-shot useState initializer would leave pick mode stuck off.
   const searchParams = useSearchParams();
   const pickFor = useMemo(
-    () => parseGalleryPickTarget(searchParams.get("pickFor")),
-    [searchParams],
+    () => parseGalleryPickTarget(searchParams.get('pickFor')),
+    [searchParams]
   );
 
   const router = useRouter();
@@ -193,27 +184,24 @@ export default function ComfyUiGalleryPanel({
   const [slideshowPlaying, setSlideshowPlaying] = useState(false);
   const [slideshowFullscreen, setSlideshowFullscreen] = useState(false);
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState<ComfyGallerySort>("queued-desc");
+  const [sort, setSort] = useState<ComfyGallerySort>('queued-desc');
   const [pageSize, setPageSize] = useState<GalleryPageSize>(12);
-  const [slideshowIntervalMs, setSlideshowIntervalMs] =
-    useState<GallerySlideshowIntervalMs>(5000);
+  const [slideshowIntervalMs, setSlideshowIntervalMs] = useState<GallerySlideshowIntervalMs>(5000);
   const [slideshowTransition, setSlideshowTransition] =
-    useState<GallerySlideshowTransition>("slide");
-  const [layout, setLayout] = useState<GalleryLayoutMode>("grid");
+    useState<GallerySlideshowTransition>('slide');
+  const [layout, setLayout] = useState<GalleryLayoutMode>('grid');
   const [viewPrefsLoaded, setViewPrefsLoaded] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [loraExportOpen, setLoraExportOpen] = useState(false);
-  const [loraExportScope, setLoraExportScope] = useState<"favorites" | "selected">(
-    "favorites",
-  );
+  const [loraExportScope, setLoraExportScope] = useState<'favorites' | 'selected'>('favorites');
   const [compareWinnerId, setCompareWinnerId] = useState<string | null>(null);
   const [workflowEntry, setWorkflowEntry] = useState<ComfyGalleryEntry | null>(null);
   const [compareStatus, setCompareStatus] = useState<string | null>(null);
   const [collapsedLineageGroups, setCollapsedLineageGroups] = useState<Set<string>>(
-    () => new Set(),
+    () => new Set()
   );
-  const [paramAxis, setParamAxis] = useState<ParamExperimentAxis>("cfg");
-  const [projectFilterId, setProjectFilterId] = useState<string>("");
+  const [paramAxis, setParamAxis] = useState<ParamExperimentAxis>('cfg');
+  const [projectFilterId, setProjectFilterId] = useState<string>('');
   const [projects] = useState(() => loadPromptProjects());
   const [allRenderLimit, setAllRenderLimit] = useState(GALLERY_ALL_RENDER_CHUNK);
   const entriesRef = useRef(entries);
@@ -249,14 +237,14 @@ export default function ComfyUiGalleryPanel({
     pick: () => undefined,
   });
   const resolvedProjectFilterId = useMemo(() => {
-    if (projectFilterId === "active") {
+    if (projectFilterId === 'active') {
       return loadActiveProjectId();
     }
     return projectFilterId || undefined;
   }, [projectFilterId]);
 
   useEffect(() => {
-    setFilter((previous) => ({
+    setFilter(previous => ({
       ...previous,
       projectId: resolvedProjectFilterId,
     }));
@@ -270,7 +258,7 @@ export default function ComfyUiGalleryPanel({
   const filteredSource = showFilters ? filteredEntries : entries;
   const sortedSource = useMemo(
     () => (paginationEnabled ? sortGalleryEntries(filteredSource, sort) : filteredSource),
-    [filteredSource, paginationEnabled, sort],
+    [filteredSource, paginationEnabled, sort]
   );
 
   useEffect(() => {
@@ -354,28 +342,29 @@ export default function ComfyUiGalleryPanel({
   const hasMoreAll = pagination.hasMoreAll;
   const remainingAll = pagination.remainingAll;
   const effectivePageSize = resolveGalleryPageSize(pageSize, totalFiltered);
-  const showPagination = paginationEnabled && pageSize !== GALLERY_PAGE_SIZE_ALL && totalFiltered > effectivePageSize;
+  const showPagination =
+    paginationEnabled && pageSize !== GALLERY_PAGE_SIZE_ALL && totalFiltered > effectivePageSize;
   const lineageGrouping = galleryLineageGroupingEnabled(filter);
   const lineageGroups = useMemo(
     () => (lineageGrouping ? buildGalleryLineageGroups(visibleEntries) : null),
-    [lineageGrouping, visibleEntries],
+    [lineageGrouping, visibleEntries]
   );
   const galleryCardGridClass =
-    layout === "dense"
+    layout === 'dense'
       ? compact
-        ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
-        : "grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+        ? 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4'
+        : 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
       : compact
-        ? "grid grid-cols-2 gap-4 sm:grid-cols-3"
-        : "grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
+        ? 'grid grid-cols-2 gap-4 sm:grid-cols-3'
+        : 'grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4';
   const galleryVirtualGridClass =
-    layout === "dense"
+    layout === 'dense'
       ? compact
-        ? "grid gap-3"
-        : "grid gap-4"
+        ? 'grid gap-3'
+        : 'grid gap-4'
       : compact
-        ? "grid gap-4"
-        : "grid gap-6";
+        ? 'grid gap-4'
+        : 'grid gap-6';
   const lineageFlatEntries = useMemo(() => {
     if (!lineageGroups) {
       return visibleEntries;
@@ -391,13 +380,13 @@ export default function ComfyUiGalleryPanel({
   }, [collapsedLineageGroups, lineageGroups, visibleEntries]);
 
   const virtualizeGrid = shouldVirtualizeGalleryGrid(
-    lineageGrouping ? lineageFlatEntries.length : visibleEntries.length,
+    lineageGrouping ? lineageFlatEntries.length : visibleEntries.length
   );
   const virtualizedEntries = lineageGrouping ? lineageFlatEntries : visibleEntries;
 
   const lightboxPlaylist = useMemo(
     () => buildGalleryLightboxPlaylist(visibleEntries),
-    [visibleEntries],
+    [visibleEntries]
   );
 
   const openEntryLightbox = useCallback(
@@ -409,7 +398,7 @@ export default function ComfyUiGalleryPanel({
       const index = resolveGalleryLightboxOpenIndex(
         visibleEntriesRef.current,
         entry.id,
-        imageIndex,
+        imageIndex
       );
 
       setLightbox({
@@ -424,37 +413,34 @@ export default function ComfyUiGalleryPanel({
       setSlideshowPlaying(false);
       setSlideshowFullscreen(false);
     },
-    [lightboxPlaylist],
+    [lightboxPlaylist]
   );
 
   const openLightboxForEntryId = useCallback(
     (entryId: string, imageIndex: number) => {
-      const entry = visibleEntriesRef.current.find((item) => item.id === entryId);
+      const entry = visibleEntriesRef.current.find(item => item.id === entryId);
       if (entry) {
         openEntryLightbox(entry, imageIndex);
       }
     },
-    [openEntryLightbox],
+    [openEntryLightbox]
   );
 
-  const prefetchLightboxForEntryId = useCallback(
-    (entryId: string, imageIndex: number) => {
-      const entry = visibleEntriesRef.current.find((item) => item.id === entryId);
-      if (!entry) {
-        return;
-      }
-      const urls = galleryEntryLightboxUrls(entry);
-      if (urls.length === 0) {
-        return;
-      }
-      const safeIndex = Math.min(Math.max(imageIndex, 0), urls.length - 1);
-      if (galleryEntryMediaKinds(entry)[safeIndex] === "video") {
-        return;
-      }
-      prefetchGalleryImageUrl(urls[safeIndex]);
-    },
-    [],
-  );
+  const prefetchLightboxForEntryId = useCallback((entryId: string, imageIndex: number) => {
+    const entry = visibleEntriesRef.current.find(item => item.id === entryId);
+    if (!entry) {
+      return;
+    }
+    const urls = galleryEntryLightboxUrls(entry);
+    if (urls.length === 0) {
+      return;
+    }
+    const safeIndex = Math.min(Math.max(imageIndex, 0), urls.length - 1);
+    if (galleryEntryMediaKinds(entry)[safeIndex] === 'video') {
+      return;
+    }
+    prefetchGalleryImageUrl(urls[safeIndex]);
+  }, []);
 
   const startSlideshow = () => {
     if (lightboxPlaylist.images.length === 0) {
@@ -513,15 +499,15 @@ export default function ComfyUiGalleryPanel({
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   const selectedEntries = useMemo(
-    () => visibleEntries.filter((entry) => selectedIdSet.has(entry.id)),
-    [selectedIdSet, visibleEntries],
+    () => visibleEntries.filter(entry => selectedIdSet.has(entry.id)),
+    [selectedIdSet, visibleEntries]
   );
 
   const reviewFocusIndex = useMemo(() => {
     if (!filter.reviewMode || visibleEntries.length === 0) {
       return 0;
     }
-    const selectedIndex = visibleEntries.findIndex((entry) => selectedIdSet.has(entry.id));
+    const selectedIndex = visibleEntries.findIndex(entry => selectedIdSet.has(entry.id));
     return selectedIndex >= 0 ? selectedIndex : 0;
   }, [filter.reviewMode, visibleEntries, selectedIdSet]);
 
@@ -532,24 +518,24 @@ export default function ComfyUiGalleryPanel({
       if (!filter.reviewAutoAdvance) {
         return;
       }
-      const startIndex = visibleEntries.findIndex((entry) => entry.id === entryId);
+      const startIndex = visibleEntries.findIndex(entry => entry.id === entryId);
       for (let index = startIndex + 1; index < visibleEntries.length; index += 1) {
         const nextEntry = visibleEntries[index];
-        if (nextEntry.status === "completed" && !nextEntry.reviewRating) {
+        if (nextEntry.status === 'completed' && !nextEntry.reviewRating) {
           setSelectedIds([nextEntry.id]);
           return;
         }
       }
     },
-    [filter.reviewAutoAdvance, visibleEntries],
+    [filter.reviewAutoAdvance, visibleEntries]
   );
 
   const handleReviewRating = useCallback(
-    (entry: ComfyGalleryEntry, rating: NonNullable<ComfyGalleryEntry["reviewRating"]>) => {
+    (entry: ComfyGalleryEntry, rating: NonNullable<ComfyGalleryEntry['reviewRating']>) => {
       setReviewRating(entry.id, rating);
       recordCatalogBiasFromPrompt(entry.prompt, rating);
       if (rating >= 4) {
-        void import("@/lib/sampler-memory").then(({ rememberSamplerFromGalleryEntry }) => {
+        void import('@/lib/sampler-memory').then(({ rememberSamplerFromGalleryEntry }) => {
           rememberSamplerFromGalleryEntry(entry);
         });
       }
@@ -564,29 +550,29 @@ export default function ComfyUiGalleryPanel({
         const learned = learnFromLowRatedPrompt(entry.prompt, rating);
         if (learned > 0) {
           pushNotification({
-            title: "Negative learner",
+            title: 'Negative learner',
             body: `${learned} token(s) recorded from low rating. Review in Settings → Advanced.`,
-            href: "/settings",
-            kind: "system",
+            href: '/settings',
+            kind: 'system',
           });
         }
       }
       markOnboardingGalleryReview();
-      void import("@/lib/auto-improve-loop")
+      void import('@/lib/auto-improve-loop')
         .then(({ runAutoImproveOnRating }) => runAutoImproveOnRating(entry, rating))
-        .then((message) => {
+        .then(message => {
           if (message) {
             setRequeueStatus(message);
           }
         })
-        .catch((error) => {
+        .catch(error => {
           setRequeueStatus(
-            error instanceof Error ? error.message : "Auto-improve failed after rating.",
+            error instanceof Error ? error.message : 'Auto-improve failed after rating.'
           );
         });
       advanceReviewFocus(entry.id);
     },
-    [advanceReviewFocus, setReviewRating],
+    [advanceReviewFocus, setReviewRating]
   );
 
   useEffect(() => {
@@ -595,8 +581,7 @@ export default function ComfyUiGalleryPanel({
     }
     if (selectedIds.length === 0) {
       const firstCompleted =
-        visibleEntries.find((entry) => entry.status === "completed") ??
-        visibleEntries[0];
+        visibleEntries.find(entry => entry.status === 'completed') ?? visibleEntries[0];
       if (firstCompleted) {
         scheduleAfterCommit(() => {
           setSelectedIds([firstCompleted.id]);
@@ -611,9 +596,9 @@ export default function ComfyUiGalleryPanel({
     }
     const id = filter.focusEntryId.trim();
     const node = document.querySelector(`[data-gallery-entry="${CSS.escape(id)}"]`);
-    node?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    node?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     scheduleAfterCommit(() => {
-      setSelectedIds((previous) => (previous.includes(id) ? previous : [id]));
+      setSelectedIds(previous => (previous.includes(id) ? previous : [id]));
     });
   }, [filter.focusEntryId, visibleEntries.length]);
 
@@ -622,7 +607,7 @@ export default function ComfyUiGalleryPanel({
       return;
     }
     const node = document.querySelector(`[data-gallery-entry="${reviewFocusEntry.id}"]`);
-    node?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    node?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [filter.reviewMode, reviewFocusEntry?.id, reviewFocusEntry]);
 
   useEffect(() => {
@@ -634,28 +619,28 @@ export default function ComfyUiGalleryPanel({
       const target = event.target;
       if (
         target instanceof HTMLElement &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
           target.isContentEditable)
       ) {
         return;
       }
 
-      if (event.key >= "1" && event.key <= "5") {
+      if (event.key >= '1' && event.key <= '5') {
         const rating = Number(event.key) as 1 | 2 | 3 | 4 | 5;
         handleReviewRating(reviewFocusEntry, rating);
         event.preventDefault();
         return;
       }
 
-      if (event.key === "f" || event.key === "F") {
+      if (event.key === 'f' || event.key === 'F') {
         toggleFavorite(reviewFocusEntry.id);
         event.preventDefault();
         return;
       }
 
-      if (event.key === "n" || event.key === "N" || event.key === "ArrowRight") {
+      if (event.key === 'n' || event.key === 'N' || event.key === 'ArrowRight') {
         const nextIndex = Math.min(reviewFocusIndex + 1, visibleEntries.length - 1);
         const nextEntry = visibleEntries[nextIndex];
         if (nextEntry) {
@@ -665,7 +650,7 @@ export default function ComfyUiGalleryPanel({
         return;
       }
 
-      if (event.key === "p" || event.key === "P" || event.key === "ArrowLeft") {
+      if (event.key === 'p' || event.key === 'P' || event.key === 'ArrowLeft') {
         const previousIndex = Math.max(reviewFocusIndex - 1, 0);
         const previousEntry = visibleEntries[previousIndex];
         if (previousEntry) {
@@ -675,8 +660,8 @@ export default function ComfyUiGalleryPanel({
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     filter.reviewMode,
     reviewFocusEntry,
@@ -687,7 +672,7 @@ export default function ComfyUiGalleryPanel({
   ]);
 
   const toggleSelected = useCallback((id: string) => {
-    setSelectedIds((previous) => {
+    setSelectedIds(previous => {
       const next = new Set(previous);
       if (next.has(id)) {
         next.delete(id);
@@ -711,246 +696,238 @@ export default function ComfyUiGalleryPanel({
       toggleSelected,
       remove: removeEntry,
       toggleFavorite: (id: string) => {
-        const entry = entriesRef.current.find((item) => item.id === id);
+        const entry = entriesRef.current.find(item => item.id === id);
         const willFavorite = entry ? !entry.favorite : false;
         toggleFavorite(id);
         if (entry && willFavorite) {
-          void import("@/lib/auto-improve-loop").then(({ runAutoImproveOnFavorite }) =>
-            runAutoImproveOnFavorite(entry, true),
-          ).then((message) => {
-            if (message) {
-              setRequeueStatus(message);
-            }
-          });
+          void import('@/lib/auto-improve-loop')
+            .then(({ runAutoImproveOnFavorite }) => runAutoImproveOnFavorite(entry, true))
+            .then(message => {
+              if (message) {
+                setRequeueStatus(message);
+              }
+            });
         }
       },
-      requeue: (id: string, newSeed: boolean, qualityProfile?: import("@/lib/queue-quality-profile").QueueQualityProfile) => {
-        const entry = entriesRef.current.find((item) => item.id === id);
+      requeue: (
+        id: string,
+        newSeed: boolean,
+        qualityProfile?: import('@/lib/queue-quality-profile').QueueQualityProfile
+      ) => {
+        const entry = entriesRef.current.find(item => item.id === id);
         if (!entry) {
           return;
         }
-        setRequeueStatus("Queueing variation…");
+        setRequeueStatus('Queueing variation…');
         void loadGalleryRequeue()
           .then(({ requeueComfyJobFromEntry }) =>
             requeueComfyJobFromEntry(entry, {
               newSeed,
               qualityProfile,
               onStatus: setRequeueStatus,
-            }),
+            })
           )
-          .then((result) => {
-          if (!result.ok) {
-            const message = result.error ?? "Re-queue failed.";
-            setRequeueStatus(message);
-            toastQueueOutcome({ ok: false, text: message });
-            return;
-          }
-          const profileNote = qualityProfile ? `${qualityProfile} quality · ` : "";
-          const message = [
-              "queued variation",
+          .then(result => {
+            if (!result.ok) {
+              const message = result.error ?? 'Re-queue failed.';
+              setRequeueStatus(message);
+              toastQueueOutcome({ ok: false, text: message });
+              return;
+            }
+            const profileNote = qualityProfile ? `${qualityProfile} quality · ` : '';
+            const message = [
+              'queued variation',
               profileNote,
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
-              newSeed ? "new seed" : "same params",
+              newSeed ? 'new seed' : 'same params',
             ]
               .filter(Boolean)
-              .join(" · ");
-          setRequeueStatus(message);
-          toastQueueOutcome({ ok: true, text: message });
-        });
+              .join(' · ');
+            setRequeueStatus(message);
+            toastQueueOutcome({ ok: true, text: message });
+          });
       },
       cancel: (id: string) => {
-        const entry = entriesRef.current.find((item) => item.id === id);
+        const entry = entriesRef.current.find(item => item.id === id);
         if (!entry) {
           return;
         }
-        setRequeueStatus("Cancelling job…");
-        void cancelComfyGalleryJob(entry).then((result) => {
+        setRequeueStatus('Cancelling job…');
+        void cancelComfyGalleryJob(entry).then(result => {
           if (!result.ok) {
-            const message = result.error ?? "Cancel failed.";
+            const message = result.error ?? 'Cancel failed.';
             setRequeueStatus(message);
             toastQueueOutcome({ ok: false, text: message });
             return;
           }
-          setRequeueStatus("Job cancelled.");
-          toastQueueOutcome({ ok: true, text: "Job cancelled" });
+          setRequeueStatus('Job cancelled.');
+          toastQueueOutcome({ ok: true, text: 'Job cancelled' });
         });
       },
-      upscale: (
-        id: string,
-        qualityProfile: "final" | "max",
-        options?: { force?: boolean },
-      ) => {
-        const entry = entriesRef.current.find((item) => item.id === id);
+      upscale: (id: string, qualityProfile: 'final' | 'max', options?: { force?: boolean }) => {
+        const entry = entriesRef.current.find(item => item.id === id);
         if (!entry) {
           return;
         }
-        setRequeueStatus(options?.force ? "Force upscaling…" : "Upscaling…");
+        setRequeueStatus(options?.force ? 'Force upscaling…' : 'Upscaling…');
         void loadGalleryRequeue()
           .then(({ requeueUpscaleFromGalleryEntry }) =>
             requeueUpscaleFromGalleryEntry(entry, {
               qualityProfile,
               force: options?.force,
               onStatus: setRequeueStatus,
-            }),
+            })
           )
-          .then((result) => {
-          if (!result.ok) {
-            setRequeueStatus(result.error ?? "Upscale failed.");
-            toastQueueOutcome({ ok: false, text: result.error ?? "Upscale failed." });
-            return;
-          }
-          if (result.held) {
-            const message = "Max upscale held until ComfyUI queue is idle";
-            setRequeueStatus(message);
-            toastHeldMax({ text: message });
-            return;
-          }
-          const message = [
-              options?.force ? "force upscale queued" : "upscale queued",
+          .then(result => {
+            if (!result.ok) {
+              setRequeueStatus(result.error ?? 'Upscale failed.');
+              toastQueueOutcome({ ok: false, text: result.error ?? 'Upscale failed.' });
+              return;
+            }
+            if (result.held) {
+              const message = 'Max upscale held until ComfyUI queue is idle';
+              setRequeueStatus(message);
+              toastHeldMax({ text: message });
+              return;
+            }
+            const message = [
+              options?.force ? 'force upscale queued' : 'upscale queued',
               result.vramDowngraded
-                ? "Max → Final (VRAM)"
+                ? 'Max → Final (VRAM)'
                 : `${qualityProfile} quality · same image`,
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
               .filter(Boolean)
-              .join(" · ");
-          setRequeueStatus(message);
-          toastQueueOutcome({ ok: true, text: message });
-        });
+              .join(' · ');
+            setRequeueStatus(message);
+            toastQueueOutcome({ ok: true, text: message });
+          });
       },
       refine: (id: string) => {
-        const entry = entriesRef.current.find((item) => item.id === id);
+        const entry = entriesRef.current.find(item => item.id === id);
         if (!entry) {
           return;
         }
-        setRequeueStatus("Queueing low-denoise refine…");
+        setRequeueStatus('Queueing low-denoise refine…');
         void loadGalleryRequeue()
           .then(({ requeueRefineFromGalleryEntry }) =>
             requeueRefineFromGalleryEntry(entry, {
               onStatus: setRequeueStatus,
-            }),
+            })
           )
-          .then((result) => {
-          if (!result.ok) {
-            setRequeueStatus(result.error ?? "Refine failed.");
-            toastQueueOutcome({ ok: false, text: result.error ?? "Refine failed." });
-            return;
-          }
-          if (result.held) {
-            const message = "Max refine held until ComfyUI queue is idle";
-            setRequeueStatus(message);
-            toastHeldMax({ text: message });
-            return;
-          }
-          const message = [
-              "refine queued",
-              result.vramDowngraded
-                ? "Max → Final (VRAM)"
-                : "low denoise · same seed",
+          .then(result => {
+            if (!result.ok) {
+              setRequeueStatus(result.error ?? 'Refine failed.');
+              toastQueueOutcome({ ok: false, text: result.error ?? 'Refine failed.' });
+              return;
+            }
+            if (result.held) {
+              const message = 'Max refine held until ComfyUI queue is idle';
+              setRequeueStatus(message);
+              toastHeldMax({ text: message });
+              return;
+            }
+            const message = [
+              'refine queued',
+              result.vramDowngraded ? 'Max → Final (VRAM)' : 'low denoise · same seed',
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
               .filter(Boolean)
-              .join(" · ");
-          setRequeueStatus(message);
-          toastQueueOutcome({ ok: true, text: message });
-        });
+              .join(' · ');
+            setRequeueStatus(message);
+            toastQueueOutcome({ ok: true, text: message });
+          });
       },
       softSecondPass: (id: string) => {
-        const entry = entriesRef.current.find((item) => item.id === id);
+        const entry = entriesRef.current.find(item => item.id === id);
         if (!entry) {
           return;
         }
-        setRequeueStatus("Queueing soft second pass…");
+        setRequeueStatus('Queueing soft second pass…');
         void loadGalleryRequeue()
           .then(({ requeueSoftSecondPassFromGalleryEntry }) =>
             requeueSoftSecondPassFromGalleryEntry(entry, {
               onStatus: setRequeueStatus,
-            }),
+            })
           )
-          .then((result) => {
-          if (!result.ok) {
-            setRequeueStatus(result.error ?? "Soft second pass failed.");
-            toastQueueOutcome({
-              ok: false,
-              text: result.error ?? "Soft second pass failed.",
-            });
-            return;
-          }
-          if (result.held) {
-            const message = "Soft second pass held until ComfyUI queue is idle";
-            setRequeueStatus(message);
-            toastHeldMax({ text: message });
-            return;
-          }
-          const message = [
-              "soft second pass queued",
-              result.vramDowngraded
-                ? "Max → Final (VRAM)"
-                : "gentle denoise · same seed",
+          .then(result => {
+            if (!result.ok) {
+              setRequeueStatus(result.error ?? 'Soft second pass failed.');
+              toastQueueOutcome({
+                ok: false,
+                text: result.error ?? 'Soft second pass failed.',
+              });
+              return;
+            }
+            if (result.held) {
+              const message = 'Soft second pass held until ComfyUI queue is idle';
+              setRequeueStatus(message);
+              toastHeldMax({ text: message });
+              return;
+            }
+            const message = [
+              'soft second pass queued',
+              result.vramDowngraded ? 'Max → Final (VRAM)' : 'gentle denoise · same seed',
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
               .filter(Boolean)
-              .join(" · ");
-          setRequeueStatus(message);
-          toastQueueOutcome({ ok: true, text: message });
-        });
+              .join(' · ');
+            setRequeueStatus(message);
+            toastQueueOutcome({ ok: true, text: message });
+          });
       },
       faceDetail: (id: string) => {
-        const entry = entriesRef.current.find((item) => item.id === id);
+        const entry = entriesRef.current.find(item => item.id === id);
         if (!entry) {
           return;
         }
-        setRequeueStatus("Queueing face detail…");
+        setRequeueStatus('Queueing face detail…');
         void loadGalleryRequeue()
           .then(({ requeueFaceDetailFromGalleryEntry }) =>
             requeueFaceDetailFromGalleryEntry(entry, {
               onStatus: setRequeueStatus,
-            }),
+            })
           )
-          .then((result) => {
-          if (!result.ok) {
-            setRequeueStatus(result.error ?? "Face detail failed.");
-            toastQueueOutcome({ ok: false, text: result.error ?? "Face detail failed." });
-            return;
-          }
-          if (result.held) {
-            const message = "Face detail held until ComfyUI queue is idle";
-            setRequeueStatus(message);
-            toastHeldMax({ text: message });
-            return;
-          }
-          const message = [
-              "face detail queued",
+          .then(result => {
+            if (!result.ok) {
+              setRequeueStatus(result.error ?? 'Face detail failed.');
+              toastQueueOutcome({ ok: false, text: result.error ?? 'Face detail failed.' });
+              return;
+            }
+            if (result.held) {
+              const message = 'Face detail held until ComfyUI queue is idle';
+              setRequeueStatus(message);
+              toastHeldMax({ text: message });
+              return;
+            }
+            const message = [
+              'face detail queued',
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
               .filter(Boolean)
-              .join(" · ");
-          setRequeueStatus(message);
-          toastQueueOutcome({ ok: true, text: message });
-        });
+              .join(' · ');
+            setRequeueStatus(message);
+            toastQueueOutcome({ ok: true, text: message });
+          });
       },
-      moireClean: (
-        id: string,
-        qualityProfile: "final" | "max",
-        options?: { force?: boolean },
-      ) => {
-        const entry = entriesRef.current.find((item) => item.id === id);
+      moireClean: (id: string, qualityProfile: 'final' | 'max', options?: { force?: boolean }) => {
+        const entry = entriesRef.current.find(item => item.id === id);
         if (!entry) {
           return;
         }
         setRequeueStatus(
           options?.force
-            ? qualityProfile === "max"
-              ? "Force moiré clean (Max)…"
-              : "Force moiré clean (Final)…"
-            : qualityProfile === "max"
-              ? "Queueing moiré clean (Max)…"
-              : "Queueing moiré clean (Final)…",
+            ? qualityProfile === 'max'
+              ? 'Force moiré clean (Max)…'
+              : 'Force moiré clean (Final)…'
+            : qualityProfile === 'max'
+              ? 'Queueing moiré clean (Max)…'
+              : 'Queueing moiré clean (Final)…'
         );
         void loadGalleryRequeue()
           .then(({ requeueMoireCleanFromGalleryEntry }) =>
@@ -958,75 +935,75 @@ export default function ComfyUiGalleryPanel({
               qualityProfile,
               force: options?.force,
               onStatus: setRequeueStatus,
-            }),
+            })
           )
-          .then((result) => {
-          if (!result.ok) {
-            setRequeueStatus(result.error ?? "Moiré clean failed.");
-            toastQueueOutcome({
-              ok: false,
-              text: result.error ?? "Moiré clean failed.",
-            });
-            return;
-          }
-          if (result.held) {
-            const message = "Max moiré clean held until ComfyUI queue is idle";
-            setRequeueStatus(message);
-            toastHeldMax({ text: message });
-            return;
-          }
-          const message = [
-              options?.force ? "force moiré clean queued" : "moiré clean queued",
+          .then(result => {
+            if (!result.ok) {
+              setRequeueStatus(result.error ?? 'Moiré clean failed.');
+              toastQueueOutcome({
+                ok: false,
+                text: result.error ?? 'Moiré clean failed.',
+              });
+              return;
+            }
+            if (result.held) {
+              const message = 'Max moiré clean held until ComfyUI queue is idle';
+              setRequeueStatus(message);
+              toastHeldMax({ text: message });
+              return;
+            }
+            const message = [
+              options?.force ? 'force moiré clean queued' : 'moiré clean queued',
               result.vramDowngraded
-                ? "Max → Final (VRAM)"
-                : qualityProfile === "max"
-                  ? "Max · blur → bicubic → Lanczos"
-                  : "Final · soft blur only",
+                ? 'Max → Final (VRAM)'
+                : qualityProfile === 'max'
+                  ? 'Max · blur → bicubic → Lanczos'
+                  : 'Final · soft blur only',
               result.promptId ? `prompt_id ${result.promptId}` : null,
               result.comfyUrl,
             ]
               .filter(Boolean)
-              .join(" · ");
-          setRequeueStatus(message);
-          toastQueueOutcome({ ok: true, text: message });
-        });
+              .join(' · ');
+            setRequeueStatus(message);
+            toastQueueOutcome({ ok: true, text: message });
+          });
       },
       showParent: (id: string) => {
-        const entry = entriesRef.current.find((item) => item.id === id);
+        const entry = entriesRef.current.find(item => item.id === id);
         if (!entry?.parentGalleryEntryId) {
           return;
         }
-        setFilter((previous) => ({
+        setFilter(previous => ({
           ...previous,
           focusEntryId: entry.parentGalleryEntryId,
           derivativeOfEntryId: undefined,
           similarToEntryId: undefined,
         }));
-        setRequeueStatus("Showing source output…");
+        setRequeueStatus('Showing source output…');
       },
       showDerivatives: (id: string) => {
-        setFilter((previous) => ({
+        setFilter(previous => ({
           ...previous,
           derivativeOfEntryId: id,
           focusEntryId: undefined,
           similarToEntryId: undefined,
         }));
-        setRequeueStatus("Showing derived outputs…");
+        setRequeueStatus('Showing derived outputs…');
       },
       openImage: openLightboxForEntryId,
       prefetchImage: prefetchLightboxForEntryId,
-      reviewRating: (id: string, rating: ComfyGalleryEntry["reviewRating"]) => {
-        const entry = entriesRef.current.find((item) => item.id === id);
+      reviewRating: (id: string, rating: ComfyGalleryEntry['reviewRating']) => {
+        const entry = entriesRef.current.find(item => item.id === id);
         if (entry && rating) {
           handleReviewRating(entry, rating);
         }
       },
       downloadError: setDownloadError,
       visionTagClick: (tag: string) => {
-        setFilter((previous) => ({ ...previous, query: tag }));
+        setFilter(previous => ({ ...previous, query: tag }));
       },
       viewWorkflow: (id: string) => {
-        const entry = entriesRef.current.find((item) => item.id === id);
+        const entry = entriesRef.current.find(item => item.id === id);
         if (entry) {
           setWorkflowEntry(entry);
         }
@@ -1036,13 +1013,13 @@ export default function ComfyUiGalleryPanel({
         if (!target) {
           return;
         }
-        const entry = entriesRef.current.find((item) => item.id === id);
-        if (!entry || entry.status !== "completed") {
-          setRequeueStatus("Pick a completed still image.");
+        const entry = entriesRef.current.find(item => item.id === id);
+        if (!entry || entry.status !== 'completed') {
+          setRequeueStatus('Pick a completed still image.');
           return;
         }
-        if (galleryEntryPrimaryMediaKind(entry) !== "image") {
-          setRequeueStatus("Only still images can be picked in this mode.");
+        if (galleryEntryPrimaryMediaKind(entry) !== 'image') {
+          setRequeueStatus('Only still images can be picked in this mode.');
           return;
         }
         saveGalleryHandoff(buildGalleryHandoff(entry, target));
@@ -1070,15 +1047,15 @@ export default function ComfyUiGalleryPanel({
       <ImageLightbox
         state={lightbox}
         onClose={closeLightbox}
-        onIndexChange={(index) =>
-          setLightbox((previous) =>
+        onIndexChange={index =>
+          setLightbox(previous =>
             previous
               ? {
                   ...previous,
                   index,
                   title: previous.titles?.[index] ?? previous.title,
                 }
-              : previous,
+              : previous
           )
         }
         slideshow={
@@ -1090,7 +1067,7 @@ export default function ComfyUiGalleryPanel({
                 transition: slideshowTransition,
                 transitionOptions: GALLERY_SLIDESHOW_TRANSITION_OPTIONS,
                 onPlayingChange: setSlideshowPlaying,
-                onIntervalChange: (intervalMs) =>
+                onIntervalChange: intervalMs =>
                   setSlideshowIntervalMs(intervalMs as GallerySlideshowIntervalMs),
                 onTransitionChange: setSlideshowTransition,
                 fullscreen: slideshowFullscreen,
@@ -1125,7 +1102,7 @@ export default function ComfyUiGalleryPanel({
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm("Clear all gallery entries?")) {
+                  if (window.confirm('Clear all gallery entries?')) {
                     clearAll();
                   }
                 }}
@@ -1166,7 +1143,7 @@ export default function ComfyUiGalleryPanel({
           activeJobs={activeJobs}
           heldMaxJobs={heldMaxCount}
           onRefreshPending={() => void refreshPending()}
-          onQuickFilter={(patch) => setFilter((previous) => ({ ...previous, ...patch }))}
+          onQuickFilter={patch => setFilter(previous => ({ ...previous, ...patch }))}
         />
       ) : null}
 
@@ -1212,14 +1189,12 @@ export default function ComfyUiGalleryPanel({
 
       {bulkEnabled && visibleEntries.length > 0 && selectedIds.length === 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-zinc-800/80 bg-zinc-950/20 px-4 py-3 text-xs text-zinc-500">
-          <span>
-            Select cards to compare, export, queue, assign projects, or remove.
-          </span>
+          <span>Select cards to compare, export, queue, assign projects, or remove.</span>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => {
-                setLoraExportScope("favorites");
+                setLoraExportScope('favorites');
                 setLoraExportOpen(true);
               }}
               className="ui-btn-ghost ui-btn-sm"
@@ -1228,7 +1203,7 @@ export default function ComfyUiGalleryPanel({
             </button>
             <button
               type="button"
-              onClick={() => setSelectedIds(visibleEntries.map((entry) => entry.id))}
+              onClick={() => setSelectedIds(visibleEntries.map(entry => entry.id))}
               className="ui-btn-ghost ui-btn-sm"
             >
               Select visible ({visibleEntries.length})
@@ -1250,90 +1225,90 @@ export default function ComfyUiGalleryPanel({
           onAssignActiveProject={() => {
             const projectId = loadActiveProjectId();
             if (!projectId) {
-              setRequeueStatus("Set an active project in Studio first.");
+              setRequeueStatus('Set an active project in Studio first.');
               return;
             }
             setProjectIds(selectedIds, projectId);
             setRequeueStatus(`Assigned ${selectedIds.length} entries to active project.`);
           }}
-          onAssignProject={(projectId) => {
+          onAssignProject={projectId => {
             setProjectIds(selectedIds, projectId);
             setRequeueStatus(`Assigned ${selectedIds.length} entries.`);
           }}
-          onFavorite={(favorite) => setFavorites(selectedIds, favorite)}
+          onFavorite={favorite => setFavorites(selectedIds, favorite)}
           onDelete={() => {
             const count = selectedIds.length;
             if (
               !window.confirm(
-                `Remove ${count} selected ${count === 1 ? "entry" : "entries"} from the gallery?`,
+                `Remove ${count} selected ${count === 1 ? 'entry' : 'entries'} from the gallery?`
               )
             ) {
               return;
             }
             removeEntries(selectedIds);
             setSelectedIds([]);
-            setRequeueStatus(`Removed ${count} ${count === 1 ? "entry" : "entries"}.`);
+            setRequeueStatus(`Removed ${count} ${count === 1 ? 'entry' : 'entries'}.`);
           }}
           onExportSidecars={() => {
             downloadGallerySidecarBundle(selectedEntries);
             setRequeueStatus(`Exported ${selectedEntries.length} sidecar(s).`);
           }}
           onDownloadImages={() => {
-            setRequeueStatus("Downloading selected images…");
-            void downloadGalleryImagesSequential(selectedEntries).then((count) => {
+            setRequeueStatus('Downloading selected images…');
+            void downloadGalleryImagesSequential(selectedEntries).then(count => {
               setRequeueStatus(`Downloaded ${count} image(s).`);
             });
           }}
           onExportZip={() => {
-            setRequeueStatus("Building ZIP export…");
-            void import("@/lib/gallery-zip-export").then(({ downloadGalleryZipBundle }) =>
-              downloadGalleryZipBundle(selectedEntries),
-            ).then((count) => {
-              setRequeueStatus(`ZIP export prepared for ${count} entries.`);
-            });
+            setRequeueStatus('Building ZIP export…');
+            void import('@/lib/gallery-zip-export')
+              .then(({ downloadGalleryZipBundle }) => downloadGalleryZipBundle(selectedEntries))
+              .then(count => {
+                setRequeueStatus(`ZIP export prepared for ${count} entries.`);
+              });
           }}
           onExportLoraDataset={() => {
-            setLoraExportScope("selected");
+            setLoraExportScope('selected');
             setLoraExportOpen(true);
           }}
           onExportCompareJson={() => {
-            void import("@/lib/gallery-compare-export").then(({ downloadCompareExport }) =>
-              downloadCompareExport(selectedEntries.slice(0, 4), "json"),
+            void import('@/lib/gallery-compare-export').then(({ downloadCompareExport }) =>
+              downloadCompareExport(selectedEntries.slice(0, 4), 'json')
             );
           }}
           onExportCompareHtml={() => {
-            void import("@/lib/gallery-compare-export").then(({ downloadCompareExport }) =>
-              downloadCompareExport(selectedEntries.slice(0, 4), "html"),
+            void import('@/lib/gallery-compare-export').then(({ downloadCompareExport }) =>
+              downloadCompareExport(selectedEntries.slice(0, 4), 'html')
             );
           }}
           onFindSimilar={() => {
             const entry = selectedEntries[0];
             if (!entry) return;
-            setFilter((previous) => ({
+            setFilter(previous => ({
               ...previous,
               similarToEntryId: entry.id,
               query: undefined,
             }));
-            setRequeueStatus(`Finding outputs similar to ${entry.model ?? "selection"}…`);
+            setRequeueStatus(`Finding outputs similar to ${entry.model ?? 'selection'}…`);
           }}
           onClearSimilar={() =>
-            setFilter((previous) => ({ ...previous, similarToEntryId: undefined }))
+            setFilter(previous => ({ ...previous, similarToEntryId: undefined }))
           }
           canClearSimilar={Boolean(filter.similarToEntryId)}
           onSeedExperiment={() => {
             const entry = selectedEntries[0];
             if (!entry) return;
-            setRequeueStatus("Queueing seed experiment…");
+            setRequeueStatus('Queueing seed experiment…');
             void queueSeedExperiment({
               prompt: entry.prompt,
-              model: entry.model ?? "qwen-image-2512",
+              model: entry.model ?? 'qwen-image-2512',
               negativePrompt: entry.negativePrompt,
               hints: entry.prompt.slice(0, 200),
               count: 4,
             }).then(({ queued, held, seeds }) => {
               if (held > 0) {
                 toastHeldMax({
-                  text: "Max seed experiment held until ComfyUI is idle",
+                  text: 'Max seed experiment held until ComfyUI is idle',
                   count: held,
                 });
               }
@@ -1341,10 +1316,10 @@ export default function ComfyUiGalleryPanel({
                 [
                   `Seed experiment queued ${queued}`,
                   held > 0 ? `held ${held}` : null,
-                  `seeds ${seeds.join(", ")}`,
+                  `seeds ${seeds.join(', ')}`,
                 ]
                   .filter(Boolean)
-                  .join(" · "),
+                  .join(' · ')
               );
             });
           }}
@@ -1354,7 +1329,7 @@ export default function ComfyUiGalleryPanel({
             setRequeueStatus(`Queueing ${paramAxis} experiment…`);
             void queueParamExperiment({
               prompt: entry.prompt,
-              model: entry.model ?? "qwen-image-2512",
+              model: entry.model ?? 'qwen-image-2512',
               negativePrompt: entry.negativePrompt,
               hints: entry.prompt.slice(0, 200),
               axis: paramAxis,
@@ -1363,7 +1338,7 @@ export default function ComfyUiGalleryPanel({
             }).then(({ queued, held, labels }) => {
               if (held > 0) {
                 toastHeldMax({
-                  text: "Max param experiment held until ComfyUI is idle",
+                  text: 'Max param experiment held until ComfyUI is idle',
                   count: held,
                 });
               }
@@ -1371,55 +1346,57 @@ export default function ComfyUiGalleryPanel({
                 [
                   `Param experiment queued ${queued}`,
                   held > 0 ? `held ${held}` : null,
-                  labels.join(", "),
+                  labels.join(', '),
                 ]
                   .filter(Boolean)
-                  .join(" · "),
+                  .join(' · ')
               );
             });
           }}
           onParamGrid={() => {
             const entry = selectedEntries[0];
             if (!entry) return;
-            setRequeueStatus("Queueing CFG × steps grid…");
-            void import("@/lib/param-experiment-grid").then(({ queueParamExperimentGrid }) =>
-              queueParamExperimentGrid({
-                prompt: entry.prompt,
-                model: entry.model ?? "qwen-image-2512",
-                negativePrompt: entry.negativePrompt,
-                hints: entry.prompt.slice(0, 200),
-                baseParams: entry.queueParams,
-              }),
-            ).then(({ queued, held, cells }) => {
-              if (held > 0) {
-                toastHeldMax({
-                  text: "Max param grid held until ComfyUI is idle",
-                  count: held,
-                });
-              }
-              setRequeueStatus(
-                [
-                  `Param grid queued ${queued}`,
-                  held > 0 ? `held ${held}` : null,
-                  `${cells.slice(0, 4).join("; ")}${cells.length > 4 ? "…" : ""}`,
-                ]
-                  .filter(Boolean)
-                  .join(" · "),
-              );
-            });
+            setRequeueStatus('Queueing CFG × steps grid…');
+            void import('@/lib/param-experiment-grid')
+              .then(({ queueParamExperimentGrid }) =>
+                queueParamExperimentGrid({
+                  prompt: entry.prompt,
+                  model: entry.model ?? 'qwen-image-2512',
+                  negativePrompt: entry.negativePrompt,
+                  hints: entry.prompt.slice(0, 200),
+                  baseParams: entry.queueParams,
+                })
+              )
+              .then(({ queued, held, cells }) => {
+                if (held > 0) {
+                  toastHeldMax({
+                    text: 'Max param grid held until ComfyUI is idle',
+                    count: held,
+                  });
+                }
+                setRequeueStatus(
+                  [
+                    `Param grid queued ${queued}`,
+                    held > 0 ? `held ${held}` : null,
+                    `${cells.slice(0, 4).join('; ')}${cells.length > 4 ? '…' : ''}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+                );
+              });
           }}
           onMutateWinner={() => {
             const entry = selectedEntries[0];
             if (!entry) return;
-            setRequeueStatus("Mutating winner…");
+            setRequeueStatus('Mutating winner…');
             void queueMutatedGalleryJobs({
               entry,
-              kinds: ["variation", "location", "wardrobe"],
+              kinds: ['variation', 'location', 'wardrobe'],
               count: 3,
             }).then(({ queued, held, jobs }) => {
               if (held > 0) {
                 toastHeldMax({
-                  text: "Max mutations held until ComfyUI is idle",
+                  text: 'Max mutations held until ComfyUI is idle',
                   count: held,
                 });
               }
@@ -1443,47 +1420,43 @@ export default function ComfyUiGalleryPanel({
             if (!entry) return;
             void queueNegativeAbTest({
               prompt: entry.prompt,
-              model: entry.model ?? "qwen-image-2512",
+              model: entry.model ?? 'qwen-image-2512',
               negativeA: entry.negativePrompt,
               hints: entry.prompt.slice(0, 200),
             }).then(({ queued, held, seed }) => {
               if (held > 0) {
                 toastHeldMax({
-                  text: "Max negative A/B held until ComfyUI is idle",
+                  text: 'Max negative A/B held until ComfyUI is idle',
                   count: held,
                 });
               }
               setRequeueStatus(
-                [
-                  `Negative A/B queued ${queued}`,
-                  held > 0 ? `held ${held}` : null,
-                  `seed ${seed}`,
-                ]
+                [`Negative A/B queued ${queued}`, held > 0 ? `held ${held}` : null, `seed ${seed}`]
                   .filter(Boolean)
-                  .join(" · "),
+                  .join(' · ')
               );
             });
           }}
           onExportCsv={() => {
             downloadTextFile(
               exportGalleryCsv(selectedEntries),
-              "gallery-export.csv",
-              "text/csv;charset=utf-8",
+              'gallery-export.csv',
+              'text/csv;charset=utf-8'
             );
           }}
           onExportJsonl={() => {
             downloadTextFile(
               exportGalleryJsonl(selectedEntries),
-              "gallery-export.jsonl",
-              "application/jsonl;charset=utf-8",
+              'gallery-export.jsonl',
+              'application/jsonl;charset=utf-8'
             );
           }}
           onBulkRequeue={() => {
-            setRequeueStatus("Bulk variation queue started…");
+            setRequeueStatus('Bulk variation queue started…');
             void loadGalleryRequeue()
               .then(({ requeueComfyJobs }) =>
                 requeueComfyJobs(
-                  selectedEntries.map((entry) => {
+                  selectedEntries.map(entry => {
                     const urls = resolveRequeueImageUrlsFromEntry(entry);
                     return {
                       prompt: entry.prompt,
@@ -1495,134 +1468,118 @@ export default function ComfyUiGalleryPanel({
                       maskImageUrl: urls.maskImageUrl,
                       newSeed: true,
                       parentGalleryEntryId: entry.id,
-                      derivedKind: "variation" as const,
+                      derivedKind: 'variation' as const,
                     };
                   }),
-                  setRequeueStatus,
-                ),
+                  setRequeueStatus
+                )
               )
               .then(({ queued, failed }) => {
-              setSelectedIds([]);
-              toastBulkQueueSummary({
-                label: "Bulk variation queue finished",
-                queued,
-                failed,
+                setSelectedIds([]);
+                toastBulkQueueSummary({
+                  label: 'Bulk variation queue finished',
+                  queued,
+                  failed,
+                });
               });
-            });
           }}
           onBulkUpscaleFinal={() => {
-            setRequeueStatus("Bulk upscale (Final) started…");
+            setRequeueStatus('Bulk upscale (Final) started…');
             void loadGalleryRequeue()
               .then(({ bulkUpscaleGalleryEntries }) =>
-                bulkUpscaleGalleryEntries(selectedEntries, "final", setRequeueStatus),
+                bulkUpscaleGalleryEntries(selectedEntries, 'final', setRequeueStatus)
               )
-              .then(
-              ({ queued, failed, skipped }) => {
+              .then(({ queued, failed, skipped }) => {
                 setSelectedIds([]);
                 toastBulkQueueSummary({
-                  label: "Bulk upscale (Final) finished",
+                  label: 'Bulk upscale (Final) finished',
                   queued,
                   failed,
                   skipped,
                 });
-              },
-            );
+              });
           }}
           onBulkUpscaleMax={() => {
-            setRequeueStatus("Bulk upscale (Max) started…");
+            setRequeueStatus('Bulk upscale (Max) started…');
             void loadGalleryRequeue()
               .then(({ bulkUpscaleGalleryEntries }) =>
-                bulkUpscaleGalleryEntries(selectedEntries, "max", setRequeueStatus),
+                bulkUpscaleGalleryEntries(selectedEntries, 'max', setRequeueStatus)
               )
-              .then(
-              ({ queued, failed, skipped }) => {
+              .then(({ queued, failed, skipped }) => {
                 setSelectedIds([]);
                 toastBulkQueueSummary({
-                  label: "Bulk upscale (Max) finished",
+                  label: 'Bulk upscale (Max) finished',
                   queued,
                   failed,
                   skipped,
                 });
-              },
-            );
+              });
           }}
           onBulkRefine={() => {
-            setRequeueStatus("Bulk refine (Final) started…");
+            setRequeueStatus('Bulk refine (Final) started…');
             void loadGalleryRequeue()
               .then(({ bulkRefineGalleryEntries }) =>
-                bulkRefineGalleryEntries(selectedEntries, "final", setRequeueStatus),
+                bulkRefineGalleryEntries(selectedEntries, 'final', setRequeueStatus)
               )
-              .then(
-              ({ queued, failed, skipped }) => {
+              .then(({ queued, failed, skipped }) => {
                 setSelectedIds([]);
                 toastBulkQueueSummary({
-                  label: "Bulk refine finished",
+                  label: 'Bulk refine finished',
                   queued,
                   failed,
                   skipped,
                 });
-              },
-            );
+              });
           }}
           onBulkMoireCleanFinal={() => {
-            setRequeueStatus("Bulk moiré clean (Final) started…");
+            setRequeueStatus('Bulk moiré clean (Final) started…');
             void loadGalleryRequeue()
               .then(({ bulkMoireCleanGalleryEntries }) =>
-                bulkMoireCleanGalleryEntries(
-                  selectedEntries,
-                  "final",
-                  setRequeueStatus,
-                ),
+                bulkMoireCleanGalleryEntries(selectedEntries, 'final', setRequeueStatus)
               )
               .then(({ queued, failed, skipped }) => {
-              setSelectedIds([]);
-              toastBulkQueueSummary({
-                label: "Bulk moiré clean (Final) finished",
-                queued,
-                failed,
-                skipped,
+                setSelectedIds([]);
+                toastBulkQueueSummary({
+                  label: 'Bulk moiré clean (Final) finished',
+                  queued,
+                  failed,
+                  skipped,
+                });
               });
-            });
           }}
           onBulkMoireCleanMax={() => {
-            setRequeueStatus("Bulk moiré clean (Max) started…");
+            setRequeueStatus('Bulk moiré clean (Max) started…');
             void loadGalleryRequeue()
               .then(({ bulkMoireCleanGalleryEntries }) =>
-                bulkMoireCleanGalleryEntries(
-                  selectedEntries,
-                  "max",
-                  setRequeueStatus,
-                ),
+                bulkMoireCleanGalleryEntries(selectedEntries, 'max', setRequeueStatus)
               )
               .then(({ queued, failed, skipped }) => {
-              setSelectedIds([]);
-              toastBulkQueueSummary({
-                label: "Bulk moiré clean (Max) finished",
-                queued,
-                failed,
-                skipped,
+                setSelectedIds([]);
+                toastBulkQueueSummary({
+                  label: 'Bulk moiré clean (Max) finished',
+                  queued,
+                  failed,
+                  skipped,
+                });
               });
-            });
           }}
         />
       ) : null}
 
-      {downloadError && (
-        <p className="text-xs text-rose-300">{downloadError}</p>
-      )}
+      {downloadError && <p className="text-xs text-rose-300">{downloadError}</p>}
       {filter.derivativeOfEntryId || filter.focusEntryId || filter.derivedKind ? (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-200/90">
           <span>
             {filter.focusEntryId
-              ? "Lineage filter: showing source entry"
+              ? 'Lineage filter: showing source entry'
               : filter.derivativeOfEntryId
-                ? "Lineage filter: showing derived outputs"
+                ? 'Lineage filter: showing derived outputs'
                 : `Lineage filter: ${filter.derivedKind} only`}
           </span>
           <button
             type="button"
             onClick={() =>
-              setFilter((previous) => ({
+              setFilter(previous => ({
                 ...previous,
                 derivativeOfEntryId: undefined,
                 focusEntryId: undefined,
@@ -1636,29 +1593,29 @@ export default function ComfyUiGalleryPanel({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          {(["upscale", "refine", "variation", "moire-clean"] as const).map((kind) => (
+          {(['upscale', 'refine', 'variation', 'moire-clean'] as const).map(kind => (
             <button
               key={kind}
               type="button"
               onClick={() =>
-                setFilter((previous) => ({
+                setFilter(previous => ({
                   ...previous,
                   derivedKind: previous.derivedKind === kind ? undefined : kind,
                 }))
               }
               className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
                 filter.derivedKind === kind
-                  ? "border-violet-400/50 bg-violet-500/15 text-violet-100"
-                  : "border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+                  ? 'border-violet-400/50 bg-violet-500/15 text-violet-100'
+                  : 'border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
               }`}
             >
-              {kind === "upscale"
-                ? "Upscaled"
-                : kind === "refine"
-                  ? "Refined"
-                  : kind === "variation"
-                    ? "Variations"
-                    : "Moiré clean"}
+              {kind === 'upscale'
+                ? 'Upscaled'
+                : kind === 'refine'
+                  ? 'Refined'
+                  : kind === 'variation'
+                    ? 'Variations'
+                    : 'Moiré clean'}
             </button>
           ))}
         </div>
@@ -1667,7 +1624,7 @@ export default function ComfyUiGalleryPanel({
         <StatusToastStrip
           notes={[
             {
-              id: "gallery-requeue",
+              id: 'gallery-requeue',
               text: requeueStatus,
               tone: toneForStatusText(requeueStatus),
             },
@@ -1677,236 +1634,236 @@ export default function ComfyUiGalleryPanel({
 
       {compareOpen && selectedEntries.length >= 2 ? (
         <ModalPortal>
-        <div
-          className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-zinc-950/85 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Compare gallery outputs"
-        >
-          <div className="my-4 w-full max-w-7xl">
-            <GalleryComparePanel
-          entries={selectedEntries.slice(0, 4)}
-          onClose={() => {
-            setCompareOpen(false);
-            setCompareStatus(null);
-            setCompareWinnerId(null);
-          }}
-          status={compareStatus}
-          compareWinnerId={compareWinnerId}
-          onPickWinner={(entry) => {
-            setCompareWinnerId(entry.id);
-            const compareIds = selectedEntries.slice(0, 4).map((item) => item.id);
-            setFavorites(compareIds.filter((id) => id !== entry.id), false);
-            setFavorites([entry.id], true);
-            setReviewRating(entry.id, 5);
-            recordCatalogBiasFromPrompt(entry.prompt, 5);
-            if (entry.historyId) {
-              setLineageParent({
-                parentHistoryId: entry.historyId,
-                sourcePrompt: entry.prompt,
-                sourceTool: entry.tool,
-              });
-            }
-            setCompareStatus(`Winner: ${entry.model ?? "unknown"} · seed ${entry.queueParams?.seed ?? "?"}`);
-            void import("@/lib/auto-improve-loop")
-              .then(({ runAutoImproveOnRating }) => runAutoImproveOnRating(entry, 5))
-              .then((message) => {
-                if (message) {
-                  setCompareStatus(message);
-                }
-              })
-              .catch((error) => {
-                setCompareStatus(
-                  error instanceof Error ? error.message : "Auto-improve failed.",
-                );
-              });
-          }}
-          onSaveWinnerRecipe={(entry) => {
-            const built = buildToolQualityRecipeFromGalleryEntry(entry);
-            if (!built.ok) {
-              setCompareStatus(built.error);
-              return;
-            }
-            const shared = loadSettingsCache().shared;
-            const nextRecipes = appendUserToolQualityRecipe(
-              shared.toolQualityRecipes,
-              built.recipe,
-            );
-            saveSharedSettings({
-              ...shared,
-              toolQualityRecipes: nextRecipes,
-            });
-            setCompareStatus(
-              `Saved recipe “${built.recipe.label}” · ${built.recipe.queueQualityProfile}${
-                built.recipe.model ? ` · ${built.recipe.model}` : ""
-              }`,
-            );
-          }}
-          onRate={(entryId, rating) => {
-            setReviewRating(entryId, rating);
-            const entry = selectedEntries.find((item) => item.id === entryId);
-            if (entry && rating && rating <= 2) {
-              recordAvoidedTokensFromGalleryEntry({
-                prompt: entry.prompt,
-                visionTags: entry.visionTags,
-              });
-            }
-            if (entry) {
-              recordCatalogBiasFromPrompt(entry.prompt, rating);
-              if (rating) {
-                void import("@/lib/auto-improve-loop")
-                  .then(({ runAutoImproveOnRating }) =>
-                    runAutoImproveOnRating(entry, rating),
-                  )
-                  .then((message) => {
-                    if (message) {
-                      setCompareStatus(message);
-                    }
-                  })
-                  .catch((error) => {
-                    setCompareStatus(
-                      error instanceof Error ? error.message : "Auto-improve failed.",
-                    );
+          <div
+            className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-zinc-950/85 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Compare gallery outputs"
+          >
+            <div className="my-4 w-full max-w-7xl">
+              <GalleryComparePanel
+                entries={selectedEntries.slice(0, 4)}
+                onClose={() => {
+                  setCompareOpen(false);
+                  setCompareStatus(null);
+                  setCompareWinnerId(null);
+                }}
+                status={compareStatus}
+                compareWinnerId={compareWinnerId}
+                onPickWinner={entry => {
+                  setCompareWinnerId(entry.id);
+                  const compareIds = selectedEntries.slice(0, 4).map(item => item.id);
+                  setFavorites(
+                    compareIds.filter(id => id !== entry.id),
+                    false
+                  );
+                  setFavorites([entry.id], true);
+                  setReviewRating(entry.id, 5);
+                  recordCatalogBiasFromPrompt(entry.prompt, 5);
+                  if (entry.historyId) {
+                    setLineageParent({
+                      parentHistoryId: entry.historyId,
+                      sourcePrompt: entry.prompt,
+                      sourceTool: entry.tool,
+                    });
+                  }
+                  setCompareStatus(
+                    `Winner: ${entry.model ?? 'unknown'} · seed ${entry.queueParams?.seed ?? '?'}`
+                  );
+                  void import('@/lib/auto-improve-loop')
+                    .then(({ runAutoImproveOnRating }) => runAutoImproveOnRating(entry, 5))
+                    .then(message => {
+                      if (message) {
+                        setCompareStatus(message);
+                      }
+                    })
+                    .catch(error => {
+                      setCompareStatus(
+                        error instanceof Error ? error.message : 'Auto-improve failed.'
+                      );
+                    });
+                }}
+                onSaveWinnerRecipe={entry => {
+                  const built = buildToolQualityRecipeFromGalleryEntry(entry);
+                  if (!built.ok) {
+                    setCompareStatus(built.error);
+                    return;
+                  }
+                  const shared = loadSettingsCache().shared;
+                  const nextRecipes = appendUserToolQualityRecipe(
+                    shared.toolQualityRecipes,
+                    built.recipe
+                  );
+                  saveSharedSettings({
+                    ...shared,
+                    toolQualityRecipes: nextRecipes,
                   });
-              }
-            }
-          }}
-          onFavorite={(entryId) => toggleFavorite(entryId)}
-          onMutate={(entry) => {
-            setCompareStatus("Queueing mutations…");
-            void queueMutatedGalleryJobs({
-              entry,
-              kinds: ["variation", "location", "wardrobe"],
-              count: 3,
-            }).then(({ queued, held, jobs }) => {
-              if (held > 0) {
-                toastHeldMax({
-                  text: "Max mutations held until ComfyUI is idle",
-                  count: held,
-                });
-              }
-              setCompareStatus(formatMutatedJobsStatus(jobs, queued, held));
-            });
-          }}
-          onUpscale={(entry, qualityProfile) => {
-            setCompareStatus(`Upscaling (${qualityProfile})…`);
-            void loadGalleryRequeue()
-              .then(({ requeueUpscaleFromGalleryEntry }) =>
-                requeueUpscaleFromGalleryEntry(entry, {
-                  qualityProfile,
-                  onStatus: setCompareStatus,
-                }),
-              )
-              .then((result) => {
-              if (!result.ok) {
-                setCompareStatus(result.error ?? "Upscale failed.");
-                return;
-              }
-              if (result.held) {
-                const message = "Max upscale held until ComfyUI queue is idle";
-                setCompareStatus(message);
-                toastHeldMax({ text: message });
-              }
-            });
-          }}
-          onMoireClean={(entry, qualityProfile) => {
-            setCompareStatus(
-              qualityProfile === "max"
-                ? "Queueing moiré clean (Max)…"
-                : "Queueing moiré clean (Final)…",
-            );
-            void loadGalleryRequeue()
-              .then(({ requeueMoireCleanFromGalleryEntry }) =>
-                requeueMoireCleanFromGalleryEntry(entry, {
-                  qualityProfile,
-                  onStatus: setCompareStatus,
-                }),
-              )
-              .then((result) => {
-              if (!result.ok) {
-                setCompareStatus(result.error ?? "Moiré clean failed.");
-                return;
-              }
-              if (result.held) {
-                const message = "Max moiré clean held until ComfyUI queue is idle";
-                setCompareStatus(message);
-                toastHeldMax({ text: message });
-              }
-            });
-          }}
-          onRefine={(entry) => {
-            setCompareStatus("Queueing low-denoise refine…");
-            void loadGalleryRequeue()
-              .then(({ requeueRefineFromGalleryEntry }) =>
-                requeueRefineFromGalleryEntry(entry, {
-                  onStatus: setCompareStatus,
-                }),
-              )
-              .then((result) => {
-              if (!result.ok) {
-                setCompareStatus(result.error ?? "Refine failed.");
-                return;
-              }
-              if (result.held) {
-                const message = "Max refine held until ComfyUI queue is idle";
-                setCompareStatus(message);
-                toastHeldMax({ text: message });
-              }
-            });
-          }}
-          onSoftSecondPass={(entry) => {
-            setCompareStatus("Queueing soft second pass…");
-            void loadGalleryRequeue()
-              .then(({ requeueSoftSecondPassFromGalleryEntry }) =>
-                requeueSoftSecondPassFromGalleryEntry(entry, {
-                  onStatus: setCompareStatus,
-                }),
-              )
-              .then((result) => {
-              if (!result.ok) {
-                setCompareStatus(result.error ?? "Soft second pass failed.");
-                return;
-              }
-              if (result.held) {
-                const message = "Soft second pass held until ComfyUI queue is idle";
-                setCompareStatus(message);
-                toastHeldMax({ text: message });
-              }
-            });
-          }}
-          onUpscaleWinner={(entry) => {
-            setCompareStatus("Upscaling compare winner at Max…");
-            void loadGalleryRequeue()
-              .then(({ requeueUpscaleFromGalleryEntry }) =>
-                requeueUpscaleFromGalleryEntry(entry, {
-                  qualityProfile: "max",
-                  onStatus: setCompareStatus,
-                }),
-              )
-              .then((result) => {
-              if (!result.ok) {
-                setCompareStatus(result.error ?? "Upscale failed.");
-                return;
-              }
-              if (result.held) {
-                const message = "Max upscale held until ComfyUI queue is idle";
-                setCompareStatus(message);
-                toastHeldMax({ text: message });
-              }
-            });
-          }}
-          onImprove={(entry) => startImproveFromGalleryEntry(entry)}
-            />
+                  setCompareStatus(
+                    `Saved recipe “${built.recipe.label}” · ${built.recipe.queueQualityProfile}${
+                      built.recipe.model ? ` · ${built.recipe.model}` : ''
+                    }`
+                  );
+                }}
+                onRate={(entryId, rating) => {
+                  setReviewRating(entryId, rating);
+                  const entry = selectedEntries.find(item => item.id === entryId);
+                  if (entry && rating && rating <= 2) {
+                    recordAvoidedTokensFromGalleryEntry({
+                      prompt: entry.prompt,
+                      visionTags: entry.visionTags,
+                    });
+                  }
+                  if (entry) {
+                    recordCatalogBiasFromPrompt(entry.prompt, rating);
+                    if (rating) {
+                      void import('@/lib/auto-improve-loop')
+                        .then(({ runAutoImproveOnRating }) => runAutoImproveOnRating(entry, rating))
+                        .then(message => {
+                          if (message) {
+                            setCompareStatus(message);
+                          }
+                        })
+                        .catch(error => {
+                          setCompareStatus(
+                            error instanceof Error ? error.message : 'Auto-improve failed.'
+                          );
+                        });
+                    }
+                  }
+                }}
+                onFavorite={entryId => toggleFavorite(entryId)}
+                onMutate={entry => {
+                  setCompareStatus('Queueing mutations…');
+                  void queueMutatedGalleryJobs({
+                    entry,
+                    kinds: ['variation', 'location', 'wardrobe'],
+                    count: 3,
+                  }).then(({ queued, held, jobs }) => {
+                    if (held > 0) {
+                      toastHeldMax({
+                        text: 'Max mutations held until ComfyUI is idle',
+                        count: held,
+                      });
+                    }
+                    setCompareStatus(formatMutatedJobsStatus(jobs, queued, held));
+                  });
+                }}
+                onUpscale={(entry, qualityProfile) => {
+                  setCompareStatus(`Upscaling (${qualityProfile})…`);
+                  void loadGalleryRequeue()
+                    .then(({ requeueUpscaleFromGalleryEntry }) =>
+                      requeueUpscaleFromGalleryEntry(entry, {
+                        qualityProfile,
+                        onStatus: setCompareStatus,
+                      })
+                    )
+                    .then(result => {
+                      if (!result.ok) {
+                        setCompareStatus(result.error ?? 'Upscale failed.');
+                        return;
+                      }
+                      if (result.held) {
+                        const message = 'Max upscale held until ComfyUI queue is idle';
+                        setCompareStatus(message);
+                        toastHeldMax({ text: message });
+                      }
+                    });
+                }}
+                onMoireClean={(entry, qualityProfile) => {
+                  setCompareStatus(
+                    qualityProfile === 'max'
+                      ? 'Queueing moiré clean (Max)…'
+                      : 'Queueing moiré clean (Final)…'
+                  );
+                  void loadGalleryRequeue()
+                    .then(({ requeueMoireCleanFromGalleryEntry }) =>
+                      requeueMoireCleanFromGalleryEntry(entry, {
+                        qualityProfile,
+                        onStatus: setCompareStatus,
+                      })
+                    )
+                    .then(result => {
+                      if (!result.ok) {
+                        setCompareStatus(result.error ?? 'Moiré clean failed.');
+                        return;
+                      }
+                      if (result.held) {
+                        const message = 'Max moiré clean held until ComfyUI queue is idle';
+                        setCompareStatus(message);
+                        toastHeldMax({ text: message });
+                      }
+                    });
+                }}
+                onRefine={entry => {
+                  setCompareStatus('Queueing low-denoise refine…');
+                  void loadGalleryRequeue()
+                    .then(({ requeueRefineFromGalleryEntry }) =>
+                      requeueRefineFromGalleryEntry(entry, {
+                        onStatus: setCompareStatus,
+                      })
+                    )
+                    .then(result => {
+                      if (!result.ok) {
+                        setCompareStatus(result.error ?? 'Refine failed.');
+                        return;
+                      }
+                      if (result.held) {
+                        const message = 'Max refine held until ComfyUI queue is idle';
+                        setCompareStatus(message);
+                        toastHeldMax({ text: message });
+                      }
+                    });
+                }}
+                onSoftSecondPass={entry => {
+                  setCompareStatus('Queueing soft second pass…');
+                  void loadGalleryRequeue()
+                    .then(({ requeueSoftSecondPassFromGalleryEntry }) =>
+                      requeueSoftSecondPassFromGalleryEntry(entry, {
+                        onStatus: setCompareStatus,
+                      })
+                    )
+                    .then(result => {
+                      if (!result.ok) {
+                        setCompareStatus(result.error ?? 'Soft second pass failed.');
+                        return;
+                      }
+                      if (result.held) {
+                        const message = 'Soft second pass held until ComfyUI queue is idle';
+                        setCompareStatus(message);
+                        toastHeldMax({ text: message });
+                      }
+                    });
+                }}
+                onUpscaleWinner={entry => {
+                  setCompareStatus('Upscaling compare winner at Max…');
+                  void loadGalleryRequeue()
+                    .then(({ requeueUpscaleFromGalleryEntry }) =>
+                      requeueUpscaleFromGalleryEntry(entry, {
+                        qualityProfile: 'max',
+                        onStatus: setCompareStatus,
+                      })
+                    )
+                    .then(result => {
+                      if (!result.ok) {
+                        setCompareStatus(result.error ?? 'Upscale failed.');
+                        return;
+                      }
+                      if (result.held) {
+                        const message = 'Max upscale held until ComfyUI queue is idle';
+                        setCompareStatus(message);
+                        toastHeldMax({ text: message });
+                      }
+                    });
+                }}
+                onImprove={entry => startImproveFromGalleryEntry(entry)}
+              />
+            </div>
           </div>
-        </div>
         </ModalPortal>
       ) : null}
 
       {workflowEntry ? (
-        <GalleryWorkflowModal
-          entry={workflowEntry}
-          onClose={() => setWorkflowEntry(null)}
-        />
+        <GalleryWorkflowModal entry={workflowEntry} onClose={() => setWorkflowEntry(null)} />
       ) : null}
 
       {visibleEntries.length === 0 ? (
@@ -1923,10 +1880,10 @@ export default function ComfyUiGalleryPanel({
             title="No entries match these filters"
             description="Try clearing search, status, or project filters — or turn off semantic search."
             action={{
-              label: "Clear filters",
+              label: 'Clear filters',
               onClick: () =>
                 setFilter({
-                  status: "all",
+                  status: 'all',
                 }),
             }}
           />
@@ -1934,20 +1891,16 @@ export default function ComfyUiGalleryPanel({
       ) : virtualizeGrid ? (
         <VirtualizedGalleryGrid
           items={virtualizedEntries}
-          getKey={(entry) => entry.id}
+          getKey={entry => entry.id}
           layout={layout}
           compact={compact}
-          gridClassName={
-            layout === "list" ? "flex flex-col gap-3" : galleryVirtualGridClass
-          }
-          estimateRowHeight={
-            layout === "list" ? 180 : layout === "dense" || compact ? 280 : 360
-          }
-          renderItem={(entry) => (
+          gridClassName={layout === 'list' ? 'flex flex-col gap-3' : galleryVirtualGridClass}
+          estimateRowHeight={layout === 'list' ? 180 : layout === 'dense' || compact ? 280 : 360}
+          renderItem={entry => (
             <GalleryCardItem
               entry={entry}
               actionsRef={galleryCardActionsRef}
-              compact={compact || layout === "dense"}
+              compact={compact || layout === 'dense'}
               layout={layout}
               selectable={bulkEnabled && !pickFor}
               selected={selectedIdSet.has(entry.id)}
@@ -1963,15 +1916,15 @@ export default function ComfyUiGalleryPanel({
                 !pickFor &&
                 reviewFocusEntry?.id === entry.id &&
                 !entry.reviewRating
-                  ? suggestRatingMutations(entry, 2).map((item) => item.detail)
+                  ? suggestRatingMutations(entry, 2).map(item => item.detail)
                   : undefined
               }
               hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
               pickMode={Boolean(pickFor)}
               pickable={
                 Boolean(pickFor) &&
-                entry.status === "completed" &&
-                galleryEntryPrimaryMediaKind(entry) === "image"
+                entry.status === 'completed' &&
+                galleryEntryPrimaryMediaKind(entry) === 'image'
               }
               pickLabel={pickFor ? galleryPickActionLabel(pickFor) : undefined}
             />
@@ -1980,106 +1933,106 @@ export default function ComfyUiGalleryPanel({
       ) : (
         <div
           className={
-            layout === "list"
-              ? "flex flex-col gap-3 overflow-visible"
+            layout === 'list'
+              ? 'flex flex-col gap-3 overflow-visible'
               : `${galleryCardGridClass} overflow-visible`
           }
         >
-          {(lineageGroups ?? visibleEntries.map((entry) => ({ root: entry, derivatives: [] }))).flatMap(
-            (group) => {
-              const renderCard = (entry: ComfyGalleryEntry) => (
-                <GalleryCardItem
-                  key={entry.id}
-                  entry={entry}
-                  actionsRef={galleryCardActionsRef}
-                  compact={compact || layout === "dense"}
-                  layout={layout}
-                  selectable={bulkEnabled && !pickFor}
-                  selected={selectedIdSet.has(entry.id)}
-                  reviewFocus={
-                    (filter.reviewMode === true && reviewFocusEntry?.id === entry.id) ||
-                    filter.focusEntryId === entry.id
-                  }
-                  previewUrl={primaryThumbUrl(entry)}
-                  imageUrls={galleryEntryStripThumbUrls(entry)}
-                  reviewMode={filter.reviewMode === true && !pickFor}
-                  reviewMutationHints={
-                    filter.reviewMode &&
-                    !pickFor &&
-                    reviewFocusEntry?.id === entry.id &&
-                    !entry.reviewRating
-                      ? suggestRatingMutations(entry, 2).map((item) => item.detail)
-                      : undefined
-                  }
-                  hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
-                  pickMode={Boolean(pickFor)}
-                  pickable={
-                    Boolean(pickFor) &&
-                    entry.status === "completed" &&
-                    galleryEntryPrimaryMediaKind(entry) === "image"
-                  }
-                  pickLabel={pickFor ? galleryPickActionLabel(pickFor) : undefined}
-                />
-              );
+          {(
+            lineageGroups ?? visibleEntries.map(entry => ({ root: entry, derivatives: [] }))
+          ).flatMap(group => {
+            const renderCard = (entry: ComfyGalleryEntry) => (
+              <GalleryCardItem
+                key={entry.id}
+                entry={entry}
+                actionsRef={galleryCardActionsRef}
+                compact={compact || layout === 'dense'}
+                layout={layout}
+                selectable={bulkEnabled && !pickFor}
+                selected={selectedIdSet.has(entry.id)}
+                reviewFocus={
+                  (filter.reviewMode === true && reviewFocusEntry?.id === entry.id) ||
+                  filter.focusEntryId === entry.id
+                }
+                previewUrl={primaryThumbUrl(entry)}
+                imageUrls={galleryEntryStripThumbUrls(entry)}
+                reviewMode={filter.reviewMode === true && !pickFor}
+                reviewMutationHints={
+                  filter.reviewMode &&
+                  !pickFor &&
+                  reviewFocusEntry?.id === entry.id &&
+                  !entry.reviewRating
+                    ? suggestRatingMutations(entry, 2).map(item => item.detail)
+                    : undefined
+                }
+                hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
+                pickMode={Boolean(pickFor)}
+                pickable={
+                  Boolean(pickFor) &&
+                  entry.status === 'completed' &&
+                  galleryEntryPrimaryMediaKind(entry) === 'image'
+                }
+                pickLabel={pickFor ? galleryPickActionLabel(pickFor) : undefined}
+              />
+            );
 
-              if (group.derivatives.length === 0) {
-                return [renderCard(group.root)];
-              }
+            if (group.derivatives.length === 0) {
+              return [renderCard(group.root)];
+            }
 
-              const collapsed = collapsedLineageGroups.has(group.root.id);
+            const collapsed = collapsedLineageGroups.has(group.root.id);
 
-              return [
-                <div
-                  key={`lineage-${group.root.id}`}
-                  className={
-                    layout === "list"
-                      ? "space-y-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-3"
-                      : "col-span-full space-y-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-3"
-                  }
-                >
-                  <div className="flex items-center justify-between gap-2 px-1">
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-violet-300/80">
-                      Lineage · {group.derivatives.length + 1} outputs
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCollapsedLineageGroups((previous) => {
-                          const next = new Set(previous);
-                          if (next.has(group.root.id)) {
-                            next.delete(group.root.id);
-                          } else {
-                            next.add(group.root.id);
+            return [
+              <div
+                key={`lineage-${group.root.id}`}
+                className={
+                  layout === 'list'
+                    ? 'space-y-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-3'
+                    : 'col-span-full space-y-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-3'
+                }
+              >
+                <div className="flex items-center justify-between gap-2 px-1">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-violet-300/80">
+                    Lineage · {group.derivatives.length + 1} outputs
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsedLineageGroups(previous => {
+                        const next = new Set(previous);
+                        if (next.has(group.root.id)) {
+                          next.delete(group.root.id);
+                        } else {
+                          next.add(group.root.id);
+                        }
+                        return next;
+                      })
+                    }
+                    className="rounded-lg border border-violet-500/25 px-2 py-0.5 text-[10px] text-violet-200/90 transition hover:border-violet-400/40"
+                  >
+                    {collapsed ? 'Expand' : 'Collapse'}
+                  </button>
+                </div>
+                <div className={layout === 'list' ? 'space-y-3' : galleryCardGridClass}>
+                  {renderCard(group.root)}
+                  {!collapsed
+                    ? group.derivatives.map(derivative => (
+                        <div
+                          key={derivative.id}
+                          className={
+                            layout === 'list'
+                              ? 'ml-3 border-l border-violet-500/20 pl-3'
+                              : undefined
                           }
-                          return next;
-                        })
-                      }
-                      className="rounded-lg border border-violet-500/25 px-2 py-0.5 text-[10px] text-violet-200/90 transition hover:border-violet-400/40"
-                    >
-                      {collapsed ? "Expand" : "Collapse"}
-                    </button>
-                  </div>
-                  <div className={layout === "list" ? "space-y-3" : galleryCardGridClass}>
-                    {renderCard(group.root)}
-                    {!collapsed
-                      ? group.derivatives.map((derivative) => (
-                          <div
-                            key={derivative.id}
-                            className={
-                              layout === "list"
-                                ? "ml-3 border-l border-violet-500/20 pl-3"
-                                : undefined
-                            }
-                          >
-                            {renderCard(derivative)}
-                          </div>
-                        ))
-                      : null}
-                  </div>
-                </div>,
-              ];
-            },
-          )}
+                        >
+                          {renderCard(derivative)}
+                        </div>
+                      ))
+                    : null}
+                </div>
+              </div>,
+            ];
+          })}
         </div>
       )}
 
@@ -2087,9 +2040,7 @@ export default function ComfyUiGalleryPanel({
         <div className="flex justify-center pt-2">
           <button
             type="button"
-            onClick={() =>
-              setAllRenderLimit((previous) => previous + GALLERY_ALL_RENDER_CHUNK)
-            }
+            onClick={() => setAllRenderLimit(previous => previous + GALLERY_ALL_RENDER_CHUNK)}
             className="ui-btn-secondary ui-btn-sm"
           >
             Load more ({remainingAll} remaining)
@@ -2113,18 +2064,19 @@ export default function ComfyUiGalleryPanel({
             <GalleryVisionReviewButton
               imageDataUrl={galleryEntryViewUrls(reviewFocusEntry)[0]!}
               prompt={reviewFocusEntry.prompt}
-              onApplyRating={(rating) => {
+              onApplyRating={rating => {
                 handleReviewRating(reviewFocusEntry, rating);
               }}
             />
           ) : null}
           <GalleryReviewTouchBar
-            onRate={(rating) => {
+            onRate={rating => {
               handleReviewRating(reviewFocusEntry, rating);
             }}
             onFavorite={() => toggleFavorite(reviewFocusEntry.id)}
             onNext={() => {
-              const nextEntry = visibleEntries[Math.min(reviewFocusIndex + 1, visibleEntries.length - 1)];
+              const nextEntry =
+                visibleEntries[Math.min(reviewFocusIndex + 1, visibleEntries.length - 1)];
               if (nextEntry) {
                 setSelectedIds([nextEntry.id]);
               }
@@ -2142,32 +2094,31 @@ export default function ComfyUiGalleryPanel({
       <LoraDatasetExportDialog
         open={loraExportOpen}
         onCancel={() => setLoraExportOpen(false)}
-        onConfirm={(options) => {
+        onConfirm={options => {
           setLoraExportOpen(false);
-          setRequeueStatus("Building LoRA dataset export…");
-          void import("@/lib/gallery-lora-dataset-export").then(
-            ({ downloadLoraDatasetZip, selectLoraDatasetEntries }) => {
-              const source =
-                loraExportScope === "selected" ? selectedEntries : entries;
+          setRequeueStatus('Building LoRA dataset export…');
+          void import('@/lib/gallery-lora-dataset-export')
+            .then(({ downloadLoraDatasetZip, selectLoraDatasetEntries }) => {
+              const source = loraExportScope === 'selected' ? selectedEntries : entries;
               return downloadLoraDatasetZip(
                 selectLoraDatasetEntries(
                   source,
-                  loraExportScope === "selected"
-                    ? { selectedIds: selectedEntries.map((entry) => entry.id) }
-                    : undefined,
+                  loraExportScope === 'selected'
+                    ? { selectedIds: selectedEntries.map(entry => entry.id) }
+                    : undefined
                 ),
-                options,
+                options
               );
-            },
-          ).then(({ count }) => {
-            setRequeueStatus(
-              count > 0
-                ? `LoRA dataset exported (${count} image/caption pairs, ${options.captionMode}).`
-                : loraExportScope === "selected"
-                  ? "No eligible images found for the LoRA dataset export."
-                  : "No favorited or 4–5★ entries found for the LoRA dataset export.",
-            );
-          });
+            })
+            .then(({ count }) => {
+              setRequeueStatus(
+                count > 0
+                  ? `LoRA dataset exported (${count} image/caption pairs, ${options.captionMode}).`
+                  : loraExportScope === 'selected'
+                    ? 'No eligible images found for the LoRA dataset export.'
+                    : 'No favorited or 4–5★ entries found for the LoRA dataset export.'
+              );
+            });
         }}
       />
     </section>
@@ -2221,4 +2172,3 @@ function GalleryPaginator({
     </div>
   );
 }
-

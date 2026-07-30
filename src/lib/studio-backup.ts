@@ -4,46 +4,38 @@ import {
   loadPromptHistoryStore,
   savePromptHistoryStore,
   type PromptHistoryEntry,
-} from "@/lib/prompt-history";
+} from '@/lib/prompt-history';
 import {
   loadSettingsCache,
   saveSettingsCache,
   SETTINGS_CACHE_KEY,
   type SettingsCache,
-} from "@/lib/settings-cache";
-import {
-  loadScenePresets,
-  saveScenePresets,
-  type ScenePreset,
-} from "@/lib/scene-presets";
+} from '@/lib/settings-cache';
+import { loadScenePresets, saveScenePresets, type ScenePreset } from '@/lib/scene-presets';
 import {
   loadUserTemplates,
   saveUserTemplates,
   type UserPromptTemplate,
-} from "@/lib/user-templates";
-import {
-  loadComfyGallery,
-  saveComfyGallery,
-  type ComfyGalleryEntry,
-} from "@/lib/comfyui-gallery";
+} from '@/lib/user-templates';
+import { loadComfyGallery, saveComfyGallery, type ComfyGalleryEntry } from '@/lib/comfyui-gallery';
 import {
   loadComfyUiSettings,
   saveComfyUiSettings,
   type ComfyUiSettings,
-} from "@/lib/comfyui-settings";
+} from '@/lib/comfyui-settings';
 import {
   loadComfyWorkflowFiles,
   saveComfyWorkflowFiles,
   type ComfyWorkflowFile,
-} from "@/lib/comfyui-workflow-files";
+} from '@/lib/comfyui-workflow-files';
 import {
   loadComfyWorkflowPresets,
   saveComfyWorkflowPresets,
   type ComfyWorkflowPreset,
-} from "@/lib/comfyui-workflow-presets";
-import { exportAvoidedTokenList, saveAvoidedTokens } from "@/lib/avoided-tokens";
-import { WEBHOOK_LOG_KEY, loadWebhookLog, type WebhookLogEntry } from "@/lib/webhook-log";
-import { readBrowserValue, writeBrowserValue } from "@/lib/browser-storage";
+} from '@/lib/comfyui-workflow-presets';
+import { exportAvoidedTokenList, saveAvoidedTokens } from '@/lib/avoided-tokens';
+import { WEBHOOK_LOG_KEY, loadWebhookLog, type WebhookLogEntry } from '@/lib/webhook-log';
+import { readBrowserValue, writeBrowserValue } from '@/lib/browser-storage';
 import {
   ACTIVE_PROJECT_KEY,
   loadActiveProjectId,
@@ -51,17 +43,17 @@ import {
   savePromptProjects,
   setActiveProjectId,
   type PromptProject,
-} from "@/lib/prompt-projects";
+} from '@/lib/prompt-projects';
 import {
   loadScheduledBatchConfig,
   saveScheduledBatchConfig,
   type ScheduledBatchConfig,
-} from "@/lib/scheduled-batch";
+} from '@/lib/scheduled-batch';
 import {
   loadWebhookSettings,
   saveWebhookSettings,
   type WebhookSettings,
-} from "@/lib/webhook-settings";
+} from '@/lib/webhook-settings';
 
 export type StudioBackupV1 = {
   version: 1;
@@ -73,7 +65,7 @@ export type StudioBackupV1 = {
   userTemplates?: UserPromptTemplate[];
 };
 
-export type StudioBackupV2 = Omit<StudioBackupV1, "version"> & {
+export type StudioBackupV2 = Omit<StudioBackupV1, 'version'> & {
   version: 2;
   comfyUiSettings?: ComfyUiSettings;
   comfyGallery?: ComfyGalleryEntry[];
@@ -81,7 +73,7 @@ export type StudioBackupV2 = Omit<StudioBackupV1, "version"> & {
   comfyWorkflowFiles?: ComfyWorkflowFile[];
 };
 
-export type StudioBackupV3 = Omit<StudioBackupV2, "version"> & {
+export type StudioBackupV3 = Omit<StudioBackupV2, 'version'> & {
   version: 3;
   avoidedTokens?: string[];
   webhookLog?: WebhookLogEntry[];
@@ -117,7 +109,7 @@ export function exportStudioBackup(): StudioBackupV3 {
 
 export function importStudioBackup(backup: StudioBackup): void {
   if (backup.version !== 1 && backup.version !== 2 && backup.version !== 3) {
-    throw new Error("Unsupported backup version.");
+    throw new Error('Unsupported backup version.');
   }
 
   savePromptHistoryStore(backup.history.slice(0, 100));
@@ -171,9 +163,9 @@ export function importStudioBackup(backup: StudioBackup): void {
 
 export function downloadStudioBackup(): void {
   const payload = JSON.stringify(exportStudioBackup(), null, 2);
-  const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+  const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = `prompt-studio-backup-${Date.now()}.json`;
   anchor.click();
@@ -195,7 +187,7 @@ export function parseStudioBackupFile(raw: string): StudioBackup {
     (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3) ||
     !Array.isArray(parsed.history)
   ) {
-    throw new Error("Invalid studio backup file.");
+    throw new Error('Invalid studio backup file.');
   }
   return parsed;
 }
@@ -208,11 +200,11 @@ export function downloadHistoryExport(entries: PromptHistoryEntry[]): void {
       entries,
     },
     null,
-    2,
+    2
   );
-  const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+  const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = `prompt-history-${Date.now()}.json`;
   anchor.click();

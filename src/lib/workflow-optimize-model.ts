@@ -1,14 +1,14 @@
-import type { ComfyImageModel } from "./comfy-models/client";
-import type { ComfyWorkflowFile } from "./comfyui-workflow-files";
-import { inferModelsFromWorkflowLabel } from "./workflow-category-defaults";
-import type { ModelWorkflowMap } from "./model-workflow-map";
-import { loadSettingsCache } from "./settings-cache";
+import type { ComfyImageModel } from './comfy-models/client';
+import type { ComfyWorkflowFile } from './comfyui-workflow-files';
+import { inferModelsFromWorkflowLabel } from './workflow-category-defaults';
+import type { ModelWorkflowMap } from './model-workflow-map';
+import { loadSettingsCache } from './settings-cache';
 
 /** Pick the best model id to run optimize/enrich heuristics for a library workflow file. */
 export function resolveOptimizeModelForWorkflowFile(
-  file: Pick<ComfyWorkflowFile, "id" | "name" | "filename">,
+  file: Pick<ComfyWorkflowFile, 'id' | 'name' | 'filename'>,
   fallbackModel?: string,
-  modelWorkflowMap?: ModelWorkflowMap,
+  modelWorkflowMap?: ModelWorkflowMap
 ): ComfyImageModel | string {
   const map = modelWorkflowMap ?? loadSettingsCache().shared.modelWorkflowMap ?? {};
   const assignedModels = Object.entries(map)

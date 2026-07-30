@@ -1,24 +1,20 @@
-"use client";
+'use client';
 
-import { ChipButton } from "@/components/ui/Field";
+import { ChipButton } from '@/components/ui/Field';
 import {
   ANATOMY_GUARD_OPTIONS,
   formatAnatomyGuardHint,
   type AnatomyGuardMode,
-} from "@/lib/anatomy-guard";
+} from '@/lib/anatomy-guard';
 
 type AnatomyGuardHintsProps = {
   mode: AnatomyGuardMode;
   onModeChange: (mode: AnatomyGuardMode) => void;
 };
 
-export default function AnatomyGuardHints({
-  mode,
-  onModeChange,
-}: AnatomyGuardHintsProps) {
+export default function AnatomyGuardHints({ mode, onModeChange }: AnatomyGuardHintsProps) {
   const activeOption =
-    ANATOMY_GUARD_OPTIONS.find((option) => option.id === mode) ??
-    ANATOMY_GUARD_OPTIONS[0];
+    ANATOMY_GUARD_OPTIONS.find(option => option.id === mode) ?? ANATOMY_GUARD_OPTIONS[0];
 
   return (
     <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2.5">
@@ -28,7 +24,7 @@ export default function AnatomyGuardHints({
           <p className="text-xs text-zinc-300">{formatAnatomyGuardHint(mode)}</p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-1.5">
-          {ANATOMY_GUARD_OPTIONS.map((option) => (
+          {ANATOMY_GUARD_OPTIONS.map(option => (
             <ChipButton
               key={option.id}
               active={mode === option.id}
@@ -41,9 +37,8 @@ export default function AnatomyGuardHints({
       </div>
       <p className="mt-2 type-caption text-zinc-500">{activeOption.description}</p>
       <p className="mt-1.5 type-caption text-zinc-500">
-        Adds anti-mutation and anti–extra-limb terms when you Send to ComfyUI or copy a
-        prompt pair. Works alongside render realism; Flux models get anatomy cues in the
-        positive prompt.
+        Adds anti-mutation and anti–extra-limb terms when you Send to ComfyUI or copy a prompt pair.
+        Works alongside render realism; Flux models get anatomy cues in the positive prompt.
       </p>
     </div>
   );

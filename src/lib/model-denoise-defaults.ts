@@ -1,8 +1,5 @@
-import {
-  getComfyModelDefinition,
-  type ComfyImageModel,
-} from "./comfy-models/client";
-import { isQwenLightningModel, isWanLightningModel } from "./model-sampling-patch";
+import { getComfyModelDefinition, type ComfyImageModel } from './comfy-models/client';
+import { isQwenLightningModel, isWanLightningModel } from './model-sampling-patch';
 
 export const DEFAULT_EDIT_DENOISE = 0.65;
 
@@ -15,12 +12,12 @@ export const DEFAULT_INPAINT_DENOISE = 0.75;
 export const DEFAULT_KLEIN_EDIT_DENOISE = 1;
 
 const EDIT_TOOLS = new Set([
-  "refine",
-  "image-prompt",
-  "controlnet",
-  "inpaint",
-  "outpaint",
-  "compose",
+  'refine',
+  'image-prompt',
+  'controlnet',
+  'inpaint',
+  'outpaint',
+  'compose',
 ]);
 
 export const DEFAULT_OUTPAINT_DENOISE = 0.85;
@@ -34,7 +31,7 @@ function clampDenoise(value: number): number {
 
 function isVideoCategoryModel(model: ComfyImageModel | string): boolean {
   const def = getComfyModelDefinition(model);
-  if (def?.category === "video") {
+  if (def?.category === 'video') {
     return true;
   }
   return /-(video)$/i.test(String(model));
@@ -45,13 +42,13 @@ export function isEditCapableModel(model: ComfyImageModel | string): boolean {
   if (!def) {
     return /edit|inpaint|ip2p|pix2pix/i.test(model);
   }
-  if (def.category === "instruct-edit") {
+  if (def.category === 'instruct-edit') {
     return true;
   }
-  if (def.profile === "qwen_edit" || def.profile === "qwen_edit_instruction") {
+  if (def.profile === 'qwen_edit' || def.profile === 'qwen_edit_instruction') {
     return true;
   }
-  if (model === "flux-inpaint" || model === "qwen-rapid-aio-edit") {
+  if (model === 'flux-inpaint' || model === 'qwen-rapid-aio-edit') {
     return true;
   }
   // Rapid AIO SFW/NSFW are T2I-first dual-purpose checkpoints — not edit-primary.
@@ -63,16 +60,16 @@ export function isEditCapableModel(model: ComfyImageModel | string): boolean {
 
 /** Phr00t Rapid AIO single-file checkpoints (SFW / NSFW / Edit). */
 export function isQwenRapidAioModel(model?: string): boolean {
-  return /^qwen-rapid-aio-/i.test(String(model ?? "").trim());
+  return /^qwen-rapid-aio-/i.test(String(model ?? '').trim());
 }
 
 /** Phr00t WAN Rapid All-In-One — CFG-1 distilled video checkpoint (no Lightning LoRA). */
 export function isWanRapidAioModel(model?: string): boolean {
-  const id = String(model ?? "").trim();
+  const id = String(model ?? '').trim();
   if (!id) {
     return false;
   }
-  if (id === "wan-video-rapid-aio") {
+  if (id === 'wan-video-rapid-aio') {
     return true;
   }
   return /wan.*rapid[\s_-]*aio/i.test(id);
@@ -85,7 +82,7 @@ export function isRapidAioModel(model?: string): boolean {
 
 export function isQwenEditModel(model: ComfyImageModel | string): boolean {
   const def = getComfyModelDefinition(model);
-  if (def?.profile === "qwen_edit" || def?.profile === "qwen_edit_instruction") {
+  if (def?.profile === 'qwen_edit' || def?.profile === 'qwen_edit_instruction') {
     return true;
   }
   return /qwen.*edit|qwen-rapid-aio-edit/i.test(String(model));
@@ -93,7 +90,7 @@ export function isQwenEditModel(model: ComfyImageModel | string): boolean {
 
 /** FLUX.2 Klein family (4B/9B base + distilled) — Compose uses img2img + IP-Adapter. */
 export function isFluxKleinModel(model: ComfyImageModel | string | null | undefined): boolean {
-  return /flux-2-klein/i.test(String(model ?? ""));
+  return /flux-2-klein/i.test(String(model ?? ''));
 }
 
 /**
@@ -101,12 +98,12 @@ export function isFluxKleinModel(model: ComfyImageModel | string | null | undefi
  * Excludes FLUX.2 Klein and flux2.
  */
 export function isFlux1FamilyModel(model: ComfyImageModel | string | null | undefined): boolean {
-  const id = String(model ?? "").trim();
-  if (!id || isFluxKleinModel(id) || id === "flux2") {
+  const id = String(model ?? '').trim();
+  if (!id || isFluxKleinModel(id) || id === 'flux2') {
     return false;
   }
   const def = getComfyModelDefinition(id);
-  return def?.category === "flux";
+  return def?.category === 'flux';
 }
 
 /**
@@ -123,7 +120,7 @@ export function isComposeCapableModel(model: ComfyImageModel | string | null | u
 }
 
 export function isInpaintModel(model: ComfyImageModel | string): boolean {
-  if (model === "flux-inpaint") {
+  if (model === 'flux-inpaint') {
     return true;
   }
   return /inpaint/i.test(model);
@@ -140,18 +137,16 @@ export function isKleinReferenceLatentEditContext(
     tool?: string;
     hasInputImage?: boolean;
     hasMaskImage?: boolean;
-  },
+  }
 ): boolean {
   if (!isFluxKleinModel(model) || options?.hasMaskImage || isInpaintModel(model)) {
     return false;
   }
   return (
-    options?.tool === "compose" ||
-    options?.tool === "refine" ||
-    options?.tool === "image-prompt" ||
-    (Boolean(options?.hasInputImage) &&
-      options?.tool != null &&
-      EDIT_TOOLS.has(options.tool))
+    options?.tool === 'compose' ||
+    options?.tool === 'refine' ||
+    options?.tool === 'image-prompt' ||
+    (Boolean(options?.hasInputImage) && options?.tool != null && EDIT_TOOLS.has(options.tool))
   );
 }
 
@@ -162,7 +157,7 @@ export function isKleinImg2imgEditContext(
     tool?: string;
     hasInputImage?: boolean;
     hasMaskImage?: boolean;
-  },
+  }
 ): boolean {
   return isKleinReferenceLatentEditContext(model, options);
 }
@@ -175,7 +170,7 @@ export function resolveKleinEditCfg(
     hasInputImage?: boolean;
     hasMaskImage?: boolean;
     currentCfg?: number;
-  },
+  }
 ): number | undefined {
   return undefined;
 }
@@ -196,7 +191,7 @@ export function resolveDenoiseForModel(
     hasInputImage?: boolean;
     hasMaskImage?: boolean;
     override?: number;
-  },
+  }
 ): number | undefined {
   // Lightning must ignore Settings editDenoiseStrength / soft overrides.
   if (isQwenLightningModel(model) || isWanLightningModel(model) || isWanRapidAioModel(model)) {
@@ -212,13 +207,13 @@ export function resolveDenoiseForModel(
 
   // Video T2V/I2V should not reuse still-image soft edit denoise (0.65) —
   // that morphs limbs/objects across frames. Keep denoise 1 for video graphs.
-  if (options?.tool === "video" || isVideoCategoryModel(model)) {
+  if (options?.tool === 'video' || isVideoCategoryModel(model)) {
     return 1;
   }
 
   // Generate is T2I-first — leftover init-image session state must not soft-denoise
   // the whole latent (0.65 mush). Soft denoise only for true edit tools / masks.
-  if (options?.tool === "generate" && !options?.hasMaskImage && !isInpaintModel(model)) {
+  if (options?.tool === 'generate' && !options?.hasMaskImage && !isInpaintModel(model)) {
     return 1;
   }
 
@@ -227,7 +222,7 @@ export function resolveDenoiseForModel(
     return DEFAULT_KLEIN_EDIT_DENOISE;
   }
 
-  if (options?.override != null && options.override.toString().trim() !== "") {
+  if (options?.override != null && options.override.toString().trim() !== '') {
     return clampDenoise(Number(options.override));
   }
 
@@ -241,10 +236,8 @@ export function resolveDenoiseForModel(
     return 1;
   }
 
-  if (isInpaintModel(model) || options?.hasMaskImage || options?.tool === "outpaint") {
-    return options?.tool === "outpaint"
-      ? DEFAULT_OUTPAINT_DENOISE
-      : DEFAULT_INPAINT_DENOISE;
+  if (isInpaintModel(model) || options?.hasMaskImage || options?.tool === 'outpaint') {
+    return options?.tool === 'outpaint' ? DEFAULT_OUTPAINT_DENOISE : DEFAULT_INPAINT_DENOISE;
   }
 
   return DEFAULT_EDIT_DENOISE;

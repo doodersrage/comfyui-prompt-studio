@@ -1,17 +1,14 @@
-"use client";
+'use client';
 
-import { useEffect, useId, useState } from "react";
-import ModalPortal from "@/components/ui/ModalPortal";
-import { Button } from "@/components/ui/Button";
-import { FieldLabel, SelectInput, TextInput } from "@/components/ui/Field";
-import type { LoraCaptionMode } from "@/lib/gallery-lora-dataset-export";
-import type { LoraDatasetExportUiOptions } from "@/lib/lora-dataset-export-ui";
-import { normalizeLoraDatasetExportPrefs } from "@/lib/lora-train-job";
-import {
-  loadSettingsCache,
-  saveSharedSettings,
-} from "@/lib/settings-cache";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { useEffect, useId, useState } from 'react';
+import ModalPortal from '@/components/ui/ModalPortal';
+import { Button } from '@/components/ui/Button';
+import { FieldLabel, SelectInput, TextInput } from '@/components/ui/Field';
+import type { LoraCaptionMode } from '@/lib/gallery-lora-dataset-export';
+import type { LoraDatasetExportUiOptions } from '@/lib/lora-dataset-export-ui';
+import { normalizeLoraDatasetExportPrefs } from '@/lib/lora-train-job';
+import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 type LoraDatasetExportDialogProps = {
   open: boolean;
@@ -25,19 +22,19 @@ export default function LoraDatasetExportDialog({
   onConfirm,
 }: LoraDatasetExportDialogProps) {
   const titleId = useId();
-  const [triggerWord, setTriggerWord] = useState("");
-  const [captionMode, setCaptionMode] = useState<LoraCaptionMode>("prompt");
+  const [triggerWord, setTriggerWord] = useState('');
+  const [captionMode, setCaptionMode] = useState<LoraCaptionMode>('prompt');
 
   useEffect(() => {
     if (!open) {
       return;
     }
     const prefs = normalizeLoraDatasetExportPrefs(
-      loadSettingsCache().shared.loraDatasetExportPrefs,
+      loadSettingsCache().shared.loraDatasetExportPrefs
     );
     scheduleAfterCommit(() => {
-      setTriggerWord(prefs.triggerWord ?? "");
-      setCaptionMode(prefs.captionMode ?? "prompt");
+      setTriggerWord(prefs.triggerWord ?? '');
+      setCaptionMode(prefs.captionMode ?? 'prompt');
     });
   }, [open]);
 
@@ -57,15 +54,15 @@ export default function LoraDatasetExportDialog({
           aria-modal="true"
           aria-labelledby={titleId}
           className="w-full max-w-md space-y-4 rounded-2xl border border-zinc-800/80 bg-zinc-950/95 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
-          onClick={(event) => event.stopPropagation()}
+          onClick={event => event.stopPropagation()}
         >
           <div className="space-y-1">
             <h2 id={titleId} className="type-heading text-zinc-100">
               Export LoRA dataset
             </h2>
             <p className="type-caption text-zinc-500">
-              Caption mode and optional trigger word for the ZIP export. Prefs are
-              remembered for the next export.
+              Caption mode and optional trigger word for the ZIP export. Prefs are remembered for
+              the next export.
             </p>
           </div>
 
@@ -73,7 +70,7 @@ export default function LoraDatasetExportDialog({
             <FieldLabel>Trigger word (optional)</FieldLabel>
             <TextInput
               value={triggerWord}
-              onChange={(event) => setTriggerWord(event.target.value)}
+              onChange={event => setTriggerWord(event.target.value)}
               placeholder="e.g. ohwx person"
               autoFocus
             />
@@ -83,9 +80,7 @@ export default function LoraDatasetExportDialog({
             <FieldLabel>Caption mode</FieldLabel>
             <SelectInput
               value={captionMode}
-              onChange={(event) =>
-                setCaptionMode(event.target.value as LoraCaptionMode)
-              }
+              onChange={event => setCaptionMode(event.target.value as LoraCaptionMode)}
             >
               <option value="prompt">prompt — cleaned gallery prompt</option>
               <option value="tags">tags — prompt + vision tags</option>

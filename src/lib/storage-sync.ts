@@ -1,25 +1,25 @@
-import type { StorageNamespace } from "./storage-namespaces";
-import { STORAGE_NAMESPACES } from "./storage-namespaces";
+import type { StorageNamespace } from './storage-namespaces';
+import { STORAGE_NAMESPACES } from './storage-namespaces';
 
-const CLIENT_STORAGE_NAMESPACES = STORAGE_NAMESPACES.filter((namespace) =>
+const CLIENT_STORAGE_NAMESPACES = STORAGE_NAMESPACES.filter(namespace =>
   (
     [
-      "settings-cache",
-      "prompt-history",
-      "comfy-gallery",
-      "gallery-deleted-ids",
+      'settings-cache',
+      'prompt-history',
+      'comfy-gallery',
+      'gallery-deleted-ids',
     ] as StorageNamespace[]
-  ).includes(namespace),
+  ).includes(namespace)
 );
 
 export async function syncNamespaceToServer<T>(
   namespace: StorageNamespace,
-  data: T,
+  data: T
 ): Promise<boolean> {
   try {
-    const response = await fetch("/api/storage", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const response = await fetch('/api/storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ namespace, data }),
     });
     return response.ok;
@@ -31,7 +31,7 @@ export async function syncNamespaceToServer<T>(
 export async function pullNamespaceFromServer<T>(namespace: StorageNamespace): Promise<T | null> {
   try {
     const response = await fetch(`/api/storage?namespace=${encodeURIComponent(namespace)}`, {
-      method: "PUT",
+      method: 'PUT',
     });
     if (!response.ok) {
       return null;

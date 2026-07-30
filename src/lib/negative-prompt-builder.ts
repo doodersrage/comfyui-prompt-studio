@@ -1,19 +1,19 @@
-import type { AthleticSport } from "./athletic-sport-profiles";
+import type { AthleticSport } from './athletic-sport-profiles';
 
 const BASE_NEGATIVE =
-  "blurry, low quality, watermark, text, logo, deformed, bad anatomy, extra limbs, plastic skin, waxy skin, airbrushed, doll-like, oversharpened halos, nude, topless, bottomless, missing shorts, exposed buttocks, underwear visible, split screen, diptych, collage panels, side by side comparison, multiple unrelated subjects";
+  'blurry, low quality, watermark, text, logo, deformed, bad anatomy, extra limbs, plastic skin, waxy skin, airbrushed, doll-like, oversharpened halos, nude, topless, bottomless, missing shorts, exposed buttocks, underwear visible, split screen, diptych, collage panels, side by side comparison, multiple unrelated subjects';
 
 const SOLO_SUBJECT_NEGATIVE =
-  "second person, extra face, crowd, duo, pair, twins, wrong gender, elderly man, split frame";
+  'second person, extra face, crowd, duo, pair, twins, wrong gender, elderly man, split frame';
 
 const SPORT_NEGATIVE: Partial<Record<AthleticSport, string>> = {
   cycling:
-    "bare head, no helmet, dress, street clothes, track pants, running shoes, javelin, wrong sport",
+    'bare head, no helmet, dress, street clothes, track pants, running shoes, javelin, wrong sport',
   running:
-    "cycling kit, bicycle, cleats on bike, dress shoes, sports bra only, missing running shorts, no pants, panties visible",
-  basketball: "cycling kit, soccer cleats, baseball uniform",
-  soccer: "cycling kit, basketball hoop indoors only, American football",
-  track_field: "bicycle, cycling kit, basketball, unrelated sport gear",
+    'cycling kit, bicycle, cleats on bike, dress shoes, sports bra only, missing running shorts, no pants, panties visible',
+  basketball: 'cycling kit, soccer cleats, baseball uniform',
+  soccer: 'cycling kit, basketball hoop indoors only, American football',
+  track_field: 'bicycle, cycling kit, basketball, unrelated sport gear',
 };
 
 export function buildNegativePrompt(input: {
@@ -29,9 +29,7 @@ export function buildNegativePrompt(input: {
   }
 
   if (input.preserveSubject) {
-    parts.push(
-      "different face, identity change, age change, gender swap, duplicate person",
-    );
+    parts.push('different face, identity change, age change, gender swap, duplicate person');
   }
 
   if (input.sport && SPORT_NEGATIVE[input.sport]) {
@@ -42,11 +40,11 @@ export function buildNegativePrompt(input: {
     parts.push(input.extra.trim());
   }
 
-  return parts.join(", ");
+  return parts.join(', ');
 }
 
 export type NegativePromptResult = {
   prompt: string;
-  mode: "negative" | "preserve";
+  mode: 'negative' | 'preserve';
   sport: AthleticSport | null;
 };

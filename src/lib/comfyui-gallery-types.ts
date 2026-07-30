@@ -1,1 +1,1 @@
-export type ComfyGalleryJobStatus = "pending" | "running" | "completed" | "error";
+export type ComfyGalleryJobStatus = 'pending' | 'running' | 'completed' | 'error';

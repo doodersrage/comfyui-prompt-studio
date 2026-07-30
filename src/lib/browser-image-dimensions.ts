@@ -13,7 +13,7 @@ export function snapDimensionToMultiple(value: number, multiple = 16): number {
 export function snapLatentSize(
   width: number,
   height: number,
-  multiple = 16,
+  multiple = 16
 ): { width: number; height: number } {
   return {
     width: snapDimensionToMultiple(width, multiple),
@@ -23,9 +23,9 @@ export function snapLatentSize(
 
 /** Read pixel size of a browser image File (applies EXIF orientation via ImageBitmap). */
 export async function probeImageFileDimensions(
-  file: File,
+  file: File
 ): Promise<{ width: number; height: number } | null> {
-  if (typeof createImageBitmap !== "function") {
+  if (typeof createImageBitmap !== 'function') {
     return null;
   }
   try {

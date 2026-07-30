@@ -1,58 +1,57 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import SharedToolControls from "@/components/SharedToolControls";
-import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
-import ComfyPackImportControl from "@/components/ComfyPackImportControl";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useGalleryHandoff } from "@/hooks/useGalleryHandoff";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { getReformatTargetLabel } from "@/lib/reformat-target";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import { DEFAULT_VIDEO_TOOL_CACHE, loadSettingsCache } from "@/lib/settings-cache";
-import {
-  isVideoModel,
-  resolvePreferredVideoModel,
-} from "@/lib/queue-tool-model";
-import type { ComfyImageModel } from "@/lib/comfy-models/client";
+import { useCallback, useEffect, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import SharedToolControls from '@/components/SharedToolControls';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
+import ComfyPackImportControl from '@/components/ComfyPackImportControl';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { getReformatTargetLabel } from '@/lib/reformat-target';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { DEFAULT_VIDEO_TOOL_CACHE, loadSettingsCache } from '@/lib/settings-cache';
+import { isVideoModel, resolvePreferredVideoModel } from '@/lib/queue-tool-model';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import {
   sharedPatchFromGalleryHandoff,
   galleryPickPath,
   type GalleryHandoffPayload,
-} from "@/lib/gallery-handoff";
-import { ensureVideoWorkflowScaffold } from "@/lib/ensure-video-workflow";
-import { fetchComfyObjectInfoCached } from "@/lib/comfyui-object-info-cache";
-import type { WorkflowParamValues } from "@/lib/comfyui-config";
+} from '@/lib/gallery-handoff';
+import { ensureVideoWorkflowScaffold } from '@/lib/ensure-video-workflow';
+import { fetchComfyObjectInfoCached } from '@/lib/comfyui-object-info-cache';
+import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldLabel, TextArea } from "@/components/ui/Field";
-import { Button, ButtonLink, PrimaryButton } from "@/components/ui/Button";
+} from '@/components/ui/ToolPageShell';
+import { FieldLabel, TextArea } from '@/components/ui/Field';
+import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
-const ACCENT = "violet" as const;
+const ACCENT = 'violet' as const;
 
-const LOCAL_INIT_IMAGE_MARKER = "local-upload";
+const LOCAL_INIT_IMAGE_MARKER = 'local-upload';
 
 function isFetchableImageRef(value: string): boolean {
   return /^(?:https?:|data:|blob:)/i.test(value.trim());
 }
 
 export default function VideoPromptTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("video", DEFAULT_VIDEO_TOOL_CACHE);
-  const subject = toolSettings.subject ?? "";
-  const motion = toolSettings.motion ?? "";
-  const camera = toolSettings.camera ?? "";
-  const style = toolSettings.style ?? "";
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'video',
+    DEFAULT_VIDEO_TOOL_CACHE
+  );
+  const subject = toolSettings.subject ?? '';
+  const motion = toolSettings.motion ?? '';
+  const camera = toolSettings.camera ?? '';
+  const style = toolSettings.style ?? '';
   const durationSec = toolSettings.durationSec ?? 4;
-  const initImageUrl = toolSettings.initImageUrl ?? "";
+  const initImageUrl = toolSettings.initImageUrl ?? '';
   const frames = toolSettings.frames;
   const fps = toolSettings.fps;
 
@@ -60,16 +59,11 @@ export default function VideoPromptTool() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const rememberVideoDraft = useCallback(
-    (next: {
-      subject?: string;
-      motion?: string;
-      camera?: string;
-      style?: string;
-    }) => {
+    (next: { subject?: string; motion?: string; camera?: string; style?: string }) => {
       rememberDraftFields({
-        toolKey: "video",
-        label: "Video",
-        href: "/video",
+        toolKey: 'video',
+        label: 'Video',
+        href: '/video',
         fields: [
           next.subject ?? subject,
           next.motion ?? motion,
@@ -78,7 +72,7 @@ export default function VideoPromptTool() {
         ],
       });
     },
-    [camera, motion, style, subject],
+    [camera, motion, style, subject]
   );
 
   const setSubject = useCallback(
@@ -86,64 +80,64 @@ export default function VideoPromptTool() {
       updateToolSettings({ subject: value });
       rememberVideoDraft({ subject: value });
     },
-    [rememberVideoDraft, updateToolSettings],
+    [rememberVideoDraft, updateToolSettings]
   );
   const setMotion = useCallback(
     (value: string) => {
       updateToolSettings({ motion: value });
       rememberVideoDraft({ motion: value });
     },
-    [rememberVideoDraft, updateToolSettings],
+    [rememberVideoDraft, updateToolSettings]
   );
   const setCamera = useCallback(
     (value: string) => {
       updateToolSettings({ camera: value });
       rememberVideoDraft({ camera: value });
     },
-    [rememberVideoDraft, updateToolSettings],
+    [rememberVideoDraft, updateToolSettings]
   );
   const setStyle = useCallback(
     (value: string) => {
       updateToolSettings({ style: value });
       rememberVideoDraft({ style: value });
     },
-    [rememberVideoDraft, updateToolSettings],
+    [rememberVideoDraft, updateToolSettings]
   );
   const setDurationSec = useCallback(
     (value: number) => updateToolSettings({ durationSec: value }),
-    [updateToolSettings],
+    [updateToolSettings]
   );
   const setInitImageUrl = useCallback(
     (value: string) => updateToolSettings({ initImageUrl: value }),
-    [updateToolSettings],
+    [updateToolSettings]
   );
 
   const revokePreviewIfBlob = useCallback((url: string | null | undefined) => {
-    if (url?.startsWith("blob:")) {
+    if (url?.startsWith('blob:')) {
       URL.revokeObjectURL(url);
     }
   }, []);
 
   const clearInitImage = useCallback(() => {
     setFile(null);
-    setPreviewUrl((current) => {
+    setPreviewUrl(current => {
       revokePreviewIfBlob(current);
       return null;
     });
-    setInitImageUrl("");
+    setInitImageUrl('');
   }, [revokePreviewIfBlob, setInitImageUrl]);
 
   const onInitFileChange = useCallback(
     (nextFile: File | null) => {
       setFile(nextFile);
-      setPreviewUrl((current) => {
+      setPreviewUrl(current => {
         revokePreviewIfBlob(current);
         return nextFile ? URL.createObjectURL(nextFile) : null;
       });
       // Keep Settings/preferI2v in sync — concrete upload happens at queue time.
-      setInitImageUrl(nextFile ? LOCAL_INIT_IMAGE_MARKER : "");
+      setInitImageUrl(nextFile ? LOCAL_INIT_IMAGE_MARKER : '');
     },
-    [revokePreviewIfBlob, setInitImageUrl],
+    [revokePreviewIfBlob, setInitImageUrl]
   );
 
   const applyGalleryHandoff = useCallback(
@@ -160,13 +154,11 @@ export default function VideoPromptTool() {
       const imageRef =
         handoff.payload.imageUrl?.trim() ||
         handoff.previewUrl?.trim() ||
-        (handoff.file ? LOCAL_INIT_IMAGE_MARKER : "");
+        (handoff.file ? LOCAL_INIT_IMAGE_MARKER : '');
 
       updateToolSettings({
         ...(imageRef ? { initImageUrl: imageRef } : {}),
-        ...(handoff.prompt?.trim()
-          ? { subject: handoff.prompt.trim().slice(0, 400) }
-          : {}),
+        ...(handoff.prompt?.trim() ? { subject: handoff.prompt.trim().slice(0, 400) } : {}),
         ...(Number.isFinite(framesFromHandoff) && framesFromHandoff > 0
           ? { frames: Math.floor(framesFromHandoff) }
           : {}),
@@ -189,30 +181,30 @@ export default function VideoPromptTool() {
         updateShared(sharedPatch);
       }
 
-      setPreviewUrl((current) => {
+      setPreviewUrl(current => {
         revokePreviewIfBlob(current);
         return handoff.previewUrl;
       });
       setFile(handoff.file);
     },
-    [revokePreviewIfBlob, updateShared, updateToolSettings],
+    [revokePreviewIfBlob, updateShared, updateToolSettings]
   );
 
-  useGalleryHandoff("video", applyGalleryHandoff);
+  useGalleryHandoff('video', applyGalleryHandoff);
 
   const setFrames = useCallback(
     (value: number | undefined) => updateToolSettings({ frames: value }),
-    [updateToolSettings],
+    [updateToolSettings]
   );
   const setFps = useCallback(
     (value: number | undefined) => updateToolSettings({ fps: value }),
-    [updateToolSettings],
+    [updateToolSettings]
   );
 
   useSeedToolDraft(mounted, {
-    toolKey: "video",
-    label: "Video",
-    href: "/video",
+    toolKey: 'video',
+    label: 'Video',
+    href: '/video',
     fields: [subject, motion, camera, style],
   });
 
@@ -228,7 +220,7 @@ export default function VideoPromptTool() {
         updateToolSettings({ model });
       }
     },
-    [updateShared, updateToolSettings],
+    [updateShared, updateToolSettings]
   );
 
   // Video prompts/workflows only make sense against WAN/Hunyuan video
@@ -249,10 +241,7 @@ export default function VideoPromptTool() {
     if (preferredVideoModel !== shared.model) {
       updateShared({ model: preferredVideoModel });
     }
-    if (
-      (!toolSettings.model || !isVideoModel(toolSettings.model)) &&
-      preferredVideoModel
-    ) {
+    if ((!toolSettings.model || !isVideoModel(toolSettings.model)) && preferredVideoModel) {
       updateToolSettings({ model: preferredVideoModel });
     }
   }, [
@@ -265,7 +254,7 @@ export default function VideoPromptTool() {
   ]);
 
   const [workflowStatus, setWorkflowStatus] = useState<string | null>(null);
-  const [output, setOutput] = useState("");
+  const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -308,13 +297,13 @@ export default function VideoPromptTool() {
             : `Using workflow “${result.workflow.name}” for ${result.model}.`,
           result.checkpointNote,
         ].filter(Boolean);
-        setWorkflowStatus(parts.join(" "));
+        setWorkflowStatus(parts.join(' '));
       } catch (ensureError) {
         if (!cancelled) {
           setWorkflowStatus(
             ensureError instanceof Error
               ? ensureError.message
-              : "Could not create WAN video workflow scaffold.",
+              : 'Could not create WAN video workflow scaffold.'
           );
         }
       }
@@ -327,7 +316,7 @@ export default function VideoPromptTool() {
   }, [mounted]);
 
   const actions = usePromptResultActions({
-    tool: "video",
+    tool: 'video',
     model: shared.model,
     detail: shared.detail,
     hints: motion,
@@ -338,20 +327,13 @@ export default function VideoPromptTool() {
     const initImage = initImageUrl.trim();
     const initImageIsFetchable =
       initImage !== LOCAL_INIT_IMAGE_MARKER && isFetchableImageRef(initImage);
-    const previewIsFetchable = Boolean(
-      previewUrl && isFetchableImageRef(previewUrl),
-    );
+    const previewIsFetchable = Boolean(previewUrl && isFetchableImageRef(previewUrl));
     const resolvedFps =
-      typeof fps === "number" && Number.isFinite(fps) && fps > 0
-        ? Math.floor(fps)
-        : 16;
+      typeof fps === 'number' && Number.isFinite(fps) && fps > 0 ? Math.floor(fps) : 16;
     const resolvedFrames =
-      typeof frames === "number" && Number.isFinite(frames) && frames > 0
+      typeof frames === 'number' && Number.isFinite(frames) && frames > 0
         ? Math.floor(frames)
-        : Math.max(
-            1,
-            Math.round(Math.max(1, Number(durationSec) || 4) * resolvedFps),
-          );
+        : Math.max(1, Math.round(Math.max(1, Number(durationSec) || 4) * resolvedFps));
 
     return {
       inputImage: file,
@@ -386,7 +368,7 @@ export default function VideoPromptTool() {
 
   const generate = useCallback(async () => {
     if (!subject.trim()) {
-      setError("Describe the subject or action.");
+      setError('Describe the subject or action.');
       return;
     }
 
@@ -396,9 +378,9 @@ export default function VideoPromptTool() {
     actions.resetStatuses();
 
     try {
-      const response = await fetch("/api/video-prompt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/video-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subject,
           motion,
@@ -414,19 +396,19 @@ export default function VideoPromptTool() {
         error?: string;
       };
       if (!response.ok) {
-        throw new Error(data.error ?? "Video prompt failed.");
+        throw new Error(data.error ?? 'Video prompt failed.');
       }
-      const prompt = await actions.finalizePrompt(data.prompt ?? "", motion);
+      const prompt = await actions.finalizePrompt(data.prompt ?? '', motion);
       setOutput(prompt);
       rememberDraftFields({
-        toolKey: "video",
-        label: "Video",
-        href: "/video",
+        toolKey: 'video',
+        label: 'Video',
+        href: '/video',
         fields: [prompt, subject, motion],
       });
     } catch (err) {
-      setOutput("");
-      setError(err instanceof Error ? err.message : "Video prompt failed.");
+      setOutput('');
+      setError(err instanceof Error ? err.message : 'Video prompt failed.');
     } finally {
       setLoading(false);
     }
@@ -439,7 +421,7 @@ export default function VideoPromptTool() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
@@ -449,8 +431,7 @@ export default function VideoPromptTool() {
     ? shared
     : { ...shared, model: preferredVideoModel };
 
-  const pastedInitValue =
-    initImageUrl === LOCAL_INIT_IMAGE_MARKER ? "" : initImageUrl;
+  const pastedInitValue = initImageUrl === LOCAL_INIT_IMAGE_MARKER ? '' : initImageUrl;
   const hasInitImage = Boolean(file || previewUrl || pastedInitValue.trim());
 
   return (
@@ -464,10 +445,10 @@ export default function VideoPromptTool() {
           shared={controlsShared}
           toolId="video"
           onModelChange={setVideoModel}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           autoFixRules={shared.autoFixRules !== false}
-          onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
           onSharedSettingsChange={updateShared}
           recommendFromText={output}
         />
@@ -496,7 +477,7 @@ export default function VideoPromptTool() {
           id="video-subject"
           rows={3}
           value={subject}
-          onChange={(event) => setSubject(event.target.value)}
+          onChange={event => setSubject(event.target.value)}
           placeholder="A cyclist crests a foggy hill at dawn, pedaling steadily uphill…"
           className={accentFocusClass(ACCENT)}
         />
@@ -506,7 +487,7 @@ export default function VideoPromptTool() {
           id="video-motion"
           rows={2}
           value={motion}
-          onChange={(event) => setMotion(event.target.value)}
+          onChange={event => setMotion(event.target.value)}
           placeholder="Slow forward tracking, wheels spinning, jacket fluttering in wind…"
           className={accentFocusClass(ACCENT)}
         />
@@ -517,7 +498,7 @@ export default function VideoPromptTool() {
             <input
               id="video-camera"
               value={camera}
-              onChange={(event) => setCamera(event.target.value)}
+              onChange={event => setCamera(event.target.value)}
               placeholder="Low-angle follow shot, gentle dolly in"
               className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
             />
@@ -530,7 +511,7 @@ export default function VideoPromptTool() {
               min={1}
               max={16}
               value={durationSec}
-              onChange={(event) => setDurationSec(Number(event.target.value) || 4)}
+              onChange={event => setDurationSec(Number(event.target.value) || 4)}
               className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
             />
           </div>
@@ -540,7 +521,7 @@ export default function VideoPromptTool() {
         <input
           id="video-style"
           value={style}
-          onChange={(event) => setStyle(event.target.value)}
+          onChange={event => setStyle(event.target.value)}
           placeholder="Cinematic teal-orange grade, soft morning haze"
           className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
         />
@@ -557,17 +538,16 @@ export default function VideoPromptTool() {
               id="video-init-image"
               type="file"
               accept="image/*"
-              onChange={(event) =>
-                onInitFileChange(event.target.files?.[0] ?? null)
-              }
+              onChange={event => onInitFileChange(event.target.files?.[0] ?? null)}
               className="block min-w-0 flex-1 text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-violet-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white file:transition hover:file:bg-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
             />
-            <ButtonLink href={galleryPickPath("video")} variant="secondary" size="sm">
+            <ButtonLink href={galleryPickPath('video')} variant="secondary" size="sm">
               Choose from Gallery
             </ButtonLink>
           </div>
           <p className="type-caption text-zinc-500">
-            Opens Gallery in pick mode — click a completed still to return here as the I2V init image.
+            Opens Gallery in pick mode — click a completed still to return here as the I2V init
+            image.
           </p>
           {previewUrl ? (
             <div className="flex flex-wrap items-start gap-3">
@@ -592,11 +572,11 @@ export default function VideoPromptTool() {
             <input
               id="video-init-image-url"
               value={pastedInitValue}
-              onChange={(event) => {
+              onChange={event => {
                 const next = event.target.value;
                 setInitImageUrl(next);
                 if (!file) {
-                  setPreviewUrl((current) => {
+                  setPreviewUrl(current => {
                     revokePreviewIfBlob(current);
                     return isFetchableImageRef(next) ? next.trim() : null;
                   });
@@ -626,8 +606,8 @@ export default function VideoPromptTool() {
               type="number"
               min={1}
               max={480}
-              value={frames ?? ""}
-              onChange={(event) =>
+              value={frames ?? ''}
+              onChange={event =>
                 setFrames(event.target.value ? Number(event.target.value) : undefined)
               }
               placeholder="e.g. 81"
@@ -646,8 +626,8 @@ export default function VideoPromptTool() {
               type="number"
               min={1}
               max={60}
-              value={fps ?? ""}
-              onChange={(event) =>
+              value={fps ?? ''}
+              onChange={event =>
                 setFps(event.target.value ? Number(event.target.value) : undefined)
               }
               placeholder="e.g. 16"
@@ -682,9 +662,7 @@ export default function VideoPromptTool() {
           onOutputChange={setOutput}
           onSaveHistory={() => actions.saveHistory({ prompt: output, hints: motion })}
           onSendComfyUi={queueVideo}
-          onExportSidecar={() =>
-            actions.exportSidecar(output, { metadata: { hints: motion } })
-          }
+          onExportSidecar={() => actions.exportSidecar(output, { metadata: { hints: motion } })}
           {...promptResultPreviewProps(actions, output, null)}
           onFixPrompt={() => void actions.fixPrompt(output, setOutput, motion)}
           onCopyPair={() => void actions.copyPromptPair(output, null)}

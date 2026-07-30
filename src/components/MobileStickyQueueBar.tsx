@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
 type MobileStickyQueueBarProps = {
   disabled?: boolean;
@@ -13,7 +13,7 @@ type MobileStickyQueueBarProps = {
 /** Touch-first sticky queue CTA for phone viewports — uses design tokens. */
 export default function MobileStickyQueueBar({
   disabled,
-  label = "Queue",
+  label = 'Queue',
   onQueue,
   status,
   children,
@@ -33,9 +33,7 @@ export default function MobileStickyQueueBar({
             {label}
           </button>
           {status ? (
-            <p className="max-w-[40%] truncate text-[11px] text-[var(--text-muted)]">
-              {status}
-            </p>
+            <p className="max-w-[40%] truncate text-[11px] text-[var(--text-muted)]">{status}</p>
           ) : null}
         </div>
       </div>

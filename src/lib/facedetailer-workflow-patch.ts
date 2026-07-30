@@ -7,10 +7,10 @@ import {
   DEFAULT_FACE_DETAIL_DENOISE,
   FACE_DETAIL_DENOISE_TOKEN,
   FACE_DETAIL_IMAGE_TOKEN,
-} from "./gallery-output-face-detail";
-import { getComfyModelDefinition } from "./comfy-models/client";
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
-import { isQwenLightningModel } from "./model-sampling-patch";
+} from './gallery-output-face-detail';
+import { getComfyModelDefinition } from './comfy-models/client';
+import { isQwenRapidAioModel } from './model-denoise-defaults';
+import { isQwenLightningModel } from './model-sampling-patch';
 
 type WorkflowNode = {
   class_type?: string;
@@ -30,8 +30,8 @@ export type FaceDetailerInsertResult = {
   reason?: string;
 };
 
-const FACE_DETAILER = "FaceDetailer";
-const BBOX_DETECTOR = "UltralyticsDetectorProvider";
+const FACE_DETAILER = 'FaceDetailer';
+const BBOX_DETECTOR = 'UltralyticsDetectorProvider';
 
 export type FaceDetailerSamplerDefaults = {
   steps: number;
@@ -45,55 +45,49 @@ export type FaceDetailerSamplerDefaults = {
 /**
  * Model-aware FaceDetailer sampler defaults — SD-ish CFG 7 warps Flux/Qwen faces.
  */
-export function resolveFaceDetailerSamplerDefaults(
-  model?: string,
-): FaceDetailerSamplerDefaults {
-  const id = String(model ?? "").trim();
+export function resolveFaceDetailerSamplerDefaults(model?: string): FaceDetailerSamplerDefaults {
+  const id = String(model ?? '').trim();
   const category = id ? getComfyModelDefinition(id)?.category : undefined;
 
-  if (
-    isQwenLightningModel(id) ||
-    isQwenRapidAioModel(id) ||
-    /lightning-(4|8)\b/i.test(id)
-  ) {
+  if (isQwenLightningModel(id) || isQwenRapidAioModel(id) || /lightning-(4|8)\b/i.test(id)) {
     return {
       steps: 8,
       cfg: 1,
-      sampler_name: "euler",
-      scheduler: "simple",
+      sampler_name: 'euler',
+      scheduler: 'simple',
       guide_size: 512,
       max_size: 1024,
     };
   }
 
-  if (category === "qwen" || /qwen/i.test(id)) {
+  if (category === 'qwen' || /qwen/i.test(id)) {
     return {
       steps: 16,
       cfg: 2.5,
-      sampler_name: "euler",
-      scheduler: "beta",
+      sampler_name: 'euler',
+      scheduler: 'beta',
       guide_size: 768,
       max_size: 1280,
     };
   }
 
-  if (category === "flux" || /flux|klein/i.test(id)) {
+  if (category === 'flux' || /flux|klein/i.test(id)) {
     return {
       steps: 16,
       cfg: 3.5,
-      sampler_name: "euler",
-      scheduler: "simple",
+      sampler_name: 'euler',
+      scheduler: 'simple',
       guide_size: 768,
       max_size: 1280,
     };
   }
 
-  if (category === "sdxl" || /sdxl/i.test(id)) {
+  if (category === 'sdxl' || /sdxl/i.test(id)) {
     return {
       steps: 20,
       cfg: 5,
-      sampler_name: "dpmpp_2m",
-      scheduler: "karras",
+      sampler_name: 'dpmpp_2m',
+      scheduler: 'karras',
       guide_size: 512,
       max_size: 1024,
     };
@@ -103,8 +97,8 @@ export function resolveFaceDetailerSamplerDefaults(
   return {
     steps: 20,
     cfg: 7,
-    sampler_name: "euler",
-    scheduler: "normal",
+    sampler_name: 'euler',
+    scheduler: 'normal',
     guide_size: 512,
     max_size: 1024,
   };
@@ -128,9 +122,7 @@ function nextNodeId(workflow: Record<string, unknown>): string {
   return String(maxId + 1);
 }
 
-export function canAutoInsertFaceDetailer(
-  availableNodeTypes?: Iterable<string> | null,
-): boolean {
+export function canAutoInsertFaceDetailer(availableNodeTypes?: Iterable<string> | null): boolean {
   const available = toTypeSet(availableNodeTypes);
   if (!available) {
     return false;
@@ -143,24 +135,24 @@ export function canAutoInsertFaceDetailer(
  * Uses {{FACE_DETAIL_IMAGE}} / {{FACE_DETAIL_DENOISE}} tokens.
  */
 export function buildAutoFaceDetailerWorkflow(
-  options?: FaceDetailerInsertOptions,
+  options?: FaceDetailerInsertOptions
 ): FaceDetailerInsertResult {
   const available = toTypeSet(options?.availableNodeTypes);
   if (!available || !available.has(FACE_DETAILER)) {
     return {
       workflow: {},
       inserted: false,
-      reason: "FaceDetailer node not installed in ComfyUI.",
+      reason: 'FaceDetailer node not installed in ComfyUI.',
     };
   }
 
   const sampler = resolveFaceDetailerSamplerDefaults(options?.model);
   const workflow: Record<string, WorkflowNode> = {};
-  const loadId = "1";
+  const loadId = '1';
   workflow[loadId] = {
-    class_type: "LoadImage",
+    class_type: 'LoadImage',
     inputs: { image: FACE_DETAIL_IMAGE_TOKEN },
-    _meta: { title: "Prompt Studio — face detail source" },
+    _meta: { title: 'Prompt Studio — face detail source' },
   };
 
   let imageLink: [string, number] = [loadId, 0];
@@ -184,8 +176,8 @@ export function buildAutoFaceDetailerWorkflow(
     const bboxId = String(nextId++);
     workflow[bboxId] = {
       class_type: BBOX_DETECTOR,
-      inputs: { model_name: "bbox/face_yolov8m.pt" },
-      _meta: { title: "Prompt Studio — face bbox detector" },
+      inputs: { model_name: 'bbox/face_yolov8m.pt' },
+      _meta: { title: 'Prompt Studio — face bbox detector' },
     };
     const detailId = String(nextId++);
     workflow[detailId] = {
@@ -195,7 +187,7 @@ export function buildAutoFaceDetailerWorkflow(
         image: imageLink,
         bbox_detector: [bboxId, 0],
       },
-      _meta: { title: "Prompt Studio — FaceDetailer" },
+      _meta: { title: 'Prompt Studio — FaceDetailer' },
     };
     imageLink = [detailId, 0];
   } else {
@@ -206,19 +198,19 @@ export function buildAutoFaceDetailerWorkflow(
         ...detailInputs,
         image: imageLink,
       },
-      _meta: { title: "Prompt Studio — FaceDetailer" },
+      _meta: { title: 'Prompt Studio — FaceDetailer' },
     };
     imageLink = [detailId, 0];
   }
 
   const saveId = String(nextId);
   workflow[saveId] = {
-    class_type: "SaveImage",
+    class_type: 'SaveImage',
     inputs: {
-      filename_prefix: "PromptStudio-face-detail",
+      filename_prefix: 'PromptStudio-face-detail',
       images: imageLink,
     },
-    _meta: { title: "Prompt Studio — face detail save" },
+    _meta: { title: 'Prompt Studio — face detail save' },
   };
 
   return { workflow, inserted: true };

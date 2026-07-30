@@ -1,12 +1,9 @@
-import type { ComfyImageModel } from "./comfy-models/client";
-import type { SceneStarterPreset } from "./scene-starter-presets";
+import type { ComfyImageModel } from './comfy-models/client';
+import type { SceneStarterPreset } from './scene-starter-presets';
 
 export function applySceneStarterWorkflowHints(
   preset: SceneStarterPreset,
-  updateShared: (patch: {
-    model?: ComfyImageModel;
-    selectedWorkflowFileId?: string;
-  }) => void,
+  updateShared: (patch: { model?: ComfyImageModel; selectedWorkflowFileId?: string }) => void
 ): void {
   const patch: {
     model?: ComfyImageModel;

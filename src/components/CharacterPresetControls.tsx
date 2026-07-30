@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import type { ClothingCatalogFieldKey } from "@/lib/clothing-catalog-fields";
-import { fetchClothingSelectOptions } from "@/lib/clothing-catalog-client";
-import { parseCharacterHints } from "@/lib/character-hints";
-import { subjectGenderToClothingGender } from "@/lib/clothing-gender";
+import { useEffect, useMemo, useState } from 'react';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import type { ClothingCatalogFieldKey } from '@/lib/clothing-catalog-fields';
+import { fetchClothingSelectOptions } from '@/lib/clothing-catalog-client';
+import { parseCharacterHints } from '@/lib/character-hints';
+import { subjectGenderToClothingGender } from '@/lib/clothing-gender';
 import {
   CHARACTER_POSE_TARGET_PLACEHOLDERS,
   CHARACTER_PRESET_UI_SECTIONS,
@@ -19,9 +19,9 @@ import {
   type CharacterPresetOptions,
   type CharacterPresetUiField,
   type CharacterPresetUiSection,
-} from "@/lib/character-options-ui";
-import type { CharacterToolCache } from "@/lib/settings-cache";
-import { SelectInput, TextInput } from "@/components/ui/Field";
+} from '@/lib/character-options-ui';
+import type { CharacterToolCache } from '@/lib/settings-cache';
+import { SelectInput, TextInput } from '@/components/ui/Field';
 
 function ClothingCatalogSelect({
   label,
@@ -36,21 +36,21 @@ function ClothingCatalogSelect({
   hints?: string;
   onChange: (value: string) => void;
 }) {
-  const [options, setOptions] = useState<
-    Array<{ value: string; label: string; group?: string }>
-  >([{ value: "", label: "Default (random / LLM)" }]);
+  const [options, setOptions] = useState<Array<{ value: string; label: string; group?: string }>>([
+    { value: '', label: 'Default (random / LLM)' },
+  ]);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
   const clothingGender = useMemo(
     () => subjectGenderToClothingGender(parseCharacterHints(hints).gender),
-    [hints],
+    [hints]
   );
   const optionsKey = `${catalogKey}:${clothingGender}`;
   const catalogReady = loadedKey === optionsKey;
 
   useEffect(() => {
     let cancelled = false;
-    void fetchClothingSelectOptions(catalogKey, clothingGender).then((next) => {
+    void fetchClothingSelectOptions(catalogKey, clothingGender).then(next => {
       if (cancelled) {
         return;
       }
@@ -65,7 +65,7 @@ function ClothingCatalogSelect({
   const groups = new Map<string, Array<{ value: string; label: string }>>();
 
   for (const option of options) {
-    const group = option.group ?? "General";
+    const group = option.group ?? 'General';
     if (!groups.has(group)) {
       groups.set(group, []);
     }
@@ -77,19 +77,19 @@ function ClothingCatalogSelect({
       <span className="type-heading">{label}</span>
       <SelectInput
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={event => onChange(event.target.value)}
         disabled={!catalogReady}
       >
         {options
-          .filter((option) => !option.group)
-          .map((option) => (
-            <option key={option.value || "default"} value={option.value}>
+          .filter(option => !option.group)
+          .map(option => (
+            <option key={option.value || 'default'} value={option.value}>
               {option.label}
             </option>
           ))}
         {[...groups.entries()].map(([group, groupOptions]) => (
           <optgroup key={group} label={group}>
-            {groupOptions.map((option) => (
+            {groupOptions.map(option => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -115,12 +115,9 @@ function CharacterSelect({
   return (
     <label className="space-y-2">
       <span className="type-heading">{label}</span>
-      <SelectInput
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {options.map((option) => (
-          <option key={option.value || "default"} value={option.value}>
+      <SelectInput value={value} onChange={event => onChange(event.target.value)}>
+        {options.map(option => (
+          <option key={option.value || 'default'} value={option.value}>
             {option.label}
           </option>
         ))}
@@ -144,71 +141,62 @@ function PresetField({
     return null;
   }
 
-  if (field.kind === "select") {
+  if (field.kind === 'select') {
     return (
       <CharacterSelect
         label={field.label}
-        value={(settings[field.key] as string | undefined) ?? ""}
+        value={(settings[field.key] as string | undefined) ?? ''}
         options={getSelectOptionsForPresetKey(field.key)}
-        onChange={(value) => onChange({ [field.key]: value })}
+        onChange={value => onChange({ [field.key]: value })}
       />
     );
   }
 
-  if (field.kind === "clothing-catalog") {
+  if (field.kind === 'clothing-catalog') {
     return (
       <ClothingCatalogSelect
         label={field.label}
         catalogKey={field.key}
         hints={settings.hints}
-        value={(settings[field.key] as string | undefined) ?? ""}
-        onChange={(value) => onChange({ [field.key]: value })}
+        value={(settings[field.key] as string | undefined) ?? ''}
+        onChange={value => onChange({ [field.key]: value })}
       />
     );
   }
 
-  const poseAction = settings.poseAction ?? "";
+  const poseAction = settings.poseAction ?? '';
   const placeholder =
-    field.key === "poseTarget" &&
-    poseAction &&
-    poseAction in CHARACTER_POSE_TARGET_PLACEHOLDERS
-      ? CHARACTER_POSE_TARGET_PLACEHOLDERS[
-          poseAction as Exclude<CharacterPoseAction, "">
-        ]
+    field.key === 'poseTarget' && poseAction && poseAction in CHARACTER_POSE_TARGET_PLACEHOLDERS
+      ? CHARACTER_POSE_TARGET_PLACEHOLDERS[poseAction as Exclude<CharacterPoseAction, ''>]
       : field.placeholder;
 
   return (
     <label className="space-y-2">
       <span className="type-heading">{field.label}</span>
       <TextInput
-        value={(settings[field.key] as string | undefined) ?? ""}
-        onChange={(event) => onChange({ [field.key]: event.target.value })}
+        value={(settings[field.key] as string | undefined) ?? ''}
+        onChange={event => onChange({ [field.key]: event.target.value })}
         placeholder={placeholder}
-        disabled={field.requires === "poseAction" && !poseAction}
+        disabled={field.requires === 'poseAction' && !poseAction}
         className="disabled:cursor-not-allowed disabled:opacity-40"
       />
-      {field.key === "poseTarget" &&
-        poseAction &&
-        !(settings.poseTarget ?? "").trim() && (
-          <p className="text-xs text-amber-300">
-            Object target is required for the action anchor to apply.
-          </p>
-        )}
+      {field.key === 'poseTarget' && poseAction && !(settings.poseTarget ?? '').trim() && (
+        <p className="text-xs text-amber-300">
+          Object target is required for the action anchor to apply.
+        </p>
+      )}
     </label>
   );
 }
 
 function shouldShowFieldForVariant(
   field: CharacterPresetUiField,
-  variant: CharacterPresetControlsProps["variant"],
+  variant: CharacterPresetControlsProps['variant']
 ): boolean {
-  if (variant === "solo" && (field.key === "headcount" || field.key === "duoDynamic")) {
+  if (variant === 'solo' && (field.key === 'headcount' || field.key === 'duoDynamic')) {
     return false;
   }
-  if (
-    (variant === "duo" || variant === "compose") &&
-    field.key === "headcount"
-  ) {
+  if ((variant === 'duo' || variant === 'compose') && field.key === 'headcount') {
     return false;
   }
   return true;
@@ -225,20 +213,16 @@ function PresetSection({
   settings: CharacterToolCache;
   presetOptions: CharacterPresetOptions;
   onChange: (patch: Partial<CharacterToolCache>) => void;
-  variant: CharacterPresetControlsProps["variant"];
+  variant: CharacterPresetControlsProps['variant'];
 }) {
   if (section.showWhen && !section.showWhen(presetOptions)) {
     return null;
   }
 
-  const sectionCount = countCharacterPresetSectionSelections(
-    section.id,
-    presetOptions,
-  );
+  const sectionCount = countCharacterPresetSectionSelections(section.id, presetOptions);
   const visibleFields = section.fields.filter(
-    (field) =>
-      shouldShowFieldForVariant(field, variant) &&
-      shouldShowPresetField(field, presetOptions),
+    field =>
+      shouldShowFieldForVariant(field, variant) && shouldShowPresetField(field, presetOptions)
   );
 
   if (visibleFields.length === 0) {
@@ -266,7 +250,7 @@ function PresetSection({
         </div>
       </summary>
       <div className="grid gap-3 border-t border-zinc-800/80 px-4 pb-4 pt-3 sm:grid-cols-2">
-        {visibleFields.map((field) => (
+        {visibleFields.map(field => (
           <PresetField
             key={`${section.id}-${field.key}`}
             field={field}
@@ -284,19 +268,16 @@ type CharacterPresetControlsProps = {
   mounted: boolean;
   settings: CharacterToolCache;
   onChange: (patch: Partial<CharacterToolCache>) => void;
-  variant?: "solo" | "duo" | "compose";
+  variant?: 'solo' | 'duo' | 'compose';
 };
 
 export default function CharacterPresetControls({
   mounted,
   settings,
   onChange,
-  variant = "solo",
+  variant = 'solo',
 }: CharacterPresetControlsProps) {
-  const presetOptions = useMemo(
-    () => presetOptionsFromCache(settings),
-    [settings],
-  );
+  const presetOptions = useMemo(() => presetOptionsFromCache(settings), [settings]);
 
   const activeCount = countCharacterPresetSelections(presetOptions);
   const [open, setOpen] = useState(false);
@@ -312,7 +293,7 @@ export default function CharacterPresetControls({
   return (
     <details
       open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onToggle={event => setOpen(event.currentTarget.open)}
       className="group border-t border-zinc-800 pt-4"
     >
       <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
@@ -320,8 +301,8 @@ export default function CharacterPresetControls({
           <div className="space-y-1">
             <p className="type-heading">Character presets (optional)</p>
             <p className="text-xs leading-relaxed text-zinc-500">
-              40+ camera, lighting, body, pose, wardrobe library, and prop
-              options—collapsed by default. Each selection maps to prompt script language.
+              40+ camera, lighting, body, pose, wardrobe library, and prop options—collapsed by
+              default. Each selection maps to prompt script language.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-0.5">
@@ -336,14 +317,14 @@ export default function CharacterPresetControls({
       </summary>
 
       <div className="mt-4 space-y-3">
-        {settings.headcount === "duo" && (
+        {settings.headcount === 'duo' && (
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-            Duo mode generates two interacting people. Solo-subject enforcement is
-            disabled for this preset.
+            Duo mode generates two interacting people. Solo-subject enforcement is disabled for this
+            preset.
           </p>
         )}
 
-        {CHARACTER_PRESET_UI_SECTIONS.map((section) => (
+        {CHARACTER_PRESET_UI_SECTIONS.map(section => (
           <PresetSection
             key={section.id}
             section={section}

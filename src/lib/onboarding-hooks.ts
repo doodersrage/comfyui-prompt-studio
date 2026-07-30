@@ -1,15 +1,15 @@
-import { markOnboardingStepDone } from "./onboarding-store";
+import { markOnboardingStepDone } from './onboarding-store';
 
 export function markOnboardingLlmHealthOk(): void {
-  markOnboardingStepDone("llm-health");
+  markOnboardingStepDone('llm-health');
 }
 
 export function markOnboardingComfyHealthOk(): void {
-  markOnboardingStepDone("comfy-health");
+  markOnboardingStepDone('comfy-health');
 }
 
 export function markOnboardingSystemWorkflowsEnabled(): void {
-  markOnboardingStepDone("system-workflows");
+  markOnboardingStepDone('system-workflows');
 }
 
 /** @deprecated Prefer markOnboardingSystemWorkflowsEnabled for the MVP path. */
@@ -18,29 +18,29 @@ export function markOnboardingWorkflowImported(): void {
 }
 
 export function markOnboardingFirstGenerate(): void {
-  markOnboardingStepDone("first-generate");
+  markOnboardingStepDone('first-generate');
 }
 
 export function markOnboardingFirstQueue(): void {
-  markOnboardingStepDone("first-queue");
+  markOnboardingStepDone('first-queue');
 }
 
 export function markOnboardingGalleryReview(): void {
-  markOnboardingStepDone("review-gallery");
+  markOnboardingStepDone('review-gallery');
 }
 
 export function markOnboardingDiscoverPalette(): void {
-  markOnboardingStepDone("discover-palette");
+  markOnboardingStepDone('discover-palette');
 }
 
 export function markOnboardingPinTool(): void {
-  markOnboardingStepDone("pin-tool");
+  markOnboardingStepDone('pin-tool');
 }
 
 export function markOnboardingSetDensity(): void {
-  markOnboardingStepDone("set-density");
+  markOnboardingStepDone('set-density');
 }
 
 export function markOnboardingSetWorkspace(): void {
-  markOnboardingStepDone("set-workspace");
+  markOnboardingStepDone('set-workspace');
 }

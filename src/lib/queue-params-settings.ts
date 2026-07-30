@@ -1,17 +1,14 @@
-import type { WorkflowParamValues } from "./comfyui-config";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
+import type { WorkflowParamValues } from './comfyui-config';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
 import {
   DEFAULT_MODEL_SAMPLER_PRESET_TIER,
   ensureDistilledSamplerParams,
   normalizeModelSamplerPresetTier,
   resolveModelSamplerParams,
   type ModelSamplerPresetTier,
-} from "./model-sampler-defaults";
-import { resolveModelSamplingParams } from "./model-sampling-patch";
-import {
-  resolveDenoiseForModel,
-  resolveKleinEditCfg,
-} from "./model-denoise-defaults";
+} from './model-sampler-defaults';
+import { resolveModelSamplingParams } from './model-sampling-patch';
+import { resolveDenoiseForModel, resolveKleinEditCfg } from './model-denoise-defaults';
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
   DEFAULT_RESOLUTION_SIZE_TIER,
@@ -21,35 +18,32 @@ import {
   resolveModelResolutionParams,
   type ResolutionOrientation,
   type ResolutionSizeTier,
-} from "./model-resolution-defaults";
-import type { ComfyImageModel } from "./comfy-models/client";
-import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "./comfyui-settings";
+} from './model-resolution-defaults';
+import type { ComfyImageModel } from './comfy-models/client';
+import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from './comfyui-settings';
 import {
   realignLoaderFilenamesToWorkflowPrecision,
   resolveLoaderFilenamesForModel,
   resolveRefinerFilenameForModel,
-} from "./model-checkpoint-map";
-import { resolveLoaderPrecisionTier } from "./model-loader-precision";
-import { resolveUpscaleModelFilename, SUGGESTED_MODEL_UPSCALE_MAP } from "./model-upscale-map";
-import { resolveControlNetModelFilename } from "./model-controlnet-map";
-import { loadSettingsCache } from "./settings-cache";
-import {
-  findComfyWorkflowFile,
-  mergeCustomWorkflowTokens,
-} from "./comfyui-workflow-files";
-import { getSelectedWorkflowFileId } from "./comfyui-runtime";
-import { isQwenLightningModel } from "./model-sampling-patch";
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
+} from './model-checkpoint-map';
+import { resolveLoaderPrecisionTier } from './model-loader-precision';
+import { resolveUpscaleModelFilename, SUGGESTED_MODEL_UPSCALE_MAP } from './model-upscale-map';
+import { resolveControlNetModelFilename } from './model-controlnet-map';
+import { loadSettingsCache } from './settings-cache';
+import { findComfyWorkflowFile, mergeCustomWorkflowTokens } from './comfyui-workflow-files';
+import { getSelectedWorkflowFileId } from './comfyui-runtime';
+import { isQwenLightningModel } from './model-sampling-patch';
+import { isQwenRapidAioModel } from './model-denoise-defaults';
 import {
   resolveEffectiveResolutionSizeTier,
   resolveEffectiveSamplerPreset,
   resolveQueueQualityProfile,
   type QueueQualityProfile,
-} from "./queue-quality-profile";
-import { rememberedSamplerOverrides } from "./sampler-memory";
-import { readCachedComfyObjectInfoModels } from "./comfyui-object-info-cache";
+} from './queue-quality-profile';
+import { rememberedSamplerOverrides } from './sampler-memory';
+import { readCachedComfyObjectInfoModels } from './comfyui-object-info-cache';
 
-export const QUEUE_PARAMS_KEY = "comfy-queue-params-v1";
+export const QUEUE_PARAMS_KEY = 'comfy-queue-params-v1';
 
 export type QueueParamsSettings = WorkflowParamValues & {
   enabled?: boolean;
@@ -72,43 +66,37 @@ export type ResolveQueueParamsOptions = {
 };
 
 function loadModelSamplerPresetTier(): ModelSamplerPresetTier {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return DEFAULT_MODEL_SAMPLER_PRESET_TIER;
   }
-  return normalizeModelSamplerPresetTier(
-    loadSettingsCache().shared.modelSamplerPreset,
-  );
+  return normalizeModelSamplerPresetTier(loadSettingsCache().shared.modelSamplerPreset);
 }
 
 function loadModelResolutionOrientation(): ResolutionOrientation {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return DEFAULT_RESOLUTION_ORIENTATION;
   }
-  return normalizeResolutionOrientation(
-    loadSettingsCache().shared.modelResolutionOrientation,
-  );
+  return normalizeResolutionOrientation(loadSettingsCache().shared.modelResolutionOrientation);
 }
 
 function loadModelResolutionSizeTier(): ResolutionSizeTier {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return DEFAULT_RESOLUTION_SIZE_TIER;
   }
-  return normalizeResolutionSizeTier(
-    loadSettingsCache().shared.modelResolutionSizeTier,
-  );
+  return normalizeResolutionSizeTier(loadSettingsCache().shared.modelResolutionSizeTier);
 }
 
 export const DEFAULT_QUEUE_PARAMS: QueueParamsSettings = {
   enabled: false,
-  seed: "",
-  width: "",
-  height: "",
-  cfg: "",
-  steps: "",
+  seed: '',
+  width: '',
+  height: '',
+  cfg: '',
+  steps: '',
 };
 
 export function loadQueueParamsSettings(): QueueParamsSettings {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return DEFAULT_QUEUE_PARAMS;
   }
   try {
@@ -123,29 +111,56 @@ export function loadQueueParamsSettings(): QueueParamsSettings {
 }
 
 export function saveQueueParamsSettings(settings: QueueParamsSettings): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   writeBrowserValue(QUEUE_PARAMS_KEY, settings);
 }
 
 function normalizeResolveQueueParamsInput(
-  input?: WorkflowParamValues | ResolveQueueParamsOptions,
+  input?: WorkflowParamValues | ResolveQueueParamsOptions
 ): ResolveQueueParamsOptions {
   if (!input) {
     return {};
   }
-  if ("model" in input || "base" in input || "samplerPreset" in input || "resolutionOrientation" in input || "resolutionSizeTier" in input || "tool" in input || "inputImageFilename" in input || "inputImageFilenames" in input || "maskImageFilename" in input || "controlImageFilename" in input || "controlImageFilenames" in input || "qualityProfile" in input || "workflow" in input) {
+  if (
+    'model' in input ||
+    'base' in input ||
+    'samplerPreset' in input ||
+    'resolutionOrientation' in input ||
+    'resolutionSizeTier' in input ||
+    'tool' in input ||
+    'inputImageFilename' in input ||
+    'inputImageFilenames' in input ||
+    'maskImageFilename' in input ||
+    'controlImageFilename' in input ||
+    'controlImageFilenames' in input ||
+    'qualityProfile' in input ||
+    'workflow' in input
+  ) {
     return input as ResolveQueueParamsOptions;
   }
   return { base: input as WorkflowParamValues };
 }
 
 export function resolveQueueParams(
-  input?: WorkflowParamValues | ResolveQueueParamsOptions,
+  input?: WorkflowParamValues | ResolveQueueParamsOptions
 ): WorkflowParamValues {
-  const { model, base, samplerPreset, resolutionOrientation, resolutionSizeTier, tool, inputImageFilename, inputImageFilenames, maskImageFilename, controlImageFilename, controlImageFilenames, qualityProfile, workflow } =
-    normalizeResolveQueueParamsInput(input);
+  const {
+    model,
+    base,
+    samplerPreset,
+    resolutionOrientation,
+    resolutionSizeTier,
+    tool,
+    inputImageFilename,
+    inputImageFilenames,
+    maskImageFilename,
+    controlImageFilename,
+    controlImageFilenames,
+    qualityProfile,
+    workflow,
+  } = normalizeResolveQueueParamsInput(input);
   const settings = loadQueueParamsSettings();
   const shared = loadSettingsCache().shared;
   const profile = resolveQueueQualityProfile({
@@ -158,12 +173,12 @@ export function resolveQueueParams(
   const presetTier = resolveEffectiveSamplerPreset(
     samplerPreset ?? loadModelSamplerPresetTier(),
     profile,
-    { model },
+    { model }
   );
   const orientation = resolutionOrientation ?? loadModelResolutionOrientation();
   const sizeTier = resolveEffectiveResolutionSizeTier(
     resolutionSizeTier ?? loadModelResolutionSizeTier(),
-    profile,
+    profile
   );
   const modelDefaults = model
     ? {
@@ -211,16 +226,16 @@ export function resolveQueueParams(
 
   // Video frame count / fps aren't part of the manual override UI — always
   // forward from base (queueParamsBase) regardless of settings.enabled.
-  if (base?.videoFrames != null && base.videoFrames.toString().trim() !== "") {
+  if (base?.videoFrames != null && base.videoFrames.toString().trim() !== '') {
     merged.videoFrames = base.videoFrames;
   }
-  if (base?.videoFps != null && base.videoFps.toString().trim() !== "") {
+  if (base?.videoFps != null && base.videoFps.toString().trim() !== '') {
     merged.videoFps = base.videoFps;
   }
 
   for (const key of Object.keys(merged) as Array<keyof WorkflowParamValues>) {
     const value = merged[key];
-    if (value == null || value.toString().trim() === "") {
+    if (value == null || value.toString().trim() === '') {
       delete merged[key];
     }
   }
@@ -230,13 +245,11 @@ export function resolveQueueParams(
       activeOnly: true,
     });
     const selectedWorkflowId = getSelectedWorkflowFileId();
-    const workflowFile = selectedWorkflowId
-      ? findComfyWorkflowFile(selectedWorkflowId)
-      : undefined;
+    const workflowFile = selectedWorkflowId ? findComfyWorkflowFile(selectedWorkflowId) : undefined;
     const workflowCustomTokens = workflowFile?.customTokens ?? [];
     const customTokens = mergeCustomWorkflowTokens(
       comfySettings.customTokens,
-      workflowCustomTokens,
+      workflowCustomTokens
     );
     const loaderMapOptions = {
       checkpointMap: shared.modelCheckpointMap,
@@ -250,7 +263,7 @@ export function resolveQueueParams(
       merged,
       model,
       workflow,
-      loaderMapOptions,
+      loaderMapOptions
     );
     const loaders = resolveLoaderFilenamesForModel(model, loaderMapOptions);
     if (loaders.checkpoint) {
@@ -269,8 +282,8 @@ export function resolveQueueParams(
         upscaleMap: shared.modelUpscaleMap,
         customTokens,
         availableUpscaleModels:
-          typeof window !== "undefined"
-            ? readCachedComfyObjectInfoModels()?.upscaleModels ?? null
+          typeof window !== 'undefined'
+            ? (readCachedComfyObjectInfoModels()?.upscaleModels ?? null)
             : null,
       }) || SUGGESTED_MODEL_UPSCALE_MAP.default;
     if (upscaleModel) {
@@ -298,7 +311,7 @@ export function resolveQueueParams(
       merged.ipAdapterImageFilename = shared.ipAdapterImageFilename.trim();
     }
     const ipAdapterStack = (shared.ipAdapterImageFilenames ?? [])
-      .map((name) => name?.trim())
+      .map(name => name?.trim())
       .filter(Boolean) as string[];
     if (ipAdapterStack.length > 0) {
       merged.ipAdapterImageFilenames = ipAdapterStack;
@@ -316,17 +329,12 @@ export function resolveQueueParams(
     }
 
     const resolvedFilenames = (() => {
-      const fromArg = (inputImageFilenames ?? [])
-        .map((entry) => entry?.trim() ?? "")
-        .filter(Boolean);
+      const fromArg = (inputImageFilenames ?? []).map(entry => entry?.trim() ?? '').filter(Boolean);
       const fromBase = (base?.inputImageFilenames ?? [])
-        .map((entry) => entry?.trim() ?? "")
+        .map(entry => entry?.trim() ?? '')
         .filter(Boolean);
       const list = (fromArg.length > 0 ? fromArg : fromBase).slice(0, 4);
-      const primary =
-        inputImageFilename?.trim() ||
-        base?.inputImageFilename?.trim() ||
-        list[0];
+      const primary = inputImageFilename?.trim() || base?.inputImageFilename?.trim() || list[0];
       if (!primary && list.length === 0) {
         return [] as string[];
       }
@@ -343,22 +351,18 @@ export function resolveQueueParams(
       merged.inputImageFilenames = resolvedFilenames;
     }
 
-    const resolvedMaskImage =
-      maskImageFilename?.trim() ||
-      base?.maskImageFilename?.trim();
+    const resolvedMaskImage = maskImageFilename?.trim() || base?.maskImageFilename?.trim();
     if (resolvedMaskImage) {
       merged.maskImageFilename = resolvedMaskImage;
     }
 
-    const resolvedControlImage =
-      controlImageFilename?.trim() ||
-      base?.controlImageFilename?.trim();
+    const resolvedControlImage = controlImageFilename?.trim() || base?.controlImageFilename?.trim();
     const controlStack = (() => {
       const fromArg = (controlImageFilenames ?? [])
-        .map((entry) => entry?.trim() ?? "")
+        .map(entry => entry?.trim() ?? '')
         .filter(Boolean);
       const fromBase = (base?.controlImageFilenames ?? [])
-        .map((entry) => entry?.trim() ?? "")
+        .map(entry => entry?.trim() ?? '')
         .filter(Boolean);
       const list = (fromArg.length > 0 ? fromArg : fromBase).slice(0, 4);
       if (list.length === 0 && resolvedControlImage) {
@@ -400,8 +404,8 @@ export function resolveQueueParams(
     // Rapid AIO T2I stays on native square — extreme ARs worsen screen-door.
     // Lightning / vanilla 2512 keep the user's aspect chips as-is.
     if (isQwenRapidAioModel(model) && !hasInputImage) {
-      const rapidTier = sizeTier === "max" ? "medium" : sizeTier;
-      const square = resolveModelResolutionParams(model, "square", rapidTier);
+      const rapidTier = sizeTier === 'max' ? 'medium' : sizeTier;
+      const square = resolveModelResolutionParams(model, 'square', rapidTier);
       if (square.width != null) {
         merged.width = square.width;
       }
@@ -414,17 +418,15 @@ export function resolveQueueParams(
       ensureLightningNativeResolutionParams(
         merged,
         model,
-        isQwenRapidAioModel(model) && !hasInputImage ? "square" : orientation,
-        isQwenRapidAioModel(model) && !hasInputImage && sizeTier === "max"
-          ? "medium"
-          : sizeTier,
+        isQwenRapidAioModel(model) && !hasInputImage ? 'square' : orientation,
+        isQwenRapidAioModel(model) && !hasInputImage && sizeTier === 'max' ? 'medium' : sizeTier,
         {
           // Gallery → Compose/Refine: keep figure aspect (don't force 1328²).
           preserveInputAspect: hasInputImage,
-        },
+        }
       ),
       model,
-      presetTier,
+      presetTier
     );
   }
 

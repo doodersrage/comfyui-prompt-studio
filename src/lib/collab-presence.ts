@@ -20,18 +20,18 @@ export type CollabDraftPayload = {
 };
 
 export type CollabRoomEvent =
-  | { type: "presence"; peers: CollabPresencePeer[] }
-  | { type: "draft"; payload: CollabDraftPayload }
-  | { type: "ping"; at: number };
+  | { type: 'presence'; peers: CollabPresencePeer[] }
+  | { type: 'draft'; payload: CollabDraftPayload }
+  | { type: 'ping'; at: number };
 
-const CHANNEL_PREFIX = "cps-collab-";
+const CHANNEL_PREFIX = 'cps-collab-';
 
 export function collabChannelName(projectId: string): string {
-  return `${CHANNEL_PREFIX}${projectId.trim() || "default"}`;
+  return `${CHANNEL_PREFIX}${projectId.trim() || 'default'}`;
 }
 
 export function createCollabPeerId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();
   }
   return `peer-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -40,23 +40,23 @@ export function createCollabPeerId(): string {
 export function pruneStalePeers(
   peers: CollabPresencePeer[],
   now = Date.now(),
-  ttlMs = 15_000,
+  ttlMs = 15_000
 ): CollabPresencePeer[] {
-  return peers.filter((peer) => now - peer.lastSeenAt <= ttlMs);
+  return peers.filter(peer => now - peer.lastSeenAt <= ttlMs);
 }
 
 export function upsertPresencePeer(
   peers: CollabPresencePeer[],
-  next: CollabPresencePeer,
+  next: CollabPresencePeer
 ): CollabPresencePeer[] {
-  const without = peers.filter((peer) => peer.peerId !== next.peerId);
+  const without = peers.filter(peer => peer.peerId !== next.peerId);
   return pruneStalePeers([...without, next]);
 }
 
 export function shouldWarnRemoteDraft(
   localUpdatedAt: number | undefined,
   remote: CollabDraftPayload,
-  selfPeerId: string,
+  selfPeerId: string
 ): boolean {
   if (remote.peerId === selfPeerId) {
     return false;

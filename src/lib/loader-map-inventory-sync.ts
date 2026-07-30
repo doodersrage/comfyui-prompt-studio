@@ -1,20 +1,14 @@
-import type { ComfyUiModelLists } from "./comfyui-object-info";
+import type { ComfyUiModelLists } from './comfyui-object-info';
 import {
   SUGGESTED_MODEL_CHECKPOINT_MAP,
   SUGGESTED_MODEL_VAE_MAP,
   type ModelCheckpointMap,
   type ModelVaeMap,
-} from "./model-checkpoint-map";
-import type { ModelControlNetMap } from "./model-controlnet-map";
-import { qwenUnetFamiliesCompatible } from "./model-loader-precision";
-import {
-  SUGGESTED_MODEL_UPSCALE_MAP,
-  type ModelUpscaleMap,
-} from "./model-upscale-map";
-import {
-  isVideoCheckpointMapKey,
-  pickVideoCheckpointFromInventory,
-} from "./video-checkpoint-pick";
+} from './model-checkpoint-map';
+import type { ModelControlNetMap } from './model-controlnet-map';
+import { qwenUnetFamiliesCompatible } from './model-loader-precision';
+import { SUGGESTED_MODEL_UPSCALE_MAP, type ModelUpscaleMap } from './model-upscale-map';
+import { isVideoCheckpointMapKey, pickVideoCheckpointFromInventory } from './video-checkpoint-pick';
 
 export type LoaderMapInventorySyncInput = {
   models: ComfyUiModelLists;
@@ -47,7 +41,7 @@ export type LoaderMapInventorySyncResult = {
 };
 
 function trimFilename(value: unknown): string | undefined {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return undefined;
   }
   const trimmed = value.trim();
@@ -57,41 +51,35 @@ function trimFilename(value: unknown): string | undefined {
 function loaderStemWithoutPrecision(filename: string): string {
   return filename
     .toLowerCase()
-    .replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, "")
-    .replace(
-      /[-_]?(bf16|fp16|fp8_scaled|fp8|e4m3fn|q[2-8]_k[_-][a-z]|q[2-8]_0)/gi,
-      "",
-    );
+    .replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, '')
+    .replace(/[-_]?(bf16|fp16|fp8_scaled|fp8|e4m3fn|q[2-8]_k[_-][a-z]|q[2-8]_0)/gi, '');
 }
 
 /** Closest installed filename for a suggested stem (exact → stem includes). */
 export function matchInventoryFilename(
   preferred: string | undefined,
-  inventory: string[],
+  inventory: string[]
 ): string | undefined {
   const trimmed = preferred?.trim();
   if (!trimmed || inventory.length === 0) {
     return undefined;
   }
-  const exact = inventory.find((entry) => entry === trimmed);
+  const exact = inventory.find(entry => entry === trimmed);
   if (exact) {
     return exact;
   }
   const lower = trimmed.toLowerCase();
-  const exactCi = inventory.find((entry) => entry.toLowerCase() === lower);
+  const exactCi = inventory.find(entry => entry.toLowerCase() === lower);
   if (exactCi) {
     return exactCi;
   }
-  const stem = lower.replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, "");
-  return inventory.find((entry) => {
+  const stem = lower.replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, '');
+  return inventory.find(entry => {
     if (!qwenUnetFamiliesCompatible(trimmed, entry)) {
       return false;
     }
     const entryLower = entry.toLowerCase();
-    const entryStem = entryLower.replace(
-      /\.(safetensors|ckpt|pt|pth|bin|gguf)$/i,
-      "",
-    );
+    const entryStem = entryLower.replace(/\.(safetensors|ckpt|pt|pth|bin|gguf)$/i, '');
     return entryLower.includes(stem) || stem.includes(entryStem);
   });
 }
@@ -101,7 +89,7 @@ export function matchInventoryFilename(
  */
 export function matchInventoryFilenameNearMiss(
   preferred: string | undefined,
-  inventory: string[],
+  inventory: string[]
 ): string | undefined {
   const close = matchInventoryFilename(preferred, inventory);
   if (close) {
@@ -115,24 +103,17 @@ export function matchInventoryFilenameNearMiss(
   if (!baseStem) {
     return undefined;
   }
-  return inventory.find((entry) => {
+  return inventory.find(entry => {
     if (!qwenUnetFamiliesCompatible(trimmed, entry)) {
       return false;
     }
     const entryStem = loaderStemWithoutPrecision(entry);
-    return (
-      entryStem === baseStem ||
-      entryStem.includes(baseStem) ||
-      baseStem.includes(entryStem)
-    );
+    return entryStem === baseStem || entryStem.includes(baseStem) || baseStem.includes(entryStem);
   });
 }
 
 /** True when ComfyUI UNETLoader / UnetLoaderGGUF can load this filename. */
-export function isFilenameInUnetLoaderList(
-  filename: string,
-  unets: string[],
-): boolean {
+export function isFilenameInUnetLoaderList(filename: string, unets: string[]): boolean {
   return Boolean(matchInventoryFilename(filename.trim(), unets));
 }
 
@@ -142,7 +123,7 @@ export function isFilenameInUnetLoaderList(
  */
 export function unetLoaderPlacementMessage(
   filename: string,
-  models: Pick<ComfyUiModelLists, "unets" | "checkpoints">,
+  models: Pick<ComfyUiModelLists, 'unets' | 'checkpoints'>
 ): string | undefined {
   const trimmed = filename.trim();
   if (!trimmed || isFilenameInUnetLoaderList(trimmed, models.unets)) {
@@ -198,10 +179,7 @@ function fillAndHealMapKeys(input: {
       }
       continue;
     }
-    const fromSuggested = matchInventoryFilenameNearMiss(
-      input.suggested[key],
-      input.inventory,
-    );
+    const fromSuggested = matchInventoryFilenameNearMiss(input.suggested[key], input.inventory);
     if (fromSuggested) {
       map[key] = fromSuggested;
       healedKeys.push(key);
@@ -254,11 +232,9 @@ function fillAndHealMapKeys(input: {
  * stems. With `healMissing`, also rewrite values missing from inventory.
  */
 export function syncLoaderMapsFromInventory(
-  input: LoaderMapInventorySyncInput,
+  input: LoaderMapInventorySyncInput
 ): LoaderMapInventorySyncResult {
-  const checkpointInventory = [
-    ...new Set([...input.models.unets, ...input.models.checkpoints]),
-  ];
+  const checkpointInventory = [...new Set([...input.models.unets, ...input.models.checkpoints])];
   const healMissing = input.healMissing === true;
 
   const checkpoint = fillAndHealMapKeys({
@@ -308,9 +284,7 @@ export function syncLoaderMapsFromInventory(
   };
 }
 
-export function formatInventorySyncMessage(
-  result: LoaderMapInventorySyncResult,
-): string {
+export function formatInventorySyncMessage(result: LoaderMapInventorySyncResult): string {
   const filled =
     result.filledCheckpointKeys.length +
     result.filledVaeKeys.length +
@@ -324,7 +298,7 @@ export function formatInventorySyncMessage(
   const cleared = result.clearedUpscaleKeys.length;
 
   if (filled === 0 && healed === 0 && cleared === 0) {
-    return "No map keys needed inventory updates.";
+    return 'No map keys needed inventory updates.';
   }
 
   const parts: string[] = [];
@@ -337,7 +311,7 @@ export function formatInventorySyncMessage(
   if (cleared) {
     parts.push(`cleared ${cleared} missing upscale`);
   }
-  return `Updated loader maps from ComfyUI inventory (${parts.join(", ")}).`;
+  return `Updated loader maps from ComfyUI inventory (${parts.join(', ')}).`;
 }
 
 /** True when sync changed any persisted map values. */
@@ -348,12 +322,10 @@ export function loaderMapsChanged(
     upscaleMap?: ModelUpscaleMap;
     controlNetMap?: ModelControlNetMap;
   },
-  after: LoaderMapInventorySyncResult,
+  after: LoaderMapInventorySyncResult
 ): boolean {
-  const same = (
-    a?: Record<string, string | undefined>,
-    b?: Record<string, string | undefined>,
-  ) => JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
+  const same = (a?: Record<string, string | undefined>, b?: Record<string, string | undefined>) =>
+    JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
   return !(
     same(before.checkpointMap, after.modelCheckpointMap) &&
     same(before.vaeMap, after.modelVaeMap) &&

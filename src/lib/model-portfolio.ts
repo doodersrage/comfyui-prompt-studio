@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import type { ComfyImageModel } from "./comfy-models/client";
-import { resolveRuntimeForQueue } from "./comfyui-runtime-for-model";
-import { registerComfyGalleryJob } from "./comfyui-gallery-client";
-import { scheduleComfyGalleryPoll } from "./comfyui-gallery-poller";
-import { postComfyUiPrompt } from "./comfyui-queue-request";
-import { resolveQueueParams } from "./queue-params-settings";
-import { guardQueueQualityForVram } from "./vram-queue-guard";
-import { maybeHoldMaxGenerateJobs } from "./held-max-queue";
-import { prepareQueuePrompts } from "./queue-prompt-prep";
+import type { ComfyImageModel } from './comfy-models/client';
+import { resolveRuntimeForQueue } from './comfyui-runtime-for-model';
+import { registerComfyGalleryJob } from './comfyui-gallery-client';
+import { scheduleComfyGalleryPoll } from './comfyui-gallery-poller';
+import { postComfyUiPrompt } from './comfyui-queue-request';
+import { resolveQueueParams } from './queue-params-settings';
+import { guardQueueQualityForVram } from './vram-queue-guard';
+import { maybeHoldMaxGenerateJobs } from './held-max-queue';
+import { prepareQueuePrompts } from './queue-prompt-prep';
 
 export type ModelPortfolioItem = {
   model: ComfyImageModel;
@@ -25,14 +25,14 @@ export async function generateModelPortfolio(input: {
 
   for (const model of input.models) {
     try {
-      const response = await fetch("/api/format", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/format', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           input: input.draft.trim(),
-          mode: "positive",
+          mode: 'positive',
           model,
-          detail: input.detail ?? "balanced",
+          detail: input.detail ?? 'balanced',
           smartFormat: true,
         }),
       });
@@ -40,8 +40,8 @@ export async function generateModelPortfolio(input: {
       if (!response.ok || !data.prompt?.trim()) {
         results.push({
           model,
-          prompt: "",
-          error: data.error ?? "Format failed.",
+          prompt: '',
+          error: data.error ?? 'Format failed.',
         });
         continue;
       }
@@ -49,8 +49,8 @@ export async function generateModelPortfolio(input: {
     } catch (err) {
       results.push({
         model,
-        prompt: "",
-        error: err instanceof Error ? err.message : "Format failed.",
+        prompt: '',
+        error: err instanceof Error ? err.message : 'Format failed.',
       });
     }
   }
@@ -69,18 +69,18 @@ export async function queueModelPortfolio(input: {
     if (!item.prompt.trim()) {
       continue;
     }
-    const baseRuntime = resolveRuntimeForQueue(item.model, input.tool ?? "portfolio");
+    const baseRuntime = resolveRuntimeForQueue(item.model, input.tool ?? 'portfolio');
     const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
     const runtime = vramGuard.runtime ?? baseRuntime;
     const prepared = await prepareQueuePrompts({
       model: item.model,
       positive: item.prompt,
       hints: input.hints,
-      tool: input.tool ?? "portfolio",
+      tool: input.tool ?? 'portfolio',
     });
     const params = resolveQueueParams({
       model: item.model,
-      tool: input.tool ?? "portfolio",
+      tool: input.tool ?? 'portfolio',
       qualityProfile: vramGuard.profile,
     });
     const hold = await maybeHoldMaxGenerateJobs({
@@ -90,7 +90,7 @@ export async function queueModelPortfolio(input: {
           prompt: prepared.positive,
           negativePrompt: prepared.negative,
           model: item.model,
-          tool: input.tool ?? "portfolio",
+          tool: input.tool ?? 'portfolio',
           params,
           comfy: runtime,
         },
@@ -114,15 +114,15 @@ export async function queueModelPortfolio(input: {
       promptId: queuedJob.promptId,
       prompt: prepared.positive,
       negativePrompt: prepared.negative,
-      tool: input.tool ?? "portfolio",
+      tool: input.tool ?? 'portfolio',
       model: item.model,
-      comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+      comfyUrl: queuedJob.comfyUrl ?? 'http://127.0.0.1:8188',
       clientId: queuedJob.clientId,
       queueParams: params,
       queueQualityProfile: runtime.queueQualityProfile,
     });
     void scheduleComfyGalleryPoll(queuedJob.promptId, {
-      comfyUrl: queuedJob.comfyUrl ?? "http://127.0.0.1:8188",
+      comfyUrl: queuedJob.comfyUrl ?? 'http://127.0.0.1:8188',
       clientId: queuedJob.clientId,
     });
     queuedJob.releaseLiveSocket();

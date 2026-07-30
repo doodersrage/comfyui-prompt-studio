@@ -1,16 +1,13 @@
-import { getComfyUiBaseUrl, resolveComfyUiConfig } from "./comfyui-client";
-import type { ComfyUiRuntimeConfig, WorkflowParamValues } from "./comfyui-config";
-import { detectWorkflowPlaceholders } from "./comfyui-config";
-import {
-  extractImagesFromOutputs,
-  type ComfyOutputImage,
-} from "./comfyui-outputs";
-import { extractParamsFromWorkflow } from "./workflow-param-extract";
-import { extractComfyExecutionTiming } from "./comfyui-render-duration";
+import { getComfyUiBaseUrl, resolveComfyUiConfig } from './comfyui-client';
+import type { ComfyUiRuntimeConfig, WorkflowParamValues } from './comfyui-config';
+import { detectWorkflowPlaceholders } from './comfyui-config';
+import { extractImagesFromOutputs, type ComfyOutputImage } from './comfyui-outputs';
+import { extractParamsFromWorkflow } from './workflow-param-extract';
+import { extractComfyExecutionTiming } from './comfyui-render-duration';
 
 export type ComfyPromptStatus = {
   promptId: string;
-  status: "pending" | "running" | "completed" | "error" | "unknown";
+  status: 'pending' | 'running' | 'completed' | 'error' | 'unknown';
   statusMessage?: string;
   comfyUrl: string;
   images?: ComfyOutputImage[];
@@ -59,7 +56,7 @@ type QueueContext = {
 
 async function resolveQueueContext(
   promptId: string,
-  comfyUrl: string,
+  comfyUrl: string
 ): Promise<QueueContext | null> {
   try {
     const response = await fetch(`${comfyUrl}/queue`, {
@@ -73,11 +70,11 @@ async function resolveQueueContext(
     const running = payload.queue_running ?? [];
     const pending = payload.queue_pending ?? [];
 
-    if (running.some((item) => item[1] === promptId)) {
+    if (running.some(item => item[1] === promptId)) {
       return { isRunning: true, pendingPosition: null };
     }
 
-    const pendingIndex = pending.findIndex((item) => item[1] === promptId);
+    const pendingIndex = pending.findIndex(item => item[1] === promptId);
     if (pendingIndex >= 0) {
       return { isRunning: false, pendingPosition: pendingIndex + 1 };
     }
@@ -90,27 +87,25 @@ async function resolveQueueContext(
 
 function applyQueueContext(
   status: ComfyPromptStatus,
-  queue: QueueContext | null,
+  queue: QueueContext | null
 ): ComfyPromptStatus {
-  if (!queue || status.status === "completed" || status.status === "error") {
+  if (!queue || status.status === 'completed' || status.status === 'error') {
     return status;
   }
 
   if (queue.isRunning) {
     return {
       ...status,
-      status: "running",
+      status: 'running',
       queuePosition: 0,
-      statusMessage: status.statusMessage?.trim()
-        ? status.statusMessage
-        : "Running now",
+      statusMessage: status.statusMessage?.trim() ? status.statusMessage : 'Running now',
     };
   }
 
   if (queue.pendingPosition != null) {
     return {
       ...status,
-      status: "pending",
+      status: 'pending',
       queuePosition: queue.pendingPosition,
       statusMessage: `Queue position ${queue.pendingPosition}`,
     };
@@ -121,7 +116,7 @@ function applyQueueContext(
 
 export async function getComfyUiPromptStatus(
   promptId: string,
-  runtime?: ComfyUiRuntimeConfig,
+  runtime?: ComfyUiRuntimeConfig
 ): Promise<ComfyPromptStatus> {
   const comfyUrl = getComfyUiBaseUrl(runtime);
 
@@ -145,16 +140,13 @@ export async function getComfyUiPromptStatus(
     if (!allResponse.ok) {
       return {
         promptId,
-        status: "unknown",
+        status: 'unknown',
         statusMessage: `HTTP ${allResponse.status}`,
         comfyUrl,
       };
     }
 
-    const history = (await allResponse.json()) as Record<
-      string,
-      ComfyHistoryEntry
-    >;
+    const history = (await allResponse.json()) as Record<string, ComfyHistoryEntry>;
     const entry = history[promptId];
     const queue = await resolveQueueContext(promptId, comfyUrl);
 
@@ -162,23 +154,20 @@ export async function getComfyUiPromptStatus(
       return applyQueueContext(
         {
           promptId,
-          status: "pending",
-          statusMessage: "Not in history yet (still queued or running)",
+          status: 'pending',
+          statusMessage: 'Not in history yet (still queued or running)',
           comfyUrl,
         },
-        queue,
+        queue
       );
     }
 
-    return applyQueueContext(
-      interpretHistoryEntry(promptId, comfyUrl, entry),
-      queue,
-    );
+    return applyQueueContext(interpretHistoryEntry(promptId, comfyUrl, entry), queue);
   } catch (error) {
     return {
       promptId,
-      status: "unknown",
-      statusMessage: error instanceof Error ? error.message : "Status check failed",
+      status: 'unknown',
+      statusMessage: error instanceof Error ? error.message : 'Status check failed',
       comfyUrl,
     };
   }
@@ -200,38 +189,31 @@ export async function getComfyUiWorkflowSummary(runtime?: ComfyUiRuntimeConfig) 
   };
 }
 
-export function extractComfyExecutionErrorMessage(
-  entry: ComfyHistoryEntry,
-): string | undefined {
+export function extractComfyExecutionErrorMessage(entry: ComfyHistoryEntry): string | undefined {
   const messages = entry.status?.messages;
   if (!Array.isArray(messages)) {
     return undefined;
   }
 
   for (const message of messages) {
-    if (!Array.isArray(message) || message[0] !== "execution_error") {
+    if (!Array.isArray(message) || message[0] !== 'execution_error') {
       continue;
     }
     const payload = message[1];
-    if (!payload || typeof payload !== "object") {
+    if (!payload || typeof payload !== 'object') {
       continue;
     }
 
     const exceptionMessage =
-      typeof payload.exception_message === "string"
-        ? payload.exception_message.trim()
-        : "";
-    const nodeType =
-      typeof payload.node_type === "string" ? payload.node_type.trim() : "";
+      typeof payload.exception_message === 'string' ? payload.exception_message.trim() : '';
+    const nodeType = typeof payload.node_type === 'string' ? payload.node_type.trim() : '';
     const nodeId =
-      typeof payload.node_id === "string" || typeof payload.node_id === "number"
+      typeof payload.node_id === 'string' || typeof payload.node_id === 'number'
         ? String(payload.node_id).trim()
-        : "";
+        : '';
 
     if (exceptionMessage) {
-      const prefix = [nodeType, nodeId ? `#${nodeId}` : ""]
-        .filter(Boolean)
-        .join(" ");
+      const prefix = [nodeType, nodeId ? `#${nodeId}` : ''].filter(Boolean).join(' ');
       return prefix ? `${prefix}: ${exceptionMessage}` : exceptionMessage;
     }
   }
@@ -242,9 +224,9 @@ export function extractComfyExecutionErrorMessage(
 function interpretHistoryEntry(
   promptId: string,
   comfyUrl: string,
-  entry: ComfyHistoryEntry,
+  entry: ComfyHistoryEntry
 ): ComfyPromptStatus {
-  const statusStr = entry.status?.status_str?.toLowerCase() ?? "";
+  const statusStr = entry.status?.status_str?.toLowerCase() ?? '';
   const images = extractImagesFromOutputs(entry.outputs);
   const completed = entry.status?.completed === true || images.length > 0;
   const executionError = extractComfyExecutionErrorMessage(entry);
@@ -252,32 +234,26 @@ function interpretHistoryEntry(
     messages: entry.status?.messages,
   });
   const timingFields = {
-    ...(timing.renderDurationMs != null
-      ? { renderDurationMs: timing.renderDurationMs }
-      : {}),
-    ...(timing.executionStartedAt != null
-      ? { executionStartedAt: timing.executionStartedAt }
-      : {}),
-    ...(timing.executionEndedAt != null
-      ? { executionEndedAt: timing.executionEndedAt }
-      : {}),
+    ...(timing.renderDurationMs != null ? { renderDurationMs: timing.renderDurationMs } : {}),
+    ...(timing.executionStartedAt != null ? { executionStartedAt: timing.executionStartedAt } : {}),
+    ...(timing.executionEndedAt != null ? { executionEndedAt: timing.executionEndedAt } : {}),
   };
 
   if (completed) {
     return {
       promptId,
-      status: "completed",
-      statusMessage: statusStr || "completed",
+      status: 'completed',
+      statusMessage: statusStr || 'completed',
       comfyUrl,
       images,
       ...timingFields,
     };
   }
 
-  if (statusStr.includes("error") || executionError) {
+  if (statusStr.includes('error') || executionError) {
     return {
       promptId,
-      status: "error",
+      status: 'error',
       statusMessage: executionError ?? statusStr,
       comfyUrl,
       images,
@@ -285,10 +261,10 @@ function interpretHistoryEntry(
     };
   }
 
-  if (statusStr.includes("running") || statusStr.includes("execut")) {
+  if (statusStr.includes('running') || statusStr.includes('execut')) {
     return {
       promptId,
-      status: "running",
+      status: 'running',
       statusMessage: statusStr,
       comfyUrl,
       ...timingFields,
@@ -297,22 +273,20 @@ function interpretHistoryEntry(
 
   return {
     promptId,
-    status: "pending",
-    statusMessage: statusStr || "pending",
+    status: 'pending',
+    statusMessage: statusStr || 'pending',
     comfyUrl,
     ...timingFields,
   };
 }
 
-function extractWorkflowFromHistoryEntry(
-  entry: ComfyHistoryEntry,
-): Record<string, unknown> | null {
+function extractWorkflowFromHistoryEntry(entry: ComfyHistoryEntry): Record<string, unknown> | null {
   const promptField = entry.prompt;
   if (!Array.isArray(promptField) || promptField.length < 3) {
     return null;
   }
   const workflow = promptField[2];
-  if (!workflow || typeof workflow !== "object") {
+  if (!workflow || typeof workflow !== 'object') {
     return null;
   }
   return workflow as Record<string, unknown>;
@@ -329,9 +303,9 @@ function extractPromptFromHistoryEntry(entry: ComfyHistoryEntry): {
 
   const texts: string[] = [];
   for (const node of Object.values(
-    workflow as Record<string, { inputs?: Record<string, unknown> }>,
+    workflow as Record<string, { inputs?: Record<string, unknown> }>
   )) {
-    const text = typeof node.inputs?.text === "string" ? node.inputs.text.trim() : "";
+    const text = typeof node.inputs?.text === 'string' ? node.inputs.text.trim() : '';
     if (text) {
       texts.push(text);
     }
@@ -343,21 +317,19 @@ function extractPromptFromHistoryEntry(entry: ComfyHistoryEntry): {
   };
 }
 
-function extractCheckpointHintFromWorkflow(
-  workflow: Record<string, unknown>,
-): string | undefined {
+function extractCheckpointHintFromWorkflow(workflow: Record<string, unknown>): string | undefined {
   for (const node of Object.values(workflow)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
     const inputs = (node as { inputs?: Record<string, unknown> }).inputs;
     const ckpt =
-      typeof inputs?.ckpt_name === "string"
+      typeof inputs?.ckpt_name === 'string'
         ? inputs.ckpt_name.trim()
-        : typeof inputs?.unet_name === "string"
+        : typeof inputs?.unet_name === 'string'
           ? inputs.unet_name.trim()
-          : "";
-    if (ckpt && !ckpt.includes("{{")) {
+          : '';
+    if (ckpt && !ckpt.includes('{{')) {
       return ckpt;
     }
   }
@@ -366,7 +338,7 @@ function extractCheckpointHintFromWorkflow(
 
 export async function listComfyUiHistoryImports(
   runtime?: ComfyUiRuntimeConfig,
-  limit = 40,
+  limit = 40
 ): Promise<ComfyHistoryImportItem[]> {
   const comfyUrl = getComfyUiBaseUrl(runtime);
 
@@ -384,7 +356,7 @@ export async function listComfyUiHistoryImports(
 
     for (const [promptId, entry] of Object.entries(history)) {
       const status = interpretHistoryEntry(promptId, comfyUrl, entry);
-      if (status.status !== "completed" || !status.images?.length) {
+      if (status.status !== 'completed' || !status.images?.length) {
         continue;
       }
 
@@ -394,9 +366,7 @@ export async function listComfyUiHistoryImports(
       const hasParams = queueParams && Object.keys(queueParams).length > 0;
       items.push({
         promptId,
-        prompt:
-          extracted.positive?.trim() ||
-          `Imported ComfyUI job ${promptId.slice(0, 8)}`,
+        prompt: extracted.positive?.trim() || `Imported ComfyUI job ${promptId.slice(0, 8)}`,
         negativePrompt: extracted.negative,
         comfyUrl,
         images: status.images,
@@ -404,18 +374,14 @@ export async function listComfyUiHistoryImports(
         queueParams: hasParams ? queueParams : undefined,
         model: workflow ? extractCheckpointHintFromWorkflow(workflow) : undefined,
         workflowJson: workflow ? JSON.stringify(workflow) : undefined,
-        ...(status.renderDurationMs != null
-          ? { renderDurationMs: status.renderDurationMs }
-          : {}),
+        ...(status.renderDurationMs != null ? { renderDurationMs: status.renderDurationMs } : {}),
         ...(status.executionStartedAt != null
           ? { executionStartedAt: status.executionStartedAt }
           : {}),
       });
     }
 
-    return items
-      .sort((left, right) => right.promptId.localeCompare(left.promptId))
-      .slice(0, limit);
+    return items.sort((left, right) => right.promptId.localeCompare(left.promptId)).slice(0, limit);
   } catch {
     return [];
   }

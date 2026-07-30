@@ -1,6 +1,6 @@
-import { loadPromptHistoryStore, type PromptHistoryEntry } from "./prompt-history";
-import type { HistorySeedScope, HistorySeedTool } from "./scene-hint-source";
-import { semanticRelevanceScore } from "./semantic-search";
+import { loadPromptHistoryStore, type PromptHistoryEntry } from './prompt-history';
+import type { HistorySeedScope, HistorySeedTool } from './scene-hint-source';
+import { semanticRelevanceScore } from './semantic-search';
 
 export type HistoryHintSeedResult = {
   hints: string;
@@ -10,51 +10,51 @@ export type HistoryHintSeedResult = {
 };
 
 const RELATED_TOOLS: Record<HistorySeedTool, readonly string[]> = {
-  generate: ["generate", "randomScene", "character", "background", "pet", "fantasy"],
-  character: ["character", "generate", "duo", "compose", "scene-compose"],
-  duo: ["duo", "character", "generate", "compose", "scene-compose"],
-  compose: ["compose", "scene-compose", "character", "duo", "generate", "background"],
-  background: ["background", "generate", "fantasy", "compose", "scene-compose"],
-  pet: ["pet", "generate", "character"],
-  fantasy: ["fantasy", "generate", "character", "background"],
+  generate: ['generate', 'randomScene', 'character', 'background', 'pet', 'fantasy'],
+  character: ['character', 'generate', 'duo', 'compose', 'scene-compose'],
+  duo: ['duo', 'character', 'generate', 'compose', 'scene-compose'],
+  compose: ['compose', 'scene-compose', 'character', 'duo', 'generate', 'background'],
+  background: ['background', 'generate', 'fantasy', 'compose', 'scene-compose'],
+  pet: ['pet', 'generate', 'character'],
+  fantasy: ['fantasy', 'generate', 'character', 'background'],
 };
 
 const STOPWORDS = new Set([
-  "with",
-  "and",
-  "the",
-  "for",
-  "from",
-  "that",
-  "this",
-  "into",
-  "over",
-  "under",
-  "through",
-  "their",
-  "there",
-  "while",
-  "where",
-  "when",
-  "very",
-  "soft",
-  "warm",
-  "cool",
-  "light",
-  "lighting",
-  "scene",
-  "image",
-  "photo",
-  "photograph",
-  "portrait",
-  "detailed",
-  "natural",
-  "realistic",
-  "cinematic",
+  'with',
+  'and',
+  'the',
+  'for',
+  'from',
+  'that',
+  'this',
+  'into',
+  'over',
+  'under',
+  'through',
+  'their',
+  'there',
+  'while',
+  'where',
+  'when',
+  'very',
+  'soft',
+  'warm',
+  'cool',
+  'light',
+  'lighting',
+  'scene',
+  'image',
+  'photo',
+  'photograph',
+  'portrait',
+  'detailed',
+  'natural',
+  'realistic',
+  'cinematic',
 ]);
 
 export function loadPromptHistoryEntries(): PromptHistoryEntry[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   try {
@@ -67,23 +67,19 @@ export function loadPromptHistoryEntries(): PromptHistoryEntry[] {
 export function filterHistoryForSeed(
   entries: PromptHistoryEntry[],
   tool: HistorySeedTool,
-  scope: HistorySeedScope,
+  scope: HistorySeedScope
 ): PromptHistoryEntry[] {
   const allowedTools =
-    scope === "tool"
-      ? new Set([tool])
-      : scope === "related"
-        ? new Set(RELATED_TOOLS[tool])
-        : null;
+    scope === 'tool' ? new Set([tool]) : scope === 'related' ? new Set(RELATED_TOOLS[tool]) : null;
 
-  return entries.filter((entry) => {
+  return entries.filter(entry => {
     if (allowedTools && !allowedTools.has(entry.tool)) {
       return false;
     }
-    if (scope === "favorites" && !entry.favorite) {
+    if (scope === 'favorites' && !entry.favorite) {
       return false;
     }
-    if (scope === "top-rated" && (entry.rating ?? 0) < 4) {
+    if (scope === 'top-rated' && (entry.rating ?? 0) < 4) {
       return false;
     }
     const seedText = entry.hints?.trim() || entry.prompt?.trim();
@@ -95,10 +91,10 @@ function scoreHistoryEntry(
   entry: PromptHistoryEntry,
   index: number,
   total: number,
-  referenceHints?: string,
+  referenceHints?: string
 ): number {
   let score = 0;
-  if (typeof entry.rating === "number") {
+  if (typeof entry.rating === 'number') {
     score += entry.rating * 2;
   }
   if (entry.favorite) {
@@ -107,7 +103,7 @@ function scoreHistoryEntry(
   score += (1 - index / Math.max(total, 1)) * 4;
 
   if (referenceHints?.trim()) {
-    const corpus = [entry.hints, entry.prompt].filter(Boolean).join("\n");
+    const corpus = [entry.hints, entry.prompt].filter(Boolean).join('\n');
     score += semanticRelevanceScore(referenceHints, corpus) * 6;
   }
 
@@ -115,17 +111,17 @@ function scoreHistoryEntry(
 }
 
 export function compressHintSeed(text: string, maxLength = 160): string {
-  const withoutLocation = text.replace(/\blocation:\s*[^,;]+/gi, "").trim();
+  const withoutLocation = text.replace(/\blocation:\s*[^,;]+/gi, '').trim();
   const clauses = withoutLocation
     .split(/[,;]/)
-    .map((part) => part.trim())
+    .map(part => part.trim())
     .filter(Boolean);
 
   if (clauses.length === 0) {
     return withoutLocation.slice(0, maxLength).trim();
   }
 
-  let combined = "";
+  let combined = '';
   for (const clause of clauses) {
     const next = combined ? `${combined}, ${clause}` : clause;
     if (next.length > maxLength) {
@@ -139,8 +135,8 @@ export function compressHintSeed(text: string, maxLength = 160): string {
 
 export function extractKeywordsFromPrompt(prompt: string, maxLength = 160): string {
   const cleaned = prompt
-    .replace(/\blocation:\s*[^,;]+/gi, "")
-    .replace(/\s+/g, " ")
+    .replace(/\blocation:\s*[^,;]+/gi, '')
+    .replace(/\s+/g, ' ')
     .trim();
 
   const compressed = compressHintSeed(cleaned, maxLength);
@@ -150,9 +146,9 @@ export function extractKeywordsFromPrompt(prompt: string, maxLength = 160): stri
 
   const tokens = cleaned
     .toLowerCase()
-    .replace(/[^\w\s-]/g, " ")
+    .replace(/[^\w\s-]/g, ' ')
     .split(/\s+/)
-    .filter((token) => token.length > 3 && !STOPWORDS.has(token));
+    .filter(token => token.length > 3 && !STOPWORDS.has(token));
 
   const unique: string[] = [];
   for (const token of tokens) {
@@ -164,7 +160,7 @@ export function extractKeywordsFromPrompt(prompt: string, maxLength = 160): stri
     }
   }
 
-  return unique.join(", ").slice(0, maxLength);
+  return unique.join(', ').slice(0, maxLength);
 }
 
 export function extractHintSeedFromEntry(entry: PromptHistoryEntry): string {
@@ -177,21 +173,19 @@ export function extractHintSeedFromEntry(entry: PromptHistoryEntry): string {
 function formatSeedLabel(entry: PromptHistoryEntry): string {
   const parts = [entry.tool];
   if (entry.favorite) {
-    parts.push("favorite");
+    parts.push('favorite');
   }
-  if (typeof entry.rating === "number") {
+  if (typeof entry.rating === 'number') {
     parts.push(`${entry.rating}★`);
   }
-  return parts.join(" · ");
+  return parts.join(' · ');
 }
 
 function pickWeightedEntry(
   ranked: Array<{ entry: PromptHistoryEntry; score: number }>,
-  excludeEntryId?: string,
+  excludeEntryId?: string
 ): PromptHistoryEntry | null {
-  const pool = ranked.filter(
-    (item) => !excludeEntryId || item.entry.id !== excludeEntryId,
-  );
+  const pool = ranked.filter(item => !excludeEntryId || item.entry.id !== excludeEntryId);
   if (pool.length === 0) {
     return ranked[0]?.entry ?? null;
   }
@@ -212,7 +206,7 @@ function pickWeightedEntry(
 
 export function rankHistoryForSeed(
   entries: PromptHistoryEntry[],
-  referenceHints?: string,
+  referenceHints?: string
 ): Array<{ entry: PromptHistoryEntry; score: number }> {
   return entries
     .map((entry, index) => ({
@@ -262,11 +256,7 @@ export function listHistoryHintSuggestions(options: {
   limit?: number;
   referenceHints?: string;
 }): HistoryHintSeedResult[] {
-  const entries = filterHistoryForSeed(
-    loadPromptHistoryEntries(),
-    options.tool,
-    options.scope,
-  );
+  const entries = filterHistoryForSeed(loadPromptHistoryEntries(), options.tool, options.scope);
   const ranked = rankHistoryForSeed(entries, options.referenceHints);
   const limit = options.limit ?? 4;
   const seen = new Set<string>();
@@ -293,10 +283,7 @@ export function listHistoryHintSuggestions(options: {
   return suggestions;
 }
 
-export function countHistorySeedCandidates(
-  tool: HistorySeedTool,
-  scope: HistorySeedScope,
-): number {
+export function countHistorySeedCandidates(tool: HistorySeedTool, scope: HistorySeedScope): number {
   return filterHistoryForSeed(loadPromptHistoryEntries(), tool, scope).length;
 }
 
@@ -307,16 +294,16 @@ export function splitBackgroundHintSeed(seed: string): {
 } {
   const parts = seed
     .split(/[,;]/)
-    .map((part) => part.trim())
+    .map(part => part.trim())
     .filter(Boolean);
 
   if (parts.length === 0) {
-    return { settingType: seed.trim(), timeOfDay: "", mood: "" };
+    return { settingType: seed.trim(), timeOfDay: '', mood: '' };
   }
 
   return {
-    settingType: parts[0] ?? "",
-    timeOfDay: parts[1] ?? "",
-    mood: parts.slice(2).join(", "),
+    settingType: parts[0] ?? '',
+    timeOfDay: parts[1] ?? '',
+    mood: parts.slice(2).join(', '),
   };
 }

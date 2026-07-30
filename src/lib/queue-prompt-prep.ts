@@ -1,37 +1,37 @@
-"use client";
+'use client';
 
-import { modelUsesNegativePrompt } from "./prompt-pair";
-import type { ComfyImageModel } from "./comfy-models/client";
+import { modelUsesNegativePrompt } from './prompt-pair';
+import type { ComfyImageModel } from './comfy-models/client';
 import {
   applyAnatomyGuardForModel,
   applyAnatomyGuardToNegative,
   applyAnatomyGuardToPositive,
   type AnatomyGuardMode,
-} from "./anatomy-guard";
-import { loadAnatomyGuardMode } from "./anatomy-guard-settings";
+} from './anatomy-guard';
+import { loadAnatomyGuardMode } from './anatomy-guard-settings';
 import {
   applyRenderRealismForModel,
   applyRenderRealismToNegative,
   applyRenderRealismToPositive,
   type RenderRealismMode,
-} from "./render-realism";
-import { loadRenderRealismMode } from "./render-realism-settings";
-import type { AthleticSport } from "./athletic-sport-profiles";
-import { resolveQueueNegativePromptRaw } from "./queue-negative";
-import { isQwenLightningModel, isWanLightningModel } from "./model-sampling-patch";
-import { isQwenRapidAioModel, isWanRapidAioModel } from "./model-denoise-defaults";
-import { isFluxFineTuneCheckpointModel } from "./model-checkpoint-map";
-import { isKleinBaseModel, isKleinDistilledModel } from "./model-sampler-defaults";
-import { ensureUltraRealAmplifierTriggerInPrompt } from "./ultrareal-amplifier-lora";
-import { ensureKleinRealisticDetailTriggerInPrompt } from "./klein-realistic-detail-lora";
-import { expandWildcardText } from "./wildcard-expand";
+} from './render-realism';
+import { loadRenderRealismMode } from './render-realism-settings';
+import type { AthleticSport } from './athletic-sport-profiles';
+import { resolveQueueNegativePromptRaw } from './queue-negative';
+import { isQwenLightningModel, isWanLightningModel } from './model-sampling-patch';
+import { isQwenRapidAioModel, isWanRapidAioModel } from './model-denoise-defaults';
+import { isFluxFineTuneCheckpointModel } from './model-checkpoint-map';
+import { isKleinBaseModel, isKleinDistilledModel } from './model-sampler-defaults';
+import { ensureUltraRealAmplifierTriggerInPrompt } from './ultrareal-amplifier-lora';
+import { ensureKleinRealisticDetailTriggerInPrompt } from './klein-realistic-detail-lora';
+import { expandWildcardText } from './wildcard-expand';
 import {
   loadCustomWildcardLists,
   loadWildcardExpansionEnabled,
   loadWildcardSeed,
-} from "./wildcard-settings";
-import { buildClothingNegativePack } from "./clothing-quality";
-import { inferAthleticSport } from "./clothing-tags";
+} from './wildcard-settings';
+import { buildClothingNegativePack } from './clothing-quality';
+import { inferAthleticSport } from './clothing-tags';
 
 /** Distilled Lightning (CFG 1) softens with long auto-negatives — keep only short explicit ones. */
 const LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS = 160;
@@ -60,17 +60,17 @@ function maxQueuePositiveSuffixChars(model: ComfyImageModel | string): number {
 
 /** Short CFG-1-friendly anti-moiré terms for Phr00t Rapid AIO. */
 const RAPID_AIO_MOIRE_NEGATIVE =
-  "moire, moiré, halftone, screen door, mesh pattern, wavy interference, grid artifacts, banding, crosshatch";
+  'moire, moiré, halftone, screen door, mesh pattern, wavy interference, grid artifacts, banding, crosshatch';
 
 const RAPID_AIO_MOIRE_POSITIVE =
-  "clean continuous tones, smooth natural skin texture, even gradients";
+  'clean continuous tones, smooth natural skin texture, even gradients';
 
 /** Short CFG-1-friendly temporal / anatomy cues for WAN Lightning 4-step. */
 export const WAN_LIGHTNING_ARTIFACT_NEGATIVE =
-  "flicker, morphing, identity drift, abrupt cuts, extra limbs, warped hands, duplicate subjects, floating props";
+  'flicker, morphing, identity drift, abrupt cuts, extra limbs, warped hands, duplicate subjects, floating props';
 
 export const WAN_LIGHTNING_ARTIFACT_POSITIVE =
-  "stable identity, consistent limb count, coherent hands, temporal continuity";
+  'stable identity, consistent limb count, coherent hands, temporal continuity';
 
 /**
  * Short CFG-1 photo cues for Qwen Image Lightning — long realism suffixes soften
@@ -78,28 +78,28 @@ export const WAN_LIGHTNING_ARTIFACT_POSITIVE =
  * pull 8-step Max away from a drawn look.
  */
 export const QWEN_LIGHTNING_PHOTO_POSITIVE =
-  "natural photograph, realistic skin texture, soft natural light, lifelike materials";
+  'natural photograph, realistic skin texture, soft natural light, lifelike materials';
 
 export const QWEN_LIGHTNING_PHOTO_NEGATIVE =
-  "illustration, drawing, cartoon, anime, painting, CGI, plastic skin, airbrushed, painterly";
+  'illustration, drawing, cartoon, anime, painting, CGI, plastic skin, airbrushed, painterly';
 
 export const QWEN_LIGHTNING_HYPER_PHOTO_POSITIVE =
-  "natural photograph, lifelike skin pores, camera realism, soft natural light";
+  'natural photograph, lifelike skin pores, camera realism, soft natural light';
 
 function appendUniqueCsv(base: string | undefined, extra: string): string {
-  const existing = base?.trim() ?? "";
+  const existing = base?.trim() ?? '';
   if (!existing) {
     return extra;
   }
   const lower = existing.toLowerCase();
   const missing = extra
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part && !lower.includes(part.toLowerCase()));
+    .split(',')
+    .map(part => part.trim())
+    .filter(part => part && !lower.includes(part.toLowerCase()));
   if (missing.length === 0) {
     return existing;
   }
-  return `${existing}, ${missing.join(", ")}`;
+  return `${existing}, ${missing.join(', ')}`;
 }
 
 export function applyQueuePromptSteering(input: {
@@ -116,16 +116,14 @@ export function applyQueuePromptSteering(input: {
     // CFG-1: skip long realism/anatomy suffixes — keep a short photo pack instead.
     const explicit = input.negative?.trim();
     const shortExplicit =
-      explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS
-        ? explicit
-        : undefined;
-    if (realismMode === "realistic" || realismMode === "hyper-realistic") {
+      explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS ? explicit : undefined;
+    if (realismMode === 'realistic' || realismMode === 'hyper-realistic') {
       return {
         positive: appendUniqueCsv(
           input.positive,
-          realismMode === "hyper-realistic"
+          realismMode === 'hyper-realistic'
             ? QWEN_LIGHTNING_HYPER_PHOTO_POSITIVE
-            : QWEN_LIGHTNING_PHOTO_POSITIVE,
+            : QWEN_LIGHTNING_PHOTO_POSITIVE
         ),
         negative: appendUniqueCsv(shortExplicit, QWEN_LIGHTNING_PHOTO_NEGATIVE),
       };
@@ -141,9 +139,7 @@ export function applyQueuePromptSteering(input: {
   if (isWanLightningModel(input.model) || isWanRapidAioModel(input.model)) {
     const explicit = input.negative?.trim();
     const shortExplicit =
-      explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS
-        ? explicit
-        : undefined;
+      explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS ? explicit : undefined;
     return {
       positive: appendUniqueCsv(input.positive, WAN_LIGHTNING_ARTIFACT_POSITIVE),
       negative: appendUniqueCsv(shortExplicit, WAN_LIGHTNING_ARTIFACT_NEGATIVE),
@@ -155,9 +151,7 @@ export function applyQueuePromptSteering(input: {
   if (isQwenRapidAioModel(input.model)) {
     const explicit = input.negative?.trim();
     const shortExplicit =
-      explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS
-        ? explicit
-        : undefined;
+      explicit && explicit.length <= LIGHTNING_MAX_EXPLICIT_NEGATIVE_CHARS ? explicit : undefined;
     return {
       positive: appendUniqueCsv(input.positive, RAPID_AIO_MOIRE_POSITIVE),
       negative: appendUniqueCsv(shortExplicit, RAPID_AIO_MOIRE_NEGATIVE),
@@ -176,10 +170,7 @@ export function applyQueuePromptSteering(input: {
       mode: anatomyMode,
       maxPositiveAppendChars: suffixBudget,
     });
-    const anatomyGrowth = Math.max(
-      0,
-      withAnatomy.positive.trim().length - baseLength,
-    );
+    const anatomyGrowth = Math.max(0, withAnatomy.positive.trim().length - baseLength);
     return applyRenderRealismForModel({
       positive: withAnatomy.positive,
       negative: withAnatomy.negative,
@@ -198,10 +189,7 @@ export function applyQueuePromptSteering(input: {
       mode: anatomyMode,
       maxPositiveAppendChars: suffixBudget,
     });
-    const anatomyGrowth = Math.max(
-      0,
-      withAnatomy.positive.trim().length - baseLength,
-    );
+    const anatomyGrowth = Math.max(0, withAnatomy.positive.trim().length - baseLength);
     const withRealism = applyRenderRealismForModel({
       positive: withAnatomy.positive,
       negative: withAnatomy.negative,
@@ -222,20 +210,14 @@ export function applyQueuePromptSteering(input: {
     mode: realismMode,
     maxPositiveAppendChars: suffixBudget,
   });
-  const realismGrowth = Math.max(
-    0,
-    withRealism.positive.trim().length - baseLength,
-  );
+  const realismGrowth = Math.max(0, withRealism.positive.trim().length - baseLength);
 
   const withAnatomy = applyAnatomyGuardForModel({
     positive: withRealism.positive,
     negative: withRealism.negative,
     model: input.model,
     mode: anatomyMode,
-    maxPositiveAppendChars: Math.max(
-      0,
-      suffixBudget - realismGrowth,
-    ),
+    maxPositiveAppendChars: Math.max(0, suffixBudget - realismGrowth),
   });
 
   if (isKleinBaseModel(input.model)) {
@@ -255,7 +237,7 @@ export function applyQueuePromptSteering(input: {
  */
 function expandWildcardsForQueue(
   text: string | undefined,
-  options?: { expandWildcards?: boolean; wildcardSeed?: string },
+  options?: { expandWildcards?: boolean; wildcardSeed?: string }
 ): string | undefined {
   if (!text) {
     return text;
@@ -288,13 +270,9 @@ export async function prepareQueuePrompts(input: {
     expandWildcards: input.expandWildcards,
     wildcardSeed: input.wildcardSeed,
   };
-  const positive =
-    expandWildcardsForQueue(input.positive, wildcardOptions) ?? input.positive;
+  const positive = expandWildcardsForQueue(input.positive, wildcardOptions) ?? input.positive;
   const hints = expandWildcardsForQueue(input.hints, wildcardOptions);
-  const explicitNegative = expandWildcardsForQueue(
-    input.explicitNegative,
-    wildcardOptions,
-  );
+  const explicitNegative = expandWildcardsForQueue(input.explicitNegative, wildcardOptions);
 
   let negative: string | undefined;
   const distilledCfg1 =
@@ -319,19 +297,17 @@ export async function prepareQueuePrompts(input: {
   // People / wardrobe queues: append high-signal clothing artifact negatives.
   const clothingHints = hints ?? positive;
   const clothingTool =
-    input.tool === "character" ||
-    input.tool === "duo" ||
-    input.tool === "generate" ||
-    input.tool === "gallery-mutate" ||
-    input.tool === "pet" ||
-    input.tool === "fantasy";
+    input.tool === 'character' ||
+    input.tool === 'duo' ||
+    input.tool === 'generate' ||
+    input.tool === 'gallery-mutate' ||
+    input.tool === 'pet' ||
+    input.tool === 'fantasy';
   if (
     !distilledCfg1 &&
     modelUsesNegativePrompt(input.model) &&
     (clothingTool ||
-      /\b(?:wearing|outfit|wardrobe|jersey|helmet|scrubs|uniform)\b/i.test(
-        clothingHints,
-      ))
+      /\b(?:wearing|outfit|wardrobe|jersey|helmet|scrubs|uniform)\b/i.test(clothingHints))
   ) {
     negative = appendUniqueCsv(
       negative,
@@ -339,7 +315,7 @@ export async function prepareQueuePrompts(input: {
         hints: clothingHints,
         tool: input.tool,
         sport: input.sport ?? inferAthleticSport(clothingHints),
-      }),
+      })
     );
   }
 
@@ -357,16 +333,13 @@ export function preparePositiveForQueue(
   options?: {
     realismMode?: RenderRealismMode;
     anatomyMode?: AnatomyGuardMode;
-  },
+  }
 ): string {
   const withRealism = applyRenderRealismToPositive(
     positive,
-    options?.realismMode ?? loadRenderRealismMode(),
+    options?.realismMode ?? loadRenderRealismMode()
   );
-  return applyAnatomyGuardToPositive(
-    withRealism,
-    options?.anatomyMode ?? loadAnatomyGuardMode(),
-  );
+  return applyAnatomyGuardToPositive(withRealism, options?.anatomyMode ?? loadAnatomyGuardMode());
 }
 
 export function prepareNegativeForQueue(
@@ -374,14 +347,11 @@ export function prepareNegativeForQueue(
   options?: {
     realismMode?: RenderRealismMode;
     anatomyMode?: AnatomyGuardMode;
-  },
+  }
 ): string | undefined {
   const withRealism = applyRenderRealismToNegative(
     negative,
-    options?.realismMode ?? loadRenderRealismMode(),
+    options?.realismMode ?? loadRenderRealismMode()
   );
-  return applyAnatomyGuardToNegative(
-    withRealism,
-    options?.anatomyMode ?? loadAnatomyGuardMode(),
-  );
+  return applyAnatomyGuardToNegative(withRealism, options?.anatomyMode ?? loadAnatomyGuardMode());
 }

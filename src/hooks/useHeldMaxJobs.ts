@@ -1,26 +1,22 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import {
-  HELD_MAX_UPDATED_EVENT,
-  listHeldMaxJobs,
-  type HeldMaxJob,
-} from "@/lib/held-max-queue";
+import { useEffect, useState } from 'react';
+import { HELD_MAX_UPDATED_EVENT, listHeldMaxJobs, type HeldMaxJob } from '@/lib/held-max-queue';
 
 /** Live list of held Max jobs (updates on hold/flush/clear). */
 export function useHeldMaxJobs(): HeldMaxJob[] {
   const [jobs, setJobs] = useState<HeldMaxJob[]>(() =>
-    typeof window === "undefined" ? [] : listHeldMaxJobs(),
+    typeof window === 'undefined' ? [] : listHeldMaxJobs()
   );
 
   useEffect(() => {
     const refresh = () => setJobs(listHeldMaxJobs());
     refresh();
     window.addEventListener(HELD_MAX_UPDATED_EVENT, refresh);
-    window.addEventListener("storage", refresh);
+    window.addEventListener('storage', refresh);
     return () => {
       window.removeEventListener(HELD_MAX_UPDATED_EVENT, refresh);
-      window.removeEventListener("storage", refresh);
+      window.removeEventListener('storage', refresh);
     };
   }, []);
 

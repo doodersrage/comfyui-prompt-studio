@@ -15,48 +15,41 @@ import {
   DEFAULT_UNET_TOKEN,
   DEFAULT_VAE_TOKEN,
   DEFAULT_WIDTH_TOKEN,
-} from "./comfyui-config";
-import {
-  getComfyModelDefinition,
-  normalizeComfyModel,
-  type ComfyImageModel,
-} from "./comfy-models";
-import { isQwenRapidAioModel } from "./model-denoise-defaults";
-import {
-  defaultLoaderPrecisionTier,
-  qwenDualClipFilename,
-} from "./model-loader-precision";
-import type { QueueQualityProfile } from "./queue-quality-profile";
-import { resolveLoaderFilenamesForModel } from "./model-checkpoint-map";
+} from './comfyui-config';
+import { getComfyModelDefinition, normalizeComfyModel, type ComfyImageModel } from './comfy-models';
+import { isQwenRapidAioModel } from './model-denoise-defaults';
+import { defaultLoaderPrecisionTier, qwenDualClipFilename } from './model-loader-precision';
+import type { QueueQualityProfile } from './queue-quality-profile';
+import { resolveLoaderFilenamesForModel } from './model-checkpoint-map';
 
-export const GALLERY_REFINE_DENOISE: Record<"final" | "max", number> = {
+export const GALLERY_REFINE_DENOISE: Record<'final' | 'max', number> = {
   final: 0.22,
   max: 0.26,
 };
 
-export const GALLERY_REFINE_PORTRAIT_DENOISE: Record<"final" | "max", number> = {
+export const GALLERY_REFINE_PORTRAIT_DENOISE: Record<'final' | 'max', number> = {
   final: 0.18,
   max: 0.22,
 };
 
 /** Gentler img2img — prefer this for “add detail / clean soft issues” without rewriting the shot. */
-export const GALLERY_SOFT_PASS_DENOISE: Record<"final" | "max", number> = {
+export const GALLERY_SOFT_PASS_DENOISE: Record<'final' | 'max', number> = {
   final: 0.12,
   max: 0.15,
 };
 
-export const GALLERY_SOFT_PASS_PORTRAIT_DENOISE: Record<"final" | "max", number> = {
+export const GALLERY_SOFT_PASS_PORTRAIT_DENOISE: Record<'final' | 'max', number> = {
   final: 0.1,
   max: 0.12,
 };
 
-export type GalleryRefineMode = "refine" | "soft";
+export type GalleryRefineMode = 'refine' | 'soft';
 
 const PORTRAIT_REFINE_PATTERN =
   /\b(portrait|face|skin|headshot|close-?up|selfie|beauty|model\s+face)\b/i;
 
 export function isPortraitRefinePrompt(prompt: string | undefined): boolean {
-  return PORTRAIT_REFINE_PATTERN.test(prompt?.trim() ?? "");
+  return PORTRAIT_REFINE_PATTERN.test(prompt?.trim() ?? '');
 }
 
 /**
@@ -64,7 +57,7 @@ export function isPortraitRefinePrompt(prompt: string | undefined): boolean {
  * stay conservative.
  */
 export function softSecondPassDenoiseCap(model?: string): number {
-  const id = String(model ?? "").toLowerCase();
+  const id = String(model ?? '').toLowerCase();
   if (/lightning|schnell|turbo|distill|rapid-aio-(sfw|nsfw)/.test(id)) {
     return 0.08;
   }
@@ -84,12 +77,12 @@ export function softSecondPassDenoiseCap(model?: string): number {
 }
 
 export function galleryRefineDenoiseForProfile(
-  profile: Extract<QueueQualityProfile, "final" | "max"> | undefined,
+  profile: Extract<QueueQualityProfile, 'final' | 'max'> | undefined,
   prompt?: string,
-  mode: GalleryRefineMode = "refine",
+  mode: GalleryRefineMode = 'refine'
 ): number {
-  const key = profile === "max" ? "max" : "final";
-  if (mode === "soft") {
+  const key = profile === 'max' ? 'max' : 'final';
+  if (mode === 'soft') {
     const table = isPortraitRefinePrompt(prompt)
       ? GALLERY_SOFT_PASS_PORTRAIT_DENOISE
       : GALLERY_SOFT_PASS_DENOISE;
@@ -103,11 +96,11 @@ export function galleryRefineDenoiseForProfile(
 
 export function galleryRefineDenoiseForEntry(
   entry: { prompt?: string; model?: string },
-  profile: Extract<QueueQualityProfile, "final" | "max"> | undefined,
-  mode: GalleryRefineMode = "refine",
+  profile: Extract<QueueQualityProfile, 'final' | 'max'> | undefined,
+  mode: GalleryRefineMode = 'refine'
 ): number {
   const base = galleryRefineDenoiseForProfile(profile, entry.prompt, mode);
-  if (mode !== "soft") {
+  if (mode !== 'soft') {
     return base;
   }
   return Math.min(base, softSecondPassDenoiseCap(entry.model));
@@ -120,79 +113,79 @@ type WorkflowNode = {
 };
 
 const PORTRAIT_REFINE_NEGATIVE_EXTRA =
-  "plastic skin, waxy skin, airbrushed, doll-like, oversharpened, blurry eyes";
+  'plastic skin, waxy skin, airbrushed, doll-like, oversharpened, blurry eyes';
 
 export function appendPortraitRefineNegative(
   negativePrompt: string | undefined,
-  prompt: string | undefined,
+  prompt: string | undefined
 ): string | undefined {
   if (!isPortraitRefinePrompt(prompt)) {
     return negativePrompt?.trim() || undefined;
   }
-  const base = negativePrompt?.trim() ?? "";
-  if (base.toLowerCase().includes("plastic skin")) {
+  const base = negativePrompt?.trim() ?? '';
+  if (base.toLowerCase().includes('plastic skin')) {
     return base || undefined;
   }
   return base ? `${base}, ${PORTRAIT_REFINE_NEGATIVE_EXTRA}` : PORTRAIT_REFINE_NEGATIVE_EXTRA;
 }
 
-function buildCheckpointGalleryRefineWorkflow(
-  options?: { useAuraFlow?: boolean },
-): Record<string, WorkflowNode> {
-  const modelNodeId = "1";
-  const loadImageId = "2";
-  const vaeEncodeId = "3";
-  const positiveId = "4";
-  const negativeId = "5";
-  const samplingId = "6";
-  const samplerId = "7";
-  const decodeId = "8";
-  const saveId = "9";
+function buildCheckpointGalleryRefineWorkflow(options?: {
+  useAuraFlow?: boolean;
+}): Record<string, WorkflowNode> {
+  const modelNodeId = '1';
+  const loadImageId = '2';
+  const vaeEncodeId = '3';
+  const positiveId = '4';
+  const negativeId = '5';
+  const samplingId = '6';
+  const samplerId = '7';
+  const decodeId = '8';
+  const saveId = '9';
 
   const workflow: Record<string, WorkflowNode> = {
     [modelNodeId]: {
-      class_type: "CheckpointLoaderSimple",
-      inputs: { ckpt_name: "{{CHECKPOINT}}" },
-      _meta: { title: "Prompt Studio — checkpoint" },
+      class_type: 'CheckpointLoaderSimple',
+      inputs: { ckpt_name: '{{CHECKPOINT}}' },
+      _meta: { title: 'Prompt Studio — checkpoint' },
     },
     [loadImageId]: {
-      class_type: "LoadImage",
+      class_type: 'LoadImage',
       inputs: { image: DEFAULT_INPUT_IMAGE_TOKEN },
-      _meta: { title: "Prompt Studio — gallery output" },
+      _meta: { title: 'Prompt Studio — gallery output' },
     },
     [vaeEncodeId]: {
-      class_type: "VAEEncode",
+      class_type: 'VAEEncode',
       inputs: {
         pixels: [loadImageId, 0],
         vae: [modelNodeId, 2],
       },
-      _meta: { title: "Prompt Studio — encode input" },
+      _meta: { title: 'Prompt Studio — encode input' },
     },
     [positiveId]: {
-      class_type: "CLIPTextEncode",
+      class_type: 'CLIPTextEncode',
       inputs: { text: DEFAULT_POSITIVE_TOKEN, clip: [modelNodeId, 1] },
-      _meta: { title: "Prompt Studio — positive" },
+      _meta: { title: 'Prompt Studio — positive' },
     },
     [negativeId]: {
-      class_type: "CLIPTextEncode",
+      class_type: 'CLIPTextEncode',
       inputs: { text: DEFAULT_NEGATIVE_TOKEN, clip: [modelNodeId, 1] },
-      _meta: { title: "Prompt Studio — negative" },
+      _meta: { title: 'Prompt Studio — negative' },
     },
   };
 
   const samplerModelRef: [string, number] = options?.useAuraFlow
     ? (() => {
         workflow[samplingId] = {
-          class_type: "ModelSamplingAuraFlow",
+          class_type: 'ModelSamplingAuraFlow',
           inputs: { model: [modelNodeId, 0], shift: DEFAULT_SHIFT_TOKEN },
-          _meta: { title: "Prompt Studio — sampling" },
+          _meta: { title: 'Prompt Studio — sampling' },
         };
         return [samplingId, 0] as [string, number];
       })()
     : [modelNodeId, 0];
 
   workflow[samplerId] = {
-    class_type: "KSampler",
+    class_type: 'KSampler',
     inputs: {
       seed: DEFAULT_SEED_TOKEN,
       steps: DEFAULT_STEPS_TOKEN,
@@ -205,20 +198,20 @@ function buildCheckpointGalleryRefineWorkflow(
       negative: [negativeId, 0],
       latent_image: [vaeEncodeId, 0],
     },
-    _meta: { title: "Prompt Studio — refine sampler" },
+    _meta: { title: 'Prompt Studio — refine sampler' },
   };
   workflow[decodeId] = {
-    class_type: "VAEDecode",
+    class_type: 'VAEDecode',
     inputs: { samples: [samplerId, 0], vae: [modelNodeId, 2] },
-    _meta: { title: "Prompt Studio — decode" },
+    _meta: { title: 'Prompt Studio — decode' },
   };
   workflow[saveId] = {
-    class_type: "SaveImage",
+    class_type: 'SaveImage',
     inputs: {
-      filename_prefix: "PromptStudio-refine",
+      filename_prefix: 'PromptStudio-refine',
       images: [decodeId, 0],
     },
-    _meta: { title: "Prompt Studio — save" },
+    _meta: { title: 'Prompt Studio — save' },
   };
 
   return workflow;
@@ -230,68 +223,66 @@ function fluxKleinDualClipFilename(model: string): string {
     return loaders.dualClip.trim();
   }
   if (/9b/i.test(model)) {
-    return "qwen_3_8b_fp8mixed.safetensors";
+    return 'qwen_3_8b_fp8mixed.safetensors';
   }
-  return "qwen_3_4b.safetensors";
+  return 'qwen_3_4b.safetensors';
 }
 
 /** Klein uses UNET + CLIPLoader (flux2) + VAE + ModelSamplingFlux — not CheckpointLoaderSimple. */
-function buildFluxKleinGalleryRefineWorkflow(
-  model: string,
-): Record<string, WorkflowNode> {
+function buildFluxKleinGalleryRefineWorkflow(model: string): Record<string, WorkflowNode> {
   const clipName = fluxKleinDualClipFilename(model);
   return {
-    "1": {
-      class_type: "UNETLoader",
-      inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: "default" },
-      _meta: { title: "Prompt Studio — UNET" },
+    '1': {
+      class_type: 'UNETLoader',
+      inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: 'default' },
+      _meta: { title: 'Prompt Studio — UNET' },
     },
-    "2": {
-      class_type: "CLIPLoader",
+    '2': {
+      class_type: 'CLIPLoader',
       inputs: {
         clip_name: clipName,
-        type: "flux2",
+        type: 'flux2',
       },
-      _meta: { title: "Prompt Studio — CLIP (FLUX.2 Klein)" },
+      _meta: { title: 'Prompt Studio — CLIP (FLUX.2 Klein)' },
     },
-    "3": {
-      class_type: "VAELoader",
+    '3': {
+      class_type: 'VAELoader',
       inputs: { vae_name: DEFAULT_VAE_TOKEN },
-      _meta: { title: "Prompt Studio — VAE" },
+      _meta: { title: 'Prompt Studio — VAE' },
     },
-    "4": {
-      class_type: "LoadImage",
+    '4': {
+      class_type: 'LoadImage',
       inputs: { image: DEFAULT_INPUT_IMAGE_TOKEN },
-      _meta: { title: "Prompt Studio — gallery output" },
+      _meta: { title: 'Prompt Studio — gallery output' },
     },
-    "5": {
-      class_type: "VAEEncode",
-      inputs: { pixels: ["4", 0], vae: ["3", 0] },
-      _meta: { title: "Prompt Studio — encode input" },
+    '5': {
+      class_type: 'VAEEncode',
+      inputs: { pixels: ['4', 0], vae: ['3', 0] },
+      _meta: { title: 'Prompt Studio — encode input' },
     },
-    "6": {
-      class_type: "CLIPTextEncode",
-      inputs: { text: DEFAULT_POSITIVE_TOKEN, clip: ["2", 0] },
-      _meta: { title: "Prompt Studio — positive" },
+    '6': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: DEFAULT_POSITIVE_TOKEN, clip: ['2', 0] },
+      _meta: { title: 'Prompt Studio — positive' },
     },
-    "7": {
-      class_type: "CLIPTextEncode",
-      inputs: { text: DEFAULT_NEGATIVE_TOKEN, clip: ["2", 0] },
-      _meta: { title: "Prompt Studio — negative" },
+    '7': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: DEFAULT_NEGATIVE_TOKEN, clip: ['2', 0] },
+      _meta: { title: 'Prompt Studio — negative' },
     },
-    "8": {
-      class_type: "ModelSamplingFlux",
+    '8': {
+      class_type: 'ModelSamplingFlux',
       inputs: {
-        model: ["1", 0],
+        model: ['1', 0],
         max_shift: DEFAULT_FLUX_MAX_SHIFT_TOKEN,
         base_shift: DEFAULT_FLUX_BASE_SHIFT_TOKEN,
         width: DEFAULT_WIDTH_TOKEN,
         height: DEFAULT_HEIGHT_TOKEN,
       },
-      _meta: { title: "Prompt Studio — ModelSamplingFlux" },
+      _meta: { title: 'Prompt Studio — ModelSamplingFlux' },
     },
-    "9": {
-      class_type: "KSampler",
+    '9': {
+      class_type: 'KSampler',
       inputs: {
         seed: DEFAULT_SEED_TOKEN,
         steps: DEFAULT_STEPS_TOKEN,
@@ -299,25 +290,25 @@ function buildFluxKleinGalleryRefineWorkflow(
         sampler_name: DEFAULT_SAMPLER_TOKEN,
         scheduler: DEFAULT_SCHEDULER_TOKEN,
         denoise: DEFAULT_DENOISE_TOKEN,
-        model: ["8", 0],
-        positive: ["6", 0],
-        negative: ["7", 0],
-        latent_image: ["5", 0],
+        model: ['8', 0],
+        positive: ['6', 0],
+        negative: ['7', 0],
+        latent_image: ['5', 0],
       },
-      _meta: { title: "Prompt Studio — refine sampler" },
+      _meta: { title: 'Prompt Studio — refine sampler' },
     },
-    "10": {
-      class_type: "VAEDecode",
-      inputs: { samples: ["9", 0], vae: ["3", 0] },
-      _meta: { title: "Prompt Studio — decode" },
+    '10': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['9', 0], vae: ['3', 0] },
+      _meta: { title: 'Prompt Studio — decode' },
     },
-    "11": {
-      class_type: "SaveImage",
+    '11': {
+      class_type: 'SaveImage',
       inputs: {
-        filename_prefix: "PromptStudio-refine",
-        images: ["10", 0],
+        filename_prefix: 'PromptStudio-refine',
+        images: ['10', 0],
       },
-      _meta: { title: "Prompt Studio — save" },
+      _meta: { title: 'Prompt Studio — save' },
     },
   };
 }
@@ -327,51 +318,51 @@ function buildQwenGalleryRefineWorkflow(): Record<string, WorkflowNode> {
   const clipName = qwenDualClipFilename(tier);
 
   return {
-    "1": {
-      class_type: "UNETLoader",
-      inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: "default" },
-      _meta: { title: "Prompt Studio — UNET" },
+    '1': {
+      class_type: 'UNETLoader',
+      inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: 'default' },
+      _meta: { title: 'Prompt Studio — UNET' },
     },
-    "2": {
-      class_type: "CLIPLoader",
+    '2': {
+      class_type: 'CLIPLoader',
       inputs: {
         clip_name: clipName,
-        type: "qwen_image",
+        type: 'qwen_image',
       },
-      _meta: { title: "Prompt Studio — CLIP" },
+      _meta: { title: 'Prompt Studio — CLIP' },
     },
-    "3": {
-      class_type: "VAELoader",
+    '3': {
+      class_type: 'VAELoader',
       inputs: { vae_name: DEFAULT_VAE_TOKEN },
-      _meta: { title: "Prompt Studio — VAE" },
+      _meta: { title: 'Prompt Studio — VAE' },
     },
-    "4": {
-      class_type: "LoadImage",
+    '4': {
+      class_type: 'LoadImage',
       inputs: { image: DEFAULT_INPUT_IMAGE_TOKEN },
-      _meta: { title: "Prompt Studio — gallery output" },
+      _meta: { title: 'Prompt Studio — gallery output' },
     },
-    "5": {
-      class_type: "VAEEncode",
-      inputs: { pixels: ["4", 0], vae: ["3", 0] },
-      _meta: { title: "Prompt Studio — encode input" },
+    '5': {
+      class_type: 'VAEEncode',
+      inputs: { pixels: ['4', 0], vae: ['3', 0] },
+      _meta: { title: 'Prompt Studio — encode input' },
     },
-    "6": {
-      class_type: "CLIPTextEncode",
-      inputs: { text: DEFAULT_POSITIVE_TOKEN, clip: ["2", 0] },
-      _meta: { title: "Prompt Studio — positive" },
+    '6': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: DEFAULT_POSITIVE_TOKEN, clip: ['2', 0] },
+      _meta: { title: 'Prompt Studio — positive' },
     },
-    "7": {
-      class_type: "CLIPTextEncode",
-      inputs: { text: DEFAULT_NEGATIVE_TOKEN, clip: ["2", 0] },
-      _meta: { title: "Prompt Studio — negative" },
+    '7': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: DEFAULT_NEGATIVE_TOKEN, clip: ['2', 0] },
+      _meta: { title: 'Prompt Studio — negative' },
     },
-    "8": {
-      class_type: "ModelSamplingAuraFlow",
-      inputs: { model: ["1", 0], shift: DEFAULT_SHIFT_TOKEN },
-      _meta: { title: "Prompt Studio — sampling" },
+    '8': {
+      class_type: 'ModelSamplingAuraFlow',
+      inputs: { model: ['1', 0], shift: DEFAULT_SHIFT_TOKEN },
+      _meta: { title: 'Prompt Studio — sampling' },
     },
-    "9": {
-      class_type: "KSampler",
+    '9': {
+      class_type: 'KSampler',
       inputs: {
         seed: DEFAULT_SEED_TOKEN,
         steps: DEFAULT_STEPS_TOKEN,
@@ -379,70 +370,70 @@ function buildQwenGalleryRefineWorkflow(): Record<string, WorkflowNode> {
         sampler_name: DEFAULT_SAMPLER_TOKEN,
         scheduler: DEFAULT_SCHEDULER_TOKEN,
         denoise: DEFAULT_DENOISE_TOKEN,
-        model: ["8", 0],
-        positive: ["6", 0],
-        negative: ["7", 0],
-        latent_image: ["5", 0],
+        model: ['8', 0],
+        positive: ['6', 0],
+        negative: ['7', 0],
+        latent_image: ['5', 0],
       },
-      _meta: { title: "Prompt Studio — refine sampler" },
+      _meta: { title: 'Prompt Studio — refine sampler' },
     },
-    "10": {
-      class_type: "VAEDecode",
-      inputs: { samples: ["9", 0], vae: ["3", 0] },
-      _meta: { title: "Prompt Studio — decode" },
+    '10': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['9', 0], vae: ['3', 0] },
+      _meta: { title: 'Prompt Studio — decode' },
     },
-    "11": {
-      class_type: "SaveImage",
+    '11': {
+      class_type: 'SaveImage',
       inputs: {
-        filename_prefix: "PromptStudio-refine",
-        images: ["10", 0],
+        filename_prefix: 'PromptStudio-refine',
+        images: ['10', 0],
       },
-      _meta: { title: "Prompt Studio — save" },
+      _meta: { title: 'Prompt Studio — save' },
     },
   };
 }
 
 export function buildGalleryRefineWorkflow(
-  model: ComfyImageModel | string = "qwen-image-2512",
+  model: ComfyImageModel | string = 'qwen-image-2512'
 ): Record<string, WorkflowNode> {
   const normalized = normalizeComfyModel(model);
   if (/^flux-2-klein/i.test(String(normalized))) {
     return buildFluxKleinGalleryRefineWorkflow(String(normalized));
   }
   const definition = getComfyModelDefinition(normalized);
-  if (definition.category === "qwen") {
+  if (definition.category === 'qwen') {
     // Rapid AIO is a single-file checkpoint — do not use UNET+CLIP+VAE refine.
     if (isQwenRapidAioModel(normalized)) {
       return buildCheckpointGalleryRefineWorkflow({ useAuraFlow: true });
     }
     return buildQwenGalleryRefineWorkflow();
   }
-  if (definition.category === "flux") {
+  if (definition.category === 'flux') {
     return buildCheckpointGalleryRefineWorkflow({ useAuraFlow: true });
   }
   return buildCheckpointGalleryRefineWorkflow();
 }
 
-import type { WorkflowParamValues } from "./comfyui-config";
+import type { WorkflowParamValues } from './comfyui-config';
 
 export function galleryRefineQueueParams(input: {
   inputImageFilename: string;
-  profile?: Extract<QueueQualityProfile, "final" | "max">;
+  profile?: Extract<QueueQualityProfile, 'final' | 'max'>;
   prompt?: string;
   model?: string;
   mode?: GalleryRefineMode;
   queueParams?: Pick<
     WorkflowParamValues,
-    "seed" | "width" | "height" | "cfg" | "steps" | "samplerName" | "scheduler"
+    'seed' | 'width' | 'height' | 'cfg' | 'steps' | 'samplerName' | 'scheduler'
   >;
 }): Record<string, string> {
-  const mode = input.mode ?? "refine";
+  const mode = input.mode ?? 'refine';
   const denoise =
-    mode === "soft"
+    mode === 'soft'
       ? galleryRefineDenoiseForEntry(
           { prompt: input.prompt, model: input.model },
           input.profile,
-          "soft",
+          'soft'
         )
       : galleryRefineDenoiseForProfile(input.profile, input.prompt, mode);
   const params: Record<string, string> = {

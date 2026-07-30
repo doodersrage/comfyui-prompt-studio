@@ -1,18 +1,18 @@
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import { buildComfyViewPath } from "./comfyui-outputs";
-import type { WorkflowParamValues } from "./comfyui-config";
-import type { QueueQualityProfile } from "./queue-quality-profile";
-import { setLineageParent } from "./prompt-lineage-session";
-import { resolveSharedEffectiveSessionLoraIds } from "./comfyui-settings";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { buildComfyViewPath } from './comfyui-outputs';
+import type { WorkflowParamValues } from './comfyui-config';
+import type { QueueQualityProfile } from './queue-quality-profile';
+import { setLineageParent } from './prompt-lineage-session';
+import { resolveSharedEffectiveSessionLoraIds } from './comfyui-settings';
 
-export const GALLERY_HANDOFF_KEY = "gallery-handoff-v1";
+export const GALLERY_HANDOFF_KEY = 'gallery-handoff-v1';
 export const IMPROVE_INTENT_DEFAULT =
-  "Improve fidelity, composition, and prompt alignment while preserving subject identity and scene intent.";
+  'Improve fidelity, composition, and prompt alignment while preserving subject identity and scene intent.';
 
-export type GalleryHandoffMode = "open" | "reedit" | "upscale-native" | "upscale-polish";
+export type GalleryHandoffMode = 'open' | 'reedit' | 'upscale-native' | 'upscale-polish';
 
 export type GalleryHandoffPayload = {
-  source: "gallery" | "history";
+  source: 'gallery' | 'history';
   galleryEntryId: string;
   promptId: string;
   prompt: string;
@@ -23,14 +23,22 @@ export type GalleryHandoffPayload = {
   historyId?: string;
   imageUrl?: string;
   imageFilename?: string;
-  target: "refine" | "imagePrompt" | "promptEditor" | "inpaint" | "outpaint" | "controlnet" | "video" | "compose";
+  target:
+    | 'refine'
+    | 'imagePrompt'
+    | 'promptEditor'
+    | 'inpaint'
+    | 'outpaint'
+    | 'controlnet'
+    | 'video'
+    | 'compose';
   improveIntent?: string;
   queueParams?: WorkflowParamValues;
   /** Restore LoRA session picks (from entry or current session). */
   sessionActiveLoraIds?: string[];
   queueQualityProfile?: QueueQualityProfile;
   /** Compose identity lock backend restored on re-edit. */
-  identityKind?: import("./compose-identity-lock").ComposeIdentityKind;
+  identityKind?: import('./compose-identity-lock').ComposeIdentityKind;
   /** reedit = open tool with same stack; upscale-* routed via gallery enhance actions. */
   handoffMode?: GalleryHandoffMode;
   savedAt: number;
@@ -44,10 +52,10 @@ export type BuildGalleryHandoffOptions = {
 
 function resolveHandoffLoraIds(
   entry: ComfyGalleryEntry,
-  includeSessionLoras: boolean,
+  includeSessionLoras: boolean
 ): string[] | undefined {
   if (entry.sessionActiveLoraIds !== undefined) {
-    return entry.sessionActiveLoraIds.map((id) => id.trim()).filter(Boolean);
+    return entry.sessionActiveLoraIds.map(id => id.trim()).filter(Boolean);
   }
   if (!includeSessionLoras) {
     return undefined;
@@ -56,24 +64,24 @@ function resolveHandoffLoraIds(
   if (!session || session.length === 0) {
     return undefined;
   }
-  return session.map((id) => id.trim()).filter(Boolean);
+  return session.map(id => id.trim()).filter(Boolean);
 }
 
 export function buildImproveGalleryHandoff(entry: ComfyGalleryEntry): GalleryHandoffPayload {
   return {
-    ...buildGalleryHandoff(entry, "refine"),
+    ...buildGalleryHandoff(entry, 'refine'),
     improveIntent: IMPROVE_INTENT_DEFAULT,
   };
 }
 
 export function galleryImprovePath(): string {
-  return "/refine?from=gallery&improve=1";
+  return '/refine?from=gallery&improve=1';
 }
 
 export function buildGalleryHandoff(
   entry: ComfyGalleryEntry,
-  target: GalleryHandoffPayload["target"],
-  options?: BuildGalleryHandoffOptions,
+  target: GalleryHandoffPayload['target'],
+  options?: BuildGalleryHandoffOptions
 ): GalleryHandoffPayload {
   const image = entry.images[0];
   if (entry.historyId) {
@@ -83,11 +91,11 @@ export function buildGalleryHandoff(
       sourceTool: entry.tool,
     });
   }
-  const handoffMode = options?.handoffMode ?? "open";
-  const includeLoras = options?.includeSessionLoras ?? handoffMode === "reedit";
+  const handoffMode = options?.handoffMode ?? 'open';
+  const includeLoras = options?.includeSessionLoras ?? handoffMode === 'reedit';
   const identityKind = entry.queueParams?.identityKind;
   return {
-    source: "gallery",
+    source: 'gallery',
     galleryEntryId: entry.id,
     promptId: entry.promptId,
     prompt: entry.prompt,
@@ -98,11 +106,10 @@ export function buildGalleryHandoff(
     imageUrl: image ? buildComfyViewPath(entry.comfyUrl, image) : undefined,
     imageFilename: image?.filename,
     // Re-edit restores sampler/size/LoRA stack; plain open only carries the image.
-    queueParams: handoffMode === "reedit" ? entry.queueParams : undefined,
-    queueQualityProfile:
-      handoffMode === "reedit" ? entry.queueQualityProfile : undefined,
+    queueParams: handoffMode === 'reedit' ? entry.queueParams : undefined,
+    queueQualityProfile: handoffMode === 'reedit' ? entry.queueQualityProfile : undefined,
     sessionActiveLoraIds: resolveHandoffLoraIds(entry, includeLoras),
-    ...(handoffMode === "reedit" && identityKind ? { identityKind } : {}),
+    ...(handoffMode === 'reedit' && identityKind ? { identityKind } : {}),
     handoffMode,
     target,
     savedAt: Date.now(),
@@ -112,25 +119,25 @@ export function buildGalleryHandoff(
 /** Re-edit with the same LoRA stack / quality when available. */
 export function buildReeditGalleryHandoff(
   entry: ComfyGalleryEntry,
-  target: Extract<GalleryHandoffPayload["target"], "compose" | "refine" | "video">,
+  target: Extract<GalleryHandoffPayload['target'], 'compose' | 'refine' | 'video'>
 ): GalleryHandoffPayload {
   return buildGalleryHandoff(entry, target, {
-    handoffMode: "reedit",
+    handoffMode: 'reedit',
     includeSessionLoras: true,
   });
 }
 
 export function saveGalleryHandoff(payload: GalleryHandoffPayload): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   window.sessionStorage.setItem(GALLERY_HANDOFF_KEY, JSON.stringify(payload));
 }
 
 export function loadGalleryHandoff(
-  target?: GalleryHandoffPayload["target"],
+  target?: GalleryHandoffPayload['target']
 ): GalleryHandoffPayload | null {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return null;
   }
 
@@ -140,10 +147,7 @@ export function loadGalleryHandoff(
       return null;
     }
     const parsed = JSON.parse(raw) as GalleryHandoffPayload;
-    if (
-      (parsed.source !== "gallery" && parsed.source !== "history") ||
-      !parsed.prompt?.trim()
-    ) {
+    if ((parsed.source !== 'gallery' && parsed.source !== 'history') || !parsed.prompt?.trim()) {
       return null;
     }
     if (target && parsed.target !== target) {
@@ -160,15 +164,13 @@ export function loadGalleryHandoff(
 }
 
 export function clearGalleryHandoff(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   window.sessionStorage.removeItem(GALLERY_HANDOFF_KEY);
 }
 
-export async function fetchHandoffImageFile(
-  payload: GalleryHandoffPayload,
-): Promise<File | null> {
+export async function fetchHandoffImageFile(payload: GalleryHandoffPayload): Promise<File | null> {
   if (!payload.imageUrl) {
     return null;
   }
@@ -179,125 +181,115 @@ export async function fetchHandoffImageFile(
   }
 
   const blob = await response.blob();
-  const filename =
-    payload.imageFilename?.trim() ||
-    `gallery-${payload.promptId.slice(0, 8)}.png`;
-  return new File([blob], filename, { type: blob.type || "image/png" });
+  const filename = payload.imageFilename?.trim() || `gallery-${payload.promptId.slice(0, 8)}.png`;
+  return new File([blob], filename, { type: blob.type || 'image/png' });
 }
 
-export function galleryHandoffPath(target: GalleryHandoffPayload["target"]): string {
-  if (target === "refine") {
-    return "/refine?from=gallery";
+export function galleryHandoffPath(target: GalleryHandoffPayload['target']): string {
+  if (target === 'refine') {
+    return '/refine?from=gallery';
   }
-  if (target === "inpaint") {
-    return "/inpaint?from=gallery";
+  if (target === 'inpaint') {
+    return '/inpaint?from=gallery';
   }
-  if (target === "outpaint") {
-    return "/outpaint?from=gallery";
+  if (target === 'outpaint') {
+    return '/outpaint?from=gallery';
   }
-  if (target === "compose") {
-    return "/compose?from=gallery";
+  if (target === 'compose') {
+    return '/compose?from=gallery';
   }
-  if (target === "promptEditor") {
-    return "/prompt?from=gallery";
+  if (target === 'promptEditor') {
+    return '/prompt?from=gallery';
   }
-  if (target === "controlnet") {
-    return "/controlnet?from=gallery";
+  if (target === 'controlnet') {
+    return '/controlnet?from=gallery';
   }
-  if (target === "video") {
-    return "/video?from=gallery";
+  if (target === 'video') {
+    return '/video?from=gallery';
   }
-  return "/image-prompt?from=gallery";
+  return '/image-prompt?from=gallery';
 }
 
 /** Open Gallery in pick mode — click an image to hand off back to the tool. */
-export function galleryPickPath(target: GalleryHandoffPayload["target"]): string {
+export function galleryPickPath(target: GalleryHandoffPayload['target']): string {
   return `/gallery?pickFor=${encodeURIComponent(target)}`;
 }
 
-export function galleryHandoffHomePath(
-  target: GalleryHandoffPayload["target"],
-): string {
-  return galleryHandoffPath(target).split("?")[0] || "/";
+export function galleryHandoffHomePath(target: GalleryHandoffPayload['target']): string {
+  return galleryHandoffPath(target).split('?')[0] || '/';
 }
 
-const GALLERY_PICK_TARGETS = new Set<GalleryHandoffPayload["target"]>([
-  "refine",
-  "imagePrompt",
-  "promptEditor",
-  "inpaint",
-  "outpaint",
-  "controlnet",
-  "video",
-  "compose",
+const GALLERY_PICK_TARGETS = new Set<GalleryHandoffPayload['target']>([
+  'refine',
+  'imagePrompt',
+  'promptEditor',
+  'inpaint',
+  'outpaint',
+  'controlnet',
+  'video',
+  'compose',
 ]);
 
 export function parseGalleryPickTarget(
-  raw: string | null | undefined,
-): GalleryHandoffPayload["target"] | null {
+  raw: string | null | undefined
+): GalleryHandoffPayload['target'] | null {
   const value = raw?.trim();
-  if (!value || !GALLERY_PICK_TARGETS.has(value as GalleryHandoffPayload["target"])) {
+  if (!value || !GALLERY_PICK_TARGETS.has(value as GalleryHandoffPayload['target'])) {
     return null;
   }
-  return value as GalleryHandoffPayload["target"];
+  return value as GalleryHandoffPayload['target'];
 }
 
-export function galleryPickPurposeLabel(
-  target: GalleryHandoffPayload["target"],
-): string {
+export function galleryPickPurposeLabel(target: GalleryHandoffPayload['target']): string {
   switch (target) {
-    case "video":
-      return "Video init image (I2V)";
-    case "refine":
-      return "Refine reference";
-    case "inpaint":
-      return "Inpaint source";
-    case "outpaint":
-      return "Outpaint source";
-    case "controlnet":
-      return "ControlNet reference";
-    case "compose":
-      return "Compose figure";
-    case "imagePrompt":
-      return "Image → Prompt reference";
-    case "promptEditor":
-      return "Prompt editor";
+    case 'video':
+      return 'Video init image (I2V)';
+    case 'refine':
+      return 'Refine reference';
+    case 'inpaint':
+      return 'Inpaint source';
+    case 'outpaint':
+      return 'Outpaint source';
+    case 'controlnet':
+      return 'ControlNet reference';
+    case 'compose':
+      return 'Compose figure';
+    case 'imagePrompt':
+      return 'Image → Prompt reference';
+    case 'promptEditor':
+      return 'Prompt editor';
     default:
-      return "tool reference";
+      return 'tool reference';
   }
 }
 
-export function galleryPickActionLabel(
-  target: GalleryHandoffPayload["target"],
-): string {
+export function galleryPickActionLabel(target: GalleryHandoffPayload['target']): string {
   switch (target) {
-    case "video":
-      return "Use for Video";
-    case "refine":
-      return "Use for Refine";
-    case "inpaint":
-      return "Use for Inpaint";
-    case "outpaint":
-      return "Use for Outpaint";
-    case "controlnet":
-      return "Use for ControlNet";
-    case "compose":
-      return "Use for Compose";
-    case "imagePrompt":
-      return "Use for Image → Prompt";
+    case 'video':
+      return 'Use for Video';
+    case 'refine':
+      return 'Use for Refine';
+    case 'inpaint':
+      return 'Use for Inpaint';
+    case 'outpaint':
+      return 'Use for Outpaint';
+    case 'controlnet':
+      return 'Use for ControlNet';
+    case 'compose':
+      return 'Use for Compose';
+    case 'imagePrompt':
+      return 'Use for Image → Prompt';
     default:
-      return "Use this image";
+      return 'Use this image';
   }
 }
 
 export function galleryPromptEditorPathFromHistory(): string {
-  return "/prompt?from=history";
+  return '/prompt?from=history';
 }
 
 /** Shared settings slice to apply after a re-edit handoff lands. */
-export function sharedPatchFromGalleryHandoff(
-  payload: GalleryHandoffPayload,
-): {
+export function sharedPatchFromGalleryHandoff(payload: GalleryHandoffPayload): {
   sessionActiveLoraIds?: string[];
   queueQualityProfile?: QueueQualityProfile;
 } {
@@ -309,9 +301,9 @@ export function sharedPatchFromGalleryHandoff(
     patch.sessionActiveLoraIds = payload.sessionActiveLoraIds;
   }
   if (
-    payload.handoffMode === "reedit" &&
+    payload.handoffMode === 'reedit' &&
     payload.queueQualityProfile &&
-    payload.queueQualityProfile !== "followSettings"
+    payload.queueQualityProfile !== 'followSettings'
   ) {
     patch.queueQualityProfile = payload.queueQualityProfile;
   }

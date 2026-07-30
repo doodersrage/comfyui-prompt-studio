@@ -1,21 +1,25 @@
-import { loadPromptHistoryStore, savePromptHistoryStore, type PromptHistoryEntry } from "./prompt-history";
+import {
+  loadPromptHistoryStore,
+  savePromptHistoryStore,
+  type PromptHistoryEntry,
+} from './prompt-history';
 import {
   loadComfyGallery,
   updateComfyGalleryByPromptId,
   updateComfyGalleryEntryById,
   type ComfyGalleryEntry,
-} from "./comfyui-gallery";
+} from './comfyui-gallery';
 
 export function linkGalleryToHistory(
   promptId: string,
-  historyId: string,
+  historyId: string
 ): ComfyGalleryEntry | null {
   return updateComfyGalleryByPromptId(promptId, { historyId });
 }
 
 export function linkGalleryEntryToHistory(
   galleryEntryId: string,
-  historyId: string,
+  historyId: string
 ): ComfyGalleryEntry | null {
   return updateComfyGalleryEntryById(galleryEntryId, { historyId });
 }
@@ -23,9 +27,9 @@ export function linkGalleryEntryToHistory(
 export function attachGalleryPromptIdToHistory(
   historyId: string,
   promptId: string,
-  galleryEntryId?: string,
+  galleryEntryId?: string
 ): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
 
@@ -34,19 +38,17 @@ export function attachGalleryPromptIdToHistory(
     if (entries.length === 0) {
       return;
     }
-    const next = entries.map((entry) =>
+    const next = entries.map(entry =>
       entry.id === historyId
         ? {
             ...entry,
             metadata: {
               ...(entry.metadata ?? {}),
               comfyPromptId: promptId,
-              ...(galleryEntryId?.trim()
-                ? { galleryEntryId: galleryEntryId.trim() }
-                : {}),
+              ...(galleryEntryId?.trim() ? { galleryEntryId: galleryEntryId.trim() } : {}),
             },
           }
-        : entry,
+        : entry
     );
     savePromptHistoryStore(next.slice(0, 100));
   } catch {
@@ -63,10 +65,8 @@ export function backfillHistoryGalleryLink(entry: ComfyGalleryEntry): void {
   attachGalleryPromptIdToHistory(historyId, entry.promptId, entry.id);
 }
 
-export function findGalleryEntriesForHistory(
-  historyId: string,
-): ComfyGalleryEntry[] {
-  return loadComfyGallery().filter((entry) => entry.historyId === historyId);
+export function findGalleryEntriesForHistory(historyId: string): ComfyGalleryEntry[] {
+  return loadComfyGallery().filter(entry => entry.historyId === historyId);
 }
 
 /** Best gallery entry to recover queue params and source/mask URLs for a history re-queue. */
@@ -75,36 +75,30 @@ export function findGalleryEntryForHistory(
     id: string;
     metadata?: Record<string, unknown>;
   },
-  gallery: ComfyGalleryEntry[] = loadComfyGallery(),
+  gallery: ComfyGalleryEntry[] = loadComfyGallery()
 ): ComfyGalleryEntry | undefined {
   const galleryEntryId =
-    typeof input.metadata?.galleryEntryId === "string"
-      ? input.metadata.galleryEntryId.trim()
-      : "";
+    typeof input.metadata?.galleryEntryId === 'string' ? input.metadata.galleryEntryId.trim() : '';
   if (galleryEntryId) {
-    const byId = gallery.find((entry) => entry.id === galleryEntryId);
+    const byId = gallery.find(entry => entry.id === galleryEntryId);
     if (byId) {
       return byId;
     }
   }
 
   const comfyPromptId =
-    typeof input.metadata?.comfyPromptId === "string"
-      ? input.metadata.comfyPromptId.trim()
-      : "";
+    typeof input.metadata?.comfyPromptId === 'string' ? input.metadata.comfyPromptId.trim() : '';
   if (comfyPromptId) {
-    const byPromptId = gallery.find((entry) => entry.promptId === comfyPromptId);
+    const byPromptId = gallery.find(entry => entry.promptId === comfyPromptId);
     if (byPromptId) {
       return byPromptId;
     }
   }
 
-  return gallery.find((entry) => entry.historyId === input.id);
+  return gallery.find(entry => entry.historyId === input.id);
 }
 
-export function findHistoryIdForGalleryEntry(
-  entry: ComfyGalleryEntry,
-): string | undefined {
+export function findHistoryIdForGalleryEntry(entry: ComfyGalleryEntry): string | undefined {
   return entry.historyId;
 }
 

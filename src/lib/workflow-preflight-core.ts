@@ -1,17 +1,17 @@
-import type { ComfyImageModel } from "./comfy-models/client";
-import { isQwenLightningModel } from "./model-sampling-patch";
-import { auditWorkflowStackCompatibility } from "./workflow-stack-fingerprint";
-import { auditWorkflowPreviewIssues } from "./workflow-placeholder-audit";
-import { auditWorkflowNodeTypes } from "./workflow-node-type-audit";
-import { auditDualClipNodesInWorkflow } from "./workflow-dual-clip-audit";
-import type { ComfyUiModelLists } from "./comfyui-object-info";
-import { auditLightningWorkflowIssues } from "./workflow-lightning-queue";
-import { auditLoaderFilenamesInWorkflow } from "./workflow-loader-filename-audit";
-import { buildLightningLoraFilenameMap } from "./workflow-lora-patch";
-import { resolveWorkflowGraphInput } from "./workflow-graph-input";
+import type { ComfyImageModel } from './comfy-models/client';
+import { isQwenLightningModel } from './model-sampling-patch';
+import { auditWorkflowStackCompatibility } from './workflow-stack-fingerprint';
+import { auditWorkflowPreviewIssues } from './workflow-placeholder-audit';
+import { auditWorkflowNodeTypes } from './workflow-node-type-audit';
+import { auditDualClipNodesInWorkflow } from './workflow-dual-clip-audit';
+import type { ComfyUiModelLists } from './comfyui-object-info';
+import { auditLightningWorkflowIssues } from './workflow-lightning-queue';
+import { auditLoaderFilenamesInWorkflow } from './workflow-loader-filename-audit';
+import { buildLightningLoraFilenameMap } from './workflow-lora-patch';
+import { resolveWorkflowGraphInput } from './workflow-graph-input';
 
 export type WorkflowPreflightIssue = {
-  severity: "error" | "warn";
+  severity: 'error' | 'warn';
   message: string;
 };
 
@@ -36,7 +36,7 @@ export type WorkflowGraphPreflightInput = {
  * Keep Lightning + inventory checks here so UI and /prompt cannot diverge.
  */
 export function collectWorkflowGraphPreflightIssues(
-  input: WorkflowGraphPreflightInput,
+  input: WorkflowGraphPreflightInput
 ): WorkflowPreflightIssue[] {
   const issues: WorkflowPreflightIssue[] = [];
   const { workflow, workflowJson } = resolveWorkflowGraphInput(input);
@@ -47,7 +47,7 @@ export function collectWorkflowGraphPreflightIssues(
       model: input.model,
       hasInputImage: input.hasInputImage,
       hasMaskImage: input.hasMaskImage,
-    }),
+    })
   );
 
   issues.push(
@@ -56,7 +56,7 @@ export function collectWorkflowGraphPreflightIssues(
       workflow,
       model: input.model,
       syncWorkflowLoadersToModel: input.syncWorkflowLoadersToModel,
-    }),
+    })
   );
 
   issues.push(
@@ -64,13 +64,13 @@ export function collectWorkflowGraphPreflightIssues(
       workflowJson,
       workflow,
       knownNodeTypes: input.knownNodeTypes,
-    }),
+    })
   );
 
   const loraFilenames = buildLightningLoraFilenameMap(
     input.customTokens ?? [],
     String(input.model),
-    input.models?.loras,
+    input.models?.loras
   );
 
   issues.push(
@@ -80,15 +80,15 @@ export function collectWorkflowGraphPreflightIssues(
       model: input.model,
       loraFilenames,
       alreadyPrepared: input.lightningAlreadyPrepared === true,
-    }),
+    })
   );
 
   if (input.objectInfoUnavailable) {
     issues.push({
-      severity: isQwenLightningModel(input.model) ? "error" : "warn",
+      severity: isQwenLightningModel(input.model) ? 'error' : 'warn',
       message: isQwenLightningModel(input.model)
-        ? "ComfyUI object_info unavailable — cannot verify Lightning LoRA/loader inventory. Ensure ComfyUI is reachable before queueing."
-        : "ComfyUI object_info unavailable — skipped loader filename and node-type inventory checks.",
+        ? 'ComfyUI object_info unavailable — cannot verify Lightning LoRA/loader inventory. Ensure ComfyUI is reachable before queueing.'
+        : 'ComfyUI object_info unavailable — skipped loader filename and node-type inventory checks.',
     });
   }
 
@@ -98,26 +98,27 @@ export function collectWorkflowGraphPreflightIssues(
         workflowJson,
         workflow,
         models: input.models,
-      }),
+      })
     );
     issues.push(
       ...auditLoaderFilenamesInWorkflow({
         workflowJson,
         workflow,
         models: input.models,
-      }),
+      })
     );
   }
 
   return issues;
 }
 
-export function summarizeWorkflowGraphPreflight(
-  input: WorkflowGraphPreflightInput,
-): { ok: boolean; issues: WorkflowPreflightIssue[] } {
+export function summarizeWorkflowGraphPreflight(input: WorkflowGraphPreflightInput): {
+  ok: boolean;
+  issues: WorkflowPreflightIssue[];
+} {
   const issues = collectWorkflowGraphPreflightIssues(input);
   return {
-    ok: !issues.some((issue) => issue.severity === "error"),
+    ok: !issues.some(issue => issue.severity === 'error'),
     issues,
   };
 }

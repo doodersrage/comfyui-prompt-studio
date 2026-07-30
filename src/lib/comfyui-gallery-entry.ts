@@ -1,6 +1,6 @@
-import type { ComfyOutputImage } from "./comfyui-outputs";
-import type { WorkflowParamValues } from "./comfyui-config";
-import type { ComfyGalleryJobStatus } from "./comfyui-gallery-types";
+import type { ComfyOutputImage } from './comfyui-outputs';
+import type { WorkflowParamValues } from './comfyui-config';
+import type { ComfyGalleryJobStatus } from './comfyui-gallery-types';
 
 export type ComfyGalleryEntry = {
   id: string;
@@ -14,7 +14,7 @@ export type ComfyGalleryEntry = {
   /** Gallery entry this job was derived from (upscale, refine, variation). */
   parentGalleryEntryId?: string;
   /** How this entry was derived from parentGalleryEntryId. */
-  derivedKind?: "upscale" | "refine" | "soft-pass" | "variation" | "moire-clean" | "face-detail";
+  derivedKind?: 'upscale' | 'refine' | 'soft-pass' | 'variation' | 'moire-clean' | 'face-detail';
   /** Resolved queue params (seed, width, cfg, etc.). */
   queueParams?: WorkflowParamValues;
   /** Original source image URL at queue time (Comfy view or app proxy). */
@@ -22,7 +22,7 @@ export type ComfyGalleryEntry = {
   /** Inpaint mask URL at queue time when available. */
   maskImageUrl?: string;
   /** Queue quality profile used when this job was queued (draft / final / max). */
-  queueQualityProfile?: import("./queue-quality-profile").QueueQualityProfile;
+  queueQualityProfile?: import('./queue-quality-profile').QueueQualityProfile;
   /** Session LoRA library ids active when this job was queued (for re-edit same stack). */
   sessionActiveLoraIds?: string[];
   /** Quick review rating from gallery review mode. */
@@ -33,7 +33,7 @@ export type ComfyGalleryEntry = {
   userId?: string;
   comfyUrl: string;
   /** Inference engine that produced this job (`comfyui` default). */
-  engineId?: import("./engine/types").EngineId;
+  engineId?: import('./engine/types').EngineId;
   /** WebSocket client id used when queueing (for live latent previews). */
   clientId?: string;
   status: ComfyGalleryJobStatus;
@@ -42,7 +42,7 @@ export type ComfyGalleryEntry = {
   /** Cached aesthetic score (0–100) from heuristic or vision. */
   aestheticScore?: number;
   /** How aestheticScore was produced. */
-  aestheticScoreMethod?: "heuristic" | "vision" | "embedding";
+  aestheticScoreMethod?: 'heuristic' | 'vision' | 'embedding';
   statusMessage?: string;
   queuePosition?: number | null;
   /** Live sampler/node progress from ComfyUI WebSocket (cleared when finished). */

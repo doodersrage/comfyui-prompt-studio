@@ -1,22 +1,16 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import {
-  loadComfyWorkflowFiles,
-  type ComfyWorkflowFile,
-} from "@/lib/comfyui-workflow-files";
-import {
-  getSelectedWorkflowFileId,
-  setSelectedWorkflowFileId,
-} from "@/lib/comfyui-runtime";
-import { loadComfyUiSettings } from "@/lib/comfyui-settings";
-import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { useCallback, useEffect, useState } from 'react';
+import { loadComfyWorkflowFiles, type ComfyWorkflowFile } from '@/lib/comfyui-workflow-files';
+import { getSelectedWorkflowFileId, setSelectedWorkflowFileId } from '@/lib/comfyui-runtime';
+import { loadComfyUiSettings } from '@/lib/comfyui-settings';
+import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 export type ServerWorkflowOption = {
   id: string;
   name: string;
-  source: "server";
+  source: 'server';
 };
 
 type UseComfyWorkflowSelectionResult = {
@@ -34,24 +28,22 @@ export function useComfyWorkflowSelection(): UseComfyWorkflowSelectionResult {
   const [selectedId, setSelectedIdState] = useState<string | undefined>();
   const [localFiles, setLocalFiles] = useState<ComfyWorkflowFile[]>([]);
   const [serverFiles, setServerFiles] = useState<ServerWorkflowOption[]>([]);
-  const [defaultLabel, setDefaultLabel] = useState("Default workflow");
+  const [defaultLabel, setDefaultLabel] = useState('Default workflow');
 
   const refreshFiles = useCallback(() => {
     setLocalFiles(loadComfyWorkflowFiles());
     setSelectedIdState(getSelectedWorkflowFileId());
     const settings = loadComfyUiSettings();
     setDefaultLabel(
-      settings.useServerDefaults
-        ? "Server default workflow"
-        : "Settings workflow JSON",
+      settings.useServerDefaults ? 'Server default workflow' : 'Settings workflow JSON'
     );
   }, []);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
       refreshFiles();
-      void fetch("/api/comfyui/workflows")
-        .then((response) => response.json())
+      void fetch('/api/comfyui/workflows')
+        .then(response => response.json())
         .then((data: { workflows?: ServerWorkflowOption[] }) => {
           setServerFiles(data.workflows ?? []);
         })

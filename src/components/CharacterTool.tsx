@@ -1,109 +1,76 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
-import BackgroundPresetControls from "@/components/BackgroundPresetControls";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import RegionalPromptBuilderPanel from "@/components/RegionalPromptBuilderPanel";
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { readRawPrompt } from "@/lib/raw-prompt";
-import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
-import { applySceneStarterWorkflowHints } from "@/lib/scene-starter-workflow-hints";
-import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import { SubjectShotScaleControl } from "@/components/ShotScaleControl";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+import BackgroundPresetControls from '@/components/BackgroundPresetControls';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import RegionalPromptBuilderPanel from '@/components/RegionalPromptBuilderPanel';
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { readRawPrompt } from '@/lib/raw-prompt';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
+import { applySceneStarterWorkflowHints } from '@/lib/scene-starter-workflow-hints';
+import { applyHintSourceFromSearchParams } from '@/lib/tool-url-params';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { SubjectShotScaleControl } from '@/components/ShotScaleControl';
 import {
   SceneGenerateFooter,
   SceneHintsField,
   SceneQuickTags,
   VariationSliderField,
-} from "@/components/scene-tool/SceneToolSections";
+} from '@/components/scene-tool/SceneToolSections';
 import {
   HistoryHintSeedPanel,
   resolveSceneHintsForGeneration,
-} from "@/components/scene-tool/HistoryHintSeedPanel";
-import {
-  normalizeHistorySeedScope,
-  normalizeSceneHintSource,
-} from "@/lib/scene-hint-source";
-import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { useRecentLocations } from "@/hooks/useRecentLocations";
-import { useRecentClothing } from "@/hooks/useRecentClothing";
-import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
-import { fetchClothingLabels, getCachedClothingLabel } from "@/lib/clothing-catalog-client";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { presetOptionsFromBackgroundCache } from "@/lib/background-options";
-import { readSceneLocationFromMetadata } from "@/lib/recent-locations";
-import { readClothingIdsFromMetadata } from "@/lib/recent-clothing";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
+} from '@/components/scene-tool/HistoryHintSeedPanel';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
+import { countHistorySeedCandidates } from '@/lib/history-hint-seed';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { useRecentLocations } from '@/hooks/useRecentLocations';
+import { useRecentClothing } from '@/hooks/useRecentClothing';
+import { useLocationBlocklist } from '@/hooks/useLocationBlocklist';
+import { fetchClothingLabels, getCachedClothingLabel } from '@/lib/clothing-catalog-client';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { presetOptionsFromBackgroundCache } from '@/lib/background-options';
+import { readSceneLocationFromMetadata } from '@/lib/recent-locations';
+import { readClothingIdsFromMetadata } from '@/lib/recent-clothing';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import {
   regionalPromptCustomTokens,
   type RegionalPromptSegment,
-} from "@/lib/regional-prompt-builder";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
-import { sharedLlmRequestBody } from "@/lib/llm-request-options";
-import { presetOptionsFromCache } from "@/lib/character-options-ui";
-import {
-  DEFAULT_CHARACTER_TOOL_CACHE,
-  type CharacterSceneMode,
-} from "@/lib/settings-cache";
-import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
+} from '@/lib/regional-prompt-builder';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
+import { sharedLlmRequestBody } from '@/lib/llm-request-options';
+import { presetOptionsFromCache } from '@/lib/character-options-ui';
+import { DEFAULT_CHARACTER_TOOL_CACHE, type CharacterSceneMode } from '@/lib/settings-cache';
+import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
 import {
   readVariationSeedFromMetadata,
   readVariationSeedFromResult,
-} from "@/lib/variation-seed-metadata";
-import {
-  ROLL_VARIATION_LABEL,
-  rollVariationLabel,
-} from "@/lib/tool-ui-labels";
-import { downloadTextFile } from "@/lib/prompt-pair";
-import {
-  applyShareableSceneParams,
-  parseScenePresetFromSearch,
-} from "@/lib/scene-preset-url";
-import { getSportPreset, isSportStarterPreset } from "@/lib/sport-presets";
-import {
-  accentFocusClass,
-  accentRingClass,
-  type ToolAccent,
-} from "@/lib/tool-theme";
-import {
-  ToolBadge,
-  ToolLayout,
-  ToolSection,
-} from "@/components/ui/ToolPageShell";
-import { ChipButton, FieldDivider, FieldLabel } from "@/components/ui/Field";
-import { Button } from "@/components/ui/Button";
+} from '@/lib/variation-seed-metadata';
+import { ROLL_VARIATION_LABEL, rollVariationLabel } from '@/lib/tool-ui-labels';
+import { downloadTextFile } from '@/lib/prompt-pair';
+import { applyShareableSceneParams, parseScenePresetFromSearch } from '@/lib/scene-preset-url';
+import { getSportPreset, isSportStarterPreset } from '@/lib/sport-presets';
+import { accentFocusClass, accentRingClass, type ToolAccent } from '@/lib/tool-theme';
+import { ToolBadge, ToolLayout, ToolSection } from '@/components/ui/ToolPageShell';
+import { ChipButton, FieldDivider, FieldLabel } from '@/components/ui/Field';
+import { Button } from '@/components/ui/Button';
 
-const SharedToolControls = dynamic(
-  () => import("@/components/SharedToolControls"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-40 animate-pulse rounded-2xl bg-[var(--surface-muted)]/50" aria-hidden />
-    ),
-  },
-);
-const SceneStarterPresetChips = dynamic(
-  () => import("@/components/SceneStarterPresetChips"),
-  {
-    loading: () => (
-      <div className="h-24 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />
-    ),
-  },
-);
-const CharacterPresetControls = dynamic(
-  () => import("@/components/CharacterPresetControls"),
-  {
-    loading: () => (
-      <div className="h-48 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />
-    ),
-  },
-);
+const SharedToolControls = dynamic(() => import('@/components/SharedToolControls'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-40 animate-pulse rounded-2xl bg-[var(--surface-muted)]/50" aria-hidden />
+  ),
+});
+const SceneStarterPresetChips = dynamic(() => import('@/components/SceneStarterPresetChips'), {
+  loading: () => <div className="h-24 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
+});
+const CharacterPresetControls = dynamic(() => import('@/components/CharacterPresetControls'), {
+  loading: () => <div className="h-48 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
+});
 
 const SOLO_BATCH_COUNT = 3;
 
@@ -112,85 +79,83 @@ const SCENE_MODE_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  { value: "solo", label: "Solo", description: "Single person portrait or action" },
-  { value: "duo", label: "Duo / sport", description: "Two people, teams, and competition" },
+  { value: 'solo', label: 'Solo', description: 'Single person portrait or action' },
+  { value: 'duo', label: 'Duo / sport', description: 'Two people, teams, and competition' },
   {
-    value: "compose",
-    label: "With background",
-    description: "Subject plus generated environment merged together",
+    value: 'compose',
+    label: 'With background',
+    description: 'Subject plus generated environment merged together',
   },
 ];
 
 function accentForSceneMode(mode: CharacterSceneMode): ToolAccent {
-  if (mode === "duo") {
-    return "emerald";
+  if (mode === 'duo') {
+    return 'emerald';
   }
-  if (mode === "compose") {
-    return "cyan";
+  if (mode === 'compose') {
+    return 'cyan';
   }
-  return "sky";
+  return 'sky';
 }
 
-function historyToolForSceneMode(mode: CharacterSceneMode): "character" | "duo" | "scene-compose" {
-  if (mode === "duo") {
-    return "duo";
+function historyToolForSceneMode(mode: CharacterSceneMode): 'character' | 'duo' | 'scene-compose' {
+  if (mode === 'duo') {
+    return 'duo';
   }
-  if (mode === "compose") {
+  if (mode === 'compose') {
     // Distinct from multi-image Compose / Transfer (`compose` → /compose).
-    return "scene-compose";
+    return 'scene-compose';
   }
-  return "character";
+  return 'character';
 }
 
 /** History-seed scopes still key off the Character “compose” scene label. */
-function historySeedToolForSceneMode(
-  mode: CharacterSceneMode,
-): "character" | "duo" | "compose" {
-  if (mode === "duo") {
-    return "duo";
+function historySeedToolForSceneMode(mode: CharacterSceneMode): 'character' | 'duo' | 'compose' {
+  if (mode === 'duo') {
+    return 'duo';
   }
-  if (mode === "compose") {
-    return "compose";
+  if (mode === 'compose') {
+    return 'compose';
   }
-  return "character";
+  return 'character';
 }
 
-function presetVariantForSceneMode(
-  mode: CharacterSceneMode,
-): "solo" | "duo" | "compose" {
-  if (mode === "duo") {
-    return "duo";
+function presetVariantForSceneMode(mode: CharacterSceneMode): 'solo' | 'duo' | 'compose' {
+  if (mode === 'duo') {
+    return 'duo';
   }
-  if (mode === "compose") {
-    return "compose";
+  if (mode === 'compose') {
+    return 'compose';
   }
-  return "solo";
+  return 'solo';
 }
 
-function defaultPortraitStyle(mode: CharacterSceneMode): "portrait" | "full-body" | "action" {
-  return mode === "solo" ? "portrait" : "action";
+function defaultPortraitStyle(mode: CharacterSceneMode): 'portrait' | 'full-body' | 'action' {
+  return mode === 'solo' ? 'portrait' : 'action';
 }
 
 function parseSceneMode(value: string | null): CharacterSceneMode | null {
-  if (value === "solo" || value === "duo" || value === "compose") {
+  if (value === 'solo' || value === 'duo' || value === 'compose') {
     return value;
   }
   return null;
 }
 
 export default function CharacterTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("character", DEFAULT_CHARACTER_TOOL_CACHE);
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'character',
+    DEFAULT_CHARACTER_TOOL_CACHE
+  );
   const { getRecent, record: recordLocation } = useRecentLocations();
   const { getRecent: getRecentClothing, record: recordClothing } = useRecentClothing();
   const { getBlocklist } = useLocationBlocklist();
   useSeedToolDraft(mounted, {
-    toolKey: "character",
-    label: "Character",
-    href: "/character",
+    toolKey: 'character',
+    label: 'Character',
+    href: '/character',
     fields: [toolSettings.hints],
   });
-  const [output, setOutput] = useState("");
+  const [output, setOutput] = useState('');
   const [batchResults, setBatchResults] = useState<EnrichedToolGenerateResult[]>([]);
   const [result, setResult] = useState<EnrichedToolGenerateResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -212,7 +177,7 @@ export default function CharacterTool() {
     }
 
     let cancelled = false;
-    void fetchClothingLabels([id]).then((labels) => {
+    void fetchClothingLabels([id]).then(labels => {
       if (cancelled) {
         return;
       }
@@ -224,7 +189,7 @@ export default function CharacterTool() {
     };
   }, [shared.lockedWardrobeId]);
 
-  const sceneMode = toolSettings.sceneMode ?? "solo";
+  const sceneMode = toolSettings.sceneMode ?? 'solo';
   const accent = accentForSceneMode(sceneMode);
   const historyTool = historyToolForSceneMode(sceneMode);
   const historySeedTool = historySeedToolForSceneMode(sceneMode);
@@ -232,11 +197,10 @@ export default function CharacterTool() {
   const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
   const historyCandidateCount = countHistorySeedCandidates(historySeedTool, historySeedScope);
   const generateDisabledReason =
-    hintSource === "history" && historyCandidateCount === 0
-      ? "Save a few character prompts to Studio history first, or switch hint source."
+    hintSource === 'history' && historyCandidateCount === 0
+      ? 'Save a few character prompts to Studio history first, or switch hint source.'
       : null;
-  const portraitStyle =
-    toolSettings.portraitStyle ?? defaultPortraitStyle(sceneMode);
+  const portraitStyle = toolSettings.portraitStyle ?? defaultPortraitStyle(sceneMode);
 
   const actions = usePromptResultActions({
     tool: historyTool,
@@ -252,32 +216,32 @@ export default function CharacterTool() {
   const variationSeed = readVariationSeedFromResult(result ?? {});
 
   const modeDescription = useMemo(() => {
-    if (sceneMode === "duo") {
-      return "Two-person action scenes with sport-aware wardrobe, competition kits, helmets, and distinct identities.";
+    if (sceneMode === 'duo') {
+      return 'Two-person action scenes with sport-aware wardrobe, competition kits, helmets, and distinct identities.';
     }
-    if (sceneMode === "compose") {
-      return "Generates a subject and background prompt, then merges them into one scene-ready block.";
+    if (sceneMode === 'compose') {
+      return 'Generates a subject and background prompt, then merges them into one scene-ready block.';
     }
-    return "Builds a detailed single-person prompt—face, hair, clothing, pose, and expression.";
+    return 'Builds a detailed single-person prompt—face, hair, clothing, pose, and expression.';
   }, [sceneMode]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === 'undefined') {
       return;
     }
     const params = new URLSearchParams(window.location.search);
     applyHintSourceFromSearchParams(params, updateToolSettings);
-    const mode = parseSceneMode(params.get("mode"));
+    const mode = parseSceneMode(params.get('mode'));
     if (mode) {
       updateToolSettings({ sceneMode: mode });
     }
 
-    const hints = params.get("hints");
-    const seed = params.get("seed");
+    const hints = params.get('hints');
+    const seed = params.get('seed');
     if (hints?.trim()) {
       updateToolSettings({
         hints: hints.trim(),
-        ...(params.get("hintSource") === "manual" ? { hintSource: "manual" } : {}),
+        ...(params.get('hintSource') === 'manual' ? { hintSource: 'manual' } : {}),
       });
     }
     if (seed?.trim()) {
@@ -299,7 +263,7 @@ export default function CharacterTool() {
       lockedVariationSeed: applied.lockedVariationSeed,
     });
     if (applied.sportPresetId) {
-      updateToolSettings({ sceneMode: "duo", sportPresetId: applied.sportPresetId });
+      updateToolSettings({ sceneMode: 'duo', sportPresetId: applied.sportPresetId });
       const preset = getSportPreset(applied.sportPresetId);
       if (preset?.hints?.trim()) {
         updateToolSettings({ hints: preset.hints.trim() });
@@ -324,14 +288,14 @@ export default function CharacterTool() {
 
         await actions.runPreLint(effectiveHints);
 
-        if (sceneMode === "compose") {
-          const response = await fetch("/api/compose", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+        if (sceneMode === 'compose') {
+          const response = await fetch('/api/compose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               model: shared.model,
               detail: shared.detail,
-              subjectMode: toolSettings.composeSubjectMode ?? "duo",
+              subjectMode: toolSettings.composeSubjectMode ?? 'duo',
               hints: effectiveHints,
               portraitStyle,
               variationStrength: toolSettings.variationStrength,
@@ -342,7 +306,7 @@ export default function CharacterTool() {
                 mood: toolSettings.mood,
                 presetOptions: presetOptionsFromBackgroundCache(toolSettings),
               },
-              composeStyle: toolSettings.composeStyle ?? "layered",
+              composeStyle: toolSettings.composeStyle ?? 'layered',
               recentLocations: getRecent(),
               recentClothing: getRecentClothing(),
               blockedLocations: getBlocklist(),
@@ -361,7 +325,7 @@ export default function CharacterTool() {
           };
 
           if (!response.ok) {
-            throw new Error(data.error ?? "Composition failed.");
+            throw new Error(data.error ?? 'Composition failed.');
           }
 
           recordLocation(readSceneLocationFromMetadata(data.metadata));
@@ -373,14 +337,14 @@ export default function CharacterTool() {
         }
 
         const presetOptions =
-          sceneMode === "duo"
-            ? { ...presetOptionsFromCache(toolSettings), headcount: "duo" as const }
+          sceneMode === 'duo'
+            ? { ...presetOptionsFromCache(toolSettings), headcount: 'duo' as const }
             : presetOptionsFromCache(toolSettings);
 
-        const endpoint = batch ? "/api/batch" : sceneMode === "duo" ? "/api/duo" : "/api/character";
+        const endpoint = batch ? '/api/batch' : sceneMode === 'duo' ? '/api/duo' : '/api/character';
         const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: shared.model,
             detail: shared.detail,
@@ -397,15 +361,14 @@ export default function CharacterTool() {
             alwaysIncludeClothing: shared.alwaysIncludeClothing !== false,
             seedLlmWithIngredients: shared.seedLlmWithIngredients !== false,
             activeCharacterDescriptor: shared.activeCharacterDescriptor,
-            teamKit: sceneMode === "duo" ? toolSettings.teamKit === true : undefined,
+            teamKit: sceneMode === 'duo' ? toolSettings.teamKit === true : undefined,
             sportPresetId:
-              sceneMode === "duo" ? toolSettings.sportPresetId || undefined : undefined,
-            count:
-              batch
-                ? sceneMode === "duo"
-                  ? toolSettings.batchCount ?? 3
-                  : SOLO_BATCH_COUNT
-                : undefined,
+              sceneMode === 'duo' ? toolSettings.sportPresetId || undefined : undefined,
+            count: batch
+              ? sceneMode === 'duo'
+                ? (toolSettings.batchCount ?? 3)
+                : SOLO_BATCH_COUNT
+              : undefined,
             ...avoidedTokensRequestBody(),
             ...sharedLlmRequestBody(shared),
           }),
@@ -417,7 +380,7 @@ export default function CharacterTool() {
         };
 
         if (!response.ok) {
-          throw new Error(data.error ?? "Generation failed.");
+          throw new Error(data.error ?? 'Generation failed.');
         }
 
         if (batch && data.results) {
@@ -426,10 +389,10 @@ export default function CharacterTool() {
             recordClothing(readClothingIdsFromMetadata(entry.metadata));
           }
           setBatchResults(data.results);
-          const firstPrompt = data.results[0]?.prompt ?? "";
+          const firstPrompt = data.results[0]?.prompt ?? '';
           const finalized = firstPrompt
             ? await actions.finalizePrompt(firstPrompt, effectiveHints)
-            : "";
+            : '';
           setOutput(finalized || firstPrompt);
           setResult(data.results[0] ?? null);
         } else {
@@ -440,10 +403,10 @@ export default function CharacterTool() {
           setResult({ ...data, prompt });
         }
       } catch (err) {
-        setOutput("");
+        setOutput('');
         setResult(null);
         setBatchResults([]);
-        setError(err instanceof Error ? err.message : "Generation failed.");
+        setError(err instanceof Error ? err.message : 'Generation failed.');
       } finally {
         setLoading(false);
       }
@@ -460,7 +423,7 @@ export default function CharacterTool() {
       hintSource,
       shared,
       toolSettings,
-    ],
+    ]
   );
 
   const exportBatch = useCallback(() => {
@@ -470,13 +433,11 @@ export default function CharacterTool() {
 
     downloadTextFile(
       `${historyTool}-batch-${Date.now()}.txt`,
-      batchResults
-        .map((entry, index) => `# ${index + 1}\n${entry.prompt}`)
-        .join("\n\n"),
+      batchResults.map((entry, index) => `# ${index + 1}\n${entry.prompt}`).join('\n\n')
     );
   }, [batchResults, historyTool]);
 
-  const batchPrompts = batchResults.map((entry) => entry.prompt);
+  const batchPrompts = batchResults.map(entry => entry.prompt);
 
   const copyOutput = useCallback(async () => {
     if (!output) {
@@ -487,23 +448,19 @@ export default function CharacterTool() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
   return (
     <ToolLayout
       accent={accent}
-      badge={
-        <ToolBadge accent={accent}>
-          Character · {selectedModel.comfyNode}
-        </ToolBadge>
-      }
+      badge={<ToolBadge accent={accent}>Character · {selectedModel.comfyNode}</ToolBadge>}
       title="Character Generator"
       description={
         <>
-          {modeDescription} Include sex/gender and age in hints when relevant. Add a
-          place with <code className="text-sky-300">in/at/on …</code> or{" "}
+          {modeDescription} Include sex/gender and age in hints when relevant. Add a place with{' '}
+          <code className="text-sky-300">in/at/on …</code> or{' '}
           <code className="text-sky-300">location: …</code>.
         </>
       }
@@ -511,43 +468,35 @@ export default function CharacterTool() {
         <SharedToolControls
           toolId="character"
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           detailHelp={
-            sceneMode === "duo"
-              ? "Action mode works best with Rich detail for sport scenes."
-              : "Rich detail recommended for character sheets and portraits."
+            sceneMode === 'duo'
+              ? 'Action mode works best with Rich detail for sport scenes.'
+              : 'Rich detail recommended for character sheets and portraits.'
           }
           showWardrobeOption
           alwaysIncludeClothing={shared.alwaysIncludeClothing !== false}
-          onAlwaysIncludeClothingChange={(value) =>
-            updateShared({ alwaysIncludeClothing: value })
-          }
+          onAlwaysIncludeClothingChange={value => updateShared({ alwaysIncludeClothing: value })}
           seedLlmWithIngredients={shared.seedLlmWithIngredients !== false}
-          onSeedLlmWithIngredientsChange={(value) =>
-            updateShared({ seedLlmWithIngredients: value })
-          }
+          onSeedLlmWithIngredientsChange={value => updateShared({ seedLlmWithIngredients: value })}
           lockedWardrobeId={shared.lockedWardrobeId}
           lockedWardrobeLabel={
-            shared.lockedWardrobeId
-              ? lockedWardrobeLabel ?? shared.lockedWardrobeId
-              : undefined
+            shared.lockedWardrobeId ? (lockedWardrobeLabel ?? shared.lockedWardrobeId) : undefined
           }
           onClearLockedWardrobe={() => updateShared({ lockedWardrobeId: undefined })}
           lockedLocation={shared.lockedLocation}
           onClearLockedLocation={() => updateShared({ lockedLocation: undefined })}
           lockedVariationSeed={shared.lockedVariationSeed}
-          onClearLockedVariationSeed={() =>
-            updateShared({ lockedVariationSeed: undefined })
-          }
+          onClearLockedVariationSeed={() => updateShared({ lockedVariationSeed: undefined })}
           autoFixRules={shared.autoFixRules !== false}
-          onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
           activeCharacterDescriptor={shared.activeCharacterDescriptor}
-          onActiveCharacterDescriptorChange={(value) =>
+          onActiveCharacterDescriptorChange={value =>
             updateShared({ activeCharacterDescriptor: value || undefined })
           }
-          recommendFromText={output || toolSettings.hints || ""}
+          recommendFromText={output || toolSettings.hints || ''}
         />
       }
     >
@@ -557,7 +506,7 @@ export default function CharacterTool() {
       >
         <FieldLabel>Scene mode</FieldLabel>
         <div className="flex flex-wrap gap-2">
-          {SCENE_MODE_OPTIONS.map((option) => (
+          {SCENE_MODE_OPTIONS.map(option => (
             <ChipButton
               key={option.value}
               active={sceneMode === option.value}
@@ -575,23 +524,21 @@ export default function CharacterTool() {
 
         <FieldDivider />
 
-        {sceneMode === "solo" ? (
+        {sceneMode === 'solo' ? (
           <SceneStarterPresetChips
             mode="solo"
             accent={accent}
-            currentHints={toolSettings.hints ?? ""}
+            currentHints={toolSettings.hints ?? ''}
             variationsTarget="character"
-            category={toolSettings.sceneStarterCategory ?? "all"}
-            onCategoryChange={(category) =>
-              updateToolSettings({ sceneStarterCategory: category })
-            }
+            category={toolSettings.sceneStarterCategory ?? 'all'}
+            onCategoryChange={category => updateToolSettings({ sceneStarterCategory: category })}
             filterState={{
-              category: toolSettings.sceneStarterCategory ?? "all",
-              framing: toolSettings.sceneStarterFraming ?? "all",
-              query: toolSettings.sceneStarterQuery ?? "",
+              category: toolSettings.sceneStarterCategory ?? 'all',
+              framing: toolSettings.sceneStarterFraming ?? 'all',
+              query: toolSettings.sceneStarterQuery ?? '',
               tags: toolSettings.sceneStarterTags ?? [],
             }}
-            onFilterChange={(filter) =>
+            onFilterChange={filter =>
               updateToolSettings({
                 sceneStarterCategory: filter.category,
                 sceneStarterFraming: filter.framing,
@@ -600,36 +547,34 @@ export default function CharacterTool() {
               })
             }
             selectedId={toolSettings.sceneStarterPresetId}
-            onSelect={(preset) => {
+            onSelect={preset => {
               updateToolSettings({
                 sceneStarterPresetId: preset.id,
                 hints: preset.hints,
-                portraitStyle: preset.portraitStyle ?? "portrait",
+                portraitStyle: preset.portraitStyle ?? 'portrait',
                 sportPresetId: undefined,
-                hintSource: "manual",
+                hintSource: 'manual',
               });
               applySceneStarterWorkflowHints(preset, updateShared);
             }}
           />
         ) : null}
 
-        {sceneMode === "duo" ? (
+        {sceneMode === 'duo' ? (
           <SceneStarterPresetChips
             mode="duo"
             accent={accent}
-            currentHints={toolSettings.hints ?? ""}
+            currentHints={toolSettings.hints ?? ''}
             variationsTarget="duo"
-            category={toolSettings.sceneStarterCategory ?? "all"}
-            onCategoryChange={(category) =>
-              updateToolSettings({ sceneStarterCategory: category })
-            }
+            category={toolSettings.sceneStarterCategory ?? 'all'}
+            onCategoryChange={category => updateToolSettings({ sceneStarterCategory: category })}
             filterState={{
-              category: toolSettings.sceneStarterCategory ?? "all",
-              framing: toolSettings.sceneStarterFraming ?? "all",
-              query: toolSettings.sceneStarterQuery ?? "",
+              category: toolSettings.sceneStarterCategory ?? 'all',
+              framing: toolSettings.sceneStarterFraming ?? 'all',
+              query: toolSettings.sceneStarterQuery ?? '',
               tags: toolSettings.sceneStarterTags ?? [],
             }}
-            onFilterChange={(filter) =>
+            onFilterChange={filter =>
               updateToolSettings({
                 sceneStarterCategory: filter.category,
                 sceneStarterFraming: filter.framing,
@@ -637,39 +582,35 @@ export default function CharacterTool() {
                 sceneStarterTags: filter.tags,
               })
             }
-            selectedId={
-              toolSettings.sceneStarterPresetId ?? toolSettings.sportPresetId
-            }
-            onSelect={(preset) => {
+            selectedId={toolSettings.sceneStarterPresetId ?? toolSettings.sportPresetId}
+            onSelect={preset => {
               updateToolSettings({
                 sceneStarterPresetId: preset.id,
                 sportPresetId: isSportStarterPreset(preset.id) ? preset.id : undefined,
                 hints: preset.hints,
-                portraitStyle: preset.portraitStyle ?? "action",
+                portraitStyle: preset.portraitStyle ?? 'action',
                 teamKit: preset.teamKit ?? false,
-                hintSource: "manual",
+                hintSource: 'manual',
               });
               applySceneStarterWorkflowHints(preset, updateShared);
             }}
           />
         ) : null}
 
-        {sceneMode === "compose" ? (
+        {sceneMode === 'compose' ? (
           <>
             <FieldLabel>Subject in scene</FieldLabel>
             <div className="flex flex-wrap gap-2">
               {(
                 [
-                  { label: "Solo character", value: "character" },
-                  { label: "Duo / sport", value: "duo" },
+                  { label: 'Solo character', value: 'character' },
+                  { label: 'Duo / sport', value: 'duo' },
                 ] as const
-              ).map((option) => (
+              ).map(option => (
                 <ChipButton
                   key={option.value}
-                  active={(toolSettings.composeSubjectMode ?? "duo") === option.value}
-                  onClick={() =>
-                    updateToolSettings({ composeSubjectMode: option.value })
-                  }
+                  active={(toolSettings.composeSubjectMode ?? 'duo') === option.value}
+                  onClick={() => updateToolSettings({ composeSubjectMode: option.value })}
                 >
                   {option.label}
                 </ChipButton>
@@ -679,28 +620,26 @@ export default function CharacterTool() {
             <FieldDivider />
 
             <SceneQuickTags
-              settingType={toolSettings.settingType ?? ""}
-              timeOfDay={toolSettings.timeOfDay ?? ""}
-              mood={toolSettings.mood ?? ""}
-              onSettingTypeChange={(value) => updateToolSettings({ settingType: value })}
-              onTimeOfDayChange={(value) => updateToolSettings({ timeOfDay: value })}
-              onMoodChange={(value) => updateToolSettings({ mood: value })}
+              settingType={toolSettings.settingType ?? ''}
+              timeOfDay={toolSettings.timeOfDay ?? ''}
+              mood={toolSettings.mood ?? ''}
+              onSettingTypeChange={value => updateToolSettings({ settingType: value })}
+              onTimeOfDayChange={value => updateToolSettings({ timeOfDay: value })}
+              onMoodChange={value => updateToolSettings({ mood: value })}
               inputClassName={accentFocusClass(accent)}
             />
 
             <BackgroundPresetControls
               mounted={mounted}
               settings={toolSettings}
-              onChange={(patch) =>
-                updateToolSettings(patch as Partial<typeof toolSettings>)
-              }
+              onChange={patch => updateToolSettings(patch as Partial<typeof toolSettings>)}
             />
 
             <FieldDivider />
           </>
         ) : null}
 
-        {(sceneMode === "solo" || sceneMode === "duo") && <FieldDivider />}
+        {(sceneMode === 'solo' || sceneMode === 'duo') && <FieldDivider />}
 
         <CharacterPresetControls
           mounted={mounted}
@@ -715,24 +654,22 @@ export default function CharacterTool() {
           tool={historySeedTool}
           hintSource={hintSource}
           historySeedScope={historySeedScope}
-          hints={toolSettings.hints ?? ""}
-          randomTheme={toolSettings.randomTheme ?? ""}
+          hints={toolSettings.hints ?? ''}
+          randomTheme={toolSettings.randomTheme ?? ''}
           lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
-          onHintSourceChange={(source) => updateToolSettings({ hintSource: source })}
-          onHistorySeedScopeChange={(scope) =>
-            updateToolSettings({ historySeedScope: scope })
-          }
-          onHintsChange={(value) => {
+          onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+          onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+          onHintsChange={value => {
             updateToolSettings({ hints: value });
             rememberDraftFields({
-              toolKey: "character",
-              label: "Character",
-              href: "/character",
+              toolKey: 'character',
+              label: 'Character',
+              href: '/character',
               fields: [value],
             });
           }}
-          onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
-          onHistorySeedApplied={(result) =>
+          onRandomThemeChange={value => updateToolSettings({ randomTheme: value })}
+          onHistorySeedApplied={result =>
             updateToolSettings({
               hints: result.hints,
               lastHistorySeedEntryId: result.entryId,
@@ -741,41 +678,41 @@ export default function CharacterTool() {
           accentFocusClassName={accentFocusClass(accent)}
         />
 
-        {hintSource !== "random" ? (
+        {hintSource !== 'random' ? (
           <>
             <FieldDivider />
             <SceneHintsField
-              value={toolSettings.hints ?? ""}
-              onChange={(value) => {
+              value={toolSettings.hints ?? ''}
+              onChange={value => {
                 updateToolSettings({ hints: value });
                 rememberDraftFields({
-                  toolKey: "character",
-                  label: "Character",
-                  href: "/character",
+                  toolKey: 'character',
+                  label: 'Character',
+                  href: '/character',
                   fields: [value],
                 });
               }}
               placeholder={
-                sceneMode === "duo"
-                  ? "two female gravel cyclists in a fierce competition on a muddy doubletrack"
-                  : sceneMode === "compose"
-                    ? "two female gravel cyclists in fierce competition"
-                    : "e.g. young woman in her twenties, long dark hair; on a Tokyo rooftop at night"
+                sceneMode === 'duo'
+                  ? 'two female gravel cyclists in a fierce competition on a muddy doubletrack'
+                  : sceneMode === 'compose'
+                    ? 'two female gravel cyclists in fierce competition'
+                    : 'e.g. young woman in her twenties, long dark hair; on a Tokyo rooftop at night'
               }
-              rows={sceneMode === "duo" ? 4 : 3}
+              rows={sceneMode === 'duo' ? 4 : 3}
               className={accentFocusClass(accent)}
             />
           </>
         ) : null}
 
-        {hintSource !== "random" ? (
+        {hintSource !== 'random' ? (
           <RegionalPromptBuilderPanel
             accentClassName={accentFocusClass(accent)}
             segments={toolSettings.regionalSegments}
             onSegmentsChange={(segments: RegionalPromptSegment[]) =>
               updateToolSettings({ regionalSegments: segments })
             }
-            onApply={(prompt) =>
+            onApply={prompt =>
               updateToolSettings({
                 hints: toolSettings.hints?.trim()
                   ? `${toolSettings.hints.trim()}. ${prompt}`
@@ -785,16 +722,14 @@ export default function CharacterTool() {
           />
         ) : null}
 
-        {sceneMode === "duo" || sceneMode === "compose" ? (
+        {sceneMode === 'duo' || sceneMode === 'compose' ? (
           <>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-800 p-3">
                 <input
                   type="checkbox"
                   checked={toolSettings.teamKit === true}
-                  onChange={(event) =>
-                    updateToolSettings({ teamKit: event.target.checked })
-                  }
+                  onChange={event => updateToolSettings({ teamKit: event.target.checked })}
                   className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentRingClass(accent)}`}
                 />
                 <span className="space-y-1">
@@ -805,7 +740,7 @@ export default function CharacterTool() {
                 </span>
               </label>
 
-              {sceneMode === "duo" ? (
+              {sceneMode === 'duo' ? (
                 <div className="space-y-2">
                   <FieldLabel htmlFor="batch-count">Batch count</FieldLabel>
                   <input
@@ -814,12 +749,9 @@ export default function CharacterTool() {
                     min={1}
                     max={12}
                     value={toolSettings.batchCount ?? 3}
-                    onChange={(event) =>
+                    onChange={event =>
                       updateToolSettings({
-                        batchCount: Math.min(
-                          12,
-                          Math.max(1, Number(event.target.value) || 3),
-                        ),
+                        batchCount: Math.min(12, Math.max(1, Number(event.target.value) || 3)),
                       })
                     }
                     className="ui-input w-full px-4 py-2 text-sm"
@@ -836,23 +768,23 @@ export default function CharacterTool() {
 
         <SubjectShotScaleControl
           value={portraitStyle}
-          onChange={(value) => updateToolSettings({ portraitStyle: value })}
+          onChange={value => updateToolSettings({ portraitStyle: value })}
         />
 
-        {sceneMode === "compose" ? (
+        {sceneMode === 'compose' ? (
           <>
             <FieldDivider />
             <FieldLabel>Merge style</FieldLabel>
             <div className="flex flex-wrap gap-2">
               {(
                 [
-                  { label: "Layered sections", value: "layered" },
-                  { label: "Inline prose", value: "inline" },
+                  { label: 'Layered sections', value: 'layered' },
+                  { label: 'Inline prose', value: 'inline' },
                 ] as const
-              ).map((option) => (
+              ).map(option => (
                 <ChipButton
                   key={option.value}
-                  active={(toolSettings.composeStyle ?? "layered") === option.value}
+                  active={(toolSettings.composeStyle ?? 'layered') === option.value}
                   onClick={() => updateToolSettings({ composeStyle: option.value })}
                 >
                   {option.label}
@@ -867,7 +799,7 @@ export default function CharacterTool() {
         <VariationSliderField
           label={ROLL_VARIATION_LABEL}
           value={toolSettings.variationStrength ?? 50}
-          onChange={(value) => updateToolSettings({ variationStrength: value })}
+          onChange={value => updateToolSettings({ variationStrength: value })}
           valueLabel={`${rollVariationLabel(toolSettings.variationStrength ?? 50)} (${toolSettings.variationStrength ?? 50})`}
           accentRingClassName={accentRingClass(accent)}
         />
@@ -875,11 +807,11 @@ export default function CharacterTool() {
         <SceneGenerateFooter
           accent={accent}
           label={
-            sceneMode === "compose"
-              ? "Compose scene prompt"
-              : sceneMode === "duo"
-                ? "Generate duo"
-                : "Generate character prompt"
+            sceneMode === 'compose'
+              ? 'Compose scene prompt'
+              : sceneMode === 'duo'
+                ? 'Generate duo'
+                : 'Generate character prompt'
           }
           onClick={() => void generate(false)}
           disabled={!mounted || Boolean(generateDisabledReason)}
@@ -887,7 +819,7 @@ export default function CharacterTool() {
           loadingLabel="Generating character prompt"
           error={error ?? generateDisabledReason}
         >
-          {sceneMode !== "compose" ? (
+          {sceneMode !== 'compose' ? (
             <Button
               variant="secondary"
               disabled={!mounted || Boolean(generateDisabledReason)}
@@ -895,7 +827,7 @@ export default function CharacterTool() {
               loadingLabel="Rolling batch variations"
               onClick={() => void generate(true)}
             >
-              Batch {sceneMode === "duo" ? toolSettings.batchCount ?? 3 : SOLO_BATCH_COUNT}
+              Batch {sceneMode === 'duo' ? (toolSettings.batchCount ?? 3) : SOLO_BATCH_COUNT}
             </Button>
           ) : null}
         </SceneGenerateFooter>
@@ -923,25 +855,16 @@ export default function CharacterTool() {
         }
         onSendComfyUi={() =>
           void actions.sendComfyUi(output, inferredSport, undefined, {
-            customTokens: regionalPromptCustomTokens(
-              toolSettings.regionalSegments ?? [],
-            ),
+            customTokens: regionalPromptCustomTokens(toolSettings.regionalSegments ?? []),
           })
         }
         onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
         onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
         onEditPrompt={() =>
-          actions.editPromptOutput(
-            output,
-            actions.comfyUiPreviewUrl,
-            undefined,
-            toolSettings.hints,
-          )
+          actions.editPromptOutput(output, actions.comfyUiPreviewUrl, undefined, toolSettings.hints)
         }
         {...promptResultPreviewProps(actions, output, inferredSport)}
-        onFixPrompt={() =>
-          void actions.fixPrompt(output, setOutput, toolSettings.hints)
-        }
+        onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.hints)}
         onCopyPair={() => void actions.copyPromptPair(output, inferredSport)}
         onCompact={() => void actions.compactPrompt(output, setOutput)}
         onReformat={() => void actions.reformatForModel(output, setOutput)}
@@ -967,7 +890,7 @@ export default function CharacterTool() {
         }
         batchItems={
           batchResults.length > 1
-            ? batchResults.map((entry) => ({
+            ? batchResults.map(entry => ({
                 prompt: entry.prompt,
                 metadata: entry.metadata,
               }))
@@ -976,10 +899,10 @@ export default function CharacterTool() {
         onBatchPromptChange={
           batchResults.length > 1
             ? (index, value) => {
-                setBatchResults((previous) =>
+                setBatchResults(previous =>
                   previous.map((entry, entryIndex) =>
-                    entryIndex === index ? { ...entry, prompt: value } : entry,
-                  ),
+                    entryIndex === index ? { ...entry, prompt: value } : entry
+                  )
                 );
               }
             : undefined
@@ -989,11 +912,9 @@ export default function CharacterTool() {
           hintsForCharacter: toolSettings.hints,
         }}
         batchPromptActions={{
-          onQueueComfyUi: (prompt) =>
+          onQueueComfyUi: prompt =>
             void actions.sendComfyUi(prompt, inferredSport, undefined, {
-              customTokens: regionalPromptCustomTokens(
-                toolSettings.regionalSegments ?? [],
-              ),
+              customTokens: regionalPromptCustomTokens(toolSettings.regionalSegments ?? []),
             }),
           onSaveHistory: ({ prompt, metadata }) =>
             actions.saveHistory({
@@ -1001,13 +922,12 @@ export default function CharacterTool() {
               hints: toolSettings.hints,
               metadata,
             }),
-          onCopyPair: (prompt) => void actions.copyPromptPair(prompt, inferredSport),
+          onCopyPair: prompt => void actions.copyPromptPair(prompt, inferredSport),
           onExportSidecar: (prompt, _index, metadata) =>
             void actions.exportSidecar(prompt, {
               comfyNode: result?.comfyNode ?? selectedModel.comfyNode,
               metadata,
-              variationSeed:
-                readVariationSeedFromMetadata(metadata) ?? shared.lockedVariationSeed,
+              variationSeed: readVariationSeedFromMetadata(metadata) ?? shared.lockedVariationSeed,
             }),
         }}
         onLockSeed={() => {
@@ -1016,12 +936,9 @@ export default function CharacterTool() {
           }
         }}
         variationSeed={variationSeed}
-        seedLocked={
-          Boolean(
-            variationSeed &&
-              shared.lockedVariationSeed?.trim() === variationSeed.trim(),
-          )
-        }
+        seedLocked={Boolean(
+          variationSeed && shared.lockedVariationSeed?.trim() === variationSeed.trim()
+        )}
         fixStatus={actions.fixStatus}
         compactStatus={actions.compactStatus}
         reformatStatus={actions.reformatStatus}
@@ -1032,7 +949,7 @@ export default function CharacterTool() {
         historySaved={actions.historySaved}
         pairCopied={actions.pairCopied}
         extraMeta={
-          sceneMode === "duo" && toolSettings.sportPresetId
+          sceneMode === 'duo' && toolSettings.sportPresetId
             ? getSportPreset(toolSettings.sportPresetId)?.label
             : undefined
         }
@@ -1043,9 +960,7 @@ export default function CharacterTool() {
         status={actions.comfyUiStatus}
         onQueue={() =>
           void actions.sendComfyUi(output, inferredSport, undefined, {
-            customTokens: regionalPromptCustomTokens(
-              toolSettings.regionalSegments ?? [],
-            ),
+            customTokens: regionalPromptCustomTokens(toolSettings.regionalSegments ?? []),
           })
         }
       />

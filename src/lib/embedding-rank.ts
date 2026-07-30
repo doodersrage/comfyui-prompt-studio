@@ -1,6 +1,6 @@
 export async function fetchEmbeddingRankIds(
   query: string,
-  items: Array<{ id: string; text: string }>,
+  items: Array<{ id: string; text: string }>
 ): Promise<string[] | null> {
   const trimmed = query.trim();
   if (!trimmed || items.length === 0) {
@@ -8,16 +8,16 @@ export async function fetchEmbeddingRankIds(
   }
 
   try {
-    const response = await fetch("/api/search/embeddings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const response = await fetch('/api/search/embeddings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: trimmed, items }),
     });
     if (!response.ok) {
       return null;
     }
     const data = (await response.json()) as { results?: Array<{ id: string }> };
-    return data.results?.map((entry) => entry.id) ?? null;
+    return data.results?.map(entry => entry.id) ?? null;
   } catch {
     return null;
   }
@@ -25,7 +25,7 @@ export async function fetchEmbeddingRankIds(
 
 export function sortByRankIds<T extends { id: string }>(
   items: T[],
-  rankIds: string[] | null | undefined,
+  rankIds: string[] | null | undefined
 ): T[] {
   if (!rankIds?.length) {
     return items;
@@ -33,7 +33,7 @@ export function sortByRankIds<T extends { id: string }>(
   const order = new Map(rankIds.map((id, index) => [id, index]));
   const allowed = new Set(rankIds);
   return [...items]
-    .filter((item) => allowed.has(item.id))
+    .filter(item => allowed.has(item.id))
     .sort((left, right) => (order.get(left.id) ?? 9999) - (order.get(right.id) ?? 9999));
 }
 
@@ -54,5 +54,5 @@ export function galleryEntryCorpus(entry: {
     entry.statusMessage,
   ]
     .filter(Boolean)
-    .join("\n");
+    .join('\n');
 }

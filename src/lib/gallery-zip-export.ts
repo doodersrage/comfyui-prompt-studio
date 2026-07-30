@@ -1,6 +1,6 @@
-import { buildGallerySidecar } from "./comfyui-gallery-export";
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import { buildComfyViewPath } from "./comfyui-outputs";
+import { buildGallerySidecar } from './comfyui-gallery-export';
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { buildComfyViewPath } from './comfyui-outputs';
 
 function crc32(data: Uint8Array): number {
   let crc = 0xffffffff;
@@ -89,7 +89,7 @@ export function buildZipBlob(files: ZipFileEntry[]): Blob {
         u32(0),
         u32(offset),
         nameBytes,
-      ]),
+      ])
     );
 
     offset += localHeader.length + file.data.length;
@@ -108,13 +108,13 @@ export function buildZipBlob(files: ZipFileEntry[]): Blob {
   ]);
 
   return new Blob([...localParts, centralDirectory, endRecord] as BlobPart[], {
-    type: "application/zip",
+    type: 'application/zip',
   });
 }
 
 export async function downloadGalleryZipBundle(
   entries: ComfyGalleryEntry[],
-  options?: { filename?: string },
+  options?: { filename?: string }
 ): Promise<number> {
   const files: ZipFileEntry[] = [];
 
@@ -123,18 +123,16 @@ export async function downloadGalleryZipBundle(
     const prefix = `entry-${index + 1}-${entry.promptId.slice(0, 8)}`;
     files.push({
       filename: `${prefix}/sidecar.json`,
-      data: new TextEncoder().encode(
-        JSON.stringify(buildGallerySidecar(entry), null, 2),
-      ),
+      data: new TextEncoder().encode(JSON.stringify(buildGallerySidecar(entry), null, 2)),
     });
 
     const image = entry.images[0];
-    if (entry.status === "completed" && image) {
+    if (entry.status === 'completed' && image) {
       try {
         const response = await fetch(buildComfyViewPath(entry.comfyUrl, image));
         if (response.ok) {
           files.push({
-            filename: `${prefix}/${image.filename || "output.png"}`,
+            filename: `${prefix}/${image.filename || 'output.png'}`,
             data: new Uint8Array(await response.arrayBuffer()),
           });
         }
@@ -150,7 +148,7 @@ export async function downloadGalleryZipBundle(
 
   const blob = buildZipBlob(files);
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = options?.filename?.trim() || `gallery-export-${Date.now()}.zip`;
   anchor.click();

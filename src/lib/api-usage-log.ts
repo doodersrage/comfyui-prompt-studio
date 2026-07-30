@@ -12,7 +12,7 @@ export type ApiUsageEntry = {
 const MAX_ENTRIES = 500;
 const entries: ApiUsageEntry[] = [];
 
-export function logApiUsage(entry: Omit<ApiUsageEntry, "id">): void {
+export function logApiUsage(entry: Omit<ApiUsageEntry, 'id'>): void {
   entries.unshift({
     ...entry,
     id: `${entry.at}-${Math.random().toString(36).slice(2, 8)}`,
@@ -34,8 +34,8 @@ export function summarizeApiUsage(): {
 } {
   const now = Date.now();
   const hourAgo = now - 60 * 60 * 1000;
-  const recent = entries.filter((entry) => entry.at >= hourAgo);
-  const rateLimited = recent.filter((entry) => entry.rateLimited).length;
+  const recent = entries.filter(entry => entry.at >= hourAgo);
+  const rateLimited = recent.filter(entry => entry.rateLimited).length;
   const avgDurationMs =
     recent.length > 0
       ? Math.round(recent.reduce((sum, entry) => sum + entry.durationMs, 0) / recent.length)

@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import dynamic from "next/dynamic";
-import { useState } from "react";
-import { ToolPageSkeleton } from "@/components/ui/ViewState";
+import dynamic from 'next/dynamic';
+import { useState } from 'react';
+import { ToolPageSkeleton } from '@/components/ui/ViewState';
 
-const GalleryImportTools = dynamic(() => import("@/components/GalleryImportTools"), {
+const GalleryImportTools = dynamic(() => import('@/components/GalleryImportTools'), {
   loading: () => <ToolPageSkeleton label="Loading import tools" />,
 });
 
@@ -15,7 +15,7 @@ export default function GalleryImportSection() {
     <details
       className="ui-collapsible group"
       open
-      onToggle={(event) => {
+      onToggle={event => {
         setExpanded((event.currentTarget as HTMLDetailsElement).open);
       }}
     >

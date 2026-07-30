@@ -12,73 +12,73 @@ export type WildcardMap = Record<string, string[]>;
 /** Small inline defaults so `__color__` / `__weather__` etc. work with zero setup. */
 export const DEFAULT_WILDCARDS: WildcardMap = {
   color: [
-    "red",
-    "crimson",
-    "amber",
-    "gold",
-    "emerald",
-    "teal",
-    "azure",
-    "cobalt",
-    "violet",
-    "magenta",
-    "charcoal",
-    "silver",
+    'red',
+    'crimson',
+    'amber',
+    'gold',
+    'emerald',
+    'teal',
+    'azure',
+    'cobalt',
+    'violet',
+    'magenta',
+    'charcoal',
+    'silver',
   ],
   weather: [
-    "sunny",
-    "overcast",
-    "light rain",
-    "foggy",
-    "stormy",
-    "snowy",
-    "misty",
-    "clear skies",
-    "golden hour haze",
-    "dramatic clouds",
+    'sunny',
+    'overcast',
+    'light rain',
+    'foggy',
+    'stormy',
+    'snowy',
+    'misty',
+    'clear skies',
+    'golden hour haze',
+    'dramatic clouds',
   ],
   mood: [
-    "serene",
-    "dramatic",
-    "playful",
-    "mysterious",
-    "melancholic",
-    "joyful",
-    "tense",
-    "dreamy",
-    "triumphant",
-    "intimate",
+    'serene',
+    'dramatic',
+    'playful',
+    'mysterious',
+    'melancholic',
+    'joyful',
+    'tense',
+    'dreamy',
+    'triumphant',
+    'intimate',
   ],
-  season: ["spring", "summer", "autumn", "winter"],
+  season: ['spring', 'summer', 'autumn', 'winter'],
   timeofday: [
-    "dawn",
-    "early morning",
-    "midday",
-    "golden hour",
-    "dusk",
-    "twilight",
-    "night",
-    "midnight",
+    'dawn',
+    'early morning',
+    'midday',
+    'golden hour',
+    'dusk',
+    'twilight',
+    'night',
+    'midnight',
   ],
   texture: [
-    "glossy",
-    "matte",
-    "weathered",
-    "polished",
-    "rough-hewn",
-    "silky",
-    "rugged",
-    "pristine",
+    'glossy',
+    'matte',
+    'weathered',
+    'polished',
+    'rough-hewn',
+    'silky',
+    'rugged',
+    'pristine',
   ],
   expression: [
-    "confident smile",
-    "soft gaze",
-    "determined stare",
-    "gentle smile",
-    "focused expression",
-    "quiet laugh",
+    'confident smile',
+    'soft gaze',
+    'determined stare',
+    'gentle smile',
+    'focused expression',
+    'quiet laugh',
   ],
-  animal: ["fox", "wolf", "hawk", "owl", "panther", "stag", "raven", "lynx"],
+  animal: ['fox', 'wolf', 'hawk', 'owl', 'panther', 'stag', 'raven', 'lynx'],
 };
 
 /** 32-bit string hash (FNV-ish) — used to derive a numeric PRNG seed from a string. */
@@ -105,16 +105,12 @@ function mulberry32(seed: number): () => number {
  * Returns a `() => number` in `[0, 1)`. Same seed always yields the same
  * sequence — omit `seed` (or pass an empty string) for `Math.random`.
  */
-export function createDeterministicRandom(
-  seed?: string | number | null,
-): () => number {
-  if (seed === undefined || seed === null || seed === "") {
+export function createDeterministicRandom(seed?: string | number | null): () => number {
+  if (seed === undefined || seed === null || seed === '') {
     return Math.random;
   }
   const numericSeed =
-    typeof seed === "number" && Number.isFinite(seed)
-      ? seed >>> 0
-      : hashStringToSeed(String(seed));
+    typeof seed === 'number' && Number.isFinite(seed) ? seed >>> 0 : hashStringToSeed(String(seed));
   return mulberry32(numericSeed);
 }
 
@@ -123,9 +119,7 @@ function normalizeWildcardName(name: string): string {
 }
 
 /** Later maps win on key collisions; empty/invalid lists are ignored. */
-export function mergeWildcardMaps(
-  ...maps: Array<WildcardMap | undefined | null>
-): WildcardMap {
+export function mergeWildcardMaps(...maps: Array<WildcardMap | undefined | null>): WildcardMap {
   const merged: WildcardMap = {};
   for (const map of maps) {
     if (!map) {
@@ -136,8 +130,8 @@ export function mergeWildcardMaps(
         continue;
       }
       const cleaned = values
-        .filter((value): value is string => typeof value === "string")
-        .map((value) => value.trim())
+        .filter((value): value is string => typeof value === 'string')
+        .map(value => value.trim())
         .filter(Boolean);
       if (cleaned.length === 0) {
         continue;
@@ -152,8 +146,8 @@ export function mergeWildcardMaps(
 export function parseWildcardListFile(contents: string): string[] {
   return contents
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#") && !line.startsWith("//"));
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#') && !line.startsWith('//'));
 }
 
 const CHOICE_GROUP_RE = /\{([^{}|]+(?:\|[^{}|]+)+)\}/g;
@@ -174,10 +168,7 @@ export type ExpandWildcardsOptions = {
  * `text`. Unknown `__name__` tokens are left untouched (rather than deleted)
  * so a typo is visible in the resulting prompt instead of silently vanishing.
  */
-export function expandWildcardText(
-  text: string,
-  options?: ExpandWildcardsOptions,
-): string {
+export function expandWildcardText(text: string, options?: ExpandWildcardsOptions): string {
   if (!text) {
     return text;
   }
@@ -187,12 +178,9 @@ export function expandWildcardText(
 
   const pickFrom = (choices: string[]): string => {
     if (choices.length === 0) {
-      return "";
+      return '';
     }
-    const index = Math.min(
-      choices.length - 1,
-      Math.floor(random() * choices.length),
-    );
+    const index = Math.min(choices.length - 1, Math.floor(random() * choices.length));
     return choices[index]!;
   };
 
@@ -202,11 +190,11 @@ export function expandWildcardText(
 
     result = result.replace(CHOICE_GROUP_RE, (_match, group: string) => {
       const choices = group
-        .split("|")
-        .map((choice) => choice.trim())
+        .split('|')
+        .map(choice => choice.trim())
         .filter(Boolean);
       if (choices.length === 0) {
-        return "";
+        return '';
       }
       changed = true;
       return pickFrom(choices);
@@ -245,10 +233,8 @@ export function textHasWildcardTokens(text: string | undefined | null): boolean 
  * skipped silently so callers can pass a broad "wanted" list without needing
  * every file to exist. No-op (returns `{}`) outside the browser.
  */
-export async function loadWildcardsFromPublicDir(
-  names: string[],
-): Promise<WildcardMap> {
-  if (typeof fetch === "undefined" || names.length === 0) {
+export async function loadWildcardsFromPublicDir(names: string[]): Promise<WildcardMap> {
+  if (typeof fetch === 'undefined' || names.length === 0) {
     return {};
   }
 
@@ -259,9 +245,7 @@ export async function loadWildcardsFromPublicDir(
         return null;
       }
       try {
-        const response = await fetch(
-          `/wildcards/${encodeURIComponent(trimmed)}.txt`,
-        );
+        const response = await fetch(`/wildcards/${encodeURIComponent(trimmed)}.txt`);
         if (!response.ok) {
           return null;
         }
@@ -270,7 +254,7 @@ export async function loadWildcardsFromPublicDir(
       } catch {
         return null;
       }
-    }),
+    })
   );
 
   const result: WildcardMap = {};

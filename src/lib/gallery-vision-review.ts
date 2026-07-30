@@ -1,4 +1,4 @@
-import { visionCompletion } from "./llm-client";
+import { visionCompletion } from './llm-client';
 
 export type VisionReviewResult = {
   suggestedRating: 1 | 2 | 3 | 4 | 5;
@@ -17,14 +17,14 @@ export async function captionGalleryImage(input: {
       'Write a short LoRA training caption for the image. Reply with JSON only: {"caption":"..."}. Prefer concrete visual details, 12–40 words, no quotes around the whole caption.',
     textPrompt: input.prompt?.trim()
       ? `Original prompt (for context, do not copy verbatim):\n${input.prompt.trim()}`
-      : "Describe the image for LoRA training.",
+      : 'Describe the image for LoRA training.',
     imageDataUrl: input.imageDataUrl,
     maxTokens: 220,
     temperature: 0.3,
   });
 
   try {
-    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim()) as {
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim()) as {
       caption?: string;
     };
     if (parsed.caption?.trim()) {
@@ -33,7 +33,10 @@ export async function captionGalleryImage(input: {
   } catch {
     // fall through
   }
-  return text.replace(/^["']|["']$/g, "").trim().slice(0, 320);
+  return text
+    .replace(/^["']|["']$/g, '')
+    .trim()
+    .slice(0, 320);
 }
 
 export async function reviewGalleryImage(input: {
@@ -53,16 +56,19 @@ export async function reviewGalleryImage(input: {
   });
 
   try {
-    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim()) as {
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim()) as {
       rating?: number;
       tags?: string[];
       critique?: string;
     };
-    const rating = Math.min(5, Math.max(1, Math.round(parsed.rating ?? 3))) as VisionReviewResult["suggestedRating"];
+    const rating = Math.min(
+      5,
+      Math.max(1, Math.round(parsed.rating ?? 3))
+    ) as VisionReviewResult['suggestedRating'];
     return {
       suggestedRating: rating,
       tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 8).map(String) : [],
-      critique: parsed.critique?.trim() || "No critique returned.",
+      critique: parsed.critique?.trim() || 'No critique returned.',
     };
   } catch {
     // Reasoning dumps may bury JSON — pull the first object if present.
@@ -76,14 +82,12 @@ export async function reviewGalleryImage(input: {
         };
         const rating = Math.min(
           5,
-          Math.max(1, Math.round(parsed.rating ?? 3)),
-        ) as VisionReviewResult["suggestedRating"];
+          Math.max(1, Math.round(parsed.rating ?? 3))
+        ) as VisionReviewResult['suggestedRating'];
         return {
           suggestedRating: rating,
-          tags: Array.isArray(parsed.tags)
-            ? parsed.tags.slice(0, 8).map(String)
-            : [],
-          critique: parsed.critique?.trim() || "No critique returned.",
+          tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 8).map(String) : [],
+          critique: parsed.critique?.trim() || 'No critique returned.',
         };
       } catch {
         // fall through

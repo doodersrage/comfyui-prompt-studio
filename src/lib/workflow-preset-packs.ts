@@ -1,13 +1,13 @@
-import type { ComfyWorkflowPreset } from "./comfyui-workflow-presets";
-import { upsertComfyWorkflowFile } from "./comfyui-workflow-files";
-import { readBrowserValue, writeBrowserValue } from "./browser-storage";
-import { optimizeWorkflowForQueue } from "./workflow-queue-optimizer";
-import { normalizeQueueQualityProfile } from "./queue-quality-profile";
-import { workflowContentHash } from "./workflow-content-hash";
-import { loadSettingsCache } from "./settings-cache";
-import { inferModelsFromWorkflowLabel } from "./workflow-category-defaults";
+import type { ComfyWorkflowPreset } from './comfyui-workflow-presets';
+import { upsertComfyWorkflowFile } from './comfyui-workflow-files';
+import { readBrowserValue, writeBrowserValue } from './browser-storage';
+import { optimizeWorkflowForQueue } from './workflow-queue-optimizer';
+import { normalizeQueueQualityProfile } from './queue-quality-profile';
+import { workflowContentHash } from './workflow-content-hash';
+import { loadSettingsCache } from './settings-cache';
+import { inferModelsFromWorkflowLabel } from './workflow-category-defaults';
 
-export const WORKFLOW_PRESET_PACKS_KEY = "comfyui-workflow-preset-packs-v1";
+export const WORKFLOW_PRESET_PACKS_KEY = 'comfyui-workflow-preset-packs-v1';
 
 export type WorkflowPresetPack = {
   id: string;
@@ -19,7 +19,7 @@ export type WorkflowPresetPack = {
 };
 
 export function loadWorkflowPresetPacks(): WorkflowPresetPack[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   try {
@@ -30,7 +30,7 @@ export function loadWorkflowPresetPacks(): WorkflowPresetPack[] {
 }
 
 export function saveWorkflowPresetPacks(packs: WorkflowPresetPack[]): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   writeBrowserValue(WORKFLOW_PRESET_PACKS_KEY, packs);
 }
 
@@ -42,15 +42,15 @@ export function exportWorkflowPresetPack(pack: WorkflowPresetPack): string {
       pack,
     },
     null,
-    2,
+    2
   );
 }
 
 export function importWorkflowPresetPack(raw: string): WorkflowPresetPack {
   const parsed = JSON.parse(raw) as { pack?: WorkflowPresetPack } | WorkflowPresetPack;
-  const pack = "pack" in parsed && parsed.pack ? parsed.pack : (parsed as WorkflowPresetPack);
+  const pack = 'pack' in parsed && parsed.pack ? parsed.pack : (parsed as WorkflowPresetPack);
   if (!pack?.name || !Array.isArray(pack.presets)) {
-    throw new Error("Invalid workflow preset pack JSON.");
+    throw new Error('Invalid workflow preset pack JSON.');
   }
   return {
     ...pack,
@@ -62,7 +62,7 @@ export function importWorkflowPresetPack(raw: string): WorkflowPresetPack {
 
 export function upsertWorkflowPresetPack(pack: WorkflowPresetPack): void {
   const packs = loadWorkflowPresetPacks();
-  const index = packs.findIndex((entry) => entry.id === pack.id);
+  const index = packs.findIndex(entry => entry.id === pack.id);
   if (index >= 0) {
     packs[index] = pack;
   } else {
@@ -76,7 +76,7 @@ export function workflowFileToPreset(input: {
   name: string;
   workflowJson: string;
   createdAt?: number;
-  customTokens?: import("./comfyui-config").CustomWorkflowToken[];
+  customTokens?: import('./comfyui-config').CustomWorkflowToken[];
 }): ComfyWorkflowPreset {
   return {
     id: input.id ?? crypto.randomUUID(),
@@ -87,13 +87,16 @@ export function workflowFileToPreset(input: {
   };
 }
 
-export function addPresetsToPack(packId: string, presets: ComfyWorkflowPreset[]): WorkflowPresetPack | null {
+export function addPresetsToPack(
+  packId: string,
+  presets: ComfyWorkflowPreset[]
+): WorkflowPresetPack | null {
   const packs = loadWorkflowPresetPacks();
-  const index = packs.findIndex((entry) => entry.id === packId);
+  const index = packs.findIndex(entry => entry.id === packId);
   if (index < 0) {
     return null;
   }
-  const existingIds = new Set(packs[index].presets.map((preset) => preset.id));
+  const existingIds = new Set(packs[index].presets.map(preset => preset.id));
   const merged = [...packs[index].presets];
   for (const preset of presets) {
     if (!existingIds.has(preset.id)) {
@@ -107,7 +110,7 @@ export function addPresetsToPack(packId: string, presets: ComfyWorkflowPreset[])
 }
 
 export function applyWorkflowPresetPackToLibrary(pack: WorkflowPresetPack): number {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return 0;
   }
   const shared = loadSettingsCache().shared;
@@ -123,24 +126,24 @@ export function applyWorkflowPresetPackToLibrary(pack: WorkflowPresetPack): numb
       const optimized = optimizeWorkflowForQueue({
         workflow: parsed,
         tokens: {
-          positive: "{{POSITIVE}}",
-          negative: "{{NEGATIVE}}",
-          seed: "{{SEED}}",
-          width: "{{WIDTH}}",
-          height: "{{HEIGHT}}",
-          cfg: "{{CFG}}",
-          steps: "{{STEPS}}",
-          sampler: "{{SAMPLER}}",
-          scheduler: "{{SCHEDULER}}",
-          shift: "{{SHIFT}}",
-          fluxMaxShift: "{{FLUX_MAX_SHIFT}}",
-          fluxBaseShift: "{{FLUX_BASE_SHIFT}}",
-          denoise: "{{DENOISE}}",
-          inputImage: "{{INPUT_IMAGE}}",
-          maskImage: "{{MASK_IMAGE}}",
-          initImage: "{{INIT_IMAGE}}",
-          videoFrames: "{{VIDEO_FRAMES}}",
-          videoFps: "{{VIDEO_FPS}}",
+          positive: '{{POSITIVE}}',
+          negative: '{{NEGATIVE}}',
+          seed: '{{SEED}}',
+          width: '{{WIDTH}}',
+          height: '{{HEIGHT}}',
+          cfg: '{{CFG}}',
+          steps: '{{STEPS}}',
+          sampler: '{{SAMPLER}}',
+          scheduler: '{{SCHEDULER}}',
+          shift: '{{SHIFT}}',
+          fluxMaxShift: '{{FLUX_MAX_SHIFT}}',
+          fluxBaseShift: '{{FLUX_BASE_SHIFT}}',
+          denoise: '{{DENOISE}}',
+          inputImage: '{{INPUT_IMAGE}}',
+          maskImage: '{{MASK_IMAGE}}',
+          initImage: '{{INIT_IMAGE}}',
+          videoFrames: '{{VIDEO_FRAMES}}',
+          videoFps: '{{VIDEO_FPS}}',
         },
         model: optimizeModel,
         qualityProfile: shared.queueQualityProfile,

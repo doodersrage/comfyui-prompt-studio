@@ -1,36 +1,36 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { ChipButton } from "@/components/ui/Field";
-import { useHeldMaxCount } from "@/hooks/useHeldMaxJobs";
+import { useState } from 'react';
+import { ChipButton } from '@/components/ui/Field';
+import { useHeldMaxCount } from '@/hooks/useHeldMaxJobs';
 import {
   normalizeModelSamplerPresetTier,
   type ModelSamplerPresetTier,
-} from "@/lib/model-sampler-defaults";
+} from '@/lib/model-sampler-defaults';
 import {
   normalizeResolutionSizeTier,
   type ResolutionSizeTier,
-} from "@/lib/model-resolution-defaults";
+} from '@/lib/model-resolution-defaults';
 import {
   formatQueuePipelineStatusNotes,
   formatQueueQualityProfileHint,
   QUEUE_QUALITY_PROFILE_OPTIONS,
   resolveQueueQualityProfile,
   type QueueQualityProfile,
-} from "@/lib/queue-quality-profile";
-import { resolveUpscaleModelFilename } from "@/lib/model-upscale-map";
+} from '@/lib/queue-quality-profile';
+import { resolveUpscaleModelFilename } from '@/lib/model-upscale-map';
 import {
   DEFAULT_VIDEO_TOOL_CACHE,
   loadSettingsCache,
   loadToolSettings,
   saveSharedSettings,
-} from "@/lib/settings-cache";
-import { rememberedSamplerOverrides } from "@/lib/sampler-memory";
-import { toolQueueQualityLabel } from "@/lib/tool-quality-profiles";
-import { describeSystemWorkflowChoice } from "@/lib/system-workflow-runtime";
-import { loadComfyWorkflowFiles } from "@/lib/comfyui-workflow-files";
-import { readCachedComfyObjectInfoModels } from "@/lib/comfyui-object-info-cache";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
+} from '@/lib/settings-cache';
+import { rememberedSamplerOverrides } from '@/lib/sampler-memory';
+import { toolQueueQualityLabel } from '@/lib/tool-quality-profiles';
+import { describeSystemWorkflowChoice } from '@/lib/system-workflow-runtime';
+import { loadComfyWorkflowFiles } from '@/lib/comfyui-workflow-files';
+import { readCachedComfyObjectInfoModels } from '@/lib/comfyui-object-info-cache';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 
 type QueueQualityProfileHintsProps = {
   profile: QueueQualityProfile;
@@ -56,7 +56,7 @@ export default function QueueQualityProfileHints({
   const heldCount = useHeldMaxCount();
   const shared = loadSettingsCache().shared;
   const neuralUpscaleAvailable = Boolean(
-    resolveUpscaleModelFilename(shared.model, { upscaleMap: shared.modelUpscaleMap }),
+    resolveUpscaleModelFilename(shared.model, { upscaleMap: shared.modelUpscaleMap })
   );
   const effectiveProfile = resolveQueueQualityProfile({
     global: profile,
@@ -64,21 +64,19 @@ export default function QueueQualityProfileHints({
   });
   const hintOptions = { neuralUpscaleAvailable, model: shared.model };
   const activeOption =
-    QUEUE_QUALITY_PROFILE_OPTIONS.find((option) => option.id === profile) ??
+    QUEUE_QUALITY_PROFILE_OPTIONS.find(option => option.id === profile) ??
     QUEUE_QUALITY_PROFILE_OPTIONS[0];
   const effectiveGlobal = formatQueueQualityProfileHint(
     effectiveProfile,
     normalizeModelSamplerPresetTier(samplerPreset),
     normalizeResolutionSizeTier(resolutionSizeTier),
-    hintOptions,
+    hintOptions
   );
   const draftBumped =
-    profile === "draft" &&
-    effectiveProfile === "final" &&
-    (/^qwen-rapid-aio-/i.test(shared.model) ||
-      /^qwen-image-2512$/i.test(shared.model));
-  const hasSamplerMemory =
-    Object.keys(rememberedSamplerOverrides(shared.model)).length > 0;
+    profile === 'draft' &&
+    effectiveProfile === 'final' &&
+    (/^qwen-rapid-aio-/i.test(shared.model) || /^qwen-image-2512$/i.test(shared.model));
+  const hasSamplerMemory = Object.keys(rememberedSamplerOverrides(shared.model)).length > 0;
   const systemChoice =
     shared.useSystemWorkflows === true
       ? describeSystemWorkflowChoice(
@@ -87,12 +85,10 @@ export default function QueueQualityProfileHints({
           readCachedComfyObjectInfoModels(),
           {
             preferI2v:
-              getComfyModelDefinition(shared.model)?.category === "video" &&
-              Boolean(
-                loadToolSettings("video", DEFAULT_VIDEO_TOOL_CACHE).initImageUrl?.trim(),
-              ),
+              getComfyModelDefinition(shared.model)?.category === 'video' &&
+              Boolean(loadToolSettings('video', DEFAULT_VIDEO_TOOL_CACHE).initImageUrl?.trim()),
             tool: toolId,
-          },
+          }
         )
       : null;
   const pipelinePreview = formatQueuePipelineStatusNotes({
@@ -102,11 +98,9 @@ export default function QueueQualityProfileHints({
     samplerMemory: hasSamplerMemory,
     systemWorkflowSource: systemChoice?.source,
     systemWorkflowLabel:
-      systemChoice?.source === "pack"
-        ? systemChoice.label
-        : systemChoice?.display,
+      systemChoice?.source === 'pack' ? systemChoice.label : systemChoice?.display,
   });
-  const sessionMode = shared.sessionQueueMode ?? "off";
+  const sessionMode = shared.sessionQueueMode ?? 'off';
   const effectiveForTool = toolId
     ? formatQueueQualityProfileHint(
         resolveQueueQualityProfile({
@@ -117,30 +111,30 @@ export default function QueueQualityProfileHints({
         }),
         normalizeModelSamplerPresetTier(samplerPreset),
         normalizeResolutionSizeTier(resolutionSizeTier),
-        hintOptions,
+        hintOptions
       )
     : null;
 
-  function setSessionMode(mode: "iterate" | "keeper" | "off") {
+  function setSessionMode(mode: 'iterate' | 'keeper' | 'off') {
     const next = loadSettingsCache().shared;
     saveSharedSettings({ ...next, sessionQueueMode: mode });
-    setSettingsTick((value) => value + 1);
+    setSettingsTick(value => value + 1);
   }
 
   function handleProfileChange(next: QueueQualityProfile) {
-    if (next === "draft") {
-      setSessionMode("iterate");
-    } else if (next === "final") {
-      setSessionMode("keeper");
+    if (next === 'draft') {
+      setSessionMode('iterate');
+    } else if (next === 'final') {
+      setSessionMode('keeper');
     } else {
-      setSessionMode("off");
+      setSessionMode('off');
     }
     onProfileChange(next);
   }
 
-  function handleSessionMode(mode: "iterate" | "keeper") {
+  function handleSessionMode(mode: 'iterate' | 'keeper') {
     setSessionMode(mode);
-    onProfileChange(mode === "iterate" ? "draft" : "final");
+    onProfileChange(mode === 'iterate' ? 'draft' : 'final');
   }
 
   return (
@@ -150,7 +144,7 @@ export default function QueueQualityProfileHints({
           <p className="type-caption text-violet-200/85">Queue quality profile</p>
           <p className="break-words text-xs text-zinc-300">
             {effectiveGlobal ??
-              "Uses sidebar KSampler preset and resolution settings when queueing."}
+              'Uses sidebar KSampler preset and resolution settings when queueing.'}
           </p>
         </div>
 
@@ -158,15 +152,15 @@ export default function QueueQualityProfileHints({
           <p className="type-caption text-violet-200/70">Session mode</p>
           <div className="grid min-w-0 grid-cols-2 gap-1.5">
             <ChipButton
-              active={sessionMode === "iterate" || profile === "draft"}
-              onClick={() => handleSessionMode("iterate")}
+              active={sessionMode === 'iterate' || profile === 'draft'}
+              onClick={() => handleSessionMode('iterate')}
               className="w-full justify-center px-2"
             >
               Iterate
             </ChipButton>
             <ChipButton
-              active={sessionMode === "keeper" || profile === "final"}
-              onClick={() => handleSessionMode("keeper")}
+              active={sessionMode === 'keeper' || profile === 'final'}
+              onClick={() => handleSessionMode('keeper')}
               className="w-full justify-center px-2"
             >
               Keeper
@@ -174,22 +168,20 @@ export default function QueueQualityProfileHints({
           </div>
           <p className="type-caption text-zinc-500">
             {draftBumped
-              ? "Iterate → Draft (queues as Final for polish/Base on this model). Keeper → Final. Max stays separate."
-              : "Iterate → Draft for fast loops. Keeper → Final for keepers. Max stays a separate quality chip."}
+              ? 'Iterate → Draft (queues as Final for polish/Base on this model). Keeper → Final. Max stays separate.'
+              : 'Iterate → Draft for fast loops. Keeper → Final for keepers. Max stays a separate quality chip.'}
           </p>
         </div>
 
         <div className="grid min-w-0 grid-cols-2 gap-1.5">
-          {QUEUE_QUALITY_PROFILE_OPTIONS.map((option) => (
+          {QUEUE_QUALITY_PROFILE_OPTIONS.map(option => (
             <ChipButton
               key={option.id}
               active={profile === option.id}
               onClick={() => handleProfileChange(option.id)}
               className="w-full justify-center px-2"
             >
-              {option.id === "draft" && draftBumped
-                ? "Draft → Final"
-                : option.label}
+              {option.id === 'draft' && draftBumped ? 'Draft → Final' : option.label}
             </ChipButton>
           ))}
         </div>
@@ -198,7 +190,7 @@ export default function QueueQualityProfileHints({
           <div className="space-y-1.5">
             <p className="type-caption text-violet-200/70">Pipeline preview</p>
             <div className="flex flex-wrap gap-1.5">
-              {pipelinePreview.map((note) => (
+              {pipelinePreview.map(note => (
                 <span
                   key={note}
                   className="rounded-md border border-violet-400/20 bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-100/90"
@@ -227,15 +219,13 @@ export default function QueueQualityProfileHints({
                 ...next,
                 holdMaxUntilIdle: next.holdMaxUntilIdle !== true,
               });
-              setSettingsTick((value) => value + 1);
+              setSettingsTick(value => value + 1);
             }}
           >
             Hold Max until idle
           </ChipButton>
           {shared.holdMaxUntilIdle ? (
-            <span className="type-caption text-zinc-500">
-              Max waits for an empty ComfyUI queue
-            </span>
+            <span className="type-caption text-zinc-500">Max waits for an empty ComfyUI queue</span>
           ) : null}
         </div>
       </div>
@@ -253,18 +243,18 @@ export default function QueueQualityProfileHints({
             >
               Use global
             </ChipButton>
-            {QUEUE_QUALITY_PROFILE_OPTIONS.filter(
-              (option) => option.id !== "followSettings",
-            ).map((option) => (
-              <ChipButton
-                key={`tool-${option.id}`}
-                active={toolProfile === option.id}
-                onClick={() => onToolProfileChange(option.id)}
-                className="w-full justify-center px-2"
-              >
-                {option.label}
-              </ChipButton>
-            ))}
+            {QUEUE_QUALITY_PROFILE_OPTIONS.filter(option => option.id !== 'followSettings').map(
+              option => (
+                <ChipButton
+                  key={`tool-${option.id}`}
+                  active={toolProfile === option.id}
+                  onClick={() => onToolProfileChange(option.id)}
+                  className="w-full justify-center px-2"
+                >
+                  {option.label}
+                </ChipButton>
+              )
+            )}
           </div>
           {effectiveForTool && toolProfile ? (
             <p className="type-caption text-zinc-500">{effectiveForTool}</p>
@@ -276,30 +266,29 @@ export default function QueueQualityProfileHints({
       <p className="mt-1.5 type-caption text-zinc-500">
         {/^qwen-rapid-aio-/i.test(shared.model) ? (
           <>
-            Rapid AIO: Draft queues as Final so moiré polish runs. Max uses 10-step sgm_uniform
-            plus short anti-moiré cues; Final uses soft blur only, Max adds a mild bicubic
-            resample. Output upscale is skipped (it re-amplifies screen-door).
+            Rapid AIO: Draft queues as Final so moiré polish runs. Max uses 10-step sgm_uniform plus
+            short anti-moiré cues; Final uses soft blur only, Max adds a mild bicubic resample.
+            Output upscale is skipped (it re-amplifies screen-door).
           </>
         ) : /lightning-(4|8)\b/i.test(shared.model) ? (
           <>
             Lightning: CFG-1 short negatives. Sidebar ARs stick to 1:1 / 3:4 / 4:3 (extreme
-            9:16/16:9 softens). Final/Max add Lanczos on native 2512 Lightning — Draft stays
-            native. Edit Lightning T2I skips Lanczos. Gallery Upscale/Refine are disabled —
-            re-queue with a new seed instead.
+            9:16/16:9 softens). Final/Max add Lanczos on native 2512 Lightning — Draft stays native.
+            Edit Lightning T2I skips Lanczos. Gallery Upscale/Refine are disabled — re-queue with a
+            new seed instead.
           </>
         ) : /^qwen-image-2512$/i.test(shared.model) ? (
           <>
-            Vanilla 2512: Draft queues as Final. Final/Max bump sampler steps and use
-            Lanczos-only image upscale (~1.25× chroma guard — no neural 4×). Latent detail
-            hires-fix is off — it melted anatomy on hard poses.
+            Vanilla 2512: Draft queues as Final. Final/Max bump sampler steps and use Lanczos-only
+            image upscale (~1.25× chroma guard — no neural 4×). Latent detail hires-fix is off — it
+            melted anatomy on hard poses.
           </>
         ) : (
           <>
-            Draft favors speed; Final and Max bump sampler steps and resolution. Flux
-            Final/Max may insert a soft latent detail pass; SDXL may insert a refiner.
-            When an upscale model is mapped, Final/Max run{" "}
-            <span className="text-zinc-400">UpscaleModel</span> then area-scale to ~1.25×/1.5×
-            (Max may add Lanczos polish + sharpen); otherwise Lanczos{" "}
+            Draft favors speed; Final and Max bump sampler steps and resolution. Flux Final/Max may
+            insert a soft latent detail pass; SDXL may insert a refiner. When an upscale model is
+            mapped, Final/Max run <span className="text-zinc-400">UpscaleModel</span> then
+            area-scale to ~1.25×/1.5× (Max may add Lanczos polish + sharpen); otherwise Lanczos{' '}
             <span className="text-zinc-400">ImageScale</span> before SaveImage.
           </>
         )}

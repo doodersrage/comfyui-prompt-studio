@@ -1,45 +1,44 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import SharedToolControls from "@/components/SharedToolControls";
-import MobileStickyQueueBar from "@/components/MobileStickyQueueBar";
-import ComfyPackImportControl from "@/components/ComfyPackImportControl";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { DEFAULT_AUDIO_MODEL } from "@/lib/comfy-models/client";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import {
-  AUDIO_SECONDS_TOKEN,
-  buildAudioPrompt,
-} from "@/lib/audio-mesh-prompt";
-import { ensureAudioWorkflowScaffold } from "@/lib/ensure-media-workflow";
-import { DEFAULT_AUDIO_TOOL_CACHE } from "@/lib/settings-cache";
-import { fetchComfyObjectInfoCached } from "@/lib/comfyui-object-info-cache";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import SharedToolControls from '@/components/SharedToolControls';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
+import ComfyPackImportControl from '@/components/ComfyPackImportControl';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { DEFAULT_AUDIO_MODEL } from '@/lib/comfy-models/client';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { AUDIO_SECONDS_TOKEN, buildAudioPrompt } from '@/lib/audio-mesh-prompt';
+import { ensureAudioWorkflowScaffold } from '@/lib/ensure-media-workflow';
+import { DEFAULT_AUDIO_TOOL_CACHE } from '@/lib/settings-cache';
+import { fetchComfyObjectInfoCached } from '@/lib/comfyui-object-info-cache';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldLabel, TextArea, TextInput } from "@/components/ui/Field";
-import { PrimaryButton } from "@/components/ui/Button";
+} from '@/components/ui/ToolPageShell';
+import { FieldLabel, TextArea, TextInput } from '@/components/ui/Field';
+import { PrimaryButton } from '@/components/ui/Button';
 
-const ACCENT = "sky" as const;
+const ACCENT = 'sky' as const;
 
 export default function AudioPromptTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("audio", DEFAULT_AUDIO_TOOL_CACHE);
-  const subject = toolSettings?.subject ?? "";
-  const mood = toolSettings?.mood ?? "";
-  const instruments = toolSettings?.instruments ?? "";
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'audio',
+    DEFAULT_AUDIO_TOOL_CACHE
+  );
+  const subject = toolSettings?.subject ?? '';
+  const mood = toolSettings?.mood ?? '';
+  const instruments = toolSettings?.instruments ?? '';
   const durationSec = toolSettings?.durationSec ?? 10;
 
   const actions = usePromptResultActions({
-    tool: "audio",
+    tool: 'audio',
     model: shared.model,
     detail: shared.detail,
     hints: subject,
@@ -49,7 +48,7 @@ export default function AudioPromptTool() {
     if (!mounted) {
       return;
     }
-    if (getComfyModelDefinition(shared.model).category !== "audio") {
+    if (getComfyModelDefinition(shared.model).category !== 'audio') {
       updateShared({ model: DEFAULT_AUDIO_MODEL });
     }
   }, [mounted, shared.model, updateShared]);
@@ -63,7 +62,7 @@ export default function AudioPromptTool() {
     let cancelled = false;
     try {
       const model =
-        getComfyModelDefinition(shared.model).category === "audio"
+        getComfyModelDefinition(shared.model).category === 'audio'
           ? shared.model
           : DEFAULT_AUDIO_MODEL;
       void fetchComfyObjectInfoCached().catch(() => null);
@@ -80,7 +79,7 @@ export default function AudioPromptTool() {
           setWorkflowStatus(
             error instanceof Error
               ? error.message
-              : "Could not create audio workflow scaffold. Import a Stable Audio pack in Settings → workflows.",
+              : 'Could not create audio workflow scaffold. Import a Stable Audio pack in Settings → workflows.'
           );
         });
       }
@@ -92,7 +91,7 @@ export default function AudioPromptTool() {
 
   const builtOutput = useMemo(
     () => buildAudioPrompt({ subject, mood, instruments, durationSec }),
-    [durationSec, instruments, mood, subject],
+    [durationSec, instruments, mood, subject]
   );
   const [outputOverride, setOutputOverride] = useState<string | null>(null);
   useEffect(() => {
@@ -115,9 +114,7 @@ export default function AudioPromptTool() {
   }
 
   const controlsModel =
-    getComfyModelDefinition(shared.model).category === "audio"
-      ? shared.model
-      : DEFAULT_AUDIO_MODEL;
+    getComfyModelDefinition(shared.model).category === 'audio' ? shared.model : DEFAULT_AUDIO_MODEL;
   const controlsShared =
     controlsModel === shared.model ? shared : { ...shared, model: controlsModel };
   const selectedModel = getComfyModelDefinition(controlsModel);
@@ -132,9 +129,9 @@ export default function AudioPromptTool() {
         <SharedToolControls
           toolId="audio"
           shared={controlsShared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           recommendFromText={output}
         />
       }
@@ -161,7 +158,7 @@ export default function AudioPromptTool() {
         <TextArea
           rows={3}
           value={subject}
-          onChange={(event) => updateToolSettings({ subject: event.target.value })}
+          onChange={event => updateToolSettings({ subject: event.target.value })}
           placeholder="Rain on a tin roof with distant thunder…"
           className={accentFocusClass(ACCENT)}
         />
@@ -170,7 +167,7 @@ export default function AudioPromptTool() {
             <FieldLabel>Mood</FieldLabel>
             <TextInput
               value={mood}
-              onChange={(event) => updateToolSettings({ mood: event.target.value })}
+              onChange={event => updateToolSettings({ mood: event.target.value })}
               className={accentFocusClass(ACCENT)}
             />
           </div>
@@ -178,9 +175,7 @@ export default function AudioPromptTool() {
             <FieldLabel>Instruments / texture</FieldLabel>
             <TextInput
               value={instruments}
-              onChange={(event) =>
-                updateToolSettings({ instruments: event.target.value })
-              }
+              onChange={event => updateToolSettings({ instruments: event.target.value })}
               className={accentFocusClass(ACCENT)}
             />
           </div>
@@ -192,7 +187,7 @@ export default function AudioPromptTool() {
             min={1}
             max={120}
             value={String(durationSec)}
-            onChange={(event) =>
+            onChange={event =>
               updateToolSettings({
                 durationSec: Math.max(1, Number(event.target.value) || 10),
               })
@@ -206,10 +201,8 @@ export default function AudioPromptTool() {
           disabled={!output.trim()}
           onClick={() =>
             void actions.sendComfyUi(output, undefined, undefined, {
-              customTokens: [
-                { token: AUDIO_SECONDS_TOKEN, value: String(durationSec) },
-              ],
-              queueParamsBase: { /* audio seconds via token */ },
+              customTokens: [{ token: AUDIO_SECONDS_TOKEN, value: String(durationSec) }],
+              queueParamsBase: {/* audio seconds via token */},
             })
           }
         >
@@ -220,7 +213,7 @@ export default function AudioPromptTool() {
       <EnhancedPromptResult
         output={output}
         onOutputChange={setOutputOverride}
-        provider={output ? "template" : null}
+        provider={output ? 'template' : null}
         comfyNode={selectedModel.comfyNode}
         readinessModel={controlsModel}
         readinessDetail={shared.detail}
@@ -229,9 +222,7 @@ export default function AudioPromptTool() {
         onSaveHistory={() => actions.saveHistory({ prompt: output, hints: subject })}
         onSendComfyUi={() =>
           void actions.sendComfyUi(output, undefined, undefined, {
-            customTokens: [
-              { token: AUDIO_SECONDS_TOKEN, value: String(durationSec) },
-            ],
+            customTokens: [{ token: AUDIO_SECONDS_TOKEN, value: String(durationSec) }],
           })
         }
         {...promptResultPreviewProps(actions, output)}
@@ -245,9 +236,7 @@ export default function AudioPromptTool() {
         status={actions.comfyUiStatus}
         onQueue={() =>
           void actions.sendComfyUi(output, undefined, undefined, {
-            customTokens: [
-              { token: AUDIO_SECONDS_TOKEN, value: String(durationSec) },
-            ],
+            customTokens: [{ token: AUDIO_SECONDS_TOKEN, value: String(durationSec) }],
           })
         }
       />

@@ -1,10 +1,10 @@
-import type { PromptHistoryEntry } from "@/hooks/usePromptHistory";
-import { diffPromptWords } from "./prompt-diff";
+import type { PromptHistoryEntry } from '@/hooks/usePromptHistory';
+import { diffPromptWords } from './prompt-diff';
 import {
   buildPromptIterationForest,
   flattenIterationTree,
   type IterationTreeNode,
-} from "./prompt-iteration-tree";
+} from './prompt-iteration-tree';
 
 export type BranchDiffResult = {
   left: PromptHistoryEntry;
@@ -14,7 +14,7 @@ export type BranchDiffResult = {
 
 export function diffHistoryEntries(
   left: PromptHistoryEntry,
-  right: PromptHistoryEntry,
+  right: PromptHistoryEntry
 ): BranchDiffResult {
   return {
     left,
@@ -38,7 +38,7 @@ function findInNode(node: IterationTreeNode, id: string): IterationTreeNode | nu
 
 export function findIterationNodeById(
   forest: IterationTreeNode[],
-  id: string,
+  id: string
 ): IterationTreeNode | null {
   for (const node of forest) {
     const found = findInNode(node, id);

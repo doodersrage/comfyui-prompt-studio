@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { ToolSection } from "@/components/ui/ToolPageShell";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { ToolSection } from '@/components/ui/ToolPageShell';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 type UsageEntry = {
   at: number;
@@ -31,7 +31,7 @@ export default function ObservabilityDashboard() {
   async function refresh() {
     setLoading(true);
     try {
-      const response = await fetch("/api/usage");
+      const response = await fetch('/api/usage');
       setData((await response.json()) as UsageResponse);
     } finally {
       setLoading(false);
@@ -47,21 +47,22 @@ export default function ObservabilityDashboard() {
   }, []);
 
   const recentErrors = useMemo(
-    () => (data?.entries ?? []).filter((entry) => entry.status >= 400).slice(0, 8),
-    [data?.entries],
+    () => (data?.entries ?? []).filter(entry => entry.status >= 400).slice(0, 8),
+    [data?.entries]
   );
   const slowest = useMemo(
     () =>
       [...(data?.entries ?? [])]
         .sort((left, right) => right.durationMs - left.durationMs)
         .slice(0, 6),
-    [data?.entries],
+    [data?.entries]
   );
 
   return (
     <ToolSection title="Observability">
       <p className="text-sm text-zinc-400">
-        In-memory API usage from the proxy layer: volume, rate limits, slow routes, and recent errors.
+        In-memory API usage from the proxy layer: volume, rate limits, slow routes, and recent
+        errors.
       </p>
       <Button variant="secondary" className="mt-3" loading={loading} onClick={() => void refresh()}>
         Refresh metrics
@@ -91,7 +92,9 @@ export default function ObservabilityDashboard() {
 
       {slowest.length > 0 ? (
         <div className="mt-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Slowest routes</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Slowest routes
+          </p>
           <ul className="mt-2 space-y-1 text-xs text-zinc-400">
             {slowest.map((entry, index) => (
               <li key={`slow-${entry.path}-${index}`}>

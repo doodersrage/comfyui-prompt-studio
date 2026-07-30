@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+import { useEffect, useState } from 'react';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import {
   DEFAULT_QUEUE_PARAMS,
   loadQueueParamsSettings,
   saveQueueParamsSettings,
   type QueueParamsSettings,
-} from "@/lib/queue-params-settings";
-import { FieldLabel } from "@/components/ui/Field";
-import { Button } from "@/components/ui/Button";
+} from '@/lib/queue-params-settings';
+import { FieldLabel } from '@/components/ui/Field';
+import { Button } from '@/components/ui/Button';
 
 type QueueParamsPanelProps = {
   compact?: boolean;
@@ -40,8 +40,8 @@ export default function QueueParamsPanel({ compact = false }: QueueParamsPanelPr
     <div
       className={
         compact
-          ? "space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3"
-          : "space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4"
+          ? 'space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3'
+          : 'space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4'
       }
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -50,7 +50,7 @@ export default function QueueParamsPanel({ compact = false }: QueueParamsPanelPr
           <input
             type="checkbox"
             checked={settings.enabled === true}
-            onChange={(event) => update({ enabled: event.target.checked })}
+            onChange={event => update({ enabled: event.target.checked })}
             className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
           />
           Override defaults
@@ -59,19 +59,19 @@ export default function QueueParamsPanel({ compact = false }: QueueParamsPanelPr
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {(
           [
-            ["seed", "Seed (blank = random)"],
-            ["width", "Width"],
-            ["height", "Height"],
-            ["cfg", "CFG"],
-            ["steps", "Steps"],
+            ['seed', 'Seed (blank = random)'],
+            ['width', 'Width'],
+            ['height', 'Height'],
+            ['cfg', 'CFG'],
+            ['steps', 'Steps'],
           ] as const
         ).map(([key, label]) => (
           <div key={key} className="space-y-1">
             <FieldLabel>{label}</FieldLabel>
             <input
-              value={settings[key] ?? ""}
-              onChange={(event) => update({ [key]: event.target.value })}
-              disabled={!settings.enabled && key !== "seed"}
+              value={settings[key] ?? ''}
+              onChange={event => update({ [key]: event.target.value })}
+              disabled={!settings.enabled && key !== 'seed'}
               className="ui-input w-full px-3 py-2 text-sm disabled:opacity-50"
             />
           </div>

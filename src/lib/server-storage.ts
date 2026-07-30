@@ -1,11 +1,8 @@
-import fs from "node:fs";
-import path from "node:path";
-import {
-  STORAGE_NAMESPACES,
-  type StorageNamespace,
-} from "./storage-namespaces";
+import fs from 'node:fs';
+import path from 'node:path';
+import { STORAGE_NAMESPACES, type StorageNamespace } from './storage-namespaces';
 
-export type { StorageNamespace } from "./storage-namespaces";
+export type { StorageNamespace } from './storage-namespaces';
 
 const ALLOWED = STORAGE_NAMESPACES;
 
@@ -16,7 +13,7 @@ export function isServerStorageEnabled(): boolean {
 function dataDir(): string {
   const dir = process.env.PROMPT_DATA_DIR?.trim();
   if (!dir) {
-    throw new Error("PROMPT_DATA_DIR is not configured.");
+    throw new Error('PROMPT_DATA_DIR is not configured.');
   }
   const resolved = path.resolve(/* turbopackIgnore: true */ dir);
   fs.mkdirSync(resolved, { recursive: true });
@@ -35,7 +32,7 @@ export function readServerStorage<T>(namespace: StorageNamespace): T | null {
     return null;
   }
   try {
-    const raw = fs.readFileSync(filePath(namespace), "utf8");
+    const raw = fs.readFileSync(filePath(namespace), 'utf8');
     return JSON.parse(raw) as T;
   } catch {
     return null;
@@ -44,9 +41,9 @@ export function readServerStorage<T>(namespace: StorageNamespace): T | null {
 
 export function writeServerStorage<T>(namespace: StorageNamespace, data: T): void {
   if (!isServerStorageEnabled()) {
-    throw new Error("Server storage is disabled. Set PROMPT_DATA_DIR.");
+    throw new Error('Server storage is disabled. Set PROMPT_DATA_DIR.');
   }
-  fs.writeFileSync(filePath(namespace), JSON.stringify(data, null, 2), "utf8");
+  fs.writeFileSync(filePath(namespace), JSON.stringify(data, null, 2), 'utf8');
 }
 
 export function listServerStorageNamespaces(): StorageNamespace[] {

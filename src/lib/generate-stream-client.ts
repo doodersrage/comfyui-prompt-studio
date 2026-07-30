@@ -9,8 +9,8 @@
 
 export type GenerateStreamResult = {
   prompt: string;
-  mode: "positive" | "negative";
-  provider: "llm" | "template";
+  mode: 'positive' | 'negative';
+  provider: 'llm' | 'template';
   model: string;
   comfyNode: string;
   limits: {
@@ -37,24 +37,22 @@ class GenerateStreamBusyError extends Error {
   readonly retryAfter?: number;
   constructor(message: string, retryAfter?: number) {
     super(message);
-    this.name = "GenerateStreamBusyError";
+    this.name = 'GenerateStreamBusyError';
     this.retryAfter = retryAfter;
   }
 }
 
 export { GenerateStreamBusyError };
 
-function parseSseBlock(
-  block: string,
-): { event: string; data: unknown } | null {
-  let event = "message";
+function parseSseBlock(block: string): { event: string; data: unknown } | null {
+  let event = 'message';
   const dataLines: string[] = [];
 
-  for (const line of block.split("\n")) {
-    if (line.startsWith("event:")) {
-      event = line.slice("event:".length).trim();
-    } else if (line.startsWith("data:")) {
-      dataLines.push(line.slice("data:".length).trim());
+  for (const line of block.split('\n')) {
+    if (line.startsWith('event:')) {
+      event = line.slice('event:'.length).trim();
+    } else if (line.startsWith('data:')) {
+      dataLines.push(line.slice('data:'.length).trim());
     }
   }
 
@@ -63,7 +61,7 @@ function parseSseBlock(
   }
 
   try {
-    return { event, data: JSON.parse(dataLines.join("\n")) };
+    return { event, data: JSON.parse(dataLines.join('\n')) };
   } catch {
     return null;
   }
@@ -72,11 +70,11 @@ function parseSseBlock(
 export async function streamGeneratePrompt(
   body: Record<string, unknown>,
   handlers?: GenerateStreamHandlers,
-  init?: { signal?: AbortSignal },
+  init?: { signal?: AbortSignal }
 ): Promise<GenerateStreamResult> {
-  const response = await fetch("/api/generate/stream", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const response = await fetch('/api/generate/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     signal: init?.signal,
   });
@@ -100,8 +98,8 @@ export async function streamGeneratePrompt(
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = "";
-  let accumulated = "";
+  let buffer = '';
+  let accumulated = '';
   let result: GenerateStreamResult | null = null;
   let streamErrorMessage: string | null = null;
 
@@ -111,23 +109,22 @@ export async function streamGeneratePrompt(
       return;
     }
 
-    if (parsed.event === "delta") {
+    if (parsed.event === 'delta') {
       const text = (parsed.data as { text?: string })?.text;
-      if (typeof text === "string" && text) {
+      if (typeof text === 'string' && text) {
         accumulated += text;
         handlers?.onDelta?.(text, accumulated);
       }
       return;
     }
 
-    if (parsed.event === "done") {
+    if (parsed.event === 'done') {
       result = parsed.data as GenerateStreamResult;
       return;
     }
 
-    if (parsed.event === "error") {
-      streamErrorMessage =
-        (parsed.data as { message?: string })?.message ?? "Generation failed.";
+    if (parsed.event === 'error') {
+      streamErrorMessage = (parsed.data as { message?: string })?.message ?? 'Generation failed.';
     }
   };
 
@@ -138,11 +135,11 @@ export async function streamGeneratePrompt(
         break;
       }
       buffer += decoder.decode(value, { stream: true });
-      let boundary = buffer.indexOf("\n\n");
+      let boundary = buffer.indexOf('\n\n');
       while (boundary !== -1) {
         handleBlock(buffer.slice(0, boundary));
         buffer = buffer.slice(boundary + 2);
-        boundary = buffer.indexOf("\n\n");
+        boundary = buffer.indexOf('\n\n');
       }
     }
     if (buffer.trim()) {
@@ -156,7 +153,7 @@ export async function streamGeneratePrompt(
     throw new Error(streamErrorMessage);
   }
   if (!result) {
-    throw new Error("Prompt stream ended without a result.");
+    throw new Error('Prompt stream ended without a result.');
   }
   return result;
 }

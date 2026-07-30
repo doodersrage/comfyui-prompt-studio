@@ -1,10 +1,7 @@
-"use client";
+'use client';
 
-import { useCallback } from "react";
-import {
-  loadRecentLocations,
-  pushRecentLocation,
-} from "@/lib/recent-locations";
+import { useCallback } from 'react';
+import { loadRecentLocations, pushRecentLocation } from '@/lib/recent-locations';
 
 export function useRecentLocations() {
   const getRecent = useCallback(() => loadRecentLocations(), []);

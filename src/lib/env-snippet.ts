@@ -1,10 +1,10 @@
-import type { ServerEnvGroup } from "./server-env-summary";
+import type { ServerEnvGroup } from './server-env-summary';
 
 export function buildEnvSnippet(groups: ServerEnvGroup[]): string {
   const lines = [
-    "# ComfyUI Prompt Studio — copy to .env.local and fill in secrets",
-    "# Restart the dev server or container after changes.",
-    "",
+    '# ComfyUI Prompt Studio — copy to .env.local and fill in secrets',
+    '# Restart the dev server or container after changes.',
+    '',
   ];
 
   for (const group of groups) {
@@ -13,16 +13,16 @@ export function buildEnvSnippet(groups: ServerEnvGroup[]): string {
       if (field.hint) {
         lines.push(`# ${field.hint}`);
       }
-      if (field.key.includes("KEY") || field.key.includes("TOKEN")) {
+      if (field.key.includes('KEY') || field.key.includes('TOKEN')) {
         lines.push(`${field.key}=`);
-      } else if (field.configured && field.value && !field.value.includes("••••")) {
+      } else if (field.configured && field.value && !field.value.includes('••••')) {
         lines.push(`${field.key}=${field.value}`);
       } else {
         lines.push(`${field.key}=`);
       }
     }
-    lines.push("");
+    lines.push('');
   }
 
-  return lines.join("\n").trimEnd();
+  return lines.join('\n').trimEnd();
 }

@@ -1,8 +1,5 @@
-import type { ComfyImageModel, ComfyModelCategory } from "./comfy-models/client";
-import {
-  AUDIO_SECONDS_TOKEN,
-  MESH_RESOLUTION_TOKEN,
-} from "./audio-mesh-prompt";
+import type { ComfyImageModel, ComfyModelCategory } from './comfy-models/client';
+import { AUDIO_SECONDS_TOKEN, MESH_RESOLUTION_TOKEN } from './audio-mesh-prompt';
 import {
   DEFAULT_INIT_IMAGE_TOKEN,
   DEFAULT_INPUT_IMAGE_TOKEN,
@@ -10,9 +7,9 @@ import {
   DEFAULT_VIDEO_FPS_TOKEN,
   listWorkflowNodeIds,
   type CustomWorkflowToken,
-} from "./comfyui-config";
+} from './comfyui-config';
 
-export type WorkflowGraphKind = "image" | "video" | "audio" | "mesh" | "unknown";
+export type WorkflowGraphKind = 'image' | 'video' | 'audio' | 'mesh' | 'unknown';
 
 const VIDEO_CLASS_HINTS =
   /EmptyHunyuanLatentVideo|EmptyLTXVLatentVideo|WanImageToVideo|HunyuanImageToVideo|LTXVImgToVideo|SaveAnimatedWEBP|VHS_VideoCombine|CreateVideo|WanImageToVideo|ImageOnlyCheckpointLoader/i;
@@ -31,11 +28,11 @@ export function collectWorkflowClassTypes(workflowJson: string): string[] {
     const classes: string[] = [];
     for (const id of ids) {
       const node = parsed[id];
-      if (!node || typeof node !== "object" || Array.isArray(node)) {
+      if (!node || typeof node !== 'object' || Array.isArray(node)) {
         continue;
       }
       const classType = (node as { class_type?: unknown }).class_type;
-      if (typeof classType === "string" && classType.trim()) {
+      if (typeof classType === 'string' && classType.trim()) {
         classes.push(classType);
       }
     }
@@ -46,40 +43,44 @@ export function collectWorkflowClassTypes(workflowJson: string): string[] {
 }
 
 export function inferWorkflowGraphKind(workflowJson: string): WorkflowGraphKind {
-  const classes = collectWorkflowClassTypes(workflowJson).join("\n");
+  const classes = collectWorkflowClassTypes(workflowJson).join('\n');
   if (!classes) {
-    return "unknown";
+    return 'unknown';
   }
   if (VIDEO_CLASS_HINTS.test(classes)) {
-    return "video";
+    return 'video';
   }
   if (AUDIO_CLASS_HINTS.test(classes)) {
-    return "audio";
+    return 'audio';
   }
   if (MESH_CLASS_HINTS.test(classes)) {
-    return "mesh";
+    return 'mesh';
   }
-  return "image";
+  return 'image';
 }
 
 export function graphKindToCategory(kind: WorkflowGraphKind): ComfyModelCategory | null {
-  if (kind === "video") return "video";
-  if (kind === "audio") return "audio";
-  if (kind === "mesh") return "mesh";
+  if (kind === 'video') return 'video';
+  if (kind === 'audio') return 'audio';
+  if (kind === 'mesh') return 'mesh';
   return null;
 }
 
 /** Default models when a pack graph matches a media category. */
-export function defaultModelsForGraphKind(
-  kind: WorkflowGraphKind,
-): ComfyImageModel[] {
+export function defaultModelsForGraphKind(kind: WorkflowGraphKind): ComfyImageModel[] {
   switch (kind) {
-    case "video":
-      return ["wan-video", "wan-video-rapid-aio", "wan-video-lightning-4", "hunyuan-video", "ltx-video"];
-    case "audio":
-      return ["stable-audio"];
-    case "mesh":
-      return ["hunyuan-3d"];
+    case 'video':
+      return [
+        'wan-video',
+        'wan-video-rapid-aio',
+        'wan-video-lightning-4',
+        'hunyuan-video',
+        'ltx-video',
+      ];
+    case 'audio':
+      return ['stable-audio'];
+    case 'mesh':
+      return ['hunyuan-3d'];
     default:
       return [];
   }
@@ -91,12 +92,10 @@ export function defaultModelsForGraphKind(
  */
 export function suggestMediaCustomTokens(
   workflowJson: string,
-  existing?: CustomWorkflowToken[],
+  existing?: CustomWorkflowToken[]
 ): CustomWorkflowToken[] {
   const kind = inferWorkflowGraphKind(workflowJson);
-  const byToken = new Map(
-    (existing ?? []).map((entry) => [entry.token.trim(), entry] as const),
-  );
+  const byToken = new Map((existing ?? []).map(entry => [entry.token.trim(), entry] as const));
 
   const ensure = (token: string, value: string) => {
     if (!byToken.has(token)) {
@@ -104,17 +103,17 @@ export function suggestMediaCustomTokens(
     }
   };
 
-  if (kind === "audio") {
-    ensure(AUDIO_SECONDS_TOKEN, "10");
+  if (kind === 'audio') {
+    ensure(AUDIO_SECONDS_TOKEN, '10');
   }
-  if (kind === "mesh") {
-    ensure(MESH_RESOLUTION_TOKEN, "512");
-    ensure(DEFAULT_INPUT_IMAGE_TOKEN, "");
+  if (kind === 'mesh') {
+    ensure(MESH_RESOLUTION_TOKEN, '512');
+    ensure(DEFAULT_INPUT_IMAGE_TOKEN, '');
   }
-  if (kind === "video") {
-    ensure(DEFAULT_VIDEO_FRAMES_TOKEN, "81");
-    ensure(DEFAULT_VIDEO_FPS_TOKEN, "16");
-    ensure(DEFAULT_INIT_IMAGE_TOKEN, "");
+  if (kind === 'video') {
+    ensure(DEFAULT_VIDEO_FRAMES_TOKEN, '81');
+    ensure(DEFAULT_VIDEO_FPS_TOKEN, '16');
+    ensure(DEFAULT_INIT_IMAGE_TOKEN, '');
   }
 
   return [...byToken.values()];
@@ -123,7 +122,7 @@ export function suggestMediaCustomTokens(
 /** Merge label-inferred models with graph-kind defaults (graph wins when specific). */
 export function mergeInferredModels(
   labelModels: ComfyImageModel[],
-  kind: WorkflowGraphKind,
+  kind: WorkflowGraphKind
 ): ComfyImageModel[] {
   const fromGraph = defaultModelsForGraphKind(kind);
   if (fromGraph.length === 0) {
@@ -134,9 +133,9 @@ export function mergeInferredModels(
   }
   // Prefer intersection when label already guessed the category; else graph defaults first.
   const labelSet = new Set(labelModels);
-  const overlap = fromGraph.filter((id) => labelSet.has(id));
+  const overlap = fromGraph.filter(id => labelSet.has(id));
   if (overlap.length > 0) {
-    return [...overlap, ...labelModels.filter((id) => !overlap.includes(id))];
+    return [...overlap, ...labelModels.filter(id => !overlap.includes(id))];
   }
-  return [...fromGraph, ...labelModels.filter((id) => !fromGraph.includes(id))];
+  return [...fromGraph, ...labelModels.filter(id => !fromGraph.includes(id))];
 }

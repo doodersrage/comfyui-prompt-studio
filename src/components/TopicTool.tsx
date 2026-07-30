@@ -1,50 +1,46 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import BatchLintGatePanel from "@/components/BatchLintGatePanel";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import BatchLintGatePanel from '@/components/BatchLintGatePanel';
 import BatchReadinessPanel, {
   applyReadinessFilterToPrompts,
-} from "@/components/BatchReadinessPanel";
-import BatchQueueProgress, {
-  type BatchQueueProgressState,
-} from "@/components/BatchQueueProgress";
-import SharedToolControls from "@/components/SharedToolControls";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { useRecentClothing } from "@/hooks/useRecentClothing";
-import { useRecentLocations } from "@/hooks/useRecentLocations";
-import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
-import { sharedLlmRequestBody } from "@/lib/llm-request-options";
-import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
-import { resolveQueueNegativePrompt } from "@/lib/queue-negative";
-import { DEFAULT_TOPIC_TOOL_CACHE } from "@/lib/settings-cache";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import { runWorkflowPreflight } from "@/lib/workflow-preflight";
+} from '@/components/BatchReadinessPanel';
+import BatchQueueProgress, { type BatchQueueProgressState } from '@/components/BatchQueueProgress';
+import SharedToolControls from '@/components/SharedToolControls';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { useRecentClothing } from '@/hooks/useRecentClothing';
+import { useRecentLocations } from '@/hooks/useRecentLocations';
+import { useLocationBlocklist } from '@/hooks/useLocationBlocklist';
+import { sharedLlmRequestBody } from '@/lib/llm-request-options';
+import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
+import { resolveQueueNegativePrompt } from '@/lib/queue-negative';
+import { DEFAULT_TOPIC_TOOL_CACHE } from '@/lib/settings-cache';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { runWorkflowPreflight } from '@/lib/workflow-preflight';
 import {
   batchFixPrompts,
   filterBatchByLintIndexes,
   runBatchLintGate,
   type BatchLintSummary,
-} from "@/lib/batch-lint-gate";
+} from '@/lib/batch-lint-gate';
 import {
   buildTopicsVariationsHandoff,
   loadTopicsVariationsHandoff,
   saveTopicsVariationsHandoff,
   variationsPathFromTopics,
-} from "@/lib/topics-variations-handoff";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import type { BatchFromTopicsItem } from "@/lib/batch-from-topics";
-import type { TopicGenerateResult } from "@/lib/specialized/types";
-import { topicVarietyLabel } from "@/lib/tool-ui-labels";
-import { resolveRuntimeForQueue } from "@/lib/comfyui-runtime-for-model";
-import { resolveQueueParams } from "@/lib/queue-params-settings";
-import {
-  registerComfyGalleryJob,
-} from "@/lib/comfyui-gallery-client";
-import { scheduleComfyGalleryPoll } from "@/lib/comfyui-gallery-poller";
-import { postComfyUiPrompt } from "@/lib/comfyui-queue-request";
+} from '@/lib/topics-variations-handoff';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import type { BatchFromTopicsItem } from '@/lib/batch-from-topics';
+import type { TopicGenerateResult } from '@/lib/specialized/types';
+import { topicVarietyLabel } from '@/lib/tool-ui-labels';
+import { resolveRuntimeForQueue } from '@/lib/comfyui-runtime-for-model';
+import { resolveQueueParams } from '@/lib/queue-params-settings';
+import { registerComfyGalleryJob } from '@/lib/comfyui-gallery-client';
+import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
+import { postComfyUiPrompt } from '@/lib/comfyui-queue-request';
 import {
   ToolBadge,
   ToolBlockGroup,
@@ -55,42 +51,39 @@ import {
   accentButtonClass,
   accentFocusClass,
   accentRingClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldDivider, FieldError, FieldLabel, TextArea } from "@/components/ui/Field";
-import { Button, PrimaryButton } from "@/components/ui/Button";
+} from '@/components/ui/ToolPageShell';
+import { FieldDivider, FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { Button, PrimaryButton } from '@/components/ui/Button';
 import {
   HistoryHintSeedPanel,
   resolveSceneHintsForGeneration,
-} from "@/components/scene-tool/HistoryHintSeedPanel";
-import {
-  normalizeHistorySeedScope,
-  normalizeSceneHintSource,
-} from "@/lib/scene-hint-source";
-import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
-import { scoreBatchReadiness } from "@/lib/batch-readiness";
+} from '@/components/scene-tool/HistoryHintSeedPanel';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
+import { countHistorySeedCandidates } from '@/lib/history-hint-seed';
+import { scoreBatchReadiness } from '@/lib/batch-readiness';
 
-const ACCENT = "violet" as const;
+const ACCENT = 'violet' as const;
 
 export default function TopicTool() {
   const router = useRouter();
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("topics", DEFAULT_TOPIC_TOOL_CACHE);
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'topics',
+    DEFAULT_TOPIC_TOOL_CACHE
+  );
   const { getRecent: getRecentClothing } = useRecentClothing();
   const { getRecent: getRecentLocations } = useRecentLocations();
   const { getBlocklist } = useLocationBlocklist();
 
   useSeedToolDraft(mounted, {
-    toolKey: "topics",
-    label: "Topics",
-    href: "/topics",
+    toolKey: 'topics',
+    label: 'Topics',
+    href: '/topics',
     fields: [toolSettings.seedTopic],
   });
 
   const [topics, setTopics] = useState<string[]>([]);
   const [batchResults, setBatchResults] = useState<BatchFromTopicsItem[]>([]);
-  const [provider, setProvider] = useState<TopicGenerateResult["provider"] | null>(
-    null,
-  );
+  const [provider, setProvider] = useState<TopicGenerateResult['provider'] | null>(null);
   const [loading, setLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,18 +92,14 @@ export default function TopicTool() {
   const [lintSummary, setLintSummary] = useState<BatchLintSummary | null>(null);
   const [lintLoading, setLintLoading] = useState(false);
   const [pendingQueuePrompts, setPendingQueuePrompts] = useState<string[]>([]);
-  const [copiedIndex, setCopiedIndex] = useState<number | "all" | "batch" | null>(
-    null,
-  );
+  const [copiedIndex, setCopiedIndex] = useState<number | 'all' | 'batch' | null>(null);
   const [readyOnly, setReadyOnly] = useState(false);
-  const [queueProgress, setQueueProgress] = useState<BatchQueueProgressState | null>(
-    null,
-  );
+  const [queueProgress, setQueueProgress] = useState<BatchQueueProgressState | null>(null);
 
-  const batchTarget = toolSettings.batchTarget ?? "generate";
+  const batchTarget = toolSettings.batchTarget ?? 'generate';
   const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
   const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
-  const historyCandidateCount = countHistorySeedCandidates("generate", historySeedScope);
+  const historyCandidateCount = countHistorySeedCandidates('generate', historySeedScope);
   const effectiveSeedTopic = resolveSceneHintsForGeneration({
     hintSource,
     hints: toolSettings.seedTopic,
@@ -120,7 +109,7 @@ export default function TopicTool() {
   const batchReadiness = useMemo(
     () =>
       scoreBatchReadiness({
-        rows: batchResults.map((entry) => ({
+        rows: batchResults.map(entry => ({
           prompt: entry.prompt,
           label: entry.topic,
           hints: toolSettings.seedTopic,
@@ -128,11 +117,11 @@ export default function TopicTool() {
         model: shared.model,
         detail: shared.detail,
       }),
-    [batchResults, shared.detail, shared.model, toolSettings.seedTopic],
+    [batchResults, shared.detail, shared.model, toolSettings.seedTopic]
   );
   const readinessByIndex = useMemo(
-    () => new Map(batchReadiness.map((row) => [row.index, row])),
-    [batchReadiness],
+    () => new Map(batchReadiness.map(row => [row.index, row])),
+    [batchReadiness]
   );
 
   useEffect(() => {
@@ -140,7 +129,7 @@ export default function TopicTool() {
       return;
     }
     scheduleAfterCommit(() => {
-      if (new URLSearchParams(window.location.search).get("from") !== "gallery") {
+      if (new URLSearchParams(window.location.search).get('from') !== 'gallery') {
         return;
       }
       const handoff = loadTopicsVariationsHandoff();
@@ -151,8 +140,8 @@ export default function TopicTool() {
         handoff.prompts.map((prompt, index) => ({
           topic: handoff.topics[index] ?? prompt.slice(0, 80),
           prompt,
-          provider: "template" as const,
-        })),
+          provider: 'template' as const,
+        }))
       );
       setBatchStatus(`Loaded ${handoff.prompts.length} prompts from Gallery.`);
     });
@@ -165,9 +154,9 @@ export default function TopicTool() {
     setBatchResults([]);
 
     try {
-      const response = await fetch("/api/topics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/topics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           seedTopic: effectiveSeedTopic,
           count: toolSettings.count,
@@ -184,7 +173,7 @@ export default function TopicTool() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Generation failed.");
+        throw new Error(data.error ?? 'Generation failed.');
       }
 
       setTopics(data.topics);
@@ -192,7 +181,7 @@ export default function TopicTool() {
     } catch (err) {
       setTopics([]);
       setProvider(null);
-      setError(err instanceof Error ? err.message : "Generation failed.");
+      setError(err instanceof Error ? err.message : 'Generation failed.');
     } finally {
       setLoading(false);
     }
@@ -208,9 +197,9 @@ export default function TopicTool() {
     setError(null);
 
     try {
-      const response = await fetch("/api/topics/batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/topics/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topics,
           target: batchTarget,
@@ -221,7 +210,7 @@ export default function TopicTool() {
           alwaysIncludeClothing: shared.alwaysIncludeClothing !== false,
           seedLlmWithIngredients: shared.seedLlmWithIngredients !== false,
           distinctPeople: true,
-          teamKit: batchTarget === "duo",
+          teamKit: batchTarget === 'duo',
           lockedWardrobeId: shared.lockedWardrobeId,
           lockedLocation: shared.lockedLocation,
           variationSeed: shared.lockedVariationSeed,
@@ -238,16 +227,16 @@ export default function TopicTool() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Batch generation failed.");
+        throw new Error(data.error ?? 'Batch generation failed.');
       }
 
       setBatchResults(data.results ?? []);
       setBatchStatus(
-        `Generated ${data.count ?? data.results?.length ?? 0} prompts via ${batchTarget}.`,
+        `Generated ${data.count ?? data.results?.length ?? 0} prompts via ${batchTarget}.`
       );
     } catch (err) {
       setBatchResults([]);
-      setError(err instanceof Error ? err.message : "Batch generation failed.");
+      setError(err instanceof Error ? err.message : 'Batch generation failed.');
     } finally {
       setBatchLoading(false);
     }
@@ -259,54 +248,54 @@ export default function TopicTool() {
         return;
       }
 
-      setComfyBatchStatus("Queueing batch to ComfyUI…");
+      setComfyBatchStatus('Queueing batch to ComfyUI…');
       setQueueProgress({
-        phase: "preflight",
+        phase: 'preflight',
         current: 0,
         total: prompts.length,
-        message: "Validating workflow placeholders…",
+        message: 'Validating workflow placeholders…',
       });
       try {
         const negativePrompt = await resolveQueueNegativePrompt({
           model: shared.model,
           hints: toolSettings.seedTopic ?? batchResults[0]?.topic,
-          tool: "topics",
+          tool: 'topics',
         });
         const preflight = await runWorkflowPreflight({
           model: shared.model,
           prompts,
           negativePrompt,
-          tool: "topics",
+          tool: 'topics',
         });
         if (!preflight.ok) {
           throw new Error(
             preflight.issues
-              .filter((issue) => issue.severity === "error")
-              .map((issue) => issue.message)
-              .join(" · ") || "Workflow pre-flight failed.",
+              .filter(issue => issue.severity === 'error')
+              .map(issue => issue.message)
+              .join(' · ') || 'Workflow pre-flight failed.'
           );
         }
-        const { guardQueueQualityForVram } = await import("@/lib/vram-queue-guard");
-        const { maybeHoldMaxGenerateJobs } = await import("@/lib/held-max-queue");
-        const { toastHeldMax } = await import("@/lib/app-toast");
-        const baseRuntime = resolveRuntimeForQueue(shared.model, "topics");
+        const { guardQueueQualityForVram } = await import('@/lib/vram-queue-guard');
+        const { maybeHoldMaxGenerateJobs } = await import('@/lib/held-max-queue');
+        const { toastHeldMax } = await import('@/lib/app-toast');
+        const baseRuntime = resolveRuntimeForQueue(shared.model, 'topics');
         const vramGuard = await guardQueueQualityForVram({ runtime: baseRuntime });
         const runtime = vramGuard.runtime ?? baseRuntime;
         setQueueProgress({
-          phase: "queueing",
+          phase: 'queueing',
           current: 0,
           total: prompts.length,
           message: vramGuard.downgraded
-            ? "Max → Final (VRAM) · submitting…"
-            : "Submitting prompts to ComfyUI…",
+            ? 'Max → Final (VRAM) · submitting…'
+            : 'Submitting prompts to ComfyUI…',
         });
         const paramsPerPrompt = prompts.map((_, index) =>
           resolveQueueParams({
             model: shared.model,
-            tool: "topics",
+            tool: 'topics',
             base: { seed: String(Math.floor(Math.random() * 2 ** 32) + index) },
             qualityProfile: vramGuard.profile,
-          }),
+          })
         );
         const held = await maybeHoldMaxGenerateJobs({
           profile: vramGuard.profile,
@@ -314,7 +303,7 @@ export default function TopicTool() {
             prompt,
             negativePrompt,
             model: shared.model,
-            tool: "topics",
+            tool: 'topics',
             params: paramsPerPrompt[index],
             comfy: runtime,
           })),
@@ -322,7 +311,7 @@ export default function TopicTool() {
         if (held.held) {
           setQueueProgress(null);
           toastHeldMax({
-            text: "Max topics held until ComfyUI queue is idle",
+            text: 'Max topics held until ComfyUI queue is idle',
             count: held.count,
           });
           return;
@@ -341,19 +330,20 @@ export default function TopicTool() {
         };
         if (queued.status >= 400) {
           queued.releaseLiveSocket();
-          throw new Error(queued.error ?? data.error ?? "ComfyUI batch queue failed.");
+          throw new Error(queued.error ?? data.error ?? 'ComfyUI batch queue failed.');
         }
 
         for (const [index, result] of (data.results ?? []).entries()) {
           if (!result.promptId) {
             continue;
           }
-          const comfyUrl = result.comfyUrl ?? data.comfyUrl ?? queued.comfyUrl ?? "http://127.0.0.1:8188";
+          const comfyUrl =
+            result.comfyUrl ?? data.comfyUrl ?? queued.comfyUrl ?? 'http://127.0.0.1:8188';
           registerComfyGalleryJob({
             promptId: result.promptId,
-            prompt: prompts[index] ?? "",
+            prompt: prompts[index] ?? '',
             negativePrompt,
-            tool: "topics",
+            tool: 'topics',
             model: shared.model,
             comfyUrl,
             clientId: queued.clientId,
@@ -367,35 +357,36 @@ export default function TopicTool() {
         }
         queued.releaseLiveSocket();
 
-        const queuedCount = data.queued ?? (data.results ?? []).filter((r) => r.promptId).length;
+        const queuedCount = data.queued ?? (data.results ?? []).filter(r => r.promptId).length;
         const failures = (data.results ?? [])
           .map((result, index) =>
             result.promptId
               ? null
               : {
                   label: batchResults[index]?.topic ?? `Row ${index + 1}`,
-                  message: "No promptId returned",
-                },
+                  message: 'No promptId returned',
+                }
           )
           .filter(Boolean) as Array<{ label: string; message: string }>;
 
         setQueueProgress({
-          phase: "done",
+          phase: 'done',
           current: queuedCount,
           total: prompts.length,
-          message: `Queued ${queuedCount}/${prompts.length} · ${data.comfyUrl ?? queued.comfyUrl ?? ""}`.trim(),
+          message:
+            `Queued ${queuedCount}/${prompts.length} · ${data.comfyUrl ?? queued.comfyUrl ?? ''}`.trim(),
           failures: failures.length > 0 ? failures : undefined,
         });
 
         setComfyBatchStatus(
-          `Queued ${queuedCount}/${prompts.length} · ${data.comfyUrl ?? queued.comfyUrl ?? ""}`.trim(),
+          `Queued ${queuedCount}/${prompts.length} · ${data.comfyUrl ?? queued.comfyUrl ?? ''}`.trim()
         );
         setLintSummary(null);
         setPendingQueuePrompts([]);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "ComfyUI batch failed.";
+        const message = err instanceof Error ? err.message : 'ComfyUI batch failed.';
         setQueueProgress({
-          phase: "error",
+          phase: 'error',
           current: 0,
           total: prompts.length,
           message,
@@ -403,11 +394,11 @@ export default function TopicTool() {
         setComfyBatchStatus(message);
       }
     },
-    [batchResults, shared.model, toolSettings.seedTopic],
+    [batchResults, shared.model, toolSettings.seedTopic]
   );
 
   const queueBatchComfyUi = useCallback(async () => {
-    const prompts = batchResults.map((entry) => entry.prompt.trim()).filter(Boolean);
+    const prompts = batchResults.map(entry => entry.prompt.trim()).filter(Boolean);
     if (prompts.length === 0) {
       return;
     }
@@ -428,28 +419,24 @@ export default function TopicTool() {
       return;
     }
     const target =
-      batchTarget === "duo"
-        ? "duo"
-        : batchTarget === "character"
-          ? "character"
-          : batchTarget;
+      batchTarget === 'duo' ? 'duo' : batchTarget === 'character' ? 'character' : batchTarget;
     saveTopicsVariationsHandoff(
       buildTopicsVariationsHandoff(
         batchResults,
-        target as "generate" | "duo" | "character" | "pet" | "fantasy" | "background",
-        toolSettings.seedTopic,
-      ),
+        target as 'generate' | 'duo' | 'character' | 'pet' | 'fantasy' | 'background',
+        toolSettings.seedTopic
+      )
     );
     router.push(variationsPathFromTopics());
   }, [batchResults, batchTarget, router, toolSettings.seedTopic]);
 
-  const copyTopics = useCallback(async (value: string, index: number | "all" | "batch") => {
+  const copyTopics = useCallback(async (value: string, index: number | 'all' | 'batch') => {
     try {
       await navigator.clipboard.writeText(value);
       setCopiedIndex(index);
       window.setTimeout(() => setCopiedIndex(null), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, []);
 
@@ -464,29 +451,24 @@ export default function TopicTool() {
       title="Topic Generator"
       description={
         <>
-          Produces a list of image prompt topics—great for batch runs, mood boards,
-          or finding a direction. Send any topic to Generate or Duo, or batch-build
-          full prompts in one click.
+          Produces a list of image prompt topics—great for batch runs, mood boards, or finding a
+          direction. Send any topic to Generate or Duo, or batch-build full prompts in one click.
         </>
       }
       sidebar={
         <SharedToolControls
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           seedLlmWithIngredients={shared.seedLlmWithIngredients !== false}
-          onSeedLlmWithIngredientsChange={(value) =>
-            updateShared({ seedLlmWithIngredients: value })
-          }
+          onSeedLlmWithIngredientsChange={value => updateShared({ seedLlmWithIngredients: value })}
           lockedWardrobeId={shared.lockedWardrobeId}
           lockedLocation={shared.lockedLocation}
           lockedVariationSeed={shared.lockedVariationSeed}
           onClearLockedWardrobe={() => updateShared({ lockedWardrobeId: undefined })}
           onClearLockedLocation={() => updateShared({ lockedLocation: undefined })}
-          onClearLockedVariationSeed={() =>
-            updateShared({ lockedVariationSeed: undefined })
-          }
+          onClearLockedVariationSeed={() => updateShared({ lockedVariationSeed: undefined })}
           recommendFromText={effectiveSeedTopic}
         />
       }
@@ -496,32 +478,30 @@ export default function TopicTool() {
           tool="generate"
           hintSource={hintSource}
           historySeedScope={historySeedScope}
-          hints={toolSettings.seedTopic ?? ""}
-          randomTheme={toolSettings.randomTheme ?? ""}
+          hints={toolSettings.seedTopic ?? ''}
+          randomTheme={toolSettings.randomTheme ?? ''}
           lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
-          onHintSourceChange={(source) => updateToolSettings({ hintSource: source })}
-          onHistorySeedScopeChange={(scope) =>
-            updateToolSettings({ historySeedScope: scope })
-          }
-          onHintsChange={(value) => {
+          onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+          onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+          onHintsChange={value => {
             updateToolSettings({ seedTopic: value });
             rememberDraftFields({
-              toolKey: "topics",
-              label: "Topics",
-              href: "/topics",
+              toolKey: 'topics',
+              label: 'Topics',
+              href: '/topics',
               fields: [value],
             });
           }}
-          onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
-          onHistorySeedApplied={(result) => {
+          onRandomThemeChange={value => updateToolSettings({ randomTheme: value })}
+          onHistorySeedApplied={result => {
             updateToolSettings({
               seedTopic: result.hints,
               lastHistorySeedEntryId: result.entryId,
             });
             rememberDraftFields({
-              toolKey: "topics",
-              label: "Topics",
-              href: "/topics",
+              toolKey: 'topics',
+              label: 'Topics',
+              href: '/topics',
               fields: [result.hints],
             });
           }}
@@ -532,30 +512,28 @@ export default function TopicTool() {
 
         <FieldLabel>Starting theme (optional)</FieldLabel>
         <TextArea
-          value={toolSettings.seedTopic ?? ""}
-          onChange={(e) => {
+          value={toolSettings.seedTopic ?? ''}
+          onChange={e => {
             const value = e.target.value;
             updateToolSettings({ seedTopic: value });
             rememberDraftFields({
-              toolKey: "topics",
-              label: "Topics",
-              href: "/topics",
+              toolKey: 'topics',
+              label: 'Topics',
+              href: '/topics',
               fields: [value],
             });
           }}
           placeholder="e.g. solarpunk, lonely robots, underwater cities — or leave blank"
           rows={2}
           className={accentFocusClass(ACCENT)}
-          disabled={hintSource !== "manual"}
+          disabled={hintSource !== 'manual'}
         />
 
         <FieldDivider />
 
         <div className="flex items-center justify-between text-xs text-zinc-400">
           <span>Fewer topics</span>
-          <span className="font-medium text-violet-300">
-            {toolSettings.count ?? 10} topics
-          </span>
+          <span className="font-medium text-violet-300">{toolSettings.count ?? 10} topics</span>
           <span>More</span>
         </div>
         <input
@@ -564,9 +542,7 @@ export default function TopicTool() {
           max={24}
           step={1}
           value={toolSettings.count ?? 10}
-          onChange={(e) =>
-            updateToolSettings({ count: Number(e.target.value) })
-          }
+          onChange={e => updateToolSettings({ count: Number(e.target.value) })}
           className={`h-2 w-full ${accentRingClass(ACCENT)}`}
         />
 
@@ -576,8 +552,7 @@ export default function TopicTool() {
         <div className="flex items-center justify-between text-xs text-zinc-400">
           <span>Focused</span>
           <span className="font-medium text-violet-300">
-            {topicVarietyLabel(toolSettings.variety ?? 50)} (
-            {toolSettings.variety ?? 50})
+            {topicVarietyLabel(toolSettings.variety ?? 50)} ({toolSettings.variety ?? 50})
           </span>
           <span>Exploratory</span>
         </div>
@@ -587,9 +562,7 @@ export default function TopicTool() {
           max={100}
           step={5}
           value={toolSettings.variety ?? 50}
-          onChange={(e) =>
-            updateToolSettings({ variety: Number(e.target.value) })
-          }
+          onChange={e => updateToolSettings({ variety: Number(e.target.value) })}
           className={`h-2 w-full ${accentRingClass(ACCENT)}`}
         />
 
@@ -598,7 +571,7 @@ export default function TopicTool() {
           onClick={() => void generate()}
           loading={loading}
           loadingLabel="Generating topics"
-          disabled={hintSource === "history" && historyCandidateCount === 0}
+          disabled={hintSource === 'history' && historyCandidateCount === 0}
           data-action="primary-generate"
         >
           Generate topics
@@ -613,7 +586,7 @@ export default function TopicTool() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               {provider ? (
                 <p className="type-caption">
-                  {topics.length} ideas via {provider === "llm" ? "LLM" : "template"}
+                  {topics.length} ideas via {provider === 'llm' ? 'LLM' : 'template'}
                 </p>
               ) : (
                 <span />
@@ -621,15 +594,10 @@ export default function TopicTool() {
               <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto lg:justify-end">
                 <select
                   value={batchTarget}
-                  onChange={(event) =>
+                  onChange={event =>
                     updateToolSettings({
                       batchTarget: event.target.value as
-                        | "generate"
-                        | "duo"
-                        | "character"
-                        | "pet"
-                        | "fantasy"
-                        | "background",
+                        'generate' | 'duo' | 'character' | 'pet' | 'fantasy' | 'background',
                     })
                   }
                   className="ui-input min-h-11 w-full px-3 py-[var(--input-padding-y)] type-body sm:min-w-[15rem] sm:flex-1 lg:w-auto lg:flex-none"
@@ -653,9 +621,9 @@ export default function TopicTool() {
                 <Button
                   variant="secondary"
                   className="w-full sm:w-auto"
-                  onClick={() => void copyTopics(topics.join("\n"), "all")}
+                  onClick={() => void copyTopics(topics.join('\n'), 'all')}
                 >
-                  {copiedIndex === "all" ? "Copied!" : "Copy all topics"}
+                  {copiedIndex === 'all' ? 'Copied!' : 'Copy all topics'}
                 </Button>
               </div>
             </div>
@@ -688,16 +656,13 @@ export default function TopicTool() {
                 summary={lintSummary}
                 loading={lintLoading}
                 onFixAll={() => {
-                  void batchFixPrompts(
-                    pendingQueuePrompts,
-                    toolSettings.seedTopic,
-                  ).then((fixed) => {
+                  void batchFixPrompts(pendingQueuePrompts, toolSettings.seedTopic).then(fixed => {
                     setPendingQueuePrompts(fixed);
-                    setBatchResults((previous) =>
+                    setBatchResults(previous =>
                       previous.map((entry, index) => ({
                         ...entry,
                         prompt: fixed[index] ?? entry.prompt,
-                      })),
+                      }))
                     );
                     setLintSummary(null);
                     void runBatchLintGate(
@@ -705,28 +670,25 @@ export default function TopicTool() {
                         prompt,
                         topic: batchResults[index]?.topic,
                       })),
-                      toolSettings.seedTopic,
+                      toolSettings.seedTopic
                     ).then(setLintSummary);
                   });
                 }}
                 onContinue={() => {
                   let prompts =
                     lintSummary && lintSummary.blockedIndexes.length > 0
-                      ? filterBatchByLintIndexes(
-                          pendingQueuePrompts,
-                          lintSummary.blockedIndexes,
-                        )
+                      ? filterBatchByLintIndexes(pendingQueuePrompts, lintSummary.blockedIndexes)
                       : pendingQueuePrompts;
                   prompts = applyReadinessFilterToPrompts(
                     prompts,
-                    batchResults.map((entry) => ({
+                    batchResults.map(entry => ({
                       prompt: entry.prompt,
                       label: entry.topic,
                       hints: toolSettings.seedTopic,
                     })),
                     shared.model,
                     shared.detail,
-                    readyOnly,
+                    readyOnly
                   );
                   void executeComfyQueue(prompts);
                 }}
@@ -736,7 +698,7 @@ export default function TopicTool() {
                 }}
               />
               <BatchReadinessPanel
-                rows={batchResults.map((entry) => ({
+                rows={batchResults.map(entry => ({
                   prompt: entry.prompt,
                   label: entry.topic,
                   hints: toolSettings.seedTopic,
@@ -747,37 +709,33 @@ export default function TopicTool() {
               />
               <BatchQueueProgress progress={queueProgress} />
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Button
-                variant="secondary"
-                className="w-full sm:w-auto"
-                onClick={() =>
-                  void copyTopics(
-                    batchResults.map((entry) => entry.prompt).join("\n\n---\n\n"),
-                    "batch",
-                  )
-                }
-              >
-                {copiedIndex === "batch" ? "Copied prompts!" : "Copy all prompts"}
-              </Button>
-              <Button
-                variant="secondary"
-                className="w-full sm:w-auto"
-                onClick={sendToVariations}
-              >
-                Send to Variations
-              </Button>
-              <Button
-                variant="accent-outline"
-                className="w-full sm:w-auto"
-                onClick={() => void queueBatchComfyUi()}
-                disabled={lintLoading}
-              >
-                {lintLoading ? "Linting batch…" : "Queue batch to ComfyUI"}
-              </Button>
-              {comfyBatchStatus ? (
-                <p className="w-full text-xs text-violet-300/90">{comfyBatchStatus}</p>
-              ) : null}
-            </div>
+                <Button
+                  variant="secondary"
+                  className="w-full sm:w-auto"
+                  onClick={() =>
+                    void copyTopics(
+                      batchResults.map(entry => entry.prompt).join('\n\n---\n\n'),
+                      'batch'
+                    )
+                  }
+                >
+                  {copiedIndex === 'batch' ? 'Copied prompts!' : 'Copy all prompts'}
+                </Button>
+                <Button variant="secondary" className="w-full sm:w-auto" onClick={sendToVariations}>
+                  Send to Variations
+                </Button>
+                <Button
+                  variant="accent-outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => void queueBatchComfyUi()}
+                  disabled={lintLoading}
+                >
+                  {lintLoading ? 'Linting batch…' : 'Queue batch to ComfyUI'}
+                </Button>
+                {comfyBatchStatus ? (
+                  <p className="w-full text-xs text-violet-300/90">{comfyBatchStatus}</p>
+                ) : null}
+              </div>
             </div>
           )}
         </ToolSection>
@@ -805,10 +763,10 @@ function TopicCard({
     <ToolContentPanel className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <p className="type-overline text-[var(--text-muted)]">
-          Topic {String(index + 1).padStart(2, "0")}
+          Topic {String(index + 1).padStart(2, '0')}
         </p>
         <Button variant="ghost" className="!min-h-9 px-3 type-caption" onClick={onCopy}>
-          {copied ? "Copied!" : "Copy topic"}
+          {copied ? 'Copied!' : 'Copy topic'}
         </Button>
       </div>
 
@@ -840,7 +798,7 @@ function TopicCard({
           {readiness ? (
             <p className="type-caption text-zinc-400">
               Readiness {readiness.score}/100 ({readiness.grade})
-              {!readiness.queueAllowed ? " · below queue threshold" : ""}
+              {!readiness.queueAllowed ? ' · below queue threshold' : ''}
             </p>
           ) : null}
           <pre className="type-code max-h-48 overflow-auto whitespace-pre-wrap rounded-[var(--radius-md)] border border-[var(--tint-success-border)] bg-[var(--tint-success-bg)] p-4 !text-[var(--tint-success-text)]">

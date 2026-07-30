@@ -1,28 +1,28 @@
-"use client";
+'use client';
 
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import type { ComfyUiRuntimeConfig, WorkflowParamValues } from "./comfyui-config";
-import type { QueueQualityProfile } from "./queue-quality-profile";
-import { normalizeQueueQualityProfile } from "./queue-quality-profile";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import type { ComfyUiRuntimeConfig, WorkflowParamValues } from './comfyui-config';
+import type { QueueQualityProfile } from './queue-quality-profile';
+import { normalizeQueueQualityProfile } from './queue-quality-profile';
 
-const STORAGE_KEY = "prompt-studio.held-max-jobs.v1";
+const STORAGE_KEY = 'prompt-studio.held-max-jobs.v1';
 
-export const HELD_MAX_UPDATED_EVENT = "prompt-studio-held-max-updated";
+export const HELD_MAX_UPDATED_EVENT = 'prompt-studio-held-max-updated';
 
 export type HeldMaxGalleryJob = {
   id: string;
   createdAt: number;
-  kind: "upscale" | "moire" | "refine";
+  kind: 'upscale' | 'moire' | 'refine';
   entryId: string;
-  qualityProfile: Extract<QueueQualityProfile, "final" | "max">;
+  qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'>;
   label: string;
 };
 
 export type HeldMaxGenerateJob = {
   id: string;
   createdAt: number;
-  kind: "generate";
-  qualityProfile: Extract<QueueQualityProfile, "final" | "max">;
+  kind: 'generate';
+  qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'>;
   label: string;
   prompt: string;
   negativePrompt?: string;
@@ -35,14 +35,14 @@ export type HeldMaxGenerateJob = {
 export type HeldMaxJob = HeldMaxGalleryJob | HeldMaxGenerateJob;
 
 function emitHeldMaxUpdated(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   window.dispatchEvent(new CustomEvent(HELD_MAX_UPDATED_EVENT));
 }
 
 function readJobs(): HeldMaxJob[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return [];
   }
   try {
@@ -58,7 +58,7 @@ function readJobs(): HeldMaxJob[] {
 }
 
 function writeJobs(jobs: HeldMaxJob[]): void {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return;
   }
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs.slice(0, 40)));
@@ -70,9 +70,9 @@ export function listHeldMaxJobs(): HeldMaxJob[] {
 }
 
 export function holdMaxGalleryEnhance(input: {
-  entry: Pick<ComfyGalleryEntry, "id" | "model" | "tool">;
-  kind: "upscale" | "moire" | "refine";
-  qualityProfile: Extract<QueueQualityProfile, "final" | "max">;
+  entry: Pick<ComfyGalleryEntry, 'id' | 'model' | 'tool'>;
+  kind: 'upscale' | 'moire' | 'refine';
+  qualityProfile: Extract<QueueQualityProfile, 'final' | 'max'>;
 }): HeldMaxGalleryJob {
   const job: HeldMaxGalleryJob = {
     id: `held-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -93,14 +93,14 @@ export function holdMaxGenerateJob(input: {
   tool?: string;
   params?: WorkflowParamValues;
   comfy?: ComfyUiRuntimeConfig;
-  qualityProfile?: Extract<QueueQualityProfile, "final" | "max">;
+  qualityProfile?: Extract<QueueQualityProfile, 'final' | 'max'>;
 }): HeldMaxGenerateJob {
   const job: HeldMaxGenerateJob = {
     id: `held-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: Date.now(),
-    kind: "generate",
-    qualityProfile: input.qualityProfile ?? "max",
-    label: input.model || input.tool || "generate",
+    kind: 'generate',
+    qualityProfile: input.qualityProfile ?? 'max',
+    label: input.model || input.tool || 'generate',
     prompt: input.prompt,
     negativePrompt: input.negativePrompt,
     model: input.model,
@@ -127,7 +127,7 @@ export async function maybeHoldMaxGenerateJobs(input: {
     comfy?: ComfyUiRuntimeConfig;
   }>;
 }): Promise<{ held: boolean; count: number }> {
-  if (normalizeQueueQualityProfile(input.profile) !== "max") {
+  if (normalizeQueueQualityProfile(input.profile) !== 'max') {
     return { held: false, count: 0 };
   }
   if (input.jobs.length === 0) {
@@ -139,14 +139,14 @@ export async function maybeHoldMaxGenerateJobs(input: {
   for (const job of input.jobs) {
     holdMaxGenerateJob({
       ...job,
-      qualityProfile: "max",
+      qualityProfile: 'max',
     });
   }
   return { held: true, count: input.jobs.length };
 }
 
 export function removeHeldMaxJob(id: string): void {
-  writeJobs(readJobs().filter((job) => job.id !== id));
+  writeJobs(readJobs().filter(job => job.id !== id));
 }
 
 export function clearHeldMaxJobs(): void {
@@ -162,7 +162,7 @@ export function isComfyQueueIdle(health: {
 
 export async function fetchComfyQueueIdle(): Promise<boolean> {
   try {
-    const response = await fetch("/api/health", {
+    const response = await fetch('/api/health', {
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) {
@@ -179,7 +179,7 @@ export async function fetchComfyQueueIdle(): Promise<boolean> {
 
 /** True when Max should be parked instead of queued. */
 export async function shouldHoldMaxUntilIdle(): Promise<boolean> {
-  const { loadSettingsCache } = await import("./settings-cache");
+  const { loadSettingsCache } = await import('./settings-cache');
   if (loadSettingsCache().shared.holdMaxUntilIdle !== true) {
     return false;
   }

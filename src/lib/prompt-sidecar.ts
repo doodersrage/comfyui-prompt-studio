@@ -1,13 +1,10 @@
-import type { WorkflowParamValues } from "./comfyui-config";
-import type { ComfyImageModel } from "./comfy-models/client";
-import type { DetailLevel } from "./detail-level";
-import type { GenerationDiagnostics } from "./generation-diagnostics";
-import { buildComfyViewPath, type ComfyOutputImage } from "./comfyui-outputs";
-import { buildGalleryImageUrlsFromQueueParams } from "./queue-requeue-images";
-import {
-  normalizeQueueQualityProfile,
-  type QueueQualityProfile,
-} from "./queue-quality-profile";
+import type { WorkflowParamValues } from './comfyui-config';
+import type { ComfyImageModel } from './comfy-models/client';
+import type { DetailLevel } from './detail-level';
+import type { GenerationDiagnostics } from './generation-diagnostics';
+import { buildComfyViewPath, type ComfyOutputImage } from './comfyui-outputs';
+import { buildGalleryImageUrlsFromQueueParams } from './queue-requeue-images';
+import { normalizeQueueQualityProfile, type QueueQualityProfile } from './queue-quality-profile';
 
 export type PromptSidecar = {
   version: 1;
@@ -54,12 +51,12 @@ export function buildPromptSidecar(input: {
 
 export function downloadPromptSidecar(
   sidecar: PromptSidecar,
-  filenamePrefix = "prompt-sidecar",
+  filenamePrefix = 'prompt-sidecar'
 ): void {
   const payload = JSON.stringify(sidecar, null, 2);
-  const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+  const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = `${filenamePrefix}-${Date.now()}.json`;
   anchor.click();
@@ -71,13 +68,11 @@ export function parsePromptSidecar(raw: string): PromptSidecar {
   if (
     !parsed ||
     parsed.version !== 1 ||
-    typeof parsed.positive !== "string" ||
+    typeof parsed.positive !== 'string' ||
     !parsed.positive.trim() ||
-    typeof parsed.model !== "string"
+    typeof parsed.model !== 'string'
   ) {
-    throw new Error(
-      "Invalid sidecar file. Expected version 1 with positive prompt and model.",
-    );
+    throw new Error('Invalid sidecar file. Expected version 1 with positive prompt and model.');
   }
 
   return {
@@ -106,27 +101,22 @@ export function sidecarNegativePrompt(sidecar: PromptSidecar): string | undefine
 
 export function sidecarQueueParams(sidecar: PromptSidecar): WorkflowParamValues | undefined {
   const raw = sidecar.metadata?.queueParams;
-  if (!raw || typeof raw !== "object") {
+  if (!raw || typeof raw !== 'object') {
     return undefined;
   }
   return raw as WorkflowParamValues;
 }
 
 /** Read primary output image from sidecar metadata (export or legacy shapes). */
-export function readSidecarOutputImage(
-  sidecar: PromptSidecar,
-): ComfyOutputImage | undefined {
+export function readSidecarOutputImage(sidecar: PromptSidecar): ComfyOutputImage | undefined {
   const rawOutput = sidecar.metadata?.outputImage;
-  if (rawOutput && typeof rawOutput === "object") {
+  if (rawOutput && typeof rawOutput === 'object') {
     const candidate = rawOutput as Partial<ComfyOutputImage>;
-    if (typeof candidate.filename === "string" && candidate.filename.trim()) {
+    if (typeof candidate.filename === 'string' && candidate.filename.trim()) {
       return {
         filename: candidate.filename.trim(),
-        subfolder: typeof candidate.subfolder === "string" ? candidate.subfolder : "",
-        type:
-          candidate.type === "input" || candidate.type === "temp"
-            ? candidate.type
-            : "output",
+        subfolder: typeof candidate.subfolder === 'string' ? candidate.subfolder : '',
+        type: candidate.type === 'input' || candidate.type === 'temp' ? candidate.type : 'output',
       };
     }
   }
@@ -134,16 +124,13 @@ export function readSidecarOutputImage(
   const rawImages = sidecar.metadata?.images;
   if (Array.isArray(rawImages) && rawImages.length > 0) {
     const first = rawImages[0];
-    if (first && typeof first === "object") {
+    if (first && typeof first === 'object') {
       const candidate = first as Partial<ComfyOutputImage>;
-      if (typeof candidate.filename === "string" && candidate.filename.trim()) {
+      if (typeof candidate.filename === 'string' && candidate.filename.trim()) {
         return {
           filename: candidate.filename.trim(),
-          subfolder: typeof candidate.subfolder === "string" ? candidate.subfolder : "",
-          type:
-            candidate.type === "input" || candidate.type === "temp"
-              ? candidate.type
-              : "output",
+          subfolder: typeof candidate.subfolder === 'string' ? candidate.subfolder : '',
+          type: candidate.type === 'input' || candidate.type === 'temp' ? candidate.type : 'output',
         };
       }
     }
@@ -158,15 +145,15 @@ export function sidecarOutputViewUrl(sidecar: PromptSidecar): string | undefined
     return undefined;
   }
   const comfyUrl =
-    typeof sidecar.metadata?.comfyUrl === "string"
-      ? sidecar.metadata.comfyUrl.trim().replace(/\/+$/, "")
-      : "http://127.0.0.1:8188";
+    typeof sidecar.metadata?.comfyUrl === 'string'
+      ? sidecar.metadata.comfyUrl.trim().replace(/\/+$/, '')
+      : 'http://127.0.0.1:8188';
   return buildComfyViewPath(comfyUrl, image);
 }
 
 export function sidecarWorkflowJson(sidecar: PromptSidecar): string | undefined {
   const raw = sidecar.metadata?.workflowJson;
-  return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : undefined;
 }
 
 export function sidecarRequeueContext(sidecar: PromptSidecar): {
@@ -180,18 +167,18 @@ export function sidecarRequeueContext(sidecar: PromptSidecar): {
   const workflowJson = sidecarWorkflowJson(sidecar);
   const rawProfile = sidecar.metadata?.queueQualityProfile;
   const queueQualityProfile =
-    rawProfile === "followSettings" ||
-    rawProfile === "draft" ||
-    rawProfile === "final" ||
-    rawProfile === "max"
+    rawProfile === 'followSettings' ||
+    rawProfile === 'draft' ||
+    rawProfile === 'final' ||
+    rawProfile === 'max'
       ? normalizeQueueQualityProfile(rawProfile)
       : undefined;
   const storedSource =
-    typeof sidecar.metadata?.sourceImageUrl === "string"
+    typeof sidecar.metadata?.sourceImageUrl === 'string'
       ? sidecar.metadata.sourceImageUrl.trim()
       : undefined;
   const storedMask =
-    typeof sidecar.metadata?.maskImageUrl === "string"
+    typeof sidecar.metadata?.maskImageUrl === 'string'
       ? sidecar.metadata.maskImageUrl.trim()
       : undefined;
   const outputViewUrl = sidecarOutputViewUrl(sidecar);
@@ -206,11 +193,9 @@ export function sidecarRequeueContext(sidecar: PromptSidecar): {
   }
 
   const comfyUrl =
-    typeof sidecar.metadata?.comfyUrl === "string"
-      ? sidecar.metadata.comfyUrl.trim()
-      : undefined;
+    typeof sidecar.metadata?.comfyUrl === 'string' ? sidecar.metadata.comfyUrl.trim() : undefined;
   const derived = buildGalleryImageUrlsFromQueueParams({
-    comfyUrl: comfyUrl ?? "http://127.0.0.1:8188",
+    comfyUrl: comfyUrl ?? 'http://127.0.0.1:8188',
     queueParams,
   });
   return {

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   createContext,
@@ -8,18 +8,18 @@ import {
   useMemo,
   useState,
   type ReactNode,
-} from "react";
-import type { AppFeatureId } from "@/lib/auth/features";
-import type { AuthSessionResponse, AuthUserPublic } from "@/lib/auth/types";
-import { setActiveUserScope } from "@/lib/user-scope";
-import { setUserComfyUiUrlOverride } from "@/lib/user-comfy-url";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+} from 'react';
+import type { AppFeatureId } from '@/lib/auth/features';
+import type { AuthSessionResponse, AuthUserPublic } from '@/lib/auth/types';
+import { setActiveUserScope } from '@/lib/user-scope';
+import { setUserComfyUiUrlOverride } from '@/lib/user-comfy-url';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 type AuthState = {
   loading: boolean;
   authEnabled: boolean;
   user: AuthUserPublic | null;
-  allowedFeatures: AppFeatureId[] | "all";
+  allowedFeatures: AppFeatureId[] | 'all';
   impersonating: boolean;
   impersonatorUsername?: string;
 };
@@ -28,7 +28,7 @@ const INITIAL: AuthState = {
   loading: true,
   authEnabled: false,
   user: null,
-  allowedFeatures: "all",
+  allowedFeatures: 'all',
   impersonating: false,
 };
 
@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const response = await fetch("/api/auth/session", { cache: "no-store" });
+      const response = await fetch('/api/auth/session', { cache: 'no-store' });
       const data = (await response.json()) as AuthSessionResponse & {
         defaultAdminUsername?: string;
         impersonating?: boolean;
@@ -56,8 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         authEnabled: Boolean(data.authEnabled),
         user: data.user,
         allowedFeatures:
-          data.allowedFeatures === "all"
-            ? "all"
+          data.allowedFeatures === 'all'
+            ? 'all'
             : Array.isArray(data.allowedFeatures)
               ? data.allowedFeatures
               : [],
@@ -83,8 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const logout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/login";
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
   }, []);
 
   const value = useMemo(
@@ -92,9 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...state,
       refresh,
       logout,
-      isAdmin: state.user?.role === "admin",
+      isAdmin: state.user?.role === 'admin',
     }),
-    [state, refresh, logout],
+    [state, refresh, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -103,19 +103,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 }
 
 export function canAccessNavFeature(
-  allowed: AppFeatureId[] | "all",
-  feature: AppFeatureId | null,
+  allowed: AppFeatureId[] | 'all',
+  feature: AppFeatureId | null
 ): boolean {
   if (!feature) {
     return true;
   }
-  if (allowed === "all") {
+  if (allowed === 'all') {
     return true;
   }
   return allowed.includes(feature);

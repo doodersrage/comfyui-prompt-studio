@@ -18,7 +18,7 @@ export function inspectWorkflowGraphJson(workflowJson: string): WorkflowGraphIns
   if (!trimmed) {
     return {
       ok: false,
-      error: "Empty workflow JSON.",
+      error: 'Empty workflow JSON.',
       nodeCount: 0,
       classCounts: [],
       unresolvedTokens: [],
@@ -31,17 +31,17 @@ export function inspectWorkflowGraphJson(workflowJson: string): WorkflowGraphIns
   } catch {
     return {
       ok: false,
-      error: "Invalid JSON.",
+      error: 'Invalid JSON.',
       nodeCount: 0,
       classCounts: [],
       unresolvedTokens: [],
     };
   }
 
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return {
       ok: false,
-      error: "Workflow must be an object of node id → node.",
+      error: 'Workflow must be an object of node id → node.',
       nodeCount: 0,
       classCounts: [],
       unresolvedTokens: [],
@@ -51,14 +51,14 @@ export function inspectWorkflowGraphJson(workflowJson: string): WorkflowGraphIns
   const counts = new Map<string, number>();
   let nodeCount = 0;
   for (const node of Object.values(parsed as Record<string, unknown>)) {
-    if (!node || typeof node !== "object") {
+    if (!node || typeof node !== 'object') {
       continue;
     }
     nodeCount += 1;
     const classType =
-      typeof (node as { class_type?: unknown }).class_type === "string"
+      typeof (node as { class_type?: unknown }).class_type === 'string'
         ? (node as { class_type: string }).class_type
-        : "(unknown)";
+        : '(unknown)';
     counts.set(classType, (counts.get(classType) ?? 0) + 1);
   }
 

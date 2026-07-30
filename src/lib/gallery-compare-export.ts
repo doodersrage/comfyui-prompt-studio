@@ -1,6 +1,6 @@
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
-import { galleryEntryViewUrls } from "./comfyui-gallery";
-import { downloadTextFile } from "./history-export-formats";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
+import { galleryEntryViewUrls } from './comfyui-gallery';
+import { downloadTextFile } from './history-export-formats';
 
 export type CompareExportEntry = {
   id: string;
@@ -14,7 +14,7 @@ export type CompareExportEntry = {
 };
 
 export function buildCompareExport(entries: ComfyGalleryEntry[]): CompareExportEntry[] {
-  return entries.map((entry) => ({
+  return entries.map(entry => ({
     id: entry.id,
     model: entry.model,
     seed: entry.queueParams?.seed != null ? String(entry.queueParams.seed) : undefined,
@@ -34,28 +34,28 @@ export function exportCompareJson(entries: ComfyGalleryEntry[]): string {
       entries: buildCompareExport(entries),
     },
     null,
-    2,
+    2
   );
 }
 
 export function exportCompareHtml(entries: ComfyGalleryEntry[]): string {
   const cards = buildCompareExport(entries)
-    .map((entry) => {
-      const model = escapeHtml(entry.model ?? "unknown");
-      const seed = escapeHtml(entry.seed ?? "?");
+    .map(entry => {
+      const model = escapeHtml(entry.model ?? 'unknown');
+      const seed = escapeHtml(entry.seed ?? '?');
       const rating =
-        typeof entry.rating === "number" && Number.isFinite(entry.rating)
+        typeof entry.rating === 'number' && Number.isFinite(entry.rating)
           ? ` · ${escapeHtml(String(entry.rating))}★`
-          : "";
+          : '';
       const imageUrl = safeImageUrlAttr(entry.imageUrl);
       return `
 <section style="margin-bottom:24px;padding:16px;border:1px solid #333;border-radius:12px;">
   <h2 style="margin:0 0 8px;font-size:16px;">${model} · seed ${seed}${rating}</h2>
-  ${imageUrl ? `<img src="${imageUrl}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:12px;" />` : ""}
+  ${imageUrl ? `<img src="${imageUrl}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:12px;" />` : ''}
   <pre style="white-space:pre-wrap;font-size:13px;line-height:1.5;">${escapeHtml(entry.prompt)}</pre>
 </section>`;
     })
-    .join("\n");
+    .join('\n');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -73,10 +73,10 @@ export function exportCompareHtml(entries: ComfyGalleryEntry[]): string {
 
 function escapeHtml(value: string): string {
   return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function safeImageUrlAttr(value: string | undefined): string | undefined {
@@ -84,8 +84,8 @@ function safeImageUrlAttr(value: string | undefined): string | undefined {
     return undefined;
   }
   try {
-    const url = new URL(value, "http://localhost");
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
+    const url = new URL(value, 'http://localhost');
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       return undefined;
     }
     return escapeHtml(value);
@@ -96,19 +96,15 @@ function safeImageUrlAttr(value: string | undefined): string | undefined {
 
 export function downloadCompareExport(
   entries: ComfyGalleryEntry[],
-  format: "json" | "html" = "json",
+  format: 'json' | 'html' = 'json'
 ): void {
-  if (format === "html") {
-    downloadTextFile(
-      exportCompareHtml(entries),
-      "gallery-compare.html",
-      "text/html;charset=utf-8",
-    );
+  if (format === 'html') {
+    downloadTextFile(exportCompareHtml(entries), 'gallery-compare.html', 'text/html;charset=utf-8');
     return;
   }
   downloadTextFile(
     exportCompareJson(entries),
-    "gallery-compare.json",
-    "application/json;charset=utf-8",
+    'gallery-compare.json',
+    'application/json;charset=utf-8'
   );
 }

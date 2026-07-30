@@ -1,79 +1,71 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import EnhancedPromptResult from "@/components/LazyEnhancedPromptResult";
-import FantasyPresetChips from "@/components/FantasyPresetChips";
-import FantasyPresetControls from "@/components/FantasyPresetControls";
-import SharedToolControls from "@/components/SharedToolControls";
-import { useCachedSettings } from "@/hooks/useCachedSettings";
-import { useSeedToolDraft } from "@/hooks/useSeedToolDraft";
-import { usePromptResultActions } from "@/hooks/usePromptResultActions";
-import { useRecentLocations } from "@/hooks/useRecentLocations";
-import { useRecentClothing } from "@/hooks/useRecentClothing";
-import { useLocationBlocklist } from "@/hooks/useLocationBlocklist";
-import { fetchClothingLabels, getCachedClothingLabel } from "@/lib/clothing-catalog-client";
-import { readRawPrompt } from "@/lib/raw-prompt";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import {
-  presetOptionsFromFantasyCache,
-  resolveFantasyFocus,
-} from "@/lib/fantasy-options";
-import { getComfyModelDefinition } from "@/lib/comfy-models/client";
-import { promptResultPreviewProps } from "@/lib/prompt-result-preview-props";
-import { getReformatTargetLabel, getReformatTargetModel } from "@/lib/reformat-target";
-import { rememberDraftFields } from "@/lib/remember-draft-fields";
-import { applyHintSourceFromSearchParams } from "@/lib/tool-url-params";
-import { avoidedTokensRequestBody } from "@/lib/avoided-tokens";
-import {
-  applyShareableSceneParams,
-  parseScenePresetFromSearch,
-} from "@/lib/scene-preset-url";
-import { getFantasyPreset } from "@/lib/fantasy-presets";
-import { readSceneLocationFromMetadata } from "@/lib/recent-locations";
-import { readClothingIdsFromMetadata } from "@/lib/recent-clothing";
-import { DEFAULT_FANTASY_TOOL_CACHE } from "@/lib/settings-cache";
-import type { EnrichedToolGenerateResult } from "@/lib/specialized/types";
-import { readVariationSeedFromResult } from "@/lib/variation-seed-metadata";
-import { FantasyShotScaleControl } from "@/components/ShotScaleControl";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
+import FantasyPresetChips from '@/components/FantasyPresetChips';
+import FantasyPresetControls from '@/components/FantasyPresetControls';
+import SharedToolControls from '@/components/SharedToolControls';
+import { useCachedSettings } from '@/hooks/useCachedSettings';
+import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
+import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import { useRecentLocations } from '@/hooks/useRecentLocations';
+import { useRecentClothing } from '@/hooks/useRecentClothing';
+import { useLocationBlocklist } from '@/hooks/useLocationBlocklist';
+import { fetchClothingLabels, getCachedClothingLabel } from '@/lib/clothing-catalog-client';
+import { readRawPrompt } from '@/lib/raw-prompt';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { presetOptionsFromFantasyCache, resolveFantasyFocus } from '@/lib/fantasy-options';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
+import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
+import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { rememberDraftFields } from '@/lib/remember-draft-fields';
+import { applyHintSourceFromSearchParams } from '@/lib/tool-url-params';
+import { avoidedTokensRequestBody } from '@/lib/avoided-tokens';
+import { applyShareableSceneParams, parseScenePresetFromSearch } from '@/lib/scene-preset-url';
+import { getFantasyPreset } from '@/lib/fantasy-presets';
+import { readSceneLocationFromMetadata } from '@/lib/recent-locations';
+import { readClothingIdsFromMetadata } from '@/lib/recent-clothing';
+import { DEFAULT_FANTASY_TOOL_CACHE } from '@/lib/settings-cache';
+import type { EnrichedToolGenerateResult } from '@/lib/specialized/types';
+import { readVariationSeedFromResult } from '@/lib/variation-seed-metadata';
+import { FantasyShotScaleControl } from '@/components/ShotScaleControl';
 import {
   SceneGenerateFooter,
   SceneHintsField,
   VariationSliderField,
-} from "@/components/scene-tool/SceneToolSections";
+} from '@/components/scene-tool/SceneToolSections';
 import {
   HistoryHintSeedPanel,
   resolveSceneHintsForGeneration,
-} from "@/components/scene-tool/HistoryHintSeedPanel";
-import {
-  normalizeHistorySeedScope,
-  normalizeSceneHintSource,
-} from "@/lib/scene-hint-source";
-import { countHistorySeedCandidates } from "@/lib/history-hint-seed";
+} from '@/components/scene-tool/HistoryHintSeedPanel';
+import { normalizeHistorySeedScope, normalizeSceneHintSource } from '@/lib/scene-hint-source';
+import { countHistorySeedCandidates } from '@/lib/history-hint-seed';
 import {
   CONCEPT_WILDNESS_LABEL,
   ROLL_VARIATION_LABEL,
   conceptWildnessLabel,
   rollVariationLabel,
-} from "@/lib/tool-ui-labels";
+} from '@/lib/tool-ui-labels';
 import {
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentFocusClass,
   accentRingClass,
-} from "@/components/ui/ToolPageShell";
-import { FieldDivider } from "@/components/ui/Field";
+} from '@/components/ui/ToolPageShell';
+import { FieldDivider } from '@/components/ui/Field';
 
-const ACCENT = "violet" as const;
+const ACCENT = 'violet' as const;
 
 export default function FantasyTool() {
-  const { mounted, shared, toolSettings, updateShared, updateToolSettings } =
-    useCachedSettings("fantasy", DEFAULT_FANTASY_TOOL_CACHE);
+  const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
+    'fantasy',
+    DEFAULT_FANTASY_TOOL_CACHE
+  );
   const { getRecent, record } = useRecentLocations();
-  const { getRecent: getRecentClothing, record: recordClothing } =
-    useRecentClothing();
+  const { getRecent: getRecentClothing, record: recordClothing } = useRecentClothing();
   const { getBlocklist } = useLocationBlocklist();
-  const [output, setOutput] = useState("");
+  const [output, setOutput] = useState('');
   const [result, setResult] = useState<EnrichedToolGenerateResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,9 +73,9 @@ export default function FantasyTool() {
   const [lockedWardrobeLabel, setLockedWardrobeLabel] = useState<string | undefined>();
 
   useSeedToolDraft(mounted, {
-    toolKey: "fantasy",
-    label: "Fantasy",
-    href: "/fantasy",
+    toolKey: 'fantasy',
+    label: 'Fantasy',
+    href: '/fantasy',
     fields: [toolSettings.hints],
   });
 
@@ -101,7 +93,7 @@ export default function FantasyTool() {
     }
 
     let cancelled = false;
-    void fetchClothingLabels([id]).then((labels) => {
+    void fetchClothingLabels([id]).then(labels => {
       if (cancelled) {
         return;
       }
@@ -113,17 +105,14 @@ export default function FantasyTool() {
     };
   }, [shared.lockedWardrobeId]);
 
-  const presetOptions = useMemo(
-    () => presetOptionsFromFantasyCache(toolSettings),
-    [toolSettings],
-  );
+  const presetOptions = useMemo(() => presetOptionsFromFantasyCache(toolSettings), [toolSettings]);
   const focus = resolveFantasyFocus(presetOptions, toolSettings.hints);
-  const includePeople = focus === "character" || focus === "ensemble";
+  const includePeople = focus === 'character' || focus === 'ensemble';
   const activeFraming =
-    focus === "environment" ? "wide" : (toolSettings.portraitStyle ?? "portrait");
+    focus === 'environment' ? 'wide' : (toolSettings.portraitStyle ?? 'portrait');
 
   const actions = usePromptResultActions({
-    tool: "fantasy",
+    tool: 'fantasy',
     model: shared.model,
     detail: shared.detail,
     hints: toolSettings.hints,
@@ -135,24 +124,24 @@ export default function FantasyTool() {
   const variationSeed = readVariationSeedFromResult(result ?? {});
   const hintSource = normalizeSceneHintSource(toolSettings.hintSource);
   const historySeedScope = normalizeHistorySeedScope(toolSettings.historySeedScope);
-  const historyCandidateCount = countHistorySeedCandidates("fantasy", historySeedScope);
+  const historyCandidateCount = countHistorySeedCandidates('fantasy', historySeedScope);
   const generateDisabledReason =
-    hintSource === "history" && historyCandidateCount === 0
-      ? "Save a few fantasy or related prompts to Studio history first, or switch hint source."
+    hintSource === 'history' && historyCandidateCount === 0
+      ? 'Save a few fantasy or related prompts to Studio history first, or switch hint source.'
       : null;
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === 'undefined') {
       return;
     }
     const params = new URLSearchParams(window.location.search);
     applyHintSourceFromSearchParams(params, updateToolSettings);
-    const hints = params.get("hints");
-    const seed = params.get("seed");
+    const hints = params.get('hints');
+    const seed = params.get('seed');
     if (hints?.trim()) {
       updateToolSettings({
         hints: hints.trim(),
-        ...(params.get("hintSource") === "manual" ? { hintSource: "manual" } : {}),
+        ...(params.get('hintSource') === 'manual' ? { hintSource: 'manual' } : {}),
       });
     }
     if (seed?.trim()) {
@@ -194,9 +183,9 @@ export default function FantasyTool() {
         hints: toolSettings.hints,
         randomTheme: toolSettings.randomTheme,
       });
-      const response = await fetch("/api/fantasy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/fantasy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: shared.model,
           detail: shared.detail,
@@ -222,7 +211,7 @@ export default function FantasyTool() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Generation failed.");
+        throw new Error(data.error ?? 'Generation failed.');
       }
 
       record(readSceneLocationFromMetadata(data.metadata));
@@ -232,9 +221,9 @@ export default function FantasyTool() {
       setOutput(prompt);
       setResult({ ...data, prompt });
     } catch (err) {
-      setOutput("");
+      setOutput('');
       setResult(null);
-      setError(err instanceof Error ? err.message : "Generation failed.");
+      setError(err instanceof Error ? err.message : 'Generation failed.');
     } finally {
       setLoading(false);
     }
@@ -261,58 +250,45 @@ export default function FantasyTool() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Could not copy to clipboard.");
+      setError('Could not copy to clipboard.');
     }
   }, [output]);
 
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={
-        <ToolBadge accent={ACCENT}>
-          Fantasy scene · {selectedModel.comfyNode}
-        </ToolBadge>
-      }
+      badge={<ToolBadge accent={ACCENT}>Fantasy scene · {selectedModel.comfyNode}</ToolBadge>}
       title="Fantasy Scene Generator"
       description={
         <>
-          Builds detailed fantasy prompts for characters, creatures, ensembles,
-          or pure environments. Use presets and options for subgenre, magic,
-          setting, and camera—or add freeform hints and pin a place with{" "}
-          <code className="text-violet-300">location: …</code>.
+          Builds detailed fantasy prompts for characters, creatures, ensembles, or pure
+          environments. Use presets and options for subgenre, magic, setting, and camera—or add
+          freeform hints and pin a place with <code className="text-violet-300">location: …</code>.
         </>
       }
       sidebar={
         <SharedToolControls
           shared={shared}
-          onModelChange={(model) => updateShared({ model })}
-          onDetailChange={(detail) => updateShared({ detail })}
-          onWorkflowPresetChange={(id) => updateShared({ selectedWorkflowFileId: id })}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={detail => updateShared({ detail })}
+          onWorkflowPresetChange={id => updateShared({ selectedWorkflowFileId: id })}
           showWardrobeOption={includePeople}
           alwaysIncludeClothing={shared.alwaysIncludeClothing !== false}
-          onAlwaysIncludeClothingChange={(value) =>
-            updateShared({ alwaysIncludeClothing: value })
-          }
+          onAlwaysIncludeClothingChange={value => updateShared({ alwaysIncludeClothing: value })}
           seedLlmWithIngredients={shared.seedLlmWithIngredients !== false}
-          onSeedLlmWithIngredientsChange={(value) =>
-            updateShared({ seedLlmWithIngredients: value })
-          }
+          onSeedLlmWithIngredientsChange={value => updateShared({ seedLlmWithIngredients: value })}
           wardrobeHelp="When focus is character or ensemble, rolls catalog outfits for heroes and adventurers."
           lockedWardrobeId={shared.lockedWardrobeId}
           lockedWardrobeLabel={
-            shared.lockedWardrobeId
-              ? lockedWardrobeLabel ?? shared.lockedWardrobeId
-              : undefined
+            shared.lockedWardrobeId ? (lockedWardrobeLabel ?? shared.lockedWardrobeId) : undefined
           }
           onClearLockedWardrobe={() => updateShared({ lockedWardrobeId: undefined })}
           lockedLocation={shared.lockedLocation}
           onClearLockedLocation={() => updateShared({ lockedLocation: undefined })}
           lockedVariationSeed={shared.lockedVariationSeed}
-          onClearLockedVariationSeed={() =>
-            updateShared({ lockedVariationSeed: undefined })
-          }
+          onClearLockedVariationSeed={() => updateShared({ lockedVariationSeed: undefined })}
           autoFixRules={shared.autoFixRules !== false}
-          onAutoFixRulesChange={(value) => updateShared({ autoFixRules: value })}
+          onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
           recommendFromText={output}
         />
       }
@@ -323,11 +299,9 @@ export default function FantasyTool() {
       >
         <FantasyPresetChips
           selectedId={toolSettings.fantasyPresetId}
-          category={toolSettings.presetCategory ?? "all"}
-          onCategoryChange={(category) =>
-            updateToolSettings({ presetCategory: category })
-          }
-          onSelect={(preset) => {
+          category={toolSettings.presetCategory ?? 'all'}
+          onCategoryChange={category => updateToolSettings({ presetCategory: category })}
+          onSelect={preset => {
             updateToolSettings({
               hints: preset.hints,
               fantasyPresetId: preset.id,
@@ -342,9 +316,7 @@ export default function FantasyTool() {
         <FantasyPresetControls
           mounted={mounted}
           settings={toolSettings}
-          onChange={(patch) =>
-            updateToolSettings({ ...patch, fantasyPresetId: undefined })
-          }
+          onChange={patch => updateToolSettings({ ...patch, fantasyPresetId: undefined })}
         />
 
         <FieldDivider />
@@ -353,27 +325,25 @@ export default function FantasyTool() {
           tool="fantasy"
           hintSource={hintSource}
           historySeedScope={historySeedScope}
-          hints={toolSettings.hints ?? ""}
-          randomTheme={toolSettings.randomTheme ?? ""}
+          hints={toolSettings.hints ?? ''}
+          randomTheme={toolSettings.randomTheme ?? ''}
           lastHistorySeedEntryId={toolSettings.lastHistorySeedEntryId}
-          onHintSourceChange={(source) => updateToolSettings({ hintSource: source })}
-          onHistorySeedScopeChange={(scope) =>
-            updateToolSettings({ historySeedScope: scope })
-          }
-          onHintsChange={(value) => {
+          onHintSourceChange={source => updateToolSettings({ hintSource: source })}
+          onHistorySeedScopeChange={scope => updateToolSettings({ historySeedScope: scope })}
+          onHintsChange={value => {
             updateToolSettings({
               hints: value,
               fantasyPresetId: undefined,
             });
             rememberDraftFields({
-              toolKey: "fantasy",
-              label: "Fantasy",
-              href: "/fantasy",
+              toolKey: 'fantasy',
+              label: 'Fantasy',
+              href: '/fantasy',
               fields: [value],
             });
           }}
-          onRandomThemeChange={(value) => updateToolSettings({ randomTheme: value })}
-          onHistorySeedApplied={(result) =>
+          onRandomThemeChange={value => updateToolSettings({ randomTheme: value })}
+          onHistorySeedApplied={result =>
             updateToolSettings({
               hints: result.hints,
               lastHistorySeedEntryId: result.entryId,
@@ -383,20 +353,20 @@ export default function FantasyTool() {
           accentFocusClassName={accentFocusClass(ACCENT)}
         />
 
-        {hintSource !== "random" ? (
+        {hintSource !== 'random' ? (
           <>
             <FieldDivider />
             <SceneHintsField
-              value={toolSettings.hints ?? ""}
-              onChange={(value) => {
+              value={toolSettings.hints ?? ''}
+              onChange={value => {
                 updateToolSettings({
                   hints: value,
                   fantasyPresetId: undefined,
                 });
                 rememberDraftFields({
-                  toolKey: "fantasy",
-                  label: "Fantasy",
-                  href: "/fantasy",
+                  toolKey: 'fantasy',
+                  label: 'Fantasy',
+                  href: '/fantasy',
                   fields: [value],
                 });
               }}
@@ -410,8 +380,8 @@ export default function FantasyTool() {
 
         <FantasyShotScaleControl
           value={activeFraming}
-          onChange={(value) => updateToolSettings({ portraitStyle: value })}
-          environmentOnly={focus === "environment"}
+          onChange={value => updateToolSettings({ portraitStyle: value })}
+          environmentOnly={focus === 'environment'}
         />
 
         <FieldDivider />
@@ -419,7 +389,7 @@ export default function FantasyTool() {
         <VariationSliderField
           label={CONCEPT_WILDNESS_LABEL}
           value={toolSettings.wildness ?? 65}
-          onChange={(value) => updateToolSettings({ wildness: value })}
+          onChange={value => updateToolSettings({ wildness: value })}
           valueLabel={`${conceptWildnessLabel(toolSettings.wildness ?? 65)} (${toolSettings.wildness ?? 65})`}
           minLabel="Grounded"
           maxLabel="Surreal"
@@ -431,7 +401,7 @@ export default function FantasyTool() {
         <VariationSliderField
           label={ROLL_VARIATION_LABEL}
           value={toolSettings.variationStrength ?? 50}
-          onChange={(value) => updateToolSettings({ variationStrength: value })}
+          onChange={value => updateToolSettings({ variationStrength: value })}
           valueLabel={`${rollVariationLabel(toolSettings.variationStrength ?? 50)} (${toolSettings.variationStrength ?? 50})`}
           accentRingClassName={accentRingClass(ACCENT)}
         />
@@ -470,12 +440,7 @@ export default function FantasyTool() {
         onImprove={() => actions.improveOutput(output, actions.comfyUiPreviewUrl)}
         onRefine={() => actions.refineOutput(output, actions.comfyUiPreviewUrl)}
         onEditPrompt={() =>
-          actions.editPromptOutput(
-            output,
-            actions.comfyUiPreviewUrl,
-            undefined,
-            toolSettings.hints,
-          )
+          actions.editPromptOutput(output, actions.comfyUiPreviewUrl, undefined, toolSettings.hints)
         }
         {...promptResultPreviewProps(actions, output)}
         onFixPrompt={() => void actions.fixPrompt(output, setOutput, toolSettings.hints)}

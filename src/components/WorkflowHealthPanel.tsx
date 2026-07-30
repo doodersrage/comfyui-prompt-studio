@@ -1,27 +1,22 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { loadComfyWorkflowFiles } from "@/lib/comfyui-workflow-files";
+import { useEffect, useMemo, useState } from 'react';
+import { loadComfyWorkflowFiles } from '@/lib/comfyui-workflow-files';
 import {
   auditWorkflowLibraryHealth,
   dispatchWorkflowHealthSelect,
   summarizeWorkflowLibraryHealth,
-} from "@/lib/workflow-health-audit";
-import { auditLoaderMapsAgainstComfyUi } from "@/lib/loader-map-health-audit";
-import { loadSettingsCache } from "@/lib/settings-cache";
-import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from "@/lib/comfyui-settings";
-import { resolveComfyUiRuntime } from "@/lib/comfyui-runtime";
-import type { ComfyUiModelLists } from "@/lib/comfyui-object-info";
-import {
-  auditDualClipNodesInWorkflow,
-} from "@/lib/workflow-queue-loader-preflight";
-import { auditLoaderFilenamesInWorkflow } from "@/lib/workflow-loader-filename-audit";
-import {
-  applyLoaderMapRepairs,
-  suggestLoaderMapRepairs,
-} from "@/lib/workflow-loader-map-repair";
-import { saveSharedSettings } from "@/lib/settings-cache";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
+} from '@/lib/workflow-health-audit';
+import { auditLoaderMapsAgainstComfyUi } from '@/lib/loader-map-health-audit';
+import { loadSettingsCache } from '@/lib/settings-cache';
+import { loadComfyUiSettings, mergeLoraLibraryIntoCustomTokens } from '@/lib/comfyui-settings';
+import { resolveComfyUiRuntime } from '@/lib/comfyui-runtime';
+import type { ComfyUiModelLists } from '@/lib/comfyui-object-info';
+import { auditDualClipNodesInWorkflow } from '@/lib/workflow-queue-loader-preflight';
+import { auditLoaderFilenamesInWorkflow } from '@/lib/workflow-loader-filename-audit';
+import { applyLoaderMapRepairs, suggestLoaderMapRepairs } from '@/lib/workflow-loader-map-repair';
+import { saveSharedSettings } from '@/lib/settings-cache';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 
 type WorkflowHealthPanelProps = {
   refreshKey?: number;
@@ -30,32 +25,30 @@ type WorkflowHealthPanelProps = {
 
 function workflowFileLoaderIssues(
   files: ReturnType<typeof loadComfyWorkflowFiles>,
-  models: ComfyUiModelLists,
+  models: ComfyUiModelLists
 ) {
-  return files.flatMap((file) => {
+  return files.flatMap(file => {
     const dualClip = auditDualClipNodesInWorkflow({
       workflowJson: file.workflowJson,
       models,
-    }).map((issue) => ({
+    }).map(issue => ({
       workflowId: file.id,
       workflowName: file.name,
       severity: issue.severity,
       message: issue.message,
-      action: "optimize-workflow" as const,
+      action: 'optimize-workflow' as const,
     }));
 
     const loaders = auditLoaderFilenamesInWorkflow({
       workflowJson: file.workflowJson,
       models,
-    }).map((issue) => ({
+    }).map(issue => ({
       workflowId: file.id,
       workflowName: file.name,
       severity: issue.severity,
       message: issue.message,
       action:
-        issue.severity === "error"
-          ? ("optimize-workflow" as const)
-          : ("open-workflow" as const),
+        issue.severity === 'error' ? ('optimize-workflow' as const) : ('open-workflow' as const),
     }));
 
     return [...dualClip, ...loaders];
@@ -85,16 +78,16 @@ export default function WorkflowHealthPanel({
     void refreshKey;
     const runtime = resolveComfyUiRuntime();
     const comfyUrl = runtime?.apiUrl?.trim();
-    const params = comfyUrl ? `?comfyUrl=${encodeURIComponent(comfyUrl)}` : "";
+    const params = comfyUrl ? `?comfyUrl=${encodeURIComponent(comfyUrl)}` : '';
     scheduleAfterCommit(() => {
-      setLoaderStatus("Checking loader maps against ComfyUI…");
+      setLoaderStatus('Checking loader maps against ComfyUI…');
     });
 
     void fetch(`/api/comfyui/object-info${params}`)
-      .then(async (response) => {
+      .then(async response => {
         if (!response.ok) {
           setLoaderIssues([]);
-          setLoaderStatus("ComfyUI offline — loader map filenames not verified.");
+          setLoaderStatus('ComfyUI offline — loader map filenames not verified.');
           return;
         }
         const data = (await response.json()) as {
@@ -121,21 +114,18 @@ export default function WorkflowHealthPanel({
           customTokens: settings.customTokens,
           models: data.models,
         });
-        const workflowIssues = workflowFileLoaderIssues(
-          loadComfyWorkflowFiles(),
-          data.models,
-        );
+        const workflowIssues = workflowFileLoaderIssues(loadComfyWorkflowFiles(), data.models);
         const issues = [...mapIssues, ...workflowIssues];
         setLoaderIssues(issues);
         setLoaderStatus(
           issues.length === 0
-            ? "Loader maps and workflow filenames match ComfyUI."
-            : `${issues.length} loader note(s) from ComfyUI.`,
+            ? 'Loader maps and workflow filenames match ComfyUI.'
+            : `${issues.length} loader note(s) from ComfyUI.`
         );
       })
       .catch(() => {
         setLoaderIssues([]);
-        setLoaderStatus("Could not verify loader maps against ComfyUI.");
+        setLoaderStatus('Could not verify loader maps against ComfyUI.');
       });
   }, [refreshKey]);
 
@@ -143,7 +133,7 @@ export default function WorkflowHealthPanel({
   const summary = summarizeWorkflowLibraryHealth({
     ...report,
     issues: allIssues,
-    healthy: Math.max(0, report.scanned - new Set(allIssues.map((issue) => issue.workflowId)).size),
+    healthy: Math.max(0, report.scanned - new Set(allIssues.map(issue => issue.workflowId)).size),
   });
   const topIssues = allIssues.slice(0, 8);
   const loaderMapRepairs = useMemo(() => {
@@ -162,7 +152,7 @@ export default function WorkflowHealthPanel({
 
   const applyLoaderMapRepairSuggestions = () => {
     if (loaderMapRepairs.length === 0) {
-      onStatus?.("No loader map repairs suggested.");
+      onStatus?.('No loader map repairs suggested.');
       return;
     }
     const shared = loadSettingsCache().shared;
@@ -173,7 +163,7 @@ export default function WorkflowHealthPanel({
         upscaleMap: { ...(shared.modelUpscaleMap ?? {}) } as Record<string, string>,
         controlNetMap: { ...(shared.modelControlNetMap ?? {}) } as Record<string, string>,
       },
-      loaderMapRepairs,
+      loaderMapRepairs
     );
     saveSharedSettings({
       ...shared,
@@ -198,19 +188,19 @@ export default function WorkflowHealthPanel({
             className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs text-violet-200 transition hover:border-violet-400/50 hover:bg-violet-500/15"
           >
             Apply {loaderMapRepairs.length} suggested loader map repair
-            {loaderMapRepairs.length === 1 ? "" : "s"}
+            {loaderMapRepairs.length === 1 ? '' : 's'}
           </button>
         ) : null}
       </div>
       {topIssues.length > 0 ? (
         <ul className="space-y-2">
-          {topIssues.map((issue) => (
+          {topIssues.map(issue => (
             <li
               key={`${issue.workflowId}-${issue.workflowName}-${issue.message}`}
               className={`rounded-xl border px-3 py-2 text-xs ${
-                issue.severity === "error"
-                  ? "border-rose-500/25 bg-rose-500/5 text-rose-200"
-                  : "border-amber-500/20 bg-amber-500/5 text-amber-100"
+                issue.severity === 'error'
+                  ? 'border-rose-500/25 bg-rose-500/5 text-rose-200'
+                  : 'border-amber-500/20 bg-amber-500/5 text-amber-100'
               }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -219,23 +209,23 @@ export default function WorkflowHealthPanel({
                   <span className="text-zinc-400"> — </span>
                   {issue.message}
                 </p>
-                {issue.workflowId !== "loader-map" && issue.action ? (
+                {issue.workflowId !== 'loader-map' && issue.action ? (
                   <div className="flex shrink-0 gap-1">
                     <button
                       type="button"
                       onClick={() => {
-                        dispatchWorkflowHealthSelect(issue.workflowId, "open-workflow");
+                        dispatchWorkflowHealthSelect(issue.workflowId, 'open-workflow');
                         onStatus?.(`Opened workflow “${issue.workflowName}” in library.`);
                       }}
                       className="rounded-lg border border-zinc-700/70 px-2 py-0.5 text-[10px] text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
                     >
                       Open
                     </button>
-                    {issue.action === "optimize-workflow" ? (
+                    {issue.action === 'optimize-workflow' ? (
                       <button
                         type="button"
                         onClick={() => {
-                          dispatchWorkflowHealthSelect(issue.workflowId, "optimize-workflow");
+                          dispatchWorkflowHealthSelect(issue.workflowId, 'optimize-workflow');
                           onStatus?.(`Optimizing “${issue.workflowName}”…`);
                         }}
                         className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-200 transition hover:border-violet-400/50 hover:bg-violet-500/15"
@@ -251,8 +241,8 @@ export default function WorkflowHealthPanel({
         </ul>
       ) : (
         <p className="text-xs text-emerald-300/90">
-          Placeholders and loader maps look ready. Run Optimize all after importing new community JSON so
-          queue hash-skip stays warm.
+          Placeholders and loader maps look ready. Run Optimize all after importing new community
+          JSON so queue hash-skip stays warm.
         </p>
       )}
     </div>

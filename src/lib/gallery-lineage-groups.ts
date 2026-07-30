@@ -1,14 +1,12 @@
-import type { ComfyGalleryEntry } from "./comfyui-gallery";
+import type { ComfyGalleryEntry } from './comfyui-gallery';
 
 export type GalleryLineageGroup = {
   root: ComfyGalleryEntry;
   derivatives: ComfyGalleryEntry[];
 };
 
-export function buildGalleryLineageGroups(
-  entries: ComfyGalleryEntry[],
-): GalleryLineageGroup[] {
-  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+export function buildGalleryLineageGroups(entries: ComfyGalleryEntry[]): GalleryLineageGroup[] {
+  const byId = new Map(entries.map(entry => [entry.id, entry]));
   const childrenByParent = new Map<string, ComfyGalleryEntry[]>();
 
   for (const entry of entries) {
@@ -51,13 +49,9 @@ export function buildGalleryLineageGroups(
 
 export function galleryLineageGroupingEnabled(
   filter: Pick<
-    import("./comfyui-gallery").ComfyGalleryFilter,
-    "derivativeOfEntryId" | "focusEntryId" | "derivedKind"
-  >,
+    import('./comfyui-gallery').ComfyGalleryFilter,
+    'derivativeOfEntryId' | 'focusEntryId' | 'derivedKind'
+  >
 ): boolean {
-  return (
-    !filter.derivativeOfEntryId?.trim() &&
-    !filter.focusEntryId?.trim() &&
-    !filter.derivedKind
-  );
+  return !filter.derivativeOfEntryId?.trim() && !filter.focusEntryId?.trim() && !filter.derivedKind;
 }

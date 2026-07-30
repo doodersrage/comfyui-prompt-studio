@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useMemo } from "react";
+import { useMemo } from 'react';
 import {
   PET_PRESET_UI_SECTIONS,
   clearPetPresetPatch,
@@ -11,9 +11,9 @@ import {
   type PetPresetOptions,
   type PetPresetUiField,
   type PetPresetUiSection,
-} from "@/lib/pet-options";
-import type { PetToolCache } from "@/lib/settings-cache";
-import { SelectInput, TextInput } from "@/components/ui/Field";
+} from '@/lib/pet-options';
+import type { PetToolCache } from '@/lib/settings-cache';
+import { SelectInput, TextInput } from '@/components/ui/Field';
 
 function PetSelect({
   label,
@@ -29,12 +29,9 @@ function PetSelect({
   return (
     <label className="space-y-2">
       <span className="type-heading">{label}</span>
-      <SelectInput
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        {options.map((option) => (
-          <option key={option.value || "default"} value={option.value}>
+      <SelectInput value={value} onChange={event => onChange(event.target.value)}>
+        {options.map(option => (
+          <option key={option.value || 'default'} value={option.value}>
             {option.label}
           </option>
         ))}
@@ -52,13 +49,13 @@ function PresetField({
   settings: PetToolCache;
   onChange: (patch: Partial<PetToolCache>) => void;
 }) {
-  if (field.kind === "select") {
+  if (field.kind === 'select') {
     return (
       <PetSelect
         label={field.label}
-        value={(settings[field.key] as string | undefined) ?? ""}
+        value={(settings[field.key] as string | undefined) ?? ''}
         options={getSelectOptionsForPetPresetKey(field.key)}
-        onChange={(value) => onChange({ [field.key]: value })}
+        onChange={value => onChange({ [field.key]: value })}
       />
     );
   }
@@ -67,8 +64,8 @@ function PresetField({
     <label className="space-y-2 sm:col-span-2">
       <span className="type-heading">{field.label}</span>
       <TextInput
-        value={settings.petDetail ?? ""}
-        onChange={(event) => onChange({ petDetail: event.target.value })}
+        value={settings.petDetail ?? ''}
+        onChange={event => onChange({ petDetail: event.target.value })}
         placeholder={field.placeholder}
       />
     </label>
@@ -101,20 +98,13 @@ function PresetSection({
           ) : null}
         </div>
         <span className="text-xs text-zinc-500">
-          {sectionCount > 0 ? `${sectionCount} set` : "Optional"}
-          <span className="ml-2 text-zinc-600 transition group-open:rotate-180">
-            ▾
-          </span>
+          {sectionCount > 0 ? `${sectionCount} set` : 'Optional'}
+          <span className="ml-2 text-zinc-600 transition group-open:rotate-180">▾</span>
         </span>
       </summary>
       <div className="grid gap-3 border-t border-zinc-800 px-4 py-4 sm:grid-cols-2">
-        {section.fields.map((field) => (
-          <PresetField
-            key={field.key}
-            field={field}
-            settings={settings}
-            onChange={onChange}
-          />
+        {section.fields.map(field => (
+          <PresetField key={field.key} field={field} settings={settings} onChange={onChange} />
         ))}
       </div>
     </details>
@@ -127,15 +117,8 @@ type PetPresetControlsProps = {
   onChange: (patch: Partial<PetToolCache>) => void;
 };
 
-export default function PetPresetControls({
-  mounted,
-  settings,
-  onChange,
-}: PetPresetControlsProps) {
-  const presetOptions = useMemo(
-    () => presetOptionsFromPetCache(settings),
-    [settings],
-  );
+export default function PetPresetControls({ mounted, settings, onChange }: PetPresetControlsProps) {
+  const presetOptions = useMemo(() => presetOptionsFromPetCache(settings), [settings]);
   const selectionCount = countPetPresetSelections(presetOptions);
 
   if (!mounted) {
@@ -164,7 +147,7 @@ export default function PetPresetControls({
         </div>
       </div>
 
-      {PET_PRESET_UI_SECTIONS.map((section) => (
+      {PET_PRESET_UI_SECTIONS.map(section => (
         <PresetSection
           key={section.id}
           section={section}

@@ -1,5 +1,5 @@
-import { ALL_CLOTHING_CATALOG_ENTRIES } from "./clothing-catalog-batches";
-import { ALL_EXTRA_SCENE_LOCATIONS } from "./location-catalog-batches";
+import { ALL_CLOTHING_CATALOG_ENTRIES } from './clothing-catalog-batches';
+import { ALL_EXTRA_SCENE_LOCATIONS } from './location-catalog-batches';
 
 export type CatalogClothingEntry = {
   id: string;
@@ -11,7 +11,7 @@ export type CatalogClothingEntry = {
 export type CatalogLocationEntry = {
   id: string;
   label: string;
-  source: "handcrafted" | "composed";
+  source: 'handcrafted' | 'composed';
 };
 
 export function listCatalogClothing(options?: {
@@ -20,18 +20,18 @@ export function listCatalogClothing(options?: {
   ids?: readonly string[];
   categories?: readonly string[];
 }): CatalogClothingEntry[] {
-  const query = options?.query?.trim().toLowerCase() ?? "";
+  const query = options?.query?.trim().toLowerCase() ?? '';
   const limit = options?.limit ?? 200;
   const idSet =
     options?.ids && options.ids.length > 0
-      ? new Set(options.ids.map((id) => id.trim()).filter(Boolean))
+      ? new Set(options.ids.map(id => id.trim()).filter(Boolean))
       : null;
   const categorySet =
     options?.categories && options.categories.length > 0
-      ? new Set(options.categories.map((category) => category.trim()).filter(Boolean))
+      ? new Set(options.categories.map(category => category.trim()).filter(Boolean))
       : null;
 
-  return ALL_CLOTHING_CATALOG_ENTRIES.filter((entry) => {
+  return ALL_CLOTHING_CATALOG_ENTRIES.filter(entry => {
     if (idSet && !idSet.has(entry.id)) {
       return false;
     }
@@ -48,7 +48,7 @@ export function listCatalogClothing(options?: {
     );
   })
     .slice(0, limit)
-    .map((entry) => ({
+    .map(entry => ({
       id: entry.id,
       label: entry.label,
       category: entry.category,
@@ -60,10 +60,10 @@ export function listCatalogLocations(options?: {
   query?: string;
   limit?: number;
 }): CatalogLocationEntry[] {
-  const query = options?.query?.trim().toLowerCase() ?? "";
+  const query = options?.query?.trim().toLowerCase() ?? '';
   const limit = options?.limit ?? 200;
 
-  return ALL_EXTRA_SCENE_LOCATIONS.filter((label) => {
+  return ALL_EXTRA_SCENE_LOCATIONS.filter(label => {
     if (!query) {
       return true;
     }
@@ -73,7 +73,7 @@ export function listCatalogLocations(options?: {
     .map((label, index) => ({
       id: `loc-${index}`,
       label,
-      source: "handcrafted" as const,
+      source: 'handcrafted' as const,
     }));
 }
 

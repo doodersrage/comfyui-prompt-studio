@@ -1,5 +1,5 @@
-import type { CatalogClothingEntry } from "./catalog-index";
-import type { ClothingCatalogFieldKey } from "./clothing-catalog-fields";
+import type { CatalogClothingEntry } from './catalog-index';
+import type { ClothingCatalogFieldKey } from './clothing-catalog-fields';
 
 const labelCache = new Map<string, string | null>();
 
@@ -13,17 +13,17 @@ const selectOptionsCache = new Map<string, ClothingSelectOption[]>();
 const selectOptionsInflight = new Map<string, Promise<ClothingSelectOption[]>>();
 
 export async function fetchClothingLabels(
-  ids: readonly string[],
+  ids: readonly string[]
 ): Promise<Map<string, string | null>> {
   const pending = ids
-    .map((id) => id.trim())
+    .map(id => id.trim())
     .filter(Boolean)
-    .filter((id) => !labelCache.has(id));
+    .filter(id => !labelCache.has(id));
 
   if (pending.length > 0) {
     try {
       const response = await fetch(
-        `/api/catalog?type=clothing&ids=${encodeURIComponent(pending.join(","))}`,
+        `/api/catalog?type=clothing&ids=${encodeURIComponent(pending.join(','))}`
       );
       if (response.ok) {
         const data = (await response.json()) as {
@@ -71,7 +71,7 @@ export function getCachedClothingLabel(id: string | undefined): string | null {
 
 export async function fetchClothingSelectOptions(
   field: ClothingCatalogFieldKey,
-  gender: "women" | "men" | "any" = "any",
+  gender: 'women' | 'men' | 'any' = 'any'
 ): Promise<ClothingSelectOption[]> {
   const cacheKey = `${field}:${gender}`;
   const cached = selectOptionsCache.get(cacheKey);
@@ -85,13 +85,11 @@ export async function fetchClothingSelectOptions(
   }
 
   const request = (async () => {
-    const fallback: ClothingSelectOption[] = [
-      { value: "", label: "Default (random / LLM)" },
-    ];
+    const fallback: ClothingSelectOption[] = [{ value: '', label: 'Default (random / LLM)' }];
 
     try {
       const response = await fetch(
-        `/api/catalog?type=clothing-options&field=${encodeURIComponent(field)}&gender=${encodeURIComponent(gender)}`,
+        `/api/catalog?type=clothing-options&field=${encodeURIComponent(field)}&gender=${encodeURIComponent(gender)}`
       );
       if (!response.ok) {
         return fallback;
@@ -100,9 +98,7 @@ export async function fetchClothingSelectOptions(
         options?: ClothingSelectOption[];
       };
       const options =
-        Array.isArray(data.options) && data.options.length > 0
-          ? data.options
-          : fallback;
+        Array.isArray(data.options) && data.options.length > 0 ? data.options : fallback;
       selectOptionsCache.set(cacheKey, options);
       return options;
     } catch {

@@ -1,12 +1,9 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { prepareWorkflowJsonImport } from "@/lib/workflow-import";
-import type { CustomWorkflowToken } from "@/lib/comfyui-config";
-import {
-  validateWorkflowJson,
-  type WorkflowPlaceholderTokens,
-} from "@/lib/comfyui-config";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { prepareWorkflowJsonImport } from '@/lib/workflow-import';
+import type { CustomWorkflowToken } from '@/lib/comfyui-config';
+import { validateWorkflowJson, type WorkflowPlaceholderTokens } from '@/lib/comfyui-config';
 import {
   deleteComfyWorkflowFile,
   getWorkflowTokenValue,
@@ -18,12 +15,12 @@ import {
   workflowFileSourceFilename,
   WORKFLOW_TOKEN_FIELDS,
   type ComfyWorkflowFile,
-} from "@/lib/comfyui-workflow-files";
+} from '@/lib/comfyui-workflow-files';
 import {
   clearSelectedWorkflowFileIfDeleted,
   getSelectedWorkflowFileId,
   setSelectedWorkflowFileId,
-} from "@/lib/comfyui-runtime";
+} from '@/lib/comfyui-runtime';
 import {
   addPresetsToPack,
   applyWorkflowPresetPackToLibrary,
@@ -33,43 +30,41 @@ import {
   upsertWorkflowPresetPack,
   workflowFileToPreset,
   type WorkflowPresetPack,
-} from "@/lib/workflow-preset-packs";
-import { suggestWorkflowNodeMappings } from "@/lib/workflow-node-mapper";
-import {
-  applyWorkflowNodeBindings,
-  summarizeBindingChanges,
-} from "@/lib/workflow-apply-bindings";
-import { scheduleAfterCommit } from "@/lib/schedule-after-commit";
-import { markOnboardingWorkflowImported } from "@/lib/onboarding-hooks";
-import { loadSettingsCache, saveSharedSettings } from "@/lib/settings-cache";
-import { resolveQueueParams } from "@/lib/queue-params-settings";
-import { loadComfyUiSettings, syncLightningLoraLibraryEntry } from "@/lib/comfyui-settings";
+} from '@/lib/workflow-preset-packs';
+import { suggestWorkflowNodeMappings } from '@/lib/workflow-node-mapper';
+import { applyWorkflowNodeBindings, summarizeBindingChanges } from '@/lib/workflow-apply-bindings';
+import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { markOnboardingWorkflowImported } from '@/lib/onboarding-hooks';
+import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
+import { resolveQueueParams } from '@/lib/queue-params-settings';
+import { loadComfyUiSettings, syncLightningLoraLibraryEntry } from '@/lib/comfyui-settings';
 import {
   buildControlNetWorkflowScaffold,
   buildFaceDetailerWorkflowScaffold,
   buildIdentityWorkflowScaffold,
   scaffoldWorkflowForModel,
   suggestedScaffoldName,
-} from "@/lib/workflow-scaffold";
-import { inspectWorkflowGraphJson } from "@/lib/workflow-graph-inspect";
-import { inferModelsFromWorkflowLabel } from "@/lib/workflow-category-defaults";
-import { assignWorkflowToInferredModels } from "@/lib/model-workflow-map";
-import { COMFY_IMAGE_MODELS } from "@/lib/comfy-models/client";
+} from '@/lib/workflow-scaffold';
+import { inspectWorkflowGraphJson } from '@/lib/workflow-graph-inspect';
+import { inferModelsFromWorkflowLabel } from '@/lib/workflow-category-defaults';
+import { assignWorkflowToInferredModels } from '@/lib/model-workflow-map';
+import { COMFY_IMAGE_MODELS } from '@/lib/comfy-models/client';
 import {
   optimizeWorkflowForQueue,
   suggestedOptimizedWorkflowName,
-} from "@/lib/workflow-queue-optimizer";
-import { optimizeAllWorkflowsInLibrary, optimizeWorkflowFileInLibrary } from "@/lib/workflow-library-batch";
-import { diffWorkflowNodes } from "@/lib/workflow-diff";
+} from '@/lib/workflow-queue-optimizer';
 import {
-  WORKFLOW_HEALTH_SELECT_EVENT,
-} from "@/lib/workflow-health-audit";
-import type { ServerWorkflowOption } from "@/hooks/useComfyWorkflowSelection";
-import { Button } from "@/components/ui/Button";
-import { ChipButton, MonoTextArea, SelectInput, TextInput } from "@/components/ui/Field";
-import { ToolActionRow } from "@/components/ui/ToolPageShell";
-import { EmptyState } from "@/components/ui/ViewState";
-import ComfyPackImportControl from "@/components/ComfyPackImportControl";
+  optimizeAllWorkflowsInLibrary,
+  optimizeWorkflowFileInLibrary,
+} from '@/lib/workflow-library-batch';
+import { diffWorkflowNodes } from '@/lib/workflow-diff';
+import { WORKFLOW_HEALTH_SELECT_EVENT } from '@/lib/workflow-health-audit';
+import type { ServerWorkflowOption } from '@/hooks/useComfyWorkflowSelection';
+import { Button } from '@/components/ui/Button';
+import { ChipButton, MonoTextArea, SelectInput, TextInput } from '@/components/ui/Field';
+import { ToolActionRow } from '@/components/ui/ToolPageShell';
+import { EmptyState } from '@/components/ui/ViewState';
+import ComfyPackImportControl from '@/components/ComfyPackImportControl';
 
 type ComfyWorkflowLibraryPanelProps = {
   placeholderTokens: WorkflowPlaceholderTokens;
@@ -83,10 +78,10 @@ export default function ComfyWorkflowLibraryPanel({
   const [files, setFiles] = useState<ComfyWorkflowFile[]>([]);
   const [serverFiles, setServerFiles] = useState<ServerWorkflowOption[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const [newName, setNewName] = useState("");
+  const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState("");
-  const [editingJson, setEditingJson] = useState("");
+  const [editingName, setEditingName] = useState('');
+  const [editingJson, setEditingJson] = useState('');
   const [editingTokens, setEditingTokens] = useState<CustomWorkflowToken[]>([]);
   const [editError, setEditError] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -94,8 +89,8 @@ export default function ComfyWorkflowLibraryPanel({
   const [importNotice, setImportNotice] = useState<string | null>(null);
   const [optimizePreviewSummary, setOptimizePreviewSummary] = useState<string | null>(null);
   const [presetPacks, setPresetPacks] = useState<WorkflowPresetPack[]>([]);
-  const [packName, setPackName] = useState("");
-  const [activePackId, setActivePackId] = useState("");
+  const [packName, setPackName] = useState('');
+  const [activePackId, setActivePackId] = useState('');
   const [bindingPreview, setBindingPreview] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
@@ -107,8 +102,8 @@ export default function ComfyWorkflowLibraryPanel({
     scheduleAfterCommit(() => {
       refresh();
       setPresetPacks(loadWorkflowPresetPacks());
-      void fetch("/api/comfyui/workflows")
-        .then((response) => response.json())
+      void fetch('/api/comfyui/workflows')
+        .then(response => response.json())
         .then((data: { workflows?: ServerWorkflowOption[] }) => {
           setServerFiles(data.workflows ?? []);
         })
@@ -123,10 +118,12 @@ export default function ComfyWorkflowLibraryPanel({
       setSelectedWorkflowFileId(id);
       setSelectedId(id);
       onStatus?.(
-        id ? `Default for Send to ComfyUI: “${label}”.` : "Using fallback workflow (Settings / server env).",
+        id
+          ? `Default for Send to ComfyUI: “${label}”.`
+          : 'Using fallback workflow (Settings / server env).'
       );
     },
-    [onStatus],
+    [onStatus]
   );
 
   useEffect(() => {
@@ -136,13 +133,13 @@ export default function ComfyWorkflowLibraryPanel({
       if (!workflowId) {
         return;
       }
-      const file = loadComfyWorkflowFiles().find((entry) => entry.id === workflowId);
+      const file = loadComfyWorkflowFiles().find(entry => entry.id === workflowId);
       if (!file) {
-        onStatus?.("Workflow no longer in library.");
+        onStatus?.('Workflow no longer in library.');
         return;
       }
       selectFile(workflowId, file.name);
-      if (detail?.action === "optimize-workflow") {
+      if (detail?.action === 'optimize-workflow') {
         const result = optimizeWorkflowFileInLibrary({
           fileId: workflowId,
           tokens: placeholderTokens,
@@ -171,7 +168,7 @@ export default function ComfyWorkflowLibraryPanel({
 
   const editingGraphInspect = useMemo(
     () => (editingJson.trim() ? inspectWorkflowGraphJson(editingJson) : null),
-    [editingJson],
+    [editingJson]
   );
 
   const startEdit = useCallback((file: ComfyWorkflowFile) => {
@@ -189,7 +186,7 @@ export default function ComfyWorkflowLibraryPanel({
       if (!editingId) {
         return;
       }
-      const existing = files.find((entry) => entry.id === editingId);
+      const existing = files.find(entry => entry.id === editingId);
       if (!existing) {
         return;
       }
@@ -205,25 +202,32 @@ export default function ComfyWorkflowLibraryPanel({
         lastOptimizedModel: existing.lastOptimizedModel,
         lastOptimizedProfile: existing.lastOptimizedProfile,
       });
-      setFiles((previous) =>
-        previous.map((entry) => (entry.id === saved.id ? saved : entry)),
-      );
-      const lightning = getWorkflowTokenValue(nextTokens, "{{LORA_LIGHTNING}}").trim();
+      setFiles(previous => previous.map(entry => (entry.id === saved.id ? saved : entry)));
+      const lightning = getWorkflowTokenValue(nextTokens, '{{LORA_LIGHTNING}}').trim();
       if (lightning) {
         syncLightningLoraLibraryEntry(lightning);
       }
     },
-    [editingId, files],
+    [editingId, files]
   );
 
   const assignInferredModels = useCallback(
-    (workflowId: string, models: ReturnType<typeof inferModelsFromWorkflowLabel>, overwrite = false) => {
+    (
+      workflowId: string,
+      models: ReturnType<typeof inferModelsFromWorkflowLabel>,
+      overwrite = false
+    ) => {
       if (models.length === 0) {
-        onStatus?.("No suggested models for this workflow label.");
+        onStatus?.('No suggested models for this workflow label.');
         return;
       }
       const shared = loadSettingsCache().shared;
-      const nextMap = assignWorkflowToInferredModels(workflowId, models, shared.modelWorkflowMap, overwrite);
+      const nextMap = assignWorkflowToInferredModels(
+        workflowId,
+        models,
+        shared.modelWorkflowMap,
+        overwrite
+      );
       saveSharedSettings({
         ...shared,
         modelWorkflowMap: nextMap,
@@ -231,9 +235,9 @@ export default function ComfyWorkflowLibraryPanel({
       });
       setSelectedWorkflowFileId(workflowId);
       setSelectedId(workflowId);
-      onStatus?.(`Assigned workflow to ${models.length} model(s): ${models.join(", ")}`);
+      onStatus?.(`Assigned workflow to ${models.length} model(s): ${models.join(', ')}`);
     },
-    [onStatus],
+    [onStatus]
   );
 
   const importFile = useCallback(
@@ -245,7 +249,7 @@ export default function ComfyWorkflowLibraryPanel({
         const raw = await file.text();
         const prepared = prepareWorkflowJsonImport(raw, placeholderTokens);
         if (!prepared.ok || !prepared.workflowJson) {
-          setImportError(prepared.error ?? "Invalid workflow JSON.");
+          setImportError(prepared.error ?? 'Invalid workflow JSON.');
           setImportErrorDetail(prepared.errorDetail ?? null);
           return;
         }
@@ -263,7 +267,7 @@ export default function ComfyWorkflowLibraryPanel({
           lastOptimizedProfile: prepared.optimizeProfile,
         });
         refresh();
-        setNewName("");
+        setNewName('');
         setSelectedWorkflowFileId(saved.id);
         setSelectedId(saved.id);
         startEdit(saved);
@@ -272,27 +276,27 @@ export default function ComfyWorkflowLibraryPanel({
           filename: saved.filename,
         });
         setImportNotice(
-          [prepared.notice, inferred.length ? `Suggested models: ${inferred.join(", ")}` : null]
+          [prepared.notice, inferred.length ? `Suggested models: ${inferred.join(', ')}` : null]
             .filter(Boolean)
-            .join(" · ") || null,
+            .join(' · ') || null
         );
         onStatus?.(
-          `Imported “${saved.filename ?? saved.name}” · ${prepared.placeholders?.positive ?? 0}× ${placeholderTokens.positive}`,
+          `Imported “${saved.filename ?? saved.name}” · ${prepared.placeholders?.positive ?? 0}× ${placeholderTokens.positive}`
         );
         markOnboardingWorkflowImported();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Import failed.";
+        const message = err instanceof Error ? err.message : 'Import failed.';
         setImportError(message);
         onStatus?.(message);
       }
     },
-    [assignInferredModels, newName, onStatus, placeholderTokens, refresh, startEdit],
+    [assignInferredModels, newName, onStatus, placeholderTokens, refresh, startEdit]
   );
 
   const cancelEdit = useCallback(() => {
     setEditingId(null);
-    setEditingName("");
-    setEditingJson("");
+    setEditingName('');
+    setEditingJson('');
     setEditingTokens([]);
     setEditError(null);
   }, []);
@@ -304,16 +308,16 @@ export default function ComfyWorkflowLibraryPanel({
 
     const validation = validateWorkflowJson(editingJson, placeholderTokens);
     if (!validation.ok) {
-      setEditError(validation.error ?? "Invalid workflow JSON.");
+      setEditError(validation.error ?? 'Invalid workflow JSON.');
       return;
     }
 
-    const existing = files.find((entry) => entry.id === editingId);
+    const existing = files.find(entry => entry.id === editingId);
     const saved = upsertComfyWorkflowFile({
       id: editingId,
       createdAt: existing?.createdAt,
       filename: existing?.filename,
-      name: editingName.trim() || existing?.name || "Workflow",
+      name: editingName.trim() || existing?.name || 'Workflow',
       workflowJson: editingJson.trim(),
       customTokens: editingTokens,
       lastOptimizedAt: existing?.lastOptimizedAt,
@@ -351,7 +355,7 @@ export default function ComfyWorkflowLibraryPanel({
       workflowJson: template,
     });
     refresh();
-    setNewName("");
+    setNewName('');
     startEdit(saved);
     onStatus?.(`Created workflow “${saved.name}”. Edit the JSON below.`);
   }, [files.length, newName, onStatus, placeholderTokens.positive, refresh, startEdit]);
@@ -378,15 +382,15 @@ export default function ComfyWorkflowLibraryPanel({
       },
     });
     const saved = upsertComfyWorkflowFile({
-      name: newName.trim() || suggestedScaffoldName(model, "template"),
+      name: newName.trim() || suggestedScaffoldName(model, 'template'),
       workflowJson: result.json,
     });
     refresh();
-    setNewName("");
+    setNewName('');
     startEdit(saved);
     assignInferredModels(saved.id, [model]);
     onStatus?.(
-      `Created ${result.category} scaffold for ${model} · assigned to model map. ${result.notes[0] ?? ""}`.trim(),
+      `Created ${result.category} scaffold for ${model} · assigned to model map. ${result.notes[0] ?? ''}`.trim()
     );
   }, [assignInferredModels, newName, onStatus, placeholderTokens, refresh, startEdit]);
 
@@ -404,19 +408,19 @@ export default function ComfyWorkflowLibraryPanel({
       denoise: placeholderTokens.denoise,
     });
     const saved = upsertComfyWorkflowFile({
-      name: newName.trim() || "ControlNet scaffold",
+      name: newName.trim() || 'ControlNet scaffold',
       workflowJson: result.json,
     });
     refresh();
-    setNewName("");
+    setNewName('');
     startEdit(saved);
-    onStatus?.(`Created ControlNet scaffold. ${result.notes[0] ?? ""}`.trim());
+    onStatus?.(`Created ControlNet scaffold. ${result.notes[0] ?? ''}`.trim());
   }, [newName, onStatus, placeholderTokens, refresh, startEdit]);
 
   const createFaceDetailerScaffold = useCallback(() => {
     const result = buildFaceDetailerWorkflowScaffold();
     const saved = upsertComfyWorkflowFile({
-      name: newName.trim() || "FaceDetailer scaffold",
+      name: newName.trim() || 'FaceDetailer scaffold',
       workflowJson: result.json,
     });
     const shared = loadSettingsCache().shared;
@@ -428,35 +432,33 @@ export default function ComfyWorkflowLibraryPanel({
       },
     });
     refresh();
-    setNewName("");
+    setNewName('');
     startEdit(saved);
     onStatus?.(
-      `Created FaceDetailer scaffold and pinned faceDetailer=${saved.id}. ${result.notes[0] ?? ""}`.trim(),
+      `Created FaceDetailer scaffold and pinned faceDetailer=${saved.id}. ${result.notes[0] ?? ''}`.trim()
     );
   }, [newName, onStatus, refresh, startEdit]);
 
   const createIdentityScaffold = useCallback(
-    (kind: "instantid" | "pulid") => {
+    (kind: 'instantid' | 'pulid') => {
       const result = buildIdentityWorkflowScaffold(kind);
-      const label = kind === "pulid" ? "PuLID" : "InstantID";
+      const label = kind === 'pulid' ? 'PuLID' : 'InstantID';
       const saved = upsertComfyWorkflowFile({
         name: newName.trim() || `${label} scaffold`,
         workflowJson: result.json,
       });
       refresh();
-      setNewName("");
+      setNewName('');
       startEdit(saved);
-      onStatus?.(
-        `Created ${label} BYO scaffold. ${result.notes[0] ?? ""}`.trim(),
-      );
+      onStatus?.(`Created ${label} BYO scaffold. ${result.notes[0] ?? ''}`.trim());
     },
-    [newName, onStatus, refresh, startEdit],
+    [newName, onStatus, refresh, startEdit]
   );
 
   const cloneAndBindWorkflow = useCallback(() => {
     const sourceJson = editingJson.trim();
     if (!sourceJson) {
-      onStatus?.("Select a workflow to edit, or import JSON first, then use Clone & bind.");
+      onStatus?.('Select a workflow to edit, or import JSON first, then use Clone & bind.');
       return;
     }
     const model = loadSettingsCache().shared.model;
@@ -481,22 +483,22 @@ export default function ComfyWorkflowLibraryPanel({
       },
     });
     const saved = upsertComfyWorkflowFile({
-      name: newName.trim() || suggestedScaffoldName(model, "clone"),
+      name: newName.trim() || suggestedScaffoldName(model, 'clone'),
       workflowJson: result.json,
     });
     refresh();
-    setNewName("");
+    setNewName('');
     startEdit(saved);
     assignInferredModels(saved.id, [model]);
     onStatus?.(
-      `Cloned workflow with ${result.bindingChanges} binding${result.bindingChanges === 1 ? "" : "s"} applied · assigned to ${model}.`,
+      `Cloned workflow with ${result.bindingChanges} binding${result.bindingChanges === 1 ? '' : 's'} applied · assigned to ${model}.`
     );
   }, [assignInferredModels, editingJson, newName, onStatus, placeholderTokens, refresh, startEdit]);
 
   const previewOptimizeCopy = useCallback(() => {
     const sourceJson = editingJson.trim();
     if (!sourceJson) {
-      onStatus?.("Open a workflow in Edit JSON first to preview optimize changes.");
+      onStatus?.('Open a workflow in Edit JSON first to preview optimize changes.');
       return;
     }
 
@@ -504,7 +506,7 @@ export default function ComfyWorkflowLibraryPanel({
     try {
       parsed = JSON.parse(sourceJson) as Record<string, unknown>;
     } catch {
-      onStatus?.("Workflow JSON is invalid — fix syntax before previewing optimize.");
+      onStatus?.('Workflow JSON is invalid — fix syntax before previewing optimize.');
       return;
     }
 
@@ -526,17 +528,19 @@ export default function ComfyWorkflowLibraryPanel({
       enrichSharpen: shared.workflowSharpenAfterUpscale === true,
     });
     const nodeDiff = diffWorkflowNodes(sourceJson, result.workflowJson);
-    const modified = nodeDiff.filter((entry) => entry.change === "modified").length;
-    const added = nodeDiff.filter((entry) => entry.change === "added").length;
+    const modified = nodeDiff.filter(entry => entry.change === 'modified').length;
+    const added = nodeDiff.filter(entry => entry.change === 'added').length;
     setOptimizePreviewSummary(
-      `Preview: ${result.bindingChanges.length} binding(s), ${added} node(s) added, ${modified} node(s) modified, ${result.audit.warnings.length} review note(s).`,
+      `Preview: ${result.bindingChanges.length} binding(s), ${added} node(s) added, ${modified} node(s) modified, ${result.audit.warnings.length} review note(s).`
     );
   }, [editingJson, onStatus, placeholderTokens]);
 
   const optimizeAndSaveCopy = useCallback(() => {
     const sourceJson = editingJson.trim();
     if (!sourceJson) {
-      onStatus?.("Open a workflow in Edit JSON first, or import JSON, then use Optimize & save copy.");
+      onStatus?.(
+        'Open a workflow in Edit JSON first, or import JSON, then use Optimize & save copy.'
+      );
       return;
     }
 
@@ -544,7 +548,7 @@ export default function ComfyWorkflowLibraryPanel({
     try {
       parsed = JSON.parse(sourceJson) as Record<string, unknown>;
     } catch {
-      onStatus?.("Workflow JSON is invalid — fix syntax before optimizing.");
+      onStatus?.('Workflow JSON is invalid — fix syntax before optimizing.');
       return;
     }
 
@@ -565,7 +569,7 @@ export default function ComfyWorkflowLibraryPanel({
       enrichNeuralPolish: shared.workflowNeuralUpscalePolish !== false,
       enrichSharpen: shared.workflowSharpenAfterUpscale === true,
     });
-    const baseName = editingName.trim() || newName.trim() || "workflow";
+    const baseName = editingName.trim() || newName.trim() || 'workflow';
     const saved = upsertComfyWorkflowFile({
       name: suggestedOptimizedWorkflowName(baseName),
       workflowJson: result.workflowJson,
@@ -575,17 +579,15 @@ export default function ComfyWorkflowLibraryPanel({
       lastOptimizedProfile: shared.queueQualityProfile,
     });
     refresh();
-    setNewName("");
+    setNewName('');
     startEdit(saved);
     assignInferredModels(saved.id, [model]);
     const bindingNote =
       result.bindingChanges.length > 0
         ? `${result.bindingChanges.length} binding(s) applied`
-        : "already bound";
+        : 'already bound';
     const warnNote =
-      result.audit.warnings.length > 0
-        ? ` · ${result.audit.warnings.length} review note(s)`
-        : "";
+      result.audit.warnings.length > 0 ? ` · ${result.audit.warnings.length} review note(s)` : '';
     onStatus?.(`Saved optimized copy (${bindingNote}${warnNote}) · assigned to ${model}.`);
   }, [
     assignInferredModels,
@@ -601,20 +603,20 @@ export default function ComfyWorkflowLibraryPanel({
   const optimizeAllInLibrary = useCallback(() => {
     const files = loadComfyWorkflowFiles();
     if (files.length === 0) {
-      onStatus?.("Import or create workflows first, then optimize all.");
+      onStatus?.('Import or create workflows first, then optimize all.');
       return;
     }
 
     const result = optimizeAllWorkflowsInLibrary({ tokens: placeholderTokens });
     refresh();
     const warningNote =
-      result.warnings.length > 0 ? ` · ${result.warnings.slice(0, 2).join(" · ")}` : "";
+      result.warnings.length > 0 ? ` · ${result.warnings.slice(0, 2).join(' · ')}` : '';
     const modelsNote =
       result.modelsUsed.length > 0
-        ? ` · models: ${result.modelsUsed.slice(0, 4).join(", ")}${result.modelsUsed.length > 4 ? "…" : ""}`
-        : "";
+        ? ` · models: ${result.modelsUsed.slice(0, 4).join(', ')}${result.modelsUsed.length > 4 ? '…' : ''}`
+        : '';
     onStatus?.(
-      `Optimized ${result.updated} workflow(s) in place · ${result.skipped} unchanged or skipped${modelsNote}${warningNote}`,
+      `Optimized ${result.updated} workflow(s) in place · ${result.skipped} unchanged or skipped${modelsNote}${warningNote}`
     );
   }, [onStatus, placeholderTokens, refresh]);
 
@@ -626,9 +628,9 @@ export default function ComfyWorkflowLibraryPanel({
         cancelEdit();
       }
       refresh();
-      onStatus?.("Workflow file deleted.");
+      onStatus?.('Workflow file deleted.');
     },
-    [cancelEdit, editingId, onStatus, refresh],
+    [cancelEdit, editingId, onStatus, refresh]
   );
 
   return (
@@ -636,17 +638,17 @@ export default function ComfyWorkflowLibraryPanel({
       <div className="space-y-1">
         <h2 className="type-heading">ComfyUI workflow library</h2>
         <p className="type-caption">
-          Manage multiple ComfyUI API workflow JSON files. Pick the active file from
-          the dropdown next to <strong className="font-medium text-zinc-300">Send to ComfyUI</strong> on
-          any result panel. URL, tokens, and queue params still come from the connection
-          settings below (or server env).
+          Manage multiple ComfyUI API workflow JSON files. Pick the active file from the dropdown
+          next to <strong className="font-medium text-zinc-300">Send to ComfyUI</strong> on any
+          result panel. URL, tokens, and queue params still come from the connection settings below
+          (or server env).
         </p>
       </div>
 
       <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4">
         <p className="type-heading mb-2">Import Comfy pack</p>
         <ComfyPackImportControl
-          onImported={(summary) => {
+          onImported={summary => {
             refresh();
             setImportNotice(summary);
             onStatus?.(summary);
@@ -657,7 +659,7 @@ export default function ComfyWorkflowLibraryPanel({
       <ToolActionRow>
         <TextInput
           value={newName}
-          onChange={(event) => setNewName(event.target.value)}
+          onChange={event => setNewName(event.target.value)}
           placeholder="Name for new/imported workflow"
           className="min-w-[14rem] flex-1"
         />
@@ -667,12 +669,12 @@ export default function ComfyWorkflowLibraryPanel({
             type="file"
             accept="application/json,.json"
             className="hidden"
-            onChange={(event) => {
+            onChange={event => {
               const file = event.target.files?.[0];
               if (file) {
                 void importFile(file);
               }
-              event.target.value = "";
+              event.target.value = '';
             }}
           />
         </label>
@@ -692,7 +694,7 @@ export default function ComfyWorkflowLibraryPanel({
           type="button"
           variant="secondary"
           size="sm"
-          onClick={() => createIdentityScaffold("instantid")}
+          onClick={() => createIdentityScaffold('instantid')}
         >
           InstantID scaffold
         </Button>
@@ -700,7 +702,7 @@ export default function ComfyWorkflowLibraryPanel({
           type="button"
           variant="secondary"
           size="sm"
-          onClick={() => createIdentityScaffold("pulid")}
+          onClick={() => createIdentityScaffold('pulid')}
         >
           PuLID scaffold
         </Button>
@@ -734,27 +736,30 @@ export default function ComfyWorkflowLibraryPanel({
         <Button type="button" variant="secondary" size="sm" onClick={optimizeAllInLibrary}>
           Optimize all in library
         </Button>
-        <ChipButton active={!selectedId} onClick={() => selectFile(undefined, "")}>
+        <ChipButton active={!selectedId} onClick={() => selectFile(undefined, '')}>
           Use fallback default
         </ChipButton>
       </ToolActionRow>
       <p className="mb-4 text-xs text-zinc-500">
-        After importing community JSON, run <strong className="font-medium text-zinc-400">Optimize all in library</strong>{" "}
-        so placeholders bind to your checkpoint/VAE maps and queue can skip re-bind/enrich via a fresh hash.
-        Confirm filenames match ComfyUI&apos;s model lists. Workflow Health flags missing or stale optimize hashes.
+        After importing community JSON, run{' '}
+        <strong className="font-medium text-zinc-400">Optimize all in library</strong> so
+        placeholders bind to your checkpoint/VAE maps and queue can skip re-bind/enrich via a fresh
+        hash. Confirm filenames match ComfyUI&apos;s model lists. Workflow Health flags missing or
+        stale optimize hashes.
       </p>
 
       {importError ? (
-        <div className="space-y-1 rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2.5" role="alert">
+        <div
+          className="space-y-1 rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2.5"
+          role="alert"
+        >
           <p className="type-caption text-rose-300">{importError}</p>
           {importErrorDetail ? (
             <p className="type-caption whitespace-pre-wrap text-rose-200/75">{importErrorDetail}</p>
           ) : null}
         </div>
       ) : null}
-      {importNotice ? (
-        <p className="type-caption text-amber-300/90">{importNotice}</p>
-      ) : null}
+      {importNotice ? <p className="type-caption text-amber-300/90">{importNotice}</p> : null}
       {optimizePreviewSummary ? (
         <p className="type-caption text-violet-200/90">{optimizePreviewSummary}</p>
       ) : null}
@@ -763,13 +768,13 @@ export default function ComfyWorkflowLibraryPanel({
         <div className="space-y-2">
           <p className="type-overline">Server workflow files</p>
           <ul className="ui-list">
-            {serverFiles.map((entry) => {
+            {serverFiles.map(entry => {
               const active = selectedId === entry.id;
               return (
                 <li
                   key={entry.id}
                   className="ui-list-row"
-                  data-highlight={active ? "true" : undefined}
+                  data-highlight={active ? 'true' : undefined}
                 >
                   <div className="ui-list-primary min-w-0">
                     <p className="type-heading">{entry.name}</p>
@@ -777,11 +782,11 @@ export default function ComfyWorkflowLibraryPanel({
                   </div>
                   <Button
                     type="button"
-                    variant={active ? "accent-outline" : "secondary"}
+                    variant={active ? 'accent-outline' : 'secondary'}
                     size="sm"
                     onClick={() => selectFile(entry.id, entry.name)}
                   >
-                    {active ? "Selected" : "Use for Send"}
+                    {active ? 'Selected' : 'Use for Send'}
                   </Button>
                 </li>
               );
@@ -791,9 +796,7 @@ export default function ComfyWorkflowLibraryPanel({
       )}
 
       <div className="space-y-2">
-        <p className="type-overline">
-          Imported workflow files ({files.length})
-        </p>
+        <p className="type-overline">Imported workflow files ({files.length})</p>
         {files.length === 0 ? (
           <EmptyState
             compact
@@ -803,7 +806,7 @@ export default function ComfyWorkflowLibraryPanel({
           />
         ) : (
           <ul className="ui-list">
-            {files.map((file) => {
+            {files.map(file => {
               const active = selectedId === file.id;
               const isEditing = editingId === file.id;
               const displayName = workflowFileDisplayName(file);
@@ -816,7 +819,7 @@ export default function ComfyWorkflowLibraryPanel({
                 <li
                   key={file.id}
                   className="ui-list-row flex-col items-stretch !min-h-0 !items-start gap-0 !p-0"
-                  data-highlight={active ? "true" : undefined}
+                  data-highlight={active ? 'true' : undefined}
                 >
                   <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
@@ -829,26 +832,24 @@ export default function ComfyWorkflowLibraryPanel({
                         )}
                       </p>
                       <p className="type-caption">
-                        {sourceFilename ? `${sourceFilename} · ` : ""}
-                        {new Date(file.createdAt).toLocaleString()} ·{" "}
+                        {sourceFilename ? `${sourceFilename} · ` : ''}
+                        {new Date(file.createdAt).toLocaleString()} ·{' '}
                         {(file.workflowJson.length / 1024).toFixed(1)} KB
                         {file.customTokens && file.customTokens.length > 0
-                          ? ` · ${file.customTokens.length} token override${file.customTokens.length === 1 ? "" : "s"}`
-                          : ""}
+                          ? ` · ${file.customTokens.length} token override${file.customTokens.length === 1 ? '' : 's'}`
+                          : ''}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         {inferredModels.length > 0 ? (
                           <>
                             <p className="type-caption text-violet-300/80">
-                              Suggested: {inferredModels.join(", ")}
+                              Suggested: {inferredModels.join(', ')}
                             </p>
                             <Button
                               type="button"
                               variant="secondary"
                               size="sm"
-                              onClick={() =>
-                                assignInferredModels(file.id, inferredModels, true)
-                              }
+                              onClick={() => assignInferredModels(file.id, inferredModels, true)}
                             >
                               Assign to models
                             </Button>
@@ -856,9 +857,7 @@ export default function ComfyWorkflowLibraryPanel({
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() =>
-                                assignInferredModels(file.id, inferredModels, false)
-                              }
+                              onClick={() => assignInferredModels(file.id, inferredModels, false)}
                               title="Only fill models that have no mapping yet"
                             >
                               Fill empty only
@@ -873,17 +872,17 @@ export default function ComfyWorkflowLibraryPanel({
                           aria-label={`Manually assign ${displayName} to a model`}
                           className="max-w-[16rem] text-xs"
                           defaultValue=""
-                          onChange={(event) => {
+                          onChange={event => {
                             const modelId = event.target.value.trim();
                             if (!modelId) {
                               return;
                             }
                             assignInferredModels(file.id, [modelId], true);
-                            event.target.value = "";
+                            event.target.value = '';
                           }}
                         >
                           <option value="">Assign to model…</option>
-                          {COMFY_IMAGE_MODELS.map((model) => (
+                          {COMFY_IMAGE_MODELS.map(model => (
                             <option key={model.id} value={model.id}>
                               {model.id}
                             </option>
@@ -894,11 +893,11 @@ export default function ComfyWorkflowLibraryPanel({
                     <ToolActionRow>
                       <Button
                         type="button"
-                        variant={active ? "accent-outline" : "secondary"}
+                        variant={active ? 'accent-outline' : 'secondary'}
                         size="sm"
                         onClick={() => selectFile(file.id, displayName)}
                       >
-                        {active ? "Selected" : "Use for Send"}
+                        {active ? 'Selected' : 'Use for Send'}
                       </Button>
                       <Button
                         type="button"
@@ -906,7 +905,7 @@ export default function ComfyWorkflowLibraryPanel({
                         size="sm"
                         onClick={() => (isEditing ? cancelEdit() : startEdit(file))}
                       >
-                        {isEditing ? "Close" : "Edit JSON"}
+                        {isEditing ? 'Close' : 'Edit JSON'}
                       </Button>
                       <Button
                         type="button"
@@ -924,38 +923,36 @@ export default function ComfyWorkflowLibraryPanel({
                         <span className="type-caption">Display name</span>
                         <TextInput
                           value={editingName}
-                          onChange={(event) => setEditingName(event.target.value)}
+                          onChange={event => setEditingName(event.target.value)}
                         />
                       </label>
                       <div className="space-y-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3">
                         <div>
-                          <p className="type-caption text-zinc-300">
-                            Per-workflow token overrides
-                          </p>
+                          <p className="type-caption text-zinc-300">Per-workflow token overrides</p>
                           <p className="mt-1 text-xs text-zinc-600">
-                            Unique to this workflow. Beat Settings → LoRA library and the
-                            global checkpoint map when this file is selected for Send.
-                            Token overrides save as you type.
+                            Unique to this workflow. Beat Settings → LoRA library and the global
+                            checkpoint map when this file is selected for Send. Token overrides save
+                            as you type.
                           </p>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          {WORKFLOW_TOKEN_FIELDS.map((field) => (
+                          {WORKFLOW_TOKEN_FIELDS.map(field => (
                             <label key={field.token} className="block space-y-1.5">
                               <span className="type-caption">
-                                {field.label}{" "}
+                                {field.label}{' '}
                                 <code className="text-[10px] text-violet-300/90">
                                   {field.token}
                                 </code>
                               </span>
                               <TextInput
                                 value={getWorkflowTokenValue(editingTokens, field.token)}
-                                onChange={(event) =>
+                                onChange={event =>
                                   persistEditingTokens(
                                     setWorkflowTokenValue(
                                       editingTokens,
                                       field.token,
-                                      event.target.value,
-                                    ),
+                                      event.target.value
+                                    )
                                   )
                                 }
                                 placeholder={field.hint}
@@ -969,7 +966,7 @@ export default function ComfyWorkflowLibraryPanel({
                         <span className="type-caption">Workflow JSON (ComfyUI API format)</span>
                         <MonoTextArea
                           value={editingJson}
-                          onChange={(event) => {
+                          onChange={event => {
                             setEditingJson(event.target.value);
                             setEditError(null);
                           }}
@@ -986,59 +983,53 @@ export default function ComfyWorkflowLibraryPanel({
                           <p className="type-caption text-zinc-500">
                             {editingGraphInspect.classCounts
                               .slice(0, 8)
-                              .map((entry) => `${entry.classType}×${entry.count}`)
-                              .join(" · ")}
+                              .map(entry => `${entry.classType}×${entry.count}`)
+                              .join(' · ')}
                             {editingGraphInspect.classCounts.length > 8
                               ? ` · +${editingGraphInspect.classCounts.length - 8} more`
-                              : ""}
+                              : ''}
                           </p>
                           {editingGraphInspect.unresolvedTokens.length > 0 ? (
                             <p className="type-caption text-amber-300/90">
-                              Unresolved tokens:{" "}
-                              {editingGraphInspect.unresolvedTokens.slice(0, 12).join(" ")}
-                              {editingGraphInspect.unresolvedTokens.length > 12
-                                ? "…"
-                                : ""}
+                              Unresolved tokens:{' '}
+                              {editingGraphInspect.unresolvedTokens.slice(0, 12).join(' ')}
+                              {editingGraphInspect.unresolvedTokens.length > 12 ? '…' : ''}
                             </p>
                           ) : (
                             <p className="type-caption text-zinc-600">
-                              No {"{{TOKEN}}"} placeholders in this JSON.
+                              No {'{{TOKEN}}'} placeholders in this JSON.
                             </p>
                           )}
                         </div>
                       ) : null}
-                      {editError && (
-                        <p className="text-xs text-rose-300">{editError}</p>
-                      )}
+                      {editError && <p className="text-xs text-rose-300">{editError}</p>}
                       {editingValidation && (
                         <p className="text-xs text-zinc-500">
                           {editingValidation.ok ? (
                             <>
-                              Placeholders: {editingValidation.placeholders?.positive ?? 0}×{" "}
+                              Placeholders: {editingValidation.placeholders?.positive ?? 0}×{' '}
                               {placeholderTokens.positive}
                               {(editingValidation.placeholders?.negative ?? 0) > 0
                                 ? ` · ${editingValidation.placeholders?.negative}× ${placeholderTokens.negative}`
-                                : ""}
+                                : ''}
                               {(editingValidation.placeholders?.seed ?? 0) > 0
                                 ? ` · ${editingValidation.placeholders?.seed}× ${placeholderTokens.seed}`
-                                : ""}
+                                : ''}
                               {(editingValidation.placeholders?.width ?? 0) > 0
                                 ? ` · ${editingValidation.placeholders?.width}× ${placeholderTokens.width}`
-                                : ""}
+                                : ''}
                               {(editingValidation.placeholders?.height ?? 0) > 0
                                 ? ` · ${editingValidation.placeholders?.height}× ${placeholderTokens.height}`
-                                : ""}
+                                : ''}
                               {(editingValidation.placeholders?.cfg ?? 0) > 0
                                 ? ` · ${editingValidation.placeholders?.cfg}× ${placeholderTokens.cfg}`
-                                : ""}
+                                : ''}
                               {(editingValidation.placeholders?.steps ?? 0) > 0
                                 ? ` · ${editingValidation.placeholders?.steps}× ${placeholderTokens.steps}`
-                                : ""}
+                                : ''}
                             </>
                           ) : (
-                            <span className="text-amber-400/90">
-                              {editingValidation.error}
-                            </span>
+                            <span className="text-amber-400/90">{editingValidation.error}</span>
                           )}
                         </p>
                       )}
@@ -1052,14 +1043,14 @@ export default function ComfyWorkflowLibraryPanel({
                               size="sm"
                               onClick={() => {
                                 const hints = editingNodeMappings
-                                  .filter((mapping) => mapping.suggestedBinding)
+                                  .filter(mapping => mapping.suggestedBinding)
                                   .map(
-                                    (mapping) =>
-                                      `${mapping.nodeId} (${mapping.classType}) → ${mapping.suggestedBinding}`,
+                                    mapping =>
+                                      `${mapping.nodeId} (${mapping.classType}) → ${mapping.suggestedBinding}`
                                   )
-                                  .join("\n");
+                                  .join('\n');
                                 void navigator.clipboard.writeText(hints);
-                                onStatus?.("Copied node binding hints.");
+                                onStatus?.('Copied node binding hints.');
                               }}
                             >
                               Copy hints
@@ -1072,19 +1063,19 @@ export default function ComfyWorkflowLibraryPanel({
                                 const applied = applyWorkflowNodeBindings(
                                   editingJson,
                                   editingNodeMappings,
-                                  placeholderTokens,
+                                  placeholderTokens
                                 );
                                 if (applied.changes.length === 0) {
                                   setBindingPreview(
-                                    "No changes — placeholders may already be present.",
+                                    'No changes — placeholders may already be present.'
                                   );
-                                  onStatus?.("No binding changes needed.");
+                                  onStatus?.('No binding changes needed.');
                                   return;
                                 }
                                 setEditingJson(applied.json);
                                 setBindingPreview(summarizeBindingChanges(applied.changes));
                                 onStatus?.(
-                                  `Applied ${applied.changes.length} binding(s). Review and save.`,
+                                  `Applied ${applied.changes.length} binding(s). Review and save.`
                                 );
                               }}
                             >
@@ -1097,11 +1088,11 @@ export default function ComfyWorkflowLibraryPanel({
                             </pre>
                           ) : null}
                           <ul className="mt-2 space-y-1 text-xs text-zinc-400">
-                            {editingNodeMappings.map((mapping) => (
+                            {editingNodeMappings.map(mapping => (
                               <li key={mapping.nodeId}>
-                                <span className="text-zinc-200">{mapping.nodeId}</span> ·{" "}
+                                <span className="text-zinc-200">{mapping.nodeId}</span> ·{' '}
                                 {mapping.classType}
-                                {mapping.suggestedBinding ? ` → ${mapping.suggestedBinding}` : ""}
+                                {mapping.suggestedBinding ? ` → ${mapping.suggestedBinding}` : ''}
                                 <span className="text-zinc-600"> — {mapping.reason}</span>
                               </li>
                             ))}
@@ -1142,11 +1133,10 @@ export default function ComfyWorkflowLibraryPanel({
       </div>
 
       <p className="text-xs text-zinc-600">
-        Server env: set{" "}
-        <code className="rounded bg-zinc-800 px-1 text-violet-300">COMFYUI_WORKFLOW_DIR</code>{" "}
-        or{" "}
-        <code className="rounded bg-zinc-800 px-1 text-violet-300">COMFYUI_WORKFLOW_PATHS</code>{" "}
-        to expose additional JSON files from disk.
+        Server env: set{' '}
+        <code className="rounded bg-zinc-800 px-1 text-violet-300">COMFYUI_WORKFLOW_DIR</code> or{' '}
+        <code className="rounded bg-zinc-800 px-1 text-violet-300">COMFYUI_WORKFLOW_PATHS</code> to
+        expose additional JSON files from disk.
       </p>
 
       <div className="ui-surface-inset space-y-3">
@@ -1157,7 +1147,7 @@ export default function ComfyWorkflowLibraryPanel({
         <ToolActionRow>
           <TextInput
             value={packName}
-            onChange={(event) => setPackName(event.target.value)}
+            onChange={event => setPackName(event.target.value)}
             placeholder="Pack name"
             className="min-w-[180px] flex-1"
           />
@@ -1170,13 +1160,13 @@ export default function ComfyWorkflowLibraryPanel({
               const pack: WorkflowPresetPack = {
                 id: crypto.randomUUID(),
                 name,
-                tags: ["workflows"],
+                tags: ['workflows'],
                 createdAt: Date.now(),
                 presets: [],
               };
               upsertWorkflowPresetPack(pack);
               setPresetPacks(loadWorkflowPresetPacks());
-              setPackName("");
+              setPackName('');
               onStatus?.(`Created preset pack “${name}”.`);
             }}
           >
@@ -1188,10 +1178,10 @@ export default function ComfyWorkflowLibraryPanel({
               type="file"
               accept="application/json,.json"
               className="hidden"
-              onChange={(event) => {
+              onChange={event => {
                 const file = event.target.files?.[0];
                 if (!file) return;
-                void file.text().then((raw) => {
+                void file.text().then(raw => {
                   try {
                     const pack = importWorkflowPresetPack(raw);
                     upsertWorkflowPresetPack(pack);
@@ -1199,15 +1189,15 @@ export default function ComfyWorkflowLibraryPanel({
                     refresh();
                     setPresetPacks(loadWorkflowPresetPacks());
                     onStatus?.(
-                      `Imported preset pack “${pack.name}” and installed ${installed} workflow(s).`,
+                      `Imported preset pack “${pack.name}” and installed ${installed} workflow(s).`
                     );
                   } catch (error) {
                     onStatus?.(
-                      error instanceof Error ? error.message : "Invalid preset pack JSON.",
+                      error instanceof Error ? error.message : 'Invalid preset pack JSON.'
                     );
                   }
                 });
-                event.target.value = "";
+                event.target.value = '';
               }}
             />
           </label>
@@ -1225,10 +1215,10 @@ export default function ComfyWorkflowLibraryPanel({
               <span className="type-caption">Active pack for saving</span>
               <SelectInput
                 value={activePackId}
-                onChange={(event) => setActivePackId(event.target.value)}
+                onChange={event => setActivePackId(event.target.value)}
               >
                 <option value="">Select pack…</option>
-                {presetPacks.map((pack) => (
+                {presetPacks.map(pack => (
                   <option key={pack.id} value={pack.id}>
                     {pack.name} ({pack.presets.length})
                   </option>
@@ -1242,16 +1232,14 @@ export default function ComfyWorkflowLibraryPanel({
                 size="sm"
                 disabled={!activePackId || !selectedId}
                 onClick={() => {
-                  const file = files.find((entry) => entry.id === selectedId);
+                  const file = files.find(entry => entry.id === selectedId);
                   if (!file || !activePackId) return;
-                  const updated = addPresetsToPack(activePackId, [
-                    workflowFileToPreset(file),
-                  ]);
+                  const updated = addPresetsToPack(activePackId, [workflowFileToPreset(file)]);
                   setPresetPacks(loadWorkflowPresetPacks());
                   onStatus?.(
                     updated
                       ? `Added “${file.name}” to pack “${updated.name}”.`
-                      : "Could not update pack.",
+                      : 'Could not update pack.'
                   );
                 }}
               >
@@ -1266,7 +1254,7 @@ export default function ComfyWorkflowLibraryPanel({
                   const settings = loadComfyUiSettings();
                   const workflowJson = settings.workflowJson?.trim();
                   if (!workflowJson || !activePackId) {
-                    onStatus?.("Save a workflow JSON in ComfyUI settings first.");
+                    onStatus?.('Save a workflow JSON in ComfyUI settings first.');
                     return;
                   }
                   const updated = addPresetsToPack(activePackId, [
@@ -1286,7 +1274,7 @@ export default function ComfyWorkflowLibraryPanel({
                   onStatus?.(
                     updated
                       ? `Saved current ComfyUI settings snapshot to “${updated.name}”.`
-                      : "Could not update pack.",
+                      : 'Could not update pack.'
                   );
                 }}
               >
@@ -1294,42 +1282,42 @@ export default function ComfyWorkflowLibraryPanel({
               </Button>
             </ToolActionRow>
             <ul className="ui-list">
-            {presetPacks.map((pack) => (
-              <li
-                key={pack.id}
-                className="ui-list-row text-xs"
-              >
-                <span className="ui-list-primary type-caption">
-                  {pack.name} · {pack.presets.length} preset(s)
-                </span>
-                <ToolActionRow>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={pack.presets.length === 0}
-                    onClick={() => {
-                      const count = applyWorkflowPresetPackToLibrary(pack);
-                      refresh();
-                      onStatus?.(`Installed ${count} workflow(s) from “${pack.name}”.`);
-                    }}
-                  >
-                    Install
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="accent-outline"
-                    size="sm"
-                    onClick={() => {
-                      downloadText(`${pack.name.replace(/\s+/g, "-")}-workflow-pack.json`, exportWorkflowPresetPack(pack));
-                      onStatus?.(`Exported preset pack “${pack.name}”.`);
-                    }}
-                  >
-                    Export
-                  </Button>
-                </ToolActionRow>
-              </li>
-            ))}
+              {presetPacks.map(pack => (
+                <li key={pack.id} className="ui-list-row text-xs">
+                  <span className="ui-list-primary type-caption">
+                    {pack.name} · {pack.presets.length} preset(s)
+                  </span>
+                  <ToolActionRow>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={pack.presets.length === 0}
+                      onClick={() => {
+                        const count = applyWorkflowPresetPackToLibrary(pack);
+                        refresh();
+                        onStatus?.(`Installed ${count} workflow(s) from “${pack.name}”.`);
+                      }}
+                    >
+                      Install
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="accent-outline"
+                      size="sm"
+                      onClick={() => {
+                        downloadText(
+                          `${pack.name.replace(/\s+/g, '-')}-workflow-pack.json`,
+                          exportWorkflowPresetPack(pack)
+                        );
+                        onStatus?.(`Exported preset pack “${pack.name}”.`);
+                      }}
+                    >
+                      Export
+                    </Button>
+                  </ToolActionRow>
+                </li>
+              ))}
             </ul>
           </>
         )}
@@ -1339,9 +1327,9 @@ export default function ComfyWorkflowLibraryPanel({
 }
 
 function downloadText(filename: string, content: string) {
-  const blob = new Blob([content], { type: "application/json" });
+  const blob = new Blob([content], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
