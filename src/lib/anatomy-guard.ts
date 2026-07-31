@@ -58,16 +58,19 @@ const KLEIN_DISTILLED_ANATOMY_POSITIVE: Record<Exclude<AnatomyGuardMode, 'off'>,
 
 const KLEIN_DISTILLED_ANATOMY_AVOID: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
   standard:
-    'Avoid extra limbs, missing limbs, extra or fused fingers, duplicate hands, mutated anatomy, and intertwined multi-person poses.',
+    'Avoid extra limbs, missing limbs, extra or fused fingers, duplicate hands, and mutated anatomy.',
   strict:
-    'Avoid extra limbs, missing limbs, extra or fused fingers, duplicate hands, mutated anatomy, body horror, and complex seated or intertwined poses.',
+    'Avoid extra limbs, missing limbs, extra or fused fingers, duplicate hands, mutated anatomy, and body horror.',
 };
 
+/**
+ * Hand-readability only — never prescribe a body pose (standing/walking used to
+ * steamroll seated/reclining prompts on distilled Flux).
+ */
 const KLEIN_DISTILLED_POSE_EXTRA: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
-  standard:
-    'Prefer simple standing or walking poses with hands visible and relaxed at the sides or lightly posed.',
+  standard: '',
   strict:
-    'Prefer a single subject in a simple standing pose with both hands readable; avoid seated twists, crossed arms that hide fingers, and multi-person contact.',
+    'When hands appear in frame, keep fingers distinct and unobscured; do not invent extra limbs to support contact.',
 };
 
 function isKleinDistilledModel(model: ComfyImageModel | string): boolean {
@@ -87,9 +90,9 @@ const KLEIN_BASE_ANATOMY_POSITIVE: Record<Exclude<AnatomyGuardMode, 'off'>, stri
 
 const KLEIN_BASE_POSE_EXTRA: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
   standard:
-    'Keep poses straightforward when hands or full figures must read cleanly; prefer relaxed visible hands over weight-bearing palm close-ups.',
+    'When hands are visible, keep five fingers distinct; avoid weight-bearing palm close-ups that crush digits.',
   strict:
-    'Keep poses straightforward when hands, faces, or full figures must read cleanly; prefer a simple stance with relaxed five-fingered hands—avoid fisheye distortion, weight-bearing palm close-ups, and twisted reclining supports.',
+    'When hands, faces, or full figures are visible, keep five-fingered hands readable—avoid fisheye distortion and palm-support close-ups that crush digits.',
 };
 
 const KLEIN_BASE_FISHEYE_HAND_CUE =
@@ -104,9 +107,9 @@ const ULTRAREAL_ANATOMY_POSITIVE: Record<Exclude<AnatomyGuardMode, 'off'>, strin
 
 const ULTRAREAL_POSE_EXTRA: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
   standard:
-    'Keep poses straightforward when hands or full figures must read cleanly; prefer relaxed visible hands over clasped or weight-bearing palm close-ups.',
+    'When hands are visible, keep five fingers distinct; avoid clasped or weight-bearing palm close-ups that crush digits.',
   strict:
-    'Keep poses straightforward when hands, faces, or full figures must read cleanly; prefer a simple stance with relaxed five-fingered hands—avoid clasped-hand knots, weight-bearing palm supports, and fisheye distortion.',
+    'When hands, faces, or full figures are visible, keep five-fingered hands readable—avoid clasped-hand knots, palm-support close-ups, and fisheye distortion.',
 };
 
 function promptHasFisheyeOrCircularFrame(prompt: string): boolean {
@@ -130,7 +133,22 @@ function kleinDistilledHasStrongAnatomy(prompt: string): boolean {
 }
 
 function kleinDistilledHasPoseGuidance(prompt: string): boolean {
-  return /\b(prefer simple standing|prefer a single subject in a simple standing)\b/i.test(prompt);
+  return /\b(when hands appear in frame|prefer simple standing|prefer a single subject in a simple standing)\b/i.test(
+    prompt
+  );
+}
+
+/** Prompt already names a body pose — do not append stance-steering that fights it. */
+function promptHasExplicitPose(prompt: string): boolean {
+  return /\b(sitting|seated|kneeling|kneels?|reclining|reclines?|lying|lies? (?:on|down)|crouching|squatting|dancing|running|jumping|leaning|bent over|bent-over|yoga|stretching|lounging|prone|supine|cross[- ]legged|lotus|fetal|straddling|mounting|riding|climbing|crawling|floating|suspended|hanging)\b/i.test(
+    prompt
+  );
+}
+
+function promptHasHandPoseGuidance(prompt: string): boolean {
+  return /\b(when hands (?:are|appear)|keep five[- ]finger|keep fingers distinct|avoid (?:clasped|weight-bearing palm)|palm-support close-ups|keep poses straightforward)\b/i.test(
+    prompt
+  );
 }
 
 export function normalizeAnatomyGuardMode(value: unknown): AnatomyGuardMode {
@@ -242,12 +260,15 @@ function applyKleinDistilledAnatomyGuard(input: {
     }
   }
 
-  // Pose before Avoid — simple stances reduce mutants more than long avoid prose.
+  // Hand-readability only (strict) — never force standing/walking over the prompt's pose.
+  const poseExtra = KLEIN_DISTILLED_POSE_EXTRA[input.mode];
   if (
+    poseExtra &&
+    !promptHasExplicitPose(positive) &&
     !kleinDistilledHasPoseGuidance(positive) &&
     (typeof remaining !== 'number' || remaining >= 48)
   ) {
-    let pose = KLEIN_DISTILLED_POSE_EXTRA[input.mode];
+    let pose = poseExtra;
     if (typeof remaining === 'number') {
       pose = clipSuffixToBudget(pose, remaining);
     }
@@ -334,7 +355,8 @@ export function applyAnatomyGuardForModel(input: {
     }
 
     if (
-      !/\bkeep poses straightforward\b/i.test(positive) &&
+      !promptHasExplicitPose(positive) &&
+      !promptHasHandPoseGuidance(positive) &&
       (typeof remaining !== 'number' || remaining >= 48)
     ) {
       let pose = KLEIN_BASE_POSE_EXTRA[resolvedMode];
@@ -371,7 +393,7 @@ export function applyAnatomyGuardForModel(input: {
     }
   }
 
-  // UltraReal: author notes hands are fragile — front-load five-finger + simple pose cues.
+  // UltraReal: author notes hands are fragile — five-finger cues without stance overrides.
   if (isFluxFineTuneCheckpointModel(input.model)) {
     if (
       !ultraRealHasStrongHandAnatomy(positive) &&
@@ -392,7 +414,8 @@ export function applyAnatomyGuardForModel(input: {
     }
 
     if (
-      !/\bkeep poses straightforward\b/i.test(positive) &&
+      !promptHasExplicitPose(positive) &&
+      !promptHasHandPoseGuidance(positive) &&
       (typeof remaining !== 'number' || remaining >= 48)
     ) {
       let pose = ULTRAREAL_POSE_EXTRA[resolvedMode];

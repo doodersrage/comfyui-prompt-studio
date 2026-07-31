@@ -53,15 +53,27 @@ describe("anatomy guard", () => {
     assert.equal(result.negative, undefined);
   });
 
-  it("adds pose guidance for klein distilled flux models", () => {
+  it("adds hand-readability guidance for klein distilled in strict mode, not standing poses", () => {
     const result = applyAnatomyGuardForModel({
       positive: "A woman standing in sunlight.",
       model: "flux-2-klein-9b-distilled",
       mode: "strict",
     });
     assert.match(result.positive, /five distinct fingers|anatomically correct hands/i);
-    assert.match(result.positive, /Prefer a single subject|simple standing pose/i);
+    assert.match(result.positive, /when hands appear in frame|fingers distinct/i);
+    assert.doesNotMatch(result.positive, /simple standing pose|prefer simple standing/i);
     assert.match(result.positive, /extra or fused fingers|extra limbs/i);
+  });
+
+  it("does not force standing pose language on standard klein distilled", () => {
+    const result = applyAnatomyGuardForModel({
+      positive: "A woman reclining on a sofa.",
+      model: "flux-2-klein-9b-distilled",
+      mode: "standard",
+    });
+    assert.match(result.positive, /five fingers|anatomically correct hands|natural limb count/i);
+    assert.doesNotMatch(result.positive, /standing|walking poses/i);
+    assert.match(result.positive, /reclining/i);
   });
 
   it("hardens klein distilled even when weak accurate-anatomy language is present", () => {
@@ -74,18 +86,19 @@ describe("anatomy guard", () => {
     assert.match(result.positive, /extra or fused fingers|extra limbs/i);
   });
 
-  it("adds pose guidance for klein base flux models in strict mode", () => {
+  it("adds hand guidance for klein base flux models in strict mode", () => {
     const result = applyAnatomyGuardForModel({
       positive: "Portrait in window light.",
       model: "flux-2-klein",
       mode: "strict",
       maxPositiveAppendChars: 500,
     });
-    assert.match(result.positive, /Keep poses straightforward/i);
+    assert.match(result.positive, /when hands|five-fingered hands readable|five fingers distinct/i);
     assert.match(result.positive, /five distinct fingers/i);
+    assert.doesNotMatch(result.positive, /simple stance|prefer simple standing/i);
   });
 
-  it("hardens klein base hands and counters fisheye on people prompts", () => {
+  it("hardens klein base hands and counters fisheye without overriding reclining poses", () => {
     const result = applyAnatomyGuardForModel({
       positive:
         "A woman reclines on a beach under a canopy, framed in sweeping fisheye lens.",
@@ -94,12 +107,13 @@ describe("anatomy guard", () => {
       maxPositiveAppendChars: 500,
     });
     assert.match(result.positive, /five distinct fingers/i);
-    assert.match(result.positive, /Keep poses straightforward/i);
+    assert.match(result.positive, /reclines/i);
+    assert.doesNotMatch(result.positive, /straightforward|simple stance|standing pose/i);
     assert.match(result.positive, /rectangular full-frame|avoid circular fisheye/i);
     assert.match(result.negative ?? "", /extra limbs|extra fingers/i);
   });
 
-  it("hardens ultrareal hands and pose guidance", () => {
+  it("hardens ultrareal hands without stance overrides", () => {
     const result = applyAnatomyGuardForModel({
       positive: "A woman in a leather dress stands on a city sidewalk.",
       model: "flux-ultrareal-v4",
@@ -107,7 +121,8 @@ describe("anatomy guard", () => {
       maxPositiveAppendChars: 700,
     });
     assert.match(result.positive, /five distinct fingers/i);
-    assert.match(result.positive, /Keep poses straightforward|clasped-hand/i);
+    assert.match(result.positive, /when hands|clasped-hand|five-fingered hands readable/i);
+    assert.doesNotMatch(result.positive, /simple stance|prefer simple standing/i);
     assert.match(result.positive, /Avoid extra limbs/i);
   });
 
