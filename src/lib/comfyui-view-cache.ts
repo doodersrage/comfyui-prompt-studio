@@ -157,6 +157,7 @@ export function readViewCache(key: string, format: ViewCacheFormat): CachedViewI
 
   if (mem) {
     memory.delete(key);
+    totalMemoryBytes -= mem.buffer.byteLength;
   }
 
   try {
@@ -272,6 +273,15 @@ export function startDiskCleanup(): void {
       console.error('Error during disk cache cleanup:', error);
     }
   }, DISK_CLEANUP_INTERVAL_MS);
+  // Don't keep unit tests / CLI processes alive forever.
+  cleanupTimer.unref();
+}
+
+export function stopDiskCleanup(): void {
+  if (cleanupTimer) {
+    clearInterval(cleanupTimer);
+    cleanupTimer = null;
+  }
 }
 
 function cleanupExpiredDiskCache(): void {
@@ -300,12 +310,13 @@ function cleanupExpiredDiskCache(): void {
             const meta = JSON.parse(metaRaw) as { expiresAt?: number };
 
             if (typeof meta.expiresAt === 'number' && meta.expiresAt <= now) {
-              // Delete both metadata and image files
+              // Delete metadata and any format sibling (jpeg/webp/avif).
               const key = item.replace(/\.json$/, '');
-              const { filePath } = diskPaths(key, 'jpeg');
-
-              if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
+              for (const format of ['jpeg', 'webp', 'avif'] as const) {
+                const { filePath } = diskPaths(key, format);
+                if (fs.existsSync(filePath)) {
+                  fs.unlinkSync(filePath);
+                }
               }
               fs.unlinkSync(fullPath);
               deletedCount++;

@@ -368,10 +368,7 @@ export function filterComfyGalleryEntries(
       continue;
     }
     if (filter.mediaKind && filter.mediaKind !== 'all') {
-      // Reuse the URL cache so we don't double-build images.
-      const mediaCache = galleryEntryThumbUrls(entry);
-      const kind = mediaCache.length > 0 ? resolveComfyOutputMediaKind(entry.images[0]) : 'image';
-      if (kind !== filter.mediaKind) {
+      if (galleryEntryPrimaryMediaKind(entry) !== filter.mediaKind) {
         idx += 1;
         continue;
       }
@@ -517,6 +514,23 @@ export function addComfyGalleryEntry(
   return entry;
 }
 
+function applyGalleryEntryPatch<T extends Partial<ComfyGalleryEntry>>(
+  entry: ComfyGalleryEntry,
+  patch: T
+): ComfyGalleryEntry {
+  const updated: ComfyGalleryEntry = { ...entry, ...patch };
+  // Drop stale semantic corpus when corpus-affecting fields change.
+  if (
+    patch.negativePrompt !== undefined ||
+    patch.statusMessage !== undefined ||
+    patch.promptId !== undefined
+  ) {
+    delete updated._corpus;
+    updated._corpus = galleryEntryCorpus(updated);
+  }
+  return updated;
+}
+
 export function updateComfyGalleryEntryById(
   id: string,
   patch: Partial<
@@ -551,7 +565,7 @@ export function updateComfyGalleryEntryById(
     if (entry.id !== id) {
       return entry;
     }
-    updated = { ...entry, ...patch };
+    updated = applyGalleryEntryPatch(entry, patch);
     return updated;
   });
   if (!updated) {
@@ -632,7 +646,7 @@ export function updateComfyGalleryByPromptId(
     if (entry.promptId !== promptId) {
       return entry;
     }
-    updated = { ...entry, ...patch };
+    updated = applyGalleryEntryPatch(entry, patch);
     return updated;
   });
 
@@ -733,46 +747,24 @@ const _entryUrlCache = new Map<
   }
 >();
 
-function _setOrEvictUrlCache(
-  key: string,
-  value:
-    | { thumb: string[] }
-    | { stripThumb: string[] }
-    | { lightbox: string[] }
-    | { view: string[] }
-    | { primaryView: string | null }
-    | { primaryThumb: string | null }
-    | { primaryMediaKind: ComfyOutputMediaKind }
-    | { lqip: string | null }
-    | { download: { url: string[]; filename: string[] } }
-) {
-  if (_entryUrlCache.size >= _entryUrlCacheMaxSize) {
-    const half = Math.floor(_entryUrlCacheMaxSize / 2);
-    let evicted = 0;
-    for (const k of _entryUrlCache.keys()) {
-      if (evicted >= half) break;
-      _entryUrlCache.delete(k);
-      evicted += 1;
-    }
+/** Must include image identity + host — length alone leaves stale thumbs after replace/rewrite. */
+function galleryEntryUrlCacheKey(entry: ComfyGalleryEntry): string {
+  const images = entry.images
+    .map(image => `${image.filename}:${image.subfolder}:${image.type}`)
+    .join(',');
+  return `${entry.id}|${entry.engineId ?? ''}|${entry.comfyUrl ?? ''}|${images}`;
+}
+
+function _evictUrlCacheIfNeeded(key: string): void {
+  if (_entryUrlCache.size < _entryUrlCacheMaxSize || _entryUrlCache.has(key)) {
+    return;
   }
-  if ('download' in value && value.download) {
-    _setOrEvictUrlCache(key, { download: value.download });
-  } else if ('thumb' in value && value.thumb) {
-    _setOrEvictUrlCache(key, { thumb: value.thumb });
-  } else if ('stripThumb' in value && value.stripThumb) {
-    _setOrEvictUrlCache(key, { stripThumb: value.stripThumb });
-  } else if ('lightbox' in value && value.lightbox) {
-    _setOrEvictUrlCache(key, { lightbox: value.lightbox });
-  } else if ('view' in value && value.view) {
-    _setOrEvictUrlCache(key, { view: value.view });
-  } else if ('primaryView' in value) {
-    _setOrEvictUrlCache(key, value);
-  } else if ('primaryThumb' in value) {
-    _setOrEvictUrlCache(key, value);
-  } else if ('primaryMediaKind' in value) {
-    _setOrEvictUrlCache(key, value);
-  } else {
-    _setOrEvictUrlCache(key, value);
+  const half = Math.floor(_entryUrlCacheMaxSize / 2);
+  let evicted = 0;
+  for (const existingKey of _entryUrlCache.keys()) {
+    if (evicted >= half) break;
+    _entryUrlCache.delete(existingKey);
+    evicted += 1;
   }
 }
 
@@ -789,6 +781,7 @@ function _updateUrlCache(
     | { lqip?: string | null }
     | { download?: { url: string[]; filename: string[] } | null }
 ) {
+  _evictUrlCacheIfNeeded(key);
   let entry = _entryUrlCache.get(key);
   if (!entry) {
     entry = {
@@ -808,7 +801,7 @@ function _updateUrlCache(
 }
 
 export function galleryEntryViewUrls(entry: ComfyGalleryEntry): string[] {
-  const key = `${entry.id}|${entry.images.length}`;
+  const key = galleryEntryUrlCacheKey(entry);
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.view) return entryCache.view;
 
@@ -818,7 +811,7 @@ export function galleryEntryViewUrls(entry: ComfyGalleryEntry): string[] {
 }
 
 export function galleryEntryThumbUrls(entry: ComfyGalleryEntry): string[] {
-  const key = `${entry.id}|${entry.images.length}`;
+  const key = galleryEntryUrlCacheKey(entry);
   let cached = _entryUrlCache.get(key)?.thumb;
   if (cached) return cached;
 
@@ -838,7 +831,7 @@ export function galleryEntryThumbUrls(entry: ComfyGalleryEntry): string[] {
 }
 
 export function galleryEntryStripThumbUrls(entry: ComfyGalleryEntry): string[] {
-  const key = `${entry.id}|${entry.images.length}`;
+  const key = galleryEntryUrlCacheKey(entry);
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.stripThumb) return entryCache.stripThumb;
 
@@ -853,7 +846,7 @@ export function galleryEntryStripThumbUrls(entry: ComfyGalleryEntry): string[] {
 }
 
 export function galleryEntryLightboxUrls(entry: ComfyGalleryEntry): string[] {
-  const key = `${entry.id}|${entry.images.length}`;
+  const key = galleryEntryUrlCacheKey(entry);
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.lightbox) return entryCache.lightbox;
 
@@ -866,7 +859,7 @@ export function galleryEntryLightboxUrls(entry: ComfyGalleryEntry): string[] {
 }
 
 export function galleryEntryPrimaryViewUrl(entry: ComfyGalleryEntry): string | null {
-  const key = `${entry.id}|${entry.images.length}`;
+  const key = galleryEntryUrlCacheKey(entry);
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.primaryView) return entryCache.primaryView;
 
@@ -897,7 +890,7 @@ export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string
 
 /** Per-image media kind (image vs. video/animated) for gallery rendering. */
 export function galleryEntryMediaKinds(entry: ComfyGalleryEntry): ComfyOutputMediaKind[] {
-  const key = `${entry.id}|${entry.images.length}`;
+  const key = galleryEntryUrlCacheKey(entry);
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.primaryMediaKind) {
     // Reuse the cached media kind when we have one; fall back to computing.
@@ -917,7 +910,7 @@ export function galleryEntryPrimaryMediaKind(entry: ComfyGalleryEntry): ComfyOut
 }
 
 export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | null {
-  const key = `${entry.id}|${entry.images.length}`;
+  const key = galleryEntryUrlCacheKey(entry);
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.lqip) return entryCache.lqip;
 
@@ -936,7 +929,7 @@ export function galleryEntryDownloadUrls(entry: ComfyGalleryEntry): {
   url: string[];
   filename: string[];
 } {
-  const key = `${entry.id}|${entry.images.length}`;
+  const key = galleryEntryUrlCacheKey(entry);
   const entryCache = _entryUrlCache.get(key);
   if (entryCache?.download) return entryCache.download;
 

@@ -8,7 +8,7 @@ export function tokenize(text: string): Set<string> {
   // Normalize once.
   const normalized = text
     .toLowerCase()
-    .replace(/[^w\s-]/g, ' ')
+    .replace(/[^\w\s-]/g, ' ')
     .split(/\s+/);
   const result = normalized.filter(token => token.length > 2);
   _tokenCache.set(text, result);

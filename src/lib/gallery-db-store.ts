@@ -23,9 +23,30 @@ let fullLoadPromise: Promise<void> | null = null;
 let persistedFingerprints = new Map<string, string>();
 
 function galleryEntryFingerprint(entry: ComfyGalleryEntry): string {
-  // Only hash identity-mutable fields used for change detection — skip large arrays (images, visionTags)
-  // and redundant text-length probes. The result is a compact short string computed in ~10 ops instead of O(images).
-  return `${entry.status}|${entry.completedAt ?? 0}|${entry.favorite ? 1 : 0}|${entry.reviewRating ?? 0}|${entry.promptId ?? ''}|${entry.images.length}|${entry.parentGalleryEntryId ?? ''}`;
+  // Must cover every field that can change without a new entry id — otherwise
+  // incremental IndexedDB sync silently skips vision tags, project moves, progress, etc.
+  const images = entry.images
+    .map(image => `${image.filename}:${image.subfolder}:${image.type}`)
+    .join(',');
+  return [
+    entry.status,
+    entry.completedAt ?? 0,
+    entry.favorite ? 1 : 0,
+    entry.reviewRating ?? 0,
+    images,
+    entry.statusMessage ?? '',
+    entry.queuePosition ?? '',
+    entry.progressValue ?? '',
+    entry.progressMax ?? '',
+    entry.progressNode ?? '',
+    entry.visionTags?.join(',') ?? '',
+    entry.projectId ?? '',
+    entry.promptId ?? '',
+    entry.prompt.length,
+    entry.negativePrompt?.length ?? 0,
+    entry.derivedKind ?? '',
+    entry.parentGalleryEntryId ?? '',
+  ].join('|');
 }
 
 /** Sync legacy localStorage into memory for instant first paint. */

@@ -1001,14 +1001,16 @@ export function saveSettingsCache(cache: SettingsCache): void {
   }
 
   writeBrowserValue(SETTINGS_CACHE_KEY, cache);
+  // Keep the memo in sync with the value we just persisted.
+  cachedLoadResult = cache;
+  cachedBrowserVersion = cache;
 }
 
 export function saveSharedSettings(shared: SharedToolSettings): void {
-  invalidateSettingsCache();
-  const raw = readBrowserValue<Partial<SettingsCache>>(SETTINGS_CACHE_KEY);
-  if (!raw || typeof window === 'undefined' || !isBrowserStorageReady()) {
+  if (typeof window === 'undefined' || !isBrowserStorageReady()) {
     return;
   }
+  invalidateSettingsCache();
   const cache = loadSettingsCache();
   saveSettingsCache({ ...cache, shared });
 }
@@ -1017,11 +1019,10 @@ export function saveToolSettings<K extends keyof ToolSettingsCache>(
   tool: K,
   settings: ToolSettingsCache[K]
 ): void {
-  invalidateSettingsCache();
-  const raw = readBrowserValue<Partial<SettingsCache>>(SETTINGS_CACHE_KEY);
-  if (!raw || typeof window === 'undefined' || !isBrowserStorageReady()) {
+  if (typeof window === 'undefined' || !isBrowserStorageReady()) {
     return;
   }
+  invalidateSettingsCache();
   const cache = loadSettingsCache();
   saveSettingsCache({
     ...cache,

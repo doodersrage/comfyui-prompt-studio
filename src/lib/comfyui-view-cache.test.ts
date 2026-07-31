@@ -8,6 +8,7 @@ import {
   contentTypeForViewFormat,
   negotiateViewFormat,
   readViewCache,
+  stopDiskCleanup,
   writeViewCache,
 } from "./comfyui-view-cache";
 
@@ -21,6 +22,7 @@ describe("comfyui view cache", () => {
   });
 
   after(() => {
+    stopDiskCleanup();
     if (previousDataDir === undefined) {
       delete process.env.PROMPT_DATA_DIR;
     } else {

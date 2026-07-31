@@ -300,7 +300,7 @@ export default function ComfyUiGalleryPanel({
       setPage(1);
       setAllRenderLimit(GALLERY_ALL_RENDER_CHUNK);
     });
-  }, [filter.status, filter.tool, filter.favoritesOnly, filter.query, sort, pageSize]);
+  }, [filter, sort, pageSize]);
 
   const pagination = useMemo(() => {
     if (!paginationEnabled) {

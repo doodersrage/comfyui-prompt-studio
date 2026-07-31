@@ -11,6 +11,27 @@ export const AVOIDED_TOKENS_UPDATED_EVENT = 'avoided-tokens-updated';
 
 const MAX_AVOIDED_TOKENS = 80;
 
+// Cached versioned token snapshot so repeated reads don't re-parse or rebuild the Set.
+const TOKENS_SNAPSHOT_KEY = '__comfyui_avoided_tokens_snapshot';
+let _snapshotTokens: string[] | null = null;
+let _requestBodyCache: {
+  tokenKey: string;
+  value: ReturnType<typeof avoidedTokensRequestBody>;
+} | null = null;
+
+function invalidateAvoidedTokensSnapshot(next: string[] | null = null): void {
+  _snapshotTokens = next;
+  _requestBodyCache = null;
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (next) {
+    writeBrowserValue(TOKENS_SNAPSHOT_KEY, next);
+  } else {
+    removeBrowserKey(TOKENS_SNAPSHOT_KEY);
+  }
+}
+
 function persistAvoidedTokens(tokens: Iterable<string>): void {
   if (typeof window === 'undefined') {
     return;
@@ -19,6 +40,7 @@ function persistAvoidedTokens(tokens: Iterable<string>): void {
     ...new Set([...tokens].map(token => token.trim().toLowerCase()).filter(Boolean)),
   ].slice(-MAX_AVOIDED_TOKENS);
   writeBrowserValue(AVOIDED_TOKENS_KEY, list);
+  invalidateAvoidedTokensSnapshot(list);
   window.dispatchEvent(new CustomEvent(AVOIDED_TOKENS_UPDATED_EVENT));
 }
 
@@ -62,12 +84,9 @@ export function clearAvoidedTokens(): void {
     return;
   }
   removeBrowserKey(AVOIDED_TOKENS_KEY);
+  invalidateAvoidedTokensSnapshot(null);
   window.dispatchEvent(new CustomEvent(AVOIDED_TOKENS_UPDATED_EVENT));
 }
-
-// Cached versioned token snapshot so repeated reads don't re-parse or rebuild the Set.
-const TOKENS_SNAPSHOT_KEY = '__comfyui_avoided_tokens_snapshot';
-let _snapshotTokens: string[] | null = null;
 
 export function loadAvoidedTokens(): Set<string> {
   if (typeof window === 'undefined') {
@@ -175,12 +194,6 @@ export function recordAvoidedTokensFromGalleryEntry(input: {
   return existing.size - before;
 }
 
-// Per-render-cycle cache — tokens only change on explicit add/clear operations.
-let _requestBodyCache: {
-  tokenCount: number;
-  value: ReturnType<typeof avoidedTokensRequestBody>;
-} | null = null;
-
 export function exportAvoidedTokenList(): string[] {
   return [...loadAvoidedTokens()].slice(-80);
 }
@@ -194,18 +207,19 @@ export function avoidedTokensRequestBody(): {
     // Fast-path: always return empty object when no tokens.
     return {};
   }
-  // Check cached result (tokens didn't change this render cycle).
-  if (_requestBodyCache?.tokenCount === tokens.size) {
+  const sliced = [...tokens].slice(-80);
+  const tokenKey = sliced.join('\0');
+  // Check cached result (same token set this render cycle).
+  if (_requestBodyCache?.tokenKey === tokenKey) {
     return _requestBodyCache.value;
   }
-  const sliced = [...tokens].slice(-80);
   const instruction = buildAvoidedTokensInstructionFromList(sliced);
   const value = {
     avoidedTokens: sliced,
     ...(instruction ? { avoidedTokensInstruction: instruction } : {}),
   };
   // Update cache.
-  _requestBodyCache = { tokenCount: tokens.size, value };
+  _requestBodyCache = { tokenKey, value };
   return value;
 }
 

@@ -1184,6 +1184,41 @@ describe("comfyui gallery outputs", () => {
     );
   });
 
+  it("filters gallery entries by media kind", () => {
+    const entries = [
+      {
+        id: "still",
+        promptId: "a",
+        prompt: "photo",
+        comfyUrl: "http://127.0.0.1:8188",
+        status: "completed" as const,
+        queuedAt: 1,
+        images: [{ filename: "out.png", subfolder: "", type: "output" }],
+      },
+      {
+        id: "clip",
+        promptId: "b",
+        prompt: "movie",
+        comfyUrl: "http://127.0.0.1:8188",
+        status: "completed" as const,
+        queuedAt: 2,
+        images: [{ filename: "out.mp4", subfolder: "", type: "output" }],
+      },
+    ];
+    assert.deepEqual(
+      filterComfyGalleryEntries(entries, { mediaKind: "image" }).map((e) => e.id),
+      ["still"],
+    );
+    assert.deepEqual(
+      filterComfyGalleryEntries(entries, { mediaKind: "video" }).map((e) => e.id),
+      ["clip"],
+    );
+    assert.equal(
+      filterComfyGalleryEntries(entries, { mediaKind: "all" }).length,
+      2,
+    );
+  });
+
   it("paginates gallery entries", () => {
     const entries = Array.from({ length: 25 }, (_, index) => `entry-${index}`);
     const page1 = paginateGalleryEntries(entries, 1, 12);

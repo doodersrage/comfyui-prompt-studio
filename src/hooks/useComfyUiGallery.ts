@@ -26,28 +26,6 @@ import { pullAndMergeGalleryFromServer } from '@/lib/gallery-server-sync';
 import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
 import { fetchEmbeddingRankIds, galleryEntryCorpus, sortByRankIds } from '@/lib/embedding-rank';
 
-/** Shallow structural comparison for ComfyGalleryFilter — avoids recomputing when only irrelevant fields change. */
-function filterEqual(prev: ComfyGalleryFilter | undefined, next: ComfyGalleryFilter): boolean {
-  if (!prev) return false;
-  // All fields must be shallow-equal.
-  if (prev.query !== next.query) return false;
-  if (prev.semanticSearch !== next.semanticSearch) return false;
-  if (prev.status !== next.status) return false;
-  if (prev.tool !== next.tool) return false;
-  if (prev.favoritesOnly !== next.favoritesOnly) return false;
-  if (prev.unreviewedOnly !== next.unreviewedOnly) return false;
-  if (prev.projectId !== next.projectId) return false;
-  if (prev.visionTagsOnly !== next.visionTagsOnly) return false;
-  if (prev.focusEntryId !== next.focusEntryId) return false;
-  if (prev.derivativeOfEntryId !== next.derivativeOfEntryId) return false;
-  if (prev.derivedKind !== next.derivedKind) return false;
-  if (prev.mediaKind !== next.mediaKind) return false;
-  if (prev.similarToEntryId !== next.similarToEntryId) return false;
-  // Note: entryFilter/entryExclude are intentionally excluded — they change frequently
-  // but don't affect the filtering logic used by filteredEntries.
-  return true;
-}
-
 /** Guards the opportunistic server-gallery merge to run once per page session. */
 let serverGalleryMergeAttempted = false;
 
@@ -161,6 +139,11 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
     filter.favoritesOnly,
     filter.projectId,
     filter.unreviewedOnly,
+    filter.mediaKind,
+    filter.visionTagsOnly,
+    filter.focusEntryId,
+    filter.derivativeOfEntryId,
+    filter.derivedKind,
   ]);
 
   useEffect(() => {
@@ -235,16 +218,7 @@ export function useComfyUiGallery(initialFilter?: ComfyGalleryFilter) {
       }
     }
     return base;
-  }, [
-    entries,
-    embeddingRankIds,
-    similarRankIds,
-    filter.status,
-    filter.tool,
-    filter.query,
-    filter.semanticSearch,
-    filter.similarToEntryId,
-  ]);
+  }, [entries, filter, embeddingRankIds, similarRankIds]);
 
   const tools = useMemo(() => uniqueGalleryTools(entries), [entries]);
 
