@@ -41,16 +41,20 @@ function ParamGrid({
 
   return (
     <div className="space-y-2">
-      <h3 className="type-caption font-medium text-zinc-400">{label}</h3>
+      <h3
+        className={`type-caption font-medium rounded-xl border-zinc-800/70 bg-zinc-950/60 backdrop-blur-xs text-violet-400 px-3 py-1.5 tracking-wider`}
+      >
+        {label}
+      </h3>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
         {rows.map(row => (
           <div
             key={row.key}
-            className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-2"
+            className="rounded-xl border-zinc-800/60 bg-zinc-950/70 px-3 py-2 backdrop-blur-xs"
           >
-            <dt className="type-caption text-zinc-500">{row.key}</dt>
+            <dt className="type-caption text-violet-400">{row.key}</dt>
             <dd
-              className="type-code mt-0.5 truncate text-sm text-violet-100"
+              className="type-code mt-0.5 truncate text-sm text-emerald-100/90"
               title={formatWorkflowParamValue(row.value)}
             >
               {formatWorkflowParamValue(row.value)}
@@ -129,7 +133,11 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                 {renderDurationLabel ? ` · render ${renderDurationLabel}` : ''}
               </p>
             </div>
-            <button type="button" onClick={onClose} className="ui-btn-ghost ui-btn-sm shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-zinc-900/70 bg-zinc-950/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
+            >
               Close
             </button>
           </div>
@@ -254,7 +262,7 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                             .writeText(view.history?.workflowJson ?? '')
                             .catch(() => undefined);
                         }}
-                        className="ui-btn-ghost ui-btn-sm text-xs"
+                        className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-emerald-600/45 bg-emerald-900/15 backdrop-blur-xs transition hover:bg-emerald-500/30 hover:border-emerald-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/30 text-emerald-400`}
                       >
                         Copy JSON
                       </button>

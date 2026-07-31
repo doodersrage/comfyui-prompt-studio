@@ -995,7 +995,7 @@ export default function GalleryCard({
                     />
                   ) : null}
                   <GalleryMenuButton
-                    label="Re-queue"
+                    label="Re-queue (same seed)"
                     onClick={() => {
                       onRequeue(false);
                       setMenuOpen(false);
@@ -1009,14 +1009,14 @@ export default function GalleryCard({
                     }}
                   />
                   <GalleryMenuButton
-                    label="Variation · Final"
+                    label="Variation · Final (hires sampler)"
                     onClick={() => {
                       onRequeue(true, 'final');
                       setMenuOpen(false);
                     }}
                   />
                   <GalleryMenuButton
-                    label="Variation · Max"
+                    label="Variation · Max (heavy polish)"
                     onClick={() => {
                       onRequeue(true, 'max');
                       setMenuOpen(false);
@@ -1062,7 +1062,7 @@ export default function GalleryCard({
                     <GalleryMenuGroup label="Enhance">
                       {shouldShowUpscaleFinal && (
                         <GalleryMenuButton
-                          label="Upscale · native (Final)"
+                          label="Upscale → Final (~1.25× Lanczos)"
                           onClick={() => {
                             onUpscale('final');
                             setMenuOpen(false);
@@ -1071,7 +1071,7 @@ export default function GalleryCard({
                       )}
                       {shouldShowUpscaleMax && (
                         <GalleryMenuButton
-                          label="Upscale · polish (Max)"
+                          label="Upscale → Max (full pipeline)"
                           onClick={() => {
                             onUpscale('max');
                             setMenuOpen(false);
@@ -1087,27 +1087,27 @@ export default function GalleryCard({
                           }}
                         />
                       )}
-                      {shouldShowSoftSecondPass && (
-                        <GalleryMenuButton
-                          label="Soft second pass"
-                          onClick={() => {
-                            onSoftSecondPass();
-                            setMenuOpen(false);
-                          }}
-                        />
-                      )}
                       {shouldShowRefine && (
                         <GalleryMenuButton
-                          label="Refine · low denoise"
+                          label="Refine → low-denoise second pass"
                           onClick={() => {
                             onRefine();
                             setMenuOpen(false);
                           }}
                         />
                       )}
+                      {shouldShowSoftSecondPass && (
+                        <GalleryMenuButton
+                          label="Soft second pass → gentler denoise"
+                          onClick={() => {
+                            onSoftSecondPass();
+                            setMenuOpen(false);
+                          }}
+                        />
+                      )}
                       {shouldShowFaceDetail && (
                         <GalleryMenuButton
-                          label="Face detail"
+                          label="Face detail → second KSampler pass"
                           onClick={() => {
                             onFaceDetail();
                             setMenuOpen(false);
@@ -1116,7 +1116,7 @@ export default function GalleryCard({
                       )}
                       {shouldShowMoireFinal && (
                         <GalleryMenuButton
-                          label="Moiré · Final"
+                          label="Flux polish → Final (blur only)"
                           onClick={() => {
                             onMoireClean('final');
                             setMenuOpen(false);
@@ -1125,7 +1125,7 @@ export default function GalleryCard({
                       )}
                       {shouldShowMoireMax && (
                         <GalleryMenuButton
-                          label="Moiré · Max"
+                          label="Flux polish → Max (blur + resample)"
                           onClick={() => {
                             onMoireClean('max');
                             setMenuOpen(false);
@@ -1134,7 +1134,7 @@ export default function GalleryCard({
                       )}
                       {shouldShowForceMoireCleanMax && (
                         <GalleryMenuButton
-                          label="Force Moiré · Max"
+                          label="Force Flux polish → Max"
                           onClick={() => {
                             onMoireClean('max', { force: true });
                             setMenuOpen(false);
@@ -1157,9 +1157,9 @@ export default function GalleryCard({
                   </GalleryMenuGroup>
                 ) : null}
 
-                <GalleryMenuGroup>
+                <GalleryMenuGroup label="Manage">
                   <GalleryMenuButton
-                    label="Remove"
+                    label="Remove from gallery"
                     tone="danger"
                     onClick={() => {
                       onRemove();
@@ -1199,10 +1199,30 @@ export default function GalleryCard({
 }
 
 function GalleryMenuGroup({ label, children }: { label?: string; children: React.ReactNode }) {
+  const groupTone =
+    label === 'Export'
+      ? 'border-sky-700/50 bg-sky-900/35 text-sky-400' // cool accent
+      : label === 'Edit'
+        ? 'border-amber-600/45 bg-amber-800/30 text-amber-400' // creative
+        : label === 'Queue'
+          ? 'border-slate-700/50 bg-slate-900/35 text-slate-400' // grounded
+          : label === 'Enhance'
+            ? 'border-violet-600/45 bg-violet-800/25 text-violet-400' // premium
+            : label === 'Lineage'
+              ? 'border-cyan-700/50 bg-cyan-900/35 text-cyan-400' // ancestry
+              : label === 'Manage'
+                ? 'border-zinc-600/45 bg-zinc-800/25 text-zinc-400' // utility
+                : 'border-zinc-700/60 bg-zinc-900/30 text-zinc-500'; // default
+
   return (
     <div className="border-t border-zinc-800/80 py-1 first:border-t-0 first:pt-0">
       {label ? (
-        <p className="px-3 pb-1 pt-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-500">
+        <p
+          className={
+            `rounded-full px-3 pb-1 pt-1.5 text-[10px] font-bold tracking-wider ${groupTone} ` +
+            'backdrop-blur-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40'
+          }
+        >
           {label}
         </p>
       ) : null}
@@ -1221,11 +1241,11 @@ function GalleryMenuButton(props: {
       type="button"
       role="menuitem"
       onClick={props.onClick}
-      className={`block w-full rounded-lg px-3 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.99] ${
+      className={`block w-full rounded-xl border-zinc-800/60 bg-zinc-950/70 px-3.5 py-2 text-left text-xs backdrop-blur-xs transition ${
         props.tone === 'danger'
-          ? 'text-rose-300 hover:bg-rose-500/10 hover:text-rose-200'
-          : 'text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100'
-      }`}
+          ? 'text-rose-400 hover:bg-rose-500/15 hover:text-rose-200 hover:border-rose-600/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/30'
+          : 'text-zinc-400 hover:bg-violet-500/10 hover:text-zinc-100 hover:border-violet-600/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30'
+      } active:scale-[0.98]`}
     >
       {props.label}
     </button>

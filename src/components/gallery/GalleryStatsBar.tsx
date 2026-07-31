@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import type { ComfyGalleryFilter } from '@/lib/comfyui-gallery';
 import type { GalleryStats } from '@/lib/gallery-stats';
 import { GALLERY_ENTRY_LIMIT } from '@/lib/gallery-stats';
@@ -76,13 +75,13 @@ export default function GalleryStatsBar({
           onClick={() => onQuickFilter({ status: 'all' })}
         />
         {heldMaxJobs > 0 ? (
-          <Link
-            href="/queue"
-            className="inline-flex min-w-0 items-baseline gap-2 rounded-[var(--radius-md)] border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-2.5 py-1.5 text-left text-[var(--tint-warning-text)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          <div
+            key="held-max"
+            className={`inline-flex min-w-0 items-baseline gap-2 rounded-xl border border-zinc-800/70 bg-zinc-950/60 px-2.5 py-1.5 backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-slate-400`}
           >
             <span className="type-caption shrink-0 opacity-80">Held Max</span>
             <span className="type-heading tabular-nums">{heldMaxJobs}</span>
-          </Link>
+          </div>
         ) : null}
         <StatChip
           label="Done"
@@ -152,11 +151,15 @@ export default function GalleryStatsBar({
       </div>
 
       {nearCapacity ? (
-        <p className="rounded-[var(--radius-md)] border border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] px-3 py-2 type-caption text-[var(--tint-warning-text)]">
-          Gallery stores up to {GALLERY_ENTRY_LIMIT} entries in IndexedDB — oldest outputs drop
-          silently when full ({stats.total}/{GALLERY_ENTRY_LIMIT}). Export favorites or clear
-          completed jobs to keep room.
-        </p>
+        <div
+          className={`rounded-xl border-rose-600/55 bg-rose-900/20 backdrop-blur-xs px-3.5 py-2 type-caption text-[var(--tint-warning-text)] transition hover:border-rose-500/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/30`}
+        >
+          <p className="text-left">
+            Gallery stores up to {GALLERY_ENTRY_LIMIT} entries in IndexedDB — oldest outputs drop
+            silently when full ({stats.total}/{GALLERY_ENTRY_LIMIT}). Export favorites or clear
+            completed jobs to keep room.
+          </p>
+        </div>
       ) : null}
     </div>
   );

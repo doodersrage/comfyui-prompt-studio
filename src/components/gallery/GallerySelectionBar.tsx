@@ -70,12 +70,23 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [open]);
 
+  const menuTone =
+    props.label === 'Export'
+      ? 'border-sky-600/35 bg-sky-900/15 text-sky-400 hover:border-sky-500/50'
+      : props.label === 'Queue'
+        ? 'border-slate-600/35 bg-slate-900/15 text-slate-400 hover:border-slate-500/50'
+        : props.label === 'Send'
+          ? 'border-emerald-600/35 bg-emerald-900/15 text-emerald-400 hover:border-emerald-500/50'
+          : props.label === 'Organize'
+            ? 'border-violet-600/35 bg-violet-800/15 text-violet-400 hover:border-violet-500/50'
+            : 'border-zinc-600/40 bg-zinc-900/20 text-zinc-500 hover:border-zinc-500/60';
+
   if (props.disabled) {
     return (
       <button
         type="button"
         disabled
-        className={`ui-btn-ghost ui-btn-sm text-xs opacity-40 rounded-lg border border-zinc-900/60 bg-zinc-950/80`}
+        className={`ui-btn-ghost ui-btn-sm text-xs opacity-35 rounded-xl border border-zinc-900/70 bg-zinc-950/60`}
       >
         {props.label}
       </button>
@@ -88,7 +99,7 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`ui-btn-ghost ui-btn-sm text-xs rounded-lg border border-violet-500/25 bg-violet-500/10 backdrop-blur-xs transition hover:bg-violet-500/20 hover:border-violet-400/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]`}
+        className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-zinc-900/80 bg-zinc-950/70 backdrop-blur-xs transition ${menuTone} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.97]`}
         onClick={() => setOpen(value => !value)}
       >
         {props.label}
@@ -104,7 +115,7 @@ function MenuItem(props: { label: string; onClick: () => void; disabled?: boolea
       type="button"
       disabled={props.disabled}
       onClick={props.onClick}
-      className={`ui-menu-item rounded-lg border border-zinc-700/60 bg-zinc-950/80 text-[11px] backdrop-blur-xs transition hover:border-zinc-500 hover:bg-zinc-900/30 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.97]`}
+      className={`ui-menu-item rounded-xl border-zinc-800/60 bg-zinc-950/70 text-[11px] backdrop-blur-xs transition hover:border-violet-600/60 hover:bg-violet-500/12 hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.97]`}
     >
       {props.label}
     </button>
@@ -154,11 +165,11 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
   const singleSelected = props.selectedCount === 1;
   const compareReady = props.selectedCount >= 2 && props.selectedCount <= 4;
   const upscaleFinalLabel = queueCapabilities.allRapid
-    ? 'Bulk moiré clean (Final) — Rapid AIO'
-    : 'Bulk upscale (Final)';
+    ? 'Bulk Flux polish → Final' // rapid moiré blur only
+    : 'Bulk upscale → Final (~1.25× Lanczos)';
   const upscaleMaxLabel = queueCapabilities.allRapid
-    ? 'Bulk moiré clean (Max) — Rapid AIO'
-    : 'Bulk upscale (Max)';
+    ? 'Bulk Flux polish → Max (blur + resample)'
+    : 'Bulk upscale → Max (full pipeline)';
 
   const selectionClassName =
     props.selectedCount <= 3
@@ -175,20 +186,20 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           <button
             type="button"
             onClick={props.onClearSelection}
-            className="text-xs text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-zinc-900/70 bg-zinc-950/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
           >
             Clear
           </button>
         </div>
 
-        <Button
-          variant="secondary"
-          className="!min-h-9 px-3 text-xs"
+        <button
+          type="button"
+          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-emerald-600/45 bg-emerald-900/15 backdrop-blur-xs transition hover:bg-emerald-500/30 hover:border-emerald-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/30 text-emerald-400 disabled:!hidden`}
           disabled={!compareReady}
           onClick={props.onCompare}
         >
           Compare
-        </Button>
+        </button>
 
         <ActionMenu label="Export" disabled={props.selectedCount === 0}>
           <MenuItem label="Sidecars" onClick={props.onExportSidecars} />
@@ -239,43 +250,53 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
             </>
           ) : null}
           {queueCapabilities.canRefine ? (
-            <MenuItem label="Bulk refine (Final)" onClick={props.onBulkRefine} />
+            <MenuItem label="Bulk refine → low-denoise second pass" onClick={props.onBulkRefine} />
           ) : null}
           {queueCapabilities.canMoire && !queueCapabilities.allRapid ? (
             <>
-              <MenuItem label="Bulk clean moiré (Final)" onClick={props.onBulkMoireCleanFinal} />
-              <MenuItem label="Bulk clean moiré (Max)" onClick={props.onBulkMoireCleanMax} />
+              <MenuItem
+                label="Bulk Flux polish → Final (blur only)"
+                onClick={props.onBulkMoireCleanFinal}
+              />
+              <MenuItem
+                label="Bulk Flux polish → Max (blur + resample)"
+                onClick={props.onBulkMoireCleanMax}
+              />
             </>
           ) : null}
           {queueCapabilities.allLightning ? (
             <MenuItem
-              label="Bulk new variation (Final, new seeds) — Lightning"
+              label="Bulk variation → Lightning (new seeds + Final quality)"
               onClick={props.onBulkRequeue}
             />
           ) : (
-            <MenuItem label="Bulk new variation (new seeds)" onClick={props.onBulkRequeue} />
+            <MenuItem label="Bulk new variation (randomized seeds)" onClick={props.onBulkRequeue} />
           )}
           <MenuItem
-            label="Seed experiment"
+            label="Seed experiment → perturb seed"
             onClick={props.onSeedExperiment}
             disabled={!singleSelected}
           />
           <MenuItem
-            label={`Param experiment (${props.paramAxis})`}
+            label={`Param experiment → sweep ${props.paramAxis}`}
             onClick={props.onParamExperiment}
             disabled={!singleSelected}
           />
           <MenuItem
-            label="Param grid (CFG×steps)"
+            label="Param grid (CFG×steps) → matrix"
             onClick={props.onParamGrid}
             disabled={!singleSelected}
           />
           <MenuItem
-            label="Mutate winner"
+            label="Mutate winner → text diff prompt"
             onClick={props.onMutateWinner}
             disabled={!singleSelected}
           />
-          <MenuItem label="Negative A/B" onClick={props.onNegativeAb} disabled={!singleSelected} />
+          <MenuItem
+            label="Negative A/B → toggle prompt"
+            onClick={props.onNegativeAb}
+            disabled={!singleSelected}
+          />
         </ActionMenu>
 
         <ActionMenu label="Send" disabled={!singleSelected}>
@@ -300,9 +321,13 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           <MenuItem label="Unfavorite" onClick={() => props.onFavorite(false)} />
         </ActionMenu>
 
-        <Button variant="danger" className="!min-h-9 px-3 text-xs" onClick={props.onDelete}>
+        <button
+          type="button"
+          className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-rose-600/55 bg-rose-900/20 backdrop-blur-xs transition hover:bg-rose-500/40 hover:border-rose-500/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/30 text-rose-400`}
+          onClick={props.onDelete}
+        >
           Remove selected
-        </Button>
+        </button>
 
         <label className="ml-auto hidden items-center gap-1 text-[11px] text-[var(--text-muted)] sm:flex">
           Param axis

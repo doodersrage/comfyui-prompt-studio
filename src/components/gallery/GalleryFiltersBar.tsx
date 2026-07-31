@@ -69,7 +69,7 @@ function FilterChip(props: { active: boolean; label: string; onClick: () => void
         isActive
           ? 'border-violet-500/45 bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 hover:border-violet-400/60'
           : 'border-zinc-800/70 bg-zinc-950/80 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
-      } rounded-lg px-2.5 py-1 text-[11px] font-medium backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]`}
+      } rounded-xl px-2.5 py-1 text-[11px] font-medium backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.98]`}
     >
       {props.label}
     </button>
@@ -324,7 +324,11 @@ export default function GalleryFiltersBar({
           <div className="flex flex-wrap gap-2">
             {savedViews.map(view => (
               <span key={view.id} className="inline-flex items-center gap-1">
-                <button type="button" onClick={() => applySavedView(view)} className="ui-chip">
+                <button
+                  type="button"
+                  onClick={() => applySavedView(view)}
+                  className={`ui-chip rounded-xl border border-violet-500/45 bg-violet-900/20 backdrop-blur-xs transition hover:bg-violet-500/30 hover:border-violet-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
+                >
                   {view.name}
                 </button>
                 <button
@@ -333,7 +337,7 @@ export default function GalleryFiltersBar({
                     deleteGallerySavedView(view.id);
                     setSavedViews(loadGallerySavedViews());
                   }}
-                  className="rounded px-1 text-xs text-[var(--text-muted)] transition hover:text-[var(--tint-danger-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                  className={`rounded-xl px-1 text-xs border-zinc-900/70 bg-zinc-950/60 transition hover:text-zinc-200 hover:border-rose-600/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30`}
                   aria-label={`Delete saved view ${view.name}`}
                 >
                   ×
@@ -352,7 +356,7 @@ export default function GalleryFiltersBar({
             <button
               type="button"
               onClick={saveCurrentView}
-              className="ui-btn-ghost ui-btn-sm text-xs"
+              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-zinc-900/70 bg-zinc-950/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
             >
               Save current view
             </button>
@@ -420,7 +424,9 @@ export default function GalleryFiltersBar({
             type="button"
             disabled={backfillLoading}
             onClick={() => void runVisionBackfill()}
-            className="ui-btn-ghost ui-btn-sm text-xs disabled:opacity-50"
+            className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-sky-600/45 bg-sky-900/20 backdrop-blur-xs transition hover:bg-sky-500/30 hover:border-sky-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 disabled:opacity-40 ${
+              backfillLoading ? 'text-slate-400' : 'text-sky-400'
+            }`}
           >
             {backfillLoading
               ? backfillProgress
@@ -449,7 +455,7 @@ export default function GalleryFiltersBar({
             <button
               type="button"
               onClick={onStartSlideshow}
-              className="ui-btn-ghost ui-btn-sm text-xs"
+              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-amber-600/45 bg-amber-900/15 backdrop-blur-xs transition hover:bg-amber-500/30 hover:border-amber-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/30 text-amber-400`}
             >
               Slideshow
             </button>
@@ -458,7 +464,7 @@ export default function GalleryFiltersBar({
             <button
               type="button"
               onClick={onStartFullscreenSlideshow}
-              className="ui-btn-ghost ui-btn-sm text-xs"
+              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-cyan-600/45 bg-cyan-900/15 backdrop-blur-xs transition hover:bg-cyan-500/30 hover:border-cyan-500/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/30 text-cyan-400`}
             >
               Fullscreen slideshow
             </button>
@@ -466,7 +472,7 @@ export default function GalleryFiltersBar({
           {activeToggleCount > 0 ? (
             <button
               type="button"
-              className="ui-btn-ghost ui-btn-sm text-xs text-[var(--text-muted)]"
+              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-zinc-900/70 bg-zinc-950/60 backdrop-blur-xs transition hover:bg-violet-500/20 hover:border-violet-600/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30`}
               onClick={() =>
                 setFilter({
                   ...filter,
