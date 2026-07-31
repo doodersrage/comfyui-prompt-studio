@@ -267,13 +267,13 @@ export default function DiffusersCheckpointSelector({
           onChange={event => setQuery(event.target.value)}
           placeholder="Search Qwen / Flux weights…"
           aria-label="Search Diffusers model inventory"
-          className="ui-input min-h-11 w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body-lg"
+          className="ui-input min-h-11 w-full px-(--input-padding-x) py-(--input-padding-y) type-body-lg"
         />
         <select
           value={family}
           onChange={event => setFamily(event.target.value as DiffusersAssetFamilyFilter)}
           aria-label="Filter by model family"
-          className="ui-input min-h-11 w-full px-3 py-[var(--input-padding-y)] type-body"
+          className="ui-input min-h-11 w-full px-3 py-(--input-padding-y) type-body"
         >
           <option value="qwen">Qwen ({countFor('qwen')})</option>
           <option value="flux">Flux ({countFor('flux')})</option>

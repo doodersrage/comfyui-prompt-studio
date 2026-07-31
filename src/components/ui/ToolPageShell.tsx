@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { memo } from 'react';
 import { ROUTE_TINT_CLASSES, type ToolAccent } from '@/lib/tool-theme';
 
 export type ToolPageWidth = 'default' | 'wide' | 'full';
@@ -15,7 +16,7 @@ const sectionSurfaceClasses: Record<ToolSectionVariant, string> = {
   secondary: 'ui-meta-panel shadow-none',
 };
 
-export function ToolBadge({
+export const ToolBadge = memo(function ToolBadge({
   accent = 'violet',
   children,
 }: {
@@ -30,9 +31,9 @@ export function ToolBadge({
       {children}
     </div>
   );
-}
+});
 
-export function ToolPageHeader({
+export const ToolPageHeader = memo(function ToolPageHeader({
   badge,
   title,
   description,
@@ -63,7 +64,7 @@ export function ToolPageHeader({
       </div>
     </header>
   );
-}
+});
 
 export function ToolMetaPanel({
   children,
@@ -109,7 +110,7 @@ export function ToolBlockGroup({
   );
 }
 
-export function ToolSection({
+export const ToolSection = memo(function ToolSection({
   children,
   className = '',
   padded = true,
@@ -140,7 +141,7 @@ export function ToolSection({
       <div className="ui-block-group">{children}</div>
     </section>
   );
-}
+});
 
 export { CollapsibleSection } from '@/components/ui/CollapsibleSection';
 
@@ -245,7 +246,7 @@ export function SegmentedControl<T extends string>({
 
 export const actionButtonClassName = 'ui-btn-secondary ui-btn-full';
 
-export function ToolPageShell({
+export const ToolPageShell = memo(function ToolPageShell({
   children,
   width = 'default',
   className = '',
@@ -261,9 +262,9 @@ export function ToolPageShell({
       {children}
     </div>
   );
-}
+});
 
-export function ToolLayout({
+export const ToolLayout = memo(function ToolLayout({
   accent = 'violet',
   width = 'default',
   badge,
@@ -312,7 +313,7 @@ export function ToolLayout({
       </div>
     </ToolPageShell>
   );
-}
+});
 
 export { accentButtonClass, accentFocusClass, accentRingClass } from '@/lib/tool-theme';
 

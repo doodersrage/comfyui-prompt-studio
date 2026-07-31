@@ -72,7 +72,11 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
 
   if (props.disabled) {
     return (
-      <button type="button" disabled className="ui-btn-ghost ui-btn-sm text-xs opacity-40">
+      <button
+        type="button"
+        disabled
+        className={`ui-btn-ghost ui-btn-sm text-xs opacity-40 rounded-lg border border-zinc-900/60 bg-zinc-950/80`}
+      >
         {props.label}
       </button>
     );
@@ -84,7 +88,7 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
-        className="ui-btn-ghost ui-btn-sm text-xs"
+        className={`ui-btn-ghost ui-btn-sm text-xs rounded-lg border border-violet-500/25 bg-violet-500/10 backdrop-blur-xs transition hover:bg-violet-500/20 hover:border-violet-400/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]`}
         onClick={() => setOpen(value => !value)}
       >
         {props.label}
@@ -100,7 +104,7 @@ function MenuItem(props: { label: string; onClick: () => void; disabled?: boolea
       type="button"
       disabled={props.disabled}
       onClick={props.onClick}
-      className="ui-menu-item"
+      className={`ui-menu-item rounded-lg border border-zinc-700/60 bg-zinc-950/80 text-[11px] backdrop-blur-xs transition hover:border-zinc-500 hover:bg-zinc-900/30 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.97]`}
     >
       {props.label}
     </button>
@@ -156,13 +160,18 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
     ? 'Bulk moiré clean (Max) — Rapid AIO'
     : 'Bulk upscale (Max)';
 
+  const selectionClassName =
+    props.selectedCount <= 3
+      ? 'border-violet-500/45 bg-violet-500/20 text-violet-300 rounded-xl backdrop-blur-xs px-2.5 py-1 text-xs font-medium'
+      : props.selectedCount <= 10
+        ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200 rounded-xl backdrop-blur-xs px-2.5 py-1 text-xs font-medium'
+        : 'border-zinc-700/70 bg-zinc-950/80 text-zinc-400 tabular-nums rounded-lg backdrop-blur-xs px-2.5 py-1 text-xs font-medium';
+
   return (
     <div className="sticky top-[var(--header-offset,0px)] z-20 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 shadow-[var(--shadow-surface)] backdrop-blur-md">
       <div className="flex flex-wrap items-center gap-2">
         <div className="mr-1 flex items-center gap-2 border-r border-[var(--border-subtle)] pr-3">
-          <span className="rounded-[var(--radius-full)] border border-[var(--accent-border)] bg-[var(--accent-muted)] px-2.5 py-1 text-xs font-medium text-[var(--accent-text)]">
-            {props.selectedCount} selected
-          </span>
+          <span className={selectionClassName}>{props.selectedCount} selected</span>
           <button
             type="button"
             onClick={props.onClearSelection}

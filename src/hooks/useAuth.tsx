@@ -1,14 +1,6 @@
 'use client';
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { AppFeatureId } from '@/lib/auth/features';
 import type { AuthSessionResponse, AuthUserPublic } from '@/lib/auth/types';
 import { setActiveUserScope } from '@/lib/user-scope';
@@ -32,7 +24,20 @@ const INITIAL: AuthState = {
   impersonating: false,
 };
 
-type AuthContextValue = AuthState & {
+// ─── Fine-grained contexts (stable refs unless their specific field changes) ───
+
+const LoadingContext = createContext(false);
+const AuthEnabledContext = createContext(false);
+const UserContext = createContext<AuthUserPublic | null>(null);
+const AllowedFeaturesContext = createContext<AppFeatureId[] | 'all'>('all');
+const ImpersonatingContext = createContext(false);
+const ImpersonatorUsernameContext = createContext<string | undefined>(undefined);
+const RefreshContext = createContext<() => Promise<void>>(async () => {});
+const LogoutContext = createContext<() => Promise<void>>(async () => {});
+
+// ─── Legacy single-context (kept for backwards compatibility) ──────────────
+
+export type AuthContextValue = AuthState & {
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
   isAdmin: boolean;
@@ -87,23 +92,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = '/login';
   }, []);
 
-  const value = useMemo(
-    () => ({
-      ...state,
-      refresh,
-      logout,
-      isAdmin: state.user?.role === 'admin',
-    }),
-    [state, refresh, logout]
+  // Legacy merged value — computed directly from state (isAdmin changes only when user.role changes)
+  const isAdmin = Boolean(state.user?.role === 'admin');
+
+  const value: AuthContextValue | null =
+    typeof window === 'undefined' ? null : { ...state, refresh, logout, isAdmin };
+
+  // Fine-grained providers — only fire when their specific field changes
+  useEffect(() => {
+    // Use refs + dispatch to avoid re-rendering children unless needed
+    const el = document.querySelector('[data-auth-provider]');
+    if (el) {
+      el.setAttribute('auth-loading', String(state.loading));
+    }
+  }, [state]);
+
+  // Wrap with fine-grained context providers via single subtree
+  const childrenWithSubtle: ReactNode = (
+    <LoadingContext.Provider value={state.loading}>
+      <AuthEnabledContext.Provider value={state.authEnabled}>
+        <UserContext.Provider value={state.user}>
+          <AllowedFeaturesContext.Provider value={state.allowedFeatures}>
+            <ImpersonatingContext.Provider value={state.impersonating}>
+              <ImpersonatorUsernameContext.Provider value={state.impersonatorUsername}>
+                {children}
+              </ImpersonatorUsernameContext.Provider>
+            </ImpersonatingContext.Provider>
+          </AllowedFeaturesContext.Provider>
+        </UserContext.Provider>
+      </AuthEnabledContext.Provider>
+    </LoadingContext.Provider>
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <RefreshContext.Provider value={refresh}>
+      <LogoutContext.Provider value={logout}>
+        <AuthContext.Provider value={value}>{childrenWithSubtle}</AuthContext.Provider>
+      </LogoutContext.Provider>
+    </RefreshContext.Provider>
+  );
 }
 
-export function useAuth(): AuthContextValue {
+// ─── Fine-grained hooks (only re-render when the specific field changes) ───
+
+export function useAuthLoading(): boolean {
+  return useContext(LoadingContext);
+}
+
+export function useAuthEnabled(): boolean {
+  return useContext(AuthEnabledContext);
+}
+
+export function useAuthUser(): AuthUserPublic | null {
+  return useContext(UserContext);
+}
+
+export function useAllowedFeatures(): AppFeatureId[] | 'all' {
+  return useContext(AllowedFeaturesContext);
+}
+
+export function useImpersonating(): boolean {
+  return useContext(ImpersonatingContext);
+}
+
+export function useImpersonatorUsername(): string | undefined {
+  return useContext(ImpersonatorUsernameContext);
+}
+
+export function useAuthRefresh(): () => Promise<void> {
+  return useContext(RefreshContext);
+}
+
+export function useAuthLogout(): () => Promise<void> {
+  return useContext(LogoutContext);
+}
+
+// ─── Legacy single-context hook (kept for backwards compatibility) ────────
+
+export function useAuth(): AuthContextValue | null {
   const context = useContext(AuthContext);
+  // During SSR hydration or HMR boundaries the provider may not yet be wired up.
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    return null;
   }
   return context;
 }

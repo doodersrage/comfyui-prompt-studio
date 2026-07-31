@@ -340,7 +340,7 @@ export default function ControlNetTool() {
               value={subject}
               onChange={event => setSubject(event.target.value)}
               rows={4}
-              className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${accentFocusClass(ACCENT)}`}
+              className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
               placeholder="e.g. woman standing, weight on left leg, arms crossed — or leave blank when using image"
             />
           </div>
@@ -350,7 +350,7 @@ export default function ControlNetTool() {
               id="controlnet-scene"
               value={scene}
               onChange={event => setScene(event.target.value)}
-              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
               placeholder="e.g. narrow alley, low camera angle"
             />
           </div>
@@ -360,7 +360,7 @@ export default function ControlNetTool() {
               id="controlnet-detail"
               value={detailNotes}
               onChange={event => setDetailNotes(event.target.value)}
-              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
             />
           </div>
           <PrimaryButton

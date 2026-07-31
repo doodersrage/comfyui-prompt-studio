@@ -1,21 +1,21 @@
 #!/usr/bin/env node
-const fs = require('fs');
-const pathModule = require('path');
+import fs from 'fs';
+import pathModule from 'path';
 
 const projectRoot = '/home/robertsm/Projects/comfyui-prompt-studio';
 
 function fixFile(filePath) {
   let content = fs.readFileSync(filePath, 'utf-8');
-  
+
   // Fix: await import(./something without quotes -> await import("./something")
   // The pattern is: import(\s* followed by ./. or ../ without opening quote
   const beforeCount = (content.match(/await import\([^"'`]/g) || []).length;
-  
+
   if (beforeCount > 0) {
     content = content.replace(/(await import\()\s*(?!"|'|`)([^)'`\n;,]+)(\s*\))/g, (match, openParen, innerPath, closeParen) => {
       return `${openParen}"${innerPath.trim()}"${closeParen}`;
     });
-    
+
     fs.writeFileSync(filePath, content, 'utf-8');
     console.log(`Fixed ${beforeCount} unterminated imports in: ${pathModule.basename(filePath)}`);
   }
@@ -34,7 +34,7 @@ function walkDir(dir) {
       } else if (entry.endsWith('.test.ts')) {
         fixFile(fullPath);
       }
-    } catch(e) {}
+    } catch (_e) {}
   }
 }
 

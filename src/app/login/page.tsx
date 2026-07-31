@@ -1,6 +1,11 @@
 import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import PageCanvas from '@/components/ui/PageCanvas';
-import LoginForm from '@/components/auth/LoginForm';
+
+const LoginForm = dynamic(() => import('@/components/auth/LoginForm'), {
+  ssr: false,
+  loading: () => <div className="text-sm text-zinc-500">Loading…</div>,
+});
 
 export default function LoginPage() {
   return (

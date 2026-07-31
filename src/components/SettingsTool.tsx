@@ -2011,7 +2011,7 @@ export default function SettingsTool() {
                     }
                     placeholder="already-uploaded-file.png (or upload below)"
                     disabled={!sharedMounted}
-                    className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${accentFocusClass(ACCENT)}`}
+                    className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
                   />
                   <div className="flex flex-wrap items-center gap-3">
                     <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">
@@ -2069,7 +2069,7 @@ export default function SettingsTool() {
                     }}
                     placeholder="ref-a.png, ref-b.png (comma-separated; index 0 can mirror the primary)"
                     disabled={!sharedMounted}
-                    className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${accentFocusClass(ACCENT)}`}
+                    className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
                   />
                   <p className="text-xs text-zinc-500">
                     Two or more filenames stack additional IPAdapterAdvanced nodes onto the sampler
@@ -2107,7 +2107,7 @@ export default function SettingsTool() {
                     }
                     placeholder="ip-adapter-plus_sdxl.safetensors (leave blank to keep the workflow's default)"
                     disabled={!sharedMounted}
-                    className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${accentFocusClass(ACCENT)}`}
+                    className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
                   />
                 </div>
               </ToolSection>
@@ -2888,7 +2888,7 @@ export default function SettingsTool() {
                     saveWebhookSettings(next);
                   }}
                   placeholder="https://example.com/hooks/comfyui"
-                  className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                  className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
                 />
                 <FieldLabel htmlFor="webhook-secret">Shared secret (optional)</FieldLabel>
                 <input
@@ -2899,7 +2899,7 @@ export default function SettingsTool() {
                     setWebhookSettings(next);
                     saveWebhookSettings(next);
                   }}
-                  className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                  className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
                 />
                 <FieldLabel htmlFor="webhook-template">Payload template</FieldLabel>
                 <select
@@ -2932,7 +2932,7 @@ export default function SettingsTool() {
                     value={avoidedTokenDraft}
                     onChange={event => setAvoidedTokenDraft(event.target.value)}
                     placeholder="Add token"
-                    className="ui-input min-w-[180px] flex-1 px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                    className="ui-input min-w-45 flex-1 px-(--input-padding-x) py-(--input-padding-y) type-body"
                   />
                   <Button
                     variant="secondary"
@@ -3253,7 +3253,7 @@ export default function SettingsTool() {
                         setScheduledBatch(next);
                         saveScheduledBatchConfig(next);
                       }}
-                      className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                      className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
                     />
                   </div>
                   <div>
@@ -3272,7 +3272,7 @@ export default function SettingsTool() {
                         setScheduledBatch(next);
                         saveScheduledBatchConfig(next);
                       }}
-                      className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                      className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
                     />
                   </div>
                 </div>
@@ -3288,7 +3288,7 @@ export default function SettingsTool() {
                     setScheduledBatch(next);
                     saveScheduledBatchConfig(next);
                   }}
-                  className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                  className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
                 >
                   <option value="random-scene">Random scene</option>
                   <option value="topics">Topics batch</option>
@@ -3318,7 +3318,7 @@ export default function SettingsTool() {
                     setScheduledBatch(next);
                     saveScheduledBatchConfig(next);
                   }}
-                  className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                  className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
                 />
               </ToolSection>
             </>

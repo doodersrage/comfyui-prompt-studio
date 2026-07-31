@@ -40,12 +40,12 @@ function markDismissedThisSession(): void {
 }
 
 export default function AutoStorageSyncInit() {
-  const { user, loading } = useAuth();
+  const auth = useAuth();
   const [conflicts, setConflicts] = useState<AutoSyncResult['conflicts']>([]);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (loading || !user || process.env.NEXT_PUBLIC_PLAYWRIGHT === '1') {
+    if (!auth || auth.loading || !auth.user || process.env.NEXT_PUBLIC_PLAYWRIGHT === '1') {
       return;
     }
 
@@ -66,7 +66,9 @@ export default function AutoStorageSyncInit() {
     });
     // Intentionally key off user id so object identity churn does not re-trigger sync.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- user?.id is the stable identity
-  }, [loading, user?.id]);
+  }, [auth?.loading, auth?.user?.id]);
+
+  if (!auth) return null; // Hydration / HMR boundary
 
   async function resolveConflicts(choices: Partial<Record<StorageNamespace, MergeChoice>>) {
     const { applyStorageMerge } = await import('@/lib/auto-storage-sync');

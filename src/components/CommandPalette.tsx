@@ -143,7 +143,24 @@ function buildNavItems(): CommandItem[] {
 
 export default function CommandPalette() {
   const router = useRouter();
-  const { allowedFeatures } = useAuth();
+
+  // Defer null-check to after all hooks so hook-call order stays stable.
+  const rawAuth = useAuth();
+  const isNullContext = !rawAuth;
+
+  const {
+    allowedFeatures,
+  } = rawAuth ?? {
+    loading: true,
+    authEnabled: false,
+    user: null,
+    allowedFeatures: 'all',
+    impersonating: false,
+    refresh: async () => {},
+    logout: async () => {},
+    isAdmin: false,
+  };
+
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -178,15 +195,17 @@ export default function CommandPalette() {
 
   const items = useMemo(
     () =>
-      catalog.filter(item => {
-        if (!item.href) {
-          return true;
-        }
-        const path = item.href.split('?')[0] ?? item.href;
-        const feature = featureForPath(path);
-        return canAccessNavFeature(allowedFeatures, feature);
-      }),
-    [allowedFeatures, catalog]
+      isNullContext
+        ? []
+        : catalog.filter(item => {
+            if (!item.href) {
+              return true;
+            }
+            const path = item.href.split('?')[0] ?? item.href;
+            const feature = featureForPath(path);
+            return canAccessNavFeature(allowedFeatures, feature);
+          }),
+    [isNullContext, allowedFeatures, catalog]
   );
 
   useEffect(() => {
@@ -377,7 +396,7 @@ export default function CommandPalette() {
     }
   }
 
-  if (!open) {
+  if (!open || isNullContext) {
     return <KeyboardShortcutsHelp open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />;
   }
 

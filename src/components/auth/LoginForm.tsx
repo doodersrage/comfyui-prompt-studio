@@ -15,7 +15,8 @@ type LoginMode = 'sign-in' | 'totp' | 'forgot' | 'reset';
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { refresh } = useAuth();
+  const auth = useAuth();
+
   const [mode, setMode] = useState<LoginMode>('sign-in');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -30,6 +31,7 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!auth) return;
     const token = searchParams.get('reset')?.trim();
     if (token) {
       scheduleAfterCommit(() => {
@@ -37,7 +39,11 @@ export default function LoginForm() {
         setMode('reset');
       });
     }
-  }, [searchParams]);
+  }, [searchParams, auth]);
+
+  if (!auth) return null;
+
+  const { refresh } = auth;
 
   async function completeLogin(data: { user?: unknown; allowedFeatures?: unknown }) {
     if (!data.user) {

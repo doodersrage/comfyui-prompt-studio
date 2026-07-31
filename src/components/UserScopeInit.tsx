@@ -7,7 +7,8 @@ import { USER_SCOPE_CHANGED_EVENT } from '@/lib/user-scope';
 import { scheduleUserAnalyticsSync } from '@/lib/user-analytics-sync';
 
 export default function UserScopeInit() {
-  const { user, loading } = useAuth();
+  const auth = useAuth();
+  const { user, loading } = auth ?? { user: null, loading: true };
 
   useEffect(() => {
     if (loading) {

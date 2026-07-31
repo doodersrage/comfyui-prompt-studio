@@ -35,6 +35,36 @@ import { isQwenLightningModel } from './model-sampling-patch';
 import { workflowHasLoraLoader } from './workflow-lightning-queue';
 import { applySystemWorkflowToRuntime, usesSystemWorkflowPath } from './system-workflow-runtime';
 
+// Cache for parsed workflow JSON — avoids redundant parse on same string across model checks.
+const _workflowParseCache = new Map<string, Record<string, unknown>>();
+function getWorkflowParsed(workflowJson: string): Record<string, unknown> | null {
+  if (!workflowJson || typeof workflowJson !== 'string') return null;
+
+  const key = workflowJson.length < 120 ? workflowJson : workflowJson.slice(0, 80);
+  let cached = _workflowParseCache.get(key);
+
+  // Verify the cached value came from the full string (key was a prefix).
+  if (!cached) {
+    try {
+      cached = JSON.parse(workflowJson) as Record<string, unknown>;
+      _workflowParseCache.set(key, cached);
+    } catch {
+      return null;
+    }
+  } else if (key !== workflowJson && workflowJson.length > 120) {
+    // Key was a prefix — re-parse to verify content matches the full string.
+    try {
+      const full = JSON.parse(workflowJson) as Record<string, unknown>;
+      _workflowParseCache.set(key, full);
+      cached = full;
+    } catch {
+      return null;
+    }
+  }
+
+  return cached ?? null;
+}
+
 export type ResolveRuntimeOptions = {
   ignoreManualWorkflow?: boolean;
   /** Live ComfyUI inventory — when set, system scaffolds/maps adapt to it. */
@@ -117,8 +147,8 @@ function resolveStackCompatibleWorkflowRuntime(
   if (!fingerprint.isMixed && workflowStackMatchesModel(fingerprint, model)) {
     if (isQwenLightningModel(model)) {
       try {
-        const parsed = JSON.parse(base.workflowJson) as Record<string, unknown>;
-        if (workflowHasLoraLoader(parsed)) {
+        const parsed = getWorkflowParsed(base.workflowJson);
+        if (parsed && workflowHasLoraLoader(parsed)) {
           return base;
         }
         // Queue prep inserts Lightning LoRA when the token is mapped on this file.
@@ -147,7 +177,8 @@ function resolveStackCompatibleWorkflowRuntime(
         return false;
       }
       if (isQwenLightningModel(model)) {
-        const parsed = JSON.parse(entry.file.workflowJson) as Record<string, unknown>;
+        const parsed = getWorkflowParsed(entry.file.workflowJson);
+        if (!parsed) return false;
         return workflowHasLoraLoader(parsed);
       }
       return true;

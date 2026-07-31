@@ -1,14 +1,14 @@
-const { execSync } = require("child_process");
-const fs = require("fs");
+import { execSync } from 'child_process';
+import fs from 'fs';
 
 // Use git's cat-file to dump blob content
 try {
   const result = execSync(
     'git --no-pager cat-file b HEAD:src/lib/browser-image-dimensions.test.ts',
-    { cwd: process.cwd(), encoding: "utf-8", stdio: "pipe" }
+    { cwd: process.cwd(), encoding: 'utf-8', stdio: 'pipe' }
   );
   console.log(result);
-} catch(e) {
-  console.error("Stderr:", e.stderr);
-  console.error("Error:", e.message);
+} catch (e) {
+  console.error('Stderr:', e.stderr);
+  console.error('Error:', e.message);
 }

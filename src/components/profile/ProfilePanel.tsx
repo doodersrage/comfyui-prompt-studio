@@ -21,7 +21,7 @@ const DEFAULT_CAMPAIGN: UserScheduledCampaign = {
 };
 
 export default function ProfilePanel() {
-  const { user, refresh, authEnabled } = useAuth();
+  const auth = useAuth();
   const [password, setPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [comfyUiUrl, setComfyUiUrl] = useState('');
@@ -34,7 +34,9 @@ export default function ProfilePanel() {
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // All hooks run unconditionally; auth guard runs after them.
   const loadProfile = useCallback(async () => {
+    if (!auth) return;
     const response = await fetch('/api/auth/profile', { cache: 'no-store' });
     const data = (await response.json()) as {
       user?: {
@@ -55,7 +57,7 @@ export default function ProfilePanel() {
       setEmailNotifyBatch(data.user.emailNotifyBatch !== false);
       setEmailNotifySecurity(data.user.emailNotifySecurity !== false);
     }
-  }, []);
+  }, [auth]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -66,6 +68,10 @@ export default function ProfilePanel() {
         .catch(() => setSharedPresets([]));
     });
   }, [loadProfile]);
+
+  if (!auth) return null;
+
+  const { user, refresh, authEnabled } = auth;
 
   async function saveProfile() {
     setLoading(true);

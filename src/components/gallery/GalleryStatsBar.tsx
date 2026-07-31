@@ -23,16 +23,16 @@ function StatChip(props: {
 }) {
   const emphasisClass =
     props.emphasis === 'warning'
-      ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)]'
+      ? 'border-[var(--tint-warning-border)] bg-[var(--tint-warning-bg)] text-[var(--tint-warning-text)] rounded-full backdrop-blur-xs'
       : props.emphasis === 'muted'
-        ? 'border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
-        : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)]';
+        ? 'border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] rounded-lg'
+        : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg';
 
   const activeClass = props.active
-    ? 'ring-1 ring-[var(--accent-ring)] border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)]'
+    ? 'ring-1 ring-[var(--accent-ring)] border-[var(--accent-border)] bg-[var(--accent-muted)] text-[var(--accent-text)] hover:bg-[var(--bg-hover)]'
     : '';
 
-  const className = `inline-flex min-w-0 items-baseline gap-2 rounded-[var(--radius-md)] border px-2.5 py-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] ${emphasisClass} ${activeClass} ${
+  const className = `inline-flex min-w-0 items-baseline gap-2 rounded-[var(--radius-md)] border px-2.5 py-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] backdrop-blur-xs ${emphasisClass} ${activeClass} ${
     props.onClick
       ? 'cursor-pointer hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)]'
       : ''
@@ -69,7 +69,12 @@ export default function GalleryStatsBar({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <StatChip label="Total" value={stats.total} />
+        <StatChip
+          label="Total"
+          value={stats.total}
+          emphasis="default"
+          onClick={() => onQuickFilter({ status: 'all' })}
+        />
         {heldMaxJobs > 0 ? (
           <Link
             href="/queue"
@@ -129,6 +134,7 @@ export default function GalleryStatsBar({
           label="Avg"
           value={stats.avgRating != null ? `${stats.avgRating}★` : '—'}
           emphasis="muted"
+          active={!!stats.avgRating}
         />
         {stats.error > 0 ? (
           <StatChip

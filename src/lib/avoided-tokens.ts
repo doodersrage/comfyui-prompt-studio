@@ -65,15 +65,37 @@ export function clearAvoidedTokens(): void {
   window.dispatchEvent(new CustomEvent(AVOIDED_TOKENS_UPDATED_EVENT));
 }
 
+// Cached versioned token snapshot so repeated reads don't re-parse or rebuild the Set.
+const TOKENS_SNAPSHOT_KEY = '__comfyui_avoided_tokens_snapshot';
+let _snapshotTokens: string[] | null = null;
+
 export function loadAvoidedTokens(): Set<string> {
   if (typeof window === 'undefined') {
     return new Set();
   }
+  // Return cached snapshot when available.
+  try {
+    const raw = readBrowserValue<string[]>(TOKENS_SNAPSHOT_KEY);
+    if (Array.isArray(raw) && _snapshotTokens !== null) {
+      return new Set(_snapshotTokens);
+    }
+    if (Array.isArray(raw)) {
+      // On first hit, also cache in-memory for this render cycle.
+      _snapshotTokens = raw;
+      return new Set(raw);
+    }
+  } catch {}
+
   try {
     const list = readBrowserValue<string[]>(AVOIDED_TOKENS_KEY);
     if (!list) {
       return new Set();
     }
+    _snapshotTokens = list;
+    // Persist a snapshot so subsequent calls avoid re-parsing the source.
+    try {
+      writeBrowserValue(TOKENS_SNAPSHOT_KEY, list);
+    } catch {}
     return new Set(list);
   } catch {
     return new Set();
@@ -108,10 +130,10 @@ export function importAvoidedTokensJson(raw: string, mode: 'merge' | 'replace' =
   if (!Array.isArray(parsed.tokens)) {
     throw new Error('Invalid avoided tokens file.');
   }
+  // Single pass: filter strings, trim/lowercase, and drop blanks.
   const tokens = parsed.tokens
-    .filter((item): item is string => typeof item === 'string')
-    .map(item => item.trim().toLowerCase())
-    .filter(Boolean);
+    .filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+    .map(item => item.trim().toLowerCase());
   if (mode === 'replace') {
     saveAvoidedTokens(tokens);
     return tokens.length;
@@ -153,6 +175,12 @@ export function recordAvoidedTokensFromGalleryEntry(input: {
   return existing.size - before;
 }
 
+// Per-render-cycle cache — tokens only change on explicit add/clear operations.
+let _requestBodyCache: {
+  tokenCount: number;
+  value: ReturnType<typeof avoidedTokensRequestBody>;
+} | null = null;
+
 export function exportAvoidedTokenList(): string[] {
   return [...loadAvoidedTokens()].slice(-80);
 }
@@ -161,14 +189,24 @@ export function avoidedTokensRequestBody(): {
   avoidedTokens?: string[];
   avoidedTokensInstruction?: string;
 } {
-  const avoidedTokens = exportAvoidedTokenList();
-  if (avoidedTokens.length === 0) {
+  const tokens = loadAvoidedTokens();
+  if (tokens.size === 0) {
+    // Fast-path: always return empty object when no tokens.
     return {};
   }
-  return {
-    avoidedTokens,
-    avoidedTokensInstruction: buildAvoidedTokensInstructionFromList(avoidedTokens),
+  // Check cached result (tokens didn't change this render cycle).
+  if (_requestBodyCache?.tokenCount === tokens.size) {
+    return _requestBodyCache.value;
+  }
+  const sliced = [...tokens].slice(-80);
+  const instruction = buildAvoidedTokensInstructionFromList(sliced);
+  const value = {
+    avoidedTokens: sliced,
+    ...(instruction ? { avoidedTokensInstruction: instruction } : {}),
   };
+  // Update cache.
+  _requestBodyCache = { tokenCount: tokens.size, value };
+  return value;
 }
 
 export function promptContainsAvoidedTokens(text: string, avoided = loadAvoidedTokens()): boolean {

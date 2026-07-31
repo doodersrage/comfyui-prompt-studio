@@ -1,15 +1,11 @@
 import type { NextConfig } from 'next';
 import bundleAnalyzer from '@next/bundle-analyzer';
 
-const withBundleAnalyzer = bundleAnalyzer({
-  enabled: process.env.ANALYZE === 'true',
-});
-
-const nextConfig: NextConfig = {
+const baseConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   allowedDevOrigins: ['127.0.0.1'],
-  serverExternalPackages: ['nodemailer', 'sharp'],
+
   // Keep local Python engine envs and dynamic filesystem ops out of NFT / Turbopack traces.
   outputFileTracingExcludes: {
     '*': [
@@ -47,43 +43,9 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '32mb',
     },
     optimizeCss: true,
-    // Enable performance optimization features
   },
-  // Add performance-related settings
+
   productionBrowserSourceMaps: false,
-  
-  // Add performance budgets to detect oversized bundles
-  webpack(config, { isServer }) {
-    // Only apply bundle size limits in production
-    if (process.env.NODE_ENV === 'production') {
-      config.module.rules.push({
-        test: /\.(js|ts|tsx)$/, 
-        enforce: 'pre',
-        loader: 'webpack-bundle-analyzer/lib/webpack-plugin',
-        options: {
-          analyzerMode: 'disabled',
-          generateStatsFile: true,
-          statsFilename: 'stats.json',
-        },
-      });
-    }
-    
-    // Add code splitting for better bundle optimization
-    if (!isServer) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          vendor: {
-            test: /[\\\\/](node_modules)[\\\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-          },
-        },
-      };
-    }
-    
-    return config;
-  },
 
   async redirects() {
     return [
@@ -111,4 +73,9 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBundleAnalyzer(nextConfig);
+// Skip @next/bundle-analyzer wrapper entirely when ANALYZE is off — saves build-time.
+// When enabled, wrap with the standard plugin (openAnalyzer: false = silent mode).
+const _isAnalyzing = process.env.ANALYZE === 'true';
+export default (_isAnalyzing
+  ? bundleAnalyzer({ ...baseConfig, openAnalyzer: true })
+  : baseConfig) as NextConfig;

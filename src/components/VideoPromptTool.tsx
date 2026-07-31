@@ -500,7 +500,7 @@ export default function VideoPromptTool() {
               value={camera}
               onChange={event => setCamera(event.target.value)}
               placeholder="Low-angle follow shot, gentle dolly in"
-              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
             />
           </div>
           <div>
@@ -512,7 +512,8 @@ export default function VideoPromptTool() {
               max={16}
               value={durationSec}
               onChange={event => setDurationSec(Number(event.target.value) || 4)}
-              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+              placeholder="e.g. 4"
+              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
             />
           </div>
         </div>
@@ -523,7 +524,7 @@ export default function VideoPromptTool() {
           value={style}
           onChange={event => setStyle(event.target.value)}
           placeholder="Cinematic teal-orange grade, soft morning haze"
-          className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+          className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
         />
 
         <FieldLabel
@@ -583,7 +584,7 @@ export default function VideoPromptTool() {
                 }
               }}
               placeholder="https://… or an uploaded ComfyUI filename"
-              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
             />
           </div>
           {hasInitImage ? (
@@ -611,7 +612,7 @@ export default function VideoPromptTool() {
                 setFrames(event.target.value ? Number(event.target.value) : undefined)
               }
               placeholder="e.g. 81"
-              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
             />
           </div>
           <div>
@@ -631,7 +632,7 @@ export default function VideoPromptTool() {
                 setFps(event.target.value ? Number(event.target.value) : undefined)
               }
               placeholder="e.g. 16"
-              className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+              className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
             />
           </div>
         </div>

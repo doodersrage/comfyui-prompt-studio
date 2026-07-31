@@ -2008,7 +2008,7 @@ export default function ComfyUiGalleryPanel({
                         return next;
                       })
                     }
-                    className="rounded-lg border border-violet-500/25 px-2 py-0.5 text-[10px] text-violet-200/90 transition hover:border-violet-400/40"
+                    className="rounded-lg border border-violet-500/25 bg-violet-500/10 px-2 py-0.6 text-[10px] font-medium text-violet-300 backdrop-blur-sm transition hover:border-violet-400/45 hover:bg-violet-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98]"
                   >
                     {collapsed ? 'Expand' : 'Collapse'}
                   </button>
@@ -2016,12 +2016,12 @@ export default function ComfyUiGalleryPanel({
                 <div className={layout === 'list' ? 'space-y-3' : galleryCardGridClass}>
                   {renderCard(group.root)}
                   {!collapsed
-                    ? group.derivatives.map(derivative => (
+                    ? group.derivatives.map((derivative, idx) => (
                         <div
                           key={derivative.id}
                           className={
                             layout === 'list'
-                              ? 'ml-3 border-l border-violet-500/20 pl-3'
+                              ? `ml-3 border-l border-violet-500/20 pl-3${idx === 0 ? '' : ' opacity-65 transition group-hover/card:opacity-100'}`
                               : undefined
                           }
                         >
@@ -2037,11 +2037,11 @@ export default function ComfyUiGalleryPanel({
       )}
 
       {hasMoreAll ? (
-        <div className="flex justify-center pt-2">
+        <div className="flex justify-center pt-3 rounded-xl border border-violet-500/25 bg-violet-500/10 px-4 py-3 backdrop-blur-sm">
           <button
             type="button"
             onClick={() => setAllRenderLimit(previous => previous + GALLERY_ALL_RENDER_CHUNK)}
-            className="ui-btn-secondary ui-btn-sm"
+            className="rounded-lg border border-violet-500/40 bg-violet-500/25 px-3 py-1.5 text-[11px] font-medium text-violet-50 backdrop-blur transition hover:border-violet-400/60 hover:bg-violet-500/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
           >
             Load more ({remainingAll} remaining)
           </button>
@@ -2142,27 +2142,33 @@ function GalleryPaginator({
   const rangeEnd = Math.min(page * pageSize, totalItems);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
-      <p className="type-caption text-zinc-500">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-500/25 bg-violet-500/10 px-4 py-3 backdrop-blur-sm">
+      <p
+        className={`type-caption leading-wider text-zinc-400 ${
+          totalPages <= 3 ? '' : ' bg-violet-500/15 border-violet-500/20 text-[11px] font-medium'
+        }`}
+      >
         Showing {rangeStart}–{rangeEnd} of {totalItems}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="secondary"
           size="sm"
-          className="type-caption"
+          className={page <= 1 ? 'opacity-40' : ''}
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
           Previous
         </Button>
-        <span className="type-caption px-1 text-zinc-400">
+        <span
+          className={`type-caption px-1 text-violet-300/80 font-medium bg-violet-500/20 border-violet-500/35`}
+        >
           Page {page} of {totalPages}
         </span>
         <Button
           variant="secondary"
           size="sm"
-          className="type-caption"
+          className={page >= totalPages ? 'opacity-40' : ''}
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
         >

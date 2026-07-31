@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth, type AuthContextValue } from '@/hooks/useAuth';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import {
   loadLocationBlocklist,
@@ -199,7 +199,11 @@ type CatalogLocation = {
 
 export default function StudioTool() {
   const workspaceMode = useWorkspaceMode();
-  const { authEnabled, user } = useAuth();
+
+  // Defer null-check to after all hooks so hook-call order stays stable.
+  const auth = useAuth() ?? { _null: true };
+  const isNullContext = (auth as { _null?: boolean })._null;
+  const { authEnabled, user } = (auth as AuthContextValue & { _null?: true });
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'studio',
     DEFAULT_STUDIO_TOOL_CACHE
@@ -771,8 +775,11 @@ export default function StudioTool() {
       title="Prompt Studio"
       description="History, model comparison, catalog browser, and template slots."
     >
-      <ToolMetaPanel title="Studio views" className="overflow-x-auto">
-        <div className="flex min-w-max flex-wrap items-start gap-x-8 gap-y-4">
+      {/* Null-context guard — provider not yet wired up during hydration/HMR. */}
+      {isNullContext ? null : (
+        <div className="flex h-full flex-col gap-4">
+          <ToolMetaPanel title="Studio views" className="overflow-x-auto">
+            <div className="flex min-w-max flex-wrap items-start gap-x-8 gap-y-4">
           {tabGroups.map(group => (
             <div key={group.label} className="space-y-2">
               <p className="type-overline text-[var(--text-muted)]">{group.label}</p>
@@ -789,8 +796,8 @@ export default function StudioTool() {
               </div>
             </div>
           ))}
-        </div>
-      </ToolMetaPanel>
+            </div>
+          </ToolMetaPanel>
 
       {tab === 'history' && (
         <ToolSection title="Saved prompts">
@@ -3259,6 +3266,8 @@ export default function StudioTool() {
             </>
           )}
         </ToolSection>
+      )}
+        </div>
       )}
     </ToolLayout>
   );

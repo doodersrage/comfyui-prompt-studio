@@ -58,6 +58,10 @@ import {
 
 export const SETTINGS_CACHE_KEY = 'comfy-prompt-tool-settings-v1';
 
+/** Memoized result for loadSettingsCache to avoid re-normalizing on hot-path reads. */
+let cachedLoadResult: SettingsCache | null = null;
+let cachedBrowserVersion: unknown | null = null;
+
 export type SharedToolSettings = {
   model: ComfyImageModel;
   detail: DetailLevel;
@@ -860,10 +864,21 @@ export function loadSettingsCache(): SettingsCache {
     return { shared: DEFAULT_SHARED_SETTINGS, tools: {}, installedPlugins: [] };
   }
 
+  // Fast path: return the memoized result unless browser storage changed.
+  if (
+    cachedLoadResult != null &&
+    readBrowserValue<unknown>(SETTINGS_CACHE_KEY) === cachedBrowserVersion
+  ) {
+    return cachedLoadResult;
+  }
+
   try {
     const parsed = readBrowserValue<Partial<SettingsCache>>(SETTINGS_CACHE_KEY);
     if (!parsed) {
-      return { shared: DEFAULT_SHARED_SETTINGS, tools: {}, installedPlugins: [] };
+      const defaults = { shared: DEFAULT_SHARED_SETTINGS, tools: {}, installedPlugins: [] };
+      cachedLoadResult = defaults;
+      cachedBrowserVersion = null; // no browser value means "no version" → safe to cache
+      return defaults;
     }
     const shared = {
       ...DEFAULT_SHARED_SETTINGS,
@@ -949,16 +964,30 @@ export function loadSettingsCache(): SettingsCache {
       saveSettingsCache({ shared, tools: migrated.tools });
     }
 
-    return {
+    const result = {
       shared,
       tools: migrated.tools,
       installedPlugins: Array.isArray(parsed.installedPlugins)
         ? (parsed.installedPlugins as SettingsCache['installedPlugins'])
         : [],
     };
+
+    // Cache the normalized result so subsequent reads bypass migration/normalization.
+    cachedLoadResult = result;
+    cachedBrowserVersion = parsed;
+    return result;
   } catch {
-    return { shared: DEFAULT_SHARED_SETTINGS, tools: {}, installedPlugins: [] };
+    const fallback = { shared: DEFAULT_SHARED_SETTINGS, tools: {}, installedPlugins: [] };
+    cachedLoadResult = fallback;
+    cachedBrowserVersion = null;
+    return fallback;
   }
+}
+
+/** Invalidate the memoized cache after a write so the next read re-normalizes fresh data. */
+export function invalidateSettingsCache(): void {
+  cachedLoadResult = null;
+  cachedBrowserVersion = null;
 }
 
 export function saveSettingsCache(cache: SettingsCache): void {
@@ -975,6 +1004,11 @@ export function saveSettingsCache(cache: SettingsCache): void {
 }
 
 export function saveSharedSettings(shared: SharedToolSettings): void {
+  invalidateSettingsCache();
+  const raw = readBrowserValue<Partial<SettingsCache>>(SETTINGS_CACHE_KEY);
+  if (!raw || typeof window === 'undefined' || !isBrowserStorageReady()) {
+    return;
+  }
   const cache = loadSettingsCache();
   saveSettingsCache({ ...cache, shared });
 }
@@ -983,6 +1017,11 @@ export function saveToolSettings<K extends keyof ToolSettingsCache>(
   tool: K,
   settings: ToolSettingsCache[K]
 ): void {
+  invalidateSettingsCache();
+  const raw = readBrowserValue<Partial<SettingsCache>>(SETTINGS_CACHE_KEY);
+  if (!raw || typeof window === 'undefined' || !isBrowserStorageReady()) {
+    return;
+  }
   const cache = loadSettingsCache();
   saveSettingsCache({
     ...cache,

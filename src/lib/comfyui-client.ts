@@ -235,8 +235,12 @@ function injectPromptsIntoWorkflow(
     if (cached && cached.key === optimizeKey) {
       optimizedWorkflow = structuredClone(cached.workflow);
     } else {
-      const sourceHash = workflowContentHash(JSON.stringify(workflow));
-      const byHash = optimizedWorkflowByHash.get(`${sourceHash}|${optimizeKey}`);
+      // Use runtime-provided hash to skip redundant stringify when the caller already computed it.
+      const preHash =
+        typeof runtime?.workflowOptimizedHash === 'string' && runtime.workflowOptimizedHash.trim()
+          ? runtime.workflowOptimizedHash
+          : workflowContentHash(JSON.stringify(workflow));
+      const byHash = optimizedWorkflowByHash.get(`${preHash}|${optimizeKey}`);
       if (byHash) {
         optimizedWorkflow = structuredClone(byHash.workflow);
         optimizedWorkflowCache.set(workflow, {
@@ -271,7 +275,7 @@ function injectPromptsIntoWorkflow(
           key: optimizeKey,
           workflow: cloned,
         });
-        rememberOptimizedWorkflowByHash(sourceHash, optimizeKey, cloned);
+        rememberOptimizedWorkflowByHash(preHash, optimizeKey, cloned);
       }
     }
   }

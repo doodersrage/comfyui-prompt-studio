@@ -45,6 +45,10 @@ export function galleryEntryCorpus(entry: {
   promptId?: string;
   statusMessage?: string;
 }): string {
+  // Return pre-computed corpus when already seeded (hydration path).
+  const cached = '_corpus' in entry ? (entry as { _corpus?: string })._corpus : undefined;
+  if (cached) return cached;
+
   return [
     entry.prompt,
     entry.negativePrompt,
@@ -55,4 +59,14 @@ export function galleryEntryCorpus(entry: {
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+/** Seed `_corpus` on every entry in a batch (mutates in-place). */
+export function seedBatchCorpus(entries: { prompt: string }[]): void {
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    if (!(e as { _corpus?: string })._corpus) {
+      (e as { _corpus?: string })._corpus = galleryEntryCorpus(e);
+    }
+  }
 }

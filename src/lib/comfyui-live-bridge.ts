@@ -109,6 +109,61 @@ function handleBinary(session: BridgeSession, data: ArrayBuffer | ArrayBufferVie
 
 function handleText(session: BridgeSession, raw: string): void {
   try {
+    // Fast type peek — avoid full JSON.parse + oversized object graph when we only need the event kind.
+    const firstBracket = raw.indexOf('{');
+    if (firstBracket === -1) return;
+    if (raw.length < 20) return; // too short to be meaningful
+
+    const typeMatch = raw.slice(firstBracket).match(/"type"\s*:\s*"(\w+)"/);
+    const eventType = typeMatch ? typeMatch[1] : null;
+
+    if (eventType === 'progress') {
+      // Lightweight progress parser — only extract the fields we need.
+      const valueRaw = raw.slice(firstBracket).match(/"value"\s*:\s*(-?\d+\.?\d*)/);
+      const maxRaw = raw.slice(firstBracket).match(/"max"\s*:\s*(\d+\.?\d*)/);
+      const value = asFiniteNumber(valueRaw ? Number(valueRaw[1]) : undefined);
+      const max = asFiniteNumber(maxRaw ? Number(maxRaw[1]) : undefined);
+      if (value == null || max == null || max <= 0) return;
+      const nodeMatch = raw.slice(firstBracket).match(/"node"\s*:\s*(?:null|"([^"]*)")/);
+      const node = nodeMatch && nodeMatch[1] !== undefined ? (nodeMatch[1] ?? null) : null;
+      publish(session, {
+        type: 'progress',
+        status: 'progress',
+        promptId: undefined,
+        node,
+        value,
+        max,
+        message: formatStepMessage(value, max, node),
+      });
+      return;
+    }
+
+    if (eventType === 'executing') {
+      const nodeMatch = raw.slice(firstBracket).match(/"node"\s*:\s*(?:null|"([^"]*)")/);
+      const node = nodeMatch && nodeMatch[1] !== undefined ? (nodeMatch[1] ?? null) : null;
+      publish(session, {
+        type: 'progress',
+        status: node ? 'executing' : 'finished',
+        promptId: undefined,
+        node,
+        message: node ? `Running node ${node}` : 'Execution finished',
+      });
+      return;
+    }
+
+    if (eventType === 'execution_error') {
+      const msgMatch = raw.slice(firstBracket).match(/"exception_message"\s*:\s*"([^"]*)"/);
+      const detail = msgMatch ? msgMatch[1]?.trim() : undefined;
+      publish(session, {
+        type: 'progress',
+        status: 'error',
+        promptId: undefined,
+        message: detail ? `ComfyUI error: ${detail}` : 'ComfyUI execution error',
+      });
+      return;
+    }
+
+    // For all other types (executed, progress_state), fall through to the full parser.
     const payload = JSON.parse(raw) as {
       type?: string;
       data?: {

@@ -93,24 +93,24 @@ export function calculateDynamicQuality(
 ): number {
   // For now, we'll implement a basic algorithm that adjusts quality
   // based on image size and complexity (to be expanded in future iterations)
-  
+
   // Base quality from static settings
   const baseQuality = GALLERY_PROXY_ENCODE_QUALITY[tier][format];
-  
+
   // Adjust quality based on image dimensions - larger images can use higher quality
   // since they have more detail that benefits from better compression
   let adjustedQuality: number = baseQuality;
-  
+
   // For large images (e.g., >1000px), we can afford higher quality
   if (width > 1000) {
     adjustedQuality = Math.min(baseQuality + 5, 95);
   }
-  
+
   // For smaller images, reduce quality to save space
   else if (width <= 256) {
     adjustedQuality = Math.max(baseQuality - 10, 30);
   }
-  
+
   return adjustedQuality;
 }
 
@@ -118,23 +118,45 @@ export function galleryProxyEncodeTier(width: number): 'thumb' | 'lightbox' {
   return width >= GALLERY_LIGHTBOX_WIDTH ? 'lightbox' : 'thumb';
 }
 
-/** Strip gallery proxy `w=` so “Open original” / full-res links never hit a resized encode. */
+/** Bounded per-URL cache to avoid re-allocating URLSearchParams on every render pass. */
+const _stripUrlCacheMaxSize = 4096;
+const _stripUrlCache = new Map<string, string>();
+
+/** Strip gallery proxy `w=` so "Open original" / full-res links never hit a resized encode. */
 export function stripGalleryViewWidthParam(url: string): string {
+  const cached = _stripUrlCache.get(url);
+  if (cached) return cached;
+
+  let result: string;
   try {
     const parsed = new URL(url, 'http://local.invalid');
     if (!parsed.searchParams.has('w')) {
-      return url;
+      result = url;
+    } else {
+      parsed.searchParams.delete('w');
+      if (/^https?:\/\//i.test(url)) {
+        result = parsed.toString();
+      } else {
+        result = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
     }
-    parsed.searchParams.delete('w');
-    if (/^https?:\/\//i.test(url)) {
-      return parsed.toString();
-    }
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
-    return url
+    result = url
       .replace(/([?&])w=\d+(&|$)/i, (_, sep: string, end: string) => (end === '&' ? sep : ''))
       .replace(/\?$/, '');
   }
+
+  if (_stripUrlCache.size >= _stripUrlCacheMaxSize) {
+    const half = Math.floor(_stripUrlCacheMaxSize / 2);
+    let evicted = 0;
+    for (const k of _stripUrlCache.keys()) {
+      if (evicted >= half) break;
+      _stripUrlCache.delete(k);
+      evicted += 1;
+    }
+  }
+  _stripUrlCache.set(url, result);
+  return result;
 }
 
 /** Ultra-small LQIP under gallery heroes. */

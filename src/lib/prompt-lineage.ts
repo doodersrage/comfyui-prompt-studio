@@ -79,23 +79,28 @@ export function findGalleryEntryForHistory(
 ): ComfyGalleryEntry | undefined {
   const galleryEntryId =
     typeof input.metadata?.galleryEntryId === 'string' ? input.metadata.galleryEntryId.trim() : '';
-  if (galleryEntryId) {
-    const byId = gallery.find(entry => entry.id === galleryEntryId);
-    if (byId) {
-      return byId;
-    }
-  }
-
   const comfyPromptId =
     typeof input.metadata?.comfyPromptId === 'string' ? input.metadata.comfyPromptId.trim() : '';
-  if (comfyPromptId) {
-    const byPromptId = gallery.find(entry => entry.promptId === comfyPromptId);
-    if (byPromptId) {
-      return byPromptId;
+
+  // Single-pass index build: O(N) instead of up to 3 separate .find() scans (O(3N)).
+  if (!galleryEntryId && !comfyPromptId && input.id) {
+    return gallery.find(entry => entry.historyId === input.id);
+  }
+
+  let result: ComfyGalleryEntry | undefined;
+  for (let i = 0; i < gallery.length; i++) {
+    const e = gallery[i];
+    if (!result) {
+      if (galleryEntryId && e.id === galleryEntryId) {
+        result = e;
+      } else if (comfyPromptId && e.promptId === comfyPromptId) {
+        result = e;
+      }
     }
   }
 
-  return gallery.find(entry => entry.historyId === input.id);
+  // Fall back to historyId match.
+  return result ?? (input.id ? gallery.find(entry => entry.historyId === input.id) : undefined);
 }
 
 export function findHistoryIdForGalleryEntry(entry: ComfyGalleryEntry): string | undefined {

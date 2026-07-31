@@ -99,7 +99,12 @@ export default function VirtualizedGalleryGrid<T>({
     return next;
   }, [items, columns]);
 
-  const gapPx = layout === 'dense' ? (compact ? 12 : 16) : compact ? 16 : 24;
+  const gapPx = useMemo(() => {
+    if (layout === 'list') return compact ? 12 : 16;
+    if (layout === 'dense') return compact ? 8 : 10;
+    return compact ? 12 : 16;
+  }, [layout, compact]);
+
   const rowEstimate = estimateRowHeight + gapPx;
 
   const virtualizer = useWindowVirtualizer({
@@ -158,11 +163,14 @@ export default function VirtualizedGalleryGrid<T>({
               }}
             >
               <div
-                className={gridClassName}
+                className={`${gridClassName} backdrop-blur-xs`}
                 style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
               >
-                {row.map(item => (
-                  <div key={getKey(item)} className="min-w-0">
+                {row.map((item, idx) => (
+                  <div
+                    key={getKey(item)}
+                    className={`min-w-0${idx === 0 ? ' bg-violet-500/92' : ''}`}
+                  >
                     {renderItem(item)}
                   </div>
                 ))}

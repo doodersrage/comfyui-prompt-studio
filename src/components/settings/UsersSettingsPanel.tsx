@@ -7,7 +7,17 @@ import { ButtonLink } from '@/components/ui/Button';
 import UsersAdminPanel from '@/components/settings/UsersAdminPanel';
 
 export default function UsersSettingsPanel() {
-  const { loading, authEnabled, user, isAdmin } = useAuth();
+  const auth = useAuth();
+  // During hydration / HMR boundaries the provider may not be wired up.
+  if (!auth) {
+    return (
+      <ToolSection title="Users">
+        <p className="text-sm text-zinc-500">Loading account settings…</p>
+      </ToolSection>
+    );
+  }
+
+  const { loading, authEnabled, user, isAdmin } = auth;
 
   if (loading) {
     return (

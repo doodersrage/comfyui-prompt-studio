@@ -9,7 +9,7 @@ import { applyPromptTemplate, getPromptTemplate } from "./prompt-templates";
 import { getSportPreset, sportPresetsForMode } from "./sport-presets";
 import { formatPromptPair, modelUsesNegativePrompt } from "./prompt-pair";
 import { buildRegenerateUrl } from "./regenerate-url";
-import { migrateLegacyToolSettings } from "./settings-cache";
+import { migrateLegacyToolSettings, type ToolSettingsCache } from "./settings-cache";
 import { buildMatrixAxes } from "./variation-matrix";
 import { applyTagAssistToSelection } from "./tag-assist";
 import { applyLockedLocation } from "./locked-location";
@@ -289,7 +289,7 @@ describe("legacy tool settings migration", () => {
         sportPresetId: "gravel-duo",
         teamKit: true,
       },
-    } as any);
+    } as ToolSettingsCache);
 
     assert.equal(changed, true);
     assert.equal(tools.character?.sceneMode, "duo");
@@ -307,7 +307,7 @@ describe("legacy tool settings migration", () => {
         composeStyle: "inline",
         mood: "tense",
       },
-    } as any);
+    } as ToolSettingsCache);
 
     assert.equal(changed, true);
     assert.equal(tools.character?.sceneMode, "compose");
@@ -325,7 +325,7 @@ describe("legacy tool settings migration", () => {
         includePeople: false,
         wildness: 80,
       },
-    } as any);
+    } as ToolSettingsCache);
 
     assert.equal(changed, true);
     assert.equal(tools.generate?.generateSource, "random");

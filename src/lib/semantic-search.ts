@@ -1,14 +1,32 @@
-function tokenize(text: string): Set<string> {
-  return new Set(
-    text
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, ' ')
-      .split(/\s+/)
-      .filter(token => token.length > 2)
-  );
+// Bounded per-string token cache to avoid unbounded growth across large galleries.
+const _tokenCacheMaxSize = 4096;
+const _tokenCache = new Map<string, string[]>();
+
+export function tokenize(text: string): Set<string> {
+  const cached = _tokenCache.get(text);
+  if (cached) return new Set(cached);
+  // Normalize once.
+  const normalized = text
+    .toLowerCase()
+    .replace(/[^w\s-]/g, ' ')
+    .split(/\s+/);
+  const result = normalized.filter(token => token.length > 2);
+  _tokenCache.set(text, result);
+  // Evict oldest entries if cache is full — avoids memory leaks on large galleries.
+  if (_tokenCache.size > _tokenCacheMaxSize) {
+    const half = Math.floor(_tokenCacheMaxSize / 2);
+    let evicted = 0;
+    for (const key of _tokenCache.keys()) {
+      if (evicted >= half) break;
+      _tokenCache.delete(key);
+      evicted += 1;
+    }
+  }
+  return new Set(result);
 }
 
-function bigrams(text: string): string[] {
+export function bigrams(text: string): string[] {
+  // Re-tokenize (tokenize already caches).
   const list = [...tokenize(text)];
   const pairs: string[] = [];
   for (let index = 0; index < list.length - 1; index += 1) {

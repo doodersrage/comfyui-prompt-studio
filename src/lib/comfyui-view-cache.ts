@@ -35,6 +35,9 @@ let cacheStats = {
   diskReads: 0,
 };
 
+// Incremental memory size tracker — O(1) getMemorySize instead of O(M) iteration.
+let totalMemoryBytes = 0;
+
 // Cleanup timer
 let cleanupTimer: NodeJS.Timeout | null = null;
 
@@ -86,19 +89,22 @@ function diskPaths(
 }
 
 function touchMemory(key: string, entry: MemoryEntry): void {
-  // Update access count and timestamp for LFU eviction
   const existing = memory.get(key);
   if (existing) {
     entry.accessCount = existing.accessCount + 1;
     entry.lastAccessed = Date.now();
+    // Adjust running size when replacing an entry with the same key.
+    totalMemoryBytes -= existing.buffer.byteLength;
+    totalMemoryBytes += entry.buffer.byteLength;
   } else {
     entry.accessCount = 1;
     entry.lastAccessed = Date.now();
+    totalMemoryBytes += entry.buffer.byteLength;
   }
-  
+
   memory.delete(key);
   memory.set(key, entry);
-  
+
   // Apply LFU eviction when limit is exceeded
   if (memory.size > MEMORY_LIMIT) {
     evictLFU();
@@ -107,56 +113,57 @@ function touchMemory(key: string, entry: MemoryEntry): void {
 
 function evictLFU(): void {
   if (memory.size <= MEMORY_LIMIT) return;
-  
-  // Find the entry with the lowest access count (or oldest if tied)
+
+  // Find the entry with the lowest access count (or oldest if tied).
+  // With ~100 entries this is fast, but we keep it lean.
   let leastAccessedKey: string | null = null;
   let minAccessCount = Infinity;
   let oldestTimestamp = Infinity;
-  
+
   for (const [key, entry] of memory.entries()) {
-    // Prefer entries with lower access count
-    if (entry.accessCount < minAccessCount || 
-        (entry.accessCount === minAccessCount && entry.lastAccessed < oldestTimestamp)) {
+    if (
+      entry.accessCount < minAccessCount ||
+      (entry.accessCount === minAccessCount && entry.lastAccessed < oldestTimestamp)
+    ) {
       minAccessCount = entry.accessCount;
       oldestTimestamp = entry.lastAccessed;
       leastAccessedKey = key;
     }
   }
-  
+
   if (leastAccessedKey) {
+    const evicted = memory.get(leastAccessedKey);
     memory.delete(leastAccessedKey);
+    totalMemoryBytes -= evicted?.buffer.byteLength ?? 0;
     cacheStats.evictions++;
   }
 }
 
 function getMemorySize(): number {
-  let totalSize = 0;
-  for (const entry of memory.values()) {
-    totalSize += entry.buffer.length;
-  }
-  return totalSize;
+  // O(1) incremental tracker instead of iterating all entries.
+  return totalMemoryBytes;
 }
 
 export function readViewCache(key: string, format: ViewCacheFormat): CachedViewImage | null {
   const now = Date.now();
   const mem = memory.get(key);
-  
+
   if (mem && mem.expiresAt > now) {
     // Update access stats for cache hit
     touchMemory(key, mem);
     cacheStats.hits++;
     return { buffer: mem.buffer, contentType: mem.contentType };
   }
-  
+
   if (mem) {
     memory.delete(key);
   }
-  
+
   try {
     const { filePath, metaPath } = diskPaths(key, format);
     const metaRaw = /* turbopackIgnore: true */ fs.readFileSync(metaPath, 'utf8');
     const meta = JSON.parse(metaRaw) as { expiresAt?: number; contentType?: string };
-    
+
     if (
       typeof meta.expiresAt !== 'number' ||
       meta.expiresAt <= now ||
@@ -164,7 +171,7 @@ export function readViewCache(key: string, format: ViewCacheFormat): CachedViewI
     ) {
       return null;
     }
-    
+
     const buffer = /* turbopackIgnore: true */ fs.readFileSync(filePath);
     const entry: MemoryEntry = {
       buffer,
@@ -173,7 +180,7 @@ export function readViewCache(key: string, format: ViewCacheFormat): CachedViewI
       accessCount: 0,
       lastAccessed: Date.now(),
     };
-    
+
     touchMemory(key, entry);
     cacheStats.diskReads++;
     cacheStats.hits++;
@@ -191,10 +198,10 @@ export function writeViewCache(
   ttlMs = DEFAULT_TTL_MS
 ): void {
   const expiresAt = Date.now() + ttlMs;
-  
+
   // Add to memory cache first (will be evicted if needed)
   touchMemory(key, { ...image, expiresAt, accessCount: 0, lastAccessed: Date.now() });
-  
+
   try {
     const { filePath, metaPath } = diskPaths(key, format);
     /* turbopackIgnore: true */ fs.mkdirSync(/* turbopackIgnore: true */ path.dirname(filePath), {
@@ -214,7 +221,7 @@ export function writeViewCache(
 // Enhanced format negotiation with better performance
 export function negotiateViewFormat(acceptHeader: string | null): ViewCacheFormat {
   const accept = (acceptHeader ?? '').toLowerCase();
-  
+
   // Check for preferred formats in order of preference
   if (accept.includes('image/avif')) {
     return 'avif';
@@ -256,7 +263,7 @@ export function startDiskCleanup(): void {
   if (cleanupTimer) {
     clearInterval(cleanupTimer);
   }
-  
+
   cleanupTimer = setInterval(() => {
     try {
       // Cleanup expired entries on disk
@@ -271,19 +278,19 @@ function cleanupExpiredDiskCache(): void {
   try {
     const root = cacheRoot();
     if (!fs.existsSync(root)) return;
-    
+
     const now = Date.now();
     let deletedCount = 0;
-    
+
     // Walk through all cache files and remove expired ones
     function walkDirectory(dir: string) {
       if (!fs.existsSync(dir)) return;
-      
+
       const items = fs.readdirSync(dir);
       for (const item of items) {
         const fullPath = path.join(dir, item);
         const stat = fs.statSync(fullPath);
-        
+
         if (stat.isDirectory()) {
           walkDirectory(fullPath);
         } else if (item.endsWith('.json')) {
@@ -291,13 +298,12 @@ function cleanupExpiredDiskCache(): void {
           try {
             const metaRaw = fs.readFileSync(fullPath, 'utf8');
             const meta = JSON.parse(metaRaw) as { expiresAt?: number };
-            
+
             if (typeof meta.expiresAt === 'number' && meta.expiresAt <= now) {
               // Delete both metadata and image files
               const key = item.replace(/\.json$/, '');
-              const format = item.endsWith('.avif.json') ? 'avif' : item.endsWith('.webp.json') ? 'webp' : 'jpeg';
-              
-              const { filePath } = diskPaths(key, format);
+              const { filePath } = diskPaths(key, 'jpeg');
+
               if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
               }
@@ -310,9 +316,9 @@ function cleanupExpiredDiskCache(): void {
         }
       }
     }
-    
+
     walkDirectory(root);
-    
+
     if (deletedCount > 0) {
       console.log(`Cleaned up ${deletedCount} expired cache entries`);
     }

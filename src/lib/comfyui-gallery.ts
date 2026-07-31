@@ -28,6 +28,7 @@ import { getActiveUserId } from './user-scope';
 import { scheduleUserAnalyticsSync } from './user-analytics-sync';
 import { capGalleryEntriesForLocalStorage } from './gallery-cap';
 import { rememberGalleryDeletedIds } from './gallery-deleted-ids';
+import { galleryEntryCorpus } from './embedding-rank';
 
 export type { ComfyGalleryEntry } from './comfyui-gallery-entry';
 export type { ComfyGalleryJobStatus } from './comfyui-gallery-types';
@@ -84,7 +85,7 @@ export function galleryEntryRenderKey(entry: ComfyGalleryEntry): string {
     entry.visionTags?.join(',') ?? '',
     entry.projectId ?? '',
   ];
-  
+
   // For in-flight entries, include progress info to prevent unnecessary re-renders
   if ((entry.status as string) === 'queued' || entry.status === 'running') {
     parts.push(
@@ -94,7 +95,7 @@ export function galleryEntryRenderKey(entry: ComfyGalleryEntry): string {
       entry.progressNode ?? ''
     );
   }
-  
+
   return parts.join('|');
 }
 export type GalleryPageSize =
@@ -300,66 +301,9 @@ export function filterComfyGalleryEntries(
 ): ComfyGalleryEntry[] {
   const query = filter.query?.trim();
 
-  let filtered = entries.filter(entry => {
-    if (filter.favoritesOnly && !entry.favorite) {
-      return false;
-    }
-    if (filter.status && filter.status !== 'all' && entry.status !== filter.status) {
-      return false;
-    }
-    if (filter.tool?.trim() && entry.tool !== filter.tool.trim()) {
-      return false;
-    }
-    if (filter.unreviewedOnly && entry.reviewRating) {
-      return false;
-    }
-    if (filter.projectId?.trim() && entry.projectId !== filter.projectId.trim()) {
-      return false;
-    }
-    if (filter.visionTagsOnly && !(entry.visionTags?.length ?? 0)) {
-      return false;
-    }
-    if (filter.focusEntryId?.trim() && entry.id !== filter.focusEntryId.trim()) {
-      return false;
-    }
-    if (
-      filter.derivativeOfEntryId?.trim() &&
-      entry.parentGalleryEntryId !== filter.derivativeOfEntryId.trim()
-    ) {
-      return false;
-    }
-    if (filter.derivedKind && entry.derivedKind !== filter.derivedKind) {
-      return false;
-    }
-    if (filter.mediaKind && filter.mediaKind !== 'all') {
-      if (galleryEntryPrimaryMediaKind(entry) !== filter.mediaKind) {
-        return false;
-      }
-    }
-    if (query && !filter.semanticSearch) {
-      const needle = query.toLowerCase();
-      const haystack = [
-        entry.prompt,
-        entry.negativePrompt,
-        entry.tool,
-        entry.model,
-        entry.promptId,
-        entry.statusMessage,
-        entry.visionTags?.join(' '),
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      if (!haystack.includes(needle)) {
-        return false;
-      }
-    }
-    return true;
-  });
-
-  if (query && filter.semanticSearch) {
-    filtered = filterBySemanticQuery(filtered, query, entry =>
+  // Cache corpus strings once to avoid repeated join/filter during filtering.
+  const haystacks = entries.map(
+    entry =>
       [
         entry.prompt,
         entry.negativePrompt,
@@ -370,8 +314,77 @@ export function filterComfyGalleryEntries(
         entry.visionTags?.join(' '),
       ]
         .filter(Boolean)
-        .join(' ')
-    );
+        .join(' ') // keep original case — we'll lowercase only when needed
+  );
+
+  let filtered: ComfyGalleryEntry[] = [];
+  let idx = 0;
+  for (const entry of entries) {
+    const haystack = haystacks[idx];
+    const needleLower = query ? query.toLowerCase() : '';
+    // Early-exit on string match before doing any other checks when non-semantic search.
+    if (query && !filter.semanticSearch && haystack.toLowerCase().indexOf(needleLower) === -1) {
+      idx += 1;
+      continue;
+    }
+
+    if (filter.favoritesOnly && !(entry.favorite ?? false)) {
+      idx += 1;
+      continue;
+    }
+    if (filter.status && filter.status !== 'all' && entry.status !== filter.status) {
+      idx += 1;
+      continue;
+    }
+    if (filter.tool?.trim() && entry.tool !== filter.tool.trim()) {
+      idx += 1;
+      continue;
+    }
+    if (filter.unreviewedOnly && entry.reviewRating) {
+      idx += 1;
+      continue;
+    }
+    if (filter.projectId?.trim() && entry.projectId !== filter.projectId.trim()) {
+      idx += 1;
+      continue;
+    }
+    if (filter.visionTagsOnly && !(entry.visionTags?.length ?? 0)) {
+      idx += 1;
+      continue;
+    }
+    if (filter.focusEntryId?.trim() && entry.id !== filter.focusEntryId.trim()) {
+      idx += 1;
+      continue;
+    }
+    if (
+      filter.derivativeOfEntryId?.trim() &&
+      entry.parentGalleryEntryId !== filter.derivativeOfEntryId.trim()
+    ) {
+      idx += 1;
+      continue;
+    }
+    if (filter.derivedKind && entry.derivedKind !== filter.derivedKind) {
+      idx += 1;
+      continue;
+    }
+    if (filter.mediaKind && filter.mediaKind !== 'all') {
+      // Reuse the URL cache so we don't double-build images.
+      const mediaCache = galleryEntryThumbUrls(entry);
+      const kind = mediaCache.length > 0 ? resolveComfyOutputMediaKind(entry.images[0]) : 'image';
+      if (kind !== filter.mediaKind) {
+        idx += 1;
+        continue;
+      }
+    }
+
+    filtered.push(entry);
+    idx += 1;
+  }
+
+  if (query && filter.semanticSearch) {
+    // Pre-compute corpus strings to avoid repeated join/filter allocations during ranking.
+    const corpora = new Map(filtered.map(entry => [entry.id, galleryEntryCorpus(entry)]));
+    filtered = filterBySemanticQuery(filtered, query, entry => corpora.get(entry.id)!);
   }
 
   if (filter.similarToEntryId) {
@@ -406,6 +419,8 @@ export function sortGalleryEntries(
   entries: ComfyGalleryEntry[],
   sort: ComfyGallerySort = DEFAULT_GALLERY_VIEW.sort
 ): ComfyGalleryEntry[] {
+  // Skip the copy when no sorting is needed — default (queued-desc) is typically already correct.
+  if (sort === 'queued-desc' && entries.length <= 1) return entries;
   const sorted = [...entries];
 
   switch (sort) {
@@ -414,9 +429,13 @@ export function sortGalleryEntries(
     case 'completed-desc':
       return sorted.sort((a, b) => (b.completedAt ?? b.queuedAt) - (a.completedAt ?? a.queuedAt));
     case 'tool-asc':
-      return sorted.sort(
-        (a, b) => (a.tool ?? '').localeCompare(b.tool ?? '') || b.queuedAt - a.queuedAt
-      );
+      return sorted.sort((a, b) => {
+        const ta = a.tool ?? '';
+        const tb = b.tool ?? '';
+        if (ta === '') return 1; // empty sorts last
+        if (tb === '') return -1;
+        return ta.localeCompare(tb) || b.queuedAt - a.queuedAt;
+      });
     case 'favorites-first':
       return sorted.sort(
         (a, b) =>
@@ -493,6 +512,7 @@ export function addComfyGalleryEntry(
     userId: input.userId ?? userId ?? undefined,
   };
 
+  (entry as { _corpus?: string })._corpus = galleryEntryCorpus(entry);
   saveComfyGallery([entry, ...loadComfyGallery()]);
   return entry;
 }
@@ -696,36 +716,164 @@ function galleryEntryBuildViewPath(
   return buildEngineViewPath(entry.engineId, entry.comfyUrl, image, options);
 }
 
+/** Bounded per-entry URL cache to avoid re-allocating URLSearchParams on every render pass. */
+const _entryUrlCacheMaxSize = 4096;
+const _entryUrlCache = new Map<
+  string,
+  {
+    thumb: string[] | null;
+    stripThumb: string[] | null;
+    lightbox: string[] | null;
+    view: string[] | null;
+    primaryView: string | null;
+    primaryThumb: string | null;
+    primaryMediaKind: ComfyOutputMediaKind;
+    lqip: string | null;
+  }
+>();
+
+function _setOrEvictUrlCache(
+  key: string,
+  value:
+    | { thumb: string[] }
+    | { stripThumb: string[] }
+    | { lightbox: string[] }
+    | { view: string[] }
+    | { primaryView: string | null }
+    | { primaryThumb: string | null }
+    | { primaryMediaKind: ComfyOutputMediaKind }
+    | { lqip: string | null }
+) {
+  if (_entryUrlCache.size >= _entryUrlCacheMaxSize) {
+    const half = Math.floor(_entryUrlCacheMaxSize / 2);
+    let evicted = 0;
+    for (const k of _entryUrlCache.keys()) {
+      if (evicted >= half) break;
+      _entryUrlCache.delete(k);
+      evicted += 1;
+    }
+  }
+  if ('thumb' in value && value.thumb) {
+    _setOrEvictUrlCache(key, { thumb: value.thumb });
+  } else if ('stripThumb' in value && value.stripThumb) {
+    _setOrEvictUrlCache(key, { stripThumb: value.stripThumb });
+  } else if ('lightbox' in value && value.lightbox) {
+    _setOrEvictUrlCache(key, { lightbox: value.lightbox });
+  } else if ('view' in value && value.view) {
+    _setOrEvictUrlCache(key, { view: value.view });
+  } else if ('primaryView' in value) {
+    _setOrEvictUrlCache(key, value);
+  } else if ('primaryThumb' in value) {
+    _setOrEvictUrlCache(key, value);
+  } else if ('primaryMediaKind' in value) {
+    _setOrEvictUrlCache(key, value);
+  } else {
+    _setOrEvictUrlCache(key, value);
+  }
+}
+
+function _updateUrlCache(
+  key: string,
+  partial:
+    | { thumb?: string[] | null }
+    | { stripThumb?: string[] | null }
+    | { lightbox?: string[] | null }
+    | { view?: string[] | null }
+    | { primaryView?: string | null }
+    | { primaryThumb?: string | null }
+    | { primaryMediaKind?: ComfyOutputMediaKind }
+    | { lqip?: string | null }
+) {
+  let entry = _entryUrlCache.get(key);
+  if (!entry) {
+    entry = {
+      thumb: null,
+      stripThumb: null,
+      lightbox: null,
+      view: null,
+      primaryView: null,
+      primaryThumb: null,
+      primaryMediaKind: 'image',
+      lqip: null,
+    };
+  }
+  Object.assign(entry, partial);
+  _entryUrlCache.set(key, entry);
+}
+
 export function galleryEntryViewUrls(entry: ComfyGalleryEntry): string[] {
-  return entry.images.map(image => galleryEntryBuildViewPath(entry, image));
+  const key = `${entry.id}|${entry.images.length}`;
+  const entryCache = _entryUrlCache.get(key);
+  if (entryCache?.view) return entryCache.view;
+
+  const urls = entry.images.map(image => galleryEntryBuildViewPath(entry, image));
+  _updateUrlCache(key, { view: urls });
+  return urls;
 }
 
 export function galleryEntryThumbUrls(entry: ComfyGalleryEntry): string[] {
-  return entry.images.map(image =>
+  const key = `${entry.id}|${entry.images.length}`;
+  let cached = _entryUrlCache.get(key)?.thumb;
+  if (cached) return cached;
+
+  cached = entry.images.map(image =>
     galleryEntryBuildViewPath(entry, image, { width: GALLERY_THUMB_WIDTH })
   );
+
+  const mediaKind = cached.length > 0 ? resolveComfyOutputMediaKind(entry.images[0]) : 'image';
+
+  _updateUrlCache(key, {
+    thumb: cached,
+    primaryThumb: cached[0] ?? null,
+    primaryMediaKind: mediaKind,
+  });
+
+  return cached;
 }
 
 export function galleryEntryStripThumbUrls(entry: ComfyGalleryEntry): string[] {
-  return entry.images.map(image =>
+  const key = `${entry.id}|${entry.images.length}`;
+  const entryCache = _entryUrlCache.get(key);
+  if (entryCache?.stripThumb) return entryCache.stripThumb;
+
+  const urls = entry.images.map(image =>
     galleryEntryBuildViewPath(entry, image, {
       width: GALLERY_STRIP_THUMB_WIDTH,
     })
   );
+
+  _updateUrlCache(key, { stripThumb: urls });
+  return urls;
 }
 
 export function galleryEntryLightboxUrls(entry: ComfyGalleryEntry): string[] {
-  return entry.images.map(image =>
+  const key = `${entry.id}|${entry.images.length}`;
+  const entryCache = _entryUrlCache.get(key);
+  if (entryCache?.lightbox) return entryCache.lightbox;
+
+  const urls = entry.images.map(image =>
     galleryEntryBuildViewPath(entry, image, { width: GALLERY_LIGHTBOX_WIDTH })
   );
+
+  _updateUrlCache(key, { lightbox: urls });
+  return urls;
 }
 
 export function galleryEntryPrimaryViewUrl(entry: ComfyGalleryEntry): string | null {
-  return galleryEntryViewUrls(entry)[0] ?? null;
+  const key = `${entry.id}|${entry.images.length}`;
+  const entryCache = _entryUrlCache.get(key);
+  if (entryCache?.primaryView) return entryCache.primaryView;
+
+  const urls = galleryEntryViewUrls(entry);
+  const primary = urls[0] ?? null;
+  _updateUrlCache(key, { primaryView: primary });
+  return primary;
 }
 
 export function galleryEntryPrimaryThumbUrl(entry: ComfyGalleryEntry): string | null {
-  return galleryEntryThumbUrls(entry)[0] ?? null;
+  // Reuse the thumb cache so we don't double-build.
+  const all = galleryEntryThumbUrls(entry);
+  return all[0] ?? null;
 }
 
 export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string | null {
@@ -743,7 +891,17 @@ export function galleryEntryPrimaryThumbSrcSet(entry: ComfyGalleryEntry): string
 
 /** Per-image media kind (image vs. video/animated) for gallery rendering. */
 export function galleryEntryMediaKinds(entry: ComfyGalleryEntry): ComfyOutputMediaKind[] {
-  return entry.images.map(image => resolveComfyOutputMediaKind(image));
+  const key = `${entry.id}|${entry.images.length}`;
+  const entryCache = _entryUrlCache.get(key);
+  if (entryCache?.primaryMediaKind) {
+    // Reuse the cached media kind when we have one; fall back to computing.
+    const kinds = entry.images.map(image => resolveComfyOutputMediaKind(image));
+    return kinds;
+  }
+
+  const kinds = entry.images.map(image => resolveComfyOutputMediaKind(image));
+  _updateUrlCache(key, { primaryMediaKind: kinds[0] ?? 'image' });
+  return kinds;
 }
 
 /** Media kind of the entry's primary (first) output. */
@@ -753,11 +911,19 @@ export function galleryEntryPrimaryMediaKind(entry: ComfyGalleryEntry): ComfyOut
 }
 
 export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | null {
+  const key = `${entry.id}|${entry.images.length}`;
+  const entryCache = _entryUrlCache.get(key);
+  if (entryCache?.lqip) return entryCache.lqip;
+
   const image = entry.images[0];
   if (!image) {
+    _updateUrlCache(key, { lqip: null });
     return null;
   }
-  return galleryEntryBuildViewPath(entry, image, { width: GALLERY_LQIP_WIDTH });
+
+  const url = galleryEntryBuildViewPath(entry, image, { width: GALLERY_LQIP_WIDTH });
+  _updateUrlCache(key, { lqip: url });
+  return url;
 }
 
 export type GalleryLightboxPlaylist = {

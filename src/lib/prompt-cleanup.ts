@@ -35,6 +35,23 @@ function stripPromptArtifactsUnsafe(raw: string): string {
     return text;
   }
 
+  // Fast-path for short prompts with no artifacts to strip — skip JSON parse and heavy regexes entirely.
+  if (
+    text.length < 80 &&
+    !text.includes('"prompt"') &&
+    !text.startsWith('{') &&
+    !text.startsWith('<|') &&
+    !text.includes('\`\`\`')
+  ) {
+    // Only run the lightest post-processing for very short clean texts.
+    text = text
+      .replace(/^\s*["'`"''']+|["'`"''']+\s*$/g, '')
+      .replace(/\\n/g, ' ')
+      .replace(/\\t/g, ' ')
+      .trim();
+    return stripThinkingArtifacts(text);
+  }
+
   // Bound pathological LLM dumps before regex / JSON work — deep JSON.parse
   // and some RegExp paths throw RangeError: Maximum call stack size exceeded.
   if (text.length > MAX_JSON_ARTIFACT_CHARS) {
@@ -665,47 +682,101 @@ function normalizeAsciiQuotes(text: string): string {
 }
 
 function composePromptFromVisionChecklist(items: VisionChecklistItem[]): string {
-  const pose = findChecklistValue(items, [/^pose$/, /action/, /activity/, /movement/]);
-  const clothingGeneric = findChecklistValue(items, [
-    /^clothing$/,
-    /^outfit$/,
-    /^attire$/,
-    /^wardrobe$/,
-  ]);
-  const lighting = findChecklistValue(items, [/^lighting$/, /^light$/, /^illumination$/]);
-  const background = findChecklistValue(items, [
-    /^background$/,
-    /^setting$/,
-    /^environment$/,
-    /^location$/,
-    /^scene$/,
-  ]);
-  const topColor = findChecklistValue(items, [
-    /color of the top/,
-    /top color/,
-    /^top$/,
-    /^shirt$/,
-    /upper body/,
-  ]);
-  const shirtText = findChecklistValue(items, [
-    /shirt.*text/,
-    /text on/,
-    /print/,
-    /logo/,
-    /slogan/,
-  ]);
-  const bottoms = findChecklistValue(items, [/^shorts$/, /^pants$/, /^jeans$/, /bottoms/]);
-  const shoes = findChecklistValue(items, [/^shoes$/, /^footwear$/, /^sneakers$/]);
-  const hair = findChecklistValue(items, [/^hair$/, /hairstyle/]);
-  const expression = findChecklistValue(items, [/^expression$/, /facial expression/]);
-  const subject = findChecklistValue(items, [
-    /^subject$/,
-    /^person$/,
-    /^woman$/,
-    /^man$/,
-    /^girl$/,
-    /^boy$/,
-  ]);
+  // Single-pass reduce → build a label-keyed lookup so every field is resolved in O(N) instead of O(N×15).
+  const labelMap = new Map<string, VisionChecklistItem>();
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    // Collapse the first matching alias into a single canonical key.
+    let key: string | undefined;
+    if (
+      /^pose$/.test(item.label) ||
+      /action/.test(item.label) ||
+      /activity/.test(item.label) ||
+      /movement/.test(item.label)
+    ) {
+      key = '__pose__';
+    } else if (
+      /^clothing$/.test(item.label) ||
+      /^outfit$/.test(item.label) ||
+      /^attire$/.test(item.label) ||
+      /^wardrobe$/.test(item.label)
+    ) {
+      key = '__clothingGeneric__';
+    } else if (
+      /^lighting$/.test(item.label) ||
+      /^light$/.test(item.label) ||
+      /^illumination$/.test(item.label)
+    ) {
+      key = '__lighting__';
+    } else if (
+      /^background$/.test(item.label) ||
+      /^setting$/.test(item.label) ||
+      /^environment$/.test(item.label) ||
+      /^location$/.test(item.label) ||
+      /^scene$/.test(item.label)
+    ) {
+      key = '__background__';
+    } else if (
+      /color of the top/.test(item.label) ||
+      /top color/.test(item.label) ||
+      /^top$/.test(item.label) ||
+      /^shirt$/.test(item.label) ||
+      /upper body/.test(item.label)
+    ) {
+      key = '__topColor__';
+    } else if (
+      /shirt.*text/.test(item.label) ||
+      /text on/.test(item.label) ||
+      /print/.test(item.label) ||
+      /logo/.test(item.label) ||
+      /slogan/.test(item.label)
+    ) {
+      key = '__shirtText__';
+    } else if (
+      /^shorts$/.test(item.label) ||
+      /^pants$/.test(item.label) ||
+      /^jeans$/.test(item.label) ||
+      /bottoms/.test(item.label)
+    ) {
+      key = '__bottoms__';
+    } else if (
+      /^shoes$/.test(item.label) ||
+      /^footwear$/.test(item.label) ||
+      /^sneakers$/.test(item.label)
+    ) {
+      key = '__shoes__';
+    } else if (/^hair$/.test(item.label) || /hairstyle/.test(item.label)) {
+      key = '__hair__';
+    } else if (/^expression$/.test(item.label) || /facial expression/.test(item.label)) {
+      key = '__expression__';
+    } else if (
+      /^subject$/.test(item.label) ||
+      /^person$/.test(item.label) ||
+      /^woman$/.test(item.label) ||
+      /^man$/.test(item.label) ||
+      /^girl$/.test(item.label) ||
+      /^boy$/.test(item.label)
+    ) {
+      key = '__subject__';
+    }
+
+    if (key && !labelMap.has(key)) {
+      labelMap.set(key, item);
+    }
+  }
+
+  const pose = labelMap.get('__pose__')?.value;
+  const clothingGeneric = labelMap.get('__clothingGeneric__')?.value;
+  const lighting = labelMap.get('__lighting__')?.value;
+  const background = labelMap.get('__background__')?.value;
+  const topColor = labelMap.get('__topColor__')?.value;
+  const shirtText = labelMap.get('__shirtText__')?.value;
+  const bottoms = labelMap.get('__bottoms__')?.value;
+  const shoes = labelMap.get('__shoes__')?.value;
+  const hair = labelMap.get('__hair__')?.value;
+  const expression = labelMap.get('__expression__')?.value;
+  const subject = labelMap.get('__subject__')?.value;
 
   const clothing: string[] = [];
   if (topColor || shirtText) {

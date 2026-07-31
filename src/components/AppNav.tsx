@@ -119,6 +119,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
+
+  // Defer null-check to after all hooks so hook-call order stays stable.
+  const rawAuth = useAuth();
+  const isNullContext = !rawAuth;
+
   const {
     authEnabled,
     user,
@@ -127,7 +132,18 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     impersonating,
     impersonatorUsername,
     refresh,
-  } = useAuth();
+    loading,
+  } = rawAuth ?? {
+    loading: true,
+    authEnabled: false,
+    user: null,
+    allowedFeatures: 'all',
+    impersonating: false,
+    refresh: async () => {},
+    logout: async () => {},
+    isAdmin: false,
+  };
+
   const [customPlugins, setCustomPlugins] = useState<ToolPlugin[]>([]);
   const [manifestNavLinks, setManifestNavLinks] = useState<AppNavLink[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -152,6 +168,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   }, []);
 
   useEffect(() => {
+    if (isNullContext) return; // provider not wired up yet during HMR/SSR
     const builtinIds = new Set(BUILTIN_TOOL_PLUGINS.map(entry => entry.id));
     const knownHrefs = new Set(
       APP_NAV_GROUPS.flatMap(group => group.links.map(link => link.href.split('?')[0] ?? link.href))
@@ -179,9 +196,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
     const timeoutId = window.setTimeout(loadPlugins, 1500);
     return () => window.clearTimeout(timeoutId);
-  }, []);
+  }, [isNullContext]);
 
   const visibleGroups = useMemo(() => {
+    // Return a placeholder group during SSR or before AuthProvider resolves.
+    // This keeps hydration element count consistent — React reconciles real groups after hydration.
+    if (isNullContext || loading) {
+      return [{ label: '__placeholder__', links: [] as AppNavLink[] }];
+    }
+
     const bookmarkLinks: AppNavLink[] = customPlugins.map(plugin => ({
       href: plugin.href,
       label: plugin.label,
@@ -201,14 +224,19 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ),
       }))
       .filter(group => group.links.length > 0);
-  }, [allowedFeatures, customPlugins, manifestNavLinks, workspaceMode]);
+  }, [isNullContext, allowedFeatures, loading, customPlugins, manifestNavLinks, workspaceMode]);
 
   const allLinks = useMemo(
-    () => [
-      ...visibleGroups.flatMap(group => group.links),
-      ...(canAccessNavFeature(allowedFeatures, 'settings') ? [APP_NAV_SETTINGS_LINK] : []),
-    ],
-    [allowedFeatures, visibleGroups]
+    () =>
+      isNullContext
+        ? [APP_NAV_SETTINGS_LINK]
+        : [
+            ...visibleGroups
+              .filter(g => g.label !== '__placeholder__')
+              .flatMap(group => group.links),
+            ...(canAccessNavFeature(allowedFeatures, 'settings') ? [APP_NAV_SETTINGS_LINK] : []),
+          ],
+    [isNullContext, allowedFeatures, visibleGroups]
   );
 
   const pinnedLinks = useMemo(() => {
@@ -219,6 +247,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   }, [allLinks, favorites]);
 
   useEffect(() => {
+    if (isNullContext) return;
     if (expandedGroups !== null || visibleGroups.length === 0) {
       return;
     }
@@ -246,7 +275,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     scheduleAfterCommit(() => {
       setExpandedGroups(defaultExpandedNavGroups(workspaceMode, visibleGroups));
     });
-  }, [expandedGroups, favorites.length, pathname, search, visibleGroups, workspaceMode]);
+  }, [
+    isNullContext,
+    expandedGroups,
+    favorites.length,
+    pathname,
+    search,
+    visibleGroups,
+    workspaceMode,
+  ]);
 
   // When workspace mode changes, re-seed expand defaults (unless user already toggled).
   useEffect(() => {
@@ -336,23 +373,29 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="sidebar-scroll flex-1 space-y-4 overflow-y-auto px-2 pb-2">
-        {pinnedLinks.length > 0 ? (
-          <div className="space-y-2">
-            <p className="type-overline px-3">Pinned</p>
-            <div className="space-y-1">
-              {pinnedLinks.map(link => (
-                <div key={`pinned-${link.href}`} onClick={onNavigate}>
-                  <SidebarLink
-                    link={link}
-                    active={linkIsActive(link, pathname, search)}
-                    favorited
-                    onToggleFavorite={() => handleToggleFavorite(link.href)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        <div key="pinned" className="space-y-2">
+          {pinnedLinks.length > 0 ? (
+            <>
+              <p className="type-overline px-3">Pinned</p>
+              <div className="space-y-1">
+                {pinnedLinks.map(link => (
+                  <div key={`pinned-${link.href}`} onClick={onNavigate}>
+                    <SidebarLink
+                      link={link}
+                      active={linkIsActive(link, pathname, search)}
+                      favorited
+                      onToggleFavorite={() => handleToggleFavorite(link.href)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="type-overline px-3" aria-hidden>
+              Pinned
+            </p>
+          )}
+        </div>
 
         {visibleGroups.map(group => {
           const expanded = openGroups.includes(group.label);
@@ -364,12 +407,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 aria-expanded={expanded}
                 onClick={() => handleToggleGroup(group.label)}
               >
-                <span className="type-overline">{group.label}</span>
+                <span className="type-overline" aria-hidden={group.label === '__placeholder__'}>
+                  {group.label}
+                </span>
                 <span className="type-caption text-[var(--text-muted)]" aria-hidden>
                   {expanded ? '▾' : '▸'}
                 </span>
               </button>
-              {expanded ? (
+              {expanded && group.label !== '__placeholder__' ? (
                 <div className="space-y-1">
                   {group.links.map(link => (
                     <div key={link.href} onClick={onNavigate}>
@@ -406,19 +451,36 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <div className="flex justify-end px-1">
           <NotificationBell />
         </div>
-        {authEnabled && user ? (
-          <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-3">
-            <p className="text-sm font-medium text-[var(--text-primary)]">{user.username}</p>
-            <p className="type-caption mt-0.5 capitalize text-[var(--text-muted)]">{user.role}</p>
-            {profileVisible ? (
-              <Link
-                href="/profile"
-                onClick={onNavigate}
-                className="mt-2 block text-xs text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-              >
-                Profile & preferences
-              </Link>
-            ) : null}
+        <div
+          key="auth-profile"
+          className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-3"
+        >
+          <p
+            className={
+              authEnabled && user
+                ? 'text-sm font-medium text-[var(--text-primary)]'
+                : 'type-caption mt-0.5 capitalize text-[var(--text-muted)]'
+            }
+          >
+            {authEnabled && user ? user.username : '—'}
+          </p>
+          <p className="type-caption mt-0.5 capitalize text-[var(--text-muted)]">
+            {authEnabled && user ? user.role : 'Guest'}
+          </p>
+          {profileVisible || false ? (
+            <Link
+              href="/profile"
+              onClick={onNavigate}
+              className="mt-2 block text-xs text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            >
+              Profile & preferences
+            </Link>
+          ) : (
+            <span className="mt-2" aria-hidden>
+              —
+            </span>
+          )}
+          {(authEnabled && user) || false ? (
             <button
               type="button"
               onClick={() => void logout()}
@@ -426,18 +488,29 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             >
               Sign out
             </button>
-          </div>
-        ) : null}
-        {settingsVisible ? (
-          <div onClick={onNavigate}>
+          ) : (
+            <span className="mt-2" aria-hidden>
+              —
+            </span>
+          )}
+        </div>
+        <div key="settings" onClick={onNavigate}>
+          {settingsVisible ? (
             <SidebarLink
               link={APP_NAV_SETTINGS_LINK}
               active={pathname === APP_NAV_SETTINGS_LINK.href}
               favorited={isNavFavorite(APP_NAV_SETTINGS_LINK.href, favorites)}
               onToggleFavorite={() => handleToggleFavorite(APP_NAV_SETTINGS_LINK.href)}
             />
-          </div>
-        ) : null}
+          ) : (
+            <span
+              className="ui-nav-brand inline-flex items-center gap-2.5 rounded-[var(--radius-md)] px-1 py-1"
+              aria-hidden
+            >
+              Settings
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

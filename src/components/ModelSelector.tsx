@@ -104,13 +104,13 @@ export default function ModelSelector({
           onChange={e => setQuery(e.target.value)}
           placeholder="Search models by name, id, or node…"
           aria-label="Search ComfyUI models"
-          className="ui-input min-h-11 w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body-lg"
+          className="ui-input min-h-11 w-full px-(--input-padding-x) py-(--input-padding-y) type-body-lg"
         />
         <select
           value={effectiveCategory}
           onChange={e => setCategory(e.target.value as ComfyModelCategory | 'all')}
           aria-label="Filter by model family"
-          className="ui-input min-h-11 w-full px-3 py-[var(--input-padding-y)] type-body"
+          className="ui-input min-h-11 w-full px-3 py-(--input-padding-y) type-body"
         >
           <option value="all">All families ({catalog.length})</option>
           {visibleCategories.map(entry => (

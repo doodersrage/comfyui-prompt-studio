@@ -82,7 +82,7 @@ export default function WildcardListsEditor({
             value={active}
             disabled={disabled || names.length === 0}
             onChange={event => setSelected(event.target.value)}
-            className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${focusClassName}`}
+            className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${focusClassName}`}
           >
             {names.length === 0 ? (
               <option value="">No custom lists yet</option>
@@ -129,7 +129,7 @@ export default function WildcardListsEditor({
             disabled={disabled}
             placeholder="e.g. outfit"
             onChange={event => setDraftName(event.target.value)}
-            className={`ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body ${focusClassName}`}
+            className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${focusClassName}`}
           />
         </div>
         <button

@@ -58,12 +58,18 @@ type GalleryFiltersBarProps = {
 };
 
 function FilterChip(props: { active: boolean; label: string; onClick: () => void }) {
+  const isActive = props.active;
+
   return (
     <button
       type="button"
       onClick={props.onClick}
-      data-active={props.active ? 'true' : 'false'}
-      className="ui-chip"
+      data-active={isActive ? 'true' : 'false'}
+      className={`${
+        isActive
+          ? 'border-violet-500/45 bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 hover:border-violet-400/60'
+          : 'border-zinc-800/70 bg-zinc-950/80 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
+      } rounded-lg px-2.5 py-1 text-[11px] font-medium backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]`}
     >
       {props.label}
     </button>
@@ -186,7 +192,7 @@ export default function GalleryFiltersBar({
             value={queryDraft}
             onChange={event => setQueryDraft(event.target.value)}
             placeholder="Prompt, tool, model, prompt id, vision tags…"
-            className="ui-input block w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+            className="ui-input block w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
           />
         </label>
 
@@ -200,7 +206,7 @@ export default function GalleryFiltersBar({
                 status: event.target.value as ComfyGalleryJobStatus | 'all',
               })
             }
-            className="ui-input block w-full px-3 py-[var(--input-padding-y)] type-body"
+            className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
           >
             <option value="all">All statuses</option>
             <option value="pending">Pending</option>
@@ -216,7 +222,7 @@ export default function GalleryFiltersBar({
             <select
               value={sort}
               onChange={event => setSort(event.target.value as ComfyGallerySort)}
-              className="ui-input block w-full px-3 py-[var(--input-padding-y)] type-body"
+              className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
             >
               {GALLERY_SORT_OPTIONS.map(option => (
                 <option key={option.value} value={option.value}>
@@ -265,7 +271,7 @@ export default function GalleryFiltersBar({
                     tool: event.target.value || undefined,
                   })
                 }
-                className="ui-input block w-full px-3 py-[var(--input-padding-y)] type-body"
+                className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
               >
                 <option value="">All tools</option>
                 {tools.map(tool => (
@@ -282,7 +288,7 @@ export default function GalleryFiltersBar({
             <select
               value={projectFilterId}
               onChange={event => setProjectFilterId(event.target.value)}
-              className="ui-input block w-full px-3 py-[var(--input-padding-y)] type-body"
+              className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
             >
               <option value="">All projects</option>
               <option value="active">Active project</option>
@@ -300,7 +306,7 @@ export default function GalleryFiltersBar({
               <select
                 value={pageSize}
                 onChange={event => setPageSize(event.target.value as GalleryPageSize)}
-                className="ui-input block w-full px-3 py-[var(--input-padding-y)] type-body"
+                className="ui-input block w-full px-3 py-(--input-padding-y) type-body"
               >
                 {GALLERY_PAGE_SIZE_OPTIONS.map(size => (
                   <option key={size} value={size}>

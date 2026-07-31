@@ -62,4 +62,6 @@ export type ComfyGalleryEntry = {
   images: ComfyOutputImage[];
   /** Set once an OOM/execution_error auto-retry has been attempted for this job (max one retry). */
   oomRetryAttempted?: boolean;
+  /** Cached corpus text — populated on hydration, reused across all semantic/similar searches. */
+  _corpus?: string;
 };

@@ -386,7 +386,7 @@ export default function ImagePromptTool() {
                         )
                       )
                     }
-                    className="ui-input min-w-0 flex-1 px-[var(--input-padding-x)] py-1 type-caption"
+                    className="ui-input min-w-0 flex-1 px-(--input-padding-x) py-1 type-caption"
                     placeholder="Reference role"
                   />
                   <Button

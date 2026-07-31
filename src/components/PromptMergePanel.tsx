@@ -48,7 +48,7 @@ export default function PromptMergePanel(props: { leftDefault?: string; rightDef
             value={left}
             onChange={event => setLeft(event.target.value)}
             rows={4}
-            className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+            className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
           />
         </div>
         <div>
@@ -58,7 +58,7 @@ export default function PromptMergePanel(props: { leftDefault?: string; rightDef
             value={right}
             onChange={event => setRight(event.target.value)}
             rows={4}
-            className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+            className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
           />
         </div>
       </div>

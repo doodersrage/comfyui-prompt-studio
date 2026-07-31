@@ -5,7 +5,7 @@ import type {
   TextareaHTMLAttributes,
 } from 'react';
 
-const inputClassName = 'ui-input px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body';
+const inputClassName = 'ui-input px-(--input-padding-x) py-(--input-padding-y) type-body';
 
 const selectClassName = `${inputClassName} ui-select`;
 

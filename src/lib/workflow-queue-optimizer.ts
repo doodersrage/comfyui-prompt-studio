@@ -18,18 +18,6 @@ import {
   workflowContentHash,
   workflowObjectContentHash,
 } from './workflow-content-hash';
-
-/** Match object hash (current) or legacy pretty-JSON hash from older Optimize all runs. */
-function workflowHashMatches(workflow: Record<string, unknown>, contentHash: string): boolean {
-  // Early check with compact JSON - most common case
-  if (workflowObjectContentHash(workflow) === contentHash) {
-    return true;
-  }
-  
-  // Only compute pretty JSON hash if the compact version doesn't match
-  // This avoids expensive stringification when possible
-  return workflowContentHash(stringifyWorkflowPretty(workflow)) === contentHash;
-}
 import { repairQwenImageClipLoaderNodes } from './workflow-qwen-clip-repair';
 import {
   isQwenLightningModel,
@@ -46,6 +34,18 @@ import {
 import { normalizeEmptyLatentForModel } from './workflow-direct-patch';
 import { workflowHasPromptStudioQueueEnrich } from './workflow-enrich-markers';
 
+/** Match object hash (current) or legacy pretty-JSON hash from older Optimize all runs. */
+function workflowHashMatches(workflow: Record<string, unknown>, contentHash: string): boolean {
+  // Early check with compact JSON - most common case
+  if (workflowObjectContentHash(workflow) === contentHash) {
+    return true;
+  }
+
+  // Only compute pretty JSON hash if the compact version doesn't match
+  // This avoids expensive stringification when possible
+  return workflowContentHash(stringifyWorkflowPretty(workflow)) === contentHash;
+}
+
 function canSkipFullOptimize(input: {
   skipIfUnchanged?: boolean;
   contentHash?: string;
@@ -59,24 +59,24 @@ function canSkipFullOptimize(input: {
   if (!input.skipIfUnchanged || !input.contentHash) {
     return false;
   }
-  
+
   const optimizedModel = input.optimizedModel?.trim();
   const model = input.model?.trim();
   if (!optimizedModel || !model || optimizedModel !== model) {
     return false;
   }
-  
+
   if (input.optimizedProfile == null) {
     return false;
   }
-  
+
   if (
     normalizeQueueQualityProfile(input.optimizedProfile) !==
     normalizeQueueQualityProfile(input.qualityProfile)
   ) {
     return false;
   }
-  
+
   // Only perform expensive hash matching when all other checks pass
   return workflowHashMatches(input.workflow, input.contentHash);
 }

@@ -1030,7 +1030,7 @@ export default function GalleryCard({
                   const canUpscaleMax = showUpscaleMax ?? showUpscaleActions;
                   const canMoireFinal = showMoireCleanFinal ?? showMoireCleanActions;
                   const canMoireMax = showMoireCleanMax ?? showMoireCleanActions;
-                  
+
                   // Direct checks for each action to reduce redundant conditions
                   const shouldShowUpscaleFinal = canUpscaleFinal;
                   const shouldShowUpscaleMax = canUpscaleMax;
@@ -1041,7 +1041,7 @@ export default function GalleryCard({
                   const shouldShowMoireFinal = onMoireClean && canMoireFinal;
                   const shouldShowMoireMax = onMoireClean && canMoireMax;
                   const shouldShowForceMoireCleanMax = onMoireClean && showForceMoireCleanMax;
-                  
+
                   // Check if any enhance actions are available
                   const hasEnhanceActions =
                     shouldShowUpscaleFinal ||
@@ -1053,11 +1053,11 @@ export default function GalleryCard({
                     shouldShowMoireFinal ||
                     shouldShowMoireMax ||
                     shouldShowForceMoireCleanMax;
-                  
+
                   if (!hasEnhanceActions) {
                     return null;
                   }
-                  
+
                   return (
                     <GalleryMenuGroup label="Enhance">
                       {shouldShowUpscaleFinal && (

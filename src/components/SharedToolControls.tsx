@@ -1208,7 +1208,7 @@ export default function SharedToolControls({
                     value={wildcardSeed}
                     onChange={e => handleWildcardSeedChange(e.target.value)}
                     placeholder="e.g. my-batch-01"
-                    className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                    className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
                   />
                   {textHasWildcardTokens(wildcardPreviewText ?? recommendFromText) ? (
                     <div className="space-y-2">
@@ -1444,7 +1444,7 @@ export default function SharedToolControls({
                       onChange={event => onActiveCharacterDescriptorChange(event.target.value)}
                       rows={3}
                       placeholder="e.g. athletic woman, mid-20s, short copper hair, green eyes"
-                      className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
+                      className="ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
                     />
                   </div>
                 )}

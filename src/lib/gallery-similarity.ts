@@ -1,5 +1,5 @@
 import type { ComfyGalleryEntry } from './comfyui-gallery';
-import { semanticRelevanceScore } from './semantic-search';
+import { tokenize, bigrams } from './semantic-search';
 
 export type GallerySimilarityScore = {
   entry: ComfyGalleryEntry;
@@ -8,6 +8,7 @@ export type GallerySimilarityScore = {
   paramScore: number;
 };
 
+// Pre-compute token sets for fast overlap checking.
 function paramSimilarity(reference: ComfyGalleryEntry, candidate: ComfyGalleryEntry): number {
   const a = reference.queueParams;
   const b = candidate.queueParams;
@@ -31,23 +32,73 @@ function paramSimilarity(reference: ComfyGalleryEntry, candidate: ComfyGalleryEn
   return total > 0 ? matches / total : 0;
 }
 
+/** Fast similarity score using pre-tokenized reference corpus. */
+function fastSimilarityScore(
+  entryPrompt: string,
+  queryTokens: Set<string>,
+  queryBigrams: string[],
+  referenceLower: string
+): number {
+  const candidateTokens = tokenize(entryPrompt);
+  let overlap = 0;
+  for (const token of queryTokens) {
+    if (candidateTokens.has(token)) {
+      overlap += 1;
+    }
+  }
+  let score = overlap / queryTokens.size;
+
+  // Direct string inclusion check is cheaper than re-tokenizing.
+  const entryLower = entryPrompt.toLowerCase();
+  for (const pair of queryBigrams) {
+    if (entryLower.includes(pair)) {
+      score += 0.08;
+    }
+  }
+
+  return Math.min(1, score);
+}
+
 export function rankGallerySimilarity(
   entries: ComfyGalleryEntry[],
   reference: ComfyGalleryEntry
 ): GallerySimilarityScore[] {
-  const referenceCorpus = [
-    reference.prompt,
-    reference.negativePrompt,
-    reference.tool,
-    reference.model,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  // Pre-tokenize the reference once instead of re-tokenizing per entry.
+  const queryTokens = tokenize(
+    [reference.prompt, reference.negativePrompt, reference.tool, reference.model]
+      .filter(Boolean)
+      .join(' ')
+  );
+
+  if (queryTokens.size === 0) {
+    return entries
+      .filter(entry => entry.id !== reference.id)
+      .map(entry => ({
+        entry,
+        score: 0,
+        promptScore: 0,
+        paramScore: paramSimilarity(reference, entry),
+      }));
+  }
+
+  const queryBigrams = bigrams(
+    [reference.prompt, reference.negativePrompt, reference.tool, reference.model]
+      .filter(Boolean)
+      .join(' ')
+  );
 
   return entries
     .filter(entry => entry.id !== reference.id)
     .map(entry => {
-      const promptScore = semanticRelevanceScore(entry.prompt, referenceCorpus);
+      const promptScore = fastSimilarityScore(
+        entry.prompt,
+        queryTokens,
+        queryBigrams,
+        [reference.prompt, reference.negativePrompt, reference.tool, reference.model]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+      );
       const paramScore = paramSimilarity(reference, entry);
       const score = promptScore * 0.78 + paramScore * 0.22;
       return { entry, score, promptScore, paramScore };

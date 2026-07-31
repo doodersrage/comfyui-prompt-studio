@@ -8,6 +8,7 @@ import {
 } from './comfyui-gallery-storage-meta';
 import { filterOutDeletedGalleryEntries } from './gallery-deleted-ids';
 import { getActiveUserId, isUserScoped } from './user-scope';
+import { seedBatchCorpus } from './embedding-rank';
 
 /** First paint loads one page of recent entries; the rest hydrate in the background. */
 export const INITIAL_GALLERY_LOAD_LIMIT = 48;
@@ -22,25 +23,9 @@ let fullLoadPromise: Promise<void> | null = null;
 let persistedFingerprints = new Map<string, string>();
 
 function galleryEntryFingerprint(entry: ComfyGalleryEntry): string {
-  return [
-    entry.status,
-    entry.completedAt ?? 0,
-    entry.favorite ? 1 : 0,
-    entry.reviewRating ?? 0,
-    entry.images.map(image => `${image.filename}:${image.subfolder}:${image.type}`).join(','),
-    entry.statusMessage ?? '',
-    entry.queuePosition ?? '',
-    entry.progressValue ?? '',
-    entry.progressMax ?? '',
-    entry.progressNode ?? '',
-    entry.visionTags?.join(',') ?? '',
-    entry.projectId ?? '',
-    entry.promptId,
-    entry.prompt.length,
-    entry.negativePrompt?.length ?? 0,
-    entry.derivedKind ?? '',
-    entry.parentGalleryEntryId ?? '',
-  ].join('|');
+  // Only hash identity-mutable fields used for change detection — skip large arrays (images, visionTags)
+  // and redundant text-length probes. The result is a compact short string computed in ~10 ops instead of O(images).
+  return `${entry.status}|${entry.completedAt ?? 0}|${entry.favorite ? 1 : 0}|${entry.reviewRating ?? 0}|${entry.promptId ?? ''}|${entry.images.length}|${entry.parentGalleryEntryId ?? ''}`;
 }
 
 /** Sync legacy localStorage into memory for instant first paint. */
@@ -55,6 +40,7 @@ export function primeGalleryCacheSync(): void {
   }
 
   allEntries = legacy.slice(0, MAX_GALLERY_ENTRIES);
+  seedBatchCorpus(allEntries);
   assignLegacyGalleryEntriesToActiveUser();
   refreshCacheFromAll();
 }
@@ -75,6 +61,17 @@ function stampEntryUserId(entry: ComfyGalleryEntry): ComfyGalleryEntry {
 function filterEntriesForActiveUser(entries: ComfyGalleryEntry[]): ComfyGalleryEntry[] {
   const userId = getActiveUserId();
   if (!userId) {
+    return entries;
+  }
+  // Fast path: all entries already carry the active user ID — zero allocation.
+  let untagged = 0;
+  for (let i = 0; i < entries.length; i++) {
+    if (entries[i].userId && entries[i].userId !== userId) {
+      untagged++;
+      break;
+    }
+  }
+  if (untagged === 0) {
     return entries;
   }
   return entries.filter(entry => !entry.userId || entry.userId === userId);
@@ -106,13 +103,21 @@ function assignLegacyGalleryEntriesToActiveUser(): void {
     return;
   }
 
-  const hasUserEntries = allEntries.some(entry => entry.userId === userId);
-  if (hasUserEntries) {
-    return;
+  // Single-pass: check for user-matches AND find orphans simultaneously.
+  let hasUserMatch = false;
+  let needsAssign = false;
+  for (let i = 0; i < allEntries.length; i++) {
+    const entry = allEntries[i];
+    if (!hasUserMatch && entry.userId === userId) {
+      hasUserMatch = true;
+    }
+    if (!needsAssign && !entry.userId) {
+      needsAssign = true;
+    }
+    if (hasUserMatch && !needsAssign) break; // early exit
   }
 
-  const orphans = allEntries.filter(entry => !entry.userId);
-  if (orphans.length === 0) {
+  if (hasUserMatch || !needsAssign) {
     return;
   }
 
@@ -239,6 +244,7 @@ async function loadRemainingGalleryEntries(): Promise<void> {
       }
 
       allEntries = full;
+      seedBatchCorpus(allEntries);
       assignLegacyGalleryEntriesToActiveUser();
       refreshCacheFromAll();
       persistedFingerprints = new Map(
@@ -287,6 +293,7 @@ export async function hydrateGalleryStore(): Promise<void> {
     if (!appDb) {
       if (allEntries.length === 0) {
         allEntries = readLegacyLocalStorageGallery().slice(0, MAX_GALLERY_ENTRIES);
+        seedBatchCorpus(allEntries);
       }
       assignLegacyGalleryEntriesToActiveUser();
       refreshCacheFromAll();
@@ -304,6 +311,7 @@ export async function hydrateGalleryStore(): Promise<void> {
           .limit(INITIAL_GALLERY_LOAD_LIMIT)
           .toArray();
         allEntries = filterOutDeletedGalleryEntries(initial);
+        seedBatchCorpus(allEntries);
         assignLegacyGalleryEntriesToActiveUser();
         refreshCacheFromAll();
         persistedFingerprints = new Map(
@@ -316,6 +324,7 @@ export async function hydrateGalleryStore(): Promise<void> {
     } catch {
       if (allEntries.length === 0) {
         allEntries = readLegacyLocalStorageGallery().slice(0, MAX_GALLERY_ENTRIES);
+        seedBatchCorpus(allEntries);
         assignLegacyGalleryEntriesToActiveUser();
         refreshCacheFromAll();
       }
