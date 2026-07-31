@@ -21,8 +21,12 @@ export type ImageLightboxState = {
   title?: string;
   /** Optional per-image titles; falls back to `title` when omitted. */
   titles?: string[];
-  /** Full-res URLs parallel to `images` — used by “Open original”. */
+  /** Full-res URLs parallel to `images` — used by "Open original". */
   originalImages?: string[];
+  /** Download-ready Comfy view URLs (with width param) parallel to `images`. */
+  downloadUrls?: string[];
+  /** Per-slide filenames for naming the downloaded file; falls back to promptId slice. */
+  downloadFilenames?: string[];
   /** Grid-thumb URLs parallel to `images` — blur-up while mid-res loads. */
   thumbImages?: string[];
   /** Per-slide media kind (image vs. video/animated), parallel to `images`. */
@@ -47,6 +51,8 @@ type ImageLightboxProps = {
   state: ImageLightboxState | null;
   onClose: () => void;
   onIndexChange: (index: number) => void;
+  /** Optional per-slide download trigger. */
+  onDownloadImage?: (index: number) => Promise<void>;
   slideshow?: ImageLightboxSlideshowOptions;
 };
 
@@ -100,6 +106,7 @@ export default function ImageLightbox({
   state,
   onClose,
   onIndexChange,
+  onDownloadImage,
   slideshow,
 }: ImageLightboxProps) {
   const [mounted, setMounted] = useState(false);
@@ -126,6 +133,7 @@ export default function ImageLightbox({
     }
     return stripGalleryViewWidthParam(candidate);
   })();
+  const currentDownloadUrl = state?.downloadUrls?.[displayIndex] ?? undefined;
   const currentTitle = state?.titles?.[displayIndex] ?? state?.title;
   const canGoPrevious = index > 0;
   const canGoNext = index < images.length - 1;
@@ -686,6 +694,15 @@ export default function ImageLightbox({
                   Open original
                 </a>
               ) : null}
+              {onDownloadImage && currentDownloadUrl ? (
+                <Button
+                  variant="secondary"
+                  className="!min-h-9 px-3 type-caption"
+                  onClick={() => void onDownloadImage(displayIndex)}
+                >
+                  Download original
+                </Button>
+              ) : null}
               <p className="type-caption text-white/45">
                 Space play/pause · ←/→ navigate · F fullscreen · Esc exit
               </p>
@@ -784,6 +801,15 @@ export default function ImageLightbox({
               >
                 Open original
               </a>
+            ) : null}
+            {onDownloadImage && currentDownloadUrl ? (
+              <Button
+                variant="secondary"
+                className="!min-h-9 px-3 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                onClick={() => void onDownloadImage(displayIndex)}
+              >
+                Download original
+              </Button>
             ) : null}
           </div>
         </div>

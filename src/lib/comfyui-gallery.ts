@@ -729,6 +729,7 @@ const _entryUrlCache = new Map<
     primaryThumb: string | null;
     primaryMediaKind: ComfyOutputMediaKind;
     lqip: string | null;
+    download: { url: string[]; filename: string[] } | null;
   }
 >();
 
@@ -743,6 +744,7 @@ function _setOrEvictUrlCache(
     | { primaryThumb: string | null }
     | { primaryMediaKind: ComfyOutputMediaKind }
     | { lqip: string | null }
+    | { download: { url: string[]; filename: string[] } }
 ) {
   if (_entryUrlCache.size >= _entryUrlCacheMaxSize) {
     const half = Math.floor(_entryUrlCacheMaxSize / 2);
@@ -753,7 +755,9 @@ function _setOrEvictUrlCache(
       evicted += 1;
     }
   }
-  if ('thumb' in value && value.thumb) {
+  if ('download' in value && value.download) {
+    _setOrEvictUrlCache(key, { download: value.download });
+  } else if ('thumb' in value && value.thumb) {
     _setOrEvictUrlCache(key, { thumb: value.thumb });
   } else if ('stripThumb' in value && value.stripThumb) {
     _setOrEvictUrlCache(key, { stripThumb: value.stripThumb });
@@ -783,6 +787,7 @@ function _updateUrlCache(
     | { primaryThumb?: string | null }
     | { primaryMediaKind?: ComfyOutputMediaKind }
     | { lqip?: string | null }
+    | { download?: { url: string[]; filename: string[] } | null }
 ) {
   let entry = _entryUrlCache.get(key);
   if (!entry) {
@@ -795,6 +800,7 @@ function _updateUrlCache(
       primaryThumb: null,
       primaryMediaKind: 'image',
       lqip: null,
+      download: null,
     };
   }
   Object.assign(entry, partial);
@@ -926,13 +932,31 @@ export function galleryEntryPrimaryLqipUrl(entry: ComfyGalleryEntry): string | n
   return url;
 }
 
+export function galleryEntryDownloadUrls(entry: ComfyGalleryEntry): {
+  url: string[];
+  filename: string[];
+} {
+  const key = `${entry.id}|${entry.images.length}`;
+  const entryCache = _entryUrlCache.get(key);
+  if (entryCache?.download) return entryCache.download;
+
+  const urls = entry.images.map(image => galleryEntryBuildViewPath(entry, image));
+  const filenames = entry.images.map(image => image.filename ?? '');
+  _updateUrlCache(key, { download: { url: urls, filename: filenames } });
+  return { url: urls, filename: filenames };
+}
+
 export type GalleryLightboxPlaylist = {
   /** Mid-res proxy URLs for in-lightbox display. */
   images: string[];
   /** Grid-thumb proxy URLs (usually already cached) for blur-up placeholders. */
   thumbImages: string[];
-  /** Full-res view URLs (no width resize) for “Open original”. */
+  /** Full-res view URLs (no width resize) for "Open original". */
   originalImages: string[];
+  /** Download-ready Comfy view URLs (with width param) parallel to `images`. */
+  downloadUrls: string[];
+  /** Per-slide filenames for naming the downloaded file. */
+  downloadFilenames: string[];
   titles: string[];
   /** Per-slide media kind, parallel to `images`/`originalImages`. */
   mediaKinds: ComfyOutputMediaKind[];
@@ -945,6 +969,8 @@ export function buildGalleryLightboxPlaylist(
   const images: string[] = [];
   const thumbImages: string[] = [];
   const originalImages: string[] = [];
+  const downloadUrls: string[] = [];
+  const downloadFilenames: string[] = [];
   const titles: string[] = [];
   const mediaKinds: ComfyOutputMediaKind[] = [];
 
@@ -952,6 +978,7 @@ export function buildGalleryLightboxPlaylist(
     const urls = galleryEntryLightboxUrls(entry);
     const thumbs = galleryEntryThumbUrls(entry);
     const originals = galleryEntryViewUrls(entry);
+    const downloadMeta = galleryEntryDownloadUrls(entry);
     const kinds = galleryEntryMediaKinds(entry);
     if (urls.length === 0) {
       continue;
@@ -962,12 +989,22 @@ export function buildGalleryLightboxPlaylist(
       images.push(urls[i]!);
       thumbImages.push(thumbs[i] ?? urls[i]!);
       originalImages.push(stripGalleryViewWidthParam(originals[i] ?? urls[i]!));
+      downloadUrls.push(downloadMeta.url[i] ?? originals[i] ?? urls[i]!);
+      downloadFilenames.push(downloadMeta.filename[i] ?? '');
       titles.push(title);
       mediaKinds.push(kinds[i] ?? 'image');
     }
   }
 
-  return { images, thumbImages, originalImages, titles, mediaKinds };
+  return {
+    images,
+    thumbImages,
+    originalImages,
+    downloadUrls,
+    downloadFilenames,
+    titles,
+    mediaKinds,
+  };
 }
 
 export function resolveGalleryLightboxOpenIndex(
@@ -991,4 +1028,26 @@ export function resolveGalleryLightboxOpenIndex(
   }
 
   return 0;
+}
+
+export function resolveGalleryLightboxEntry(
+  entries: readonly ComfyGalleryEntry[],
+  flatIndex: number
+): { entry: ComfyGalleryEntry; imageIndex: number } | null {
+  let cumulative = 0;
+
+  for (const entry of entries) {
+    const urls = galleryEntryLightboxUrls(entry);
+    if (urls.length === 0) {
+      continue;
+    }
+
+    if (flatIndex >= cumulative && flatIndex < cumulative + urls.length) {
+      return { entry, imageIndex: flatIndex - cumulative };
+    }
+
+    cumulative += urls.length;
+  }
+
+  return null;
 }

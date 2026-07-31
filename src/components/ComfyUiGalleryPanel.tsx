@@ -55,6 +55,7 @@ import {
   downloadTextFile,
 } from '@/lib/history-export-formats';
 import {
+  downloadGalleryImage,
   downloadGalleryImagesSequential,
   downloadGallerySidecarBundle,
 } from '@/lib/comfyui-gallery-export';
@@ -79,6 +80,7 @@ import {
   loadGalleryViewPreferences,
   paginateGalleryEntries,
   resolveGalleryPageSize,
+  resolveGalleryLightboxEntry,
   resolveGalleryLightboxOpenIndex,
   saveGalleryViewPreferences,
   sortGalleryEntries,
@@ -405,6 +407,8 @@ export default function ComfyUiGalleryPanel({
         images: lightboxPlaylist.images,
         thumbImages: lightboxPlaylist.thumbImages,
         originalImages: lightboxPlaylist.originalImages,
+        downloadUrls: lightboxPlaylist.downloadUrls,
+        downloadFilenames: lightboxPlaylist.downloadFilenames,
         titles: lightboxPlaylist.titles,
         mediaKinds: lightboxPlaylist.mediaKinds,
         index,
@@ -451,6 +455,8 @@ export default function ComfyUiGalleryPanel({
       images: lightboxPlaylist.images,
       thumbImages: lightboxPlaylist.thumbImages,
       originalImages: lightboxPlaylist.originalImages,
+      downloadUrls: lightboxPlaylist.downloadUrls,
+      downloadFilenames: lightboxPlaylist.downloadFilenames,
       titles: lightboxPlaylist.titles,
       mediaKinds: lightboxPlaylist.mediaKinds,
       index: 0,
@@ -469,6 +475,8 @@ export default function ComfyUiGalleryPanel({
       images: lightboxPlaylist.images,
       thumbImages: lightboxPlaylist.thumbImages,
       originalImages: lightboxPlaylist.originalImages,
+      downloadUrls: lightboxPlaylist.downloadUrls,
+      downloadFilenames: lightboxPlaylist.downloadFilenames,
       titles: lightboxPlaylist.titles,
       mediaKinds: lightboxPlaylist.mediaKinds,
       index: 0,
@@ -486,6 +494,15 @@ export default function ComfyUiGalleryPanel({
     setSlideshowPlaying(false);
     setSlideshowFullscreen(false);
   };
+
+  const onDownloadImage = useCallback(
+    async (displayIndex: number) => {
+      const resolved = resolveGalleryLightboxEntry(visibleEntriesRef.current, displayIndex);
+      if (!resolved) return;
+      await downloadGalleryImage(resolved.entry, resolved.imageIndex);
+    },
+    []
+  );
 
   useEffect(() => {
     if (!paginationEnabled || page === currentPage) {
@@ -1058,6 +1075,7 @@ export default function ComfyUiGalleryPanel({
               : previous
           )
         }
+        onDownloadImage={onDownloadImage}
         slideshow={
           lightboxPlaylist.images.length > 1
             ? {
