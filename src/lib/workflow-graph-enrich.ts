@@ -975,7 +975,7 @@ function enrichUpscaleNodes(input: {
           kind: 'audit',
           severity: 'info',
           message:
-            'Skipped Final/Max Lanczos for Edit-2511 Lightning (enlarges soft artifacts) — keep native decode.',
+            'Skipped Final/Max Lanczos for Edit-2511 Lightning T2I (enlarges soft artifacts) — Compose I2I still gets light Lanczos.',
         },
       ];
     }

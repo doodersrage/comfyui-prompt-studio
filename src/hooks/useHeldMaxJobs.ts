@@ -5,9 +5,8 @@ import { HELD_MAX_UPDATED_EVENT, listHeldMaxJobs, type HeldMaxJob } from '@/lib/
 
 /** Live list of held Max jobs (updates on hold/flush/clear). */
 export function useHeldMaxJobs(): HeldMaxJob[] {
-  const [jobs, setJobs] = useState<HeldMaxJob[]>(() =>
-    typeof window === 'undefined' ? [] : listHeldMaxJobs()
-  );
+  // Always start empty so SSR and client first paint match; hydrate in effect.
+  const [jobs, setJobs] = useState<HeldMaxJob[]>([]);
 
   useEffect(() => {
     const refresh = () => setJobs(listHeldMaxJobs());

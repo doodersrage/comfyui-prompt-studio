@@ -95,8 +95,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Legacy merged value — computed directly from state (isAdmin changes only when user.role changes)
   const isAdmin = Boolean(state.user?.role === 'admin');
 
-  const value: AuthContextValue | null =
-    typeof window === 'undefined' ? null : { ...state, refresh, logout, isAdmin };
+  // Always provide the same shape on server and client first paint. Branching on
+  // `typeof window` made AuthContext null during SSR and non-null on hydrate,
+  // which remounted AppNav auth UI (hydration mismatch).
+  const value: AuthContextValue = { ...state, refresh, logout, isAdmin };
 
   // Fine-grained providers — only fire when their specific field changes
   useEffect(() => {

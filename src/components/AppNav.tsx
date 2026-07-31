@@ -121,6 +121,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const search = searchParams.toString();
 
   // Defer null-check to after all hooks so hook-call order stays stable.
+  // AuthProvider always supplies a value now; fallback is only for HMR edge cases.
   const rawAuth = useAuth();
   const isNullContext = !rawAuth;
 
@@ -137,7 +138,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     loading: true,
     authEnabled: false,
     user: null,
-    allowedFeatures: 'all',
+    allowedFeatures: 'all' as const,
     impersonating: false,
     refresh: async () => {},
     logout: async () => {},

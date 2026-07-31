@@ -4,7 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { ChipButton } from '@/components/ui/Field';
 import { StatCard, ToolActionRow } from '@/components/ui/ToolPageShell';
-import { loadComfyGallery, COMFYUI_GALLERY_UPDATED_EVENT } from '@/lib/comfyui-gallery';
+import {
+  loadComfyGallery,
+  COMFYUI_GALLERY_UPDATED_EVENT,
+  type ComfyGalleryEntry,
+} from '@/lib/comfyui-gallery';
 import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
 import { postComfyUiPrompt } from '@/lib/comfyui-queue-request';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
@@ -37,9 +41,9 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
   const [status, setStatus] = useState<string | null>(null);
   const [galleryRevision, setGalleryRevision] = useState(0);
   const heldJobs = useHeldMaxJobs();
-  const [holdMaxUntilIdle, setHoldMaxUntilIdle] = useState(
-    () => loadSettingsCache().shared.holdMaxUntilIdle === true
-  );
+  // Stable SSR/client first paint — hydrate hold flag + gallery after mount.
+  const [holdMaxUntilIdle, setHoldMaxUntilIdle] = useState(false);
+  const [localJobs, setLocalJobs] = useState<ComfyGalleryEntry[]>([]);
   const [flushing, setFlushing] = useState(false);
   const flushingRef = useRef(false);
 
@@ -58,6 +62,8 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
 
   useEffect(() => {
     scheduleAfterCommit(() => {
+      setHoldMaxUntilIdle(loadSettingsCache().shared.holdMaxUntilIdle === true);
+      setLocalJobs(loadComfyGallery());
       void refreshHealth();
     });
     const onGalleryUpdate = () => setGalleryRevision(value => value + 1);
@@ -69,9 +75,13 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
     };
   }, [refreshHealth]);
 
-  const localJobs = useMemo(() => {
-    void galleryRevision;
-    return loadComfyGallery();
+  useEffect(() => {
+    if (galleryRevision === 0) {
+      return;
+    }
+    scheduleAfterCommit(() => {
+      setLocalJobs(loadComfyGallery());
+    });
   }, [galleryRevision]);
 
   const pendingLocal = useMemo(
