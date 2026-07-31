@@ -122,7 +122,7 @@ describe("queue-prompt-prep Rapid AIO / Lightning", () => {
     });
     assert.match(result.positive ?? "", /five distinct fingers|anatomically correct hands/i);
     assert.match(result.positive ?? "", /extra or fused fingers|extra limbs/i);
-    assert.match(result.positive ?? "", /Prefer a single subject|simple standing pose/i);
+    assert.match(result.positive ?? "", /keep fingers distinct and unobscured|do not invent extra limbs/i);
   });
 
   it("prioritizes anatomy/hand cues for UltraReal before realism budget", () => {
@@ -133,7 +133,7 @@ describe("queue-prompt-prep Rapid AIO / Lightning", () => {
       anatomyMode: "strict",
     });
     assert.match(result.positive ?? "", /five distinct fingers/i);
-    assert.match(result.positive ?? "", /Keep poses straightforward|clasped-hand/i);
+    assert.match(result.positive ?? "", /visible knuckles|clear wrists and elbows/i);
     assert.match(result.positive ?? "", /d1g1cam/i);
   });
 });
