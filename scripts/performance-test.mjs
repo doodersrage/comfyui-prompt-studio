@@ -34,9 +34,12 @@ function testComponentRendering() {
   for (let i = 0; i < 5; i++) {
     const startTime = Date.now();
     // Simulate rendering work
-    let sum = 0;
+    let checksum = 0;
     for (let j = 0; j < 1000000; j++) {
-      sum += Math.sqrt(j);
+      checksum += Math.sqrt(j);
+    }
+    if (checksum < 0) {
+      throw new Error('unreachable');
     }
     const endTime = Date.now();
     renderTimes.push(endTime - startTime);
@@ -64,7 +67,7 @@ function testAPIResponseTimes() {
     console.log(`⏱️  ${call.name}: ${call.time}ms`);
   });
 
-  return apiCalls;
+  return apiCalls.reduce((total, call) => total + call.time, 0) / apiCalls.length;
 }
 
 // Function to analyze file sizes
@@ -144,7 +147,7 @@ async function runAllTests() {
     const avgRenderTime = testComponentRendering();
     console.log('');
 
-    const apiCalls = testAPIResponseTimes();
+    const apiAvgMs = testAPIResponseTimes();
     console.log('');
 
     analyzeFileSizes();
@@ -157,6 +160,7 @@ async function runAllTests() {
     console.log('\n📊 Summary:');
     console.log(`   - Prettier formatting time: ~500ms`);
     console.log(`   - Average component render time: ${avgRenderTime.toFixed(2)}ms`);
+    console.log(`   - Average API response time: ${apiAvgMs.toFixed(2)}ms`);
     console.log(`   - Cache hit rate: ${cacheStats.hits}/${cacheStats.totalRequests} requests`);
   } catch (error) {
     console.error('❌ Performance testing failed:', error.message);

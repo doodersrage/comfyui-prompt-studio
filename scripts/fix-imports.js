@@ -12,9 +12,12 @@ function fixFile(filePath) {
   const beforeCount = (content.match(/await import\([^"'`]/g) || []).length;
 
   if (beforeCount > 0) {
-    content = content.replace(/(await import\()\s*(?!"|'|`)([^)'`\n;,]+)(\s*\))/g, (match, openParen, innerPath, closeParen) => {
-      return `${openParen}"${innerPath.trim()}"${closeParen}`;
-    });
+    content = content.replace(
+      /(await import\()\s*(?!"|'|`)([^)'`\n;,]+)(\s*\))/g,
+      (match, openParen, innerPath, closeParen) => {
+        return `${openParen}"${innerPath.trim()}"${closeParen}`;
+      }
+    );
 
     fs.writeFileSync(filePath, content, 'utf-8');
     console.log(`Fixed ${beforeCount} unterminated imports in: ${pathModule.basename(filePath)}`);
@@ -34,7 +37,9 @@ function walkDir(dir) {
       } else if (entry.endsWith('.test.ts')) {
         fixFile(fullPath);
       }
-    } catch (_e) {}
+    } catch {
+      // skip unreadable entries
+    }
   }
 }
 

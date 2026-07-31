@@ -11,9 +11,12 @@ function fixFile(filePath) {
   const beforeCount = (content.match(/await import\(\x22\x22/g) || []).length;
 
   if (beforeCount > 0) {
-    content = content.replace(/(await import\()\x22\x22([^)]*?)\x22\x22(\s*\))/g, (match, openParen, innerPath, closeParen) => {
-      return `${openParen}"${innerPath.trim()}"${closeParen}`;
-    });
+    content = content.replace(
+      /(await import\()\x22\x22([^)]*?)\x22\x22(\s*\))/g,
+      (match, openParen, innerPath, closeParen) => {
+        return `${openParen}"${innerPath.trim()}"${closeParen}`;
+      }
+    );
 
     fs.writeFileSync(filePath, content, 'utf-8');
     console.log(`Fixed ${beforeCount} double-quoted imports in: ${pathModule.basename(filePath)}`);
@@ -33,7 +36,9 @@ function walkDir(dir) {
       } else if (entry.endsWith('.test.ts')) {
         fixFile(fullPath);
       }
-    } catch (_e) {}
+    } catch {
+      // skip unreadable entries
+    }
   }
 }
 

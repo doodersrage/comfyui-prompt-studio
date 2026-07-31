@@ -148,9 +148,7 @@ export default function CommandPalette() {
   const rawAuth = useAuth();
   const isNullContext = !rawAuth;
 
-  const {
-    allowedFeatures,
-  } = rawAuth ?? {
+  const { allowedFeatures } = rawAuth ?? {
     loading: true,
     authEnabled: false,
     user: null,

@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 
-
 type Props = {
   imageDataUrl: string;
   prompt: string;

@@ -59,7 +59,6 @@ import {
   downloadGalleryImagesSequential,
   downloadGallerySidecarBundle,
 } from '@/lib/comfyui-gallery-export';
-import { studioHistoryUrl } from '@/lib/prompt-lineage';
 import { cancelComfyGalleryJob } from '@/lib/comfyui-queue-cancel';
 import {
   buildGalleryLineageGroups,
@@ -495,14 +494,11 @@ export default function ComfyUiGalleryPanel({
     setSlideshowFullscreen(false);
   };
 
-  const onDownloadImage = useCallback(
-    async (displayIndex: number) => {
-      const resolved = resolveGalleryLightboxEntry(visibleEntriesRef.current, displayIndex);
-      if (!resolved) return;
-      await downloadGalleryImage(resolved.entry, resolved.imageIndex);
-    },
-    []
-  );
+  const onDownloadImage = useCallback(async (displayIndex: number) => {
+    const resolved = resolveGalleryLightboxEntry(visibleEntriesRef.current, displayIndex);
+    if (!resolved) return;
+    await downloadGalleryImage(resolved.entry, resolved.imageIndex);
+  }, []);
 
   useEffect(() => {
     if (!paginationEnabled || page === currentPage) {

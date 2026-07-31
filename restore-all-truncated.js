@@ -1,5 +1,4 @@
 import { spawnSync } from 'child_process';
-import pathModule from 'path';
 
 // Use git cat-file --batch to dump the blob content for browser-image-dimensions.test.ts
 const proc = spawnSync('git', ['--no-pager', 'cat-file', '--batch', 'HEAD'], {

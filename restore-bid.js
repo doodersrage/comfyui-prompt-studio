@@ -1,5 +1,4 @@
 import { spawnSync } from 'child_process';
-import fs from 'fs';
 
 // git cat-file --batch expects NUL-terminated paths on stdin.
 // Let's pipe the filename with a null terminator.

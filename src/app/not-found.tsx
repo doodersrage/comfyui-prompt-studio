@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
 import PageCanvas from '@/components/ui/PageCanvas';
 import { EmptyState } from '@/components/ui/ViewState';
 

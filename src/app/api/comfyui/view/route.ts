@@ -1,7 +1,7 @@
 import { getComfyUiBaseUrl } from '@/lib/comfyui-client';
 import { stripEmptyComfyUiRuntime } from '@/lib/comfyui-config';
 import { apiError, apiMethodNotAllowed } from '@/lib/api/response';
-import { GALLERY_PROXY_ENCODE_QUALITY, galleryProxyEncodeTier, calculateDynamicQuality } from '@/lib/comfyui-outputs';
+import { galleryProxyEncodeTier, calculateDynamicQuality } from '@/lib/comfyui-outputs';
 // turbopackIgnore: true
 import {
   buildViewCacheKey,
@@ -38,11 +38,8 @@ async function encodeThumb(
 ): Promise<Buffer> {
   const sharp = (await import('sharp')).default;
   const tier = galleryProxyEncodeTier(thumbWidth);
-  
-  // Use dynamic quality adjustment
-  const baseQuality = GALLERY_PROXY_ENCODE_QUALITY[tier];
   const dynamicQuality = calculateDynamicQuality(buffer, thumbWidth, format, tier);
-  
+
   const pipeline = sharp(buffer).rotate().resize({
     width: thumbWidth,
     height: thumbWidth,

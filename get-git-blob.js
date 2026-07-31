@@ -1,5 +1,4 @@
 import { execSync } from 'child_process';
-import fs from 'fs';
 
 // Use git's cat-file to dump blob content
 try {
