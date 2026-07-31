@@ -23,6 +23,10 @@ export default function WorkspaceWelcome() {
   const [generateCta, setGenerateCta] = useState({ label: 'Open Generate', href: '/' });
 
   useEffect(() => {
+    // Playwright e2e: never block the UI with the first-run modal (matches AutoStorageSyncInit).
+    if (process.env.NEXT_PUBLIC_PLAYWRIGHT === '1') {
+      return;
+    }
     scheduleAfterCommit(() => {
       if (!hasChosenWorkspaceMode()) {
         setPhase('workspace');
@@ -30,7 +34,7 @@ export default function WorkspaceWelcome() {
     });
   }, []);
 
-  if (!phase) {
+  if (!phase || process.env.NEXT_PUBLIC_PLAYWRIGHT === '1') {
     return null;
   }
 

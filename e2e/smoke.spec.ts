@@ -80,8 +80,8 @@ test("gallery selection bar documents bulk upscale actions", async ({ page }) =>
   await dismissBlockingOverlays(page);
   await selectVisible.click();
   await page.getByRole("button", { name: "Queue", exact: true }).click();
-  await expect(page.getByRole("button", { name: /Bulk upscale \(Final\)/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Bulk refine \(Final\)/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Bulk upscale → Final/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Bulk refine →/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /Bulk new variation/i })).toBeVisible();
 });
 

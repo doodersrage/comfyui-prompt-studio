@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { ensureAuthenticated } from "./helpers/auth";
 import { gotoStable } from "./helpers/navigation";
+import { dismissBlockingOverlays } from "./helpers/overlays";
 
 test.beforeEach(async ({ page }) => {
   await ensureAuthenticated(page);
@@ -21,6 +22,8 @@ test("generate accepts keywords without server error", async ({ page }) => {
 
 test("gallery review mode toggles", async ({ page }) => {
   await gotoStable(page, "/gallery");
+  // Deferred welcome can mount after navigation; clear again before Filters.
+  await dismissBlockingOverlays(page);
   // Review toggles live inside the collapsed Filters section.
   await page.locator("summary").filter({ hasText: "Filters" }).click();
   await page.getByRole("button", { name: "Review mode", exact: true }).click();

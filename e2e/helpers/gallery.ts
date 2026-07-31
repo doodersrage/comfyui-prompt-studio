@@ -4,6 +4,8 @@ const FIXTURE = {
   id: 'e2e-gallery-fixture',
   promptId: 'e2e-prompt',
   prompt: 'e2e gallery fixture',
+  model: 'qwen-image-2512',
+  tool: 'topics',
   comfyUrl: 'http://127.0.0.1:8188',
   status: 'completed',
   queuedAt: Date.now(),

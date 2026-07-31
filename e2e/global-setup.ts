@@ -30,6 +30,16 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
     await page.goto('/');
   }
 
+  // Prevent the deferred first-run welcome dialog from blocking gallery/clicks.
+  await page.evaluate(() => {
+    try {
+      localStorage.setItem('comfy-workspace-mode-v1', 'studio');
+      localStorage.setItem('comfy-workspace-mode-chosen-v1', '1');
+    } catch {
+      // ignore quota / private mode
+    }
+  });
+
   await context.storageState({ path: storagePath });
   await browser.close();
 }
