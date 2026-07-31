@@ -35,8 +35,6 @@ loadEnvLocal();
 const baseURL = process.env.PROMPT_API_URL ?? 'http://127.0.0.1:47832';
 const authStorage = resolve(__dirname, 'e2e/.auth/user.json');
 
-import { defineConfig } from '@playwright/test';
-
 export default defineConfig({
   testDir: 'e2e',
   timeout: 60_000,
