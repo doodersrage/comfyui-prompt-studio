@@ -1,4 +1,6 @@
 import { readBrowserValue, writeBrowserValue } from './browser-storage';
+import { type AppFeatureId } from './auth/features';
+import { isRouteAllowedForFeatures } from './last-tool-route';
 import { settingsTabHref } from './settings-nav';
 import { settingsComfyUiSectionHref } from './settings-comfyui-nav';
 
@@ -81,6 +83,16 @@ export function isOnboardingCoreStep(id: string): boolean {
 
 export function isOnboardingChromeStep(id: string): boolean {
   return CHROME_STEP_IDS.has(id);
+}
+
+export function isOnboardingStepAccessible(
+  step: Pick<OnboardingStep, 'href'>,
+  allowedFeatures: AppFeatureId[] | 'all'
+): boolean {
+  if (!step.href) {
+    return true;
+  }
+  return isRouteAllowedForFeatures(step.href, allowedFeatures);
 }
 
 function migrateLegacyDoneMap(): Record<string, boolean> {

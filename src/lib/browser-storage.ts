@@ -318,3 +318,39 @@ export async function clearBrowserKvStore(): Promise<void> {
     }
   }
 }
+
+/** Drop in-memory cache entries and reload specific keys from IndexedDB (cross-tab sync). */
+export async function reloadBrowserStorageKeys(keys: readonly string[]): Promise<void> {
+  if (typeof window === 'undefined' || keys.length === 0) {
+    return;
+  }
+
+  for (const key of keys) {
+    cache.delete(key);
+    dirtyKeys.delete(key);
+  }
+
+  const db = appDb;
+  if (!db) {
+    for (const key of keys) {
+      const legacy = readLegacyLocalStorageValue(key);
+      if (legacy !== undefined) {
+        cache.set(key, legacy);
+      }
+    }
+    return;
+  }
+
+  await Promise.all(
+    keys.map(async key => {
+      try {
+        const record = await db.kv.get(key);
+        if (record) {
+          cache.set(record.key, record.value);
+        }
+      } catch {
+        /* ignore per-key failures */
+      }
+    })
+  );
+}

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { canAccessNavFeature, useAuth } from '@/hooks/useAuth';
-import { featureForPath } from '@/lib/auth/features';
+import { featureForPath, type AppFeatureId } from '@/lib/auth/features';
 import {
   APP_NAV_GROUPS,
   APP_NAV_PROFILE_LINK,
@@ -89,6 +89,28 @@ const ACTION_ITEMS: CommandItem[] = [
   },
 ];
 
+function isCommandItemAllowed(
+  item: CommandItem,
+  allowedFeatures: AppFeatureId[] | 'all',
+  guestShell: boolean
+): boolean {
+  if (item.id === 'keyboard-shortcuts' || item.id === 'reload' || item.id === 'dismiss-continue') {
+    return true;
+  }
+  if (guestShell) {
+    if (item.href) {
+      const path = item.href.split('?')[0] ?? item.href;
+      return canAccessNavFeature(allowedFeatures, featureForPath(path));
+    }
+    return false;
+  }
+  if (!item.href) {
+    return true;
+  }
+  const path = item.href.split('?')[0] ?? item.href;
+  return canAccessNavFeature(allowedFeatures, featureForPath(path));
+}
+
 function buildNavItems(): CommandItem[] {
   const mode = loadWorkspaceMode();
   const groups = navGroupsForWorkspaceMode(mode, APP_NAV_GROUPS);
@@ -148,16 +170,18 @@ export default function CommandPalette() {
   const rawAuth = useAuth();
   const isNullContext = !rawAuth;
 
-  const { allowedFeatures } = rawAuth ?? {
+  const { allowedFeatures, authEnabled, user } = rawAuth ?? {
     loading: true,
     authEnabled: false,
     user: null,
-    allowedFeatures: 'all',
+    allowedFeatures: [] as AppFeatureId[],
     impersonating: false,
     refresh: async () => {},
     logout: async () => {},
     isAdmin: false,
   };
+  const guestShell = authEnabled && !user;
+  const navReady = !rawAuth?.loading && (!authEnabled || Boolean(user));
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -195,15 +219,8 @@ export default function CommandPalette() {
     () =>
       isNullContext
         ? []
-        : catalog.filter(item => {
-            if (!item.href) {
-              return true;
-            }
-            const path = item.href.split('?')[0] ?? item.href;
-            const feature = featureForPath(path);
-            return canAccessNavFeature(allowedFeatures, feature);
-          }),
-    [isNullContext, allowedFeatures, catalog]
+        : catalog.filter(item => isCommandItemAllowed(item, allowedFeatures, guestShell)),
+    [isNullContext, allowedFeatures, catalog, guestShell]
   );
 
   useEffect(() => {
@@ -312,30 +329,46 @@ export default function CommandPalette() {
 
     if (!q) {
       const seen = new Set<string>();
-      return [...continueItems, ...recentItems, ...withFavFirst].filter(item => {
-        const key = item.group === 'Continue' ? item.id : (item.href ?? item.id);
-        if (seen.has(key)) {
+      return [...continueItems, ...recentItems, ...withFavFirst]
+        .filter(item => isCommandItemAllowed(item, allowedFeatures, guestShell))
+        .filter(item => {
+          const key = item.group === 'Continue' ? item.id : (item.href ?? item.id);
+          if (seen.has(key)) {
+            return false;
+          }
+          seen.add(key);
+          return true;
+        });
+    }
+    const staticMatches = [...continueItems, ...recentItems, ...withFavFirst]
+      .filter(item => isCommandItemAllowed(item, allowedFeatures, guestShell))
+      .filter(
+        item =>
+          item.label.toLowerCase().includes(q) ||
+          item.group.toLowerCase().includes(q) ||
+          (item.subtitle?.toLowerCase().includes(q) ?? false)
+      );
+    const seen = new Set<string>();
+    return [...staticMatches, ...globalMatches]
+      .filter(item => isCommandItemAllowed(item, allowedFeatures, guestShell))
+      .filter(item => {
+        if (seen.has(item.id)) {
           return false;
         }
-        seen.add(key);
+        seen.add(item.id);
         return true;
       });
-    }
-    const staticMatches = [...continueItems, ...recentItems, ...withFavFirst].filter(
-      item =>
-        item.label.toLowerCase().includes(q) ||
-        item.group.toLowerCase().includes(q) ||
-        (item.subtitle?.toLowerCase().includes(q) ?? false)
-    );
-    const seen = new Set<string>();
-    return [...staticMatches, ...globalMatches].filter(item => {
-      if (seen.has(item.id)) {
-        return false;
-      }
-      seen.add(item.id);
-      return true;
-    });
-  }, [favorites, globalMatches, items, lastDraft, lastRoute, query, recent]);
+  }, [
+    allowedFeatures,
+    favorites,
+    globalMatches,
+    guestShell,
+    items,
+    lastDraft,
+    lastRoute,
+    query,
+    recent,
+  ]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -496,14 +529,18 @@ export default function CommandPalette() {
             >
               Shortcuts
             </button>
-            .{' '}
-            <Link
-              href="/settings"
-              className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
-              onClick={() => setOpen(false)}
-            >
-              Settings
-            </Link>
+            {navReady ? (
+              <>
+                .{' '}
+                <Link
+                  href="/settings"
+                  className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
+                  onClick={() => setOpen(false)}
+                >
+                  Settings
+                </Link>
+              </>
+            ) : null}
           </div>
         </div>
         <button

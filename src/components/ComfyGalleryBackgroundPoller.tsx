@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { COMFYUI_GALLERY_UPDATED_EVENT } from '@/lib/comfyui-gallery';
 import { initBrowserStorage } from '@/lib/browser-storage';
 import { hasPendingGalleryPollMeta } from '@/lib/gallery-pending-polls';
@@ -15,7 +16,20 @@ function scheduleIdle(callback: () => void, timeoutMs: number): () => void {
 }
 
 export default function ComfyGalleryBackgroundPoller() {
+  const auth = useAuth();
+
   useEffect(() => {
+    if (!auth || auth.loading) {
+      return;
+    }
+    // Auth off → single-user mode. Auth on without user → login/guest shell.
+    if (auth.authEnabled && !auth.user) {
+      return;
+    }
+    if (process.env.NEXT_PUBLIC_PLAYWRIGHT === '1') {
+      return;
+    }
+
     void initBrowserStorage();
 
     let cancelled = false;
@@ -65,7 +79,7 @@ export default function ComfyGalleryBackgroundPoller() {
       window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGalleryUpdated);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, []);
+  }, [auth?.authEnabled, auth?.loading, auth?.user?.id]);
 
   return null;
 }

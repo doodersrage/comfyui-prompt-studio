@@ -57,6 +57,7 @@ import {
 } from './lora-train-job';
 
 export const SETTINGS_CACHE_KEY = 'comfy-prompt-tool-settings-v1';
+export const SETTINGS_CACHE_UPDATED_EVENT = 'settings-cache-updated';
 
 /** Memoized result for loadSettingsCache to avoid re-normalizing on hot-path reads. */
 let cachedLoadResult: SettingsCache | null = null;
@@ -1004,6 +1005,9 @@ export function saveSettingsCache(cache: SettingsCache): void {
   // Keep the memo in sync with the value we just persisted.
   cachedLoadResult = cache;
   cachedBrowserVersion = cache;
+  void import('./tab-sync').then(({ broadcastTabSync }) =>
+    broadcastTabSync({ type: 'settings-updated' })
+  );
 }
 
 export function saveSharedSettings(shared: SharedToolSettings): void {

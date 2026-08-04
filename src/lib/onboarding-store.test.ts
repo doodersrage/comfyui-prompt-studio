@@ -4,6 +4,7 @@ import {
   ONBOARDING_STEPS,
   isOnboardingChromeStep,
   isOnboardingCoreStep,
+  isOnboardingStepAccessible,
 } from "./onboarding-store";
 
 describe("onboarding-store", () => {
@@ -31,5 +32,14 @@ describe("onboarding-store", () => {
     );
     assert.ok(chrome.length >= 3);
     assert.ok(chrome.every((step) => !isOnboardingCoreStep(step.id)));
+  });
+
+  it("filters steps by allowed features", () => {
+    const galleryOnly = ONBOARDING_STEPS.filter((step) =>
+      isOnboardingStepAccessible(step, ["gallery"]),
+    );
+    assert.ok(galleryOnly.some((step) => step.id === "review-gallery"));
+    assert.ok(!galleryOnly.some((step) => step.id === "first-queue"));
+    assert.ok(galleryOnly.every((step) => isOnboardingStepAccessible(step, ["gallery"])));
   });
 });

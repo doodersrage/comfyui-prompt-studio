@@ -41,7 +41,7 @@ const SERVER_SCHEDULED_BATCH_TICK_MS = 60_000;
 function startServerScheduledBatchLoop(): void {
   let running = false;
 
-  setInterval(() => {
+  const timer = setInterval(() => {
     if (running) {
       return;
     }
@@ -54,6 +54,7 @@ function startServerScheduledBatchLoop(): void {
         running = false;
       });
   }, SERVER_SCHEDULED_BATCH_TICK_MS);
+  timer.unref?.();
 }
 
 export async function register() {
@@ -69,10 +70,11 @@ export async function register() {
     const maintenanceIntervalMin = Number(process.env.SERVER_USER_MAINTENANCE_INTERVAL_MIN ?? '15');
     const maintenanceMs = Math.max(5, maintenanceIntervalMin) * 60_000;
 
-    setInterval(() => {
+    const timer = setInterval(() => {
       void postInstrumentationRoute('/api/maintenance/run').catch(error => {
         console.error('[server-user-maintenance]', error);
       });
     }, maintenanceMs);
+    timer.unref?.();
   }
 }

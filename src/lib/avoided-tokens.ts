@@ -12,7 +12,7 @@ export const AVOIDED_TOKENS_UPDATED_EVENT = 'avoided-tokens-updated';
 const MAX_AVOIDED_TOKENS = 80;
 
 // Cached versioned token snapshot so repeated reads don't re-parse or rebuild the Set.
-const TOKENS_SNAPSHOT_KEY = '__comfyui_avoided_tokens_snapshot';
+export const AVOIDED_TOKENS_SNAPSHOT_KEY = '__comfyui_avoided_tokens_snapshot';
 let _snapshotTokens: string[] | null = null;
 let _requestBodyCache: {
   tokenKey: string;
@@ -26,10 +26,14 @@ function invalidateAvoidedTokensSnapshot(next: string[] | null = null): void {
     return;
   }
   if (next) {
-    writeBrowserValue(TOKENS_SNAPSHOT_KEY, next);
+    writeBrowserValue(AVOIDED_TOKENS_SNAPSHOT_KEY, next);
   } else {
-    removeBrowserKey(TOKENS_SNAPSHOT_KEY);
+    removeBrowserKey(AVOIDED_TOKENS_SNAPSHOT_KEY);
   }
+}
+
+export function invalidateAvoidedTokensCache(): void {
+  invalidateAvoidedTokensSnapshot(null);
 }
 
 function persistAvoidedTokens(tokens: Iterable<string>): void {
@@ -41,6 +45,9 @@ function persistAvoidedTokens(tokens: Iterable<string>): void {
   ].slice(-MAX_AVOIDED_TOKENS);
   writeBrowserValue(AVOIDED_TOKENS_KEY, list);
   invalidateAvoidedTokensSnapshot(list);
+  void import('./tab-sync').then(({ broadcastTabSync }) =>
+    broadcastTabSync({ type: 'avoided-tokens-updated' })
+  );
   window.dispatchEvent(new CustomEvent(AVOIDED_TOKENS_UPDATED_EVENT));
 }
 
@@ -85,6 +92,9 @@ export function clearAvoidedTokens(): void {
   }
   removeBrowserKey(AVOIDED_TOKENS_KEY);
   invalidateAvoidedTokensSnapshot(null);
+  void import('./tab-sync').then(({ broadcastTabSync }) =>
+    broadcastTabSync({ type: 'avoided-tokens-updated' })
+  );
   window.dispatchEvent(new CustomEvent(AVOIDED_TOKENS_UPDATED_EVENT));
 }
 
@@ -94,7 +104,7 @@ export function loadAvoidedTokens(): Set<string> {
   }
   // Return cached snapshot when available.
   try {
-    const raw = readBrowserValue<string[]>(TOKENS_SNAPSHOT_KEY);
+    const raw = readBrowserValue<string[]>(AVOIDED_TOKENS_SNAPSHOT_KEY);
     if (Array.isArray(raw) && _snapshotTokens !== null) {
       return new Set(_snapshotTokens);
     }
@@ -113,7 +123,7 @@ export function loadAvoidedTokens(): Set<string> {
     _snapshotTokens = list;
     // Persist a snapshot so subsequent calls avoid re-parsing the source.
     try {
-      writeBrowserValue(TOKENS_SNAPSHOT_KEY, list);
+      writeBrowserValue(AVOIDED_TOKENS_SNAPSHOT_KEY, list);
     } catch {}
     return new Set(list);
   } catch {

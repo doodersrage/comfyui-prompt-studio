@@ -1,12 +1,20 @@
 const CHANNEL = 'comfy-prompt-studio-sync-v1';
 
 export type TabSyncMessage =
-  { type: 'gallery-updated' } | { type: 'history-updated' } | { type: 'settings-updated' };
+  | { type: 'gallery-updated' }
+  | { type: 'history-updated' }
+  | { type: 'settings-updated' }
+  | { type: 'avoided-tokens-updated' };
 
 let channel: BroadcastChannel | null = null;
 
 function getChannel(): BroadcastChannel | null {
-  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') {
+  // Node 22+ exposes BroadcastChannel globally; only wire cross-tab sync in browsers.
+  if (
+    typeof window === 'undefined' ||
+    typeof document === 'undefined' ||
+    typeof BroadcastChannel === 'undefined'
+  ) {
     return null;
   }
   if (!channel) {

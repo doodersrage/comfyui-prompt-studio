@@ -458,9 +458,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <div className="px-1">
           <ThemePreferenceControl showHint={false} />
         </div>
-        <div className="flex justify-end px-1">
-          <NotificationBell />
-        </div>
+        {navReady ? (
+          <div className="flex justify-end px-1">
+            <NotificationBell />
+          </div>
+        ) : null}
         <div
           key="auth-profile"
           className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-3"

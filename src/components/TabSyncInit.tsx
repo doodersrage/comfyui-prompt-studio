@@ -3,6 +3,17 @@
 import { useEffect } from 'react';
 import { subscribeTabSync } from '@/lib/tab-sync';
 import { COMFYUI_GALLERY_UPDATED_EVENT } from '@/lib/comfyui-gallery-storage-meta';
+import {
+  SETTINGS_CACHE_KEY,
+  invalidateSettingsCache,
+  SETTINGS_CACHE_UPDATED_EVENT,
+} from '@/lib/settings-cache';
+import {
+  AVOIDED_TOKENS_KEY,
+  AVOIDED_TOKENS_SNAPSHOT_KEY,
+  AVOIDED_TOKENS_UPDATED_EVENT,
+  invalidateAvoidedTokensCache,
+} from '@/lib/avoided-tokens';
 
 export default function TabSyncInit() {
   useEffect(() => {
@@ -17,6 +28,20 @@ export default function TabSyncInit() {
       }
       if (message.type === 'history-updated') {
         window.dispatchEvent(new Event('prompt-history-updated'));
+      }
+      if (message.type === 'settings-updated') {
+        void import('@/lib/browser-storage').then(async ({ reloadBrowserStorageKeys }) => {
+          await reloadBrowserStorageKeys([SETTINGS_CACHE_KEY]);
+          invalidateSettingsCache();
+          window.dispatchEvent(new Event(SETTINGS_CACHE_UPDATED_EVENT));
+        });
+      }
+      if (message.type === 'avoided-tokens-updated') {
+        void import('@/lib/browser-storage').then(async ({ reloadBrowserStorageKeys }) => {
+          await reloadBrowserStorageKeys([AVOIDED_TOKENS_KEY, AVOIDED_TOKENS_SNAPSHOT_KEY]);
+          invalidateAvoidedTokensCache();
+          window.dispatchEvent(new CustomEvent(AVOIDED_TOKENS_UPDATED_EVENT));
+        });
       }
     });
   }, []);

@@ -8,6 +8,7 @@ import {
   loadToolSettings,
   saveSharedSettings,
   saveToolSettings,
+  SETTINGS_CACHE_UPDATED_EVENT,
   type SharedToolSettings,
   type ToolSettingsCache,
 } from '@/lib/settings-cache';
@@ -95,6 +96,19 @@ export function useCachedSettings<K extends keyof ToolSettingsCache>(
     return () => {
       cancelled = true;
     };
+  }, [toolKey]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (!hydratedRef.current) {
+        return;
+      }
+      const cache = loadSettingsCache();
+      setShared(applyToolContext(cache.shared, String(toolKey)));
+      setToolSettings(loadToolSettings(toolKey, defaultsRef.current));
+    };
+    window.addEventListener(SETTINGS_CACHE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(SETTINGS_CACHE_UPDATED_EVENT, refresh);
   }, [toolKey]);
 
   const updateShared = useCallback(

@@ -33,6 +33,11 @@ function routeAllowedForFeatures(href: string, allowed: AppFeatureId[] | 'all'):
   return allowed.includes(feature);
 }
 
+/** Whether a deep link is allowed for the user's feature set (nav, onboarding, palette). */
+export function isRouteAllowedForFeatures(href: string, allowed: AppFeatureId[] | 'all'): boolean {
+  return routeAllowedForFeatures(href, allowed);
+}
+
 /**
  * Pick a post-login destination the user can actually open.
  * Order: explicit `?next=` → remembered tool → safe fallbacks.

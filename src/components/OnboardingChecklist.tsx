@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import Link from 'next/link';
+import { canAccessNavFeature, useAllowedFeatures, useAuth } from '@/hooks/useAuth';
 import {
   dismissOnboarding,
   isOnboardingChromeStep,
   isOnboardingCoreStep,
+  isOnboardingStepAccessible,
   loadOnboardingState,
   type OnboardingStep,
 } from '@/lib/onboarding-store';
@@ -45,8 +47,19 @@ function StepRow({ step }: { step: OnboardingStep }) {
 }
 
 export default function OnboardingChecklist() {
+  const auth = useAuth();
+  const allowedFeatures = useAllowedFeatures();
   const [steps, setSteps] = useState<OnboardingStep[]>([]);
   const [hidden, setHidden] = useState(false);
+
+  const accessibleSteps = useMemo(() => {
+    if (!auth || auth.loading || !auth.authEnabled) {
+      return steps;
+    }
+    return steps.filter(step => isOnboardingStepAccessible(step, allowedFeatures));
+  }, [allowedFeatures, auth, steps]);
+
+  const settingsAccessible = canAccessNavFeature(allowedFeatures, 'settings');
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -67,12 +80,12 @@ export default function OnboardingChecklist() {
     };
   }, []);
 
-  if (hidden || steps.every(step => step.done)) {
+  if (hidden || accessibleSteps.every(step => step.done)) {
     return null;
   }
 
-  const core = steps.filter(step => isOnboardingCoreStep(step.id));
-  const chrome = steps.filter(step => isOnboardingChromeStep(step.id));
+  const core = accessibleSteps.filter(step => isOnboardingCoreStep(step.id));
+  const chrome = accessibleSteps.filter(step => isOnboardingChromeStep(step.id));
   const nextOpen = core.find(step => !step.done);
 
   return (
@@ -117,14 +130,21 @@ export default function OnboardingChecklist() {
         </div>
       ) : null}
       <p className="mt-3 type-caption text-[var(--text-muted)]">
-        Prefer one click? Use{' '}
-        <Link
-          href={settingsTabHref('overview')}
-          className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
-        >
-          Settings → Heal & ready
-        </Link>
-        , or press{' '}
+        Prefer one click?{' '}
+        {settingsAccessible ? (
+          <>
+            Use{' '}
+            <Link
+              href={settingsTabHref('overview')}
+              className="text-[var(--accent-text)] transition hover:text-[var(--text-primary)]"
+            >
+              Settings → Heal & ready
+            </Link>
+            , or press{' '}
+          </>
+        ) : (
+          <>Press </>
+        )}
         <kbd className="rounded border border-[var(--border-default)] px-1">⌘/Ctrl+K</kbd> anytime.
       </p>
     </div>

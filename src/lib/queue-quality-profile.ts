@@ -184,7 +184,10 @@ export function formatQueueQualityProfileHint(
   } else if (isLightning) {
     upscaleNote =
       profile === 'final' || profile === 'max'
-        ? profileSkipsOutputUpscaleForModel(profile, { model, hasInputImage: options?.hasInputImage })
+        ? profileSkipsOutputUpscaleForModel(profile, {
+            model,
+            hasInputImage: options?.hasInputImage,
+          })
           ? ' · native decode (no Lanczos) · CFG-1 short negatives'
           : ' · Lanczos polish · CFG-1 short negatives'
         : ' · Draft (no Lanczos) · CFG-1 short negatives';
