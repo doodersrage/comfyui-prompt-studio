@@ -184,7 +184,9 @@ export function formatQueueQualityProfileHint(
   } else if (isLightning) {
     upscaleNote =
       profile === 'final' || profile === 'max'
-        ? ' · Lanczos polish · CFG-1 short negatives'
+        ? profileSkipsOutputUpscaleForModel(profile, { model, hasInputImage: options?.hasInputImage })
+          ? ' · native decode (no Lanczos) · CFG-1 short negatives'
+          : ' · Lanczos polish · CFG-1 short negatives'
         : ' · Draft (no Lanczos) · CFG-1 short negatives';
   } else if (isFluxFineTuneCheckpointModel(model) && profileUsesUpscaleEnrich(profile)) {
     upscaleNote =
@@ -474,6 +476,10 @@ export function profileSkipsOutputUpscaleForModel(
   // Edit-2511 Lightning T2I: skip Final/Max Lanczos (enlarges soft mush).
   // Compose I2I keeps a light polish pass (see upscaleScaleForProfile).
   if (/qwen-image-edit-2511-lightning/i.test(model) && options?.hasInputImage !== true) {
+    return true;
+  }
+  // Qwen 2512 Lightning T2I: post-decode Lanczos causes grid/moiré on 4–8 step outputs.
+  if (/qwen-image-2512-lightning/i.test(model) && options?.hasInputImage !== true) {
     return true;
   }
   return false;

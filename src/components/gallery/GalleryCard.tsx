@@ -449,52 +449,42 @@ export default function GalleryCard({
               </span>
             ) : null}
           </button>
-          {layout !== 'list' ? (
+          {layout !== 'list' && !(pickMode && pickable) ? (
             <div className="pointer-events-none absolute inset-0 flex items-end justify-center gap-2 bg-gradient-to-t from-zinc-950/95 via-zinc-950/35 to-transparent p-3 opacity-0 transition duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100 group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100">
-              {pickMode && pickable && onPick ? (
+              <>
                 <button
                   type="button"
-                  onClick={onPick}
-                  className="pointer-events-auto rounded-lg border border-violet-400/40 bg-violet-500/25 px-3 py-1.5 text-[11px] font-medium text-violet-50 backdrop-blur transition hover:bg-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
+                  onClick={() => onOpenImage(0)}
+                  className="pointer-events-auto rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-2.5 py-1 text-[11px] text-zinc-200 backdrop-blur transition hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
                 >
-                  {pickLabel}
+                  Open
                 </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => onOpenImage(0)}
-                    className="pointer-events-auto rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-2.5 py-1 text-[11px] text-zinc-200 backdrop-blur transition hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
-                  >
-                    Open
-                  </button>
-                  {entry.status === 'completed' && !isVideoHero ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => startImproveFromGalleryEntry(entry)}
-                        className="pointer-events-auto rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200 backdrop-blur transition hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/45 active:scale-[0.98]"
-                      >
-                        Improve
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => startInpaintFromGalleryEntry(entry)}
-                        className="pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100 backdrop-blur transition hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/45 active:scale-[0.98]"
-                      >
-                        Inpaint
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => startOutpaintFromGalleryEntry(entry)}
-                        className="pointer-events-auto rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-100 backdrop-blur transition hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/45 active:scale-[0.98]"
-                      >
-                        Outpaint
-                      </button>
-                    </>
-                  ) : null}
-                </>
-              )}
+                {entry.status === 'completed' && !isVideoHero ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => startImproveFromGalleryEntry(entry)}
+                      className="pointer-events-auto rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200 backdrop-blur transition hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/45 active:scale-[0.98]"
+                    >
+                      Improve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startInpaintFromGalleryEntry(entry)}
+                      className="pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100 backdrop-blur transition hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/45 active:scale-[0.98]"
+                    >
+                      Inpaint
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startOutpaintFromGalleryEntry(entry)}
+                      className="pointer-events-auto rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-100 backdrop-blur transition hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/45 active:scale-[0.98]"
+                    >
+                      Outpaint
+                    </button>
+                  </>
+                ) : null}
+              </>
             </div>
           ) : null}
         </>

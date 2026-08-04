@@ -133,7 +133,7 @@ describe("workflow-queue-optimizer", () => {
     assert.doesNotMatch(result.workflowJson, /\{\{SHIFT\}\}/);
   });
 
-  it("inserts Lightning Final Lanczos after decode without ImageSharpen polish", () => {
+  it("skips Lightning Final Lanczos on 2512 T2I (native decode only)", () => {
     const scaffold = buildWorkflowScaffoldForModel("qwen-image-2512-lightning-8");
     const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
 
@@ -144,44 +144,13 @@ describe("workflow-queue-optimizer", () => {
       qualityProfile: "final",
     });
 
-    assert.match(result.workflowJson, /Prompt Studio — output upscale/);
+    assert.doesNotMatch(result.workflowJson, /Prompt Studio — output upscale/);
     assert.doesNotMatch(result.workflowJson, /Prompt Studio — Lightning upscale polish/);
-    assert.match(
-      result.changes.map((change) => change.message).join(" "),
-      /Final\/Max Lanczos/i,
-    );
     assert.match(result.workflowJson, /LoraLoaderModelOnly|LoraLoader/);
     assert.match(result.workflowJson, /ModelSamplingAuraFlow/);
   });
 
-  it("skips Lightning Lanczos re-enrich when hash matches and markers present", () => {
-    const scaffold = buildWorkflowScaffoldForModel("qwen-image-2512-lightning-8");
-    const first = optimizeWorkflowForQueue({
-      workflow: JSON.parse(scaffold.json) as Record<string, unknown>,
-      tokens: FULL_TOKENS,
-      model: "qwen-image-2512-lightning-8",
-      qualityProfile: "max",
-    });
-    assert.match(first.workflowJson, /Prompt Studio — output upscale/);
-
-    const second = optimizeWorkflowForQueue({
-      workflow: first.workflow,
-      tokens: FULL_TOKENS,
-      model: "qwen-image-2512-lightning-8",
-      qualityProfile: "max",
-      skipIfUnchanged: true,
-      contentHash: first.contentHash,
-    });
-
-    assert.match(second.workflowJson, /Prompt Studio — output upscale/);
-    assert.doesNotMatch(second.workflowJson, /Prompt Studio — Lightning upscale polish/);
-    assert.match(
-      second.changes.map((change) => change.message).join(" "),
-      /Skipped Lightning Lanczos re-enrich/i,
-    );
-  });
-
-  it("full early-exits when hash, model, and profile match", () => {
+  it("full early-exits when hash, model, and profile match for Lightning Final", () => {
     const scaffold = buildWorkflowScaffoldForModel("qwen-image-2512-lightning-8");
     const first = optimizeWorkflowForQueue({
       workflow: JSON.parse(scaffold.json) as Record<string, unknown>,
@@ -266,7 +235,7 @@ describe("workflow-queue-optimizer", () => {
     assert.doesNotMatch(JSON.stringify(result.workflow), /output upscale/);
   });
 
-  it("normalizes EmptyLatent for Lightning imports and adds Final Lanczos", () => {
+  it("normalizes EmptyLatent for Lightning imports without Final Lanczos on 2512 T2I", () => {
     const workflow = {
       "1": {
         class_type: "UNETLoader",
@@ -309,7 +278,7 @@ describe("workflow-queue-optimizer", () => {
     });
 
     assert.match(result.workflowJson, /EmptySD3LatentImage/);
-    assert.match(result.workflowJson, /Prompt Studio — output upscale/);
+    assert.doesNotMatch(result.workflowJson, /Prompt Studio — output upscale/);
   });
 
   it("skips Lightning Lanczos for Edit-2511 T2I Final", () => {

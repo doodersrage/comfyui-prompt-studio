@@ -12,11 +12,13 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { runHealAndReady } from '@/lib/first-run-setup';
 import { markOnboardingSetWorkspace } from '@/lib/onboarding-hooks';
 import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
+import { useAuth } from '@/hooks/useAuth';
 
 type WelcomePhase = 'workspace' | 'setup' | 'ready';
 
 /** One-time welcome: workspace density → Heal & ready → Open Generate. */
 export default function WorkspaceWelcome() {
+  const auth = useAuth();
   const [phase, setPhase] = useState<WelcomePhase | null>(null);
   const [busy, setBusy] = useState(false);
   const [setupMessage, setSetupMessage] = useState<string | null>(null);
@@ -27,12 +29,16 @@ export default function WorkspaceWelcome() {
     if (process.env.NEXT_PUBLIC_PLAYWRIGHT === '1') {
       return;
     }
+    // Signed-out users should sign in first — workspace onboarding is per-account chrome.
+    if (auth?.authEnabled && !auth.user) {
+      return;
+    }
     scheduleAfterCommit(() => {
       if (!hasChosenWorkspaceMode()) {
         setPhase('workspace');
       }
     });
-  }, []);
+  }, [auth?.authEnabled, auth?.user]);
 
   if (!phase || process.env.NEXT_PUBLIC_PLAYWRIGHT === '1') {
     return null;

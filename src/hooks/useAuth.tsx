@@ -20,7 +20,8 @@ const INITIAL: AuthState = {
   loading: true,
   authEnabled: false,
   user: null,
-  allowedFeatures: 'all',
+  /** Empty until session resolves — avoids flashing Settings/nav before login. */
+  allowedFeatures: [],
   impersonating: false,
 };
 

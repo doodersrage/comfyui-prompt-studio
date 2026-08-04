@@ -328,6 +328,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   const settingsVisible = canAccessNavFeature(allowedFeatures, 'settings');
   const profileVisible = authEnabled && Boolean(user);
+  /** Auth on but session not ready or signed out — keep chrome minimal (login/forbidden). */
+  const guestShell = authEnabled && !user;
+  const navReady = !loading && (!authEnabled || Boolean(user));
   const openGroups = expandedGroups ?? visibleGroups.map(group => group.label);
 
   function handleToggleFavorite(href: string) {
@@ -374,78 +377,84 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="sidebar-scroll flex-1 space-y-4 overflow-y-auto px-2 pb-2">
-        <div key="pinned" className="space-y-2">
-          {pinnedLinks.length > 0 ? (
-            <>
-              <p className="type-overline px-3">Pinned</p>
-              <div className="space-y-1">
-                {pinnedLinks.map(link => (
-                  <div key={`pinned-${link.href}`} onClick={onNavigate}>
-                    <SidebarLink
-                      link={link}
-                      active={linkIsActive(link, pathname, search)}
-                      favorited
-                      onToggleFavorite={() => handleToggleFavorite(link.href)}
-                    />
+        {navReady ? (
+          <>
+            <div key="pinned" className="space-y-2">
+              {pinnedLinks.length > 0 ? (
+                <>
+                  <p className="type-overline px-3">Pinned</p>
+                  <div className="space-y-1">
+                    {pinnedLinks.map(link => (
+                      <div key={`pinned-${link.href}`} onClick={onNavigate}>
+                        <SidebarLink
+                          link={link}
+                          active={linkIsActive(link, pathname, search)}
+                          favorited
+                          onToggleFavorite={() => handleToggleFavorite(link.href)}
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p className="type-overline px-3" aria-hidden>
-              Pinned
-            </p>
-          )}
-        </div>
-
-        {visibleGroups.map(group => {
-          const expanded = openGroups.includes(group.label);
-          return (
-            <div key={group.label} className="space-y-2">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-[var(--radius-md)] px-3 py-1 text-left transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-                aria-expanded={expanded}
-                onClick={() => handleToggleGroup(group.label)}
-              >
-                <span className="type-overline" aria-hidden={group.label === '__placeholder__'}>
-                  {group.label}
-                </span>
-                <span className="type-caption text-[var(--text-muted)]" aria-hidden>
-                  {expanded ? '▾' : '▸'}
-                </span>
-              </button>
-              {expanded && group.label !== '__placeholder__' ? (
-                <div className="space-y-1">
-                  {group.links.map(link => (
-                    <div key={link.href} onClick={onNavigate}>
-                      <SidebarLink
-                        link={link}
-                        active={linkIsActive(link, pathname, search)}
-                        favorited={isNavFavorite(link.href, favorites)}
-                        onToggleFavorite={() => handleToggleFavorite(link.href)}
-                      />
-                    </div>
-                  ))}
-                </div>
+                </>
               ) : null}
             </div>
-          );
-        })}
+
+            {visibleGroups.map(group => {
+              const expanded = openGroups.includes(group.label);
+              return (
+                <div key={group.label} className="space-y-2">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between rounded-[var(--radius-md)] px-3 py-1 text-left transition hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                    aria-expanded={expanded}
+                    onClick={() => handleToggleGroup(group.label)}
+                  >
+                    <span className="type-overline">{group.label}</span>
+                    <span className="type-caption text-[var(--text-muted)]" aria-hidden>
+                      {expanded ? '▾' : '▸'}
+                    </span>
+                  </button>
+                  {expanded ? (
+                    <div className="space-y-1">
+                      {group.links.map(link => (
+                        <div key={link.href} onClick={onNavigate}>
+                          <SidebarLink
+                            link={link}
+                            active={linkIsActive(link, pathname, search)}
+                            favorited={isNavFavorite(link.href, favorites)}
+                            onToggleFavorite={() => handleToggleFavorite(link.href)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </>
+        ) : guestShell ? (
+          <p className="type-caption px-3 text-[var(--text-muted)]">
+            Sign in to open tools, pin destinations, and save workspace preferences.
+          </p>
+        ) : null}
       </div>
 
       <div className="space-y-3 border-t border-[var(--border-subtle)] px-2 pt-4">
-        <div className="px-1" onClick={onNavigate}>
-          <ConnectionHealthChip compact />
-        </div>
-        <WorkspaceModeControl
-          variant="chips"
-          onChanged={mode => {
-            setWorkspaceMode(mode);
-            setExpandedGroups(null);
-            saveExpandedNavGroups([]);
-          }}
-        />
+        {navReady ? (
+          <div className="px-1" onClick={onNavigate}>
+            <ConnectionHealthChip compact />
+          </div>
+        ) : null}
+        {navReady ? (
+          <WorkspaceModeControl
+            variant="chips"
+            onChanged={mode => {
+              setWorkspaceMode(mode);
+              setExpandedGroups(null);
+              saveExpandedNavGroups([]);
+            }}
+          />
+        ) : null}
         <div className="px-1">
           <ThemePreferenceControl showHint={false} />
         </div>
@@ -489,29 +498,30 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             >
               Sign out
             </button>
+          ) : guestShell ? (
+            <Link
+              href="/login"
+              onClick={onNavigate}
+              className="mt-2 block text-xs text-[var(--accent-text)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+            >
+              Sign in
+            </Link>
           ) : (
             <span className="mt-2" aria-hidden>
               —
             </span>
           )}
         </div>
-        <div key="settings" onClick={onNavigate}>
-          {settingsVisible ? (
+        {navReady && settingsVisible ? (
+          <div key="settings" onClick={onNavigate}>
             <SidebarLink
               link={APP_NAV_SETTINGS_LINK}
               active={pathname === APP_NAV_SETTINGS_LINK.href}
               favorited={isNavFavorite(APP_NAV_SETTINGS_LINK.href, favorites)}
               onToggleFavorite={() => handleToggleFavorite(APP_NAV_SETTINGS_LINK.href)}
             />
-          ) : (
-            <span
-              className="ui-nav-brand inline-flex items-center gap-2.5 rounded-[var(--radius-md)] px-1 py-1"
-              aria-hidden
-            >
-              Settings
-            </span>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
