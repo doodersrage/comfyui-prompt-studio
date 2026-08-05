@@ -1,5 +1,6 @@
 import { getFaceDetailerHealth } from './face-detailer-health';
 import { isFluxKleinModel } from './model-denoise-defaults';
+import { resolveKleinEnhancerIdentityPreset } from './klein-enhancer-workflow-patch';
 import { normalizeInputImageFilenames } from './workflow-load-image-bindings';
 
 /** Default IP-Adapter weight for Compose identity lock (Edit + IP can overfit if higher). */
@@ -147,6 +148,22 @@ export function formatComposeIdentityLockHint(input: {
     return `Lock Figure 1 via InstantID/PuLID auto @ ${strength.toFixed(2)}. ${faceNote}`;
   }
   return `Lock Figure 1 via IP-Adapter @ ${strength.toFixed(2)}. ${faceNote}`;
+}
+
+/** Hint when Klein Enhancer pack replaces IP-Adapter identity lock. */
+export function formatKleinEnhancerIdentityHint(input: {
+  enabled?: boolean;
+  identityLockStrength?: number;
+  preset?: import('./klein-enhancer-workflow-patch').KleinEnhancerIdentityPreset;
+}): string {
+  if (input.enabled === false) {
+    return 'Off — stock ReferenceLatent chain (no Identity Feature Transfer Final).';
+  }
+  const preset = resolveKleinEnhancerIdentityPreset({
+    preset: input.preset,
+    identityLockStrength: input.identityLockStrength,
+  });
+  return `Flux2 Klein Enhancer · Identity Feature Transfer Final (${preset.replace('_', ' ')}) on model path; Multi ReferenceLatent for figures.`;
 }
 
 /** True when queue should prefer InstantID/PuLID insert over IP-Adapter. */

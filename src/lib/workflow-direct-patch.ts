@@ -39,6 +39,10 @@ import {
   normalizeInputImageFilenames,
 } from './workflow-load-image-bindings';
 import { ensureKleinReferenceLatentWiringInWorkflow } from './workflow-img2img-patch';
+import {
+  ensureKleinEnhancerPackWiringInWorkflow,
+  type KleinEnhancerIdentityPreset,
+} from './klein-enhancer-workflow-patch';
 import { ensureFluxGuidanceInWorkflow } from './flux-guidance-patch';
 
 export const IMAGE_SCALE_BY_NODE_TYPE = 'ImageScaleBy';
@@ -77,6 +81,7 @@ export type WorkflowDirectPatchCounts = {
   /** Klein ReferenceLatent instruction-edit wiring when figures are queued. */
   img2imgLatentWired?: number;
   referenceLatentWired?: number;
+  kleinEnhancerWired?: number;
   fluxGuidance?: number;
 };
 
@@ -1492,6 +1497,9 @@ export function patchWorkflowDirectParams(
     prompt?: string;
     /** Multi-slot regional edit (masks + prompts). */
     regionalSlots?: RegionalPromptSlot[];
+    /** Flux2 Klein Enhancer pack (Multi ReferenceLatent + Identity Feature Transfer Final). */
+    kleinEnhancerEnabled?: boolean;
+    kleinEnhancerIdentityPreset?: KleinEnhancerIdentityPreset;
   }
 ): {
   workflow: Record<string, unknown>;
@@ -1515,6 +1523,15 @@ export function patchWorkflowDirectParams(
   const loraStackPatch = applyLoraStackToWorkflow(loraPatch.workflow, input.loraLibrary, {
     prompt: input.prompt,
   });
+  const kleinFigures = normalizeInputImageFilenames(
+    input.params?.inputImageFilename,
+    input.params?.inputImageFilenames
+  );
+  const willUseKleinEnhancer =
+    input.kleinEnhancerEnabled !== false &&
+    isFluxKleinModel(input.model) &&
+    kleinFigures.length > 0;
+
   const controlPatch = patchControlNetInWorkflow(loraStackPatch.workflow, {
     controlNetModelFilename: input.controlNetModelFilename,
     controlImageFilename: input.controlImageFilename,
@@ -1523,12 +1540,16 @@ export function patchWorkflowDirectParams(
     controlNetMode: input.params?.controlNetMode,
   });
   const ipAdapterPatch = patchIpAdapterInWorkflow(controlPatch.workflow, {
-    ipAdapterImageFilename: input.ipAdapterImageFilename,
-    ipAdapterImageFilenames: input.ipAdapterImageFilenames ?? input.params?.ipAdapterImageFilenames,
-    ipAdapterStrength: input.ipAdapterStrength,
-    ipAdapterModelFilename: input.ipAdapterModelFilename,
+    ipAdapterImageFilename: willUseKleinEnhancer ? undefined : input.ipAdapterImageFilename,
+    ipAdapterImageFilenames: willUseKleinEnhancer
+      ? undefined
+      : (input.ipAdapterImageFilenames ?? input.params?.ipAdapterImageFilenames),
+    ipAdapterStrength: willUseKleinEnhancer ? undefined : input.ipAdapterStrength,
+    ipAdapterModelFilename: willUseKleinEnhancer ? undefined : input.ipAdapterModelFilename,
     availableNodeTypes: input.availableNodeTypes,
-    identityKind: input.params?.identityKind ?? input.identityKind,
+    identityKind: willUseKleinEnhancer
+      ? 'ipadapter'
+      : (input.params?.identityKind ?? input.identityKind),
   });
   const upscalePatch = patchUpscaleModelNodesInWorkflow(
     ipAdapterPatch.workflow,
@@ -1567,8 +1588,18 @@ export function patchWorkflowDirectParams(
     inputImageFilename: input.params?.inputImageFilename,
     inputImageFilenames: input.params?.inputImageFilenames,
   });
+  const kleinEnhancerWire = ensureKleinEnhancerPackWiringInWorkflow(kleinRefWire.workflow, {
+    model: input.model,
+    inputImageFilename: input.params?.inputImageFilename,
+    inputImageFilenames: input.params?.inputImageFilenames,
+    availableNodeTypes: input.availableNodeTypes,
+    enabled: input.kleinEnhancerEnabled,
+    identityPreset: input.kleinEnhancerIdentityPreset,
+    identityLockStrength:
+      input.ipAdapterStrength != null ? Number(input.ipAdapterStrength) : undefined,
+  });
   const fluxGuidance = ensureFluxGuidanceInWorkflow(
-    kleinRefWire.workflow,
+    kleinEnhancerWire.workflow,
     input.model,
     input.params
   );
@@ -1594,6 +1625,11 @@ export function patchWorkflowDirectParams(
         ? {
             referenceLatentWired: kleinRefWire.insertedNodeIds.length || 1,
             img2imgLatentWired: 1,
+          }
+        : {}),
+      ...(kleinEnhancerWire.usedEnhancer
+        ? {
+            kleinEnhancerWired: kleinEnhancerWire.insertedNodeIds.length || 1,
           }
         : {}),
       ...(fluxGuidance.inserted > 0 || fluxGuidance.guidancePatched > 0

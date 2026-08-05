@@ -302,12 +302,18 @@ function injectPromptsIntoWorkflow(
       loraLibrary: runtime?.loraLibrary,
       availableNodeTypes: enrichInventory?.availableNodeTypes,
       regionalSlots: runtime?.regionalSlots,
+      kleinEnhancerEnabled: runtime?.kleinEnhancerEnabled,
+      kleinEnhancerIdentityPreset: runtime?.kleinEnhancerIdentityPreset,
     }
   );
 }
 
 async function fetchComfyObjectInfoForPreflight(runtime?: ComfyUiRuntimeConfig) {
-  return fetchComfyObjectInfoPayload(runtime);
+  try {
+    return await fetchComfyObjectInfoPayload(runtime);
+  } catch {
+    return null;
+  }
 }
 
 function buildPreflightFailure(
@@ -572,8 +578,7 @@ export async function queueBatchToComfyUi(
   const config = resolveComfyUiConfig(runtime);
   const results: ComfyQueueResult[] = [];
   const runPreflight = options?.preflight !== false;
-  const objectInfo =
-    runPreflight && config.workflow ? await fetchComfyObjectInfoForPreflight(runtime) : null;
+  const objectInfo = runPreflight && config.workflow ? await fetchComfyObjectInfoForPreflight(runtime) : null;
 
   for (const request of requests) {
     if (!request.prompt.trim()) {

@@ -123,6 +123,33 @@ export default function SettingsPromptQualityPanel({
           mode={sharedSettings.anatomyGuardMode ?? 'standard'}
           onModeChange={mode => updateSharedSettings({ anatomyGuardMode: mode })}
         />
+        <label className="flex items-start gap-2 rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2.5 text-sm text-zinc-300 transition hover:bg-zinc-900/50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-violet-500/40">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            checked={sharedSettings.kleinEnhancerEnabled !== false}
+            disabled={!sharedMounted}
+            onChange={event =>
+              updateSharedSettings({ kleinEnhancerEnabled: event.target.checked })
+            }
+          />
+          <span>
+            <span className="block font-medium text-zinc-200">Flux2 Klein Enhancer pack</span>
+            <span className="type-caption mt-0.5 block text-zinc-500">
+              On Klein compose / multi-reference queues, upgrade ReferenceLatent to Multi
+              ReferenceLatent + Identity Feature Transfer Final when{' '}
+              <a
+                href="https://github.com/capitan01R/ComfyUI-Flux2Klein-Enhancer"
+                className="text-violet-300 transition hover:text-violet-200"
+                target="_blank"
+                rel="noreferrer"
+              >
+                ComfyUI-Flux2Klein-Enhancer
+              </a>{' '}
+              is installed. Compose identity lock strength maps to HARD/MID/SOFT presets.
+            </span>
+          </span>
+        </label>
         <QueueQualityProfileHints
           profile={normalizeQueueQualityProfile(sharedSettings.queueQualityProfile)}
           samplerPreset={samplerPreset}

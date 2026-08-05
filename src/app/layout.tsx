@@ -64,7 +64,10 @@ export default function RootLayout({
         {/* Inline script for initial hydration to prevent FOUC */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="relative min-h-full overflow-x-hidden text-[var(--text-primary)]">
+      <body
+        className="relative min-h-full overflow-x-hidden text-[var(--text-primary)]"
+        suppressHydrationWarning
+      >
         <AmbientBackground />
         <ThemeInit />
         <TabSyncInit />

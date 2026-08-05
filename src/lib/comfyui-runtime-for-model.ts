@@ -267,6 +267,8 @@ function sharedQueueFlags(
       ? shared.workflowSharpenAfterUpscale !== false
       : shared.workflowSharpenAfterUpscale === true,
     compactDraftSaves: shared.compactDraftSaves !== false,
+    kleinEnhancerEnabled: shared.kleinEnhancerEnabled !== false,
+    kleinEnhancerIdentityPreset: shared.kleinEnhancerIdentityPreset,
     queueTargetModel: model,
     queueQualityProfile: profile,
     modelCheckpointMap: shared.modelCheckpointMap,

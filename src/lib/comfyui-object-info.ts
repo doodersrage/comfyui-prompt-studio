@@ -129,8 +129,12 @@ export function parseComfyObjectInfoModelLists(
 export async function fetchComfyObjectInfoModelLists(
   runtime?: ComfyUiRuntimeConfig
 ): Promise<ComfyUiModelLists | null> {
-  const payload = await fetchComfyObjectInfoPayload(runtime);
-  return payload?.models ?? null;
+  try {
+    const payload = await fetchComfyObjectInfoPayload(runtime);
+    return payload?.models ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export type ComfyObjectInfoPayload = {
@@ -141,6 +145,28 @@ export type ComfyObjectInfoPayload = {
 };
 
 const SERVER_OBJECT_INFO_TTL_MS = 5 * 60 * 1000;
+const OBJECT_INFO_FETCH_TIMEOUT_MS = 8_000;
+
+function readFetchErrorDetail(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return 'fetch failed';
+  }
+  const cause = error.cause;
+  if (cause instanceof Error) {
+    const code =
+      'code' in cause && typeof (cause as NodeJS.ErrnoException).code === 'string'
+        ? (cause as NodeJS.ErrnoException).code
+        : null;
+    return code ? `${cause.message} (${code})` : cause.message;
+  }
+  return error.message;
+}
+
+function comfyObjectInfoFetchError(baseUrl: string, detail: string): Error {
+  return new Error(
+    `ComfyUI object_info unreachable at ${baseUrl}: ${detail}. Start ComfyUI or check Settings → ComfyUI URL / COMFYUI_API_URL.`
+  );
+}
 
 type ServerObjectInfoCacheEntry = {
   fetchedAt: number;
@@ -187,11 +213,18 @@ export async function fetchComfyObjectInfoPayload(
     }
   }
 
-  const response = await fetch(`${baseUrl}/object_info`, {
-    cache: 'no-store',
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/object_info`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(OBJECT_INFO_FETCH_TIMEOUT_MS),
+      redirect: 'manual',
+    });
+  } catch (error) {
+    throw comfyObjectInfoFetchError(baseUrl, readFetchErrorDetail(error));
+  }
   if (!response.ok) {
-    return null;
+    throw comfyObjectInfoFetchError(baseUrl, `HTTP ${response.status}`);
   }
   const objectInfo = (await response.json()) as Record<string, unknown>;
   const payload: ComfyObjectInfoPayload = {
@@ -215,6 +248,10 @@ export async function fetchComfyObjectInfoPayload(
 export async function fetchComfyObjectInfoNodeTypes(
   runtime?: ComfyUiRuntimeConfig
 ): Promise<Set<string> | null> {
-  const payload = await fetchComfyObjectInfoPayload(runtime);
-  return payload?.nodeTypes ?? null;
+  try {
+    const payload = await fetchComfyObjectInfoPayload(runtime);
+    return payload?.nodeTypes ?? null;
+  } catch {
+    return null;
+  }
 }

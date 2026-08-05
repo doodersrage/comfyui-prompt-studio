@@ -188,6 +188,10 @@ export type ComfyUiRuntimeConfig = {
    * the same key, and beat modelCheckpointMap for CHECKPOINT/UNET/VAE.
    */
   workflowCustomTokens?: CustomWorkflowToken[];
+  /** When true (default), upgrade Klein compose refs to Flux2Klein Enhancer nodes when installed. */
+  kleinEnhancerEnabled?: boolean;
+  /** Identity Feature Transfer Final preset (HARD/MID/SOFT lock). */
+  kleinEnhancerIdentityPreset?: import('./klein-enhancer-workflow-patch').KleinEnhancerIdentityPreset;
   /** When false, skip direct EmptyLatentImage / loader patching (placeholder injection still runs). */
   directWorkflowPatching?: boolean;
   /** When true, overwrite hardcoded loader filenames with the target model at queue time. */
@@ -1348,6 +1352,8 @@ export function injectPromptsWithFallbacks(
     availableNodeTypes?: Iterable<string> | null;
     /** Multi-slot regional edit prompts/masks. */
     regionalSlots?: import('./regional-prompt-slots').RegionalPromptSlot[];
+    kleinEnhancerEnabled?: boolean;
+    kleinEnhancerIdentityPreset?: import('./klein-enhancer-workflow-patch').KleinEnhancerIdentityPreset;
   }
 ): WorkflowInjectionResult {
   const loaderMerged = mergeLoaderTokensIntoCustomTokens(input.params, input.customTokens);
@@ -1485,6 +1491,8 @@ export function injectPromptsWithFallbacks(
       loraLibrary: options?.loraLibrary,
       prompt: input.positive,
       regionalSlots: options?.regionalSlots,
+      kleinEnhancerEnabled: options?.kleinEnhancerEnabled,
+      kleinEnhancerIdentityPreset: options?.kleinEnhancerIdentityPreset,
     });
     if (directPatch.error) {
       throw new Error(directPatch.error);

@@ -7,6 +7,7 @@ import type {
   ModelSamplerPresetTier,
   ModelSamplerOverrideFields,
 } from './model-sampler-defaults';
+import type { KleinEnhancerIdentityPreset } from './klein-enhancer-workflow-patch';
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
   DEFAULT_RESOLUTION_SIZE_TIER,
@@ -142,6 +143,9 @@ export type SharedToolSettings = {
   modelSamplerPreset?: ModelSamplerPresetTier;
   /** Optional sidebar overrides for KSampler fields; blank = use preset defaults. */
   modelSamplerOverrides?: ModelSamplerOverrideFields;
+  /** When true (default), wire Flux2Klein Enhancer on Klein compose/reference queues when installed. */
+  kleinEnhancerEnabled?: boolean;
+  kleinEnhancerIdentityPreset?: KleinEnhancerIdentityPreset;
   /** Latent orientation preset applied when queueing. */
   modelResolutionOrientation?: ResolutionOrientation;
   /** Latent size tier applied when queueing (small / medium / max). */
@@ -586,6 +590,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   autoFixRules: true,
   modelSamplerPreset: 'base',
   modelSamplerOverrides: {},
+  kleinEnhancerEnabled: true,
   modelResolutionOrientation: DEFAULT_RESOLUTION_ORIENTATION,
   modelResolutionSizeTier: DEFAULT_RESOLUTION_SIZE_TIER,
   renderRealismMode: DEFAULT_RENDER_REALISM_MODE,
