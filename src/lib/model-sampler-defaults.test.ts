@@ -7,9 +7,12 @@ import {
   ensureRapidAioSamplerParams,
   formatModelSamplerHint,
   getModelSamplerDefaults,
+  hasModelSamplerOverrides,
   normalizeModelSamplerPresetTier,
+  pickModelSamplerOverrideFields,
   resolveModelSamplerParams,
 } from "./model-sampler-defaults";
+import { resolveQueueParams } from "./queue-params-settings";
 
 describe("model sampler defaults", () => {
   it("returns base category defaults for SDXL models", () => {
@@ -428,5 +431,24 @@ describe("patchSamplerParamsInWorkflow", () => {
     const inputs = (result.workflow["8"] as { inputs: Record<string, unknown> }).inputs;
     assert.equal(inputs.denoise, 1);
     assert.equal(result.patched.denoise, 1);
+  });
+
+  it("picks non-empty sidebar override fields", () => {
+    assert.deepEqual(
+      pickModelSamplerOverrideFields({ steps: "12", cfg: "", samplerName: " euler " }),
+      { steps: "12", samplerName: "euler" },
+    );
+    assert.equal(hasModelSamplerOverrides({}), false);
+    assert.equal(hasModelSamplerOverrides({ cfg: "3.5" }), true);
+  });
+
+  it("merges sidebar sampler overrides in resolveQueueParams", () => {
+    const params = resolveQueueParams({
+      model: "sdxl",
+      samplerOverrides: { steps: "40", cfg: "5.5" },
+    });
+    assert.equal(params.steps, "40");
+    assert.equal(params.cfg, "5.5");
+    assert.equal(params.samplerName, "dpmpp_2m");
   });
 });

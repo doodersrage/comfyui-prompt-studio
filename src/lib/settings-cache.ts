@@ -3,7 +3,10 @@ import {
   DEFAULT_MODEL_SAMPLER_PRESET_TIER,
   normalizeModelSamplerPresetTier,
 } from './model-sampler-defaults';
-import type { ModelSamplerPresetTier } from './model-sampler-defaults';
+import type {
+  ModelSamplerPresetTier,
+  ModelSamplerOverrideFields,
+} from './model-sampler-defaults';
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
   DEFAULT_RESOLUTION_SIZE_TIER,
@@ -137,6 +140,8 @@ export type SharedToolSettings = {
   activeCharacterDescriptor?: string;
   /** KSampler preset tier applied when queueing (base, optimized, max compatible, or max quality). */
   modelSamplerPreset?: ModelSamplerPresetTier;
+  /** Optional sidebar overrides for KSampler fields; blank = use preset defaults. */
+  modelSamplerOverrides?: ModelSamplerOverrideFields;
   /** Latent orientation preset applied when queueing. */
   modelResolutionOrientation?: ResolutionOrientation;
   /** Latent size tier applied when queueing (small / medium / max). */
@@ -580,6 +585,7 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   seedLlmWithIngredients: true,
   autoFixRules: true,
   modelSamplerPreset: 'base',
+  modelSamplerOverrides: {},
   modelResolutionOrientation: DEFAULT_RESOLUTION_ORIENTATION,
   modelResolutionSizeTier: DEFAULT_RESOLUTION_SIZE_TIER,
   renderRealismMode: DEFAULT_RENDER_REALISM_MODE,

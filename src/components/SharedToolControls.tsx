@@ -24,7 +24,10 @@ import {
   toolIgnoresSystemWorkflowSnap,
 } from '@/lib/queue-tool-model';
 import {
+  hasModelSamplerOverrides,
   normalizeModelSamplerPresetTier,
+  pickModelSamplerOverrideFields,
+  type ModelSamplerOverrideFields,
   type ModelSamplerPresetTier,
 } from '@/lib/model-sampler-defaults';
 import {
@@ -217,6 +220,9 @@ export default function SharedToolControls({
   const checkboxClass = `mt-1 h-4 w-4 rounded-[var(--radius-sm)] border-[var(--border-default)] bg-[var(--bg-muted)] ${accentRingClass()}`;
   const [samplerPreset, setSamplerPreset] = useState<ModelSamplerPresetTier>(() =>
     normalizeModelSamplerPresetTier(shared.modelSamplerPreset)
+  );
+  const [samplerOverrides, setSamplerOverrides] = useState<ModelSamplerOverrideFields>(
+    () => shared.modelSamplerOverrides ?? {}
   );
   const [resolutionOrientation, setResolutionOrientation] = useState<ResolutionOrientation>(() =>
     normalizeResolutionOrientation(shared.modelResolutionOrientation)
@@ -682,6 +688,7 @@ export default function SharedToolControls({
   useEffect(() => {
     scheduleAfterCommit(() => {
       setSamplerPreset(normalizeModelSamplerPresetTier(shared.modelSamplerPreset));
+      setSamplerOverrides(shared.modelSamplerOverrides ?? {});
       setResolutionOrientation(normalizeResolutionOrientation(shared.modelResolutionOrientation));
       setResolutionSizeTier(normalizeResolutionSizeTier(shared.modelResolutionSizeTier));
       setRenderRealismMode(normalizeRenderRealismMode(shared.renderRealismMode));
@@ -703,6 +710,7 @@ export default function SharedToolControls({
     });
   }, [
     shared.modelSamplerPreset,
+    shared.modelSamplerOverrides,
     shared.modelResolutionOrientation,
     shared.modelResolutionSizeTier,
     shared.renderRealismMode,
@@ -751,6 +759,14 @@ export default function SharedToolControls({
     saveSharedSettings({
       ...loadSettingsCache().shared,
       modelSamplerPreset: preset,
+    });
+  };
+
+  const handleSamplerOverridesChange = (overrides: ModelSamplerOverrideFields) => {
+    setSamplerOverrides(overrides);
+    saveSharedSettings({
+      ...loadSettingsCache().shared,
+      modelSamplerOverrides: overrides,
     });
   };
 
@@ -870,6 +886,7 @@ export default function SharedToolControls({
       normalizeQueueQualityProfile(next.queueQualityProfile ?? queueQualityProfile)
     );
     setSamplerPreset(normalizeModelSamplerPresetTier(next.modelSamplerPreset ?? samplerPreset));
+    setSamplerOverrides(next.modelSamplerOverrides ?? samplerOverrides);
     setResolutionOrientation(
       normalizeResolutionOrientation(next.modelResolutionOrientation ?? resolutionOrientation)
     );
@@ -1115,8 +1132,8 @@ export default function SharedToolControls({
               title="Quality & sampling"
               summary={
                 systemPathActive
-                  ? 'Sampler, resolution, realism, and anatomy overrides.'
-                  : 'Sampler, resolution, queue quality, realism, anatomy, and model recommendations.'
+                  ? `Sampler${hasModelSamplerOverrides(samplerOverrides) ? ' · overrides' : ''}, resolution, realism, anatomy.`
+                  : `Sampler${hasModelSamplerOverrides(samplerOverrides) ? ' · overrides' : ''}, resolution, queue quality, realism, anatomy.`
               }
               defaultOpen={advancedOpenByDefault}
               persistKey="shared-quality-sampling"
@@ -1125,6 +1142,8 @@ export default function SharedToolControls({
                 model={shared.model}
                 preset={samplerPreset}
                 onPresetChange={handleSamplerPresetChange}
+                overrides={samplerOverrides}
+                onOverridesChange={handleSamplerOverridesChange}
               />
 
               <ModelResolutionHints

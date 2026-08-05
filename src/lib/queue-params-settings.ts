@@ -4,8 +4,10 @@ import {
   DEFAULT_MODEL_SAMPLER_PRESET_TIER,
   ensureDistilledSamplerParams,
   normalizeModelSamplerPresetTier,
+  pickModelSamplerOverrideFields,
   resolveModelSamplerParams,
   type ModelSamplerPresetTier,
+  type ModelSamplerOverrideFields,
 } from './model-sampler-defaults';
 import { resolveModelSamplingParams } from './model-sampling-patch';
 import { resolveDenoiseForModel, resolveKleinEditCfg } from './model-denoise-defaults';
@@ -63,6 +65,8 @@ export type ResolveQueueParamsOptions = {
   controlImageFilenames?: string[];
   qualityProfile?: QueueQualityProfile;
   workflow?: Record<string, unknown>;
+  /** Sidebar KSampler overrides (falls back to shared.modelSamplerOverrides). */
+  samplerOverrides?: ModelSamplerOverrideFields;
 };
 
 function loadModelSamplerPresetTier(): ModelSamplerPresetTier {
@@ -136,7 +140,8 @@ function normalizeResolveQueueParamsInput(
     'controlImageFilename' in input ||
     'controlImageFilenames' in input ||
     'qualityProfile' in input ||
-    'workflow' in input
+    'workflow' in input ||
+    'samplerOverrides' in input
   ) {
     return input as ResolveQueueParamsOptions;
   }
@@ -160,6 +165,7 @@ export function resolveQueueParams(
     controlImageFilenames,
     qualityProfile,
     workflow,
+    samplerOverrides,
   } = normalizeResolveQueueParamsInput(input);
   const settings = loadQueueParamsSettings();
   const shared = loadSettingsCache().shared;
@@ -187,6 +193,7 @@ export function resolveQueueParams(
         ...resolveModelSamplingParams(model, presetTier),
         // 4–5★ gallery memory overrides catalog sampler defaults (not sidebar overrides).
         ...rememberedSamplerOverrides(model),
+        ...pickModelSamplerOverrideFields(samplerOverrides ?? shared.modelSamplerOverrides),
       }
     : {};
 

@@ -540,6 +540,31 @@ export function ensureDistilledSamplerParams(
   );
 }
 
+export type ModelSamplerOverrideFields = Partial<
+  Pick<WorkflowParamValues, 'steps' | 'cfg' | 'samplerName' | 'scheduler'>
+>;
+
+export function pickModelSamplerOverrideFields(
+  overrides?: ModelSamplerOverrideFields | null
+): ModelSamplerOverrideFields {
+  if (!overrides) {
+    return {};
+  }
+  const picked: ModelSamplerOverrideFields = {};
+  for (const key of ['steps', 'cfg', 'samplerName', 'scheduler'] as const) {
+    const value = overrides[key];
+    if (value == null || value.toString().trim() === '') {
+      continue;
+    }
+    picked[key] = value.toString().trim();
+  }
+  return picked;
+}
+
+export function hasModelSamplerOverrides(overrides?: ModelSamplerOverrideFields | null): boolean {
+  return Object.keys(pickModelSamplerOverrideFields(overrides)).length > 0;
+}
+
 export function formatModelSamplerHint(
   model: ComfyImageModel | string,
   tier: ModelSamplerPresetTier = DEFAULT_MODEL_SAMPLER_PRESET_TIER
