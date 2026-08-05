@@ -67,7 +67,24 @@ export type ResolveQueueParamsOptions = {
   workflow?: Record<string, unknown>;
   /** Sidebar KSampler overrides (falls back to shared.modelSamplerOverrides). */
   samplerOverrides?: ModelSamplerOverrideFields;
+  /**
+   * Roll a fresh random seed on each call unless the user pinned seed in
+   * Advanced queue params (ignores base/handoff/model default seeds).
+   */
+  forceNewSeed?: boolean;
 };
+
+/** Random KSampler seed for a new queue job. */
+export function rollQueueSeed(): string {
+  return String(Math.floor(Math.random() * 2 ** 32));
+}
+
+export function resolvePinnedQueueSeed(
+  settings: QueueParamsSettings = loadQueueParamsSettings()
+): string | undefined {
+  const pinned = settings.seed?.toString().trim();
+  return pinned || undefined;
+}
 
 function loadModelSamplerPresetTier(): ModelSamplerPresetTier {
   if (typeof window === 'undefined') {
@@ -141,7 +158,8 @@ function normalizeResolveQueueParamsInput(
     'controlImageFilenames' in input ||
     'qualityProfile' in input ||
     'workflow' in input ||
-    'samplerOverrides' in input
+    'samplerOverrides' in input ||
+    'forceNewSeed' in input
   ) {
     return input as ResolveQueueParamsOptions;
   }
@@ -166,6 +184,7 @@ export function resolveQueueParams(
     qualityProfile,
     workflow,
     samplerOverrides,
+    forceNewSeed,
   } = normalizeResolveQueueParamsInput(input);
   const settings = loadQueueParamsSettings();
   const shared = loadSettingsCache().shared;
@@ -197,11 +216,14 @@ export function resolveQueueParams(
       }
     : {};
 
+  const pinnedSeed = resolvePinnedQueueSeed(settings);
   const seed =
-    settings.seed?.toString().trim() ||
-    base?.seed?.toString().trim() ||
-    modelDefaults.seed?.toString().trim() ||
-    String(Math.floor(Math.random() * 2 ** 32));
+    pinnedSeed ??
+    (forceNewSeed
+      ? rollQueueSeed()
+      : base?.seed?.toString().trim() ||
+        modelDefaults.seed?.toString().trim() ||
+        rollQueueSeed());
 
   const merged: WorkflowParamValues = {
     seed,

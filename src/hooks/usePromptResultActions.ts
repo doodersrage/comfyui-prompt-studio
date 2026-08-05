@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { usePromptHistory } from '@/hooks/usePromptHistory';
 import type { GenerationDiagnostics } from '@/lib/generation-diagnostics';
 import { formatPromptPair, modelUsesNegativePrompt } from '@/lib/prompt-pair';
@@ -73,6 +73,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
   const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
   const [workflowPreview, setWorkflowPreview] = useState<WorkflowPreviewResult | null>(null);
   const [previewStatus, setPreviewStatus] = useState<string | null>(null);
+  /** Bumped on each queue so stale gallery polls cannot overwrite a newer job preview. */
+  const previewGenerationRef = useRef(0);
 
   const resetStatuses = useCallback(() => {
     setHistorySaved(false);
@@ -106,6 +108,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       },
       showPreview = true
     ) => {
+      const generation = previewGenerationRef.current;
       const engineId = input.engineId ?? getEngineAdapter().id;
       const galleryEntry = registerComfyGalleryJob({
         promptId: input.promptId,
@@ -141,11 +144,17 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
       void scheduleComfyGalleryPoll(input.promptId, {
         comfyUrl: input.comfyUrl,
         onJobUpdate: job => {
+          if (generation !== previewGenerationRef.current) {
+            return;
+          }
           const next = { ...job, engineId: job.engineId ?? engineId };
           setComfyUiJob(next);
           setComfyUiStatus(formatComfyUiJobStatusLine(next));
         },
       }).then(entry => {
+        if (generation !== previewGenerationRef.current) {
+          return;
+        }
         if (!entry) {
           return;
         }
@@ -425,6 +434,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         return;
       }
 
+      previewGenerationRef.current += 1;
+      setComfyUiPreviewUrl(null);
       setComfyUiStatus('Queueing…');
       try {
         const pluginPreflight = await runPluginQueuePreflight({
@@ -670,6 +681,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           controlImageFilenames:
             controlImageFilenames.length > 0 ? controlImageFilenames : undefined,
           qualityProfile: effectiveQualityProfile,
+          forceNewSeed: true,
         });
 
         // Compose/Refine: match EmptyLatent aspect to the uploaded figure so
