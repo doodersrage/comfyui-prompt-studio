@@ -6,13 +6,15 @@ import {
   formatAnatomyGuardHint,
   type AnatomyGuardMode,
 } from '@/lib/anatomy-guard';
+import type { ComfyImageModel } from '@/lib/comfy-models/client';
 
 type AnatomyGuardHintsProps = {
   mode: AnatomyGuardMode;
   onModeChange: (mode: AnatomyGuardMode) => void;
+  model?: ComfyImageModel | string;
 };
 
-export default function AnatomyGuardHints({ mode, onModeChange }: AnatomyGuardHintsProps) {
+export default function AnatomyGuardHints({ mode, onModeChange, model }: AnatomyGuardHintsProps) {
   const activeOption =
     ANATOMY_GUARD_OPTIONS.find(option => option.id === mode) ?? ANATOMY_GUARD_OPTIONS[0];
 
@@ -21,7 +23,7 @@ export default function AnatomyGuardHints({ mode, onModeChange }: AnatomyGuardHi
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="type-caption text-sky-200/85">Anatomy guard on queue</p>
-          <p className="text-xs text-zinc-300">{formatAnatomyGuardHint(mode)}</p>
+          <p className="text-xs text-zinc-300">{formatAnatomyGuardHint(mode, model)}</p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-1.5">
           {ANATOMY_GUARD_OPTIONS.map(option => (

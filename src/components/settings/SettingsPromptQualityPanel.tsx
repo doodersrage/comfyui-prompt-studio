@@ -122,6 +122,7 @@ export default function SettingsPromptQualityPanel({
         <AnatomyGuardHints
           mode={sharedSettings.anatomyGuardMode ?? 'standard'}
           onModeChange={mode => updateSharedSettings({ anatomyGuardMode: mode })}
+          model={sharedSettings.model}
         />
         <label className="flex items-start gap-2 rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2.5 text-sm text-zinc-300 transition hover:bg-zinc-900/50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-violet-500/40">
           <input

@@ -59,10 +59,40 @@ describe("anatomy guard", () => {
       model: "flux-2-klein-9b-distilled",
       mode: "strict",
     });
-    assert.match(result.positive, /five distinct fingers|anatomically correct hands/i);
-    assert.match(result.positive, /when hands appear in frame|fingers distinct/i);
+    assert.match(result.positive, /exactly five separate fingers|five separate fingers with clear knuckles/i);
+    assert.match(result.positive, /when hands appear in frame|separated and readable/i);
     assert.doesNotMatch(result.positive, /simple standing pose|prefer simple standing/i);
-    assert.match(result.positive, /extra or fused fingers|extra limbs/i);
+    assert.match(result.positive, /extra or fused fingers|webbed or melted hands|extra limbs/i);
+  });
+
+  it("front-loads strict hand cues for klein distilled when people are likely", () => {
+    const result = applyAnatomyGuardForModel({
+      positive:
+        "Street fighter Chun-Li in a blue dress costume, dynamic fighting stance, neon alley.",
+      model: "flux-2-klein-9b-distilled",
+      mode: "strict",
+    });
+    const firstSentenceEnd = result.positive.indexOf(".") + 1;
+    const lead = result.positive.slice(0, firstSentenceEnd + 80);
+    assert.match(lead, /five separate fingers/i);
+    assert.ok(result.positive.indexOf("five separate fingers") < result.positive.length / 2);
+  });
+
+  it("strict klein distilled differs from standard on hand-heavy prompts", () => {
+    const prompt = "Portrait of a martial artist with hands visible.";
+    const standard = applyAnatomyGuardForModel({
+      positive: prompt,
+      model: "flux-2-klein-9b-distilled",
+      mode: "standard",
+    });
+    const strict = applyAnatomyGuardForModel({
+      positive: prompt,
+      model: "flux-2-klein-9b-distilled",
+      mode: "strict",
+    });
+    assert.notEqual(strict.positive, standard.positive);
+    assert.match(strict.positive, /exactly five separate fingers/i);
+    assert.doesNotMatch(standard.positive, /exactly five separate fingers/i);
   });
 
   it("does not force standing pose language on standard klein distilled", () => {

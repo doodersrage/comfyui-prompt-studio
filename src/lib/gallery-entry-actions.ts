@@ -142,6 +142,23 @@ export function canFaceDetailGalleryEntry(
   return true;
 }
 
+/** Anatomy repair opens Inpaint with a pre-filled limb-fix prompt — mask required. */
+export function galleryEntrySupportsAnatomyRepair(model?: string): boolean {
+  return galleryEntrySupportsRefine(model);
+}
+
+export function canAnatomyRepairGalleryEntry(
+  entry: Pick<ComfyGalleryEntry, 'status' | 'images' | 'sourceImageUrl' | 'comfyUrl' | 'model'>
+): boolean {
+  if (!galleryEntrySupportsAnatomyRepair(entry.model)) {
+    return false;
+  }
+  if (entry.status !== 'completed') {
+    return false;
+  }
+  return Boolean(resolveGalleryOutputImageUrl(entry));
+}
+
 export function canMoireCleanGalleryEntry(
   entry: Pick<
     ComfyGalleryEntry,

@@ -8,6 +8,7 @@ import {
   type GalleryLayoutMode,
 } from '@/lib/comfyui-gallery';
 import {
+  canAnatomyRepairGalleryEntry,
   canFaceDetailGalleryEntry,
   canUpscaleGalleryEntry,
   galleryEntryAlreadyEnrichedForUpscale,
@@ -31,6 +32,7 @@ export type GalleryCardActions = {
   refine: (id: string) => void;
   softSecondPass: (id: string) => void;
   faceDetail: (id: string) => void;
+  anatomyRepair: (id: string) => void;
   moireClean: (id: string, qualityProfile: 'final' | 'max', options?: { force?: boolean }) => void;
   showParent: (id: string) => void;
   showDerivatives: (id: string) => void;
@@ -99,6 +101,10 @@ function GalleryCardItem({
   );
   const onFaceDetail = useCallback(
     () => actionsRef.current.faceDetail(entry.id),
+    [actionsRef, entry.id]
+  );
+  const onAnatomyRepair = useCallback(
+    () => actionsRef.current.anatomyRepair(entry.id),
     [actionsRef, entry.id]
   );
   const onMoireClean = useCallback(
@@ -170,6 +176,7 @@ function GalleryCardItem({
       onRefine={onRefine}
       onSoftSecondPass={onSoftSecondPass}
       onFaceDetail={onFaceDetail}
+      onAnatomyRepair={onAnatomyRepair}
       onMoireClean={onMoireClean}
       showUpscaleActions={galleryEntrySupportsUpscale(entry.model)}
       showUpscaleFinal={canUpscaleGalleryEntry(entry, 'final')}
@@ -182,6 +189,7 @@ function GalleryCardItem({
       showRefineAction={galleryEntrySupportsRefine(entry.model)}
       showSoftSecondPassAction={galleryEntrySupportsSoftSecondPass(entry.model)}
       showFaceDetailAction={canFaceDetailGalleryEntry(entry)}
+      showAnatomyRepairAction={canAnatomyRepairGalleryEntry(entry)}
       showMoireCleanActions={galleryEntrySupportsMoireClean(entry.model)}
       showMoireCleanFinal={
         galleryEntrySupportsMoireClean(entry.model) &&

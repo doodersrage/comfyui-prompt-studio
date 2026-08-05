@@ -1184,6 +1184,7 @@ export default function SharedToolControls({
               <AnatomyGuardHints
                 mode={anatomyGuardMode}
                 onModeChange={handleAnatomyGuardModeChange}
+                model={shared.model}
               />
 
               {recommendFromText ? (

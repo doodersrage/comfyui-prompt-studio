@@ -33,6 +33,8 @@ export type GalleryHandoffPayload = {
     | 'video'
     | 'compose';
   improveIntent?: string;
+  /** Gallery → Anatomy repair opens Inpaint with pre-filled limb-fix prompts. */
+  anatomyRepair?: boolean;
   queueParams?: WorkflowParamValues;
   /** Restore LoRA session picks (from entry or current session). */
   sessionActiveLoraIds?: string[];

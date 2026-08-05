@@ -10,6 +10,10 @@ import {
   type GalleryHandoffPayload,
 } from './gallery-handoff';
 import { setLineageParent } from './prompt-lineage-session';
+import {
+  buildAnatomyRepairGalleryHandoff,
+  galleryAnatomyRepairPath,
+} from './anatomy-repair-handoff';
 import type { ComfyGalleryEntry } from './comfyui-gallery';
 
 export function startImproveFromResult(input: {
@@ -96,6 +100,11 @@ export function startInpaintFromGalleryEntry(entry: ComfyGalleryEntry): void {
     model: entry.model === 'flux-inpaint' ? entry.model : 'flux-inpaint',
   });
   window.location.href = galleryHandoffPath('inpaint');
+}
+
+export function startAnatomyRepairFromGalleryEntry(entry: ComfyGalleryEntry): void {
+  saveGalleryHandoff(buildAnatomyRepairGalleryHandoff(entry));
+  window.location.href = galleryAnatomyRepairPath();
 }
 
 export function startOutpaintFromGalleryEntry(entry: ComfyGalleryEntry): void {

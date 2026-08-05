@@ -18,6 +18,7 @@ import {
   resolveGalleryRenderDurationMs,
 } from '@/lib/comfyui-render-duration';
 import {
+  startAnatomyRepairFromGalleryEntry,
   startImproveFromGalleryEntry,
   startInpaintFromGalleryEntry,
   startOutpaintFromGalleryEntry,
@@ -59,6 +60,7 @@ type GalleryCardProps = {
   onRefine: () => void;
   onSoftSecondPass?: () => void;
   onFaceDetail?: () => void;
+  onAnatomyRepair?: () => void;
   onMoireClean?: (qualityProfile: 'final' | 'max', options?: { force?: boolean }) => void;
   /** When false, hide both Final and Max upscale items (unless finer flags set). */
   showUpscaleActions?: boolean;
@@ -68,6 +70,7 @@ type GalleryCardProps = {
   showRefineAction?: boolean;
   showSoftSecondPassAction?: boolean;
   showFaceDetailAction?: boolean;
+  showAnatomyRepairAction?: boolean;
   showMoireCleanActions?: boolean;
   showMoireCleanFinal?: boolean;
   showMoireCleanMax?: boolean;
@@ -133,6 +136,7 @@ export default function GalleryCard({
   onRefine,
   onSoftSecondPass,
   onFaceDetail,
+  onAnatomyRepair,
   onMoireClean,
   showUpscaleActions = true,
   showUpscaleFinal,
@@ -141,6 +145,7 @@ export default function GalleryCard({
   showRefineAction = true,
   showSoftSecondPassAction = true,
   showFaceDetailAction = false,
+  showAnatomyRepairAction = false,
   showMoireCleanActions = true,
   showMoireCleanFinal,
   showMoireCleanMax,
@@ -450,12 +455,12 @@ export default function GalleryCard({
             ) : null}
           </button>
           {layout !== 'list' && !(pickMode && pickable) ? (
-            <div className="pointer-events-none absolute inset-0 flex items-end justify-center gap-2 bg-gradient-to-t from-zinc-950/95 via-zinc-950/35 to-transparent p-3 opacity-0 transition duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100 group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100">
-              <>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-zinc-950/95 via-zinc-950/40 to-transparent px-2 pb-2.5 pt-8 opacity-0 transition duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100 group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100">
+              <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => onOpenImage(0)}
-                  className="pointer-events-auto rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-2.5 py-1 text-[11px] text-zinc-200 backdrop-blur transition hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
+                  className="shrink-0 whitespace-nowrap rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-2 py-0.5 text-[10px] text-zinc-200 backdrop-blur transition hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
                 >
                   Open
                 </button>
@@ -464,27 +469,22 @@ export default function GalleryCard({
                     <button
                       type="button"
                       onClick={() => startImproveFromGalleryEntry(entry)}
-                      className="pointer-events-auto rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200 backdrop-blur transition hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/45 active:scale-[0.98]"
+                      className="shrink-0 whitespace-nowrap rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-200 backdrop-blur transition hover:bg-emerald-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/45 active:scale-[0.98]"
                     >
                       Improve
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => startInpaintFromGalleryEntry(entry)}
-                      className="pointer-events-auto rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-100 backdrop-blur transition hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/45 active:scale-[0.98]"
-                    >
-                      Inpaint
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => startOutpaintFromGalleryEntry(entry)}
-                      className="pointer-events-auto rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-100 backdrop-blur transition hover:bg-sky-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/45 active:scale-[0.98]"
-                    >
-                      Outpaint
-                    </button>
+                    {layout !== 'dense' ? (
+                      <button
+                        type="button"
+                        onClick={() => startInpaintFromGalleryEntry(entry)}
+                        className="shrink-0 whitespace-nowrap rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-100 backdrop-blur transition hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/45 active:scale-[0.98]"
+                      >
+                        Inpaint
+                      </button>
+                    ) : null}
                   </>
                 ) : null}
-              </>
+              </div>
             </div>
           ) : null}
         </>
@@ -882,6 +882,19 @@ export default function GalleryCard({
                                 setMenuOpen(false);
                               }}
                             />
+                            {showAnatomyRepairAction ? (
+                              <GalleryMenuButton
+                                label="Anatomy repair"
+                                onClick={() => {
+                                  if (onAnatomyRepair) {
+                                    onAnatomyRepair();
+                                  } else {
+                                    startAnatomyRepairFromGalleryEntry(entry);
+                                  }
+                                  setMenuOpen(false);
+                                }}
+                              />
+                            ) : null}
                             <GalleryMenuButton
                               label="Outpaint"
                               onClick={() => {
@@ -899,6 +912,19 @@ export default function GalleryCard({
                             setMenuOpen(false);
                           }}
                         />
+                        {primaryMediaKind === 'image' && previewUrl && showAnatomyRepairAction ? (
+                          <GalleryMenuButton
+                            label="Anatomy repair → inpaint limb"
+                            onClick={() => {
+                              if (onAnatomyRepair) {
+                                onAnatomyRepair();
+                              } else {
+                                startAnatomyRepairFromGalleryEntry(entry);
+                              }
+                              setMenuOpen(false);
+                            }}
+                          />
+                        ) : null}
                         <GalleryMenuButton
                           label="Re-edit · Refine (same stack)"
                           onClick={() => {

@@ -7,7 +7,7 @@ import ModalPortal from '@/components/ui/ModalPortal';
 import ImageLightbox, { type ImageLightboxState } from '@/components/ui/ImageLightbox';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { useComfyUiGallery } from '@/hooks/useComfyUiGallery';
-import { startImproveFromGalleryEntry } from '@/lib/improve-output';
+import { startAnatomyRepairFromGalleryEntry, startImproveFromGalleryEntry } from '@/lib/improve-output';
 import {
   appendUserToolQualityRecipe,
   buildToolQualityRecipeFromGalleryEntry,
@@ -226,6 +226,7 @@ export default function ComfyUiGalleryPanel({
     refine: () => undefined,
     softSecondPass: () => undefined,
     faceDetail: () => undefined,
+    anatomyRepair: () => undefined,
     moireClean: () => undefined,
     showParent: () => undefined,
     showDerivatives: () => undefined,
@@ -927,6 +928,13 @@ export default function ComfyUiGalleryPanel({
             setRequeueStatus(message);
             toastQueueOutcome({ ok: true, text: message });
           });
+      },
+      anatomyRepair: (id: string) => {
+        const entry = entriesRef.current.find(item => item.id === id);
+        if (!entry) {
+          return;
+        }
+        startAnatomyRepairFromGalleryEntry(entry);
       },
       moireClean: (id: string, qualityProfile: 'final' | 'max', options?: { force?: boolean }) => {
         const entry = entriesRef.current.find(item => item.id === id);

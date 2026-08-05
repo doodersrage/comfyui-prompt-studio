@@ -53,14 +53,17 @@ const KLEIN_DISTILLED_ANATOMY_POSITIVE: Record<Exclude<AnatomyGuardMode, 'off'>,
   standard:
     'natural limb count, five fingers per hand, clear wrists, anatomically correct hands, coherent single body',
   strict:
-    'natural limb count, five distinct fingers per hand, clear wrists and elbows, anatomically correct hands, coherent single body, no overlapping limbs',
+    'exactly five separate fingers on each visible hand with visible knuckles and a natural thumb, clear wrists and elbows, anatomically correct hands, natural limb count, coherent single body, no overlapping or fused digits',
 };
+
+const KLEIN_DISTILLED_STRICT_HAND_FRONLOAD =
+  'Each visible hand shows exactly five separate fingers with clear knuckles and a natural thumb—no extra, missing, or fused digits.';
 
 const KLEIN_DISTILLED_ANATOMY_AVOID: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
   standard:
     'Avoid extra limbs, missing limbs, extra or fused fingers, duplicate hands, and mutated anatomy.',
   strict:
-    'Avoid extra limbs, missing limbs, extra or fused fingers, duplicate hands, mutated anatomy, and body horror.',
+    'Avoid extra limbs, missing limbs, extra or fused fingers, webbed or melted hands, duplicate hands, mutated anatomy, and body horror.',
 };
 
 /**
@@ -70,7 +73,7 @@ const KLEIN_DISTILLED_ANATOMY_AVOID: Record<Exclude<AnatomyGuardMode, 'off'>, st
 const KLEIN_DISTILLED_POSE_EXTRA: Record<Exclude<AnatomyGuardMode, 'off'>, string> = {
   standard: '',
   strict:
-    'When hands appear in frame, keep fingers distinct and unobscured; do not invent extra limbs to support contact.',
+    'When hands appear in frame, keep every finger separated and readable with visible knuckles; do not hide hands in fists, sleeves, or motion blur; do not invent extra limbs to support contact.',
 };
 
 function isKleinDistilledModel(model: ComfyImageModel | string): boolean {
@@ -126,10 +129,33 @@ function ultraRealHasStrongHandAnatomy(prompt: string): boolean {
 
 function kleinDistilledHasStrongAnatomy(prompt: string): boolean {
   return (
-    /\b(five (?:distinct )?fingers|anatomically correct hands|natural limb count)\b/i.test(
+    /\b(five separate fingers|five distinct fingers|exactly five fingers|anatomically correct hands with five)\b/i.test(
       prompt
-    ) && /\bavoid (?:extra limbs|extra or fused fingers)\b/i.test(prompt)
+    ) && /\bavoid (?:extra limbs|extra or fused fingers|webbed or melted hands)\b/i.test(prompt)
   );
+}
+
+function kleinDistilledHasStrictHandFrontload(prompt: string): boolean {
+  return /\b(exactly five separate fingers|five separate fingers with clear knuckles)\b/i.test(prompt);
+}
+
+/** Likely full figure or hand visibility — strict mode front-loads hand cues for Klein Distilled. */
+function promptLikelyShowsHands(prompt: string): boolean {
+  return /\b(hand|hands|finger|fingers|fist|grip|grasp|holding|waving|punch|kick|fighter|fighting|chun.?li|figure|person|woman|man|girl|boy|character|portrait|full.?body|cowboy.?shot|action pose|martial|boxer|dancer|model)\b/i.test(
+    prompt
+  );
+}
+
+function prependCueAfterFirstSentence(prompt: string, cue: string): string {
+  const trimmed = prompt.trim();
+  if (!trimmed || !cue.trim()) {
+    return trimmed;
+  }
+  const sentenceBreak = trimmed.match(/^(.+?[.!?])\s+/);
+  if (sentenceBreak) {
+    return `${sentenceBreak[1]} ${cue.trim()} ${trimmed.slice(sentenceBreak[0].length)}`;
+  }
+  return `${cue.trim()} ${trimmed}`;
 }
 
 function kleinDistilledHasPoseGuidance(prompt: string): boolean {
@@ -240,6 +266,15 @@ function applyKleinDistilledAnatomyGuard(input: {
   const maxAppend = input.maxPositiveAppendChars;
   let remaining = typeof maxAppend === 'number' ? Math.max(0, maxAppend) : undefined;
   const hadStrongAnatomy = kleinDistilledHasStrongAnatomy(positive);
+
+  // Strict: front-load hand language early — appended CFG-1 suffixes are weak on 4-step Klein.
+  if (
+    input.mode === 'strict' &&
+    promptLikelyShowsHands(positive) &&
+    !kleinDistilledHasStrictHandFrontload(positive)
+  ) {
+    positive = prependCueAfterFirstSentence(positive, KLEIN_DISTILLED_STRICT_HAND_FRONLOAD);
+  }
 
   // Distilled often already says "accurate anatomy" yet still grows extra fingers —
   // require stronger hand/limb language before skipping.
@@ -460,11 +495,19 @@ export function applyAnatomyGuardForModel(input: {
 }
 
 export function formatAnatomyGuardHint(
-  mode: AnatomyGuardMode = DEFAULT_ANATOMY_GUARD_MODE
+  mode: AnatomyGuardMode = DEFAULT_ANATOMY_GUARD_MODE,
+  model?: ComfyImageModel | string
 ): string {
   if (mode === 'off') {
     return 'Off — no anatomy guards on queue.';
   }
   const option = ANATOMY_GUARD_OPTIONS.find(entry => entry.id === mode) ?? ANATOMY_GUARD_OPTIONS[0];
-  return `${option.label} — ${option.description}`;
+  const base = `${option.label} — ${option.description}`;
+  if (model && isKleinDistilledModel(model)) {
+    if (mode === 'strict') {
+      return `${base} Klein Distilled Strict front-loads hand cues when people are likely; 4-step CFG-1 may still fail on complex hands — Klein 9B Base or Gallery → Anatomy repair for fixes.`;
+    }
+    return `${base} Klein Distilled has limited hand fidelity at 4 steps — use Strict for stronger cues, or Klein 9B Base for full-body people.`;
+  }
+  return base;
 }

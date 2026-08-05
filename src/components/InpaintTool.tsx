@@ -10,6 +10,11 @@ import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
+import {
+  ANATOMY_REPAIR_CHANGE_DESCRIPTION,
+  ANATOMY_REPAIR_MASK_DESCRIPTION,
+  isAnatomyRepairHandoff,
+} from '@/lib/anatomy-repair-handoff';
 import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
@@ -44,6 +49,7 @@ export default function InpaintTool() {
   const [maskFile, setMaskFile] = useState<File | null>(null);
   const [maskPreviewUrl, setMaskPreviewUrl] = useState<string | null>(null);
   const [handoffQueueParams, setHandoffQueueParams] = useState<WorkflowParamValues | undefined>();
+  const [anatomyRepairMode, setAnatomyRepairMode] = useState(false);
   const maskDescription = toolSettings.maskDescription ?? '';
   const changeDescription = toolSettings.changeDescription ?? '';
   const directPrompt = toolSettings.directPrompt ?? '';
@@ -163,9 +169,18 @@ export default function InpaintTool() {
       queueParams?: WorkflowParamValues;
       file: File | null;
       previewUrl: string | null;
+      payload: import('@/lib/gallery-handoff').GalleryHandoffPayload;
     }) => {
-      setChangeDescription(handoff.prompt);
-      setHandoffQueueParams(handoff.queueParams);
+      const anatomy = isAnatomyRepairHandoff(handoff.payload);
+      setAnatomyRepairMode(anatomy);
+      if (anatomy) {
+        setMaskDescription(ANATOMY_REPAIR_MASK_DESCRIPTION);
+        setChangeDescription(ANATOMY_REPAIR_CHANGE_DESCRIPTION);
+        setHandoffQueueParams(handoff.queueParams);
+      } else {
+        setChangeDescription(handoff.prompt);
+        setHandoffQueueParams(handoff.queueParams);
+      }
       if (handoff.file) {
         setFile(handoff.file);
         setPreviewUrl(handoff.previewUrl);
@@ -174,13 +189,16 @@ export default function InpaintTool() {
       }
       clearMaskState();
     },
-    [clearMaskState]
+    [clearMaskState, setChangeDescription, setMaskDescription]
   );
 
   useGalleryHandoff('inpaint', handoff => {
     applyGalleryHandoff(handoff);
-    if (handoff.model && isInpaintModel(handoff.model)) {
-      updateShared({ model: handoff.model as ComfyImageModel });
+    const model = handoff.model ?? handoff.payload.model;
+    if (model && isInpaintModel(model)) {
+      updateShared({ model: model as ComfyImageModel });
+    } else if (isAnatomyRepairHandoff(handoff.payload)) {
+      updateShared({ model: DEFAULT_INPAINT_MODEL });
     }
   });
 
@@ -245,11 +263,18 @@ export default function InpaintTool() {
       badge={<ToolBadge accent={ACCENT}>Inpaint · {selectedModel.comfyNode}</ToolBadge>}
       title="FLUX Inpaint"
       description={
-        <>
-          Upload a source image, paint the edit region, and describe what belongs inside the mask
-          only. Queue uses <code>{`{{INPUT_IMAGE}}`}</code> and <code>{`{{MASK_IMAGE}}`}</code> when
-          your workflow is bound.
-        </>
+        anatomyRepairMode ? (
+          <>
+            Paint over the broken arm, leg, or hand, then queue. Only the masked region is
+            regenerated with anatomy-focused inpaint (denoise ~0.45). Unmasked areas stay as-is.
+          </>
+        ) : (
+          <>
+            Upload a source image, paint the edit region, and describe what belongs inside the mask
+            only. Queue uses <code>{`{{INPUT_IMAGE}}`}</code> and <code>{`{{MASK_IMAGE}}`}</code>{' '}
+            when your workflow is bound.
+          </>
+        )
       }
       sidebar={
         <SharedToolControls
@@ -263,6 +288,12 @@ export default function InpaintTool() {
       }
     >
       <ToolSection>
+        {anatomyRepairMode ? (
+          <p className="mb-4 rounded-xl border border-rose-500/25 bg-rose-500/[0.06] px-3.5 py-3 text-sm leading-relaxed text-rose-100/90">
+            <span className="font-medium text-rose-50">Anatomy repair</span> — mask only the bad
+            limb or hand. Prompts are pre-filled; tweak if needed, then queue with FLUX Inpaint.
+          </p>
+        ) : null}
         <FieldLabel>Source image</FieldLabel>
         <input
           type="file"
