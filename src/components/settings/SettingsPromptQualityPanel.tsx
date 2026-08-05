@@ -136,8 +136,7 @@ export default function SettingsPromptQualityPanel({
           <span>
             <span className="block font-medium text-zinc-200">Flux2 Klein Enhancer pack</span>
             <span className="type-caption mt-0.5 block text-zinc-500">
-              On Klein compose / multi-reference queues, upgrade ReferenceLatent to Multi
-              ReferenceLatent + Identity Feature Transfer Final when{' '}
+              Wire{' '}
               <a
                 href="https://github.com/capitan01R/ComfyUI-Flux2Klein-Enhancer"
                 className="text-violet-300 transition hover:text-violet-200"
@@ -146,10 +145,72 @@ export default function SettingsPromptQualityPanel({
               >
                 ComfyUI-Flux2Klein-Enhancer
               </a>{' '}
-              is installed. Compose identity lock strength maps to HARD/MID/SOFT presets.
+              nodes at queue time when installed: Multi ReferenceLatent + Identity Feature Transfer
+              Final on compose / multi-reference; Text Enhancer on plain Klein T2I; optional Color
+              Anchor on compose. Identity lock strength maps to HARD/MID/SOFT presets.
             </span>
           </span>
         </label>
+        {sharedSettings.kleinEnhancerEnabled !== false ? (
+          <div className="space-y-2 rounded-xl border border-zinc-800/80 bg-zinc-950/30 px-3 py-3">
+            <label className="flex items-start gap-2 text-sm text-zinc-300">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                checked={sharedSettings.kleinEnhancerTextEnabled !== false}
+                disabled={!sharedMounted}
+                onChange={event =>
+                  updateSharedSettings({ kleinEnhancerTextEnabled: event.target.checked })
+                }
+              />
+              <span>
+                <span className="block font-medium text-zinc-200">Text Enhancer</span>
+                <span className="type-caption mt-0.5 block text-zinc-500">
+                  Subtle positive-conditioning emphasis on Klein T2I and compose prompts.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm text-zinc-300">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                checked={sharedSettings.kleinEnhancerColorAnchorEnabled !== false}
+                disabled={!sharedMounted}
+                onChange={event =>
+                  updateSharedSettings({ kleinEnhancerColorAnchorEnabled: event.target.checked })
+                }
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium text-zinc-200">Color Anchor (compose)</span>
+                <span className="type-caption mt-0.5 block text-zinc-500">
+                  Anchors output channel means toward Figure 1 during sampling.
+                </span>
+                {sharedSettings.kleinEnhancerColorAnchorEnabled !== false ? (
+                  <label className="mt-2 block space-y-1">
+                    <span className="type-caption text-zinc-500">
+                      Strength —{' '}
+                      {(sharedSettings.kleinEnhancerColorAnchorStrength ?? 0.45).toFixed(2)}
+                    </span>
+                    <input
+                      type="range"
+                      min={0.15}
+                      max={0.85}
+                      step={0.05}
+                      disabled={!sharedMounted}
+                      value={sharedSettings.kleinEnhancerColorAnchorStrength ?? 0.45}
+                      onChange={event =>
+                        updateSharedSettings({
+                          kleinEnhancerColorAnchorStrength: Number(event.target.value),
+                        })
+                      }
+                      className="w-full accent-violet-500"
+                    />
+                  </label>
+                ) : null}
+              </span>
+            </label>
+          </div>
+        ) : null}
         <QueueQualityProfileHints
           profile={normalizeQueueQualityProfile(sharedSettings.queueQualityProfile)}
           samplerPreset={samplerPreset}

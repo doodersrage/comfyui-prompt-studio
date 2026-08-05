@@ -4,14 +4,18 @@ import { buildWorkflowScaffoldForModel } from "./workflow-scaffold";
 import { ensureKleinReferenceLatentWiringInWorkflow } from "./workflow-img2img-patch";
 import {
   ensureKleinEnhancerPackWiringInWorkflow,
+  KLEIN_COLOR_ANCHOR_NODE,
   KLEIN_IDENTITY_FINAL_NODE,
   KLEIN_MULTI_REF_NODE,
+  KLEIN_TEXT_ENHANCER_NODE,
   resolveKleinEnhancerIdentityPreset,
 } from "./klein-enhancer-workflow-patch";
 
-const ENHANCER_NODES = new Set([
+const COMPOSE_ENHANCER_NODES = new Set([
   KLEIN_MULTI_REF_NODE,
   KLEIN_IDENTITY_FINAL_NODE,
+  KLEIN_COLOR_ANCHOR_NODE,
+  KLEIN_TEXT_ENHANCER_NODE,
 ]);
 
 describe("klein enhancer workflow patch", () => {
@@ -21,7 +25,7 @@ describe("klein enhancer workflow patch", () => {
     assert.equal(resolveKleinEnhancerIdentityPreset({ identityLockStrength: 0.2 }), "SOFT_LOCK");
   });
 
-  it("upgrades ReferenceLatent chain to Multi ReferenceLatent + Identity Final", () => {
+  it("upgrades ReferenceLatent chain to Multi ReferenceLatent + Identity Final + Color Anchor", () => {
     const scaffold = buildWorkflowScaffoldForModel("flux-2-klein-9b");
     const wired = ensureKleinReferenceLatentWiringInWorkflow(
       JSON.parse(scaffold.json) as Record<string, unknown>,
@@ -35,9 +39,11 @@ describe("klein enhancer workflow patch", () => {
     const result = ensureKleinEnhancerPackWiringInWorkflow(wired.workflow, {
       model: "flux-2-klein-9b",
       inputImageFilenames: ["a.png", "b.png"],
-      availableNodeTypes: ENHANCER_NODES,
+      availableNodeTypes: COMPOSE_ENHANCER_NODES,
     });
     assert.equal(result.usedEnhancer, true);
+    assert.equal(result.usedTextEnhancer, true);
+    assert.equal(result.usedColorAnchor, true);
 
     const nodes = result.workflow as Record<
       string,
@@ -45,12 +51,36 @@ describe("klein enhancer workflow patch", () => {
     >;
     assert.ok(Object.values(nodes).some(node => node.class_type === KLEIN_MULTI_REF_NODE));
     assert.ok(Object.values(nodes).some(node => node.class_type === KLEIN_IDENTITY_FINAL_NODE));
+    assert.ok(Object.values(nodes).some(node => node.class_type === KLEIN_TEXT_ENHANCER_NODE));
+    assert.ok(Object.values(nodes).some(node => node.class_type === KLEIN_COLOR_ANCHOR_NODE));
     assert.ok(!Object.values(nodes).some(node => node.class_type === "ReferenceLatent"));
 
     const sampler = Object.values(nodes).find(node => node.class_type === "KSampler");
     const positiveRef = sampler?.inputs?.positive;
     assert.ok(Array.isArray(positiveRef));
     assert.equal(nodes[String(positiveRef[0])]?.class_type, KLEIN_MULTI_REF_NODE);
+  });
+
+  it("wires Text Enhancer on plain Klein T2I", () => {
+    const scaffold = buildWorkflowScaffoldForModel("flux-2-klein-9b");
+    const result = ensureKleinEnhancerPackWiringInWorkflow(
+      JSON.parse(scaffold.json) as Record<string, unknown>,
+      {
+        model: "flux-2-klein-9b",
+        availableNodeTypes: new Set([KLEIN_TEXT_ENHANCER_NODE]),
+      },
+    );
+    assert.equal(result.usedTextEnhancer, true);
+    assert.equal(result.usedEnhancer, false);
+
+    const nodes = result.workflow as Record<
+      string,
+      { class_type?: string; inputs?: Record<string, unknown> }
+    >;
+    const sampler = Object.values(nodes).find(node => node.class_type === "KSampler");
+    const positiveRef = sampler?.inputs?.positive;
+    assert.ok(Array.isArray(positiveRef));
+    assert.equal(nodes[String(positiveRef[0])]?.class_type, KLEIN_TEXT_ENHANCER_NODE);
   });
 
   it("no-ops when enhancer nodes are missing", () => {

@@ -146,6 +146,11 @@ export type SharedToolSettings = {
   /** When true (default), wire Flux2Klein Enhancer on Klein compose/reference queues when installed. */
   kleinEnhancerEnabled?: boolean;
   kleinEnhancerIdentityPreset?: KleinEnhancerIdentityPreset;
+  /** When true (default), wire Flux2KleinTextEnhancer on Klein T2I + compose positive conditioning. */
+  kleinEnhancerTextEnabled?: boolean;
+  /** When true (default), wire Color Anchor on Klein compose model path. */
+  kleinEnhancerColorAnchorEnabled?: boolean;
+  kleinEnhancerColorAnchorStrength?: number;
   /** Latent orientation preset applied when queueing. */
   modelResolutionOrientation?: ResolutionOrientation;
   /** Latent size tier applied when queueing (small / medium / max). */
@@ -591,6 +596,9 @@ export const DEFAULT_SHARED_SETTINGS: SharedToolSettings = {
   modelSamplerPreset: 'base',
   modelSamplerOverrides: {},
   kleinEnhancerEnabled: true,
+  kleinEnhancerTextEnabled: true,
+  kleinEnhancerColorAnchorEnabled: true,
+  kleinEnhancerColorAnchorStrength: 0.45,
   modelResolutionOrientation: DEFAULT_RESOLUTION_ORIENTATION,
   modelResolutionSizeTier: DEFAULT_RESOLUTION_SIZE_TIER,
   renderRealismMode: DEFAULT_RENDER_REALISM_MODE,

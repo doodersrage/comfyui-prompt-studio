@@ -1,16 +1,24 @@
 /**
- * ComfyUI-Flux2Klein-Enhancer pack wiring (Multi ReferenceLatent + Identity Feature Transfer Final).
+ * ComfyUI-Flux2Klein-Enhancer pack wiring:
+ * - Compose / multi-reference: Multi ReferenceLatent + Identity Feature Transfer Final + Color Anchor
+ * - Plain Klein T2I: Text Enhancer on positive conditioning
  * @see https://github.com/capitan01R/ComfyUI-Flux2Klein-Enhancer
  */
 
 import { isFluxKleinModel } from './model-denoise-defaults';
+import { FLUX_GUIDANCE_NODE_TYPE } from './flux-guidance-patch';
 import { normalizeInputImageFilenames } from './workflow-load-image-bindings';
 
 export const KLEIN_MULTI_REF_NODE = 'Flux2KleinMultiReferenceLatent';
 export const KLEIN_IDENTITY_FINAL_NODE = 'IdentityFeatureTransferFinal';
 export const KLEIN_TEXT_ENHANCER_NODE = 'Flux2KleinTextEnhancer';
+export const KLEIN_COLOR_ANCHOR_NODE = 'Flux2KleinColorAnchor';
 
 export type KleinEnhancerIdentityPreset = 'HARD_LOCK' | 'MID_LOCK' | 'SOFT_LOCK';
+
+export const DEFAULT_KLEIN_TEXT_ENHANCER_MAGNITUDE = 1.08;
+export const DEFAULT_KLEIN_TEXT_ENHANCER_CONTRAST = 0.1;
+export const DEFAULT_KLEIN_COLOR_ANCHOR_STRENGTH = 0.45;
 
 type WorkflowNode = {
   class_type?: string;
@@ -23,11 +31,18 @@ export type KleinEnhancerPackWiringOptions = {
   inputImageFilename?: string | null;
   inputImageFilenames?: Array<string | undefined | null> | null;
   availableNodeTypes?: Iterable<string> | null;
-  /** When false, keep stock ReferenceLatent chain. Default true. */
+  /** When false, skip all enhancer wiring. Default true. */
   enabled?: boolean;
   identityPreset?: KleinEnhancerIdentityPreset;
   /** Compose identity-lock strength maps to HARD/MID/SOFT when preset is unset. */
   identityLockStrength?: number;
+  /** Wire Flux2KleinTextEnhancer on positive conditioning (T2I + compose). Default true. */
+  textEnhancerEnabled?: boolean;
+  textEnhancerMagnitude?: number;
+  textEnhancerContrast?: number;
+  /** Wire Color Anchor on compose model path. Default true when references are queued. */
+  colorAnchorEnabled?: boolean;
+  colorAnchorStrength?: number;
 };
 
 export type KleinEnhancerPackWiringResult = {
@@ -36,6 +51,8 @@ export type KleinEnhancerPackWiringResult = {
   insertedNodeIds: string[];
   /** True when Multi ReferenceLatent + Identity Feature Transfer Final were applied. */
   usedEnhancer: boolean;
+  usedTextEnhancer?: boolean;
+  usedColorAnchor?: boolean;
 };
 
 function toTypeSet(available?: Iterable<string> | null): Set<string> | undefined {
@@ -45,12 +62,31 @@ function toTypeSet(available?: Iterable<string> | null): Set<string> | undefined
   return available instanceof Set ? available : new Set(available);
 }
 
-export function kleinEnhancerPackAvailable(availableNodeTypes?: Iterable<string> | null): boolean {
+function nodeTypeAvailable(
+  availableNodeTypes: Iterable<string> | null | undefined,
+  classType: string
+): boolean {
   const types = toTypeSet(availableNodeTypes);
   if (!types) {
     return true;
   }
-  return types.has(KLEIN_MULTI_REF_NODE) && types.has(KLEIN_IDENTITY_FINAL_NODE);
+  return types.has(classType);
+}
+
+/** Compose path: Multi ReferenceLatent + Identity Feature Transfer Final. */
+export function kleinEnhancerPackAvailable(availableNodeTypes?: Iterable<string> | null): boolean {
+  return (
+    nodeTypeAvailable(availableNodeTypes, KLEIN_MULTI_REF_NODE) &&
+    nodeTypeAvailable(availableNodeTypes, KLEIN_IDENTITY_FINAL_NODE)
+  );
+}
+
+export function kleinTextEnhancerAvailable(availableNodeTypes?: Iterable<string> | null): boolean {
+  return nodeTypeAvailable(availableNodeTypes, KLEIN_TEXT_ENHANCER_NODE);
+}
+
+export function kleinColorAnchorAvailable(availableNodeTypes?: Iterable<string> | null): boolean {
+  return nodeTypeAvailable(availableNodeTypes, KLEIN_COLOR_ANCHOR_NODE);
 }
 
 export function resolveKleinEnhancerIdentityPreset(input: {
@@ -75,6 +111,14 @@ export function resolveKleinEnhancerIdentityPreset(input: {
     return 'MID_LOCK';
   }
   return 'SOFT_LOCK';
+}
+
+function normalizeColorAnchorStrength(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return DEFAULT_KLEIN_COLOR_ANCHOR_STRENGTH;
+  }
+  return Math.min(1, Math.max(0, Math.round(n * 100) / 100));
 }
 
 function isNodeOutputRef(value: unknown): value is [string, number] {
@@ -143,6 +187,10 @@ function workflowHasEnhancerIdentity(workflow: Record<string, WorkflowNode>): bo
   );
 }
 
+function workflowHasTextEnhancer(workflow: Record<string, WorkflowNode>): boolean {
+  return Object.values(workflow).some(node => node?.class_type === KLEIN_TEXT_ENHANCER_NODE);
+}
+
 function peelReferenceLatentChain(
   workflow: Record<string, WorkflowNode>,
   positiveRef: [string, number]
@@ -178,11 +226,93 @@ function peelReferenceLatentChain(
   };
 }
 
-/**
- * Upgrade a Klein ReferenceLatent chain to Flux2Klein Multi ReferenceLatent +
- * Identity Feature Transfer Final when the custom nodes are installed.
- */
-export function ensureKleinEnhancerPackWiringInWorkflow(
+function insertTextEnhancerNode(
+  workflow: Record<string, WorkflowNode>,
+  conditioningSource: [string, number],
+  magnitude: number,
+  contrast: number
+): string {
+  const textEnhancerId = nextWorkflowNodeId(workflow);
+  workflow[textEnhancerId] = {
+    class_type: KLEIN_TEXT_ENHANCER_NODE,
+    inputs: {
+      conditioning: conditioningSource,
+      magnitude,
+      contrast,
+      normalize_strength: 0,
+      skip_bos: true,
+      debug: false,
+    },
+    _meta: { title: 'Prompt Studio — Klein text enhancer' },
+  };
+  return textEnhancerId;
+}
+
+function positiveUsesComposeReferenceChain(
+  workflow: Record<string, WorkflowNode>,
+  positiveRef: [string, number]
+): boolean {
+  let cursor = positiveRef[0];
+  const visited = new Set<string>();
+  while (cursor && !visited.has(cursor)) {
+    visited.add(cursor);
+    const node = workflow[cursor];
+    if (!node?.class_type) {
+      break;
+    }
+    if (
+      node.class_type === 'ReferenceLatent' ||
+      node.class_type === KLEIN_MULTI_REF_NODE ||
+      node.class_type === KLEIN_IDENTITY_FINAL_NODE
+    ) {
+      return true;
+    }
+    if (node.class_type === FLUX_GUIDANCE_NODE_TYPE) {
+      const source = node.inputs?.conditioning;
+      cursor = isNodeOutputRef(source) ? source[0] : '';
+      continue;
+    }
+    break;
+  }
+  return false;
+}
+
+function resolveT2ITextEnhancerInsertPoint(
+  workflow: Record<string, WorkflowNode>,
+  sampler: { samplerId: string; inputs: Record<string, unknown> },
+  positiveRef: [string, number]
+): {
+  conditioningSource: [string, number];
+  consumers: Array<{ nodeId: string; inputKey: string }>;
+} | null {
+  const directId = positiveRef[0];
+  const directNode = workflow[directId];
+  if (!directNode?.class_type) {
+    return null;
+  }
+  if (directNode.class_type === KLEIN_TEXT_ENHANCER_NODE) {
+    return null;
+  }
+  if (directNode.class_type === FLUX_GUIDANCE_NODE_TYPE) {
+    const source = directNode.inputs?.conditioning;
+    if (!isNodeOutputRef(source)) {
+      return null;
+    }
+    return {
+      conditioningSource: source,
+      consumers: [{ nodeId: directId, inputKey: 'conditioning' }],
+    };
+  }
+  if (directNode.class_type === 'CLIPTextEncode') {
+    return {
+      conditioningSource: positiveRef,
+      consumers: [{ nodeId: sampler.samplerId, inputKey: 'positive' }],
+    };
+  }
+  return null;
+}
+
+function wireKleinT2ITextEnhancer(
   workflow: Record<string, unknown>,
   options: KleinEnhancerPackWiringOptions
 ): KleinEnhancerPackWiringResult {
@@ -193,20 +323,69 @@ export function ensureKleinEnhancerPackWiringInWorkflow(
     usedEnhancer: false,
   };
 
-  if (options.enabled === false || !isFluxKleinModel(options.model)) {
-    return empty;
-  }
-  if (!kleinEnhancerPackAvailable(options.availableNodeTypes)) {
+  if (options.textEnhancerEnabled === false || !kleinTextEnhancerAvailable(options.availableNodeTypes)) {
     return empty;
   }
 
-  const figures = normalizeInputImageFilenames(
-    options.inputImageFilename,
-    options.inputImageFilenames ?? undefined
-  );
-  if (figures.length === 0) {
+  const typed = workflow as Record<string, WorkflowNode>;
+  if (workflowHasTextEnhancer(typed)) {
     return empty;
   }
+
+  const sampler = findPrimarySampler(typed);
+  if (!sampler) {
+    return empty;
+  }
+
+  const positiveRef = sampler.inputs.positive;
+  if (!isNodeOutputRef(positiveRef)) {
+    return empty;
+  }
+  if (positiveUsesComposeReferenceChain(typed, positiveRef)) {
+    return empty;
+  }
+
+  const insertPoint = resolveT2ITextEnhancerInsertPoint(typed, sampler, positiveRef);
+  if (!insertPoint) {
+    return empty;
+  }
+
+  const next = structuredClone(workflow) as Record<string, WorkflowNode>;
+  const magnitude = options.textEnhancerMagnitude ?? DEFAULT_KLEIN_TEXT_ENHANCER_MAGNITUDE;
+  const contrast = options.textEnhancerContrast ?? DEFAULT_KLEIN_TEXT_ENHANCER_CONTRAST;
+  const textEnhancerId = insertTextEnhancerNode(
+    next,
+    insertPoint.conditioningSource,
+    magnitude,
+    contrast
+  );
+
+  for (const consumer of insertPoint.consumers) {
+    const node = next[consumer.nodeId];
+    if (node?.inputs) {
+      node.inputs[consumer.inputKey] = [textEnhancerId, 0];
+    }
+  }
+
+  return {
+    workflow: next,
+    wired: true,
+    insertedNodeIds: [textEnhancerId],
+    usedEnhancer: false,
+    usedTextEnhancer: true,
+  };
+}
+
+function wireKleinComposeEnhancerPack(
+  workflow: Record<string, unknown>,
+  options: KleinEnhancerPackWiringOptions
+): KleinEnhancerPackWiringResult {
+  const empty: KleinEnhancerPackWiringResult = {
+    workflow,
+    wired: false,
+    insertedNodeIds: [],
+    usedEnhancer: false,
+  };
 
   const typed = workflow as Record<string, WorkflowNode>;
   if (workflowHasEnhancerIdentity(typed)) {
@@ -237,9 +416,27 @@ export function ensureKleinEnhancerPackWiringInWorkflow(
   const insertedNodeIds: string[] = [];
   const preset = resolveKleinEnhancerIdentityPreset(options);
 
+  let multiRefConditioning: [string, number] = textCond;
+  let usedTextEnhancer = false;
+  if (
+    options.textEnhancerEnabled !== false &&
+    kleinTextEnhancerAvailable(options.availableNodeTypes) &&
+    !workflowHasTextEnhancer(next)
+  ) {
+    const textEnhancerId = insertTextEnhancerNode(
+      next,
+      textCond,
+      options.textEnhancerMagnitude ?? DEFAULT_KLEIN_TEXT_ENHANCER_MAGNITUDE,
+      options.textEnhancerContrast ?? DEFAULT_KLEIN_TEXT_ENHANCER_CONTRAST
+    );
+    insertedNodeIds.push(textEnhancerId);
+    multiRefConditioning = [textEnhancerId, 0];
+    usedTextEnhancer = true;
+  }
+
   const multiRefId = nextWorkflowNodeId(next);
   const multiInputs: Record<string, unknown> = {
-    conditioning: textCond,
+    conditioning: multiRefConditioning,
     latent_1: latentEncodes[0],
   };
   for (let index = 1; index < Math.min(latentEncodes.length, 8); index += 1) {
@@ -282,9 +479,36 @@ export function ensureKleinEnhancerPackWiringInWorkflow(
     samplerNode.inputs.positive = [multiRefId, 0];
   }
 
+  let modelOutputRef: [string, number] = [identityId, 0];
+  let usedColorAnchor = false;
+  const colorStrength = normalizeColorAnchorStrength(options.colorAnchorStrength);
+  if (
+    options.colorAnchorEnabled !== false &&
+    colorStrength > 0 &&
+    kleinColorAnchorAvailable(options.availableNodeTypes)
+  ) {
+    const colorAnchorId = nextWorkflowNodeId(next);
+    next[colorAnchorId] = {
+      class_type: KLEIN_COLOR_ANCHOR_NODE,
+      inputs: {
+        model: [identityId, 0],
+        conditioning: [multiRefId, 0],
+        strength: colorStrength,
+        ramp_curve: 1.5,
+        ref_index: 0,
+        channel_weights: 'uniform',
+        debug: false,
+      },
+      _meta: { title: 'Prompt Studio — Klein color anchor' },
+    };
+    insertedNodeIds.push(colorAnchorId);
+    modelOutputRef = [colorAnchorId, 0];
+    usedColorAnchor = true;
+  }
+
   const consumer = next[modelLink.consumerId];
   if (consumer?.inputs) {
-    consumer.inputs[modelLink.inputKey] = [identityId, 0];
+    consumer.inputs[modelLink.inputKey] = modelOutputRef;
   }
 
   return {
@@ -292,7 +516,46 @@ export function ensureKleinEnhancerPackWiringInWorkflow(
     wired: true,
     insertedNodeIds,
     usedEnhancer: true,
+    usedTextEnhancer,
+    usedColorAnchor,
   };
+}
+
+/**
+ * Apply Flux2 Klein Enhancer pack wiring for compose/multi-reference and plain T2I.
+ */
+export function ensureKleinEnhancerPackWiringInWorkflow(
+  workflow: Record<string, unknown>,
+  options: KleinEnhancerPackWiringOptions
+): KleinEnhancerPackWiringResult {
+  const empty: KleinEnhancerPackWiringResult = {
+    workflow,
+    wired: false,
+    insertedNodeIds: [],
+    usedEnhancer: false,
+  };
+
+  if (options.enabled === false || !isFluxKleinModel(options.model)) {
+    return empty;
+  }
+
+  const figures = normalizeInputImageFilenames(
+    options.inputImageFilename,
+    options.inputImageFilenames ?? undefined
+  );
+
+  if (figures.length > 0 && kleinEnhancerPackAvailable(options.availableNodeTypes)) {
+    const composeResult = wireKleinComposeEnhancerPack(workflow, options);
+    if (composeResult.wired) {
+      return composeResult;
+    }
+  }
+
+  if (figures.length === 0) {
+    return wireKleinT2ITextEnhancer(workflow, options);
+  }
+
+  return empty;
 }
 
 export function workflowUsesKleinEnhancerIdentity(

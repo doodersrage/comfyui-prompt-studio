@@ -155,6 +155,8 @@ export function formatKleinEnhancerIdentityHint(input: {
   enabled?: boolean;
   identityLockStrength?: number;
   preset?: import('./klein-enhancer-workflow-patch').KleinEnhancerIdentityPreset;
+  textEnhancerEnabled?: boolean;
+  colorAnchorEnabled?: boolean;
 }): string {
   if (input.enabled === false) {
     return 'Off — stock ReferenceLatent chain (no Identity Feature Transfer Final).';
@@ -163,7 +165,25 @@ export function formatKleinEnhancerIdentityHint(input: {
     preset: input.preset,
     identityLockStrength: input.identityLockStrength,
   });
-  return `Flux2 Klein Enhancer · Identity Feature Transfer Final (${preset.replace('_', ' ')}) on model path; Multi ReferenceLatent for figures.`;
+  const parts = [
+    `Flux2 Klein Enhancer · Identity Feature Transfer Final (${preset.replace('_', ' ')})`,
+    'Multi ReferenceLatent for figures',
+  ];
+  if (input.textEnhancerEnabled !== false) {
+    parts.push('Text Enhancer on prompt conditioning');
+  }
+  if (input.colorAnchorEnabled !== false) {
+    parts.push('Color Anchor on model path');
+  }
+  return `${parts.join('; ')}.`;
+}
+
+/** Hint for plain Klein T2I when only Text Enhancer applies. */
+export function formatKleinEnhancerT2IHint(input: { enabled?: boolean; textEnhancerEnabled?: boolean }): string {
+  if (input.enabled === false || input.textEnhancerEnabled === false) {
+    return 'Off — stock Klein T2I conditioning.';
+  }
+  return 'Flux2 Klein Enhancer · Text Enhancer on positive conditioning (subtle prompt emphasis).';
 }
 
 /** True when queue should prefer InstantID/PuLID insert over IP-Adapter. */

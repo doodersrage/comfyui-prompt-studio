@@ -28,6 +28,7 @@ import {
 import {
   DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH,
   formatComposeIdentityLockHint,
+  formatKleinEnhancerIdentityHint,
   normalizeComposeIdentityKind,
   normalizeComposeIdentityLockStrength,
   type ComposeIdentityKind,
@@ -260,6 +261,33 @@ export default function ComposeTool() {
     toolSettings.identityLockStrength ?? DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH
   );
   const identityKind = normalizeComposeIdentityKind(toolSettings.identityKind);
+  const kleinEnhancerActive =
+    isFluxKleinModel(shared.model) && shared.kleinEnhancerEnabled !== false;
+  const identityLockHint = useMemo(() => {
+    if (kleinEnhancerActive && identityLock) {
+      return formatKleinEnhancerIdentityHint({
+        enabled: shared.kleinEnhancerEnabled,
+        identityLockStrength,
+        preset: shared.kleinEnhancerIdentityPreset,
+        textEnhancerEnabled: shared.kleinEnhancerTextEnabled,
+        colorAnchorEnabled: shared.kleinEnhancerColorAnchorEnabled,
+      });
+    }
+    return formatComposeIdentityLockHint({
+      enabled: identityLock,
+      strength: identityLockStrength,
+      identityKind,
+    });
+  }, [
+    identityKind,
+    identityLock,
+    identityLockStrength,
+    kleinEnhancerActive,
+    shared.kleinEnhancerColorAnchorEnabled,
+    shared.kleinEnhancerEnabled,
+    shared.kleinEnhancerIdentityPreset,
+    shared.kleinEnhancerTextEnabled,
+  ]);
   const regionalSlots = toolSettings.regionalSlots ?? createDefaultRegionalSlots();
   const regionalQueue = useMemo(() => regionalSlotsQueueExtras(regionalSlots), [regionalSlots]);
 
@@ -469,13 +497,7 @@ export default function ComposeTool() {
                 <span className="block text-sm font-medium text-cyan-50/95">
                   Lock identity from Figure 1
                 </span>
-                <span className="block text-xs leading-relaxed text-zinc-500">
-                  {formatComposeIdentityLockHint({
-                    enabled: identityLock,
-                    strength: identityLockStrength,
-                    identityKind,
-                  })}
-                </span>
+                <span className="block text-xs leading-relaxed text-zinc-500">{identityLockHint}</span>
               </span>
             </label>
             <label className="shrink-0 space-y-1">

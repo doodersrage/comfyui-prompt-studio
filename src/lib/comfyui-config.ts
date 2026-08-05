@@ -192,6 +192,9 @@ export type ComfyUiRuntimeConfig = {
   kleinEnhancerEnabled?: boolean;
   /** Identity Feature Transfer Final preset (HARD/MID/SOFT lock). */
   kleinEnhancerIdentityPreset?: import('./klein-enhancer-workflow-patch').KleinEnhancerIdentityPreset;
+  kleinEnhancerTextEnabled?: boolean;
+  kleinEnhancerColorAnchorEnabled?: boolean;
+  kleinEnhancerColorAnchorStrength?: number;
   /** When false, skip direct EmptyLatentImage / loader patching (placeholder injection still runs). */
   directWorkflowPatching?: boolean;
   /** When true, overwrite hardcoded loader filenames with the target model at queue time. */
@@ -1354,6 +1357,9 @@ export function injectPromptsWithFallbacks(
     regionalSlots?: import('./regional-prompt-slots').RegionalPromptSlot[];
     kleinEnhancerEnabled?: boolean;
     kleinEnhancerIdentityPreset?: import('./klein-enhancer-workflow-patch').KleinEnhancerIdentityPreset;
+    kleinEnhancerTextEnabled?: boolean;
+    kleinEnhancerColorAnchorEnabled?: boolean;
+    kleinEnhancerColorAnchorStrength?: number;
   }
 ): WorkflowInjectionResult {
   const loaderMerged = mergeLoaderTokensIntoCustomTokens(input.params, input.customTokens);
@@ -1493,6 +1499,9 @@ export function injectPromptsWithFallbacks(
       regionalSlots: options?.regionalSlots,
       kleinEnhancerEnabled: options?.kleinEnhancerEnabled,
       kleinEnhancerIdentityPreset: options?.kleinEnhancerIdentityPreset,
+      kleinEnhancerTextEnabled: options?.kleinEnhancerTextEnabled,
+      kleinEnhancerColorAnchorEnabled: options?.kleinEnhancerColorAnchorEnabled,
+      kleinEnhancerColorAnchorStrength: options?.kleinEnhancerColorAnchorStrength,
     });
     if (directPatch.error) {
       throw new Error(directPatch.error);

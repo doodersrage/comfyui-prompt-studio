@@ -82,6 +82,8 @@ export type WorkflowDirectPatchCounts = {
   img2imgLatentWired?: number;
   referenceLatentWired?: number;
   kleinEnhancerWired?: number;
+  kleinTextEnhancerWired?: number;
+  kleinColorAnchorWired?: number;
   fluxGuidance?: number;
 };
 
@@ -1500,6 +1502,9 @@ export function patchWorkflowDirectParams(
     /** Flux2 Klein Enhancer pack (Multi ReferenceLatent + Identity Feature Transfer Final). */
     kleinEnhancerEnabled?: boolean;
     kleinEnhancerIdentityPreset?: KleinEnhancerIdentityPreset;
+    kleinEnhancerTextEnabled?: boolean;
+    kleinEnhancerColorAnchorEnabled?: boolean;
+    kleinEnhancerColorAnchorStrength?: number;
   }
 ): {
   workflow: Record<string, unknown>;
@@ -1597,6 +1602,9 @@ export function patchWorkflowDirectParams(
     identityPreset: input.kleinEnhancerIdentityPreset,
     identityLockStrength:
       input.ipAdapterStrength != null ? Number(input.ipAdapterStrength) : undefined,
+    textEnhancerEnabled: input.kleinEnhancerTextEnabled,
+    colorAnchorEnabled: input.kleinEnhancerColorAnchorEnabled,
+    colorAnchorStrength: input.kleinEnhancerColorAnchorStrength,
   });
   const fluxGuidance = ensureFluxGuidanceInWorkflow(
     kleinEnhancerWire.workflow,
@@ -1627,9 +1635,15 @@ export function patchWorkflowDirectParams(
             img2imgLatentWired: 1,
           }
         : {}),
-      ...(kleinEnhancerWire.usedEnhancer
+      ...(kleinEnhancerWire.wired
         ? {
-            kleinEnhancerWired: kleinEnhancerWire.insertedNodeIds.length || 1,
+            ...(kleinEnhancerWire.usedEnhancer
+              ? {
+                  kleinEnhancerWired: kleinEnhancerWire.insertedNodeIds.length || 1,
+                }
+              : {}),
+            ...(kleinEnhancerWire.usedTextEnhancer ? { kleinTextEnhancerWired: 1 } : {}),
+            ...(kleinEnhancerWire.usedColorAnchor ? { kleinColorAnchorWired: 1 } : {}),
           }
         : {}),
       ...(fluxGuidance.inserted > 0 || fluxGuidance.guidancePatched > 0
