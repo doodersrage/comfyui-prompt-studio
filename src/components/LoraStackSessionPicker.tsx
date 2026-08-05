@@ -73,6 +73,12 @@ export default function LoraStackSessionPicker({
   );
   const activeIds = resolveSessionActiveLoraIds(snapshot.library, effectiveSessionIds);
   const activeSet = new Set(activeIds);
+  const activeLabelList = activeIds
+    .map(id => {
+      const entry = selectable.find(item => item.id === id);
+      return entry?.label?.trim() || id;
+    })
+    .join(', ');
 
   const modelDefaultIds = !sessionOverride
     ? resolveModelDefaultLoraIds(snapshot.model, snapshot.modelLoraMap)
@@ -151,6 +157,16 @@ export default function LoraStackSessionPicker({
           );
         })}
       </ul>
+      <p className="text-sm leading-relaxed text-zinc-400">
+        {activeIds.length === 0 ? (
+          <span className="text-zinc-500">Selected: none</span>
+        ) : (
+          <>
+            <span className="font-medium text-zinc-300">Selected: </span>
+            {activeLabelList}
+          </>
+        )}
+      </p>
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
