@@ -91,6 +91,7 @@ import {
 import {
   resolveModelSamplerParams,
   ensureDistilledSamplerParams,
+  resolveUserSamplerDenoiseOverride,
   type ModelSamplerPresetTier,
 } from './model-sampler-defaults';
 import {
@@ -98,6 +99,7 @@ import {
   resolveEffectiveSamplerPreset,
   type QueueQualityProfile,
 } from './queue-quality-profile';
+import { loadSettingsCache } from './settings-cache';
 import {
   DEFAULT_UPSCALE_MODEL_TOKEN,
   resolveUpscaleModelFilename,
@@ -243,6 +245,8 @@ export type ComfyUiRuntimeConfig = {
   loraLibrary?: LoraLibraryEntry[];
   /** Multi-slot regional edit — bound at inject / direct-patch time. */
   regionalSlots?: import('./regional-prompt-slots').RegionalPromptSlot[];
+  /** Sidebar KSampler overrides forwarded for server-side inject (incl. denoise). */
+  modelSamplerOverrides?: import('./model-sampler-defaults').ModelSamplerOverrideFields;
   /**
    * Preferred ComfyUI pool host from SharedToolSettings. When set and the host
    * is in COMFYUI_POOL and healthy-ish, pool routing prefers it.
@@ -1360,6 +1364,7 @@ export function injectPromptsWithFallbacks(
     kleinEnhancerTextEnabled?: boolean;
     kleinEnhancerColorAnchorEnabled?: boolean;
     kleinEnhancerColorAnchorStrength?: number;
+    samplerOverrides?: import('./model-sampler-defaults').ModelSamplerOverrideFields;
   }
 ): WorkflowInjectionResult {
   const loaderMerged = mergeLoaderTokensIntoCustomTokens(input.params, input.customTokens);
@@ -1598,17 +1603,22 @@ export function injectPromptsWithFallbacks(
       distilledModelId,
       distilledTier
     );
-    // Soft edit denoise (0.65) in packs / handoffs mosaics CFG-1 Lightning —
-    // always force denoise with the distilled CFG/steps patch.
-    const forcedDenoise = resolveDenoiseForModel(distilledModelId, {
-      hasInputImage: Boolean(
-        input.params?.inputImageFilename?.toString().trim() ||
-        input.params?.inputImageFilenames?.some(name => Boolean(name?.toString().trim()))
-      ),
-      hasMaskImage: Boolean(input.params?.maskImageFilename?.toString().trim()),
-    });
-    if (forcedDenoise != null) {
-      distilledSampler.denoise = forcedDenoise;
+    const userDenoiseOverride = resolveUserSamplerDenoiseOverride(
+      options?.samplerOverrides ?? loadSettingsCache().shared.modelSamplerOverrides
+    );
+    if (!userDenoiseOverride) {
+      // Soft edit denoise (0.65) in packs / handoffs mosaics CFG-1 Lightning —
+      // force denoise with the distilled CFG/steps patch unless sidebar override set.
+      const forcedDenoise = resolveDenoiseForModel(distilledModelId, {
+        hasInputImage: Boolean(
+          input.params?.inputImageFilename?.toString().trim() ||
+          input.params?.inputImageFilenames?.some(name => Boolean(name?.toString().trim()))
+        ),
+        hasMaskImage: Boolean(input.params?.maskImageFilename?.toString().trim()),
+      });
+      if (forcedDenoise != null) {
+        distilledSampler.denoise = forcedDenoise;
+      }
     }
     nextWorkflow = patchSamplerParamsInWorkflow(nextWorkflow, distilledSampler, distilledModelId, {
       force: true,

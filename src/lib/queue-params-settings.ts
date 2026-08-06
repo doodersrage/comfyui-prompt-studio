@@ -409,15 +409,25 @@ export function resolveQueueParams(
 
     const hasInputImage = Boolean(merged.inputImageFilename);
     const hasMaskImage = Boolean(merged.maskImageFilename);
-    // Lightning always denoise 1 — never inherit Settings editDenoiseStrength (0.65).
-    const denoise = resolveDenoiseForModel(model, {
-      tool,
-      hasInputImage,
-      hasMaskImage,
-      override: isQwenLightningModel(model) ? undefined : shared.editDenoiseStrength,
-    });
-    if (denoise != null) {
-      merged.denoise = denoise;
+    const userDenoiseOverride = pickModelSamplerOverrideFields(
+      samplerOverrides ?? shared.modelSamplerOverrides
+    ).denoise;
+    const handoffDenoise = base?.denoise?.toString().trim();
+    if (userDenoiseOverride) {
+      merged.denoise = userDenoiseOverride;
+    } else if (handoffDenoise) {
+      merged.denoise = handoffDenoise;
+    } else {
+      // Lightning always denoise 1 — never inherit Settings editDenoiseStrength (0.65).
+      const denoise = resolveDenoiseForModel(model, {
+        tool,
+        hasInputImage,
+        hasMaskImage,
+        override: isQwenLightningModel(model) ? undefined : shared.editDenoiseStrength,
+      });
+      if (denoise != null) {
+        merged.denoise = denoise;
+      }
     }
     // Distilled Klein Compose/Refine: CFG 1 + soft denoise ≈ photo passthrough.
     const kleinEditCfg = resolveKleinEditCfg(model, {

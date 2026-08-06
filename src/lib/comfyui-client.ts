@@ -307,6 +307,7 @@ function injectPromptsIntoWorkflow(
       kleinEnhancerTextEnabled: runtime?.kleinEnhancerTextEnabled,
       kleinEnhancerColorAnchorEnabled: runtime?.kleinEnhancerColorAnchorEnabled,
       kleinEnhancerColorAnchorStrength: runtime?.kleinEnhancerColorAnchorStrength,
+      samplerOverrides: runtime?.modelSamplerOverrides,
     }
   );
 }

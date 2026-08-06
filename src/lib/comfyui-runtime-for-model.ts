@@ -402,6 +402,7 @@ export function resolveRuntimeForQueue(
   const withProfile: ComfyUiRuntimeConfig = {
     ...base,
     queueQualityProfile: resolvedProfile,
+    modelSamplerOverrides: shared.modelSamplerOverrides,
     // System packs may disable enrich when the *global* profile is Draft. Tool-level
     // Final/Max (e.g. Compose) must still get Lanczos / polish enrich.
     ...(resolvedProfile === 'final' || resolvedProfile === 'max'

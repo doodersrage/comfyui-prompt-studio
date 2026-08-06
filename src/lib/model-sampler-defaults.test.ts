@@ -435,11 +435,12 @@ describe("patchSamplerParamsInWorkflow", () => {
 
   it("picks non-empty sidebar override fields", () => {
     assert.deepEqual(
-      pickModelSamplerOverrideFields({ steps: "12", cfg: "", samplerName: " euler " }),
-      { steps: "12", samplerName: "euler" },
+      pickModelSamplerOverrideFields({ steps: "12", cfg: "", samplerName: " euler ", denoise: "0.55" }),
+      { steps: "12", samplerName: "euler", denoise: "0.55" },
     );
     assert.equal(hasModelSamplerOverrides({}), false);
     assert.equal(hasModelSamplerOverrides({ cfg: "3.5" }), true);
+    assert.equal(hasModelSamplerOverrides({ denoise: "0.8" }), true);
   });
 
   it("merges sidebar sampler overrides in resolveQueueParams", () => {
@@ -450,5 +451,25 @@ describe("patchSamplerParamsInWorkflow", () => {
     assert.equal(params.steps, "40");
     assert.equal(params.cfg, "5.5");
     assert.equal(params.samplerName, "dpmpp_2m");
+  });
+
+  it("sidebar denoise override wins over automatic edit denoise", () => {
+    const params = resolveQueueParams({
+      model: "sdxl",
+      tool: "compose",
+      inputImageFilename: "figure.png",
+      samplerOverrides: { denoise: "0.42" },
+    });
+    assert.equal(params.denoise, "0.42");
+  });
+
+  it("sidebar denoise override is kept on Lightning compose (not forced to 1)", () => {
+    const params = resolveQueueParams({
+      model: "qwen-image-edit-2511-lightning-8",
+      tool: "compose",
+      inputImageFilename: "figure.png",
+      samplerOverrides: { denoise: "0.55" },
+    });
+    assert.equal(params.denoise, "0.55");
   });
 });

@@ -17,9 +17,10 @@ import type { ComfyImageModel } from '@/lib/comfy-models/client';
 
 type OverrideFieldKey = keyof ModelSamplerOverrideFields;
 
-const OVERRIDE_FIELDS: { key: OverrideFieldKey; label: string }[] = [
+const OVERRIDE_FIELDS: { key: OverrideFieldKey; label: string; placeholder?: string }[] = [
   { key: 'steps', label: 'Steps' },
   { key: 'cfg', label: 'CFG' },
+  { key: 'denoise', label: 'Denoise', placeholder: 'auto' },
   { key: 'samplerName', label: 'Sampler' },
   { key: 'scheduler', label: 'Scheduler' },
 ];
@@ -106,15 +107,19 @@ export default function ModelSamplerHints({
             <div className="mt-2 space-y-2">
               <p className="type-caption text-zinc-500">
                 Leave blank to use preset values. Overrides apply on queue and win over gallery
-                sampler memory.
+                sampler memory. Denoise blank uses tool defaults (1.0 txt2img, ~0.65 edit).
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {OVERRIDE_FIELDS.map(({ key, label }) => (
+                {OVERRIDE_FIELDS.map(({ key, label, placeholder }) => (
                   <div key={key} className="min-w-0 space-y-1">
                     <FieldLabel>{label}</FieldLabel>
                     <input
                       value={overrides[key]?.toString() ?? ''}
-                      placeholder={defaults[key]?.toString() ?? ''}
+                      placeholder={
+                        placeholder ??
+                        (key in defaults ? defaults[key as keyof typeof defaults]?.toString() : '') ??
+                        ''
+                      }
                       onChange={event => updateOverride(key, event.target.value)}
                       className="ui-input w-full px-2.5 py-1.5 text-sm transition focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                     />
@@ -123,7 +128,8 @@ export default function ModelSamplerHints({
               </div>
               {distilledModel ? (
                 <p className="type-caption text-amber-200/75">
-                  Lightning / Rapid models may clamp steps and CFG on queue for stability.
+                  Lightning / Rapid models clamp steps and CFG on queue. Denoise override is
+                  honored when set.
                 </p>
               ) : null}
               {overridesActive ? (
@@ -154,6 +160,7 @@ export default function ModelSamplerHints({
           <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{SEED}}`}</code>,{' '}
           <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{STEPS}}`}</code>,{' '}
           <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{CFG}}`}</code>,{' '}
+          <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{DENOISE}}`}</code>,{' '}
           <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{SAMPLER}}`}</code>,{' '}
           <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{SCHEDULER}}`}</code>
           , and Flux shift placeholders — or writes directly into sampler nodes.

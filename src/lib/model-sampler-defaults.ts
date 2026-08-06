@@ -541,7 +541,7 @@ export function ensureDistilledSamplerParams(
 }
 
 export type ModelSamplerOverrideFields = Partial<
-  Pick<WorkflowParamValues, 'steps' | 'cfg' | 'samplerName' | 'scheduler'>
+  Pick<WorkflowParamValues, 'steps' | 'cfg' | 'denoise' | 'samplerName' | 'scheduler'>
 >;
 
 export function pickModelSamplerOverrideFields(
@@ -551,7 +551,7 @@ export function pickModelSamplerOverrideFields(
     return {};
   }
   const picked: ModelSamplerOverrideFields = {};
-  for (const key of ['steps', 'cfg', 'samplerName', 'scheduler'] as const) {
+  for (const key of ['steps', 'cfg', 'denoise', 'samplerName', 'scheduler'] as const) {
     const value = overrides[key];
     if (value == null || value.toString().trim() === '') {
       continue;
@@ -563,6 +563,13 @@ export function pickModelSamplerOverrideFields(
 
 export function hasModelSamplerOverrides(overrides?: ModelSamplerOverrideFields | null): boolean {
   return Object.keys(pickModelSamplerOverrideFields(overrides)).length > 0;
+}
+
+/** Sidebar KSampler denoise override — honored even on Lightning / Rapid stacks. */
+export function resolveUserSamplerDenoiseOverride(
+  overrides?: ModelSamplerOverrideFields | null
+): string | undefined {
+  return pickModelSamplerOverrideFields(overrides).denoise;
 }
 
 export function formatModelSamplerHint(

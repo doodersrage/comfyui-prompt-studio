@@ -235,6 +235,7 @@ export function previewWorkflowInjection(input: WorkflowPreviewInput): WorkflowP
       availableLoras: inventoryModels?.loras,
       qualityProfile: runtime?.queueQualityProfile,
       loraLibrary: settings.loraLibrary,
+      samplerOverrides: runtime?.modelSamplerOverrides,
     }
   );
 

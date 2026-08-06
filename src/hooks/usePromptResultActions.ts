@@ -735,13 +735,20 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             isWanRapidAioModel(queueModel);
           if (isDistilled) {
             Object.assign(queueParams, ensureDistilledSamplerParams(queueParams, queueModel));
-            const forcedDenoise = resolveDenoiseForModel(queueModel, {
-              tool: config.tool,
-              hasInputImage: Boolean(inputImageFilename),
-              hasMaskImage: Boolean(maskImageFilename),
-            });
-            if (forcedDenoise != null) {
-              queueParams.denoise = forcedDenoise;
+            const { resolveUserSamplerDenoiseOverride } =
+              await import('@/lib/model-sampler-defaults');
+            const userDenoiseOverride = resolveUserSamplerDenoiseOverride(
+              loadSettingsCache().shared.modelSamplerOverrides
+            );
+            if (!userDenoiseOverride) {
+              const forcedDenoise = resolveDenoiseForModel(queueModel, {
+                tool: config.tool,
+                hasInputImage: Boolean(inputImageFilename),
+                hasMaskImage: Boolean(maskImageFilename),
+              });
+              if (forcedDenoise != null) {
+                queueParams.denoise = forcedDenoise;
+              }
             }
           }
         }
