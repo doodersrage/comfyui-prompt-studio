@@ -1066,7 +1066,7 @@ export async function requeueComfyJob(input: RequeueComfyJobInput): Promise<Requ
     input.onStatus?.('Refreshing queue images for ComfyUI…');
   }
 
-  const refreshedParams = await refreshQueueImageParamsForRequeue({
+  const refreshed = await refreshQueueImageParamsForRequeue({
     model,
     tool: input.tool,
     queueParams: baseParams,
@@ -1074,6 +1074,7 @@ export async function requeueComfyJob(input: RequeueComfyJobInput): Promise<Requ
     maskImageUrl: input.maskImageUrl,
     forceInputImage: input.forceInputImage,
   });
+  const refreshedParams = refreshed.params;
 
   const requestedProfile = input.qualityProfile ?? input.storedQualityProfile ?? undefined;
   const sessionActiveLoraIds =
@@ -1106,6 +1107,8 @@ export async function requeueComfyJob(input: RequeueComfyJobInput): Promise<Requ
     tool: input.tool,
     base: refreshedParams,
     qualityProfile: effectiveQualityProfile,
+    figurePixelSize: refreshed.figurePixelSize,
+    inputImageFilename: refreshedParams?.inputImageFilename,
   });
 
   input.onStatus?.('Validating workflow…');

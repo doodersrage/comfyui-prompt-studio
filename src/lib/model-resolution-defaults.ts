@@ -6,6 +6,7 @@ import {
   type ComfyModelCategory,
 } from './comfy-models/client';
 import type { WorkflowParamValues } from './comfyui-config';
+import { snapLatentSize } from './browser-image-dimensions';
 import { isQwenLightningModel } from './model-sampling-patch';
 
 export type ResolutionOrientation =
@@ -786,6 +787,102 @@ export function qwenLightningMediumSizeLadder(): Array<{ width: number; height: 
  * Raw upload pixels (often ≤2048 edge) melt CFG-1 Lightning into mosaic/noise and
  * slow sampling — keep aspect via the closest native preset instead.
  */
+/** Compose / Refine / inpaint tools that should match EmptyLatent to figure pixels. */
+export function toolUsesComposeFigureLatent(tool?: string): boolean {
+  return (
+    tool === 'compose' || tool === 'refine' || tool === 'inpaint' || tool === 'outpaint'
+  );
+}
+
+/** AR chips used when snapping Compose figures to a tier ladder. */
+const COMPOSE_LATENT_ORIENTATIONS: ResolutionOrientation[] = [
+  'square',
+  'portrait',
+  'landscape',
+  'portrait-34',
+  'landscape-43',
+  'portrait-23',
+  'landscape-32',
+];
+
+/** Max |log aspect delta| to treat sidebar orientation chip as matching the figure. */
+const COMPOSE_SIDEBAR_ASPECT_MATCH_LOG = 0.035;
+
+function composeLatentSizeLadderForTier(
+  model: string,
+  tier: ResolutionSizeTier
+): Array<{ width: number; height: number }> {
+  return COMPOSE_LATENT_ORIENTATIONS.map(orientation =>
+    getModelResolutionPreset(model, orientation, tier)
+  );
+}
+
+export function lightningSafeComposeLatentSizeForTier(
+  width: number,
+  height: number,
+  model: string,
+  tier: ResolutionSizeTier = DEFAULT_RESOLUTION_SIZE_TIER
+): { width: number; height: number } {
+  const fallback = getModelResolutionPreset(model, 'square', tier);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return { width: fallback.width, height: fallback.height };
+  }
+
+  const candidates = composeLatentSizeLadderForTier(model, tier);
+  const ratio = width / height;
+  let best = candidates[0] ?? fallback;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const candidate of candidates) {
+    const candidateRatio = candidate.width / candidate.height;
+    const score = Math.abs(Math.log(ratio / candidateRatio));
+    if (score < bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+  return { width: best.width, height: best.height };
+}
+
+/**
+ * Compose/Refine output latent: prefer sidebar orientation+tier when aspect matches
+ * the figure (full selected resolution). Otherwise snap figure AR to the nearest
+ * preset on the same tier — refs are center-cropped, never stretched.
+ */
+export function resolveComposeOutputLatentSize(
+  figureWidth: number,
+  figureHeight: number,
+  model: string,
+  orientation: ResolutionOrientation = DEFAULT_RESOLUTION_ORIENTATION,
+  tier: ResolutionSizeTier = DEFAULT_RESOLUTION_SIZE_TIER
+): { width: number; height: number } {
+  const selected = getModelResolutionPreset(model, orientation, tier);
+  if (!Number.isFinite(figureWidth) || !Number.isFinite(figureHeight) || figureWidth <= 0 || figureHeight <= 0) {
+    return { width: selected.width, height: selected.height };
+  }
+
+  const figureRatio = figureWidth / figureHeight;
+  const selectedRatio = selected.width / selected.height;
+  if (Math.abs(Math.log(figureRatio / selectedRatio)) <= COMPOSE_SIDEBAR_ASPECT_MATCH_LOG) {
+    return { width: selected.width, height: selected.height };
+  }
+
+  if (isQwenLightningModel(model)) {
+    return lightningSafeComposeLatentSizeForTier(figureWidth, figureHeight, model, tier);
+  }
+  return snapLatentSize(figureWidth, figureHeight);
+}
+
+/** Map probed figure pixels to queue EmptyLatent W×H (Lightning ladder or 16-multiple snap). */
+export function resolveComposeFigureLatentSize(
+  figureWidth: number,
+  figureHeight: number,
+  model: string,
+  orientation: ResolutionOrientation = DEFAULT_RESOLUTION_ORIENTATION,
+  tier: ResolutionSizeTier = DEFAULT_RESOLUTION_SIZE_TIER
+): { width: number; height: number } {
+  return resolveComposeOutputLatentSize(figureWidth, figureHeight, model, orientation, tier);
+}
+
 export function lightningSafeComposeLatentSize(
   width: number,
   height: number,

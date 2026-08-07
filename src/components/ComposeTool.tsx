@@ -213,7 +213,14 @@ export default function ComposeTool() {
         // long T2I prompt into the edit box (that fights the figure and garbles).
         setInstruction(handoff.prompt.trim());
       }
-      setHandoffQueueParams(handoff.handoffMode === 'reedit' ? handoff.queueParams : undefined);
+      if (handoff.handoffMode === 'reedit' && handoff.queueParams) {
+        const rest = { ...handoff.queueParams };
+        delete rest.width;
+        delete rest.height;
+        setHandoffQueueParams(rest);
+      } else {
+        setHandoffQueueParams(undefined);
+      }
       const sharedPatch = handoff.payload
         ? sharedPatchFromGalleryHandoff(handoff.payload)
         : {

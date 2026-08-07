@@ -1343,6 +1343,59 @@ describe("qwen edit reference image prep", () => {
     assert.equal(scaleNode.inputs.crop, "center");
   });
 
+  it("bypasses SaveImage ImageScale when aspect differs from EmptyLatent", async () => {
+    const { bypassMismatchedSaveImageScaleToLatent } = await import("./workflow-lightning-queue");
+    const workflow = {
+      "120": {
+        class_type: "EmptySD3LatentImage",
+        inputs: { width: 1056, height: 1584, batch_size: 1 },
+      },
+      "7": {
+        class_type: "VAEDecode",
+        inputs: { samples: ["120", 0], vae: ["3", 0] },
+      },
+      "21": {
+        class_type: "ImageScale",
+        inputs: {
+          image: ["7", 0],
+          width: 682,
+          height: 1024,
+          upscale_method: "lanczos",
+        },
+      },
+      "8": {
+        class_type: "SaveImage",
+        inputs: { images: ["21", 0] },
+      },
+    };
+    const { workflow: next, bypassedNodeIds } = bypassMismatchedSaveImageScaleToLatent(
+      workflow,
+      { width: 1104, height: 1472 }
+    );
+    assert.ok(bypassedNodeIds.includes("21"));
+    const save = next["8"] as { inputs: { images: [string, number] } };
+    assert.equal(save.inputs.images[0], "7");
+  });
+
+  it("bypasses SaveImage downscale below EmptyLatent (same AR as figure pixels)", async () => {
+    const { bypassMismatchedSaveImageScaleToLatent } = await import("./workflow-lightning-queue");
+    const workflow = {
+      "7": { class_type: "VAEDecode", inputs: { samples: ["120", 0], vae: ["3", 0] } },
+      "21": {
+        class_type: "ImageScale",
+        inputs: { image: ["7", 0], width: 682, height: 1024, upscale_method: "lanczos" },
+      },
+      "8": { class_type: "SaveImage", inputs: { images: ["21", 0] } },
+    };
+    const { workflow: next, bypassedNodeIds } = bypassMismatchedSaveImageScaleToLatent(
+      workflow,
+      { width: 1056, height: 1584 }
+    );
+    assert.ok(bypassedNodeIds.includes("21"));
+    const save = next["8"] as { inputs: { images: [string, number] } };
+    assert.equal(save.inputs.images[0], "7");
+  });
+
   it("prunes unused {{INPUT_IMAGE}} LoadImages after Compose ensure", async () => {
     const { prepareQwenEditReferenceImagesForQueue } = await import("./workflow-lightning-queue");
     const workflow = {

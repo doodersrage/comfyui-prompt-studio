@@ -478,6 +478,60 @@ export function bypassModelSamplingAuraFlowForLightning(
   return { workflow, bypassedNodeIds: [] };
 }
 
+/** Drop SaveImage ImageScale that squashes AR or downscales below EmptyLatent (figure pixel lock). */
+export function bypassMismatchedSaveImageScaleToLatent(
+  workflow: Record<string, unknown>,
+  latentSize?: { width: number; height: number } | null
+): { workflow: Record<string, unknown>; bypassedNodeIds: string[] } {
+  if (!latentSize || latentSize.width <= 0 || latentSize.height <= 0) {
+    return { workflow, bypassedNodeIds: [] };
+  }
+  const latentRatio = latentSize.width / latentSize.height;
+  const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
+  const bypassedNodeIds: string[] = [];
+
+  for (const node of Object.values(next)) {
+    if (
+      (node?.class_type !== 'SaveImage' && node?.class_type !== 'SaveImageAdvanced') ||
+      !node.inputs
+    ) {
+      continue;
+    }
+    const scaleId = getLinkedNodeId(node.inputs.images);
+    if (!scaleId) {
+      continue;
+    }
+    const scaleNode = next[scaleId];
+    if (
+      !scaleNode?.inputs ||
+      (scaleNode.class_type !== 'ImageScale' && scaleNode.class_type !== 'ResizeImage') ||
+      isPromptStudioOutputUpscaleNode(scaleNode)
+    ) {
+      continue;
+    }
+    const width = Number(scaleNode.inputs.width);
+    const height = Number(scaleNode.inputs.height);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      continue;
+    }
+    const scaleRatio = width / height;
+    const aspectMismatch = Math.abs(Math.log(scaleRatio / latentRatio)) > 0.02;
+    const downscaleBelowLatent =
+      width <= latentSize.width * 0.95 && height <= latentSize.height * 0.95;
+    if (!aspectMismatch && !downscaleBelowLatent) {
+      continue;
+    }
+    const upstream = getLinkedNodeId(scaleNode.inputs.image);
+    if (!upstream) {
+      continue;
+    }
+    node.inputs.images = [upstream, 0];
+    bypassedNodeIds.push(scaleId);
+  }
+
+  return { workflow: next, bypassedNodeIds };
+}
+
 /** Strip imported upscale/sharpen after decode. Keep Prompt Studio Final/Max quality enrich. */
 export function stripLightningOutputPostProcess(
   workflow: Record<string, unknown>,
@@ -1587,7 +1641,9 @@ export function prepareLightningWorkflowForQueue(
       vaeFixed,
       readEmptyLatentSize(vaeFixed) ?? options?.params
     ).workflow;
-    return pruneUnresolvedQwenEditFigureLoaders(sized).workflow;
+    const latentSize = readEmptyLatentSize(sized);
+    const saveBypass = bypassMismatchedSaveImageScaleToLatent(sized, latentSize).workflow;
+    return pruneUnresolvedQwenEditFigureLoaders(saveBypass).workflow;
   };
 
   // If a Lightning LoRA is already present, repair LoRA wiring/strengths and

@@ -146,7 +146,7 @@ export async function queueMutatedGalleryJobs(input: {
     const negativePrompt = prepared.negative;
     const seed = String(Math.floor(Math.random() * 2 ** 32) + index);
     const imageUrls = resolveRequeueImageUrlsFromEntry(input.entry);
-    const refreshedParams = await refreshQueueImageParamsForRequeue({
+    const refreshed = await refreshQueueImageParamsForRequeue({
       model: input.entry.model,
       tool: input.entry.tool ?? 'gallery-mutate',
       queueParams: {
@@ -160,7 +160,7 @@ export async function queueMutatedGalleryJobs(input: {
       model: input.entry.model,
       tool: 'gallery-mutate',
       base: {
-        ...refreshedParams,
+        ...refreshed.params,
         ...(details.wardrobeId
           ? {
               randomOutfit: {
@@ -170,6 +170,8 @@ export async function queueMutatedGalleryJobs(input: {
           : {}),
       },
       qualityProfile: vramGuard.profile,
+      figurePixelSize: refreshed.figurePixelSize,
+      inputImageFilename: refreshed.params?.inputImageFilename,
     });
 
     const held = await maybeHoldMaxGenerateJobs({

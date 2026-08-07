@@ -1531,7 +1531,13 @@ export function injectPromptsWithFallbacks(
   // Run before prepareLightning so encode-path "ref → latent size" scales added
   // afterward are not clobbered.
   if (isLightning && input.params?.width != null && input.params?.height != null) {
-    const resizePatch = patchImageResizeNodesInWorkflow(nextWorkflow, input.params);
+    const hasInputImage = Boolean(
+      input.params.inputImageFilename?.toString().trim() ||
+      input.params.inputImageFilenames?.some(name => Boolean(name?.toString().trim()))
+    );
+    const resizePatch = patchImageResizeNodesInWorkflow(nextWorkflow, input.params, {
+      encodeReferencesOnly: hasInputImage,
+    });
     nextWorkflow = resizePatch.workflow;
     directPatchCounts = {
       ...directPatchCounts,

@@ -4,9 +4,33 @@ import type { WorkflowParamValues } from './comfyui-config';
 import type { ComfyGalleryEntry } from './comfyui-gallery';
 import { buildComfyViewPath } from './comfyui-outputs';
 import { isEditCapableModel, isInpaintModel } from './model-denoise-defaults';
-import { resolveQueueInputImageFilename } from './queue-input-image';
+import {
+  DEFAULT_RESOLUTION_ORIENTATION,
+  DEFAULT_RESOLUTION_SIZE_TIER,
+  normalizeResolutionOrientation,
+  normalizeResolutionSizeTier,
+  resolveComposeOutputLatentSize,
+  toolUsesComposeFigureLatent,
+} from './model-resolution-defaults';
+import { loadSettingsCache } from './settings-cache';
+import { probeImageUrlDimensions } from './browser-image-dimensions';
+import { resolveQueueInputImage } from './queue-input-image';
 
 const EDIT_TOOLS = new Set(['refine', 'inpaint', 'image-prompt', 'controlnet', 'compose']);
+
+function loadRequeueResolutionOrientation() {
+  if (typeof window === 'undefined') {
+    return DEFAULT_RESOLUTION_ORIENTATION;
+  }
+  return normalizeResolutionOrientation(loadSettingsCache().shared.modelResolutionOrientation);
+}
+
+function loadRequeueResolutionSizeTier() {
+  if (typeof window === 'undefined') {
+    return DEFAULT_RESOLUTION_SIZE_TIER;
+  }
+  return normalizeResolutionSizeTier(loadSettingsCache().shared.modelResolutionSizeTier);
+}
 
 export function resolveRequeueImageUrlsFromEntry(
   entry: Pick<
@@ -56,6 +80,12 @@ export function resolveRequeueImageUrlsFromEntry(
   };
 }
 
+export type RefreshedRequeueQueueParams = {
+  params?: WorkflowParamValues;
+  /** Pixel size of the refreshed source upload — drives Compose/Refine latent AR. */
+  figurePixelSize?: { width: number; height: number };
+};
+
 export async function refreshQueueImageParamsForRequeue(input: {
   model?: string;
   tool?: string;
@@ -63,9 +93,10 @@ export async function refreshQueueImageParamsForRequeue(input: {
   sourceImageUrl?: string;
   maskImageUrl?: string;
   forceInputImage?: boolean;
-}): Promise<WorkflowParamValues | undefined> {
+}): Promise<RefreshedRequeueQueueParams> {
   const base = input.queueParams ? { ...input.queueParams } : {};
   const model = input.model ?? '';
+  let figurePixelSize: { width: number; height: number } | undefined;
   const hadInputFilename = Boolean(base.inputImageFilename?.trim());
   const hadMaskFilename = Boolean(base.maskImageFilename?.trim());
   const needsFreshInput =
@@ -77,18 +108,51 @@ export async function refreshQueueImageParamsForRequeue(input: {
 
   if (needsFreshInput && input.sourceImageUrl?.trim()) {
     try {
-      base.inputImageFilename = await resolveQueueInputImageFilename({
+      const uploaded = await resolveQueueInputImage({
         imageUrl: input.sourceImageUrl,
         filename: base.inputImageFilename,
         model,
       });
+      if (uploaded?.filename) {
+        base.inputImageFilename = uploaded.filename;
+      }
+      if (uploaded?.width && uploaded?.height && uploaded.width > 0 && uploaded.height > 0) {
+        figurePixelSize = { width: uploaded.width, height: uploaded.height };
+      }
     } catch {
       // Keep stale filename; ComfyUI may reject it.
+    }
+    if (!figurePixelSize && input.sourceImageUrl?.trim()) {
+      try {
+        const probed = await probeImageUrlDimensions(input.sourceImageUrl.trim());
+        if (probed) {
+          figurePixelSize = probed;
+        }
+      } catch {
+        /* optional */
+      }
+    }
+    if (
+      figurePixelSize &&
+      model &&
+      toolUsesComposeFigureLatent(input.tool) &&
+      base.inputImageFilename?.trim()
+    ) {
+      const latent = resolveComposeOutputLatentSize(
+        figurePixelSize.width,
+        figurePixelSize.height,
+        model,
+        loadRequeueResolutionOrientation(),
+        loadRequeueResolutionSizeTier()
+      );
+      base.width = latent.width;
+      base.height = latent.height;
     }
   }
 
   if (needsFreshMask && input.maskImageUrl?.trim()) {
     try {
+      const { resolveQueueInputImageFilename } = await import('./queue-input-image');
       base.maskImageFilename = await resolveQueueInputImageFilename({
         imageUrl: input.maskImageUrl,
         filename: base.maskImageFilename,
@@ -99,11 +163,11 @@ export async function refreshQueueImageParamsForRequeue(input: {
     }
   }
 
-  if (Object.keys(base).length === 0) {
-    return input.queueParams;
+  if (Object.keys(base).length === 0 && !figurePixelSize) {
+    return { params: input.queueParams };
   }
 
-  return base;
+  return { params: base, figurePixelSize };
 }
 
 export function buildComfyUploadedImageViewUrl(comfyUrl: string, filename: string): string {

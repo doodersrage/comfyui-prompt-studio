@@ -29,3 +29,18 @@ test('without forceNewSeed, base seed is reused', async () => {
   });
   assert.equal(params.seed, '7777777');
 });
+
+test('figurePixelSize overrides handoff W×H for Compose Lightning I2I', async () => {
+  const { resolveQueueParams } = await import('./queue-params-settings');
+
+  const params = resolveQueueParams({
+    model: 'qwen-image-edit-2511-lightning-8',
+    tool: 'compose',
+    base: { width: '1104', height: '1472', seed: '1' },
+    inputImageFilename: 'fig.png',
+    figurePixelSize: { width: 682, height: 1024 },
+  });
+
+  assert.equal(params.width, 1056);
+  assert.equal(params.height, 1584);
+});

@@ -550,6 +550,17 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
 
         if (options?.inputImage || options?.inputImageUrl?.trim()) {
           setComfyUiStatus('Uploading image to ComfyUI…');
+          if (!uploadedFigureSize && options?.inputImage) {
+            try {
+              const { probeImageFileDimensions } = await import('@/lib/browser-image-dimensions');
+              const probed = await probeImageFileDimensions(options.inputImage);
+              if (probed) {
+                uploadedFigureSize = probed;
+              }
+            } catch {
+              /* optional */
+            }
+          }
           const uploaded = await resolveQueueInputImage({
             file: options.inputImage,
             filename: options.inputImageFilename,
@@ -691,43 +702,8 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             controlImageFilenames.length > 0 ? controlImageFilenames : undefined,
           qualityProfile: effectiveQualityProfile,
           forceNewSeed: true,
+          figurePixelSize: uploadedFigureSize,
         });
-
-        // Compose/Refine: match EmptyLatent aspect to the uploaded figure so
-        // square presets cannot stretch ReferenceLatent edits. Lightning must
-        // still snap to a native-safe preset — raw ≤2048 uploads mosaic CFG-1.
-        const hasComposeFigure = Boolean(
-          inputImageFilename ||
-          inputImageFilenames.length > 0 ||
-          options?.inputImage ||
-          options?.inputImageUrl?.trim()
-        );
-        if (
-          uploadedFigureSize &&
-          hasComposeFigure &&
-          (config.tool === 'compose' ||
-            config.tool === 'refine' ||
-            config.tool === 'inpaint' ||
-            config.tool === 'outpaint')
-        ) {
-          const { isQwenLightningModel } = await import('@/lib/model-sampling-patch');
-          if (isQwenLightningModel(queueModel)) {
-            const { lightningSafeComposeLatentSize } =
-              await import('@/lib/model-resolution-defaults');
-            const safe = lightningSafeComposeLatentSize(
-              uploadedFigureSize.width,
-              uploadedFigureSize.height,
-              queueModel
-            );
-            queueParams.width = safe.width;
-            queueParams.height = safe.height;
-          } else {
-            const { snapLatentSize } = await import('@/lib/browser-image-dimensions');
-            const snapped = snapLatentSize(uploadedFigureSize.width, uploadedFigureSize.height);
-            queueParams.width = snapped.width;
-            queueParams.height = snapped.height;
-          }
-        }
 
         if (pluginDenoise != null && pluginDenoise.toString().trim() !== '') {
           const { resolveUserSamplerDenoiseOverride } =

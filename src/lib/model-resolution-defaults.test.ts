@@ -7,6 +7,7 @@ import {
   lightningSafeComposeLatentSize,
   normalizeResolutionOrientation,
   normalizeResolutionSizeTier,
+  resolveComposeOutputLatentSize,
   resolutionOrientationsForModel,
   resolutionSizeTiersForModel,
   resolveModelResolutionParams,
@@ -241,6 +242,42 @@ describe("model resolution defaults", () => {
     assert.deepEqual(
       lightningSafeComposeLatentSize(1600, 900, "qwen-image-edit-2511-lightning-8"),
       { width: 1584, height: 1056 },
+    );
+  });
+
+  it("uses sidebar preset when figure aspect matches orientation chip", () => {
+    assert.deepEqual(
+      resolveComposeOutputLatentSize(
+        682,
+        1024,
+        "qwen-image-edit-2511-lightning-8",
+        "portrait-23",
+        "medium",
+      ),
+      { width: 1056, height: 1584 },
+    );
+    assert.deepEqual(
+      resolveComposeOutputLatentSize(
+        900,
+        1200,
+        "qwen-image-edit-2511-lightning-8",
+        "portrait-34",
+        "medium",
+      ),
+      { width: 1104, height: 1472 },
+    );
+  });
+
+  it("snaps mismatched sidebar AR to nearest tier preset without stretching figure", () => {
+    assert.deepEqual(
+      resolveComposeOutputLatentSize(
+        682,
+        1024,
+        "qwen-image-edit-2511-lightning-8",
+        "portrait-34",
+        "medium",
+      ),
+      { width: 1056, height: 1584 },
     );
   });
 

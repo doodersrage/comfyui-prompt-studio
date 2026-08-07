@@ -863,4 +863,51 @@ describe("video I2V auto-wiring (patchVideoImageToVideoWiringInWorkflow)", () =>
     assert.equal(scale.inputs.crop, "center");
     assert.ok((result.patched.crop ?? 0) >= 1);
   });
+
+  it("encodeReferencesOnly patches Qwen edit ref scales but not SaveImage upscale", async () => {
+    const { patchImageResizeNodesInWorkflow } = await import("./workflow-direct-patch");
+    const workflow = {
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: { prompt: "edit", image1: ["11", 0] },
+      },
+      "900": {
+        class_type: "LoadImage",
+        inputs: { image: "fig.png" },
+      },
+      "11": {
+        class_type: "ImageScale",
+        inputs: {
+          image: ["900", 0],
+          width: 1024,
+          height: 1024,
+          upscale_method: "lanczos",
+        },
+      },
+      "20": {
+        class_type: "SaveImage",
+        inputs: { images: ["21", 0] },
+      },
+      "21": {
+        class_type: "ImageScale",
+        inputs: {
+          image: ["7", 0],
+          width: 682,
+          height: 1024,
+          upscale_method: "lanczos",
+        },
+      },
+    };
+    const result = patchImageResizeNodesInWorkflow(
+      workflow,
+      { width: 1056, height: 1584 },
+      { encodeReferencesOnly: true },
+    );
+    const refScale = result.workflow["11"] as { inputs: { width: number; height: number } };
+    const saveScale = result.workflow["21"] as { inputs: { width: number; height: number } };
+    assert.equal(refScale.inputs.width, 1056);
+    assert.equal(refScale.inputs.height, 1584);
+    assert.equal(saveScale.inputs.width, 682);
+    assert.equal(saveScale.inputs.height, 1024);
+  });
 });

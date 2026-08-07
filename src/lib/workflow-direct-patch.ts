@@ -47,6 +47,47 @@ import { ensureFluxGuidanceInWorkflow } from './flux-guidance-patch';
 
 export const IMAGE_SCALE_BY_NODE_TYPE = 'ImageScaleBy';
 
+const QWEN_EDIT_ENCODE_TYPES = new Set(['TextEncodeQwenImageEdit', 'TextEncodeQwenImageEditPlus']);
+const QWEN_EDIT_IMAGE_INPUT_KEYS = ['image', 'image1', 'image2', 'image3', 'image4'] as const;
+
+function workflowNodeLinkId(value: unknown): string | null {
+  return Array.isArray(value) && typeof value[0] === 'string' ? value[0] : null;
+}
+
+/** ImageScale / ResizeImage nodes on the LoadImage → encode path only. */
+function collectQwenEditEncodeResizeNodeIds(workflow: Record<string, unknown>): Set<string> {
+  const ids = new Set<string>();
+  for (const node of Object.values(workflow)) {
+    if (!node || typeof node !== 'object') {
+      continue;
+    }
+    const record = node as { class_type?: string; inputs?: Record<string, unknown> };
+    if (!record.inputs || !QWEN_EDIT_ENCODE_TYPES.has(record.class_type ?? '')) {
+      continue;
+    }
+    for (const key of QWEN_EDIT_IMAGE_INPUT_KEYS) {
+      if (!(key in record.inputs)) {
+        continue;
+      }
+      let cursor = workflowNodeLinkId(record.inputs[key]);
+      while (cursor) {
+        const linked = workflow[cursor] as { class_type?: string; inputs?: Record<string, unknown> } | undefined;
+        if (!linked?.inputs) {
+          break;
+        }
+        if (linked.class_type === 'LoadImage' || linked.class_type === 'LoadImageOutput') {
+          break;
+        }
+        if (linked.class_type === 'ImageScale' || linked.class_type === 'ResizeImage') {
+          ids.add(cursor);
+        }
+        cursor = workflowNodeLinkId(linked.inputs.image);
+      }
+    }
+  }
+  return ids;
+}
+
 export type WorkflowDirectPatchCounts = {
   width?: number;
   height?: number;
@@ -1104,14 +1145,21 @@ function replaceLoaderPlaceholderTokensInJson(
 
 export function patchImageResizeNodesInWorkflow(
   workflow: Record<string, unknown>,
-  params: Pick<WorkflowParamValues, 'width' | 'height'>
+  params: Pick<WorkflowParamValues, 'width' | 'height'>,
+  options?: { encodeReferencesOnly?: boolean }
 ): { workflow: Record<string, unknown>; patched: WorkflowDirectPatchCounts } {
   const next = structuredClone(workflow);
   const patched: WorkflowDirectPatchCounts = {};
   const resizeTypes = new Set(['ImageScale', 'ResizeImage']);
+  const encodeOnlyIds = options?.encodeReferencesOnly
+    ? collectQwenEditEncodeResizeNodeIds(next)
+    : null;
 
-  for (const node of Object.values(next)) {
+  for (const [nodeId, node] of Object.entries(next)) {
     if (!node || typeof node !== 'object') {
+      continue;
+    }
+    if (encodeOnlyIds && !encodeOnlyIds.has(nodeId)) {
       continue;
     }
     const record = node as {
@@ -1578,7 +1626,9 @@ export function patchWorkflowDirectParams(
     imagePatch.workflow,
     input.params?.maskImageFilename
   );
-  const resizePatch = patchImageResizeNodesInWorkflow(maskPatch.workflow, input.params ?? {});
+  const resizePatch = patchImageResizeNodesInWorkflow(maskPatch.workflow, input.params ?? {}, {
+    encodeReferencesOnly: Boolean(input.params?.inputImageFilename?.toString().trim()),
+  });
   const regionalSegments = regionalSegmentsFromCustomTokens(input.customTokens);
   const regionalSlots: RegionalPromptSlot[] =
     input.regionalSlots && input.regionalSlots.length > 0

@@ -17,7 +17,9 @@ import {
   ensureLightningNativeResolutionParams,
   normalizeResolutionOrientation,
   normalizeResolutionSizeTier,
+  resolveComposeOutputLatentSize,
   resolveModelResolutionParams,
+  toolUsesComposeFigureLatent,
   type ResolutionOrientation,
   type ResolutionSizeTier,
 } from './model-resolution-defaults';
@@ -72,6 +74,8 @@ export type ResolveQueueParamsOptions = {
    * Advanced queue params (ignores base/handoff/model default seeds).
    */
   forceNewSeed?: boolean;
+  /** Probed figure pixel size — overrides sidebar/handoff W×H for Compose/Refine I2I. */
+  figurePixelSize?: { width: number; height: number };
 };
 
 /** Random KSampler seed for a new queue job. */
@@ -159,7 +163,8 @@ function normalizeResolveQueueParamsInput(
     'qualityProfile' in input ||
     'workflow' in input ||
     'samplerOverrides' in input ||
-    'forceNewSeed' in input
+    'forceNewSeed' in input ||
+    'figurePixelSize' in input
   ) {
     return input as ResolveQueueParamsOptions;
   }
@@ -185,6 +190,7 @@ export function resolveQueueParams(
     workflow,
     samplerOverrides,
     forceNewSeed,
+    figurePixelSize,
   } = normalizeResolveQueueParamsInput(input);
   const settings = loadQueueParamsSettings();
   const shared = loadSettingsCache().shared;
@@ -409,6 +415,27 @@ export function resolveQueueParams(
 
     const hasInputImage = Boolean(merged.inputImageFilename);
     const hasMaskImage = Boolean(merged.maskImageFilename);
+
+    // Figure pixels beat sidebar / re-edit handoff W×H — wrong latent AR stretches
+    // refs and compounds “thinning” when gallery outputs feed the next Compose pass.
+    if (
+      figurePixelSize &&
+      figurePixelSize.width > 0 &&
+      figurePixelSize.height > 0 &&
+      hasInputImage &&
+      toolUsesComposeFigureLatent(tool)
+    ) {
+      const latent = resolveComposeOutputLatentSize(
+        figurePixelSize.width,
+        figurePixelSize.height,
+        model,
+        orientation,
+        sizeTier
+      );
+      merged.width = latent.width;
+      merged.height = latent.height;
+    }
+
     const userDenoiseOverride = pickModelSamplerOverrideFields(
       samplerOverrides ?? shared.modelSamplerOverrides
     ).denoise;
