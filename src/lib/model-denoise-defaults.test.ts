@@ -5,6 +5,7 @@ import {
   isEditCapableModel,
   isFluxKleinModel,
   isQwenEditModel,
+  resolveDistilledQueueDenoise,
   resolveDenoiseForModel,
 } from "./model-denoise-defaults";
 
@@ -116,21 +117,46 @@ describe("model denoise defaults", () => {
       1,
     );
     assert.equal(
-      resolveDenoiseForModel("qwen-image-edit-2511-lightning-8", { tool: "refine" }),
+      resolveDenoiseForModel("qwen-image-edit-2511-lightning-8", { tool: "compose" }),
       1,
     );
     assert.equal(
       resolveDenoiseForModel("qwen-image-edit-2511-lightning-8", {
-        tool: "refine",
+        tool: "compose",
         hasInputImage: true,
       }),
       1,
     );
+  });
+
+  it("resolveDistilledQueueDenoise honors sidebar override on Lightning compose", () => {
     assert.equal(
-      resolveDenoiseForModel("qwen-image-edit-2511-lightning-8", {
-        tool: "refine",
+      resolveDistilledQueueDenoise("qwen-image-edit-2511-lightning-8", {
+        tool: "compose",
         hasInputImage: true,
-        override: 0.65,
+        userDenoiseOverride: "0.55",
+      }),
+      "0.55",
+    );
+  });
+
+  it("resolveDistilledQueueDenoise keeps explicit client params on Lightning compose", () => {
+    assert.equal(
+      resolveDistilledQueueDenoise("qwen-image-edit-2511-lightning-8", {
+        tool: "compose",
+        hasInputImage: true,
+        paramsDenoise: "0.72",
+      }),
+      "0.72",
+    );
+  });
+
+  it("resolveDistilledQueueDenoise forces soft handoff denoise to 1 on Lightning", () => {
+    assert.equal(
+      resolveDistilledQueueDenoise("qwen-image-edit-2511-lightning-8", {
+        tool: "compose",
+        hasInputImage: true,
+        paramsDenoise: "0.65",
       }),
       1,
     );

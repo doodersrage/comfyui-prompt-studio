@@ -2271,6 +2271,72 @@ describe("comfyui runtime queue params", () => {
     assert.equal(sampler.inputs.steps, 8);
   });
 
+  it("honors client queue params denoise on Lightning inject without sidebar runtime", async () => {
+    const { injectPromptsWithFallbacks, resolvePlaceholderTokens } = await import("./comfyui-config"
+    );
+    const tokens = resolvePlaceholderTokens();
+    const workflow = {
+      "1": {
+        class_type: "UNETLoader",
+        inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
+      },
+      "7": {
+        class_type: "LoraLoaderModelOnly",
+        inputs: {
+          model: ["1", 0],
+          lora_name:
+            "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
+          strength_model: 1,
+        },
+      },
+      "120": {
+        class_type: "EmptySD3LatentImage",
+        inputs: { width: 1328, height: 1328, batch_size: 1 },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["7", 0],
+          latent_image: ["120", 0],
+          steps: 20,
+          cfg: 4,
+          denoise: 0.65,
+          sampler_name: "euler",
+          scheduler: "simple",
+          seed: 1,
+        },
+      },
+    };
+    const injected = injectPromptsWithFallbacks(
+      workflow,
+      {
+        positive: "compose",
+        negative: "",
+        params: {
+          width: 1104,
+          height: 1472,
+          cfg: 4,
+          steps: 20,
+          denoise: 0.58,
+          inputImageFilename: "fig.png",
+        },
+      },
+      tokens,
+      {
+        model: "qwen-image-edit-2511-lightning-8",
+        qualityProfile: "max",
+        directWorkflowPatching: true,
+      },
+    );
+    const sampler = Object.values(injected.workflow).find(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { class_type?: string }).class_type === "KSampler",
+    ) as { inputs: { denoise: number; cfg: number; steps: number } };
+    assert.equal(sampler.inputs.denoise, 0.58);
+  });
+
   it("applies selected style LoRAs on Edit-2511 Lightning after the Lightning LoRA", async () => {
     const { injectPromptsWithFallbacks, resolvePlaceholderTokens } = await import("./comfyui-config"
     );

@@ -242,3 +242,45 @@ export function resolveDenoiseForModel(
 
   return DEFAULT_EDIT_DENOISE;
 }
+
+/**
+ * Distilled Lightning/Rapid queue denoise: honor sidebar override and explicit
+ * client params; only auto-force when missing or soft handoff (~0.65).
+ */
+export function resolveDistilledQueueDenoise(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+    paramsDenoise?: string | number;
+    userDenoiseOverride?: string;
+  }
+): string | number | undefined {
+  const userOverride = options?.userDenoiseOverride?.toString().trim();
+  if (userOverride) {
+    return userOverride;
+  }
+
+  const forced = resolveDenoiseForModel(model, {
+    tool: options?.tool,
+    hasInputImage: options?.hasInputImage,
+    hasMaskImage: options?.hasMaskImage,
+  });
+
+  const paramsDenoise = options?.paramsDenoise?.toString().trim();
+  if (!paramsDenoise) {
+    return forced;
+  }
+
+  const current = Number(paramsDenoise);
+  const isSoftHandoff =
+    forced === 1 &&
+    Number.isFinite(current) &&
+    Math.abs(current - DEFAULT_EDIT_DENOISE) < 0.001;
+  if (isSoftHandoff) {
+    return forced;
+  }
+
+  return paramsDenoise;
+}

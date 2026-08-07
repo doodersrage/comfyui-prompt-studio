@@ -13,7 +13,7 @@ import {
   isEditCapableModel,
   isFlux1FamilyModel,
   isQwenRapidAioModel,
-  resolveDenoiseForModel,
+  resolveDistilledQueueDenoise,
 } from './model-denoise-defaults';
 import { buildLightningLoraFilenameMap, loraFilenameImpliesLightning } from './workflow-lora-patch';
 import {
@@ -1606,19 +1606,17 @@ export function injectPromptsWithFallbacks(
     const userDenoiseOverride = resolveUserSamplerDenoiseOverride(
       options?.samplerOverrides ?? loadSettingsCache().shared.modelSamplerOverrides
     );
-    if (!userDenoiseOverride) {
-      // Soft edit denoise (0.65) in packs / handoffs mosaics CFG-1 Lightning —
-      // force denoise with the distilled CFG/steps patch unless sidebar override set.
-      const forcedDenoise = resolveDenoiseForModel(distilledModelId, {
-        hasInputImage: Boolean(
-          input.params?.inputImageFilename?.toString().trim() ||
-          input.params?.inputImageFilenames?.some(name => Boolean(name?.toString().trim()))
-        ),
-        hasMaskImage: Boolean(input.params?.maskImageFilename?.toString().trim()),
-      });
-      if (forcedDenoise != null) {
-        distilledSampler.denoise = forcedDenoise;
-      }
+    const resolvedDenoise = resolveDistilledQueueDenoise(distilledModelId, {
+      hasInputImage: Boolean(
+        input.params?.inputImageFilename?.toString().trim() ||
+        input.params?.inputImageFilenames?.some(name => Boolean(name?.toString().trim()))
+      ),
+      hasMaskImage: Boolean(input.params?.maskImageFilename?.toString().trim()),
+      paramsDenoise: input.params?.denoise ?? distilledSampler.denoise,
+      userDenoiseOverride,
+    });
+    if (resolvedDenoise != null) {
+      distilledSampler.denoise = resolvedDenoise;
     }
     nextWorkflow = patchSamplerParamsInWorkflow(nextWorkflow, distilledSampler, distilledModelId, {
       force: true,

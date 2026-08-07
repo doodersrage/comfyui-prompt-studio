@@ -714,7 +714,11 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
 
         if (pluginDenoise != null && pluginDenoise.toString().trim() !== '') {
-          queueParams.denoise = pluginDenoise;
+          const { resolveUserSamplerDenoiseOverride } =
+            await import('@/lib/model-sampler-defaults');
+          if (!resolveUserSamplerDenoiseOverride(loadSettingsCache().shared.modelSamplerOverrides)) {
+            queueParams.denoise = pluginDenoise;
+          }
         }
         if (pluginCfg != null && pluginCfg.toString().trim() !== '') {
           queueParams.cfg = pluginCfg;
@@ -724,7 +728,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         // edit denoise must not clobber CFG-1 / denoise-1 — that mosaics Compose.
         {
           const { ensureDistilledSamplerParams } = await import('@/lib/model-sampler-defaults');
-          const { resolveDenoiseForModel, isQwenRapidAioModel, isWanRapidAioModel } =
+          const { resolveDistilledQueueDenoise, isQwenRapidAioModel, isWanRapidAioModel } =
             await import('@/lib/model-denoise-defaults');
           const { isQwenLightningModel, isWanLightningModel } =
             await import('@/lib/model-sampling-patch');
@@ -735,20 +739,21 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             isWanRapidAioModel(queueModel);
           if (isDistilled) {
             Object.assign(queueParams, ensureDistilledSamplerParams(queueParams, queueModel));
+            const { resolveDistilledQueueDenoise } = await import('@/lib/model-denoise-defaults');
             const { resolveUserSamplerDenoiseOverride } =
               await import('@/lib/model-sampler-defaults');
             const userDenoiseOverride = resolveUserSamplerDenoiseOverride(
               loadSettingsCache().shared.modelSamplerOverrides
             );
-            if (!userDenoiseOverride) {
-              const forcedDenoise = resolveDenoiseForModel(queueModel, {
-                tool: config.tool,
-                hasInputImage: Boolean(inputImageFilename),
-                hasMaskImage: Boolean(maskImageFilename),
-              });
-              if (forcedDenoise != null) {
-                queueParams.denoise = forcedDenoise;
-              }
+            const resolvedDenoise = resolveDistilledQueueDenoise(queueModel, {
+              tool: config.tool,
+              hasInputImage: Boolean(inputImageFilename),
+              hasMaskImage: Boolean(maskImageFilename),
+              paramsDenoise: queueParams.denoise,
+              userDenoiseOverride,
+            });
+            if (resolvedDenoise != null) {
+              queueParams.denoise = resolvedDenoise;
             }
           }
         }
