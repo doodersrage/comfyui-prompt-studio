@@ -1417,12 +1417,19 @@ export function scaleQwenEditReferenceImagesToLatentSize(
       if (!linkedNode) {
         continue;
       }
-      // Already scaled to this latent size — leave alone.
+      // Pack resize may already match latent W×H but omit crop — still enforce center-crop.
       if (
         linkedNode.class_type === 'ImageScale' &&
         Number(linkedNode.inputs?.width) === width &&
         Number(linkedNode.inputs?.height) === height
       ) {
+        if (linkedNode.inputs) {
+          linkedNode.inputs.upscale_method = linkedNode.inputs.upscale_method ?? 'lanczos';
+          if (linkedNode.inputs.crop !== 'center') {
+            linkedNode.inputs.crop = 'center';
+            scaledSlotCount += 1;
+          }
+        }
         continue;
       }
       // Walk through an existing absolute resize to the LoadImage when present.

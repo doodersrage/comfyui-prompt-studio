@@ -837,4 +837,30 @@ describe("video I2V auto-wiring (patchVideoImageToVideoWiringInWorkflow)", () =>
       true,
     );
   });
+
+  it("sets center crop on ImageScale nodes when patching queue resize", async () => {
+    const { patchImageResizeNodesInWorkflow } = await import("./workflow-direct-patch");
+    const workflow = {
+      "10": {
+        class_type: "ImageScale",
+        inputs: {
+          image: ["9", 0],
+          width: 1024,
+          height: 1024,
+          upscale_method: "lanczos",
+        },
+      },
+    };
+    const result = patchImageResizeNodesInWorkflow(workflow, {
+      width: 1104,
+      height: 1472,
+    });
+    const scale = result.workflow["10"] as {
+      inputs: { width: number; height: number; crop: string };
+    };
+    assert.equal(scale.inputs.width, 1104);
+    assert.equal(scale.inputs.height, 1472);
+    assert.equal(scale.inputs.crop, "center");
+    assert.ok((result.patched.crop ?? 0) >= 1);
+  });
 });

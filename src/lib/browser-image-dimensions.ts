@@ -21,6 +21,46 @@ export function snapLatentSize(
   };
 }
 
+/** Read pixel size from a browser image URL (blob:, data:, or same-origin http). */
+export async function probeImageUrlDimensions(
+  url: string
+): Promise<{ width: number; height: number } | null> {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const response = await fetch(trimmed);
+      if (!response.ok) {
+        return null;
+      }
+      const blob = await response.blob();
+      const bitmap = await createImageBitmap(blob);
+      const size = { width: bitmap.width, height: bitmap.height };
+      bitmap.close();
+      if (size.width <= 0 || size.height <= 0) {
+        return null;
+      }
+      return size;
+    } catch {
+      /* fall through to Image() */
+    }
+  }
+  if (typeof Image === 'undefined') {
+    return null;
+  }
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const size = { width: img.naturalWidth, height: img.naturalHeight };
+      resolve(size.width > 0 && size.height > 0 ? size : null);
+    };
+    img.onerror = () => resolve(null);
+    img.src = trimmed;
+  });
+}
+
 /** Read pixel size of a browser image File (applies EXIF orientation via ImageBitmap). */
 export async function probeImageFileDimensions(
   file: File

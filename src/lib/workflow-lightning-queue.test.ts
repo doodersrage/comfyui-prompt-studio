@@ -1304,6 +1304,45 @@ describe("qwen edit reference image prep", () => {
     assert.equal(scaleNode.inputs.image[0], "900");
   });
 
+  it("adds center crop when pack ImageScale already matches latent size", async () => {
+    const { scaleQwenEditReferenceImagesToLatentSize } = await import("./workflow-lightning-queue");
+    const workflow = {
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "compose",
+          image1: ["901", 0],
+        },
+      },
+      "900": {
+        class_type: "LoadImage",
+        inputs: { image: "fig.png" },
+        _meta: { title: "Figure 1" },
+      },
+      "901": {
+        class_type: "ImageScale",
+        inputs: {
+          image: ["900", 0],
+          width: 1104,
+          height: 1472,
+          upscale_method: "lanczos",
+        },
+      },
+    };
+    const { workflow: next, scaledSlotCount } =
+      scaleQwenEditReferenceImagesToLatentSize(workflow, {
+        width: 1104,
+        height: 1472,
+      });
+    assert.ok(scaledSlotCount >= 1);
+    const encode = next["4"] as { inputs: { image1: [string, number] } };
+    const scaleNode = next[encode.inputs.image1[0]] as {
+      class_type: string;
+      inputs: { width: number; height: number; crop: string };
+    };
+    assert.equal(scaleNode.inputs.crop, "center");
+  });
+
   it("prunes unused {{INPUT_IMAGE}} LoadImages after Compose ensure", async () => {
     const { prepareQwenEditReferenceImagesForQueue } = await import("./workflow-lightning-queue");
     const workflow = {

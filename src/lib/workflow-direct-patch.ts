@@ -50,6 +50,7 @@ export const IMAGE_SCALE_BY_NODE_TYPE = 'ImageScaleBy';
 export type WorkflowDirectPatchCounts = {
   width?: number;
   height?: number;
+  crop?: number;
   checkpoint?: number;
   unet?: number;
   vae?: number;
@@ -1129,6 +1130,14 @@ export function patchImageResizeNodesInWorkflow(
     if (shouldPatchNumericField(inputs.height, params.height)) {
       inputs.height = Number(params.height);
       patched.height = (patched.height ?? 0) + 1;
+    }
+    // Absolute ImageScale without crop stretches refs to latent W×H — center-crop instead.
+    if (record.class_type === 'ImageScale') {
+      inputs.upscale_method = inputs.upscale_method ?? 'lanczos';
+      if (inputs.crop !== 'center') {
+        inputs.crop = 'center';
+        patched.crop = (patched.crop ?? 0) + 1;
+      }
     }
   }
 

@@ -570,14 +570,23 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
           uploadedFilenames[0] = inputImageFilename;
         }
 
-        // Last resort: probe the raw File when upload metadata omitted size
+        // Last resort: probe the raw File / preview URL when upload metadata omitted size
         // (otherwise Lightning inject keeps Settings 1328² and squashes portraits).
-        if (!uploadedFigureSize && options?.inputImage && typeof createImageBitmap === 'function') {
+        if (!uploadedFigureSize) {
           try {
-            const { probeImageFileDimensions } = await import('@/lib/browser-image-dimensions');
-            const probed = await probeImageFileDimensions(options.inputImage);
-            if (probed) {
-              uploadedFigureSize = probed;
+            const { probeImageFileDimensions, probeImageUrlDimensions } =
+              await import('@/lib/browser-image-dimensions');
+            if (options?.inputImage) {
+              const probed = await probeImageFileDimensions(options.inputImage);
+              if (probed) {
+                uploadedFigureSize = probed;
+              }
+            }
+            if (!uploadedFigureSize && options?.inputImageUrl?.trim()) {
+              const probed = await probeImageUrlDimensions(options.inputImageUrl.trim());
+              if (probed) {
+                uploadedFigureSize = probed;
+              }
             }
           } catch {
             /* optional */
@@ -687,8 +696,15 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         // Compose/Refine: match EmptyLatent aspect to the uploaded figure so
         // square presets cannot stretch ReferenceLatent edits. Lightning must
         // still snap to a native-safe preset — raw ≤2048 uploads mosaic CFG-1.
+        const hasComposeFigure = Boolean(
+          inputImageFilename ||
+          inputImageFilenames.length > 0 ||
+          options?.inputImage ||
+          options?.inputImageUrl?.trim()
+        );
         if (
           uploadedFigureSize &&
+          hasComposeFigure &&
           (config.tool === 'compose' ||
             config.tool === 'refine' ||
             config.tool === 'inpaint' ||
