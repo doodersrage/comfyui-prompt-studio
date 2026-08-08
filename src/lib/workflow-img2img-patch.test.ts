@@ -70,4 +70,48 @@ describe("ensureKleinReferenceLatentWiringInWorkflow", () => {
     );
     assert.equal(result.wired, false);
   });
+
+  it("center-crops figure refs to EmptyFlux2Latent size (prevents shrink-to-fit)", () => {
+    const scaffold = buildWorkflowScaffoldForModel("flux-2-klein-9b-distilled");
+    const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
+    const result = ensureKleinReferenceLatentWiringInWorkflow(workflow, {
+      model: "flux-2-klein-9b-distilled",
+      inputImageFilename: "portrait-682x1024.png",
+      width: 896,
+      height: 1152,
+    });
+    assert.equal(result.wired, true);
+    const nodes = result.workflow as Record<
+      string,
+      { class_type?: string; inputs?: Record<string, unknown> }
+    >;
+    const sampler = Object.values(nodes).find((node) => node.class_type === "KSampler");
+    const latentRef = sampler?.inputs?.latent_image as [string, number];
+    const latent = nodes[latentRef[0]!] as {
+      class_type?: string;
+      inputs?: { width: number; height: number };
+    };
+    assert.equal(latent.class_type, "EmptyFlux2LatentImage");
+    assert.equal(latent.inputs?.width, 896);
+    assert.equal(latent.inputs?.height, 1152);
+
+    const positiveRef = sampler?.inputs?.positive as [string, number];
+    const refNode = nodes[positiveRef[0]!] as {
+      class_type?: string;
+      inputs?: { latent: [string, number] };
+    };
+    assert.equal(refNode.class_type, "ReferenceLatent");
+    const vaeEncode = nodes[refNode.inputs!.latent[0]] as {
+      class_type?: string;
+      inputs?: { pixels: [string, number] };
+    };
+    const scaleNode = nodes[vaeEncode.inputs!.pixels[0]] as {
+      class_type?: string;
+      inputs?: { width: number; height: number; crop: string };
+    };
+    assert.equal(scaleNode.class_type, "ImageScale");
+    assert.equal(scaleNode.inputs?.width, 896);
+    assert.equal(scaleNode.inputs?.height, 1152);
+    assert.equal(scaleNode.inputs?.crop, "center");
+  });
 });

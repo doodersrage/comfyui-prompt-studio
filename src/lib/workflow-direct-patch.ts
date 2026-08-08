@@ -1661,6 +1661,8 @@ export function patchWorkflowDirectParams(
     model: input.model,
     inputImageFilename: input.params?.inputImageFilename,
     inputImageFilenames: input.params?.inputImageFilenames,
+    width: input.params?.width,
+    height: input.params?.height,
   });
   const kleinEnhancerWire = ensureKleinEnhancerPackWiringInWorkflow(kleinRefWire.workflow, {
     model: input.model,

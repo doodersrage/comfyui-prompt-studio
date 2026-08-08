@@ -16,6 +16,96 @@ const VAE_ENCODE_TYPES = new Set(['VAEEncode']);
 const VAE_LOADER_TYPES = new Set(['VAELoader']);
 const CHECKPOINT_LOADER_TYPES = new Set(['CheckpointLoaderSimple', 'CheckpointLoader']);
 const LOAD_IMAGE_TYPES = new Set(['LoadImage', 'LoadImageOutput']);
+const RESIZE_TYPES = new Set(['ImageScale', 'ResizeImage']);
+
+const KLEIN_REF_LATENT_SCALE_TITLE = 'Prompt Studio — ref → latent size';
+
+function getLinkedNodeId(value: unknown): string | null {
+  if (!Array.isArray(value) || value.length < 1) {
+    return null;
+  }
+  const id = value[0];
+  return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
+}
+
+function readEmptyFlux2LatentSize(
+  workflow: Record<string, WorkflowNode>
+): { width: number; height: number } | null {
+  for (const node of Object.values(workflow)) {
+    if (node?.class_type !== 'EmptyFlux2LatentImage' || !node.inputs) {
+      continue;
+    }
+    const width = Number(node.inputs.width);
+    const height = Number(node.inputs.height);
+    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+      return { width, height };
+    }
+  }
+  return null;
+}
+
+function resolveKleinReferenceLatentDimensions(
+  workflow: Record<string, WorkflowNode>,
+  width?: number | string,
+  height?: number | string
+): { width: number; height: number } | null {
+  const explicitWidth = Number(width);
+  const explicitHeight = Number(height);
+  if (
+    Number.isFinite(explicitWidth) &&
+    Number.isFinite(explicitHeight) &&
+    explicitWidth > 0 &&
+    explicitHeight > 0
+  ) {
+    return { width: explicitWidth, height: explicitHeight };
+  }
+  return readEmptyFlux2LatentSize(workflow);
+}
+
+function ensureKleinRefImageScaleNode(
+  workflow: Record<string, WorkflowNode>,
+  loaderId: string,
+  width: number,
+  height: number,
+  insertedNodeIds: string[]
+): string {
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (!node?.class_type || !RESIZE_TYPES.has(node.class_type)) {
+      continue;
+    }
+    if (node._meta?.title !== KLEIN_REF_LATENT_SCALE_TITLE) {
+      continue;
+    }
+    const imageRef = getLinkedNodeId(node.inputs?.image);
+    if (imageRef !== loaderId) {
+      continue;
+    }
+    if (node.inputs) {
+      node.inputs.width = width;
+      node.inputs.height = height;
+      if (node.class_type === 'ImageScale') {
+        node.inputs.upscale_method = node.inputs.upscale_method ?? 'lanczos';
+        node.inputs.crop = 'center';
+      }
+    }
+    return nodeId;
+  }
+
+  const scaleId = nextWorkflowNodeId(workflow);
+  workflow[scaleId] = {
+    class_type: 'ImageScale',
+    inputs: {
+      image: [loaderId, 0],
+      upscale_method: 'lanczos',
+      width,
+      height,
+      crop: 'center',
+    },
+    _meta: { title: KLEIN_REF_LATENT_SCALE_TITLE },
+  };
+  insertedNodeIds.push(scaleId);
+  return scaleId;
+}
 
 function isNodeOutputRef(value: unknown): value is [string, number] {
   return Array.isArray(value) && typeof value[0] === 'string' && typeof value[1] === 'number';
@@ -63,12 +153,19 @@ function findPrimarySampler(
 
 function findOrCreateEmptyFlux2Latent(
   workflow: Record<string, WorkflowNode>,
-  insertedNodeIds: string[]
+  insertedNodeIds: string[],
+  width?: number,
+  height?: number
 ): string {
   for (const [nodeId, node] of Object.entries(workflow)) {
     if (node?.class_type && EMPTY_LATENT_TYPES.has(node.class_type)) {
       if (node.class_type !== 'EmptyFlux2LatentImage') {
         node.class_type = 'EmptyFlux2LatentImage';
+      }
+      if (node.inputs && width != null && height != null) {
+        node.inputs.width = width;
+        node.inputs.height = height;
+        node.inputs.batch_size = node.inputs.batch_size ?? 1;
       }
       return nodeId;
     }
@@ -77,8 +174,8 @@ function findOrCreateEmptyFlux2Latent(
   workflow[id] = {
     class_type: 'EmptyFlux2LatentImage',
     inputs: {
-      width: '{{WIDTH}}',
-      height: '{{HEIGHT}}',
+      width: width ?? '{{WIDTH}}',
+      height: height ?? '{{HEIGHT}}',
       batch_size: 1,
     },
     _meta: { title: 'Empty Flux 2 Latent' },
@@ -125,6 +222,8 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
     model?: string;
     inputImageFilename?: string | null;
     inputImageFilenames?: Array<string | undefined | null> | null;
+    width?: number | string;
+    height?: number | string;
   }
 ): {
   workflow: Record<string, unknown>;
@@ -139,7 +238,10 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
     return { workflow, wired: false, insertedNodeIds: [] };
   }
 
-  const typed = workflow as Record<string, WorkflowNode>;
+  const next = structuredClone(workflow) as Record<string, WorkflowNode>;
+  const latentSize = resolveKleinReferenceLatentDimensions(next, input.width, input.height);
+
+  const typed = next;
   const sampler = findPrimarySampler(typed);
   if (!sampler) {
     return { workflow, wired: false, insertedNodeIds: [] };
@@ -150,7 +252,6 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
     return { workflow, wired: false, insertedNodeIds: [] };
   }
 
-  const next = structuredClone(workflow) as Record<string, WorkflowNode>;
   const insertedNodeIds: string[] = [];
   const samplerNode = next[sampler.samplerId];
   if (!samplerNode?.inputs) {
@@ -166,10 +267,21 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
     VAE_ENCODE_TYPES.has(latentNode.class_type) ||
     !EMPTY_LATENT_TYPES.has(latentNode.class_type)
   ) {
-    const emptyId = findOrCreateEmptyFlux2Latent(next, insertedNodeIds);
+    const emptyId = findOrCreateEmptyFlux2Latent(
+      next,
+      insertedNodeIds,
+      latentSize?.width,
+      latentSize?.height
+    );
     samplerNode.inputs.latent_image = [emptyId, 0];
-  } else if (latentNode.class_type !== 'EmptyFlux2LatentImage') {
-    latentNode.class_type = 'EmptyFlux2LatentImage';
+  } else {
+    if (latentNode.class_type !== 'EmptyFlux2LatentImage') {
+      latentNode.class_type = 'EmptyFlux2LatentImage';
+    }
+    if (latentSize && latentNode.inputs) {
+      latentNode.inputs.width = latentSize.width;
+      latentNode.inputs.height = latentSize.height;
+    }
   }
 
   // Walk existing ReferenceLatent chain or start from sampler positive source.
@@ -220,11 +332,22 @@ export function ensureKleinReferenceLatentWiringInWorkflow(
       next[loadId]!.inputs!.image = filename;
     }
 
+    const pixelsSourceId =
+      latentSize != null
+        ? ensureKleinRefImageScaleNode(
+            next,
+            loadId,
+            latentSize.width,
+            latentSize.height,
+            insertedNodeIds
+          )
+        : loadId;
+
     const encodeId = nextWorkflowNodeId(next);
     next[encodeId] = {
       class_type: 'VAEEncode',
       inputs: {
-        pixels: [loadId, 0],
+        pixels: [pixelsSourceId, 0],
         vae: vaeRef,
       },
       _meta: { title: `VAE Encode Figure ${figureIndex}` },
