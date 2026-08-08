@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { applyTagAssistToSelection } from '@/lib/tag-assist';
 
 type TagAssistToolbarProps = {
@@ -11,43 +12,62 @@ type TagAssistToolbarProps = {
 export default function TagAssistToolbar({
   value,
   onChange,
-  textareaId = 'edit-input',
+  textareaId = 'generated-prompt-editor',
 }: TagAssistToolbarProps) {
+  const [hint, setHint] = useState('');
+
   const apply = (transform: 'emphasis' | 'deemphasis' | 'tags') => {
     const element = document.getElementById(textareaId) as HTMLTextAreaElement | null;
-    const start = element?.selectionStart ?? value.length;
-    const end = element?.selectionEnd ?? value.length;
+    if (!element) {
+      setHint(`Could not find prompt editor (#${textareaId}).`);
+      return;
+    }
+    const start = element.selectionStart ?? value.length;
+    const end = element.selectionEnd ?? value.length;
+    const selected = value.slice(start, end).trim();
+    if (!selected) {
+      setHint('Select text in the prompt editor first.');
+      element.focus();
+      return;
+    }
     const result = applyTagAssistToSelection(value, start, end, transform);
+    setHint('');
     onChange(result.nextValue);
     window.requestAnimationFrame(() => {
-      element?.focus();
-      element?.setSelectionRange(result.nextSelectionStart, result.nextSelectionEnd);
+      element.focus();
+      element.setSelectionRange(result.nextSelectionStart, result.nextSelectionEnd);
     });
   };
 
   return (
-    <div className="flex flex-wrap gap-2">
-      <button
-        type="button"
-        onClick={() => apply('emphasis')}
-        className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-      >
-        Emphasize selection
-      </button>
-      <button
-        type="button"
-        onClick={() => apply('deemphasis')}
-        className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-      >
-        De-emphasize selection
-      </button>
-      <button
-        type="button"
-        onClick={() => apply('tags')}
-        className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
-      >
-        Tags from selection
-      </button>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => apply('emphasis')}
+          title="Wrap selection as (phrase:1.2) — SD tag weight syntax"
+          className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40"
+        >
+          Emphasize selection
+        </button>
+        <button
+          type="button"
+          onClick={() => apply('deemphasis')}
+          title="Wrap selection as [phrase:0.8] — lower SD tag weight"
+          className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40"
+        >
+          De-emphasize selection
+        </button>
+        <button
+          type="button"
+          onClick={() => apply('tags')}
+          title="Convert selection to comma-separated tags"
+          className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40"
+        >
+          Tags from selection
+        </button>
+      </div>
+      {hint ? <p className="text-[11px] text-amber-200/90">{hint}</p> : null}
     </div>
   );
 }

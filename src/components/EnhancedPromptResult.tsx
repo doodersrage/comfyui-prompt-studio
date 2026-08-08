@@ -463,6 +463,7 @@ export default function EnhancedPromptResult({
           prompt={panelProps.output}
           model={readinessModel}
           onChange={onOutputChange}
+          textareaId="generated-prompt-editor"
         />
       ) : null}
 

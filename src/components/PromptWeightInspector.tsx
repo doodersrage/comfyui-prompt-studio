@@ -3,14 +3,18 @@
 import { inspectPromptWeights } from '@/lib/prompt-weight-inspector';
 import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import TagAssistToolbar from '@/components/TagAssistToolbar';
+import { modelUsesTagAssist } from '@/lib/tag-assist';
 
 export default function PromptWeightInspector(props: {
   prompt: string;
   model: ComfyImageModel | string;
   onChange?: (value: string) => void;
+  /** Textarea receiving tag-assist selection edits (default: generated prompt editor). */
   textareaId?: string;
 }) {
   const inspection = inspectPromptWeights(props.prompt, props.model);
+  const supportsTagAssist = modelUsesTagAssist(props.model);
+  const textareaId = props.textareaId ?? 'generated-prompt-editor';
 
   return (
     <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 text-sm">
@@ -21,12 +25,17 @@ export default function PromptWeightInspector(props: {
         </p>
       </div>
 
-      {props.onChange ? (
-        <TagAssistToolbar
-          value={props.prompt}
-          onChange={props.onChange}
-          textareaId={props.textareaId}
-        />
+      {props.onChange && supportsTagAssist ? (
+        <>
+          <p className="text-[11px] text-zinc-500">
+            Select text in the prompt editor, then apply SD-style emphasis or comma tags.
+          </p>
+          <TagAssistToolbar
+            value={props.prompt}
+            onChange={props.onChange}
+            textareaId={textareaId}
+          />
+        </>
       ) : null}
 
       {inspection.weightedTokens.length > 0 ? (

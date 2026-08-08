@@ -365,6 +365,7 @@ export default function RefineTool() {
           onSlotsChange={next => updateToolSettings({ regionalSlots: next })}
           sourceImageUrl={previewUrl}
           accentClassName={accentFocusClass(ACCENT)}
+          persistKey="refine-regional-edit"
         />
 
         <FieldLabel>Current prompt (optional)</FieldLabel>

@@ -595,6 +595,7 @@ export default function ComposeTool() {
           onSlotsChange={next => updateToolSettings({ regionalSlots: next })}
           sourceImageUrl={fig1Preview}
           accentClassName={accentFocusClass(ACCENT)}
+          persistKey="compose-regional-edit"
         />
 
         <FieldLabel>Starter templates</FieldLabel>

@@ -129,6 +129,7 @@ export default function LintTool() {
 
         <FieldLabel>Prompt</FieldLabel>
         <TextArea
+          id="lint-prompt-editor"
           value={prompt}
           onChange={event => setPrompt(event.target.value)}
           placeholder="Paste generated or hand-written prompt to lint…"
@@ -168,7 +169,12 @@ export default function LintTool() {
         {importStatus && <p className="text-xs text-zinc-500">{importStatus}</p>}
 
         {prompt.trim() ? (
-          <PromptWeightInspector prompt={prompt} model={shared.model} onChange={setPrompt} />
+          <PromptWeightInspector
+            prompt={prompt}
+            model={shared.model}
+            onChange={setPrompt}
+            textareaId="lint-prompt-editor"
+          />
         ) : null}
       </ToolSection>
 

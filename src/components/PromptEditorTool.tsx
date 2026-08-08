@@ -236,6 +236,7 @@ export default function PromptEditorTool() {
 
         <FieldLabel>Positive prompt</FieldLabel>
         <TextArea
+          id="prompt-editor-positive"
           value={positive}
           onChange={event => setPositive(event.target.value)}
           placeholder="Paste or type your positive prompt…"
@@ -307,7 +308,12 @@ export default function PromptEditorTool() {
         {importStatus ? <p className="text-xs text-zinc-500">{importStatus}</p> : null}
 
         {positive.trim() ? (
-          <PromptWeightInspector prompt={positive} model={shared.model} onChange={setPositive} />
+          <PromptWeightInspector
+            prompt={positive}
+            model={shared.model}
+            onChange={setPositive}
+            textareaId="prompt-editor-positive"
+          />
         ) : null}
       </ToolSection>
 

@@ -368,14 +368,13 @@ export default function InpaintTool() {
         <FieldError>{error}</FieldError>
       </ToolSection>
 
-      <ToolSection title="Regional edit">
-        <RegionalEditPanel
-          slots={regionalSlots}
-          onSlotsChange={next => updateToolSettings({ regionalSlots: next })}
-          sourceImageUrl={previewUrl}
-          accentClassName={accentFocusClass(ACCENT)}
-        />
-      </ToolSection>
+      <RegionalEditPanel
+        slots={regionalSlots}
+        onSlotsChange={next => updateToolSettings({ regionalSlots: next })}
+        sourceImageUrl={previewUrl}
+        accentClassName={accentFocusClass(ACCENT)}
+        persistKey="inpaint-regional-edit"
+      />
 
       <EnhancedPromptResult
         output={output}
