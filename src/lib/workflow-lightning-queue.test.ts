@@ -1006,24 +1006,63 @@ describe("qwen edit reference image prep", () => {
     );
   });
 
+  it("converts vanilla img2img scaffold to ReferenceLatent + EmptySD3Latent", async () => {
+    const { prepareQwenEditReferenceImagesForQueue } = await import("./workflow-lightning-queue");
+    const { buildWorkflowScaffoldForModel } = await import("./workflow-scaffold");
+    const scaffold = buildWorkflowScaffoldForModel("qwen-image-edit-2511");
+    const workflow = JSON.parse(scaffold.json) as Record<string, unknown>;
+    const next = prepareQwenEditReferenceImagesForQueue(
+      workflow,
+      "qwen-image-edit-2511",
+      {
+        inputImageFilename: "figure.png",
+        width: 1328,
+        height: 1328,
+      },
+    );
+    const sampler = Object.values(next).find(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        "latent_image" in ((node as { inputs?: Record<string, unknown> }).inputs ?? {}),
+    ) as { inputs?: { latent_image?: [string, number]; positive?: [string, number] } };
+    const latentId = sampler?.inputs?.latent_image?.[0];
+    assert.equal(
+      (next[latentId!] as { class_type?: string }).class_type,
+      "EmptySD3LatentImage",
+    );
+    assert.equal(
+      (next[sampler!.inputs!.positive![0]] as { class_type?: string }).class_type,
+      "ReferenceLatent",
+    );
+    assert.equal(next["901"], undefined);
+  });
+
   it("prepares refs for non-Lightning edit models", async () => {
     const { prepareQwenEditReferenceImagesForQueue } = await import("./workflow-lightning-queue");
     const workflow = {
+      "3": { class_type: "VAELoader", inputs: { vae_name: "qwen_image_vae.safetensors" } },
       "4": {
         class_type: "TextEncodeQwenImageEditPlus",
         inputs: { prompt: "edit", clip: ["2", 0], vae: ["3", 0] },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["1", 0],
+          positive: ["4", 0],
+          latent_image: ["6", 0],
+        },
       },
     };
     const next = prepareQwenEditReferenceImagesForQueue(
       workflow,
       "qwen-image-edit-2511",
-      { inputImageFilenames: ["a.png", "b.png"] },
+      { inputImageFilenames: ["a.png", "b.png"], width: 1328, height: 1328 },
     );
     const encode = next["4"] as {
       inputs: Record<string, [string, number] | string>;
     };
-    assert.ok(Array.isArray(encode.inputs.image1));
-    assert.ok(Array.isArray(encode.inputs.image2));
     const loaders = Object.values(next).filter(
       (node) =>
         node &&
@@ -1031,6 +1070,16 @@ describe("qwen edit reference image prep", () => {
         (node as { class_type?: string }).class_type === "LoadImage",
     );
     assert.equal(loaders.length, 2);
+    const refNodes = Object.values(next).filter(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        (node as { class_type?: string }).class_type === "ReferenceLatent",
+    );
+    assert.equal(refNodes.length, 2);
+    assert.ok(Array.isArray(encode.inputs.image1));
+    assert.ok(Array.isArray(encode.inputs.image2));
+    assert.equal(encode.inputs.vae, undefined);
   });
 
   it("leaves non-edit models untouched", async () => {
@@ -1101,6 +1150,10 @@ describe("qwen edit reference image prep", () => {
         class_type: "UNETLoader",
         inputs: { unet_name: "qwen_image_edit_2511_bf16.safetensors" },
       },
+      "3": {
+        class_type: "VAELoader",
+        inputs: { vae_name: "qwen_image_vae.safetensors" },
+      },
       "7": {
         class_type: "LoraLoaderModelOnly",
         inputs: {
@@ -1159,10 +1212,21 @@ describe("qwen edit reference image prep", () => {
     assert.equal(latent.inputs.width, 1328);
     assert.equal(latent.inputs.height, 1328);
 
-    const encode = result["4"] as {
-      inputs: { image1: [string, number] };
+    const encode = result["4"] as { inputs: Record<string, unknown> };
+    assert.ok(Array.isArray(encode.inputs.image1));
+    assert.equal(encode.inputs.vae, undefined);
+
+    const sampler = result["8"] as { inputs: { positive: [string, number] } };
+    const refNode = result[sampler.inputs.positive[0]] as {
+      class_type: string;
+      inputs: { latent: [string, number] };
     };
-    const scaleNode = result[encode.inputs.image1[0]] as {
+    assert.equal(refNode.class_type, "ReferenceLatent");
+    const vaeEncode = result[refNode.inputs.latent[0]] as {
+      class_type: string;
+      inputs: { pixels: [string, number] };
+    };
+    const scaleNode = result[vaeEncode.inputs.pixels[0]] as {
       class_type: string;
       inputs: {
         image: [string, number];
@@ -1181,6 +1245,11 @@ describe("qwen edit reference image prep", () => {
       (result[scaleNode.inputs.image[0]] as { inputs: { image: string } }).inputs
         .image,
       "upload-2048.png",
+    );
+    // VL path: encode sees LoadImage directly; latent path uses separate ImageScale.
+    assert.equal(
+      (encode.inputs.image1 as [string, number])[0],
+      scaleNode.inputs.image[0],
     );
   });
 
@@ -1255,8 +1324,22 @@ describe("qwen edit reference image prep", () => {
     assert.equal(latent.inputs.width, 1104);
     assert.equal(latent.inputs.height, 1472);
 
-    const encode = result["4"] as { inputs: { image1: [string, number] } };
-    const scaleNode = result[encode.inputs.image1[0]] as {
+    const encode = result["4"] as { inputs: Record<string, unknown> };
+    assert.ok(Array.isArray(encode.inputs.image1));
+    assert.equal(encode.inputs.vae, undefined);
+
+    const sampler = result["8"] as { inputs: { positive: [string, number] } };
+    const refNode = result[sampler.inputs.positive[0]] as {
+      class_type: string;
+      inputs: { latent: [string, number] };
+    };
+    assert.equal(refNode.class_type, "ReferenceLatent");
+    const vaeEncode = result[refNode.inputs.latent[0]] as {
+      class_type: string;
+      inputs: { pixels: [string, number] };
+    };
+    assert.equal(vaeEncode.class_type, "VAEEncode");
+    const scaleNode = result[vaeEncode.inputs.pixels[0]] as {
       class_type: string;
       inputs: { width: number; height: number; crop: string };
     };
@@ -1264,6 +1347,66 @@ describe("qwen edit reference image prep", () => {
     assert.equal(scaleNode.inputs.width, 1104);
     assert.equal(scaleNode.inputs.height, 1472);
     assert.equal(scaleNode.inputs.crop, "center");
+  });
+
+  it("builds ReferenceLatent chain with VAE disconnected from encode", async () => {
+    const { ensureQwenReferenceLatentWiringInWorkflow } = await import("./workflow-lightning-queue");
+    const workflow = {
+      "2": { class_type: "CLIPLoader", inputs: {} },
+      "3": { class_type: "VAELoader", inputs: { vae_name: "qwen_image_vae.safetensors" } },
+      "4": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "compose",
+          clip: ["2", 0],
+          vae: ["3", 0],
+          image1: ["900", 0],
+        },
+      },
+      "5": {
+        class_type: "TextEncodeQwenImageEditPlus",
+        inputs: {
+          prompt: "",
+          clip: ["2", 0],
+          vae: ["3", 0],
+        },
+      },
+      "900": {
+        class_type: "LoadImage",
+        inputs: { image: "portrait.png" },
+        _meta: { title: "Figure 1" },
+      },
+      "8": {
+        class_type: "KSampler",
+        inputs: {
+          model: ["7", 0],
+          positive: ["4", 0],
+          negative: ["5", 0],
+          latent_image: ["120", 0],
+        },
+      },
+    };
+    const { workflow: next, wired, insertedNodeIds } = ensureQwenReferenceLatentWiringInWorkflow(
+      workflow,
+      {
+        inputImageFilename: "portrait.png",
+        width: 1104,
+        height: 1472,
+      },
+    );
+    assert.ok(wired);
+    assert.ok(insertedNodeIds.length >= 3);
+    const encode = next["4"] as { inputs: Record<string, unknown> };
+    const negEncode = next["5"] as { inputs: Record<string, unknown> };
+    assert.equal(encode.inputs.vae, undefined);
+    assert.equal(negEncode.inputs.vae, undefined);
+    assert.ok(Array.isArray(encode.inputs.image1));
+    assert.ok(Array.isArray(negEncode.inputs.image1));
+    const sampler = next["8"] as { inputs: { positive: [string, number] } };
+    assert.equal(
+      (next[sampler.inputs.positive[0]] as { class_type?: string }).class_type,
+      "ReferenceLatent",
+    );
   });
 
   it("replaces pack ImageScaleBy encode links with absolute latent ImageScale", async () => {

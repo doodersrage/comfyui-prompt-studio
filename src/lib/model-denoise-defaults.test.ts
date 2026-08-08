@@ -129,6 +129,27 @@ describe("model denoise defaults", () => {
     );
   });
 
+  it("uses full denoise for vanilla Qwen Edit Compose ReferenceLatent path", () => {
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-edit-2511", {
+        tool: "compose",
+        hasInputImage: true,
+      }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-edit-2511", {
+        tool: "refine",
+        hasInputImage: true,
+      }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("qwen-image-edit-2511", { tool: "generate" }),
+      1,
+    );
+  });
+
   it("resolveDistilledQueueDenoise honors sidebar override on Lightning compose", () => {
     assert.equal(
       resolveDistilledQueueDenoise("qwen-image-edit-2511-lightning-8", {

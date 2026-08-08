@@ -649,6 +649,116 @@ function qwenEditLightningScaffold(
   };
 }
 
+/** Vanilla Qwen Edit Compose: EmptySD3Latent + ReferenceLatent at queue time (no Lightning LoRA). */
+function qwenEditComposeScaffold(
+  tokens: WorkflowPlaceholderTokens,
+  model: ComfyImageModel | string
+): Record<string, unknown> {
+  const encodeClass = resolveQwenEditEncoderClass(model);
+  const loaders = qwenLoaderFilenames();
+  const positiveEncode = {
+    prompt: tokens.positive,
+    clip: ['2', 0] as [string, number],
+  };
+  const negativeEncode = {
+    prompt: tokens.negative,
+    clip: ['2', 0] as [string, number],
+  };
+  const figureTokens = [
+    tokens.inputImage?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
+    DEFAULT_INPUT_IMAGE_2_TOKEN,
+    DEFAULT_INPUT_IMAGE_3_TOKEN,
+    DEFAULT_INPUT_IMAGE_4_TOKEN,
+  ];
+
+  return {
+    '1': {
+      class_type: 'UNETLoader',
+      inputs: { unet_name: loaders.unetToken, weight_dtype: 'default' },
+      _meta: { title: 'Load UNET' },
+    },
+    '2': {
+      class_type: 'CLIPLoader',
+      inputs: {
+        clip_name: loaders.clipName,
+        type: 'qwen_image',
+      },
+      _meta: { title: 'Load CLIP' },
+    },
+    '3': {
+      class_type: 'VAELoader',
+      inputs: { vae_name: loaders.vaeName },
+      _meta: { title: 'Load VAE' },
+    },
+    '4': {
+      class_type: encodeClass,
+      inputs: positiveEncode,
+      _meta: { title: 'Qwen Edit Encode (+)' },
+    },
+    '5': {
+      class_type: encodeClass,
+      inputs: negativeEncode,
+      _meta: { title: 'Qwen Edit Encode (−)' },
+    },
+    '6': {
+      class_type: 'EmptySD3LatentImage',
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: 'Empty Latent' },
+    },
+    '7': {
+      class_type: 'ModelSamplingAuraFlow',
+      inputs: { model: ['1', 0], shift: tokens.shift },
+      _meta: { title: 'ModelSamplingAuraFlow' },
+    },
+    '8': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['7', 0],
+        positive: ['4', 0],
+        negative: ['5', 0],
+        latent_image: ['6', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '9': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['8', 0], vae: ['3', 0] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '10': {
+      class_type: 'SaveImage',
+      inputs: { images: ['9', 0], filename_prefix: 'PromptStudio' },
+      _meta: { title: 'Save Image' },
+    },
+    '900': {
+      class_type: 'LoadImage',
+      inputs: { image: figureTokens[0] },
+      _meta: { title: 'Figure 1' },
+    },
+    '901': {
+      class_type: 'LoadImage',
+      inputs: { image: figureTokens[1] },
+      _meta: { title: 'Figure 2' },
+    },
+    '902': {
+      class_type: 'LoadImage',
+      inputs: { image: figureTokens[2] },
+      _meta: { title: 'Figure 3' },
+    },
+    '903': {
+      class_type: 'LoadImage',
+      inputs: { image: figureTokens[3] },
+      _meta: { title: 'Figure 4' },
+    },
+  };
+}
+
 function qwenEditImg2imgScaffold(
   tokens: WorkflowPlaceholderTokens,
   model: ComfyImageModel | string
@@ -1633,13 +1743,20 @@ export function buildWorkflowScaffoldForModel(
   const resolvedTokens = resolveBindingTokens(tokens);
   const category = resolveScaffoldCategory(model);
   const useKleinComposeScaffold = options?.tool === 'compose' && isFluxKleinModel(model);
+  const useQwenComposeScaffold =
+    options?.tool === 'compose' &&
+    isQwenEditModel(model) &&
+    !isQwenLightningModel(model) &&
+    !usesQwenCheckpointLoader(model);
   const useEditScaffold = isEditCapableModel(model);
   const useLightningScaffold = category === 'qwen' && isQwenLightningModel(model);
   const useCheckpointScaffold =
     category === 'qwen' && usesQwenCheckpointLoader(model) && !useLightningScaffold;
   const graph = useKleinComposeScaffold
     ? fluxKleinEditScaffold(resolvedTokens, model)
-    : useEditScaffold
+    : useQwenComposeScaffold
+      ? qwenEditComposeScaffold(resolvedTokens, model)
+      : useEditScaffold
       ? editScaffold(resolvedTokens, category, model)
       : category === 'flux'
         ? fluxScaffold(resolvedTokens, model)
@@ -1661,11 +1778,15 @@ export function buildWorkflowScaffoldForModel(
     'Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.',
     useKleinComposeScaffold
       ? 'Klein Compose scaffold uses EmptyFlux2LatentImage + ReferenceLatent (instruction edit, denoise 1). Figure 1–4 attach via ReferenceLatent at queue time — not soft img2img.'
-      : useEditScaffold
+      : useQwenComposeScaffold
+        ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage + TextEncodeQwenImageEditPlus (no encode VAE). Figure 1–4 attach via ReferenceLatent + external VAEEncode at queue time — denoise 1.'
+        : useEditScaffold
         ? isQwenEditModel(model)
           ? isQwenLightningModel(model)
             ? 'Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Figure 1–4 LoadImages use {{INPUT_IMAGE}}…{{INPUT_IMAGE_4}} but encode slots stay empty for Generate; Compose/Refine queue wires refs when you upload sources.'
-            : 'Qwen Edit scaffold wires LoadImage → VAEEncode → KSampler with denoise — upload an image from Refine, Compose, or Image → Prompt before queueing.'
+            : useQwenComposeScaffold
+              ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage — ReferenceLatent wiring applied at queue time.'
+              : 'Qwen Edit scaffold wires LoadImage → VAEEncode → KSampler with denoise — upload an image from Refine, Compose, or Image → Prompt before queueing.'
           : model === 'flux-inpaint'
             ? 'FLUX inpaint scaffold wires LoadImage + LoadImageMask → InpaintModelConditioning — upload source image and mask before queueing.'
             : 'Edit scaffold includes LoadImage + denoise — wire VAEEncode in ComfyUI if you use the generic edit template.'

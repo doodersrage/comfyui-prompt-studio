@@ -150,6 +150,26 @@ export function isKleinReferenceLatentEditContext(
   );
 }
 
+/** Qwen Edit Compose/Refine with ReferenceLatent + EmptySD3Latent (denoise 1). */
+export function isQwenReferenceLatentEditContext(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+  }
+): boolean {
+  if (!isQwenEditModel(model) || options?.hasMaskImage || isInpaintModel(model)) {
+    return false;
+  }
+  return (
+    options?.tool === 'compose' ||
+    options?.tool === 'refine' ||
+    options?.tool === 'image-prompt' ||
+    (Boolean(options?.hasInputImage) && options?.tool != null && EDIT_TOOLS.has(options.tool))
+  );
+}
+
 /** @deprecated Soft img2img is not used for Klein — kept for call-site compat. */
 export function isKleinImg2imgEditContext(
   model: ComfyImageModel | string,
@@ -220,6 +240,11 @@ export function resolveDenoiseForModel(
   // Klein Compose/Refine — ReferenceLatent + EmptyFlux2Latent (ignore soft edit denoise).
   if (isKleinReferenceLatentEditContext(model, options)) {
     return DEFAULT_KLEIN_EDIT_DENOISE;
+  }
+
+  // Qwen Edit Compose/Refine — ReferenceLatent + EmptySD3Latent (not soft img2img).
+  if (isQwenReferenceLatentEditContext(model, options)) {
+    return 1;
   }
 
   if (options?.override != null && options.override.toString().trim() !== '') {

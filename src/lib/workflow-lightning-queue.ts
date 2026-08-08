@@ -51,6 +51,17 @@ const QWEN_EDIT_ENCODE_TYPES = new Set(['TextEncodeQwenImageEdit', 'TextEncodeQw
 
 const QWEN_EDIT_IMAGE_INPUT_KEYS = ['image', 'image1', 'image2', 'image3', 'image4'] as const;
 
+const QWEN_REF_LATENT_SCALE_TITLE = 'Prompt Studio — ref → latent size';
+
+const VAE_LOADER_TYPES = new Set(['VAELoader']);
+const LOAD_IMAGE_TYPES = new Set(['LoadImage', 'LoadImageOutput']);
+const VAE_ENCODE_TYPES = new Set(['VAEEncode']);
+const EMPTY_LATENT_TYPES = new Set([
+  'EmptyLatentImage',
+  'EmptySD3LatentImage',
+  'EmptyFlux2LatentImage',
+]);
+
 const UNET_LOADER_TYPES = new Set(['UNETLoader', 'UnetLoaderGGUF']);
 const CHECKPOINT_LOADER_TYPES = new Set(['CheckpointLoaderSimple', 'CheckpointLoader']);
 const CLIP_LOADER_TYPES = new Set(['CLIPLoader', 'DualCLIPLoader', 'CLIPLoaderGGUF']);
@@ -68,6 +79,249 @@ function getLinkedNodeId(value: unknown): string | null {
   }
   const id = value[0];
   return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
+}
+
+function isNodeOutputRef(value: unknown): value is [string, number] {
+  return Array.isArray(value) && typeof value[0] === 'string' && typeof value[1] === 'number';
+}
+
+function findVaeSourceRef(workflow: Record<string, WorkflowNodeRecord>): [string, number] | null {
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (node?.class_type && VAE_LOADER_TYPES.has(node.class_type)) {
+      return [nodeId, 0];
+    }
+  }
+  for (const node of Object.values(workflow)) {
+    if (!node?.inputs) {
+      continue;
+    }
+    if (
+      (QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? '') || node.class_type === 'VAEEncode') &&
+      isNodeOutputRef(node.inputs.vae)
+    ) {
+      return node.inputs.vae;
+    }
+  }
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (node?.class_type && CHECKPOINT_LOADER_TYPES.has(node.class_type)) {
+      return [nodeId, 2];
+    }
+  }
+  return null;
+}
+
+function findPrimarySampler(
+  workflow: Record<string, WorkflowNodeRecord>
+): { samplerId: string; inputs: Record<string, unknown> } | null {
+  for (const [samplerId, node] of Object.entries(workflow)) {
+    if (!node?.inputs || !('latent_image' in node.inputs)) {
+      continue;
+    }
+    if (!('positive' in node.inputs)) {
+      continue;
+    }
+    return { samplerId, inputs: node.inputs };
+  }
+  return null;
+}
+
+function workflowHasReferenceLatent(workflow: Record<string, WorkflowNodeRecord>): boolean {
+  return Object.values(workflow).some(node => node?.class_type === 'ReferenceLatent');
+}
+
+/** Remove VAE from encode nodes — latents come from external VAEEncode + ReferenceLatent. */
+function disconnectQwenEditEncodeVae(workflow: Record<string, WorkflowNodeRecord>): void {
+  for (const node of Object.values(workflow)) {
+    if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? '')) {
+      continue;
+    }
+    if ('vae' in node.inputs) {
+      delete node.inputs.vae;
+    }
+  }
+}
+
+function wireQwenEditEncodeVisionImages(
+  workflow: Record<string, WorkflowNodeRecord>,
+  loaderIds: string[]
+): string[] {
+  const encodeImageKeys = ['image1', 'image2', 'image3', 'image4'] as const;
+  const wiredNodeIds: string[] = [];
+
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? '')) {
+      continue;
+    }
+    let changed = false;
+    if (node.class_type === 'TextEncodeQwenImageEdit') {
+      if (loaderIds[0]) {
+        node.inputs.image = [loaderIds[0], 0];
+        changed = true;
+      }
+    } else {
+      for (let i = 0; i < loaderIds.length && i < encodeImageKeys.length; i += 1) {
+        const key = encodeImageKeys[i]!;
+        node.inputs[key] = [loaderIds[i]!, 0];
+        changed = true;
+      }
+      for (let i = loaderIds.length; i < encodeImageKeys.length; i += 1) {
+        const key = encodeImageKeys[i]!;
+        if (key in node.inputs) {
+          delete node.inputs[key];
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      wiredNodeIds.push(nodeId);
+    }
+  }
+  return wiredNodeIds;
+}
+
+function peelQwenReferenceLatentChain(
+  workflow: Record<string, WorkflowNodeRecord>,
+  positiveRef: [string, number]
+): [string, number] {
+  if (!workflowHasReferenceLatent(workflow)) {
+    return positiveRef;
+  }
+  let cursor: string | null = positiveRef[0];
+  const visited = new Set<string>();
+  let textCond: [string, number] = positiveRef;
+  while (cursor && !visited.has(cursor)) {
+    visited.add(cursor);
+    const node = workflow[cursor];
+    if (node?.class_type !== 'ReferenceLatent') {
+      textCond = [cursor, 0];
+      break;
+    }
+    const prev = node.inputs?.conditioning;
+    cursor = isNodeOutputRef(prev) ? prev[0] : null;
+  }
+  for (const nodeId of visited) {
+    if (workflow[nodeId]?.class_type === 'ReferenceLatent') {
+      delete workflow[nodeId];
+    }
+  }
+  return textCond;
+}
+
+function ensureRefImageScaleNode(
+  workflow: Record<string, WorkflowNodeRecord>,
+  loaderId: string,
+  width: number,
+  height: number,
+  insertedNodeIds: string[]
+): string {
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (node?.class_type !== 'ImageScale' && node?.class_type !== 'ResizeImage') {
+      continue;
+    }
+    if (node._meta?.title !== QWEN_REF_LATENT_SCALE_TITLE) {
+      continue;
+    }
+    const imageRef = getLinkedNodeId(node.inputs?.image);
+    if (imageRef !== loaderId) {
+      continue;
+    }
+    if (node.inputs) {
+      node.inputs.width = width;
+      node.inputs.height = height;
+      if (node.class_type === 'ImageScale') {
+        node.inputs.upscale_method = node.inputs.upscale_method ?? 'lanczos';
+        node.inputs.crop = 'center';
+      }
+    }
+    if (node._meta?.title !== QWEN_REF_LATENT_SCALE_TITLE) {
+      node._meta = { ...(node._meta ?? {}), title: QWEN_REF_LATENT_SCALE_TITLE };
+    }
+    return nodeId;
+  }
+
+  const scaleId = nextLightningWorkflowNodeId(workflow);
+  workflow[scaleId] = {
+    class_type: 'ImageScale',
+    inputs: {
+      image: [loaderId, 0],
+      upscale_method: 'lanczos',
+      width,
+      height,
+      crop: 'center',
+    },
+    _meta: { title: QWEN_REF_LATENT_SCALE_TITLE },
+  };
+  insertedNodeIds.push(scaleId);
+  return scaleId;
+}
+
+/** ReferenceLatent edits start from EmptySD3Latent, not classic img2img VAEEncode. */
+function ensureQwenEmptyLatentForReferenceEdit(
+  workflow: Record<string, WorkflowNodeRecord>,
+  width: number,
+  height: number,
+  insertedNodeIds: string[]
+): void {
+  const sampler = findPrimarySampler(workflow);
+  if (!sampler) {
+    return;
+  }
+  const samplerNode = workflow[sampler.samplerId];
+  if (!samplerNode?.inputs) {
+    return;
+  }
+
+  const latentRef = samplerNode.inputs.latent_image;
+  const latentId = isNodeOutputRef(latentRef) ? latentRef[0] : null;
+  const latentNode = latentId ? workflow[latentId] : null;
+
+  const patchEmptyLatentNode = (nodeId: string, node: WorkflowNodeRecord): void => {
+    if (node.class_type !== 'EmptySD3LatentImage') {
+      node.class_type = 'EmptySD3LatentImage';
+    }
+    if (node.inputs) {
+      node.inputs.width = width;
+      node.inputs.height = height;
+      node.inputs.batch_size = node.inputs.batch_size ?? 1;
+    }
+    samplerNode.inputs!.latent_image = [nodeId, 0];
+  };
+
+  if (latentNode?.class_type && EMPTY_LATENT_TYPES.has(latentNode.class_type) && latentId) {
+    patchEmptyLatentNode(latentId, latentNode);
+    return;
+  }
+
+  const existingEmpty = Object.entries(workflow).find(
+    ([, node]) => node?.class_type && EMPTY_LATENT_TYPES.has(node.class_type)
+  );
+  if (existingEmpty) {
+    const [nodeId, node] = existingEmpty;
+    patchEmptyLatentNode(nodeId, node!);
+    return;
+  }
+
+  const emptyId = nextLightningWorkflowNodeId(workflow);
+  workflow[emptyId] = {
+    class_type: 'EmptySD3LatentImage',
+    inputs: { width, height, batch_size: 1 },
+    _meta: { title: 'Empty Latent' },
+  };
+  insertedNodeIds.push(emptyId);
+  samplerNode.inputs.latent_image = [emptyId, 0];
+
+  // Drop stale img2img VAEEncode when it only fed the sampler (not ReferenceLatent).
+  if (latentId && latentNode?.class_type && VAE_ENCODE_TYPES.has(latentNode.class_type)) {
+    const stillReferenced = Object.values(workflow).some(other => {
+      if (!other?.inputs || other === latentNode) {
+        return false;
+      }
+      return Object.values(other.inputs).some(value => getLinkedNodeId(value) === latentId);
+    });
+    if (!stillReferenced) {
+      delete workflow[latentId];
+    }
+  }
 }
 
 function parseNodeId(id: string): number | null {
@@ -1235,6 +1489,12 @@ export function disconnectQwenEditReferenceImagesForTxt2Img(
     if (changed) {
       disconnectedNodeIds.push(nodeId);
     }
+    if ('vae' in (node.inputs ?? {})) {
+      delete node.inputs!.vae;
+      if (!changed) {
+        disconnectedNodeIds.push(nodeId);
+      }
+    }
   }
 
   // Drop LoadImage nodes that only existed for edit refs (still validated by ComfyUI).
@@ -1279,6 +1539,8 @@ export function ensureQwenEditReferenceImagesForImg2Img(
      * pack refs adopt Figure 1–N from the queue.
      */
     forceRewire?: boolean;
+    /** When false, only create/update Figure LoadImages (ReferenceLatent path). */
+    wireEncodeSlots?: boolean;
   }
 ): {
   workflow: Record<string, unknown>;
@@ -1298,6 +1560,7 @@ export function ensureQwenEditReferenceImagesForImg2Img(
   }
 
   const forceRewire = options.forceRewire !== false;
+  const wireEncodeSlots = options.wireEncodeSlots !== false;
   const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
   const encodeImageKeys = ['image1', 'image2', 'image3', 'image4'] as const;
 
@@ -1356,6 +1619,10 @@ export function ensureQwenEditReferenceImagesForImg2Img(
   const loaderIds = filenames.map((filename, index) =>
     findOrCreateFigureLoader(index + 1, filename)
   );
+
+  if (!wireEncodeSlots) {
+    return { workflow: next, wiredNodeIds: loaderIds };
+  }
 
   const shouldWireSlot = (current: unknown): boolean => {
     if (forceRewire) {
@@ -1533,6 +1800,139 @@ export function scaleQwenEditReferenceImagesToLatentSize(
   return { workflow: next, scaledSlotCount };
 }
 
+function findLoadImageForFigure(
+  workflow: Record<string, WorkflowNodeRecord>,
+  figureIndex: number
+): string | null {
+  const patterns = [
+    new RegExp(`\\bfigure\\s*${figureIndex}\\b`, 'i'),
+    new RegExp(`\\b(?:image|ref|reference|photo|picture)\\s*${figureIndex}\\b`, 'i'),
+  ];
+  if (figureIndex === 1) {
+    patterns.push(/\b(?:input image|init|canvas)\b/i);
+  }
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (!node?.class_type || !LOAD_IMAGE_TYPES.has(node.class_type)) {
+      continue;
+    }
+    const title = node._meta?.title ?? '';
+    if (patterns.some(re => re.test(title))) {
+      return nodeId;
+    }
+  }
+  return null;
+}
+
+/**
+ * Qwen Edit Compose: disconnect VAE from TextEncodeQwenImageEditPlus (keep image1–4
+ * for VL prompt referencing), attach appearance refs via chained ReferenceLatent
+ * nodes (LoadImage → ImageScale → VAEEncode). Avoids encode-node auto downscaling.
+ */
+export function ensureQwenReferenceLatentWiringInWorkflow(
+  workflow: Record<string, unknown>,
+  options?: {
+    inputImageFilename?: string;
+    inputImageFilenames?: string[];
+    width?: number;
+    height?: number;
+  }
+): {
+  workflow: Record<string, unknown>;
+  wired: boolean;
+  insertedNodeIds: string[];
+} {
+  const filenames = normalizeInputImageFilenames(
+    options?.inputImageFilename,
+    options?.inputImageFilenames
+  );
+  if (filenames.length === 0) {
+    return { workflow, wired: false, insertedNodeIds: [] };
+  }
+
+  const width = Number(options?.width);
+  const height = Number(options?.height);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return { workflow, wired: false, insertedNodeIds: [] };
+  }
+
+  const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
+  const sampler = findPrimarySampler(next);
+  if (!sampler) {
+    return { workflow, wired: false, insertedNodeIds: [] };
+  }
+
+  const vaeRef = findVaeSourceRef(next);
+  if (!vaeRef) {
+    return { workflow, wired: false, insertedNodeIds: [] };
+  }
+
+  const samplerNode = next[sampler.samplerId];
+  if (!samplerNode?.inputs) {
+    return { workflow, wired: false, insertedNodeIds: [] };
+  }
+
+  disconnectQwenEditEncodeVae(next);
+  const insertedNodeIds: string[] = [];
+  ensureQwenEmptyLatentForReferenceEdit(next, width, height, insertedNodeIds);
+
+  let conditioningRef: [string, number] | null = isNodeOutputRef(samplerNode.inputs.positive)
+    ? samplerNode.inputs.positive
+    : null;
+  if (!conditioningRef) {
+    return { workflow: next, wired: false, insertedNodeIds };
+  }
+
+  let currentCond = peelQwenReferenceLatentChain(next, conditioningRef);
+  const loaderIds: string[] = [];
+
+  for (let index = 0; index < filenames.length; index += 1) {
+    const filename = filenames[index]!;
+    const figureIndex = index + 1;
+    let loadId = findLoadImageForFigure(next, figureIndex);
+    if (!loadId) {
+      loadId = nextLightningWorkflowNodeId(next);
+      next[loadId] = {
+        class_type: 'LoadImage',
+        inputs: { image: filename },
+        _meta: { title: figureIndex === 1 ? 'Figure 1' : `Figure ${figureIndex}` },
+      };
+      insertedNodeIds.push(loadId);
+    } else if (next[loadId]?.inputs) {
+      next[loadId]!.inputs!.image = filename;
+    }
+    loaderIds.push(loadId);
+
+    const scaleId = ensureRefImageScaleNode(next, loadId, width, height, insertedNodeIds);
+    const encodeId = nextLightningWorkflowNodeId(next);
+    next[encodeId] = {
+      class_type: 'VAEEncode',
+      inputs: {
+        pixels: [scaleId, 0],
+        vae: vaeRef,
+      },
+      _meta: { title: `VAE Encode Figure ${figureIndex}` },
+    };
+    insertedNodeIds.push(encodeId);
+
+    const refId = nextLightningWorkflowNodeId(next);
+    next[refId] = {
+      class_type: 'ReferenceLatent',
+      inputs: {
+        conditioning: currentCond,
+        latent: [encodeId, 0],
+      },
+      _meta: { title: `Reference Latent ${figureIndex}` },
+    };
+    insertedNodeIds.push(refId);
+    currentCond = [refId, 0];
+  }
+
+  samplerNode.inputs.positive = currentCond;
+  // VL path: figures stay on encode image slots (384×384 internal) for "Figure N" prompts.
+  wireQwenEditEncodeVisionImages(next, loaderIds);
+  return { workflow: next, wired: true, insertedNodeIds };
+}
+
 /** Drop unused Figure LoadImages that still hold unresolved {{INPUT_IMAGE*}} tokens. */
 export function pruneUnresolvedQwenEditFigureLoaders(workflow: Record<string, unknown>): {
   workflow: Record<string, unknown>;
@@ -1597,7 +1997,21 @@ export function prepareQwenEditReferenceImagesForQueue(
       inputImageFilenames: params?.inputImageFilenames,
       forceRewire: options?.forceRewire,
     }).workflow;
-    next = scaleQwenEditReferenceImagesToLatentSize(next, params).workflow;
+    next = ensureQwenReferenceLatentWiringInWorkflow(next, {
+      inputImageFilename: params?.inputImageFilename?.toString(),
+      inputImageFilenames: params?.inputImageFilenames,
+      width: params?.width,
+      height: params?.height,
+    }).workflow;
+    const latentSize = readEmptyLatentSize(next);
+    if (latentSize) {
+      next = ensureQwenReferenceLatentWiringInWorkflow(next, {
+        inputImageFilename: params?.inputImageFilename?.toString(),
+        inputImageFilenames: params?.inputImageFilenames,
+        width: latentSize.width,
+        height: latentSize.height,
+      }).workflow;
+    }
     next = pruneUnresolvedQwenEditFigureLoaders(next).workflow;
     return next;
   }
@@ -1636,13 +2050,22 @@ export function prepareLightningWorkflowForQueue(
   ): Record<string, unknown> => {
     // Sticky Flux ae.safetensors on Qwen Edit Lightning → gray mosaic decode.
     const vaeFixed = forceQwenVaeInLightningWorkflow(workflowAfterLatent, model);
-    // Re-scale encode refs to the forced EmptyLatent W×H (uploads stay ≤2048).
-    const sized = scaleQwenEditReferenceImagesToLatentSize(
-      vaeFixed,
-      readEmptyLatentSize(vaeFixed) ?? options?.params
-    ).workflow;
-    const latentSize = readEmptyLatentSize(sized);
-    const saveBypass = bypassMismatchedSaveImageScaleToLatent(sized, latentSize).workflow;
+    const latentSize = readEmptyLatentSize(vaeFixed) ?? options?.params;
+    const hasInputImage = Boolean(
+      options?.params?.inputImageFilename?.toString().trim() ||
+      options?.params?.inputImageFilenames?.some(name => Boolean(name?.toString().trim()))
+    );
+    const sized = hasInputImage
+      ? ensureQwenReferenceLatentWiringInWorkflow(vaeFixed, {
+          inputImageFilename: options?.params?.inputImageFilename?.toString(),
+          inputImageFilenames: options?.params?.inputImageFilenames,
+          width: latentSize?.width,
+          height: latentSize?.height,
+        }).workflow
+      : scaleQwenEditReferenceImagesToLatentSize(vaeFixed, latentSize ?? options?.params)
+          .workflow;
+    const resolvedLatentSize = readEmptyLatentSize(sized);
+    const saveBypass = bypassMismatchedSaveImageScaleToLatent(sized, resolvedLatentSize).workflow;
     return pruneUnresolvedQwenEditFigureLoaders(saveBypass).workflow;
   };
 
@@ -1890,45 +2313,53 @@ export function auditLightningWorkflowIssues(input: {
   const latentSize = readEmptyLatentSize(prepared);
   if (latentSize && /edit/i.test(String(input.model ?? ''))) {
     let refSizeMismatch = false;
+    const hasReferenceLatentChain = Object.values(prepared).some(
+      node => node?.class_type === 'ReferenceLatent'
+    );
     for (const node of Object.values(prepared)) {
-      if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? '')) {
+      if (node?.class_type !== 'ReferenceLatent' || !node.inputs) {
         continue;
       }
-      for (const key of QWEN_EDIT_IMAGE_INPUT_KEYS) {
-        if (!(key in node.inputs)) {
-          continue;
-        }
-        const linkedId = getLinkedNodeId(node.inputs[key]);
-        if (!linkedId) {
-          continue;
-        }
-        const linked = prepared[linkedId];
-        if (!linked) {
-          continue;
-        }
-        if (linked.class_type === 'LoadImage' || linked.class_type === 'LoadImageOutput') {
-          issues.push({
-            severity: 'warn',
-            message: `Edit Lightning encode still takes a full-res LoadImage (no ImageScale to ${latentSize.width}×${latentSize.height}). Ref/latent size mismatch causes gray mosaic on Compose — restart the app so queue prep can insert the scale.`,
-          });
-          refSizeMismatch = true;
-          break;
-        }
-        if (
-          (linked.class_type === 'ImageScale' || linked.class_type === 'ResizeImage') &&
-          (Number(linked.inputs?.width) !== latentSize.width ||
-            Number(linked.inputs?.height) !== latentSize.height)
-        ) {
-          issues.push({
-            severity: 'warn',
-            message: `Edit Lightning ref resize is ${Number(linked.inputs?.width)}×${Number(linked.inputs?.height)} but EmptyLatent is ${latentSize.width}×${latentSize.height} — size mismatch mosaics CFG-1 Compose.`,
-          });
-          refSizeMismatch = true;
-          break;
-        }
+      const latentRef = getLinkedNodeId(node.inputs.latent);
+      if (!latentRef) {
+        continue;
       }
-      if (refSizeMismatch) {
+      const encodeNode = prepared[latentRef];
+      if (encodeNode?.class_type !== 'VAEEncode') {
+        continue;
+      }
+      const pixelsRef = getLinkedNodeId(encodeNode.inputs?.pixels);
+      if (!pixelsRef) {
+        continue;
+      }
+      const scaleNode = prepared[pixelsRef];
+      if (
+        scaleNode?.class_type === 'ImageScale' &&
+        (Number(scaleNode.inputs?.width) !== latentSize.width ||
+          Number(scaleNode.inputs?.height) !== latentSize.height)
+      ) {
+        issues.push({
+          severity: 'warn',
+          message: `Edit Lightning ReferenceLatent ref scale is ${Number(scaleNode.inputs?.width)}×${Number(scaleNode.inputs?.height)} but EmptyLatent is ${latentSize.width}×${latentSize.height} — size mismatch mosaics CFG-1 Compose.`,
+        });
+        refSizeMismatch = true;
         break;
+      }
+    }
+    if (!refSizeMismatch && !hasReferenceLatentChain) {
+      for (const node of Object.values(prepared)) {
+        if (!node?.inputs || !QWEN_EDIT_ENCODE_TYPES.has(node.class_type ?? '')) {
+          continue;
+        }
+        if ('vae' in node.inputs) {
+          issues.push({
+            severity: 'warn',
+            message:
+              'Edit encode still has VAE wired — disconnect VAE and use VAEEncode + ReferenceLatent for appearance refs. Restart the app if queue prep did not apply.',
+          });
+          refSizeMismatch = true;
+          break;
+        }
       }
     }
   }

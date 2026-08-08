@@ -54,35 +54,45 @@ function workflowNodeLinkId(value: unknown): string | null {
   return Array.isArray(value) && typeof value[0] === 'string' ? value[0] : null;
 }
 
-/** ImageScale / ResizeImage nodes on the LoadImage → encode path only. */
+/** ImageScale / ResizeImage nodes on encode or ReferenceLatent ref paths. */
 function collectQwenEditEncodeResizeNodeIds(workflow: Record<string, unknown>): Set<string> {
   const ids = new Set<string>();
+
+  const addScaleChainFromLoader = (startId: string | null) => {
+    let cursor = startId;
+    while (cursor) {
+      const linked = workflow[cursor] as { class_type?: string; inputs?: Record<string, unknown> } | undefined;
+      if (!linked?.inputs) {
+        break;
+      }
+      if (linked.class_type === 'LoadImage' || linked.class_type === 'LoadImageOutput') {
+        break;
+      }
+      if (linked.class_type === 'ImageScale' || linked.class_type === 'ResizeImage') {
+        ids.add(cursor);
+      }
+      cursor = workflowNodeLinkId(linked.inputs.image);
+    }
+  };
+
   for (const node of Object.values(workflow)) {
     if (!node || typeof node !== 'object') {
       continue;
     }
     const record = node as { class_type?: string; inputs?: Record<string, unknown> };
-    if (!record.inputs || !QWEN_EDIT_ENCODE_TYPES.has(record.class_type ?? '')) {
+    if (!record.inputs) {
       continue;
     }
-    for (const key of QWEN_EDIT_IMAGE_INPUT_KEYS) {
-      if (!(key in record.inputs)) {
-        continue;
+    if (QWEN_EDIT_ENCODE_TYPES.has(record.class_type ?? '')) {
+      for (const key of QWEN_EDIT_IMAGE_INPUT_KEYS) {
+        if (!(key in record.inputs)) {
+          continue;
+        }
+        addScaleChainFromLoader(workflowNodeLinkId(record.inputs[key]));
       }
-      let cursor = workflowNodeLinkId(record.inputs[key]);
-      while (cursor) {
-        const linked = workflow[cursor] as { class_type?: string; inputs?: Record<string, unknown> } | undefined;
-        if (!linked?.inputs) {
-          break;
-        }
-        if (linked.class_type === 'LoadImage' || linked.class_type === 'LoadImageOutput') {
-          break;
-        }
-        if (linked.class_type === 'ImageScale' || linked.class_type === 'ResizeImage') {
-          ids.add(cursor);
-        }
-        cursor = workflowNodeLinkId(linked.inputs.image);
-      }
+    }
+    if (record.class_type === 'VAEEncode') {
+      addScaleChainFromLoader(workflowNodeLinkId(record.inputs.pixels));
     }
   }
   return ids;

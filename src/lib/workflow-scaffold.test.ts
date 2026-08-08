@@ -99,6 +99,17 @@ describe("workflow scaffold", () => {
     assert.match(result.json, /"901"/);
   });
 
+  it("builds vanilla Qwen Edit Compose scaffold with EmptySD3Latent", () => {
+    const result = buildWorkflowScaffoldForModel("qwen-image-edit-2511", undefined, {
+      tool: "compose",
+    });
+    assert.match(result.json, /TextEncodeQwenImageEditPlus/);
+    assert.match(result.json, /EmptySD3LatentImage/);
+    assert.doesNotMatch(result.json, /VAEEncode/);
+    assert.match(result.json, /Figure 1/);
+    assert.match(result.notes.join(" "), /ReferenceLatent/i);
+  });
+
   it("builds a video scaffold with an optional init image node ready for I2V auto-wiring", () => {
     const result = buildWorkflowScaffoldForModel("wan-video");
     assert.equal(result.category, "video");
