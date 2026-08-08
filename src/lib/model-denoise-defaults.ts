@@ -269,6 +269,84 @@ export function resolveDenoiseForModel(
 }
 
 /**
+ * ReferenceLatent instruction-edit (Klein/Qwen Compose/Refine, Lightning edit).
+ * Soft img2img denoise from gallery handoff or Settings must not leak — only
+ * sidebar KSampler denoise override may change the default (denoise 1).
+ */
+export function isInstructionEditDenoiseContext(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+  }
+): boolean {
+  if (options?.hasMaskImage || isInpaintModel(model)) {
+    return false;
+  }
+  if (isKleinReferenceLatentEditContext(model, options)) {
+    return true;
+  }
+  if (isQwenReferenceLatentEditContext(model, options)) {
+    return true;
+  }
+  if (isQwenLightningModel(model) && isEditCapableModel(model) && isEditQueueTool(options?.tool)) {
+    return true;
+  }
+  if (
+    isQwenRapidAioModel(model) &&
+    options?.tool != null &&
+    EDIT_TOOLS.has(options.tool) &&
+    !options.hasMaskImage
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Queue denoise: sidebar override wins; instruction-edit resets to 1 (no handoff leak). */
+export function resolveQueueDenoise(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+    userDenoiseOverride?: string;
+    handoffDenoise?: string | number;
+    editDenoiseStrength?: number;
+  }
+): string | number | undefined {
+  const userOverride = options?.userDenoiseOverride?.toString().trim();
+  if (userOverride) {
+    return userOverride;
+  }
+
+  const context = {
+    tool: options?.tool,
+    hasInputImage: options?.hasInputImage,
+    hasMaskImage: options?.hasMaskImage,
+  };
+
+  if (isInstructionEditDenoiseContext(model, context)) {
+    return resolveDenoiseForModel(model, context);
+  }
+
+  const handoff = options?.handoffDenoise?.toString().trim();
+  if (handoff) {
+    return handoff;
+  }
+
+  const denoise = resolveDenoiseForModel(model, {
+    ...context,
+    override:
+      isQwenLightningModel(model) || isWanLightningModel(model)
+        ? undefined
+        : options?.editDenoiseStrength,
+  });
+  return denoise;
+}
+
+/**
  * Distilled Lightning/Rapid queue denoise: honor sidebar override and explicit
  * client params; only auto-force when missing or soft handoff (~0.65).
  */

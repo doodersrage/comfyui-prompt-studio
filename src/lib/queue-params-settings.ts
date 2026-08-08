@@ -10,7 +10,7 @@ import {
   type ModelSamplerOverrideFields,
 } from './model-sampler-defaults';
 import { resolveModelSamplingParams } from './model-sampling-patch';
-import { resolveDenoiseForModel, resolveKleinEditCfg } from './model-denoise-defaults';
+import { resolveKleinEditCfg, resolveQueueDenoise } from './model-denoise-defaults';
 import {
   DEFAULT_RESOLUTION_ORIENTATION,
   DEFAULT_RESOLUTION_SIZE_TIER,
@@ -36,7 +36,6 @@ import { resolveControlNetModelFilename } from './model-controlnet-map';
 import { loadSettingsCache } from './settings-cache';
 import { findComfyWorkflowFile, mergeCustomWorkflowTokens } from './comfyui-workflow-files';
 import { getSelectedWorkflowFileId } from './comfyui-runtime';
-import { isQwenLightningModel } from './model-sampling-patch';
 import { isQwenRapidAioModel } from './model-denoise-defaults';
 import {
   resolveEffectiveResolutionSizeTier,
@@ -439,22 +438,16 @@ export function resolveQueueParams(
     const userDenoiseOverride = pickModelSamplerOverrideFields(
       samplerOverrides ?? shared.modelSamplerOverrides
     ).denoise;
-    const handoffDenoise = base?.denoise?.toString().trim();
-    if (userDenoiseOverride) {
-      merged.denoise = userDenoiseOverride;
-    } else if (handoffDenoise) {
-      merged.denoise = handoffDenoise;
-    } else {
-      // Lightning always denoise 1 — never inherit Settings editDenoiseStrength (0.65).
-      const denoise = resolveDenoiseForModel(model, {
-        tool,
-        hasInputImage,
-        hasMaskImage,
-        override: isQwenLightningModel(model) ? undefined : shared.editDenoiseStrength,
-      });
-      if (denoise != null) {
-        merged.denoise = denoise;
-      }
+    const denoise = resolveQueueDenoise(model, {
+      tool,
+      hasInputImage,
+      hasMaskImage,
+      userDenoiseOverride,
+      handoffDenoise: base?.denoise,
+      editDenoiseStrength: shared.editDenoiseStrength,
+    });
+    if (denoise != null) {
+      merged.denoise = denoise;
     }
     // Distilled Klein Compose/Refine: CFG 1 + soft denoise ≈ photo passthrough.
     const kleinEditCfg = resolveKleinEditCfg(model, {

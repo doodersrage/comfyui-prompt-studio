@@ -4,9 +4,11 @@ import {
   isComposeCapableModel,
   isEditCapableModel,
   isFluxKleinModel,
+  isInstructionEditDenoiseContext,
   isQwenEditModel,
   resolveDistilledQueueDenoise,
   resolveDenoiseForModel,
+  resolveQueueDenoise,
 } from "./model-denoise-defaults";
 
 describe("model denoise defaults", () => {
@@ -180,6 +182,67 @@ describe("model denoise defaults", () => {
         paramsDenoise: "0.65",
       }),
       1,
+    );
+  });
+
+  it("resolveQueueDenoise ignores gallery handoff on Klein Compose unless sidebar override", () => {
+    assert.equal(
+      resolveQueueDenoise("flux-2-klein-9b-distilled", {
+        tool: "compose",
+        hasInputImage: true,
+        handoffDenoise: "0.65",
+      }),
+      1,
+    );
+    assert.equal(
+      resolveQueueDenoise("flux-2-klein-9b-distilled", {
+        tool: "compose",
+        hasInputImage: true,
+        handoffDenoise: "0.65",
+        userDenoiseOverride: "0.42",
+      }),
+      "0.42",
+    );
+  });
+
+  it("resolveQueueDenoise keeps handoff denoise for classic img2img refine", () => {
+    assert.equal(
+      resolveQueueDenoise("qwen-image-2512", {
+        tool: "refine",
+        hasInputImage: true,
+        handoffDenoise: "0.55",
+      }),
+      "0.55",
+    );
+  });
+
+  it("isInstructionEditDenoiseContext covers Klein, Qwen Edit, and Lightning compose", () => {
+    assert.equal(
+      isInstructionEditDenoiseContext("flux-2-klein-9b", {
+        tool: "compose",
+        hasInputImage: true,
+      }),
+      true,
+    );
+    assert.equal(
+      isInstructionEditDenoiseContext("qwen-image-edit-2511", {
+        tool: "refine",
+        hasInputImage: true,
+      }),
+      true,
+    );
+    assert.equal(
+      isInstructionEditDenoiseContext("qwen-image-edit-2511-lightning-8", {
+        tool: "compose",
+      }),
+      true,
+    );
+    assert.equal(
+      isInstructionEditDenoiseContext("qwen-image-2512", {
+        tool: "refine",
+        hasInputImage: true,
+      }),
+      false,
     );
   });
 

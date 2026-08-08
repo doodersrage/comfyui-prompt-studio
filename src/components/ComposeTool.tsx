@@ -20,10 +20,11 @@ import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-t
 import {
   buildComposeInstruction,
   COMPOSE_DEFAULT_MODEL,
-  COMPOSE_MODIFY_TEMPLATES,
-  COMPOSE_TRANSFER_TEMPLATES,
+  COMPOSE_MODIFY_TEMPLATE_GROUPS,
+  COMPOSE_TRANSFER_TEMPLATE_GROUPS,
   MAX_COMPOSE_FIGURES,
   type ComposeMode,
+  type ComposeStarterTemplate,
 } from '@/lib/compose-prompt';
 import {
   DEFAULT_COMPOSE_IDENTITY_LOCK_STRENGTH,
@@ -42,6 +43,7 @@ import {
   ToolBadge,
   ToolLayout,
   ToolSection,
+  CollapsibleSection,
   accentButtonClass,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
@@ -364,8 +366,15 @@ export default function ComposeTool() {
     }
   }, [output]);
 
-  const templates = mode === 'transfer' ? COMPOSE_TRANSFER_TEMPLATES : COMPOSE_MODIFY_TEMPLATES;
+  const templateGroups =
+    mode === 'transfer' ? COMPOSE_TRANSFER_TEMPLATE_GROUPS : COMPOSE_MODIFY_TEMPLATE_GROUPS;
+  const defaultTransferMinFigures = mode === 'transfer' ? 2 : 1;
   const fig1Preview = slots[0]?.previewUrl ?? null;
+
+  const templateMinFigures = useCallback(
+    (template: ComposeStarterTemplate) => template.minFigures ?? defaultTransferMinFigures,
+    [defaultTransferMinFigures]
+  );
 
   if (!mounted) {
     return null;
@@ -598,19 +607,54 @@ export default function ComposeTool() {
           persistKey="compose-regional-edit"
         />
 
-        <FieldLabel>Starter templates</FieldLabel>
-        <div className="flex flex-wrap gap-2">
-          {templates.map(template => (
-            <button
-              key={template.id}
-              type="button"
-              onClick={() => applyTemplate(template.instruction)}
-              className="rounded-xl border border-zinc-800/90 bg-zinc-950/45 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 active:scale-[0.98]"
-            >
-              {template.label}
-            </button>
-          ))}
-        </div>
+        <CollapsibleSection
+          title="Starter templates"
+          summary={`${templateGroups.reduce((n, g) => n + g.templates.length, 0)} presets — click to expand`}
+          defaultOpen={false}
+          persistKey={`compose-templates-${mode}`}
+          className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-4"
+        >
+          <div className="space-y-4">
+            {templateGroups.map(group => (
+              <div key={group.id} className="space-y-2">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  {group.label}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {group.templates.map(template => {
+                    const minFigures = templateMinFigures(template);
+                    const disabled = filledCount < minFigures;
+                    return (
+                      <button
+                        key={template.id}
+                        type="button"
+                        disabled={disabled}
+                        title={
+                          disabled
+                            ? `Needs at least ${minFigures} figure${minFigures === 1 ? '' : 's'} uploaded`
+                            : template.instruction
+                        }
+                        onClick={() => applyTemplate(template.instruction)}
+                        className={[
+                          'rounded-xl border px-3 py-1.5 text-xs transition',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50',
+                          disabled
+                            ? 'cursor-not-allowed border-zinc-800/60 bg-zinc-950/30 text-zinc-600'
+                            : 'border-zinc-800/90 bg-zinc-950/45 text-zinc-300 hover:border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-50 active:scale-[0.98]',
+                        ].join(' ')}
+                      >
+                        {template.label}
+                        {minFigures > 1 ? (
+                          <span className="ml-1 text-[10px] text-zinc-500">· {minFigures}fig</span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CollapsibleSection>
 
         <FieldLabel>
           {mode === 'transfer' ? 'Transfer instruction' : 'Modify instruction'}
