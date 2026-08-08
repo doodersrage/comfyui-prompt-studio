@@ -15,13 +15,14 @@ import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
-import { isComposeCapableModel, isFluxKleinModel } from '@/lib/model-denoise-defaults';
+import { isComposeCapableModel, isFluxKleinModel, isQwenEditModel } from '@/lib/model-denoise-defaults';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import {
   buildComposeInstruction,
   COMPOSE_DEFAULT_MODEL,
   COMPOSE_MODIFY_TEMPLATE_GROUPS,
   COMPOSE_TRANSFER_TEMPLATE_GROUPS,
+  isAggressiveComposeInstruction,
   MAX_COMPOSE_FIGURES,
   type ComposeMode,
   type ComposeStarterTemplate,
@@ -375,6 +376,12 @@ export default function ComposeTool() {
     (template: ComposeStarterTemplate) => template.minFigures ?? defaultTransferMinFigures,
     [defaultTransferMinFigures]
   );
+  const qwenEditModel = isQwenEditModel(shared.model);
+  const aggressiveInstruction = isAggressiveComposeInstruction(instruction);
+  const showPoseUnlockHint =
+    qwenEditModel &&
+    (aggressiveInstruction ||
+      (mode === 'modify' && /refactor|beast mode|replace everything/i.test(instruction)));
 
   if (!mounted) {
     return null;
@@ -433,6 +440,33 @@ export default function ComposeTool() {
             );
           })}
         </div>
+
+        {showPoseUnlockHint ? (
+          <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 px-3.5 py-3 text-xs leading-relaxed text-amber-100/90">
+            <p className="font-medium text-amber-50/95">Qwen Edit locks Figure 1 pose</p>
+            <p className="mt-1.5 text-amber-100/80">
+              ReferenceLatent + vision encoding anchor Figure 1&apos;s body pose and framing — denoise
+              1 is correct and won&apos;t unlock a sitting subject by itself.
+            </p>
+            <ul className="mt-2 list-inside list-disc space-y-1 text-amber-100/75">
+              <li>
+                <strong className="font-medium text-amber-50/90">Pose changes:</strong> use{' '}
+                <strong className="font-medium">Transfer</strong> — Figure 1 = face, Figure 2 =
+                standing/action reference photo.
+              </li>
+              <li>
+                <strong className="font-medium text-amber-50/90">Modify</strong> works best for
+                relight, wardrobe, and background swaps on the existing pose.
+              </li>
+              {identityLock ? (
+                <li>
+                  Turn off <strong className="font-medium">identity lock</strong> if enabled — it
+                  adds extra appearance anchoring.
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        ) : null}
 
         <FieldLabel hint="Figure 1 is the base canvas. Figures 2–4 are optional donors.">
           Figures

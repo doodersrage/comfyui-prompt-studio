@@ -5,7 +5,7 @@ import {
   DEFAULT_INPUT_IMAGE_3_TOKEN,
   DEFAULT_INPUT_IMAGE_4_TOKEN,
 } from './comfyui-config';
-import { isFluxKleinModel } from './model-denoise-defaults';
+import { isFluxKleinModel, isQwenEditModel } from './model-denoise-defaults';
 import { buildQwenEditPrompt, parseQwenEditSegments } from './qwen-edit-builder';
 import {
   MAX_INPUT_IMAGE_FILENAMES,
@@ -14,6 +14,40 @@ import {
 
 const KLEIN_MODIFY_PRESERVE_PREFIX =
   'Keep the subject’s pose and framing unchanged unless asked otherwise.';
+
+/** Qwen ReferenceLatent + VL image1 anchor pose — override in prompt when refactoring. */
+const QWEN_POSE_UNLOCK_MODIFY_PREFIX =
+  'Use Figure 1 for facial identity and likeness only. Do not preserve the original body pose, sitting/standing framing, camera angle, or background — generate a new pose and scene as described.';
+
+const QWEN_POSE_UNLOCK_TRANSFER_PREFIX =
+  'Figure 1 is facial identity only — ignore Figure 1 body pose and framing. Figure 2 supplies the target pose, action, and body energy; use additional figures for wardrobe, environment, or mood as described.';
+
+/** Prompts that intend to replace pose/scene, not gentle edits on Figure 1 framing. */
+export function isAggressiveComposeInstruction(instruction: string): boolean {
+  const lower = instruction.trim().toLowerCase();
+  if (!lower) {
+    return false;
+  }
+  if (/\baggressively refactor\b/.test(lower)) {
+    return true;
+  }
+  if (/\bfull (?:athlete|hero) refactor\b/.test(lower)) {
+    return true;
+  }
+  if (/\bbeast mode\b/.test(lower)) {
+    return true;
+  }
+  if (/\breplace everything else\b/.test(lower)) {
+    return true;
+  }
+  if (/\bkeep facial likeness only\b/.test(lower)) {
+    return true;
+  }
+  if (/\bidentity only\b/.test(lower) && /\breplace\b/.test(lower)) {
+    return true;
+  }
+  return false;
+}
 
 export const COMPOSE_DEFAULT_MODEL = 'qwen-image-edit-2511-lightning-8' as const;
 
@@ -976,18 +1010,35 @@ export function buildComposeInstruction(input: {
       }
       return `${KLEIN_MODIFY_PRESERVE_PREFIX} ${text}`;
     }
+    if (
+      isQwenEditModel(input.model ?? '') &&
+      isAggressiveComposeInstruction(raw) &&
+      !/\bfacial identity only\b/i.test(text)
+    ) {
+      return `${QWEN_POSE_UNLOCK_MODIFY_PREFIX} ${text}`;
+    }
     return text;
   }
 
-  if (FIGURE_LABEL_RE.test(raw) || input.figureCount < 2) {
-    return raw;
+  let transferText = raw;
+  if (
+    isQwenEditModel(input.model ?? '') &&
+    input.figureCount >= 2 &&
+    isAggressiveComposeInstruction(raw) &&
+    !/\bfacial identity only\b/i.test(raw)
+  ) {
+    transferText = `${QWEN_POSE_UNLOCK_TRANSFER_PREFIX} ${raw}`;
+  }
+
+  if (FIGURE_LABEL_RE.test(transferText) || input.figureCount < 2) {
+    return transferText;
   }
 
   const labels = Array.from(
     { length: Math.min(input.figureCount, MAX_COMPOSE_FIGURES) },
     (_, i) => `Figure ${i + 1}`
   ).join(', ');
-  return `Using ${labels}: ${raw}`;
+  return `Using ${labels}: ${transferText}`;
 }
 
 export function composeFigureCountFromFilenames(

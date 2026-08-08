@@ -259,4 +259,27 @@ describe("compose instruction builder", () => {
     assert.match(built, /Keep the subject/i);
     assert.match(built, /warmer golden-hour light/);
   });
+
+  it("prefixes Qwen aggressive Modify with pose-unlock guidance", () => {
+    const built = buildComposeInstruction({
+      mode: "modify",
+      instruction: "Aggressively refactor into beast-mode athletics.",
+      figureCount: 1,
+      model: "qwen-image-edit-2511-lightning-8",
+    });
+    assert.match(built, /facial identity and likeness only/i);
+    assert.match(built, /Do not preserve the original body pose/i);
+    assert.match(built, /beast-mode athletics/i);
+  });
+
+  it("prefixes Qwen aggressive Transfer with Figure 1/2 pose roles", () => {
+    const built = buildComposeInstruction({
+      mode: "transfer",
+      instruction: "Aggressively refactor while keeping face from Figure 1.",
+      figureCount: 2,
+      model: "qwen-image-edit-2511-lightning-8",
+    });
+    assert.match(built, /Figure 1 is facial identity only/i);
+    assert.match(built, /Figure 2 supplies the target pose/i);
+  });
 });
