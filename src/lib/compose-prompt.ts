@@ -194,6 +194,42 @@ export const COMPOSE_TRANSFER_TEMPLATE_GROUPS: ComposeTemplateGroup[] = [
         instruction:
           'Keep the subject from Figure 1. Relight the scene to match the time of day and sky from Figure 2 (golden hour, blue hour, or night).',
       },
+      {
+        id: 'urban-cityscape',
+        label: 'Urban cityscape',
+        instruction:
+          'Keep the person from Figure 1 unchanged. Replace the background with the city street or skyline from Figure 2, matching vanishing lines, scale, and urban lighting.',
+      },
+      {
+        id: 'beach-coastal',
+        label: 'Beach / coastal',
+        instruction:
+          'Keep identity and pose from Figure 1. Place them on the beach or coastline from Figure 2 with matched horizon, sand or rock texture, and coastal light.',
+      },
+      {
+        id: 'interior-cafe',
+        label: 'Café / interior',
+        instruction:
+          'Keep the subject from Figure 1. Replace the background with the café, restaurant, or interior from Figure 2 — warm practical lights, depth, and perspective match.',
+      },
+      {
+        id: 'rooftop-skyline',
+        label: 'Rooftop / skyline',
+        instruction:
+          'Keep identity and pose from Figure 1. Place them on the rooftop or balcony vista from Figure 2 with believable height, railing contact, and skyline depth.',
+      },
+      {
+        id: 'fog-atmosphere',
+        label: 'Fog / atmosphere',
+        instruction:
+          'Keep the subject from Figure 1. Apply the fog, haze, or atmospheric depth from Figure 2 — soft aerial perspective and moody light wrap.',
+      },
+      {
+        id: 'desert-open',
+        label: 'Desert / open plain',
+        instruction:
+          'Keep identity and pose from Figure 1. Replace the environment with the desert, dunes, or open plain from Figure 2 with harsh sun, long shadows, and heat haze.',
+      },
     ],
   },
   {
@@ -255,6 +291,24 @@ export const COMPOSE_TRANSFER_TEMPLATE_GROUPS: ComposeTemplateGroup[] = [
         instruction:
           'Keep the layout and subjects from Figure 1. Render in the illustrative or painterly style of Figure 2 while preserving readable faces and anatomy.',
       },
+      {
+        id: 'enhance-quality-ref',
+        label: 'Quality reference',
+        instruction:
+          'Keep identity, pose, and composition from Figure 1 unchanged. Match the clarity, sharpness, color richness, and polished photographic finish from Figure 2 — enhance without altering scene content.',
+      },
+      {
+        id: 'enhance-grade-ref',
+        label: 'Grade / tone reference',
+        instruction:
+          'Keep subject and scene layout from Figure 1. Transfer the exposure, contrast curve, and color grade from Figure 2 — balanced tones and natural skin, same content.',
+      },
+      {
+        id: 'enhance-detail-ref',
+        label: 'Detail reference',
+        instruction:
+          'Keep all content from Figure 1. Match the micro-detail level and texture rendering from Figure 2 — crisp eyes, fabric, and foliage without changing composition.',
+      },
     ],
   },
   {
@@ -278,6 +332,24 @@ export const COMPOSE_TRANSFER_TEMPLATE_GROUPS: ComposeTemplateGroup[] = [
         label: 'Expression transfer',
         instruction:
           'Keep identity and pose from Figure 1. Apply the facial expression and gaze direction from Figure 2.',
+      },
+      {
+        id: 'age-appearance',
+        label: 'Age appearance',
+        instruction:
+          'Keep pose and outfit from Figure 1. Apply the apparent age, skin texture, and facial maturity from Figure 2 while preserving who the person is.',
+      },
+      {
+        id: 'skin-finish',
+        label: 'Skin / complexion',
+        instruction:
+          'Keep identity and pose from Figure 1. Match the skin tone warmth, complexion finish, and subtle makeup level from Figure 2 without changing bone structure.',
+      },
+      {
+        id: 'grooming-style',
+        label: 'Grooming style',
+        instruction:
+          'Keep face shape and pose from Figure 1. Apply facial hair, brows, or grooming style from Figure 2 with natural skin integration and matched lighting.',
       },
     ],
   },
@@ -588,6 +660,102 @@ export const COMPOSE_MODIFY_TEMPLATE_GROUPS: ComposeTemplateGroup[] = [
     ],
   },
   {
+    id: 'enhancement',
+    label: 'Image enhancement',
+    templates: [
+      {
+        id: 'enhance-general',
+        label: 'General quality pass',
+        instruction:
+          'Keep identity, pose, composition, and scene content unchanged. Enhance overall image quality — cleaner edges, richer detail, balanced contrast, and natural color without changing what is in the photo.',
+      },
+      {
+        id: 'enhance-detail',
+        label: 'Micro-detail boost',
+        instruction:
+          'Keep composition and subject unchanged. Enhance fine detail in eyes, hair, skin texture, fabric weave, and background foliage — sharper but natural, no oversharpen halos or plastic skin.',
+      },
+      {
+        id: 'enhance-denoise',
+        label: 'Denoise / grain cleanup',
+        instruction:
+          'Keep identity, pose, and scene unchanged. Reduce noise and compression grain while preserving real texture in skin, hair, and materials — clean but not waxy.',
+      },
+      {
+        id: 'enhance-sharpen',
+        label: 'Natural sharpen',
+        instruction:
+          'Keep all content unchanged. Apply subtle natural sharpening — crisp eyes and edges, controlled local contrast, no crunchy artifacts or white halos.',
+      },
+      {
+        id: 'enhance-exposure',
+        label: 'Exposure balance',
+        instruction:
+          'Keep composition and subject unchanged. Recover shadow detail and tame blown highlights — balanced exposure with natural falloff and readable midtones.',
+      },
+      {
+        id: 'enhance-color-balance',
+        label: 'Color balance fix',
+        instruction:
+          'Keep identity and scene unchanged. Correct white balance and color cast — neutral grays, natural skin tones, and accurate environmental colors.',
+      },
+      {
+        id: 'enhance-vibrance',
+        label: 'Natural vibrance',
+        instruction:
+          'Keep composition unchanged. Boost color vibrance and saturation subtly — lifelike greens, sky blues, and warm skin without oversaturated or neon shifts.',
+      },
+      {
+        id: 'enhance-hdr-subtle',
+        label: 'Subtle HDR',
+        instruction:
+          'Keep identity, pose, and framing unchanged. Apply subtle HDR-style tonal range — lifted shadows, retained highlights, and gentle local contrast for a polished photographic look.',
+      },
+      {
+        id: 'enhance-deplastic',
+        label: 'De-plastic skin',
+        instruction:
+          'Keep identity and pose unchanged. Restore natural skin texture — reduce AI smoothness, add pores and micro-variation, keep flattering light and even tone.',
+      },
+      {
+        id: 'enhance-face',
+        label: 'Face detail pass',
+        instruction:
+          'Keep identity and expression unchanged. Enhance facial detail — crisp iris and lash definition, natural skin texture, clean teeth and lip edge, no beauty-filter blur.',
+      },
+      {
+        id: 'enhance-jpeg-cleanup',
+        label: 'JPEG artifact cleanup',
+        instruction:
+          'Keep content and composition unchanged. Remove JPEG blocking, mosquito noise, and muddy gradients — especially in skies, skin, and smooth backgrounds.',
+      },
+      {
+        id: 'enhance-print-ready',
+        label: 'Print-ready polish',
+        instruction:
+          'Keep subject and scene unchanged. Polish for print — clean detail, controlled contrast, accurate color, smooth tonal transitions, and no clipped blacks or whites.',
+      },
+      {
+        id: 'enhance-old-photo',
+        label: 'Old photo restore',
+        instruction:
+          'Keep identity, pose, and scene layout unchanged. Restore faded or damaged photo quality — reduce yellowing, recover contrast, clean scratches and dust, natural modern color.',
+      },
+      {
+        id: 'enhance-low-light',
+        label: 'Low-light recovery',
+        instruction:
+          'Keep composition unchanged. Recover a dark or noisy low-light image — lift shadows, reduce color noise, preserve moody lighting, and keep skin tones believable.',
+      },
+      {
+        id: 'enhance-clarity',
+        label: 'Clarity & depth',
+        instruction:
+          'Keep all content unchanged. Add midtone clarity and depth separation — subject pops from background with natural atmospheric perspective, not HDR crunch.',
+      },
+    ],
+  },
+  {
     id: 'lighting',
     label: 'Lighting & color',
     templates: [
@@ -644,6 +812,54 @@ export const COMPOSE_MODIFY_TEMPLATE_GROUPS: ComposeTemplateGroup[] = [
         label: 'Snow / winter',
         instruction:
           'Keep identity and pose from Figure 1. Add snowfall, cold breath, and winter ambient light while preserving skin realism.',
+      },
+      {
+        id: 'urban-night',
+        label: 'Urban night',
+        instruction:
+          'Keep the subject from Figure 1 exactly. Replace the background with a neon-lit city street at night — wet reflections, signage glow, and moody contrast on the subject.',
+      },
+      {
+        id: 'beach-sunset',
+        label: 'Beach sunset',
+        instruction:
+          'Keep identity and pose from Figure 1. Replace the background with a beach at sunset — warm backlight, long shadows, soft sky gradient, and ocean horizon.',
+      },
+      {
+        id: 'autumn-park',
+        label: 'Autumn park',
+        instruction:
+          'Keep the subject from Figure 1. Replace the background with an autumn park — golden leaves, soft overcast, and natural ground cover with matched perspective.',
+      },
+      {
+        id: 'cozy-interior',
+        label: 'Cozy interior',
+        instruction:
+          'Keep identity and pose from Figure 1. Replace the background with a cozy living room or study — warm lamp light, soft shadows, and believable indoor depth.',
+      },
+      {
+        id: 'minimal-studio-bg',
+        label: 'Minimal studio bg',
+        instruction:
+          'Keep the subject from Figure 1 with clean edges. Replace the background with a seamless neutral gray or white studio sweep and soft gradient falloff.',
+      },
+      {
+        id: 'rooftop-dusk',
+        label: 'Rooftop at dusk',
+        instruction:
+          'Keep identity and pose from Figure 1. Replace the background with a rooftop skyline at blue hour — city lights twinkling, cool ambient, and subtle rim light.',
+      },
+      {
+        id: 'fog-forest',
+        label: 'Foggy forest',
+        instruction:
+          'Keep the subject from Figure 1. Replace the background with a foggy forest path — soft volumetric haze, muted greens, and diffused daylight.',
+      },
+      {
+        id: 'desert-highway',
+        label: 'Desert highway',
+        instruction:
+          'Keep identity and pose from Figure 1. Replace the background with a desert highway vista — heat shimmer, wide sky, and strong directional sun.',
       },
     ],
   },
@@ -971,6 +1187,75 @@ export const COMPOSE_MODIFY_TEMPLATE_GROUPS: ComposeTemplateGroup[] = [
         label: 'Detail sharpen',
         instruction:
           'Keep composition from Figure 1. Enhance eye, hair, and fabric micro-detail without changing identity or adding plastic skin.',
+      },
+      {
+        id: 'expression-laugh',
+        label: 'Warm laugh',
+        instruction:
+          'Keep identity, hair, and pose from Figure 1. Change expression to a natural warm laugh with crinkled eyes and relaxed mouth.',
+      },
+      {
+        id: 'gaze-shift',
+        label: 'Gaze direction',
+        instruction:
+          'Keep identity and pose from Figure 1. Shift gaze to look slightly off-camera with soft catchlights — thoughtful, candid portrait energy.',
+      },
+      {
+        id: 'age-older',
+        label: 'Age slightly older',
+        instruction:
+          'Keep pose and outfit from Figure 1. Add subtle age cues — fine lines, mature skin texture, distinguished look — still clearly the same person.',
+      },
+      {
+        id: 'freckles-warmth',
+        label: 'Freckles & warmth',
+        instruction:
+          'Keep identity and pose from Figure 1. Add natural freckles and warmer skin undertones with soft sun-kissed highlights on nose and cheeks.',
+      },
+      {
+        id: 'hair-wind',
+        label: 'Wind in hair',
+        instruction:
+          'Keep face and pose from Figure 1. Add natural wind motion in hair and clothing edges with believable direction and backlight separation.',
+      },
+      {
+        id: 'remove-glasses',
+        label: 'Remove glasses',
+        instruction:
+          'Keep identity and pose from Figure 1. Remove glasses and restore natural eyes, brows, and nose bridge skin without distortion.',
+      },
+      {
+        id: 'add-glasses',
+        label: 'Add glasses',
+        instruction:
+          'Keep face and pose from Figure 1. Add modern thin-frame glasses with accurate reflections, temple arms, and nose-pad contact shadows.',
+      },
+      {
+        id: 'facial-hair-add',
+        label: 'Add facial hair',
+        instruction:
+          'Keep identity and pose from Figure 1. Add well-groomed stubble or a short beard with natural skin transition and matched lighting.',
+      },
+      {
+        id: 'headshot-polish',
+        label: 'Headshot polish',
+        instruction:
+          'Keep identity and pose from Figure 1. Polish for a professional headshot — even skin tone, clean flyaway hairs, crisp eyes, subtle catchlights.',
+      },
+      {
+        id: 'casual-to-smart',
+        label: 'Casual → smart',
+        instruction: [
+          'keep: face, hair, and pose',
+          'replace: top with a tailored blazer over a clean shirt',
+          'add: subtle jewelry and neater grooming',
+        ].join('\n'),
+      },
+      {
+        id: 'fix-closed-eyes',
+        label: 'Fix closed eyes',
+        instruction:
+          'Keep identity and pose from Figure 1. Open closed or half-shut eyes naturally with matching gaze direction, iris detail, and catchlights.',
       },
     ],
   },
