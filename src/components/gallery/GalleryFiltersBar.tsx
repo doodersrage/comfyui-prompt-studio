@@ -57,13 +57,19 @@ type GalleryFiltersBarProps = {
   slideshowAvailable?: boolean;
 };
 
-function FilterChip(props: { active: boolean; label: string; onClick: () => void }) {
+function FilterChip(props: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+  testId?: string;
+}) {
   const isActive = props.active;
 
   return (
     <button
       type="button"
       onClick={props.onClick}
+      data-testid={props.testId}
       data-active={isActive ? 'true' : 'false'}
       className={`${
         isActive
@@ -239,6 +245,7 @@ export default function GalleryFiltersBar({
               key={mode}
               active={layout === mode}
               label={mode === 'grid' ? 'Grid' : mode === 'dense' ? 'Dense' : 'List'}
+              testId={`gallery-layout-${mode}`}
               onClick={() => setLayout(mode)}
             />
           ))}
@@ -399,6 +406,7 @@ export default function GalleryFiltersBar({
           <FilterChip
             active={Boolean(filter.reviewMode)}
             label="Review mode"
+            testId="gallery-filter-review-mode"
             onClick={() =>
               setFilter({ ...filter, reviewMode: filter.reviewMode ? undefined : true })
             }

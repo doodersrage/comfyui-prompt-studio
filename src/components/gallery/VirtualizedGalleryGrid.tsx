@@ -29,12 +29,12 @@ export function galleryGridColumnCount(
   }
 
   if (compact) {
+    if (width >= 1024) return 4;
     if (width >= 640) return 3;
     return 2;
   }
-  if (width >= 1536) return 4;
-  if (width >= 1280) return 3;
-  if (width >= 640) return 2;
+  if (width >= 1024) return 4;
+  if (width >= 640) return 3;
   return 1;
 }
 
@@ -166,11 +166,8 @@ export default function VirtualizedGalleryGrid<T>({
                 className={`${gridClassName} backdrop-blur-xs`}
                 style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
               >
-                {row.map((item, idx) => (
-                  <div
-                    key={getKey(item)}
-                    className={`min-w-0${idx === 0 ? ' bg-violet-500/92' : ''}`}
-                  >
+                {row.map(item => (
+                  <div key={getKey(item)} className="min-w-0">
                     {renderItem(item)}
                   </div>
                 ))}

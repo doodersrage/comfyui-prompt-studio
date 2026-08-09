@@ -11,6 +11,9 @@ type GalleryStatsBarProps = {
   onRefreshPending?: () => void;
   activeJobs: number;
   heldMaxJobs?: number;
+  activeProjectId?: string | null;
+  projectFilterActive?: boolean;
+  onProjectFilter?: (projectId: string) => void;
 };
 
 function StatChip(props: {
@@ -19,6 +22,7 @@ function StatChip(props: {
   active?: boolean;
   emphasis?: 'default' | 'muted' | 'warning';
   onClick?: () => void;
+  testId?: string;
 }) {
   const emphasisClass =
     props.emphasis === 'warning'
@@ -46,7 +50,12 @@ function StatChip(props: {
 
   if (props.onClick) {
     return (
-      <button type="button" onClick={props.onClick} className={className}>
+      <button
+        type="button"
+        onClick={props.onClick}
+        data-testid={props.testId}
+        className={className}
+      >
         {content}
       </button>
     );
@@ -62,6 +71,9 @@ export default function GalleryStatsBar({
   onRefreshPending,
   activeJobs,
   heldMaxJobs = 0,
+  activeProjectId,
+  projectFilterActive = false,
+  onProjectFilter,
 }: GalleryStatsBarProps) {
   const nearCapacity = stats.total >= GALLERY_ENTRY_LIMIT - 5;
 
@@ -112,6 +124,7 @@ export default function GalleryStatsBar({
           label="Favorites"
           value={stats.favorites}
           active={Boolean(filter.favoritesOnly)}
+          testId="gallery-stats-favorites"
           onClick={() =>
             onQuickFilter({
               favoritesOnly: filter.favoritesOnly ? undefined : true,
@@ -122,6 +135,7 @@ export default function GalleryStatsBar({
           label="Unreviewed"
           value={stats.unreviewed}
           active={Boolean(filter.unreviewedOnly)}
+          testId="gallery-stats-unreviewed"
           onClick={() =>
             onQuickFilter({
               unreviewedOnly: filter.unreviewedOnly ? undefined : true,
@@ -129,6 +143,27 @@ export default function GalleryStatsBar({
             })
           }
         />
+        <StatChip
+          label="Review"
+          value={stats.unreviewed > 0 ? stats.unreviewed : '—'}
+          active={Boolean(filter.reviewMode) && !filter.unreviewedOnly}
+          testId="gallery-stats-review"
+          onClick={() =>
+            onQuickFilter({
+              reviewMode: filter.reviewMode && !filter.unreviewedOnly ? undefined : true,
+              unreviewedOnly: undefined,
+            })
+          }
+        />
+        {activeProjectId && onProjectFilter ? (
+          <StatChip
+            label="Project"
+            value="Active"
+            active={projectFilterActive}
+            testId="gallery-stats-active-project"
+            onClick={() => onProjectFilter(projectFilterActive ? '' : 'active')}
+          />
+        ) : null}
         <StatChip
           label="Avg"
           value={stats.avgRating != null ? `${stats.avgRating}★` : '—'}

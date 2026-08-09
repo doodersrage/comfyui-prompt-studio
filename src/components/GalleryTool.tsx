@@ -21,7 +21,7 @@ export default function GalleryTool() {
       title="ComfyUI Gallery"
       description="Browse outputs, review and compare variants, run experiments, and queue follow-up work from one place."
     >
-      <ComfyUiGalleryPanel showHeader showFilters />
+      <ComfyUiGalleryPanel showFilters />
       <GalleryImportSection />
     </ToolLayout>
   );

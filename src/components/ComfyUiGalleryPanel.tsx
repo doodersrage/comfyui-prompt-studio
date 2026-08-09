@@ -20,29 +20,26 @@ import { recordAvoidedTokensFromGalleryEntry } from '@/lib/avoided-tokens';
 import { recordCatalogBiasFromPrompt } from '@/lib/catalog-rating-bias';
 import GalleryVisionReviewButton from '@/components/gallery/GalleryVisionReviewButton';
 import GalleryCardItem, { type GalleryCardActions } from '@/components/gallery/GalleryCardItem';
-import VirtualizedGalleryGrid, {
-  shouldVirtualizeGalleryGrid,
-} from '@/components/gallery/VirtualizedGalleryGrid';
+import GalleryDisplayGrid from '@/components/gallery/GalleryDisplayGrid';
+import GalleryEmptyPanel from '@/components/gallery/GalleryEmptyPanel';
 import GalleryFiltersBar from '@/components/gallery/GalleryFiltersBar';
+import GalleryReviewBanner from '@/components/gallery/GalleryReviewBanner';
 import GallerySelectionBar from '@/components/gallery/GallerySelectionBar';
 import GalleryStatsBar from '@/components/gallery/GalleryStatsBar';
 import GalleryReviewTouchBar from '@/components/gallery/GalleryReviewTouchBar';
 import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
-import { EmptyState } from '@/components/ui/ViewState';
 import StatusToastStrip from '@/components/ui/StatusToastStrip';
-import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
+import { useGalleryReview } from '@/hooks/useGalleryReview';
+import { useGallerySelection } from '@/hooks/useGallerySelection';
 import { toneForStatusText } from '@/lib/status-progress';
 import { computeGalleryStats } from '@/lib/gallery-stats';
 import { formatMutatedJobsStatus, queueMutatedGalleryJobs } from '@/lib/gallery-mutations';
 import { queueNegativeAbTest } from '@/lib/negative-ab-queue';
 import { queueSeedExperiment } from '@/lib/seed-experiment-queue';
 import { queueParamExperiment, type ParamExperimentAxis } from '@/lib/param-experiment-queue';
-import { learnFromLowRatedPrompt } from '@/lib/negative-learner';
-import { pushNotification } from '@/lib/notification-center';
 import { toastBulkQueueSummary, toastHeldMax, toastQueueOutcome } from '@/lib/app-toast';
 import { useHeldMaxCount } from '@/hooks/useHeldMaxJobs';
 import { suggestRatingMutations } from '@/lib/rating-prompt-mutations';
-import { markOnboardingGalleryReview } from '@/lib/onboarding-hooks';
 import { setLineageParent } from '@/lib/prompt-lineage-session';
 import { loadActiveProjectId, loadPromptProjects } from '@/lib/prompt-projects';
 import {
@@ -183,7 +180,6 @@ export default function ComfyUiGalleryPanel({
   const heldMaxCount = useHeldMaxCount();
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [requeueStatus, setRequeueStatus] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<ImageLightboxState | null>(null);
   const [slideshowPlaying, setSlideshowPlaying] = useState(false);
   const [slideshowFullscreen, setSlideshowFullscreen] = useState(false);
@@ -247,6 +243,12 @@ export default function ComfyUiGalleryPanel({
     }
     return projectFilterId || undefined;
   }, [projectFilterId]);
+
+  const clearGalleryFilters = useCallback(() => {
+    setFilter({ status: 'all' });
+    setProjectFilterId('');
+    setPage(1);
+  }, [setFilter]);
 
   useEffect(() => {
     setFilter(previous => ({
@@ -360,8 +362,8 @@ export default function ComfyUiGalleryPanel({
         ? 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4'
         : 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
       : compact
-        ? 'grid grid-cols-2 gap-4 sm:grid-cols-3'
-        : 'grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4';
+        ? 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4'
+        : 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4';
   const galleryVirtualGridClass =
     layout === 'dense'
       ? compact
@@ -370,24 +372,41 @@ export default function ComfyUiGalleryPanel({
       : compact
         ? 'grid gap-4'
         : 'grid gap-6';
-  const lineageFlatEntries = useMemo(() => {
-    if (!lineageGroups) {
-      return visibleEntries;
-    }
-    const flat: ComfyGalleryEntry[] = [];
-    for (const group of lineageGroups) {
-      flat.push(group.root);
-      if (!collapsedLineageGroups.has(group.root.id)) {
-        flat.push(...group.derivatives);
-      }
-    }
-    return flat;
-  }, [collapsedLineageGroups, lineageGroups, visibleEntries]);
 
-  const virtualizeGrid = shouldVirtualizeGalleryGrid(
-    lineageGrouping ? lineageFlatEntries.length : visibleEntries.length
-  );
-  const virtualizedEntries = lineageGrouping ? lineageFlatEntries : visibleEntries;
+  const {
+    selectedIds,
+    setSelectedIds,
+    selectedIdSet,
+    selectedEntries,
+    toggleSelected,
+    clearSelection,
+    selectAllVisible,
+  } = useGallerySelection(visibleEntries);
+
+  const { reviewFocusIndex, reviewFocusEntry, handleReviewRating } = useGalleryReview({
+    filter,
+    visibleEntries,
+    selectedIds,
+    setSelectedIds,
+    selectedIdSet,
+    setReviewRating,
+    toggleFavorite,
+    onStatusMessage: setRequeueStatus,
+  });
+
+  const activeProjectId = useMemo(() => loadActiveProjectId(), []);
+
+  const toggleLineageGroup = useCallback((rootId: string) => {
+    setCollapsedLineageGroups(previous => {
+      const next = new Set(previous);
+      if (next.has(rootId)) {
+        next.delete(rootId);
+      } else {
+        next.add(rootId);
+      }
+      return next;
+    });
+  }, []);
 
   const lightboxPlaylist = useMemo(
     () => buildGalleryLightboxPlaylist(visibleEntries),
@@ -513,193 +532,6 @@ export default function ComfyUiGalleryPanel({
     });
   }, [currentPage, page, paginationEnabled]);
 
-  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-
-  const selectedEntries = useMemo(
-    () => visibleEntries.filter(entry => selectedIdSet.has(entry.id)),
-    [selectedIdSet, visibleEntries]
-  );
-
-  const reviewFocusIndex = useMemo(() => {
-    if (!filter.reviewMode || visibleEntries.length === 0) {
-      return 0;
-    }
-    const selectedIndex = visibleEntries.findIndex(entry => selectedIdSet.has(entry.id));
-    return selectedIndex >= 0 ? selectedIndex : 0;
-  }, [filter.reviewMode, visibleEntries, selectedIdSet]);
-
-  const reviewFocusEntry = visibleEntries[reviewFocusIndex] ?? null;
-
-  const advanceReviewFocus = useCallback(
-    (entryId: string) => {
-      if (!filter.reviewAutoAdvance) {
-        return;
-      }
-      const startIndex = visibleEntries.findIndex(entry => entry.id === entryId);
-      for (let index = startIndex + 1; index < visibleEntries.length; index += 1) {
-        const nextEntry = visibleEntries[index];
-        if (nextEntry.status === 'completed' && !nextEntry.reviewRating) {
-          setSelectedIds([nextEntry.id]);
-          return;
-        }
-      }
-    },
-    [filter.reviewAutoAdvance, visibleEntries]
-  );
-
-  const handleReviewRating = useCallback(
-    (entry: ComfyGalleryEntry, rating: NonNullable<ComfyGalleryEntry['reviewRating']>) => {
-      setReviewRating(entry.id, rating);
-      recordCatalogBiasFromPrompt(entry.prompt, rating);
-      if (rating >= 4) {
-        void import('@/lib/sampler-memory').then(({ rememberSamplerFromGalleryEntry }) => {
-          rememberSamplerFromGalleryEntry(entry);
-        });
-      }
-      if (rating <= 2) {
-        const added = recordAvoidedTokensFromGalleryEntry({
-          prompt: entry.prompt,
-          visionTags: entry.visionTags,
-        });
-        if (added > 0) {
-          setRequeueStatus(`Added ${added} motif(s) to avoided tokens from low rating.`);
-        }
-        const learned = learnFromLowRatedPrompt(entry.prompt, rating);
-        if (learned > 0) {
-          pushNotification({
-            title: 'Negative learner',
-            body: `${learned} token(s) recorded from low rating. Review in Settings → Advanced.`,
-            href: '/settings',
-            kind: 'system',
-          });
-        }
-      }
-      markOnboardingGalleryReview();
-      void import('@/lib/auto-improve-loop')
-        .then(({ runAutoImproveOnRating }) => runAutoImproveOnRating(entry, rating))
-        .then(message => {
-          if (message) {
-            setRequeueStatus(message);
-          }
-        })
-        .catch(error => {
-          setRequeueStatus(
-            error instanceof Error ? error.message : 'Auto-improve failed after rating.'
-          );
-        });
-      advanceReviewFocus(entry.id);
-    },
-    [advanceReviewFocus, setReviewRating]
-  );
-
-  useEffect(() => {
-    if (!filter.reviewMode || visibleEntries.length === 0) {
-      return;
-    }
-    if (selectedIds.length === 0) {
-      const firstCompleted =
-        visibleEntries.find(entry => entry.status === 'completed') ?? visibleEntries[0];
-      if (firstCompleted) {
-        scheduleAfterCommit(() => {
-          setSelectedIds([firstCompleted.id]);
-        });
-      }
-    }
-  }, [filter.reviewMode, visibleEntries, selectedIds.length]);
-
-  useEffect(() => {
-    if (!filter.focusEntryId?.trim()) {
-      return;
-    }
-    const id = filter.focusEntryId.trim();
-    const node = document.querySelector(`[data-gallery-entry="${CSS.escape(id)}"]`);
-    node?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    scheduleAfterCommit(() => {
-      setSelectedIds(previous => (previous.includes(id) ? previous : [id]));
-    });
-  }, [filter.focusEntryId, visibleEntries.length]);
-
-  useEffect(() => {
-    if (!filter.reviewMode || !reviewFocusEntry) {
-      return;
-    }
-    const node = document.querySelector(`[data-gallery-entry="${reviewFocusEntry.id}"]`);
-    node?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [filter.reviewMode, reviewFocusEntry?.id, reviewFocusEntry]);
-
-  useEffect(() => {
-    if (!filter.reviewMode || !reviewFocusEntry) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
-      if (event.key >= '1' && event.key <= '5') {
-        const rating = Number(event.key) as 1 | 2 | 3 | 4 | 5;
-        handleReviewRating(reviewFocusEntry, rating);
-        event.preventDefault();
-        return;
-      }
-
-      if (event.key === 'f' || event.key === 'F') {
-        toggleFavorite(reviewFocusEntry.id);
-        event.preventDefault();
-        return;
-      }
-
-      if (event.key === 'n' || event.key === 'N' || event.key === 'ArrowRight') {
-        const nextIndex = Math.min(reviewFocusIndex + 1, visibleEntries.length - 1);
-        const nextEntry = visibleEntries[nextIndex];
-        if (nextEntry) {
-          setSelectedIds([nextEntry.id]);
-        }
-        event.preventDefault();
-        return;
-      }
-
-      if (event.key === 'p' || event.key === 'P' || event.key === 'ArrowLeft') {
-        const previousIndex = Math.max(reviewFocusIndex - 1, 0);
-        const previousEntry = visibleEntries[previousIndex];
-        if (previousEntry) {
-          setSelectedIds([previousEntry.id]);
-        }
-        event.preventDefault();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    filter.reviewMode,
-    reviewFocusEntry,
-    reviewFocusIndex,
-    visibleEntries,
-    handleReviewRating,
-    toggleFavorite,
-  ]);
-
-  const toggleSelected = useCallback((id: string) => {
-    setSelectedIds(previous => {
-      const next = new Set(previous);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return [...next];
-    });
-  }, []);
-
   useLayoutEffect(() => {
     entriesRef.current = entries;
   }, [entries]);
@@ -707,6 +539,51 @@ export default function ComfyUiGalleryPanel({
   useLayoutEffect(() => {
     visibleEntriesRef.current = visibleEntries;
   }, [visibleEntries]);
+
+  const renderGalleryCard = useCallback(
+    (entry: ComfyGalleryEntry) => (
+      <GalleryCardItem
+        entry={entry}
+        actionsRef={galleryCardActionsRef}
+        compact={compact || layout === 'dense'}
+        layout={layout}
+        selectable={bulkEnabled && !pickFor}
+        selected={selectedIdSet.has(entry.id)}
+        reviewFocus={
+          (filter.reviewMode === true && reviewFocusEntry?.id === entry.id) ||
+          filter.focusEntryId === entry.id
+        }
+        previewUrl={primaryThumbUrl(entry)}
+        imageUrls={galleryEntryStripThumbUrls(entry)}
+        reviewMode={filter.reviewMode === true && !pickFor}
+        reviewMutationHints={
+          filter.reviewMode && !pickFor && reviewFocusEntry?.id === entry.id && !entry.reviewRating
+            ? suggestRatingMutations(entry, 2).map(item => item.detail)
+            : undefined
+        }
+        hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
+        pickMode={Boolean(pickFor)}
+        pickable={
+          Boolean(pickFor) &&
+          entry.status === 'completed' &&
+          galleryEntryPrimaryMediaKind(entry) === 'image'
+        }
+        pickLabel={pickFor ? galleryPickActionLabel(pickFor) : undefined}
+      />
+    ),
+    [
+      bulkEnabled,
+      compact,
+      entryIdsWithDerivatives,
+      filter.focusEntryId,
+      filter.reviewMode,
+      layout,
+      pickFor,
+      primaryThumbUrl,
+      reviewFocusEntry?.id,
+      selectedIdSet,
+    ]
+  );
 
   useLayoutEffect(() => {
     galleryCardActionsRef.current = {
@@ -1167,6 +1044,9 @@ export default function ComfyUiGalleryPanel({
           filter={filter}
           activeJobs={activeJobs}
           heldMaxJobs={heldMaxCount}
+          activeProjectId={activeProjectId}
+          projectFilterActive={projectFilterId === 'active'}
+          onProjectFilter={setProjectFilterId}
           onRefreshPending={() => void refreshPending()}
           onQuickFilter={patch => setFilter(previous => ({ ...previous, ...patch }))}
         />
@@ -1202,6 +1082,8 @@ export default function ComfyUiGalleryPanel({
         />
       )}
 
+      {filter.reviewMode && !pickFor ? <GalleryReviewBanner filter={filter} /> : null}
+
       {showPagination && (
         <GalleryPaginator
           page={currentPage}
@@ -1226,11 +1108,7 @@ export default function ComfyUiGalleryPanel({
             >
               Export LoRA dataset (favorites/4–5★)
             </button>
-            <button
-              type="button"
-              onClick={() => setSelectedIds(visibleEntries.map(entry => entry.id))}
-              className="ui-btn-ghost ui-btn-sm"
-            >
+            <button type="button" onClick={selectAllVisible} className="ui-btn-ghost ui-btn-sm">
               Select visible ({visibleEntries.length})
             </button>
           </div>
@@ -1245,7 +1123,7 @@ export default function ComfyUiGalleryPanel({
           paramAxis={paramAxis}
           setParamAxis={setParamAxis}
           similarSearchActive={similarSearchActive}
-          onClearSelection={() => setSelectedIds([])}
+          onClearSelection={clearSelection}
           onCompare={() => setCompareOpen(true)}
           onAssignActiveProject={() => {
             const projectId = loadActiveProjectId();
@@ -1892,173 +1770,19 @@ export default function ComfyUiGalleryPanel({
       ) : null}
 
       {visibleEntries.length === 0 ? (
-        entries.length === 0 ? (
-          <EmptyState
-            icon="inbox"
-            title="No gallery outputs yet"
-            description="Queue prompts from any tool with Send to ComfyUI, or import sidecars and ComfyUI history below."
-            action={resolveGenerateEmptyCta()}
-          />
-        ) : (
-          <EmptyState
-            icon="search"
-            title="No entries match these filters"
-            description="Try clearing search, status, or project filters — or turn off semantic search."
-            action={{
-              label: 'Clear filters',
-              onClick: () =>
-                setFilter({
-                  status: 'all',
-                }),
-            }}
-          />
-        )
-      ) : virtualizeGrid ? (
-        <VirtualizedGalleryGrid
-          items={virtualizedEntries}
-          getKey={entry => entry.id}
+        <GalleryEmptyPanel filtered={entries.length > 0} onClearFilters={clearGalleryFilters} />
+      ) : (
+        <GalleryDisplayGrid
+          visibleEntries={visibleEntries}
+          lineageGroups={lineageGroups}
+          collapsedLineageGroups={collapsedLineageGroups}
+          onToggleLineageGroup={toggleLineageGroup}
           layout={layout}
           compact={compact}
-          gridClassName={layout === 'list' ? 'flex flex-col gap-3' : galleryVirtualGridClass}
-          estimateRowHeight={layout === 'list' ? 180 : layout === 'dense' || compact ? 280 : 360}
-          renderItem={entry => (
-            <GalleryCardItem
-              entry={entry}
-              actionsRef={galleryCardActionsRef}
-              compact={compact || layout === 'dense'}
-              layout={layout}
-              selectable={bulkEnabled && !pickFor}
-              selected={selectedIdSet.has(entry.id)}
-              reviewFocus={
-                (filter.reviewMode === true && reviewFocusEntry?.id === entry.id) ||
-                filter.focusEntryId === entry.id
-              }
-              previewUrl={primaryThumbUrl(entry)}
-              imageUrls={galleryEntryStripThumbUrls(entry)}
-              reviewMode={filter.reviewMode === true && !pickFor}
-              reviewMutationHints={
-                filter.reviewMode &&
-                !pickFor &&
-                reviewFocusEntry?.id === entry.id &&
-                !entry.reviewRating
-                  ? suggestRatingMutations(entry, 2).map(item => item.detail)
-                  : undefined
-              }
-              hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
-              pickMode={Boolean(pickFor)}
-              pickable={
-                Boolean(pickFor) &&
-                entry.status === 'completed' &&
-                galleryEntryPrimaryMediaKind(entry) === 'image'
-              }
-              pickLabel={pickFor ? galleryPickActionLabel(pickFor) : undefined}
-            />
-          )}
+          gridClassName={galleryCardGridClass}
+          virtualGridClassName={galleryVirtualGridClass}
+          renderCard={renderGalleryCard}
         />
-      ) : (
-        <div
-          className={
-            layout === 'list'
-              ? 'flex flex-col gap-3 overflow-visible'
-              : `${galleryCardGridClass} overflow-visible`
-          }
-        >
-          {(
-            lineageGroups ?? visibleEntries.map(entry => ({ root: entry, derivatives: [] }))
-          ).flatMap(group => {
-            const renderCard = (entry: ComfyGalleryEntry) => (
-              <GalleryCardItem
-                key={entry.id}
-                entry={entry}
-                actionsRef={galleryCardActionsRef}
-                compact={compact || layout === 'dense'}
-                layout={layout}
-                selectable={bulkEnabled && !pickFor}
-                selected={selectedIdSet.has(entry.id)}
-                reviewFocus={
-                  (filter.reviewMode === true && reviewFocusEntry?.id === entry.id) ||
-                  filter.focusEntryId === entry.id
-                }
-                previewUrl={primaryThumbUrl(entry)}
-                imageUrls={galleryEntryStripThumbUrls(entry)}
-                reviewMode={filter.reviewMode === true && !pickFor}
-                reviewMutationHints={
-                  filter.reviewMode &&
-                  !pickFor &&
-                  reviewFocusEntry?.id === entry.id &&
-                  !entry.reviewRating
-                    ? suggestRatingMutations(entry, 2).map(item => item.detail)
-                    : undefined
-                }
-                hasDerivatives={entryIdsWithDerivatives.has(entry.id)}
-                pickMode={Boolean(pickFor)}
-                pickable={
-                  Boolean(pickFor) &&
-                  entry.status === 'completed' &&
-                  galleryEntryPrimaryMediaKind(entry) === 'image'
-                }
-                pickLabel={pickFor ? galleryPickActionLabel(pickFor) : undefined}
-              />
-            );
-
-            if (group.derivatives.length === 0) {
-              return [renderCard(group.root)];
-            }
-
-            const collapsed = collapsedLineageGroups.has(group.root.id);
-
-            return [
-              <div
-                key={`lineage-${group.root.id}`}
-                className={
-                  layout === 'list'
-                    ? 'space-y-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-3'
-                    : 'col-span-full space-y-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-3'
-                }
-              >
-                <div className="flex items-center justify-between gap-2 px-1">
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-violet-300/80">
-                    Lineage · {group.derivatives.length + 1} outputs
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCollapsedLineageGroups(previous => {
-                        const next = new Set(previous);
-                        if (next.has(group.root.id)) {
-                          next.delete(group.root.id);
-                        } else {
-                          next.add(group.root.id);
-                        }
-                        return next;
-                      })
-                    }
-                    className="rounded-lg border border-violet-500/25 bg-violet-500/10 px-2 py-0.6 text-[10px] font-medium text-violet-300 backdrop-blur-sm transition hover:border-violet-400/45 hover:bg-violet-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98]"
-                  >
-                    {collapsed ? 'Expand' : 'Collapse'}
-                  </button>
-                </div>
-                <div className={layout === 'list' ? 'space-y-3' : galleryCardGridClass}>
-                  {renderCard(group.root)}
-                  {!collapsed
-                    ? group.derivatives.map((derivative, idx) => (
-                        <div
-                          key={derivative.id}
-                          className={
-                            layout === 'list'
-                              ? `ml-3 border-l border-violet-500/20 pl-3${idx === 0 ? '' : ' opacity-65 transition group-hover/card:opacity-100'}`
-                              : undefined
-                          }
-                        >
-                          {renderCard(derivative)}
-                        </div>
-                      ))
-                    : null}
-                </div>
-              </div>,
-            ];
-          })}
-        </div>
       )}
 
       {hasMoreAll ? (
