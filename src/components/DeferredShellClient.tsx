@@ -23,6 +23,10 @@ const GlobalToastHost = dynamic(() => import('@/components/GlobalToastHost'), {
   ssr: false,
 });
 
+const SystemTray = dynamic(() => import('@/components/SystemTray'), {
+  ssr: false,
+});
+
 const WorkspaceWelcome = dynamic(() => import('@/components/WorkspaceWelcome'), {
   ssr: false,
 });
@@ -87,6 +91,7 @@ export default function DeferredShellClient() {
     <>
       {batchEnabled || shellReady ? <ScheduledBatchRunner /> : null}
       {toastReady || shellReady ? <GlobalToastHost /> : null}
+      {toastReady || shellReady ? <SystemTray /> : null}
       {shellReady ? (
         <>
           <KeyboardShortcuts />
