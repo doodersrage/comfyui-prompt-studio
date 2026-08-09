@@ -640,7 +640,7 @@ export default function SharedToolControls({
   const systemPathActive = usesSystemWorkflowPath(shared, shared.model);
   const modelFilterHint = systemPathActive
     ? shouldLimitSystemWorkflowPicker(shared) && !showAllModelsOverride
-      ? `System path · FLUX / Qwen / video (${pickerModels.length} models).`
+      ? `System path · FLUX / Qwen / Z-Image / video (${pickerModels.length} models).`
       : `System path for this model (${pickerModels.length} in picker).`
     : shared.useSystemWorkflows === true
       ? `Hybrid · mapped/manual workflow for this model (${pickerModels.length} in picker).`

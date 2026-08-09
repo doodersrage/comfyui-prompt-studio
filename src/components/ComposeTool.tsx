@@ -19,6 +19,7 @@ import {
   isComposeCapableModel,
   isFluxKleinModel,
   isQwenEditModel,
+  isZImageModel,
 } from '@/lib/model-denoise-defaults';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import {
@@ -381,6 +382,7 @@ export default function ComposeTool() {
     [defaultTransferMinFigures]
   );
   const qwenEditModel = isQwenEditModel(shared.model);
+  const zImageModel = isZImageModel(shared.model);
   const aggressiveInstruction = isAggressiveComposeInstruction(instruction);
   const showPoseUnlockHint =
     qwenEditModel &&
@@ -539,81 +541,90 @@ export default function ComposeTool() {
             — e.g. “Replace the background with a rainy neon alley. Keep the subject’s pose and
             framing.”
           </p>
+        ) : zImageModel ? (
+          <p className="text-xs leading-relaxed text-zinc-500">
+            Z-Image: Figure 1 drives img2img (soft denoise). Images 2–4 are prompt references only —
+            describe what to borrow from them in text; they are not vision-encoded like Qwen Edit.
+          </p>
         ) : null}
 
-        <div className="space-y-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] px-3.5 py-3 shadow-[0_0_28px_-18px_rgba(34,211,238,0.4)]">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={identityLock}
-                onChange={event => updateToolSettings({ identityLock: event.target.checked })}
-                className="mt-1 rounded border-zinc-700 bg-zinc-950 text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
-              />
-              <span className="min-w-0 space-y-1">
-                <span className="block text-sm font-medium text-cyan-50/95">
-                  Lock identity from Image 1
+        {!zImageModel ? (
+          <div className="space-y-2 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] px-3.5 py-3 shadow-[0_0_28px_-18px_rgba(34,211,238,0.4)]">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={identityLock}
+                  onChange={event => updateToolSettings({ identityLock: event.target.checked })}
+                  className="mt-1 rounded border-zinc-700 bg-zinc-950 text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                />
+                <span className="min-w-0 space-y-1">
+                  <span className="block text-sm font-medium text-cyan-50/95">
+                    Lock identity from Image 1
+                  </span>
+                  <span className="block text-xs leading-relaxed text-zinc-500">
+                    {identityLockHint}
+                  </span>
                 </span>
-                <span className="block text-xs leading-relaxed text-zinc-500">
-                  {identityLockHint}
+              </label>
+              <label className="shrink-0 space-y-1">
+                <span className="type-caption text-cyan-200/70">Kind</span>
+                <select
+                  value={identityKind}
+                  disabled={!identityLock}
+                  onChange={event =>
+                    updateToolSettings({
+                      identityKind: normalizeComposeIdentityKind(event.target.value),
+                    })
+                  }
+                  className="block rounded-xl border border-zinc-800/90 bg-zinc-950/70 px-2.5 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {(
+                    [
+                      { id: 'ipadapter' as const, label: 'IP-Adapter' },
+                      { id: 'instantid' as const, label: 'InstantID' },
+                      { id: 'pulid' as const, label: 'PuLID' },
+                      { id: 'auto' as const, label: 'Auto' },
+                    ] satisfies Array<{ id: ComposeIdentityKind; label: string }>
+                  ).map(entry => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {identityLock ? (
+              <label className="block space-y-1.5 pl-7">
+                <span className="type-caption text-cyan-200/70">
+                  {identityKind === 'ipadapter'
+                    ? 'IP-Adapter'
+                    : identityKind === 'instantid'
+                      ? 'InstantID'
+                      : identityKind === 'pulid'
+                        ? 'PuLID'
+                        : 'Identity'}{' '}
+                  strength — {identityLockStrength.toFixed(2)}
                 </span>
-              </span>
-            </label>
-            <label className="shrink-0 space-y-1">
-              <span className="type-caption text-cyan-200/70">Kind</span>
-              <select
-                value={identityKind}
-                disabled={!identityLock}
-                onChange={event =>
-                  updateToolSettings({
-                    identityKind: normalizeComposeIdentityKind(event.target.value),
-                  })
-                }
-                className="block rounded-xl border border-zinc-800/90 bg-zinc-950/70 px-2.5 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {(
-                  [
-                    { id: 'ipadapter' as const, label: 'IP-Adapter' },
-                    { id: 'instantid' as const, label: 'InstantID' },
-                    { id: 'pulid' as const, label: 'PuLID' },
-                    { id: 'auto' as const, label: 'Auto' },
-                  ] satisfies Array<{ id: ComposeIdentityKind; label: string }>
-                ).map(entry => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <input
+                  type="range"
+                  min={0.15}
+                  max={0.85}
+                  step={0.05}
+                  value={identityLockStrength}
+                  onChange={event =>
+                    updateToolSettings({
+                      identityLockStrength: normalizeComposeIdentityLockStrength(
+                        event.target.value
+                      ),
+                    })
+                  }
+                  className="w-full accent-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+                />
+              </label>
+            ) : null}
           </div>
-          {identityLock ? (
-            <label className="block space-y-1.5 pl-7">
-              <span className="type-caption text-cyan-200/70">
-                {identityKind === 'ipadapter'
-                  ? 'IP-Adapter'
-                  : identityKind === 'instantid'
-                    ? 'InstantID'
-                    : identityKind === 'pulid'
-                      ? 'PuLID'
-                      : 'Identity'}{' '}
-                strength — {identityLockStrength.toFixed(2)}
-              </span>
-              <input
-                type="range"
-                min={0.15}
-                max={0.85}
-                step={0.05}
-                value={identityLockStrength}
-                onChange={event =>
-                  updateToolSettings({
-                    identityLockStrength: normalizeComposeIdentityLockStrength(event.target.value),
-                  })
-                }
-                className="w-full accent-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
-              />
-            </label>
-          ) : null}
-        </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
           <button

@@ -282,4 +282,27 @@ describe("compose instruction builder", () => {
     assert.match(built, /Image 1 is facial identity only/i);
     assert.match(built, /Image 2 supplies the target pose/i);
   });
+
+  it("prefixes Z-Image Modify with img2img preserve guidance", () => {
+    const built = buildComposeInstruction({
+      mode: "modify",
+      instruction: "warmer golden-hour light",
+      figureCount: 1,
+      model: "z-image-turbo",
+    });
+    assert.match(built, /Edit Image 1 via img2img/i);
+    assert.match(built, /warmer golden-hour light/);
+  });
+
+  it("prefixes Z-Image Transfer with img2img base note", () => {
+    const built = buildComposeInstruction({
+      mode: "transfer",
+      instruction: "swap the jacket",
+      figureCount: 2,
+      model: "z-image",
+    });
+    assert.match(built, /Image 1 is the img2img base/i);
+    assert.match(built, /Image 1, Image 2/i);
+    assert.match(built, /swap the jacket/);
+  });
 });

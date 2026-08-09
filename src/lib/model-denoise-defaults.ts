@@ -117,16 +117,16 @@ export function isFlux1FamilyModel(model: ComfyImageModel | string | null | unde
 }
 
 /**
- * Multi-ref Compose / Transfer — Qwen Edit (image1–4 encode) or FLUX.2 Klein
- * (Figure 1 img2img + Figures 2–4 via IP-Adapter). Excludes FLUX inpaint and
- * other single-mask edit models. Rapid AIO Edit is included; Rapid AIO SFW/NSFW
- * are T2I-first — use Edit for Compose.
+ * Multi-ref Compose / Transfer — Qwen Edit (image1–4 encode), FLUX.2 Klein
+ * (ReferenceLatent instruction edit), or Z-Image (Figure 1 img2img; extras are
+ * prompt-only). Excludes FLUX inpaint and other single-mask edit models.
+ * Rapid AIO Edit is included; Rapid AIO SFW/NSFW are T2I-first — use Edit.
  */
 export function isComposeCapableModel(model: ComfyImageModel | string | null | undefined): boolean {
   if (!model?.toString().trim()) {
     return false;
   }
-  return isQwenEditModel(model) || isFluxKleinModel(model);
+  return isQwenEditModel(model) || isFluxKleinModel(model) || isZImageModel(model);
 }
 
 export function isInpaintModel(model: ComfyImageModel | string): boolean {

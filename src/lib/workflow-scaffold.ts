@@ -350,6 +350,103 @@ function zImageScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unkno
   };
 }
 
+/** Z-Image Compose: Figure 1 img2img via VAEEncode; Figures 2–4 are LoadImage placeholders (prompt-only). */
+function zImageComposeScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  const figureTokens = [
+    tokens.inputImage?.trim() || DEFAULT_INPUT_IMAGE_TOKEN,
+    DEFAULT_INPUT_IMAGE_2_TOKEN,
+    DEFAULT_INPUT_IMAGE_3_TOKEN,
+    DEFAULT_INPUT_IMAGE_4_TOKEN,
+  ];
+
+  return {
+    '1': {
+      class_type: 'UNETLoader',
+      inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: 'default' },
+      _meta: { title: 'Load Z-Image UNET' },
+    },
+    '2': {
+      class_type: 'CLIPLoader',
+      inputs: {
+        clip_name: 'qwen_3_4b.safetensors',
+        type: 'lumina2',
+      },
+      _meta: { title: 'Load CLIP' },
+    },
+    '3': {
+      class_type: 'VAELoader',
+      inputs: { vae_name: 'ae.safetensors' },
+      _meta: { title: 'Load VAE' },
+    },
+    '4': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.positive, clip: ['2', 0] },
+      _meta: { title: 'Positive Prompt' },
+    },
+    '5': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.negative, clip: ['2', 0] },
+      _meta: { title: 'Negative Prompt' },
+    },
+    '7': {
+      class_type: 'ModelSamplingAuraFlow',
+      inputs: { model: ['1', 0], shift: tokens.shift },
+      _meta: { title: 'ModelSamplingAuraFlow' },
+    },
+    '900': {
+      class_type: 'LoadImage',
+      inputs: { image: figureTokens[0] },
+      _meta: { title: 'Figure 1' },
+    },
+    '901': {
+      class_type: 'VAEEncode',
+      inputs: { pixels: ['900', 0], vae: ['3', 0] },
+      _meta: { title: 'VAE Encode Figure 1' },
+    },
+    '8': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['7', 0],
+        positive: ['4', 0],
+        negative: ['5', 0],
+        latent_image: ['901', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '9': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['8', 0], vae: ['3', 0] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '10': {
+      class_type: 'SaveImage',
+      inputs: { images: ['9', 0], filename_prefix: 'PromptStudio' },
+      _meta: { title: 'Save Image' },
+    },
+    '902': {
+      class_type: 'LoadImage',
+      inputs: { image: figureTokens[1] },
+      _meta: { title: 'Figure 2' },
+    },
+    '903': {
+      class_type: 'LoadImage',
+      inputs: { image: figureTokens[2] },
+      _meta: { title: 'Figure 3' },
+    },
+    '904': {
+      class_type: 'LoadImage',
+      inputs: { image: figureTokens[3] },
+      _meta: { title: 'Figure 4' },
+    },
+  };
+}
+
 function qwenScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
   const loaders = qwenLoaderFilenames();
   return {
@@ -1817,6 +1914,7 @@ export function buildWorkflowScaffoldForModel(
   const resolvedTokens = resolveBindingTokens(tokens);
   const category = resolveScaffoldCategory(model);
   const useKleinComposeScaffold = options?.tool === 'compose' && isFluxKleinModel(model);
+  const useZImageComposeScaffold = options?.tool === 'compose' && isZImageModel(model);
   const useQwenComposeScaffold =
     options?.tool === 'compose' &&
     isQwenEditModel(model) &&
@@ -1828,65 +1926,69 @@ export function buildWorkflowScaffoldForModel(
     category === 'qwen' && usesQwenCheckpointLoader(model) && !useLightningScaffold;
   const graph = useKleinComposeScaffold
     ? fluxKleinEditScaffold(resolvedTokens, model)
-    : useQwenComposeScaffold
-      ? qwenEditComposeScaffold(resolvedTokens, model)
-      : useEditScaffold
-        ? editScaffold(resolvedTokens, category, model)
-        : isZImageModel(model)
-          ? zImageScaffold(resolvedTokens)
-          : category === 'flux'
-            ? fluxScaffold(resolvedTokens, model)
-            : useLightningScaffold
-              ? qwenLightningScaffold(resolvedTokens)
-              : useCheckpointScaffold
-                ? qwenCheckpointScaffold(resolvedTokens)
-                : category === 'qwen'
-                  ? qwenScaffold(resolvedTokens)
-                  : category === 'video'
-                    ? videoScaffold(resolvedTokens, model)
-                    : category === 'audio'
-                      ? audioScaffold(resolvedTokens)
-                      : category === 'mesh'
-                        ? meshScaffold(resolvedTokens)
-                        : genericScaffold(resolvedTokens);
+    : useZImageComposeScaffold
+      ? zImageComposeScaffold(resolvedTokens)
+      : useQwenComposeScaffold
+        ? qwenEditComposeScaffold(resolvedTokens, model)
+        : useEditScaffold
+          ? editScaffold(resolvedTokens, category, model)
+          : isZImageModel(model)
+            ? zImageScaffold(resolvedTokens)
+            : category === 'flux'
+              ? fluxScaffold(resolvedTokens, model)
+              : useLightningScaffold
+                ? qwenLightningScaffold(resolvedTokens)
+                : useCheckpointScaffold
+                  ? qwenCheckpointScaffold(resolvedTokens)
+                  : category === 'qwen'
+                    ? qwenScaffold(resolvedTokens)
+                    : category === 'video'
+                      ? videoScaffold(resolvedTokens, model)
+                      : category === 'audio'
+                        ? audioScaffold(resolvedTokens)
+                        : category === 'mesh'
+                          ? meshScaffold(resolvedTokens)
+                          : genericScaffold(resolvedTokens);
   const videoLatentClass = category === 'video' ? resolveVideoLatentClass(model) : null;
   const notes = [
     'Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.',
     useKleinComposeScaffold
       ? 'Klein Compose scaffold uses EmptyFlux2LatentImage + ReferenceLatent (instruction edit, denoise 1). Figure 1–4 attach via ReferenceLatent at queue time — not soft img2img.'
-      : useQwenComposeScaffold
-        ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage + TextEncodeQwenImageEditPlus (no encode VAE). Figure 1–4 attach via ReferenceLatent + external VAEEncode at queue time — denoise 1.'
-        : useEditScaffold
-          ? isQwenEditModel(model)
-            ? isQwenLightningModel(model)
-              ? 'Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Figure 1–4 LoadImages use {{INPUT_IMAGE}}…{{INPUT_IMAGE_4}} but encode slots stay empty for Generate; Compose/Refine queue wires refs when you upload sources.'
-              : useQwenComposeScaffold
-                ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage — ReferenceLatent wiring applied at queue time.'
-                : 'Qwen Edit scaffold wires LoadImage → VAEEncode → KSampler with denoise — upload an image from Refine, Compose, or Image → Prompt before queueing.'
-            : model === 'flux-inpaint'
-              ? 'FLUX inpaint scaffold wires LoadImage + LoadImageMask → InpaintModelConditioning — upload source image and mask before queueing.'
-              : 'Edit scaffold includes LoadImage + denoise — wire VAEEncode in ComfyUI if you use the generic edit template.'
-          : category === 'qwen'
-            ? useLightningScaffold
-              ? 'Lightning scaffold uses UNETLoader + Lightning LoRA ({{LORA_LIGHTNING}}) + ModelSamplingAuraFlow (shift ~3). Map your 4/8-step bf16 Lightning LoRA in Settings → LoRA library.'
-              : useCheckpointScaffold
-                ? 'Rapid AIO / checkpoint Qwen scaffold uses CheckpointLoaderSimple ({{CHECKPOINT}}) — no separate UNET. Map the merge under Settings → checkpoint map if your filename differs.'
-                : 'Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs.'
-            : category === 'flux'
-              ? isFluxKleinModel(model)
-                ? 'FLUX Klein scaffold uses UNETLoader + CLIPLoader (type flux2, Qwen3-8B for 9B / Qwen3-4B for 4B) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available.'
-                : 'FLUX scaffold uses UNETLoader + DualCLIPLoader (clip_l + t5xxl) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available.'
-              : category === 'video'
-                ? isWanLightningModel(model)
-                  ? 'WAN Lightning scaffold uses CheckpointLoader + LoraLoaderModelOnly ({{LORA_LIGHTNING}} → Wan2.2-Lightning-low_noise_model) + EmptyHunyuanLatentVideo + SaveAnimatedWEBP. Map the low-noise Lightning LoRA in Settings → LoRA library or keep it in ComfyUI’s loras folder.'
-                  : `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom pack with LTXVImgToVideo.`
-                : category === 'audio'
-                  ? 'Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow.'
-                  : category === 'mesh'
-                    ? 'Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available.'
-                    : isZImageModel(model)
-                      ? 'Z-Image scaffold uses UNETLoader + CLIPLoader (type lumina2, qwen_3_4b) + ae.safetensors VAE + ModelSamplingAuraFlow. Turbo: 6–8 steps, cfg 1; Base: ~30–50 steps, cfg 3–5.'
-                      : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
+      : useZImageComposeScaffold
+        ? 'Z-Image Compose uses Figure 1 img2img (VAEEncode → KSampler, soft denoise ~0.65). Figures 2–4 are prompt references only — no vision encode stack.'
+        : useQwenComposeScaffold
+          ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage + TextEncodeQwenImageEditPlus (no encode VAE). Figure 1–4 attach via ReferenceLatent + external VAEEncode at queue time — denoise 1.'
+          : useEditScaffold
+            ? isQwenEditModel(model)
+              ? isQwenLightningModel(model)
+                ? 'Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Figure 1–4 LoadImages use {{INPUT_IMAGE}}…{{INPUT_IMAGE_4}} but encode slots stay empty for Generate; Compose/Refine queue wires refs when you upload sources.'
+                : useQwenComposeScaffold
+                  ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage — ReferenceLatent wiring applied at queue time.'
+                  : 'Qwen Edit scaffold wires LoadImage → VAEEncode → KSampler with denoise — upload an image from Refine, Compose, or Image → Prompt before queueing.'
+              : model === 'flux-inpaint'
+                ? 'FLUX inpaint scaffold wires LoadImage + LoadImageMask → InpaintModelConditioning — upload source image and mask before queueing.'
+                : 'Edit scaffold includes LoadImage + denoise — wire VAEEncode in ComfyUI if you use the generic edit template.'
+            : category === 'qwen'
+              ? useLightningScaffold
+                ? 'Lightning scaffold uses UNETLoader + Lightning LoRA ({{LORA_LIGHTNING}}) + ModelSamplingAuraFlow (shift ~3). Map your 4/8-step bf16 Lightning LoRA in Settings → LoRA library.'
+                : useCheckpointScaffold
+                  ? 'Rapid AIO / checkpoint Qwen scaffold uses CheckpointLoaderSimple ({{CHECKPOINT}}) — no separate UNET. Map the merge under Settings → checkpoint map if your filename differs.'
+                  : 'Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs.'
+              : category === 'flux'
+                ? isFluxKleinModel(model)
+                  ? 'FLUX Klein scaffold uses UNETLoader + CLIPLoader (type flux2, Qwen3-8B for 9B / Qwen3-4B for 4B) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available.'
+                  : 'FLUX scaffold uses UNETLoader + DualCLIPLoader (clip_l + t5xxl) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available.'
+                : category === 'video'
+                  ? isWanLightningModel(model)
+                    ? 'WAN Lightning scaffold uses CheckpointLoader + LoraLoaderModelOnly ({{LORA_LIGHTNING}} → Wan2.2-Lightning-low_noise_model) + EmptyHunyuanLatentVideo + SaveAnimatedWEBP. Map the low-noise Lightning LoRA in Settings → LoRA library or keep it in ComfyUI’s loras folder.'
+                    : `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom pack with LTXVImgToVideo.`
+                  : category === 'audio'
+                    ? 'Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow.'
+                    : category === 'mesh'
+                      ? 'Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available.'
+                      : isZImageModel(model)
+                        ? 'Z-Image scaffold uses UNETLoader + CLIPLoader (type lumina2, qwen_3_4b) + ae.safetensors VAE + ModelSamplingAuraFlow. Turbo: 6–8 steps, cfg 1; Base: ~30–50 steps, cfg 3–5.'
+                        : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
   ];
 
   return {

@@ -753,7 +753,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         }
 
         if (config.tool === 'compose') {
-          const { isFluxKleinModel } = await import('@/lib/model-denoise-defaults');
+          const { isFluxKleinModel, isZImageModel } = await import('@/lib/model-denoise-defaults');
           if (isFluxKleinModel(queueModel)) {
             const { buildComposeKleinQueuePatch } = await import('@/lib/compose-identity-lock');
             const kleinPatch = buildComposeKleinQueuePatch({
@@ -767,7 +767,7 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
             if (kleinPatch) {
               Object.assign(queueParams, kleinPatch);
             }
-          } else if (options?.identityLock) {
+          } else if (options?.identityLock && !isZImageModel(queueModel)) {
             const { buildComposeIdentityLockQueuePatch } =
               await import('@/lib/compose-identity-lock');
             const identityPatch = buildComposeIdentityLockQueuePatch({

@@ -229,10 +229,12 @@ describe("system-workflow-runtime", () => {
     );
   });
 
-  it("limits system support to FLUX, Qwen, and video families", () => {
+  it("limits system support to FLUX, Qwen, video, and Z-Image families", () => {
     assert.equal(isSystemWorkflowSupportedModel("qwen-image-2512"), true);
     assert.equal(isSystemWorkflowSupportedModel("flux-dev"), true);
     assert.equal(isSystemWorkflowSupportedModel("wan-video"), true);
+    assert.equal(isSystemWorkflowSupportedModel("z-image-turbo"), true);
+    assert.equal(isSystemWorkflowSupportedModel("z-image"), true);
     assert.equal(isSystemWorkflowSupportedModel("sdxl"), false);
     assert.equal(isSystemWorkflowSupportedModel("hunyuan-dit"), false);
     assert.equal(resolveSystemWorkflowFallbackModel("sdxl"), "qwen-image-2512");
@@ -600,6 +602,12 @@ describe("system-workflow-runtime", () => {
     });
     assert.equal(kleinCompose.preferMultiRef, false);
     assert.equal(kleinCompose.preferEdit, true);
+
+    const zImageCompose = resolvePickPackOptions("z-image-turbo", {
+      tool: "compose",
+    });
+    assert.equal(zImageCompose.preferMultiRef, false);
+    assert.equal(zImageCompose.preferEdit, true);
   });
 
   it("skips T2I packs for Klein Compose so scaffold/img2img wins", () => {

@@ -110,6 +110,18 @@ describe("workflow scaffold", () => {
     assert.match(result.notes.join(" "), /ReferenceLatent/i);
   });
 
+  it("builds Z-Image Compose scaffold as Figure 1 img2img", () => {
+    const result = buildWorkflowScaffoldForModel("z-image-turbo", undefined, {
+      tool: "compose",
+    });
+    assert.match(result.json, /ModelSamplingAuraFlow/);
+    assert.match(result.json, /VAEEncode/);
+    assert.match(result.json, /Figure 1/);
+    assert.match(result.json, /Figure 2/);
+    assert.doesNotMatch(result.json, /EmptySD3LatentImage/);
+    assert.match(result.notes.join(" "), /img2img/i);
+  });
+
   it("builds a video scaffold with an optional init image node ready for I2V auto-wiring", () => {
     const result = buildWorkflowScaffoldForModel("wan-video");
     assert.equal(result.category, "video");

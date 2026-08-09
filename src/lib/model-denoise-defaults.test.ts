@@ -27,7 +27,7 @@ describe("model denoise defaults", () => {
     assert.equal(isQwenEditModel("qwen-image-2512"), false);
   });
 
-  it("lists Qwen Edit and FLUX.2 Klein as Compose-capable", () => {
+  it("lists Qwen Edit, FLUX.2 Klein, and Z-Image as Compose-capable", () => {
     assert.equal(isComposeCapableModel("qwen-image-edit-2511"), true);
     assert.equal(isComposeCapableModel("qwen-rapid-aio-edit"), true);
     for (const id of [
@@ -39,6 +39,8 @@ describe("model denoise defaults", () => {
       assert.equal(isFluxKleinModel(id), true);
       assert.equal(isComposeCapableModel(id), true);
     }
+    assert.equal(isComposeCapableModel("z-image"), true);
+    assert.equal(isComposeCapableModel("z-image-turbo"), true);
     assert.equal(isComposeCapableModel("flux-dev"), false);
     assert.equal(isComposeCapableModel("flux-inpaint"), false);
     assert.equal(isComposeCapableModel("qwen-image-2512"), false);

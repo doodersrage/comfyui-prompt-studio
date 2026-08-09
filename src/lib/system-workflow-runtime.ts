@@ -48,6 +48,7 @@ import {
   isEditQueueTool,
   isFluxKleinModel,
   isQwenRapidAioModel,
+  isZImageModel,
 } from './model-denoise-defaults';
 import { maybeRewriteRapidAioWorkflowLoaders } from './workflow-rapid-aio-checkpoint';
 import { isLightningDistilledModel, resolveModelSamplingParams } from './model-sampling-patch';
@@ -131,11 +132,14 @@ export function shouldLimitSystemWorkflowPicker(
 
 /**
  * Models with a dedicated system scaffold (not the generic checkpoint fallback).
- * FLUX, Qwen (incl. Lightning / Edit / Rapid), and video (WAN / Hunyuan / LTX).
+ * FLUX, Qwen (incl. Lightning / Edit / Rapid), Z-Image, and video (WAN / Hunyuan / LTX).
  */
 export function isSystemWorkflowSupportedModel(model: ComfyImageModel | string): boolean {
   const category = getComfyModelDefinition(model)?.category;
-  return category === 'flux' || category === 'qwen' || category === 'video';
+  if (category === 'flux' || category === 'qwen' || category === 'video') {
+    return true;
+  }
+  return isZImageModel(model);
 }
 
 export function listSystemWorkflowSupportedModels(): ComfyImageModel[] {
@@ -520,9 +524,8 @@ export function pickPackWorkflowForModel(
       return null;
     }
   }
-  // Klein Compose must use ReferenceLatent / VAEEncode edit graphs — never a
-  // plain T2I pack (no reference conditioning).
-  if (pickOptions.tool === 'compose' && isFluxKleinModel(model)) {
+  // Klein / Z-Image Compose must use img2img edit graphs — never a plain T2I pack.
+  if (pickOptions.tool === 'compose' && (isFluxKleinModel(model) || isZImageModel(model))) {
     const img2img = candidates.filter(entry =>
       looksLikeImg2imgPackGraph(entry.file.workflowJson ?? '')
     );
@@ -1037,8 +1040,8 @@ function resolvePreferMultiRef(model: ComfyImageModel, options?: PickPackOptions
   if (options?.preferMultiRef != null) {
     return options.preferMultiRef;
   }
-  // Klein Compose uses img2img + IP-Adapter — not Qwen multi-ref encode packs.
-  if (isFluxKleinModel(model)) {
+  // Klein / Z-Image Compose use img2img — not Qwen multi-ref encode packs.
+  if (isFluxKleinModel(model) || isZImageModel(model)) {
     return false;
   }
   return options?.tool === 'compose';
