@@ -9,6 +9,7 @@ import {
 import { comfyUiJobProgressPercent } from '@/lib/comfyui-job-status';
 import { HELD_MAX_UPDATED_EVENT, listHeldMaxJobs, type HeldMaxJob } from '@/lib/held-max-queue';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { COMFY_ASSET_JOBS_UPDATED_EVENT } from '@/lib/comfy-asset-events';
 
 export type SystemTrayAssetJob = {
   id: string;
@@ -177,6 +178,8 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
     }
   }, [pollAssets]);
 
+  const assetPollMs = assetJobs.length > 0 ? 2000 : 8000;
+
   const refresh = useCallback(() => {
     refreshGallery();
     refreshHeld();
@@ -189,9 +192,11 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
 
     const onGallery = () => refreshGallery();
     const onHeld = () => refreshHeld();
+    const onAssets = () => void refreshAssets();
 
     window.addEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGallery);
     window.addEventListener(HELD_MAX_UPDATED_EVENT, onHeld);
+    window.addEventListener(COMFY_ASSET_JOBS_UPDATED_EVENT, onAssets);
     window.addEventListener('storage', onHeld);
 
     const galleryInterval = window.setInterval(refreshGallery, 4000);
@@ -200,17 +205,18 @@ export function useSystemTrayState(options?: { pollAssets?: boolean }): SystemTr
     }, 20000);
     const assetInterval = window.setInterval(() => {
       void refreshAssets();
-    }, 8000);
+    }, assetPollMs);
 
     return () => {
       window.removeEventListener(COMFYUI_GALLERY_UPDATED_EVENT, onGallery);
       window.removeEventListener(HELD_MAX_UPDATED_EVENT, onHeld);
+      window.removeEventListener(COMFY_ASSET_JOBS_UPDATED_EVENT, onAssets);
       window.removeEventListener('storage', onHeld);
       window.clearInterval(galleryInterval);
       window.clearInterval(healthInterval);
       window.clearInterval(assetInterval);
     };
-  }, [refresh, refreshAssets, refreshGallery, refreshHealth, refreshHeld]);
+  }, [assetPollMs, refresh, refreshAssets, refreshGallery, refreshHealth, refreshHeld]);
 
   const activeGalleryJobs = useMemo(
     () =>

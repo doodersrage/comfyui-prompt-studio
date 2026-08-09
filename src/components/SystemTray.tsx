@@ -223,6 +223,14 @@ export default function SystemTray() {
   const percent = primaryPercent(primary);
   const subtitle = primarySubtitle(primary);
   const extraCount = Math.max(0, totalActiveCount - 1);
+  const downloadAlsoRunning =
+    assetJobs.length > 0 && primary.kind !== 'asset' && primary.kind !== 'held';
+  const downloadHint =
+    downloadAlsoRunning && assetJobs.length === 1
+      ? `1 download also running`
+      : downloadAlsoRunning
+        ? `${assetJobs.length} downloads also running`
+        : null;
 
   return (
     <div
@@ -266,6 +274,9 @@ export default function SystemTray() {
                   <p className="mt-0.5 truncate type-caption text-[var(--text-tertiary)]">
                     {subtitle}
                   </p>
+                ) : null}
+                {downloadHint ? (
+                  <p className="mt-0.5 truncate type-caption text-sky-300/80">{downloadHint}</p>
                 ) : null}
               </div>
               {extraCount > 0 ? (

@@ -6,6 +6,7 @@ import { fetchComfyObjectInfoPayload } from '@/lib/comfyui-object-info';
 import {
   getComfyAssetJob,
   listComfyAssetJobs,
+  resumeInterruptedComfyAssetDownloads,
   runComfyAssetDownloadJob,
   startComfyAssetDownload,
 } from '@/lib/comfy-asset-download';
@@ -17,6 +18,8 @@ export const runtime = 'nodejs';
 export const maxDuration = 300;
 
 export async function GET(request: Request) {
+  resumeInterruptedComfyAssetDownloads();
+
   const { searchParams } = new URL(request.url);
   const jobId = searchParams.get('jobId')?.trim();
 

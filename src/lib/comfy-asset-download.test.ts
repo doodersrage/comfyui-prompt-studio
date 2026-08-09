@@ -12,6 +12,7 @@ import {
 import {
   __resetComfyAssetJobsForTests,
   getComfyAssetJob,
+  runComfyAssetDownloadJob,
   startComfyAssetDownload,
 } from "./comfy-asset-download";
 import {
@@ -184,6 +185,42 @@ describe("comfy asset download", () => {
     assert.throws(() =>
       startComfyAssetDownload({ assetId: "flux1-ae", root: "/tmp" }),
     );
+  });
+
+  it("restores deferred downloads when pending params were lost (HMR)", async () => {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "comfy-dl-resume-"));
+    try {
+      await fsp.mkdir(path.join(root, "models", "checkpoints"), {
+        recursive: true,
+      });
+      const payload = Buffer.from("fake-sdxl-deferred");
+      const job = startComfyAssetDownload({
+        assetId: "sdxl-base",
+        root,
+        deferStart: true,
+        fetchImpl: async () =>
+          new Response(payload, {
+            status: 200,
+            headers: {
+              "content-length": String(payload.length),
+              "content-type": "application/octet-stream",
+            },
+          }),
+      });
+      assert.equal(job.status, "queued");
+      await runComfyAssetDownloadJob(job.id);
+      for (let i = 0; i < 50; i += 1) {
+        const current = getComfyAssetJob(job.id);
+        if (current?.status === "complete" || current?.status === "error") {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      const done = getComfyAssetJob(job.id);
+      assert.equal(done?.status, "complete", done?.error);
+    } finally {
+      await fsp.rm(root, { recursive: true, force: true });
+    }
   });
 
   it("streams allowlisted download into models folder", async () => {

@@ -7,6 +7,7 @@ import { loadComfyUiSettings } from '@/lib/comfyui-settings';
 import { loadSettingsCache } from '@/lib/settings-cache';
 import { fetchComfyObjectInfoCached } from '@/lib/comfyui-object-info-cache';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
+import { COMFY_ASSET_JOBS_UPDATED_EVENT } from '@/lib/comfy-asset-events';
 import {
   COMFY_ASSET_KIND_LABELS,
   COMFY_ASSET_KIND_ORDER,
@@ -218,6 +219,12 @@ export default function ComfyModelAssetsPanel({
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (jobs.some(job => ['queued', 'downloading', 'verifying'].includes(job.status))) {
+      window.dispatchEvent(new CustomEvent(COMFY_ASSET_JOBS_UPDATED_EVENT));
+    }
+  }, [jobs]);
 
   const install = useCallback(
     async (assetId: string): Promise<AssetJob | null> => {

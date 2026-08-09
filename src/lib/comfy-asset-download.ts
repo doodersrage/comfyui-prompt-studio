@@ -29,13 +29,45 @@ export type ComfyAssetJob = {
   updatedAt: string;
 };
 
-const jobs = new Map<string, ComfyAssetJob>();
+type DownloadParams = {
+  url: string;
+  destPath: string;
+  partialPath: string;
+  modelsDir: string;
+  expectedSha256?: string;
+  expectedBytes?: number;
+  fetchImpl: typeof fetch;
+};
 
-/** Keep the Node process from exiting while downloads run (dev + `after()`). */
-const downloadHandles = new Set<Promise<void>>();
+type ComfyAssetDownloadRuntime = {
+  jobs: Map<string, ComfyAssetJob>;
+  pendingDownloadParams: Map<string, DownloadParams>;
+  /** Prevents double-scheduling the same job after HMR / resume. */
+  runningJobIds: Set<string>;
+  downloadHandles: Set<Promise<void>>;
+  downloadQueue: Promise<void>;
+};
 
-/** One Hugging Face transfer at a time — parallel installs trip 429s. */
-let downloadQueue: Promise<void> = Promise.resolve();
+const RUNTIME_KEY = Symbol.for('comfy.promptStudio.assetDownloadRuntime');
+
+function getRuntime(): ComfyAssetDownloadRuntime {
+  const globalRecord = globalThis as typeof globalThis & {
+    [RUNTIME_KEY]?: ComfyAssetDownloadRuntime;
+  };
+  if (!globalRecord[RUNTIME_KEY]) {
+    globalRecord[RUNTIME_KEY] = {
+      jobs: new Map(),
+      pendingDownloadParams: new Map(),
+      runningJobIds: new Set(),
+      downloadHandles: new Set(),
+      downloadQueue: Promise.resolve(),
+    };
+    queueMicrotask(() => {
+      resumeInterruptedComfyAssetDownloads();
+    });
+  }
+  return globalRecord[RUNTIME_KEY]!;
+}
 
 const MAX_ATTEMPTS = 5;
 const STALL_MS = 90_000;
@@ -43,25 +75,79 @@ const CONNECT_TIMEOUT_MS = 60_000;
 const TOTAL_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
 export function listComfyAssetJobs(): ComfyAssetJob[] {
-  return [...jobs.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return [...getRuntime().jobs.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export function getComfyAssetJob(id: string): ComfyAssetJob | undefined {
-  return jobs.get(id);
+  return getRuntime().jobs.get(id);
 }
 
 /** Test helper — clears in-memory jobs and the serial queue. */
 export function __resetComfyAssetJobsForTests(): void {
-  jobs.clear();
-  downloadHandles.clear();
-  downloadQueue = Promise.resolve();
-  pendingDownloadParams.clear();
+  const globalRecord = globalThis as typeof globalThis & {
+    [RUNTIME_KEY]?: ComfyAssetDownloadRuntime;
+  };
+  delete globalRecord[RUNTIME_KEY];
 }
 
 function saveJob(job: ComfyAssetJob): ComfyAssetJob {
   const next = { ...job, updatedAt: new Date().toISOString() };
-  jobs.set(next.id, next);
+  getRuntime().jobs.set(next.id, next);
   return next;
+}
+
+function rebuildDownloadParams(job: ComfyAssetJob): DownloadParams | null {
+  const asset = getCatalogAsset(job.assetId);
+  if (!asset?.url || !isAllowlistedAssetUrl(asset.url)) {
+    return null;
+  }
+  const root = getComfyUiRoot();
+  if (!root || !job.destPath?.trim()) {
+    return null;
+  }
+  const { partialPath, modelsDir } = resolveAssetDestinationPath({
+    root,
+    kind: asset.kind,
+    filename: asset.filename,
+  });
+  return {
+    url: asset.url,
+    destPath: job.destPath,
+    partialPath,
+    modelsDir,
+    expectedSha256: asset.sha256,
+    expectedBytes: asset.bytes,
+    fetchImpl: fetch,
+  };
+}
+
+/** Re-queue downloads orphaned by dev HMR or a dropped `after()` callback. */
+export function resumeInterruptedComfyAssetDownloads(): void {
+  const runtime = getRuntime();
+
+  for (const job of runtime.jobs.values()) {
+    if (job.status !== 'queued' && job.status !== 'downloading') {
+      continue;
+    }
+    if (runtime.runningJobIds.has(job.id)) {
+      continue;
+    }
+
+    const params = runtime.pendingDownloadParams.get(job.id) ?? rebuildDownloadParams(job);
+    if (!params) {
+      continue;
+    }
+
+    if (job.status === 'downloading') {
+      saveJob({
+        ...job,
+        status: 'queued',
+        error: 'Resuming download after server reload…',
+      });
+    }
+
+    scheduleComfyAssetDownloadJob(job.id, params);
+  }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -201,7 +287,7 @@ export function startComfyAssetDownload(options: StartComfyAssetDownloadOptions)
   }
 
   // Reuse an in-flight job for the same asset instead of stacking duplicates.
-  for (const existing of jobs.values()) {
+  for (const existing of getRuntime().jobs.values()) {
     if (
       existing.assetId === asset.id &&
       (existing.status === 'queued' ||
@@ -241,35 +327,31 @@ export function startComfyAssetDownload(options: StartComfyAssetDownloadOptions)
   if (!options.deferStart) {
     scheduleComfyAssetDownloadJob(job.id, params);
   } else {
-    pendingDownloadParams.set(job.id, params);
+    getRuntime().pendingDownloadParams.set(job.id, params);
   }
 
   return job;
 }
 
-type DownloadParams = {
-  url: string;
-  destPath: string;
-  partialPath: string;
-  modelsDir: string;
-  expectedSha256?: string;
-  expectedBytes?: number;
-  fetchImpl: typeof fetch;
-};
-
-const pendingDownloadParams = new Map<string, DownloadParams>();
-
 /** Run a previously deferred job (used with Next.js `after()`). */
 export function runComfyAssetDownloadJob(jobId: string): Promise<void> {
-  const params = pendingDownloadParams.get(jobId);
-  pendingDownloadParams.delete(jobId);
+  const runtime = getRuntime();
+  let params = runtime.pendingDownloadParams.get(jobId);
+  runtime.pendingDownloadParams.delete(jobId);
   if (!params) {
-    const job = jobs.get(jobId);
-    if (job && job.status === 'queued') {
+    const job = runtime.jobs.get(jobId);
+    if (!job) {
+      return Promise.resolve();
+    }
+    params = rebuildDownloadParams(job) ?? undefined;
+  }
+  if (!params) {
+    const job = runtime.jobs.get(jobId);
+    if (job && (job.status === 'queued' || job.status === 'downloading')) {
       saveJob({
         ...job,
         status: 'error',
-        error: 'Download was deferred but parameters were lost.',
+        error: 'Download parameters could not be restored.',
       });
     }
     return Promise.resolve();
@@ -278,12 +360,21 @@ export function runComfyAssetDownloadJob(jobId: string): Promise<void> {
 }
 
 function scheduleComfyAssetDownloadJob(jobId: string, params: DownloadParams): Promise<void> {
-  const run = () => runDownload({ jobId, ...params });
-  const handle = downloadQueue.then(run, run).finally(() => {
-    downloadHandles.delete(handle);
+  const runtime = getRuntime();
+  if (runtime.runningJobIds.has(jobId)) {
+    return Promise.resolve();
+  }
+  runtime.runningJobIds.add(jobId);
+
+  const run = () =>
+    runDownload({ jobId, ...params }).finally(() => {
+      runtime.runningJobIds.delete(jobId);
+    });
+  const handle = runtime.downloadQueue.then(run, run).finally(() => {
+    runtime.downloadHandles.delete(handle);
   });
-  downloadQueue = handle.catch(() => undefined);
-  downloadHandles.add(handle);
+  runtime.downloadQueue = handle.catch(() => undefined);
+  runtime.downloadHandles.add(handle);
   return handle;
 }
 
@@ -295,7 +386,7 @@ async function fetchWithRetries(input: {
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    const job = jobs.get(input.jobId);
+    const job = getRuntime().jobs.get(input.jobId);
     if (job) {
       saveJob({
         ...job,
@@ -333,7 +424,7 @@ async function fetchWithRetries(input: {
 
       if ((response.status === 429 || response.status === 503) && attempt < MAX_ATTEMPTS) {
         const waitMs = retryAfterMs(response, attempt);
-        const waiting = jobs.get(input.jobId);
+        const waiting = getRuntime().jobs.get(input.jobId);
         if (waiting) {
           saveJob({
             ...waiting,
@@ -368,7 +459,7 @@ async function fetchWithRetries(input: {
           : new Error('Download failed.');
 
       if (aborted && attempt < MAX_ATTEMPTS) {
-        const waiting = jobs.get(input.jobId);
+        const waiting = getRuntime().jobs.get(input.jobId);
         if (waiting) {
           saveJob({
             ...waiting,
@@ -397,7 +488,7 @@ async function runDownload(input: {
   expectedBytes?: number;
   fetchImpl: typeof fetch;
 }): Promise<void> {
-  const current = jobs.get(input.jobId);
+  const current = getRuntime().jobs.get(input.jobId);
   if (!current) {
     return;
   }
@@ -445,7 +536,7 @@ async function runDownload(input: {
     );
     total = sizeCandidates.length > 0 ? Math.max(...sizeCandidates) : null;
 
-    const started = jobs.get(input.jobId);
+    const started = getRuntime().jobs.get(input.jobId);
     if (started) {
       saveJob({
         ...started,
@@ -505,7 +596,7 @@ async function runDownload(input: {
         const now = Date.now();
         if (now - lastProgressWrite >= 200) {
           lastProgressWrite = now;
-          const job = jobs.get(input.jobId);
+          const job = getRuntime().jobs.get(input.jobId);
           if (job) {
             const progress =
               total && total > 0
@@ -534,7 +625,7 @@ async function runDownload(input: {
       await finished(file);
     }
 
-    const verifying = jobs.get(input.jobId);
+    const verifying = getRuntime().jobs.get(input.jobId);
     if (!verifying) {
       return;
     }
@@ -558,7 +649,7 @@ async function runDownload(input: {
     }
 
     await fsp.rename(input.partialPath, input.destPath);
-    const done = jobs.get(input.jobId);
+    const done = getRuntime().jobs.get(input.jobId);
     if (done) {
       saveJob({
         ...done,
@@ -576,7 +667,7 @@ async function runDownload(input: {
     } catch {
       // ignore cleanup errors
     }
-    const failed = jobs.get(input.jobId);
+    const failed = getRuntime().jobs.get(input.jobId);
     if (failed) {
       let message = error instanceof Error ? error.message : 'Download failed.';
       const err = error as NodeJS.ErrnoException;
