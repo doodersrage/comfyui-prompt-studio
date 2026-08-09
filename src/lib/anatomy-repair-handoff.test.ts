@@ -16,6 +16,7 @@ describe("anatomy repair handoff", () => {
       promptId: "p1",
       prompt: "a runner in neon rain",
       status: "completed",
+      queuedAt: Date.now(),
       images: [{ filename: "a.png", subfolder: "", type: "output" }],
       comfyUrl: "http://127.0.0.1:8188",
       queueParams: { width: 1024, height: 1024 },

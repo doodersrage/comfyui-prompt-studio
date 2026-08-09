@@ -5,6 +5,7 @@ import {
   ensureDistilledSamplerParams,
   normalizeModelSamplerPresetTier,
   pickModelSamplerOverrideFields,
+  resolveUserSamplerDenoiseOverride,
   resolveModelSamplerParams,
   type ModelSamplerPresetTier,
   type ModelSamplerOverrideFields,
@@ -433,9 +434,9 @@ export function resolveQueueParams(
       merged.height = latent.height;
     }
 
-    const userDenoiseOverride = pickModelSamplerOverrideFields(
+    const userDenoiseOverride = resolveUserSamplerDenoiseOverride(
       samplerOverrides ?? shared.modelSamplerOverrides
-    ).denoise;
+    );
     const denoise = resolveQueueDenoise(model, {
       tool,
       hasInputImage,

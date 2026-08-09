@@ -191,12 +191,12 @@ function peelQwenReferenceLatentChain(
   let textCond: [string, number] = positiveRef;
   while (cursor && !visited.has(cursor)) {
     visited.add(cursor);
-    const node = workflow[cursor];
+    const node: WorkflowNodeRecord | undefined = workflow[cursor];
     if (node?.class_type !== 'ReferenceLatent') {
       textCond = [cursor, 0];
       break;
     }
-    const prev = node.inputs?.conditioning;
+    const prev: unknown = node.inputs?.conditioning;
     cursor = isNodeOutputRef(prev) ? prev[0] : null;
   }
   for (const nodeId of visited) {
@@ -1833,8 +1833,8 @@ export function ensureQwenReferenceLatentWiringInWorkflow(
   options?: {
     inputImageFilename?: string;
     inputImageFilenames?: string[];
-    width?: number;
-    height?: number;
+    width?: number | string;
+    height?: number | string;
   }
 ): {
   workflow: Record<string, unknown>;

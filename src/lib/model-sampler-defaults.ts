@@ -569,7 +569,12 @@ export function hasModelSamplerOverrides(overrides?: ModelSamplerOverrideFields 
 export function resolveUserSamplerDenoiseOverride(
   overrides?: ModelSamplerOverrideFields | null
 ): string | undefined {
-  return pickModelSamplerOverrideFields(overrides).denoise;
+  const denoise = pickModelSamplerOverrideFields(overrides).denoise;
+  if (denoise == null) {
+    return undefined;
+  }
+  const trimmed = denoise.toString().trim();
+  return trimmed === '' ? undefined : trimmed;
 }
 
 export function formatModelSamplerHint(

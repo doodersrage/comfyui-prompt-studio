@@ -143,7 +143,7 @@ export function formatQueueQualityProfileHint(
   profile: QueueQualityProfile,
   userPreset: ModelSamplerPresetTier,
   userSizeTier: ResolutionSizeTier,
-  options?: { neuralUpscaleAvailable?: boolean; model?: string }
+  options?: { neuralUpscaleAvailable?: boolean; model?: string; hasInputImage?: boolean }
 ): string | null {
   if (profile === 'followSettings') {
     return null;

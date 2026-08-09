@@ -14,6 +14,9 @@ export async function GET(request: Request) {
 
   try {
     const payload = await fetchComfyObjectInfoPayload(runtime, { forceRefresh });
+    if (!payload) {
+      return apiError('ComfyUI object_info returned no data.', 502);
+    }
     return apiJson({
       ok: true,
       models: payload.models,
