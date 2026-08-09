@@ -216,19 +216,19 @@ describe("compose LoadImage bindings", () => {
 });
 
 describe("compose instruction builder", () => {
-  it("prefixes transfer instructions without Figure labels", () => {
+  it("prefixes transfer instructions without image index labels", () => {
     assert.equal(
       buildComposeInstruction({
         mode: "transfer",
         instruction: "swap the jacket",
         figureCount: 2,
       }),
-      "Using Figure 1, Figure 2: swap the jacket",
+      "Using Image 1, Image 2: swap the jacket",
     );
   });
 
   it("leaves labeled transfer instructions alone", () => {
-    const text = "Keep pose from Figure 1. Use jacket from Figure 2.";
+    const text = "Keep pose from Image 1. Use jacket from Image 2.";
     assert.equal(
       buildComposeInstruction({
         mode: "transfer",
@@ -272,14 +272,14 @@ describe("compose instruction builder", () => {
     assert.match(built, /beast-mode athletics/i);
   });
 
-  it("prefixes Qwen aggressive Transfer with Figure 1/2 pose roles", () => {
+  it("prefixes Qwen aggressive Transfer with Image 1/2 pose roles", () => {
     const built = buildComposeInstruction({
       mode: "transfer",
-      instruction: "Aggressively refactor while keeping face from Figure 1.",
+      instruction: "Aggressively refactor while keeping face from Image 1.",
       figureCount: 2,
       model: "qwen-image-edit-2511-lightning-8",
     });
-    assert.match(built, /Figure 1 is facial identity only/i);
-    assert.match(built, /Figure 2 supplies the target pose/i);
+    assert.match(built, /Image 1 is facial identity only/i);
+    assert.match(built, /Image 2 supplies the target pose/i);
   });
 });

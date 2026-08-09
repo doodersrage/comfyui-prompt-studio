@@ -332,11 +332,11 @@ export default function ComposeTool() {
   const assertReadyToQueue = useCallback(() => {
     const fig1 = slots[0];
     if (!fig1?.file && !fig1?.previewUrl) {
-      setError('Upload Figure 1 (base image) before queueing.');
+      setError('Upload Image 1 (base image) before queueing.');
       return false;
     }
     if (mode === 'transfer' && filledCount < 2) {
-      setError('Transfer mode needs at least Figure 1 and Figure 2.');
+      setError('Transfer mode needs at least Image 1 and Image 2.');
       return false;
     }
     if (!output.trim()) {
@@ -394,8 +394,11 @@ export default function ComposeTool() {
       title="Compose / Transfer"
       description={
         <>
-          Upload up to four reference figures and describe a transfer or single-image edit. Defaults
-          to Qwen Edit 2511 Lightning 8 with optional mask on Figure 1.
+          Upload up to four reference images and describe a transfer or single-image edit. Defaults
+          to Qwen Edit 2511 Lightning 8 with optional mask on Image 1. Prompts should
+          reference <strong className="font-medium text-zinc-300">Image 1</strong>,{' '}
+          <strong className="font-medium text-zinc-300">Image 2</strong>, etc. — Qwen VL maps
+          those to the multi-input stack.
         </>
       }
       sidebar={
@@ -416,8 +419,8 @@ export default function ComposeTool() {
         <div className="flex flex-wrap gap-2">
           {(
             [
-              { id: 'transfer' as const, label: 'Transfer', hint: '≥2 figures' },
-              { id: 'modify' as const, label: 'Modify', hint: 'Figure 1 only' },
+              { id: 'transfer' as const, label: 'Transfer', hint: '≥2 images' },
+              { id: 'modify' as const, label: 'Modify', hint: 'Image 1 only' },
             ] as const
           ).map(entry => {
             const active = mode === entry.id;
@@ -443,15 +446,15 @@ export default function ComposeTool() {
 
         {showPoseUnlockHint ? (
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 px-3.5 py-3 text-xs leading-relaxed text-amber-100/90">
-            <p className="font-medium text-amber-50/95">Qwen Edit locks Figure 1 pose</p>
+            <p className="font-medium text-amber-50/95">Qwen Edit locks Image 1 pose</p>
             <p className="mt-1.5 text-amber-100/80">
-              ReferenceLatent + vision encoding anchor Figure 1&apos;s body pose and framing — denoise
+              ReferenceLatent + vision encoding anchor Image 1&apos;s body pose and framing — denoise
               1 is correct and won&apos;t unlock a sitting subject by itself.
             </p>
             <ul className="mt-2 list-inside list-disc space-y-1 text-amber-100/75">
               <li>
                 <strong className="font-medium text-amber-50/90">Pose changes:</strong> use{' '}
-                <strong className="font-medium">Transfer</strong> — Figure 1 = face, Figure 2 =
+                <strong className="font-medium">Transfer</strong> — Image 1 = face, Image 2 =
                 standing/action reference photo.
               </li>
               <li>
@@ -468,8 +471,8 @@ export default function ComposeTool() {
           </div>
         ) : null}
 
-        <FieldLabel hint="Figure 1 is the base canvas. Figures 2–4 are optional donors.">
-          Figures
+        <FieldLabel hint="Image 1 is the base canvas. Images 2–4 are optional reference donors.">
+          Images
         </FieldLabel>
         <div className="grid gap-3 sm:grid-cols-2">
           {slots.map((slot, index) => {
@@ -487,7 +490,7 @@ export default function ComposeTool() {
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="text-sm font-medium text-zinc-200">
-                    Figure {index + 1}
+                    Image {index + 1}
                     {required ? (
                       <span className="ml-1.5 text-xs font-normal text-cyan-300/80">required</span>
                     ) : null}
@@ -514,7 +517,7 @@ export default function ComposeTool() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={slot.previewUrl}
-                    alt={`Figure ${index + 1} preview`}
+                    alt={`Image ${index + 1} preview`}
                     className="mt-3 max-h-40 w-full rounded-xl border border-zinc-800/80 object-contain"
                   />
                 ) : (
@@ -545,7 +548,7 @@ export default function ComposeTool() {
               />
               <span className="min-w-0 space-y-1">
                 <span className="block text-sm font-medium text-cyan-50/95">
-                  Lock identity from Figure 1
+                  Lock identity from Image 1
                 </span>
                 <span className="block text-xs leading-relaxed text-zinc-500">{identityLockHint}</span>
               </span>
@@ -620,7 +623,7 @@ export default function ComposeTool() {
                 : 'border-zinc-800 bg-zinc-950/50 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200',
             ].join(' ')}
           >
-            {showMaskEditor ? 'Hide optional mask' : 'Optional mask on Figure 1'}
+            {showMaskEditor ? 'Hide optional mask' : 'Optional mask on Image 1'}
           </button>
           {maskPreviewUrl ? <span className="text-xs text-zinc-500">Mask ready</span> : null}
         </div>
@@ -665,7 +668,7 @@ export default function ComposeTool() {
                         disabled={disabled}
                         title={
                           disabled
-                            ? `Needs at least ${minFigures} figure${minFigures === 1 ? '' : 's'} uploaded`
+                            ? `Needs at least ${minFigures} image${minFigures === 1 ? '' : 's'} uploaded`
                             : template.instruction
                         }
                         onClick={() => applyTemplate(template.instruction)}
@@ -679,7 +682,7 @@ export default function ComposeTool() {
                       >
                         {template.label}
                         {minFigures > 1 ? (
-                          <span className="ml-1 text-[10px] text-zinc-500">· {minFigures}fig</span>
+                          <span className="ml-1 text-[10px] text-zinc-500">· {minFigures}img</span>
                         ) : null}
                       </button>
                     );
@@ -699,7 +702,7 @@ export default function ComposeTool() {
           onChange={event => setInstruction(event.target.value)}
           placeholder={
             mode === 'transfer'
-              ? 'Keep pose from Figure 1. Apply the jacket from Figure 2…'
+              ? 'Take the jacket from Image 2 and apply it to the person in Image 1…'
               : 'keep: subject face and pose\nreplace: background with misty forest…'
           }
           className={`font-mono ${accentFocusClass(ACCENT)}`}
