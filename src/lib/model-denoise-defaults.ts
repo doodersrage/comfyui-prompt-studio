@@ -93,6 +93,16 @@ export function isFluxKleinModel(model: ComfyImageModel | string | null | undefi
   return /flux-2-klein/i.test(String(model ?? ''));
 }
 
+/** Z-Image Base or Turbo T2I (UNETLoader + CLIPLoader lumina2 + Flux AE VAE). */
+export function isZImageModel(model: ComfyImageModel | string | null | undefined): boolean {
+  const id = String(model ?? '').trim();
+  return id === 'z-image' || id === 'z-image-turbo';
+}
+
+export function isZImageTurboModel(model: ComfyImageModel | string | null | undefined): boolean {
+  return String(model ?? '').trim() === 'z-image-turbo';
+}
+
 /**
  * FLUX.1 Dev / Schnell / fine-tunes (UltraReal, etc.) — DualCLIP type flux + ae.safetensors.
  * Excludes FLUX.2 Klein and flux2.

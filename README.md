@@ -44,7 +44,7 @@ Use **Simple / Studio / Full** from the sidebar footer or **Profile → Appearan
 | **Flux / Chroma**     | FLUX Dev/Schnell/2/Klein, Chroma                                 | Subject-first photographic prose             |
 | **Qwen Image**        | Edit, Edit-2511, Image-2512, Image-2.0                           | Edit instructions or factual/rich T2I prose  |
 | **Hunyuan / HiDream** | Hunyuan DiT, Hunyuan Image 2.1, HiDream                          | Descriptive unified scene prose              |
-| **Other DiT**         | PixArt, Lumina 2, Z-Image, OmniGen2, Kandinsky 5, Stable Cascade | Architecture-tuned NLP or instructions       |
+| **Other DiT**         | PixArt, Lumina 2, Z-Image, Z-Image Turbo, OmniGen2, Kandinsky 5, Stable Cascade | Architecture-tuned NLP or instructions       |
 | **Instruct / Edit**   | SD1.5/SDXL InstructPix2Pix, Lotus-D                              | Short imperative edit instructions           |
 
 Audio and 3D use **Audio** (`/audio`) and **3D Mesh** (`/mesh`). **WAN / Hunyuan Video** use **Video** (`/video`).

@@ -14,6 +14,9 @@ function isLightningModelId(model: string): boolean {
   if (!id) {
     return false;
   }
+  if (id === 'z-image-turbo') {
+    return true;
+  }
   if (COMFY_MODEL_IDS.has(id)) {
     // Qwen + WAN Lightning distilled ids.
     return id.includes('lightning-');
@@ -156,6 +159,17 @@ const QWEN_LIGHTNING_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'schedu
   scheduler: 'simple',
 };
 
+const Z_IMAGE_TURBO_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'scheduler' | 'cfg'> = {
+  cfg: 1,
+  samplerName: 'res_multistep',
+  scheduler: 'sgm_uniform',
+};
+
+const Z_IMAGE_BASE_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'scheduler'> = {
+  samplerName: 'res_multistep',
+  scheduler: 'sgm_uniform',
+};
+
 const WAN_LIGHTNING_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'scheduler' | 'cfg'> = {
   cfg: 1,
   samplerName: 'uni_pc',
@@ -274,6 +288,13 @@ function fixedSamplerPresets(
 
 const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
   'flux-schnell': fixedSamplerPresets({ steps: 4, cfg: 1, ...FLUX_SAMPLER }),
+  'z-image-turbo': fixedSamplerPresets({ steps: 8, ...Z_IMAGE_TURBO_SAMPLER }),
+  'z-image': {
+    base: { steps: 30, cfg: 4, ...Z_IMAGE_BASE_SAMPLER },
+    optimized: { steps: 40, cfg: 4, ...Z_IMAGE_BASE_SAMPLER },
+    maxCompatible: { steps: 45, cfg: 3.5, ...Z_IMAGE_BASE_SAMPLER },
+    max: { steps: 50, cfg: 3.5, ...Z_IMAGE_BASE_SAMPLER },
+  },
   'flux-2-klein': kleinBaseSamplerPresets(),
   'flux-2-klein-4b-distilled': kleinDistilledSamplerPresets(),
   'flux-2-klein-9b': kleinBaseSamplerPresets(),

@@ -12,7 +12,16 @@ const CATEGORY_KEYWORDS: Record<ComfyModelCategory, string[]> = {
   flux: ['flux', 'chroma', 'klein', 'ultrareal'],
   qwen: ['qwen'],
   hunyuan: ['hunyuan', 'hidream'],
-  'other-dit': ['pixart', 'lumina', 'z-image', 'omnigen', 'kandinsky', 'cascade'],
+  'other-dit': [
+    'pixart',
+    'lumina',
+    'z-image',
+    'zimage',
+    'z_image',
+    'omnigen',
+    'kandinsky',
+    'cascade',
+  ],
   'instruct-edit': ['instruct', 'ip2p', 'lotus', 'edit'],
   video: ['video', 'wan', 'hunyuan-video', 'motion'],
   audio: ['audio', 'stable-audio', 'sound', 'music'],
@@ -102,6 +111,8 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
     'low_noise',
     'low-noise',
   ],
+  'z-image-turbo': ['z-image', 'zimage', 'z_image', 'turbo', 't2i', 'txt2img'],
+  'z-image': ['z-image', 'zimage', 'z_image', 'base', 't2i', 'txt2img'],
 };
 
 /** Penalize workflow labels that clearly target a different model variant. */
@@ -140,6 +151,8 @@ const MODEL_WORKFLOW_AVOID_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> 
     'ltx',
   ],
   'wan-video-lightning-4': ['hunyuan', 'ltx', 'rapid', 'aio', 'phr00t'],
+  'z-image-turbo': ['base', 'z_image_bf16', 'edit', 'inpaint', 'controlnet'],
+  'z-image': ['turbo', 'z_image_turbo', 'edit', 'inpaint', 'controlnet'],
 };
 
 /** Word-aware match so "sfw" does not hit inside "nsfw". */
@@ -318,6 +331,31 @@ export function scoreWorkflowGraphStructure(
       }
     } else if (/DualCLIPLoader|clip_l|t5xxl/i.test(workflowJson)) {
       score += 2;
+    }
+  }
+
+  if (/z-image/i.test(modelId)) {
+    if (/z_image|z-image|zimage/i.test(workflowJson)) {
+      score += 5;
+    }
+    if (/ModelSamplingAuraFlow/.test(workflowJson)) {
+      score += 2;
+    }
+    if (/CLIPLoader[\s\S]{0,160}"type"\s*:\s*"lumina2"/i.test(workflowJson)) {
+      score += 3;
+    }
+    if (/qwen_3_4b/i.test(workflowJson)) {
+      score += 2;
+    }
+    if (modelId.includes('turbo')) {
+      if (/turbo/i.test(workflowJson)) {
+        score += 4;
+      }
+      if (!/turbo/i.test(workflowJson) && /z_image_bf16/i.test(workflowJson)) {
+        score -= 4;
+      }
+    } else if (/turbo/i.test(workflowJson)) {
+      score -= 6;
     }
   }
 

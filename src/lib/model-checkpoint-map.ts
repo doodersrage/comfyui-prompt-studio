@@ -70,6 +70,8 @@ export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
   'wan-video-lightning-4': 'wan2.2-i2v-rapid-aio-v10-nsfw.safetensors',
   'hunyuan-video': 'hunyuan_video_t2v_720p_bf16.safetensors',
   'ltx-video': 'ltx-video-2b-v0.9.safetensors',
+  'z-image': 'z_image_bf16.safetensors',
+  'z-image-turbo': 'z_image_turbo_bf16.safetensors',
 };
 
 export const SUGGESTED_MODEL_VAE_MAP: ModelVaeMap = {
@@ -88,6 +90,8 @@ export const SUGGESTED_MODEL_VAE_MAP: ModelVaeMap = {
   'qwen-image-edit-2511-lightning-4': 'qwen_image_vae.safetensors',
   'qwen-image-edit-2511-lightning-8': 'qwen_image_vae.safetensors',
   'qwen-image-edit-2509': 'qwen_image_vae.safetensors',
+  'z-image': 'ae.safetensors',
+  'z-image-turbo': 'ae.safetensors',
 };
 
 export const SUGGESTED_MODEL_REFINER_MAP: ModelRefinerMap = {
@@ -384,6 +388,23 @@ function inferQwenLoaderHints(
   return { vae: DEFAULT_QWEN_VAE };
 }
 
+function inferZImageLoaderHints(modelId: string): ModelLoaderFilenames {
+  const id = modelId.toLowerCase();
+  if (!id.startsWith('z-image')) {
+    return {};
+  }
+  if (id.includes('turbo')) {
+    return {
+      unet: 'z_image_turbo_bf16.safetensors',
+      vae: 'ae.safetensors',
+    };
+  }
+  return {
+    unet: 'z_image_bf16.safetensors',
+    vae: 'ae.safetensors',
+  };
+}
+
 /**
  * Prefer bf16 Klein weights (no `-fp8` suffix). Official Comfy installs ship both;
  * fp8 is a VRAM fallback — map/settings can still force fp8 explicitly.
@@ -534,6 +555,7 @@ export function resolveLoaderFilenamesForModel(
   const inferred = {
     ...inferQwenLoaderHints(model, workflowTier ?? tier),
     ...inferKleinLoaderHints(model),
+    ...inferZImageLoaderHints(model),
   };
   const mappedCheckpoint = trimFilename(options?.checkpointMap?.[model]);
   const mappedUnet = trimFilename(options?.unetMap?.[model]);

@@ -75,6 +75,8 @@ const MODEL_SHIFT_OVERRIDES: Partial<Record<ComfyImageModel, number>> = {
   'stable-cascade-b': 2,
   'qwen-image-2512': QWEN_IMAGE_AURA_SHIFT,
   'qwen-image-2.0': QWEN_IMAGE_AURA_SHIFT,
+  'z-image': 3,
+  'z-image-turbo': 3,
 };
 
 const FLUX_SAMPLING_DEFAULTS: Pick<ModelSamplingPatchValues, 'fluxMaxShift' | 'fluxBaseShift'> = {

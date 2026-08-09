@@ -22,6 +22,7 @@ export const MODEL_FAMILY_GROUPS: readonly (readonly ComfyImageModel[])[] = [
   ['qwen-rapid-aio-edit', 'qwen-rapid-aio-sfw', 'qwen-rapid-aio-nsfw'],
   ['flux-2-klein', 'flux-2-klein-4b-distilled', 'flux-2-klein-9b', 'flux-2-klein-9b-distilled'],
   ['flux-dev', 'flux-ultrareal-v4'],
+  ['z-image', 'z-image-turbo'],
   ['wan-video', 'wan-video-rapid-aio', 'wan-video-lightning-4'],
 ];
 

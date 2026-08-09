@@ -27,7 +27,12 @@ import {
   type ComfyImageModel,
   type ComfyModelCategory,
 } from './comfy-models';
-import { isEditCapableModel, isFluxKleinModel, isQwenEditModel } from './model-denoise-defaults';
+import {
+  isEditCapableModel,
+  isFluxKleinModel,
+  isQwenEditModel,
+  isZImageModel,
+} from './model-denoise-defaults';
 import { isQwenLightningModel, isWanLightningModel } from './model-sampling-patch';
 import {
   DEFAULT_CHECKPOINT_TOKEN,
@@ -273,6 +278,75 @@ function qwenLoaderFilenames(): {
     unetToken: DEFAULT_UNET_TOKEN,
     clipName: qwenDualClipFilename(tier),
     vaeName: 'qwen_image_vae.safetensors',
+  };
+}
+
+function zImageScaffold(tokens: WorkflowPlaceholderTokens): Record<string, unknown> {
+  return {
+    '1': {
+      class_type: 'UNETLoader',
+      inputs: { unet_name: DEFAULT_UNET_TOKEN, weight_dtype: 'default' },
+      _meta: { title: 'Load Z-Image UNET' },
+    },
+    '2': {
+      class_type: 'CLIPLoader',
+      inputs: {
+        clip_name: 'qwen_3_4b.safetensors',
+        type: 'lumina2',
+      },
+      _meta: { title: 'Load CLIP' },
+    },
+    '3': {
+      class_type: 'VAELoader',
+      inputs: { vae_name: 'ae.safetensors' },
+      _meta: { title: 'Load VAE' },
+    },
+    '4': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.positive, clip: ['2', 0] },
+      _meta: { title: 'Positive Prompt' },
+    },
+    '5': {
+      class_type: 'CLIPTextEncode',
+      inputs: { text: tokens.negative, clip: ['2', 0] },
+      _meta: { title: 'Negative Prompt' },
+    },
+    '6': {
+      class_type: 'EmptySD3LatentImage',
+      inputs: { width: tokens.width, height: tokens.height, batch_size: 1 },
+      _meta: { title: 'Empty Latent' },
+    },
+    '7': {
+      class_type: 'ModelSamplingAuraFlow',
+      inputs: { model: ['1', 0], shift: tokens.shift },
+      _meta: { title: 'ModelSamplingAuraFlow' },
+    },
+    '8': {
+      class_type: 'KSampler',
+      inputs: {
+        seed: tokens.seed,
+        steps: tokens.steps,
+        cfg: tokens.cfg,
+        sampler_name: tokens.sampler,
+        scheduler: tokens.scheduler,
+        denoise: tokens.denoise,
+        model: ['7', 0],
+        positive: ['4', 0],
+        negative: ['5', 0],
+        latent_image: ['6', 0],
+      },
+      _meta: { title: 'KSampler' },
+    },
+    '9': {
+      class_type: 'VAEDecode',
+      inputs: { samples: ['8', 0], vae: ['3', 0] },
+      _meta: { title: 'VAE Decode' },
+    },
+    '10': {
+      class_type: 'SaveImage',
+      inputs: { images: ['9', 0], filename_prefix: 'PromptStudio' },
+      _meta: { title: 'Save Image' },
+    },
   };
 }
 
@@ -1758,21 +1832,23 @@ export function buildWorkflowScaffoldForModel(
       ? qwenEditComposeScaffold(resolvedTokens, model)
       : useEditScaffold
         ? editScaffold(resolvedTokens, category, model)
-        : category === 'flux'
-          ? fluxScaffold(resolvedTokens, model)
-          : useLightningScaffold
-            ? qwenLightningScaffold(resolvedTokens)
-            : useCheckpointScaffold
-              ? qwenCheckpointScaffold(resolvedTokens)
-              : category === 'qwen'
-                ? qwenScaffold(resolvedTokens)
-                : category === 'video'
-                  ? videoScaffold(resolvedTokens, model)
-                  : category === 'audio'
-                    ? audioScaffold(resolvedTokens)
-                    : category === 'mesh'
-                      ? meshScaffold(resolvedTokens)
-                      : genericScaffold(resolvedTokens);
+        : isZImageModel(model)
+          ? zImageScaffold(resolvedTokens)
+          : category === 'flux'
+            ? fluxScaffold(resolvedTokens, model)
+            : useLightningScaffold
+              ? qwenLightningScaffold(resolvedTokens)
+              : useCheckpointScaffold
+                ? qwenCheckpointScaffold(resolvedTokens)
+                : category === 'qwen'
+                  ? qwenScaffold(resolvedTokens)
+                  : category === 'video'
+                    ? videoScaffold(resolvedTokens, model)
+                    : category === 'audio'
+                      ? audioScaffold(resolvedTokens)
+                      : category === 'mesh'
+                        ? meshScaffold(resolvedTokens)
+                        : genericScaffold(resolvedTokens);
   const videoLatentClass = category === 'video' ? resolveVideoLatentClass(model) : null;
   const notes = [
     'Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.',
@@ -1808,7 +1884,9 @@ export function buildWorkflowScaffoldForModel(
                   ? 'Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow.'
                   : category === 'mesh'
                     ? 'Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available.'
-                    : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
+                    : isZImageModel(model)
+                      ? 'Z-Image scaffold uses UNETLoader + CLIPLoader (type lumina2, qwen_3_4b) + ae.safetensors VAE + ModelSamplingAuraFlow. Turbo: 6–8 steps, cfg 1; Base: ~30–50 steps, cfg 3–5.'
+                      : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
   ];
 
   return {

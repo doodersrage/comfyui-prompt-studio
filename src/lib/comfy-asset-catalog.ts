@@ -77,6 +77,8 @@ const KLEIN_MODELS = [
 
 const WAN_MODELS = ['wan-video', 'wan-video-rapid-aio', 'wan-video-lightning-4'] as const;
 
+const Z_IMAGE_MODELS = ['z-image', 'z-image-turbo'] as const;
+
 /**
  * Curated weights tied to suggested loader maps / supported workflows.
  * Entries without `url` are docs-only (show expected filename, no Install).
@@ -199,6 +201,48 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     url: 'https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V2.0.safetensors',
     bytes: 1698951104,
     modelIds: ['qwen-image-2512-lightning-8'],
+  },
+
+  // ── Z-Image (Base + Turbo) ────────────────────────────────────────
+  {
+    id: 'z-image-base-bf16',
+    label: 'Z-Image Base (bf16 UNET)',
+    kind: 'unet',
+    filename: 'z_image_bf16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/z_image/resolve/main/split_files/diffusion_models/z_image_bf16.safetensors',
+    bytes: 12300000000,
+    modelIds: ['z-image'],
+    notes: 'Comfy-Org Z-Image Base — ~30–50 steps, cfg 3–5.',
+  },
+  {
+    id: 'z-image-turbo-bf16',
+    label: 'Z-Image Turbo (bf16 UNET)',
+    kind: 'unet',
+    filename: 'z_image_turbo_bf16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors',
+    bytes: 12300000000,
+    modelIds: ['z-image-turbo'],
+    notes: 'Distilled turbo stack — 6–8 steps, cfg 1.',
+  },
+  {
+    id: 'z-image-qwen3-4b-clip',
+    label: 'Z-Image Qwen 3 4B text encoder',
+    kind: 'clip',
+    filename: 'qwen_3_4b.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors',
+    bytes: 8044982048,
+    modelIds: [...Z_IMAGE_MODELS],
+    notes: 'CLIPLoader type lumina2 — shared by Z-Image Base and Turbo.',
+  },
+  {
+    id: 'z-image-ae-vae',
+    label: 'Z-Image / FLUX AE VAE',
+    kind: 'vae',
+    filename: 'ae.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors',
+    bytes: 335304388,
+    modelIds: [...Z_IMAGE_MODELS],
+    notes: 'Same Flux.1 AE VAE used by Z-Image workflows (models/vae).',
   },
 
   // ── Qwen Image Edit ───────────────────────────────────────────────

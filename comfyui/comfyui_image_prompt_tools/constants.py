@@ -50,6 +50,7 @@ MODEL_IDS = [
     "pixart-sigma",
     "lumina2",
     "z-image",
+    "z-image-turbo",
     "omnigen2",
     "anima",
     "kandinsky5",

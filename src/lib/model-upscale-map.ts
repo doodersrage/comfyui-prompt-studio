@@ -10,6 +10,8 @@ export const DEFAULT_UPSCALE_MODEL_TOKEN = '{{UPSCALE_MODEL}}';
 export const SUGGESTED_MODEL_UPSCALE_MAP: ModelUpscaleMap = {
   default: '4x-UltraSharp.pth',
   'qwen-image-2512': '4x_NMKD-Siax_200k.pth',
+  'z-image': '4x-UltraSharp.pth',
+  'z-image-turbo': '4x-UltraSharp.pth',
   'qwen-image-2.0': '4x_NMKD-Siax_200k.pth',
   'flux-dev': '4x-UltraSharp.pth',
   'flux-ultrareal-v4': '4x-UltraSharp.pth',
