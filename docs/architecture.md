@@ -1,6 +1,6 @@
 # Architecture
 
-Contributor map of how Prompt Studio is wired. Product setup and feature lists live in the root [README](../README.md).
+Contributor map of how Prompt Studio is wired. Product setup and feature lists live in the [documentation hub](README.md) and [main README](../README.md).
 
 ## Shape
 

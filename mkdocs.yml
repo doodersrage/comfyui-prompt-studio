@@ -1,0 +1,62 @@
+site_name: Prompt Studio
+site_description: Documentation for ComfyUI Prompt Studio
+repo_url: https://github.com/doodersrage/comfyui-prompt-studio
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+    - scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - admonition
+  - pymdownx.superfences
+
+nav:
+  - Home: README.md
+  - Getting started:
+      - Configuration: configuration.md
+      - Prompt limits: prompt-limits.md
+      - Prompt examples: prompt-examples.md
+  - Using the app:
+      - Features: features.md
+      - Workflow takeover: workflow-takeover.md
+      - HTTP API: http-api.md
+      - Data catalogs: data-catalogs.md
+  - Contributors:
+      - Architecture: architecture.md
+      - Performance & scripts: performance/guide.md
+  - External:
+      - Main README (GitHub): https://github.com/doodersrage/comfyui-prompt-studio/blob/main/README.md
+      - ComfyUI nodes: https://github.com/doodersrage/comfyui-prompt-studio/blob/main/comfyui/comfyui_image_prompt_tools/README.md
+      - Diffusers engine: https://github.com/doodersrage/comfyui-prompt-studio/blob/main/services/diffusers-engine/README.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/doodersrage/comfyui-prompt-studio
