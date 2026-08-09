@@ -4,6 +4,13 @@ Prompt Studio docs are split by audience so the [main README](../README.md) stay
 
 **Browse with search:** run `npm run docs:serve` and open [http://127.0.0.1:8000](http://127.0.0.1:8000) (requires Python 3 + `pip install -r docs/requirements-docs.txt`).
 
+**Publish to GitHub Pages (optional, one-time setup):**
+
+1. Repo **Settings → Pages → Build and deployment → Source:** choose **GitHub Actions**.
+2. Actions → **Docs** → **Run workflow** → check **Publish to GitHub Pages** → Run.
+
+Until step 1 is done, the Docs workflow only verifies that `mkdocs build` succeeds (no deploy).
+
 ## Getting started
 
 | Doc | Contents |
