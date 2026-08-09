@@ -22,7 +22,7 @@ const CATEGORY_KEYWORDS: Record<ComfyModelCategory, string[]> = {
     'kandinsky',
     'cascade',
   ],
-  'instruct-edit': ['instruct', 'ip2p', 'lotus', 'edit'],
+  'instruct-edit': ['instruct', 'ip2p', 'lotus', 'edit', 'boogu'],
   video: ['video', 'wan', 'hunyuan-video', 'motion'],
   audio: ['audio', 'stable-audio', 'sound', 'music'],
   mesh: ['mesh', '3d', 'hunyuan3d', 'hunyuan-3d'],
@@ -113,6 +113,8 @@ const MODEL_WORKFLOW_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> = {
   ],
   'z-image-turbo': ['z-image', 'zimage', 'z_image', 'turbo', 't2i', 'txt2img'],
   'z-image': ['z-image', 'zimage', 'z_image', 'base', 't2i', 'txt2img'],
+  'boogu-image-edit-turbo': ['boogu', 'boogu-image', 'edit', 'turbo', 'ti2i', 'img2img'],
+  'boogu-image-edit': ['boogu', 'boogu-image', 'edit', 'ti2i', 'img2img'],
 };
 
 /** Penalize workflow labels that clearly target a different model variant. */
@@ -153,6 +155,8 @@ const MODEL_WORKFLOW_AVOID_KEYWORDS: Partial<Record<ComfyImageModel, string[]>> 
   'wan-video-lightning-4': ['hunyuan', 'ltx', 'rapid', 'aio', 'phr00t'],
   'z-image-turbo': ['base', 'z_image_bf16', 'edit', 'inpaint', 'controlnet'],
   'z-image': ['turbo', 'z_image_turbo', 'edit', 'inpaint', 'controlnet'],
+  'boogu-image-edit-turbo': ['base', 'boogu_image_base', 't2i', 'txt2img', 'turbo_t2i'],
+  'boogu-image-edit': ['turbo', 'boogu_image_turbo', 't2i', 'txt2img', 'base'],
 };
 
 /** Word-aware match so "sfw" does not hit inside "nsfw". */
@@ -355,6 +359,31 @@ export function scoreWorkflowGraphStructure(
         score -= 4;
       }
     } else if (/turbo/i.test(workflowJson)) {
+      score -= 6;
+    }
+  }
+
+  if (/boogu-image-edit/i.test(modelId)) {
+    if (/boogu|TextEncodeBooguEdit/i.test(workflowJson)) {
+      score += 5;
+    }
+    if (/ModelSamplingAuraFlow/.test(workflowJson)) {
+      score += 2;
+    }
+    if (/CLIPLoader[\s\S]{0,160}"type"\s*:\s*"boogu"/i.test(workflowJson)) {
+      score += 3;
+    }
+    if (/qwen3vl_8b/i.test(workflowJson)) {
+      score += 2;
+    }
+    if (modelId.includes('turbo')) {
+      if (/edit_turbo|edit turbo/i.test(workflowJson)) {
+        score += 4;
+      }
+      if (!/turbo/i.test(workflowJson) && /boogu_image_edit_bf16/i.test(workflowJson)) {
+        score -= 4;
+      }
+    } else if (/edit_turbo|edit turbo/i.test(workflowJson)) {
       score -= 6;
     }
   }

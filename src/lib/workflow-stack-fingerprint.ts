@@ -80,6 +80,9 @@ export function classifyLoaderFilenameFamily(filename: string): WorkflowStackFam
   if (/qwen.*edit|edit.*qwen|qwen_image_edit/.test(lower)) {
     return 'qwen-edit';
   }
+  if (/boogu/.test(lower)) {
+    return 'qwen-edit';
+  }
   if (/qwen/.test(lower)) {
     return 'qwen-t2i';
   }
@@ -110,6 +113,9 @@ export function resolveModelStackFamily(model: ComfyImageModel | string): Workfl
 
   if (def.profile === 'flux_klein') {
     return 'flux-klein';
+  }
+  if (/^boogu-image-edit/i.test(String(model))) {
+    return 'qwen-edit';
   }
   if (def.category === 'flux') {
     return 'flux';

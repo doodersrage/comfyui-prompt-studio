@@ -213,6 +213,39 @@ describe("compose LoadImage bindings", () => {
       "Figure 2",
     );
   });
+
+  it("wires multi LoadImage into TextEncodeBooguEdit image_1…image_4 slots", () => {
+    const workflow = {
+      "4": {
+        class_type: "TextEncodeBooguEdit",
+        inputs: {
+          prompt: "edit",
+          negative_prompt: "",
+          clip: ["2", 0],
+          vae: ["3", 0],
+        },
+      },
+    };
+    const { workflow: next, wiredNodeIds } = ensureQwenEditReferenceImagesForImg2Img(
+      workflow,
+      {
+        hasInputImage: true,
+        inputImageFilename: "fig1.png",
+        inputImageFilenames: ["fig1.png", "fig2.png"],
+      },
+    );
+    assert.ok(wiredNodeIds.includes("4"));
+    const encode = next["4"] as {
+      inputs: Record<string, [string, number] | string>;
+    };
+    assert.ok(Array.isArray(encode.inputs.image_1));
+    assert.ok(Array.isArray(encode.inputs.image_2));
+    assert.equal(
+      (next[encode.inputs.image_1[0]] as { _meta?: { title?: string } })._meta
+        ?.title,
+      "Figure 1",
+    );
+  });
 });
 
 describe("compose instruction builder", () => {

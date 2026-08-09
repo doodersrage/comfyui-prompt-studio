@@ -122,6 +122,25 @@ describe("workflow scaffold", () => {
     assert.match(result.notes.join(" "), /img2img/i);
   });
 
+  it("builds Boogu Edit scaffold with TextEncodeBooguEdit", () => {
+    const result = buildWorkflowScaffoldForModel("boogu-image-edit");
+    assert.match(result.json, /TextEncodeBooguEdit/);
+    assert.match(result.json, /"type": "boogu"/);
+    assert.match(result.json, /EmptyLatentImage/);
+    assert.match(result.json, /ModelSamplingAuraFlow/);
+    assert.match(result.notes.join(" "), /TextEncodeBooguEdit/i);
+  });
+
+  it("builds Boogu Edit Compose scaffold with multi Figure LoadImages", () => {
+    const result = buildWorkflowScaffoldForModel("boogu-image-edit", undefined, {
+      tool: "compose",
+    });
+    assert.match(result.json, /TextEncodeBooguEdit/);
+    assert.match(result.json, /Figure 1/);
+    assert.match(result.json, /Figure 4/);
+    assert.match(result.notes.join(" "), /image_1/i);
+  });
+
   it("builds a video scaffold with an optional init image node ready for I2V auto-wiring", () => {
     const result = buildWorkflowScaffoldForModel("wan-video");
     assert.equal(result.category, "video");

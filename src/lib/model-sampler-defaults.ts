@@ -170,6 +170,17 @@ const Z_IMAGE_BASE_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'schedule
   scheduler: 'sgm_uniform',
 };
 
+const BOOGU_EDIT_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'scheduler'> = {
+  samplerName: 'res_multistep',
+  scheduler: 'sgm_uniform',
+};
+
+const BOOGU_EDIT_TURBO_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'scheduler' | 'cfg'> = {
+  cfg: 1,
+  samplerName: 'res_multistep',
+  scheduler: 'sgm_uniform',
+};
+
 const WAN_LIGHTNING_SAMPLER: Pick<ModelSamplerDefaults, 'samplerName' | 'scheduler' | 'cfg'> = {
   cfg: 1,
   samplerName: 'uni_pc',
@@ -295,6 +306,13 @@ const MODEL_SAMPLER_PRESETS: ModelSamplerPresetMap = {
     maxCompatible: { steps: 45, cfg: 3.5, ...Z_IMAGE_BASE_SAMPLER },
     max: { steps: 50, cfg: 3.5, ...Z_IMAGE_BASE_SAMPLER },
   },
+  'boogu-image-edit': {
+    base: { steps: 25, cfg: 5, ...BOOGU_EDIT_SAMPLER },
+    optimized: { steps: 35, cfg: 5, ...BOOGU_EDIT_SAMPLER },
+    maxCompatible: { steps: 45, cfg: 4.5, ...BOOGU_EDIT_SAMPLER },
+    max: { steps: 50, cfg: 4, ...BOOGU_EDIT_SAMPLER },
+  },
+  'boogu-image-edit-turbo': fixedSamplerPresets({ steps: 4, ...BOOGU_EDIT_TURBO_SAMPLER }),
   'flux-2-klein': kleinBaseSamplerPresets(),
   'flux-2-klein-4b-distilled': kleinDistilledSamplerPresets(),
   'flux-2-klein-9b': kleinBaseSamplerPresets(),

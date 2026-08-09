@@ -47,7 +47,11 @@ const OUTPUT_POST_PROCESS_TYPES = new Set([
   'LatentUpscaleBy',
 ]);
 
-const QWEN_EDIT_ENCODE_TYPES = new Set(['TextEncodeQwenImageEdit', 'TextEncodeQwenImageEditPlus']);
+const QWEN_EDIT_ENCODE_TYPES = new Set([
+  'TextEncodeQwenImageEdit',
+  'TextEncodeQwenImageEditPlus',
+  'TextEncodeBooguEdit',
+]);
 
 const QWEN_EDIT_IMAGE_INPUT_KEYS = ['image', 'image1', 'image2', 'image3', 'image4'] as const;
 
@@ -1563,6 +1567,7 @@ export function ensureQwenEditReferenceImagesForImg2Img(
   const wireEncodeSlots = options.wireEncodeSlots !== false;
   const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
   const encodeImageKeys = ['image1', 'image2', 'image3', 'image4'] as const;
+  const booguEncodeImageKeys = ['image_1', 'image_2', 'image_3', 'image_4'] as const;
 
   const findOrCreateFigureLoader = (figureIndex: number, filename: string): string => {
     const title = `Figure ${figureIndex}`;
@@ -1645,6 +1650,31 @@ export function ensureQwenEditReferenceImagesForImg2Img(
       continue;
     }
 
+    if (node.class_type === 'TextEncodeBooguEdit') {
+      let changed = false;
+      for (let i = 0; i < loaderIds.length && i < booguEncodeImageKeys.length; i += 1) {
+        const key = booguEncodeImageKeys[i]!;
+        const current = node.inputs[key];
+        if (shouldWireSlot(current)) {
+          node.inputs[key] = [loaderIds[i]!, 0];
+          changed = true;
+        }
+      }
+      if (forceRewire) {
+        for (let i = loaderIds.length; i < booguEncodeImageKeys.length; i += 1) {
+          const key = booguEncodeImageKeys[i]!;
+          if (key in node.inputs) {
+            delete node.inputs[key];
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        wiredNodeIds.push(nodeId);
+      }
+      continue;
+    }
+
     let changed = false;
     for (let i = 0; i < loaderIds.length && i < encodeImageKeys.length; i += 1) {
       const key = encodeImageKeys[i]!;
@@ -1695,7 +1725,17 @@ export function scaleQwenEditReferenceImagesToLatentSize(
   }
 
   const next = structuredClone(workflow) as Record<string, WorkflowNodeRecord>;
-  const encodeImageKeys = ['image', 'image1', 'image2', 'image3', 'image4'] as const;
+  const encodeImageKeys = [
+    'image',
+    'image1',
+    'image2',
+    'image3',
+    'image4',
+    'image_1',
+    'image_2',
+    'image_3',
+    'image_4',
+  ] as const;
   const scaledLoaderIds = new Map<string, string>();
   let scaledSlotCount = 0;
 

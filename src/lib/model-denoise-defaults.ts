@@ -80,7 +80,19 @@ export function isRapidAioModel(model?: string): boolean {
   return isQwenRapidAioModel(model) || isWanRapidAioModel(model);
 }
 
+export function isBooguEditModel(model: ComfyImageModel | string | null | undefined): boolean {
+  const id = String(model ?? '').trim();
+  return id === 'boogu-image-edit' || id === 'boogu-image-edit-turbo';
+}
+
+export function isBooguEditTurboModel(model: ComfyImageModel | string | null | undefined): boolean {
+  return String(model ?? '').trim() === 'boogu-image-edit-turbo';
+}
+
 export function isQwenEditModel(model: ComfyImageModel | string): boolean {
+  if (isBooguEditModel(model)) {
+    return false;
+  }
   const def = getComfyModelDefinition(model);
   if (def?.profile === 'qwen_edit' || def?.profile === 'qwen_edit_instruction') {
     return true;
@@ -118,15 +130,19 @@ export function isFlux1FamilyModel(model: ComfyImageModel | string | null | unde
 
 /**
  * Multi-ref Compose / Transfer — Qwen Edit (image1–4 encode), FLUX.2 Klein
- * (ReferenceLatent instruction edit), or Z-Image (Figure 1 img2img; extras are
- * prompt-only). Excludes FLUX inpaint and other single-mask edit models.
- * Rapid AIO Edit is included; Rapid AIO SFW/NSFW are T2I-first — use Edit.
+ * (ReferenceLatent instruction edit), Boogu Edit (TextEncodeBooguEdit vision
+ * refs), or Z-Image (Figure 1 img2img; extras are prompt-only).
  */
 export function isComposeCapableModel(model: ComfyImageModel | string | null | undefined): boolean {
   if (!model?.toString().trim()) {
     return false;
   }
-  return isQwenEditModel(model) || isFluxKleinModel(model) || isZImageModel(model);
+  return (
+    isQwenEditModel(model) ||
+    isFluxKleinModel(model) ||
+    isZImageModel(model) ||
+    isBooguEditModel(model)
+  );
 }
 
 export function isInpaintModel(model: ComfyImageModel | string): boolean {
@@ -150,6 +166,26 @@ export function isKleinReferenceLatentEditContext(
   }
 ): boolean {
   if (!isFluxKleinModel(model) || options?.hasMaskImage || isInpaintModel(model)) {
+    return false;
+  }
+  return (
+    options?.tool === 'compose' ||
+    options?.tool === 'refine' ||
+    options?.tool === 'image-prompt' ||
+    (Boolean(options?.hasInputImage) && options?.tool != null && EDIT_TOOLS.has(options.tool))
+  );
+}
+
+/** Boogu Edit Compose/Refine — TextEncodeBooguEdit reference latents (denoise 1). */
+export function isBooguReferenceLatentEditContext(
+  model: ComfyImageModel | string,
+  options?: {
+    tool?: string;
+    hasInputImage?: boolean;
+    hasMaskImage?: boolean;
+  }
+): boolean {
+  if (!isBooguEditModel(model) || options?.hasMaskImage || isInpaintModel(model)) {
     return false;
   }
   return (
@@ -257,6 +293,11 @@ export function resolveDenoiseForModel(
     return 1;
   }
 
+  // Boogu Edit — TextEncodeBooguEdit reference latents (not soft img2img).
+  if (isBooguReferenceLatentEditContext(model, options)) {
+    return 1;
+  }
+
   if (options?.override != null && options.override.toString().trim() !== '') {
     return clampDenoise(Number(options.override));
   }
@@ -298,6 +339,9 @@ export function isInstructionEditDenoiseContext(
     return true;
   }
   if (isQwenReferenceLatentEditContext(model, options)) {
+    return true;
+  }
+  if (isBooguReferenceLatentEditContext(model, options)) {
     return true;
   }
   if (isQwenLightningModel(model) && isEditCapableModel(model) && isEditQueueTool(options?.tool)) {

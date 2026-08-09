@@ -38,9 +38,9 @@ type WorkflowNodeRecord = {
 const PLACEHOLDER_PATTERN = /^\{\{[A-Z0-9_]+\}\}$/;
 
 const EDIT_PACK_GRAPH_PATTERN =
-  /TextEncodeQwenImageEdit|InpaintModelConditioning|LoadImageMask|IPAdapterAdvanced|IPAdapterModelLoader|SetLatentNoiseMask/;
+  /TextEncodeQwenImageEdit|TextEncodeBooguEdit|InpaintModelConditioning|LoadImageMask|IPAdapterAdvanced|IPAdapterModelLoader|SetLatentNoiseMask/;
 
-const QWEN_EDIT_ENCODE_PATTERN = /TextEncodeQwenImageEdit(?:Plus)?/;
+const QWEN_EDIT_ENCODE_PATTERN = /TextEncodeQwenImageEdit(?:Plus)?|TextEncodeBooguEdit/;
 
 const I2V_PACK_GRAPH_PATTERN =
   /WanImageToVideo|WanCameraImageToVideo|HunyuanImageToVideo|LTXVImgToVideo/;

@@ -229,12 +229,14 @@ describe("system-workflow-runtime", () => {
     );
   });
 
-  it("limits system support to FLUX, Qwen, video, and Z-Image families", () => {
+  it("limits system support to FLUX, Qwen, video, Z-Image, and Boogu Edit families", () => {
     assert.equal(isSystemWorkflowSupportedModel("qwen-image-2512"), true);
     assert.equal(isSystemWorkflowSupportedModel("flux-dev"), true);
     assert.equal(isSystemWorkflowSupportedModel("wan-video"), true);
     assert.equal(isSystemWorkflowSupportedModel("z-image-turbo"), true);
     assert.equal(isSystemWorkflowSupportedModel("z-image"), true);
+    assert.equal(isSystemWorkflowSupportedModel("boogu-image-edit"), true);
+    assert.equal(isSystemWorkflowSupportedModel("boogu-image-edit-turbo"), true);
     assert.equal(isSystemWorkflowSupportedModel("sdxl"), false);
     assert.equal(isSystemWorkflowSupportedModel("hunyuan-dit"), false);
     assert.equal(resolveSystemWorkflowFallbackModel("sdxl"), "qwen-image-2512");

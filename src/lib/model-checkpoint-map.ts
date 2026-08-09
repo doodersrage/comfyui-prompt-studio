@@ -72,6 +72,8 @@ export const SUGGESTED_MODEL_CHECKPOINT_MAP: ModelCheckpointMap = {
   'ltx-video': 'ltx-video-2b-v0.9.safetensors',
   'z-image': 'z_image_bf16.safetensors',
   'z-image-turbo': 'z_image_turbo_bf16.safetensors',
+  'boogu-image-edit': 'boogu_image_edit_bf16.safetensors',
+  'boogu-image-edit-turbo': 'boogu_image_edit_turbo_bf16.safetensors',
 };
 
 export const SUGGESTED_MODEL_VAE_MAP: ModelVaeMap = {
@@ -92,6 +94,8 @@ export const SUGGESTED_MODEL_VAE_MAP: ModelVaeMap = {
   'qwen-image-edit-2509': 'qwen_image_vae.safetensors',
   'z-image': 'ae.safetensors',
   'z-image-turbo': 'ae.safetensors',
+  'boogu-image-edit': 'ae.safetensors',
+  'boogu-image-edit-turbo': 'ae.safetensors',
 };
 
 export const SUGGESTED_MODEL_REFINER_MAP: ModelRefinerMap = {
@@ -405,6 +409,23 @@ function inferZImageLoaderHints(modelId: string): ModelLoaderFilenames {
   };
 }
 
+function inferBooguLoaderHints(modelId: string): ModelLoaderFilenames {
+  const id = modelId.toLowerCase();
+  if (!id.startsWith('boogu-image-edit')) {
+    return {};
+  }
+  if (id.includes('turbo')) {
+    return {
+      unet: 'boogu_image_edit_turbo_bf16.safetensors',
+      vae: 'ae.safetensors',
+    };
+  }
+  return {
+    unet: 'boogu_image_edit_bf16.safetensors',
+    vae: 'ae.safetensors',
+  };
+}
+
 /**
  * Prefer bf16 Klein weights (no `-fp8` suffix). Official Comfy installs ship both;
  * fp8 is a VRAM fallback — map/settings can still force fp8 explicitly.
@@ -556,6 +577,7 @@ export function resolveLoaderFilenamesForModel(
     ...inferQwenLoaderHints(model, workflowTier ?? tier),
     ...inferKleinLoaderHints(model),
     ...inferZImageLoaderHints(model),
+    ...inferBooguLoaderHints(model),
   };
   const mappedCheckpoint = trimFilename(options?.checkpointMap?.[model]);
   const mappedUnet = trimFilename(options?.unetMap?.[model]);

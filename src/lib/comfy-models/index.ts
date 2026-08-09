@@ -49,7 +49,7 @@ export function buildModelSystemPrompt(
 }
 
 function isCfg1DistilledModelId(model: ComfyImageModel): boolean {
-  return /lightning|rapid-aio|z-image-turbo/i.test(model);
+  return /lightning|rapid-aio|z-image-turbo|boogu-image-edit-turbo/i.test(model);
 }
 
 export function buildModelClarityAddendum(detail: DetailLevel, model: ComfyImageModel): string {

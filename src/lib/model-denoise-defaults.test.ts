@@ -41,6 +41,9 @@ describe("model denoise defaults", () => {
     }
     assert.equal(isComposeCapableModel("z-image"), true);
     assert.equal(isComposeCapableModel("z-image-turbo"), true);
+    assert.equal(isComposeCapableModel("boogu-image-edit"), true);
+    assert.equal(isComposeCapableModel("boogu-image-edit-turbo"), true);
+    assert.equal(isQwenEditModel("boogu-image-edit"), false);
     assert.equal(isComposeCapableModel("flux-dev"), false);
     assert.equal(isComposeCapableModel("flux-inpaint"), false);
     assert.equal(isComposeCapableModel("qwen-image-2512"), false);
@@ -50,6 +53,24 @@ describe("model denoise defaults", () => {
     assert.equal(
       resolveDenoiseForModel("qwen-image-2512", { hasInputImage: true }),
       0.65,
+    );
+  });
+
+  it("uses denoise 1 for Boogu Edit Compose reference-latent path", () => {
+    assert.equal(
+      resolveDenoiseForModel("boogu-image-edit", {
+        tool: "compose",
+        hasInputImage: true,
+      }),
+      1,
+    );
+    assert.equal(
+      resolveDenoiseForModel("boogu-image-edit-turbo", {
+        tool: "refine",
+        hasInputImage: true,
+        override: 0.65,
+      }),
+      1,
     );
   });
 

@@ -17,6 +17,7 @@ import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import {
   isComposeCapableModel,
+  isBooguEditModel,
   isFluxKleinModel,
   isQwenEditModel,
   isZImageModel,
@@ -545,6 +546,11 @@ export default function ComposeTool() {
           <p className="text-xs leading-relaxed text-zinc-500">
             Z-Image: Figure 1 drives img2img (soft denoise). Images 2–4 are prompt references only —
             describe what to borrow from them in text; they are not vision-encoded like Qwen Edit.
+          </p>
+        ) : isBooguEditModel(shared.model) ? (
+          <p className="text-xs leading-relaxed text-zinc-500">
+            Boogu Edit: TextEncodeBooguEdit vision-encodes Image 1–4. Reference images in prompts as
+            Image 1, Image 2, etc. — instruction edits use denoise 1 with reference latents.
           </p>
         ) : null}
 

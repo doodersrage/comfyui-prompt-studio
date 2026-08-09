@@ -79,6 +79,8 @@ const WAN_MODELS = ['wan-video', 'wan-video-rapid-aio', 'wan-video-lightning-4']
 
 const Z_IMAGE_MODELS = ['z-image', 'z-image-turbo'] as const;
 
+const BOOGU_EDIT_MODELS = ['boogu-image-edit', 'boogu-image-edit-turbo'] as const;
+
 /**
  * Curated weights tied to suggested loader maps / supported workflows.
  * Entries without `url` are docs-only (show expected filename, no Install).
@@ -243,6 +245,58 @@ export const COMFY_ASSET_CATALOG: ComfyCatalogAsset[] = [
     bytes: 335304388,
     modelIds: [...Z_IMAGE_MODELS],
     notes: 'Same Flux.1 AE VAE used by Z-Image workflows (models/vae).',
+  },
+
+  // ── Boogu Image Edit ──────────────────────────────────────────────
+  {
+    id: 'boogu-edit-bf16',
+    label: 'Boogu Image Edit (bf16 UNET)',
+    kind: 'unet',
+    filename: 'boogu_image_edit_bf16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/diffusion_models/boogu_image_edit_bf16.safetensors',
+    bytes: 20600000000,
+    modelIds: ['boogu-image-edit'],
+    notes: 'Full bf16 edit weights — ~25–50 steps, cfg ~5.',
+  },
+  {
+    id: 'boogu-edit-fp8',
+    label: 'Boogu Image Edit (fp8 UNET)',
+    kind: 'unet',
+    filename: 'boogu_image_edit_fp8_scaled.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/diffusion_models/boogu_image_edit_fp8_scaled.safetensors',
+    bytes: 10300000000,
+    modelIds: ['boogu-image-edit'],
+    notes: 'VRAM-friendly fp8 — official Comfy docs default.',
+  },
+  {
+    id: 'boogu-edit-turbo-bf16',
+    label: 'Boogu Image Edit Turbo (bf16 UNET)',
+    kind: 'unet',
+    filename: 'boogu_image_edit_turbo_bf16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/diffusion_models/boogu_image_edit_turbo_bf16.safetensors',
+    bytes: 20600000000,
+    modelIds: ['boogu-image-edit-turbo'],
+    notes: 'Distilled edit turbo — 4 steps, cfg 1.',
+  },
+  {
+    id: 'boogu-qwen3vl-clip',
+    label: 'Boogu Qwen3-VL 8B text encoder',
+    kind: 'clip',
+    filename: 'qwen3vl_8b_fp8_scaled.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/text_encoders/qwen3vl_8b_fp8_scaled.safetensors',
+    bytes: 9000000000,
+    modelIds: [...BOOGU_EDIT_MODELS],
+    notes: 'CLIPLoader type boogu — shared by Boogu Edit and Edit Turbo.',
+  },
+  {
+    id: 'boogu-flux-vae',
+    label: 'Boogu Flux VAE (bf16)',
+    kind: 'vae',
+    filename: 'flux1_vae_bf16.safetensors',
+    url: 'https://huggingface.co/Comfy-Org/Boogu-Image/resolve/main/vae/flux1_vae_bf16.safetensors',
+    bytes: 335304388,
+    modelIds: [...BOOGU_EDIT_MODELS],
+    notes: 'Comfy-Org repack. ae.safetensors also works if you already have it from Z-Image/FLUX.',
   },
 
   // ── Qwen Image Edit ───────────────────────────────────────────────

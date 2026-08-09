@@ -49,6 +49,7 @@ import {
   isFluxKleinModel,
   isQwenRapidAioModel,
   isZImageModel,
+  isBooguEditModel,
 } from './model-denoise-defaults';
 import { maybeRewriteRapidAioWorkflowLoaders } from './workflow-rapid-aio-checkpoint';
 import { isLightningDistilledModel, resolveModelSamplingParams } from './model-sampling-patch';
@@ -136,10 +137,15 @@ export function shouldLimitSystemWorkflowPicker(
  */
 export function isSystemWorkflowSupportedModel(model: ComfyImageModel | string): boolean {
   const category = getComfyModelDefinition(model)?.category;
-  if (category === 'flux' || category === 'qwen' || category === 'video') {
+  if (
+    category === 'flux' ||
+    category === 'qwen' ||
+    category === 'video' ||
+    category === 'instruct-edit'
+  ) {
     return true;
   }
-  return isZImageModel(model);
+  return isZImageModel(model) || isBooguEditModel(model);
 }
 
 export function listSystemWorkflowSupportedModels(): ComfyImageModel[] {

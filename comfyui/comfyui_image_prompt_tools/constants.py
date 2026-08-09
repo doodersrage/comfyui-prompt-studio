@@ -51,6 +51,8 @@ MODEL_IDS = [
     "lumina2",
     "z-image",
     "z-image-turbo",
+    "boogu-image-edit",
+    "boogu-image-edit-turbo",
     "omnigen2",
     "anima",
     "kandinsky5",

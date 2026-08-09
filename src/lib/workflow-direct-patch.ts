@@ -47,7 +47,11 @@ import { ensureFluxGuidanceInWorkflow } from './flux-guidance-patch';
 
 export const IMAGE_SCALE_BY_NODE_TYPE = 'ImageScaleBy';
 
-const QWEN_EDIT_ENCODE_TYPES = new Set(['TextEncodeQwenImageEdit', 'TextEncodeQwenImageEditPlus']);
+const QWEN_EDIT_ENCODE_TYPES = new Set([
+  'TextEncodeQwenImageEdit',
+  'TextEncodeQwenImageEditPlus',
+  'TextEncodeBooguEdit',
+]);
 const QWEN_EDIT_IMAGE_INPUT_KEYS = ['image', 'image1', 'image2', 'image3', 'image4'] as const;
 
 function workflowNodeLinkId(value: unknown): string | null {
