@@ -130,9 +130,7 @@ export default function SettingsPromptQualityPanel({
             className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
             checked={sharedSettings.kleinEnhancerEnabled !== false}
             disabled={!sharedMounted}
-            onChange={event =>
-              updateSharedSettings({ kleinEnhancerEnabled: event.target.checked })
-            }
+            onChange={event => updateSharedSettings({ kleinEnhancerEnabled: event.target.checked })}
           />
           <span>
             <span className="block font-medium text-zinc-200">Flux2 Klein Enhancer pack</span>

@@ -226,9 +226,7 @@ export function resolveQueueParams(
     pinnedSeed ??
     (forceNewSeed
       ? rollQueueSeed()
-      : base?.seed?.toString().trim() ||
-        modelDefaults.seed?.toString().trim() ||
-        rollQueueSeed());
+      : base?.seed?.toString().trim() || modelDefaults.seed?.toString().trim() || rollQueueSeed());
 
   const merged: WorkflowParamValues = {
     seed,

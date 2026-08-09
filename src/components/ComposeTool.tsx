@@ -15,7 +15,11 @@ import { usePromptResultActions } from '@/hooks/usePromptResultActions';
 import type { ComfyImageModel } from '@/lib/comfy-models/client';
 import type { WorkflowParamValues } from '@/lib/comfyui-config';
 import { getComfyModelDefinition } from '@/lib/comfy-models/client';
-import { isComposeCapableModel, isFluxKleinModel, isQwenEditModel } from '@/lib/model-denoise-defaults';
+import {
+  isComposeCapableModel,
+  isFluxKleinModel,
+  isQwenEditModel,
+} from '@/lib/model-denoise-defaults';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import {
   buildComposeInstruction,
@@ -395,10 +399,10 @@ export default function ComposeTool() {
       description={
         <>
           Upload up to four reference images and describe a transfer or single-image edit. Defaults
-          to Qwen Edit 2511 Lightning 8 with optional mask on Image 1. Prompts should
-          reference <strong className="font-medium text-zinc-300">Image 1</strong>,{' '}
-          <strong className="font-medium text-zinc-300">Image 2</strong>, etc. — Qwen VL maps
-          those to the multi-input stack.
+          to Qwen Edit 2511 Lightning 8 with optional mask on Image 1. Prompts should reference{' '}
+          <strong className="font-medium text-zinc-300">Image 1</strong>,{' '}
+          <strong className="font-medium text-zinc-300">Image 2</strong>, etc. — Qwen VL maps those
+          to the multi-input stack.
         </>
       }
       sidebar={
@@ -448,8 +452,8 @@ export default function ComposeTool() {
           <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 px-3.5 py-3 text-xs leading-relaxed text-amber-100/90">
             <p className="font-medium text-amber-50/95">Qwen Edit locks Image 1 pose</p>
             <p className="mt-1.5 text-amber-100/80">
-              ReferenceLatent + vision encoding anchor Image 1&apos;s body pose and framing — denoise
-              1 is correct and won&apos;t unlock a sitting subject by itself.
+              ReferenceLatent + vision encoding anchor Image 1&apos;s body pose and framing —
+              denoise 1 is correct and won&apos;t unlock a sitting subject by itself.
             </p>
             <ul className="mt-2 list-inside list-disc space-y-1 text-amber-100/75">
               <li>
@@ -550,7 +554,9 @@ export default function ComposeTool() {
                 <span className="block text-sm font-medium text-cyan-50/95">
                   Lock identity from Image 1
                 </span>
-                <span className="block text-xs leading-relaxed text-zinc-500">{identityLockHint}</span>
+                <span className="block text-xs leading-relaxed text-zinc-500">
+                  {identityLockHint}
+                </span>
               </span>
             </label>
             <label className="shrink-0 space-y-1">

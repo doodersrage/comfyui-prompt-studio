@@ -708,7 +708,9 @@ export function usePromptResultActions(config: PromptResultActionsConfig) {
         if (pluginDenoise != null && pluginDenoise.toString().trim() !== '') {
           const { resolveUserSamplerDenoiseOverride } =
             await import('@/lib/model-sampler-defaults');
-          if (!resolveUserSamplerDenoiseOverride(loadSettingsCache().shared.modelSamplerOverrides)) {
+          if (
+            !resolveUserSamplerDenoiseOverride(loadSettingsCache().shared.modelSamplerOverrides)
+          ) {
             queueParams.denoise = pluginDenoise;
           }
         }

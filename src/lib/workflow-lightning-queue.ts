@@ -1875,7 +1875,7 @@ export function ensureQwenReferenceLatentWiringInWorkflow(
   const insertedNodeIds: string[] = [];
   ensureQwenEmptyLatentForReferenceEdit(next, width, height, insertedNodeIds);
 
-  let conditioningRef: [string, number] | null = isNodeOutputRef(samplerNode.inputs.positive)
+  const conditioningRef: [string, number] | null = isNodeOutputRef(samplerNode.inputs.positive)
     ? samplerNode.inputs.positive
     : null;
   if (!conditioningRef) {
@@ -2062,8 +2062,7 @@ export function prepareLightningWorkflowForQueue(
           width: latentSize?.width,
           height: latentSize?.height,
         }).workflow
-      : scaleQwenEditReferenceImagesToLatentSize(vaeFixed, latentSize ?? options?.params)
-          .workflow;
+      : scaleQwenEditReferenceImagesToLatentSize(vaeFixed, latentSize ?? options?.params).workflow;
     const resolvedLatentSize = readEmptyLatentSize(sized);
     const saveBypass = bypassMismatchedSaveImageScaleToLatent(sized, resolvedLatentSize).workflow;
     return pruneUnresolvedQwenEditFigureLoaders(saveBypass).workflow;

@@ -582,7 +582,8 @@ export async function queueBatchToComfyUi(
   const config = resolveComfyUiConfig(runtime);
   const results: ComfyQueueResult[] = [];
   const runPreflight = options?.preflight !== false;
-  const objectInfo = runPreflight && config.workflow ? await fetchComfyObjectInfoForPreflight(runtime) : null;
+  const objectInfo =
+    runPreflight && config.workflow ? await fetchComfyObjectInfoForPreflight(runtime) : null;
 
   for (const request of requests) {
     if (!request.prompt.trim()) {

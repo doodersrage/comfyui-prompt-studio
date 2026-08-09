@@ -136,7 +136,9 @@ function kleinDistilledHasStrongAnatomy(prompt: string): boolean {
 }
 
 function kleinDistilledHasStrictHandFrontload(prompt: string): boolean {
-  return /\b(exactly five separate fingers|five separate fingers with clear knuckles)\b/i.test(prompt);
+  return /\b(exactly five separate fingers|five separate fingers with clear knuckles)\b/i.test(
+    prompt
+  );
 }
 
 /** Likely full figure or hand visibility — strict mode front-loads hand cues for Klein Distilled. */

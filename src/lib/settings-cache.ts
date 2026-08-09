@@ -3,10 +3,7 @@ import {
   DEFAULT_MODEL_SAMPLER_PRESET_TIER,
   normalizeModelSamplerPresetTier,
 } from './model-sampler-defaults';
-import type {
-  ModelSamplerPresetTier,
-  ModelSamplerOverrideFields,
-} from './model-sampler-defaults';
+import type { ModelSamplerPresetTier, ModelSamplerOverrideFields } from './model-sampler-defaults';
 import type { KleinEnhancerIdentityPreset } from './klein-enhancer-workflow-patch';
 import {
   DEFAULT_RESOLUTION_ORIENTATION,

@@ -93,11 +93,7 @@ export function resolveKleinEnhancerIdentityPreset(input: {
   preset?: KleinEnhancerIdentityPreset;
   identityLockStrength?: number;
 }): KleinEnhancerIdentityPreset {
-  if (
-    input.preset === 'HARD_LOCK' ||
-    input.preset === 'MID_LOCK' ||
-    input.preset === 'SOFT_LOCK'
-  ) {
+  if (input.preset === 'HARD_LOCK' || input.preset === 'MID_LOCK' || input.preset === 'SOFT_LOCK') {
     return input.preset;
   }
   const strength = Number(input.identityLockStrength);
@@ -323,7 +319,10 @@ function wireKleinT2ITextEnhancer(
     usedEnhancer: false,
   };
 
-  if (options.textEnhancerEnabled === false || !kleinTextEnhancerAvailable(options.availableNodeTypes)) {
+  if (
+    options.textEnhancerEnabled === false ||
+    !kleinTextEnhancerAvailable(options.availableNodeTypes)
+  ) {
     return empty;
   }
 

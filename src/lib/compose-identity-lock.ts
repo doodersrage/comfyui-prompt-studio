@@ -179,7 +179,10 @@ export function formatKleinEnhancerIdentityHint(input: {
 }
 
 /** Hint for plain Klein T2I when only Text Enhancer applies. */
-export function formatKleinEnhancerT2IHint(input: { enabled?: boolean; textEnhancerEnabled?: boolean }): string {
+export function formatKleinEnhancerT2IHint(input: {
+  enabled?: boolean;
+  textEnhancerEnabled?: boolean;
+}): string {
   if (input.enabled === false || input.textEnhancerEnabled === false) {
     return 'Off — stock Klein T2I conditioning.';
   }

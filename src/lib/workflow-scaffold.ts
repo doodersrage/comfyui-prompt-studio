@@ -1757,22 +1757,22 @@ export function buildWorkflowScaffoldForModel(
     : useQwenComposeScaffold
       ? qwenEditComposeScaffold(resolvedTokens, model)
       : useEditScaffold
-      ? editScaffold(resolvedTokens, category, model)
-      : category === 'flux'
-        ? fluxScaffold(resolvedTokens, model)
-        : useLightningScaffold
-          ? qwenLightningScaffold(resolvedTokens)
-          : useCheckpointScaffold
-            ? qwenCheckpointScaffold(resolvedTokens)
-            : category === 'qwen'
-              ? qwenScaffold(resolvedTokens)
-              : category === 'video'
-                ? videoScaffold(resolvedTokens, model)
-                : category === 'audio'
-                  ? audioScaffold(resolvedTokens)
-                  : category === 'mesh'
-                    ? meshScaffold(resolvedTokens)
-                    : genericScaffold(resolvedTokens);
+        ? editScaffold(resolvedTokens, category, model)
+        : category === 'flux'
+          ? fluxScaffold(resolvedTokens, model)
+          : useLightningScaffold
+            ? qwenLightningScaffold(resolvedTokens)
+            : useCheckpointScaffold
+              ? qwenCheckpointScaffold(resolvedTokens)
+              : category === 'qwen'
+                ? qwenScaffold(resolvedTokens)
+                : category === 'video'
+                  ? videoScaffold(resolvedTokens, model)
+                  : category === 'audio'
+                    ? audioScaffold(resolvedTokens)
+                    : category === 'mesh'
+                      ? meshScaffold(resolvedTokens)
+                      : genericScaffold(resolvedTokens);
   const videoLatentClass = category === 'video' ? resolveVideoLatentClass(model) : null;
   const notes = [
     'Starter graph with app placeholders — verify loader filenames match your ComfyUI models folder.',
@@ -1781,34 +1781,34 @@ export function buildWorkflowScaffoldForModel(
       : useQwenComposeScaffold
         ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage + TextEncodeQwenImageEditPlus (no encode VAE). Figure 1–4 attach via ReferenceLatent + external VAEEncode at queue time — denoise 1.'
         : useEditScaffold
-        ? isQwenEditModel(model)
-          ? isQwenLightningModel(model)
-            ? 'Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Figure 1–4 LoadImages use {{INPUT_IMAGE}}…{{INPUT_IMAGE_4}} but encode slots stay empty for Generate; Compose/Refine queue wires refs when you upload sources.'
-            : useQwenComposeScaffold
-              ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage — ReferenceLatent wiring applied at queue time.'
-              : 'Qwen Edit scaffold wires LoadImage → VAEEncode → KSampler with denoise — upload an image from Refine, Compose, or Image → Prompt before queueing.'
-          : model === 'flux-inpaint'
-            ? 'FLUX inpaint scaffold wires LoadImage + LoadImageMask → InpaintModelConditioning — upload source image and mask before queueing.'
-            : 'Edit scaffold includes LoadImage + denoise — wire VAEEncode in ComfyUI if you use the generic edit template.'
-        : category === 'qwen'
-          ? useLightningScaffold
-            ? 'Lightning scaffold uses UNETLoader + Lightning LoRA ({{LORA_LIGHTNING}}) + ModelSamplingAuraFlow (shift ~3). Map your 4/8-step bf16 Lightning LoRA in Settings → LoRA library.'
-            : useCheckpointScaffold
-              ? 'Rapid AIO / checkpoint Qwen scaffold uses CheckpointLoaderSimple ({{CHECKPOINT}}) — no separate UNET. Map the merge under Settings → checkpoint map if your filename differs.'
-              : 'Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs.'
-          : category === 'flux'
-            ? isFluxKleinModel(model)
-              ? 'FLUX Klein scaffold uses UNETLoader + CLIPLoader (type flux2, Qwen3-8B for 9B / Qwen3-4B for 4B) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available.'
-              : 'FLUX scaffold uses UNETLoader + DualCLIPLoader (clip_l + t5xxl) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available.'
-            : category === 'video'
-              ? isWanLightningModel(model)
-                ? 'WAN Lightning scaffold uses CheckpointLoader + LoraLoaderModelOnly ({{LORA_LIGHTNING}} → Wan2.2-Lightning-low_noise_model) + EmptyHunyuanLatentVideo + SaveAnimatedWEBP. Map the low-noise Lightning LoRA in Settings → LoRA library or keep it in ComfyUI’s loras folder.'
-                : `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom pack with LTXVImgToVideo.`
-              : category === 'audio'
-                ? 'Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow.'
-                : category === 'mesh'
-                  ? 'Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available.'
-                  : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
+          ? isQwenEditModel(model)
+            ? isQwenLightningModel(model)
+              ? 'Lightning edit scaffold uses TextEncodeQwenImageEditPlus + EmptyLatent + Lightning LoRA (denoise 1). Figure 1–4 LoadImages use {{INPUT_IMAGE}}…{{INPUT_IMAGE_4}} but encode slots stay empty for Generate; Compose/Refine queue wires refs when you upload sources.'
+              : useQwenComposeScaffold
+                ? 'Qwen Edit Compose scaffold uses EmptySD3LatentImage — ReferenceLatent wiring applied at queue time.'
+                : 'Qwen Edit scaffold wires LoadImage → VAEEncode → KSampler with denoise — upload an image from Refine, Compose, or Image → Prompt before queueing.'
+            : model === 'flux-inpaint'
+              ? 'FLUX inpaint scaffold wires LoadImage + LoadImageMask → InpaintModelConditioning — upload source image and mask before queueing.'
+              : 'Edit scaffold includes LoadImage + denoise — wire VAEEncode in ComfyUI if you use the generic edit template.'
+          : category === 'qwen'
+            ? useLightningScaffold
+              ? 'Lightning scaffold uses UNETLoader + Lightning LoRA ({{LORA_LIGHTNING}}) + ModelSamplingAuraFlow (shift ~3). Map your 4/8-step bf16 Lightning LoRA in Settings → LoRA library.'
+              : useCheckpointScaffold
+                ? 'Rapid AIO / checkpoint Qwen scaffold uses CheckpointLoaderSimple ({{CHECKPOINT}}) — no separate UNET. Map the merge under Settings → checkpoint map if your filename differs.'
+                : 'Qwen scaffold uses UNETLoader + CLIPLoader (type qwen_image, bf16 by default) + VAELoader with {{UNET}}; edit clip/vae names if your pack differs.'
+            : category === 'flux'
+              ? isFluxKleinModel(model)
+                ? 'FLUX Klein scaffold uses UNETLoader + CLIPLoader (type flux2, Qwen3-8B for 9B / Qwen3-4B for 4B) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available.'
+                : 'FLUX scaffold uses UNETLoader + DualCLIPLoader (clip_l + t5xxl) + VAELoader with {{UNET}} — soft-bound from Comfy inventory when available.'
+              : category === 'video'
+                ? isWanLightningModel(model)
+                  ? 'WAN Lightning scaffold uses CheckpointLoader + LoraLoaderModelOnly ({{LORA_LIGHTNING}} → Wan2.2-Lightning-low_noise_model) + EmptyHunyuanLatentVideo + SaveAnimatedWEBP. Map the low-noise Lightning LoRA in Settings → LoRA library or keep it in ComfyUI’s loras folder.'
+                  : `Video scaffold uses ${videoLatentClass} ({{VIDEO_FRAMES}} length) + SaveAnimatedWEBP ({{VIDEO_FPS}}). Prefer importing a pack-accurate WAN/Hunyuan/LTX workflow when you have one. {{INIT_IMAGE}} is optional — WAN/Hunyuan queues with an init image auto-wire WanImageToVideo/HunyuanImageToVideo; LTX I2V needs a custom pack with LTXVImgToVideo.`
+                : category === 'audio'
+                  ? 'Audio scaffold is a Stable-Audio-oriented starter (Checkpoint + CLIP + KSampler + SaveAudio) with {{AUDIO_SECONDS}} on the Note node. Prefer importing your pack’s Stable Audio / music graph when you have one — then map it under Settings → model→workflow.'
+                  : category === 'mesh'
+                    ? 'Mesh scaffold wires {{INPUT_IMAGE}} + Checkpoint + CLIP + KSampler + SaveImage with {{MESH_RESOLUTION}} on the Note node. Prefer importing Hunyuan3D / image-to-mesh pack graphs when available.'
+                    : 'Use Settings → model checkpoint map so Send to ComfyUI can patch loader nodes automatically.',
   ];
 
   return {

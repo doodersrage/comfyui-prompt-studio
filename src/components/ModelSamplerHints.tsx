@@ -117,7 +117,9 @@ export default function ModelSamplerHints({
                       value={overrides[key]?.toString() ?? ''}
                       placeholder={
                         placeholder ??
-                        (key in defaults ? defaults[key as keyof typeof defaults]?.toString() : '') ??
+                        (key in defaults
+                          ? defaults[key as keyof typeof defaults]?.toString()
+                          : '') ??
                         ''
                       }
                       onChange={event => updateOverride(key, event.target.value)}
@@ -128,8 +130,8 @@ export default function ModelSamplerHints({
               </div>
               {distilledModel ? (
                 <p className="type-caption text-amber-200/75">
-                  Lightning / Rapid models clamp steps and CFG on queue. Denoise override is
-                  honored when set.
+                  Lightning / Rapid models clamp steps and CFG on queue. Denoise override is honored
+                  when set.
                 </p>
               ) : null}
               {overridesActive ? (
@@ -156,14 +158,13 @@ export default function ModelSamplerHints({
           </span>
         </summary>
         <p className="mt-1.5 type-caption text-zinc-500">
-          Patches{' '}
-          <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{SEED}}`}</code>,{' '}
+          Patches <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{SEED}}`}</code>,{' '}
           <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{STEPS}}`}</code>,{' '}
           <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{CFG}}`}</code>,{' '}
           <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{DENOISE}}`}</code>,{' '}
           <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{SAMPLER}}`}</code>,{' '}
-          <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{SCHEDULER}}`}</code>
-          , and Flux shift placeholders — or writes directly into sampler nodes.
+          <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{SCHEDULER}}`}</code>,
+          and Flux shift placeholders — or writes directly into sampler nodes.
           {defaults.fixedSeed == null
             ? ' Seed is randomized per job unless pinned in advanced queue params.'
             : null}

@@ -61,7 +61,8 @@ function collectQwenEditEncodeResizeNodeIds(workflow: Record<string, unknown>): 
   const addScaleChainFromLoader = (startId: string | null) => {
     let cursor = startId;
     while (cursor) {
-      const linked = workflow[cursor] as { class_type?: string; inputs?: Record<string, unknown> } | undefined;
+      const linked = workflow[cursor] as
+        { class_type?: string; inputs?: Record<string, unknown> } | undefined;
       if (!linked?.inputs) {
         break;
       }

@@ -378,9 +378,7 @@ export function resolveDistilledQueueDenoise(
 
   const current = Number(paramsDenoise);
   const isSoftHandoff =
-    forced === 1 &&
-    Number.isFinite(current) &&
-    Math.abs(current - DEFAULT_EDIT_DENOISE) < 0.001;
+    forced === 1 && Number.isFinite(current) && Math.abs(current - DEFAULT_EDIT_DENOISE) < 0.001;
   if (isSoftHandoff) {
     return forced;
   }

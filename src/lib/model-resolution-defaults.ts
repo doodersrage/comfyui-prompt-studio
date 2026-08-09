@@ -789,9 +789,7 @@ export function qwenLightningMediumSizeLadder(): Array<{ width: number; height: 
  */
 /** Compose / Refine / inpaint tools that should match EmptyLatent to figure pixels. */
 export function toolUsesComposeFigureLatent(tool?: string): boolean {
-  return (
-    tool === 'compose' || tool === 'refine' || tool === 'inpaint' || tool === 'outpaint'
-  );
+  return tool === 'compose' || tool === 'refine' || tool === 'inpaint' || tool === 'outpaint';
 }
 
 /** AR chips used when snapping Compose figures to a tier ladder. */
@@ -856,7 +854,12 @@ export function resolveComposeOutputLatentSize(
   tier: ResolutionSizeTier = DEFAULT_RESOLUTION_SIZE_TIER
 ): { width: number; height: number } {
   const selected = getModelResolutionPreset(model, orientation, tier);
-  if (!Number.isFinite(figureWidth) || !Number.isFinite(figureHeight) || figureWidth <= 0 || figureHeight <= 0) {
+  if (
+    !Number.isFinite(figureWidth) ||
+    !Number.isFinite(figureHeight) ||
+    figureWidth <= 0 ||
+    figureHeight <= 0
+  ) {
     return { width: selected.width, height: selected.height };
   }
 
