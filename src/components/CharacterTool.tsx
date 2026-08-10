@@ -1,5 +1,7 @@
 'use client';
 
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+
 import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import BackgroundPresetControls from '@/components/BackgroundPresetControls';
@@ -56,12 +58,7 @@ import { downloadTextFile } from '@/lib/prompt-pair';
 import { applyShareableSceneParams, parseScenePresetFromSearch } from '@/lib/scene-preset-url';
 import { getSportPreset, isSportStarterPreset } from '@/lib/sport-presets';
 import { accentFocusClass, accentRingClass, type ToolAccent } from '@/lib/tool-theme';
-import {
-  ToolBadge,
-  CollapsibleSection,
-  ToolLayout,
-  ToolSection,
-} from '@/components/ui/ToolPageShell';
+import { ToolBadge, CollapsibleSection, ToolLayout } from '@/components/ui/ToolPageShell';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { ChipButton, FieldDivider, FieldLabel } from '@/components/ui/Field';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
@@ -500,7 +497,7 @@ export default function CharacterTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Character" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.character} />
       <SceneSetupSection description="Pick a mode, add hints, then generate.">
         <FieldLabel>Scene mode</FieldLabel>
         <div className="flex flex-wrap gap-2">

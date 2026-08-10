@@ -1,5 +1,7 @@
 'use client';
 
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
@@ -281,7 +283,7 @@ export default function InpaintTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Inpaint" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.inpaint} />
       <ToolSection>
         {anatomyRepairMode ? (
           <p className="mb-4 rounded-xl border border-rose-500/25 bg-rose-500/[0.06] px-3.5 py-3 text-sm leading-relaxed text-rose-100/90">

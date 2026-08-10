@@ -1,5 +1,7 @@
 'use client';
 
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { useCallback, useMemo, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
@@ -332,7 +334,7 @@ export default function RefineTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Refine" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.refine} />
       <ToolSection>
         {isBooguEditModel(shared.model) ? (
           <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">

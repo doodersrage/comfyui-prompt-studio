@@ -200,7 +200,11 @@ export default function GalleryFiltersBar({
             type="search"
             value={queryDraft}
             onChange={event => setQueryDraft(event.target.value)}
-            placeholder="Prompt, tool, model, prompt id, vision tags…"
+            placeholder={
+              lean
+                ? 'Search prompts, tool, or model…'
+                : 'Prompt, tool, model, prompt id, vision tags…'
+            }
             className="ui-input block w-full px-(--input-padding-x) py-(--input-padding-y) type-body"
           />
         </label>
@@ -266,11 +270,46 @@ export default function GalleryFiltersBar({
         <p className="shrink-0 type-caption text-[var(--text-muted)]">
           {totalFiltered} of {totalEntries}
           {showPagination ? ` · page ${currentPage}/${totalPages}` : ''}
-          {embeddingSearchLoading ? ' · searching…' : null}
-          {embeddingSearchUnavailable ? ' · semantic unavailable' : null}
-          {similarSearchLoading ? ' · ranking similar…' : null}
+          {!lean && embeddingSearchLoading ? ' · searching…' : null}
+          {!lean && embeddingSearchUnavailable ? ' · semantic unavailable' : null}
+          {!lean && similarSearchLoading ? ' · ranking similar…' : null}
         </p>
       </div>
+
+      {lean ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterChip
+            active={Boolean(filter.favoritesOnly)}
+            label="Favorites"
+            onClick={() =>
+              setFilter(previous => ({
+                ...previous,
+                favoritesOnly: previous.favoritesOnly ? undefined : true,
+              }))
+            }
+          />
+          <FilterChip
+            active={filter.status === 'completed'}
+            label="Completed"
+            onClick={() =>
+              setFilter(previous => ({
+                ...previous,
+                status: previous.status === 'completed' ? 'all' : 'completed',
+              }))
+            }
+          />
+          <FilterChip
+            active={filter.status === 'error'}
+            label="Failed"
+            onClick={() =>
+              setFilter(previous => ({
+                ...previous,
+                status: previous.status === 'error' ? 'all' : 'error',
+              }))
+            }
+          />
+        </div>
+      ) : null}
 
       {!lean ? (
         <CollapsibleSection

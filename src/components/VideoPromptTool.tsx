@@ -1,5 +1,7 @@
 'use client';
 
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+
 import { useCallback, useEffect, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import SharedToolControls from '@/components/SharedToolControls';
@@ -460,7 +462,7 @@ export default function VideoPromptTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Video" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.video} />
       <ToolSection>
         {workflowStatus ? (
           <p className="mb-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">

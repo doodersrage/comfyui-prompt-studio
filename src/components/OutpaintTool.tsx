@@ -1,5 +1,7 @@
 'use client';
 
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import SharedToolControls from '@/components/SharedToolControls';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
@@ -241,7 +243,7 @@ export default function OutpaintTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Outpaint" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.outpaint} />
       <ToolSection title="Source">
         <FieldLabel>Image</FieldLabel>
         <input

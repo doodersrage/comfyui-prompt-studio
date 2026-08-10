@@ -32,6 +32,8 @@ describe('tool-page-chrome', () => {
   it('exposes hub page descriptions', () => {
     assert.match(HUB_PAGE_DESCRIPTIONS.gallery.full, /experiments/);
     assert.match(HUB_PAGE_DESCRIPTIONS.gallery.simple, /Browse/);
+    assert.match(HUB_PAGE_DESCRIPTIONS.settings.simple, /Essentials/);
+    assert.match(HUB_PAGE_DESCRIPTIONS.profile.simple, /Appearance/);
   });
 
   it('omits section descriptions in simple workspace', () => {

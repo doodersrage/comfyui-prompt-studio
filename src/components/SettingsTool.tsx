@@ -58,6 +58,7 @@ import {
 } from '@/lib/comfyui-notifications';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import SettingsSubNav from '@/components/settings/SettingsSubNav';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { ToolBadge, ToolLayout } from '@/components/ui/ToolPageShell';
 import { ToolPageSkeleton } from '@/components/ui/ViewState';
 import { Button } from '@/components/ui/Button';
@@ -69,6 +70,8 @@ import {
   type SettingsTab,
 } from '@/lib/settings-nav';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
+import { useSettingsPageDescriptionRich } from '@/hooks/useToolPageDescription';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import {
   normalizeComfyUiSettingsSection,
   settingsComfyUiSectionHref,
@@ -188,6 +191,7 @@ export default function SettingsTool() {
   );
 
   const slimSettings = workspaceMode === 'simple' && !showAllSettings;
+  const description = useSettingsPageDescriptionRich(slimSettings);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -630,22 +634,9 @@ export default function SettingsTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Settings</ToolBadge>}
       title="Settings & Health"
-      description={
-        <>
-          {slimSettings ? (
-            <>
-              Essentials for Simple workspace — expand all settings when you need LLM, automation,
-              or admin tools.
-            </>
-          ) : (
-            <>
-              Organized by area — use the tabs below. Browser overrides apply per session; server
-              defaults come from <code className="text-violet-300">.env.local</code> (see Overview).
-            </>
-          )}
-        </>
-      }
+      description={description}
     >
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.settings} />
       <div className="md:grid md:grid-cols-[minmax(14rem,17rem)_minmax(0,1fr)] md:items-start md:gap-8">
         <SettingsSubNav
           activeTab={tab}

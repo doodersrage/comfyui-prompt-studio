@@ -56,6 +56,8 @@ import { ChipButton } from '@/components/ui/Field';
 import { StudioTabSkeleton } from '@/components/ui/ViewState';
 import { isStudioTabId, studioTabGroupsForWorkspaceMode, type StudioTabId } from '@/lib/studio-nav';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import type { CatalogClothing, CatalogLocation } from '@/components/studio/tabs/StudioCatalogTab';
 
@@ -675,6 +677,7 @@ export default function StudioTool() {
       title="Prompt Studio"
       description={description}
     >
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.studio} />
       {/* Null-context guard — provider not yet wired up during hydration/HMR. */}
       {isNullContext ? null : (
         <div className="flex h-full flex-col gap-4">

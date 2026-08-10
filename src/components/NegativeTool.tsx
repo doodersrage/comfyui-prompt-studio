@@ -1,5 +1,7 @@
 'use client';
 
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+
 import { useCallback, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
@@ -148,7 +150,7 @@ export default function NegativeTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Negative" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.negative} />
       <ToolSection>
         <FieldLabel>Sport context</FieldLabel>
         <select

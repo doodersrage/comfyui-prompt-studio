@@ -1,5 +1,7 @@
 'use client';
 
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
@@ -186,7 +188,7 @@ export default function PromptEditorTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Prompt Editor" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.promptEditor} />
       {sourceMeta ? (
         <ToolSection>
           <div className="flex flex-wrap items-start gap-4 rounded-2xl border border-sky-800/35 bg-gradient-to-br from-sky-950/30 to-[var(--bg-base)]/40 p-4 shadow-[inset_0_1px_0_rgba(125,211,252,0.06)]">

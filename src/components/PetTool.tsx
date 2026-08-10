@@ -1,5 +1,7 @@
 'use client';
 
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+
 import { useCallback, useEffect, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
@@ -224,7 +226,7 @@ export default function PetTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Pet" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.pet} />
       <SceneSetupSection description="Presets, hints, then generate.">
         <CollapsibleSection
           title="Pet presets"

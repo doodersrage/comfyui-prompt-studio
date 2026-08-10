@@ -172,8 +172,22 @@ export default function ComfyUiGalleryPanel({
     }));
   }, [setFilter]);
 
-  // Derive from the live URL — Soft nav from /gallery → /gallery?pickFor=… reuses
-  // this panel; a one-shot useState initializer would leave pick mode stuck off.
+  useEffect(() => {
+    if (!leanGallery) {
+      return;
+    }
+    setFilter(previous => ({
+      ...previous,
+      semanticSearch: undefined,
+      similarToEntryId: undefined,
+      reviewMode: undefined,
+      unreviewedOnly: undefined,
+      reviewAutoAdvance: undefined,
+      visionTagsOnly: undefined,
+    }));
+  }, [leanGallery, setFilter]);
+
+  // Derive from the live URL
   const searchParams = useSearchParams();
   const pickFor = useMemo(
     () => parseGalleryPickTarget(searchParams.get('pickFor')),

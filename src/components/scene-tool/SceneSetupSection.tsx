@@ -1,8 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ToolSection } from '@/components/ui/ToolPageShell';
-import { useToolSectionDescription } from '@/hooks/useToolPageDescription';
+import ToolPrimarySection from '@/components/ui/ToolPrimarySection';
 
 type SceneSetupSectionProps = {
   /** Full-workspace section description — omitted in Simple mode. */
@@ -17,11 +16,9 @@ export default function SceneSetupSection({
   description,
   children,
 }: SceneSetupSectionProps) {
-  const sectionDescription = useToolSectionDescription(description);
-
   return (
-    <ToolSection title={title} description={sectionDescription}>
+    <ToolPrimarySection title={title} description={description}>
       {children}
-    </ToolSection>
+    </ToolPrimarySection>
   );
 }

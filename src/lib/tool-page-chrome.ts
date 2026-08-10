@@ -31,6 +31,10 @@ export const TOOL_SETUP_LABELS = {
   gallery: 'Gallery',
   queue: 'Queue',
   workflowEditor: 'Workflow editor',
+  settings: 'Settings',
+  studio: 'Studio',
+  dashboard: 'Dashboard',
+  profile: 'Profile',
 } as const;
 
 /** ToolLayout width rules. */
@@ -58,6 +62,19 @@ export const HUB_PAGE_DESCRIPTIONS = {
     full: 'Pending ComfyUI jobs, recent outputs, queue status, and your active project — without the generator UI in the way.',
     simple:
       'Queue status and recent outputs at a glance — open Generate when you are ready to create.',
+  },
+  settings: {
+    full: 'Organized by area — browser overrides apply per session; server defaults come from .env.local (see Overview).',
+    simple:
+      'Essentials for Simple workspace — expand all settings when you need LLM, automation, or admin tools.',
+  },
+  settingsExpanded: {
+    full: 'Organized by area — browser overrides apply per session; server defaults come from .env.local (see Overview).',
+    simple: 'All settings visible — switch back to essentials anytime from the sidebar.',
+  },
+  profile: {
+    full: 'Appearance, alerts, account settings, backup, and workspace preferences.',
+    simple: 'Appearance and alerts — account essentials without admin clutter.',
   },
 } as const;
 

@@ -10,6 +10,7 @@ import BatchQueueProgress, { type BatchQueueProgressState } from '@/components/B
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import ToolPrimarySection from '@/components/ui/ToolPrimarySection';
 import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
@@ -59,7 +60,6 @@ import type { PromptSidecar } from '@/lib/prompt-sidecar';
 import {
   ToolBadge,
   ToolLayout,
-  ToolSection,
   accentButtonClass,
   accentFocusClass,
   accentRingClass,
@@ -831,7 +831,10 @@ export default function VariationGridTool() {
       }
     >
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.variations} />
-      <ToolSection title="Variation setup">
+      <ToolPrimarySection
+        title="Variation setup"
+        description="Pick a generator, set count and hints, then roll or queue a batch."
+      >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1">
             <FieldLabel>Generator</FieldLabel>
@@ -1142,10 +1145,10 @@ export default function VariationGridTool() {
         <BatchQueueProgress progress={queueProgress} />
         {comfyStatus && <p className="text-sm text-violet-300/90">{comfyStatus}</p>}
         <FieldError>{error}</FieldError>
-      </ToolSection>
+      </ToolPrimarySection>
 
       {results.length > 0 && (
-        <ToolSection title="Rolled prompts">
+        <ToolPrimarySection title="Rolled prompts">
           {gridMode === 'matrix' ? (
             <div className="mb-3">
               <Button
@@ -1191,7 +1194,7 @@ export default function VariationGridTool() {
               </li>
             ))}
           </ol>
-        </ToolSection>
+        </ToolPrimarySection>
       )}
       <MobileStickyQueueBar
         disabled={results.every(entry => !entry.prompt) || queueLoading || lintLoading}

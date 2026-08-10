@@ -1,5 +1,7 @@
 'use client';
 
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { readRawPrompt } from '@/lib/raw-prompt';
 import { useCallback, useEffect, useState } from 'react';
@@ -187,7 +189,7 @@ export default function BackgroundTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Background" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.background} />
       <SceneSetupSection
         title="Environment setup"
         description="Quick tags and optional presets — no people."

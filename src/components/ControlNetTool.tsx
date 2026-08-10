@@ -1,5 +1,7 @@
 'use client';
 
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+
 import { useCallback, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
@@ -270,7 +272,7 @@ export default function ControlNetTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="ControlNet" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.controlnet} />
       <ToolSection title="Conditioning mode">
         <div className="flex flex-wrap gap-2">
           {MODES.map(entry => (

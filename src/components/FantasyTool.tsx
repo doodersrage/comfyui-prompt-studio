@@ -1,5 +1,7 @@
 'use client';
 
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
@@ -295,7 +297,7 @@ export default function FantasyTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Fantasy" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.fantasy} />
       <SceneSetupSection description="Presets, hints, then generate.">
         <CollapsibleSection
           title="Fantasy presets"

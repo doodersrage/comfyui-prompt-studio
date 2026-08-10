@@ -8,6 +8,7 @@ import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import { VariationSliderField } from '@/components/scene-tool/SceneToolSections';
 import SceneSetupSection from '@/components/scene-tool/SceneSetupSection';
+import ToolPrimarySection from '@/components/ui/ToolPrimarySection';
 import { HistoryHintSeedPanel } from '@/components/scene-tool/HistoryHintSeedPanel';
 import { normalizeHistorySeedScope, resolveGenerateHintSource } from '@/lib/scene-hint-source';
 import { countHistorySeedCandidates } from '@/lib/history-hint-seed';
@@ -51,7 +52,6 @@ import {
   SegmentedControl,
   ToolBadge,
   ToolLayout,
-  ToolSection,
   accentButtonClass,
   accentFocusClass,
   accentRingClass,
@@ -922,7 +922,7 @@ export default function PromptGenerator() {
       )}
 
       {output && mode === 'negative' && (
-        <ToolSection title="Generated preserve / negative prompt">
+        <ToolPrimarySection title="Generated preserve / negative prompt">
           <div className="flex flex-wrap items-center justify-between gap-3">
             {provider ? (
               <p className="type-caption">via {provider === 'llm' ? 'LLM' : 'template fallback'}</p>
@@ -934,7 +934,7 @@ export default function PromptGenerator() {
             </Button>
           </div>
           <CodeBlock>{output}</CodeBlock>
-        </ToolSection>
+        </ToolPrimarySection>
       )}
 
       {output && hintSource !== 'random' && mode === 'positive' && (

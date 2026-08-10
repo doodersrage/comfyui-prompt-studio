@@ -164,7 +164,11 @@ export default function HomeDashboard() {
           <ButtonLink href="/queue" size="sm">
             Queue
           </ButtonLink>
-          {!isSimple ? (
+          {isSimple ? (
+            <ButtonLink href="/settings" size="sm">
+              Settings
+            </ButtonLink>
+          ) : (
             <>
               <ButtonLink href="/studio" size="sm">
                 Studio
@@ -173,7 +177,7 @@ export default function HomeDashboard() {
                 Settings
               </ButtonLink>
             </>
-          ) : null}
+          )}
         </ToolActionRow>
         {!isSimple ? (
           <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 type-caption text-[var(--text-muted)]">
@@ -209,7 +213,7 @@ export default function HomeDashboard() {
           className={`mt-6 grid gap-3 ${isSimple ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-4'}`}
         >
           <StatCard label="Pending ComfyUI" value={String(pending.length)} />
-          <StatCard label="History entries" value={String(entries.length)} />
+          {!isSimple ? <StatCard label="History entries" value={String(entries.length)} /> : null}
           {!isSimple ? (
             <>
               <StatCard
