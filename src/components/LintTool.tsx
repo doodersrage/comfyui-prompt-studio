@@ -15,15 +15,17 @@ import { getDetailLimits } from '@/lib/detail-level';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { DEFAULT_LINT_TOOL_CACHE } from '@/lib/settings-cache';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
 import {
-  ToolBadge,
   CollapsibleSection,
+  ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
-import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { FieldLabel, TextArea } from '@/components/ui/Field';
 import { PrimaryButton } from '@/components/ui/Button';
 import PromptWeightInspector from '@/components/PromptWeightInspector';
@@ -31,6 +33,10 @@ import PromptWeightInspector from '@/components/PromptWeightInspector';
 const ACCENT = 'amber' as const;
 
 export default function LintTool() {
+  const description = useToolPageDescription(
+    'Paste a prompt, run lint and fixes, then queue.',
+    'Lint a prompt and queue when it is ready.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'lint',
     DEFAULT_LINT_TOOL_CACHE
@@ -102,9 +108,9 @@ export default function LintTool() {
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={<ToolBadge accent={ACCENT}>Lint playground · {selectedModel.comfyNode}</ToolBadge>}
+      badge={<ToolBadge accent={ACCENT}>Lint · {selectedModel.comfyNode}</ToolBadge>}
       title="Lint"
-      description="Paste a prompt, run lint and fixes, then queue."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="lint"
@@ -116,8 +122,8 @@ export default function LintTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Lint" />
-      <ToolSection>
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.lint} />
+      <ToolSection title="Prompt input">
         <FieldLabel>Hints</FieldLabel>
         <TextArea
           value={hints}

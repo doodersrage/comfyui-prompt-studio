@@ -7,6 +7,8 @@ import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { readRawPrompt } from '@/lib/raw-prompt';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -63,6 +65,10 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 export default function ImagePromptTool() {
+  const description = useToolPageDescription(
+    'Upload a reference image and convert it into a model-ready prompt.',
+    'Upload a reference image to build a prompt.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'imagePrompt',
     DEFAULT_IMAGE_PROMPT_TOOL_CACHE
@@ -328,9 +334,13 @@ export default function ImagePromptTool() {
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={<ToolBadge accent={ACCENT}>Vision · {selectedModel.comfyNode}</ToolBadge>}
+      badge={
+        <ToolBadge accent={ACCENT}>
+          {TOOL_SETUP_LABELS.imagePrompt} · {selectedModel.comfyNode}
+        </ToolBadge>
+      }
       title="Image → Prompt"
-      description="Upload a reference image and convert it into a model-ready prompt."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="imagePrompt"
@@ -344,7 +354,7 @@ export default function ImagePromptTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Image → Prompt" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.imagePrompt} />
       <ToolSection>
         {isBooguEditModel(shared.model) ? (
           <p className="mb-4 text-xs leading-relaxed text-zinc-500">

@@ -20,6 +20,10 @@ import '@xyflow/react/dist/style.css';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 import { FieldLabel, TextArea, TextInput } from '@/components/ui/Field';
 import { ToolBadge, ToolLayout, ToolSection } from '@/components/ui/ToolPageShell';
+import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
+import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import {
   comfyApiWorkflowToReactFlow,
   listEditableWidgets,
@@ -62,7 +66,13 @@ function ComfyNodeCard({ data, selected }: NodeProps) {
 
 const nodeTypes = { comfy: ComfyNodeCard };
 
+const ACCENT = 'violet' as const;
+
 export default function WorkflowEditorTool() {
+  const description = useToolPageDescription(
+    'Load a Comfy API workflow, edit widgets and links, save to the library, and queue through the existing optimizer path.',
+    'Edit a workflow graph, save to library, and queue when ready.'
+  );
   const { shared } = useCachedSettings('format', {
     mode: 'positive',
     smartFormat: true,
@@ -190,10 +200,12 @@ export default function WorkflowEditorTool() {
 
   return (
     <ToolLayout
-      badge={<ToolBadge>Workflow editor</ToolBadge>}
+      accent={ACCENT}
+      badge={<ToolBadge accent={ACCENT}>{TOOL_SETUP_LABELS.workflowEditor}</ToolBadge>}
       title="Node graph editor"
-      description="Load a Comfy API workflow, edit widgets and links, save to the library, and queue through the existing optimizer path."
+      description={description}
     >
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.workflowEditor} />
       <ToolSection title="Source">
         <div className="flex flex-wrap gap-2">
           <select
@@ -285,6 +297,12 @@ export default function WorkflowEditorTool() {
           </div>
         </ToolSection>
       ) : null}
+      <MobileStickyQueueBar
+        disabled={nodes.length === 0}
+        label="Queue workflow"
+        status={actions.comfyUiStatus ?? status}
+        onQueue={() => void onQueue()}
+      />
     </ToolLayout>
   );
 }

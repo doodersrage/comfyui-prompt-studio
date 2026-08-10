@@ -9,6 +9,8 @@ import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import RegionalEditPanel, { regionalSlotsQueueExtras } from '@/components/RegionalEditPanel';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { useGalleryHandoff } from '@/hooks/useGalleryHandoff';
@@ -73,6 +75,10 @@ function emptySlots(): FigureSlot[] {
 }
 
 export default function ComposeTool() {
+  const description = useToolPageDescription(
+    'Multi-image transfer or single-image edits. Reference Image 1, Image 2, etc. in your prompt.',
+    'Combine or edit images with figure slots and a composed prompt.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'imageCompose',
     DEFAULT_IMAGE_COMPOSE_TOOL_CACHE
@@ -401,7 +407,7 @@ export default function ComposeTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Compose · {selectedModel.comfyNode}</ToolBadge>}
       title="Compose"
-      description="Multi-image transfer or single-image edits. Reference Image 1, Image 2, etc. in your prompt."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="compose"
@@ -414,7 +420,7 @@ export default function ComposeTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Compose" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.compose} />
       <CollabPresenceBar tool="compose" draft={instruction} />
       <ToolSection>
         <FieldLabel>Mode</FieldLabel>

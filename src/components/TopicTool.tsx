@@ -43,6 +43,8 @@ import { registerComfyGalleryJob } from '@/lib/comfyui-gallery-client';
 import { scheduleComfyGalleryPoll } from '@/lib/comfyui-gallery-poller';
 import { postComfyUiPrompt } from '@/lib/comfyui-queue-request';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import {
   ToolBadge,
   CollapsibleSection,
@@ -68,6 +70,10 @@ import { scoreBatchReadiness } from '@/lib/batch-readiness';
 const ACCENT = 'violet' as const;
 
 export default function TopicTool() {
+  const description = useToolPageDescription(
+    'Generate topic lists, batch-build prompts, or queue in bulk.',
+    'Generate topics and batch prompts — expand batch options when you need them.'
+  );
   const router = useRouter();
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'topics',
@@ -450,9 +456,9 @@ export default function TopicTool() {
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={<ToolBadge accent={ACCENT}>Topic ideas</ToolBadge>}
+      badge={<ToolBadge accent={ACCENT}>{TOOL_SETUP_LABELS.topics}</ToolBadge>}
       title="Topics"
-      description="Generate topic lists, batch-build prompts, or queue in bulk."
+      description={description}
       sidebar={
         <SharedToolControls
           shared={shared}
@@ -471,7 +477,7 @@ export default function TopicTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Topics" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.topics} />
       <ToolSection>
         <HistoryHintSeedPanel
           tool="generate"

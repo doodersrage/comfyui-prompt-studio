@@ -27,6 +27,8 @@ import { comfyUiJobProgressPercent } from '@/lib/comfyui-job-status';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 
+const ACCENT = 'violet' as const;
+
 type ComfyQueueHealth = {
   queueRunning?: number;
   queuePending?: number;
@@ -75,11 +77,11 @@ function QueueActiveJobRow({
           <img
             src={previewUrl}
             alt=""
-            className="h-14 w-14 shrink-0 rounded-md border border-zinc-700/70 object-cover"
+            className="h-14 w-14 shrink-0 rounded-md border border-[var(--border-default)] object-cover"
           />
         ) : null}
         <div className="ui-list-primary min-w-0 space-y-1">
-          <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
+          <p className="truncate text-sm text-[var(--text-primary)]">{entry.prompt}</p>
           <p className="type-caption">
             {entry.status}
             {entry.queuePosition ? ` · #${entry.queuePosition}` : ''}
@@ -210,8 +212,8 @@ export default function QueueTool() {
 
   return (
     <ToolLayout
-      accent="violet"
-      badge={<ToolBadge accent="violet">Queue</ToolBadge>}
+      accent={ACCENT}
+      badge={<ToolBadge accent={ACCENT}>Queue</ToolBadge>}
       title="ComfyUI job queue"
       description={
         isSimple
@@ -222,7 +224,7 @@ export default function QueueTool() {
       <ToolSetupBanner toolLabel="Queue" />
       {queueHealth?.ok ? (
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-[var(--text-muted)]">
             ComfyUI queue: {queueHealth.queueRunning ?? 0} running · {queueHealth.queuePending ?? 0}{' '}
             pending
           </p>
@@ -328,7 +330,7 @@ export default function QueueTool() {
                     className="ui-list-row flex-col items-stretch gap-2 sm:flex-row sm:items-start"
                   >
                     <div className="ui-list-primary min-w-0 space-y-1">
-                      <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
+                      <p className="truncate text-sm text-[var(--text-primary)]">{entry.prompt}</p>
                       <p className="type-caption text-rose-300/80">
                         {entry.statusMessage ?? entry.status} · {entry.model}
                       </p>
@@ -370,7 +372,7 @@ export default function QueueTool() {
                 {failed.map(entry => (
                   <li key={entry.id} className="ui-list-row items-start">
                     <div className="ui-list-primary min-w-0 space-y-1">
-                      <p className="truncate text-sm text-zinc-200">{entry.prompt}</p>
+                      <p className="truncate text-sm text-[var(--text-primary)]">{entry.prompt}</p>
                       <p className="type-caption text-rose-300/80">
                         {entry.statusMessage ?? entry.status} · {entry.model}
                       </p>
@@ -422,7 +424,9 @@ export default function QueueTool() {
                       />
                     ) : null}
                     <div className="ui-list-primary min-w-0">
-                      <p className="truncate text-sm text-zinc-300">{entry.prompt}</p>
+                      <p className="truncate text-sm text-[var(--text-secondary)]">
+                        {entry.prompt}
+                      </p>
                       <p className="type-caption">
                         {entry.status} · {entry.model}
                       </p>
@@ -460,7 +464,9 @@ export default function QueueTool() {
                       />
                     ) : null}
                     <div className="ui-list-primary min-w-0">
-                      <p className="truncate text-sm text-zinc-300">{entry.prompt}</p>
+                      <p className="truncate text-sm text-[var(--text-secondary)]">
+                        {entry.prompt}
+                      </p>
                       <p className="type-caption">
                         {entry.status} · {entry.model}
                       </p>

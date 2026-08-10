@@ -65,6 +65,8 @@ import {
 } from '@/components/ui/Field';
 import { markOnboardingFirstGenerate } from '@/lib/onboarding-hooks';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { markComfyQueueIntent } from '@/lib/comfy-setup-intent';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 
@@ -116,6 +118,10 @@ const EXAMPLE_INPUTS = [
 ];
 
 export default function PromptGenerator() {
+  const description = useToolPageDescription(
+    'Describe a scene or roll a random one. Pick model and detail in the sidebar, then generate a ComfyUI-ready prompt.',
+    'Describe a scene or roll random — generate a ComfyUI-ready prompt.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'generate',
     DEFAULT_GENERATE_TOOL_CACHE
@@ -515,9 +521,7 @@ export default function PromptGenerator() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>ComfyUI · {selectedModel.comfyNode}</ToolBadge>}
       title="Generate"
-      description="Describe a scene or roll a random one. Pick model and detail in the sidebar, then generate a ComfyUI-ready prompt."
-      sidebarTitle="Settings"
-      sidebarDescription="Model and detail for this run. Queue quality and LoRA live under Advanced."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="generate"
@@ -543,7 +547,7 @@ export default function PromptGenerator() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Generate" />
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.generate} />
       <ToolSection title="Scene setup" description="Keywords or a random scene — then generate.">
         <HistoryHintSeedPanel
           tool="generate"

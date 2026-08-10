@@ -1,7 +1,5 @@
 'use client';
 
-'use client';
-
 import dynamic from 'next/dynamic';
 import GalleryImportSection from '@/components/GalleryImportSection';
 import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';

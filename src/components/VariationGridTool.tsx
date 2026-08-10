@@ -10,6 +10,9 @@ import BatchQueueProgress, { type BatchQueueProgressState } from '@/components/B
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
 import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
+import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import SportPresetChips from '@/components/SportPresetChips';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
@@ -240,6 +243,12 @@ function buildVariationRequestBody(
 }
 
 export default function VariationGridTool() {
+  const description = useToolPageDescription(
+    'Roll prompt variations from the same hints, then batch-queue with unique seeds.',
+    'Roll variations from your hints, then queue the grid.'
+  );
+  const workspaceMode = useWorkspaceMode();
+  const isSimple = workspaceMode === 'simple';
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'variations',
     DEFAULT_VARIATIONS_TOOL_CACHE
@@ -801,7 +810,7 @@ export default function VariationGridTool() {
       width="wide"
       badge={<ToolBadge accent={ACCENT}>Variation grid</ToolBadge>}
       title="Variations"
-      description="Roll prompt variations from the same hints, then batch-queue with unique seeds."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="variations"
@@ -821,8 +830,8 @@ export default function VariationGridTool() {
         />
       }
     >
-      <ToolSetupBanner toolLabel="Variations" />
-      <ToolSection>
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.variations} />
+      <ToolSection title="Variation setup">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1">
             <FieldLabel>Generator</FieldLabel>
@@ -856,8 +865,12 @@ export default function VariationGridTool() {
               className="ui-input w-full px-3 py-2 text-sm"
             >
               <option value="roll">Roll variations</option>
-              <option value="matrix">Variation matrix</option>
-              <option value="imported">Imported batch (Topics)</option>
+              {!isSimple ? (
+                <>
+                  <option value="matrix">Variation matrix</option>
+                  <option value="imported">Imported batch (Topics)</option>
+                </>
+              ) : null}
             </select>
           </div>
 

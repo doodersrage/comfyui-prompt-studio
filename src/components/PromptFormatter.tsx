@@ -2,27 +2,27 @@
 
 import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import ModelSelector from '@/components/ModelSelector';
 import EnhancedPromptResult from '@/components/LazyEnhancedPromptResult';
 import MobileStickyQueueBar from '@/components/MobileStickyQueueBar';
+import SharedToolControls from '@/components/SharedToolControls';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { useCachedSettings } from '@/hooks/useCachedSettings';
 import { useSeedToolDraft } from '@/hooks/useSeedToolDraft';
 import { usePromptResultActions } from '@/hooks/usePromptResultActions';
-import type { DetailLevel } from '@/lib/detail-level';
-import { getDetailLimits } from '@/lib/detail-level';
-import { getComfyModelDefinition, type ComfyImageModel } from '@/lib/comfy-models/client';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
+import { getComfyModelDefinition } from '@/lib/comfy-models/client';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
+import { TOOL_SETUP_LABELS } from '@/lib/tool-page-chrome';
 import {
+  CollapsibleSection,
   ToolBadge,
   ToolLayout,
   ToolSection,
   accentButtonClass,
   accentFocusClass,
-  accentRingClass,
 } from '@/components/ui/ToolPageShell';
-import { FieldDivider, FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
-import { Button, PrimaryButton } from '@/components/ui/Button';
+import { ChipButton, FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { PrimaryButton } from '@/components/ui/Button';
 import { DEFAULT_FORMAT_TOOL_CACHE } from '@/lib/settings-cache';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
@@ -34,7 +34,7 @@ type FormatMode = 'positive' | 'negative';
 type FormatResponse = {
   prompt: string;
   mode: FormatMode;
-  model: ComfyImageModel;
+  model: string;
   comfyNode: string;
   provider: 'llm' | 'rules';
   limits: {
@@ -55,6 +55,10 @@ const EXAMPLE_DRAFTS = [
 ];
 
 export default function PromptFormatter() {
+  const description = useToolPageDescription(
+    'Paste tag soup or a rough draft — restructure and trim it for your target model.',
+    'Paste a draft and format it for your model.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'format',
     DEFAULT_FORMAT_TOOL_CACHE
@@ -75,7 +79,7 @@ export default function PromptFormatter() {
       updateToolSettings({ draft: value });
       rememberDraftFields({
         toolKey: 'format',
-        label: 'Format',
+        label: TOOL_SETUP_LABELS.format,
         href: '/format',
         fields: [value],
       });
@@ -85,7 +89,7 @@ export default function PromptFormatter() {
 
   useSeedToolDraft(mounted, {
     toolKey: 'format',
-    label: 'Format',
+    label: TOOL_SETUP_LABELS.format,
     href: '/format',
     fields: [input],
   });
@@ -104,17 +108,12 @@ export default function PromptFormatter() {
     reformatTarget: getReformatTargetModel(targetModel),
   });
 
-  const setTargetModel = (model: ComfyImageModel) => updateShared({ model });
-  const setDetail = (value: DetailLevel) => updateShared({ detail: value });
-  const setSmartFormat = (value: boolean) => updateToolSettings({ smartFormat: value });
   const setModeAndCache = (value: FormatMode) => {
     setMode(value);
     updateToolSettings({ mode: value });
   };
 
   const selectedModel = useMemo(() => getComfyModelDefinition(targetModel), [targetModel]);
-
-  const activeLimits = useMemo(() => getDetailLimits(detail, targetModel), [detail, targetModel]);
 
   useEffect(() => {
     scheduleAfterCommit(() => {
@@ -123,8 +122,6 @@ export default function PromptFormatter() {
       }
     });
   }, [toolSettings.mode]);
-
-  const submitDisabled = !mounted || loading || !input.trim();
 
   const runFormat = useCallback(async () => {
     if (!input.trim()) {
@@ -200,132 +197,34 @@ export default function PromptFormatter() {
   return (
     <ToolLayout
       accent={ACCENT}
-      badge={<ToolBadge accent={ACCENT}>Prompt formatter</ToolBadge>}
+      badge={<ToolBadge accent={ACCENT}>{TOOL_SETUP_LABELS.format}</ToolBadge>}
       title="Format for your model"
-      description={
-        <>
-          Paste an existing prompt—tag soup, a rough sentence, or a draft from another model. This
-          tool restructures and trims it for{' '}
-          <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-sm text-emerald-300">
-            {selectedModel.comfyNode}
-          </code>
-          .
-        </>
-      }
-      sidebarTitle="Format settings"
-      sidebarDescription="Model, detail, and formatting options."
+      description={description}
       sidebar={
-        <>
-          <div className="space-y-4">
-            <FieldLabel hint="Prompt style and size limits depend on the model and detail level you choose.">
-              Target model
-            </FieldLabel>
-            <ModelSelector value={targetModel} onChange={setTargetModel} />
-          </div>
-
-          <FieldDivider />
-
-          <div className="space-y-3">
-            <FieldLabel hint="Controls length limits for the formatted output.">
-              Detail level
-            </FieldLabel>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  { label: 'Concise', value: 'concise' },
-                  { label: 'Balanced', value: 'balanced' },
-                  { label: 'Rich', value: 'rich' },
-                ] as const
-              ).map(preset => (
-                <button
-                  key={preset.value}
-                  type="button"
-                  onClick={() => setDetail(preset.value)}
-                  className={`rounded-xl border px-3.5 py-2 text-xs font-medium transition ${
-                    detail === preset.value
-                      ? 'border-emerald-500/70 bg-emerald-500/15 text-emerald-100'
-                      : 'border-zinc-700/80 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs leading-relaxed text-zinc-500">
-              {activeLimits.minChars
-                ? `${activeLimits.minSentences}–${activeLimits.maxSentences} sentences, ${activeLimits.minChars}–${activeLimits.maxChars} chars`
-                : `Up to ${activeLimits.maxSentences} sentences, ~${activeLimits.maxChars} chars`}
-            </p>
-          </div>
-
-          <FieldDivider />
-
-          <label className="flex cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={smartFormat}
-              onChange={e => setSmartFormat(e.target.checked)}
-              className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentRingClass(ACCENT)}`}
-            />
-            <span className="space-y-1">
-              <span className="text-sm font-medium text-zinc-100">Smart format (LLM)</span>
-              <span className="block text-xs leading-relaxed text-zinc-500">
-                Rewrites your draft for the target model while preserving content. Off uses instant
-                rules-only cleanup.
-              </span>
-            </span>
-          </label>
-
-          {mode === 'positive' && (
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={autoFixRules}
-                onChange={e => updateShared({ autoFixRules: e.target.checked })}
-                className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentRingClass(ACCENT)}`}
-              />
-              <span className="space-y-1">
-                <span className="text-sm font-medium text-zinc-100">Auto-fix lint errors</span>
-                <span className="block text-xs leading-relaxed text-zinc-500">
-                  Apply rule-based fixes when lint reports errors after formatting.
-                </span>
-              </span>
-            </label>
-          )}
-        </>
+        <SharedToolControls
+          toolId="format"
+          shared={shared}
+          onModelChange={model => updateShared({ model })}
+          onDetailChange={value => updateShared({ detail: value })}
+          autoFixRules={autoFixRules}
+          onAutoFixRulesChange={value => updateShared({ autoFixRules: value })}
+          recommendFromText={input}
+          onSharedSettingsChange={updateShared}
+        />
       }
     >
-      <ToolSetupBanner toolLabel="Format" />
-      <ToolSection>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <FieldLabel
-            htmlFor="format-input"
-            hint="Tags, rough prose, or a draft from another tool."
-          >
-            Prompt draft
-          </FieldLabel>
-          <div className="flex rounded-xl border border-zinc-700/80 p-0.5">
-            <button
-              type="button"
-              onClick={() => setModeAndCache('positive')}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition ${
-                mode === 'positive'
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              Positive
-            </button>
-            <button
-              type="button"
-              onClick={() => setModeAndCache('negative')}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition ${
-                mode === 'negative' ? 'bg-rose-600 text-white' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              Negative / Preserve
-            </button>
-          </div>
+      <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.format} />
+      <ToolSection
+        title="Prompt draft"
+        description="Tags, rough prose, or output from another tool — positive or negative/preserve mode."
+      >
+        <div className="flex flex-wrap gap-2">
+          <ChipButton active={mode === 'positive'} onClick={() => setModeAndCache('positive')}>
+            Positive
+          </ChipButton>
+          <ChipButton active={mode === 'negative'} onClick={() => setModeAndCache('negative')}>
+            Negative / preserve
+          </ChipButton>
         </div>
 
         <TextArea
@@ -338,7 +237,7 @@ export default function PromptFormatter() {
               void runFormat();
             }
           }}
-          placeholder="Paste your prompt here—tags, rough prose, or a draft from another tool…"
+          placeholder="Paste your prompt here…"
           rows={7}
           className={`text-base ${accentFocusClass(ACCENT)}`}
         />
@@ -349,12 +248,38 @@ export default function PromptFormatter() {
               key={example}
               type="button"
               onClick={() => setInput(example)}
-              className="rounded-full border border-zinc-700/80 px-3 py-1 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200"
+              className="rounded-full border border-[var(--border-default)] px-3 py-1 type-caption text-[var(--text-muted)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
             >
               {example.length > 48 ? `${example.slice(0, 48)}…` : example}
             </button>
           ))}
         </div>
+
+        <CollapsibleSection
+          title="Format options"
+          summary={smartFormat ? 'Smart format (LLM) on' : 'Rules-only cleanup'}
+          defaultOpen={false}
+          persistKey="format-options"
+        >
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={smartFormat}
+              onChange={e => updateToolSettings({ smartFormat: e.target.checked })}
+              className="ui-checkbox mt-1"
+            />
+            <span className="space-y-1">
+              <span className="text-sm font-medium text-[var(--text-primary)]">
+                Smart format (LLM)
+              </span>
+              <span className="type-caption block text-[var(--text-muted)]">
+                Rewrites your draft for{' '}
+                <span className="text-[var(--text-secondary)]">{selectedModel.comfyNode}</span>{' '}
+                while preserving content. Off uses instant rules-only cleanup.
+              </span>
+            </span>
+          </label>
+        </CollapsibleSection>
 
         <PrimaryButton
           accentClassName={accentButtonClass(ACCENT)}
@@ -420,11 +345,14 @@ export default function PromptFormatter() {
       {output && mode === 'negative' && (
         <ToolSection title="Formatted preserve prompt">
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <Button onClick={() => void copyOutput()}>
+            <PrimaryButton
+              accentClassName={accentButtonClass(ACCENT)}
+              onClick={() => void copyOutput()}
+            >
               {copied ? 'Copied!' : 'Copy for ComfyUI'}
-            </Button>
+            </PrimaryButton>
           </div>
-          <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-zinc-800/90 bg-zinc-950/80 p-5 font-mono text-sm leading-relaxed text-emerald-300">
+          <pre className="ui-scroll-region overflow-x-auto whitespace-pre-wrap rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-5 font-mono text-sm leading-relaxed text-[var(--tint-success-text)]">
             {output}
           </pre>
         </ToolSection>

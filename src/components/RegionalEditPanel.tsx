@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import InpaintMaskEditor from '@/components/InpaintMaskEditor';
 import { Button } from '@/components/ui/Button';
 import { ChipButton, FieldLabel, TextArea, TextInput } from '@/components/ui/Field';
-import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
+import { CollapsibleSection } from '@/components/ui/ToolPageShell';
 import {
   createDefaultRegionalSlots,
   formatRegionalSlotsHint,
