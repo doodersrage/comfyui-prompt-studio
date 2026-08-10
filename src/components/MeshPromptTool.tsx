@@ -23,11 +23,16 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { FieldLabel, TextArea, TextInput } from '@/components/ui/Field';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'emerald' as const;
 
 export default function MeshPromptTool() {
+  const description = useToolPageDescription(
+    'Describe shape and materials for Hunyuan3D-style scaffolds. Optional reference image binds {{INPUT_IMAGE}}; resolution fills {{MESH_RESOLUTION}}.',
+    '3D mesh prompts — optional reference image and resolution tokens when supported.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'mesh',
     DEFAULT_MESH_TOOL_CACHE
@@ -126,7 +131,7 @@ export default function MeshPromptTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>3D · {selectedModel.comfyNode}</ToolBadge>}
       title="Mesh / 3D prompt"
-      description="Describe shape and materials for Hunyuan3D-style scaffolds. Optional reference image binds {{INPUT_IMAGE}}; resolution fills {{MESH_RESOLUTION}}."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="mesh"
@@ -171,14 +176,14 @@ export default function MeshPromptTool() {
               return next ? URL.createObjectURL(next) : null;
             });
           }}
-          className="block w-full text-sm text-zinc-400"
+          className="block w-full text-sm text-[var(--text-muted)]"
         />
         {previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={previewUrl}
             alt="Mesh reference"
-            className="mt-3 max-h-48 rounded-xl border border-zinc-800 object-contain"
+            className="mt-3 max-h-48 rounded-xl border border-[var(--border-subtle)] object-contain"
           />
         ) : null}
         <FieldLabel>Subject / silhouette</FieldLabel>
@@ -207,7 +212,7 @@ export default function MeshPromptTool() {
             />
           </div>
         </div>
-        <label className="mt-3 block space-y-1 text-xs text-zinc-400">
+        <label className="mt-3 block space-y-1 text-xs text-[var(--text-muted)]">
           Mesh resolution hint
           <TextInput
             type="number"

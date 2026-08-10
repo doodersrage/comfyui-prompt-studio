@@ -112,7 +112,7 @@ export default function ProfilePanel() {
     return (
       <div className="space-y-8">
         <ToolSection title="Profile">
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-[var(--text-muted)]">
             Sign-in is disabled. Account settings are unavailable; appearance still works below.
           </p>
         </ToolSection>
@@ -124,7 +124,7 @@ export default function ProfilePanel() {
   if (!user) {
     return (
       <ToolSection title="Account settings">
-        <p className="text-sm text-zinc-400">Loading your profile…</p>
+        <p className="text-sm text-[var(--text-muted)]">Loading your profile…</p>
       </ToolSection>
     );
   }
@@ -141,12 +141,13 @@ export default function ProfilePanel() {
       <ProfileNotificationsPanel />
 
       <ToolSection title="Account">
-        <p className="mb-4 text-sm text-zinc-400">
-          Signed in as <span className="text-zinc-100">{user.username}</span> ({user.role})
+        <p className="mb-4 text-sm text-[var(--text-muted)]">
+          Signed in as <span className="text-[var(--text-primary)]">{user.username}</span> (
+          {user.role})
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-2 text-sm">
-            <span className="type-caption text-zinc-500">Current password</span>
+            <span className="type-caption text-[var(--text-muted)]">Current password</span>
             <TextInput
               type="password"
               value={currentPassword}
@@ -155,7 +156,7 @@ export default function ProfilePanel() {
             />
           </label>
           <label className="space-y-2 text-sm">
-            <span className="type-caption text-zinc-500">New password</span>
+            <span className="type-caption text-[var(--text-muted)]">New password</span>
             <TextInput
               type="password"
               value={password}
@@ -167,13 +168,13 @@ export default function ProfilePanel() {
       </ToolSection>
 
       <ToolSection title="Email notifications">
-        <p className="mb-3 text-sm text-zinc-400">
+        <p className="mb-3 text-sm text-[var(--text-muted)]">
           Optional address for batch completion and password-change alerts when SMTP is configured
           on the server.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-2 text-sm sm:col-span-2">
-            <span className="type-caption text-zinc-500">Email</span>
+            <span className="type-caption text-[var(--text-muted)]">Email</span>
             <TextInput
               type="email"
               value={email}
@@ -182,21 +183,21 @@ export default function ProfilePanel() {
               autoComplete="email"
             />
           </label>
-          <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
             <input
               type="checkbox"
               checked={emailNotifyBatch}
               onChange={event => setEmailNotifyBatch(event.target.checked)}
-              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
             />
             Batch & campaign completion
           </label>
-          <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
             <input
               type="checkbox"
               checked={emailNotifySecurity}
               onChange={event => setEmailNotifySecurity(event.target.checked)}
-              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
             />
             Password & security updates
           </label>
@@ -228,7 +229,7 @@ export default function ProfilePanel() {
       </ToolSection>
 
       <ToolSection title="ComfyUI override">
-        <p className="mb-3 text-sm text-zinc-400">
+        <p className="mb-3 text-sm text-[var(--text-muted)]">
           Optional personal ComfyUI URL. Overrides Settings when queueing from your account.
         </p>
         <TextInput
@@ -239,22 +240,22 @@ export default function ProfilePanel() {
       </ToolSection>
 
       <ToolSection title="Scheduled campaign">
-        <p className="mb-3 text-sm text-zinc-400">
+        <p className="mb-3 text-sm text-[var(--text-muted)]">
           Server maintenance runs user campaigns when{' '}
-          <code className="text-zinc-300">SERVER_USER_MAINTENANCE=true</code>.
+          <code className="text-[var(--text-secondary)]">SERVER_USER_MAINTENANCE=true</code>.
         </p>
-        <label className="mb-3 flex items-center gap-2 text-sm text-zinc-300">
+        <label className="mb-3 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
           <input
             type="checkbox"
             checked={campaign.enabled}
             onChange={event => setCampaign(prev => ({ ...prev, enabled: event.target.checked }))}
-            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
           />
           Enable scheduled campaign
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-2 text-sm">
-            <span className="type-caption text-zinc-500">Target</span>
+            <span className="type-caption text-[var(--text-muted)]">Target</span>
             <select
               value={campaign.target}
               onChange={event =>
@@ -270,7 +271,7 @@ export default function ProfilePanel() {
             </select>
           </label>
           <label className="space-y-2 text-sm">
-            <span className="type-caption text-zinc-500">Interval (minutes)</span>
+            <span className="type-caption text-[var(--text-muted)]">Interval (minutes)</span>
             <TextInput
               type="number"
               value={String(campaign.intervalMin)}
@@ -283,7 +284,7 @@ export default function ProfilePanel() {
             />
           </label>
           <label className="space-y-2 text-sm">
-            <span className="type-caption text-zinc-500">Count</span>
+            <span className="type-caption text-[var(--text-muted)]">Count</span>
             <TextInput
               type="number"
               value={String(campaign.count)}
@@ -295,19 +296,19 @@ export default function ProfilePanel() {
               }
             />
           </label>
-          <label className="flex items-center gap-2 self-end text-sm text-zinc-300">
+          <label className="flex items-center gap-2 self-end text-sm text-[var(--text-secondary)]">
             <input
               type="checkbox"
               checked={campaign.autoQueueComfyUi}
               onChange={event =>
                 setCampaign(prev => ({ ...prev, autoQueueComfyUi: event.target.checked }))
               }
-              className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+              className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
             />
             Auto-queue to ComfyUI
           </label>
           <label className="space-y-2 text-sm">
-            <span className="type-caption text-zinc-500">Best-of-N rank (optional)</span>
+            <span className="type-caption text-[var(--text-muted)]">Best-of-N rank (optional)</span>
             <TextInput
               type="number"
               value={campaign.bestOfN ? String(campaign.bestOfN) : ''}
@@ -324,12 +325,12 @@ export default function ProfilePanel() {
       </ToolSection>
 
       <ToolSection title="Server export">
-        <label className="flex items-center gap-2 text-sm text-zinc-300">
+        <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
           <input
             type="checkbox"
             checked={exportEnabled}
             onChange={event => setExportEnabled(event.target.checked)}
-            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
           />
           Include my synced history/gallery in nightly server exports
         </label>
@@ -337,15 +338,17 @@ export default function ProfilePanel() {
 
       {sharedPresets.length > 0 ? (
         <ToolSection title="Shared preset library">
-          <p className="mb-3 text-sm text-zinc-400">Read-only presets published by admins.</p>
+          <p className="mb-3 text-sm text-[var(--text-muted)]">
+            Read-only presets published by admins.
+          </p>
           <ul className="space-y-2">
             {sharedPresets.map(preset => (
               <li
                 key={preset.id}
-                className="rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-sm"
+                className="rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 px-3 py-2 text-sm"
               >
-                <p className="font-medium text-zinc-100">{preset.label}</p>
-                <p className="mt-1 text-xs text-zinc-500">{preset.hints}</p>
+                <p className="font-medium text-[var(--text-primary)]">{preset.label}</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">{preset.hints}</p>
                 <button
                   type="button"
                   onClick={() => {

@@ -21,8 +21,8 @@ export default function FantasyPresetChips({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-zinc-200">Fantasy presets</p>
-        <p className="text-xs text-zinc-500">{presets.length} scenes</p>
+        <p className="text-sm font-medium text-[var(--text-primary)]">Fantasy presets</p>
+        <p className="text-xs text-[var(--text-muted)]">{presets.length} scenes</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -34,7 +34,7 @@ export default function FantasyPresetChips({
             className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
               category === item.value
                 ? 'border-violet-500 bg-violet-500/15 text-violet-200'
-                : 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+                : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
             }`}
           >
             {item.label}
@@ -53,7 +53,7 @@ export default function FantasyPresetChips({
               className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                 active
                   ? 'border-violet-500 bg-violet-500/15 text-violet-200'
-                  : 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+                  : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
               }`}
             >
               {preset.label}

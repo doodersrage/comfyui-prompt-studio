@@ -17,7 +17,9 @@ export default function WorkflowDiffPanel() {
 
   return (
     <ToolSection title="Workflow diff">
-      <p className="mb-3 text-sm text-zinc-400">Compare two workflow JSON files line-by-line.</p>
+      <p className="mb-3 text-sm text-[var(--text-muted)]">
+        Compare two workflow JSON files line-by-line.
+      </p>
       <div className="grid gap-3 lg:grid-cols-2">
         <MonoTextArea
           value={left}
@@ -33,7 +35,7 @@ export default function WorkflowDiffPanel() {
         />
       </div>
       {diff ? (
-        <pre className="mt-3 max-h-64 overflow-auto rounded-xl border border-zinc-800 bg-zinc-950/50 p-3 text-xs">
+        <pre className="mt-3 max-h-64 overflow-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 p-3 text-xs">
           {diff.lines.map((line, index) => (
             <div
               key={`${index}-${line.type}`}
@@ -42,7 +44,7 @@ export default function WorkflowDiffPanel() {
                   ? 'text-emerald-300'
                   : line.type === 'remove'
                     ? 'text-rose-300'
-                    : 'text-zinc-500'
+                    : 'text-[var(--text-muted)]'
               }
             >
               {line.type === 'add' ? '+ ' : line.type === 'remove' ? '- ' : '  '}

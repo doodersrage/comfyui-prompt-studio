@@ -71,11 +71,15 @@ import { markComfyQueueIntent } from '@/lib/comfy-setup-intent';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 
 const SceneStarterPresetChips = dynamic(() => import('@/components/SceneStarterPresetChips'), {
-  loading: () => <div className="h-24 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
+  loading: () => (
+    <div className="h-24 animate-pulse rounded-xl bg-[var(--bg-muted)]/40" aria-hidden />
+  ),
 });
 const TagAssistToolbar = dynamic(() => import('@/components/TagAssistToolbar'), {
   ssr: false,
-  loading: () => <div className="h-12 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
+  loading: () => (
+    <div className="h-12 animate-pulse rounded-xl bg-[var(--bg-muted)]/40" aria-hidden />
+  ),
 });
 const SharedToolControls = dynamic(() => import('@/components/SharedToolControls'), {
   ssr: false,
@@ -933,9 +937,9 @@ export default function PromptGenerator() {
       )}
 
       {output && hintSource !== 'random' && mode === 'positive' && (
-        <p className="-mt-4 text-xs text-zinc-500">
+        <p className="-mt-4 text-xs text-[var(--text-muted)]">
           Paste into{' '}
-          <code className="rounded bg-zinc-800 px-1 text-violet-300">
+          <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">
             {resultMeta?.comfyNode ?? selectedModel.comfyNode}
           </code>
           . Press Ctrl+Enter to regenerate.
@@ -947,44 +951,47 @@ export default function PromptGenerator() {
         summary="Model-specific prompt tips and variation controls."
         defaultOpen={false}
         persistKey="generate-how-it-works"
-        className="text-sm text-zinc-500"
+        className="text-sm text-[var(--text-muted)]"
       >
         <ul className="mt-1 list-inside list-disc space-y-2 leading-relaxed">
           <li>
-            Pick your <strong className="font-medium text-zinc-400">target model</strong>
+            Pick your <strong className="font-medium text-[var(--text-muted)]">target model</strong>
             —SD1.5, SDXL, SD3, Flux, Qwen Image, Hunyuan, PixArt, and more—each uses a prompt style
             tuned for that architecture.
           </li>
           <li>
-            <strong className="font-medium text-zinc-400">Edit-2511</strong> favors explicit
-            keep/change instructions and Figure 1 / Figure 2 references for multi-image workflows.
+            <strong className="font-medium text-[var(--text-muted)]">Edit-2511</strong> favors
+            explicit keep/change instructions and Figure 1 / Figure 2 references for multi-image
+            workflows.
           </li>
           <li>
-            <strong className="font-medium text-zinc-400">FLUX.2 Klein</strong> wants subject-first
-            photographic prose—materials, lighting, camera. Negative prompts are ignored; use
-            positive phrasing instead.
+            <strong className="font-medium text-[var(--text-muted)]">FLUX.2 Klein</strong> wants
+            subject-first photographic prose—materials, lighting, camera. Negative prompts are
+            ignored; use positive phrasing instead.
           </li>
           <li>
-            <strong className="font-medium text-zinc-400">Image-2512</strong> favors concise factual
-            prose with color, texture, and spatial relationships—quote visible text in double
-            quotes.
+            <strong className="font-medium text-[var(--text-muted)]">Image-2512</strong> favors
+            concise factual prose with color, texture, and spatial relationships—quote visible text
+            in double quotes.
           </li>
           <li>
-            <strong className="font-medium text-zinc-400">Image-2.0</strong> Rich detail targets at
-            least ~1100 characters (max ~1400).
+            <strong className="font-medium text-[var(--text-muted)]">Image-2.0</strong> Rich detail
+            targets at least ~1100 characters (max ~1400).
           </li>
           <li>
-            Use <strong className="font-medium text-zinc-400">Concise</strong> if Qwen output still
-            looks jumbled; use <strong className="font-medium text-zinc-400">Rich</strong> when
-            scenes feel too thin.
+            Use <strong className="font-medium text-[var(--text-muted)]">Concise</strong> if Qwen
+            output still looks jumbled; use{' '}
+            <strong className="font-medium text-[var(--text-muted)]">Rich</strong> when scenes feel
+            too thin.
           </li>
           <li>
             Separate ideas with commas, but keep the output focused—Qwen renders cleaner with 2–3
             short sentences, not dense prose.
           </li>
           <li>
-            Use <strong className="font-medium text-zinc-400">Distinct individuals</strong> when
-            your input has two or more people—it breaks them into separate, fully described
+            Use{' '}
+            <strong className="font-medium text-[var(--text-muted)]">Distinct individuals</strong>{' '}
+            when your input has two or more people—it breaks them into separate, fully described
             characters.
           </li>
           <li>

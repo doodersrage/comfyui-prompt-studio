@@ -54,7 +54,7 @@ export default function BatchReadinessPanel(props: {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="type-caption text-violet-200/90">Batch readiness</p>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-[var(--text-muted)]">
             Avg {Math.round(avg)}/100 · {blocked} below {minScore}
           </p>
         </div>
@@ -73,14 +73,16 @@ export default function BatchReadinessPanel(props: {
         {scored.map(row => (
           <li
             key={row.index}
-            className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-2.5 py-1.5"
+            className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 px-2.5 py-1.5"
           >
             <span
               className={`rounded-full border px-2 py-0.5 font-medium ${gradeClass(row.grade)}`}
             >
               {row.score}
             </span>
-            <span className="text-zinc-300">{row.label?.trim() || `Row ${row.index + 1}`}</span>
+            <span className="text-[var(--text-secondary)]">
+              {row.label?.trim() || `Row ${row.index + 1}`}
+            </span>
             {!row.queueAllowed ? <span className="text-amber-300/90">Below threshold</span> : null}
           </li>
         ))}

@@ -63,6 +63,7 @@ import {
 } from '@/components/ui/ToolPageShell';
 import ToolSetupBanner from '@/components/ToolSetupBanner';
 import { ChipButton, FieldDivider, FieldLabel } from '@/components/ui/Field';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button } from '@/components/ui/Button';
 
 const SharedToolControls = dynamic(() => import('@/components/SharedToolControls'), {
@@ -72,10 +73,14 @@ const SharedToolControls = dynamic(() => import('@/components/SharedToolControls
   ),
 });
 const SceneStarterPresetChips = dynamic(() => import('@/components/SceneStarterPresetChips'), {
-  loading: () => <div className="h-24 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
+  loading: () => (
+    <div className="h-24 animate-pulse rounded-xl bg-[var(--bg-muted)]/40" aria-hidden />
+  ),
 });
 const CharacterPresetControls = dynamic(() => import('@/components/CharacterPresetControls'), {
-  loading: () => <div className="h-48 animate-pulse rounded-xl bg-zinc-800/40" aria-hidden />,
+  loading: () => (
+    <div className="h-48 animate-pulse rounded-xl bg-[var(--bg-muted)]/40" aria-hidden />
+  ),
 });
 
 const SOLO_BATCH_COUNT = 3;
@@ -148,6 +153,10 @@ function parseSceneMode(value: string | null): CharacterSceneMode | null {
 }
 
 export default function CharacterTool() {
+  const description = useToolPageDescription(
+    'Solo, duo, or character-with-background prompts. Add hints and generate.',
+    'Character scenes — solo, duo, or with background. Add hints and generate.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'character',
     DEFAULT_CHARACTER_TOOL_CACHE
@@ -453,7 +462,7 @@ export default function CharacterTool() {
       accent={accent}
       badge={<ToolBadge accent={accent}>Character · {selectedModel.comfyNode}</ToolBadge>}
       title="Character"
-      description="Solo, duo, or character-with-background prompts. Add hints and generate."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="character"
@@ -726,16 +735,18 @@ export default function CharacterTool() {
               <>
                 <FieldDivider />
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-800 p-3">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border-subtle)] p-3">
                     <input
                       type="checkbox"
                       checked={toolSettings.teamKit === true}
                       onChange={event => updateToolSettings({ teamKit: event.target.checked })}
-                      className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentRingClass(accent)}`}
+                      className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentRingClass(accent)}`}
                     />
                     <span className="space-y-1">
-                      <span className="text-sm font-medium text-zinc-200">Team kit</span>
-                      <span className="block text-xs text-zinc-500">
+                      <span className="text-sm font-medium text-[var(--text-primary)]">
+                        Team kit
+                      </span>
+                      <span className="block text-xs text-[var(--text-muted)]">
                         Identical kits for both athletes. Off = rival accent colors.
                       </span>
                     </span>

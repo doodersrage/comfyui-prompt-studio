@@ -33,12 +33,12 @@ export default function StyleTransplantPanel() {
 
   return (
     <ToolSection title="Style transplant">
-      <p className="mb-3 text-sm text-zinc-400">
+      <p className="mb-3 text-sm text-[var(--text-muted)]">
         Apply lighting, camera, and mood language from one prompt onto another subject.
       </p>
       <div className="grid gap-3">
         <label className="space-y-2 text-sm">
-          <span className="type-caption text-zinc-500">Style source</span>
+          <span className="type-caption text-[var(--text-muted)]">Style source</span>
           <MonoTextArea
             value={styleSource}
             onChange={event => setStyleSource(event.target.value)}
@@ -46,7 +46,7 @@ export default function StyleTransplantPanel() {
           />
         </label>
         <label className="space-y-2 text-sm">
-          <span className="type-caption text-zinc-500">Subject prompt</span>
+          <span className="type-caption text-[var(--text-muted)]">Subject prompt</span>
           <MonoTextArea
             value={subjectPrompt}
             onChange={event => setSubjectPrompt(event.target.value)}

@@ -1074,7 +1074,7 @@ export default function VariationGridTool() {
           </Button>
           <SidecarImportButton
             label="Import sidecar hints"
-            className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500"
+            className="cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-default)]"
             onImport={(sidecar: PromptSidecar) => {
               updateToolSettings({
                 hints: sidecar.hints?.trim() || sidecar.positive.slice(0, 400),
@@ -1088,8 +1088,8 @@ export default function VariationGridTool() {
           />
         </div>
 
-        {importStatus && <p className="text-sm text-zinc-500">{importStatus}</p>}
-        {status && <p className="text-sm text-zinc-500">{status}</p>}
+        {importStatus && <p className="text-sm text-[var(--text-muted)]">{importStatus}</p>}
+        {status && <p className="text-sm text-[var(--text-muted)]">{status}</p>}
         <BatchLintGatePanel
           summary={lintSummary}
           loading={lintLoading}
@@ -1170,9 +1170,9 @@ export default function VariationGridTool() {
             {results.map((entry, index) => (
               <li
                 key={`${index}-${entry.prompt.slice(0, 24)}`}
-                className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"
+                className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 p-4"
               >
-                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
                   {entry.rowLabel && entry.colLabel
                     ? `${entry.rowLabel} × ${entry.colLabel}`
                     : `Variation ${index + 1}`}
@@ -1184,7 +1184,9 @@ export default function VariationGridTool() {
                 {entry.error ? (
                   <p className="mt-2 text-sm text-rose-300">{entry.error}</p>
                 ) : (
-                  <p className="mt-2 text-sm leading-relaxed text-zinc-300">{entry.prompt}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+                    {entry.prompt}
+                  </p>
                 )}
               </li>
             ))}

@@ -58,7 +58,7 @@ function FeaturePicker({
         >
           Block all
         </button>
-        <span className="type-caption text-zinc-500">
+        <span className="type-caption text-[var(--text-muted)]">
           {allowedCount} of {ALL_FEATURE_IDS.length} sections allowed
         </span>
       </div>
@@ -71,10 +71,10 @@ function FeaturePicker({
               key={feature.id}
               className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-sm transition ${
                 disabled
-                  ? 'cursor-not-allowed border-zinc-800/50 bg-zinc-950/20 opacity-60'
+                  ? 'cursor-not-allowed border-[var(--border-subtle)]/50 bg-[var(--bg-base)]/20 opacity-60'
                   : allowed
-                    ? 'border-violet-500/25 bg-violet-500/5 text-zinc-200'
-                    : 'border-zinc-800/80 bg-zinc-950/40 text-zinc-400'
+                    ? 'border-violet-500/25 bg-violet-500/5 text-[var(--text-primary)]'
+                    : 'border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 text-[var(--text-muted)]'
               }`}
             >
               <input
@@ -82,11 +82,15 @@ function FeaturePicker({
                 checked={allowed}
                 disabled={disabled}
                 onChange={() => toggleAllowed(feature.id)}
-                className="mt-0.5 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                className="mt-0.5 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
               />
               <span>
-                <span className="block font-medium text-zinc-100">{feature.label}</span>
-                <span className="block text-xs text-zinc-500">{feature.description}</span>
+                <span className="block font-medium text-[var(--text-primary)]">
+                  {feature.label}
+                </span>
+                <span className="block text-xs text-[var(--text-muted)]">
+                  {feature.description}
+                </span>
               </span>
             </label>
           );
@@ -359,7 +363,7 @@ export default function UsersAdminPanel() {
       ) : null}
 
       <ToolSection title="Groups">
-        <p className="mb-4 text-sm text-zinc-400">
+        <p className="mb-4 text-sm text-[var(--text-muted)]">
           Block features for everyone in a group. User-specific blocks stack on top of group blocks.
         </p>
         <div className="mb-4 flex flex-wrap gap-2">
@@ -371,7 +375,7 @@ export default function UsersAdminPanel() {
               className={`rounded-full border px-3 py-1 text-xs transition ${
                 selectedGroupId === group.id
                   ? 'border-violet-500/50 bg-violet-500/15 text-violet-100'
-                  : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                  : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)]'
               }`}
             >
               {group.name}
@@ -380,24 +384,24 @@ export default function UsersAdminPanel() {
           <button
             type="button"
             onClick={() => setSelectedGroupId('__new__')}
-            className="rounded-full border border-dashed border-zinc-700 px-3 py-1 text-xs text-zinc-400"
+            className="rounded-full border border-dashed border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-muted)]"
           >
             + New group
           </button>
         </div>
 
         {selectedGroupId ? (
-          <div className="space-y-4 rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-4">
+          <div className="space-y-4 rounded-2xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-2 text-sm">
-                <span className="type-caption text-zinc-500">Name</span>
+                <span className="type-caption text-[var(--text-muted)]">Name</span>
                 <TextInput
                   value={groupForm.name}
                   onChange={event => setGroupForm(prev => ({ ...prev, name: event.target.value }))}
                 />
               </label>
               <label className="space-y-2 text-sm">
-                <span className="type-caption text-zinc-500">Description</span>
+                <span className="type-caption text-[var(--text-muted)]">Description</span>
                 <TextInput
                   value={groupForm.description}
                   onChange={event =>
@@ -406,7 +410,7 @@ export default function UsersAdminPanel() {
                 />
               </label>
               <label className="space-y-2 text-sm">
-                <span className="type-caption text-zinc-500">Quota (req/min)</span>
+                <span className="type-caption text-[var(--text-muted)]">Quota (req/min)</span>
                 <TextInput
                   type="number"
                   value={groupForm.quotaMaxPerMinute}
@@ -418,7 +422,9 @@ export default function UsersAdminPanel() {
               </label>
             </div>
             <div className="space-y-2">
-              <p className="type-caption text-zinc-500">Blocked features for this group</p>
+              <p className="type-caption text-[var(--text-muted)]">
+                Blocked features for this group
+              </p>
               <FeaturePicker
                 value={groupForm.blockedFeatures}
                 onChange={blockedFeatures => setGroupForm(prev => ({ ...prev, blockedFeatures }))}
@@ -443,9 +449,9 @@ export default function UsersAdminPanel() {
       </ToolSection>
 
       <ToolSection title="Quota overview">
-        <p className="mb-4 text-sm text-zinc-400">
+        <p className="mb-4 text-sm text-[var(--text-muted)]">
           Per-user API rate limits from user and group settings. Global defaults use{' '}
-          <code className="text-zinc-300">API_RATE_LIMIT_MAX</code> when unset.
+          <code className="text-[var(--text-secondary)]">API_RATE_LIMIT_MAX</code> when unset.
         </p>
         {users.length === 0 ? (
           <EmptyState
@@ -455,9 +461,9 @@ export default function UsersAdminPanel() {
             description="User accounts appear here once the auth directory is available. Create a user above or check server auth configuration."
           />
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-zinc-800/80">
+          <div className="overflow-x-auto rounded-2xl border border-[var(--border-subtle)]/80">
             <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-zinc-800/80 bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+              <thead className="border-b border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/60 text-xs uppercase tracking-wide text-[var(--text-muted)]">
                 <tr>
                   <th className="px-3 py-2 font-medium">User</th>
                   <th className="px-3 py-2 font-medium">Role</th>
@@ -479,17 +485,19 @@ export default function UsersAdminPanel() {
                   return (
                     <tr
                       key={entry.id}
-                      className="border-b border-zinc-800/50 transition hover:bg-zinc-900/40"
+                      className="border-b border-[var(--border-subtle)]/50 transition hover:bg-[var(--bg-muted)]/40"
                     >
-                      <td className="px-3 py-2 text-zinc-200">{entry.username}</td>
-                      <td className="px-3 py-2 text-zinc-400">{entry.role}</td>
-                      <td className="px-3 py-2 tabular-nums text-zinc-400">
+                      <td className="px-3 py-2 text-[var(--text-primary)]">{entry.username}</td>
+                      <td className="px-3 py-2 text-[var(--text-muted)]">{entry.role}</td>
+                      <td className="px-3 py-2 tabular-nums text-[var(--text-muted)]">
                         {entry.quotaMaxPerMinute ? `${entry.quotaMaxPerMinute}/min` : 'Default'}
                       </td>
-                      <td className="px-3 py-2 text-xs text-zinc-500">
+                      <td className="px-3 py-2 text-xs text-[var(--text-muted)]">
                         {groupQuotas.length > 0 ? groupQuotas.join(' · ') : '—'}
                       </td>
-                      <td className="px-3 py-2 text-zinc-400">{entry.enabled ? 'Yes' : 'No'}</td>
+                      <td className="px-3 py-2 text-[var(--text-muted)]">
+                        {entry.enabled ? 'Yes' : 'No'}
+                      </td>
                     </tr>
                   );
                 })}
@@ -508,9 +516,9 @@ export default function UsersAdminPanel() {
             description="Users need to sign in and use Studio or Gallery on their device before snapshots appear here."
           />
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-zinc-800/80">
+          <div className="overflow-x-auto rounded-2xl border border-[var(--border-subtle)]/80">
             <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-zinc-800/80 bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+              <thead className="border-b border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/60 text-xs uppercase tracking-wide text-[var(--text-muted)]">
                 <tr>
                   <th className="px-3 py-2 font-medium">User</th>
                   <th className="px-3 py-2 font-medium">History</th>
@@ -524,24 +532,24 @@ export default function UsersAdminPanel() {
                 {analyticsSnapshots.map(snapshot => (
                   <tr
                     key={snapshot.userId}
-                    className={`border-b border-zinc-800/50 transition hover:bg-zinc-900/40 ${
+                    className={`border-b border-[var(--border-subtle)]/50 transition hover:bg-[var(--bg-muted)]/40 ${
                       selectedUserId === snapshot.userId ? 'bg-violet-500/5' : ''
                     }`}
                   >
-                    <td className="px-3 py-2 text-zinc-200">{snapshot.username}</td>
-                    <td className="px-3 py-2 tabular-nums text-zinc-400">
+                    <td className="px-3 py-2 text-[var(--text-primary)]">{snapshot.username}</td>
+                    <td className="px-3 py-2 tabular-nums text-[var(--text-muted)]">
                       {snapshot.historyTotal}
                     </td>
-                    <td className="px-3 py-2 tabular-nums text-zinc-400">
+                    <td className="px-3 py-2 tabular-nums text-[var(--text-muted)]">
                       {snapshot.galleryTotal}
                     </td>
-                    <td className="px-3 py-2 tabular-nums text-zinc-400">
+                    <td className="px-3 py-2 tabular-nums text-[var(--text-muted)]">
                       {snapshot.historyRated + snapshot.galleryRated}
                     </td>
-                    <td className="px-3 py-2 tabular-nums text-zinc-400">
+                    <td className="px-3 py-2 tabular-nums text-[var(--text-muted)]">
                       {snapshot.historyFavorites + snapshot.galleryFavorites}
                     </td>
-                    <td className="px-3 py-2 text-xs text-zinc-500">
+                    <td className="px-3 py-2 text-xs text-[var(--text-muted)]">
                       {formatCapturedAt(snapshot.capturedAt)}
                     </td>
                   </tr>
@@ -552,9 +560,9 @@ export default function UsersAdminPanel() {
         )}
 
         {selectedUserAnalytics ? (
-          <div className="mt-4 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 text-sm text-zinc-300">
+          <div className="mt-4 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 text-sm text-[var(--text-secondary)]">
             <p className="font-medium text-violet-100">{selectedUserAnalytics.username}</p>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
               Synced {formatCapturedAt(selectedUserAnalytics.capturedAt)}
             </p>
             {(analyticsHistory[selectedUserAnalytics.userId] ?? []).length > 1 ? (
@@ -604,7 +612,7 @@ export default function UsersAdminPanel() {
       </ToolSection>
 
       <ToolSection title="Shared preset library">
-        <p className="mb-3 text-sm text-zinc-400">
+        <p className="mb-3 text-sm text-[var(--text-muted)]">
           Publish read-only scene hints for all users. They appear on Profile and can be copied.
         </p>
         <div className="mb-4 grid gap-3 sm:grid-cols-2">
@@ -644,11 +652,11 @@ export default function UsersAdminPanel() {
           {sharedPresets.map(preset => (
             <li
               key={preset.id}
-              className="flex items-start justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-sm"
+              className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 px-3 py-2 text-sm"
             >
               <div>
-                <p className="font-medium text-zinc-100">{preset.label}</p>
-                <p className="text-xs text-zinc-500">{preset.hints}</p>
+                <p className="font-medium text-[var(--text-primary)]">{preset.label}</p>
+                <p className="text-xs text-[var(--text-muted)]">{preset.hints}</p>
               </div>
               <button
                 type="button"
@@ -667,7 +675,7 @@ export default function UsersAdminPanel() {
       </ToolSection>
 
       <ToolSection title="Shared projects">
-        <p className="mb-3 text-sm text-zinc-400">
+        <p className="mb-3 text-sm text-[var(--text-muted)]">
           Assign group-scoped campaign projects. Members see these in Studio → Projects.
         </p>
         <div className="mb-3 grid gap-3 sm:grid-cols-2">
@@ -704,7 +712,7 @@ export default function UsersAdminPanel() {
                 className={`rounded-full border px-3 py-1 text-xs transition ${
                   active
                     ? 'border-violet-500/40 bg-violet-500/15 text-violet-100'
-                    : 'border-zinc-700/80 text-zinc-400 hover:border-zinc-600'
+                    : 'border-[var(--border-default)]/80 text-[var(--text-muted)] hover:border-[var(--border-default)]'
                 }`}
               >
                 {group.name}
@@ -734,12 +742,14 @@ export default function UsersAdminPanel() {
           {sharedProjects.map(project => (
             <li
               key={project.id}
-              className="flex items-start justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-sm"
+              className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 px-3 py-2 text-sm"
             >
               <div>
-                <p className="font-medium text-zinc-100">{project.name}</p>
-                {project.notes ? <p className="text-xs text-zinc-500">{project.notes}</p> : null}
-                <p className="mt-1 text-[10px] text-zinc-600">
+                <p className="font-medium text-[var(--text-primary)]">{project.name}</p>
+                {project.notes ? (
+                  <p className="text-xs text-[var(--text-muted)]">{project.notes}</p>
+                ) : null}
+                <p className="mt-1 text-[10px] text-[var(--text-muted)]">
                   Groups:{' '}
                   {project.groupIds.length > 0
                     ? project.groupIds
@@ -779,11 +789,13 @@ export default function UsersAdminPanel() {
             {auditEntries.slice(0, 40).map(entry => (
               <li
                 key={entry.id}
-                className="rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-zinc-300"
+                className="rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 px-3 py-2 text-[var(--text-secondary)]"
               >
-                <span className="text-zinc-500">{new Date(entry.at).toLocaleString()}</span>
+                <span className="text-[var(--text-muted)]">
+                  {new Date(entry.at).toLocaleString()}
+                </span>
                 {' · '}
-                <span className="text-zinc-100">{entry.actorUsername}</span>
+                <span className="text-[var(--text-primary)]">{entry.actorUsername}</span>
                 {' · '}
                 {entry.action}
                 {entry.details ? ` · ${entry.details}` : ''}
@@ -803,7 +815,7 @@ export default function UsersAdminPanel() {
               className={`rounded-full border px-3 py-1 text-xs transition ${
                 selectedUserId === user.id
                   ? 'border-violet-500/50 bg-violet-500/15 text-violet-100'
-                  : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'
+                  : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)]'
               }`}
             >
               {user.username}
@@ -814,17 +826,17 @@ export default function UsersAdminPanel() {
           <button
             type="button"
             onClick={() => setSelectedUserId('__new__')}
-            className="rounded-full border border-dashed border-zinc-700 px-3 py-1 text-xs text-zinc-400"
+            className="rounded-full border border-dashed border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-muted)]"
           >
             + New user
           </button>
         </div>
 
         {selectedUserId ? (
-          <div className="space-y-4 rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-4">
+          <div className="space-y-4 rounded-2xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-2 text-sm">
-                <span className="type-caption text-zinc-500">Username</span>
+                <span className="type-caption text-[var(--text-muted)]">Username</span>
                 <TextInput
                   value={userForm.username}
                   onChange={event =>
@@ -833,7 +845,7 @@ export default function UsersAdminPanel() {
                 />
               </label>
               <label className="space-y-2 text-sm">
-                <span className="type-caption text-zinc-500">
+                <span className="type-caption text-[var(--text-muted)]">
                   Password {selectedUser ? '(leave blank to keep current)' : ''}
                 </span>
                 <TextInput
@@ -845,7 +857,7 @@ export default function UsersAdminPanel() {
                 />
               </label>
               <label className="space-y-2 text-sm sm:col-span-2">
-                <span className="type-caption text-zinc-500">Email</span>
+                <span className="type-caption text-[var(--text-muted)]">Email</span>
                 <TextInput
                   type="email"
                   value={userForm.email}
@@ -853,30 +865,30 @@ export default function UsersAdminPanel() {
                   placeholder="Optional notification address"
                 />
               </label>
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                 <input
                   type="checkbox"
                   checked={userForm.emailNotifyBatch}
                   onChange={event =>
                     setUserForm(prev => ({ ...prev, emailNotifyBatch: event.target.checked }))
                   }
-                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
                 />
                 Email on batch completion
               </label>
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                 <input
                   type="checkbox"
                   checked={userForm.emailNotifySecurity}
                   onChange={event =>
                     setUserForm(prev => ({ ...prev, emailNotifySecurity: event.target.checked }))
                   }
-                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
                 />
                 Email on password change
               </label>
               <label className="space-y-2 text-sm">
-                <span className="type-caption text-zinc-500">Role</span>
+                <span className="type-caption text-[var(--text-muted)]">Role</span>
                 <select
                   value={userForm.role}
                   onChange={event =>
@@ -892,19 +904,19 @@ export default function UsersAdminPanel() {
                   <option value="admin">Admin</option>
                 </select>
               </label>
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                 <input
                   type="checkbox"
                   checked={userForm.enabled}
                   onChange={event =>
                     setUserForm(prev => ({ ...prev, enabled: event.target.checked }))
                   }
-                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
                 />
                 Account enabled
               </label>
               <label className="space-y-2 text-sm">
-                <span className="type-caption text-zinc-500">API quota (req/min)</span>
+                <span className="type-caption text-[var(--text-muted)]">API quota (req/min)</span>
                 <TextInput
                   type="number"
                   value={userForm.quotaMaxPerMinute}
@@ -914,14 +926,14 @@ export default function UsersAdminPanel() {
                   placeholder="Inherit default / group"
                 />
               </label>
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                 <input
                   type="checkbox"
                   checked={userForm.exportEnabled}
                   onChange={event =>
                     setUserForm(prev => ({ ...prev, exportEnabled: event.target.checked }))
                   }
-                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                  className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
                 />
                 Nightly server export
               </label>
@@ -929,14 +941,14 @@ export default function UsersAdminPanel() {
 
             {groups.length > 0 ? (
               <div className="space-y-2">
-                <p className="type-caption text-zinc-500">Groups</p>
+                <p className="type-caption text-[var(--text-muted)]">Groups</p>
                 <div className="flex flex-wrap gap-2">
                   {groups.map(group => {
                     const checked = userForm.groupIds.includes(group.id);
                     return (
                       <label
                         key={group.id}
-                        className="flex items-center gap-2 rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300"
+                        className="flex items-center gap-2 rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-secondary)]"
                       >
                         <input
                           type="checkbox"
@@ -949,7 +961,7 @@ export default function UsersAdminPanel() {
                                 : [...prev.groupIds, group.id],
                             }))
                           }
-                          className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                          className="h-3.5 w-3.5 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
                         />
                         {group.name}
                       </label>
@@ -965,12 +977,12 @@ export default function UsersAdminPanel() {
                 regular users.
               </p>
             ) : userForm.role === 'viewer' ? (
-              <p className="rounded-xl border border-zinc-700/80 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-400">
+              <p className="rounded-xl border border-[var(--border-default)]/80 bg-[var(--bg-base)]/40 px-3 py-2 text-sm text-[var(--text-muted)]">
                 Viewers can browse Dashboard, Gallery, and Studio only.
               </p>
             ) : (
               <div className="space-y-2">
-                <p className="type-caption text-zinc-500">Section access</p>
+                <p className="type-caption text-[var(--text-muted)]">Section access</p>
                 <FeaturePicker
                   value={userForm.blockedFeatures}
                   onChange={blockedFeatures => setUserForm(prev => ({ ...prev, blockedFeatures }))}

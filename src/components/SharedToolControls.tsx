@@ -1082,11 +1082,14 @@ export default function SharedToolControls({
               ))}
             </div>
             {systemQualityHint ? (
-              <p className="text-xs leading-relaxed text-zinc-500">{systemQualityHint}</p>
+              <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                {systemQualityHint}
+              </p>
             ) : null}
             {systemWorkflowChoice ? (
-              <p className="text-xs leading-relaxed text-zinc-500">
-                Graph: <span className="text-zinc-300">{systemWorkflowChoice.display}</span>
+              <p className="text-xs leading-relaxed text-[var(--text-muted)]">
+                Graph:{' '}
+                <span className="text-[var(--text-secondary)]">{systemWorkflowChoice.display}</span>
               </p>
             ) : null}
             <QueueRecipesPanel
@@ -1300,13 +1303,13 @@ export default function SharedToolControls({
                         ) : null}
                       </div>
                       {wildcardPreview ? (
-                        <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-3 text-xs leading-relaxed text-zinc-300">
+                        <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/50 p-3 text-xs leading-relaxed text-[var(--text-secondary)]">
                           {wildcardPreview}
                         </pre>
                       ) : null}
                     </div>
                   ) : (
-                    <p className="type-caption text-zinc-500">
+                    <p className="type-caption text-[var(--text-muted)]">
                       Add <code>__list__</code> or <code>{'{a|b}'}</code> tokens to the draft/hints
                       to preview expansion here.
                     </p>
@@ -1551,8 +1554,8 @@ function DiffusersSamplingReadout({
         ? 'allow hands'
         : 'auto crop';
   return (
-    <p className="rounded-lg border border-zinc-700/60 bg-zinc-950/50 px-3 py-2 text-xs leading-relaxed text-zinc-400">
-      Diffusers · <span className="text-zinc-200">{checkpoint}</span>
+    <p className="rounded-lg border border-[var(--border-default)]/60 bg-[var(--bg-base)]/50 px-3 py-2 text-xs leading-relaxed text-[var(--text-muted)]">
+      Diffusers · <span className="text-[var(--text-primary)]">{checkpoint}</span>
       {' · '}
       {width}×{height} · {steps} steps · CFG {cfg}
       {' · '}

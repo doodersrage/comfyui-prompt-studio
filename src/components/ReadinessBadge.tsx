@@ -132,9 +132,9 @@ export default function ReadinessBadge(props: {
     (props.onCompact || props.onFixRules || props.onReformat);
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 text-sm">
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 px-4 py-3 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-zinc-100">
+        <p className="font-medium text-[var(--text-primary)]">
           Prompt readiness: {result.score}/100 ({result.grade})
         </p>
         {!queueAllowed ? (
@@ -154,7 +154,7 @@ export default function ReadinessBadge(props: {
         </p>
       ) : null}
 
-      <ul className="mt-2 space-y-1 text-zinc-400">
+      <ul className="mt-2 space-y-1 text-[var(--text-muted)]">
         {checks.map(check => (
           <li key={check.id}>
             {check.passed ? '✓' : '✗'} {check.label}
@@ -164,7 +164,7 @@ export default function ReadinessBadge(props: {
       </ul>
 
       {suggestions.length > 0 ? (
-        <ul className="mt-3 space-y-1 text-xs text-zinc-500">
+        <ul className="mt-3 space-y-1 text-xs text-[var(--text-muted)]">
           {suggestions.map(suggestion => (
             <li key={suggestion}>• {suggestion}</li>
           ))}
@@ -183,7 +183,7 @@ export default function ReadinessBadge(props: {
       ) : null}
 
       {failedChecks.length === 0 ? null : (
-        <p className="mt-2 text-[11px] text-zinc-600">
+        <p className="mt-2 text-[11px] text-[var(--text-muted)]">
           {failedChecks.length} check(s) failed
           {canAutoFix ? ' — use Fix readiness issues or queue anyway.' : '.'}
         </p>

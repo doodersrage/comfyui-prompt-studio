@@ -50,12 +50,12 @@ export default function ModelRecommenderHints({
                 type="button"
                 disabled={active}
                 onClick={() => onApplyModel(item.model as ComfyImageModel)}
-                className="rounded-full border border-violet-500/30 bg-zinc-950/40 px-2.5 py-0.5 text-violet-100 transition hover:border-violet-400/50 disabled:cursor-default disabled:opacity-60"
+                className="rounded-full border border-violet-500/30 bg-[var(--bg-base)]/40 px-2.5 py-0.5 text-violet-100 transition hover:border-violet-400/50 disabled:cursor-default disabled:opacity-60"
               >
                 {def.label}
                 {active ? ' · current' : ''}
               </button>
-              <span className="text-zinc-500">{item.reason}</span>
+              <span className="text-[var(--text-muted)]">{item.reason}</span>
             </li>
           );
         })}

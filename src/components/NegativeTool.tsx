@@ -24,6 +24,7 @@ import {
   accentRingClass,
 } from '@/components/ui/ToolPageShell';
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'rose' as const;
@@ -35,6 +36,10 @@ type NegativeGenerateResult = {
 };
 
 export default function NegativeTool() {
+  const description = useToolPageDescription(
+    'Sport-aware negatives for SD-family models, or preserve lists for edit workflows.',
+    'Build negative prompts — sport-aware for SD models or preserve lists for edits.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'negative',
     DEFAULT_NEGATIVE_TOOL_CACHE
@@ -129,7 +134,7 @@ export default function NegativeTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Negative / preserve</ToolBadge>}
       title="Negative"
-      description="Sport-aware negatives for SD-family models, or preserve lists for edit workflows."
+      description={description}
       sidebar={
         <SharedToolControls
           shared={shared}
@@ -172,11 +177,13 @@ export default function NegativeTool() {
             type="checkbox"
             checked={toolSettings.preserveSubject === true}
             onChange={event => updateToolSettings({ preserveSubject: event.target.checked })}
-            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentRingClass(ACCENT)}`}
+            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentRingClass(ACCENT)}`}
           />
           <span className="space-y-1">
-            <span className="text-sm font-medium text-zinc-200">Preserve subject mode</span>
-            <span className="block text-xs text-zinc-500">
+            <span className="text-sm font-medium text-[var(--text-primary)]">
+              Preserve subject mode
+            </span>
+            <span className="block text-xs text-[var(--text-muted)]">
               Adds identity-preservation negatives for edit/refine workflows.
             </span>
           </span>

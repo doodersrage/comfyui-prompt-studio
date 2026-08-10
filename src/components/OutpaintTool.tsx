@@ -27,6 +27,7 @@ import {
 } from '@/lib/outpaint-canvas';
 import { sharedPatchFromGalleryHandoff } from '@/lib/gallery-handoff';
 import { DEFAULT_OUTPAINT_TOOL_CACHE } from '@/lib/settings-cache';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 
 const ACCENT = 'amber' as const;
@@ -44,6 +45,10 @@ function dataUrlToFile(dataUrl: string, filename: string): File {
 }
 
 export default function OutpaintTool() {
+  const description = useToolPageDescription(
+    'Pad the canvas and inpaint the new border so the scene continues outward. Uses the same quality recipes, LoRA stack, and Final promote path as Inpaint.',
+    'Extend the canvas outward — pad edges and inpaint the new border.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'outpaint',
     DEFAULT_OUTPAINT_TOOL_CACHE
@@ -224,7 +229,7 @@ export default function OutpaintTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Outpaint · {selectedModel.comfyNode}</ToolBadge>}
       title="Outpaint / expand"
-      description="Pad the canvas and inpaint the new border so the scene continues outward. Uses the same quality recipes, LoRA stack, and Final promote path as Inpaint."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="outpaint"
@@ -243,14 +248,14 @@ export default function OutpaintTool() {
           type="file"
           accept="image/*"
           onChange={event => onFile(event.target.files?.[0] ?? null)}
-          className={`block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${accentFocusClass(ACCENT)}`}
+          className={`block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-amber-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${accentFocusClass(ACCENT)}`}
         />
         {sourceUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={sourceUrl}
             alt="Outpaint source"
-            className="mt-3 max-h-64 rounded-xl border border-zinc-800/80 object-contain shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)]"
+            className="mt-3 max-h-64 rounded-xl border border-[var(--border-subtle)]/80 object-contain shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)]"
           />
         ) : (
           <p className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs text-amber-100/85">
@@ -262,7 +267,7 @@ export default function OutpaintTool() {
       <ToolSection title="Expand">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {(['top', 'right', 'bottom', 'left'] as const).map(side => (
-            <label key={side} className="space-y-1.5 text-xs text-zinc-400">
+            <label key={side} className="space-y-1.5 text-xs text-[var(--text-muted)]">
               <span className="capitalize">{side} (px)</span>
               <TextInput
                 type="number"
@@ -308,7 +313,7 @@ export default function OutpaintTool() {
           >
             Clear source
           </Button>
-          {status ? <p className="text-xs text-zinc-500">{status}</p> : null}
+          {status ? <p className="text-xs text-[var(--text-muted)]">{status}</p> : null}
         </div>
         <FieldError>{error}</FieldError>
       </ToolSection>

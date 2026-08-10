@@ -38,7 +38,7 @@ function ProgressBar({ percent, label }: { percent: number; label?: string | nul
   return (
     <div className="space-y-1.5 pt-1">
       <div
-        className="h-1.5 overflow-hidden rounded-full bg-zinc-800/80"
+        className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]/80"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -131,7 +131,7 @@ export default function ComfyUiJobStatusPanel({
             <img
               src={previewUrl}
               alt="Live ComfyUI preview"
-              className="mt-1 max-h-56 w-full rounded-lg border border-zinc-600/50 object-contain bg-zinc-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+              className="mt-1 max-h-56 w-full rounded-lg border border-[var(--border-default)]/50 object-contain bg-[var(--bg-base)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
             />
           ) : null}
 
@@ -209,7 +209,7 @@ export function ComfyUiGalleryJobPlaceholder({
 
   return (
     <div
-      className="relative flex h-full flex-col items-center justify-center gap-3 bg-zinc-950/80 px-4 text-center"
+      className="relative flex h-full flex-col items-center justify-center gap-3 bg-[var(--bg-base)]/80 px-4 text-center"
       role="status"
       aria-live="polite"
       aria-busy={processing}
@@ -225,7 +225,7 @@ export function ComfyUiGalleryJobPlaceholder({
 
       {processing && !previewUrl ? <span className="ui-spinner ui-spinner-lg" aria-hidden /> : null}
 
-      <div className="relative z-10 w-full max-w-[14rem] space-y-2 rounded-xl bg-zinc-950/55 px-3 py-2 backdrop-blur-sm">
+      <div className="relative z-10 w-full max-w-[14rem] space-y-2 rounded-xl bg-[var(--bg-base)]/55 px-3 py-2 backdrop-blur-sm">
         <p className="text-xs font-medium uppercase tracking-wide text-violet-200">
           {previewUrl ? 'Latent · ' : ''}
           {entry.status === 'running'
@@ -235,16 +235,18 @@ export function ComfyUiGalleryJobPlaceholder({
               : 'Waiting'}
         </p>
         {entry.queuePosition != null && entry.queuePosition > 0 ? (
-          <p className="text-[11px] text-zinc-400">Position {entry.queuePosition} in queue</p>
+          <p className="text-[11px] text-[var(--text-muted)]">
+            Position {entry.queuePosition} in queue
+          </p>
         ) : entry.status === 'running' && percent == null ? (
-          <p className="text-[11px] text-zinc-400">
+          <p className="text-[11px] text-[var(--text-muted)]">
             {previewUrl ? 'Receiving latent frames…' : 'Executing workflow…'}
           </p>
         ) : null}
         {percent != null ? (
           <div className="space-y-1.5">
             <div
-              className="h-1.5 overflow-hidden rounded-full bg-zinc-800/90"
+              className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]/90"
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={100}
@@ -256,15 +258,15 @@ export function ComfyUiGalleryJobPlaceholder({
               />
             </div>
             {progressLabel ? (
-              <p className="text-[11px] text-zinc-400">
+              <p className="text-[11px] text-[var(--text-muted)]">
                 {percent != null ? `${percent}% · ${progressLabel}` : progressLabel}
               </p>
             ) : percent != null ? (
-              <p className="text-[11px] tabular-nums text-zinc-400">{percent}%</p>
+              <p className="text-[11px] tabular-nums text-[var(--text-muted)]">{percent}%</p>
             ) : null}
           </div>
         ) : entry.statusMessage?.trim() ? (
-          <p className="text-[11px] text-zinc-500">{entry.statusMessage}</p>
+          <p className="text-[11px] text-[var(--text-muted)]">{entry.statusMessage}</p>
         ) : null}
       </div>
     </div>

@@ -21,10 +21,10 @@ export default function DuplicatePromptsPanel() {
 
   return (
     <ToolSection title="Duplicate prompts">
-      <p className="mb-3 text-sm text-zinc-400">
+      <p className="mb-3 text-sm text-[var(--text-muted)]">
         Finds near-identical history entries by token overlap.
       </p>
-      <label className="mb-3 flex items-center gap-2 text-sm text-zinc-300">
+      <label className="mb-3 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
         Similarity threshold
         <input
           type="range"
@@ -53,12 +53,12 @@ export default function DuplicatePromptsPanel() {
           {groups.slice(0, 12).map(group => (
             <li
               key={group.ids.join('-')}
-              className="rounded-xl border border-zinc-800 px-3 py-2 text-sm"
+              className="rounded-xl border border-[var(--border-subtle)] px-3 py-2 text-sm"
             >
-              <p className="text-zinc-500">
+              <p className="text-[var(--text-muted)]">
                 {group.ids.length} entries · {Math.round(group.similarity * 100)}% similar
               </p>
-              <p className="mt-1 line-clamp-2 text-zinc-300">{group.prompt}</p>
+              <p className="mt-1 line-clamp-2 text-[var(--text-secondary)]">{group.prompt}</p>
             </li>
           ))}
         </ul>

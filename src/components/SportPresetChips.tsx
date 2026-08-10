@@ -22,7 +22,7 @@ export default function SportPresetChips({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-zinc-200">Sport presets</p>
+      <p className="text-sm font-medium text-[var(--text-primary)]">Sport presets</p>
       <div className="flex flex-wrap gap-2">
         {presets.map(preset => {
           const active = selectedId === preset.id;
@@ -34,7 +34,7 @@ export default function SportPresetChips({
               className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                 active
                   ? 'border-emerald-500 bg-emerald-500/15 text-emerald-200'
-                  : 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+                  : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
               }`}
             >
               {preset.label}

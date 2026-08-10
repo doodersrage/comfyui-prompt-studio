@@ -68,9 +68,9 @@ export default function WildcardListsEditor({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-zinc-400">
-        Custom <code className="rounded bg-zinc-800 px-1 text-violet-300">__name__</code> lists
-        layered on built-ins ({Object.keys(DEFAULT_WILDCARDS).join(', ')}
+      <p className="text-sm text-[var(--text-muted)]">
+        Custom <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">__name__</code>{' '}
+        lists layered on built-ins ({Object.keys(DEFAULT_WILDCARDS).join(', ')}
         ). One option per line; lines starting with # are ignored.
       </p>
 
@@ -99,7 +99,7 @@ export default function WildcardListsEditor({
           type="button"
           disabled={disabled || !active}
           onClick={removeList}
-          className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition hover:border-rose-500/40 hover:text-rose-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 active:scale-[0.98] disabled:opacity-40"
+          className="rounded-lg border border-[var(--border-default)] px-3 py-2 text-sm text-[var(--text-secondary)] transition hover:border-rose-500/40 hover:text-rose-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 active:scale-[0.98] disabled:opacity-40"
         >
           Remove
         </button>
@@ -136,7 +136,7 @@ export default function WildcardListsEditor({
           type="button"
           disabled={disabled || !normalizeName(draftName)}
           onClick={addList}
-          className="rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 transition hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.98] disabled:opacity-40"
+          className="rounded-lg border border-[var(--border-default)] px-3 py-2 text-sm text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.98] disabled:opacity-40"
         >
           Add list
         </button>

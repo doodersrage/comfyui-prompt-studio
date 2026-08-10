@@ -32,6 +32,7 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { FieldLabel, TextArea } from '@/components/ui/Field';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, ButtonLink, PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'violet' as const;
@@ -43,6 +44,10 @@ function isFetchableImageRef(value: string): boolean {
 }
 
 export default function VideoPromptTool() {
+  const description = useToolPageDescription(
+    'Motion and camera prompts for WAN / Hunyuan Video. Add an init image for image-to-video.',
+    'Video motion prompts — add an init image for image-to-video.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'video',
     DEFAULT_VIDEO_TOOL_CACHE
@@ -440,7 +445,7 @@ export default function VideoPromptTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Video · motion prompts</ToolBadge>}
       title="Video"
-      description="Motion and camera prompts for WAN / Hunyuan Video. Add an init image for image-to-video."
+      description={description}
       sidebar={
         <SharedToolControls
           shared={controlsShared}
@@ -542,13 +547,13 @@ export default function VideoPromptTool() {
               type="file"
               accept="image/*"
               onChange={event => onInitFileChange(event.target.files?.[0] ?? null)}
-              className="block min-w-0 flex-1 text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-violet-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white file:transition hover:file:bg-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
+              className="block min-w-0 flex-1 text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-violet-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white file:transition hover:file:bg-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
             />
             <ButtonLink href={galleryPickPath('video')} variant="secondary" size="sm">
               Choose from Gallery
             </ButtonLink>
           </div>
-          <p className="type-caption text-zinc-500">
+          <p className="type-caption text-[var(--text-muted)]">
             Opens Gallery in pick mode — click a completed still to return here as the I2V init
             image.
           </p>
@@ -558,7 +563,7 @@ export default function VideoPromptTool() {
               <img
                 src={previewUrl}
                 alt="Video init preview"
-                className="max-h-48 rounded-xl border border-zinc-800 object-contain shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+                className="max-h-48 rounded-xl border border-[var(--border-subtle)] object-contain shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
               />
               <Button variant="ghost" size="sm" onClick={clearInitImage}>
                 Remove image

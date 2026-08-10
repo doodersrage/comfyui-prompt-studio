@@ -57,7 +57,7 @@ export default function LoraStackSessionPicker({
   }, [model, sessionActiveLoraIds]);
 
   if (!snapshot) {
-    return <p className="type-caption text-zinc-500">Loading LoRA stack…</p>;
+    return <p className="type-caption text-[var(--text-muted)]">Loading LoRA stack…</p>;
   }
 
   const selectable = listSelectableLoraLibraryEntries(snapshot.library);
@@ -97,7 +97,7 @@ export default function LoraStackSessionPicker({
 
   if (selectable.length === 0) {
     return (
-      <p className="type-caption text-zinc-500">
+      <p className="type-caption text-[var(--text-muted)]">
         No LoRAs in your library yet. Add them under{' '}
         <a
           href="/settings?tab=comfyui&section=lora-library"
@@ -116,14 +116,16 @@ export default function LoraStackSessionPicker({
         Active LoRAs
       </FieldLabel>
       {modelDefaultLabels !== null ? (
-        <p className="type-caption text-zinc-500">Using model defaults: {modelDefaultLabels}</p>
+        <p className="type-caption text-[var(--text-muted)]">
+          Using model defaults: {modelDefaultLabels}
+        </p>
       ) : null}
       <ul className="ui-scroll-region sidebar-scroll max-h-56 space-y-2 overflow-y-auto pr-1">
         {selectable.map(entry => {
           const checked = activeSet.has(entry.id);
           return (
             <li key={entry.id}>
-              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 transition hover:border-zinc-700 hover:bg-zinc-900/50 focus-within:border-violet-500/50">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 px-3 py-2 transition hover:border-[var(--border-default)] hover:bg-[var(--bg-muted)]/50 focus-within:border-violet-500/50">
                 <input
                   type="checkbox"
                   checked={checked}
@@ -138,14 +140,14 @@ export default function LoraStackSessionPicker({
                   }}
                   className={
                     checkboxClassName ??
-                    'mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500'
+                    'mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500'
                   }
                 />
                 <span className="min-w-0 space-y-0.5">
-                  <span className="block text-sm font-medium text-zinc-200">
+                  <span className="block text-sm font-medium text-[var(--text-primary)]">
                     {entry.label || entry.id}
                   </span>
-                  <span className="block truncate text-xs text-zinc-500">
+                  <span className="block truncate text-xs text-[var(--text-muted)]">
                     {entry.tokenValue}
                     {typeof entry.strengthModel === 'number'
                       ? ` · ${entry.strengthModel.toFixed(2)}`
@@ -157,12 +159,12 @@ export default function LoraStackSessionPicker({
           );
         })}
       </ul>
-      <p className="text-sm leading-relaxed text-zinc-400">
+      <p className="text-sm leading-relaxed text-[var(--text-muted)]">
         {activeIds.length === 0 ? (
-          <span className="text-zinc-500">Selected: none</span>
+          <span className="text-[var(--text-muted)]">Selected: none</span>
         ) : (
           <>
-            <span className="font-medium text-zinc-300">Selected: </span>
+            <span className="font-medium text-[var(--text-secondary)]">Selected: </span>
             {activeLabelList}
           </>
         )}
@@ -184,7 +186,7 @@ export default function LoraStackSessionPicker({
             Follow model defaults
           </Button>
         ) : (
-          <p className="type-caption self-center text-zinc-500">
+          <p className="type-caption self-center text-[var(--text-muted)]">
             {modelDefaultLabels !== null ? 'Following model LoRA map' : 'None selected by default'}
           </p>
         )}

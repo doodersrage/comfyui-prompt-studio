@@ -60,7 +60,7 @@ export default function ObservabilityDashboard() {
 
   return (
     <ToolSection title="Observability">
-      <p className="text-sm text-zinc-400">
+      <p className="text-sm text-[var(--text-muted)]">
         In-memory API usage from the proxy layer: volume, rate limits, slow routes, and recent
         errors.
       </p>
@@ -79,7 +79,9 @@ export default function ObservabilityDashboard() {
 
       {recentErrors.length > 0 ? (
         <div className="mt-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Recent errors</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+            Recent errors
+          </p>
           <ul className="mt-2 space-y-1 text-xs text-rose-300">
             {recentErrors.map((entry, index) => (
               <li key={`${entry.path}-${entry.at}-${index}`}>
@@ -92,10 +94,10 @@ export default function ObservabilityDashboard() {
 
       {slowest.length > 0 ? (
         <div className="mt-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
             Slowest routes
           </p>
-          <ul className="mt-2 space-y-1 text-xs text-zinc-400">
+          <ul className="mt-2 space-y-1 text-xs text-[var(--text-muted)]">
             {slowest.map((entry, index) => (
               <li key={`slow-${entry.path}-${index}`}>
                 {entry.path} · {entry.durationMs}ms · {entry.status}
@@ -110,9 +112,9 @@ export default function ObservabilityDashboard() {
 
 function Metric(props: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
-      <p className="text-[11px] uppercase tracking-wide text-zinc-500">{props.label}</p>
-      <p className="mt-1 text-base font-semibold text-zinc-100">{props.value}</p>
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/70 p-3">
+      <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">{props.label}</p>
+      <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{props.value}</p>
     </div>
   );
 }

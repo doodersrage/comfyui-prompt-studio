@@ -25,6 +25,7 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { FieldLabel } from '@/components/ui/Field';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { Button, PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'cyan' as const;
@@ -47,6 +48,10 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 export default function ControlNetTool() {
+  const description = useToolPageDescription(
+    'Structure-focused prompts for depth, pose, canny, and lineart conditioning.',
+    'Guide structure with depth, pose, canny, or lineart — then generate.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'controlnet',
     DEFAULT_CONTROLNET_TOOL_CACHE
@@ -251,7 +256,7 @@ export default function ControlNetTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>ControlNet</ToolBadge>}
       title="ControlNet"
-      description="Structure-focused prompts for depth, pose, canny, and lineart conditioning."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="controlnet"
@@ -286,7 +291,7 @@ export default function ControlNetTool() {
           type="file"
           accept="image/*"
           onChange={event => onRefChange(event.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-700 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+          className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-700 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
         />
         {refPreview ? (
           <div className="mt-3 flex flex-wrap items-start gap-3">
@@ -294,14 +299,14 @@ export default function ControlNetTool() {
             <img
               src={refPreview}
               alt="ControlNet reference"
-              className="max-h-48 rounded-lg border border-zinc-800 object-contain"
+              className="max-h-48 rounded-lg border border-[var(--border-subtle)] object-contain"
             />
             <Button variant="ghost" onClick={() => onRefChange(null)}>
               Remove image
             </Button>
           </div>
         ) : (
-          <p className="mt-2 text-xs text-zinc-500">
+          <p className="mt-2 text-xs text-[var(--text-muted)]">
             When uploaded, vision extracts structure and merges it with the selected ControlNet
             mode.
           </p>
@@ -323,14 +328,14 @@ export default function ControlNetTool() {
                   type="file"
                   accept="image/*"
                   onChange={event => onExtraRefChange(index, event.target.files?.[0] ?? null)}
-                  className="block w-full text-xs text-zinc-400 file:mr-2 file:rounded-md file:border-0 file:bg-zinc-800 file:px-2 file:py-1.5 file:text-xs file:text-zinc-200"
+                  className="block w-full text-xs text-[var(--text-muted)] file:mr-2 file:rounded-md file:border-0 file:bg-[var(--bg-muted)] file:px-2 file:py-1.5 file:text-xs file:text-[var(--text-primary)]"
                 />
                 {extraRefPreviews[index] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={extraRefPreviews[index]!}
                     alt={`Control ${index + 2}`}
-                    className="max-h-28 rounded-lg border border-zinc-800 object-contain"
+                    className="max-h-28 rounded-lg border border-[var(--border-subtle)] object-contain"
                   />
                 ) : null}
               </div>

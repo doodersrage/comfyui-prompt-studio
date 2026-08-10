@@ -24,7 +24,7 @@ export default function ComfyUiSettingsJumpNav({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="type-overline text-[var(--text-muted)]">Jump to</p>
-          <p className="type-caption mt-1 text-zinc-500">
+          <p className="type-caption mt-1 text-[var(--text-muted)]">
             Search or jump within the ComfyUI settings tab.
           </p>
         </div>
@@ -51,7 +51,7 @@ export default function ComfyUiSettingsJumpNav({
         ))}
       </div>
       {query.trim() && sections.length === 0 ? (
-        <p className="type-caption text-zinc-500">No sections match “{query.trim()}”.</p>
+        <p className="type-caption text-[var(--text-muted)]">No sections match “{query.trim()}”.</p>
       ) : null}
     </div>
   );

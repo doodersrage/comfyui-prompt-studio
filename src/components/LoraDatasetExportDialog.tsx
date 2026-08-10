@@ -45,7 +45,7 @@ export default function LoraDatasetExportDialog({
   return (
     <ModalPortal>
       <div
-        className="fixed inset-0 z-[80] flex items-center justify-center bg-zinc-950/70 p-4 backdrop-blur-sm"
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-[var(--bg-base)]/70 p-4 backdrop-blur-sm"
         role="presentation"
         onClick={onCancel}
       >
@@ -53,14 +53,14 @@ export default function LoraDatasetExportDialog({
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          className="w-full max-w-md space-y-4 rounded-2xl border border-zinc-800/80 bg-zinc-950/95 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+          className="w-full max-w-md space-y-4 rounded-2xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/95 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
           onClick={event => event.stopPropagation()}
         >
           <div className="space-y-1">
-            <h2 id={titleId} className="type-heading text-zinc-100">
+            <h2 id={titleId} className="type-heading text-[var(--text-primary)]">
               Export LoRA dataset
             </h2>
-            <p className="type-caption text-zinc-500">
+            <p className="type-caption text-[var(--text-muted)]">
               Caption mode and optional trigger word for the ZIP export. Prefs are remembered for
               the next export.
             </p>

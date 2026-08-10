@@ -981,8 +981,8 @@ export default function ComfyUiGalleryPanel({
       {showHeader && (
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="type-heading text-zinc-100">Gallery</h2>
-            <p className="mt-1 text-sm text-zinc-500">
+            <h2 className="type-heading text-[var(--text-primary)]">Gallery</h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
               Browse ComfyUI outputs, rate results, compare variants, and queue follow-up
               experiments.
             </p>
@@ -1008,7 +1008,7 @@ export default function ComfyUiGalleryPanel({
                     clearAll();
                   }
                 }}
-                className="ui-btn-ghost ui-btn-sm text-xs text-zinc-500 hover:text-rose-300"
+                className="ui-btn-ghost ui-btn-sm text-xs text-[var(--text-muted)] hover:text-rose-300"
               >
                 Clear all
               </button>
@@ -1095,7 +1095,7 @@ export default function ComfyUiGalleryPanel({
       )}
 
       {bulkEnabled && visibleEntries.length > 0 && selectedIds.length === 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-zinc-800/80 bg-zinc-950/20 px-4 py-3 text-xs text-zinc-500">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/20 px-4 py-3 text-xs text-[var(--text-muted)]">
           <span>Select cards to compare, export, queue, assign projects, or remove.</span>
           <div className="flex items-center gap-2">
             <button
@@ -1509,7 +1509,7 @@ export default function ComfyUiGalleryPanel({
               className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
                 filter.derivedKind === kind
                   ? 'border-violet-400/50 bg-violet-500/15 text-violet-100'
-                  : 'border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
+                  : 'border-[var(--border-subtle)] bg-[var(--bg-base)]/40 text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
               }`}
             >
               {kind === 'upscale'
@@ -1538,7 +1538,7 @@ export default function ComfyUiGalleryPanel({
       {compareOpen && selectedEntries.length >= 2 ? (
         <ModalPortal>
           <div
-            className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-zinc-950/85 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-[var(--bg-base)]/85 p-4 backdrop-blur-sm"
             role="dialog"
             aria-modal="true"
             aria-label="Compare gallery outputs"
@@ -1893,7 +1893,7 @@ function GalleryPaginator({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-500/25 bg-violet-500/10 px-4 py-3 backdrop-blur-sm">
       <p
-        className={`type-caption leading-wider text-zinc-400 ${
+        className={`type-caption leading-wider text-[var(--text-muted)] ${
           totalPages <= 3 ? '' : ' bg-violet-500/15 border-violet-500/20 text-[11px] font-medium'
         }`}
       >

@@ -83,7 +83,7 @@ export function VariationSliderField({
   return (
     <>
       {showLabel && label ? <FieldLabel hint={hint}>{label}</FieldLabel> : null}
-      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 text-xs text-zinc-400">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 text-xs text-[var(--text-muted)]">
         <span className="type-caption">{minLabel}</span>
         <input
           id={id}
@@ -95,7 +95,9 @@ export function VariationSliderField({
           onChange={event => onChange(Number(event.target.value))}
           className={`h-8 w-full min-w-0 cursor-pointer accent-violet-500 ${accentRingClassName}`.trim()}
         />
-        <span className="type-caption text-right font-medium text-zinc-200">{valueLabel}</span>
+        <span className="type-caption text-right font-medium text-[var(--text-primary)]">
+          {valueLabel}
+        </span>
       </div>
     </>
   );

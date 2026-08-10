@@ -88,7 +88,7 @@ function TrayProgressBar({
   return (
     <div className={compact ? 'space-y-1' : 'space-y-1.5'}>
       <div
-        className={`overflow-hidden rounded-full bg-zinc-800/80 ${compact ? 'h-1' : 'h-1.5'}`}
+        className={`overflow-hidden rounded-full bg-[var(--bg-muted)]/80 ${compact ? 'h-1' : 'h-1.5'}`}
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -192,7 +192,7 @@ function GalleryTrayRow({ entry }: { entry: ComfyGalleryEntry }) {
         <img
           src={previewUrl}
           alt=""
-          className="h-11 w-11 shrink-0 rounded-lg border border-zinc-700/60 object-cover"
+          className="h-11 w-11 shrink-0 rounded-lg border border-[var(--border-default)]/60 object-cover"
         />
       ) : (
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-violet-500/20 bg-violet-500/10 text-violet-300">

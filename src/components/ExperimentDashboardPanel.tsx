@@ -62,7 +62,7 @@ export default function ExperimentDashboardPanel() {
 
   return (
     <ToolSection title="Experiment dashboard">
-      <p className="text-sm text-zinc-400">
+      <p className="text-sm text-[var(--text-muted)]">
         Groups gallery outputs by shared prompt text and tracks seed / CFG / steps variants. Crown a
         winner, compare outputs, or re-queue the group.
       </p>
@@ -89,11 +89,14 @@ export default function ExperimentDashboardPanel() {
               ? group.entries.find(entry => entry.id === winner.entryId)
               : undefined;
             return (
-              <li key={group.id} className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+              <li
+                key={group.id}
+                className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 p-4"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-zinc-100">{group.label}</p>
-                    <p className="mt-1 text-xs text-zinc-500">
+                    <p className="text-sm font-medium text-[var(--text-primary)]">{group.label}</p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
                       {group.entries.length} outputs · seeds:{' '}
                       {group.variants.seeds.join(', ') || '—'}
                       {group.variants.cfgValues.length
@@ -134,7 +137,7 @@ export default function ExperimentDashboardPanel() {
                       <div
                         key={entry.id}
                         className={`overflow-hidden rounded-lg border ${
-                          isWinner ? 'border-emerald-500/60' : 'border-zinc-800'
+                          isWinner ? 'border-emerald-500/60' : 'border-[var(--border-subtle)]'
                         }`}
                       >
                         {thumb ? (
@@ -147,12 +150,12 @@ export default function ExperimentDashboardPanel() {
                             className="aspect-square w-full object-cover"
                           />
                         ) : (
-                          <div className="flex aspect-square items-center justify-center text-[10px] text-zinc-500">
+                          <div className="flex aspect-square items-center justify-center text-[10px] text-[var(--text-muted)]">
                             No preview
                           </div>
                         )}
                         <div className="space-y-1 p-2">
-                          <p className="text-[10px] text-zinc-500">
+                          <p className="text-[10px] text-[var(--text-muted)]">
                             seed {entry.queueParams?.seed ?? '—'}
                             {entry.reviewRating ? ` · ${entry.reviewRating}/5` : ''}
                           </p>
@@ -161,7 +164,7 @@ export default function ExperimentDashboardPanel() {
                             className={`w-full rounded border px-2 py-1 text-[10px] ${
                               isWinner
                                 ? 'border-emerald-500/50 text-emerald-200'
-                                : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
+                                : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-default)]'
                             }`}
                             onClick={() => {
                               if (isWinner) {
@@ -181,7 +184,7 @@ export default function ExperimentDashboardPanel() {
                 </div>
 
                 {expandedGroupId === group.id && expandedGroup?.id === group.id ? (
-                  <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-800 pt-4">
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-4">
                     <Button
                       variant="secondary"
                       className="!min-h-8"

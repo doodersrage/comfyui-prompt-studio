@@ -27,7 +27,7 @@ export default function PromptRecipesPanel() {
 
   return (
     <ToolSection title="Prompt recipes">
-      <p className="mb-3 text-sm text-zinc-400">
+      <p className="mb-3 text-sm text-[var(--text-muted)]">
         Chain lint, fix, compact, and queue steps into reusable pipelines.
       </p>
       <div className="space-y-3">
@@ -73,11 +73,11 @@ export default function PromptRecipesPanel() {
           {recipes.map(recipe => (
             <li
               key={recipe.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-sm"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 px-3 py-2 text-sm"
             >
               <div>
-                <p className="font-medium text-zinc-100">{recipe.name}</p>
-                <p className="text-xs text-zinc-500">{recipe.steps.join(' → ')}</p>
+                <p className="font-medium text-[var(--text-primary)]">{recipe.name}</p>
+                <p className="text-xs text-[var(--text-muted)]">{recipe.steps.join(' → ')}</p>
               </div>
               <Button
                 variant="ghost"

@@ -20,7 +20,7 @@ export default function PromptDiagnosticsPanel({
 }: PromptDiagnosticsPanelProps) {
   if (loading) {
     return (
-      <section className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 text-sm text-zinc-500">
+      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/60 p-4 text-sm text-[var(--text-muted)]">
         Analyzing prompt…
       </section>
     );
@@ -33,37 +33,37 @@ export default function PromptDiagnosticsPanel({
   const summary = summarizeDiagnostics(diagnostics);
 
   return (
-    <section className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+    <section className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-zinc-200">Diagnostics</h3>
-        <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] text-zinc-400">
+        <h3 className="text-sm font-medium text-[var(--text-primary)]">Diagnostics</h3>
+        <span className="rounded-full border border-[var(--border-default)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
           {summary}
         </span>
       </div>
 
-      <dl className="grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
+      <dl className="grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-2">
         {diagnostics.inferred.sport && (
           <>
             <dt>Sport</dt>
-            <dd className="text-zinc-200">{diagnostics.inferred.sport}</dd>
+            <dd className="text-[var(--text-primary)]">{diagnostics.inferred.sport}</dd>
           </>
         )}
         {diagnostics.inferred.cyclingDiscipline && (
           <>
             <dt>Discipline</dt>
-            <dd className="text-zinc-200">{diagnostics.inferred.cyclingDiscipline}</dd>
+            <dd className="text-[var(--text-primary)]">{diagnostics.inferred.cyclingDiscipline}</dd>
           </>
         )}
         {diagnostics.inferred.peopleCount && (
           <>
             <dt>People</dt>
-            <dd className="text-zinc-200">{diagnostics.inferred.peopleCount}</dd>
+            <dd className="text-[var(--text-primary)]">{diagnostics.inferred.peopleCount}</dd>
           </>
         )}
         {diagnostics.inferred.athleticCompetition && (
           <>
             <dt>Competition kit</dt>
-            <dd className="text-zinc-200">shared race kit</dd>
+            <dd className="text-[var(--text-primary)]">shared race kit</dd>
           </>
         )}
       </dl>
@@ -82,7 +82,7 @@ export default function PromptDiagnosticsPanel({
       )}
 
       {diagnostics.suggestions.length > 0 && (
-        <ul className="space-y-1 text-xs text-zinc-500">
+        <ul className="space-y-1 text-xs text-[var(--text-muted)]">
           {diagnostics.suggestions.map(suggestion => (
             <li key={suggestion}>• {suggestion}</li>
           ))}

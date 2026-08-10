@@ -78,7 +78,7 @@ export default function RegionalEditPanel({
       ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
       : health.status === 'fallback-text'
         ? 'border-amber-500/30 bg-amber-500/10 text-amber-100'
-        : 'border-zinc-700/50 bg-zinc-900/60 text-zinc-400';
+        : 'border-[var(--border-default)]/50 bg-[var(--bg-muted)]/60 text-[var(--text-muted)]';
 
   return (
     <CollapsibleSection
@@ -86,12 +86,12 @@ export default function RegionalEditPanel({
       summary="Per-region prompts and optional masks — expand when you need spatial control."
       defaultOpen={false}
       persistKey={persistKey}
-      className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+      className="rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/50 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="text-[11px] text-zinc-500">
+        <p className="text-[11px] text-[var(--text-muted)]">
           With AttentionCouple / RegionalPrompt nodes, slots bind spatially; otherwise{' '}
-          <code className="text-zinc-400">{'{{REGION_*}}'}</code> text fallback.
+          <code className="text-[var(--text-muted)]">{'{{REGION_*}}'}</code> text fallback.
         </p>
         <span
           className={`rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide ${healthTone}`}
@@ -100,16 +100,16 @@ export default function RegionalEditPanel({
           {formatRegionalEditHealthChip(health)}
         </span>
       </div>
-      <p className="text-[11px] text-zinc-500">{formatRegionalSlotsHint(normalized)}</p>
+      <p className="text-[11px] text-[var(--text-muted)]">{formatRegionalSlotsHint(normalized)}</p>
 
       {normalized.map(slot => (
         <div
           key={slot.id}
-          className="space-y-2 rounded-lg border border-zinc-800/70 bg-zinc-950/40 p-3"
+          className="space-y-2 rounded-lg border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/40 p-3"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <FieldLabel>{slot.label}</FieldLabel>
-            <label className="flex items-center gap-2 text-[11px] text-zinc-500">
+            <label className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
               Strength
               <TextInput
                 type="number"

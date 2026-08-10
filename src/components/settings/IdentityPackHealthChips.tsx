@@ -66,7 +66,7 @@ export default function IdentityPackHealthChips({ refreshKey = 0 }: IdentityPack
         <PackChip health={pulid} />
       </div>
       {missingBoth ? (
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-[var(--text-muted)]">
           Scaffold InstantID / PuLID workflows in the library, or install the custom nodes so
           Compose identity lock can auto-insert them.
         </p>

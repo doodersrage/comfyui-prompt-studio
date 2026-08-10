@@ -34,7 +34,7 @@ export default function ProfileBackupPanel() {
 
   return (
     <ToolSection title="Full backup & restore">
-      <p className="mb-3 text-sm text-zinc-400">
+      <p className="mb-3 text-sm text-[var(--text-muted)]">
         Export or restore your local history, gallery, settings, presets, and workflows.
       </p>
       <div className="flex flex-wrap gap-2">

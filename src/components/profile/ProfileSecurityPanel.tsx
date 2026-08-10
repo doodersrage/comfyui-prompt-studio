@@ -71,9 +71,9 @@ export default function ProfileSecurityPanel() {
       {status ? <p className="text-sm text-emerald-400">{status}</p> : null}
 
       <ToolSection title="API keys">
-        <p className="mb-3 text-sm text-zinc-400">
+        <p className="mb-3 text-sm text-[var(--text-muted)]">
           Personal tokens for CLI and inbound hooks. Use{' '}
-          <code className="text-zinc-300">Authorization: Bearer pt_…</code>
+          <code className="text-[var(--text-secondary)]">Authorization: Bearer pt_…</code>
         </p>
         <div className="flex flex-wrap gap-2">
           <TextInput
@@ -108,7 +108,7 @@ export default function ProfileSecurityPanel() {
           {apiKeys.map(key => (
             <li
               key={key.id}
-              className="flex items-center justify-between rounded-xl border border-zinc-800 px-3 py-2 text-sm"
+              className="flex items-center justify-between rounded-xl border border-[var(--border-subtle)] px-3 py-2 text-sm"
             >
               <span>
                 {key.label} · {key.prefix}…
@@ -136,10 +136,10 @@ export default function ProfileSecurityPanel() {
           {sessions.map(session => (
             <li
               key={session.id}
-              className="rounded-xl border border-zinc-800 px-3 py-2 text-sm text-zinc-300"
+              className="rounded-xl border border-[var(--border-subtle)] px-3 py-2 text-sm text-[var(--text-secondary)]"
             >
               <p>{session.userAgent ?? 'Unknown device'}</p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-[var(--text-muted)]">
                 {session.ip ?? 'unknown IP'} · last seen{' '}
                 {new Date(session.lastSeenAt).toLocaleString()}
                 {session.id === currentSessionId ? ' · current' : ''}
@@ -165,7 +165,7 @@ export default function ProfileSecurityPanel() {
       </ToolSection>
 
       <ToolSection title="Two-factor authentication">
-        <p className="mb-3 text-sm text-zinc-400">
+        <p className="mb-3 text-sm text-[var(--text-muted)]">
           TOTP status: {totpEnabled ? 'enabled' : 'disabled'}
         </p>
         {!totpEnabled ? (
@@ -189,7 +189,7 @@ export default function ProfileSecurityPanel() {
               Begin setup
             </Button>
             {totpSetup ? (
-              <div className="space-y-2 text-sm text-zinc-400">
+              <div className="space-y-2 text-sm text-[var(--text-muted)]">
                 <p>
                   Secret: <code>{totpSetup.secret}</code>
                 </p>
@@ -238,9 +238,9 @@ export default function ProfileSecurityPanel() {
           {shortcutBindings.map((binding, index) => (
             <li
               key={binding.id}
-              className="grid gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/35 p-3 sm:grid-cols-3"
+              className="grid gap-2 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/35 p-3 sm:grid-cols-3"
             >
-              <label className="space-y-1 text-xs text-zinc-400">
+              <label className="space-y-1 text-xs text-[var(--text-muted)]">
                 Action
                 <TextInput
                   value={binding.action}
@@ -253,7 +253,7 @@ export default function ProfileSecurityPanel() {
                   }
                 />
               </label>
-              <label className="space-y-1 text-xs text-zinc-400">
+              <label className="space-y-1 text-xs text-[var(--text-muted)]">
                 Combo
                 <TextInput
                   value={binding.combo}
@@ -266,7 +266,7 @@ export default function ProfileSecurityPanel() {
                   }
                 />
               </label>
-              <label className="space-y-1 text-xs text-zinc-400">
+              <label className="space-y-1 text-xs text-[var(--text-muted)]">
                 Selector (optional)
                 <TextInput
                   value={binding.selector ?? ''}

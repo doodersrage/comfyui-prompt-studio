@@ -54,13 +54,13 @@ export default function SettingsPromptQualityPanel({
   return (
     <>
       <ToolSection id="settings-comfyui-prompt-quality" title="Prompt quality">
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-[var(--text-muted)]">
           Defaults applied when generating and when queueing to ComfyUI. Tool sidebars can still
           override for a single session.
         </p>
 
         <div className="space-y-2">
-          <p className="type-caption text-zinc-500">Default prompt detail</p>
+          <p className="type-caption text-[var(--text-muted)]">Default prompt detail</p>
           <div className="flex flex-wrap gap-1.5">
             {DETAIL_OPTIONS.map(option => (
               <ChipButton
@@ -73,13 +73,13 @@ export default function SettingsPromptQualityPanel({
               </ChipButton>
             ))}
           </div>
-          <p className="type-caption text-zinc-500">
+          <p className="type-caption text-[var(--text-muted)]">
             Controls LLM length/density budgets (concise / balanced / rich).
           </p>
         </div>
 
         <div className="space-y-2">
-          <p className="type-caption text-zinc-500">Default sampler preset</p>
+          <p className="type-caption text-[var(--text-muted)]">Default sampler preset</p>
           <div className="flex flex-wrap gap-1.5">
             {MODEL_SAMPLER_PRESET_OPTIONS.map(option => (
               <ChipButton
@@ -96,7 +96,7 @@ export default function SettingsPromptQualityPanel({
         </div>
 
         <div className="space-y-2">
-          <p className="type-caption text-zinc-500">Default orientation</p>
+          <p className="type-caption text-[var(--text-muted)]">Default orientation</p>
           <div className="flex flex-wrap gap-1.5">
             {coreOrientations.map(option => (
               <ChipButton
@@ -110,7 +110,7 @@ export default function SettingsPromptQualityPanel({
               </ChipButton>
             ))}
           </div>
-          <p className="type-caption text-zinc-500">
+          <p className="type-caption text-[var(--text-muted)]">
             Extra Qwen ratios remain available in tool sidebars.
           </p>
         </div>
@@ -124,17 +124,19 @@ export default function SettingsPromptQualityPanel({
           onModeChange={mode => updateSharedSettings({ anatomyGuardMode: mode })}
           model={sharedSettings.model}
         />
-        <label className="flex items-start gap-2 rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2.5 text-sm text-zinc-300 transition hover:bg-zinc-900/50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-violet-500/40">
+        <label className="flex items-start gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 px-3 py-2.5 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--bg-muted)]/50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-violet-500/40">
           <input
             type="checkbox"
-            className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            className="mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
             checked={sharedSettings.kleinEnhancerEnabled !== false}
             disabled={!sharedMounted}
             onChange={event => updateSharedSettings({ kleinEnhancerEnabled: event.target.checked })}
           />
           <span>
-            <span className="block font-medium text-zinc-200">Flux2 Klein Enhancer pack</span>
-            <span className="type-caption mt-0.5 block text-zinc-500">
+            <span className="block font-medium text-[var(--text-primary)]">
+              Flux2 Klein Enhancer pack
+            </span>
+            <span className="type-caption mt-0.5 block text-[var(--text-muted)]">
               Wire{' '}
               <a
                 href="https://github.com/capitan01R/ComfyUI-Flux2Klein-Enhancer"
@@ -151,11 +153,11 @@ export default function SettingsPromptQualityPanel({
           </span>
         </label>
         {sharedSettings.kleinEnhancerEnabled !== false ? (
-          <div className="space-y-2 rounded-xl border border-zinc-800/80 bg-zinc-950/30 px-3 py-3">
-            <label className="flex items-start gap-2 text-sm text-zinc-300">
+          <div className="space-y-2 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/30 px-3 py-3">
+            <label className="flex items-start gap-2 text-sm text-[var(--text-secondary)]">
               <input
                 type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                className="mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
                 checked={sharedSettings.kleinEnhancerTextEnabled !== false}
                 disabled={!sharedMounted}
                 onChange={event =>
@@ -163,16 +165,16 @@ export default function SettingsPromptQualityPanel({
                 }
               />
               <span>
-                <span className="block font-medium text-zinc-200">Text Enhancer</span>
-                <span className="type-caption mt-0.5 block text-zinc-500">
+                <span className="block font-medium text-[var(--text-primary)]">Text Enhancer</span>
+                <span className="type-caption mt-0.5 block text-[var(--text-muted)]">
                   Subtle positive-conditioning emphasis on Klein T2I and compose prompts.
                 </span>
               </span>
             </label>
-            <label className="flex items-start gap-2 text-sm text-zinc-300">
+            <label className="flex items-start gap-2 text-sm text-[var(--text-secondary)]">
               <input
                 type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                className="mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
                 checked={sharedSettings.kleinEnhancerColorAnchorEnabled !== false}
                 disabled={!sharedMounted}
                 onChange={event =>
@@ -180,13 +182,15 @@ export default function SettingsPromptQualityPanel({
                 }
               />
               <span className="min-w-0 flex-1">
-                <span className="block font-medium text-zinc-200">Color Anchor (compose)</span>
-                <span className="type-caption mt-0.5 block text-zinc-500">
+                <span className="block font-medium text-[var(--text-primary)]">
+                  Color Anchor (compose)
+                </span>
+                <span className="type-caption mt-0.5 block text-[var(--text-muted)]">
                   Anchors output channel means toward Figure 1 during sampling.
                 </span>
                 {sharedSettings.kleinEnhancerColorAnchorEnabled !== false ? (
                   <label className="mt-2 block space-y-1">
-                    <span className="type-caption text-zinc-500">
+                    <span className="type-caption text-[var(--text-muted)]">
                       Strength —{' '}
                       {(sharedSettings.kleinEnhancerColorAnchorStrength ?? 0.45).toFixed(2)}
                     </span>
@@ -222,7 +226,7 @@ export default function SettingsPromptQualityPanel({
           }
         />
 
-        <p className="type-caption text-zinc-500">
+        <p className="type-caption text-[var(--text-muted)]">
           Theme and density live in{' '}
           <Link
             href="/profile"
@@ -235,12 +239,12 @@ export default function SettingsPromptQualityPanel({
       </ToolSection>
 
       <ToolSection id="settings-comfyui-vram-guard" title="VRAM Max guard">
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-[var(--text-muted)]">
           When free VRAM is low, Max enrich automatically downgrades to Final (skips neural upscale
           / peak refiner load).
         </p>
         {typeof freeVramGb === 'number' ? (
-          <p className="type-caption text-zinc-500">
+          <p className="type-caption text-[var(--text-muted)]">
             ComfyUI now: {freeVramGb.toFixed(1)}
             {typeof totalVramGb === 'number' ? ` / ${totalVramGb.toFixed(1)}` : ''} GB free
           </p>
@@ -251,19 +255,21 @@ export default function SettingsPromptQualityPanel({
             checked={vramEnabled}
             disabled={!sharedMounted}
             onChange={event => updateSharedSettings({ vramGuardEnabled: event.target.checked })}
-            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass()}`}
+            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentFocusClass()}`}
           />
           <span className="space-y-1">
-            <span className="block text-sm font-medium text-zinc-200">
+            <span className="block text-sm font-medium text-[var(--text-primary)]">
               Downgrade Max → Final when VRAM is tight
             </span>
-            <span className="block text-xs text-zinc-500">
+            <span className="block text-xs text-[var(--text-muted)]">
               Recommended on for 16–24GB cards while other jobs are running.
             </span>
           </span>
         </label>
         <label className="block space-y-2 text-sm">
-          <span className="type-caption text-zinc-500">Min free VRAM before Max (GB)</span>
+          <span className="type-caption text-[var(--text-muted)]">
+            Min free VRAM before Max (GB)
+          </span>
           <input
             type="number"
             min={1}
@@ -285,13 +291,13 @@ export default function SettingsPromptQualityPanel({
             checked={freeVramAfterMax}
             disabled={!sharedMounted}
             onChange={event => updateSharedSettings({ freeVramAfterMax: event.target.checked })}
-            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass()}`}
+            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentFocusClass()}`}
           />
           <span className="space-y-1">
-            <span className="block text-sm font-medium text-zinc-200">
+            <span className="block text-sm font-medium text-[var(--text-primary)]">
               Free VRAM after Max jobs
             </span>
-            <span className="block text-xs text-zinc-500">
+            <span className="block text-xs text-[var(--text-muted)]">
               Calls ComfyUI&apos;s unload/free-memory endpoint once a Max-quality gallery job
               finishes, so the next job on that host starts with a clean slate.
             </span>

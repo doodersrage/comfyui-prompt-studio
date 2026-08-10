@@ -55,20 +55,20 @@ export default function GalleryVisionReviewButton({ imageDataUrl, prompt, onAppl
         type="button"
         disabled={loading}
         onClick={() => void runReview()}
-        className={`ui-btn-secondary min-h-11 rounded-xl border border-zinc-900/80 bg-zinc-950/70 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400 disabled:opacity-50`}
+        className={`ui-btn-secondary min-h-11 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/70 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400 disabled:opacity-50`}
       >
         {loading ? 'Analyzing…' : 'Vision review'}
       </button>
       {result ? (
         <div
-          className={`rounded-xl border-zinc-800/60 bg-zinc-950/70 backdrop-blur-xs p-3 text-xs transition hover:border-violet-600/60`}
+          className={`rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 backdrop-blur-xs p-3 text-xs transition hover:border-violet-600/60`}
         >
           {result.suggestedRating > 0 ? (
             <p className="text-violet-200">Suggested: {result.suggestedRating}★</p>
           ) : null}
           <p className="mt-1">{result.critique}</p>
           {result.tags.length > 0 ? (
-            <p className="mt-1 text-zinc-500">{result.tags.join(' · ')}</p>
+            <p className="mt-1 text-[var(--text-muted)]">{result.tags.join(' · ')}</p>
           ) : null}
           {result.suggestedRating >= 1 && result.suggestedRating <= 5 && onApplyRating ? (
             <button

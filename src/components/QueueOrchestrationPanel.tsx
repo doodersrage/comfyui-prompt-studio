@@ -298,7 +298,7 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
           </Button>
         </div>
         {heldJobs.length > 0 ? (
-          <p className="type-caption text-zinc-400">
+          <p className="type-caption text-[var(--text-muted)]">
             Waiting:{' '}
             {heldJobs
               .slice(0, 4)
@@ -307,7 +307,7 @@ export default function QueueOrchestrationPanel(props: { compact?: boolean }) {
             {heldJobs.length > 4 ? ` · +${heldJobs.length - 4} more` : ''}
           </p>
         ) : (
-          <p className="type-caption text-zinc-500">
+          <p className="type-caption text-[var(--text-muted)]">
             When on, Max Generate / re-queue / gallery Upscale / Moiré / Refine wait until the
             ComfyUI queue is empty, then flush automatically (VRAM is re-checked on flush).
           </p>

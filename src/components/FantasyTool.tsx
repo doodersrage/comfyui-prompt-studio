@@ -56,11 +56,16 @@ import {
   accentFocusClass,
   accentRingClass,
 } from '@/components/ui/ToolPageShell';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { FieldDivider } from '@/components/ui/Field';
 
 const ACCENT = 'violet' as const;
 
 export default function FantasyTool() {
+  const description = useToolPageDescription(
+    'Fantasy characters, creatures, or environments. Add hints and generate.',
+    'Fantasy scenes — characters, creatures, or environments. Add hints and generate.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'fantasy',
     DEFAULT_FANTASY_TOOL_CACHE
@@ -262,7 +267,7 @@ export default function FantasyTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Fantasy scene · {selectedModel.comfyNode}</ToolBadge>}
       title="Fantasy"
-      description="Fantasy characters, creatures, or environments. Add hints and generate."
+      description={description}
       sidebar={
         <SharedToolControls
           shared={shared}

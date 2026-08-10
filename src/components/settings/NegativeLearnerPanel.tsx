@@ -59,7 +59,7 @@ export default function NegativeLearnerPanel() {
 
   return (
     <ToolSection title="Negative prompt learner">
-      <p className="mb-3 text-sm text-zinc-400">
+      <p className="mb-3 text-sm text-[var(--text-muted)]">
         Tokens from gallery prompts rated 1–2 stars. Add frequent ones to avoided tokens or your
         negative profile.
       </p>
@@ -76,7 +76,7 @@ export default function NegativeLearnerPanel() {
           {items.map(item => (
             <li
               key={item.token}
-              className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/35 px-3 py-2"
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/35 px-3 py-2"
             >
               <span className="text-sm text-rose-100">
                 {item.token} · {item.count}×
@@ -104,7 +104,7 @@ export default function NegativeLearnerPanel() {
                   dismissNegativeSuggestion(item.token);
                   refresh();
                 }}
-                className="rounded-full border border-zinc-700/60 px-2.5 py-0.5 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200"
+                className="rounded-full border border-[var(--border-default)]/60 px-2.5 py-0.5 text-xs text-[var(--text-muted)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)]"
               >
                 Dismiss
               </button>
@@ -115,7 +115,7 @@ export default function NegativeLearnerPanel() {
       {status ? <p className="mt-3 text-xs text-emerald-400">{status}</p> : null}
       <button
         type="button"
-        className="mt-3 text-xs text-zinc-500 underline underline-offset-2"
+        className="mt-3 text-xs text-[var(--text-muted)] underline underline-offset-2"
         onClick={() => {
           setItems(loadNegativeSuggestions().filter(entry => !entry.dismissed));
         }}

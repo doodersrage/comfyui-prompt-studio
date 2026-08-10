@@ -12,7 +12,7 @@ export default function UsersSettingsPanel() {
   if (!auth) {
     return (
       <ToolSection title="Users">
-        <p className="text-sm text-zinc-500">Loading account settings…</p>
+        <p className="text-sm text-[var(--text-muted)]">Loading account settings…</p>
       </ToolSection>
     );
   }
@@ -22,7 +22,7 @@ export default function UsersSettingsPanel() {
   if (loading) {
     return (
       <ToolSection title="Users">
-        <p className="text-sm text-zinc-500">Loading account settings…</p>
+        <p className="text-sm text-[var(--text-muted)]">Loading account settings…</p>
       </ToolSection>
     );
   }
@@ -30,24 +30,25 @@ export default function UsersSettingsPanel() {
   if (!authEnabled) {
     return (
       <ToolSection title="Enable user accounts">
-        <p className="text-sm text-zinc-400">
-          User accounts are off. Add these to <code className="text-zinc-300">.env.local</code> and
-          restart the dev server to unlock login, per-user history, and this admin panel.
+        <p className="text-sm text-[var(--text-muted)]">
+          User accounts are off. Add these to{' '}
+          <code className="text-[var(--text-secondary)]">.env.local</code> and restart the dev
+          server to unlock login, per-user history, and this admin panel.
         </p>
-        <pre className="mt-4 overflow-x-auto rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-4 text-xs text-zinc-300">
+        <pre className="mt-4 overflow-x-auto rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/60 p-4 text-xs text-[var(--text-secondary)]">
           {`PROMPT_AUTH_ENABLED=true
 PROMPT_ADMIN_USERNAME=admin
 PROMPT_ADMIN_PASSWORD="change-me"
 PROMPT_SESSION_SECRET=use-a-long-random-string
 PROMPT_DATA_DIR=/path/to/persist/auth-and-analytics`}
         </pre>
-        <p className="mt-4 text-sm text-zinc-500">
-          Quote passwords that contain <code className="text-zinc-400">$</code> or{' '}
-          <code className="text-zinc-400">#</code>. After changing admin credentials in{' '}
-          <code className="text-zinc-400">.env.local</code>, restart the server — the bootstrap
-          admin account syncs from env on startup.
+        <p className="mt-4 text-sm text-[var(--text-muted)]">
+          Quote passwords that contain <code className="text-[var(--text-muted)]">$</code> or{' '}
+          <code className="text-[var(--text-muted)]">#</code>. After changing admin credentials in{' '}
+          <code className="text-[var(--text-muted)]">.env.local</code>, restart the server — the
+          bootstrap admin account syncs from env on startup.
         </p>
-        <p className="mt-2 text-sm text-zinc-500">
+        <p className="mt-2 text-sm text-[var(--text-muted)]">
           After restart, sign in at{' '}
           <Link href="/login" className="text-violet-300 hover:text-violet-200">
             /login
@@ -61,7 +62,7 @@ PROMPT_DATA_DIR=/path/to/persist/auth-and-analytics`}
   if (!user) {
     return (
       <ToolSection title="Sign in required">
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-[var(--text-muted)]">
           User accounts are enabled. Sign in as an admin to manage users, groups, and analytics
           snapshots.
         </p>
@@ -75,10 +76,10 @@ PROMPT_DATA_DIR=/path/to/persist/auth-and-analytics`}
   if (!isAdmin) {
     return (
       <ToolSection title="Admin only">
-        <p className="text-sm text-zinc-400">
-          Signed in as <span className="text-zinc-200">{user.username}</span>. Only admin accounts
-          can manage users and groups. Ask an admin to promote your account or adjust blocked
-          features.
+        <p className="text-sm text-[var(--text-muted)]">
+          Signed in as <span className="text-[var(--text-primary)]">{user.username}</span>. Only
+          admin accounts can manage users and groups. Ask an admin to promote your account or adjust
+          blocked features.
         </p>
       </ToolSection>
     );

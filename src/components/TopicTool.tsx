@@ -536,7 +536,7 @@ export default function TopicTool() {
 
         <FieldDivider />
 
-        <div className="flex items-center justify-between text-xs text-zinc-400">
+        <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
           <span>Fewer topics</span>
           <span className="font-medium text-violet-300">{toolSettings.count ?? 10} topics</span>
           <span>More</span>
@@ -554,7 +554,7 @@ export default function TopicTool() {
         <FieldDivider />
 
         <FieldLabel>Topic variety</FieldLabel>
-        <div className="flex items-center justify-between text-xs text-zinc-400">
+        <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
           <span>Focused</span>
           <span className="font-medium text-violet-300">
             {topicVarietyLabel(toolSettings.variety ?? 50)} ({toolSettings.variety ?? 50})
@@ -823,7 +823,7 @@ function TopicCard({
       {batchPrompt ? (
         <>
           {readiness ? (
-            <p className="type-caption text-zinc-400">
+            <p className="type-caption text-[var(--text-muted)]">
               Readiness {readiness.score}/100 ({readiness.grade})
               {!readiness.queueAllowed ? ' · below queue threshold' : ''}
             </p>

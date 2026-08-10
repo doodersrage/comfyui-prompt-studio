@@ -176,11 +176,11 @@ export default function WorkflowHealthPanel({
   };
 
   return (
-    <div className="mb-4 space-y-3 rounded-2xl border border-zinc-800/80 bg-zinc-950/30 p-4">
+    <div className="mb-4 space-y-3 rounded-2xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/30 p-4">
       <div className="space-y-1">
-        <p className="text-sm font-medium text-zinc-200">Workflow library health</p>
-        <p className="text-xs text-zinc-500">{summary}</p>
-        {loaderStatus ? <p className="text-xs text-zinc-600">{loaderStatus}</p> : null}
+        <p className="text-sm font-medium text-[var(--text-primary)]">Workflow library health</p>
+        <p className="text-xs text-[var(--text-muted)]">{summary}</p>
+        {loaderStatus ? <p className="text-xs text-[var(--text-muted)]">{loaderStatus}</p> : null}
         {loaderMapRepairs.length > 0 ? (
           <button
             type="button"
@@ -206,7 +206,7 @@ export default function WorkflowHealthPanel({
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <p>
                   <span className="font-medium">{issue.workflowName}</span>
-                  <span className="text-zinc-400"> — </span>
+                  <span className="text-[var(--text-muted)]"> — </span>
                   {issue.message}
                 </p>
                 {issue.workflowId !== 'loader-map' && issue.action ? (
@@ -217,7 +217,7 @@ export default function WorkflowHealthPanel({
                         dispatchWorkflowHealthSelect(issue.workflowId, 'open-workflow');
                         onStatus?.(`Opened workflow “${issue.workflowName}” in library.`);
                       }}
-                      className="rounded-lg border border-zinc-700/70 px-2 py-0.5 text-[10px] text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
+                      className="rounded-lg border border-[var(--border-default)]/70 px-2 py-0.5 text-[10px] text-[var(--text-secondary)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)]"
                     >
                       Open
                     </button>

@@ -26,7 +26,7 @@ export default function ModelShootoutPanel() {
 
   return (
     <ToolSection title="Same-seed model shootout">
-      <p className="mb-3 text-sm text-zinc-400">
+      <p className="mb-3 text-sm text-[var(--text-muted)]">
         Queue the same prompt and seed across multiple models for a fair comparison.
       </p>
       <textarea
@@ -50,7 +50,7 @@ export default function ModelShootoutPanel() {
         ))}
       </div>
       <label className="mb-3 block space-y-1 text-sm">
-        <span className="type-caption text-zinc-500">Seed</span>
+        <span className="type-caption text-[var(--text-muted)]">Seed</span>
         <input
           value={seed}
           onChange={event => setSeed(event.target.value)}

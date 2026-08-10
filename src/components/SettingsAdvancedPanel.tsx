@@ -222,7 +222,7 @@ export default function SettingsAdvancedPanel() {
     <>
       <ToolSection title="LLM usage">
         {llmUsage ? (
-          <ul className="space-y-1 text-sm text-zinc-400">
+          <ul className="space-y-1 text-sm text-[var(--text-muted)]">
             <li>Last 24h LLM calls: {llmUsage.last24h}</li>
             <li>Estimated tokens: {llmUsage.last24hTokens}</li>
             <li>
@@ -245,7 +245,7 @@ export default function SettingsAdvancedPanel() {
 
       <ToolSection title="API usage">
         {usage ? (
-          <ul className="space-y-1 text-sm text-zinc-400">
+          <ul className="space-y-1 text-sm text-[var(--text-muted)]">
             <li>Recent requests (in-memory): {usage.total}</li>
             <li>Last hour: {usage.lastHour}</li>
             <li>Rate limited: {usage.rateLimited}</li>
@@ -262,15 +262,16 @@ export default function SettingsAdvancedPanel() {
       </ToolSection>
 
       <ToolSection title="Server storage">
-        <div className="mb-3 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 text-xs text-zinc-400">
-          <p className="font-medium text-zinc-300">Enablement checklist</p>
+        <div className="mb-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 p-3 text-xs text-[var(--text-muted)]">
+          <p className="font-medium text-[var(--text-secondary)]">Enablement checklist</p>
           <ul className="mt-1 list-disc space-y-1 pl-4">
             <li>
-              Durable gallery/history: set <code className="text-zinc-300">PROMPT_DATA_DIR</code>
+              Durable gallery/history: set{' '}
+              <code className="text-[var(--text-secondary)]">PROMPT_DATA_DIR</code>
             </li>
             <li>
               Headless scheduled batch: that <em>plus</em>{' '}
-              <code className="text-zinc-300">SERVER_SCHEDULED_BATCH=true</code>
+              <code className="text-[var(--text-secondary)]">SERVER_SCHEDULED_BATCH=true</code>
             </li>
             <li>
               Browser scheduled batch (Settings → Automation) only runs while a tab stays open —
@@ -278,12 +279,13 @@ export default function SettingsAdvancedPanel() {
             </li>
           </ul>
         </div>
-        <p className="text-sm text-zinc-400">
-          Optional file-backed storage when <code className="text-zinc-300">PROMPT_DATA_DIR</code>{' '}
-          is set on the server. When signed in, history and gallery sync to your personal namespace
-          under <code className="text-zinc-300">users/&lt;id&gt;/</code>.
+        <p className="text-sm text-[var(--text-muted)]">
+          Optional file-backed storage when{' '}
+          <code className="text-[var(--text-secondary)]">PROMPT_DATA_DIR</code> is set on the
+          server. When signed in, history and gallery sync to your personal namespace under{' '}
+          <code className="text-[var(--text-secondary)]">users/&lt;id&gt;/</code>.
         </p>
-        <p className="mt-2 text-sm text-zinc-500">
+        <p className="mt-2 text-sm text-[var(--text-muted)]">
           Status: {storageEnabled ? 'enabled' : 'disabled (browser database only)'}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -295,13 +297,13 @@ export default function SettingsAdvancedPanel() {
           </Button>
         </div>
         {storageEnabled ? (
-          <div className="mt-4 space-y-2 rounded-xl border border-zinc-800/80 bg-zinc-950/35 p-3">
-            <p className="text-sm text-zinc-400">
+          <div className="mt-4 space-y-2 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/35 p-3">
+            <p className="text-sm text-[var(--text-muted)]">
               Encrypted server export (sign-in required). Writes a snapshot under your user
               namespace on the server.
             </p>
             <label className="block space-y-1.5 text-sm">
-              <span className="type-caption text-zinc-500">
+              <span className="type-caption text-[var(--text-muted)]">
                 Passphrase (optional — encrypts export)
               </span>
               <input
@@ -348,14 +350,18 @@ export default function SettingsAdvancedPanel() {
       </ToolSection>
 
       <ToolSection title="Comfy gallery sync">
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-[var(--text-muted)]">
           Keeps the browser gallery and server storage (
-          <code className="text-zinc-300">comfy-gallery</code>) durably in sync — merges rather than
-          overwrites, and prefers newer entries by completion time. Local storage caps at{' '}
-          <code className="text-zinc-300">{MAX_GALLERY_ENTRIES.toLocaleString()}</code> entries,
-          keeping favorites and 4-5★ ratings first; the server always keeps the full history.
+          <code className="text-[var(--text-secondary)]">comfy-gallery</code>) durably in sync —
+          merges rather than overwrites, and prefers newer entries by completion time. Local storage
+          caps at{' '}
+          <code className="text-[var(--text-secondary)]">
+            {MAX_GALLERY_ENTRIES.toLocaleString()}
+          </code>{' '}
+          entries, keeping favorites and 4-5★ ratings first; the server always keeps the full
+          history.
         </p>
-        <ul className="mt-2 space-y-1 text-sm text-zinc-500">
+        <ul className="mt-2 space-y-1 text-sm text-[var(--text-muted)]">
           <li>
             Local gallery: {localGalleryCount != null ? localGalleryCount.toLocaleString() : '—'}{' '}
             entries
@@ -388,11 +394,13 @@ export default function SettingsAdvancedPanel() {
       </ToolSection>
 
       <ToolSection title="Server scheduled batch">
-        <p className="text-sm text-zinc-400">
-          Headless runner via <code className="text-zinc-300">POST /api/scheduled-batch/run</code>.
-          Automatic ticks need <code className="text-zinc-300">SERVER_SCHEDULED_BATCH=true</code>{' '}
-          (and <code className="text-zinc-300">PROMPT_DATA_DIR</code> to persist the profile). This
-          is separate from the browser “Enable browser scheduled batch” toggle.
+        <p className="text-sm text-[var(--text-muted)]">
+          Headless runner via{' '}
+          <code className="text-[var(--text-secondary)]">POST /api/scheduled-batch/run</code>.
+          Automatic ticks need{' '}
+          <code className="text-[var(--text-secondary)]">SERVER_SCHEDULED_BATCH=true</code> (and{' '}
+          <code className="text-[var(--text-secondary)]">PROMPT_DATA_DIR</code> to persist the
+          profile). This is separate from the browser “Enable browser scheduled batch” toggle.
         </p>
         <Button variant="secondary" className="mt-3" onClick={() => void runServerBatch()}>
           Run server batch now
@@ -400,7 +408,7 @@ export default function SettingsAdvancedPanel() {
       </ToolSection>
 
       <ToolSection title="Email">
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-[var(--text-muted)]">
           Requires SMTP env vars and a signed-in user with an email on Profile.
         </p>
         <Button

@@ -32,6 +32,7 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'fuchsia' as const;
@@ -46,6 +47,10 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 export default function RefineTool() {
+  const description = useToolPageDescription(
+    'Upload a reference image and refine a prompt against your intent.',
+    'Upload a reference image and refine the prompt to match your intent.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'refine',
     DEFAULT_REFINE_TOOL_CACHE
@@ -314,7 +319,7 @@ export default function RefineTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Refine · {selectedModel.comfyNode}</ToolBadge>}
       title="Refine"
-      description="Upload a reference image and refine a prompt against your intent."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="refine"
@@ -330,13 +335,13 @@ export default function RefineTool() {
       <ToolSetupBanner toolLabel="Refine" />
       <ToolSection>
         {isBooguEditModel(shared.model) ? (
-          <p className="mb-4 text-xs leading-relaxed text-zinc-500">
+          <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
             Boogu Edit: TextEncodeBooguEdit vision-encodes your reference at denoise 1 — write
             direct instruction edits (e.g. &quot;Replace the background with a rainy neon alley.
             Keep the subject&apos;s pose.&quot;).
           </p>
         ) : isZImageModel(shared.model) ? (
-          <p className="mb-4 text-xs leading-relaxed text-zinc-500">
+          <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
             Z-Image: VAEEncode img2img on your reference (soft denoise ~0.65). Describe the edit in
             text — no vision encode stack like Qwen or Boogu Edit.
           </p>
@@ -346,14 +351,14 @@ export default function RefineTool() {
           type="file"
           accept="image/*"
           onChange={event => onFileChange(event.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500"
+          className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500"
         />
         {previewUrl && !needsInpaintMask ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={previewUrl}
             alt="Reference preview"
-            className="max-h-64 rounded-xl border border-zinc-800 object-contain"
+            className="max-h-64 rounded-xl border border-[var(--border-subtle)] object-contain"
           />
         ) : null}
 
@@ -411,10 +416,10 @@ export default function RefineTool() {
       {output && beforePrompt && beforePrompt !== output ? (
         <ToolSection title="Refine diff">
           <div className="grid gap-4 lg:grid-cols-2">
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-400">
+            <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] p-3 text-xs text-[var(--text-muted)]">
               {beforePrompt}
             </pre>
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-emerald-300">
+            <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] p-3 text-xs text-emerald-300">
               {output}
             </pre>
           </div>
@@ -423,7 +428,7 @@ export default function RefineTool() {
             .slice(0, 12)
             .map(segment => segment.text)
             .join(', ') ? (
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-[var(--text-muted)]">
               Added/changed:{' '}
               {diffPromptWords(beforePrompt, output)
                 .segments.filter(segment => segment.type === 'add')

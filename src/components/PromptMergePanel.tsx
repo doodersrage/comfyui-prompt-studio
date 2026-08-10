@@ -38,8 +38,8 @@ export default function PromptMergePanel(props: { leftDefault?: string; rightDef
   }
 
   return (
-    <div className="mt-6 space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/30 p-4">
-      <p className="text-sm font-medium text-zinc-200">Cherry-pick merge</p>
+    <div className="mt-6 space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/30 p-4">
+      <p className="text-sm font-medium text-[var(--text-primary)]">Cherry-pick merge</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <FieldLabel htmlFor="merge-left">Left prompt</FieldLabel>
@@ -66,7 +66,7 @@ export default function PromptMergePanel(props: { leftDefault?: string; rightDef
         Merge prompts
       </Button>
       {merged ? (
-        <pre className="whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 text-sm text-zinc-200">
+        <pre className="whitespace-pre-wrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 p-3 text-sm text-[var(--text-primary)]">
           {merged}
         </pre>
       ) : null}

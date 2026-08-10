@@ -24,8 +24,8 @@ export default function SettingsBrowserPresetsPanel({
             className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 p-4"
           >
             <div className="space-y-1">
-              <p className="type-heading text-zinc-100">{preset.label}</p>
-              <p className="type-caption text-zinc-500">{preset.description}</p>
+              <p className="type-heading text-[var(--text-primary)]">{preset.label}</p>
+              <p className="type-caption text-[var(--text-muted)]">{preset.description}</p>
             </div>
             <Button
               variant="secondary"

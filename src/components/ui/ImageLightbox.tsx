@@ -541,7 +541,7 @@ export default function ImageLightbox({
         <>
           <Button
             variant="secondary"
-            className="absolute left-3 top-1/2 z-20 !min-h-10 -translate-y-1/2 border border-white/30 !bg-zinc-950/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-zinc-900/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-zinc-950/40 disabled:!text-white/35"
+            className="absolute left-3 top-1/2 z-20 !min-h-10 -translate-y-1/2 border border-white/30 !bg-[var(--bg-base)]/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-[var(--bg-muted)]/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-[var(--bg-base)]/40 disabled:!text-white/35"
             disabled={!canGoPrevious || isTransitioning}
             onClick={() => goToIndex(index - 1, true)}
             aria-label="Previous image"
@@ -550,7 +550,7 @@ export default function ImageLightbox({
           </Button>
           <Button
             variant="secondary"
-            className="absolute right-3 top-1/2 z-20 !min-h-10 -translate-y-1/2 border border-white/30 !bg-zinc-950/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-zinc-900/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-zinc-950/40 disabled:!text-white/35"
+            className="absolute right-3 top-1/2 z-20 !min-h-10 -translate-y-1/2 border border-white/30 !bg-[var(--bg-base)]/85 px-3.5 type-caption !text-white shadow-[0_8px_28px_rgb(0_0_0/0.55)] backdrop-blur-md hover:!bg-[var(--bg-muted)]/95 hover:!text-white focus-visible:ring-2 focus-visible:ring-white/40 disabled:!bg-[var(--bg-base)]/40 disabled:!text-white/35"
             disabled={!canGoNext || isTransitioning}
             onClick={() => goToIndex(index + 1, true)}
             aria-label="Next image"

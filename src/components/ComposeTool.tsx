@@ -442,7 +442,7 @@ export default function ComposeTool() {
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50',
                   active
                     ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-50 shadow-[0_0_24px_-12px_rgba(34,211,238,0.55)]'
-                    : 'border-zinc-800/80 bg-zinc-950/40 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/60 hover:text-zinc-200',
+                    : 'border-[var(--border-subtle)] bg-[var(--bg-muted)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:bg-[var(--bg-muted)]/60 hover:text-[var(--text-primary)]',
                 ].join(' ')}
               >
                 <span className="font-medium">{entry.label}</span>
@@ -494,12 +494,12 @@ export default function ComposeTool() {
                 className={[
                   'rounded-2xl border p-3 transition',
                   disabled
-                    ? 'border-zinc-900/80 bg-zinc-950/20 opacity-45'
-                    : 'border-zinc-800/80 bg-gradient-to-b from-zinc-900/50 to-zinc-950/40',
+                    ? 'border-[var(--border-subtle)]/80 bg-[var(--bg-muted)]/20 opacity-45'
+                    : 'border-[var(--border-subtle)] bg-gradient-to-b from-[var(--bg-muted)]/50 to-[var(--bg-base)]/40',
                 ].join(' ')}
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-zinc-200">
+                  <p className="text-sm font-medium text-[var(--text-primary)]">
                     Image {index + 1}
                     {required ? (
                       <span className="ml-1.5 text-xs font-normal text-cyan-300/80">required</span>
@@ -510,7 +510,7 @@ export default function ComposeTool() {
                       type="button"
                       disabled={disabled}
                       onClick={() => setFigure(index, null)}
-                      className="rounded-lg px-2 py-1 text-xs text-zinc-500 transition hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 disabled:pointer-events-none"
+                      className="rounded-lg px-2 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 disabled:pointer-events-none"
                     >
                       Clear
                     </button>
@@ -521,17 +521,17 @@ export default function ComposeTool() {
                   accept="image/*"
                   disabled={disabled}
                   onChange={event => setFigure(index, event.target.files?.[0] ?? null)}
-                  className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-700/80 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:opacity-50"
+                  className="block w-full text-sm text-[var(--text-secondary)] file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-700/80 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:opacity-50"
                 />
                 {slot.previewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={slot.previewUrl}
                     alt={`Image ${index + 1} preview`}
-                    className="mt-3 max-h-40 w-full rounded-xl border border-zinc-800/80 object-contain"
+                    className="mt-3 max-h-40 w-full rounded-xl border border-[var(--border-subtle)] object-contain"
                   />
                 ) : (
-                  <p className="mt-3 text-xs text-zinc-500">
+                  <p className="mt-3 text-xs text-[var(--text-muted)]">
                     {index === 0 ? 'Base / canvas image' : `Optional donor for transfer`}
                   </p>
                 )}
@@ -540,18 +540,18 @@ export default function ComposeTool() {
           })}
         </div>
         {isFluxKleinModel(shared.model) ? (
-          <p className="text-xs leading-relaxed text-zinc-500">
+          <p className="text-xs leading-relaxed text-[var(--text-muted)]">
             Klein: instruction edit via ReferenceLatent (official path). Write direct edit commands
             — e.g. “Replace the background with a rainy neon alley. Keep the subject’s pose and
             framing.”
           </p>
         ) : zImageModel ? (
-          <p className="text-xs leading-relaxed text-zinc-500">
+          <p className="text-xs leading-relaxed text-[var(--text-muted)]">
             Z-Image: Figure 1 drives img2img (soft denoise). Images 2–4 are prompt references only —
             describe what to borrow from them in text; they are not vision-encoded like Qwen Edit.
           </p>
         ) : isBooguEditModel(shared.model) ? (
-          <p className="text-xs leading-relaxed text-zinc-500">
+          <p className="text-xs leading-relaxed text-[var(--text-muted)]">
             Boogu Edit: TextEncodeBooguEdit vision-encodes Image 1–4. Reference images in prompts as
             Image 1, Image 2, etc. — instruction edits use denoise 1 with reference latents.
           </p>
@@ -565,13 +565,13 @@ export default function ComposeTool() {
                   type="checkbox"
                   checked={identityLock}
                   onChange={event => updateToolSettings({ identityLock: event.target.checked })}
-                  className="mt-1 rounded border-zinc-700 bg-zinc-950 text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                  className="mt-1 rounded border-[var(--border-default)] bg-[var(--bg-muted)] text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
                 />
                 <span className="min-w-0 space-y-1">
                   <span className="block text-sm font-medium text-cyan-50/95">
                     Lock identity from Image 1
                   </span>
-                  <span className="block text-xs leading-relaxed text-zinc-500">
+                  <span className="block text-xs leading-relaxed text-[var(--text-muted)]">
                     {identityLockHint}
                   </span>
                 </span>
@@ -586,7 +586,7 @@ export default function ComposeTool() {
                       identityKind: normalizeComposeIdentityKind(event.target.value),
                     })
                   }
-                  className="block rounded-xl border border-zinc-800/90 bg-zinc-950/70 px-2.5 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="block rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/70 px-2.5 py-1.5 text-sm text-[var(--text-primary)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {(
                     [
@@ -646,12 +646,14 @@ export default function ComposeTool() {
               'disabled:cursor-not-allowed disabled:opacity-40',
               showMaskEditor
                 ? 'border-cyan-400/35 bg-cyan-500/10 text-cyan-100'
-                : 'border-zinc-800 bg-zinc-950/50 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200',
+                : 'border-[var(--border-subtle)] bg-[var(--bg-muted)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]',
             ].join(' ')}
           >
             {showMaskEditor ? 'Hide optional mask' : 'Optional mask on Image 1'}
           </button>
-          {maskPreviewUrl ? <span className="text-xs text-zinc-500">Mask ready</span> : null}
+          {maskPreviewUrl ? (
+            <span className="text-xs text-[var(--text-muted)]">Mask ready</span>
+          ) : null}
         </div>
 
         {showMaskEditor && fig1Preview ? (
@@ -675,12 +677,12 @@ export default function ComposeTool() {
           summary={`${templateGroups.reduce((n, g) => n + g.templates.length, 0)} presets — click to expand`}
           defaultOpen={false}
           persistKey={`compose-templates-${mode}`}
-          className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-4"
+          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-4"
         >
           <div className="space-y-4">
             {templateGroups.map(group => (
               <div key={group.id} className="space-y-2">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
                   {group.label}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -702,13 +704,15 @@ export default function ComposeTool() {
                           'rounded-xl border px-3 py-1.5 text-xs transition',
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50',
                           disabled
-                            ? 'cursor-not-allowed border-zinc-800/60 bg-zinc-950/30 text-zinc-600'
-                            : 'border-zinc-800/90 bg-zinc-950/45 text-zinc-300 hover:border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-50 active:scale-[0.98]',
+                            ? 'cursor-not-allowed border-[var(--border-subtle)]/60 bg-[var(--bg-muted)]/30 text-[var(--text-muted)]'
+                            : 'border-[var(--border-subtle)] bg-[var(--bg-muted)]/45 text-[var(--text-secondary)] hover:border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-50 active:scale-[0.98]',
                         ].join(' ')}
                       >
                         {template.label}
                         {minFigures > 1 ? (
-                          <span className="ml-1 text-[10px] text-zinc-500">· {minFigures}img</span>
+                          <span className="ml-1 text-[10px] text-[var(--text-muted)]">
+                            · {minFigures}img
+                          </span>
                         ) : null}
                       </button>
                     );

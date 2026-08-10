@@ -40,18 +40,18 @@ export default function QueueParamsPanel({ compact = false }: QueueParamsPanelPr
     <div
       className={
         compact
-          ? 'space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3'
-          : 'space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4'
+          ? 'space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 p-3'
+          : 'space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 p-4'
       }
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-zinc-200">Advanced queue params</p>
-        <label className="flex items-center gap-2 text-xs text-zinc-400">
+        <p className="text-sm font-medium text-[var(--text-primary)]">Advanced queue params</p>
+        <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
           <input
             type="checkbox"
             checked={settings.enabled === true}
             onChange={event => update({ enabled: event.target.checked })}
-            className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+            className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
           />
           Override defaults
         </label>

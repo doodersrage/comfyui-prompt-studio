@@ -357,13 +357,13 @@ export default function ImagePromptTool() {
       <ToolSetupBanner toolLabel={TOOL_SETUP_LABELS.imagePrompt} />
       <ToolSection>
         {isBooguEditModel(shared.model) ? (
-          <p className="mb-4 text-xs leading-relaxed text-zinc-500">
+          <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
             Boogu Edit queues as instruction TI2I (TextEncodeBooguEdit, denoise 1). Vision caption
             above is separate from the ComfyUI edit stack — refine the prompt, then queue when
             ready.
           </p>
         ) : isZImageModel(shared.model) ? (
-          <p className="mb-4 text-xs leading-relaxed text-zinc-500">
+          <p className="mb-4 text-xs leading-relaxed text-[var(--text-muted)]">
             Z-Image queues as VAEEncode img2img (soft denoise ~0.65). Vision caption above is
             separate from the ComfyUI stack — refine the prompt, then queue when ready.
           </p>
@@ -373,15 +373,15 @@ export default function ImagePromptTool() {
           type="file"
           accept="image/*"
           onChange={e => onFileChange(e.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+          className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
         />
         {refImages.length > 0 && refImages.length < 4 ? (
-          <label className="mt-2 block text-sm text-zinc-400">
+          <label className="mt-2 block text-sm text-[var(--text-muted)]">
             Add another reference
             <input
               type="file"
               accept="image/*"
-              className="mt-1 block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-zinc-800 file:px-3 file:py-1.5 file:text-xs file:text-zinc-200"
+              className="mt-1 block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--bg-muted)] file:px-3 file:py-1.5 file:text-xs file:text-[var(--text-primary)]"
               onChange={event => {
                 const next = event.target.files?.[0];
                 if (next) {
@@ -420,7 +420,7 @@ export default function ImagePromptTool() {
                 </div>
 
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_2.5rem] items-center gap-x-3 gap-y-1">
-                  <span className="type-caption text-zinc-400">Strength</span>
+                  <span className="type-caption text-[var(--text-muted)]">Strength</span>
                   <input
                     type="range"
                     min={0}
@@ -438,7 +438,7 @@ export default function ImagePromptTool() {
                     aria-label={`Strength for ${entry.role}`}
                     className="h-8 w-full min-w-0 cursor-pointer accent-fuchsia-500"
                   />
-                  <span className="text-right text-xs tabular-nums text-zinc-300">
+                  <span className="text-right text-xs tabular-nums text-[var(--text-secondary)]">
                     {Math.round(entry.strength * 100)}%
                   </span>
                 </div>
@@ -447,7 +447,7 @@ export default function ImagePromptTool() {
                 <img
                   src={entry.previewUrl}
                   alt={entry.role}
-                  className="max-h-48 rounded-lg border border-zinc-800 object-contain"
+                  className="max-h-48 rounded-lg border border-[var(--border-subtle)] object-contain"
                 />
               </li>
             ))}

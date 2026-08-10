@@ -21,7 +21,7 @@ export default function ToolQualityProfilesSettings({
 }: ToolQualityProfilesSettingsProps) {
   return (
     <div className="ui-surface-inset space-y-3">
-      <p className="type-caption text-zinc-400">
+      <p className="type-caption text-[var(--text-muted)]">
         Override the global queue quality profile for specific tools. Leave unset to use the sidebar
         default or per-page override chips.
       </p>
@@ -31,9 +31,9 @@ export default function ToolQualityProfilesSettings({
           return (
             <li
               key={tool.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3 py-2"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 px-3 py-2"
             >
-              <span className="type-caption text-zinc-300">{tool.label}</span>
+              <span className="type-caption text-[var(--text-secondary)]">{tool.label}</span>
               <div className="flex flex-wrap gap-1">
                 <ChipButton
                   active={!active}
@@ -69,7 +69,7 @@ export default function ToolQualityProfilesSettings({
         })}
       </ul>
       {Object.keys(profiles).length > 0 ? (
-        <p className="type-caption text-zinc-500">
+        <p className="type-caption text-[var(--text-muted)]">
           Active overrides:{' '}
           {Object.entries(profiles)
             .map(([toolId, profile]) => `${toolQueueQualityLabel(toolId)} → ${profile}`)

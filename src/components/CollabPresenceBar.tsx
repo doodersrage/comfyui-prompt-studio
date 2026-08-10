@@ -145,8 +145,8 @@ export default function CollabPresenceBar({
   const others = peers.filter(peer => peer.peerId !== peerId);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-2 text-[11px] text-zinc-400">
-      <span className="font-medium text-zinc-300">Live · {projectId}</span>
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/50 px-3 py-2 text-[11px] text-[var(--text-muted)]">
+      <span className="font-medium text-[var(--text-secondary)]">Live · {projectId}</span>
       {others.length === 0 ? (
         <span>Only you here</span>
       ) : (

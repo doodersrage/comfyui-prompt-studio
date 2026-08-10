@@ -884,7 +884,7 @@ export default function SettingsTool() {
           {tab === 'overview' && (
             <>
               <ToolSection title="Appearance & chrome">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   Theme (Auto / Light / Dark), ambient intensity, density, and queue toasts live in{' '}
                   <a
                     href="/profile"
@@ -981,7 +981,9 @@ export default function SettingsTool() {
 
                 {health?.comfyuiPool?.enabled && health.comfyuiPool.endpoints.length > 0 ? (
                   <div className="mt-4 space-y-3">
-                    <p className="type-caption text-zinc-400">ComfyUI pool endpoints</p>
+                    <p className="type-caption text-[var(--text-secondary)]">
+                      ComfyUI pool endpoints
+                    </p>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {health.comfyuiPool.endpoints.map(endpoint => (
                         <HealthCard
@@ -1009,7 +1011,10 @@ export default function SettingsTool() {
                       ))}
                     </div>
                     <div className="space-y-1.5">
-                      <label htmlFor="preferred-comfy-host" className="text-xs text-zinc-400">
+                      <label
+                        htmlFor="preferred-comfy-host"
+                        className="text-xs text-[var(--text-secondary)]"
+                      >
                         Preferred pool host
                       </label>
                       <select
@@ -1020,7 +1025,7 @@ export default function SettingsTool() {
                             preferredComfyHost: event.target.value.trim() || undefined,
                           })
                         }
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-950/80 px-3 py-2.5 text-sm text-zinc-100 shadow-inner shadow-black/20 transition hover:border-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:border-zinc-500"
+                        className="w-full rounded-xl border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2.5 text-sm text-[var(--text-primary)] shadow-inner shadow-[var(--shadow-surface)] transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 active:border-[var(--border-strong)]"
                       >
                         <option value="">Auto (VRAM / round-robin)</option>
                         {health.comfyuiPool.endpoints.map(endpoint => (
@@ -1030,7 +1035,7 @@ export default function SettingsTool() {
                           </option>
                         ))}
                       </select>
-                      <p className="text-[11px] leading-relaxed text-zinc-500">
+                      <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
                         When the preferred host is in the pool and healthy, queues use it first.
                         Unhealthy preferred hosts fall back to VRAM-aware routing.
                       </p>
@@ -1039,7 +1044,7 @@ export default function SettingsTool() {
                 ) : null}
 
                 {health?.apiUsage ? (
-                  <ul className="space-y-1 text-xs text-zinc-500">
+                  <ul className="space-y-1 text-xs text-[var(--text-muted)]">
                     <li>
                       API usage (in-memory): {health.apiUsage.total} requests ·{' '}
                       {health.apiUsage.lastHour} last hour · {health.apiUsage.rateLimited} rate
@@ -1050,7 +1055,7 @@ export default function SettingsTool() {
                 ) : null}
 
                 {health && (
-                  <ul className="space-y-1 text-xs text-zinc-500">
+                  <ul className="space-y-1 text-xs text-[var(--text-muted)]">
                     <li>Vision model: {health.config.visionModel}</li>
                     <li>
                       Template fallback:{' '}
@@ -1126,7 +1131,10 @@ export default function SettingsTool() {
               >
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1">
-                    <label htmlFor="inference-engine" className="text-xs text-zinc-400">
+                    <label
+                      htmlFor="inference-engine"
+                      className="text-xs text-[var(--text-secondary)]"
+                    >
                       Active engine
                     </label>
                     <select
@@ -1140,14 +1148,14 @@ export default function SettingsTool() {
                             event.target.value === 'diffusers' ? 'diffusers' : 'comfyui',
                         })
                       }
-                      className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 shadow-inner transition focus-visible:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40"
+                      className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                     >
                       <option value="comfyui">ComfyUI (primary generate)</option>
                       <option value="diffusers">Diffusers (optional / experimental)</option>
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label htmlFor="diffusers-url" className="text-xs text-zinc-400">
+                    <label htmlFor="diffusers-url" className="text-xs text-[var(--text-secondary)]">
                       Diffusers API URL
                     </label>
                     <input
@@ -1158,7 +1166,7 @@ export default function SettingsTool() {
                       }
                       placeholder="http://127.0.0.1:8190"
                       disabled={sharedSettings.inferenceEngine !== 'diffusers'}
-                      className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 shadow-inner transition focus-visible:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </div>
                   <label
@@ -1177,19 +1185,19 @@ export default function SettingsTool() {
                         })
                       }
                       disabled={sharedSettings.inferenceEngine !== 'diffusers'}
-                      className="mt-0.5 rounded border-zinc-600 bg-zinc-950 text-zinc-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40 disabled:cursor-not-allowed"
+                      className="mt-0.5 rounded border-[var(--border-default)] bg-[var(--bg-muted)] text-[var(--text-primary)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed"
                     />
                     <span className="space-y-0.5">
-                      <span className="block text-sm text-zinc-200">
+                      <span className="block text-sm text-[var(--text-primary)]">
                         Auto-start Diffusers when offline
                       </span>
-                      <span className="block text-xs text-zinc-500">
+                      <span className="block text-xs text-[var(--text-muted)]">
                         Spawns{' '}
-                        <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
+                        <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
                           services/diffusers-engine
                         </code>{' '}
                         for localhost URLs when Diffusers is the active engine. Server kill-switch:{' '}
-                        <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
+                        <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
                           DIFFUSERS_AUTOSTART=0
                         </code>
                         .
@@ -1197,7 +1205,10 @@ export default function SettingsTool() {
                     </span>
                   </label>
                   <div className="space-y-1 sm:col-span-2">
-                    <label htmlFor="diffusers-workshop-crop" className="text-xs text-zinc-400">
+                    <label
+                      htmlFor="diffusers-workshop-crop"
+                      className="text-xs text-[var(--text-secondary)]"
+                    >
                       Workshop crop (hide hands)
                     </label>
                     <select
@@ -1211,7 +1222,7 @@ export default function SettingsTool() {
                         });
                       }}
                       disabled={sharedSettings.inferenceEngine !== 'diffusers'}
-                      className="w-full rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 shadow-inner transition focus-visible:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/40 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-inner transition focus-visible:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <option value="auto">Auto (glassblower / blacksmith / …)</option>
                       <option value="always">Always crop hands</option>
@@ -1219,18 +1230,21 @@ export default function SettingsTool() {
                     </select>
                   </div>
                 </div>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-[var(--text-muted)]">
                   Default Generate uses ComfyUI (Dynamic VRAM / bf16 Lightning). Diffusers remains
                   available for experiments — run{' '}
-                  <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
                     cd services/diffusers-engine && ./run.sh
                   </code>{' '}
                   or enable auto-start when that engine is selected. Server proxy uses{' '}
-                  <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
                     DIFFUSERS_API_URL
                   </code>
                   ; default engine via{' '}
-                  <code className="rounded bg-zinc-800/80 px-1 text-zinc-300">PROMPT_ENGINE</code>.
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-[var(--text-secondary)]">
+                    PROMPT_ENGINE
+                  </code>
+                  .
                 </p>
               </ToolSection>
               <SettingsBrowserPresetsPanel
@@ -1292,13 +1306,13 @@ export default function SettingsTool() {
                       }
                     }}
                     disabled={!sharedMounted}
-                    className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                   />
                   <span className="space-y-1">
-                    <span className="block text-sm font-medium text-zinc-200">
+                    <span className="block text-sm font-medium text-[var(--text-primary)]">
                       Use system workflows
                     </span>
-                    <span className="block text-xs text-zinc-500">
+                    <span className="block text-xs text-[var(--text-muted)]">
                       Queue from the best matching library pack when one scores well, otherwise a
                       built-in scaffold. Draft / Final / Max still drive sampler, resolution, and
                       polish. Checkpoint/VAE maps still apply. For FLUX / Qwen / video, hides the
@@ -1319,13 +1333,13 @@ export default function SettingsTool() {
                         })
                       }
                       disabled={!sharedMounted}
-                      className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                      className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                     />
                     <span className="space-y-1">
-                      <span className="block text-sm font-medium text-zinc-200">
+                      <span className="block text-sm font-medium text-[var(--text-primary)]">
                         Limit picker to FLUX / Qwen / video
                       </span>
-                      <span className="block text-xs text-zinc-500">
+                      <span className="block text-xs text-[var(--text-muted)]">
                         On (default): snap the model list to system-supported families. Off
                         (hybrid): keep SDXL and other models — they use mapped/manual workflows
                         while FLUX/Qwen/video still use the system path.
@@ -1335,17 +1349,19 @@ export default function SettingsTool() {
                 ) : null}
 
                 {sharedSettings.useSystemWorkflows === true ? (
-                  <p className="mb-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-4 py-3 text-xs leading-relaxed text-zinc-500">
+                  <p className="mb-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)] px-4 py-3 text-xs leading-relaxed text-[var(--text-muted)]">
                     Explicit model→workflow map entries still win at queue time. When a model has no
                     map entry, matching pack graphs in your library are preferred automatically,
                     otherwise a built-in scaffold is used. Expand below to edit the map or pin{' '}
-                    <code className="rounded bg-zinc-800 px-1 text-violet-300">faceDetailer=</code>{' '}
+                    <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                      faceDetailer=
+                    </code>{' '}
                     for Gallery → Face detail.
                   </p>
                 ) : (
-                  <p className="mb-3 text-sm text-zinc-400">
+                  <p className="mb-3 text-sm text-[var(--text-secondary)]">
                     One mapping per line:{' '}
-                    <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                    <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                       modelId=workflowFileId
                     </code>
                     . When you change the target model in a generator, the mapped workflow file is
@@ -1365,13 +1381,13 @@ export default function SettingsTool() {
                           })
                         }
                         disabled={!sharedMounted}
-                        className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                        className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                       />
                       <span className="space-y-1">
-                        <span className="block text-sm font-medium text-zinc-200">
+                        <span className="block text-sm font-medium text-[var(--text-primary)]">
                           Auto-select workflow when target model changes
                         </span>
-                        <span className="block text-xs text-zinc-500">
+                        <span className="block text-xs text-[var(--text-muted)]">
                           Uses the map below, or filename-based defaults when no line exists. You
                           can still pick a different workflow manually to override for the session.
                         </span>
@@ -1387,13 +1403,13 @@ export default function SettingsTool() {
                           })
                         }
                         disabled={!sharedMounted}
-                        className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                        className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                       />
                       <span className="space-y-1">
-                        <span className="block text-sm font-medium text-zinc-200">
+                        <span className="block text-sm font-medium text-[var(--text-primary)]">
                           Limit model picker to available workflows
                         </span>
-                        <span className="block text-xs text-zinc-500">
+                        <span className="block text-xs text-[var(--text-muted)]">
                           Generators only list models that have a workflow in your library or
                           assignment map. Use &quot;Show all models&quot; in a tool sidebar to
                           override temporarily.
@@ -1429,9 +1445,9 @@ export default function SettingsTool() {
                       placeholder={`faceDetailer=my-facedetailer-workflow.json`}
                       className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
                     />
-                    <p className="mt-2 text-xs text-zinc-500">
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">
                       Pin a FaceDetailer/ReActor graph with{' '}
-                      <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                      <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                         faceDetailer=&lt;workflowId&gt;
                       </code>
                       .
@@ -1454,9 +1470,9 @@ export default function SettingsTool() {
                       placeholder={`qwen-image-2512=my-qwen-workflow.json\nflux-2-klein=flux-klein-default.json\nfaceDetailer=my-facedetailer-workflow.json`}
                       className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
                     />
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-[var(--text-muted)]">
                       Pin a FaceDetailer/ReActor graph with{' '}
-                      <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                      <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                         faceDetailer=&lt;workflowId&gt;
                       </code>{' '}
                       (required for Gallery → Face detail).
@@ -1478,7 +1494,7 @@ export default function SettingsTool() {
                           `Applied ${countMappedModels(merged)} model→workflow mappings from workflow filenames.`
                         );
                       }}
-                      className="mt-3 rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 transition hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.99]"
+                      className="mt-3 rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:border-[var(--border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:scale-[0.99]"
                     >
                       Apply smart defaults by category
                     </button>
@@ -1499,9 +1515,11 @@ export default function SettingsTool() {
                 id="settings-comfyui-workflow-patching"
                 title="Workflow patching & checkpoints"
               >
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   Direct patching updates{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">EmptyLatentImage</code>{' '}
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                    EmptyLatentImage
+                  </code>{' '}
                   and loader nodes at queue time even when placeholders are missing. Disable to
                   compare against raw workflow JSON.
                 </p>
@@ -1515,13 +1533,13 @@ export default function SettingsTool() {
                       })
                     }
                     disabled={!sharedMounted}
-                    className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                   />
                   <span className="space-y-1">
-                    <span className="block text-sm font-medium text-zinc-200">
+                    <span className="block text-sm font-medium text-[var(--text-primary)]">
                       Direct workflow patching on queue
                     </span>
-                    <span className="block text-xs text-zinc-500">
+                    <span className="block text-xs text-[var(--text-muted)]">
                       Patches latent size and checkpoint/UNET/VAE loader filenames from model
                       defaults below. KSampler and model-sampling nodes are always patched when
                       params are resolved.
@@ -1538,13 +1556,13 @@ export default function SettingsTool() {
                       })
                     }
                     disabled={!sharedMounted || sharedSettings.directWorkflowPatching === false}
-                    className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                   />
                   <span className="space-y-1">
-                    <span className="block text-sm font-medium text-zinc-200">
+                    <span className="block text-sm font-medium text-[var(--text-primary)]">
                       Sync loaders to model on queue
                     </span>
-                    <span className="block text-xs text-zinc-500">
+                    <span className="block text-xs text-[var(--text-muted)]">
                       Overwrites hardcoded checkpoint/UNET/VAE/CLIP filenames with the target model
                       at queue time. Use when switching model families on an imported workflow —
                       otherwise leave off to preserve hand-picked weights inside the JSON.
@@ -1561,17 +1579,17 @@ export default function SettingsTool() {
                       })
                     }
                     disabled={!sharedMounted}
-                    className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                   />
                   <span className="space-y-1">
-                    <span className="block text-sm font-medium text-zinc-200">
+                    <span className="block text-sm font-medium text-[var(--text-primary)]">
                       Optimize workflows on queue
                     </span>
-                    <span className="block text-xs text-zinc-500">
+                    <span className="block text-xs text-[var(--text-muted)]">
                       Auto-binds missing placeholders (prompt, latent, sampler, loaders) on imported
                       workflows before injection — turns community JSON into app-controlled
                       templates. Use{' '}
-                      <strong className="font-medium text-zinc-400">
+                      <strong className="font-medium text-[var(--text-secondary)]">
                         Optimize &amp; save copy
                       </strong>{' '}
                       in the workflow library to persist the result.
@@ -1588,19 +1606,21 @@ export default function SettingsTool() {
                       })
                     }
                     disabled={!sharedMounted}
-                    className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                   />
                   <span className="space-y-1">
-                    <span className="block text-sm font-medium text-zinc-200">
+                    <span className="block text-sm font-medium text-[var(--text-primary)]">
                       Compact Draft saves (WebP when available)
                     </span>
-                    <span className="block text-xs text-zinc-500">
-                      On <strong className="font-medium text-zinc-400">Draft</strong>, rewrite
-                      SaveImage to a WebP-capable custom node when ComfyUI has one installed (e.g.
-                      SaveImageExtended).{' '}
-                      <strong className="font-medium text-zinc-400">Final/Max</strong> stay PNG for
-                      keepers. Stock SaveImage alone cannot emit WebP — install a save custom node
-                      to shrink draft files on disk.
+                    <span className="block text-xs text-[var(--text-muted)]">
+                      On <strong className="font-medium text-[var(--text-secondary)]">Draft</strong>
+                      , rewrite SaveImage to a WebP-capable custom node when ComfyUI has one
+                      installed (e.g. SaveImageExtended).{' '}
+                      <strong className="font-medium text-[var(--text-secondary)]">
+                        Final/Max
+                      </strong>{' '}
+                      stay PNG for keepers. Stock SaveImage alone cannot emit WebP — install a save
+                      custom node to shrink draft files on disk.
                     </span>
                   </span>
                 </label>
@@ -1617,28 +1637,30 @@ export default function SettingsTool() {
                       })
                     }
                     disabled={!sharedMounted}
-                    className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                   />
                   <span className="space-y-1">
-                    <span className="block text-sm font-medium text-zinc-200">
+                    <span className="block text-sm font-medium text-[var(--text-primary)]">
                       Insert model-sampling nodes on queue
                     </span>
-                    <span className="block text-xs text-zinc-500">
+                    <span className="block text-xs text-[var(--text-muted)]">
                       For FLUX and SD3-family workflows, inserts{' '}
-                      <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                      <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                         ModelSamplingFlux
                       </code>{' '}
                       or shift patch nodes when a loader connects directly to KSampler. On{' '}
-                      <strong className="font-medium text-zinc-400">Final/Max</strong>, SDXL may get
-                      a latent refiner pass and Flux a soft latent detail pass (vanilla Qwen skips
-                      that — anatomy guard); outputs then get neural or Lanczos upscale capped to
-                      ~1.25×/1.5× net (vanilla 2512 stays Lanczos-only; Max Lanczos polish + Max
-                      sharpen when enabled).
+                      <strong className="font-medium text-[var(--text-secondary)]">
+                        Final/Max
+                      </strong>
+                      , SDXL may get a latent refiner pass and Flux a soft latent detail pass
+                      (vanilla Qwen skips that — anatomy guard); outputs then get neural or Lanczos
+                      upscale capped to ~1.25×/1.5× net (vanilla 2512 stays Lanczos-only; Max
+                      Lanczos polish + Max sharpen when enabled).
                     </span>
                   </span>
                 </label>
                 {sharedSettings.workflowGraphEnrich !== false ? (
-                  <div className="mb-4 ml-7 space-y-2 border-l border-zinc-800 pl-4">
+                  <div className="mb-4 ml-7 space-y-2 border-l border-[var(--border-subtle)] pl-4">
                     <label className="flex cursor-pointer items-start gap-3">
                       <input
                         type="checkbox"
@@ -1649,13 +1671,13 @@ export default function SettingsTool() {
                           })
                         }
                         disabled={!sharedMounted}
-                        className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                        className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                       />
                       <span className="space-y-1">
-                        <span className="block text-sm text-zinc-300">
+                        <span className="block text-sm text-[var(--text-secondary)]">
                           SDXL refiner pass (Final/Max)
                         </span>
-                        <span className="block text-xs text-zinc-500">
+                        <span className="block text-xs text-[var(--text-muted)]">
                           Latent upscale + refiner KSampler before VAEDecode when a refiner map is
                           configured.
                         </span>
@@ -1671,13 +1693,13 @@ export default function SettingsTool() {
                           })
                         }
                         disabled={!sharedMounted}
-                        className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                        className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                       />
                       <span className="space-y-1">
-                        <span className="block text-sm text-zinc-300">
+                        <span className="block text-sm text-[var(--text-secondary)]">
                           Lanczos polish after neural upscale (Max)
                         </span>
-                        <span className="block text-xs text-zinc-500">
+                        <span className="block text-xs text-[var(--text-muted)]">
                           Chains a 1.05× Lanczos pass after UpscaleModel on Max profile.
                         </span>
                       </span>
@@ -1692,13 +1714,13 @@ export default function SettingsTool() {
                           })
                         }
                         disabled={!sharedMounted}
-                        className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                        className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                       />
                       <span className="space-y-1">
-                        <span className="block text-sm text-zinc-300">
+                        <span className="block text-sm text-[var(--text-secondary)]">
                           Subtle sharpen after upscale (Max)
                         </span>
-                        <span className="block text-xs text-zinc-500">
+                        <span className="block text-xs text-[var(--text-muted)]">
                           ImageSharpen after neural UpscaleModel on Max quality (not Lanczos-only).
                           On by default for Max; uncheck if edges look waxy. Qwen/Klein use a
                           lighter alpha.
@@ -1715,23 +1737,23 @@ export default function SettingsTool() {
                           })
                         }
                         disabled={!sharedMounted}
-                        className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                        className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                       />
                       <span className="space-y-1">
-                        <span className="block text-sm text-zinc-300">
+                        <span className="block text-sm text-[var(--text-secondary)]">
                           Prefer library upscale workflows
                         </span>
-                        <span className="block text-xs text-zinc-500">
+                        <span className="block text-xs text-[var(--text-muted)]">
                           Gallery upscale actions use a mapped library workflow with UpscaleModel
                           nodes when available instead of the minimal scaffold.
                         </span>
                       </span>
                     </label>
                     <label className="block space-y-2">
-                      <span className="block text-sm text-zinc-300">
+                      <span className="block text-sm text-[var(--text-secondary)]">
                         Neural upscale tile size (Max)
                       </span>
-                      <span className="block text-xs text-zinc-500">
+                      <span className="block text-xs text-[var(--text-muted)]">
                         Only applied when ComfyUI’s ImageUpscaleWithModel declares tile_size. Set 0
                         to disable.
                       </span>
@@ -1753,8 +1775,10 @@ export default function SettingsTool() {
                   </div>
                 ) : null}
                 <div className="mb-4 space-y-2">
-                  <p className="text-sm font-medium text-zinc-200">Per-tool queue quality</p>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-sm font-medium text-[var(--text-primary)]">
+                    Per-tool queue quality
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)]">
                     Set default Draft / Final / Max profiles for individual tools. Overrides the
                     global sidebar profile when that tool queues to ComfyUI.
                   </p>
@@ -1766,9 +1790,9 @@ export default function SettingsTool() {
                     }
                   />
                 </div>
-                <p className="mb-2 text-sm text-zinc-400">
+                <p className="mb-2 text-sm text-[var(--text-secondary)]">
                   Checkpoint map — one line per model:{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     modelId=filename.safetensors
                   </code>
                   . Used for both CheckpointLoader and UNETLoader when a workflow has those nodes.
@@ -1811,21 +1835,30 @@ export default function SettingsTool() {
                     {loaderMapMergeHint}
                   </p>
                 ) : (
-                  <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+                  <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">
                     Suggested maps are applied automatically on load. Use this button after clearing
                     a map or on a new install — feedback appears here.
                   </p>
                 )}
-                <p className="mb-2 mt-4 text-sm text-zinc-400">
+                <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
                   VAE map — override{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">{'{{VAE}}'}</code> /{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">VAELoader</code>{' '}
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                    {'{{VAE}}'}
+                  </code>{' '}
+                  /{' '}
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                    VAELoader
+                  </code>{' '}
                   filenames per model.{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">ae.safetensors</code>{' '}
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                    ae.safetensors
+                  </code>{' '}
                   is UltraReal Fine-Tune v4 only — do not set it as{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">default</code> or on
-                  Qwen. FLUX Klein workflows need{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                    default
+                  </code>{' '}
+                  or on Qwen. FLUX Klein workflows need{' '}
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     flux2-vae.safetensors
                   </code>
                   .
@@ -1845,10 +1878,11 @@ export default function SettingsTool() {
                   placeholder={`flux-2-klein-9b=flux2-vae.safetensors\ndefault=flux2-vae.safetensors`}
                   className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
                 />
-                <p className="mb-2 mt-4 text-sm text-zinc-400">
+                <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
                   SDXL refiner map — checkpoint for the hi-res refiner pass on{' '}
-                  <strong className="font-medium text-zinc-300">Final/Max</strong> SDXL queues (
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <strong className="font-medium text-[var(--text-secondary)]">Final/Max</strong>{' '}
+                  SDXL queues (
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     sd_xl_refiner_1.0.safetensors
                   </code>{' '}
                   by default). Inserts latent upscale + refiner KSampler before VAEDecode on
@@ -1869,19 +1903,21 @@ export default function SettingsTool() {
                   placeholder={`sdxl=sd_xl_refiner_1.0.safetensors\ndefault=sd_xl_refiner_1.0.safetensors`}
                   className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
                 />
-                <p className="mb-2 mt-4 text-sm text-zinc-400">
+                <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
                   Upscale model map — optional. Leave empty to use Lanczos upscale on Final/Max. Set{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     default=your-model.pth
                   </code>{' '}
                   only when the file exists in ComfyUI{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     models/upscale_models/
                   </code>
                   . Patches{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">UpscaleModel</code>{' '}
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                    UpscaleModel
+                  </code>{' '}
                   nodes and replaces{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     {'{{UPSCALE_MODEL}}'}
                   </code>{' '}
                   placeholders at queue time.
@@ -1901,11 +1937,13 @@ export default function SettingsTool() {
                   placeholder={`# Final/Max neural upscale (must exist in models/upscale_models/)\ndefault=4x-UltraSharp.pth\nqwen-image-2512=4x_NMKD-Siax_200k.pth\nflux-dev=4x-UltraSharp.pth`}
                   className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
                 />
-                <p className="mb-2 mt-4 text-sm text-zinc-400">
+                <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
                   ControlNet model map — optional. Patches{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">ControlNetLoader</code>{' '}
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                    ControlNetLoader
+                  </code>{' '}
                   nodes and replaces{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     {'{{CONTROLNET_MODEL}}'}
                   </code>{' '}
                   at queue time.
@@ -1925,16 +1963,19 @@ export default function SettingsTool() {
                   placeholder={`# optional — file in ComfyUI models/controlnet/\ndefault=control_v11p_sd15_openpose.pth`}
                   className={`ui-input w-full font-mono text-xs leading-relaxed text-emerald-200 ${accentFocusClass(ACCENT)}`}
                 />
-                <p className="mb-2 mt-4 text-sm text-zinc-400">
+                <p className="mb-2 mt-4 text-sm text-[var(--text-secondary)]">
                   Model LoRA map — default library entries per model:{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     modelId=loraId1,loraId2
                   </code>
-                  . Values are <strong className="font-medium text-zinc-300">library ids</strong>{' '}
+                  . Values are{' '}
+                  <strong className="font-medium text-[var(--text-secondary)]">library ids</strong>{' '}
                   from the LoRA library panel (not filenames). Empty value (
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">modelId=</code>) means
-                  no LoRAs for that model. Applied when the session picker is still following
-                  defaults.
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                    modelId=
+                  </code>
+                  ) means no LoRAs for that model. Applied when the session picker is still
+                  following defaults.
                 </p>
                 <textarea
                   value={modelLoraMapText}
@@ -1961,13 +2002,13 @@ export default function SettingsTool() {
                       })
                     }
                     disabled={!sharedMounted}
-                    className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                   />
                   <span className="space-y-1">
-                    <span className="block text-sm font-medium text-zinc-200">
+                    <span className="block text-sm font-medium text-[var(--text-primary)]">
                       Auto-select LoRAs for model
                     </span>
-                    <span className="block text-xs text-zinc-500">
+                    <span className="block text-xs text-[var(--text-muted)]">
                       When you change the target model, load that model&apos;s stored LoRA picks (or
                       the map above). Explicit picks are remembered per model and never overwrite
                       another model&apos;s stack.
@@ -1975,10 +2016,10 @@ export default function SettingsTool() {
                   </span>
                 </label>
                 <label className="mt-4 block space-y-2">
-                  <span className="block text-sm font-medium text-zinc-200">
+                  <span className="block text-sm font-medium text-[var(--text-primary)]">
                     Edit denoise strength
                   </span>
-                  <span className="block text-xs text-zinc-500">
+                  <span className="block text-xs text-[var(--text-muted)]">
                     Applied when queueing with an input image or from Refine / Image → Prompt. FLUX
                     Inpaint uses 0.75 by default; other edit flows use this value (0.05–1).
                   </span>
@@ -1998,12 +2039,12 @@ export default function SettingsTool() {
                   />
                 </label>
                 <label className="mt-4 block space-y-2">
-                  <span className="block text-sm font-medium text-zinc-200">
+                  <span className="block text-sm font-medium text-[var(--text-primary)]">
                     Face detail denoise
                   </span>
-                  <span className="block text-xs text-zinc-500">
+                  <span className="block text-xs text-[var(--text-muted)]">
                     Gallery → Face detail strength for{' '}
-                    <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                    <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                       {'{{FACE_DETAIL_DENOISE}}'}
                     </code>{' '}
                     (0.05–1). Requires a pinned FaceDetailer/ReActor workflow.
@@ -2028,22 +2069,25 @@ export default function SettingsTool() {
               </ToolSection>
 
               <ToolSection id="settings-comfyui-ipadapter" title="IP-Adapter identity reference">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   Session-wide identity/style reference (not Image → Prompt&apos;s text multi-ref).
                   At queue time, with a reference image set, the app updates existing{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     {DEFAULT_IPADAPTER_IMAGE_TOKEN}
                   </code>
                   {' / '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     {DEFAULT_IPADAPTER_STRENGTH_TOKEN}
                   </code>
                   {' / '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     {DEFAULT_IPADAPTER_MODEL_TOKEN}
                   </code>{' '}
-                  tokens <strong className="font-medium text-zinc-300">or auto-inserts</strong> a
-                  minimal LoadImage → IPAdapterModelLoader → IPAdapterAdvanced chain when none
+                  tokens{' '}
+                  <strong className="font-medium text-[var(--text-secondary)]">
+                    or auto-inserts
+                  </strong>{' '}
+                  a minimal LoadImage → IPAdapterModelLoader → IPAdapterAdvanced chain when none
                   exist. Requires ComfyUI-IPAdapter-Plus-class nodes installed. Extra reference
                   filenames stack additional Apply nodes. When IP-Adapter Plus is missing but
                   InstantID/PuLID nodes are installed, Studio falls back to auto-inserting those
@@ -2066,7 +2110,7 @@ export default function SettingsTool() {
                     className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
                   />
                   <div className="flex flex-wrap items-center gap-3">
-                    <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">
+                    <label className="cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-strong)]">
                       {ipAdapterUploading ? 'Uploading…' : 'Upload reference image'}
                       <input
                         type="file"
@@ -2095,7 +2139,9 @@ export default function SettingsTool() {
                       />
                     </label>
                     {ipAdapterUploadStatus ? (
-                      <span className="text-xs text-zinc-500">{ipAdapterUploadStatus}</span>
+                      <span className="text-xs text-[var(--text-muted)]">
+                        {ipAdapterUploadStatus}
+                      </span>
                     ) : null}
                   </div>
                 </div>
@@ -2123,14 +2169,14 @@ export default function SettingsTool() {
                     disabled={!sharedMounted}
                     className={`ui-input w-full px-(--input-padding-x) py-(--input-padding-y) type-body ${accentFocusClass(ACCENT)}`}
                   />
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-[var(--text-muted)]">
                     Two or more filenames stack additional IPAdapterAdvanced nodes onto the sampler
                     model chain at queue time.
                   </p>
                 </div>
 
                 <label className="mt-4 block space-y-2">
-                  <span className="block text-sm font-medium text-zinc-200">
+                  <span className="block text-sm font-medium text-[var(--text-primary)]">
                     Strength — {(sharedSettings.ipAdapterStrength ?? 0.6).toFixed(2)}
                   </span>
                   <input
@@ -2209,19 +2255,21 @@ export default function SettingsTool() {
               </ToolSection>
 
               <ToolSection id="settings-comfyui-connection" title="ComfyUI connection & injection">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   Override the server&apos;s{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">COMFYUI_*</code> env
-                  vars for this browser: API URL, placeholder tokens, queue params, and an optional
-                  fallback workflow when no library file is selected.
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
+                    COMFYUI_*
+                  </code>{' '}
+                  env vars for this browser: API URL, placeholder tokens, queue params, and an
+                  optional fallback workflow when no library file is selected.
                 </p>
 
-                <label className="flex items-center gap-2 text-sm text-zinc-300">
+                <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                   <input
                     type="checkbox"
                     checked={settings.useServerDefaults}
                     onChange={event => updateSettings({ useServerDefaults: event.target.checked })}
-                    className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                    className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                   />
                   Use server defaults (ignore local ComfyUI overrides)
                 </label>
@@ -2230,7 +2278,7 @@ export default function SettingsTool() {
                   className={`grid gap-4 ${settings.useServerDefaults ? 'pointer-events-none opacity-50' : ''}`}
                 >
                   <div className="space-y-1">
-                    <label htmlFor="comfy-url" className="text-xs text-zinc-400">
+                    <label htmlFor="comfy-url" className="text-xs text-[var(--text-secondary)]">
                       ComfyUI API URL
                     </label>
                     <input
@@ -2238,13 +2286,16 @@ export default function SettingsTool() {
                       value={settings.apiUrl ?? ''}
                       onChange={event => updateSettings({ apiUrl: event.target.value })}
                       placeholder="http://127.0.0.1:8188"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                      className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)]"
                     />
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
-                      <label htmlFor="positive-token" className="text-xs text-zinc-400">
+                      <label
+                        htmlFor="positive-token"
+                        className="text-xs text-[var(--text-secondary)]"
+                      >
                         Positive placeholder token
                       </label>
                       <input
@@ -2252,11 +2303,14 @@ export default function SettingsTool() {
                         value={settings.positiveToken ?? ''}
                         onChange={event => updateSettings({ positiveToken: event.target.value })}
                         placeholder="{{POSITIVE}}"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
+                        className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 font-mono text-sm text-[var(--text-primary)]"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label htmlFor="negative-token" className="text-xs text-zinc-400">
+                      <label
+                        htmlFor="negative-token"
+                        className="text-xs text-[var(--text-secondary)]"
+                      >
                         Negative placeholder token (optional)
                       </label>
                       <input
@@ -2264,13 +2318,15 @@ export default function SettingsTool() {
                         value={settings.negativeToken ?? ''}
                         onChange={event => updateSettings({ negativeToken: event.target.value })}
                         placeholder="{{NEGATIVE}}"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
+                        className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 font-mono text-sm text-[var(--text-primary)]"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs text-zinc-400">Queue parameter placeholders</p>
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Queue parameter placeholders
+                    </p>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {(
                         [
@@ -2281,7 +2337,7 @@ export default function SettingsTool() {
                           ['steps', 'Steps'],
                         ] as const
                       ).map(([key, label]) => (
-                        <label key={key} className="space-y-1 text-xs text-zinc-400">
+                        <label key={key} className="space-y-1 text-xs text-[var(--text-secondary)]">
                           {label}
                           <input
                             value={settings.queueParams?.[key]?.toString() ?? ''}
@@ -2295,15 +2351,18 @@ export default function SettingsTool() {
                                     ? '7'
                                     : '20'
                             }
-                            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
+                            className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 font-mono text-sm text-[var(--text-primary)]"
                           />
                         </label>
                       ))}
                     </div>
-                    <p className="text-xs text-zinc-600">
+                    <p className="text-xs text-[var(--text-muted)]">
                       Use tokens in workflow JSON:{' '}
                       {WORKFLOW_PARAM_TOKEN_HELP.map(token => (
-                        <code key={token} className="mr-1 rounded bg-zinc-800 px-1 text-violet-300">
+                        <code
+                          key={token}
+                          className="mr-1 rounded bg-[var(--bg-elevated)] px-1 text-violet-300"
+                        >
                           {token}
                         </code>
                       ))}
@@ -2318,7 +2377,9 @@ export default function SettingsTool() {
                   >
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-xs text-zinc-400">Custom workflow tokens</p>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                          Custom workflow tokens
+                        </p>
                         <button
                           type="button"
                           onClick={addCustomToken}
@@ -2328,13 +2389,13 @@ export default function SettingsTool() {
                         </button>
                       </div>
                       {(settings.customTokens ?? []).length === 0 ? (
-                        <p className="text-xs text-zinc-600">
+                        <p className="text-xs text-[var(--text-muted)]">
                           Optional placeholders like{' '}
-                          <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                             {'{{CHECKPOINT}}'}
                           </code>{' '}
                           or{' '}
-                          <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                          <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                             {'{{LORA}}'}
                           </code>
                           . LoRA files live in the{' '}
@@ -2360,7 +2421,7 @@ export default function SettingsTool() {
                                   updateCustomToken(index, { token: event.target.value })
                                 }
                                 placeholder="{{CHECKPOINT}}"
-                                className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
+                                className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 font-mono text-sm text-[var(--text-primary)]"
                               />
                               <input
                                 value={entry.value}
@@ -2368,12 +2429,12 @@ export default function SettingsTool() {
                                   updateCustomToken(index, { value: event.target.value })
                                 }
                                 placeholder="flux1-dev.safetensors"
-                                className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                                className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-2 text-sm text-[var(--text-primary)]"
                               />
                               <button
                                 type="button"
                                 onClick={() => removeCustomToken(index)}
-                                className="rounded-lg border border-zinc-700 px-3 py-2 text-xs text-zinc-400 hover:border-rose-500 hover:text-rose-200"
+                                className="rounded-lg border border-[var(--border-default)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:border-rose-500 hover:text-rose-200"
                               >
                                 Remove
                               </button>
@@ -2392,7 +2453,10 @@ export default function SettingsTool() {
                   >
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <label htmlFor="workflow-json" className="text-xs text-zinc-400">
+                        <label
+                          htmlFor="workflow-json"
+                          className="text-xs text-[var(--text-secondary)]"
+                        >
                           Fallback workflow JSON (optional)
                         </label>
                         <label className="cursor-pointer text-xs text-violet-300 hover:text-violet-200">
@@ -2411,7 +2475,7 @@ export default function SettingsTool() {
                           />
                         </label>
                       </div>
-                      <p className="text-xs text-zinc-600">
+                      <p className="text-xs text-[var(--text-muted)]">
                         Used only when no workflow file is selected in the library above. For
                         multiple workflows, import them into the library instead.
                       </p>
@@ -2429,7 +2493,7 @@ export default function SettingsTool() {
                       />
                       <FieldError>{workflowError}</FieldError>
                       {workflowValidation && (
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-[var(--text-muted)]">
                           {workflowValidation.ok ? (
                             <>
                               Placeholders: {workflowValidation.placeholders?.positive ?? 0}×{' '}
@@ -2448,12 +2512,12 @@ export default function SettingsTool() {
                       )}
                     </div>
 
-                    <div className="space-y-3 rounded-xl border border-cyan-900/30 bg-zinc-950/40 p-4">
+                    <div className="space-y-3 rounded-xl border border-cyan-900/30 bg-[var(--bg-muted)] p-4">
                       <div className="space-y-1">
                         <h3 className="text-xs font-medium uppercase tracking-wide text-cyan-300/90">
                           Workflow dry-run preview
                         </h3>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-[var(--text-muted)]">
                           Test placeholder injection without queueing a ComfyUI job. Uses the
                           current settings above (save first if you changed them recently).
                         </p>
@@ -2485,7 +2549,7 @@ export default function SettingsTool() {
                   id="settings-comfyui-auto-improve"
                   title="Auto-improve on gallery ratings"
                 >
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-sm text-[var(--text-secondary)]">
                     Rating-driven queue actions. Prefer the calm preset if you do not want surprise
                     Max jobs.
                   </p>
@@ -2542,47 +2606,47 @@ export default function SettingsTool() {
                       Off
                     </Button>
                   </div>
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.autoRequeueFinalOnHighRating !== false}
                       onChange={event =>
                         updateSettings({ autoRequeueFinalOnHighRating: event.target.checked })
                       }
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Auto improve 4–5★ → Final (upscale / moiré / Lightning re-seed)
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.autoRequeueMaxOnFiveStar !== false}
                       onChange={event =>
                         updateSettings({ autoRequeueMaxOnFiveStar: event.target.checked })
                       }
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Auto improve 5★ → Max
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.autoImg2imgRefineOnFiveStar === true}
                       onChange={event =>
                         updateSettings({ autoImg2imgRefineOnFiveStar: event.target.checked })
                       }
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     After 5★ upscale, also queue low-denoise refine (experimental)
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.autoRefineOnLowRating !== false}
                       onChange={event =>
                         updateSettings({ autoRefineOnLowRating: event.target.checked })
                       }
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Auto-open Refine when rated 1–2★
                   </label>
@@ -2594,19 +2658,19 @@ export default function SettingsTool() {
                   defaultOpen={false}
                   persistKey="settings-queue-automation"
                 >
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.autoSaveHistoryOnQueue !== false}
                       onChange={event =>
                         updateSettings({ autoSaveHistoryOnQueue: event.target.checked })
                       }
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Auto-save to history when queueing from result panels (skips if already saved)
                   </label>
 
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={sharedSettings.promptVersioningEnabled !== false}
@@ -2616,74 +2680,76 @@ export default function SettingsTool() {
                         })
                       }
                       disabled={!sharedMounted}
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Named prompt versions (vN labels + lineage on history saves)
                   </label>
 
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.autoMutateOnHighRating ?? false}
                       onChange={event =>
                         updateSettings({ autoMutateOnHighRating: event.target.checked })
                       }
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Auto-queue mutations when a gallery output is rated 4–5★ (fallback when
                     Final/Max improve is off or fails)
                   </label>
 
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.autoSeedExperimentOnHighRating ?? false}
                       onChange={event =>
                         updateSettings({ autoSeedExperimentOnHighRating: event.target.checked })
                       }
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Auto-queue seed experiments when a gallery output is rated 4–5★
                   </label>
 
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.autoSeedExperimentOnFavorite ?? false}
                       onChange={event =>
                         updateSettings({ autoSeedExperimentOnFavorite: event.target.checked })
                       }
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Auto-queue seed experiments when an output is favorited
                   </label>
 
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.autoNegativeOnQueue !== false}
                       onChange={event =>
                         updateSettings({ autoNegativeOnQueue: event.target.checked })
                       }
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Auto-generate negative prompt when queueing SD-family models
                   </label>
 
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.useWebSocketProgress !== false}
                       onChange={event =>
                         updateSettings({ useWebSocketProgress: event.target.checked })
                       }
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Use ComfyUI WebSocket for faster job progress updates
                   </label>
 
                   <div className="ui-surface-inset space-y-2">
-                    <p className="text-xs font-medium text-zinc-300">Negative profile library</p>
+                    <p className="text-xs font-medium text-[var(--text-secondary)]">
+                      Negative profile library
+                    </p>
                     <select
                       value={settings.selectedNegativeProfileId ?? 'general-sd'}
                       onChange={event =>
@@ -2713,13 +2779,13 @@ export default function SettingsTool() {
                     </button>
                   </div>
 
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.notifyOnComplete ?? false}
                       disabled={notificationPermission === 'unsupported'}
                       onChange={event => updateSettings({ notifyOnComplete: event.target.checked })}
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Notify when ComfyUI jobs complete
                     {notificationPermission !== 'granted' &&
@@ -2734,17 +2800,17 @@ export default function SettingsTool() {
                       )}
                   </label>
                   {notificationPermission === 'unsupported' && (
-                    <p className="text-xs text-zinc-600">
+                    <p className="text-xs text-[var(--text-muted)]">
                       Browser notifications are not supported in this environment.
                     </p>
                   )}
 
-                  <label className="mt-3 flex items-center gap-2 text-sm text-zinc-300">
+                  <label className="mt-3 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                     <input
                       type="checkbox"
                       checked={settings.autoVisionTags !== false}
                       onChange={event => updateSettings({ autoVisionTags: event.target.checked })}
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                      className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] accent-violet-500"
                     />
                     Auto-tag completed gallery images with vision LLM tags (also on LLM tab)
                   </label>
@@ -2761,26 +2827,26 @@ export default function SettingsTool() {
                   <button
                     type="button"
                     onClick={() => void refreshHealth()}
-                    className="rounded-lg border border-zinc-700 px-4 py-2 text-zinc-200 hover:border-zinc-500"
+                    className="rounded-lg border border-[var(--border-default)] px-4 py-2 text-[var(--text-primary)] hover:border-[var(--border-strong)]"
                   >
                     Test connection
                   </button>
                   <button
                     type="button"
                     onClick={handleResetComfySettings}
-                    className="rounded-lg border border-zinc-700 px-4 py-2 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+                    className="rounded-lg border border-[var(--border-default)] px-4 py-2 text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                   >
                     Reset to server defaults
                   </button>
                 </div>
 
-                <p className="text-xs text-zinc-600">
+                <p className="text-xs text-[var(--text-muted)]">
                   Export a workflow from ComfyUI (Save API format), put{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     {settings.positiveToken ?? '{{POSITIVE}}'}
                   </code>{' '}
                   (and optionally{' '}
-                  <code className="rounded bg-zinc-800 px-1 text-violet-300">
+                  <code className="rounded bg-[var(--bg-elevated)] px-1 text-violet-300">
                     {settings.negativeToken ?? '{{NEGATIVE}}'}
                   </code>
                   ) in any string field where prompts should land—CLIP text inputs, custom node
@@ -2809,7 +2875,7 @@ export default function SettingsTool() {
               />
 
               <ToolSection id="settings-comfyui-hold-max" title="Queue Max hold">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   When on, Max Generate / re-queue / Upscale / Moiré / Refine wait until the ComfyUI
                   queue is idle, then flush from Queue → Orchestration.
                 </p>
@@ -2825,13 +2891,13 @@ export default function SettingsTool() {
                           : 'Hold Max until idle disabled.'
                       );
                     }}
-                    className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass(ACCENT)}`}
+                    className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-muted)] ${accentFocusClass(ACCENT)}`}
                   />
                   <span className="space-y-1">
-                    <span className="block text-sm font-medium text-zinc-200">
+                    <span className="block text-sm font-medium text-[var(--text-primary)]">
                       Hold Max until idle
                     </span>
-                    <span className="block text-xs text-zinc-500">
+                    <span className="block text-xs text-[var(--text-muted)]">
                       Avoid stacking Max enrich while ComfyUI is already busy. Also shown on Queue →
                       Orchestration.
                     </span>
@@ -2840,7 +2906,7 @@ export default function SettingsTool() {
               </ToolSection>
 
               <ToolSection id="settings-comfyui-sampler-memory" title="Sampler memory">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   4–5★ gallery ratings remember per-model CFG / steps / sampler / scheduler for the
                   next queue (Lightning and Rapid AIO stay CFG-1).
                 </p>
@@ -2874,11 +2940,11 @@ export default function SettingsTool() {
                         {entries.map(([model, remembered]) => (
                           <li
                             key={model}
-                            className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 px-3 py-2"
+                            className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/40 px-3 py-2"
                           >
                             <div className="min-w-0 space-y-0.5">
-                              <p className="truncate text-sm text-zinc-200">{model}</p>
-                              <p className="type-caption text-zinc-500">
+                              <p className="truncate text-sm text-[var(--text-primary)]">{model}</p>
+                              <p className="type-caption text-[var(--text-muted)]">
                                 {[
                                   remembered.cfg ? `CFG ${remembered.cfg}` : null,
                                   remembered.steps ? `${remembered.steps} steps` : null,
@@ -2914,10 +2980,10 @@ export default function SettingsTool() {
           {tab === 'automation' && (
             <>
               <ToolSection title="Webhooks">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   POST ComfyUI job completion events to an external URL (via server proxy).
                 </p>
-                <label className="flex items-center gap-3 text-sm text-zinc-300">
+                <label className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
                   <input
                     type="checkbox"
                     checked={webhookSettings.enabled}
@@ -2974,7 +3040,7 @@ export default function SettingsTool() {
               </ToolSection>
 
               <ToolSection title="Avoided tokens">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   Motifs to steer generators away from. Low gallery ratings append tokens
                   automatically; manage the list here.
                 </p>
@@ -3017,7 +3083,7 @@ export default function SettingsTool() {
                   >
                     Export JSON
                   </Button>
-                  <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">
+                  <label className="cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-strong)]">
                     Import JSON
                     <input
                       type="file"
@@ -3063,7 +3129,7 @@ export default function SettingsTool() {
                           removeAvoidedToken(token);
                           setStatus(`Removed “${token}”.`);
                         }}
-                        className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300 hover:border-rose-500/60 hover:text-rose-200"
+                        className="rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-secondary)] hover:border-rose-500/60 hover:text-rose-200"
                         title="Click to remove"
                       >
                         {token} ×
@@ -3119,7 +3185,9 @@ export default function SettingsTool() {
                         <p>No avoided tokens found in this prompt.</p>
                       )}
                       {avoidancePreview.instructionLine ? (
-                        <p className="mt-2 text-zinc-500">{avoidancePreview.instructionLine}</p>
+                        <p className="mt-2 text-[var(--text-muted)]">
+                          {avoidancePreview.instructionLine}
+                        </p>
                       ) : null}
                     </div>
                   ) : null}
@@ -3127,16 +3195,16 @@ export default function SettingsTool() {
               </ToolSection>
 
               <ToolSection title="Webhook event log">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   Recent webhook dispatch attempts (newest first).
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <label className="space-y-1 text-xs text-zinc-400">
+                  <label className="space-y-1 text-xs text-[var(--text-secondary)]">
                     Event filter
                     <select
                       value={webhookEventFilter}
                       onChange={event => setWebhookEventFilter(event.target.value)}
-                      className="block rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-100"
+                      className="block rounded-lg border border-[var(--border-default)] bg-[var(--bg-muted)] px-2 py-1.5 text-sm text-[var(--text-primary)]"
                     >
                       <option value="all">All events</option>
                       {webhookEventOptions.map(eventName => (
@@ -3185,7 +3253,7 @@ export default function SettingsTool() {
                     {filteredWebhookLog.slice(0, 12).map(entry => (
                       <li
                         key={entry.id}
-                        className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 text-xs text-zinc-400"
+                        className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-3 text-xs text-[var(--text-secondary)]"
                       >
                         <p className={entry.ok ? 'text-emerald-300' : 'text-rose-300'}>
                           {entry.ok ? 'OK' : 'FAIL'} · {entry.event} ·{' '}
@@ -3199,12 +3267,12 @@ export default function SettingsTool() {
                               previous === entry.id ? null : entry.id
                             )
                           }
-                          className="mt-2 text-zinc-400 hover:text-zinc-200"
+                          className="mt-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                         >
                           {expandedWebhookLogId === entry.id ? 'Hide payload' : 'Show payload'}
                         </button>
                         {expandedWebhookLogId === entry.id ? (
-                          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-zinc-800 bg-zinc-950 p-2 text-[11px] text-zinc-300">
+                          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-2 text-[11px] text-[var(--text-secondary)]">
                             {JSON.stringify(entry.payload, null, 2)}
                           </pre>
                         ) : null}
@@ -3226,20 +3294,26 @@ export default function SettingsTool() {
               </ToolSection>
 
               <ToolSection title="Scheduled batch">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   Two runners exist: a{' '}
-                  <strong className="font-medium text-zinc-300">browser</strong> scheduler (needs
-                  this tab open) and an optional{' '}
-                  <strong className="font-medium text-zinc-300">headless server</strong> cron gated
-                  by env.
+                  <strong className="font-medium text-[var(--text-secondary)]">browser</strong>{' '}
+                  scheduler (needs this tab open) and an optional{' '}
+                  <strong className="font-medium text-[var(--text-secondary)]">
+                    headless server
+                  </strong>{' '}
+                  cron gated by env.
                 </p>
-                <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 text-xs text-zinc-400">
-                  <p className="mb-1 font-medium text-zinc-300">Headless server runner (env)</p>
+                <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)] p-3 text-xs text-[var(--text-secondary)]">
+                  <p className="mb-1 font-medium text-[var(--text-secondary)]">
+                    Headless server runner (env)
+                  </p>
                   <p className="mb-2">
-                    Requires <code className="text-zinc-300">PROMPT_DATA_DIR</code> for durable
-                    profile storage, plus{' '}
-                    <code className="text-zinc-300">SERVER_SCHEDULED_BATCH=true</code>. The checkbox
-                    below only controls the in-browser runner.
+                    Requires <code className="text-[var(--text-secondary)]">PROMPT_DATA_DIR</code>{' '}
+                    for durable profile storage, plus{' '}
+                    <code className="text-[var(--text-secondary)]">
+                      SERVER_SCHEDULED_BATCH=true
+                    </code>
+                    . The checkbox below only controls the in-browser runner.
                   </p>
                   {serverScheduledBatchStatus ? (
                     <>
@@ -3253,15 +3327,15 @@ export default function SettingsTool() {
                       </p>
                       <p className="mt-1">
                         Using model{' '}
-                        <span className="text-zinc-200">
+                        <span className="text-[var(--text-primary)]">
                           {serverScheduledBatchStatus.profile.model}
                         </span>{' '}
                         · detail{' '}
-                        <span className="text-zinc-200">
+                        <span className="text-[var(--text-primary)]">
                           {serverScheduledBatchStatus.profile.detail}
                         </span>{' '}
                         · quality{' '}
-                        <span className="text-zinc-200">
+                        <span className="text-[var(--text-primary)]">
                           {serverScheduledBatchStatus.profile.qualityProfile}
                         </span>
                       </p>
@@ -3276,7 +3350,7 @@ export default function SettingsTool() {
                     <p>Checking server status…</p>
                   )}
                 </div>
-                <label className="flex items-center gap-3 text-sm text-zinc-300">
+                <label className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
                   <input
                     type="checkbox"
                     checked={scheduledBatch.enabled}
@@ -3345,7 +3419,7 @@ export default function SettingsTool() {
                   <option value="random-scene">Random scene</option>
                   <option value="topics">Topics batch</option>
                 </select>
-                <label className="mt-3 flex items-center gap-3 text-sm text-zinc-300">
+                <label className="mt-3 flex items-center gap-3 text-sm text-[var(--text-secondary)]">
                   <input
                     type="checkbox"
                     checked={scheduledBatch.autoQueueComfyUi}
@@ -3383,7 +3457,7 @@ export default function SettingsTool() {
               </ToolSection>
 
               <ToolSection title="Active character descriptor">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   Shared mandatory descriptor injected into Character generation requests.
                 </p>
                 <TextArea
@@ -3402,7 +3476,7 @@ export default function SettingsTool() {
               <SettingsBundlePanel onImported={reloadBrowserSettingsState} onStatus={setStatus} />
 
               <ToolSection title="Local data">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   Full studio backup includes history, settings, scene presets, user templates,
                   location blocklist, ComfyUI settings, gallery entries, workflow JSON (v2), avoided
                   tokens, webhook log/settings, projects, and scheduled batch (v3). Prefer Settings
@@ -3422,11 +3496,11 @@ export default function SettingsTool() {
                         setStatus('Studio backup downloaded.');
                       });
                     }}
-                    className="rounded-lg border border-zinc-700 px-4 py-2 text-zinc-200 hover:border-zinc-500"
+                    className="rounded-lg border border-[var(--border-default)] px-4 py-2 text-[var(--text-primary)] hover:border-[var(--border-strong)]"
                   >
                     Export backup
                   </button>
-                  <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-zinc-200 hover:border-zinc-500">
+                  <label className="cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-[var(--text-primary)] hover:border-[var(--border-strong)]">
                     Import backup
                     <input
                       type="file"
@@ -3460,7 +3534,9 @@ export default function SettingsTool() {
                     Reset local data
                   </button>
                 </div>
-                <p className="text-xs text-zinc-600">Keys: {LOCAL_DATA_KEYS.join(', ')}</p>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Keys: {LOCAL_DATA_KEYS.join(', ')}
+                </p>
               </ToolSection>
             </>
           )}

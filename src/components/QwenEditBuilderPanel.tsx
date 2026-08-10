@@ -40,7 +40,7 @@ export default function QwenEditBuilderPanel({ model, onApply }: QwenEditBuilder
   }
 
   return (
-    <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/50 p-3">
+    <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 p-3">
       <FieldLabel
         htmlFor="qwen-edit-builder"
         hint="One segment per line: keep:, replace:, add:, remove:"
@@ -55,7 +55,7 @@ export default function QwenEditBuilderPanel({ model, onApply }: QwenEditBuilder
         className="font-mono text-xs"
       />
       {preview ? (
-        <p className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-2 text-xs text-zinc-300">
+        <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/70 p-2 text-xs text-[var(--text-secondary)]">
           {preview}
         </p>
       ) : null}

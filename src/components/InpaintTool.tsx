@@ -34,12 +34,17 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { FieldError, FieldLabel, TextArea } from '@/components/ui/Field';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'amber' as const;
 const DEFAULT_INPAINT_MODEL: ComfyImageModel = 'flux-inpaint';
 
 export default function InpaintTool() {
+  const description = useToolPageDescription(
+    'Paint a mask and describe what belongs inside it. Queue regenerates only the masked region.',
+    'Paint a mask, describe the change, and queue inpaint for the masked region.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'inpaint',
     DEFAULT_INPAINT_TOOL_CACHE
@@ -264,7 +269,7 @@ export default function InpaintTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Inpaint · {selectedModel.comfyNode}</ToolBadge>}
       title="Inpaint"
-      description="Paint a mask and describe what belongs inside it. Queue regenerates only the masked region."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="inpaint"
@@ -289,7 +294,7 @@ export default function InpaintTool() {
           type="file"
           accept="image/*"
           onChange={event => onFileChange(event.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
+          className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-amber-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60"
         />
         {previewUrl ? (
           <InpaintMaskEditor
@@ -340,7 +345,7 @@ export default function InpaintTool() {
         />
 
         {output ? (
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 text-xs text-zinc-300">
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/80 p-3 text-xs text-[var(--text-secondary)]">
             {output}
           </pre>
         ) : null}

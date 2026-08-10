@@ -639,9 +639,10 @@ export default function ComfyWorkflowLibraryPanel({
         <h2 className="type-heading">ComfyUI workflow library</h2>
         <p className="type-caption">
           Manage multiple ComfyUI API workflow JSON files. Pick the active file from the dropdown
-          next to <strong className="font-medium text-zinc-300">Send to ComfyUI</strong> on any
-          result panel. URL, tokens, and queue params still come from the connection settings below
-          (or server env).
+          next to{' '}
+          <strong className="font-medium text-[var(--text-secondary)]">Send to ComfyUI</strong> on
+          any result panel. URL, tokens, and queue params still come from the connection settings
+          below (or server env).
         </p>
       </div>
 
@@ -740,9 +741,9 @@ export default function ComfyWorkflowLibraryPanel({
           Use fallback default
         </ChipButton>
       </ToolActionRow>
-      <p className="mb-4 text-xs text-zinc-500">
+      <p className="mb-4 text-xs text-[var(--text-muted)]">
         After importing community JSON, run{' '}
-        <strong className="font-medium text-zinc-400">Optimize all in library</strong> so
+        <strong className="font-medium text-[var(--text-muted)]">Optimize all in library</strong> so
         placeholders bind to your checkpoint/VAE maps and queue can skip re-bind/enrich via a fresh
         hash. Confirm filenames match ComfyUI&apos;s model lists. Workflow Health flags missing or
         stale optimize hashes.
@@ -864,7 +865,7 @@ export default function ComfyWorkflowLibraryPanel({
                             </Button>
                           </>
                         ) : (
-                          <p className="type-caption text-zinc-500">
+                          <p className="type-caption text-[var(--text-muted)]">
                             No model inferred from the name — assign manually:
                           </p>
                         )}
@@ -926,10 +927,12 @@ export default function ComfyWorkflowLibraryPanel({
                           onChange={event => setEditingName(event.target.value)}
                         />
                       </label>
-                      <div className="space-y-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3">
+                      <div className="space-y-3 rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/40 p-3">
                         <div>
-                          <p className="type-caption text-zinc-300">Per-workflow token overrides</p>
-                          <p className="mt-1 text-xs text-zinc-600">
+                          <p className="type-caption text-[var(--text-secondary)]">
+                            Per-workflow token overrides
+                          </p>
+                          <p className="mt-1 text-xs text-[var(--text-muted)]">
                             Unique to this workflow. Beat Settings → LoRA library and the global
                             checkpoint map when this file is selected for Send. Token overrides save
                             as you type.
@@ -980,7 +983,7 @@ export default function ComfyWorkflowLibraryPanel({
                           <p className="type-caption text-violet-200">
                             Graph inspector · {editingGraphInspect.nodeCount} nodes
                           </p>
-                          <p className="type-caption text-zinc-500">
+                          <p className="type-caption text-[var(--text-muted)]">
                             {editingGraphInspect.classCounts
                               .slice(0, 8)
                               .map(entry => `${entry.classType}×${entry.count}`)
@@ -996,7 +999,7 @@ export default function ComfyWorkflowLibraryPanel({
                               {editingGraphInspect.unresolvedTokens.length > 12 ? '…' : ''}
                             </p>
                           ) : (
-                            <p className="type-caption text-zinc-600">
+                            <p className="type-caption text-[var(--text-muted)]">
                               No {'{{TOKEN}}'} placeholders in this JSON.
                             </p>
                           )}
@@ -1004,7 +1007,7 @@ export default function ComfyWorkflowLibraryPanel({
                       ) : null}
                       {editError && <p className="text-xs text-rose-300">{editError}</p>}
                       {editingValidation && (
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-[var(--text-muted)]">
                           {editingValidation.ok ? (
                             <>
                               Placeholders: {editingValidation.placeholders?.positive ?? 0}×{' '}
@@ -1083,17 +1086,20 @@ export default function ComfyWorkflowLibraryPanel({
                             </Button>
                           </div>
                           {bindingPreview ? (
-                            <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950/60 p-2 text-[11px] text-zinc-400">
+                            <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/60 p-2 text-[11px] text-[var(--text-muted)]">
                               {bindingPreview}
                             </pre>
                           ) : null}
-                          <ul className="mt-2 space-y-1 text-xs text-zinc-400">
+                          <ul className="mt-2 space-y-1 text-xs text-[var(--text-muted)]">
                             {editingNodeMappings.map(mapping => (
                               <li key={mapping.nodeId}>
-                                <span className="text-zinc-200">{mapping.nodeId}</span> ·{' '}
-                                {mapping.classType}
+                                <span className="text-[var(--text-primary)]">{mapping.nodeId}</span>{' '}
+                                · {mapping.classType}
                                 {mapping.suggestedBinding ? ` → ${mapping.suggestedBinding}` : ''}
-                                <span className="text-zinc-600"> — {mapping.reason}</span>
+                                <span className="text-[var(--text-muted)]">
+                                  {' '}
+                                  — {mapping.reason}
+                                </span>
                               </li>
                             ))}
                           </ul>
@@ -1132,11 +1138,16 @@ export default function ComfyWorkflowLibraryPanel({
         )}
       </div>
 
-      <p className="text-xs text-zinc-600">
+      <p className="text-xs text-[var(--text-muted)]">
         Server env: set{' '}
-        <code className="rounded bg-zinc-800 px-1 text-violet-300">COMFYUI_WORKFLOW_DIR</code> or{' '}
-        <code className="rounded bg-zinc-800 px-1 text-violet-300">COMFYUI_WORKFLOW_PATHS</code> to
-        expose additional JSON files from disk.
+        <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">
+          COMFYUI_WORKFLOW_DIR
+        </code>{' '}
+        or{' '}
+        <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">
+          COMFYUI_WORKFLOW_PATHS
+        </code>{' '}
+        to expose additional JSON files from disk.
       </p>
 
       <div className="ui-surface-inset space-y-3">

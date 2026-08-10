@@ -37,10 +37,10 @@ export default function FaceDetailerHealthChip({ refreshKey = 0 }: FaceDetailerH
         {health.workflowName ? ` · ${health.workflowName}` : ''}
       </span>
       {health.status === 'missing' ? (
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-[var(--text-muted)]">
           Scaffold a FaceDetailer workflow in the library (or pin{' '}
-          <code className="text-zinc-400">faceDetailer=&lt;id&gt;</code> in the model workflow map)
-          so Gallery → Face detail appears.
+          <code className="text-[var(--text-muted)]">faceDetailer=&lt;id&gt;</code> in the model
+          workflow map) so Gallery → Face detail appears.
         </p>
       ) : null}
     </div>

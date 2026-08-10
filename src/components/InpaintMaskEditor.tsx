@@ -292,7 +292,7 @@ export default function InpaintMaskEditor({
       {mode === 'draw' ? (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="type-caption text-zinc-500">Brush (on screen)</span>
+            <span className="type-caption text-[var(--text-muted)]">Brush (on screen)</span>
             {BRUSH_SIZES.map(size => (
               <ChipButton key={size} active={brushSize === size} onClick={() => setBrushSize(size)}>
                 {size}px
@@ -303,7 +303,7 @@ export default function InpaintMaskEditor({
             </Button>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-amber-500/20 bg-zinc-950/80">
+          <div className="overflow-hidden rounded-xl border border-amber-500/20 bg-[var(--bg-base)]/80">
             <canvas
               ref={displayCanvasRef}
               className="block h-auto max-h-80 w-full touch-none cursor-crosshair focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
@@ -318,7 +318,7 @@ export default function InpaintMaskEditor({
           </div>
 
           {!ready && !loadError ? (
-            <p className="type-caption text-zinc-500">Loading mask editor…</p>
+            <p className="type-caption text-[var(--text-muted)]">Loading mask editor…</p>
           ) : null}
           {loadError ? (
             <p className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-200/90">
@@ -332,7 +332,7 @@ export default function InpaintMaskEditor({
             type="file"
             accept="image/*"
             onChange={event => onUploadChange(event.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-zinc-400 file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60"
+            className="block w-full text-sm text-[var(--text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60"
           />
         </div>
       )}

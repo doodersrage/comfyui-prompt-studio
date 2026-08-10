@@ -17,17 +17,19 @@ export default function PromptWeightInspector(props: {
   const textareaId = props.textareaId ?? 'generated-prompt-editor';
 
   return (
-    <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 text-sm">
+    <div className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 p-4 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-zinc-100">Token / weight inspector</p>
-        <p className={`text-xs ${inspection.overLimit ? 'text-amber-300' : 'text-zinc-500'}`}>
+        <p className="font-medium text-[var(--text-primary)]">Token / weight inspector</p>
+        <p
+          className={`text-xs ${inspection.overLimit ? 'text-amber-300' : 'text-[var(--text-muted)]'}`}
+        >
           ~{inspection.estimatedTokens}/{inspection.tokenLimit} tokens
         </p>
       </div>
 
       {props.onChange && supportsTagAssist ? (
         <>
-          <p className="text-[11px] text-zinc-500">
+          <p className="text-[11px] text-[var(--text-muted)]">
             Select text in the prompt editor, then apply SD-style emphasis or comma tags.
           </p>
           <TagAssistToolbar
@@ -39,7 +41,7 @@ export default function PromptWeightInspector(props: {
       ) : null}
 
       {inspection.weightedTokens.length > 0 ? (
-        <ul className="space-y-1 text-xs text-zinc-400">
+        <ul className="space-y-1 text-xs text-[var(--text-muted)]">
           {inspection.weightedTokens.map(token => (
             <li key={token.raw}>
               {token.raw} → weight {token.weight}
@@ -47,7 +49,7 @@ export default function PromptWeightInspector(props: {
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-[var(--text-muted)]">
           {inspection.supportsWeights
             ? 'No explicit (tag:1.2) weights detected yet.'
             : 'Selected model uses natural-language prompts; weight syntax is mainly for SD-family tag models.'}

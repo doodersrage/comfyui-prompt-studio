@@ -60,7 +60,8 @@ export default function ServerEnvPanel({
 
       <p className="type-caption">
         Browser settings can override some ComfyUI and LLM behavior per session — look for the{' '}
-        <strong className="font-medium text-zinc-300">UI override</strong> notes below.
+        <strong className="font-medium text-[var(--text-secondary)]">UI override</strong> notes
+        below.
       </p>
 
       <div className="space-y-4">
@@ -87,7 +88,7 @@ export default function ServerEnvPanel({
                   </div>
                   <p
                     className={`type-body max-w-full break-all text-right sm:max-w-[45%] ${
-                      field.configured ? 'text-zinc-200' : 'text-zinc-500'
+                      field.configured ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
                     }`}
                   >
                     {field.value}

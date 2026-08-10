@@ -113,7 +113,7 @@ function statusTone(status: ComfyGalleryEntry['status']): string {
   if (status === 'running') {
     return 'border-amber-500/30 bg-amber-500/10 text-amber-100';
   }
-  return 'border-zinc-600/40 bg-zinc-800/60 text-zinc-300';
+  return 'border-[var(--border-default)]/40 bg-[var(--bg-muted)]/60 text-[var(--text-secondary)]';
 }
 
 export default function GalleryCard({
@@ -373,11 +373,11 @@ export default function GalleryCard({
     ? 'border-violet-500/50 ring-1 ring-violet-500/25'
     : reviewFocus
       ? 'border-violet-400/60 ring-2 ring-violet-400/35 shadow-[0_0_24px_-8px_rgba(139,92,246,0.45)]'
-      : 'border-zinc-800/80';
+      : 'border-[var(--border-subtle)]/80';
 
   const imageBlock = (
     <div
-      className={`relative overflow-hidden bg-zinc-900/90 ${
+      className={`relative overflow-hidden bg-[var(--bg-muted)]/90 ${
         layout === 'list'
           ? 'h-28 w-28 shrink-0 rounded-xl sm:h-32 sm:w-36'
           : layout === 'dense'
@@ -399,7 +399,7 @@ export default function GalleryCard({
             onPointerEnter={() => onPrefetchImage?.(0)}
             onFocus={() => onPrefetchImage?.(0)}
             onPointerDown={() => onPrefetchImage?.(0)}
-            className={`relative block h-full w-full overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+            className={`relative block h-full w-full overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)] ${
               pickMode && pickable ? 'cursor-pointer' : 'cursor-zoom-in'
             }`}
             aria-label={pickMode && pickable ? pickLabel : 'Open image preview'}
@@ -455,12 +455,12 @@ export default function GalleryCard({
             ) : null}
           </button>
           {layout !== 'list' && !(pickMode && pickable) ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-zinc-950/95 via-zinc-950/40 to-transparent px-2 pb-2.5 pt-8 opacity-0 transition duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100 group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-[var(--bg-base)]/95 via-[var(--bg-base)]/40 to-transparent px-2 pb-2.5 pt-8 opacity-0 transition duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100 group-focus-within/card:pointer-events-auto group-focus-within/card:opacity-100">
               <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => onOpenImage(0)}
-                  className="shrink-0 whitespace-nowrap rounded-lg border border-zinc-700/80 bg-zinc-950/80 px-2 py-0.5 text-[10px] text-zinc-200 backdrop-blur transition hover:border-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
+                  className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--border-default)]/80 bg-[var(--bg-base)]/80 px-2 py-0.5 text-[10px] text-[var(--text-primary)] backdrop-blur transition hover:border-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 active:scale-[0.98]"
                 >
                   Open
                 </button>
@@ -494,13 +494,13 @@ export default function GalleryCard({
           <button
             type="button"
             onClick={onCancel}
-            className="absolute bottom-2.5 right-2.5 z-30 rounded-full border border-rose-500/30 bg-zinc-950/85 px-2.5 py-1 text-[11px] text-rose-200 backdrop-blur transition hover:border-rose-400/50 hover:bg-rose-500/15 hover:text-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.97]"
+            className="absolute bottom-2.5 right-2.5 z-30 rounded-full border border-rose-500/30 bg-[var(--bg-base)]/85 px-2.5 py-1 text-[11px] text-rose-200 backdrop-blur transition hover:border-rose-400/50 hover:bg-rose-500/15 hover:text-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)] active:scale-[0.97]"
           >
             Cancel
           </button>
         </div>
       ) : (
-        <div className="flex h-full items-center justify-center px-4 text-center text-xs text-zinc-500">
+        <div className="flex h-full items-center justify-center px-4 text-center text-xs text-[var(--text-muted)]">
           {entry.status === 'error'
             ? (entry.statusMessage ?? 'Generation failed')
             : 'No image output'}
@@ -530,7 +530,7 @@ export default function GalleryCard({
                 type="button"
                 disabled={!previewUrl || aestheticBusy}
                 onClick={() => void scoreWithVision()}
-                className="pointer-events-auto rounded-full border border-zinc-700/60 bg-zinc-950/70 px-2 py-0.5 text-[10px] text-zinc-400 backdrop-blur-sm transition hover:border-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98] disabled:opacity-50"
+                className="pointer-events-auto rounded-full border border-[var(--border-default)]/60 bg-[var(--bg-base)]/70 px-2 py-0.5 text-[10px] text-[var(--text-muted)] backdrop-blur-sm transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/45 active:scale-[0.98] disabled:opacity-50"
                 title={
                   aestheticScore.notes.join(' · ') ||
                   'Click to score with vision LLM (falls back to heuristic)'
@@ -545,13 +545,13 @@ export default function GalleryCard({
 
           <div className="pointer-events-auto flex items-center gap-1">
             {selectable ? (
-              <label className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700/70 bg-zinc-950/80 backdrop-blur transition hover:border-zinc-500">
+              <label className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-default)]/70 bg-[var(--bg-base)]/80 backdrop-blur transition hover:border-[var(--border-default)]">
                 <input
                   type="checkbox"
                   checked={selected ?? false}
                   onChange={onToggleSelected}
                   aria-label="Select entry"
-                  className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+                  className="h-3.5 w-3.5 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
                 />
               </label>
             ) : null}
@@ -562,7 +562,7 @@ export default function GalleryCard({
               className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 ${
                 entry.favorite
                   ? 'border-amber-500/50 bg-amber-500/20 text-amber-100 hover:bg-amber-500/30'
-                  : 'border-zinc-700/70 bg-zinc-950/80 text-zinc-400 hover:border-amber-500/40 hover:text-amber-100'
+                  : 'border-[var(--border-default)]/70 bg-[var(--bg-base)]/80 text-[var(--text-muted)] hover:border-amber-500/40 hover:text-amber-100'
               }`}
             >
               {entry.favorite ? '★' : '☆'}
@@ -576,7 +576,7 @@ export default function GalleryCard({
       entry.queuePosition != null &&
       entry.queuePosition > 0 &&
       progressPercent == null ? (
-        <p className="absolute bottom-2 left-2 z-10 rounded-full border border-zinc-700/60 bg-zinc-950/80 px-2 py-0.5 text-[10px] text-zinc-400 backdrop-blur">
+        <p className="absolute bottom-2 left-2 z-10 rounded-full border border-[var(--border-default)]/60 bg-[var(--bg-base)]/80 px-2 py-0.5 text-[10px] text-[var(--text-muted)] backdrop-blur">
           Queue #{entry.queuePosition}
         </p>
       ) : null}
@@ -594,7 +594,7 @@ export default function GalleryCard({
           {pickLabel}
         </button>
       ) : pickMode && !pickable ? (
-        <p className="type-caption text-zinc-500">
+        <p className="type-caption text-[var(--text-muted)]">
           Only completed still images can be selected here.
         </p>
       ) : null}
@@ -617,12 +617,12 @@ export default function GalleryCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           {promptExpanded ? (
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-3 text-xs leading-relaxed text-zinc-300">
+            <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-muted)]/50 p-3 text-xs leading-relaxed text-[var(--text-secondary)]">
               {entry.prompt}
             </pre>
           ) : (
             <p
-              className={`leading-snug text-zinc-300 ${
+              className={`leading-snug text-[var(--text-secondary)] ${
                 layout === 'list' ? 'line-clamp-3 text-sm' : 'line-clamp-2 text-sm'
               }`}
             >
@@ -630,7 +630,7 @@ export default function GalleryCard({
             </p>
           )}
           {metaLine ? (
-            <p className="mt-1.5 truncate text-[11px] text-zinc-500">
+            <p className="mt-1.5 truncate text-[11px] text-[var(--text-muted)]">
               {entry.parentGalleryEntryId && onShowParent ? (
                 <>
                   <button
@@ -666,13 +666,13 @@ export default function GalleryCard({
           ) : null}
         </div>
         {layout === 'list' && selectable ? (
-          <label className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-700/70 bg-zinc-950/80">
+          <label className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border-default)]/70 bg-[var(--bg-base)]/80">
             <input
               type="checkbox"
               checked={selected ?? false}
               onChange={onToggleSelected}
               aria-label="Select entry"
-              className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-950 accent-violet-500"
+              className="h-3.5 w-3.5 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-violet-500"
             />
           </label>
         ) : null}
@@ -689,7 +689,7 @@ export default function GalleryCard({
                 onPointerEnter={() => onPrefetchImage?.(thumbIndex + 1)}
                 onFocus={() => onPrefetchImage?.(thumbIndex + 1)}
                 onPointerDown={() => onPrefetchImage?.(thumbIndex + 1)}
-                className="shrink-0 overflow-hidden rounded-lg border border-zinc-800 transition hover:border-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
+                className="shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] transition hover:border-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
                 aria-label={`Open video ${thumbIndex + 2} preview`}
               >
                 <video
@@ -709,7 +709,7 @@ export default function GalleryCard({
                 onPointerEnter={() => onPrefetchImage?.(thumbIndex + 1)}
                 onFocus={() => onPrefetchImage?.(thumbIndex + 1)}
                 onPointerDown={() => onPrefetchImage?.(thumbIndex + 1)}
-                className="shrink-0 overflow-hidden rounded-lg border border-zinc-800 transition hover:border-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
+                className="shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] transition hover:border-violet-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
                 aria-label={`Open image ${thumbIndex + 2} preview`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -736,7 +736,7 @@ export default function GalleryCard({
 
       {reviewMode && entry.status === 'completed' && onReviewRating ? (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] text-zinc-500">Rate</span>
+          <span className="text-[11px] text-[var(--text-muted)]">Rate</span>
           {[1, 2, 3, 4, 5].map(rating => (
             <button
               key={rating}
@@ -745,7 +745,7 @@ export default function GalleryCard({
               className={`min-h-8 min-w-8 rounded-lg border text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 ${
                 entry.reviewRating === rating
                   ? 'border-violet-500/60 bg-violet-500/15 text-violet-100'
-                  : 'border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
+                  : 'border-[var(--border-subtle)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
               }`}
             >
               {rating}
@@ -795,7 +795,7 @@ export default function GalleryCard({
               <div
                 ref={menuPanelRef}
                 role="menu"
-                className="fixed z-[200] min-w-[12.5rem] overflow-y-auto rounded-xl border border-zinc-700/80 bg-zinc-950 p-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] ring-1 ring-white/5"
+                className="fixed z-[200] min-w-[12.5rem] overflow-y-auto rounded-xl border border-[var(--border-default)]/80 bg-[var(--bg-base)] p-1 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] ring-1 ring-white/5"
                 style={{
                   top: menuPosition.top,
                   left: menuPosition.left,
@@ -846,7 +846,7 @@ export default function GalleryCard({
                     <Link
                       href={studioHistoryUrl(entry.historyId)}
                       role="menuitem"
-                      className="block rounded-lg px-3 py-2 text-xs text-sky-300 transition hover:bg-zinc-900 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:bg-zinc-900/80"
+                      className="block rounded-lg px-3 py-2 text-xs text-sky-300 transition hover:bg-[var(--bg-muted)] hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 active:bg-[var(--bg-muted)]/80"
                       onClick={() => setMenuOpen(false)}
                     >
                       Studio history
@@ -1195,7 +1195,7 @@ export default function GalleryCard({
     <article
       ref={cardRef}
       data-gallery-entry={entry.id}
-      className={`group/card relative min-w-0 rounded-2xl border bg-gradient-to-b from-zinc-950/80 to-zinc-950/40 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)] transition hover:border-zinc-700/80 ${
+      className={`group/card relative min-w-0 rounded-2xl border bg-gradient-to-b from-[var(--bg-base)]/80 to-[var(--bg-base)]/40 shadow-[0_12px_40px_-24px_rgba(0,0,0,0.8)] transition hover:border-[var(--border-default)]/80 ${
         menuOpen ? 'z-30' : 'z-0 [content-visibility:auto] [contain-intrinsic-size:auto_320px]'
       } ${cardTone}`}
     >
@@ -1227,11 +1227,11 @@ function GalleryMenuGroup({ label, children }: { label?: string; children: React
             : label === 'Lineage'
               ? 'border-cyan-700/50 bg-cyan-900/35 text-cyan-400' // ancestry
               : label === 'Manage'
-                ? 'border-zinc-600/45 bg-zinc-800/25 text-zinc-400' // utility
-                : 'border-zinc-700/60 bg-zinc-900/30 text-zinc-500'; // default
+                ? 'border-[var(--border-default)]/45 bg-[var(--bg-muted)]/25 text-[var(--text-muted)]' // utility
+                : 'border-[var(--border-default)]/60 bg-[var(--bg-muted)]/30 text-[var(--text-muted)]'; // default
 
   return (
-    <div className="border-t border-zinc-800/80 py-1 first:border-t-0 first:pt-0">
+    <div className="border-t border-[var(--border-subtle)]/80 py-1 first:border-t-0 first:pt-0">
       {label ? (
         <p
           className={
@@ -1257,10 +1257,10 @@ function GalleryMenuButton(props: {
       type="button"
       role="menuitem"
       onClick={props.onClick}
-      className={`block w-full rounded-xl border-zinc-800/60 bg-zinc-950/70 px-3.5 py-2 text-left text-xs backdrop-blur-xs transition ${
+      className={`block w-full rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 px-3.5 py-2 text-left text-xs backdrop-blur-xs transition ${
         props.tone === 'danger'
           ? 'text-rose-400 hover:bg-rose-500/15 hover:text-rose-200 hover:border-rose-600/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/30'
-          : 'text-zinc-400 hover:bg-violet-500/10 hover:text-zinc-100 hover:border-violet-600/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30'
+          : 'text-[var(--text-muted)] hover:bg-violet-500/10 hover:text-[var(--text-primary)] hover:border-violet-600/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30'
       } active:scale-[0.98]`}
     >
       {props.label}

@@ -231,25 +231,25 @@ function PresetSection({
 
   return (
     <details
-      className="rounded-xl border border-zinc-800/80 bg-zinc-950/30"
+      className="rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/30"
       open={section.defaultOpen}
     >
       <summary className="cursor-pointer list-none px-4 py-3 [&::-webkit-details-marker]:hidden">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-zinc-200">{section.title}</p>
+            <p className="text-sm font-medium text-[var(--text-primary)]">{section.title}</p>
             {section.description && (
-              <p className="mt-0.5 text-xs text-zinc-500">{section.description}</p>
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">{section.description}</p>
             )}
           </div>
           {sectionCount > 0 && (
-            <span className="shrink-0 rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
+            <span className="shrink-0 rounded-full border border-[var(--border-default)] bg-[var(--bg-muted)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
               {sectionCount}
             </span>
           )}
         </div>
       </summary>
-      <div className="grid gap-3 border-t border-zinc-800/80 px-4 pb-4 pt-3 sm:grid-cols-2">
+      <div className="grid gap-3 border-t border-[var(--border-subtle)]/80 px-4 pb-4 pt-3 sm:grid-cols-2">
         {visibleFields.map(field => (
           <PresetField
             key={`${section.id}-${field.key}`}
@@ -294,13 +294,13 @@ export default function CharacterPresetControls({
     <details
       open={open}
       onToggle={event => setOpen(event.currentTarget.open)}
-      className="group border-t border-zinc-800 pt-4"
+      className="group border-t border-[var(--border-subtle)] pt-4"
     >
       <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-        <div className="flex items-start justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 transition hover:border-zinc-700">
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 px-4 py-3 transition hover:border-[var(--border-default)]">
           <div className="space-y-1">
             <p className="type-heading">Character presets (optional)</p>
-            <p className="text-xs leading-relaxed text-zinc-500">
+            <p className="text-xs leading-relaxed text-[var(--text-muted)]">
               40+ camera, lighting, body, pose, wardrobe library, and prop options—collapsed by
               default. Each selection maps to prompt script language.
             </p>
@@ -311,7 +311,7 @@ export default function CharacterPresetControls({
                 {activeCount} active
               </span>
             )}
-            <span className="text-zinc-500 transition group-open:rotate-180">▾</span>
+            <span className="text-[var(--text-muted)] transition group-open:rotate-180">▾</span>
           </div>
         </div>
       </summary>
@@ -339,7 +339,7 @@ export default function CharacterPresetControls({
           <button
             type="button"
             onClick={() => onChange(clearCharacterPresetPatch())}
-            className="text-xs font-medium text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+            className="text-xs font-medium text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-secondary)] hover:underline"
           >
             Clear all presets
           </button>

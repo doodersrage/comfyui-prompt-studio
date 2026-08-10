@@ -39,11 +39,16 @@ import {
   ToolSection,
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { FieldDivider } from '@/components/ui/Field';
 
 const ACCENT = 'teal' as const;
 
 export default function BackgroundTool() {
+  const description = useToolPageDescription(
+    'Environment-only prompts — no people. Add tags or presets, then generate.',
+    'Environment-only scenes — no people. Tags or presets, then generate.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'background',
     DEFAULT_BACKGROUND_TOOL_CACHE
@@ -167,7 +172,7 @@ export default function BackgroundTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Background · {selectedModel.comfyNode}</ToolBadge>}
       title="Background"
-      description="Environment-only prompts — no people. Add tags or presets, then generate."
+      description={description}
       sidebar={
         <SharedToolControls
           shared={shared}

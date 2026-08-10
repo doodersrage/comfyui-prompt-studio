@@ -46,7 +46,7 @@ export default function TagAssistToolbar({
           type="button"
           onClick={() => apply('emphasis')}
           title="Wrap selection as (phrase:1.2) — SD tag weight syntax"
-          className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40"
+          className="rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-muted)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40"
         >
           Emphasize selection
         </button>
@@ -54,7 +54,7 @@ export default function TagAssistToolbar({
           type="button"
           onClick={() => apply('deemphasis')}
           title="Wrap selection as [phrase:0.8] — lower SD tag weight"
-          className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40"
+          className="rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-muted)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40"
         >
           De-emphasize selection
         </button>
@@ -62,7 +62,7 @@ export default function TagAssistToolbar({
           type="button"
           onClick={() => apply('tags')}
           title="Convert selection to comma-separated tags"
-          className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40"
+          className="rounded-full border border-[var(--border-default)] px-3 py-1 text-xs text-[var(--text-muted)] transition hover:border-[var(--border-default)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40"
         >
           Tags from selection
         </button>

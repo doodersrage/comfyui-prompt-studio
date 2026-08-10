@@ -260,7 +260,9 @@ export function HistoryHintSeedPanel({
                     title={item.hints}
                   >
                     <span className="block truncate">{item.hints}</span>
-                    <span className="type-caption mt-0.5 block text-zinc-500">{item.label}</span>
+                    <span className="type-caption mt-0.5 block text-[var(--text-muted)]">
+                      {item.label}
+                    </span>
                   </button>
                 ))}
               </div>

@@ -42,7 +42,7 @@ function ParamGrid({
   return (
     <div className="space-y-2">
       <h3
-        className={`type-caption font-medium rounded-xl border-zinc-800/70 bg-zinc-950/60 backdrop-blur-xs text-violet-400 px-3 py-1.5 tracking-wider`}
+        className={`type-caption font-medium rounded-xl border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs text-violet-400 px-3 py-1.5 tracking-wider`}
       >
         {label}
       </h3>
@@ -50,7 +50,7 @@ function ParamGrid({
         {rows.map(row => (
           <div
             key={row.key}
-            className="rounded-xl border-zinc-800/60 bg-zinc-950/70 px-3 py-2 backdrop-blur-xs"
+            className="rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 px-3 py-2 backdrop-blur-xs"
           >
             <dt className="type-caption text-violet-400">{row.key}</dt>
             <dd
@@ -113,7 +113,7 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
   return (
     <ModalPortal>
       <div
-        className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-zinc-950/85 p-4 backdrop-blur-sm"
+        className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-[var(--bg-base)]/85 p-4 backdrop-blur-sm"
         role="dialog"
         aria-modal="true"
         aria-label="Gallery workflow configuration"
@@ -123,11 +123,13 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
           }
         }}
       >
-        <div className="my-4 w-full max-w-5xl rounded-2xl border border-zinc-800/80 bg-zinc-950 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.9)]">
-          <div className="flex items-start justify-between gap-4 border-b border-zinc-800/80 px-5 py-4">
+        <div className="my-4 w-full max-w-5xl rounded-2xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)] shadow-[0_24px_80px_-24px_rgba(0,0,0,0.9)]">
+          <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)]/80 px-5 py-4">
             <div className="min-w-0 space-y-1">
-              <h2 className="text-lg font-medium text-zinc-100">Workflow configuration</h2>
-              <p className="type-caption truncate text-zinc-500">
+              <h2 className="text-lg font-medium text-[var(--text-primary)]">
+                Workflow configuration
+              </h2>
+              <p className="type-caption truncate text-[var(--text-muted)]">
                 {entry.tool ?? 'gallery'} · {entry.model ?? 'unknown model'} · prompt{' '}
                 {entry.promptId.slice(0, 12)}
                 {renderDurationLabel ? ` · render ${renderDurationLabel}` : ''}
@@ -136,7 +138,7 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
             <button
               type="button"
               onClick={onClose}
-              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-zinc-900/70 bg-zinc-950/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
+              className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
             >
               Close
             </button>
@@ -144,7 +146,10 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
 
           <div className="space-y-5 px-5 py-5">
             {loading ? (
-              <div className="flex items-center gap-2 py-8 text-sm text-zinc-400" role="status">
+              <div
+                className="flex items-center gap-2 py-8 text-sm text-[var(--text-muted)]"
+                role="status"
+              >
                 <Spinner size="sm" />
                 Loading workflow data…
               </div>
@@ -152,12 +157,12 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
               <>
                 {qualityProfile ? (
                   <div className="rounded-xl border border-violet-500/20 bg-violet-950/20 px-4 py-3">
-                    <p className="type-caption text-zinc-400">Queue quality profile</p>
+                    <p className="type-caption text-[var(--text-muted)]">Queue quality profile</p>
                     <p className="mt-1 text-sm text-violet-100">
                       {formatQueueQualityProfileLabel(qualityProfile)}
                     </p>
                     {qualityHint ? (
-                      <p className="mt-1 type-caption text-zinc-500">{qualityHint}</p>
+                      <p className="mt-1 type-caption text-[var(--text-muted)]">{qualityHint}</p>
                     ) : null}
                   </div>
                 ) : null}
@@ -172,7 +177,9 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                 {historyParams ? (
                   <ParamGrid label="Params extracted from ComfyUI history" params={historyParams} />
                 ) : view?.historyError ? (
-                  <p className="type-caption text-zinc-500">ComfyUI history: {view.historyError}</p>
+                  <p className="type-caption text-[var(--text-muted)]">
+                    ComfyUI history: {view.historyError}
+                  </p>
                 ) : null}
 
                 {previewParams ? (
@@ -184,13 +191,13 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
 
                 {entry.sourceImageUrl || entry.maskImageUrl ? (
                   <div className="space-y-2">
-                    <h3 className="type-caption font-medium text-zinc-400">
+                    <h3 className="type-caption font-medium text-[var(--text-muted)]">
                       Re-queue image URLs (stored on gallery entry)
                     </h3>
                     <dl className="grid gap-2">
                       {entry.sourceImageUrl ? (
-                        <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-2">
-                          <dt className="type-caption text-zinc-500">sourceImageUrl</dt>
+                        <div className="rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/50 px-3 py-2">
+                          <dt className="type-caption text-[var(--text-muted)]">sourceImageUrl</dt>
                           <dd
                             className="type-code mt-0.5 truncate text-sm text-emerald-100/90"
                             title={entry.sourceImageUrl}
@@ -200,8 +207,8 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                         </div>
                       ) : null}
                       {entry.maskImageUrl ? (
-                        <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-2">
-                          <dt className="type-caption text-zinc-500">maskImageUrl</dt>
+                        <div className="rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/50 px-3 py-2">
+                          <dt className="type-caption text-[var(--text-muted)]">maskImageUrl</dt>
                           <dd
                             className="type-code mt-0.5 truncate text-sm text-amber-100/90"
                             title={entry.maskImageUrl}
@@ -216,12 +223,12 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
 
                 {view?.history?.nodeInputs && view.history.nodeInputs.length > 0 ? (
                   <div className="space-y-2">
-                    <h3 className="type-caption font-medium text-zinc-400">
+                    <h3 className="type-caption font-medium text-[var(--text-muted)]">
                       Node inputs from ComfyUI history
                     </h3>
-                    <div className="max-h-56 overflow-auto rounded-xl border border-zinc-800/80">
+                    <div className="max-h-56 overflow-auto rounded-xl border border-[var(--border-subtle)]/80">
                       <table className="w-full text-left text-xs">
-                        <thead className="sticky top-0 bg-zinc-900/95 text-zinc-500">
+                        <thead className="sticky top-0 bg-[var(--bg-muted)]/95 text-[var(--text-muted)]">
                           <tr>
                             <th className="px-3 py-2 font-medium">Node</th>
                             <th className="px-3 py-2 font-medium">Type</th>
@@ -233,10 +240,12 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                           {view.history.nodeInputs.map(row => (
                             <tr
                               key={`${row.nodeId}-${row.input}-${String(row.value).slice(0, 24)}`}
-                              className="border-t border-zinc-800/60 text-zinc-300"
+                              className="border-t border-[var(--border-subtle)]/60 text-[var(--text-secondary)]"
                             >
                               <td className="type-code px-3 py-2 text-violet-200">{row.nodeId}</td>
-                              <td className="px-3 py-2 text-zinc-500">{row.classType ?? '—'}</td>
+                              <td className="px-3 py-2 text-[var(--text-muted)]">
+                                {row.classType ?? '—'}
+                              </td>
                               <td className="type-code px-3 py-2 text-sky-200">{row.input}</td>
                               <td className="type-code max-w-[16rem] truncate px-3 py-2 text-emerald-100">
                                 {String(row.value)}
@@ -252,7 +261,7 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                 {view?.history?.workflowJson ? (
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="type-caption font-medium text-zinc-400">
+                      <h3 className="type-caption font-medium text-[var(--text-muted)]">
                         ComfyUI workflow JSON (from history)
                       </h3>
                       <button
@@ -267,7 +276,7 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                         Copy JSON
                       </button>
                     </div>
-                    <pre className="type-code max-h-80 overflow-auto rounded-xl border border-zinc-800/80 bg-zinc-950/70 p-4 text-zinc-300">
+                    <pre className="type-code max-h-80 overflow-auto rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/70 p-4 text-[var(--text-secondary)]">
                       {view.history.workflowJson}
                       {view.history.truncated ? '\n… (truncated)' : ''}
                     </pre>
@@ -275,10 +284,10 @@ export default function GalleryWorkflowModal({ entry, onClose }: GalleryWorkflow
                 ) : null}
 
                 <div className="space-y-2">
-                  <h3 className="type-caption font-medium text-zinc-400">
+                  <h3 className="type-caption font-medium text-[var(--text-muted)]">
                     Reconstructed workflow preview
                   </h3>
-                  <p className="type-caption text-zinc-500">
+                  <p className="type-caption text-[var(--text-muted)]">
                     Built from your current workflow settings plus this entry&apos;s prompt and
                     params. May differ from the original job if settings changed since queue time.
                   </p>

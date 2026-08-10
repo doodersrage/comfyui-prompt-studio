@@ -47,13 +47,13 @@ export default function BatchQueueProgress({
               : 'Processing…';
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 px-4 py-3">
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/50 px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <p className="font-medium text-zinc-100">{phaseLabel}</p>
-        <span className="text-xs text-zinc-500">{pct}%</span>
+        <p className="font-medium text-[var(--text-primary)]">{phaseLabel}</p>
+        <span className="text-xs text-[var(--text-muted)]">{pct}%</span>
       </div>
       <div
-        className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800"
+        className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -71,7 +71,9 @@ export default function BatchQueueProgress({
           style={{ width: `${pct}%` }}
         />
       </div>
-      {progress.message ? <p className="mt-2 text-xs text-zinc-400">{progress.message}</p> : null}
+      {progress.message ? (
+        <p className="mt-2 text-xs text-[var(--text-muted)]">{progress.message}</p>
+      ) : null}
       {progress.failures && progress.failures.length > 0 ? (
         <ul className="mt-2 space-y-1 text-xs text-rose-200/90">
           {progress.failures.slice(0, 6).map(failure => (

@@ -182,7 +182,7 @@ export default function QueueRecipesPanel({
           </Button>
         </div>
         {sessionRecipes.length === 0 ? (
-          <p className="text-[11px] leading-relaxed text-zinc-500">
+          <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
             Snapshot model, quality, LoRAs, and sampler/resolution for one-click restore.
           </p>
         ) : (
@@ -190,11 +190,11 @@ export default function QueueRecipesPanel({
             {sessionRecipes.slice(0, 5).map(recipe => (
               <li
                 key={recipe.id}
-                className="flex min-w-0 items-center gap-2 rounded-lg border border-zinc-800/70 bg-zinc-950/40 px-2 py-1.5"
+                className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/40 px-2 py-1.5"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-zinc-200">{recipe.label}</p>
-                  <p className="truncate text-[10px] text-zinc-500">
+                  <p className="truncate text-xs text-[var(--text-primary)]">{recipe.label}</p>
+                  <p className="truncate text-[10px] text-[var(--text-muted)]">
                     {formatSessionRecipeSubtitle(recipe)}
                   </p>
                 </div>
@@ -208,7 +208,7 @@ export default function QueueRecipesPanel({
                 </Button>
                 <button
                   type="button"
-                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-zinc-500 transition hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+                  className="shrink-0 rounded-md px-1.5 py-1 text-[10px] text-[var(--text-muted)] transition hover:bg-[var(--bg-muted)]/80 hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
                   onClick={() => handleDeleteSession(recipe.id)}
                   aria-label={`Delete ${recipe.label}`}
                 >

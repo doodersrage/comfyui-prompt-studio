@@ -24,11 +24,16 @@ import {
   accentFocusClass,
 } from '@/components/ui/ToolPageShell';
 import { FieldLabel, TextArea, TextInput } from '@/components/ui/Field';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { PrimaryButton } from '@/components/ui/Button';
 
 const ACCENT = 'sky' as const;
 
 export default function AudioPromptTool() {
+  const description = useToolPageDescription(
+    'Describe sound for Stable Audio (or BYO audio packs). Queues with {{AUDIO_SECONDS}} when the workflow exposes it.',
+    'Describe sound for Stable Audio — duration fills {{AUDIO_SECONDS}} when supported.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'audio',
     DEFAULT_AUDIO_TOOL_CACHE
@@ -125,7 +130,7 @@ export default function AudioPromptTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Audio · {selectedModel.comfyNode}</ToolBadge>}
       title="Audio prompt"
-      description="Describe sound for Stable Audio (or BYO audio packs). Queues with {{AUDIO_SECONDS}} when the workflow exposes it."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="audio"
@@ -182,7 +187,7 @@ export default function AudioPromptTool() {
             />
           </div>
         </div>
-        <label className="mt-3 block space-y-1 text-xs text-zinc-400">
+        <label className="mt-3 block space-y-1 text-xs text-[var(--text-muted)]">
           Duration (seconds)
           <TextInput
             type="number"

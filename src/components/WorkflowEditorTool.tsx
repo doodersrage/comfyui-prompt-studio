@@ -45,14 +45,16 @@ function ComfyNodeCard({ data, selected }: NodeProps) {
   const widgets = listEditableWidgets(nodeData.inputs);
   return (
     <div
-      className={`min-w-[200px] max-w-[260px] rounded-xl border bg-zinc-950/90 px-3 py-2 shadow-lg backdrop-blur ${
-        selected ? 'border-violet-400/60' : 'border-zinc-700/80'
+      className={`min-w-[200px] max-w-[260px] rounded-xl border bg-[var(--bg-base)]/90 px-3 py-2 shadow-lg backdrop-blur ${
+        selected ? 'border-violet-400/60' : 'border-[var(--border-default)]/80'
       }`}
     >
       <Handle type="target" position={Position.Left} className="!bg-violet-400" />
-      <p className="text-[10px] uppercase tracking-wide text-zinc-500">{nodeData.classType}</p>
-      <p className="text-sm font-medium text-zinc-100">{nodeData.title}</p>
-      <ul className="mt-1 space-y-0.5 text-[10px] text-zinc-500">
+      <p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+        {nodeData.classType}
+      </p>
+      <p className="text-sm font-medium text-[var(--text-primary)]">{nodeData.title}</p>
+      <ul className="mt-1 space-y-0.5 text-[10px] text-[var(--text-muted)]">
         {widgets.slice(0, 4).map(widget => (
           <li key={widget.key} className="truncate">
             {widget.key}: {String(widget.value).slice(0, 28)}
@@ -241,11 +243,11 @@ export default function WorkflowEditorTool() {
           className="font-mono text-xs"
           placeholder="Paste Comfy API-format workflow JSON…"
         />
-        {status ? <p className="text-xs text-zinc-500">{status}</p> : null}
+        {status ? <p className="text-xs text-[var(--text-muted)]">{status}</p> : null}
       </ToolSection>
 
       <ToolSection title="Graph">
-        <div className="h-[480px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+        <div className="h-[480px] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -268,7 +270,7 @@ export default function WorkflowEditorTool() {
         <ToolSection title={`Edit · ${selectedRf.data.title}`}>
           <div className="grid gap-3 sm:grid-cols-2">
             {listEditableWidgets(selectedRf.data.inputs).map(widget => (
-              <label key={widget.key} className="space-y-1 text-xs text-zinc-400">
+              <label key={widget.key} className="space-y-1 text-xs text-[var(--text-muted)]">
                 {widget.key}
                 <TextInput
                   value={String(widget.value)}

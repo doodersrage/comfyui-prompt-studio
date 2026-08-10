@@ -75,7 +75,7 @@ export default function GalleryImportTools() {
           Import ComfyUI history
         </Button>
       </div>
-      {importStatus ? <p className="text-xs text-zinc-500">{importStatus}</p> : null}
+      {importStatus ? <p className="text-xs text-[var(--text-muted)]">{importStatus}</p> : null}
       {importedSidecar ? (
         <div className="ui-surface-inset space-y-3">
           <p className="line-clamp-3 type-body">{importedSidecar.positive}</p>
@@ -208,7 +208,7 @@ export default function GalleryImportTools() {
             <Button
               variant="ghost"
               size="sm"
-              className="text-zinc-500"
+              className="text-[var(--text-muted)]"
               onClick={() => {
                 setImportedSidecar(null);
                 setImportStatus(null);

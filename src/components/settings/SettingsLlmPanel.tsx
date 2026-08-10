@@ -71,10 +71,10 @@ export default function SettingsLlmPanel({
   return (
     <>
       <ToolSection title="Server LLM (read-only)">
-        <p className="text-sm text-zinc-400">
-          Configured via server env (<code className="text-zinc-300">LLM_*</code>). Edit{' '}
-          <code className="text-zinc-300">.env.local</code> and restart to change models. Full
-          catalog lives on{' '}
+        <p className="text-sm text-[var(--text-muted)]">
+          Configured via server env (<code className="text-[var(--text-secondary)]">LLM_*</code>).
+          Edit <code className="text-[var(--text-secondary)]">.env.local</code> and restart to
+          change models. Full catalog lives on{' '}
           <Link
             href={settingsTabHref('overview')}
             className="text-[var(--accent-text)] underline-offset-2 hover:underline"
@@ -85,36 +85,38 @@ export default function SettingsLlmPanel({
         </p>
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <div>
-            <dt className="type-caption text-zinc-500">Status</dt>
-            <dd className="text-zinc-200">{statusLabel}</dd>
+            <dt className="type-caption text-[var(--text-muted)]">Status</dt>
+            <dd className="text-[var(--text-primary)]">{statusLabel}</dd>
           </div>
           <div>
-            <dt className="type-caption text-zinc-500">Text model</dt>
-            <dd className="truncate text-zinc-200">{server?.model ?? '—'}</dd>
+            <dt className="type-caption text-[var(--text-muted)]">Text model</dt>
+            <dd className="truncate text-[var(--text-primary)]">{server?.model ?? '—'}</dd>
           </div>
           <div>
-            <dt className="type-caption text-zinc-500">Vision model</dt>
-            <dd className="truncate text-zinc-200">{server?.visionModel ?? '—'}</dd>
+            <dt className="type-caption text-[var(--text-muted)]">Vision model</dt>
+            <dd className="truncate text-[var(--text-primary)]">{server?.visionModel ?? '—'}</dd>
           </div>
           <div>
-            <dt className="type-caption text-zinc-500">API base URL</dt>
-            <dd className="truncate text-zinc-200">{server?.baseUrl ?? '—'}</dd>
+            <dt className="type-caption text-[var(--text-muted)]">API base URL</dt>
+            <dd className="truncate text-[var(--text-primary)]">{server?.baseUrl ?? '—'}</dd>
           </div>
           <div>
-            <dt className="type-caption text-zinc-500">Server temperature</dt>
-            <dd className="text-zinc-200">{server?.serverTemperature ?? '—'}</dd>
+            <dt className="type-caption text-[var(--text-muted)]">Server temperature</dt>
+            <dd className="text-[var(--text-primary)]">{server?.serverTemperature ?? '—'}</dd>
           </div>
           <div>
-            <dt className="type-caption text-zinc-500">LLM concurrency</dt>
-            <dd className={server?.busy ? 'font-medium text-amber-400' : 'text-zinc-200'}>
+            <dt className="type-caption text-[var(--text-muted)]">LLM concurrency</dt>
+            <dd
+              className={server?.busy ? 'font-medium text-amber-400' : 'text-[var(--text-primary)]'}
+            >
               {typeof server?.inFlight === 'number'
                 ? `LLM busy: ${server.inFlight}/${server.maxInflight ?? '?'} in flight`
                 : '—'}
             </dd>
           </div>
           <div>
-            <dt className="type-caption text-zinc-500">Server template fallback</dt>
-            <dd className="text-zinc-200">
+            <dt className="type-caption text-[var(--text-muted)]">Server template fallback</dt>
+            <dd className="text-[var(--text-primary)]">
               {server?.allowTemplateFallback === undefined
                 ? '—'
                 : server.allowTemplateFallback
@@ -124,8 +126,8 @@ export default function SettingsLlmPanel({
           </div>
           {server?.embedModel ? (
             <div className="sm:col-span-2">
-              <dt className="type-caption text-zinc-500">Embed model</dt>
-              <dd className="truncate text-zinc-200">{server.embedModel}</dd>
+              <dt className="type-caption text-[var(--text-muted)]">Embed model</dt>
+              <dd className="truncate text-[var(--text-primary)]">{server.embedModel}</dd>
             </div>
           ) : null}
         </dl>
@@ -145,12 +147,14 @@ export default function SettingsLlmPanel({
       </ToolSection>
 
       <ToolSection title="Session LLM preferences">
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-[var(--text-muted)]">
           Browser overrides sent with generation requests. Leave unset to use server defaults.
         </p>
 
         <fieldset className="space-y-2">
-          <legend className="type-caption text-zinc-500">LLM path for this browser</legend>
+          <legend className="type-caption text-[var(--text-muted)]">
+            LLM path for this browser
+          </legend>
           <div className="flex flex-wrap gap-1.5">
             {(
               [
@@ -169,14 +173,14 @@ export default function SettingsLlmPanel({
               </ChipButton>
             ))}
           </div>
-          <p className="type-caption text-zinc-500">
+          <p className="type-caption text-[var(--text-muted)]">
             Template only skips the LLM for this browser even when the server has it enabled —
             useful offline or when Ollama is down.
           </p>
         </fieldset>
 
         <label className="block space-y-1.5 text-sm">
-          <span className="type-caption text-zinc-500">Session text model override</span>
+          <span className="type-caption text-[var(--text-muted)]">Session text model override</span>
           <input
             type="text"
             value={sharedSettings.sessionLlmModel ?? ''}
@@ -192,7 +196,9 @@ export default function SettingsLlmPanel({
         </label>
 
         <label className="block space-y-1.5 text-sm">
-          <span className="type-caption text-zinc-500">Session vision model override</span>
+          <span className="type-caption text-[var(--text-muted)]">
+            Session vision model override
+          </span>
           <input
             type="text"
             value={sharedSettings.sessionLlmVisionModel ?? ''}
@@ -210,9 +216,9 @@ export default function SettingsLlmPanel({
         </label>
 
         <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs text-zinc-400">
+          <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
             <span>LLM temperature</span>
-            <span className="font-medium text-zinc-200">
+            <span className="font-medium text-[var(--text-primary)]">
               {typeof tempOverride === 'number' ? tempOverride.toFixed(2) : 'server default'}
             </span>
           </div>
@@ -245,7 +251,7 @@ export default function SettingsLlmPanel({
             disabled={!sharedMounted}
             className="h-2 w-full accent-[var(--accent)]"
           />
-          <div className="flex justify-between text-xs text-zinc-600">
+          <div className="flex justify-between text-xs text-[var(--text-muted)]">
             <span>0 · focused</span>
             <span>1</span>
             <span>2 · wild</span>
@@ -263,7 +269,9 @@ export default function SettingsLlmPanel({
         </div>
 
         <fieldset className="space-y-2">
-          <legend className="type-caption text-zinc-500">Template fallback when LLM fails</legend>
+          <legend className="type-caption text-[var(--text-muted)]">
+            Template fallback when LLM fails
+          </legend>
           <div className="flex flex-wrap gap-1.5">
             {(
               [
@@ -286,13 +294,13 @@ export default function SettingsLlmPanel({
               </ChipButton>
             ))}
           </div>
-          <p className="type-caption text-zinc-500">
+          <p className="type-caption text-[var(--text-muted)]">
             Generators may use template output if the LLM errors or times out.
           </p>
         </fieldset>
 
         <div className="space-y-2">
-          <p className="type-caption text-zinc-500">Default prompt detail</p>
+          <p className="type-caption text-[var(--text-muted)]">Default prompt detail</p>
           <div className="flex flex-wrap gap-1.5">
             {DETAIL_OPTIONS.map(option => (
               <ChipButton
@@ -305,32 +313,32 @@ export default function SettingsLlmPanel({
               </ChipButton>
             ))}
           </div>
-          <p className="type-caption text-zinc-500">
+          <p className="type-caption text-[var(--text-muted)]">
             {DETAIL_OPTIONS.find(entry => entry.id === detail)?.hint}. Also available under ComfyUI
             → Prompt quality.
           </p>
         </div>
 
-        <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
+        <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text-secondary)]">
           <input
             type="checkbox"
             checked={sharedSettings.autoFixRules !== false}
             disabled={!sharedMounted}
             onChange={event => updateSharedSettings({ autoFixRules: event.target.checked })}
-            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass()}`}
+            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentFocusClass()}`}
           />
           <span className="space-y-1">
-            <span className="block font-medium text-zinc-200">
+            <span className="block font-medium text-[var(--text-primary)]">
               Auto-fix lint rule errors after generation
             </span>
-            <span className="block text-xs text-zinc-500">
+            <span className="block text-xs text-[var(--text-muted)]">
               Applies safe prompt-lint fixes (e.g. sport gear / duo consistency) when diagnostics
               report errors.
             </span>
           </span>
         </label>
 
-        <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
+        <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text-secondary)]">
           <input
             type="checkbox"
             checked={sharedSettings.seedLlmWithIngredients !== false}
@@ -340,13 +348,13 @@ export default function SettingsLlmPanel({
                 seedLlmWithIngredients: event.target.checked,
               })
             }
-            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass()}`}
+            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentFocusClass()}`}
           />
           <span className="space-y-1">
-            <span className="block font-medium text-zinc-200">
+            <span className="block font-medium text-[var(--text-primary)]">
               Seed LLM with location & wardrobe ingredients
             </span>
-            <span className="block text-xs text-zinc-500">
+            <span className="block text-xs text-[var(--text-muted)]">
               When on, generators inject rolled location / outfit / environment seeds and few-shot
               examples. Turn off for completionist local models — only your keywords or hints are
               sent.
@@ -354,7 +362,7 @@ export default function SettingsLlmPanel({
           </span>
         </label>
 
-        <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
+        <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text-secondary)]">
           <input
             type="checkbox"
             checked={sharedSettings.alwaysIncludeClothing !== false}
@@ -362,13 +370,13 @@ export default function SettingsLlmPanel({
             onChange={event =>
               updateSharedSettings({ alwaysIncludeClothing: event.target.checked })
             }
-            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass()}`}
+            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentFocusClass()}`}
           />
           <span className="space-y-1">
-            <span className="block font-medium text-zinc-200">
+            <span className="block font-medium text-[var(--text-primary)]">
               Always include clothing / wardrobe in people prompts
             </span>
-            <span className="block text-xs text-zinc-500">
+            <span className="block text-xs text-[var(--text-muted)]">
               Generators inject wardrobe beats even when hints omit outfit details. Requires
               ingredient seeding above.
             </span>
@@ -377,27 +385,27 @@ export default function SettingsLlmPanel({
       </ToolSection>
 
       <ToolSection title="Vision LLM">
-        <p className="text-sm text-zinc-400">
-          Set <code className="text-zinc-300">LLM_VISION_MODEL</code> in{' '}
-          <code className="text-zinc-300">.env.local</code> (e.g.{' '}
-          <code className="text-zinc-300">qwen3-vl:latest</code>) for Image → Prompt, Refine
-          critique, and optional gallery tagging. Falls back to{' '}
-          <code className="text-zinc-300">LLM_MODEL</code> when unset — text-only models will fail
-          vision tools. Restart the server after changing env.
+        <p className="text-sm text-[var(--text-muted)]">
+          Set <code className="text-[var(--text-secondary)]">LLM_VISION_MODEL</code> in{' '}
+          <code className="text-[var(--text-secondary)]">.env.local</code> (e.g.{' '}
+          <code className="text-[var(--text-secondary)]">qwen3-vl:latest</code>) for Image → Prompt,
+          Refine critique, and optional gallery tagging. Falls back to{' '}
+          <code className="text-[var(--text-secondary)]">LLM_MODEL</code> when unset — text-only
+          models will fail vision tools. Restart the server after changing env.
         </p>
-        <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-300">
+        <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text-secondary)]">
           <input
             type="checkbox"
             checked={autoVisionTags !== false}
             disabled={!onAutoVisionTagsChange}
             onChange={event => onAutoVisionTagsChange?.(event.target.checked)}
-            className={`mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-950 ${accentFocusClass()}`}
+            className={`mt-1 h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] ${accentFocusClass()}`}
           />
           <span className="space-y-1">
-            <span className="block font-medium text-zinc-200">
+            <span className="block font-medium text-[var(--text-primary)]">
               Auto-tag completed gallery images
             </span>
-            <span className="block text-xs text-zinc-500">
+            <span className="block text-xs text-[var(--text-muted)]">
               After ComfyUI jobs finish, run a light vision pass for searchable tags. Requires a
               vision-capable model.
             </span>

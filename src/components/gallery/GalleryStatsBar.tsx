@@ -89,7 +89,7 @@ export default function GalleryStatsBar({
         {heldMaxJobs > 0 ? (
           <div
             key="held-max"
-            className={`inline-flex min-w-0 items-baseline gap-2 rounded-xl border border-zinc-800/70 bg-zinc-950/60 px-2.5 py-1.5 backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-slate-400`}
+            className={`inline-flex min-w-0 items-baseline gap-2 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 px-2.5 py-1.5 backdrop-blur-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] text-slate-400`}
           >
             <span className="type-caption shrink-0 opacity-80">Held Max</span>
             <span className="type-heading tabular-nums">{heldMaxJobs}</span>

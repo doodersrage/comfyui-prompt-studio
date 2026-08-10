@@ -29,12 +29,16 @@ function TimelineNode({
         className={`block w-full rounded-lg border px-3 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:scale-[0.99] ${
           active
             ? 'border-violet-500/40 bg-violet-500/10 text-violet-100'
-            : 'border-zinc-800/80 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
+            : 'border-[var(--border-subtle)]/80 text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
         }`}
         style={{ marginLeft: depth * 12 }}
       >
-        <span className="block truncate font-medium text-zinc-200">{node.entry.tool}</span>
-        <span className="block truncate text-zinc-500">{node.entry.prompt.slice(0, 72)}</span>
+        <span className="block truncate font-medium text-[var(--text-primary)]">
+          {node.entry.tool}
+        </span>
+        <span className="block truncate text-[var(--text-muted)]">
+          {node.entry.prompt.slice(0, 72)}
+        </span>
       </button>
       {node.children.map(child => (
         <TimelineNode
@@ -66,7 +70,7 @@ export default function PromptTimelinePanel({
   }
 
   return (
-    <div className="max-h-96 space-y-2 overflow-y-auto rounded-xl border border-zinc-800/80 bg-zinc-950/30 p-3">
+    <div className="max-h-96 space-y-2 overflow-y-auto rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/30 p-3">
       {nodes.map(node => (
         <TimelineNode
           key={node.entry.id}

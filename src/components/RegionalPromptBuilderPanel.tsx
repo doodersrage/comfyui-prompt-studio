@@ -66,12 +66,12 @@ export default function RegionalPromptBuilderPanel({
   );
 
   return (
-    <div className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
-      <p className="text-sm text-zinc-300">Regional prompt builder</p>
-      <p className="text-xs text-zinc-500">
+    <div className="space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 p-4">
+      <p className="text-sm text-[var(--text-secondary)]">Regional prompt builder</p>
+      <p className="text-xs text-[var(--text-muted)]">
         Labeled subject/background/lighting segments feed hints and, at queue time, fill{' '}
-        <code className="text-zinc-400">{REGIONAL_PROMPT_TOKENS.subject}</code> (and related) tokens
-        on imported regional/attention-mask packs.
+        <code className="text-[var(--text-muted)]">{REGIONAL_PROMPT_TOKENS.subject}</code> (and
+        related) tokens on imported regional/attention-mask packs.
       </p>
 
       {DEFAULT_REGIONAL_REGIONS.map(region => {
@@ -143,7 +143,7 @@ export default function RegionalPromptBuilderPanel({
       </div>
 
       {(composed || inpaint) && (
-        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-300">
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)] p-3 text-xs text-[var(--text-secondary)]">
           {[composed, inpaint].filter(Boolean).join('\n\n')}
         </pre>
       )}

@@ -23,7 +23,9 @@ export default function AnatomyGuardHints({ mode, onModeChange, model }: Anatomy
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="type-caption text-sky-200/85">Anatomy guard on queue</p>
-          <p className="text-xs text-zinc-300">{formatAnatomyGuardHint(mode, model)}</p>
+          <p className="text-xs text-[var(--text-secondary)]">
+            {formatAnatomyGuardHint(mode, model)}
+          </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-1.5">
           {ANATOMY_GUARD_OPTIONS.map(option => (
@@ -37,8 +39,8 @@ export default function AnatomyGuardHints({ mode, onModeChange, model }: Anatomy
           ))}
         </div>
       </div>
-      <p className="mt-2 type-caption text-zinc-500">{activeOption.description}</p>
-      <p className="mt-1.5 type-caption text-zinc-500">
+      <p className="mt-2 type-caption text-[var(--text-muted)]">{activeOption.description}</p>
+      <p className="mt-1.5 type-caption text-[var(--text-muted)]">
         Adds anti-mutation and anti–extra-limb terms when you Send to ComfyUI or copy a prompt pair.
         Works alongside render realism; Flux models get anatomy cues in the positive prompt.
       </p>

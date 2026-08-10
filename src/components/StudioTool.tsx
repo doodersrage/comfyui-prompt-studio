@@ -152,6 +152,7 @@ import {
 } from '@/components/ui/ViewState';
 import { isStudioTabId, studioTabGroupsForWorkspaceMode, type StudioTabId } from '@/lib/studio-nav';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { resolveGenerateEmptyCta } from '@/lib/empty-cta';
 
 const SharedToolControls = dynamic(() => import('@/components/SharedToolControls'), {
@@ -160,18 +161,18 @@ const SharedToolControls = dynamic(() => import('@/components/SharedToolControls
     <div className="h-40 animate-pulse rounded-2xl bg-[var(--surface-muted)]/50" aria-hidden />
   ),
 });
-const ExperimentDashboardPanel = dynamic(() => import('@/components/ExperimentDashboardPanel'), {
+const StudioDiffTab = dynamic(() => import('@/components/studio/tabs/StudioDiffTab'), {
   loading: () => <StudioTabSkeleton />,
 });
-const DuplicatePromptsPanel = dynamic(() => import('@/components/studio/DuplicatePromptsPanel'), {
+const StudioPortfolioTab = dynamic(() => import('@/components/studio/tabs/StudioPortfolioTab'), {
   loading: () => <StudioTabSkeleton />,
 });
-const StyleTransplantPanel = dynamic(() => import('@/components/studio/StyleTransplantPanel'), {
-  loading: () => <StudioTabSkeleton />,
-});
-const PromptMergePanel = dynamic(() => import('@/components/PromptMergePanel'), {
-  loading: () => <StudioTabSkeleton />,
-});
+const StudioExperimentsTab = dynamic(
+  () => import('@/components/studio/tabs/StudioExperimentsTab'),
+  {
+    loading: () => <StudioTabSkeleton />,
+  }
+);
 const PromptTimelinePanel = dynamic(() => import('@/components/studio/PromptTimelinePanel'), {
   loading: () => <StudioTabSkeleton />,
 });
@@ -199,6 +200,10 @@ type CatalogLocation = {
 
 export default function StudioTool() {
   const workspaceMode = useWorkspaceMode();
+  const description = useToolPageDescription(
+    'History, model comparison, catalog browser, and template slots.',
+    'Saved prompts, quick compare, and templates — essentials without the full lab.'
+  );
 
   // Defer null-check to after all hooks so hook-call order stays stable.
   const auth = useAuth() ?? { _null: true };
@@ -760,7 +765,7 @@ export default function StudioTool() {
         width="wide"
         badge={<ToolBadge accent={ACCENT}>Studio</ToolBadge>}
         title="Prompt Studio"
-        description="History, model comparison, catalog browser, and template slots."
+        description={description}
       >
         <StudioTabSkeleton />
       </ToolLayout>
@@ -773,7 +778,7 @@ export default function StudioTool() {
       width="wide"
       badge={<ToolBadge accent={ACCENT}>Studio</ToolBadge>}
       title="Prompt Studio"
-      description="History, model comparison, catalog browser, and template slots."
+      description={description}
     >
       {/* Null-context guard — provider not yet wired up during hydration/HMR. */}
       {isNullContext ? null : (
@@ -1274,12 +1279,12 @@ export default function StudioTool() {
 
           {tab === 'iteration' && (
             <ToolSection title="Prompt iteration tree">
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-[var(--text-secondary)]">
                 Branches built from saved history entries linked by parent history ids.
               </p>
               {iterationForest.length > 0 ? (
                 <div className="mb-4">
-                  <p className="type-caption mb-2 text-zinc-500">Timeline</p>
+                  <p className="type-caption mb-2 text-[var(--text-muted)]">Timeline</p>
                   <PromptTimelinePanel
                     nodes={iterationForest}
                     selectedId={highlightHistoryId ?? undefined}
@@ -1290,7 +1295,7 @@ export default function StudioTool() {
               {iterationEntries.length >= 2 ? (
                 <ToolMetaPanel title="Branch diff" className="mb-4">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="space-y-1 text-xs text-zinc-400">
+                    <label className="space-y-1 text-xs text-[var(--text-secondary)]">
                       Left (older)
                       <select
                         value={iterationDiffLeftId}
@@ -1305,7 +1310,7 @@ export default function StudioTool() {
                         ))}
                       </select>
                     </label>
-                    <label className="space-y-1 text-xs text-zinc-400">
+                    <label className="space-y-1 text-xs text-[var(--text-secondary)]">
                       Right (newer)
                       <select
                         value={iterationDiffRightId}
@@ -1323,7 +1328,7 @@ export default function StudioTool() {
                   </div>
                   {iterationDiff ? (
                     <div className="mt-3 space-y-2 text-sm">
-                      <p className="type-caption text-zinc-500">
+                      <p className="type-caption text-[var(--text-muted)]">
                         {iterationDiff.diff.beforeChars} → {iterationDiff.diff.afterChars} chars
                         {iterationDiff.diff.changed ? '' : ' · identical'}
                       </p>
@@ -1336,7 +1341,7 @@ export default function StudioTool() {
                                 ? 'text-emerald-300'
                                 : segment.type === 'remove'
                                   ? 'text-rose-300 line-through'
-                                  : 'text-zinc-300'
+                                  : 'text-[var(--text-secondary)]'
                             }
                           >
                             {segment.text}{' '}
@@ -1386,12 +1391,12 @@ export default function StudioTool() {
 
           {tab === 'campaign' && (
             <ToolSection title="Prompt campaign runner">
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-[var(--text-secondary)]">
                 Generate a series of prompts (random scenes or topic list) and optionally queue each
                 to ComfyUI under the active project.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="space-y-1 text-xs text-zinc-400">
+                <label className="space-y-1 text-xs text-[var(--text-secondary)]">
                   Source
                   <select
                     value={campaignTarget}
@@ -1404,7 +1409,7 @@ export default function StudioTool() {
                     <option value="topics">Topics batch</option>
                   </select>
                 </label>
-                <label className="space-y-1 text-xs text-zinc-400">
+                <label className="space-y-1 text-xs text-[var(--text-secondary)]">
                   Count
                   <input
                     type="number"
@@ -1438,7 +1443,7 @@ export default function StudioTool() {
                   className={accentFocusClass(ACCENT)}
                 />
               )}
-              <label className="flex items-center gap-3 text-sm text-zinc-300">
+              <label className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
                 <input
                   type="checkbox"
                   checked={campaignQueue}
@@ -1519,7 +1524,7 @@ export default function StudioTool() {
                 <ToolBlockGroup className="mt-[var(--block-gap)]">
                   {campaignResults.map(step => (
                     <ToolContentPanel key={step.index} className="ui-block-group">
-                      <p className="type-caption text-zinc-500">
+                      <p className="type-caption text-[var(--text-muted)]">
                         Step {step.index + 1}
                         {step.queued ? ' · queued' : ''}
                         {step.held ? ' · held Max until idle' : ''}
@@ -1527,7 +1532,7 @@ export default function StudioTool() {
                         {step.error ? ` · ${step.error}` : ''}
                       </p>
                       {step.prompt ? (
-                        <pre className="type-code max-h-32 overflow-auto whitespace-pre-wrap text-zinc-300">
+                        <pre className="type-code max-h-32 overflow-auto whitespace-pre-wrap text-[var(--text-secondary)]">
                           {step.prompt}
                         </pre>
                       ) : null}
@@ -1537,8 +1542,8 @@ export default function StudioTool() {
               ) : null}
 
               <div className="ui-surface-inset mt-6 space-y-3">
-                <p className="text-sm font-medium text-zinc-200">Campaign templates</p>
-                <p className="text-xs text-zinc-500">
+                <p className="text-sm font-medium text-[var(--text-primary)]">Campaign templates</p>
+                <p className="text-xs text-[var(--text-muted)]">
                   Save the current campaign settings as a reusable recipe.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -1577,11 +1582,11 @@ export default function StudioTool() {
                     {campaignTemplates.map(template => (
                       <li
                         key={template.id}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-sm"
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-sm"
                       >
                         <div>
-                          <p className="text-zinc-200">{template.name}</p>
-                          <p className="text-xs text-zinc-500">
+                          <p className="text-[var(--text-primary)]">{template.name}</p>
+                          <p className="text-xs text-[var(--text-muted)]">
                             {template.target} · {template.count} prompts
                             {template.queueToComfyUi ? ' · auto-queue' : ''}
                           </p>
@@ -1638,7 +1643,7 @@ export default function StudioTool() {
           {tab === 'analytics' && (
             <>
               <ToolSection title="Your activity">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   {authEnabled
                     ? `Scoped to ${user?.username ?? scopeLabel()}. History and gallery stats reflect only this account’s browser data.`
                     : 'Shared browser session — enable login to scope history and analytics per user.'}
@@ -1667,10 +1672,12 @@ export default function StudioTool() {
                   ].map(stat => (
                     <div
                       key={stat.label}
-                      className="rounded-xl border border-zinc-700/80 bg-zinc-900/50 px-3 py-2"
+                      className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-muted)]/50 px-3 py-2"
                     >
-                      <p className="type-caption text-zinc-500">{stat.label}</p>
-                      <p className="type-heading tabular-nums text-zinc-200">{stat.value}</p>
+                      <p className="type-caption text-[var(--text-muted)]">{stat.label}</p>
+                      <p className="type-heading tabular-nums text-[var(--text-primary)]">
+                        {stat.value}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -1679,7 +1686,7 @@ export default function StudioTool() {
                     {historyAnalytics.byTool.map(entry => (
                       <span
                         key={entry.tool}
-                        className="rounded-full border border-zinc-700/80 bg-zinc-950/40 px-3 py-1 text-xs text-zinc-300"
+                        className="rounded-full border border-[var(--border-default)] bg-[var(--bg-muted)] px-3 py-1 text-xs text-[var(--text-secondary)]"
                       >
                         {entry.tool} · {entry.count}
                       </span>
@@ -1689,7 +1696,7 @@ export default function StudioTool() {
               </ToolSection>
 
               <ToolSection title="Gallery rating analytics">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   Tokens that correlate with high (4–5★) or low (1–2★) gallery ratings. Rate outputs
                   in Gallery review mode to grow this list.
                 </p>
@@ -1797,7 +1804,7 @@ export default function StudioTool() {
                       {ratingTokenStats.map(stat => (
                         <ToolContentPanel key={stat.token} className="ui-block-group">
                           <p className="type-title">{stat.token}</p>
-                          <p className="type-caption text-zinc-500">
+                          <p className="type-caption text-[var(--text-muted)]">
                             score {stat.score > 0 ? '+' : ''}
                             {stat.score} · {stat.highCount} high · {stat.lowCount} low
                           </p>
@@ -1840,7 +1847,7 @@ export default function StudioTool() {
               </ToolSection>
 
               <ToolSection title="Gallery lineage clusters">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-[var(--text-secondary)]">
                   Parent outputs with upscale, refine, or variation derivatives. Open Gallery to act
                   on a cluster.
                 </p>
@@ -1855,15 +1862,17 @@ export default function StudioTool() {
                     {galleryLineageClusters.map(group => (
                       <li
                         key={group.root.id}
-                        className="rounded-xl border border-zinc-800/80 bg-zinc-950/35 px-3 py-2"
+                        className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/35 px-3 py-2"
                       >
-                        <p className="type-caption text-zinc-500">
+                        <p className="type-caption text-[var(--text-muted)]">
                           {group.root.model ?? group.root.tool} · {group.derivatives.length}{' '}
                           derivative
                           {group.derivatives.length === 1 ? '' : 's'}
                           {group.root.reviewRating ? ` · ${group.root.reviewRating}★ root` : ''}
                         </p>
-                        <p className="type-body ui-truncate-2 text-zinc-200">{group.root.prompt}</p>
+                        <p className="type-body ui-truncate-2 text-[var(--text-primary)]">
+                          {group.root.prompt}
+                        </p>
                         <div className="mt-1 flex flex-wrap gap-2">
                           {group.derivatives.slice(0, 4).map(derivative => (
                             <span
@@ -1885,7 +1894,7 @@ export default function StudioTool() {
 
           {tab === 'projects' && (
             <ToolSection title="Prompt projects">
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-[var(--text-secondary)]">
                 Group history and gallery jobs under named campaigns. Set an active project to
                 filter Studio history.
               </p>
@@ -1896,12 +1905,12 @@ export default function StudioTool() {
                     {sharedProjects.map(project => (
                       <li
                         key={project.id}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800/60 bg-zinc-950/30 px-3 py-2 text-sm"
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border-subtle)]/60 bg-[var(--bg-muted)]/30 px-3 py-2 text-sm"
                       >
                         <div>
-                          <p className="font-medium text-zinc-100">{project.name}</p>
+                          <p className="font-medium text-[var(--text-primary)]">{project.name}</p>
                           {project.notes ? (
-                            <p className="text-xs text-zinc-500">{project.notes}</p>
+                            <p className="text-xs text-[var(--text-muted)]">{project.notes}</p>
                           ) : null}
                         </div>
                         <Button
@@ -1966,7 +1975,7 @@ export default function StudioTool() {
                       <div>
                         <p className="type-heading">{project.name}</p>
                         {project.notes ? (
-                          <p className="type-caption text-zinc-500">{project.notes}</p>
+                          <p className="type-caption text-[var(--text-muted)]">{project.notes}</p>
                         ) : null}
                       </div>
                       <div className="ui-list-actions">
@@ -2027,7 +2036,7 @@ export default function StudioTool() {
                 ))}
               </ToolBlockGroup>
               <div className="mt-4">
-                <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">
+                <label className="cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-strong)]">
                   Import project bundle
                   <input
                     type="file"
@@ -2072,7 +2081,7 @@ export default function StudioTool() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <FieldLabel>Model A</FieldLabel>
-                  <p className="text-xs text-zinc-500">{shared.model}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{shared.model}</p>
                 </div>
                 <div className="space-y-2">
                   <FieldLabel>Model B</FieldLabel>
@@ -2159,13 +2168,15 @@ export default function StudioTool() {
                 <div className="grid gap-4 lg:grid-cols-2">
                   {visualA ? (
                     <div className="space-y-2">
-                      <p className="text-xs text-zinc-400">Visual · {visualA.model}</p>
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        Visual · {visualA.model}
+                      </p>
                       {visualA.previewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={visualA.previewUrl}
                           alt={`Visual compare ${visualA.model}`}
-                          className="w-full rounded-xl border border-zinc-800"
+                          className="w-full rounded-xl border border-[var(--border-subtle)]"
                         />
                       ) : (
                         <p className="text-sm text-amber-300/90">
@@ -2178,13 +2189,15 @@ export default function StudioTool() {
                   ) : null}
                   {visualB ? (
                     <div className="space-y-2">
-                      <p className="text-xs text-zinc-400">Visual · {visualB.model}</p>
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        Visual · {visualB.model}
+                      </p>
                       {visualB.previewUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={visualB.previewUrl}
                           alt={`Visual compare ${visualB.model}`}
-                          className="w-full rounded-xl border border-zinc-800"
+                          className="w-full rounded-xl border border-[var(--border-subtle)]"
                         />
                       ) : (
                         <p className="text-sm text-amber-300/90">
@@ -2201,136 +2214,20 @@ export default function StudioTool() {
           )}
 
           {tab === 'portfolio' && (
-            <ToolSection title="Multi-model portfolio">
-              <p className="text-sm text-zinc-400">
-                Format one draft for several models, then queue each variant to ComfyUI.
-              </p>
-              <TextArea
-                rows={4}
-                value={portfolioDraft}
-                onChange={event => setPortfolioDraft(event.target.value)}
-                placeholder="Shared scene draft to adapt per model…"
-                className={accentFocusClass(ACCENT)}
-              />
-              <FieldLabel hint="Comma-separated model ids">Models</FieldLabel>
-              <input
-                value={portfolioModels}
-                onChange={event => setPortfolioModels(event.target.value)}
-                className="ui-input w-full px-[var(--input-padding-x)] py-[var(--input-padding-y)] type-body"
-              />
-              <div className="flex flex-wrap gap-2">
-                <PrimaryButton
-                  accentClassName={accentButtonClass(ACCENT)}
-                  loading={portfolioLoading}
-                  loadingLabel="Formatting portfolio"
-                  disabled={!portfolioDraft.trim()}
-                  onClick={() => {
-                    void (async () => {
-                      setPortfolioLoading(true);
-                      setPortfolioStatus('Formatting…');
-                      try {
-                        const models = portfolioModels
-                          .split(',')
-                          .map(entry => entry.trim())
-                          .filter(Boolean) as ComfyImageModel[];
-                        const { generateModelPortfolio } = await import('@/lib/model-portfolio');
-                        const items = await generateModelPortfolio({
-                          draft: portfolioDraft,
-                          models,
-                          detail: shared.detail,
-                        });
-                        setPortfolioItems(items);
-                        setPortfolioStatus(
-                          `Formatted ${items.filter(item => item.prompt).length}/${models.length} prompts.`
-                        );
-                      } catch (err) {
-                        setPortfolioStatus(
-                          err instanceof Error ? err.message : 'Portfolio failed.'
-                        );
-                      } finally {
-                        setPortfolioLoading(false);
-                      }
-                    })();
-                  }}
-                >
-                  Generate portfolio
-                </PrimaryButton>
-                <Button
-                  variant="secondary"
-                  disabled={portfolioItems.every(item => !item.prompt.trim())}
-                  onClick={() => {
-                    void import('@/lib/model-portfolio').then(({ queueModelPortfolio }) =>
-                      queueModelPortfolio({
-                        items: portfolioItems,
-                        hints: portfolioDraft,
-                        tool: 'portfolio',
-                      }).then(result => {
-                        if (result.held > 0) {
-                          setPortfolioStatus(
-                            `Queued ${result.queued} · held ${result.held} Max until idle`
-                          );
-                          toastHeldMax({
-                            text: 'Max portfolio jobs held until ComfyUI is idle',
-                            count: result.held,
-                          });
-                          return;
-                        }
-                        setPortfolioStatus(`Queued ${result.queued} jobs.`);
-                      })
-                    );
-                  }}
-                >
-                  Queue all to ComfyUI
-                </Button>
-                <Button
-                  variant="ghost"
-                  disabled={portfolioItems.length === 0}
-                  onClick={() => {
-                    void import('@/lib/portfolio-diff-report').then(
-                      ({ downloadPortfolioDiffReport }) => {
-                        downloadPortfolioDiffReport(portfolioItems, portfolioDraft, 'markdown');
-                        setPortfolioStatus('Downloaded portfolio diff (Markdown).');
-                      }
-                    );
-                  }}
-                >
-                  Export diff (MD)
-                </Button>
-                <Button
-                  variant="ghost"
-                  disabled={portfolioItems.length === 0}
-                  onClick={() => {
-                    void import('@/lib/portfolio-diff-report').then(
-                      ({ downloadPortfolioDiffReport }) => {
-                        downloadPortfolioDiffReport(portfolioItems, portfolioDraft, 'html');
-                        setPortfolioStatus('Downloaded portfolio diff (HTML).');
-                      }
-                    );
-                  }}
-                >
-                  Export diff (HTML)
-                </Button>
-              </div>
-              {portfolioStatus ? (
-                <p className="type-caption text-[var(--accent-text)]">{portfolioStatus}</p>
-              ) : null}
-              {portfolioItems.length > 0 ? (
-                <ToolBlockGroup className="mt-[var(--block-gap)]">
-                  {portfolioItems.map(item => (
-                    <ToolContentPanel key={item.model} className="ui-block-group">
-                      <p className="type-caption text-zinc-500">{item.model}</p>
-                      {item.error ? (
-                        <p className="text-sm text-rose-300">{item.error}</p>
-                      ) : (
-                        <pre className="type-code max-h-40 overflow-auto whitespace-pre-wrap text-zinc-300">
-                          {item.prompt}
-                        </pre>
-                      )}
-                    </ToolContentPanel>
-                  ))}
-                </ToolBlockGroup>
-              ) : null}
-            </ToolSection>
+            <StudioPortfolioTab
+              accent={ACCENT}
+              detail={shared.detail}
+              portfolioDraft={portfolioDraft}
+              portfolioModels={portfolioModels}
+              portfolioItems={portfolioItems}
+              portfolioStatus={portfolioStatus}
+              portfolioLoading={portfolioLoading}
+              onPortfolioDraftChange={setPortfolioDraft}
+              onPortfolioModelsChange={setPortfolioModels}
+              onPortfolioItemsChange={setPortfolioItems}
+              onPortfolioStatusChange={setPortfolioStatus}
+              onPortfolioLoadingChange={setPortfolioLoading}
+            />
           )}
 
           {tab === 'catalog' && (
@@ -2660,7 +2557,7 @@ export default function StudioTool() {
 
           {tab === 'presets' && (
             <ToolSection>
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-[var(--text-secondary)]">
                 Save named bundles of hints and shared locks (kit, location, seed) for quick reuse
                 across Generate, Character, and Background.
               </p>
@@ -2725,7 +2622,7 @@ export default function StudioTool() {
                 onClearLockedVariationSeed={() => updateShared({ lockedVariationSeed: undefined })}
               />
 
-              <div className="grid gap-3 border-t border-zinc-800 pt-4 sm:grid-cols-2">
+              <div className="grid gap-3 border-t border-[var(--border-subtle)] pt-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <FieldLabel htmlFor="studio-preset-name">Preset name</FieldLabel>
                   <input
@@ -2767,9 +2664,9 @@ export default function StudioTool() {
                 Save current locks as preset
               </PrimaryButton>
 
-              <div className="space-y-3 border-t border-zinc-800 pt-4">
-                <p className="text-sm font-medium text-zinc-200">Preset packs</p>
-                <p className="text-xs text-zinc-500">
+              <div className="space-y-3 border-t border-[var(--border-subtle)] pt-4">
+                <p className="text-sm font-medium text-[var(--text-primary)]">Preset packs</p>
+                <p className="text-xs text-[var(--text-muted)]">
                   Export or import bundles of scene presets for sharing across machines.
                 </p>
                 <input
@@ -2793,7 +2690,7 @@ export default function StudioTool() {
                   >
                     Export pack
                   </Button>
-                  <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">
+                  <label className="cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-strong)]">
                     Import pack
                     <input
                       type="file"
@@ -2823,9 +2720,11 @@ export default function StudioTool() {
                 </div>
               </div>
 
-              <div className="space-y-3 border-t border-zinc-800 pt-4">
-                <p className="text-sm font-medium text-zinc-200">Scene starter presets</p>
-                <p className="text-xs text-zinc-500">
+              <div className="space-y-3 border-t border-[var(--border-subtle)] pt-4">
+                <p className="text-sm font-medium text-[var(--text-primary)]">
+                  Scene starter presets
+                </p>
+                <p className="text-xs text-[var(--text-muted)]">
                   Saved from Generate/Character preset panels or promoted from Gallery analytics.
                   These appear in the preset catalog on Generate and Character.
                 </p>
@@ -2850,7 +2749,7 @@ export default function StudioTool() {
                   >
                     Export starter pack
                   </Button>
-                  <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">
+                  <label className="cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-strong)]">
                     Import starter pack
                     <input
                       type="file"
@@ -2932,9 +2831,11 @@ export default function StudioTool() {
                 )}
               </div>
 
-              <div className="space-y-3 border-t border-zinc-800 pt-4">
-                <p className="text-sm font-medium text-zinc-200">Character identity bundles</p>
-                <p className="text-xs text-zinc-500">
+              <div className="space-y-3 border-t border-[var(--border-subtle)] pt-4">
+                <p className="text-sm font-medium text-[var(--text-primary)]">
+                  Character identity bundles
+                </p>
+                <p className="text-xs text-[var(--text-muted)]">
                   Export/import — or save to a browser-local list — reusable character sheets:
                   locks, hints, pinned descriptor, and a portable IP-Adapter reference
                   (image/strength/model — see Settings → ComfyUI). Enable LoRAs from the LoRA stack
@@ -2982,7 +2883,7 @@ export default function StudioTool() {
                   >
                     Save to list
                   </Button>
-                  <label className="cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500">
+                  <label className="cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-strong)]">
                     Import bundle
                     <input
                       type="file"
@@ -3009,7 +2910,7 @@ export default function StudioTool() {
                 </div>
                 {(toolSettings.savedIdentityBundles ?? []).length > 0 ? (
                   <div className="space-y-2 pt-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
                       Saved bundles ({(toolSettings.savedIdentityBundles ?? []).length})
                     </p>
                     <DataList scrollable={false}>
@@ -3177,120 +3078,20 @@ export default function StudioTool() {
             </ToolSection>
           )}
 
-          {tab === 'experiments' && (
-            <>
-              <ExperimentDashboardPanel />
-              <DuplicatePromptsPanel />
-              <StyleTransplantPanel />
-            </>
-          )}
+          {tab === 'experiments' && <StudioExperimentsTab />}
 
           {tab === 'diff' && (
-            <ToolSection title="Prompt diff">
-              {entries.length === 0 ? (
-                <EmptyState
-                  icon="diff"
-                  title="Save prompts before diffing"
-                  description="Diff compares two history entries word-by-word. Generate prompts elsewhere, save them to history, then pick left and right entries here."
-                  action={{ label: 'Open Character', href: '/character?mode=duo' }}
-                />
-              ) : (
-                <>
-                  <ToolMetaPanel>
-                    <p className="type-body">
-                      Compare two saved prompts word-by-word. Pick entries from history or use the
-                      Diff A / Diff B buttons on history cards.
-                    </p>
-                  </ToolMetaPanel>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <FieldLabel htmlFor="diff-left">Left (before)</FieldLabel>
-                      <select
-                        id="diff-left"
-                        value={diffLeftId}
-                        onChange={event => setDiffLeftId(event.target.value)}
-                        className="ui-input px-3 py-[var(--input-padding-y)] type-body"
-                      >
-                        <option value="">Select entry…</option>
-                        {entries.map(entry => (
-                          <option key={entry.id} value={entry.id}>
-                            {entry.tool} · {entry.prompt.slice(0, 48)}…
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <FieldLabel htmlFor="diff-right">Right (after)</FieldLabel>
-                      <select
-                        id="diff-right"
-                        value={diffRightId}
-                        onChange={event => setDiffRightId(event.target.value)}
-                        className="ui-input px-3 py-[var(--input-padding-y)] type-body"
-                      >
-                        <option value="">Select entry…</option>
-                        {entries.map(entry => (
-                          <option key={entry.id} value={entry.id}>
-                            {entry.tool} · {entry.prompt.slice(0, 48)}…
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {!promptDiff ? (
-                    <EmptyState
-                      compact
-                      icon="diff"
-                      title="Select two history entries"
-                      description="Choose a left and right prompt above to preview additions, removals, and unchanged text."
-                      action={{
-                        label: 'Browse history',
-                        onClick: () => selectStudioTab('history'),
-                      }}
-                    />
-                  ) : (
-                    <>
-                      <p className="type-caption">
-                        {promptDiff.beforeChars} → {promptDiff.afterChars} chars
-                        {promptDiff.changed ? '' : ' · identical'}
-                      </p>
-                      <ToolContentPanel className="type-body-lg leading-relaxed">
-                        {promptDiff.segments.map((segment, index) => (
-                          <span
-                            key={`${index}-${segment.type}-${segment.text.slice(0, 12)}`}
-                            className={
-                              segment.type === 'remove'
-                                ? 'bg-[var(--tint-danger-bg)] text-[var(--tint-danger-text)] line-through'
-                                : segment.type === 'add'
-                                  ? 'bg-[var(--tint-success-bg)] text-[var(--tint-success-text)]'
-                                  : 'text-[var(--text-secondary)]'
-                            }
-                          >
-                            {segment.text}{' '}
-                          </span>
-                        ))}
-                      </ToolContentPanel>
-                      <div className="grid gap-[var(--group-gap)] sm:grid-cols-2">
-                        <ToolContentPanel>
-                          <pre className="type-code max-h-72 overflow-auto whitespace-pre-wrap !bg-transparent !p-0 !text-[var(--text-secondary)]">
-                            {diffLeft?.prompt}
-                          </pre>
-                        </ToolContentPanel>
-                        <ToolContentPanel>
-                          <pre className="type-code max-h-72 overflow-auto whitespace-pre-wrap !bg-transparent !p-0 !text-[var(--tint-success-text)]">
-                            {diffRight?.prompt}
-                          </pre>
-                        </ToolContentPanel>
-                      </div>
-                      <PromptMergePanel
-                        leftDefault={diffLeft?.prompt}
-                        rightDefault={diffRight?.prompt}
-                      />
-                    </>
-                  )}
-                </>
-              )}
-            </ToolSection>
+            <StudioDiffTab
+              entries={entries}
+              diffLeftId={diffLeftId}
+              diffRightId={diffRightId}
+              onDiffLeftIdChange={setDiffLeftId}
+              onDiffRightIdChange={setDiffRightId}
+              diffLeft={diffLeft}
+              diffRight={diffRight}
+              promptDiff={promptDiff}
+              onSelectTab={selectStudioTab}
+            />
           )}
         </div>
       )}
@@ -3599,7 +3400,7 @@ function IterationTreeNodeCard({
   return (
     <div className="space-y-3" style={{ marginLeft: depth * 16 }}>
       <ToolContentPanel className="ui-block-group">
-        <p className="type-caption text-zinc-500">
+        <p className="type-caption text-[var(--text-muted)]">
           {formatPromptVersionLabel(node.entry.promptVersion) ? (
             <span className="mr-1.5 inline-flex items-center rounded-md border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-200">
               {formatPromptVersionLabel(node.entry.promptVersion)}
@@ -3607,7 +3408,7 @@ function IterationTreeNodeCard({
           ) : null}
           {node.entry.tool} · {node.entry.model} · {new Date(node.entry.timestamp).toLocaleString()}
         </p>
-        <pre className="type-code max-h-32 overflow-auto whitespace-pre-wrap text-zinc-300">
+        <pre className="type-code max-h-32 overflow-auto whitespace-pre-wrap text-[var(--text-secondary)]">
           {node.entry.prompt}
         </pre>
         <div className="flex flex-wrap gap-2">
@@ -3710,7 +3511,7 @@ function IterationTreeNodeCard({
           ) : null}
           <a
             href={studioHistoryUrl(node.entry.id)}
-            className="type-caption text-zinc-400 hover:text-zinc-200"
+            className="type-caption text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
           >
             Open in history
           </a>

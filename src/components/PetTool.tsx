@@ -47,11 +47,16 @@ import {
   accentFocusClass,
   accentRingClass,
 } from '@/components/ui/ToolPageShell';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import { FieldDivider } from '@/components/ui/Field';
 
 const ACCENT = 'rose' as const;
 
 export default function PetTool() {
+  const description = useToolPageDescription(
+    'Animal-focused scene prompts. Add breed or species in hints, then generate.',
+    'Pet and animal scenes — add breed or species in hints, then generate.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'pet',
     DEFAULT_PET_TOOL_CACHE
@@ -201,7 +206,7 @@ export default function PetTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Pet scene · {selectedModel.comfyNode}</ToolBadge>}
       title="Pet"
-      description="Animal-focused scene prompts. Add breed or species in hints, then generate."
+      description={description}
       sidebar={
         <SharedToolControls
           shared={shared}

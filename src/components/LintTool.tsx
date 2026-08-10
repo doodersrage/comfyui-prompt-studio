@@ -172,7 +172,7 @@ export default function LintTool() {
             onError={setImportStatus}
           />
         </div>
-        {importStatus && <p className="text-xs text-zinc-500">{importStatus}</p>}
+        {importStatus && <p className="text-xs text-[var(--text-muted)]">{importStatus}</p>}
 
         {prompt.trim() ? (
           <CollapsibleSection

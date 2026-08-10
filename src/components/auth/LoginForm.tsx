@@ -167,24 +167,24 @@ export default function LoginForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="mx-auto w-full max-w-md space-y-5 rounded-3xl border border-zinc-800/80 bg-zinc-950/70 p-8 shadow-[0_24px_80px_-40px_rgba(56,189,248,0.28)] backdrop-blur-md"
+      className="mx-auto w-full max-w-md space-y-5 rounded-3xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/70 p-8 shadow-[0_24px_80px_-40px_rgba(56,189,248,0.28)] backdrop-blur-md"
     >
       <div className="space-y-3">
         <BrandMark
           size={40}
           withWordmark
-          wordmarkClassName="type-title tracking-tight text-zinc-50"
+          wordmarkClassName="type-title tracking-tight text-[var(--text-primary)]"
         />
         <div className="space-y-1">
-          <h1 className="type-heading text-zinc-100">{title}</h1>
-          <p className="text-sm text-zinc-400">{description}</p>
+          <h1 className="type-heading text-[var(--text-primary)]">{title}</h1>
+          <p className="text-sm text-[var(--text-muted)]">{description}</p>
         </div>
       </div>
 
       {mode === 'sign-in' ? (
         <>
           <label className="block space-y-2">
-            <span className="type-caption text-zinc-400">Username</span>
+            <span className="type-caption text-[var(--text-muted)]">Username</span>
             <TextInput
               value={username}
               onChange={event => setUsername(event.target.value)}
@@ -193,7 +193,7 @@ export default function LoginForm() {
           </label>
 
           <label className="block space-y-2">
-            <span className="type-caption text-zinc-400">Password</span>
+            <span className="type-caption text-[var(--text-muted)]">Password</span>
             <TextInput
               type="password"
               value={password}
@@ -219,7 +219,7 @@ export default function LoginForm() {
 
       {mode === 'totp' ? (
         <label className="block space-y-2">
-          <span className="type-caption text-zinc-400">Authenticator code</span>
+          <span className="type-caption text-[var(--text-muted)]">Authenticator code</span>
           <TextInput
             value={totpCode}
             onChange={event => setTotpCode(event.target.value)}
@@ -231,7 +231,7 @@ export default function LoginForm() {
 
       {mode === 'forgot' ? (
         <label className="block space-y-2">
-          <span className="type-caption text-zinc-400">Username or email</span>
+          <span className="type-caption text-[var(--text-muted)]">Username or email</span>
           <TextInput
             value={forgotIdentifier}
             onChange={event => setForgotIdentifier(event.target.value)}
@@ -243,7 +243,7 @@ export default function LoginForm() {
       {mode === 'reset' ? (
         <>
           <label className="block space-y-2">
-            <span className="type-caption text-zinc-400">New password</span>
+            <span className="type-caption text-[var(--text-muted)]">New password</span>
             <TextInput
               type="password"
               value={resetPassword}
@@ -252,7 +252,7 @@ export default function LoginForm() {
             />
           </label>
           <label className="block space-y-2">
-            <span className="type-caption text-zinc-400">Confirm password</span>
+            <span className="type-caption text-[var(--text-muted)]">Confirm password</span>
             <TextInput
               type="password"
               value={resetPasswordConfirm}
@@ -295,7 +295,7 @@ export default function LoginForm() {
             setError(null);
             setInfo(null);
           }}
-          className="w-full text-center text-xs text-zinc-500 underline underline-offset-2 transition hover:text-zinc-300"
+          className="w-full text-center text-xs text-[var(--text-muted)] underline underline-offset-2 transition hover:text-[var(--text-secondary)]"
         >
           Back to sign in
         </button>

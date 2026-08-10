@@ -52,7 +52,7 @@ function statusTone(status: TrainJob['status']): string {
     case 'manual':
       return 'text-amber-200';
     default:
-      return 'text-zinc-400';
+      return 'text-[var(--text-muted)]';
   }
 }
 
@@ -288,13 +288,13 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-zinc-400">
+      <p className="text-sm text-[var(--text-muted)]">
         GPU training runs out of process. This panel owns the loop: start an external trainer
         (webhook or command), track jobs, then register the weight into the LoRA library with its
         trigger.
       </p>
 
-      <p className="type-caption text-zinc-500">{trainerHint}</p>
+      <p className="type-caption text-[var(--text-muted)]">{trainerHint}</p>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block space-y-1.5 sm:col-span-2">
@@ -352,12 +352,12 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
         </label>
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-zinc-300">
+      <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
         <input
           type="checkbox"
           checked={prefs.activateOnRegister !== false}
           onChange={event => persistPrefs({ ...prefs, activateOnRegister: event.target.checked })}
-          className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 accent-[var(--accent)]"
+          className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--bg-base)] accent-[var(--accent)]"
         />
         Activate in session LoRA stack on register
       </label>
@@ -383,7 +383,7 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs text-zinc-400">Jobs</p>
+        <p className="text-xs text-[var(--text-muted)]">Jobs</p>
         {jobs.length === 0 ? (
           <EmptyState
             compact
@@ -413,7 +413,7 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 space-y-1">
-                    <p className="type-heading truncate font-mono text-sm text-zinc-200">
+                    <p className="type-heading truncate font-mono text-sm text-[var(--text-primary)]">
                       {job.id}
                     </p>
                     <p className={`type-caption ${statusTone(job.status)}`}>
@@ -421,7 +421,7 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
                       {job.trigger ? ` · trigger “${job.trigger}”` : ''}
                     </p>
                     {job.outputPath ? (
-                      <p className="type-caption truncate font-mono text-zinc-500">
+                      <p className="type-caption truncate font-mono text-[var(--text-muted)]">
                         {job.outputPath}
                       </p>
                     ) : null}
@@ -446,7 +446,7 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
                     ) : null}
                   </div>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-zinc-900/80">
+                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]/80">
                   <div
                     className="h-full rounded-full bg-[var(--accent-muted)] transition-[width] duration-500"
                     style={{ width: `${clampPercent(job.progress)}%` }}
@@ -460,12 +460,12 @@ export default function LoraTrainPanel({ onStatus }: LoraTrainPanelProps) {
 
       {validationPrompt ? (
         <div className="ui-surface-inset space-y-2">
-          <p className="type-heading text-zinc-200">Validation prompt (stub)</p>
-          <p className="type-caption text-zinc-500">
+          <p className="type-heading text-[var(--text-primary)]">Validation prompt (stub)</p>
+          <p className="type-caption text-[var(--text-muted)]">
             Optional smoke-test: queue this short prompt with the new LoRA enabled to confirm the
             trigger fires. Copy into Generate / Refine when ready.
           </p>
-          <code className="block whitespace-pre-wrap rounded-lg border border-zinc-800/80 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200">
+          <code className="block whitespace-pre-wrap rounded-lg border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/60 px-3 py-2 text-sm text-[var(--text-primary)]">
             {validationPrompt}
           </code>
           <Button

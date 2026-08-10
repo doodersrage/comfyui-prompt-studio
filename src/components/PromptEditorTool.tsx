@@ -25,6 +25,7 @@ import { promptResultPreviewProps } from '@/lib/prompt-result-preview-props';
 import { rememberDraftFields } from '@/lib/remember-draft-fields';
 import { getReformatTargetLabel, getReformatTargetModel } from '@/lib/reformat-target';
 import { DEFAULT_PROMPT_EDITOR_TOOL_CACHE } from '@/lib/settings-cache';
+import { useToolPageDescription } from '@/hooks/useToolPageDescription';
 import {
   ToolBadge,
   CollapsibleSection,
@@ -37,6 +38,10 @@ import {
 const ACCENT = 'sky' as const;
 
 export default function PromptEditorTool() {
+  const description = useToolPageDescription(
+    'Edit positive and negative prompts, lint, and queue to ComfyUI.',
+    'Edit prompts, lint, and queue — no generator UI in the way.'
+  );
   const { mounted, shared, toolSettings, updateShared, updateToolSettings } = useCachedSettings(
     'promptEditor',
     DEFAULT_PROMPT_EDITOR_TOOL_CACHE
@@ -169,7 +174,7 @@ export default function PromptEditorTool() {
       accent={ACCENT}
       badge={<ToolBadge accent={ACCENT}>Manual edit · {selectedModel.comfyNode}</ToolBadge>}
       title="Prompt Editor"
-      description="Edit positive and negative prompts, lint, and queue to ComfyUI."
+      description={description}
       sidebar={
         <SharedToolControls
           toolId="prompt-editor"
@@ -184,13 +189,13 @@ export default function PromptEditorTool() {
       <ToolSetupBanner toolLabel="Prompt Editor" />
       {sourceMeta ? (
         <ToolSection>
-          <div className="flex flex-wrap items-start gap-4 rounded-2xl border border-sky-800/35 bg-gradient-to-br from-sky-950/30 to-zinc-950/40 p-4 shadow-[inset_0_1px_0_rgba(125,211,252,0.06)]">
+          <div className="flex flex-wrap items-start gap-4 rounded-2xl border border-sky-800/35 bg-gradient-to-br from-sky-950/30 to-[var(--bg-base)]/40 p-4 shadow-[inset_0_1px_0_rgba(125,211,252,0.06)]">
             {sourceMeta.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={sourceMeta.imageUrl}
                 alt=""
-                className="h-16 w-16 shrink-0 rounded-xl border border-zinc-800/80 object-cover"
+                className="h-16 w-16 shrink-0 rounded-xl border border-[var(--border-subtle)]/80 object-cover"
               />
             ) : null}
             <div className="min-w-0 flex-1 space-y-1">
@@ -198,7 +203,7 @@ export default function PromptEditorTool() {
                 Loaded from {sourceMeta.source === 'gallery' ? 'gallery' : 'history'}
                 {sourceMeta.tool ? ` · ${sourceMeta.tool}` : ''}
               </p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-[var(--text-muted)]">
                 Edits here do not change the saved gallery entry until you queue a new job.
               </p>
               <div className="flex flex-wrap gap-3 pt-1">
@@ -269,10 +274,12 @@ export default function PromptEditorTool() {
               rows={4}
               className={`font-mono text-rose-200/90 ${accentFocusClass(ACCENT)}`}
             />
-            {negativeStatus ? <p className="text-xs text-zinc-500">{negativeStatus}</p> : null}
+            {negativeStatus ? (
+              <p className="text-xs text-[var(--text-muted)]">{negativeStatus}</p>
+            ) : null}
           </CollapsibleSection>
         ) : (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-[var(--text-muted)]">
             {selectedModel.comfyNode} ignores separate negatives — fold exclusions into the positive
             prompt.
           </p>
@@ -310,7 +317,7 @@ export default function PromptEditorTool() {
             onError={setImportStatus}
           />
         </div>
-        {importStatus ? <p className="text-xs text-zinc-500">{importStatus}</p> : null}
+        {importStatus ? <p className="text-xs text-[var(--text-muted)]">{importStatus}</p> : null}
 
         {positive.trim() ? (
           <CollapsibleSection

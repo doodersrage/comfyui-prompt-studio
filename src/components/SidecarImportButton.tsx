@@ -15,7 +15,7 @@ export default function SidecarImportButton({
   onImport,
   onError,
   label = 'Import sidecar',
-  className = 'cursor-pointer rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500',
+  className = 'cursor-pointer rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--border-default)]',
 }: SidecarImportButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 

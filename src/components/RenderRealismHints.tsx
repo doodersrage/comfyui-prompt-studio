@@ -21,7 +21,7 @@ export default function RenderRealismHints({ mode, onModeChange }: RenderRealism
       <div className="min-w-0 space-y-2">
         <div className="min-w-0 space-y-1">
           <p className="type-caption text-emerald-200/85">Render style on queue</p>
-          <p className="text-xs text-zinc-300">{formatRenderRealismHint(mode)}</p>
+          <p className="text-xs text-[var(--text-secondary)]">{formatRenderRealismHint(mode)}</p>
         </div>
         <div className="flex min-w-0 flex-wrap gap-1.5">
           {RENDER_REALISM_OPTIONS.map(option => (
@@ -35,8 +35,8 @@ export default function RenderRealismHints({ mode, onModeChange }: RenderRealism
           ))}
         </div>
       </div>
-      <p className="mt-2 type-caption text-zinc-500">{activeOption.description}</p>
-      <p className="mt-1.5 type-caption text-zinc-500">
+      <p className="mt-2 type-caption text-[var(--text-muted)]">{activeOption.description}</p>
+      <p className="mt-1.5 type-caption text-[var(--text-muted)]">
         Auto-adjusts positive and negative prompts when you Send to ComfyUI or copy a prompt pair.
         Flux-family models receive style cues in the positive prompt.
       </p>

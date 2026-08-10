@@ -142,7 +142,7 @@ export default function QueueQualityProfileHints({
       <div className="space-y-3">
         <div className="min-w-0 space-y-1">
           <p className="type-caption text-violet-200/85">Queue quality profile</p>
-          <p className="break-words text-xs text-zinc-300">
+          <p className="break-words text-xs text-[var(--text-secondary)]">
             {effectiveGlobal ??
               'Uses sidebar KSampler preset and resolution settings when queueing.'}
           </p>
@@ -166,7 +166,7 @@ export default function QueueQualityProfileHints({
               Keeper
             </ChipButton>
           </div>
-          <p className="type-caption text-zinc-500">
+          <p className="type-caption text-[var(--text-muted)]">
             {draftBumped
               ? 'Iterate → Draft (queues as Final for polish/Base on this model). Keeper → Final. Max stays separate.'
               : 'Iterate → Draft for fast loops. Keeper → Final for keepers. Max stays a separate quality chip.'}
@@ -225,7 +225,9 @@ export default function QueueQualityProfileHints({
             Hold Max until idle
           </ChipButton>
           {shared.holdMaxUntilIdle ? (
-            <span className="type-caption text-zinc-500">Max waits for an empty ComfyUI queue</span>
+            <span className="type-caption text-[var(--text-muted)]">
+              Max waits for an empty ComfyUI queue
+            </span>
           ) : null}
         </div>
       </div>
@@ -257,13 +259,13 @@ export default function QueueQualityProfileHints({
             )}
           </div>
           {effectiveForTool && toolProfile ? (
-            <p className="type-caption text-zinc-500">{effectiveForTool}</p>
+            <p className="type-caption text-[var(--text-muted)]">{effectiveForTool}</p>
           ) : null}
         </div>
       ) : null}
 
-      <p className="mt-2 type-caption text-zinc-500">{activeOption.description}</p>
-      <p className="mt-1.5 type-caption text-zinc-500">
+      <p className="mt-2 type-caption text-[var(--text-muted)]">{activeOption.description}</p>
+      <p className="mt-1.5 type-caption text-[var(--text-muted)]">
         {/^qwen-rapid-aio-/i.test(shared.model) ? (
           <>
             Rapid AIO: Draft queues as Final so moiré polish runs. Max uses 10-step sgm_uniform plus
@@ -287,9 +289,9 @@ export default function QueueQualityProfileHints({
           <>
             Draft favors speed; Final and Max bump sampler steps and resolution. Flux Final/Max may
             insert a soft latent detail pass; SDXL may insert a refiner. When an upscale model is
-            mapped, Final/Max run <span className="text-zinc-400">UpscaleModel</span> then
-            area-scale to ~1.25×/1.5× (Max may add Lanczos polish + sharpen); otherwise Lanczos{' '}
-            <span className="text-zinc-400">ImageScale</span> before SaveImage.
+            mapped, Final/Max run <span className="text-[var(--text-muted)]">UpscaleModel</span>{' '}
+            then area-scale to ~1.25×/1.5× (Max may add Lanczos polish + sharpen); otherwise Lanczos{' '}
+            <span className="text-[var(--text-muted)]">ImageScale</span> before SaveImage.
           </>
         )}
       </p>

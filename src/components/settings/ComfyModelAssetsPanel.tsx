@@ -363,11 +363,13 @@ export default function ComfyModelAssetsPanel({
       <p className="type-caption text-[var(--text-muted)]">
         Curated same-machine installs for supported workflows — checkpoints, UNETs, VAEs, text
         encoders / CLIP, LoRAs, upscalers, and ControlNets — into{' '}
-        <code className="rounded bg-zinc-800 px-1 text-violet-300">COMFYUI_ROOT/models/…</code>.
-        Only allowlisted Hugging Face URLs run; gated or third-party rows stay manual. Custom nodes
-        are not included. Optional{' '}
-        <code className="rounded bg-zinc-800 px-1 text-violet-300">HF_TOKEN</code> helps with gated
-        repos / 403s.
+        <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">
+          COMFYUI_ROOT/models/…
+        </code>
+        . Only allowlisted Hugging Face URLs run; gated or third-party rows stay manual. Custom
+        nodes are not included. Optional{' '}
+        <code className="rounded bg-[var(--bg-muted)] px-1 text-violet-300">HF_TOKEN</code> helps
+        with gated repos / 403s.
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -430,7 +432,10 @@ export default function ComfyModelAssetsPanel({
       <p className="type-caption text-[var(--text-muted)]">
         {rootConfigured ? (
           <>
-            Root: <code className="rounded bg-zinc-800 px-1 text-emerald-200/90">{rootPath}</code>
+            Root:{' '}
+            <code className="rounded bg-[var(--bg-muted)] px-1 text-emerald-200/90">
+              {rootPath}
+            </code>
             {!rootWritable ? (
               <span className="mt-1 block text-amber-300/90">
                 {rootHint ??

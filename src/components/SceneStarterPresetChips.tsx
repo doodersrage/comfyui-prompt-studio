@@ -214,7 +214,7 @@ export default function SceneStarterPresetChips({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-zinc-200">{title}</p>
+        <p className="text-sm font-medium text-[var(--text-primary)]">{title}</p>
         <p className="type-caption" aria-live="polite">
           {filtered.length} of {allPresets.length} presets
           {userPresets.length > 0 ? ` · ${userPresets.length} saved` : ''}
@@ -238,7 +238,7 @@ export default function SceneStarterPresetChips({
             className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
               activeCategory === item.value
                 ? activeChipClass
-                : 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+                : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
             }`}
           >
             {item.label}
@@ -255,7 +255,7 @@ export default function SceneStarterPresetChips({
             className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
               activeFilter.framing === option.value
                 ? activeChipClass
-                : 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+                : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
             }`}
           >
             {option.label}
@@ -272,7 +272,7 @@ export default function SceneStarterPresetChips({
             className={`rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
               activeFilter.tags.includes(tag.id)
                 ? activeChipClass
-                : 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+                : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
             }`}
           >
             {tag.label}
@@ -333,11 +333,11 @@ export default function SceneStarterPresetChips({
                   className={`rounded-lg border px-3 py-1.5 text-left text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/60 ${
                     active
                       ? activeChipClass
-                      : 'border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+                      : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   <span className="block">{preset.label}</span>
-                  <span className="type-caption mt-0.5 block text-zinc-500">
+                  <span className="type-caption mt-0.5 block text-[var(--text-muted)]">
                     {[preset.duo ? 'duo' : null, isUser ? 'saved' : null]
                       .filter(Boolean)
                       .join(' · ')}

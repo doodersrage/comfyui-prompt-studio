@@ -65,7 +65,7 @@ export default function ModelSamplerHints({
       <div className="space-y-3">
         <div className="min-w-0 space-y-1">
           <p className="type-caption text-sky-200/85">KSampler preset on queue</p>
-          <p className="break-words text-xs text-zinc-300">
+          <p className="break-words text-xs text-[var(--text-secondary)]">
             {formatModelSamplerHint(model, preset)}
           </p>
         </div>
@@ -105,7 +105,7 @@ export default function ModelSamplerHints({
           </button>
           {overridesOpen ? (
             <div className="mt-2 space-y-2">
-              <p className="type-caption text-zinc-500">
+              <p className="type-caption text-[var(--text-muted)]">
                 Leave blank to use preset values. Overrides apply on queue and win over gallery
                 sampler memory. Denoise blank uses tool defaults (1.0 txt2img, ~0.65 edit).
               </p>
@@ -148,23 +148,30 @@ export default function ModelSamplerHints({
         </div>
       ) : null}
 
-      <p className="mt-2 type-caption text-zinc-500">{activeOption.description}</p>
+      <p className="mt-2 type-caption text-[var(--text-muted)]">{activeOption.description}</p>
       {peopleHint ? <p className="mt-1.5 type-caption text-amber-200/80">{peopleHint}</p> : null}
-      {samplingHint ? <p className="mt-1.5 type-caption text-zinc-500">{samplingHint}</p> : null}
+      {samplingHint ? (
+        <p className="mt-1.5 type-caption text-[var(--text-muted)]">{samplingHint}</p>
+      ) : null}
       <details className="mt-2 group">
-        <summary className="type-caption cursor-pointer list-none text-zinc-500 transition hover:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] [&::-webkit-details-marker]:hidden">
-          <span className="underline decoration-zinc-600 underline-offset-2 group-open:decoration-zinc-500">
+        <summary className="type-caption cursor-pointer list-none text-[var(--text-muted)] transition hover:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] [&::-webkit-details-marker]:hidden">
+          <span className="underline decoration-[var(--border-default)] underline-offset-2 group-open:decoration-[var(--text-muted)]">
             How queue patching works
           </span>
         </summary>
-        <p className="mt-1.5 type-caption text-zinc-500">
-          Patches <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{SEED}}`}</code>,{' '}
-          <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{STEPS}}`}</code>,{' '}
-          <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{CFG}}`}</code>,{' '}
-          <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{DENOISE}}`}</code>,{' '}
-          <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{SAMPLER}}`}</code>,{' '}
-          <code className="rounded bg-zinc-900/80 px-1 text-sky-200/90">{`{{SCHEDULER}}`}</code>,
-          and Flux shift placeholders — or writes directly into sampler nodes.
+        <p className="mt-1.5 type-caption text-[var(--text-muted)]">
+          Patches{' '}
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{SEED}}`}</code>
+          ,{' '}
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{STEPS}}`}</code>
+          ,{' '}
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{CFG}}`}</code>,{' '}
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{DENOISE}}`}</code>
+          ,{' '}
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{SAMPLER}}`}</code>
+          ,{' '}
+          <code className="rounded bg-[var(--bg-muted)]/80 px-1 text-sky-200/90">{`{{SCHEDULER}}`}</code>
+          , and Flux shift placeholders — or writes directly into sampler nodes.
           {defaults.fixedSeed == null
             ? ' Seed is randomized per job unless pinned in advanced queue params.'
             : null}

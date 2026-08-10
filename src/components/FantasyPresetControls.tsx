@@ -87,22 +87,22 @@ function PresetSection({
 
   return (
     <details
-      className="group rounded-xl border border-zinc-800 bg-zinc-950/40"
+      className="group rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)]/40"
       open={section.defaultOpen}
     >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-zinc-200">{section.title}</p>
+          <p className="text-sm font-medium text-[var(--text-primary)]">{section.title}</p>
           {section.description ? (
-            <p className="text-xs text-zinc-500">{section.description}</p>
+            <p className="text-xs text-[var(--text-muted)]">{section.description}</p>
           ) : null}
         </div>
-        <span className="text-xs text-zinc-500">
+        <span className="text-xs text-[var(--text-muted)]">
           {sectionCount > 0 ? `${sectionCount} set` : 'Optional'}
-          <span className="ml-2 text-zinc-600 transition group-open:rotate-180">▾</span>
+          <span className="ml-2 text-[var(--text-muted)] transition group-open:rotate-180">▾</span>
         </span>
       </summary>
-      <div className="grid gap-3 border-t border-zinc-800 px-4 py-4 sm:grid-cols-2">
+      <div className="grid gap-3 border-t border-[var(--border-subtle)] px-4 py-4 sm:grid-cols-2">
         {section.fields.map(field => (
           <PresetField key={field.key} field={field} settings={settings} onChange={onChange} />
         ))}
@@ -137,13 +137,13 @@ export default function FantasyPresetControls({
           {selectionCount > 0 ? (
             <span className="text-violet-300">{selectionCount} active</span>
           ) : (
-            <span className="text-zinc-500">Optional refinements</span>
+            <span className="text-[var(--text-muted)]">Optional refinements</span>
           )}
           {selectionCount > 0 ? (
             <button
               type="button"
               onClick={() => onChange(clearFantasyPresetPatch())}
-              className="rounded-lg border border-zinc-700 px-2 py-1 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+              className="rounded-lg border border-[var(--border-default)] px-2 py-1 text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]"
             >
               Clear
             </button>

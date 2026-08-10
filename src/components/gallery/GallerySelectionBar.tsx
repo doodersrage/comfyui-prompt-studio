@@ -79,14 +79,14 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
           ? 'border-emerald-600/35 bg-emerald-900/15 text-emerald-400 hover:border-emerald-500/50'
           : props.label === 'Organize'
             ? 'border-violet-600/35 bg-violet-800/15 text-violet-400 hover:border-violet-500/50'
-            : 'border-zinc-600/40 bg-zinc-900/20 text-zinc-500 hover:border-zinc-500/60';
+            : 'border-[var(--border-default)]/40 bg-[var(--bg-muted)]/20 text-[var(--text-muted)] hover:border-[var(--border-default)]/60';
 
   if (props.disabled) {
     return (
       <button
         type="button"
         disabled
-        className={`ui-btn-ghost ui-btn-sm text-xs opacity-35 rounded-xl border border-zinc-900/70 bg-zinc-950/60`}
+        className={`ui-btn-ghost ui-btn-sm text-xs opacity-35 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60`}
       >
         {props.label}
       </button>
@@ -99,7 +99,7 @@ function ActionMenu(props: { label: string; children: ReactNode; disabled?: bool
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-zinc-900/80 bg-zinc-950/70 backdrop-blur-xs transition ${menuTone} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.97]`}
+        className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/80 bg-[var(--bg-base)]/70 backdrop-blur-xs transition ${menuTone} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.97]`}
         onClick={() => setOpen(value => !value)}
       >
         {props.label}
@@ -115,7 +115,7 @@ function MenuItem(props: { label: string; onClick: () => void; disabled?: boolea
       type="button"
       disabled={props.disabled}
       onClick={props.onClick}
-      className={`ui-menu-item rounded-xl border-zinc-800/60 bg-zinc-950/70 text-[11px] backdrop-blur-xs transition hover:border-violet-600/60 hover:bg-violet-500/12 hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.97]`}
+      className={`ui-menu-item rounded-xl border-[var(--border-subtle)]/60 bg-[var(--bg-base)]/70 text-[11px] backdrop-blur-xs transition hover:border-violet-600/60 hover:bg-violet-500/12 hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 active:scale-[0.97]`}
     >
       {props.label}
     </button>
@@ -176,7 +176,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
       ? 'border-violet-500/45 bg-violet-500/20 text-violet-300 rounded-xl backdrop-blur-xs px-2.5 py-1 text-xs font-medium'
       : props.selectedCount <= 10
         ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200 rounded-xl backdrop-blur-xs px-2.5 py-1 text-xs font-medium'
-        : 'border-zinc-700/70 bg-zinc-950/80 text-zinc-400 tabular-nums rounded-lg backdrop-blur-xs px-2.5 py-1 text-xs font-medium';
+        : 'border-[var(--border-default)]/70 bg-[var(--bg-base)]/80 text-[var(--text-muted)] tabular-nums rounded-lg backdrop-blur-xs px-2.5 py-1 text-xs font-medium';
 
   return (
     <div className="sticky top-[calc(var(--header-offset,0px)+0.5rem)] z-20 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-3 shadow-[var(--shadow-surface)] backdrop-blur-md">
@@ -186,7 +186,7 @@ export default function GallerySelectionBar(props: GallerySelectionBarProps) {
           <button
             type="button"
             onClick={props.onClearSelection}
-            className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-zinc-900/70 bg-zinc-950/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
+            className={`ui-btn-ghost ui-btn-sm text-xs rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-base)]/60 backdrop-blur-xs transition hover:bg-violet-500/25 hover:border-violet-500/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30 text-violet-400`}
           >
             Clear
           </button>
