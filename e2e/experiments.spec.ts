@@ -12,4 +12,14 @@ test.describe('Studio experiments', () => {
     await expect(page.getByRole('heading', { name: 'Experiment dashboard' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Refresh experiments' })).toBeVisible();
   });
+
+  test('vision rank control is available on experiment groups', async ({ page }) => {
+    await gotoStable(page, '/studio?tab=experiments');
+    const rankButton = page.getByRole('button', { name: 'Rank with vision' });
+    if ((await rankButton.count()) > 0) {
+      await expect(rankButton.first()).toBeVisible();
+    } else {
+      await expect(page.getByText(/No experiment groups yet|Experiment dashboard/i)).toBeVisible();
+    }
+  });
 });

@@ -3,22 +3,10 @@
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
-import ModalPortal from '@/components/ui/ModalPortal';
 import ImageLightbox, { type ImageLightboxState } from '@/components/ui/ImageLightbox';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { useComfyUiGallery } from '@/hooks/useComfyUiGallery';
-import {
-  startAnatomyRepairFromGalleryEntry,
-  startImproveFromGalleryEntry,
-} from '@/lib/improve-output';
-import {
-  appendUserToolQualityRecipe,
-  buildToolQualityRecipeFromGalleryEntry,
-} from '@/lib/tool-quality-recipes';
-import { loadSettingsCache, saveSharedSettings } from '@/lib/settings-cache';
-import { resolveSharedEffectiveSessionLoraStrengthOverrides } from '@/lib/comfyui-settings';
-import { recordAvoidedTokensFromGalleryEntry } from '@/lib/avoided-tokens';
-import { recordCatalogBiasFromPrompt } from '@/lib/catalog-rating-bias';
+import { startAnatomyRepairFromGalleryEntry } from '@/lib/improve-output';
 import GalleryVisionReviewButton from '@/components/gallery/GalleryVisionReviewButton';
 import GalleryCardItem, { type GalleryCardActions } from '@/components/gallery/GalleryCardItem';
 import GalleryDisplayGrid from '@/components/gallery/GalleryDisplayGrid';
@@ -29,11 +17,14 @@ import GalleryExperimentPanel from '@/components/gallery/GalleryExperimentPanel'
 import GalleryStatsBar from '@/components/gallery/GalleryStatsBar';
 import GalleryReviewTouchBar from '@/components/gallery/GalleryReviewTouchBar';
 import GalleryPanelSkeleton from '@/components/gallery/GalleryPanelSkeleton';
+import GalleryCompareModal from '@/components/gallery/GalleryCompareModal';
+import GalleryPaginator from '@/components/gallery/GalleryPaginator';
 import StatusToastStrip from '@/components/ui/StatusToastStrip';
 import { assessGalleryCapWarning } from '@/lib/gallery-cap';
 import { MAX_GALLERY_ENTRIES } from '@/lib/comfyui-gallery-storage-meta';
 import { useGalleryReview } from '@/hooks/useGalleryReview';
 import { useGallerySelection } from '@/hooks/useGallerySelection';
+import { useGalleryCompareHandlers } from '@/hooks/useGalleryCompareHandlers';
 import { toneForStatusText } from '@/lib/status-progress';
 import { useWorkspaceMode } from '@/hooks/useWorkspaceMode';
 import { computeGalleryStats } from '@/lib/gallery-stats';
@@ -44,7 +35,6 @@ import { queueParamExperiment, type ParamExperimentAxis } from '@/lib/param-expe
 import { toastBulkQueueSummary, toastHeldMax, toastQueueOutcome } from '@/lib/app-toast';
 import { useHeldMaxCount } from '@/hooks/useHeldMaxJobs';
 import { suggestRatingMutations } from '@/lib/rating-prompt-mutations';
-import { setLineageParent } from '@/lib/prompt-lineage-session';
 import { loadActiveProjectId, loadPromptProjects } from '@/lib/prompt-projects';
 import {
   galleryTopicsPath,
@@ -107,9 +97,6 @@ import {
 import { scheduleAfterCommit } from '@/lib/schedule-after-commit';
 import LoraDatasetExportDialog from '@/components/LoraDatasetExportDialog';
 
-const GalleryComparePanel = dynamic(() => import('@/components/GalleryComparePanel'), {
-  loading: () => null,
-});
 const GalleryWorkflowModal = dynamic(() => import('@/components/gallery/GalleryWorkflowModal'), {
   loading: () => null,
 });
@@ -215,9 +202,7 @@ export default function ComfyUiGalleryPanel({
   const [compareOpen, setCompareOpen] = useState(false);
   const [loraExportOpen, setLoraExportOpen] = useState(false);
   const [loraExportScope, setLoraExportScope] = useState<'favorites' | 'selected'>('favorites');
-  const [compareWinnerId, setCompareWinnerId] = useState<string | null>(null);
   const [workflowEntry, setWorkflowEntry] = useState<ComfyGalleryEntry | null>(null);
-  const [compareStatus, setCompareStatus] = useState<string | null>(null);
   const [collapsedLineageGroups, setCollapsedLineageGroups] = useState<Set<string>>(
     () => new Set()
   );
@@ -408,6 +393,13 @@ export default function ComfyUiGalleryPanel({
     clearSelection,
     selectAllVisible,
   } = useGallerySelection(visibleEntries);
+
+  const { compareHandlers, resetCompare } = useGalleryCompareHandlers({
+    selectedEntries,
+    setFavorites,
+    setReviewRating,
+    toggleFavorite,
+  });
 
   const { reviewFocusIndex, reviewFocusEntry, handleReviewRating } = useGalleryReview({
     filter,
@@ -1576,259 +1568,15 @@ export default function ComfyUiGalleryPanel({
         />
       ) : null}
 
-      {compareOpen && selectedEntries.length >= 2 ? (
-        <ModalPortal>
-          <div
-            className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-[var(--bg-base)]/85 p-4 backdrop-blur-sm"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Compare gallery outputs"
-          >
-            <div className="my-4 w-full max-w-7xl">
-              <GalleryComparePanel
-                entries={selectedEntries.slice(0, 4)}
-                onClose={() => {
-                  setCompareOpen(false);
-                  setCompareStatus(null);
-                  setCompareWinnerId(null);
-                }}
-                status={compareStatus}
-                compareWinnerId={compareWinnerId}
-                onPickWinner={entry => {
-                  setCompareWinnerId(entry.id);
-                  const compareIds = selectedEntries.slice(0, 4).map(item => item.id);
-                  setFavorites(
-                    compareIds.filter(id => id !== entry.id),
-                    false
-                  );
-                  setFavorites([entry.id], true);
-                  setReviewRating(entry.id, 5);
-                  recordCatalogBiasFromPrompt(entry.prompt, 5);
-                  if (entry.historyId) {
-                    setLineageParent({
-                      parentHistoryId: entry.historyId,
-                      sourcePrompt: entry.prompt,
-                      sourceTool: entry.tool,
-                    });
-                  }
-                  const shared = loadSettingsCache().shared;
-                  const built = buildToolQualityRecipeFromGalleryEntry({
-                    ...entry,
-                    sessionLoraStrengthOverrides:
-                      entry.sessionLoraStrengthOverrides ??
-                      resolveSharedEffectiveSessionLoraStrengthOverrides(entry.model),
-                  });
-                  if (built.ok) {
-                    const nextRecipes = appendUserToolQualityRecipe(
-                      shared.toolQualityRecipes,
-                      built.recipe
-                    );
-                    saveSharedSettings({
-                      ...shared,
-                      toolQualityRecipes: nextRecipes,
-                    });
-                  }
-                  setCompareStatus(
-                    `Winner: ${entry.model ?? 'unknown'} · seed ${entry.queueParams?.seed ?? '?'}${
-                      built.ok ? ' · recipe saved' : ''
-                    }`
-                  );
-                  void import('@/lib/auto-improve-loop')
-                    .then(({ runAutoImproveOnRating }) => runAutoImproveOnRating(entry, 5))
-                    .then(message => {
-                      if (message) {
-                        setCompareStatus(message);
-                      }
-                    })
-                    .catch(error => {
-                      setCompareStatus(
-                        error instanceof Error ? error.message : 'Auto-improve failed.'
-                      );
-                    });
-                }}
-                onSaveWinnerRecipe={entry => {
-                  const shared = loadSettingsCache().shared;
-                  const built = buildToolQualityRecipeFromGalleryEntry({
-                    ...entry,
-                    sessionLoraStrengthOverrides:
-                      entry.sessionLoraStrengthOverrides ??
-                      resolveSharedEffectiveSessionLoraStrengthOverrides(entry.model),
-                  });
-                  if (!built.ok) {
-                    setCompareStatus(built.error);
-                    return;
-                  }
-                  const nextRecipes = appendUserToolQualityRecipe(
-                    shared.toolQualityRecipes,
-                    built.recipe
-                  );
-                  saveSharedSettings({
-                    ...shared,
-                    toolQualityRecipes: nextRecipes,
-                  });
-                  setCompareStatus(
-                    `Saved recipe “${built.recipe.label}” · ${built.recipe.queueQualityProfile}${
-                      built.recipe.model ? ` · ${built.recipe.model}` : ''
-                    }`
-                  );
-                }}
-                onRate={(entryId, rating) => {
-                  setReviewRating(entryId, rating);
-                  const entry = selectedEntries.find(item => item.id === entryId);
-                  if (entry && rating && rating <= 2) {
-                    recordAvoidedTokensFromGalleryEntry({
-                      prompt: entry.prompt,
-                      visionTags: entry.visionTags,
-                    });
-                  }
-                  if (entry) {
-                    recordCatalogBiasFromPrompt(entry.prompt, rating);
-                    if (rating) {
-                      void import('@/lib/auto-improve-loop')
-                        .then(({ runAutoImproveOnRating }) => runAutoImproveOnRating(entry, rating))
-                        .then(message => {
-                          if (message) {
-                            setCompareStatus(message);
-                          }
-                        })
-                        .catch(error => {
-                          setCompareStatus(
-                            error instanceof Error ? error.message : 'Auto-improve failed.'
-                          );
-                        });
-                    }
-                  }
-                }}
-                onFavorite={entryId => toggleFavorite(entryId)}
-                onMutate={entry => {
-                  setCompareStatus('Queueing mutations…');
-                  void queueMutatedGalleryJobs({
-                    entry,
-                    kinds: ['variation', 'location', 'wardrobe'],
-                    count: 3,
-                  }).then(({ queued, held, jobs }) => {
-                    if (held > 0) {
-                      toastHeldMax({
-                        text: 'Max mutations held until ComfyUI is idle',
-                        count: held,
-                      });
-                    }
-                    setCompareStatus(formatMutatedJobsStatus(jobs, queued, held));
-                  });
-                }}
-                onUpscale={(entry, qualityProfile) => {
-                  setCompareStatus(`Upscaling (${qualityProfile})…`);
-                  void loadGalleryRequeue()
-                    .then(({ requeueUpscaleFromGalleryEntry }) =>
-                      requeueUpscaleFromGalleryEntry(entry, {
-                        qualityProfile,
-                        onStatus: setCompareStatus,
-                      })
-                    )
-                    .then(result => {
-                      if (!result.ok) {
-                        setCompareStatus(result.error ?? 'Upscale failed.');
-                        return;
-                      }
-                      if (result.held) {
-                        const message = 'Max upscale held until ComfyUI queue is idle';
-                        setCompareStatus(message);
-                        toastHeldMax({ text: message });
-                      }
-                    });
-                }}
-                onMoireClean={(entry, qualityProfile) => {
-                  setCompareStatus(
-                    qualityProfile === 'max'
-                      ? 'Queueing moiré clean (Max)…'
-                      : 'Queueing moiré clean (Final)…'
-                  );
-                  void loadGalleryRequeue()
-                    .then(({ requeueMoireCleanFromGalleryEntry }) =>
-                      requeueMoireCleanFromGalleryEntry(entry, {
-                        qualityProfile,
-                        onStatus: setCompareStatus,
-                      })
-                    )
-                    .then(result => {
-                      if (!result.ok) {
-                        setCompareStatus(result.error ?? 'Moiré clean failed.');
-                        return;
-                      }
-                      if (result.held) {
-                        const message = 'Max moiré clean held until ComfyUI queue is idle';
-                        setCompareStatus(message);
-                        toastHeldMax({ text: message });
-                      }
-                    });
-                }}
-                onRefine={entry => {
-                  setCompareStatus('Queueing low-denoise refine…');
-                  void loadGalleryRequeue()
-                    .then(({ requeueRefineFromGalleryEntry }) =>
-                      requeueRefineFromGalleryEntry(entry, {
-                        onStatus: setCompareStatus,
-                      })
-                    )
-                    .then(result => {
-                      if (!result.ok) {
-                        setCompareStatus(result.error ?? 'Refine failed.');
-                        return;
-                      }
-                      if (result.held) {
-                        const message = 'Max refine held until ComfyUI queue is idle';
-                        setCompareStatus(message);
-                        toastHeldMax({ text: message });
-                      }
-                    });
-                }}
-                onSoftSecondPass={entry => {
-                  setCompareStatus('Queueing soft second pass…');
-                  void loadGalleryRequeue()
-                    .then(({ requeueSoftSecondPassFromGalleryEntry }) =>
-                      requeueSoftSecondPassFromGalleryEntry(entry, {
-                        onStatus: setCompareStatus,
-                      })
-                    )
-                    .then(result => {
-                      if (!result.ok) {
-                        setCompareStatus(result.error ?? 'Soft second pass failed.');
-                        return;
-                      }
-                      if (result.held) {
-                        const message = 'Soft second pass held until ComfyUI queue is idle';
-                        setCompareStatus(message);
-                        toastHeldMax({ text: message });
-                      }
-                    });
-                }}
-                onUpscaleWinner={entry => {
-                  setCompareStatus('Upscaling compare winner at Max…');
-                  void loadGalleryRequeue()
-                    .then(({ requeueUpscaleFromGalleryEntry }) =>
-                      requeueUpscaleFromGalleryEntry(entry, {
-                        qualityProfile: 'max',
-                        onStatus: setCompareStatus,
-                      })
-                    )
-                    .then(result => {
-                      if (!result.ok) {
-                        setCompareStatus(result.error ?? 'Upscale failed.');
-                        return;
-                      }
-                      if (result.held) {
-                        const message = 'Max upscale held until ComfyUI queue is idle';
-                        setCompareStatus(message);
-                        toastHeldMax({ text: message });
-                      }
-                    });
-                }}
-                onImprove={entry => startImproveFromGalleryEntry(entry)}
-              />
-            </div>
-          </div>
-        </ModalPortal>
-      ) : null}
+      <GalleryCompareModal
+        open={compareOpen}
+        entries={selectedEntries}
+        onClose={() => {
+          setCompareOpen(false);
+          resetCompare();
+        }}
+        {...compareHandlers}
+      />
 
       {workflowEntry ? (
         <GalleryWorkflowModal entry={workflowEntry} onClose={() => setWorkflowEntry(null)} />
@@ -1936,59 +1684,5 @@ export default function ComfyUiGalleryPanel({
         }}
       />
     </section>
-  );
-}
-
-function GalleryPaginator({
-  page,
-  totalPages,
-  totalItems,
-  pageSize,
-  onPageChange,
-}: {
-  page: number;
-  totalPages: number;
-  totalItems: number;
-  pageSize: number;
-  onPageChange: (page: number) => void;
-}) {
-  const rangeStart = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
-  const rangeEnd = Math.min(page * pageSize, totalItems);
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-500/25 bg-violet-500/10 px-4 py-3 backdrop-blur-sm">
-      <p
-        className={`type-caption leading-wider text-[var(--text-muted)] ${
-          totalPages <= 3 ? '' : ' bg-violet-500/15 border-violet-500/20 text-[11px] font-medium'
-        }`}
-      >
-        Showing {rangeStart}–{rangeEnd} of {totalItems}
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          className={page <= 1 ? 'opacity-40' : ''}
-          disabled={page <= 1}
-          onClick={() => onPageChange(page - 1)}
-        >
-          Previous
-        </Button>
-        <span
-          className={`type-caption px-1 text-violet-300/80 font-medium bg-violet-500/20 border-violet-500/35`}
-        >
-          Page {page} of {totalPages}
-        </span>
-        <Button
-          variant="secondary"
-          size="sm"
-          className={page >= totalPages ? 'opacity-40' : ''}
-          disabled={page >= totalPages}
-          onClick={() => onPageChange(page + 1)}
-        >
-          Next
-        </Button>
-      </div>
-    </div>
   );
 }

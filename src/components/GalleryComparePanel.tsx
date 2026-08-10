@@ -19,7 +19,7 @@ import {
   galleryEntrySupportsUpscale,
 } from '@/lib/gallery-entry-actions';
 
-type GalleryComparePanelProps = {
+export type GalleryComparePanelProps = {
   entries: ComfyGalleryEntry[];
   onClose: () => void;
   onPickWinner?: (entry: ComfyGalleryEntry) => void;
